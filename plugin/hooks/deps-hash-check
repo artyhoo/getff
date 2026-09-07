@@ -264,6 +264,78 @@ ${msg}"
   fi
 }
 
+# ── Per-input memo cache (ledger F-4) ──────────────────────────────────────
+# This hook runs on EVERY UserPromptSubmit and used to re-derive all three stack hashes
+# from scratch each time: node over package.json, python3+tomllib over pyproject.toml,
+# and `cargo metadata --no-deps --offline | python3`. Measured on an npm+pyproject
+# fixture: 1.094s for 10 prompts (~0.109s each); a Rust workspace additionally pays a
+# cargo resolve per prompt, for an answer that is identical until a manifest changes.
+#
+# Memoised on (a) a cheap content signature of the manifests feeding the extraction, and
+# (b) a short TTL. The TTL is the HONEST half of the design, not belt-and-braces: for the
+# npm and python stacks the signature IS the entire input, but `cargo metadata --no-deps`
+# reads every workspace-member manifest and resolves from a workspace root that may sit
+# ABOVE this directory, so a signature taken here cannot see all of its inputs. This hook
+# emits a WARNING and is not a gate (.claude/rules/attention-is-not-a-mechanism.md keeps
+# gates elsewhere), so bounding staleness to _MEMO_TTL seconds is the right trade: nearly
+# every spawn disappears and a missed manifest change still surfaces on the next prompt a
+# minute later. A gate would not be allowed this trade.
+#
+# Fail-open everywhere: an unwritable or unreadable TMPDIR degrades to the old
+# recompute-every-time behaviour, never to a wrong answer and never to a hook failure.
+_MEMO_TTL=60
+
+# One memo file per (uid, project dir, slot) — two checkouts of the same repo, or two
+# projects with identical manifests, never read each other's entry.
+_memo_file() {
+  local tag uid
+  tag=$(printf '%s' "$PWD" | cksum 2>/dev/null | awk '{print $1}')
+  uid=$(id -u 2>/dev/null || echo 0)
+  printf '%s/.getff-deps-memo.%s.%s.%s' "${TMPDIR:-/tmp}" "$uid" "${tag:-0}" "$1"
+}
+
+# _memo_key <file>... — cheap content signature of the inputs; empty when none exist.
+# cksum is POSIX and present on both macOS and Linux (unlike `stat`, whose flags differ).
+_memo_key() {
+  local f sig=""
+  for f in "$@"; do
+    [ -f "$f" ] || continue
+    sig="${sig}$(cksum < "$f" 2>/dev/null)|"
+  done
+  printf '%s' "$sig"
+}
+
+# _memo <slot> <key> <fn> — the cached value when the key matches and the entry is
+# younger than _MEMO_TTL; otherwise run <fn>, store, and echo it.
+_memo() {
+  local slot="$1" key="$2" fn="$3" file ts ckey val now age
+  # No inputs → the extractor returns empty immediately; nothing worth caching.
+  [ -n "$key" ] || { "$fn"; return; }
+  now=$(date +%s 2>/dev/null || printf '0')
+  file=$(_memo_file "$slot")
+  if [ -r "$file" ]; then
+    IFS='	' read -r ts ckey val < "$file" 2>/dev/null || true
+    age=$((now - ${ts:-0}))
+    if [ "${ckey:-}" = "$key" ] && [ "$age" -ge 0 ] && [ "$age" -lt "$_MEMO_TTL" ]; then
+      printf '%s' "${val:-}"
+      return
+    fi
+  fi
+  val=$("$fn")
+  # Best-effort write to a private temp file; a read-only TMPDIR must not break the hook.
+  ( umask 077; printf '%s	%s	%s
+' "$now" "$key" "$val" > "$file" ) 2>/dev/null || true
+  printf '%s' "$val"
+}
+
+# The npm extractor returns the normalised deps JSON, not a hash, so the outer _sha256
+# lives here — memoising the FINAL value keeps the cached-path spawn count at zero.
+_npm_final() {
+  local c
+  c=$(_npm_current)
+  if [ -n "$c" ]; then _sha256 "$c"; else printf ''; fi
+}
+
 NPM_STORED=$(_read_stored deps-hash-npm deps-hash)
 PY_STORED=$(_read_stored deps-hash-python)
 CARGO_STORED=$(_read_stored deps-hash-cargo)
@@ -274,13 +346,13 @@ CARGO_STORED=$(_read_stored deps-hash-cargo)
 # (_npm_current/_python_current return either a normalized string (npm: the deps JSON) or a
 # sha256-<hex> (python: already combined + outer-hashed); both then go through _sha256 so the
 # compare is apples-to-apples with the stored sha256-* baseline. Empty current → silent skip.)
-NPM_CURRENT=$(_npm_current)
-[ -n "$NPM_CURRENT" ] && NPM_CURRENT=$(_sha256 "$NPM_CURRENT")
-_drifted "package.json" "$NPM_CURRENT" "$NPM_STORED"
+_drifted "package.json" "$(_memo npm "$(_memo_key package.json)" _npm_final)" "$NPM_STORED"
 # _python_current already returns sha256-<hex> (it does its own outer hash over tier1hex+tier2hex).
-_drifted "python" "$(_python_current)" "$PY_STORED"
+_drifted "python" "$(_memo python "$(_memo_key pyproject.toml)" _python_current)" "$PY_STORED"
 # _cargo_current already returns sha256-<hex> (same tier1hex+tier2hex outer-hash shape).
-_drifted "Cargo.toml" "$(_cargo_current)" "$CARGO_STORED"
+# Cargo.lock joins the key: it moves whenever the resolved graph does, which Cargo.toml alone
+# does not capture. See the _MEMO_TTL note above for the workspace-root boundary this cannot see.
+_drifted "Cargo.toml" "$(_memo cargo "$(_memo_key Cargo.toml Cargo.lock)" _cargo_current)" "$CARGO_STORED"
 
 # Conditional staleness seam (rule-tests-surface S4): if the consumer has generated
 # rules-lock artifacts under .ai-factory/synthesizer-output/, append a suffix routing the

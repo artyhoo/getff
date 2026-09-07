@@ -9,15 +9,18 @@
 // STDOUT SHAPE — captured live from the pinned v1.55.2 binary on the CI runner (host-verify §6
 // step 7, run 31132752600). golangci-lint does NOT emit a bare JSON array: it emits a single
 // **object** `{"Issues":[…],"Report":{"Linters":[…]}}`. That is a third shape, distinct from
-// BOTH ruff/ast-grep's bare array AND cargo's NDJSON, so this backend keeps its own parse-core
-// (exactly as cargo does for its NDJSON) instead of reusing backends/shared/json-array-parse.ts.
-// Reusing the shared array parser was the worker-time hypothesis and it is WRONG on this shape:
-// `parseIdentitiesFromJsonArray` bails at its `if (!Array.isArray(parsed))` guard and returns an
-// empty set for every golangci run, so a populated expectedCodes would have turned the RED test
-// permanently red (and an empty one — the parked worker-done state — permanently vacuous). The
-// shared `getByJsonPath` helper IS reused: only the array-vs-object container differs.
+// BOTH ruff/ast-grep's bare array AND cargo's NDJSON. R-4 (ledger-1597-fixes): the shared
+// parser (backends/shared/json-array-parse.ts) now takes an optional `containerPath`, so this
+// backend DELEGATES to it — `parseIdentitiesFromJsonArray(stdout, jsonPath, '$.Issues')` —
+// instead of maintaining a hand-rolled parse-core; the tolerance contract ("non-JSON stdout →
+// empty set, never a crash") has one owner again. Historical note: at J3 Option B time the
+// shared parser had no container parameter (it bailed at its root-array guard, returning an
+// empty set for every golangci run — the worker-time reuse hypothesis was genuinely wrong
+// THEN); the bare-array pin test below keeps documenting WHY the container parameter exists:
+// the shapes are genuinely distinct — the binary never emits a bare array.
 //
-// Only fireContract()/deriveGolangciVersion() spawn; the parse-core below is pure.
+// Only fireContract()/deriveGolangciVersion() spawn; the parse path is pure (the shared parser
+// is pure; the `$.Issues` container hop is this backend's only shape knowledge).
 //
 // The contract `command` invokes the bare PATH binary. golangci-lint is NOT a package.json
 // dependency and NOT an npx-style pin baked into the command: the lane audit-self.yml installs
@@ -36,7 +39,7 @@
 // cell's `caps`, which is why the cell is `partial` and not `yes`.
 
 import { spawnSync } from 'node:child_process';
-import { getByJsonPath } from '../shared/json-array-parse.ts';
+import { parseIdentitiesFromJsonArray } from '../shared/json-array-parse.ts';
 
 export interface GolangciFiringContract {
   command: string;
@@ -76,37 +79,22 @@ export function fireContract(
 }
 
 /**
- * Pure parse of the golangci-lint report object. Exported for unit-testing the parse-core without
+ * Pure parse of the golangci-lint report object. Exported for unit-testing the parse path without
  * spawning golangci-lint (R9, always-on in CI) — the go analog of cargo's parseCodesFromStdout.
  *
- * Container: `{"Issues":[…]}`. Each element of `Issues` is walked by `jsonPath` (`$.FromLinter`)
- * via the shared `getByJsonPath`; non-empty string identities are collected. Tolerance mirrors
- * the sibling parsers — non-JSON, a missing/non-array `Issues`, or an empty stdout all resolve to
- * an empty set rather than throwing ("no code found", never a crash).
+ * R-4 (ledger-1597-fixes): a thin delegation to the shared
+ * `parseIdentitiesFromJsonArray`, passing `$.Issues` as its `containerPath` — this backend's
+ * ONLY shape knowledge is the container hop. Container: `{"Issues":[…]}`; each element of
+ * `Issues` is walked by `jsonPath` (`$.FromLinter`); non-empty string identities are collected.
+ * Tolerance mirrors the sibling parsers — non-JSON, a missing/non-array `Issues`, or an empty
+ * stdout all resolve to an empty set rather than throwing ("no code found", never a crash).
  *
  * A clean run emits `"Issues":[]` and yields the empty set. NOTE this is the same result an
  * unparseable stdout yields, which is why the empty set alone is never the proof that a fixture is
  * clean: the GREEN tests pair it with the RED test firing on the same binary in the same run.
  */
 export function parseCodesFromStdout(stdout: string, jsonPath: string): Set<string> {
-  const identities = new Set<string>();
-  const trimmed = stdout.trim();
-  if (trimmed.length === 0) return identities;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(trimmed);
-  } catch {
-    return identities; // non-JSON stdout — treat as no findings
-  }
-  const issues = getByJsonPath(parsed, '$.Issues');
-  if (!Array.isArray(issues)) return identities;
-  for (const issue of issues) {
-    const value = getByJsonPath(issue, jsonPath);
-    if (typeof value === 'string' && value.length > 0) {
-      identities.add(value);
-    }
-  }
-  return identities;
+  return parseIdentitiesFromJsonArray(stdout, jsonPath, '$.Issues');
 }
 
 /**

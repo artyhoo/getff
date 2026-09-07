@@ -447,3 +447,91 @@ describe('dependency-missing skip fires only for auto-marked bridge kickoffs', (
     expect(stdout.trim()).toBe('');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Opted-in kickoff with no dispatch entrypoint (#1597 review ledger L-6) and the
+// consumer-path hint (E-4).
+//
+// L-6: #1448 replaced one hard-coded path with a two-tier resolver but kept the miss branch
+// as a silent `exit 0` commented "the consumer really did opt out" — a premise that is false
+// by construction here: control only reaches that branch PAST the `<!-- bridge: auto -->`
+// opt-in gate, so the author just asked for this dispatch. The jq/node-miss branch announced
+// DID NOT RUN for the identical opted-in condition, so one file shipped two policies for one
+// condition. RED against the pre-fix hook: exit 0 with empty stdout and empty stderr.
+//
+// E-4: the jq/node-miss hint named `tsx packages/runtime-bridge/src/cli/dispatch.ts`, a path
+// no consumer install has — the vendor drop lands at .claude/vendor/runtime-bridge/. The hint
+// now names both layouts, matching what _resolve_dispatch_ts already knew.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hint (E-4)', () => {
+  function consumerKickoff(firstLine: string): { root: string; abs: string } {
+    const root = _mkdtempSync(_join(_tmpdir(), 'rbd-consumer-'));
+    const dir = _join(root, '.claude', 'orchestrator-prompts', 'u1');
+    _mkdirSync(dir, { recursive: true });
+    const abs = _join(dir, 'kickoff.md');
+    _writeFileSync(abs, `${firstLine}\n# Kickoff\n`, 'utf8');
+    return { root, abs };
+  }
+
+  function run(root: string, abs: string, pathDirs?: string) {
+    const env: Record<string, string> = {
+      ...process.env,
+      CLAUDE_PROJECT_DIR: root,
+    } as Record<string, string>;
+    if (pathDirs) env['PATH'] = pathDirs;
+    delete env.ZCODE_PROJECT_DIR;
+    return _spawnSync('/bin/bash', [HOOK], {
+      input: JSON.stringify({ tool_name: 'Write', tool_input: { file_path: abs } }),
+      encoding: 'utf8',
+      env,
+    });
+  }
+
+  it('L-6: opted-in kickoff, neither tier resolves → DID NOT RUN on the model channel', () => {
+    const { root, abs } = consumerKickoff('<!-- bridge: auto -->');
+    const r = run(root, abs);
+    // Still an injection: the Write is never blocked.
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'silent exit 0 was the pre-fix defect').not.toBe('');
+    const ctx = (
+      JSON.parse(r.stdout.trim()) as {
+        hookSpecificOutput: { hookEventName: string; additionalContext: string };
+      }
+    ).hookSpecificOutput;
+    expect(ctx.hookEventName).toBe('PostToolUse');
+    expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+    expect(ctx.additionalContext).toMatch(/not a pass/i);
+    // Both layouts named, so the notice is actionable on either audience (E-4 shape).
+    expect(ctx.additionalContext).toContain('packages/runtime-bridge/src/cli/dispatch.ts');
+    expect(ctx.additionalContext).toContain('.claude/vendor/runtime-bridge/src/cli/dispatch.ts');
+  });
+
+  it('L-6: a kickoff WITHOUT the opt-in marker still exits silently (never nag a non-user)', () => {
+    const { root, abs } = consumerKickoff('# plain kickoff, no bridge marker');
+    const r = run(root, abs);
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('');
+    expect((r.stderr ?? '').trim()).toBe('');
+  });
+
+  it('E-4: the jq/node-miss hint names the consumer path, not only the framework one', () => {
+    const { root, abs } = consumerKickoff('<!-- bridge: auto -->');
+    const binDir = _mkdtempSync(_join(_tmpdir(), 'rbd-nodeps-'));
+    for (const tool of ['sed', 'tr', 'cat', 'head', 'dirname']) {
+      const real = _spawnSync('/usr/bin/which', [tool], { encoding: 'utf8' }).stdout?.trim();
+      if (real) _symlinkSync(real, _join(binDir, tool));
+    }
+    const r = run(root, abs, binDir);
+    expect(r.status).toBe(0);
+    const ctx = (
+      JSON.parse(r.stdout.trim()) as {
+        hookSpecificOutput: { additionalContext: string };
+      }
+    ).hookSpecificOutput.additionalContext;
+    expect(ctx).toMatch(/jq\/node unavailable/i);
+    expect(
+      ctx,
+      'pre-fix this named ONLY the framework path, which no consumer install has',
+    ).toContain('.claude/vendor/runtime-bridge/src/cli/dispatch.ts');
+  });
+});

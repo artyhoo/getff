@@ -234,8 +234,12 @@ function buildAstgrepNode(practice: AstgrepResearchedPractice): ConventionNode {
  * (FF2007, allowlist-resolver.ts:206) — "the cited package MUST be a direct dependency
  * of the consumer's manifest." FF2010 remains the scope-lock for the plan-level
  * validator, where `entry.package` and `provenance.packageName` are independent claims.
+ *
+ * R-5 (ledger-1597-fixes): this is the CANONICAL definition — exported so the clippy
+ * bridge (research-to-clippy-node.ts) imports it instead of carrying its own copy. The
+ * provenance-rejection trust policy has ONE owner again.
  */
-function firstProvenanceRejection(
+export function firstProvenanceRejection(
   provenance: Provenance[],
   resolved: ResolvedSources,
 ): string | null {

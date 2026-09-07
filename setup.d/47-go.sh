@@ -164,15 +164,22 @@ _go_deliver_ci() {
 
 # _go_write_rules_lock — the go rules-lock variant (kickoff §1 W4 → J3). Writes
 # .ai-factory/synthesizer-output/rules-lock.go.json — a REPRODUCIBILITY RECORD (emittedAt +
-# sourceFingerprint = sha256 of the DELIVERED golangci config per _go_delivered_golangci_path:
-# the getff-golangci.yml reference in the REFUSE cell, never the consumer's own file). A FUTURE
-# rule-tests-surface reader / deps-hash suffix may consume it (spec §6, unshipped); no shipped
-# consumer reads it today. Framework-owned, refresh-overwritten.
+# sourceFingerprint = sha256 over the delivered golangci config per _go_delivered_golangci_path —
+# the getff-golangci.yml reference in the REFUSE cell, never the consumer's own file — AND the
+# generation-context provenance inputs the lock body reads (A2-9: the ctx manifest → `version`,
+# the fragments → `rules`); separator-free concatenation, absent inputs contribute nothing). A
+# FUTURE rule-tests-surface reader / deps-hash suffix may consume it (spec §6, unshipped); no
+# shipped consumer reads it today. Framework-owned, refresh-overwritten.
 _go_write_rules_lock() {
   local lock_dir="$PROJECT_ROOT/.ai-factory/synthesizer-output"
   local lock="$lock_dir/rules-lock.go.json"
   local cfg
   cfg=$(_go_delivered_golangci_path)
+  # A2-9: BOTH provenance inputs are resolved HERE, at the top, because the sourceFingerprint below
+  # AND the lock-body reads further down consume them — one path constant, never two (the python
+  # lane's own post-#1617 rule for its _frag_dir).
+  local _ctx="$lock_dir/generation-context.json"
+  local _frag_dir="$lock_dir/generation-context"
 
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then
     _go_log "[dry-run] would write the go rules-lock → .ai-factory/synthesizer-output/rules-lock.go.json"
@@ -180,27 +187,51 @@ _go_write_rules_lock() {
   fi
 
   mkdir -p "$lock_dir"
-  # Fingerprint ladder (adapter-jig D2 — no-silent-fingerprint-degrade; mirrors 46-cargo.sh +
-  # 45-python.sh): sha256 rungs first, md5 fallback rungs next (value carries its algorithm
-  # prefix so a fallback digest is never mislabelled sha256), and BOTH degrade triggers — no
-  # hash tool on PATH AND delivered-config-absent — warn LOUDLY to stderr
-  # (attention-is-not-a-mechanism §1 / degrade-loudly): the "sha256:unknown" constant below is
-  # a FAKE fingerprint, not an authoritative digest, and must never be silently trusted. Do NOT
-  # hard-fail — the sourceFingerprint is an optional auditability field, not an install
-  # precondition.
+  # Fingerprint (adapter-jig D2 — no-silent-fingerprint-degrade) via the shared lib.sh _hash256
+  # ladder — R-3 dedupe: the inline sha256/shasum/md5 ladder this lane used to carry is GONE; one
+  # ladder, one degradation policy repo-wide. The lane adopts _hash256's policy verbatim: no sha
+  # tool on PATH → _hash256 returns 1 → log the loud stderr warning and SKIP the fingerprint
+  # ("sha256:unknown" constant; md5 rungs deleted). Behavior change on a no-sha host: the old
+  # ladder wrote a real-but-md5 "md5:…" fingerprint here while refresh-baseline degraded for the
+  # same file — two schemes for one artefact; now both surfaces degrade identically (sha256-only).
+  # BOTH degrade triggers — no hash tool (the _hash256 failure above) AND delivered-config-absent
+  # (below) — warn LOUDLY to stderr (attention-is-not-a-mechanism §1 / degrade-loudly): the
+  # "sha256:unknown" constant is a FAKE fingerprint, never to be silently trusted. Do NOT hard-fail
+  # — the sourceFingerprint is an optional auditability field, not an install precondition.
   local fp="sha256:unknown"
   if [ -e "$cfg" ]; then
-    if command -v sha256sum >/dev/null 2>&1; then
-      fp="sha256:$(sha256sum "$cfg" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
-      fp="sha256:$(shasum -a 256 "$cfg" | awk '{print $1}')"
-    elif command -v md5 >/dev/null 2>&1; then          # BSD/macOS md5 fallback (lane parity: 46-cargo.sh ladder)
-      fp="md5:$(md5 "$cfg" | awk '{print $NF}')"
-    elif command -v md5sum >/dev/null 2>&1; then        # Linux md5sum fallback
-      fp="md5:$(md5sum "$cfg" | awk '{print $1}')"
+    # A2-9 (the go twin of python's A2-7, fixed in #1617): the fingerprint must cover EVERY
+    # provenance input the lock body reads — the delivered golangci config, the ctx manifest
+    # (→ `version`) and the generation-context/*.json fragments (→ `rules`). A fragment-only
+    # delta that left the config byte-identical could otherwise never perturb the fingerprint and
+    # the record would silently lag its own provenance. The inputs are concatenated SEPARATOR-FREE
+    # into one temp file and hashed through the SAME single _hash256 call — no second ladder, no
+    # contract change; with no manifest and no fragments the temp file is byte-identical to the
+    # delivered config, so the recorded fingerprint is unchanged (go-entry-lane arm 10a pins it).
+    local _hash_tmp _h _rf
+    _hash_tmp=$(mktemp)
+    {
+      cat "$cfg"
+      # The trailing `true` is load-bearing under install.sh's `set -euo pipefail`: the optional
+      # inputs are ABSENT on any consumer that never ran a synthesizer producer, and a failing
+      # `[ -f … ] &&` arm as the last command of this group would abort the lane (the same trap
+      # 45-python.sh documents on its own hash-input group).
+      [ -f "$_ctx" ] && cat "$_ctx"
+      if [ -d "$_frag_dir" ]; then
+        for _rf in "$_frag_dir"/*.json; do
+          [ -f "$_rf" ] || continue
+          cat "$_rf"
+        done
+      fi
+      true
+    } > "$_hash_tmp"
+    if _h=$(_hash256 "$_hash_tmp"); then
+      fp="sha256:$_h"
     else
-      echo "  ⚠ getff: no hash tool (sha256sum/shasum/md5/md5sum); go rules-lock sourceFingerprint is non-authoritative" >&2
+      echo "  ⚠ getff: no sha256 tool on PATH; go rules-lock sourceFingerprint is non-authoritative" >&2
+      fp="sha256:unknown"
     fi
+    rm -f "$_hash_tmp"
   else
     echo "  ⚠ getff: delivered golangci config missing ($cfg); go rules-lock sourceFingerprint is non-authoritative" >&2
   fi
@@ -218,7 +249,8 @@ _go_write_rules_lock() {
   # version field → no manifest today → derived null is honest. The read is unconditional;
   # the day a framework-specific go plan is synthesised, the manifest carries its version
   # and the lock reports it — no code change needed (§3a binding on criteria 1/2/4/6).
-  local _ctx="$lock_dir/generation-context.json"
+  # `_ctx` is resolved ONCE at the top of this function (A2-9: it is also hashed into the
+  # sourceFingerprint above); do NOT re-derive the path here.
   local _ctx_ver='null'
   if [ -f "$_ctx" ]; then
     _ctx_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*("[^"]*"|null)' "$_ctx" | head -1 | sed -E 's/.*:[[:space:]]*//')
@@ -229,7 +261,8 @@ _go_write_rules_lock() {
   # surface is golangci-lint forbidigo config (pattern entries), not named
   # ast-grep rule ids — the fragment dir is typically empty for this lane, so the
   # derived value is []. But it is DERIVED (the dir was scanned), not literal-printed.
-  local _frag_dir="$lock_dir/generation-context"
+  # `_frag_dir` is resolved ONCE at the top of this function (A2-9: also hashed into the
+  # sourceFingerprint above); do NOT re-derive the path here.
   local _rules_json="[]"
   if [ -d "$_frag_dir" ]; then
     local _rf _rf_first=1
@@ -250,7 +283,7 @@ _go_write_rules_lock() {
   "backend": "go-golangci-lint",
   "emittedAt": "$now",
   "sourceFingerprint": "$fp",
-  "note": "getff go lane reproducibility record (adapter-jig J3). sourceFingerprint hashes the DELIVERED golangci config (.golangci.yml when getff owns it; getff-golangci.yml in the REFUSE cell). A FUTURE rule-tests-surface reader / deps-hash suffix may consume emittedAt/sourceFingerprint (spec §6, unshipped)."
+  "note": "getff go lane reproducibility record (adapter-jig J3). sourceFingerprint hashes the DELIVERED golangci config (.golangci.yml when getff owns it; getff-golangci.yml in the REFUSE cell) AND the generation-context provenance inputs the lock reports (A2-9). A FUTURE rule-tests-surface reader / deps-hash suffix may consume emittedAt/sourceFingerprint (spec §6, unshipped)."
 }
 EOF
   _go_log "go rules-lock → .ai-factory/synthesizer-output/rules-lock.go.json (reproducibility record)"
@@ -376,12 +409,12 @@ deliver_go_toolchain() {
   _go_write_rules_lock
 
   # adapter-jig C4 (no-orphan-residue): on a refresh pass, loudly report getff-header-marked
-  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans).
+  # top-level files the CURRENT template set no longer delivers (lib.sh report_getff_orphans;
+  # expected path list = lib.sh getff_lane_expected, the SINGLE source shared with the union
+  # this call performs over every OTHER lane installed in the tree).
   # Report-only — J2 decisions log #8; parity with the cargo lane.
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    report_getff_orphans go \
-      .golangci.yml getff-golangci.yml \
-      .github/workflows/getff-go.yml
+    report_getff_orphans go
   fi
 
   echo "  ✓ Go toolchain delivery complete (see .getff-go-install.log for the audit trail)."

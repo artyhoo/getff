@@ -11,6 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  checkNpmGlobalLine,
   checkUnpinnedToolInstalls,
   isShellScriptPopulationFile,
   type UnpinnedFinding,
@@ -345,5 +346,51 @@ jobs:
       '      - run: pip install bbb',
     ].join('\n');
     expect(findingsFor(yml).length).toBe(2);
+  });
+});
+
+/**
+ * A4-7: checkNpmGlobalLine treated ANY `@` after the package name as a version
+ * pin, so dist-tag forms (`@latest`, `@next`) passed Rule A although they
+ * re-resolve on every run — exactly what ci-tool-pinning.md §1 forbids (the
+ * 2026-06-22 unpinned-zizmor shape, but with a floating tag instead of none).
+ * A pin is a SEMVER-SHAPED token: `@` + optional range operator (^ ~ >=) + a
+ * digit. Any bare dist-tag word is unpinned unless `# ci-tool-pin: allow` is
+ * present (the rule's existing escape, unchanged).
+ */
+describe('unpinned-tool-install check — dist-tag npm globals are not pins (A4-7)', () => {
+  it('flags `npm install -g zizmor@latest` (dist-tag re-resolves every run)', () => {
+    expect(checkNpmGlobalLine('npm install -g zizmor@latest')).toMatch(/version pin/);
+  });
+  it('flags a dist-tag on a scoped package (`run: npm i -g @ast-grep/cli@next`)', () => {
+    expect(checkNpmGlobalLine('run: npm i -g @ast-grep/cli@next')).toMatch(/version pin/);
+  });
+  it('still flags the bare unpinned form (control, pre-A4-7 behavior)', () => {
+    expect(checkNpmGlobalLine('npm install -g zizmor')).toMatch(/version pin/);
+  });
+  it('accepts an exact-version pin (control, pre-A4-7 behavior)', () => {
+    expect(checkNpmGlobalLine('npm install -g zizmor@1.26.1')).toBeNull();
+  });
+  it('accepts a scoped package with an exact-version pin (control, pre-A4-7 behavior)', () => {
+    expect(checkNpmGlobalLine('run: npm install -g @angular/cli@15.0.0')).toBeNull();
+  });
+  it('accepts semver-RANGE pins (`@^1.2`, `@~1`, `@>=1`) — digit-led tokens', () => {
+    expect(checkNpmGlobalLine('npm install -g pkg@^1.2')).toBeNull();
+    expect(checkNpmGlobalLine('npm install -g pkg@~1')).toBeNull();
+    expect(checkNpmGlobalLine('npm install -g pkg@>=1')).toBeNull();
+  });
+  it('escape hatch still exempts a deliberately floating tag (`# ci-tool-pin: allow`)', () => {
+    expect(
+      checkNpmGlobalLine('npm install -g zizmor@latest  # ci-tool-pin: allow no stable release yet'),
+    ).toBeNull();
+  });
+  it('dist-tag trips the workflow-YAML content scan', () => {
+    const yml = `
+jobs:
+  build:
+    steps:
+      - run: npm install -g zizmor@latest
+`;
+    expect(trips(yml)).toBe(true);
   });
 });

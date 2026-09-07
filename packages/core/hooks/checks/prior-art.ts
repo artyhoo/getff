@@ -48,6 +48,32 @@ export function loadSsotIds(ssotContent: string): Set<number> {
   return ids;
 }
 
+/**
+ * A positive `Prior-art:` trailer must name a RESOLVABLE REFERENT — something a
+ * reader can go and open. Three accepted forms, mirroring the CLAUDE.md
+ * «`Prior-art:` trailer syntax» section:
+ *
+ *   1. an SSOT row — `prior-art-evaluations.md#N` (the documented primary form,
+ *      additionally existence-checked by the C1 arm below);
+ *   2. a concrete artefact path — `setup.d/lib.sh:359`,
+ *      `research-patches/2026-05-23-guard-liveness-gate.md §2`;
+ *   3. an issue / PR reference — `#1271`, `PR #1094`.
+ *
+ * Before this arm the check accepted ANY ≥20-char payload that was not the
+ * `skipped` escape hatch, so `Prior-art: consulted — no entry applies` (39
+ * chars, zero traceability) satisfied the gate on a capability commit — the
+ * `#hope-as-gate` shape of `.claude/rules/attention-is-not-a-mechanism.md` §2.
+ *
+ * The grammar is deliberately wider than «cite an SSOT id»: measured over the
+ * post-cutoff first-parent history, 145 capability commits carry a positive
+ * trailer and 23 of them (16%) reference in-repo precedent or a research patch
+ * rather than a register row — legitimate consults the strict reading would
+ * reject. Under this grammar the same corpus fails 2 (1.4%), both from before
+ * 2026-07-19, and both vacuity probes above are rejected.
+ */
+const REFERENT_RE =
+  /prior-art-evaluations\.md#\d+|[\w.-]+(?:\/[\w.-]+)*\.(?:tsx?|[cm]?js|sh|md|markdown|json|ya?ml|py|rs|toml)\b|#\d{2,}/;
+
 const PLACEHOLDERS = new Set([
   'todo',
   'later',
@@ -69,6 +95,22 @@ function stripPunctLower(word: string): string {
 }
 
 /**
+ * Net bracket depth a package.json line leaves open: `{`/`[` minus `}`/`]`,
+ * counted outside string literals (a key or version containing a brace must not
+ * shift the depth). Used to tell a block that stays open (`"overrides": {`) from
+ * one that closes on its own line (`"overrides": { "lodash": "4.17.21" },`).
+ */
+function braceDelta(body: string): number {
+  const code = body.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  let depth = 0;
+  for (const ch of code) {
+    if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') depth--;
+  }
+  return depth;
+}
+
+/**
  * A package.json diff adds a NEW dependency (not a version bump) when a dep key
  * appears on a `+` line but no matching `-` line. Semver-prefix coverage mirrors
  * the bash: caret / tilde / range / digit / wildcard (dist-tags + URL specs slip).
@@ -79,6 +121,13 @@ function stripPunctLower(word: string): string {
  * over the diff text and resets at each `@@` hunk header; a hunk that edits deep
  * inside an existing overrides block without its opening line in context can still
  * false-positive — accepted residual, the escape-hatch trailer covers it.
+ *
+ * A block that opens AND closes on ONE line (`"overrides": { "lodash": "4.17.21" },`
+ * — an ordinary prettier `printWidth` outcome) skips nothing beyond itself. The
+ * indent-based closer needs a line that STARTS with `}`/`]`, so a one-line block
+ * used to open a skip that never closed, swallowing every dependency added after
+ * it in the same hunk — the detector went blind on exactly the package.json shape
+ * a formatter produces (fixed 2026-09-05).
  */
 export function isNewDepAdded(packageJsonDiff: string): boolean {
   if (!packageJsonDiff) return false;
@@ -101,7 +150,8 @@ export function isNewDepAdded(packageJsonDiff: string): boolean {
       continue;
     }
     if (nonDepBlockRe.test(line)) {
-      skipIndent = indent;
+      // Only a block left OPEN at end of line skips the lines that follow.
+      if (braceDelta(body) > 0) skipIndent = indent;
       continue;
     }
     const m = re.exec(line);
@@ -122,18 +172,70 @@ export function isNewDepAdded(packageJsonDiff: string): boolean {
  */
 const DOC_FILE_RE = /\.(md|markdown)$/i;
 
+/**
+ * Test material: a `*.test.*` / `*.spec.*` file, or anything under a `test(s)/`,
+ * `__tests__/` or `*fixtures/` directory.
+ */
+const TEST_FILE_RE =
+  /(?:^|\/)(?:tests?|__tests__|__fixtures__|[\w.-]*fixtures)\/|\.(?:test|spec)\.(?:[cm]?[jt]sx?|sh|mjs)$/;
+
+/**
+ * Files directly in `packages/core/principles/` are the meta-test enforcement
+ * layer itself, not tests OF something else — a new principle IS a new
+ * capability (a new enforcement rule), which is why the prose exemption is
+ * «test additions **for existing capabilities**». Subdirectories
+ * (`principles/fixtures/`, `principles/__fixtures__/`) are ordinary test
+ * material and stay exempt.
+ */
+const ENFORCEMENT_FILE_RE = /^packages\/core\/principles\/[^/]+$/;
+
+/**
+ * Test material never counts toward the LOC triggers — the CLAUDE.md prose
+ * definition has always exempted «test additions for existing capabilities»,
+ * and the detector claims to mirror that prose (`CLAUDE.md`, «What is a
+ * capability commit?»). It did not: measured over the last 250 first-parent
+ * commits on staging, 18 of the 27 commits the ≥80-LOC arm fired on added ONLY
+ * test files, and the trailers they forced cited SSOT rows that the commit did
+ * not touch (#242/#20/#16 on a hook-test pair, #45 «unchanged by this») — the
+ * gate was manufacturing rote citations, which is the failure mode
+ * `.claude/rules/attention-is-not-a-mechanism.md` §2 names.
+ *
+ * A commit that adds test material ALONGSIDE a qualifying production file still
+ * trips on that production file, so the carve-out cannot hide a capability: it
+ * only removes commits whose entire qualifying content is test material.
+ *
+ * The exception is the principles directory (`ENFORCEMENT_FILE_RE`): those files
+ * are the enforcement capability, not a test for one. All 9 principle files that
+ * tripped the arm in the same window carried a substantive, on-topic SSOT
+ * citation (#244 actionlint, #245 safe-settings, #246 Vitest `test.include`,
+ * #251 markdownlint, #19 lychee …) — the gate does real work there and keeps it.
+ *
+ * Both halves match the OTHER enforcement channel of the same invariant, which
+ * has held this semantic since it shipped: principle 11 (SSOT #48) builds its
+ * capability set from «non-test» TS files only
+ * (`packages/core/principles/11-build-first-reuse-default.test.ts:192`) while
+ * singling principle tests out as needing «a dedicated SSOT entry with verbatim
+ * path OR a Prior-art trailer» (`…:525`). This carve-out brings the pre-push
+ * channel into parity with the CI one.
+ */
+function isExemptTestMaterial(path: string): boolean {
+  if (ENFORCEMENT_FILE_RE.test(path)) return false;
+  return TEST_FILE_RE.test(path);
+}
+
 function isNewCoreSubdir50Loc(sha: string, g: GitProvider): boolean {
   for (const { status, path } of g.changedFiles(sha)) {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/core/')) continue;
     if (DOC_FILE_RE.test(path)) continue;
+    if (isExemptTestMaterial(path)) continue;
     const subdir = path.slice('packages/core/'.length).split('/')[0];
     if (g.subdirExistedAtParent(sha, subdir)) continue; // not a NEW subdir
     const content = g.fileContent(sha, path);
     if (content !== null && loc(content) >= 50) {
-      // Byte-identical to a blob elsewhere in the tree = relocation/vendor
-      // copy, no new capability by construction (PR #1271 incident).
-      if (!g.blobDuplicatedInTree(sha, path)) return true;
+      // Byte-identical to a blob ALREADY TRACKED in the pre-image tree =
+      // relocation/vendor copy, no new capability by construction (PR #1271).
+      if (!g.blobTrackedAtBase(sha, path)) return true;
     }
   }
   return false;
@@ -144,9 +246,13 @@ function isNewPackages80Loc(sha: string, g: GitProvider): boolean {
     if (status !== 'A') continue;
     if (!path.startsWith('packages/')) continue;
     if (DOC_FILE_RE.test(path)) continue;
+    if (isExemptTestMaterial(path)) continue;
     const content = g.fileContent(sha, path);
     if (content !== null && loc(content) >= 80) {
-      if (!g.blobDuplicatedInTree(sha, path)) return true;
+      // Same pre-image carve-out as the ≥50-LOC arm: a copy of content the repo
+      // already tracked is a relocation; a new file and its twin, both born in
+      // THIS commit, are not (the twin-sync bypass fixed 2026-09-05).
+      if (!g.blobTrackedAtBase(sha, path)) return true;
     }
   }
   return false;
@@ -194,6 +300,7 @@ export function checkTrailerBody(
   if (authorDate && authorDate < cutoff) return { code: 0, message: '' };
 
   let foundAny = false;
+  let sawUnreferenced = false;
   for (const line of body.split('\n')) {
     if (!line.startsWith('Prior-art:')) continue;
     foundAny = true;
@@ -215,6 +322,13 @@ export function checkTrailerBody(
           'substance: Prior-art: skipped on capability commit — cite an SSOT entry (prior-art-evaluations.md#N) instead',
       };
     }
+    // A positive trailer that names no resolvable referent is not a consult —
+    // skip it so a later stacked line can still carry the commit, and remember
+    // the shape so the final message names the real defect.
+    if (!REFERENT_RE.test(payload)) {
+      sawUnreferenced = true;
+      continue;
+    }
     // Valid positive trailer. C1: when the register's id-set is supplied, every
     // cited prior-art-evaluations.md#N must resolve to a real entry. A trailer
     // with no #N citation (free-form prose) has nothing to resolve → passes.
@@ -232,6 +346,15 @@ export function checkTrailerBody(
       }
     }
     return { code: 0, message: '' };
+  }
+  if (sawUnreferenced) {
+    return {
+      code: 1,
+      message:
+        'Prior-art: line names no resolvable referent — cite an SSOT row ' +
+        '(prior-art-evaluations.md#N), a concrete artefact path (path/to/file.ts:12), ' +
+        'or an issue/PR reference (#1271)',
+    };
   }
   return {
     code: 1,
@@ -294,15 +417,32 @@ export interface PrBodyPriorArtResult {
  * `g` is a range provider (utils/git.ts `rangeGit`) viewing merge-base..head
  * as one synthetic commit. authorDate is passed '' — a PR merging today is
  * never pre-cutoff, so the historical bypass must not fire.
+ *
+ * `stripComments` is REQUIRED, not defaulted: the gate must read the body the
+ * way GitHub RENDERS it. A `Prior-art:` line inside an HTML comment is invisible
+ * on the PR page and is dropped from nothing at squash time — accepting it let a
+ * template-style commented example satisfy the very gate the squash-trailer-loss
+ * incident created (fixed 2026-09-05; the two sibling PR-body gates,
+ * checks/pr-body-fidelity.ts and checks/pr-stale-revert.ts, already strip).
+ * Injected rather than imported because this module ships to consumers inside
+ * the pre-push import graph (setup.d/50-hooks.sh) while `utils/markdown-comments.ts`
+ * and its remark dependency do NOT — a static import here would crash every
+ * consumer's pre-push at module load. CI callers pass `stripHtmlComments`.
  */
 export function checkPrBodyPriorArt(
   prBody: string,
   g: GitProvider,
+  stripComments: (body: string) => string,
   ssotIds?: ReadonlySet<number>,
 ): PrBodyPriorArtResult {
   const reason = detectCapabilityReason('PR_RANGE', g);
   if (reason === null) return { ok: true, reason: null, message: '' };
-  const { code, message } = checkTrailerBody(prBody, '', undefined, ssotIds);
+  const { code, message } = checkTrailerBody(
+    stripComments(prBody),
+    '',
+    undefined,
+    ssotIds,
+  );
   return { ok: code === 0, reason, message };
 }
 

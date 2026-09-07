@@ -30,6 +30,15 @@ export default {
       '**/node_modules/**',
       '**/dist/**',
       '**/.claude/worktrees/**',
+      // The assembled getff payload (scripts/build-getff-dist.sh) is COPIED into
+      // packages/getff/ — gitignored there, but present on disk after any local
+      // build, so every shipped test exists twice and the root run executes the
+      // stale duplicate (CLI path filters are substring matches, so
+      // `vitest run packages/core/hooks/<x>` matches the payload copy too;
+      // TAIL-7 measured 5 false-red zcode-parity cases this way, 2026-09-06).
+      // No tracked test file lives under packages/getff/ (assembled copies +
+      // npm-package scaffolding only) — do NOT add one there; it would never run.
+      'packages/getff/**',
     ],
     testTimeout: 60_000,
   },

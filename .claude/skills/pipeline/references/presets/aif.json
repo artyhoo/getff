@@ -1,8 +1,8 @@
 {
   "mode": "autonomous",
   "reviewer_tier": "aif-own",
-  "marker": "Claude Opus (plan+review)",
-  "description": "Autonomous overnight aif-handoff dispatch",
+  "marker": null,
+  "description": "Autonomous overnight aif-handoff dispatch (project-default profiles, no marker)",
   "predicates": {
     "bundle_opt_in": true,
     "review_required": true,

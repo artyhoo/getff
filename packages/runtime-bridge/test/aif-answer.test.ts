@@ -212,3 +212,66 @@ describe('POSITIVE — resume: GET plan, then PUT { plan+answer, paused:false, b
     expect(result).toMatchObject({ taskId: 't-7', decision: 'resume', commented: false });
   });
 });
+
+// ── A6-6b (#1597 ledger, the half C12/#1625 deferred) ───────────────────────────
+// `--decision resume` is the A-park resolution: PUT { plan+answer, paused:false,
+// blockedReason:null }. It dispatches NO state-machine event, so it only ever moves a task
+// that was stopped by `paused:true` in the first place. Applied to a task that is not
+// paused it is a pure plan rewrite: the operator's answer lands in the plan text of a task
+// whose status nothing changed, no worker re-reads it, and the CLI still prints its
+// success line. That is the misroute the dispatcher taxonomy makes easy — a B-park
+// (blockedReason set, paused false) and an A-park are resolved by different --decision
+// values, and picking `resume` for a B-park silently swallows the answer. Refuse instead.
+describe('NEGATIVE — resume refuses a task that is not paused (A6-6b)', () => {
+  for (const [label, task] of [
+    ['a done task (the /pipeline REVISE shape — request_changes is the right decision)', {
+      id: 't-7', title: 'x', status: 'done', plan: '# Plan', paused: false, blockedReason: null,
+    }],
+    ['a B-park (blockedReason set, paused false — retry/request_changes territory)', {
+      id: 't-7', title: 'x', status: 'blocked_external', plan: '# Plan', paused: false, blockedReason: 'needs a token',
+    }],
+    ['a task whose paused field is absent altogether', {
+      id: 't-7', title: 'x', status: 'implementing', plan: '# Plan', blockedReason: null,
+    }],
+  ] as [string, Record<string, unknown>][]) {
+    it(`rejects ${label} — issues NO PUT`, async () => {
+      const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((url) =>
+        Promise.resolve(String(url).endsWith('/tasks/t-7') ? okResponse(task) : okResponse({})),
+      );
+      await expect(pushAnswer('http://localhost:3009', 't-7', 'resume', 'use Option A')).rejects.toThrow(
+        /not paused/i,
+      );
+      // Only the GET — the plan must be left exactly as the worker left it.
+      expect(spy.mock.calls).toHaveLength(1);
+      expect((spy.mock.calls[0][1] as RequestInit).method).toBe('GET');
+    });
+  }
+});
+
+// Paired negative for A6-6b: the guard must not touch the event-driven decisions. The
+// `/pipeline` REVISE flow resolves a `done` task with `request_changes` (dispatcher
+// SKILL.md §2.4), and `approve`/`retry` are likewise event-only — none of the three reads
+// `paused`, none goes through resumePark. RED if the guard is ever hoisted into pushAnswer
+// ahead of the decision switch and starts blocking the flow C12 narrowed to protect.
+describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused task alone', () => {
+  it('request_changes on a done, non-paused task still comments + fires the event', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
+    const result = await pushAnswer('http://localhost:3009', 't-7', 'request_changes', 'auditor findings');
+    expect(spy.mock.calls).toHaveLength(2);
+    expect(String(spy.mock.calls[0][0])).toContain('/comments');
+    expect(JSON.parse((spy.mock.calls[1][1] as RequestInit).body as string).event).toBe('request_changes');
+    expect(result).toMatchObject({ decision: 'request_changes', commented: true });
+  });
+  it('approve on a done, non-paused task still fires approve_done', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
+    await pushAnswer('http://localhost:3009', 't-7', 'approve', undefined);
+    expect(spy.mock.calls).toHaveLength(1);
+    expect(JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).event).toBe('approve_done');
+  });
+  it('retry on a blocked_external, non-paused task still fires retry_from_blocked', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(okResponse({})));
+    await pushAnswer('http://localhost:3009', 't-7', 'retry', undefined);
+    expect(spy.mock.calls).toHaveLength(1);
+    expect(JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).event).toBe('retry_from_blocked');
+  });
+});

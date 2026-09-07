@@ -315,6 +315,58 @@ if [ "$_do_dep_install" = "yes" ]; then
     echo "  ⚠  $_pm not found on PATH — skipped dev-dep install (install manually, see Next steps)."
   else
     echo "▶ Installing ${#DEVDEPS[@]} dev-dependencies with $_pm (this may take a minute) …"
+    # npm ONLY: bound the ONE wildcard peer that makes arborist crash.
+    # `@vitest/eslint-plugin` peer-deps `vitest: "*"`; once vitest 5.0.0 became registry `latest`
+    # (2026-09-03) that wildcard pulled vitest 5 into the peer set beside the vitest@^4.1.5 this
+    # manifest pins, and vitest 5's own peers are EXACT self-references (@vitest/coverage-v8@5.0.0,
+    # @vitest/browser-playwright@5.0.0) that walk back to the pinned 4.1.x → arborist reaches a null
+    # node and throws (`Cannot read properties of null (reading 'edgesOut')`). Measured offline
+    # (no network, 3 reps, 24 CORE_DEVDEPS): the strict attempt burns 35.7-38.8s of CPU and THEN
+    # crashes; bounded, the same resolve succeeds in 2.4-2.5s — a ~15x cut the --legacy-peer-deps
+    # retry below CANNOT recover, because the retry only runs AFTER that CPU is already spent.
+    # Upstream: npm/cli#9787, npm/cli#8261.
+    #
+    # NESTED (`overrides["@vitest/eslint-plugin"].vitest`), never a TOP-LEVEL `overrides.vitest` —
+    # this is load-bearing, not style. npm refuses an override on a package that is also a DIRECT
+    # dependency unless the two specs match exactly; `npm install --save-dev vitest@^4.1.5` re-saves
+    # the direct spec as the RESOLVED `^4.1.11`, so a top-level override pinned at `^4.1.5` goes
+    # stale the instant the devDep install finishes and the NEXT npm invocation in this same run
+    # (the runtime-dep install below) dies with `EOVERRIDE: Override for vitest@^4.1.11 conflicts
+    # with direct dependency` — measured end-to-end 2026-09-04, install.sh exit 1. The documented
+    # `"vitest": "$vitest"` self-reference does not help either: measured offline, it leaves the
+    # peer walk unbounded and still crashes in 2.2s. The nested form constrains vitest only where
+    # the eslint plugin asks for it, never touches the direct dependency, and so cannot go stale.
+    #
+    # This does NOT weaken the strict-first gate: it narrows exactly ONE known-broken wildcard to
+    # the range this manifest ALREADY pins in CORE_DEVDEPS, and leaves the consumer's own direct
+    # vitest choice untouched. Every other peer conflict — notably the react-native a11y/eslint-9
+    # ERESOLVE above — still surfaces strictly. The range is DERIVED from CORE_DEVDEPS, never
+    # retyped, so the override and the pin cannot drift (#two-prompts-drift).
+    # npm-scoped because the crash is arborist's: pnpm keys overrides under `pnpm.overrides` and
+    # yarn under `resolutions`, so a bare `overrides` would be dead config for them.
+    if [ "$_pm" = "npm" ] && command -v node >/dev/null 2>&1; then
+      _vitest_range=""
+      for _spec in "${CORE_DEVDEPS[@]}"; do
+        case "$_spec" in vitest@*) _vitest_range="${_spec#vitest@}"; break ;; esac
+      done
+      if [ -n "$_vitest_range" ]; then
+        AIF_PKG="$PROJECT_ROOT/package.json" AIF_VITEST_RANGE="$_vitest_range" node -e '
+          const fs = require("fs");
+          const p = process.env.AIF_PKG;
+          const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+          pkg.overrides = pkg.overrides || {};
+          const KEY = "@vitest/eslint-plugin";
+          // Non-destructive, same guard as the scripts/devDeps merges above: a consumer who has
+          // deliberately set their own entry for this key keeps it, whatever shape it has.
+          if (!(KEY in pkg.overrides)) {
+            pkg.overrides[KEY] = { vitest: process.env.AIF_VITEST_RANGE };
+            fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+            process.stderr.write("  ✓ scoped overrides[" + KEY + "].vitest=" +
+              process.env.AIF_VITEST_RANGE + " (bounds the wildcard peer; npm arborist crash guard)\n");
+          }
+        ' || true
+      fi
+    fi
     _ok=""
     case "$_pm" in
       pnpm)

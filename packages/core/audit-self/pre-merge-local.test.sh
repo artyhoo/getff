@@ -57,8 +57,14 @@
 
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-CARRIER="$REPO_ROOT/packages/core/audit-self/pre-merge-local.sh"
-PROBE="$REPO_ROOT/packages/core/audit-self/ci-available-probe.sh"
+# Test seam (mirrors the script's own PMC_* seams, never used in a real run):
+# PMC_CARRIER_UNDER_TEST points the arms at a COPY, so the RED direction of a fix can
+# be reproduced against the pre-fix script without mutating the tracked file.
+CARRIER="${PMC_CARRIER_UNDER_TEST:-$REPO_ROOT/packages/core/audit-self/pre-merge-local.sh}"
+# Same seam shape as PMC_CARRIER_UNDER_TEST above: point the probe arms at a COPY so a
+# fix's RED direction is reproducible against the pre-fix script without mutating the
+# tracked file. Never set in a real run.
+PROBE="${PMC_PROBE_UNDER_TEST:-$REPO_ROOT/packages/core/audit-self/ci-available-probe.sh}"
 
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
@@ -170,6 +176,73 @@ assert_contains "arm2: FAIL verdict names the merge result" "$T/.last-out" "gate
 tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"FAIL"' \
   && ok "arm2: FAIL ledgered" || bad "arm2: FAIL not ledgered"
 export PATH=$PATH_SAVE
+
+# ── arm 2b: package.json but NO lockfile -> CANNOT-RUN (3), never FAIL (ledger A4-2) ──
+# The npm lane is detected from package.json alone, and the carrier used to hard-run
+# `npm ci` on whatever it found. Without a lockfile npm ci exits non-zero and the run was
+# recorded as verdict FAIL / exit 1 — «a gate went red on the merge result» — for a tree
+# whose gates never ran. That is the tool-absence axis, which :21 reserves exit 3 for.
+T=$(make_fixture "echo lint-ok")
+rm -f "$T/package-lock.json"
+git -C "$T" add -A; git -C "$T" commit -qm "drop the lockfile"
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
+run_carrier "$T" main
+[ "$RC" -eq 3 ] && ok "arm2b: package.json with no lockfile -> CANNOT-RUN exit 3 (was FAIL exit 1)" \
+  || bad "arm2b: expected 3 (CANNOT-RUN), got $RC"
+assert_contains "arm2b: names the missing lockfile, not a red gate" "$T/.last-out" "no lockfile is"
+# The ledger reuses `failed_gates` to carry the CANNOT-RUN reasons (:790), so the
+# discriminating field is the VERDICT plus what the reason names: a precondition
+# (`npm:no-lockfile`) rather than a gate that ran and went red (`npm:npm ci`).
+_l2b=$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" 2>/dev/null)
+if printf '%s' "$_l2b" | grep -q '"verdict":"CANNOT-RUN"' \
+   && printf '%s' "$_l2b" | grep -q 'npm:no-lockfile' \
+   && ! printf '%s' "$_l2b" | grep -q 'npm ci'; then
+  ok "arm2b: ledger records CANNOT-RUN naming the precondition, not a red npm ci gate"
+else
+  bad "arm2b: ledger line does not distinguish precondition from failed gate: $_l2b"
+fi
+export PATH=$PATH_SAVE
+
+# ── arm 2c: pnpm-lock.yaml -> the carrier uses pnpm, frozen, with CI=true (ledger A4-2) ──
+# Paired with 2b: 2b proves the honest verdict when no lane is runnable, 2c proves the
+# lane is actually SELECTED from the lockfile rather than assumed to be npm. The stub
+# records argv + whether CI was exported, and delegates `run` to real npm so the gate
+# legs behave exactly as in the npm arms.
+T=$(make_fixture "echo lint-ok")
+rm -f "$T/package-lock.json"
+printf 'lockfileVersion: "9.0"\n' > "$T/pnpm-lock.yaml"
+git -C "$T" add -A; git -C "$T" commit -qm "switch to a pnpm lockfile"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'echo "pnpm $* [CI=${CI:-UNSET}]" >> "'"$T"'/pm-calls.log"' \
+  'if [ "$1" = run ]; then shift; exec npm run "$@"; fi' \
+  'exit 0' > "$T/.shim-bin/pnpm"
+printf '%s\n' '#!/usr/bin/env bash' \
+  'echo "npm $*" >> "'"$T"'/pm-calls.log"' \
+  'exec /usr/bin/env -i PATH="$PATH" HOME="$HOME" "$(command -v npm.real 2>/dev/null || echo npm)" "$@"' > /dev/null
+chmod +x "$T/.shim-bin/pnpm"
+PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
+run_carrier "$T" main
+export PATH=$PATH_SAVE
+if grep -q 'pnpm install --frozen-lockfile' "$T/pm-calls.log" 2>/dev/null; then
+  ok "arm2c: pnpm-lock.yaml selected pnpm with a FROZEN install"
+else
+  bad "arm2c: carrier did not run a frozen pnpm install — log: $(tr '\n' '|' < "$T/pm-calls.log" 2>/dev/null)"
+fi
+if grep -q 'pnpm install --frozen-lockfile.*CI=true' "$T/pm-calls.log" 2>/dev/null; then
+  ok "arm2c: CI=true exported (pnpm aborts a no-TTY node_modules removal without it)"
+else
+  bad "arm2c: CI not exported for the pnpm install"
+fi
+if grep -q 'pnpm run validate' "$T/pm-calls.log" 2>/dev/null; then
+  ok "arm2c: the validate gate ran through pnpm, not npm"
+else
+  bad "arm2c: validate did not run through pnpm"
+fi
+if grep -q 'npm ci' "$T/pm-calls.log" 2>/dev/null; then
+  bad "arm2c: carrier still reached for npm ci on a pnpm tree (the A4-2 defect)"
+else
+  ok "arm2c: no npm ci attempted on a pnpm tree"
+fi
 
 # ── arm 3: seeded conflict -> 2 ──
 T=$(make_fixture "echo lint-ok")
@@ -840,12 +913,26 @@ OUT=$(cd "$P" && PATH="$P/p1bin" /bin/bash "$PROBE" HEAD 2>&1); RC=$?
 [ "$RC" -eq 3 ] && ok "P1: gh absent -> exit 3" || bad "P1: expected 3, got $RC"
 case "$OUT" in *"gh (GitHub CLI) is required"*) ok "P1: gh named as the missing tool";; *) bad "P1: gh not named";; esac
 
-# make_gh_shim <fixture-dir> <tsv-lines...>  — simulates gh INCLUDING --jq
+# make_gh_shim <fixture-dir> <tsv-lines...>  — simulates gh INCLUDING --jq.
+#
+# The probe now makes TWO calls against the same check-runs path: the paginated TSV
+# fetch, and an unpaginated `--jq .total_count` used to prove the read was complete
+# (ledger sweep 2026-09-05). Both carry the same "$2", so the shim distinguishes them
+# by the jq expression instead. `.total_count` answers by re-invoking the shim's own
+# check-runs branch and counting its lines — so every arm below keeps working unchanged
+# and a consistent fixture stays consistent by construction. Writing a number into
+# <dir>/.gh-total overrides that, which is what makes the TRUNCATED arm expressible:
+# GitHub says N, the walk yielded fewer.
 make_gh_shim() {
   local dir=$1; shift
   mkdir -p "$dir/.ghbin"
   {
     echo '#!/usr/bin/env bash'
+    echo 'for _a in "$@"; do'
+    echo '  [ "$_a" = ".total_count" ] || continue'
+    echo '  if [ -f "'"$dir"'/.gh-total" ]; then cat "'"$dir"'/.gh-total"; else "$0" api "$2" --jq x | grep -c . || true; fi'
+    echo '  exit 0'
+    echo 'done'
     echo 'case "$2" in'
     for entry in "$@"; do
       printf '%s\n' "$entry"
@@ -885,6 +972,40 @@ make_gh_shim "$P" \
 OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
 [ "$RC" -eq 2 ] && ok "P2d: no check-runs -> exit 2" || bad "P2d: expected 2, got $RC"
 case "$OUT" in *"MERGE CONFLICT looks exactly like this"*) ok "P2d: conflict-state hint present";; *) bad "P2d: conflict hint missing";; esac
+
+# ── P3a: a TRUNCATED check-runs read must be CANNOT-RUN, never GREEN ──
+# The defect this pair closes: the probe fetched check-runs WITHOUT --paginate, and that
+# endpoint returns only the first 30 (measured on this repo: 30 of total_count 47). Every
+# run it could see was green, so the verdict was GREEN while a failure sat on page 2 — a
+# false GREEN inside the script whose whole job is to judge CI honestly. --paginate alone
+# is a promise; the total_count reconciliation is the proof it held, and a walk that stops
+# early now fails closed instead of shrinking the population it judges.
+rm -f "$P/.gh-total"
+make_gh_shim "$P" \
+  '  */check-runs) printf "1\tlint\tcompleted\tsuccess\t15368\n2\ttest\tcompleted\tsuccess\t15368\n" ;;'
+printf '47\n' > "$P/.gh-total"     # GitHub says 47 exist; the walk yielded 2
+OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
+[ "$RC" -eq 3 ] && ok "P3a: truncated check-runs read -> exit 3 (CANNOT-RUN), not a GREEN verdict" \
+  || bad "P3a: expected 3, got $RC — a partial list produced a verdict (out: $OUT)"
+case "$OUT" in *"saw 2 of total_count 47"*) ok "P3a: names what was read vs what exists";; *) bad "P3a: truncation not quantified in the output";; esac
+rm -f "$P/.gh-total"
+
+# ── P3b: GREEN control — same all-success list, complete read -> exit 0 ──
+# Without this arm P3a is satisfiable by a probe that simply never returns 0.
+make_gh_shim "$P" \
+  '  */check-runs) printf "1\tlint\tcompleted\tsuccess\t15368\n2\ttest\tcompleted\tsuccess\t15368\n" ;;'
+OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "P3b: complete read of the same all-success list -> exit 0" \
+  || bad "P3b: expected 0, got $RC (out: $OUT)"
+
+# ── P3c: an unreadable total_count is CANNOT-RUN — completeness must be PROVABLE ──
+make_gh_shim "$P" \
+  '  */check-runs) printf "1\tlint\tcompleted\tsuccess\t15368\n" ;;'
+printf 'not-a-number\n' > "$P/.gh-total"
+OUT=$(cd "$P" && PATH="$P/.ghbin:$PATH" bash "$PROBE" HEAD 2>&1); RC=$?
+[ "$RC" -eq 3 ] && ok "P3c: unreadable total_count -> exit 3 (cannot prove the read was complete)" \
+  || bad "P3c: expected 3, got $RC (out: $OUT)"
+rm -f "$P/.gh-total"
 
 echo ""
 echo "Result: $PASS pass / $FAIL fail"

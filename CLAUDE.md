@@ -29,11 +29,13 @@ For the **consumer-side authority model** governing how shipped artefacts may be
 
 A commit that does **any** of the following (mirrors `packages/core/hooks/checks/prior-art.ts` detection — the prose definition and the hook stay in sync):
 
-- Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff). Keys inside `overrides` / `resolutions` / `pnpm` blocks do NOT count — they force versions of packages already in the tree, adding no capability (PR #980 incident).
+- Adds a new **explicit dependency** in `package.json` (transitive deps don't count; detected as a dependency key present on an added `+` line with no matching removed `-` line for the same key, across common semver-prefix forms `^ ~ >= <= = *`, in the package.json diff). Keys inside `overrides` / `resolutions` / `pnpm` blocks do NOT count — they force versions of packages already in the tree, adding no capability (PR #980 incident); a block that opens **and closes on one line** (`"overrides": { "lodash": "4.17.21" },` — what prettier emits when the object fits `printWidth`) exempts only itself, so dependencies added after it in the same hunk are still detected (2026-09-05 fix).
 - Adds a new file **≥50 LOC** under a new subdirectory of `packages/core/<new-dir>/`.
 - Adds a new file **≥80 LOC** anywhere under `packages/`.
 
-Two carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked elsewhere in the same tree** never counts — a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset).
+Three carve-outs on the LOC triggers (hook parity 2026-08-07, mirroring the PR #980 overrides carve-out pattern): **documentation files** (`*.md`/`*.markdown`) never count — the «doc edits are NOT capability commits» exemption below always covered them, but a shipped ≥80-LOC doc template tripped the detector (PR #1272 incident); and a new file **byte-identical to a blob already tracked in the pre-image tree** — the commit's parent, or the merge-base for the PR-body arm — never counts, because a relocation/vendor copy adds no capability by construction (PR #1271 incident: vendored runtime-bridge subset). The pre-image tree is the whole of that carve-out: a new file and a byte-identical copy **both created in the same commit** (a new hook plus the plugin twin the pre-commit twin-sync generates) are a new capability, not a relocation, and are still detected (2026-09-05 fix).
+
+The third carve-out is **test material** — a `*.test.*` / `*.spec.*` file, or any file under a `test(s)/`, `__tests__/` or `*fixtures/` directory — which never counts, because the closing sentence below has always exempted «test additions for existing capabilities» while the detector counted them anyway (2026-09-06 fix: over the last 250 first-parent commits on staging the ≥80-LOC arm fired on 27 commits, 18 of them test-only, and the trailers it forced cited SSOT rows the commit never touched). The carve-out cannot hide a capability: a commit that adds test material **alongside** a qualifying production file still trips on that production file. Its one exception is a file directly in `packages/core/principles/` — a principle IS the enforcement capability, not a test for one, so those keep demanding a consult (subdirectories such as `packages/core/principles/fixtures/` are ordinary test material and stay exempt).
 
 Refactors, doc edits, test additions for existing capabilities, bug fixes, snapshot regenerations, recipe data edits — **NOT** capability commits.
 
@@ -42,8 +44,16 @@ Refactors, doc edits, test additions for existing capabilities, bug fixes, snaps
 In the commit message body, after the blank line that follows the subject:
 
 ```text
-Prior-art: <free-form narrative referencing prior-art-evaluations.md#<ID>, or escape hatch>
+Prior-art: <narrative naming a resolvable referent — prior-art-evaluations.md#<ID>, an artefact path, or an issue/PR reference — or the escape hatch>
 ```
+
+A positive trailer must name something a reader can open. Three accepted referent forms (enforced by `packages/core/hooks/checks/prior-art.ts`; measured 2026-09-06 against the post-cutoff first-parent history — 2 of 145 capability commits with a positive trailer fail this grammar, both from before 2026-07-19):
+
+1. an **SSOT row** — `prior-art-evaluations.md#<ID>` (the primary form; the cited row must exist);
+2. an **artefact path** — `setup.d/lib.sh:359`, `research-patches/2026-05-23-guard-liveness-gate.md §2`;
+3. an **issue / PR reference** — `#1271`, `PR #1094`.
+
+A referent-free assertion (`Prior-art: consulted — no entry applies`) is rejected: it is the `#hope-as-gate` shape of [attention-is-not-a-mechanism.md §2](.claude/rules/attention-is-not-a-mechanism.md).
 
 **Examples:**
 
@@ -129,7 +139,7 @@ Full ownership map: [harmonization spec §3](docs/superpowers/specs/2026-08-18-s
 
 - **Agent PR merge gating:** `~/.claude/hooks/git-safety.sh` allows `gh pr merge --squash` when `base=staging` or `base=epic/*`. Base=`main` is blocked — maintainer merges manually. Retrying on a real `main`-base block is futile.
 - **CONFLICTING PR → merge-forward, never rebase:** force-push is permission-classifier-blocked for agents in every form (`--force`, `--force-with-lease`, rewritten history to a new branch — verified 2026-07-21), so `git rebase` on a published PR branch is a dead end. Instead merge the base INTO the PR branch, regenerate conflicted generated artefacts (`SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh`; `plugin/hooks` twins regenerate via pre-commit), verify, then plain fast-forward push. Full recipe + triage: [.claude/rules/git-conflict-merge-forward.md](.claude/rules/git-conflict-merge-forward.md). (Incident 2026-07-21, PR #1058.)
-- **Promote staging→main mechanics (two hard rules):** see [docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules](docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-two-hard-rules) — fires when promoting staging→main (the `head=staging`-only §7 exemption + the merge-commit-never-squash rule).
+- **Promote staging→main mechanics (three hard rules):** see [docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-three-hard-rules](docs/meta-factory/operational-conventions.md#promote-stagingmain-mechanics-three-hard-rules) — fires when promoting staging→main (the `head=staging`-only §7 exemption + the merge-commit-never-squash rule + the maintainer deep review `/code-review ultra <PR#>` before merge).
 - **Never move a branch ref with `git update-ref`:** see [docs/meta-factory/operational-conventions.md#never-move-a-branch-ref-with-git-update-ref--check-every-worktree-first](docs/meta-factory/operational-conventions.md#never-move-a-branch-ref-with-git-update-ref--check-every-worktree-first) — fires before any `git update-ref` / branch-ref move (worktree-desync hazard — check EVERY worktree first).
 - **600-line markdown gate:** pre-commit hook blocks commits that push any markdown file past 600 lines. Check `wc -l <file>` before adding content to near-600 files (e.g. `docs/meta-factory/open-questions.md`). To free lines: migrate resolved `§13.x` entries to `docs/meta-factory/closed-questions.md` (append-only archive — TOC row + full entry under `## Archived entries`).
 - **Homebrew PATH in hooks:** CC-launched hooks run with a stripped PATH (Homebrew absent). Hooks calling `gh`, `jq`, or other Homebrew tools must export `PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"` after `set -euo pipefail`. Symptom: hook returns empty output from `gh pr view` despite correct auth. (Codified from memory `feedback_harness_merge_block_and_500line_gate`.)

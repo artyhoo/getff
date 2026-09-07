@@ -38,6 +38,22 @@ describe('detectStack — python (pyproject.toml) priority 4', () => {
     expect(r.source).toBe('pyproject.toml');
   });
 
+  // A7-1 (ledger-1597-fixes): end-to-end detector coverage for the uv-style
+  // multi-line PEP 621 array. Every pre-existing detector fixture used the
+  // single-line form, so the "multi-line deps → empty set → framework null"
+  // failure mode had zero detector-lane coverage while listDirectDeps was
+  // dropping the array (RED on base: framework.name was null).
+  it('uv-style MULTI-LINE PEP 621 dependencies array → framework detected end-to-end (A7-1)', () => {
+    write(
+      'pyproject.toml',
+      ['[project]', 'name = "svc"', 'dependencies = [', '  "fastapi>=0.100",', '  "httpx",', ']', ''].join('\n'),
+    );
+    const r = detectStack(TMP);
+    expect(r.stack).toBe('python');
+    expect(r.framework.name).toBe('fastapi');
+    expect(r.runtime.name).toBe('python');
+  });
+
   it('Poetry [tool.poetry.dependencies] django → python stack, framework.name=django', () => {
     write(
       'pyproject.toml',

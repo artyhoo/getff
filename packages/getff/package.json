@@ -1,0 +1,41 @@
+{
+  "name": "getff",
+  "version": "0.1.0",
+  "private": false,
+  "description": "getff — AI DX for your codebase: conventions AI agents can't silently bypass. `npx getff init` installs the enforcement layer (ESLint rules generated from live docs, husky gates, CI) into a TypeScript, Python, Rust or Go project.",
+  "license": "FSL-1.1-ALv2",
+  "homepage": "https://getff.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artyhoo/getff.git",
+    "directory": "packages/getff"
+  },
+  "bugs": {
+    "url": "https://github.com/artyhoo/getff/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "getff": "./bin/getff"
+  },
+  "files": [
+    "bin/",
+    "MANIFEST.sha256",
+    "install.sh",
+    "setup",
+    "setup.d/",
+    "agents/",
+    "skills/",
+    "templates/",
+    ".claude/",
+    ".prettierrc.json",
+    "packages/",
+    "scripts/"
+  ],
+  "scripts": {
+    "build:dist": "bash ../../scripts/build-getff-dist.sh",
+    "build:dist:check": "bash ../../scripts/build-getff-dist.sh --check",
+    "prepack": "bash ../../scripts/build-getff-dist.sh --check && bash ../../scripts/build-getff-dist.sh"
+  }
+}

@@ -27,6 +27,56 @@
 # injection block (.claude/skills/pipeline/SKILL.md), so the next /pipeline invocation
 # surfaces it; the D6 handoff prose points a continuing session at the same path.
 #
+# `#aif-ctx-observed` — SECOND, MACHINE-READABLE OUTPUT (ledger #1597 A3-3b). Besides the
+# residue markdown, this hook records ONE integer for the Stop hook's D7 context-arm:
+#
+#   Channel : ${TMPDIR:-/tmp}/aif-ctx-observed-<session_key>
+#   Payload : the transcript's usage sum on the LAST main-thread assistant entry, at the
+#             instant the harness chose to compact. One decimal integer, first line, nothing
+#             else. Absent = nothing was measurable; the reader then keeps its 1M default.
+#   Reader  : .claude/hooks/end-of-turn-reminder.sh, D7 arm, when AIF_CTX_WINDOW is undeclared.
+#   Key     : the same `session_key` sanitisation used for the residue filename below, which
+#             the reader repeats verbatim — changing it here silently unlinks the contract.
+#
+# WHY THIS HOOK AND NOT THAT ONE: the D7 arm needs a window and no payload reaches it with
+# one. Live-probed 2026-09-06 — the PreCompact payload is {session_id, transcript_path, cwd,
+# prompt_id, hook_event_name, trigger, custom_instructions}; there is no token count in it
+# either. What is unique HERE is the EVENT: an `auto` compaction is the harness stating that
+# the window is spent, so the usage sum at that moment is an empirical ceiling on the usable
+# window. Nothing is invented; the number comes from the transcript, the bound comes from the
+# event.
+#
+# `trigger=auto` ONLY. A manual /compact is an operator decision, not a full window — and the
+# live probe showed PreCompact firing on a manual compaction that was then REFUSED ("Not
+# enough messages to compact"), so a manual trigger can carry an arbitrarily small sum.
+#
+# `#aif-ctx-debounce-reset` — THE SECOND HALF OF THE SAME CONTRACT (ledger #1597 A3-3c). The
+# D7 arm debounces its handoff line once per session per tier via
+# `${TMPDIR:-/tmp}/aif-ctx-<session_key>-{soft,deep}`. Nothing ever cleared those flags, so a
+# session that compacted three times still got exactly ONE reminder in its whole life —
+# harmless while the arm was unreachable for a small window, load-bearing the moment A3-3b
+# made it reachable. A compaction is precisely what makes the earlier reminder spent history,
+# and this hook is the one that observes it, so this hook clears them.
+#
+#   Removes : <TMPDIR>/aif-ctx-<session_key>-soft and -deep, that session's only.
+#   Keeps   : <TMPDIR>/aif-ctx-observed-<session_key> — the measurement, which shares the
+#             directory and the `aif-ctx-` prefix. The removal is BY EXACT NAME for that
+#             reason; a `aif-ctx-<key>*` sweep would delete the ceiling it just recorded.
+#   Trigger : `auto` only, same evidence as the ceiling above — the live probe showed
+#             PreCompact firing on a manual /compact that was then REFUSED, and re-arming the
+#             reminder after a compaction that never happened makes the next turn re-fire it,
+#             which is the exact spam the debounce exists to prevent.
+#
+# KNOWN AND ACCEPTED: if a compaction leaves the session still above the (window-derived) soft
+# floor, the freshly cleared flag means the very next turn warns again. That is the honest
+# reading of the state — the context really is still nearly spent — not a debounce failure.
+#
+# NOT the residue markdown: the reader would have to resolve the orchestration home to find
+# it, i.e. a THIRD copy of the `_residue_dir()` logic flagged below as this file's only
+# duplication — on every turn end, for one integer. The tmp channel reuses the directory and
+# key convention the D7 arm already owns for its debounce flags, so no new path convention
+# enters either hook. The residue file still STATES the number, for its human reader.
+#
 # LOCATION — the resolved orchestration home (`<orch-home>/_residue-<session>.md`), NOT
 # #108's `.claude/session-state.md` sketch. Two deliberate deviations, both recorded in D8:
 #   • per-session file, so N parallel sessions do not clobber one shared file;
@@ -155,6 +205,48 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   fi
 fi
 
+# ── Observed context ceiling (`#aif-ctx-observed`, contract in the header) ───
+# Same estimator as the D7 arm it feeds (end-of-turn-reminder.sh): the LAST main-thread
+# assistant entry's usage sum. `select(.isSidechain != true)` is load-bearing for the same
+# reason as in the body extraction above — subagent turns share this transcript, and a
+# subagent's usage is not the main thread's window. `tail -50` bounds what jq PARSES (only
+# the final match is ever kept) — the grep itself still reads the file, exactly as the two
+# scans above already do. Affordable here in a way it would not be in a Stop hook: this runs
+# once per compaction, not once per turn.
+observed_tokens=""
+if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
+  observed_entry=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null \
+    | tail -50 \
+    | jq -c 'select(.isSidechain != true) | select(.message.usage.input_tokens != null)' 2>/dev/null \
+    | tail -1 || true)
+  if [ -n "$observed_entry" ]; then
+    observed_tokens=$(printf '%s' "$observed_entry" | jq -r '
+      ((.message.usage.input_tokens // 0)
+       + (.message.usage.cache_read_input_tokens // 0)
+       + (.message.usage.cache_creation_input_tokens // 0))' 2>/dev/null || true)
+    # A 0 or non-numeric result is DISCARDED rather than written: a recorded 0 would give the
+    # reader 0-derived floors and fire its arm on every single turn — strictly worse than the
+    # silence this whole contract exists to end.
+    case "$observed_tokens" in '' | *[!0-9]* | 0) observed_tokens="" ;; esac
+  fi
+  # Write failures are swallowed like every other side effect here: a full or read-only
+  # TMPDIR must never surface as a compaction error (see the non-blocking note at the top).
+  if [ -n "$observed_tokens" ]; then
+    { printf '%s\n' "$observed_tokens" > "${TMPDIR:-/tmp}/aif-ctx-observed-${session_key}"; } 2>/dev/null || true
+  fi
+
+  # `#aif-ctx-debounce-reset` (contract in the header). Exact names, never a glob: the
+  # observed-ceiling file written just above lives in the same directory under the same
+  # `aif-ctx-` prefix, and a wildcard sweep would take the measurement with the flags. The
+  # tier list is spelled out rather than derived for the same reason the key is duplicated —
+  # two scripts, no shared library; an unknown tier here is a silent no-op, not a wrong
+  # deletion. `rm -f` never fails on an absent flag, and a failure to delete must not surface
+  # as a compaction error, so the whole group is quiet.
+  for _tier in soft deep; do
+    rm -f "${TMPDIR:-/tmp}/aif-ctx-${session_key}-${_tier}" 2>/dev/null || true
+  done
+fi
+
 # ── Branch + head, for the continuing session ────────────────────────────────
 branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 head_sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)
@@ -173,7 +265,13 @@ head_sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)
   printf -- '- **Branch:** `%s` @ `%s`\n' "$branch" "${head_sha:-unknown}"
   printf -- '- **Repo:** `%s`\n' "$root"
   printf -- '- **Transcript:** `%s`\n' "${transcript:-(absent)}"
-  printf -- '- **Body source:** %s\n\n' "$body_kind"
+  printf -- '- **Body source:** %s\n' "$body_kind"
+  # Stated for the human/model reader of the handoff; the machine channel is the tmp file.
+  if [ -n "$observed_tokens" ]; then
+    printf -- '- **Observed context ceiling:** %s tokens (usage at this auto-compaction — the window estimate the next turn is judged against)\n\n' "$observed_tokens"
+  else
+    printf -- '- **Observed context ceiling:** (not measurable from this trigger)\n\n'
+  fi
   if [ -n "$body" ]; then
     printf '## Last model-authored state (verbatim from the transcript)\n\n'
     printf '%s\n' "$body"

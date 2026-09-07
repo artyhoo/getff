@@ -7,12 +7,22 @@ bridge_health_ok() {
   curl -sf "${url}/health" >/dev/null 2>&1
 }
 
-# Returns: up | docker | native | absent
+# Returns: up | docker | docker-down | native | absent
+#
+# `docker-down` (binary installed, daemon not answering) is its own state, not a flavour of
+# `absent`: the two need opposite guidance ("start docker" vs "install docker"), and a caller
+# cannot recover the difference afterwards — re-running `command -v docker && docker info` is
+# exactly the test that already failed to produce `docker` (ledger A1-7, PR #1597).
+# Ordering note: `native` still wins over `docker-down`, so a machine with the aif-handoff CLI
+# and a stopped docker daemon keeps the pre-existing `native` guidance.
 bridge_diagnose() {
   local url="$1"
   if bridge_health_ok "$url"; then echo "up"; return 0; fi
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then echo "docker"; return 0; fi
+  local has_docker=""
+  command -v docker >/dev/null 2>&1 && has_docker=1
+  if [ -n "$has_docker" ] && docker info >/dev/null 2>&1; then echo "docker"; return 0; fi
   if command -v aif-handoff >/dev/null 2>&1; then echo "native"; return 0; fi
+  if [ -n "$has_docker" ]; then echo "docker-down"; return 0; fi
   echo "absent"
 }
 
@@ -25,7 +35,8 @@ bridge_guided_run() {
     up)      printf '  ✓ aif-handoff reachable at %s\n' "$url" ;;
     docker)  printf '  aif-handoff not responding; docker is available. Start it with: docker compose up -d (in your aif-handoff checkout), then re-run.\n' ;;
     native)  printf '  aif-handoff CLI present but not responding — start it, then re-run.\n' ;;
-    absent)  printf '  aif-handoff not detected (docker down + no CLI). See docs/runtime-bridge-setup.md for install.\n' ;;
+    docker-down) printf '  aif-handoff not responding and the docker daemon is not running — start docker, then re-run.\n' ;;
+    absent)  printf '  aif-handoff not detected (no docker, no CLI). See docs/runtime-bridge-setup.md for install.\n' ;;
   esac
   # Cross-layer warning (owner GO 2026-07-11): the AIF operator suite (--with-aif-suite/--all)
   # presupposes this runtime — files landed but no runtime means the suite skills dead-end.

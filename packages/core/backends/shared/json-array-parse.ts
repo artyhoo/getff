@@ -36,8 +36,19 @@ export function getByJsonPath(value: unknown, jsonPath: string): unknown {
  * string identities are collected, everything else skipped. A clean run prints `[]` -> empty
  * set. Malformed / non-array / non-JSON stdout resolves to an empty set rather than throwing
  * (parity with the cargo NDJSON parser's tolerance: "no code found", never a crash).
+ *
+ * `containerPath` (R-4, ledger-1597-fixes): optional dot-path to the array to iterate, for
+ * backends whose stdout is an OBJECT carrying the findings array (golangci-lint's
+ * `{"Issues":[…]}` — resolved via `getByJsonPath` before the per-element walk). Absent (the
+ * ast-grep / ruff default) the ROOT must be the array — behavior byte-identical to the
+ * pre-R-4 parser, every existing caller unaffected. A missing or non-array container
+ * resolves to an empty set — fail-closed under the same tolerance contract.
  */
-export function parseIdentitiesFromJsonArray(stdout: string, jsonPath: string): Set<string> {
+export function parseIdentitiesFromJsonArray(
+  stdout: string,
+  jsonPath: string,
+  containerPath?: string,
+): Set<string> {
   const identities = new Set<string>();
   const trimmed = stdout.trim();
   if (trimmed.length === 0) return identities;
@@ -47,8 +58,9 @@ export function parseIdentitiesFromJsonArray(stdout: string, jsonPath: string): 
   } catch {
     return identities; // non-JSON stdout — treat as no findings
   }
-  if (!Array.isArray(parsed)) return identities;
-  for (const element of parsed) {
+  const findings = containerPath === undefined ? parsed : getByJsonPath(parsed, containerPath);
+  if (!Array.isArray(findings)) return identities;
+  for (const element of findings) {
     const value = getByJsonPath(element, jsonPath);
     if (typeof value === 'string' && value.length > 0) {
       identities.add(value);

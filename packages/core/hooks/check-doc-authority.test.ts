@@ -51,6 +51,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   mkdtempSync,
   realpathSync,
   rmSync,
@@ -65,6 +66,7 @@ import { REQUIRED_HEADER_DOCS } from '../principles/09-doc-authority-hierarchy.t
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const REAL_HOOK = resolve(REPO_ROOT, '.claude/hooks/check-doc-authority.sh');
+const HOOK_LIB = resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh');
 const REAL_BIN = resolve(
   REPO_ROOT,
   'packages/core/principles/09-doc-authority-hierarchy.bin.ts',
@@ -133,7 +135,22 @@ mkdirSync(join(SANDBOX, '.claude', 'hooks'), { recursive: true });
 mkdirSync(join(SANDBOX, '.claude', 'rules'), { recursive: true });
 mkdirSync(join(SANDBOX, 'packages', 'core', 'principles'), { recursive: true });
 const HOOK = join(SANDBOX, '.claude', 'hooks', 'check-doc-authority.sh');
-copyFileSync(REAL_HOOK, HOOK);
+/**
+ * Copy the real hook into a sandbox AND seed its `lib/` sibling.
+ *
+ * Since the #1597 review-ledger R-2 fix the gate sources `<hook dir>/lib/hook-emit.sh` for
+ * its emit helpers (one definition instead of five diverging copies). A sandbox that copies
+ * the script alone therefore reproduces a BROKEN install, not the shipped one — both channels
+ * that carry this gate carry the directory: `.claude/hooks/lib/` and `plugin/hooks/lib/`.
+ */
+function copyHook(dest: string): void {
+  copyFileSync(REAL_HOOK, dest);
+  const libDir = join(dirname(dest), 'lib');
+  mkdirSync(libDir, { recursive: true });
+  copyFileSync(HOOK_LIB, join(libDir, 'hook-emit.sh'));
+}
+
+copyHook(HOOK);
 copyFileSync(
   REAL_BIN,
   join(
@@ -543,7 +560,7 @@ describe.skipIf(!JQ || !TSX)(
       mkdirSync(join(root, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
       mkdirSync(join(root, 'packages', 'core', 'principles'), { recursive: true });
-      copyFileSync(REAL_HOOK, join(root, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyHook(join(root, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
         join(root, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -638,7 +655,7 @@ describe.skipIf(!JQ || !TSX)(
       mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
       mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
-      copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
         join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -675,7 +692,7 @@ describe.skipIf(!JQ || !TSX)(
       mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
       mkdirSync(join(box, '.claude', 'rules'), { recursive: true });
       mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
-      copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+      copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
       copyFileSync(
         REAL_BIN,
         join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -717,7 +734,7 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
     extraTmpDirs.push(box);
     mkdirSync(join(box, '.claude', 'hooks'), { recursive: true });
     mkdirSync(join(box, 'packages', 'core', 'principles'), { recursive: true });
-    copyFileSync(REAL_HOOK, join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
+    copyHook(join(box, '.claude', 'hooks', 'check-doc-authority.sh'));
     copyFileSync(
       REAL_BIN,
       join(box, 'packages', 'core', 'principles', '09-doc-authority-hierarchy.bin.ts'),
@@ -747,5 +764,127 @@ describe('check-doc-authority.sh — tsx not found (all tiers miss) → existing
     expect(parsed.hookSpecificOutput.hookEventName).toBe('PostToolUse');
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/DID NOT RUN/);
     expect(parsed.hookSpecificOutput.additionalContext).toMatch(/not a pass/i);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Consumer-layout resolution (#1597 review ledger L-2 + F-3).
+//
+// L-2: the hook resolved `$REPO_ROOT/packages/core/principles/09-…bin.ts` and, when that
+// file was absent, ran `[[ ! -f "$BIN" ]] && exit 0`. No consumer install ships packages/core
+// (install.sh vendors only packages/runtime-bridge), so on the marketplace-plugin channel the
+// gate was a PERMANENT silent no-op: a consumer editing a header-less .claude/rules/*.md got
+// exit 0 and empty output, which on an exit-0 PostToolUse is byte-indistinguishable from a
+// clean pass. The hook now resolves through a tier list and ANNOUNCES the miss on the model
+// channel. RED against the pre-fix hook: it produced no stdout at all here.
+//
+// Why exit 0 and not a non-zero block: a missing dependency must never block the consumer's
+// edit — this is a SKIP. The load-bearing assertion is therefore the notice reaching the
+// model channel (hookSpecificOutput.additionalContext), not the exit code.
+//
+// F-3: the tsx spawn is now guarded by an extension prefilter, so a non-markdown edit costs
+// nothing (measured 0.44-0.46 s of cold tsx per no-op edit pre-fix).
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!hasJq())('consumer layout without packages/core (L-2, F-3)', () => {
+  /** A scratch tree shaped like a consumer install: .claude/ only, no packages/core. */
+  function consumerTree(): string {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'cda-consumer-')));
+    extraTmpDirs.push(root);
+    mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+    writeFileSync(join(root, '.claude', 'rules', 'foo.md'), '# Foo\n\nNo header.\n', 'utf8');
+    writeFileSync(join(root, 'app.ts'), 'export const a = 1;\n', 'utf8');
+    return root;
+  }
+
+  /**
+   * Private TMPDIR per consumer tree. `_emit_skip_once` keys its once-per-session flag on
+   * $TMPDIR + session_id; real session ids are unique per CC session, but a fixed test id
+   * plus the shared /tmp would let one run's flag silence the next run's assertion.
+   */
+  function run(root: string, relPath: string, sessionId: string, hook = REAL_HOOK) {
+    const flags = join(root, '.flags');
+    mkdirSync(flags, { recursive: true });
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: root, TMPDIR: flags } as Record<
+      string,
+      string
+    >;
+    delete env.ZCODE_PROJECT_DIR;
+    return spawnSync('/bin/bash', [hook], {
+      input: JSON.stringify({
+        session_id: sessionId,
+        tool_name: 'Write',
+        tool_input: { file_path: join(root, relPath) },
+      }),
+      encoding: 'utf8',
+      cwd: root,
+      env,
+    });
+  }
+
+  it('L-2: bin unresolvable → loud SKIP on the model channel, never a silent exit 0', () => {
+    const root = consumerTree();
+    const r = run(root, '.claude/rules/foo.md', 'sess-L2-a');
+    expect(r.status, 'a dependency miss is a SKIP, not a block').toBe(0);
+    expect(
+      r.stdout.trim(),
+      'empty stdout is the DEFECT shape: on an exit-0 PostToolUse the model sees only JSON',
+    ).not.toBe('');
+    const ctx = (
+      JSON.parse(r.stdout.trim()) as {
+        hookSpecificOutput: { hookEventName: string; additionalContext: string };
+      }
+    ).hookSpecificOutput;
+    expect(ctx.hookEventName).toBe('PostToolUse');
+    expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+    expect(ctx.additionalContext).toMatch(/not a pass/i);
+    // Names the consumer-side replacement gate, so the notice is actionable.
+    expect(ctx.additionalContext).toMatch(/check-doc-authority-header\.sh/);
+  });
+
+  it('L-2: the notice is announced once per session, not on every edit', () => {
+    const root = consumerTree();
+    const first = run(root, '.claude/rules/foo.md', 'sess-L2-b');
+    const second = run(root, '.claude/rules/foo.md', 'sess-L2-b');
+    expect(first.stdout.trim()).not.toBe('');
+    expect(second.stdout.trim(), 'second edit in the same session must stay quiet').toBe('');
+  });
+
+  it('L-2: AIF_DOC_AUTHORITY=0 is the recorded opt-out — no notice at all', () => {
+    const root = consumerTree();
+    const flags = join(root, '.flags');
+    mkdirSync(flags, { recursive: true });
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: root, TMPDIR: flags, AIF_DOC_AUTHORITY: '0' } as Record<
+      string,
+      string
+    >;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = spawnSync('/bin/bash', [REAL_HOOK], {
+      input: JSON.stringify({
+        session_id: 'sess-L2-c',
+        tool_name: 'Write',
+        tool_input: { file_path: join(root, '.claude/rules/foo.md') },
+      }),
+      encoding: 'utf8',
+      cwd: root,
+      env,
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('');
+  });
+
+  it('F-3: a non-markdown edit exits before the notice (and before any tsx spawn)', () => {
+    const root = consumerTree();
+    const r = run(root, 'app.ts', 'sess-F3-a');
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'code edits must not reach the doc-authority machinery').toBe('');
+  });
+
+  it('F-3 (RED on old code): the pre-fix hook had no extension prefilter before the spawn', () => {
+    const src = readFileSync(REAL_HOOK, 'utf8');
+    const prefilterAt = src.indexOf('*.md | *.markdown)');
+    const spawnAt = src.indexOf('"$TSX" "$BIN"');
+    expect(prefilterAt, 'extension prefilter must exist').toBeGreaterThan(-1);
+    expect(spawnAt).toBeGreaterThan(-1);
+    expect(prefilterAt, 'prefilter must precede the tsx spawn').toBeLessThan(spawnAt);
   });
 });

@@ -196,6 +196,141 @@ if [ "${#DELIVERED[@]}" -gt 0 ]; then
   fi
 fi
 
+# ── Phase 3: vendored-copy ↔ source content parity (#1597 ledger, C14 follow-up) ─────────────
+# Phases 1-2 ask "is the shipped byte-stream Prettier-clean?". Neither asks the prior question:
+# "is it still the same CODE as the thing it was copied from?"
+#
+# packages/runtime-bridge/vendor/ is a hand-maintained COPY of packages/runtime-bridge/src/ that
+# install.sh drops into every --profile factory consumer at .claude/vendor/runtime-bridge/. The
+# two are content-identical by construction — vendor is exactly `prettier(src)`, because the
+# vendor path is inside PATHSPECS above while its upstream is not. NOTHING enforced that: an edit
+# to src/ that was never re-vendored left the consumer running older logic, silently, with every
+# existing gate green (measured 2026-09-05 while fixing ledger A6-3/A5-3/K-2/K-3/A5-6 — the
+# parity had to be verified BY HAND, with a throwaway prettier round-trip, because no channel
+# owned it). Same class as the plugin-twin drift guards (packages/core/principles/
+# 24-plugin-manifest-integrity.test.ts (d)/(e)/(g)) and as the vendor hook ↔ .claude/hooks twin.
+#
+# WHY HERE and not a principle test: this check needs the SAME pinned Prettier the vendor copy is
+# formatted with. The principles CI job installs packages/core only (audit-self.yml:265-268) and
+# the root tree carries a different Prettier version, so a principle test would either add a
+# dependency or measure with the wrong formatter and go false-red. This script already pins
+# prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit
+# (.husky/pre-commit:125) — the earliest channel that can see the pair. Prior art for the
+# regenerate-into-temp-and-compare shape: prior-art-evaluations.md#270.
+#
+# DETECT-ONLY, in BOTH modes, deliberately. Auto-copying src→vendor on --write would silently
+# resolve the vendor README's parked P4 fork ("manual re-vendor vs sync script vs never-until-U9")
+# by making src authoritative. This check only reports that the two disagree; WHICH side is right
+# is the author's call, and both fix directions are printed.
+#
+# Direction checked: every vendored file must still match its source. The reverse (a src file that
+# is not vendored) is NOT a defect — the vendored set is a recorded decision, see the vendor
+# README's "Files NOT copied" list.
+RB_SRC="packages/runtime-bridge/src"
+RB_VENDOR="packages/runtime-bridge/vendor/src"
+
+parity_scope=0
+if [ "${#FILTER[@]}" -eq 0 ]; then
+  parity_scope=1                        # full sweep (CI, `npm run format`)
+else
+  # Change-scoped (pre-commit): ANY half of EITHER pair moving can break its partner — the
+  # TypeScript source/vendor pair, and the bash hook twin whose upstream lives under .claude/hooks/
+  # (a commit touching only that side would otherwise slip past this phase entirely).
+  for g in "${FILTER[@]}"; do
+    case "$g" in
+      "$RB_SRC"/*.ts | "$RB_VENDOR"/*.ts | packages/runtime-bridge/vendor/hooks/* | .claude/hooks/runtime-bridge-dispatch.sh)
+        parity_scope=1; break ;;
+    esac
+  done
+fi
+
+if [ "$parity_scope" -eq 1 ] && [ -d "$RB_VENDOR" ]; then
+  PARITY_RELS=()
+  while IFS= read -r v; do
+    [ -n "$v" ] || continue
+    PARITY_RELS+=("${v#"$RB_VENDOR"/}")
+  done < <(git ls-files -- "$RB_VENDOR" | grep -E '\.ts$' || true)
+
+  if [ "${#PARITY_RELS[@]}" -gt 0 ]; then
+    PTMP=$(mktemp -d)
+    # Replaces Phase 2's trap; both dirs are cleaned whether or not Phase 2 ran.
+    trap '[ -n "${DTMP:-}" ] && rm -rf "$DTMP"; [ -n "${PTMP:-}" ] && rm -rf "$PTMP"' EXIT
+    cp .prettierrc.json "$PTMP/.prettierrc.json"
+
+    orphaned=()   # vendored file whose source is gone
+    staged=()     # sources materialised for the round-trip
+    for rel in "${PARITY_RELS[@]}"; do
+      if [ ! -f "$RB_SRC/$rel" ]; then orphaned+=("$rel"); continue; fi
+      mkdir -p "$PTMP/$(dirname "$rel")"
+      cp "$RB_SRC/$rel" "$PTMP/$rel"
+      staged+=("$rel")
+    done
+
+    prc=0
+    if [ "${#staged[@]}" -gt 0 ]; then
+      # --write into the temp tree, never the repo: this produces `prettier(src)`, the exact
+      # byte-stream the vendor copy is supposed to already be.
+      ( cd "$PTMP" && npx --yes prettier@3.8.3 --write --ignore-path /dev/null "${staged[@]}" ) >/dev/null 2>&1 || prc=1
+    fi
+
+    drifted=()
+    if [ "$prc" -eq 0 ]; then
+      for rel in "${staged[@]:-}"; do
+        [ -n "$rel" ] || continue
+        cmp -s "$RB_VENDOR/$rel" "$PTMP/$rel" || drifted+=("$rel")
+      done
+    fi
+
+    if [ "$prc" -ne 0 ]; then
+      rc=1
+      echo "" >&2
+      echo "format-shipped: vendor parity check could not run — prettier failed on the source copies." >&2
+    elif [ "${#drifted[@]}" -gt 0 ] || [ "${#orphaned[@]}" -gt 0 ]; then
+      rc=1
+      echo "" >&2
+      echo "format-shipped: the vendored runtime-bridge COPY has drifted from its source." >&2
+      echo "  These bytes ship to every --profile factory consumer at .claude/vendor/runtime-bridge/;" >&2
+      echo "  a drifted copy means consumers run different logic than this repo's tests measure." >&2
+      for rel in "${drifted[@]:-}"; do
+        [ -n "$rel" ] || continue
+        echo "    DRIFT   $RB_VENDOR/$rel  !=  prettier($RB_SRC/$rel)" >&2
+      done
+      for rel in "${orphaned[@]:-}"; do
+        [ -n "$rel" ] || continue
+        echo "    ORPHAN  $RB_VENDOR/$rel  has no source at $RB_SRC/$rel" >&2
+      done
+      echo "" >&2
+      echo "  Fix — decide WHICH side is right, then:" >&2
+      echo "    (a) source is right (the usual case: you edited src/ and did not re-vendor) —" >&2
+      echo "        cp $RB_SRC/<rel> $RB_VENDOR/<rel>" >&2
+      echo "        bash scripts/format-shipped.sh --write $RB_VENDOR/<rel>" >&2
+      echo "    (b) the vendored change is right — make the same change in $RB_SRC/<rel> too;" >&2
+      echo "        the two are content-identical by design (vendor README, 'What this is')." >&2
+      echo "  This check never rewrites either side: the re-vendor MECHANISM is parked (vendor" >&2
+      echo "  README, fork P4), so the copy direction stays an author decision." >&2
+    fi
+  fi
+
+  # The vendor drop also carries a bash hook, and that pair is BYTE-identical (no prettier in the
+  # loop — the twin is copied verbatim, and setup.d/55-runtime-bridge-vendor.sh:115 delivers it to
+  # .claude/hooks/ on the consumer). It had no gate either (#1597 review-ledger addendum D-5); the
+  # backward sweep for the parity rule above found it as the one remaining ungated copy of this
+  # class — every other in-repo copy pair is already covered (plugin twins → principle 24(d)/(e)/(g),
+  # the getff payload → MANIFEST.sha256, the synth bundle → build-synth-bundle.sh --check, the
+  # python delivery templates → python-templates-drift.test.ts).
+  _hook_v="packages/runtime-bridge/vendor/hooks/runtime-bridge-dispatch.sh"
+  _hook_s=".claude/hooks/runtime-bridge-dispatch.sh"
+  if [ -f "$_hook_v" ] && [ -f "$_hook_s" ] && ! cmp -s "$_hook_v" "$_hook_s"; then
+    rc=1
+    echo "" >&2
+    echo "format-shipped: the vendored dispatch hook has drifted from its twin." >&2
+    echo "    DRIFT   $_hook_v  !=  $_hook_s" >&2
+    echo "  The two are BYTE-identical by design — setup.d/55-runtime-bridge-vendor.sh delivers the" >&2
+    echo "  vendored one to a consumer's .claude/hooks/, so a drift ships different behaviour there." >&2
+    echo "  Fix: settle the change on $_hook_s, then  cp $_hook_s $_hook_v" >&2
+  fi
+fi
+
 if [ "$rc" -ne 0 ] && [ "$MODE" = "--check" ]; then
   echo "" >&2
   echo "format-shipped: shipped artifacts are not Prettier-clean (run: npm run format)." >&2

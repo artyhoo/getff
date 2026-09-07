@@ -7,6 +7,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { goAdapter } from './ecosystem-go.ts';
+import { isUnsafeDepName } from './research-path-guards.ts';
 
 function makeRoot(goMod: string): string {
   const root = mkdtempSync(join(tmpdir(), 'go-adapter-'));
@@ -123,7 +124,7 @@ exclude github.com/bad/old v0.9.0
 });
 
 describe('goAdapter.readInstalledMeta', () => {
-  // @arm:B1:pos poisoned-host-negative-design (go lane — REAL-host module path
+  // @arm:B1:pos tier1-trust-poisoned-negative (go lane — REAL-host module path
   // produces RAW URLs fed to tier1For unmodified). The adapter's job is to
   // FEED, not to ACCEPT/REJECT. tier1For's multi-tenant reject stage
   // (allowlist-resolver.ts:189-243) handles the github.com reject downstream.
@@ -171,7 +172,7 @@ describe('goAdapter.readInstalledMeta', () => {
     }
   });
 
-  // @arm:B1:neg poisoned-host-negative-design (go lane — the falsifier the
+  // @arm:B1:neg tier1-trust-poisoned-negative (go lane — the falsifier the
   // §2.1 hard-node names: a module path whose FIRST segment contains a `.` but
   // is NOT the host the URL LOOKS LIKE it should yield. The synthesized URL is
   // `https://evil.example.com/github.com/real/repo`; `new URL(...).hostname`
@@ -212,5 +213,26 @@ describe('goAdapter.readInstalledMeta', () => {
     // module paths legitimately contain `/` (divergence from npm/cargo/pip
     // guards which reject `/`).
     expect(goAdapter.readInstalledMeta(root, 'github.com/user/repo')).not.toBeNull();
+  });
+
+  // R-1 (ledger-1597-fixes): the shared name guard has TWO modes by design.
+  // DEFAULT ('strictest') rejects `/`-bearing names — the cargo/python fs-join
+  // contract. go adopts 'go-feed-raw' mode, which admits them (a go module path
+  // legitimately contains `/`; host-shape rejection is tier1For's job — F3
+  // frozen). This pins the boundary explicitly so a future "unify to one mode"
+  // refactor flips a test instead of silently killing go Tier-1. Byte-equivalence
+  // of go's mode with the former private guard: `..` and `\` rejected in both.
+  it('boundary pin: shared DEFAULT mode rejects `/`-bearing names, go-feed-raw mode admits them (R-1)', () => {
+    expect(isUnsafeDepName('github.com/user/repo')).toBe(true); // strictest default
+    expect(isUnsafeDepName('github.com/user/repo', 'go-feed-raw')).toBe(false); // go contract
+    // go's mode keeps the former private guard's rejections byte-equivalent:
+    expect(isUnsafeDepName('../escape', 'go-feed-raw')).toBe(true);
+    expect(isUnsafeDepName('github.com/../etc/passwd', 'go-feed-raw')).toBe(true);
+    expect(isUnsafeDepName('foo\\bar', 'go-feed-raw')).toBe(true);
+    // And the strictest default rejects every shape go's mode rejects, plus `/`:
+    expect(isUnsafeDepName('../escape')).toBe(true);
+    expect(isUnsafeDepName('foo\\bar')).toBe(true);
+    expect(isUnsafeDepName('plain-name')).toBe(false);
+    expect(isUnsafeDepName('plain-name', 'go-feed-raw')).toBe(false);
   });
 });

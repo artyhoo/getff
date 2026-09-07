@@ -1,0 +1,67 @@
+name: Bug report
+description: Something getff installed or enforced behaved wrongly.
+title: '[bug] '
+labels: ['bug', 'type: fix']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Paste real command output where asked — a rule that fires wrongly is judged by what it printed, not by a description of it.
+  - type: input
+    id: version
+    attributes:
+      label: getff version / commit
+      description: '`npx getff --version`, or the `git rev-parse HEAD` of the clone you installed from.'
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Layer
+      options:
+        - Rules from live docs (beta) — install, ESLint rules, hooks, CI gates
+        - The AI factory (experimental) — /arch, presets, aif dispatch, harvest
+        - Docs site (getff.ai)
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: stack
+    attributes:
+      label: Consumer stack
+      options:
+        - ts-server
+        - react-next
+        - react-spa
+        - react-native
+        - python
+        - rust (cargo)
+        - go
+        - other / monorepo
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command you ran
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Full output (stdout + stderr)
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS / Node / package manager
+      placeholder: 'macOS 15 · node 22.11 · npm 10.9'

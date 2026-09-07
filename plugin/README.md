@@ -26,5 +26,5 @@ Layout (built stage-by-stage per the plan):
 
 The set is deliberately narrower than what `./setup` installs. The rule-authoring skills (`rule-research`, `rule-tests`) are bound to the installer by their own text — one ends its protocol in `./setup --full`, the other reads per-backend files it states are not delivered to consumers — so shipping them here would ship instructions their reader cannot execute. Run `./setup` if you want those.
 
-Spec: [`docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md`](../docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md).
-Plan: [`docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md`](../docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md).
+Spec: [`docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md`](https://github.com/artyhoo/getff/blob/main/docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md).
+Plan: [`docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md`](https://github.com/artyhoo/getff/blob/main/docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md).

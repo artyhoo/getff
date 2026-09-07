@@ -24,23 +24,27 @@ set -uo pipefail
 # Harness-portable output (inline — standalone in test sandboxes). CC: exit 2 + stderr =
 # feedback the model receives (advisory in effect — PostToolUse cannot block). ZCode: JSON
 # additionalContext (exit 2 swallowed as HookRunFailed); exit 0.
-_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
-# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
-_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
-# Announce a dependency-missing skip on the channel the model actually receives on an
-# exit-0 path (JSON hookSpecificOutput), keeping stderr for terminal/CI readers.
-_emit_skip() {
-  if _is_zcode; then
-    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
-      "$(_json_escape "$1")"
-  fi
-  printf '%s\n' "$1" >&2
-}
-_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$2" '{additionalContext:$c}'
-  else printf '%s\n' "$2"; fi; }
+
+# ── Shared emit prelude (#1597 review ledger R-2, K-1) ────────────────────────
+# _is_zcode / _json_escape / _emit_skip / _emit_skip_once / _emit_ctx and the Homebrew PATH
+# prepend have ONE definition, at lib/hook-emit.sh. Five gates used to carry a private 13-line
+# copy each; the copies had begun to diverge (a lost _is_zcode branch, a sed escaper that
+# produced invalid JSON for a tab or CR). Resolved next to THIS file so the framework copy and
+# the plugin twin each load their own sibling — both channels ship the directory.
+# Pure parameter expansion — no `dirname`, no `cd`, no subshell. These gates run on a
+# stripped PATH (a jq-less consumer, a sandbox that rebuilt PATH to hide a tool), and the
+# prelude must resolve before any external command is known to exist.
+_HOOK_DIR="${BASH_SOURCE[0]%/*}"
+[ "$_HOOK_DIR" = "${BASH_SOURCE[0]}" ] && _HOOK_DIR="."
+_HOOK_LIB="$_HOOK_DIR/lib/hook-emit.sh"
+# shellcheck source=lib/hook-emit.sh
+if ! . "$_HOOK_LIB" 2>/dev/null; then
+  # Broken install: announce on the model channel with constant text (no escaper available
+  # yet) and exit 0 — a missing prelude must not block the edit.
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    '⚠ check-kickoff-traps: lib/hook-emit.sh could not be sourced — this gate DID NOT RUN for this edit. This is a SKIP, not a pass; reinstall the hooks.'
+  exit 0
+fi
 _adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -174,7 +178,23 @@ for _cand in \
   if [[ -f "$_cand" ]]; then HV_RUNNER="$_cand"; break; fi
 done
 if [[ -z "$HV_RUNNER" ]]; then
-  _emit_skip '⚠ check-kickoff-traps: scripts/host-verify.sh not found — the host-verification contract check DID NOT RUN for this edit. This is a SKIP, not a pass; the runner must be present for either a contract or an opt-out to be accepted.'
+  # Applicability BEFORE loudness. This arm enforces
+  # .claude/rules/destination-environment-verification.md §1, and neither that rule nor
+  # scripts/host-verify.sh is delivered to consumers by any channel: `git ls-tree -r <sha>
+  # plugin setup.d install.sh packages/core/templates | grep -c host-verify` is 0, setup.d and
+  # install.sh ship no .claude/rules/, and the plugin has no .claude/ directory. So on every
+  # plugin consumer this branch fired a LOUD "install the runner" skip on every kickoff write —
+  # one the consumer could never satisfy (#1597 review ledger A3-6). A permanent unsatisfiable
+  # notice is the mirror image of the silent no-op: both stop carrying information.
+  #
+  # Split by whether the project actually carries the rule this arm enforces:
+  #   - rule present (framework repo, or a consumer that vendored it) + runner missing → a real
+  #     regression, still announced LOUDLY exactly as before;
+  #   - rule absent → NOT-APPLICABLE, silent. There is no contract in this project for the
+  #     kickoff to be missing, so there is nothing to report.
+  if [[ -f "$REPO_ROOT/.claude/rules/destination-environment-verification.md" ]]; then
+    _emit_skip '⚠ check-kickoff-traps: scripts/host-verify.sh not found — the host-verification contract check DID NOT RUN for this edit. This is a SKIP, not a pass; the runner must be present for either a contract or an opt-out to be accepted.'
+  fi
 else
   # Capture runner output (stderr+stdout merged) and exit code. The runner's --list mode
   # exits 0 for both "contract found" and "valid opt-out found" (both print a summary);

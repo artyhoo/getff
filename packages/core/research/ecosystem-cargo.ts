@@ -58,10 +58,17 @@
 // gap, not a security hole: a registry-only dependency simply does not get
 // Tier-1 (falls through to Tier-0/Tier-2), same as any other cargoAdapter miss.
 
-import { readFileSync, existsSync, realpathSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { EcosystemAdapter, InstalledMeta } from './allowlist-resolver.ts';
 import { extractHttpsHost } from './ecosystem-npm.ts';
+// R-1 (ledger-1597-fixes): the NAME + VALUE guards are the shared definitions in
+// research-path-guards.ts — ONE definition per guard, so a hardening fix reaches
+// every adapter at once instead of dying in a private copy. This adapter's
+// contract is unchanged: isUnsafeDepName rejects a traversal ("..") or
+// separator-bearing dep name before any join, and resolvedWithinRoot is the
+// realpath-both-sides VALUE containment gate (research-source-trust.md §5 item 2).
+import { isUnsafeDepName, resolvedWithinRoot } from './research-path-guards.ts';
 
 const DEP_TABLE_HEADERS = ['dependencies', 'dev-dependencies', 'build-dependencies'] as const;
 
@@ -242,63 +249,6 @@ function readManifest(path: string): ParsedManifest | null {
     return null;
   }
   return parseCargoToml(text);
-}
-
-/** Rejects a dependency name containing path-traversal or separator segments
- *  before it is ever joined into a filesystem path (research-source-trust.md
- *  §5 item D harden-criterion — now LIVE because cargoAdapter is a second
- *  EcosystemAdapter implementation). Fail-closed: returns true (reject) for
- *  any name containing `..` or a path separator (`/` or the platform sep). */
-function isUnsafeDepName(name: string): boolean {
-  return name.includes('..') || name.includes('/') || name.includes(sep) || name.includes('\\');
-}
-
-/** Is `candidateAbs` equal to `root`, or nested inside it? Both arguments
- *  MUST already be absolute (resolved) paths. Purely LEXICAL — this does NOT
- *  dereference symlinks; a symlink whose target lies outside `root` is NOT
- *  caught by this check alone (path.resolve() never follows symlinks). It
- *  remains the low-level string-containment primitive; the actual
- *  containment gate used by resolveDepManifestPath is resolvedWithinRoot
- *  (below), which additionally realpath-canonicalizes both sides before
- *  ever calling this function — that is what makes containment robust to
- *  in-tree symlinks pointing out-of-tree (research-source-trust.md §5 item 2
- *  2nd BLOCKER). Kept as a separate exported-shape primitive for the
- *  lexical-only absolute-path / `..`-segment cases, which need no fs access. */
-function isWithinRoot(candidateAbs: string, root: string): boolean {
-  const base = root.endsWith(sep) ? root : root + sep;
-  return candidateAbs === root || candidateAbs.startsWith(base);
-}
-
-/** Resolves `resolve(root, ...segments)` and returns it ONLY if it both (a)
- *  exists on disk and (b) its REALPATH (symlink-resolved) lies within
- *  root's OWN realpath. Both sides are canonicalized before comparison —
- *  canonicalizing only the candidate side (and comparing against a lexical
- *  `root`) would FALSE-REJECT legitimate in-tree paths whenever `root`
- *  itself sits under a symlinked ancestor (e.g. macOS `/tmp` -> `/private/tmp`,
- *  which every tmp-based test root here inherits). Fail-closed: any
- *  realpath() error (broken symlink, permission failure, race) rejects
- *  rather than guesses. This is the containment gate for all three
- *  dependency-manifest resolution branches (vendored, path-override,
- *  workspace-member) — the VALUE surfaces, as opposed to isUnsafeDepName
- *  which only guards the dependency NAME. Tier-1 derives trust exclusively
- *  from manifests inside the consumer's own (real, not merely lexical)
- *  project tree; anything whose real location resolves outside root's real
- *  location is fail-closed here — no security loss, only no Tier-1
- *  convenience for an out-of-tree/symlink-escaped dependency (it still
- *  falls through to Tier-0/Tier-2). */
-function resolvedWithinRoot(root: string, ...segments: string[]): string | null {
-  const candidate = resolve(root, ...segments);
-  if (!isWithinRoot(candidate, root)) return null; // cheap lexical reject first (handles absolute-path / `..` escapes with no fs access)
-  if (!existsSync(candidate)) return null; // must exist to read + to realpath
-  let real: string;
-  let realRoot: string;
-  try {
-    real = realpathSync(candidate);
-    realRoot = realpathSync(root);
-  } catch {
-    return null; // fail-closed on any realpath error (broken symlink, EPERM, race)
-  }
-  return isWithinRoot(real, realRoot) ? candidate : null;
 }
 
 /** Resolves the locally-available Cargo.toml path for a direct dependency,

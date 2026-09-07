@@ -42,6 +42,22 @@
 # CONSUMER PATH: scripts/check-fences-fire.sh (copied by setup.d/40-configs.sh).
 # FIXTURE PATH:  scripts/fences-fire-fixtures/ (copied by setup.d/40-configs.sh).
 #
+# CONSUMER-EXTENSIBLE (declared 2026-09-06, ledger L-4f — previously true in practice and stated
+# nowhere). scripts/fences-fire-fixtures/ is an extension point: drop your OWN
+# `<name>.bad.<ext>` + `<name>.good.<ext>` + `<name>.manifest.json` triple in there and this gate
+# runs it alongside the shipped ones. Nothing allowlists the shipped set — the corpus is whatever
+# the mask finds:
+#     find "$FIXTURE_DIR" -maxdepth 1 -name '*.manifest.json' -print0   (see the iterate block below)
+# so a consumer triple is enumerated, counted in the non-vacuity denominator (MANIFEST_COUNT) and
+# probed exactly like a framework one. `<name>.manifest.json` must carry a `rule-id` present in
+# this stack's eslint-rules-local barrel, or the probe fails — the barrel prune in
+# setup.d/lib.sh only ever removes FRAMEWORK stems, so a consumer fixture is never pruned for you.
+# Ownership on upgrade: `install.sh --refresh` delivers the framework triples per file and removes
+# only what the refresh-baseline attributes to getff, so your files stay. Each file it cannot
+# attribute is KEPT and named with a `⚠ ORPHAN:` line — expected for a file you added, and the
+# signal to look when you did not. To own the whole directory instead, use the Layer-3 escape
+# `scripts/fences-fire-fixtures.override.md`; refresh then skips the dir wholesale.
+#
 # @cc-only-rationale: sourced by install.sh dispatcher and consumer scripts; same bash
 #   content is the portable mechanism (no CC primitives used).
 set -uo pipefail

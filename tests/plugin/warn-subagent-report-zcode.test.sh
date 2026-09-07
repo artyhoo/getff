@@ -75,14 +75,25 @@ fire_env() {
 clean_state "$SESS_NS-1"
 PAYLOAD='{"hook_event_name":"PostToolUse","session_id":"'"$SESS_NS-1"'","tool_input":"## VERIFY\nran grep at file:1\n","tool_call_id":"tc-1"}'
 fire_env 0 "$PAYLOAD"
+# A3-1 (#1597 ledger): stderr on an exit-0 hook reaches the OPERATOR TRANSCRIPT ONLY — the
+# live probe in docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md
+# §2 measured zero bytes arriving in the model's context. The warning's consumer is the
+# orchestrator MODEL, so the same text must also go out as stdout JSON
+# hookSpecificOutput.additionalContext (the shape .claude/hooks/warn-subagent-report.sh:56-58
+# already uses). The stderr copy stays for terminal/CI readers; the old assertion pinned the
+# DEFECT ("must not contain additionalContext") and is inverted here.
+CC_CTX="$(printf '%s' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["hookSpecificOutput"]["hookEventName"]); print(d["hookSpecificOutput"]["additionalContext"])' 2>/dev/null || true)"
 if [ "$rc" -eq 0 ] \
   && printf '%s' "$ERR" | grep -q '⚠ PostToolUse:Agent: subagent REPORT missing section(s):' \
   && printf '%s' "$ERR" | grep -q 'Confidence' \
   && printf '%s' "$ERR" | grep -q 'ATTN' \
-  && ! printf '%s' "$OUT$ERR" | grep -q 'additionalContext'; then
-  ok "(1) CC Arm A — missing sections emit plain stderr"
+  && printf '%s' "$CC_CTX" | grep -qx 'PostToolUse' \
+  && printf '%s' "$CC_CTX" | grep -q '⚠ PostToolUse:Agent: subagent REPORT missing section(s):' \
+  && printf '%s' "$CC_CTX" | grep -q 'Confidence' \
+  && printf '%s' "$CC_CTX" | grep -q 'ATTN'; then
+  ok "(1) CC Arm A — warning reaches the model on stdout AND the operator on stderr"
 else
-  bad "(1) CC Arm A — rc=$rc err=$(printf '%s' "$ERR" | head -c 120)"
+  bad "(1) CC Arm A — rc=$rc out=$(printf '%s' "$OUT" | head -c 160) err=$(printf '%s' "$ERR" | head -c 120)"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -213,6 +224,64 @@ if [ "$rc" -eq 0 ] \
   ok "(9) ZCode role:assistant transcript shape — text extracted, missing sections flagged"
 else
   bad "(9) role:assistant — rc=$rc out=[$(printf '%s' "$OUT$ERR" | head -c 200)]"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case 10 — A3-1, Arm B — the Stop warning reaches the model too
+# ─────────────────────────────────────────────────────────────────────────────
+# Same channel defect as Case 1, on the other arm: Arm B is registered for CC consumers
+# (hooks.json Stop entry, no _is_zcode gate), so its stderr-only warning reached nobody.
+# WARN-not-block is preserved: exit 0 and NO `decision:"block"` — this hook must never
+# stall a turn (plugin/hooks/warn-subagent-report-zcode:25-26).
+clean_state "$SESS_NS-10"
+cat >"$TMPD/t10.jsonl" <<'JSONL'
+{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"r10-1","content":"## VERIFY\npartial only\n"}]}}
+JSONL
+PAYLOAD='{"hook_event_name":"Stop","session_id":"'"$SESS_NS-10"'","transcript_path":"'"$TMPD"'/t10.jsonl"}'
+fire_env 0 "$PAYLOAD"
+STOP_CTX="$(printf '%s' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["hookSpecificOutput"]["hookEventName"]); print(d["hookSpecificOutput"]["additionalContext"]); print("HASDECISION" if "decision" in d else "NODECISION")' 2>/dev/null || true)"
+if [ "$rc" -eq 0 ] \
+  && printf '%s' "$STOP_CTX" | grep -qx 'Stop' \
+  && printf '%s' "$STOP_CTX" | grep -q '⚠ Stop: subagent REPORT missing section(s):' \
+  && printf '%s' "$STOP_CTX" | grep -qx 'NODECISION'; then
+  ok "(10) CC Arm B — Stop warning reaches the model as additionalContext, still non-blocking"
+else
+  bad "(10) CC Arm B — rc=$rc out=$(printf '%s' "$OUT" | head -c 200)"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Case 11 — A3-2 — the Stop sweep must not spawn one jq per transcript line
+# ─────────────────────────────────────────────────────────────────────────────
+# Measured on a real CC transcript (2548 lines / 5.6 MB): 12.99 s per Stop event, 2004 jq
+# spawns, prefilter selectivity 2548 of 2548 — the `"(type|role)"` alternation matched every
+# JSONL line. At ~5 ms/line the 60 s hook timeout is reached around 12k lines, after which CC
+# kills the Stop hook on EVERY turn. A PATH shim counts spawns: the budget is a small constant
+# (dispatch + extraction), not a function of transcript length.
+clean_state "$SESS_NS-11"
+JQ_REAL="$(command -v jq)"
+mkdir -p "$TMPD/bin"
+cat >"$TMPD/bin/jq" <<SHIM
+#!/bin/sh
+echo x >> "$TMPD/jq.count"
+exec "$JQ_REAL" "\$@"
+SHIM
+chmod +x "$TMPD/bin/jq"
+: >"$TMPD/jq.count"
+: >"$TMPD/t11.jsonl"
+i=0
+while [ "$i" -lt 300 ]; do
+  printf '%s\n' '{"role":"assistant","message":{"content":[{"type":"tool_result","tool_use_id":"r11-'"$i"'","content":"## VERIFY\npartial '"$i"'\n"}]}}' >>"$TMPD/t11.jsonl"
+  i=$((i+1))
+done
+PAYLOAD='{"hook_event_name":"Stop","session_id":"'"$SESS_NS-11"'","transcript_path":"'"$TMPD"'/t11.jsonl"}'
+printf '%s' "$PAYLOAD" > "$TMPD/payload11"
+OUT=$(PATH="$TMPD/bin:$PATH" env -u ZCODE_PROJECT_DIR bash "$HOOK" < "$TMPD/payload11" 2>"$TMPD/err11"); rc=$?
+JQ_SPAWNS=$(wc -l < "$TMPD/jq.count" | tr -d '[:space:]')
+if [ "$rc" -eq 0 ] && [ "${JQ_SPAWNS:-9999}" -le 20 ] \
+  && printf '%s%s' "$OUT" "$(cat "$TMPD/err11")" | grep -q '⚠ Stop: subagent REPORT missing section(s):'; then
+  ok "(11) Arm B — 300 tool_result lines cost $JQ_SPAWNS jq spawns (budget 20), warning still emitted"
+else
+  bad "(11) Arm B jq spawns=$JQ_SPAWNS rc=$rc (budget 20) out=$(printf '%s' "$OUT" | head -c 120)"
 fi
 
 echo ""

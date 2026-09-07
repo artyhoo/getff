@@ -83,6 +83,81 @@ for what it ships and how the firing proof works. The rest of this section (`--f
 
 Four further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the five skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--all` — operator shorthand for `--full` + `--with-aif-suite` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
 
+### Python lane — the local hook rung and `GETFF_SKIP_HOOKS`
+
+Besides the CI gate, `install.sh python` delivers a **local** rung: `.getff/hooks/pre-push`, which runs the same ast-grep + ruff arms the CI gate runs, before a push leaves your machine. `GETFF_SKIP_HOOKS=1` is the opt-out, and it is read at **two separate moments** — it is also the only environment knob **named `GETFF_*`** any getff-delivered hook body consults at runtime (runtime variables with other prefixes exist — see [Environment knobs](#environment-knobs-read-by-delivered-artefacts) below).
+
+| When | Command | Effect |
+| --- | --- | --- |
+| **Install time** | `GETFF_SKIP_HOOKS=1 bash install.sh python` | the whole rung is skipped: the installer prints `⊝ local git hook rung skipped (GETFF_SKIP_HOOKS=1 at install)`, `.getff/hooks/pre-push` is never written, and `core.hooksPath` is left untouched. Measured against a default install of the same fixture, the two trees differ by exactly that one file. |
+| **Push time** | `GETFF_SKIP_HOOKS=1 git push …` | the delivered hook exits 0 before any linter runs, for that one push only. The hook file and `core.hooksPath` stay in place, so the next plain `git push` enforces again. |
+
+It skips **nothing else**. `sgconfig.yml`, `ruff.toml`, `.getff/astgrep-rules/`, `.getff/ruff-bans.toml` and `.github/workflows/getff-python.yml` are delivered and enforce either way — a push that skipped the local rung is still caught by the CI gate on the server. To remove the rung permanently instead, delete `.getff/hooks/pre-push` (and `git config --unset core.hooksPath` if you keep no other hooks there); the hook header repeats both escapes.
+
+Activation is separately conditional: the lane never takes `core.hooksPath` away from a consumer that already has hooks of their own (an existing `core.hooksPath`, a `.pre-commit-config.yaml`, or any live hook under `$GIT_DIR/hooks`). On those repos the hook body is delivered but **not** activated — it is integrated or declined with a printed notice — so `GETFF_SKIP_HOOKS` has nothing to suppress at push time there.
+
+### Consumer-extensible directory payloads
+
+Most files getff installs are single files it owns. A few destinations are **directory payloads** — getff fills the directory but does not claim everything in it. `scripts/fences-fire-fixtures/` is the declared example: you may add your own fixture triple there and the shipped gate will run it.
+
+**Adding your own fence fixture.** Drop three files into `scripts/fences-fire-fixtures/`:
+
+```text
+my-rule.bad.ts        # the minimal snippet your rule must reject
+my-rule.good.ts       # the closest-passing counterpart it must accept
+my-rule.manifest.json # {"rule-id": "local/my-rule"}  (+ optional "rule-options")
+```
+
+`scripts/check-fences-fire.sh` builds its corpus from a mask, not an allowlist — `find "$FIXTURE_DIR" -maxdepth 1 -name '*.manifest.json'` — so your triple is enumerated, counted toward the gate's non-vacuity assertion and probed exactly like a shipped one. The `rule-id` must exist in your `eslint-rules-local/index.mjs` barrel; the installer's barrel prune only ever removes **framework** fixture stems, so it never deletes yours.
+
+**What happens on `install.sh --refresh`.** The framework's own fixtures are re-delivered file by file. A file in the directory that getff no longer ships is removed **only** when the refresh-baseline manifest (`.ai-factory/refresh-baseline.json`) attributes it to a past getff delivery and its bytes still match. Anything else is kept — that is what protects your fixtures — and each kept file is named on stdout:
+
+```text
+⚠ ORPHAN: scripts/fences-fire-fixtures/my-rule.manifest.json sits inside the getff-delivered
+  payload scripts/fences-fire-fixtures, is not in the current template set, and has no
+  refresh-baseline entry.
+```
+
+For a file you added, that line is expected and needs no action. If you see it for a file you do **not** recognise, it is residue of an older getff version: delete it, because a stale fixture there is live configuration — the gate will still enumerate and probe it.
+
+**Owning the whole directory.** To take the directory out of getff's hands entirely, create the Layer-3 sibling `scripts/fences-fire-fixtures.override.md`. `--refresh` then skips the directory wholesale and prints `⊝ … (.override.md — consumer-owned, keeping)`. See [INSTALL-FOR-AI.md — Three-layer authority](INSTALL-FOR-AI.md#three-layer-authority-for-shipped-artefacts).
+
+---
+
+## Environment knobs read by delivered artefacts
+
+`GETFF_SKIP_HOOKS` (previous section) is the only `GETFF_*`-prefixed variable a delivered hook body reads at runtime. One further knob with a different prefix exists, plus four look-alike names that are **not** knobs at all. (`AIF_*`-prefixed tuning variables — e.g. `AIF_HOOK_LANG`, the output-language switch — are documented in the delivered hook headers themselves.)
+
+### `RULES_DIR_OVERRIDE` — scan a different rules corpus (runtime)
+
+`.claude/hooks/inject-matching-rule.sh` — delivered by the npm/ts lanes (`setup.d/10-skills.sh`) and the python lane (`setup.d/45-python.sh`), registered as `PostToolUse:Edit|Write|MultiEdit` — injects a one-line rule pointer when the file just edited matches a `<!-- globs: … -->` marker in a rule file. Which corpus it scans is decided at **every hook firing**:
+
+```bash
+RULES_DIR="${RULES_DIR_OVERRIDE:-$REPO_ROOT/.claude/rules}"
+```
+
+| Aspect | Behaviour |
+| --- | --- |
+| Read at | runtime — each Edit/Write/MultiEdit, inside your project |
+| Default | `<your project>/.claude/rules` (resolved from the hook's own location) |
+| Shape | use an absolute path; relative values resolve against the hook's working directory, which is not stable |
+| Does NOT | copy or move anything — the scan is redirected, nothing is written |
+| Does NOT | rewrite the injected pointer — it still reads `see .claude/rules/<slug>.md` even when the corpus lives elsewhere |
+| Does NOT | fail on a missing or empty directory — the hook prints a once-per-session notice, then stays silent for the session |
+
+Measured 2026-09-06 on a delivered copy in a scratch project: default → the project's own rule is injected; `RULES_DIR_OVERRIDE=/abs/alt-rules` → the alt corpus's rule is injected instead; `RULES_DIR_OVERRIDE=<nonexistent dir>` → `⚠ inject-matching-rule: no rules corpus found at <dir>` exactly once, then silence. The variable began life as the hook's test seam (its header says so), but the read sits in a delivered hook body at a boundary you control — set it if you keep your rule corpus outside `.claude/rules/`.
+
+### Installer variables that are NOT knobs
+
+These four names look like knobs but are internal constants — three are plain assignments that overwrite any exported value, and the fourth is recomputed from your project's shape before use. Proven by a double install into identical scratch projects, one clean and one with all four exported: identical trees, identical logs (modulo the scratch-project path), identical `arch:check` line.
+
+| Name | Where | What it actually is |
+| --- | --- | --- |
+| `GETFF_LANES` | `setup.d/lib.sh:974` | the fixed lane list (`python cargo go`) the orphan sweep walks — a constant |
+| `GETFF_SKILLS_CORE` | `setup.d/lib.sh:61` | the core skill set; the consumer-facing control is `--profile` |
+| `GETFF_SKILLS_FACTORY` | `setup.d/lib.sh:63` | the factory skill list; the control is `--profile factory` or `--with-aif-suite` |
+| `AIF_ARCH_TARGET` | `setup.d/70-deps.sh:41-49` | wiped, then recomputed (monorepo roots → `src` → `.`) into your `package.json` `arch:check` line; to aim at exotic roots, edit that one line after install |
+
 ---
 
 ## Path C: manual copy (full control)

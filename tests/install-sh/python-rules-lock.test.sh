@@ -191,17 +191,20 @@ else
 fi
 rm -rf "$SRC9" "$P9"
 
-# ── (10) MINOR (W3 rework): loud degrade when NO sha256/md5 hash tool is on PATH ───────────────────
-# The sourceFingerprint hash ladder falls through to a fake CONSTANT (0000000000000000) when the host has
-# no sha256sum/shasum/md5/md5sum. That constant must NEVER be trusted silently (attention-is-not-a-
-# mechanism §1 / degrade-loudly) → assert the loud stderr warning fires. Driven via the lib-only seam
-# (PY_LAYER_LIB_ONLY=1) under a pruned PATH holding only the coreutils the writer needs — NOT the hash
-# tools — so the no-tool branch is reached deterministically without perturbing the full installer.
+# ── (10) MINOR (W3 rework; R-3b rework): loud degrade when NO sha256 hash tool is on PATH ──────────
+# The fingerprint degrades to a fake CONSTANT when the host has no sha256 tool. That constant must
+# NEVER be trusted silently (attention-is-not-a-mechanism §1 / degrade-loudly) → assert the loud
+# stderr warning fires. R-3b: the constant is now the SHARED cargo/go one ("sha256:unknown" — one
+# degradation policy repo-wide), and the inline md5/md5sum rungs are GONE, so a no-sha host can no
+# longer produce a real-but-md5 digest here while every other surface degrades loudly. Driven via
+# the lib-only seam (PY_LAYER_LIB_ONLY=1, lib.sh sourced first like the real install.sh — _hash256
+# lives there) under a pruned PATH holding only the coreutils the writer needs — NOT the hash
+# tools — so the degrade rung is reached deterministically without perturbing the full installer.
 # @arm:D2:neg no-silent-fingerprint-degrade — W3 pre-fix reproduction: no-hash-tool path was silent
 echo ""; echo "  ── (10) loud degrade: no hash tool → stderr warning + non-authoritative fingerprint ──"
 BASHBIN=$(command -v bash)
 BIN=$(mktemp -d)
-for t in cat find sort sed grep awk date mkdir rm head wc; do
+for t in cat find sort sed grep awk date mkdir rm mktemp head wc; do
   p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN/$t"
 done
 P10=$(py_fixture)
@@ -210,14 +213,16 @@ cp "$TPL/.getff/astgrep-rules/"*.yml "$P10/.getff/astgrep-rules/"
 cp "$TPL/ruff.toml" "$P10/.getff/ruff-bans.toml"
 warn10=$(
   PATH="$BIN" PY_LAYER_LIB_ONLY=1 PROJECT_ROOT="$P10" DRY_RUN="" GETFF_TOOLCHAIN_REFRESH="" FORCE="--force" \
-    "$BASHBIN" -c 'source "$1"; _py_write_rules_lock >/dev/null' _ "$REPO_ROOT/setup.d/45-python.sh" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _py_write_rules_lock >/dev/null' _ "$REPO_ROOT/setup.d/lib.sh" "$REPO_ROOT/setup.d/45-python.sh" 2>&1
 )
-fp10=$(lock_field "$P10/$LOCK_REL" sourceFingerprint)
+fp10=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$P10/$LOCK_REL" 2>/dev/null)
+# NOTE: lock_field's greedy `s/.*://` cannot extract a value containing a colon — the prefixed
+# constant needs the same direct sed the cargo/go arms use for their `sha256:…` fingerprints.
 printf '%s' "$warn10" | grep -q "non-authoritative" \
   && ok "(10) loud stderr warning emitted when no hash tool is on PATH (RED before fix — was silent)" \
   || bad "(10) NO loud warning on the no-hash-tool degrade path (silent fake fingerprint)"
-[ "$fp10" = "0000000000000000" ] \
-  && ok "(10) fingerprint degrades to the documented non-authoritative constant" \
+[ "$fp10" = "sha256:unknown" ] \
+  && ok "(10) fingerprint degrades to the shared cargo/go non-authoritative constant (sha256:unknown — R-3b)" \
   || bad "(10) unexpected fingerprint on the degrade path: '$fp10'"
 rm -rf "$BIN" "$P10"
 
@@ -587,6 +592,106 @@ else
     rm -rf "$P13"
   fi
 fi
+
+# ── (14) A2-7: sourceFingerprint must cover the provenance fragments the lock WRITES ──────────────
+# Ledger addendum A2-7. The fingerprint is the input to the CONTENT-AWARE idempotent skip
+# (45-python.sh, "fingerprint unchanged … no-op"). It hashed only the delivered rule bytes
+# (astgrep ymls + ruff bans) — but the lock's `provenance` field is built from the
+# generation-context/python/*.json fragments read further down the same function. A fragment
+# added without a rule-byte change therefore could not perturb the fingerprint, the skip fired,
+# and the lock stayed STALE forever — contradicting the invariant its own docstring states
+# ("the lock is NEVER stale relative to the delivered .getff/ artefacts").
+#
+# This was MASKED on the --force path by A2-1: copy_safe nested .getff/astgrep-rules/astgrep-rules/,
+# the fingerprint's `find … -name '*.yml'` is recursive, so the yml count doubled (4 → 8) and the
+# hash changed for the wrong reason. Arm (12) above passed on that accident. With A2-1 fixed the
+# tree is genuinely identical and the hole is exposed on BOTH the plain and the --force path.
+#
+# PAIRED: (14a) fragment added, rule bytes untouched → fingerprint CHANGES + provenance lands.
+#         (14b) nothing changed at all → the skip line STILL fires and the lock stays byte-identical
+#               (the content-aware skip is preserved, not defeated by hashing more inputs).
+echo ""; echo "  ── (14) A2-7: fingerprint covers provenance fragments; idempotent skip preserved ──"
+P14=$(py_fixture)
+( cd "$P14" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+L14="$P14/$LOCK_REL"
+_fp_before=$(lock_field "$L14" sourceFingerprint)
+_id14=$(grep -hE '^id:' "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | head -1 | sed -E 's/^id:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')
+_yml_sha_before=$(cat "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}')
+
+if [ -z "$_fp_before" ] || [ -z "$_id14" ]; then
+  bad "(14) precondition FAILED: no lock fingerprint ('$_fp_before') or no delivered rule id ('$_id14')"
+else
+  ok "(14) precondition: first install emitted fingerprint $_fp_before for delivered id $_id14"
+
+  # (14a) add ONLY a provenance fragment — rule bytes stay byte-identical.
+  mkdir -p "$P14/.ai-factory/synthesizer-output/generation-context/python"
+  printf '{"id":"%s","provenance":[{"url":"https://pyyaml.org","allowlistKey":"a2-7-probe","fetchedAt":"2026-09-05","tier":0}],"tier":0}\n' "$_id14" \
+    > "$P14/.ai-factory/synthesizer-output/generation-context/python/$_id14.json"
+  ( cd "$P14" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+  _fp_after=$(lock_field "$L14" sourceFingerprint)
+  _yml_sha_after=$(cat "$P14"/.getff/astgrep-rules/*.yml 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}')
+
+  # Non-vacuity: the rule bytes MUST be unchanged, else any fingerprint change proves nothing.
+  [ "$_yml_sha_before" = "$_yml_sha_after" ] \
+    && ok "(14a) non-vacuity: delivered rule bytes byte-identical across the two passes (the fragment is the only delta)" \
+    || bad "(14a) non-vacuity BROKEN: rule bytes changed between passes — a fingerprint change would prove nothing"
+
+  [ -n "$_fp_after" ] && [ "$_fp_after" != "$_fp_before" ] \
+    && ok "(14a) fingerprint changed ($_fp_before → $_fp_after) after a provenance-fragment-only delta" \
+    || bad "(14a) fingerprint UNCHANGED ($_fp_before) after adding a provenance fragment — the skip is blind to the lock's own provenance inputs (A2-7)"
+
+  grep -q '"allowlistKey": *"a2-7-probe"' "$L14" 2>/dev/null || grep -q 'a2-7-probe' "$L14" 2>/dev/null \
+    && ok "(14a) lock regenerated and carries the fragment's provenance (reader reached on a plain, non-force pass)" \
+    || bad "(14a) lock does NOT carry the fragment provenance — it was skipped as 'unchanged' and is now permanently stale"
+
+  # (14b) NOTHING changes → the content-aware skip must still fire and the lock stay byte-identical.
+  _lock_sha_before=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
+  _out14b=$( cd "$P14" && bash "$INSTALL" python < /dev/null 2>&1 )
+  _lock_sha_after=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
+
+  echo "$_out14b" | grep -q 'fingerprint unchanged' \
+    && ok "(14b) no-delta re-run still prints the content-aware skip (hashing more inputs did not defeat idempotency)" \
+    || bad "(14b) skip line GONE on a no-delta re-run — the lock now regenerates every pass (emittedAt churn): $(echo "$_out14b" | grep -i 'rules-lock' | tr '\n' '|' | cut -c1-160)"
+
+  [ "$_lock_sha_before" = "$_lock_sha_after" ] \
+    && ok "(14b) lock byte-identical across a no-delta re-run" \
+    || bad "(14b) lock bytes changed on a no-delta re-run (fingerprint is not deterministic over the fragment set)"
+fi
+rm -rf "$P14"
+
+# ── (15) A2-12: the rules-dir walk is BOUNDED — a nested *.yml must NOT perturb the fingerprint ────
+# Ledger addendum A2-12: `_hash_input`'s `find` was RECURSIVE, so a directory nested under the
+# delivered rules dir silently changed the hash even though the delivered population is flat by
+# construction (the template rules dir holds N *.yml and no subdirs; copy_safe/refresh_safe replace
+# the dir wholesale — a subdirectory is never part of a delivery). PAIRED NEGATIVE: the bait MUST
+# change the fingerprint while the walk is recursive (RED) and MUST NOT after the walk is bounded
+# to -maxdepth 1 (GREEN) — a bound that never changed anything would be indistinguishable from no
+# bound at all. Drives the real install.sh plain passes like arm (14): the plain pass does not
+# overwrite the delivered dir, so the planted bait survives into the second fingerprint pass.
+echo ""; echo "  ── (15) A2-12: nested *.yml under the rules dir must NOT change the fingerprint ──"
+P15=$(py_fixture)
+( cd "$P15" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+L15="$P15/$LOCK_REL"
+fp15a=$(lock_field "$L15" sourceFingerprint)
+if [ -n "$fp15a" ]; then
+  ok "(15) precondition: first pass emitted fingerprint $fp15a"
+else
+  bad "(15) precondition FAILED: no lock fingerprint on the first pass"
+fi
+mkdir -p "$P15/.getff/astgrep-rules/nested"
+cp "$P15"/.getff/astgrep-rules/*.yml "$P15/.getff/astgrep-rules/nested/"
+# Non-vacuity: the bait is real — the nested dir actually holds yml bytes the recursive walk saw.
+[ -n "$(ls "$P15/.getff/astgrep-rules/nested"/*.yml 2>/dev/null)" ] \
+  && ok "(15) non-vacuity: nested bait planted under .getff/astgrep-rules/nested/ (real yml bytes)" \
+  || bad "(15) non-vacuity FAILED: nested bait did not land — a green result would prove nothing"
+( cd "$P15" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+fp15b=$(lock_field "$L15" sourceFingerprint)
+if [ "$fp15b" = "$fp15a" ]; then
+  ok "(15) nested *.yml did NOT change the fingerprint ($fp15a stable) — the walk is bounded (A2-12 closed)"
+else
+  bad "(15) nested *.yml CHANGED the fingerprint ($fp15a → $fp15b) — the rules-dir walk is still recursive (A2-12 RED)"
+fi
+rm -rf "$P15"
 
 rm -rf "$P" "$P2"
 echo ""

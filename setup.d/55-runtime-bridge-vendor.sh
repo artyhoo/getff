@@ -110,9 +110,11 @@ mkdir_safe "$PROJECT_ROOT/.claude/vendor"
 # Delivery-time, not source-time, ON PURPOSE: PR #1417 keeps this vendor drop byte-identical to
 # its tracked source, and rewriting the delivered copy preserves that (the tracked file is not
 # touched) where re-authoring the README would break it.
-# The sequence lives in lib.sh so the refresh path runs the identical one (see
-# deliver_runtime_bridge_vendor) — these two are an @sync-with-layers pair that already drifted.
-deliver_runtime_bridge_vendor "$VENDOR_SRC" "$VENDOR_DST"
+# The sequence lives in lib.sh (_copy_tree_with_transform) so the refresh path runs the identical
+# one — these two are an @sync-with-layers pair that already drifted. The refresh path adds the
+# ownership decision this install path does not owe: it goes through refresh_tree_with_transform,
+# which honours the Layer-3 `.override.md` escape before reusing this same sequence.
+_copy_tree_with_transform "$VENDOR_SRC" "$VENDOR_DST"
 
 # Copy the dispatch hook (idempotent — same destination as
 # setup-runtime-bridge.sh's HOOK_DST copy; byte-identical source).

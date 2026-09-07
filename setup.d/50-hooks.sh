@@ -57,18 +57,10 @@ done
 # collide with a consumer's own packages/core package or be picked up as a workspace member.
 copy_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" "$PROJECT_ROOT/packages/core/hooks/package.json"
 
-# consumer-refresh-integrity R3 (issues 1482 + 1485): deliver the ask-file gate script.
-# pre-push.ts askFileSchemaSection() presence-gates scripts/check-ask-files.sh and silently
-# returns when it is absent — an undelivered script means the gate NEVER FIRES on a consumer.
-# The script's logic + mailbox literal live OUTSIDE packages/ by the session-bus v2 §9
-# executable claim 1 (packages/core/hooks/pre-push.ts:1323-1326 records it), so the source
-# stays at root scripts/ and is delivered as-is wherever this hook layer ships (unconditional
-# for every standard npm profile — kickoff RI-4's measured breadth; the non-npm toolchain
-# lanes bypass the layer loop and never see the pre-push arm at all).
-copy_safe "$PKG_ROOT/scripts/check-ask-files.sh" "$PROJECT_ROOT/scripts/check-ask-files.sh"
-if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
-  chmod_safe +x "$PROJECT_ROOT/scripts/check-ask-files.sh" 2>/dev/null || true
-fi
+# ledger C-2 (#1597): scripts/check-ask-files.sh is NO LONGER delivered — the pre-push
+# ask-file-schema section is maintainer-only (owner: 'maintainer', packages/core/hooks/pre-push.ts)
+# and composeSections() drops maintainer sections on consumers, so the delivered script was
+# unreachable here. A stale copy from a prior delivery is reported (never deleted) by --refresh.
 chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" \
   "$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh" 2>/dev/null || true
 

@@ -34,7 +34,7 @@
  *   orchestrator session, and imported by AifHandoffBackend.dispatch(). No CC-only
  *   primitive, no Superset import, no paid LLM.
  */
-import { fileURLToPath } from 'node:url';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { getProjects, putProject, type AifProjectFull } from './aifHttp.js';
 import { resolveReachableBaseUrl } from './park.js';
 
@@ -93,15 +93,28 @@ export function formatEnsureResult(result: EnsureParallelResult): string {
 }
 
 async function main(): Promise<void> {
-  const baseUrl = await resolveReachableBaseUrl(process.env);
-  const i = process.argv.indexOf('--project');
-  const projectId = (i !== -1 && process.argv[i + 1]) || process.env.RUNTIME_BRIDGE_AIF_PROJECT_ID;
-  const json = process.argv.includes('--json');
+  // Args BEFORE the network probe: a malformed invocation must not spend a
+  // multi-candidate reachability probe before it is rejected.
+  let projectId: string | undefined;
+  let json = false;
+  try {
+    const { values } = parseCliArgs(process.argv.slice(2), {
+      options: { project: { type: 'string' }, json: { type: 'boolean' } },
+    });
+    projectId = (values.project as string | undefined) ?? process.env.RUNTIME_BRIDGE_AIF_PROJECT_ID;
+    json = values.json === true;
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[runtime-bridge] ensure-parallel: ${msg}\n`);
+    process.exit(1);
+  }
 
   if (!projectId) {
     process.stderr.write('[runtime-bridge] ensure-parallel: missing --project <id> (or $RUNTIME_BRIDGE_AIF_PROJECT_ID)\n');
     process.exit(1);
   }
+
+  const baseUrl = await resolveReachableBaseUrl(process.env);
 
   let result: EnsureParallelResult;
   try {
@@ -117,7 +130,9 @@ async function main(): Promise<void> {
 }
 
 // Run only as a real entrypoint — importing the module (tests) must not fetch/exit.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// realpath BOTH sides (cliEntry.isMain): a symlinked invocation path used to make this
+// false, so the CLI exited 0 having done nothing (A6-1).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     process.stderr.write(`[runtime-bridge] ensure-parallel: unhandled error: ${err}\n`);
     process.exit(1);

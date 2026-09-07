@@ -337,28 +337,62 @@ EOF
     fi
   fi
 
-  if ! command -v npm >/dev/null 2>&1; then
-    CANNOT_RUN+=("npm:npm")
-    echo "CANNOT-RUN: npm is required for the npm lanes and was not found on this host" >&2
+  # ── which package manager? The LOCKFILE decides (ledger A4-2) ───────────────
+  # The lane is detected from package.json alone (:261), and this used to hard-run
+  # `npm ci` on whatever it found. On a pnpm or yarn consumer there is no
+  # package-lock.json, so npm ci exits non-zero and the carrier recorded verdict
+  # FAIL / exit 1 — «a gate went red on the merge result» — for a repository whose
+  # gates never ran at all. That inverts this script's own verdict contract (:21:
+  # exit 3 CANNOT-RUN is for «a required tool/pin is absent on this host») and
+  # writes a false failed_gates:['npm:npm ci'] row into the ledger.
+  #
+  # Frozen installs only, in every lane: a carrier that re-resolves dependencies is
+  # not validating the merge result the CI runner will see.
+  local _pm _pm_install _lock
+  if [ -f "$WORKTREE_DIR/package-lock.json" ]; then
+    _pm="npm"; _lock="package-lock.json"; _pm_install="npm ci --prefer-offline"
+  elif [ -f "$WORKTREE_DIR/pnpm-lock.yaml" ]; then
+    _pm="pnpm"; _lock="pnpm-lock.yaml"; _pm_install="pnpm install --frozen-lockfile --prefer-offline"
+  elif [ -f "$WORKTREE_DIR/yarn.lock" ]; then
+    _pm="yarn"; _lock="yarn.lock"
+    # Yarn 1 spells it --frozen-lockfile; Berry (2+) renamed it --immutable and
+    # rejects the old flag outright, so the wrong one is a hard error, not a warning.
+    if command -v yarn >/dev/null 2>&1 && [ "$(yarn --version 2>/dev/null | cut -d. -f1)" = "1" ]; then
+      _pm_install="yarn install --frozen-lockfile"
+    else
+      _pm_install="yarn install --immutable"
+    fi
+  else
+    CANNOT_RUN+=("npm:no-lockfile")
+    echo "CANNOT-RUN: package.json is present but no lockfile is — expected one of package-lock.json, pnpm-lock.yaml, yarn.lock. A frozen install is impossible, so the carrier cannot reproduce the CI tree (this is NOT a failing gate)" >&2
     return 0
   fi
 
-  # the run: fresh npm ci in the throwaway worktree, then npm run validate.
+  if ! command -v "$_pm" >/dev/null 2>&1; then
+    CANNOT_RUN+=("npm:$_pm")
+    echo "CANNOT-RUN: $_lock in the merge tree selects $_pm, and $_pm was not found on this host" >&2
+    return 0
+  fi
+
+  # the run: frozen install in the throwaway worktree, then `<pm> run validate`.
   # No pipe around the gate command (§b.2 trap 5): explicit redirect + captured RC.
   cd "$WORKTREE_DIR"
   set +e
-  npm ci --prefer-offline >"$LOG_FILE" 2>&1
+  # CI=true: pnpm aborts a non-interactive run that wants to remove node_modules
+  # (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY) — the carrier has no TTY. Harmless
+  # for npm and yarn, which already treat CI as a non-interactive hint.
+  CI=true $_pm_install >"$LOG_FILE" 2>&1
   _rc=$?
   set -e
   if [ "$_rc" -ne 0 ]; then
-    FAILED_GATES_Q+=("npm:npm ci")
-    echo "FAIL: npm ci failed on the merge result (rc=$_rc) — log: $LOG_FILE (set PMC_VERBOSE=1 for the tail)" >&2
+    FAILED_GATES_Q+=("npm:$_pm_install")
+    echo "FAIL: '$_pm_install' failed on the merge result (rc=$_rc) — log: $LOG_FILE (set PMC_VERBOSE=1 for the tail)" >&2
     if [ -n "${PMC_VERBOSE:-}" ]; then tail -n 20 "$LOG_FILE" >&2; fi
     return 0
   fi
 
   set +e
-  npm run validate >>"$LOG_FILE" 2>&1
+  "$_pm" run validate >>"$LOG_FILE" 2>&1
   _vrc=$?
   set -e
   _rc=$_vrc
@@ -413,7 +447,7 @@ EOF
     done
     if [ "$_build_owed" -eq 1 ] && [ "$_vrc" -eq 0 ]; then
       set +e
-      npm run build >>"$LOG_FILE" 2>&1
+      "$_pm" run build >>"$LOG_FILE" 2>&1
       _rc=$?
       set -e
       if [ "$_rc" -ne 0 ]; then

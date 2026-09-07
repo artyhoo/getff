@@ -28,6 +28,8 @@
  *                              → done → implementing, reworkRequested:true (aif redoes with the feedback)
  *   approve : POST /tasks/:id/events { event: 'approve_done' }        → done → verified
  *   retry   : POST /tasks/:id/events { event: 'retry_from_blocked' }  → blocked_external → prior status
+ *   resume  : PUT  /tasks/:id { plan+answer, paused:false, blockedReason:null }
+ *                              → lifts an A-park; NO event, so it REQUIRES paused:true (A6-6b)
  *
  * Non-destructive (kickoff §4.2 "idempotent/reversible"): only ever creates a
  * comment + dispatches a FORWARD state-machine event — no DELETE, no force-push.
@@ -40,7 +42,7 @@
  * Flags:
  *   --task <id>      — REQUIRED: the parked task to resolve.
  *   --answer <text>  — the resolution text; REQUIRED for request_changes (attached as a comment).
- *   --decision <d>   — request_changes (default) | approve | retry.
+ *   --decision <d>   — request_changes (default) | approve | retry | resume (A-park only).
  *   --json           — print the result as a JSON object.
  *
  * Exit codes:
@@ -51,9 +53,9 @@
  *   maintainer's bash smoke-test and from an orchestrator session. No CC-only
  *   primitive, no Superset import, no paid LLM.
  */
-import { fileURLToPath } from 'node:url';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { BackendError } from '../backend.js';
-import { getTask, putTask } from './aifHttp.js';
+import { getTask, putTask, postJson } from './aifHttp.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
@@ -119,17 +121,24 @@ export interface AnswerArgs {
   json: boolean;
 }
 
-/** Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes), --json. */
+/**
+ * Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes), --json.
+ * Throws {@link CliArgError} on a malformed invocation — see cliEntry.ts (A6-7).
+ */
 export function parseAnswerArgs(argv: string[]): AnswerArgs {
-  const valueOf = (flag: string): string | undefined => {
-    const i = argv.indexOf(flag);
-    return i !== -1 && argv[i + 1] ? argv[i + 1] : undefined;
-  };
+  const { values } = parseCliArgs(argv, {
+    options: {
+      task: { type: 'string' },
+      answer: { type: 'string' },
+      decision: { type: 'string' },
+      json: { type: 'boolean' },
+    },
+  });
   return {
-    taskId: valueOf('--task'),
-    answer: valueOf('--answer'),
-    decision: valueOf('--decision') ?? 'request_changes',
-    json: argv.includes('--json'),
+    taskId: values.task as string | undefined,
+    answer: values.answer as string | undefined,
+    decision: (values.decision as string | undefined) ?? 'request_changes',
+    json: values.json === true,
   };
 }
 
@@ -154,63 +163,16 @@ export function validateAnswerArgs(args: AnswerArgs): string | null {
 }
 
 /**
- * POST a JSON body to an aif-handoff endpoint; map failures to BackendError
- * (same mapping as AifHandoffBackend._rest, kept consistent across the package):
- *   connection refused / abort → 'unavailable'
- *   HTTP 429                   → 'quota_exceeded'
- *   any other non-2xx          → 'dispatch_failed'
+ * Attach the human's answer to the task as a comment (POST /tasks/:id/comments { message }).
+ * The transport + BackendError mapping live in cli/aifHttp.ts — this file used to carry a
+ * verbatim copy of it (S-4).
  */
-async function post(
-  baseUrl: string,
-  path: string,
-  body: unknown,
-): Promise<unknown> {
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new BackendError(
-      `aif-handoff POST ${path} unreachable: ${msg}`,
-      'unavailable',
-      'aif-handoff',
-    );
-  }
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    if (res.status === 429) {
-      throw new BackendError(
-        `aif-handoff rate limit (POST ${path}): ${errBody}`,
-        'quota_exceeded',
-        'aif-handoff',
-      );
-    }
-    throw new BackendError(
-      `aif-handoff POST ${path} HTTP ${res.status}: ${errBody}`,
-      'dispatch_failed',
-      'aif-handoff',
-    );
-  }
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
-  }
-}
-
-/** Attach the human's answer to the task as a comment (POST /tasks/:id/comments { message }). */
 export async function postComment(
   baseUrl: string,
   taskId: string,
   message: string,
 ): Promise<void> {
-  await post(baseUrl, `/tasks/${taskId}/comments`, { message });
+  await postJson(baseUrl, `/tasks/${taskId}/comments`, { message });
 }
 
 /** Dispatch a forward state-machine event (POST /tasks/:id/events { event }). */
@@ -219,7 +181,7 @@ export async function postEvent(
   taskId: string,
   event: string,
 ): Promise<void> {
-  await post(baseUrl, `/tasks/${taskId}/events`, { event });
+  await postJson(baseUrl, `/tasks/${taskId}/events`, { event });
 }
 
 /**
@@ -233,6 +195,26 @@ export async function resumePark(
   answer: string,
 ): Promise<PushResult> {
   const task = await getTask(baseUrl, taskId);
+  // A6-6b guard (#1597 ledger, the half #1625 deferred): `resume` dispatches NO
+  // state-machine event — it is a bare PUT that lifts `paused`. On a task that is not
+  // paused there is nothing to lift, so the call degrades to a silent plan rewrite: the
+  // operator's answer is appended to the plan of a task whose status nothing changed, no
+  // worker re-reads it, and the CLI still prints its success line. That is the easy
+  // misroute in the park-type taxonomy (dispatcher SKILL.md §3) — a B-park (blockedReason
+  // set, paused false) and an A-park differ only by `paused`, and `resume` is correct for
+  // exactly one of them. Refuse, naming the decisions that DO move a non-paused task.
+  // Deliberately here and not in pushAnswer: request_changes / approve / retry are
+  // event-driven and legitimately act on non-paused tasks (the /pipeline done→REVISE flow).
+  if (task.paused !== true) {
+    throw new BackendError(
+      `task ${taskId} is not paused (status=${task.status}) — "resume" only lifts an A-park ` +
+        `(paused:true + an OPEN QUESTION block in the plan) and dispatches no state-machine ` +
+        `event, so on this task it would rewrite the plan and change nothing else, losing the ` +
+        `answer. Use --decision request_changes (or retry for blocked_external) instead.`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
   const plan = appendAnswerToPlan(task.plan, answer);
   await putTask(baseUrl, taskId, { plan, paused: false, blockedReason: null });
   return {
@@ -305,7 +287,14 @@ export function formatResult(result: PushResult): string {
 
 async function main(): Promise<void> {
   const baseUrl = process.env.RUNTIME_BRIDGE_AIF_URL || DEFAULT_AIF_URL;
-  const args = parseAnswerArgs(process.argv.slice(2));
+  let args: AnswerArgs;
+  try {
+    args = parseAnswerArgs(process.argv.slice(2));
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[runtime-bridge] answer: ${msg}\n`);
+    process.exit(1);
+  }
 
   const argError = validateAnswerArgs(args);
   if (argError) {
@@ -338,8 +327,9 @@ async function main(): Promise<void> {
 }
 
 // Run only as a real entrypoint — importing the module (e.g. from tests) must
-// NOT trigger the fetch + process.exit side effects.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// NOT trigger the fetch + process.exit side effects. realpath BOTH sides
+// (cliEntry.isMain): a symlinked invocation path used to silently no-op (A6-1).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     process.stderr.write(`[runtime-bridge] answer: unhandled error: ${err}\n`);
     process.exit(1);

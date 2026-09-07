@@ -81,6 +81,52 @@ export function pruneTmpArtifacts(
   return removed;
 }
 
+/**
+ * The operator-facing manual-run box.
+ *
+ * Human-facing output, so the language follows `AIF_HOOK_LANG` — `ru` → Russian, anything
+ * else INCLUDING unset → English ([.claude/rules/language-discipline.md §1 row 2 + §2](../../../.claude/rules/language-discipline.md)).
+ * The box used to describe itself as «bilingual» while emitting Russian unconditionally, and
+ * the vendor drop then shipped that to every `--profile factory` consumer, so an
+ * English-speaking operator whose aif was down got the whole box in Russian
+ * (#1597 review ledger K-2). Nothing gated it — principle 22 scans `.claude/hooks`,
+ * `.claude/skills` and `scripts` only, and this is none of those.
+ *
+ * Pure: the language is a plain parameter with NO default, so both branches are testable
+ * without mutating `process.env` — and an explicit `undefined` really means «unset» rather
+ * than falling back to whatever the running session exports.
+ */
+export function manualInstructions(
+  taskId: string,
+  kickoffPath: string,
+  responsePath: string,
+  lang: string | undefined,
+): string {
+  const ru = lang === 'ru';
+  // padEnd, not hand-counted spaces: the Russian title used to be one column short of the
+  // border it sits between, and a second hand-padded variant would double that class.
+  const title = ru
+    ? '  runtime-bridge: ManualBackend — ручной запуск'
+    : '  runtime-bridge: ManualBackend — manual run';
+  return [
+    '',
+    '╔══════════════════════════════════════════════════════════════════╗',
+    `║${title.padEnd(66)}║`,
+    '╚══════════════════════════════════════════════════════════════════╝',
+    ru
+      ? `  Kickoff сохранён: ${kickoffPath}`
+      : `  Kickoff written to: ${kickoffPath}`,
+    ru
+      ? '  Откройте новое окно Claude Code и запустите задачу.'
+      : '  Open a new Claude Code window and run the task.',
+    ru
+      ? `  Положите отчёт в: ${responsePath}`
+      : `  Put the report in: ${responsePath}`,
+    `  Task ID: ${taskId}`,
+    '',
+  ].join('\n');
+}
+
 export class ManualBackend implements RuntimeBackend {
   readonly name = 'manual' as const;
 
@@ -100,20 +146,15 @@ export class ManualBackend implements RuntimeBackend {
 
     writeFileSync(kickoffPath, kickoff.content, 'utf8');
 
-    // Print bilingual copy-paste instructions to stderr (non-blocking).
+    // Copy-paste instructions to stderr (non-blocking).
     // Using process.stderr.write to avoid console.error adding extra formatting.
     process.stderr.write(
-      [
-        '',
-        '╔══════════════════════════════════════════════════════════════════╗',
-        '║  runtime-bridge: ManualBackend — ручной запуск                  ║',
-        '╚══════════════════════════════════════════════════════════════════╝',
-        `  Kickoff сохранён: ${kickoffPath}`,
-        `  Откройте новое окно Claude Code и запустите задачу.`,
-        `  Положите отчёт в: ${responsePath}`,
-        `  Task ID: ${taskId}`,
-        '',
-      ].join('\n'),
+      manualInstructions(
+        taskId,
+        kickoffPath,
+        responsePath,
+        process.env['AIF_HOOK_LANG'],
+      ),
     );
 
     const handle: TaskHandle = {

@@ -38,7 +38,7 @@
  * no upstream tool targets "agnosticism conformance as a CI principle test" for this
  * project-specific probe structure — BUILD verdict for the wrapper is self-evident.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
@@ -46,7 +46,10 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../../');
-const RECORD_FILE = resolve(REPO_ROOT, 'tests/agnosticism/conformance-record.tsv');
+const RECORD_FILE = resolve(
+  REPO_ROOT,
+  'tests/agnosticism/conformance-record.tsv',
+);
 const HARNESS = resolve(REPO_ROOT, 'tests/agnosticism/run-audit.sh');
 
 /**
@@ -117,7 +120,14 @@ export function nonPortableFindings(tsv: string): string[] {
  * the gate (the same discipline `CC_CANONICAL_TOOLS` carries in the M1 sibling).
  */
 export const PORTABLE_TOOLS: ReadonlySet<string> = new Set([
-  'Read', 'Glob', 'Grep', 'Bash', 'Write', 'Edit', 'WebFetch', 'WebSearch',
+  'Read',
+  'Glob',
+  'Grep',
+  'Bash',
+  'Write',
+  'Edit',
+  'WebFetch',
+  'WebSearch',
 ]);
 
 /**
@@ -184,12 +194,22 @@ export function nonPortableShippedAgents(
   return out;
 }
 
-// The conformance harness (~1s) is deterministic — it reads the same rules/hooks/
-// docs and writes the same conformance-record.tsv every run. Two tests below each
-// consumed it, and both used to `execSync(bash HARNESS)` independently, so it ran
-// twice (~2s). Memoize LAZILY: the first consumer to run pays the single harness
-// pass and caches its TSV; the second reads the cache. The synthetic paired-negative
-// tests never call this, so they stay independent of the harness (and of each other).
+// The conformance harness (~1.3-1.5s) is deterministic — it reads the same rules/hooks/
+// docs and writes the same conformance-record.tsv every run. Four tests below consume it,
+// and each used to `execSync(bash HARNESS)` independently, so it ran once per consumer.
+// Memoized since then, but LAZILY — which left the residual half of the defect: the single
+// harness pass was charged to whichever `it` happened to run first, and that `it` carries
+// no timeout override, i.e. vitest's 5000ms default. Measured 2026-09-06 standalone: the
+// file totals 1.76s / 1.44s, of which ONE test carries 1547ms / 1273ms while every other
+// test is ≤18ms. Roughly 3.5x headroom, so at load average ~13-19 the budget blew and
+// pre-push failed with `Test timed out in 5000ms` on a perfectly portable repository
+// (observed twice on 2026-09-06 while pushing PR #1648, same incident class as the
+// principle-11 fix in d2ed53a4a0 and the principle-20 fix in #1648).
+//
+// So the pass is now PRIMED in a top-level `beforeAll` with an explicit budget: the cost
+// sits on a hook that owns it, and every `it` is a cached read whose wall time cannot
+// track host load. `runHarnessOnce` keeps its lazy arm — it is what makes a prime failure
+// surface at the assertion that cares, with the harness's own error, instead of at a hook.
 let _harnessTsv: string | null = null;
 function runHarnessOnce(): string {
   if (_harnessTsv === null) {
@@ -199,6 +219,45 @@ function runHarnessOnce(): string {
   return _harnessTsv;
 }
 
+/** True once the harness pass is memoized — the prefetch-liveness assertion reads this. */
+function harnessIsPrimed(): boolean {
+  return _harnessTsv !== null;
+}
+
+/**
+ * Budget for the priming hook. Generous on purpose: it is the ONE place in this file that
+ * pays for a subprocess, so it can absorb a loaded host without any `it` inheriting that
+ * risk. Not a timeout raise on any assertion — the tests below keep vitest's default.
+ */
+const HARNESS_PRIME_MS = 60_000;
+
+// Fixed-cost prefetch, outside every `it` budget. A failure here is deliberately NOT
+// rethrown: the pass stays unmemoized, `runHarnessOnce` re-runs it inside the first
+// consumer, and the failure surfaces at the assertion that cares rather than as an opaque
+// hook error that hides which invariant broke.
+beforeAll(() => {
+  try {
+    runHarnessOnce();
+  } catch {
+    /* left unprimed on purpose — runHarnessOnce re-runs and surfaces the real failure */
+  }
+}, HARNESS_PRIME_MS);
+
+// Prefetch liveness. Without this the prefetch is free to silently stop working — the
+// first consumer would just run the harness itself and cache it, every later consumer
+// would still report ~0ms, and only the load-lottery protection would be lost, invisibly.
+// Per .claude/rules/attention-is-not-a-mechanism.md §1, "someone will notice the runtime
+// went back up" is not a detection layer.
+describe('Principle 21 — harness prefetch', () => {
+  it('the conformance harness is primed before any assertion runs', () => {
+    expect(
+      harnessIsPrimed(),
+      'beforeAll did not memoize the conformance harness — the pass fell back into an ' +
+        "`it` body under vitest's 5000ms default, which is the load lottery this guards",
+    ).toBe(true);
+  });
+});
+
 describe('Principle 21 — agnosticism conformance', () => {
   it('runs the conformance harness (harness file must exist)', () => {
     expect(existsSync(HARNESS), `harness not found: ${HARNESS}`).toBe(true);
@@ -206,7 +265,10 @@ describe('Principle 21 — agnosticism conformance', () => {
 
   it('produces a conformance-record.tsv with at least 6 deterministic rows (population sentinel)', () => {
     const tsv = runHarnessOnce();
-    expect(existsSync(RECORD_FILE), `record file not produced: ${RECORD_FILE}`).toBe(true);
+    expect(
+      existsSync(RECORD_FILE),
+      `record file not produced: ${RECORD_FILE}`,
+    ).toBe(true);
 
     const dataRows = tsv
       .split('\n')
@@ -278,9 +340,14 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
   it('every SHIPPED agents/*.md carries only harness-universal tools (probers exempt)', () => {
     const agents = realAgents();
     // Non-vacuity (T1/T10): the shipped surface must actually be scanned.
-    expect(agents.length, 'expected ≥6 agents/*.md to scan').toBeGreaterThanOrEqual(6);
+    expect(
+      agents.length,
+      'expected ≥6 agents/*.md to scan',
+    ).toBeGreaterThanOrEqual(6);
 
-    const operatorOnly = parseOperatorOnlyAgents(readFileSync(SETUP_AGENTS_SH, 'utf8'));
+    const operatorOnly = parseOperatorOnlyAgents(
+      readFileSync(SETUP_AGENTS_SH, 'utf8'),
+    );
     const violations = nonPortableShippedAgents(agents, operatorOnly);
     expect(
       violations,
@@ -301,7 +368,9 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
   // ── Non-vacuity tied to reality — the exemption is actually exercised ────────
   it('non-vacuity: ≥1 real agent carries a non-portable tool, and every such carrier is operator-only', () => {
     const agents = realAgents();
-    const carriers = agents.filter((a) => a.tools.some((t) => !PORTABLE_TOOLS.has(t)));
+    const carriers = agents.filter((a) =>
+      a.tools.some((t) => !PORTABLE_TOOLS.has(t)),
+    );
     // If nothing carried a non-portable tool, the operator-only exemption would be
     // untested against reality — a green-but-vacuous gate. Today the 2 probers carry `Agent`.
     expect(
@@ -309,7 +378,9 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
       'expected ≥1 agent carrying a non-portable tool (the probers) — guards a vacuous gate',
     ).toBeGreaterThanOrEqual(1);
 
-    const operatorOnly = parseOperatorOnlyAgents(readFileSync(SETUP_AGENTS_SH, 'utf8'));
+    const operatorOnly = parseOperatorOnlyAgents(
+      readFileSync(SETUP_AGENTS_SH, 'utf8'),
+    );
     for (const c of carriers) {
       expect(
         operatorOnly.has(c.file),
@@ -322,12 +393,20 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
   // ── Drift-guard — the exemption is real + the two installers agree ──────────
   it('drift-guard: every operator-only exemption is a real agent file AND is skipped by install.sh too', () => {
     const agentFiles = new Set(realAgents().map((a) => a.file));
-    const operatorOnly = parseOperatorOnlyAgents(readFileSync(SETUP_AGENTS_SH, 'utf8'));
-    expect(operatorOnly.size, 'skip-loop parse matched nothing — regex drift').toBeGreaterThanOrEqual(1);
+    const operatorOnly = parseOperatorOnlyAgents(
+      readFileSync(SETUP_AGENTS_SH, 'utf8'),
+    );
+    expect(
+      operatorOnly.size,
+      'skip-loop parse matched nothing — regex drift',
+    ).toBeGreaterThanOrEqual(1);
 
     const installSh = readFileSync(INSTALL_SH, 'utf8');
     for (const name of operatorOnly) {
-      expect(agentFiles.has(name), `skip-loop names ${name} but agents/${name} does not exist`).toBe(true);
+      expect(
+        agentFiles.has(name),
+        `skip-loop names ${name} but agents/${name} does not exist`,
+      ).toBe(true);
       const skipRe = new RegExp(`${name.replace(/\./g, '\\.')}\\)\\s*continue`);
       expect(
         skipRe.test(installSh),
@@ -338,7 +417,9 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
 
   // ── Paired-negative (principle 02): prove the gate CATCHES real violations ───
   it('paired-negative: a SHIPPED agent carrying Agent is flagged', () => {
-    const agents: AgentToolsInfo[] = [{ file: 'new-shipped.md', tools: ['Read', 'Agent'] }];
+    const agents: AgentToolsInfo[] = [
+      { file: 'new-shipped.md', tools: ['Read', 'Agent'] },
+    ];
     expect(nonPortableShippedAgents(agents, new Set())).toEqual([
       { file: 'new-shipped.md', offending: ['Agent'] },
     ]);
@@ -346,21 +427,28 @@ describe('Principle 21 — shipped-agent tools-frontmatter portability (DN-M1 Op
 
   it('paired-negative: an OPERATOR-ONLY agent carrying Agent is exempt (no violation)', () => {
     const agents: AgentToolsInfo[] = [
-      { file: 'manual-rule-liveness-prober.md', tools: ['Read', 'Glob', 'Grep', 'Agent'] },
+      {
+        file: 'manual-rule-liveness-prober.md',
+        tools: ['Read', 'Glob', 'Grep', 'Agent'],
+      },
     ];
     const operatorOnly = new Set(['manual-rule-liveness-prober.md']);
     expect(nonPortableShippedAgents(agents, operatorOnly)).toEqual([]);
   });
 
   it('paired-negative: a SHIPPED agent with only universal tools is clean (no false-positive)', () => {
-    const agents: AgentToolsInfo[] = [{ file: 'compliance-verifier.md', tools: ['Read', 'Glob', 'Grep'] }];
+    const agents: AgentToolsInfo[] = [
+      { file: 'compliance-verifier.md', tools: ['Read', 'Glob', 'Grep'] },
+    ];
     expect(nonPortableShippedAgents(agents, new Set())).toEqual([]);
   });
 
   it('paired-negative: parseAgentTools reads the inline-comma form and tolerates a no-tools agent', () => {
-    expect(parseAgentTools('---\nname: x\ntools: Read, Glob, Grep, Agent\n---\n# body')).toEqual([
-      'Read', 'Glob', 'Grep', 'Agent',
-    ]);
+    expect(
+      parseAgentTools(
+        '---\nname: x\ntools: Read, Glob, Grep, Agent\n---\n# body',
+      ),
+    ).toEqual(['Read', 'Glob', 'Grep', 'Agent']);
     expect(parseAgentTools('---\nname: x\n---\n# body')).toEqual([]);
   });
 
@@ -434,7 +522,10 @@ export type PostureViolation = { file: string; reason: string };
  * token after the colon is the vocab; cc-only rationale ≥20 non-ws chars).
  * Returns the FIRST declaration line found (probe: grep -m1).
  */
-export function parseHarnessPosture(fileContent: string, file = '<synthetic>'): PostureDeclaration {
+export function parseHarnessPosture(
+  fileContent: string,
+  file = '<synthetic>',
+): PostureDeclaration {
   // Fence-state tracking mirrors skills-census.sh's awk scanner exactly: a declaration
   // inside a ``` fenced block is documentation, not a declaration (cold-QA MAJOR,
   // 2026-09-01 — a fenced example must never hijack the verdict).
@@ -447,7 +538,9 @@ export function parseHarnessPosture(fileContent: string, file = '<synthetic>'): 
     return !inFence && /^<!--[ \t]*@harness-posture:/.test(l);
   });
   if (!line) return { file, vocab: null, rationale: '' };
-  const rest = line.replace(/^<!--[ \t]*@harness-posture:[ \t]*/, '').replace(/[ \t]*-->[ \t]*$/, '');
+  const rest = line
+    .replace(/^<!--[ \t]*@harness-posture:[ \t]*/, '')
+    .replace(/[ \t]*-->[ \t]*$/, '');
   const vocab = rest.split(/[ \t]/)[0] ?? '';
   const rationale = rest
     .slice(vocab.length)
@@ -462,11 +555,19 @@ export function parseHarnessPosture(fileContent: string, file = '<synthetic>'): 
  * unit-testable with the synthetic paired-negatives below (principle 02).
  */
 export function postureViolations(d: PostureDeclaration): PostureViolation[] {
-  if (d.vocab === null) return [{ file: d.file, reason: 'no @harness-posture declaration' }];
+  if (d.vocab === null)
+    return [{ file: d.file, reason: 'no @harness-posture declaration' }];
   if (!HARNESS_POSTURE_VOCAB.has(d.vocab))
-    return [{ file: d.file, reason: `posture '${d.vocab}' outside allowed vocabulary` }];
+    return [
+      {
+        file: d.file,
+        reason: `posture '${d.vocab}' outside allowed vocabulary`,
+      },
+    ];
   if (d.vocab === 'cc-only' && d.rationale.replace(/\s/g, '').length < 20)
-    return [{ file: d.file, reason: 'cc-only rationale too short (<20 chars)' }];
+    return [
+      { file: d.file, reason: 'cc-only rationale too short (<20 chars)' },
+    ];
   return [];
 }
 
@@ -480,9 +581,12 @@ describe('Principle 21 — skills-surface harness-posture census (beta S2, spec 
 
   it('census rows cover the full dynamic tracked-skills population (non-vacuity, T10)', () => {
     const tsv = runHarnessOnce();
-    const tracked = execSync(`git -C "${REPO_ROOT}" ls-files '.claude/skills/*/SKILL.md'`, {
-      encoding: 'utf8',
-    })
+    const tracked = execSync(
+      `git -C "${REPO_ROOT}" ls-files '.claude/skills/*/SKILL.md'`,
+      {
+        encoding: 'utf8',
+      },
+    )
       .split('\n')
       .filter((l) => l.trim() !== '');
     const rows = SKILLS_TSV(tsv);
@@ -491,13 +595,18 @@ describe('Principle 21 — skills-surface harness-posture census (beta S2, spec 
       `expected a census row per tracked SKILL.md (${tracked.length}); got ${rows.length} — ` +
         `a zero-row census passes the harness-wide PORTABLE filter vacuously`,
     ).toBeGreaterThanOrEqual(tracked.length);
-    expect(tracked.length, 'expected ≥10 tracked skills — guards a vacuous population').toBeGreaterThanOrEqual(10);
+    expect(
+      tracked.length,
+      'expected ≥10 tracked skills — guards a vacuous population',
+    ).toBeGreaterThanOrEqual(10);
   });
 
   it('every skills-census row is PORTABLE (census verdict, skills-specific message)', () => {
     const tsv = runHarnessOnce();
     const rows = SKILLS_TSV(tsv);
-    const nonPortable = rows.filter((line) => line.split('\t').pop()?.trim() !== 'PORTABLE');
+    const nonPortable = rows.filter(
+      (line) => line.split('\t').pop()?.trim() !== 'PORTABLE',
+    );
     expect(
       nonPortable,
       `skills harness-posture census has non-PORTABLE rows — add/fix the ` +
@@ -507,33 +616,50 @@ describe('Principle 21 — skills-surface harness-posture census (beta S2, spec 
   });
 
   it('paired-negative: a missing declaration is a violation', () => {
-    expect(postureViolations(parseHarnessPosture('# no marker here', 'x/SKILL.md'))).toEqual([
+    expect(
+      postureViolations(parseHarnessPosture('# no marker here', 'x/SKILL.md')),
+    ).toEqual([
       { file: 'x/SKILL.md', reason: 'no @harness-posture declaration' },
     ]);
   });
 
   it('paired-negative: every vocabulary value parses', () => {
     for (const v of HARNESS_POSTURE_VOCAB) {
-      const d = parseHarnessPosture(`<!-- @harness-posture: ${v} — basis stated here -->`);
+      const d = parseHarnessPosture(
+        `<!-- @harness-posture: ${v} — basis stated here -->`,
+      );
       expect(d.vocab).toBe(v);
-      expect(postureViolations(v === 'cc-only'
-        ? parseHarnessPosture(`<!-- @harness-posture: ${v} — deliberate choice with a long-enough rationale -->`)
-        : d,
-      )).toEqual([]);
+      expect(
+        postureViolations(
+          v === 'cc-only'
+            ? parseHarnessPosture(
+                `<!-- @harness-posture: ${v} — deliberate choice with a long-enough rationale -->`,
+              )
+            : d,
+        ),
+      ).toEqual([]);
     }
   });
 
   it('paired-negative: an invalid vocabulary value is a violation', () => {
-    const d = parseHarnessPosture('<!-- @harness-posture: works-everywhere — invented vocab -->');
+    const d = parseHarnessPosture(
+      '<!-- @harness-posture: works-everywhere — invented vocab -->',
+    );
     expect(postureViolations(d)).toEqual([
-      { file: '<synthetic>', reason: "posture 'works-everywhere' outside allowed vocabulary" },
+      {
+        file: '<synthetic>',
+        reason: "posture 'works-everywhere' outside allowed vocabulary",
+      },
     ]);
   });
 
   it('paired-negative: a cc-only rationale under 20 chars is a violation', () => {
     const d = parseHarnessPosture('<!-- @harness-posture: cc-only — later -->');
     expect(postureViolations(d)).toEqual([
-      { file: '<synthetic>', reason: 'cc-only rationale too short (<20 chars)' },
+      {
+        file: '<synthetic>',
+        reason: 'cc-only rationale too short (<20 chars)',
+      },
     ]);
   });
 
@@ -548,7 +674,9 @@ describe('Principle 21 — skills-surface harness-posture census (beta S2, spec 
   it('paired-negative: prose mentioning the marker mid-sentence does NOT parse as a declaration', () => {
     // Anchored line-start discipline (same as the probe's grep -E '^<!--'): a mention
     // inside prose or a blockquote must not satisfy the census.
-    const d = parseHarnessPosture('> see the <!-- @harness-posture: portable --> convention');
+    const d = parseHarnessPosture(
+      '> see the <!-- @harness-posture: portable --> convention',
+    );
     expect(d.vocab).toBeNull();
     expect(postureViolations(d)).toHaveLength(1);
   });
@@ -556,9 +684,15 @@ describe('Principle 21 — skills-surface harness-posture census (beta S2, spec 
   it('paired-negative: a declaration inside a fenced code block does NOT parse (cold-QA MAJOR)', () => {
     // A fenced grammar example must never hijack the verdict — even when the real
     // declaration is missing entirely (fence-state tracking, mirrors the probe's awk).
-    const fenced = ['```markdown', '<!-- @harness-posture: portable — example -->', '```'].join('\n');
+    const fenced = [
+      '```markdown',
+      '<!-- @harness-posture: portable — example -->',
+      '```',
+    ].join('\n');
     expect(parseHarnessPosture(fenced).vocab).toBeNull();
-    expect(postureViolations(parseHarnessPosture(fenced, 'fenced/SKILL.md'))).toEqual([
+    expect(
+      postureViolations(parseHarnessPosture(fenced, 'fenced/SKILL.md')),
+    ).toEqual([
       { file: 'fenced/SKILL.md', reason: 'no @harness-posture declaration' },
     ]);
     // ...and when a valid declaration exists outside the fence, the fence never shadows it.

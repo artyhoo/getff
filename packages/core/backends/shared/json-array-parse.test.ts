@@ -68,6 +68,34 @@ describe('parseIdentitiesFromJsonArray — tolerances (empty / junk / non-array)
   });
 });
 
+describe('parseIdentitiesFromJsonArray — containerPath (R-4: golangci object-container sharing)', () => {
+  it('containerPath set + object root: iterates the container array (the golangci {"Issues":[…]} shape)', () => {
+    const stdout = JSON.stringify({
+      Issues: [{ FromLinter: 'forbidigo' }, { FromLinter: 'govet' }, { FromLinter: 'forbidigo' }],
+      Report: { Linters: [{ Name: 'forbidigo', Enabled: true }] },
+    });
+    const ids = parseIdentitiesFromJsonArray(stdout, '$.FromLinter', '$.Issues');
+    expect([...ids].sort()).toEqual(['forbidigo', 'govet']);
+  });
+
+  it('containerPath set + missing / non-array container / non-JSON stdout: empty set (fail-closed, never throws)', () => {
+    expect(parseIdentitiesFromJsonArray('{"Report":{}}', '$.FromLinter', '$.Issues').size).toBe(0);
+    expect(parseIdentitiesFromJsonArray('{"Issues":{"a":1}}', '$.FromLinter', '$.Issues').size).toBe(0);
+    expect(parseIdentitiesFromJsonArray('level=error msg="boom"', '$.FromLinter', '$.Issues').size).toBe(0);
+    expect(parseIdentitiesFromJsonArray('', '$.FromLinter', '$.Issues').size).toBe(0);
+  });
+
+  it('containerPath ABSENT + object root: STILL an empty set (historical behavior, pinned)', () => {
+    const stdout = JSON.stringify({ Issues: [{ FromLinter: 'forbidigo' }] });
+    expect(parseIdentitiesFromJsonArray(stdout, '$.FromLinter').size).toBe(0);
+  });
+
+  it('containerPath ABSENT + array root: unchanged (the ast-grep / ruff shape)', () => {
+    const stdout = JSON.stringify([{ ruleId: 'no-os-system' }]);
+    expect([...parseIdentitiesFromJsonArray(stdout, '$.ruleId')]).toEqual(['no-os-system']);
+  });
+});
+
 describe('getByJsonPath — dot-path walk', () => {
   it('walks a nested path and returns undefined on a missing hop (no throw)', () => {
     expect(getByJsonPath({ a: { b: { c: 'v' } } }, '$.a.b.c')).toBe('v');

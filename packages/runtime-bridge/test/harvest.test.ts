@@ -1,6 +1,6 @@
 // packages/runtime-bridge/test/harvest.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir, bundleFileName, channelAFallbackCommands } from '../src/harvest.js';
+import { harvestTask, scanParkSignals, extractAffectedFiles, parseTrackedDirtyFiles, parseWorktreeList, resolveWorkDir, bundleFileName, channelAFallbackCommands, shellQuote } from '../src/harvest.js';
 import type { ChannelAContext, HarvestDeps } from '../src/harvest.js';
 
 /** A deps double that records call order; each fn resolves successfully by default.
@@ -619,6 +619,78 @@ describe('channelAFallbackCommands — the printed manual egress IS the live cha
     // is the channel of LAST resort — reached only when host transport is also dead, never
     // suggested by the default fallback.
     expect(channelAFallbackCommands(CTX).some((c) => /harvest-via-api|gh api/.test(c))).toBe(false);
+  });
+});
+
+// ── A5-6: the printed fallback must survive a PASTE ───────────────────────────────────────
+// Every value in those lines is free text somebody else controls (aif's board supplies the
+// title, aif's planner the branch, the operator the paths). Raw interpolation put the title
+// inside a double-quoted `--title "…"` and left paths bare.
+describe('shellQuote — copy-paste safety for the printed Channel-A fallback (A5-6)', () => {
+  it('POSITIVE: a value of shell-safe characters is returned verbatim (the readable 99% case)', () => {
+    expect(shellQuote('/home/www/rules-as-tests-aif-feature-thing-abc-t1')).toBe('/home/www/rules-as-tests-aif-feature-thing-abc-t1');
+    expect(shellQuote('FETCH_HEAD:refs/heads/feature/thing-abc')).toBe('FETCH_HEAD:refs/heads/feature/thing-abc');
+  });
+
+  it('POSITIVE: a space, a quote and a command substitution are all neutralised', () => {
+    expect(shellQuote('/Users/me/My Repo')).toBe("'/Users/me/My Repo'");
+    expect(shellQuote('fix "quoted" $(id) path')).toBe(`'fix "quoted" $(id) path'`);
+    expect(shellQuote("it's")).toBe(`'it'\\''s'`);
+  });
+
+  it('NEGATIVE: an empty value is quoted, never emitted as a vanished argument', () => {
+    expect(shellQuote('')).toBe("''");
+  });
+});
+
+describe('channelAFallbackCommands — hostile title/branch/path cannot break out (A5-6)', () => {
+  const HOSTILE: ChannelAContext = {
+    container: 'aif-handoff-agent-1',
+    workDir: '/home/www/consumer My Project-t1',
+    branch: 'feat/x;rm -rf /',
+    baseRef: 'origin/staging',
+    base: 'staging',
+    hostRepo: '/Users/me/My Repo',
+    containerBundlePath: '/tmp/a.bundle',
+    hostBundlePath: '/tmp/a.bundle',
+    title: 'fix "quoted" $(id) path',
+    autoMerge: true,
+  };
+
+  it('POSITIVE: the PR title lands single-quoted, so $( ) and " are inert when pasted', () => {
+    const create = channelAFallbackCommands(HOSTILE).find((c) => c.startsWith('gh pr create')) ?? '';
+
+    expect(create).toContain(`--title 'fix "quoted" $(id) path'`);
+    expect(create).not.toContain('--title "fix');
+  });
+
+  it('POSITIVE: a branch carrying `;` stays ONE argument on the fetch and push lines', () => {
+    const cmds = channelAFallbackCommands(HOSTILE);
+    const fetch = cmds.find((c) => / fetch /.test(c)) ?? '';
+    const push = cmds.find((c) => / push origin /.test(c)) ?? '';
+
+    expect(fetch).toContain(`'refs/heads/feat/x;rm -rf /'`);
+    expect(push).toContain(`'FETCH_HEAD:refs/heads/feat/x;rm -rf /'`);
+  });
+
+  it('POSITIVE: a host clone / container checkout with a space stays one argument', () => {
+    const cmds = channelAFallbackCommands(HOSTILE);
+
+    expect(cmds.some((c) => c.startsWith(`git -C '/Users/me/My Repo' `))).toBe(true);
+    expect(cmds.some((c) => c.includes(`-c 'safe.directory=/home/www/consumer My Project-t1'`))).toBe(true);
+  });
+
+  it('CONTROL: clean inputs are NOT quoted — the fallback stays readable (no regression)', () => {
+    const cmds = channelAFallbackCommands({
+      ...HOSTILE,
+      workDir: '/home/www/rules-as-tests-aif-feature-thing-abc-t1',
+      branch: 'feature/thing-abc',
+      hostRepo: '/Users/art/code/rules-as-tests-aif',
+      title: 'feat-thing',
+    });
+
+    expect(cmds.some((c) => c.startsWith('git -C /Users/art/code/rules-as-tests-aif '))).toBe(true);
+    expect(cmds.some((c) => c.includes('-c safe.directory=/home/www/rules-as-tests-aif-feature-thing-abc-t1'))).toBe(true);
   });
 });
 

@@ -52,7 +52,7 @@ function fakeGit(overrides: Partial<GitProvider> = {}): GitProvider {
     authorDate: () => FUTURE,
     commitSubject: () => 'feat: x',
     diffForPaths: () => '',
-    blobDuplicatedInTree: () => false,
+    blobTrackedAtBase: () => false,
     ...overrides,
   };
 }
@@ -167,6 +167,59 @@ describe('isNewDepAdded()', () => {
       '+  "brand-new-dep": "^1.0.0"',
     ].join('\n');
     expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  // ── A4-6 (2026-09-05): a block that opens AND closes on ONE line — the
+  //    shape prettier produces whenever the object fits printWidth ──────────
+  it('detects a new dep added AFTER a ONE-LINE overrides block in the same hunk', () => {
+    const diff = [
+      '@@ -1,6 +1,8 @@',
+      ' {',
+      '   "overrides": { "lodash": "4.17.21" },',
+      '   "dependencies": {',
+      '+    "left-pad": "^1.3.0"',
+      '   }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('detects a new dep after a one-line "resolutions" block on an ADDED line', () => {
+    const diff = [
+      '+  "resolutions": { "qs": "^6.15.2" },',
+      '+  "brand-new-dep": "^1.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('paired negative: the one-line block\'s OWN keys are still not deps', () => {
+    const diff = ['+  "overrides": { "lodash": "4.17.21" }'].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('paired negative: a one-line pnpm block with a nested object stays closed', () => {
+    const diff = [
+      '+  "pnpm": { "overrides": { "qs": "^6.15.2" } },',
+      '+  "another-new-dep": "~2.0.0"',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(true);
+  });
+
+  it('paired negative: a MULTI-line overrides block still swallows its keys', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "qs": "^6.15.2"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
+  });
+
+  it('a brace inside a version string does not close the block early', () => {
+    const diff = [
+      '+  "overrides": {',
+      '+    "weird": "1.0.0-}build"',
+      '+  }',
+    ].join('\n');
+    expect(isNewDepAdded(diff)).toBe(false);
   });
 
   it('paired negative: nested closing braces inside overrides do not end the skip early', () => {
@@ -344,14 +397,58 @@ describe('detectCapabilityReason()', () => {
     expect(detectCapabilityReason('abc123', g)).toBeNull();
   });
 
-  it('does NOT flag a new ≥80 LOC file byte-identical to an existing blob (vendor copy, PR #1271)', () => {
+  it('does NOT flag a new ≥80 LOC file byte-identical to a blob tracked at the BASE tree (vendor copy, PR #1271)', () => {
     const content100 = 'x\n'.repeat(100);
     const g = fakeGit({
       changedFiles: () => [
         { status: 'A', path: 'packages/runtime-bridge/vendor/dispatch.ts' },
       ],
       fileContent: () => content100,
-      blobDuplicatedInTree: () => true,
+      blobTrackedAtBase: () => true,
+    });
+    expect(detectCapabilityReason('abc123', g)).toBeNull();
+  });
+
+  // ── B-1 / L-1 (2026-09-05): the carve-out is about RELOCATION, so it asks the
+  //    PRE-IMAGE tree. A brand-new file and its byte-identical twin, both born in
+  //    this commit (what the pre-commit twin-sync produces for every new hook),
+  //    are tracked at no base tree — the trigger must still fire. Real-git
+  //    coverage: tests/hooks/prior-art-trailer-hook.test.sh sub-tests 9 + 10.
+  it('STILL flags a new ≥80 LOC file whose only duplicate is its twin in the SAME commit', () => {
+    const content100 = 'x\n'.repeat(100);
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/hooks/checks/new-check.ts' },
+        { status: 'A', path: 'plugin/hooks/new-check.ts' },
+      ],
+      fileContent: () => content100,
+      subdirExistedAtParent: () => true, // packages/core/hooks/ already exists
+      blobTrackedAtBase: () => false, // neither blob existed before this commit
+    });
+    expect(detectCapabilityReason('abc123', g)).toMatch(/80 LOC/);
+  });
+
+  it('the ≥50 LOC new-subdir arm asks the base tree too (twin pair still flagged)', () => {
+    const content60 = 'x\n'.repeat(60);
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newcheck/check.ts' },
+        { status: 'A', path: 'plugin/hooks/check.ts' },
+      ],
+      fileContent: () => content60,
+      subdirExistedAtParent: () => false,
+      blobTrackedAtBase: () => false,
+    });
+    expect(detectCapabilityReason('abc123', g)).toMatch(/50 LOC/);
+  });
+
+  it('the ≥50 LOC arm keeps exempting a relocation of a base-tracked blob', () => {
+    const content60 = 'x\n'.repeat(60);
+    const g = fakeGit({
+      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/moved.ts' }],
+      fileContent: () => content60,
+      subdirExistedAtParent: () => false,
+      blobTrackedAtBase: () => true,
     });
     expect(detectCapabilityReason('abc123', g)).toBeNull();
   });
@@ -361,7 +458,7 @@ describe('detectCapabilityReason()', () => {
     const g = fakeGit({
       changedFiles: () => [{ status: 'A', path: 'packages/other/new-module.ts' }],
       fileContent: () => content100,
-      blobDuplicatedInTree: () => false,
+      blobTrackedAtBase: () => false,
     });
     expect(detectCapabilityReason('abc123', g)).toMatch(/80 LOC/);
   });
@@ -480,7 +577,9 @@ describe('checkTrailerBody()', () => {
   it('strips exactly one leading space after "Prior-art:" (bash parity)', () => {
     // "Prior-art:X" (no space) vs "Prior-art: X" (one space stripped) —
     // the payload after stripping is measured for ≥20 chars.
-    const longNoSpace = 'Prior-art:' + 'x'.repeat(20);   // payload = 'xxx…' (20 chars) → valid
+    // The payload also has to name a resolvable referent (K-5), so `#1271`
+    // stands in for the filler while keeping the length arithmetic at 20.
+    const longNoSpace = 'Prior-art:' + '#1271' + 'x'.repeat(15); // payload = 20 chars → valid
     const result = checkTrailerBody(`feat: foo\n\n${longNoSpace}`, FUTURE);
     expect(result.code).toBe(0);
   });
@@ -705,9 +804,12 @@ describe('checkTrailerBody() — C1 existence arm', () => {
     expect(result.message).toMatch(/#998, #999/); // #1 exists, only the missing pair reported
   });
 
-  it('free-form (non-citation) valid trailer passes even with ssotIds supplied', () => {
-    // A ≥20-char positive trailer with no #N reference has nothing to resolve.
-    const body = 'feat: x\n\nPrior-art: novel capability, no upstream analog after 6-item sweep.';
+  it('a trailer naming a non-SSOT referent passes the existence arm (nothing to resolve)', () => {
+    // A positive trailer with no `prior-art-evaluations.md#N` reference has
+    // nothing for the C1 arm to resolve; the K-5 grammar still requires it to
+    // name SOME resolvable referent, here an in-repo artefact path.
+    const body =
+      'feat: x\n\nPrior-art: novel capability, no upstream analog after the 6-item sweep; nearest in-repo precedent setup.d/lib.sh:359.';
     expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(0);
   });
 
@@ -947,10 +1049,11 @@ describe('checkTrailerBody() — regex anchor/spacing mutation-killing (Wave 2)'
   //     replace(/ /, '') removes the space char → 'xxxxxxxxxx'+'yyyyyyyyy' = 19 chars < 20 → continue → code 1
   // The test input has no leading space, so /^ / is a no-op; / / is not.
   it('strips nothing when no leading space after "Prior-art:" (preserves internal space for length)', () => {
-    // 'Prior-art:' + 10 x's + ' ' + 9 y's → payload = 20 chars (no leading space)
+    // 'Prior-art:' + '#1271' + 5 x's + ' ' + 9 y's → payload = 20 chars (no leading
+    // space); `#1271` is the resolvable referent the K-5 grammar requires.
     // Original /^ /: strips nothing → 20 chars → valid → code 0
     // Mutant / /: strips internal space → 19 chars → too short → code 1
-    const body = `feat: foo\n\nPrior-art:${'x'.repeat(10)} ${'y'.repeat(9)}`;
+    const body = `feat: foo\n\nPrior-art:#1271${'x'.repeat(5)} ${'y'.repeat(9)}`;
     expect(checkTrailerBody(body, FUTURE).code).toBe(0);
   });
 
@@ -1160,5 +1263,219 @@ describe('runPriorArtCheck() — SHA truncation mutation-killing (Wave 2)', () =
     expect(report.brokenCitations).toHaveLength(1);
     expect(report.brokenCitations[0].sha).toBe('abcdef1234');
     expect(report.brokenCitations[0].sha.length).toBe(10);
+  });
+});
+
+// ─── L-1/B-3: test material never trips the LOC triggers ─────────────────────
+//
+// The prose definition (CLAUDE.md «What is a capability commit?») has always
+// ended «Refactors, doc edits, test additions for existing capabilities … NOT
+// capability commits», and the section header claims the hook mirrors it. It did
+// not: over the last 250 first-parent commits on staging the ≥80-LOC arm fired
+// on 27 commits, 18 of which added ONLY test files. Each RED case below returns
+// a capability reason against the pre-fix module.
+
+describe('detectCapabilityReason() — test-material carve-out (L-1/B-3)', () => {
+  const big = () => 'x\n'.repeat(120);
+
+  const testMaterialPaths = [
+    'packages/core/hooks/hook-emit-prelude.test.ts',
+    'packages/core/skills/pipeline/frontier.test.tsx',
+    'packages/core/synthesizer/run-generated-rule-mutation.test.sh',
+    'packages/core/hooks/parser.spec.ts',
+    'packages/runtime-bridge/test/aif-backend-semantics.ts',
+    'packages/core/hooks/__tests__/helper.ts',
+    'packages/core/principles/__fixtures__/big-input.json',
+    'packages/core/principles/fixtures/big-input.json',
+    'packages/core/hooks/checks/fences-fire-fixtures/sample.ts',
+  ];
+
+  for (const path of testMaterialPaths) {
+    it(`≥80-LOC new test material is not a capability commit: ${path}`, () => {
+      const g = fakeGit({
+        changedFiles: () => [{ status: 'A', path }],
+        fileContent: () => big(),
+      });
+      expect(detectCapabilityReason('sha', g)).toBeNull();
+    });
+  }
+
+  it('paired negative: a ≥80-LOC new PRODUCTION file under packages/ is still detected', () => {
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/hooks/checks/newcheck.ts' },
+      ],
+      fileContent: () => big(),
+      subdirExistedAtParent: () => true, // isolate the ≥80-LOC arm
+    });
+    expect(detectCapabilityReason('sha', g)).toBe(
+      'new file ≥80 LOC under packages/',
+    );
+  });
+
+  it('paired negative: a principle file is enforcement, not test material — still detected', () => {
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/principles/99-new-rule.test.ts' },
+      ],
+      fileContent: () => big(),
+      subdirExistedAtParent: () => true, // isolate the ≥80-LOC arm
+    });
+    expect(detectCapabilityReason('sha', g)).toBe(
+      'new file ≥80 LOC under packages/',
+    );
+  });
+
+  it('paired negative: test material ALONGSIDE a qualifying production file still trips (on the production file)', () => {
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/hooks/checks/newcheck.test.ts' },
+        { status: 'A', path: 'packages/core/hooks/checks/newcheck.ts' },
+      ],
+      fileContent: () => big(),
+      subdirExistedAtParent: () => true, // isolate the ≥80-LOC arm
+    });
+    expect(detectCapabilityReason('sha', g)).toBe(
+      'new file ≥80 LOC under packages/',
+    );
+  });
+
+  it('the ≥50-LOC new-core-subdir arm carves out test material too', () => {
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/thing.test.ts' },
+      ],
+      fileContent: () => 'y\n'.repeat(60),
+      subdirExistedAtParent: () => false,
+    });
+    expect(detectCapabilityReason('sha', g)).toBeNull();
+  });
+
+  it('paired negative: the ≥50-LOC new-core-subdir arm still fires on a production file', () => {
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/thing.ts' },
+      ],
+      fileContent: () => 'y\n'.repeat(60),
+      subdirExistedAtParent: () => false,
+    });
+    expect(detectCapabilityReason('sha', g)).toBe(
+      'new file ≥50 LOC under new packages/core/<dir>/',
+    );
+  });
+
+  it('a file merely NAMED like a test directory is not exempt (no path-segment match)', () => {
+    const g = fakeGit({
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/hooks/test-utils.ts' },
+      ],
+      fileContent: () => big(),
+      subdirExistedAtParent: () => true, // isolate the ≥80-LOC arm
+    });
+    expect(detectCapabilityReason('sha', g)).toBe(
+      'new file ≥80 LOC under packages/',
+    );
+  });
+});
+
+// ─── K-5: a positive trailer must name a resolvable referent ─────────────────
+
+describe('checkTrailerBody() — resolvable-referent grammar (K-5)', () => {
+  const vacuous = [
+    'Prior-art: consulted — no entry applies',
+    'Prior-art: consulted the register, nothing applies here at all',
+    'Prior-art: reviewed the prior art and found nothing comparable',
+  ];
+
+  for (const body of vacuous) {
+    it(`rejects a referent-free positive trailer: ${body.slice(0, 45)}…`, () => {
+      const res = checkTrailerBody(body, FUTURE);
+      expect(res.code).toBe(1);
+      expect(res.message).toContain('no resolvable referent');
+    });
+  }
+
+  const accepted = [
+    ['SSOT row', VALID_CITATION],
+    [
+      'artefact path',
+      'Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom',
+    ],
+    [
+      'research patch',
+      'Prior-art: research-patches/2026-05-23-guard-liveness-gate.md §2 — provisional BUILD',
+    ],
+    [
+      'issue/PR reference',
+      'Prior-art: see PR #1271 for the vendored runtime-bridge subset copy',
+    ],
+  ] as const;
+
+  for (const [label, body] of accepted) {
+    it(`accepts a trailer naming a ${label}`, () => {
+      expect(checkTrailerBody(body, FUTURE).code).toBe(0);
+    });
+  }
+
+  it('stacked lines: a referent-free line is skipped, a later valid line carries the commit', () => {
+    const body = `feat: x\n\nPrior-art: consulted — no entry applies\n${VALID_CITATION}`;
+    expect(checkTrailerBody(body, FUTURE).code).toBe(0);
+  });
+
+  it('stacked lines: a valid line first still passes when a referent-free line follows', () => {
+    const body = `feat: x\n\n${VALID_CITATION}\nPrior-art: consulted — no entry applies`;
+    expect(checkTrailerBody(body, FUTURE).code).toBe(0);
+  });
+
+  it('the referent-free message is preferred over the generic invalid-trailer message', () => {
+    const res = checkTrailerBody('Prior-art: consulted — no entry applies', FUTURE);
+    expect(res.message).not.toContain('placeholder rationale');
+    expect(res.message).toContain('prior-art-evaluations.md#N');
+  });
+
+  it('a too-short line still reports the generic message (referent arm not reached)', () => {
+    const res = checkTrailerBody('feat: x\n\nPrior-art: nope', FUTURE);
+    expect(res.message).toContain('length <20');
+  });
+
+  it('the escape hatch is unaffected — still the substance arm, not the referent arm', () => {
+    expect(checkTrailerBody(`feat: x\n\n${VALID_ESCAPE}`, FUTURE).code).toBe(2);
+  });
+
+  it('a single-digit "#3" is not a referent (too weak to resolve)', () => {
+    const res = checkTrailerBody(
+      'Prior-art: consulted entry #3 of the register, nothing else applies',
+      FUTURE,
+    );
+    expect(res.code).toBe(1);
+  });
+
+  it('pre-cutoff commits bypass the referent arm (historical replay)', () => {
+    expect(
+      checkTrailerBody('Prior-art: consulted — no entry applies', PAST).code,
+    ).toBe(0);
+  });
+});
+
+// ─── prose ↔ hook parity for both carve-outs ─────────────────────────────────
+
+describe('CLAUDE.md prose ↔ prior-art.ts sync (test-material + referent grammar)', () => {
+  const claudeMd = readFileSync(resolve(REPO_ROOT, 'CLAUDE.md'), 'utf8');
+
+  it('the capability definition names the test-material carve-out', () => {
+    expect(claudeMd).toMatch(/test.{0,40}material|test\/fixture files/i);
+    expect(claudeMd).toContain('packages/core/principles/');
+  });
+
+  it('the trailer-syntax section names all three accepted referent forms', () => {
+    expect(claudeMd).toContain('prior-art-evaluations.md#<ID>');
+    expect(claudeMd).toMatch(/artefact path|artifact path/i);
+    expect(claudeMd).toMatch(/issue *\/ *PR reference|PR reference/i);
+  });
+
+  it('paired negative: prose that omits the principles exception fails the containment check', () => {
+    const stale =
+      '## What is a capability commit?\n\nTest and fixture files never count.\n';
+    expect(stale).not.toContain('packages/core/principles/');
   });
 });

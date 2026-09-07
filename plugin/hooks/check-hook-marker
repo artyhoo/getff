@@ -30,23 +30,27 @@ set -uo pipefail
 # lib/ sibling to source). CC: exit 2 + stderr = feedback the model receives (advisory in
 # effect — PostToolUse cannot block, the tool already ran). ZCode: JSON additionalContext
 # (exit 2 is swallowed as HookRunFailed); exit 0.
-_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
-# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
-_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
-# Announce a dependency-missing skip on the channel the model actually receives on an
-# exit-0 path (JSON hookSpecificOutput), keeping stderr for terminal/CI readers.
-_emit_skip() {
-  if _is_zcode; then
-    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
-      "$(_json_escape "$1")"
-  fi
-  printf '%s\n' "$1" >&2
-}
-_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$2" '{additionalContext:$c}'
-  else printf '%s\n' "$2"; fi; }
+
+# ── Shared emit prelude (#1597 review ledger R-2, K-1) ────────────────────────
+# _is_zcode / _json_escape / _emit_skip / _emit_skip_once / _emit_ctx and the Homebrew PATH
+# prepend have ONE definition, at lib/hook-emit.sh. Five gates used to carry a private 13-line
+# copy each; the copies had begun to diverge (a lost _is_zcode branch, a sed escaper that
+# produced invalid JSON for a tab or CR). Resolved next to THIS file so the framework copy and
+# the plugin twin each load their own sibling — both channels ship the directory.
+# Pure parameter expansion — no `dirname`, no `cd`, no subshell. These gates run on a
+# stripped PATH (a jq-less consumer, a sandbox that rebuilt PATH to hide a tool), and the
+# prelude must resolve before any external command is known to exist.
+_HOOK_DIR="${BASH_SOURCE[0]%/*}"
+[ "$_HOOK_DIR" = "${BASH_SOURCE[0]}" ] && _HOOK_DIR="."
+_HOOK_LIB="$_HOOK_DIR/lib/hook-emit.sh"
+# shellcheck source=lib/hook-emit.sh
+if ! . "$_HOOK_LIB" 2>/dev/null; then
+  # Broken install: announce on the model channel with constant text (no escaper available
+  # yet) and exit 0 — a missing prelude must not block the edit.
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    '⚠ check-hook-marker: lib/hook-emit.sh could not be sourced — this gate DID NOT RUN for this edit. This is a SKIP, not a pass; reinstall the hooks.'
+  exit 0
+fi
 _adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
 
 # Framework-self PostToolUse matcher registered for a hook (empty = not registered, i.e. a
@@ -62,6 +66,24 @@ _reg_matcher() {
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# ── Applicability: only a project that CARRIES this authoring convention ──────
+# The markers this gate demands (@dual-pair / @cc-only-rationale) are a framework-authoring
+# convention defined by .claude/rules/dual-implementation-discipline.md §6. That rule is not
+# delivered to consumers by any channel — setup.d/install.sh ship no .claude/rules/, the
+# plugin has no .claude/ directory at all, and setup.d/lib.sh rewrites rule links to upstream
+# blob URLs precisely because the files do not exist on the consumer side. Registered for
+# every plugin consumer on Edit|Write|MultiEdit, this gate therefore fired exit 2 on the
+# CONSUMER's own .claude/hooks/*.sh, demanding a getff-internal marker and citing a rule file
+# they cannot read (#1597 review ledger A3-4) — the framework-convention-leaks-to-consumer
+# class, in a gate rather than in prose.
+#
+# The probe is the rule file itself, so it is self-describing and adoption-aware: a consumer
+# who deliberately vendors the rule opts INTO the gate by that act. Exiting here is
+# NOT-APPLICABLE, not a dependency SKIP — there is no convention in this project for the edit
+# to violate — so unlike the ledger L-2 class it is correctly silent, with nothing to announce.
+[[ -f "$REPO_ROOT/.claude/rules/dual-implementation-discipline.md" ]] || exit 0
+
 if ! command -v jq >/dev/null 2>&1; then
   # jq-less best-effort path extraction (sed on raw stdin) — used ONLY to decide whether
   # this edit is in scope, so the skip notice fires on .claude/hooks/*.sh edits (or when
@@ -116,11 +138,24 @@ grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH" \
 if grep -qE '^# @file-content-gate:' "$ABS_PATH"; then
   REG_MATCHER="$(_reg_matcher "$(basename "$REL_PATH")")"
   if [ -n "$REG_MATCHER" ]; then
-    case "$REG_MATCHER" in
-      *Edit*Write*MultiEdit*) ;;  # Edit|Write|MultiEdit or Write|Edit|MultiEdit — both fine
+    # Token membership, NOT a positional glob. The old `*Edit*Write*MultiEdit*` pattern
+    # demanded that order and so rejected `Write|Edit|MultiEdit` — the very form hooks.json
+    # itself uses for runtime-bridge-dispatch — while its own comment claimed both were fine
+    # (#1597 review ledger A3-8). Membership is tested against the |-delimited token set
+    # exactly, mirroring the @matcher-parity block below, so "Edit" cannot satisfy "MultiEdit".
+    _mm_missing=""
+    for _mm_tool in Edit Write MultiEdit; do
+      case "|$REG_MATCHER|" in
+        *"|$_mm_tool|"*) ;;
+        *) _mm_missing="${_mm_missing:+$_mm_missing, }$_mm_tool" ;;
+      esac
+    done
+    case "$_mm_missing" in
+      "") ;;  # all three present, in any order
       *) _adv_violation "❌ hook-marker: $REL_PATH declares @file-content-gate but its PostToolUse
-   matcher is '$REG_MATCHER' (must include Edit, Write, AND MultiEdit — a path-only gate's
-   matcher is its ONLY tool-filter; without MultiEdit a MultiEdit edit bypasses it silently).
+   matcher is '$REG_MATCHER', missing [$_mm_missing] (must include Edit, Write, AND MultiEdit
+   in any order — a path-only gate's matcher is its ONLY tool-filter; without MultiEdit a
+   MultiEdit edit bypasses it silently).
    Fix the matcher in .ai-factory/harness-model.json + run 'node scripts/render-harness-config.mjs --write'." ;;
     esac
   fi
