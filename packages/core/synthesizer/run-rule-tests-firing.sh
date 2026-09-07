@@ -360,6 +360,27 @@ _ndjson_codes() {
     }
   ' "$1"
 }
+# _ndjson_has_codeless_error <file> — prints "1" when the NDJSON carries an error-level
+# compiler-message with NO diagnostic code (`"code": null`, or a code object without a string
+# `code`). This is the cargo mirror of the ruff lane's `<<null-code>>` sentinel: rustc emits
+# no E-number for a whole class of hard errors (parse errors, macro-expansion failures,
+# `error: could not compile`), so a sample that never COMPILES would otherwise leave `codes`
+# empty and be reported "clean" — a green that proves nothing, the mirror image of A7-3.
+_ndjson_has_codeless_error() {
+  node -e '
+    const fs = require("node:fs");
+    for (const line of fs.readFileSync(process.argv[1], "utf8").split("\n")) {
+      const t = line.trim();
+      if (t.length === 0) continue;
+      let p; try { p = JSON.parse(t); } catch { continue; }
+      if (typeof p !== "object" || p === null || p.reason !== "compiler-message") continue;
+      const m = p.message;
+      if (!m || m.level !== "error") continue;
+      const c = m.code && m.code.code;
+      if (typeof c !== "string" || c.length === 0) { console.log("1"); break; }
+    }
+  ' "$1"
+}
 _fire_cargo() {
   local sidecar="$RT_DIR/cargo.json"
   [ -f "$sidecar" ] || return 0
@@ -405,6 +426,9 @@ _fire_cargo() {
     elif printf '%s\n' "$codes" | grep -qE '^E[0-9]+$'; then
       _verdict_invalid cargo "$rid" "$kind" "sample invalid" \
         "sample does not compile (rustc hard error); proves nothing"
+    elif [ "$(_ndjson_has_codeless_error "$t/clippy-ndjson.txt")" = "1" ]; then
+      _verdict_invalid cargo "$rid" "$kind" "sample invalid" \
+        "sample does not compile (codeless compiler error); proves nothing"
     else
       _verdict cargo "$rid" "$kind" 0
     fi

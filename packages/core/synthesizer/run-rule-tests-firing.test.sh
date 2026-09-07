@@ -307,6 +307,17 @@ cat > "$CA_NOISE_NDJSON" <<'NDJSON'
 {"reason":"build-finished","success":false}
 NDJSON
 
+CA_CODELESS_NDJSON="$SCRATCH/ca-codeless.ndjson"
+# A CODELESS rustc hard error (`"code": null`) — the mirror image of the ruff lane's
+# `<<null-code>>` diagnostic: a hand-broken sample that does not COMPILE at all (parse error,
+# macro expansion failure, `could not compile`), for which rustc emits no E-number. cargo
+# exits 101. Reading only `E[0-9]+` would let this slip through as "no ban code found" =
+# clean, so a codeless error-level diagnostic must mark the sample invalid.
+cat > "$CA_CODELESS_NDJSON" <<'NDJSON'
+{"reason":"compiler-message","package_id":"getff_fire 0.0.0","message":{"rendered":"error: expected one of `!` or `::`, found `<eof>`","code":null,"level":"error","spans":[],"children":[]}}
+{"reason":"build-finished","success":false}
+NDJSON
+
 arm_ca_a() { # warning-level banned-code diagnostic, exit 0: fired from the CODE, not the rc
   echo "arm ca-a: warning-level clippy::disallowed_methods + rc 0 — fired"
   _shim2 cargo 0 "$CA_FIRE_NDJSON" 0 "$CA_CLEAN_NDJSON"
@@ -373,6 +384,23 @@ arm_ca_d() { # non-JSON noise + compiler-artifact/build-finished lines skipped; 
   assert_contains  "ca-d good sample clean" "$SCRATCH/ca-d.all" "good sample clean"
 }
 
+arm_ca_e() { # codeless error-level diagnostic on the good[] shot: sample invalid, never "clean"
+  echo "arm ca-e: good[] shot emits a CODELESS level:error diagnostic + rc 101 — sample invalid"
+  _shim2 cargo 0 "$CA_FIRE_NDJSON" 101 "$CA_CODELESS_NDJSON"
+  _sidecar "$SCRATCH/ca-e.json" "$CA_RID" 'fn f() {
+    let _ = std::env::var("HOME");
+}
+' 'fn f( {
+    let _ = std::env::args();
+'
+  local tree; tree="$(_consumer_tree ca-e cargo "$SCRATCH/ca-e.json" "$CA_RID")"
+  run_firing "$tree" cargo "ca-e" 1
+  assert_rc           "ca-e run exits 1 (sample invalid is RED)" 1 "$SCRATCH/ca-e.rc"
+  assert_contains     "ca-e bad sample read as fired RED" "$SCRATCH/ca-e.all" "bad sample fired RED"
+  assert_contains     "ca-e good[] sample invalid (codeless compiler error)" "$SCRATCH/ca-e.all" "sample invalid"
+  assert_not_contains "ca-e uncompilable good[] NOT reported clean" "$SCRATCH/ca-e.all" "good sample clean"
+}
+
 [ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
 arm_sg_a
 arm_sg_b
@@ -386,6 +414,7 @@ arm_ca_a
 arm_ca_b
 arm_ca_c
 arm_ca_d
+arm_ca_e
 
 echo
 echo "run-rule-tests-firing.test.sh: PASS=$PASS FAIL=$FAIL (lanes exercised via shim: astgrep, ruff, cargo)"
