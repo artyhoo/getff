@@ -1,17 +1,23 @@
 # consumer-truth-audit V0 — the delivery census (report)
 
-> **Deliverable pair:** machine-readable `census-v0.json` (253 rows, one per artefact) + this report.
+> **Deliverable pair:** machine-readable `census-v0.json` (275 rows, one per artefact) + this report.
 > **Rigor label:** research-grade (kickoff L0). **Lane discipline:** measure only — no fixes (§6);
 > every finding below carries a proposed fix for the triage pass, none applied.
+> **Round:** 2 — regenerated from re-run benches after the round-1 `delivered` derivation
+> defects (rework BLOCKER + MAJOR 1/2); the generator is now also a runnable verifier
+> (`gen-census.mjs --check`).
 > Evidence logs: [`logs/`](logs/) — `entry-verification.md`, `population-enumeration.md`,
-> `install-{core,env,factory}.log`, `consumer-dirs.txt`, `delivered-tree-measurement.md`,
-> `works-checks.md`, `aged-stratum.md`.
+> `install-{core,env,factory}.log` (+ `-r2.log` re-run), `consumer-dirs.txt` (+ `-r2.txt`),
+> `delivered-tree-measurement.md`, `works-checks.md`, `aged-stratum.md`.
 
 ## §population
 
 Enumerated 2026-09-08 on the factory at `feature/consumer-truth-audit-55b9ad` (T10: full lists
 before any coverage claim; per-file lists with line numbers in `logs/population-enumeration.md` + `-2.md` (C9-C11 + drift),
-comma-joined here). **Denominator: 253 artefacts** — the row set of `census-v0.json`.
+comma-joined here). **Denominator: 275 artefacts** — the row set of `census-v0.json`
+(`meta.population_total`); the per-class list below sums to 275 and is the same population.
+Round 1 stated 252/253 here while the census carried 253 rows including a phantom template
+row — fixed by making both deliverables derive from one enumeration.
 
 - **skills (17):** ai-doc, aif-doctor, arch, claude-glm-executor-handoff, dispatcher, harvest,
   night-mode, orchestrator, pipeline, reviewer, rule-research, rule-tests, self-reflection,
@@ -51,7 +57,13 @@ comma-joined here). **Denominator: 253 artefacts** — the row set of `census-v0
 - **MCP config (1):** context7 wiring (`setup.d/05-mcp.sh`). **companions (6):** superpowers,
   runtime-bridge, deepwiki, ast-grep-cli, ast-grep, aif-handoff.
 - **CI workflows (5):** ci.yml, workflow-integrity.yml (ts-server) + cargo/go/python lanes.
-- **scripts (62):** full list in `logs/population-enumeration-2.md` §C11.
+- **scripts (85):** repo `scripts/` (62, full list in `logs/population-enumeration-2.md` §C11)
+  **+ the installer's real consumer-script sources (23)** delivered by `setup.d/40-configs.sh:14-54`:
+  11 `packages/core/audit-self/*.sh` + 6 `audit-self/fixtures/fences-fire` files (delivered as
+  `scripts/fences-fire-fixtures/`; 3 of the 6 — `no-server-imports-in-client.*` — are
+  react-next-stack-gated and undelivered on this ts-server fixture) + `packages/core/probes/audit-r4.ts`
+  + 2 `packages/core/synthesizer/run-*.sh`. Round 1 enumerated only the repo side, leaving 20
+  delivered files with no row (rework round-2 BLOCKER); addendum `logs/population-enumeration-2.md` §C11b.
 
 **Spec corrections surfaced by enumeration (recorded, not fixed):** (1) CI workflow sources live
 at root `templates/<stack>/github-actions-*.yml` — the kickoff's
@@ -67,7 +79,11 @@ for the *tracked* population.
   deterministic ts-server auto-detect, `setup.d/lib.sh:1630`) + `git init`;
   `bash install.sh --profile <p> </dev/null`. All three **exit=0** (core 95 files hashed,
   factory 105; no `npm install` ran — dev-dep install is `--full`/interactive-gated,
-  `setup.d/70-deps.sh:309-320`).
+  `setup.d/70-deps.sh:309-320`). **Round-2 re-run** (benches are ephemeral; the census must
+  come from live trees — rework round 2): `logs/install-{core,env,factory}-r2.log`, dirs in
+  `logs/consumer-dirs-r2.txt`, seeded the same way, all three **exit=0** with log line counts
+  identical to round 1 (179/198/228) and trees re-measured at the same truth (agents 11/11/13,
+  scripts 20/24/25, skills 6/11/16, `.claude/rules` absent ×3).
 - **DELIVERED measured on the trees, never on the logs** (domain trap T-CTA-A): full
   `find`-based inventories per profile (`logs/delivered-tree-measurement.md` §M2-§M7);
   symlink audit: 0 links in all three trees (§M3).
@@ -95,7 +111,7 @@ for the *tracked* population.
 
 | verdict | rows | meaning |
 |---|---|---|
-| BY-DESIGN | 251 | consistent with documented design — **every row carries a `by_design_citation`** (gate 8: 0 without) |
+| BY-DESIGN | 273 | consistent with documented design — **every row carries a `by_design_citation`** (gate 8: 0 without) |
 | DOC-LIES | 1 | delivered content that misdirects on a consumer host (F2) |
 | BROKEN | 1 | delivered and unable to do its job anywhere outside the factory (F1) |
 | NOT-BUILT | 0 | — |
@@ -199,7 +215,7 @@ predates the contour/operator split).
 
 ## §coverage
 
-- **HAS × DELIVERED: 253/253 rows** (`census-v0.json`) — every artefact of the enumerated
+- **HAS × DELIVERED: 275/275 rows** (`census-v0.json`) — every artefact of the enumerated
   population, per profile, from tree measurement. No sampling anywhere in the column (T1).
 - **WORKS: exercised vs reasoned, stated exactly.** Executed severed: 11 hooks ×3 profiles with
   representative payloads (§L2/§L2b), `.husky/pre-push` + `.husky/pre-commit`,
@@ -214,7 +230,8 @@ predates the contour/operator split).
   design; the push-blocking consequences were established via direct hook invocation instead;
   (3) non-ts-server stacks (react-next/react-spa/react-native) and the cargo/go/python
   toolchain lanes — the kickoff's benches are the three profiles at the ts-server stack; the
-  lane-gated rows carry the INERT citations (`setup.d/LAYERS.md:28-30`) rather than executed
+  lane-gated rows carry the INERT citations (`setup.d/LAYERS.md:28-29` — the 45-python and
+  46-cargo rows; `:30` is the unrelated 50-hooks husky row) rather than executed
   evidence.
 - Per T14: the clean rows are clean **at the exercised depth**; coverage limits above are part
   of the result, not a footnote.
@@ -223,11 +240,19 @@ predates the contour/operator split).
 
 What would catch a row that is wrong (T15 — the audit of this census):
 
-1. **Re-derive, byte-for-byte:** `gen-census.mjs` (committed beside the census) re-runs the
-   whole matrix from the trees; any row disagreeing with a fresh `find`/`git ls-files` pass is
-   wrong by construction. The one judging step — verdict/citation assignment — is the part to
-   re-review by hand: the citations are quoted verbatim in the JSON, so a reviewer can check
-   each `by_design_citation` against the named file:line in minutes.
+1. **Re-derive, for real (executable since round 2):** `node gen-census.mjs --check` re-derives
+   every row's `delivered` from live trees — roots via `--repo/--core/--env/--factory` or
+   `CENSUS_*` env (container bench as default), mechanical classes by list membership, static
+   classes by file probes — and **exits non-zero on any disagreement, writing nothing**. It
+   discriminates: against the round-1 census it exits 1 with **40 findings** (the 9 agent rows
+   inverted by the dbool-object bug, the 5 script rows inverted by the prefix mismatch, the
+   phantom `ts-server-configs` row, the mis-pathed `eslint-rules-local` row pair, and the 23
+   never-enumerated consumer-script sources); against the round-2 census it exits 0 with zero
+   disagreements. Both runs are quoted in `logs/gate-check.md` §Gate 3. Stated scope limit:
+   `--check` verifies the `delivered` column and the artefact sets only — the hand-authored
+   `works`/verdict/citation texts are the part it cannot judge; those stay reviewer-checked
+   (citations quoted verbatim in the JSON, each checkable against the named file:line in
+   minutes).
 2. **The DELIVERED-from-log trap was caught live once already:** companions «selected» in the
    log but absent from every tree (M5) — a log-trusting census would have emitted 6 false
    delivered=true cells. Any row whose evidence cites an install log rather than a tree is
@@ -241,12 +266,20 @@ What would catch a row that is wrong (T15 — the audit of this census):
    The host re-runs `bash install.sh --dry-run </dev/null` (host-verify contract) and — for
    full closure — `host-verify-aged.sh` against the real aged install. A host run whose tree
    inventories diverge from `consumer-dirs.txt` trees falsifies the corresponding rows.
-5. **What I would audit if auditing this audit:** (a) the verdict assignments on the 251
+5. **What I would audit if auditing this audit:** (a) the verdict assignments on the 273
    BY-DESIGN rows — the enum has no «healthy» value, so healthy rows are BY-DESIGN with the
    shipping-design citation; a stricter reading would demand a distinct SHIPPED value (a spec
    gap worth fixing in V1's schema); (b) the L3 window's evidence validity — recorded with its
-   incident + recovery in full so a reviewer can judge rather than trust; (c) the 46
-   delivered-but-unexercised script rows («same layer» reasoning) — the cheapest falsifier is
-   running them; (d) the profile-model assumption that `core` vs `env` differ only in the
+   incident + recovery in full so a reviewer can judge rather than trust; (c) the 8
+   delivered-but-unexercised script rows (6 `fences-fire-fixtures` + `check-rule-enforced.sh` +
+   `r2-na-marker.sh`; «same layer» reasoning) — the cheapest falsifier is running them;
+   (d) the profile-model assumption that `core` vs `env` differ only in the
    contour skills — env delivered 69 more `.claude` files than core, all under the 5 contour
    skill dirs, but a per-file diff of the two trees was not enumerated in V0.
+6. **What the verifier caught on its own first run (T15, round 2):** two rows the round-1
+   hardcoded matrix had wrong in ways the block's own evidence hid — (a) `eslint-rules-local`
+   lands at the consumer ROOT (install log: «Custom ESLint rules → eslint-rules-local/»), not
+   `packages/core/` — row renamed, probe re-pathed; (b) `.claude/vendor/runtime-bridge` in the
+   factory tree is the `55-runtime-bridge-vendor.sh` layer already censused as its own hook row,
+   so the companion-class probe excludes `.claude/vendor/` explicitly instead of double-counting
+   it, and the row's evidence string names the dir so a machine reader sees the adjudication.

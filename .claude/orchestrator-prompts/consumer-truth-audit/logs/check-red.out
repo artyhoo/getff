@@ -1,0 +1,46 @@
+gen-census --check: repo=/home/www/rules-as-tests-aif-feature-consumer-truth-audit-55b9ad-55b9ad6a-8c8d-47de-8672-bbe63c892370
+gen-census --check: core=/tmp/census-consumer-core-r2-lacg1W
+gen-census --check: env=/tmp/census-consumer-env-r2-y3F4uO
+gen-census --check: factory=/tmp/census-consumer-factory-r2-TZpjMT
+gen-census --check: 275 tree-derived rows vs 253 census rows in /home/www/rules-as-tests-aif-feature-consumer-truth-audit-55b9ad-55b9ad6a-8c8d-47de-8672-bbe63c892370/.claude/orchestrator-prompts/consumer-truth-audit/census-v0.json
+DELIVERED-MISMATCH: .claude/agents/adapter-jig-reviewer.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+DELIVERED-MISMATCH: .claude/agents/backward-sweep-auditor.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+DELIVERED-MISMATCH: .claude/agents/dispatch-input-checker.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+DELIVERED-MISMATCH: .claude/agents/dual-channel-drift-auditor.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+DELIVERED-MISMATCH: .claude/agents/getff-cold-run-prober.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+DELIVERED-MISMATCH: .claude/agents/manual-rule-liveness-prober.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+DELIVERED-MISMATCH: .claude/agents/orchestrator-worker-discipline.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":true}
+DELIVERED-MISMATCH: .claude/agents/reviewer-discipline.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":true}
+DELIVERED-MISMATCH: .claude/agents/shipped-agent-liveness-prober.md: census={"core":true,"env":true,"factory":true} trees={"core":false,"env":false,"factory":false}
+MISSING-FROM-CENSUS: eslint-rules-local/ (consumer barrel) (class lint-bundle) is tree-derived but has no census row
+DELIVERED-MISMATCH: scripts/create-worktree.sh: census={"core":false,"env":false,"factory":false} trees={"core":false,"env":true,"factory":true}
+DELIVERED-MISMATCH: scripts/getff-work.sh: census={"core":false,"env":false,"factory":false} trees={"core":false,"env":true,"factory":true}
+DELIVERED-MISMATCH: scripts/link-coordination.sh: census={"core":false,"env":false,"factory":false} trees={"core":false,"env":true,"factory":true}
+DELIVERED-MISMATCH: scripts/run-local-ci-sweep.sh: census={"core":false,"env":false,"factory":false} trees={"core":false,"env":false,"factory":true}
+DELIVERED-MISMATCH: scripts/worktree-node-modules.sh: census={"core":false,"env":false,"factory":false} trees={"core":false,"env":true,"factory":true}
+MISSING-FROM-CENSUS: scripts/audit-ai-docs.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/check-arch-boundaries.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/check-fences-fire.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/check-lintstaged-resolves.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/check-rule-enforced.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/check-rule-globs.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/check-shields-up.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/ci-available-probe.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/detect-r2-boundary.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/pre-merge-local.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/r2-na-marker.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/audit-r4.ts (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/run-generated-rule-mutation.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/run-rule-tests-firing.sh (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/no-server-imports-in-client.bad.txt (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/no-server-imports-in-client.good.txt (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/no-server-imports-in-client.manifest.json (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/no-unsafe-zod-parse.bad.txt (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/no-unsafe-zod-parse.good.txt (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/no-unsafe-zod-parse.manifest.json (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/require-use-server-directive.bad.txt (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/require-use-server-directive.good.txt (class script) is tree-derived but has no census row
+MISSING-FROM-CENSUS: scripts/fences-fire-fixtures/require-use-server-directive.manifest.json (class script) is tree-derived but has no census row
+NOT-DERIVABLE: packages/core/templates/ts-server-configs/ (class template) is a census row with no tree-derived counterpart — phantom or renamed population member
+NOT-DERIVABLE: packages/core/eslint-rules-local (consumer barrel) (class lint-bundle) is a census row with no tree-derived counterpart — phantom or renamed population member
+CHECK FAILED: 40 finding(s) — census disagrees with the live trees (exit 1); nothing was written

@@ -2,11 +2,13 @@
   "meta": {
     "census": "consumer-truth-audit V0",
     "generated": "2026-09-08",
+    "round": "2 — regenerated from the re-run benches (logs/install-{core,env,factory}-r2.log, dirs in logs/consumer-dirs-r2.txt); round-1 `delivered` bugs fixed (agents dbool-object, scripts prefix mismatch), the phantom ts-server-configs row removed, and the script population widened to the installer’s real delivery sources (repo scripts/ + packages/core/{audit-self,probes,synthesizer})",
     "method": "3 fresh installs (core/env/factory) into mktemp dirs seeded with package.json+git init; DELIVERED measured on consumer TREES (find), never on install-log claims (T-CTA-A); WORKS = L1 escape-grep + L2 in-consumer execution + L3 rename-sever window (factory path absent, results valid) + factory controls",
+    "verifier": "node gen-census.mjs --check — re-derives every row's `delivered` from live trees (roots: --repo/--core/--env/--factory or CENSUS_* env, container defaults) and exits 1 on any disagreement with this file; writes nothing",
     "logs_dir": ".claude/orchestrator-prompts/consumer-truth-audit/logs/",
-    "population_total": 253,
+    "population_total": 275,
     "verdict_counts": {
-      "BY-DESIGN": 251,
+      "BY-DESIGN": 273,
       "DOC-LIES": 1,
       "BROKEN": 1
     },
@@ -15,7 +17,9 @@
       "CI workflow source is root templates/<stack>/, not packages/core/templates/**/workflows (matches nothing)",
       ".getff/astgrep-rules exists only under packages/core/templates/python/; clippy/golangci/ruff likewise under their template dirs",
       "naive .claude/skills count 41 includes 25 gitignored container-local aif-* skills; tracked population is 16",
-      "hooks authoring count 29 unreproducible; tree truth is 25"
+      "hooks authoring count 29 unreproducible; tree truth is 25",
+      "consumer scripts/ are sourced ~entirely from packages/core/{audit-self,probes,synthesizer} via 40-configs §4, not the kickoff-named repo scripts/ — v0r2 enumerates both (62 + 23 = 85 script rows, 3 fixtures stack-gated undelivered here; delivered sums 20/24/25 per M7)",
+      "the consumer ESLint barrel lands at consumer-root eslint-rules-local/ (install log «Custom ESLint rules → eslint-rules-local/»), not packages/core/eslint-rules-local"
     ]
   },
   "rows": [
@@ -136,7 +140,7 @@
       "works": "loads as docs, but 5 embedded host-absolute paths instruct operations against the AUTHOR'S machine: references/worker-template.md:73,82,107 + reviewer-template.md:37 + ai-laziness-traps-orchestrator.md:131 all say `cd /Users/art/code/rules-as-tests-aif` — on any consumer host this path is another project or absent",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "DOC-LIES",
-      "evidence": "grep -rn '/Users/art' /tmp/census-consumer-factory-Iwbf1j → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision)"
+      "evidence": "grep -rn '/Users/art' /tmp/census-consumer-factory-r2-TZpjMT → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision)"
     },
     {
       "artefact": ".claude/skills/pipeline/",
@@ -278,9 +282,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -308,9 +312,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -368,9 +372,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -398,9 +402,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -428,9 +432,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -458,9 +462,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -488,15 +492,15 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
+        "core": false,
+        "env": false,
         "factory": true
       },
-      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "works": "works as a session-read agent prompt inside a factory-profile consumer (requires the aif-handoff runtime it presupposes)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
-      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+      "by_design_citation": "setup.d/20-agents.sh:36-42 (factory-only gate: «presuppose the aif-handoff operator runtime»)",
+      "evidence": "M4: present in factory tree only; L2 hook-run harness N/A for agent prompts (session-read surface)"
     },
     {
       "artefact": ".claude/agents/review-sidecar.md",
@@ -518,15 +522,15 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
+        "core": false,
+        "env": false,
         "factory": true
       },
-      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "works": "works as a session-read agent prompt inside a factory-profile consumer (requires the aif-handoff runtime it presupposes)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
-      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+      "by_design_citation": "setup.d/20-agents.sh:36-42 (factory-only gate: «presuppose the aif-handoff operator runtime»)",
+      "evidence": "M4: present in factory tree only; L2 hook-run harness N/A for agent prompts (session-read surface)"
     },
     {
       "artefact": ".claude/agents/rule-researcher.md",
@@ -563,9 +567,9 @@
       "class": "agent",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
       "works": "n/a — not delivered",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
@@ -585,7 +589,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -600,7 +604,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -615,7 +619,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -630,7 +634,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -645,7 +649,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -660,7 +664,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -675,7 +679,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -690,7 +694,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -705,7 +709,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -720,7 +724,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -735,7 +739,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -750,7 +754,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -765,7 +769,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -780,7 +784,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -795,7 +799,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -810,7 +814,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -825,7 +829,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -840,7 +844,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -855,7 +859,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -870,7 +874,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -885,7 +889,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -900,7 +904,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -915,7 +919,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -930,7 +934,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -945,7 +949,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -960,7 +964,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -975,7 +979,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -990,7 +994,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -1005,7 +1009,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -1020,7 +1024,7 @@
       "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:45",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
       "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
     },
     {
@@ -2478,36 +2482,6 @@
       "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
     },
     {
-      "artefact": "packages/core/templates/shared/",
-      "class": "template",
-      "has": true,
-      "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
-      },
-      "works": "11-13 .ai-factory files per tree (M7)",
-      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
-      "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §5a shared templates)",
-      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
-    },
-    {
-      "artefact": "packages/core/templates/ts-server-configs/",
-      "class": "template",
-      "has": true,
-      "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
-      },
-      "works": "eslint.config.mjs, vitest.config.ts, tsconfig.json, .dependency-cruiser.cjs, stryker.config.json, tests/setup.ts at consumer root (install-core.log)",
-      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
-      "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:27 (§6a stack configs)",
-      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
-    },
-    {
       "artefact": "packages/core/templates/cargo/",
       "class": "template",
       "has": true,
@@ -2565,6 +2539,21 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (stack-aware gating)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "packages/core/templates/shared/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "11-13 .ai-factory files per tree (M7)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §5a shared templates)",
       "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
     },
     {
@@ -2688,7 +2677,7 @@
       "evidence": "install-core.log [synth-wire] lines"
     },
     {
-      "artefact": "packages/core/eslint-rules-local (consumer barrel)",
+      "artefact": "eslint-rules-local/ (consumer barrel)",
       "class": "lint-bundle",
       "has": true,
       "delivered": {
@@ -2700,7 +2689,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:27",
-      "evidence": "M2: eslint-rules-local = 13 files all profiles"
+      "evidence": "M2: eslint-rules-local = 13 files all profiles (install log: «Custom ESLint rules → eslint-rules-local/» — consumer ROOT, not packages/core/)"
     },
     {
       "artefact": ".mcp.json (context7 wiring via setup.d/05-mcp.sh)",
@@ -2730,7 +2719,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
-      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only"
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
     },
     {
       "artefact": "companions.manifest row: runtime-bridge",
@@ -2745,7 +2734,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
-      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only"
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
     },
     {
       "artefact": "companions.manifest row: deepwiki",
@@ -2760,7 +2749,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
-      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only"
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
     },
     {
       "artefact": "companions.manifest row: ast-grep-cli",
@@ -2775,7 +2764,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
-      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only"
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
     },
     {
       "artefact": "companions.manifest row: ast-grep",
@@ -2790,7 +2779,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
-      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only"
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
     },
     {
       "artefact": "companions.manifest row: aif-handoff",
@@ -2805,7 +2794,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
-      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only"
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
     },
     {
       "artefact": ".github/workflows/ci.yml",
@@ -3113,14 +3102,14 @@
       "has": true,
       "delivered": {
         "core": false,
-        "env": false,
-        "factory": false
+        "env": true,
+        "factory": true
       },
-      "works": "n/a — not delivered",
+      "works": "delivered env+factory (worktree helpers, 85-worktree-scripts.sh:87-92)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
-      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
     },
     {
       "artefact": "scripts/fire-routine.sh",
@@ -3188,14 +3177,14 @@
       "has": true,
       "delivered": {
         "core": false,
-        "env": false,
-        "factory": false
+        "env": true,
+        "factory": true
       },
-      "works": "n/a — not delivered",
+      "works": "delivered env+factory",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
-      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
     },
     {
       "artefact": "scripts/host-verify-coverage.sh",
@@ -3278,14 +3267,14 @@
       "has": true,
       "delivered": {
         "core": false,
-        "env": false,
-        "factory": false
+        "env": true,
+        "factory": true
       },
-      "works": "n/a — not delivered",
+      "works": "delivered env+factory; CANON default $HOME/.claude-coordination/rules-as-tests-aif (:74) — consumer-scoped, not a factory escape",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
-      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
     },
     {
       "artefact": "scripts/measure-always-on.sh",
@@ -3504,13 +3493,13 @@
       "delivered": {
         "core": false,
         "env": false,
-        "factory": false
+        "factory": true
       },
-      "works": "n/a — not delivered",
+      "works": "delivered factory only",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
-      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
     },
     {
       "artefact": "scripts/run-local-ci-sweep.test.sh",
@@ -3803,6 +3792,231 @@
       "has": true,
       "delivered": {
         "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered env+factory",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/audit-ai-docs.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — documented acceptance cmd: 5 PASS / 0 FAIL / 1 WARN severed (L2c); 4/0/2 under L3 severance",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-arch-boundaries.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — honest skip: «not an apps/+packages/ monorepo»",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-fences-fire.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=1 VACUOUS without node_modules (fail-loud, by design); load-probe OK with deps installed (factory-consumer control)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-lintstaged-resolves.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "honest skip without node_modules; with probe-deps installed: exit=1 lint-staged unresolvable (it is in the documented install line, not the probe set)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-rule-enforced.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-rule-globs.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=1 on the fresh consumer layout (boundary globs match ZERO files) → pre-push BLOCKS the first push; installer deliberately arms this alarm (R2 auto-wire note in install log; setup.d/40-configs.sh:19 «silent-inertness alarm»)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-shields-up.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — PASS=3 FAIL=0",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/ci-available-probe.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=3 CANNOT-RUN: no origin remote (honest — fixture has no remote)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/detect-r2-boundary.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — «ambiguous» (expected on the fixture)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/pre-merge-local.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "usage exit=64 without base-ref/origin (honest)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/r2-na-marker.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/audit-r4.ts",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "needs ts-morph (documented install line) — probe error captured; R-2 deps-presence",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/run-generated-rule-mutation.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=2: .ai-factory/synthesizer-output manifest absent (honest error; created only by the synth pipeline)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/run-rule-tests-firing.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — no-op: no .ai-factory/rule-tests/ sidecar (nothing to fire)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-server-imports-in-client.bad.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
         "env": false,
         "factory": false
       },
@@ -3811,6 +4025,126 @@
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
       "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-server-imports-in-client.good.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-server-imports-in-client.manifest.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-unsafe-zod-parse.bad.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-unsafe-zod-parse.good.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-unsafe-zod-parse.manifest.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/require-use-server-directive.bad.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/require-use-server-directive.good.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/require-use-server-directive.manifest.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
     }
   ]
 }

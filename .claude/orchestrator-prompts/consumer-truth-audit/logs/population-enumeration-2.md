@@ -228,3 +228,47 @@ tracked: hooks 25 (21 top + lang 3 + lib 1) | rules 30 | agents 20 | root skills
 2. **C8 spec path wrong:** `.getff/astgrep-rules` does not exist at repo root (`ls .getff` → No such file or directory). The 4 ast-grep rule ymls live at `packages/core/templates/python/.getff/astgrep-rules/`; clippy.toml at `packages/core/templates/cargo/clippy.toml`; .golangci.yml at `packages/core/templates/go/.golangci.yml`; ruff.toml at `packages/core/templates/python/ruff.toml`. Lint bundles are stack-specific template cargo, not root config.
 3. **C1 naive count misleads:** `ls -d .claude/skills/*/` → 41, but 25 are gitignored container-local consumer skills (aif suite, .gitignore:115). The framework-shipped population is the 16 tracked families.
 4. **self-reflection anomaly:** `.claude/skills/self-reflection/` is git-tracked but appears in NO install log section for any of the three profiles (core/env/factory skill lists quoted above) — candidate HAS=true / DELIVERED=false row. Resolved in the census matrix, not here.
+
+## C11b. ADDENDUM (rework round 2) — the consumer-script sources §C11 missed
+
+§C11 enumerated repo `scripts/` (62 tracked files) — the kickoff §2 source. The installer's
+DOMINANT consumer-script source is elsewhere: `setup.d/40-configs.sh:14-54` copies named files
+from `packages/core/{audit-self,probes,synthesizer}` into consumer `scripts/`, and
+`setup.d/10-skills.sh:168` ships `scripts/run-local-ci-sweep.sh` (factory, operator-skill
+payload). Round 1 left those 20 delivered files with no census row while report §census summary
+quoted the full 20/24/25 delivered matrix — the two deliverables contradicted each other
+(review round-2 BLOCKER). Enumerated now, from the setup.d copy list:
+
+```
+$ grep -h 'copy_safe.*PROJECT_ROOT/scripts/' setup.d/*.sh | sed 's/.*\$PKG_ROOT\///; s/".*//' | sort -u
+packages/core/audit-self/audit-ai-docs.sh
+packages/core/audit-self/check-arch-boundaries.sh
+packages/core/audit-self/check-fences-fire.sh
+packages/core/audit-self/check-lintstaged-resolves.sh
+packages/core/audit-self/check-rule-enforced.sh
+packages/core/audit-self/check-rule-globs.sh
+packages/core/audit-self/check-shields-up.sh
+packages/core/audit-self/ci-available-probe.sh
+packages/core/audit-self/detect-r2-boundary.sh
+packages/core/audit-self/fixtures/fences-fire     ← dir payload → scripts/fences-fire-fixtures/ (40-configs.sh:54)
+packages/core/audit-self/pre-merge-local.sh
+packages/core/audit-self/r2-na-marker.sh
+packages/core/probes/audit-r4.ts
+packages/core/synthesizer/run-generated-rule-mutation.sh
+packages/core/synthesizer/run-rule-tests-firing.sh
+packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh   ← stack variants, NOT on the ts-server flow
+packages/preset-react-native/audit-self/audit-ai-docs.react-native.sh
+packages/preset-react-spa/audit-self/audit-ai-docs.react-spa.sh
+```
+
+Fixture-dir contents (framework side, `packages/core/audit-self/fixtures/fences-fire/`, 9 files):
+no-server-imports-in-client.{bad.txt,good.txt,manifest.json} (react-next-stack material —
+delivered only on react-next stacks, absent from all 3 round-2 ts-server trees),
+no-unsafe-zod-parse.{bad.txt,good.txt,manifest.json},
+require-use-server-directive.{bad.txt,good.txt,manifest.json}.
+
+**C11b script-class population: 85 rows = 62 (repo `scripts/`, §C11) + 23 (audit-self 11 .sh +
+6 fixtures + probes/audit-r4.ts + synthesizer 2 .sh; of the fixtures, 3 are stack-gated and
+undelivered here).** Delivered sums re-verified on the round-2 trees: 20 / 24 / 25 (= §M7).
+Stack-variant `audit-ai-docs.react-{next,native,spa}.sh` sources are outside every
+kickoff-named population and stay unenumerated (same cut as the gitignored skills).

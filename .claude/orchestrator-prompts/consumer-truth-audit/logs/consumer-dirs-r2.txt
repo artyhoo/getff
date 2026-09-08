@@ -1,0 +1,6 @@
+core
+/tmp/census-consumer-core-r2-lacg1W
+env
+/tmp/census-consumer-env-r2-y3F4uO
+factory
+/tmp/census-consumer-factory-r2-TZpjMT

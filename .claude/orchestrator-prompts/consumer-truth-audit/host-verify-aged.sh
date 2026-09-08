@@ -35,19 +35,25 @@ OUT="$(cd "$(dirname "$0")" && pwd)/aged-inventory.json"
 # READ-ONLY GUARD: the only writes are the JSON output NEXT TO THIS SCRIPT.
 # Everything below is find/ls/jq reads against $AGED_ROOT.
 
-skills=$(find "$AGED_ROOT/.claude/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | xargs -n1 basename 2>/dev/null | sort || true)
-agents=$(find "$AGED_ROOT/.claude/agents" -maxdepth 1 -name '*.md' 2>/dev/null | xargs -n1 basename 2>/dev/null | sort || true)
+skills=$(find "$AGED_ROOT/.claude/skills" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | xargs -0 -n1 basename 2>/dev/null | sort || true)
+agents=$(find "$AGED_ROOT/.claude/agents" -maxdepth 1 -name '*.md' -print0 2>/dev/null | xargs -0 -n1 basename 2>/dev/null | sort || true)
 hooks=$(find "$AGED_ROOT/.claude/hooks" -type f 2>/dev/null | sed "s|$AGED_ROOT/||" | sort || true)
 rules_dir="absent"
 [ -d "$AGED_ROOT/.claude/rules" ] && rules_dir="present ($(find "$AGED_ROOT/.claude/rules" -name '*.md' | wc -l | tr -d ' ') files)"
-workflows=$(find "$AGED_ROOT/.github/workflows" -maxdepth 1 -type f 2>/dev/null | xargs -n1 basename 2>/dev/null | sort || true)
-scripts=$(find "$AGED_ROOT/scripts" -maxdepth 1 -type f 2>/dev/null | xargs -n1 basename 2>/dev/null | sort || true)
+workflows=$(find "$AGED_ROOT/.github/workflows" -maxdepth 1 -type f -print0 2>/dev/null | xargs -0 -n1 basename 2>/dev/null | sort || true)
+scripts=$(find "$AGED_ROOT/scripts" -maxdepth 1 -type f -print0 2>/dev/null | xargs -0 -n1 basename 2>/dev/null | sort || true)
 aifactory=$(find "$AGED_ROOT/.ai-factory" -type f 2>/dev/null | sed "s|$AGED_ROOT/||" | sort || true)
 mcp_json="absent"
 [ -f "$AGED_ROOT/.mcp.json" ] && mcp_json="present"
 settings_regs=$(jq -r '.hooks | keys[]' "$AGED_ROOT/.claude/settings.json" 2>/dev/null | sort | tr '\n' ',' || echo "none")
 
-json_list() { printf '%s\n' "$@" | jq -R . | jq -s .; }
+# json_list STR — one newline-separated entry string (as produced by the find|sort captures
+# above) → a JSON array. An EMPTY class must emit [], never [""], so the never-shipped delta
+# bucket cannot join against a phantom one-element list named "".
+json_list() {
+  if [ -z "$1" ]; then printf '[]'; return 0; fi
+  printf '%s' "$1" | jq -R . | jq -s .
+}
 
 jq -n \
   --arg aged_root "$AGED_ROOT" \
@@ -55,12 +61,12 @@ jq -n \
   --arg rules_dir "$rules_dir" \
   --arg mcp_json "$mcp_json" \
   --arg settings_regs "$settings_regs" \
-  --argjson skills "$(json_list $skills)" \
-  --argjson agents "$(json_list $agents)" \
-  --argjson hooks "$(json_list $hooks)" \
-  --argjson workflows "$(json_list $workflows)" \
-  --argjson scripts "$(json_list $scripts)" \
-  --argjson aifactory "$(json_list $aifactory)" \
+  --argjson skills "$(json_list "$skills")" \
+  --argjson agents "$(json_list "$agents")" \
+  --argjson hooks "$(json_list "$hooks")" \
+  --argjson workflows "$(json_list "$workflows")" \
+  --argjson scripts "$(json_list "$scripts")" \
+  --argjson aifactory "$(json_list "$aifactory")" \
   '{aged_root: $aged_root, measured_at: $measured_at,
     classes: {skills: $skills, agents: $agents, hooks: $hooks,
               rules_dir: $rules_dir, workflows: $workflows,
