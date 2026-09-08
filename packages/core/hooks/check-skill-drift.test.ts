@@ -4,15 +4,20 @@
  * Script under test: scripts/check-skill-drift.sh
  *
  * Exit code contract:
- *   0 = clean (no broken refs, no missing frontmatter; trigger-overlap is WARN-only to stderr)
- *   1 = broken refs OR missing frontmatter detected
+ *   0 = clean (no broken refs, no missing frontmatter, invocation-channel contract intact;
+ *       trigger-overlap is WARN-only to stderr)
+ *   1 = broken refs OR missing frontmatter OR invocation-channel-contract drift detected
  *
  * Checks covered:
  *   - Broken internal refs: markdown links [text](relative/path.md) whose target does not exist
  *   - Missing frontmatter: SKILL.md / agents/*.md lacking `---` + `name:` + `description:`
  *   - Combined: both errors present in one run
+ *   - Invocation-channel contract: every SKILL.md whose frontmatter carries
+ *     `disable-model-invocation: true` holds the canonical line from
+ *     docs/meta-factory/operational-conventions.md §4 byte-for-byte, and no skill without
+ *     the flag holds it; absent SSOT doc → section SKIPs rather than failing
  *
- * Paired-negative contract (4 cases):
+ * Paired-negative contract (5 cases):
  *
  *   Case 1 — Clean state:
  *     POSITIVE (implicit baseline): empty .claude/skills, agents, skills dirs → exit 0
@@ -35,6 +40,15 @@
  *     linking to nonexistent file → exit 1,
  *     stdout contains BOTH "BROKEN-REF:" AND "MISSING-FRONTMATTER:"
  *
+ *   Case 5 — Invocation-channel contract (six sub-cases):
+ *     SKIP:        no SSOT doc in the sandbox → section skipped, exit 0
+ *     POSITIVE:    flag set, canonical line absent → exit 1, "CONTRACT-MISSING:"
+ *     NEGATIVE:    flag set, canonical line present verbatim → exit 0, no "CONTRACT-" output
+ *     DRIFT:       marker token present but text paraphrased → exit 1, "CONTRACT-DRIFT:"
+ *     STALE:       canonical line present without the flag → exit 1, "CONTRACT-STALE:"
+ *     NON-VACUITY: the REAL repo SSOT carries exactly one canonical line, containing the
+ *       half that keeps getting dropped ("not a workaround")
+ *
  * Isolation strategy:
  *   The script derives REPO_ROOT from its own file location via:
  *     SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -53,6 +67,10 @@
  *   - If the script's "check-skill-drift: FAIL" string changes → Case 2/3/4 tests FAIL.
  *   - If exit code logic is mutated (1 → 0) → Case 2/3/4 POSITIVE tests FAIL.
  *   - If exit code logic is mutated (0 → 1) → Case 2/3 NEGATIVE and Case 1 tests FAIL.
+ *   - If any of "CONTRACT-MISSING:" / "CONTRACT-DRIFT:" / "CONTRACT-STALE:" or the SKIP
+ *     message changes → the corresponding Case 5 sub-case FAILS.
+ *   - If the canonical line in the SSOT doc is edited, Case 5 reads the NEW line from the
+ *     real doc, so the fixtures follow the SSOT instead of pinning a retyped copy.
  *
  * T3 compliance: each assertion cites the script source line/region it targets.
  * T15: this test file's own isolation approach is noted in the docstring above.
