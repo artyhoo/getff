@@ -41,6 +41,16 @@
 #   PROBE_TASKS               JSON array of aif task objects   (else: curl /tasks)
 #   PROBE_PROJECTS            JSON array of aif project objects (else: curl /projects)
 #   PROBE_DOCKER_BIN          docker binary to probe/exec (default: docker)
+#
+# Signal 4 addresses the aif runtime by NAME and by docker endpoint, and both are machine
+# state, not repo truth — a relocated stack silently makes the signal unaskable:
+#   AIF_CONTAINER   agent container name (default: aif-handoff-agent-1). A stack that is
+#                   not on this host uses different names (measured 2026-09-08: aif-agent-1,
+#                   no `handoff-` prefix). Wrong name => "No such container" => the verdict
+#                   is PROBE-INCOMPLETE, which by design STOPs every dispatch.
+#   DOCKER_CONTEXT  read by docker itself; set it when the daemon is remote (e.g. `pc`).
+# Both are honest degradations, never a false clean — but they are the two knobs to check
+# FIRST on a PROBE-INCOMPLETE whose cause names the container.
 #   PROBE_CLAIM_TTL_MIN       minutes before a claim reads STALE (default 120)
 #   PROBE_NOW_EPOCH           epoch seconds "now", for deterministic age fixtures
 #
@@ -182,7 +192,15 @@ else
       container_branches=""
       container_status="unavailable"
       container_reason="docker-not-on-PATH"
-    elif ! container_branches=$("$PROBE_DOCKER_BIN" exec "$AIF_CONTAINER" git -C "$repo_path" branch -a 2>"$err_file"); then
+    # `-c safe.directory=*` is REQUIRED, not defensive: `docker exec` lands as root by
+    # default while the agent checkout is owned by the container's own user, so plain git
+    # dies with "detected dubious ownership" and the signal degrades to PROBE-INCOMPLETE —
+    # a question the probe COULD ask rendered as one it could not. Read-only and
+    # user-agnostic, so it fixes the class without assuming which uid the exec lands as.
+    # (Measured 2026-09-08 against the aif stack: every dispatch STOPped on this cause.
+    # The pre-existing arm (b) of probe-inflight.test.ts already used this exact stderr
+    # as its fixture — the shape was tested, the cause was never fixed.)
+    elif ! container_branches=$("$PROBE_DOCKER_BIN" exec "$AIF_CONTAINER" git -c safe.directory='*' -C "$repo_path" branch -a 2>"$err_file"); then
       container_branches=""
       container_status="unavailable"
       container_reason=$(grep -m1 . "$err_file" 2>/dev/null || true)
