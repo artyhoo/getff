@@ -253,6 +253,11 @@ changed the design are recorded first.
   `startup|clear|compact`. So the arm stage A perturbs IS consumer-shipped, and any stage-B
   hook placed in the plugin tree would ship a residue reader to consumers who receive no
   residue writer. D7's operator-axis claim holds only for `precompact-residue.sh` itself.
+  **Superseded in part (2026-09-08, operator premise 7):** «consumers receive no residue
+  writer» is now a gap to close, not a constraint to design around — see the gate spec's
+  `Consumer-axis addendum` in
+  [2026-09-08-handoff-currency-gate-design.md](2026-09-08-handoff-currency-gate-design.md).
+  F6's verified facts stand; the conclusion drawn from them lapses.
 - **F2 — wrong hook event. FIXED in round 1** (see above).
 - **F7 — stage A has no testing seam and no repo artifact. ACCEPTED as a known limit**, now
   material because F3 makes A the widest-blast-radius change. Both delivery branches are
