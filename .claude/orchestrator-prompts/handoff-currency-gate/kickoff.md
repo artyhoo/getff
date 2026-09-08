@@ -83,6 +83,24 @@ bash scripts/run-local-ci-sweep.sh
 The live-verification arms (spec D26) are the harvesting session's obligation, not this stage's:
 the gate cannot be exercised for real until the operator applies the hand-action.
 
+## §3a Park-don't-guess contract (non-negotiable)
+
+**aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible
+implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do
+NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with
+the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.**
+Proceed only on the unambiguous parts.
+
+Expected to fire here on: (a) a D-row that cannot be implemented as written against the real file —
+the spec's anchors were re-verified at dispatch time against a 702-line
+`end-of-turn-reminder.sh` (`:288` = `if [ -n "$ctx_entry" ]`, `:414` = the `text=` assignment,
+emit sites at `:134`, `:476`, `:694`); if what you find diverges, park with the divergence quoted
+and do NOT re-derive the design; (b) the operator hand-action script's registration payload, whose
+constraints §2 fixes (backup, `jq -e .` validate, atomic `mv`, skip-if-present) but whose exact
+content it does not; (c) `render-harness-config.mjs --check` being unable to express the injector's
+registration without a schema change (D20). Per `T-HCG-A`, never manufacture a quoted command
+output for anything you did not actually run.
+
 ## §4 AI laziness traps
 
 See [.claude/rules/ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md).
