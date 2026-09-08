@@ -48,7 +48,7 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 | 6 | `check-kickoff-traps` | PostToolUse:Edit\|Write | works | `parity` |
 | 7 | `check-worker-dispatch-channel` | PostToolUse:Edit\|Write\|MultiEdit | degraded (`MultiEdit` matcher inert on ZCode; Edit+Write fire) | `zcode-gap` |
 | 8 | `deps-hash-check` | UserPromptSubmit | works | `parity` |
-| 9 | `end-of-turn-reminder` | Stop | degraded (recap/thin-recap branches work — step-1 `_is_zcode` branch proven on synthetic transcripts; the D7 context-arm is inert there: synthetic transcripts may carry no `.message.usage` fields, S2a 2026-08-10) | `zcode-gap` |
+| 9 | `end-of-turn-reminder` | Stop | degraded (recap/thin-recap branches work — step-1 `_is_zcode` branch proven on synthetic transcripts; the D7 context-arm is inert there: synthetic transcripts may carry no `.message.usage` fields, S2a 2026-08-10; the D13 handoff-currency gate arm is inert for the SAME reason — it is nested inside the same `ctx_entry` block, so no usage record ⇒ no gate computation at all, D31/D23, 2026-09-08) | `zcode-gap` |
 | 10 | `inject-matching-rule` | PostToolUse:Edit\|Write | works | `parity` |
 | 11 | `inject-memory-codification` | PostToolUse:Write | works | `parity` |
 | 12 | `inject-output-language` | UserPromptSubmit | works; plugin twin shipped via Stage 6 (#1043) → reachable on ZCode via plugin channel | `parity` |

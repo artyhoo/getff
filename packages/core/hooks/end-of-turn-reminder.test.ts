@@ -26,10 +26,11 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, chmodSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -1860,5 +1861,342 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce k
       { TMPDIR: tmp },
     );
     expect(second.stdout.trim()).toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Handoff-currency gate (D13) — spec:
+// docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md §Testing seams.
+//
+// Dormant unless AIF_HANDOFF_GATE=1 (D18). The unarmed contract is guarded by FIXTURE 9:
+// every gate-fixture input is replayed UNARMED against the edited hook and must reproduce,
+// byte for byte, the output of the PRE-CHANGE hook — captured once into
+// __fixtures__/gate-unarmed-goldens.json by spawning `git show abc0876183:…` (T-HCG-B:
+// a paired negative written against the edited hook asserts that the hook equals itself).
+// Every armed claim below is a spawned run quoted into the assertion (T-HCG-A).
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', () => {
+  const GOLDENS = JSON.parse(
+    readFileSync(resolve(REPO_ROOT, 'packages/core/hooks/__fixtures__/gate-unarmed-goldens.json'), 'utf8'),
+  ) as {
+    env: Record<string, string>;
+    cases: Array<{
+      name: string;
+      session: string;
+      tokens: number | null;
+      text: string;
+      noUsage: boolean;
+      stopHookActive: boolean;
+      res: { mode: string; content?: string } | null;
+      env: Record<string, string>;
+      expectedStdout: string;
+    }>;
+  };
+  const goldenCase = (name: string) => {
+    const c = GOLDENS.cases.find((x) => x.name === name);
+    if (!c) throw new Error(`golden case not found: ${name}`);
+    return c;
+  };
+  const sha256File = (p: string): string =>
+    createHash('sha256').update(readFileSync(p)).digest('hex');
+
+  interface Built {
+    dir: string;
+    residueDir: string | null;
+    transcript: string;
+    baseline: string;
+    env: Record<string, string>;
+    stdin: Record<string, unknown>;
+  }
+
+  /** Rebuild a golden case's inputs EXACTLY as the capture did (same builders, same env
+   *  precedence). `armed` adds AIF_HANDOFF_GATE=1; the unarmed replay deletes it, so a
+   *  developer env that happens to carry it cannot rot fixture 9 into armed-output bytes. */
+  function buildCase(c: (typeof GOLDENS.cases)[number], armed: boolean): Built {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-fixture-'));
+    tmpDirs.push(dir);
+    const transcript = join(dir, 'transcript.jsonl');
+    const lines: Record<string, unknown>[] = [
+      { type: 'ai-title', aiTitle: 'Gate fixture' },
+      { type: 'user', message: { content: 'go' } },
+    ];
+    if (!c.noUsage) {
+      lines.push({
+        type: 'assistant',
+        isSidechain: false,
+        message: {
+          model: 'claude-opus-5',
+          usage: {
+            input_tokens: 1000,
+            cache_read_input_tokens: (c.tokens ?? 0) - 3000,
+            cache_creation_input_tokens: 2000,
+          },
+          content: [{ type: 'text', text: c.text }],
+        },
+      });
+    } else {
+      lines.push({
+        type: 'assistant',
+        isSidechain: false,
+        message: { content: [{ type: 'text', text: c.text }] },
+      });
+    }
+    writeFileSync(transcript, lines.map((l) => JSON.stringify(l)).join('\n') + '\n', 'utf8');
+
+    let residueDir: string | null = null;
+    if (c.res) {
+      residueDir = join(dir, 'residue');
+      if (c.res.mode !== 'absent') mkdirSync(residueDir, { recursive: true });
+      if (c.res.mode === 'content') {
+        writeFileSync(join(residueDir, `_handoff-${c.session}.md`), c.res.content + '\n', 'utf8');
+      }
+      if (c.res.mode === 'readonly') chmodSync(residueDir, 0o555);
+    }
+
+    let projectDir = REPO_ROOT;
+    if (c.env.__settingsAutoCompact !== undefined) {
+      projectDir = join(dir, 'proj');
+      mkdirSync(join(projectDir, '.claude'), { recursive: true });
+      writeFileSync(
+        join(projectDir, '.claude', 'settings.json'),
+        JSON.stringify({ autoCompactWindow: Number(c.env.__settingsAutoCompact) }, null, 2) + '\n',
+        'utf8',
+      );
+    }
+
+    const env: Record<string, string> = {
+      ...process.env,
+      ...GOLDENS.env,
+      ...c.env,
+      TMPDIR: dir,
+      CLAUDE_PROJECT_DIR: projectDir,
+      ...(residueDir ? { AIF_RESIDUE_DIR: residueDir } : {}),
+    } as Record<string, string>;
+    delete env.AIF_HANDOFF_GATE;
+    if (armed) env.AIF_HANDOFF_GATE = '1';
+
+    return {
+      dir,
+      residueDir,
+      transcript,
+      baseline: join(dir, `aif-handoff-${c.session}`),
+      env,
+      stdin: {
+        transcript_path: transcript,
+        session_id: c.session,
+        stop_hook_active: c.stopHookActive,
+      },
+    };
+  }
+
+  function spawnCase(b: Built): { status: number; stdout: string; stderr: string } {
+    const r = spawnSync('bash', [HOOK], { input: JSON.stringify(b.stdin), encoding: 'utf8', env: b.env });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  // ── Fixture 9 — THE paired negative (T-HCG-B): unarmed output is byte-identical to the
+  // pre-change hook on EVERY gate-fixture input. The goldens were captured from
+  // `git show abc0876183:.claude/hooks/end-of-turn-reminder.sh` before the hook was edited;
+  // this test cannot pass by tautology because the comparison target is a frozen file.
+  it('fixture 9 (paired negative): AIF_HANDOFF_GATE unset → byte-identical to the pre-change hook on every gate-fixture input', () => {
+    for (const c of GOLDENS.cases) {
+      const b = buildCase(c, false);
+      const r = spawnCase(b);
+      expect(r.status, `${c.name}: exit status (stderr: ${r.stderr})`).toBe(0);
+      expect(r.stdout, `${c.name}: unarmed output must equal the captured pre-change bytes`).toBe(
+        c.expectedStdout,
+      );
+    }
+    // 17 spawns of bash+jq; the default 5s vitest timeout fits ~16 of them. Measured 5.1s.
+  }, 60_000);
+
+  it('fixture 1: armed, above floor, no handoff file → decision:block, reason names the path', () => {
+    const b = buildCase(goldenCase('f1-armed-no-handoff'), true);
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    const expectedPath = `${b.residueDir}/_handoff-${goldenCase('f1-armed-no-handoff').session}.md`;
+    expect(parsed.reason, 'the reason names the handoff file').toContain(expectedPath);
+    expect(parsed.reason, 'the reason names the five required sections').toContain('## Next action');
+    expect(parsed.reason, 'the reason carries the escape grammar').toContain('mechanical-tail:');
+  });
+
+  it('fixture 2: armed, valid five-section handoff, no baseline → allow (silent) + baseline written with the sha', () => {
+    const c = goldenCase('f2-armed-valid-allow');
+    const b = buildCase(c, true);
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a fresh handoff on a first in-band stop is ALLOWED').toBe('');
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    expect(readFileSync(b.baseline, 'utf8'), 'the baseline records the content sha').toBe(
+      sha256File(handoff),
+    );
+  });
+
+  it('fixture 3: same file, second stop → block «unchanged»; touch first → STILL block (content, not mtime)', () => {
+    const c = goldenCase('f3-armed-unchanged-block');
+    const b = buildCase(c, true);
+    const first = spawnCase(b); // records the baseline
+    expect(first.stdout).toBe('');
+    const second = spawnCase(b);
+    const parsed = JSON.parse(second.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'unchanged content blocks').toContain('unchanged');
+    // mtime is never read: a touch changes nothing the sha can see.
+    const before = readFileSync(b.baseline, 'utf8');
+    execSync(`touch "${b.residueDir}/_handoff-${c.session}.md"`);
+    const third = spawnCase(b);
+    const parsed3 = JSON.parse(third.stdout) as { decision: string; reason: string };
+    expect(parsed3.decision, 'a touch alone must not lift the block').toBe('block');
+    expect(parsed3.reason).toContain('unchanged');
+    expect(readFileSync(b.baseline, 'utf8')).toBe(before);
+  });
+
+  it('fixture 4: file edited under one heading → allow; baseline advances', () => {
+    const c = goldenCase('f4-armed-edited-allow');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout).toBe(''); // first stop records the baseline
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    writeFileSync(handoff, readFileSync(handoff, 'utf8').replace('land the delivery manifests.', 'land the delivery manifests TODAY.'), 'utf8');
+    const second = spawnCase(b);
+    expect(second.stdout, 'a content change is allowed').toBe('');
+    expect(readFileSync(b.baseline, 'utf8'), 'the baseline advanced to the new sha').toBe(
+      sha256File(handoff),
+    );
+  });
+
+  it('fixture 5: file missing ## Rejected alternatives → block, reason names it', () => {
+    const b = buildCase(goldenCase('f5-armed-missing-heading'), true);
+    const r = spawnCase(b);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('## Rejected alternatives');
+  });
+
+  it('fixture 6: valid escape token → allow; a 4-char rationale → still block', () => {
+    // Both halves start from the SAME state — a baseline that already matches the file
+    // (the "unchanged" branch would block) — so the ONLY variable is the token.
+    // 6a — the 44-char rationale clears the gate line (D17): the stale handoff does not block.
+    const a = buildCase(goldenCase('f6a-armed-escape-valid'), true);
+    const handoffA = `${a.residueDir}/_handoff-${goldenCase('f6a-armed-escape-valid').session}.md`;
+    writeFileSync(a.baseline, sha256File(handoffA), 'utf8');
+    const r = spawnCase(a);
+    expect(r.stdout, 'a rationale ≥20 chars is an escape from an otherwise-blocking state').toBe('');
+    // 6b — «mechanical-tail: done» is NOT an escape: the block reason re-quotes the grammar.
+    const b = buildCase(goldenCase('f6b-armed-escape-short'), true);
+    const handoffB = `${b.residueDir}/_handoff-${goldenCase('f6b-armed-escape-short').session}.md`;
+    writeFileSync(b.baseline, sha256File(handoffB), 'utf8');
+    const rb = spawnCase(b);
+    const parsed = JSON.parse(rb.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'a too-short rationale blocks and re-quotes the grammar').toContain(
+      'mechanical-tail:',
+    );
+  });
+
+  it('fixture 7: below the floor → silent (existing branches only)', () => {
+    const b = buildCase(goldenCase('f7-below-floor-silent'), true);
+    const r = spawnCase(b);
+    expect(r.status).toBe(0);
+    expect(r.stdout, '100k is below every floor — the gate never speaks').toBe('');
+  });
+
+  it('fixture 8: stop_hook_active=true, armed → stdout empty AND the baseline is untouched (D19: the hook does NOTHING at :35-38)', () => {
+    // NOTE: the spec's §Testing seams row 8 reads "baseline file updated", but the landed
+    // D19 register (round-1 REVISE: "the step is DELETED") and the hook's control flow both
+    // say otherwise — the guard exits at :35-38 BEFORE session_id is even read (:154), so a
+    // baseline write there is unimplementable without reordering the hook. This fixture
+    // pins the D19 register (do-nothing); the divergence is reported as an observation.
+    const c = goldenCase('f8-stop-hook-active');
+    const b = buildCase(c, true);
+    // A baseline from an earlier allowed stop exists…
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    writeFileSync(b.baseline, sha256File(handoff), 'utf8');
+    const before = readFileSync(b.baseline, 'utf8');
+    const r = spawnCase(b);
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'the loop guard short-circuits before any output').toBe('');
+    expect(readFileSync(b.baseline, 'utf8'), 'the stop_hook_active stop must not touch the baseline').toBe(before);
+  });
+
+  it('fixture 10: floor derivation — env 300000 → 201000; settings.json autoCompactWindow → same; neither → ctx_soft', () => {
+    // (a) DECLARED env: floor = min(300000, 300000×67%) = 201000. 250k is above it → block.
+    const a = buildCase(goldenCase('f10a-floor-env-declared'), true);
+    const ra = spawnCase(a);
+    const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'the derived floor is in the reason').toContain('201000');
+    // (b) settings.json autoCompactWindow only → the same 201000.
+    const b = buildCase(goldenCase('f10b-floor-settings-declared'), true);
+    const rb = spawnCase(b);
+    const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
+    expect(pb.decision).toBe('block');
+    expect(pb.reason).toContain('201000');
+    // (c) nothing declared → gate_floor = ctx_soft = 300000 on the 1M window → 250k is below it.
+    const c = buildCase(goldenCase('f10c-floor-none'), true);
+    const rc = spawnCase(c);
+    expect(rc.stdout, 'without a compaction point the gate stands at ctx_soft').toBe('');
+  });
+
+  it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', () => {
+    // Fixtures 1-8 are short/tool-only turns and never reach the bottom emit site (:694).
+    // Without THIS case, appending gate_line at only _autonomy_exit ships green — the exact
+    // shadowing failure the round-1 cold review caught (M2).
+    const c = goldenCase('f11-long-text-in-band');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout, 'first stop allows and records (the recap itself still fires)')
+      .not.toBe('');
+    const second = spawnCase(b);
+    expect(second.stdout.trim().startsWith('{') && second.stdout.trim().endsWith('}'), 'exactly ONE JSON object').toBe(true);
+    const parsed = JSON.parse(second.stdout) as { decision: string; reason: string; systemMessage?: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the recap half (bottom emit site)').toMatch(/🟢/);
+    expect(parsed.reason, 'the gate half — same block, not a second one').toContain('handoff-gate');
+    expect(parsed.reason, 'the context line is REPLACED by the gate (D21), never doubled').not.toMatch(/\[context\]/);
+  });
+
+  it('fixture 12 (D31): armed, transcript with NO usage record → exit 0 without error (set -u guard)', () => {
+    const b = buildCase(goldenCase('f12-armed-no-usage'), true);
+    const r = spawnCase(b);
+    expect(r.status, `no usage record must not abort the hook (stderr: ${r.stderr})`).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it('fixture 13 (D19 fail-closed): armed, AIF_RESIDUE_DIR unwritable → block whose reason names the degradation', () => {
+    const b = buildCase(goldenCase('f13-armed-readonly-residue'), true);
+    try {
+      const r = spawnCase(b);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, 'never a silent allow on a broken probe').toBe('block');
+      expect(parsed.reason, 'names the seam').toContain('AIF_RESIDUE_DIR');
+      expect(parsed.reason, 'says degraded, not all-clear').toMatch(/not an all-clear|degraded/i);
+    } finally {
+      // restore so the shared afterEach rmSync can always descend
+      if (b.residueDir) chmodSync(b.residueDir, 0o755);
+    }
+  });
+
+  it('fixture 14 (D32/D16): over the line cap → block naming the cap; a blank section → block naming it', () => {
+    // (a) 210-line handoff, all five sections present → the cap message, not a heading message.
+    const a = buildCase(goldenCase('f14a-armed-over-cap'), true);
+    const ra = spawnCase(a);
+    const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'condense, do not append').toContain('200-line cap');
+    // (b) ## Next action present but blank → named as missing/empty.
+    const b = buildCase(goldenCase('f14b-armed-blank-section'), true);
+    const rb = spawnCase(b);
+    const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
+    expect(pb.decision).toBe('block');
+    expect(pb.reason, 'a present-but-empty section is named').toContain('## Next action');
+  });
+
+  it('D36: the gate rides ONE block and the context line is suppressed from the floor upward (armed, short turn at 320k)', () => {
+    const b = buildCase(goldenCase('f2-armed-valid-allow'), true);
+    // The gate ALLOWS (fresh handoff) — the context line stays suppressed (D21), so a short
+    // in-band turn is fully silent: no ctx advice, no gate text, no fresh-session advice.
+    const r = spawnCase(b);
+    expect(r.stdout).toBe('');
   });
 });
