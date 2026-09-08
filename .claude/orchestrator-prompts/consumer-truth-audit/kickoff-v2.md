@@ -88,3 +88,15 @@ Active traps: **T2**, **T3**, **T6**, **T13**, **T14**, **T16**.
 - **T14** — a lane with no findings and two filled cells is not a mature lane.
 - **T16** — for any cell justified by analogy to another lane («go mirrors cargo»), write the
   analogy out and say what evidence carries across. Structural similarity is not proof.
+
+## Host-verify contract
+
+This lane's cells are filled by firing real linters, and linter presence/version is precisely
+what differs between the container and the host (the 2026-07-24 incident class: 5/5 in the
+container, 0/5 on the host, because the container lacked the tool and a stub was the only thing
+on PATH). Every firing claim is therefore re-fired on the host before acceptance:
+
+```bash host-verify
+npx vitest run packages/core/backends/golangci/firing.test.ts packages/core/backends/cargo/firing.test.ts packages/core/backends/ruff/firing.test.ts packages/core/backends/astgrep/firing.test.ts packages/core/backends/npm/firing.test.ts
+```
+

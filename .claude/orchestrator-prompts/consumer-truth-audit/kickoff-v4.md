@@ -73,3 +73,7 @@ Active traps: **T2**, **T3**, **T5**, **T12**, **T14**.
   shebang», stop; it goes in the report.
 - **T12** — do not answer WSL/Git Bash behaviour from training-data memory; the bench is right there.
 - **T14** — «WSL passed» is not «Windows works»; state coverage per environment.
+
+## Host-verify contract
+
+<!-- host-verify: none — this lane's destination environment is neither this container nor this Mac: it is the operator's Windows machine with WSL Ubuntu-24.04. A command run here would assert macOS behaviour and prove nothing about the environment under test. Acceptance is the captured bench log with its recorded exit code, quoted in the report per §2.1. -->

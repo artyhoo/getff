@@ -87,3 +87,7 @@ Active traps: **T2**, **T3**, **T7**, **T14**, **T15**.
 - **T14** — three hooks verified out of fifteen is 20% coverage, not a clean harness.
 - **T15** — this framework's thesis is that enforcement must fire at the earliest reachable
   channel. Report what channel would have caught each finding earlier than this audit did.
+
+## Host-verify contract
+
+<!-- host-verify: none — this lane is host-native by construction: it CANNOT run in a container at all, because its questions (does a hook fire, does an MCP server load, does a skill route) are only observable inside a live harness session. There is no container result for a host command to contradict; the whole lane IS the host verification, and its arm B runs under a second harness (zcode) for the same reason. -->

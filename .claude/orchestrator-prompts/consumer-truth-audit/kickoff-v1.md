@@ -83,3 +83,7 @@ Active traps: **T2**, **T3**, **T4**, **T10**, **T14**, **T19**.
 - **T10** — population before coverage.
 - **T14** — a document with no findings and 30% coverage is not a clean document.
 - **T19** — adversarially review your own verdict list before handing it over.
+
+## Host-verify contract
+
+<!-- host-verify: none — this lane reads documents and decides claims against V0's census; nothing in its method depends on the toolchain, OS or PATH of the machine it runs on, so no acceptance command would discriminate between container and host. Its findings are re-checkable from the file:line citations the report carries. -->

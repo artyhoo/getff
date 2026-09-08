@@ -163,3 +163,7 @@ Active traps: **T1**, **T2**, **T3**, **T9**, **T10**, **T14**, **T15**, **T19**
 - **T15** — self-application: this umbrella audits a framework whose thesis is that rules
   must be executable. Each lane reports what auditing *itself* would look like.
 - **T19** — run your own adversarial review of your report before handoff. CI checks form.
+
+## Host-verify contract
+
+<!-- host-verify: none — an umbrella kickoff authors no deliverable of its own; it routes to five stage kickoffs, each of which declares its own contract or its own honest opt-out. There is no acceptance command whose exit code would mean anything at this level. -->

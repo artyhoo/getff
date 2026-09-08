@@ -133,3 +133,16 @@ Active traps: **T1**, **T2**, **T3**, **T9**, **T10**, **T14**, **T15**.
 - **T10** — enumerate before any coverage claim.
 - **T14** — low coverage + clean result = «coverage insufficient to conclude».
 - **T15** — report what auditing this census would look like: what would catch a row you got wrong?
+
+## Host-verify contract
+
+The container is not the destination environment, and this lane's central claim — «the
+installer delivers X» — is exactly the kind that diverges between the two (a tool present in
+one and absent in the other silently changes what installs). The host re-runs the installer's
+own self-check and a dry-run, so a census produced in a container cannot be accepted on a
+container-only observation:
+
+```bash host-verify
+bash install.sh --dry-run < /dev/null
+```
+
