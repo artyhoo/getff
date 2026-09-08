@@ -305,3 +305,55 @@ below was re-verified in the worktree by the author before disposition.
 
 Round budget: 2 REVISE rounds are the `/arch` §2 cap. This was round 1; both seats' findings are
 disposed of above, and no finding was left un-adjudicated.
+
+## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
+
+**Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the
+framework must WORK at consumer projects — «нужно чтобы всё у консьюмеров работало, иначе зачем я
+это всё делаю». This is a goal statement, not a preference: it overturns the audience premise the
+decisions below were argued from.
+
+**What it withdraws.** D18 (dormant by default), D20's «Not added to `plugin/hooks/`», and the
+parent's F6 acceptance were each argued from «consumers receive no residue writer». That was a
+correct reading of the *present state* and an incorrect reading of the *intent*. The intent is now
+the opposite. Three decisions are therefore reopened for a follow-on stage — they are NOT
+re-decided here, and nothing in this addendum changes what the in-flight stage implements.
+
+**Verified present state (2026-09-08, re-runnable):**
+
+| Fact | Evidence |
+|---|---|
+| the Stop hook IS delivered to consumers and registered | `setup.d/10-skills.sh:233`, `install.sh:938`, `register_cc_hook … "Stop"` at `setup.d/10-skills.sh:248` |
+| the residue WRITER is delivered to nobody | `grep -rn precompact-residue setup.d/*.sh install.sh` → no match; no `plugin/hooks/precompact-residue` twin |
+| consumers have NO `PreCompact` registration at all | `plugin/hooks/hooks.json` declares `SessionStart` only (matcher `startup\|clear\|compact`) |
+| so the `compact` SessionStart slot is already occupied | same file — the injector cannot simply be added beside it (this is D20's real constraint, and it survives the withdrawal) |
+
+The consequence already recorded at «Consequences» — a consumer who arms the gate «gets a gate
+that blocks on a file it cannot read» — is thus not a hypothetical edge; it is the only behaviour a
+consumer can currently obtain. Unarmed, the consumer receives dormant code and nothing else.
+
+**The three reopened decisions (for the follow-on stage, not for the in-flight one):**
+
+1. **Writer delivery** — ship `precompact-residue.sh` (or a consumer-shaped equivalent) through the
+   install manifests AND add a `PreCompact` registration to `plugin/hooks/hooks.json`, which today
+   has no such event. The residue-dir cascade the in-flight stage extracts to `lib/residue-dir.sh`
+   (D29) is the seam this stands on.
+2. **Injection path** — a second `SessionStart` entry versus folding the injection into the
+   existing `session-start` hook. D20's matcher-collision reasoning is the input; its conclusion
+   («therefore operator-axis only») is what lapses.
+3. **Arming default** — whether `AIF_HANDOFF_GATE` stays opt-in once a writer exists. D18's
+   rejected alternative (arm on `autoCompactWindow` presence) was rejected *because* there was no
+   writer; that reason expires with decision 1.
+
+**Sequencing (why this is a follow-on and not a mid-flight scope change).** The consumer work edits
+the same files as the in-flight stage (`end-of-turn-reminder.sh`, the install manifests, the
+harness SSOT), so the two cannot run in parallel regardless. The in-flight stage is labelled
+`research-grade` and its kickoff states the design is settled; adding an un-reviewed axis to it
+mid-run would ship consumer-facing behaviour that no cold seat ever saw. Its working tree was
+verified clean at 2026-09-08T17:03Z — nothing is lost by letting it finish its settled scope.
+
+**Binding note for `consumer-truth-audit` (umbrella merged in #1674).** Its V0 census enumerates
+the `hooks` class and WILL find the writer undelivered. Do **not** classify that finding
+`BY-DESIGN` by citing D18/D20: the umbrella's own rule is that `BY-DESIGN` needs «a citation to the
+artefact that declares the intent», this spec is that artefact, and this addendum withdraws the
+intent. The correct class is `NOT-BUILT`, with this section as the citation.
