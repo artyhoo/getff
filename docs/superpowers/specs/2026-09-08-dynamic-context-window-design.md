@@ -2,8 +2,10 @@
 
 > **Rigor label (L0, effort-worthiness §2):** `build-and-verify` — reversible, operator-axis
 > hooks plus one settings key; no consumer-shipped surface, no irreversible action.
-> **Status:** design approved in dialogue 2026-09-08; stage B authorised, stage C gated on a
-> named measurement (D8).
+> **Status:** SUPERSEDED IN PLACE by round 2. Final shape after two cold review rounds: the
+> PAIR ships (compaction point + explicit window declaration, D3+D12); stage B is withdrawn as
+> immaterial (F5); the enforcement gate is re-scoped to its own design round (D13). The A+B/C
+> staging that decision D1 authorised did not survive its own review — see §Changelog round 2.
 
 ## Context
 
@@ -275,3 +277,57 @@ and rejected alternatives, and only stage C captures those. Meanwhile F3 shows s
 safe only as a PAIR with the window declaration. The A+B/C cut is therefore superseded, and
 the choice among the surviving options is the concept holder's — recorded in the handoff, not
 decided here.
+
+## Final disposition (2026-09-08, after round 2)
+
+- **D1 REVISED (operator, post-review).** The original "B now, C after measurement" is
+  withdrawn. What ships now is the PAIR only. The gate gets its own design round rather than
+  riding along as a stage — the operator's stated reason being that the gate is the one part
+  with no precedent anywhere and three unresolved design questions, and unresolved decisions
+  are most expensive when settled inside an implementation.
+- **D12 — delivery scope. Author-decided, not escalated.** Project-scoped
+  `.claude/settings.json`, NOT the machine-global env var. E1 asked the operator to price this;
+  it does not need pricing, because for an untested settings pair the reversibility measure
+  decides it outright: a project key is one edit to revert and is visible in git, while a shell
+  export propagates silently to the aif container and the PC sessions. **Widening trigger,
+  recorded so the second step is not left to memory:** widen to the machine only after this
+  repo has run through at least three auto-compactions with no observed misfire of the D7 arm,
+  and record the widening in this file. Absent that record, the scope stays project-local.
+- **D13 — the gate's own round.** The enforcement gate (formerly stage C) is the surviving
+  proposal: from a floor to be chosen, the Stop hook blocks the turn until the handoff's
+  content has changed, with a `mechanical-tail:` escape token. Three questions must be settled
+  in ITS design round, not in implementation: (a) where its floor sits now that 300000 is the
+  compaction point rather than the degradation warning; (b) how the PreCompact writer stops
+  truncating the whole residue file, since D6's never-overwrite promise requires a
+  read-merge-write restructure (round-2 note N1); (c) whether its payload is a new
+  model-authored section or a restructured residue, given that the compaction summary already
+  preserves "what am I doing" and only intermediate reasoning and rejected alternatives are
+  actually lost.
+- **Stage B — WITHDRAWN.** Not rejected on principle: it is the injection pipe the gate will
+  need, and it should be built WITH the gate, when there is a payload worth injecting. Building
+  it now would ship a channel whose content duplicates the compaction summary.
+- **D4, D6, D10, D11 — carried forward to D13's round** as inputs, not as settled decisions.
+
+### What ships now, exactly
+
+Two keys in `.claude/settings.json`, applied together. They are a pair by construction: the
+first without the second re-scales the shipped D7 context arm to fire at 21% and 27% of the
+real window (round-2 finding F3).
+
+```json
+{
+  "autoCompactWindow": 300000,
+  "env": { "AIF_CTX_WINDOW": "1000000" }
+}
+```
+
+Delivery is an operator hand-action: `.claude/settings.json` carries
+`Edit(.claude/settings.json)` and `Write(.claude/settings.json)` on its own permission
+deny-list, so no agent session can apply this. The file already has an `env` block, so the
+second key is an addition to it rather than a new block.
+
+**Verification after applying, since D-F7 correctly noted stage A has no repo-visible seam:**
+the next auto-compaction should occur near 300k rather than near the model default, and the
+context arm's soft line should still quote a window of roughly 1000000 rather than 300000. A
+soft line quoting 300000 means the declaration did not take, and the pair must be reverted
+until it does.
