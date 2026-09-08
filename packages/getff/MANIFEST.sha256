@@ -406,7 +406,7 @@ ae367574c26fbaa58c56efc1b90ad45d0391c67e8fea230b7a7763f7d26db06f  packages/core/
 09234243ab0353fd4bfe720eed289284ea16ad966892ba6a37351b5076ea7f36  packages/core/hooks/check-hook-marker.test.ts
 e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/hooks/check-kickoff-portability.test.ts
 dbadc9d0a61843f50eb2e4e9199111805086731ab7ee84c7f0e6d08b4096b708  packages/core/hooks/check-kickoff-traps.test.ts
-5659d9ae8e396891928759edbd3a91e74c529297ad350760d546508f99b23660  packages/core/hooks/check-skill-drift.test.ts
+634c0be0d989935ff74277be295142fb8d703a13bc232cf7e2c3ee89f0aa814f  packages/core/hooks/check-skill-drift.test.ts
 ac14281137898f37cfa31613a71e7a298b1e59dd739567d37fa4790871125cef  packages/core/hooks/check-worker-dispatch-channel.test.ts
 17c828ceb4d5abcbca1f9cda71634db5e264667f6247cbbb68628f515bb2d7da  packages/core/hooks/checks/cmd-script-liveness.test.ts
 d03a610b21ee13e6dd3efedfed90e1a3a8e5722bcb998358c7aa3e163926b001  packages/core/hooks/checks/cmd-script-liveness.ts
