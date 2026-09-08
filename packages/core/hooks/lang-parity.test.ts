@@ -33,7 +33,6 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const LANG_DIR = resolve(REPO_ROOT, '.claude/hooks/lang');
-const TWIN = resolve(REPO_ROOT, 'plugin/hooks/lang/check-parity.sh');
 
 const boxes: string[] = [];
 afterAll(() => {
@@ -138,7 +137,22 @@ describe('.claude/hooks/lang/check-parity.sh — en/ru pack parity (A3-7, E-5)',
     expect(src).toMatch(/^# @(dual-pair|cc-only-rationale):/m);
   });
 
-  it('the plugin twin is byte-identical to the source (ZCode reaches hooks only via plugin)', () => {
-    expect(readFileSync(TWIN, 'utf8')).toBe(readFileSync(join(LANG_DIR, 'check-parity.sh'), 'utf8'));
-  });
+  // The whole pack, not just the checker. `scripts/generate-plugin-twins.sh` iterates
+  // `.claude/hooks/*.sh` only (:132) — it never descends into `lang/`, so these three twins
+  // are hand-maintained and NOTHING regenerated them. Until this arm existed, a message
+  // function added to the source pack alone left the plugin pack short of the key, and the
+  // twin hook died with RC 127 (`command not found`) the moment that message was reached —
+  // fatal under `set -euo pipefail`, not degraded. Measured on this stage: the gate's two
+  // message functions landed in `.claude/hooks/lang/{en,ru}.sh` and not in the plugin pack,
+  // and the shipped twin exited 127 at its first armed Stop. ZCode consumers reach hooks
+  // ONLY through the plugin channel, so an out-of-sync pack is a consumer-only crash the
+  // source-side suites cannot see.
+  it.each(['en.sh', 'ru.sh', 'check-parity.sh'])(
+    'plugin/hooks/lang/%s is byte-identical to the source (hand-maintained twin, no generator)',
+    (name) => {
+      expect(readFileSync(resolve(REPO_ROOT, 'plugin/hooks/lang', name), 'utf8')).toBe(
+        readFileSync(join(LANG_DIR, name), 'utf8'),
+      );
+    },
+  );
 });

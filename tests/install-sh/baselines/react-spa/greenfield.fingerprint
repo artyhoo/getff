@@ -6,7 +6,7 @@
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-0546b215e1a9f619bf8d49093e4bcf1b1df1310ded2c084c8a3a8f6ce6b4c891  .ai-factory/refresh-baseline.json
+d486c04b9d9aa2d3df20e1727f375916b25ae1ff46d1d40869898289b156828e  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -26,14 +26,15 @@ e43ef48a6421767a5f028c39ff48c978141133b4c9d2668fac832c5065dea4a4  .claude/agents
 019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
 c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-56b0cf331e1710bf1f181c18a27b87be04d74ee801ac3ac387170fe4c2b0db39  .claude/hooks/end-of-turn-reminder.sh
+3478787b16086629deea2d56a3b83138258a4086c6c9f8c0c913907782620967  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
 3c57f869dfd13167e836509ec1815919d55ef70282d58a79b59ebe1dc5798063  .claude/hooks/inject-project-digest.sh
 5766feccf3ff24f8903b4706376ebd5b6a88f2ae8cd150c08927b4a6e5ba4efa  .claude/hooks/lang/check-parity.sh
-b6098596547239daa6c720dff390a321cc0a8d921acc54222f75e2fd325b3a17  .claude/hooks/lang/en.sh
-4d45cc97e71c1f58182036d6fc13c5e53cf414008b4366a4fbfc599a9b16db32  .claude/hooks/lang/ru.sh
+1e680aaf02b3fbbf275b6231a7f98369aba00dcbfdf4bf117388bc00f12012cb  .claude/hooks/lang/en.sh
+48244c98e10b38cb2689de705a24381f5239ccd5c41fc079169ff80a2c0e7381  .claude/hooks/lang/ru.sh
+5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json
 ee9c6ade4ec11942663af616edf5ddcc0870c0616c7109d098c06c2e26735781  .claude/skills/ai-doc/SKILL.md
@@ -57,7 +58,7 @@ cbbc1b85447ca5a142ead82554f21a213db7bbe1b991d9635d8cf9ad566bb981  .claude/skills
 51e3cedd718d6c3ecb484d3e76e39afbba4e678779762201d39ec9b91bd355e0  .claude/skills/orchestrator/references/rationale.md
 880a55cd0376217499179570ad21cc4a549e2371daa877591bc31da8b94a4f47  .claude/skills/orchestrator/references/reviewer-template.md
 6720454f3af61c3d859aac7184800c66746bc4860984f0bb99e21ae9274dbfe7  .claude/skills/orchestrator/references/worker-template.md
-e175e3bb2421f36a30abb9da465ab070f39475d9b9ad7f8f3a8d6979015f3b76  .claude/skills/pipeline/SKILL.md
+4db06a8b9b2033e4b62e44c1a845cbea470f2344dbf01f53505873f7603e0ce9  .claude/skills/pipeline/SKILL.md
 7b016aef242405688029efd80b2e24dccabf3d03060a64cd019e522601fd990f  .claude/skills/pipeline/evals/RESULTS.md
 29731fcb8f314d897b786fbf6b840302bf7eb4dcc27e18d7cd5cb855b3341fee  .claude/skills/pipeline/evals/evals.json
 3fb659d0d73c6bdf90ab35758808c0e0ac47f31d19c7665bcc719dcf2497df2b  .claude/skills/pipeline/evals/files/scenario-1-noarg-state.md

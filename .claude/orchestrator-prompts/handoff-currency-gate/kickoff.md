@@ -59,8 +59,10 @@ hook; that snapshot is the only guard proving the unarmed path is byte-identical
 
 ## §2 Scope lock
 
-- **Do not touch `.claude/settings.json`** — its own deny-list forbids it, and the change is a
-  rendered artifact plus an operator hand-action. Deliver the hand-action as ONE paste-able
+- **Do not hand-edit `.claude/settings.json`** — its deny-list (`:56-57`) closes the `Edit`/`Write`
+  channel. Land it ONLY as the renderer's output, in the same commit as the `.ai-factory/harness-model.json`
+  edit, exactly as PR #1443 did: an SSOT-only commit goes `harness-config-drift` RED. The operator's
+  hand-action is the `env` arming (D18), not the render. Deliver that hand-action as ONE paste-able
   idempotent script modelled on `scripts/register-precompact-hook.sh` (122 LOC precedent):
   backup, `jq -e .` validate a temp file, atomic `mv`, skip if already present.
 - **Do not re-open the design.** A decision you disagree with goes in the report's observations

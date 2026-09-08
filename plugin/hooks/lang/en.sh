@@ -103,6 +103,49 @@ If the crux of the choice cannot be explained simply → the question itself is 
 EOF
 }
 
+# Stop hook — handoff-currency gate (D13/D22): the block reason. $1 = handoff file path,
+# $2 = observed tokens, $3 = gate floor, $4 = state token (no-file|unchanged|heading|cap),
+# $5 = state detail (the missing heading / the line cap). Order per the spec's data flow:
+# the file path → the band → the five required headings → CONTENT, not a re-save → the
+# escape grammar. Never advises a fresh session (D21). The five heading strings are
+# category-3 match data (.claude/rules/language-discipline.md §1) — the gate greps the
+# literals below, so they stay verbatim in every pack.
+aif_msg_eot_handoff_gate() {
+  _hg_path="$1"; _hg_tokens="$2"; _hg_floor="$3"; _hg_state="$4"; _hg_detail="${5:-}"
+  case "$_hg_state" in
+    no-file)   _hg_verdict="The file does not exist yet — create it now, as the current state of this session." ;;
+    unchanged) _hg_verdict="Its CONTENT is unchanged since the last accepted turn — a re-save or a touch is not a change; rewrite it." ;;
+    heading)   _hg_verdict="A required section is missing or empty: ${_hg_detail}" ;;
+    cap)       _hg_verdict="It is over the ${_hg_detail}-line cap — condense it to the current state, do not append." ;;
+    *)         _hg_verdict="It is not current." ;;
+  esac
+  cat <<EOF
+[handoff-gate] Stop — the session's handoff file is not current:
+  ${_hg_path}
+This turn is inside the handoff band (≈ ${_hg_tokens} tokens, floor ${_hg_floor}). ${_hg_verdict}
+The file is THIS session's current state (rewrite it in place; keep it under ${AIF_HANDOFF_MAX_LINES:-200} lines). Required H2 sections, each with at least one non-blank line:
+- ## Decisions and why
+- ## Rejected alternatives
+- ## Unverified assumptions and open forks
+- ## Skills to invoke by name
+- ## Next action
+A change of CONTENT is required, not a re-save. If what remains is purely mechanical, end this turn's final message with the escape line:
+  mechanical-tail: <what remains and why it is mechanical — at least 20 characters>
+EOF
+}
+
+# Stop hook — handoff-currency gate, degraded probe (D19): the residue directory is
+# unresolvable or unwritable, so the gate cannot even SEE the handoff file. It blocks once
+# and says so, naming the AIF_RESIDUE_DIR seam — fail closed, never a silent pass (F10
+# property 2, .claude/rules/autonomous-loop-continuity.md §1). $1 = the directory that failed.
+aif_msg_eot_handoff_gate_degraded() {
+  cat <<EOF
+[handoff-gate] The handoff gate is ARMED but its residue probe FAILED: the residue directory is unwritable —
+  $1
+Set AIF_RESIDUE_DIR to a writable directory (or fix the permissions on this one). This is a degraded check, not an all-clear: the handoff file could not be read, so its freshness could not be judged. The block lifts once the probe works.
+EOF
+}
+
 # Story-recap heading (Stop-hook story branch + /story skill greps/embeds this).
 AIF_STORY_MARKER='## 🎬 The story'
 
