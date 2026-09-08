@@ -35,7 +35,7 @@ e8bf76bff620f5a499efa6bb89f9e5508ff2774dd20f72203366a7f0ada3007b  .claude/skills
 32171fb8f224dfed23e9985a70d7c4e566ff44ff15258a31d33013bb3224ff9a  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
-b32efa7bb04a63a13fba08f7f62b2b1f5cd07abaed62e02379e75c7f5ba9039a  .claude/skills/dispatcher/helpers/probe-inflight.sh
+cabed4a75a27e18e195a9d5e15bba5f6760abef611917646e91f5a7cfbbee359  .claude/skills/dispatcher/helpers/probe-inflight.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
 b33f676905798316764ff3997fa07fe6fe6204c85d1b1d1c53556b51d2b3d23e  .claude/skills/harvest/SKILL.md
 bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
