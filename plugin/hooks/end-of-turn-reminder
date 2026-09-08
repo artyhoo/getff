@@ -54,6 +54,17 @@ if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
       printf '%s\n' "$_rd_root/.ai-factory/orchestrator-prompts"
     fi
   }
+  # The lib also carries _residue_sha256, and the gate calls it (D19). Define it here too:
+  # a fallback that resolves the directory but leaves the hash helper undefined is fatal,
+  # not degraded — `set -euo pipefail` (:9) turns the missing call into RC 127 and kills
+  # the hook, taking the recap and F10 arms with it. Same two-branch shape as the lib.
+  _residue_sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "$1" 2>/dev/null | awk '{printf "%s", $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+      shasum -a 256 "$1" 2>/dev/null | awk '{printf "%s", $1}'
+    fi
+  }
 fi
 
 input=$(cat)
