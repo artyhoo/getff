@@ -24,9 +24,17 @@
  *   boundary: AskUserQuestion-only turn after prior "## 🟢" recap — must FIRE
  *      (B2 idle-suppress fix at hook:129-131; this is the regression-guard).
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, afterAll } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, chmodSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  mkdirSync,
+  chmodSync,
+  existsSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -2198,5 +2206,140 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     // in-band turn is fully silent: no ctx advice, no gate text, no fresh-session advice.
     const r = spawnCase(b);
     expect(r.stdout).toBe('');
+  });
+});
+
+/**
+ * The SHIPPED plugin twin, armed, run from its own directory.
+ *
+ * Why the real artifact and not a synthetic lib-less copy: `plugin/hooks/` is what a
+ * ZCode/plugin-channel consumer actually receives, and it differs from `.claude/hooks/` in
+ * TWO ways that the source-side suites above cannot see, because those suites run the
+ * source hook, which always has both neighbours:
+ *   1. `plugin/hooks/lib/` carries `hook-emit.sh` only — no `residue-dir.sh` (D23/D29: the
+ *      twin is expected to run on its INLINE fallback), so the fallback must define every
+ *      member the gate calls, `_residue_sha256` included.
+ *   2. `plugin/hooks/lang/{en,ru}.sh` are hand-maintained twins that no generator rebuilds
+ *      (`scripts/generate-plugin-twins.sh` iterates `.claude/hooks/*.sh` only), so a message
+ *      function added on the source side alone is simply absent here.
+ * Either gap is FATAL rather than degraded — `set -euo pipefail` turns the missing function
+ * into RC 127 and kills the hook, taking the recap and F10 arms with it. Both were live on
+ * this stage before this arm existed: the shipped twin exited 127 at its first armed Stop.
+ * One armed run over the real artifact covers both, and any future member added to
+ * `lib/residue-dir.sh` and called from the gate is caught here the same way.
+ */
+describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Stop (lib-less + own lang pack)', () => {
+  const TWIN_HOOK = resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder');
+  const boxes: string[] = [];
+  afterAll(() => {
+    for (const b of boxes.splice(0)) rmSync(b, { recursive: true, force: true });
+  });
+
+  function armedRun(handoff: string | null): {
+    status: number;
+    stdout: string;
+    stderr: string;
+    dir: string;
+  } {
+    const dir = mkdtempSync(join(tmpdir(), 'plugin-twin-armed-'));
+    boxes.push(dir);
+    const residue = join(dir, 'residue');
+    mkdirSync(residue, { recursive: true });
+    const proj = join(dir, 'proj');
+    mkdirSync(join(proj, '.claude'), { recursive: true });
+    writeFileSync(
+      join(proj, '.claude', 'settings.json'),
+      JSON.stringify({ autoCompactWindow: 300000 }, null, 2) + '\n',
+      'utf8',
+    );
+    const transcript = join(dir, 'transcript.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({ type: 'ai-title', aiTitle: 'Plugin twin armed' }),
+        JSON.stringify({ type: 'user', message: { content: 'go' } }),
+        JSON.stringify({
+          type: 'assistant',
+          isSidechain: false,
+          message: {
+            model: 'claude-opus-5',
+            usage: {
+              input_tokens: 900000,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            content: [{ type: 'text', text: 'done.' }],
+          },
+        }),
+      ].join('\n') + '\n',
+      'utf8',
+    );
+    if (handoff !== null) writeFileSync(join(residue, '_handoff-plugintwin.md'), handoff, 'utf8');
+    const r = spawnSync('bash', [TWIN_HOOK], {
+      input: JSON.stringify({
+        session_id: 'plugintwin',
+        transcript_path: transcript,
+        stop_hook_active: false,
+        cwd: dir,
+      }),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        AIF_HOOK_LANG: 'en',
+        AIF_HANDOFF_GATE: '1',
+        AIF_RESIDUE_DIR: residue,
+        CLAUDE_PROJECT_DIR: proj,
+        TMPDIR: dir,
+      },
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '', dir };
+  }
+
+  const VALID_HANDOFF = [
+    '# Handoff',
+    '',
+    '## Decisions and why',
+    'Kept the inline fallback complete.',
+    '',
+    '## Rejected alternatives',
+    'Shipping the lib into plugin/hooks/lib/.',
+    '',
+    '## Unverified assumptions and open forks',
+    'None.',
+    '',
+    '## Skills to invoke by name',
+    'superpowers:subagent-driven-development',
+    '',
+    '## Next action',
+    'Run the host-verify contract.',
+    '',
+  ].join('\n');
+
+  it('no-file case: blocks with the gate reason instead of dying (RC 127 is the regression)', () => {
+    const r = armedRun(null);
+    expect(r.stderr, 'a missing lang key or lib member surfaces here first').not.toMatch(
+      /command not found/,
+    );
+    expect(r.status, 'RC 127 = the twin died on an undefined function').toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('handoff-gate');
+  });
+
+  it('valid handoff: reaches the D19 content-hash branch, which lives past the sha256 call', () => {
+    // This is the arm that covers `_residue_sha256` specifically — the no-file case above
+    // returns before the hash is ever taken, so it alone would pass with the member absent.
+    const r = armedRun(VALID_HANDOFF);
+    expect(r.stderr).not.toMatch(/command not found/);
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'a fresh handoff ALLOWS — the gate is silent (D21)').toBe('');
+    // The baseline the allow-branch writes IS the file's sha256: proof the call ran.
+    const baseline = join(r.dir, 'aif-handoff-plugintwin');
+    expect(existsSync(baseline), 'no baseline = the sha branch never executed').toBe(true);
+    expect(readFileSync(baseline, 'utf8')).toBe(
+      createHash('sha256')
+        .update(readFileSync(join(r.dir, 'residue', '_handoff-plugintwin.md')))
+        .digest('hex'),
+    );
   });
 });
