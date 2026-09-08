@@ -54,31 +54,45 @@
 #   it is excluded from the (v) idempotency checksum — the delivered configs are byte-stable on re-run).
 
 # ── Python-lane delivery helpers (defined always; executed only under the activation guard) ──
+# S-2: the byte-near bodies this file used to share with 46-cargo.sh / 47-go.sh (log sink,
+# copy-or-refresh wrapper, CI cell) moved to lib.sh (_lane_log / _lane_copy_or_refresh /
+# _lane_deliver_ci, next to the GETFF_LANES SSOT they serve). The per-lane names below stay as
+# thin wrappers — they are load-bearing seams (refresh-covers-full-delivery.test.sh Check 4 greps
+# the _py_copy_or_refresh call token; python-delivery.test.sh greps the REFUSE CI output). Only
+# genuinely lane-specific bodies (the astgrep/ruff/sgconfig collision cells, the agent-surface
+# parity helpers, the structurally different lock writer) remain inline.
 
-# Delivery-log sink: print to stdout (install progress) AND append to the consumer audit log.
+# ── lib.sh dependency (S-2 follow-up) ── The wrappers below delegate to bodies that live in
+# lib.sh. install.sh sources lib.sh before any lane layer (install.sh:61), so on the delivery path
+# this guard never fires. It exists for the *_LAYER_LIB_ONLY test seam at the foot of this file,
+# which sources the layer ALONE: before S-2 these bodies were inline and resolved under that seam;
+# after S-2 they do not, so pull lib.sh in on demand. Guarded on a helper name, never unconditional
+# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:267), so
+# re-sourcing it on the delivery path would drop already-staged refresh-baseline state.
+if ! declare -F _lane_log >/dev/null 2>&1; then
+  # shellcheck source=setup.d/lib.sh
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib.sh"
+fi
+
+# Delivery-log sink: thin alias onto lib.sh _lane_log (deliver_python_toolchain points
+# _LANE_LOG_FILE at this lane's audit log). The marker filename (.getff-python-install.log — a
+# getff_lane_installed signal) stays per-lane.
 _py_log() {
-  echo "  $1"
-  if [ "${DRY_RUN:-}" != "--dry-run" ] && [ -n "${_PY_LOG_FILE:-}" ]; then
-    printf '%s\n' "$1" >> "$_PY_LOG_FILE"
-  fi
+  _lane_log "$1"
 }
 
-# _py_copy_or_refresh <src> <dst> — FRAMEWORK-OWNED delivery. On install: copy_safe (skip-if-exists →
-# idempotent re-run). On --refresh (S2 entry lane sets GETFF_TOOLCHAIN_REFRESH=1): refresh_safe →
-# OVERWRITE, so updated framework content (e.g. new ast-grep rule YAML) reaches a brownfield consumer;
-# a plain copy_safe skip-if-exists would strand the update — the #869 refresh-drift class, on the
-# python surface. refresh_safe honours a sibling <dst>.override.md (Layer-3 consumer ownership). Both
-# branches carry the caller's "$tpl/…" source, so the refresh-covers-full-delivery gate (Check 4)
-# sees this call as a delivery on BOTH the install and the --refresh path (source-token parity).
-# Optional 3rd argument is forwarded verbatim to refresh_safe (`framework-exclusive` — see its
-# docstring in setup.d/lib.sh). copy_safe never sees it: on the install path the destination is
-# either absent or skipped, so there is nothing to sweep.
+# _py_copy_or_refresh <src> <dst> — FRAMEWORK-OWNED delivery, the lib.sh shared wrapper. On
+# install: copy_safe (skip-if-exists → idempotent re-run). On --refresh (S2 entry lane sets
+# GETFF_TOOLCHAIN_REFRESH=1): refresh_safe → OVERWRITE, so updated framework content (e.g. new
+# ast-grep rule YAML) reaches a brownfield consumer; a plain copy_safe skip-if-exists would strand
+# the update — the #869 refresh-drift class, on the python surface. refresh_safe honours a sibling
+# <dst>.override.md (Layer-3 consumer ownership). Both branches carry the caller's "$tpl/…" source,
+# so the refresh-covers-full-delivery gate (Check 4) sees this call as a delivery on BOTH the
+# install and the --refresh path (source-token parity). Optional 3rd argument is forwarded verbatim
+# to refresh_safe (`framework-exclusive`); copy_safe never sees it. Defined here — not just called
+# — because that gate keys this lane's copy/refresh parity scan on this exact name.
 _py_copy_or_refresh() {
-  if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-    refresh_safe "$1" "$2" "${3:-}"
-  else
-    copy_safe "$1" "$2"
-  fi
+  _lane_copy_or_refresh "$1" "$2" "${3:-}"
 }
 
 # ── Agent-surface refresh parity (A2-4) ──────────────────────────────────────────────────────────
@@ -448,52 +462,17 @@ _py_deliver_prettierignore() {
 #   - a NON-getff file at our path    → REFUSE-LOUDLY, never overwrite; print the manual wiring. A
 #                                       consumer who authored their own getff-python.yml keeps it.
 # NEVER writes to the consumer's ci.yml — a pre-existing consumer CI workflow is not clobbered.
+# S-2: body = lib.sh _lane_deliver_ci. The pins in the REFUSE hints MIRROR github-actions-ci.yml
+# (the delivered template) — keep the two in sync on any pin bump (both bump together per
+# ci-tool-pinning.md Rule A).
 _py_deliver_ci() {
-  local tpl="$1"
-  local wf_dst="$PROJECT_ROOT/.github/workflows/getff-python.yml"
-
-  if [ ! -f "$tpl/github-actions-ci.yml" ]; then
-    _py_log "⊝ no CI template at $tpl/github-actions-ci.yml — skipping CI delivery (rules still enforced locally)"
-    return 0
-  fi
-
-  if [ -e "$wf_dst" ]; then
-    if grep -q 'generated by getff' "$wf_dst" 2>/dev/null; then
-      if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
-        # Framework-owned → deliver_getff_workflow (getff-honest-signals S4) overwrites so
-        # updated pins reach a brownfield consumer AND the default-branch substitution
-        # re-runs (a consumer who renamed main→trunk then re-ran ./setup --refresh gets
-        # the delivered workflow updated to trunk). Source-token parity with the fresh
-        # path below keeps refresh-covers-full Check 4 green; the helper detects the
-        # refresh flag internally and delegates to refresh_safe (preserving the
-        # getff-python.yml.override.md Layer-3 escape hatch).
-        GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow "$tpl/github-actions-ci.yml" "$wf_dst"
-        _py_log "CI workflow → refreshed (.github/workflows/getff-python.yml, framework-owned pins)"
-      else
-        _py_log "⊝ .github/workflows/getff-python.yml already delivered by getff — no-op (idempotent)"
-      fi
-      return 0
-    fi
-    # A NON-getff file occupies our namespaced path → a consumer authored it. REFUSE, never clobber.
-    # NOTE: the two pins below intentionally MIRROR github-actions-ci.yml (the delivered template) — a
-    # printed manual-wiring hint cannot `--config`-dedupe against a YAML file without a parser we do not
-    # assume in pure bash; the CI-template pins are the SSOT and these strings restate them for the
-    # refuse path. Keep the two in sync on any pin bump (both bump together per ci-tool-pinning.md Rule A).
-    _py_log "⚠ REFUSE CI: .github/workflows/getff-python.yml exists and is NOT getff-generated."
-    _py_log "  NOT overwriting your workflow. To wire the getff Python gates, add jobs running:"
-    _py_log "      npm install -g @ast-grep/cli@0.44.1 && ast-grep scan"
-    _py_log "      pip install ruff==0.15.21 && ruff check .                                 # your config"
-    _py_log "      pip install ruff==0.15.21 && ruff check . --config .getff/ruff-bans.toml  # getff bans (isolated)"
-    return 0
-  fi
-
-  # Fresh: deliver the pinned CI workflow (framework-owned, getff-header-marked, getff-namespaced)
-  # via deliver_getff_workflow (getff-honest-signals S4) — substitutes the consumer's actual
-  # default branch for the template's hard-coded `main` so the workflow triggers on the right
-  # branch. Byte-identical to template when (a) default branch IS main, or (b) detection fails
-  # (no remote / origin/HEAD unset) — PARK Option A; see helper docstring in setup.d/lib.sh.
-  deliver_getff_workflow "$tpl/github-actions-ci.yml" "$wf_dst"
-  _py_log "CI workflow → .github/workflows/getff-python.yml (pinned ast-grep + ruff gates)"
+  _lane_deliver_ci "$1" ".github/workflows/getff-python.yml" \
+    "CI workflow → .github/workflows/getff-python.yml (pinned ast-grep + ruff gates)" \
+    "CI workflow → refreshed (.github/workflows/getff-python.yml, framework-owned pins)" \
+    "  NOT overwriting your workflow. To wire the getff Python gates, add jobs running:" \
+    "      npm install -g @ast-grep/cli@0.44.1 && ast-grep scan" \
+    "      pip install ruff==0.15.21 && ruff check .                                 # your config" \
+    "      pip install ruff==0.15.21 && ruff check . --config .getff/ruff-bans.toml  # getff bans (isolated)"
 }
 
 # _py_firing_self_check — post-install firing PROOF (the «works» in the umbrella goal). Plants a
@@ -839,7 +818,9 @@ _py_write_rules_lock() {
 # deliver_python_toolchain — the Python-lane entrypoint (called under the activation guard below).
 deliver_python_toolchain() {
   local tpl="${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}"
-  _PY_LOG_FILE="$PROJECT_ROOT/.getff-python-install.log"
+  # S-2: the shared lib.sh _lane_log sink writes here. The FILENAME is load-bearing beyond the
+  # audit trail — getff_lane_installed's marker arm reads it — so it stays per-lane.
+  _LANE_LOG_FILE="$PROJECT_ROOT/.getff-python-install.log"
 
   if [ ! -d "$tpl" ]; then
     echo "  ⚠ Python templates not found at $tpl — skipping Python delivery" >&2
@@ -848,7 +829,7 @@ deliver_python_toolchain() {
 
   echo "▶ Python toolchain (getff) — augment-first delivery"
   if [ "${DRY_RUN:-}" != "--dry-run" ]; then
-    { printf '# getff python delivery — run at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"; } >> "$_PY_LOG_FILE"
+    { printf '# getff python delivery — run at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo unknown)"; } >> "$_LANE_LOG_FILE"
   fi
 
   _py_deliver_astgrep "$tpl"

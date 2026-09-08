@@ -359,6 +359,100 @@ else
   echo "  ── SKIP (10) needs a sha tool (fingerprint-value arms) — same gate arms 1/2 take ──"
 fi
 
+# ── (11) S-3 lane-precedence: a DECLINED offer no longer masks the LATER lane offers ───────────
+# Ledger 1597 S-3 (the ONE documented behaviour change): pre-S-3 the three detection blocks were
+# copy-pasted with inter-lane precedence encoded by block order plus an asymmetric guard — the go
+# block excluded Cargo.toml, so on a polyglot consumer (Cargo.toml + go.mod, no package.json) the
+# cargo offer fired but a DECLINED answer ended detection: go was NEVER offered. The table-driven
+# walk (install.sh LANE_TABLE) unmasks the later lanes once an earlier offer is actively declined
+# (_lane_detect rc=2 → _LANE_DECLINED). Paired arms: (11a) RED-shape pin — an active n to the
+# cargo offer, then EOF to go, on the polyglot offers go (would be absent pre-S-3); (11b)
+# accepting go after declining cargo DELIVERS the go lane on that same polyglot tree; (11c) the
+# mono-manifest consumer (go.mod only) is unchanged — exactly one offer, go; (11d) a package.json
+# consumer gets NO toolchain offer at all; (11e) the rule is UNIFORM, not a cargo→go special
+# case — a DECLINED PYTHON offer on a pyproject+Cargo.toml polyglot unmasks the cargo offer, and
+# accepting it delivers the cargo lane; (11f) the declined-set ACCUMULATES across two declines —
+# a triple-manifest consumer answering n,n,y still gets (and can accept) the go offer.
+echo "  ── (11) S-3 precedence: a declined offer no longer masks later lanes (uniform) ──"
+PG=$(mktemp -d)
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$PG/Cargo.toml"
+printf 'module demo\n\ngo 1.22\n' > "$PG/go.mod"
+out=$( cd "$PG" && printf 'n\n' | bash "$INSTALL" 2>&1 ) || true
+# The pipe is the ONLY stdin: the cargo offer consumes the ACTIVE 'n' decline (the S-3 scenario —
+# declined cargo) and the go offer then reads EOF (declines) — both banners must appear. No
+# `< /dev/null` on this invocation: that redirection would OVERRIDE the pipe, feed BOTH offers
+# EOF, and the arm would pass for the wrong reason (EOF also declines — same shape as arm 11a's
+# original defect).
+echo "$out" | grep -q "Detected a Rust project" \
+  && ok "(11a) polyglot: cargo offer shown (precedence arm 2)" \
+  || bad "(11a) polyglot: cargo offer NOT shown — the walk never reached lane 2"
+echo "$out" | grep -q "Detected a Go project" \
+  && ok "(11a) S-3 GREEN: go offer shown after declined cargo (pre-S-3: never offered)" \
+  || bad "(11a) S-3 RED: go still masked after a declined cargo — the precedence fix regressed"
+[ ! -e "$PG/.golangci.yml" ] \
+  && ok "(11a) neither offer accepted → nothing delivered (EOF decline on go)" \
+  || bad "(11a) go lane delivered despite EOF-declined go offer"
+# (11b) accept go after declining cargo.
+PG2=$(mktemp -d)
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$PG2/Cargo.toml"
+printf 'module demo\n\ngo 1.22\n' > "$PG2/go.mod"
+out=$( cd "$PG2" && printf 'n\ny\n' | bash "$INSTALL" 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && [ -f "$PG2/.golangci.yml" ] && [ ! -e "$PG2/clippy.toml" ] \
+  && ok "(11b) n-to-cargo + y-to-go on the polyglot tree delivers the GO lane only (rc=0)" \
+  || bad "(11b) polyglot accept path broken: rc=$rc golangci=$( [ -f "$PG2/.golangci.yml" ] && echo y || echo n ) clippy=$( [ -e "$PG2/clippy.toml" ] && echo y || echo n )"
+# (11c) mono-manifest consumer: exactly ONE offer (unchanged by S-3).
+MG=$(go_fixture)
+out=$( cd "$MG" && bash "$INSTALL" < /dev/null 2>&1 ) || true
+n_offers=$(echo "$out" | grep -c "Detected a \(Python\|Rust\|Go\) project")
+[ "$n_offers" -eq 1 ] && echo "$out" | grep -q "Detected a Go project" \
+  && ok "(11c) mono-manifest go.mod consumer: exactly one offer, go (exclusion set intact)" \
+  || bad "(11c) mono-manifest consumer got $n_offers offer(s) — the exclusion column regressed"
+# (11d) package.json consumer: no toolchain offer at all (npm lane).
+NG=$(mktemp -d)
+printf '{"name":"m","version":"0.0.0"}\n' > "$NG/package.json"
+printf 'module demo\n\ngo 1.22\n' > "$NG/go.mod"
+out=$( cd "$NG" && bash "$INSTALL" < /dev/null 2>&1 ) || true
+echo "$out" | grep -q "Detected a " \
+  && bad "(11d) package.json consumer was offered a toolchain lane (npm lane violated)" \
+  || ok "(11d) package.json consumer: no toolchain offer (npm lane, unchanged)"
+# (11e) UNIFORM unmasking — the declined-offer rule is ONE rule, not a cargo→go special case:
+# a DECLINED PYTHON offer on a pyproject.toml+Cargo.toml polyglot unmasks the cargo offer
+# (pre-S-3 the pyproject.toml exclusion in the cargo block masked it — same defect shape as the
+# ledger's cargo→go instance), and accepting that offer delivers the CARGO lane only.
+PG3=$(mktemp -d)
+printf '[project]\nname = "demo"\nversion = "0.1.0"\n' > "$PG3/pyproject.toml"
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$PG3/Cargo.toml"
+out=$( cd "$PG3" && printf 'n\ny\n' | bash "$INSTALL" 2>&1 ); rc=$?
+echo "$out" | grep -q "Detected a Python project" \
+  && ok "(11e) polyglot: python offer shown first (precedence arm 1)" \
+  || bad "(11e) polyglot: python offer NOT shown — the walk never reached lane 1"
+echo "$out" | grep -q "Detected a Rust project" \
+  && ok "(11e) S-3 GREEN: cargo offer shown after a DECLINED python (uniform unmasking; pre-S-3: masked)" \
+  || bad "(11e) S-3 RED: cargo still masked after a declined python — the unmasking is not uniform"
+[ "$rc" -eq 0 ] && [ -f "$PG3/clippy.toml" ] && [ ! -e "$PG3/.golangci.yml" ] \
+  && [ ! -e "$PG3/.getff-python-install.log" ] \
+  && ok "(11e) n-to-python + y-to-cargo delivers the CARGO lane only (rc=0)" \
+  || bad "(11e) polyglot python-declined accept path broken: rc=$rc clippy=$( [ -f "$PG3/clippy.toml" ] && echo y || echo n) golangci=$( [ -e "$PG3/.golangci.yml" ] && echo y || echo n) pylog=$( [ -e "$PG3/.getff-python-install.log" ] && echo y || echo n)"
+rm -rf "$PG3"
+# (11f) ACCUMULATION across TWO declines: on a pyproject+Cargo+go.mod consumer the answers
+# n,n must still leave go OFFERED (both earlier detect files sit in _LANE_DECLINED despite being
+# on disk), and y delivers the GO lane only. Pins that _LANE_DECLINED accumulates — a reset to
+# only-the-last-decline would re-mask go behind the still-on-disk pyproject.toml.
+PG4=$(mktemp -d)
+printf '[project]\nname = "demo"\nversion = "0.1.0"\n' > "$PG4/pyproject.toml"
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$PG4/Cargo.toml"
+printf 'module demo\n\ngo 1.22\n' > "$PG4/go.mod"
+out=$( cd "$PG4" && printf 'n\nn\ny\n' | bash "$INSTALL" 2>&1 ); rc=$?
+n_offers=$(echo "$out" | grep -c "Detected a \(Python\|Rust\|Go\) project")
+[ "$n_offers" -eq 3 ] \
+  && ok "(11f) triple-manifest: all three offers shown (declined-set accumulates across declines)" \
+  || bad "(11f) triple-manifest consumer got $n_offers offer(s), expected 3 — the declined-set RESET instead of accumulating"
+[ "$rc" -eq 0 ] && [ -f "$PG4/.golangci.yml" ] && [ ! -e "$PG4/clippy.toml" ] \
+  && [ ! -e "$PG4/.getff-python-install.log" ] \
+  && ok "(11f) n,n-to-python+cargo + y-to-go delivers the GO lane only (rc=0)" \
+  || bad "(11f) triple-decline accept path broken: rc=$rc golangci=$( [ -f "$PG4/.golangci.yml" ] && echo y || echo n) clippy=$( [ -e "$PG4/clippy.toml" ] && echo y || echo n) pylog=$( [ -e "$PG4/.getff-python-install.log" ] && echo y || echo n)"
+rm -rf "$PG4"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
