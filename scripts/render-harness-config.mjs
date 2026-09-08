@@ -380,6 +380,14 @@ const PLUGIN_INCOMPATIBLE = {
   // delivers the bootstrap instead.
   'link-coordination':
     'maintainer-env-only cross-worktree coordinator — no consumer-plugin meaning (plugin SessionStart bootstrap delivers entry-point context instead)',
+  // inject-handoff-on-compact (D20, handoff-currency gate): OPERATOR-AXIS ONLY. Consumers
+  // receive no residue writer (parent F6), so no handoff file exists for them to inject;
+  // and the plugin SessionStart slot is already occupied by the session-start bootstrap
+  // (PLUGIN_INTERNAL_HOOKS, matcher startup|clear|compact). Skipping here is what makes the
+  // SSOT registration expressible WITHOUT shipping a writer — the note op below surfaces
+  // the skip loudly rather than dropping the hook silently.
+  'inject-handoff-on-compact':
+    'operator-axis only — consumers receive no residue writer (parent F6), so there is no handoff file to inject, and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)',
 };
 
 /** plugin backend: plugin/hooks/hooks.json — the CC-plugin convention (hooks/hooks.json, bare

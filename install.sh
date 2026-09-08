@@ -946,6 +946,14 @@ do_refresh() {
     for _lp in en.sh ru.sh check-parity.sh; do
       [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && refresh_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
     done
+    # D29: the Stop hook sources lib/residue-dir.sh (the handoff-currency gate's residue
+    # cascade) — delivered BY NAME like the lang packs above, because grep finds no
+    # hooks/lib copy step anywhere else in the delivery surface. The hook degrades to its
+    # inline fallback without it; this line is what makes the lib the operative path.
+    if [ -f "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" ]; then
+      mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+      refresh_safe "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
+    fi
     if [ "$DRY_RUN" != "--dry-run" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true; fi
     if [ "$DRY_RUN" != "--dry-run" ]; then
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"

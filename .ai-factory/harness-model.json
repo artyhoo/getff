@@ -70,6 +70,10 @@
     "SessionStart": [
       {
         "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh\" >/dev/null 2>&1 || true"
+      },
+      {
+        "matcher": "compact",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh\""
       }
     ],
     "PreCompact": [

@@ -240,6 +240,14 @@ if [ -f "$EOT_SRC" ]; then
   for _lp in en.sh ru.sh check-parity.sh; do
     [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && copy_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
   done
+  # D29: the Stop hook sources lib/residue-dir.sh (the handoff-currency gate's residue
+  # cascade) — delivered BY NAME like the lang packs above; without it the hook runs its
+  # inline fallback. The guarded source in the hook keeps a lib-less install working; this
+  # copy is what makes the shared lib the operative path in a fresh consumer install.
+  if [ -f "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    copy_safe "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
+  fi
   chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "  [dry-run] would: register end-of-turn-reminder as a Stop hook in .claude/settings.json"
