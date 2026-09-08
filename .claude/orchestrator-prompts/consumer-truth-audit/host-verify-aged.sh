@@ -19,7 +19,7 @@
 #   - fresh-census.json is this census's census-v0.json (optional; without it the
 #     script emits the inventory only, and the delta join is manual)
 #
-# OUTPUT: aged-inventory.json (next to this script) + a §3-bucket delta table on
+# OUTPUT: aged-inventory.json (at $AGED_OUT, default ${TMPDIR:-/tmp}) + a §3-bucket delta table on
 # stdout. Exit 0 = measured; exit 3 = aged root missing (the container situation);
 # exit 4 = aged root exists but has no .claude (not an install).
 
@@ -27,12 +27,15 @@ set -euo pipefail
 
 AGED_ROOT="${1:-/Users/art/code/timeliner}"
 FRESH_CENSUS="${2:-}"
-OUT="$(cd "$(dirname "$0")" && pwd)/aged-inventory.json"
+# Round-2 review M7: this used to write aged-inventory.json NEXT TO THIS SCRIPT — i.e. inside the
+# repository, untracked and not gitignored, so running the "read-only contract" dirtied the tree.
+# Default is a temp path now; AGED_OUT overrides it for a deliberate capture.
+OUT="${AGED_OUT:-${TMPDIR:-/tmp}/aged-inventory.json}"
 
 [ -d "$AGED_ROOT" ] || { echo "AGED-ABSENT: $AGED_ROOT does not exist on this machine (exit 3)"; exit 3; }
 [ -d "$AGED_ROOT/.claude" ] || { echo "NOT-AN-INSTALL: $AGED_ROOT/.claude missing (exit 4)"; exit 4; }
 
-# READ-ONLY GUARD: the only writes are the JSON output NEXT TO THIS SCRIPT.
+# READ-ONLY GUARD: the only write is the JSON output at $OUT (outside the repo by default).
 # Everything below is find/ls/jq reads against $AGED_ROOT.
 
 skills=$(find "$AGED_ROOT/.claude/skills" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null | xargs -0 -n1 basename 2>/dev/null | sort || true)
@@ -76,13 +79,48 @@ jq -n \
 echo "aged-inventory.json written: $OUT"
 echo "NOTE: read-only measurement — nothing inside $AGED_ROOT was touched."
 
-# ── 3-bucket delta (§3 of the kickoff) — needs the fresh census to join against ──
+# ── 3-bucket delta (§3 of the kickoff) — a real join, not a prose reminder ───────
+# Round-2 review I5: this block used to accept $FRESH_CENSUS, do NOTHING with it, and print the
+# three bucket DEFINITIONS followed by «(Join performed manually or by the triage pass…)» — the
+# `#hope-as-gate` shape of .claude/rules/attention-is-not-a-mechanism.md §2. Both sides of the
+# join were already in hand, so the join is computed here and printed as rows.
+#
+# Comparable classes only: skills / agents / hooks — the three the aged inventory enumerates by
+# a name that the census artefact key also carries. Classes the aged inventory does not walk
+# (principles, discipline-rules, scripts, templates, …) are reported as NOT-COMPARED rather than
+# silently dropped, so a reader cannot mistake the covered set for the whole census.
 if [ -n "$FRESH_CENSUS" ] && [ -f "$FRESH_CENSUS" ]; then
   echo
   echo "Delta classification (bucket per artefact: shipped-since | never-shipped | consumer-authored):"
   echo "  shipped-since    = absent from aged install, delivered=true in fresh census → the aged install is STALE (pre-dates the artefact)"
-  echo "  never-shipped    = absent from aged install AND absent from all fresh profiles  → the artefact reaches nobody"
-  echo "  consumer-authored= present in aged install, absent from fresh census             → theirs, not ours (never delete based on this alone)"
+  echo "  never-shipped    = absent from aged install AND delivered=false in all fresh profiles → the artefact reaches nobody"
+  echo "  consumer-authored= present in aged install, absent from fresh census → theirs, not ours (never delete based on this alone)"
   echo
-  echo "  (Join performed manually or by the triage pass — this script emits both sides of the join.)"
+  jq -r --slurpfile aged "$OUT" '
+    ($aged[0].classes) as $a
+    | ($a.skills | map("skill\t" + .))                                as $agedSkills
+    | ($a.agents | map("agent\t" + .))                                as $agedAgents
+    | ($a.hooks  | map("hook\t"  + (. | sub("^\\.claude/hooks/";"")))) as $agedHooks
+    | ($agedSkills + $agedAgents + $agedHooks | unique)               as $AGED
+    | [ .rows[]
+        | select(.class == "skill" or .class == "agent" or .class == "hook")
+        | { key: (.class + "\t" + (.artefact
+                    | sub("^\\.claude/skills/";"") | sub("^skills/";"")
+                    | sub("^\\.claude/agents/";"") | sub("^\\.claude/hooks/";"")
+                    | sub("/$";""))),
+            artefact: .artefact,
+            delivered: (.delivered.core or .delivered.env or .delivered.factory) } ]
+      as $FRESH
+    | ( [ $FRESH[] | select(.delivered) | select((.key | IN($AGED[])) | not)
+          | "shipped-since    \t" + .artefact ] | sort ) as $shipped
+    | ( [ $FRESH[] | select(.delivered | not) | select((.key | IN($AGED[])) | not)
+          | "never-shipped    \t" + .artefact ] | sort ) as $never
+    | ( [ $AGED[] | select((. | IN($FRESH[].key)) | not)
+          | "consumer-authored\t" + (. | sub("\t"; " ")) ] | sort ) as $authored
+    | ($shipped + $never + $authored)[]
+  ' "$FRESH_CENSUS"
+  echo
+  echo "NOT-COMPARED (the aged inventory does not enumerate these classes; census-only):"
+  jq -r '[.rows[] | select(.class != "skill" and .class != "agent" and .class != "hook") | .class]
+         | group_by(.) | map("  " + .[0] + " (" + (length|tostring) + " rows)") | .[]' "$FRESH_CENSUS"
 fi

@@ -67,7 +67,12 @@ const add = (r) => rows.push(r);
 
 // ── tracked framework-side populations (HAS column) ─────────────────────────
 const trackedSkills = sh(`cd ${REPO} && git ls-files '.claude/skills/**' | cut -d/ -f3 | sort -u`); // 16
-const rootGetff = 'skills/getff'; // tracked at repo root, shipped by 10-skills as .claude/skills/getff
+// Round-2 review I1: this was `const rootGetff = 'skills/getff'` — a literal that hid the
+// SECOND root skill (skills/tool-bootstrapping) and, worse, made --check blind to the omission,
+// because both sides of the comparison read the same literal. Derived from the tree now, with the
+// same phantom-guard shape the templates block uses.
+const rootSkills = sh(`cd ${REPO} && git ls-files 'skills/*' | cut -d/ -f2 | sort -u`);
+if (rootSkills.length === 0) throw new Error('gen-census: root skills/ enumeration is empty — tree layout changed, annotate it');
 const trackedAgents = sh(`cd ${REPO} && git ls-files 'agents/*.md' | sort`).map(p => p.replace('agents/', ''));
 const trackedRules = sh(`cd ${REPO} && git ls-files '.claude/rules/*.md' | sort`).map(p => p.replace('.claude/rules/', ''));
 const trackedHooks = sh(`cd ${REPO} && git ls-files '.claude/hooks/*' | sort`).map(p => p.replace('.claude/hooks/', ''));
@@ -103,7 +108,17 @@ for (const s of trackedSkills) {
     add({ artefact: `.claude/skills/${s}/`, class: 'skill', has: true, delivered: d,
       works: `loads as docs, but 5 embedded host-absolute paths instruct operations against the AUTHOR'S machine: references/worker-template.md:73,82,107 + reviewer-template.md:37 + ai-laziness-traps-orchestrator.md:131 all say \`cd /Users/art/code/rules-as-tests-aif\` — on any consumer host this path is another project or absent`,
       aged_install: AGED, verdict: 'DOC-LIES',
-      evidence: `grep -rn '/Users/art' ${FACT} → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision)` });
+      evidence: "grep -rn '/Users/art' <factory bench root> → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision); the bench root is deliberately NOT inlined — benches are ephemeral mktemp dirs and a baked-in path is a dead reference to any later reader" });
+  } else if (rootSkills.includes(s)) {
+    // The consumer DOES get a directory at this path, but 10-skills.sh fills it from the ROOT
+    // skills/<name>/ copy — and the two framework copies are not identical. Attributing the
+    // delivery to this artefact (round 2 did) misnames the source.
+    add({ artefact: `.claude/skills/${s}/`, class: 'skill', has: true,
+      delivered: { core: false, env: false, factory: false },
+      works: `n/a — not the delivered artefact: the consumer's .claude/skills/${s}/ is filled from the root skills/${s}/ copy, which is censused as its own row`,
+      aged_install: AGED, verdict: 'BY-DESIGN',
+      by_design_citation: `setup.d/10-skills.sh (_copy_tree_with_transform from the package root skills/${s} into the consumer .claude/skills/${s})`,
+      evidence: `round-2 review I1: diff -rq skills/${s} .claude/skills/${s} reports differing SKILL.md + references/, and a templates/ dir present only under root skills/${s}` });
   } else {
     add({ artefact: `.claude/skills/${s}/`, class: 'skill', has: true, delivered: d,
       works: 'works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)',
@@ -112,12 +127,14 @@ for (const s of trackedSkills) {
       evidence: `M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-${'{core,env,factory}'}.log ✓ lines match the trees` });
   }
 }
-add({ artefact: `${rootGetff}/`, class: 'skill', has: true,
-  delivered: dl(deliveredSkills, 'getff'),
-  works: 'works — delivered as .claude/skills/getff/ (root skills/ is the source)',
-  aged_install: AGED, verdict: 'BY-DESIGN',
-  by_design_citation: 'setup.d/LAYERS.md:23 (10-skills.sh: skills/ → .claude/skills/)',
-  evidence: 'M4: getff present in all 3 consumer trees; source tracked at skills/getff' });
+for (const rs of rootSkills) {
+  add({ artefact: `skills/${rs}/`, class: 'skill', has: true,
+    delivered: dl(deliveredSkills, rs),
+    works: `works — delivered as .claude/skills/${rs}/ (root skills/ is the source 10-skills.sh copies from)`,
+    aged_install: AGED, verdict: 'BY-DESIGN',
+    by_design_citation: 'setup.d/LAYERS.md:23 (10-skills.sh: skills/ → .claude/skills/)',
+    evidence: `M4: ${rs} present per profile in the consumer .claude/skills/ tree lists; source tracked at skills/${rs} (git ls-files)` });
+}
 
 // ── C2 agents (20 rows) ─────────────────────────────────────────────────────
 const agentExclusions = {
@@ -153,10 +170,13 @@ for (const a of trackedAgents) {
 }
 
 // ── C3 discipline rules (30 rows) ───────────────────────────────────────────
-const rulesDelivered = perProfile((root) => dirPopulated(root, '.claude/rules'));
+// Round-2 review I3: this was one directory-existence value shared by all 30 rows, so a PARTIAL
+// delivery (say 3 of 30 rules) would have produced 27 silently-false `true`s that --check would
+// have agreed with. Per-file now: every row is falsifiable on its own.
+const ruleDelivered = (name) => perProfile((root) => isFile(`${root}/.claude/rules/${name}`));
 for (const r of trackedRules) {
   add({ artefact: `.claude/rules/${r}`, class: 'discipline-rule', has: true,
-    delivered: rulesDelivered,
+    delivered: ruleDelivered(r),
     works: 'n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)',
     aged_install: AGED, verdict: 'BY-DESIGN',
     by_design_citation: 'setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44',
@@ -165,6 +185,13 @@ for (const r of trackedRules) {
 
 // ── C4 hooks (25 rows) ──────────────────────────────────────────────────────
 const hookNotes = {
+  // Round-2 review C1: this hook is DELIVERED and its own header asserts a shipping fact that
+  // the install engine contradicts. Round 2 filed it under the generic BY-DESIGN default, which
+  // buried the one live doc-lie in the hook family. The umbrella's own verdict enum already
+  // carries DOC-LIES, so no kickoff change is needed to say so.
+  'inject-matching-rule.sh': { v: 'DOC-LIES',
+    c: 'setup.d/LAYERS.md:79 (transform_internal_refs — «rules/ is not shipped»); corroborated at setup.d/20-agents.sh:44',
+    w: 'delivered and runtime-safe (degrades to exit 0 when the rules dir or jq is absent), but its own header comment at .claude/hooks/inject-matching-rule.sh:28 claims «NOW SHIPPED to consumer CC projects — consumers DO get .claude/rules/* installed», which is FALSE in all three profiles: no consumer receives .claude/rules/, so the hook announces «no rules corpus found … nothing to inject» on every invocation' },
   'runtime-bridge-dispatch.sh': { v: 'BY-DESIGN', c: 'setup.d/LAYERS.md:31 (55-runtime-bridge-vendor — factory-only per spec A7)',
     w: 'inert until the consumer configures RUNTIME_BRIDGE_* and registers it (designed early exits; hook-emit helper INLINED, .claude/hooks/runtime-bridge-dispatch.sh:53 — the undelivered lib/ twin is a comment reference, not a source)' },
 };
@@ -176,7 +203,7 @@ for (const h of trackedHooks) {
       works: note ? note.w : 'works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)',
       aged_install: AGED, verdict: note ? note.v : 'BY-DESIGN',
       by_design_citation: note ? note.c : 'setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)',
-      evidence: 'L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)' });
+      evidence: 'L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches' });
   } else {
     add({ artefact: `.claude/hooks/${h}`, class: 'hook', has: true, delivered: d,
       works: 'n/a — not delivered', aged_install: AGED, verdict: 'BY-DESIGN',
@@ -229,10 +256,11 @@ for (const c of testChecks) {
 }
 
 // ── C6 principles (47 rows) ─────────────────────────────────────────────────
-const principlesDelivered = perProfile((root) => dirPopulated(root, 'packages/core/principles'));
+// Round-2 review I3, same shape as the rules block above: per-file, not per-directory.
+const principleDelivered = (name) => perProfile((root) => isFile(`${root}/packages/core/principles/${name}`));
 for (const p of principles) {
   add({ artefact: `packages/core/principles/${p}`, class: 'principle', has: true,
-    delivered: principlesDelivered,
+    delivered: principleDelivered(p),
     works: 'n/a — not delivered', aged_install: AGED, verdict: 'BY-DESIGN',
     by_design_citation: 'setup.d/LAYERS.md:10 (meta-tests are the factory\'s recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)',
     evidence: 'M4 probe: find <consumer> -name "*principle*" → 0 hits in all 3 trees' });
@@ -429,13 +457,13 @@ const census = {
   meta: {
     census: 'consumer-truth-audit V0',
     generated: '2026-09-08',
-    round: '2 — regenerated from the re-run benches (logs/install-{core,env,factory}-r2.log, dirs in logs/consumer-dirs-r2.txt); round-1 `delivered` bugs fixed (agents dbool-object, scripts prefix mismatch), the phantom ts-server-configs row removed, and the script population widened to the installer’s real delivery sources (repo scripts/ + packages/core/{audit-self,probes,synthesizer})',
+    round: '2 + harvest-round fixes (cold review C1/I1/I3/I5 + M2/M7 applied on the host; census regenerated from three fresh HOST installs, --check 0 disagreements) — regenerated from the re-run benches (logs/install-{core,env,factory}-r2.log, dirs in logs/consumer-dirs-r2.txt); round-1 `delivered` bugs fixed (agents dbool-object, scripts prefix mismatch), the phantom ts-server-configs row removed, and the script population widened to the installer’s real delivery sources (repo scripts/ + packages/core/{audit-self,probes,synthesizer})',
     method: '3 fresh installs (core/env/factory) into mktemp dirs seeded with package.json+git init; DELIVERED measured on consumer TREES (find), never on install-log claims (T-CTA-A); WORKS = L1 escape-grep + L2 in-consumer execution + L3 rename-sever window (factory path absent, results valid) + factory controls',
     verifier: 'node gen-census.mjs --check — re-derives every row\'s `delivered` from live trees (roots: --repo/--core/--env/--factory or CENSUS_* env, container defaults) and exits 1 on any disagreement with this file; writes nothing',
     logs_dir: '.claude/orchestrator-prompts/consumer-truth-audit/logs/',
     population_total: rows.length,
     verdict_counts: counts,
-    aged_stratum: 'N/A in container — host-scoped; measured by host-verify-aged.sh on the maintainer host (see logs/aged-stratum.md); aged_install field is uniformly "n/a — host-scoped"',
+    aged_stratum: 'MEASURED on the host in the harvest round: host-verify-aged.sh now performs the 3-bucket join itself (was a prose reminder — cold review I5) and was run against the real aged consumer /Users/art/code/timeliner → 4 shipped-since / 21 never-shipped / 5 consumer-authored over the comparable classes (skill, agent, hook); every other class is reported NOT-COMPARED. Full run: logs/aged-stratum-join.md. In-container it stays N/A (logs/aged-stratum.md); the per-row aged_install field is uniformly "n/a — host-scoped" because it is a per-install property, not a per-row one',
     spec_corrections: [
       'CI workflow source is root templates/<stack>/, not packages/core/templates/**/workflows (matches nothing)',
       '.getff/astgrep-rules exists only under packages/core/templates/python/; clippy/golangci/ruff likewise under their template dirs',

@@ -1,7 +1,29 @@
 # Task 5 — WORKS checks: severed consumer vs factory control (2026-09-08T18:28:04Z)
 
 ## L1 — escape-grep: factory absolute paths + host paths in delivered artefacts
-```
+
+> **Correction (harvest round, cold review I4): the command transcribed below does not
+> reproduce the output below it.** As written it carries four `--include` filters
+> (`*.sh`, `*.ts`, `*.mjs`, `*.json`), yet the hits it lists are in `.prettierignore` and a
+> `*.md` file — which no such filter can pass. Re-run literally on a fresh host bench:
+>
+> ```text
+> # as transcribed (with the --include filters):
+> $ grep -rn '/home/www\|rules-as-tests-aif' --include='*.sh' --include='*.ts' \
+>     --include='*.mjs' --include='*.json' . | grep -v refresh-baseline | wc -l
+> 0
+> # what actually produced the recorded hits:
+> $ grep -rn --exclude-dir=.git '/home/www\|rules-as-tests-aif' . | grep -v refresh-baseline | wc -l
+> 4
+> ```
+>
+> The **count (4) and the hit list are correct** — they are the no-`--include` form's output;
+> the `--include` flags were added when the command was tidied for the log. The recorded finding
+> stands; the transcription does not. Operative lesson: log the literal command, never a
+> cleaned-up reconstruction — an audit whose value is falsifiability cannot hand the reader a
+> command that returns nothing.
+
+```text
 --- core-wYlJfn:
   $ grep -rn '/home/www\|rules-as-tests-aif' --include='*.sh' --include='*.ts' --include='*.mjs' --include='*.json' (excluding .git, node_modules absent) | grep -v refresh-baseline
 /tmp/census-consumer-core-wYlJfn/.prettierignore:87:# >>> rules-as-tests-aif shipped-configs (managed) >>>
@@ -65,7 +87,7 @@ scripts/check-shields-up.sh:33:elif [ -d "$SCRIPT_DIR/../../../packages" ]; then
 ```
 
 ## L2 — delivered hooks executed in the consumer (cwd=consumer, representative CC payloads)
-```
+```text
 --- core/deps-hash-check.sh
   exit=0  out[1..160]: ⚠ package.json tool decisions not yet baselined — run /tool-bootstrapping to re-evaluate
 --- core/inject-output-language.sh
@@ -89,7 +111,7 @@ scripts/check-shields-up.sh:33:elif [ -d "$SCRIPT_DIR/../../../packages" ]; then
 ```
 
 ## L2b — env + factory parity (same harness) + factory-only runtime-bridge-dispatch
-```
+```text
   --- env/deps-hash-check.sh
     exit=0  out[1..160]: ⚠ package.json tool decisions not yet baselined — run /tool-bootstrapping to re-evaluate
   --- env/inject-output-language.sh
@@ -136,7 +158,7 @@ scripts/check-shields-up.sh:33:elif [ -d "$SCRIPT_DIR/../../../packages" ]; then
 ```
 
 ## L2c — .husky/pre-push (no tsx in consumer → designed fallback) + scripts/audit-ai-docs.sh (documented acceptance: should PASS)
-```
+```text
 --- $ cd consumer && bash .husky/pre-push   (git rev-parse needs a repo; consumer has .git)
   exit=0
 ⚠ fallback: could not determine a base ref (no PREPUSH_UPSTREAM_REF, no git stdin, no default branch) — skipping (not a silent pass).
@@ -156,7 +178,7 @@ Audit complete: 5 PASS, 0 FAIL, 1 WARN
 
 ## L2d — THE DEFECT PROOF: delivered guard-liveness.ts import closure in a consumer that installed
    everything except @rules-as-tests/preset-next-15-canonical (npm i tsx eslint @typescript-eslint/parser @typescript-eslint/utils — exit 0)
-```
+```text
 $ node --import tsx/esm -e 'import("eslint").then(()=>console.log("eslint RESOLVED"))'
 eslint RESOLVED
 
@@ -175,7 +197,7 @@ check-rule-globs: FAILED — a custom rule is inert against this layout.
 ```
 
 ## L2e — remaining delivered scripts executed in consumers (timeout 25s each)
-```
+```text
 core/check-rule-enforced.sh -> exit=0 | check-rule-enforced: OK
 core/check-rule-globs.sh -> exit=1 | check-rule-globs: FAILED — a custom rule is inert against this layout.
 core/check-arch-boundaries.sh -> exit=0 | check-arch-boundaries: not an apps/+packages/ monorepo — skipped (no packages↛apps boundary to enforce her
@@ -204,7 +226,7 @@ factory/pre-merge-local.sh -> exit=64 | usage: pre-merge-local.sh [base-ref]    
 ```
 
 ## L2f — corrections + .husky/pre-commit + L3 incident record
-```
+```text
 --- audit-r4.ts under its real runtime (tsx), factory-consumer (has tsx):
   exit=1 | Node.js v22.23.1
 --- .husky/pre-commit in core consumer:
@@ -217,7 +239,7 @@ factory/pre-merge-local.sh -> exit=64 | usage: pre-merge-local.sh [base-ref]    
 ## L3 — rename-sever window: results + INCIDENT RECORD
 
 **Results (valid — the factory path was genuinely absent during the window; `test -e $REPO` → yes-gone):**
-```
+```text
   consumer .husky/pre-push:  ❌ rule-glob liveness check failed (identical to non-severed run)
   consumer audit-ai-docs.sh: 4 PASS, 0 FAIL, 2 WARN (vs 5/0/1 non-severed — one WARN flip: D3/D5 goal-doc skips re-evaluated)
   consumer preset import:    ERR_MODULE_NOT_FOUND (identical — failure intrinsic to the consumer tree)
@@ -233,14 +255,14 @@ factory/pre-merge-local.sh -> exit=64 | usage: pre-merge-local.sh [base-ref]    
 - Method lesson for the census record: **rename-severing is only safe same-filesystem and only on trees without unreadable-owner files.** For future runs: sever at the mount boundary (bind-mount over the path) or copy the consumer out and sever by construction, never mv the factory across mounts. The L1 grep + L2 runs + this one-window L3 (whose severed-run results ARE valid) satisfy §3's severing requirement for V0; the substitution is recorded rather than papered over.
 
 ## L2f addendum — audit-r4.ts exact error (tsx runtime, factory-consumer)
-```
+```text
     const err = new Error(message);
 Error: Cannot find module 'ts-morph'
   → audit-r4.ts needs ts-morph (present in the documented Next-steps npm install line: ts-morph@^28.0.0); absent from the 4-package probe install. Classification: R-2 deps-presence, not a delivery defect.
 ```
 
 ## L1 finding precision — /Users/art + host-scoped paths inside DELIVERED artefacts (file:line)
-```
+```text
 --- core-wYlJfn:
   (hits: 0)
 --- env-VXYTkl:

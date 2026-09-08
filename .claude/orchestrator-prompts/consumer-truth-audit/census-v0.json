@@ -2,17 +2,17 @@
   "meta": {
     "census": "consumer-truth-audit V0",
     "generated": "2026-09-08",
-    "round": "2 — regenerated from the re-run benches (logs/install-{core,env,factory}-r2.log, dirs in logs/consumer-dirs-r2.txt); round-1 `delivered` bugs fixed (agents dbool-object, scripts prefix mismatch), the phantom ts-server-configs row removed, and the script population widened to the installer’s real delivery sources (repo scripts/ + packages/core/{audit-self,probes,synthesizer})",
+    "round": "2 + harvest-round fixes (cold review C1/I1/I3/I5 + M2/M7 applied on the host; census regenerated from three fresh HOST installs, --check 0 disagreements) — regenerated from the re-run benches (logs/install-{core,env,factory}-r2.log, dirs in logs/consumer-dirs-r2.txt); round-1 `delivered` bugs fixed (agents dbool-object, scripts prefix mismatch), the phantom ts-server-configs row removed, and the script population widened to the installer’s real delivery sources (repo scripts/ + packages/core/{audit-self,probes,synthesizer})",
     "method": "3 fresh installs (core/env/factory) into mktemp dirs seeded with package.json+git init; DELIVERED measured on consumer TREES (find), never on install-log claims (T-CTA-A); WORKS = L1 escape-grep + L2 in-consumer execution + L3 rename-sever window (factory path absent, results valid) + factory controls",
     "verifier": "node gen-census.mjs --check — re-derives every row's `delivered` from live trees (roots: --repo/--core/--env/--factory or CENSUS_* env, container defaults) and exits 1 on any disagreement with this file; writes nothing",
     "logs_dir": ".claude/orchestrator-prompts/consumer-truth-audit/logs/",
-    "population_total": 275,
+    "population_total": 276,
     "verdict_counts": {
       "BY-DESIGN": 273,
-      "DOC-LIES": 1,
+      "DOC-LIES": 2,
       "BROKEN": 1
     },
-    "aged_stratum": "N/A in container — host-scoped; measured by host-verify-aged.sh on the maintainer host (see logs/aged-stratum.md); aged_install field is uniformly \"n/a — host-scoped\"",
+    "aged_stratum": "MEASURED on the host in the harvest round: host-verify-aged.sh now performs the 3-bucket join itself (was a prose reminder — cold review I5) and was run against the real aged consumer /Users/art/code/timeliner → 4 shipped-since / 21 never-shipped / 5 consumer-authored over the comparable classes (skill, agent, hook); every other class is reported NOT-COMPARED. Full run: logs/aged-stratum-join.md. In-container it stays N/A (logs/aged-stratum.md); the per-row aged_install field is uniformly \"n/a — host-scoped\" because it is a per-install property, not a per-row one",
     "spec_corrections": [
       "CI workflow source is root templates/<stack>/, not packages/core/templates/**/workflows (matches nothing)",
       ".getff/astgrep-rules exists only under packages/core/templates/python/; clippy/golangci/ruff likewise under their template dirs",
@@ -140,7 +140,7 @@
       "works": "loads as docs, but 5 embedded host-absolute paths instruct operations against the AUTHOR'S machine: references/worker-template.md:73,82,107 + reviewer-template.md:37 + ai-laziness-traps-orchestrator.md:131 all say `cd /Users/art/code/rules-as-tests-aif` — on any consumer host this path is another project or absent",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "DOC-LIES",
-      "evidence": "grep -rn '/Users/art' /tmp/census-consumer-factory-r2-TZpjMT → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision)"
+      "evidence": "grep -rn '/Users/art' <factory bench root> → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision); the bench root is deliberately NOT inlined — benches are ephemeral mktemp dirs and a baked-in path is a dead reference to any later reader"
     },
     {
       "artefact": ".claude/skills/pipeline/",
@@ -252,15 +252,15 @@
       "class": "skill",
       "has": true,
       "delivered": {
-        "core": true,
-        "env": true,
-        "factory": true
+        "core": false,
+        "env": false,
+        "factory": false
       },
-      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "works": "n/a — not the delivered artefact: the consumer's .claude/skills/tool-bootstrapping/ is filled from the root skills/tool-bootstrapping/ copy, which is censused as its own row",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
-      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+      "by_design_citation": "setup.d/10-skills.sh (_copy_tree_with_transform from the package root skills/tool-bootstrapping into the consumer .claude/skills/tool-bootstrapping)",
+      "evidence": "round-2 review I1: diff -rq skills/tool-bootstrapping .claude/skills/tool-bootstrapping reports differing SKILL.md + references/, and a templates/ dir present only under root skills/tool-bootstrapping"
     },
     {
       "artefact": "skills/getff/",
@@ -271,11 +271,26 @@
         "env": true,
         "factory": true
       },
-      "works": "works — delivered as .claude/skills/getff/ (root skills/ is the source)",
+      "works": "works — delivered as .claude/skills/getff/ (root skills/ is the source 10-skills.sh copies from)",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:23 (10-skills.sh: skills/ → .claude/skills/)",
-      "evidence": "M4: getff present in all 3 consumer trees; source tracked at skills/getff"
+      "evidence": "M4: getff present per profile in the consumer .claude/skills/ tree lists; source tracked at skills/getff (git ls-files)"
+    },
+    {
+      "artefact": "skills/tool-bootstrapping/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered as .claude/skills/tool-bootstrapping/ (root skills/ is the source 10-skills.sh copies from)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:23 (10-skills.sh: skills/ → .claude/skills/)",
+      "evidence": "M4: tool-bootstrapping present per profile in the consumer .claude/skills/ tree lists; source tracked at skills/tool-bootstrapping (git ls-files)"
     },
     {
       "artefact": ".claude/agents/adapter-jig-reviewer.md",
@@ -1055,7 +1070,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/check-doc-authority-header.sh",
@@ -1070,7 +1085,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/check-doc-authority.sh",
@@ -1145,7 +1160,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/end-of-turn-reminder.sh",
@@ -1160,7 +1175,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/inject-matching-rule.sh",
@@ -1171,11 +1186,11 @@
         "env": true,
         "factory": true
       },
-      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "works": "delivered and runtime-safe (degrades to exit 0 when the rules dir or jq is absent), but its own header comment at .claude/hooks/inject-matching-rule.sh:28 claims «NOW SHIPPED to consumer CC projects — consumers DO get .claude/rules/* installed», which is FALSE in all three profiles: no consumer receives .claude/rules/, so the hook announces «no rules corpus found … nothing to inject» on every invocation",
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
-      "verdict": "BY-DESIGN",
-      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "verdict": "DOC-LIES",
+      "by_design_citation": "setup.d/LAYERS.md:79 (transform_internal_refs — «rules/ is not shipped»); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/inject-memory-codification.sh",
@@ -1190,7 +1205,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/inject-output-language.sh",
@@ -1205,7 +1220,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/inject-project-digest.sh",
@@ -1220,7 +1235,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/inject-session-bootstrap.sh",
@@ -1280,7 +1295,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/lang/en.sh",
@@ -1295,7 +1310,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/lang/ru.sh",
@@ -1310,7 +1325,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/lib/hook-emit.sh",
@@ -1355,7 +1370,7 @@
       "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
       "verdict": "BY-DESIGN",
       "by_design_citation": "setup.d/LAYERS.md:31 (55-runtime-bridge-vendor — factory-only per spec A7)",
-      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json registers 7 hooks identically in all profiles (M7)"
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
     },
     {
       "artefact": ".claude/hooks/validate-prompt.sh",
