@@ -251,12 +251,100 @@ if [ "$verify_fail" -ne 0 ]; then
 fi
 echo "  ✓ all ${#SHIPPED_DOCS[@]} shipped artefacts carry valid headers"
 
-# ─── getff Python toolchain lane (python-delivery-v0 S2) ─────────────────────
-# A NON-npm entry: delivers the pre-rendered ast-grep + ruff lint bundle (setup.d/45-python.sh) into a
-# consumer PYTHON project, then proves it fires. Runs the pure-bash delivery under the env-var contract
-# GETFF_TOOLCHAIN=python and EXITS — it never enters the npm package.json precondition, stack pick, or
-# the setup.d layer loop, so no npm-assuming step fires on this lane. do_python_lane is defined here so
-# it is in scope for the detection block just below (which runs before the npm package.json require).
+# ─── getff toolchain lanes (python / cargo / go) — table-driven (ledger 1597 S-3) ────────────
+# A NON-npm entry per toolchain lane: delivers the pre-rendered lint bundle (setup.d/45-python.sh /
+# 46-cargo.sh / 47-go.sh) into a consumer project, then proves it fires. Each lane runs the pure-bash
+# delivery under the env-var contract GETFF_TOOLCHAIN=<lane> and EXITS — it never enters the npm
+# package.json precondition, stack pick, or the setup.d layer loop, so no npm-assuming step fires on
+# these lanes.
+#
+# LANE TABLE. Every per-lane difference is a COLUMN, so the lane bodies and the detection walk
+# cannot drift (ledger S-3: the routing was copy-pasted three times, differing only in marker log,
+# owned file, manifest and prompt; precedence was implicit in block order plus an undocumented
+# asymmetric guard on the go block). Columns (|:|-delimited, no field contains a |):
+#   1  lane          — the GETFF_TOOLCHAIN value + the `install.sh <lane>` positional.
+#   2  display       — the human name in the banner/prompt lines.
+#   3  detect file   — the consumer manifest whose presence (+ no package.json + exclusions clear)
+#                      triggers the fresh-install OFFER.
+#   4  exclude files — SPACE-separated OTHER lanes' detect files; the OFFER fires only when NONE is
+#                      present (the mutual-exclusion set a fourth lane previously had to re-derive
+#                      by hand — now it is a column edit).
+# The install-log MARKER filename and the lane-exclusive fallback artefact live in lib.sh
+# getff_lane_installed (the SSOT this walk consults), NOT here — one list, not two.
+# Lane ORDER is the DETECTION PRECEDENCE, made explicit: python → cargo → go. Later lanes are
+# consulted only when every earlier lane is not installed (--refresh marker routing) or declined
+# (fresh-install offers — and an actively-DECLINED offer unmasks the lanes after it: _lane_detect
+# returns 2 and the walker drops that lane's detect file from the remaining lanes' exclusion sets;
+# the full rule + the ledger instance it fixes are documented at _lane_detect below). An explicit
+# `install.sh <lane>` positional always wins over every auto-detect arm (TOOLCHAIN is set in arg
+# parsing; the walk below is gated on -z "$TOOLCHAIN").
+LANE_TABLE='python|Python|pyproject.toml|
+cargo|Rust/cargo|Cargo.toml|pyproject.toml
+go|Go|go.mod|pyproject.toml Cargo.toml'
+
+# _lane_source_layer <lane> — source the setup.d delivery layer for <lane> (its activation guard
+# runs deliver_<lane>_toolchain) and return 1 when the layer file is missing, so the caller can
+# fail loudly instead of half-running a lane with no delivery code.
+_lane_source_layer() {
+  local num
+  case "$1" in
+    python) num="45-python" ;;
+    cargo)  num="46-cargo" ;;
+    go)     num="47-go" ;;
+    *)      echo "  ✗ getff: unknown toolchain lane '$1'" >&2; return 1 ;;
+  esac
+  local layer="$PKG_ROOT/setup.d/$num.sh"
+  if [ ! -f "$layer" ]; then
+    echo "  ✗ getff: no delivery layer at $layer (lane '$1')" >&2
+    return 1
+  fi
+  # shellcheck source=/dev/null
+  source "$layer"
+}
+
+# do_toolchain_lane <lane> <display> — the SHARED lane body (S-3): export the env-var contract,
+# banner, source the delivery layer (its activation guard runs deliver_<lane>_toolchain, reusing
+# copy_safe/refresh_safe from lib.sh already in scope), firing self-check (the layer DEFINES
+# _<lane>_firing_self_check without auto-running it — calling it here makes the firing proof an
+# install-flow concern, parity with 99-finalize.sh's capstone self-verify), then the
+# consumer-refresh-integrity R1 baseline flush (fail-open; setup.d/lib.sh). The lane entrypoints
+# below stay as named callers: the seams are load-bearing (cargo-entry-lane.test.sh arm (16)
+# greps the do_cargo_lane completion line; python-rules-lock.test.sh cites do_python_lane).
+do_toolchain_lane() {
+  local lane="$1" display="$2"
+  export GETFF_TOOLCHAIN="$lane"
+  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
+  if [ -n "$REFRESH" ]; then
+    echo "▶ Refreshing getff ${display} toolchain artefacts in $PROJECT_ROOT"
+  else
+    echo "▶ Installing getff ${display} toolchain into $PROJECT_ROOT"
+  fi
+  # NOT `_lane_source_layer … || return 1`: a function call in a `||` list runs with set -e
+  # SUPPRESSED through its whole call chain, which would silently swallow a mid-delivery
+  # failure the pre-S-3 shape let abort the install. Called plainly (like the pre-S-3
+  # `source` statements were), a real failure in the layer still fails the lane loudly; the
+  # missing-layer arm inside _lane_source_layer returns 1 with its own ✗ line first.
+  _lane_source_layer "$lane"
+  if [ "$DRY_RUN" != "--dry-run" ]; then
+    case "$lane" in
+      python) _py_firing_self_check ;;
+      cargo)  _cargo_firing_self_check ;;
+      go)     _go_firing_self_check ;;
+    esac
+  else
+    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert the delivered config fires RED)"
+  fi
+  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
+  refresh_baseline_flush
+}
+
+# The python lane keeps its own body: its flow carries two python-specific steps the other lanes do
+# not have — the rules-lock emit (_py_write_rules_lock, a .getff/-namespace variant with a
+# content-aware idempotent skip) and the curated agent-surface delivery (D8 /
+# getff-any-stack-trace S2: skills / agents / hooks / .mcp.json / AGENTS.md / .ai-factory/, the
+# subset of the npm setup.d layer loop install.sh's early exit would otherwise strand) — each with
+# its own dry-run gate. Folding those into column data would strain the table (effort-worthiness
+# §1 test 2: a mechanism without a second consumer is theatre).
 do_python_lane() {
   export GETFF_TOOLCHAIN=python
   [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
@@ -299,97 +387,152 @@ do_python_lane() {
   echo "✅ getff Python toolchain + agent surface ${REFRESH:+re-}delivery complete."
 }
 
-# ─── getff Rust/cargo toolchain lane (ecosystem-wiring W4) ───────────────────
-# A NON-npm entry: delivers the pre-rendered clippy.toml bans + cargo-deny surface (setup.d/46-cargo.sh)
-# into a consumer RUST crate, then proves it fires. Runs the pure-bash delivery under the env-var
-# contract GETFF_TOOLCHAIN=cargo and EXITS — parity with do_python_lane; it never enters the npm
-# package.json precondition, stack pick, or the setup.d layer loop.
 do_cargo_lane() {
-  export GETFF_TOOLCHAIN=cargo
-  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
-  if [ -n "$REFRESH" ]; then
-    echo "▶ Refreshing getff Rust/cargo toolchain artefacts in $PROJECT_ROOT"
-  else
-    echo "▶ Installing getff Rust/cargo toolchain into $PROJECT_ROOT"
-  fi
-  # Source the delivery layer: its activation guard (GETFF_TOOLCHAIN=cargo) runs
-  # deliver_cargo_toolchain, reusing copy_safe/refresh_safe from lib.sh (already in scope). The layer
-  # also DEFINES _cargo_firing_self_check without auto-running it — we call it below so the firing
-  # proof is an install-flow concern (parity with do_python_lane + 99-finalize.sh's capstone self-verify).
-  # shellcheck source=setup.d/46-cargo.sh
-  source "$PKG_ROOT/setup.d/46-cargo.sh"
-  if [ "$DRY_RUN" != "--dry-run" ]; then
-    _cargo_firing_self_check
-  else
-    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert cargo clippy fires RED)"
-  fi
-  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
-  refresh_baseline_flush
+  # Plain call, no `|| return 1`: a `||` list suppresses set -e through the callee's whole
+  # chain, which would swallow a mid-delivery failure (see do_toolchain_lane's note on
+  # _lane_source_layer). A real failure propagates and aborts the lane loudly, as pre-S-3.
+  do_toolchain_lane cargo "Rust/cargo"
   echo ""
   echo "✅ getff Rust/cargo toolchain ${REFRESH:+re-}delivery complete."
 }
 
-# ─── getff Go toolchain lane (adapter-jig J3) ─────────────────────────────────
-# A NON-npm entry: delivers the pre-rendered .golangci.yml forbidigo bans surface (setup.d/47-go.sh)
-# into a consumer GO module, then proves it fires. Runs the pure-bash delivery under the env-var
-# contract GETFF_TOOLCHAIN=go and EXITS — parity with do_cargo_lane; it never enters the npm
-# package.json precondition, stack pick, or the setup.d layer loop.
 do_go_lane() {
-  export GETFF_TOOLCHAIN=go
-  [ -n "$REFRESH" ] && export GETFF_TOOLCHAIN_REFRESH=1
-  if [ -n "$REFRESH" ]; then
-    echo "▶ Refreshing getff Go toolchain artefacts in $PROJECT_ROOT"
-  else
-    echo "▶ Installing getff Go toolchain into $PROJECT_ROOT"
-  fi
-  # Source the delivery layer: its activation guard (GETFF_TOOLCHAIN=go) runs
-  # deliver_go_toolchain, reusing copy_safe/refresh_safe from lib.sh (already in scope). The layer
-  # also DEFINES _go_firing_self_check without auto-running it — we call it below so the firing
-  # proof is an install-flow concern (parity with do_cargo_lane + 99-finalize.sh's capstone self-verify).
-  # shellcheck source=setup.d/47-go.sh
-  source "$PKG_ROOT/setup.d/47-go.sh"
-  if [ "$DRY_RUN" != "--dry-run" ]; then
-    _go_firing_self_check
-  else
-    echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert golangci-lint fires RED)"
-  fi
-  # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
-  refresh_baseline_flush
+  # Plain call, no `|| return 1` — same set -e-suppression reasoning as do_cargo_lane above.
+  do_toolchain_lane go "Go"
   echo ""
   echo "✅ getff Go toolchain ${REFRESH:+re-}delivery complete."
 }
 
-# Python-lane detection (before the npm package.json precondition, which a python repo cannot satisfy):
-#   (a) explicit `install.sh python` positional → TOOLCHAIN already "python" (always wins).
-#   (b) --refresh of a PRIOR python install (marker: .getff-python-install.log or .getff/astgrep-rules,
-#       evaluated by lib.sh getff_lane_installed — the same helper report_getff_orphans uses to decide
-#       which OTHER lanes' live configs it must not call orphans on a polyglot consumer) —
-#       ONLY when no explicit npm STACK arg was given (STACK_EXPLICIT). Review fix (S2 round 1): an
-#       explicit `install.sh ts-server --refresh` on a repo that carries BOTH package.json and a stale
-#       python marker must refresh the npm stack, not silently reroute to the python-only refresh and
-#       exit 0 — that used to skip the npm refresh entirely with no error. An explicit stack/toolchain
-#       arg now always takes precedence over the marker auto-detect.
-#   (c) fresh auto-detect: pyproject.toml present + NO package.json → OFFER. Interactive prompt defaults
-#       No; the non-interactive (-y/--full) and --dry-run paths DECLINE (npm lane) — the explicit
-#       `python` positional is the non-interactive opt-in (kickoff §1 detect order).
-if [ -z "$TOOLCHAIN" ]; then
-  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && getff_lane_installed python; then
-    TOOLCHAIN="python"
-  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ -f "$PROJECT_ROOT/pyproject.toml" ]; then
-    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
-      : # non-interactive / dry-run → decline (npm lane). Explicit `python` arg is the opt-in.
-    else
-      echo "▶ Detected a Python project (pyproject.toml present, no package.json)."
-      # Review fix (S2 round 1): a bare `read` returns non-zero at EOF (non-tty invocation with a
-      # closed stdin, e.g. this script run without -y in CI or a scripted harness) — under
-      # `set -euo pipefail` that used to abort the whole script right here with a message-less
-      # `exit 1`, instead of falling through to the documented "decline → npm lane → clean
-      # no-package.json abort" behaviour. `|| _py_ans=""` makes the read EOF-safe: a closed stdin is
-      # treated as an empty (declining) answer, same as an explicit empty Enter-press.
-      read -rp "  Install the getff Python toolchain lane (ast-grep + ruff rules)? [y/N]: " _py_ans || _py_ans=""
-      case "$_py_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="python" ;; esac
-    fi
+# ─── Toolchain-lane detection (LANE_TABLE walk; before the npm package.json precondition) ────
+# For each lane in LANE_TABLE order (= the documented precedence python → cargo → go):
+#   (a) explicit `install.sh <lane>` positional → TOOLCHAIN already "<lane>" (always wins; the
+#       walk is gated on -z "$TOOLCHAIN").
+#   (b) --refresh of a PRIOR <lane> install (marker: the lane's install log, or its lane-exclusive
+#       getff-owned artefact — evaluated by lib.sh getff_lane_installed, the same helper
+#       report_getff_orphans uses to decide which OTHER lanes' live configs it must not call
+#       orphans on a polyglot consumer) — ONLY when no explicit npm STACK arg was given
+#       (STACK_EXPLICIT). Review fix (S2 round 1): an explicit `install.sh ts-server --refresh` on
+#       a repo that carries BOTH package.json and a stale <lane> marker must refresh the npm stack,
+#       not silently reroute to the <lane>-only refresh and exit 0 — that used to skip the npm
+#       refresh entirely with no error. An explicit stack/toolchain arg now always takes precedence
+#       over the marker auto-detect.
+#   (c) fresh auto-detect: <detect file> present + NO package.json + NONE of the exclusion set →
+#       OFFER. Interactive prompt defaults No; the non-interactive (-y/--full) and --dry-run paths
+#       DECLINE (npm lane) — the explicit `<lane>` positional is the non-interactive opt-in
+#       (kickoff §1 detect order).
+# A DECLINED offer does NOT claim TOOLCHAIN, and — the S-3 precedence fix, the ONE documented
+# behaviour change in this refactor — it no longer MASKS the later lanes either: _lane_detect
+# returns 2 on an actively-declined offer, and the walker then drops that lane's detect file from
+# every remaining lane's exclusion set. On a polyglot consumer (Cargo.toml + go.mod, no
+# package.json) where the cargo offer is declined, the go offer now fires. Pre-S-3 the go block's
+# Cargo.toml exclusion hard-skipped it, so go was NEVER offered after a declined cargo — the
+# exclusion-set asymmetry the ledger verifier corrected (with Cargo.toml+go.mod cargo IS prompted;
+# the defect was the missing go offer after that prompt is declined).
+# The rule is UNIFORM, not a cargo→go special case: ANY actively-declined offer unmasks every
+# later lane whose only blocker was the declined lane's detect file. The pyproject→cargo
+# application: a pyproject.toml+Cargo.toml consumer whose python offer is declined now gets the
+# cargo offer too (pre-S-3 the pyproject exclusion in the cargo block masked it) — pinned by
+# go-entry-lane.test.sh arm 11e, with the across-two-declines accumulation pinned by 11f. One
+# rule, one code path; the ledger instance (cargo declined → go offered) is one application.
+# The exclusion column still
+# guards the never-prompted case (a pyproject+go.mod consumer sees ONLY the python offer; the go
+# offer fires just if python is declined), and a declined-everything consumer falls through to the
+# npm lane exactly as before.
+# EOF-safe read (review fix, S2 round 1): a bare `read` returns non-zero at EOF (non-tty
+# invocation with a closed stdin, e.g. this script run without -y in CI or a scripted harness) —
+# under `set -euo pipefail` that used to abort the whole script right here with a message-less
+# `exit 1`, instead of falling through to the documented "decline → npm lane → clean
+# no-package.json abort" behaviour. `|| _lane_ans=""` makes the read EOF-safe: a closed stdin is
+# treated as an empty (declining) answer, same as an explicit empty Enter-press.
+# Return codes: 0 = TOOLCHAIN claimed; 1 = not this lane (nothing offered); 2 = OFFERED and
+# actively declined (the walker unmasks the later lanes).
+_lane_detect() {
+  local lane="$1" display="$2" detect="$3" excludes="$4" exf prompt
+  # (b) --refresh marker routing.
+  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && getff_lane_installed "$lane"; then
+    TOOLCHAIN="$lane"
+    return 0
   fi
+  # (c) fresh auto-detect OFFER. Skipped under --refresh: an offer on a refresh pass would
+  # re-prompt a consumer who already declined; marker arm (b) above is the refresh router.
+  [ -n "$REFRESH" ] && return 1
+  [ -f "$PROJECT_ROOT/package.json" ] && return 1
+  [ -f "$PROJECT_ROOT/$detect" ] || return 1
+  for exf in $excludes; do
+    # _LANE_DECLINED holds the detect files of lanes whose offer was already declined this run
+    # (space-delimited). A declined lane's manifest no longer masks this one — the consumer has
+    # already said "not cargo"; a live Cargo.toml must not silently answer "then not go either".
+    case " ${_LANE_DECLINED:-} " in
+      *" $exf "*) continue ;;
+    esac
+    [ -f "$PROJECT_ROOT/$exf" ] && return 1
+  done
+  if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+    return 1 # non-interactive / dry-run → decline (npm lane). Explicit `<lane>` arg is the opt-in.
+  fi
+  # Banner + the OFFER's per-lane "(…)" fragment. The fragments name the delivered surface (prompt
+  # text, not routing facts), so they live in this case rather than as more table columns.
+  case "$lane" in
+    python)
+      prompt="ast-grep + ruff rules"
+      echo "▶ Detected a Python project (pyproject.toml present, no package.json)."
+      ;;
+    cargo)
+      prompt="clippy bans + cargo-deny"
+      echo "▶ Detected a Rust project (Cargo.toml present, no package.json)."
+      ;;
+    go)
+      prompt="golangci-lint forbidigo bans"
+      # Post-S-3 this banner can fire with pyproject.toml/Cargo.toml ON DISK (their offers were
+      # shown and declined, unmasking this one), so the only still-invariant exclusion is
+      # package.json — the walk is hard-gated on it at _lane_detect's (c) arm. The text names
+      # THAT fact: a banner must stay true on every path that can print it.
+      echo "▶ Detected a Go project (go.mod present, no package.json)."
+      ;;
+  esac
+  read -rp "  Install the getff ${display} toolchain lane (${prompt})? [y/N]: " _lane_ans || _lane_ans=""
+  case "$_lane_ans" in
+    [yY]|[yY][eE][sS]) TOOLCHAIN="$lane"; return 0 ;;
+  esac
+  # ACCUMULATE, never reset: the set must keep EVERY earlier decline's detect file, or a third
+  # lane stays masked by the FIRST lane's on-disk manifest once a second offer is declined
+  # (triple-manifest n,n,y — pinned by go-entry-lane.test.sh arm 11f).
+  _LANE_DECLINED="${_LANE_DECLINED:-} $detect"
+  return 2
+}
+
+if [ -z "$TOOLCHAIN" ]; then
+  # _lane_detect is called in a CONDITION (not as a statement): its "not this lane" return-1 and
+  # its "offered + declined" return-2 are both non-zero and must not trip install.sh's
+  # `set -euo pipefail` — the pre-S-3 blocks held every one of these tests inside `if` conditions
+  # for exactly this reason, and a bare call here would abort the script message-less on the
+  # first non-matching lane (the S2-round-1 EOF-read defect class). rc=0 (TOOLCHAIN claimed)
+  # ends the walk; rc=2 (declined) records the detect file in _LANE_DECLINED and the walk
+  # CONTINUES with the later lanes unmasked (see _lane_detect).
+  # LANE_TABLE above is the ONLY copy of the rows (S-3: one table, not a table plus a restated
+  # list — the draft's inline row literals were a fresh two-lists drift of the class S-3
+  # removes). This walk consumes it in TWO passes. Pass 1 builds the _lt_rows array from
+  # $LANE_TABLE with a heredoc-fed `while read` — that IS the stdin-hazard shape described
+  # below, but this loop's body is an array append and touches no stdin, so there is no offer
+  # here to mis-feed. Pass 2 is a `for` over the array, NOT a heredoc-fed `while read`: the
+  # OFFER's `read -rp` inside _lane_detect must see the CONSUMER's stdin (terminal / piped y-n
+  # answers / closed EOF), and a heredoc-fed walk would redirect stdin to the table text — the
+  # first offer would silently consume the remaining LANE_TABLE rows as its answer and every
+  # later lane would see EOF (the exact silent-reroute class this walk exists to prevent).
+  _lt_rows=()
+  while IFS= read -r _lt_spec; do
+    _lt_rows+=("$_lt_spec")
+  done <<EOF
+$LANE_TABLE
+EOF
+  for _lt_spec in "${_lt_rows[@]}"; do
+    IFS='|' read -r _lt_lane _lt_display _lt_detect _lt_excludes <<SPEC
+$_lt_spec
+SPEC
+    if _lane_detect "$_lt_lane" "$_lt_display" "$_lt_detect" "$_lt_excludes"; then
+      break
+    fi
+  done
 fi
 
 if [ "$TOOLCHAIN" = "python" ]; then
@@ -397,59 +540,16 @@ if [ "$TOOLCHAIN" = "python" ]; then
   exit 0
 fi
 
-# Cargo-lane detection (same shape as python; runs only if the python block did not claim TOOLCHAIN):
-#   (a) explicit `install.sh cargo` positional → TOOLCHAIN already "cargo" (always wins).
-#   (b) --refresh of a PRIOR cargo install (marker: .getff-cargo-install.log or a getff-owned clippy.toml;
-#       lib.sh getff_lane_installed)
-#       — ONLY when no explicit npm STACK arg was given (parity with the python marker precedence fix).
-#   (c) fresh auto-detect: Cargo.toml present + NO package.json → OFFER. Interactive prompt defaults No;
-#       the non-interactive (-y/--full) + --dry-run paths DECLINE — the explicit `cargo` positional is
-#       the non-interactive opt-in.
-if [ -z "$TOOLCHAIN" ]; then
-  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && getff_lane_installed cargo; then
-    TOOLCHAIN="cargo"
-  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
-    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
-      : # non-interactive / dry-run → decline (npm lane). Explicit `cargo` arg is the opt-in.
-    else
-      echo "▶ Detected a Rust project (Cargo.toml present, no package.json)."
-      read -rp "  Install the getff Rust/cargo toolchain lane (clippy bans + cargo-deny)? [y/N]: " _cargo_ans || _cargo_ans=""
-      case "$_cargo_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="cargo" ;; esac
-    fi
-  fi
-fi
-
 if [ "$TOOLCHAIN" = "cargo" ]; then
   do_cargo_lane
   exit 0
-fi
-
-# Go-lane detection (same shape as cargo; runs only if neither python nor cargo claimed TOOLCHAIN):
-#   (a) explicit `install.sh go` positional → TOOLCHAIN already "go" (always wins).
-#   (b) --refresh of a PRIOR go install (marker: .getff-go-install.log or a getff-owned .golangci.yml;
-#       lib.sh getff_lane_installed)
-#       — ONLY when no explicit npm STACK arg was given (parity with the python/cargo marker fix).
-#   (c) fresh auto-detect: go.mod present + NO package.json/pyproject.toml/Cargo.toml → OFFER.
-#       Interactive prompt defaults No; the non-interactive (-y/--full) + --dry-run paths DECLINE —
-#       the explicit `go` positional is the non-interactive opt-in.
-if [ -z "$TOOLCHAIN" ]; then
-  if [ -n "$REFRESH" ] && [ -z "$STACK_EXPLICIT" ] && getff_lane_installed go; then
-    TOOLCHAIN="go"
-  elif [ -z "$REFRESH" ] && [ ! -f "$PROJECT_ROOT/package.json" ] && [ ! -f "$PROJECT_ROOT/pyproject.toml" ] && [ ! -f "$PROJECT_ROOT/Cargo.toml" ] && [ -f "$PROJECT_ROOT/go.mod" ]; then
-    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
-      : # non-interactive / dry-run → decline (npm lane). Explicit `go` arg is the opt-in.
-    else
-      echo "▶ Detected a Go project (go.mod present, no package.json/pyproject.toml/Cargo.toml)."
-      read -rp "  Install the getff Go toolchain lane (golangci-lint forbidigo bans)? [y/N]: " _go_ans || _go_ans=""
-      case "$_go_ans" in [yY]|[yY][eE][sS]) TOOLCHAIN="go" ;; esac
-    fi
-  fi
 fi
 
 if [ "$TOOLCHAIN" = "go" ]; then
   do_go_lane
   exit 0
 fi
+
 # ─── Profile resolution (beta-delivery-ux S1, design spec §4 A1) ──────────────
 # Resolve the install depth: core (default) | env (core + multi-model contour
 # placeholders, no AIF runtime) | factory (env + AIF operator suite + runtime-bridge
