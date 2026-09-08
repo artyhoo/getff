@@ -30,6 +30,31 @@ _lang_file="${_lang_dir}/${AIF_HOOK_LANG:-en}.sh"
 # shellcheck source=/dev/null
 . "$_lang_file"
 
+# Residue-directory primitives (D29) — the cascade the handoff-currency gate needs, shared
+# with the PreCompact writer. GUARDED source, never unconditional: this hook runs under
+# `set -euo pipefail` (:9), so sourcing a missing lib would abort it on EVERY turn of any
+# project the delivery step has not reached. Lib absent or unreadable → the inline fallback
+# below, identical logic, so the gate still resolves the same directory the writer does.
+# (The check-doc-authority.sh:40-48 guard shape — with a fallback instead of a SKIP:
+# silently skipping the gate on a missing lib would be fail-open.)
+_residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
+if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
+  _residue_dir() {
+    if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
+    local _rd_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    local _rd_helper="$_rd_root/.claude/skills/pipeline/helpers/print-orch-home.sh" _rd_out=""
+    if [ -f "$_rd_helper" ]; then
+      _rd_out=$(REPO_ROOT="$_rd_root" bash "$_rd_helper" 2>/dev/null || true)
+      if [ -n "$_rd_out" ]; then printf '%s\n' "$_rd_out"; return; fi
+    fi
+    if [ -d "$_rd_root/.claude/orchestrator-prompts" ]; then
+      printf '%s\n' "$_rd_root/.claude/orchestrator-prompts"
+    else
+      printf '%s\n' "$_rd_root/.ai-factory/orchestrator-prompts"
+    fi
+  }
+fi
+
 input=$(cat)
 
 stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
@@ -71,6 +96,7 @@ fi
 # finding F2 is about. Cheap because of the single-block guard above. Off by default.
 autonomy_line=""
 ctx_line=""
+gate_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -138,6 +164,15 @@ _autonomy_exit() {
       _extra="${_extra}"$'\n\n'"${ctx_line}"
     else
       _extra="${ctx_line}"
+    fi
+  fi
+  # D36: only ONE of ctx_line / gate_line is ever set (D21), so this is the same slot,
+  # not a second line — the gate's reason rides exactly where the context line would.
+  if [ -n "${gate_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${gate_line}"
+    else
+      _extra="${gate_line}"
     fi
   fi
   if [ -n "$_extra" ]; then
@@ -350,6 +385,94 @@ if [ -n "$ctx_entry" ]; then
       ctx_line="[context] This session's context is ≈ ${ctx_tokens} tokens (window ~${ctx_window}). If substantial judgment work (design, review, novel debugging) remains, write a short handoff note and continue it in a fresh session; if what is left is mechanical (commits, merges, regenerations guarded by external checks), finishing here is fine."
     fi
   fi
+
+  # ── Handoff-currency gate — POSITION 1 of 2 (D13/D30; spec: 2026-09-08-handoff-currency- ──
+  # gate-design.md). Dormant unless AIF_HANDOFF_GATE=1 (D18): unarmed, `gate_line` stays
+  # empty and every statement below is skipped, so the unarmed output is byte-identical to
+  # the pre-change hook (the goldens fixture in end-of-turn-reminder.test.ts proves it).
+  # NESTED inside `if [ -n "$ctx_entry" ]` (D31): ctx_tokens / ctx_soft / ctx_key exist only
+  # here; outside it they are unset and `set -u` (:9) aborts the whole hook. From the gate
+  # floor upward the gate's reason REPLACES the context line (D21) — never both.
+  if [ "${AIF_HANDOFF_GATE:-0}" = "1" ]; then
+    gate_handoff_pct="${AIF_HANDOFF_BAND_PCT:-67}"
+    case "$gate_handoff_pct" in '' | *[!0-9]* | 0) gate_handoff_pct=67 ;; esac
+    # D14 — the floor: min(ctx_soft, compaction_point × pct). The compaction point is
+    # DECLARED: the env wins, else settings.json's autoCompactWindow (jq is already a hard
+    # dependency at :14). Nothing declared → gate_floor = ctx_soft, the gate stands exactly
+    # where the prose arm stands — one derived number, no second absolute (F3's lesson).
+    gate_compact="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-}"
+    case "$gate_compact" in '' | *[!0-9]* | 0) gate_compact="" ;; esac
+    if [ -z "$gate_compact" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ] \
+      && [ -f "${CLAUDE_PROJECT_DIR}/.claude/settings.json" ]; then
+      gate_compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_PROJECT_DIR}/.claude/settings.json" 2>/dev/null || true)
+      case "$gate_compact" in '' | *[!0-9]* | 0) gate_compact="" ;; esac
+    fi
+    if [ -n "$gate_compact" ]; then
+      gate_floor=$(( gate_compact * gate_handoff_pct / 100 ))
+      if [ "$ctx_soft" -lt "$gate_floor" ]; then gate_floor="$ctx_soft"; fi
+    else
+      gate_floor="$ctx_soft"
+    fi
+    if [ "$gate_floor" -lt 1 ]; then gate_floor=1; fi
+    if [ "$ctx_tokens" -ge "$gate_floor" ]; then
+      ctx_line=""   # D21 — in the band the gate replaces the context line entirely
+      gate_residue_dir="$(_residue_dir)"
+      gate_handoff_file="${gate_residue_dir}/_handoff-${ctx_key}.md"
+      # Same key derivation as the D7 flags (:307); the writer clears it BY EXACT NAME at
+      # compaction (D34), so a rename here silently unlinks that contract.
+      gate_baseline="${TMPDIR:-/tmp}/aif-handoff-${ctx_key}"
+      if ! mkdir -p "$gate_residue_dir" 2>/dev/null || [ ! -w "$gate_residue_dir" ]; then
+        # D19 — fail CLOSED and SAY the probe broke (F10 property 2); never a silent pass.
+        gate_line="$(aif_msg_eot_handoff_gate_degraded "$gate_residue_dir")"
+      elif [ ! -f "$gate_handoff_file" ]; then
+        gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" no-file)"
+      else
+        # State-machine order per the spec's data flow: heading → cap → unchanged.
+        # D16 — a required H2 must exist AND carry ≥1 non-blank line.
+        for _req in \
+          '## Decisions and why' \
+          '## Rejected alternatives' \
+          '## Unverified assumptions and open forks' \
+          '## Skills to invoke by name' \
+          '## Next action'
+        do
+          if ! awk -v want="$_req" '
+            insec && /^##[^#]/ { exit (found ? 0 : 1) }
+            $0 == want { insec = 1; next }
+            insec && $0 ~ /[^[:space:]]/ { found = 1 }
+            END { exit (insec && found ? 0 : 1) }
+          ' "$gate_handoff_file" 2>/dev/null; then
+            gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" heading "$_req")"
+            break
+          fi
+        done
+        if [ -z "$gate_line" ]; then
+          # D32 — current state, not a log: over the cap, condense — never append.
+          gate_max_lines="${AIF_HANDOFF_MAX_LINES:-200}"
+          case "$gate_max_lines" in '' | *[!0-9]* | 0) gate_max_lines=200 ;; esac
+          gate_lines=$(wc -l < "$gate_handoff_file" 2>/dev/null | tr -d '[:space:]' || echo 0)
+          case "$gate_lines" in '' | *[!0-9]*) gate_lines=0 ;; esac
+          if [ "$gate_lines" -gt "$gate_max_lines" ]; then
+            gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" cap "$gate_max_lines")"
+          else
+            # D19 — freshness is a CONTENT hash, never mtime; two-branch portable sha256.
+            gate_sha="$(_residue_sha256 "$gate_handoff_file")"
+            gate_base=""
+            [ -f "$gate_baseline" ] && gate_base="$(cat "$gate_baseline" 2>/dev/null || true)"
+            if [ -n "$gate_sha" ] && [ "$gate_sha" = "$gate_base" ]; then
+              gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" unchanged)"
+            elif [ -n "$gate_sha" ]; then
+              # Allow — and record: the baseline only ever advances on an ALLOWED normal
+              # Stop (never on the stop_hook_active stop, which exits at :35-38 unread).
+              { printf '%s' "$gate_sha" > "$gate_baseline"; } 2>/dev/null || true
+            fi
+            # An empty sha (no hashing tool) skips the compare, like deps-hash's caller —
+            # the payload checks above still ran; it must never read as "content unchanged".
+          fi
+        fi
+      fi
+    fi
+  fi
 fi
 
 # Session-goal anchor (deterministic, no LLM). Primary signal: CC's own session
@@ -412,6 +535,19 @@ if grep -qxF -- 'AskUserQuestion' <<<"$tool_names"; then
 fi
 
 text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
+
+# ── Handoff-currency gate — POSITION 2 of 2 (D30 ii) ─────────────────────────
+# The escape token lives in the turn's FINAL assistant text, which only exists here —
+# ~100 lines below the arm that computed gate_line. Clear, don't re-compute: on the paths
+# that returned before this point (no last assistant line at :405, tool-only turn at :426)
+# the token is unreadable and a stale handoff BLOCKS — the deliberate fail-closed side.
+# Here-string, never `printf | grep -q`: under pipefail an early grep exit SIGPIPEs the
+# producer and the guard silently reads false (this hook's own A3-5 lesson at :398-402).
+# Per-turn, never sticky (D17): every turn in the band either moves the handoff or
+# re-states the token.
+if [ -n "$gate_line" ] && grep -qE 'mechanical-tail:[[:space:]]*.{20,}' <<<"$text"; then
+  gate_line=""
+fi
 # -- story branch detection: a PR was just created this turn → engaging recap ----
 # (session_id is read above, before the D7 context-arm.)
 story_signal=""
@@ -471,6 +607,13 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     fi
     if [ -n "$ctx_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${ctx_line}"
+    fi
+    # Emit site 2 of 3 (D30 iii): the gate rides the ZCode dense block exactly as the
+    # context line does. Inert on ZCode today (synthetic transcripts carry no usage fields,
+    # so gate_line stays empty — zcode-parity-doctrine.md §2 row 9); this append is the
+    # parity arm should a ZCode transcript ever carry usage.
+    if [ -n "$gate_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${gate_line}"
     fi
     _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
@@ -692,6 +835,12 @@ if [ -n "$autonomy_line" ]; then
 fi
 if [ -n "$ctx_line" ]; then
   reminder="${reminder}"$'\n\n'"${ctx_line}"
+fi
+# Emit site 3 of 3 (D30 iii): the bottom CC block — the site every long_text=true turn
+# reaches. Appending the gate ONLY in _autonomy_exit would make it silent on exactly the
+# substantive turns it exists for (the F10 shadowing class, postmortem at :51-62).
+if [ -n "$gate_line" ]; then
+  reminder="${reminder}"$'\n\n'"${gate_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{

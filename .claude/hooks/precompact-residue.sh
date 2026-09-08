@@ -127,28 +127,29 @@ root="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$root" ] || root="$payload_cwd"
 [ -n "$root" ] || root="$(pwd)"
 
-# ── Residue directory — ONE resolution, shared with the reader ────────────────
-# AIF_RESIDUE_DIR is the test seam + operator escape hatch (precedent: MO_ORCH_HOME).
-# Otherwise call the /pipeline helper that §1's injection fence already calls, with
-# REPO_ROOT pinned (lib/common.sh honours a pre-set value, common.sh:17) so the helper
-# resolves THIS repo rather than whatever git toplevel the hook's cwd happens to be in.
-# The inline branch at the end is the no-helper fallback (a consumer install without the
-# skill); it mirrors resolve_orch_home() (helpers/lib/common.sh:50-57) and is the only
-# duplicated logic here — kept because a residue written to a directory nobody reads is
-# worse than a five-line mirror.
-_residue_dir() {
-  if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
-  local helper="$root/.claude/skills/pipeline/helpers/print-orch-home.sh" out=""
-  if [ -f "$helper" ]; then
-    out=$(REPO_ROOT="$root" bash "$helper" 2>/dev/null || true)
-    if [ -n "$out" ]; then printf '%s\n' "$out"; return; fi
-  fi
-  if [ -d "$root/.claude/orchestrator-prompts" ]; then
-    printf '%s\n' "$root/.claude/orchestrator-prompts"
-  else
-    printf '%s\n' "$root/.ai-factory/orchestrator-prompts"
-  fi
-}
+# ── Residue directory — ONE resolution, shared with the readers (D29) ─────────
+# The cascade moved to lib/residue-dir.sh so the Stop hook's handoff-currency gate
+# resolves the SAME directory by the SAME rule. GUARDED source, never unconditional:
+# a missing lib must degrade to the inline fallback below (identical logic), never
+# abort the write — the exact shape this file already uses for the lang pack above.
+# The fallback keeps this hook working in any project the delivery step
+# (install.sh / setup.d/10-skills.sh, same PR) has not reached.
+_residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
+if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
+  _residue_dir() {
+    if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
+    local helper="$root/.claude/skills/pipeline/helpers/print-orch-home.sh" out=""
+    if [ -f "$helper" ]; then
+      out=$(REPO_ROOT="$root" bash "$helper" 2>/dev/null || true)
+      if [ -n "$out" ]; then printf '%s\n' "$out"; return; fi
+    fi
+    if [ -d "$root/.claude/orchestrator-prompts" ]; then
+      printf '%s\n' "$root/.claude/orchestrator-prompts"
+    else
+      printf '%s\n' "$root/.ai-factory/orchestrator-prompts"
+    fi
+  }
+fi
 residue_dir="$(_residue_dir)"
 mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
@@ -245,12 +246,37 @@ if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
   for _tier in soft deep; do
     rm -f "${TMPDIR:-/tmp}/aif-ctx-${session_key}-${_tier}" 2>/dev/null || true
   done
+
+  # D34 — the handoff-currency gate's acceptance baseline resets at compaction, BY EXACT
+  # NAME beside the tier flags above. Same hazard, same rule: the residue directory is
+  # full of `aif-`-prefixed tmp channels, so a `aif-handoff-<key>*` glob would be a
+  # different bug in the same directory. The handoff FILE itself survives (it is the
+  # payload the SessionStart injector reads); only the acceptance baseline resets, so the
+  # post-compaction climb re-judges from scratch instead of inheriting a hash from a
+  # window that no longer exists. AUTO only, for the same refused-compact evidence.
+  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
 fi
 
 # ── Branch + head, for the continuing session ────────────────────────────────
 branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 head_sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)
 [ -n "$branch" ] || branch="(not a git worktree)"
+
+# ── Model handoff pointer (D15) — sibling file, never owned by this writer ────
+# The model-authored handoff lives at `_handoff-<session_key>.md` (the Stop hook's gate
+# judges its currency there). This hook gains ONE pointer line and nothing else — the
+# writer stops truncating a model-authored section by never owning one. The sha short +
+# line count make staleness visible at compaction time instead of silently trusting an
+# older file (D15's own falsifier clause).
+handoff_file="${residue_dir}/_handoff-${session_key}.md"
+if [ -f "$handoff_file" ]; then
+  handoff_lines=$(wc -l < "$handoff_file" 2>/dev/null | tr -d '[:space:]' || echo 0)
+  case "$handoff_lines" in '' | *[!0-9]*) handoff_lines=0 ;; esac
+  handoff_sha8="$(_residue_sha256 "$handoff_file" | cut -c1-8)"
+  handoff_state="present, ${handoff_lines:-0} lines, ${handoff_sha8:-noshahash}"
+else
+  handoff_state="absent"
+fi
 
 # ── Write ────────────────────────────────────────────────────────────────────
 # Written even when there is NO transcript and no body: D8 requires anchor + timestamp +
@@ -266,6 +292,7 @@ head_sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)
   printf -- '- **Repo:** `%s`\n' "$root"
   printf -- '- **Transcript:** `%s`\n' "${transcript:-(absent)}"
   printf -- '- **Body source:** %s\n' "$body_kind"
+  printf -- '- **Model handoff:** `%s` (%s)\n' "${handoff_file}" "${handoff_state}"
   # Stated for the human/model reader of the handoff; the machine channel is the tmp file.
   if [ -n "$observed_tokens" ]; then
     printf -- '- **Observed context ceiling:** %s tokens (usage at this auto-compaction — the window estimate the next turn is judged against)\n\n' "$observed_tokens"
