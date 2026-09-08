@@ -23,7 +23,13 @@
 Enumerated 2026-09-08 on the factory at `feature/consumer-truth-audit-55b9ad` (T10: full lists
 before any coverage claim; per-file lists with line numbers in `logs/population-enumeration.md` + `-2.md` (C9-C11 + drift),
 comma-joined here). **Denominator: 276 artefacts** — the row set of `census-v0.json`
-(`meta.population_total`); the per-class list below sums to 276 and is the same population.
+(`meta.population_total`); the per-class list below sums to 276 and is the same population —
+re-derivable, not asserted: `jq '.rows|group_by(.class)|map({(.[0].class):length})|add'
+census-v0.json` emits (wrapped here for width) `{"agent":20,"ci-workflow":5,"companion":6,
+"discipline-rule":30,"hook":25,"hook-check":13,"hook-check-test":12,"lint-bundle":8,
+"mcp-config":1,"principle":47,"script":85,"skill":18,"template":6}` — thirteen classes,
+rendered below as twelve bullets because the prose merges the two hook-check classes into one
+25-bullet and `mcp-config`+`companion` onto one line.
 Round 1 stated 252/253 here while the census carried 253 rows including a phantom template
 row — fixed by making both deliverables derive from one enumeration. The harvest round added
 the **276th** row: root `skills/tool-bootstrapping/`, which `logs/population-enumeration.md:48`
@@ -33,10 +39,14 @@ throw-guard the templates block uses, so the same class of omission cannot recur
 the previous shape was invisible to `--check` by construction, since both sides of the
 comparison read that one literal.
 
-- **skills (17):** ai-doc, aif-doctor, arch, claude-glm-executor-handoff, dispatcher, harvest,
+- **skills (18):** ai-doc, aif-doctor, arch, claude-glm-executor-handoff, dispatcher, harvest,
   night-mode, orchestrator, pipeline, reviewer, rule-research, rule-tests, self-reflection,
-  story, template-audit, tool-bootstrapping (16 tracked under `.claude/skills/`) + root
-  `skills/getff`. *25 further on-disk dirs (`aif`, `aif-*`) are gitignored container-local
+  story, template-audit, tool-bootstrapping (16 tracked under `.claude/skills/`) + **two** root
+  skills, `skills/getff` **and `skills/tool-bootstrapping`** — the harvest round's 276th row.
+  The root `tool-bootstrapping` shares a name with the tracked `.claude/skills/tool-bootstrapping/`
+  but is a different artefact on a different delivery path, so it is a row of its own (see
+  the paragraph above, `gen-census.mjs:74`, and §self-falsification item 6); counting the pair
+  as one is exactly the omission that hid it. *25 further on-disk dirs (`aif`, `aif-*`) are gitignored container-local
   consumer skills (`.gitignore:115`), not framework cargo — the naive count 41 is misleading.*
 - **agents (20):** adapter-jig-reviewer, aif-init, backward-sweep-auditor, capability-reuse-auditor,
   claims-conformance-auditor, compliance-verifier, dispatch-input-checker, docplan-auditor,
@@ -453,7 +463,12 @@ What would catch a row that is wrong (T15 — the audit of this census):
    outside its reach, and needs the phantom-guard shape (throw on an un-enumerated member) that
    the templates block already used and the skills block did not. Both are fixed and re-verified;
    the per-file `delivered` fix (I3) closes the same class for the 77 rows that previously shared
-   one directory-existence value across 30 rules and 47 principles;
+   one directory-existence value across 30 rules and 47 principles. **And the fix's own
+   consequence escaped this section too:** the fidelity audit of the harvest round (round 1)
+   found §population still reading «skills (17)» against a regenerated census carrying 18 —
+   the prose was reconciled against the census by attention, not by a command. §population now
+   carries the `jq` group-by that re-derives every class count, so the reconciliation is
+   re-runnable instead of asserted ([attention-is-not-a-mechanism.md:17](../../rules/attention-is-not-a-mechanism.md));
 7. **What the verifier caught on its own first run (T15, round 2):** two rows the round-1
    hardcoded matrix had wrong in ways the block's own evidence hid — (a) `eslint-rules-local`
    lands at the consumer ROOT (install log: «Custom ESLint rules → eslint-rules-local/»), not
