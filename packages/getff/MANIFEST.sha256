@@ -6,7 +6,7 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-3478787b16086629deea2d56a3b83138258a4086c6c9f8c0c913907782620967  .claude/hooks/end-of-turn-reminder.sh
+0818ab0bd5cc31eb159575f4e5b58a6aa48fb6bd4a65f16552136cb09be86781  .claude/hooks/end-of-turn-reminder.sh
 0172e377f71e667e1832ceb3edeaf06a080c0af2236fa8ec1a6769b97ecaecb5  .claude/hooks/inject-handoff-on-compact.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
@@ -445,8 +445,8 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-c0684c241727dc75d5ffe8131be28bee7975a4e1ae65e0baaca24fdebb803853  packages/core/hooks/end-of-turn-reminder.test.ts
-30ef91447e25e78786f05bf6ed87ea25cfe86f813e955078f67c016e6bf1e05d  packages/core/hooks/env-hermeticity.test.ts
+f676142458f2d44953e3db7f31e476c039b766db43d8dbe0546963a7c6ceaf07  packages/core/hooks/end-of-turn-reminder.test.ts
+3a439e4e166b958a0099ac5eb0b7aa9442c3d70b1caac95fd6edbb2db6ffcc2f  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 e8bcb769b383ebf58aa2c800cb01424400a73461f4afe245a703f112eabf5348  packages/core/hooks/getff-work.test.ts
 dfe9cd6eb097988bf1fd8788ac8a3b97dc26e59ae4f1e04bb0faeed00ed3dc00  packages/core/hooks/harness-config-drift.test.ts
