@@ -60,7 +60,7 @@
  */
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { BackendError } from '../backend.js';
-import { getTask, putTask, postJson } from './aifHttp.js';
+import { getTask, putTask, postJson, getParticipantsModeEnabled } from './aifHttp.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
@@ -207,6 +207,43 @@ export async function postComment(baseUrl: string, taskId: string, message: stri
   await postJson(baseUrl, `/tasks/${taskId}/comments`, { message });
 }
 
+/**
+ * The decisions whose events exist ONLY in aif's human-owner dispatcher
+ * (`resolveHumanOwnerAction`). Every other decision targets `done` / `blocked_external`,
+ * which the legacy dispatcher serves, so only these two depend on the mode probe below.
+ */
+export const HUMAN_OWNER_ONLY_DECISIONS: readonly AnswerDecision[] = [
+  'complete_review',
+  'request_review_changes',
+];
+
+/**
+ * Refuse a review-state decision the deployment cannot serve, naming the cause and the
+ * levers that DO exist.
+ *
+ * `resolveTaskAction` picks `resolveHumanOwnerAction` — the only dispatcher carrying
+ * `complete_review` / `request_review_changes` — solely when participants mode is on. With
+ * it off, every event resolves through `resolveLegacyAction`, whose cases cover `backlog`,
+ * `plan_ready`, `done` and `blocked_external` and NOTHING from `review`; the request falls
+ * to its `default:` and comes back as `409 {"error":"Unknown task event"}`, which names
+ * neither the mode nor a way forward. Measured 2026-09-09 against two live parks, one
+ * ai-owned and one human-owned — the owner is not the gate, the mode is.
+ */
+export async function assertReviewEventReachable(baseUrl: string, decision: AnswerDecision): Promise<void> {
+  if (await getParticipantsModeEnabled(baseUrl)) return;
+  throw new BackendError(
+    `"${decision}" cannot be dispatched: this aif deployment runs with participants mode OFF ` +
+      `(GET /auth/session → participantsModeEnabled:false), so every task event resolves through ` +
+      `the legacy dispatcher, which has no event out of "review" for any owner — the API would ` +
+      `answer 409 "Unknown task event". A manual-review park has two exits here: hand it back to ` +
+      `the coordinator (POST /tasks/:id/handoff {"executionOwner":"ai"} — legal from review, and ` +
+      `the coordinator's candidate query takes ai-owned review tasks, so its auto-review re-runs ` +
+      `and can close the task itself), or DELETE the task outright (destructive, operator GO).`,
+    'dispatch_failed',
+    'aif-handoff',
+  );
+}
+
 /** Dispatch a forward state-machine event (POST /tasks/:id/events { event }). */
 export async function postEvent(baseUrl: string, taskId: string, event: string): Promise<void> {
   await postJson(baseUrl, `/tasks/${taskId}/events`, { event });
@@ -271,6 +308,11 @@ export async function pushAnswer(
     return resumePark(baseUrl, taskId, answer.trim());
   }
   const step = resolveStep(decision);
+  // Probe BEFORE any write: a review-state event this deployment cannot serve must not
+  // leave a comment behind as the only trace of a call that was always going to 409.
+  if (HUMAN_OWNER_ONLY_DECISIONS.includes(decision)) {
+    await assertReviewEventReachable(baseUrl, decision);
+  }
   let commented = false;
   if (step.needsComment) {
     if (!answer || !answer.trim()) {

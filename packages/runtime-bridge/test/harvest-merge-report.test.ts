@@ -46,13 +46,15 @@ describe('reportMergeToAif — the harvest→aif return channel', () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockImplementationOnce(async () => okResponse({ id: 't-2', status: 'review' }))
+      .mockImplementationOnce(async () => okResponse({ ok: true }))
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
       .mockImplementation(async () => okResponse({ ok: true }));
 
     const report = await reportMergeToAif('http://aif.test', 't-2', 'https://gh/x/y/pull/1688', MERGED);
 
-    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
     const [commentUrl, commentInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
-    const [eventUrl, eventInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+    const [eventUrl, eventInit] = fetchSpy.mock.calls[3] as [string, RequestInit];
     expect(commentUrl).toBe('http://aif.test/tasks/t-2/comments');
     expect(String(JSON.parse(String(commentInit.body)).message)).toContain('https://gh/x/y/pull/1688');
     expect(eventUrl).toBe('http://aif.test/tasks/t-2/events');
@@ -97,5 +99,48 @@ describe('--report-merge wires the return channel to the CLI', () => {
 
   it('leaves reportMerge undefined on an ordinary harvest', () => {
     expect(parseArgs(['task-9', '--base', 'staging']).reportMerge).toBeUndefined();
+  });
+});
+
+// ── the reachability gate the mocked-fetch tests above could not see ───────────
+// Running the channel for real on two merged parks (2026-09-09) — one ai-owned, one
+// human-owned — both returned `HTTP 409 {"error":"Unknown task event"}` with every test
+// above green. The gate is the deployment's participants mode, not the task: with it off
+// (this deployment: `GET /auth/session` → false) every event resolves through
+// `resolveLegacyAction`, which has no exit from `review` for any owner. The merge evidence
+// is still worth writing; the close is not attempted, and the report says why.
+describe('reportMergeToAif does not attempt a close the deployment cannot serve', () => {
+  it('legacy mode: comments, skips the event, and names the two real levers', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ id: 't-lg', status: 'review', executionOwner: 'ai' }))
+      .mockImplementationOnce(async () => okResponse({ ok: true }))
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: false }));
+
+    const report = await reportMergeToAif('http://aif.test', 't-lg', 'https://gh/x/y/pull/1680', MERGED);
+
+    expect(fetchSpy.mock.calls.map((c) => c[0])).toEqual([
+      'http://aif.test/tasks/t-lg',
+      'http://aif.test/tasks/t-lg/comments',
+      'http://aif.test/auth/session',
+    ]);
+    expect(report.commented).toBe(true);
+    expect(report.closedReview).toBe(false);
+    expect(report.skippedReason).toMatch(/participants mode/i);
+    expect(report.skippedReason).toMatch(/handoff/i);
+  });
+
+  it('participants mode on: the close is attempted as before', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ id: 't-pm', status: 'review' }))
+      .mockImplementationOnce(async () => okResponse({ ok: true }))
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
+      .mockImplementation(async () => okResponse({ ok: true }));
+
+    const report = await reportMergeToAif('http://aif.test', 't-pm', 'https://gh/x/y/pull/1680', MERGED);
+
+    expect(fetchSpy.mock.calls.map((c) => c[0])[3]).toBe('http://aif.test/tasks/t-pm/events');
+    expect(report.closedReview).toBe(true);
   });
 });
