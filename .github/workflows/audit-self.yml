@@ -675,6 +675,13 @@ jobs:
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)
         run: bash scripts/build-synth-bundle.test.sh
+      # Same class as the row above, on the settings-writing side: the two registration
+      # scripts must resolve the checkout THEY live in, never the git toplevel of the cwd.
+      # The paired negative is case 5 — invoked from inside a foreign git repo, the resolved
+      # root must still be this checkout, because that is the shape that would silently arm
+      # the wrong .claude/settings.json.
+      - name: Run registration-script root-resolution test (runs from any directory)
+        run: bash scripts/register-root-resolution.test.sh
       # Paired contract for the K4 contract-coverage emitter. The emitter is not a gate
       # (it always exits 0), so the negative leg is on its OUTPUT: a kickoff whose
       # host-verify block misses a permitted area must emit a CANDIDATE naming it, and a
