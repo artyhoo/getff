@@ -105,6 +105,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { getProjects, getTask } from './aifHttp.js';
+import { postComment, postEvent } from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
   bundleFileName,
@@ -213,6 +214,12 @@ interface ParsedArgs {
   confirmRework: boolean;
   confirmUnreportedFiles: boolean;
   confirmDirtyResidue: boolean;
+  /**
+   * `--report-merge <prUrl>`: run ONLY the aif return channel for an already-harvested task
+   * (see {@link reportMergeToAif}) and skip egress entirely. This is the retro-active arm —
+   * a task whose PR merged before the return channel existed has no other way to be closed.
+   */
+  reportMerge?: string;
 }
 
 /**
@@ -238,6 +245,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       'confirm-rework': { type: 'boolean' },
       'confirm-unreported-files': { type: 'boolean' },
       'confirm-dirty-residue': { type: 'boolean' },
+      'report-merge': { type: 'string' },
     },
     maxPositionals: 1,
   });
@@ -258,6 +266,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     confirmRework: values['confirm-rework'] === true,
     confirmUnreportedFiles: values['confirm-unreported-files'] === true,
     confirmDirtyResidue: values['confirm-dirty-residue'] === true,
+    reportMerge: str('report-merge'),
   };
 }
 
@@ -673,6 +682,107 @@ function realDeps(
   return { deps, checkout: () => resolved?.path ?? args.repoPath };
 }
 
+/** What {@link reportMergeToAif} observed and did — returned so the CLI can report it. */
+export interface MergeReport {
+  taskId: string;
+  prUrl: string;
+  /** Whether the PR is actually merged (the probe's answer, never assumed). */
+  merged: boolean;
+  /** Whether a comment naming the PR was attached to the task. */
+  commented: boolean;
+  /** Whether `complete_review` was dispatched, taking the task out of `review`. */
+  closedReview: boolean;
+  /** Why the review was not closed, when it was not. */
+  skippedReason?: string;
+}
+
+/** Ask GitHub whether a PR is merged. Injected so the tests need neither `gh` nor a network. */
+export type PrMergeProbe = (
+  prUrl: string,
+) => Promise<{ merged: boolean; mergedAt?: string | null }>;
+
+/** The default probe: `gh pr view <url> --json state,mergedAt`. */
+export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
+  const out = execFileSync(
+    'gh',
+    ['pr', 'view', prUrl, '--json', 'state,mergedAt'],
+    { encoding: 'utf8' },
+  );
+  const parsed = JSON.parse(out) as {
+    state?: string;
+    mergedAt?: string | null;
+  };
+  return {
+    merged: parsed.state === 'MERGED',
+    mergedAt: parsed.mergedAt ?? null,
+  };
+};
+
+/**
+ * Tell aif that a harvested task's PR has merged — the RETURN CHANNEL harvest never had.
+ *
+ * Before this, harvest was strictly one-way: the branch left the container, was pushed, PR'd
+ * and merged on GitHub, and nothing ever wrote back (`grep -c "postJson|putTask"` on this file
+ * returned 0). A task had no mechanism to learn that its own work had shipped, so it stayed in
+ * `review` indefinitely — and `review` with `executionOwner:"ai"` counts toward the per-project
+ * lane cap (`countActivePipelineTasksForProject`), so shipped work throttled new work. Measured
+ * 2026-09-09: four tasks still parked with their PRs merged days earlier (#1667, #1668, #1680,
+ * #1688), while the coordinator logged `"active":6,"limit":5`. Closing them depended on a human
+ * remembering — bare attention as the detection layer, which
+ * `.claude/rules/attention-is-not-a-mechanism.md §1` forbids for a load-bearing check.
+ *
+ * Deliberately conservative in three ways:
+ *   1. An UNMERGED PR writes nothing. A comment saying «a PR exists» is noise, and an
+ *      auto-merge that later fails would leave a false claim in the task's own record.
+ *   2. The comment lands BEFORE the event, so the task carries the evidence even if the
+ *      transition is refused.
+ *   3. `complete_review` is dispatched ONLY from `review` — the state machine accepts it from
+ *      nowhere else (`stateMachine.js:91`), so any other status is reported, not forced.
+ *      It lands the task in `done`, NOT `verified`: final acceptance stays a human act
+ *      (`approve_done`), this only stops shipped work from occupying a lane.
+ */
+export async function reportMergeToAif(
+  baseUrl: string,
+  taskId: string,
+  prUrl: string,
+  probe: PrMergeProbe = ghPrMergeProbe,
+): Promise<MergeReport> {
+  const { merged, mergedAt } = await probe(prUrl);
+  if (!merged) {
+    return {
+      taskId,
+      prUrl,
+      merged: false,
+      commented: false,
+      closedReview: false,
+      skippedReason: 'PR is not merged yet — nothing reported',
+    };
+  }
+
+  const task = await getTask(baseUrl, taskId);
+  const when = mergedAt ?? 'unknown time';
+  await postComment(
+    baseUrl,
+    taskId,
+    `Harvested and merged: ${prUrl} (merged ${when}). The deliverable is on the base branch, ` +
+      `so this task's work has shipped. Reported automatically by the harvest return channel.`,
+  );
+
+  if (task.status !== 'review') {
+    return {
+      taskId,
+      prUrl,
+      merged: true,
+      commented: true,
+      closedReview: false,
+      skippedReason: `task status is "${task.status}", not "review" — complete_review is only allowed from review`,
+    };
+  }
+
+  await postEvent(baseUrl, taskId, 'complete_review');
+  return { taskId, prUrl, merged: true, commented: true, closedReview: true };
+}
+
 /**
  * The copy-pasteable form of a container-side READ, byte-identical in shape to what
  * {@link dockerGit} actually runs — including `-c safe.directory=<workDir>`, without which
@@ -700,6 +810,7 @@ async function main(): Promise<void> {
   if (!parsed.taskId) {
     process.stderr.write(
       '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
+        '[harvest]        harvest.ts <taskId> --report-merge <prUrl>   (return channel only, no egress)\n' +
         "[harvest]   egress = Channel A: the container's commit is bundled to the HOST and pushed from there\n" +
         "[harvest]   (--host-repo / RUNTIME_BRIDGE_HOST_REPO, default: the cwd's checkout) so .husky/pre-push runs.\n",
     );
@@ -708,6 +819,27 @@ async function main(): Promise<void> {
 
   const baseUrl =
     process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009';
+
+  // Return-channel-only mode. Deliberately BEFORE every egress step: the task this closes has
+  // already shipped, so re-resolving its container checkout would fail on a worktree aif has
+  // since reaped — and there is nothing left to push anyway.
+  if (parsed.reportMerge) {
+    try {
+      const report = await reportMergeToAif(
+        baseUrl,
+        parsed.taskId,
+        parsed.reportMerge,
+      );
+      process.stdout.write(
+        JSON.stringify({ ok: true, mergeReport: report }) + '\n',
+      );
+      process.exit(0);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[harvest] --report-merge FAILED: ${msg}\n`);
+      process.exit(1);
+    }
+  }
 
   // A6-3: WHICH checkout inside the container, asked of aif rather than hard-coded to the
   // framework's own mount — the vendored copy runs on consumers whose project lives at
@@ -835,6 +967,22 @@ async function main(): Promise<void> {
           `did not actually touch: ${res.unmatchedSelfReport.join(', ')} (cosmetic self-report drift, not blocking).\n`,
       );
     }
+    // Close the loop while we still hold the PR url. With --auto-merge the PR is usually still
+    // open at this instant, so this normally reports `merged:false` and writes NOTHING — that is
+    // the designed outcome, not a miss. It closes the task only when the merge already landed
+    // (a small PR whose checks were green). For the ordinary case the operator re-runs
+    // `--report-merge <prUrl>` afterwards. NEVER fatal: the egress itself has already succeeded,
+    // and failing the harvest over a bookkeeping call would lose that result.
+    let mergeReport: MergeReport | { error: string } | undefined;
+    if (res.prUrl) {
+      try {
+        mergeReport = await reportMergeToAif(baseUrl, parsed.taskId, res.prUrl);
+      } catch (err) {
+        mergeReport = {
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
     process.stdout.write(
       JSON.stringify({
         ok: true,
@@ -843,6 +991,7 @@ async function main(): Promise<void> {
         autoMerge: res.autoMerge,
         committed: res.committed,
         dirtyTreeLeftBehind: res.dirtyTreeLeftBehind,
+        mergeReport,
       }) + '\n',
     );
     process.exit(0);
