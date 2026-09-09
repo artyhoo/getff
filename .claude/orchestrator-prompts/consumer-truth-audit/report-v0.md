@@ -21,7 +21,7 @@
 ## §population
 
 Enumerated 2026-09-08 on the factory at `feature/consumer-truth-audit-55b9ad` (T10: full lists
-before any coverage claim; per-file lists with line numbers in `logs/population-enumeration.md` + `-2.md` (C9-C11 + drift),
+before any coverage claim; per-file lists with line numbers in `logs/population-enumeration.md` and `logs/population-enumeration-2.md` (C9-C11 + drift),
 comma-joined here). **Denominator: 276 artefacts** — the row set of `census-v0.json`
 (`meta.population_total`); the per-class list below sums to 276 and is the same population —
 re-derivable, not asserted: `jq '.rows|group_by(.class)|map({(.[0].class):length})|add'

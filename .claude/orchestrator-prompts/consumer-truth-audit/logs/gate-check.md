@@ -51,7 +51,7 @@ $ jq '.rows | group_by(.class) | map({(.[0].class): length}) | add' census-v0.js
   "mcp-config": 1, "principle": 47, "script": 85, "skill": 17, "template": 6
 }
 ```
-Per-file lists: `logs/population-enumeration.md` + `-2.md` (+ §C11b addendum for the
+Per-file lists: `logs/population-enumeration.md` and `logs/population-enumeration-2.md` (+ §C11b addendum for the
 consumer-script sources round 1 missed — the class is now 85 = 62 repo `scripts/` + 23
 `packages/core/{audit-self,probes,synthesizer}` sources).
 
