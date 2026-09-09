@@ -39,6 +39,11 @@ const INHERIT_ON_PURPOSE: Record<string, string> = {
   // Structural: every hook test already pins TMPDIR to its own mkdtemp dir, and deleting it
   // would only move bash's and node's scratch files, never change a hook's decision.
   TMPDIR: 'process-structural; each test pins it explicitly',
+  // Structural: the harness that launched the process sets it (claude-desktop / cli / sdk-ts)
+  // and this suite's own survivor list above keeps it. The one hook that reads it
+  // (end-of-turn-reminder.sh, SDK-entrypoint guard) is tested with the value pinned per case
+  // and a `cli` default in its runHook, so the host's value never reaches a decision.
+  CLAUDE_CODE_ENTRYPOINT: 'process-structural; end-of-turn-reminder tests pin it per case',
 };
 
 /** Every `*.sh` under the shipped hook trees, both channels (source + plugin twin). */

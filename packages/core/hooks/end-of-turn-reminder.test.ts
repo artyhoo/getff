@@ -129,7 +129,10 @@ function runHook(
     // content and the transcripts embed the Russian recap marker. AIF_HOOK_LANG
     // selects the lang pack (default en); these cases are the RU-pack contract.
     // A test may override via env: { AIF_HOOK_LANG: 'en' } (see en-pack smoke).
-    env: { ...process.env, AIF_HOOK_LANG: 'ru', ...env },
+    // CLAUDE_CODE_ENTRYPOINT is inherited from the launching harness (claude-desktop, cli,
+    // sdk-ts …) and the SDK-entrypoint guard reads it — pin an interactive value so a suite
+    // run from an SDK-driven session cannot silence every block-expecting case.
+    env: { ...process.env, AIF_HOOK_LANG: 'ru', CLAUDE_CODE_ENTRYPOINT: 'cli', ...env },
   });
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
