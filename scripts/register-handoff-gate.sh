@@ -21,15 +21,62 @@
 #
 # IDEMPOTENT: re-running is a no-op that still re-verifies. Refuses to touch a malformed
 # settings.json (a broken settings.json silently disables ALL settings from that file).
+#
+# USAGE — runs from ANY working directory, because the repo root is resolved from the
+# script's own path (see the resolver below), not from `git rev-parse` of the cwd:
+#     bash /path/to/repo/scripts/register-handoff-gate.sh          # arms /path/to/repo
+#     bash scripts/register-handoff-gate.sh                        # same, from the repo root
+#     bash /path/to/repo/scripts/register-handoff-gate.sh /other/checkout   # explicit target wins
+#     bash /path/to/repo/scripts/register-handoff-gate.sh --print-root      # resolve and exit, writes nothing
+# A symlink to this script works too. Covered by scripts/register-root-resolution.test.sh.
 
 set -uo pipefail
 
-ROOT="${1:-}"
+# ── Repo root: resolved from the SCRIPT'S OWN LOCATION, so this runs from ANY cwd ─────
+# Precedence: an explicit path argument → the checkout this script lives in → the git
+# toplevel of the current directory (the historical behaviour, kept as the last resort).
+#
+# Self-location leads because the two disagree in exactly the case that matters: run from a
+# DIFFERENT checkout or worktree of this project and `git rev-parse --show-toplevel` names
+# THAT tree, so the script would arm a settings.json the operator never meant to touch —
+# silently, because that tree satisfies every precondition. The symlink loop is hand-rolled:
+# macOS ships neither `readlink -f` nor GNU `realpath`.
+PRINT_ROOT=0
+ARG_ROOT=''
+for _a in "$@"; do
+  case "$_a" in
+    --print-root) PRINT_ROOT=1 ;;
+    *) ARG_ROOT="$_a" ;;
+  esac
+done
+
+_self="${BASH_SOURCE[0]}"
+while [[ -L "$_self" ]]; do
+  _dir="$(cd -P "$(dirname "$_self")" >/dev/null 2>&1 && pwd)"
+  _self="$(readlink "$_self")"
+  [[ "$_self" != /* ]] && _self="$_dir/$_self"
+done
+_selfroot="$(cd -P "$(dirname "$_self")/.." >/dev/null 2>&1 && pwd)" || _selfroot=''
+
+ROOT="$ARG_ROOT"
+if [[ -z "$ROOT" && -n "$_selfroot" && -f "$_selfroot/.ai-factory/harness-model.json" ]]; then
+  ROOT="$_selfroot"
+fi
 if [[ -z "$ROOT" ]]; then
-  ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-    echo "FAIL: not in a git repo and no root given. Usage: $0 [/path/to/repo]" >&2
-    exit 1
-  }
+  ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+fi
+if [[ -z "$ROOT" ]]; then
+  echo "FAIL: cannot locate the repo root from ${BASH_SOURCE[0]} and no root given." >&2
+  echo "      Usage: $0 [/path/to/repo] [--print-root]" >&2
+  exit 1
+fi
+
+# --print-root resolves and exits. It is the only way to exercise the resolver WITHOUT
+# performing the settings write the rest of this script does, which is what makes the
+# resolution testable at all (scripts/register-root-resolution.test.sh drives this arm).
+if [[ "$PRINT_ROOT" == 1 ]]; then
+  printf '%s\n' "$ROOT"
+  exit 0
 fi
 SSOT="$ROOT/.ai-factory/harness-model.json"
 SETTINGS="$ROOT/.claude/settings.json"
