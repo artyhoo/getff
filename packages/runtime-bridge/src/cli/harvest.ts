@@ -104,8 +104,8 @@ import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
-import { getProjects, getTask } from './aifHttp.js';
-import { postComment, postEvent } from './answer.js';
+import { getProjects, getTask, getParticipantsModeEnabled } from './aifHttp.js';
+import { postComment, postEvent, reviewEventUnreachableReason } from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
   bundleFileName,
@@ -657,6 +657,28 @@ export async function reportMergeToAif(
       commented: true,
       closedReview: false,
       skippedReason: `task status is "${task.status}", not "review" — complete_review is only allowed from review`,
+    };
+  }
+
+  // The close is only attempted when the deployment can serve it. With participants mode
+  // off, `complete_review` resolves through the legacy dispatcher, which has no exit from
+  // `review` for ANY owner, and the API answers 409 "Unknown task event" (measured on two
+  // live parks, 2026-09-09). That is not a harvest failure: the merge evidence is already
+  // on the task, and closing the park is bookkeeping with its own operator levers.
+  //
+  // Only an explicit `false` is skipped. A FAILING probe — a timeout, a 401/404 on
+  // /auth/session, an unparsable body — must propagate to the CLI's own error path and exit
+  // non-zero: swallowing it would report `ok:true` while a close that may well have been
+  // legal never happened, and parks would accumulate behind a green exit code with the
+  // diagnosis buried in a field nobody reads (`attention-is-not-a-mechanism.md §2`).
+  if (!(await getParticipantsModeEnabled(baseUrl))) {
+    return {
+      taskId,
+      prUrl,
+      merged: true,
+      commented: true,
+      closedReview: false,
+      skippedReason: reviewEventUnreachableReason('complete_review'),
     };
   }
 
