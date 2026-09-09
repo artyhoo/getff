@@ -131,3 +131,4 @@ tests/agnosticism/conformance-record.tsv
 !packages/core/research/fixtures/**/node_modules/
 !.claude/orchestrator-prompts/ledger-1597-fixes/kickoff-f*.md
 !.claude/orchestrator-prompts/consumer-truth-audit/kickoff-v*.md
+!.claude/orchestrator-prompts/consumer-truth-audit/report-v*.md

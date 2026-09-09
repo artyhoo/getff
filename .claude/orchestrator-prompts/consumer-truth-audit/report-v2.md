@@ -2,7 +2,7 @@
 
 > **Date:** 2026-09-08 · **Rigor label:** `research-grade` · **Runner:** aif handoff container `feature/consumer-truth-audit-19ba4a` (linux-arm64, node v22.23.1)
 > **Authoritative for:** the executed-evidence answer to «what does "we support N stacks" mean» for the four shipped toolchain lanes (npm, python, cargo, go), as of the commit this branch is cut from (`abc0876183`).
-> **NOT authoritative for:** the operator's N decision (§operator-options states options, picks none); the host-layer acceptance verdict (§environment — the dispatch's `host-verify` contract has NOT run yet; this report is container-side evidence, not acceptance).
+> **NOT authoritative for:** the operator's N decision (§operator-options states options, picks none). The host-layer acceptance verdict was **open at authoring time** and was executed at harvest — see **§host-verify** (added 2026-09-09 by the harvesting session, not by the authoring run): 4 of 5 lanes re-fired live on the host, the go lane's 3 live-fire arms skipped for an absent tool.
 
 ## §environment — probes and provisioning (executed 2026-09-08, this container)
 
@@ -34,7 +34,53 @@ Provisioning outcome — all four ABSENT tools became PRESENT at the exact CI-pi
 
 The golangci version string is **byte-identical** to the committed evidence at `packages/core/backends/golangci/capability-matrix.json:16` — a from-source build at the same pin reproduces the exact toolchain attestation.
 
-**Host-authority caveat:** every firing claim below is container-side. The dispatch's acceptance authority is the host re-fire (`npx vitest run packages/core/backends/{golangci,cargo,ruff,astgrep,npm}/firing.test.ts`), which has **not** run at authoring time. Container-green is evidence, not acceptance — per the 2026-07-24 incident class this lane exists to prevent.
+**Host-authority caveat:** every firing claim below is container-side. The dispatch's acceptance authority is the host re-fire (`npx vitest run packages/core/backends/{golangci,cargo,ruff,astgrep,npm}/firing.test.ts`), which had **not** run at authoring time. Container-green is evidence, not acceptance — per the 2026-07-24 incident class this lane exists to prevent. It has since been executed at harvest — result and its one gap in **§host-verify** below.
+
+## §host-verify — the dispatch's acceptance contract, executed (added at harvest, 2026-09-09)
+
+Run by the harvesting session on the **host**, not by the authoring run. Host = macOS 26.6.2 arm64,
+node v24.3.0 (container was linux-arm64 / node v22.23.1), vitest 4.1.8.
+
+Command (the kickoff's `host-verify` block verbatim, with the cargo pin forced because the host's
+default toolchain has drifted past the committed evidence):
+
+```bash
+RUSTUP_TOOLCHAIN=1.96.1 npx vitest run \
+  packages/core/backends/golangci/firing.test.ts packages/core/backends/cargo/firing.test.ts \
+  packages/core/backends/ruff/firing.test.ts packages/core/backends/astgrep/firing.test.ts \
+  packages/core/backends/npm/firing.test.ts
+```
+
+```text
+Test Files  5 passed (5)
+     Tests  37 passed | 3 skipped (40)
+```
+
+**The assertion is on the skip count, not the exit code** (§self-falsification #2 — exit 0 with
+silent skips is the `#container-green-as-acceptance` shape this contract exists to catch).
+Skip count is **3, not 0**, and all three are named:
+
+| lane | host tool | live arms | verdict |
+|---|---|---|---|
+| npm | eslint in-process | 5/5 fired | host-confirmed |
+| astgrep | `ast-grep 0.44.1` (= CI pin `audit-self.yml:294`) | 6/6 fired | host-confirmed |
+| ruff | `ruff 0.15.21` (= CI pin `audit-self.yml:304`) | 7/7 fired | host-confirmed |
+| cargo | `rustc 1.96.1 (31fca3adb 2026-06-26)` / `clippy 0.1.96 (31fca3adb2 2026-06-26)` — byte-identical to the container's and to `cargo/capability-matrix.json` | 9/9 fired | host-confirmed |
+| golangci | **ABSENT** (`command -v golangci-lint` → nothing; `go` also absent) | 10/13 — the 3 `firing harness — live golangci-lint check` arms (RED / GREEN / GREEN-clean) reported `↓ skipped` with the suite's loud warning | **NOT host-confirmed** |
+
+The host's default rust toolchain is `rustc 1.98.1 (48a229cea 2026-09-01)`; without
+`RUSTUP_TOOLCHAIN=1.96.1` the cargo lane would have fired a different compiler than the one the
+committed evidence attests. The pin is the honest run, not a workaround.
+
+**Disposition for go.** Neither this host nor the operator's second machine carries
+`golangci-lint`, so the go lane's firing cell stands on two environments, not three: the
+container (13/13, §firing) and **CI**, which installs the same pin
+(`go install …golangci-lint@v1.55.2`, `audit-self.yml:372`) and carries the J3 live-fire arm
+(`audit-self.yml:383-419`). Installing a Go toolchain on the host to close this locally was
+declined as disproportionate ([effort-worthiness.md §1](../../rules/effort-worthiness.md) test 4:
+material, but cheaper to verify in the channel that already runs it). Anyone reading a go-lane
+firing claim should read it as **container + CI confirmed, host-unconfirmed**.
+
 
 ## §matrix — 4 lanes × 6 questions
 
@@ -47,13 +93,13 @@ Legend: **EXEC** = executed this run in-container (command + output quoted in th
 | **cargo** | EXEC — `setup.d/46-cargo.sh` (W4 #1080); `tests/install-sh/cargo-entry-lane.test.sh` → `PASS=50 FAIL=0` | EXEC — 50 arms incl. clippy.toml fresh/REFUSE cells + fingerprint arms 17c-f | EXEC — `npx vitest run backends/cargo/firing` → **9/9 passed** (clippy 0.1.96 on pinned rustc 1.96.1; raw `clippy::disallowed_methods` diagnostic matches the committed `capturedDiagnostic` shape, main.rs:2); lane self-check `setup.d/46-cargo.sh:201`; bash runner `_fire_cargo` (`:384`) | PARTIAL — `render-researched-clippy.ts` (LG-S3) renders committed researched rust practice → `clippy.toml`; `write-clippy.ts`/`render-clippy.ts` carry the deny projection (FF7003); one ban verb (`disallowed_methods`) | YES — `templates/cargo/github-actions-ci.yml`: `rustup component add clippy` (`:42-43`) + bans made **build-failing via `-D clippy::disallowed_*`** (`:8-9`, `:44-45`); delivered as `getff-cargo.yml` | `syntax=no` FF7001, `type-aware=partial` live-fired (`cargo/capability-matrix.json:6,10`), 2026-07-03, `rustc 1.96.1 (31fca3adb 2026-06-26)` — **byte-identical** to this container's rustc; stale by commits (6 after) → RE-VER (9/9 + gates) |
 | **go** | EXEC — `setup.d/47-go.sh` (adapter-jig J3); `tests/install-sh/go-entry-lane.test.sh` → `PASS=34 FAIL=0` | EXEC — A8-1 two-cell matrix enacted in-suite: fresh→copy `.golangci.yml`, consumer-owned→REFUSE to `getff-golangci.yml` (inert); inert-on-npm byte-identical arm | EXEC — `npx vitest run backends/golangci/firing` → **13/13 passed** (v1.55.2; raw forbidigo diagnostic below; **exit 1 natively** = build-failing without flags); lane self-check `setup.d/47-go.sh:187` (tool-gated LOUD degrade); CI J3 live-fire arm `audit-self.yml:383-419` | **NO — by design.** `backends/golangci/firing.test.ts:195-198`: «the kickoff's `render-golangci.ts` STOP-line (§5) means there is no render function to call (contrast ruff's `renderRuff`)». Zero `golangci` mentions in `packages/core/synthesizer/` (grep executed); no `emit.ts` target; bundle is hand-authored, byte-pinned by the self-application block (`firing.test.ts:199-222`) | YES — `templates/go/github-actions-ci.yml`: pinned `go-version: '1.22.0'` + `golangci-lint@v1.55.2` (`:57-66`), `run --enable forbidigo` non-zero = failing, REFUSE-cell-aware (`--config getff-golangci.yml` first, `:96-106`); delivered as `getff-go.yml` | `syntax=partial` with the honest identity-granularity cap (`golangci/capability-matrix.json:6-12`); live-fired 2026-08-06; stale by commits (3 after, `e40f6d88ef` 2026-09-06 touched the parser) → RE-VER (13/13 + gates) |
 
-Cell-evidence census (T6 predicates, no adjectives): of 24 cells — **12 EXEC** (delivery+collision+firing ×4 lanes, all executed this run), **8 ENUM** (generation+CI-gate ×4, file:line reads), **4 RE-VER** (capability ×4, matrix reads re-verified by 282 executed gate tests). 0 cells INCONCLUSIVE; 0 cells filled by analogy. Acceptance-layer status: **pending host re-fire** (§environment caveat).
+Cell-evidence census (T6 predicates, no adjectives): of 24 cells — **12 EXEC** (delivery+collision+firing ×4 lanes, all executed this run), **8 ENUM** (generation+CI-gate ×4, file:line reads), **4 RE-VER** (capability ×4, matrix reads re-verified by 282 executed gate tests). 0 cells INCONCLUSIVE; 0 cells filled by analogy. Acceptance-layer status: host re-fire **executed at harvest** — 4 of 5 lanes host-confirmed, the go lane's 3 live-fire arms skipped for an absent tool (§host-verify).
 
 ## §firing — per-lane executed command, raw diagnostic, tool version (gate 2)
 
 **npm** — command `npx vitest run backends/npm/firing --reporter=verbose` (contract `npm/firing-contract.json`: `expectedRuleId: "no-restricted-syntax"`); tool: eslint 10.4.0 (resolved from `packages/core/package.json` `^10.4.0`) in-process, vitest 4.1.8. Quoted arms:
 
-```
+```text
 ✓ no-restricted-syntax > invalid > const url = process.env.DATABASE_URL; 9ms
 ✓ no-restricted-syntax > valid   > const url = config.databaseUrl; 41ms
 ✓ N6 — vacuous-pass protection (RuleTester throws when an invalid-case produces zero violations)
@@ -75,7 +121,7 @@ No external tool diagnostic exists on this lane by construction (RuleTester asse
 (contract family `{TID251, TID253}`; the committed `capturedDiagnostic` is the TID251 `requests` exemplar — same fixture, sibling violation.)
 
 **cargo** — command `npx vitest run backends/cargo/firing` → **9/9 passed** (720ms); tools `rustc 1.96.1 (31fca3adb 2026-06-26)` / `clippy 0.1.96`. Raw fire in `backends/cargo/fixtures/firing/invalid`: `cargo clippy --message-format=json` →
-```
+```text
 code: clippy::disallowed_methods
 message: use of a disallowed method `std::env::var`
 spans: [('src/main.rs', 2)]
@@ -83,7 +129,7 @@ spans: [('src/main.rs', 2)]
 **Severity nuance (load-bearing):** this raw invocation **exits 0** — the ban is a WARNING until projected. The template's own comment names the mechanism (`render-clippy.ts` FF7003; `templates/cargo/Cargo.lints.toml:3-7`), and the CI gate supplies it via `-D clippy::disallowed_*`. A cargo consumer who deletes both the `[lints.clippy]` merge and the CI `-D` flag has a ban that fires but fails nothing. Contrast **go**, which exits 1 natively: `golangci-lint run --out-format=json --enable forbidigo` in the invalid fixture returned the issue **and exit=1**.
 
 **golangci** — command `npx vitest run backends/golangci/firing` → **13/13 passed** (851ms); tools `golangci-lint v1.55.2` + `go 1.22.0`. Raw fire in `backends/golangci/fixtures/firing/invalid`:
-```
+```text
 {"FromLinter": "forbidigo", "Text": "use of `os.Getenv` forbidden because \"Read configuration
  through the injected config accessor, never os.Getenv directly\"", "Severity": ""}
 Pos: main.go line 7      · golangci exit: 1
@@ -126,7 +172,7 @@ Disposition — **re-fired, not re-asserted; no matrix hand-edited**:
 - **F2 — cargo's build-failing guarantee is opt-in twice over.** Raw clippy exits 0 on the banned call (§firing). Build-failing requires the CI `-D clippy::disallowed_*` flag or the manual `Cargo.lints.toml` merge. Documented in-template, but any «supported» claim for cargo that omits this is overstated: the out-of-the-box bare `cargo clippy` experience is warn-only. golangci needs no such projection (exit 1 natively); npm needs none (eslint errors are non-zero); ruff/py and astgrep/py fire error-severity in their delivered gates.
 - **F3 — the npm lane's CI gate is conditional on consumer shape.** Preset consumers get the `lint:` job; brownfield consumers get an additively-patched `eslint.config.mjs` and **no CI workflow delivery** (`60-ci.sh:14-18`). «The ban is build-failing» is true for the preset path only.
 - **F4 — the honesty map in `agents/rule-test-author.md` predates the go lane.** Its «Honesty map v0» covers npm/astgrep/ruff/cargo; golangci (13 tests, freshness gate, CI arm) is absent. The doc's own promotion trigger is a *second* forced edit of the map → this audit's need to annotate go is candidate evidence.
-- **F5 — ruff provisioning in CI is pip-only; the wheel route is untested upstream.** This container fired ruff from the PyPI wheel (pip absent). Same version, same `--version` string; the CI resolver (`pip install ruff==0.15.21`) resolves the same wheel on linux. Residual risk is platform-shape drift on non-linux runners — visible only on the host run.
+- **F5 — ruff provisioning in CI is pip-only; the wheel route is untested upstream.** This container fired ruff from the PyPI wheel (pip absent). Same version, same `--version` string; the CI resolver (`pip install ruff==0.15.21`) resolves the same wheel on linux. Residual risk is platform-shape drift on non-linux runners. Partly closed: the macOS host re-fire used a Homebrew-route `ruff 0.15.21` and the 7 ruff arms fired identically (§host-verify).
 - **F6 — minor, observed:** `_sg_is_astgrep` (`run-rule-tests-firing.sh:203`) exists precisely because `sg` collides with the OS group-exec binary — reproduced live in this container (§environment). Shipped countermeasure works; no action.
 
 ## §operator-options — what «N stacks» would honestly mean (decision left open, per umbrella §2)
@@ -135,7 +181,7 @@ Disposition — **re-fired, not re-asserted; no matrix hand-edited**:
 - **N=2 (npm + python).** Adds the lane with the deepest executed suite in this run (85 delivery/collision arms, 7 firing tests, two build-failing CI jobs, a working researched-rule render driver). Honest sentence: «two lanes, both with committed fixtures, both CI-gated, python's bans closed-vocabulary (TID251/TID253/DTZ005).» Cost of claiming 2: none observed this run — this is the strongest per-cell evidence pair.
 - **N=3 (+cargo).** Adds a lane whose firing is CI-verified at a dual-pinned toolchain and whose collision/delivery matrix is the most fingerprinted (50 arms) — but whose bans fail builds only after the `-D`/`[lints.clippy]` projection (F2), whose generation vocabulary is one lint verb, and whose compile cost keeps the standing arm opt-in by design. Honest sentence: «cargo is delivered, collision-tested, and CI-fires — build-failing status is a projection you must not delete.» Cost of claiming 3: you inherit the F2 asterisk in every consumer-facing sentence.
 - **N=4 (+go).** Adds the newest lane: hand-authored single-ban bundle (deliberately un-renderable), natively build-failing tool, honest `partial` attribution cap, delivery/collision proven by 34 arms, firing proven by 13 tests + a dual-tool lane self-check. Honest sentence: «go ships one ban, provably firing, with per-rule attribution explicitly not promised.» Cost of claiming 4: the lane's generational story is «hand-authored by design» (§calibration #2) — any marketing copy that says «generated rules» is F1-class false for go; and the evidence is the youngest (2026-08-06, 3 commits stale).
-- Cross-cutting: whatever N is chosen, the sentence must carry three qualifiers or it re-liquefies — (a) container vs host authority (host re-fire pending), (b) preset vs brownfield CI shape (F3), (c) warn-vs-failing severity projection (F2, cargo only).
+- Cross-cutting: whatever N is chosen, the sentence must carry three qualifiers or it re-liquefies — (a) container vs host authority — host-confirmed for npm/astgrep/ruff/cargo, **container+CI only for go** (§host-verify), (b) preset vs brownfield CI shape (F3), (c) warn-vs-failing severity projection (F2, cargo only).
 
 ## §self-falsification
 
@@ -145,7 +191,7 @@ Non-trivial ways this report could be wrong, each with its detector:
 2. **Green-with-skips is possible on the host.** The dispatch's host-verify one-liner does not install the tools. On a host without golangci-lint/ruff/cargo/ast-grep on PATH, 4 suites' live blocks loud-skip and the command exits green having fired only npm. Falsifier: the acceptance run must assert **skip counts = 0**, not exit code — quoting `Tests  N passed` alone is exactly the `#container-green-as-acceptance` shape.
 3. **Freshness-green ≠ evidence-current.** The 282-test green proves the committed version strings still resolve; it says nothing about whether the *diagnostics* would change shape under a newer tool. Falsifier: fire unpinned latest tools and diff diagnostic shapes.
 4. **Version-pinned containers flatter the evidence.** I provisioned exactly the CI pins, so freshness gates could not go RED by construction. A host with drifted local tools would excise that flattery — which is the point of the host contract.
-5. **Wheel-vs-pip ruff (F5).** If the wheel binary and the pip-installed binary diverge on the host, my ruff cell inherits a subtle misattribution. Detector: quote `ruff --version` in the host run (must read `ruff 0.15.21`).
+5. **Wheel-vs-pip ruff (F5).** If the wheel binary and the pip-installed binary diverge on the host, my ruff cell inherits a subtle misattribution. Detector: quote `ruff --version` in the host run (must read `ruff 0.15.21`) — done at harvest, it does (§host-verify).
 6. **Coverage honesty (T14):** this audit covers the four shipped lanes' *default single-ban surfaces* on linux-arm64. It does not cover: monorepo/workspace consumers (one test file exercised), non-linux platforms, the `--refresh` pass live, or any ban beyond each lane's flagship. «Lane mature» claims beyond that scope are not backed by this run.
 
 ## §self-application (T15)
@@ -161,7 +207,7 @@ Categories re-scanned after draft: (a) **skill-context drift** — do shipped sk
 | # | Gate | Verdict | Evidence |
 |---|---|---|---|
 | 1 | 24 cells filled or explicit INCONCLUSIVE | **PASS** | §matrix census: 12 EXEC + 8 ENUM + 4 RE-VER, 0 unfilled |
-| 2 | firing cells carry command + diagnostic + version | **PASS** (container) | §firing per-lane blocks; host re-fire pending |
+| 2 | firing cells carry command + diagnostic + version | **PASS** (container) · **host: 4/5 lanes** | §firing per-lane blocks; §host-verify (37 passed / 3 skipped, the 3 named) |
 | 3 | channel question answered with file:line | **PASS** | §channel-map table |
 | 4 | contracts proven by nothing named | **PASS** — named: none; two named by-design exclusions + the 4-of-5 tool-less caveat | §channel-map finding |
 | 5 | stale cells re-fired, not re-asserted | **PASS** | §staleness: 40/40 firing + 282/282 freshness gates |
@@ -169,4 +215,4 @@ Categories re-scanned after draft: (a) **skill-context drift** — do shipped sk
 | 7 | no matrix hand-edited | **PASS** — verified at commit time (task #7) | `git status` in commit block |
 | 8 | self-falsification non-trivial | **PASS** | §self-falsification #1-#6 |
 
-*Reproducibility: every quoted command is re-runnable per `evidence-regeneration.md` §2b with the pins in §environment. Report is container-side evidence; acceptance is the host re-fire with skip-count assertion (§self-falsification #2).*
+*Reproducibility: every quoted command is re-runnable per `evidence-regeneration.md` §2b with the pins in §environment. Report is container-side evidence; acceptance is the host re-fire with skip-count assertion (§self-falsification #2), executed at harvest in §host-verify — skip count 3, all three the go lane's live arms.*
