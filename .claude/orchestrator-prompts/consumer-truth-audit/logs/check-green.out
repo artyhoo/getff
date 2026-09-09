@@ -1,0 +1,6 @@
+gen-census --check: repo=/home/www/rules-as-tests-aif-feature-consumer-truth-audit-55b9ad-55b9ad6a-8c8d-47de-8672-bbe63c892370
+gen-census --check: core=/tmp/census-consumer-core-r2-lacg1W
+gen-census --check: env=/tmp/census-consumer-env-r2-y3F4uO
+gen-census --check: factory=/tmp/census-consumer-factory-r2-TZpjMT
+gen-census --check: 275 tree-derived rows vs 275 census rows in /home/www/rules-as-tests-aif-feature-consumer-truth-audit-55b9ad-55b9ad6a-8c8d-47de-8672-bbe63c892370/.claude/orchestrator-prompts/consumer-truth-audit/census-v0.json
+CHECK OK: 0 delivered disagreements; artefact sets identical (275/275); nothing was written
