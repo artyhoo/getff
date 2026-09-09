@@ -44,10 +44,11 @@ carries three symptoms at once:
   HEAD: exactly 5 lines in `references/` contain the string (`worker-template.md:45,73`,
   `reviewer-template.md:37`, `ai-laziness-traps-orchestrator.md:127,131`) — CONFIRMED.
 - **9 of 11** dead `.claude/rules/*` citations written in bare backticks. Re-measured at HEAD:
-  exactly **9** strict-backtick citations under `references/` (`ai-laziness-traps-orchestrator.md:3,137`,
+  exactly **10** strict-backtick citations under `references/` (`ai-laziness-traps-orchestrator.md:3,7,137`,
   `reviewer-template.md:140`, `worker-template.md:120`, `queue-mode.md:22,290,448,449,450`) —
-  the 9 matches; the "of 11" denominator is the host's counting over the bench copy
-  (HOST-MEASURED, not reproduced here — see §self-falsification). All four cited rule files
+  one more than the host's 9; the "of 11" denominator is the host's counting over the bench
+  copy (HOST-MEASURED, not reproduced here — the 10-vs-9 numerator divergence is adjudicated
+  in §self-falsification). All four cited rule files
   exist in this repo at HEAD, so «dead» means dead **at the consumer** — rules ship on no
   profile (F2) — not missing at source.
 
@@ -166,7 +167,7 @@ re-verified at HEAD 2026-09-09; two lines drifted and are re-pointed below.
 - `AGENTS.md:32` — a table row about the `factory` profile, not a broken pointer
   (HOST-MEASURED, generated consumer file).
 - `RULES.md:34` — a catalogue row with a stack column (HOST-MEASURED, generated consumer file).
-- `pre-merge-local.sh:455` — the build call IS under the `_build_owed` guard; at HEAD the
+- `packages/core/audit-self/pre-merge-local.sh:455` — the build call IS under the `_build_owed` guard; at HEAD the
   guard is at :448 (`if [ "$_build_owed" -eq 1 ] && [ "$_vrc" -eq 0 ]`) and the call at :450
   (`"$_pm" run build`), with :455 today being that block's FAIL echo — content moved ±5
   lines, claim intact.
@@ -256,7 +257,7 @@ never invented.
 | `references/reviewer-template.md:37` | absolute path shipped | CONFIRMED | ``- Optionally re-run `cd /Users/art/code/rules-as-tests-aif && npm run test:principles` yourself to confirm; …`` |
 | `references/ai-laziness-traps-orchestrator.md:131` | absolute path shipped | CONFIRMED | «…run `cd /Users/art/code/rules-as-tests-aif && npm run test:principles`. If any test fails → fix violation, re-run…» |
 | 5× `test:principles` refs | script a consumer lacks | CONFIRMED | grep → 5 lines: worker:45,73; reviewer:37; ai-lazy:127,131 |
-| 9 backtick `.claude/rules/*` citations | dead at consumer | CONFIRMED (the 9) | grep → exactly 9: ai-lazy:3,137; reviewer:140; worker:120; queue-mode:22,290,448,449,450 |
+| 9 backtick `.claude/rules/*` citations | dead at consumer | CONFIRMED (dead); HEAD re-count = **10** | grep → exactly 10: ai-lazy:3,7,137; reviewer:140; worker:120; queue-mode:22,290,448,449,450 — one more than the host's 9 (§self-falsification) |
 | «of 11» denominator | total citation population | HOST-MEASURED | host counting over bench copy; HEAD-side loose-pattern enumeration differs slightly (unwrapped mentions at worker:31,33; phase-minus-1:29) |
 | `39-…fence-orch-home.test.ts:219-220` | population evidence | CONFIRMED as lines | `expect(files, 'the /pipeline SKILL.md must be in the population').toContain('.claude/skills/pipeline/SKILL.md')` |
 | `39-…fence-orch-home.test.ts:237` | population evidence | CONFIRMED as lines | `const target = '.claude/skills/pipeline/SKILL.md';` |
@@ -289,7 +290,7 @@ never invented.
 | `install.sh:26` | self-reflection not shipped | CONFIRMED | «ONLY self-reflection is intentionally NOT shipped — repo-internal §1.7 self-review discipline…» (:26-27) |
 | `setup.d/lib.sh:63` (factory tier) | tier exists | CONFIRMED | same line as above |
 | `arch/SKILL.md:6`, `pipeline/SKILL.md:6` | not model-invocable | CONFIRMED | both: `disable-model-invocation: true` |
-| `pre-merge-local.sh:455` | call under `_build_owed` guard | **DRIFTED (±5 lines)** | guard now :448 `if [ "$_build_owed" -eq 1 ] && [ "$_vrc" -eq 0 ]; then`, call :450 `"$_pm" run build >>"$LOG_FILE" 2>&1`; :455 is that block's FAIL echo — claim intact |
+| `packages/core/audit-self/pre-merge-local.sh:455` | call under `_build_owed` guard | **DRIFTED (±5 lines)** | guard now :448 `if [ "$_build_owed" -eq 1 ] && [ "$_vrc" -eq 0 ]; then`, call :450 `"$_pm" run build >>"$LOG_FILE" 2>&1`; :455 is that block's FAIL echo — claim intact |
 | `INSTALL-FOR-AI.md:81` | 11 env skills by name | CONFIRMED | «`.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set… plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer» |
 | `INSTALL-FOR-AI.md:83` | two discipline agents, factory only | CONFIRMED | «orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all» |
 | `INSTALL-FOR-AI.md:173` | factory adds runtime-bridge-dispatch.sh | CONFIRMED | «…the `.claude/vendor/runtime-bridge/` payload and the `.claude/hooks/runtime-bridge-dispatch.sh` dispatch hook, now refresh on the `factory \| --with-aif-suite \| already-on-disk` gate…» |
@@ -300,8 +301,8 @@ never invented.
 | `kickoff-v3.md` §4 gates 7, 8 | report grammar | CONFIRMED | :70 «anything unreachable reported `PROBE-INCOMPLETE` with the reason, never guessed»; :71 «self-falsification section present and non-trivial» |
 | F6 OAuth failure; F7 all three traps | run events | HOST-MEASURED | arm-A run environment, 2026-09-08 |
 
-Count: 51 rows adjudicated — every framework-repo citation from §1 of the stage kickoff
-carries a verdict; none skipped (gate 1). Tally: 36 CONFIRMED, 5 DRIFTED, 1 GONE,
+Count: 52 rows adjudicated — every framework-repo citation from §1 of the stage kickoff
+carries a verdict; none skipped (gate 1). Tally: 36 CONFIRMED, 4 DRIFTED, 1 GONE,
 8 HOST-MEASURED, 1 PARTIAL, 1 REFUTED-claim (its basis row also DRIFTED), 1 HEAD re-measure.
 
 ## §self-falsification
@@ -309,12 +310,16 @@ carries a verdict; none skipped (gate 1). Tally: 36 CONFIRMED, 5 DRIFTED, 1 GONE
 Umbrella §7.2 + `kickoff-v3.md` §4 gate 8 + T15. What would have to be true for these
 findings to be wrong, and what this write-up could not see:
 
-- **Weakest claim: the «9 of 11» backtick-citation population.** This report reproduces the
-  9 under one strict grep pattern but could not reproduce the host's denominator (11). If the
-  host counted mentions rather than backtick-wrapped citations — or counted over the bench
-  copy, which could differ from this repo's copy — the «of 11» half is wrong while the 9 stay
-  right. Attack command: `grep -rno '\`\.claude/rules/[^`]*\`' .claude/skills/orchestrator/references/ | wc -l`
-  (→ 9 here) versus any looser pattern, and diff the bench copy if it is ever recovered.
+- **Weakest claim: the «9 of 11» backtick-citation population.** This report re-measures the
+  strict-backtick population at HEAD as **10** — one MORE than the host's 9 — and still cannot
+  reproduce the host's denominator (11). The source tree is not the explanation: the file
+  carrying the tenth match has not moved since the vendoring commit (`aa7e6a17b2`, 2026-08-17),
+  and line 7 is already present at the pre-run commit `fb9b117f36` — so if the bench copy
+  matched this repo's, the host's numerator was an undercount. If the host counted mentions
+  rather than backtick-wrapped citations — or over a bench copy that differed from this repo's —
+  the «9 of 11» is wrong in either direction; the HEAD-side 10 is the count this report stands
+  behind. Attack command: `grep -rno '\`\.claude/rules/[^`]*\`' .claude/skills/orchestrator/references/ | wc -l`
+  (→ 10 here) versus any looser pattern, and diff the bench copy if it is ever recovered.
 - **Second weakest: the DEC-1 refinement.** It rests on reading `skillDocs()` (:168-179) as
   the population and verifying the glob reaches `references/`. Attack: `git ls-files
   '.claude/skills/**/*.md' | grep references/ | wc -l` (→ non-zero here). If the host meant
@@ -352,7 +357,7 @@ findings to be wrong, and what this write-up could not see:
 
 | # | Gate (`kickoff-v3r.md` §4) | Result | Evidence |
 |---|---|---|---|
-| 1 | every framework-repo citation carries a §2 verdict, none skipped | PASS | §citation-verification: 51 rows; every §1 citation enumerated in the plan's population list appears; 5 DRIFTED / 1 GONE / 1 REFUTED-claim / 1 PARTIAL, rest CONFIRMED or HOST-MEASURED |
+| 1 | every framework-repo citation carries a §2 verdict, none skipped | PASS | §citation-verification: 52 rows; every §1 citation enumerated in the plan's population list appears; 4 DRIFTED / 1 GONE / 1 REFUTED-claim / 1 PARTIAL, rest CONFIRMED or HOST-MEASURED |
 | 2 | no claim attributed to this run; live-harness rows say host-measured + date | PASS | attribution rule in the header; every bench row labelled `HOST-MEASURED 2026-09-08`; HEAD rows dated 2026-09-09 |
 | 3 | F6 present, labelled `PROBE-INCOMPLETE`, never softened | PASS | §probe-incomplete; hook/MCP/zcode rows state «insufficient to conclude» (T14), gates 3/4 rows explicitly unanswered |
 | 4 | parked forks carried undecided | PASS | §parked: five PARK items verbatim, no recommendation added |
