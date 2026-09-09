@@ -229,19 +229,27 @@ export const HUMAN_OWNER_ONLY_DECISIONS: readonly AnswerDecision[] = [
  * neither the mode nor a way forward. Measured 2026-09-09 against two live parks, one
  * ai-owned and one human-owned — the owner is not the gate, the mode is.
  */
-export async function assertReviewEventReachable(baseUrl: string, decision: AnswerDecision): Promise<void> {
-  if (await getParticipantsModeEnabled(baseUrl)) return;
-  throw new BackendError(
+export function reviewEventUnreachableReason(decision: string): string {
+  return (
     `"${decision}" cannot be dispatched: this aif deployment runs with participants mode OFF ` +
       `(GET /auth/session → participantsModeEnabled:false), so every task event resolves through ` +
       `the legacy dispatcher, which has no event out of "review" for any owner — the API would ` +
       `answer 409 "Unknown task event". A manual-review park has two exits here: hand it back to ` +
       `the coordinator (POST /tasks/:id/handoff {"executionOwner":"ai"} — legal from review, and ` +
       `the coordinator's candidate query takes ai-owned review tasks, so its auto-review re-runs ` +
-      `and can close the task itself), or DELETE the task outright (destructive, operator GO).`,
-    'dispatch_failed',
-    'aif-handoff',
+      `and can close the task itself), or DELETE the task outright (destructive, operator GO).`
   );
+}
+
+/**
+ * Throwing wrapper for the CLI path. A FAILING probe is deliberately NOT converted into a
+ * refusal message — it propagates as its own BackendError, because "the deployment cannot
+ * serve this" and "we could not ask" are different answers and only the first is a reason
+ * to stop quietly.
+ */
+export async function assertReviewEventReachable(baseUrl: string, decision: AnswerDecision): Promise<void> {
+  if (await getParticipantsModeEnabled(baseUrl)) return;
+  throw new BackendError(reviewEventUnreachableReason(decision), 'dispatch_failed', 'aif-handoff');
 }
 
 /** Dispatch a forward state-machine event (POST /tasks/:id/events { event }). */
@@ -308,6 +316,15 @@ export async function pushAnswer(
     return resumePark(baseUrl, taskId, answer.trim());
   }
   const step = resolveStep(decision);
+  // Argument validation first: it is free, and a caller who forgot the answer text deserves
+  // that error rather than a message about the deployment's dispatcher.
+  if (step.needsComment && !answer?.trim()) {
+    throw new BackendError(
+      `decision "${decision}" requires answer text to attach as a comment`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
   // Probe BEFORE any write: a review-state event this deployment cannot serve must not
   // leave a comment behind as the only trace of a call that was always going to 409.
   if (HUMAN_OWNER_ONLY_DECISIONS.includes(decision)) {
@@ -315,14 +332,7 @@ export async function pushAnswer(
   }
   let commented = false;
   if (step.needsComment) {
-    if (!answer || !answer.trim()) {
-      throw new BackendError(
-        `decision "${decision}" requires answer text to attach as a comment`,
-        'dispatch_failed',
-        'aif-handoff',
-      );
-    }
-    await postComment(baseUrl, taskId, answer.trim());
+    await postComment(baseUrl, taskId, (answer as string).trim());
     commented = true;
   }
   await postEvent(baseUrl, taskId, step.event);

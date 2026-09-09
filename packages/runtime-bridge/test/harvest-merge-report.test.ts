@@ -79,6 +79,8 @@ describe('reportMergeToAif — the harvest→aif return channel', () => {
   it('the comment records the merge timestamp, so the task carries its own audit trail', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockImplementationOnce(async () => okResponse({ id: 't-4', status: 'review' }))
+      .mockImplementationOnce(async () => okResponse({ ok: true }))
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
       .mockImplementation(async () => okResponse({ ok: true }));
 
     await reportMergeToAif('http://aif.test', 't-4', 'https://gh/x/y/pull/1', MERGED);
@@ -128,6 +130,31 @@ describe('reportMergeToAif does not attempt a close the deployment cannot serve'
     expect(report.closedReview).toBe(false);
     expect(report.skippedReason).toMatch(/participants mode/i);
     expect(report.skippedReason).toMatch(/handoff/i);
+  });
+
+  it('a probe that FAILS is not a skip — it propagates, so the harvest exits non-zero', async () => {
+    // "the deployment cannot serve this" and "we could not ask" are different answers.
+    // Swallowing the second would report ok:true while a close that may well have been
+    // legal never happened, and parks would pile up behind a green exit code.
+    vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ id: 't-401', status: 'review' }))
+      .mockImplementationOnce(async () => okResponse({ ok: true }))
+      .mockImplementationOnce(async () => okResponse({ error: 'unauthorized' }, 401));
+
+    await expect(
+      reportMergeToAif('http://aif.test', 't-401', 'https://gh/x/y/pull/1680', MERGED),
+    ).rejects.toThrow(/auth\/session/);
+  });
+
+  it('a session body without the flag is a failure, not an assumed "off"', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ id: 't-nf', status: 'review' }))
+      .mockImplementationOnce(async () => okResponse({ ok: true }))
+      .mockImplementationOnce(async () => okResponse({ authenticated: false }));
+
+    await expect(
+      reportMergeToAif('http://aif.test', 't-nf', 'https://gh/x/y/pull/1680', MERGED),
+    ).rejects.toThrow(/participantsModeEnabled/);
   });
 
   it('participants mode on: the close is attempted as before', async () => {

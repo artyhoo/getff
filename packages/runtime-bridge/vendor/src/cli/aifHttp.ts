@@ -35,7 +35,7 @@ export interface AifTaskFull {
    * (measured live 2026-09-09: `HTTP 409 {"error":"Unknown task event"}`).
    */
   executionOwner?: 'ai' | 'human';
-  /** Optimistic-concurrency counter for ownership; {@link postHandoff} must echo it back. */
+  /** Optimistic-concurrency counter for ownership; `POST /tasks/:id/handoff` must echo it back. */
   ownershipRevision?: number;
 }
 
@@ -196,14 +196,26 @@ export async function getTask(
  * state-machine dispatcher every task event resolves through (aif
  * `packages/shared/dist/stateMachine.js:176`), and therefore whether the review-state
  * events (`complete_review` / `request_review_changes`) exist at all.
+ *
+ * Throws rather than guessing when the field is absent: treating a missing field as `false`
+ * would answer "participants mode is off" for a build that simply shapes its session
+ * response differently, and that answer is used to refuse work.
  */
 export async function getParticipantsModeEnabled(
   baseUrl: string,
 ): Promise<boolean> {
   const res = (await request('GET', baseUrl, '/auth/session')) as {
-    participantsModeEnabled?: boolean;
+    participantsModeEnabled?: unknown;
   };
-  return res?.participantsModeEnabled === true;
+  if (typeof res?.participantsModeEnabled !== 'boolean') {
+    throw new BackendError(
+      `aif-handoff GET /auth/session returned no boolean participantsModeEnabled — cannot tell ` +
+        `which state-machine dispatcher this deployment uses`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
+  return res.participantsModeEnabled;
 }
 
 /** PUT /tasks/:id with a partial field update (updateTaskSchema-accepted fields only). */
