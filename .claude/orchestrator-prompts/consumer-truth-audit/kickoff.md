@@ -69,6 +69,24 @@ Binding rule for every lane: **measure inside a consumer install that has no pat
 framework**, with a mandatory control run on the factory. A check that passes in both tells
 you nothing; a check that passes only on the factory is the defect class of §1 fact 2.
 
+**Which artefact IS which bench (added 2026-09-09 — this paragraph resolves a grammar
+contradiction that blocked V1/V4).** The rule above and the stage kickoffs' `host-verify`
+contracts appeared to disagree: the rule demands a consumer with no path to the framework,
+while every stage contract named factory-side fixtures. They do not disagree — both benches
+already exist and are already CI-wired, and only the prose failed to say so:
+
+| Half of the rule | The artefact that is it |
+|---|---|
+| the **consumer** bench (no path to the framework) | `tests/consumer-matrix/*-cell.sh` — 4 cells; e.g. `getff-dist-cell.sh` installs getff into a `mktemp` fixture, plants a violation, and asserts the diagnostic at `:77-78` (`[ "$rc" -ne 0 ] \|\| return 12`, then `grep -q "no-unsafe-zod-parse"`) |
+| the mandatory **factory control** | `packages/core/backends/*/firing.test.ts` |
+
+So a lane making a **delivery or firing** claim declares BOTH in its `host-verify` block; the
+factory-side family alone is the control half and never satisfies the rule by itself. A lane
+that makes neither claim — V1 reads documents and decides claims against V0's census — keeps
+its `host-verify: none` opt-out, which is correct as written. V2 satisfied both halves: the
+factory control in `report-v2.md §host-verify` and the consumer half in
+`report-v2-addendum-consumer-firing.md`.
+
 Available benches:
 
 | Bench | What it proves |
