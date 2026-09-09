@@ -5,6 +5,8 @@
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<text>" [--decision request_changes] [--json]
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --decision approve
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --decision retry
+ *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --decision complete_review
+ *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<text>" --decision request_review_changes
  *
  * The resolve side of the question-loop: after a human brainstorms a parked
  * task's question(s) in a chat (cli/questions.ts surfaced them), this command
@@ -27,6 +29,8 @@
  *                              POST /tasks/:id/events   { event: 'request_changes' }
  *                              → done → implementing, reworkRequested:true (aif redoes with the feedback)
  *   approve : POST /tasks/:id/events { event: 'approve_done' }        → done → verified
+ *   complete_review        : POST /tasks/:id/events                    → review → done
+ *   request_review_changes : POST /comments then POST /events          → review → implementing
  *   retry   : POST /tasks/:id/events { event: 'retry_from_blocked' }  → blocked_external → prior status
  *   resume  : PUT  /tasks/:id { plan+answer, paused:false, blockedReason:null }
  *                              → lifts an A-park; NO event, so it REQUIRES paused:true (A6-6b)
@@ -42,7 +46,8 @@
  * Flags:
  *   --task <id>      — REQUIRED: the parked task to resolve.
  *   --answer <text>  — the resolution text; REQUIRED for request_changes (attached as a comment).
- *   --decision <d>   — request_changes (default) | approve | retry | resume (A-park only).
+ *   --decision <d>   — request_changes (default) | approve | retry | resume (A-park only)
+ *                      | complete_review | request_review_changes (both `review`-state only).
  *   --json           — print the result as a JSON object.
  *
  * Exit codes:
@@ -59,11 +64,30 @@ import { getTask, putTask, postJson } from './aifHttp.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
-/** The four human resolution decisions accepted by the CLI. */
-export type AnswerDecision = 'request_changes' | 'approve' | 'retry' | 'resume';
+/**
+ * The human resolution decisions accepted by the CLI.
+ *
+ * The first four target a task in `done`. `complete_review` and `request_review_changes`
+ * target one in `review` — the state a MANUAL-REVIEW PARK actually sits in, which until
+ * 2026-09-09 no decision here could reach (see {@link resolveStep}).
+ */
+export type AnswerDecision =
+  | 'request_changes'
+  | 'approve'
+  | 'retry'
+  | 'resume'
+  | 'complete_review'
+  | 'request_review_changes';
 
 /** The valid decisions, in CLI-help order (request_changes is the default). */
-export const VALID_DECISIONS: readonly AnswerDecision[] = ['request_changes', 'approve', 'retry', 'resume'];
+export const VALID_DECISIONS: readonly AnswerDecision[] = [
+  'request_changes',
+  'approve',
+  'retry',
+  'resume',
+  'complete_review',
+  'request_review_changes',
+];
 
 /** Append a marked OPERATOR ANSWER block to the plan (read by the implementer on the next tick). */
 export function appendAnswerToPlan(existingPlan: string | null | undefined, answer: string): string {
@@ -75,22 +99,44 @@ export function appendAnswerToPlan(existingPlan: string | null | undefined, answ
 /** A decision resolved to its aif-handoff state-machine event + whether the answer rides as a comment. */
 export interface ResolveStep {
   /** aif-handoff state-machine event (POST /tasks/:id/events). Source: TASK_EVENTS. */
-  event: 'request_changes' | 'approve_done' | 'retry_from_blocked';
+  event:
+    | 'request_changes'
+    | 'approve_done'
+    | 'retry_from_blocked'
+    | 'complete_review'
+    | 'request_review_changes';
   /** Whether the answer text MUST be attached as a comment before the event. */
   needsComment: boolean;
 }
 
 /**
- * Resolve a decision to its S1-verified event sequence.
- * Source (DeepWiki lee-to/aif-handoff stateMachine.ts / types.ts):
+ * Resolve a decision to its verified event sequence.
+ * Source (DeepWiki lee-to/aif-handoff stateMachine.ts / types.ts, and for the review-state
+ * pair the running image's own `packages/shared/dist/stateMachine.js:91,100`):
  *   request_changes → done→implementing (answer rides as the latest comment);
  *   approve_done    → done→verified;
- *   retry_from_blocked → blocked_external→prior status.
+ *   retry_from_blocked → blocked_external→prior status;
+ *   complete_review → review→done (or →verify when the task has runPostVerify);
+ *   request_review_changes → review→implementing, reworkRequested (answer rides as a comment).
+ *
+ * WHY the review pair exists (2026-09-09): a task handed to a human by the auto-review gate
+ * stops in `review`, not `done` (`coordinator.js:442-467` sets executionOwner=human +
+ * manualReviewRequired there). `review` accepts ONLY `complete_review` /
+ * `request_review_changes`; every done-state event is refused from it with
+ * `HTTP 409 {"error":"approve_done is only allowed from done"}` (measured live on task
+ * 5dfecf25). So this CLI — the tool whose whole job is releasing parks — could not reach the
+ * one state parks occupy, and they accumulated with no exit: 4 parks were still held open
+ * weeks after their PRs had merged. The bare `POST /tasks/:id/events` workaround is
+ * classifier-blocked by policy, so without these two there is no path at all.
  */
 export function resolveStep(decision: AnswerDecision): ResolveStep {
   switch (decision) {
     case 'approve':
       return { event: 'approve_done', needsComment: false };
+    case 'complete_review':
+      return { event: 'complete_review', needsComment: false };
+    case 'request_review_changes':
+      return { event: 'request_review_changes', needsComment: true };
     case 'retry':
       return { event: 'retry_from_blocked', needsComment: false };
     case 'resume':
@@ -145,7 +191,8 @@ export function validateAnswerArgs(args: AnswerArgs): string | null {
   if (!(VALID_DECISIONS as readonly string[]).includes(args.decision)) {
     return `invalid --decision "${args.decision}" (expected: ${VALID_DECISIONS.join(' | ')})`;
   }
-  if ((args.decision === 'request_changes' || args.decision === 'resume') && !args.answer?.trim()) {
+  const needsAnswer = ['request_changes', 'resume', 'request_review_changes'];
+  if (needsAnswer.includes(args.decision) && !args.answer?.trim()) {
     return `decision "${args.decision}" requires --answer <text> (the resolution to push back)`;
   }
   return null;

@@ -53,6 +53,77 @@ describe('resolveStep maps each decision to its verified aif-handoff event', () 
   });
 });
 
+// ── review-state decisions (2026-09-09) ─────────────────────────────────────────
+// A manual-review park lands in status `review`, whose ONLY state-machine events are
+// `complete_review` and `request_review_changes`
+// (aif `packages/shared/dist/stateMachine.js:91,100`). Every decision above targets
+// `done` and is refused from `review` with
+// `HTTP 409 {"error":"approve_done is only allowed from done"}` (measured live on task
+// 5dfecf25, 2026-09-09) — so before these two, the CLI built to release parks could not
+// release the one state parks actually sit in, and they accumulated with no exit.
+describe('review-state decisions release a manual-review park (2026-09-09)', () => {
+  it('complete_review → complete_review event, no comment (review→done)', () => {
+    expect(resolveStep('complete_review')).toEqual({ event: 'complete_review', needsComment: false });
+  });
+
+  it('request_review_changes → request_review_changes event, needs a comment (review→implementing)', () => {
+    expect(resolveStep('request_review_changes')).toEqual({
+      event: 'request_review_changes',
+      needsComment: true,
+    });
+  });
+
+  it('both are offered by VALID_DECISIONS, so --decision accepts them', () => {
+    expect(VALID_DECISIONS).toContain('complete_review');
+    expect(VALID_DECISIONS).toContain('request_review_changes');
+  });
+
+  it('request_review_changes without --answer is rejected — rework needs feedback to rework against', () => {
+    const err = validateAnswerArgs({ taskId: 't1', decision: 'request_review_changes', json: false });
+    expect(err).toMatch(/requires --answer/);
+  });
+
+  it('complete_review needs no --answer — nothing is being handed back', () => {
+    expect(validateAnswerArgs({ taskId: 't1', decision: 'complete_review', json: false })).toBeNull();
+  });
+
+  it('POSITIVE — request_review_changes POSTs the comment before the event', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => okResponse({ ok: true }));
+
+    const result = await pushAnswer('http://aif.test', 'task-rv', 'request_review_changes', 'fix the count');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const [commentUrl, commentInit] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const [eventUrl, eventInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    expect(commentUrl).toBe('http://aif.test/tasks/task-rv/comments');
+    expect(JSON.parse(String(commentInit.body))).toEqual({ message: 'fix the count' });
+    expect(eventUrl).toBe('http://aif.test/tasks/task-rv/events');
+    expect(JSON.parse(String(eventInit.body))).toEqual({ event: 'request_review_changes' });
+    expect(result).toEqual({
+      taskId: 'task-rv',
+      decision: 'request_review_changes',
+      event: 'request_review_changes',
+      commented: true,
+    });
+  });
+
+  it('POSITIVE — complete_review sends exactly one event and no comment', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => okResponse({ ok: true }));
+
+    const result = await pushAnswer('http://aif.test', 'task-cr', 'complete_review', undefined);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('http://aif.test/tasks/task-cr/events');
+    expect(JSON.parse(String(init.body))).toEqual({ event: 'complete_review' });
+    expect(result.commented).toBe(false);
+  });
+});
+
 // ── POSITIVE — request_changes: comment FIRST (message field), then event ────────
 describe('POSITIVE — request_changes attaches the answer as a comment then re-opens', () => {
   it('POSTs /comments { message } before /events { event: request_changes }', async () => {
@@ -135,8 +206,19 @@ describe('NEGATIVE — invalid args are rejected by validateAnswerArgs', () => {
     expect(validateAnswerArgs(args)).toBeNull();
   });
 
-  it('VALID_DECISIONS lists exactly the four supported decisions', () => {
-    expect([...VALID_DECISIONS]).toEqual(['request_changes', 'approve', 'retry', 'resume']);
+  it('VALID_DECISIONS lists exactly the supported decisions, in CLI-help order', () => {
+    // Four done-state decisions, then the two review-state ones added 2026-09-09.
+    // Pinned as an exact list on purpose: a decision the CLI accepts but does not map in
+    // resolveStep would fall through its `default` and silently become request_changes —
+    // re-opening a task the operator meant to close.
+    expect([...VALID_DECISIONS]).toEqual([
+      'request_changes',
+      'approve',
+      'retry',
+      'resume',
+      'complete_review',
+      'request_review_changes',
+    ]);
   });
 });
 
