@@ -74,6 +74,23 @@ if [ "$stop_hook_active" = "true" ]; then
   exit 0
 fi
 
+# ── SDK-entrypoint guard — a non-interactive session has no reader for a recap ────────────
+# The Agent SDK spawns the CLI with CLAUDE_CODE_ENTRYPOINT=sdk-ts (sdk-py for Python) and, with
+# `settingSources:["project"]`, loads this Stop hook. Measured 2026-09-09 in the aif container:
+# the hook blocked the review sidecar's final turn (`## Blocking Findings` already emitted),
+# the model answered the block with a recap-only message, and aif read that LAST message as the
+# sidecar result — `parseStructuredSidecarOutput` returned null on 503 of 503 review-gate runs
+# ever recorded, every task fell to the legacy parser and parked at manual review. The recap is
+# for a human at a terminal; in an SDK session the caller's output contract owns the last
+# message. POSITION IS LOAD-BEARING (same reason as the F10 arm below): it must precede every
+# blocking arm, F10 included — an aif-driven session is not the unattended orchestrator F10
+# protects, and blocking it re-creates the exact defect. AIF_EOT_SDK_RECAP=1 restores the demand
+# for an SDK harness that deliberately wants it. Prefix match, not a literal: the class is
+# «SDK-driven», not one language binding.
+case "${CLAUDE_CODE_ENTRYPOINT:-}" in
+  sdk-*) [ "${AIF_EOT_SDK_RECAP:-0}" = "1" ] || exit 0 ;;
+esac
+
 # ── F10 autonomy arm (opt-in, AIF_AUTONOMOUS=1) ───────────────────────────────
 # #F10 anchor — channel token for .claude/rules/autonomous-loop-continuity.md
 # (`<!-- channel: hook .claude/hooks/end-of-turn-reminder.sh#F10 -->`) points HERE.

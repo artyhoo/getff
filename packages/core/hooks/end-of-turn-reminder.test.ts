@@ -712,6 +712,61 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(second.stdout, 'same PR must not re-fire (debounce)').toBe('');
     });
   });
+
+  // SDK-driven (non-interactive) sessions — measured 2026-09-09 in the aif container.
+  // The Agent SDK spawns the CLI with CLAUDE_CODE_ENTRYPOINT=sdk-ts; `settingSources:["project"]`
+  // loads this Stop hook; the hook blocks the review sidecar's final turn and demands a recap;
+  // the model answers with a recap-only message; aif reads the LAST message as the sidecar
+  // result, so `## Blocking Findings` is gone and `parseStructuredSidecarOutput` returns null
+  // → 503/503 review-gate runs fell to the legacy parser and every task parked at manual
+  // review. Nobody reads a recap in an SDK session; the caller's output contract does.
+  describe('SDK-entrypoint guard (aif sidecar contract, 2026-09-09)', () => {
+    it('CLAUDE_CODE_ENTRYPOINT=sdk-ts → exit 0 silent even on a long markdown turn', () => {
+      const tr = writeTranscript([
+        aiTitle('any'),
+        userTurn('x'),
+        assistantText(longMarkdownText() + '\n\n## Blocking Findings\n- [abc] code_review | one'),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts' });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, 'an SDK-driven session must never be blocked for a recap').toBe('');
+    });
+
+    it('sdk-py is the same class (prefix match, not one literal)', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-py' });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('PAIRED-NEGATIVE: the interactive CLI entrypoint still fires Branch A', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'cli' });
+      expect(r.status).toBe(0);
+      expect(r.stdout, 'a human-facing session keeps the recap').not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
+
+    it('PAIRED-NEGATIVE: AIF_AUTONOMOUS=1 under sdk-ts is ALSO silent — the guard sits before the F10 arm', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: 'http://127.0.0.1:9' },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('escape hatch: AIF_EOT_SDK_RECAP=1 restores the recap demand under sdk-ts', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', AIF_EOT_SDK_RECAP: '1' },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).not.toBe('');
+    });
+  });
 });
 
 // =============================================================================
