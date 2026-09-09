@@ -6,6 +6,14 @@ export default defineConfig({
     // Tripwire: the suite must leave the real .claude/hooks/ untouched
     // (2026-07-02 seeded-break leak incident). Delta-based; advisory without git.
     globalSetup: ['./audit-self/hooks-tree-guard.ts'],
+    // Hermeticity: scrub host-supplied configuration out of process.env before any test
+    // module loads, so a hook test asserts on the hook and not on the shell that invoked
+    // vitest (incident 2026-09-09 — vitest.setup.ts names the two leaks and the classifying
+    // tables live in vitest.host-env.ts; harness-specific variable names stay THERE, never
+    // here, because principle 21's substrate probe requires this config to be CC-independent
+    // — tests/agnosticism/probes/substrate.sh greps every vitest.config for such names).
+    // Mirrored in the repo-root vitest.config.ts, which pre-push uses for the same files.
+    setupFiles: ['./vitest.setup.ts'],
     include: [
       'principles/**/*.test.ts',
       'diagnostics/**/*.test.ts',
