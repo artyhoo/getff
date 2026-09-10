@@ -128,11 +128,15 @@ The renderer's premise — «ZCode strips project-config hooks (security policy 
 
 **P2 — doctrine extension (docs-only, follows operator nod on scope):** add the §5 beyond-hooks census as a doctrine section (or annex research-patch reference) so parity SSOT covers non-hook domains; include the §3 contract as the normative hook-I/O reference for twin authors.
 
-**P3 — DECISION-NEEDED, low priority:**
-- PostToolUseFailure hooks (event exists on BOTH harnesses; candidate: failure-path arm for `runtime-bridge-dispatch` / write-gates). Demand unproven.
-- Plugin-agents-diagnosticOnly note into `claude-glm-executor-handoff` skill IF GLM worker agent defs ever ship via plugin channel (today they don't).
+**P3 — resolved 2026-09-11 (operator + on-the-merits, see §11.6):**
+- PostToolUseFailure hooks — **BUILD** (operator override of the initial DEFER lean): failure-path arm for `runtime-bridge-dispatch` + failed-mutation audit trail. I-phase item.
+- Plugin-agents-diagnosticOnly — one-line warning in `claude-glm-executor-handoff` SKILL.md, folded into I-phase P0 batch (skill edit goes through ai-doc gates there).
 
 **Explicitly out of scope (confirmed non-gaps):** SessionEnd/Notification events (framework rides Stop); statusLine (unused); MCPB/DXT (unsupported upstream, unused).
+
+## §8a Fork resolution record (2026-09-11, operator session)
+
+- **Fork A → A2** (stay plugin-only). **Fork B → BUILD.** **P3-1 → BUILD** (operator). **P3-2 → warning line** (on the merits — declare-loudly thesis; operator-overridable). Full resolution trail mirrored in PR #1699 body.
 
 ## §9 Falsifier
 
@@ -160,3 +164,56 @@ Any ZCode build newer than 2026-09-04 (3.11.2.6792) may invalidate §2–§5. Re
 - `kickoff.md` §0 «9 of 9 plugin twins work» premise: superseded upstream by Stage 6/#1043 (16 twins live) — carried from doctrine §3, not re-litigated.
 
 **Self-application (T15):** the survey applies the framework's own thesis to itself — «documents lie; binaries don't» — by treating even our OWN prior runtime claims (renderer notes, plugin manifest) as claims re-verified against the binary, and by proposing (Fork B) to make that verification an executable artifact rather than a repeated manual audit.
+
+## §11 Addendum 2026-09-11 — skills deep-audit (operator follow-up: «do our skills actually work? which ship to consumers? do companions work?»)
+
+### §11.1 Slash-invocation channel — verified WORKING on ZCode (new, closes the biggest open question of §5)
+
+The dispatcher/arch/harvest/reviewer contract «invocation channel: explicit /<name> only» depends on skills being slash-invocable. Binary evidence (two layers):
+
+1. **Registry layer:** `q5` (`listProtocolSlashCommands`) = builtin registry + custom commands (`.zcode/commands`/`.agents/commands` via `MMe`, filtered on `disableNonInteractive`), each `{name, description, inputHint, source: builtin|custom}` — no skills here.
+2. **Model layer (the one that matters):** the runtime's own Skill-tool system-prompt block teaches: *"When users reference a 'slash command' or '/<something>', they are referring to a skill. Use this tool to invoke it."* A user typing `/dispatcher` resolves to the `dispatcher` skill via the Skill tool. **Live corroboration:** that exact instruction block is present in THIS session's system prompt, and all 16 project skills are loaded in it — discovery + channel proven live, not fixture-only.
+
+Caveat vs CC: the mapping is model-mediated, not registry-mediated, and `disable-model-invocation` remains unenforceable (§5) — the sanctioned channel works, the unsanctioned one cannot be locked.
+
+### §11.2 Per-skill verdicts (16 project skills, script-audited: frontmatter parse + CC-only marker scan + live load)
+
+Evidence tiers: [live] = loaded in this session's prompt; [scan] = marker scan of SKILL.md body; [soft] = file reference that resolves on ZCode only as a manually-read file (no auto-load).
+
+| skill | live | verdict | notes |
+|---|---|---|---|
+| `dispatcher` | ✓ | **works** | `/dispatcher` channel ✓ (§11.1); `disable-model-invocation` declared but unenforceable on ZCode — discipline rests on prompt; CLAUDE.md/rules refs are [soft] |
+| `pipeline` | ✓ | **works, partial content drift** | references PreCompact-residue flows — inert on ZCode (doctrine rows 21/22: no compaction hook lifecycle); the skill's other arms unaffected |
+| `arch` | ✓ | **works** | [soft] refs only |
+| `orchestrator` | ✓ | **works** | [soft] refs only |
+| `night-mode` | ✓ | **works, partial content drift** | references SubagentStart/SubagentStop semantics — inert on ZCode; autonomous-loop core unaffected (rides Stop/UserPromptSubmit) |
+| `reviewer` | ✓ | **works** | `/review` channel ✓ |
+| `harvest` | ✓ | **works** | `/harvest` channel ✓ |
+| `aif-doctor` | ✓ | **works** | dmi-declared (unenforced, as above) |
+| `story`, `rule-tests`, `template-audit`, `tool-bootstrapping` | ✓ | **works** | no CC-only markers at all |
+| `ai-doc`, `self-reflection`, `rule-research` | ✓ | **works** | [soft] refs only |
+| `claude-glm-executor-handoff` | ✓ | **works, STALE model refs** | description/body say GLM-5.2; operator correction 2026-09-11: executor tier is **glm-5.3** now → skill edit queued for I-phase P0 (via ai-doc gates). Kickoff bridge-profile markers self-heal by design (`_resolveProfileId` errors loudly on stale names — precedent #1109); dated research patches stay immutable |
+
+User-level: `ai-docs`, `claude-account-cleanup`, `native-css-responsive` (верстка), `uniq-rewrite` at `~/.zcode/skills/`, plus `design-compare` at `~/.agents/skills/` — all valid frontmatter, all live-loaded (the `.agents` root is a scanned skills root, confirmed by both the binary constant `H5o=".agents"` and live load).
+
+### §11.3 Companion plugins (спутники) — all LIVE
+
+Installed and loaded in this session (proof = they appear in the live skill list): `claude-plugins-official` (superpowers 6.1.1 — 14 skills incl. TDD, systematic-debugging, writing-plans), `zcode-plugins-official` (browser-use `web-gui-tester`+`control-browser` — the GUI-верстка pair, multiple cached versions = upgrade history; `computer-use`; `document-skills` docx/pdf/pptx/xlsx; `zcode-guide` diagnostics suite; `skill-creator`; ios/android-dev; restore-legacy-sessions), `getff` (getff, using-getff, installing-enforcement — our own trio, plugin channel). **Zero broken companions found.**
+
+### §11.4 Consumer distribution — current state + operator directive
+
+Today consumers receive exactly 3 skills (getff trio) + the hooks channel via the plugin; the 16 orchestration skills are maintainer dogfood bound to repo machinery (`.claude/orchestrator-prompts/`, aif-handoff runtime, kickoffs). Operator directive 2026-09-11: adapted skills SHOULD ship to consumers. Proposed tiering for I-phase curation (recommendation, operator-adjustable):
+
+- **Tier 1 — generic, adaptation cheap** (strip [soft] refs, no repo machinery): `reviewer`, `story`, `self-reflection`, `ai-doc`.
+- **Tier 2 — generic but opinionated** (need parameterization of paths/profiles): `rule-research`, `rule-tests`, `tool-bootstrapping`, `template-audit`.
+- **Tier 3 — repo-bound orchestration, NOT consumer-shippable without redesign**: `dispatcher`, `pipeline`, `arch`, `orchestrator`, `night-mode`, `harvest`, `aif-doctor`, `claude-glm-executor-handoff` (they drive THIS repo's aif-handoff/kickoff infrastructure; shipping them to consumers would ship half the factory).
+
+### §11.5 Audit method
+
+Python script over `.claude/skills/*/SKILL.md` + `~/.zcode/skills/` + plugin caches: frontmatter parse (name/description presence, no parse failures anywhere), marker scan (`disable-model-invocation`, `CLAUDE.md`, `.claude/rules`, cc-only event names, `/dispatcher`-style channel declarations), size caps. Honest boundary: discovery/load + channel mechanism + content markers are proven; per-skill functional E2E (actually executing each skill's workflow) was NOT exercised — content-scan is the proxy.
+
+### §11.6 §1.7 addendum self-review
+
+**Forward-check:** §11.1–§11.3 claims carry binary call-sites (`q5`, Skill-tool prompt block) + live corroboration (this session's own prompt); §11.2 verdicts carry the tier evidence; §11.4 tiering is a marked recommendation with the operator directive quoted, not a silent product decision; §11.5 states the audit's honest boundary (no per-skill E2E). Traps: T9/T10 countered (full population scripted, not sampled — 16/16 project, 4 user, 3 plugin families); T3 countered (live-load claims come from the session prompt itself, not assumption).
+**Backward-check:** §5 skills row of this patch — superseded in one detail by §11.1 (slash channel now verified working; the row's disable-model-invocation gap stands); `2026-08-06-skill-trigger-inventory.md` (glm-5.2 trigger keys) — superseded by operator's glm-5.3 correction, fix routed to I-phase; `claude-glm-executor-handoff/SKILL.md` — STALE (5.2 refs), edit queued, not done here (ai-doc gates + P0 batch); superpowers/dispatching docs — untouched, no contradiction.
+**Falsifier for §11:** a build where the Skill-tool slash instruction block is removed or `.agents`/`.zcode` skills roots stop being scanned — re-check via Fork B probes plus one live session listing.
