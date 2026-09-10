@@ -328,7 +328,10 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
       trigger: 'auto',
     });
     const strip = (s: string | null) =>
-      (s ?? '').replace(/- \*\*(Written|Transcript):\*\*.*\n/g, '');
+      (s ?? '').replace(/- \*\*(Written|Transcript|Model handoff):\*\*.*\n/g, '');
+    // Model handoff joins Written/Transcript (D15): its line embeds the run's residue path
+    // and the handoff's sha/line-count, both sandbox-local — stripped like every other
+    // path-bearing metadata line so only matcher-relevant content is compared.
     expect(strip(manual.residue).replace('`manual`', 'X')).toBe(
       strip(auto.residue).replace('`auto`', 'X'),
     );
@@ -741,5 +744,144 @@ describe.skipIf(!JQ)('precompact-residue.sh — ledger #1597 A3-3c (debounce res
     expect(stop('after-compaction'), 'the climb after a compaction must warn again').toMatch(
       /\[context\]/,
     );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Handoff-currency gate siblings (D15 + D34) — spec:
+// docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md §Testing seams.
+//
+// D15: the writer gains ONE pointer line to the model-authored sibling handoff file and
+// owns nothing about it. D34: on an `auto` trigger the writer clears the gate's acceptance
+// baseline BY EXACT NAME, beside the tier flags — the handoff FILE survives; only the
+// acceptance state resets.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (D15 + D34)', () => {
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'hcg-precompact-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  /** CC assistant entry carrying the three summed usage fields — the A3-3c helpers are
+   *  describe-scoped, so this sibling carries its own copy of the same shape. */
+  const usageEntry = (total: number) => ({
+    type: 'assistant',
+    isSidechain: false,
+    message: {
+      usage: {
+        input_tokens: 1000,
+        cache_read_input_tokens: total - 3000,
+        cache_creation_input_tokens: 2000,
+      },
+      content: [{ type: 'text', text: 'a turn' }],
+    },
+  });
+
+  it('D15: the pointer line is `present` with the line count and the sha short', () => {
+    const { dir, residueDir } = sandbox();
+    const transcript = writeTranscript(dir, [ccAssistant('a turn')]);
+    const handoff = join(residueDir, '_handoff-pc15a.md');
+    writeFileSync(handoff, '# handoff\n\n## Next action\n- x\n', 'utf8');
+    const r = run(residueDir, { session_id: 'pc15a', transcript_path: transcript, trigger: 'auto' });
+    expect(r.status).toBe(0);
+    const line = (r.residue ?? '').split('\n').find((l) => l.startsWith('- **Model handoff:**'));
+    expect(line, 'the pointer line exists').toBeDefined();
+    expect(line).toContain('_handoff-pc15a.md');
+    expect(line).toMatch(/\(present, 4 lines, [0-9a-f]{8}\)/);
+  });
+
+  it('D15: the pointer line reads `absent` when no handoff exists', () => {
+    const { dir, residueDir } = sandbox();
+    const transcript = writeTranscript(dir, [ccAssistant('a turn')]);
+    const r = run(residueDir, { session_id: 'pc15b', transcript_path: transcript, trigger: 'auto' });
+    const line = (r.residue ?? '').split('\n').find((l) => l.startsWith('- **Model handoff:**'));
+    expect(line).toBeDefined();
+    expect(line).toMatch(/\(absent\)$/);
+  });
+
+  it('D34: an AUTO trigger clears the gate baseline by EXACT name — neighbours, the observed ceiling and the handoff file all survive', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(join(tmp, 'aif-handoff-pc34'), 'stale-baseline', 'utf8');
+    writeFileSync(join(tmp, 'aif-handoff-neighbour'), 'another session', 'utf8');
+    writeFileSync(join(tmp, 'aif-ctx-observed-pc34'), '190000', 'utf8');
+    const handoff = join(residueDir, '_handoff-pc34.md');
+    writeFileSync(handoff, '# the handoff survives compaction\n', 'utf8');
+
+    const r = run(
+      residueDir,
+      { session_id: 'pc34', transcript_path: transcript, trigger: 'auto' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    expect(existsSync(join(tmp, 'aif-handoff-pc34')), 'own baseline cleared').toBe(false);
+    expect(existsSync(join(tmp, 'aif-handoff-neighbour')), 'a neighbouring session baseline is untouched').toBe(true);
+    expect(readFileSync(join(tmp, 'aif-ctx-observed-pc34'), 'utf8').trim(), 'the observed ceiling shares the prefix — must survive').toBe('190000');
+    expect(existsSync(handoff), 'the handoff FILE survives (the injector reads it)').toBe(true);
+  });
+
+  it('D34 PAIRED-NEGATIVE: a MANUAL trigger leaves the baseline alone (same refused-compact evidence as the tier flags)', () => {
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(join(tmp, 'aif-handoff-pc34m'), 'keepme', 'utf8');
+    run(
+      residueDir,
+      { session_id: 'pc34m', transcript_path: transcript, trigger: 'manual' },
+      'en',
+      { TMPDIR: tmp },
+    );
+    expect(readFileSync(join(tmp, 'aif-handoff-pc34m'), 'utf8')).toBe('keepme');
+  });
+
+  it('D34 END-TO-END: compaction resets the baseline, so a stale handoff is re-judged from scratch', () => {
+    // Through both hooks: stop (records baseline) → compact (clears it) → stop (allows once,
+    // records again). Without the clear, the second stop would block on a baseline recorded
+    // against a window that no longer exists.
+    const EOT_HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+    const { dir, residueDir } = sandbox();
+    const tmp = privateTmp();
+    const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(320_000)]);
+    const stop = () =>
+      spawnSync('bash', [EOT_HOOK], {
+        input: JSON.stringify({
+          transcript_path: transcript,
+          session_id: 'pc34e2e',
+          stop_hook_active: false,
+        }),
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          AIF_HOOK_LANG: 'en',
+          AIF_CTX_WINDOW: '1000000',
+          AIF_AUTONOMOUS: '0',
+          AIF_HANDOFF_GATE: '1',
+          AIF_RESIDUE_DIR: residueDir,
+          TMPDIR: tmp,
+          CLAUDE_PROJECT_DIR: REPO_ROOT,
+          ORCHESTRATION_MODE_MARKER: '/nonexistent/gate-marker',
+        },
+      });
+    const handoff = join(residueDir, '_handoff-pc34e2e.md');
+    writeFileSync(handoff, '# handoff\n\n## Next action\n- x\n' + ['## Decisions and why\n- d', '## Rejected alternatives\n- r', '## Unverified assumptions and open forks\n- u', '## Skills to invoke by name\n- s'].join('\n\n') + '\n', 'utf8');
+
+    const first = JSON.parse((stop().stdout || '{}') as string) as { reason?: string };
+    expect(first.reason, 'first in-band stop: fresh handoff allows silently — the block here would mean the handoff is invalid').toBeUndefined();
+    const second = stop();
+    expect((second.stdout || ''), 'same content, baseline matches → the gate blocks').toContain('unchanged');
+
+    // The compaction clears ONLY the acceptance state. (The clear sits in the same
+    // trigger=auto + transcript-present block as the A3-3c tier-flag reset — "alongside",
+    // per D34 — so the transcript path here must be a REAL file, as it always is in CC.)
+    run(residueDir, { session_id: 'pc34e2e', transcript_path: transcript, trigger: 'auto' }, 'en', { TMPDIR: tmp });
+    expect(existsSync(join(tmp, 'aif-handoff-pc34e2e')), 'baseline cleared by the auto compaction').toBe(false);
+    expect(existsSync(handoff), 'the handoff file itself survived').toBe(true);
+
+    const third = stop();
+    expect((third.stdout || ''), 'post-compaction the first stop allows once and re-records').toBe('');
+    expect(existsSync(join(tmp, 'aif-handoff-pc34e2e')), 'the gate re-recorded the baseline').toBe(true);
   });
 });

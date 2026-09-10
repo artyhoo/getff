@@ -1,0 +1,4165 @@
+{
+  "meta": {
+    "census": "consumer-truth-audit V0",
+    "generated": "2026-09-08",
+    "round": "2 + harvest-round fixes (cold review C1/I1/I3/I5 + M2/M7 applied on the host; census regenerated from three fresh HOST installs, --check 0 disagreements) — regenerated from the re-run benches (logs/install-{core,env,factory}-r2.log, dirs in logs/consumer-dirs-r2.txt); round-1 `delivered` bugs fixed (agents dbool-object, scripts prefix mismatch), the phantom ts-server-configs row removed, and the script population widened to the installer’s real delivery sources (repo scripts/ + packages/core/{audit-self,probes,synthesizer})",
+    "method": "3 fresh installs (core/env/factory) into mktemp dirs seeded with package.json+git init; DELIVERED measured on consumer TREES (find), never on install-log claims (T-CTA-A); WORKS = L1 escape-grep + L2 in-consumer execution + L3 rename-sever window (factory path absent, results valid) + factory controls",
+    "verifier": "node gen-census.mjs --check — re-derives every row's `delivered` from live trees (roots: --repo/--core/--env/--factory or CENSUS_* env, container defaults) and exits 1 on any disagreement with this file; writes nothing",
+    "logs_dir": ".claude/orchestrator-prompts/consumer-truth-audit/logs/",
+    "population_total": 276,
+    "verdict_counts": {
+      "BY-DESIGN": 273,
+      "DOC-LIES": 2,
+      "BROKEN": 1
+    },
+    "aged_stratum": "MEASURED on the host in the harvest round: host-verify-aged.sh now performs the 3-bucket join itself (was a prose reminder — cold review I5) and was run against the real aged consumer /Users/art/code/timeliner → 4 shipped-since / 21 never-shipped / 5 consumer-authored over the comparable classes (skill, agent, hook); every other class is reported NOT-COMPARED. Full run: logs/aged-stratum-join.md. In-container it stays N/A (logs/aged-stratum.md); the per-row aged_install field is uniformly \"n/a — host-scoped\" because it is a per-install property, not a per-row one",
+    "spec_corrections": [
+      "CI workflow source is root templates/<stack>/, not packages/core/templates/**/workflows (matches nothing)",
+      ".getff/astgrep-rules exists only under packages/core/templates/python/; clippy/golangci/ruff likewise under their template dirs",
+      "naive .claude/skills count 41 includes 25 gitignored container-local aif-* skills; tracked population is 16",
+      "hooks authoring count 29 unreproducible; tree truth is 25",
+      "consumer scripts/ are sourced ~entirely from packages/core/{audit-self,probes,synthesizer} via 40-configs §4, not the kickoff-named repo scripts/ — v0r2 enumerates both (62 + 23 = 85 script rows, 3 fixtures stack-gated undelivered here; delivered sums 20/24/25 per M7)",
+      "the consumer ESLint barrel lands at consumer-root eslint-rules-local/ (install log «Custom ESLint rules → eslint-rules-local/»), not packages/core/eslint-rules-local"
+    ]
+  },
+  "rows": [
+    {
+      "artefact": ".claude/skills/ai-doc/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/aif-doctor/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/arch/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/claude-glm-executor-handoff/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/dispatcher/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/harvest/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/night-mode/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/orchestrator/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "loads as docs, but 5 embedded host-absolute paths instruct operations against the AUTHOR'S machine: references/worker-template.md:73,82,107 + reviewer-template.md:37 + ai-laziness-traps-orchestrator.md:131 all say `cd /Users/art/code/rules-as-tests-aif` — on any consumer host this path is another project or absent",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "DOC-LIES",
+      "evidence": "grep -rn '/Users/art' <factory bench root> → 5 hits, all inside .claude/skills/orchestrator/references/* (logs/works-checks.md §L1 finding precision); the bench root is deliberately NOT inlined — benches are ephemeral mktemp dirs and a baked-in path is a dead reference to any later reader"
+    },
+    {
+      "artefact": ".claude/skills/pipeline/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/reviewer/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/rule-research/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/rule-tests/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/self-reflection/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/10-skills.sh:121 («Only self-reflection is intentionally NOT shipped at all: it is the §1.7 self-review discipline»); also install.sh:26",
+      "evidence": "git ls-files → tracked; M4 tree list: absent from all 3 consumer .claude/skills/ (logs/delivered-tree-measurement.md §M4)"
+    },
+    {
+      "artefact": ".claude/skills/story/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/template-audit/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered content resolves inside the consumer; cross-refs rewritten to upstream blob URLs at install (transform_internal_refs, setup.d/LAYERS.md:79)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :23 (profile model gates: core=6, env +contour 5, factory +operator 5)",
+      "evidence": "M4 delivered list per profile (logs/delivered-tree-measurement.md §M4); install-{core,env,factory}.log ✓ lines match the trees"
+    },
+    {
+      "artefact": ".claude/skills/tool-bootstrapping/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not the delivered artefact: the consumer's .claude/skills/tool-bootstrapping/ is filled from the root skills/tool-bootstrapping/ copy, which is censused as its own row",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/10-skills.sh (_copy_tree_with_transform from the package root skills/tool-bootstrapping into the consumer .claude/skills/tool-bootstrapping)",
+      "evidence": "round-2 review I1: diff -rq skills/tool-bootstrapping .claude/skills/tool-bootstrapping reports differing SKILL.md + references/, and a templates/ dir present only under root skills/tool-bootstrapping"
+    },
+    {
+      "artefact": "skills/getff/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered as .claude/skills/getff/ (root skills/ is the source 10-skills.sh copies from)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:23 (10-skills.sh: skills/ → .claude/skills/)",
+      "evidence": "M4: getff present per profile in the consumer .claude/skills/ tree lists; source tracked at skills/getff (git ls-files)"
+    },
+    {
+      "artefact": "skills/tool-bootstrapping/",
+      "class": "skill",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered as .claude/skills/tool-bootstrapping/ (root skills/ is the source 10-skills.sh copies from)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:23 (10-skills.sh: skills/ → .claude/skills/)",
+      "evidence": "M4: tool-bootstrapping present per profile in the consumer .claude/skills/ tree lists; source tracked at skills/tool-bootstrapping (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/adapter-jig-reviewer.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:30 (authoring-only, adapter-jig J1 conformance review)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/aif-init.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/backward-sweep-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:28 (authoring-only, §1.7 cold-sweep T21)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/capability-reuse-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/claims-conformance-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/compliance-verifier.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/dispatch-input-checker.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:31 (authoring-only station, dispatch-input reality-check)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/docplan-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/dual-channel-drift-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:29 (authoring-only, dual-implementation §8 @dual-pair audit)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/fidelity-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/getff-cold-run-prober.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:32 (framework-only — run BY framework against consumer, spec §9.3)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/living-docs-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/manual-rule-liveness-prober.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:26 (authoring-only tool #552)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/agents/memory-codification-auditor.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/orchestrator-worker-discipline.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works as a session-read agent prompt inside a factory-profile consumer (requires the aif-handoff runtime it presupposes)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/20-agents.sh:36-42 (factory-only gate: «presuppose the aif-handoff operator runtime»)",
+      "evidence": "M4: present in factory tree only; L2 hook-run harness N/A for agent prompts (session-read surface)"
+    },
+    {
+      "artefact": ".claude/agents/review-sidecar.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/reviewer-discipline.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "works as a session-read agent prompt inside a factory-profile consumer (requires the aif-handoff runtime it presupposes)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/20-agents.sh:36-42 (factory-only gate: «presuppose the aif-handoff operator runtime»)",
+      "evidence": "M4: present in factory tree only; L2 hook-run harness N/A for agent prompts (session-read surface)"
+    },
+    {
+      "artefact": ".claude/agents/rule-researcher.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/rule-test-author.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works as a session-read prompt; memory-codification-auditor.md:37 ships a host-scoped default (~/.claude/projects/-Users-art-code-rules-as-tests-aif/memory/) that exists only on the author's machine — reported as a finding, default is override-able",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:25 (20-agents.sh ships §2 sub-agents to all profiles)",
+      "evidence": "M4: present in core+env+factory trees (11 agents); grep hit at .claude/agents/memory-codification-auditor.md:37 (L1 precision section)"
+    },
+    {
+      "artefact": ".claude/agents/shipped-agent-liveness-prober.md",
+      "class": "agent",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "20-agents.sh:27 (authoring-only tool, M2 probe #552 sibling)",
+      "evidence": "M4: absent from all consumer .claude/agents/ lists; present in framework agents/ (git ls-files)"
+    },
+    {
+      "artefact": ".claude/rules/00-rule-index.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/ai-laziness-digest.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/ai-laziness-traps.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/attention-is-not-a-mechanism.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/autonomous-loop-continuity.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/build-first-reuse-default.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/ci-tool-pinning.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/cold-seat-economy.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/companion-install-principle.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/destination-environment-verification.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/doc-authority-hierarchy.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/dual-implementation-discipline.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/effort-worthiness.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/egress-no-api-bypass.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/evidence-regeneration.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/git-conflict-merge-forward.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/kickoff-staging-placement.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/language-discipline.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/memory-codification.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/no-paid-llm-in-ci.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/parallel-subwave-isolation.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/phase-research-coverage.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/recommendation-laziness-discipline.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/research-source-trust.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/reviewer-discipline.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/rule-enforcement-channel-selection.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/seat-lifecycle.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/skill-description-quality.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/source-before-shape.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/rules/zcode-parity-doctrine.md",
+      "class": "discipline-rule",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered; consumer-side consequence: delivered hook inject-matching-rule.sh has NO corpus and announces «no rules corpus found … nothing to inject» (L2 flagship probe, works-checks.md §L2)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:79 («rules/ is not shipped» — transform_internal_refs rewrites .claude/rules/ refs in delivered docs to upstream blob URLs); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "M1 (gate 6): test -d .claude/rules → ABSENT in core, env, factory; consumer session-bootstrap.md + AGENTS.md contain 0 .claude/rules refs (rewrite verified)"
+    },
+    {
+      "artefact": ".claude/hooks/adopt-orchestrator-prompts.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/ask-question-reminder.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/check-doc-authority-header.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/check-doc-authority.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/check-hook-marker.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/check-kickoff-traps.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/check-worker-dispatch-channel.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/deps-hash-check.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/end-of-turn-reminder.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/inject-matching-rule.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered and runtime-safe (degrades to exit 0 when the rules dir or jq is absent), but its own header comment at .claude/hooks/inject-matching-rule.sh:28 claims «NOW SHIPPED to consumer CC projects — consumers DO get .claude/rules/* installed», which is FALSE in all three profiles: no consumer receives .claude/rules/, so the hook announces «no rules corpus found … nothing to inject» on every invocation",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "DOC-LIES",
+      "by_design_citation": "setup.d/LAYERS.md:79 (transform_internal_refs — «rules/ is not shipped»); corroborated at setup.d/20-agents.sh:44",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/inject-memory-codification.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/inject-output-language.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/inject-project-digest.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/inject-session-bootstrap.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/inject-subagent-context.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/inject-subagent-digest.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/lang/check-parity.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/lang/en.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/lang/ru.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — L2 harness: exit=0 with representative CC payload in all delivering profiles (works-checks.md §L2/§L2b)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (profile model) + :23 (10-skills §1b consumer hook set)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/lib/hook-emit.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/precompact-residue.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/runtime-bridge-dispatch.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "inert until the consumer configures RUNTIME_BRIDGE_* and registers it (designed early exits; hook-emit helper INLINED, .claude/hooks/runtime-bridge-dispatch.sh:53 — the undelivered lib/ twin is a comment reference, not a source)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:31 (55-runtime-bridge-vendor — factory-only per spec A7)",
+      "evidence": "L2/§L2b: 11 hooks exit=0 core+env+factory with representative payloads; settings.json carries 9 hook registrations over 8 distinct scripts, identically in all three profiles (inject-project-digest.sh is registered twice — UserPromptSubmit + SubagentStart); round-2 review M2 corrected the earlier «7 hooks» count, re-measured on the host benches"
+    },
+    {
+      "artefact": ".claude/hooks/validate-prompt.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/warn-subagent-report.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": ".claude/hooks/worktree-setup.sh",
+      "class": "hook",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (operator machinery is the factory's own payload, not consumer cargo)",
+      "evidence": "M4: absent from consumer .claude/hooks/ trees; present in framework tree (git ls-files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/cmd-script-liveness.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "loads; reads packages/core/manifest/rules-manifest.json (:57, NOT delivered) → empty changed-rule set → honest no-op for consumers",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :27",
+      "evidence": "grep MANIFEST delivered copy → :57 const MANIFEST_REL = ...; consumer find packages/core/manifest → absent (M4 inventory: 15 files under consumer packages/)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/guard-liveness-fullsweep.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/guard-liveness.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "cannot LOAD in any consumer: static import of @rules-as-tests/preset-next-15-canonical/eslint-rules (line 34) → ERR_MODULE_NOT_FOUND proven live with everything else installed; pre-push.ts:522-527 then calls die() → PUSH BLOCKED, with remediation («run npm install at the repo root») that cannot work in a consumer",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BROKEN",
+      "evidence": "L2d: node --import tsx/esm -e import(...preset...) → ERR_MODULE_NOT_FOUND; factory control (workspace symlink) → LOADED OK; full-module import fails identically (works-checks.md §L2d)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-body-fidelity-bin.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-body-fidelity.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-body-prior-art-bin.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-stale-revert-bin.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-stale-revert.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/prior-art.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works on commit data (trailer grammar + ≥20-char skip hatch); SSOT-referent citations resolve against the consumer's OWN tree — absent SSOT → empty id-set (self-consistent rejection; live consumer push behavior INCONCLUSIVE-needs-live-push)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :27 (40-configs ships the §4 consumer gate set)",
+      "evidence": "M6 import closure: no local data deps beyond delivered utils; pre-push.ts:43 imports it; L2d run reached section selection with no crash from this module"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/registry.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/s17.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "loads; operates on changed kickoffs (consumers have none) → degrades to no-op honestly",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :27",
+      "evidence": "M4: delivered in all 3 trees; L2d full-hook run: no s17 error; consumer trees carry no .claude/orchestrator-prompts (no-op input set)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/skill-core-edit-scope.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory CI gates: pr-body-*, registry, skill-core-edit-scope, guard-liveness-fullsweep are the framework's own enforcement)",
+      "evidence": "M4/M6: consumer packages/core/hooks/ carries exactly 5 checks + pre-push + utils (10 files)"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/unpinned-tool-install.ts",
+      "class": "hook-check",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works on commit package.json diffs — consumer-relevant, no local data deps",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 + :27",
+      "evidence": "M6: imports only node:fs/path + ./utils/git.ts + ../utils/run-check.ts (all delivered); operates on the push diff"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/cmd-script-liveness.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/guard-liveness-fullsweep.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/guard-liveness.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-body-fidelity-bin.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-body-fidelity.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-body-prior-art.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-stale-revert-bin.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/pr-stale-revert.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/prior-art.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/registry.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/s17.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/hooks/checks/skill-core-edit-scope.test.ts",
+      "class": "hook-check-test",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (test material is factory CI; the installer ships named production files only)",
+      "evidence": "M4: zero .test.ts under consumer packages/core/hooks/"
+    },
+    {
+      "artefact": "packages/core/principles/01-executable-check.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/02-paired-negative-test.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/03-ast-over-grep.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/04-no-tautology.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/05-manifest-ssot.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/06-must-not-demoted.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/07-documents-lie.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/08-prior-art-cited.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/09-doc-authority-hierarchy.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/10-research-patch-annotation.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/11-build-first-reuse-default.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/12-ai-laziness-traps.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/13-phase-research-coverage-s17.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/14-skill-drift-detection.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/15-skill-paired-negative.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/16-hook-stub-completeness.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/17-no-paid-llm-in-ci.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/18-meta-orchestrator-output-format.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/19-meta-orchestrator-alias-routing-consistency.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/20-bundle-classification.paired-negative.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/20-bundle-classification.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/21-agnosticism-conformance.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/21-shipped-agent-tools-valid.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/22-internal-english.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/23-aif-init-passport-gen.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/24-plugin-manifest-integrity.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/25-template-rule-ref-resolution.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/26-template-selector-sync.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/27-prepush-copylist-complete.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/28-synth-wire-oracle.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/29-worker-dispatch-channel.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/30-research-source-trust.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/31-rule-channel-declaration.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/32-prepush-section-owner.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/33-adapter-jig-arm-registry.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/34-claudemd-excludes-liveness.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/36-ci-needs-completeness.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/37-make-target-claim-liveness.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/37-required-context-completeness.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/38-vitest-include-ci-coverage.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/39-skill-fence-orch-home.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/40-kickoff-rigor-label.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/41-shell-test-ci-coverage.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/42-context-md-pointer-rule.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/43-kickoff-host-verify-presence.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/principles/44-kickoff-authoring-traps.test.ts",
+      "class": "principle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (meta-tests are the factory's recursive-self-application CI; kickoff §2 defines no consumer landing site for the class — «—»)",
+      "evidence": "M4 probe: find <consumer> -name \"*principle*\" → 0 hits in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/templates/cargo/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "not delivered on the npm flow (ts-server fixture): GETFF_TOOLCHAIN=cargo lane only — INERT by design",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:29 (46-cargo.sh «INERT on the npm flow»)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "packages/core/templates/go/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "not delivered on the npm flow: GETFF_TOOLCHAIN=go lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:29 (47-go.sh analog)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "packages/core/templates/python/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "not delivered on the npm flow: GETFF_TOOLCHAIN=python lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:28 (45-python.sh «INERT on the npm flow»)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "packages/core/templates/react-next/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "not delivered to the ts-server fixture (stack-gated; delivered on react-next stacks — outside this census's fixture stack)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (stack-aware gating)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "packages/core/templates/shared/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "11-13 .ai-factory files per tree (M7)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §5a shared templates)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "templates/ts-server/",
+      "class": "template",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "github-actions-ci.yml + github-actions-workflow-integrity.yml delivered as .github/workflows/ci.yml + workflow-integrity.yml; stack configs at root",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/40-configs.sh:448,454 (deliver_getff_workflow from templates/ts-server/)",
+      "evidence": "M2/M7 consumer inventories + install logs; spec-path correction: the kickoff's «packages/core/templates/**/workflows» matches nothing (population-enumeration.md §C10b)"
+    },
+    {
+      "artefact": "packages/core/eslint-rules/ (4 rules + index)",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — delivered as packages/core/eslint-rules/ (5 files) AND bundled into consumer eslint-rules-local/ (13 files, generated barrel «4 rules» per install log)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (§5b' ESLint rules)",
+      "evidence": "M4/M7: present in all 3 trees"
+    },
+    {
+      "artefact": "packages/core/templates/python/.getff/astgrep-rules/ (4 yml)",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "python lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:28",
+      "evidence": "C8b: no .getff at repo root — spec path corrected"
+    },
+    {
+      "artefact": "packages/core/templates/cargo/clippy.toml",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "cargo lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:29",
+      "evidence": "C8"
+    },
+    {
+      "artefact": "packages/core/templates/cargo/deny.toml",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "cargo lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:29",
+      "evidence": "C7 tree"
+    },
+    {
+      "artefact": "packages/core/templates/go/.golangci.yml",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "go lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:29",
+      "evidence": "C8"
+    },
+    {
+      "artefact": "packages/core/templates/python/ruff.toml",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "python lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:28",
+      "evidence": "C7 tree"
+    },
+    {
+      "artefact": "templates/ts-server/eslint.config.mjs (synth-wire baseline)",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; synth-wire emitted no rules for ts-server preset baseline (install log), live-research augmentation path documented in log",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27",
+      "evidence": "install-core.log [synth-wire] lines"
+    },
+    {
+      "artefact": "eslint-rules-local/ (consumer barrel)",
+      "class": "lint-bundle",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — 13 files (4 rules × ts/mjs/d.ts + index.mjs) delivered; RULES the consumer code",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27",
+      "evidence": "M2: eslint-rules-local = 13 files all profiles (install log: «Custom ESLint rules → eslint-rules-local/» — consumer ROOT, not packages/core/)"
+    },
+    {
+      "artefact": ".mcp.json (context7 wiring via setup.d/05-mcp.sh)",
+      "class": "mcp-config",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered on ANY --profile path: the layer self-gates on FULL (deps-consent flag), an axis orthogonal to profile depth — a factory-profile consumer gets zero MCP wiring unless --full is also passed (recorded as an observation for triage)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/05-mcp.sh:5 («Gated on FULL … so the non-full / snapshot path»…) + :13 (if [ -z \"${FULL:-}\" ])",
+      "evidence": "M5: .mcp.json ABSENT in all 3 consumer trees; grep -n \"05-mcp\" install-core.log → 0 lines (layer never ran)"
+    },
+    {
+      "artefact": "companions.manifest row: superpowers",
+      "class": "companion",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered by install.sh: the installer only PRINTS stack-aware selection («6 companion(s) selected»); actual installs are consent-gated in the interactive setup wrapper (cc-plugin/cli) or runtime-routed (external-service) — zero companion artefacts landed in any profile",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
+    },
+    {
+      "artefact": "companions.manifest row: runtime-bridge",
+      "class": "companion",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered by install.sh: the installer only PRINTS stack-aware selection («6 companion(s) selected»); actual installs are consent-gated in the interactive setup wrapper (cc-plugin/cli) or runtime-routed (external-service) — zero companion artefacts landed in any profile",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
+    },
+    {
+      "artefact": "companions.manifest row: deepwiki",
+      "class": "companion",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered by install.sh: the installer only PRINTS stack-aware selection («6 companion(s) selected»); actual installs are consent-gated in the interactive setup wrapper (cc-plugin/cli) or runtime-routed (external-service) — zero companion artefacts landed in any profile",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
+    },
+    {
+      "artefact": "companions.manifest row: ast-grep-cli",
+      "class": "companion",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered by install.sh: the installer only PRINTS stack-aware selection («6 companion(s) selected»); actual installs are consent-gated in the interactive setup wrapper (cc-plugin/cli) or runtime-routed (external-service) — zero companion artefacts landed in any profile",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
+    },
+    {
+      "artefact": "companions.manifest row: ast-grep",
+      "class": "companion",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered by install.sh: the installer only PRINTS stack-aware selection («6 companion(s) selected»); actual installs are consent-gated in the interactive setup wrapper (cc-plugin/cli) or runtime-routed (external-service) — zero companion artefacts landed in any profile",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
+    },
+    {
+      "artefact": "companions.manifest row: aif-handoff",
+      "class": "companion",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered by install.sh: the installer only PRINTS stack-aware selection («6 companion(s) selected»); actual installs are consent-gated in the interactive setup wrapper (cc-plugin/cli) or runtime-routed (external-service) — zero companion artefacts landed in any profile",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/companions.manifest:5-14 (kind routing: consent + detect-first) + setup.d/15-companions-stack.sh:58-65 (selection display only)",
+      "evidence": "M5: no companion/mcp files anywhere in consumer trees; install log companion section = 6 print lines only; the factory-only .claude/vendor/runtime-bridge subset is the 55-runtime-bridge-vendor layer, censused as its own hook row (.claude/hooks/runtime-bridge-dispatch.sh) — not a companions.manifest install"
+    },
+    {
+      "artefact": ".github/workflows/ci.yml",
+      "class": "ci-workflow",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered (ts-server); uses «main» default-branch fallback (no origin — warning printed at install)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/40-configs.sh:448",
+      "evidence": "M7: exactly 2 workflow files in each consumer .github/workflows/; the framework repo's own 13 workflows are factory-side (population-enumeration §C10)"
+    },
+    {
+      "artefact": ".github/workflows/workflow-integrity.yml",
+      "class": "ci-workflow",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/40-configs.sh:454",
+      "evidence": "M7: exactly 2 workflow files in each consumer .github/workflows/; the framework repo's own 13 workflows are factory-side (population-enumeration §C10)"
+    },
+    {
+      "artefact": ".github/workflows/getff-cargo.yml (lane)",
+      "class": "ci-workflow",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "cargo lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/46-cargo.sh:162",
+      "evidence": "M7: exactly 2 workflow files in each consumer .github/workflows/; the framework repo's own 13 workflows are factory-side (population-enumeration §C10)"
+    },
+    {
+      "artefact": ".github/workflows getff-go (lane)",
+      "class": "ci-workflow",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "go lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/47-go.sh:4",
+      "evidence": "M7: exactly 2 workflow files in each consumer .github/workflows/; the framework repo's own 13 workflows are factory-side (population-enumeration §C10)"
+    },
+    {
+      "artefact": ".github/workflows getff-python (lane)",
+      "class": "ci-workflow",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "python lane only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/45-python.sh (github-actions-ci.yml template)",
+      "evidence": "M7: exactly 2 workflow files in each consumer .github/workflows/; the framework repo's own 13 workflows are factory-side (population-enumeration §C10)"
+    },
+    {
+      "artefact": "scripts/aif-clone-hygiene.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/apply-doc-fixes.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/build-getff-dist.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/build-shipped-eslint-rules.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/build-synth-bundle.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/build-synth-bundle.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-alwayson-budget.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-alwayson-budget.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-ask-files.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-ask-files.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-bundle-dep-parity.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-bundle-dep-parity.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/check-skill-drift.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/ci-success-gate.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/ci-success-gate.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/create-worktree.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered env+factory (worktree helpers, 85-worktree-scripts.sh:87-92)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fire-routine.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/format-shipped.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/generate-plugin-twins.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/getff-glm-onebutton.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/getff-work.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered env+factory",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/host-verify-coverage.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/host-verify-coverage.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/host-verify.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/install-coordination-wiring.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/kickoff-hv-inventory.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/link-coordination.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered env+factory; CANON default $HOME/.claude-coordination/rules-as-tests-aif (:74) — consumer-scoped, not a factory escape",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/measure-always-on.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/measure-always-on.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/measure-session-start-tokens.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/measure-turn-attribution.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/probe-channels.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/probe-channels.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/register-precompact-hook.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/render-harness-config.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/render-install-roster.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/render-presets.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/render-rule-channels.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/render-rule-index.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/render-zcode-parity-rollup.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/run-local-ci-sweep-coverage.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/run-local-ci-sweep.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": true
+      },
+      "works": "delivered factory only",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/run-local-ci-sweep.test.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/setup-cc-adoptions.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-corpus-probe.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/bench-input.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/build-input.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/make-tests.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/promptfoo.config.c1.yaml",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/promptfoo.config.c2.yaml",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/provider.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/run.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/tests-c1.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-kernel-v2-bench/tests-c2.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-s0-run.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-s0-score.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-s2-labels-check.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-s3-agreement.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-s4-score.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/triage-s4b-outcomes.mjs",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/worktree-doctor.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/worktree-node-modules.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered env+factory",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/audit-ai-docs.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — documented acceptance cmd: 5 PASS / 0 FAIL / 1 WARN severed (L2c); 4/0/2 under L3 severance",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-arch-boundaries.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — honest skip: «not an apps/+packages/ monorepo»",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-fences-fire.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=1 VACUOUS without node_modules (fail-loud, by design); load-probe OK with deps installed (factory-consumer control)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-lintstaged-resolves.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "honest skip without node_modules; with probe-deps installed: exit=1 lint-staged unresolvable (it is in the documented install line, not the probe set)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-rule-enforced.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-rule-globs.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=1 on the fresh consumer layout (boundary globs match ZERO files) → pre-push BLOCKS the first push; installer deliberately arms this alarm (R2 auto-wire note in install log; setup.d/40-configs.sh:19 «silent-inertness alarm»)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/check-shields-up.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — PASS=3 FAIL=0",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/ci-available-probe.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=3 CANNOT-RUN: no origin remote (honest — fixture has no remote)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/detect-r2-boundary.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — «ambiguous» (expected on the fixture)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/pre-merge-local.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "usage exit=64 without base-ref/origin (honest)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/r2-na-marker.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/audit-r4.ts",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "needs ts-morph (documented install line) — probe error captured; R-2 deps-presence",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/run-generated-rule-mutation.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "exit=2: .ai-factory/synthesizer-output manifest absent (honest error; created only by the synth pipeline)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/run-rule-tests-firing.sh",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "works — no-op: no .ai-factory/rule-tests/ sidecar (nothing to fire)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 (40-configs §4 enforcement scripts, sources packages/core/audit-self + probes + synthesizer) + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-server-imports-in-client.bad.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-server-imports-in-client.good.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-server-imports-in-client.manifest.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": false,
+        "env": false,
+        "factory": false
+      },
+      "works": "n/a — not delivered",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:10 (factory-internal measurement/triage/CI plumbing is not consumer cargo)",
+      "evidence": "M7: absent from all 3 consumer scripts/ lists"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-unsafe-zod-parse.bad.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-unsafe-zod-parse.good.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/no-unsafe-zod-parse.manifest.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/require-use-server-directive.bad.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/require-use-server-directive.good.txt",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    },
+    {
+      "artefact": "scripts/fences-fire-fixtures/require-use-server-directive.manifest.json",
+      "class": "script",
+      "has": true,
+      "delivered": {
+        "core": true,
+        "env": true,
+        "factory": true
+      },
+      "works": "delivered; not individually exercised in V0 (same layer as the 12 exercised scripts — L2e)",
+      "aged_install": "n/a — host-scoped (see host-verify-aged.sh)",
+      "verdict": "BY-DESIGN",
+      "by_design_citation": "setup.d/LAYERS.md:27 + :10",
+      "evidence": "M7 delivered lists + L2e execution matrix (12 scripts × 2 profiles with exit codes + last line)"
+    }
+  ]
+}

@@ -53,6 +53,81 @@ describe('resolveStep maps each decision to its verified aif-handoff event', () 
   });
 });
 
+// ── review-state decisions (2026-09-09) ─────────────────────────────────────────
+// A manual-review park lands in status `review`, whose ONLY state-machine events are
+// `complete_review` and `request_review_changes`
+// (aif `packages/shared/dist/stateMachine.js:91,100`). Every decision above targets
+// `done` and is refused from `review` with
+// `HTTP 409 {"error":"approve_done is only allowed from done"}` (measured live on task
+// 5dfecf25, 2026-09-09) — so before these two, the CLI built to release parks could not
+// release the one state parks actually sit in, and they accumulated with no exit.
+describe('review-state decisions release a manual-review park (2026-09-09)', () => {
+  it('complete_review → complete_review event, no comment (review→done)', () => {
+    expect(resolveStep('complete_review')).toEqual({ event: 'complete_review', needsComment: false });
+  });
+
+  it('request_review_changes → request_review_changes event, needs a comment (review→implementing)', () => {
+    expect(resolveStep('request_review_changes')).toEqual({
+      event: 'request_review_changes',
+      needsComment: true,
+    });
+  });
+
+  it('both are offered by VALID_DECISIONS, so --decision accepts them', () => {
+    expect(VALID_DECISIONS).toContain('complete_review');
+    expect(VALID_DECISIONS).toContain('request_review_changes');
+  });
+
+  it('request_review_changes without --answer is rejected — rework needs feedback to rework against', () => {
+    const err = validateAnswerArgs({ taskId: 't1', decision: 'request_review_changes', json: false });
+    expect(err).toMatch(/requires --answer/);
+  });
+
+  it('complete_review needs no --answer — nothing is being handed back', () => {
+    expect(validateAnswerArgs({ taskId: 't1', decision: 'complete_review', json: false })).toBeNull();
+  });
+
+  it('POSITIVE — request_review_changes POSTs the comment before the event', async () => {
+    // Human-owned: the ownership flip below is a no-op here, so this test stays about the
+    // comment→event ordering it was written for. The GET is the ownership read.
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
+      .mockImplementation(async () => okResponse({ ok: true }));
+
+    const result = await pushAnswer('http://aif.test', 'task-rv', 'request_review_changes', 'fix the count');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    const [commentUrl, commentInit] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    const [eventUrl, eventInit] = fetchSpy.mock.calls[2] as [string, RequestInit];
+    expect(commentUrl).toBe('http://aif.test/tasks/task-rv/comments');
+    expect(JSON.parse(String(commentInit.body))).toEqual({ message: 'fix the count' });
+    expect(eventUrl).toBe('http://aif.test/tasks/task-rv/events');
+    expect(JSON.parse(String(eventInit.body))).toEqual({ event: 'request_review_changes' });
+    expect(result).toEqual({
+      taskId: 'task-rv',
+      decision: 'request_review_changes',
+      event: 'request_review_changes',
+      commented: true,
+    });
+  });
+
+  it('POSITIVE — complete_review sends exactly one event and no comment', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
+      .mockImplementation(async () => okResponse({ ok: true }));
+
+    const result = await pushAnswer('http://aif.test', 'task-cr', 'complete_review', undefined);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const [url, init] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('http://aif.test/tasks/task-cr/events');
+    expect(JSON.parse(String(init.body))).toEqual({ event: 'complete_review' });
+    expect(result.commented).toBe(false);
+  });
+});
+
 // ── POSITIVE — request_changes: comment FIRST (message field), then event ────────
 describe('POSITIVE — request_changes attaches the answer as a comment then re-opens', () => {
   it('POSTs /comments { message } before /events { event: request_changes }', async () => {
@@ -135,8 +210,19 @@ describe('NEGATIVE — invalid args are rejected by validateAnswerArgs', () => {
     expect(validateAnswerArgs(args)).toBeNull();
   });
 
-  it('VALID_DECISIONS lists exactly the four supported decisions', () => {
-    expect([...VALID_DECISIONS]).toEqual(['request_changes', 'approve', 'retry', 'resume']);
+  it('VALID_DECISIONS lists exactly the supported decisions, in CLI-help order', () => {
+    // Four done-state decisions, then the two review-state ones added 2026-09-09.
+    // Pinned as an exact list on purpose: a decision the CLI accepts but does not map in
+    // resolveStep would fall through its `default` and silently become request_changes —
+    // re-opening a task the operator meant to close.
+    expect([...VALID_DECISIONS]).toEqual([
+      'request_changes',
+      'approve',
+      'retry',
+      'resume',
+      'complete_review',
+      'request_review_changes',
+    ]);
   });
 });
 
@@ -273,5 +359,64 @@ describe('CONTROL — the A6-6b guard leaves the event decisions on a non-paused
     await pushAnswer('http://localhost:3009', 't-7', 'retry', undefined);
     expect(spy.mock.calls).toHaveLength(1);
     expect(JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string).event).toBe('retry_from_blocked');
+  });
+});
+
+// ── the reachability gate the mocked-fetch tests above could not see ───────────
+// Two live falsifiers on real parks (2026-09-09) both returned
+// `HTTP 409 {"error":"Unknown task event","code":"action_not_allowed"}` while every test
+// above was green — on an ai-owned park AND on a human-owned one. The gate is neither the
+// status nor the owner: `resolveTaskAction` (aif `packages/shared/dist/stateMachine.js:176`)
+// routes to `resolveHumanOwnerAction` — the ONLY dispatcher carrying the two review events —
+// solely when `participantsModeEnabled`. This deployment leaves `PARTICIPANTS_MODE_ENABLED`
+// unset (`GET /auth/session` → `participantsModeEnabled:false`), so EVERY event resolves
+// through `resolveLegacyAction`, which has no case for either review event and falls to its
+// `default:` — the exact error observed. Firing the event anyway produces a 409 that names
+// nothing; refusing up-front names the cause and the levers.
+describe('review events are refused up-front when the deployment cannot serve them', () => {
+  it('legacy mode: no event is POSTed, and the error names the mode and the levers', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => okResponse({ participantsModeEnabled: false }));
+
+    await expect(
+      pushAnswer('http://aif.test', 't-legacy', 'complete_review', undefined),
+    ).rejects.toThrow(/participants mode/i);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect((fetchSpy.mock.calls[0] as [string, RequestInit])[0]).toBe('http://aif.test/auth/session');
+  });
+
+  it('the refusal is a BackendError, so the CLI reports it like any other aif failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+      okResponse({ participantsModeEnabled: false }),
+    );
+
+    await expect(
+      pushAnswer('http://aif.test', 't-legacy', 'request_review_changes', 'redo it'),
+    ).rejects.toBeInstanceOf(BackendError);
+  });
+
+  it('participants mode on: the probe passes and the event is dispatched', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(async () => okResponse({ participantsModeEnabled: true }))
+      .mockImplementation(async () => okResponse({ ok: true }));
+
+    await pushAnswer('http://aif.test', 't-pm', 'complete_review', undefined);
+
+    expect(fetchSpy.mock.calls.map((c) => c[0])).toEqual([
+      'http://aif.test/auth/session',
+      'http://aif.test/tasks/t-pm/events',
+    ]);
+  });
+
+  it('decisions that target `done` never pay the probe — they were legal all along', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => okResponse({ ok: true }));
+
+    await pushAnswer('http://aif.test', 't-ap', 'approve', undefined);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect((fetchSpy.mock.calls[0] as [string, RequestInit])[0]).toBe('http://aif.test/tasks/t-ap/events');
   });
 });
