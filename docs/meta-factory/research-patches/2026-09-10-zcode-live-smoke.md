@@ -32,7 +32,7 @@ means "does the same hook set fire via the only channel ZCode has".
 |---|---|---|---|
 | 1a | UserPromptSubmit (`inject-session-bootstrap`) | **works** (live-delivered) | row 14 (`zcode-parity-doctrine.md:56`) |
 | 1b | PreToolUse `Agent\|Task` (`inject-subagent-context`) | **gap** — live-unverifiable: content no-op | rows 13/15 (`:55`, `:57`) |
-| 1c | Stop (`end-of-turn-reminder`) | **works at script level**; dispatch probe below | row 9 (`:51`) |
+| 1c | Stop (`end-of-turn-reminder`) | **works** — live: `decision:block` honored, continuation reached the model | row 9 (`:51`) |
 | 2 | `.zcode/skills/` resolve + load | **works** | §5 tier (`:118`) |
 | 3 | `scripts/create-worktree.sh` | **works** | §4 row 20 portable half (`:101`) |
 | 4 | `make self-audit` in worktree | **works** (green) | bootstrap invariant (2) |
@@ -72,7 +72,11 @@ ZCode actually dispatches `PreToolUse` for the Agent tool could be neither confi
 refuted — the hook produces zero output either way, and the only other configured PreToolUse
 hook (`ask-question-reminder`, matcher `AskUserQuestion`) requires a user-blocking call,
 unacceptable in an unattended smoke. The runtime does carry the `updatedInput` apply
-mechanism (`grep -ac updatedInput zcode.cjs` → 4 sites).
+mechanism (`grep -ac updatedInput zcode.cjs` → 4 sites). Postscript (follow-up commit):
+a `PostToolUse:Edit` dispatch WAS observed live — editing this very patch file triggered
+`inject-matching-rule`, whose `📎 Path-relevant rule …` injection arrived in the editing
+session's context — so PostToolUse dispatch is live-confirmed even while PreToolUse stays
+unobservable.
 
 **1c. Stop: works at script level; in-session dispatch probed by this very turn.**
 Synthetic positive control (minified one-line transcript, ZCode-shape `role` field, >500-char
@@ -85,13 +89,17 @@ bash .claude/hooks/end-of-turn-reminder.sh   # stdin: {transcript_path,session_i
 ```
 
 The B2-C thin-recap ZCode branch (`end-of-turn-reminder.sh:614`) fires and emits the correct
-block shape. In-session dispatch outcome: this report's landing turn ends with a long
-markdown-dense final message — if the harness dispatches Stop and honors `decision:block`,
-the session is continued with the recap demand and the outcome is recorded in a follow-up
-commit on this branch; if the session instead ends silently, that silence IS the negative
-outcome (block not delivered to the model) and this paragraph is the pre-registered
-interpretation. (D7/D13 arms expected inert — synthetic transcripts carry no usage fields,
-per the compaction patch §3.3.)
+block shape. In-session dispatch outcome (follow-up commit, same session): **works live**. The landing
+turn's final message (long, markdown-dense, PR URL present) triggered the Stop hook and the
+`decision:block` was honored — the session continued with the recap demand injected
+(`Stop. Before you finish — a recap in plain words… You MUST begin the block with exactly
+the line "## 🟢 In plain words"…`) plus the 🎯 glance line. Two precision notes: on ZCode
+`systemMessage` reaches the model (delivered as injected context alongside the reason —
+unlike CC, where it is user-UI-only, `end-of-turn-reminder.sh:852-857`); and the anchor
+degraded to its fallback text («session goal not extractable — state it yourself») — the
+documented B2 Part C degradation (no ai-title in ZCode synthetic transcripts), not a
+dispatch failure. D7/D13 arms inert as expected — synthetic transcripts carry no usage
+fields (compaction patch §3.3).
 
 ## §4 Checkpoint 2 — `.zcode/skills/`
 
@@ -139,7 +147,7 @@ unset.)
 
 A ZCode build newer than 2026-09-04 changing hook dispatch (or the digest block landing)
 invalidates §3 — re-run the probes before relying on the verdicts. The works-verdicts
-(§3.1a, §4, §5) are single-session observations by construction; a second live session
+(§3.1a, §3.1c, §4, §5) are single-session observations by construction; a second live session
 corroborating them would upgrade them from "observed once" to "stable".
 
 ## §9 Self-review (§1.7)
