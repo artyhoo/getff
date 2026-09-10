@@ -494,6 +494,7 @@ b86e17b4e5dde46b94fcd858afe66f1dff13c1aeaa1a3e258f457dd386fec0d2  packages/core/
 9a0724be4578bca5fa6d0f29c7154986d99324c28d9a203b9ab2475e42ee4360  packages/core/hooks/worktree-node-modules.test.ts
 179dce7a5ddf2584efd08f0379638820d52119f7365b267af2130ed6eafb5a6b  packages/core/hooks/worktree-setup-hydration.test.ts
 920e2c821c12c6981b1ef0ff56932ed58156470a8fa240d5b9439b4967b611d5  packages/core/hooks/worktree-setup.test.ts
+9d9ff373a0ce20650e463e11b015aac45f015066764b2021614ac4c51182d079  packages/core/hooks/zcode-runtime-probe.test.ts
 49bddb652d90d370582d213238fee0cda31cb8906b4f3441357154a3eb225023  packages/core/install/rule-bootstrap-cli.test.ts
 72fb1f5b591a4b74839a889de0756706670b44016843bb061f362185dac398bd  packages/core/install/rule-bootstrap-cli.ts
 4ab40567bbd21455a4b5828eb31b68f0207275e69ffcace99a7db8d231c371af  packages/core/install/rule-bootstrap-practice.test.ts
