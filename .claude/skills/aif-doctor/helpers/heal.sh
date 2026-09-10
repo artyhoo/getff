@@ -21,6 +21,9 @@
 #                                when the aif containers live behind ssh; word-split on purpose)
 #        AIF_AGENT_CONTAINER    (default: local `docker ps` discovery, mirrors refresh-aif-base.sh)
 #        AIF_HEAL_HOOK_SYNC     (default: 1 — set 0 to skip the hook-drift sync step)
+#        AIF_CONTAINER_REPO_ROOT (hook-sync only: parent dir of the base clones, default /home/www;
+#                                AIF_CONTAINER_REPO — the §3.4 single-repo override — is honored
+#                                by deriving its parent as the root)
 #
 # In-flight interlock (honest source = GET /tasks).
 #
@@ -49,8 +52,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo
 # Discovery avoids `--format '{{.Names}}'`: the local shell strips the quotes before ssh,
 # and a bare {{...}} is a metacharacter meal for a PowerShell ssh host — name comes from
 # the last column of the default table, parsed LOCALLY (only plain words cross the wire).
+# $C is resolved lazily (inside heal_hook_drift) so an AIF_HEAL_HOOK_SYNC=0 consumer
+# pays no docker invocation; the base-refresh helper below does its own discovery.
 DC="${AIF_DOCKER_CMD:-docker}"
-C="${AIF_AGENT_CONTAINER:-$($DC ps --filter name=agent 2>/dev/null | tail -n +2 | awk '{print $NF}' | grep -i aif | head -1)}"
+discover_agent_container() {
+  $DC ps --filter name=agent 2>/dev/null | tail -n +2 | awk '{print $NF}' | grep -i aif | head -1
+}
 
 # ── Tier-1 heal #1: hook-drift sync, base clones → live task worktrees. ───────────
 # Why this exists (2026-09-09 incident, SKILL §3.8): worktrees copy `.claude/` ONCE at
@@ -62,20 +69,35 @@ C="${AIF_AGENT_CONTAINER:-$($DC ps --filter name=agent 2>/dev/null | tail -n +2 
 #   Safe while tasks run: a session in flight already loaded its hook; the next session
 #   in that worktree picks up the synced file (write is copy+mv, atomic per file).
 #   Reversible: every overwritten file is backed up under /tmp/doctor-hooksync/<ts>/ in
-#   the container (container-local — gone on rebuild, same trade-off as §3.4).
-#   Deliberately NOT the full .claude/ overlay: no symlinks, no deletions, no directories
-#   — the §3.5 EEXIST history is exactly what a full-overlay sync would re-trigger.
+#   the container — and FAIL-CLOSED: a file whose backup cannot be written is NOT
+#   overwritten (container-local backups; gone on rebuild, same trade-off as §3.4).
+#   Deliberately NOT the full .claude/ overlay: on the SOURCE side no symlinks, no
+#   deletions, no directories are read — the §3.5 EEXIST history is exactly what a
+#   full-overlay sync would re-trigger. (The destination .claude/hooks/ dir is created
+#   when absent; an unlikely symlinked destination FILE is replaced by the real file.)
 heal_hook_drift() {
   [ "${AIF_HEAL_HOOK_SYNC:-1}" = "1" ] || { echo "[aif-doctor heal] hook-sync skipped (AIF_HEAL_HOOK_SYNC=0)"; return 0; }
+  local C="${AIF_AGENT_CONTAINER:-$(discover_agent_container)}"
   [ -n "$C" ] || { echo "[aif-doctor heal] hook-sync skipped — no aif agent container reachable via: $DC"; return 0; }
   # POSIX sh inside the container; script piped via stdin so no nested quoting is needed.
-  # -e passes the optional root override through (empty when unset → container default).
-  if ! $DC exec -i -e AIF_CONTAINER_REPO_ROOT="${AIF_CONTAINER_REPO_ROOT:-}" "$C" sh -s <<'HOOKSYNC'
+  # The root override is passed through ONLY when set locally (-e with an empty value
+  # would clobber a container-level setting); AIF_CONTAINER_REPO (§3.4 refresh helper,
+  # a single repo path) is honored by deriving its parent as the root, so an operator
+  # using the §3.4 override is not silently ignored by hook-sync.
+  local EXEC_ARGS=(exec -i)
+  if [ -n "${AIF_CONTAINER_REPO_ROOT:-}" ]; then
+    EXEC_ARGS+=(-e "AIF_CONTAINER_REPO_ROOT=$AIF_CONTAINER_REPO_ROOT")
+  elif [ -n "${AIF_CONTAINER_REPO:-}" ]; then
+    EXEC_ARGS+=(-e "AIF_CONTAINER_REPO_ROOT=$(dirname "$AIF_CONTAINER_REPO")")
+  fi
+  if ! $DC "${EXEC_ARGS[@]}" "$C" sh -s <<'HOOKSYNC'
 set -u
 ROOT="${AIF_CONTAINER_REPO_ROOT:-/home/www}"
 TS="$(date +%Y%m%d-%H%M%S)"
 BKROOT="/tmp/doctor-hooksync/$TS"
 synced=0; backed_up=0; bases=0
+# Hook filenames are kebab-case by repo convention (no spaces/globs); the word-split
+# find loop below relies on that population constraint.
 for hooks_dir in "$ROOT"/*/.claude/hooks; do
   [ -d "$hooks_dir" ] || continue
   base="$(dirname "$(dirname "$hooks_dir")")"
@@ -90,8 +112,12 @@ for hooks_dir in "$ROOT"/*/.claude/hooks; do
       dst="$wt/.claude/hooks/$name"
       if [ -f "$dst" ] && cmp -s "$f" "$dst"; then continue; fi
       if [ -f "$dst" ]; then
-        mkdir -p "$BKROOT/${wt##*/}"
-        cp "$dst" "$BKROOT/${wt##*/}/$name.bak" && backed_up=$((backed_up + 1))
+        # Fail-closed backup: no backup → no overwrite (the reversibility contract).
+        mkdir -p "$BKROOT/${wt##*/}" 2>/dev/null \
+          || { echo "[aif-doctor heal] hook-sync: backup dir unwritable for $dst — skipped"; continue; }
+        cp "$dst" "$BKROOT/${wt##*/}/$name.bak" 2>/dev/null \
+          || { echo "[aif-doctor heal] hook-sync: backup failed for $dst — skipped"; continue; }
+        backed_up=$((backed_up + 1))
       fi
       cp "$f" "$dst.hooksync-new" && mv "$dst.hooksync-new" "$dst" && synced=$((synced + 1)) \
         || echo "[aif-doctor heal] hook-sync: failed to write $dst — skipped"
