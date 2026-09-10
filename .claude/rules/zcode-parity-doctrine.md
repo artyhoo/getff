@@ -56,7 +56,7 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 | 14 | `inject-session-bootstrap` | UserPromptSubmit | works | `parity` |
 | 15 | `inject-subagent-context` | PreToolUse:Agent\|Task | works (Agent aliases to Task on ZCode); documented role = ZCode's SubagentStart fallback | `parity` (with role annotation) |
 | 16 | `inject-subagent-digest` | SubagentStart | impossible (event ∉ `ZCODE_EVENTS`); role replaced on ZCode by row 15 | `cc-only` |
-| 17 | `runtime-bridge-dispatch` | PostToolUse:Write\|Edit\|MultiEdit | degraded (`MultiEdit` matcher inert; Write+Edit fire) | `zcode-gap` |
+| 17 | `runtime-bridge-dispatch` | PostToolUse:Write\|Edit\|MultiEdit **+ PostToolUseFailure:Write\|Edit\|MultiEdit** (lost-dispatch failure arm, P3-1 2026-09-11) | degraded (`MultiEdit` matcher inert; Write+Edit fire); failure arm fires too — `PostToolUseFailure` ∈ `ZCODE_EVENTS`, payload {tool_name, tool_input, error, error_details, is_interrupt} verified on both harnesses (survey #1699 §3) | `zcode-gap` |
 | 18 | `validate-prompt` | PostToolUse:Edit\|Write | works | `parity` |
 | 19 | `warn-subagent-report` | SubagentStop | works via 4D hybrid (#1046): PostToolUse:Agent real-time arm + Stop completeness arm deliver the report the SubagentStop event would have carried | `parity` (4D hybrid variant) |
 | 20 | `worktree-setup` | WorktreeCreate | impossible (event ∉ `ZCODE_EVENTS`); CC harness feature, not in default settings | `cc-only` (maintainer-applied scaffolding) |
@@ -67,7 +67,7 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 
 ## §3 Per-stage decisions
 
-All 5 strategic forks decided 2026-07-18 in [decisions.md §Wave A brainstorm resolutions](../../docs/meta-factory/zcode-parity-mega.decisions.md). **Status column reflects runtime reality** for all Wave B stages (5/6/7B/9C merged via #1043/#1044/#1046/#1047). The sole outstanding deferral is D3 — runtime loud-declaration sync in [`scripts/render-harness-config.mjs:256-268`](../../scripts/render-harness-config.mjs), still emitting `NO backup: warn-subagent-report … CC-only` despite Stage 5's merge; that sync is **deliberately parked** because the renderer edit has its own wording + snapshot consequences.
+All 5 strategic forks decided 2026-07-18 in [decisions.md §Wave A brainstorm resolutions](../../docs/meta-factory/zcode-parity-mega.decisions.md). **Status column reflects runtime reality** for all Wave B stages (5/6/7B/9C merged via #1043/#1044/#1046/#1047). D3 — runtime loud-declaration sync in [`scripts/render-harness-config.mjs`](../../scripts/render-harness-config.mjs) — was **unparked and resolved** by the I-phase P0 PR (2026-09-11): the `NO backup: warn-subagent-report … CC-only` declaration now states the 4D-hybrid parity (#1046), the SubagentStart backup states full parity (#1047), and the project-hooks note cites the workspace-trust mechanism (`config_project_hooks_pending_trust`, survey #1699 §4) instead of the dead `config_project_hooks_ignored` policy — wording and snapshot test moved in lockstep.
 
 | Stage | Decision | Status | PR | Notes |
 |---|---|---|---|---|
@@ -130,7 +130,7 @@ The Cursor caveat (docs-verified, not live-tested) is the load-bearing honest di
 - **Step-1 patch:** [`docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-step1.md) — emit-wrapper infra, B1 latent fix, Bespoke #2 REJECT.
 - **Wave A research patches:** [`s2-mech2-alt`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s2-mech2-alt.md), [`s4-warn-subagent`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s4-warn-subagent.md), [`s7-subagentstart`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s7-subagentstart.md), [`s8-harness-survey`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md), [`s9-multiturn-anchor`](../../docs/meta-factory/research-patches/2026-07-18-zcode-parity-s9-multiturn-anchor.md).
 - **Renderer SSOT:** [`scripts/render-harness-config.mjs`](../../scripts/render-harness-config.mjs) — `ZCODE_EVENTS` (lines 46-54), `ZCODE_UNSUPPORTED_TOOLS` (line 63), backup-path loud-declarations (lines 256-268).
-- **Plan §0 (split rationale):** the S10 plan lived at a gitignored local path (`.ai-factory/plans/zcode-parity-s10-doctrine-doc.md`, never tracked — dangling as a link since S10 merged); its §0 rationale — defer the D3 runtime loud-declaration sync to the Wave B implementation PR — is restated in §3's header note above (D3 is the sole outstanding deferral, deliberately parked).
+- **Plan §0 (split rationale):** the S10 plan lived at a gitignored local path (`.ai-factory/plans/zcode-parity-s10-doctrine-doc.md`, never tracked — dangling as a link since S10 merged); its §0 rationale — defer the D3 runtime loud-declaration sync to the Wave B implementation PR — is historical: D3 was resolved 2026-09-11 (see §3 header note).
 
 ## §7 §1.7 self-reflexive note
 

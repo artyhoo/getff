@@ -256,10 +256,10 @@ describe('harness-config-drift — honest degradation (attention-is-not-a-mechan
     expect(c.out).toMatch(
       /NOT (in zcode's event set|expressed)|cannot be expressed|unsupported/i,
     );
-    // Declared degradation per event: SubagentStart has a backup (one-shot digest),
-    // SubagentStop does not (post-dispatch, no analogue). Both surfaced honestly.
+    // Declared resolution per event: SubagentStart → full-parity backup (Stage 7B, #1047);
+    // SubagentStop → 4D hybrid parity variant (Stage 5, #1046). Both surfaced honestly.
     expect(c.out).toMatch(/inject-subagent-context(\.sh)?/);
-    expect(c.out).toContain('NO backup');
+    expect(c.out).toContain('4D hybrid');
   });
 
   it('emitZcode LOUDLY declares matchers that name tools zcode has no alias for (MultiEdit)', () => {
@@ -274,13 +274,15 @@ describe('harness-config-drift — honest degradation (attention-is-not-a-mechan
   });
 
   it('emitZcode LOUDLY declares that project-config hooks are stripped (plugin channel is the live path)', () => {
-    // zcode strips hooks from .zcode/config.json under config_project_hooks_ignored (security
-    // policy, T3e/TTn @ zcode.cjs:2047000). The emitter must NOT silently write hooks there —
-    // it must declare the gap loudly so a reader knows hooks travel via plugin/hooks/hooks.json.
+    // Workspace-config hooks are pending interactive trust on ZCode (diagnostic
+    // config_project_hooks_pending_trust, sha256 declaration digests — survey #1699 §4);
+    // re-trust churn per hook edit is anti-consumer, so the operator chose plugin-only (Fork A=A2).
+    // The emitter must NOT silently write hooks there — it must declare loudly so a reader knows
+    // hooks travel via plugin/hooks/hooks.json.
     const s = sandbox();
     const c = gen(s, '--write');
     expect(c.out).toMatch(
-      /hooks NOT emitted.*zcode\/config\.json|config_project_hooks_ignored/i,
+      /hooks NOT emitted.*zcode\/config\.json|config_project_hooks_pending_trust/i,
     );
     expect(c.out).toContain('plugin'); // points at the plugin channel as the live path
     // And the rendered .zcode/config.json carries NO hooks key (MCP + skills only):
