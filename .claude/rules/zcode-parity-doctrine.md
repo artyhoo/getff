@@ -56,7 +56,7 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 | 14 | `inject-session-bootstrap` | UserPromptSubmit | works | `parity` |
 | 15 | `inject-subagent-context` | PreToolUse:Agent\|Task | works (Agent aliases to Task on ZCode); documented role = ZCode's SubagentStart fallback | `parity` (with role annotation) |
 | 16 | `inject-subagent-digest` | SubagentStart | impossible (event ∉ `ZCODE_EVENTS`); role replaced on ZCode by row 15 | `cc-only` |
-| 17 | `runtime-bridge-dispatch` | PostToolUse:Write\|Edit\|MultiEdit | degraded (`MultiEdit` matcher inert; Write+Edit fire) | `zcode-gap` |
+| 17 | `runtime-bridge-dispatch` | PostToolUse:Write\|Edit\|MultiEdit **+ PostToolUseFailure:Write\|Edit\|MultiEdit** (lost-dispatch failure arm, P3-1 2026-09-11) | degraded (`MultiEdit` matcher inert; Write+Edit fire); failure arm fires too — `PostToolUseFailure` ∈ `ZCODE_EVENTS`, payload {tool_name, tool_input, error, error_details, is_interrupt} verified on both harnesses (survey #1699 §3) | `zcode-gap` |
 | 18 | `validate-prompt` | PostToolUse:Edit\|Write | works | `parity` |
 | 19 | `warn-subagent-report` | SubagentStop | works via 4D hybrid (#1046): PostToolUse:Agent real-time arm + Stop completeness arm deliver the report the SubagentStop event would have carried | `parity` (4D hybrid variant) |
 | 20 | `worktree-setup` | WorktreeCreate | impossible (event ∉ `ZCODE_EVENTS`); CC harness feature, not in default settings | `cc-only` (maintainer-applied scaffolding) |

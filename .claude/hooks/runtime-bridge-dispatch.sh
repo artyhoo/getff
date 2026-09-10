@@ -96,6 +96,38 @@ INPUT="$(cat)"
 TOOL="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
 FILE_PATH="$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
 
+# ── PostToolUseFailure arm (P3-1, 2026-09-11) ────────────────────────────────
+# A FAILED Write/Edit of a bridge kickoff is a dispatch the author opted into
+# that silently never happened: the success path below never fires, so nobody is
+# told. This arm injects the missing warning. Injection only — the write already
+# failed, there is nothing to gate.
+# Silence boundaries (same non-nagging rule as the no-entrypoint branch above):
+#   - is_interrupt=true (user cancelled the write) → intentional, not a loss;
+#   - a failed FRESH write leaves no file, so the opt-in marker is unknowable
+#     → warn only when the on-disk kickoff carries `<!-- bridge: auto -->`
+#     (the failed-EDIT-of-a-marked-kickoff case, where the dispatch is provably
+#     lost). Payload per both harnesses: tool_name, tool_input, error,
+#   - error_details, is_interrupt (survey #1699 §3; PostToolUseFailure is in
+#     ZCODE_EVENTS, so the twin fires on both harnesses).
+if [ "$(printf '%s' "$INPUT" | jq -r '.hook_event_name // ""' 2>/dev/null || true)" = "PostToolUseFailure" ]; then
+  case "$TOOL" in
+    Write|Edit|MultiEdit) ;;
+    *) exit 0 ;;
+  esac
+  case "$FILE_PATH" in
+    *-meta-launch/kickoff.md) exit 0 ;;
+    */kickoff.md) ;;
+    *) exit 0 ;;
+  esac
+  [ "$(printf '%s' "$INPUT" | jq -r '.is_interrupt // false' 2>/dev/null || true)" = "true" ] && exit 0
+  if [ -f "$FILE_PATH" ] \
+     && [ "$(head -n1 "$FILE_PATH" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')" = '<!-- bridge: auto -->' ]; then
+    _ERR_MSG="$(printf '%s' "$INPUT" | jq -r '.error // .error_details.message // "unknown"' 2>/dev/null || true)"
+    _emit_dep_skip "⚠ runtime-bridge-dispatch: the kickoff write FAILED — the auto-dispatch it opted into (bridge:auto marker on line 1) DID NOT RUN. Tool error: ${_ERR_MSG}. Retry the write, or dispatch manually: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path> (framework) / tsx .claude/vendor/runtime-bridge/src/cli/dispatch.ts <kickoff-path> (consumer)."
+  fi
+  exit 0
+fi
+
 # Only fire on Write or Edit events
 case "$TOOL" in
   Write|Edit|MultiEdit) ;;
