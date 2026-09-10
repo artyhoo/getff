@@ -172,6 +172,35 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
 
 > **Parked, not prescribed:** an upstream fix (e.g. moving `processAutoQueueAdvance()` onto its own interval, so admission does not wait on the active lane's exit) belongs in `lee-to/aif-handoff` — outside this repo's PR and outside this catalogue entry. This entry codifies the _observable mode_ and the _today-mitigation_ only.
 
+### §3.8 Review-contract park cascade — SDK sidecars break the structured-review contract, and every fallback round deepens the park (verified live 2026-09-09)
+
+- **The failure class:** tasks pile up at raw `status:"review"` with `manualReviewRequired:true` while auto-review closes nothing. Four defects stack into one pyramid (evidence + full causal chain: [2026-09-10 recovery handoff](../../../docs/superpowers/specs/2026-09-10-aif-review-contract-recovery-handoff.md)):
+  1. **Recap Stop hook intercepted SDK sidecar sessions** — `end-of-turn-reminder.sh` demanded a plain-words recap; the sidecar's LAST message became recap prose, so `## Blocking Findings` never reached `parseStructuredSidecarOutput` (`packages/agent/src/reviewContract.ts:95`). Fixed in-repo by `efd32faad5` (guard on `CLAUDE_CODE_ENTRYPOINT` `sdk-*`).
+  2. **Worktree hook drift** — `.claude/` is copied ONCE at worktree creation (`copyProjectContextToWorktree`, `packages/shared/src/gitIsolation.ts`), so the base-side hook fix never reached live worktrees (measured: guard=2 in bases, 0 in all 9 live worktrees until patched by hand).
+  3. **Bijection deadlock** — on a failed parse the review-gate re-reviews and APPENDS its own rephrased findings to `autoReviewState`; the parser then requires the next verdict to adjudicate EVERY remembered finding exactly 1:1 (`reviewContract.ts:117–134`, count mismatch → `null`). Unsatisfiable by construction after the first fallback round (live: 7 valid output IDs vs 13 state findings).
+  4. **`maxReviewIterations` defaulted to 1** (container env `AGENT_MAX_REVIEW_ITERATIONS`) — the first rework verdict parks at `max_iterations` regardless of verdict quality.
+- **Detect (read-only):**
+  ```bash
+  # park shape — sustained across coordinator passes (not a transient in-flight review):
+  curl -s localhost:3009/tasks | jq '[.[] | select(.status=="review" and .manualReviewRequired==true)] | length'
+  # recap-only sidecar output (defect 1) — reviewComments lacks the contract sections:
+  curl -s localhost:3009/tasks/<id> | jq -r '.reviewComments' | grep -c '^## Blocking Findings'   # 0 = contract never reached
+  # hook-drift discriminator (defect 2) — 0 = pre-fix hook in THIS worktree, 2 = fixed:
+  docker exec <agent> grep -c CLAUDE_CODE_ENTRYPOINT <worktreePath>/.claude/hooks/end-of-turn-reminder.sh
+  # bijection deadlock (defect 3) — parse failures persist WHILE remembered findings grow:
+  docker logs <agent> --since 2h | grep -c 'Structured review contract not satisfied'   # >0 across iterations
+  docker exec <api> node -e 'const t=require("better-sqlite3")("/data/aif.sqlite").prepare("SELECT length(auto_review_state_json) n FROM tasks WHERE id=?").get("<id>");console.log(t.n)'  # growing across iterations
+  # no-subagent fallback (variant) — reviewComments ~105 chars containing 'Unknown command: /aif-review'
+  ```
+  Remote-layout note (pc-lan/ssh): keep every remote command inside a single-quoted `sh -c '…'` block — a PowerShell ssh host eats `"`, `$( )`, `{{…}}` and pipes sent bare; or run heal.sh with `AIF_DOCKER_CMD="ssh <host> docker"`.
+- **Fix — mapped by defect (Tier per §4):**
+  1. **Hook drift → `heal.sh` hook-sync (SHIPPED with this entry, Tier 1, in-flight-safe):** the heal entrypoint now syncs every base clone's `.claude/hooks/` regular files into each sibling `<base>-feature-*` worktree BEFORE the in-flight interlock (atomic cp+mv per file; overwritten files backed up to `/tmp/doctor-hooksync/<ts>/` in the container; symlinks/dirs/extra worktree files never touched — the §3.5 EEXIST shape). First live run: 371 files across 3 real bases, 176 backed up, loop unaffected. `AIF_HEAL_HOOK_SYNC=0` skips; `AIF_DOCKER_CMD="ssh <host> docker"` reaches remote containers.
+  2. **Release a review park (Tier 2 — GO):** in non-participants mode NO task event exits `review` (`resolveLegacyAction` → 409 "Unknown task event"; `HUMAN_ACTIONS_BY_STATUS.review = []`); the working exit is `POST /tasks/:id/handoff {"executionOwner":"ai","expectedOwnershipRevision":<int>,"expectedExecutionOwner":"human","expectedStatus":"review","reason":…}` — fetch each task's `ownershipRevision` first; retry once on SQLITE_BUSY. Documented in our own `packages/runtime-bridge/src/cli/answer.ts:232` (`reviewEventUnreachableReason`).
+  3. **Bijection-deadlocked state reset (Tier 2 — GO + backup):** the API cannot write `autoReviewState` (`updateTaskSchema` lacks it), so surgery is direct SQLite: `UPDATE tasks SET auto_review_state_json=NULL, manual_review_required=0, review_iteration_count=0 WHERE id=?` — an exact mirror of the state machine's `CLEAN_STATE_RESET` (`packages/shared/src/stateMachine.ts`). Back up all rows first (night backup: `/tmp/doctor-ars-backup.json` in the api container — container-local, gone on rebuild).
+  4. **Iteration budget (Tier 1):** `PUT /tasks/:id {"maxReviewIterations":6}` for parked tasks (route is PUT — PATCH 404s); recurrence is closed at the source — the bridge now sends `maxReviewIterations: 4` on every create (`AifHandoffBackend.DEFAULT_MAX_REVIEW_ITERATIONS`).
+  5. **`Unknown command: /aif-review` variant:** per-task escape is `PUT {"useSubagents:true}` (the subagent route skips the missing slash command, `reviewer.ts:168`); verified live — security-sidecar completed, code-review ran real commands.
+- **Parked, not prescribed:** the durable fixes for defects 3–4 belong in `lee-to/aif-handoff` — subset adjudication (treat unadjudicated remembered findings as `still_blocking`) and/or dedupe-at-state-write (canonical IDs over normalized text), plus a sane `AGENT_MAX_REVIEW_ITERATIONS` default. Batch them into one base refresh at a board-drain point (§3.4).
+
 ---
 
 ## §4 Mutation discipline (the Q2 contract)
