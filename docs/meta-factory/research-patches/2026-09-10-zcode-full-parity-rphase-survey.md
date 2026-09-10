@@ -25,7 +25,7 @@
 SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure, Stop
 ```
 
-→ `ZCODE_EVENTS` in [`scripts/render-harness-config.mjs:46-54`](../../../../scripts/render-harness-config.mjs) is **current**. The doctrine's 22-row §2 census needs no event-level correction.
+→ `ZCODE_EVENTS` in [`scripts/render-harness-config.mjs:46-54`](../../../scripts/render-harness-config.mjs) is **current**. The doctrine's 22-row §2 census needs no event-level correction.
 
 **CC 2.1.233 vocabulary (string probes over the native binary):** all of the above **plus** `SessionEnd`, `SubagentStart`, `SubagentStop`, `PreCompact`, `Notification`, `WorktreeCreate` — 13 events total.
 
@@ -71,7 +71,7 @@ Extracted from the shipped Zod schemas and dispatch code; this is the contract a
 
 ## §4 The workspace-hooks trust channel (architecture-level discovery)
 
-The renderer's premise — «ZCode strips project-config hooks (security policy `config_project_hooks_ignored`, T3e/TTn @ zcode.cjs:2047000)» ([`render-harness-config.mjs`](../../../../scripts/render-harness-config.mjs) emitZcode block comment + note op) — is **stale at the mechanism level**:
+The renderer's premise — «ZCode strips project-config hooks (security policy `config_project_hooks_ignored`, T3e/TTn @ zcode.cjs:2047000)» ([`render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) emitZcode block comment + note op) — is **stale at the mechanism level**:
 
 - `config_project_hooks_ignored`: **0 occurrences** in both bundles. The cited byte offset now lands in WASM-loader code.
 - The loader today: reads `zcode.json` **and** `.zcode/config.json` per root (`L_r`), strips `hooks` from the active config (`c5o`), emits diagnostic `config_project_hooks_pending_trust` — *"Project hooks are pending workspace trust and remain blocked"* — and preserves the declarations as a `hookCandidate`.
@@ -99,9 +99,9 @@ The renderer's premise — «ZCode strips project-config hooks (security policy 
 
 ## §6 Stale-claim sweep (backward-check targets found by this survey)
 
-1. [`scripts/render-harness-config.mjs`](../../../../scripts/render-harness-config.mjs) emitZcode comment + note op — cites dead policy name `config_project_hooks_ignored` and dead byte offset `zcode.cjs:2047000`. Mechanism replaced by pending-trust (§4). Conclusion (plugin-only hook emission) still correct. → fold into the parked **D3 renderer-sync** batch (doctrine §3 header note) rather than a lone edit — renderer wording + snapshots move in lockstep.
+1. [`scripts/render-harness-config.mjs`](../../../scripts/render-harness-config.mjs) emitZcode comment + note op — cites dead policy name `config_project_hooks_ignored` and dead byte offset `zcode.cjs:2047000`. Mechanism replaced by pending-trust (§4). Conclusion (plugin-only hook emission) still correct. → fold into the parked **D3 renderer-sync** batch (doctrine §3 header note) rather than a lone edit — renderer wording + snapshots move in lockstep.
 2. Same file, loud-declaration block (`render-harness-config.mjs:256-268` area): `SubagentStop — NO backup … CC-only` is stale since Stage 5/#1046 — this is the already-parked D3 item; §6.1 joins it.
-3. [`plugin/hooks/hooks.json`](../../../../plugin/hooks/hooks.json): two dead-on-ZCode registrations — `SubagentStart -> inject-project-digest` (event absent from runtime enum; the role is served by `PreToolUse:Agent` inject-subagent-context per row 13/15) and `SessionStart [startup|clear|compact]` matcher values `clear|compact` (no dispatch sites — #1696 §3.2). Harmless (registered-but-never-matched), but they are undeclared noise in the shipped manifest. Generator-level prune candidate (§8 P0).
+3. [`plugin/hooks/hooks.json`](../../../plugin/hooks/hooks.json): two dead-on-ZCode registrations — `SubagentStart -> inject-project-digest` (event absent from runtime enum; the role is served by `PreToolUse:Agent` inject-subagent-context per row 13/15) and `SessionStart [startup|clear|compact]` matcher values `clear|compact` (no dispatch sites — #1696 §3.2). Harmless (registered-but-never-matched), but they are undeclared noise in the shipped manifest. Generator-level prune candidate (§8 P0).
 4. Doctrine §2/§4 event-level premises — **re-verified current** on this build (7-event enum ×3 encodings; PreCompact 0; no `source=compact` dispatch). No edit needed.
 
 ## §7 Verdicts per parity domain
@@ -119,17 +119,18 @@ The renderer's premise — «ZCode strips project-config hooks (security policy 
 ## §8 Prioritized I-phase plan
 
 **P0 — autonomous hygiene (no strategic fork):**
+0. D4 follow-through: honest-degradation note on invocation-channel discipline — the skills claiming «explicit /X only» via `disable-model-invocation` (dispatcher, harvest, arch, pipeline, aif-doctor) get a one-line ZCode caveat (un enforceable; discipline is prompt-level) in the same skill-edit batch as P0c/P0d.
 1. Unpark D3: one renderer PR syncing (a) the dead `config_project_hooks_ignored`/offset citation → pending-trust mechanism (§4), (b) the stale `SubagentStop NO-backup` loud-declaration → 4D-hybrid wording, with snapshot updates in lockstep (doctrine §3 header already scopes this).
 2. Generator prune: drop `SubagentStart` registration + `clear|compact` matcher values from the Stage-6 twin generator output (`plugin/hooks/hooks.json`), regen manifest, tests green.
 
 **P1 — DECISION-NEEDED (operator picks before dispatch):**
-- **Fork A — workspace-config trust channel.** Options: (A1) experiment dogfood-only — write hooks into `.zcode/config.json` in the maintainer env, walk the trust review in the app, record UX + digest-churn cost (hooks edit ⇒ re-trust); (A2) keep plugin-only (status quo; consumer install stays friction-free); (A3) adopt for consumers too (rejected-by-default: digest re-trust on every hook update is anti-consumer). Evidence needed for A1: one manual trust walkthrough; no headless CLI entry exists in the app bundle (§1), so this is an operator-at-the-GUI step.
-- **Fork B — executable runtime-probe test (getff-style).** `scripts/probe-zcode-runtime.sh` + vitest wrapper (skip cleanly when `/Applications/ZCode.app` absent; no paid LLM): assert the 7-event enum literals, `PreCompact`=0, `runSessionStartHooks` call-set, trust-model markers, `CLAUDE_*` env compat, plugin-component compatibility list. Turns the doc-ahead-of-runtime failure mode into a failing test. This is the recursive self-application of the method that produced #1696 and §4.
+- **Fork A — workspace-config trust channel.** Options: (A1) experiment dogfood-only — write hooks into `.zcode/config.json` in the maintainer env, walk the trust review in the app, record UX + digest-churn cost (hooks edit ⇒ re-trust); (A2) keep plugin-only (status quo; consumer install stays friction-free); (A3) adopt for consumers too (rejected-by-default: digest re-trust on every hook update is anti-consumer). Evidence needed for A1: one manual trust walkthrough; no headless CLI entry exists in the app bundle (`ls Contents/MacOS` → a single GUI binary; no standalone CLI found under `Contents/Resources`), so this is an operator-at-the-GUI step.
+- **Fork B — executable runtime-probe test (getff-style).** `scripts/probe-zcode-runtime.sh` + vitest wrapper (skip cleanly when `/Applications/ZCode.app` absent; no paid LLM): assert the 7-event enum literals, `PreCompact`=0, `runSessionStartHooks` call-set, trust-model markers, `CLAUDE_*` env compat, plugin-component compatibility list, and 2–3 §3-contract assertions (the `permissionDecision` enum literals inside the `SRn` union, the `k3t` top-level key set, the `600*1e3` timeout constant). Turns the doc-ahead-of-runtime failure mode into a failing test. This is the recursive self-application of the method that produced #1696 and §4.
 
 **P2 — doctrine extension (docs-only, follows operator nod on scope):** add the §5 beyond-hooks census as a doctrine section (or annex research-patch reference) so parity SSOT covers non-hook domains; include the §3 contract as the normative hook-I/O reference for twin authors.
 
-**P3 — resolved 2026-09-11 (operator + on-the-merits, see §11.6):**
-- PostToolUseFailure hooks — **BUILD** (operator override of the initial DEFER lean): failure-path arm for `runtime-bridge-dispatch` + failed-mutation audit trail. I-phase item.
+**P3 — resolved 2026-09-11 (operator + on-the-merits; resolution record in §8a):**
+- PostToolUseFailure hooks — **BUILD** (operator override of the DEFER lean recorded in the PR-body discussion): failure-path arm for `runtime-bridge-dispatch` + failed-mutation audit trail. I-phase item.
 - Plugin-agents-diagnosticOnly — one-line warning in `claude-glm-executor-handoff` SKILL.md, folded into I-phase P0 batch (skill edit goes through ai-doc gates there).
 
 **Explicitly out of scope (confirmed non-gaps):** SessionEnd/Notification events (framework rides Stop); statusLine (unused); MCPB/DXT (unsupported upstream, unused).
@@ -140,7 +141,7 @@ The renderer's premise — «ZCode strips project-config hooks (security policy 
 
 ## §9 Falsifier
 
-Any ZCode build newer than 2026-09-04 (3.11.2.6792) may invalidate §2–§5. Re-probe before relying on this survey: event-enum literals (3 encodings), `config_project_hooks_pending_trust` presence, `workspaceHookReview` interaction wiring, `disable-model-invocation` count, plugin `compatibility.runnable` list. Fork B (§8) automates exactly this set — that is its point.
+Any ZCode build newer than 2026-09-04 (3.11.2.6792) may invalidate §2–§5. Re-probe before relying on this survey: event-enum literals (3 encodings), `config_project_hooks_pending_trust` presence, `workspaceHookReview` interaction wiring, `disable-model-invocation` count, plugin `compatibility.runnable` list, and the §3 I/O contract shape (SRn/k3t schema literals, exit-2 mapping, 600 s timeout constant, plain-stdout drop). Fork B (§8) automates exactly this set — that is its point.
 
 ## §10 §1.7 self-review
 
@@ -156,8 +157,8 @@ Any ZCode build newer than 2026-09-04 (3.11.2.6792) may invalidate §2–§5. Re
 
 **Backward-check (surfaces whose claims this survey touches):**
 
-- [`render-harness-config.mjs`](../../../../scripts/render-harness-config.mjs): 2 stale claims found (§6.1–6.2) — both already inside the parked-D3 scope; NOT edited here (docs-only research PR; renderer edits move with snapshots). `ZCODE_EVENTS`/`ZCODE_UNSUPPORTED_TOOLS` re-verified current.
-- [`plugin/hooks/hooks.json`](../../../../plugin/hooks/hooks.json): dead registrations enumerated (§6.3), not pruned here (generator + manifest + tests = execution work, P0 of I-phase).
+- [`render-harness-config.mjs`](../../../scripts/render-harness-config.mjs): 2 stale claims found (§6.1–6.2) — both already inside the parked-D3 scope; NOT edited here (docs-only research PR; renderer edits move with snapshots). `ZCODE_EVENTS`/`ZCODE_UNSUPPORTED_TOOLS` re-verified current.
+- [`plugin/hooks/hooks.json`](../../../plugin/hooks/hooks.json): dead registrations enumerated (§6.3), not pruned here (generator + manifest + tests = execution work, P0 of I-phase).
 - [`.claude/rules/zcode-parity-doctrine.md`](../../../.claude/rules/zcode-parity-doctrine.md): §2 premises re-verified current — no contradiction introduced; §4/§5 of this patch extend, not amend.
 - [2026-09-10 compaction S-verify](2026-09-10-zcode-compaction-hook-verification.md): same binary, zero contradiction; §2 disambiguation (probe dispatch sites, not strings) generalizes its §6 revisit rule.
 - Census + dated research patches (2026-07-18 family): immutable dated records — exempt; this patch supersedes nothing in them.
@@ -182,23 +183,23 @@ Evidence tiers: [live] = loaded in this session's prompt; [scan] = marker scan o
 
 | skill | live | verdict | notes |
 |---|---|---|---|
-| `dispatcher` | ✓ | **works** | `/dispatcher` channel ✓ (§11.1); `disable-model-invocation` declared but unenforceable on ZCode — discipline rests on prompt; CLAUDE.md/rules refs are [soft] |
+| `dispatcher` | ✓ | **works** | channel mechanism ✓ (§11.1; per-command E2E not exercised); `disable-model-invocation` declared but unenforceable on ZCode — discipline rests on prompt; CLAUDE.md/rules refs are [soft] |
 | `pipeline` | ✓ | **works, partial content drift** | references PreCompact-residue flows — inert on ZCode (doctrine rows 21/22: no compaction hook lifecycle); the skill's other arms unaffected |
 | `arch` | ✓ | **works** | [soft] refs only |
 | `orchestrator` | ✓ | **works** | [soft] refs only |
 | `night-mode` | ✓ | **works, partial content drift** | references SubagentStart/SubagentStop semantics — inert on ZCode; autonomous-loop core unaffected (rides Stop/UserPromptSubmit) |
-| `reviewer` | ✓ | **works** | `/review` channel ✓ |
-| `harvest` | ✓ | **works** | `/harvest` channel ✓ |
+| `reviewer` | ✓ | **works** | channel mechanism ✓ (§11.1; per-command E2E not exercised) |
+| `harvest` | ✓ | **works** | channel mechanism ✓ (§11.1; per-command E2E not exercised) |
 | `aif-doctor` | ✓ | **works** | dmi-declared (unenforced, as above) |
 | `story`, `rule-tests`, `template-audit`, `tool-bootstrapping` | ✓ | **works** | no CC-only markers at all |
 | `ai-doc`, `self-reflection`, `rule-research` | ✓ | **works** | [soft] refs only |
-| `claude-glm-executor-handoff` | ✓ | **works, STALE model refs** | description/body say GLM-5.2; operator correction 2026-09-11: executor tier is **glm-5.3** now → skill edit queued for I-phase P0 (via ai-doc gates). Kickoff bridge-profile markers self-heal by design (`_resolveProfileId` errors loudly on stale names — precedent #1109); dated research patches stay immutable |
+| `claude-glm-executor-handoff` | ✓ | **works, STALE model refs** | description/body say GLM-5.2; operator correction 2026-09-11: executor tier is **glm-5.3** now → skill edit queued for I-phase P0 (via ai-doc gates). Kickoff bridge-profile markers self-heal by design (`_resolveProfileId` errors loudly on stale names — by design, precedent #1109, not re-exercised here); dated research patches stay immutable |
 
-User-level: `ai-docs`, `claude-account-cleanup`, `native-css-responsive` (верстка), `uniq-rewrite` at `~/.zcode/skills/`, plus `design-compare` at `~/.agents/skills/` — all valid frontmatter, all live-loaded (the `.agents` root is a scanned skills root, confirmed by both the binary constant `H5o=".agents"` and live load).
+User-level: `ai-docs`, `claude-account-cleanup`, `native-css-responsive` (CSS layout), `uniq-rewrite` at `~/.zcode/skills/`, plus `design-compare` at `~/.agents/skills/` — all valid frontmatter, all live-loaded. Hygiene finding: the same `~/.zcode/skills/` dir carries **7 broken symlinks** (imagegen, openai-docs, orchestrator, plugin-creator, pr-template-multi-phase, skill-creator, skill-installer → deleted `~/.claude` / `~/.codex` targets) — dead entries, skipped by the scanner's symlink-follow, worth a one-off cleanup (I-phase P0 candidate, maintainer-env only). (the `.agents` root is a scanned skills root, confirmed by both the binary constant `H5o=".agents"` and live load).
 
-### §11.3 Companion plugins (спутники) — all LIVE
+### §11.3 Companion plugins — all LIVE
 
-Installed and loaded in this session (proof = they appear in the live skill list): `claude-plugins-official` (superpowers 6.1.1 — 14 skills incl. TDD, systematic-debugging, writing-plans), `zcode-plugins-official` (browser-use `web-gui-tester`+`control-browser` — the GUI-верстка pair, multiple cached versions = upgrade history; `computer-use`; `document-skills` docx/pdf/pptx/xlsx; `zcode-guide` diagnostics suite; `skill-creator`; ios/android-dev; restore-legacy-sessions), `getff` (getff, using-getff, installing-enforcement — our own trio, plugin channel). **Zero broken companions found.**
+Installed and loaded in this session (proof = they appear in the live skill list): `claude-plugins-official` (superpowers 6.1.1 — 14 skills incl. TDD, systematic-debugging, writing-plans), `zcode-plugins-official` (browser-use `web-gui-tester`+`control-browser` — the GUI-layout-testing pair, multiple cached versions = upgrade history; `computer-use`; `document-skills` docx/pdf/pptx/xlsx; `zcode-guide` diagnostics suite; `skill-creator`; ios/android-dev; restore-legacy-sessions), `getff` (getff, using-getff, installing-enforcement — our own trio, plugin channel). **Zero broken companions found.**
 
 ### §11.4 Consumer distribution — current state + operator directive
 
@@ -210,10 +211,10 @@ Today consumers receive exactly 3 skills (getff trio) + the hooks channel via th
 
 ### §11.5 Audit method
 
-Python script over `.claude/skills/*/SKILL.md` + `~/.zcode/skills/` + plugin caches: frontmatter parse (name/description presence, no parse failures anywhere), marker scan (`disable-model-invocation`, `CLAUDE.md`, `.claude/rules`, cc-only event names, `/dispatcher`-style channel declarations), size caps. Honest boundary: discovery/load + channel mechanism + content markers are proven; per-skill functional E2E (actually executing each skill's workflow) was NOT exercised — content-scan is the proxy.
+Python script over `.claude/skills/*/SKILL.md` + `~/.zcode/skills/` + plugin caches: frontmatter parse (name/description presence, no parse failures anywhere), marker scan (`disable-model-invocation`, `CLAUDE.md`, `.claude/rules`, cc-only event names, `/dispatcher`-style channel declarations), size caps — with explicit symlink resolution (a plain `glob('*/SKILL.md')` both under- and over-reports symlinked roots; enumeration must stat through the link). Honest boundary: discovery/load + channel mechanism + content markers are proven; per-skill functional E2E (actually executing each skill's workflow) was NOT exercised — content-scan is the proxy.
 
 ### §11.6 §1.7 addendum self-review
 
 **Forward-check:** §11.1–§11.3 claims carry binary call-sites (`q5`, Skill-tool prompt block) + live corroboration (this session's own prompt); §11.2 verdicts carry the tier evidence; §11.4 tiering is a marked recommendation with the operator directive quoted, not a silent product decision; §11.5 states the audit's honest boundary (no per-skill E2E). Traps: T9/T10 countered (full population scripted, not sampled — 16/16 project, 4 user, 3 plugin families); T3 countered (live-load claims come from the session prompt itself, not assumption).
-**Backward-check:** §5 skills row of this patch — superseded in one detail by §11.1 (slash channel now verified working; the row's disable-model-invocation gap stands); `2026-08-06-skill-trigger-inventory.md` (glm-5.2 trigger keys) — superseded by operator's glm-5.3 correction, fix routed to I-phase; `claude-glm-executor-handoff/SKILL.md` — STALE (5.2 refs), edit queued, not done here (ai-doc gates + P0 batch); superpowers/dispatching docs — untouched, no contradiction.
+**Backward-check:** §5 skills row of this patch — superseded in one detail by §11.1 (slash channel now verified working; the row's disable-model-invocation gap stands); `docs/superpowers/specs/2026-08-06-skill-trigger-inventory.md` (glm-5.2 trigger keys) — superseded by operator's glm-5.3 correction, fix routed to I-phase; `claude-glm-executor-handoff/SKILL.md` — STALE (5.2 refs), edit queued, not done here (ai-doc gates + P0 batch); superpowers/dispatching docs — untouched, no contradiction.
 **Falsifier for §11:** a build where the Skill-tool slash instruction block is removed or `.agents`/`.zcode` skills roots stop being scanned — re-check via Fork B probes plus one live session listing.
