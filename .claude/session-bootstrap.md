@@ -23,6 +23,20 @@ Recursive self-application — framework validates itself via own logic. Quality
 | 3 | Search-coverage discipline — 6-item checklist on negative-existence claims | rule consumed by phase research sessions | [.claude/rules/phase-research-coverage.md](rules/phase-research-coverage.md) |
 | 4 | Multi-channel enforcement — every rule fails at earliest reachable channel | edit-time → pre-commit → pre-push → CI → production audit; CI = last-resort gate | [README.md#why-this-exists](../README.md#why-this-exists) |
 
+## Project anchor (digest block)
+
+One compact anchor for every fresh agent and subagent. Consumed by the digest hooks
+(`inject-project-digest` on UserPromptSubmit; `inject-subagent-context` prepends it to each
+ZCode subagent's prompt; `inject-subagent-digest` serves the same role on CC) — the block
+between the markers below is extracted verbatim, so keep it self-contained and short.
+Empty block = hooks no-op by design (zero-setup default).
+
+<!-- digest:start -->
+Project: rules-as-tests-aif — a framework repo that is self-hosting (it enforces its own rules on itself). Goal SSOT: README.md#why-this-exists — never redefine the goal here or in task docs.
+Repo map: README.md (goal) → .claude/session-bootstrap.md (this anchor, reading order) → CLAUDE.md (AI-tooling conventions) → .claude/rules/*.md (discipline rules; index: 00-rule-index.md) → docs/meta-factory/prior-art-evaluations.md (build-vs-reuse SSOT) + EXECUTION-PLAN.md → packages/core/ (enforcement machinery: principles meta-tests, synthesizer) → docs/meta-factory/research-patches/ (dated evidence records).
+Hard pointers: keep `make self-audit` green (recursive self-application); every capability commit carries a build-vs-reuse verdict (`Prior-art:` trailer); hooks SSOT is `.claude/hooks/*.sh` — ZCode consumes rendered plugin twins, edit the source, never the twin; new research patches require a §1.7 self-review section; staging PRs carry `## Fidelity verdict` + §1.7 Forward/Backward-check sections; agent must not edit `.claude/settings.json`.
+<!-- digest:end -->
+
 ## Reading order for new context
 
 1. **[README.md](../README.md)** — goal hierarchy (authoritative for goal / methodology / invariants)
