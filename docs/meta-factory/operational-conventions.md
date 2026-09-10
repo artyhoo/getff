@@ -48,7 +48,7 @@ When the **last stage** of a multi-stage umbrella merges, the merging session wr
 ## §2 Harness gates — promote / move-ref / merge-forward
 
 > The bullets below were under `### Harness gates` in CLAUDE.md. The always-on bullets that
-> remain in CLAUDE.md (agent PR merge gating, CONFLICTING PR merge-forward pointer, 600-line
+> remain in CLAUDE.md (agent PR merge policy, CONFLICTING PR merge-forward pointer, 600-line
 > markdown gate, Homebrew PATH in hooks) are needed every session; the two moved here are
 > needed only at promote / ref-move moments.
 
@@ -102,7 +102,7 @@ _Falsifier:_ wrong if the live reference ever states that a `disable-model-invoc
 
 ## See also
 
-- [CLAUDE.md `Operational conventions`](../../CLAUDE.md) — the remaining always-on operational bullets (agent PR merge gating, CONFLICTING PR merge-forward, 600-line markdown gate, Homebrew PATH in hooks, Phase -1 principle-test allowlist probe, Pre-dispatch in-flight probe).
+- [CLAUDE.md `Operational conventions`](../../CLAUDE.md) — the remaining always-on operational bullets (agent PR merge policy, CONFLICTING PR merge-forward, 600-line markdown gate, Homebrew PATH in hooks, Phase -1 principle-test allowlist probe, Pre-dispatch in-flight probe).
 - [CLAUDE.md `Harness gates`](../../CLAUDE.md) — the parent section that formerly carried §2's two bullets.
 - [.claude/rules/git-conflict-merge-forward.md](../../.claude/rules/git-conflict-merge-forward.md) — the merge-forward recipe (referenced by the always-on CONFLICTING PR bullet that stays in CLAUDE.md).
 - [docs/meta-factory/research-patches/2026-07-26-session-start-token-attribution.md](research-patches/2026-07-26-session-start-token-attribution.md) — S1 attribution patch that projected this move's token savings.
