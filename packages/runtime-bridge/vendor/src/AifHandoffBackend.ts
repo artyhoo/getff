@@ -11,7 +11,7 @@
  *
  * dispatch() — 2-step planner-RUN over REST (live-verified 2026-06-03):
  *   1. POST /tasks  { projectId, title, description:<kickoff content>, plannerMode:'fast',
- *                     paused:true, autoMode:true }                       -> 201 + task id
+ *                     paused:true, autoMode:true, maxReviewIterations }   -> 201 + task id
  *   2. PUT  /tasks/:id { paused: false }                                 -> coordinator picks up
  *   The task stays at `backlog`; the auto-queue advances it `backlog -> planning -> runPlanner`,
  *   and `runPlanner` (planner.ts:191-213) is the ONLY code that creates a per-task git worktree.
@@ -77,6 +77,18 @@ const TERMINAL_RAW_STATUSES = new Set(['done', 'verified', 'blocked_external']);
  * wedged aif must not hold the author's editor for half a minute — it falls back to Manual.
  */
 const REST_TIMEOUT_MS = 10_000;
+
+/**
+ * Review-iteration budget sent on every task create. The aif create schema defaults
+ * `maxReviewIterations` from the CONTAINER env (`AGENT_MAX_REVIEW_ITERATIONS`, which
+ * resolves to 1 on this deployment), and a budget of 1 parks a task at
+ * `max_iterations` on its FIRST rework verdict no matter how good that verdict is —
+ * 9 tasks piled up exactly that way on 2026-09-09 (handoff:
+ * docs/superpowers/specs/2026-09-10-aif-review-contract-recovery-handoff.md, defect 4).
+ * 4 gives a healthy verdict-driven loop room to converge; the API caps the field at 50.
+ * Wrong if aif ever lowers that cap below 4 — createTaskSchema rejects the POST.
+ */
+export const DEFAULT_MAX_REVIEW_ITERATIONS = 4;
 
 /**
  * What happened to a cancel request — the reported form of
@@ -341,6 +353,9 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       paused: true,
       autoMode: true,
       skipReview: false, // reviewer runs per reviewer-discipline.md §2
+      // Explicit so the loop can survive its first rework verdict even where the
+      // container env defaults AGENT_MAX_REVIEW_ITERATIONS to 1 (see the constant).
+      maxReviewIterations: DEFAULT_MAX_REVIEW_ITERATIONS,
       ...(runtimeProfileId !== undefined ? { runtimeProfileId } : {}),
     });
 
