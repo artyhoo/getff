@@ -1,6 +1,6 @@
 # beta-docs-showcase — DONE
 
-- Final PR: #TBD
+- Final PR: #1711
 - Closed: 2026-09-10
 - Summary: BS3 cutover complete — the Fumadocs site is the public getff.ai. Legs: (A)
   cold claims audit driven from STOP/18 GAPs to GO (9 rounds, final on `b782f51`:
