@@ -176,13 +176,19 @@ export function emitClaude(model) {
  *     schema is {type,url,headers?,oauth?,timeoutMs?,enabled?} — a name field inside it FAILS
  *     validation. (headers is optional; omitted is .strict()-valid.)
  *
- *  HOOKS NOT EMITTED HERE (bundle-verified 2026-07-17, zcode.cjs T3e/TTn @ offset 2047000):
- *  ZCode's loadProjectConfigFile STRIPS the `hooks` key from BOTH project-scope candidates
- *  (zcode.json AND .zcode/config.json) under `config_project_hooks_ignored` (a security policy),
- *  pushing a warning diagnostic. So emitting hooks into .zcode/config.json was a SILENT NO-OP —
- *  MCP and the skills symlink load, hooks never did. Hooks reach ZCode ONLY via the plugin
- *  channel (emitPlugin → plugin/hooks/hooks.json, loaded by the separate EAo merge path which
- *  is security-policy-exempt). The .zcode/config.json file retains MCP + skills only.
+ *  HOOKS NOT EMITTED HERE (bundle-verified 2026-09-11, survey PR #1699 §4; build 3.11.2/6792,
+ *  zcode.cjs mtime 2026-09-04): the workspace-config loader strips the `hooks` key from BOTH
+ *  project-scope candidates (zcode.json AND .zcode/config.json) and emits diagnostic
+ *  `config_project_hooks_pending_trust` ("Project hooks are pending workspace trust and remain
+ *  blocked"), preserving the declarations as a trust candidate. What became of them: ZCode now
+ *  ships a workspace-hooks TRUST channel — policy user_decides|allow_trusted_only|deny, a
+ *  persistent store keyed (workspaceIdentity, sha256 hookDeclarationDigest), and a
+ *  `workspaceHookReview` interaction rendered by trust-capable hosts — so hooks COULD run from
+ *  workspace config after an interactive per-declaration trust grant. Operator decision
+ *  (2026-09-11, survey Fork A=A2): do NOT adopt that channel — every hook edit changes the
+ *  declaration digest and would re-prompt every consumer to re-trust (anti-consumer churn);
+ *  the plugin channel stays the only delivery path (emitPlugin → plugin/hooks/hooks.json, no
+ *  trust gate). The .zcode/config.json file retains MCP + skills only.
  *
  *  HONEST DEGRADATION (declared LOUDLY, attention-is-not-a-mechanism.md §1):
  *   • 4 PostToolUse gate hooks (POST_MUTATION_GATES) are ADVISORY-ONLY on ZCode. Schema Uan
@@ -220,8 +226,8 @@ export function emitZcode(model) {
   }
   const skillsDir = model.skillsDir ?? '.claude/skills';
   const ops = [
-    // hooks intentionally NOT emitted — see the block comment above (project-config hooks are
-    // security-policy-stripped by ZCode; the plugin channel is the only live path — emitPlugin).
+    // hooks intentionally NOT emitted — see the block comment above (workspace-config hooks are
+    // pending-trust on ZCode; plugin channel (emitPlugin) is the chosen zero-trust path, Fork A=A2).
     {
       kind: 'json',
       path: '.zcode/config.json',
@@ -238,7 +244,7 @@ export function emitZcode(model) {
   // Declared degradations (attention-is-not-a-mechanism §1 — silent narrowing declared, not hidden).
   ops.push({
     kind: 'note',
-    message: `emitZcode: hooks NOT emitted to .zcode/config.json — ZCode strips project-config hooks (security policy config_project_hooks_ignored, T3e/TTn @ zcode.cjs:2047000). Hooks reach ZCode ONLY via the plugin channel (plugin/hooks/hooks.json, emitPlugin). This file carries MCP + skills only.`,
+    message: `emitZcode: hooks NOT emitted to .zcode/config.json — workspace-config hooks are pending interactive trust on ZCode (diagnostic config_project_hooks_pending_trust; sha256 declaration-digest re-trust on every hook edit — anti-consumer churn, survey #1699 §4). Operator Fork A=A2: the plugin channel (plugin/hooks/hooks.json, emitPlugin) is the delivery path. This file carries MCP + skills only.`,
   });
   ops.push({
     kind: 'note',
@@ -251,9 +257,9 @@ export function emitZcode(model) {
   if (unsupportedEvents.length) {
     const backup = {
       SubagentStart:
-        "backup: PreToolUse:Agent+updatedInput (inject-subagent-context) delivers the digest one-shot as the subagent's first message — NOT persistent-lifecycle as on CC",
+        'backup: PreToolUse:Agent+updatedInput (inject-subagent-context) delivers the SubagentStart payload — full parity since Stage 7B (#1047), one-shot as the subagent first message rather than persistent-lifecycle',
       SubagentStop:
-        'NO backup: warn-subagent-report is post-dispatch (scans the finished report); no updatedInput analogue exists on zcode — CC-only',
+        'parity via 4D hybrid (#1046): warn-subagent-report-zcode arms on PostToolUse:Agent (real-time, 120KB payload) + Stop (completeness rollout scan) deliver the report the SubagentStop event would have carried',
     };
     const lines = unsupportedEvents.map((ev) =>
       backup[ev]
