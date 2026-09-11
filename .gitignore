@@ -138,3 +138,4 @@ tests/agnosticism/conformance-record.tsv
 !.claude/orchestrator-prompts/ledger-1597-fixes/kickoff-f*.md
 !.claude/orchestrator-prompts/consumer-truth-audit/kickoff-v*.md
 !.claude/orchestrator-prompts/consumer-truth-audit/report-v*.md
+!.claude/orchestrator-prompts/aif-admission-latency/kickoff-a*.md
