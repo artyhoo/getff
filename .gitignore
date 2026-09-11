@@ -57,6 +57,12 @@ packages/*/node_modules
 # family that principle 12's citation gate resolves (`kickoff-bs0.md` would fall outside it).
 !.claude/orchestrator-prompts/beta-docs-showcase/kickoff-b*.md
 
+# beta-docs-encyclopedia (2026-09-11): per-stage dispatch inputs, umbrella letter E
+# (E1 census+drift → E2..E5 family drafts → E6 cold audit). Same durable-dispatch-input
+# class as kickoff-b*.md; tracked so kickoff-e1.md reaches `staging` for the aif container
+# base to read (.claude/rules/kickoff-staging-placement.md §1).
+!.claude/orchestrator-prompts/beta-docs-encyclopedia/kickoff-e*.md
+
 # triage-kernel-v2: probe-first umbrella (design spec 2026-08-10-triage-kernel-v2-design.md
 # §9) — S1-S5 each get their OWN stage kickoff, tracked to reach `staging` for the
 # dispatch session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella
