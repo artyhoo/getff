@@ -2,10 +2,16 @@
 # AUTO-GENERATED from .claude/hooks/runtime-bridge-dispatch.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
 # PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs.
 #
-# @cc-only-rationale: edit-time PostToolUse enforcement — no portable hook fires
-#   at the same moment (deterministic trigger only available in CC harness).
-#   Portable equivalent: `tsx packages/runtime-bridge/src/cli/dispatch.ts <path>`
-#   run manually after kickoff authoring.
+# @cc-only-rationale: no §5 portable-markdown counterpart exists to anchor-pair
+#   with — the non-hook equivalent is the TS dispatch CLI below, and packages/**
+#   TS is outside delivery-channel triage (dual-implementation-discipline.md
+#   §2(iv)). This marker is NOT a harness claim: corrected 2026-09-11 from
+#   «deterministic trigger only available in CC harness» (stale since the plugin
+#   twin) — the twin fires the same PostToolUse + PostToolUseFailure moments on
+#   ZCode (doctrine row 17: degraded, Write+Edit + failure arm live), and
+#   setup.d/55-runtime-bridge-vendor.sh ships this hook to factory consumers.
+#   Manual equivalent where no hook channel exists at all:
+#   `tsx packages/runtime-bridge/src/cli/dispatch.ts <path>` after kickoff authoring.
 # spec: packages/runtime-bridge/src/cli/dispatch.ts
 #
 # Fires on Write|Edit tool events. Reads stdin JSON (CC PostToolUse shape):
