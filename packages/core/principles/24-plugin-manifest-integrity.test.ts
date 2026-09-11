@@ -33,6 +33,7 @@ import {
   existsSync,
   statSync,
   writeFileSync,
+  mkdirSync,
   mkdtempSync,
   cpSync,
   rmSync,
@@ -336,6 +337,49 @@ export function checkPluginPayloadLinks(payloadRoot: string): Violation[] {
  * pin from being a silent carve-out: a new escaping link anywhere in the payload is RED, and a
  * stale entry is RED too. The list can only shrink.
  */
+// Stage 1 of plugin-skills-generator (2026-09-11): the (g) comparison, extracted PURE so the
+// paired-negative can exercise the source-population fallback on a temp tree (same recipe as
+// checkPluginPayloadLinks above). Generated entries may source from EITHER top-level skills/
+// (byte tier reachable — tool-bootstrapping) OR .claude/skills/<name> (the CORE four: the
+// channel transform rewrites link targets and strips TEXT ladders, so only the normalised
+// tier is reachable; normaliseChannelLinks strips exactly those forms, which is what makes
+// raw-source-vs-generated-copy compare SAME). The generator's ENTRY TABLE
+// (scripts/generate-plugin-skills.sh) is the recorded membership for generated entries;
+// names present in the payload but in neither source population are plugin-native and are
+// deliberately NOT watched here (they have no framework source to drift from). Byte fidelity
+// of the generated form is enforced upstream (pre-commit regen arm), and link RESOLUTION of
+// the shipped form is (h)'s job — this arm owns content drift only.
+export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: string): string[] {
+  const normaliseChannelLinks = (s: string): string =>
+    s.replace(/\]\([^)]*\)/g, ']()').replace(/\[(?:\.\.\/)+/g, '[');
+  const drift: string[] = [];
+  let actual: string[];
+  try {
+    actual = readdirSync(pluginSkillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
+  } catch {
+    return [];
+  }
+  for (const name of actual) {
+    let src = resolve(repoRoot, 'skills', name);
+    let fromClaudeSkills = false;
+    if (!existsSync(src)) {
+      const alt = resolve(repoRoot, '.claude/skills', name);
+      if (!existsSync(alt)) continue; // plugin-native skill — no framework source to match
+      src = alt;
+      fromClaudeSkills = true;
+    }
+    for (const rel of walkFiles(src)) {
+      const twin = resolve(pluginSkillsDir, name, rel);
+      if (!existsSync(twin)) { drift.push(`${name}/${rel} (missing in plugin)`); continue; }
+      const a = readFileSync(resolve(src, rel), 'utf8');
+      const b = readFileSync(twin, 'utf8');
+      if (!fromClaudeSkills && a === b) continue; // tier 1: byte-identical (tool-bootstrapping — no escaping links)
+      if (normaliseChannelLinks(a) !== normaliseChannelLinks(b)) drift.push(`${name}/${rel}`);
+    }
+  }
+  return drift;
+}
+
 const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
@@ -410,10 +454,14 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
 
   // ── (g) skill payload — membership is a decision, and framework copies must not drift ─
   it('(g) payload: plugin/skills membership is the recorded set, and framework-sourced copies match', () => {
-    // WHY THIS EXISTS. Nothing generates plugin/skills/ — no script writes it, and V3 above
-    // validates each SKILL.md's frontmatter without ever asking WHICH skills belong or whether a
-    // copy still matches its source. That gap let two real defects live: the 2026-06-22 packaging
-    // spec's shippable-set table disagreed with the payload for ten weeks unnoticed, and
+    // WHY THIS EXISTS. Nothing GENERATED plugin/skills/ until Stage 1 of the
+    // plugin-skills-generator umbrella (2026-09-11): scripts/generate-plugin-skills.sh now
+    // derives table-managed entries — its ENTRY TABLE is the recorded membership for generated
+    // entries (plugin-native installing-enforcement/using-getff stay outside it, watched only
+    // by the membership equality below). Before that, V3 above validated each SKILL.md's
+    // frontmatter without ever asking WHICH skills belong or whether a copy still matches its
+    // source. That gap let two real defects live: the 2026-06-22 packaging spec's
+    // shippable-set table disagreed with the payload for ten weeks unnoticed, and
     // plugin/skills/getff drifted from skills/getff in 6 of 6 files.
     const M1_SET = ['getff', 'installing-enforcement', 'tool-bootstrapping', 'using-getff'];
     const actual = readdirSync(resolve(PLUGIN, 'skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
@@ -443,22 +491,49 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     //
     // What this deliberately no longer checks is whether a link points at the RIGHT document —
     // that is the link gates' job (pre-push §8 lychee, transform_internal_refs), not this arm's.
-    const normaliseChannelLinks = (s: string): string =>
-      s.replace(/\]\([^)]*\)/g, ']()').replace(/\[(?:\.\.\/)+/g, '[');
-    const drift: string[] = [];
-    for (const name of actual) {
-      const src = resolve(REPO_ROOT, 'skills', name);
-      if (!existsSync(src)) continue; // plugin-native skill — no framework source to match
-      for (const rel of walkFiles(src)) {
-        const twin = resolve(PLUGIN, 'skills', name, rel);
-        if (!existsSync(twin)) { drift.push(`${name}/${rel} (missing in plugin)`); continue; }
-        const a = readFileSync(resolve(src, rel), 'utf8');
-        const b = readFileSync(twin, 'utf8');
-        if (a === b) continue; // tier 1: byte-identical (tool-bootstrapping — no escaping links)
-        if (normaliseChannelLinks(a) !== normaliseChannelLinks(b)) drift.push(`${name}/${rel}`);
-      }
+    const drift = collectPluginSkillDrift(REPO_ROOT, PLUGIN);
+    expect(drift, `plugin/skills copies drifted from their source population in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
+  });
+
+  it('(g) paired-negative: the .claude-skills fallback is GREEN on link-form-only difference, RED on content drift, and blind to plugin-native entries', () => {
+    // The fallback arm added with the generator (plugin-skills-generator Stage 1): entries
+    // sourced from .claude/skills/<name> (the CORE four) can never pass a byte tier — the
+    // channel transform rewrites link targets and strips TEXT ladders, and normaliseChannelLinks
+    // strips exactly those, so link-form-only difference must be GREEN while prose drift stays
+    // RED. A payload entry with NO source in either population must stay ignored (plugin-native).
+    const tmp = mkdtempSync(join(tmpdir(), 'p24g-'));
+    try {
+      const mk = (p: string, c: string) => {
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(p, c);
+      };
+      const blob = 'https://github.com/artyhoo/getff/blob/main';
+      // skills/-sourced byte tier still holds (regression guard on the unchanged arm):
+      mk(join(tmp, 'skills', 'probe-byte', 'SKILL.md'), '# byte\n');
+      mk(join(tmp, 'plugin', 'skills', 'probe-byte', 'SKILL.md'), '# byte\n');
+      // .claude-sourced, link-form-only difference → GREEN:
+      mk(join(tmp, '.claude', 'skills', 'probe-claude', 'SKILL.md'),
+         'see [docs](../../../docs/x.md) and [rules](../../rules/y.md)\n');
+      mk(join(tmp, 'plugin', 'skills', 'probe-claude', 'SKILL.md'),
+         `see [docs](${blob}/docs/x.md) and [rules](${blob}/.claude/rules/y.md)\n`);
+      // .claude-sourced, PROSE drift → RED:
+      mk(join(tmp, '.claude', 'skills', 'probe-drift', 'SKILL.md'), 'source v2\n');
+      mk(join(tmp, 'plugin', 'skills', 'probe-drift', 'SKILL.md'), 'payload v1\n');
+      // plugin-native (no source anywhere) → ignored:
+      mk(join(tmp, 'plugin', 'skills', 'probe-native', 'SKILL.md'), 'native\n');
+
+      // RED arm (probe-drift caught) + GREEN arms in the same call: probe-byte (byte tier),
+      // probe-claude (link-form-only → normalised clean), probe-native (no source → ignored)
+      // must all contribute NOTHING to the drift list.
+      expect(collectPluginSkillDrift(tmp, join(tmp, 'plugin', 'skills')),
+        'prose drift caught; byte/link-form-only/plugin-native entries must stay clean').toEqual(['probe-drift/SKILL.md']);
+      // Second RED arm — the .claude-sourced entry itself drifting in payload prose:
+      mk(join(tmp, 'plugin', 'skills', 'probe-claude', 'SKILL.md'), `see [docs](${blob}/docs/x.md) and PAYLOAD DRIFT\n`);
+      expect(collectPluginSkillDrift(tmp, join(tmp, 'plugin', 'skills')),
+        'prose drift under a .claude-sourced entry must be caught').toEqual(['probe-claude/SKILL.md', 'probe-drift/SKILL.md']);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
     }
-    expect(drift, `plugin/skills copies drifted from their skills/ source in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
   });
 
   // ── (h) link form — no file in the shipped payload carries an unresolvable link ───

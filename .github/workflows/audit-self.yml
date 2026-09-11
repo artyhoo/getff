@@ -576,6 +576,12 @@ jobs:
       # not fixed here).
       - name: Run plugin twin generator acceptance (hooks + agents populations)
         run: bash tests/plugin/twin-generation.test.sh
+      # Wired 2026-09-11 with the skills generator itself (principle-41 obligation: a new
+      # tests/plugin suite is CI-RED until wired). Covers the derived-copy contract: real-tree
+      # no-op regen, transform parity vs setup.d/lib.sh, clobber-guard exit 3, manual-marker
+      # grammar gate, plugin-native entries untouched.
+      - name: Run plugin skills generator acceptance (derived-copy contract + transform parity)
+        run: bash tests/plugin/skills-generation.test.sh
       # Wired 2026-08-17 by principle 41. These eleven were git-tracked and invoked by NO
       # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
       # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test

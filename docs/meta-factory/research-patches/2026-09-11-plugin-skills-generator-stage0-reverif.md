@@ -122,6 +122,31 @@ Verbatim report from the cold agent (34 tool calls, ~10 min; handed ONLY the cha
 
 </details>
 
+## §7 Addendum (2026-09-11, at Stage 1 implementation — the pre-commit arm is MAINTAINER-PENDING)
+
+The Stage 1 drift-gate design (§5) places a regeneration arm in `.husky/pre-commit` (mirroring the twins arm at `:220-241`). `Edit`/`Write` on `.husky/*` is **permission-denied to agent sessions in this container** ("File is in a directory that is denied by your permission settings") — consistent with the Artifact Ownership Contract listing the `.husky/` enforcement layer as maintainer-owned. Not circumvented; the arm is handed to the maintainer verbatim. Until it lands, the drift contract is enforced by the CI backstop only (principle 24(g)/(h) + the audit-self wiring) — one channel later than designed, which is the honest degradation, not a silent one.
+
+Exact arm (insert immediately before the final `exit "$fail"` in `.husky/pre-commit`):
+
+```bash
+# ── Plugin skills regeneration (plugin-skills-generator Stage 1, 2026-09-11) ──────
+# When a source population of a table-managed plugin/skills entry changes (top-level
+# skills/ or .claude/skills/), regenerate the derived copies and re-stage. The generator
+# self-no-ops for in-sync entries and refuses (exit 3) on un-derivable payload content,
+# so firing on the whole populations is safe and stays future-proof when Stage 2 adds
+# the CORE four to the entry table.
+# Patch: docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md
+SKILLS_STAGED=$(echo "$CHANGED" | grep -E '^(skills/|\.claude/skills/)' || true)
+if [ -n "$SKILLS_STAGED" ]; then
+  if bash "$REPO_ROOT/scripts/generate-plugin-skills.sh"; then
+    git add plugin/skills/ 2>/dev/null || true
+  else
+    echo "❌ generate-plugin-skills.sh failed"
+    fail=1
+  fi
+fi
+```
+
 ## Tags
 
 `#claim-from-memory-not-source` — the kickoff §1 «byte-identical — the plugin copies already are» claim was session-cached prose; the re-derivation (§2) replaced it with a byte-exact derivation recipe. Prevention (folder-README form): before an umbrella kickoff asserts the byte-relationship of two populations in §1, its Stage 0 row must name the comparison probe per FILE (not per directory), because link-normalisation hides at file granularity (`diff -rq` per skill dir, not per population).
