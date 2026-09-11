@@ -21,21 +21,32 @@ The plugin channel (`plugin/`, consumed live via `.claude-plugin/marketplace.jso
 is the ONLY skills-delivery channel that reaches ZCode consumers: the installer has zero `.zcode`
 awareness (verified 2026-09-11: `grep -rn "\.zcode" setup.d/ install.sh` → empty) and everything it
 writes under `.claude/` is invisible to ZCode (survey #1699 §5). Yet `plugin/skills/` today carries
-4 hand-maintained entries, one of which (`tool-bootstrapping`) is a DEEP hand-adapted fork — different
-header, different section structure (`diff .claude/skills/tool-bootstrapping/SKILL.md
-plugin/skills/tool-bootstrapping/SKILL.md`) — with NO generator and NO freshness gate anywhere
-(`ls scripts/` shows only the hooks/agents twin generator + check-skill-drift). Hand-maintained copies
-on a live-consumed channel rot into legacy (operator 2026-09-11: «CC плагин разве не будет
-устанавливать легаси?» — it would).
+4 hand-maintained entries and NO generator — no script writes `plugin/skills/` or the top-level
+`skills/` population its `getff`/`tool-bootstrapping` entries come from (`ls scripts/`: only the
+hooks/agents twin generator + drift checks). CI-tier gates DO exist — principle 24
+(`packages/core/principles/24-plugin-manifest-integrity.test.ts`): `M1_SET` membership is a recorded
+decision, tier (g) guards content-drift of `plugin/skills/` against `skills/` (links normalised),
+tier (h) guards link resolution; `tests/plugin/bootstrap.test.sh` checks frontmatter — but they watch
+HAND-COPIED files at the LAST channel, and the `.claude/skills/` → `skills/` prose adaptation itself
+(the `tool-bootstrapping` fork: different header, different section structure, consumer-weakened AIF
+wording — `diff .claude/skills/tool-bootstrapping/SKILL.md skills/tool-bootstrapping/SKILL.md`) is
+gated by nothing. Hand-maintained copies on a live-consumed channel rot into legacy (operator
+2026-09-11: «CC плагин разве не будет устанавливать легаси?» — it would; 24(g)'s comment records the
+real 6-of-6-files `getff` drift incident).
 
 Operator GO 2026-09-11: build the generation pipeline, then ship the CORE four through it, ZCode-first.
 
 ## §1 Goals
 
-1. `plugin/skills/*` become DERIVED artifacts — generated from SSOT sources (`.claude/skills/<name>/`)
-   via the link-adaptation transform, never hand-copied.
-2. A drift gate: regeneration on a clean tree is a no-op; a source edit without regen goes RED at the
-   earliest reachable channel — mirroring the hooks-twin contract (`scripts/generate-plugin-twins.sh`).
+1. `plugin/skills/*` become DERIVED artifacts, never hand-copied — per-source depth: the CORE four
+   link-only from `.claude/skills/<name>/` via the transform (installer parity: `GETFF_SKILLS_CORE`
+   already ships them at exactly that adaptation depth); `getff`/`tool-bootstrapping` from the
+   prose-adapted `skills/` population (byte-identical copy — the plugin copies already are).
+2. The EXISTING CI gates (principle 24 (g)/(h), `M1_SET`) get fed by a generator instead of
+   hand-copies and gain the earliest-channel arm: regeneration on a clean tree is a no-op; a source
+   edit without regen goes RED at edit-time/pre-commit — mirroring the hooks-twin contract
+   (`scripts/generate-plugin-twins.sh`). The `.claude/skills/` → `skills/` prose fork gets an
+   explicit gate-or-manual disposition, not silence.
 3. The CORE four ship through the generator: `ai-doc`, `rule-research`, `rule-tests`, `template-audit`
    (the installer's `GETFF_SKILLS_CORE`, `setup.d/lib.sh:61` — already consumer-facing by design and
    mechanically adapted for consumers today via `copy_skill_with_transform` → `transform_internal_refs`).
@@ -50,9 +61,9 @@ sections required). Do NOT trust this kickoff's cached claims — that is the po
 
 | # | Claim to re-derive | Probe | If falsified |
 |---|---|---|---|
-| 0.1 | Nothing today derives or gates `plugin/skills/` | `ls scripts/`; `grep -rn "plugin/skills" scripts/ tests/ packages/core/` | a hit → fold it in (build-vs-reuse §1.1), do not build parallel |
+| 0.1 | No script derives `plugin/skills/`; the only gates are CI-tier (principle 24 (g)/(h) vs `skills/`, bootstrap frontmatter) | `ls scripts/`; `grep -rn "plugin/skills" scripts/ tests/ packages/core/` | a generator/gate hit → fold it in (build-vs-reuse §1.1), do not build parallel |
 | 0.2 | Marketplace consumes `plugin/` live from the branch | `cat .claude-plugin/marketplace.json` | source ≠ ./plugin → channel model changed, revisit §0 |
-| 0.3 | tool-bootstrapping is a 3-population hand fork | diff `.claude/skills/` vs `skills/` vs `plugin/skills/` copies | plugin copy byte-derivable by the transform → reconcile to generated in Stage 1 |
+| 0.3 | tool-bootstrapping: `skills/` copy == `plugin/skills/` copy (byte-identical, verified 2026-09-11); the DEEP fork is `.claude/skills/` → `skills/` (prose) and it is un-gated | `diff` all three populations | as claimed → the plugin side is a pure copy in the generator; the prose fork gets the Stage 1.5 disposition |
 | 0.4 | The transform suffices per CORE-four skill (link-only adaptation) | per SKILL.md: `grep -nE "\]\(\.\./|\.claude/|docs/|packages/" ` → classify each ref mechanical vs prose | any skill needing PROSE adaptation → DECISION-NEEDED fork; never silently adapt |
 | 0.5 | dist / baseline blast radius | `grep -c "plugin/skills" packages/getff/MANIFEST.sha256`; `ls tests/install-sh/baselines/` | plugin/skills inside dist or baselines → regen/capture steps join Stage 2 gates |
 | 0.6 | ZCode plugin update mechanics | inspect `~/.zcode/cli/plugins/cache/getff/` layout + `plugin.json` version fields | version-pinned cache → version bump becomes a Stage 2 step; else document the refresh path |
@@ -68,20 +79,27 @@ DECISION-NEEDED with a recommendation; do not decide.
 2. Transform reuse: `transform_internal_refs` lives in `setup.d/lib.sh` (installer scope) —
    extraction vs sourcing is a single-source design call (dual-implementation-discipline §7); record it.
 3. Contract (mirrors the hooks-twin lessons, `scripts/generate-plugin-twins.sh` header):
-   derive `plugin/skills/<name>/` from `.claude/skills/<name>/` + link transform; clobber-guard that
-   refuses to overwrite content neither the working-tree nor the HEAD source reproduces (the
+   derive `plugin/skills/<name>/` per-source — CORE four from `.claude/skills/<name>/` + link
+   transform, `getff`/`tool-bootstrapping` from `skills/<name>/` as byte-identical copy; clobber-guard
+   that refuses to overwrite content neither the working-tree nor the HEAD source reproduces (the
    #1044/#1442 Stage-9C silent-loss class); `@plugin-skills: manual — <rationale ≥20 chars>` escape
    hatch; regeneration is a no-op on a clean tree.
 4. Drift gate at the earliest reachable channel: pre-commit arm (source touched → derived copy must
-   regen clean) + population-wide CI backstop.
-5. tool-bootstrapping disposition: derive if 0.3 says derivable; else declare manual with rationale.
-   Never silently delete the hand-fork.
+   regen clean) + the population-wide CI backstop ALREADY in principle 24 — extend (g) so generated
+   entries are watched against their ACTUAL source population (`skills/` for getff/tool-bootstrapping;
+   `.claude/skills/` + transform normalisation for the CORE four) instead of being skipped as
+   plugin-native; do not build a parallel gate (0.1's fold-in arm).
+5. tool-bootstrapping disposition (0.3): the plugin side derives from `skills/tool-bootstrapping/`
+   as a byte-identical copy. The `.claude/skills/` → `skills/` prose fork stays hand-maintained —
+   record the gate-or-stays-manual decision with rationale. Never silently delete the hand-fork.
 
 ### Stage 2 — CORE four through the generator
 
 1. Generate `plugin/skills/{ai-doc,rule-research,rule-tests,template-audit}`; review each diff:
    adaptation must be LINK-ONLY — prose divergence beyond links = the 0.4 fork, surface it.
-2. Version bump `plugin.json` + `marketplace.json` if 0.6 requires it.
+2. Version bump `plugin.json` + `marketplace.json` (0.6 confirmed the version-pinned ZCode cache
+   `getff/<version>/` — the bump IS the consumer refresh key) + `M1_SET` membership update in
+   principle 24 (membership is a recorded decision — state the need in the PR body).
 3. Gates: `bash scripts/build-getff-dist.sh` (MANIFEST diff = only expected entries);
    `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh` if 0.5 moved fingerprints;
    `bash scripts/check-skill-drift.sh`; `make self-audit`; PR body Fidelity + §1.7
@@ -126,8 +144,11 @@ research-patch is merged.
 
 ## §5 ATTN escalation triggers (surface as DECISION-NEEDED, never decide silently)
 
-Any 0.4 prose-adaptation need; tool-bootstrapping non-derivability (0.3); generator placement fork
-(extend vs sibling); transform extraction fork (Stage 1 item 2); ZCode cache-mechanics surprise (0.6).
+Any 0.4 prose-adaptation need beyond link-only; the derivation-depth fork for the CORE four
+(link-only from `.claude/skills/` — recommended, installer parity — vs a new prose-adapted `skills/`
+population, the tool-bootstrapping precedent) if Stage 0 evidence contradicts the recommendation;
+generator placement fork (extend vs sibling); transform extraction fork (Stage 1 item 2); ZCode
+cache-mechanics surprise (0.6).
 
 T-traps active ([ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-traps.md)):
 T3 (every §0 claim carries its probe — no prose-only findings), T9/T10 (full population: all four
@@ -159,7 +180,7 @@ pattern-matched from the «skill» label), T20 (evidence before verdict — Stag
 grep -rn "\.zcode" setup.d/ install.sh                                   # → empty: installer is CC-shaped (§0)
 cat .claude-plugin/marketplace.json                                      # → "source": "./plugin" (live channel, §0)
 ls scripts/                                                              # → no plugin-skills generator exists today (0.1)
-diff -q .claude/skills/tool-bootstrapping/SKILL.md plugin/skills/tool-bootstrapping/SKILL.md  # → differ: hand fork (0.3)
+diff -q .claude/skills/tool-bootstrapping/SKILL.md skills/tool-bootstrapping/SKILL.md    # → differ: the un-gated .claude→skills prose fork (0.3)
 grep -c "plugin/skills" packages/getff/MANIFEST.sha256                   # dist blast radius (0.5)
 bash scripts/probe-zcode-runtime.sh                                      # → 17/17: ZCode runtime oracle (Stage 3)
 ```
