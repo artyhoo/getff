@@ -50,8 +50,10 @@ fi
 # or above), and an AIF operator SUITE (shipped ONLY at PROFILE=factory or via legacy
 # --with-aif-suite). The contour surface carries the architecture-design skill that produces
 # the contour; the suite presupposes the aif-handoff operator runtime. On a consumer without
-# that runtime the suite's triggers fire into a dead end, and `story` crashes on landing until
-# its lang-pack ships (#934). Gating is opt-in + reversible (BFR §1.1 integrate-never-hard-depend;
+# that runtime the suite's triggers fire into a dead end. `story`'s original blocker (crash
+# without the lang pack, #934) is resolved — #1003 §1c ships lang/ to every consumer — and it
+# stays gated by the operator product call 2026-09-11 (recap nicety, not must-ship consumer
+# machinery). Gating is opt-in + reversible (BFR §1.1 integrate-never-hard-depend;
 # same posture as companions.manifest — companion-install-principle.md).
 #
 # CORE (always — consumer-facing, no aif-handoff runtime assumed):
@@ -108,8 +110,10 @@ fi
 #   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
 #                      break-glass) for consumers running aif-handoff.
 #   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
-#                      output). Stays in the gated set until its lang-pack delivery is fixed
-#                      (#934) — it crashes on landing without the pack.
+#                      output). The original gate reason (#934 lang-pack crash) is RESOLVED —
+#                      #1003 §1c ships lang/{en,ru}.sh to every consumer — so the gate is now a
+#                      product choice, not a blocker fix: operator call 2026-09-11 keeps story
+#                      factory-only (not must-ship consumer machinery; revisit on demand).
 #   - claude-glm-executor-handoff — pairs an in-aif Claude coordinator with a GLM-family
 #                      executor tier (kickoff marker → bridge-profile resolver). Factory-only
 #                      by design (S5 kickoff §2 binding #3): the skill presupposes the
