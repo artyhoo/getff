@@ -592,6 +592,47 @@ fi
 
 text_length=${#text}
 
+# ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
+# POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
+# class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
+# this guard's own 2026-07-24 cold-audit note below). Live-observed twice in one
+# ZCode session (#1706): the thin-recap branch below used to sit ABOVE these
+# guards, so on ZCode any >500-char markdown-dense final message blocked EVEN
+# WHEN it began with the recap marker the hook's own block reason demands — and
+# with no stop_hook_active from the ZCode runtime, the re-block looped. Hoisting
+# reuses the established fix pattern for the class instead of a branch-local
+# patch. Order inside the block: recap marker → story marker → story debounce
+# (the debounce clears story_signal, so it must run last). CC behaviour is
+# unchanged — the guards sit after gate POSITION 2 and the tool-only guard, and
+# route through _autonomy_exit exactly as before; the unarmed gate goldens
+# (end-of-turn-reminder.test.ts fixture 9) prove byte-identity.
+
+# Already-recapped guard: if the current assistant turn already contains the
+# active-language recap marker ($AIF_RECAP_MARKER, sourced from lang/), the recap
+# is done — re-firing would re-inject the recap instruction over an existing recap.
+# Complements the built-in stop_hook_active guard (hook:7-10) for the case where the
+# model proactively recaps in a fresh natural turn (stop_hook_active=false).
+if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
+  # THE case the 2026-07-24 cold audit caught: this guard is correct about recaps and was
+  # catastrophically wrong about autonomy. "Ends the turn on a report" IS a recap-marked turn,
+  # so a bare `exit 0` here made the F10 arm silent in precisely its motivating scenario —
+  # and worse as the session got longer, because the Branch A/B/C payloads train the model to
+  # emit this marker. Suppress the recap re-injection, keep the continuation directive.
+  _autonomy_exit
+fi
+
+# Story already told this turn → do not re-inject.
+if [ -n "$story_signal" ] && [ -n "$text" ] && grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
+  _autonomy_exit
+fi
+# Debounce by PR: same PR already storied this session → fall through to normal branches.
+if [ -n "$story_signal" ]; then
+  story_flag="${TMPDIR:-/tmp}/aif-story-${session_id}"
+  if [ -f "$story_flag" ] && [ "$(cat "$story_flag" 2>/dev/null || true)" = "$story_signal" ]; then
+    story_signal=""
+  fi
+fi
+
 # -- B2 Part C — anchor degradation under ZCode (honest, non-plan-breaking) -------
 # L43 (ai-title grep) and L45 (user-message grep) below both assume CC's outer "type"
 # field. ZCode's synthetic transcript has no ai-title AND likely no outer type on user
@@ -624,6 +665,35 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     case "$text" in *$'\n\n'*) _md_dense=true ;; esac
   fi
   if [ "$_md_dense" = "true" ]; then
+    # ── Same-text loop bound (#1706) ──────────────────────────────────────────
+    # ZCode dispatches no stop_hook_active (live-measured 2026-09-10: the immediate
+    # re-stop after a decision:block carried stop_hook_active=false), and CC's
+    # harness-side 8-block cap does not exist there, so a model re-emitting
+    # IDENTICAL long markdown (no marker) would re-block forever. Bound it by
+    # content: sha256 of $text via _residue_sha256 (the lib/fallback pair near the
+    # top) in a per-session flag keyed like every other tmp channel of this hook
+    # (session_id sanitised, tr/cut — same derivation as the D7 ctx flags). Stored
+    # == current → this exact text already got its one block → _autonomy_exit
+    # (silent) instead of re-blocking; else record and block. Intended flow
+    # unchanged: block → model emits NEW text carrying the marker → the hoisted
+    # guard above exits silently; only pathological identical re-text is bounded.
+    # An empty sha (no hashing tool / failed write) skips the compare AND the
+    # store — same contract as the gate baseline below, never "content unchanged";
+    # a failed flag write degrades to today's behaviour (the block still fires).
+    _zcb_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+    _zcb_flag="${TMPDIR:-/tmp}/aif-eot-zcb-${_zcb_key}"
+    _zcb_tmp="${TMPDIR:-/tmp}/aif-eot-zcbt-${_zcb_key}-$$"
+    _zcb_sha=""
+    if printf '%s' "$text" > "$_zcb_tmp" 2>/dev/null; then
+      _zcb_sha="$(_residue_sha256 "$_zcb_tmp")"
+      rm -f "$_zcb_tmp" 2>/dev/null || true
+    fi
+    if [ -n "$_zcb_sha" ]; then
+      if [ -f "$_zcb_flag" ] && [ "$(cat "$_zcb_flag" 2>/dev/null || true)" = "$_zcb_sha" ]; then
+        _autonomy_exit
+      fi
+      { printf '%s' "$_zcb_sha" > "$_zcb_flag"; } 2>/dev/null || true
+    fi
     # Reuse the Branch A lighter per-turn recap instruction (same anchor interpolation).
     _ze_reason="$(aif_msg_eot_branch_a)"
     # The ZCode arm blocks and hands back a recap instruction, so without this the model
@@ -652,7 +722,7 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     exit 0
   fi
 fi
-unset _ze_reason _ze_glance _md_dense 2>/dev/null || true
+unset _ze_reason _ze_glance _md_dense _zcb_key _zcb_flag _zcb_tmp _zcb_sha 2>/dev/null || true
 
 # -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
 # In orchestration mode (driving aif-handoff, relaying state every turn) two
@@ -673,32 +743,6 @@ if [ -f "$marker" ]; then
   marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
   if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
     orch_mode=true
-  fi
-fi
-
-# Already-recapped guard: if the current assistant turn already contains the
-# active-language recap marker ($AIF_RECAP_MARKER, sourced from lang/), the recap
-# is done — re-firing would re-inject the recap instruction over an existing recap.
-# Complements the built-in stop_hook_active guard (hook:7-10) for the case where the
-# model proactively recaps in a fresh natural turn (stop_hook_active=false).
-if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
-  # THE case the 2026-07-24 cold audit caught: this guard is correct about recaps and was
-  # catastrophically wrong about autonomy. "Ends the turn on a report" IS a recap-marked turn,
-  # so a bare `exit 0` here made the F10 arm silent in precisely its motivating scenario —
-  # and worse as the session got longer, because the Branch A/B/C payloads train the model to
-  # emit this marker. Suppress the recap re-injection, keep the continuation directive.
-  _autonomy_exit
-fi
-
-# Story already told this turn → do not re-inject.
-if [ -n "$story_signal" ] && [ -n "$text" ] && grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
-  _autonomy_exit
-fi
-# Debounce by PR: same PR already storied this session → fall through to normal branches.
-if [ -n "$story_signal" ]; then
-  story_flag="${TMPDIR:-/tmp}/aif-story-${session_id}"
-  if [ -f "$story_flag" ] && [ "$(cat "$story_flag" 2>/dev/null || true)" = "$story_signal" ]; then
-    story_signal=""
   fi
 fi
 

@@ -791,6 +791,16 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
   const ZCODE_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/zcode-synthetic-transcript.jsonl');
   const CC_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/cc-transcript-legacy.jsonl');
 
+  // The #1706 same-text loop bound persists a per-session sha flag under TMPDIR —
+  // every case that fires the thin-recap branch needs a private TMPDIR, or the
+  // second replay of the same fixture reuses the stored sha and goes silent (and
+  // a previous suite run would poison the next one via the developer's real /tmp).
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'zcode-partb-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
   // ---- Part A: grep alternation — both arms load-bearing, tested in isolation ----------
 
   it('zcode_synthetic_transcript_last_line_extracted_via_role: synthetic line has no outer type → matched via role arm', () => {
@@ -875,7 +885,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     // The fixture's assistant text is 676 chars with ## headings + ** bold + blank lines.
     const r = runHook(
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
-      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'Part B must fire on ZCode + long markdown').not.toBe('');
@@ -897,7 +907,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     // This test fails if anyone swaps the field by pattern-matching on other hooks.
     const r = runHook(
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
-      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
@@ -946,6 +956,99 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     const parsed = JSON.parse(r.stdout);
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toBeDefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// #1706 — the ZCode thin-recap branch shadowed the marker guards; fix = hoist +
+// same-text loop bound. Live-observed twice in one ZCode session: a >500-char
+// markdown-dense final message that BEGAN with the recap marker the hook's own
+// block reason demands was re-blocked anyway, and since ZCode dispatches no
+// stop_hook_active, the re-block looped. Every case below was RED against the
+// pre-fix hook. The synthetic one-line shape has NO outer "type" field, so the
+// `role` arm of the grep alternation is load-bearing here (Bespoke #1 Part A).
+// CC neutrality is not re-tested here: fixture 9 (gate goldens) replays every
+// gate input against the edited hook and requires byte-identical unarmed output.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + same-text loop bound (ZCode)', () => {
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'zcode-1706-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** ZCode synthetic-transcript line: no outer "type" field, role inside message —
+   *  the `role` grep arm is load-bearing (mirrors the byte-pinned fixture shape). */
+  function zcodeAssistantText(text: string) {
+    return { message: { content: [{ type: 'text', text }], role: 'assistant' } };
+  }
+
+  /** >500 chars, markdown-dense (## headings + ** bold), opening with `prefix`. */
+  const denseBody = (prefix: string) => `${prefix}${longMarkdownText()}`;
+
+  it('RECAP-MARKED long markdown under ZCode → silent (hoisted guard outranks the thin-recap branch)', () => {
+    // RED pre-fix: the thin-recap branch sat ABOVE the already-recapped guard, so the
+    // recap that carried the very marker the block reason demands was re-blocked —
+    // the #1706 live finding.
+    const tr = writeTranscript([zcodeAssistantText(denseBody('## 🟢 In plain words\n\n'))]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-recap' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'a marker-led recap must terminate the turn on ZCode — no second block over an existing recap',
+    ).toBe('');
+  });
+
+  it('STORY-MARKED long markdown with a PR signal under ZCode → silent (story-told guard hoisted too)', () => {
+    // The story-told guard was shadowed by the same branch. The PR URL inside the
+    // text sets story_signal; the marker satisfies the guard.
+    const tr = writeTranscript([
+      zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-story' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a told story must not be re-demanded on ZCode').toBe('');
+  });
+
+  it('same-text loop bound: identical dense input blocks ONCE, the identical re-stop is silent', () => {
+    // ZCode gives no stop_hook_active and has no harness-side block cap, so the
+    // pre-fix hook re-blocked identical text forever (#1706 loop hazard).
+    const tmp = privateTmp();
+    const tr = writeTranscript([zcodeAssistantText(denseBody(''))]);
+    const stdin = { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-loop' };
+    const env = { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: tmp };
+    const first = runHook(stdin, env);
+    expect(first.stdout, 'the FIRST occurrence still gets its one recap block').not.toBe('');
+    expect(JSON.parse(first.stdout).decision).toBe('block');
+    const second = runHook(stdin, env);
+    expect(second.status, `stderr: ${second.stderr}`).toBe(0);
+    expect(second.stdout, 'an IDENTICAL re-emission is bounded — no infinite re-block chain').toBe('');
+  });
+
+  it('the bound is per-CONTENT, not N-per-session: NEW dense text still blocks after the bound fired', () => {
+    // Guards the rejected alternative — a global counter would falsely silence
+    // after N legitimate distinct recap demands; only identical re-text is bounded.
+    const tmp = privateTmp();
+    const env = { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: tmp };
+    const firstTr = writeTranscript([zcodeAssistantText(denseBody(''))]);
+    const first = runHook(
+      { transcript_path: firstTr, stop_hook_active: false, session_id: 'z1706-fresh' },
+      env,
+    );
+    expect(first.stdout, 'first distinct text blocks').not.toBe('');
+    const secondTr = writeTranscript([zcodeAssistantText(denseBody('a different opening line\n\n'))]);
+    const second = runHook(
+      { transcript_path: secondTr, stop_hook_active: false, session_id: 'z1706-fresh' },
+      env,
+    );
+    expect(second.stdout, 'different content = a new recap demand, not a spent one').not.toBe('');
+    expect(JSON.parse(second.stdout).decision).toBe('block');
   });
 });
 
@@ -1209,6 +1312,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
     // Triggers the thin-recap branch: ZCODE_PROJECT_DIR set + >500 char markdown-dense text.
     // A dispatched task is in flight, so the autonomy directive MUST reach the model
     // on the SAME channel as the ZCode recap (single block decision, not two).
+    // Private TMPDIR: the #1706 same-text loop bound stores a per-session content sha —
+    // without isolation a previous suite run silences this block replay.
+    const zcbTmp = mkdtempSync(join(tmpdir(), 'f10-zcode-append-'));
+    tmpDirs.push(zcbTmp);
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
       runHook(
@@ -1218,6 +1325,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
           RUNTIME_BRIDGE_AIF_URL: url,
           ZCODE_PROJECT_DIR: '/fake-zcode-root',
           AIF_HOOK_LANG: 'en',
+          TMPDIR: zcbTmp,
         },
       ),
     );
