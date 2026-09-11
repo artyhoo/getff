@@ -1,7 +1,7 @@
 {
   "name": "getff",
   "description": "Rules-as-Tests: turn any codebase convention into an executable test that fails at the earliest reachable channel. Skills, sub-agents, session hooks + an opt-in command to wire git-hook/CI enforcement into your repo.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": { "name": "getff contributors" },
   "homepage": "https://github.com/artyhoo/getff",
   "repository": "https://github.com/artyhoo/getff",

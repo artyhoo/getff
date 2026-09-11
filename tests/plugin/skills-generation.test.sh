@@ -66,7 +66,11 @@ fi
 mk_sandbox() {
   local sb="$1"
   mkdir -p "$sb/skills/probe-a" "$sb/plugin/skills"
-  sed 's/  "getff|skills|transform+textstrip"/  "probe-a|skills|byte-copy"/; /"tool-bootstrapping|skills|byte-copy"/d' "$GEN" > "$sb/gen.sh"
+  # Neutralize EVERY real table row — the table grows across stages (Stage 2 added the CORE
+  # four; a row-enumerated deletion list silently left them in the sandbox where their source
+  # populations don't exist, failing 3 checks with rc=1). Keep this helper shape-agnostic:
+  # rename the first row to the probe entry, drop every other table-shaped row.
+  sed 's/  "getff|skills|transform+textstrip"/  "probe-a|skills|byte-copy"/; /^  "[a-z][a-z-]*|/ { /probe-a/!d; }' "$GEN" > "$sb/gen.sh"
   printf '# probe source v1\n' > "$sb/skills/probe-a/SKILL.md"
   git -C "$sb" init -q
   git -C "$sb" add -A

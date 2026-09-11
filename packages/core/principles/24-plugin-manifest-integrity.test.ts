@@ -463,7 +463,13 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     // source. That gap let two real defects live: the 2026-06-22 packaging spec's
     // shippable-set table disagreed with the payload for ten weeks unnoticed, and
     // plugin/skills/getff drifted from skills/getff in 6 of 6 files.
-    const M1_SET = ['getff', 'installing-enforcement', 'tool-bootstrapping', 'using-getff'];
+    // Membership = 2 plugin-native + 6 generated (2 from skills/ since Stage 1, the CORE four
+    // from .claude/skills/ since Stage 2, 2026-09-11). The generator's ENTRY TABLE
+    // (scripts/generate-plugin-skills.sh) must stay 1:1 with the generated subset here.
+    const M1_SET = [
+      'getff', 'installing-enforcement', 'tool-bootstrapping', 'using-getff',
+      'ai-doc', 'rule-research', 'rule-tests', 'template-audit',
+    ];
     const actual = readdirSync(resolve(PLUGIN, 'skills'), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     expect(actual, 'plugin/skills membership changed. The set is a recorded decision (plan Task 3 Step 4 + its 2026-09-03 promotion) — update M1_SET here and state in the PR body which need triggered the promotion.').toEqual([...M1_SET].sort());
 
@@ -567,7 +573,9 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
         'the shipped README link form must be clean',
       ).toHaveLength(0);
 
-      // RED arm — blob URL back to the relative form, nothing else touched.
+      // RED arm — blob URL back to the relative form, nothing else touched. Three blob links
+      // today: the Stage 2 supersession note added the research-patch pointer beside the
+      // original Spec:/Plan: pair.
       const preFix = fixed.replace(
         /https:\/\/github\.com\/[^)/\s]+\/[^)/\s]+\/blob\/[^)/\s]+\//g,
         '../',
@@ -575,8 +583,9 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       expect(preFix, 'the replay must actually differ from the shipped form').not.toBe(fixed);
       writeFileSync(file, preFix);
       const red = checkPluginPayloadLinks(tmp).filter((x) => (x.key as string).startsWith('README.md '));
-      expect(red.map((x) => x.code), `got ${JSON.stringify(red)}`).toEqual(['L1', 'L1']);
+      expect(red.map((x) => x.code), `got ${JSON.stringify(red)}`).toEqual(['L1', 'L1', 'L1']);
       expect(red.map((x) => x.key)).toEqual([
+        'README.md — ](../docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md)',
         'README.md — ](../docs/superpowers/specs/2026-06-22-cc-plugin-packaging-design.md)',
         'README.md — ](../docs/superpowers/plans/2026-06-22-cc-plugin-packaging.md)',
       ]);

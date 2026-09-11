@@ -60,12 +60,19 @@ UPSTREAM_BLOB_URL="${UPSTREAM_BLOB_URL:-https://github.com/artyhoo/getff/blob/ma
 
 # ── The recorded membership decision ─────────────────────────────────────────
 # name|source-population|mode. Population keys: skills → top-level skills/, claude-skills →
-# .claude/skills/. The CORE four (ai-doc rule-research rule-tests template-audit ← claude-skills,
-# mode transform) join HERE in Stage 2, with the supersession rationale in that PR body
-# (research-patch 2026-09-11-plugin-skills-generator-stage0-reverif.md §4 F5).
+# .claude/skills/. Stage 2 (2026-09-11) promoted the CORE four — the installer's
+# GETFF_SKILLS_CORE tier (setup.d/lib.sh:61, "always shipped, consumer-facing"), link-only
+# derivability proven per-skill in research-patch ...-stage0-reverif.md §3. This supersedes the
+# 2026-09-03 packaging decision that kept rule-research/rule-tests OFF the plugin channel
+# (plugin/README.md + spec 2026-06-22:111 + decisions ledger — supersession notes landed with
+# this change; operator GO 2026-09-11, kickoff §0/§7).
 ENTRY_TABLE=(
   "getff|skills|transform+textstrip"
   "tool-bootstrapping|skills|byte-copy"
+  "ai-doc|claude-skills|transform"
+  "rule-research|claude-skills|transform"
+  "rule-tests|claude-skills|transform"
+  "template-audit|claude-skills|transform"
 )
 
 population_dir() {

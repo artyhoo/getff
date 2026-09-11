@@ -8,7 +8,7 @@ description: "Use when auditing rendered templates via local advisory review. Tr
 # template-audit — local advisory skill
 
 > **Authoritative for:** local advisory template audit skill — trigger keywords, two-step procedure, P2/P3/P5 advisory checks, promotion trigger.
-> **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists). Deterministic CI gate — see [template-render.audit.ts](../../../packages/core/audit-self/template-render.audit.ts).
+> **NOT authoritative for:** project goal — see [README.md#why-this-exists](https://github.com/artyhoo/getff/blob/main/README.md#why-this-exists). Deterministic CI gate — see [template-render.audit.ts](https://github.com/artyhoo/getff/blob/main/packages/core/audit-self/template-render.audit.ts).
 
 Session-bound advisory audit. **FREE under Claude Code subscription.** No API key. Not blocking.
 
@@ -42,4 +42,4 @@ Promote P2/P3/P5 → CI gate when:
 - Deterministic CI PASS rate <80% over 30 days, OR
 - Consumer reports goal-phrase miss not caught by P1/P4/P6.
 
-Promotion path: re-evaluate Decision 3 in [closed-questions.md §13.27](../../../docs/meta-factory/closed-questions.md).
+Promotion path: re-evaluate Decision 3 in [closed-questions.md §13.27](https://github.com/artyhoo/getff/blob/main/docs/meta-factory/closed-questions.md).
