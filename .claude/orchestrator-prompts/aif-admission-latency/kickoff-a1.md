@@ -13,7 +13,7 @@
 > to an external project; an unfixed regression or an unproven outcome claim here
 > becomes someone else's production bug.
 
-<!-- host-verify: acceptance = §3 gate rows re-run independently by the host in the harvested worktree (npm build/test invocations, file-shape diffs, anchor re-resolution); the artifacts land as commits on the task branch, harvested and re-verified by the host. -->
+<!-- host-verify: none — the executable deliverable (patch, tests, issue text) lives in the artyhoo/aif-handoff FORK, not in this repo; its acceptance = the §3 gate rows re-run by the host in the harvested fork worktree, which has no fixed framework-repo-root command form. -->
 
 ## §0 Goal
 

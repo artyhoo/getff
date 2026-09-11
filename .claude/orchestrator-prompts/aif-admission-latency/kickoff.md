@@ -28,3 +28,13 @@ Single stage — no E-style family split. The stage kickoff is [`kickoff-a1.md`]
 - **No operations on the RUNNING factory** — the task works in its own worktree of `/home/www/aif-handoff`; it never restarts, kills, or reconfigures the live aif containers/processes. Deployment of the fix is the operator's decision, after harvest.
 - **Upstream-first shape** — the patch and issue must follow `lee-to/aif-handoff` conventions (read `CONTRIBUTING.md`, `CHANGELOG.md`, existing test patterns in the fork): the goal is a contribution the upstream maintainer can accept, not a private divergence.
 - **The factory-of-factories / second-instance mitigation is OUT of scope** — that is the operator's separate infrastructure decision; this umbrella only prepares the upstream fix.
+
+## §3 Umbrella traps ([.claude/rules/ai-laziness-traps.md §2](../../../.claude/rules/ai-laziness-traps.md))
+
+Active traps at umbrella level: **T2, T7, T12, T19** (the stage carries its full list in
+[`kickoff-a1.md`](kickoff-a1.md) §5).
+
+- **T2** — the umbrella's "fix designed" claim is auditable only through A1's §3 gate table: run rows, not descriptions.
+- **T7** — the umbrella-level counter-prompt: "what would make this contribution look upstream-ready when it is not?" (private divergences, untested outcomes, anchors not re-verified).
+- **T12** — every research-payload number in the stage kickoff is pinned from the 2026-09-11 investigation; the stage re-derives nothing from memory, and neither does this umbrella.
+- **T19** — the host's acceptance pass is a cold pass over the harvested branch before anything is proposed upstream.
