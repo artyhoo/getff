@@ -89,6 +89,13 @@ DECISION-NEEDED with a recommendation; do not decide.
    entries are watched against their ACTUAL source population (`skills/` for getff/tool-bootstrapping;
    `.claude/skills/` + transform normalisation for the CORE four) instead of being skipped as
    plugin-native; do not build a parallel gate (0.1's fold-in arm).
+   **[Correction 2026-09-12, review 9ef4d2e131f8 — stated-but-absent arm]** The pre-commit arm did
+   NOT ship with Stage 1: `.husky/` is maintainer-owned per the Artifact Ownership Contract, so the
+   executor handed the exact block to the maintainer instead (stage0-reverif.md §7 addendum,
+   verbatim). Until it lands, **CI is the only enforcement channel**:
+   `.github/workflows/audit-self.yml` runs `tests/plugin/skills-generation.test.sh`, and principle
+   24 (g)/(h) is the population-wide drift backstop — the honest one-channel-later degradation,
+   not a silent one.
 5. tool-bootstrapping disposition (0.3): the plugin side derives from `skills/tool-bootstrapping/`
    as a byte-identical copy. The `.claude/skills/` → `skills/` prose fork stays hand-maintained —
    record the gate-or-stays-manual decision with rationale. Never silently delete the hand-fork.

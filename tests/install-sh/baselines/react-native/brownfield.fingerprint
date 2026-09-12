@@ -37,7 +37,7 @@ d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/
 5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
-ee9c6ade4ec11942663af616edf5ddcc0870c0616c7109d098c06c2e26735781  .claude/skills/ai-doc/SKILL.md
+85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 c9ff8f038447a8e6d9ad917c3a47293cb6f947eb7d714c9751156012ff099811  .claude/skills/arch/SKILL.md
 cc1c68b942363b88fc4d06d3994f7910633dfa9c6e94c24be7307d343eb75d1f  .claude/skills/getff/SKILL.md
@@ -114,9 +114,9 @@ bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .claude/skills
 735fe8ed67f24fe88897fe49e8a799642729dff1aa476a255a03559fabf55298  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 758e03742760555e948de64c4cd4912319259c4d7fc4d114da8e07b13020040e  .claude/skills/reviewer/SKILL.md
-676d46c86a79212ade99801955c5f69e02637545cd4428ca3778ceb8d982d507  .claude/skills/rule-research/SKILL.md
-c13577fa31d3369073dc78486e21cdbfe2c31e0855634ddb3aa590b65a2ab25b  .claude/skills/rule-tests/SKILL.md
-4cdcc574a07ee2d0a5a3a4198d868a6a42f36b40e2ed1d8bdb23d5c0cc9fa97c  .claude/skills/template-audit/SKILL.md
+d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md
+3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .claude/skills/rule-tests/SKILL.md
+a523988ad4fdb1e4b12adcac36926ef79aa252ac56a6abea753285cb8d742938  .claude/skills/template-audit/SKILL.md
 c4bc36871e3b86d36e2c989b7a389c527c7ab333f8b77a5ec30a1abd53b066ed  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template

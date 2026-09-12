@@ -25,7 +25,7 @@ ee58f8b7d5ab72c63553ca67b26f83b2813d61b70352228a4f645b957172df58  .claude/hooks/
 8347ab25e5b20929a2def4a5f428580b02ac976d67a03cac717f23beec747a1d  .claude/hooks/validate-prompt.sh
 20d95f8e504bfe69f3be8bd64c25b761e85899b5063b5e02480493d8f1d2ded8  .claude/hooks/warn-subagent-report.sh
 f08fb7bb09646a6c6806bfc49ba26d1b072deb79d38fa288d5d40b17fa75ccdd  .claude/hooks/worktree-setup.sh
-c472bd68a4e94e685aa5ff4140cc469b90d06ecee2fbc40fa2a8609dfa673dcd  .claude/skills/ai-doc/SKILL.md
+caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 2ea988db3bcf44c20e35140899551832e403c6436ee97b0614deb3e98cfa7eb9  .claude/skills/aif-doctor/SKILL.md
 6aa41f8948023a9de8aa1ec49a0a3f9b92598f1d1ce553a34eb0b1ee9d7d04de  .claude/skills/aif-doctor/helpers/heal.sh
@@ -108,15 +108,15 @@ b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills
 735fe8ed67f24fe88897fe49e8a799642729dff1aa476a255a03559fabf55298  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 706b7a167ff8b7a3333b5be374b997288e824dc6311139e1b6f8b1e890b870be  .claude/skills/reviewer/SKILL.md
-cc9a0230965d226e54747d5043f81f78e366190a084a421ffa09d3333ab3bd08  .claude/skills/rule-research/SKILL.md
-18efa42e1d83555982d436a7d0e57b59f949e2f8987d06a30e3be43d4d2e6ef8  .claude/skills/rule-tests/SKILL.md
+7dda969e1a79814d486cea5daba91b91df9a7fc657275c5511a0bd1433dba402  .claude/skills/rule-research/SKILL.md
+4a2ea268841d3cb9e15739986c825fda4e2e7ceb25174301729f5c88aa39d7e9  .claude/skills/rule-tests/SKILL.md
 c66285a65144ad2eb8eb4618a06fc9d8ab5dd8f388bbd851e5b24584ce6940b1  .claude/skills/self-reflection/SKILL.md
 223b12067f8b4ec78e16753bd95546fa6bf8814ec0e6dac55a52c327117d0c8b  .claude/skills/self-reflection/references/anti-patterns-with-examples.md
 ce4d527d0bbb5d470e09ee2ff8a11d489d3c69bda5583283a4cfc4a2a03d582c  .claude/skills/self-reflection/references/backward-checklist.md
 3d9f9c1916a85f03f9231cf37c2bea1f84d8083fcf6b5b620f184801593b6636  .claude/skills/self-reflection/references/forward-checklist.md
 53c7694e8d69b0a88bb6798558213c7671f3197b59d8007a93befa4f9d64b431  .claude/skills/story/SKILL.md
 fb8f0e3ff1ff4ac63f0e8b27b9988e253ad797b29dd36116123b55d1f0c16874  .claude/skills/story/helpers/emit-story-prompt.sh
-f5e1a0896198c92a20aaad3d3f839eb1ec9e0bf2a88d9c8f1accab7a35c8282a  .claude/skills/template-audit/SKILL.md
+d3e3229f83d5ccbdfd33c168e47131953bb0b114be8a4e4c1f1161c1acbfc335  .claude/skills/template-audit/SKILL.md
 dd169034b67c9f8d50b83262b8828c892f3846e78d94d9e54473d92cf1b73cbd  .claude/skills/tool-bootstrapping/SKILL.md
 6b8513073929d714039687698316002080f108147d6f4f0982c499763c5b5291  .claude/skills/tool-bootstrapping/references/decision-format.md
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/templates/session-bootstrap.md
@@ -553,7 +553,7 @@ b0a57c750ef5101f38878169f180e3e807af330bab8a81dfbf47d4050a65a52a  packages/core/
 a2716658638b10df3caef8167ee0a0d60b55324baea327888afa3d2664ce478e  packages/core/principles/21-shipped-agent-tools-valid.test.ts
 3776ce34dc5a5fe1404b76b7d714cf8ec7a8ce712308baece8a643a8f7676210  packages/core/principles/22-internal-english.test.ts
 3bbdf26629efd3015f43fdab26e3447bcc2182b87d5869e4963153a938d32636  packages/core/principles/23-aif-init-passport-gen.test.ts
-db82f6f18548cd710099ad80e97b342826a8f3e057255148cbda060504c970a4  packages/core/principles/24-plugin-manifest-integrity.test.ts
+13a7834bbc3aa103b3450b2786f2293af0e163a93d86d1aec5cc8535ca45ad10  packages/core/principles/24-plugin-manifest-integrity.test.ts
 66076dbb9d0133e40f60d7974aad17837452b2e474c8b07214bef070e4d47533  packages/core/principles/25-template-rule-ref-resolution.test.ts
 b246074354608041b4f6a43bb6c0c0b2c159f41965eddaeb6ed77d2b86fc257c  packages/core/principles/26-template-selector-sync.test.ts
 23228f7ef23c7bae4e8bae07d40eb88eb7d8c7abb5bef605bb7e3f3af6f50816  packages/core/principles/27-prepush-copylist-complete.test.ts

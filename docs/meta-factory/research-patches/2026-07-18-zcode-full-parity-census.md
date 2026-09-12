@@ -219,3 +219,9 @@ Swept existing artefacts that touch the same surface — the census does not con
 - `scripts/render-harness-config.mjs` — `ZCODE_EVENTS` SSOT.
 - `.ai-factory/harness-model.json` — the framework's own hook SSOT (incomplete relative to disk — F4).
 - `.claude/rules/dual-implementation-discipline.md` — `@dual-pair` / `@cc-only-rationale` markers + Posture reconciliation.
+
+---
+
+## Addendum (2026-09-11, plugin-skills-generator Stage 2 — dated correction; rows above not rewritten)
+
+The skills-channel rows above are stale in their `Plugin channel?` column, twice over. They were written when `plugin/skills/` shipped `getff` + the two plugin-native entries only — already missing `tool-bootstrapping`, which shipped 2026-09-03 (PR #1587). On 2026-09-11 the payload became generator-derived (`scripts/generate-plugin-skills.sh`; its `ENTRY_TABLE` is the recorded membership, mirrored in principle 24 `M1_SET`) carrying 6 derived entries — `getff` and `tool-bootstrapping` from `skills/`, plus the CORE four `ai-doc`, `rule-research`, `rule-tests`, `template-audit` from `.claude/skills/` (link-only transform) — beside the 2 plugin-native entries. The affected text is each row's «**no twin under `plugin/skills/`**» cell and the «ships only …» parenthetical; the `cc-only` classifications for `/pipeline`, `/dispatcher`, `/night-mode` are UNAFFECTED (the factory suite stays off the plugin channel by decision — plugin-skills-generator kickoff §6 non-goals). Authoritative live surfaces for membership: `M1_SET` in `packages/core/principles/24-plugin-manifest-integrity.test.ts` + the generator's `ENTRY_TABLE`. Adjudication: [2026-09-11-plugin-skills-generator-stage0-reverif.md §5](2026-09-11-plugin-skills-generator-stage0-reverif.md).
