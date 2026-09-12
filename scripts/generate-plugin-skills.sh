@@ -33,7 +33,10 @@
 #   3  clobber-guard refusal — see guard_tree_clobber below
 #
 # Regeneration is a NO-OP on a clean tree: every write is preceded by a byte comparison, so a
-# clean run rewrites nothing (no mtime churn in pre-commit). Clobber guard: per file, refuse
+# clean run rewrites nothing (no mtime churn in pre-commit). The comparison is BIDIRECTIONAL:
+# a source render that differs AND a payload file whose source is gone both count as drift, so
+# a deleted source file propagates as a payload removal instead of being silently kept.
+# Clobber guard: per file, refuse
 # (exit 3, before ANY write) when the existing copy matches NEITHER the render from the
 # working-tree source NOR the render from the HEAD source — content no source reproduces would
 # be silently deleted (the #1044/#1442 Stage-9C class, twins header :78-95). Deliberately
@@ -97,7 +100,10 @@ population_dir() {
 transform_one_file() {
   local f="$1"
   [ -f "$f" ] || return 0
-  sed -E -i \
+  # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup — the same idiom
+  # as the mirrored setup.d/lib.sh:147 (bare `-i` is GNU-only; the maintainer-side pre-commit
+  # regen arm will run this script on BSD-sed machines too).
+  sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
     -e "s#\]\((\.\./)+README\.md#](${UPSTREAM_BLOB_URL}/README.md#g" \
@@ -115,6 +121,7 @@ transform_one_file() {
     -e "s#\]\((\.\./)+hooks/check-worker-dispatch-channel\.sh#](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh#g" \
     -e "s#\[((\.\./)+)([^]]*\]\()#[\3#g" \
     "$f"
+  rm -f "${f}.bak"
 }
 # END TRANSFORM ARMS
 # The 16th arm (textstrip) is link-TEXT-scoped by construction: it only rewrites a `[(../)+`
@@ -182,10 +189,16 @@ guard_tree_clobber() {
   while IFS= read -r -d '' dst_file; do
     local rel="${dst_file#"$dst_dir"/}"
     local src_file="$src_dir/$rel"
-    if [ -f "$src_file" ]; then
-      if cmp -s <(render_one "$src_file" "$mode") "$dst_file"; then continue; fi
+    if [ -f "$src_file" ] && cmp -s <(render_one "$src_file" "$mode") "$dst_file"; then
+      continue
     fi
+    local head_known=0
     if [ "$have_head" -eq 1 ] && git -C "$REPO_ROOT" cat-file -e "HEAD:$src_rel/$rel" 2>/dev/null; then
+      head_known=1
+    fi
+    if [ "$head_known" -eq 1 ]; then
+      # HEAD still carries the source: the payload must match its render — match = merely
+      # stale (the resync case, allowed below), diverge = content no source reproduces → refuse.
       local head_src_file
       head_src_file=$(mktemp)
       if git -C "$REPO_ROOT" show "HEAD:$src_rel/$rel" > "$head_src_file" 2>/dev/null \
@@ -194,6 +207,15 @@ guard_tree_clobber() {
         continue  # stale payload — the normal case this generator exists to fix
       fi
       rm -f "$head_src_file"
+    elif [ ! -f "$src_file" ]; then
+      # Orphan arm — the header's allow+log clause: the source is absent from BOTH the
+      # working tree and HEAD, so the payload copy is a leftover of a committed (or
+      # HEAD-less) deletion, not unique logic. Allow the regeneration below to remove it and
+      # say so (fixed 2026-09-12 — the code refused here where the header promised allow+log,
+      # dead-ending every post-deletion regeneration at exit 3 until a second manual
+      # payload-deleting commit).
+      log_info "skill: $name — orphan payload file plugin/skills/$name/$rel: source absent from worktree and HEAD — allowing removal"
+      continue
     fi
     echo "[ERROR] generate-plugin-skills: $name — refusing to overwrite plugin/skills/$name/$rel." >&2
     echo "  Its content matches neither the render from $src_rel/$rel (working tree) nor from HEAD," >&2
@@ -203,8 +225,8 @@ guard_tree_clobber() {
     echo "  explicitly first, or declare <!-- @plugin-skills: manual — <rationale> --> on the source SKILL.md." >&2
     rc=3
   done < <(find "$dst_dir" -type f -print0 2>/dev/null)
-  # 2. Destination dirs that exist but whose every file was already covered above are handled;
-  #    whole-extra subtrees cannot exist (we only ever write files the source has).
+  # 2. Extra payload subtrees (a deleted source directory) are covered file-by-file by the
+  #    same walk: each leftover file hits the orphan arm above and is removed by the regen.
 
   [ "$have_head" -eq 1 ] && rm -rf "$head_src_tree"
   return $rc
@@ -262,6 +284,19 @@ for entry in "${ENTRY_TABLE[@]}"; do
         break
       fi
     done < <(find "$src_dir" -type f -print0 2>/dev/null)
+    # Bidirectional half: a payload file whose source file is GONE is drift too. The walk
+    # above only sees source→payload, so a deleted source file would silently keep its orphan
+    # copy here forever and the deletion would never propagate (fixed 2026-09-12; the guard's
+    # orphan arm has already made that removal safe by the time we get here).
+    if [ "$diff_found" -eq 0 ]; then
+      while IFS= read -r -d '' dst_file; do
+        rel="${dst_file#"$dst_dir"/}"
+        if [ ! -f "$src_dir/$rel" ]; then
+          diff_found=1
+          break
+        fi
+      done < <(find "$dst_dir" -type f -print0 2>/dev/null)
+    fi
     if [ "$diff_found" -eq 0 ]; then
       log_debug "skill: $name already in sync (no-op)"
       noop=$((noop+1))

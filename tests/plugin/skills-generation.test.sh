@@ -11,6 +11,9 @@
 #       stale payload after a committed source edit → re-synced
 #   (4) sandbox: manual marker ≥20 chars → skipped untouched; short rationale → exit 2
 #   (5) sandbox: plugin-native entries never touched
+#   (6) sandbox: deletion flow — a source file deleted (uncommitted, then committed) → the
+#       orphan payload copy is removed with rc 0 (no exit-3 dead-end); a diverged orphan is
+#       still guarded
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 GEN="$REPO_ROOT/scripts/generate-plugin-skills.sh"
@@ -146,5 +149,54 @@ if grep -q "# native skill body" "$SB/plugin/skills/probe-native/SKILL.md"; then
 else
   bad "sandbox: plugin-native entry was modified"
 fi
+
+# ── (6) deletion flow: a deleted source file propagates as a payload removal ─────────
+SB3="$TMP/deletion"
+mk_sandbox "$SB3"
+sb_run "$SB3" >/dev/null 2>&1
+printf '# extra reference doc\n' > "$SB3/skills/probe-a/extra.md"
+sb_run "$SB3" >/dev/null 2>&1
+git -C "$SB3" add -A; git -C "$SB3" -c user.email=t@t -c user.name=test commit -qm "extra.md on both sides"
+# (6a) uncommitted source deletion → regen removes the orphan (the pre-commit flow's shape:
+# the source deletion lands in the wt and the generator propagates it into the same commit).
+rm "$SB3/skills/probe-a/extra.md"
+d_rc=0; sb_run "$SB3" >/dev/null 2>&1 || d_rc=$?
+if [ "$d_rc" -eq 0 ] && [ ! -f "$SB3/plugin/skills/probe-a/extra.md" ]; then
+  ok "sandbox: source deleted (uncommitted) → orphan payload removed, rc 0"
+else
+  bad "sandbox: uncommitted source deletion NOT propagated (rc=$d_rc)"
+fi
+git -C "$SB3" add -A; git -C "$SB3" -c user.email=t@t -c user.name=test commit -qm "extra.md deleted"
+# (6b) committed source deletion with the payload orphan still present → regen, NOT exit 3
+# (pins the dead-end: before 2026-09-12 every post-deletion run refused until a second,
+# manual payload-deleting commit).
+printf '# extra reference doc\n' > "$SB3/skills/probe-a/extra.md"
+sb_run "$SB3" >/dev/null 2>&1
+git -C "$SB3" add -A; git -C "$SB3" -c user.email=t@t -c user.name=test commit -qm "extra.md back on both sides"
+rm "$SB3/skills/probe-a/extra.md"
+git -C "$SB3" add skills; git -C "$SB3" -c user.email=t@t -c user.name=test commit -qm "delete source extra.md only" -- skills
+[ -f "$SB3/plugin/skills/probe-a/extra.md" ] \
+  || bad "sandbox setup: payload orphan missing before the committed-deletion run"
+d2_rc=0; sb_run "$SB3" >/dev/null 2>&1 || d2_rc=$?
+if [ "$d2_rc" -eq 0 ] && [ ! -f "$SB3/plugin/skills/probe-a/extra.md" ]; then
+  ok "sandbox: committed source deletion → orphan payload removed (no exit-3 dead-end)"
+else
+  bad "sandbox: committed source deletion dead-ends the generator (rc=$d2_rc)"
+fi
+# (6c) the orphan widening must not gut the clobber guard: an orphan that DIVERGES from the
+# HEAD render while the source deletion is still uncommitted holds content no source
+# reproduces → exit 3, content preserved.
+printf '# extra reference doc\n' > "$SB3/skills/probe-a/extra.md"
+sb_run "$SB3" >/dev/null 2>&1
+git -C "$SB3" add -A; git -C "$SB3" -c user.email=t@t -c user.name=test commit -qm "extra.md restored"
+printf '# ORPHAN TAMPER\n' >> "$SB3/plugin/skills/probe-a/extra.md"
+rm "$SB3/skills/probe-a/extra.md"
+d3_rc=0; sb_run "$SB3" >/dev/null 2>&1 || d3_rc=$?
+if [ "$d3_rc" -eq 3 ] && grep -q "ORPHAN TAMPER" "$SB3/plugin/skills/probe-a/extra.md"; then
+  ok "sandbox: diverged orphan (wt source deleted, HEAD still has it) → exit 3, content preserved"
+else
+  bad "sandbox: clobber guard weakened for orphans (rc=$d3_rc)"
+fi
+git -C "$SB3" reset -q --hard
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

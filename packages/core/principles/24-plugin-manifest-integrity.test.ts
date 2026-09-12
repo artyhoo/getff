@@ -376,6 +376,17 @@ export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: strin
       if (!fromClaudeSkills && a === b) continue; // tier 1: byte-identical (tool-bootstrapping — no escaping links)
       if (normaliseChannelLinks(a) !== normaliseChannelLinks(b)) drift.push(`${name}/${rel}`);
     }
+    // Payload-side extras (the reverse walk, added 2026-09-12): a file the SOURCE no longer
+    // has must not survive in the payload. The loop above is source→payload only, so an
+    // orphan left behind by a deleted source file was never seen — the same one-directional
+    // blindness the generator's no-op check had; its bidirectional half
+    // (scripts/generate-plugin-skills.sh) regenerates these away, and this walk is the CI
+    // backstop that goes RED if it ever stops doing so. No content comparison is possible
+    // (the source is gone), so presence alone is the violation.
+    const dst = resolve(pluginSkillsDir, name);
+    for (const rel of walkFiles(dst)) {
+      if (!existsSync(resolve(src, rel))) drift.push(`${name}/${rel} (extra in plugin)`);
+    }
   }
   return drift;
 }
@@ -501,7 +512,7 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     expect(drift, `plugin/skills copies drifted from their source population in CONTENT (link-form differences are normalised away, so these are real): ${drift.join(', ')}`).toHaveLength(0);
   });
 
-  it('(g) paired-negative: the .claude-skills fallback is GREEN on link-form-only difference, RED on content drift, and blind to plugin-native entries', () => {
+  it('(g) paired-negative: the .claude-skills fallback is GREEN on link-form-only difference, RED on content drift and payload-side extras, and blind to plugin-native entries', () => {
     // The fallback arm added with the generator (plugin-skills-generator Stage 1): entries
     // sourced from .claude/skills/<name> (the CORE four) can never pass a byte tier — the
     // channel transform rewrites link targets and strips TEXT ladders, and normaliseChannelLinks
@@ -533,10 +544,17 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       // must all contribute NOTHING to the drift list.
       expect(collectPluginSkillDrift(tmp, join(tmp, 'plugin', 'skills')),
         'prose drift caught; byte/link-form-only/plugin-native entries must stay clean').toEqual(['probe-drift/SKILL.md']);
+      // RED arm — payload-side EXTRA: a file the source population no longer has (the
+      // deletion flow's CI backstop; the source→payload walk above cannot see one).
+      mk(join(tmp, 'plugin', 'skills', 'probe-byte', 'orphan.md'), 'orphan the source lacks\n');
+      expect(collectPluginSkillDrift(tmp, join(tmp, 'plugin', 'skills')),
+        'payload-side extra must be caught').toEqual(
+        ['probe-byte/orphan.md (extra in plugin)', 'probe-drift/SKILL.md']);
       // Second RED arm — the .claude-sourced entry itself drifting in payload prose:
       mk(join(tmp, 'plugin', 'skills', 'probe-claude', 'SKILL.md'), `see [docs](${blob}/docs/x.md) and PAYLOAD DRIFT\n`);
       expect(collectPluginSkillDrift(tmp, join(tmp, 'plugin', 'skills')),
-        'prose drift under a .claude-sourced entry must be caught').toEqual(['probe-claude/SKILL.md', 'probe-drift/SKILL.md']);
+        'prose drift under a .claude-sourced entry must be caught').toEqual(
+        ['probe-byte/orphan.md (extra in plugin)', 'probe-claude/SKILL.md', 'probe-drift/SKILL.md']);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
