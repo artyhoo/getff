@@ -1,6 +1,6 @@
 ---
 name: template-audit
-description: "Use when auditing rendered templates via local advisory review. Triggers: template, audit, render, generated docs, AGENTS.md, paraphrase, cue placement, local advisory, template-render, audit-template."
+description: 'Use when auditing rendered templates via local advisory review. Triggers: template, audit, render, generated docs, AGENTS.md, paraphrase, cue placement, local advisory, template-render, audit-template.'
 ---
 
 <!-- @harness-posture: portable — prose advisory audit checklist; no harness primitives -->
