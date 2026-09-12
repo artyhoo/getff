@@ -156,6 +156,25 @@ It previews the changes (dry-run, writes nothing), asks for `[y/N]`, then fetche
 - **OpenCode (and other non-CC harnesses):** the same skills are portable — see [`.opencode/INSTALL.md`](.opencode/INSTALL.md). The one accepted off-CC degradation: `SessionStart` auto-injection does not fire, so the bootstrap skill is read on demand (a documented degradation, not a portability gap).
 - **Plugin vs `./setup`:** the plugin is the **soft-layer-first** path (great for "just give me the skills"); `./setup` / `install.sh` is the **full file deploy + hard layer** in one shot. Both reach the same `install.sh` for enforcement.
 
+### As a ZCode plugin (per-harness)
+
+ZCode installs the same plugin payload from the same GitHub marketplace — one artifact serves both harnesses:
+
+```text
+/plugin marketplace add artyhoo/getff
+/plugin install getff@getff
+```
+
+(If your ZCode build has no plugin CLI, the Discover-tab `+` accepts the same `owner/repo` GitHub source.)
+
+What the plugin delivers on ZCode, and the honest boundary:
+
+- **Skills** — the plugin's skills load into ZCode sessions from the installed payload; the `SessionStart` hook injects the `using-getff` bootstrap so they auto-trigger (same mechanism as CC).
+- **Session hooks** — ZCode runs the plugin's PostToolUse gate hooks **advisory-only** (its schema consumes `additionalContext` for PostToolUse, not `permissionDecision`) — declared loudly by the harness renderer, not silently dropped.
+- **The soft/hard boundary is the same as CC** — a plugin never mutates your git/CI. The hard layer (`.husky` + CI enforcement) is opt-in via the installer (`./setup` / `install.sh`), which is harness-independent; on CC a `/getff:install-enforcement` command is the convenience path to the same installer.
+- **Agents** — ZCode's plugin system records the plugin's sub-agents but does not execute them (known harness limitation, per ZCode's own bundled plugin documentation); their markdown stays readable by any session.
+- Per-hook parity detail — what works, what degrades, and why: the [ZCode parity doctrine](.claude/rules/zcode-parity-doctrine.md) §2 census is the SSOT.
+
 ### Optional companion install (K-1)
 
 Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/companions.manifest`) — one row per companion (detect command, install command, kind), looped by `setup.d/engine.sh`:
@@ -271,8 +290,8 @@ When the schema finalizes, `extension.json` may need updates. `install.sh` will 
 The framework is **AI-agnostic by design** — any harness with a CC-compatible hook system works. Per-hook coverage and dogfood depth vary; the doctrine lives at [`.claude/rules/zcode-parity-doctrine.md`](.claude/rules/zcode-parity-doctrine.md).
 
 **Supported today:**
-- **Claude Code** — primary dogfood harness; deepest coverage (all 20 hooks).
-- **ZCode** — full parity via plugin channel + `_zcode-emit` helper. Three CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
+- **Claude Code** — primary dogfood harness; deepest coverage (hook-by-hook census: [doctrine §2](.claude/rules/zcode-parity-doctrine.md)).
+- **ZCode** — full parity via plugin channel + `_zcode-emit` helper; consumers install from the same GitHub marketplace (see «As a ZCode plugin» above). Four CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`, `PreCompact`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
 - **Cursor** — high CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks). Listed based on docs-verification in the [S8 agnosticism survey](docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); live end-to-end testing is a follow-up.
 
 **Roadmap (FEASIBLE-WITH-WORK — adapter needed):**
@@ -282,7 +301,7 @@ The framework is **AI-agnostic by design** — any harness with a CC-compatible 
 **Out-of-scope:**
 - **Aider** — no hook system (upstream issues `aider#2045`, `aider#2557`).
 
-**Wave B rollout status:** Stages 5 (`warn-subagent-report` ZCode variant), 6 (9-twin migration + generator), 7B (`inject-subagent-context` extension for full `SubagentStart` payload parity), 9C (`end-of-turn-reminder` ZCode multi-turn arm) are decided ([decisions.md](docs/meta-factory/zcode-parity-mega.decisions.md) §Wave A brainstorm resolutions) and implementation-pending. See doctrine §3 for live merge status.
+**Wave B rollout status:** Stages 5 (`warn-subagent-report` ZCode variant), 6 (9-twin migration + generator), 7B (`inject-subagent-context` extension for full `SubagentStart` payload parity), 9C (`end-of-turn-reminder` ZCode multi-turn arm) are **merged** (#1043/#1044/#1046/#1047). Live per-stage status lives in the [doctrine §3](.claude/rules/zcode-parity-doctrine.md) — cited here rather than restated, so this line cannot drift from the census.
 
 ## Verified versions (May 6, 2026)
 
