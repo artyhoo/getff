@@ -295,7 +295,7 @@ describe('harness-config-drift — honest degradation (attention-is-not-a-mechan
   });
 
   it('emitZcode LOUDLY declares PostToolUse gate hooks are ADVISORY-ONLY (schema Uan limit)', () => {
-    // Schema Uan (zcode.cjs:53) accepts permissionDecision:"deny" ONLY for PreToolUse. The 4
+    // Schema Uan (zcode.cjs:53) accepts permissionDecision:"deny" ONLY for PreToolUse. The 5
     // post-mutation gate hooks cannot block on zcode (nor on any harness — post-mutation by
     // definition). CC surfaces exit1+stderr loudly; zcode additionalContext only. This inherent
     // limit is declared loudly, not hidden.
@@ -304,6 +304,7 @@ describe('harness-config-drift — honest degradation (attention-is-not-a-mechan
     expect(c.out).toMatch(/ADVISORY-ONLY/i);
     for (const gate of [
       'check-doc-authority',
+      'check-doc-authority-header',
       'check-hook-marker',
       'check-kickoff-traps',
       'check-worker-dispatch-channel',
