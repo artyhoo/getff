@@ -39,9 +39,21 @@
 # Clobber guard: per file, refuse
 # (exit 3, before ANY write) when the existing copy matches NEITHER the render from the
 # working-tree source NOR the render from the HEAD source — content no source reproduces would
-# be silently deleted (the #1044/#1442 Stage-9C class, twins header :78-95). Deliberately
-# permissive where twins is: no HEAD, or the source file not in HEAD (first generation), or a
-# payload file that HEAD's source tree also lacks being removed → allow, log.
+# be silently deleted (the #1044/#1442 Stage-9C class, twins header :78-95). Allow+log covers
+# exactly one case: a payload file whose source is absent from BOTH the working tree and HEAD
+# (an orphan of a committed or HEAD-less deletion). Doc precision (review 2026-09-12): «no
+# HEAD» or «source not in HEAD» alone does NOT allow — a working-tree source that renders
+# differently from an existing payload still refuses (exit 3): with no HEAD evidence the
+# payload is not known reproducible, so the guard fails safe.
+#
+# Enforcement channels TODAY (2026-09-12): CI only. `.github/workflows/audit-self.yml` runs
+# tests/plugin/skills-generation.test.sh (regen no-op + sandbox contract arms), and principle 24
+# (packages/core/principles/24-plugin-manifest-integrity.test.ts, tiers (g)/(h)) guards drift
+# population-wide. The pre-commit regen arm is MAINTAINER-PENDING, NOT wired: `.husky/` is
+# maintainer-owned per the Artifact Ownership Contract, and the exact block to insert is
+# recorded in docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md
+# §7. No hook invokes this script yet — stating otherwise would be the #hope-as-gate shape, so
+# this comment is the contract until the arm lands.
 #
 # Transform parity obligation: the arm block below is a DELIBERATE mirror of
 # setup.d/lib.sh:148-162 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
@@ -101,8 +113,9 @@ transform_one_file() {
   local f="$1"
   [ -f "$f" ] || return 0
   # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup — the same idiom
-  # as the mirrored setup.d/lib.sh:147 (bare `-i` is GNU-only; the maintainer-side pre-commit
-  # regen arm will run this script on BSD-sed machines too).
+  # as the mirrored setup.d/lib.sh:147 (bare `-i` is GNU-only). Portable so the script behaves
+  # identically wherever it runs — CI today; the maintainer-pending pre-commit arm later (see
+  # «Enforcement channels TODAY» in the header).
   sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \
