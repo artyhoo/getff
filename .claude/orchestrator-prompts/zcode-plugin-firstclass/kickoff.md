@@ -69,9 +69,9 @@ consumer path, manifest-slot decision, row-3 twin, docs, live acceptance.
 
 | Stage | Scope (one line) | Depends on |
 |---|---|---|
-| 0 | R-phase re-verification: probes 0.1-0.8, dated research-patch, forks surfaced | — |
-| 1 | Decision pack: forks A-D recorded with recommendations (research doc only) | 0 |
-| 2 | Implementation per decisions: README ZCode consumer path + row-3 twin + compatibility sync. HARD CROSS-UMBRELLA GATE: `plugin-skills-generator` MERGED (done.md on staging) — else park `blocked_external` | 1 |
+| 0 | R-phase re-verification: probes 0.1-0.8, dated research-patch, forks surfaced — DONE #1724 | — |
+| 1 | Decision pack: forks A-D recorded with recommendations (research doc only) — DONE #1724 | 0 |
+| 2 | Implementation per decisions: README ZCode consumer path + row-3 twin + compatibility sync. HARD CROSS-UMBRELLA GATE: `plugin-skills-generator` has its done.md on staging (sibling merged) — else park `blocked_external` | 1 |
 | 3 | ZCode-first live consumer acceptance on the HOST (install + listing + refresh); merge-blocking | 2 |
 | 4 | CC non-regression requirements documented (external, owner-scheduled; NOT executor work) | — |
 
@@ -199,6 +199,22 @@ before verdict — Stage 0 precedes decisions), T5-class (HOST probes never simu
 - Design-first execution («обдумать и реализовать») — Stage 0/1 precede Stage 2.
 - Execution via the aif dispatcher (2026-09-11).
 - Skills generation + version bump + CORE four shipping belong to `plugin-skills-generator`.
+- Forks A–D settled 2026-09-12 on the merged S1 decision pack
+  (`docs/meta-factory/research-patches/2026-09-12-zcode-plugin-firstclass-s1-decision-pack.md`):
+  the dispatcher applied the pack recommendations under the operator's standing momentum
+  directives («Отправь уже в аиф!», «продолжай» — night-mode default rule). Every falsifier
+  stays armed; reversal = revert the recording PR + edit this §7.
+  - **A — STAY** single-source on `plugin/.claude-plugin/plugin.json`; a `.zcode-plugin/` twin
+    lands only on live Stage 3 evidence the fallback slot degrades (pack Fork A falsifier).
+  - **B — leg (a):** verify + document the GitHub marketplace `artyhoo/getff` as THE ZCode
+    consumer path; `zcode-plugins-official` submission = documented owner ask, NOT executed
+    (§6 non-goal stands).
+  - **C — GO:** ship the row-3 `check-doc-authority-header` twin via the twin generator with
+    all six sync points (twin + doctrine rows + renderer `PLUGIN_INTERNAL_HOOKS`/regen +
+    doctrine :118 `^lib` recount + `POST_MUTATION_GATES` +1 + README staleness cluster).
+  - **D — verified-claims-only:** the README ZCode block + Compatibility sync land in Stage 2
+    and the PR does not merge before Stage 3 HOST evidence; any claim Stage 3 cannot verify
+    stays OUT of README.
 
 ## §8 Host verification
 
