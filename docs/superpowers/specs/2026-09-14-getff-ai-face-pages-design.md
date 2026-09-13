@@ -155,10 +155,17 @@ Per stack page the executed example is the `fire-on-your-code` step, and it is t
 violation of a SHIPPED getff rule in the reader's own tree, run the stack's NATIVE gate, read the RED line naming the file.
 npm: `watch-a-rule-fire` (= `bash scripts/check-fences-fire.sh`) proves the installed rules fire on the shipped temp-dir
 fixtures and `bash scripts/check-rule-globs.sh` proves the globs reach the reader's layout; then the reader adds
-`Math.random()` to a file under `src/` and runs `npm run lint` (`eslint . --max-warnings=0`, written by
-`setup.d/70-deps.sh:75`) — RED from `rules-as-tests/no-direct-time-randomness`, a core rule copied into
-`eslint-rules-local/` for every npm stack (`setup.d/40-configs.sh:197`, wired at `error` in all three shipped eslint
-configs). Lanes: the installer's own firing self-check (`setup.d/45|46|47`, «✓ getff self-check: … fired RED on a planted
+`z.string().parse(input)` to a file under one of the boundary globs (`**/routes/**`, `**/handlers/**`, `**/controllers/**`,
+`**/app/api/**`, `**/actions/**` — `RULE_GLOBS.boundary`) and runs `npm run lint` (`eslint . --max-warnings=0`, written by
+`setup.d/70-deps.sh:75`) — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, validation at boundaries), the ONE custom rule
+wired UNCONDITIONALLY in all three shipped eslint configs (`templates/ts-server/eslint.config.mjs:179`,
+`preset-react-spa/…/eslint.config.react.mjs:255`, `preset-next-15-canonical/…/eslint.config.react.mjs:246`). NOT R7/R8
+(`no-direct-time-randomness`, `require-otel-span`): a rule FILE copied into `eslint-rules-local/` is not a rule ENABLED —
+those two ship behind `AIF_STRICT_RUNTIME=1` (`setup.d/99-finalize.sh:221`, `AGENTS.md.template:20`) and a default `npm
+run lint` stays green on a planted `Math.random()`; the page says this in one sentence (default depth is part of the honest
+limit) and shows `AIF_STRICT_RUNTIME=1 npm run lint` as the optional second RED. `react-native` wires NO custom rule
+(`preset-react-native/templates/eslint.config.expo.mjs` has no `rules-as-tests` block), so its `maturity.json` caveat says so
+and the npm page demonstrates RED on `ts-server` / `react-next` / `react-spa` only. Lanes: the installer's own firing self-check (`setup.d/45|46|47`, «✓ getff self-check: … fired RED on a planted
 violation and stayed GREEN on the clean control»), then one planted violation in the reader's tree and the lane's native
 gate (ruff/ast-grep, `cargo clippy`, `golangci-lint run`). The content session records each stack's real output (fixture
 repo, date, versions) in the page's `executed:` list (§6). Honest limit block: label + `caveat` for THIS stack (from
@@ -411,7 +418,7 @@ disposition; none was DISSOLVED. TD = top-down, BU = bottom-up.
 
 | Finding | Severity | Disposition | Where |
 |---|---|---|---|
-| TD-F1 + BU-F1 npm quick start cannot go RED on the reader's code (`check-fences-fire.sh` enumerates shipped fixtures only) | BLOCKER | FIXED — RED step = plant `Math.random()` in `src/`, `npm run lint` fires `no-direct-time-randomness`; new SSOT step `fire-on-your-code`; beta definition kept, demonstration now matches | §5.2, FD5, §10.2 |
+| TD-F1 + BU-F1 npm quick start cannot go RED on the reader's code (`check-fences-fire.sh` enumerates shipped fixtures only) | BLOCKER | FIXED (second pass after the reviewer's verification of the first fix, which named R7 — a rule shipped DISABLED behind `AIF_STRICT_RUNTIME=1`, same false-green class) — RED step = plant `z.string().parse(input)` under a boundary glob, `npm run lint` fires `no-unsafe-zod-parse` (R2, the one unconditional custom rule); R7/R8 opt-in stated on the page; react-native has no rule → caveat; new SSOT step `fire-on-your-code`; beta definition kept, demonstration now matches | §5.2, FD5, §10.2 |
 | TD-F2 chooser cards are lanes, reader has a stack (`react-spa` / `react-native` had no row) | MAJOR | FIXED — `maturity.json` `stacks` = one row per installable positional; npm card shows the four rows; FYI sent to the umbrella (D32 granularity) | FD4, §5.1.4, §5.2 |
 | TD-F3 + BU-F6 the disagreeing sentences (README:258, `limits.md`, hero) have no field to live in | MAJOR | FIXED — per-row `caveat`; Introduction, `/docs/limits/`, stack pages, README region, hero render it; S2 covers caveat drift | FD4, §5.1.4, §7, S2 |
 | TD-F4 `## Start here` ordered for the human, not the agent | MINOR | FIXED — agent order (Introduction → agent page → quick start …); umbrella D34 already fixes the twin fields, so no escalation | §5.8, §3, S5 |
