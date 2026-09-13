@@ -296,7 +296,8 @@ Shape (llmstxt.org): `# getff` → blockquote (one honest sentence: what it does
 paragraph (for whom; no LLM in the loop; how the twins are pinned) → `## Start here` in AGENT order — Introduction → Use
 getff with your AI agent → Quick start (its four stack twins indented beneath) → Installation → Why → How it works →
 Foundations, one-line notes (journey order stays where it serves the human: sidebar and `next:` chain) → `## Proof` (`AGENTS.md` permalink at verified-at, `make self-audit`, claims ledger) → `## Reference` (generated family
-list) → `## Optional` (`llms-full.txt`, Understand/Guides lists, generated). The curated head is authored by the content session
+list) → `## Optional` (`llms-full.txt`, Understand/Guides lists, generated); both generated lists take their inputs from the pinned
+`docs/site/face-facts.json` and family JSON (umbrella D42), never from a landing-side generator run. The curated head is authored by the content session
 as a template in framework `docs/site/`; the LANDING build assembles `llms.txt` from that head plus the generated lists (umbrella
 D28a second clarification 2026-09-14, D29 G17, D31 R12) — `llms.txt` itself is a build projection, like the twins.
 `llms-full.txt` = every page's processed markdown, unchanged mechanism, face pages first.
@@ -343,7 +344,8 @@ D10 — a dependency, not decided here).
 ## 7. Fact-supply architecture (FD13 + FD15 — approach A)
 
 One generator, `scripts/render-face-facts.mjs`, reads the SAME sources the runtime executes and writes
-`packages/core/manifest/face-facts.json` (`verified-at: <sha>`), from which fence regions on the seven pages and `llms.txt` are
+`docs/site/face-facts.json` (`verified-at: <sha>`; home = `docs/site/` per umbrella D42 — the landing pin sparse-checkouts only
+`docs/site/`, and `packages/core/manifest/` ships in npm via `files`), from which fence regions on the seven pages and `llms.txt` are
 filled by the existing engine (the hero §06 reads the same JSON through a landing component, §5.9) (`packages/core/composition/fence.ts`; `--write/--check` precedent
 `scripts/render-install-roster.mjs` — «derived, not asserted»). Families and sources:
 
@@ -371,8 +373,9 @@ twice 2026-09-14); the `.md` twins and the assembled `llms.txt` are NOT conveyed
 (D10) are landing-repo code owned by the cutover stage (D31 S2) — authored once, never conveyed (umbrella D28a; falsifier: a
 generated artifact that needs a landing-side edit on every pin bump means the boundary is wrong — move the generator or the
 config, never both). Where the umbrella decides doc sources live does not change this contract (FD15 falsifier). `--check`
-runs in the framework pre-push and in the landing PR CI (NEW — rollout R9, built in S1), so a hand-typed number, command,
-label or caveat anywhere on a face page is RED.
+runs framework-side only — pre-commit, pre-push and `audit-self.yml` (umbrella D42), never in the landing build, which consumes
+`docs/site/face-facts.json` as pinned data — so a hand-typed number, command, label or caveat anywhere on a face page is RED
+before it reaches the pin; the landing PR CI (NEW — rollout R9, built in S1) owns the projection seams (§9 FS5 / FS6 / FS8).
 
 ## 8. Terms and claims discipline
 
@@ -385,17 +388,20 @@ through the claims auditor; on these pages such sentences are generated, so the 
 
 ## 9. Testing seams (what proves what)
 
+Seam ids use the `FS` (face seam) namespace so they never collide with the rollout stage labels S0a / S0b / S1 / S2 (umbrella
+cold review MINOR-6).
+
 | Seam | Mechanism | RED when |
 |---|---|---|
-| S1 facts | `render-face-facts.mjs --check` (framework pre-push, S1; landing PR CI, S1) | any fence region differs from the manifest render |
-| S2 maturity | same, over `maturity.json` (S1) | a label OR a caveat sentence typed by hand anywhere (README, pages, hero, `limits.md`) |
-| S3 examples | page `executed:` entries + the content session's fixture logs (`EXIT=` recorded); D26 refresh gate (S0/S1) | a stack page lacks a RED `fire-on-your-code` result, or result date is missing |
-| S4 URLs | lychee over `out/` in the landing CI + census test: every B-D4 census URL serves a real page (no `refresh` meta) + stub test: every listed post-census slug serves `refresh` + `canonical` | a census slug stubbed, a stub missing or pointing at a 404 |
-| S5 llms.txt | shape test (landing PR CI, S1): H1, blockquote, `## Start here` with exactly the seven twins in the §5.8 agent order (+ four stack twins under quick start), `## Optional` present | head drifts or lists are hand-edited |
-| S6 twins | frontmatter schema test (landing PR CI, S1): framework half (`kind: face-page`, `sources` as `path:line`, `executed`, `next`) + landing half (`url`, `verified-at`, resolved permalinks, `stale-since`); `kind:` presence is also D30's `docs-check.mjs` pages profile (pre-commit + `audit-self.yml`, fail-closed) | a `sources:` entry that does not resolve at the pin, a twin without `verified-at`, a face page without `kind: face-page` |
-| S7 diagrams | render smoke in the static export (S2): each of the three diagrams yields an `<svg>` (`beautiful-mermaid`, build path) | a diagram block renders empty or as raw text |
-| S8 hero | `grep` guard from §5.9 (landing PR CI, S1) + both CTAs internal | a stack / maturity word (`four stacks\|Python\|Go\|cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) outside the component's props |
-| S9 terms | `terms.md --check` (D20) forbidden-synonym scan over the seven pages | a synonym survives |
+| FS1 facts | `render-face-facts.mjs --check` (framework pre-commit / pre-push / `audit-self.yml`, S1; never the landing build — umbrella D42) | any fence region differs from the manifest render |
+| FS2 maturity | same, over `maturity.json` (S1) | a label OR a caveat sentence typed by hand anywhere (README, pages, hero, `limits.md`) |
+| FS3 examples | page `executed:` entries + the content session's fixture logs (`EXIT=` recorded); D26 refresh gate (S0/S1) | a stack page lacks a RED `fire-on-your-code` result, or result date is missing |
+| FS4 URLs | lychee over `out/` in the landing CI + census test: every B-D4 census URL serves a real page (no `refresh` meta) + stub test: every listed post-census slug serves `refresh` + `canonical` | a census slug stubbed, a stub missing or pointing at a 404 |
+| FS5 llms.txt | shape test (landing PR CI, S1): H1, blockquote, `## Start here` with exactly the seven twins in the §5.8 agent order (+ four stack twins under quick start), `## Optional` present | head drifts or lists are hand-edited |
+| FS6 twins | frontmatter schema test (landing PR CI, S1): framework half (`kind: face-page`, `sources` as `path:line`, `executed`, `next`) + landing half (`url`, `verified-at`, resolved permalinks, `stale-since`); `kind:` presence is also D30's `docs-check.mjs` pages profile (pre-commit + `audit-self.yml`, fail-closed) | a `sources:` entry that does not resolve at the pin, a twin without `verified-at`, a face page without `kind: face-page` |
+| FS7 diagrams | render smoke in the static export (S2): each of the three diagrams yields an `<svg>` (`beautiful-mermaid`, build path) | a diagram block renders empty or as raw text |
+| FS8 hero | `grep` guard from §5.9 (landing PR CI, S1) + both CTAs internal | a stack / maturity word (`four stacks\|Python\|Go\|cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) outside the component's props |
+| FS9 terms | `terms.md --check` (D20) forbidden-synonym scan over the seven pages | a synonym survives |
 
 ## 10. Dependencies, order of work, escalations
 
@@ -407,8 +413,8 @@ through the claims auditor; on these pages such sentences are generated, so the 
    missing lineage citations in `skills/getff/references/` (§5.6.2). Then S0b — gold pages + rules (umbrella's), where the
    content session gold-fills every region by hand (§7). `render-face-facts.mjs` and the family JSON are S1 (conveyor), and
    must reproduce the gold.
-3. S1 (conveyor, rollout R9): the landing PR CI is NEW and owns seams S1, S2, S5, S6, S8; S3 is the content evidence + the D26
-   refresh gate. Cutover stage (D31 S2, landing repo): diagram render path (S7), the hero component (§5.9), `markdownUrl`
+3. S1 (conveyor, rollout R9): the landing PR CI is NEW and owns seams FS5, FS6, FS8; FS1 and FS2 run framework-side (D42); FS3 is the content evidence + the D26
+   refresh gate. Cutover stage (D31 S2, landing repo): diagram render path (FS7), the hero component (§5.9), `markdownUrl`
    page actions (D10), the four stub pages; the pin sync brings all framework `docs/site/` content (prose, `terms.md`,
    `face-facts.json`, family JSON, the `llms.txt` head template); twins and `llms.txt` are projected at build.
 4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms.txt` head, hero copy, from the content brief.
@@ -423,21 +429,23 @@ disposition; none was DISSOLVED. TD = top-down, BU = bottom-up.
 |---|---|---|---|
 | TD-F1 + BU-F1 npm quick start cannot go RED on the reader's code (`check-fences-fire.sh` enumerates shipped fixtures only) | BLOCKER | FIXED (second pass after the reviewer's verification of the first fix, which named R7 — a rule shipped DISABLED behind `AIF_STRICT_RUNTIME=1`, same false-green class) — RED step = plant `z.string().parse(input)` under a boundary glob, `npm run lint` fires `no-unsafe-zod-parse` (R2, the one unconditional custom rule); R7/R8 opt-in stated on the page; react-native has no rule → caveat; new SSOT step `fire-on-your-code`; beta definition kept, demonstration now matches | §5.2, FD5, §10.2 |
 | TD-F2 chooser cards are lanes, reader has a stack (`react-spa` / `react-native` had no row) | MAJOR | FIXED — `maturity.json` `stacks` = one row per installable positional; npm card shows the four rows; FYI sent to the umbrella (D32 granularity) | FD4, §5.1.4, §5.2 |
-| TD-F3 + BU-F6 the disagreeing sentences (README:258, `limits.md`, hero) have no field to live in | MAJOR | FIXED — per-row `caveat`; Introduction, `/docs/limits/`, stack pages, README region, hero render it; S2 covers caveat drift | FD4, §5.1.4, §7, S2 |
-| TD-F4 `## Start here` ordered for the human, not the agent | MINOR | FIXED — agent order (Introduction → agent page → quick start …); umbrella D34 already fixes the twin fields, so no escalation | §5.8, §3, S5 |
+| TD-F3 + BU-F6 the disagreeing sentences (README:258, `limits.md`, hero) have no field to live in | MAJOR | FIXED — per-row `caveat`; Introduction, `/docs/limits/`, stack pages, README region, hero render it; FS2 covers caveat drift | FD4, §5.1.4, §7, FS2 |
+| TD-F4 `## Start here` ordered for the human, not the agent | MINOR | FIXED — agent order (Introduction → agent page → quick start …); umbrella D34 already fixes the twin fields, so no escalation | §5.8, §3, FS5 |
 | TD-F5 no page says how to back out | MINOR | FIXED — Installation «If you want it out», generated from the install-ownership source | §5.3 |
-| BU-F2 hero §06 fence region impossible (fence engine = HTML comments, TSX cannot host it) | MAJOR | FIXED — build-time React component reads `face-facts.json`; S8 guard re-scoped to the component's props | §5.9, §7, S8 |
-| BU-F3 twins are landing-rendered and carry no frontmatter; BU-F4 permalinks baked into framework output contradict D34 | MAJOR / MAJOR (flagged ESCALATED by the reviewer) | FIXED by aligning to the already-ratified umbrella D34 + rollout R12: framework half (`path:line`, `executed`, `next`) vs landing half (`url`, `verified-at`, permalinks, `stale-since`); twins removed from the conveyed list; no new escalation — D34 answers it | §6, FD11, §7, S6 |
+| BU-F2 hero §06 fence region impossible (fence engine = HTML comments, TSX cannot host it) | MAJOR | FIXED — build-time React component reads `face-facts.json`; FS8 guard re-scoped to the component's props | §5.9, §7, FS8 |
+| BU-F3 twins are landing-rendered and carry no frontmatter; BU-F4 permalinks baked into framework output contradict D34 | MAJOR / MAJOR (flagged ESCALATED by the reviewer) | FIXED by aligning to the already-ratified umbrella D34 + rollout R12: framework half (`path:line`, `executed`, `next`) vs landing half (`url`, `verified-at`, permalinks, `stale-since`); twins removed from the conveyed list; no new escalation — D34 answers it | §6, FD11, §7, FS6 |
 | BU-F5 diagram 2 reproduces no live render outcome | MAJOR | FIXED — static generic outcomes + generated region quoting one live `Enforced:` line | §5.5.2 |
 | BU-F7 four lineage sources have no citation artifact | MAJOR | FIXED — S0a adds Adzic / Martraire / Majors / Rašić to `skills/getff/references/`; name-only attribution until then | §5.6.2, §10.2 |
 | BU-F8 «45 academic sources across 24 files» unreproducible (register predicate unstated; `arxiv\|doi` gives 13 across 8) | MAJOR | FIXED — number dropped; predicate declared in the counts row; register fact F17 annotated | §5.6.3, §7 |
 | BU-F9 Introduction reads family JSON no stage produces before it | MAJOR | FIXED — S0 gold-fill by hand, S1 generators reproduce byte-for-byte (D24b); generator + family JSON moved to S1 | §7, FD13, §10.2 |
 | BU-F10 six-step sequence quoted, SSOT holds seven | MINOR | FIXED — all seven rendered + the new step; `research-your-stack` is the closing pointer | §5.2 |
 | BU-F11 four seams have no owning stage; «landing CI» does not exist yet | MINOR | FIXED — every seam names its channel and stage; landing PR CI marked NEW (R9, S1) | §9, §10.3 |
-| BU-F12 S8 guard misses the maturity words | MINOR | FIXED — pattern extended (`cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) | §5.9, S8 |
+| BU-F12 FS8 guard misses the maturity words | MINOR | FIXED — pattern extended (`cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) | §5.9, FS8 |
 | BU-F13 stub pairs cross-URL canonical with `noindex` | NOTE | FIXED — `noindex` dropped; shape = rollout R7 | §4 |
 | BU-F14 stubbing `first-steps-*` orphans `renders[1]` of the SSOT | NOTE | FIXED — S0a re-points `renders[1]` at `/docs/installation/` | §10.2 |
-| Umbrella cross-carve-out seam (D38, 2026-09-14): D30 D-Q17 requires `kind:` on every `docs/site/**/*.md`, fail-closed; the seven face pages carried none | SEAM | FIXED — `kind: face-page` in the framework half of the frontmatter (D35 E1), S6 asserts it; `terms.md` is `kind: glossary` (D30's, not ours) | §6, S6 |
+| Umbrella cross-carve-out seam (D38, 2026-09-14): D30 D-Q17 requires `kind:` on every `docs/site/**/*.md`, fail-closed; the seven face pages carried none | SEAM | FIXED — `kind: face-page` in the framework half of the frontmatter (D35 E1), FS6 asserts it; `terms.md` is `kind: glossary` (D30's, not ours) | §6, FS6 |
+| Umbrella cold review round 1, D42 (2026-09-14): `face-facts.json` cannot live in `packages/core/manifest/` — the landing pin sparse-checkouts only `docs/site/`, and `packages/core/manifest/` ships in npm via `files` | SEAM | FIXED — home is `docs/site/face-facts.json`, written by `render-face-facts.mjs`; `--check` runs framework-side only (pre-commit / pre-push / `audit-self.yml`), never in the landing build; the §5.8 generated lists read the pinned file | §7, §5.8, FS1, §10.3 |
+| Umbrella cold review round 1, MINOR-6: testing-seam ids `S1..S9` collided with the rollout stage labels `S0a/S0b/S1/S2` | MINOR | FIXED — seams renamed to the `FS1..FS9` namespace everywhere (§9, §10.3, §11 pointers); stage labels unchanged | §9, §10.3 |
 
 ## 12. Deliverable pointers
 
