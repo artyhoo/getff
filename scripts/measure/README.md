@@ -38,8 +38,9 @@ One row per spec-table claim, naming the script and the exact output key(s) it p
 The spec's table is the design-time evidence and stays as ratified — the decisions were made
 from those numbers. This is a re-derivation from the vendored scripts on the same machine, for
 falsification, not a replacement baseline. All three scripts were run on bare defaults (no
-`--days` / `--min-size` override), per `scripts/measure/measure.test.sh`'s own invocation shape
-and per README §3 above. Full run headers and raw output are in the task-0.6 report.
+`--days` / `--min-size` override), per README §3 above. (`measure.test.sh` deliberately does the
+opposite — `measure.test.sh:30,51` widen to `--days 100000 --min-size 0` against fixtures, so that
+a fixture is never skipped by a filter; that is a test shape, not a re-run shape.) Full run headers and raw output are in the task-0.6 report.
 
 Run headers (verbatim):
 
@@ -50,9 +51,9 @@ Run headers (verbatim):
 | Spec row | Spec value | Re-run | Note |
 |---|---|---|---|
 | Transcripts scanned / sessions containing a block | 361 / 240 | 380 / 254 | +5.3% / +5.8% — in line with ordinary corpus growth over the day; not material. |
-| Operator re-explain asks | 100 | 131 | +31% (`reexplain_asks`, mapping inferred). Attributed by transcript day: 35 of the 131 hits come from files dated 2026-09-13, i.e. this project's own design/review/execution sessions; excluding them the counter reads 96 against a spec value of 100 measured earlier the same day. Self-contamination, not mapping drift — see below. |
+| Operator re-explain asks | 100 | 131 | +31% (`reexplain_asks`, mapping inferred). Attributed by each message's own `timestamp`: 33 of the 131 hits are dated 2026-09-13, and excluding them the counter reads 98 against a spec value of 100 taken earlier the same day. Narrows the gap; does NOT close the mapping question — see the finding below. |
 | Turns ending in «жду го»-class waits | 636 | 662 | +4.1% (`agent_wait_phrases`, evidence-backed by the `ASKC` regex) — this is the baseline for what corpus growth alone should produce over the same 268-transcript run. |
-| … vs real harness blocks | 101 | 115 | +13.9% (`denied_tool_calls`, mapping inferred). Same attribution: 23 of the 115 are from 2026-09-13 files; excluding them it reads 92 against a spec value of 101 measured earlier the same day. Same-day growth, not mapping drift — see below. |
+| … vs real harness blocks | 101 | 115 | +13.9% (`denied_tool_calls`, mapping inferred). Same attribution: 16 of the 115 are dated 2026-09-13; excluding them it reads 99 against a spec value of 101. Same shape as the row above — narrowed, not closed. |
 | `## 🟢 Простыми словами` blocks emitted | 1607 | 1718 | +6.9% (`blocks`) — tracks `sessions_with_block`'s +5.8% growth; not material. |
 | Block non-empty lines p50 / p90 / max | 7 / 10 / 41 | 7 / 10 / 41 | Unchanged — block-length distribution shape is stable. |
 | Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | 36 (2.1 %) / 5 | Absolute counts (`blocks_over_15`, `blocks_over_25`) unchanged even though total `blocks` grew by 111; the percentage drifted only because its denominator grew. Not a mapping concern. |
@@ -60,21 +61,33 @@ Run headers (verbatim):
 | Blocks containing a question | 6 % | 6 % | Unchanged (`blocks_with_question: 111` of 1718, same ratio). |
 | `## 🎬` story emissions | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
 
-**Finding — the two `mapping inferred` rows survive their first falsification.** Both moved
-more than the evidence-backed `agent_wait_phrases` row (+4.1%), which at first reading looks like
-the mapping being loose. It is not: re-running each counter with its hits attributed by transcript
-day shows the excess is entirely in files dated 2026-09-13. `reexplain_asks` reads 96 excluding
-them (spec: 100); `denied_tool_calls` reads 92 excluding them (spec: 101). Those same-day files
-are this project's own design, review and execution sessions — and the `CLAR` bucket's vocabulary
-(`объясни`, `понятн`, `простым`, `попроще`, …) is precisely what a session ABOUT plain-words
-recaps says out loud, so measuring it while writing it inflates it. The spec's numbers were taken
-earlier on 2026-09-13, before those transcripts had grown.
+**Finding (OPEN) — the two `mapping inferred` rows are not yet settled.** Both moved more than
+the evidence-backed `agent_wait_phrases` row (+4.1%), which reads as the mapping being loose.
+Attributing each counter's hits by the message's own `timestamp` accounts for most of the gap:
+`reexplain_asks` reads 98 excluding 2026-09-13 (spec: 100) and `denied_tool_calls` reads 99
+(spec: 101), against totals of 131 and 115. But «most of the gap» is not «the mapping is right»,
+and this stays a question for whoever owns the `CLAR` and denial classifications — recorded here
+and in the slice-0 PR body, not resolved inline. Three things a later re-runner should know, each
+measured rather than argued:
 
-That makes this re-run a passed falsifier for both inferred mappings, not a failed one, and it
-records a real hazard for anyone re-running later: **this corpus contains the sessions that built
-the feature it measures.** A future re-run that wants the mapping-drift signal rather than the
-project's own noise should exclude, or separately report, the transcripts of the recap-v2 work
-itself. Numbers above are left exactly as the scripts printed them; nothing was adjusted.
+1. **Attribution method matters.** Bucketing by the transcript FILE's mtime instead of the
+   message's own timestamp overstates today by 35 vs 33 for `CLAR` and by 23 vs 16 for `DEN` —
+   a session that spans midnight puts every one of its messages on its last-modified day. 30 of
+   268 in-window files span more than one calendar day. Lines carrying no `timestamp` field
+   (mostly injected/system records) still fall back to file mtime here.
+2. **Resumed sessions double-count.** Of the 33 `CLAR` hits dated 2026-09-13, only 19 are
+   distinct messages — 14 are the same operator message re-counted because a resumed or forked
+   session carries the earlier transcript forward. That inflation is a property of the corpus and
+   applies to every row in this table, not only to the two inferred ones.
+3. **This corpus contains the sessions that built the feature it measures.** Today's `CLAR` hits
+   match on `понятн` (12), `доступн` (11), `простым` (4) and concentrate in the recap-v2 design
+   conversation, where the operator is discussing what a plain-words recap should say. That is a
+   plausible inflation mechanism, not a demonstrated one: the per-day `CLAR` rate swings widely
+   across unrelated days, so today being elevated is not by itself exceptional. A re-run that
+   wants the mapping signal rather than the project's own noise should exclude, or separately
+   report, the transcripts of the recap-v2 work.
+
+Numbers in the table above are left exactly as the scripts printed them; nothing was adjusted.
 
 Two honesty notes on this table:
 
