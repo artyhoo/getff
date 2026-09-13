@@ -45,6 +45,7 @@ closed by a round-2 disposition below.
 - TD-N8 ESCALATED — arm a blocking gate on consumer turns from operator-only calibration? —
   **ESCALATED → R-14 operator-fork** (asked with the round-cap fork).
 - TD checklist residue: R-11 empty falsifier — **FIXED**.
+- Post-round (2026-09-13, slice 0): TD-F13 / BU-F14 recorded the measurement scripts as not re-derivable; all three were recovered from the authoring scratchpads (`measure-recap-len.py`, `analyze2.py`, `perm2.py`) and vendored byte-for-byte at `scripts/measure/`, so the design line that claimed otherwise was corrected in place.
 
 ## Round 1 — 2026-09-13 (TD REVISE, BU REVISE)
 

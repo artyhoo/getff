@@ -34,7 +34,7 @@ Measurements (project transcripts, `~/.claude/projects/-Users-art-code-rules-as-
 | `## 🎬` story emissions                                     | 166          | `grep -l` over transcripts                                                                                                               |
 
 The 100 / 636 / 101 rows are recorded in the source handoff only; their scripts (`analyze2.py`,
-`perm2.py`) lived in a scratchpad and are NOT re-derivable — slice 0 vendors them (F13/F14).
+`perm2.py`) were recovered 2026-09-13 from the authoring scratchpads — slice 0 vendors them (F13/F14) and records dated re-runs in `scripts/measure/README.md` §2.
 
 Reading: the block is already short; the pain is its content (action retelling: the RU pack's
 branch-A text opens «в первую очередь для себя» and lists «чем я занят / что я только что сделал»,
