@@ -42,7 +42,7 @@ CC-first today (full features) + analogous for others (ZCode today; Cursor/Codex
 |---|---|---|---|---|
 | 1 | `adopt-orchestrator-prompts` | PostToolUse | works (PostToolUse ∈ `ZCODE_EVENTS`); unregistered by default | `framework-internal` |
 | 2 | `ask-question-reminder` | PreToolUse:AskUserQuestion | works | `parity` |
-| 3 | `check-doc-authority-header` | PostToolUse:Edit\|Write | works; consumer-install only via `setup.d/10-skills.sh:246` — NO plugin twin shipped (verified live: `ls plugin/hooks/ \| grep -x check-doc-authority-header` → empty; row 4's `check-doc-authority` twin exists, NOT row 3's); not reachable on ZCode via plugin channel | `plugin-gap` |
+| 3 | `check-doc-authority-header` | PostToolUse:Edit\|Write | works; consumer-install only via `setup.d/10-skills.sh:328` — NO plugin twin shipped (verified live: `ls plugin/hooks/ \| grep -x check-doc-authority-header` → empty; row 4's `check-doc-authority` twin exists, NOT row 3's); not reachable on ZCode via plugin channel | `plugin-gap` |
 | 4 | `check-doc-authority` | PostToolUse:Edit\|Write | works; CC-dogfood only (consumer surface is row 3) | `framework-internal` |
 | 5 | `check-hook-marker` | PostToolUse:Edit\|Write | works | `parity` |
 | 6 | `check-kickoff-traps` | PostToolUse:Edit\|Write | works | `parity` |
@@ -103,7 +103,7 @@ For each row classified `cc-only` in §2, the design intent and the closing-evid
 
 **Row 12 — `inject-output-language` (`plugin-gap` closed):** CC ships via `setup.d/10-skills.sh` `register_cc_hook`; ZCode reaches hooks ONLY via the plugin channel ([`render-harness-config.mjs:241-244`](../../scripts/render-harness-config.mjs)). **Stage 6 (#1043)** shipped the plugin twin — verified live: `ls plugin/hooks/inject-output-language` returns the file. Row 12 is load-bearing for [language-discipline.md §2](language-discipline.md). Classification is now `parity` (§2 census).
 
-**Row 3 — `check-doc-authority-header` (`plugin-gap` STAYS):** Stage 6 shipped row 4's twin (`plugin/hooks/check-doc-authority`), NOT row 3's `check-doc-authority-header` — verified live: `ls plugin/hooks/ \| grep -x check-doc-authority-header` → empty. The hook script exists at `.claude/hooks/check-doc-authority-header.sh` (consumer-shippable zero-dep reimplementation, per `@cc-only-rationale` marker) but is reachable on consumers ONLY via `setup.d/10-skills.sh:246`, not via the ZCode plugin channel. **Status:** `plugin-gap` retained — a Stage 6 follow-up would ship the missing twin to close it; out of scope for this doc-sweep.
+**Row 3 — `check-doc-authority-header` (`plugin-gap` STAYS):** Stage 6 shipped row 4's twin (`plugin/hooks/check-doc-authority`), NOT row 3's `check-doc-authority-header` — verified live: `ls plugin/hooks/ \| grep -x check-doc-authority-header` → empty. The hook script exists at `.claude/hooks/check-doc-authority-header.sh` (consumer-shippable zero-dep reimplementation, per `@cc-only-rationale` marker) but is reachable on consumers ONLY via `setup.d/10-skills.sh:328`, not via the ZCode plugin channel. **Status:** `plugin-gap` retained — a Stage 6 follow-up would ship the missing twin to close it; out of scope for this doc-sweep.
 
 ## §5 Agnosticism tier table
 

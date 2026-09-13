@@ -226,7 +226,7 @@ python rule follows the **Model A′** path — `AstgrepResearchedPractice` JSON
    `setup.d/45-python.sh` `_py_join_researched_rules` header comment, lines 147-160).
 
 3. **Join** to the scan dir — **automatic on the next install / `--refresh`**. The
-   `_py_join_researched_rules` helper (`setup.d/45-python.sh:281`, called at `:203`) re-assembles
+   `_py_join_researched_rules` helper (`setup.d/45-python.sh:281`, called at `:328`) re-assembles
    the scan dir on EVERY delivery pass: each `rules-research/*.yml` is copied into
    `.getff/astgrep-rules/` so it fires via the consumer's single existing `ruleDirs:` entry in
    `sgconfig.yml`. **No new delivery channel** — rides the `.getff/` namespace this seam already
