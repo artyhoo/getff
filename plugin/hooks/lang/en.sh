@@ -131,6 +131,8 @@ The file is THIS session's current state (rewrite it in place; keep it under ${A
 - ## Next action
 A change of CONTENT is required, not a re-save. If what remains is purely mechanical, end this turn's final message with the escape line:
   mechanical-tail: <what remains and why it is mechanical — at least 20 characters>
+Otherwise, once the file is rewritten, end this turn's final message with a ready-to-paste compaction command for the operator — on its own line inside a fenced code block, filling the template (its argument steers the harness summary so it complements the handoff file instead of restating the session):
+  /compact Keep: handoff file ${_hg_path}; next action: <one line>; open forks: <one line>; verified facts (PR ids, SHAs, numbers) from the recent turns. Drop: tool output, exploration dead ends, superseded drafts.
 EOF
 }
 

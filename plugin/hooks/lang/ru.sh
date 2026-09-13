@@ -128,6 +128,8 @@ aif_msg_eot_handoff_gate() {
 - ## Next action
 Требуется изменение СОДЕРЖИМОГО, а не пересохранение. Если осталось только механическое — заверши финальное сообщение хода строкой:
   mechanical-tail: <что осталось и почему это механика — минимум 20 символов>
+Иначе, переписав файл, заверши финальное сообщение хода готовой командой сжатия для оператора — отдельной строкой внутри код-блока, заполнив шаблон (аргумент направляет сводку харнесса так, чтобы она дополняла handoff-файл, а не пересказывала сессию заново; сам аргумент — на английском, это машинный текст):
+  /compact Keep: handoff file ${_hg_path}; next action: <one line>; open forks: <one line>; verified facts (PR ids, SHAs, numbers) from the recent turns. Drop: tool output, exploration dead ends, superseded drafts.
 EOF
 }
 

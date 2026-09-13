@@ -2138,14 +2138,24 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
       );
     }
 
+    // Every input the D14 floor resolver reads is PINNED here, not inherited: the resolver
+    // walks env → project settings → USER settings (~/.claude/settings.json), and a developer
+    // Mac that has applied the operator hand-action carries BOTH `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+    // in the session env and `autoCompactWindow` in its real HOME — either one silently turns
+    // f10c ("nothing declared") into a block (the sibling-channel lesson: pin what the sibling
+    // can move). HOME points at an EMPTY box; a case that needs a user-level file writes it.
+    const home = join(dir, 'home');
+    mkdirSync(join(home, '.claude'), { recursive: true });
     const env: Record<string, string> = {
       ...process.env,
       ...GOLDENS.env,
-      ...c.env,
       TMPDIR: dir,
+      HOME: home,
       CLAUDE_PROJECT_DIR: projectDir,
       ...(residueDir ? { AIF_RESIDUE_DIR: residueDir } : {}),
     } as Record<string, string>;
+    delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    Object.assign(env, c.env);
     delete env.AIF_HANDOFF_GATE;
     if (armed) env.AIF_HANDOFF_GATE = '1';
 
@@ -2194,6 +2204,30 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(parsed.reason, 'the reason names the handoff file').toContain(expectedPath);
     expect(parsed.reason, 'the reason names the five required sections').toContain('## Next action');
     expect(parsed.reason, 'the reason carries the escape grammar').toContain('mechanical-tail:');
+  });
+
+  // ── Compact-command hint (2026-09-13, spec §Changelog round 4, D36): the block tells the
+  // model to END its final message with a ready-to-paste `/compact <focus>` command, so the
+  // operator never types the argument by hand and the harness summary complements the handoff
+  // file instead of restating the session. The template is quoted in BOTH packs; the path is
+  // the gate's own handoff path, not a placeholder.
+  it('fixture 1b: the block carries a ready-to-paste /compact command naming the handoff file (en + ru)', () => {
+    const c = goldenCase('f1-armed-no-handoff');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, lang).toBe('block');
+      const expectedPath = `${b.residueDir}/_handoff-${c.session}.md`;
+      expect(parsed.reason, `${lang}: the template names the real handoff path`).toContain(
+        `/compact Keep: handoff file ${expectedPath}; next action: <one line>; open forks: <one line>;`,
+      );
+      expect(parsed.reason, `${lang}: the template says what to drop`).toContain(
+        'Drop: tool output, exploration dead ends, superseded drafts.',
+      );
+    }
   });
 
   it('fixture 2: armed, valid five-section handoff, no baseline → allow (silent) + baseline written with the sha', () => {
@@ -2311,6 +2345,55 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const c = buildCase(goldenCase('f10c-floor-none'), true);
     const rc = spawnCase(c);
     expect(rc.stdout, 'without a compaction point the gate stands at ctx_soft').toBe('');
+  });
+
+  it('fixture 15: floor derivation — user-level ~/.claude/settings.json autoCompactWindow is the THIRD source; a project key outranks it; junk and malformed files are ignored', () => {
+    // WHY a third source (measured 2026-09-13): a desktop worktree session's project settings
+    // are the WORKTREE's committed .claude/settings.json, never the main checkout's uncommitted
+    // arming — 0 of 100+ worktrees carried a compaction point. The operator's only reach into
+    // every worktree is ~/.claude/settings.json, where Claude Code itself reads autoCompactWindow.
+    // Without this step the hook derived floor = ctx_soft (300000) while compaction happened at
+    // ~89% of the user-level 300000: an EMPTY band, silent by construction (live floors before
+    // the fix: 300000 with no env, 201000 only with the env var).
+    const userCase = (userSettings: string | null, projectAutoCompact?: number) => {
+      const b = buildCase(goldenCase('f10c-floor-none'), true);
+      if (userSettings !== null) {
+        writeFileSync(join(b.env.HOME, '.claude', 'settings.json'), userSettings, 'utf8');
+      }
+      // An isolated project dir: f10c's default CLAUDE_PROJECT_DIR is the repo root, whose
+      // .claude/settings.json is the operator's machine-local file on the main checkout.
+      const proj = join(b.dir, 'proj');
+      mkdirSync(join(proj, '.claude'), { recursive: true });
+      if (projectAutoCompact !== undefined) {
+        writeFileSync(
+          join(proj, '.claude', 'settings.json'),
+          JSON.stringify({ autoCompactWindow: projectAutoCompact }, null, 2) + '\n',
+          'utf8',
+        );
+      }
+      b.env.CLAUDE_PROJECT_DIR = proj;
+      return spawnCase(b);
+    };
+    // (a) user-level 300000, nothing else declared → floor 201000 → 250k is in the band → block.
+    const a = userCase(JSON.stringify({ autoCompactWindow: 300000 }));
+    expect(a.stderr).toBe('');
+    expect(a.stdout, 'a user-level compaction point alone must place the floor at 201000 — silence here is the measured worktree defect').not.toBe('');
+    const pa = JSON.parse(a.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'the floor derived from the USER file is in the reason').toContain('201000');
+    // (b) PAIRED NEGATIVE — precedence: a project key OUTRANKS the user key, as Claude Code's own
+    // scalar-settings precedence does. project 600000 → min(300000, 402000) = 300000 → 250k is
+    // below the floor → silent, even though the user file alone would have blocked.
+    const b = userCase(JSON.stringify({ autoCompactWindow: 300000 }), 600000);
+    expect(b.stdout, 'the project key wins; the user key must not lower the floor under it').toBe('');
+    // (c) junk value in the user file → ignored → floor = ctx_soft → silent.
+    const c = userCase(JSON.stringify({ autoCompactWindow: 'three hundred k' }));
+    expect(c.stdout).toBe('');
+    expect(c.stderr).toBe('');
+    // (d) a malformed user file → ignored, and nothing leaks to stderr (jq is muted).
+    const d = userCase('{ not json');
+    expect(d.stdout).toBe('');
+    expect(d.stderr).toBe('');
   });
 
   it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', () => {

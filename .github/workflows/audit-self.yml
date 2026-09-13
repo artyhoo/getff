@@ -688,6 +688,12 @@ jobs:
       # the wrong .claude/settings.json.
       - name: Run registration-script root-resolution test (runs from any directory)
         run: bash scripts/register-root-resolution.test.sh
+      # The arming script's TARGET, same testable-without-writing shape: a worktree session
+      # reads the worktree's own project settings, so per-checkout arming never reached it
+      # (measured 2026-09-13: 0 of 100+ worktrees armed). The default target is now the user
+      # settings file; `--project` keeps the per-checkout arm; `--print-target` writes nothing.
+      - name: Run register-handoff-gate target test (user settings by default, no write on print)
+        run: bash scripts/register-handoff-gate-target.test.sh
       # Paired contract for the K4 contract-coverage emitter. The emitter is not a gate
       # (it always exits 0), so the negative leg is on its OUTPUT: a kickoff whose
       # host-verify block misses a permitted area must emit a CANDIDATE naming it, and a

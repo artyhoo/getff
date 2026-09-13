@@ -307,6 +307,106 @@ below was re-verified in the worktree by the author before disposition.
 Round budget: 2 REVISE rounds are the `/arch` §2 cap. This was round 1; both seats' findings are
 disposed of above, and no finding was left un-adjudicated.
 
+### Round 3 — live run (D26) and the delivery defect it exposed, 2026-09-13
+
+**What the gate did where it was armed** (transcript of session `afb095bc`, main checkout,
+2026-09-08/09, re-readable from `~/.claude/projects/-Users-art-code-rules-as-tests-aif/`): 22
+auto-compactions, every one at 254k-268k tokens (the `autoCompactWindow: 300000` pair held, ~89%);
+six gate blocks between 07:21 and 08:22 on 09-09 — `no-file` at 201486 tokens, then `unchanged` at
+252598 after the handoff was written and allowed once; the file landed at
+`.claude/orchestrator-prompts/_handoff-afb095bc-….md`; `mechanical-tail:` was used twice, both on
+mechanical turns. Replayed on this session's own 355k transcript through the staging hook: no file
+→ block; a valid five-section file → allow; the same file again → `unchanged` block. D26 arms
+(1), (2) and (4) are therefore OBSERVED; arm (3) (the SessionStart injection with the five
+sections) and arms (5)-(6) (content usefulness, cost multiplier) are still OPEN — no session has
+yet been read across a compaction with the injector registered, so the decision rule is not
+decidable yet and the row stays.
+
+**The delivery defect — why «the dynamic window does not work» was nevertheless true.** D18's
+arm went into `<checkout>/.claude/settings.json`, and every desktop session of this repo runs in
+a WORKTREE whose project settings are the worktree's own committed file. Measured 2026-09-13: 0
+of 100+ worktrees carried the arm or a compaction point; in this worktree the D7 advice line fired
+at 311k where an armed gate would have blocked at 201k; the effective compaction point there was
+the user-level 600000, not 300000. Two more facts fixed the cure: Claude Code MERGES the user and
+project `env` blocks per key (both files' keys were visible in one session), so a user-level arm
+reaches every worktree; and `autoCompactWindow` is a token count (100000-1000000, official
+settings reference), so the user-level key is the same unit the hook multiplies.
+
+**What changed (this round's PR).** (a) D14's resolver gained a third step — env → project
+settings → USER settings (`~/.claude/settings.json`) — because with the pair moved to the user
+file the old resolver derived floor = ctx_soft (300000) while compaction ran at ~265k: an EMPTY
+band, silent by construction (live floors before the fix: 300000 without the env var, 201000 only
+with it). Fixture 15 pins the step and its precedence (a project key still outranks the user
+key, as Claude Code's own scalar precedence does); the fixture harness now pins `HOME` and
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` so a developer machine that applied the pair cannot flip
+fixture 10c. (b) `scripts/register-handoff-gate.sh` targets the USER settings by default,
+`--project` keeps the per-checkout arm, `--print-target` names the file without writing
+(`scripts/register-handoff-gate-target.test.sh`, wired into audit-self). (c) The cost of a
+user-level arm is recorded, not hidden: the getff plugin is enabled machine-wide and its Stop-hook
+twin carries the gate, so every repo on the machine is gated from 201k once armed — with the
+inline residue-dir fallback and no injector outside this repo. Decision 3 of the addendum below
+(arming default once a writer exists) is where that cost gets a proper home.
+
+**Round 3 close — the live run completed, in a worktree session, 2026-09-13 ~11:00Z.** Session
+`fb4c4cc0` (worktree `magical-hellman-9fe8c9`; opened BEFORE the operator applied the user-level
+pair at ~10:45Z; transcript under
+`~/.claude/projects/-Users-art-code-rules-as-tests-aif--claude-worktrees-magical-hellman-9fe8c9/`).
+(1) The first Stop after the pair landed → `no-file` block at 253564 tokens, floor 201000, emitted
+by BOTH the project hook and the getff plugin twin — two identical blocks per Stop in this repo,
+decision 3's cost measured rather than predicted. (2) Handoff written → the next Stop allowed; the
+next substantive Stop → `unchanged` block at 266437. (3) Auto-compaction fired at 266437 (88.8% of
+300000 — the same ~89% band as the 22 main-checkout compactions) in a session that had been running
+under the 600000 point, so the user-level pair reaches a RUNNING session, `env` and compaction point
+alike — «takes effect for sessions opened after the edit» is wrong for both. PreCompact wrote the
+residue (`_residue-fb4c4cc0-….md`, «Observed context ceiling: 266437»), and the post-compaction
+SessionStart carried `[handoff injected — source=compact]` with all five H2 sections and the
+residue pointer line — arm (3) OBSERVED. (4) `mechanical-tail:` was not used live in this session;
+arm (4) stands on the `afb095bc` run above. (5) Content: the injected `## Next action` («observe
+this compaction, record arm 3») is what the continuation executed first, before any other work —
+one data point, self-reported by the continuation, the weakest arm by construction. (6) Multiplier:
+three band turns (block, allowed write, block) → two gate blocks, each co-fired with the recap
+demand the Stop hook issues on substantive turns anyway, so the extra cost was ONE handoff-writing
+turn per block ≈ 1 extra turn per band turn, under the decision rule's 2-turn ceiling.
+**Decision-rule outcome: the gate STAYS; SSOT #271 keeps its verdict.** The sample is one band of
+three turns — a first measurement, not a rate; the cost line's expected value is still open to
+a longer band. Still open after this round: decision 3 below (the twin firing alongside the project
+hook), and worktrees created before PR #1680 and never merged forward, which carry the twin's gate
+but no injector.
+
+### Round 4 — compact-command hint, operator request, 2026-09-13
+
+**D36 — the gate block ends with a ready-to-paste `/compact <focus>` command.** Operator premise
+(2026-09-13, verbatim intent): when the model has written the handoff and is waiting for the
+operator to compact, it should hand over the compaction command with the right argument, so the
+summary keeps what the next context needs. `/compact` accepts custom instructions that steer the
+harness summary; the SessionStart injector (D20) fires on a manual `/compact` as well as an auto
+one (it keys on `source=compact`, not on the trigger), so the argument COMPLEMENTS the injected
+handoff instead of replacing it. Change: `aif_msg_eot_handoff_gate` in both language packs gains
+one closing paragraph — after rewriting the file, end the final message with the template
+`/compact Keep: handoff file <path>; next action: <one line>; open forks: <one line>; verified
+facts (PR ids, SHAs, numbers) from the recent turns. Drop: tool output, exploration dead ends,
+superseded drafts.` — the path is the gate's own handoff path, filled by the hook. The
+`mechanical-tail` branch is unchanged and exclusive with it (no rewrite → no command).
+
+Channel: prose in the block, NOT a gate on the assistant text. Reasoning per
+`.claude/rules/effort-worthiness.md` §1: the line is an operator convenience whose absence the
+operator sees at once (they would be typing the command themselves), not a load-bearing check;
+a presence gate would add a blocking turn in a band whose measured multiplier (round 3) already
+sits near 1 of the 2-turn ceiling. Promotion path per `attention-is-not-a-mechanism.md` §3: three
+recorded omissions in six months → a text-shape check on the ALLOWED stop, like the recap marker.
+
+Scope boundary: the D7 soft-tier context line is NOT changed. In the band D21 clears it, so an
+armed session never sees it; and its unarmed bytes are frozen by fixture 9's goldens
+(`gate-unarmed-goldens.json`, captured from the pre-#1680 hook and contract-marked «do not
+regenerate against an edited hook»). Unarmed consumers keep the old advice; revisit only if the
+hint proves useful enough to justify recapturing the paired negative.
+
+Verification: `fixture 1b` in `end-of-turn-reminder.test.ts` spawns the armed no-file case under
+`AIF_HOOK_LANG=en` and `ru` and asserts the template with the REAL handoff path (RED first: the
+pre-change block lacked `/compact`); `check-parity.sh` 11 keys; `lang-parity.test.ts` byte-identity
+of the hand-maintained `plugin/hooks/lang` twins; install-sh baselines recaptured (only the two
+lang-pack hashes and `refresh-baseline.json` moved); `MANIFEST.sha256` rebuilt.
+
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 
 **Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the

@@ -425,16 +425,26 @@ if [ -n "$ctx_entry" ]; then
     gate_handoff_pct="${AIF_HANDOFF_BAND_PCT:-67}"
     case "$gate_handoff_pct" in '' | *[!0-9]* | 0) gate_handoff_pct=67 ;; esac
     # D14 — the floor: min(ctx_soft, compaction_point × pct). The compaction point is
-    # DECLARED: the env wins, else settings.json's autoCompactWindow (jq is already a hard
-    # dependency at :14). Nothing declared → gate_floor = ctx_soft, the gate stands exactly
-    # where the prose arm stands — one derived number, no second absolute (F3's lesson).
+    # DECLARED, resolved in Claude Code's OWN precedence for the key: the env wins, else the
+    # PROJECT settings.json's autoCompactWindow, else the USER one (~/.claude/settings.json;
+    # jq is already a hard dependency at :14). Nothing declared → gate_floor = ctx_soft, the
+    # gate stands exactly where the prose arm stands — one derived number, no second absolute
+    # (F3's lesson). The user step exists because a desktop WORKTREE session's project
+    # settings are the worktree's committed file, never the main checkout's machine-local
+    # arming (measured 2026-09-13: 0 of 100+ worktrees carried a compaction point) — without
+    # it the hook derived floor = ctx_soft while compaction ran at ~89% of the user-level
+    # 300000, i.e. an EMPTY band, silent by construction. Fixture 15 pins this step.
     gate_compact="${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-}"
     case "$gate_compact" in '' | *[!0-9]* | 0) gate_compact="" ;; esac
-    if [ -z "$gate_compact" ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ] \
-      && [ -f "${CLAUDE_PROJECT_DIR}/.claude/settings.json" ]; then
-      gate_compact=$(jq -r '.autoCompactWindow // empty' "${CLAUDE_PROJECT_DIR}/.claude/settings.json" 2>/dev/null || true)
+    for _gate_settings in \
+      "${CLAUDE_PROJECT_DIR:+${CLAUDE_PROJECT_DIR}/.claude/settings.json}" \
+      "${HOME:+${HOME}/.claude/settings.json}"
+    do
+      [ -n "$gate_compact" ] && break
+      [ -n "$_gate_settings" ] && [ -f "$_gate_settings" ] || continue
+      gate_compact=$(jq -r '.autoCompactWindow // empty' "$_gate_settings" 2>/dev/null || true)
       case "$gate_compact" in '' | *[!0-9]* | 0) gate_compact="" ;; esac
-    fi
+    done
     if [ -n "$gate_compact" ]; then
       gate_floor=$(( gate_compact * gate_handoff_pct / 100 ))
       if [ "$ctx_soft" -lt "$gate_floor" ]; then gate_floor="$ctx_soft"; fi
