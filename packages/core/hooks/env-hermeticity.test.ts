@@ -44,6 +44,11 @@ const INHERIT_ON_PURPOSE: Record<string, string> = {
   // (end-of-turn-reminder.sh, SDK-entrypoint guard) is tested with the value pinned per case
   // and a `cli` default in its runHook, so the host's value never reaches a decision.
   CLAUDE_CODE_ENTRYPOINT: 'process-structural; end-of-turn-reminder tests pin it per case',
+  // Structural: bash and node need a home to run at all (the survivor list above keeps it).
+  // The one hook that reads it as a knob (end-of-turn-reminder.sh, D14's third compaction-point
+  // source `~/.claude/settings.json`, 2026-09-13) is tested with HOME pinned to an EMPTY box in
+  // every gate fixture, so the host's real settings file never reaches a decision.
+  HOME: 'process-structural; end-of-turn-reminder gate fixtures pin it to an empty box per case',
 };
 
 /** Every `*.sh` under the shipped hook trees, both channels (source + plugin twin). */
