@@ -512,6 +512,10 @@ _eot_recap_defects() {
 }
 ```
 
+Verified live 2026-09-13 on bash 3.2 under `set -euo pipefail`: the slice keeps the marker
+heading, drops trailing blank lines, and its sha256 is UNCHANGED when the prose above the block
+is replaced — which is the whole point of hashing the slice rather than `$text` (Task 1.6b).
+
 - [ ] **Step 4: Wire it at the already-recapped site**
 
 Inside the `if … grep -qF "$AIF_RECAP_MARKER"` body at `:625`, ABOVE the existing
