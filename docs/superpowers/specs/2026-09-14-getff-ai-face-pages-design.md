@@ -322,10 +322,14 @@ hero §06 are filled by the existing engine (`packages/core/composition/fence.ts
 | npm | `npm view getff version` (only when ≥ 0.1.0) | Installation npm section (absent until then) |
 
 Routing: the generator and `maturity.json` are capability commits in the framework (Prior-art trailer, `rules-manifest.json`
-precedent; consult SSOT + context7 per CLAUDE.md) → the umbrella's SOURCE-HOLES BATCH (with D14d PARTIAL-family fields and
-`setup cargo|go`), BEFORE the content session; the D31 rollout session names the stage. The landing consumes ONE vendored `face-facts.json` at a pin;
-where the umbrella decides doc sources live does not change this contract (FD15 falsifier). `--check` runs in the framework
-pre-push and in the landing CI, so a hand-typed number, command or label anywhere on a face page is RED.
+precedent; consult SSOT + context7 per CLAUDE.md) → the umbrella's stage **«S0a — source-holes batch»** (provisional label,
+umbrella D28a; with D14d PARTIAL-family fields and `setup cargo|go`), BEFORE the content session; the D31 rollout session may
+rename it with a pointer. The framework→landing pin sync carries GENERATED content only: `face-facts.json`,
+`docs/site/reference/<family>.json`, the `.md` twins, `llms.txt`. The four stub pages and the `markdownUrl` page-actions wiring
+(D10) are landing-repo code owned by the cutover stage (D31 S2) — authored once, never conveyed (umbrella D28a; falsifier: a
+generated artifact that needs a landing-side edit on every pin bump means the boundary is wrong — move the generator or the
+config, never both). Where the umbrella decides doc sources live does not change this contract (FD15 falsifier). `--check`
+runs in the framework pre-push and in the landing CI, so a hand-typed number, command or label anywhere on a face page is RED.
 
 ## 8. Terms and claims discipline
 
@@ -352,11 +356,12 @@ through the claims auditor; on these pages such sentences are generated, so the 
 
 ## 10. Dependencies, order of work, escalations
 
-1. Umbrella answers to E1–E4 (2026-09-13, register rows D4c / D32 / D33) are folded into FD1, FD4, FD5, FD8, FD12, §4, §7.
-   Remaining dependency on the umbrella: the D31 rollout session's stage names for items 2–3.
-2. Source-holes batch (framework): `maturity.json` + schema, `render-face-facts.mjs`, `setup cargo|go`, D14d fields;
-   `terms.md` task 0 (D20).
-3. Landing conveyor (D31): diagram render path + `markdownUrl` page actions (D10) + the four stub pages + vendored manifest.
+1. Umbrella answers to E1–E4 (2026-09-13, register rows D4c / D32 / D33) and to the two follow-up asks (row D28a) are folded
+   into FD1, FD4, FD5, FD8, FD12, §4, §7. No open dependency on the umbrella remains; D31 may rename stages with a pointer.
+2. Stage S0a — source-holes batch (framework): `maturity.json` + schema, `render-face-facts.mjs`, `setup cargo|go`, D14d fields,
+   hook headers + twin/baseline regen; `terms.md` task 0 (D20). Then S0b — gold pages + rules (umbrella's).
+3. Cutover stage (D31 S2, landing repo): diagram render path, `markdownUrl` page actions (D10), the four stub pages; the pin sync
+   brings the generated artifacts (`face-facts.json`, family JSON, twins, `llms.txt`).
 4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms.txt` head, hero copy, from the content brief.
 5. Cold reviews of THIS spec (D27, separate Opus session) run before step 4; their findings land in §11 with dispositions.
 
