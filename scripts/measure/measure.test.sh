@@ -23,6 +23,18 @@ expect "message_lines_max"    5 "$(row "$OUT" message_lines_max)"
 expect "blocks_with_question" 1 "$(row "$OUT" blocks_with_question)"
 expect "blocks_over_15"       0 "$(row "$OUT" blocks_over_15)"
 
+echo "▶ measure-interaction-shape.py"
+OUT=$(python3 "$DIR/measure-interaction-shape.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' --days 100000 --min-size 0 2>&1)
+expect "transcripts_scanned"    2 "$(row "$OUT" transcripts_scanned)"
+expect "user_messages"          5 "$(row "$OUT" user_messages)"
+expect "reexplain_asks"         1 "$(row "$OUT" reexplain_asks)"
+expect "handoff_asks"           1 "$(row "$OUT" handoff_asks)"
+expect "bare_confirmations"     1 "$(row "$OUT" bare_confirmations)"
+expect "autonomy_complaints"    1 "$(row "$OUT" autonomy_complaints)"
+expect "recaps"                 2 "$(row "$OUT" recaps)"
+expect "after_recap_bare_go"    1 "$(row "$OUT" after_recap_bare_go)"
+expect "after_recap_substantive" 1 "$(row "$OUT" after_recap_substantive)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

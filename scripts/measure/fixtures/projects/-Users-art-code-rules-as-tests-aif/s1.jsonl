@@ -2,3 +2,7 @@
 {"type": "assistant", "message": {"content": [{"type": "text", "text": "Some long prose.\n\n## 🟢 Простыми словами\n**Где мы.** Первый блок.\n**Дальше.** Я: пишу. От тебя: ничего (wc -l)."}]}}
 {"type": "user", "message": {"content": "го"}}
 {"type": "assistant", "message": {"content": [{"type": "text", "text": "More prose here.\n\n## 🟢 Простыми словами\n**Где мы.** Второй блок.\n**Развилка.** А или Б?\n**Дальше.** Я: жду. От тебя: решить: A или B."}]}}
+{"type":"user","message":{"content":"напиши контекст для продолжения"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Жду вашего решения."}]}}
+{"type":"user","message":{"content":"не спрашивай, делай сам"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Понял, делаю."}]}}
