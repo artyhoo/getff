@@ -1,13 +1,14 @@
 # getff.ai docs quality contract — reader-comfort card, narrow gates, cold form audit
 
 > **Rigor label (L0, effort-worthiness §2):** `research-grade` for every number in this spec
-> (each is measured on the 196 landing drafts or explicitly calibrated on the 5 gold pages —
-> umbrella D30 falsifier); `build-and-verify` for the mechanics (a Vale profile, one script,
-> one skill, one agent — all reversible, none consumer-shipped until the site cuts over).
-> **Status:** DRAFT — awaiting the two cold /arch §2 seats in a separate Opus session (D27).
+> (each is measured on the 196 landing drafts, explicitly calibrated on the gold pages, or
+> labelled `uncalibrated` — umbrella D30 falsifier); `build-and-verify` for the mechanics (a Vale
+> profile, two scripts, one skill, one agent — all reversible, none consumer-shipped until cutover).
+> **Status:** REVISED after round 1 (two cold seats, both `REVISE`; umbrella ruling D35 landed
+> the two escalations). Awaiting round 2 or `GO` from the same separate Opus session (D27).
 > **Carve-out:** umbrella register row D30 / premise P-Z. Sibling carve-outs are CONSUMED, not
-> redesigned: face pages (D28) and the reference generator (D29). Roles (P-R) and venue (D27)
-> are binding inputs; anything that would re-open them is routed `ESCALATED` to the umbrella seat.
+> redesigned: face pages (D28), reference generator (D29), rollout and cutover (D31/D34). Roles
+> (P-R) and venue (D27) are binding; anything re-opening them is routed `ESCALATED`.
 
 ## Context
 
@@ -15,126 +16,144 @@ The getff.ai documentation site is written by one clean Fable session (umbrella 
 ~125 pages, serial by family, examples executed at write time) and maintained afterwards by
 whoever changes the code, on any seat, under a merge gate (D26). No human writes or approves a
 page (P-B). The umbrella left ONE slot for this design: a quality contract with a deterministic
-form layer at pre-commit/pre-push/CI, a criteria card that the three Opus review points (5 gold
+form layer at pre-commit/pre-push/CI, a criteria card that the three Opus review points (gold
 pages → ONE checkpoint after family 1 → final whole-site check, D22) and the D26 refresh executor
-all work against, and thresholds calibrated on the 5 gold pages, never invented (D30).
+all work against, and thresholds calibrated on the gold pages, never invented (D30).
+
+Content home (umbrella D14a, D20, D34, ruled again in D35 after round 1): authored prose, gold
+pages, `terms.md` and every generated artifact live in the framework repo under `docs/site/`;
+the landing build reads the whole of `docs/site/` at a pin and owns only landing CODE. Every
+channel decision below descends from that.
 
 This session's operator answers reshaped the north star (premise register, Q-1..Q-3 below):
 **the measure is reader comfort and ease of use, not «does it read as AI-written»**, and
-**no page has ever been human-approved**, so the only baseline that will ever exist is the 5
-gold pages after an Opus `GO`. Every decision below follows from those two facts plus the
-measurements.
+**no page has ever been human-approved**, so the only baseline that will ever exist is the
+gold pages after an Opus `GO`.
 
-### Verified facts (measured 2026-09-14 unless noted)
+### Verified facts (measured 2026-09-14 unless noted; all re-derived by the round-1 seats)
 
 | # | Fact | Evidence |
 |---|---|---|
-| F1 | Raw material: 196 draft pages on landing `main` c091883, 101,251 words; 16 top-level (9,548 w) + 180 under `content/docs/reference/` (91,703 w). | `find`/`wc` over `/Users/art/code/getff-landing/content/docs` |
-| F2 | Vale 3.21.0 with Microsoft + Readability + ai-tells, all rules on: **16,375 alerts = 160 per 1,000 words** (error 10,722 / warning 1,706 / suggestion 3,947). | `vale --output=JSON` over F1 → `full.json` |
-| F3 | The alert mass is house style and vocabulary, not defects: em-dash 2,990 (+2,741 duplicate from `Microsoft.Dashes`), spelling 1,482 (top words `repo`, `getff`, `npm`, `config`, `vendored`, `ESLint`), acronyms 1,288 (`NOT`, `USES`, `ADDS`, `SSOT` — uppercase emphasis and template labels), `ShipOveruse` 624 (the `**Ships to:**` template field), `Terms` 266 (`agent` → «personal digital assistant»). | per-rule sample of 6 hits × 26 rules, `samples.txt` |
-| F4 | Real reader-comfort signal survives in few rules: `Microsoft.SentenceLength` 687 (5/6 sampled hits are genuinely long sentences), `Microsoft.Passive` 329 (4/6), and a handful of ai-tells rules (`LabelAndExplain`, `AnthropomorphicJustification`, `CataphoricForecasting`, 4–5/6). | same sample |
-| F5 | Readability metrics flag almost every file: `FleschReadingEase < 70` on 194/196 (median 60.5 top-level, 54.4 reference); `FleschKincaid > 8` on 165/196 (median grade 9.6 / 10.2). A fixed threshold is therefore not a gate but a per-page metric. | `full.json` message parse |
-| F6 | Tuned profile (21 rules off, 6 demoted, vocabulary of 99 terms with ≥3 hits): **5,525 alerts = 55 per 1,000 words**. Stratified 20-page sample (5 top-level + 15 reference across 8 family prefixes, seed 7, 9,517 words): 174 → 60 per 1,000 words; of 149 remaining error-level alerts, 56 % are vocabulary/casing residue, the rest a long tail of ai-tells figurative rules each ≤6 hits — uncalibrated. | `tuned.ini`, `tuned.json` |
-| F7 | **No human baseline exists.** The 16 top-level pages were assumed human-reviewed (BS3 rounds); the operator states they approved nothing. The top-level vs reference comparison stays valid only as a fact about drafts (ai-tells non-punctuation density 19.7 vs 16.1 per 1,000 w; em-dash 23.1 vs 30.2). | operator, this session |
-| F8 | Term drift across the drafts (files/hits): product name `getff` 81/318 vs `the framework` 65/92 vs `rules-as-tests` 20/54 vs `AI Factory` 9/24; `sub-agent` 22/47 vs `subagent` 14/68; `Claude Code` 51 files vs `CC` 31/96; `artefact` 16 vs `artifact` 39; `SSOT` 38 files vs spelled out 4. | `grep -l`/`grep -o` counts |
-| F9 | Landing repo has NO hooks and NO markdown CI: no `.husky`, one workflow `deploy.yml`, one script `scripts/verify-search.mjs`, no markdownlint/vale config. Drafts already carry HTML comments (`<!-- provenance: … -->`) and build. | `ls`, `jq` on `package.json` |
-| F10 | Framework precedents to reuse: markdownlint-cli2 at `.husky/pre-commit:100-113` with `.markdownlint.json` (SSOT #17 ADOPT); six `scripts/render-*.mjs --write/--check` over `packages/core/composition/fence.ts` (`findRegions`/`injectRegion`/`regionsMatch`); `render-rule-index.mjs --check` wired at pre-push and `audit-self.yml`; lychee offline on changed md at pre-push §8; escape-token grammar `ci-tool-pinning.md §3` (same line, reason ≥20 chars). | file reads |
-| F11 | SSOT #18 (Vale) is DEFER with rationale «project mixes Russian + English prose; English-style preset FP ≥30% on Russian corpus»; revisit trigger «Vale ships a mixed-corpus profile with FP <10%». The site corpus is EN-only and generated, so the rationale does not apply; the row is re-evaluated, not re-litigated. | `docs/meta-factory/prior-art-evaluations.md` #18 |
-| F12 | Upstream writer skill: `pfeff/claude-skills` `diataxis`, MIT, HEAD `657c61c5ca8c` (pushed 2026-09-12), installable via `claude plugin install pfeff/claude-skills`; ships quadrants + scaffold/write/audit operations + templates/anti-patterns; NO style guide inside. | `gh api` |
-| F13 | Vale mechanics verified: `substitution` rules (the `Microsoft.Terms` shape) carry a forbidden→preferred map; `Vocab = <name>` accept lists; per-rule level overrides and `= NO` in `.vale.ini`; inline `<!-- vale off -->` / `<!-- vale on -->`. | `styles/` read + tuned run |
+| F1 | Raw material: 196 draft pages on landing `main` c091883, 101,251 words; 16 top-level (9,548 w) + 180 under `content/docs/reference/` (91,703 w). All 196 are `.md`; 135 already carry HTML comments (`<!-- provenance: … -->`). | `find`/`wc`/`grep -rl` |
+| F2 | Vale 3.21.0 with Microsoft + Readability + ai-tells, all rules on: **16,375 alerts = 160 per 1,000 words** (error 10,722 / warning 1,706 / suggestion 3,947). | `vale --output=JSON` → `full.json` |
+| F3 | The alert mass is house style and vocabulary, not defects: em-dash 2,990 (+2,741 duplicate from `Microsoft.Dashes`), spelling 1,482 (`repo`, `getff`, `npm`, `config`, `vendored`, `ESLint`), acronyms 1,288 (`NOT`, `USES`, `ADDS`, `SSOT` — uppercase emphasis and template labels), `ShipOveruse` 624 (the `**Ships to:**` field), `Terms` 266 (`agent` → «personal digital assistant»). | 6 sampled hits × 26 rules, `samples.txt` |
+| F4 | Real reader-comfort signal survives in few rules: `Microsoft.SentenceLength` 687 (5/6 sampled hits genuinely long), `Microsoft.Passive` 329 (4/6), a handful of ai-tells rules (4–5/6). Verdicts are judgment reads of the sample, not counts. | same sample |
+| F5 | Readability metrics flag almost every file: `FleschReadingEase < 70` on 194/196 (median 60.5 top-level, 54.4 reference); `FleschKincaid > 8` on 165/196 (median grade 9.6 / 10.2). The five other metrics add exactly one page (`b32-aif-plan.md`) FRE/FK do not flag. | `full.json` parse; round-1 bottom-up re-count |
+| F6 | Tuned profile (`tuned.ini`: **22** rules off, 6 demoted, vocabulary of **90** terms with ≥3 hits; `Microsoft.Semicolon` was NOT off in that run): **5,525 alerts = 55 per 1,000 words**, error 1,317. Stratified 20-page sample (seed 7, 9,517 words, list in §Calibration): 174 → 60 per 1,000 words. | `tuned.json`; corrected per F-M2/M1 |
+| F6a | **Gate-only profile** (`gate.ini`: `Vale.Spelling` + vocabulary, `Vale.Terms = NO`, nothing else): **323 errors on 118/196 pages**, dominated by plurals and derived forms of accepted terms (`CLIs` 16, `deps` 14, `args` 12, `configs` 11, `worktrees` 5). The vocabulary is not converged; the gate is FP-free only after convergence. | `gate.json` |
+| F6b | `Vale.Terms` (built-in, distinct from `Microsoft.Terms`) enforces the vocabulary's own casing: with `eslint` and `ESLint` both accepted it fires 417 errors on 142 pages (`Use 'claude' instead of 'Claude'`). It must be OFF. | `tuned.json`; round-1 M1 |
+| F7 | **No human baseline exists.** The 16 top-level pages were assumed human-reviewed; the operator states they approved nothing (Q-1). Top-level vs reference remains a fact about drafts only. | operator |
+| F8 | Term drift (files/hits): `getff` 81/318 vs `the framework` 65/92 vs `rules-as-tests` 20/54 vs `AI Factory` 9/24; `sub-agent` 22/47 vs `subagent` 14/68; `Claude Code` 51 files vs `CC` 31/96; `artefact` 16/25 vs `artifact` 39/69. `the framework` is generic in 44/92 lexical forms («the framework repo», «the framework's»); `rules-as-tests` is also the npm scope `@rules-as-tests/core` and an ESLint plugin prefix. `CC` 8/8 and `AI Factory`/`sub-agent`/`artefact` are product-name uses in every sampled context. | `grep` counts; round-1 samples |
+| F9 | Landing repo has NO hooks and NO markdown CI (no `.husky`, no `prepare` script, `deploy.yml` only). Under D35 it receives none. | `ls`, `jq`; D31 `:15` |
+| F10 | Framework precedents to reuse: markdownlint-cli2 at `.husky/pre-commit:100-113` with `.markdownlint.json` (SSOT #17 ADOPT); six `scripts/render-*.mjs --write/--check` over `packages/core/composition/fence.ts`; `render-rule-index.mjs --check` at pre-push and `audit-self.yml:247`; lychee offline at pre-push §8 (warn-and-skip when absent, `pre-push.ts:1865`) and PINNED by sha256 at `audit-self.yml:720-721`; escape-token same-line grammar `ci-tool-pinning.md §3`; ≥20-char rationale floor `packages/core/hooks/checks/pr-body-fidelity.ts:217`; commit-trailer gate shape `packages/core/hooks/checks/prior-art.ts`. | file reads |
+| F11 | SSOT #18 (Vale) is DEFER: «project mixes Russian + English prose; English-style preset FP ≥30% on Russian corpus». Revisit triggers, both arms: «2nd documented doc-prose-drift incident that markdownlint-cli2 cannot catch; OR Vale ships a Russian/mixed-corpus profile with FP <10%». The site corpus is EN-only and generated; the row is re-evaluated for it, not re-litigated. | `prior-art-evaluations.md:90` |
+| F12 | Upstream writer skill: `pfeff/claude-skills` `diataxis`, MIT, HEAD `657c61c5ca8c` (2026-09-12), `claude plugin install pfeff/claude-skills`; quadrants + scaffold/write/audit + templates/anti-patterns; NO style guide inside. | `gh api` |
+| F13 | Vale mechanics: `substitution` rules carry a forbidden→preferred map; `Vocab =` accept lists; per-rule levels and `= NO`. **Escape directives, measured on a 3-paragraph fixture (9 misspellings):** no directive 9; `<!-- vale off -->` 6; `<!-- vale off: reason -->` **9 (inert, silently)**; `<!-- vale off -->` + sibling `<!-- vale-reason: … -->` 6. In `.mdx` the same holds for `{/* vale off */}`; HTML comments are a hard MDX build error. | this seat + round-1 B1/item 1 |
+| F14 | D29 generator spec (worktree `funny-yalow-98cabe`) exposes per-family JSON with `members[].name`, validated by `docs/site/reference/schema/<family>.schema.json`, injected through the same `fence.ts` markers. No forbidden-synonym field. D31 rollout spec (`dreamy-mayer-44288c`) owns the `.md`/`.mdx` decision (`:116`, fallback = `.mdx`). | round-1 item 3; D34 |
 
 ### Drill-downs
 
 - **Why a generic «Vale clean» gate is impossible (F2, F5, F7):** at 160 alerts per 1,000 words
   every page fails; after tuning 55 remain, mostly unmeasured long-tail rules. A gate needs a
-  measured false-positive rate; the only surface where one can be measured against a
-  *reader-comfort* verdict is the 5 gold pages. Hence: gates are the tiny set that is
-  false-positive-free by construction (typos against a vocabulary, forbidden synonyms from a
-  curated list, broken links, markdown structure), everything else is a metric handed to the
-  judgment layer.
+  measured false-positive rate against a *reader-comfort* verdict, and the only surface that can
+  produce one is the gold pages. Hence gates are the small set that is false-positive-free
+  **after vocabulary convergence** (F6a): typos against a vocabulary, four unambiguous forbidden
+  names, broken links, markdown structure, frontmatter and kind skeleton. Everything else is a
+  metric handed to the judgment layer.
 - **Why ai-tells is dropped rather than tuned (F3, F7, Q-2):** its two loudest rules are
-  punctuation the operator declared irrelevant; its remaining signal is a long tail of ≤6-hit
-  figurative rules that cannot be calibrated on 20 pages; the umbrella's own D17b falsifier
-  («ai-tells flags >30 % of approved pages → drop») is met by construction since no approved
-  page exists to be clean. The three rules with real signal (F4) return only through the
+  punctuation the operator declared irrelevant; the rest is a long tail of ≤6-hit rules that
+  cannot be calibrated on 20 pages; the umbrella's own D17b falsifier is met by construction
+  since no approved page exists. The three rules with real signal (F4) return only through the
   promotion seam (D-Q11) if the auditor documents incidents.
-- **Why the glossary is the site's own page (D20 + P-D):** one file `content/docs/terms.md` is
+- **Why the glossary is the site's own page (D20 + P-D):** one file `docs/site/terms.md` is
   simultaneously the reader-facing glossary, the writer's source of names, and the input the
   Vale substitution style is rendered from. Two places for one term is the D12 failure.
+- **Why two scripts, not one (D34/D35):** `scripts/check-docs-refresh.mjs` is the D26 refresh
+  gate (changed files ∩ `sources:` → affected pages, deferred token; pre-push + `audit-self.yml`;
+  owned by D31/D34). `scripts/docs-check.mjs` is this spec's form gate. Neither performs the
+  other's check (D35 falsifier b).
 
 ## Decision
 
 Three layers, one interface:
 
-1. **Deterministic form layer** (free, runs at every channel): markdownlint (framework config
-   copied), Vale profile `getff` (spelling with a vocabulary, generated forbidden-synonym
-   substitution, sentence-length suggestion, readability metrics reported), lychee offline on
-   changed markdown, and the `vale off` reason check. Gate = error-with-escape; everything else
-   is a metric.
+1. **Deterministic form layer** (free, framework channels): markdownlint, Vale profile `getff`,
+   lychee offline, frontmatter schema, per-kind section skeleton, `vale off` reason check — one
+   entry `scripts/docs-check.mjs`. Gate = error-with-escape; everything else is a metric.
 2. **Cold judgment layer:** the existing `claims-conformance-auditor` (facts) + a NEW
    `docs-form-auditor` (reader comfort, form, structure) — session-read agents with structured
    output, `GO | REVISE | STOP`, never in CI (`no-paid-llm-in-ci.md`).
 3. **The reader-comfort criteria card**, per page kind — the single interface the writer skill
-   follows, the form auditor fills, the three Opus review points apply, and the D26 refresh
-   executor re-runs on the pages it touches.
+   follows, the form auditor fills, the three Opus review points apply (face pages included, D35
+   E1), and the D26 refresh executor re-runs on the pages it touches.
 
 ### Live decision register
 
 | Decision | Status | Resolution | Falsifier |
 |---|---|---|---|
-| D-Q1 The card's axis is reader comfort | decided (Q-2) | Five reader questions organise every criterion: FIND (right page, right place), UNDERSTAND (why before how, plain friendly English, progressive disclosure), DO (copy-ready executed example with real output), TRUST (true at the pin, honest limits), SAME WORDS (terms as defined). The umbrella's 10 draft criteria map onto these (§Criteria card); none is dropped, «AI twin clean» is consumed from D28. | An Opus review at any of the three points needs a criterion the card lacks → the card, not the reviewer, is the gap; add the reader question with a `Failure-scenario:`. |
-| D-Q2 Gate set (what fails a commit) | decided (F2–F6) | ERROR: markdownlint (`.markdownlint.json` copied from the framework, SSOT #17), `Vale.Spelling` against `styles/config/vocabularies/getff/accept.txt`, `getff.Terms` (generated substitution, D-Q7), lychee offline on changed `.md`, a `vale off` without a ≥20-char reason. SUGGESTION (reported, never blocking): `Microsoft.SentenceLength`, `Microsoft.Passive`, `Microsoft.Contractions`, `Microsoft.Headings`, seven Readability metrics. OFF: ai-tells package, `Microsoft.Acronyms/Terms/Vocab/Avoid/Adverbs/Dashes/Semicolon/Quotes/Auto/Foreign/We/GeneralURL`. | Any ERROR-level rule shows ≥1 false positive on the 5 gold pages that is not a vocabulary miss → demote it to suggestion before family 1; a suggestion-level rule fires on 0 of 5 gold pages AND the form auditor never cites it in family 1 → drop it (it costs attention for nothing). |
-| D-Q3 Punctuation and ai-tells | decided (Q-2, F7) | Em-dash, semicolon, colon and every ai-tells rule are OFF in the profile and absent from the skill as rules. The skill carries one craft sentence: «punctuation serves the reader; when a sentence needs a dash to hold together, split it». No count, no ban. | The gold-page Opus review marks ≥3 of 5 pages «hard to read» with sentences that a split would fix → `SentenceLength` is promoted per D-Q5, still not a punctuation rule. |
-| D-Q4 Readability metrics | decided (F5) | `FleschReadingEase` and `FleschKincaid` are recorded per page in the form auditor's report. The target band is **initialised from the 5 gold pages after Opus `GO`** (min/max FRE, max FK grade) and stored in `styles/getff/README.md`; a page outside the band is a MINOR note, never a gate. Five other metrics stay off (on the sample SMOG/LIX/ColemanLiau/GunningFog/ARI flagged subsets of the files FRE already flags, so they add no page the two do not name). | A page inside the band is REVISEd for readability twice in family 1 → the band is not the signal; keep the metric as information only and stop noting it. |
-| D-Q5 Sentence length | decided (F4) | v1 = suggestion at Vale's Microsoft default. Promotion rule (calibrated, not invented): after the gold `GO`, threshold := the longest sentence on the 5 gold pages rounded up to the next 5 words; from family 1 on, `SentenceLength` at that threshold is ERROR with the D-Q12 escape. | Gold pages carry a legitimate sentence longer than the threshold (a command line, a quoted error) → the escape covers it; if escapes exceed 1 per page on family 1 the threshold moves to the next 5. |
-| D-Q6 Channel and home of the deterministic layer | decided (F9, F10) | Content lives in the landing repo, so the layer lives there: `scripts/docs-check.mjs` (single entry: markdownlint + Vale + lychee + `vale off` reason grep; `--changed` for hooks, full for CI) invoked from a NEW `.husky/pre-commit` in landing and from a NEW `docs-check.yml` workflow on `content/docs/**` (CI = last resort). Edit-time channel: the `docs-author` skill's done-checklist runs the same script on the page just written. Vale binary pinned by version + sha256 in the script (`ci-tool-pinning.md`). No paid LLM anywhere in it. | The umbrella moves site content into the framework repo → the layer moves to `.husky/pre-commit:100-113` and `audit-self.yml`, script unchanged; the landing `pre-commit` proves unreachable for the Fable session (hooks not installed in its checkout) → the CI job is the only gate and the skill's checklist becomes mandatory-with-evidence (the report file is committed). |
-| D-Q7 Glossary contract | decided (D20, F8, F13) | `content/docs/terms.md` in landing IS the site glossary page. Two regions: (a) hand-written concept terms (definition = one sentence, owner page, `Do not use:` list) — definitions are claims → `claims-conformance-auditor`; (b) a fenced generated region for artifact names, filled from the D29 generator's name registry (`fence.ts` markers). `scripts/render-terms-style.mjs --write` renders `styles/getff/Terms.yml` (Vale `substitution`, level error) from every `Do not use:` entry; `--check` fails on drift (pre-commit + CI). Naming decisions taken now from F8: `getff` (only product name; `the framework`/`rules-as-tests`/`AI Factory` forbidden as names), `subagent`, `Claude Code` spelled out (`CC` forbidden), `artifact`, `SSOT` spelled out at first mention on a page (judgment, not a rule). | Two spellings of one term survive a sweep → the `Do not use:` list is the gap, add the pair (D20 falsifier); a forbidden synonym is needed inside a quoted command or error → the D-Q12 escape, never an accept-list entry. |
-| D-Q8 `docs-author` skill shape | decided (D17, F12) | Thin project skill wrapping the installed `pfeff/claude-skills` `diataxis` plugin BY POINTER, pinned to `657c61c5ca8c`. Residue only (§Skill outline): page-kind templates from umbrella §2 with band/section skeletons, the criteria card, the craft contract, `terms.md` duty, D13 «execute the example at write time», the done-checklist, a `refresh` mode for the D26 executor, and `references/gold/` holding the 5 gold pages once they pass. Same skill on every seat (Fable session, aif task, human's agent). | Upstream unreachable at build or its SKILL.md changes shape → vendor the pinned tree under `references/upstream/` (MIT permits) and switch the pointer; the skill starts restating Diátaxis → `#parallel-evolution-creep`, cut it back to residue. |
-| D-Q9 `docs-form-auditor` protocol | decided (D14c) | Shape of `agents/claims-conformance-auditor.md`: frontmatter `name/description/tools: Read, Glob, Grep, Bash`, Class B header, cold by construction (inputs = page paths + page kind + the card; never the writer's dialogue). Method: enumerate the population (T10), read every gold page, otherwise stratify by kind and sample at floor 5 per kind (T1/T9), RUN `scripts/docs-check.mjs` itself and quote the numbers, fill the card per page with `PASS | FAIL | N/A` and `file:line` evidence (T3), report clean-vs-low-coverage separately (T14). Explicit non-goal in its header: **never judges whether a statement about the product is true** — those go to `claims-conformance-auditor`. Output: per-page card table + `Overall: GO | REVISE | STOP` + readability numbers + a «card gaps» section. | The auditor finds nothing across 3 sweeps → retire it into the claims auditor's checklist (D14c falsifier); it starts asserting facts → strip `Bash` and add the fact ban to its examples. |
-| D-Q10 Severity contract | decided (reviewer-discipline §6) | `REVISE` only on a `FAIL` that carries a `Failure-scenario:` naming the reader harm («a reader following step 3 gets output that differs from the shown block»); every other observation is a MINOR note that does not trigger a round. Gold pages: all 5 read, any FAIL with scenario → REVISE. Checkpoint/final: sample at floor 5 per kind; a FAIL pattern repeating on ≥2 sampled pages of one kind is reported as SYSTEMIC (skill/terms fix + regenerate), a single one as LOCAL (edit the page). Cap 2 REVISE rounds per review point, then `ESCALATED` to the umbrella seat (P-R: the plan holder decides). | A REVISE without a scenario is issued → it is `#findings-as-KPI`; the umbrella seat discards it; a scenario-bearing FAIL is ignored → the next incident record (D-Q11) opens. |
-| D-Q11 Judgment → gate promotion seam | decided | A judgment criterion becomes a deterministic rule after **3 documented incidents in 6 months** (`attention-is-not-a-mechanism.md §3`, reused verbatim), each recorded as a research patch under `docs/meta-factory/research-patches/` (append-only, one per gap). Reverse seam: a gate rule with measured FP >10 % on a 20-page sample (SSOT #18 trigger reused) demotes to suggestion in the same PR that records the measurement. | Promotions happen without a patch → the rule is unbacked; the profile change is reverted until three patches exist. |
-| D-Q12 Escape mechanism | decided (ci-tool-pinning §3) | Inline `<!-- vale off: <reason ≥20 chars> -->` … `<!-- vale on -->` for a span; the reason is checked by `docs-check.mjs` (a `vale off` without it is an ERROR). Standard route for a new legitimate word is a PR adding it to `accept.txt`, never an inline escape. `docs-refresh: deferred — <reason>` stays D26's token and is not reused here. | Escapes exceed 1 per page on family 1 → the rule being escaped is wrong, demote it (D-Q11 reverse seam), do not widen the escape. |
-| D-Q13 Self-application | decided (invariant #2) | The skill and the agent are AI-facing docs → written under `.claude/skills/ai-doc/SKILL.md` (doc-authority header, `@harness-posture`, thin over `superpowers:writing-skills`). Both run through the same `docs-check.mjs` profile (their prose is English), and the Opus spec review applies the card's UNDERSTAND question to the skill itself: can a fresh seat write one page from it without asking. | The skill fails its own gate → fix the skill, never widen the profile; a fresh seat needs a clarification the skill does not answer → that sentence is the skill's next edit. |
-| D-Q14 Gold page selection and calibration record | decided (D17c, D22) | One gold page per page kind (5 kinds = 5 pages): reference sheet, family overview and Guide from family 1 (B skills, first STRUCTURED family per D19), one Learn tutorial, one Understand page. After Opus `GO`: readability band (D-Q4), sentence threshold (D-Q5), and the per-kind «what good looks like» notes are written to `styles/getff/README.md` as the calibration record and the pages are copied into the skill's `references/gold/`. | A kind has no gold page → its band is uninitialised; the auditor reports `N/A`, never `PASS`; a gold page is later edited by a refresh → the copy in `references/gold/` is the frozen baseline, the live page is the moving one. |
-| D-Q15 SSOT rows at build time | decided (build-vs-reuse) | Two new rows in the capability commit: «Vale on the EN-only generated docs corpus — ADAPT, tuned profile, measured 2026-09-14 (F2–F6)», citing #17 and #18 and leaving #18 DEFER for the mixed framework corpus; «pfeff/claude-skills diataxis — ADAPT by pointer, pinned». `Prior-art:` trailers on the commits. | A capability commit lands without the rows → pre-push `prior-art.ts` blocks it, by design. |
+| D-Q1 The card's axis is reader comfort | decided (Q-2) | Five reader questions organise every criterion: FIND, UNDERSTAND, DO, TRUST, SAME WORDS. The umbrella's 10 draft criteria map onto C1–C13 (§Criteria card); «reader path per kind» is C12, «AI twin clean» is C11 consumed from D28. | An Opus review needs a criterion the card lacks → the card is the gap; add the reader question with a `Failure-scenario:`. |
+| D-Q2 Gate set (what fails a commit) | decided (F2–F6b) | ERROR: markdownlint (`.markdownlint.json`, SSOT #17); `Vale.Spelling` against `styles/config/vocabularies/getff/accept.txt`; `getff.Names` (generated substitution, name-class entries only, D-Q7); lychee offline on changed `.md` (binary pinned by sha256 as at `audit-self.yml:720`; **absent binary = ERROR**, not the pre-push warn-and-skip); frontmatter schema (C13); per-kind section skeleton (C12); a `vale off` without its reason comment. SUGGESTION (reported, never blocking): `Microsoft.SentenceLength`, `Microsoft.Passive`, `Microsoft.Contractions`, `Microsoft.Headings`, `Readability.FleschReadingEase`, `Readability.FleschKincaid`. OFF: `Vale.Terms` (F6b), the ai-tells package, the five other Readability metrics, `Microsoft.Acronyms/Terms/Vocab/Avoid/Adverbs/Dashes/Semicolon/Quotes/Auto/Foreign/We/GeneralURL/Plurals/Negative/DateOrder/HeadingColons` (the last four unmeasured, promotable via D-Q11). The shipped `.vale.ini` is the calibration artifact, re-measured before the gold pages (§Calibration row 3). | Any ERROR rule shows ≥1 false positive on the gold pages that is not a vocabulary miss → demote to suggestion before family 1; a suggestion rule fires on 0 gold pages AND is never cited by the auditor in family 1 → drop it. |
+| D-Q3 Punctuation and ai-tells | decided (Q-2, F7) | Em-dash, semicolon, colon and every ai-tells rule are OFF and absent from the skill as rules. The skill carries one craft sentence: «punctuation serves the reader; when a sentence needs a dash to hold together, split it». No count, no ban. | The gold-page Opus review marks ≥3 pages «hard to read» with sentences a split would fix → `SentenceLength` is promoted per D-Q5, still not a punctuation rule. |
+| D-Q4 Readability metrics | decided (F5) | FRE and FK grade recorded per page in the auditor's report. Target band initialised from the gold pages after Opus `GO` (min/max FRE, max FK) and stored in `docs/site/styles/README.md`; outside the band = MINOR note, never a gate. | A page inside the band is REVISEd for readability twice in family 1 (`uncalibrated` trigger) → keep the metric as information only. |
+| D-Q5 Sentence length | decided (F4) | v1 = suggestion at Vale's Microsoft default. Promotion rule: after the gold `GO`, threshold := the longest gold sentence rounded up to the next 5 words (the rounding unit is `corpus-derived, uncalibrated`); from family 1 on, ERROR at that threshold with the D-Q12 escape. | Escapes exceed 1 per page on family 1 (`uncalibrated`) → the threshold moves to the next 5. |
+| D-Q6 Channel and home of the deterministic layer | decided (D14a, D20, D34, **D35**) | Pages, gold pages and `terms.md` live in framework `docs/site/`; the landing build reads the whole of `docs/site/` at the pin and owns only landing code (stubs, `redirects.json`, `markdownUrl`, permalink resolver, Zod backstop). `scripts/docs-check.mjs`, Vale, `docs/site/styles/`, `render-terms-style.mjs` live in the framework and run from EXISTING channels: `.husky/pre-commit` next to the markdownlint-cli2 section (`--changed`) and `audit-self.yml` (full). Edit-time: the skill's done-checklist runs the same script. Vale binary pinned by version + sha256 (`ci-tool-pinning.md`). The landing repo gains NO pre-commit and NO workflow. Named dependency: D31 S1 decides `.md` vs `.mdx`; an `.mdx` flip changes the escape comment form AND breaks the 135 provenance comments (F1) — `docs-check.mjs` greps both comment forms from day one. | A landing build needs a file that is neither in `docs/site/` nor landing code → the home split is wrong; record where it lives, never a third home (D35 a). |
+| D-Q7 Glossary contract | decided (D20, F8, F14) | `docs/site/terms.md` IS the site glossary page. Region (a), hand-written: concept terms — one-sentence definition, owner page, `Do not use:` list (definitions are claims → `claims-conformance-auditor`). Region (b), generated fence: artifact names from the D29 `members[].name` registry — names only; the generator feeds no synonym. Renderer boundary: `render-reference.mjs --check` asserts region (b), `render-terms-style.mjs --check` asserts `docs/site/styles/getff/Names.yml`. **Only entries marked `Do not use (name):` render into the Vale substitution** (level error); plain `Do not use:` entries are JUDGE C10. Name-class entries decided now, each measured (F8): `AI Factory`, `sub-agent`, `CC` (word-bounded), `artefact` → `getff`, `subagent`, `Claude Code`, `artifact`. NOT name-class, JUDGE only: `the framework` (44/92 generic), `rules-as-tests` (npm scope), and every D28 §8 entry (`hook`, `tier`, `toolchain` — 11/11 legitimate technical uses in the corpus). | Two spellings of one term survive a sweep → add the pair (D20 falsifier); a name-class entry fires on a legitimate use in family 1 → it moves to JUDGE in the same commit, the substitution is never widened. |
+| D-Q8 `docs-author` skill shape | decided (D17, F12) | Thin project skill wrapping the installed `pfeff/claude-skills` `diataxis` plugin BY POINTER, pinned to `657c61c5ca8c`. Residue only (§Skill outline): six page-kind templates (five from umbrella §2 + face page by pointer to D28 §5), the card, the craft contract, `terms.md` duty, D13 «execute the example at write time», the done-checklist, a `refresh` mode for the D26 executor, `references/gold/`. Same skill on every seat. | Upstream unreachable or reshaped → vendor the pinned tree under `references/upstream/` (MIT); the skill restates Diátaxis → `#parallel-evolution-creep`, cut back to residue. |
+| D-Q9 `docs-form-auditor` protocol | decided (D14c) | Shape of `agents/claims-conformance-auditor.md`: frontmatter `name/description/tools: Read, Glob, Grep, Bash`, Class B header, cold by construction (inputs = page paths + kinds + the card path; never the writer's dialogue). Method: enumerate the population (T10), read every gold page, otherwise stratify by kind at floor 5 per kind (T1/T9), RUN `scripts/docs-check.mjs` and quote its numbers, fill the card per page with `PASS | FAIL | N/A` and `file:line` (T3), report clean-vs-low-coverage (T14). Header non-goal: **never judges whether a statement about the product is true**. | Nothing found across 3 sweeps → retire into the claims auditor's checklist (D14c falsifier); it asserts facts → strip `Bash`, add the fact ban to its examples. |
+| D-Q10 Severity contract | decided (reviewer-discipline §6) | `REVISE` only on a `FAIL` carrying a `Failure-scenario:` naming the reader harm; every other observation is a MINOR note. Gold pages: all read, any scenario-bearing FAIL → REVISE. Checkpoint/final: floor 5 per kind; a FAIL repeating on ≥2 pages of one kind is SYSTEMIC (skill/terms fix + regenerate), otherwise LOCAL. Budget: 2 REVISE rounds per review point, then an ASK routed `ESCALATED` to the umbrella seat (the Fable design seat, D31). This is `reviewer-discipline.md §6.2`'s own budget shape — a breach forces an ask, never a stop — so it does not contradict P-J «rounds have no cap»; the 2 is the `/arch` and `/harvest` precedent, uncited elsewhere. | A REVISE without a scenario → `#findings-as-KPI`, discarded; a scenario-bearing FAIL ignored → next D-Q11 incident. |
+| D-Q11 Judgment → gate promotion seam | decided | Promotion after **3 documented incidents in 6 months** (`attention-is-not-a-mechanism.md §3`), each a research patch under `docs/meta-factory/research-patches/`. Reverse seam, hit-count-scoped: a gate rule with ≥10 hits on a 20-page sample and FP >10 % among them demotes to suggestion in the commit that records the measurement; a rule with <10 hits is judged per hit in the same commit. Both numbers `corpus-derived, uncalibrated` (T1 depth 20; SSOT #18's 10 % is a revisit trigger, not a constant). | Promotion without three patches → reverted. |
+| D-Q12 Escape mechanism | decided (F13) | Two-comment form: a bare `<!-- vale off -->` (the only form Vale 3.21.0 parses) immediately followed by `<!-- vale-reason: <≥20 chars> -->`, closed by `<!-- vale on -->`; in `.mdx` the `{/* … */}` twins. `docs-check.mjs` errors on a `vale off` whose next line is not a reason comment (≥20-char floor per `pr-body-fidelity.ts:217`). Vocabulary route: `accept.txt` edits are allowed **in the page's own commit** (F6a: plurals of accepted terms would otherwise serialise family 1 behind ~30 PRs). `docs-refresh: deferred` stays D26's token. | Escapes exceed 1 per page on family 1 (`uncalibrated`) → the escaped rule is wrong, demote it; a `vale off` is found without a matching `vale on` → the check gains the pairing test. |
+| D-Q13 Self-application | decided (invariant #2) | Skill and agent written under `.claude/skills/ai-doc/SKILL.md` (doc-authority header, `@harness-posture`). Both run through `docs-check.mjs` in `audit-self.yml` (same repo now, D35); the Opus spec review applies the card's UNDERSTAND question to the skill itself. | The skill fails its own gate → fix the skill, never widen the profile. |
+| D-Q14 Gold pages and calibration record | decided (D17c, D22, D35) | One gold page per bulk kind (five: reference sheet, family overview and Guide from family 1 = B skills per D19; one Learn tutorial; one Understand page); the face-page kind's gold = the seven face pages after the Opus gold review of the clean Fable pass. After `GO`: readability band, sentence threshold and per-kind «what good looks like» notes go to `docs/site/styles/README.md`; the pages are copied to the skill's `references/gold/` (frozen baseline; the live page moves). | A kind without gold → its band is uninitialised; the auditor reports `N/A`, never `PASS`. |
+| D-Q15 SSOT rows at build time | decided (build-vs-reuse) | Two new rows: «Vale on the EN-only generated docs corpus — ADAPT, tuned profile, measured 2026-09-14», citing #17/#18 and leaving #18 DEFER for the mixed framework corpus; «pfeff/claude-skills diataxis — ADAPT by pointer, pinned». **No gate reaches these rows**: every artifact here is `.md` or lives outside `packages/`, so `prior-art.ts` never fires (round-1 M5). The rows are author discipline, listed as an explicit item in the Opus plan and checked by the plan's reviewer. | The build lands without the rows → the next Vale evaluation re-litigates #18; the plan checklist is the only detector, stated as such. |
+| D-Q16 Writer's self-filled card has a channel | decided (round-1 MAJOR-6) | The done-checklist's card lands as a commit trailer `Docs-card: C1 PASS, C2 PASS, … C13 N/A` on every commit touching `docs/site/**/*.md` prose, checked at pre-push by a section shaped like `prior-art.ts` (trailer present, all C-ids listed, escape `Docs-card: skipped — <≥20-char reason>`). The auditor diffs its verdict against the trailer (T15 seam). | Trailers are all-PASS on ≥90 % of family-1 commits while the auditor FAILs ≥1 criterion per page → the self-fill is theatre; drop the trailer, keep the auditor. |
 
 ## The reader-comfort criteria card
 
-Every criterion has a check type: `GATE(<check>)` = deterministic, fails the commit;
-`JUDGE` = the form auditor and the Opus points; `CLAIMS` = the claims auditor. The umbrella's
-draft criterion it absorbs is in brackets.
+Check types: `GATE(<check>)` deterministic, fails the commit; `JUDGE` the form auditor and the
+Opus points; `CLAIMS` the claims auditor; `D2x` delegated to a sibling. The umbrella's draft
+criterion each absorbs is in brackets.
 
 | # | Reader question | Criterion | Check | Kinds |
 |---|---|---|---|---|
-| C1 | FIND | The page sits where the IA says its kind lives and its title states the reader's goal or the artifact's name, nothing else [IA fit] | JUDGE | all |
-| C2 | FIND | Sibling pages are linked from a fixed place (family overview ↔ sheets; tutorial → guide) and every link resolves at the pin [IA fit] | GATE(lychee) + JUDGE | all |
+| C1 | FIND | The page sits where the IA says its kind lives; its title states the reader's goal or the artifact's name [IA fit] | JUDGE | all |
+| C2 | FIND | Sibling pages are linked from a fixed place and every link resolves at the pin [IA fit] | GATE(lychee) + JUDGE | all |
 | C3 | UNDERSTAND | The first paragraph says what the reader gets and why it matters, before any mechanism [why before how] | JUDGE | all |
-| C4 | UNDERSTAND | Plain friendly English: second person, short sentences, no unexplained acronym on first use; readability numbers reported against the gold band | GATE(spelling) + metric + JUDGE | all |
-| C5 | UNDERSTAND | Progressive disclosure: the common case first, edge cases and internals after, callouts only for warnings the reader must not miss | JUDGE | all |
-| C6 | DO | Every example is copy-ready, was executed at the pin, and shows its real output next to it [copy-ready, D13] | CLAIMS + JUDGE | reference, Learn, Guide |
-| C7 | DO | An example lives once; other pages link to it, never paste it [one source, D12] | GATE(fence-hash dup check in `docs-check.mjs`) | all |
-| C8 | TRUST | Every statement about behaviour is true at the pin [truth at pin] | CLAIMS | all |
-| C9 | TRUST | Limits and non-goals are stated where the reader would otherwise assume more [honest limits] | JUDGE | reference, Guide, Understand |
-| C10 | SAME WORDS | Terms are used as defined in `terms.md`, first mention linked; no forbidden synonym [glossary terms] | GATE(`getff.Terms`) + JUDGE (first-mention link) | all |
-| C11 | (AI twin) | The `.md` twin / `llms.txt` contract holds | consumed from D28 | all |
+| C4 | UNDERSTAND | Plain friendly English: second person, short sentences, no unexplained acronym on first use; FRE/FK reported against the gold band | GATE(spelling) + metric + JUDGE | all |
+| C5 | UNDERSTAND | Progressive disclosure: common case first, edge cases and internals after, callouts only for warnings | JUDGE | all |
+| C6 | DO | Every example is copy-ready, executed at the pin, and shows its real output [copy-ready, D13] | CLAIMS + JUDGE | reference, Learn, Guide, face |
+| C7 | DO | An example lives once; other pages link, never paste [one source, D12] | JUDGE at v1 (today's corpus has 7 fenced blocks, 0 duplicates — no population to measure a hash gate on; re-evaluate after family 1) | all |
+| C8 | TRUST | Every statement about behaviour is true at the pin [truth at pin]; anchors resolve at the pin | CLAIMS + D26/D34 (`check-docs-refresh.mjs`, landing permalink resolver) | all |
+| C9 | TRUST | Limits and non-goals are stated where the reader would otherwise assume more [honest limits] | JUDGE | reference, Guide, Understand, face |
+| C10 | SAME WORDS | Terms used as defined in `terms.md`, first mention linked; no forbidden synonym [glossary terms] | GATE(`getff.Names`, name-class) + JUDGE (context-dependent synonyms, first-mention link) | all |
+| C11 | (AI twin) | The `.md` twin / `llms.txt` contract holds | GATE(D28 S6 twin frontmatter schema test) | all |
+| C12 | FIND/DO | The page follows its kind's skeleton in order [reader path per kind] | GATE(required sections by `kind:` frontmatter, `docs-check.mjs`) + JUDGE (order, first-step placement) | all |
+| C13 | TRUST | Frontmatter complete: `title`, `description`, `kind`, `sources:` (the D26 mapping input) | GATE(frontmatter schema, `docs-check.mjs`; D31 R18 Zod backstop at the landing build) | all |
 
-Per-kind specifics (the required-section skeleton comes from umbrella §2; the form auditor
-checks presence, the skill's template produces it):
+Delegated deterministic checks the umbrella §5 list named, with their owner: generated fences
+`--check` → D29 `render-reference.mjs`; anchors at pin and permalinks → D34 boundary 1 (landing
+build); affected-page refresh → D26/D34 `check-docs-refresh.mjs`; twins/manifest → D28 S6 / D31.
 
-- **Reference sheet** — bands in order: A fact card (generated fence, D29), B explanation
-  (C3 applies to band B's first paragraph), C evidence (paths + test names at the pin). No
-  selling language; JUDGE item: «would a reader who already decided to use this artifact
-  find anything here they do not need?».
-- **Family overview** — one table (generated) → one row per sheet, one «common cases» block
-  of ready snippets (D13) that does not duplicate any sheet's example (C7), one paragraph on
-  when NOT to reach for this family (C9).
+Per-kind specifics (the skeleton is what C12's gate checks; the JUDGE items are the kind's own):
+
+- **Reference sheet** — bands in order: A fact card (generated fence, D29), B explanation (C3
+  applies to band B's first paragraph), C evidence (paths + test names at the pin). No selling
+  language; JUDGE: «would a reader who already chose this artifact find anything they do not need?».
+- **Family overview** — one generated table → one row per sheet, one «common cases» block of
+  ready snippets (D13) that duplicates no sheet's example (C7), one paragraph on when NOT to
+  reach for this family (C9).
 - **Learn tutorial** — numbered steps; the first runnable step appears before any concept
-  explanation; every step shows the real output the reader will see (C6); ends with «what you
-  built» and one link forward.
-- **Guide (how-to)** — goal in the title, prerequisites as a list, steps, a verification step
-  the reader can run, then variations. JUDGE item: no concept teaching inside steps.
-- **Understand (explanation)** — pain → mechanism → proof (link to the test or measurement)
-  → honest limit, in that order; no steps, no snippets other than illustration.
+  explanation; every step shows the real output (C6); ends with «what you built» and one link.
+- **Guide (how-to)** — goal in the title, prerequisites list, steps, a verification step the
+  reader can run, then variations. JUDGE: no concept teaching inside steps.
+- **Understand (explanation)** — pain → mechanism → proof (link to the test or measurement) →
+  honest limit, in that order; no steps, no snippets other than illustration. This clause
+  belongs to Understand ONLY (D35).
+- **Face page (seven pages, D28)** — per-kind rule is a POINTER to
+  `2026-09-14-getff-ai-face-pages-design.md §5` (pain → mechanism → proof → honest limit in the
+  page's own proportion), never a copy; D28 stays authoritative for the rule's content (D35 E1;
+  falsifier c: a face page fails the card on a clause §5 does not carry → the pointer became a
+  paraphrase).
 
 ## `docs-author` skill outline
 
@@ -144,18 +163,19 @@ checks presence, the skill's template produces it):
                         # the five reader questions, the craft contract, done-checklist,
                         # `refresh` mode (D26 executor: re-run the card on touched pages only)
   references/
-    page-kinds.md       # five templates: required sections, band order, slot for example/diagram
+    page-kinds.md       # six templates: required sections (= C12 skeleton), band order,
+                        # example/diagram slot; face page = pointer to D28 §5
     criteria-card.md    # the table above, verbatim (single source; the agent links here)
     craft.md            # openers, why-before-how, second person, progressive disclosure,
                         # callouts, one punctuation sentence (D-Q3); examples from gold pages
-    terms.md            # POINTER to landing content/docs/terms.md (never a copy — P-D)
-    gold/               # the 5 gold pages after Opus GO (frozen copies, D-Q14)
+    terms.md            # POINTER to docs/site/terms.md (never a copy — P-D)
+    gold/               # gold pages after Opus GO (frozen copies, D-Q14)
 ```
 
-Done-checklist (the edit-time channel): example executed and output pasted → `terms.md`
-first-mention links present → `node scripts/docs-check.mjs <page>` clean → card self-filled
-in the commit body (`Card: C1 PASS … C11 N/A`) so the auditor can diff its own verdict against
-the writer's. The checklist is prose for the writer; its detection lives in the hooks (D-Q6).
+Done-checklist (edit-time channel): example executed and output pasted → `terms.md`
+first-mention links present → `node scripts/docs-check.mjs <page>` clean → `Docs-card:` trailer
+in the commit body (D-Q16). The checklist is prose for the writer; its detection lives in the
+hooks (D-Q6, D-Q16).
 
 ## `docs-form-auditor` outline
 
@@ -163,14 +183,14 @@ Frontmatter `name: docs-form-auditor`, `description` (triggers: gold-page review
 checkpoint, final site check, D26 refresh on ≥5 pages), `tools: Read, Glob, Grep, Bash`.
 Header: Class B; «reads pages cold, receives paths + kinds + the card path, never the writer's
 dialogue; runs `docs-check.mjs` for numbers; **does not judge facts**». Method sections mirror
-`agents/claims-conformance-auditor.md`: population → sampling (floor 5 per kind; all gold pages)
-→ per-page card → clean-vs-low-coverage → output grammar:
+`agents/claims-conformance-auditor.md`; output grammar:
 
 ```text
-## Population   <N pages, per kind>
+## Population   <N pages, per kind (six)>
 ## Sample       <paths, stratification, seed>
 ## Numbers      <docs-check.mjs summary: errors 0, suggestions n, FRE/FK per page vs band>
-## Cards        one table per page: C1..C11 → PASS | FAIL (+ Failure-scenario:) | N/A, file:line
+## Cards        one table per page: C1..C13 → PASS | FAIL (+ Failure-scenario:) | N/A, file:line
+## Trailer diff <writer's Docs-card vs this verdict, per criterion>
 ## Patterns     SYSTEMIC (≥2 pages of one kind) vs LOCAL
 ## Card gaps    reader harms seen that no criterion names
 ## Overall      GO | REVISE | STOP   (REVISE requires ≥1 scenario-bearing FAIL)
@@ -181,60 +201,76 @@ dialogue; runs `docs-check.mjs` for numbers; **does not judge facts**». Method 
 | Profile | Alerts | Per 1,000 w | Error | Note |
 |---|---|---|---|---|
 | Default (Microsoft + Readability + ai-tells) | 16,375 | 160 | 10,722 | unusable as a gate on any page |
-| Tuned (this spec's OFF/suggestion sets + 99-term vocabulary) | 5,525 | 55 | 1,317 | residue = long-tail ai-tells, unmeasured |
-| Gate set only (D-Q2 ERROR rules, vocabulary applied) | to be re-run on the 5 gold pages | — | — | the only number that will ever gate |
+| Tuned (`tuned.ini`: 22 off, 6 demoted, 90-term vocabulary; Semicolon still on, `Vale.Terms` still on) | 5,525 | 55 | 1,317 | residue = `Vale.Terms` casing 417 + spelling 323 + long-tail ai-tells |
+| Gate-only (`gate.ini`: `Vale.Spelling` + vocabulary, `Vale.Terms = NO`) | 323 | 3.2 | 323 | 118/196 pages; plurals/derived forms of accepted terms → vocabulary convergence, not defects |
+| Shipped D-Q2 profile on the gold pages | after `GO` | — | — | the only number that will ever gate; recorded in `docs/site/styles/README.md` |
 
 Per-rule verdicts (6 sampled hits each): false-positive-dominated → `Acronyms`, `Terms`,
 `Vocab`, `Avoid`, `Headings`, `ShipOveruse`, `FormalRegister`, `EnforcementMetaphors`,
 `Spelling` (vocabulary); house style, irrelevant under Q-2 → `EmDashUsage`, `Dashes`,
-`Semicolon`, `SemicolonUsage`, `ColonUsage`; friendly-tone helper kept as suggestion → `Contractions`; real signal → `SentenceLength`,
-`Passive`, `LabelAndExplain`, `AnthropomorphicJustification`, `CataphoricForecasting`.
-Human-approved baseline: **none** (F7). Working files: `tuned.ini`, `accept.txt`, `full.json`,
-`tuned.json`, `calibration-note.md` in this session's scratchpad; the build commit copies
-`tuned.ini` → landing `.vale.ini` and `accept.txt` → the vocabulary.
+`Semicolon`, `SemicolonUsage`, `ColonUsage`; friendly-tone helper kept as suggestion →
+`Contractions`; real signal → `SentenceLength`, `Passive`, `LabelAndExplain`,
+`AnthropomorphicJustification`, `CataphoricForecasting`.
+Stratified 20-page sample (seed 7): `index.md`, `daily-cycle-rules.md`, `faq.md`,
+`what-is-getff.md`, `beta.md`, `b16-tool-bootstrapping.md`, `b18-aif-architecture.md`,
+`rule-dual-implementation-discipline.md`, `rule-memory-codification.md`, `c10-review-sidecar.md`,
+`c4-capability-reuse-auditor.md`, `bridge-backend-contract.md`, `bridge-aif-http.md`,
+`e11-hooks-package-json.md`, `e3-prettierignore.md`, `a20-finalize.md`,
+`a11-subagents-delivery.md`, `script-check-shields-up.md`, `script-check-arch-boundaries.md`,
+`g6-preset-react-spa.md`. Human-approved baseline: **none** (F7). Working files (`tuned.ini`,
+`gate.ini`, `accept.txt`, `full.json`, `tuned.json`, `gate.json`, `calibration-note.md`) in the
+authoring session's scratchpad; the build commit copies them into `docs/site/styles/`.
 
 ## Testing seams
 
-- **Profile fixture:** `tests/docs-check/fixtures/` in landing holds one page per page kind with
-  seeded defects (one typo, one forbidden synonym, one broken link, one `vale off` without
-  reason, one duplicated fence) and one clean gold copy; `docs-check.mjs` must report exactly
-  those five errors and zero on the clean page. Snapshot the JSON.
+- **Profile fixture:** `tests/docs-check/fixtures/` holds one page per kind with seeded defects
+  (one typo, one name-class synonym, one broken link, one `vale off` without a reason comment,
+  one missing `sources:`, one missing required section) and one **bootstrap-clean** page written
+  for the fixture (the gold pages do not exist yet); `docs-check.mjs` must report exactly the
+  seeded errors **and no other error-level alert**, and zero on the clean page. Snapshot the JSON.
 - **Terms render drift:** `render-terms-style.mjs --check` against a `terms.md` with an added
-  `Do not use:` entry must fail; after `--write` must pass (`regionsMatch` precedent).
-- **Escape reason:** a `vale off` with a 19-char reason fails, 20 passes (same fixture family).
-- **Gate-set FP on gold:** the D-Q2 falsifier is a test: run the ERROR rules on the 5 gold
-  pages after `GO`; any hit that is not a vocabulary miss is a failing assertion recorded in
-  `styles/getff/README.md`.
-- **Auditor self-run (T15):** the form auditor's first invocation is on the 5 gold pages with
-  the writer's self-filled cards beside it; a disagreement on any criterion is the calibration
-  finding, not a page defect.
+  `Do not use (name):` entry must fail; after `--write` must pass; a plain `Do not use:` entry
+  must render nothing (`regionsMatch` precedent).
+- **Escape reason:** `vale off` + reason of 19 chars fails, 20 passes; `vale off` with no
+  following reason comment fails; same in the `{/* */}` form.
+- **Gate-set FP on gold:** the D-Q2 falsifier is a test: run the ERROR rules on the gold pages
+  after `GO`; any hit that is not a vocabulary miss is a failing assertion recorded in
+  `docs/site/styles/README.md`.
+- **Auditor self-run (T15):** first invocation on the gold pages with the `Docs-card:` trailers
+  beside it; a disagreement on any criterion is the calibration finding, not a page defect.
+- **Trailer gate:** a commit touching `docs/site/x.md` without `Docs-card:` is blocked at
+  pre-push; with the `skipped —` escape it passes (prior-art.ts fixture shape).
 - **Skill under its own gate (D-Q13):** `docs-check.mjs` over `.claude/skills/docs-author/**`
-  and `agents/docs-form-auditor.md` runs in the framework's `audit-self.yml`.
+  and `agents/docs-form-auditor.md` runs in `audit-self.yml`.
+- **Two scripts stay disjoint (D35 b):** a fixture commit that changes a cited source path but no
+  prose must fail ONLY `check-docs-refresh.mjs`; a commit with a typo must fail ONLY `docs-check.mjs`.
 
 ## Consequences
 
-- The Fable content session gets a fixed interface before writing: card, templates, terms,
-  and a script that says «clean» in seconds; no page is judged against a moving target.
-- Opus reviews are cheap and comparable: the same card at all three points, numbers from the
-  same script, REVISE only with a scenario.
-- Cost of being wrong is bounded: every rule in the gate set has a demotion path measured on
-  20 pages, every judgment criterion a promotion path counted in incidents.
-- What is NOT done: no ai-tells, no punctuation rules, no readability gate, no LLM in any hook
-  or workflow, no second glossary, no vendored Diátaxis (until the falsifier fires).
-- Build items for the Opus plan (P-R): landing `docs-check.mjs` + husky + workflow + Vale pin;
-  `render-terms-style.mjs`; `terms.md` skeleton with the fence; skill + agent under `ai-doc`;
-  SSOT rows; fixtures above.
+- The Fable content session gets a fixed interface before writing: card, six templates, terms,
+  and a script that says «clean» in seconds, all in the repo it writes in.
+- Opus reviews are cheap and comparable: the same card at all three points, face pages
+  included, numbers from the same script, REVISE only with a scenario.
+- Cost of being wrong is bounded: every gate rule has a demotion path, every judgment criterion
+  a promotion path counted in incidents, every uncalibrated number is labelled.
+- NOT done: no ai-tells, no punctuation rules, no readability gate, no LLM in any hook or
+  workflow, no second glossary, no vendored Diátaxis, nothing in the landing repo.
+- Build items for the Opus plan (P-R): `scripts/docs-check.mjs` + pre-commit section + Vale and
+  lychee pins + `audit-self.yml` job; `render-terms-style.mjs`; `docs/site/terms.md` skeleton
+  with the fence; `Docs-card:` pre-push section; skill + agent under `ai-doc`; the two SSOT rows
+  (author discipline, D-Q15); fixtures above.
 
 ## Prior art (pass 2026-09-14)
 
-- SSOT #17 markdownlint-cli2 (ADOPT) — config reused as is; SSOT #18 Vale (DEFER, mixed
-  corpus) — re-evaluated for the EN-only corpus, row stays for the framework.
-- Vale packages Microsoft / Readability / ai-tells — fetched and RUN (F2–F6), not read about.
-- `pfeff/claude-skills` `diataxis` (MIT) — fetched; umbrella D17 probe confirmed no style guide.
-- Framework precedents: `claims-conformance-auditor.md` (auditor shape), `template-audit`
-  P2/P3/P5 (session-bound advisory with promotion trigger), `render-*.mjs` + `fence.ts`
-  (generated regions), `ci-tool-pinning.md §3` (escape token), `reviewer-discipline.md §6`
-  (severity), `attention-is-not-a-mechanism.md §3` (promotion count), `ai-doc` (self-application).
+- SSOT #17 markdownlint-cli2 (ADOPT) — config reused; SSOT #18 Vale (DEFER, mixed corpus) —
+  re-evaluated for the EN-only corpus, row stays for the framework.
+- Vale packages Microsoft / Readability / ai-tells — fetched and RUN (F2–F6b, F13).
+- `pfeff/claude-skills` `diataxis` (MIT) — fetched; no style guide inside (D17 probe).
+- Framework precedents: `claims-conformance-auditor.md`, `template-audit` P2/P3/P5,
+  `render-*.mjs` + `fence.ts`, `ci-tool-pinning.md §3` (same-line token), `pr-body-fidelity.ts:217`
+  and `destination-environment-verification.md:47` (≥20-char rationale), `prior-art.ts`
+  (trailer gate), `audit-self.yml:720` (binary pin by sha256), `reviewer-discipline.md §6/§6.2`,
+  `attention-is-not-a-mechanism.md §3`, `ai-doc`.
 - Honest absence: no existing framework glossary of product terms (only the orchestrator's
   internal roles glossary, `.claude/skills/orchestrator/references/glossary.md`).
 
@@ -259,25 +295,54 @@ From the umbrella register (`_decision-register-getff-ai-site.md`, copied, not r
 
 From this session (2026-09-14, Russian verbatim, then the meaning carried):
 
-- **Q-1** — «я ничего не одобрял» — no page has been human-approved; there is no human
-  baseline, the 5 gold pages after Opus `GO` are the first one (F7, D-Q14).
+- **Q-1** — «я ничего не одобрял» — no page has been human-approved; the gold pages after Opus
+  `GO` are the first baseline (F7, D-Q14).
 - **Q-2** — «это не важно главное комфортность и удобство пользования документацией» — on
   dashes and semicolons: irrelevant; what matters is the comfort and ease of use of the
   documentation (D-Q1, D-Q3).
-- **Q-3** — «Остальное да задача для тебя продумать как сделать лучше» — the remaining
-  design forks are delegated to this seat; grilling closed after round 1 (all D-Q rows carry
-  the seat's resolution + falsifier so the Opus review can overturn any of them with evidence).
+- **Q-3** — «Остальное да задача для тебя продумать как сделать лучше» — the remaining design
+  forks are delegated to this seat; grilling closed after round 1.
 
 ## Changelog
 
-_Awaiting round 1 (two cold seats, separate Opus session per D27). Dispositions:
-`ACCEPTED | DISSOLVED | ESCALATED | FIXED`; cap 2 REVISE rounds._
+### Round 1 — two cold seats (separate Opus session, 2026-09-14) + umbrella ruling D35
 
-## Items flagged UNVERIFIED for the bottom-up seat
+Both seats returned `REVISE` on commit `51f16a4528e`. The review files
+(`…review-top-down.md`, `…review-bottom-up.md`) are working artifacts of the review session,
+not committed (precedent: the dynamic-context-window spec folded both rounds into its
+changelog; the bottom-up file is 781 lines, past the 600-line gate). Every finding is
+restated here. Every number the seats re-derived reproduced exactly except the two descriptors
+in F-M2. Dispositions:
 
-- Whether landing pages stay `.md` (HTML comments work, F9) or become `.mdx`, where Vale's
-  escape must be `{/* vale off: … */}` and `docs-check.mjs` must grep both forms.
-- Whether the Fable content session's checkout of landing will have husky installed (D-Q6
-  second falsifier) — decides if the CI job is the only reachable hook for the first pass.
-- Whether the D29 generator exposes an artifact-name registry the `terms.md` fence can consume,
-  or the fence must be filled from the family tables instead (D-Q7 region b).
+| Finding | Disposition | Where |
+|---|---|---|
+| TD BLOCKER-1 = BU B2 — content home in landing contradicts D14a/D20/D34 | **ESCALATED → FIXED** by umbrella D35 (E2: framework `docs/site/`, existing channels, landing gets nothing) | D-Q6, D-Q7, Context, C-table, build items |
+| BU B1 — `<!-- vale off: reason -->` is inert in Vale 3.21.0 | **FIXED** — two-comment form, re-measured by this seat (9/6/9/6) | F13, D-Q12, seams |
+| TD MAJOR-2 — «reader path per kind» has no card row | **FIXED** — C12 GATE(kind skeleton) + JUDGE | card |
+| TD MAJOR-3 — `getff.Terms` unmeasured; `the framework` cannot be a substitution | **FIXED** — name-class filter; `the framework` and `rules-as-tests` (npm scope, found by this seat) moved to JUDGE; four remaining names measured | D-Q7, F8 |
+| TD MAJOR-4 — anchors, fences, frontmatter absent | **FIXED** — C13 frontmatter gate; delegation table under the card | card |
+| TD MAJOR-5 = BU F-M9 — no kind for the seven face pages | **ESCALATED → FIXED** by D35 (E1 option a: sixth kind by pointer to D28 §5) | card, D-Q8, D-Q14 |
+| TD MAJOR-6 — writer's self-filled card has no channel | **FIXED** — D-Q16 `Docs-card:` trailer gate at pre-push | D-Q16, seams |
+| TD MINOR-7 — pre-push missing from the channel list | **ACCEPTED** — D35 names pre-commit + `audit-self.yml` for `docs-check.mjs`; pre-push now carries the D-Q16 trailer gate and D34's refresh gate | D-Q6 |
+| TD MINOR-8 — P-R parenthetical misattributed | **FIXED** | D-Q10 |
+| TD MINOR-9 — C11 has no check owner | **FIXED** — GATE(D28 S6) | card |
+| BU M1 — `Vale.Terms` and four Microsoft rules unclassified; Semicolon not off in the run | **FIXED** — classified; F6 corrected; gate-only re-measured (F6a) | D-Q2, F6, F6b |
+| BU M2 — spelling not FP-free by construction | **FIXED** — «after vocabulary convergence», residual 323/118 measured, same-commit `accept.txt` route | F6a, drill-down, D-Q12 |
+| BU M3 — D28's synonyms would fire ~880 FPs | **FIXED** — only `Do not use (name):` entries render; D28 §8 entries are JUDGE | D-Q7 |
+| BU M4 — script lives in one repo, runs in another | **DISSOLVED** by D35 (one repo) | D-Q6 |
+| BU M5 — `prior-art.ts` cannot fire on these artifacts | **ACCEPTED** — stated plainly; rows are author discipline on the Opus plan checklist | D-Q15 |
+| BU M6 — lychee warn-and-skip, unpinned | **FIXED** — pinned per `audit-self.yml:720`; absent binary = ERROR | D-Q2, F10 |
+| BU F-M1 — D-Q2/D-Q4 disagree on Readability | **FIXED** — FRE + FK suggestion, five OFF; F5 re-count carried | D-Q2, F5 |
+| BU F-M2 — 21/99 vs 22/90 | **FIXED** in spec and `calibration-note.md` | F6, calibration |
+| BU F-M3 — four thresholds unlabelled; FP trigger unmeasurable on ≤6-hit rules | **FIXED** — `uncalibrated` labels; hit-count-scoped reverse seam | D-Q4, D-Q5, D-Q11, D-Q12 |
+| BU F-M4 — ≥20-char floor misattributed | **FIXED** — `pr-body-fidelity.ts:217` | F10, prior art |
+| BU F-M5 — cap 2 vs P-J no cap | **FIXED** — §6.2 reconciliation sentence | D-Q10 |
+| BU F-M6 — #18 revisit arm elided | **FIXED** | F11 |
+| BU F-M7 — fixture seam ordering + «exactly five» | **FIXED** — bootstrap-clean page; «no other error-level alert» | seams |
+| BU F-M8 — C7 hash gate unmeasured | **FIXED** — C7 is JUDGE at v1, population noted | card |
+| BU UNVERIFIED 1 — `.md`/`.mdx` | **FIXED** — D31 S1 named as dependency; both comment forms grepped; 135 provenance comments noted | D-Q6, F1, F13 |
+| BU UNVERIFIED 2 — husky in landing | **DISSOLVED** by D35 | — |
+| BU UNVERIFIED 3 — D29 name registry | **FIXED** — consumed; names only; renderer boundary stated | D-Q7, F14 |
+
+Not a ruling but recorded: the umbrella's own D28a wording («GENERATED content only») invited
+the landing reading and was corrected in the register; this spec cites D14a/D20/D34/D35 directly.
