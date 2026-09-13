@@ -329,7 +329,12 @@ describe.skipIf(!JQ)(
     // check-doc-authority-header — the arms below pin both the end-of-string anchor and
     // the prefix-boundary discipline.
 
+    // REAL fixture shape: hooks.json registers the hook by its EXTENSIONLESS twin
+    // name (`run-hook.cmd" <name>`, no .sh) — the first version of these arms
+    // interpolated the .sh-bearing disk name, a shape the real renderer never
+    // emits, which let a no-op lookup pass as green (cold-review P1+P2, 2026-09-13).
     function writeSandboxPluginHooks(matcher: string, hookName: string): void {
+      const twinName = hookName.replace(/\.sh$/, '');
       const pluginDir = join(SANDBOX, 'plugin', 'hooks');
       mkdirSync(pluginDir, { recursive: true });
       writeFileSync(
@@ -342,7 +347,7 @@ describe.skipIf(!JQ)(
                 hooks: [
                   {
                     type: 'command',
-                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${hookName}`,
+                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${twinName}`,
                   },
                 ],
               },
@@ -386,12 +391,14 @@ describe.skipIf(!JQ)(
       expect(runHook('Edit', renamed).status).toBe(0);
     });
 
-    it('GAP-2 PREFIX-BOUNDARY: plugin entry for <name>-header.sh must not satisfy <name>.sh lookup', () => {
+    it('GAP-2 PREFIX-BOUNDARY: plugin entry for <name>-header must not satisfy <name>.sh lookup', () => {
       // The lookup must not let `check-doc-authority-header`'s registration stand in for
-      // `check-doc-authority` (prefix collision): register ONLY a -header suffixed hook with
-      // a full matcher, then verify the unsuffixed fixture (with its own narrow entry absent)
-      // still flags → proves the lookup matched nothing for it and the skip-tolerance did not
-      // silently absorb a REAL registration of a different hook.
+      // `check-doc-authority` (prefix collision). ONE merged hooks.json carries BOTH the
+      // -header sibling (FULL matcher) and the hook's own NARROW entry — the assertion goes
+      // red via the hook's own narrow entry while the sibling's full matcher must NOT
+      // satisfy the lookup. (A previous version staged the sibling in a separate write that
+      // the next helper call overwrote — the boundary property was never actually staged;
+      // cold-review P2, 2026-09-13.)
       const name = `zzz-gap2-pre-${Date.now()}.sh`;
       const abs = writeHook(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
@@ -403,7 +410,7 @@ describe.skipIf(!JQ)(
         JSON.stringify({ hooks: { PostToolUse: [] } }),
         'utf8',
       );
-      // Plugin channel registers only the -header sibling, with the FULL matcher...
+      const twin = name.replace(/\.sh$/, '');
       const pluginDir = join(SANDBOX, 'plugin', 'hooks');
       mkdirSync(pluginDir, { recursive: true });
       writeFileSync(
@@ -416,7 +423,16 @@ describe.skipIf(!JQ)(
                 hooks: [
                   {
                     type: 'command',
-                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${name.replace(/\.sh$/, '-header.sh')}`,
+                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${twin}-header`,
+                  },
+                ],
+              },
+              {
+                matcher: 'Edit|Write',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${twin}`,
                   },
                 ],
               },
@@ -425,8 +441,8 @@ describe.skipIf(!JQ)(
         }),
         'utf8',
       );
-      // ...and the unsuffixed hook itself only narrowly:
-      writeSandboxPluginHooks('Edit|Write', name);
+      // Exit 2 must come from the hook's OWN narrow entry; if the prefix boundary broke,
+      // the sibling's full matcher would satisfy the lookup and this would (wrongly) pass 0.
       expect(runHook('Edit', renamed).status).toBe(2);
     });
 
