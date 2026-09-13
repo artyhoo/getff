@@ -160,12 +160,7 @@ It previews the changes (dry-run, writes nothing), asks for `[y/N]`, then fetche
 
 ZCode installs the same plugin payload from the same GitHub marketplace — one artifact serves both harnesses:
 
-```text
-/plugin marketplace add artyhoo/getff
-/plugin install getff@getff
-```
-
-(If your ZCode build has no plugin CLI, the Discover-tab `+` accepts the same `owner/repo` GitHub source.)
+In ZCode: **Settings → Plugin Management → Discover → `+`** (Add marketplace) → enter `artyhoo/getff` → install **Getff** from the `getff` marketplace section. ZCode has no plugin CLI/slash command for this (verified live, ZCode 3.11.2); the `+` dialog accepts the GitHub `owner/repo`, a git URL, or a local directory, and the Discover card's **Get/Install/Update** button installs or refreshes the payload.
 
 What the plugin delivers on ZCode, and the honest boundary:
 
