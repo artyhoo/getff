@@ -434,7 +434,9 @@ turns every short answer into a nag.
 
 **Interfaces:**
 - Consumes: `_eot_turn_shape()` (Task 1.1), the Task 1.2 scalars.
-- Produces: `_eot_recap_defects()` — reads `$text`, `$asked`, `$long_text`; echoes a
+- Produces: `_eot_recap_block()` — echoes the recap slice: the `$AIF_RECAP_MARKER` heading
+  through the block's last non-empty line, with trailing blank lines dropped.
+  `_eot_recap_defects()` — reads `$text`, `$asked`, `$long_text`; echoes a
   `; `-joined list of missing/❌ sections, or nothing when the block is well-formed.
   `aif_msg_eot_recap_gate <defects>` — pack function taking ONE argument, the defect list.
 
@@ -477,11 +479,20 @@ Define it next to `_eot_turn_shape()`. Note the `if … then … fi` form throug
 && d=…` as a final statement returns 1 and `set -e` would kill the hook:
 
 ```bash
+# The recap slice: the marker heading through the block's last non-empty line. It is the
+# gate's unit of work — the section checker reads it, and Task 1.6b hashes it — so it is
+# extracted once here rather than re-derived at each site. Trailing blank lines are dropped
+# so a stray newline cannot change the sha of an otherwise identical block.
+_eot_recap_block() {
+  awk 'NF { last = NR } { l[NR] = $0 } END { for (i = 1; i <= last; i++) print l[i] }' \
+    <<<"$AIF_RECAP_MARKER${text#*"$AIF_RECAP_MARKER"}"
+}
+
 # Section checker for an EXISTING recap block. Never a block demander: the caller only
 # reaches this when the turn already carries $AIF_RECAP_MARKER.
 _eot_recap_defects() {
   local d="" block last
-  block="${text#*"$AIF_RECAP_MARKER"}"
+  block="$(_eot_recap_block)"
   if ! grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$block"; then d="$d; $AIF_EOT_SEC_WHERE"; fi
   if ! grep -qF -- "$AIF_EOT_SEC_NEXT"  <<<"$block"; then d="$d; $AIF_EOT_SEC_NEXT"; fi
   if [ "$asked" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$block"; then

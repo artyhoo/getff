@@ -270,10 +270,14 @@ git commit -m "test(measure): flags + stable keys for measure-recap-len.py, asse
 
 **Interfaces:**
 - Consumes: the fixture tree from Task 0.2.
-- Produces: `--root` / `--glob` / `--days` flags and stable keys `root`, `days`,
-  `transcripts_scanned`, `user_messages`, `reexplain_asks`, `handoff_asks`,
+- Produces: `--root` / `--glob` / `--days` / `--min-size` flags and stable keys `root`, `days`,
+  `min_size`, `transcripts_scanned`, `user_messages`, `reexplain_asks`, `handoff_asks`,
   `bare_confirmations`, `autonomy_complaints`, `agent_wait_phrases`, `recaps`,
   `after_recap_bare_go`, `after_recap_substantive`.
+- `--min-size` (default `150000`) exposes the original's `st.st_size > 150000` filter. That
+  filter IS part of the measurement — the spec's figures come from LARGE transcripts only — so
+  it is made tunable, never dropped. The test passes `--min-size 0`; the ~300-byte fixtures are
+  invisible at the default.
 
 - [ ] **Step 1: Extend the fixture with the turn shapes the script counts**
 
@@ -282,15 +286,24 @@ user line of the existing fixture (`объясни попроще что это 
 re-explain ask, and `го` after the second block already counts as one bare confirmation:
 
 ```jsonl
-{"type":"user","message":{"content":"а что мне теперь делать с этим?"}}
+{"type":"user","message":{"content":"напиши контекст для продолжения"}}
 {"type":"assistant","message":{"content":[{"type":"text","text":"Жду вашего решения."}]}}
-{"type":"user","message":{"content":"почему ты спрашиваешь, делай сам"}}
+{"type":"user","message":{"content":"не спрашивай, делай сам"}}
 {"type":"assistant","message":{"content":[{"type":"text","text":"Понял, делаю."}]}}
 ```
 
+Those two user strings are not decorative — they are the strings the real regex table matches,
+and they were chosen by reading it. `HANDOFF` is about handoffs and memory
+(`напиши контекст`, `сохрани в память`, …), so a plausible-sounding «а что мне теперь делать?»
+misses it entirely and lands in `CLAR` instead, silently inflating `reexplain_asks`. `AUTON`
+needs `почему спрашива` contiguous, which «почему ты спрашиваешь» breaks. Read `PATTERNS`
+before changing a fixture line.
+
 Hand counts: `user_messages` 5 (2 pre-existing + 1 `го` + 2 new), `reexplain_asks` 1,
 `handoff_asks` 1, `bare_confirmations` 1, `autonomy_complaints` 1, `recaps` 2,
-`after_recap_bare_go` 1 (the `го` that follows block 1), `after_recap_substantive` 0.
+`after_recap_bare_go` 1 (the `го` that follows block 1). `after_recap_substantive` is asserted
+too — at whatever value the implementer can JUSTIFY in one sentence from the fixture, not at a
+value copied out of the script's output.
 
 - [ ] **Step 2: Add the failing assertions**
 
@@ -298,7 +311,7 @@ Append to `scripts/measure/measure.test.sh`, before the trailing `echo ""` / sum
 
 ```bash
 echo "▶ measure-interaction-shape.py"
-OUT=$(python3 "$DIR/measure-interaction-shape.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' --days 100000 2>&1)
+OUT=$(python3 "$DIR/measure-interaction-shape.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' --days 100000 --min-size 0 2>&1)
 expect "transcripts_scanned"    2 "$(row "$OUT" transcripts_scanned)"
 expect "user_messages"          5 "$(row "$OUT" user_messages)"
 expect "reexplain_asks"         1 "$(row "$OUT" reexplain_asks)"
@@ -321,19 +334,24 @@ Expected: the seven Task-0.2 assertions still pass; the eight new ones fail (unr
 - [ ] **Step 4: Harden the script**
 
 1. `import argparse`; add `main()` with `--root` (default `~/.claude/projects`), `--glob`
-   (same default as Task 0.2), `--days` (default `14`, `type=int`).
+   (same default as Task 0.2), `--days` (default `35`, `type=int` — the vendored original's
+   `cutoff=time.time()-35*86400`, NOT a rounder number: a changed default is a changed
+   measurement and the spec's rows were counted over that window), `--min-size`
+   (default `150000`, `type=int`). Copy Task 0.2's `_argv_with_equals()` helper — each script
+   stays standalone, so copy rather than import — and list all four option names in it.
 2. Keep the regex table byte-identical. Lift it to a module-level `PATTERNS` dict so a reader
    sees the whole measurement in one place, with the docstring's «THE REGEXES ARE THE
    MEASUREMENT» sentence directly above it.
 3. Replace the mtime filter's hard-coded window with
-   `cutoff = time.time() - args.days * 86400`, keeping the comparison direction.
+   `cutoff = time.time() - args.days * 86400`, keeping the comparison direction, and the
+   hard-coded `st.st_size > 150000` with `st.st_size > args.min_size`. Keep BOTH conditions.
 4. Replace the report block with one `key: value` line per key from the Interfaces list.
 5. Add `if __name__ == "__main__": main()`.
 
 - [ ] **Step 5: Run and watch it pass**
 
 Run: `bash scripts/measure/measure.test.sh`
-Expected: `PASS=15 FAIL=0`.
+Expected: `PASS=15 FAIL=0`, or 16 with the `after_recap_substantive` assertion.
 
 - [ ] **Step 6: Commit**
 
@@ -350,10 +368,12 @@ git commit -m "test(measure): flags + stable keys for measure-interaction-shape.
 - Modify: `scripts/measure/measure.test.sh`
 
 **Interfaces:**
-- Produces: `--root` / `--glob` / `--days` flags and stable keys `root`, `days`,
+- Produces: `--root` / `--glob` / `--days` (default `35`, the original's constant) flags and
+  stable keys `root`, `days`,
   `transcripts_scanned`, `denied_tool_calls`, `classifier_denied`, plus one
   `prefix_<command>: <count>` line per distinct denied command prefix, sorted by count
-  descending then name.
+  descending then name. Also the shared run header (Step 4b) on all three scripts:
+  `run_utc`, `root`, `glob`, `window`, `min_size`.
 
 - [ ] **Step 1: Write the fixture**
 
@@ -384,7 +404,7 @@ expect "prefix_docker"     1 "$(row "$OUT" prefix_docker)"
 - [ ] **Step 3: Run and watch it fail**
 
 Run: `bash scripts/measure/measure.test.sh`
-Expected: `PASS=15`, four new `✗`.
+Expected: `PASS=16`, four new `✗`.
 
 - [ ] **Step 4: Harden the script**
 
@@ -393,16 +413,43 @@ plus: emit the prefix histogram as `prefix_<name>: <count>` lines instead of the
 free-form `  npm  ×2` rendering. Leave the detection strings themselves untouched — they are the
 measurement.
 
+- [ ] **Step 4b: One self-describing run header on ALL THREE scripts**
+
+A dated re-run line in the README is only auditable if the run that produced it says what it
+looked at. Every script prints these five keys FIRST, before any counter, in this order:
+
+```text
+run_utc: 2026-09-13
+root: /Users/art/.claude/projects
+glob: -Users-art-code-rules-as-tests-aif*
+window: from 2026-08-15 to 2026-09-13
+min_size: 150000
+```
+
+- `run_utc` — `datetime.now(timezone.utc).strftime('%Y-%m-%d')`.
+- `root` — the EXPANDED path (`os.path.expanduser`), never the literal `~/...`.
+- `window` — the absolute dates the `--days` cutoff resolves to, computed from the same
+  `cutoff` value the filter uses, so header and filter cannot disagree.
+- Scripts with no time filter print `window: all (no time filter)`; scripts with no size
+  filter print `min_size: none`. Do NOT add a filter a script never had — that would change
+  the measurement. `measure-recap-len.py` is both of those cases.
+
+This retrofits `measure-recap-len.py` and `measure-interaction-shape.py`, which already print
+`root` / `days` / `min_size` but no absolute window. Keep every existing key; only add.
+
 - [ ] **Step 5: Run and watch it pass**
 
+Add one header assertion per script to `measure.test.sh` — that `window:` is non-empty and, for
+the two dated scripts, that it matches `^from [0-9]{4}-[0-9]{2}-[0-9]{2} to [0-9]{4}-[0-9]{2}-[0-9]{2}$`.
+
 Run: `bash scripts/measure/measure.test.sh`
-Expected: `PASS=19 FAIL=0`.
+Expected: `PASS=23 FAIL=0`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add scripts/measure/measure-permission-denials.py scripts/measure/measure.test.sh scripts/measure/fixtures
-git commit -m "test(measure): flags + stable keys for measure-permission-denials.py, asserted on a counted fixture"
+git add scripts/measure/measure-permission-denials.py scripts/measure/measure-recap-len.py scripts/measure/measure-interaction-shape.py scripts/measure/measure.test.sh scripts/measure/fixtures
+git commit -m "test(measure): flags + stable keys for measure-permission-denials.py, and one self-describing run header on all three"
 ```
 
 ### Task 0.5: README — which row came from which script
@@ -425,6 +472,8 @@ Sections, in order:
    → `blocks_over_15` / `blocks`».
 3. **How to re-run** — the exact command lines, with the note that defaults point at
    `~/.claude/projects` on the author's machine and every number is machine-and-date-bound.
+   Show the five-key run header (Task 0.4 Step 4b) and say what it is for: a re-run line is
+   only auditable if the run that produced it states its own root, glob, window and min-size.
 4. **A re-run is a falsifier, not a new baseline** — verbatim: `The numbers in the spec table
    are dated 2026-09-13. A later re-run produces DIFFERENT numbers because the corpus grew;
    that is not a defect and is not a reason to edit the spec's table in place. If a re-run
@@ -444,11 +493,11 @@ git commit -m "docs(measure): map each recap-v2 spec table row to the script tha
 
 ### Task 0.6: Re-run the table and append a dated re-run line
 
-> **Fork status:** the re-run SHAPE went to the advisor as a fork card (re-run in place vs append
-> a dated line). Recommended and planned here: **append, never in place** — re-running in place
-> rewrites the evidence under decisions already ratified from the old figures (the cap's «36 of
-> 1607 = 2.2 %», R-14's «1607 RU blocks, one operator»). Tasks 0.1-0.5 do not depend on the
-> answer; do those first.
+> **Fork status: DECIDED by the advisor 2026-09-13 — option B, append, never in place.**
+> Re-running in place rewrites the evidence under decisions already ratified from the old
+> figures (the cap's «36 of 1607 = 2.2 %», R-14's «1607 RU blocks, one operator»). The same
+> ruling requires the self-describing run header (Task 0.4 Step 4b) so every dated line says
+> what corpus it read.
 
 **Where the append lands — measured, not assumed.** `#1741` merged to staging at 13:48Z
 2026-09-13 (`f6cbba5ed2a`) and the spec file is EXACTLY 600 lines, which is the pre-commit
@@ -460,7 +509,9 @@ has freed lines, a one-line pointer into the README is worth adding and nothing 
 **Files:**
 - Modify: `scripts/measure/README.md` (§2 — the row → script map gains the re-run column)
 - Do NOT modify: `docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md` — at the
-  ceiling, and owned by the design session
+  ceiling, and owned by the design session. Its lines 36-37 were already corrected earlier on
+  this branch (the «NOT re-derivable» claim, at an unchanged line count, on the advisor's
+  ruling); that correction is done and is not part of this task.
 
 **Interfaces:**
 - Consumes: the three hardened scripts.
@@ -469,10 +520,17 @@ has freed lines, a one-line pointer into the README is worth adding and nothing 
 
 ```bash
 python3 scripts/measure/measure-recap-len.py            > /tmp/m1.txt
-python3 scripts/measure/measure-interaction-shape.py --days 14 > /tmp/m2.txt
-python3 scripts/measure/measure-permission-denials.py --days 14 > /tmp/m3.txt
+python3 scripts/measure/measure-interaction-shape.py    > /tmp/m2.txt
+python3 scripts/measure/measure-permission-denials.py  > /tmp/m3.txt
 cat /tmp/m1.txt /tmp/m2.txt /tmp/m3.txt
 ```
+
+Run them on DEFAULTS — no `--days` override. The defaults are the originals' own constants
+(35 days, 150000 bytes), so a defaults run is the only one comparable to the spec's rows; a
+narrower window would produce smaller numbers that look like a drop and are not one.
+
+Copy each run's five-key header verbatim into the re-run block (Step 3). A re-run table whose
+header is missing is not falsifiable by a later reader — it cannot be told which corpus it read.
 
 - [ ] **Step 2: Diff each number against the spec's table**
 

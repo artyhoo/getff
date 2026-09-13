@@ -102,19 +102,19 @@ Two seams the spec names that Tasks 1.1-1.6 do not yet cover:
 **Interfaces:**
 - Produces: `_eot_recap_line_count <block>` — echoes the number of non-empty lines of the block
   EXCLUDING the fork-card region. `AIF_EOT_CAP_LABEL` — the defect label naming the cap.
-- Consumes: `_residue_sha256` (defined at `:60-66`, with the guarded-lib fallback) and
-  `$session_id`.
+- Consumes: `_eot_recap_block()` (Task 1.5), `_residue_sha256` (defined at `:60-66`, with the
+  guarded-lib fallback) and `$session_id`.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-it('blocks a malformed block once, then exits silently on the identical block', async () => {
+it('blocks a malformed block once, then exits silently on the same block under new prose', async () => {
   const text = `## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?`;
   const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' };
   const first = await buildCase({ text, env, sessionId: 'retry-bound' });
   expect(first.stdout).toContain('Fork.');
-  const second = await buildCase({ text, env, sessionId: 'retry-bound' });
-  expect(second.stdout).not.toContain('Fork.');
+  const again = `I reran the suite and it is green.\n\n${text}`;
+  expect((await buildCase({ text: again, env, sessionId: 'retry-bound' })).stdout).not.toContain('Fork.');
 });
 
 it('caps the retelling part but never the fork card', async () => {
@@ -197,7 +197,7 @@ Inside the Task 1.5 gate block, after `_recap_defects` is computed and non-empty
       _rg_flag="${TMPDIR:-/tmp}/aif-eot-rgb-${_rg_key}"
       _rg_tmp="${TMPDIR:-/tmp}/aif-eot-rgbt-${_rg_key}-$$"
       _rg_sha=""
-      if printf '%s' "$text" > "$_rg_tmp" 2>/dev/null; then
+      if printf '%s' "$(_eot_recap_block)" > "$_rg_tmp" 2>/dev/null; then
         _rg_sha="$(_residue_sha256 "$_rg_tmp")"
         rm -f "$_rg_tmp" 2>/dev/null || true
       fi
@@ -209,13 +209,14 @@ Inside the Task 1.5 gate block, after `_recap_defects` is computed and non-empty
       fi
 ```
 
-Use its OWN flag prefix (`aif-eot-rgb-`), not the ZCode arm's `aif-eot-zcb-`: sharing one flag
-between two independent bounds makes each able to suppress the other's first block — the
-sibling-channel failure paid for in #1644→#1651.
-
-`_residue_sha256` is defined at `.claude/hooks/end-of-turn-reminder.sh:60-66` inside a guard
-(`sha256sum`, else `shasum`, else nothing). It is why `_rg_sha` can legitimately be empty, and
-why the empty case must skip the store as well as the compare.
+Hash the BLOCK, never `$text` — the spec says «sha256 of the block text … the same malformed
+block seen twice passes silently». The ZCode arm hashes the whole message because its seam is
+«identical long markdown re-emitted»; this gate's seam is the same malformed block under NEW
+surrounding prose, which moves a whole-message sha and would re-block forever on exactly the
+case the bound exists for. Use its OWN flag prefix (`aif-eot-rgb-`), not `aif-eot-zcb-`: one
+flag shared between two bounds lets each suppress the other's first block (#1644→#1651).
+`_residue_sha256` (`end-of-turn-reminder.sh:60-66`) is guarded (`sha256sum`, else `shasum`, else
+nothing) — hence `_rg_sha` can be empty, and the empty case skips the store as well as compare.
 
 Add the new names to the `unset` line that already cleans up the ZCode arm's temporaries, so a
 later `set -u` read cannot see a stale value.
