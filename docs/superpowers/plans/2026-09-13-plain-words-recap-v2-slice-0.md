@@ -364,42 +364,58 @@ git commit -m "test(measure): flags + stable keys for measure-interaction-shape.
 
 **Files:**
 - Modify: `scripts/measure/measure-permission-denials.py`
-- Create: `scripts/measure/fixtures/projects/-Users-art-code-rules-as-tests-aif/s3.jsonl`
+- Create: `scripts/measure/fixtures/projects/-Users-art-code-perm-denials/s3.jsonl` — its OWN
+  project dir, so it cannot move `transcripts_scanned` for the siblings globbing
+  `-Users-art-code-rules-as-tests-aif*` (#1644→#1651: pin every input a sibling can move)
 - Modify: `scripts/measure/measure.test.sh`
 
 **Interfaces:**
-- Produces: `--root` / `--glob` / `--days` (default `35`, the original's constant) flags and
-  stable keys `root`, `days`,
-  `transcripts_scanned`, `denied_tool_calls`, `classifier_denied`, plus one
-  `prefix_<command>: <count>` line per distinct denied command prefix, sorted by count
-  descending then name. Also the shared run header (Step 4b) on all three scripts:
+- Produces: `--root` / `--glob` / `--days` (default `35`) / `--min-size` (default `150000`) —
+  both defaults are the vendored original's own constants — and stable keys `root`, `days`,
+  `transcripts_scanned`, `denied_tool_calls`, `classifier_denied`, plus RANKED PAIRS
+  `prefix_<n>_count` / `prefix_<n>_key`, ordered by count descending then key ascending. Pairs,
+  not `prefix_<command>`, because the original's key is the TUPLE `(tool name, first three words
+  of the normalised command)` and a single-token key cannot carry it. Ordering may be made
+  deterministic; the counting may not. Also the shared run header (Step 4b) on all three scripts:
   `run_utc`, `root`, `glob`, `window`, `min_size`.
 
 - [ ] **Step 1: Write the fixture**
 
-Create `scripts/measure/fixtures/projects/-Users-art-code-rules-as-tests-aif/s3.jsonl` — three
-denials, two of them classifier-shaped, over two distinct prefixes:
+> **The fixture strings and hand counts first written here were WITHDRAWN 2026-09-13** — invented,
+> not read off the corpus, and an implementer reasonably concluded from them that the original
+> regex was stale and replaced it. Measured over `-Users-art-code-rules-as-tests-aif*/*.jsonl`:
+> `has been denied` 383 hits / 97 files, `auto mode classifier` 192 / 44 — the original's strings
+> are the LIVE dominant shape and produced the spec's «101». The invented ones scored 42 and 16
+> (the latter in one file), and `doesn't want to proceed` is a user rejection, not a denial.
 
-```jsonl
-{"type":"user","message":{"content":[{"type":"tool_result","is_error":true,"content":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed."}]}}
-{"type":"user","message":{"content":[{"type":"tool_result","is_error":true,"content":"Claude requested permissions to use Bash, but you haven't granted it yet. Command: npm publish --access public"}]}}
-{"type":"user","message":{"content":[{"type":"tool_result","is_error":true,"content":"Claude requested permissions to use Bash, but you haven't granted it yet. Command: npm publish --dry-run"}]}}
-{"type":"user","message":{"content":[{"type":"tool_result","is_error":true,"content":"Claude requested permissions to use Bash, but you haven't granted it yet. Command: docker compose up -d"}]}}
+Create `scripts/measure/fixtures/projects/-Users-art-code-perm-denials/s3.jsonl` using the two
+shapes the ORIGINAL `DEN` regex matches, extracted verbatim from live transcripts:
+
+```text
+Permission to use Bash with command head -5; grep -n 'COORDINATOR_MAX' .env has been denied.
+Permission for this action was denied by the Claude Code auto mode classifier. Reason: Blocked by classifier.
 ```
 
-Hand counts: `denied_tool_calls` 4, `classifier_denied` 3 (the three «requested permissions»
-lines; the first is a plain user rejection), `prefix_npm` 2, `prefix_docker` 1.
+Write at least four denials over at least two distinct `(tool, three-word)` keys, each
+`tool_result` paired by `tool_use_id` with its `tool_use` block — otherwise the key falls back to
+the original's `"?"` and asserts nothing. Include one classifier-shaped line (no «with command»
+group, so it exercises the `cmd = mm.group(2) if mm.group(2) else inp` fallback) and one command
+with a `cd … && ` prefix, so `core` normalisation is exercised rather than assumed. Derive every
+count in-task from the original regex and justify it in the report before asserting it.
 
 - [ ] **Step 2: Add the failing assertions**
 
 ```bash
 echo "▶ measure-permission-denials.py"
-OUT=$(python3 "$DIR/measure-permission-denials.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' --days 100000 2>&1)
-expect "denied_tool_calls" 4 "$(row "$OUT" denied_tool_calls)"
-expect "classifier_denied" 3 "$(row "$OUT" classifier_denied)"
-expect "prefix_npm"        2 "$(row "$OUT" prefix_npm)"
-expect "prefix_docker"     1 "$(row "$OUT" prefix_docker)"
+OUT=$(python3 "$DIR/measure-permission-denials.py" --root "$FIX" --glob '-Users-art-code-perm-denials*' --days 100000 --min-size 0 2>&1)
+expect "denied_tool_calls" <derived> "$(row "$OUT" denied_tool_calls)"
+expect "classifier_denied" <derived> "$(row "$OUT" classifier_denied)"
+expect "prefix_1_count"    <derived> "$(row "$OUT" prefix_1_count)"
+expect "prefix_1_key"      "<derived>" "$(rowval "$OUT" prefix_1_key)"
 ```
+
+`--min-size 0` is required for the same reason Task 0.3 needed it: the original skips files under
+150000 bytes and a committed fixture is a few hundred. `<derived>` is filled in-task, never here.
 
 - [ ] **Step 3: Run and watch it fail**
 
@@ -408,10 +424,14 @@ Expected: `PASS=16`, four new `✗`.
 
 - [ ] **Step 4: Harden the script**
 
-Same three edits as Task 0.3 (argparse `main()`, the same three flags, `key: value` output),
-plus: emit the prefix histogram as `prefix_<name>: <count>` lines instead of the original's
-free-form `  npm  ×2` rendering. Leave the detection strings themselves untouched — they are the
-measurement.
+Same three edits as Task 0.3 (argparse `main()`, the same flags, `key: value` output), plus:
+emit the prefix histogram as the ranked `prefix_<n>_count` / `prefix_<n>_key` pairs instead of the
+original's free-form `  npm  ×2` rendering.
+
+Everything else is the measurement, copied byte-identically: the `DEN` regex, the `isSidechain`
+skip, the mtime and size filters, the `tooluse` id→(name, input) map, the `mm.group(2) else inp`
+fallback, both `core` regexes, the `(name, first three words)` key. Do NOT add a filter the
+original lacked either — an `is_error` guard looks harmless and silently narrows the population.
 
 - [ ] **Step 4b: One self-describing run header on ALL THREE scripts**
 
@@ -428,11 +448,10 @@ min_size: 150000
 
 - `run_utc` — `datetime.now(timezone.utc).strftime('%Y-%m-%d')`.
 - `root` — the EXPANDED path (`os.path.expanduser`), never the literal `~/...`.
-- `window` — the absolute dates the `--days` cutoff resolves to, computed from the same
-  `cutoff` value the filter uses, so header and filter cannot disagree.
-- Scripts with no time filter print `window: all (no time filter)`; scripts with no size
-  filter print `min_size: none`. Do NOT add a filter a script never had — that would change
-  the measurement. `measure-recap-len.py` is both of those cases.
+- `window` — the absolute dates `--days` resolves to, computed from the same `cutoff` the filter
+  uses, so header and filter cannot disagree. A script with no time filter prints
+  `window: all (no time filter)` and one with no size filter `min_size: none`; do NOT add a
+  filter a script never had. `measure-recap-len.py` is both of those cases.
 
 This retrofits `measure-recap-len.py` and `measure-interaction-shape.py`, which already print
 `root` / `days` / `min_size` but no absolute window. Keep every existing key; only add.
@@ -525,12 +544,11 @@ python3 scripts/measure/measure-permission-denials.py  > /tmp/m3.txt
 cat /tmp/m1.txt /tmp/m2.txt /tmp/m3.txt
 ```
 
-Run them on DEFAULTS — no `--days` override. The defaults are the originals' own constants
-(35 days, 150000 bytes), so a defaults run is the only one comparable to the spec's rows; a
-narrower window would produce smaller numbers that look like a drop and are not one.
-
-Copy each run's five-key header verbatim into the re-run block (Step 3). A re-run table whose
-header is missing is not falsifiable by a later reader — it cannot be told which corpus it read.
+Run them on DEFAULTS — no `--days` override. The defaults are the originals' own constants (35
+days, 150000 bytes), so a defaults run is the only one comparable to the spec's rows; a narrower
+window yields smaller numbers that look like a drop and are not one. Copy each run's five-key
+header verbatim into the re-run block (Step 3): a re-run table without it cannot be told which
+corpus it read, and so is not falsifiable by a later reader.
 
 - [ ] **Step 2: Diff each number against the spec's table**
 
