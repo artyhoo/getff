@@ -535,3 +535,97 @@ describe('opted-in kickoff with no dispatch entrypoint (L-6) + consumer path hin
     ).toContain('.claude/vendor/runtime-bridge/src/cli/dispatch.ts');
   });
 });
+
+/**
+ * PostToolUseFailure arm (P3-1, 2026-09-11): a FAILED Write/Edit of an auto-marked
+ * kickoff is a lost dispatch — the success path never fires, so the arm injects the
+ * missing DID-NOT-RUN warning. Injection only (the write already failed). Silence
+ * boundaries: is_interrupt (user cancel), non-marked kickoff, failed FRESH write
+ * (file absent — marker unknowable), non-kickoff path, *-meta-launch skip.
+ * Runs the real hook with hook_event_name=PostToolUseFailure payloads; no
+ * dispatch.ts involvement (the arm exits before it), so no copy-isolation needed.
+ */
+function runFailureHook(
+  absPath: string,
+  opts: { tool?: string; interrupt?: boolean; error?: string; zcode?: boolean } = {},
+): { status: number; stdout: string; stderr: string } {
+  const r = spawnSync('bash', [HOOK], {
+    input: JSON.stringify({
+      hook_event_name: 'PostToolUseFailure',
+      tool_name: opts.tool ?? 'Edit',
+      tool_input: { file_path: absPath },
+      error: opts.error ?? 'old_string not found',
+      is_interrupt: opts.interrupt ?? false,
+    }),
+    encoding: 'utf8',
+    timeout: 30_000,
+    env: opts.zcode
+      ? { ...process.env, ZCODE_PROJECT_DIR: '/tmp' }
+      : { ...process.env, ZCODE_PROJECT_DIR: '' },
+  });
+  return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+describe.skipIf(!JQ || !NODE)(
+  'runtime-bridge-dispatch.sh — PostToolUseFailure arm (lost-dispatch warning)',
+  () => {
+    it('P1: failed Edit of an auto-marked kickoff -> DID NOT RUN warning (CC envelope)', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, '# body\n');
+      const r = runFailureHook(abs);
+      expect(r.status).toBe(0);
+      const ctx = (
+        JSON.parse(r.stdout.trim()) as {
+          hookSpecificOutput: { hookEventName: string; additionalContext: string };
+        }
+      ).hookSpecificOutput;
+      expect(ctx.hookEventName).toBe('PostToolUse');
+      expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+      expect(ctx.additionalContext).toContain('old_string not found');
+      expect(r.stderr).toMatch(/DID NOT RUN/);
+    });
+
+    it('P1z: same on ZCode -> plain additionalContext envelope', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, '# body\n');
+      const r = runFailureHook(abs, { zcode: true });
+      expect(r.status).toBe(0);
+      const ctx = JSON.parse(r.stdout.trim()) as { additionalContext: string };
+      expect(ctx.additionalContext).toMatch(/DID NOT RUN/);
+    });
+
+    it('N1: is_interrupt=true (user cancel) -> silent', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, '# body\n');
+      const r = runFailureHook(abs, { interrupt: true });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('N2: kickoff WITHOUT the auto marker -> silent (non-nagging rule)', () => {
+      const abs = writeKickoff('# plain kickoff', 'body\n');
+      const r = runFailureHook(abs);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('N3: failed FRESH write (file absent) -> silent (marker unknowable)', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, 'body\n');
+      rmSync(abs);
+      const r = runFailureHook(abs, { tool: 'Write' });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('N4: non-kickoff path -> silent', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, 'body\n');
+      const r = runFailureHook(abs.replace('kickoff.md', 'notes.md'));
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('N5: *-meta-launch/kickoff.md -> silent (pipeline-ux P4 skip mirrored)', () => {
+      const abs = writeKickoff(BRIDGE_AUTO, 'body\n', { metaLaunch: true });
+      const r = runFailureHook(abs);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+  },
+);

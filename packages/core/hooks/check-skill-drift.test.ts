@@ -4,15 +4,20 @@
  * Script under test: scripts/check-skill-drift.sh
  *
  * Exit code contract:
- *   0 = clean (no broken refs, no missing frontmatter; trigger-overlap is WARN-only to stderr)
- *   1 = broken refs OR missing frontmatter detected
+ *   0 = clean (no broken refs, no missing frontmatter, invocation-channel contract intact;
+ *       trigger-overlap is WARN-only to stderr)
+ *   1 = broken refs OR missing frontmatter OR invocation-channel-contract drift detected
  *
  * Checks covered:
  *   - Broken internal refs: markdown links [text](relative/path.md) whose target does not exist
  *   - Missing frontmatter: SKILL.md / agents/*.md lacking `---` + `name:` + `description:`
  *   - Combined: both errors present in one run
+ *   - Invocation-channel contract: every SKILL.md whose frontmatter carries
+ *     `disable-model-invocation: true` holds the canonical line from
+ *     docs/meta-factory/operational-conventions.md §4 byte-for-byte, and no skill without
+ *     the flag holds it; absent SSOT doc → section SKIPs rather than failing
  *
- * Paired-negative contract (4 cases):
+ * Paired-negative contract (5 cases):
  *
  *   Case 1 — Clean state:
  *     POSITIVE (implicit baseline): empty .claude/skills, agents, skills dirs → exit 0
@@ -35,6 +40,15 @@
  *     linking to nonexistent file → exit 1,
  *     stdout contains BOTH "BROKEN-REF:" AND "MISSING-FRONTMATTER:"
  *
+ *   Case 5 — Invocation-channel contract (six sub-cases):
+ *     SKIP:        no SSOT doc in the sandbox → section skipped, exit 0
+ *     POSITIVE:    flag set, canonical line absent → exit 1, "CONTRACT-MISSING:"
+ *     NEGATIVE:    flag set, canonical line present verbatim → exit 0, no "CONTRACT-" output
+ *     DRIFT:       marker token present but text paraphrased → exit 1, "CONTRACT-DRIFT:"
+ *     STALE:       canonical line present without the flag → exit 1, "CONTRACT-STALE:"
+ *     NON-VACUITY: the REAL repo SSOT carries exactly one canonical line, containing the
+ *       half that keeps getting dropped ("not a workaround")
+ *
  * Isolation strategy:
  *   The script derives REPO_ROOT from its own file location via:
  *     SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -53,6 +67,10 @@
  *   - If the script's "check-skill-drift: FAIL" string changes → Case 2/3/4 tests FAIL.
  *   - If exit code logic is mutated (1 → 0) → Case 2/3/4 POSITIVE tests FAIL.
  *   - If exit code logic is mutated (0 → 1) → Case 2/3 NEGATIVE and Case 1 tests FAIL.
+ *   - If any of "CONTRACT-MISSING:" / "CONTRACT-DRIFT:" / "CONTRACT-STALE:" or the SKIP
+ *     message changes → the corresponding Case 5 sub-case FAILS.
+ *   - If the canonical line in the SSOT doc is edited, Case 5 reads the NEW line from the
+ *     real doc, so the fixtures follow the SSOT instead of pinning a retyped copy.
  *
  * T3 compliance: each assertion cites the script source line/region it targets.
  * T15: this test file's own isolation approach is noted in the docstring above.
@@ -66,6 +84,7 @@ import {
   rmSync,
   cpSync,
   chmodSync,
+  readFileSync,
 } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -75,9 +94,85 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const REAL_SCRIPT = resolve(REPO_ROOT, 'scripts/check-skill-drift.sh');
 
+// ── Case 5 fixtures — invocation-channel contract (script section 4) ──────────
+
+const REAL_SSOT = resolve(
+  REPO_ROOT,
+  'docs/meta-factory/operational-conventions.md',
+);
+const CONTRACT_TOKEN = '<!-- canonical: invocation-channel-flag -->';
+
+/** The canonical line, read from the real SSOT so a doc edit propagates into these tests. */
+function canonicalLine(): string {
+  const hits = readFileSync(REAL_SSOT, 'utf8')
+    .split('\n')
+    .filter((l) => l.includes(CONTRACT_TOKEN));
+  if (hits.length !== 1) {
+    throw new Error(
+      `expected exactly 1 canonical line in ${REAL_SSOT}, found ${hits.length}`,
+    );
+  }
+  return hits[0];
+}
+
+/** Write a minimal SSOT doc into the sandbox carrying the real canonical line. */
+function writeSsot(sandboxRoot: string): void {
+  const dir = join(sandboxRoot, 'docs', 'meta-factory');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'operational-conventions.md'),
+    [
+      '# Operational conventions',
+      '',
+      '## §4 contract',
+      '',
+      canonicalLine(),
+      '',
+    ].join('\n'),
+    'utf8',
+  );
+}
+
+/**
+ * Write a sandbox SKILL.md with/without the flag and with one of three contract states:
+ *   'none'       — no canonical line at all
+ *   'canonical'  — the real canonical line, verbatim
+ *   'paraphrase' — carries the token but a reworded sentence (the drift shape)
+ */
+function writeSkill(
+  sandboxRoot: string,
+  name: string,
+  opts: { flag: boolean; contract: 'none' | 'canonical' | 'paraphrase' },
+): void {
+  const dir = join(sandboxRoot, '.claude', 'skills', name);
+  mkdirSync(dir, { recursive: true });
+
+  const body: string[] = ['', `# ${name}`, ''];
+  if (opts.contract === 'canonical') body.push(canonicalLine());
+  if (opts.contract === 'paraphrase') {
+    body.push(
+      `> **Invoked explicitly only.** This skill fires only on /${name}. ${CONTRACT_TOKEN}`,
+    );
+  }
+
+  writeFileSync(
+    join(dir, 'SKILL.md'),
+    [
+      '---',
+      `name: ${name}`,
+      'description: A sandbox skill fixture',
+      ...(opts.flag ? ['disable-model-invocation: true'] : []),
+      '---',
+      ...body,
+    ].join('\n'),
+    'utf8',
+  );
+}
+
 const sandboxes: string[] = [];
 afterEach(() => {
-  for (const d of sandboxes.splice(0)) rmSync(d, { recursive: true, force: true });
+  for (const d of sandboxes.splice(0))
+    rmSync(d, { recursive: true, force: true });
 });
 
 /**
@@ -119,11 +214,23 @@ function makeSandbox(): { root: string; scriptsDir: string } {
  *
  * Note: stdout contains the main output; stderr contains WARN-only trigger-overlap lines.
  */
-function run(sandboxRoot: string): { status: number; stdout: string; stderr: string } {
-  const r = spawnSync('bash', [join(sandboxRoot, 'scripts', 'check-skill-drift.sh')], {
-    encoding: 'utf8',
-  });
-  return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+function run(sandboxRoot: string): {
+  status: number;
+  stdout: string;
+  stderr: string;
+} {
+  const r = spawnSync(
+    'bash',
+    [join(sandboxRoot, 'scripts', 'check-skill-drift.sh')],
+    {
+      encoding: 'utf8',
+    },
+  );
+  return {
+    status: r.status ?? -1,
+    stdout: r.stdout ?? '',
+    stderr: r.stderr ?? '',
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -232,11 +339,7 @@ describe('check-skill-drift.sh — paired-negative mutation contract', () => {
 
     writeFileSync(
       join(root, 'agents', 'my-agent.md'),
-      [
-        '# My Agent',
-        '',
-        'This agent does things.',
-      ].join('\n'),
+      ['# My Agent', '', 'This agent does things.'].join('\n'),
       'utf8',
     );
 
@@ -309,11 +412,7 @@ describe('check-skill-drift.sh — paired-negative mutation contract', () => {
     // Missing frontmatter: agents/my-agent.md starts with heading, no ---
     writeFileSync(
       join(root, 'agents', 'my-agent.md'),
-      [
-        '# My Agent',
-        '',
-        'No frontmatter here.',
-      ].join('\n'),
+      ['# My Agent', '', 'No frontmatter here.'].join('\n'),
       'utf8',
     );
 
@@ -328,5 +427,94 @@ describe('check-skill-drift.sh — paired-negative mutation contract', () => {
     // Overall failure
     expect(stdout).toContain('check-skill-drift: FAIL');
     expect(stdout).not.toContain('check-skill-drift: PASS');
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Case 5 — Invocation-channel contract (script section 4)
+  //
+  // SSOT: docs/meta-factory/operational-conventions.md §4. The canonical line is read from
+  // the REAL repo doc, not retyped here — a retyped copy would pass while the doc drifted,
+  // which is the exact failure mode section 4 exists to catch.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  it('Case 5 SKIP: no SSOT doc in the sandbox → section skipped, still PASS', () => {
+    // Script section 4: `if [ ! -f "$CONTRACT_SSOT" ]` → echo SKIP, no ERRORS increment.
+    const { root } = makeSandbox();
+    writeSkill(root, 'flagged', { flag: true, contract: 'none' });
+
+    const { status, stdout } = run(root);
+
+    expect(status).toBe(0);
+    expect(stdout).toContain(
+      'SKIP: docs/meta-factory/operational-conventions.md not present',
+    );
+    expect(stdout).toContain('check-skill-drift: PASS (0 errors)');
+  });
+
+  it('Case 5 POSITIVE: flag set, canonical line absent → exit 1 + CONTRACT-MISSING', () => {
+    // Script section 4: has_flag=1 && carries=0 && no token in file → "CONTRACT-MISSING: ..."
+    const { root } = makeSandbox();
+    writeSsot(root);
+    writeSkill(root, 'flagged', { flag: true, contract: 'none' });
+
+    const { status, stdout } = run(root);
+
+    expect(status).toBe(1);
+    expect(stdout).toContain('CONTRACT-MISSING:');
+    expect(stdout).toContain('check-skill-drift: FAIL');
+    expect(stdout).not.toContain('check-skill-drift: PASS');
+  });
+
+  it('Case 5 NEGATIVE: flag set, canonical line present verbatim → exit 0, no contract finding', () => {
+    // Paired-negative for Case 5 POSITIVE. Script section 4: grep -Fxq matches → carries=1.
+    const { root } = makeSandbox();
+    writeSsot(root);
+    writeSkill(root, 'flagged', { flag: true, contract: 'canonical' });
+
+    const { status, stdout } = run(root);
+
+    expect(status).toBe(0);
+    expect(stdout).toContain(
+      'OK: every disable-model-invocation carrier states the invocation-channel contract.',
+    );
+    expect(stdout).not.toContain('CONTRACT-');
+    expect(stdout).toContain('check-skill-drift: PASS (0 errors)');
+  });
+
+  it('Case 5 DRIFT: flag set, line carries the token but paraphrased text → exit 1 + CONTRACT-DRIFT', () => {
+    // This is the half a keyword grep would miss: the token is present, so the file "looks"
+    // compliant, but the sentence no longer says an agent may execute the documented steps.
+    const { root } = makeSandbox();
+    writeSsot(root);
+    writeSkill(root, 'flagged', { flag: true, contract: 'paraphrase' });
+
+    const { status, stdout } = run(root);
+
+    expect(status).toBe(1);
+    expect(stdout).toContain('CONTRACT-DRIFT:');
+    expect(stdout).not.toContain('check-skill-drift: PASS');
+  });
+
+  it('Case 5 STALE: canonical line present but no flag in frontmatter → exit 1 + CONTRACT-STALE', () => {
+    // Reverse direction: a copied line left behind after the flag was removed.
+    const { root } = makeSandbox();
+    writeSsot(root);
+    writeSkill(root, 'unflagged', { flag: false, contract: 'canonical' });
+
+    const { status, stdout } = run(root);
+
+    expect(status).toBe(1);
+    expect(stdout).toContain('CONTRACT-STALE:');
+    expect(stdout).not.toContain('check-skill-drift: PASS');
+  });
+
+  it('Case 5 NON-VACUITY: the real repo SSOT carries exactly one canonical line', () => {
+    // Without this, every Case 5 assertion above could pass against an empty/absent anchor.
+    const real = readFileSync(REAL_SSOT, 'utf8')
+      .split('\n')
+      .filter((l) => l.includes(CONTRACT_TOKEN));
+    expect(real).toHaveLength(1);
+    // The (c) half — the one that keeps getting dropped — must be in the canonical text.
+    expect(real[0]).toContain('not a workaround');
   });
 });

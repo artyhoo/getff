@@ -1,0 +1,11 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Bash","input":{"command":"head -5; grep -n 'COORDINATOR_MAX' .env"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","content":"Permission to use Bash with command head -5; grep -n 'COORDINATOR_MAX' .env has been denied."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_2","name":"Bash","input":{"command":"head -5; grep -n 'OTHER_VAR' other.env"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_2","content":"Permission to use Bash with command head -5; grep -n 'OTHER_VAR' other.env has been denied."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_3","name":"Bash","input":{"command":"docker compose up -d"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_3","content":"Permission to use Bash with command docker compose up -d has been denied."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_4","name":"Bash","input":{"command":"rm -rf /tmp/cache"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_4","content":"Permission for this action was denied by the Claude Code auto mode classifier. Reason: Blocked by classifier."}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_5","name":"Bash","input":{"command":"cd /tmp && npm run build"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_5","content":"Permission to use Bash with command cd /tmp && npm run build has been denied."}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_decoy","content":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed."}]}}

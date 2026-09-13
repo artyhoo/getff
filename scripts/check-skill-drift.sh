@@ -16,8 +16,9 @@
 # NEVER scans ~/.claude/skills/ (non-portable; user-home is session-bound concern).
 #
 # Exit codes:
-#   0 = clean (no broken refs, no missing frontmatter; overlaps are warnings only)
-#   1 = broken refs OR missing frontmatter detected
+#   0 = clean (no broken refs, no missing frontmatter, invocation-channel contract intact;
+#       overlaps are warnings only)
+#   1 = broken refs OR missing frontmatter OR invocation-channel-contract drift detected
 
 set -euo pipefail
 
@@ -30,9 +31,10 @@ ERRORS=0
 BROKEN_REF_TMP="$REPO_ROOT/.skill-drift-broken-tmp-$$"
 FRONTMATTER_TMP="$REPO_ROOT/.skill-drift-frontmatter-tmp-$$"
 OVERLAP_TMP="$REPO_ROOT/.skill-drift-overlap-tmp-$$"
+CONTRACT_TMP="$REPO_ROOT/.skill-drift-contract-tmp-$$"
 
 # Cleanup on exit
-cleanup() { rm -f "$BROKEN_REF_TMP" "$FRONTMATTER_TMP" "$OVERLAP_TMP"; }
+cleanup() { rm -f "$BROKEN_REF_TMP" "$FRONTMATTER_TMP" "$OVERLAP_TMP" "$CONTRACT_TMP"; }
 trap cleanup EXIT
 
 touch "$BROKEN_REF_TMP"
@@ -196,6 +198,83 @@ while IFS= read -r -d '' skill_file; do
     fi
   done
 done < <(find .claude/skills skills -name "SKILL.md" -print0 2>/dev/null)
+
+# ── 4. Invocation-channel contract check ─────────────────────────────────────
+# Every SKILL.md whose frontmatter carries `disable-model-invocation: true` must carry the
+# canonical invocation-channel line VERBATIM, and no skill without the flag may carry it.
+#
+# Why byte-equality and not a keyword grep: the line asserts three separable things — (a) not
+# auto-loaded, (b) the Skill tool will not invoke it, (c) an agent already asked to do the work
+# may still read the file and execute its steps. Half (c) is the one that keeps getting dropped
+# (2026-05-24 D3-MAJOR; 2026-09-08 handoff-memory incident, both recorded in the SSOT section),
+# and a keyword grep passes a paraphrase that silently loses it. Same shape as the digest
+# anti-drift gate in packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts.
+#
+# SSOT: docs/meta-factory/operational-conventions.md §4. Edit there first; this check propagates.
+# Absent SSOT file (consumer clone, sandbox) → section SKIPPED, never a failure.
+
+echo ""
+echo "=== Skill drift check: invocation-channel contract ==="
+
+CONTRACT_SSOT="docs/meta-factory/operational-conventions.md"
+CONTRACT_TOKEN="<!-- canonical: invocation-channel-flag -->"
+
+if [ ! -f "$CONTRACT_SSOT" ]; then
+  echo "SKIP: $CONTRACT_SSOT not present — nothing to compare against."
+else
+  CANON_COUNT=$(grep -cF "$CONTRACT_TOKEN" "$CONTRACT_SSOT" 2>/dev/null || true)
+  [ -z "$CANON_COUNT" ] && CANON_COUNT=0
+  if [ "$CANON_COUNT" -ne 1 ]; then
+    echo "CONTRACT-SSOT-BROKEN: $CONTRACT_SSOT carries $CANON_COUNT canonical line(s), expected exactly 1."
+    ERRORS=$((ERRORS + 1))
+  else
+    CANON_LINE=$(grep -F "$CONTRACT_TOKEN" "$CONTRACT_SSOT" | head -1)
+    touch "$CONTRACT_TMP"
+
+    while IFS= read -r -d '' skill_file; do
+      # Frontmatter-only flag read: stop at the closing --- so a body mention never counts.
+      has_flag=0 fm_line=0 in_fm=0
+      while IFS= read -r line; do
+        fm_line=$((fm_line + 1))
+        if [ "$fm_line" -eq 1 ]; then
+          [ "$line" = "---" ] && in_fm=1 || break
+          continue
+        fi
+        [ "$in_fm" -eq 1 ] && [ "$line" = "---" ] && break
+        case "$line" in
+          "disable-model-invocation:"*true*) has_flag=1 ;;
+        esac
+        [ "$fm_line" -ge 60 ] && break
+      done < "$skill_file"
+
+      if grep -Fxq -- "$CANON_LINE" "$skill_file" 2>/dev/null; then
+        carries=1
+      else
+        carries=0
+      fi
+
+      if [ "$has_flag" -eq 1 ] && [ "$carries" -eq 0 ]; then
+        if grep -qF "$CONTRACT_TOKEN" "$skill_file" 2>/dev/null; then
+          echo "CONTRACT-DRIFT: $skill_file (canonical line differs from $CONTRACT_SSOT §4)"
+        else
+          echo "CONTRACT-MISSING: $skill_file (has disable-model-invocation: true, lacks the canonical line)"
+        fi
+        echo "1" >> "$CONTRACT_TMP"
+      elif [ "$has_flag" -eq 0 ] && [ "$carries" -eq 1 ]; then
+        echo "CONTRACT-STALE: $skill_file (carries the canonical line but no disable-model-invocation: true)"
+        echo "1" >> "$CONTRACT_TMP"
+      fi
+    done < <(find .claude/skills skills -name "SKILL.md" -print0 2>/dev/null)
+
+    CONTRACT_ERRORS=$(wc -l < "$CONTRACT_TMP" | tr -d ' ')
+    if [ "$CONTRACT_ERRORS" -gt 0 ]; then
+      echo "FAIL: $CONTRACT_ERRORS file(s) with a wrong or missing invocation-channel contract."
+      ERRORS=$((ERRORS + 1))
+    else
+      echo "OK: every disable-model-invocation carrier states the invocation-channel contract."
+    fi
+  fi
+fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 echo ""

@@ -106,14 +106,16 @@ done
 
 # (h) repo_root_resolution_form — T21 sibling-sweep (plan-v3 §"Sibling-sweep T21 (final, corrected)")
 # Every twin that READS REPO FILES must resolve the repo via CLAUDE_PROJECT_DIR. Two valid forms:
-#   Form A (env-first, 7 twins): (REPO_ROOT|PROJECT_DIR)="${CLAUDE_PROJECT_DIR:-<fallback>}"
+#   Form A (env-first, 9 twins): (REPO_ROOT|PROJECT_DIR)="${CLAUDE_PROJECT_DIR:-<fallback>}"
 #   Form B (cd-guard,    1 twin): [ -n "${CLAUDE_PROJECT_DIR:-}" ] && { cd "$CLAUDE_PROJECT_DIR" …
-# The 8 in-sweep twins are enumerated by NAME below; the 6 non-sweep twins (no repo-file reads —
+# The 10 in-sweep twins are enumerated by NAME below; the 7 non-sweep twins (no repo-file reads —
 # CAT-B sibling-source via HOOK_DIR, or only an orchestration-mode marker-file prefix) are skipped
 # by name so a future contributor adding a new repo-reading twin WITHOUT the guard is caught.
-# Verified invariant across plugin/hooks/ at plan-v3 finalisation (8 in-sweep + 6 skip = 14 total).
+# Verified invariant across plugin/hooks/ re-run at the check-doc-authority-header twin landing
+# (zcode-plugin-firstclass Stage 2, 2026-09-12: 9 Form A + 1 Form B + 7 skip = 17 total).
 in_sweep_twins=(
   check-doc-authority
+  check-doc-authority-header
   check-hook-marker
   check-kickoff-traps
   check-worker-dispatch-channel
