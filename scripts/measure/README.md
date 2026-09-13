@@ -50,9 +50,9 @@ Run headers (verbatim):
 | Spec row | Spec value | Re-run | Note |
 |---|---|---|---|
 | Transcripts scanned / sessions containing a block | 361 / 240 | 380 / 254 | +5.3% / +5.8% — in line with ordinary corpus growth over the day; not material. |
-| Operator re-explain asks | 100 | 131 | +31%, from `measure-interaction-shape.py`'s `reexplain_asks` (mapping inferred). Same run, same 268-transcript population as the row below, where the evidence-backed `agent_wait_phrases` counter moved only +4.1% — this row moved ~7.5x more than corpus growth explains. Finding, not adjusted: see below. |
+| Operator re-explain asks | 100 | 131 | +31% (`reexplain_asks`, mapping inferred). Attributed by transcript day: 35 of the 131 hits come from files dated 2026-09-13, i.e. this project's own design/review/execution sessions; excluding them the counter reads 96 against a spec value of 100 measured earlier the same day. Self-contamination, not mapping drift — see below. |
 | Turns ending in «жду го»-class waits | 636 | 662 | +4.1% (`agent_wait_phrases`, evidence-backed by the `ASKC` regex) — this is the baseline for what corpus growth alone should produce over the same 268-transcript run. |
-| … vs real harness blocks | 101 | 115 | +13.9%, from `measure-permission-denials.py`'s `denied_tool_calls` (mapping inferred). Different script/population than the row above so not a same-run comparison, but still well above the +4.1% evidence-backed baseline. Finding, not adjusted: see below. |
+| … vs real harness blocks | 101 | 115 | +13.9% (`denied_tool_calls`, mapping inferred). Same attribution: 23 of the 115 are from 2026-09-13 files; excluding them it reads 92 against a spec value of 101 measured earlier the same day. Same-day growth, not mapping drift — see below. |
 | `## 🟢 Простыми словами` blocks emitted | 1607 | 1718 | +6.9% (`blocks`) — tracks `sessions_with_block`'s +5.8% growth; not material. |
 | Block non-empty lines p50 / p90 / max | 7 / 10 / 41 | 7 / 10 / 41 | Unchanged — block-length distribution shape is stable. |
 | Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | 36 (2.1 %) / 5 | Absolute counts (`blocks_over_15`, `blocks_over_25`) unchanged even though total `blocks` grew by 111; the percentage drifted only because its denominator grew. Not a mapping concern. |
@@ -60,17 +60,21 @@ Run headers (verbatim):
 | Blocks containing a question | 6 % | 6 % | Unchanged (`blocks_with_question: 111` of 1718, same ratio). |
 | `## 🎬` story emissions | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
 
-**Finding — the two `mapping inferred` rows move far more than corpus growth explains.** Within
-the identical `measure-interaction-shape.py` run (268 transcripts, same window), the
-evidence-backed `agent_wait_phrases` counter grew +4.1% while the inferred `reexplain_asks`
-(`CLAR` bucket) grew +31% — a ~7.5x gap on the exact same population. `denied_tool_calls`
-(`measure-permission-denials.py`, also inferred) grew +13.9%, likewise above the +4.1% baseline,
-though that script has no evidence-backed counter-row in the same run to compare against
-directly. This is consistent with README §2's own warning: a defaults re-run landing far from
-the spec value after accounting for corpus growth means the mapping is questionable, not that the
-number should be quietly adjusted. Numbers are left as measured; the mapping's soundness is a
-question for whoever owns the CLAR/harness-block classification regexes, not something this task
-resolves.
+**Finding — the two `mapping inferred` rows survive their first falsification.** Both moved
+more than the evidence-backed `agent_wait_phrases` row (+4.1%), which at first reading looks like
+the mapping being loose. It is not: re-running each counter with its hits attributed by transcript
+day shows the excess is entirely in files dated 2026-09-13. `reexplain_asks` reads 96 excluding
+them (spec: 100); `denied_tool_calls` reads 92 excluding them (spec: 101). Those same-day files
+are this project's own design, review and execution sessions — and the `CLAR` bucket's vocabulary
+(`объясни`, `понятн`, `простым`, `попроще`, …) is precisely what a session ABOUT plain-words
+recaps says out loud, so measuring it while writing it inflates it. The spec's numbers were taken
+earlier on 2026-09-13, before those transcripts had grown.
+
+That makes this re-run a passed falsifier for both inferred mappings, not a failed one, and it
+records a real hazard for anyone re-running later: **this corpus contains the sessions that built
+the feature it measures.** A future re-run that wants the mapping-drift signal rather than the
+project's own noise should exclude, or separately report, the transcripts of the recap-v2 work
+itself. Numbers above are left exactly as the scripts printed them; nothing was adjusted.
 
 Two honesty notes on this table:
 
