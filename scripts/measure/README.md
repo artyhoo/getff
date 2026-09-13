@@ -33,6 +33,45 @@ One row per spec-table claim, naming the script and the exact output key(s) it p
 | Blocks containing a question | 6 % | `measure-recap-len.py` | `blocks_with_question_pct` (count in `blocks_with_question`) |
 | `## 🎬` story emissions | 166 | NONE — a one-off `grep -l` | no script, no key |
 
+### Re-run 2026-09-13 (slice 0)
+
+The spec's table is the design-time evidence and stays as ratified — the decisions were made
+from those numbers. This is a re-derivation from the vendored scripts on the same machine, for
+falsification, not a replacement baseline. All three scripts were run on bare defaults (no
+`--days` / `--min-size` override), per `scripts/measure/measure.test.sh`'s own invocation shape
+and per README §3 above. Full run headers and raw output are in the task-0.6 report.
+
+Run headers (verbatim):
+
+- `measure-recap-len.py`: `root: /Users/art/.claude/projects`, `glob: -Users-art-code-rules-as-tests-aif*`, `window: all (no time filter)`, `min_size: none`, `marker: ## 🟢 Простыми словами`.
+- `measure-interaction-shape.py`: same root/glob, `window: from 2026-08-09 to 2026-09-13`, `min_size: 150000`, `days: 35`, `transcripts_scanned: 268`.
+- `measure-permission-denials.py`: same root/glob/window/min_size/days, `transcripts_scanned: 268`.
+
+| Spec row | Spec value | Re-run | Note |
+|---|---|---|---|
+| Transcripts scanned / sessions containing a block | 361 / 240 | 380 / 254 | +5.3% / +5.8% — in line with ordinary corpus growth over the day; not material. |
+| Operator re-explain asks | 100 | 131 | +31%, from `measure-interaction-shape.py`'s `reexplain_asks` (mapping inferred). Same run, same 268-transcript population as the row below, where the evidence-backed `agent_wait_phrases` counter moved only +4.1% — this row moved ~7.5x more than corpus growth explains. Finding, not adjusted: see below. |
+| Turns ending in «жду го»-class waits | 636 | 662 | +4.1% (`agent_wait_phrases`, evidence-backed by the `ASKC` regex) — this is the baseline for what corpus growth alone should produce over the same 268-transcript run. |
+| … vs real harness blocks | 101 | 115 | +13.9%, from `measure-permission-denials.py`'s `denied_tool_calls` (mapping inferred). Different script/population than the row above so not a same-run comparison, but still well above the +4.1% evidence-backed baseline. Finding, not adjusted: see below. |
+| `## 🟢 Простыми словами` blocks emitted | 1607 | 1718 | +6.9% (`blocks`) — tracks `sessions_with_block`'s +5.8% growth; not material. |
+| Block non-empty lines p50 / p90 / max | 7 / 10 / 41 | 7 / 10 / 41 | Unchanged — block-length distribution shape is stable. |
+| Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | 36 (2.1 %) / 5 | Absolute counts (`blocks_over_15`, `blocks_over_25`) unchanged even though total `blocks` grew by 111; the percentage drifted only because its denominator grew. Not a mapping concern. |
+| Whole-message lines p50 / p90 / max | 11 / 25 / 80 | 11 / 25 / 80 | Unchanged. |
+| Blocks containing a question | 6 % | 6 % | Unchanged (`blocks_with_question: 111` of 1718, same ratio). |
+| `## 🎬` story emissions | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
+
+**Finding — the two `mapping inferred` rows move far more than corpus growth explains.** Within
+the identical `measure-interaction-shape.py` run (268 transcripts, same window), the
+evidence-backed `agent_wait_phrases` counter grew +4.1% while the inferred `reexplain_asks`
+(`CLAR` bucket) grew +31% — a ~7.5x gap on the exact same population. `denied_tool_calls`
+(`measure-permission-denials.py`, also inferred) grew +13.9%, likewise above the +4.1% baseline,
+though that script has no evidence-backed counter-row in the same run to compare against
+directly. This is consistent with README §2's own warning: a defaults re-run landing far from
+the spec value after accounting for corpus growth means the mapping is questionable, not that the
+number should be quietly adjusted. Numbers are left as measured; the mapping's soundness is a
+question for whoever owns the CLAR/harness-block classification regexes, not something this task
+resolves.
+
 Two honesty notes on this table:
 
 1. **The `## 🎬` row has no script.** The 166 figure came from an ad-hoc `grep -l` over
