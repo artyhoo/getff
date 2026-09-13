@@ -359,3 +359,10 @@ and the pre-fix Stop hook read only it). Its scope is Claude Code sessions on th
 repos; it is NOT a shell export, so the aif container and the PC sessions D12 worried about are
 untouched. Reversal is one `jq` edit of one file. Verification after applying is unchanged from
 §What ships now: the next compaction near 300k, the soft line still quoting ~1000000.
+
+**Verified 2026-09-13 11:02Z.** The operator applied the pair at ~10:45Z; the first auto-compaction
+after it fired at 266437 tokens (88.8% of 300000) in worktree session `fb4c4cc0`, which had been
+running under the 600000 point since before the edit — the user-level key is read by a running
+session, no restart. The gate line stood in for the D7 soft line on those turns (only one of the
+two is ever set), reporting floor 201000 derived from the 300000 point; the post-compaction
+SessionStart injected the session's handoff. Arms and numbers: gate spec §Changelog round 3 close.
