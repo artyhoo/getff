@@ -17,7 +17,7 @@ when_to_use: оркестратор, организатор, ты старшая
 > **Authoritative for:** the operator-side orchestration workflow — the Mode A/B dispatch
 > **choice rule** (when B over A, and on which model), the task-size decision matrix, quota
 > zones, the Phase -1 → Phase 4.5 phase sequence, and the Queue-mode entry conditions.
-> [pipeline/SKILL.md:382](../pipeline/SKILL.md) names this **skill** as the SSOT for the
+> [pipeline/SKILL.md:383](../pipeline/SKILL.md) names this **skill** as the SSOT for the
 > Mode A/B vocabulary; within the skill, the channel _definitions_ live in
 > [references/glossary.md](references/glossary.md) and the _choice_ lives here.
 > **NOT authoritative for:** the in-session executor loop (dispatch → task review → fix rounds →

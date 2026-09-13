@@ -94,7 +94,7 @@ Anything *else* in the `--diff-filter=U` list is a **semantic conflict**: two PR
 
 ## §9 The PR carries a fidelity verdict — the merge commit must not become the PR head
 
-**The conflict between two shipped disciplines.** [`pr-body-fidelity.ts:165`](../../packages/core/hooks/checks/pr-body-fidelity.ts) requires the PR body's `Audited-SHA:` to be a **prefix of the PR head SHA**. §2 step 10 pushes the merge-forward commit, which sits ON TOP of the audited commit. So on any PR carrying a `FIDELITY: GO` block, following §2 literally invalidates the verdict the moment the push lands.
+**The conflict between two shipped disciplines.** [`pr-body-fidelity.ts:228`](../../packages/core/hooks/checks/pr-body-fidelity.ts) requires the PR body's `Audited-SHA:` to be a **prefix of the PR head SHA**. §2 step 10 pushes the merge-forward commit, which sits ON TOP of the audited commit. So on any PR carrying a `FIDELITY: GO` block, following §2 literally invalidates the verdict the moment the push lands.
 
 Until 2026-08-10 the gate's failure message named only the expensive branch — «*re-run the fidelity audit on the current head*» — which read literally buys a full cold seat (~85–185k tokens, [cold-seat-economy.md §3](cold-seat-economy.md) table) for a merge that moved nothing the seat judges: `#reaudit-on-sha-move` ([cold-seat-economy.md §4](cold-seat-economy.md)) with the gate itself as the tempter. The message now names the cheap branch first and points here; this section is what it points at.
 

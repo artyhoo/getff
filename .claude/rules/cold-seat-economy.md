@@ -24,7 +24,7 @@
 
 A cold seat's verdict is re-earned by a change in **what that seat judges**, never by the head
 commit moving. A SHA mismatch alone is a bookkeeping problem (the `pr-body-fidelity` gate
-requires `Audited-SHA` to prefix the PR head — [pr-body-fidelity.ts:165](../../packages/core/hooks/checks/pr-body-fidelity.ts)),
+requires `Audited-SHA` to prefix the PR head — [pr-body-fidelity.ts:228](../../packages/core/hooks/checks/pr-body-fidelity.ts)),
 not an audit problem. When a post-audit commit lands, ask per seat what changed **for that
 seat**:
 
