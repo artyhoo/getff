@@ -65,9 +65,12 @@ python3 scripts/measure/measure-permission-denials.py \
   --root ~/.claude/projects --glob '-Users-art-code-rules-as-tests-aif*' --days 35
 ```
 
-All three take `--root`, `--glob` and `--min-size`; the two with a time filter also take `--days`
-(default 35). `measure-recap-len.py` takes `--marker` instead of `--days` (default
-`## 🟢 Простыми словами`). Each script carries an `_argv_with_equals()` helper because a glob
+All three take `--root` and `--glob`. `measure-interaction-shape.py` and
+`measure-permission-denials.py` additionally take `--days` (default 35) and `--min-size` (default
+150000) — the two filters they actually apply. `measure-recap-len.py` takes neither, because it
+has neither filter; its third option is `--marker` (default
+`## 🟢 Простыми словами`). Passing `--days` or `--min-size` to it is an argparse error, not a
+no-op. Each script carries an `_argv_with_equals()` helper because a glob
 value beginning with `-` (like the default above) is rejected by bare argparse — that helper is
 why `--glob '-Users-art-...'` works as a normal `--opt value` pair instead of needing `--opt=value`
 on the command line.
@@ -76,7 +79,7 @@ Every run prints a five-key self-describing header before its measurement keys, 
 is only auditable if it states its own root, glob, window and min-size — a number pasted without
 its header is not evidence of anything:
 
-- `measure-recap-len.py` prints `run_utc, root, glob, marker, window, min_size`, where `window` is
+- `measure-recap-len.py` prints `run_utc, root, glob, window, min_size, marker`, where `window` is
   always the literal `all (no time filter)` and `min_size` is always the literal `none` — this
   script has neither filter.
 - `measure-interaction-shape.py` and `measure-permission-denials.py` print
