@@ -52,16 +52,33 @@ if ! . "$_HOOK_LIB" 2>/dev/null; then
 fi
 _adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
 
-# Framework-self PostToolUse matcher registered for a hook (empty = not registered, i.e. a
-# shipped-only hook wired solely via setup.d/install.sh — tolerated: no framework-side matcher
-# to read). Anchors on the closing `"` after `<name>.sh` so `check-doc-authority` does not
-# spuriously match `check-doc-authority-header`'s command string.
+# PostToolUse matcher registered for a hook, looked up across BOTH registration channels:
+#   1. framework-self — .claude/settings.json (rendered from harness-model.json);
+#   2. plugin channel — plugin/hooks/hooks.json (same model, rendered for plugin consumers;
+#      the registration surface for hooks the framework self does not wire into its own
+#      settings.json, e.g. check-doc-authority-header since #1727).
+# Empty result = registered in neither channel (an install-sh-only consumer hook — tolerated:
+# no matcher to read). Boundary discipline per channel: settings.json embeds the hook path
+# inside quotes (`…/hooks/<name>.sh"`), so the anchor is the closing quote; hooks.json ends
+# its command with the EXTENSIONLESS twin name (`run-hook.cmd" <name>` — plugin twins carry
+# no .sh), so the suffix is stripped from the lookup key and the anchor is quote, whitespace,
+# or end-of-string. Both keep `check-doc-authority` from spuriously matching
+# `check-doc-authority-header`'s command string.
 _reg_matcher() {
-  local hook="$1" settings="$REPO_ROOT/.claude/settings.json"
-  [ -f "$settings" ] || { printf ''; return; }
-  jq -r --arg hook "$hook" '
-    (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook + "\"")))) | .[0].matcher // ""
-  ' "$settings" 2>/dev/null || true
+  local hook="$1" settings="$REPO_ROOT/.claude/settings.json" pluginreg="$REPO_ROOT/plugin/hooks/hooks.json" m=""
+  if [ -f "$settings" ]; then
+    m="$(jq -r --arg hook "$hook" '
+      (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook + "\"")))) | .[0].matcher // ""
+    ' "$settings" 2>/dev/null || true)"
+    if [ -n "$m" ]; then printf '%s' "$m"; return; fi
+  fi
+  # ${hook%.sh}: $hook arrives as <name>.sh from the path gate, but hooks.json registers
+  # twins extensionless — with the suffix kept the lookup never matched the real file and
+  # GAP-2 stayed open behind a green test (cold-review P1, 2026-09-13).
+  [ -f "$pluginreg" ] || { printf ''; return; }
+  jq -r --arg hook "${hook%.sh}" '
+    (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook + "([\"[:space:]]|$)")))) | .[0].matcher // ""
+  ' "$pluginreg" 2>/dev/null || true
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
@@ -128,12 +145,15 @@ grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH" \
 # consistency is CC-specific — MultiEdit is inert on other harnesses — so it lives with the
 # CC-config drift tests, NOT the harness-agnostic channel-coverage probe).
 #
-# Scope: checks the FRAMEWORK-self registration in .claude/settings.json (rendered from
-# harness-model.json). A shipped-only hook (e.g. check-doc-authority-header — registered
-# solely via setup.d/install.sh for consumers, absent from the framework's own settings.json)
-# is SKIPPED here: its matcher is enforced by the install-sh firing tests (gh-934-ship-*) and
-# the CC-config backstop, not by this edit-time gate (which has no framework-side matcher to
-# read for it).
+# Scope: checks BOTH registration channels via _reg_matcher — the FRAMEWORK-self registration
+# in .claude/settings.json first, then the PLUGIN-channel registration in plugin/hooks/hooks.json
+# (both rendered from harness-model.json). GAP-2 (recorded in #1727 §1.7 Backward-check, closed
+# here): a hook registered ONLY in the plugin channel (check-doc-authority-header since #1727 —
+# plugin twin + consumer installs, absent from the framework's own settings.json) previously had
+# its @file-content-gate matcher enforced by NO edit-time gate, this lookup being
+# settings.json-only. The install-sh firing tests (gh-934-ship-*) and the CC-config backstop
+# remain the later channels; this gate is now the earliest. A hook registered in NEITHER
+# channel (install-sh-only consumer hook) is still SKIPPED (no matcher to read).
 if grep -qE '^# @file-content-gate:' "$ABS_PATH"; then
   REG_MATCHER="$(_reg_matcher "$(basename "$REL_PATH")")"
   if [ -n "$REG_MATCHER" ]; then

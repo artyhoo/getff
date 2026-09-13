@@ -27,6 +27,16 @@ export interface AifTaskFull {
    * the guards against the base clone instead is the defect this field closes.
    */
   worktreePath?: string | null;
+  /**
+   * Which dispatcher the state machine will use for this task: `"ai"` selects
+   * `resolveLegacyAction`, `"human"` selects `resolveHumanOwnerAction`. The two serve
+   * DIFFERENT event sets — `complete_review` / `request_review_changes` exist only in the
+   * human-owner one — so an ai-owned task in `review` has no legal event at all
+   * (measured live 2026-09-09: `HTTP 409 {"error":"Unknown task event"}`).
+   */
+  executionOwner?: 'ai' | 'human';
+  /** Optimistic-concurrency counter for ownership; `POST /tasks/:id/handoff` must echo it back. */
+  ownershipRevision?: number;
 }
 
 /**
@@ -148,6 +158,29 @@ export async function postJson(
 /** GET /tasks/:id → the task object. */
 export async function getTask(baseUrl: string, taskId: string): Promise<AifTaskFull> {
   return (await request('GET', baseUrl, `/tasks/${taskId}`)) as AifTaskFull;
+}
+
+/**
+ * GET /auth/session → whether this deployment runs in participants mode. It decides which
+ * state-machine dispatcher every task event resolves through (aif
+ * `packages/shared/dist/stateMachine.js:176`), and therefore whether the review-state
+ * events (`complete_review` / `request_review_changes`) exist at all.
+ *
+ * Throws rather than guessing when the field is absent: treating a missing field as `false`
+ * would answer "participants mode is off" for a build that simply shapes its session
+ * response differently, and that answer is used to refuse work.
+ */
+export async function getParticipantsModeEnabled(baseUrl: string): Promise<boolean> {
+  const res = (await request('GET', baseUrl, '/auth/session')) as { participantsModeEnabled?: unknown };
+  if (typeof res?.participantsModeEnabled !== 'boolean') {
+    throw new BackendError(
+      `aif-handoff GET /auth/session returned no boolean participantsModeEnabled — cannot tell ` +
+        `which state-machine dispatcher this deployment uses`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
+  return res.participantsModeEnabled;
 }
 
 /** PUT /tasks/:id with a partial field update (updateTaskSchema-accepted fields only). */

@@ -44,4 +44,25 @@ CMDBLOCK
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPT_NAME="$1"
 shift
+
+# ── AIF_HOOK_LANG file fallback (harness-agnostic pin) ────────────────────────
+# CC injects AIF_HOOK_LANG into hook processes from the consumer's settings.json
+# `env` block; ZCode injects only template variables for plugin hooks (no env
+# mechanism — zcode-guide, hooks/env), and a GUI-launched app never sources the
+# shell profile — so on ZCode the pin never reached the hooks and every
+# human-facing message silently fell back to English (incident 2026-09-13:
+# Russian explanations broken in ZCode while CC was Russian). Fallback: one
+# line (e.g. `ru`, LF-terminated) in ${XDG_CONFIG_HOME:-$HOME/.config}/getff/hook-lang.
+# The env var always wins when present; malformed content is ignored.
+if [ -z "${AIF_HOOK_LANG:-}" ]; then
+  _lang_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/getff/hook-lang"
+  if [ -f "$_lang_cfg" ]; then
+    _lang_val="$(head -n 1 "$_lang_cfg" 2>/dev/null | tr -d '[:space:]' || true)"
+    if printf '%s' "$_lang_val" | grep -qE '^[a-z]{2}(-[A-Za-z0-9]{2,8})?$'; then
+      AIF_HOOK_LANG="$_lang_val"
+      export AIF_HOOK_LANG
+    fi
+  fi
+fi
+
 exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"

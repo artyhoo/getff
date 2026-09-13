@@ -68,16 +68,26 @@
 #   `test:template-render` suite, hermetic into tmpdirs, ~5s).
 #
 # UNREACHABLE — a green sweep says NOTHING about these; verify on CI:
-#   mechanical            whole-tree `find` scanners; locally they also read gitignored files
-#                         CI's clean checkout never has → false red (see the NOTE below).
+#   mechanical            whole-tree `find` scanners (packages/core/audit-self/md-line-gate.sh
+#                         and its peers); locally they also read gitignored files CI's clean
+#                         checkout never has → false red (see the NOTE below).
 #   zizmor                needs `pip install zizmor==1.26.1` (network + python env).
 #   framework-self-install-ts-server / -react-next, framework-fresh-install-validate (×4 stacks),
-#   framework-fresh-install-validate-multistack, consumer-matrix-start-cell,
-#   consumer-matrix-python-unfamiliar-stack-cell, consumer-matrix-npm-tarball-cell
-#                         each runs a real `install.sh … --full` into a tmp consumer and
-#                         installs its dependency tree — network, minutes, non-hermetic.
+#   framework-fresh-install-validate-multistack, consumer-matrix-start-cell
+#   (tests/consumer-matrix/pnpm-monorepo-cell.sh), consumer-matrix-python-unfamiliar-stack-cell,
+#   consumer-matrix-npm-tarball-cell, consumer-matrix-getff-dist-cell
+#                         each runs a real `install.sh … --full` (or an `npm pack` + `npm i` of
+#                         the getff tarball) into a tmp consumer and installs its dependency
+#                         tree — network, minutes, non-hermetic.
 #                         (consumer-matrix-npm-tarball-cell shipped after this list was written
-#                         and went unlisted — exactly the drift the coverage metatest now gates.)
+#                         and went unlisted; consumer-matrix-getff-dist-cell then repeated the
+#                         drift — the coverage metatest gates its OWN allowlist array, not this
+#                         prose, so this list stayed a second ungated copy. The `unreachable-list-
+#                         parity` arm in run-local-ci-sweep-coverage.test.sh now gates it.)
+#                         PARTIALLY RECOVERED: the getff-dist cell's step (1),
+#                         `build-getff-dist.sh --check`, is hermetic and ~12s — it is the
+#                         `getff-dist-manifest` row below, so manifest drift is now a LOCAL red.
+#                         The cell's remaining steps stay CI-only.
 #   pr-commit-trailers    needs the PR base ref + the real PR commit range; the local channel
 #                         for it is the pre-push hook, not this sweep.
 #   fidelity-verdict-in-pr-body, stale-revert-in-pr-diff
@@ -166,6 +176,7 @@ gate_table() {
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
+    "3${TAB}getff-dist-manifest${TAB}install.sh,setup,setup.d/,agents/,skills/,templates/,.claude/,.prettierrc.json,packages/,scripts/${TAB}bash scripts/build-getff-dist.sh --check" \
     "3${TAB}shellcheck${TAB}setup.d/,install.sh${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \

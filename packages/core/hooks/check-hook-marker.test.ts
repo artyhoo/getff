@@ -299,13 +299,14 @@ describe.skipIf(!JQ)(
     });
 
     it('shipped-only @file-content-gate hook (absent from settings.json) → exit 0 (tolerated)', () => {
-      // A hook shipped solely via setup.d/install.sh (not in framework-self settings.json)
-      // e.g. check-doc-authority-header: the gate has no framework-side matcher to check → skip.
+      // A hook shipped solely via setup.d/install.sh (not in framework-self settings.json,
+      // and not in the plugin channel either): the gate has no matcher to check → skip.
       const abs = writeHook(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
       );
       // No writeSandboxSettings — settings.json absent or has no entry for this hook.
-      // (Sandbox settings.json from a prior test may exist; ensure this hook is NOT in it.)
+      // (Sandbox settings.json from a prior test may exist; ensure this hook is NOT in it;
+      // the GAP-2 fallback would otherwise pick a stale sandbox plugin/hooks/hooks.json.)
       const settingsPath = join(SANDBOX, '.claude', 'settings.json');
       if (existsSync(settingsPath)) {
         writeFileSync(
@@ -314,7 +315,135 @@ describe.skipIf(!JQ)(
           'utf8',
         );
       }
+      rmSync(join(SANDBOX, 'plugin'), { recursive: true, force: true });
       expect(runHook('Edit', abs).status).toBe(0);
+    });
+
+    // ── GAP-2: plugin-channel matcher lookup (#1727 §1.7 Backward-check) ─────────
+    // A hook registered ONLY in plugin/hooks/hooks.json (e.g. check-doc-authority-header
+    // since #1727) must have its @file-content-gate matcher enforced at edit time too —
+    // previously the lookup read settings.json only, so a narrow plugin matcher (silent
+    // MultiEdit bypass for plugin consumers) was enforced by NO gate. The plugin-channel
+    // command shape differs from settings.json: `run-hook.cmd" <name>` ends with the BARE
+    // hook name (no closing quote), and check-doc-authority is a PREFIX of
+    // check-doc-authority-header — the arms below pin both the end-of-string anchor and
+    // the prefix-boundary discipline.
+
+    // REAL fixture shape: hooks.json registers the hook by its EXTENSIONLESS twin
+    // name (`run-hook.cmd" <name>`, no .sh) — the first version of these arms
+    // interpolated the .sh-bearing disk name, a shape the real renderer never
+    // emits, which let a no-op lookup pass as green (cold-review P1+P2, 2026-09-13).
+    function writeSandboxPluginHooks(matcher: string, hookName: string): void {
+      const twinName = hookName.replace(/\.sh$/, '');
+      const pluginDir = join(SANDBOX, 'plugin', 'hooks');
+      mkdirSync(pluginDir, { recursive: true });
+      writeFileSync(
+        join(pluginDir, 'hooks.json'),
+        JSON.stringify({
+          hooks: {
+            PostToolUse: [
+              {
+                matcher,
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${twinName}`,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+          'utf8',
+      );
+    }
+
+    it('GAP-2 NEGATIVE: plugin-channel-only registration Edit|Write (no MultiEdit) → exit 2', () => {
+      const name = `zzz-gap2-neg-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      // Absent from settings.json (empty PostToolUse), registered ONLY via the plugin channel.
+      writeFileSync(
+        join(SANDBOX, '.claude', 'settings.json'),
+        JSON.stringify({ hooks: { PostToolUse: [] } }),
+        'utf8',
+      );
+      writeSandboxPluginHooks('Edit|Write', name);
+      expect(runHook('Edit', renamed).status).toBe(2);
+    });
+
+    it('GAP-2 POSITIVE: plugin-channel-only registration Edit|Write|MultiEdit → exit 0', () => {
+      const name = `zzz-gap2-pos-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeFileSync(
+        join(SANDBOX, '.claude', 'settings.json'),
+        JSON.stringify({ hooks: { PostToolUse: [] } }),
+        'utf8',
+      );
+      writeSandboxPluginHooks('Edit|Write|MultiEdit', name);
+      expect(runHook('Edit', renamed).status).toBe(0);
+    });
+
+    it('GAP-2 PREFIX-BOUNDARY: plugin entry for <name>-header must not satisfy <name>.sh lookup', () => {
+      // The lookup must not let `check-doc-authority-header`'s registration stand in for
+      // `check-doc-authority` (prefix collision). ONE merged hooks.json carries BOTH the
+      // -header sibling (FULL matcher) and the hook's own NARROW entry — the assertion goes
+      // red via the hook's own narrow entry while the sibling's full matcher must NOT
+      // satisfy the lookup. (A previous version staged the sibling in a separate write that
+      // the next helper call overwrote — the boundary property was never actually staged;
+      // cold-review P2, 2026-09-13.)
+      const name = `zzz-gap2-pre-${Date.now()}.sh`;
+      const abs = writeHook(
+        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      );
+      const renamed = join(SANDBOX_HOOKS, name);
+      renameSync(abs, renamed);
+      writeFileSync(
+        join(SANDBOX, '.claude', 'settings.json'),
+        JSON.stringify({ hooks: { PostToolUse: [] } }),
+        'utf8',
+      );
+      const twin = name.replace(/\.sh$/, '');
+      const pluginDir = join(SANDBOX, 'plugin', 'hooks');
+      mkdirSync(pluginDir, { recursive: true });
+      writeFileSync(
+        join(pluginDir, 'hooks.json'),
+        JSON.stringify({
+          hooks: {
+            PostToolUse: [
+              {
+                matcher: 'Edit|Write|MultiEdit',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${twin}-header`,
+                  },
+                ],
+              },
+              {
+                matcher: 'Edit|Write',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: `"\${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" ${twin}`,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        'utf8',
+      );
+      // Exit 2 must come from the hook's OWN narrow entry; if the prefix boundary broke,
+      // the sibling's full matcher would satisfy the lookup and this would (wrongly) pass 0.
+      expect(runHook('Edit', renamed).status).toBe(2);
     });
 
     // ── @matcher-parity invariant (case-TOOL hooks, matcher-widening GH #934 follow-up) ──

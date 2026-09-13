@@ -11,7 +11,7 @@
  *
  * dispatch() — 2-step planner-RUN over REST (live-verified 2026-06-03):
  *   1. POST /tasks  { projectId, title, description:<kickoff content>, plannerMode:'fast',
- *                     paused:true, autoMode:true }                       -> 201 + task id
+ *                     paused:true, autoMode:true, maxReviewIterations }   -> 201 + task id
  *   2. PUT  /tasks/:id { paused: false }                                 -> coordinator picks up
  *   The task stays at `backlog`; the auto-queue advances it `backlog -> planning -> runPlanner`,
  *   and `runPlanner` (planner.ts:191-213) is the ONLY code that creates a per-task git worktree.
@@ -50,7 +50,12 @@ import type { ClaimCapableBackend } from './backend.js';
 import { BackendError } from './backend.js';
 import { ensureParallelEnabled } from './cli/ensure-parallel.js';
 import { aifRequest, type AifHttpMethod } from './cli/aifHttp.js';
-import type { KickoffSpec, TaskHandle, TaskStatus, TaskResult } from './types.js';
+import type {
+  KickoffSpec,
+  TaskHandle,
+  TaskStatus,
+  TaskResult,
+} from './types.js';
 import {
   awaitTaskDone,
   getTaskStatus,
@@ -74,6 +79,18 @@ const TERMINAL_RAW_STATUSES = new Set(['done', 'verified', 'blocked_external']);
 const REST_TIMEOUT_MS = 10_000;
 
 /**
+ * Review-iteration budget sent on every task create. The aif create schema defaults
+ * `maxReviewIterations` from the CONTAINER env (`AGENT_MAX_REVIEW_ITERATIONS`, which
+ * resolves to 1 on this deployment), and a budget of 1 parks a task at
+ * `max_iterations` on its FIRST rework verdict no matter how good that verdict is —
+ * 9 tasks piled up exactly that way on 2026-09-09 (handoff:
+ * docs/superpowers/specs/2026-09-10-aif-review-contract-recovery-handoff.md, defect 4).
+ * 4 gives a healthy verdict-driven loop room to converge; the API caps the field at 50.
+ * Wrong if aif ever lowers that cap below 4 — createTaskSchema rejects the POST.
+ */
+export const DEFAULT_MAX_REVIEW_ITERATIONS = 4;
+
+/**
  * What happened to a cancel request — the reported form of
  * {@link AifHandoffBackend.cancelClaim}'s boolean. `running` is the A5-1 refusal:
  * the task is live and the backend has no way to stop its worker, so the record
@@ -81,7 +98,11 @@ const REST_TIMEOUT_MS = 10_000;
  */
 export type CancelOutcome =
   | { cancelled: true; reason: 'deleted' | 'already-gone' }
-  | { cancelled: false; reason: 'running' | 'delete-failed' | 'unverifiable'; detail: string };
+  | {
+      cancelled: false;
+      reason: 'running' | 'delete-failed' | 'unverifiable';
+      detail: string;
+    };
 
 /** Configuration for AifHandoffBackend. */
 export interface AifHandoffConfig {
@@ -146,7 +167,12 @@ export class AifHandoffBackend implements ClaimCapableBackend {
 
   /** Derive ws:// URL from http:// baseUrl (same host:port, append /ws). */
   private static _deriveWsUrl(httpUrl: string): string {
-    return httpUrl.replace(/^http(s?):\/\//, (_match: string, s: string) => `ws${s}://`) + '/ws';
+    return (
+      httpUrl.replace(
+        /^http(s?):\/\//,
+        (_match: string, s: string) => `ws${s}://`,
+      ) + '/ws'
+    );
   }
 
   /**
@@ -179,9 +205,15 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * `scope` stays at its `visible` default so GLOBAL profiles remain candidates;
    * they are usable by this project by construction.
    */
-  private async _resolveProfileId(hint: string, projectId: string): Promise<string> {
+  private async _resolveProfileId(
+    hint: string,
+    projectId: string,
+  ): Promise<string> {
     const query = new URLSearchParams({ projectId, enabledOnly: 'true' });
-    const profiles = (await this._rest('GET', `/runtime-profiles?${query.toString()}`)) as Array<{
+    const profiles = (await this._rest(
+      'GET',
+      `/runtime-profiles?${query.toString()}`,
+    )) as Array<{
       id: string;
       name: string;
     }>;
@@ -190,7 +222,9 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // even when that name is also a prefix of other profile names.
     const exact = profiles.filter((p) => p.name.toLowerCase() === needle);
     const matches =
-      exact.length > 0 ? exact : profiles.filter((p) => p.name.toLowerCase().includes(needle));
+      exact.length > 0
+        ? exact
+        : profiles.filter((p) => p.name.toLowerCase().includes(needle));
 
     if (matches.length === 0) {
       const candidates = profiles.map((p) => p.name).join(', ');
@@ -293,7 +327,10 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // refuses to degrade — no silent ManualBackend fallback.
     let runtimeProfileId: string | undefined;
     if (kickoff.profileHint) {
-      runtimeProfileId = await this._resolveProfileId(kickoff.profileHint, projectId);
+      runtimeProfileId = await this._resolveProfileId(
+        kickoff.profileHint,
+        projectId,
+      );
     }
 
     // -- Step 1: Create the task with the kickoff as its DESCRIPTION --------
@@ -316,10 +353,17 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       paused: true,
       autoMode: true,
       skipReview: false, // reviewer runs per reviewer-discipline.md §2
+      // Explicit so the loop can survive its first rework verdict even where the
+      // container env defaults AGENT_MAX_REVIEW_ITERATIONS to 1 (see the constant).
+      maxReviewIterations: DEFAULT_MAX_REVIEW_ITERATIONS,
       ...(runtimeProfileId !== undefined ? { runtimeProfileId } : {}),
     });
 
-    if (!createResult || typeof createResult !== 'object' || !('id' in createResult)) {
+    if (
+      !createResult ||
+      typeof createResult !== 'object' ||
+      !('id' in createResult)
+    ) {
       throw new BackendError(
         'POST /tasks returned unexpected shape (no id)',
         'dispatch_failed',
@@ -403,14 +447,18 @@ export class AifHandoffBackend implements ClaimCapableBackend {
   async cancelClaimChecked(handle: TaskHandle): Promise<CancelOutcome> {
     let task: { status?: unknown; paused?: unknown };
     try {
-      task = (await this._rest('GET', `/tasks/${handle.taskId}`)) as typeof task;
+      task = (await this._rest(
+        'GET',
+        `/tasks/${handle.taskId}`,
+      )) as typeof task;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // 404 means the claim is ALREADY gone — cancelling twice, or cancelling one
       // another session cleaned up. The lane is free, which is what the caller asked
       // about, so this is success. Reporting it as failure made an idempotent retry
       // print a false "the lane is still taken" alarm (found in the live proof run).
-      if (/HTTP 404\b/.test(msg)) return { cancelled: true, reason: 'already-gone' };
+      if (/HTTP 404\b/.test(msg))
+        return { cancelled: true, reason: 'already-gone' };
       return { cancelled: false, reason: 'unverifiable', detail: msg };
     }
 
@@ -449,7 +497,8 @@ export class AifHandoffBackend implements ClaimCapableBackend {
       return { cancelled: true, reason: 'deleted' };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (/HTTP 404\b/.test(msg)) return { cancelled: true, reason: 'already-gone' };
+      if (/HTTP 404\b/.test(msg))
+        return { cancelled: true, reason: 'already-gone' };
       return { cancelled: false, reason: 'delete-failed', detail: msg };
     }
   }
@@ -478,7 +527,10 @@ export class AifHandoffBackend implements ClaimCapableBackend {
     // Source: aifWsStatus.getTaskStatus -> packages/api/src/routes/tasks.ts GET /:id
     // REST is used (not WS) because getStatus must NOT block.
     // WS is subscribe-and-wait; REST returns immediately.
-    const { rawStatus, checkedAt } = await getTaskStatus(handle.taskId, this.baseUrl);
+    const { rawStatus, checkedAt } = await getTaskStatus(
+      handle.taskId,
+      this.baseUrl,
+    );
     return {
       status: mapAifStatusToTaskStatus(rawStatus),
       rawStatus,
@@ -545,7 +597,13 @@ export class AifHandoffBackend implements ClaimCapableBackend {
    * @param path    Path appended to baseUrl (e.g. '/tasks', '/tasks/:id/events').
    * @param body    Optional JSON body. Omitted bodies send no payload.
    */
-  private async _rest(method: AifHttpMethod, path: string, body?: unknown): Promise<unknown> {
-    return aifRequest(method, this.baseUrl, path, body, { timeoutMs: REST_TIMEOUT_MS });
+  private async _rest(
+    method: AifHttpMethod,
+    path: string,
+    body?: unknown,
+  ): Promise<unknown> {
+    return aifRequest(method, this.baseUrl, path, body, {
+      timeoutMs: REST_TIMEOUT_MS,
+    });
   }
 }

@@ -26,6 +26,11 @@ export default {
     // (2026-07-02 seeded-break leak incident). Delta-based; advisory without git.
     // Node-builtins-only module — safe to load from repo root (see NOTE above).
     globalSetup: ['./packages/core/audit-self/hooks-tree-guard.ts'],
+    // Hermeticity: same scrub the packages/core config registers. Pre-push runs individual
+    // packages/core test files FROM REPO ROOT, so they load THIS config — registering the
+    // setup in only one of the two leaves the pre-push path inheriting the operator's shell.
+    // Node-builtins-only module, so it is safe to load from repo root (see NOTE above).
+    setupFiles: ['./packages/core/vitest.setup.ts'],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

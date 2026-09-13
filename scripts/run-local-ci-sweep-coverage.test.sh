@@ -281,6 +281,38 @@ EOF
   && ok "every UNREACHABLE allowlist entry carries a ≥20-char rationale" \
   || bad "allowlist entr(ies) with a rationale under 20 chars →$thin"
 
+# ── 4b. allowlist ↔ the sweep's own UNREACHABLE prose (the second-copy gate) ───────────────────
+# The allowlist above is machine-checked; run-local-ci-sweep.sh's header carries a human-readable
+# UNREACHABLE list of the same exemptions, and nothing reconciled the two. It had already drifted
+# twice by the time this arm was written: consumer-matrix-npm-tarball-cell (noted in the prose
+# itself) and then consumer-matrix-getff-dist-cell, whose absence let a session read the prose,
+# get a green sweep, and take a CI red on the manifest gate the cell owns (PR #1676, round 1).
+# Two hand-maintained copies, one gated — .claude/rules/dual-implementation-discipline.md.
+# Matching is on the artifact's basename STEM, not the full path: the prose keys on CI job names
+# (`consumer-matrix-npm-tarball-cell`), which contain the stem but are not the path.
+UNREACH_BLOCK="$(awk '/^# UNREACHABLE/,/^# ---/' "$SWEEP")"
+UNREACH_LINES="$(printf '%s\n' "$UNREACH_BLOCK" | grep -c .)"
+if [ "$UNREACH_LINES" -ge 10 ]; then
+  ok "sweep UNREACHABLE prose block extracted: $UNREACH_LINES lines (floor 10)"
+else
+  bad "sweep UNREACHABLE prose block is $UNREACH_LINES lines (floor 10) — the awk range broke; the parity arm below would pass vacuously"
+fi
+unmentioned=""
+while IFS="$TAB" read -r art _; do
+  [ -z "${art:-}" ] && continue
+  stem="$(basename "$art")"; stem="${stem%%.*}"
+  case "$UNREACH_BLOCK" in *"$stem"*) ;; *) unmentioned="$unmentioned $stem" ;; esac
+done <<EOF
+$(unreachable_allowlist)
+EOF
+[ -z "$unmentioned" ] \
+  && ok "every UNREACHABLE allowlist entry is also named in run-local-ci-sweep.sh's own prose list" \
+  || bad "allowlist entr(ies) missing from the sweep's UNREACHABLE prose →$unmentioned — a reader of the sweep would believe a green local run covers them"
+case "$UNREACH_BLOCK" in
+  *zzz-fabricated-cell*) bad "neg: the parity matcher found a fabricated stem in the prose → VACUOUS" ;;
+  *) ok "neg: a fabricated stem is NOT found in the prose block (the matcher discriminates)" ;;
+esac
+
 # ── 5. the real check ──────────────────────────────────────────────────────────────────────────
 UNCOVERED="$(uncovered "$GATES")"
 [ -z "$UNCOVERED" ] \

@@ -1,23 +1,24 @@
 ---
 name: claude-glm-executor-handoff
-description: Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.2 worker (any agent whose frontmatter carries `model: glm-5.2` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.2, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly).
+description: Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.3 worker (any agent whose frontmatter carries `model: glm-5.3` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.3, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly).
 ---
 
 <!-- @harness-posture: cc-only — factory-depth thin adapter: requires an in-aif CC coordinator + aif runtime-bridge + GLM worker; without the bridge/worker it cannot run (the §5 honest-gaps marker is a separate claim) -->
 
-> **Authoritative for:** the **input-prompt contract** for an in-aif Claude coordinator (Opus/Sonnet) → GLM-5.2 worker dispatch edge, and the **GLM-5.2-specific behavioural deltas** (verified facts only — text-only I/O, `reasoning_effort` value-collapse, Anthropic-compat endpoint mechanics) that distinguish such a handoff from an intra-Claude worker dispatch.
+> **Authoritative for:** the **input-prompt contract** for an in-aif Claude coordinator (Opus/Sonnet) → GLM worker dispatch edge (executor tier: **glm-5.3** since 2026-09-11, operator), and the **GLM behavioural deltas** (verified facts only — text-only I/O, `reasoning_effort` value-collapse, Anthropic-compat endpoint mechanics) that distinguish such a handoff from an intra-Claude worker dispatch.
 > **NOT authoritative for:** the executor + dual-reviewer dispatch **loop** — that is `superpowers:subagent-driven-development` (SSOT #64). The **relative-tier model posture** (Opus/Sonnet/GLM as an instantiation of "top/mid/cheaper" tier roles) — that is [`night-mode/SKILL.md`](../night-mode/SKILL.md) («Overnight model posture» paragraph); this skill assumes the instantiation without restating it. The **REPORT output schema** (`Status: DONE|BLOCKED|PARTIAL`, `Deliverable`, `Evidence`, `BLOCKER`, `MINOR`) — that is [`agents/orchestrator-worker-discipline.md`](../../../agents/orchestrator-worker-discipline.md). **Dispatch mechanics** (REST, worktrees, agent-definition loading) — that is `dispatcher` + `runtime-bridge`. Project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists).
 
 # Claude → GLM executor handoff (in-aif, cross-model edge)
 
-A **thin adapter** for the narrow case where an in-aif Claude coordinator dispatches to a GLM-5.2 worker. aif-handoff supports per-agent `model:` frontmatter natively (`implement-coordinator` → Opus, `implement-worker` → GLM-5.2 — verified per `docs/superpowers/specs/2026-06-02-aif-parallel-dispatch-design.md:64` live `model=sonnet, transport=cli` and `settingSources:["project"]` per `agent-collision-resolution/kickoff.md:21`). This skill tells the coordinator **how to write the prompt** for that GLM worker; aif's agent definition tells aif **which model to spawn**. Both are needed; this owns only the prompt side.
+A **thin adapter** for the narrow case where an in-aif Claude coordinator dispatches to a GLM worker (executor tier glm-5.3). aif-handoff supports per-agent `model:` frontmatter natively (`implement-coordinator` → Opus, `implement-worker` → glm-5.3 — verified per `docs/superpowers/specs/2026-06-02-aif-parallel-dispatch-design.md:64` live `model=sonnet, transport=cli` and `settingSources:["project"]` per `agent-collision-resolution/kickoff.md:21`). This skill tells the coordinator **how to write the prompt** for that GLM worker; aif's agent definition tells aif **which model to spawn**. Both are needed; this owns only the prompt side.
 
 ## §0 When this fires (and when it does NOT)
 
 **Applies** to a dispatch edge inside aif-handoff where:
 
 - The coordinator agent runs on a Claude-family model (Opus or Sonnet), AND
-- The worker agent's frontmatter sets `model:` to a GLM-family model (GLM-5.2 / GLM-4.6 / etc.).
+- The worker agent's frontmatter sets `model:` to a GLM-family model (glm-5.3 / GLM-4.6 / etc.).
+- **Delivery constraint (ZCode):** agent definitions reach ZCode only via user/project dirs (`~/.zcode/agents/`, `.zcode/agents/`) — NEVER via the plugin channel: ZCode classifies plugin `agents/` components as diagnosticOnly (recognized, listed, not runnable; survey #1699 §5). CC runs plugin agents fine; the restriction is ZCode-side.
 
 **Does NOT apply** to:
 
@@ -27,9 +28,9 @@ A **thin adapter** for the narrow case where an in-aif Claude coordinator dispat
 
 If you catch yourself applying this to a Claude→Claude edge, stop — you are doing `#parallel-evolution-creep` on SDD.
 
-## §1 GLM-5.2 facts (verified, source-grounded)
+## §1 GLM facts (verified against the GLM-5.2 spec card, source-grounded)
 
-Each row carries its primary source. Re-verify before relying on a row — Z.ai doc paths migrate (`/api/paas/v4/` vs `/api/coding/paas/v4/`) and `reasoning_effort` is GLM-5.2-only (present-tense per spec; future models unverified).
+Each row carries its primary source. The executor tier moved to **glm-5.3** (2026-09-11, operator); the rows below were verified against the GLM-5.2 card — re-verify each row against the current model's card before relying on it. Z.ai doc paths migrate (`/api/paas/v4/` vs `/api/coding/paas/v4/`) and `reasoning_effort` is GLM-5.2-only (present-tense per spec; future models unverified).
 
 | #      | Delta                                           | Source-grounded fact                                                                                                                                                                                                                                                                                                                                                                                                                                 | Implication for the dispatch prompt                                                                                                                                                                                                                                                                                   | Source                                                                                                                                   |
 | ------ | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

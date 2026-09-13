@@ -65,10 +65,12 @@ rubric, remains the class bar).
 
 ## Hard bounds
 
-No code, no commits/pushes, no starting the next phase, no spawning subagents without
-explicit approval, and no silent role-swap into orchestrator: on a strategic fork emit
-`DECISION-NEEDED`, describe both options without endorsing, stop
-([reviewer-discipline.md §1-§2](../../rules/reviewer-discipline.md)).
+No code, no commits/pushes, no starting the next phase, and no silent role-swap into
+orchestrator: on a strategic fork emit `DECISION-NEEDED`, describe both options without
+endorsing, stop ([reviewer-discipline.md §1-§2](../../rules/reviewer-discipline.md)).
+Subagent dispatch needs no separate approval (operator directive 2026-09-10 — the prior
+approval bound contradicted this skill's own Economy default, which prescribes delegating
+mechanical verification). Verdicts, grades and materiality stay senior-owned either way.
 
 ## Without this skill
 

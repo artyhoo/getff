@@ -1,6 +1,6 @@
 ---
 name: pipeline
-description: Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Triggers: pipeline, wave orchestrator, wave plan, stage-gate, umbrella priority, waves parallel/sequential, wave-sequencing-plan drift. Invoked explicitly via /pipeline only (disable-model-invocation:true).
+description: Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Triggers: pipeline, wave orchestrator, wave plan, stage-gate, umbrella priority, waves parallel/sequential, wave-sequencing-plan drift. Invocation channel: explicit /pipeline only — disable-model-invocation:true is a channel flag and not a permission (§0).
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
@@ -35,11 +35,11 @@ allowed-tools:
 
 ## §0 Invocation
 
-**Slash command:** `/pipeline [<umbrella-name> | <N>]`
+**Slash command:** `/pipeline [<umbrella-name> | <N>]` — flag contract (incl. «not a recursion guard»): [operational-conventions.md §4](../../../docs/meta-factory/operational-conventions.md#4-disable-model-invocation--an-invocation-channel-flag-not-a-permission).
 
 > **Provenance / binding spec (§7.1–§7.14):** §0–§11 implement the 14-section binding spec at `.claude/orchestrator-prompts/meta-orchestrator-prior-art/kickoff.md §7` (gitignored origin-trace; the SKILL.md sections below are the authoritative spec). Section↔spec map: §0=§7.1 · §1=§7.2 · §2=§7.3 · §2.5=Stage-2C routing · §3=§7.4 · §4=§7.5 · §5=§7.6 · §5.5=bundle (B1/B2/B3a) · §6=§7.7 · §7=§7.8 · §8=§7.9 + §7.10 install-coupling · §9=§7.11 · §10=§7.12 · §11=§7.13. **§7.14** = the four original orchestrator gaps, closed across §1 (plan-actuality) · §2 (cross-umbrella priority) · §3 (auto-launch-table) · §6 (stage-gate-vs-flat-queue). Per-section `> **§7.N binding.**` labels were consolidated here 2026-06-03 (Stage 4 slim); each section's substantive enforcement prose is retained in place.
 
-**`disable-model-invocation: true`** — fires ONLY on explicit `/pipeline` invocation. The flag suppresses CC's default auto-load into subagent contexts when description matches a subagent's task — it is **not** a recursive-invocation guard (no such risk exists: subagent depth is hard-capped at 2 by CC's harness, per [sub-agents.md](https://code.claude.com/docs/en/sub-agents.md)).
+> **Invocation-channel flag, not a permission.** `disable-model-invocation: true` keeps a skill out of auto-load and out of subagent preload, and stops the Skill tool from invoking it — an explicit `/<name>` from the operator is its only invocation channel, so an agent never self-initiates the procedure. It does **not** seal the file: an agent already asked to do this work may read the SKILL.md and execute its documented steps, and doing so is correct behaviour, not a workaround. On ZCode the flag is not runtime-enforced (absent from the runtime, survey #1699 §5): there the explicit-only channel discipline is prompt-level — this blockquote is the gate, so an agent on ZCode must still treat an explicit /<name> as the only self-initiation channel. <!-- canonical: invocation-channel-flag -->
 
 **Arg routing (V1 binding per [research-patch §3](../../../docs/meta-factory/research-patches/2026-05-29-meta-orch-no-arg-overview-s0-remainder.md)):** regex check at invocation start — empty → V3 overview; `^[0-9]+$` → V4 top-N (N=0 routes to V3); `list` → preset enumeration via [`helpers/list-presets.sh`](helpers/list-presets.sh) (§0.1); `status` → read-only status render via [`helpers/render-status.sh`](helpers/render-status.sh) (§2.6); else → named-umbrella dispatch (existing §1→§3→§4→§5). **Pre-invocation guard (V1 mandatory):** assert no umbrella basename is `^[0-9]+$` (otherwise `/pipeline 1` is ambiguous): <!-- @dual-pair: meta-orchestrator-integer-name-guard -->
 
@@ -84,7 +84,7 @@ fixtures only).
 **Step 1 — inject live state:**
 
 ```!
-head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
+head -200 "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)/_plan-cache.md" 2>/dev/null || echo "(no cache — fresh session; will be created by helpers/update-cache.sh on this invocation's exit)"; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_residue-*.md 2>/dev/null | head -3); do echo "--- PreCompact residue (S2b/D8): a session compacted here. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done; for f in $(ls -t "$(bash "${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"/_handoff-*.md 2>/dev/null | head -3); do echo "--- Model handoff (D15/D28): the model-authored CURRENT-STATE file of a compacted session — the SessionStart injector's payload. POINTER only — re-verify before acting on it: $f"; head -40 "$f"; done
 ```
 
 ```!

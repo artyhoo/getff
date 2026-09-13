@@ -240,4 +240,21 @@ if [ -n "$HOOKS_STAGED" ] || [ -n "$AGENTS_STAGED" ]; then
   fi
 fi
 
+# ── Plugin skills regeneration (plugin-skills-generator Stage 1, 2026-09-11) ──────
+# When a source population of a table-managed plugin/skills entry changes (top-level
+# skills/ or .claude/skills/), regenerate the derived copies and re-stage. The generator
+# self-no-ops for in-sync entries and refuses (exit 3) on un-derivable payload content,
+# so firing on the whole populations is safe and stays future-proof when Stage 2 adds
+# the CORE four to the entry table.
+# Patch: docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md
+SKILLS_STAGED=$(echo "$CHANGED" | grep -E '^(skills/|\.claude/skills/)' || true)
+if [ -n "$SKILLS_STAGED" ]; then
+  if bash "$REPO_ROOT/scripts/generate-plugin-skills.sh"; then
+    git add plugin/skills/ 2>/dev/null || true
+  else
+    echo "❌ generate-plugin-skills.sh failed"
+    fail=1
+  fi
+fi
+
 exit "$fail"
