@@ -51,7 +51,7 @@ claude --agent getff-cold-run-prober /path/to/fresh/consumer
 The consumer path MUST have:
 
 - A successfully completed `install.sh python` (or peer-lane) run — the agent surface, `.mcp.json`, starter `AGENTS.md`, `.ai-factory/` subtree are present.
-- A git remote resolvable to a default branch (so `deliver_getff_workflow`'s substitution works — see `setup.d/lib.sh:194`).
+- A git remote resolvable to a default branch (so `deliver_getff_workflow`'s substitution works — see `setup.d/lib.sh:946`).
 - NO pre-existing generated rule under `.getff/astgrep-rules/` or `.getff/ruff-bans.toml` (the cold agent must reach that state itself, or fail to).
 
 You MAY `Read` the consumer's installed `.claude/` tree BEFORE dispatching — those ARE the shipped docs the probe is testing. You MAY NOT pass their contents to the cold agent in the task-prompt (the cold agent must discover them by opening files itself).
@@ -215,7 +215,7 @@ State the problem-class match explicitly (T16):
 
 ## §Self-application (T15)
 
-This prober IS recursive self-application. It is the framework's own shipped docs (the consumer-facing artefacts under `install.sh:89-128`'s copy loop) that are the system under test — not user code, not a rule, not a shipped sub-agent. The framework probes whether ITS OWN delivery surface (the docs it ships to consumers) suffices for the journey it claims to enable.
+This prober IS recursive self-application. It is the framework's own shipped docs (the consumer-facing artefacts under `install.sh:103-142`'s copy loop) that are the system under test — not user code, not a rule, not a shipped sub-agent. The framework probes whether ITS OWN delivery surface (the docs it ships to consumers) suffices for the journey it claims to enable.
 
 **Why this is the load-bearing recursive check for the getff-any-stack-trace umbrella:** every prior stage (S1 Tier-1 threading, S2 python lane agent surface, S2b git-hook rung, R1 lane × channel-rung parity, S3 one-beat continuation clause) extended the framework's INTERNAL capability. S4's W6 cell proves the chain closes deterministically under a scripted fixture. **This probe is the only artefact in the entire umbrella that asks: «does a fresh agent, with no framework knowledge, actually succeed with what we ship?»** That question is the recursive-self-application gap (T15); this probe closes it.
 

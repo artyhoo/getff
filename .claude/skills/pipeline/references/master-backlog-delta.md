@@ -51,7 +51,7 @@ At end of invocation, the two writes happen in this order (per SKILL.md §10 ite
 
 **Helper-scope contract** (mirrors [plan-cache.md §3](plan-cache.md) round-3 reduction of `update-cache.sh`): the metadata writer (`update-delta.sh`) is deterministic on TWO fields only; the two arrays are populated by `delta-write-from-state.sh` after the metadata writer runs (F.3 helper-collapse PR #261 2026-05-28 — the inline `!shell` `jq` block was removed). This split keeps the metadata writer's idempotency contract tight (covered by `update-delta.test.ts`), while the array content flows through the sibling helper (no underspecified `$3..$N` interface).
 
-**Single SSOT:** both helpers live at `.claude/skills/pipeline/helpers/` only — no consumer mirror under `skills/pipeline/` per [install.sh:233-235](../../../../install.sh) authority. `delta-diff.sh` (read side) is genuinely new this stage; `update-delta.sh` (metadata writer) shipped Stage 2B and is UNCHANGED in this stage.
+**Single SSOT:** both helpers live at `.claude/skills/pipeline/helpers/` only — no consumer mirror under `skills/pipeline/` per [install.sh:26](../../../../install.sh) authority. `delta-diff.sh` (read side) is genuinely new this stage; `update-delta.sh` (metadata writer) shipped Stage 2B and is UNCHANGED in this stage.
 
 ---
 
