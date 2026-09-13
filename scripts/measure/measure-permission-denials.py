@@ -116,9 +116,12 @@ def main():
     print(f"denied_tool_calls: {total}")
     print(f"classifier_denied: {cls}")
     # The original capped its free-form dump at the top 45 (`byprefix.most_common(45)`) to keep
-    # terminal output readable; kept here, with the ordering made deterministic (count desc, then
-    # key asc) per the task-0.4 fix-round-1 ruling — ordering is presentation, the counting is not.
-    ranked = sorted(byprefix.items(), key=lambda kv: (-kv[1], kv[0]))[:45]
+    # terminal output readable. SELECTION stays the original's — `most_common(45)` decides WHICH
+    # 45 survive, including how it breaks a tie straddling the 45th slot — and only the DISPLAY
+    # order of those 45 is then made deterministic (count desc, then key asc). Selecting with a
+    # re-sorted `[:45]` instead would pick a different 45th item on a tie, which is a measurement
+    # change wearing an ordering change's clothes.
+    ranked = sorted(byprefix.most_common(45), key=lambda kv: (-kv[1], kv[0]))
     for i, (key, count) in enumerate(ranked, start=1):
         name, cmd3 = key
         print(f"prefix_{i}_count: {count}")
