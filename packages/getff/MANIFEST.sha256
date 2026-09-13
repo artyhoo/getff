@@ -2,7 +2,7 @@ fb86ebab759216770b3d618fa0c67e0d7b3e3bd0430bcbbaf60561c7e63fa7e9  .claude/hooks/
 019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
 c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
 405d37028a9a5a004fc745ccb759467ed01d388eee48bc19ba9c6b81b9a960f8  .claude/hooks/check-doc-authority.sh
-84a6dc0d31ac5b6c45d1e04393601dcf4642a25008927d5349a064c16b394d73  .claude/hooks/check-hook-marker.sh
+b36a4b9c9165289274b9160f9449d7f63f1ef6417cd315ef66335d08fabafda5  .claude/hooks/check-hook-marker.sh
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
@@ -406,7 +406,7 @@ e66a48eb6d49b1b3d004a24cbd84f01165a26896cb1028dac22fa87c3b5d8f81  packages/core/
 d846080bb97040a2ab8c9f26e5b18ee5b03fdb77d6011bb5374b1c250aff2651  packages/core/hooks/ask-question-reminder.test.ts
 ae367574c26fbaa58c56efc1b90ad45d0391c67e8fea230b7a7763f7d26db06f  packages/core/hooks/check-doc-authority-header.test.ts
 5a1f814a1e7e4973c491067b1d889711f0b2a2d97ade4c5666ccd858d1c65b77  packages/core/hooks/check-doc-authority.test.ts
-09234243ab0353fd4bfe720eed289284ea16ad966892ba6a37351b5076ea7f36  packages/core/hooks/check-hook-marker.test.ts
+af8f6a71c829e5e440e35162ecdec197c767d7759dfcdedf03d47db2f9ff640e  packages/core/hooks/check-hook-marker.test.ts
 e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/hooks/check-kickoff-portability.test.ts
 dbadc9d0a61843f50eb2e4e9199111805086731ab7ee84c7f0e6d08b4096b708  packages/core/hooks/check-kickoff-traps.test.ts
 634c0be0d989935ff74277be295142fb8d703a13bc232cf7e2c3ee89f0aa814f  packages/core/hooks/check-skill-drift.test.ts
