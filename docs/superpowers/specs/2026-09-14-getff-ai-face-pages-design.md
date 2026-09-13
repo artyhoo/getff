@@ -2,7 +2,8 @@
 
 > **Status:** designed 2026-09-13/14 in a dedicated `/arch` §1 session (carve-out per the site umbrella's D28 / premise P-X);
 > escalations E1–E4 answered by the umbrella seat 2026-09-13 (its rows D4c / D32 / D33) and folded in below;
-> awaiting the two cold §2 reviews (top-down + bottom-up) in a separate Opus session (umbrella D27), then the operator's spec gate.
+> two cold D27 reviews (top-down + bottom-up, Opus session `upbeat-bassi-7ccdbb-ef`, 2026-09-14) returned REVISE; every finding is
+> dispositioned in §11 and fixed inline; awaiting the operator's spec gate.
 > **Authoritative for:** the seven face pages of the docs site, the landing hero delta, `llms.txt`, the AI-twin contract of face
 > pages, the fact-supply architecture that feeds them, and the testing seams that prove each claim on them.
 > **NOT authoritative for:** the site umbrella's decisions (register `_decision-register-getff-ai-site.md`, D1–D28 — binding here,
@@ -44,16 +45,16 @@ per fact rendered everywhere, (c) every example executed and every number genera
 | FD1 | Page set | Seven pinned pages + `/llms.txt` (§4). Ratified by the umbrella as D4c; the Understand tab LINKS to How it works / Foundations and never re-explains the same mechanism. | Group no longer fits above the sidebar fold at 1080p, or <10% of readers reach Foundations / How it works from it → both move to Understand; pinned group = 5. |
 | FD2 | Human first contact | Hero CTA1 → Quick start; CTA2 → Introduction; quiet agent line under the CTAs. | Beta readers bounce on Quick start before the red gate → CTA1 → Introduction. |
 | FD3 | AI first contact | Hybrid `llms.txt`: curated head + generated lists under `## Optional` (§6). | Context7 indexes twins automatically → head shrinks to H1 + blockquote + Start here. |
-| FD4 | Stack status | ONE framework file `packages/core/manifest/maturity.json` (+ schema; umbrella D32), section `stacks` (this spec) beside `layers` (rules beta / factory experimental), rendered everywhere. | A hand-typed label disagrees → fence `--check` RED. Batch slips >1 week → content session renders from a stub manifest, `--check` catches the fill later. |
-| FD5 | Quick start | Group page `/docs/quick-start/` (stack chooser) + four per-stack pages on the census slug family `/docs/quickstart-<stack>/`; steps from `first-steps.source.json`; every stack page ends RED on the reader's code. | A stack cannot reach RED in ≤10 min at write time → labelled «verified on fixture». Chooser bounce >30% → hero CTA1 goes straight to `quickstart-ts`. |
+| FD4 | Stack status | ONE framework file `packages/core/manifest/maturity.json` (+ schema; umbrella D32), section `stacks` (this spec) beside `layers` (rules beta / factory experimental), rendered everywhere. One row per INSTALLABLE positional (`ts-server`, `react-next`, `react-spa`, `react-native`, `python`, `cargo`, `go`), each with label · definition · `caveat` sentence · verified-at (§5.1.4). | A hand-typed label disagrees → fence `--check` RED. Batch slips >1 week → content session renders from a stub manifest, `--check` catches the fill later. |
+| FD5 | Quick start | Group page `/docs/quick-start/` (stack chooser) + four per-stack pages on the census slug family `/docs/quickstart-<stack>/`; all seven steps from `first-steps.source.json` plus the new SSOT step `fire-on-your-code`; every stack page ends RED on the reader's code via the stack's NATIVE gate (§5.2). | A stack cannot reach RED in ≤10 min at write time → labelled «verified on fixture». Chooser bounce >30% → hero CTA1 goes straight to `quickstart-ts`. |
 | FD6 | Research grounding | Own page **Foundations**, seven sections, every paragraph cites a primary artifact. | A section without a primary artifact → cut or labelled opinion. |
 | FD7 | Hero | In scope structurally (§5.9); H1/brand/tokens untouched. | Operator visual sign-off rejects → structure stays, copy returns to the content session. |
 | FD8 | URLs | Census URLs (umbrella B-D4, main @ 733197e) keep real content at the same slug; post-census slugs that move get static stubs (§4). | A census slug becomes a stub or a redirect → B-D4 violation, page restored. |
 | FD9 | Installation axes | Route-first; depth = collapsible from the first-steps SSOT; no npm route while npm holds 0.0.1. | `setup` learns `cargo\|go` → renderer updates the page, no hand edit. |
 | FD10 | Order + names | Journey order; research page = **Foundations**. | Beta readers cannot find the argument → Why getff to slot 2. |
-| FD11 | Twin contract | Clean text + D8b frontmatter + `next:`; prompts only on the agent page + `llms.txt`. | Agents act from twins → one-line `agent:` pointer per twin, no duplicated prompts. |
+| FD11 | Twin contract | Clean text + D8b frontmatter + `next:`; the framework page carries `path:line` anchors, the landing build stamps `url` / `verified-at` / permalinks / `stale-since` (umbrella D34, §6); prompts only on the agent page + `llms.txt`. | Agents act from twins → one-line `agent:` pointer per twin, no duplicated prompts. |
 | FD12 | Diagrams | Three diagrams on How it works as Mermaid text in the source; rendered at runtime or as SVG at build from the same text (umbrella D31 owns the dep); never hand-drawn images. | Neither render path lands in the landing conveyor → the Mermaid text ships as a fenced code block, readable as text by both audiences. |
-| FD13 | Generated regions | Every number, list, command, link from the repo = fence region (§7). | A renderer restates instead of reading its runtime source → `--check` passes on a changed source = the lying-doc class. |
+| FD13 | Generated regions | Every number, list, command, link from the repo = fence region (§7); in S0 the content session gold-fills each region from its named source, in S1 the generator must reproduce the gold byte-for-byte (umbrella D24b). | A renderer restates instead of reading its runtime source → `--check` passes on a changed source = the lying-doc class. |
 | FD14 | Foundations depth | Restate conclusions + link primary artifact per paragraph; history book out of scope. | — |
 | FD15 | Fact supply | Approach A: one `face-facts.json` manifest (verified-at sha) feeding all fence regions (§7); rosters and counts READ from the generator session's per-family JSON, never re-derived. | Umbrella keeps doc sources in the landing → manifest is built from the framework pin, same contract. |
 
@@ -69,7 +70,7 @@ claims audit (attention as detection, `attention-is-not-a-mechanism.md §1`).
 (depth, plugin, manual) → Why getff → How it works → Foundations. The alternate entry «Read the docs» → `/docs` (Introduction),
 whose first screen links Why getff and Quick start. Every page ends with one «Next» link along the journey (FD10 order).
 
-**AI agent.** `getff.ai/llms.txt` (curated head: what getff is, honest status, «Start here» = the seven twins in journey order,
+**AI agent.** `getff.ai/llms.txt` (curated head: what getff is, honest status, «Start here» = the seven twins in agent order (§5.8),
 «Proof» links) → `/docs/index.md` (Introduction twin: `next:` → Quick start twin) → `/docs/ai-agents.md` (three copy-ready prompts,
 Context7 + DeepWiki, what the twins carry). `llms-full.txt` stays under `## Optional` for agents that want everything.
 
@@ -103,8 +104,9 @@ the quick start is a per-stack page family (row 2a–d), `/docs/executable-agent
 How it works §3 and Why getff §proof LINK it, never duplicate it — D12), and `/docs/limits/` stays a real page whose stack table
 is a fence region from `maturity.json` (same source as Introduction §4). The four post-census slugs above are listed in the D31
 redirect contract as stubs. Stub contract (GitHub Pages has no server redirects, F14): a static page at the old slug carrying
-`<meta http-equiv="refresh" content="0; url=<new>">`, `<link rel="canonical" href="<new>">`, `<meta name="robots" content="noindex">`,
-one visible line «This page moved to <new>», excluded from the sidebar (`meta.json`) and from `llms.txt`. The other post-census
+`<meta http-equiv="refresh" content="0; url=<new>">`, `<link rel="canonical" href="<new>">`, one visible line «This page
+moved to <new>», no `noindex` (it would contradict the cross-URL canonical; shape = rollout R7 `write-redirect-stubs.mjs`),
+excluded from the sidebar (`meta.json`) and from `llms.txt`. The other post-census
 slugs (`daily-cycle-*`, `factory-overview`, `degradations`, `reference`, `beta`) belong to the umbrella's bulk map.
 
 ## 5. Per-page design
@@ -126,27 +128,40 @@ is the agent's second read after `llms.txt`.
    AGENTS.md drifts; an evaluator who wants proof before adopting. Each row links its page (Why / How it works / Quick start).
 3. **What you get today** — generated roster: skills, agents, rules, hooks, stacks/lanes, install depths, with counts from the
    manifest. One line per family with a link to its Reference family page.
-4. **Honest status** — generated table from `maturity.json` `stacks`: lane · label (beta/alpha) · what the label means · rule
-   generation status · verified-at. Beta = one-command install + a rule provably fires on YOUR code + live-doc rule generation;
-   alpha = installs + fires on verified fixtures, generation partial or deferred (go: DEFERRED, not «by design»).
+4. **Honest status** — generated table from `maturity.json` `stacks`, one row per installable positional (`ts-server`,
+   `react-next`, `react-spa`, `react-native`, `python`, `cargo`, `go`): stack · label · what the label means · `caveat` (one
+   sentence, e.g. react-spa «ships one rule, the pack is still growing», cargo «cargo-deny ships as a starter config, no workflow
+   runs it») · rule generation status · verified-at. Beta = one-command install + a rule provably fires on YOUR code + live-doc
+   rule generation; alpha = installs + fires on verified fixtures, generation partial or deferred (go: DEFERRED, not «by
+   design»); early / experimental = README's own words for `react-spa` / `react-native`. The `caveat` column is the ONLY home
+   of the honest-limit sentences that today disagree across README, `limits.md` and the hero — each of those surfaces renders it.
 5. **Where next** — Quick start (10 minutes), Installation, Why getff; and one line for agents: `getff.ai/llms.txt`.
    Example executed at write time: none beyond the roster/status renders (this page carries no commands).
 
 ### 5.2 Quick start (`/docs/quick-start/` + `/docs/quickstart-<stack>/`) — ten minutes to the first firing gate
 
 Goal: the reader sees a gate go RED on their own code. Audience: developer with a repo open. The chooser page carries four
-cards (**TypeScript / npm** · **Python** · **Rust** · **Go**, labels from `maturity.json`), one paragraph «what happens in
-the next ten minutes», nothing else. Each stack page opens with a stack-switcher row (links to its three siblings), then the
-steps rendered from `first-steps.source.json` (`core` sequence: `install` → `verify-payload` → `fill-passport` →
-`prove-rules-not-inert` → `watch-a-rule-fire` → `run-the-gate`), commands from the manifest (`./setup <stack>` for all four
-once the source-holes batch lands `setup cargo|go`, E3; until then `bash install.sh cargo|go` is what the manifest carries).
+cards (**TypeScript / npm** · **Python** · **Rust** · **Go**); the npm card shows its four installable stacks in-page
+(`ts-server` · `react-next` · `react-spa` · `react-native`) with the label and caveat of each row from `maturity.json`, so
+the label the reader sees is the label of the positional they will type; one paragraph «what happens in the next ten
+minutes», nothing else. Each stack page opens with a stack-switcher row (links to its three siblings), then ALL steps of the
+`core` sequence rendered from `first-steps.source.json` (`install` → `verify-payload` → `fill-passport` →
+`prove-rules-not-inert` → `watch-a-rule-fire` → **`fire-on-your-code`** (new SSOT step, S0a) → `run-the-gate` →
+`research-your-stack` as the closing pointer), commands from the manifest (`./setup <stack>` for all four once the
+source-holes batch lands `setup cargo|go`, E3; until then `bash install.sh cargo|go` is what the manifest carries).
 
-Per stack page the executed example is the RED step: npm → `npm run check:fences-fire` (`scripts/check-fences-fire.sh`, delivered by
-`setup.d/40-configs.sh:51`) after planting `as any`; lanes → the installer's own firing self-check (`setup.d/45|46|47`,
-«✓ getff self-check: … fired RED on a planted violation and stayed GREEN on the clean control») followed by one planted
-violation in the reader's tree and the lane's native gate (ruff/ast-grep, `cargo clippy`, `golangci-lint run`). The content
-session records each stack's real output (fixture repo, date, versions) in the page's twin frontmatter `executed:` list.
-Honest limit block: what a beta/alpha label means for THIS stack (from `maturity.json`). Next: Installation.
+Per stack page the executed example is the `fire-on-your-code` step, and it is the same shape on all four: plant one
+violation of a SHIPPED getff rule in the reader's own tree, run the stack's NATIVE gate, read the RED line naming the file.
+npm: `watch-a-rule-fire` (= `bash scripts/check-fences-fire.sh`) proves the installed rules fire on the shipped temp-dir
+fixtures and `bash scripts/check-rule-globs.sh` proves the globs reach the reader's layout; then the reader adds
+`Math.random()` to a file under `src/` and runs `npm run lint` (`eslint . --max-warnings=0`, written by
+`setup.d/70-deps.sh:75`) — RED from `rules-as-tests/no-direct-time-randomness`, a core rule copied into
+`eslint-rules-local/` for every npm stack (`setup.d/40-configs.sh:197`, wired at `error` in all three shipped eslint
+configs). Lanes: the installer's own firing self-check (`setup.d/45|46|47`, «✓ getff self-check: … fired RED on a planted
+violation and stayed GREEN on the clean control»), then one planted violation in the reader's tree and the lane's native
+gate (ruff/ast-grep, `cargo clippy`, `golangci-lint run`). The content session records each stack's real output (fixture
+repo, date, versions) in the page's `executed:` list (§6). Honest limit block: label + `caveat` for THIS stack (from
+`maturity.json`); the beta definition in §5.1.4 is exactly what this page demonstrates for TS/npm. Next: Installation.
 
 ### 5.3 Installation (`/docs/installation/`) — routes × lanes × depth
 
@@ -155,7 +170,10 @@ Goal: every way in, honestly ordered. Sections: **One command** (recommended; `.
 `/plugin install getff@getff`; soft layer only; `/getff:install-enforcement` = the explicit hard-layer opt-in; other harnesses via
 `.opencode/INSTALL.md`) → **Manual** (`install.sh` flags, Path B/C from README) → **What gets installed** (collapsible per depth
 core / env / factory from the first-steps SSOT; factory collapsed, badge from `maturity.json` `layers`) → **Updating** (`--refresh` semantics,
-`copy_safe` vs `refresh_safe`, the `<file>.override.md` escape). No npm section while the registry holds 0.0.1 (F6); when 0.1.0
+`copy_safe` vs `refresh_safe`, the `<file>.override.md` escape) → **If you want it out** (honest: there is no uninstall
+command; a generated list of everything `./setup` owns — `package.json` scripts, husky hooks, eslint configs,
+`eslint-rules-local/`, `AGENTS.md`, `.ai-factory/`, `scripts/` — from the same install-ownership source as «What gets
+installed», with «remove by hand» per item). No npm section while the registry holds 0.0.1 (F6); when 0.1.0
 publishes, the manifest gains `npm.version` and the renderer adds the section. Executed examples: `./setup --dry-run ts-server`
 output (trimmed), `/getff:install-enforcement` dry-run transcript. Next: Why getff.
 
@@ -185,19 +203,17 @@ flowchart LR
   class CI last
 ```
 
-2. **From convention to native gate** — the compile pipeline with honest outcomes.
+2. **From convention to native gate** — the compile pipeline. The diagram is STATIC and shows the three possible outcomes
+   generically; the live pairing (which rule × which backend yields ✅ / FF7001 / FF7002 today) is a generated region under the
+   diagram quoting one named rule's real `Enforced:` line from `AGENTS.md` (§7 «enforcement outcomes»).
 
 ```mermaid
 flowchart TB
   C[Convention<br/>rule file, not a prompt] --> IR[Convention IR]
-  IR --> B1[npm-eslint-declarative]
-  IR --> B2[astgrep-python-yaml]
-  IR --> B3[cargo-clippy-toml]
-  IR --> B4[ruff-tidy-imports-toml]
-  B1 --> G1[native gate ✅]
-  B2 --> G2[FF7001 not expressible → routed]
-  B3 --> G3[native gate ✅]
-  B4 --> G4[FF7002 params contract]
+  IR --> B[one backend per lane<br/>eslint · ast-grep · ruff · clippy]
+  B --> G1[native gate ✅]
+  B --> G2[FF7001 not expressible → routed]
+  B --> G3[FF7002 params contract]
 ```
 
 3. **The executable AGENTS.md** — a demo region is rendered from Convention IR and every rule line carries `Enforced:` derived
@@ -232,11 +248,15 @@ linking its primary artifact. Sections:
 2. **Lineage** — the nine named sources (README «Inspirations & sources»): Rules-as-Tests five layers; Adzic, Specification by
    Example (L3); Martraire, Living Documentation (L5); Robinson, Consumer-Driven Contracts / Pact; Smith, shift-left (2001);
    Majors, observability 2.0; Rašić, two-AI review (`review-sidecar`); ai-docs drift practice; negative pairs as lightweight
-   mutation. Each: what was taken, what was changed, link to `skills/getff/references/*.md` where the citation lives.
+   mutation. Each: what was taken, what was changed, link to `skills/getff/references/*.md` where the citation lives. Today
+   only five of the nine have a citation artifact there (shift-left in `checks-map.md`, Pact in `overview.md`); S0a adds the
+   missing four (Adzic, Martraire, Majors, Rašić) to the references; until then those four are name-only attributions linking
+   README «Inspirations & sources», never a dangling reference link.
 3. **Why AI agents specifically** — own measurements first: the instruction-compliance pilot (266 sessions / 1537 claim-turns;
    H0 «salience ≠ forcing» not rejected; detector recall/precision findings) → hence `attention-is-not-a-mechanism`; context
    degradation calibration; defer-reflex detection; the AI-laziness trap catalogue (T1–T21) as the operational form. Then the
-   external literature the patches cite (45 academic sources across 24 files — generated count + reading list link).
+   external literature the patches cite (count generated by the §7 «counts» predicate: unique DOI / arXiv URLs under
+   `docs/` + `skills/getff/references/`; no number is typed here — the first render fixes it, with the reading list link).
 4. **How the project keeps itself honest** — recursive self-application (`self-application.md`, GCC-bootstrap precedent as
    quality signal, not goal); build-vs-reuse SSOT (rows generated) with `Prior-art:` trailers enforced at pre-push; research
    patches as the gap accumulator (count generated); principle tests (count generated); the claims ledger on the site itself.
@@ -265,8 +285,9 @@ staleness; **No MCP server** — and why (static, $0; umbrella D9). Next: back t
 ### 5.8 `llms.txt` and `llms-full.txt`
 
 Shape (llmstxt.org): `# getff` → blockquote (one honest sentence: what it does + status labels from the status source) → free
-paragraph (for whom; no LLM in the loop; how the twins are pinned) → `## Start here` (the seven twins in journey order, one-line
-notes; the quick-start entry lists its four stack twins indented beneath it) → `## Proof` (`AGENTS.md` permalink at verified-at, `make self-audit`, claims ledger) → `## Reference` (generated family
+paragraph (for whom; no LLM in the loop; how the twins are pinned) → `## Start here` in AGENT order — Introduction → Use
+getff with your AI agent → Quick start (its four stack twins indented beneath) → Installation → Why → How it works →
+Foundations, one-line notes (journey order stays where it serves the human: sidebar and `next:` chain) → `## Proof` (`AGENTS.md` permalink at verified-at, `make self-audit`, claims ledger) → `## Reference` (generated family
 list) → `## Optional` (`llms-full.txt`, Understand/Guides lists, generated). The curated head is authored by the content session
 and lives in a template; the generator appends the lists in the same PR (umbrella D26). `llms-full.txt` = every page's processed
 markdown, unchanged mechanism, face pages first.
@@ -278,60 +299,68 @@ markdown, unchanged mechanism, face pages first.
 - §03 step 3 gets «→ how it works in detail» → `/docs/how-it-works/`.
 - §05 Install: two blocks — one-command first (`git clone … && bash /tmp/rt/setup ts-server`, copy), plugin second with its
   soft/hard sentence; link to `/docs/installation/`.
-- §06 Honest limits: the stack line becomes a generated region from `maturity.json`; license and «executable AGENTS.md today
-  = this repo's own» stay hand-written.
+- §06 Honest limits: the stack line (labels + caveats) is rendered by a build-time React component reading `face-facts.json`
+  from the pinned framework content (landing code, D31 S2) — NOT a fence region: the fence engine parses HTML comments only
+  (`fence.ts` `BEGIN_RE`) and cannot host a region in TSX; license and «executable AGENTS.md today = this repo's own» stay
+  hand-written.
 - Untouched: H1, eyebrow, hero terminal, videos, subscription form, tokens/theme (umbrella D7). Copy is the content session's.
-Verification: `grep -nE 'four stacks|Python|Go' app/\(site\)/page.tsx` outside the fence region returns nothing; both CTAs are
-internal.
+Verification: `grep -nE 'four stacks|Python|Go|cargo|clippy|Rust|roadmap|alpha|beta' app/\(site\)/page.tsx` outside the
+component's props returns nothing; both CTAs are internal.
 
 ## 6. AI twin contract (face pages)
 
-Frontmatter on every face `.md` twin (D8b, extended here):
+Two halves, one boundary (umbrella D34; rollout R12). The FRAMEWORK page in `docs/site/` carries only what the framework
+knows:
 
 ```yaml
 title: Quick start
-url: https://getff.ai/docs/quick-start/
-verified-at: <framework sha>          # the face-facts manifest snapshot this page was rendered from
-stale-since: <sha or null>            # set by the docs-refresh gate (umbrella D26) when a cited path changed
-sources:                              # every path the page cites, as permalinks at verified-at
-  - https://github.com/artyhoo/getff/blob/<sha>/install.sh#L281
+sources:                              # every path the page cites, as path:line anchors — never a permalink
+  - install.sh:281
 executed:                             # examples run at write time
-  - { step: run-the-gate, lane: npm, date: 2026-09-xx, result: RED }
-next: /docs/installation.md
+  - { step: fire-on-your-code, stack: ts-server, date: 2026-09-xx, result: RED }
+next: installation
 ```
 
-Body = the page text as markdown (fumadocs `getLLMText`), no agent prompts (FD11). The human render shows none of this except an
-optional quiet «Updated <date>» footer. Page actions (copy markdown, open in ChatGPT/Claude) require `markdownUrl` wired in
-`[[...slug]]/page.tsx` (umbrella D10 — a dependency, not decided here).
+The LANDING build (the `.md` twin is a build-time projection from `page.data.getText('processed')`, one dynamic route) stamps
+the rest: `url`, `verified-at: <pinned framework sha>`, each `sources:` entry resolved to `blob/<sha>/<path>#L<n>`, and
+`stale-since` = present iff the page carries a `docs-refresh: deferred` token at the pin (umbrella D26/D34). Body = the page
+text as markdown, no agent prompts (FD11). The human render shows none of this except an optional quiet «Updated <date>»
+footer. Page actions (copy markdown, open in ChatGPT/Claude) require `markdownUrl` wired in `[[...slug]]/page.tsx` (umbrella
+D10 — a dependency, not decided here).
 
 ## 7. Fact-supply architecture (FD13 + FD15 — approach A)
 
 One generator, `scripts/render-face-facts.mjs`, reads the SAME sources the runtime executes and writes
-`packages/core/manifest/face-facts.json` (`verified-at: <sha>`), from which fence regions on the seven pages, `llms.txt` and the
-hero §06 are filled by the existing engine (`packages/core/composition/fence.ts`; `--write/--check` precedent
+`packages/core/manifest/face-facts.json` (`verified-at: <sha>`), from which fence regions on the seven pages and `llms.txt` are
+filled by the existing engine (the hero §06 reads the same JSON through a landing component, §5.9) (`packages/core/composition/fence.ts`; `--write/--check` precedent
 `scripts/render-install-roster.mjs` — «derived, not asserted»). Families and sources:
 
 | Family | Source read (never restated) | Consumers |
 |---|---|---|
-| maturity | `packages/core/manifest/maturity.json` (`stacks` + `layers`; umbrella D32, new) | Introduction, Installation, stack pages' limits, `/docs/limits/`, `llms.txt`, README, hero §06 |
+| maturity | `packages/core/manifest/maturity.json` (`stacks` per installable positional with `caveat` + `layers`; umbrella D32, new) | Introduction, Installation, stack pages' limits, `/docs/limits/`, `llms.txt`, README, hero §06 |
 | install commands | `install.sh:281` `LANE_TABLE` + `setup:63-68` stack case + README flags | Stack pages, Installation, hero §05 |
 | first-steps | `packages/core/templates/shared/first-steps.source.json` | Stack pages' steps, Installation «What gets installed» |
 | rosters | the generator session's per-family JSON `docs/site/reference/<family>.json` (umbrella D9/D29) — READ, never re-derived | Introduction, agent page |
-| counts | family JSON where a family exists; otherwise `packages/core/principles/*.test.ts`, `prior-art-evaluations.md` rows, `research-patches/*.md`, `docs/superpowers/specs/*.md`, landing `CLAIMS-LEDGER.md` | Why getff, How it works, Foundations |
+| counts | family JSON where a family exists; otherwise `packages/core/principles/*.test.ts`, `prior-art-evaluations.md` rows, `research-patches/*.md`, `docs/superpowers/specs/*.md`, landing `CLAIMS-LEDGER.md`; academic sources = unique DOI / arXiv URLs under `docs/` + `skills/getff/references/` (predicate declared in the generator, never a typed number) | Why getff, How it works, Foundations |
 | enforcement outcomes | the AGENTS.md demo region render outcomes | How it works §3, honest-limit lines |
-| links | every cited path → permalink at `verified-at` | all twins `sources:`, Proof sections |
+| links | every cited path as `path:line` in the framework page; the landing build resolves it to a permalink at the pin (D34) | all twins `sources:`, Proof sections |
 | npm | `npm view getff version` (only when ≥ 0.1.0) | Installation npm section (absent until then) |
 
 Routing: the generator and `maturity.json` are capability commits in the framework (Prior-art trailer, `rules-manifest.json`
 precedent; consult SSOT + context7 per CLAUDE.md) → the umbrella's stage **«S0a — source-holes batch»** (provisional label,
 umbrella D28a; with D14d PARTIAL-family fields and `setup cargo|go`), BEFORE the content session; the D31 rollout session may
-rename it with a pointer. The framework→landing pin sync exposes the whole of framework `docs/site/` — CONTENT, authored or
-generated: page prose, `terms.md`, `face-facts.json`, `docs/site/reference/<family>.json`, the `.md` twins, `llms.txt`
-(umbrella D28a as clarified 2026-09-14). The four stub pages and the `markdownUrl` page-actions wiring
+rename it with a pointer. Sequencing (rollout S0 → S1): in S0 the content session gold-fills EVERY fence region — rosters,
+counts, commands, labels — by hand from the named source, because no generator and no family JSON exists yet; in S1 the
+generators (`render-face-facts.mjs`, the per-family JSON of D29) must reproduce the gold byte-for-byte (umbrella D24b) and
+`--check` owns the regions from then on. The FD4 stub-manifest escape is the same rule applied to `maturity.json`. The
+framework→landing pin sync exposes the whole of framework `docs/site/` — CONTENT, authored or generated: page prose,
+`terms.md`, `face-facts.json`, `docs/site/reference/<family>.json`, `llms.txt` (umbrella D28a as clarified 2026-09-14); the
+`.md` twins are NOT conveyed — they are a landing build-time projection (§6). The four stub pages and the `markdownUrl` page-actions wiring
 (D10) are landing-repo code owned by the cutover stage (D31 S2) — authored once, never conveyed (umbrella D28a; falsifier: a
 generated artifact that needs a landing-side edit on every pin bump means the boundary is wrong — move the generator or the
 config, never both). Where the umbrella decides doc sources live does not change this contract (FD15 falsifier). `--check`
-runs in the framework pre-push and in the landing CI, so a hand-typed number, command or label anywhere on a face page is RED.
+runs in the framework pre-push and in the landing PR CI (NEW — rollout R9, built in S1), so a hand-typed number, command,
+label or caveat anywhere on a face page is RED.
 
 ## 8. Terms and claims discipline
 
@@ -346,30 +375,56 @@ through the claims auditor; on these pages such sentences are generated, so the 
 
 | Seam | Mechanism | RED when |
 |---|---|---|
-| S1 facts | `render-face-facts.mjs --check` (framework pre-push + landing CI) | any fence region differs from the manifest render |
-| S2 maturity | same, over `maturity.json` | a label typed by hand anywhere (README, pages, hero) |
-| S3 examples | twin `executed:` entries + the content session's fixture logs (`EXIT=` recorded) | a stack page lacks a RED result, or result date is missing |
+| S1 facts | `render-face-facts.mjs --check` (framework pre-push, S1; landing PR CI, S1) | any fence region differs from the manifest render |
+| S2 maturity | same, over `maturity.json` (S1) | a label OR a caveat sentence typed by hand anywhere (README, pages, hero, `limits.md`) |
+| S3 examples | page `executed:` entries + the content session's fixture logs (`EXIT=` recorded); D26 refresh gate (S0/S1) | a stack page lacks a RED `fire-on-your-code` result, or result date is missing |
 | S4 URLs | lychee over `out/` in the landing CI + census test: every B-D4 census URL serves a real page (no `refresh` meta) + stub test: every listed post-census slug serves `refresh` + `canonical` | a census slug stubbed, a stub missing or pointing at a 404 |
-| S5 llms.txt | shape test: H1, blockquote, `## Start here` with exactly the seven twins in order (+ four stack twins under quick start), `## Optional` present | head drifts or lists are hand-edited |
-| S6 twins | frontmatter schema test (fields in §6; `sources` all permalinks at `verified-at`) | a twin without `verified-at`, a relative path in `sources` |
-| S7 diagrams | render smoke in the static export: each of the three diagrams yields an `<svg>` (runtime or build path) | a diagram block renders empty or as raw text |
-| S8 hero | `grep` guard from §5.9 + both CTAs internal | a stack word outside the fence region |
+| S5 llms.txt | shape test (landing PR CI, S1): H1, blockquote, `## Start here` with exactly the seven twins in the §5.8 agent order (+ four stack twins under quick start), `## Optional` present | head drifts or lists are hand-edited |
+| S6 twins | frontmatter schema test (landing PR CI, S1): framework half (`sources` as `path:line`, `executed`, `next`) + landing half (`url`, `verified-at`, resolved permalinks, `stale-since`) | a `sources:` entry that does not resolve at the pin, a twin without `verified-at` |
+| S7 diagrams | render smoke in the static export (S2): each of the three diagrams yields an `<svg>` (`beautiful-mermaid`, build path) | a diagram block renders empty or as raw text |
+| S8 hero | `grep` guard from §5.9 (landing PR CI, S1) + both CTAs internal | a stack / maturity word (`four stacks\|Python\|Go\|cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) outside the component's props |
 | S9 terms | `terms.md --check` (D20) forbidden-synonym scan over the seven pages | a synonym survives |
 
 ## 10. Dependencies, order of work, escalations
 
 1. Umbrella answers to E1–E4 (2026-09-13, register rows D4c / D32 / D33) and to the two follow-up asks (row D28a) are folded
    into FD1, FD4, FD5, FD8, FD12, §4, §7. No open dependency on the umbrella remains; D31 may rename stages with a pointer.
-2. Stage S0a — source-holes batch (framework): `maturity.json` + schema, `render-face-facts.mjs`, `setup cargo|go`, D14d fields,
-   hook headers + twin/baseline regen; `terms.md` task 0 (D20). Then S0b — gold pages + rules (umbrella's).
-3. Cutover stage (D31 S2, landing repo): diagram render path, `markdownUrl` page actions (D10), the four stub pages; the pin sync
-   brings all framework `docs/site/` content (prose, `terms.md`, `face-facts.json`, family JSON, twins, `llms.txt`).
+2. Stage S0a — source-holes batch (framework): `maturity.json` + schema (per-positional rows + `caveat`), `setup cargo|go`,
+   D14d fields, hook headers + twin/baseline regen; `terms.md` task 0 (D20); the new first-steps SSOT step `fire-on-your-code`
+   (npm + lanes) and `renders[1]` re-pointed at `/docs/installation/` (the `first-steps-*` slugs are stubbed, §4); the four
+   missing lineage citations in `skills/getff/references/` (§5.6.2). Then S0b — gold pages + rules (umbrella's), where the
+   content session gold-fills every region by hand (§7). `render-face-facts.mjs` and the family JSON are S1 (conveyor), and
+   must reproduce the gold.
+3. S1 (conveyor, rollout R9): the landing PR CI is NEW and owns seams S1, S2, S5, S6, S8; S3 is the content evidence + the D26
+   refresh gate. Cutover stage (D31 S2, landing repo): diagram render path (S7), the hero component (§5.9), `markdownUrl`
+   page actions (D10), the four stub pages; the pin sync brings all framework `docs/site/` content (prose, `terms.md`,
+   `face-facts.json`, family JSON, `llms.txt`); twins are projected at build.
 4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms.txt` head, hero copy, from the content brief.
 5. Cold reviews of THIS spec (D27, separate Opus session) run before step 4; their findings land in §11 with dispositions.
 
 ## 11. Review changelog
 
-_(filled after the two cold rounds: finding → ACCEPTED / DISSOLVED / ESCALATED / FIXED with the section changed)_
+Two cold rounds (umbrella D27), both REVISE, 2026-09-14. Every finding was re-verified against the cited source before
+disposition; none was DISSOLVED. TD = top-down, BU = bottom-up.
+
+| Finding | Severity | Disposition | Where |
+|---|---|---|---|
+| TD-F1 + BU-F1 npm quick start cannot go RED on the reader's code (`check-fences-fire.sh` enumerates shipped fixtures only) | BLOCKER | FIXED — RED step = plant `Math.random()` in `src/`, `npm run lint` fires `no-direct-time-randomness`; new SSOT step `fire-on-your-code`; beta definition kept, demonstration now matches | §5.2, FD5, §10.2 |
+| TD-F2 chooser cards are lanes, reader has a stack (`react-spa` / `react-native` had no row) | MAJOR | FIXED — `maturity.json` `stacks` = one row per installable positional; npm card shows the four rows; FYI sent to the umbrella (D32 granularity) | FD4, §5.1.4, §5.2 |
+| TD-F3 + BU-F6 the disagreeing sentences (README:258, `limits.md`, hero) have no field to live in | MAJOR | FIXED — per-row `caveat`; Introduction, `/docs/limits/`, stack pages, README region, hero render it; S2 covers caveat drift | FD4, §5.1.4, §7, S2 |
+| TD-F4 `## Start here` ordered for the human, not the agent | MINOR | FIXED — agent order (Introduction → agent page → quick start …); umbrella D34 already fixes the twin fields, so no escalation | §5.8, §3, S5 |
+| TD-F5 no page says how to back out | MINOR | FIXED — Installation «If you want it out», generated from the install-ownership source | §5.3 |
+| BU-F2 hero §06 fence region impossible (fence engine = HTML comments, TSX cannot host it) | MAJOR | FIXED — build-time React component reads `face-facts.json`; S8 guard re-scoped to the component's props | §5.9, §7, S8 |
+| BU-F3 twins are landing-rendered and carry no frontmatter; BU-F4 permalinks baked into framework output contradict D34 | MAJOR / MAJOR (flagged ESCALATED by the reviewer) | FIXED by aligning to the already-ratified umbrella D34 + rollout R12: framework half (`path:line`, `executed`, `next`) vs landing half (`url`, `verified-at`, permalinks, `stale-since`); twins removed from the conveyed list; no new escalation — D34 answers it | §6, FD11, §7, S6 |
+| BU-F5 diagram 2 reproduces no live render outcome | MAJOR | FIXED — static generic outcomes + generated region quoting one live `Enforced:` line | §5.5.2 |
+| BU-F7 four lineage sources have no citation artifact | MAJOR | FIXED — S0a adds Adzic / Martraire / Majors / Rašić to `skills/getff/references/`; name-only attribution until then | §5.6.2, §10.2 |
+| BU-F8 «45 academic sources across 24 files» unreproducible (register predicate unstated; `arxiv\|doi` gives 13 across 8) | MAJOR | FIXED — number dropped; predicate declared in the counts row; register fact F17 annotated | §5.6.3, §7 |
+| BU-F9 Introduction reads family JSON no stage produces before it | MAJOR | FIXED — S0 gold-fill by hand, S1 generators reproduce byte-for-byte (D24b); generator + family JSON moved to S1 | §7, FD13, §10.2 |
+| BU-F10 six-step sequence quoted, SSOT holds seven | MINOR | FIXED — all seven rendered + the new step; `research-your-stack` is the closing pointer | §5.2 |
+| BU-F11 four seams have no owning stage; «landing CI» does not exist yet | MINOR | FIXED — every seam names its channel and stage; landing PR CI marked NEW (R9, S1) | §9, §10.3 |
+| BU-F12 S8 guard misses the maturity words | MINOR | FIXED — pattern extended (`cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) | §5.9, S8 |
+| BU-F13 stub pairs cross-URL canonical with `noindex` | NOTE | FIXED — `noindex` dropped; shape = rollout R7 | §4 |
+| BU-F14 stubbing `first-steps-*` orphans `renders[1]` of the SSOT | NOTE | FIXED — S0a re-points `renders[1]` at `/docs/installation/` | §10.2 |
 
 ## 12. Deliverable pointers
 
