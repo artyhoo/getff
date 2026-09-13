@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.md
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 5c035eb3e19c73eb255ee25bb4475e6b876b30a94bfe6dfa0f450dee80f47f1b  .ai-factory/RULES.md
-a95f56483eecbb38bb573b0c0d44d93fa00f776ffdf02b56ee862180448377eb  .ai-factory/refresh-baseline.json
+bf9025b8d7d1489bfafeb192292bff9b04204256cb22a49009d84bea8396f774  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -30,8 +30,8 @@ d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
 3c57f869dfd13167e836509ec1815919d55ef70282d58a79b59ebe1dc5798063  .claude/hooks/inject-project-digest.sh
 5766feccf3ff24f8903b4706376ebd5b6a88f2ae8cd150c08927b4a6e5ba4efa  .claude/hooks/lang/check-parity.sh
-1e680aaf02b3fbbf275b6231a7f98369aba00dcbfdf4bf117388bc00f12012cb  .claude/hooks/lang/en.sh
-48244c98e10b38cb2689de705a24381f5239ccd5c41fc079169ff80a2c0e7381  .claude/hooks/lang/ru.sh
+baf7beb2bbda6068abaf541ea2ddedf0f43e27ad4113aa12e585875c75f9ce49  .claude/hooks/lang/en.sh
+5c27468d87aed2c9e4e26c653fc888e00f02279a7a6503a003b0ac99317acf75  .claude/hooks/lang/ru.sh
 5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json

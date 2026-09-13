@@ -373,6 +373,40 @@ a longer band. Still open after this round: decision 3 below (the twin firing al
 hook), and worktrees created before PR #1680 and never merged forward, which carry the twin's gate
 but no injector.
 
+### Round 4 — compact-command hint, operator request, 2026-09-13
+
+**D36 — the gate block ends with a ready-to-paste `/compact <focus>` command.** Operator premise
+(2026-09-13, verbatim intent): when the model has written the handoff and is waiting for the
+operator to compact, it should hand over the compaction command with the right argument, so the
+summary keeps what the next context needs. `/compact` accepts custom instructions that steer the
+harness summary; the SessionStart injector (D20) fires on a manual `/compact` as well as an auto
+one (it keys on `source=compact`, not on the trigger), so the argument COMPLEMENTS the injected
+handoff instead of replacing it. Change: `aif_msg_eot_handoff_gate` in both language packs gains
+one closing paragraph — after rewriting the file, end the final message with the template
+`/compact Keep: handoff file <path>; next action: <one line>; open forks: <one line>; verified
+facts (PR ids, SHAs, numbers) from the recent turns. Drop: tool output, exploration dead ends,
+superseded drafts.` — the path is the gate's own handoff path, filled by the hook. The
+`mechanical-tail` branch is unchanged and exclusive with it (no rewrite → no command).
+
+Channel: prose in the block, NOT a gate on the assistant text. Reasoning per
+`.claude/rules/effort-worthiness.md` §1: the line is an operator convenience whose absence the
+operator sees at once (they would be typing the command themselves), not a load-bearing check;
+a presence gate would add a blocking turn in a band whose measured multiplier (round 3) already
+sits near 1 of the 2-turn ceiling. Promotion path per `attention-is-not-a-mechanism.md` §3: three
+recorded omissions in six months → a text-shape check on the ALLOWED stop, like the recap marker.
+
+Scope boundary: the D7 soft-tier context line is NOT changed. In the band D21 clears it, so an
+armed session never sees it; and its unarmed bytes are frozen by fixture 9's goldens
+(`gate-unarmed-goldens.json`, captured from the pre-#1680 hook and contract-marked «do not
+regenerate against an edited hook»). Unarmed consumers keep the old advice; revisit only if the
+hint proves useful enough to justify recapturing the paired negative.
+
+Verification: `fixture 1b` in `end-of-turn-reminder.test.ts` spawns the armed no-file case under
+`AIF_HOOK_LANG=en` and `ru` and asserts the template with the REAL handoff path (RED first: the
+pre-change block lacked `/compact`); `check-parity.sh` 11 keys; `lang-parity.test.ts` byte-identity
+of the hand-maintained `plugin/hooks/lang` twins; install-sh baselines recaptured (only the two
+lang-pack hashes and `refresh-baseline.json` moved); `MANIFEST.sha256` rebuilt.
+
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 
 **Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the

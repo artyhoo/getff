@@ -2206,6 +2206,30 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(parsed.reason, 'the reason carries the escape grammar').toContain('mechanical-tail:');
   });
 
+  // ── Compact-command hint (2026-09-13, spec §Changelog round 4, D36): the block tells the
+  // model to END its final message with a ready-to-paste `/compact <focus>` command, so the
+  // operator never types the argument by hand and the harness summary complements the handoff
+  // file instead of restating the session. The template is quoted in BOTH packs; the path is
+  // the gate's own handoff path, not a placeholder.
+  it('fixture 1b: the block carries a ready-to-paste /compact command naming the handoff file (en + ru)', () => {
+    const c = goldenCase('f1-armed-no-handoff');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, lang).toBe('block');
+      const expectedPath = `${b.residueDir}/_handoff-${c.session}.md`;
+      expect(parsed.reason, `${lang}: the template names the real handoff path`).toContain(
+        `/compact Keep: handoff file ${expectedPath}; next action: <one line>; open forks: <one line>;`,
+      );
+      expect(parsed.reason, `${lang}: the template says what to drop`).toContain(
+        'Drop: tool output, exploration dead ends, superseded drafts.',
+      );
+    }
+  });
+
   it('fixture 2: armed, valid five-section handoff, no baseline → allow (silent) + baseline written with the sha', () => {
     const c = goldenCase('f2-armed-valid-allow');
     const b = buildCase(c, true);
