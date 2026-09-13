@@ -191,7 +191,7 @@ export function emitClaude(model) {
  *  trust gate). The .zcode/config.json file retains MCP + skills only.
  *
  *  HONEST DEGRADATION (declared LOUDLY, attention-is-not-a-mechanism.md §1):
- *   • 4 PostToolUse gate hooks (POST_MUTATION_GATES) are ADVISORY-ONLY on ZCode. Schema Uan
+ *   • 5 PostToolUse gate hooks (POST_MUTATION_GATES) are ADVISORY-ONLY on ZCode. Schema Uan
  *     (zcode.cjs:53) accepts permissionDecision:"deny" ONLY for PreToolUse; PostToolUse consumes
  *     additionalContext alone. Post-mutation checks cannot block on ANY harness (the file is
  *     already changed), but CC surfaces exit1+stderr loudly while ZCode's additionalContext is a
@@ -201,6 +201,7 @@ export function emitClaude(model) {
  *   • MultiEdit matchers are INERT on ZCode (no alias); AskUserQuestion IS native (NOT inert). */
 const POST_MUTATION_GATES = [
   'check-doc-authority',
+  'check-doc-authority-header',
   'check-hook-marker',
   'check-kickoff-traps',
   'check-worker-dispatch-channel',
@@ -342,6 +343,25 @@ const PLUGIN_INTERNAL_HOOKS = {
           type: 'command',
           command:
             '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" warn-subagent-report-zcode',
+        },
+      ],
+    },
+    // check-doc-authority-header: consumer-facing zero-dep reimplementation of the framework's
+    // check-doc-authority gate (closes doctrine §2 row 3, the last `plugin-gap` — umbrella
+    // zcode-plugin-firstclass Stage 2).
+    // NOT model-derived deliberately: the framework dogfoods `check-doc-authority`
+    // (.claude/settings.json) and must NOT run the consumer reimplementation on itself — so this
+    // registration lives here, the same shape as inject-project-digest / inject-output-language.
+    // The twin under plugin/hooks/ is generated (identity mode, generate-plugin-twins.sh); the
+    // matcher mirrors the source hook's @file-content-gate requirement (Edit|Write|MultiEdit —
+    // else a MultiEdit that strips an authority header slips past).
+    {
+      matcher: 'Edit|Write|MultiEdit',
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" check-doc-authority-header',
         },
       ],
     },
