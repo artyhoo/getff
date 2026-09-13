@@ -323,6 +323,7 @@ knows:
 
 ```yaml
 title: Quick start
+kind: face-page                       # D30 D-Q17: every docs/site/**/*.md carries kind:, fail-closed; face pages = face-page
 sources:                              # every path the page cites, as path:line anchors — never a permalink
   - install.sh:281
 executed:                             # examples run at write time
@@ -330,6 +331,8 @@ executed:                             # examples run at write time
 next: installation
 ```
 
+`kind: face-page` is the D30 quality-contract key (D-Q17, D35 E1): `docs-check.mjs` errors on any `docs/site/**/*.md` without a
+`kind:`, C12 treats `face-page` as JUDGE-only against §5's own per-page skeletons, and `terms.md` carries `kind: glossary`.
 The LANDING build (the `.md` twin is a build-time projection from `page.data.getText('processed')`, one dynamic route) stamps
 the rest: `url`, `verified-at: <pinned framework sha>`, each `sources:` entry resolved to `blob/<sha>/<path>#L<n>`, and
 `stale-since` = present iff the page carries a `docs-refresh: deferred` token at the pin (umbrella D26/D34). Body = the page
@@ -389,7 +392,7 @@ through the claims auditor; on these pages such sentences are generated, so the 
 | S3 examples | page `executed:` entries + the content session's fixture logs (`EXIT=` recorded); D26 refresh gate (S0/S1) | a stack page lacks a RED `fire-on-your-code` result, or result date is missing |
 | S4 URLs | lychee over `out/` in the landing CI + census test: every B-D4 census URL serves a real page (no `refresh` meta) + stub test: every listed post-census slug serves `refresh` + `canonical` | a census slug stubbed, a stub missing or pointing at a 404 |
 | S5 llms.txt | shape test (landing PR CI, S1): H1, blockquote, `## Start here` with exactly the seven twins in the §5.8 agent order (+ four stack twins under quick start), `## Optional` present | head drifts or lists are hand-edited |
-| S6 twins | frontmatter schema test (landing PR CI, S1): framework half (`sources` as `path:line`, `executed`, `next`) + landing half (`url`, `verified-at`, resolved permalinks, `stale-since`) | a `sources:` entry that does not resolve at the pin, a twin without `verified-at` |
+| S6 twins | frontmatter schema test (landing PR CI, S1): framework half (`kind: face-page`, `sources` as `path:line`, `executed`, `next`) + landing half (`url`, `verified-at`, resolved permalinks, `stale-since`); `kind:` presence is also D30's `docs-check.mjs` pages profile (pre-commit + `audit-self.yml`, fail-closed) | a `sources:` entry that does not resolve at the pin, a twin without `verified-at`, a face page without `kind: face-page` |
 | S7 diagrams | render smoke in the static export (S2): each of the three diagrams yields an `<svg>` (`beautiful-mermaid`, build path) | a diagram block renders empty or as raw text |
 | S8 hero | `grep` guard from §5.9 (landing PR CI, S1) + both CTAs internal | a stack / maturity word (`four stacks\|Python\|Go\|cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) outside the component's props |
 | S9 terms | `terms.md --check` (D20) forbidden-synonym scan over the seven pages | a synonym survives |
@@ -434,6 +437,7 @@ disposition; none was DISSOLVED. TD = top-down, BU = bottom-up.
 | BU-F12 S8 guard misses the maturity words | MINOR | FIXED — pattern extended (`cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) | §5.9, S8 |
 | BU-F13 stub pairs cross-URL canonical with `noindex` | NOTE | FIXED — `noindex` dropped; shape = rollout R7 | §4 |
 | BU-F14 stubbing `first-steps-*` orphans `renders[1]` of the SSOT | NOTE | FIXED — S0a re-points `renders[1]` at `/docs/installation/` | §10.2 |
+| Umbrella cross-carve-out seam (D38, 2026-09-14): D30 D-Q17 requires `kind:` on every `docs/site/**/*.md`, fail-closed; the seven face pages carried none | SEAM | FIXED — `kind: face-page` in the framework half of the frontmatter (D35 E1), S6 asserts it; `terms.md` is `kind: glossary` (D30's, not ours) | §6, S6 |
 
 ## 12. Deliverable pointers
 
