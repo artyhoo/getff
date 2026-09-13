@@ -3,7 +3,8 @@
 > **Status:** designed 2026-09-13/14 in a dedicated `/arch` §1 session (carve-out per the site umbrella's D28 / premise P-X);
 > escalations E1–E4 answered by the umbrella seat 2026-09-13 (its rows D4c / D32 / D33) and folded in below;
 > two cold D27 reviews (top-down + bottom-up, Opus session `upbeat-bassi-7ccdbb-ef`, 2026-09-14) returned REVISE; every finding is
-> dispositioned in §11 and fixed inline; awaiting the operator's spec gate.
+> dispositioned in §11 and fixed inline; the umbrella seat confirmed no conflict (its spec `d80d4f4d9a2`, rows D28a/D36 updated);
+> awaiting the operator's spec gate.
 > **Authoritative for:** the seven face pages of the docs site, the landing hero delta, `llms.txt`, the AI-twin contract of face
 > pages, the fact-supply architecture that feeds them, and the testing seams that prove each claim on them.
 > **NOT authoritative for:** the site umbrella's decisions (register `_decision-register-getff-ai-site.md`, D1–D28 — binding here,
@@ -45,7 +46,7 @@ per fact rendered everywhere, (c) every example executed and every number genera
 | FD1 | Page set | Seven pinned pages + `/llms.txt` (§4). Ratified by the umbrella as D4c; the Understand tab LINKS to How it works / Foundations and never re-explains the same mechanism. | Group no longer fits above the sidebar fold at 1080p, or <10% of readers reach Foundations / How it works from it → both move to Understand; pinned group = 5. |
 | FD2 | Human first contact | Hero CTA1 → Quick start; CTA2 → Introduction; quiet agent line under the CTAs. | Beta readers bounce on Quick start before the red gate → CTA1 → Introduction. |
 | FD3 | AI first contact | Hybrid `llms.txt`: curated head + generated lists under `## Optional` (§6). | Context7 indexes twins automatically → head shrinks to H1 + blockquote + Start here. |
-| FD4 | Stack status | ONE framework file `packages/core/manifest/maturity.json` (+ schema; umbrella D32), section `stacks` (this spec) beside `layers` (rules beta / factory experimental), rendered everywhere. One row per INSTALLABLE positional (`ts-server`, `react-next`, `react-spa`, `react-native`, `python`, `cargo`, `go`), each with label · definition · `caveat` sentence · verified-at (§5.1.4). | A hand-typed label disagrees → fence `--check` RED. Batch slips >1 week → content session renders from a stub manifest, `--check` catches the fill later. |
+| FD4 | Stack status | ONE framework file `packages/core/manifest/maturity.json` (+ schema; umbrella D32), section `stacks` (this spec) beside `layers` (rules beta / factory experimental), rendered everywhere. One row per INSTALLABLE positional (`ts-server`, `react-next`, `react-spa`, `react-native`, `python`, `cargo`, `go`), each with label · definition · `caveat` sentence · verified-at (§5.1.4). | A hand-typed label disagrees → fence `--check` RED. Batch slips >1 week → content session renders from a stub manifest whose cells are real operator facts or the generator's absence token (umbrella D36 — never a placeholder value), `--check` catches the fill later. |
 | FD5 | Quick start | Group page `/docs/quick-start/` (stack chooser) + four per-stack pages on the census slug family `/docs/quickstart-<stack>/`; all seven steps from `first-steps.source.json` plus the new SSOT step `fire-on-your-code`; every stack page ends RED on the reader's code via the stack's NATIVE gate (§5.2). | A stack cannot reach RED in ≤10 min at write time → labelled «verified on fixture». Chooser bounce >30% → hero CTA1 goes straight to `quickstart-ts`. |
 | FD6 | Research grounding | Own page **Foundations**, seven sections, every paragraph cites a primary artifact. | A section without a primary artifact → cut or labelled opinion. |
 | FD7 | Hero | In scope structurally (§5.9); H1/brand/tokens untouched. | Operator visual sign-off rejects → structure stays, copy returns to the content session. |
@@ -289,8 +290,9 @@ paragraph (for whom; no LLM in the loop; how the twins are pinned) → `## Start
 getff with your AI agent → Quick start (its four stack twins indented beneath) → Installation → Why → How it works →
 Foundations, one-line notes (journey order stays where it serves the human: sidebar and `next:` chain) → `## Proof` (`AGENTS.md` permalink at verified-at, `make self-audit`, claims ledger) → `## Reference` (generated family
 list) → `## Optional` (`llms-full.txt`, Understand/Guides lists, generated). The curated head is authored by the content session
-and lives in a template; the generator appends the lists in the same PR (umbrella D26). `llms-full.txt` = every page's processed
-markdown, unchanged mechanism, face pages first.
+as a template in framework `docs/site/`; the LANDING build assembles `llms.txt` from that head plus the generated lists (umbrella
+D28a second clarification 2026-09-14, D29 G17, D31 R12) — `llms.txt` itself is a build projection, like the twins.
+`llms-full.txt` = every page's processed markdown, unchanged mechanism, face pages first.
 
 ### 5.9 Landing hero delta (`app/(site)/page.tsx`, structural only)
 
@@ -354,8 +356,8 @@ counts, commands, labels — by hand from the named source, because no generator
 generators (`render-face-facts.mjs`, the per-family JSON of D29) must reproduce the gold byte-for-byte (umbrella D24b) and
 `--check` owns the regions from then on. The FD4 stub-manifest escape is the same rule applied to `maturity.json`. The
 framework→landing pin sync exposes the whole of framework `docs/site/` — CONTENT, authored or generated: page prose,
-`terms.md`, `face-facts.json`, `docs/site/reference/<family>.json`, `llms.txt` (umbrella D28a as clarified 2026-09-14); the
-`.md` twins are NOT conveyed — they are a landing build-time projection (§6). The four stub pages and the `markdownUrl` page-actions wiring
+`terms.md`, `face-facts.json`, `docs/site/reference/<family>.json`, the `llms.txt` head template (umbrella D28a as clarified
+twice 2026-09-14); the `.md` twins and the assembled `llms.txt` are NOT conveyed — landing build-time projections (§5.8, §6). The four stub pages and the `markdownUrl` page-actions wiring
 (D10) are landing-repo code owned by the cutover stage (D31 S2) — authored once, never conveyed (umbrella D28a; falsifier: a
 generated artifact that needs a landing-side edit on every pin bump means the boundary is wrong — move the generator or the
 config, never both). Where the umbrella decides doc sources live does not change this contract (FD15 falsifier). `--check`
@@ -398,7 +400,7 @@ through the claims auditor; on these pages such sentences are generated, so the 
 3. S1 (conveyor, rollout R9): the landing PR CI is NEW and owns seams S1, S2, S5, S6, S8; S3 is the content evidence + the D26
    refresh gate. Cutover stage (D31 S2, landing repo): diagram render path (S7), the hero component (§5.9), `markdownUrl`
    page actions (D10), the four stub pages; the pin sync brings all framework `docs/site/` content (prose, `terms.md`,
-   `face-facts.json`, family JSON, `llms.txt`); twins are projected at build.
+   `face-facts.json`, family JSON, the `llms.txt` head template); twins and `llms.txt` are projected at build.
 4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms.txt` head, hero copy, from the content brief.
 5. Cold reviews of THIS spec (D27, separate Opus session) run before step 4; their findings land in §11 with dispositions.
 
