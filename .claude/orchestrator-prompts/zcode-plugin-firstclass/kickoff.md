@@ -71,9 +71,9 @@ consumer path, manifest-slot decision, row-3 twin, docs, live acceptance.
 |---|---|---|
 | 0 | R-phase re-verification: probes 0.1-0.8, dated research-patch, forks surfaced — DONE #1724 | — |
 | 1 | Decision pack: forks A-D recorded with recommendations (research doc only) — DONE #1724 | 0 |
-| 2 | Implementation per decisions: README ZCode consumer path + row-3 twin + compatibility sync. HARD CROSS-UMBRELLA GATE: `plugin-skills-generator` has its done.md on staging (sibling merged) — else park `blocked_external` | 1 |
-| 3 | ZCode-first live consumer acceptance on the HOST (install + listing + refresh); merge-blocking | 2 |
-| 4 | CC non-regression requirements documented (external, owner-scheduled; NOT executor work) | — |
+| 2 | Implementation per decisions: README ZCode consumer path + row-3 twin + compatibility sync. HARD CROSS-UMBRELLA GATE: `plugin-skills-generator` has its done.md on staging (sibling merged) — else park `blocked_external` — DONE #1727 | 1 |
+| 3 | ZCode-first live consumer acceptance on the HOST (install + listing + refresh); merge-blocking — DONE #1727 (HOST evidence recorded in the PR body before merge) | 2 |
+| 4 | CC non-regression requirements documented (external, owner-scheduled; NOT executor work) — DONE via done.md §Stage-4 (execution stays owner-scheduled) | — |
 
 ### Stage 0 — R-phase re-verification (MANDATORY — re-derive every load-bearing claim; do NOT trust this kickoff's cached outputs)
 
