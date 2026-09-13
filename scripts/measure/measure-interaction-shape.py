@@ -11,6 +11,7 @@ THE REGEXES ARE THE MEASUREMENT — changing one changes what a spec row means; 
 if you ever do. Reads only; never writes. stdlib only.
 """
 import argparse, json, glob, os, re, sys, time, collections
+from datetime import datetime, timezone
 
 MARK = "## 🟢"
 
@@ -173,9 +174,14 @@ def main():
                                 after["substantive"] += 1
                             break
 
-    print(f"root: {args.root}")
-    print(f"days: {args.days}")
+    print(f"run_utc: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
+    print(f"root: {root}")
+    print(f"glob: {args.glob}")
+    window_start = datetime.fromtimestamp(cutoff, tz=timezone.utc).strftime("%Y-%m-%d")
+    window_end = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    print(f"window: from {window_start} to {window_end}")
     print(f"min_size: {args.min_size}")
+    print(f"days: {args.days}")
     print(f"transcripts_scanned: {len(files)}")
     print(f"user_messages: {stats['user']}")
     print(f"reexplain_asks: {stats['clarify']}")

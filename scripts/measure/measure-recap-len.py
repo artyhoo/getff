@@ -11,6 +11,7 @@ nearest-rank index formula, NOT interpolation — do not "fix" it without re-run
 every number in the spec table. Reads only; never writes. stdlib only.
 """
 import argparse, json, glob, os, sys
+from datetime import datetime, timezone
 
 DEFAULT_MARKER = "## 🟢 Простыми словами"
 
@@ -46,7 +47,8 @@ def main():
     args = ap.parse_args(_argv_with_equals(sys.argv[1:], {"--root", "--glob", "--marker"}))
 
     mark = args.marker
-    files = sorted(glob.glob(os.path.join(os.path.expanduser(args.root), args.glob, "*.jsonl")))
+    root = os.path.expanduser(args.root)
+    files = sorted(glob.glob(os.path.join(root, args.glob, "*.jsonl")))
     lens, total_lines, qblocks, n_sessions = [], [], 0, 0
     for f in files:
         seen = False
@@ -69,7 +71,11 @@ def main():
         except Exception: pass
         if seen: n_sessions += 1
 
-    print(f"root: {args.root}")
+    print(f"run_utc: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
+    print(f"root: {root}")
+    print(f"glob: {args.glob}")
+    print("window: all (no time filter)")
+    print("min_size: none")
     print(f"marker: {mark}")
     print(f"transcripts_scanned: {len(files)}")
     print(f"sessions_with_block: {n_sessions}")
