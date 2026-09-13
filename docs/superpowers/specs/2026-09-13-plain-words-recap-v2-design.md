@@ -1,6 +1,7 @@
 # Plain-words recap v2 — one block, fork cards, glossary, fewer stops — design
 
-> **Status:** DRAFT — awaiting two cold reviews (`/arch` §2) and the operator gate.
+> **Status:** DRAFT — round-1 revisions applied 2026-09-13 (two cold `/arch` §2 reviews, both
+> REVISE; dispositions in Changelog); awaiting the round-2 cold pass and the operator gate.
 > **Authoritative for:** the operator-facing surface of every agent turn in this repo — the
 > end-of-turn block, the fork card, the /arch round form, the «от тебя» grammar, the glossary
 > with its two counters, the /story rework, and the autonomy edits that remove text-born stops.
@@ -22,28 +23,50 @@ Measurements (project transcripts, `~/.claude/projects/-Users-art-code-rules-as-
 
 | Measure | Value | Source |
 |---|---|---|
-| Sessions scanned | 238-239 | source handoff; `measure-recap-len.py` |
+| Transcripts scanned / sessions containing a block | 361 / 240 | `measure-recap-len.py` (re-run 2026-09-13 by the cold seats; the source handoff's «238» was sessions WITH a block, not sessions scanned) |
 | Operator re-explain asks | 100 | source handoff |
 | Turns ending in «жду го»-class waits vs real harness blocks | 636 vs 101 | source handoff |
-| `## 🟢 Простыми словами` blocks emitted | 1571 | `measure-recap-len.py` (2026-09-13) |
-| Block non-empty lines p50 / p90 / max | 7 / 10 / 35 | same |
-| Whole-message lines p50 / p90 / max | 11 / 24 / 80 | same |
+| `## 🟢 Простыми словами` blocks emitted | 1607 | `measure-recap-len.py` (2026-09-13 re-run; 1571 at authoring) |
+| Block non-empty lines p50 / p90 / max | 7 / 10 / 41 | same; blocks >15 lines: 36 (2.2 %), >25: 5 |
+| Whole-message lines p50 / p90 / max | 11 / 25 / 80 | same |
 | Blocks containing a question | 6 % | same |
-| `## 🎬` story emissions | 165 | `grep -l` over transcripts |
+| `## 🎬` story emissions | 166 | `grep -l` over transcripts |
+
+The 100 / 636 / 101 rows are recorded in the source handoff only; their scripts (`analyze2.py`,
+`perm2.py`) lived in a session scratchpad and are NOT re-derivable today — slice 0 vendors the
+measurement scripts into the repo so every row above can be re-run (cold reviews F13/F14).
 
 Reading: the block is already short; the pain is its content (action retelling: the RU pack's
 branch-A text opens «в первую очередь для себя» and lists «чем я занят / что я только что
 сделал», [ru.sh](../../../.claude/hooks/lang/ru.sh)) and forks living in the long text ABOVE
 the block. Waits come from text, not from permissions: bypassing permissions (D4) was rejected.
 
-**Verified facts (2026-09-13, this checkout = origin/staging `94a3a9efcd5`):**
+**Verified facts (2026-09-13, re-anchored after round 1: this branch at `b75b697b11c` =
+origin/staging `4fa5dc14d6d` merged forward; every line number below is at THAT commit and
+carries its grep literal, so a reader on a later tree re-finds it by the literal — the draft's
+«origin/staging `94a3a9efcd5`» was a stale local branch 66 commits behind, cold review F1):**
 
-- Stop hook [end-of-turn-reminder.sh](../../../.claude/hooks/end-of-turn-reminder.sh): branches
-  A/B/C/story selected at `:876-893`; long-text threshold 500 chars `:762-770`; `asked`
-  detection (trailing `?` or `AIF_EOT_QUESTION_PATTERN`) `:775-784`; already-recapped guard on
-  `AIF_RECAP_MARKER` `:615`; anchor extraction from `ai-title` / first user message `:518-532`
-  (defect: a bare filename as first message yields «<system-reminder>» as the session goal);
-  handoff-currency gate precedent for a form gate (awk heading check + cap + sha256) `:424-500`.
+- Stop hook [end-of-turn-reminder.sh](../../../.claude/hooks/end-of-turn-reminder.sh):
+  `stop_hook_active` guard `:71-72` (a second block is impossible → retry budget is one);
+  SDK-entrypoint guard `sdk-*)` `:90` (`AIF_EOT_SDK_RECAP`, bought by the 503/503 aif
+  review-sidecar incident); handoff-currency gate `AIF_HANDOFF_GATE:-0` `:424` (dormant D18,
+  awk heading check + cap + sha256, D21 precedence «one reason per stop»); anchor extraction
+  `"type":"ai-title"` `:528-533`, first user message `grep -m1 -F '"type":"user"' … cut -c1-120`
+  `:536`, fallback `:542` (defect INFERRED from that code path — a bare filename or a
+  `<system-reminder>` payload as first message becomes the goal; no transcript instance is cited,
+  slice 1 reproduces it in a fixture); already-recapped guard `grep -qF -- "$AIF_RECAP_MARKER"`
+  `:625-632` ending in `_autonomy_exit` — the ONLY path a marker-bearing turn reaches (the D-A
+  gate site); story-told guard `grep -qF -- "$AIF_STORY_MARKER"` `:635-637` (exact-literal
+  match on the WHOLE marker, not the `## 🎬` prefix); `long_text` / `recap_threshold=500`
+  `:772-775`; `asked=false` detection (trailing `?` or `AIF_EOT_QUESTION_PATTERN`) `:784-794`;
+  silent «Neither» branch `:886-890`; branches A/B/C/story selected `:892-904`.
+- Delivery: [setup.d/10-skills.sh](../../../setup.d/10-skills.sh) `:237-260` copies the hook +
+  `lang/{en,ru}.sh` + `check-parity.sh` and registers the Stop hook; `:274-282` the same for
+  `ask-question-reminder.sh`; the hook header `:4-6` says «delivered by install.sh + do_refresh»
+  (existing installs receive it on `--refresh`). [install.sh](../../../install.sh) `:9` `--full`
+  = non-interactive consumer path (dev-deps, no prompts; `setup -y` wraps it), `:13` `--all` =
+  `--full` + AIF suite; profiles `core|env|factory` `:15-17`. Default pack when `AIF_HOOK_LANG`
+  is unset is `en` (`:28` `${AIF_HOOK_LANG:-en}`).
 - [ask-question-reminder.sh](../../../.claude/hooks/ask-question-reminder.sh): PreToolUse
   deny-once on `AskUserQuestion`, two-state flag `${TMPDIR}/aif-ask-reminded-<session>`.
 - Lang packs [en.sh](../../../.claude/hooks/lang/en.sh) / [ru.sh](../../../.claude/hooks/lang/ru.sh)
@@ -63,7 +86,8 @@ the block. Waits come from text, not from permissions: bypassing permissions (D4
 - Antipattern `#worker-dispatch-via-subagent`: [pipeline/SKILL.md](../../../.claude/skills/pipeline/SKILL.md)
   ~:389, principle [29-worker-dispatch-channel.ts](../../../packages/core/principles/29-worker-dispatch-channel.ts)
   (`CHANNEL_RE`, `WRITE_WORKER_RE`, `READONLY_CONTEXT_RE`, escape `channel-discipline: allow`),
-  hook `check-worker-dispatch-channel.sh`; 33 repo files reference the name.
+  hook `check-worker-dispatch-channel.sh`; 34 repo files reference the name (`grep -rl`,
+  excluding `.git` and this spec; measured by the cold seats — the draft said 33).
 - Glossary reuse: mattpocock `domain-modeling` (`CONTEXT.md`: `**Term**:` / 1-2 sentences /
   `_Avoid_:`; «a glossary and nothing else») and `wait-what` (user-invoked re-explanation in
   the ubiquitous language, must not degrade on repeat) — SSOT #230 (REFERENCE), #253 (grilling
@@ -83,25 +107,58 @@ this order; an empty section is **omitted**, never filled with «nothing»:
 4. **Least sure** — the one thing least verified.
 5. **Next** — exactly two lines: «я: …» and «от тебя: …» (D-B).
 
-Gate matrix (deterministic, in the Stop hook; one auto-retry naming what is missing, like the
-handoff-currency gate): sections 1 and 5 always; 3 when the turn ended in a question (`asked`);
-2 when `long_text`. The retelling part (sections 1, 2, 4, 5) is capped at
-`AIF_EOT_RECAP_MAX_LINES` (default 15, D3 of the source handoff); **fork cards are never
-capped** (operator premise P-4). Branch selection stays; the branches now differ only in which
-sections the gate demands. Self-checks («did I offload a decision?», «did I decide a fork
-silently?», «would a seventh-grader follow this?» — D11) stay as hook INSTRUCTION lines, not as
-output sections. The block stays at the END of the reply (D1).
+**Gate matrix** (deterministic, in the Stop hook; one auto-retry naming what is missing, like
+the handoff-currency gate): sections 1 and 5 always; 3 when the turn ended in a question
+(`asked`); 2 when `long_text`.
+
+**Gate site (cold review F2):** INSIDE the already-recapped branch (`:625-632`), before its
+`_autonomy_exit` — that branch is the only code path a marker-bearing turn reaches, so a check
+placed after it never fires on the population it exists for. The `stop_hook_active` guard
+(`:71-72`) sits above it, so the retry budget is exactly one, by construction.
+
+**Exemption set (cold review F2)** — «every turn ends with the block» holds everywhere EXCEPT:
+the SDK entrypoint (`sdk-*` guard `:90`; aif review sidecars have no reader for a recap and
+the block broke their `## Blocking Findings` parse 503/503 times); a `stop_hook_active` stop;
+the silent «Neither» turn (`:886-890`). The gate demands a block only where a branch payload
+already fires — it never widens the hook's population.
+
+**Kill switch + precedence (cold review F7; operator decision Q1, P-9):** the gate is armed by
+`AIF_RECAP_GATE=1` and ships DORMANT (D18 shape of the handoff-currency gate `:424`); unarmed,
+the hook's output is byte-identical to today's (goldens prove it, same fixture class). Arming:
+`scripts/register-recap-gate.sh` in the D-E shape (`--user` default / `--project`, like
+`register-handoff-gate.sh`); `install.sh --full` (and `--all`, which implies it) arms it in the
+consumer's project settings in the consumer's `AIF_HOOK_LANG`; interactive / default installs
+deliver hook + packs unarmed. When two reason producers fire on one stop, the recap gate's
+reason REPLACES the branch payload and YIELDS to the handoff-currency gate's reason — one reason
+per stop, D21 «never both» ([handoff-currency-gate](2026-09-08-handoff-currency-gate-design.md)).
+
+**Cap:** the retelling part (sections 1, 2, 4, 5) is capped at `AIF_EOT_RECAP_MAX_LINES`
+(default 15, D3 of the source handoff; measured: binds on 36 of 1607 blocks = 2.2 %, so it is a
+regression guard, not the fix — cold review F11); **fork cards are never capped** (operator
+premise P-4).
+
+**Block vs round (cold review F3):** on an /arch round turn (D-D) the BODY owns the cards;
+section 3 of the block is then ONE pointer line «развилки: Q1-Qn выше», never the cards again.
+Same rule for slice 2: when the card was emitted before `AskUserQuestion` buttons, the block
+carries the pointer, not a second card.
+
+Branch selection stays (`:892-904`); the branches now differ only in which sections the gate
+demands. Self-checks («did I offload a decision?», «did I decide a fork silently?», «would a
+seventh-grader follow this?» — D11) stay as hook INSTRUCTION lines, not as output sections. The
+block stays at the END of the reply (D1).
 
 ### D-B The «от тебя» grammar
 
-The last line takes exactly one of four values; the gate rejects anything else:
+The last line takes exactly one of four values; the gate rejects anything else. Both languages
+are pack literals (`aif_msg_eot_for_you_*` in `lang/{en,ru}.sh`, parity-checked); the gate reads
+the ACTIVE pack's literals, never hard-coded Russian — the default pack is `en` (cold review F9):
 
-| Value | Meaning | Who verified |
+| Value (RU / EN) | Meaning | Who verified |
 |---|---|---|
-| «ничего» | done AND verified by the agent (test run, CI green, probe quoted) | the agent — the claim is its own |
-| «ждём: X» | something runs; the agent reports back | n/a |
-| «решить: A или B» | a genuine fork = operator floor ([autonomous-night-v3 §6](2026-08-09-autonomous-night-v3-design.md): taste / goal; objects outside authorized scope — standing config, maintainer artifacts, new PRs and scope widening, spend, security, the goal; deletions of non-generated artifacts; externally visible actions). Everything recorded goes to the advisor seat, not the operator | the fork card carries the evidence |
-| «сделать руками: X» | harness-forbidden for the agent (settings.json, force-push, remote branch delete, merge to main, secrets / logins; chip clicks); look-and-poke ONLY when no automated probe exists, stated as a concrete action | n/a |
+| «ничего (<след>)» / «nothing (<trace>)» | done AND verified by the agent. The parenthesis is REQUIRED and holds a verification trace: a command name, a count like `12/12`, a CI / PR link, or a quoted probe line. The gate matches the FORM only (a parenthesis containing a token of one of those shapes); it cannot verify substance — but a false trace is an explicit lie a reviewer sees in one glance, where a bare «ничего» was invisible (operator decision 2026-09-13 Q3; cold review F5: without this the line was `#hope-as-gate`) | the agent — the claim is its own, now with a named referent |
+| «ждём: X» / «waiting: X» | something runs; the agent reports back | n/a |
+| «решить: A или B» / «decide: A or B» | a genuine fork = operator floor ([autonomous-night-v3 §6](2026-08-09-autonomous-night-v3-design.md): taste / goal; objects outside authorized scope — standing config, maintainer artifacts, new PRs and scope widening, spend, security, the goal; deletions of non-generated artifacts; externally visible actions). Everything recorded goes to the advisor seat, not the operator | the fork card carries the evidence |
+| «сделать руками: X» / «by hand: X» | harness-forbidden for the agent (settings.json, force-push, remote branch delete, merge to main, secrets / logins; chip clicks); look-and-poke ONLY when no automated probe exists, stated as a concrete action | n/a |
 
 The words «проверь / ознакомься / убедись / посмотри» (EN: check / review / make sure / have a
 look) in that line → gate rejects. «го» is read as a decision on the NAMED fork only, never as
@@ -139,45 +196,82 @@ A hand action is either (a) ONE invocation line of a tested script in the
 `scripts/register-*.sh` shape — resolves the repo from its own path so it runs from any cwd,
 idempotent, self-verifying at the end — or (b) one concrete UI action («открой X, нажми Y,
 скажи, что увидел»). The gate rejects the line without either. If a skill wrapping such scripts
-exists (operator recollection 2026-09-13, not found — see Changelog), the line names the skill
-instead of the script; the rule is skill-agnostic. **Implementation check owed:** every shipped
-hand-action script is run from `/tmp` and from a second checkout — exit 0 and its own «OK».
+exists (operator recollection 2026-09-13, not found — see Changelog; register row R-8), the line
+names the skill instead of the script; the rule is skill-agnostic. **Implementation check owed:**
+every shipped hand-action script is run from `/tmp` and from a second checkout — exit 0 and its
+own «OK». This spec ships two such scripts: `scripts/register-recap-gate.sh` (D-A, slice 1) and
+`scripts/register-glossary-hook.sh` (D-F, slice 3 — a `UserPromptSubmit` hook needs a
+`.claude/settings.json` entry the agent may not write; without the script the glossary ships
+permanently dormant with green tests, the `WorktreeCreate` shape from CLAUDE.md — cold review
+F10). Both join `register-root-resolution.test.sh`.
 
 ### D-F The glossary — one file, two mechanical counters
 
-- **File:** `CONTEXT.md` at the repo root, English, mattpocock `domain-modeling` format as is
-  (`**Term**:` / 1-2 sentences / `_Avoid_:`); «a glossary and nothing else». The orchestrator
-  role glossary (`.claude/skills/orchestrator/references/glossary.md`) becomes a section of it
-  with a pointer left behind (reversible).
-- **The association «что что обозначает», both directions (Q9):** the `_Avoid_` line holds the
-  operator's raw words for the same thing in the operator's language — match data, the same
-  category as the Russian question pattern inside `lang/ru.sh`. Operator → agent: the
-  `UserPromptSubmit` hook scans the prompt for terms and `_Avoid_` words and injects one line
-  «"<raw word>" = <term>: <definition>»; domain-modeling's own «challenge against the
-  glossary» rule makes the agent answer with the term. Agent → operator: while a term is below
-  threshold the Stop hook demands the inline form «term (one-line explanation in the operator's
-  language)». Fallback if a Russian `_Avoid_` line in an English file is judged a
-  language-discipline breach: one file per `AIF_HOOK_LANG`, mechanics unchanged.
+- **File:** `CONTEXT.md` at the repo root, English, mattpocock `domain-modeling` format
+  (`**Term**:` / 1-2 sentences / `_Avoid_:`) — **ADAPT, not ADOPT** (cold review F4): upstream's
+  `_Avoid_` means «words to stop using» and its «challenge the user against the glossary» rule
+  would correct the operator AWAY from «приземлить» — the inverse of D9. So (a) operator raw words
+  live in an ADDED field `_Operator says_:` (never in `_Avoid_`, which keeps upstream meaning);
+  (b) upstream's challenge rule is explicitly NOT adopted — the agent answers with the term plus
+  its inline explanation, never corrects the operator's word; (c) upstream's «project-domain terms
+  only» inclusion rule is relaxed for the seed (вендорить, «красное», глубина are process terms
+  the operator re-asked about). «A glossary and nothing else» stays. **Already-owned surface
+  (cold review F5):** a root `CONTEXT.md` is governed by [harmonization spec D-H11 §5.2](2026-08-18-skill-stack-harmonization-design.md)
+  (a term with an owner doc gets a one-line gist + link, never a redefinition) and by the shipped
+  [principle 42](../../../packages/core/principles/42-context-md-pointer-rule.test.ts), dormant
+  while the file is absent and ACTIVE on the commit that creates it (every link must resolve to an
+  existing anchor). Therefore the orchestrator role glossary
+  (`.claude/skills/orchestrator/references/glossary.md`, an owner doc with its own authority
+  header, 8 install baselines + the getff manifest fingerprint it) is NOT absorbed: `CONTEXT.md`
+  points at it (the draft's absorb-with-pointer-behind inverted D-H11 — reversed here). Authority
+  header: `CONTEXT.md` carries the standard `Authoritative for / NOT authoritative for` header as
+  its first lines (doc-authority-hierarchy §2 lists root docs by name; the new root doc joins that
+  list in the same commit — cold review F14); upstream's «nothing else» is read as «no prose
+  sections», a header is not a section.
+- **The association «что что обозначает», both directions (Q9):** the `_Operator says_` line
+  holds the operator's raw words for the same thing in the operator's language — match data,
+  the same category as the Russian question pattern inside `lang/ru.sh`
+  ([language-discipline.md](../../../.claude/rules/language-discipline.md) category 3; principle
+  22 does not scan the repo root, verified by the cold seat — no mechanical collision). Operator →
+  agent: the `UserPromptSubmit` hook (registered by `scripts/register-glossary-hook.sh`, D-E)
+  scans the prompt for terms and `_Operator says_` words and injects one line
+  «"<raw word>" = <term>: <definition>». Agent → operator: while a term is below threshold the
+  Stop hook demands the inline form «term (one-line explanation in the operator's language)».
+  Fallback if a Russian `_Operator says_` line in an English file is judged a language-discipline
+  breach: one file per `AIF_HOOK_LANG`, mechanics unchanged.
 - **Counters (Q4/Q10):** `_glossary-counts.json` in the residue dir
   ([residue-dir.sh](../../../.claude/hooks/lib/residue-dir.sh): shared across worktrees and
   sessions, outside git). Two mechanical counters per term: **usages** — the `UserPromptSubmit`
   hook counts the term itself (plus its transliteration) in the operator's prompt; synonym use is
   NOT a usage; **explanations** — the Stop hook counts the fixed «term (explanation)» form, once
   per message. Learned = usages ≥ `AIF_GLOSSARY_USES` (3) OR explanations ≥
-  `AIF_GLOSSARY_EXPLAINS` (5), whichever first; both are config. Below threshold the Stop hook
-  demands the inline explanation once; above it nothing fires. Agent-maintained marks were
+  `AIF_GLOSSARY_EXPLAINS` (5), whichever first; both are config **in the lang packs, and
+  `check-parity.sh` gains an `^AIF_GLOSSARY_[A-Z_]+=` probe in the same commit** — today its
+  `keys()` collects only `aif_msg_*`, the two markers and `AIF_EOT_*` (`:26-33`), so a key added
+  to one pack would pass parity and abort the other pack's hook under `set -u` on every turn
+  (cold review F8). Below threshold the Stop hook demands the inline explanation once; above it
+  nothing fires. Agent-maintained marks were
   rejected as `#hope-as-gate` ([attention-is-not-a-mechanism.md](../../../.claude/rules/attention-is-not-a-mechanism.md)).
 - **Seed** from the measured re-ask list: приземлить, энв-тир, вендорить, чипы, глубина,
   «красное», harvest, egress, handoff. Jargon the operator likes (harvest, egress, handoff)
   stays — it is taught, not replaced (D9).
 - **`/wait-what`:** ADOPT as is (reads `CONTEXT.md`); live-check that it answers in Russian
-  under `AIF_HOOK_LANG=ru` (its prompt says Simplified Technical English); fallback = the
-  existing `.override.md` layer, one line.
+  under `AIF_HOOK_LANG=ru` — its whole body is ONE sentence carrying both the ASD-STE100 clause
+  and the `CONTEXT.md` clause, so the fallback `.override.md` must restate both (language per
+  `AIF_HOOK_LANG`, still read `CONTEXT.md`), not drop one (cold seat drill-down). The skill is
+  operator-invoked only (`disable-model-invocation: true`) — it serves the operator → agent
+  direction; the agent → operator direction is the Stop-hook inline form above.
 
 ### D-G /story rework (Q14)
 
-`/story` keeps its trigger (PR pushed / operator asks) and its `## 🎬` marker, but its body
-becomes the session-scale version of D-A instead of a chronicle by acts: **why all this was**
+`/story` keeps its trigger (PR pushed / operator asks) and its `## 🎬` marker — the marker
+LITERAL changes to the operator-ratified P-7 heading (RU `## 🎬 Что изменилось за сессию`, EN
+`## 🎬 What changed this session`) in `AIF_STORY_MARKER` of both packs, because the story-told
+guard (`:635-637`) is an exact-literal match and would miss the P-7 wording, re-injecting the
+story on the next stop (cold review F4). [emit-story-prompt.test.ts](../../../packages/core/skills/emit-story-prompt.test.ts)
+`:20-26` asserts the old literal and «по актам / by acts» — it is updated in the same commit,
+intentionally (cold review F3). The body becomes the session-scale version of D-A instead of a
+chronicle by acts: **why all this was**
 (one sentence) → **what is different now** — per change: before, after, what it gives the
 operator (no chronology) → **what was decided and by whom** (one line each) → **least sure**
 → **next** in the D-B grammar. The text comes from ONE lang-pack function shared with the
@@ -188,10 +282,21 @@ recap (a scope parameter: turn vs session), so the two forms cannot drift. Ratif
 
 - **D5a** allow-list `gh pr merge --squash` to `staging` explicitly (after a live reproduction
   of the classifier block; the global allow already has `Bash(gh pr *)`).
-- **D5b** Ownership Contract ([CLAUDE.md](../../../CLAUDE.md)): edits to maintainer-owned
-  files THROUGH a PR to staging do not need a «го» — the gate is PR + CI.
-- **D5c** [aif-doctor/SKILL.md](../../../.claude/skills/aif-doctor/SKILL.md): «operator GO»
-  only on task deletion.
+- **D5b** Ownership Contract ([CLAUDE.md](../../../CLAUDE.md)) — **with exclusions (operator
+  decision 2026-09-13 Q2; cold review F1 BLOCKER):** edits to OPERATIONAL maintainer-owned rows
+  (EXECUTION-PLAN, `.husky/pre-push`, `.claude/rules/*`, session-bootstrap, shipped agents /
+  skill-context, principles) THROUGH a PR to staging do not need a «го» — the gate is PR + CI.
+  The goal-bearing row (`README.md §Why this exists`) and the frozen rows (PROPOSAL.md, retros,
+  research-patches, closed kickoffs / done.md) KEEP the «го»: agents merge their own staging PRs
+  and no CI check detects goal drift, so without the exclusion an agent could rewrite the goal and
+  merge it alone — the 2026-05-09 incident the authority hierarchy exists for. The table gains a
+  fourth column `«го» via PR? yes / no`.
+- **D5c** [aif-doctor/SKILL.md](../../../.claude/skills/aif-doctor/SKILL.md) has NINE
+  «operator GO» sites (`:41, :88, :90, :91, :94, :104, :105, :244, :256`), three decision classes
+  (cold review F7). GO STAYS on: task DELETE (`:104`, destructive), paid API transport Fix C
+  (`:94`, spend — night-v3 §6 floor + no-paid-llm-in-ci), cap bump (`:105`, standing config —
+  D-B floor list). GO is REMOVED on the reversible in-container fixes only: image rebuild (`:88`),
+  in-container install (`:90`), mirror install (`:91`); `:41` / `:256` restated to that split.
 - **D6** subagent tenets, written into the rule text with anti-expansive-reading protections:
   (1) the Agent tool is allowed in ANY session, /pipeline and /dispatcher included, for
   reading, search, checks, cold reviews; (2) allowed for writes in a normal session in its own
@@ -204,11 +309,25 @@ recap (a scope parameter: turn vs session), so the two forms cannot drift. Ratif
   channel. Protections: (a) a positive «this rule does NOT forbid» list next to the ban; (b) the
   self-test phrase «am I about to launch the EXECUTION of an UMBRELLA STAGE?» — if not, the
   rule does not apply; (c) rename `#worker-dispatch-via-subagent` →
-  `#umbrella-execution-launch-without-operator` in LIVE texts only (pipeline/SKILL.md, principle
-  29 + its hook, rules) with one «formerly …» line — closed kickoffs and done.md untouched;
-  (d) principle 29 + `check-worker-dispatch-channel.sh` narrowed to «a kickoff must not
-  PRESCRIBE auto-launch of execution», with a negative test: a kickoff that hands a subagent
-  reading/review PASSES.
+  `#umbrella-execution-launch-without-operator` in LIVE texts only, with one «formerly …» line.
+  LIVE = what an agent reads to act today: `.claude/skills/*` (3 files), `.claude/rules/*`,
+  `.claude/hooks/check-worker-dispatch-channel.sh` + its `plugin/hooks` twin (regenerates via
+  pre-commit), principle 29's module + `.bin.ts` + `.test.ts` + fixtures (move together or the
+  twin-identity check goes red), `docs/meta-factory/open-questions.md`. FROZEN = closed kickoffs
+  / done.md (13 files), research-patches, specs, retros — untouched. 34 files in total (cold
+  review F12). **Line budget:** [pipeline/SKILL.md](../../../.claude/skills/pipeline/SKILL.md) is
+  at exactly 600 lines, the pre-commit ceiling, with no exemption — the rename lands there
+  NET-ZERO (edit the `:389` bullet in place, «formerly» on the same line); the positive «does NOT
+  forbid» list and the self-test phrase land in the rule file, never in pipeline/SKILL.md (cold
+  review F6); (d) principle 29 + `check-worker-dispatch-channel.sh` narrowed to «a kickoff must
+  not PRESCRIBE auto-launch of execution», with a negative test: a kickoff that hands a subagent
+  reading/review PASSES. **Precondition (cold review F9):** the narrowed matcher is run over the
+  existing kickoff corpus (`.claude/orchestrator-prompts/**`) BEFORE it lands, and every verdict
+  that flips is listed in the PR — the original matcher dropped a clause only after an
+  8-false-positive measurement (`29-worker-dispatch-channel.ts:38-49`); the narrowing gets the
+  same treatment. `READONLY_CONTEXT_RE` already exempts read-only dispatch (`:60`), so the tenet's
+  delta is the write-task case: a kickoff prescribing Agent-tool dispatch of a WRITE worker
+  without the words «umbrella stage» must still fire, or the Stage-5 class reopens.
 - **D7** chips stay; the agent cannot open a new Claude Code session itself (no `start_session`
   tool in-session — recheck). The /arch §3 and /pipeline launch card recommends a channel by two
   questions («хотите видеть и вмешиваться?», «длинная самостоятельная работа?»); the operator
@@ -218,29 +337,50 @@ recap (a scope parameter: turn vs session), so the two forms cannot drift. Ratif
 
 The Stop hook's session-goal anchor skips a first user message that is a bare filename /
 path or a `<system-reminder>` payload and falls back to `ai-title`, then to «(назови сам из
-контекста)» — never emits harness markup as the goal.
+контекста)» — never emits harness markup as the goal. The defect is inferred from the code path
+(`:536`), not from a cited transcript; slice 1's fixture reproduces it synthetically and the PR
+quotes one live instance or records that none was found.
 
 ## Live decision register
 
+Status vocabulary per [arch/SKILL.md §1](../../../.claude/skills/arch/SKILL.md): `answered`
+(settled, by whom in Resolution) / `operator-fork` (open, waits for the operator) — the draft's
+`DECIDED` hid the second value, which is how five open items ended up outside the table (cold
+review F8).
+
 | # | Decision | Status | Resolution | Falsifier |
 |---|---|---|---|---|
-| Q1 | One spec, not three | DECIDED | operator: autonomy is small and the same root problem | a cold seat shows the autonomy slice needs its own review cycle |
-| Q2 | Reasons: most essential bold + first, ≤3 more, reversible line | DECIDED | D-C §4 | operator asks «why?» after a card ≥3 times in a week |
-| Q3/Q9 | One `CONTEXT.md`, `_Avoid_` = association | DECIDED | D-F | a raw-word prompt is not mapped by the hook, or language-discipline rejects RU in the file → per-language file fallback |
-| Q4/Q10 | Two mechanical counters, 3 uses / 5 explanations | DECIDED | D-F | the inline «term (explanation)» form is not countable or reads artificial (UNVERIFIED) |
-| Q5 | Rename antipattern in live texts only | DECIDED | D-H (c) | a live misreading of the ban after the rename |
-| Q6/Q7 | One block form, omit-empty, gate matrix | DECIDED | D-A | gate rejects a legitimate bare-question turn |
-| Q8 | «от тебя» four values, banned words, «го» = decision only | DECIDED | D-B | operator has to verify something the line called «ничего» |
-| Q11 | ADOPT `/wait-what` as is | DECIDED | D-F | it answers in English under `AIF_HOOK_LANG=ru` → override line |
-| Q12 | /arch round form | DECIDED | D-D (compact variant rejected live) | operator answers fewer than the must-answer set twice → cap 3 |
-| Q13 | Caps on retelling only, never on cards | DECIDED | D-A / D-C | a block over cap that the operator still finds unclear |
-| Q14 | /story = session-scale block | DECIDED | D-G | operator keeps skipping `## 🎬` after the rework |
-| D-E | Hands = script from any cwd or concrete UI action | DECIDED | D-E | a shipped script fails from `/tmp` or a second checkout |
-| D-I | Anchor fix | DECIDED | D-I | a block still shows harness markup as the goal |
-| D5a | Allow-list squash-merge to staging | DECIDED, verification owed | D-H | the block does not reproduce live → no allow entry needed |
-| D6/D7 | Subagent tenets + launch card | DECIDED | D-H | an agent still refuses read-only subagents citing the rule |
+| Q1 | One spec, not three | answered | operator: autonomy is small and the same root problem | a cold seat shows the autonomy slice needs its own review cycle |
+| Q2 | Reasons: most essential bold + first, ≤3 more, reversible line | answered | D-C §4 | operator asks «why?» after a card ≥3 times in a week |
+| Q3/Q9 | One `CONTEXT.md`, `_Avoid_` = association | answered | D-F | a raw-word prompt is not mapped by the hook, or language-discipline rejects RU in the file → per-language file fallback |
+| Q4/Q10 | Two mechanical counters, 3 uses / 5 explanations | answered | D-F | the inline «term (explanation)» form is not countable or reads artificial (UNVERIFIED) |
+| Q5 | Rename antipattern in live texts only | answered | D-H (c) | a live misreading of the ban after the rename |
+| Q6/Q7 | One block form, omit-empty, gate matrix | answered | D-A | gate rejects a legitimate bare-question turn |
+| Q8 | «от тебя» four values, banned words, «го» = decision only | answered | D-B | operator has to verify something the line called «ничего» |
+| Q11 | ADOPT `/wait-what` as is | answered | D-F | it answers in English under `AIF_HOOK_LANG=ru` → override line |
+| Q12 | /arch round form | answered | D-D (compact variant rejected live) | operator answers fewer than the must-answer set twice → cap 3 |
+| Q13 | Caps on retelling only, never on cards | answered | D-A / D-C | a block over cap that the operator still finds unclear |
+| Q14 | /story = session-scale block | answered | D-G | operator keeps skipping `## 🎬` after the rework |
+| D-E | Hands = script from any cwd or concrete UI action | answered | D-E | a shipped script fails from `/tmp` or a second checkout |
+| D-I | Anchor fix | answered | D-I | a block still shows harness markup as the goal |
+| D5a | Allow-list squash-merge to staging | answered (verification owed) | D-H | the block does not reproduce live → no allow entry needed |
+| D6/D7 | Subagent tenets + launch card | answered | D-H | an agent still refuses read-only subagents citing the rule |
+| R-1 | Consumer axis: gate dormant behind `AIF_RECAP_GATE`; `--full` install arms it per `AIF_HOOK_LANG` | answered | operator 2026-09-13 (P-9), round 1 | wrong if the operator meant profile=factory rather than `--full` — arming then moves to the profile gate (`setup.d/10-skills.sh:157`); or a `--full` consumer reports the gate blocking an EN turn |
+| R-2 | D5b with exclusions (goal + frozen rows keep «го») | answered | operator 2026-09-13 (Q2), round 1 | an agent-authored PR edits `README §Why this exists` and merges without a «го» |
+| R-3 | «ничего» requires a trace in parentheses | answered | operator 2026-09-13 (Q3), round 1 | the operator finds a «ничего (…)» whose trace names a check that was not run, twice |
+| R-4 | `_Avoid_` keeps upstream meaning; operator words in `_Operator says_`; challenge rule NOT adopted (ADAPT) | answered | author, round 1, reversible | the agent corrects the operator's word instead of answering with the term |
+| R-5 | Story marker literal = P-7 heading; `emit-story-prompt.test.ts` updated | answered | author, round 1 | the story branch re-injects after a `## 🎬` story was told |
+| R-6 | D5c: GO stays on DELETE / paid transport / cap bump; removed on reversible in-container fixes | answered | author, round 1, per night-v3 §6 floors | a session switches aif to a paid transport without asking |
+| R-7 | Principle 29 narrowing only after a corpus run listing flipped verdicts | answered | author, round 1 | a write-worker kickoff without «umbrella stage» passes the narrowed gate |
+| R-8 | «A GLM skill that runs tested scripts from any place» (operator recollection) | operator-fork | searched 7 surfaces, NOT FOUND (Changelog i); D-E is skill-agnostic either way | the operator names it → D-E line cites the skill |
+| R-9 | «term (explanation)» form is countable and not irritating | operator-fork (verification owed at slice 3) | UNVERIFIED | the counter misses the form in a live session, or the operator objects after the 10th repetition |
+| R-10 | `/wait-what` answers in Russian under `AIF_HOOK_LANG=ru` | answered (verification owed at slice 3) | ADOPT + override restating both clauses if not | it answers in English → override line |
+| R-11 | Classifier block on `gh pr merge --squash` reproduces | answered (verification owed at slice 5) | D5a lands only after a live reproduction; if it does not reproduce, D5a is DISSOLVED, no allow entry | — |
+| R-12 | CC subagent + worktree write bug #39886 on current CC | operator-fork (external) | unknown; D6 (2) «writes in own worktree» is conditional on it | the bug reproduces → D6 (2) narrows to read-only until fixed |
+| R-13 | Block on a round turn: body owns the cards, block carries a pointer | answered | author, round 1 (cold review F3) | the operator sees the same card twice in one message |
 
-Every row carries a Status — the dialogue closed with an empty frontier on 2026-09-13.
+Every row carries a Status. Rows marked `operator-fork` (R-8, R-9, R-12) are OPEN and named —
+the frontier is not empty; they are asked once, batched, at the slice that needs them (T8).
 
 ## Testing seams
 
@@ -257,31 +397,58 @@ Every row carries a Status — the dialogue closed with an empty frontier on 202
 - New: `glossary-counters.test.ts` — usage counting (term + transliteration, synonym excluded),
   explanation counting once per message, thresholds from env, counts file in the residue dir.
 - Principle 29 fixtures: positive (kickoff prescribes auto-launch → fails) and the new
-  negative (kickoff hands a subagent a review → passes).
+  negative (kickoff hands a subagent a review → passes); plus the corpus run over
+  `.claude/orchestrator-prompts/**` recorded in the PR (D-H (d) precondition).
 - [register-root-resolution.test.sh](../../../scripts/register-root-resolution.test.sh):
-  every new hand-action script joins its matrix (D-E).
+  `register-recap-gate.sh` and `register-glossary-hook.sh` join its matrix (D-E).
+- [emit-story-prompt.test.ts](../../../packages/core/skills/emit-story-prompt.test.ts): marker
+  literal and section assertions updated to D-G (the «по актам / by acts» assertion is inverted
+  on purpose).
+- [42-context-md-pointer-rule.test.ts](../../../packages/core/principles/42-context-md-pointer-rule.test.ts):
+  goes ACTIVE on the commit that creates `CONTEXT.md` — every seeded link must resolve.
+- Goldens in `end-of-turn-reminder.test.ts`: unarmed (`AIF_RECAP_GATE` unset) output is
+  byte-identical to the pre-change hook; armed output differs only by the gate reason.
+- Slice 0 measurement scripts: a smoke test that each script runs against a fixture transcript
+  and prints the table's row names.
 
 ## Consequences
 
-- Waits drop only where the text was the cause (636 of 737 measured); harness blocks (101)
-  stay and become «сделать руками» lines with a ready script.
+- Waits drop only where the text was the cause. The 636 (of 737 measured) is the population of
+  wait-phrase turns NOT caused by a harness block — an UPPER bound, not the expected drop:
+  genuine forks inside it stay as «решить: A или B» by design (cold seat drill-down 2). Harness
+  blocks (101) stay and become «сделать руками» lines with a ready script.
 - Two packs and two hooks share one card function — a change in the card is one edit.
 - Longer replies when a real fork exists (a full card is ~10 lines); accepted by P-4.
 - The counters file is machine-local and shared across sessions — a fresh machine starts with
   every term unlearned (by design: the operator is the one who learns, not the repo).
-- Renaming the antipattern leaves 30+ historical references to the old name; the «formerly»
-  line and the frozen-artifact rule make that intentional.
+- Renaming the antipattern leaves the frozen references (kickoffs, done.md, research-patches,
+  specs — most of the 34 files) on the old name; the «formerly» line and the frozen-artifact rule
+  make that intentional.
+- Unarmed, nothing changes for anyone: the gate, the glossary hook and the «от тебя» grammar all
+  ship dormant and are armed by a one-line script or by `--full` install (R-1).
 
 ## Delivery slices (PRs to staging, in order)
 
-1. Lang packs + Stop hook: D-A gate matrix, D-B grammar, D-C card function, D-I anchor fix,
-   D-E line check, tests.
-2. `ask-question-reminder.sh`: card before buttons (shares slice 1's function).
-3. Glossary: `CONTEXT.md` seed, `UserPromptSubmit` hook, counters, `/wait-what` live check +
-   override if needed, orchestrator glossary pointer.
-4. /arch §1 round form (D-D) + /story rework (D-G) + `emit-story-prompt.sh`.
-5. Autonomy: D5a (after live reproduction), D5b, D5c, D6 rule text + rename + principle 29
-   narrowing + negative fixture, D7 launch card, memory fix.
+0. Measurement scripts vendored under `scripts/measure/` (`measure-recap-len.py` + the wait /
+   re-explain / harness-block greps re-derived from the source handoff) so every table row above
+   is re-runnable; the table is re-run from the vendored copies in the same PR.
+1. Lang packs + Stop hook: D-A gate matrix at the `:625-632` site, exemption set, `AIF_RECAP_GATE`
+   + `scripts/register-recap-gate.sh` + `--full` install arming, D-B grammar in BOTH packs with
+   the «ничего (trace)» form, D-C card function, D-I anchor fix + fixture, D-E line check, goldens
+   for the unarmed path, tests. New SSOT row «decision-request format = BUILD» in this commit.
+2. `ask-question-reminder.sh`: card before buttons (shares slice 1's function); block carries a
+   pointer on that turn (R-13).
+3. Glossary: `CONTEXT.md` seed with authority header + pointer to the orchestrator glossary,
+   `_Operator says_` field, `UserPromptSubmit` hook + `scripts/register-glossary-hook.sh`,
+   counters, `check-parity.sh` `AIF_GLOSSARY_` probe, `/wait-what` live check + two-clause
+   override if needed, principle 42 goes active. New SSOT row «glossary learning counters =
+   BUILD» in this commit. Asks R-8 / R-9 once, batched, before landing.
+4. /arch §1 round form (D-D) + /story rework (D-G): marker literal, `emit-story-prompt.sh`,
+   `emit-story-prompt.test.ts`.
+5. Autonomy: D5a (after live reproduction, else DISSOLVED — R-11), D5b with exclusions + table
+   column, D5c nine-site split, D6 rule text (positive list + self-test in the rule file) +
+   net-zero rename in pipeline/SKILL.md + principle 29 corpus run THEN narrowing + negative
+   fixture, D7 launch card, memory fix. Asks R-12 before D6 (2) lands.
 
 ## Prior art (research pass 2026-09-13; reports in the session scratchpad)
 
@@ -306,7 +473,10 @@ Every row carries a Status — the dialogue closed with an empty frontier on 202
   handling, no «stop explaining a term after N times» throttle. → new SSOT row: glossary
   learning counters = BUILD.
 - SSOT rows consulted: #122 (recap = BUILD), #230 (mattpocock = REFERENCE), #253 (grilling =
-  ADOPT), #255 (ADR).
+  ADOPT), #255 (ADR; D-H11 keeps `CONTEXT.md` for terms). `domain-modeling` format: **ADAPT**
+  (own field `_Operator says_`, challenge rule not taken — R-4); `wait-what`: ADOPT. The two new
+  BUILD rows are written in the slice-1 and slice-3 commits respectively (CLAUDE.md: SSOT entry
+  in the same commit as the capability artifact).
 
 ## Operator premise register (verbatim-faithful, 2026-09-13)
 
@@ -344,6 +514,11 @@ Every row carries a Status — the dialogue closed with an empty frontier on 202
   > десятого раза.
   > **Дальше.** Я: пишу спеку. От тебя: ничего.
 
+- **P-9** (round 1, 2026-09-13, Q1 of the cold-review forks) «поставляется по флагу и при
+  фул установки консьюмеры на разных языках» — the gate ships behind a flag; a full install
+  gives consumers the surface in their own language. Read as: dormant `AIF_RECAP_GATE`,
+  `install.sh --full` arms it, packs per `AIF_HOOK_LANG` (R-1 carries the falsifier for this
+  reading). Q2 «с исключениями» → R-2; Q3 «требовать след» → R-3.
 - **P-8** The eleven ratified cases («остальное ок», 2026-09-13): done / waiting / hands /
   single fork in the block / fork before buttons / /arch round / «го» echo / new term inline /
   operator raw word / long report / session start. The RU renderings from the dialogue are the
@@ -361,6 +536,40 @@ Every row carries a Status — the dialogue closed with an empty frontier on 202
 
 ## Changelog
 
+- 2026-09-13 — **round 1** after two cold `/arch` §2 reviews (top-down TD, bottom-up BU; both
+  REVISE; reports `top-down-plain-words-recap-v2.md` / `bottom-up-plain-words-recap-v2.md` in the
+  review session's scratchpad). Dispositions (one per finding):
+  TD-F1 BLOCKER D5b carve-out — **FIXED** (D5b, R-2, operator Q2);
+  TD-F2 exemption set / SDK guard — **FIXED** (D-A);
+  TD-F3 card twice on round turns — **FIXED** (D-A block-vs-round, R-13);
+  TD-F4 `_Avoid_` inverted — **FIXED** (D-F ADAPT, R-4);
+  TD-F5 «ничего» form-only — **FIXED** (D-B trace, R-3, operator Q3);
+  TD-F6 shipped axis absent — **FIXED** (D-A kill switch + `--full` arming, R-1, P-9);
+  TD-F7 no kill switch / precedence — **FIXED** (D-A);
+  TD-F8 register not closed — **FIXED** (vocabulary + rows R-8…R-12);
+  TD-F9 principle 29 narrowing unmeasured — **FIXED** (D-H (d) precondition, R-7);
+  TD-F10 «sessions scanned» — **FIXED** (table);
+  TD-F11 cap inert — **ACCEPTED**, recorded as a regression guard (D-A);
+  TD-F12 rename scope — **FIXED** (D-H (c) LIVE / FROZEN);
+  TD-F13 measurement provenance — **FIXED** (slice 0);
+  TD-F14 `CONTEXT.md` authority header — **FIXED** (D-F);
+  TD-F15 ESCALATED consumer premise — **ESCALATED → closed by the operator** (Q1, P-9, R-1).
+  BU-F1 base SHA false — **FIXED** (staging merged forward, facts re-anchored at `b75b697b11c`);
+  BU-F2 gate site unreachable — **FIXED** (D-A gate site);
+  BU-F3 `emit-story-prompt.test.ts` — **FIXED** (D-G, seams);
+  BU-F4 story marker literal — **FIXED** (D-G, R-5);
+  BU-F5 principle 42 + D-H11 — **FIXED** (D-F pointer direction reversed);
+  BU-F6 pipeline/SKILL.md at 600 — **FIXED** (net-zero rename, list in the rule file);
+  BU-F7 D5c nine sites — **FIXED** (R-6);
+  BU-F8 parity probe — **FIXED** (D-F);
+  BU-F9 RU-only values — **FIXED** (D-B both packs);
+  BU-F10 glossary hook unarmed — **FIXED** (`register-glossary-hook.sh`, D-E);
+  BU-F11 baselines moved by the glossary migration — **DISSOLVED** (glossary no longer moves);
+  BU-F12 / TD-F10 same population label — **FIXED**;
+  BU-F13 33→34, 1571→1607 — **FIXED** (table + fact);
+  BU-F14 636/101 not re-derivable — **FIXED** (slice 0) + Consequences reworded (upper bound).
+  Cold-seat drill-downs recorded: measure script re-run (TD-1, BU), 636/101 source read (TD-2),
+  `/wait-what` + `domain-modeling` upstream bodies opened (TD-3, BU-1/2).
 - 2026-09-13 — draft after the design session (Q1-Q14 closed, two research reports, two
   transcript measurements). Recorded, not resolved: (i) operator recollection of «a skill
   recently implemented in GLM» for running tested scripts from any place — searched repo
