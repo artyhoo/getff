@@ -104,7 +104,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="~/.claude/projects")
     ap.add_argument("--glob", default="-Users-art-code-rules-as-tests-aif*")
-    ap.add_argument("--days", default=14, type=int)
+    ap.add_argument("--days", default=35, type=int)
     ap.add_argument("--min-size", default=150000, type=int)
     args = ap.parse_args(
         _argv_with_equals(sys.argv[1:], {"--root", "--glob", "--days", "--min-size"})
