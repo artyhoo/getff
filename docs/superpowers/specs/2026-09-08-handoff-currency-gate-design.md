@@ -347,6 +347,32 @@ twin carries the gate, so every repo on the machine is gated from 201k once arme
 inline residue-dir fallback and no injector outside this repo. Decision 3 of the addendum below
 (arming default once a writer exists) is where that cost gets a proper home.
 
+**Round 3 close — the live run completed, in a worktree session, 2026-09-13 ~11:00Z.** Session
+`fb4c4cc0` (worktree `magical-hellman-9fe8c9`; opened BEFORE the operator applied the user-level
+pair at ~10:45Z; transcript under
+`~/.claude/projects/-Users-art-code-rules-as-tests-aif--claude-worktrees-magical-hellman-9fe8c9/`).
+(1) The first Stop after the pair landed → `no-file` block at 253564 tokens, floor 201000, emitted
+by BOTH the project hook and the getff plugin twin — two identical blocks per Stop in this repo,
+decision 3's cost measured rather than predicted. (2) Handoff written → the next Stop allowed; the
+next substantive Stop → `unchanged` block at 266437. (3) Auto-compaction fired at 266437 (88.8% of
+300000 — the same ~89% band as the 22 main-checkout compactions) in a session that had been running
+under the 600000 point, so the user-level pair reaches a RUNNING session, `env` and compaction point
+alike — «takes effect for sessions opened after the edit» is wrong for both. PreCompact wrote the
+residue (`_residue-fb4c4cc0-….md`, «Observed context ceiling: 266437»), and the post-compaction
+SessionStart carried `[handoff injected — source=compact]` with all five H2 sections and the
+residue pointer line — arm (3) OBSERVED. (4) `mechanical-tail:` was not used live in this session;
+arm (4) stands on the `afb095bc` run above. (5) Content: the injected `## Next action` («observe
+this compaction, record arm 3») is what the continuation executed first, before any other work —
+one data point, self-reported by the continuation, the weakest arm by construction. (6) Multiplier:
+three band turns (block, allowed write, block) → two gate blocks, each co-fired with the recap
+demand the Stop hook issues on substantive turns anyway, so the extra cost was ONE handoff-writing
+turn per block ≈ 1 extra turn per band turn, under the decision rule's 2-turn ceiling.
+**Decision-rule outcome: the gate STAYS; SSOT #271 keeps its verdict.** The sample is one band of
+three turns — a first measurement, not a rate; the cost line's expected value is still open to
+a longer band. Still open after this round: decision 3 below (the twin firing alongside the project
+hook), and worktrees created before PR #1680 and never merged forward, which carry the twin's gate
+but no injector.
+
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 
 **Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the
