@@ -169,6 +169,7 @@ What the plugin delivers on ZCode, and the honest boundary:
 - **The soft/hard boundary is the same as CC** — a plugin never mutates your git/CI. The hard layer (`.husky` + CI enforcement) is opt-in via the installer (`./setup` / `install.sh`), which is harness-independent; on CC a `/getff:install-enforcement` command is the convenience path to the same installer.
 - **Agents** — ZCode's plugin system records the plugin's sub-agents but does not execute them (known harness limitation, per ZCode's own bundled plugin documentation); their markdown stays readable by any session.
 - Per-hook parity detail — what works, what degrades, and why: the [ZCode parity doctrine](.claude/rules/zcode-parity-doctrine.md) §2 census is the SSOT.
+- **Language (human-facing output)** — ZCode has no `env`-block mechanism for plugin hooks and a GUI-launched app does not inherit your shell profile, so `AIF_HOOK_LANG` never reaches hooks there (CC reads it from `~/.claude/settings.json` `env`). The plugin's hook wrapper falls back to a file: put one line (e.g. `ru`) in `~/.config/getff/hook-lang` and hook messages + the output-language directive follow it on both harnesses; an explicit env var always wins (incident 2026-09-13: Russian explanations silently degraded to English on ZCode).
 
 ### Optional companion install (K-1)
 

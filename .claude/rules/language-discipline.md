@@ -31,7 +31,7 @@ Category 3 is the trap: removing those Russian tokens silently breaks recognitio
 
 Two sub-channels:
 
-- **2a shell-emitted** (hooks/helpers `echo`, no LLM in the loop): via `lang/{en,ru}.sh` packs, selected by `${AIF_HOOK_LANG:-en}` with a hard EN fallback.
+- **2a shell-emitted** (hooks/helpers `echo`, no LLM in the loop): via `lang/{en,ru}.sh` packs, selected by `${AIF_HOOK_LANG:-en}` with a hard EN fallback. On the plugin channel the wrapper `plugin/hooks/run-hook.cmd` additionally falls back to `~/.config/getff/hook-lang` (one line, e.g. `ru`) when the env var is absent — CC injects it from settings `env`, ZCode has no env mechanism for plugin hooks and a GUI-launched app skips the shell profile (2026-09-13 incident: the pin never reached ZCode hooks); env always wins.
 - **2b LLM-authored** (the model writes prose): the model learns the active language from (i) the always-on line injected by [`inject-session-bootstrap.sh`](../hooks/inject-session-bootstrap.sh) (every turn, all skills — precisely scoped so repo artifacts stay English) and (ii) the pipeline `AIF_OUTPUT_LANG` render-time signal, and MUST write ALL operator-facing prose in it — not only localized tokens.
 
 **Precedence:** `AIF_HOOK_LANG` overrides the prompt-language default when set; unset → English.
