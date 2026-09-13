@@ -336,3 +336,26 @@ the next auto-compaction should occur near 300k rather than near the model defau
 context arm's soft line should still quote a window of roughly 1000000 rather than 300000. A
 soft line quoting 300000 means the declaration did not take, and the pair must be reverted
 until it does.
+
+
+## Widening record (2026-09-13) — D12's trigger met, scope moves to the machine
+
+D12 set the trigger: widen from the project key to the machine only after at least three
+auto-compactions in this repo with no observed misfire of the D7 arm, recorded here. Observed
+in session `afb095bc` (main checkout, 2026-09-08/09): 22 auto-compactions, all at 254k-268k
+tokens; the D7 soft line kept quoting the 1M window. The one D7 firing outside that session
+(311k in an unarmed worktree) was the correct unarmed behaviour, not a misfire.
+
+The trigger is met, and the reason to widen turned out to be stronger than D12 anticipated:
+the project key never reached the sessions that mattered. Desktop sessions of this repo run in
+worktrees, and a worktree session reads the worktree's own committed `.claude/settings.json`,
+so the pair in the main checkout's machine-local file bounded nothing there (measured 2026-09-13
+— details in the gate spec, `2026-09-08-handoff-currency-gate-design.md` §Changelog round 3).
+
+**The widened delivery** is the same pair in `~/.claude/settings.json` — `autoCompactWindow:
+300000` plus `env.AIF_CTX_WINDOW: "1000000"` — with `env.CLAUDE_CODE_AUTO_COMPACT_WINDOW:
+"300000"` alongside as belt-and-braces (the documented env form outranks every other channel
+and the pre-fix Stop hook read only it). Its scope is Claude Code sessions on this machine, all
+repos; it is NOT a shell export, so the aif container and the PC sessions D12 worried about are
+untouched. Reversal is one `jq` edit of one file. Verification after applying is unchanged from
+§What ships now: the next compaction near 300k, the soft line still quoting ~1000000.

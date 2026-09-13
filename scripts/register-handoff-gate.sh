@@ -5,10 +5,20 @@
 # WHAT "ARMING" IS: two settings deltas, both idempotent —
 #   1. the SessionStart injector registration in the SSOT (matcher "compact"), rendered
 #      into .claude/settings.json by render-harness-config.mjs;
-#   2. AIF_HANDOFF_GATE=1 in the settings.json `env` block (D18: the gate ships DORMANT;
+#   2. AIF_HANDOFF_GATE=1 in a settings.json `env` block (D18: the gate ships DORMANT;
 #      presence of a compaction window deliberately does NOT arm it).
 # After the gate PR has landed, step 1 is already satisfied and this script effectively
 # only does step 2 — it stays idempotent either way.
+#
+# WHICH settings.json step 2 writes — the USER file by default, since 2026-09-13:
+#   Until then the arm went into `<checkout>/.claude/settings.json`. Measured that day: a
+#   desktop WORKTREE session's project settings are the WORKTREE's own committed file, never
+#   the main checkout's machine-local arming — 0 of 100+ worktrees were armed and the gate
+#   never fired in any of them (spec §Changelog round 3). Claude Code MERGES the user and
+#   project `env` blocks per key, so `~/.claude/settings.json` is the one file every session on
+#   this machine reads. That is also its cost: a user-level arm reaches every repo on the
+#   machine whose Stop hook carries the gate (the getff plugin twin included), not just this
+#   checkout. `--project` keeps the per-checkout arm for a deliberate narrow scope.
 #
 # WHY A SCRIPT AND NOT A jq ONE-LINER INTO settings.json — same reasons as the D8
 # precedent (scripts/register-precompact-hook.sh, PR #1443):
@@ -24,11 +34,15 @@
 #
 # USAGE — runs from ANY working directory, because the repo root is resolved from the
 # script's own path (see the resolver below), not from `git rev-parse` of the cwd:
-#     bash /path/to/repo/scripts/register-handoff-gate.sh          # arms /path/to/repo
-#     bash scripts/register-handoff-gate.sh                        # same, from the repo root
-#     bash /path/to/repo/scripts/register-handoff-gate.sh /other/checkout   # explicit target wins
-#     bash /path/to/repo/scripts/register-handoff-gate.sh --print-root      # resolve and exit, writes nothing
-# A symlink to this script works too. Covered by scripts/register-root-resolution.test.sh.
+#     bash /path/to/repo/scripts/register-handoff-gate.sh          # arms ~/.claude/settings.json (default = --user)
+#     bash scripts/register-handoff-gate.sh --project              # arms THIS checkout's .claude/settings.json
+#     bash /path/to/repo/scripts/register-handoff-gate.sh --project /other/checkout   # explicit root wins
+#     bash /path/to/repo/scripts/register-handoff-gate.sh --print-root      # resolve the root and exit, writes nothing
+#     bash /path/to/repo/scripts/register-handoff-gate.sh --print-target    # name the settings file step 3 would write, exit
+# Steps 1-2 (SSOT + render) and the checkout-side verifications always run against the
+# resolved root; only the ARM (step 3 + verify b) moves between the user and project file.
+# A symlink to this script works too. Covered by scripts/register-root-resolution.test.sh and
+# scripts/register-handoff-gate-target.test.sh.
 
 set -uo pipefail
 
@@ -42,10 +56,15 @@ set -uo pipefail
 # silently, because that tree satisfies every precondition. The symlink loop is hand-rolled:
 # macOS ships neither `readlink -f` nor GNU `realpath`.
 PRINT_ROOT=0
+PRINT_TARGET=0
+TARGET='user'
 ARG_ROOT=''
 for _a in "$@"; do
   case "$_a" in
     --print-root) PRINT_ROOT=1 ;;
+    --print-target) PRINT_TARGET=1 ;;
+    --user) TARGET='user' ;;
+    --project) TARGET='project' ;;
     *) ARG_ROOT="$_a" ;;
   esac
 done
@@ -67,7 +86,7 @@ if [[ -z "$ROOT" ]]; then
 fi
 if [[ -z "$ROOT" ]]; then
   echo "FAIL: cannot locate the repo root from ${BASH_SOURCE[0]} and no root given." >&2
-  echo "      Usage: $0 [/path/to/repo] [--print-root]" >&2
+  echo "      Usage: $0 [--user|--project] [/path/to/repo] [--print-root] [--print-target]" >&2
   exit 1
 fi
 
@@ -80,6 +99,19 @@ if [[ "$PRINT_ROOT" == 1 ]]; then
 fi
 SSOT="$ROOT/.ai-factory/harness-model.json"
 SETTINGS="$ROOT/.claude/settings.json"
+# The file the ARM goes into. Both are Claude Code settings files with the same `env` shape;
+# the user one is what a worktree session reads (header), the project one is the narrow arm.
+if [[ "$TARGET" == 'user' ]]; then
+  ARM_SETTINGS="${HOME:?HOME must be set to locate ~/.claude/settings.json}/.claude/settings.json"
+else
+  ARM_SETTINGS="$SETTINGS"
+fi
+# --print-target: the same testable-without-writing shape as --print-root — the real target
+# resolution, then exit before any precondition or write (register-handoff-gate-target.test.sh).
+if [[ "$PRINT_TARGET" == 1 ]]; then
+  printf '%s\n' "$ARM_SETTINGS"
+  exit 0
+fi
 HOOK_REL='.claude/hooks/inject-handoff-on-compact.sh'
 # Literal $CLAUDE_PROJECT_DIR — expanded by Claude Code at hook time, NOT by this shell
 # (single quotes are the whole point; the D8 precedent's rationale applies verbatim).
@@ -98,8 +130,13 @@ command -v node >/dev/null 2>&1 || fail "node not on PATH"
 jq -e . "$SSOT" >/dev/null    || fail "SSOT is not valid JSON — refusing to touch it"
 [[ -f "$SETTINGS" ]] || fail "settings.json not found: $SETTINGS (run the framework install first)"
 jq -e . "$SETTINGS" >/dev/null || fail "settings.json is malformed — fix it first (a broken settings.json silently disables ALL settings from that file)"
+if [[ "$ARM_SETTINGS" != "$SETTINGS" ]]; then
+  [[ -f "$ARM_SETTINGS" ]] || fail "user settings not found: $ARM_SETTINGS (Claude Code writes it on first run; or pass --project)"
+  jq -e . "$ARM_SETTINGS" >/dev/null || fail "user settings.json is malformed — fix it first (a broken settings.json silently disables ALL settings from that file)"
+fi
 
 echo "root:     $ROOT"
+echo "arm into: $ARM_SETTINGS ($TARGET settings)"
 
 # ── Step 1: SSOT entry (idempotent — matcher AND command must both match) ────
 if jq -e --arg c "$HOOK_CMD" --arg m "$MATCHER" \
@@ -121,19 +158,20 @@ echo "step 2:   rendering..."
 node "$ROOT/scripts/render-harness-config.mjs" --write --root "$ROOT" 2>&1 | sed 's/^/          /' \
   || fail "renderer exited non-zero"
 
-# ── Step 3: arm — AIF_HANDOFF_GATE=1 in the settings.json env block (D18) ────
+# ── Step 3: arm — AIF_HANDOFF_GATE=1 in the TARGET settings.json env block (D18) ──
 # env is NOT renderer-owned (drift-test P3: foreign keys are byte-preserved), so a guarded
-# in-place jq edit is the correct channel here — NOT a second channel to `hooks`.
-if [[ "$(jq -r '.env.AIF_HANDOFF_GATE // empty' "$SETTINGS")" == "1" ]]; then
-  echo "step 3:   AIF_HANDOFF_GATE=1 already set — nothing to do"
+# in-place jq edit is the correct channel here — NOT a second channel to `hooks`. The user
+# file is never renderer-owned at all; the same temp + validate + atomic-mv shape applies.
+if [[ "$(jq -r '.env.AIF_HANDOFF_GATE // empty' "$ARM_SETTINGS")" == "1" ]]; then
+  echo "step 3:   AIF_HANDOFF_GATE=1 already set in $ARM_SETTINGS — nothing to do"
 else
-  cp "$SETTINGS" "$SETTINGS.bak" || fail "could not back up settings.json"
+  cp "$ARM_SETTINGS" "$ARM_SETTINGS.bak" || fail "could not back up $ARM_SETTINGS"
   tmp="$(mktemp)"
-  jq '.env = ((.env // {}) + {AIF_HANDOFF_GATE: "1"})' "$SETTINGS" > "$tmp" \
-    || fail "jq edit failed — settings.json untouched, backup at $SETTINGS.bak"
-  jq -e . "$tmp" >/dev/null || fail "jq produced invalid JSON — settings.json untouched"
-  mv "$tmp" "$SETTINGS" || fail "could not write settings.json"
-  echo "step 3:   AIF_HANDOFF_GATE=1 ARMED (backup: $SETTINGS.bak)"
+  jq '.env = ((.env // {}) + {AIF_HANDOFF_GATE: "1"})' "$ARM_SETTINGS" > "$tmp" \
+    || fail "jq edit failed — $ARM_SETTINGS untouched, backup at $ARM_SETTINGS.bak"
+  jq -e . "$tmp" >/dev/null || fail "jq produced invalid JSON — $ARM_SETTINGS untouched"
+  mv "$tmp" "$ARM_SETTINGS" || fail "could not write $ARM_SETTINGS"
+  echo "step 3:   AIF_HANDOFF_GATE=1 ARMED in $ARM_SETTINGS (backup: $ARM_SETTINGS.bak)"
 fi
 
 # ── Step 4: verify — four independent assertions ─────────────────────────────
@@ -148,11 +186,11 @@ else
   echo "verify a: injector NOT found in settings.json                     FAIL"; rc=1
 fi
 
-# (b) the gate is actually armed in the rendered env
-if [[ "$(jq -r '.env.AIF_HANDOFF_GATE // empty' "$SETTINGS")" == "1" ]]; then
-  echo "verify b: AIF_HANDOFF_GATE=1 present in settings.json env         OK"
+# (b) the gate is actually armed in the TARGET file's env
+if [[ "$(jq -r '.env.AIF_HANDOFF_GATE // empty' "$ARM_SETTINGS")" == "1" ]]; then
+  echo "verify b: AIF_HANDOFF_GATE=1 present in $TARGET settings env       OK"
 else
-  echo "verify b: AIF_HANDOFF_GATE missing from settings.json env         FAIL"; rc=1
+  echo "verify b: AIF_HANDOFF_GATE missing from $TARGET settings env       FAIL"; rc=1
 fi
 
 # (c) zero drift: SSOT and every rendered artifact agree
@@ -174,10 +212,27 @@ if [[ -f "$ROOT/plugin/hooks/hooks.json" ]]; then
   fi
 fi
 
+# (e) INFORMATIONAL — where the gate floor will land for the sessions this arm reaches.
+#     The Stop hook resolves the compaction point env → project settings → user settings
+#     (D14, third step added 2026-09-13). A user-level arm serves WORKTREE sessions, whose
+#     project file is the worktree's committed one, so only the env or the USER key counts
+#     here. Nothing declared is not a defect: the floor falls back to ctx_soft (300000).
+_cp_env="$(jq -r '.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW // empty' "$ARM_SETTINGS")"
+_cp_key="$(jq -r '.autoCompactWindow // empty' "$ARM_SETTINGS")"
+if [[ "$_cp_env" =~ ^[0-9]+$ ]]; then
+  echo "verify e: compaction point ${_cp_env} (env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) → gate floor $(( _cp_env * 67 / 100 ))  NOTE"
+elif [[ "$_cp_key" =~ ^[0-9]+$ ]]; then
+  echo "verify e: compaction point ${_cp_key} (autoCompactWindow) → gate floor $(( _cp_key * 67 / 100 ))  NOTE"
+else
+  echo "verify e: no compaction point in $TARGET settings → gate floor = ctx_soft (300000)  NOTE"
+  echo "          (to bound compaction at 300k, apply the pair from"
+  echo "           docs/superpowers/specs/2026-09-08-dynamic-context-window-design.md §What ships now)"
+fi
+
 echo
 if [[ $rc -eq 0 ]]; then
-  cat <<'EOF'
-ALL CHECKS PASSED — the handoff-currency gate is ARMED.
+  cat <<EOF
+ALL CHECKS PASSED — the handoff-currency gate is ARMED in $ARM_SETTINGS.
 
 Two things this script cannot do for you:
   1. COMMIT (only if it edited the SSOT in step 1 — after the gate PR has landed this
@@ -185,6 +240,7 @@ Two things this script cannot do for you:
      .claude/settings.json are git-tracked and must land in ONE commit — a model-only
      edit goes drift-RED:
        git add .ai-factory/harness-model.json .claude/settings.json && git commit
+     (a --user arm edits ~/.claude/settings.json, which is not tracked by any repo.)
   2. ACTIVATE IN RUNNING SESSIONS. Hooks + env are snapshotted at session start, so the
      session this ran in is NOT armed. Open a fresh session; the gate wakes up when the
      context passes the band floor (min(ctx_soft, compaction point × 67%)).
