@@ -16,7 +16,7 @@ expect() { if [ "$2" = "$3" ]; then ok "$1 = $2"; else bad "$1: expected $2, got
 
 echo "▶ measure-recap-len.py"
 OUT=$(python3 "$DIR/measure-recap-len.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' 2>&1)
-expect "transcripts_scanned"  3 "$(row "$OUT" transcripts_scanned)"
+expect "transcripts_scanned"  2 "$(row "$OUT" transcripts_scanned)"
 expect "sessions_with_block"  1 "$(row "$OUT" sessions_with_block)"
 expect "blocks"               2 "$(row "$OUT" blocks)"
 expect "block_lines_max"      3 "$(row "$OUT" block_lines_max)"
@@ -28,7 +28,7 @@ if [ -n "$WINDOW" ]; then ok "window non-empty ($WINDOW)"; else bad "window: exp
 
 echo "▶ measure-interaction-shape.py"
 OUT=$(python3 "$DIR/measure-interaction-shape.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' --days 100000 --min-size 0 2>&1)
-expect "transcripts_scanned"    3 "$(row "$OUT" transcripts_scanned)"
+expect "transcripts_scanned"    2 "$(row "$OUT" transcripts_scanned)"
 expect "user_messages"          5 "$(row "$OUT" user_messages)"
 expect "reexplain_asks"         1 "$(row "$OUT" reexplain_asks)"
 expect "handoff_asks"           1 "$(row "$OUT" handoff_asks)"
@@ -45,11 +45,19 @@ else
 fi
 
 echo "▶ measure-permission-denials.py"
-OUT=$(python3 "$DIR/measure-permission-denials.py" --root "$FIX" --glob '-Users-art-code-rules-as-tests-aif*' --days 100000 2>&1)
-expect "denied_tool_calls" 4 "$(row "$OUT" denied_tool_calls)"
-expect "classifier_denied" 3 "$(row "$OUT" classifier_denied)"
-expect "prefix_npm"        2 "$(row "$OUT" prefix_npm)"
-expect "prefix_docker"     1 "$(row "$OUT" prefix_docker)"
+# Isolated fixture dir (not the shared -Users-art-code-rules-as-tests-aif* one): a fixture file
+# dropped into the shared dir moves `transcripts_scanned` for the two sibling scripts above —
+# the sibling-channel false-GREEN class this repo already paid for (#1644 -> #1651).
+OUT=$(python3 "$DIR/measure-permission-denials.py" --root "$FIX" --glob '-Users-art-code-perm-denials*' --days 100000 --min-size 0 2>&1)
+expect "denied_tool_calls" 5 "$(row "$OUT" denied_tool_calls)"
+expect "classifier_denied" 1 "$(row "$OUT" classifier_denied)"
+expect "prefix_1_count"    2 "$(row "$OUT" prefix_1_count)"
+expect "prefix_1_key"      "Bash head -5; grep" "$(rowval "$OUT" prefix_1_key)"
+expect "prefix_2_count"    1 "$(row "$OUT" prefix_2_count)"
+expect "prefix_2_key"      "Bash docker compose up" "$(rowval "$OUT" prefix_2_key)"
+expect "prefix_3_count"    1 "$(row "$OUT" prefix_3_count)"
+expect "prefix_3_key"      "Bash npm run build" "$(rowval "$OUT" prefix_3_key)"
+expect "prefix_4_count"    1 "$(row "$OUT" prefix_4_count)"
 WINDOW=$(rowval "$OUT" window)
 if printf '%s' "$WINDOW" | grep -Eq '^from [0-9]{4}-[0-9]{2}-[0-9]{2} to [0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
   ok "window dated ($WINDOW)"
