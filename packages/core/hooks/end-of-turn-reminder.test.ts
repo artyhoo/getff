@@ -2410,6 +2410,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     Object.assign(env, c.env);
     delete env.AIF_HANDOFF_GATE;
+    delete env.AIF_RECAP_GATE;
     if (armed) env.AIF_HANDOFF_GATE = '1';
 
     return {
