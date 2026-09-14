@@ -98,7 +98,7 @@ describe.skipIf(!JQ)(
       // discarded). This plugin hook emits a minimal {additionalContext} shape today, but there
       // was NO guard against a future edit adding hookEventName (or any other key) at top level,
       // which ZCode would silently reject. Regression guard (cold backward-sweep finding GAP-3):
-      // pin the allowed top-level set. Precedent: ask-question-reminder.test.ts:139.
+      // pin the allowed top-level set. Precedent: ask-question-reminder.test.ts:153.
       const r = runHook({ ZCODE_PROJECT_DIR: REPO_ROOT });
       const json = JSON.parse(r.stdout);
       const allowedTopLevel = new Set([

@@ -112,6 +112,18 @@ function runHook(
   };
 }
 
+/** Render one pack function directly, so an assertion can compare the hook's payload against
+ *  the SHARED source of the fork contract instead of a hand-copied substring of it. A card
+ *  edit then moves both sides together; a challenge that stops calling aif_msg_fork_card goes
+ *  red here rather than silently drifting (#sync-by-copy-paste,
+ *  .claude/rules/dual-implementation-discipline.md §8). */
+function renderPackFn(fn: string, lang: 'en' | 'ru'): string {
+  const pack = resolve(REPO_ROOT, '.claude/hooks/lang', `${lang}.sh`);
+  const r = spawnSync('bash', ['-c', `. "${pack}"; ${fn}`], { encoding: 'utf8' });
+  if (r.status !== 0) throw new Error(`${fn} (${lang}) exited ${r.status}: ${r.stderr}`);
+  return (r.stdout ?? '').toString();
+}
+
 describe.skipIf(!JQ)(
   'ask-question-reminder.sh — PreToolUse:AskUserQuestion fork-challenge',
   () => {
@@ -175,7 +187,7 @@ describe.skipIf(!JQ)(
       expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
     });
 
-    it('BRAINSTORM CUE (item 6): reminder steers design/strategy forks to superpowers:brainstorming', () => {
+    it('BRAINSTORM CUE (item 2): reminder steers design/strategy forks to superpowers:brainstorming', () => {
       const { tmp, session } = makeTmpEnv();
       const r = runHook('AskUserQuestion', session, tmp);
       expect(r.status).toBe(0);
@@ -185,6 +197,69 @@ describe.skipIf(!JQ)(
       expect(reason).toMatch(/brainstorming/i);
       expect(reason).toMatch(/дизайн|стратеги/i);
     });
+
+    it.each(['en', 'ru'] as const)(
+      '%s: the challenge EMITS the shared fork card, byte for byte (no restated contract)',
+      (lang) => {
+        const { tmp, session } = makeTmpEnv();
+        const r = runHook('AskUserQuestion', session, tmp, lang);
+        const reason = JSON.parse(r.stdout).hookSpecificOutput
+          .permissionDecisionReason as string;
+        // The card as the pack itself renders it, indented the way the challenge embeds it.
+        const card = renderPackFn('aif_msg_fork_card', lang)
+          .replace(/\n$/, '')
+          .split('\n')
+          .map((l) => `   ${l}`)
+          .join('\n');
+        expect(reason).toContain(card);
+        // ...and exactly once: a second copy would be the restated contract this slice removes.
+        expect(reason.split(card).length - 1).toBe(1);
+      },
+    );
+
+    it.each(['en', 'ru'] as const)(
+      '%s: card BEFORE the buttons, recommendation as the FIRST option (D-C)',
+      (lang) => {
+        const { tmp, session } = makeTmpEnv();
+        const r = runHook('AskUserQuestion', session, tmp, lang);
+        const reason = JSON.parse(r.stdout).hookSpecificOutput
+          .permissionDecisionReason as string;
+        const firstOption = lang === 'en' ? /first option in the buttons/i
+                                          : /Первый вариант в кнопках/;
+        expect(reason).toMatch(firstOption);
+        const cardFirst = lang === 'en' ? /card comes FIRST/ : /СНАЧАЛА карточка/;
+        expect(reason).toMatch(cardFirst);
+      },
+    );
+
+    it.each(['en', 'ru'] as const)(
+      '%s: names the recap block and its fork section for the R-13 pointer',
+      (lang) => {
+        const { tmp, session } = makeTmpEnv();
+        const r = runHook('AskUserQuestion', session, tmp, lang);
+        const reason = JSON.parse(r.stdout).hookSpecificOutput
+          .permissionDecisionReason as string;
+        // Interpolated from the pack scalars, never hard-coded here (cold review F9: the gate and
+        // its assertions read the ACTIVE pack, so a scalar rename moves both).
+        for (const scalar of ['AIF_RECAP_MARKER', 'AIF_EOT_SEC_FORK']) {
+          expect(reason).toContain(renderPackFn(`printf '%s' "$${scalar}"`, lang));
+        }
+      },
+    );
+
+    it.each(['en', 'ru'] as const)(
+      '%s: the pack renders with no stderr — the brainstorming backticks never execute',
+      (lang) => {
+        const pack = resolve(REPO_ROOT, '.claude/hooks/lang', `${lang}.sh`);
+        const r = spawnSync('bash', ['-c', `. "${pack}"; aif_msg_question_challenge`], {
+          encoding: 'utf8',
+        });
+        expect(r.status).toBe(0);
+        // An unquoted heredoc would run `superpowers:brainstorming` as a command here.
+        expect(r.stderr, 'a backtick in the payload executed').toBe('');
+        expect(r.stdout).toMatch(/superpowers:brainstorming/);
+      },
+    );
 
     it('en pack: AIF_HOOK_LANG=en → English fork-challenge, no Russian leakage', () => {
       // Confirms the language pack is wired for this hook too: en is the canonical
