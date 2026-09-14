@@ -44,6 +44,19 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
 
+// Every case below spawns `bash .claude/hooks/end-of-turn-reminder.sh`: 106 spawn call
+// sites over 117 cases, and the D13 `fixture 9` arm replays the whole 19-case golden
+// fixture through the hook inside ONE `it`. So the vitest 5s default is a mis-set gate
+// rather than a signal — run in isolation on an idle box the slowest arms measure 1806ms
+// (F-2) and 1522ms (D13 fixture 9, measured 2026-09-14), i.e. ~2.8x headroom, and that is
+// exactly the headroom a fully parallel `npm run test` on a loaded box consumes.
+// 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
+// suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
+// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:574
+// and check-worker-dispatch-channel.test.ts:358 record the same 5000ms-under-parallel-load
+// failure, in the inline `timeout:` spelling of the same convention.
+const SLOW_SHELL_MS = 30_000;
+
 function hasJq(): boolean {
   try {
     execSync('command -v jq', { stdio: 'ignore' });
@@ -198,7 +211,7 @@ function longMarkdownText(): string {
   return block + '\n\n' + 'хвост'.repeat(40);
 }
 
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & paired-negative shape', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & paired-negative shape', { timeout: SLOW_SHELL_MS }, () => {
   // ---------------------------------------------------------------------------
   // ❌ NEGATIVE — trigger turns: reminder MUST fire (JSON output with the full
   // {decision, reason, systemMessage} payload shape per T-M4-B).
@@ -787,7 +800,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
 // (T-ZP-B: `reason` field, NOT `additionalContext`) when last text > 500 chars AND
 // markdown-dense. Non-ZCode env must NOT fire (CC dogfood byte-for-byte unchanged).
 // =============================================================================
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part A grep + Part B thin-recap)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part A grep + Part B thin-recap)', { timeout: SLOW_SHELL_MS }, () => {
   const ZCODE_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/zcode-synthetic-transcript.jsonl');
   const CC_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/cc-transcript-legacy.jsonl');
 
@@ -970,7 +983,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
 // CC neutrality is not re-tested here: fixture 9 (gate goldens) replays every
 // gate input against the edited hook and requires byte-identical unarmed output.
 // ═══════════════════════════════════════════════════════════════════════════════
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + same-text loop bound (ZCode)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + same-text loop bound (ZCode)', { timeout: SLOW_SHELL_MS }, () => {
   function privateTmp(): string {
     const dir = mkdtempSync(join(tmpdir(), 'zcode-1706-'));
     tmpDirs.push(dir);
@@ -1063,7 +1076,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
  * The probe is pointed at an unreachable port in every case here: the tests must not depend
  * on a live aif runtime, and the fail-CLOSED branch is itself part of the contract.
  */
-describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
+describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_MS }, () => {
   const DEAD_AIF = 'http://127.0.0.1:59997';
 
   it('OFF by default: a short turn stays silent even with work conceivably in flight', () => {
@@ -1339,7 +1352,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
   });
 });
 
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeout: SLOW_SHELL_MS }, () => {
   // spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7.
   // Thresholds under test are PROVISIONAL (D9 calibrates); none of them MOVED when the
   // window default flipped to 1M — they are now derived from the window:
@@ -1644,7 +1657,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
 // `#warning-nobody-reads`). Each defect ships with its paired negative so the
 // fix cannot be satisfied by deleting the guard it repairs.
 // ═══════════════════════════════════════════════════════════════════════════════
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2 / F-2', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2 / F-2', { timeout: SLOW_SHELL_MS }, () => {
   function privateTmpDir(): string {
     const dir = mkdtempSync(join(tmpdir(), 'ledger-1597-'));
     tmpDirs.push(dir);
@@ -1872,7 +1885,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2
 // the D7 arm reads it when AIF_CTX_WINDOW is undeclared. Precedence is
 // declared > observed > 1M default.
 // ═══════════════════════════════════════════════════════════════════════════════
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed window)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed window)', { timeout: SLOW_SHELL_MS }, () => {
   function privateTmpDir(): string {
     const dir = mkdtempSync(join(tmpdir(), 'a33b-'));
     tmpDirs.push(dir);
@@ -1985,7 +1998,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed w
 // session id, so an id carrying a path separator wrote into a directory that does not
 // exist, the write failed silently behind `|| true`, and the debounce failed OPEN.
 // ═══════════════════════════════════════════════════════════════════════════════
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce key + reset)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce key + reset)', { timeout: SLOW_SHELL_MS }, () => {
   function privateTmpDir(): string {
     const dir = mkdtempSync(join(tmpdir(), 'a33c-'));
     tmpDirs.push(dir);
@@ -2049,7 +2062,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce k
 // a paired negative written against the edited hook asserts that the hook equals itself).
 // Every armed claim below is a spawned run quoted into the assertion (T-HCG-A).
 // ═══════════════════════════════════════════════════════════════════════════════
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', { timeout: SLOW_SHELL_MS }, () => {
   const GOLDENS = JSON.parse(
     readFileSync(resolve(REPO_ROOT, 'packages/core/hooks/__fixtures__/gate-unarmed-goldens.json'), 'utf8'),
   ) as {
@@ -2537,7 +2550,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
  * One armed run over the real artifact covers both, and any future member added to
  * `lib/residue-dir.sh` and called from the gate is caught here the same way.
  */
-describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Stop (lib-less + own lang pack)', () => {
+describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Stop (lib-less + own lang pack)', { timeout: SLOW_SHELL_MS }, () => {
   const TWIN_HOOK = resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder');
   const boxes: string[] = [];
   afterAll(() => {
