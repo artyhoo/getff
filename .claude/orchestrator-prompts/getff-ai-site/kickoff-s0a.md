@@ -17,7 +17,7 @@
 > [`2026-09-14-getff-ai-reference-generator-design.md`](../../../docs/superpowers/specs/2026-09-14-getff-ai-reference-generator-design.md).
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
+`79fa1b56b748899bc807f23ea8dfba9258e0acc3`. Every file cited here was read at that one ref.
 Pinning every file of one answer to the **same** ref, and saying which, is not a formality — it
 is the counter to this umbrella's dominant defect (umbrella kickoff §7, `T-GA-A`).
 
@@ -106,8 +106,13 @@ verify-**and-repair** phase: what it finds, it fixes here, and what it fixed is 
    claims. Do not trust `scripts/check-line-citations.mjs` for this — it has exactly two arms
    (blame-based drift; blank cited line), so **a citation that was wrong when written returns
    exit 0 with no output** (non-negotiable 11). This walk is the only thing that sees that class.
-2. **Run the §9 `host-verify` contract** — `bash scripts/host-verify.sh getff-ai-site` against
-   this stage's kickoff — and the repo's own gates that apply to your diff.
+2. **Run the §9 `host-verify` contract** — `bash scripts/host-verify.sh
+   .claude/orchestrator-prompts/getff-ai-site/kickoff-s0a.md` — and the repo's own gates that
+   apply to your diff. **The path form is load-bearing:** the slug form
+   (`host-verify.sh getff-ai-site`) resolves to the *umbrella's* `kickoff.md` and nothing else
+   (`scripts/host-verify.sh:98`), so it returns this umbrella's 13 always-green lines and never
+   sees this stage's contract at all — a green that means nothing, the `#hope-as-gate` shape
+   [attention-is-not-a-mechanism.md §2](../../rules/attention-is-not-a-mechanism.md) names.
 3. **Fix what you find here**, not later. If a citation drifted, correct it in the prompt copy you
    work from and report the correction; if a declared name is missing, STOP and surface rather
    than substituting a similar one.
@@ -182,8 +187,8 @@ work existed. This list is separate and runs last, every commit:
    do not, the figures were edited from memory.
 3. Regenerate twins and baselines for everything touched; confirm no generated file is stale.
 4. `bash scripts/check-ask-files.sh` — a RED ask file blocks every push.
-5. `bash scripts/host-verify.sh getff-ai-site` against this kickoff, on the host, and quote its
-   output in the task report.
+5. `bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s0a.md` on the
+   host — the **path** form, per §3 item 2 — and quote its output in the task report.
 6. Re-walk **this prompt's own citations** one final time (non-negotiable 11) — your own edits may
    have shifted lines in a file this prompt cites.
 7. Capture the diff's **hunk headers** for every file you changed and list, per shifted file, the
@@ -236,6 +241,7 @@ free-text reason and never a value.
 ```bash host-verify
 test -f .claude/skills/orchestrator/SKILL.md
 test -f .claude/skills/dispatcher/SKILL.md
+test -f .claude/skills/pipeline/SKILL.md
 test -f .claude/skills/harvest/SKILL.md
 test -f .claude/skills/claude-glm-executor-handoff/SKILL.md
 test -f .claude/skills/reviewer/SKILL.md
@@ -264,7 +270,7 @@ precondition.
 and went RED on the host in this kickoff's own Phase -1 cold review — the exact `T-S0A-A` shape of
 reading a stage's output as its input.)*
 
-## §10 D44 — names this stage invokes, measured at `6472bf6f2c7`
+## §10 D44 — names this stage invokes, measured at `79fa1b56b74`
 
 `orchestrator` (kickoff + Worker prompts), `dispatcher` (probe-inflight + dispatch), `pipeline`,
 `claude-glm-executor-handoff` (every GLM Worker prompt), `harvest` (egress to PR),

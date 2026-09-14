@@ -1,20 +1,21 @@
 # getff.ai docs site — umbrella kickoff (stage index)
 
-> **Class:** umbrella kickoff (stage index + the S0b chip prompt). **Base branch:** `staging`.
+> **Class:** umbrella kickoff (stage index). **Base branch:** `staging`.
 > **Rigor label (effort-worthiness L0):** `research-grade` — the output is a **consumer-shipped**
 > public documentation site pinned to `main`, and the S2 cutover deletes the live site's content
 > source in one PR (irreversible for every old URL not in the enumerated redirect list).
 > **Authoritative for:** the stage index, the dispatch order and its two separate operator gos,
 > the non-negotiables every stage prompt carries, the D44 name census at the SHA below, and the
-> **S0b gold-pages chip prompt** (D40 requires the kickoff to carry it so the trigger survives
-> the authoring session).
+> **S0b chip's trigger** — D40 requires the kickoff to carry the trigger so it survives the
+> authoring session; §5 carries the trigger and the prompt itself is
+> [`kickoff-s0b.md`](kickoff-s0b.md), a sibling of the other four stage files.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > the design itself — the five specs under `docs/superpowers/specs/` own it, by pointer, never
 > restated here; where a kickoff must live before dispatch —
 > [`kickoff-staging-placement.md`](../../rules/kickoff-staging-placement.md).
 
 **Measurement SHA for every `path:line` in this umbrella's five kickoff files:**
-`origin/staging` = `6472bf6f2c7767621e04804894279030bee2cda4`. Every citation below was read at
+`origin/staging` = `79fa1b56b748899bc807f23ea8dfba9258e0acc3`. Every citation below was read at
 that ref with `git show <sha>:<path>`, not from a worktree. Staging moves under this umbrella
 constantly — before citing any of these lines again, re-fetch and re-read them.
 
@@ -32,14 +33,15 @@ constantly — before citing any of these lines again, re-fetch and re-read them
 
 Five rows, matching the umbrella's own stage skeleton at
 [`site-design.md:49`–`:53`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md).
-Four of them are aif stages with a stage kickoff; **S0b is not** — it is a chip to a new clean
-Fable session, and its prompt is §5 of this file.
+Four of them are aif stages; **S0b is not** — it is a chip to a new clean Fable session. All five
+have a stage kickoff file, S0b included: its contract is S0q's exit gate and therefore has to be
+addressable by `host-verify.sh` on its own (§5).
 
 | Stage | Dispatch channel | Kickoff |
 |---|---|---|
 | **S0a — source-holes batch** (+ the D29 generator BUILD + `render-face-facts.mjs` BUILD) | aif on GLM | [`kickoff-s0a.md`](kickoff-s0a.md) |
 | **S0q — quality-layer build** (D50) | aif on GLM | [`kickoff-s0q.md`](kickoff-s0q.md) |
-| **S0b — gold pages + rules** (D40, D41) | **a NEW clean Fable session, never an aif profile** | §5 of this file |
+| **S0b — gold pages + rules** (D40, D41) | **a NEW clean Fable session, never an aif profile** | [`kickoff-s0b.md`](kickoff-s0b.md) |
 | **S1 — conveyor, BUILD then RUN** | aif on GLM, two tasks (R23) | [`kickoff-s1.md`](kickoff-s1.md) |
 | **S2 — landing cutover** | aif on GLM + operator hands | [`kickoff-s2.md`](kickoff-s2.md) |
 
@@ -79,7 +81,7 @@ its own file, not this one.
 11. The in-container phase must separately re-walk the prompt's OWN citations against real lines.
     `check-line-citations.mjs` has no freshness arm, so a citation wrong when written passes.
 
-## §3 D44 name census — measured at `6472bf6f2c7`, not inherited
+## §3 D44 name census — measured at `79fa1b56b74`, not inherited
 
 [D44](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md) (`site-design.md:171`)
 requires every stage prompt to name what it invokes **by exact invocation name, verified to exist
@@ -87,7 +89,7 @@ at the SHA the kickoff cites** — «use the docs skill» is `#hope-as-gate`
 ([`attention-is-not-a-mechanism.md §2`](../../rules/attention-is-not-a-mechanism.md)). D44's own
 census was taken at `fc865b5448d`; this is the re-measurement required by non-negotiable 4.
 
-| Name | Kind | At `6472bf6f2c7` |
+| Name | Kind | At `79fa1b56b74` |
 |---|---|---|
 | `orchestrator`, `dispatcher`, `pipeline`, `harvest`, `claude-glm-executor-handoff`, `arch`, `reviewer` | repo skill | **PRESENT** (`.claude/skills/<name>/SKILL.md`) |
 | `agents/claims-conformance-auditor.md`, `agents/fidelity-auditor.md` | repo agent | **PRESENT** |
@@ -126,59 +128,23 @@ The reason is measured, not stylistic: the gold session is the first *stranger* 
 D28 §5–§7 and D30 specs, and if a fresh Fable cannot write five gold pages from them, the GLM
 conveyor never will — learning that on five pages is the cheapest channel.
 
-**Fire the chip only when all three D40 prerequisites hold, each an artifact event:**
+**The chip prompt itself lives at [`kickoff-s0b.md`](kickoff-s0b.md)** — fire conditions (the
+three D40 prerequisites), scope (the gold set), the names it invokes, the exit gate, the numbers
+it must record, and its `host-verify` contract. Hand the chip THAT file; this section is the
+index entry, not the prompt.
 
-1. this umbrella's cold pass returned GO (recorded in §6);
-2. D30's fixed writing interface exists — the card, the six templates, the `terms.md` skeleton and
-   the form gate — i.e. **S0q has merged**;
-3. S0a is merged, or its holes are stubbed with G18 tokens (D36, `site-design.md:163`).
+**Why it is a file and not a block here (the §5 that shipped in PR #1773 was a block).** That
+contract is S0q's exit gate, and it has to be *runnable*: `scripts/host-verify.sh` collects only
+fences whose info-string carries `host-verify`, and **concatenates every such fence in one file**
+(measured on a two-fence fixture — both commands came back under one run). Embedded here it could
+only be one of two wrong things: unmarked, and invisible to the runner — so S0q's exit was
+computed by no command at all; or marked, and fused with this file's own §8 contract, turning the
+umbrella's always-runnable check red until S0q merged. One artefact, one addressable contract:
+`bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s0b.md`.
 
-**The chip's own `host-verify` block, run on the host before the chip starts** (D50 gives D40
-prerequisite (2) this channel; the chip exits 1 until S0q merges):
-
-```bash
-test -f scripts/docs-check.mjs
-test -f scripts/render-terms-style.mjs
-test -f docs/site/terms.md
-test -d docs/site-quality
-test -f .claude/skills/docs-author/SKILL.md
-test -f agents/docs-form-auditor.md
-test -n "$(find "$HOME/.claude/plugins/cache" -type d -name diataxis -print -quit)"
-npx vitest run packages/core/eslint-rules/no-unsafe-zod-parse.test.ts
-bash packages/core/audit-self/check-fences-fire.sh
-```
-
-The last two lines are **non-negotiable 2**: the R2 `no-unsafe-zod-parse` RED step belongs in the
-S0b chip's `host-verify` block and nowhere else. It is there because the npm quick-start page the
-chip writes instructs a reader to make that rule go RED
-([`face.md:160`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md)) — a
-gold page must not promise a RED that does not fire. **Mind the two homes of that script:** in
-this source repo it is `packages/core/audit-self/check-fences-fire.sh`; the
-`scripts/check-fences-fire.sh` the page shows the reader is the **consumer** path AIF installs.
-Citing the source path to a reader would be wrong, and citing the consumer path in this contract
-would exit 1 forever.
-
-**Scope of the chip — the GOLD SET ONLY** ([`site-design.md:51`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md),
-[`roll.md:105`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md),
-D41 at `site-design.md:168`): the 5 trial pages; the **11 face pages** — the pinned seven plus the
-four `/docs/quickstart-<stack>/` stack pages (D48, `site-design.md:175`); family 1 (~20 pages)
-with its gold cards hand-written against the generator S0a built (D24b seam); the glossary
-CONTENT (the skeleton is S0q); the top-level artifacts D25(2) names; and the hero copy as
-`docs/site/hero-copy.json` (D51 (3), `site-design.md:178`). **Every remaining page is S1 RUN, not
-this chip.**
-
-**Skills the chip invokes, by exact name** (D44): `docs-author` (S0q's output, wrapping the pinned
-`diataxis` plugin by pointer) and `superpowers:verification-before-completion` (D13 — every
-example executed before a page is done). The Opus gold review runs `docs-form-auditor` and
-[`agents/claims-conformance-auditor.md`](../../../agents/claims-conformance-auditor.md).
-
-**Exit:** Opus gold review = GO on the 5 trial pages **before** family 1, then the D22 checkpoint
-after family 1 (`site-design.md:140`). Verdict grammar `GO | REVISE | STOP`, `Failure-scenario:`
-on every round-triggering finding.
-
-**Falsifier (D39 (c)):** the Fable gold session's five trial pages fail the Opus gold review
-twice → the writing skill / quality contract (D30) needs work, **not** the seat. S0b does **not**
-move to aif on that evidence.
+**Non-negotiable 2 is carried there, not here:** the R2 `no-unsafe-zod-parse` RED step belongs in
+the S0b chip's `host-verify` block and nowhere else — [`kickoff-s0b.md §9`](kickoff-s0b.md) holds
+it, together with the two-homes warning about `check-fences-fire.sh`.
 
 ## §6 Review record
 
