@@ -232,6 +232,15 @@ gate_table() {
   # test present in scripts/ but wired to NO CI step (probe-channels.test.sh at time of
   # writing) correctly stays out — the sweep predicts CI, it does not invent gates.
   #
+  # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
+  # one quarantined test — see that file's header). THIS file is delivered into consumer projects
+  # (setup.d/10-skills.sh:172, install.sh:1156) and the runner is NOT, which is deliberate: a
+  # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
+  # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
+  # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
+  # Shipping the runner would add an artefact to the install manifest for a battery consumers do
+  # not have.
+  #
   # `sweep-ci-coverage` is listed explicitly even though `script-selftests` would derive it: that
   # row's trigger is `scripts/` only, and a workflow-only diff — precisely the diff this metatest
   # exists to catch — would never select it. The duplicate run on a scripts/ diff is pure grep.
@@ -274,7 +283,7 @@ gate_table() {
     "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
-    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do /bin/bash \"\$t\" || exit 1; done" \
+    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}bash scripts/run-install-sh-suite.sh tests/install-sh/" \
     "5${TAB}agnosticism${TAB}packages/core/${TAB}bash tests/agnosticism/harness-self.test.sh" \
     "5${TAB}premerge-carrier-selftest${TAB}packages/core/audit-self/${TAB}bash packages/core/audit-self/pre-merge-local.test.sh" \
     "5${TAB}mutation-runner-selftest${TAB}packages/core/synthesizer/${TAB}bash packages/core/synthesizer/run-generated-rule-mutation.test.sh && bash packages/core/synthesizer/run-rule-tests-firing.test.sh" \
@@ -450,6 +459,20 @@ ensure_log_dir() {
   LOG_DIR_READY=1
   return 0
 }
+
+# ── fd 3: the live progress channel ────────────────────────────────────────────────────────────
+# Gate output is CAPTURED (see the eval line below), so a long-running gate is silent for its whole
+# duration: while `install-sh-suite` ran its 114-file battery the sweep printed nothing for ~30
+# minutes and a working run was indistinguishable from a hung one — proving liveness meant walking
+# the process tree with `pgrep -P` by hand, three times in one session on 2026-09-14. A mechanism
+# whose state is recovered by human attention is the shape
+# .claude/rules/attention-is-not-a-mechanism.md §1 forbids.
+#
+# fd 3 is the escape hatch: it is NOT touched by the `2>&1` capture, so anything a gate writes
+# there reaches the operator live. Gates that emit progress must write to fd 3 and must tolerate
+# it being closed (they run standalone in CI too) — see scripts/run-install-sh-suite.sh
+# `progress()`. Nothing is FORCED onto fd 3: a gate that ignores it behaves exactly as before.
+exec 3>&2
 
 ran=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"

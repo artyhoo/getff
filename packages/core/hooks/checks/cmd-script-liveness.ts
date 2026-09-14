@@ -46,10 +46,11 @@
  * a designed pre-condition fixture per rule. BUILD verdict stands; run-check.ts is the
  * ADOPTED subprocess primitive (SSOT #54). See PR body §Prior-art for the sweep.
  */
-import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { runCheck, type CheckResult } from '../utils/run-check.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -169,31 +170,81 @@ function tokenize(subCmd: string, filesSubstitution: string): { bin: string; arg
   return { bin: parts[0] ?? '', args: parts.slice(1) };
 }
 
-/** Recursively find the first file whose basename matches `name` under `dir`. */
-function findByBasename(dir: string, name: string): string | null {
-  let entries: string[];
+/**
+ * Repo-relative paths of every file `git ls-files` reports for `repoRoot`.
+ *
+ * TRACKEDNESS, NOT A DIRECTORY WALK. The two resolvers below used to walk the
+ * filesystem skipping only `node_modules`/`.git`. That walk resolves to BUILD
+ * OUTPUT and to foreign checkouts, because both are gitignored rather than named:
+ *
+ *   - `packages/getff/` holds the assembled distribution payload
+ *     (scripts/build-getff-dist.sh, gitignored per packages/getff/.gitignore).
+ *     `readdirSync('packages')` yields `getff` before every `preset-*`, so after
+ *     one `bash scripts/build-getff-dist.sh` the first match for
+ *     `eslint.config.react.mjs` is `packages/getff/packages/preset-next-15-canonical/
+ *     templates/…` and for `run-local-ci-sweep.sh` it is `packages/getff/scripts/…`
+ *     — neither is the live file, and resolve-and-run EXECUTES what it resolves,
+ *     so a rule whose real backing script was deleted still reports GREEN off the
+ *     stale copy (measured 2026-09-14).
+ *   - the config walk was rooted at the REPO ROOT and so descended into
+ *     `.claude/worktrees/*` — 161 full repo copies on the operator's main clone —
+ *     letting another branch's config decide this repo's verdict, at an unbounded
+ *     traversal cost.
+ *
+ * An untracked path is build output or a foreign checkout by construction, so
+ * trackedness is the predicate, not any path pattern. Same reasoning and same
+ * primitive as principles/34-claudemd-excludes-liveness.test.ts:66-73 (`git ls-files`
+ * is "the honest population for the repo file tree") and scripts/build-getff-dist.sh:19-21
+ * ("a directory walk would ship whatever is lying in the working tree").
+ *
+ * Fail-closed: a repoRoot git cannot enumerate yields an EMPTY population, so a
+ * resolver finds nothing and the rule SKIPs or FAILs with a visible reason — it
+ * never falls back to the walk this function exists to replace.
+ *
+ * Not memoised: `git ls-files -z` is ~30 ms on this repo against the multi-second
+ * subprocess pairs each rule already runs, and a cache would go stale mid-run.
+ */
+function trackedPaths(repoRoot: string): string[] {
+  let out: string;
   try {
-    entries = readdirSync(dir);
+    out = execFileSync('git', ['ls-files', '-z'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
   } catch {
-    return null;
+    return [];
   }
-  for (const e of entries) {
-    if (e === 'node_modules' || e === '.git') continue;
-    const full = join(dir, e);
-    let st;
-    try {
-      st = statSync(full);
-    } catch {
-      continue;
-    }
-    if (st.isDirectory()) {
-      const hit = findByBasename(full, name);
-      if (hit) return hit;
-    } else if (e === name) {
-      return full;
-    }
-  }
-  return null;
+  return out.split('\0').filter((p) => p.length > 0);
+}
+
+/** A basename lookup that either resolved uniquely or found more than one candidate. */
+type BasenameResolution =
+  | { kind: 'found'; path: string }
+  | { kind: 'none' }
+  | { kind: 'ambiguous'; candidates: string[] };
+
+/**
+ * Resolve `name` against the TRACKED files under `<repoRoot>/packages/`.
+ *
+ * AMBIGUITY IS REPORTED, NOT PICKED. The previous walker returned the first match
+ * in `readdirSync` order, so two same-named files resolved arbitrarily by directory
+ * order. That is live in this repo: `eslint.config.react.mjs` is tracked under BOTH
+ * `packages/preset-next-15-canonical/templates/` and `packages/preset-react-spa/templates/`.
+ * Silently picking one would prove liveness of a script the rule does not name — a
+ * false GREEN — so the caller turns this into a `fail` naming every candidate.
+ * A path-suffix preference cannot break the tie here: manifest `check.script`
+ * values are CONSUMER-relative (`scripts/audit-r4.ts`) while the source lives at
+ * `packages/core/probes/audit-r4.ts`, so only the basename is comparable.
+ */
+function resolveTrackedBasename(repoRoot: string, name: string): BasenameResolution {
+  const candidates = trackedPaths(repoRoot)
+    .filter((p) => p.startsWith('packages/') && basename(p) === name)
+    .sort();
+  if (candidates.length === 0) return { kind: 'none' };
+  if (candidates.length > 1) return { kind: 'ambiguous', candidates };
+  return { kind: 'found', path: join(repoRoot, candidates[0]) };
 }
 
 // ── Mode runners ─────────────────────────────────────────────────────────────
@@ -341,14 +392,24 @@ function resolveAndRun(
   if (!scriptName) {
     return { status: 'no-data', mode: 'resolve-and-run', reason: 'check.script has no path' };
   }
-  const resolved = findByBasename(join(repoRoot, 'packages'), scriptName);
-  if (!resolved) {
+  const resolution = resolveTrackedBasename(repoRoot, scriptName);
+  if (resolution.kind === 'none') {
     return {
       status: 'skipped',
       mode: 'resolve-and-run',
-      reason: `script '${scriptName}' not found under packages/ (dangling/consumer-relative) — install to enable`,
+      reason: `script '${scriptName}' not found among tracked files under packages/ (dangling/consumer-relative) — install to enable`,
     };
   }
+  if (resolution.kind === 'ambiguous') {
+    return {
+      status: 'fail',
+      mode: 'resolve-and-run',
+      failures: [
+        `script '${scriptName}' is ambiguous — ${resolution.candidates.length} tracked files under packages/ share that basename [${resolution.candidates.join(', ')}]; running one of them would prove liveness of a script the rule does not name. Disambiguate by giving the rule's check.script a unique basename.`,
+      ],
+    };
+  }
+  const resolved = resolution.path;
 
   const interp = scriptName.endsWith('.ts')
     ? { bin: 'node', args: ['--experimental-strip-types', resolved] }
@@ -466,33 +527,25 @@ function configPresence(rule: CmdScriptRule, repoRoot: string): RuleLivenessResu
     return {
       status: 'fail',
       mode: 'config-presence',
-      failures: ['no dependency-cruiser architectural config found in the repo — the arch boundary check has nothing to enforce'],
+      failures: ['no tracked dependency-cruiser architectural config found in the repo — the arch boundary check has nothing to enforce'],
     };
   }
   return { status: 'pass', mode: 'config-presence', reason: `arch config present: ${candidates[0]}` };
 }
 
-/** Find config files matching `pattern` anywhere under repoRoot (skips node_modules/.git). */
-function findConfigs(dir: string, pattern: RegExp, acc: string[] = []): string[] {
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return acc;
-  }
-  for (const e of entries) {
-    if (e === 'node_modules' || e === '.git') continue;
-    const full = join(dir, e);
-    let st;
-    try {
-      st = statSync(full);
-    } catch {
-      continue;
-    }
-    if (st.isDirectory()) findConfigs(full, pattern, acc);
-    else if (pattern.test(e)) acc.push(full);
-  }
-  return acc;
+/**
+ * Tracked config files whose basename matches `pattern`, repo-relative and sorted.
+ *
+ * Tracked-only for the reason given on `trackedPaths` — the walk this replaced was
+ * rooted at the repo root and counted both the gitignored `packages/getff/` payload
+ * copy and every nested `.claude/worktrees/*` checkout, so a deleted config still
+ * read as present. Repo-relative because that is what makes the reported path
+ * ("arch config present: …") unambiguous about WHICH tree answered.
+ */
+function findConfigs(repoRoot: string, pattern: RegExp): string[] {
+  return trackedPaths(repoRoot)
+    .filter((p) => pattern.test(basename(p)))
+    .sort();
 }
 
 /** Run the liveness check for a single cmd/script manifest rule. */
