@@ -60,9 +60,11 @@
 #   backends/synthesizer/units/skills/spec-validation, the two drift gates, the
 #   tests/hooks/*.test.sh battery) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
-#   scripts/measure/measure.test.sh (the recap-v2 measurement-script oracle; it needs its OWN
-#   row because the derived `script-selftests` row greps `scripts/<name>.test.sh` and cannot see
-#   a test one directory deeper) ·
+#   scripts/measure/measure.test.sh (the recap-v2 measurement-script oracle; it kept its OWN
+#   row from when the derived `script-selftests` row could only see `scripts/<name>.test.sh`.
+#   Since 2026-09-14 that derivation also reaches one directory deeper — it had to, or
+#   `scripts/lib/claude-md-excludes.test.sh` would have been wired in CI and invisible to the
+#   sweep — so this row is now belt-and-braces rather than the only coverage) ·
 #   tests/plugin/twin-generation.test.sh (plugin twin generator acceptance — the
 #   `plugin-twin-tests` row). Named literally, not as a `tests/plugin/*` loop, so that a future
 #   test added to that dir but wired to NO CI step stays out of the sweep — same reasoning as
@@ -160,7 +162,7 @@ gate_table() {
   # framework-self matrix). A `.md` diff gets an honest advisory gate instead.
   #
   # Two rows DERIVE their content from .github/workflows/audit-self.yml rather than restating
-  # it: `script-selftests` greps the workflow for the scripts/*.test.sh steps it actually runs,
+  # it: `script-selftests` greps the workflow for the scripts/**/*.test.sh steps it actually runs,
   # and `toolchain_pins_ok` reads the ast-grep/ruff/rustc pins out of their install steps. A
   # hand-maintained list of either goes stale silently — the first version of this row named
   # four self-tests and was already one short (`host-verify-coverage.test.sh`, added to CI in
@@ -191,11 +193,11 @@ gate_table() {
     "2${TAB}rule-index-check${TAB}.claude/rules/,AGENTS.md,scripts/render-rule-index.mjs${TAB}npx tsx scripts/render-rule-index.mjs --check" \
     "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
     "2${TAB}presets-check${TAB}packages/core/templates/shared/AI-USAGE-GUIDE.md,.claude/skills/pipeline/references/presets/,scripts/render-presets.mjs${TAB}npx tsx scripts/render-presets.mjs --check" \
-    "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
+    "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}install.sh,setup,setup.d/,agents/,skills/,templates/,.claude/,.prettierrc.json,packages/,scripts/${TAB}bash scripts/build-getff-dist.sh --check" \
-    "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
+    "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
     "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do /bin/bash \"\$t\" || exit 1; done" \
