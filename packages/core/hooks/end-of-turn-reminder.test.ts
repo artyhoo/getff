@@ -225,6 +225,30 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.reason).toMatch(/рекомендовал|жду твоего решения|перекладывай/i);
   });
 
+  // D-I (Task 1.6): the last-resort anchor candidate — the head of the first user message,
+  // used only when no ai-title record exists — must not be a tag or a bare path. NO aiTitle()
+  // here: the ai-title record outranks this fallback (hook:527-534), so a transcript that opens
+  // with one never reaches the line D-I changes (hook:536) and the test would be vacuous.
+  it('does not use a tag or a bare path as the anchor', () => {
+    for (const first of ['<system-reminder>stuff</system-reminder>', 'src/app/page.tsx', 'notes.md']) {
+      const tr = writeTranscript([
+        userTurn(first),
+        assistantText('x'.repeat(700) + '\n\n## H\n- b\n'),
+      ]);
+      // Fresh TMPDIR per candidate: the anchor is cached per session id at
+      // ${TMPDIR:-/tmp}/aif-eot-anchor-<session_id> (hook:527/540), and reusing one would let
+      // the red run's rejected string leak back into the green run via that cache.
+      const dir = mkdtempSync(join(tmpdir(), 'anchor-di-'));
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `anchor-${first.length}` },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '', TMPDIR: dir },
+      );
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, `the turn must still reach a branch for "${first}"`).not.toBe('');
+      expect(r.stdout, `"${first}" must not survive as the anchor`).not.toContain(first);
+    }
+  });
+
   it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
     // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
     // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
