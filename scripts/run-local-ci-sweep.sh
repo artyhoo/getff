@@ -441,7 +441,7 @@ if [ "$ran" -eq 0 ]; then
   # (.claude/rules/attention-is-not-a-mechanism.md §2), which is what the defect already was.
   #
   # Scoped to the zero-gates case deliberately. Refusing on ANY dirty tree would break the
-  # script's own stated purpose (line 4: harvest pre-push): .claude/skills/harvest/SKILL.md §1
+  # script's own stated purpose (line 2: harvest pre-push): .claude/skills/harvest/SKILL.md §1
   # harvests a COMMITTED branch out of a deliberately polluted worktree, and the harvest base
   # clone measured 12 dirty entries (5 tracked-modified) on 2026-09-14. A harvested branch is
   # ≥1 commit ahead by construction, so its committed diff always selects a gate and this
