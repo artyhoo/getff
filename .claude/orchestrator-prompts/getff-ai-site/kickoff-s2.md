@@ -15,7 +15,7 @@
 > [`2026-09-14-getff-ai-rollout-and-cutover-design.md`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md) `:108`.
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
+`79fa1b56b748899bc807f23ea8dfba9258e0acc3`. Every file cited here was read at that one ref.
 
 ## §0 What lands, and what must already be in place
 
@@ -48,9 +48,12 @@ the S2 removal list by mistake.**
 | `app/rss.xml/route.ts` | reads only `blogSource`/`blogSlug`, and S2 never touches the blog | nothing — **and it is a D33 census URL** |
 | `app/sitemap-0.xml/route.ts` | reads the docs source and follows it | the same repointing |
 
-**Root cause, recorded so it is not re-introduced:** BU-7's «folded into the S2 removal list»
-(`roll.md:228`) leaked the `old-urls.txt` **enumeration** into the S2 contents row as
-**deletion**. `roll.md:108` now says KEEP + GATE.
+**Root cause, recorded so it is not re-introduced:** BU-7 (`roll.md:228`) resolved two live
+source-derived routes — `/llms-full.txt` and `/api/search` — as **FIXED**, «folded into the BU-1
+enumeration, the projections section and the post-merge probe», and says in the same row that they
+are **NOT** on the S2 removal list. Reading that fold as a fold into the *removal* list is the
+error this table exists to reverse: it turned an `old-urls.txt` **enumeration** into a
+**deletion**. The operative instruction is `roll.md:108` — KEEP + GATE.
 
 **The D54 gate arm — three assertions, one per kept surface, all post-merge and live:**
 
@@ -110,7 +113,12 @@ written:**
    at `c091883`. D54's verification is dated; the routes may have moved. If any of the four no
    longer matches its description, **STOP and surface** — this is the stage where a stale claim
    deletes a live surface.
-2. **Run the §7 `host-verify` contract** and the repo gates that apply to your diff.
+2. **Run the §7 `host-verify` contract** — `bash scripts/host-verify.sh
+   .claude/orchestrator-prompts/getff-ai-site/kickoff-s2.md` — and the repo gates that apply to
+   your diff. Use the **path** form: the slug form (`host-verify.sh getff-ai-site`) resolves to
+   the umbrella's `kickoff.md` and nothing else (`scripts/host-verify.sh:98`), so it would return
+   that file's always-green lines instead of this stage's contract, which is red by design until
+   S1 merges (§5).
 3. **Confirm both operator hands are already in place** (protection + secret). If either is
    missing, STOP: R14's hand order is a precondition, not a checklist item.
 4. **Emit findings AND dispositions in the task report.** «Self-check: OK» with no enumeration is a
@@ -155,6 +163,7 @@ written:**
 ```bash host-verify
 test -f .claude/skills/orchestrator/SKILL.md
 test -f .claude/skills/dispatcher/SKILL.md
+test -f .claude/skills/pipeline/SKILL.md
 test -f .claude/skills/harvest/SKILL.md
 test -f .claude/skills/claude-glm-executor-handoff/SKILL.md
 test -f .claude/skills/reviewer/SKILL.md
@@ -213,7 +222,7 @@ all four routes at the landing repo's current head and STOPs on any mismatch
 ([`destination-environment-verification.md §1b`](../../rules/destination-environment-verification.md)
 — a claim about live state carries a probe and a date, or it carries nothing).
 
-## §10 D44 — names this stage invokes, measured at `6472bf6f2c7`
+## §10 D44 — names this stage invokes, measured at `79fa1b56b74`
 
 `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`, and at the PR
 boundary `reviewer` + [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) and
