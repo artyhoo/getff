@@ -1022,11 +1022,17 @@ jobs:
         run: bash tests/install-sh/lane-orphan-residue.test.sh
       - name: "install-sh — pre-merge carrier delivery (pre-merge-carrier-build B1: --profile core receives carrier + probe, --refresh refreshes, W-3 no wiring)"
         run: bash tests/install-sh/pre-merge-local-delivery.test.sh
-      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh + scripts/*.sh + the two B1 carrier scripts (pinned 0.9.0)"
+      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh + scripts/*.sh + scripts/lib/*.sh + the two B1 carrier scripts (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
             shellcheck --version | grep -E '^version:' || true
-            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh \
+            # `scripts/*.sh` does NOT recurse: scripts/lib/*.sh (the claudeMdExcludes SSOT and
+            # its test) would ship unscanned, which is the same class of hole this gate exists
+            # to close. `-x -P SCRIPTDIR` makes shellcheck FOLLOW the `. lib/...` source lines
+            # instead of emitting SC1091 for them — the lib is then checked in its callers'
+            # context, not merely as a standalone file.
+            shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 \
+              setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh \
               packages/core/audit-self/pre-merge-local.sh \
               packages/core/audit-self/ci-available-probe.sh
           else
@@ -1167,6 +1173,14 @@ jobs:
       # Wired here 2026-08-07 — the file had shipped attached to no channel at all.
       - name: Run scripts/measure-always-on.test.sh (meter floor)
         run: bash scripts/measure-always-on.test.sh
+      # The bash-channel SSOT both meters now share, and the cross-grammar parity leg that
+      # keeps its «exact translation of picomatch» claim executable rather than commented.
+      - name: Run scripts/lib/claude-md-excludes.test.sh (excludes matcher + picomatch parity)
+        run: bash scripts/lib/claude-md-excludes.test.sh
+      # Difference test, not a floor: a floor is blind to an OVER-count, and an over-count is
+      # exactly what the dead `grep -Fxq` membership test produced here until 2026-09-14.
+      - name: Run scripts/measure-session-start-tokens.test.sh (live-set meter, paired negative)
+        run: bash scripts/measure-session-start-tokens.test.sh
       # Paired-negative for the gate below: proves it still goes RED over a zero ceiling.
       # Also shipped unwired (sibling sweep of the line above, same defect class): a gate
       # whose can-it-fail proof runs at no channel is not proven to fail at all.
