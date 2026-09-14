@@ -31,7 +31,7 @@ After install, your project has:
    - Vitest 4.x with `.unit.ts` / `.integration.ts` / `.audit.ts` naming and per-module coverage thresholds (90% domain, 85% application).
    - Stryker mutation testing (incremental on PR diff).
    - dependency-cruiser layered architecture rules.
-   - Husky pre-commit (lint-staged) + pre-push (typecheck + vitest related + arch + audit-ai-docs).
+   - Husky pre-commit (lint-staged) + pre-push. The pre-push hook runs getff's own rule checks — rule-glob liveness, lint-staged binary resolution, generated-rule firing, link-check on changed Markdown, un-pinned tool installs — **not** your typecheck or test suite, which stay yours to wire.
    - GitHub Actions CI with required `ci-success` job.
    - For React/Next: also Playwright (component testing + e2e) and Storybook test-runner.
 
@@ -226,7 +226,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
 | `AGENTS.md` (root) | from `packages/core/templates/shared/AGENTS.md.template` | **Yes — review** |
 | `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
-| `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged + typecheck + audit) | No |
+| `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged at commit; getff's rule checks at push) | No |
 | `.github/workflows/ci.yml` | full CI pipeline (lint, typecheck, arch, tests, mutation) | No — works as-is † |
 | `scripts/audit-ai-docs.sh` (and `.react-next.sh`) | code-vs-docs probes | No — extend with project-specific probes if useful † |
 

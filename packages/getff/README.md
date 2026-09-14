@@ -18,7 +18,7 @@ npx getff@latest init python
 
 ## What you get
 
-- **Rules from live docs** (beta) — ESLint rules generated from the framework docs your project actually uses, wired into the editor, the pre-commit hook, the pre-push hook and CI. The first violation fails; the rule names the doc it came from.
+- **Rules from live docs** (beta) — ESLint rules generated from the framework docs your project actually uses, wired into the editor and the pre-commit hook, with a pre-push gate that proves every generated rule still fires. The first violation fails; the rule names the doc it came from. CI stays yours — getff ships no workflow for the npm lane.
 - **The AI factory** (experimental, `env`/`factory` depth) — `/arch`, launch presets and the multi-model task pipeline around those rules.
 
 Depth is a product decision, not a flag combination: `core` = rules + tests + guards; `env` = plus the in-session tooling; `factory` = plus the pipeline. Upgrade by re-running `init` with a deeper profile.

@@ -192,8 +192,12 @@ The steady-state loop once First Steps is done. Every command below is shipped b
 3. **Before you commit** — `bash scripts/audit-ai-docs.sh` (drift + code-vs-docs probes) and, when
    you touched layout or added a package, `bash scripts/check-rule-globs.sh` and
    `bash scripts/check-lintstaged-resolves.sh`. The pre-commit hook runs lint-staged on its own.
-4. **On push** — `.husky/pre-push` fires automatically: typecheck, `vitest related`,
-   dependency-cruiser. It is not optional and not to be bypassed with `--no-verify`.
+4. **On push** — `.husky/pre-push` fires automatically. It runs **getff's own rule checks**:
+   rule-glob liveness (an active rule whose globs match no file fails), lint-staged binary
+   resolution, generated-rule firing, link-check on changed Markdown, and un-pinned tool
+   installs in workflows. It does **not** run your typecheck or your test suite — those stay
+   yours to wire, at pre-commit or in your CI. It is not optional and not to be bypassed with
+   `--no-verify`.
 5. **On the PR** — CI (`ci-success`) is the last-resort gate. It is the authority that does not
    depend on anyone's local tooling, which is exactly why it must never be the FIRST place a
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
