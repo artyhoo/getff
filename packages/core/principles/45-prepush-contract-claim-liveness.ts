@@ -40,14 +40,20 @@ export const REPO_ROOT = resolve(HERE, '../../..');
  * Kept honest by `it('the corpus covers every markdown-bearing shipped pathspec')`,
  * which parses scripts/format-shipped.sh — the shipped-surface SSOT — rather than
  * trusting this list to have been maintained.
+ *
+ * The live-authority half is `:(glob)*.md` — EVERY tracked markdown at the repo root,
+ * by predicate — and not the five names this list carried when principle 45 shipped.
+ * That spelling was the brief's own forbidden shape one level up: the claims inside
+ * each listed file were enumerated by predicate, but the list of root canon was picked
+ * by hand, so `INSTALL.md:439` («pre-push ← typecheck + tests + arch + audit», the same
+ * ASCII-tree shape already caught at `INSTALL-FOR-AI.md:354`) and
+ * `AUDIT-CHECKLIST.md:370,:373` sat outside the corpus and read green. Both were found
+ * by a parallel docs-repair branch, not by this gate — measured 2026-09-14. A root
+ * glob also admits each future root canon without an edit here.
  */
 export const CLAIM_CORPUS_PATHSPECS: readonly string[] = [
-  // live authority (this repo's canon)
-  'README.md',
-  'INSTALL-FOR-AI.md',
-  'CLAUDE.md',
-  'AGENTS.md',
-  'CONTRIBUTING.md',
+  // live authority (this repo's canon) — every tracked root markdown, by predicate
+  ':(glob)*.md',
   '.claude/rules/*.md',
   // shipped surface
   'packages/**/*.md',
@@ -118,6 +124,22 @@ const POST_CONNECTIVE_RE = /[:—–←]|<-/;
  */
 const POST_VERB_RE =
   /\b(?:runs?|executes?|invokes?|performs?|запускает|прогоняет)\b/i;
+/*
+ * KNOWN BLIND SPOT, declared rather than patched: a slash-joined list apposed to the
+ * mention with NO connective at all — `AUDIT-CHECKLIST.md:370`, «Earlier channels
+ * (edit-time ESLint custom rules, pre-push `audit-ai-docs.sh`/tsc/depcruise)». The
+ * paren arm does not reach it (the mention is INSIDE the parenthetical), and nothing
+ * opens an enumeration after it.
+ *
+ * Not fixed here because the population is ONE (measured 2026-09-14 over the whole
+ * corpus: `grep -nE 'pre-push `[^`]+`/'` → a single hit, that line). A regex shaped to
+ * catch one known sentence is fitted to the example, and the cheapest spelling of it —
+ * "a slash-joined token run near the mention" — collides head-on with ordinary repo
+ * paths (`packages/core/hooks/pre-push.ts` is itself a slash-joined run next to a
+ * mention), so it would trade a real blind spot for a false-positive class.
+ *
+ * Revisit when a SECOND instance appears: two is a shape, one is a sentence.
+ */
 /** `<list> at pre-push` — the same claim with the enumeration on the other side. */
 const PRE_CONNECTIVE_RE = /\b(?:at|in|by)\s+$/i;
 
@@ -650,10 +672,16 @@ export interface QuarantineRow {
  * measured against `origin/staging` d5a06c8cde5). Ten of the twelve original rows were
  * repaired by the docs-truth-prepush PR and deleted here in the same change, as the
  * `staleQuarantine` arm below requires. What remains is one surface and its generated
- * twin, held for a reason the gate cannot decide: `checks-map.md` §«Если стартуете с
- * нуля» PRESCRIBES a minimum a project should wire, rather than DESCRIBING what getff
- * wires — so the sentence is not simply false, and rewriting it is a product decision
- * for the maintainer.
+ * twin, held for a reason the gate cannot decide. `checks-map.md` declares itself
+ * authoritative for the GENERIC eight-level enforcement model (`:8`), not for getff's
+ * delivery: its levels 5-8 name Stryker, Pact Broker, Datadog and Argo Rollouts, none of
+ * which getff installs. Both of the row's claim sites live in that register — `:43` is
+ * row 3 of the model table and `:143` is the «minimum pipeline for a new project» — so
+ * they say where a check BELONGS, not what getff wires. Rewriting the model is a product
+ * decision for the maintainer. The consumer-confusion half is closed instead: the
+ * docs-truth-prepush PR adds a note above the table stating outright that the installed
+ * `.husky/pre-push` runs getff's own rule checks and that your typecheck, tests and
+ * architecture check stay yours.
  *
  * This is a ratchet, not an allowlist, and it is load-bearing in BOTH directions:
  *
@@ -681,7 +709,7 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'vitest related на изменённых файлах',
     ],
     owner:
-      'maintainer fork — :138-146 is PRESCRIPTIVE («if you start from scratch, here is the minimum»), not a description of what getff wires; rewriting it is a product decision, not a truth fix',
+      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :43 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :143 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
   },
   {
     file: 'plugin/skills/getff/references/checks-map.md',
