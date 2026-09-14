@@ -122,7 +122,11 @@ printf '%s\n' "$captured" >"$TMP/o8"
 no_grep_out "the counter did NOT leak into the captured gate output" "3/3 done" "$TMP/o8"
 grep_out "the gate output itself is still captured" "body-2" "$TMP/o8"
 # Fallback: with fd 3 closed (a direct CI invocation) the counter must still appear, on stderr.
-bash "$RUNNER" "$S" >"$TMP/o9" 2>"$TMP/e9"
+# `3>&-` is load-bearing and must stay: when this file runs as a sweep gate the sweep has already
+# done `exec 3>&2`, so fd 3 is OPEN and inherited here — without the explicit close the arm would
+# assert the fallback while the fast path was actually taken, and pass for the wrong reason.
+# (Measured 2026-09-14: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`.)
+bash "$RUNNER" "$S" >"$TMP/o9" 2>"$TMP/e9" 3>&-
 check "fd3-closed arm exits 0" 0 $?
 grep_out "with fd 3 closed the counter falls back to stderr" "3/3 done" "$TMP/e9"
 
