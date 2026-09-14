@@ -24,6 +24,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
   writeFileSync,
+  appendFileSync,
   readFileSync,
   mkdirSync,
   chmodSync,
@@ -868,8 +869,16 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     const handoff = join(residueDir, '_handoff-pc34e2e.md');
     writeFileSync(handoff, '# handoff\n\n## Next action\n- x\n' + ['## Decisions and why\n- d', '## Rejected alternatives\n- r', '## Unverified assumptions and open forks\n- u', '## Skills to invoke by name\n- s'].join('\n\n') + '\n', 'utf8');
 
+    /** A real next turn: append an assistant record the previous one cannot be confused with.
+     *  D38 keys the gate's baseline by the turn's last assistant record, so re-running the
+     *  hook on an UNCHANGED transcript is a second invocation of the SAME Stop (the
+     *  double-registration case), not the next turn this scenario means. */
+    const nextTurn = (uuid: string) =>
+      appendFileSync(transcript, JSON.stringify({ ...usageEntry(320_000), uuid }) + '\n', 'utf8');
+
     const first = JSON.parse((stop().stdout || '{}') as string) as { reason?: string };
     expect(first.reason, 'first in-band stop: fresh handoff allows silently — the block here would mean the handoff is invalid').toBeUndefined();
+    nextTurn('e2e-turn-2');
     const second = stop();
     expect((second.stdout || ''), 'same content, baseline matches → the gate blocks').toContain('unchanged');
 
@@ -880,6 +889,7 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     expect(existsSync(join(tmp, 'aif-handoff-pc34e2e')), 'baseline cleared by the auto compaction').toBe(false);
     expect(existsSync(handoff), 'the handoff file itself survived').toBe(true);
 
+    nextTurn('e2e-turn-3');
     const third = stop();
     expect((third.stdout || ''), 'post-compaction the first stop allows once and re-records').toBe('');
     expect(existsSync(join(tmp, 'aif-handoff-pc34e2e')), 'the gate re-recorded the baseline').toBe(true);

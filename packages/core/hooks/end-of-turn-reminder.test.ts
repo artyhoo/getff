@@ -29,6 +29,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
   writeFileSync,
+  appendFileSync,
   readFileSync,
   rmSync,
   mkdirSync,
@@ -2423,6 +2424,8 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   };
   const sha256File = (p: string): string =>
     createHash('sha256').update(readFileSync(p)).digest('hex');
+  /** The baseline's first line is the content sha; D38 appends the turn key on line 2. */
+  const baselineSha = (p: string): string => readFileSync(p, 'utf8').split('\n')[0];
 
   interface Built {
     dir: string;
@@ -2594,7 +2597,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'a fresh handoff on a first in-band stop is ALLOWED').toBe('');
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
-    expect(readFileSync(b.baseline, 'utf8'), 'the baseline records the content sha').toBe(
+    expect(baselineSha(b.baseline), 'the baseline records the content sha').toBe(
       sha256File(handoff),
     );
   });
@@ -2604,6 +2607,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const b = buildCase(c, true);
     const first = spawnCase(b); // records the baseline
     expect(first.stdout).toBe('');
+    // A SECOND STOP is a second TURN — say so (D38). Re-spawning on an unchanged transcript
+    // is the double-registration case instead, which fixture 19 owns.
+    nextTurn(b, c, 'f3-turn-2');
     const second = spawnCase(b);
     const parsed = JSON.parse(second.stdout) as { decision: string; reason: string };
     expect(parsed.decision).toBe('block');
@@ -2611,6 +2617,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     // mtime is never read: a touch changes nothing the sha can see.
     const before = readFileSync(b.baseline, 'utf8');
     execSync(`touch "${b.residueDir}/_handoff-${c.session}.md"`);
+    nextTurn(b, c, 'f3-turn-3');
     const third = spawnCase(b);
     const parsed3 = JSON.parse(third.stdout) as { decision: string; reason: string };
     expect(parsed3.decision, 'a touch alone must not lift the block').toBe('block');
@@ -2624,11 +2631,98 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(spawnCase(b).stdout).toBe(''); // first stop records the baseline
     const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
     writeFileSync(handoff, readFileSync(handoff, 'utf8').replace('land the delivery manifests.', 'land the delivery manifests TODAY.'), 'utf8');
+    nextTurn(b, c, 'f4-turn-2'); // the edit lands on the NEXT turn (D38)
     const second = spawnCase(b);
     expect(second.stdout, 'a content change is allowed').toBe('');
-    expect(readFileSync(b.baseline, 'utf8'), 'the baseline advanced to the new sha').toBe(
+    expect(baselineSha(b.baseline), 'the baseline advanced to the new sha').toBe(
       sha256File(handoff),
     );
+  });
+
+  // ── Fixture 19 (D38) — per-Stop idempotence, both directions.
+  //
+  // The Stop channel carries this hook TWICE in any project that has both the getff plugin
+  // (`hooks/hooks.json` → `run-hook.cmd end-of-turn-reminder`) and the project registration the
+  // AIF installer writes (`setup.d/10-skills.sh:260`, `install.sh:959`). Measured 2026-09-14
+  // (session 319c1945): both copies fired on one Stop, both derived the same
+  // `${TMPDIR}/aif-handoff-<ctx_key>` from session_id alone, so the first copy's ALLOW advanced
+  // the baseline and the second compared the file against what its twin had just written —
+  // «CONTENT unchanged» on a turn that had in fact rewritten the file, leaving the
+  // `mechanical-tail:` escape as the only exit from a defect the turn did not have
+  // (`.claude/rules/attention-is-not-a-mechanism.md` §1).
+  //
+  // Both halves invoke the hook TWICE. The only variable is whether a real turn began in
+  // between — which is exactly what a bare sha compare cannot see and the D38 turn key can.
+  //
+  /** Model a REAL turn boundary: append a fresh assistant record, identical to the one
+   *  `buildCase` wrote except for its `uuid`. Re-spawning on an UNCHANGED transcript is a
+   *  second invocation of the SAME Stop (what the double registration does), not a new turn. */
+  const nextTurn = (b: Built, c: (typeof GOLDENS.cases)[number], uuid: string): void => {
+    const msg = c.noUsage
+      ? { content: [{ type: 'text', text: c.text }] }
+      : {
+          model: 'claude-opus-5',
+          usage: {
+            input_tokens: 1000,
+            cache_read_input_tokens: (c.tokens ?? 0) - 3000,
+            cache_creation_input_tokens: 2000,
+          },
+          content: [{ type: 'text', text: c.text }],
+        };
+    appendFileSync(
+      b.transcript,
+      JSON.stringify({ type: 'assistant', isSidechain: false, uuid, message: msg }) + '\n',
+      'utf8',
+    );
+  };
+
+  it('fixture 19a (D38): a second invocation of ONE Stop after a real edit must NOT report «unchanged»', () => {
+    const c = goldenCase('f4-armed-edited-allow');
+    const b = buildCase(c, true);
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    // Turn N-1 ends: the baseline records the pre-turn sha.
+    expect(spawnCase(b).stdout, 'the first in-band stop allows and records').toBe('');
+    const preTurn = baselineSha(b.baseline);
+    // Turn N: a new assistant record, and the model rewrites the handoff.
+    nextTurn(b, c, 'turn-N');
+    writeFileSync(
+      handoff,
+      readFileSync(handoff, 'utf8').replace(
+        'land the delivery manifests.',
+        'land the delivery manifests TODAY.',
+      ),
+      'utf8',
+    );
+    // The Stop fires — copy 1 (the plugin twin).
+    const first = spawnCase(b);
+    expect(first.stdout, 'copy 1 sees a changed file and allows').toBe('');
+    expect(baselineSha(b.baseline), 'the baseline advanced past the pre-turn value').not.toBe(
+      preTurn,
+    );
+    expect(baselineSha(b.baseline), '…to the file it just read').toBe(sha256File(handoff));
+    // …and copy 2 (the project copy), same Stop, byte-identical inputs.
+    const second = spawnCase(b);
+    expect(second.status, `stderr: ${second.stderr}`).toBe(0);
+    expect(
+      second.stdout,
+      'the twin of the SAME Stop must not invent an «unchanged» defect its twin consumed',
+    ).toBe('');
+  });
+
+  it('fixture 19b (D38, paired negative): a NEW turn that leaves the handoff alone still blocks «unchanged» — for BOTH copies', () => {
+    const c = goldenCase('f3-armed-unchanged-block');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout, 'the first in-band stop allows and records').toBe('');
+    // A genuine next turn — a new assistant record — with the handoff untouched.
+    nextTurn(b, c, 'turn-N');
+    const second = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    expect(second.decision, 'a stale handoff on a NEW turn still blocks').toBe('block');
+    expect(second.reason, 'and says why').toContain('unchanged');
+    // The twin of THAT Stop repeats the verdict: the block half of the fix must not become a
+    // silent pass, which is how an idempotence fix would fail open.
+    const twin = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    expect(twin.decision, 'both copies of one blocking Stop agree').toBe('block');
+    expect(twin.reason).toContain('unchanged');
   });
 
   it('fixture 5: file missing ## Rejected alternatives → block, reason names it', () => {
@@ -2761,6 +2855,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const b = buildCase(c, true);
     expect(spawnCase(b).stdout, 'first stop allows and records (the recap itself still fires)')
       .not.toBe('');
+    nextTurn(b, c, 'f11-turn-2'); // the stale handoff is stale as of the NEXT turn (D38)
     const second = spawnCase(b);
     expect(second.stdout.trim().startsWith('{') && second.stdout.trim().endsWith('}'), 'exactly ONE JSON object').toBe(true);
     const parsed = JSON.parse(second.stdout) as { decision: string; reason: string; systemMessage?: string };
@@ -3002,7 +3097,8 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     // The baseline the allow-branch writes IS the file's sha256: proof the call ran.
     const baseline = join(r.dir, 'aif-handoff-plugintwin');
     expect(existsSync(baseline), 'no baseline = the sha branch never executed').toBe(true);
-    expect(readFileSync(baseline, 'utf8')).toBe(
+    // Line 1 is the content sha; D38 writes the Stop's turn key on line 2.
+    expect(readFileSync(baseline, 'utf8').split('\n')[0]).toBe(
       createHash('sha256')
         .update(readFileSync(join(r.dir, 'residue', '_handoff-plugintwin.md')))
         .digest('hex'),
