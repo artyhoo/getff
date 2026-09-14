@@ -183,3 +183,18 @@ Tell it as a story, in plain, engaging language — NOT a dry checklist:
 Tone: interesting, like a story; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 EOF
 }
+
+# Fork card template (shared with the recap block + ask-question-reminder rewrite, D-C).
+# Consumed by task 1.4 (branch payloads) and slice 2's ask-question-reminder.sh.
+aif_msg_fork_card() {
+  cat <<'EOF'
+A fork is a card, not a bare question. Six lines, in this order:
+0. Where we are — one sentence, no history.
+1. What we decide — with a concrete example, never an abstraction.
+2. If A — what becomes true.
+3. If B — what becomes true.
+4. Recommendation — the MOST ESSENTIAL reason first, the rest after.
+5. Reversible or not — and what rolls it back.
+Never compress the card: the line cap does not apply to it.
+EOF
+}
