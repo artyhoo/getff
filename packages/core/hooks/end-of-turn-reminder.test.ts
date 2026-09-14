@@ -535,26 +535,50 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   });
 
   // Task 1.1 (plain-words-recap-v2 slice 1): `_eot_turn_shape()` computes
-  // orch_mode/long_text/asked once, called from both the already-recapped
-  // guard site and the branch-selector site below it. This turn is BOTH
-  // already-recapped (carries the marker) and question-shaped — before the
-  // extraction the hook exits at the recap guard with the shape uncomputed;
-  // after it, the shape exists at both sites and the hook still exits
-  // silently (gate unarmed) with status 0. This is the regression guard for
-  // the extraction: a red here (or an "unbound variable" on stderr) means the
-  // refactor read an unset variable under `set -u`.
-  it('computes the same turn shape at the recap-guard site and at the branch selector', () => {
+  // orch_mode/long_text/asked once, so a later task can call it from the
+  // already-recapped guard site as well as from the branch selector below it.
+  //
+  // THE REGRESSION GUARD IS THE NO-MARKER CASE. Measured under `bash -x` on
+  // 2026-09-14: a turn carrying $AIF_RECAP_MARKER exits at the recap guard
+  // BEFORE the call site (0 entries into the function), so it cannot witness
+  // anything about the extraction; a long markdown turn ending in a question
+  // enters the function exactly once and sets long_text=true, asked=true.
+  // Only the latter turns red if the extraction reads an unset variable under
+  // `set -u`. The marker case is kept as the paired negative for the guard's
+  // silence, not as a witness for the function.
+  it('computes the turn shape through one function on a turn that reaches it', () => {
+    const tr = writeTranscript([
+      aiTitle('Turn shape'),
+      userTurn('go'),
+      assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nShall I proceed?'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-reached' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr, 'an unset read inside _eot_turn_shape aborts the hook under `set -u`').not.toMatch(
+      /unbound variable/,
+    );
+    // Branch C fired ⇒ both globals the function owns were computed and read
+    // by the selector. An empty stdout here means the shape never reached it.
+    expect(r.stdout, 'long markdown + trailing question must reach the branch selector').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('already-recapped guard still exits silently, ahead of the turn-shape call', () => {
     const tr = writeTranscript([
       aiTitle('Turn shape'),
       userTurn('go'),
       assistantText('## 🟢 In plain words\nWhere we are. Done.\n\nShall I proceed?'),
     ]);
     const r = runHook(
-      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-both-sites' },
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-guarded' },
       { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
     );
     expect(r.status).toBe(0);
     expect(r.stderr).not.toMatch(/unbound variable/);
+    expect(r.stdout, 'the recap guard exits before the branch selector').toBe('');
   });
 
   // ---------------------------------------------------------------------------
