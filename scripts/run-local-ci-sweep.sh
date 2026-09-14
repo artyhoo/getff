@@ -4,6 +4,12 @@
 # Default: diff-aware (vs merge-base), cheapest-first, fail-fast, fail-safe to full.
 # `--full` runs the complete set regardless of the diff.
 #
+# It gates COMMITTED work: gate SELECTION comes from `git diff <merge-base>...HEAD`, because
+# that is what CI will see. Uncommitted edits are therefore invisible to the selection layer,
+# and the sweep refuses (rc 3) rather than answering rc 0 when that leaves it with no gates at
+# all on a dirty tree. See the `dirty-tree-zero-gates` block at the tail for why the refusal is
+# scoped to that case and not to every dirty tree.
+#
 # The sweep aggregates the gates the GitHub-CI jobs run (audit-self.yml). It exists so a
 # harvested aif branch is checked against the real gate set locally before push — the
 # recurring "pushed, CI reddened on a gate I didn't re-run" failure (PR #724).
@@ -137,6 +143,8 @@ while [ $# -gt 0 ]; do
     -h | --help)
       echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates]"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
+      echo "exit:  0 gates passed (or nothing to do on a clean tree) · 1 a gate failed"
+      echo "       2 bad usage · 3 refused: dirty tree, committed diff selected no gates"
       exit 0 ;;
     *) echo "[sweep] unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -266,6 +274,16 @@ changed_paths() {
   if [ -n "${SWEEP_DIFF_OVERRIDE:-}" ]; then printf '%s\n' $SWEEP_DIFF_OVERRIDE; return; fi
   local base="${BASE_REF:-$(git merge-base origin/staging HEAD 2>/dev/null || echo HEAD~1)}"
   git diff --name-only "${base}...HEAD"
+}
+
+# --- working-tree changes the committed diff above cannot see ---
+# Raw `git status --porcelain` lines, status letters kept: `M` vs `??` is the operator's first
+# question when the refusal below fires, and re-deriving it costs a second command. Gitignored
+# files are absent by construction (no `--ignored`), which is right — CI never sees them either.
+# Outside a repo (or with git absent) this yields nothing and the refusal cannot fire; the
+# sweep degrades to its previous behaviour rather than blocking on a condition it cannot read.
+dirty_paths() {
+  git status --porcelain 2>/dev/null
 }
 
 # --- trigger_matches <trigger-list> <path> ---
@@ -413,6 +431,32 @@ $SORTED
 EOF
 
 if [ "$ran" -eq 0 ]; then
+  # Zero gates ran. `changed_paths` reads the COMMITTED diff, so this is an honest answer only
+  # when the working tree is also clean. On a dirty tree it is the false-green this script's
+  # `</dev/null` note above already names as worse than no sweep: an operator who runs the sweep
+  # mid-work to check their edits gets rc 0 about changes no gate ever looked at. Measured
+  # 2026-09-14 (worktree cool-swanson-d3f4b6): two modified-but-uncommitted files produced
+  # exactly `SWEEP: no gates selected for this diff (mode=diff)` and EXIT=0.
+  #
+  # The refusal is the EXIT CODE, not this text — a warning line whose only consumer is someone
+  # reading the log is `#warning-nobody-reads`
+  # (.claude/rules/attention-is-not-a-mechanism.md §2), which is what the defect already was.
+  #
+  # Scoped to the zero-gates case deliberately. Refusing on ANY dirty tree would break the
+  # script's own stated purpose (line 2: harvest pre-push): .claude/skills/harvest/SKILL.md §1
+  # harvests a COMMITTED branch out of a deliberately polluted worktree, and the harvest base
+  # clone measured 12 dirty entries (5 tracked-modified) on 2026-09-14. A harvested branch is
+  # ≥1 commit ahead by construction, so its committed diff always selects a gate and this
+  # branch is unreachable there — pinned by the third new arm in run-local-ci-sweep.test.sh.
+  DIRTY="$(dirty_paths)"
+  if [ -n "$DIRTY" ]; then
+    echo "[sweep] FAIL dirty-tree-zero-gates — the committed diff selected no gates, and these"
+    echo "        working-tree changes were examined by nothing:"
+    printf '%s\n' "$DIRTY" | sed 's/^/          /'
+    echo "SWEEP: REFUSED (mode=$MODE) — the sweep gates COMMITTED work; commit the paths above"
+    echo "SWEEP: and re-run, or pass --base <ref> to scope it against a different committed base"
+    exit 3
+  fi
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
   echo "SWEEP: $ran gate(s) passed (mode=$MODE)"
