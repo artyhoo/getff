@@ -82,7 +82,7 @@ ${AIF_RECAP_MARKER} — a block of five sections, in this order:
    the card omits its own 0 and 5: sections 1 and 5 of the block already own them.
    If the card is already above in this same answer — before the AskUserQuestion buttons, or one
    per question in an /arch round — section 3 is ONE pointer line to it, never a second card.
-   One fork text per turn.
+   One fork text per turn. Otherwise — the card in full:
 $(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — optional.
 5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:

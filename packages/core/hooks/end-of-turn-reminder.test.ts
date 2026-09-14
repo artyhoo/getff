@@ -269,7 +269,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // (hook:233-237) — all three are in the allowed set today, but there is NO guard against a
     // future edit adding `hookEventName` (or any other key) at top level, which ZCode would
     // silently reject. Regression guard (cold backward-sweep finding GAP-1): pin the allowed
-    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:139.
+    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:153.
     const tr = writeTranscript([
       aiTitle('Тестовая цель сессии'),
       userTurn('первое задание'),
@@ -649,11 +649,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
   // pointer line, never a second card. The clause lives in the SHARED contract so every branch
   // payload teaches it and the later /arch slice inherits it without re-editing this sentence.
   it.each([
-    ['en', /ONE pointer line/, /never a second card/],
-    ['ru', /ОДНА строка-указатель/, /а не вторая карточка/],
+    ['en', /ONE pointer line/, /never a second card/, 'Otherwise — the card in full:'],
+    ['ru', /ОДНА строка-указатель/, /а не вторая карточка/, 'Иначе — карточка целиком:'],
   ] as const)(
     '%s: the recap contract carries the R-13 pointer clause',
-    (lang, pointer, notSecondCard) => {
+    (lang, pointer, notSecondCard, connector) => {
       const tr = writeTranscript([
         aiTitle('Pointer'),
         userTurn('go'),
@@ -667,10 +667,19 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(reason).toMatch(pointer);
       expect(reason).toMatch(notSecondCard);
       // The clause is an EXCEPTION to the card, so it must precede it: a reader who meets the
-      // card first has already started writing the thing the clause forbids.
-      expect(reason.indexOf('AskUserQuestion')).toBeLessThan(
-        reason.indexOf(lang === 'en' ? 'A fork is a card' : 'Развилка — карточка'),
-      );
+      // card first has already started writing the thing the clause forbids. Anchor on the
+      // clause's own unique phrase, not on 'AskUserQuestion' — that string occurs twice in the
+      // payload, and indexOf() would silently follow the wrong one if an edit added a mention
+      // above the clause.
+      const cardOpens = reason.indexOf(lang === 'en' ? 'A fork is a card' : 'Развилка — карточка');
+      expect(reason.search(pointer)).toBeLessThan(cardOpens);
+      // …and the exception must HAND OFF to the card rather than abut it. Without a connector
+      // the section reads «Then — as a card» → exception → full template, so a model that has
+      // already written the card in prose meets the template last and emits a second one — the
+      // duplication R-13 exists to forbid, which no gate in this repo would catch.
+      const connectorAt = reason.indexOf(connector);
+      expect(connectorAt).toBeGreaterThan(reason.search(pointer));
+      expect(connectorAt).toBeLessThan(cardOpens);
     },
   );
 
