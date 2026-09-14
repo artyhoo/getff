@@ -40,14 +40,20 @@ export const REPO_ROOT = resolve(HERE, '../../..');
  * Kept honest by `it('the corpus covers every markdown-bearing shipped pathspec')`,
  * which parses scripts/format-shipped.sh — the shipped-surface SSOT — rather than
  * trusting this list to have been maintained.
+ *
+ * The live-authority half is `:(glob)*.md` — EVERY tracked markdown at the repo root,
+ * by predicate — and not the five names this list carried when principle 45 shipped.
+ * That spelling was the brief's own forbidden shape one level up: the claims inside
+ * each listed file were enumerated by predicate, but the list of root canon was picked
+ * by hand, so `INSTALL.md:439` («pre-push ← typecheck + tests + arch + audit», the same
+ * ASCII-tree shape already caught at `INSTALL-FOR-AI.md:354`) and
+ * `AUDIT-CHECKLIST.md:370,:373` sat outside the corpus and read green. Both were found
+ * by a parallel docs-repair branch, not by this gate — measured 2026-09-14. A root
+ * glob also admits each future root canon without an edit here.
  */
 export const CLAIM_CORPUS_PATHSPECS: readonly string[] = [
-  // live authority (this repo's canon)
-  'README.md',
-  'INSTALL-FOR-AI.md',
-  'CLAUDE.md',
-  'AGENTS.md',
-  'CONTRIBUTING.md',
+  // live authority (this repo's canon) — every tracked root markdown, by predicate
+  ':(glob)*.md',
   '.claude/rules/*.md',
   // shipped surface
   'packages/**/*.md',
@@ -118,6 +124,22 @@ const POST_CONNECTIVE_RE = /[:—–←]|<-/;
  */
 const POST_VERB_RE =
   /\b(?:runs?|executes?|invokes?|performs?|запускает|прогоняет)\b/i;
+/*
+ * KNOWN BLIND SPOT, declared rather than patched: a slash-joined list apposed to the
+ * mention with NO connective at all — `AUDIT-CHECKLIST.md:370`, «Earlier channels
+ * (edit-time ESLint custom rules, pre-push `audit-ai-docs.sh`/tsc/depcruise)». The
+ * paren arm does not reach it (the mention is INSIDE the parenthetical), and nothing
+ * opens an enumeration after it.
+ *
+ * Not fixed here because the population is ONE (measured 2026-09-14 over the whole
+ * corpus: `grep -nE 'pre-push `[^`]+`/'` → a single hit, that line). A regex shaped to
+ * catch one known sentence is fitted to the example, and the cheapest spelling of it —
+ * "a slash-joined token run near the mention" — collides head-on with ordinary repo
+ * paths (`packages/core/hooks/pre-push.ts` is itself a slash-joined run next to a
+ * mention), so it would trade a real blind spot for a false-positive class.
+ *
+ * Revisit when a SECOND instance appears: two is a shape, one is a sentence.
+ */
 /** `<list> at pre-push` — the same claim with the enumeration on the other side. */
 const PRE_CONNECTIVE_RE = /\b(?:at|in|by)\s+$/i;
 
@@ -665,6 +687,12 @@ export interface QuarantineRow {
  * the intended friction — a repaired sentence and a stale quarantine row are one change.
  */
 export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
+  {
+    file: 'INSTALL.md',
+    items: ['typecheck', 'tests', 'arch', 'audit'],
+    owner:
+      'docs-truth-prepush PR — :439 tree annotation; already repaired on that branch',
+  },
   {
     file: 'INSTALL-FOR-AI.md',
     items: ['typecheck', 'tests', 'audit-ai-docs', 'audit run'],

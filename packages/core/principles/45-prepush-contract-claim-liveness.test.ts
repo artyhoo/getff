@@ -171,6 +171,30 @@ describe('Principle 45 — pre-push contract claim liveness', () => {
     ).toEqual([]);
   });
 
+  it('the corpus covers every tracked markdown at the repo root', () => {
+    // The other half of the population, gated the same way — from git, not from a list.
+    // Principle 45 shipped with five root canon files named by hand, and that hand-picked
+    // spelling is what hid `INSTALL.md:439` («pre-push ← typecheck + tests + arch +
+    // audit»): the claims INSIDE each listed file were enumerated by predicate, but the
+    // list of files was not. A parallel docs branch found it; this gate did not. Root
+    // canon is small, uniformly authoritative, and cheap to take whole — so take it whole.
+    const roots = execFileSync('git', ['ls-files', '-z', '--', ':(glob)*.md'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    })
+      .split('\0')
+      .filter(Boolean);
+    expect(roots.length).toBeGreaterThan(5);
+
+    const corpus = new Set(enumerateCorpus());
+    const missing = roots.filter((f) => !corpus.has(f));
+    expect(
+      missing,
+      `These root-level canonical documents are outside CLAIM_CORPUS_PATHSPECS, so a ` +
+        `false pre-push claim in them would read green: ${missing.join(', ')}`,
+    ).toEqual([]);
+  });
+
   it('not vacuous: the corpus yields real claims', () => {
     // A broken anchor regex, or an enumerator that stopped seeing files, makes the main
     // arm pass trivially: zero claims → zero violations → green. That is the shape of a
