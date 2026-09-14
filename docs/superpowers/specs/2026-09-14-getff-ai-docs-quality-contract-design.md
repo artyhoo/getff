@@ -268,7 +268,7 @@ this lands under `docs/site/`, which the landing build reads whole at the pin (D
   workflow, no second glossary, no vendored Diátaxis, nothing in the landing repo.
 - Build items for the Opus plan (P-R): `scripts/docs-check.mjs` + pre-commit section + Vale and
   lychee pins + `audit-self.yml` job; `render-terms-style.mjs`; `docs/site/terms.md` skeleton
-  with the fence; `Docs-card:` pre-push section + `audit-self.yml` arm; `docs/site-quality/` (vale profile, vocabulary, calibration record); skill under `docs-author/` + agent, both per the `ai-doc` discipline; the two SSOT rows
+  with the fence; `Docs-card:` pre-push section + `audit-self.yml` arm; `docs/site-quality/` (vale profile, vocabulary, calibration record); install of the `pfeff/claude-skills` `diataxis` plugin pinned at `657c61c5ca8c` (`claude plugin install pfeff/claude-skills`; ABSENT on this machine — umbrella D44 census row 16; prerequisite of the `docs-author` build below, not of the kickoff); skill under `docs-author/` + agent, both per the `ai-doc` discipline; the two SSOT rows
   (author discipline, D-Q15); fixtures above.
 
 ## Prior art (pass 2026-09-14)
@@ -389,3 +389,4 @@ seat round was opened. Applied on PR #1746's branch.
 |---|---|---|
 | Umbrella MAJOR-3 — D-Q17's MINUS list and «until they land» clause excluded artifacts that never exist under the framework's `docs/site/` (D28 twins/`llms.txt` are landing build-time projections, D28 `:370`; D31 manifest is JSON, D31 `:145`; D29 cards are fence regions) | **FIXED** — list and clause struck; every `docs/site/**/*.md` without `kind:` is an ERROR permanently; falsifier now points at the sibling's output path | D-Q17 |
 | Umbrella D43 — `sources:` provenance undefined (authored vs derived) | **FIXED** — D-Q18: derived by the D29 renderer `--write` (anchors ∪ card sources), `docs-check.mjs --check` fails on drift, authors add but never remove, residual = band-C evidence defect | D-Q18, C13 |
+| Umbrella round 3 BU MAJOR-2 (umbrella `e30221d1e79`) — D-Q8 presumes the `diataxis` plugin is installed, but the build-items list carried no install and the plugin is absent on this machine | **FIXED** — own build item: `claude plugin install pfeff/claude-skills` pinned at `657c61c5ca8c`, prerequisite of the `docs-author` build (D44 census row 16) | Build items |
