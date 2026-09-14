@@ -29,8 +29,10 @@
 # CONTEXT.md. Cost, stated: if this checkout is deleted or moved, the registration dangles —
 # verify (b) below catches it; re-run this script from the new checkout.
 #
-# IDEMPOTENT: re-running is a no-op that still re-verifies. Refuses to touch a malformed
-# settings.json (a broken settings.json silently disables ALL settings from that file).
+# IDEMPOTENT: re-running is a no-op that still re-verifies (regression:
+# tests/hooks/register-glossary-hook.test.sh — the probe's jq once errored on every input,
+# so every rerun appended a duplicate entry; cold-review M2, 2026-09-14). Refuses to touch a
+# malformed settings.json (a broken settings.json silently disables ALL settings from that file).
 # Self-verifying beyond read-back: verify (c) is a LIVE smoke of the registered command in a
 # sandboxed residue dir + TMPDIR — the injected line is actually produced, nothing leaks into
 # the real counters.
@@ -185,7 +187,13 @@ echo "arm into: $ARM_SETTINGS ($TARGET settings)"
 # present. The --project target IS renderer-owned — that arm goes through the SSOT + --write
 # below instead, never a direct patch.
 _entry_already_present() { # $1 = settings file, $2 = command
-  jq -e --arg c "$2" '.hooks.UserPromptSubmit // [] | any((.hooks // [])[]?; .command == $c)' "$1" >/dev/null 2>&1
+  # Both entry shapes the two arms below write must be recognized: the nested
+  # {hooks: [{type, command}]} shape (user settings) and the flat {command} shape (SSOT).
+  # The generator sits INSIDE any(), so it must iterate the entry array itself
+  # (`any(.[]; …)`) — re-addressing `.hooks` there re-indexes an ARRAY and errors, which
+  # jq -e turns into a permanent "not present" and a duplicate entry on every rerun
+  # (cold-review M2, 2026-09-14; regression: tests/hooks/register-glossary-hook.test.sh).
+  jq -e --arg c "$2" '(.hooks.UserPromptSubmit // []) | any(.[]; (any((.hooks // [])[]?; .command == $c) or .command == $c))' "$1" >/dev/null 2>&1
 }
 
 if [[ "$TARGET" == 'user' ]]; then
@@ -193,7 +201,10 @@ if [[ "$TARGET" == 'user' ]]; then
     echo "register:  glossary hook already registered in $ARM_SETTINGS — nothing to do"
   else
     cp "$ARM_SETTINGS" "$ARM_SETTINGS.bak" || fail "could not back up $ARM_SETTINGS"
-    tmp="$(mktemp)"
+    # mktemp BESIDE the target: a /tmp temp file would put the final mv on the other side
+    # of a filesystem boundary, where it degrades to copy+unlink — the header's «atomic»
+    # claim would be false exactly when $HOME is a different device (cold-review NIT).
+    tmp="$(mktemp "${ARM_SETTINGS}.reg-tmp-XXXXXX")"
     jq --arg c "$USER_HOOK_CMD" \
        '.hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{hooks: [{type: "command", command: $c}]}])' \
        "$ARM_SETTINGS" > "$tmp" || fail "jq edit failed — $ARM_SETTINGS untouched, backup at $ARM_SETTINGS.bak"
@@ -209,7 +220,7 @@ else
     echo "step 1:    SSOT already carries the UserPromptSubmit entry — nothing to add"
   else
     cp "$SSOT" "$SSOT.bak" || fail "could not back up SSOT"
-    tmp="$(mktemp)"
+    tmp="$(mktemp "${SSOT}.reg-tmp-XXXXXX")" # beside the target — same-device mv stays atomic
     jq --arg c "$PROJECT_HOOK_CMD" \
        '.hooks.UserPromptSubmit = ((.hooks.UserPromptSubmit // []) + [{command: $c}])' \
        "$SSOT" > "$tmp" || fail "jq edit failed — SSOT untouched, backup at $SSOT.bak"
