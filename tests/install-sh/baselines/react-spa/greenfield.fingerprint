@@ -6,7 +6,7 @@
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-ee38d4144116316ab7ada89167eeb6f12b0c8eea04f9c2445d96634a8a92c17b  .ai-factory/refresh-baseline.json
+67da333e62742c7aaecfe39f3f75df1c6468c316a8d2d78a245a030d900022c7  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -26,14 +26,14 @@ a3053a760cba1ba1b12da150118d2d751f4d8c4cb348613062c93a011083b67f  .claude/agents
 019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
 c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-d60ff56549199bae3dfad5139f13ac26d543cf809d2666ef1227f1e4306fc45c  .claude/hooks/end-of-turn-reminder.sh
+d310049df65eb1d3af3e3af774f566bc778f77bcb2f89fabacdfb2f4efbc95fc  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
 3c57f869dfd13167e836509ec1815919d55ef70282d58a79b59ebe1dc5798063  .claude/hooks/inject-project-digest.sh
 5766feccf3ff24f8903b4706376ebd5b6a88f2ae8cd150c08927b4a6e5ba4efa  .claude/hooks/lang/check-parity.sh
-f30e68c3071b293a3f19b7c2c434d81121c8ca98b842219b21c60b594357af53  .claude/hooks/lang/en.sh
-23c0d7bc91e11ad26a091ac01c23494c44a1595ed70f7f06d73dd5103f2df8c8  .claude/hooks/lang/ru.sh
+e32fef169083e83019d7b33de2e179f898ea770449a99b5ff9d4e8b1e5d683b9  .claude/hooks/lang/en.sh
+9a33e8bf81906e40ac4ced73817cca34068b1e6abc69ebc49222a95dcc2ca3ce  .claude/hooks/lang/ru.sh
 5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json
