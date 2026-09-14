@@ -247,6 +247,7 @@ while IFS= read -r leader; do
 done <<EOF
 $(observed_leaders)
 EOF
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 [ -z "$unclassified" ] \
   && ok "every single-line run: leader is classified as gate-invoking or inline setup" \
   || bad "unclassified run: leader(s) →$unclassified — add each to GATE_LEADERS (it invokes a committed artifact) or NON_GATE_LEADERS (inline setup / tool install), never leave it out"
@@ -261,6 +262,7 @@ while IFS="$TAB" read -r label pat; do
 done <<EOF
 $(battery_families)
 EOF
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 [ -z "$missing_batt" ] \
   && ok "every battery family excluded from the population still has a sweep row" \
   || bad "battery family excluded from comparison but NOT covered by any sweep row →$missing_batt"
@@ -274,9 +276,11 @@ while IFS="$TAB" read -r art why; do
 done <<EOF
 $(unreachable_allowlist)
 EOF
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 [ -z "$stale" ] \
   && ok "every UNREACHABLE allowlist entry names an artifact the workflow still invokes" \
   || bad "stale allowlist entr(ies) — not present in audit-self.yml →$stale"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 [ -z "$thin" ] \
   && ok "every UNREACHABLE allowlist entry carries a ≥20-char rationale" \
   || bad "allowlist entr(ies) with a rationale under 20 chars →$thin"
@@ -305,6 +309,7 @@ while IFS="$TAB" read -r art _; do
 done <<EOF
 $(unreachable_allowlist)
 EOF
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 [ -z "$unmentioned" ] \
   && ok "every UNREACHABLE allowlist entry is also named in run-local-ci-sweep.sh's own prose list" \
   || bad "allowlist entr(ies) missing from the sweep's UNREACHABLE prose →$unmentioned — a reader of the sweep would believe a green local run covers them"
@@ -315,6 +320,7 @@ esac
 
 # ── 5. the real check ──────────────────────────────────────────────────────────────────────────
 UNCOVERED="$(uncovered "$GATES")"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 [ -z "$UNCOVERED" ] \
   && ok "every atomic CI command is reachable from gate_table() or explicitly allowlisted" \
   || bad "CI command(s) the sweep never runs — a green sweep does NOT predict a green CI for these:

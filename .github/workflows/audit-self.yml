@@ -1016,15 +1016,13 @@ jobs:
         run: bash tests/install-sh/lane-orphan-residue.test.sh
       - name: "install-sh — pre-merge carrier delivery (pre-merge-carrier-build B1: --profile core receives carrier + probe, --refresh refreshes, W-3 no wiring)"
         run: bash tests/install-sh/pre-merge-local-delivery.test.sh
-      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh + the two B1 carrier scripts + the shipped sweep runner (pinned 0.9.0)"
+      - name: "install-sh — shellcheck gate: setup.d/*.sh + install.sh + scripts/*.sh + the two B1 carrier scripts (pinned 0.9.0)"
         run: |
           if command -v shellcheck >/dev/null 2>&1; then
             shellcheck --version | grep -E '^version:' || true
-            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh \
+            shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh \
               packages/core/audit-self/pre-merge-local.sh \
-              packages/core/audit-self/ci-available-probe.sh \
-              scripts/run-local-ci-sweep.sh \
-              scripts/run-local-ci-sweep.test.sh
+              packages/core/audit-self/ci-available-probe.sh
           else
             echo "⊝ shellcheck not available in CI runner — skipping (install shellcheck >= 0.9.0 to enable)"
           fi

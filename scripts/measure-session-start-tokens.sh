@@ -132,6 +132,7 @@ fi
 # A.2 User ~/.claude/CLAUDE.md — always loaded if readable; else skip with a printed note.
 if [[ -n "${USER_CLAUDE_MD:-}" && -r "$USER_CLAUDE_MD" ]]; then
   read -r b r t < <(compute_tokens "$USER_CLAUDE_MD")
+  # shellcheck disable=SC2088  # a display label in the output table, not a path that gets expanded
   print_row "~/.claude/CLAUDE.md" "host-cc" "$b" "$r" "$t" "CC-native loader (user CLAUDE.md autoload)"
   add_total "$b" "$t"
 else
