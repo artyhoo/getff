@@ -1360,6 +1360,23 @@ function ruleIndexRenderSection(): void {
   }
 }
 
+// ── 4c. Reference render drift (maintainer, getff-ai-site S0a / D29) ─────────
+// docs/site/reference/*.json + the fenced family tables derive from the source
+// populations (setup.d/, skills/, agents/, hooks, plugin/, templates, manifests).
+// scripts/render-reference.mjs exists in the maintainer repo only → owner=maintainer.
+function referenceRenderSection(): void {
+  if (existsSync(resolve(REPO_ROOT, 'scripts/render-reference.mjs'))) {
+    const r = run('npx', ['tsx', 'scripts/render-reference.mjs', '--check']);
+    if (r.notFound) {
+      die(
+        '❌ npx/tsx not found. Install Node.js + tsx to enable reference drift check.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ reference render drift detected:', r);
+    emit(r);
+  }
+}
+
 // ── 5. Principles meta-tests (maintainer, Phase 2) ───────────────────────────
 // Sections 5–5d shell out to `npm --prefix packages/core run test:*`, needing
 // packages/core/package.json + the meta-test suites — all maintainer-only.
@@ -2067,6 +2084,11 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'rule-index-render',
     owner: 'maintainer',
     run: () => ruleIndexRenderSection(),
+  },
+  {
+    id: 'reference-render',
+    owner: 'maintainer',
+    run: () => referenceRenderSection(),
   },
   {
     id: 'principles-meta',

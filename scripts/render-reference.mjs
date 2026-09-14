@@ -795,7 +795,10 @@ function overviewTable(id, members) {
     G: (m) => [`\`${m.name}\``, m.extras.version, m.shipsTo.tier, m.description],
     H: (m) => [`\`${m.name}\``, m.description, m.shipsTo.tier],
     I: (m) => [`\`${m.name}\``, m.extras.component, renderTwin(m.extras['twin-of']), m.description],
-  }[id];
+  };
+  // `cells` is the lookup table (never pre-resolved with `[id]` — indexing the resolved cell
+  // function again is the bug arm 3 of render-reference.test.sh pins). The per-kind override
+  // keeps a plugin-component row landing in a non-I family rendering with the I columns.
   const rows = members.map((m) => `| ${cells[m.kind === 'plugin-component' ? 'I' : id](m).join(' | ')} |`);
   const cols = head.split('|').length - 2; // leading + trailing empty segments
   return [head, `|${'---|'.repeat(cols)}`, ...rows].join('\n');

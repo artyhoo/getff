@@ -252,6 +252,10 @@ jobs:
         run: npx tsx scripts/render-install-roster.mjs --check
       - name: Pipeline-presets render & diff (beta-ai-docs S3)
         run: npx tsx scripts/render-presets.mjs --check
+      # getff-ai-site S0a (D29): docs/site/reference/*.json + the fenced family tables
+      # derive from the source populations. Same tsx runner pattern as the steps above.
+      - name: Reference render & diff (getff-ai-site S0a)
+        run: npx tsx scripts/render-reference.mjs --check
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
@@ -699,6 +703,15 @@ jobs:
       # mktemp, so it runs anywhere and proves BOTH arms red-on-drift.
       - name: Run path:line citation paired-negative (both detection arms)
         run: bash scripts/check-line-citations.test.sh
+      # The D29 reference generator's acceptance arms (principle 41 channel): live-fire
+      # census/--write/--check against the real repo + throwaway mktemp fixture repos.
+      # Hermetic — no network, no LLM; paired with the reference render & diff step above.
+      - name: Run reference-render generator arms test (getff-ai-site S0a)
+        run: bash scripts/render-reference.test.sh
+      # The G12 tier-read module's own test (ref-gen G12) shipped in 46e7bccf5d wired to no
+      # channel — principle 41 flagged it on this branch; this step is the repair.
+      - name: Run skill-tiers module test (G12 extraction)
+        run: bash scripts/lib/skill-tiers.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)
