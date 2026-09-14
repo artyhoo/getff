@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.md
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 5c035eb3e19c73eb255ee25bb4475e6b876b30a94bfe6dfa0f450dee80f47f1b  .ai-factory/RULES.md
-4e09a675405961956ad006e42ada7923be433ced59b529ea221f7176112e677a  .ai-factory/refresh-baseline.json
+44db15200249806ccaa8e1d5ecedfe7e7e0741263e612e31242523cb9b0bf928  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -157,7 +157,7 @@ d03a610b21ee13e6dd3efedfed90e1a3a8e5722bcb998358c7aa3e163926b001  packages/core/
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a  packages/core/hooks/package.json
 457cbfde763fcb4d7b1a6e8d9253086b0a0e31be48b86acbadec356b321c0417  packages/core/hooks/pre-push.fallback.sh
-e2b755028986c74b4d8f95541c68f3e54f9dbe68bae362933ca6d6204534b796  packages/core/hooks/pre-push.ts
+379184ee45ef3df3e955b3a860c335a59ae6ba99a23a21f2183ef6345306efcf  packages/core/hooks/pre-push.ts
 ca0794944baccb739c780a6754a589d5b4f3c2c213c5605be16f90ca0c79861a  packages/core/hooks/utils/git.ts
 3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
 1de2d3933a2636f031fcd842dcab851dbdea1b4cbc3e05efb290d5b822501370  scripts/audit-ai-docs.sh
