@@ -6,7 +6,7 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-6ddc92633cb10cbbb6025663464a5a8f0edb0035dd6df99833a5ae9c3c1c84d5  .claude/hooks/end-of-turn-reminder.sh
+cedd46e1cfdffb488c35ff65adf0342276e901096cc431a988eb8964ec26a26f  .claude/hooks/end-of-turn-reminder.sh
 0172e377f71e667e1832ceb3edeaf06a080c0af2236fa8ec1a6769b97ecaecb5  .claude/hooks/inject-handoff-on-compact.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
@@ -445,7 +445,7 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-7d6d903c46aad89e9f1391443772b5841abad2f2f1adc5a03e5aaec8fbf8087f  packages/core/hooks/end-of-turn-reminder.test.ts
+262d7e3c370a2a5134964c635b4b0711b7b183cf97c8017508e1f8274917204c  packages/core/hooks/end-of-turn-reminder.test.ts
 7eabe00c6a24c61c5d71267d520387cc7f0b7bb8bdd3927e515e1edb9094df87  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 e8bcb769b383ebf58aa2c800cb01424400a73461f4afe245a703f112eabf5348  packages/core/hooks/getff-work.test.ts
@@ -471,7 +471,7 @@ d637a9d9344e8db5d773c54dff8f950a3468e99f0fdc38d2661ccd620b7aa4ce  packages/core/
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 58880c9daf066e9eec87ca5ba9adba15fa8a2af65ba3f86b39522cd8f1514453  packages/core/hooks/pre-push.test.ts
 4fbaabbe2b177612684bbac1aa17cebd68917d0785afa4252cef7e6232197ceb  packages/core/hooks/pre-push.ts
-77e66095d1691d864b03e4ef9db3a2e58f80731b9979877534f561197bd6faab  packages/core/hooks/precompact-residue.test.ts
+8696b72d7d726e9b44b6ae0dcabad85020aaa34d1adbab2ae0de88101ccc34c7  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts
 984700c4813aaa788f359e41b6279633a031323d1cfee3ac3cfa8070f7542e63  packages/core/hooks/priority-score-skip-closed.test.ts
@@ -536,7 +536,7 @@ b75ae60ff7789448cc4de4248c0e904dda62335a8dfd91f747a5f660d9c05299  packages/core/
 27f115894fe029dbbe2bc61d9915572e6d63c69fca37d46bbde8537c5d7d482f  packages/core/principles/09-doc-authority-hierarchy.ts
 27bfad4e8a7be55658abaf07acb7d633779d4b9a67b4f9b78403eb0bb18bb528  packages/core/principles/10-research-patch-annotation.test.ts
 030b9348938bc687bed853dacccb78643d867fde4a38e285cd5f44aa6a91131e  packages/core/principles/11-build-first-reuse-default.design.md
-530d631a9b0227385c42e6d0eb4d2b93cd2195a91de735c216d66f1c8e5d8590  packages/core/principles/11-build-first-reuse-default.test.ts
+ffc66b26f6e493b0427cfd87f5c0178d659b0b1ce248dda5976f68bc2a678464  packages/core/principles/11-build-first-reuse-default.test.ts
 7ed85c7babb1acee67062102c5ddce7665fc0cb1ddc35427000a7a438ed152f1  packages/core/principles/12-ai-laziness-traps.test.ts
 51bb959320f6adf2697f9f9c332dd664a7eaf4da914d4ad3c77a1fb618712303  packages/core/principles/13-phase-research-coverage-s17.test.ts
 ea660f8a6efcc2b73bff0b8fa0bbecb267de493b2cb19b863e3a72ac7c8497f4  packages/core/principles/14-skill-drift-detection.test.ts
@@ -562,8 +562,8 @@ c5685907dcf062acb24fb6b6a79f0116aa65d0408bee487df2e4ce6ba27e58dd  packages/core/
 a8a34d12ced4ba6556a02571d2d11f6b59178865c2f964794b678507f1c99d76  packages/core/principles/29-worker-dispatch-channel.test.ts
 a9c8f15627c634ff69fd46caff81f2f6de305d42f4930075ccbd7d67214480ab  packages/core/principles/29-worker-dispatch-channel.ts
 c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/principles/30-research-source-trust.test.ts
-08dfb3cde69825051ae62c3ebe9942625a35aca0b47a01d19b6d56cb28414df3  packages/core/principles/31-rule-channel-declaration.test.ts
-ed6ade29e2125b33ce5b9da5f3f61bf4ffbae887447065fa698bd9b9248a4e4e  packages/core/principles/31-rule-channel-declaration.ts
+9f9aa03c0b7bca898889c9727534b2afad0ba18d662395ca3ec3f7b4ae093906  packages/core/principles/31-rule-channel-declaration.test.ts
+28d1f84033b4d5eaf2441c8b56b4db068cc6e70643b3a3af5586cb75b28733fc  packages/core/principles/31-rule-channel-declaration.ts
 680e3952bf2306dea88262ffb2a673143701278cc3eda4be143c67dd36ab6de8  packages/core/principles/32-prepush-section-owner.test.ts
 5a9264bdf2664ca08227e732990bccf5233f44f7218d47615fa533010d6dedf1  packages/core/principles/33-adapter-jig-arm-registry.test.ts
 366430647883c28bff5ec762afec2755043f3cf0cbc7eca93ce877c9ed820942  packages/core/principles/33-adapter-jig-arm-registry.ts
@@ -587,6 +587,7 @@ b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/
 03b85b04b7861c2d33b455cc1a2170fd4869aa990b29b4adee6be648741e466f  packages/core/principles/fixtures/rule-channel/dead-glob.md
 834c9f8088a2f1ed9edb2841bc638e84841e644531fa64fc001136af96382712  packages/core/principles/fixtures/rule-channel/no-channel-at-all.md
 dd102240e2041e66e4ab906305ecc5322d8c9282b81493eed7575e3696b048d6  packages/core/principles/fixtures/rule-channel/paths-globs-mismatch.md
+67d337d20593c02415c0b21591406d0de481d331ec88f6dcf88d1cdebe51bc24  packages/core/principles/fixtures/rule-channel/settings-partition-covered.json
 017f94ff459845afb89de75f2920286a7e12f24116828226f168fb24b3ad9f30  packages/core/principles/fixtures/rule-channel/settings-with-exclude.json
 d7b2cb83caaa54f2d700cc998c824abb76e125180dd8e99d405bb37e5b5bb987  packages/core/principles/fixtures/rule-channel/valid-channel-exception.md
 dfdf1a23c8d509e9af36d0d56bd131be4aa24f9e12fb0129c24f465a34890fd5  packages/core/principles/kickoff-population.ts
@@ -1033,7 +1034,7 @@ ee3ecf1cdc880173a23f5abde8c570677d716e5e1382e0c506e27b726081f0dc  packages/runti
 e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad  scripts/create-worktree.sh
 6fc70ba99094be2bf723f26ebb501ac460af7d23986e0e5caaa440f3cf06fc7e  scripts/getff-work.sh
 6f634f183432d31f34f5bda5f094f2444218a5606ef850e4d601abfc27229671  scripts/link-coordination.sh
-6655f2722234ba1fc44d03718bc2d20205fbd307a3cb4466252bf760ae1a1e58  scripts/run-local-ci-sweep.sh
+5d4622e38b840d68c1b207a00d81170e484772e4814db86fff800068762d5348  scripts/run-local-ci-sweep.sh
 b90976eade8b6aaef9389f8720ceb41d97c5dd397f6fb892b69ff538a56eac20  scripts/worktree-node-modules.sh
 30046577dbd3a25033b2cceb6860968d96a74a3fe36ccc15449df3998e52a16e  setup
 5f8e77eff6d24617787156419afe26eae1c27d35a84d2789c099ceb156be7492  setup.d/05-mcp.sh

@@ -495,17 +495,63 @@ if [ -n "$ctx_entry" ]; then
           else
             # D19 — freshness is a CONTENT hash, never mtime; two-branch portable sha256.
             gate_sha="$(_residue_sha256 "$gate_handoff_file")"
+            # D38 — the baseline advances at most ONCE per Stop, because this hook runs more
+            # than once per Stop. The Stop channel carries it twice in any project holding
+            # BOTH the plugin registration (the plugin's hooks.json → `run-hook.cmd
+            # end-of-turn-reminder`) and the project one the installer writes
+            # (setup.d/10-skills.sh:260, install.sh:959). Both copies derive this baseline path
+            # from session_id alone, so the first copy's ALLOW wrote the new sha and the second
+            # compared the file against what its twin had just written: «CONTENT unchanged» on a
+            # turn that had in fact rewritten the file. Measured 2026-09-14 (session 319c1945):
+            # shasum of the handoff and `cat` of the baseline byte-identical, the baseline's
+            # mtime inside that same turn, and with the heading and cap checks passing the arm
+            # was UNSATISFIABLE — no edit could clear it, leaving `mechanical-tail:` as the only
+            # exit from a defect the turn did not have. That is the shape
+            # `.claude/rules/attention-is-not-a-mechanism.md` §1 exists to forbid: a gate whose
+            # reason names something false.
+            #
+            # A TURN KEY, not a lock: the baseline records WHICH Stop advanced it, and a run
+            # that finds its own turn key there re-uses that Stop's already-computed ALLOW
+            # (only the allow branch writes, so a BLOCKING Stop is re-derived identically by
+            # both copies — the fix must not turn a real block into a silent pass).
+            # Line 1 stays the sha — the D34 clearer still deletes one file by one exact name,
+            # and a pre-D38 single-line baseline reads back with an EMPTY turn, which can never
+            # match, so it falls through to the sha compare with no migration.
+            #
+            # The key is the content hash of the turn's LAST assistant record — the same grep
+            # the `last_line` arm runs below, over the same bounded window. Two invocations of
+            # one Stop read the same record; the next turn appends a new one (a real record
+            # carries its own `uuid`, `requestId` and `timestamp`, so two turns cannot collide).
+            # NOT the transcript's size and NOT its last line: any record appended between the
+            # twins would move both and silently restore the bug. Same tmp-file-then-hash shape
+            # as the recap-gate bound below, since `_residue_sha256` takes a path.
+            gate_turn=""
+            gate_turn_tmp="${TMPDIR:-/tmp}/aif-handoff-turn-${ctx_key}-$$"
+            if grep -E '"(type|role)":"assistant"' "$scan_file" 2>/dev/null | tail -1 \
+                 > "$gate_turn_tmp" 2>/dev/null && [ -s "$gate_turn_tmp" ]; then
+              gate_turn="$(_residue_sha256 "$gate_turn_tmp")"
+            fi
+            rm -f "$gate_turn_tmp" 2>/dev/null || true
             gate_base=""
-            [ -f "$gate_baseline" ] && gate_base="$(cat "$gate_baseline" 2>/dev/null || true)"
-            if [ -n "$gate_sha" ] && [ "$gate_sha" = "$gate_base" ]; then
+            gate_base_turn=""
+            if [ -f "$gate_baseline" ]; then
+              gate_base="$(sed -n 1p "$gate_baseline" 2>/dev/null || true)"
+              gate_base_turn="$(sed -n 2p "$gate_baseline" 2>/dev/null || true)"
+            fi
+            if [ -n "$gate_turn" ] && [ "$gate_turn" = "$gate_base_turn" ]; then
+              # A twin already judged THIS Stop and allowed it. Nothing to re-judge.
+              :
+            elif [ -n "$gate_sha" ] && [ "$gate_sha" = "$gate_base" ]; then
               gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" unchanged)"
             elif [ -n "$gate_sha" ]; then
               # Allow — and record: the baseline only ever advances on an ALLOWED normal
               # Stop (never on the stop_hook_active stop, which exits at :35-38 unread).
-              { printf '%s' "$gate_sha" > "$gate_baseline"; } 2>/dev/null || true
+              { printf '%s\n%s\n' "$gate_sha" "$gate_turn" > "$gate_baseline"; } 2>/dev/null || true
             fi
             # An empty sha (no hashing tool) skips the compare, like deps-hash's caller —
             # the payload checks above still ran; it must never read as "content unchanged".
+            # An UNDERIVABLE turn key (no assistant record, no hashing tool) stays empty and
+            # never matches, so the gate degrades to exactly its pre-D38 behaviour: it blocks.
           fi
         fi
       fi
