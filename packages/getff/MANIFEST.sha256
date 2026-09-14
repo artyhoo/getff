@@ -169,7 +169,7 @@ d84e2e51a615c491e7b0d9e922a2fedb22675096d553d34833b0e3f44e4ee598  packages/core/
 ffa91b9e12dc00462e7ad1b7f9cedb8dd363981057b4163c77c39515e13d77da  packages/core/audit-self/fixtures/fences-fire/require-use-server-directive.bad.txt
 711f6726810ec279fcbe36464a371b902f074aa42440b4ddb1778a88a163b080  packages/core/audit-self/fixtures/fences-fire/require-use-server-directive.good.txt
 5ee39faf997c935fd99386ca25fa69045f73fe1db5a697e536057b5de4c215ce  packages/core/audit-self/fixtures/fences-fire/require-use-server-directive.manifest.json
-dce5b5995da3ddd31a6fc9044ed4f08ac26a26fa157e2b5ce64c948a23098288  packages/core/audit-self/fixtures/foreign-scan-triage/repro.sh
+39d1dff431afd0b6800e04b8f14a6efec3ff229955cfa899722b83a52ebb30ec  packages/core/audit-self/fixtures/foreign-scan-triage/repro.sh
 ce2b4d4814ddb122886e944b1f45986b2144cbdecf7bfd27f06ded91b34eb234  packages/core/audit-self/fixtures/foreign-scan-triage/sandbox/.claude/worktrees/feature-x/.lintstagedrc.json
 7b4f6f72a597b6a64f5032c6b09cfea3815e4cde94882852cd9ed57456fcb5e5  packages/core/audit-self/fixtures/foreign-scan-triage/sandbox/.claude/worktrees/feature-x/eslint.config.mjs
 819253caaa513d76549212f8c6d3f5ad7e761a0a88035d886aac1e6ee43e11c6  packages/core/audit-self/fixtures/foreign-scan-triage/sandbox/.claude/worktrees/feature-x/src/routes/handlers/foreign_in_claude.ts
@@ -190,7 +190,7 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 1e1c79bc91e41d8c57e215b029b7bdf1f435199cf2da4ad6837fa81c14e27353  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
 b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/audit-self/pre-merge-local.sh
-8aaf132b16aed11efb73e18cf2a44898df3b9e2a2affb32108681e13dc464e4b  packages/core/audit-self/pre-merge-local.test.sh
+5474aba705cf3d1032eb1efc010fb60d0376bb1de9ccef6b4316a605f086f2bf  packages/core/audit-self/pre-merge-local.test.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  packages/core/audit-self/r2-na-marker.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts
@@ -446,7 +446,7 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
 c4159d568dd36606f27b20fde292817cd21fd958a1cc097564f775ac2ad5b845  packages/core/hooks/end-of-turn-reminder.test.ts
-7eabe00c6a24c61c5d71267d520387cc7f0b7bb8bdd3927e515e1edb9094df87  packages/core/hooks/env-hermeticity.test.ts
+16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 e8bcb769b383ebf58aa2c800cb01424400a73461f4afe245a703f112eabf5348  packages/core/hooks/getff-work.test.ts
 3f3a5bc99b79ddae0d89e89f1f16e4224ed28541e2a8f2a12b536e1ad18de43a  packages/core/hooks/harness-config-drift.test.ts
@@ -801,7 +801,7 @@ ca7bc2dd2d496d28dc43c7ff04b1f71b3d27058503e1355a5935cabd36505c15  packages/core/
 6b511deea0c888c4877c9b0c0ec3b38cc0f970feba1a6f94685d70028700e076  packages/core/synthesizer/rule-tests-sidecar.ts
 871dcebdefa9da88f02afa2a563c4b563e61c0db86c0cb8aaca5c807318abbe8  packages/core/synthesizer/run-generated-rule-mutation-skip.test.ts
 76dcfc2cb3f750306edb42bd3e35788857d69a85f5ab98e7b284f1091da2f361  packages/core/synthesizer/run-generated-rule-mutation.sh
-d4da4b54389ce427efc940edf120c86402bbb768c83d417e5123ca96e47a482b  packages/core/synthesizer/run-generated-rule-mutation.test.sh
+fc7bc01d7406fcc02309e39f800db0e13e913897afe73633ee1a1027b616a106  packages/core/synthesizer/run-generated-rule-mutation.test.sh
 9095fb91227f57c13f010bbafda2e12faab93616192eb92238bf438b506c9235  packages/core/synthesizer/run-generated-rule-mutation.test.ts
 8e00870bdba245544ea92329e2cbb57f358a8e7320af22e229ed8a5fa30171f4  packages/core/synthesizer/run-rule-tests-firing.sh
 3401ac07c2d0dc49ce44ccfa1f61bb4d0d58ac6758461aaf1d87b65d7cfce846  packages/core/synthesizer/run-rule-tests-firing.test.sh
@@ -905,7 +905,7 @@ fb462012e49e50ef3ed30b1d063c45e3901aa8dfa0f9d05ae1a6fae5a60d62dc  packages/core/
 24031fb4246f2caf734d116266bb2339a63423a605463ef2957607976cfe3043  packages/core/validator/validate.test.ts
 a48342eab3a1a811e7d7280c9a867c2c35cea7752860f9f63767f248b760c577  packages/core/validator/validate.ts
 2149b57c0fa6e2c4f523b2a4e85c9cdcef60ea721570d3a9fe71e4884e08efca  packages/core/vitest.config.ts
-8ed618cec4cb622af38ae8c335646e8ab7a4717e61cdad63463ca9613432d9ec  packages/core/vitest.host-env.ts
+6d653b2d0daf9e5af7049d939a4c1a6f614ca7d031532401a88a654f4f86b5e2  packages/core/vitest.host-env.ts
 f36959dff4aba78bf09db6ccaaef17a1fc4a8088e1be25b1cd9021736b017438  packages/core/vitest.setup.ts
 5650d70f65379fb7124151f9fa54000709c9bcf74fb9fd7a200f1a667d5fd384  packages/preset-next-15-canonical/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  packages/preset-next-15-canonical/RULES.react-next.md

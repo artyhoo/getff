@@ -56,6 +56,13 @@
 #   runs are the host's opportunistic leg (kickoff §5).
 
 set -uo pipefail
+# Git's repository-local environment OVERRIDES `-C` and cwd for every git call below, and a
+# git hook exports it. Fired from a linked worktree, that turns the `git init`s in the fixture
+# helpers into a re-init of the CALLER's repository — measured 2026-09-14: `core.bare` flipped
+# to true in the common config, and the main checkout lost its work tree. The idiom is git's
+# own (`githooks(5)`); `packages/core/principles/46-git-env-inheritance-safety.ts` is the gate.
+# shellcheck disable=SC2046  # deliberate word-split: one name per variable to unset
+unset $(git rev-parse --local-env-vars 2>/dev/null) 2>/dev/null || true
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 # Test seam (mirrors the script's own PMC_* seams, never used in a real run):
 # PMC_CARRIER_UNDER_TEST points the arms at a COPY, so the RED direction of a fix can
