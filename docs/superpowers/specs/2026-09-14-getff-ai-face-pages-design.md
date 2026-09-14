@@ -387,7 +387,7 @@ before it reaches the pin; the landing PR CI (NEW — rollout R9, built in S1) o
 
 Face pages obey `terms.md` (umbrella D20; skeleton built in S0q, umbrella D50). Candidate terms this spec introduces or relies on, for that file: getff ·
 rule · gate · channel (edit-time / pre-commit / pre-push / CI / production audit) · lane (python / cargo / go) · stack (npm
-stacks) · depth (core / env / factory) · fire / firing · self-check · soft layer / hard layer · twin (`.md`) · fence region ·
+stacks — COLLISION, recorded not resolved: this spec's own `/docs/quickstart-<stack>/` family calls the python / rust / go pages «stack pages» (§5.2, FD5), so `terms.md` cannot ship `lane` and `stack` as disjoint until the D20 owner rules; routed by the cold round, 2026-09-14) · depth (core / env / factory) · fire / firing · self-check · soft layer / hard layer · twin (`.md`) · fence region ·
 manifest · verified-at · beta / alpha (as defined in the status source). Forbidden synonyms to register: «hook» for gate,
 «toolchain» for lane, «tier» for depth. Every sentence with a number, a version, a count or a status is a claim (D13) and goes
 through the claims auditor; on these pages such sentences are generated, so the auditor's job reduces to prose claims.
