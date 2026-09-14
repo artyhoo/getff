@@ -2191,7 +2191,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
         c.expectedStdout,
       );
     }
-    // 17 spawns of bash+jq; the default 5s vitest timeout fits ~16 of them. Measured 5.1s.
+    // 19 spawns of bash+jq; the default 5s vitest timeout fits ~16 of them. Measured 5.7s.
   }, 60_000);
 
   it('fixture 1: armed, above floor, no handoff file → decision:block, reason names the path', () => {
@@ -2455,6 +2455,66 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     // in-band turn is fully silent: no ctx advice, no gate text, no fresh-session advice.
     const r = spawnCase(b);
     expect(r.stdout).toBe('');
+  });
+
+  // ── Fixtures 16-18 (D37) — the INVERSE of D36. D36 asks for a ready-to-paste `/compact`
+  // command on every in-band turn; the band is the only place that command is wanted, because
+  // below the floor a compaction throws away a window that was not full. Measured 2026-09-14
+  // in the getff.ai design session `5ab4a9ca`: 11 turns ended with the command, 9 of them
+  // legitimately in the band and 2 below it (193749 and 153658 tokens against a 201000 floor),
+  // BOTH on the first turn after a compaction — the summary had generalised «every turn ends
+  // with /compact» out of the in-band turns it saw. The operator ran one and lost context for
+  // nothing. The counter cannot be more prose in the channel that got paraphrased away
+  // (attention-is-not-a-mechanism.md §1), so it is detected where it LANDS: the turn's final
+  // text. These cases are in the goldens, so fixture 9 also proves the guard is silent UNARMED.
+  it('fixture 16 (D37): armed, below the floor, a /compact line in the tail → block naming the out-of-band suggestion (en + ru)', () => {
+    const c = goldenCase('f16-below-floor-compact-tail');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, lang).toBe('block');
+      expect(parsed.reason, `${lang}: the gate owns the block`).toContain('handoff-gate');
+      expect(parsed.reason, `${lang}: the reason quotes this turn's estimate`).toContain('100000');
+      expect(parsed.reason, `${lang}: … and the floor it sits below`).toContain('300000');
+      expect(parsed.reason, `${lang}: the command is still named, so the model knows what to drop`).toContain(
+        '/compact',
+      );
+      // D21 — one reason per stop: gate_floor is clamped to ≤ ctx_soft, so below the floor no
+      // context tier fired and the gate slot is free. A [context] prefix here would mean two.
+      expect(parsed.reason, `${lang}: never doubled with the context tier`).not.toMatch(/\[context\]/);
+    }
+  });
+
+  it('fixture 17 (D37 paired negative): armed, below the floor, /compact mentioned only INLINE → silent', () => {
+    // A session DISCUSSING the gate quotes `/compact …` mid-sentence; only the ready-to-paste
+    // form is a line of its own. Without the line anchor this suite's own subject matter would
+    // trip the guard on every turn.
+    const c = goldenCase('f17-below-floor-compact-inline');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, `${lang}: an inline mention is not a suggestion`).toBe('');
+    }
+  });
+
+  it('fixture 18 (D37 precedence): the same /compact tail IN the band → the ordinary gate reason wins, unchanged', () => {
+    // The guard is guarded by `-z "$gate_line"`: in the band the stale-handoff reason already
+    // holds the slot, and D36 is asking for that very command. A clone of f1 with f16's tail.
+    const c = { ...goldenCase('f1-armed-no-handoff'), text: goldenCase('f16-below-floor-compact-tail').text };
+    const b = buildCase(c, true);
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the in-band block is the handoff-file one').toContain('## Next action');
+    expect(parsed.reason, 'the out-of-band text must not appear in the band').not.toContain(
+      'NOT in the handoff band',
+    );
   });
 });
 

@@ -587,6 +587,41 @@ text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | 
 if [ -n "$gate_line" ] && grep -qE 'mechanical-tail:[[:space:]]*.{20,}' <<<"$text"; then
   gate_line=""
 fi
+
+# ── Out-of-band /compact guard (D37) — the inverse of D36 ────────────────────
+# D36 has the block hand the operator a ready-to-paste `/compact` command. The band is the
+# ONLY place that command is wanted: below the floor a compaction throws away a window that
+# was not full. Measured 2026-09-14 (getff.ai design session `5ab4a9ca`): 11 turns ended with
+# the command, 9 of them legitimately in the band and 2 below it (193749 and 153658 tokens
+# against a 201000 floor) — BOTH on the first turn after a compaction. The operator ran one of
+# them and lost context for nothing.
+#
+# Cause, and why prose cannot hold it: the gate asks for the command on EVERY in-band turn, so
+# a compaction summary faithfully generalises «every turn ends with /compact» from the turns it
+# saw, and the post-compaction model obeys that below the floor. D36's own wording is prose —
+# it is the thing that got paraphrased away — so the counter cannot be more prose in the same
+# channel (`attention-is-not-a-mechanism.md` §1: the detection layer may not be attention). The
+# defect is therefore detected where it LANDS, in the turn's final text, whichever channel
+# planted the habit: the summary, a stale handoff, or a Keep-list the model wrote itself.
+#
+# Armed-only BY PLACEMENT (`AIF_HANDOFF_GATE`): unarmed sessions never see the D36 hint, so
+# they cannot acquire the habit, and fixture 9's unarmed byte-identity is untouched.
+# `ctx_tokens` / `gate_floor` exist only when the D7 context arm ran (:363+) — outside it they
+# are unset and `set -u` (:9) would abort the hook, so the `:-` guards are load-bearing.
+# `ctx_line` is empty here BY CONSTRUCTION: gate_floor is clamped to ≤ ctx_soft (:449-450), so
+# below the floor no tier fired — D21's «one reason» contract needs no extra clearing, and the
+# `-z "$gate_line"` guard keeps it that way from the other side.
+# Line-anchored: the ready-to-paste form is a line of its own inside a fenced block, while a
+# session DISCUSSING the gate mentions /compact inline — anchoring keeps the discussion out.
+# Here-string, never `printf | grep -q` (this file's own A3-5 SIGPIPE lesson at :398-402).
+# Per-turn, never sticky, and not an unpassable gate: the next Stop carries stop_hook_active
+# and exits at :35-38, so a deliberate re-emit costs one turn and then stands.
+if [ "${AIF_HANDOFF_GATE:-0}" = "1" ] && [ -z "$gate_line" ] &&
+  [ -n "${ctx_tokens:-}" ] && [ -n "${gate_floor:-}" ] &&
+  [ "$ctx_tokens" -lt "$gate_floor" ] &&
+  grep -qE '^[[:space:]]{0,3}/compact([[:space:]]|$)' <<<"$text"; then
+  gate_line="$(aif_msg_eot_compact_out_of_band "$ctx_tokens" "$gate_floor")"
+fi
 # -- story branch detection: a PR was just created this turn → engaging recap ----
 # (session_id is read above, before the D7 context-arm.)
 story_signal=""
