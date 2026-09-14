@@ -815,6 +815,37 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(again.stdout).not.toContain('Fork.');
     });
 
+    // The Stop channel carries this hook TWICE — the plugin registration plus the project
+    // one the installer writes (setup.d/10-skills.sh:260, install.sh:959) — so both copies
+    // fire on ONE Stop with byte-identical stdin. For the handoff gate that shared state
+    // made copy 2 invent a block the turn had not earned (D38, PR #1783). Here the same
+    // sharing is benign BY CONSTRUCTION and must stay that way: whichever copy runs first
+    // finds no matching flag, blocks, and stores the sha; its twin finds that sha and stays
+    // silent. Blocking errors are collected across registrations rather than overwritten
+    // — measured live 2026-09-14: a Stop where both copies blocked delivered BOTH blocking
+    // errors in one turn — so the single block still reaches the model, which is exactly the
+    // "one block per defect" the bound exists to enforce. This fixture is the guard against
+    // the plausible WRONG read of that silence ("the twin swallowed a block, drop the
+    // suppression"), which would hand one Stop two blocks for one defect.
+    it('blocks once when one Stop invokes the hook twice with identical input', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-twin-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const body = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+      const stdin = {
+        transcript_path: writeTranscript([aiTitle('TW'), userTurn('go'), assistantText(body)]),
+        stop_hook_active: false,
+        session_id: 'retry-bound-twin',
+      };
+
+      const copy1 = runHook(stdin, env);
+      expect(copy1.stdout, 'copy 1 of the Stop must name the defect').toContain('Fork.');
+
+      // Same Stop, same stdin, same env — the second registration, not a new turn.
+      const copy2 = runHook(stdin, env);
+      expect(copy2.stdout, 'copy 2 of the SAME Stop must not re-block the same defect').toBe('');
+    });
+
     it('caps the retelling part but never the fork card', () => {
       const filler = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
       const mk = (text: string, session: string) => {
