@@ -407,6 +407,59 @@ pre-change block lacked `/compact`); `check-parity.sh` 11 keys; `lang-parity.tes
 of the hand-maintained `plugin/hooks/lang` twins; install-sh baselines recaptured (only the two
 lang-pack hashes and `refresh-baseline.json` moved); `MANIFEST.sha256` rebuilt.
 
+### Round 5 — the inverse defect: the command outside the band, 2026-09-14
+
+**Measured, not reported.** Operator symptom: an `/arch` design session for getff.ai ended EVERY
+turn with a ready-to-paste `/compact Keep: … Drop: …` command, and the operator ran one while the
+window was not full, losing context for nothing. Evidence base: the session transcript
+`5ab4a9ca-9c45-45d7-8bae-54fa13c16ef5.jsonl` (1149 lines, 5 compaction summaries at lines 10, 356,
+626, 825, 986). Eleven turns ended with the command. Nine were legitimate — inside the band, gate
+firing, 201850-264276 tokens against a floor of 201000. Two were not: line 409 (193749 tokens) and
+line 1103 (153658 tokens), both on the FIRST turn after a compaction. The gate's own band condition
+was correct at every one of the 12 firings; the hook never emitted the hint below the floor.
+
+**Root cause — summary generalisation, not a hook defect.** D36 asks for the command on every
+in-band turn, so a compaction summary faithfully generalises «each turn ends with the ready-to-paste
+/compact» out of the turns it saw, and the post-compaction model obeys that below the floor. The
+summary at line 626 (14:28:15Z) already carried that sentence BEFORE the model wrote the command into
+its own Keep-list at line 975 (14:47:13Z), and the first below-band tail (line 409, 13:59:11Z)
+followed the line 356 summary directly. No operator message in any of the three sibling transcripts
+asks for per-turn compaction advice. The `PreCompact` hook cannot fix this at the source: its stdout
+is user-facing text and `custom_instructions` arrives read-only, so nothing it writes can steer the
+summary.
+
+**D37 — armed, BELOW the floor, a turn whose final text offers a `/compact` command is blocked.**
+New pack member `aif_msg_eot_compact_out_of_band` in both language packs, emitted from a guard placed
+after the POSITION-2 escape-token clear and BEFORE the already-recapped exit, because the defective
+turns carry the recap marker. Conditions: armed, `gate_line` empty, `ctx_tokens` and `gate_floor` both
+set, `ctx_tokens` below the floor, and a line-anchored `/compact` at the start of a line. Line
+anchoring is load-bearing: a session DISCUSSING the gate mentions the command inline, while the
+ready-to-paste form is a line of its own inside a fenced block. Armed-only by placement, so fixture 9's
+unarmed byte-identity is untouched; per-turn and never sticky, and the next Stop carries
+`stop_hook_active`, so a deliberate re-emit costs exactly one turn and then stands.
+
+**Channel, per `attention-is-not-a-mechanism.md` §1.** D36 chose prose in the block and named the
+promotion path «three recorded omissions in six months» — but it considered only OMISSION of the
+command, never its false APPEARANCE, which is the defect measured here. Prose is what got paraphrased
+away, so the counter may not be more prose in the same channel; the detection layer is the turn's
+final text, where the defect lands whichever channel planted the habit (the summary, a stale handoff,
+or a Keep-list the model wrote itself). The D36 block also gains one caveat sentence — the command is
+asked for here and nowhere else — which is the cheap half, not the mechanism.
+
+**Effort-worthiness card (`effort-worthiness.md` §1).** (1) Goal progress: yes — the defect spends the
+operator's remaining window, the resource this whole gate exists to protect. (2) Theatre: no — the
+check is deterministic and fires on the exact measured shape. (3) Material: yes — one of the two
+below-band suggestions was acted on. (4) Cheaper to verify in practice: already verified in practice,
+by the incident. What breaks if skipped: nothing detects the habit, and every compaction is another
+chance for a summary to re-plant it, because D36 keeps asking for the command in the band by design.
+
+Verification: `fixture 16` (armed, 100000 tokens, `/compact` tail → block, asserted in `en` and `ru`
+with both numbers quoted), `fixture 17` (same case, inline mention only → silent), `fixture 18`
+(the same tail IN the band → the ordinary stale-handoff reason still wins, D21 undisturbed), and
+`fixture 9` replaying both new cases unarmed against the frozen `abc0876183` hook — both silent,
+captured by the same mirror that reproduced all 17 stored goldens byte-for-byte. `check-parity.sh`
+12 keys; `lang-parity.test.ts` byte-identity of the `plugin/hooks/lang` twins.
+
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 
 **Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the

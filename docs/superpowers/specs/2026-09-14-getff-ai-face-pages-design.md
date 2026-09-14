@@ -5,7 +5,7 @@
 > two cold D27 reviews (top-down + bottom-up, Opus session `upbeat-bassi-7ccdbb-ef`, 2026-09-14) returned REVISE; every finding is
 > dispositioned in §11 and fixed inline; the umbrella seat confirmed no conflict (its spec `d80d4f4d9a2`, rows D28a/D36 updated);
 > awaiting the operator's spec gate.
-> **Authoritative for:** the seven face pages of the docs site, the landing hero delta, `llms.txt`, the AI-twin contract of face
+> **Authoritative for:** the eleven face pages of the docs site (the pinned seven + the four `/docs/quickstart-<stack>/` stack pages, umbrella D48 (a)), the landing hero delta, `llms.txt`, the AI-twin contract of face
 > pages, the fact-supply architecture that feeds them, and the testing seams that prove each claim on them.
 > **NOT authoritative for:** the site umbrella's decisions (register `_decision-register-getff-ai-site.md`, D1–D28 — binding here,
 > never re-decided); the ~120 bulk pages and their five templates; brand/visual system (umbrella D7); the project goal
@@ -43,7 +43,7 @@ per fact rendered everywhere, (c) every example executed and every number genera
 
 | # | Decision | Resolution | Falsifier |
 |---|---|---|---|
-| FD1 | Page set | Seven pinned pages + `/llms.txt` (§4). Ratified by the umbrella as D4c; the Understand tab LINKS to How it works / Foundations and never re-explains the same mechanism. | Group no longer fits above the sidebar fold at 1080p, or <10% of readers reach Foundations / How it works from it → both move to Understand; pinned group = 5. |
+| FD1 | Page set | Eleven face pages — the seven pinned (ratified by the umbrella as D4c) + the four `/docs/quickstart-<stack>/` stack pages (rows 1–2d, §4; umbrella D48 (a)) — plus `/llms.txt` (§4). The Understand tab LINKS to How it works / Foundations and never re-explains the same mechanism. | Group no longer fits above the sidebar fold at 1080p, or <10% of readers reach Foundations / How it works from it → both move to Understand; pinned group = 5. |
 | FD2 | Human first contact | Hero CTA1 → Quick start; CTA2 → Introduction; quiet agent line under the CTAs. | Beta readers bounce on Quick start before the red gate → CTA1 → Introduction. |
 | FD3 | AI first contact | Hybrid `llms.txt`: curated head + generated lists under `## Optional` (§6). | Context7 indexes twins automatically → head shrinks to H1 + blockquote + Start here. |
 | FD4 | Stack status | ONE framework file `packages/core/manifest/maturity.json` (+ schema; umbrella D32), section `stacks` (this spec) beside `layers` (rules beta / factory experimental), rendered everywhere. One row per INSTALLABLE positional (`ts-server`, `react-next`, `react-spa`, `react-native`, `python`, `cargo`, `go`), each with label · definition · `caveat` sentence · verified-at (§5.1.4). | A hand-typed label disagrees → fence `--check` RED. Batch slips >1 week → content session renders from a stub manifest whose cells are real operator facts or the generator's absence token (umbrella D36 — never a placeholder value), `--check` catches the fill later. |
@@ -112,7 +112,7 @@ slugs (`daily-cycle-*`, `factory-overview`, `degradations`, `reference`, `beta`)
 
 ## 5. Per-page design
 
-Shared rules for all seven (pointer target: the umbrella's reader-comfort card, D30/D35, kind «face page», points HERE and never
+Shared rules for all eleven, rows 1–2d (pointer target: the umbrella's reader-comfort card, D30/D35, kind «face page», points HERE and never
 copies — keep this paragraph's anchor and meaning stable): pain → mechanism → proof → honest limit (umbrella D6) in the page's own proportion; terms as defined
 in `terms.md` (umbrella D20, skeleton built in S0q per D50; candidate terms in §8); every code block has a copy button and was executed at
 write time (D13); every number, roster, command and link is a generated region (§7); no commit/lag badge on the human render,
@@ -338,7 +338,7 @@ next: installation
 
 `kind: face-page` is the D30 quality-contract key (D-Q17, D35 E1): `docs-check.mjs` errors on any `docs/site/**/*.md` without a
 `kind:`, C12 treats `face-page` as JUDGE-only against §5's own per-page skeletons, and `terms.md` carries `kind: glossary`.
-The LANDING build (the `.md` twin is a build-time projection from `page.data.getText('processed')`, one dynamic route) stamps
+The LANDING build (the `.md` twin is a build-time projection from `page.data.getText('processed')`; the ROUTE half is **UNVERIFIED** — `2026-09-14-getff-ai-rollout-and-cutover-design.md:120` records that no dynamic `.md` route exists in the landing and that `rewrites()` is inert under `output: 'export'`, and names the fallback settled at the first S1 build: keep generating N literal route folders from the pin instead of one dynamic route. F2 BU MINOR, 2026-09-14) stamps
 the rest: `url`, `verified-at: <pinned framework sha>`, each `sources:` entry resolved to `blob/<sha>/<path>#L<n>`, and
 `stale-since` = present iff the page carries a `docs-refresh: deferred` token at the pin (umbrella D26/D34). Body = the page
 text as markdown, no agent prompts (FD11). The human render shows none of this except an optional quiet «Updated <date>»
@@ -349,7 +349,7 @@ D10 — a dependency, not decided here).
 
 One generator, `scripts/render-face-facts.mjs`, reads the SAME sources the runtime executes and writes
 `docs/site/face-facts.json` (`verified-at: <sha>`; home = `docs/site/` per umbrella D42 — the landing pin sparse-checkouts only
-`docs/site/`, and `packages/core/manifest/` ships in npm via `files`), from which fence regions on the seven pages and `llms.txt` are
+`docs/site/`, and `packages/core/manifest/` ships in npm via `files`), from which fence regions on the eleven face pages and `llms.txt` are
 filled by the existing engine (the hero §06 reads the same JSON through a landing component, §5.9) (`packages/core/composition/fence.ts`; `--write/--check` precedent
 `scripts/render-install-roster.mjs` — «derived, not asserted»). Families and sources:
 
@@ -407,7 +407,7 @@ cold review MINOR-6).
 | FS6 twins | frontmatter schema test (landing PR CI, S1): framework half (`kind: face-page`, `sources` as `path:line`, `executed`, `next`) + landing half (`url`, `verified-at`, resolved permalinks, `stale-since`); `kind:` presence is also D30's `docs-check.mjs` pages profile (pre-commit + `audit-self.yml`, fail-closed) | a `sources:` entry that does not resolve at the pin, a twin without `verified-at`, a face page without `kind: face-page` |
 | FS7 diagrams | render smoke in the static export (S2): each of the three diagrams yields an `<svg>` (`beautiful-mermaid`, build path) | a diagram block renders empty or as raw text |
 | FS8 hero | `grep` guard from §5.9 (landing PR CI, S1) + both CTAs internal | a stack / maturity word (`four stacks\|Python\|Go\|cargo\|clippy\|Rust\|roadmap\|alpha\|beta`) outside the component's props |
-| FS9 terms | `terms.md --check` (D20) forbidden-synonym scan over the seven pages | a synonym survives |
+| FS9 terms | `terms.md --check` (D20) forbidden-synonym scan over the eleven face pages | a synonym survives |
 
 ## 10. Dependencies, order of work, escalations
 
@@ -426,7 +426,7 @@ cold review MINOR-6).
    landing-task items, S2 PR contents — D51 (3)), `markdownUrl`
    page actions (D10), the four stub pages; the pin sync brings all framework `docs/site/` content (prose, `terms.md`,
    `face-facts.json`, family JSON, `llms-head.txt`, `hero-copy.json`); twins and `llms.txt` are projected at build.
-4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms-head.txt`, `hero-copy.json`, from the content brief.
+4. Clean Fable content session (umbrella D24b/D25) writes the eleven face pages (rows 1–2d), `llms-head.txt`, `hero-copy.json`, from the content brief.
 5. Cold reviews of THIS spec (D27, separate Opus session) run before step 4; their findings land in §11 with dispositions.
 
 ## 11. Review changelog
@@ -456,7 +456,7 @@ disposition; none was DISSOLVED. TD = top-down, BU = bottom-up.
 | Umbrella cold review round 1, D42 (2026-09-14): `face-facts.json` cannot live in `packages/core/manifest/` — the landing pin sparse-checkouts only `docs/site/`, and `packages/core/manifest/` ships in npm via `files` | SEAM | FIXED — home is `docs/site/face-facts.json`, written by `render-face-facts.mjs`; `--check` runs framework-side only (pre-commit / pre-push / `audit-self.yml`), never in the landing build; the §5.8 generated lists read the pinned file | §7, §5.8, FS1, §10 item 3 |
 | Umbrella cold review round 3 (2026-09-14, umbrella `e30221d1e79`): §10 item 2 placed the generator BUILD in S1; umbrella §2.4 as amended (r3 TD MAJOR-2 / MAJOR-3) builds the D29 generator and `render-face-facts.mjs` in S0a | SEAM | FIXED — §10 item 2 and the §7 sequencing now read BUILD = S0a, first RUN against the gold = S1; the family JSON of the S1 families stays S1 RUN output; `§10.x` pointers rewritten as «§10 item n» (§10 is a flat list); hub `/docs/` unchanged as face page 1 of 7 (umbrella D41/D19) | §7, §10 item 2, §11 |
 | Umbrella final pass F, batch 1 (2026-09-14, umbrella `4d1d2c7bfb8`, rows D48–D52): (a) TD MAJOR-4 the `llms.txt` head template had no name and would fall under D-Q17 as `.md`; (b) TD MAJOR-5 hero copy had no home and D31 had zero `hero` rows; (c) TD MINOR-6 FS1/FS2 stamped `(S1)` though the renderer is built in S0a; (d) `terms.md` «task 0» listed under S0a | MAJOR / MAJOR / MINOR / MINOR | FIXED — (a) `docs/site/llms-head.txt`, a `.txt` outside D-Q17 by construction (D51 (1)); (b) `docs/site/hero-copy.json` = the §5.9 component's props, written in S0b, applied by the S1 landing task; component + FS8 guard = S1 landing-task items, S2 PR contents (D51 (3), D31 owes the rows); (c) FS1/FS2 «from S0a on»; (d) pointer to stage S0q (quality-layer build, umbrella D50) | §5.8, §5.9, §7, §9, §10 items 2–4 |
-| Umbrella final pass F, D48 (TD BLOCKER-1): the four `/docs/quickstart-<stack>/` pages are gated by FS4 / FS5 / R21 but every writing scope in the package, incl. §10 item 4, counts seven pages — nobody writes the four | BLOCKER | OPEN — operator fork on the umbrella side (gold set 7→11 by the clean Fable session [umbrella recommendation] / `quickstart-ts` gold + three alpha stacks as an S1 face-kind batch / all four to GLM / collapse into the chooser); batch 2 lands the exact §10 item 4 wording — do not pre-empt here | §10 item 4, §5.2 |
+| Umbrella final pass F, D48 (TD BLOCKER-1): the four `/docs/quickstart-<stack>/` pages are gated by FS4 / FS5 / R21 but every writing scope in the package, incl. §10 item 4, counts seven pages — nobody writes the four | BLOCKER | FIXED — umbrella D48 answered (a) at `7e40b12869d`: the gold set goes 7→11 and the clean Fable session writes the four stack pages in S0b. Folded here: `:8`, `:46`, `:115`, `:352`, `:410` and §10 item 4 `:429`. | §10 item 4, §5.2 |
 | Umbrella cold review round 1, MINOR-6: testing-seam ids `S1..S9` collided with the rollout stage labels `S0a/S0b/S1/S2` | MINOR | FIXED — seams renamed to the `FS1..FS9` namespace everywhere (§9, §10 item 3, §11 pointers); stage labels unchanged | §9, §10 item 3 |
 
 ## 12. Deliverable pointers
