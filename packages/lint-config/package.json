@@ -4,5 +4,6 @@
   "private": true,
   "license": "FSL-1.1-ALv2",
   "description": "Shared markdownlint structural config for rules-as-tests-aif workspace",
-  "files": ["markdownlint.json", "README.md"]
+  "files": ["markdownlint.json", "README.md"],
+  "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }
