@@ -238,6 +238,30 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.reason).toMatch(/рекомендовал|жду твоего решения|перекладывай/i);
   });
 
+  // D-I (Task 1.6): the last-resort anchor candidate — the head of the first user message,
+  // used only when no ai-title record exists — must not be a tag or a bare path. NO aiTitle()
+  // here: the ai-title record outranks this fallback (hook:527-534), so a transcript that opens
+  // with one never reaches the line D-I changes (hook:536) and the test would be vacuous.
+  it('does not use a tag or a bare path as the anchor', () => {
+    for (const first of ['<system-reminder>stuff</system-reminder>', 'src/app/page.tsx', 'notes.md']) {
+      const tr = writeTranscript([
+        userTurn(first),
+        assistantText('x'.repeat(700) + '\n\n## H\n- b\n'),
+      ]);
+      // Fresh TMPDIR per candidate: the anchor is cached per session id at
+      // ${TMPDIR:-/tmp}/aif-eot-anchor-<session_id> (hook:527/540), and reusing one would let
+      // the red run's rejected string leak back into the green run via that cache.
+      const dir = mkdtempSync(join(tmpdir(), 'anchor-di-'));
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `anchor-${first.length}` },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '', TMPDIR: dir },
+      );
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, `the turn must still reach a branch for "${first}"`).not.toBe('');
+      expect(r.stdout, `"${first}" must not survive as the anchor`).not.toContain(first);
+    }
+  });
+
   it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
     // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
     // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
@@ -378,7 +402,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.decision).toBe('block');
     // Branch B reminder body must reference the fork-vs-pseudo-fork discipline,
     // not just be a generic "answer the question" nudge.
-    expect(payload.reason).toMatch(/настоящая развилка|рекомендация/i);
+    // D-C ships the card's §4 as «➡️ Рекомендую …» (the spec's own wording), so match the
+    // stem: the claim is "this body teaches the recommendation-first discipline", not a
+    // particular inflection of it.
+    expect(payload.reason).toMatch(/настоящая развилка|рекоменд/i);
     expect(payload.systemMessage).toMatch(/^🎯 /);
   });
 
@@ -545,6 +572,277 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     ).not.toBe('');
     const payload = JSON.parse(r.stdout);
     expect(payload.decision).toBe('block');
+  });
+
+  // Task 1.1 (plain-words-recap-v2 slice 1): `_eot_turn_shape()` computes
+  // orch_mode/long_text/asked once, so a later task can call it from the
+  // already-recapped guard site as well as from the branch selector below it.
+  //
+  // THE REGRESSION GUARD IS THE NO-MARKER CASE. Measured under `bash -x` on
+  // 2026-09-14: a turn carrying $AIF_RECAP_MARKER exits at the recap guard
+  // BEFORE the call site (0 entries into the function), so it cannot witness
+  // anything about the extraction; a long markdown turn ending in a question
+  // enters the function exactly once and sets long_text=true, asked=true.
+  // Only the latter turns red if the extraction reads an unset variable under
+  // `set -u`. The marker case is kept as the paired negative for the guard's
+  // silence, not as a witness for the function.
+  it('computes the turn shape through one function on a turn that reaches it', () => {
+    const tr = writeTranscript([
+      aiTitle('Turn shape'),
+      userTurn('go'),
+      assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nShall I proceed?'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-reached' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr, 'an unset read inside _eot_turn_shape aborts the hook under `set -u`').not.toMatch(
+      /unbound variable/,
+    );
+    // Branch C fired ⇒ both globals the function owns were computed and read
+    // by the selector. An empty stdout here means the shape never reached it.
+    expect(r.stdout, 'long markdown + trailing question must reach the branch selector').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('already-recapped guard still exits silently, ahead of the turn-shape call', () => {
+    const tr = writeTranscript([
+      aiTitle('Turn shape'),
+      userTurn('go'),
+      assistantText('## 🟢 In plain words\nWhere we are. Done.\n\nShall I proceed?'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-guarded' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr).not.toMatch(/unbound variable/);
+    expect(r.stdout, 'the recap guard exits before the branch selector').toBe('');
+  });
+
+  // Task 1.4 (plain-words-recap-v2 slice 1): the branch payloads (Branch A/B/C) now teach
+  // the five-section recap contract + the "от тебя"/"from you" grammar via the shared
+  // aif_msg_eot_recap_contract() helper (D-A, D-B), instead of each branch spelling out its
+  // own ad-hoc instructions. This turn is long + markdown-structural + no trailing question,
+  // so it reaches Branch A (long_text=true, asked=false).
+  it('branch payloads teach the five-section contract and the from-you grammar', () => {
+    const tr = writeTranscript([
+      aiTitle('Payload'),
+      userTurn('go'),
+      assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'five-section' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    const reason = JSON.parse(r.stdout).reason as string;
+    for (const s of ['Where we are.', 'What changed.', 'Next.', 'From you:',
+                     'nothing (', 'waiting on:', 'decide:', 'do by hand:']) {
+      expect(reason).toContain(s);
+    }
+    expect(reason).toMatch(/15/);
+  });
+
+  // Task 1.5 (plain-words-recap-v2 slice 1): the dormant section-checker gate. It reads a
+  // recap block the model ALREADY WROTE and names the missing sections — it never demands
+  // a block from a turn that has none (that boundary is the third case below). Dormant by
+  // default (AIF_RECAP_GATE unset) so today's behaviour is unchanged until an operator arms it.
+  describe('recap gate — dormant section-checker (Task 1.5)', () => {
+    const RECAP_EN = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+
+    it('armed gate names the missing section of an existing recap block', () => {
+      // Task 1.6b's retry bound (R-16) keys its once-per-block flag on
+      // ${TMPDIR:-/tmp}/aif-eot-rgb-<session_id>, which survives across separate test-process
+      // runs on the default OS temp dir. A fixed session id + fixed block text (both true
+      // here) would collide with a flag file left behind by an earlier run of this very test
+      // and read back as "already blocked" — a fresh TMPDIR isolates it, per the retry-bound
+      // tests' own pattern, rather than weakening the bound.
+      const tdir = mkdtempSync(join(tmpdir(), 'gate-armed-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-armed' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
+      );
+      const reason = JSON.parse(r.stdout).reason as string;
+      expect(reason).toContain('Fork.'); // asked ⇒ section 3 required
+      expect(reason).toContain('From you:'); // section 5's last line missing
+    });
+
+    it('is dormant when AIF_RECAP_GATE is unset', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-dormant' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+      );
+      // `not.toContain` passes just as happily on empty stdout produced for an unrelated
+      // reason; the claim is "the gate emitted NOTHING" (final review M-9).
+      expect(r.stdout).toBe('');
+    });
+
+    it('never fires on a turn that has no recap block at all', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText('Short answer.')]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-noblock' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
+      );
+      expect(r.stdout).toBe('');
+    });
+
+    // ── D-B grammar (R-17; cold review F5) ───────────────────────────────────────────
+    // The last line takes exactly ONE of four values, and `nothing` carries a verification
+    // trace in parentheses. Before this arm the gate asserted only that the literal
+    // "From you:" appeared anywhere on the line, so a bare «nothing» and free prose both
+    // passed — verbatim the `#hope-as-gate` shape F5 demanded a mechanism for.
+    const gateStdout = (block: string, session: string, lang = 'en'): string => {
+      const tdir = mkdtempSync(join(tmpdir(), 'gate-db-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(block)]);
+      return runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: session },
+        { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '1', TMPDIR: tdir },
+      ).stdout;
+    };
+    const block = (lastValue: string) =>
+      `## 🟢 In plain words\n**Where we are.** ok\n**Next.**\nMe: x. From you: ${lastValue}`;
+
+    it.each([
+      'nothing (12/12 green)',
+      'waiting on: the CI run, from GitHub',
+      'do by hand: click merge on the PR',
+    ])('accepts the well-formed D-B value %s', (value) => {
+      expect(gateStdout(block(value), `db-ok-${value.slice(0, 6)}`)).toBe('');
+    });
+
+    it.each([
+      ['nothing', 'a bare «nothing» with no verification trace — the F5 case'],
+      ['nothing ()', 'an empty parenthesis is not a trace'],
+      ['ping me when CI is green', 'free prose is not one of the four values'],
+    ])('rejects %s (%s)', (value) => {
+      const reason = JSON.parse(gateStdout(block(value), `db-bad-${value.slice(0, 6)}`))
+        .reason as string;
+      expect(reason).toContain('four allowed values');
+    });
+
+    it('reads the offloading verbs only in the VALUE, never inside its own trace', () => {
+      // `review the` inside the parenthesis is the AGENT's evidence, not an errand for the
+      // human — scanning the whole line rejected a correct block (final review M-3).
+      expect(gateStdout(block('nothing (I did review the failing job)'), 'db-trace')).toBe('');
+      const reason = JSON.parse(
+        gateStdout(block('review the diff and make sure it is fine'), 'db-offload'),
+      ).reason as string;
+      expect(reason).toContain('your own work');
+    });
+
+    it('catches English offloading in the RU pack too', () => {
+      // An operator on AIF_HOOK_LANG=ru still reads English answers; a ru-only banned list
+      // left this exact line silent in the one pack that operator runs (final review M-4).
+      const ru =
+        '## 🟢 Простыми словами\n**Где мы.** ок\n**Дальше.**\nЯ: жду. От тебя: review the diff and make sure it is fine';
+      expect(gateStdout(ru, 'db-ru-offload', 'ru')).not.toBe('');
+    });
+  });
+
+  // Task 1.6b (plain-words-recap-v2 slice 1): the gate's own retry bound (R-16) and the
+  // line cap on the retelling part (R-17, fork card exempt). The retry bound mirrors the
+  // ZCode dense arm's same-content loop bound (hook:814-842) — ZCode dispatches no
+  // stop_hook_active, so an unbounded gate would re-block an identical malformed block
+  // forever. The cap is read from AIF_EOT_RECAP_MAX_LINES (default 15) and excludes the
+  // fork-card region (D-A: fork cards are never compressed).
+  describe('recap gate — retry bound + line cap (Task 1.6b)', () => {
+    it('blocks a malformed block once, then exits silently on the same block under new prose', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const body = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+
+      const tr1 = writeTranscript([aiTitle('RB'), userTurn('go'), assistantText(body)]);
+      const first = runHook(
+        { transcript_path: tr1, stop_hook_active: false, session_id: 'retry-bound' },
+        env,
+      );
+      expect(first.stdout).toContain('Fork.');
+
+      const tr2 = writeTranscript([
+        aiTitle('RB'), userTurn('go'),
+        assistantText(`I reran the suite and it is green.\n\n${body}`),
+      ]);
+      const again = runHook(
+        { transcript_path: tr2, stop_hook_active: false, session_id: 'retry-bound' },
+        env,
+      );
+      expect(again.stdout).not.toContain('Fork.');
+    });
+
+    it('caps the retelling part but never the fork card', () => {
+      const filler = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
+      const mk = (text: string, session: string) => {
+        const tdir = mkdtempSync(join(tmpdir(), 'recap-cap-'));
+        tmpDirs.push(tdir);
+        const tr = writeTranscript([aiTitle('Cap'), userTurn('go'), assistantText(text)]);
+        return runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: session },
+          { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
+        );
+      };
+
+      const long = mk(
+        `## 🟢 In plain words\n**Where we are.** ok\n${filler}\n**Next.** Me: x. From you: nothing (wc -l)`,
+        'cap-long',
+      );
+      expect(JSON.parse(long.stdout).reason).toContain('15');
+
+      const card = mk(
+        `## 🟢 In plain words\n**Where we are.** ok\n**Fork.**\n${filler}\n**Next.** Me: x. From you: decide: A or B`,
+        'cap-card',
+      );
+      expect(card.stdout).toBe(''); // the card's 20 lines do not count — and nothing else fires
+    });
+
+    // Fix round 1 (controller-confirmed live repro): the retry-bound flag must be
+    // REFRESHED on every armed turn that reaches the gate, not only when a defect is
+    // found — mirroring the ZCode dense arm's _zcb_sha shape (unconditional store,
+    // conditional suppress) per spec :134-136. Sequence: block A blocks (turn 1), a
+    // WELL-FORMED turn passes through and must refresh the flag away from block A's sha
+    // (turn 2), then block A recurs verbatim (turn 3) — a FRESH occurrence separated by a
+    // good turn, not an immediate retry, so the gate must name it again. A version that
+    // only stores the sha inside `if [ -n "$_recap_defects" ]` never overwrites turn 1's
+    // stored sha during turn 2, so turn 3 wrongly reads as "already blocked" and stays
+    // silent.
+    it('names a fresh recurrence of the same defect after a well-formed turn in between', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-fresh-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const sessionId = 'retry-bound-fresh';
+      const malformed = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+      const wellFormed =
+        '## 🟢 In plain words\n**Where we are.** Done.\n**Next.** Me: nothing more. From you: nothing (spot check)';
+
+      const tr1 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
+      const turn1 = runHook(
+        { transcript_path: tr1, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(turn1.stdout, 'turn 1: first sighting of the malformed block must block').toContain('Fork.');
+
+      const tr2 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(wellFormed)]);
+      const turn2 = runHook(
+        { transcript_path: tr2, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(turn2.stdout, 'turn 2: well-formed block must not block').not.toContain('Fork.');
+
+      const tr3 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
+      const turn3 = runHook(
+        { transcript_path: tr3, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(
+        turn3.stdout,
+        'turn 3: a FRESH recurrence of the same defect, separated by a good turn, must block again',
+      ).toContain('Fork.');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -2170,6 +2468,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
     Object.assign(env, c.env);
     delete env.AIF_HANDOFF_GATE;
+    delete env.AIF_RECAP_GATE;
     if (armed) env.AIF_HANDOFF_GATE = '1';
 
     return {

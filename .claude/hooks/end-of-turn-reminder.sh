@@ -534,6 +534,19 @@ if [ -z "$anchor" ] && [ "$scan_file" != "$transcript" ]; then
 fi
 if [ -z "$anchor" ]; then
   anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+  # `head -1` echoes the line's own trailing newline, which the `tr` just above turns into a
+  # trailing space on every candidate (verified live: a plain "src/app/page.tsx" comes out of
+  # the pipeline above as "src/app/page.tsx "). Strip it before the space-arm check below, or
+  # every bare path/filename would false-match `*' '*` on that artifact space and survive.
+  anchor="${anchor%"${anchor##*[![:space:]]}"}"
+  # D-I: a tag, a path, or a bare filename is not "what the user asked". Reject and let the
+  # language pack's fallback speak instead. A candidate with a space is prose and survives.
+  case "$anchor" in
+    '<'*)   anchor="" ;;
+    *' '*)  : ;;
+    */*)    anchor="" ;;
+    *.*)    anchor="" ;;
+  esac
 fi
 if [ -n "$anchor" ]; then
   # Brace group: a failed cache write must not leak to stderr (same shape as the ctx debounce).
@@ -637,6 +650,195 @@ fi
 
 text_length=${#text}
 
+# Turn shape — one answer, two call sites. The already-recapped guard below needs `asked`
+# and `long_text` to decide whether the gate's section set applies, but the guard's POSITION
+# is load-bearing (see the comment block below it) and must not move. So the computation
+# moves into a function called at BOTH sites instead of the guard moving down to it.
+# orch_mode lives in here too: it is an input to both `long_text` and `asked`, it was computed
+# below the guard, and reading it there under `set -u` would abort the hook every turn.
+#
+# -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
+# In orchestration mode (driving aif-handoff, relaying state every turn) two
+# triggers are re-tuned (Bug A regex dropped, recap threshold lowered); normal
+# mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
+# forgotten marker silently muting a normal session. Spec: docs/superpowers/
+# specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
+# "A substantial STRUCTURED answer" — the D-A gate-matrix input for section 2. Extracted so
+# branch selection and the gate share ONE predicate and differ only in the text they feed it
+# (dual-implementation-discipline §7): branch selection asks it about the whole turn, the
+# gate asks it about the answer WITHOUT the recap block, because the block's own `**`
+# headings satisfy the markdown arm on their own and would demand "what changed" on every
+# armed turn — including ones where nothing changed, which D-A says to OMIT (final review M-5).
+_eot_is_long_text() {
+  local body="$1" threshold=500
+  if [ "$orch_mode" = "true" ]; then threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"; fi
+  if [ "${#body}" -le "$threshold" ]; then return 1; fi
+  grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$body"
+}
+
+_eot_turn_shape() {
+  orch_mode=false
+  local marker ttl marker_now marker_mtime
+  marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestration-mode}"
+  ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
+  if [ -f "$marker" ]; then
+    marker_now=$(date +%s)
+    # GNU-first, BSD-fallback: try `stat -c %Y` (GNU/Linux) before `stat -f %m` (BSD/macOS).
+    # The reverse order silently breaks on Linux — GNU `stat -f` is --file-system, so
+    # `stat -f %m` EXITS 0 with a garbage value (not mtime), the `||` fallback never fires,
+    # and the marker reads as expired → orchestration mode never activates on Linux/CI.
+    # BSD `stat -c` fails cleanly (illegal option), so GNU-first degrades correctly on macOS.
+    marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
+    if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
+      orch_mode=true
+    fi
+  fi
+
+  # Trigger ONLY on (a) a substantial structured answer (a long body) or
+  # (b) a question. Tool calls alone do NOT trigger — a short "done, fixed X"
+  # turn with no question needs no recap.
+  #
+  # NOTE: the v1 factual-claim scan (numeric / file:line / negative-existence) was
+  # REMOVED 2026-06-01 (maintainer decision). Measured recall ≈0.43 + precision
+  # ≈0.20-0.25 (cry-wolf) made it a net-negative sentry — the same class as the
+  # recommendation-laziness narrow-B stop-scan dropped at FP 84% (#210). Rationale +
+  # evidence: docs/meta-factory/research-patches/2026-06-01-remove-claim-detector.md.
+  # The recap (Branch A/C) + question-check (Branch B) survive; the always-on H1
+  # reminder in inject-session-bootstrap.sh remains the cheap salience layer.
+  # Recap threshold is lowered in orchestration mode (status turns are short+dense)
+  # but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
+  long_text=false
+  if _eot_is_long_text "$text"; then long_text=true; fi
+
+  # Did the turn end in a question?
+  asked=false
+  if [ "$has_askuserquestion" = "true" ]; then
+    asked=true
+  elif [ -n "$text" ]; then
+    local tail_chunk
+    tail_chunk=$(echo "$text" | tail -c 500)
+    if grep -qE -- '\?[[:space:]]*$' <<<"$tail_chunk"; then
+      asked=true
+    elif [ "$orch_mode" = "false" ] && grep -qiE -- "$AIF_EOT_QUESTION_PATTERN" <<<"$tail_chunk"; then
+      asked=true
+    fi
+  fi
+}
+
+# The recap slice: the marker heading through the block's last non-empty line. It is the
+# gate's unit of work — the section checker reads it, and Task 1.6b hashes it — so it is
+# extracted once here rather than re-derived at each site. Trailing blank lines are dropped
+# so a stray newline cannot change the sha of an otherwise identical block.
+_eot_recap_block() {
+  awk 'NF { last = NR } { l[NR] = $0 } END { for (i = 1; i <= last; i++) print l[i] }' \
+    <<<"$AIF_RECAP_MARKER${text#*"$AIF_RECAP_MARKER"}"
+}
+
+# Non-empty lines of the block, EXCLUDING the fork-card region (Task 1.6b, R-17). D-A: the
+# cap is on the retelling, and a fork card is never compressed — capping it would produce
+# exactly the bare-question shape the card exists to prevent.
+_eot_recap_line_count() {
+  # The card region runs from the fork heading to the NEXT BLOCK SECTION — all five of them,
+  # not the two that happen to follow a card in the common ordering. With a two-heading
+  # terminator set a `**What changed.**` (or a `**Where we are.**`) after a card left the
+  # skip armed and every line until `**Next.**` fell out of the count (final review I-3). A
+  # second `**Fork.**` re-arms the skip on the first rule, so two spec-legal cards (D-A §3)
+  # are both exempt — which is the intent (P-4: a card is never compressed to fit the cap).
+  awk -v fork="$AIF_EOT_SEC_FORK" -v whr="$AIF_EOT_SEC_WHERE" -v chg="$AIF_EOT_SEC_CHANGED" \
+      -v uns="$AIF_EOT_SEC_UNSURE" -v nxt="$AIF_EOT_SEC_NEXT" '
+    index($0, fork)                                 { skip = 1; next }
+    skip && (index($0, whr) || index($0, chg) ||
+             index($0, uns) || index($0, nxt))      { skip = 0 }
+    skip                                            { next }
+    /^[[:space:]]*$/                                { next }
+                                                    { n++ }
+    END { print n + 0 }
+  ' <<<"$1"
+}
+
+# Leading literal of one AIF_EOT_FOR_YOU_* value scalar. The scalars carry a placeholder
+# (`nothing (<what you would check…>)`), so only the part BEFORE the first `<` or `(` is the
+# fixed token the model must reproduce. Derived rather than hard-coded: the packs are the
+# single source of the four values (D-B, R-17), so a pack edit moves the gate with it and
+# the gate is never hard-coded Russian (cold review F9).
+_eot_for_you_token() {
+  local t="${1%%<*}"
+  t="${t%%(*}"
+  while [ "${t% }" != "$t" ]; do t="${t% }"; done
+  printf '%s' "$t"
+}
+
+# D-B grammar: the value after the prefix takes exactly ONE of four forms, and the gate
+# rejects anything else. It matches the FORM only — for `nothing` that is a NON-EMPTY
+# parenthesis, never the trace's substance (an open set, spec round 2 BU-N6). Without this
+# arm the line was `#hope-as-gate` (cold review F5): a bare «nothing» carries no referent a
+# reviewer can catch lying, which is the whole reason the parenthesis is REQUIRED.
+_eot_for_you_wellformed() {
+  local v="$1" tok s
+  tok="$(_eot_for_you_token "$AIF_EOT_FOR_YOU_NOTHING")"
+  case "$v" in
+    "$tok"*)
+      if grep -qE -- '\([^)]*[^)[:space:]][^)]*\)' <<<"$v"; then return 0; fi
+      return 1 ;;
+  esac
+  for s in "$AIF_EOT_FOR_YOU_WAITING" "$AIF_EOT_FOR_YOU_DECIDE" "$AIF_EOT_FOR_YOU_HANDS"; do
+    tok="$(_eot_for_you_token "$s")"
+    case "$v" in
+      "$tok"*)
+        # every one of these three tokens ends in `:` — require something after it
+        if [ -n "$(printf '%s' "${v#"$tok"}" | tr -d '[:space:]')" ]; then return 0; fi
+        return 1 ;;
+    esac
+  done
+  return 1
+}
+
+# Section checker for an EXISTING recap block (Task 1.5, D-A). Never a block demander: the
+# caller only reaches this when the turn already carries $AIF_RECAP_MARKER. Reads $text (via
+# _eot_recap_block), $asked and $long_text from _eot_turn_shape. Echoes a `; `-joined list of
+# missing/malformed sections, or nothing when the block is well-formed.
+_eot_recap_defects() {
+  local d="" block last cap count value
+  block="$(_eot_recap_block)"
+  if ! grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$block"; then d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_WHERE"; fi
+  if ! grep -qF -- "$AIF_EOT_SEC_NEXT"  <<<"$block"; then d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_NEXT"; fi
+  if [ "$asked" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$block"; then
+    d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_FORK"
+  fi
+  # Section 2 is required "when long_text" — asked of the ANSWER, not of answer+block: the
+  # block's own bold headings satisfy the markdown arm by themselves (final review M-5).
+  if _eot_is_long_text "${text%%"$AIF_RECAP_MARKER"*}" \
+     && ! grep -qF -- "$AIF_EOT_SEC_CHANGED" <<<"$block"; then
+    d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_CHANGED"
+  fi
+  # D-B scope: the gate reads the LAST non-empty line of the block, nothing above it.
+  last="$(grep -v '^[[:space:]]*$' <<<"$block" | tail -n 1)"
+  if ! grep -qF -- "$AIF_EOT_FOR_YOU_PREFIX" <<<"$last"; then
+    d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_FOR_YOU_PREFIX"
+  else
+    # Everything after the prefix is the value D-B governs. The offloading-verb scan stops at
+    # the first `(`: what is inside the parenthesis is the AGENT's own verification trace, so
+    # `nothing (I did review the failing job)` is evidence, not an errand (final review M-3).
+    value="${last#*"$AIF_EOT_FOR_YOU_PREFIX"}"
+    value="${value# }"
+    if grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"${value%%(*}"; then
+      d="$d; $AIF_EOT_BANNED_LABEL"
+    elif ! _eot_for_you_wellformed "$value"; then
+      d="$d; $AIF_EOT_MALFORMED_LABEL"
+    fi
+  fi
+  # Task 1.6b (R-17): cap the retelling, fork card exempt. Read from the ENV with a literal
+  # default — deliberately absent from the language packs, which are sourced AFTER the
+  # environment, so a pack assignment would clobber an operator's override.
+  cap="${AIF_EOT_RECAP_MAX_LINES:-15}"
+  # A garbage override reached `[ -gt ]` and printed an integer-expression error to the
+  # hook's stderr on EVERY armed turn while silently disabling the cap (final review M-6).
+  case "$cap" in ''|*[!0-9]*) cap=15 ;; esac
+  count="$(_eot_recap_line_count "$block")"
+  if [ "$count" -gt "$cap" ]; then d="$d; $AIF_EOT_CAP_LABEL $cap"; fi
+  printf '%s' "${d#; }"
+}
+
 # ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
 # POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
 # class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
@@ -663,6 +865,61 @@ if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
   # so a bare `exit 0` here made the F10 arm silent in precisely its motivating scenario —
   # and worse as the session got longer, because the Branch A/B/C payloads train the model to
   # emit this marker. Suppress the recap re-injection, keep the continuation directive.
+  #
+  # Task 1.5 (D-A) — dormant section-checker gate: the recap block ALREADY EXISTS (that is
+  # exactly this guard's condition), so check it for missing sections instead of just
+  # suppressing. Needs `asked`/`long_text` from _eot_turn_shape(), which is otherwise called
+  # only at :807 — AFTER this guard — so a marker-carrying turn would never reach it. Calling
+  # it here is not a double call: this guard exits the turn, so a turn that reaches :807 never
+  # passed through here. Dormant by default (AIF_RECAP_GATE unset). `-z "$gate_line"` / `-z
+  # "$ctx_line"` is D21 precedence — "one reason per stop": _autonomy_exit has ONE extra slot
+  # and the handoff gate + the context line already compete for it. Both env reads use
+  # defaults — a bare $gate_line/$AIF_RECAP_GATE would abort the hook under `set -u` on every
+  # turn where the handoff gate did not run.
+  _eot_turn_shape
+  if [ "${AIF_RECAP_GATE:-0}" = "1" ] && [ -z "${gate_line:-}" ] && [ -z "${ctx_line:-}" ] \
+     && ! grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
+    _recap_defects="$(_eot_recap_defects)"
+    # The gate owns its retry bound (Task 1.6b, R-16). Mirrors the ZCode dense arm's
+    # _zcb_sha shape (:~822-852) per spec :134-136, and for the same measured reason: a
+    # re-stop after decision:block can carry stop_hook_active=false, so an unbounded gate
+    # re-blocks identical text forever. Runs on EVERY armed, marker-present, non-story turn
+    # that reaches here — NOT only when $_recap_defects is non-empty: the flag must track
+    # the CURRENT block's sha regardless of outcome, exactly like _zcb_sha's nested `if`
+    # (compare, THEN unconditionally store), or a well-formed turn in between leaves the
+    # flag stale and a later fresh recurrence of the same defect is silently swallowed
+    # instead of named (fix round 1, controller-confirmed live repro: block A blocks, a
+    # good turn passes, block A recurs — the stale flag from block A's own first block
+    # would wrongly suppress the second, separate occurrence).
+    #
+    # Stored sha == current sha → this exact block already got its one block → fall
+    # through to the silent exit. An empty sha (no hashing tool, or a failed write) skips
+    # BOTH the compare and the store — never "content unchanged" — degrading to today's
+    # behaviour: the block fires.
+    #
+    # Hash the BLOCK, never $text: the seam is "the same malformed block under NEW
+    # surrounding prose", which moves a whole-message sha and would re-block forever on
+    # exactly the case the bound exists for. Use the gate's OWN flag prefix
+    # (aif-eot-rgb-), never the ZCode arm's (aif-eot-zcb-): one flag shared between two
+    # bounds lets each suppress the other's first block (#1644->#1651).
+    _rg_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+    _rg_flag="${TMPDIR:-/tmp}/aif-eot-rgb-${_rg_key}"
+    _rg_tmp="${TMPDIR:-/tmp}/aif-eot-rgbt-${_rg_key}-$$"
+    _rg_sha=""
+    if printf '%s' "$(_eot_recap_block)" > "$_rg_tmp" 2>/dev/null; then
+      _rg_sha="$(_residue_sha256 "$_rg_tmp")"
+      rm -f "$_rg_tmp" 2>/dev/null || true
+    fi
+    if [ -n "$_rg_sha" ]; then
+      if [ -f "$_rg_flag" ] && [ "$(cat "$_rg_flag" 2>/dev/null || true)" = "$_rg_sha" ]; then
+        _recap_defects=""
+      fi
+      { printf '%s' "$_rg_sha" > "$_rg_flag"; } 2>/dev/null || true
+    fi
+    if [ -n "$_recap_defects" ]; then
+      gate_line="$(aif_msg_eot_recap_gate "$_recap_defects")"
+    fi
+  fi
   _autonomy_exit
 fi
 
@@ -767,67 +1024,10 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     exit 0
   fi
 fi
-unset _ze_reason _ze_glance _md_dense _zcb_key _zcb_flag _zcb_tmp _zcb_sha 2>/dev/null || true
+unset _ze_reason _ze_glance _md_dense _zcb_key _zcb_flag _zcb_tmp _zcb_sha \
+      _rg_key _rg_flag _rg_tmp _rg_sha 2>/dev/null || true
 
-# -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
-# In orchestration mode (driving aif-handoff, relaying state every turn) two
-# triggers are re-tuned (Bug A regex dropped, recap threshold lowered); normal
-# mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
-# forgotten marker silently muting a normal session. Spec: docs/superpowers/
-# specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
-orch_mode=false
-marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestration-mode}"
-ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
-if [ -f "$marker" ]; then
-  marker_now=$(date +%s)
-  # GNU-first, BSD-fallback: try `stat -c %Y` (GNU/Linux) before `stat -f %m` (BSD/macOS).
-  # The reverse order silently breaks on Linux — GNU `stat -f` is --file-system, so
-  # `stat -f %m` EXITS 0 with a garbage value (not mtime), the `||` fallback never fires,
-  # and the marker reads as expired → orchestration mode never activates on Linux/CI.
-  # BSD `stat -c` fails cleanly (illegal option), so GNU-first degrades correctly on macOS.
-  marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
-  if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
-    orch_mode=true
-  fi
-fi
-
-# Trigger ONLY on (a) a substantial structured answer (a long body) or
-# (b) a question. Tool calls alone do NOT trigger — a short "done, fixed X"
-# turn with no question needs no recap.
-#
-# NOTE: the v1 factual-claim scan (numeric / file:line / negative-existence) was
-# REMOVED 2026-06-01 (maintainer decision). Measured recall ≈0.43 + precision
-# ≈0.20-0.25 (cry-wolf) made it a net-negative sentry — the same class as the
-# recommendation-laziness narrow-B stop-scan dropped at FP 84% (#210). Rationale +
-# evidence: docs/meta-factory/research-patches/2026-06-01-remove-claim-detector.md.
-# The recap (Branch A/C) + question-check (Branch B) survive; the always-on H1
-# reminder in inject-session-bootstrap.sh remains the cheap salience layer.
-# Recap threshold is lowered in orchestration mode (status turns are short+dense)
-# but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
-long_text=false
-recap_threshold=500
-if [ "$orch_mode" = "true" ]; then
-  recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
-fi
-if [ "$text_length" -gt "$recap_threshold" ]; then
-  if grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$text"; then
-    long_text=true
-  fi
-fi
-
-# Did the turn end in a question?
-asked=false
-if [ "$has_askuserquestion" = "true" ]; then
-  asked=true
-elif [ -n "$text" ]; then
-  tail_chunk=$(echo "$text" | tail -c 500)
-  if grep -qE -- '\?[[:space:]]*$' <<<"$tail_chunk"; then
-    asked=true
-  elif [ "$orch_mode" = "false" ] && grep -qiE -- "$AIF_EOT_QUESTION_PATTERN" <<<"$tail_chunk"; then
-    asked=true
-  fi
-fi
-
+_eot_turn_shape
 
 # -- MAJOR-1 idle-suppression guard -------------------------------------------
 # Suppress Branch B (asked=true, long_text=false) ONLY when BOTH hold:

@@ -258,6 +258,43 @@ if [ -f "$EOT_SRC" ]; then
   else
     # $CLAUDE_PROJECT_DIR-relative (matches the framework's own settings.json — worktree-safe).
     register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+
+    # R-15: the recap-gate REJECTION ships dormant. `--full` is the developer-install axis
+    # (orthogonal to --profile), so a full install arms it; a plain install does not. The
+    # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
+    # so this mirrors the hand-action sibling that arms the SAME key,
+    # scripts/register-recap-gate.sh:159-175, and through it the shape's origin
+    # scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate, atomic mv, skip
+    # when already set. Never write the target in place: a malformed settings.json silently
+    # disables EVERY setting in it.
+    if [ "${FULL:-}" = "--full" ]; then
+      # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
+      # no-op that prints nothing leaves the operator believing the gate is on when it is not.
+      # Same shape as this file's deps-hash-check jq-less branch (:227).
+      if ! command -v jq >/dev/null 2>&1; then
+        echo "  ⚠ jq not found — AIF_RECAP_GATE NOT armed; add manually to $SETTINGS:" >&2
+        echo '    "env": { "AIF_RECAP_GATE": "1" }' >&2
+      elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
+        echo "  AIF_RECAP_GATE already armed"
+      else
+        # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
+        # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
+        # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
+        # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
+        # the install clean while the operator believed the gate was armed (review M-7).
+        _rg_tmp="$SETTINGS.recapgate.tmp"
+        if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$SETTINGS" > "$_rg_tmp" 2>/dev/null \
+           && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
+          if mv "$_rg_tmp" "$SETTINGS"; then
+            echo "  AIF_RECAP_GATE=1 armed (--full)"
+          else
+            rm -f "$_rg_tmp"; echo "  ⚠ could not write $SETTINGS — AIF_RECAP_GATE NOT armed"
+          fi
+        else
+          rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $SETTINGS left untouched"
+        fi
+      fi
+    fi
   fi
 fi
 

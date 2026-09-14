@@ -18,6 +18,25 @@ AIF_RECAP_MARKER='## 🟢 In plain words'
 # Extended-regex of trailing-fork phrases that count as "the turn ended on a choice"
 # (used by end-of-turn-reminder.sh Branch B). English phrasings; ru.sh has the Russian.
 AIF_EOT_QUESTION_PATTERN='Option [AB]|decide|which (option|approach)|you (decide|choose)|pick (one|between)'
+AIF_EOT_SEC_WHERE='**Where we are.**'
+AIF_EOT_SEC_CHANGED='**What changed.**'
+AIF_EOT_SEC_FORK='**Fork.**'
+AIF_EOT_SEC_UNSURE='**What I am unsure about.**'
+AIF_EOT_SEC_NEXT='**Next.**'
+AIF_EOT_ME_PREFIX='Me:'
+AIF_EOT_FOR_YOU_PREFIX='From you:'
+AIF_EOT_FOR_YOU_NOTHING='nothing (<what you would check, if you want to>)'
+AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
+AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
+AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
+AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
+# Defect labels. Each one is a SELF-DESCRIBING phrase, never a bare token and never a raw
+# regex: the gate joins them into one `; `-separated list under a neutral verb, so a label
+# that only names a thing (a section, an alternation) reads to the model as "add this".
+AIF_EOT_MISSING_LABEL='missing section:'
+AIF_EOT_BANNED_LABEL='the last line asks the human to check/review something — that is your own work, not theirs'
+AIF_EOT_MALFORMED_LABEL='the last line is not one of the four allowed values (and "nothing" needs its verification trace in parentheses)'
+AIF_EOT_CAP_LABEL='longer than the line cap:'
 
 # Fallback value for the session-goal anchor when extraction fails.
 aif_msg_eot_anchor_fallback() {
@@ -37,30 +56,51 @@ If all of this is already done in your answer — just ask the question again: t
 EOF
 }
 
+# Shared five-section recap contract (D-A, D-B) — the body every Stop-hook branch below
+# carries verbatim via command substitution, so the three branches teach one contract
+# instead of three slightly different ones (a model learns none of them from drift).
+# Interpolates the Task 1.2 scalars rather than restating their text, and calls the
+# Task 1.3 fork-card template — a literal copy of either would drift from the pack a
+# later gate reads. AIF_EOT_RECAP_MAX_LINES is deliberately NOT a pack scalar so an
+# operator's env override survives.
+aif_msg_eot_recap_contract() {
+  cat <<EOF
+${AIF_RECAP_MARKER} — a block of five sections, in this order:
+1. ${AIF_EOT_SEC_WHERE} — always.
+2. ${AIF_EOT_SEC_CHANGED} — if the answer is long or structural.
+3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card. Inside this block
+   the card omits its own 0 and 5: sections 1 and 5 of the block already own them.
+$(aif_msg_fork_card | sed 's/^/   /')
+4. ${AIF_EOT_SEC_UNSURE} — optional.
+5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:
+   ${AIF_EOT_ME_PREFIX} <what I am doing>
+   ${AIF_EOT_FOR_YOU_PREFIX} <one of four>
+   — ${AIF_EOT_FOR_YOU_NOTHING}
+   — ${AIF_EOT_FOR_YOU_WAITING}
+   — ${AIF_EOT_FOR_YOU_DECIDE}
+   — ${AIF_EOT_FOR_YOU_HANDS}
+Nothing else ever follows "${AIF_EOT_FOR_YOU_PREFIX}". The words
+"${AIF_EOT_FOR_YOU_BANNED}" are not work for the human — they are offloading your own.
+The whole block is no longer than ${AIF_EOT_RECAP_MAX_LINES:-15} lines; the fork card does not count toward the cap.
+What follows is not a block section and not in its cap — it is instructions to yourself:
+• If in this turn you recommended something, or said "you decide" / "waiting for your call" / "PR is ready, awaiting your click" — check yourself: were the alternatives really weighed, or did you take the first that came to mind? If there is a clearly better option on the merits (by goals and discipline) — do NOT offload, do it and say what you did. Handing off a decision = reserved for real forks.
+• The inverse: did you in this turn decide a fork SILENTLY — by a direct action/command/dispatch, without surfacing it as a question? If it is ambiguous (no clearly better option by the project's measures) — that is a silently-decided fork: surface it NOW via AskUserQuestion, do not leave it silently decided. The operator must see both open and closed forks.
+EOF
+}
+
+# Stop hook — dormant section-checker gate (Task 1.5, D-A). Fires only when a recap block
+# already exists AND is defective — never demands a block from a
+# turn that has none. $1 = the `; `-joined defect list from _eot_recap_defects().
+aif_msg_eot_recap_gate() {
+  printf '%s\n' "The $AIF_RECAP_MARKER block is there but not right: $1. Fix exactly what is named, in this same answer — do not rewrite the whole block."
+}
+
 # Stop hook — Branch C: long answer AND trailing fork-question.
 aif_msg_eot_branch_c() {
   cat <<EOF
 Stop. This is both a long answer AND a trailing fork-question — you need both a recap of the work and a check of the question. Primarily for your own sake.
-You MUST begin the block with exactly the line "${AIF_RECAP_MARKER}" — so the human spots it at a glance.
-(If you cannot say it simply, concretely and as a whole — what/why/how → you have not fully understood it yourself; this is a diagnostic, not a report.)
 
-Session goal (from the session title / first instruction): "${anchor}".
-
-First 2 lines — so a human with no context gets it at a glance:
-• What the session is doing AS A WHOLE — in one phrase (not "what I just edited").
-• Whether it is on goal — pick ONE: ON GOAL / DRIFTED INTO <topic> (and why) / DELIBERATELY PIVOTED to <topic> (and what for). Not "seems on goal".
-
-Then — about the WHOLE session, NOT the last turn:
-• Why we are doing this — the overall goal in your own words (not a restatement of the title): which task we are closing and why it matters.
-• What is done toward that goal — CUMULATIVELY, step by step with names (file/PR/decision): everything significant across the session, not just the last change.
-• What is ahead — EVERYTHING left until the goal, point by point: not one next step but the whole tail. If near the end — say so.
-• What you are least sure of — one thing to re-check (or honestly "none").
-• Where the session contradicts itself — name the gap between the stated goal and what actually came out, or the spot where the work undermines its own premise (like "a project against doc-bloat that itself bloated into doc-bloat"). This is "documents lie; tests don't" turned on the recap itself. No real gap — skip it: forced irony is worse than none.
-
-On the question:
-1. Is this a real fork — or am I offloading a decision I could make myself? One option clearly better on the merits (by the session's goals and discipline) → do NOT ask: do it and say what you did.
-2. If it is a real fork — lead with MY reasoned recommendation first: "I recommend <option>, because <reason against the goals and trade-offs>". Then the alternatives briefly. The human decides.
-If any point does not come out concrete → say so plainly, do not pad with water.
+$(aif_msg_eot_recap_contract)
 EOF
 }
 
@@ -68,23 +108,8 @@ EOF
 aif_msg_eot_branch_a() {
   cat <<EOF
 Stop. Before you finish — a recap in plain words, primarily for your own sake.
-You MUST begin the block with exactly the line "${AIF_RECAP_MARKER}" — so the human spots it at a glance.
-(If you cannot say it simply, concretely and as a whole — what/why/how → you have not fully understood it yourself; this is a diagnostic, not a report.)
 
-Session goal (from the session title / first instruction): "${anchor}".
-
-First 2 lines — so a human with no context gets it at a glance:
-• What I am doing right now — in one phrase, in plain language.
-• Whether I am on goal — pick ONE: ON GOAL / DRIFTED INTO <topic> (and why) / DELIBERATELY PIVOTED to <topic> (and what for). Not "seems on goal".
-
-Then for your own sake, point by point, with names (file/function/decision), no water:
-• What I just did — the concrete change, not a restatement of the task.
-• Non-trivial decisions — "chose X over Y because Z", or honestly "there were none".
-• What I am least sure of — name ONE thing worth re-checking.
-• The next step and why it is next.
-• If in this turn you recommended something, or said "you decide" / "waiting for your call" / "PR is ready, awaiting your click" — check yourself: were the alternatives really weighed, or did you take the first that came to mind? If there is a clearly better option on the merits (by goals and discipline) — do NOT offload, do it and say what you did. Handing off a decision = reserved for real forks.
-• The inverse: did you in this turn decide a fork SILENTLY — by a direct action/command/dispatch, without surfacing it as a question? If it is ambiguous (no clearly better option by the project's measures) — that is a silently-decided fork: surface it NOW via AskUserQuestion, do not leave it silently decided. The operator must see both open and closed forks.
-If any point does not come out concrete → say so plainly, do not pad with water.
+$(aif_msg_eot_recap_contract)
 EOF
 }
 
@@ -92,14 +117,8 @@ EOF
 aif_msg_eot_branch_b() {
   cat <<EOF
 You stopped on a question. Before you wait — check the question itself, primarily for your own sake.
-You MUST begin the block with exactly the line "${AIF_RECAP_MARKER}".
 
-Session goal: "${anchor}".
-
-1. Is this a real fork — or am I offloading a decision I could make myself? If one option is clearly better on the merits (by the session's goals and the project's discipline) — do NOT ask: do it and say what you did. Reserve the question for forks where you honestly cannot pick on the measures.
-2. If it is a real fork — lead with MY reasoned recommendation first: "I recommend <option>, because <reason against the goals and trade-offs>". Then the alternatives briefly. The human decides.
-3. In plain words: what exactly are we deciding and why does it block — on a simple example, not a restatement of the question text.
-If the crux of the choice cannot be explained simply → the question itself is imprecisely framed: say so.
+$(aif_msg_eot_recap_contract)
 EOF
 }
 
@@ -182,5 +201,25 @@ Tell it as a story, in plain, engaging language — NOT a dry checklist:
 • Be honest — where it is thinly verified (one run, one case), what you are least sure of, what is still left.
 • End on the human — the one thing left for them to decide or do ("one step — your go").
 Tone: interesting, like a story; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
+EOF
+}
+
+# Fork card template (shared with the recap block + ask-question-reminder rewrite, D-C).
+# Consumed by task 1.4 (branch payloads) and slice 2's ask-question-reminder.sh.
+# Carries ALL SIX D-C sections — this is the full card, the form slice 2 emits before the
+# AskUserQuestion buttons. A card that sits INSIDE the recap block omits 0 and 5 (the
+# block's own sections 1 and 5 own them, spec TD-N7a); the block's caller says so, so the
+# omission is one surface's instruction rather than a hole in the shared text.
+aif_msg_fork_card() {
+  cat <<'EOF'
+A fork is a card, not a bare question. In this order:
+0. Where we are — one sentence, no history.
+1. Title — the fork itself in everyday words.
+2. What we decide — with a concrete example from THIS project, never an analogy.
+3. If A — what becomes true. If B — what becomes true.
+4. ➡️ Recommendation — the MOST ESSENTIAL reason FIRST and in **bold**, then up to three
+   more reasons, one line each; then one line: reversible or not, and what rolls it back.
+5. From you: ok — or "not ok, because …".
+Never compress the card: the line cap does not apply to it.
 EOF
 }

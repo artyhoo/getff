@@ -6,7 +6,7 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-d60ff56549199bae3dfad5139f13ac26d543cf809d2666ef1227f1e4306fc45c  .claude/hooks/end-of-turn-reminder.sh
+6ddc92633cb10cbbb6025663464a5a8f0edb0035dd6df99833a5ae9c3c1c84d5  .claude/hooks/end-of-turn-reminder.sh
 0172e377f71e667e1832ceb3edeaf06a080c0af2236fa8ec1a6769b97ecaecb5  .claude/hooks/inject-handoff-on-compact.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
@@ -16,8 +16,8 @@ d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/
 50ca77f5889ea69cc71d718f8d2009a3c0322af2200edbf288da5a89e0c03b21  .claude/hooks/inject-subagent-context.sh
 79dee6e5d9e4ec9b62c2e3373832a92e4d44b88957602123375349349f8e4118  .claude/hooks/inject-subagent-digest.sh
 5766feccf3ff24f8903b4706376ebd5b6a88f2ae8cd150c08927b4a6e5ba4efa  .claude/hooks/lang/check-parity.sh
-f30e68c3071b293a3f19b7c2c434d81121c8ca98b842219b21c60b594357af53  .claude/hooks/lang/en.sh
-23c0d7bc91e11ad26a091ac01c23494c44a1595ed70f7f06d73dd5103f2df8c8  .claude/hooks/lang/ru.sh
+afe29d29200319ee5fc6d913868ff124e7ae2df09da20d70e3d63a73a68dd96a  .claude/hooks/lang/en.sh
+af2346d2f4dab2c458972ece0886ac39af269253a12384ff256120309860bdbb  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
 e86895c15d2aed08b5302a2f01b60132b1643dfbb58b662577e3a60e70371f11  .claude/hooks/precompact-residue.sh
@@ -105,7 +105,7 @@ c605506b6c8e1b51c06d0014d001ff0039de82989200d134234b25c40866f3a4  .claude/skills
 b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
 470772ebcc9ee4f3d976393197ab53a800fdccec6434cd627f4ec0d35aaa151a  .claude/skills/pipeline/references/red-flags.md
 5e53f12369a0f107451b69a4ea407c4ac3fad06750c159923cc4ba77a3fe944f  .claude/skills/pipeline/references/stage-gates.md
-767bcdc9385f0109453f52005034b223cb7eaf5d2818e3ff1aae6c23953274e0  .claude/skills/pipeline/templates/meta-kickoff.template.md
+f93e241c812c2773b744e1773d86f5a6c7f950fab7da1033fa9adaff1d9b27d2  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 d838b6a2c8c3b4ff1569e6316dee928bcd4aa6fa1df1cc1376a706d9f6893ed4  .claude/skills/reviewer/SKILL.md
 7dda969e1a79814d486cea5daba91b91df9a7fc657275c5511a0bd1433dba402  .claude/skills/rule-research/SKILL.md
@@ -399,7 +399,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/
 5b6ebac07f72e1e85161763ae48ab7154593b6287702bde9ece99372df7ea517  packages/core/eslint-rules/restricted-syntax-audit-exempt.mjs
 9197a69b56804c049e32b4094e96c7ce1e0fc00ea5cda2575a32f4795c16a824  packages/core/eslint-rules/restricted-syntax-audit-exempt.test.ts
 526b32ffb896fcba11e16378ef5b87f8bc261ddeb5d17dca69164c9409a8e814  packages/core/eslint-rules/restricted-syntax-audit-exempt.ts
-f1338aeb6f2b1b809d20c80b1a1b2d13d52ff48b8c4dc8c6b429c50b00ecf7a3  packages/core/hooks/__fixtures__/gate-unarmed-goldens.json
+8c225d734af5fbab4d5c780db9924bdaa87ca8880089f4cfc934ae6b80539056  packages/core/hooks/__fixtures__/gate-unarmed-goldens.json
 6d25d5e01ae669a8789e24005d94548f28bf62902558a2ba31dc391e36abab85  packages/core/hooks/_zcode-emit.test.ts
 5b3578dda0c1e898d2a262dc67361bfdcda5615ffa0e2c64a4dc22273b21ea8d  packages/core/hooks/adopt-orchestrator-prompts.test.ts
 e66a48eb6d49b1b3d004a24cbd84f01165a26896cb1028dac22fa87c3b5d8f81  packages/core/hooks/apply-doc-fixes.test.ts
@@ -445,7 +445,7 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-25237ae8dbed526e82d3d13f2b6885982d4d2ec429f94b375b8bb2c1c29f2358  packages/core/hooks/end-of-turn-reminder.test.ts
+ec2ce8f5c3694e5c9d19729595e47f9c9d8ac77dce6195f3dfa1087793d68f19  packages/core/hooks/end-of-turn-reminder.test.ts
 7eabe00c6a24c61c5d71267d520387cc7f0b7bb8bdd3927e515e1edb9094df87  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 e8bcb769b383ebf58aa2c800cb01424400a73461f4afe245a703f112eabf5348  packages/core/hooks/getff-work.test.ts
@@ -1037,7 +1037,7 @@ e7f784c23d55b9e5c7aec9cd12ea12c984656b6e406e15f71abe236b4f3406ad  scripts/create
 b90976eade8b6aaef9389f8720ceb41d97c5dd397f6fb892b69ff538a56eac20  scripts/worktree-node-modules.sh
 30046577dbd3a25033b2cceb6860968d96a74a3fe36ccc15449df3998e52a16e  setup
 5f8e77eff6d24617787156419afe26eae1c27d35a84d2789c099ceb156be7492  setup.d/05-mcp.sh
-c7c7b4c262246d941808f7b7ea49578e2e78ff598780d4e3d17a0e93b3084744  setup.d/10-skills.sh
+151491e73da67b76c015db37c853f66f7974465fd918fd0fbb5cfc5500708027  setup.d/10-skills.sh
 29200fa13a26533dce3f937dc300ea6e2d6003415d5a136be85882895956c59f  setup.d/15-companions-stack.sh
 75a08a95a2a3a03e2b1c43ea34249295db3e63bc3547172d5bb11b04e0016390  setup.d/20-agents.sh
 d2d0c62000ac39e011753b1d1e0bb0bef167bdb5a67162cdfc52cb8be934be38  setup.d/30-templates.sh
