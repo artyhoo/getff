@@ -176,5 +176,24 @@ if grep -qF -- "--capture" "$TMP/o18_usage"; then
   echo "  ✗ usage still advertises the removed --capture flag"; fails=$((fails + 1))
 else echo "  ✓ usage no longer advertises --capture"; fi
 
+# --- (fd 3) a gate's live progress must escape the output capture ---
+# Gate output is captured (`out="$( (eval "$cmd") 2>&1 </dev/null )"`) and printed only on
+# completion, so a long gate is silent for its whole run — the 114-file install-sh battery was
+# silent for ~30 minutes and "working" was indistinguishable from "hung" without walking the
+# process tree by hand (.claude/rules/attention-is-not-a-mechanism.md §1). `exec 3>&2` in the
+# sweep makes fd 3 the live channel: not touched by the capture, reaching the operator as the gate
+# runs. This arm pins BOTH halves — fd 3 arrives, and stdout is still captured, not echoed live.
+printf '1\tlive\tALWAYS\techo captured-body; echo live-tick >&3\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" \
+  bash "$SWEEP" --full >"$TMP/o19" 2>"$TMP/e19"
+check "gate writing to fd 3 still exits 0" 0 $?
+grep_out "fd 3 reaches the operator live (sweep stderr)" "live-tick" "$TMP/e19"
+if grep -qF "live-tick" "$TMP/o19"; then
+  echo "  ✗ fd 3 output leaked into the captured stdout"; fails=$((fails + 1))
+else echo "  ✓ fd 3 output did not leak into the captured stdout"; fi
+if grep -qF "captured-body" "$TMP/e19"; then
+  echo "  ✗ ordinary gate stdout escaped the capture onto stderr"; fails=$((fails + 1))
+else echo "  ✓ ordinary gate stdout is still captured, not echoed live"; fi
+
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }
