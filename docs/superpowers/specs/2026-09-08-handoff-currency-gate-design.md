@@ -161,7 +161,7 @@ All on existing seams; one new test file for the new hook.
 - **`packages/core/hooks/end-of-turn-reminder.test.ts`** — `describe('handoff-currency gate')`:
   1. armed, above floor, no handoff file → `decision:block`, reason names the path;
   2. armed, above floor, file with all five headings, no baseline → allow; baseline file written with sha;
-  3. same file, second Stop → block («unchanged»); `touch` the file first → STILL block (content, not mtime);
+  3. same file, second Stop → block («unchanged»); `touch` the file first → STILL block (content, not mtime) — refined by D38 (round 6): a second STOP means a new turn, and the fixture now says so; a second INVOCATION of the same Stop is the twin case, owned by fixture 19;
   4. file edited under one heading → allow; baseline advances;
   5. file missing `## Rejected alternatives` → block, reason names it;
   6. final text `mechanical-tail: regenerating snapshots, CI guards them` → allow; `mechanical-tail: done` → block;
@@ -459,6 +459,58 @@ with both numbers quoted), `fixture 17` (same case, inline mention only → sile
 `fixture 9` replaying both new cases unarmed against the frozen `abc0876183` hook — both silent,
 captured by the same mirror that reproduced all 17 stored goldens byte-for-byte. `check-parity.sh`
 12 keys; `lang-parity.test.ts` byte-identity of the `plugin/hooks/lang` twins.
+
+### Round 6 — the twin Stop registration: an unsatisfiable «unchanged», 2026-09-14
+
+**Measured (operator, session `319c1945-403c-433a-92ba-96ecebdcb7d6`).** The gate reported
+«СОДЕРЖИМОЕ не изменилось» on a turn that HAD rewritten the handoff file. `shasum -a 256` of the
+handoff and `cat` of `${TMPDIR}/aif-handoff-<ctx_key>` were byte-identical (`02c8cde2868ef875…`),
+and the baseline's mtime was inside that same turn.
+
+**Root cause — the hook runs more than once per Stop, and the allow branch is a write.** `Stop` is
+registered TWICE in this repo: the plugin copy (`hooks/hooks.json` → `run-hook.cmd
+end-of-turn-reminder`) and the project copy the installer writes (`setup.d/10-skills.sh:260`,
+`install.sh:959` — so this is a SHIPPED collision, not a local one: any consumer holding both gets
+it). Both derive the same baseline path from `session_id` alone and hash the same file. Copy 1 sees
+a changed sha, ALLOWS, and writes the new sha; copy 2 then compares the file against what its twin
+just wrote, finds them equal, and blocks. Once the heading and cap checks pass, the arm is
+UNSATISFIABLE — no edit can clear it, because the first copy always consumes the change — and the
+only exit left is the `mechanical-tail:` escape, used to get past a gate that is wrong rather than
+because the work is mechanical. A gate that names a defect the turn does not have is exactly the
+shape [`attention-is-not-a-mechanism.md` §1](../../../.claude/rules/attention-is-not-a-mechanism.md)
+forbids.
+
+**D38 — the baseline advances at most ONCE per Stop, keyed by the turn.** The baseline's line 1
+stays the content sha (so D34 still clears one file by one exact name, and a pre-D38 single-line
+baseline reads back with an empty turn key, never matches, and falls through to the sha compare —
+no migration). Line 2 is the TURN KEY: the content hash of the turn's last assistant record, taken
+with the same grep the `last_line` arm runs, over the same bounded window. A run that finds its own
+turn key in the baseline re-uses that Stop's already-computed ALLOW. Only the allow branch writes,
+so a BLOCKING Stop is re-derived identically by both copies — the fix must not convert a real block
+into a silent pass. An underivable key (no assistant record, no hashing tool) stays empty, never
+matches, and the gate degrades to exactly its pre-D38 behaviour: it blocks.
+
+**Rejected: de-duplicating the registration.** It is an operator action (`.claude/settings.json` is
+agent-uncommittable), it does not reach consumers (the installer writes that same registration by
+design), and dropping the PROJECT copy in this repo would make the source repo dogfood the released
+plugin snapshot instead of its own SSOT — measured 2026-09-14, the cached plugin copy is 924 lines
+against the source's 1168. Dedup remains worth doing on the operator axis; it is not the mechanism.
+
+**Rejected: two shas in the baseline (previous + current).** Measured against the two states it
+must tell apart — «copy 2 of turn N» and «turn N+1 with the file untouched» — they are identical in
+every input the gate reads EXCEPT the transcript's last assistant record. Without a turn key no
+sha-pair scheme can separate them; with one, the second sha is redundant.
+
+**Verification.** `fixture 19a` (one Stop, two invocations, a real edit in between → silent both
+times, and the baseline advanced exactly once) and `fixture 19b`, its paired negative (a NEW turn
+with the handoff untouched → both invocations block «unchanged»; an idempotence fix that failed open
+would go green on 19a and red here). Fixtures 3, 4, 11 and the D34 end-to-end case in
+`precompact-residue.test.ts` modelled «the next stop» by re-spawning on an UNCHANGED transcript —
+which is this defect's own shape, not a turn boundary — and now append an assistant record instead.
+`fixture 9` replays every gate input unarmed against the frozen `abc0876183` hook: byte-identical.
+Live re-run of the operator's reproduction: allow / allow / allow across three invocations of one
+Stop after an edit, block / block across both invocations of the next turn without one, and block on
+a legacy single-line baseline.
 
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 

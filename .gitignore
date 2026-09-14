@@ -142,3 +142,4 @@ tests/agnosticism/conformance-record.tsv
 !.claude/orchestrator-prompts/npm-publish-getff-init/kickoff-p*.md
 !.claude/orchestrator-prompts/npm-publish-getff-init/report-p*.md
 !.claude/orchestrator-prompts/getff-ai-site/kickoff-s*.md
+!.claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s*.md
