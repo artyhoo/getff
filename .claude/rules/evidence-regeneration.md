@@ -72,13 +72,13 @@ The committed invalid fixture lives at `packages/core/backends/<b>/fixtures/firi
 
 | pin | site | current pin |
 |---|---|---|
-| astgrep | `.github/workflows/audit-self.yml:232` (`npm install -g @ast-grep/cli@…`) | `0.44.1` |
-| ruff | `.github/workflows/audit-self.yml:242` (`pip install ruff==…`) | `0.15.21` |
-| rustc (CI) | `.github/workflows/audit-self.yml:271` (`rustup toolchain install …`) + `:272` (`rustup default …`) | `1.96.1` |
+| astgrep | `.github/workflows/audit-self.yml:294` (`npm install -g @ast-grep/cli@…`, principles-meta-tests) + `:930` (same, install-sh-c) | `0.44.1` |
+| ruff | `.github/workflows/audit-self.yml:304` (`pip install ruff==…`, principles-meta-tests) + `:928` (same, install-sh-c) | `0.15.21` |
+| rustc (CI) | `.github/workflows/audit-self.yml:333` (`rustup toolchain install …`) + `:334` (`rustup default …`) | `1.96.1` |
 | rustc (fixtures) | `packages/core/backends/cargo/fixtures/firing/{invalid,valid,valid-clean}/rust-toolchain.toml` + `demo/crate/rust-toolchain.toml` (`channel = …`) | `1.96.1` |
-| eslint | `packages/core/package.json:61` (`"eslint": "^10.4.0"`) | `^10.4.0` (resolves `10.4.0`) |
+| eslint | `packages/core/package.json:94` (`"eslint": "^10.4.0"`) | `^10.4.0` (resolves `10.4.0`) |
 
-The rustc pin is **dual-site** (CI install + the fixtures' `rust-toolchain.toml`); a rustc pin bump edits both in the same commit or the fixture toolchain and the CI toolchain diverge.
+The rustc pin is **dual-site** (CI install + the fixtures' `rust-toolchain.toml`); a rustc pin bump edits both in the same commit or the fixture toolchain and the CI toolchain diverge. **So are astgrep and ruff**: each is installed once for the principles-meta-tests job and once for install-sh-c, and the table listed only the first until 2026-09-13 — a bump editing one site leaves the other job on the old version, which is exactly the divergence this section exists to prevent. Re-derive both sites live before editing (`grep -n 'ast-grep/cli@' .github/workflows/audit-self.yml`).
 
 ## §3 Entry conditions and the firing-evidence invariant
 

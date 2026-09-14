@@ -686,6 +686,13 @@ jobs:
       # hermetic (mktemp mailbox) and runs anywhere.
       - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
         run: bash scripts/check-ask-files.test.sh
+      # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
+      # state to blame against, which a shallow CI checkout does not reliably have. Its
+      # detector still needs a CI channel, or the only proof either arm fires is that
+      # someone ran it once. The paired-negative below builds throw-away git repos under
+      # mktemp, so it runs anywhere and proves BOTH arms red-on-drift.
+      - name: Run path:line citation paired-negative (both detection arms)
+        run: bash scripts/check-line-citations.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)
