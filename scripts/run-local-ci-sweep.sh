@@ -151,6 +151,68 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# --- derived TRIGGERS (not just derived commands) ---------------------------------------------
+# One row below derives its TRIGGER from the artifact it gates, for the reason the
+# `script-selftests` note gives for deriving a command: a trigger hand-written beside a list that
+# already exists in the repo is a second copy, and it drifts silently. Measured 2026-09-14, the
+# `getff-dist-manifest` trigger had already drifted WIDER than the payload it restates — `.claude/`
+# for three named subdirectories, `packages/` for five named packages, `scripts/` for six named
+# files — so a one-line `.claude/rules/*.md` edit selected a 547s gate whose input set that file is
+# not in. Deriving means the trigger follows the payload for free, in both directions.
+#
+# The helper falls back to ALWAYS when its source stops parsing. That direction is deliberate:
+# a shrunken trigger is the one failure this file must not have — a gate nobody selects is a gate
+# nobody has (.claude/rules/attention-is-not-a-mechanism.md §2).
+#
+# WHY THE `vitest-*` ROWS ARE NOT DERIVED THE SAME WAY (measured 2026-09-14, negative result).
+# Each `test:<suite>` script in packages/core/package.json names the directory its test FILES live
+# in, so the suite's own directory is derivable — but what a suite READS is not the same set, and
+# only the read-set is a safe trigger. Two facts kill the narrowing:
+#   (a) the dependency closure has to be transitive — `ir`'s tests reach `research/`, which reaches
+#       `validator/` — and a change three hops out still reds the suite;
+#   (b) every closure measured terminates in a directory that resolves a repo-root path
+#       (`REPO_ROOT`, `process.cwd()`), i.e. reads something outside packages/core/ that no grep
+#       can bound. `ir` and `composition` were the only two suites confined at depth 1; both escape
+#       at depth 2 (via `research`/`validator`). `hooks` — 644s, the single most expensive gate —
+#       is the worst case: 68 of its 76 test files compute REPO_ROOT and five run the real hook
+#       with `cwd: REPO_ROOT`, so it genuinely reads the live tree.
+# So every `vitest-*` row keeps the broad `packages/core/` trigger. That is over-selection by
+# choice, per this file's own header: a sweep that MISSES a gate CI runs is strictly worse than a
+# slow one. `run-local-ci-sweep-coverage.test.sh` enforces this as a rule rather than leaving it
+# as a comment — a `vitest-*` row narrowed below `packages/core/` REDs unless its suite's closure
+# is proven confined.
+
+# Fallback when the payload stops parsing. `ALWAYS`, not the pre-derivation literal: restating
+# that literal here would be the same second copy this row just stopped being, and it would go
+# stale the moment the payload grew a root the literal does not name — under-selection, the one
+# direction this file must not fail in. ALWAYS runs the gate on every diff instead: loud, slow,
+# and safe, while arm 8b of run-local-ci-sweep-coverage.test.sh REDs at the same moment and says
+# the derivation broke.
+GETFF_PAYLOAD_FALLBACK="ALWAYS"
+
+# getff_payload_trigger — the exact input set of `bash scripts/build-getff-dist.sh --check`.
+# That script's PAYLOAD= line IS the set of paths whose bytes the committed manifest hashes, so a
+# path outside it cannot move the manifest and cannot red this gate. Directory entries become
+# prefix triggers and file entries stay literals; which is which is read off the working tree
+# rather than restated here.
+# shellcheck disable=SC2329  # invoked from the gate-table rows at table-construction time
+getff_payload_trigger() {
+  local src="scripts/build-getff-dist.sh" line entry out="" n=0
+  [ -f "$src" ] || { printf '%s' "$GETFF_PAYLOAD_FALLBACK"; return; }
+  line="$(grep -E '^PAYLOAD="' "$src" | head -1)"
+  line="${line#PAYLOAD=\"}"; line="${line%\"}"
+  for entry in $line; do
+    # Anything not a plain literal path (a variable, a substitution) is unresolvable here; the
+    # entry-count floor below turns a payload built that way into the broad fallback.
+    case "$entry" in '' | *'$'* | *'`'* | *'*'*) continue ;; esac
+    if [ -d "$entry" ]; then out="$out,$entry/"; n=$((n + 1))
+    elif [ -e "$entry" ]; then out="$out,$entry"; n=$((n + 1))
+    fi
+  done
+  [ "$n" -ge 10 ] || { printf '%s' "$GETFF_PAYLOAD_FALLBACK"; return; }
+  printf '%s' "${out#,}"
+}
+
 # --- gate table: rank<TAB>name<TAB>trigger<TAB>command (cheapest rank first) ---
 # trigger: ALWAYS | SHIPPED | a path prefix (ends with /) | a suffix (starts with .) | a literal.
 gate_table() {
@@ -177,9 +239,29 @@ gate_table() {
   # the blame arm to the push via `--affected-by`, but this row predicts the CI job, and the CI
   # job is the unscoped backstop. ~6.4s over the 103-file corpus, measured 2026-09-14.
   #
+  # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
+  # one quarantined test — see that file's header). THIS file is delivered into consumer projects
+  # (setup.d/10-skills.sh:172, install.sh:1156) and the runner is NOT, which is deliberate: a
+  # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
+  # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
+  # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
+  # Shipping the runner would add an artefact to the install manifest for a battery consumers do
+  # not have.
+  #
   # `sweep-ci-coverage` is listed explicitly even though `script-selftests` would derive it: that
   # row's trigger is `scripts/` only, and a workflow-only diff — precisely the diff this metatest
   # exists to catch — would never select it. The duplicate run on a scripts/ diff is pure grep.
+  # Its trigger also names `scripts/build-getff-dist.sh`, because that file is now the SOURCE of
+  # the `getff-dist-manifest` trigger: a payload edit must re-check the derivation at the earliest
+  # channel that can see it, not wait for CI.
+  #
+  # `claude-dir-ci-only` runs nothing. It exists so that narrowing `getff-dist-manifest` from
+  # `.claude/` to the three shipped `.claude/` subdirectories does not leave `.claude/settings.json`
+  # and `.claude/orchestrator-prompts/**` matching NO trigger — which the fail-safe below would
+  # (correctly, but uselessly) turn into a full-sweep escalation on a log-file edit. Measured
+  # 2026-09-14: without this row 17 tracked paths became newly unmapped; with it the unmapped set
+  # is byte-identical to the pre-change one, at 64 paths. The row says out loud what actually
+  # gates that payload, which is the honest answer the old `.claude/` mapping was hiding.
   #
   # Every other row reuses an already-committed script / npm-script VERBATIM. CI jobs whose
   # gate logic lives inline in the workflow YAML (rule-to-probe, enforce-husky-presence, the
@@ -191,8 +273,9 @@ gate_table() {
   # assume; see the coverage table in the header docs above.
   printf '%s\n' \
     "1${TAB}meta-all-wired${TAB}tests/install-sh/,.github/workflows/${TAB}bash tests/install-sh/meta-all-wired.test.sh" \
-    "1${TAB}sweep-ci-coverage${TAB}.github/workflows/,scripts/run-local-ci-sweep.sh${TAB}bash scripts/run-local-ci-sweep-coverage.test.sh" \
+    "1${TAB}sweep-ci-coverage${TAB}.github/workflows/,scripts/run-local-ci-sweep.sh,scripts/build-getff-dist.sh${TAB}bash scripts/run-local-ci-sweep-coverage.test.sh" \
     "1${TAB}md-ci-only${TAB}.md${TAB}echo '[sweep] WARN: markdown line/dead-link gates run in CI only (local scan hits gitignored files) — verify on CI'" \
+    "1${TAB}claude-dir-ci-only${TAB}.claude/${TAB}echo '[sweep] WARN: .claude/ is gated per-subtree, not as a whole. hooks/ skills/ templates/ ship, so getff-dist-manifest covers them; rules/ has render-check + rule-index-check. settings.json and orchestrator-prompts/ have no row of their own — their readers (the hooks harness-config drift test; vitest-spec-validation) are selected by their own triggers, and the whole-tree json/bash scanners are CI-only — verify on CI'" \
     "1${TAB}actionlint${TAB}.github/workflows/${TAB}{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'" \
     "1${TAB}alwayson-budget${TAB}CLAUDE.md,.claude/rules/,scripts/measure-always-on.sh,scripts/check-alwayson-budget.sh${TAB}bash scripts/measure-always-on.test.sh && bash scripts/check-alwayson-budget.test.sh && bash scripts/check-alwayson-budget.sh" \
     "2${TAB}format-check${TAB}SHIPPED${TAB}npm run format:check" \
@@ -204,11 +287,11 @@ gate_table() {
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
-    "3${TAB}getff-dist-manifest${TAB}install.sh,setup,setup.d/,agents/,skills/,templates/,.claude/,.prettierrc.json,packages/,scripts/${TAB}bash scripts/build-getff-dist.sh --check" \
+    "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \
     "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
-    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do /bin/bash \"\$t\" || exit 1; done" \
+    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}bash scripts/run-install-sh-suite.sh tests/install-sh/" \
     "5${TAB}agnosticism${TAB}packages/core/${TAB}bash tests/agnosticism/harness-self.test.sh" \
     "5${TAB}premerge-carrier-selftest${TAB}packages/core/audit-self/${TAB}bash packages/core/audit-self/pre-merge-local.test.sh" \
     "5${TAB}mutation-runner-selftest${TAB}packages/core/synthesizer/${TAB}bash packages/core/synthesizer/run-generated-rule-mutation.test.sh && bash packages/core/synthesizer/run-rule-tests-firing.test.sh" \
@@ -406,6 +489,20 @@ ensure_log_dir() {
   LOG_DIR_READY=1
   return 0
 }
+
+# ── fd 3: the live progress channel ────────────────────────────────────────────────────────────
+# Gate output is CAPTURED (see the eval line below), so a long-running gate is silent for its whole
+# duration: while `install-sh-suite` ran its 114-file battery the sweep printed nothing for ~30
+# minutes and a working run was indistinguishable from a hung one — proving liveness meant walking
+# the process tree with `pgrep -P` by hand, three times in one session on 2026-09-14. A mechanism
+# whose state is recovered by human attention is the shape
+# .claude/rules/attention-is-not-a-mechanism.md §1 forbids.
+#
+# fd 3 is the escape hatch: it is NOT touched by the `2>&1` capture, so anything a gate writes
+# there reaches the operator live. Gates that emit progress must write to fd 3 and must tolerate
+# it being closed (they run standalone in CI too) — see scripts/run-install-sh-suite.sh
+# `progress()`. Nothing is FORCED onto fd 3: a gate that ignores it behaves exactly as before.
+exec 3>&2
 
 ran=0
 diff_selected=0

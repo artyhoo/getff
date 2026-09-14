@@ -9,8 +9,9 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type { CheckResult } from '../utils/run-check.ts';
 import {
   resolveMode,
@@ -49,6 +50,41 @@ function pairedRun(
       return route[phase];
     }
     return route as CheckResult;
+  };
+}
+
+/**
+ * Turn a temp dir into a git repo. The resolvers under test enumerate their
+ * population with `git ls-files`, not a filesystem walk, so a fixture tree that
+ * is not a git repo has an EMPTY population by design — these helpers are what
+ * make the fixtures speak the predicate the production code uses.
+ */
+function initRepo(root: string): void {
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'ignore' });
+}
+
+/** Write `content` at repo-relative `rel`, creating parents. Does NOT track it. */
+function writeAt(root: string, rel: string, content: string): string {
+  const full = join(root, rel);
+  mkdirSync(dirname(full), { recursive: true });
+  writeFileSync(full, content);
+  return full;
+}
+
+/** Stage repo-relative paths so `git ls-files` reports them (no commit needed). */
+function track(root: string, ...rels: string[]): void {
+  execFileSync('git', ['add', '--', ...rels], { cwd: root, stdio: 'ignore' });
+}
+
+/** A runCheck mock that records the argv of every invocation, for resolution assertions. */
+function recordingRun(
+  routes: Record<string, CheckResult | PhaseRoute>,
+  seen: string[][],
+): (cmd: string, args?: readonly string[], opts?: { cwd?: string }) => CheckResult {
+  const inner = pairedRun(routes);
+  return (cmd, args, opts) => {
+    seen.push([cmd, ...(args ?? [])]);
+    return inner(cmd, args, opts);
   };
 }
 
@@ -174,6 +210,7 @@ describe('resolve-and-run mode (clean-pass + violating-fail pair)', () => {
   let repoRoot: string;
   beforeEach(() => {
     repoRoot = mkdtempSync(join(tmpdir(), 'csl-repo-'));
+    initRepo(repoRoot);
   });
   afterEach(() => rmSync(repoRoot, { recursive: true, force: true }));
 
@@ -181,9 +218,16 @@ describe('resolve-and-run mode (clean-pass + violating-fail pair)', () => {
     check: { type: 'script', script: 'scripts/audit-r4.ts' },
     fixture: { 'setup-script': "printf 'export const x=1' > x.ts" },
   };
+  const LIVE = 'packages/zzz-preset/probes/audit-r4.ts';
+  /**
+   * A build-output path that sorts BEFORE the live one, so the pre-fix walker
+   * (first match in `readdirSync` order) would have returned it. `packages/getff/`
+   * is the real instance: the assembled distribution payload, gitignored.
+   */
+  const SHADOW = 'packages/getff/scripts/audit-r4.ts';
   function plantScript() {
-    mkdirSync(join(repoRoot, 'packages', 'core', 'probes'), { recursive: true });
-    writeFileSync(join(repoRoot, 'packages', 'core', 'probes', 'audit-r4.ts'), '// probe');
+    writeAt(repoRoot, LIVE, '// probe');
+    track(repoRoot, LIVE);
   }
 
   it('✅ resolves the dangling script, passes clean on the pre-fixture state and trips on the violating fixture', () => {
@@ -222,7 +266,7 @@ describe('resolve-and-run mode (clean-pass + violating-fail pair)', () => {
     mkdirSync(join(repoRoot, 'packages'), { recursive: true });
     const r = runRuleLiveness('R4', rule, { repoRoot, runCheckFn: pairedRun({}) });
     expect(r.status).toBe('skipped');
-    expect(r.reason).toMatch(/not found under packages/);
+    expect(r.reason).toMatch(/not found among tracked files under packages\//);
   });
   it('SKIPs (auto-skip-if-missing) a consumer rule whose required package is absent (R17)', () => {
     const r17: CmdScriptRule = {
@@ -234,6 +278,66 @@ describe('resolve-and-run mode (clean-pass + violating-fail pair)', () => {
     const r = runRuleLiveness('R17', r17, { repoRoot, runCheckFn: pairedRun({}) });
     expect(r.status).toBe('skipped');
     expect(r.reason).toMatch(/auto-skip-if-missing/);
+  });
+
+  function resolvedArgv(seen: string[][]): string[] {
+    return seen.find((argv) => argv[0] === 'node') ?? [];
+  }
+
+  /**
+   * Paired trackedness contract for the resolve-and-run resolver. `resolve-and-run`
+   * EXECUTES what it resolves, so resolving to build output is not a cosmetic
+   * mis-citation: a rule whose real backing script was deleted reports GREEN off the
+   * stale copy. Reproduced 2026-09-14 after `bash scripts/build-getff-dist.sh` —
+   * `run-local-ci-sweep.sh` resolved to `packages/getff/scripts/run-local-ci-sweep.sh`
+   * and `eslint.config.react.mjs` to `packages/getff/packages/preset-next-15-canonical/
+   * templates/eslint.config.react.mjs`, both gitignored payload.
+   *
+   * The negative proves the untracked shadow no longer wins; the two positives prove
+   * the predicate is TRACKEDNESS and not a `packages/getff/` path exclusion — the same
+   * shadow path resolves fine once staged, and once BOTH are staged the resolver reports
+   * genuine ambiguity instead of picking by directory order.
+   */
+  it('❌ an UNTRACKED build-output shadow does not win over the tracked script', () => {
+    plantScript();
+    writeAt(repoRoot, SHADOW, '// stale payload copy');
+    const seen: string[][] = [];
+    const r = runRuleLiveness('R4', rule, {
+      repoRoot,
+      runCheckFn: recordingRun({ node: { clean: ok, violating: nonzero } }, seen),
+    });
+    expect(r.status).toBe('pass');
+    expect(resolvedArgv(seen)).toContain(join(repoRoot, LIVE));
+    expect(resolvedArgv(seen)).not.toContain(join(repoRoot, SHADOW));
+  });
+
+  it('✅ the SAME shadow path resolves once tracked (predicate is trackedness, not the path)', () => {
+    writeAt(repoRoot, SHADOW, '// now a real, tracked script');
+    track(repoRoot, SHADOW);
+    const seen: string[][] = [];
+    const r = runRuleLiveness('R4', rule, {
+      repoRoot,
+      runCheckFn: recordingRun({ node: { clean: ok, violating: nonzero } }, seen),
+    });
+    expect(r.status).toBe('pass');
+    expect(resolvedArgv(seen)).toContain(join(repoRoot, SHADOW));
+  });
+
+  it('❌ FAILs instead of picking by directory order when two TRACKED files share the basename', () => {
+    plantScript();
+    writeAt(repoRoot, SHADOW, '// a second tracked file with the same basename');
+    track(repoRoot, SHADOW);
+    const seen: string[][] = [];
+    const r = runRuleLiveness('R4', rule, {
+      repoRoot,
+      runCheckFn: recordingRun({ node: { clean: ok, violating: nonzero } }, seen),
+    });
+    expect(r.status).toBe('fail');
+    expect(r.failures?.[0]).toMatch(/ambiguous/);
+    expect(r.failures?.[0]).toContain(SHADOW);
+    expect(r.failures?.[0]).toContain(LIVE);
+    // and it never ran either candidate rather than proving the wrong one live
+    expect(resolvedArgv(seen)).toEqual([]);
   });
 });
 
@@ -286,6 +390,7 @@ describe('config-presence mode', () => {
   let repoRoot: string;
   beforeEach(() => {
     repoRoot = mkdtempSync(join(tmpdir(), 'csl-repo-'));
+    initRepo(repoRoot);
   });
   afterEach(() => rmSync(repoRoot, { recursive: true, force: true }));
 
@@ -296,17 +401,41 @@ describe('config-presence mode', () => {
   };
 
   it('✅ passes when an architectural dependency-cruiser config exists', () => {
-    mkdirSync(join(repoRoot, 'templates'), { recursive: true });
-    writeFileSync(join(repoRoot, 'templates', 'dependency-cruiser.cjs'), 'module.exports = {};');
+    writeAt(repoRoot, 'templates/ts-server/dependency-cruiser.cjs', 'module.exports = {};');
+    track(repoRoot, 'templates/ts-server/dependency-cruiser.cjs');
     const r = runRuleLiveness('R3', r3, { repoRoot });
     expect(r.status).toBe('pass');
     expect(r.mode).toBe('config-presence');
+    expect(r.reason).toContain('templates/ts-server/dependency-cruiser.cjs');
   });
   it('❌ fails when no architectural config is present', () => {
     mkdirSync(repoRoot, { recursive: true });
     const r = runRuleLiveness('R3', r3, { repoRoot });
     expect(r.status).toBe('fail');
-    expect(r.failures?.[0]).toMatch(/no dependency-cruiser/);
+    expect(r.failures?.[0]).toMatch(/no tracked dependency-cruiser/);
+  });
+
+  /**
+   * Paired trackedness contract. The pre-fix walker was rooted at the repo root and
+   * skipped only `node_modules`/`.git`, so it counted the gitignored `packages/getff/`
+   * payload copy and every nested `.claude/worktrees/*` checkout: deleting the live
+   * config still read as present. The negative proves the untracked copy no longer
+   * answers; the positive proves the predicate is TRACKEDNESS, not a path pattern —
+   * the very same path passes once staged.
+   */
+  it('❌ an UNTRACKED build-output copy does not satisfy config presence', () => {
+    writeAt(repoRoot, 'packages/getff/templates/ts-server/dependency-cruiser.cjs', 'module.exports = {};');
+    const r = runRuleLiveness('R3', r3, { repoRoot });
+    expect(r.status).toBe('fail');
+    expect(r.failures?.[0]).toMatch(/no tracked dependency-cruiser/);
+  });
+  it('✅ the SAME path satisfies it once tracked (predicate is trackedness, not the path)', () => {
+    const rel = 'packages/getff/templates/ts-server/dependency-cruiser.cjs';
+    writeAt(repoRoot, rel, 'module.exports = {};');
+    track(repoRoot, rel);
+    const r = runRuleLiveness('R3', r3, { repoRoot });
+    expect(r.status).toBe('pass');
+    expect(r.reason).toContain(rel);
   });
 });
 
