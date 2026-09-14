@@ -16,7 +16,7 @@
 > the build-vs-reuse verdict — [`build-first-reuse-default.md`](../../rules/build-first-reuse-default.md).
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`15b3ac8bedbf8184a82e4b7ce73d71d6184e8f50`. Every file cited here was read at that one ref.
+`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
 
 ## §0 Why this stage exists and where it sits
 
@@ -62,10 +62,10 @@ second script.
 
 - **One registry entry:** `{ id: 'docs-card', owner: 'maintainer', run: … }` in the `SECTIONS`
   array of `packages/core/hooks/pre-push.ts`. Measured at the SHA above, that array opens at
-  `packages/core/hooks/pre-push.ts:1966` (`const SECTIONS: readonly PrePushSection[] = [`) and
-  closes at `:2080` (`];`), carrying **28** ids. This entry makes 29.
+  `packages/core/hooks/pre-push.ts:1996` (`const SECTIONS: readonly PrePushSection[] = [`) and
+  closes at `:2110` (`];`), carrying **28** ids. This entry makes 29.
 - **Backed by `packages/core/hooks/checks/docs-card.ts` + `docs-card.test.ts`** — the
-  `prior-art.ts` twin, whose registry entry sits at `pre-push.ts:2042`
+  `prior-art.ts` twin, whose registry entry sits at `pre-push.ts:2072`
   (`{ id: 'prior-art', owner: 'maintainer', run: (c) => priorArtSection(c.rb) },`).
 - **ONE CI step**, never a second script:
   `PREPUSH_ONLY=docs-card npx tsx packages/core/hooks/pre-push.ts` over the PR range. The
@@ -74,8 +74,8 @@ second script.
   `:1115`, and the seam's own rationale comment is at `:1056`.
 - **The naming rule is measured, not an analogy:** the sibling rule is «id = the trailer it
   checks, lower-kebab» — `prior-art` ↔ `Prior-art:`, so `docs-card` ↔ `Docs-card:`. Sibling ids
-  read in place at the SHA above: `line-citations` `pre-push.ts:1984`, `kickoff-portability`
-  `:2001`, `unpinned-tool-install` `:2060`, `ask-file-schema` `:2076`.
+  read in place at the SHA above: `line-citations` `pre-push.ts:2014`, `kickoff-portability`
+  `:2031`, `unpinned-tool-install` `:2090`, `ask-file-schema` `:2106`.
 - **Do not route this through `prior-art.ts`.** It cannot fire for `docs/site/**` by construction:
   `packages/core/hooks/checks/prior-art.ts:229` is
   `if (!path.startsWith('packages/core/')) continue;` and `:247` is
@@ -237,7 +237,7 @@ bash scripts/check-ask-files.sh
 region (b) of `terms.md` reads the generator. If that line exits 1, **S0a has not merged** and this
 stage must not start.
 
-## §10 D44 — names this stage invokes, measured at `15b3ac8bedb`
+## §10 D44 — names this stage invokes, measured at `6472bf6f2c7`
 
 `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`,
 `superpowers:writing-plans` (the Opus plan, P-R), `superpowers:executing-plans`,

@@ -17,7 +17,7 @@
 > [`2026-09-14-getff-ai-reference-generator-design.md`](../../../docs/superpowers/specs/2026-09-14-getff-ai-reference-generator-design.md).
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`15b3ac8bedbf8184a82e4b7ce73d71d6184e8f50`. Every file cited here was read at that one ref.
+`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
 Pinning every file of one answer to the **same** ref, and saying which, is not a formality — it
 is the counter to this umbrella's dominant defect (umbrella kickoff §7, `T-GA-A`).
 
@@ -264,7 +264,7 @@ precondition.
 and went RED on the host in this kickoff's own Phase -1 cold review — the exact `T-S0A-A` shape of
 reading a stage's output as its input.)*
 
-## §10 D44 — names this stage invokes, measured at `15b3ac8bedb`
+## §10 D44 — names this stage invokes, measured at `6472bf6f2c7`
 
 `orchestrator` (kickoff + Worker prompts), `dispatcher` (probe-inflight + dispatch), `pipeline`,
 `claude-glm-executor-handoff` (every GLM Worker prompt), `harvest` (egress to PR),

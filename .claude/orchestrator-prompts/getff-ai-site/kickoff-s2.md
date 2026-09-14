@@ -15,7 +15,7 @@
 > [`2026-09-14-getff-ai-rollout-and-cutover-design.md`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md) `:108`.
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`15b3ac8bedbf8184a82e4b7ce73d71d6184e8f50`. Every file cited here was read at that one ref.
+`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
 
 ## §0 What lands, and what must already be in place
 
@@ -213,7 +213,7 @@ all four routes at the landing repo's current head and STOPs on any mismatch
 ([`destination-environment-verification.md §1b`](../../rules/destination-environment-verification.md)
 — a claim about live state carries a probe and a date, or it carries nothing).
 
-## §10 D44 — names this stage invokes, measured at `15b3ac8bedb`
+## §10 D44 — names this stage invokes, measured at `6472bf6f2c7`
 
 `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`, and at the PR
 boundary `reviewer` + [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) and

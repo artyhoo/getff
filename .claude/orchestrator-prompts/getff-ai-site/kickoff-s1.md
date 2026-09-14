@@ -15,7 +15,7 @@
 > page content standards, owned by the quality contract.
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`15b3ac8bedbf8184a82e4b7ce73d71d6184e8f50`. Every file cited here was read at that one ref.
+`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
 
 ## §0 The split, and why RUN cannot start early
 
@@ -256,7 +256,7 @@ Four of these lines (`docs-author`, `docs-form-auditor`, `docs-check.mjs`, `term
 `render-*.mjs` lines are **red today and must be** — they assert that S0a and S0q have merged. That
 is D44's design: a contract is evaluated at **its own stage's dispatch**, never at authoring time.
 
-## §11 D44 — names this stage invokes, measured at `15b3ac8bedb`
+## §11 D44 — names this stage invokes, measured at `6472bf6f2c7`
 
 BUILD: `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`,
 `superpowers:writing-plans` (the conveyor plan, P-R), `superpowers:executing-plans`,

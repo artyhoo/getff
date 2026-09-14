@@ -14,7 +14,7 @@
 > [`kickoff-staging-placement.md`](../../rules/kickoff-staging-placement.md).
 
 **Measurement SHA for every `path:line` in this umbrella's five kickoff files:**
-`origin/staging` = `15b3ac8bedbf8184a82e4b7ce73d71d6184e8f50`. Every citation below was read at
+`origin/staging` = `6472bf6f2c7767621e04804894279030bee2cda4`. Every citation below was read at
 that ref with `git show <sha>:<path>`, not from a worktree. Staging moves under this umbrella
 constantly — before citing any of these lines again, re-fetch and re-read them.
 
@@ -79,7 +79,7 @@ its own file, not this one.
 11. The in-container phase must separately re-walk the prompt's OWN citations against real lines.
     `check-line-citations.mjs` has no freshness arm, so a citation wrong when written passes.
 
-## §3 D44 name census — measured at `15b3ac8bedb`, not inherited
+## §3 D44 name census — measured at `6472bf6f2c7`, not inherited
 
 [D44](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md) (`site-design.md:171`)
 requires every stage prompt to name what it invokes **by exact invocation name, verified to exist
@@ -87,7 +87,7 @@ at the SHA the kickoff cites** — «use the docs skill» is `#hope-as-gate`
 ([`attention-is-not-a-mechanism.md §2`](../../rules/attention-is-not-a-mechanism.md)). D44's own
 census was taken at `fc865b5448d`; this is the re-measurement required by non-negotiable 4.
 
-| Name | Kind | At `15b3ac8bedb` |
+| Name | Kind | At `6472bf6f2c7` |
 |---|---|---|
 | `orchestrator`, `dispatcher`, `pipeline`, `harvest`, `claude-glm-executor-handoff`, `arch`, `reviewer` | repo skill | **PRESENT** (`.claude/skills/<name>/SKILL.md`) |
 | `agents/claims-conformance-auditor.md`, `agents/fidelity-auditor.md` | repo agent | **PRESENT** |
