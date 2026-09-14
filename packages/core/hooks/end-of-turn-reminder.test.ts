@@ -2477,10 +2477,16 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
       if (c.res.mode === 'readonly') chmodSync(residueDir, 0o555);
     }
 
-    let projectDir = REPO_ROOT;
+    // The THIRD floor input — the project `.claude/settings.json` — is pinned here for exactly
+    // the reason the env/HOME comment below gives, and used to be the one input left inherited:
+    // projectDir defaulted to REPO_ROOT, and REPO_ROOT's own settings carried no
+    // `autoCompactWindow` only for as long as that key sat uncommitted in a maintainer's working
+    // copy. Committing it (2026-09-14) turned f10c's "nothing declared" branch into "project key
+    // declared" and moved fixture 16's floor from 300000 to 201000 — a red CI on a settings-only
+    // PR. Default to an EMPTY project box; a case that needs a project key writes one.
+    const projectDir = join(dir, 'proj');
+    mkdirSync(join(projectDir, '.claude'), { recursive: true });
     if (c.env.__settingsAutoCompact !== undefined) {
-      projectDir = join(dir, 'proj');
-      mkdirSync(join(projectDir, '.claude'), { recursive: true });
       writeFileSync(
         join(projectDir, '.claude', 'settings.json'),
         JSON.stringify({ autoCompactWindow: Number(c.env.__settingsAutoCompact) }, null, 2) + '\n',
