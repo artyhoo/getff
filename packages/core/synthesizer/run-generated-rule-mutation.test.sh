@@ -36,6 +36,18 @@
 
 set -uo pipefail
 
+# Git's repository-local environment OVERRIDES cwd for every git call below, and a git hook
+# exports it. The `env -u` on TEST_ROOT covered that ONE command; the fixture helpers below run
+# four unguarded `git init`s (make_remote, arm_a), which under a hook-exported GIT_DIR would
+# re-init the CALLER's repository instead — measured 2026-09-14: `core.bare` flipped to true in
+# the common config and the main checkout lost its work tree. File scope, so subshells inherit
+# it; the idiom is git's own (`githooks(5)`), and
+# `packages/core/principles/46-git-env-inheritance-safety.ts` is the gate.
+# Arm (a) is unaffected: its GIT_DIR comes from a REAL `git push` firing a hook inside the
+# fixture, never from this process's inherited environment (arm (c) is the GIT_DIR-unset control).
+# shellcheck disable=SC2046  # deliberate word-split: one name per variable to unset
+unset $(git rev-parse --local-env-vars 2>/dev/null) 2>/dev/null || true
+
 # Same env-unguard pattern this stage repairs would be self-referential to keep
 # unguarded here: a hook-exported GIT_DIR would misdirect TEST_ROOT identically.
 TEST_ROOT="$(env -u GIT_DIR -u GIT_WORK_TREE git -C "$(dirname "$0")" rev-parse --show-toplevel)"

@@ -46,13 +46,65 @@ export const SCRUBBED_EXACT: readonly string[] = [
   'SESSION_ID',
 ];
 
+/**
+ * Git's own repository-local environment variables — the set `git rev-parse --local-env-vars`
+ * prints, verbatim and in git's order (git 2.53.0, re-derived by principle 46 on every run so
+ * a new git release cannot leave this list short).
+ *
+ * WHY THESE ARE SCRUBBED, AND WHY IT IS NOT COSMETIC (incident 2026-09-14). A git hook runs
+ * with these exported, and they OVERRIDE `cwd` — and `-C`, and the path argument — for every
+ * git subprocess beneath it. Fired from a LINKED WORKTREE, `.husky/pre-push` exports
+ * `GIT_DIR=<common>/.git/worktrees/<name>` and no `GIT_WORK_TREE` (measured on a fixture: git
+ * exports exactly GIT_DIR, GIT_EDITOR, GIT_EXEC_PATH, GIT_PREFIX). Under that one variable,
+ * `git init -q "$tmp"` exits 0, creates NOTHING at `$tmp`, and rewrites the COMMON
+ * `.git/config` in place — flipping `core.bare` to `true`. The main checkout then answers
+ * `fatal: this operation must be run in a work tree` to every command (linked worktrees keep
+ * working, which is why the damage reads as "one broken clone" rather than as a test escaping
+ * its fixture). 11 files under `packages/core/hooks/**` call `git init` (20 sites, measured
+ * 2026-09-14), most with nothing but a `cwd:` option — and `cwd` is not isolation for a git
+ * subprocess.
+ *
+ * Scrubbing the whole family here closes the class for EVERY vitest file in this package at
+ * once — including a suite the pre-push hook does not run today but might tomorrow — which no
+ * number of per-call-site `env:` options can do. Upstream precedent, and the reason this is a
+ * derived list rather than a hand-written one: git's own `githooks(5)` prescribes
+ * `unset $(git rev-parse --local-env-vars)` before touching a foreign repository.
+ *
+ * NOT a `GIT_` prefix rule: `GIT_EXEC_PATH`, `GIT_EDITOR`, `GIT_CONFIG_GLOBAL` and friends are
+ * process-structural or deliberately-set by individual tests, and scrubbing them by prefix
+ * would break git itself. git draws the repository-local line; this list follows it.
+ */
+export const GIT_REPO_LOCAL_ENV: readonly string[] = [
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_CONFIG',
+  'GIT_CONFIG_PARAMETERS',
+  'GIT_CONFIG_COUNT',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_IMPLICIT_WORK_TREE',
+  'GIT_GRAFT_FILE',
+  'GIT_INDEX_FILE',
+  'GIT_NO_REPLACE_OBJECTS',
+  'GIT_REPLACE_REF_BASE',
+  'GIT_PREFIX',
+  'GIT_SHALLOW_FILE',
+  'GIT_COMMON_DIR',
+];
+
 /** True when `name` is host configuration a test must supply explicitly rather than inherit. */
 export function isScrubbed(name: string): boolean {
-  return SCRUBBED_EXACT.includes(name) || SCRUBBED_PREFIXES.some((p) => name.startsWith(p));
+  return (
+    SCRUBBED_EXACT.includes(name) ||
+    GIT_REPO_LOCAL_ENV.includes(name) ||
+    SCRUBBED_PREFIXES.some((p) => name.startsWith(p))
+  );
 }
 
 /** Delete every scrubbed name from `env` in place; returns the names actually removed. */
-export function scrubHostEnv(env: Record<string, string | undefined>): string[] {
+export function scrubHostEnv(
+  env: Record<string, string | undefined>,
+): string[] {
   const removed: string[] = [];
   for (const name of Object.keys(env)) {
     if (!isScrubbed(name)) continue;

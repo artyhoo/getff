@@ -25,7 +25,12 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isScrubbed, scrubHostEnv, SCRUBBED_EXACT, SCRUBBED_PREFIXES } from '../vitest.host-env.ts';
+import {
+  isScrubbed,
+  scrubHostEnv,
+  SCRUBBED_EXACT,
+  SCRUBBED_PREFIXES,
+} from '../vitest.host-env.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -43,7 +48,8 @@ const INHERIT_ON_PURPOSE: Record<string, string> = {
   // and this suite's own survivor list above keeps it. The one hook that reads it
   // (end-of-turn-reminder.sh, SDK-entrypoint guard) is tested with the value pinned per case
   // and a `cli` default in its runHook, so the host's value never reaches a decision.
-  CLAUDE_CODE_ENTRYPOINT: 'process-structural; end-of-turn-reminder tests pin it per case',
+  CLAUDE_CODE_ENTRYPOINT:
+    'process-structural; end-of-turn-reminder tests pin it per case',
   // Structural: bash and node need a home to run at all (the survivor list above keeps it).
   // The one hook that reads it as a knob (end-of-turn-reminder.sh, D14's third compaction-point
   // source `~/.claude/settings.json`, 2026-09-13) is tested with HOME pinned to an EMPTY box in
@@ -75,7 +81,8 @@ function envKnobs(file: string): Set<string> {
   const knobs = new Set<string>();
   for (const line of readFileSync(file, 'utf8').split('\n')) {
     if (line.trimStart().startsWith('#')) continue;
-    for (const m of line.matchAll(/\$\{([A-Z][A-Z0-9_]{2,})(?::[-=+?])/g)) knobs.add(m[1]!);
+    for (const m of line.matchAll(/\$\{([A-Z][A-Z0-9_]{2,})(?::[-=+?])/g))
+      knobs.add(m[1]!);
   }
   return knobs;
 }
@@ -90,24 +97,38 @@ describe('vitest host-env hermeticity', () => {
       ZCODE_PROJECT_DIR: '/z',
       ORCHESTRATION_MODE_MARKER: '/m',
       LOG_LEVEL: 'DEBUG',
-      // Paired negative — the process must still be able to run commands and find $HOME.
+      // The repository-local git family (incident 2026-09-14): exported into every hook, and
+      // it overrides `cwd`/`-C`/the path argument for every git subprocess beneath it.
+      GIT_DIR: '/repo/.git/worktrees/wt',
+      GIT_INDEX_FILE: '/repo/.git/worktrees/wt/index',
+      // Paired negative — the process must still be able to run commands, find $HOME, and
+      // RUN GIT AT ALL: the git variables that are not repository-local must survive.
       PATH: '/usr/bin',
       HOME: '/home/x',
       TMPDIR: '/tmp',
       CLAUDE_CODE_ENTRYPOINT: 'cli',
+      GIT_EXEC_PATH: '/usr/libexec/git-core',
+      GIT_CONFIG_GLOBAL: '/fixture/gitconfig',
     };
     const removed = scrubHostEnv(env);
     expect(removed).toEqual([
       'AIF_CTX_WINDOW',
       'AIF_HANDOFF_GATE',
       'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+      'GIT_DIR',
+      'GIT_INDEX_FILE',
       'LOG_LEVEL',
       'ORCHESTRATION_MODE_MARKER',
       'RUNTIME_BRIDGE_AIF_PROJECT_ID',
       'ZCODE_PROJECT_DIR',
     ]);
-    expect(Object.keys(env).sort(), 'the survivors are the process-structural ones').toEqual([
+    expect(
+      Object.keys(env).sort(),
+      'the survivors are the process-structural ones',
+    ).toEqual([
       'CLAUDE_CODE_ENTRYPOINT',
+      'GIT_CONFIG_GLOBAL',
+      'GIT_EXEC_PATH',
       'HOME',
       'PATH',
       'TMPDIR',
@@ -124,7 +145,9 @@ describe('vitest host-env hermeticity', () => {
     ];
     for (const [cfg, entry] of pairs) {
       const src = readFileSync(resolve(REPO_ROOT, cfg), 'utf8');
-      expect(src, `${cfg} must register ${entry} in setupFiles`).toContain(`setupFiles: ['${entry}']`);
+      expect(src, `${cfg} must register ${entry} in setupFiles`).toContain(
+        `setupFiles: ['${entry}']`,
+      );
     }
   });
 
@@ -133,12 +156,16 @@ describe('vitest host-env hermeticity', () => {
       ...shellFiles(resolve(REPO_ROOT, '.claude/hooks')),
       ...shellFiles(resolve(REPO_ROOT, 'plugin/hooks')),
     ];
-    expect(files.length, 'the scan found the hook trees at all').toBeGreaterThan(20);
+    expect(
+      files.length,
+      'the scan found the hook trees at all',
+    ).toBeGreaterThan(20);
     const unclassified = new Map<string, string>();
     for (const f of files) {
       for (const knob of envKnobs(f)) {
         if (isScrubbed(knob) || knob in INHERIT_ON_PURPOSE) continue;
-        if (!unclassified.has(knob)) unclassified.set(knob, f.slice(REPO_ROOT.length + 1));
+        if (!unclassified.has(knob))
+          unclassified.set(knob, f.slice(REPO_ROOT.length + 1));
       }
     }
     expect(
@@ -156,14 +183,19 @@ describe('vitest host-env hermeticity', () => {
     });
     expect(r.status, `probe stderr: ${r.stderr}`).toBe(0);
     const leaked = (JSON.parse(r.stdout) as string[]).filter(isScrubbed);
-    expect(leaked, 'setupFiles ran and the child environment is clean').toEqual([]);
+    expect(leaked, 'setupFiles ran and the child environment is clean').toEqual(
+      [],
+    );
   });
 
   it('the classification tables are non-empty and disjoint', () => {
     expect(SCRUBBED_PREFIXES.length).toBeGreaterThan(0);
     expect(SCRUBBED_EXACT.length).toBeGreaterThan(0);
     for (const name of Object.keys(INHERIT_ON_PURPOSE)) {
-      expect(isScrubbed(name), `${name} cannot be both scrubbed and inherited`).toBe(false);
+      expect(
+        isScrubbed(name),
+        `${name} cannot be both scrubbed and inherited`,
+      ).toBe(false);
     }
   });
 });
