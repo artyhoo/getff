@@ -534,6 +534,29 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.decision).toBe('block');
   });
 
+  // Task 1.1 (plain-words-recap-v2 slice 1): `_eot_turn_shape()` computes
+  // orch_mode/long_text/asked once, called from both the already-recapped
+  // guard site and the branch-selector site below it. This turn is BOTH
+  // already-recapped (carries the marker) and question-shaped — before the
+  // extraction the hook exits at the recap guard with the shape uncomputed;
+  // after it, the shape exists at both sites and the hook still exits
+  // silently (gate unarmed) with status 0. This is the regression guard for
+  // the extraction: a red here (or an "unbound variable" on stderr) means the
+  // refactor read an unset variable under `set -u`.
+  it('computes the same turn shape at the recap-guard site and at the branch selector', () => {
+    const tr = writeTranscript([
+      aiTitle('Turn shape'),
+      userTurn('go'),
+      assistantText('## 🟢 In plain words\nWhere we are. Done.\n\nShall I proceed?'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-both-sites' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr).not.toMatch(/unbound variable/);
+  });
+
   // ---------------------------------------------------------------------------
   //  idle-suppress — the MAJOR-1 re-ping guard (hook:135-156). Suppresses a
   //  short question turn ONLY when the PREVIOUS assistant turn already emitted a

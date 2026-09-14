@@ -603,6 +603,76 @@ fi
 
 text_length=${#text}
 
+# Turn shape — one answer, two call sites. The already-recapped guard below needs `asked`
+# and `long_text` to decide whether the gate's section set applies, but the guard's POSITION
+# is load-bearing (see the comment block below it) and must not move. So the computation
+# moves into a function called at BOTH sites instead of the guard moving down to it.
+# orch_mode lives in here too: it is an input to both `long_text` and `asked`, it was computed
+# below the guard, and reading it there under `set -u` would abort the hook every turn.
+#
+# -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
+# In orchestration mode (driving aif-handoff, relaying state every turn) two
+# triggers are re-tuned (Bug A regex dropped, recap threshold lowered); normal
+# mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
+# forgotten marker silently muting a normal session. Spec: docs/superpowers/
+# specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
+_eot_turn_shape() {
+  orch_mode=false
+  local marker ttl marker_now marker_mtime
+  marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestration-mode}"
+  ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
+  if [ -f "$marker" ]; then
+    marker_now=$(date +%s)
+    # GNU-first, BSD-fallback: try `stat -c %Y` (GNU/Linux) before `stat -f %m` (BSD/macOS).
+    # The reverse order silently breaks on Linux — GNU `stat -f` is --file-system, so
+    # `stat -f %m` EXITS 0 with a garbage value (not mtime), the `||` fallback never fires,
+    # and the marker reads as expired → orchestration mode never activates on Linux/CI.
+    # BSD `stat -c` fails cleanly (illegal option), so GNU-first degrades correctly on macOS.
+    marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
+    if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
+      orch_mode=true
+    fi
+  fi
+
+  # Trigger ONLY on (a) a substantial structured answer (a long body) or
+  # (b) a question. Tool calls alone do NOT trigger — a short "done, fixed X"
+  # turn with no question needs no recap.
+  #
+  # NOTE: the v1 factual-claim scan (numeric / file:line / negative-existence) was
+  # REMOVED 2026-06-01 (maintainer decision). Measured recall ≈0.43 + precision
+  # ≈0.20-0.25 (cry-wolf) made it a net-negative sentry — the same class as the
+  # recommendation-laziness narrow-B stop-scan dropped at FP 84% (#210). Rationale +
+  # evidence: docs/meta-factory/research-patches/2026-06-01-remove-claim-detector.md.
+  # The recap (Branch A/C) + question-check (Branch B) survive; the always-on H1
+  # reminder in inject-session-bootstrap.sh remains the cheap salience layer.
+  # Recap threshold is lowered in orchestration mode (status turns are short+dense)
+  # but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
+  long_text=false
+  local recap_threshold=500
+  if [ "$orch_mode" = "true" ]; then
+    recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
+  fi
+  if [ "$text_length" -gt "$recap_threshold" ]; then
+    if grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$text"; then
+      long_text=true
+    fi
+  fi
+
+  # Did the turn end in a question?
+  asked=false
+  if [ "$has_askuserquestion" = "true" ]; then
+    asked=true
+  elif [ -n "$text" ]; then
+    local tail_chunk
+    tail_chunk=$(echo "$text" | tail -c 500)
+    if grep -qE -- '\?[[:space:]]*$' <<<"$tail_chunk"; then
+      asked=true
+    elif [ "$orch_mode" = "false" ] && grep -qiE -- "$AIF_EOT_QUESTION_PATTERN" <<<"$tail_chunk"; then
+      asked=true
+    fi
+  fi
+}
+
 # ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
 # POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
 # class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
@@ -735,65 +805,7 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
 fi
 unset _ze_reason _ze_glance _md_dense _zcb_key _zcb_flag _zcb_tmp _zcb_sha 2>/dev/null || true
 
-# -- orchestration-mode marker (deterministic; normal mode = marker absent) ----
-# In orchestration mode (driving aif-handoff, relaying state every turn) two
-# triggers are re-tuned (Bug A regex dropped, recap threshold lowered); normal
-# mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
-# forgotten marker silently muting a normal session. Spec: docs/superpowers/
-# specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
-orch_mode=false
-marker="${ORCHESTRATION_MODE_MARKER:-${CLAUDE_PROJECT_DIR:-.}/.claude/orchestration-mode}"
-ttl="${ORCHESTRATION_MODE_TTL_SECONDS:-21600}"
-if [ -f "$marker" ]; then
-  marker_now=$(date +%s)
-  # GNU-first, BSD-fallback: try `stat -c %Y` (GNU/Linux) before `stat -f %m` (BSD/macOS).
-  # The reverse order silently breaks on Linux — GNU `stat -f` is --file-system, so
-  # `stat -f %m` EXITS 0 with a garbage value (not mtime), the `||` fallback never fires,
-  # and the marker reads as expired → orchestration mode never activates on Linux/CI.
-  # BSD `stat -c` fails cleanly (illegal option), so GNU-first degrades correctly on macOS.
-  marker_mtime=$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null || echo 0)
-  if [ "$(( marker_now - marker_mtime ))" -lt "$ttl" ]; then
-    orch_mode=true
-  fi
-fi
-
-# Trigger ONLY on (a) a substantial structured answer (a long body) or
-# (b) a question. Tool calls alone do NOT trigger — a short "done, fixed X"
-# turn with no question needs no recap.
-#
-# NOTE: the v1 factual-claim scan (numeric / file:line / negative-existence) was
-# REMOVED 2026-06-01 (maintainer decision). Measured recall ≈0.43 + precision
-# ≈0.20-0.25 (cry-wolf) made it a net-negative sentry — the same class as the
-# recommendation-laziness narrow-B stop-scan dropped at FP 84% (#210). Rationale +
-# evidence: docs/meta-factory/research-patches/2026-06-01-remove-claim-detector.md.
-# The recap (Branch A/C) + question-check (Branch B) survive; the always-on H1
-# reminder in inject-session-bootstrap.sh remains the cheap salience layer.
-# Recap threshold is lowered in orchestration mode (status turns are short+dense)
-# but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
-long_text=false
-recap_threshold=500
-if [ "$orch_mode" = "true" ]; then
-  recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
-fi
-if [ "$text_length" -gt "$recap_threshold" ]; then
-  if grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$text"; then
-    long_text=true
-  fi
-fi
-
-# Did the turn end in a question?
-asked=false
-if [ "$has_askuserquestion" = "true" ]; then
-  asked=true
-elif [ -n "$text" ]; then
-  tail_chunk=$(echo "$text" | tail -c 500)
-  if grep -qE -- '\?[[:space:]]*$' <<<"$tail_chunk"; then
-    asked=true
-  elif [ "$orch_mode" = "false" ] && grep -qiE -- "$AIF_EOT_QUESTION_PATTERN" <<<"$tail_chunk"; then
-    asked=true
-  fi
-fi
-
+_eot_turn_shape
 
 # -- MAJOR-1 idle-suppression guard -------------------------------------------
 # Suppress Branch B (asked=true, long_text=false) ONLY when BOTH hold:
