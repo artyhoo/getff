@@ -161,6 +161,16 @@ Interactive `./setup` deploys files and **asks** before touching your dependenci
 
 > The previous end-to-end wrapper `setup.sh` (`ai-factory init` + `npm install` + husky init + npm scripts via `jq`) has been **retired** (2026-07-10) — `./setup` supersedes it. It also ran an unpinned `npm install -g ai-factory`; companions now install detect-first via the manifest below. If older instructions point you at `bash setup.sh`, use `./setup` instead.
 
+### On Windows
+
+Same command, one prerequisite: **[Git for Windows](https://git-scm.com/download/win)** — it
+supplies the `bash`, `git` and `curl` the preflight above probes for. WSL is neither required
+nor used: the `getff` entry point is a Node program that finds Git Bash itself and deliberately
+ignores the `bash` on `PATH`, because on a WSL machine that is
+`C:\WINDOWS\system32\bash.exe`, which cannot open `C:\`-style paths. Set `GETFF_BASH` to
+override the search. Full prerequisites, the search order and what has and has not been
+measured: [INSTALL.md § Windows](INSTALL.md#windows).
+
 ### As a Claude Code plugin (per-harness)
 
 The **soft layer** (skills, sub-agents, session hooks) also ships as a Claude Code plugin from an in-repo marketplace:

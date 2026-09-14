@@ -1,6 +1,6 @@
 # Installation guide — getff
 
-> **Authoritative for:** human-driven installation paths (A/B/C), per-path step-by-step instructions, version verification procedure, post-install validation steps.
+> **Authoritative for:** human-driven installation paths (A/B/C), per-path step-by-step instructions, Windows prerequisites and the WSL/Git-Bash boundary, version verification procedure, post-install validation steps.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). AI-driven installation — see [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md). Quick start (recommended path) — see [README.md#installation](README.md#installation).
 > - Tool bootstrapping (MCP/skill seeding at install time): see [INSTALL-FOR-AI.md — Tool bootstrapping](INSTALL-FOR-AI.md#tool-bootstrapping--mcp-and-skill-recommendations-at-install-time).
 
@@ -16,6 +16,81 @@ cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
+
+---
+
+## Windows
+
+getff installs and runs on Windows. Two things about it are not obvious, so they are stated
+here rather than left to be discovered by a failing install.
+
+### Prerequisites
+
+| Tool | Required? | Why |
+| --- | --- | --- |
+| **[Git for Windows](https://git-scm.com/download/win)** | **yes** | it supplies the `bash`, `git` and `curl` that `./setup` probes in its preflight (`setup:79`). Nothing else on a stock Windows box does. |
+| **Node.js** | yes for the npm/TS lanes | `packages/getff/package.json` declares `engines.node >= 22`. |
+| **Python 3** | recommended | preflight probes it and prints `⚠ python3 missing` rather than failing; the JSON/YAML validity probes in the delivered pre-commit hook are what use it. |
+
+**WSL is neither required nor used.** If you have it, nothing changes — see the next section for why that is worth saying.
+
+### Installing
+
+From PowerShell, `cmd`, or Windows Terminal — the same command as everywhere else:
+
+```powershell
+npx getff@latest init -y ts-server
+```
+
+The `getff` entry point is a Node program (`packages/getff/bin/getff`). It locates a bash that
+can open `C:\`-style paths and hands `./setup` to it. **It deliberately does not use the `bash`
+on your `PATH`:** on a machine with WSL installed, `bash` resolves to
+`C:\WINDOWS\system32\bash.exe` — the WSL launcher, which cannot open a Windows path and exits
+127. Git for Windows puts only its `cmd\` directory on `PATH` (that holds `git.exe`, never
+`bash.exe`), so `PATH` can never be the right answer here. The search order is:
+
+1. `%GETFF_BASH%`, if you set it;
+2. `%ProgramFiles%\Git\bin\bash.exe`, then the `(x86)` sibling;
+3. the `..\bin\bash.exe` sibling of whatever `where git` reports — this is what covers a
+   non-default Git install directory;
+4. `bash` on `PATH`, last.
+
+If none of them exists, getff says so and names the fix rather than failing obscurely:
+
+```text
+getff: no bash found. Install Git for Windows (https://git-scm.com/download/win),
+       or point GETFF_BASH at a bash.exe that can open Windows paths.
+```
+
+`GETFF_BASH` is the escape hatch for a bash that is neither of the above (an MSYS2 or Cygwin
+install, say). Point it at the executable, not at a directory.
+
+### Line endings, if you install from a clone
+
+The npm path (`npx getff …`) unpacks a tarball and is unaffected. The clone paths — `git clone`
+and `curl -fsSL getff.ai/install | sh` — are not: Git for Windows defaults to
+`core.autocrlf=true`, which would check the shipped `*.sh` files out with CRLF. Git Bash
+tolerates the trailing `\r` in a shebang; WSL and real Linux do not, and report
+`/usr/bin/env: 'bash\r': No such file or directory`.
+
+The repository ships `.gitattributes` (`* text=auto eol=lf`), so a **fresh** clone is LF
+regardless of your `core.autocrlf`. A clone made before that file existed keeps its CRLF working
+tree — the cheapest fix is to re-clone. In place, and only with nothing uncommitted to lose:
+
+```bash
+git rm --cached -r . && git reset --hard
+```
+
+### What has been measured, and what has not
+
+- `./setup --dry-run ts-server` under Git Bash on Windows 11 / Node 24.19.0: **exit 0**, 202
+  lines of plan, preflight `✓ bash ✓ git ✓ python3 ✓ curl`.
+- `getff --version` and `getff init …` from a PowerShell session whose `PATH` was rebuilt from
+  the Machine+User registry values, with `bash` resolving to the WSL launcher: both exit 0.
+  Before the Node entry point they exited 127.
+- **Not yet measured:** a full, non-dry `./setup -y <stack>` run to completion on Windows, and
+  any run on a machine with no WSL at all (there `bash` does not resolve, so the symptom differs
+  while the breakage is the same). If you hit either, please open an issue.
 
 ---
 
