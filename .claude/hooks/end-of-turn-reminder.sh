@@ -672,6 +672,40 @@ _eot_turn_shape() {
   fi
 }
 
+# The recap slice: the marker heading through the block's last non-empty line. It is the
+# gate's unit of work — the section checker reads it, and Task 1.6b hashes it — so it is
+# extracted once here rather than re-derived at each site. Trailing blank lines are dropped
+# so a stray newline cannot change the sha of an otherwise identical block.
+_eot_recap_block() {
+  awk 'NF { last = NR } { l[NR] = $0 } END { for (i = 1; i <= last; i++) print l[i] }' \
+    <<<"$AIF_RECAP_MARKER${text#*"$AIF_RECAP_MARKER"}"
+}
+
+# Section checker for an EXISTING recap block (Task 1.5, D-A). Never a block demander: the
+# caller only reaches this when the turn already carries $AIF_RECAP_MARKER. Reads $text (via
+# _eot_recap_block), $asked and $long_text from _eot_turn_shape. Echoes a `; `-joined list of
+# missing/malformed sections, or nothing when the block is well-formed.
+_eot_recap_defects() {
+  local d="" block last
+  block="$(_eot_recap_block)"
+  if ! grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$block"; then d="$d; $AIF_EOT_SEC_WHERE"; fi
+  if ! grep -qF -- "$AIF_EOT_SEC_NEXT"  <<<"$block"; then d="$d; $AIF_EOT_SEC_NEXT"; fi
+  if [ "$asked" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$block"; then
+    d="$d; $AIF_EOT_SEC_FORK"
+  fi
+  if [ "$long_text" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_CHANGED" <<<"$block"; then
+    d="$d; $AIF_EOT_SEC_CHANGED"
+  fi
+  # D-B scope: the gate reads the LAST non-empty line of the block, nothing above it.
+  last="$(grep -v '^[[:space:]]*$' <<<"$block" | tail -n 1)"
+  if ! grep -qF -- "$AIF_EOT_FOR_YOU_PREFIX" <<<"$last"; then
+    d="$d; $AIF_EOT_FOR_YOU_PREFIX"
+  elif grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"$last"; then
+    d="$d; $AIF_EOT_FOR_YOU_BANNED"
+  fi
+  printf '%s' "${d#; }"
+}
+
 # ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
 # POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
 # class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
@@ -698,6 +732,25 @@ if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
   # so a bare `exit 0` here made the F10 arm silent in precisely its motivating scenario —
   # and worse as the session got longer, because the Branch A/B/C payloads train the model to
   # emit this marker. Suppress the recap re-injection, keep the continuation directive.
+  #
+  # Task 1.5 (D-A) — dormant section-checker gate: the recap block ALREADY EXISTS (that is
+  # exactly this guard's condition), so check it for missing sections instead of just
+  # suppressing. Needs `asked`/`long_text` from _eot_turn_shape(), which is otherwise called
+  # only at :807 — AFTER this guard — so a marker-carrying turn would never reach it. Calling
+  # it here is not a double call: this guard exits the turn, so a turn that reaches :807 never
+  # passed through here. Dormant by default (AIF_RECAP_GATE unset). `-z "$gate_line"` / `-z
+  # "$ctx_line"` is D21 precedence — "one reason per stop": _autonomy_exit has ONE extra slot
+  # and the handoff gate + the context line already compete for it. Both env reads use
+  # defaults — a bare $gate_line/$AIF_RECAP_GATE would abort the hook under `set -u` on every
+  # turn where the handoff gate did not run.
+  _eot_turn_shape
+  if [ "${AIF_RECAP_GATE:-0}" = "1" ] && [ -z "${gate_line:-}" ] && [ -z "${ctx_line:-}" ] \
+     && ! grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
+    _recap_defects="$(_eot_recap_defects)"
+    if [ -n "$_recap_defects" ]; then
+      gate_line="$(aif_msg_eot_recap_gate "$_recap_defects")"
+    fi
+  fi
   _autonomy_exit
 fi
 

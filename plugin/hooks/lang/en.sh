@@ -79,6 +79,13 @@ What follows is not a block section and not in its cap — it is instructions to
 EOF
 }
 
+# Stop hook — dormant section-checker gate (Task 1.5, D-A). Fires only when a recap block
+# already exists AND is missing one of its required sections — never demands a block from a
+# turn that has none. $1 = the `; `-joined defect list from _eot_recap_defects().
+aif_msg_eot_recap_gate() {
+  printf '%s\n' "The $AIF_RECAP_MARKER block is there but missing: $1. Add what is missing in this same answer — do not rewrite the whole block."
+}
+
 # Stop hook — Branch C: long answer AND trailing fork-question.
 aif_msg_eot_branch_c() {
   cat <<EOF

@@ -604,6 +604,43 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(reason).toMatch(/15/);
   });
 
+  // Task 1.5 (plain-words-recap-v2 slice 1): the dormant section-checker gate. It reads a
+  // recap block the model ALREADY WROTE and names the missing sections — it never demands
+  // a block from a turn that has none (that boundary is the third case below). Dormant by
+  // default (AIF_RECAP_GATE unset) so today's behaviour is unchanged until an operator arms it.
+  describe('recap gate — dormant section-checker (Task 1.5)', () => {
+    const RECAP_EN = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+
+    it('armed gate names the missing section of an existing recap block', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-armed' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
+      );
+      const reason = JSON.parse(r.stdout).reason as string;
+      expect(reason).toContain('Fork.'); // asked ⇒ section 3 required
+      expect(reason).toContain('From you:'); // section 5's last line missing
+    });
+
+    it('is dormant when AIF_RECAP_GATE is unset', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-dormant' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+      );
+      expect(r.stdout).not.toContain('Fork.');
+    });
+
+    it('never fires on a turn that has no recap block at all', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText('Short answer.')]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-noblock' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
+      );
+      expect(r.stdout).not.toContain('From you:');
+    });
+  });
+
   // ---------------------------------------------------------------------------
   //  idle-suppress — the MAJOR-1 re-ping guard (hook:135-156). Suppresses a
   //  short question turn ONLY when the PREVIOUS assistant turn already emitted a

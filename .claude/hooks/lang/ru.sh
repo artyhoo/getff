@@ -79,6 +79,13 @@ $(aif_msg_fork_card)
 EOF
 }
 
+# Stop hook — дремлющие ворота-чекер секций (Task 1.5, D-A). Срабатывают только когда блок
+# пересказа УЖЕ ЕСТЬ и в нём не хватает одной из обязательных секций — никогда не требуют блок
+# от хода, где его вообще нет. $1 = список дефектов через «; » из _eot_recap_defects().
+aif_msg_eot_recap_gate() {
+  printf '%s\n' "Блок $AIF_RECAP_MARKER есть, но в нём не хватает: $1. Допиши недостающее в этом же ответе — блок целиком не переписывай."
+}
+
 # Stop hook — Branch C: long answer AND trailing fork-question.
 aif_msg_eot_branch_c() {
   cat <<EOF
