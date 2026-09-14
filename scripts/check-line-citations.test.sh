@@ -162,6 +162,77 @@ printf 'Pinned at `target.md:1`. The audit numbers it `:99`.\n' >"$REPO/cite.md"
 commit_all "backref across a sentence boundary"
 expect_pass "a backref in the next sentence is not bound to the anchor" cite.md
 
+# ============================================================ skipped-citation visibility
+# Until 2026-09-14 a citation whose path did not resolve was dropped with a bare
+# `continue`: no line printed, no count, exit 0. Measured that day over the five
+# getff.ai site specs — 141 citations, 43 checked, 98 dropped in silence — and over the
+# live-authority corpus the gate actually runs on: 144 citations, 51 dropped. Silence is
+# not coverage; it is the `#warning-nobody-reads` shape one rung worse, with no warning
+# at all (.claude/rules/attention-is-not-a-mechanism.md §2). These arms pin the three
+# things that made the silence load-bearing: a bare basename that IS resolvable must be
+# checked, one that is ambiguous must be reported rather than guessed, and every
+# unresolved citation must leave a line a reader can act on.
+
+# --- a bare basename unique in the tree resolves, so its drift is caught like any other
+new_repo bare-unique
+mkdir -p "$REPO/deep/nest"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/deep/nest/target.md"
+printf 'The cap is `target.md:2`.\n' >"$REPO/cite.md"
+commit_all "bare basename citation, target lives in a subdirectory"
+expect_pass "an accurate bare-basename citation is quiet" cite.md
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/deep/nest/target.md"
+commit_all "target reflowed under the bare citation"
+expect_fail "drift behind a bare basename is caught, not skipped" "cite.md:1" cite.md
+
+# --- an ambiguous basename is REPORTED with its candidates, never guessed
+new_repo bare-ambiguous
+mkdir -p "$REPO/src" "$REPO/vendor/src"
+printf 'alpha\nbeta\n' >"$REPO/src/dup.ts"
+printf 'ZULU\nYANKEE\n' >"$REPO/vendor/src/dup.ts"
+printf 'See `dup.ts:2`.\n' >"$REPO/cite.md"
+commit_all "same basename in two places"
+expect_pass "an ambiguous basename does not fail the gate" cite.md
+for needle in 'ambiguous-basename' 'src/dup.ts' 'vendor/src/dup.ts'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: ambiguous basename did not report '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- a basename-resolved target whose line does not exist is a WEAK resolution, so it is
+# reported as skipped rather than asserted as a hard beyond-EOF failure: the likelier
+# reading is that the basename matched the wrong file.
+new_repo bare-out-of-range
+mkdir -p "$REPO/deep"
+printf 'alpha\nbeta\n' >"$REPO/deep/target.md"
+printf 'See `target.md:99`.\n' >"$REPO/cite.md"
+commit_all "bare basename, line past the end of the match"
+expect_pass "an out-of-range bare basename is reported, not failed" cite.md
+grep -qF 'line-out-of-range' "$TMP/err" || {
+  echo "FAIL: out-of-range bare basename was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- the deliberate out-of-repo non-coverage stays exit 0, but stops being invisible
+new_repo skip-visible
+printf 'Consumer projects put it at `src/app/api/orders/route.ts:24`.\n' >"$REPO/cite.md"
+commit_all "out-of-repo illustration"
+expect_pass "an out-of-repo path is still skipped, not failed" cite.md
+for needle in 'path-missing' 'src/app/api/orders/route.ts:24' 'resolved 0 / skipped 1'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: skipped citation did not report '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- --strict turns the report into a gate. Default stays 0 so the new visibility can
+# land without breaking every push; --strict is what a caller opts into.
+if (cd "$REPO" && node "$CHECK" --check --strict cite.md) >"$TMP/out" 2>"$TMP/err"; then
+  echo "FAIL: --strict did not fail on a skipped citation"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+
+# --- a bare basename naming nothing in the tree gets its own reason code
+new_repo bare-nomatch
+printf 'See `nowhere-at-all.md:3`.\n' >"$REPO/cite.md"
+commit_all "bare basename matching no tracked file"
+expect_pass "an unmatched bare basename does not fail the gate" cite.md
+grep -qF 'bare-basename' "$TMP/err" || {
+  echo "FAIL: unmatched bare basename was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
 if [ "$fails" -eq 0 ]; then
   echo "check-line-citations paired-negative: all arms passed"
 else

@@ -44,14 +44,36 @@
  *   --check       exit 1 on drift, printing the corrected line number where findable
  *   --write       renumber in place wherever the moved-to line is unambiguous
  *   --blank-only  ARM 2 alone — the pre-commit channel, no git reads at all
+ *   --strict      additionally exit 1 when ANY citation could not be resolved
  *
- * Deliberate non-coverage — a citation whose path does not resolve on disk is
- * SKIPPED, not failed. Measured 2026-09-13: 48 of 139 citations across
- * `.claude/rules/`, `.claude/skills/`, `agents/` and CLAUDE.md are of that shape,
- * and every one is out-of-repo by design — aif-handoff internals
- * (`coordinator.js:825`), consumer-project illustrations
+ * Non-coverage is REPORTED, not silent (2026-09-14). A citation whose path does not
+ * resolve still does not fail the default gate — many are out-of-repo by design:
+ * aif-handoff internals (`coordinator.js:825`), consumer-project illustrations
  * (`src/app/api/orders/route.ts:24`), template placeholders
- * (`.claude/rules/foo.md:42`). Failing them would be a gate nobody can make green.
+ * (`.claude/rules/foo.md:42`), and failing them would be a gate nobody can make
+ * green. But until this date each one was dropped with a bare `continue`: no line, no
+ * count, exit 0 — so a run that checked nothing was indistinguishable from a clean
+ * one. Measured that day over the five getff.ai site specs: 141 citations, 43
+ * resolved, 98 dropped in silence, output zero bytes. Each unresolved citation now
+ * prints `file:line  token  — skipped (<reason>)`, with a
+ * `resolved N / skipped M` summary, under four reason codes: `bare-basename`,
+ * `ambiguous-basename`, `path-missing`, `line-out-of-range`.
+ *
+ * Bare basenames resolve when the basename is UNIQUE among tracked files (`git
+ * ls-files`), which is how most of that silence was bought back: on those specs the
+ * skipped count fell 98 → 39, and on the live-authority corpus the gate actually runs
+ * on, resolving them surfaced 12 stale citations that were green by silence the day
+ * before. A basename matching several tracked files is REPORTED with its candidates
+ * and never guessed (`questions.ts` exists both at
+ * `packages/runtime-bridge/src/cli/questions.ts` and under `vendor/`). A
+ * basename-inferred target is a weak resolution, so a cited line past its end reports
+ * `line-out-of-range` rather than asserting a beyond-EOF defect — the likelier reading
+ * is that the basename matched the wrong file. An author-named path keeps the hard
+ * failure.
+ *
+ * `--strict` is deliberately NOT wired into pre-push §9: 32 citations on that corpus
+ * remain unresolvable and most are out-of-repo by construction, so switching it on
+ * would be the «gate nobody can make green» this file already refuses to build.
  * Broken LINKED paths remain lychee's job (pre-push §8).
  *
  * Escape hatch for a deliberate past-state citation («at incident time, line 741
@@ -97,7 +119,45 @@ const git = (args) =>
 
 const squash = (s) => (s ?? '').replace(/\s+/g, ' ').trim();
 
-/** Resolve a cited path to a repo-relative file, or null when it is out-of-repo. */
+/**
+ * Tracked files indexed by basename, built once per process. `git ls-files` and not a
+ * directory walk: the index must contain exactly what the repo owns, so a gitignored
+ * scratch file (`_decision-register-*.md`) stays unresolvable rather than answering a
+ * citation nobody else can follow.
+ */
+let basenameIndex = null;
+function tracked(basename) {
+  if (basenameIndex === null) {
+    basenameIndex = new Map();
+    let listing = '';
+    try {
+      listing = git(['ls-files', '-z']);
+    } catch {
+      listing = '';
+    }
+    for (const p of listing.split('\0')) {
+      if (!p) continue;
+      const b = p.slice(p.lastIndexOf('/') + 1);
+      if (!basenameIndex.has(b)) basenameIndex.set(b, []);
+      basenameIndex.get(b).push(p);
+    }
+  }
+  return basenameIndex.get(basename) ?? [];
+}
+
+/**
+ * Resolve a cited path to a repo-relative file.
+ *
+ * Returns `{ target, weak }` on success — `weak` marks a target inferred from a bare
+ * basename rather than named by the author — or `{ reason, candidates }` when the
+ * citation cannot be followed. A reason is NOT a failure: it is the line the reader
+ * needs in order to decide, which until 2026-09-14 this function threw away.
+ *
+ * Bare basenames are resolved only when the basename is UNIQUE among tracked files.
+ * Two files named `questions.ts` (a vendored copy beside its source) make the citation
+ * genuinely ambiguous, and guessing one would manufacture a confident wrong answer —
+ * the shape `.claude/rules/ai-laziness-traps.md` T3 exists to forbid.
+ */
 function resolveCitedPath(srcFile, citedPath, linkTarget) {
   const candidates = [];
   if (linkTarget && !/^[a-z][a-z0-9+.-]*:/i.test(linkTarget)) {
@@ -109,9 +169,13 @@ function resolveCitedPath(srcFile, citedPath, linkTarget) {
   candidates.push(normalize(citedPath));
   for (const c of candidates) {
     if (!c || c.startsWith('..')) continue;
-    if (existsSync(resolve(REPO_ROOT, c))) return c;
+    if (existsSync(resolve(REPO_ROOT, c))) return { target: c, weak: false };
   }
-  return null;
+  if (citedPath.includes('/')) return { reason: 'path-missing', candidates: [] };
+  const hits = tracked(citedPath);
+  if (hits.length === 1) return { target: hits[0], weak: true };
+  if (hits.length > 1) return { reason: 'ambiguous-basename', candidates: hits };
+  return { reason: 'bare-basename', candidates: [] };
 }
 
 /** The commit in which a human last wrote this line (null when uncommitted). */
@@ -139,6 +203,8 @@ export function scanFile(srcFile) {
   const rel = relative(REPO_ROOT, resolve(REPO_ROOT, srcFile)) || srcFile;
   const lines = readFileSync(resolve(REPO_ROOT, rel), 'utf8').split('\n');
   const findings = [];
+  const skips = [];
+  let resolvedCount = 0;
 
   lines.forEach((text, idx) => {
     const srcLine = idx + 1;
@@ -157,7 +223,7 @@ export function scanFile(srcFile) {
         ([s, e]) => s <= m.index && m.index < e,
       )?.[2];
       const t = resolveCitedPath(rel, m[1], linkTarget);
-      if (t !== null) anchors.push({ at: m.index, target: t });
+      if (t.target) anchors.push({ at: m.index, target: t.target, weak: t.weak });
     }
     const cites = [
       ...[...text.matchAll(CITATION_RE)].map((m) => ({
@@ -181,6 +247,7 @@ export function scanFile(srcFile) {
     for (const c of cites) {
       const { m, token, n } = c;
       let target;
+      let weak = false;
       if (c.bare) {
         const anchor = anchors.filter((a) => a.at < m.index).pop();
         if (!anchor) continue; // no antecedent on this line — not a citation
@@ -192,15 +259,29 @@ export function scanFile(srcFile) {
         // ran at 50% precision on this corpus; with it, 100%.
         if (/[.!?]\s/.test(text.slice(anchor.at, m.index))) continue;
         target = anchor.target;
+        weak = anchor.weak;
       } else {
         const linkTarget = links.find(
           ([s, e]) => s <= m.index && m.index < e,
         )?.[2];
-        target = resolveCitedPath(rel, c.path, linkTarget);
+        const r = resolveCitedPath(rel, c.path, linkTarget);
+        target = r.target ?? null;
+        weak = r.weak ?? false;
+        // Out-of-repo / synthetic — still deliberate non-coverage (see header), but
+        // recorded and printed instead of dropped in silence.
+        if (target === null) {
+          skips.push({
+            srcFile: rel,
+            srcLine,
+            token,
+            reason: r.reason,
+            candidates: r.candidates,
+          });
+          continue;
+        }
       }
-
-      // Out-of-repo / synthetic — deliberate non-coverage (see header).
       if (target === null) continue;
+      resolvedCount += 1;
 
       if (escape) {
         if (squash(escape[1]).length < ESCAPE_RATIONALE_MIN) {
@@ -219,6 +300,21 @@ export function scanFile(srcFile) {
         '\n',
       );
       if (n > current.length) {
+        // A basename-inferred target that does not even have the cited line is more
+        // likely the WRONG file than a real beyond-EOF defect, so the weak arm reports
+        // rather than blocks. An author-named path keeps the hard failure.
+        if (weak) {
+          resolvedCount -= 1;
+          skips.push({
+            srcFile: rel,
+            srcLine,
+            token,
+            reason: 'line-out-of-range',
+            candidates: [target],
+            detail: `${target} has ${current.length} lines`,
+          });
+          continue;
+        }
         findings.push({
           kind: 'beyond-eof',
           srcFile: rel,
@@ -279,7 +375,7 @@ export function scanFile(srcFile) {
     }
   });
 
-  return findings;
+  return { findings, skips, resolved: resolvedCount };
 }
 
 function renumber(findings) {
@@ -309,23 +405,47 @@ function renumber(findings) {
   return written;
 }
 
+/** One actionable line per unresolvable citation — the silence this gate used to keep. */
+const SKIP_HINT = {
+  'bare-basename':
+    'no tracked file has this basename — out-of-repo, or the name is wrong/abbreviated',
+  'ambiguous-basename':
+    'several tracked files share this basename — qualify the path',
+  'path-missing': 'path does not resolve in this repo',
+  'line-out-of-range': 'basename matched, but the line does not exist there',
+};
+
+function reportSkip(s) {
+  const extra = s.candidates?.length
+    ? `  candidates: ${s.candidates.join(', ')}`
+    : '';
+  console.error(
+    `${s.srcFile}:${s.srcLine}  ${s.token}  — skipped (${s.reason}): ` +
+      `${s.detail ?? SKIP_HINT[s.reason] ?? ''}${extra}`,
+  );
+}
+
 export function run(argv) {
   const write = argv.includes('--write');
   const check = argv.includes('--check');
+  const strict = argv.includes('--strict');
   blankOnly = argv.includes('--blank-only');
   const files = argv.filter((a) => !a.startsWith('--'));
   if (!write && !check) {
     console.error(
-      'usage: check-line-citations.mjs (--check [--blank-only] | --write) <file.md>...',
+      'usage: check-line-citations.mjs (--check [--blank-only] [--strict] | --write) <file.md>...',
     );
     return 2;
   }
   if (files.length === 0) return 0;
 
-  const findings = files.flatMap(scanFile);
-  if (findings.length === 0) return 0;
+  const scans = files.map(scanFile);
+  const findings = scans.flatMap((r) => r.findings);
+  const skips = scans.flatMap((r) => r.skips);
+  const resolved = scans.reduce((a, r) => a + r.resolved, 0);
 
   if (write) {
+    if (findings.length === 0) return 0;
     const n = renumber(findings);
     console.log(`check-line-citations --write: renumbered ${n} citation(s)`);
     const left = findings.filter(
@@ -336,12 +456,36 @@ export function run(argv) {
   }
 
   for (const f of findings) report(f);
-  console.error(
-    `\n❌ ${findings.length} stale \`path:line\` citation(s).\n` +
-      `   Fix: npx tsx scripts/check-line-citations.mjs --write <files>\n` +
-      `   A deliberate past-state citation takes \`<!-- cite:historical <why> -->\` on the same line.`,
-  );
-  return 1;
+
+  // Skipped citations are printed even when the gate passes. A citation the checker
+  // cannot follow is not coverage; dropping it silently made 98 of 141 citations on
+  // the getff.ai specs look checked when none of them were (measured 2026-09-14).
+  if (skips.length > 0) {
+    for (const s of skips) reportSkip(s);
+    console.error(
+      `\ncheck-line-citations: resolved ${resolved} / skipped ${skips.length} citation(s).`,
+    );
+  }
+
+  if (findings.length > 0) {
+    console.error(
+      `\n❌ ${findings.length} stale \`path:line\` citation(s).\n` +
+        `   Fix: npx tsx scripts/check-line-citations.mjs --write <files>\n` +
+        `   A deliberate past-state citation takes \`<!-- cite:historical <why> -->\` on the same line.`,
+    );
+    return 1;
+  }
+
+  // Default stays 0 on skipped-only so the new visibility can land without turning
+  // every push red on citations that are out-of-repo by design. `--strict` is the
+  // opt-in gate for a caller that wants every citation to be followable.
+  if (strict && skips.length > 0) {
+    console.error(
+      `\n❌ --strict: ${skips.length} citation(s) could not be resolved.`,
+    );
+    return 1;
+  }
+  return 0;
 }
 
 function report(f) {
