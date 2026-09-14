@@ -736,6 +736,64 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
     expect(hits, `the advisory strings in check-hook-marker.sh must wire nothing, got: ${hits}`).not.toContain('render-harness-config.mjs');
   });
 
+  // ---- D32 maturity manifest (plan Task 5) — the badge source every later page derives from ----
+  // D32 (docs/superpowers/specs/2026-09-13-getff-ai-site-design.md:156): ONE framework-side
+  // file `packages/core/manifest/maturity.json` + draft-07 schema beside it; sections `layers`
+  // (D4: rules beta / factory experimental) + `stacks` (ONE row per installable positional);
+  // each row = label + label definition + caveat (one sentence) + verified-at, stacks add the
+  // rule-generation status (face-pages §5.1.4). T-S0A-B: a row traces to an operator decision
+  // or a measurement — an unknown fact is an operator question, never a placeholder. This arm
+  // is the ajv channel that "validated" claim rides on (same posture as the rules-manifest
+  // consumer arms; ajv per prior-art #194).
+  it('D32: maturity.json validates against its draft-07 schema; stacks = the 7 installable positionals; label↔definition is a function', () => {
+    const manifestPath = join(REPO_ROOT, 'packages/core/manifest/maturity.json');
+    const schemaPath = join(REPO_ROOT, 'packages/core/manifest/maturity.schema.json');
+    expect(existsSync(manifestPath), 'packages/core/manifest/maturity.json must exist (D32)').toBe(true);
+    expect(existsSync(schemaPath), 'packages/core/manifest/maturity.schema.json must exist (D32)').toBe(true);
+    const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+    expect(schema.$schema, 'schema must pin draft-07 (rules-manifest.schema.json precedent)').toBe('http://json-schema.org/draft-07/schema#');
+    expect(schema.additionalProperties, 'closed vocabulary: additionalProperties:false at top level').toBe(false);
+    const doc = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    const ajv = new Ajv({ allErrors: true, strict: false });
+    const validate = ajv.compile(schema);
+    expect(
+      validate(doc),
+      `maturity.json failed its schema:\n${JSON.stringify(validate.errors, null, 2)}`,
+    ).toBe(true);
+
+    // The stacks population is CLOSED at the 7 installable positionals (D32 §5.1.4 — the list
+    // is operator-decided, quoted verbatim; the schema also pins it via required+closed keys).
+    const POSITIONALS = ['ts-server', 'react-next', 'react-spa', 'react-native', 'python', 'cargo', 'go'].sort();
+    expect(Object.keys(doc.stacks).sort(), 'stacks must be exactly the 7 installable positionals (D32)').toEqual(POSITIONALS);
+    expect(Object.keys(doc.layers).sort(), 'layers must be exactly rules + factory (D4)').toEqual(['factory', 'rules']);
+
+    // label ↔ definition is a function (one-fact-one-place): a label rendered with two
+    // different «what the label means» sentences on two pages is exactly the drift D32 exists
+    // to kill, so the definition must be identical in every row that shares a label.
+    const defByLabel = new Map<string, string>();
+    const dupes: string[] = [];
+    for (const row of [...Object.values(doc.layers), ...Object.values(doc.stacks)] as Array<{ label: string; definition: string }>) {
+      const seen = defByLabel.get(row.label);
+      if (seen === undefined) defByLabel.set(row.label, row.definition);
+      else if (seen !== row.definition) dupes.push(row.label);
+    }
+    expect(dupes, `labels carrying two different definitions: ${dupes.join(', ')}`).toEqual([]);
+    expect(
+      [...defByLabel.keys()].sort(),
+      'the only renderable labels are the four operator/README-backed ones',
+    ).toEqual(['alpha', 'beta', 'early', 'experimental']);
+
+    // No empty strings anywhere — the «blank cell» ban (G18) below the JSON layer.
+    const empties: string[] = [];
+    const walk = (v: unknown, at: string) => {
+      if (typeof v === 'string') { if (v.trim() === '') empties.push(at); return; }
+      if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${at}[${i}]`));
+      else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) walk(x, `${at}.${k}`);
+    };
+    walk(doc, 'maturity');
+    expect(empties, `maturity.json carries empty-string cells: ${empties.join(', ')}`).toEqual([]);
+  });
+
   afterAll(() => {
     for (const d of tmpRoots) rmSync(d, { recursive: true, force: true });
   });

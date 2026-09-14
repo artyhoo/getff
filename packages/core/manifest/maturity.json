@@ -1,0 +1,67 @@
+{
+  "layers": {
+    "rules": {
+      "label": "beta",
+      "definition": "One-command install; a rule provably fires on your code (`npm run lint` goes RED on a planted violation); rule docs are generated from the delivered rule set.",
+      "caveat": "Two runtime rules (R7/R8) ship deferred behind AIF_STRICT_RUNTIME=1 — a default lint run stays green on their triggers.",
+      "verified-at": "2026-09-14"
+    },
+    "factory": {
+      "label": "experimental",
+      "definition": "Stack scaffold + templates; a dedicated rule-pack is not yet shipped.",
+      "caveat": "The factory depth clones a preset whose rule-packs are uneven — the per-stack rows govern.",
+      "verified-at": "2026-09-14"
+    }
+  },
+  "stacks": {
+    "ts-server": {
+      "label": "beta",
+      "definition": "One-command install; a rule provably fires on your code (`npm run lint` goes RED on a planted violation); rule docs are generated from the delivered rule set.",
+      "caveat": "Default TS lane; it shares the manifest-rendered multi-stack rule pack with react-next — no ts-server-specific rules beyond it.",
+      "generation": "generated",
+      "verified-at": "2026-09-14"
+    },
+    "react-next": {
+      "label": "beta",
+      "definition": "One-command install; a rule provably fires on your code (`npm run lint` goes RED on a planted violation); rule docs are generated from the delivered rule set.",
+      "caveat": "Wires three custom rules by default (two more behind AIF_STRICT_RUNTIME=1) on top of the shared manifest-rendered rule pack.",
+      "generation": "generated",
+      "verified-at": "2026-09-14"
+    },
+    "react-spa": {
+      "label": "early",
+      "definition": "Installs one-command and wires real rules, but the rule-pack is still growing.",
+      "caveat": "Wires two custom rules by default (two more behind AIF_STRICT_RUNTIME=1); the rule-pack is still growing.",
+      "generation": "static",
+      "verified-at": "2026-09-14"
+    },
+    "react-native": {
+      "label": "experimental",
+      "definition": "Stack scaffold + templates; a dedicated rule-pack is not yet shipped.",
+      "caveat": "Ships stack scaffold + templates; no custom rule is wired yet.",
+      "generation": "static",
+      "verified-at": "2026-09-14"
+    },
+    "python": {
+      "label": "alpha",
+      "definition": "Installs one-command and fires on verified fixtures; rule generation is partial or deferred.",
+      "caveat": "Non-npm lane — ast-grep + ruff only; the npm custom-rule engine does not apply.",
+      "generation": "generated",
+      "verified-at": "2026-09-14"
+    },
+    "cargo": {
+      "label": "alpha",
+      "definition": "Installs one-command and fires on verified fixtures; rule generation is partial or deferred.",
+      "caveat": "cargo-deny ships as a starter config no workflow runs; the clippy bans are the enforced lane (CI-failing when violated).",
+      "generation": "deferred",
+      "verified-at": "2026-09-14"
+    },
+    "go": {
+      "label": "alpha",
+      "definition": "Installs one-command and fires on verified fixtures; rule generation is partial or deferred.",
+      "caveat": "Rules ship as a golangci config that is inert until you opt in; rule generation is deferred (operator, 2026-09-09).",
+      "generation": "deferred",
+      "verified-at": "2026-09-14"
+    }
+  }
+}
