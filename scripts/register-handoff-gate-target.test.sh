@@ -63,9 +63,9 @@ check "--project <root> targets that root" "$TMP/.claude/settings.json" "$got"
 
 # 6 — PAIRED NEGATIVE: `--print-target` writes NOTHING — the fake home's settings stays absent
 #     and the checkout's settings.json keeps its bytes.
-before="$(cat "$ROOT/.claude/settings.json" 2>/dev/null | shasum -a 256 | cut -d' ' -f1)"
+before="$(shasum -a 256 "$ROOT/.claude/settings.json" 2>/dev/null | cut -d' ' -f1)"
 (cd "$ROOT" && HOME="$FAKE_HOME" bash "$S" --print-target >/dev/null 2>&1)
-after="$(cat "$ROOT/.claude/settings.json" 2>/dev/null | shasum -a 256 | cut -d' ' -f1)"
+after="$(shasum -a 256 "$ROOT/.claude/settings.json" 2>/dev/null | cut -d' ' -f1)"
 check "--print-target leaves the checkout settings untouched" "$before" "$after"
 if [[ -e "$FAKE_HOME/.claude/settings.json" ]]; then
   echo "FAIL --print-target must not create the user settings file"; FAILED=1

@@ -27,7 +27,10 @@ MODE="${1:---check}"
 case "$MODE" in --write | --check) ;; *) echo "usage: $0 --write|--check [files...]" >&2; exit 2 ;; esac
 [ "$#" -gt 0 ] && shift
 FILTER=("$@") # optional: restrict to these repo-relative paths (empty = full shipped surface)
-cd "$(git rev-parse --show-toplevel)"
+# `cd ""` returns 0 and stays put (measured), so a bare `cd "$(git rev-parse ...)"` outside a
+# git worktree would silently format the CURRENT tree as if it were the repo. Fail instead.
+REPO_TOP="$(git rev-parse --show-toplevel)" || exit 1
+cd "$REPO_TOP" || exit 1
 
 # Shipped paths (dirs + the exact pre-push closure — NOT the whole hooks/ dir, which is mostly
 # framework-internal tests + the dynamically-imported guard-liveness.ts that does not ship).
@@ -173,7 +176,7 @@ if [ "${#DELIVERED[@]}" -gt 0 ]; then
   drc=0
   (
     cd "$DTMP"
-    # shellcheck disable=SC1090
+    # shellcheck disable=SC1090,SC1091  # sourced by a runtime-resolved path; not statically followable
     INSTALL_SH_LIB_ONLY=1 . "$REPO_ROOT/setup.d/lib.sh"
     set +e
     for p in "${DPATHS[@]}"; do transform_internal_refs "$p"; done

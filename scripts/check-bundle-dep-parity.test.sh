@@ -58,12 +58,14 @@ expect() {
   out="$("$CHECK" "$dir" 2>&1)"; rc=$?
   if [ "$rc" -ne "$want" ]; then
     echo "FAIL: $label — expected exit $want, got $rc"
+    # shellcheck disable=SC2001  # sed substitutes on EVERY line of a multi-line string ('^' per line); ${var//} has no line anchor
     echo "$out" | sed 's/^/      /'
     FAILED=1
     return
   fi
   if [ -n "$needle" ] && ! printf '%s' "$out" | grep -q -- "$needle"; then
     echo "FAIL: $label — exit $want as expected, but output never mentions '$needle'"
+    # shellcheck disable=SC2001  # sed substitutes on EVERY line of a multi-line string ('^' per line); ${var//} has no line anchor
     echo "$out" | sed 's/^/      /'
     FAILED=1
     return
@@ -125,6 +127,7 @@ rm -rf "$FOREIGN"
 
 # 8 — CWD-INDEPENDENCE for an explicit RELATIVE argument: it must keep meaning the directory the
 #     caller named, so the script resolves it before use rather than re-interpreting it later.
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
 ( cd "$TMP" && "$CHECK" ./c1 >/dev/null 2>&1 ) \
   && echo 'ok: relative <repo-root> argument resolves against the caller'"'"'s cwd' \
   || { echo 'FAIL: relative <repo-root> argument did not resolve'; FAILED=1; }

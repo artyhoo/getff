@@ -34,6 +34,7 @@ OVERLAP_TMP="$REPO_ROOT/.skill-drift-overlap-tmp-$$"
 CONTRACT_TMP="$REPO_ROOT/.skill-drift-contract-tmp-$$"
 
 # Cleanup on exit
+# shellcheck disable=SC2329  # invoked via the EXIT trap on the next line
 cleanup() { rm -f "$BROKEN_REF_TMP" "$FRONTMATTER_TMP" "$OVERLAP_TMP" "$CONTRACT_TMP"; }
 trap cleanup EXIT
 
@@ -237,6 +238,7 @@ else
       while IFS= read -r line; do
         fm_line=$((fm_line + 1))
         if [ "$fm_line" -eq 1 ]; then
+          # shellcheck disable=SC2015  # B is an assignment that cannot fail; C is the else-branch
           [ "$line" = "---" ] && in_fm=1 || break
           continue
         fi
