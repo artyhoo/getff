@@ -262,11 +262,19 @@ if [ -f "$EOT_SRC" ]; then
     # R-15: the recap-gate REJECTION ships dormant. `--full` is the developer-install axis
     # (orthogonal to --profile), so a full install arms it; a plain install does not. The
     # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
-    # so this mirrors scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate,
-    # atomic mv, skip when already set. Never write the target in place: a malformed
-    # settings.json silently disables EVERY setting in it.
-    if [ "${FULL:-}" = "--full" ] && command -v jq >/dev/null 2>&1; then
-      if [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
+    # so this mirrors the hand-action sibling that arms the SAME key,
+    # scripts/register-recap-gate.sh:159-175, and through it the shape's origin
+    # scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate, atomic mv, skip
+    # when already set. Never write the target in place: a malformed settings.json silently
+    # disables EVERY setting in it.
+    if [ "${FULL:-}" = "--full" ]; then
+      # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
+      # no-op that prints nothing leaves the operator believing the gate is on when it is not.
+      # Same shape as this file's deps-hash-check jq-less branch (:227).
+      if ! command -v jq >/dev/null 2>&1; then
+        echo "  ⚠ jq not found — AIF_RECAP_GATE NOT armed; add manually to $SETTINGS:" >&2
+        echo '    "env": { "AIF_RECAP_GATE": "1" }' >&2
+      elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
         echo "  AIF_RECAP_GATE already armed"
       else
         _rg_tmp="$(mktemp)"
