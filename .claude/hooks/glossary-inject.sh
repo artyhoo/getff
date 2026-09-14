@@ -55,6 +55,7 @@ _emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
 # defaults below, kept identical to the pack values.
 _g_env_uses="${AIF_GLOSSARY_USES:-}"
 _g_env_explains="${AIF_GLOSSARY_EXPLAINS:-}"
+_g_env_wclass="${AIF_GLOSSARY_WORD_CLASS:-}"
 _lang_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lang"
 _lang_file="${_lang_dir}/${AIF_HOOK_LANG:-en}.sh"
 if [ -f "$_lang_file" ]; then
@@ -63,7 +64,8 @@ if [ -f "$_lang_file" ]; then
 fi
 if [ -n "$_g_env_uses" ]; then AIF_GLOSSARY_USES="$_g_env_uses"; fi
 if [ -n "$_g_env_explains" ]; then AIF_GLOSSARY_EXPLAINS="$_g_env_explains"; fi
-unset _g_env_uses _g_env_explains
+if [ -n "$_g_env_wclass" ]; then AIF_GLOSSARY_WORD_CLASS="$_g_env_wclass"; fi
+unset _g_env_uses _g_env_explains _g_env_wclass
 
 # Residue-directory primitives — GUARDED source, never unconditional (the residue-dir.sh
 # LOADING CONTRACT, D29): this hook runs under `set -euo pipefail`, and sourcing a missing
@@ -103,13 +105,14 @@ _pairs="$(awk '
     gsub(/\t/, " ", def)
     if (says != "") {
       gsub(/\.$/, "", says)
-      # NB: TWO LITERAL gsubs, never a [«»] bracket — under a byte locale (LC_CTYPE=POSIX,
-      # the container default) a bracket expression matches the individual BYTES 0xC2/0xAB/0xBB,
-      # and 0xBB is also the trailing byte of Cyrillic л (0xD0 0xBB), so the bracket
-      # corrupts приземлить → призем�ить and the word stops matching its own prompt.
-      # Measured 2026-09-14: bracket form eats the 0xD0 of л; literal-sequence form is
-      # byte-exact in both byte and UTF-8 locales. NB2: no apostrophes in awk comments
-      # inside a single-quoted program — one closes the program early (measured same day).
+      # NB: TWO LITERAL gsubs, never a [guillemets] bracket — under a byte locale
+      # (LC_CTYPE=POSIX, the container default) a bracket expression matches the individual
+      # BYTES 0xC2/0xAB/0xBB, and 0xBB is also the trailing byte of U+043B (Cyrillic el,
+      # UTF-8 0xD0 0xBB), so the bracket destroys every raw word carrying that letter: it
+      # eats the 0xBB, orphaning the 0xD0 lead byte, and the seed term stops matching its
+      # own prompt. Measured 2026-09-14; the literal-sequence form is byte-exact in both
+      # byte and UTF-8 locales. NB2: no apostrophes in awk comments inside a single-quoted
+      # program — one closes the program early (measured same day).
       gsub(/«/, "", says)
       gsub(/»/, "", says)
       n = split(says, w, ",")
@@ -128,14 +131,21 @@ _pairs="$(awk '
   END                 { emit_term() }
 ' "$REPO_ROOT/CONTEXT.md")"
 
-# Word-boundary regex with an explicit Cyrillic+Latin class — locale-free bracket bounds,
-# so a match cannot leak into a neighbouring word («красноперка» is not «красное»). -i
-# covers the Capitalized sentence-start case («Чипы»); folding follows the ambient
-# UTF-8 locale, the same dependence every other Cyrillic match pattern in this repo has
-# (category-3 match data, language-discipline.md §1). A raw word carrying a regex
-# metacharacter would need escaping — the seed words do not, and the `_Operator says_`
-# data is the contract for what may appear there.
-_words_re() { printf '(^|[^A-Za-zА-Яа-яЁё0-9])%s([^A-Za-zА-Яа-яЁё0-9]|$)' "$1"; }
+# Word-boundary regex. The character class is CATEGORY-3 MATCH DATA and lives in the lang
+# packs (AIF_GLOSSARY_WORD_CLASS, both packs, guarded by the same ^AIF_GLOSSARY_[A-Z_]+=
+# parity probe) — NOT inline: Surface 1 of principle 22 gates this file to no Cyrillic
+# outside the packs, and the pack home is the language-discipline.md §5 counter to
+# #match-data-translated-away. Locale-free bracket bounds, so a match cannot leak into a
+# neighbouring word that merely shares the raw word's letters. -i covers the Capitalized
+# sentence-start case; folding follows the ambient UTF-8 locale, the same dependence every
+# other Cyrillic match pattern in this repo has. A raw word carrying a regex metacharacter
+# would need escaping — the seed words do not, and the `_Operator says_` data is the
+# contract for what may appear there. Pack absent → empty class → Latin-only bounds:
+# degraded boundary precision, never a crash (the pack ships with the hook).
+_words_re() {
+  local _wc="${AIF_GLOSSARY_WORD_CLASS:-}"
+  printf '(^|[^A-Za-z%s0-9])%s([^A-Za-z%s0-9]|$)' "$_wc" "$1" "$_wc"
+}
 
 session_id="$(printf '%s' "$input" | jq -r '.session_id // "nosession"' 2>/dev/null || echo "nosession")"
 counts_file="$(_residue_dir)/_glossary-counts.json"
