@@ -176,5 +176,83 @@ if grep -qF -- "--capture" "$TMP/o18_usage"; then
   echo "  ✗ usage still advertises the removed --capture flag"; fails=$((fails + 1))
 else echo "  ✓ usage no longer advertises --capture"; fi
 
+# --- (dirty tree, zero gates selected) -----------------------------------------------------
+# The sweep selects gates from the COMMITTED diff (`changed_paths`, merge-base...HEAD). An
+# agent or human who runs it mid-work to check their edits therefore got `SWEEP: no gates
+# selected for this diff` + rc 0 — a green answer about changes the sweep never looked at.
+# Measured 2026-09-14 in worktree cool-swanson-d3f4b6: two files modified but uncommitted,
+# default-mode run printed exactly that and exited 0.
+#
+# Only the ZERO-gates case is a refusal, and that is deliberate. Refusing on ANY dirty tree
+# (the tempting stronger rule) would break the script's own intended path: the harvest base
+# clone measured 12 dirty entries, 5 of them tracked-modified, and .claude/skills/harvest/
+# SKILL.md §1 explicitly harvests a committed branch out of a polluted worktree. The third arm
+# below pins that non-refusal.
+#
+# These arms build a throwaway repo rather than using a test seam: the thing under test IS the
+# real `git status` call, and a seam for it would be a second copy that drifts from it.
+mk_repo() { # mk_repo <dir> — a git repo with the real sweep installed at scripts/
+  local d="$1"
+  mkdir -p "$d/scripts"
+  cp "$SWEEP" "$d/scripts/run-local-ci-sweep.sh"
+  printf 'seed\n' >"$d/README.md"
+  ( cd "$d" && env -u GIT_DIR -u GIT_WORK_TREE git init -q \
+      && git config user.email t@example.com && git config user.name t \
+      && git add -A && env -u GIT_DIR -u GIT_WORK_TREE git commit -qm init ) >/dev/null 2>&1
+}
+run_sweep() { # run_sweep <repo-dir> [args…] — invoke that repo's own copy, GIT_* unset
+  local d="$1"; shift
+  env -u GIT_DIR -u GIT_WORK_TREE bash "$d/scripts/run-local-ci-sweep.sh" "$@"
+}
+
+# (neg) dirty tree + a committed diff that selects nothing → refuse, non-zero, name the paths.
+R1="$TMP/repo-dirty"; mk_repo "$R1"
+printf 'edited-but-never-committed\n' >>"$R1/README.md"
+printf 'brand new\n' >"$R1/UNTRACKED-EVIDENCE.txt"
+run_sweep "$R1" --base HEAD >"$TMP/o19" 2>&1
+check "dirty tree with zero gates selected exits non-zero" 3 $?
+grep_out "refusal names the modified tracked path" "README.md" "$TMP/o19"
+grep_out "refusal names the untracked path" "UNTRACKED-EVIDENCE.txt" "$TMP/o19"
+if grep -qF "SWEEP: no gates selected for this diff" "$TMP/o19"; then
+  echo "  ✗ dirty tree still printed the false-green 'no gates selected' line"; fails=$((fails + 1))
+else echo "  ✓ dirty tree did not print the false-green 'no gates selected' line"; fi
+
+# (pos) paired positive — CLEAN tree, genuinely empty diff, still the quiet exit-0 answer.
+R2="$TMP/repo-clean"; mk_repo "$R2"
+run_sweep "$R2" --base HEAD >"$TMP/o20" 2>&1
+check "clean tree with an empty diff still exits 0" 0 $?
+grep_out "clean tree keeps the 'no gates selected' answer" "SWEEP: no gates selected for this diff" "$TMP/o20"
+
+# (pos) the harvest shape — dirty tree, but the committed diff DOES select a gate. The sweep
+# must run that gate and answer normally; this is the arm that keeps the refusal from
+# swallowing the script's intended caller (harvest runs on a polluted worktree by design).
+R3="$TMP/repo-harvest"; mk_repo "$R3"
+printf 'committed change\n' >>"$R3/README.md"
+( cd "$R3" && env -u GIT_DIR -u GIT_WORK_TREE git commit -qam second ) >/dev/null 2>&1
+printf 'uncommitted residue\n' >"$R3/residue.txt"
+printf '1\tdoc\t.md\ttrue\n' >"$TMP/gates-harvest.tsv"
+SWEEP_GATES_FILE="$TMP/gates-harvest.tsv" run_sweep "$R3" --base HEAD~1 >"$TMP/o21" 2>&1
+check "dirty tree with a gate-selecting committed diff still exits 0" 0 $?
+grep_out "harvest shape ran its selected gate" "PASS doc" "$TMP/o21"
+
+# --- (fd 3) a gate's live progress must escape the output capture ---
+# Gate output is captured (`out="$( (eval "$cmd") 2>&1 </dev/null )"`) and printed only on
+# completion, so a long gate is silent for its whole run — the 114-file install-sh battery was
+# silent for ~30 minutes and "working" was indistinguishable from "hung" without walking the
+# process tree by hand (.claude/rules/attention-is-not-a-mechanism.md §1). `exec 3>&2` in the
+# sweep makes fd 3 the live channel: not touched by the capture, reaching the operator as the gate
+# runs. This arm pins BOTH halves — fd 3 arrives, and stdout is still captured, not echoed live.
+printf '1\tlive\tALWAYS\techo captured-body; echo live-tick >&3\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" \
+  bash "$SWEEP" --full >"$TMP/o22" 2>"$TMP/e22"
+check "gate writing to fd 3 still exits 0" 0 $?
+grep_out "fd 3 reaches the operator live (sweep stderr)" "live-tick" "$TMP/e22"
+if grep -qF "live-tick" "$TMP/o22"; then
+  echo "  ✗ fd 3 output leaked into the captured stdout"; fails=$((fails + 1))
+else echo "  ✓ fd 3 output did not leak into the captured stdout"; fi
+if grep -qF "captured-body" "$TMP/e22"; then
+  echo "  ✗ ordinary gate stdout escaped the capture onto stderr"; fails=$((fails + 1))
+else echo "  ✓ ordinary gate stdout is still captured, not echoed live"; fi
+
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

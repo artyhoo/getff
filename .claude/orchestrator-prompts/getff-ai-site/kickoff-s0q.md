@@ -16,7 +16,7 @@
 > the build-vs-reuse verdict — [`build-first-reuse-default.md`](../../rules/build-first-reuse-default.md).
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
+`79fa1b56b748899bc807f23ea8dfba9258e0acc3`. Every file cited here was read at that one ref.
 
 ## §0 Why this stage exists and where it sits
 
@@ -62,10 +62,10 @@ second script.
 
 - **One registry entry:** `{ id: 'docs-card', owner: 'maintainer', run: … }` in the `SECTIONS`
   array of `packages/core/hooks/pre-push.ts`. Measured at the SHA above, that array opens at
-  `packages/core/hooks/pre-push.ts:1996` (`const SECTIONS: readonly PrePushSection[] = [`) and
-  closes at `:2110` (`];`), carrying **28** ids. This entry makes 29.
+  `packages/core/hooks/pre-push.ts:2016` (`const SECTIONS: readonly PrePushSection[] = [`) and
+  closes at `:2130` (`];`), carrying **28** ids. This entry makes 29.
 - **Backed by `packages/core/hooks/checks/docs-card.ts` + `docs-card.test.ts`** — the
-  `prior-art.ts` twin, whose registry entry sits at `pre-push.ts:2072`
+  `prior-art.ts` twin, whose registry entry sits at `pre-push.ts:2092`
   (`{ id: 'prior-art', owner: 'maintainer', run: (c) => priorArtSection(c.rb) },`).
 - **ONE CI step**, never a second script:
   `PREPUSH_ONLY=docs-card npx tsx packages/core/hooks/pre-push.ts` over the PR range. The
@@ -74,8 +74,15 @@ second script.
   `:1115`, and the seam's own rationale comment is at `:1056`.
 - **The naming rule is measured, not an analogy:** the sibling rule is «id = the trailer it
   checks, lower-kebab» — `prior-art` ↔ `Prior-art:`, so `docs-card` ↔ `Docs-card:`. Sibling ids
-  read in place at the SHA above: `line-citations` `pre-push.ts:2014`, `kickoff-portability`
-  `:2031`, `unpinned-tool-install` `:2090`, `ask-file-schema` `:2106`.
+  read in place at the SHA above: `line-citations` `pre-push.ts:2034`, `kickoff-portability`
+  `:2051`, `unpinned-tool-install` `:2110`, `ask-file-schema` `:2126`.
+
+  **These seven numbers moved once already.** They were true at `6472bf6f2c7`, the SHA this file
+  was first pinned to, and every one of them was **+20 wrong** four commits later (PR #1774
+  inserted a section above them) — measured,
+  not hypothesised. That is trap `T-GA-A` firing on this stage's most-cited file, and no gate
+  catches it: `check-line-citations.mjs` has no freshness arm. Re-measure all seven in Phase 0
+  with `grep -n "id: '<name>'" packages/core/hooks/pre-push.ts` before you trust one.
 - **Do not route this through `prior-art.ts`.** It cannot fire for `docs/site/**` by construction:
   `packages/core/hooks/checks/prior-art.ts:229` is
   `if (!path.startsWith('packages/core/')) continue;` and `:247` is
@@ -133,7 +140,11 @@ Verify **and repair**, inside the container, before writing a production line:
    Read them, do not trust them. `scripts/check-line-citations.mjs` will not help: its two arms
    are blame-based drift and a blank cited line, so **a citation wrong when written exits 0
    silently** (non-negotiable 11).
-2. **Run the §7 `host-verify` contract** and the repo's gates that apply to your diff.
+2. **Run the §9 `host-verify` contract** — `bash scripts/host-verify.sh
+   .claude/orchestrator-prompts/getff-ai-site/kickoff-s0q.md` — and the repo's gates that apply
+   to your diff. The **path** form, never the slug form: `host-verify.sh getff-ai-site` resolves
+   to the umbrella's `kickoff.md` alone (`scripts/host-verify.sh:98`) and returns its always-green
+   lines, which say nothing about this stage.
 3. **Fix what you find here.** If `SECTIONS` moved, correct the numbers in your working copy of
    this prompt and report the correction. If `docs-card` already exists, STOP and surface — a
    second implementation is `#sync-by-copy-paste`, not progress.
@@ -142,11 +153,21 @@ Verify **and repair**, inside the container, before writing a production line:
 
 ## §5 Exit gate, seam, falsifier, measured
 
-- **Exit:** every S0q `test -e` line of the **S0b chip's `host-verify` contract** passes on the
-  host — that is D40 prerequisite (2)'s channel, and the chip exits 1 until it does
+- **Exit — one command, and it is not this stage's own contract:**
+
+  ```text
+  bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s0b.md
+  ```
+
+  Every S0q `test -e` line of the **S0b chip's `host-verify` contract** must pass on the host —
+  that is D40 prerequisite (2)'s channel, and the chip exits 1 until it does
   ([`roll.md:106`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md);
   D50 at `site-design.md:177`; D44's channel clause at `site-design.md:171`). Plus the ordinary
-  framework PR gates.
+  framework PR gates. The chip's contract lives in its own file
+  ([`kickoff-s0b.md §9`](kickoff-s0b.md)) precisely so this line is a command a person can run:
+  `host-verify.sh` collects only fences marked `host-verify` and concatenates every such fence in
+  one file, so while the contract sat inside the umbrella `kickoff.md` this exit was computable by
+  no command at all.
 - **Seam:** the S0b chip prompt's contract, run on the host **before** the chip starts; and
   `scripts/docs-check.mjs`'s own self-test fixtures per D30.
 - **Falsifiers (D50, verbatim):** S0q merged and the chip's `host-verify` still red → **a name in
@@ -159,9 +180,17 @@ Verify **and repair**, inside the container, before writing a production line:
 
 Separate from Phase 0, which ran before this work existed:
 
-1. Run `bash scripts/host-verify.sh getff-ai-site` against the **S0b chip's** contract as well as
-   this stage's, and quote both outputs. S0q is the stage whose exit is measured on another
-   prompt's contract; checking only your own is the omission this list exists for.
+1. Run **both** contracts by path and quote both outputs — this stage's and the chip's, because
+   S0q is the stage whose exit is measured on another prompt's contract and checking only your own
+   is the omission this list exists for:
+
+   ```text
+   bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s0q.md
+   bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s0b.md
+   ```
+
+   Never the slug form: `host-verify.sh getff-ai-site` resolves to the umbrella's `kickoff.md`
+   alone (`scripts/host-verify.sh:98`) and reports neither of these two.
 2. Fire the `docs-card` paired negative: a fixture PR range with one prose commit lacking
    `Docs-card:` must FAIL, and the same range with the trailer must PASS. A gate that has never
    gone RED is a claim, not a gate.
@@ -220,11 +249,13 @@ be shown to actually execute the section (quote its output, not its exit code).
 ```bash host-verify
 test -f .claude/skills/orchestrator/SKILL.md
 test -f .claude/skills/dispatcher/SKILL.md
+test -f .claude/skills/pipeline/SKILL.md
 test -f .claude/skills/harvest/SKILL.md
 test -f .claude/skills/claude-glm-executor-handoff/SKILL.md
 test -f .claude/skills/reviewer/SKILL.md
 test -f agents/fidelity-auditor.md
 test -n "$(find "$HOME/.claude/plugins/cache" -type f -name SKILL.md -path '*superpowers*/writing-plans/*' -print -quit)"
+test -n "$(find "$HOME/.claude/plugins/cache" -type f -name SKILL.md -path '*superpowers*/executing-plans/*' -print -quit)"
 test -n "$(find "$HOME/.claude/plugins/cache" -type f -name SKILL.md -path '*superpowers*/test-driven-development/*' -print -quit)"
 test -f docs/superpowers/specs/2026-09-14-getff-ai-docs-quality-contract-design.md
 test -f packages/core/hooks/pre-push.ts
@@ -237,7 +268,7 @@ bash scripts/check-ask-files.sh
 region (b) of `terms.md` reads the generator. If that line exits 1, **S0a has not merged** and this
 stage must not start.
 
-## §10 D44 — names this stage invokes, measured at `6472bf6f2c7`
+## §10 D44 — names this stage invokes, measured at `79fa1b56b74`
 
 `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`,
 `superpowers:writing-plans` (the Opus plan, P-R), `superpowers:executing-plans`,

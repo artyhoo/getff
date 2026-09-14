@@ -28,6 +28,8 @@ import {
   checkChannelMarkersLive,
   checkGlobParity,
   checkExclusionConsistency,
+  checkResidencyPartition,
+  excludeEntryMatchesPath,
   type RuleChannelFields,
 } from './31-rule-channel-declaration.ts';
 import { extractLivenessExemptions } from './rule-channel-glob.ts';
@@ -37,6 +39,16 @@ const REPO_ROOT = resolve(HERE, '../../..');
 const FIXTURES_DIR = resolve(HERE, 'fixtures/rule-channel');
 const REAL_SETTINGS_PATH = resolve(REPO_ROOT, '.claude/settings.json');
 const FIXTURE_SETTINGS_WITH_EXCLUDE = resolve(FIXTURES_DIR, 'settings-with-exclude.json');
+/** Excludes `**\/__fixture_resident_orphan__.md` and nothing else — the N31-7 positive control. */
+const FIXTURE_SETTINGS_PARTITION_COVERED = resolve(FIXTURES_DIR, 'settings-partition-covered.json');
+/** The synthetic rule path N31-7 works on. Never a real file: the whole leg is fixture-pinned. */
+const ORPHAN_REL = '.claude/rules/__fixture_resident_orphan__.md';
+const ORPHAN_NAME = '__fixture_resident_orphan__.md';
+
+/** One-entry population map, so nothing in the live rules tree can move an N31-7 verdict. */
+function orphanMap(fixtureName: string, syntheticName = ORPHAN_NAME): Map<string, RuleChannelFields> {
+  return new Map([[ORPHAN_REL, loadFixtureFields(fixtureName, syntheticName)]]);
+}
 
 function loadFixtureFields(fixtureName: string, syntheticName?: string): RuleChannelFields {
   const abs = resolve(FIXTURES_DIR, fixtureName);
@@ -295,6 +307,122 @@ describe('Principle 31 — every rule declares a delivery channel (4-branch PASS
       expect(FIXTURE_SETTINGS_WITH_EXCLUDE).not.toEqual(REAL_SETTINGS_PATH);
       const fixtureRaw = JSON.parse(readFileSync(FIXTURE_SETTINGS_WITH_EXCLUDE, 'utf8'));
       expect(fixtureRaw.claudeMdExcludes.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ---- N31-7 — the residency partition (the invariant that fell between 31 and 34) ----
+
+  describe('residency partition — real-repo sweep (GREEN ON LANDING, and said so)', () => {
+    // This leg was verified green BEFORE it was proposed: on origin/staging the 29 enumerated
+    // rules split 19 `paths:`-gated + 2 ALWAYS_ON_CORE + 8 claudeMdExcludes-matched, leftover 0.
+    // A gate that is green the day it lands has proved nothing about itself — that is what the
+    // N31-7 fixture legs below are for. This leg's job is to keep it green.
+    it('no enumerated rule is resident-but-undeclared', () => {
+      const files = enumerateRuleFiles(REPO_ROOT);
+      const fieldsByPath = new Map<string, RuleChannelFields>();
+      for (const rel of files) fieldsByPath.set(rel, parseRuleChannelFields(rel, REPO_ROOT));
+      const errs = checkResidencyPartition(fieldsByPath, REAL_SETTINGS_PATH);
+      expect(errs, `Residency-partition violations:\n${errs.join('\n')}`).toHaveLength(0);
+    });
+
+    it('ANTI-VACUITY: all three exempting branches are actually populated in the real repo', () => {
+      // Without this, the leg above would still pass if (say) every rule became `paths:`-gated
+      // and the exclude list went empty — the partition would hold for a reason that has nothing
+      // to do with the invariant being enforced. Each branch must carry real members.
+      const files = enumerateRuleFiles(REPO_ROOT);
+      const fieldsByPath = new Map<string, RuleChannelFields>();
+      for (const rel of files) fieldsByPath.set(rel, parseRuleChannelFields(rel, REPO_ROOT));
+      const excludes = JSON.parse(readFileSync(REAL_SETTINGS_PATH, 'utf8')).claudeMdExcludes ?? [];
+
+      let pathGated = 0;
+      let core = 0;
+      let excluded = 0;
+      for (const [rel, fields] of fieldsByPath) {
+        if (fields.paths && fields.paths.length > 0) pathGated += 1;
+        else if (ALWAYS_ON_CORE.includes(fields.name)) core += 1;
+        else if (excludes.some((e: string) => excludeEntryMatchesPath(e, rel))) excluded += 1;
+      }
+      expect(pathGated, 'no path-gated rule left — branch (a) is vacuous').toBeGreaterThan(0);
+      expect(core, 'no ALWAYS_ON_CORE member enumerated — branch (c) is vacuous').toBeGreaterThan(0);
+      expect(excluded, 'no excluded rule matched — branch (excluded) is vacuous').toBeGreaterThan(0);
+      expect(pathGated + core + excluded).toBe(fieldsByPath.size);
+    });
+  });
+
+  describe('N31-7 — resident-but-undeclared must RED (fixture rules + FIXTURE settings only)', () => {
+    // SIBLING-CHANNEL PINNING (precedent PR #1644 -> #1651). Principles 31 and 34 both read
+    // `.claude/settings.json`; a test of one can pass on the other's side effect. Every leg here
+    // injects BOTH inputs — a one-entry synthetic map and a fixture settings file — so neither
+    // the live rules tree nor the committed exclude list can move any verdict below.
+    it('RED: a rule with no paths:, not core, matched by no exclude entry -> flagged', () => {
+      const errs = checkResidencyPartition(
+        orphanMap('valid-channel-exception.md'),
+        FIXTURE_SETTINGS_WITH_EXCLUDE, // non-empty, but matches a DIFFERENT rule
+      );
+      expect(errs.length).toBeGreaterThan(0);
+      expect(errs.join(' ')).toMatch(/RESIDENT but undeclared/);
+    });
+
+    it('THE GAP, stated as an assertion: that same fixture PASSES evaluateRuleChannel', () => {
+      // This is why the partition needed its own check rather than another branch of the
+      // existing predicate. `valid-channel-exception.md` carries a live <!-- channel: ... -->
+      // marker, so principle 31's 4-branch predicate is green on it — while the rule is still
+      // auto-loaded into every session. Delivery and residency are different questions.
+      const fields = loadFixtureFields('valid-channel-exception.md', ORPHAN_NAME);
+      expect(evaluateRuleChannel(fields, REPO_ROOT).ok).toBe(true);
+    });
+
+    it('positive control (excluded): same fixture rule, an exclude entry that matches -> passes', () => {
+      const errs = checkResidencyPartition(
+        orphanMap('valid-channel-exception.md'),
+        FIXTURE_SETTINGS_PARTITION_COVERED,
+      );
+      expect(errs).toHaveLength(0);
+    });
+
+    it('positive control (paths:): a path-gated fixture rule is exempt without any exclude entry', () => {
+      const errs = checkResidencyPartition(
+        orphanMap('dead-glob.md'), // carries `paths:` frontmatter
+        FIXTURE_SETTINGS_WITH_EXCLUDE,
+      );
+      expect(errs).toHaveLength(0);
+    });
+
+    it('positive control (ALWAYS_ON_CORE): a core-named rule is exempt without any exclude entry', () => {
+      const errs = checkResidencyPartition(
+        orphanMap('valid-channel-exception.md', 'attention-is-not-a-mechanism.md'),
+        FIXTURE_SETTINGS_WITH_EXCLUDE,
+      );
+      expect(errs).toHaveLength(0);
+    });
+
+    it('a missing settings file is a vacuous PASS, not a crash', () => {
+      const errs = checkResidencyPartition(
+        orphanMap('dead-glob.md'),
+        resolve(FIXTURES_DIR, '__no-such-settings__.json'),
+      );
+      expect(errs).toHaveLength(0);
+    });
+
+    it('PIN: neither fixture settings file is the real .claude/settings.json', () => {
+      expect(FIXTURE_SETTINGS_PARTITION_COVERED).not.toEqual(REAL_SETTINGS_PATH);
+      expect(FIXTURE_SETTINGS_WITH_EXCLUDE).not.toEqual(REAL_SETTINGS_PATH);
+      expect(existsSync(resolve(REPO_ROOT, ORPHAN_REL))).toBe(false);
+    });
+  });
+
+  describe('excludeEntryMatchesPath — the picomatch port keeps resolveExcludeEntry honest', () => {
+    it('the live `**/<name>.md` form reaches a dot-prefixed directory', () => {
+      expect(excludeEntryMatchesPath('**/x.md', '.claude/rules/x.md')).toBe(true);
+    });
+
+    it('does not match on a partial basename', () => {
+      expect(excludeEntryMatchesPath('**/x.md', '.claude/rules/xx.md')).toBe(false);
+    });
+
+    it('the historical relative form exact-matches and does not match by suffix', () => {
+      expect(excludeEntryMatchesPath('.claude/rules/x.md', '.claude/rules/x.md')).toBe(true);
+      expect(excludeEntryMatchesPath('.claude/rules/x.md', 'other/.claude/rules/x.md')).toBe(false);
     });
   });
 

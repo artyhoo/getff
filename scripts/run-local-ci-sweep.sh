@@ -4,6 +4,12 @@
 # Default: diff-aware (vs merge-base), cheapest-first, fail-fast, fail-safe to full.
 # `--full` runs the complete set regardless of the diff.
 #
+# It gates COMMITTED work: gate SELECTION comes from `git diff <merge-base>...HEAD`, because
+# that is what CI will see. Uncommitted edits are therefore invisible to the selection layer,
+# and the sweep refuses (rc 3) rather than answering rc 0 when that leaves it with no gates at
+# all on a dirty tree. See the `dirty-tree-zero-gates` block at the tail for why the refusal is
+# scoped to that case and not to every dirty tree.
+#
 # The sweep aggregates the gates the GitHub-CI jobs run (audit-self.yml). It exists so a
 # harvested aif branch is checked against the real gate set locally before push — the
 # recurring "pushed, CI reddened on a gate I didn't re-run" failure (PR #724).
@@ -54,9 +60,11 @@
 #   backends/synthesizer/units/skills/spec-validation, the two drift gates, the
 #   tests/hooks/*.test.sh battery) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
-#   scripts/measure/measure.test.sh (the recap-v2 measurement-script oracle; it needs its OWN
-#   row because the derived `script-selftests` row greps `scripts/<name>.test.sh` and cannot see
-#   a test one directory deeper) ·
+#   scripts/measure/measure.test.sh (the recap-v2 measurement-script oracle; it kept its OWN
+#   row from when the derived `script-selftests` row could only see `scripts/<name>.test.sh`.
+#   Since 2026-09-14 that derivation also reaches one directory deeper — it had to, or
+#   `scripts/lib/claude-md-excludes.test.sh` would have been wired in CI and invisible to the
+#   sweep — so this row is now belt-and-braces rather than the only coverage) ·
 #   tests/plugin/twin-generation.test.sh (plugin twin generator acceptance — the
 #   `plugin-twin-tests` row). Named literally, not as a `tests/plugin/*` loop, so that a future
 #   test added to that dir but wired to NO CI step stays out of the sweep — same reasoning as
@@ -135,6 +143,8 @@ while [ $# -gt 0 ]; do
     -h | --help)
       echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates]"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
+      echo "exit:  0 gates passed (or nothing to do on a clean tree) · 1 a gate failed"
+      echo "       2 bad usage · 3 refused: dirty tree, committed diff selected no gates"
       exit 0 ;;
     *) echo "[sweep] unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -152,13 +162,22 @@ gate_table() {
   # framework-self matrix). A `.md` diff gets an honest advisory gate instead.
   #
   # Two rows DERIVE their content from .github/workflows/audit-self.yml rather than restating
-  # it: `script-selftests` greps the workflow for the scripts/*.test.sh steps it actually runs,
+  # it: `script-selftests` greps the workflow for the scripts/**/*.test.sh steps it actually runs,
   # and `toolchain_pins_ok` reads the ast-grep/ruff/rustc pins out of their install steps. A
   # hand-maintained list of either goes stale silently — the first version of this row named
   # four self-tests and was already one short (`host-verify-coverage.test.sh`, added to CI in
   # #1339) before it ever merged. Deriving means a new CI step joins the sweep for free, and a
   # test present in scripts/ but wired to NO CI step (probe-channels.test.sh at time of
   # writing) correctly stays out — the sweep predicts CI, it does not invent gates.
+  #
+  # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
+  # one quarantined test — see that file's header). THIS file is delivered into consumer projects
+  # (setup.d/10-skills.sh:172, install.sh:1156) and the runner is NOT, which is deliberate: a
+  # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
+  # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
+  # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
+  # Shipping the runner would add an artefact to the install manifest for a battery consumers do
+  # not have.
   #
   # `sweep-ci-coverage` is listed explicitly even though `script-selftests` would derive it: that
   # row's trigger is `scripts/` only, and a workflow-only diff — precisely the diff this metatest
@@ -183,14 +202,14 @@ gate_table() {
     "2${TAB}rule-index-check${TAB}.claude/rules/,AGENTS.md,scripts/render-rule-index.mjs${TAB}npx tsx scripts/render-rule-index.mjs --check" \
     "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
     "2${TAB}presets-check${TAB}packages/core/templates/shared/AI-USAGE-GUIDE.md,.claude/skills/pipeline/references/presets/,scripts/render-presets.mjs${TAB}npx tsx scripts/render-presets.mjs --check" \
-    "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
+    "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}install.sh,setup,setup.d/,agents/,skills/,templates/,.claude/,.prettierrc.json,packages/,scripts/${TAB}bash scripts/build-getff-dist.sh --check" \
-    "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
+    "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
-    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do /bin/bash \"\$t\" || exit 1; done" \
+    "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}bash scripts/run-install-sh-suite.sh tests/install-sh/" \
     "5${TAB}agnosticism${TAB}packages/core/${TAB}bash tests/agnosticism/harness-self.test.sh" \
     "5${TAB}premerge-carrier-selftest${TAB}packages/core/audit-self/${TAB}bash packages/core/audit-self/pre-merge-local.test.sh" \
     "5${TAB}mutation-runner-selftest${TAB}packages/core/synthesizer/${TAB}bash packages/core/synthesizer/run-generated-rule-mutation.test.sh && bash packages/core/synthesizer/run-rule-tests-firing.test.sh" \
@@ -264,6 +283,16 @@ changed_paths() {
   if [ -n "${SWEEP_DIFF_OVERRIDE:-}" ]; then printf '%s\n' $SWEEP_DIFF_OVERRIDE; return; fi
   local base="${BASE_REF:-$(git merge-base origin/staging HEAD 2>/dev/null || echo HEAD~1)}"
   git diff --name-only "${base}...HEAD"
+}
+
+# --- working-tree changes the committed diff above cannot see ---
+# Raw `git status --porcelain` lines, status letters kept: `M` vs `??` is the operator's first
+# question when the refusal below fires, and re-deriving it costs a second command. Gitignored
+# files are absent by construction (no `--ignored`), which is right — CI never sees them either.
+# Outside a repo (or with git absent) this yields nothing and the refusal cannot fire; the
+# sweep degrades to its previous behaviour rather than blocking on a condition it cannot read.
+dirty_paths() {
+  git status --porcelain 2>/dev/null
 }
 
 # --- trigger_matches <trigger-list> <path> ---
@@ -357,6 +386,20 @@ ensure_log_dir() {
   return 0
 }
 
+# ── fd 3: the live progress channel ────────────────────────────────────────────────────────────
+# Gate output is CAPTURED (see the eval line below), so a long-running gate is silent for its whole
+# duration: while `install-sh-suite` ran its 114-file battery the sweep printed nothing for ~30
+# minutes and a working run was indistinguishable from a hung one — proving liveness meant walking
+# the process tree with `pgrep -P` by hand, three times in one session on 2026-09-14. A mechanism
+# whose state is recovered by human attention is the shape
+# .claude/rules/attention-is-not-a-mechanism.md §1 forbids.
+#
+# fd 3 is the escape hatch: it is NOT touched by the `2>&1` capture, so anything a gate writes
+# there reaches the operator live. Gates that emit progress must write to fd 3 and must tolerate
+# it being closed (they run standalone in CI too) — see scripts/run-install-sh-suite.sh
+# `progress()`. Nothing is FORCED onto fd 3: a gate that ignores it behaves exactly as before.
+exec 3>&2
+
 ran=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
 while IFS="$TAB" read -r _ name trigger cmd; do
@@ -411,6 +454,32 @@ $SORTED
 EOF
 
 if [ "$ran" -eq 0 ]; then
+  # Zero gates ran. `changed_paths` reads the COMMITTED diff, so this is an honest answer only
+  # when the working tree is also clean. On a dirty tree it is the false-green this script's
+  # `</dev/null` note above already names as worse than no sweep: an operator who runs the sweep
+  # mid-work to check their edits gets rc 0 about changes no gate ever looked at. Measured
+  # 2026-09-14 (worktree cool-swanson-d3f4b6): two modified-but-uncommitted files produced
+  # exactly `SWEEP: no gates selected for this diff (mode=diff)` and EXIT=0.
+  #
+  # The refusal is the EXIT CODE, not this text — a warning line whose only consumer is someone
+  # reading the log is `#warning-nobody-reads`
+  # (.claude/rules/attention-is-not-a-mechanism.md §2), which is what the defect already was.
+  #
+  # Scoped to the zero-gates case deliberately. Refusing on ANY dirty tree would break the
+  # script's own stated purpose (line 2: harvest pre-push): .claude/skills/harvest/SKILL.md §1
+  # harvests a COMMITTED branch out of a deliberately polluted worktree, and the harvest base
+  # clone measured 12 dirty entries (5 tracked-modified) on 2026-09-14. A harvested branch is
+  # ≥1 commit ahead by construction, so its committed diff always selects a gate and this
+  # branch is unreachable there — pinned by the third new arm in run-local-ci-sweep.test.sh.
+  DIRTY="$(dirty_paths)"
+  if [ -n "$DIRTY" ]; then
+    echo "[sweep] FAIL dirty-tree-zero-gates — the committed diff selected no gates, and these"
+    echo "        working-tree changes were examined by nothing:"
+    printf '%s\n' "$DIRTY" | sed 's/^/          /'
+    echo "SWEEP: REFUSED (mode=$MODE) — the sweep gates COMMITTED work; commit the paths above"
+    echo "SWEEP: and re-run, or pass --base <ref> to scope it against a different committed base"
+    exit 3
+  fi
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
   echo "SWEEP: $ran gate(s) passed (mode=$MODE)"
