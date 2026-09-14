@@ -64,30 +64,55 @@ Falsifier: an agent-authored PR edits `README §Why this exists` and merges with
 
 The spec enumerates **eleven** GO sites in [`aif-doctor/SKILL.md`](../../skills/aif-doctor/SKILL.md)
 (`:41, :88, :90, :91, :94, :100, :104, :105, :244, :256, :307`). **All eleven still land on their
-intended content at the measurement SHA — no drift.** But a predicate sweep
-(`operator GO` / `«GO»` / word-boundary `GO`) over that file returns **22** GO-bearing lines. The
-eleven are a spelling-scoped subset. The extra eleven are `:67`, `:69`, `:70`, `:114`, `:198`,
-`:199`, `:210`, `:227`, `:229`, `:241`, `:247`, and four of them are decision-class-bearing rather
-than incidental:
+intended content at the measurement SHA — no drift.** But they are a spelling-scoped subset.
 
-- `:198` — «Release a review park (Tier 2 — GO)»
-- `:199` — «Bijection-deadlocked state reset (Tier 2 — GO + backup)»
-- `:210` — the `### Tier 1 — Reversible config (auto-apply, no GO needed)` heading
-- `:229` — the `### Tier 2 — Destructive or system-disruptive (GO required)` heading
+**The sweep, and the first draft's own error.** The first draft of this section said «22
+GO-bearing lines» and listed eleven extras. Both numbers were assembled by recall. Run the
+predicate instead:
 
-**S5 classifies all 22, not eleven**, and the PR body carries the table. The spec's intended split
-is unchanged and binding:
+```bash
+git grep -n '\bGO\b' 2fb69aa00d7d4d4b30f257c3d592f18f065570fc -- .claude/skills/aif-doctor/SKILL.md
+```
+
+It returns **24** lines: `:23 :41 :67 :69 :70 :88 :90 :91 :94 :100 :104 :105 :150 :198 :199 :210
+:227 :229 :241 :244 :247 :256 :307 :320`. Three of them — **`:23`, `:150`, `:320`** — were in
+neither of the first draft's lists, and its `:114` is a **false positive**: that line reads «**Go**
+straight to», an ordinary verb that only a case-insensitive match picks up. Word-boundary `GO` is
+the declared predicate; `:114` is not a GO site.
+
+**S5 classifies all 24 and puts the table in the PR body.** The spec's intended split is unchanged
+and binding:
 
 - **GO STAYS** on task DELETE (`:104`, destructive), paid API transport Fix C (`:94`, spend — the
   night-v3 §6 floor plus [`no-paid-llm-in-ci.md`](../../rules/no-paid-llm-in-ci.md)), and the cap
   bump (`:105`, standing config — the D-B floor list).
 - **GO IS REMOVED** on the reversible in-container fixes only: image rebuild (`:88`), in-container
   install (`:90`), mirror install (`:91`).
-- `:41`, `:256`, `:307` — the file's own «gates every state-changing fix» summaries — are
-  **restated** to that split. `:100` is a historical note; untouched.
-- The Tier headings at `:210`/`:229` are the file's own definition of the split. If the reworded
-  summaries and these headings disagree, the file contradicts itself — reconcile them in the same
-  commit.
+- **RESTATED to the split** — the file's own summaries of «mutation needs GO»: `:41`, `:256`,
+  `:307`, plus the two the first draft missed: the `Authoritative for:` header at **`:23`** («the
+  read-only health-sweep → classify → emit-mapped-fix → mutation-needs-GO flow») and the See-also
+  line at **`:320`** («Tier 2 mutations surface for GO; Tier 1 reversible fixes auto-apply»). A
+  restated body with an unrestated header is the doc contradicting itself at its most-read line.
+- **UNTOUCHED, and why each** — the first draft left these without a disposition, which is how
+  `:244` ended up cited by the spec and disposed of by nobody:
+  - `:241` and **`:244`** are the two GO-bearing lines of the **Tier-2 emission template** (the
+    fenced `MUTATION (needs GO): …` / `Awaiting operator GO.` block at `:240-245`). They are the
+    mechanism by which a GO is requested, not a decision about which fixes need one. They survive
+    the split verbatim — D5c removes three call sites, not the channel.
+  - `:210` / `:229` are the Tier-1 and Tier-2 **headings** — the file's own definition of the
+    split. `:227` («Then continues without pausing for GO») and `:247` (the 2026-06-04 rationale)
+    are that definition's prose. If the reworded summaries and these disagree, the file
+    contradicts itself — reconcile in the same commit.
+  - `:198`, `:199` are the Tier-2 register rows (release a review park; bijection-deadlocked state
+    reset). Out of D5c's scope — neither is an in-container reversible fix.
+  - `:150` already states «No GO needed» for a Tier-1 heal: it is on the split's side already.
+  - `:67`, `:69`, `:70` are the §0 workflow's own steps — «Read-only sweep (autonomous, no GO)»,
+    the emit step, «On GO (and only then)». They describe the two-tier procedure generically and
+    stay true under the split; check them against the reworded summaries and leave them alone
+    unless they disagree. Do **not** classify them as narrative — the first draft did, and they
+    are procedure.
+  - `:100` is the one genuinely historical line («added 2026-06-27 under operator GO», a dated
+    override note); untouched.
 
 Falsifier: a session switches aif to a paid transport without asking (R-6).
 
@@ -114,15 +139,49 @@ Write into the rule text, as a positive-and-negative pair:
 - (c) rename `#worker-dispatch-via-subagent` → `#umbrella-execution-launch-without-operator` **in
   LIVE texts only**, with one «formerly …» line.
 
-**LIVE = what an agent reads to act today** (34 files per the spec's cold review F12):
-`.claude/skills/*` (3 files), `.claude/rules/*`,
-[`.claude/hooks/check-worker-dispatch-channel.sh`](../../hooks/check-worker-dispatch-channel.sh)
-plus its `plugin/hooks/check-worker-dispatch-channel` twin (regenerates via pre-commit), principle
-29's module + `.bin.ts` + `.test.ts` + fixtures — all five files exist and **move together or the
-twin-identity check goes red** — and `docs/meta-factory/open-questions.md`.
-**FROZEN = untouched:** closed kickoffs and `done.md` (13 files), research-patches, specs, retros.
-The old name surviving in the frozen set is intentional; the «formerly» line is what makes it
-readable.
+**The rename set, re-measured — the first draft of this section was wrong in four ways and a
+cold review caught all four.** Ground truth, 35 files:
+
+```bash
+git grep -l 'worker-dispatch-via-subagent' 2fb69aa00d7d4d4b30f257c3d592f18f065570fc
+```
+
+**LIVE = what an agent reads to act today (9 files) — rename all of them:**
+
+| File | Note |
+|---|---|
+| [`.claude/hooks/check-worker-dispatch-channel.sh`](../../hooks/check-worker-dispatch-channel.sh) | the gate itself |
+| `plugin/hooks/check-worker-dispatch-channel` | **generated** twin — regenerates via pre-commit, never hand-edit |
+| `packages/core/hooks/check-worker-dispatch-channel.test.ts` | the gate's paired-negative suite — live machinery, and the first draft listed it in NEITHER set |
+| `packages/core/principles/29-worker-dispatch-channel.ts` | principle 29's module |
+| `packages/core/principles/29-worker-dispatch-channel.bin.ts` | its binary arm |
+| `packages/core/principles/29-worker-dispatch-channel.test.ts` | its suite |
+| [`.claude/skills/pipeline/SKILL.md`](../../skills/pipeline/SKILL.md) | `:389`, under the hard line budget below |
+| `.claude/skills/pipeline/references/output-format.md` | |
+| `.claude/skills/night-mode/SKILL.md` | |
+
+**There are exactly THREE principle-29 files, and there are NO principle-29 fixtures.** The first
+draft said «module + `.bin.ts` + `.test.ts` + fixtures — all five files exist», which is false at
+this SHA: `packages/core/principles/fixtures/` holds only `adapter-jig/` and `rule-channel/`
+material belonging to other principles. It also contradicted §5 of this same kickoff, which
+correctly says the only principle-29 fixture (`fixtures/29-corpus-verdicts.json`) is NEW and this
+stage creates it. Trust §5.
+
+**Two surfaces the first draft named as LIVE carry ZERO occurrences** — do not go looking for
+edits there: `.claude/rules/*` (`git grep -c … -- .claude/rules/` → no hits) and
+`docs/meta-factory/open-questions.md` (same). The rule text the protections (a) and (b) above land
+in is [`.claude/rules/parallel-subwave-isolation.md`](../../rules/parallel-subwave-isolation.md)'s
+neighbourhood — but it holds no occurrence of the old name, so that is an ADDITION, not a rename.
+
+**FROZEN = untouched (25 files):** 13 under `.claude/orchestrator-prompts/**` (12 `kickoff*.md`
+plus `meta-orch-channel-discipline/done.md`) and 12 research-patches and specs. The old name
+surviving there is intentional; the «formerly …» line is what keeps it readable.
+
+**SSOT — `docs/meta-factory/prior-art-evaluations.md`: leave it, and say why.** It is an
+append-only register per [CLAUDE.md](../../../CLAUDE.md)'s Artifact Ownership Contract; a landed
+row records what was evaluated under the name it had. It is neither LIVE prose nor a frozen
+kickoff, and the first draft simply omitted it. Add the «formerly» pointer to the NEW row this
+stage writes, never rewrite the old one.
 
 **Line budget — hard.** [`pipeline/SKILL.md`](../../skills/pipeline/SKILL.md) is at **exactly 600
 lines** (measured), the pre-commit markdown ceiling, with no exemption. The rename lands there
@@ -196,8 +255,14 @@ matcher. A narrowing validated only by «the negative case now passes» has meas
   have kept.
 - `pipeline/SKILL.md` lands at 601 lines → the net-zero rename constraint was not honoured, and
   pre-commit will say so before CI does.
-- The corpus snapshot is captured with a flip nobody examined → the precondition became the thing
-  it was built to replace.
+- **The corpus snapshot and the matcher narrowing land in the same commit.** Then no run ever
+  produced the pre-narrowing verdict vector, the flip set is empty by construction, and the
+  precondition has become the `#warning-nobody-reads` shape it was built to replace. Checkable,
+  and check it: `git log --oneline --follow -- packages/core/principles/fixtures/29-corpus-verdicts.json`
+  must show the snapshot committed **strictly before** the commit that edits
+  `29-worker-dispatch-channel.ts`, and running the narrowed matcher against that snapshot must
+  yield a non-empty flip list every entry of which is named in the PR body with a per-entry
+  verdict. A green first run of the new arm is the failure, not the pass.
 
 ## §10 Out of scope
 
