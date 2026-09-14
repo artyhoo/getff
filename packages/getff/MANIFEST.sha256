@@ -6,7 +6,7 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-9ffa59741fad03236041d55ab58710497775fbd928feeaff10e54274d61fa845  .claude/hooks/end-of-turn-reminder.sh
+6ddc92633cb10cbbb6025663464a5a8f0edb0035dd6df99833a5ae9c3c1c84d5  .claude/hooks/end-of-turn-reminder.sh
 0172e377f71e667e1832ceb3edeaf06a080c0af2236fa8ec1a6769b97ecaecb5  .claude/hooks/inject-handoff-on-compact.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh

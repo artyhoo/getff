@@ -756,7 +756,7 @@ _eot_recap_line_count() {
   ' <<<"$1"
 }
 
-# Leading literal of one "От тебя:" value scalar. The scalars carry a placeholder
+# Leading literal of one AIF_EOT_FOR_YOU_* value scalar. The scalars carry a placeholder
 # (`nothing (<what you would check…>)`), so only the part BEFORE the first `<` or `(` is the
 # fixed token the model must reproduce. Derived rather than hard-coded: the packs are the
 # single source of the four values (D-B, R-17), so a pack edit moves the gate with it and
