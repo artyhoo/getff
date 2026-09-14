@@ -25,6 +25,9 @@
  *   - agents/\*.md
  *   - packages/core/\*\*\/\*.ts ≥50 LOC (non-test)
  *   - packages/\*\*\/\*.ts ≥80 LOC (non-test, non-node_modules)
+ *   The packages/\*\* arms are restricted to files GIT TRACKS — an untracked file has no
+ *   add-event, so it can only ever resolve to `__no-introducing-commit__` (a pass) while
+ *   costing one history walk. See `collectCapabilityTsFiles` and the capability-walk suite.
  *   Note: package.json dep enumeration deferred; pre-push hook is HOT enforcement.
  *
  * Capability set intentionally excludes *.test.ts / *.spec.ts / __tests__ files.
@@ -51,7 +54,7 @@
  * artifact and must pass the invariant (verified post-commit via case 7).
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, relative, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -63,7 +66,6 @@ const SSOT_PATH = resolve(REPO_ROOT, 'docs/meta-factory/prior-art-evaluations.md
 const RULES_DIR = resolve(REPO_ROOT, '.claude/rules');
 const SKILLS_DIR = resolve(REPO_ROOT, '.claude/skills');
 const AGENTS_DIR = resolve(REPO_ROOT, 'agents');
-const PACKAGES_DIR = resolve(REPO_ROOT, 'packages');
 
 const GRANDFATHER_COMMIT = '809d7eb';
 
@@ -165,34 +167,80 @@ function getCapabilityFiles(): string[] {
     }
   }
 
-  collectTsCapabilities(PACKAGES_DIR, seen);
+  for (const f of collectCapabilityTsFiles(REPO_ROOT)) seen.add(f);
   return [...seen].sort();
 }
 
-function collectTsCapabilities(pkgsRoot: string, seen: Set<string>): void {
+/**
+ * Absolute paths of every file git tracks under `repoRoot`. `git ls-files` reads
+ * the INDEX, so a staged-but-not-yet-committed file counts — the same thing that
+ * is true of the capability definition in CLAUDE.md, which is about what a commit
+ * adds. One subprocess (~30ms over this repo's index).
+ */
+export function getTrackedFileSet(repoRoot: string): Set<string> {
+  const out = execSync('git ls-files -z', {
+    encoding: 'utf8',
+    cwd: repoRoot,
+    maxBuffer: 512 * 1024 * 1024,
+    env: GIT_ENV_SCRUB,
+  });
+  const set = new Set<string>();
+  // -z: NUL-separated, so git does not quote paths with spaces or non-ASCII bytes.
+  for (const rel of out.split('\0')) if (rel) set.add(resolve(repoRoot, rel));
+  return set;
+}
+
+/**
+ * The `packages/**` half of the capability set, rooted at `repoRoot` so the
+ * paired tests below can run it against a throwaway repo instead of this one.
+ *
+ * WHY THE POPULATION IS THE TRACKED SET. An untracked file cannot have a git
+ * add-event, so `resolveIntroducingSha` returns null for it, the batched index
+ * hands it to the authoritative per-path `git log` walk, and `assertF1` then
+ * returns early on the `__no-introducing-commit__` that walk produces. Untracked
+ * files therefore contribute exactly zero verdicts and one history walk each —
+ * they are pure cost, in precisely the residue the batched index exists to keep
+ * small. Filtering them out is verdict-preserving by construction and is what
+ * the capability definition (CLAUDE.md, «adds a new file ≥N LOC») already means.
+ *
+ * The population this removes is not hypothetical: `scripts/build-getff-dist.sh`
+ * assembles the npm tarball payload INTO `packages/getff/` (its PAYLOAD list,
+ * scripts/build-getff-dist.sh:42) and `packages/getff/.gitignore` keeps it
+ * untracked, so any tree where the assembler or `npm pack`'s prepack has run
+ * carried a second copy of `packages/core/**` into this walk. See the
+ * capability-walk suite at the bottom of this file for the measurements.
+ */
+export function collectCapabilityTsFiles(repoRoot: string): string[] {
+  const pkgsRoot = resolve(repoRoot, 'packages');
+  const seen = new Set<string>();
+  if (!existsSync(pkgsRoot)) return [];
+  const tracked = getTrackedFileSet(repoRoot);
   const coreRoot = resolve(pkgsRoot, 'core');
   for (const d of readdirSync(pkgsRoot, { withFileTypes: true })) {
     if (!d.isDirectory()) continue;
     const pkgDir = resolve(pkgsRoot, d.name);
     const minLoc = pkgDir === coreRoot ? 50 : 80;
-    collectTsFiles(pkgDir, minLoc, seen);
+    collectTsFiles(pkgDir, minLoc, seen, tracked);
   }
+  return [...seen].sort();
 }
 
-function collectTsFiles(dir: string, minLoc: number, seen: Set<string>): void {
+function collectTsFiles(dir: string, minLoc: number, seen: Set<string>, tracked: Set<string>): void {
   if (dir.endsWith('/node_modules') || dir.includes('/node_modules/')) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = resolve(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === 'node_modules') continue;
-      collectTsFiles(full, minLoc, seen);
+      collectTsFiles(full, minLoc, seen, tracked);
     } else if (
       entry.isFile() &&
       entry.name.endsWith('.ts') &&
       !entry.name.endsWith('.test.ts') &&
       !entry.name.endsWith('.spec.ts') &&
       !dir.endsWith('/__tests__') &&
-      !dir.includes('/__tests__/')
+      !dir.includes('/__tests__/') &&
+      // Cheapest discriminator first — it also spares the LOC read.
+      tracked.has(full)
     ) {
       const loc = readFile(full).split('\n').length;
       if (loc >= minLoc) seen.add(full);
@@ -640,6 +688,22 @@ describe('Principle 11 — build-first reuse-default', () => {
   // rather than 243 of them.
   // A regression past 30s means the index degraded or the residue exploded —
   // investigate before raising this. F3 then hits the cached trailers map (sub-ms).
+  //
+  // 2026-09-14 — the residue DID explode, and the trigger sentence above is what
+  // caught it. `scripts/build-getff-dist.sh` assembles the npm tarball payload
+  // into `packages/getff/`, gitignored; every copied `.ts` file over the 80-LOC
+  // floor joined the population, none had an add-event, so each one bought a
+  // full per-path walk it could never resolve. Measured on this repo, idle host:
+  //   payload present  400 capability files (151 untracked)  F1 12.8s
+  //   payload absent   249 capability files                  F1  3.9s
+  // Two sessions hit it independently; one saw 36208ms against this budget in a
+  // `run-local-ci-sweep.sh --full` run, because the sweep's OWN
+  // `getff-dist-manifest` gate assembles the payload before `vitest-principles`
+  // runs — the gate poisoned a later gate in the same sweep. The fix was the
+  // population (restrict the packages/** arms to tracked files), NOT the budget,
+  // which stays at 30s. `collectCapabilityTsFiles` carries the argument for why
+  // that is verdict-preserving; the capability-walk suite at the bottom of this
+  // file is the gate that keeps it from coming back.
   it('F1: all post-grandfather capability artifacts have SSOT match or Prior-art trailer', { timeout: 30000 }, () => {
     const { ssotContent, files, trailers } = scanCapabilities();
     expect(files.length, 'capability set must be non-empty').toBeGreaterThan(0);
@@ -826,16 +890,17 @@ describe('Principle 11 — build-first reuse-default', () => {
 // the kickoff §3 item 2 enumerates. The legacy getPriorArtTrailerLegacy3Calls
 // is referenced where its behaviour defines "correct".
 
-describe('Principle 11 — single-call lookup awkward cases', () => {
-  // Helper: create a temp git repo, return its path. Caller cleans up.
-  function makeTempRepo(): string {
-    const dir = mkdtempSync(join(tmpdir(), 'p11-equiv-'));
-    execSync('git init -q', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
-    execSync('git config user.email test@example.com', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
-    execSync('git config user.name Test', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
-    return dir;
-  }
+// Helper: create a temp git repo, return its path. Caller cleans up. Module-scoped
+// because both the awkward-case suite and the capability-walk suite build fixtures.
+function makeTempRepo(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'p11-equiv-'));
+  execSync('git init -q', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+  execSync('git config user.email test@example.com', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+  execSync('git config user.name Test', { cwd: dir, encoding: 'utf8', env: GIT_ENV_SCRUB });
+  return dir;
+}
 
+describe('Principle 11 — single-call lookup awkward cases', () => {
   function commit(dir: string, msg: string, dateIso: string, files: { name: string; content: string }[]): void {
     for (const f of files) {
       writeFileSync(join(dir, f.name), f.content);
@@ -1129,5 +1194,105 @@ describe('Principle 11 — single-call lookup awkward cases', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+// ── Capability-walk population ───────────────────────────────────────────────
+// `scripts/build-getff-dist.sh` assembles the npm tarball payload INTO
+// `packages/getff/` itself (PAYLOAD list, scripts/build-getff-dist.sh:42), where
+// `packages/getff/.gitignore` keeps every copied root untracked. So any working
+// tree in which somebody has run the assembler — or `npm pack`'s `prepack` —
+// carries a second, untracked copy of `packages/core/**` under
+// `packages/getff/packages/core/**`, and the walk used to collect all of it.
+//
+// Those copies could never change a verdict: none has a git add-event, so
+// `resolveIntroducingSha` returns null, every one falls through to the
+// authoritative per-path `git log` walk, and `assertF1` then returns early on
+// `__no-introducing-commit__`. Pure cost, in exactly the residue the batched
+// index exists to keep small. Measured on this repo 2026-09-14, idle host:
+//   payload absent   183 capability files   F1  3.9s
+//   payload present  334 capability files   F1 12.8s
+// The cost-model comment above records ~2.4× degradation under the load that
+// caused incident 2026-09-05; 12.8s × 2.4 is the reported 30s timeout. The fix
+// is a population fix, not a budget fix — the budget stays at 30s.
+describe('Principle 11 — capability-walk population', () => {
+  /** Write `relPath` under `dir`, creating parent directories. */
+  function writeNested(dir: string, relPath: string, content: string): void {
+    const abs = join(dir, relPath);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content);
+  }
+
+  /** 100 lines — clears both LOC thresholds (50 for `packages/core`, 80 elsewhere). */
+  const SIZED_TS = Array.from({ length: 100 }, (_, i) => `export const l${i} = ${i};`).join('\n');
+
+  function addCommit(dir: string, pathspec: string, msg: string): void {
+    execSync(`git add ${pathspec} && git commit -q -m '${msg}'`, {
+      cwd: dir,
+      encoding: 'utf8',
+      env: GIT_ENV_SCRUB,
+    });
+  }
+
+  it('an assembled dist payload left in the working tree does not enter the population', () => {
+    const dir = makeTempRepo();
+    try {
+      writeNested(dir, 'packages/core/real-capability.ts', SIZED_TS);
+      writeNested(dir, 'packages/getff/.gitignore', '/packages/\n');
+      addCommit(dir, 'packages/core packages/getff/.gitignore', 'feat: a real capability');
+
+      // The assembler's own output shape: the repo's packages/ tree copied under
+      // packages/getff/, gitignored. Both files clear the 80-LOC threshold that
+      // applies under `packages/getff/`, so a broken filter cannot pass vacuously.
+      writeNested(dir, 'packages/getff/packages/core/real-capability.ts', SIZED_TS);
+      writeNested(dir, 'packages/getff/packages/runtime-bridge/shipped.ts', SIZED_TS);
+      // …and a scratch file someone left under a tracked package, same class.
+      writeNested(dir, 'packages/core/scratch-untracked.ts', SIZED_TS);
+
+      const found = collectCapabilityTsFiles(dir).map((f) => relative(dir, f));
+      expect(found, 'only files git tracks may enter the capability population').toEqual([
+        'packages/core/real-capability.ts',
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('paired positive: the very same payload paths, once tracked, DO enter the population', () => {
+    // The falsifier for the test above. If it went green because the walk never
+    // descends under `packages/getff/`, or because 100-LOC files are filtered
+    // out there for some unrelated reason, this one goes red — the only thing
+    // that changes between the two fixtures is whether git tracks the files.
+    const dir = makeTempRepo();
+    try {
+      writeNested(dir, 'packages/core/real-capability.ts', SIZED_TS);
+      writeNested(dir, 'packages/getff/packages/core/real-capability.ts', SIZED_TS);
+      writeNested(dir, 'packages/getff/packages/runtime-bridge/shipped.ts', SIZED_TS);
+      writeNested(dir, 'packages/core/scratch-untracked.ts', SIZED_TS);
+      addCommit(dir, 'packages', 'feat: commit the payload copies on purpose');
+
+      const found = collectCapabilityTsFiles(dir).map((f) => relative(dir, f));
+      expect(found, 'a committed file under packages/getff/ IS a capability commit').toEqual([
+        'packages/core/real-capability.ts',
+        'packages/core/scratch-untracked.ts',
+        'packages/getff/packages/core/real-capability.ts',
+        'packages/getff/packages/runtime-bridge/shipped.ts',
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('the real repo population is exactly its tracked half — no untracked residue', () => {
+    // The gate on the live tree: whatever anyone has left lying under packages/,
+    // the population equals the set git tracks. This is the check that goes red
+    // if the filter is removed while an assembled payload is present, and that
+    // costs one `git ls-files` when it is not.
+    const tracked = getTrackedFileSet(REPO_ROOT);
+    const untracked = collectCapabilityTsFiles(REPO_ROOT).filter((f) => !tracked.has(f));
+    expect(
+      untracked.map((f) => relative(REPO_ROOT, f)),
+      'untracked files carry no add-event, so they can only add cost, never a verdict',
+    ).toEqual([]);
   });
 });
