@@ -15,7 +15,7 @@
 > page content standards, owned by the quality contract.
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`6472bf6f2c7767621e04804894279030bee2cda4`. Every file cited here was read at that one ref.
+`79fa1b56b748899bc807f23ea8dfba9258e0acc3`. Every file cited here was read at that one ref.
 
 ## §0 The split, and why RUN cannot start early
 
@@ -118,7 +118,9 @@ were improvised, and the completeness check cannot see the omission direction at
    likely to have moved; read the cited lines, do not trust them.
    `scripts/check-line-citations.mjs` has no freshness arm, so a citation wrong when written
    exits 0 silently (non-negotiable 11).
-2. **Run the §8 `host-verify` contract** and the repo gates that apply to your diff.
+2. **Run the §10 `host-verify` contract** — `bash scripts/host-verify.sh
+   .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` — and the repo gates that apply to
+   your diff. The **path** form, never the slug form (see §7 item 6).
 3. **Run the git-hook probe of §5 and record it** — it is a Phase-0 deliverable, not a note.
 4. **Fix what you find here**, and report findings **with dispositions**. «Self-check: OK» with no
    enumeration is a skipped phase.
@@ -171,6 +173,11 @@ needs re-reading before anything else in this stage is believed.
   exceeds the gold pass's by **>2×** → that family and the next go back to a Fable chip, and the
   measured rate becomes the exchange rate. There is **no fixed exchange rate** between a Fable page
   and a GLM page; it is measured, not priced.
+  **Its denominator is an S0b deliverable, so check it exists before trusting this test:** «the
+  gold pass's rate» is the number [`kickoff-s0b.md §6`](kickoff-s0b.md) requires in the S0 closure
+  note (`roll.md:105`). If that note is missing or carries no rate, this falsifier cannot fire at
+  all and the only mechanism returning a family to Fable is dead — **STOP and surface, do not
+  substitute a rate of your own**, and do not read the absence as a pass.
 - **Measured:** landing build time from a cold checkout (budget: under 10 min on `ubuntu-latest` —
   **measured, not assumed**, and the machine is named because a budget sized to the wrong machine
   is its own anti-pattern); the number of redirect stubs written (must equal the mapping size); and
@@ -185,7 +192,10 @@ needs re-reading before anything else in this stage is believed.
 4. Re-run the paired negatives — both Mermaid fixtures and the redirect coverage check — and quote
    the RED, not just the green.
 5. `bash scripts/check-ask-files.sh` — a RED ask file blocks every push.
-6. `bash scripts/host-verify.sh getff-ai-site` on the host; quote the output.
+6. `bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` on the
+   host; quote the output. **The path form is load-bearing** — the slug form resolves to the
+   umbrella's `kickoff.md` (`scripts/host-verify.sh:98`) and returns its always-green 13 lines,
+   so this stage's contract — red by design until its inputs merge (§6) — would never be seen.
 7. Re-walk **this prompt's own citations** (non-negotiable 11).
 8. Capture the diff's **hunk headers** and list, per shifted file, the citations INTO it that now
    sit past a shift point — into the PR body. No gate performs this.
@@ -249,6 +259,7 @@ test -f scripts/render-reference.mjs
 test -f scripts/render-face-facts.mjs
 test -f scripts/docs-check.mjs
 test -f docs/site/terms.md
+test -f docs/site/hero-copy.json
 bash scripts/check-ask-files.sh
 ```
 
@@ -256,7 +267,7 @@ Four of these lines (`docs-author`, `docs-form-auditor`, `docs-check.mjs`, `term
 `render-*.mjs` lines are **red today and must be** — they assert that S0a and S0q have merged. That
 is D44's design: a contract is evaluated at **its own stage's dispatch**, never at authoring time.
 
-## §11 D44 — names this stage invokes, measured at `6472bf6f2c7`
+## §11 D44 — names this stage invokes, measured at `79fa1b56b74`
 
 BUILD: `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`,
 `superpowers:writing-plans` (the conveyor plan, P-R), `superpowers:executing-plans`,
