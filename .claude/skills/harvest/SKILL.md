@@ -69,6 +69,8 @@ bash scripts/run-local-ci-sweep.sh            # diff-aware: only the gate famili
 bash scripts/run-local-ci-sweep.sh --full     # explicit full CI-equivalent (~5 min) — final pre-merge / broad diff
 ```
 
+Every gate's output is written to a per-run log directory (`SWEEP_LOG_DIR` pins it); a FAIL prints that gate's log path plus the last 40 lines inline, and the final line names the directory — so a red never has to be reproduced by hand to be read.
+
 The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmapped path, runs cheapest-first with fail-fast. **Interpret reds against the merge-base:** a gate red on your branch AND on `origin/staging` is pre-existing (e.g. `layer-units`) — surface it, do NOT attribute it to the harvest. A **branch-introduced** red ⇒ **STOP, do not push** — fix it first. Whole-tree markdown gates (md-line / dead-links) and the `framework-self-*` self-install matrix are CI-only (see spec §Known gaps) — the sweep flags them as advisory, rely on CI for those.
 
 ## §4 — Cold-review + fidelity + PR

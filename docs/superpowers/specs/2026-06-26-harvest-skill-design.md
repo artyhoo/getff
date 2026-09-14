@@ -94,9 +94,15 @@ Flags:
 - *(no flag — default)* — diff-aware scope vs `<merge-base>` (auto-detected: `git merge-base origin/staging HEAD`), cheapest-first, fail-fast, fail-safe to full on unmapped paths.
 - `--full` — ignore diff scope; run the complete set above (paranoid / final pre-merge).
 - `--base <ref>` — override the merge-base used for diff scoping (e.g. when the live trunk differs from `origin/staging`).
-- `--capture` — pass `SNAPSHOT_MODE=capture` to byte-identical when a shipped-file change is **intentional**, regenerating the baseline (diff must be exactly the changed file's hash line).
+- ~~`--capture`~~ — **specified, never implemented, removed 2026-09-14.** It was parsed and advertised in the usage string, but nothing ever read the variable, so the flag was a documented no-op for its whole life (shipped in #729). Its intended meaning was to pass `SNAPSHOT_MODE=capture` to the byte-identical row; do that directly instead — `SNAPSHOT_MODE=capture bash tests/install-sh/byte-identical.test.sh` — which is the form CLAUDE.md and the conflict-resolution recipe already prescribe. Baseline regeneration is a deliberate act, not a flag on a gate sweep.
+
+Environment:
+
+- `SWEEP_LOG_DIR=<dir>` — where per-gate output logs land. Unset, each run gets a fresh `mktemp -d`.
 
 Output: one line per gate (`PASS`/`FAIL`/`WARN-skip`), a final summary, non-zero exit on any FAIL.
+
+**Every gate that runs writes its combined output to `<log dir>/NN-<gate>.log`, pass or fail**, and a FAIL additionally prints the last 40 lines inline. This is unconditional rather than flag-gated on purpose: the run whose evidence matters is the one that happens to catch a rare red, and no operator can know in advance which run that will be. Concretely — during PR #1749 one `vitest-hooks` red appeared in ~11 runs on a single commit and could not be diagnosed, because the sweep read `$out` for the WARN-skip classification and then discarded it. A failing gate whose only evidence lives in a variable nobody can read is `#warning-nobody-reads` ([attention-is-not-a-mechanism.md §2](../../../.claude/rules/attention-is-not-a-mechanism.md)) — the same anti-pattern the WARN branch was written to avoid, one branch lower. Pinned by the `gate-output reachability` arms in `scripts/run-local-ci-sweep.test.sh`.
 
 ### Unit 2 — `.claude/skills/harvest/SKILL.md` (new thin Class-C wiring skill; `/harvest`, `disable-model-invocation: true`)
 
