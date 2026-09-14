@@ -581,6 +581,29 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r.stdout, 'the recap guard exits before the branch selector').toBe('');
   });
 
+  // Task 1.4 (plain-words-recap-v2 slice 1): the branch payloads (Branch A/B/C) now teach
+  // the five-section recap contract + the "от тебя"/"from you" grammar via the shared
+  // aif_msg_eot_recap_contract() helper (D-A, D-B), instead of each branch spelling out its
+  // own ad-hoc instructions. This turn is long + markdown-structural + no trailing question,
+  // so it reaches Branch A (long_text=true, asked=false).
+  it('branch payloads teach the five-section contract and the from-you grammar', () => {
+    const tr = writeTranscript([
+      aiTitle('Payload'),
+      userTurn('go'),
+      assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'five-section' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    const reason = JSON.parse(r.stdout).reason as string;
+    for (const s of ['Where we are.', 'What changed.', 'Next.', 'From you:',
+                     'nothing (', 'waiting on:', 'decide:', 'do by hand:']) {
+      expect(reason).toContain(s);
+    }
+    expect(reason).toMatch(/15/);
+  });
+
   // ---------------------------------------------------------------------------
   //  idle-suppress — the MAJOR-1 re-ping guard (hook:135-156). Suppresses a
   //  short question turn ONLY when the PREVIOUS assistant turn already emitted a
