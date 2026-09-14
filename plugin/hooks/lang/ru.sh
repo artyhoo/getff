@@ -46,15 +46,25 @@ aif_msg_eot_anchor_fallback() {
   printf '%s' '(цель сессии не извлеклась — назови её сам)'
 }
 
-# PreToolUse:AskUserQuestion — pre-question fork-challenge (no interpolation;
-# quoted heredoc because the body contains backticks).
+# PreToolUse:AskUserQuestion — pre-question fork-challenge. Item 3 CALLS the shared
+# aif_msg_fork_card instead of restating the fork contract in its own words: two
+# hand-kept copies of one contract is #sync-by-copy-paste
+# (.claude/rules/dual-implementation-discipline.md §8). The heredoc is built in
+# three deliberate parts: part 1 is a quoted heredoc so the backticks around
+# `superpowers:brainstorming` can never execute as a command; part 2 renders the
+# shared card, indented three spaces so its own numbering cannot collide with the
+# challenge's; part 3 is unquoted so it can interpolate the two scalars.
 aif_msg_question_challenge() {
   cat <<'EOF'
 Стоп — ты собираешься задать вопрос. Сначала проверь сам вопрос, в первую очередь для себя.
 1. Это настоящая развилка — или ты перекладываешь решение, которое можешь принять сам? Если один вариант явно лучше по существу (по целям сессии и дисциплине проекта) — НЕ спрашивай: сделай его и скажи, что сделал.
-2. Если это правда развилка — сначала ТВОЯ обоснованная рекомендация: «Рекомендую <вариант>, потому что <причина против целей и трейдоффов>», потом альтернативы коротко. Решает человек.
-3. Простыми словами: что именно решаем и почему это блокирует — на конкретном примере, не повтор текста вопроса.
-4. Если это развилка о ДИЗАЙНЕ/СТРАТЕГИИ (а не быстрый A/B по фактам) — проведи структурированный брейншторм (например скилл `superpowers:brainstorming`, если он доступен) вместо голой карточки: исследуй → порекомендуй с аргументами, потом спрашивай. Карточка по дизайн-форку читается как «AI punted».
+2. Если развилка о ДИЗАЙНЕ/СТРАТЕГИИ (а не быстрый A/B по фактам) — сначала структурированный брейншторм (например скилл `superpowers:brainstorming`, если доступен): исследуй → порекомендуй с аргументами, и только потом спрашивай.
+3. Если это правда развилка — СНАЧАЛА карточка в тексте ответа, и только потом кнопки:
+EOF
+  aif_msg_fork_card | sed 's/^/   /'
+  cat <<EOF
+4. Первый вариант в кнопках — твоя рекомендация из строки 4 карточки, теми же словами. Человек должен узнать её в списке, а не сверять два текста.
+5. В блоке ${AIF_RECAP_MARKER} на этом же ходе секция ${AIF_EOT_SEC_FORK} — это ССЫЛКА на карточку выше («развилка — карточка выше»), а не пересказ. Один текст развилки на ход.
 Если всё это уже сделано в твоём ответе — просто задай вопрос снова: повтор не блокируется.
 EOF
 }
@@ -73,6 +83,9 @@ ${AIF_RECAP_MARKER} — блок из пяти секций, в этом пор�
 2. ${AIF_EOT_SEC_CHANGED} — если ответ длинный или структурный.
 3. ${AIF_EOT_SEC_FORK} — если ты задаёшь вопрос. Тогда — карточкой. Внутри этого блока
    карточка опускает свои 0 и 5: секции 1 и 5 блока их уже держат.
+   Если карточка уже выше в этом же ответе — перед кнопками AskUserQuestion или по одной на
+   вопрос в раунде /arch — секция 3 это ОДНА строка-указатель на неё, а не вторая карточка.
+   Один текст развилки на ход.
 $(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — по желанию.
 5. ${AIF_EOT_SEC_NEXT} — всегда, и ровно две строки; вторая заканчивает блок:
