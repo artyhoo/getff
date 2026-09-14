@@ -728,6 +728,50 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       );
       expect(card.stdout).not.toContain('15'); // the card's 20 lines do not count
     });
+
+    // Fix round 1 (controller-confirmed live repro): the retry-bound flag must be
+    // REFRESHED on every armed turn that reaches the gate, not only when a defect is
+    // found — mirroring the ZCode dense arm's _zcb_sha shape (unconditional store,
+    // conditional suppress) per spec :134-136. Sequence: block A blocks (turn 1), a
+    // WELL-FORMED turn passes through and must refresh the flag away from block A's sha
+    // (turn 2), then block A recurs verbatim (turn 3) — a FRESH occurrence separated by a
+    // good turn, not an immediate retry, so the gate must name it again. A version that
+    // only stores the sha inside `if [ -n "$_recap_defects" ]` never overwrites turn 1's
+    // stored sha during turn 2, so turn 3 wrongly reads as "already blocked" and stays
+    // silent.
+    it('names a fresh recurrence of the same defect after a well-formed turn in between', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-fresh-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const sessionId = 'retry-bound-fresh';
+      const malformed = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+      const wellFormed =
+        '## 🟢 In plain words\n**Where we are.** Done.\n**Next.** Me: nothing more. From you: nothing (spot check)';
+
+      const tr1 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
+      const turn1 = runHook(
+        { transcript_path: tr1, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(turn1.stdout, 'turn 1: first sighting of the malformed block must block').toContain('Fork.');
+
+      const tr2 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(wellFormed)]);
+      const turn2 = runHook(
+        { transcript_path: tr2, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(turn2.stdout, 'turn 2: well-formed block must not block').not.toContain('Fork.');
+
+      const tr3 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
+      const turn3 = runHook(
+        { transcript_path: tr3, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(
+        turn3.stdout,
+        'turn 3: a FRESH recurrence of the same defect, separated by a good turn, must block again',
+      ).toContain('Fork.');
+    });
   });
 
   // ---------------------------------------------------------------------------
