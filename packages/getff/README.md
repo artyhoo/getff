@@ -16,6 +16,10 @@ npx getff@latest init --profile env
 npx getff@latest init python
 ```
 
+**On Windows** the command is the same, and [Git for Windows](https://git-scm.com/download/win)
+is the one prerequisite — it supplies the `bash` the installer runs under. WSL is neither
+required nor used. See [INSTALL.md § Windows](https://github.com/artyhoo/getff/blob/main/INSTALL.md#windows).
+
 ## What you get
 
 - **Rules from live docs** (beta) — ESLint rules generated from the framework docs your project actually uses, wired into the editor and the pre-commit hook, with a pre-push gate that proves every generated rule still fires. The first violation fails; the rule names the doc it came from. CI stays yours — getff ships no workflow for the npm lane.

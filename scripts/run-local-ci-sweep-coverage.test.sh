@@ -136,7 +136,11 @@ strip_env_prefix() {
 # starts using `node`, `pnpm` or `deno` REDs with "classify it" instead of silently shrinking the
 # population — the exact silent-hole shape this test exists to prevent.
 GATE_LEADERS="bash node npm npx"
-NON_GATE_LEADERS="pip corepack"
+# `git` enters the non-gate set with the Windows consumer-matrix cell: it configures the runner's
+# checkout (`git config --global core.autocrlf true`) before actions/checkout, which is runner
+# setup and invokes no committed artifact. It is NOT a gate leader — if a future step ever runs a
+# committed script through git, that step must be re-classified rather than ride this entry.
+NON_GATE_LEADERS="pip corepack git"
 
 observed_leaders() { raw_run_lines | strip_env_prefix | awk '{print $1}' | sort -u; }
 
