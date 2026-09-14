@@ -1932,9 +1932,17 @@ jobs:
   # Per-cell rationale is preserved with each step below. All cells: fail-closed
   # (a missing tool is RED, never SKIP), deterministic + API-free per
   # no-paid-llm-in-ci.md §1, actions exact-pinned per ci-tool-pinning.md Rule A.
+  #
+  # WHY an `os` dimension carried on each `include` cell rather than a second
+  # `os:` axis: a full cross-product would run every cell on every runner, and
+  # only the getff-dist cell exercises the consumer path whose platform assumption
+  # was never tested. The asymmetric shape — one default OS plus named
+  # `include` cells for the others — is the one eslint (`ci.yml:64-72`) and vitest
+  # (`ci.yml:165-178`) both use. It leaves the literal `run:` tokens below
+  # untouched, so the coverage reconciliation above still sees all four scripts.
   consumer-matrix:
     name: "Consumer-matrix — ${{ matrix.label }}"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
@@ -1944,14 +1952,37 @@ jobs:
       matrix:
         include:
           - cell: pnpm-monorepo
+            os: ubuntu-latest
             label: "start cell — pnpm workspace monorepo (launch-preannounce-track S2)"
           - cell: python-unfamiliar-stack
+            os: ubuntu-latest
             label: "W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
           - cell: npm-tarball
+            os: ubuntu-latest
             label: "npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
           - cell: getff-dist
+            os: ubuntu-latest
             label: "getff-dist cell — npx getff init from the assembled tarball (npm-publish-getff-init S2)"
+          # The only consumer-facing entrypoint claim this repo makes that had no
+          # platform evidence: `npx getff init` on Windows. It was broken in four
+          # independent ways at once (bash `bin` shim resolving to the WSL
+          # launcher; CRLF shebangs; `spawnSync` unable to reach npm/npx; an
+          # unguarded python3) and nothing was watching, because all 44 `runs-on:`
+          # in this directory were ubuntu. This cell is that watcher.
+          - cell: getff-dist
+            os: windows-latest
+            label: "getff-dist cell on Windows — the npx getff init path consumers actually run"
     steps:
+      # Reproduce the checkout a Windows consumer gets: Git for Windows defaults
+      # to core.autocrlf=true, which is what lands CRLF shebangs in the 336
+      # tracked *.sh. With the repo's .gitattributes (`* text=auto eol=lf`) the
+      # attribute wins and the tree is LF anyway — forcing the setting here is
+      # what makes this cell a live regression test for that file rather than a
+      # test of the runner image's git defaults. Prior art: lint-staged
+      # (`pull-requests.yml:123-124`) does exactly this.
+      - name: Force the Windows-consumer checkout defaults
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf true
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false

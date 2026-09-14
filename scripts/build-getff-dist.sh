@@ -66,10 +66,18 @@ assemble() {
 }
 
 # manifest <dest>: `<sha256>  <path>` for every payload file under <dest>, byte-stable order.
+#
+# The trailing sed normalises the separator, NOT the hash. GNU coreutils marks binary-mode
+# reads with `<sha> *<path>`, and on Git Bash (MSYS2) every read is binary — so the same bytes
+# that yield `<sha>  <path>` on a Linux runner yield `<sha> *<path>` on windows-latest, and
+# `--check` reported all 1081 payload files as drift on a Windows clone while every hash in fact
+# matched (measured 2026-09-14: .claude/hooks/adopt-orchestrator-prompts.sh = fb86ebab… on both
+# sides). On Linux and macOS the pattern never matches and the output is unchanged.
 manifest() {
   local dest="$1"
   # shellcheck disable=SC2086  # PAYLOAD_TOP / SHA are deliberate word-split lists
-  ( cd "$dest" && find $PAYLOAD_TOP -type f -print0 | LC_ALL=C sort -z | xargs -0 $SHA )
+  ( cd "$dest" && find $PAYLOAD_TOP -type f -print0 | LC_ALL=C sort -z | xargs -0 $SHA ) \
+    | sed "s/^\([0-9a-f]\{64\}\) \*/\1  /"
 }
 
 # files_check: every PAYLOAD_TOP root must be spelled in package.json `files` — a dropped entry
