@@ -40,7 +40,11 @@ import { fileURLToPath } from 'node:url';
 // hook referenced picomatch. Keep it that way: a new dependency here needs the ship-list
 // treatment or a lazy `await import()` + `die()`, the shape guard-liveness uses below.
 import { runCheck, type CheckResult } from './utils/run-check.ts';
-import { runPriorArtCheck, loadSsotIds } from './checks/prior-art.ts';
+import {
+  runPriorArtCheck,
+  loadSsotIds,
+  loadSsotRowTitles,
+} from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
 import {
   checkUnpinnedToolInstalls,
@@ -353,6 +357,27 @@ function ssotIdsAt(sha: string): ReadonlySet<number> | undefined {
   return content === null ? undefined : loadSsotIds(content);
 }
 
+/** C2 arm: the register's id → title map as of one commit's own tree. */
+function ssotTitlesAt(sha: string): ReadonlyMap<number, string> | undefined {
+  const content = realGit.fileContent(sha, SSOT_REL);
+  return content === null ? undefined : loadSsotRowTitles(content);
+}
+
+/**
+ * C2 arm: the register as the tree being pushed sees it. Read from the working
+ * tree rather than a commit: the push is about to publish this content, and a
+ * renumber staged-but-not-yet-committed is the same defect one commit earlier.
+ */
+function ssotTitlesAtTip(): ReadonlyMap<number, string> | undefined {
+  const abs = resolve(REPO_ROOT, SSOT_REL);
+  if (!existsSync(abs)) return undefined;
+  try {
+    return loadSsotRowTitles(readFileSync(abs, 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
 function priorArtSection(rb: ResolvedBase): void {
   const commits = commitsToCheck(rb, '§7');
   if (commits === null) return;
@@ -364,7 +389,10 @@ function priorArtSection(rb: ResolvedBase): void {
   // earliest-reachable-channel invariant. PA_SUBSTANCE_WARN_ONLY=true is the
   // explicit local opt-in downgrade, mirroring S17_SUBSTANCE_WARN_ONLY.
   const substanceWarnOnly = envWarnOnly('PA_SUBSTANCE_WARN_ONLY');
-  const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt);
+  const report = runPriorArtCheck(commits, realGit, undefined, ssotIdsAt, {
+    atCommit: ssotTitlesAt,
+    atTip: ssotTitlesAtTip(),
+  });
 
   if (report.failures.length > 0) {
     process.stdout.write(
@@ -397,6 +425,28 @@ function priorArtSection(rb: ResolvedBase): void {
     process.stdout.write(
       '\nFix: cite an entry that exists in docs/meta-factory/prior-art-evaluations.md,\n' +
         'or add the entry to the SSOT in the same commit (per CLAUDE.md build-vs-reuse).\n' +
+        'Verify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n',
+    );
+    process.exit(1);
+  }
+
+  if (report.renumberedCitations.length > 0) {
+    process.stdout.write(
+      '\n\u274c Prior-art trailer cites an id that was RENUMBERED under it (C2):\n',
+    );
+    for (const f of report.renumberedCitations) {
+      process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+    }
+    process.stdout.write(
+      '\nThis is the concurrent-lane collision: two branches appended a row with the\n' +
+        'same id, the one that landed on the base kept the number, and yours was\n' +
+        'renumbered — leaving an already-pushed trailer pointing at someone else\u2019s row.\n' +
+        'Fix, in order of preference:\n' +
+        '  1. amend the commit body to cite the new id (only while unpushed);\n' +
+        '  2. if history is already published, carry the correction in the SQUASH\n' +
+        '     message and merge the PR yourself \u2014 an auto-merge writes its own body;\n' +
+        '  3. if the row title was reworded deliberately and nothing moved, mark the\n' +
+        '     row: <!-- prior-art:renamed <why, >= 20 chars> -->\n' +
         'Verify: grep -nE "^\\| *<N> *\\|" docs/meta-factory/prior-art-evaluations.md\n\n',
     );
     process.exit(1);
