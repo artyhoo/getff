@@ -5,7 +5,7 @@
 > Code session, own worktree, one PR to `staging`. Review seat: **Opus**.
 > **Rigor label (L0):** `research-grade` — this stage ships a new root doc, a new always-on
 > `UserPromptSubmit` hook, and a counters file shared across every session on the machine.
-> **Authoritative for:** the S3 contract — the build list, the two asks, the exit gates, the
+> **Authoritative for:** the S3 contract — the build list, the three asks, the exit gates, the
 > falsifiers, and what S3 must NOT absorb.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > D-F itself, owned by [`plain-words-recap-v2-design.md:247`](../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md).
@@ -28,6 +28,22 @@ agent-maintained «I think they know this now» marks were rejected as `#hope-as
    (`**Term**:` / 1–2 sentences / `_Avoid_:`), **ADAPT not ADOPT**:
    - operator raw words go in an **added** field `_Operator says_:` — never in `_Avoid_`, which
      keeps its upstream meaning («words to stop using»);
+   - **The Russian `_Operator says_` words in an English file are match data, and no gate
+     collides with them — measured, not assumed.** They are the same category as the Russian
+     question pattern already living inside `lang/ru.sh`
+     ([language-discipline.md](../../rules/language-discipline.md) category 3). Principle 22's
+     two surfaces are `tracked('.claude/hooks', '.claude/skills', 'scripts')` for `.sh`
+     ([`22-internal-english.test.ts:61`](../../../packages/core/principles/22-internal-english.test.ts))
+     and `tracked('.claude/skills')` for `SKILL.md` bodies
+     ([`:76`](../../../packages/core/principles/22-internal-english.test.ts)) — **the repo root is
+     in neither**, so a root-level `CONTEXT.md` is outside its population by construction. Re-run
+     both surfaces after the file lands rather than trusting this paragraph.
+   - **Fallback if a reviewer nevertheless judges the mixed-language file a language-discipline
+     breach** (the spec's own escape, `docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md:281-282`): **one `CONTEXT.md` per
+     `AIF_HOOK_LANG`**, mechanics unchanged — the hook picks the file the way every other lang
+     consumer does. Do not invent a third option: either the single file with `_Operator says_`,
+     or the per-language split. Taking the split silently drops the both-directions association
+     the glossary exists for, so if you take it, say so in the PR body.
    - upstream's «challenge the user against the glossary» rule is **explicitly NOT adopted** — the
      agent answers with the term plus its inline explanation and never corrects the operator's word
      (R-4). This is the inverse of what upstream does, and the reason the row in the harmonization
@@ -95,9 +111,9 @@ agent-maintained «I think they know this now» marks were rejected as `#hope-as
    sampled agents (no «recommended» flag in any question schema, no «why this matters» field, no
    «stop explaining after N times» throttle) are the BUILD rationale.
 
-## §2 The two asks — batched, once, before landing (T8)
+## §2 The three asks — batched, once, before landing (T8)
 
-Ask both in ONE message, with a recommendation each, per [`arch/SKILL.md:50`](../../skills/arch/SKILL.md)
+Ask all three in ONE message, with a recommendation each, per [`arch/SKILL.md:50`](../../skills/arch/SKILL.md)
 binding (c): a frontier of ≤4 choice-shaped questions rides `AskUserQuestion` with the
 recommendation as the FIRST option, and the fork card goes **before** the buttons (that is what
 slice 2 shipped — use it).
@@ -106,6 +122,9 @@ slice 2 shipped — use it).
   and is it still tolerable after the tenth repetition?» Status **UNVERIFIED**; the whole
   explanations counter rests on it. Falsifier: the counter misses the form in a live session, or
   the operator objects after the tenth repetition.
+- **R-10 — the one you cannot run yourself.** «Run `/wait-what` once with `AIF_HOOK_LANG=ru` and
+  paste what comes back.» It is `disable-model-invocation: true`, so this seat has no way to fire
+  it; see §3 for what to look for in the answer and what the fallback must carry.
 - **R-8 — a citation improvement, not a blocker.** The operator recalled «a GLM skill that runs
   tested scripts from any place». Seven surfaces were searched and it was NOT FOUND (spec
   Changelog i). D-E is skill-agnostic either way; if the operator names it, D-E's line cites the
@@ -118,10 +137,20 @@ slice 2 shipped — use it).
 (measured 2026-09-14; `git grep -i wait-what` over the repo returns only spec prose, no artefact).
 It is ADOPTed as-is and reads `CONTEXT.md`.
 
-**Verify live that it answers in Russian under `AIF_HOOK_LANG=ru`.** Its whole body is ONE sentence
-carrying both the ASD-STE100 clause and the `CONTEXT.md` clause — so if the fallback
-`.override.md` is needed it must **restate both**, not drop one. Record the observation either way;
-«ADOPT as-is» with no live check is the `#hope-as-gate` shape.
+**You cannot run this check yourself, and that changes where it goes.** The skill's frontmatter
+carries `disable-model-invocation: true` (line 4 of its `SKILL.md` on this host), so it is
+**operator-invoked only** — an agent session cannot fire `/wait-what` to see what comes back.
+Reading the file and reasoning about it is allowed and is not the check; the check needs a live
+invocation by the operator.
+
+So **R-10 is a third ask, and it rides §2's batch** — one message, three questions, not a separate
+interrupt (T8). Ask it as: «Run `/wait-what` once with `AIF_HOOK_LANG=ru` set and paste what comes
+back.» The thing to look at: its whole body is ONE sentence carrying both the ASD-STE100 clause
+and the `CONTEXT.md` clause, so if the answer arrives in English and a fallback `.override.md` is
+needed, that override must **restate both clauses**, not drop one. Record the observation either
+way — «ADOPT as-is» with no live check is the `#hope-as-gate` shape
+([attention-is-not-a-mechanism.md §2](../../rules/attention-is-not-a-mechanism.md)), and an agent
+asserting the outcome it could not invoke is worse than an honest UNVERIFIED.
 
 ## §4 Exit gates
 
