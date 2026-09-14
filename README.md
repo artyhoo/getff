@@ -107,6 +107,33 @@ For details, see `skills/getff/references/`:
 - `self-testing-docs.md` — the `audit-ai-docs.sh` pattern with negative tests
 - `doc-organization.md` — hot/cold split for AGENTS.md, token economy
 
+## What's in the repo (operator contour)
+
+[What you get today](#what-you-get-today) lists what `getff init` installs into *your* project.
+This section maps what the framework repo itself runs — the machinery that keeps the five
+layers above honest while the framework is being built. Most of it is **not** shipped to
+consumers: what ships, and at which tier, is a per-artifact fact, and the authoritative
+per-artifact list is generated rather than kept by hand (see the closing note).
+
+| Family | Where | What it is |
+|---|---|---|
+| **Enforcement machinery** | [`packages/core/principles/`](packages/core/principles/) | Meta-tests about the rules themselves — every rule must carry an executable check and a paired negative test. `make self-audit` runs them; this is recursive self-application in code. |
+| **Discipline rules** | [`.claude/rules/`](.claude/rules/), digest [`00-rule-index.md`](.claude/rules/00-rule-index.md) | Prose statutes, each declaring the channel it fires on (edit-time inject, hook, pre-push section, cold agent). The index is generated from the rule files, never hand-edited. |
+| **Session hooks** | [`.claude/hooks/`](.claude/hooks/) | Context injected at the moment of work: the rule matching the edited path, the session bootstrap and goal digest, the output language, kickoff traps, sub-agent context. Plus session continuity — a pre-compaction residue snapshot, a handoff-currency gate, and a plain-words session recap. |
+| **Seats (skills)** | [`.claude/skills/`](.claude/skills/) | Named roles a session takes: `/pipeline` (what to work on next — priority scoring over a deterministic feed with completion detection), `/arch` (design dialogue), `/orchestrator` and `/dispatcher` (waves, routing, in-flight probing), `/reviewer`, `/night-mode` (autonomous runs), `/harvest` (finished agent branches into PRs), `/story` (plain-words recap), `/rule-research` and `/rule-tests` (a new rule, and the test that proves it fires), `/ai-doc`, `/self-reflection`. |
+| **Cold agents** | [`agents/`](agents/) | Read-only reviewers with no memory of how the code was written: backward sweeps over a change's class, §1.7 substance checks, claims conformance, dual-channel drift, liveness probes. Session-read prompts, never metered CI calls. |
+| **Advisor mailbox** | [`scripts/check-ask-files.sh`](scripts/check-ask-files.sh) | A seat, not a skill: on a fork it cannot decide, a session files a schema-checked ask instead of guessing. The same script is the emitter and the pre-push validator, so a malformed ask is a red test rather than a lost question. |
+| **Generation** | [`packages/core/synthesizer/`](packages/core/synthesizer/), [`packages/core/detector/`](packages/core/detector/) | Declarative markdown compiled into an ESLint rule; stack detection deciding which preset a project gets. |
+| **Delivery** | [`install.sh`](install.sh), [`setup.d/`](setup.d/), [`packages/getff/`](packages/getff/), [`plugin/`](plugin/) | The one-command install, the layered installer, the npm tarball with a hash manifest, and the Claude Code / ZCode plugin twins. Byte-identical install snapshots per stack and lane guard all of it. |
+
+**The per-artifact list is generated, not written here.** A hand-kept roster of this size drifts
+on the first pull request that adds a skill — the failure mode
+[`.claude/rules/attention-is-not-a-mechanism.md`](.claude/rules/attention-is-not-a-mechanism.md)
+exists to forbid. The reference generator — one card per artifact across installer layers,
+skills, agents, hooks, templates, rules, scripts, packages, bridge CLI and plugin, with a test
+asserting population and cards match one-to-one in both directions — is designed and lands with
+the documentation site. Until it does, the directories above are the source of truth.
+
 ## Installation
 
 ### Quick start — one command (recommended)
