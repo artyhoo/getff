@@ -52,14 +52,34 @@ printf '1\tdoc\t.md\ttrue\n2\tother\tpackages/\ttouch %s/OTHER\n' "$TMP" >"$TMP/
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o4" 2>&1
 has_file "unmapped path escalated to full (ran all gates)" "$TMP/OTHER"
 
+mk_repo() { # mk_repo <dir> — a git repo with the real sweep installed at scripts/
+  local d="$1"
+  mkdir -p "$d/scripts"
+  cp "$SWEEP" "$d/scripts/run-local-ci-sweep.sh"
+  printf 'seed\n' >"$d/README.md"
+  ( cd "$d" && env -u GIT_DIR -u GIT_WORK_TREE git init -q \
+      && git config user.email t@example.com && git config user.name t \
+      && git add -A && env -u GIT_DIR -u GIT_WORK_TREE git commit -qm init ) >/dev/null 2>&1
+}
+run_sweep() { # run_sweep <repo-dir> [args…] — invoke that repo's own copy, GIT_* unset
+  local d="$1"; shift
+  env -u GIT_DIR -u GIT_WORK_TREE bash "$d/scripts/run-local-ci-sweep.sh" "$@"
+}
+
 # --- (always/empty-diff) an ALWAYS gate runs even when the diff selects nothing ---
 # `--base HEAD` makes `git diff HEAD...HEAD` empty, which is what a sweep over an all-uncommitted
 # tree sees. Regression 2026-09-14: `gate_selected` loops over $CHANGED, so on an empty diff the
 # loop body never ran and the ALWAYS row silently selected nothing — "SWEEP: no gates selected"
 # with rc 0, the `#hope-as-gate` shape (.claude/rules/attention-is-not-a-mechanism.md §2).
+# Runs in a CLEAN throwaway repo, never in the live worktree. The exit code asserted below is
+# 0, and the dirty-tree refusal (#1780) legitimately answers 3 on a dirty tree — so pointing
+# this arm at the checkout would make its verdict a function of whatever the operator happens
+# to have uncommitted. Measured 2026-09-14: it went red (rc=3) on the merge that brought the
+# two changes together, against a worktree mid-edit and nothing else.
 rm -f "$TMP/ALW" "$TMP/SCOPED"
+RALW="$TMP/repo-always"; mk_repo "$RALW"
 printf '1\talways\tALWAYS\ttouch %s/ALW\n2\tscoped\tpackages/\ttouch %s/SCOPED\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
-SWEEP_GATES_FILE="$TMP/gates.tsv" bash "$SWEEP" --base HEAD >"$TMP/o13" 2>&1
+SWEEP_GATES_FILE="$TMP/gates.tsv" run_sweep "$RALW" --base HEAD >"$TMP/o13" 2>&1
 check "empty diff exits 0" 0 $?
 has_file "ALWAYS gate ran on an empty diff" "$TMP/ALW"
 no_file "empty diff did not run the path-scoped gate" "$TMP/SCOPED"
@@ -198,6 +218,59 @@ bash "$SWEEP" --help >"$TMP/o18_usage" 2>&1
 if grep -qF -- "--capture" "$TMP/o18_usage"; then
   echo "  ✗ usage still advertises the removed --capture flag"; fails=$((fails + 1))
 else echo "  ✓ usage no longer advertises --capture"; fi
+
+# --- (dirty tree, zero gates selected) -----------------------------------------------------
+# The sweep selects gates from the COMMITTED diff (`changed_paths`, merge-base...HEAD). An
+# agent or human who runs it mid-work to check their edits therefore got `SWEEP: no gates
+# selected for this diff` + rc 0 — a green answer about changes the sweep never looked at.
+# Measured 2026-09-14 in worktree cool-swanson-d3f4b6: two files modified but uncommitted,
+# default-mode run printed exactly that and exited 0.
+#
+# Only the ZERO-gates case is a refusal, and that is deliberate. Refusing on ANY dirty tree
+# (the tempting stronger rule) would break the script's own intended path: the harvest base
+# clone measured 12 dirty entries, 5 of them tracked-modified, and .claude/skills/harvest/
+# SKILL.md §1 explicitly harvests a committed branch out of a polluted worktree. The third arm
+# below pins that non-refusal.
+#
+# These arms build a throwaway repo rather than using a test seam: the thing under test IS the
+# real `git status` call, and a seam for it would be a second copy that drifts from it.
+# (neg) dirty tree + a committed diff that selects nothing → refuse, non-zero, name the paths.
+# SWEEP_GATES_FILE is load-bearing here and in the paired positive below. These two arms test
+# the REFUSAL MECHANISM, not the shipped gate table, and the live table is not a fixture: it
+# grew an ALWAYS row (`citation-fullsweep`, #1772) that selects in every repo, so without the
+# override the arm's own premise — "the diff selected nothing" — stops holding, and whether it
+# passes turns on how an unrelated gate behaves inside a two-commit sandbox. Measured
+# 2026-09-14: both arms went red on the merge of #1780 with #1772, with rc=1 from that gate
+# rather than the refusal's rc=3. A row here that no diff can match keeps the premise true.
+printf '1\tnever-selected\t.nomatch\ttrue\n' >"$TMP/gates-refusal.tsv"
+R1="$TMP/repo-dirty"; mk_repo "$R1"
+printf 'edited-but-never-committed\n' >>"$R1/README.md"
+printf 'brand new\n' >"$R1/UNTRACKED-EVIDENCE.txt"
+SWEEP_GATES_FILE="$TMP/gates-refusal.tsv" run_sweep "$R1" --base HEAD >"$TMP/o19" 2>&1
+check "dirty tree with zero gates selected exits non-zero" 3 $?
+grep_out "refusal names the modified tracked path" "README.md" "$TMP/o19"
+grep_out "refusal names the untracked path" "UNTRACKED-EVIDENCE.txt" "$TMP/o19"
+if grep -qF "SWEEP: no gates selected for this diff" "$TMP/o19"; then
+  echo "  ✗ dirty tree still printed the false-green 'no gates selected' line"; fails=$((fails + 1))
+else echo "  ✓ dirty tree did not print the false-green 'no gates selected' line"; fi
+
+# (pos) paired positive — CLEAN tree, genuinely empty diff, still the quiet exit-0 answer.
+R2="$TMP/repo-clean"; mk_repo "$R2"
+SWEEP_GATES_FILE="$TMP/gates-refusal.tsv" run_sweep "$R2" --base HEAD >"$TMP/o20" 2>&1
+check "clean tree with an empty diff still exits 0" 0 $?
+grep_out "clean tree keeps the 'no gates selected' answer" "SWEEP: no gates selected for this diff" "$TMP/o20"
+
+# (pos) the harvest shape — dirty tree, but the committed diff DOES select a gate. The sweep
+# must run that gate and answer normally; this is the arm that keeps the refusal from
+# swallowing the script's intended caller (harvest runs on a polluted worktree by design).
+R3="$TMP/repo-harvest"; mk_repo "$R3"
+printf 'committed change\n' >>"$R3/README.md"
+( cd "$R3" && env -u GIT_DIR -u GIT_WORK_TREE git commit -qam second ) >/dev/null 2>&1
+printf 'uncommitted residue\n' >"$R3/residue.txt"
+printf '1\tdoc\t.md\ttrue\n' >"$TMP/gates-harvest.tsv"
+SWEEP_GATES_FILE="$TMP/gates-harvest.tsv" run_sweep "$R3" --base HEAD~1 >"$TMP/o21" 2>&1
+check "dirty tree with a gate-selecting committed diff still exits 0" 0 $?
+grep_out "harvest shape ran its selected gate" "PASS doc" "$TMP/o21"
 
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

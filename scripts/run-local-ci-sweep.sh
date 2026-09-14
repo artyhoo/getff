@@ -4,6 +4,12 @@
 # Default: diff-aware (vs merge-base), cheapest-first, fail-fast, fail-safe to full.
 # `--full` runs the complete set regardless of the diff.
 #
+# It gates COMMITTED work: gate SELECTION comes from `git diff <merge-base>...HEAD`, because
+# that is what CI will see. Uncommitted edits are therefore invisible to the selection layer,
+# and the sweep refuses (rc 3) rather than answering rc 0 when that leaves it with no gates at
+# all on a dirty tree. See the `dirty-tree-zero-gates` block at the tail for why the refusal is
+# scoped to that case and not to every dirty tree.
+#
 # The sweep aggregates the gates the GitHub-CI jobs run (audit-self.yml). It exists so a
 # harvested aif branch is checked against the real gate set locally before push — the
 # recurring "pushed, CI reddened on a gate I didn't re-run" failure (PR #724).
@@ -137,6 +143,8 @@ while [ $# -gt 0 ]; do
     -h | --help)
       echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates]"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
+      echo "exit:  0 gates passed (or nothing to do on a clean tree) · 1 a gate failed"
+      echo "       2 bad usage · 3 refused: dirty tree, committed diff selected no gates"
       exit 0 ;;
     *) echo "[sweep] unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -276,6 +284,16 @@ changed_paths() {
   git diff --name-only "${base}...HEAD"
 }
 
+# --- working-tree changes the committed diff above cannot see ---
+# Raw `git status --porcelain` lines, status letters kept: `M` vs `??` is the operator's first
+# question when the refusal below fires, and re-deriving it costs a second command. Gitignored
+# files are absent by construction (no `--ignored`), which is right — CI never sees them either.
+# Outside a repo (or with git absent) this yields nothing and the refusal cannot fire; the
+# sweep degrades to its previous behaviour rather than blocking on a condition it cannot read.
+dirty_paths() {
+  git status --porcelain 2>/dev/null
+}
+
 # --- trigger_matches <trigger-list> <path> ---
 # trigger-list is one or more triggers joined by commas; matches if ANY matches.
 # Each trigger: ALWAYS | SHIPPED | a prefix (ends with /) | a suffix (starts with .) | a literal.
@@ -329,18 +347,27 @@ EOF
 fi
 
 # --- gate_selected <trigger> ---
+# Sets GATE_SELECTED_BY on every match: "diff" when a CHANGED PATH matched the trigger,
+# "always" for an ALWAYS row, "full" in --full mode. The dirty-tree refusal at the tail keys
+# on the "diff" count, never on the raw run count: an ALWAYS row runs whatever the diff says,
+# so counting it as coverage would silently retire that refusal the moment the first ALWAYS
+# row landed. Measured 2026-09-14 on the merge that first put the two together — this file's
+# own `citation-fullsweep` row (#1772) against the refusal (#1780): `ran` was never 0 again,
+# and the refusal's two mechanism arms went red. Same shape as the coverage exclusion above.
+GATE_SELECTED_BY=""
 gate_selected() {
-  [ "$MODE" = "full" ] && return 0
+  GATE_SELECTED_BY=""
+  [ "$MODE" = "full" ] && { GATE_SELECTED_BY="full"; return 0; }
   local trig="$1" p
   # ALWAYS means always — including an EMPTY diff. The loop below is driven by $CHANGED, so
   # without this short-circuit an ALWAYS row selects nothing when the diff is empty and the
   # sweep prints "no gates selected" — the `#hope-as-gate` shape
   # (.claude/rules/attention-is-not-a-mechanism.md §2). Observed 2026-09-14 on the first run
   # of the `citation-fullsweep` row, against a tree whose changes were all uncommitted.
-  case ",$trig," in *,ALWAYS,*) return 0 ;; esac
+  case ",$trig," in *,ALWAYS,*) GATE_SELECTED_BY="always"; return 0 ;; esac
   while IFS= read -r p; do
     [ -z "$p" ] && continue
-    if trigger_matches "$trig" "$p"; then return 0; fi
+    if trigger_matches "$trig" "$p"; then GATE_SELECTED_BY="diff"; return 0; fi
   done <<EOF
 $CHANGED
 EOF
@@ -381,11 +408,13 @@ ensure_log_dir() {
 }
 
 ran=0
+diff_selected=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
 while IFS="$TAB" read -r _ name trigger cmd; do
   [ -z "${name:-}" ] && continue
   gate_selected "$trigger" || continue
   ran=$((ran + 1))
+  [ "$GATE_SELECTED_BY" = "diff" ] && diff_selected=$((diff_selected + 1))
   # Output is CAPTURED, not discarded, for two reasons. (1) Several rows degrade to a WARN-skip
   # instead of failing (actionlint/shellcheck absent, host toolchain != CI pins, the CI-only
   # markdown scanners). Piping their stdout to /dev/null made every one of those print a plain
@@ -433,6 +462,34 @@ done <<EOF
 $SORTED
 EOF
 
+if [ "$diff_selected" -eq 0 ] && [ "$MODE" != "full" ]; then
+  # No gate was selected BY THE DIFF. `changed_paths` reads the COMMITTED diff, so this is an honest answer only
+  # when the working tree is also clean. On a dirty tree it is the false-green this script's
+  # `</dev/null` note above already names as worse than no sweep: an operator who runs the sweep
+  # mid-work to check their edits gets rc 0 about changes no gate ever looked at. Measured
+  # 2026-09-14 (worktree cool-swanson-d3f4b6): two modified-but-uncommitted files produced
+  # exactly `SWEEP: no gates selected for this diff (mode=diff)` and EXIT=0.
+  #
+  # The refusal is the EXIT CODE, not this text — a warning line whose only consumer is someone
+  # reading the log is `#warning-nobody-reads`
+  # (.claude/rules/attention-is-not-a-mechanism.md §2), which is what the defect already was.
+  #
+  # Scoped to the zero-gates case deliberately. Refusing on ANY dirty tree would break the
+  # script's own stated purpose (line 2: harvest pre-push): .claude/skills/harvest/SKILL.md §1
+  # harvests a COMMITTED branch out of a deliberately polluted worktree, and the harvest base
+  # clone measured 12 dirty entries (5 tracked-modified) on 2026-09-14. A harvested branch is
+  # ≥1 commit ahead by construction, so its committed diff always selects a gate and this
+  # branch is unreachable there — pinned by the third new arm in run-local-ci-sweep.test.sh.
+  DIRTY="$(dirty_paths)"
+  if [ -n "$DIRTY" ]; then
+    echo "[sweep] FAIL dirty-tree-zero-gates — the committed diff selected no gates, and these"
+    echo "        working-tree changes were examined by nothing:"
+    printf '%s\n' "$DIRTY" | sed 's/^/          /'
+    echo "SWEEP: REFUSED (mode=$MODE) — the sweep gates COMMITTED work; commit the paths above"
+    echo "SWEEP: and re-run, or pass --base <ref> to scope it against a different committed base"
+    exit 3
+  fi
+fi
 if [ "$ran" -eq 0 ]; then
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
