@@ -34,6 +34,8 @@
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+// @ts-expect-error picomatch 4.x ships no type declarations; no @types/picomatch exists.
+import picomatch from 'picomatch';
 import {
   extractHeaderField,
   extractFrontmatterPaths,
@@ -242,21 +244,27 @@ export interface ClaudeMdExcludesSettings {
  * §"Consistency of eviction": a file listed in `claudeMdExcludes` MUST carry a channel-token
  * with a live artifact (i.e. branch (d) of the PASS predicate must independently hold for it).
  *
- * STATUS UPDATE 2026-08-06: the "EMPTY/absent" premise below is NO LONGER TRUE — the committed
- * `claudeMdExcludes` now carries 7 entries, in `**\/<name>.md` glob form (see
- * `resolveExcludeEntry` for why that form, and for the 0-of-7 vs 7-of-7 measurement). The
- * excluded⇒live-token direction below therefore now fires against real repo state rather than
- * vacuously; all 7 carry live `<!-- channel: ... -->` markers, verified on the host.
+ * STATUS 2026-09-14: the committed `claudeMdExcludes` carries 8 entries, all in `**\/<name>.md`
+ * glob form. The excluded ⇒ live-token direction below fires against real repo state rather
+ * than vacuously; all 8 carry live `<!-- channel: ... -->` markers, verified on the host.
  *
- * IMPLEMENTED DIRECTION ONLY: excluded ⇒ live-token. The REVERSE ("carries a channel token ⇒
- * must be excluded") is deliberately NOT checked — as of this principle's authoring,
- * `.claude/settings.json` `claudeMdExcludes` was EMPTY/absent (agent-uncommittable; the 4
- * CTX-Stage-1 evictions were a maintainer-handoff patch not yet applied), while 5 rules already
- * carry `<!-- channel: ... -->` tokens (egress-no-api-bypass, memory-codification,
- * reviewer-discipline, recommendation-laziness-discipline, research-source-trust) WITHOUT
- * being excluded yet. Over-delivery (a token present but the rule still always-on) is legal —
- * asserting the reverse would false-RED the real, currently-committed repo state. See
- * .claude/rules/rule-enforcement-channel-selection.md and the Stage-2 kickoff contract.
+ * THE REVERSE DIRECTION NOW HAS ITS OWN CHECK — see `checkResidencyPartition` below.
+ * The paragraph that stood here until 2026-09-14 declined to assert anything in the reverse
+ * direction, on the stated ground that `claudeMdExcludes` was "EMPTY/absent (agent-uncommittable;
+ * the 4 CTX-Stage-1 evictions were a maintainer-handoff patch not yet applied)". That premise
+ * expired when the maintainer applied the evictions; the rationale outlived it and the gap it
+ * excused went unguarded for the whole interval. It is restated correctly here because the
+ * reverse direction it declined is NOT the one that matters:
+ *
+ *   - "carries a channel token ⇒ must be excluded" is still deliberately NOT checked, and that
+ *     part of the old paragraph remains true. Over-delivery (a token present, the rule still
+ *     always-on) is a legal operational choice — asserting it would false-RED real repo state.
+ *   - What IS now checked is the RESIDENCY PARTITION, which is a different predicate: a rule
+ *     with no `paths:` frontmatter that is not in ALWAYS_ON_CORE is RESIDENT — it is paid for in
+ *     every session's context — and must therefore be named in `claudeMdExcludes`. A channel
+ *     token does not suppress autoload; only `paths:` and `claudeMdExcludes` do. That is why
+ *     `evaluateRuleChannel` passing on branch (b)/(d) says nothing about residency, and why
+ *     this principle could be fully green while a rule silently joined the always-on set.
  *
  * `settingsPath` is injectable so tests can point this at a FIXTURE settings.json
  * (principles/fixtures/rule-channel/settings-with-exclude.json) rather than the real
@@ -280,12 +288,35 @@ export interface ClaudeMdExcludesSettings {
  *    form is still subject to the live-channel-token assertion below, so the check stays honest
  *    either way.
  *
- * Resolution of the glob form is deliberately basename-exact rather than a glob engine: the
- * entries this gate must serve are always `**\/<basename>`, and adding a matcher dependency here
- * would be a capability commit for no gain. An ambiguous basename (two enumerated rules sharing
- * one filename) is an ERROR rather than a silent first-match — matching the client's own
- * behaviour would be guesswork, and guessing is what this whole principle exists to prevent.
+ * Resolution of the glob form goes through picomatch — the matcher the shipped client itself
+ * bundles, already pinned in `packages/core` devDeps by SSOT prior-art-evaluations.md#238 and
+ * already used by principle 34. Until 2026-09-14 it was a hand-rolled basename-exact comparison
+ * (`rel.endsWith('/' + basename)`) on the stated ground that "adding a matcher dependency here
+ * would be a capability commit for no gain". The dependency was already paid for by principle
+ * 34, so the only thing the hand-rolled arm added was a THIRD grammar for one list — the defect
+ * class measured on 2026-09-14 in the bash channel, where a fourth grammar (`grep -Fxq`) had
+ * been silently dead for the life of the file. One list, one matcher per language channel.
+ *
+ * What did NOT change: an ambiguous basename (two enumerated rules sharing one filename) is an
+ * ERROR rather than a silent first-match, and a multi-segment glob is refused rather than
+ * resolved. picomatch could resolve the latter, but the bash channel's SSOT
+ * (`scripts/lib/claude-md-excludes.sh`, landing in the sibling PR) refuses it too, and a form
+ * one channel accepts while the other refuses is how the grammars drifted apart in the first
+ * place. If that PR is not merged yet, the reference is forward-looking, not dangling.
  */
+
+/**
+ * Does one `claudeMdExcludes` entry match one repo-RELATIVE path?
+ *
+ * `{dot:true}` so that `**\/x.md` reaches `.claude/rules/x.md` — the same option principle 34
+ * passes, and the semantics the bash channel is parity-tested against.
+ * Principle 34 matches ABSOLUTE paths (it asks a different question: "does this entry match any
+ * file in the tree at all"); this one matches the relative keys of `ruleFieldsByPath`. Both are
+ * picomatch with `{dot:true}`, so the grammar is shared even though the corpus differs.
+ */
+export function excludeEntryMatchesPath(entry: string, relPath: string): boolean {
+  return picomatch.isMatch(relPath, entry, { dot: true }) as boolean;
+}
 function resolveExcludeEntry(
   entry: string,
   ruleFieldsByPath: Map<string, RuleChannelFields>,
@@ -301,7 +332,7 @@ function resolveExcludeEntry(
         error: `claudeMdExcludes lists "${entry}" — only the \`**/<basename>\` glob shape is supported here; a multi-segment glob cannot be resolved to a single enumerated rule.`,
       };
     }
-    const hits = [...ruleFieldsByPath.entries()].filter(([rel]) => rel.endsWith(`/${basename}`));
+    const hits = [...ruleFieldsByPath.entries()].filter(([rel]) => excludeEntryMatchesPath(entry, rel));
     if (hits.length === 1) return { fields: hits[0][1] };
     if (hits.length > 1) {
       return {
@@ -315,23 +346,47 @@ function resolveExcludeEntry(
   };
 }
 
+/**
+ * Read `claudeMdExcludes` from one settings file.
+ *
+ * Shared by `checkExclusionConsistency` and `checkResidencyPartition` so the two directions of
+ * the same invariant cannot end up reading the list two different ways — the failure mode this
+ * whole area is being repaired for (2026-09-14: one list, four grammars, one of them dead).
+ * An absent file means no excludes, which is a vacuous pass, not an error: a consumer clone
+ * without `.claude/settings.json` is legitimate.
+ *
+ * NOTE — deliberately project-settings-only. `.claude/settings.local.json` is untracked and
+ * per-machine; a gate that read it would go green or red depending on the developer's own
+ * overlay. The bash meters DO read the union, because they are measuring what this session
+ * actually pays for; a CI gate is asserting what the repo commits to. Different questions,
+ * deliberately different inputs.
+ */
+export function readClaudeMdExcludes(settingsPath: string): {
+  excludes: string[];
+  error?: string;
+} {
+  if (!existsSync(settingsPath)) return { excludes: [] };
+  let parsed: ClaudeMdExcludesSettings;
+  try {
+    parsed = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch (e) {
+    return { excludes: [], error: `${settingsPath}: invalid JSON (${(e as Error).message})` };
+  }
+  return { excludes: parsed.claudeMdExcludes ?? [] };
+}
+
 export function checkExclusionConsistency(
   repoRoot: string,
   ruleFieldsByPath: Map<string, RuleChannelFields>,
   settingsPath: string,
 ): string[] {
   const errs: string[] = [];
-  if (!existsSync(settingsPath)) return errs; // no settings file -> no excludes -> vacuous pass
-  const raw = readFileSync(settingsPath, 'utf8');
-  let parsed: ClaudeMdExcludesSettings;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (e) {
-    errs.push(`${settingsPath}: invalid JSON (${(e as Error).message})`);
+  const read = readClaudeMdExcludes(settingsPath);
+  if (read.error) {
+    errs.push(read.error);
     return errs;
   }
-  const excludes = parsed.claudeMdExcludes ?? [];
-  for (const excludedPath of excludes) {
+  for (const excludedPath of read.excludes) {
     const resolved = resolveExcludeEntry(excludedPath, ruleFieldsByPath);
     if (resolved.error) {
       errs.push(resolved.error);
@@ -344,6 +399,69 @@ export function checkExclusionConsistency(
         `"${excludedPath}" is excluded (claudeMdExcludes) but carries no LIVE <!-- channel: ... --> marker — eviction without a delivery channel. ${channelResult.reasons.join('; ')}`,
       );
     }
+  }
+  return errs;
+}
+
+/**
+ * §"Residency partition" — the invariant that fell between principles 31 and 34.
+ *
+ * THE INVARIANT. For every enumerated `.claude/rules/*.md`:
+ *
+ *     (no `paths:` frontmatter) AND (not in ALWAYS_ON_CORE)
+ *       ==> some `claudeMdExcludes` entry matches it
+ *
+ * equivalently: the rule population partitions into {path-gated} + {ALWAYS_ON_CORE} + {excluded},
+ * with nothing left over. A leftover is a rule that is RESIDENT — loaded into every session's
+ * context, paid for in every turn — without anyone having declared it so.
+ *
+ * WHY NEITHER SIBLING CATCHES IT.
+ *   - `evaluateRuleChannel` (this principle) asks "is this rule DELIVERED by some channel?".
+ *     Branches (b) and (d) — a `<!-- globs: -->` marker, a live `<!-- channel: ... -->` marker —
+ *     are delivery mechanisms that do NOT suppress autoload. A rule can pass this principle on
+ *     branch (d) and still be resident. `fixtures/rule-channel/valid-channel-exception.md` is
+ *     exactly that shape, and the N31-7 RED leg uses it for that reason.
+ *   - `checkExclusionConsistency` (this principle) asks the one-way question
+ *     "excluded ==> live token?". It iterates the EXCLUDES list, so a rule missing from that
+ *     list is never visited at all.
+ *   - Principle 34 asks "does every exclude entry match at least one real file?" — also
+ *     iterating the excludes list, from the other end. A rule that should be listed and is not
+ *     is invisible to all three.
+ *
+ * GREEN ON LANDING — stated, not hidden. Measured 2026-09-14 on `origin/staging`: 29 enumerated
+ * rules = 19 `paths:`-gated + 2 ALWAYS_ON_CORE (the third, `00-rule-index.md`, is excluded from
+ * enumeration by construction) + 8 `claudeMdExcludes`-matched, leftover = 0. A gate that is
+ * green the day it lands has proved nothing about itself, which is why N31-7 pairs it with a
+ * fixture RED and three fixture positive controls (one per exempting branch) — see the test.
+ *
+ * SIBLING-CHANNEL PINNING (precedent PR #1644 -> #1651). Principles 31 and 34 both read
+ * `.claude/settings.json`, so a test of one can pass on the other's side effect. `settingsPath`
+ * and `ruleFieldsByPath` are BOTH injected: N31-7 runs on a synthetic one-entry map and a
+ * fixture settings file, touching neither the live rules tree nor the live settings, so nothing
+ * principle 34 reads or the maintainer edits can move its verdict.
+ */
+export function checkResidencyPartition(
+  ruleFieldsByPath: Map<string, RuleChannelFields>,
+  settingsPath: string,
+): string[] {
+  const errs: string[] = [];
+  const read = readClaudeMdExcludes(settingsPath);
+  if (read.error) {
+    errs.push(read.error);
+    return errs;
+  }
+  for (const [rel, fields] of ruleFieldsByPath) {
+    if (fields.paths && fields.paths.length > 0) continue; // path-scoped: not resident
+    if (ALWAYS_ON_CORE.includes(fields.name)) continue; // deliberately resident
+    if (read.excludes.some((entry) => excludeEntryMatchesPath(entry, rel))) continue; // evicted
+    errs.push(
+      `${rel}: RESIDENT but undeclared — it carries no \`paths:\` frontmatter, is not in ` +
+        `ALWAYS_ON_CORE, and no claudeMdExcludes entry matches it, so it is auto-loaded into ` +
+        `every session at full byte cost with nobody having chosen that. Pick one: add ` +
+        `\`paths:\` frontmatter (read-time scoped), add it to ALWAYS_ON_CORE (Tier-0, ceiling 4), ` +
+        `or list it in .claude/settings.json claudeMdExcludes (needs a live <!-- channel: ... --> ` +
+        `marker too — see checkExclusionConsistency).`,
+    );
   }
   return errs;
 }
