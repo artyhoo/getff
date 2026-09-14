@@ -30,6 +30,7 @@ AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
 AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
 AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
+AIF_EOT_CAP_LABEL='longer than the line cap:'
 
 # Fallback value for the session-goal anchor when extraction fails.
 aif_msg_eot_anchor_fallback() {

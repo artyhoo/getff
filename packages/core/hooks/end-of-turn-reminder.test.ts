@@ -636,10 +636,18 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     const RECAP_EN = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
 
     it('armed gate names the missing section of an existing recap block', () => {
+      // Task 1.6b's retry bound (R-16) keys its once-per-block flag on
+      // ${TMPDIR:-/tmp}/aif-eot-rgb-<session_id>, which survives across separate test-process
+      // runs on the default OS temp dir. A fixed session id + fixed block text (both true
+      // here) would collide with a flag file left behind by an earlier run of this very test
+      // and read back as "already blocked" — a fresh TMPDIR isolates it, per the retry-bound
+      // tests' own pattern, rather than weakening the bound.
+      const tdir = mkdtempSync(join(tmpdir(), 'gate-armed-'));
+      tmpDirs.push(tdir);
       const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
       const r = runHook(
         { transcript_path: tr, stop_hook_active: false, session_id: 'gate-armed' },
-        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
       );
       const reason = JSON.parse(r.stdout).reason as string;
       expect(reason).toContain('Fork.'); // asked ⇒ section 3 required
@@ -662,6 +670,63 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
       );
       expect(r.stdout).not.toContain('From you:');
+    });
+  });
+
+  // Task 1.6b (plain-words-recap-v2 slice 1): the gate's own retry bound (R-16) and the
+  // line cap on the retelling part (R-17, fork card exempt). The retry bound mirrors the
+  // ZCode dense arm's same-content loop bound (hook:814-842) — ZCode dispatches no
+  // stop_hook_active, so an unbounded gate would re-block an identical malformed block
+  // forever. The cap is read from AIF_EOT_RECAP_MAX_LINES (default 15) and excludes the
+  // fork-card region (D-A: fork cards are never compressed).
+  describe('recap gate — retry bound + line cap (Task 1.6b)', () => {
+    it('blocks a malformed block once, then exits silently on the same block under new prose', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const body = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+
+      const tr1 = writeTranscript([aiTitle('RB'), userTurn('go'), assistantText(body)]);
+      const first = runHook(
+        { transcript_path: tr1, stop_hook_active: false, session_id: 'retry-bound' },
+        env,
+      );
+      expect(first.stdout).toContain('Fork.');
+
+      const tr2 = writeTranscript([
+        aiTitle('RB'), userTurn('go'),
+        assistantText(`I reran the suite and it is green.\n\n${body}`),
+      ]);
+      const again = runHook(
+        { transcript_path: tr2, stop_hook_active: false, session_id: 'retry-bound' },
+        env,
+      );
+      expect(again.stdout).not.toContain('Fork.');
+    });
+
+    it('caps the retelling part but never the fork card', () => {
+      const filler = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
+      const mk = (text: string, session: string) => {
+        const tdir = mkdtempSync(join(tmpdir(), 'recap-cap-'));
+        tmpDirs.push(tdir);
+        const tr = writeTranscript([aiTitle('Cap'), userTurn('go'), assistantText(text)]);
+        return runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: session },
+          { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
+        );
+      };
+
+      const long = mk(
+        `## 🟢 In plain words\n**Where we are.** ok\n${filler}\n**Next.** Me: x. From you: nothing (wc -l)`,
+        'cap-long',
+      );
+      expect(JSON.parse(long.stdout).reason).toContain('15');
+
+      const card = mk(
+        `## 🟢 In plain words\n**Where we are.** ok\n**Fork.**\n${filler}\n**Next.** Me: x. From you: decide: A or B`,
+        'cap-card',
+      );
+      expect(card.stdout).not.toContain('15'); // the card's 20 lines do not count
     });
   });
 

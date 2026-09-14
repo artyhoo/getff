@@ -694,12 +694,26 @@ _eot_recap_block() {
     <<<"$AIF_RECAP_MARKER${text#*"$AIF_RECAP_MARKER"}"
 }
 
+# Non-empty lines of the block, EXCLUDING the fork-card region (Task 1.6b, R-17). D-A: the
+# cap is on the retelling, and a fork card is never compressed — capping it would produce
+# exactly the bare-question shape the card exists to prevent.
+_eot_recap_line_count() {
+  awk -v fork="$AIF_EOT_SEC_FORK" -v nxt="$AIF_EOT_SEC_NEXT" -v uns="$AIF_EOT_SEC_UNSURE" '
+    index($0, fork)                               { skip = 1; next }
+    skip && (index($0, nxt) || index($0, uns))    { skip = 0 }
+    skip                                          { next }
+    /^[[:space:]]*$/                              { next }
+                                                  { n++ }
+    END { print n + 0 }
+  ' <<<"$1"
+}
+
 # Section checker for an EXISTING recap block (Task 1.5, D-A). Never a block demander: the
 # caller only reaches this when the turn already carries $AIF_RECAP_MARKER. Reads $text (via
 # _eot_recap_block), $asked and $long_text from _eot_turn_shape. Echoes a `; `-joined list of
 # missing/malformed sections, or nothing when the block is well-formed.
 _eot_recap_defects() {
-  local d="" block last
+  local d="" block last cap count
   block="$(_eot_recap_block)"
   if ! grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$block"; then d="$d; $AIF_EOT_SEC_WHERE"; fi
   if ! grep -qF -- "$AIF_EOT_SEC_NEXT"  <<<"$block"; then d="$d; $AIF_EOT_SEC_NEXT"; fi
@@ -716,6 +730,12 @@ _eot_recap_defects() {
   elif grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"$last"; then
     d="$d; $AIF_EOT_FOR_YOU_BANNED"
   fi
+  # Task 1.6b (R-17): cap the retelling, fork card exempt. Read from the ENV with a literal
+  # default — deliberately absent from the language packs, which are sourced AFTER the
+  # environment, so a pack assignment would clobber an operator's override.
+  cap="${AIF_EOT_RECAP_MAX_LINES:-15}"
+  count="$(_eot_recap_line_count "$block")"
+  if [ "$count" -gt "$cap" ]; then d="$d; $AIF_EOT_CAP_LABEL $cap"; fi
   printf '%s' "${d#; }"
 }
 
@@ -760,6 +780,35 @@ if [ -n "$text" ] && grep -qF -- "$AIF_RECAP_MARKER" <<<"$text"; then
   if [ "${AIF_RECAP_GATE:-0}" = "1" ] && [ -z "${gate_line:-}" ] && [ -z "${ctx_line:-}" ] \
      && ! grep -qF -- "$AIF_STORY_MARKER" <<<"$text"; then
     _recap_defects="$(_eot_recap_defects)"
+    if [ -n "$_recap_defects" ]; then
+      # The gate owns its retry bound (Task 1.6b, R-16). Mirrors the ZCode dense arm
+      # (:~822-852) and for the same measured reason: a re-stop after decision:block can
+      # carry stop_hook_active=false, so an unbounded gate re-blocks identical text forever.
+      # Stored sha == current sha → this exact block already got its one block → fall
+      # through to the silent exit. An empty sha (no hashing tool, or a failed write) skips
+      # BOTH the compare and the store — never "content unchanged" — degrading to today's
+      # behaviour: the block fires.
+      #
+      # Hash the BLOCK, never $text: the seam is "the same malformed block under NEW
+      # surrounding prose", which moves a whole-message sha and would re-block forever on
+      # exactly the case the bound exists for. Use the gate's OWN flag prefix
+      # (aif-eot-rgb-), never the ZCode arm's (aif-eot-zcb-): one flag shared between two
+      # bounds lets each suppress the other's first block (#1644->#1651).
+      _rg_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+      _rg_flag="${TMPDIR:-/tmp}/aif-eot-rgb-${_rg_key}"
+      _rg_tmp="${TMPDIR:-/tmp}/aif-eot-rgbt-${_rg_key}-$$"
+      _rg_sha=""
+      if printf '%s' "$(_eot_recap_block)" > "$_rg_tmp" 2>/dev/null; then
+        _rg_sha="$(_residue_sha256 "$_rg_tmp")"
+        rm -f "$_rg_tmp" 2>/dev/null || true
+      fi
+      if [ -n "$_rg_sha" ] && [ -f "$_rg_flag" ] \
+         && [ "$(cat "$_rg_flag" 2>/dev/null || true)" = "$_rg_sha" ]; then
+        _recap_defects=""
+      elif [ -n "$_rg_sha" ]; then
+        { printf '%s' "$_rg_sha" > "$_rg_flag"; } 2>/dev/null || true
+      fi
+    fi
     if [ -n "$_recap_defects" ]; then
       gate_line="$(aif_msg_eot_recap_gate "$_recap_defects")"
     fi
@@ -868,7 +917,8 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     exit 0
   fi
 fi
-unset _ze_reason _ze_glance _md_dense _zcb_key _zcb_flag _zcb_tmp _zcb_sha 2>/dev/null || true
+unset _ze_reason _ze_glance _md_dense _zcb_key _zcb_flag _zcb_tmp _zcb_sha \
+      _rg_key _rg_flag _rg_tmp _rg_sha 2>/dev/null || true
 
 _eot_turn_shape
 
