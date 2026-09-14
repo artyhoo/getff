@@ -411,8 +411,8 @@ e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/
 dbadc9d0a61843f50eb2e4e9199111805086731ab7ee84c7f0e6d08b4096b708  packages/core/hooks/check-kickoff-traps.test.ts
 634c0be0d989935ff74277be295142fb8d703a13bc232cf7e2c3ee89f0aa814f  packages/core/hooks/check-skill-drift.test.ts
 ac14281137898f37cfa31613a71e7a298b1e59dd739567d37fa4790871125cef  packages/core/hooks/check-worker-dispatch-channel.test.ts
-17c828ceb4d5abcbca1f9cda71634db5e264667f6247cbbb68628f515bb2d7da  packages/core/hooks/checks/cmd-script-liveness.test.ts
-d03a610b21ee13e6dd3efedfed90e1a3a8e5722bcb998358c7aa3e163926b001  packages/core/hooks/checks/cmd-script-liveness.ts
+8118c5fd2106622234924042b1ab738b8fad3cee6654f079306be60f5de2aabe  packages/core/hooks/checks/cmd-script-liveness.test.ts
+8a6ca70cf870b671b62599e5b222e2bc2bd04c586ee2b6dd7bc669436ae892bc  packages/core/hooks/checks/cmd-script-liveness.ts
 cff85d30ae62cf8a7e30e6f9d25c1084135cb5797b7c456ac8c710a41858017b  packages/core/hooks/checks/guard-liveness-fullsweep.test.ts
 53d0553901d65f9ac1a685d1da27dcb7821385c4b96d04d8fd025c6383746db7  packages/core/hooks/checks/guard-liveness-fullsweep.ts
 3200f762806ac49f1c615339f2aa70a5c169686f761300eb40a4acfafb2b99cc  packages/core/hooks/checks/guard-liveness.test.ts
