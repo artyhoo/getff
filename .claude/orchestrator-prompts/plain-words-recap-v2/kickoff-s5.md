@@ -3,7 +3,7 @@
 > **Umbrella:** [kickoff.md](kickoff.md) — §2 non-negotiables and §3 census are binding.
 > **Class:** stage kickoff (dispatch input). **Base branch:** `staging`. **Channel:** one Claude
 > Code session, own worktree, one PR to `staging`. Review seat: **Opus**.
-> **Rigor label:** `research-grade` — this stage edits the Artifact Ownership Contract and narrows
+> **Rigor label (L0):** `research-grade` — this stage edits the Artifact Ownership Contract and narrows
 > a shipped gate. A narrowing that goes one clause too far re-opens the class the gate exists for,
 > and nothing downstream would catch it.
 > **Authoritative for:** the S5 contract — the five deliverables, the reproduction R-11 demands,
@@ -175,7 +175,7 @@ in-session — **recheck at implementation time**, this is the kind of claim tha
 
 Umbrella §7 host-verify contract, plus:
 
-```bash
+```bash host-verify
 PC_LOCAL=1 npx vitest run packages/core/principles/29-worker-dispatch-channel.test.ts
 PC_LOCAL=1 npx vitest run packages/core/hooks/check-worker-dispatch-channel.test.ts
 PC_LOCAL=1 npx vitest run packages/core/principles/ --testTimeout=90000

@@ -2,6 +2,8 @@
 
 > **Class:** umbrella kickoff (stage index). **Base branch:** `staging`. One PR to `staging` per stage.
 > **Type:** I-phase (execution — three stages, each shipping code plus its gates).
+> **Rigor label (L0):** `research-grade` — every stage in this umbrella edits consumer-shipped
+> payload (lang packs, installed hooks, installed docs), so the cheap label would be dishonest.
 > **Authoritative for:** the stage split for slices 3–5, the cross-stage non-negotiables (§2), the
 > measured citation census the stages must use instead of the spec's own line numbers (§3), the
 > dispatch order (§4), and the host-verify contract (§7).
@@ -227,7 +229,7 @@ work). Do not reopen them; do not fold them into a stage PR.
 
 Before opening the PR, every stage runs and pastes the output of:
 
-```bash
+```bash host-verify
 bash .claude/hooks/lang/check-parity.sh
 SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh
 bash scripts/build-getff-dist.sh --check

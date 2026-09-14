@@ -3,7 +3,7 @@
 > **Umbrella:** [kickoff.md](kickoff.md) — §2 non-negotiables and §3 census are binding.
 > **Class:** stage kickoff (dispatch input). **Base branch:** `staging`. **Channel:** one Claude
 > Code session, own worktree, one PR to `staging`. Review seat: **Opus**.
-> **Rigor label:** `production-grade` — this stage ships a new root doc, a new always-on
+> **Rigor label (L0):** `research-grade` — this stage ships a new root doc, a new always-on
 > `UserPromptSubmit` hook, and a counters file shared across every session on the machine.
 > **Authoritative for:** the S3 contract — the build list, the two asks, the exit gates, the
 > falsifiers, and what S3 must NOT absorb.
@@ -127,7 +127,7 @@ carrying both the ASD-STE100 clause and the `CONTEXT.md` clause — so if the fa
 
 Umbrella §7 host-verify contract, plus:
 
-```bash
+```bash host-verify
 PC_LOCAL=1 npx vitest run packages/core/principles/42-context-md-pointer-rule.test.ts
 PC_LOCAL=1 npx vitest run packages/core/hooks/glossary-counters.test.ts
 bash .claude/hooks/lang/check-parity.sh                 # must now report the AIF_GLOSSARY_ keys
