@@ -6,8 +6,8 @@ c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/
 a56029e75fb285cfc4345e34ccb066f09d391f44af2a08326dde54b02b60514c  .claude/hooks/check-kickoff-traps.sh
 f05c9a8ce70ce103948afe184cc60d1cb79c69e4b2f5672cac459389e7e34b74  .claude/hooks/check-worker-dispatch-channel.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-c0cd98f1d237374974c6a12e6db0dcaf61ee1906f2ce86edca46d4e44286d717  .claude/hooks/end-of-turn-reminder.sh
-1a535582b1c43247e1cef15f11d3f820a5480bf5fe71e0a431bfee4a4fa22a54  .claude/hooks/glossary-inject.sh
+f685f32faf283c090487be8f4e11dd22d2bbb2877fc515ec68217397a610bb58  .claude/hooks/end-of-turn-reminder.sh
+7486ad4302c5dfbf8ca5f0159401aabdd886a1eb597ab16c1f8712018b410521  .claude/hooks/glossary-inject.sh
 0172e377f71e667e1832ceb3edeaf06a080c0af2236fa8ec1a6769b97ecaecb5  .claude/hooks/inject-handoff-on-compact.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
@@ -20,7 +20,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 b95085b8677243441a1cffd5a13a41882e94a46eceb9df4a47d66e7a0576fc61  .claude/hooks/lang/en.sh
 761f70714a2bd397351ca68ae5355d25971bb1aa8580a27a918f55bce1491ade  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
-5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
+4778252c1573a1b62351d2a108c501fab09edd7b1dfa765911108294239b24a8  .claude/hooks/lib/residue-dir.sh
 e86895c15d2aed08b5302a2f01b60132b1643dfbb58b662577e3a60e70371f11  .claude/hooks/precompact-residue.sh
 ee58f8b7d5ab72c63553ca67b26f83b2813d61b70352228a4f645b957172df58  .claude/hooks/runtime-bridge-dispatch.sh
 8347ab25e5b20929a2def4a5f428580b02ac976d67a03cac717f23beec747a1d  .claude/hooks/validate-prompt.sh

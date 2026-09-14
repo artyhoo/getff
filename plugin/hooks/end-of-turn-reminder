@@ -56,7 +56,11 @@ _residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
 if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
   _residue_dir() {
     if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
-    local _rd_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    # The ZCODE arm mirrors the lib's (and the inject hook's env-first pin): the PLUGIN twin
+    # always runs this fallback (plugin/hooks/lib ships no residue-dir.sh), and a ZCode plugin
+    # run sets neither CLAUDE_PROJECT_DIR nor `root` — without the arm its counters path
+    # diverges from the inject side's (cold-review m2, 2026-09-14).
+    local _rd_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
     local _rd_helper="$_rd_root/.claude/skills/pipeline/helpers/print-orch-home.sh" _rd_out=""
     if [ -f "$_rd_helper" ]; then
       _rd_out=$(REPO_ROOT="$_rd_root" bash "$_rd_helper" 2>/dev/null || true)
@@ -755,7 +759,11 @@ fi
 # present (:14). The counters file is created on demand: the Stop side must be able to
 # count explanations even when the inject side never ran (registration lag) — its usages
 # simply stay 0.
-if [ -n "$text" ] && [ -f "${CLAUDE_PROJECT_DIR:-$(pwd)}/CONTEXT.md" ]; then
+# The root is resolved env-first (CLAUDE → ZCODE → pwd), the same chain the inject side
+# pins and _residue_dir now carries — under a harness whose hook cwd ≠ project root, the
+# CONTEXT.md check and the counters file must land on the SAME tree (cold-review m2).
+_gl_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
+if [ -n "$text" ] && [ -f "$_gl_root/CONTEXT.md" ]; then
   _gl_session_key="$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)"
   _gl_pending="${TMPDIR:-/tmp}/aif-glossary-pending-${_gl_session_key}"
   if [ -f "$_gl_pending" ]; then
@@ -787,12 +795,19 @@ if [ -n "$text" ] && [ -f "${CLAUDE_PROJECT_DIR:-$(pwd)}/CONTEXT.md" ]; then
         continue
       fi
       _gl_flag="${TMPDIR:-/tmp}/aif-glossary-dem-${_gl_session_key}-$(printf '%s' "$_gl_term" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-48)"
-      if [ ! -f "$_gl_flag" ]; then
+      # command -v BEFORE the call AND before the flag: an undefined function in a cmdsubst
+      # aborts the WHOLE hook under set -e (measured: rc 127) — a pack older than this
+      # feature lacks aif_msg_glossary_demand while still carrying every aif_msg_eot_* the
+      # arms above call. Degradation: the demand is skipped but the explanation still counts
+      # above, and the flag stays unset so the next turn retries once the pack catches up
+      # (cold-review m1, 2026-09-14 — the arm's pack-lag comment claimed keys only).
+      if [ ! -f "$_gl_flag" ] && command -v aif_msg_glossary_demand >/dev/null 2>&1; then
+        _gl_demand="$(aif_msg_glossary_demand "$_gl_term" "$_gl_word")"
         { printf 'fired' > "$_gl_flag"; } 2>/dev/null || true
         if [ -n "$glossary_line" ]; then
-          glossary_line="${glossary_line}"$'\n'"$(aif_msg_glossary_demand "$_gl_term" "$_gl_word")"
+          glossary_line="${glossary_line}"$'\n'"${_gl_demand}"
         else
-          glossary_line="$(aif_msg_glossary_demand "$_gl_term" "$_gl_word")"
+          glossary_line="${_gl_demand}"
         fi
       fi
     done < "$_gl_pending"

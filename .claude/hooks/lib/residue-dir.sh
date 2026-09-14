@@ -41,7 +41,11 @@
 _residue_dir() {
   if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
   local _rd_root="${root:-}"
-  [ -n "$_rd_root" ] || _rd_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  # CLAUDE_PROJECT_DIR → ZCODE_PROJECT_DIR → pwd: a ZCode plugin run sets neither `root` nor
+  # CLAUDE_PROJECT_DIR, so without the middle arm a harness run resolves a DIFFERENT residue
+  # root than the inject side, which pins env-first for exactly this reason (cold-review m2,
+  # 2026-09-14 — the counters file would split per harness).
+  [ -n "$_rd_root" ] || _rd_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
   local _rd_helper="$_rd_root/.claude/skills/pipeline/helpers/print-orch-home.sh" _rd_out=""
   if [ -f "$_rd_helper" ]; then
     _rd_out=$(REPO_ROOT="$_rd_root" bash "$_rd_helper" 2>/dev/null || true)

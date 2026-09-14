@@ -3,17 +3,21 @@
 # plain-words-recap-v2 D-F — UserPromptSubmit hook: glossary injection + usage counter.
 # spec: docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md §D-F
 #
-# Scans the operator's prompt for glossary terms (CONTEXT.md, `**Term**:` headings) and
-# their `_Operator says_` raw words; for each match injects one line
+# Scans the operator's prompt for the `_Operator says_` raw words of the CONTEXT.md
+# glossary; for each match injects one line
 #   "<raw word>" = <term>: <definition>
 # (the operator→agent direction) and counts ONE usage per term per prompt. A synonym is
-# NOT a usage: only the term name itself and the listed raw words match. The Stop-side
-# twin (the glossary arm inside end-of-turn-reminder.sh) reads the per-session pending
-# file this hook writes and counts the agent→operator direction (the fixed
-# «term (explanation)» form). BOTH sides derive the counters file as
-# `_residue_dir()/_glossary-counts.json` — a path split between the two hooks is the
-# kickoff's item-4 falsifier («the hook is registered and a session still never sees an
-# injected line»).
+# NOT a usage, and the `**Term**` canonical names are deliberately NOT matched either:
+# only the `_Operator says_` list is the curated match contract. Matching the English
+# canonical names would false-positive on ordinary words (a term literally named Red) —
+# the raw-word list is what the operator actually says (kickoff item 4's «the term itself»
+# for the Russian seeds IS the raw word; harvest/egress/handoff are listed as raw words
+# too, so their English use matches). The Stop-side twin (the glossary arm inside
+# end-of-turn-reminder.sh) reads the per-session pending file this hook writes and counts
+# the agent→operator direction (the fixed «term (explanation)» form). BOTH sides derive
+# the counters file as `_residue_dir()/_glossary-counts.json` — a path split between the
+# two hooks is the kickoff's item-4 falsifier («the hook is registered and a session still
+# never sees an injected line»).
 #
 # Learned (usages ≥ AIF_GLOSSARY_USES OR explanations ≥ AIF_GLOSSARY_EXPLAINS) silences
 # this side too: above threshold nothing fires (D-F). To re-teach a term, delete

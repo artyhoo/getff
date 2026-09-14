@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 5650d70f65379fb7124151f9fa54000709c9bcf74fb9fd7a200f1a667d5fd384  .ai-factory/RULES.md
-34161c520e2977a9b80344d4a3e7f215660fd920b0a58a19786bedfe465e0f72  .ai-factory/refresh-baseline.json
+c2b1cb2535db22f1fe41429ef86a5cba5876e9d487ea47d260a14356c1ed5b06  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -24,7 +24,7 @@ a3053a760cba1ba1b12da150118d2d751f4d8c4cb348613062c93a011083b67f  .claude/agents
 019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
 c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
 4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-c0cd98f1d237374974c6a12e6db0dcaf61ee1906f2ce86edca46d4e44286d717  .claude/hooks/end-of-turn-reminder.sh
+f685f32faf283c090487be8f4e11dd22d2bbb2877fc515ec68217397a610bb58  .claude/hooks/end-of-turn-reminder.sh
 6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
 d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
 005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
@@ -32,7 +32,7 @@ d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 b95085b8677243441a1cffd5a13a41882e94a46eceb9df4a47d66e7a0576fc61  .claude/hooks/lang/en.sh
 761f70714a2bd397351ca68ae5355d25971bb1aa8580a27a918f55bce1491ade  .claude/hooks/lang/ru.sh
-5689b5d7bf4bd10de931126f9f04d4b51c06b59159e5280ca306f4c275103cb4  .claude/hooks/lib/residue-dir.sh
+4778252c1573a1b62351d2a108c501fab09edd7b1dfa765911108294239b24a8  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
@@ -158,7 +158,7 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 457cbfde763fcb4d7b1a6e8d9253086b0a0e31be48b86acbadec356b321c0417  packages/core/hooks/pre-push.fallback.sh
 ec0c2a84cafc1859ce1920e12d42e5e345a7324d1ec423b9890838621501ad60  packages/core/hooks/pre-push.ts
 ca0794944baccb739c780a6754a589d5b4f3c2c213c5605be16f90ca0c79861a  packages/core/hooks/utils/git.ts
-3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
+574f32bb01b147dbc6d3bffa5428b91956b52d1dc5de1eac145f2f5b2aa77bb7  packages/core/hooks/utils/run-check.ts
 1de2d3933a2636f031fcd842dcab851dbdea1b4cbc3e05efb290d5b822501370  scripts/audit-ai-docs.sh
 64902bcaedea1fb1ed26271359a5c7f2bb0a1b7c5e0d46cee28df55d8a0a3d2d  scripts/audit-r4.ts
 b047a1fde5a9f274f116435389d72b9b4d74adbac1af5469cce33bceb70a7175  scripts/check-arch-boundaries.sh
@@ -177,7 +177,7 @@ ffa91b9e12dc00462e7ad1b7f9cedb8dd363981057b4163c77c39515e13d77da  scripts/fences
 711f6726810ec279fcbe36464a371b902f074aa42440b4ddb1778a88a163b080  scripts/fences-fire-fixtures/require-use-server-directive.good.txt
 5ee39faf997c935fd99386ca25fa69045f73fe1db5a697e536057b5de4c215ce  scripts/fences-fire-fixtures/require-use-server-directive.manifest.json
 6fc70ba99094be2bf723f26ebb501ac460af7d23986e0e5caaa440f3cf06fc7e  scripts/getff-work.sh
-6f634f183432d31f34f5bda5f094f2444218a5606ef850e4d601abfc27229671  scripts/link-coordination.sh
+af9b2548869485eea6bc4f554558a3fb459e493608a38dbbc74f01b3e8784077  scripts/link-coordination.sh
 b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  scripts/pre-merge-local.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  scripts/r2-na-marker.sh
 76dcfc2cb3f750306edb42bd3e35788857d69a85f5ab98e7b284f1091da2f361  scripts/run-generated-rule-mutation.sh
