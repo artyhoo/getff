@@ -13,6 +13,8 @@
  * actionlint / lychee must not hang the hook — so coverage strictly exceeds it.
  */
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 export interface CheckResult {
   /** Process exit code; synthesised for timeout (124) and spawn-failure (127). */
@@ -39,6 +41,47 @@ export const TIMEOUT_EXIT_CODE = 124;
 export const SPAWN_FAILURE_EXIT_CODE = 127;
 
 /**
+ * Windows-only rewrite of `npm` / `npx` into `node <npm-install>/bin/<tool>-cli.js`.
+ *
+ * On Windows npm and npx exist only as `.cmd` / `.ps1` shims, and since the
+ * CVE-2024-27980 mitigation Node refuses to spawn those without `shell: true`
+ * (EINVAL, surfaced here as ENOENT). Measured on Windows 11 / Node 24.19.0:
+ * `node`, `git`, `bash`, `python3`, `ruff` and `actionlint` all spawn bare and
+ * only `npm` + `npx` fail — so this rewrite covers the whole failing set. The
+ * user-visible symptom was `pre-push.ts:916` announcing "npx not found — install
+ * Node.js" on a machine running the hook *under* Node.
+ *
+ * `shell: true` is deliberately NOT the fix: runCheck is the single funnel for
+ * every subprocess in the hook core (`utils/git.ts` routes branch names and
+ * commit messages through it), and a shell turns those unescaped arguments into
+ * an injection surface — plus Node deprecates the array form under a shell
+ * (DEP0190). Spawning the CLI's own JS keeps argv a real array.
+ *
+ * Returns the command unchanged for every other platform, every other command,
+ * and any layout where the expected `-cli.js` is not on disk (nvm/volta-style
+ * installs) — the caller then sees exactly today's behaviour.
+ */
+export function resolveNodeToolShim(
+  cmd: string,
+  args: readonly string[],
+  platform: NodeJS.Platform = process.platform,
+  execPath: string = process.execPath,
+  exists: (p: string) => boolean = existsSync,
+): { cmd: string; args: readonly string[] } {
+  if (platform !== 'win32') return { cmd, args };
+  if (cmd !== 'npm' && cmd !== 'npx') return { cmd, args };
+  const cli = join(
+    dirname(execPath),
+    'node_modules',
+    'npm',
+    'bin',
+    `${cmd}-cli.js`,
+  );
+  if (!exists(cli)) return { cmd, args };
+  return { cmd: execPath, args: [cli, ...args] };
+}
+
+/**
  * Run `cmd args` synchronously, capturing exit code + output. Never throws on a
  * non-zero exit or a missing binary — the caller routes on the returned shape.
  */
@@ -48,7 +91,8 @@ export function runCheck(
   opts: RunCheckOptions = {},
 ): CheckResult {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const result = spawnSync(cmd, args as string[], {
+  const spawned = resolveNodeToolShim(cmd, args);
+  const result = spawnSync(spawned.cmd, spawned.args as string[], {
     cwd: opts.cwd,
     env: opts.env ?? process.env,
     encoding: 'utf8',
