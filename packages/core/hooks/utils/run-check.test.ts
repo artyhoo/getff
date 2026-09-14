@@ -178,8 +178,11 @@ describe('resolveNodeToolShim (Windows npm/npx rewrite)', () => {
   it('POSITIVE: rewrites npm on win32 to node + npm-cli.js when the CLI is on disk', () => {
     const r = resolveNodeToolShim('npm', ['ci'], 'win32', WIN_NODE, yes);
     expect(r.cmd).toBe(WIN_NODE);
-    expect(r.args[0]).toMatch(
-      /[\\/]node_modules[\\/]npm[\\/]bin[\\/]npm-cli\.js$/,
+    // Exact, not a loose regex: with a POSIX `dirname` the win32 branch yields
+    // `node_modules/npm/bin/npm-cli.js`, which a [\\/] alternation still matches.
+    // The drive prefix is what proves the win32 path flavour was the one used.
+    expect(r.args[0]).toBe(
+      'C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
     );
     expect(r.args.slice(1)).toEqual(['ci']);
   });

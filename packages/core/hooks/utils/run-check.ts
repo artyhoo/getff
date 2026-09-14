@@ -14,7 +14,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { win32 as pathWin32 } from 'node:path';
 
 export interface CheckResult {
   /** Process exit code; synthesised for timeout (124) and spawn-failure (127). */
@@ -70,8 +70,12 @@ export function resolveNodeToolShim(
 ): { cmd: string; args: readonly string[] } {
   if (platform !== 'win32') return { cmd, args };
   if (cmd !== 'npm' && cmd !== 'npx') return { cmd, args };
-  const cli = join(
-    dirname(execPath),
+  // win32-flavoured path ops, not the ambient ones: `platform` is an injected
+  // parameter, so the win32 branch also executes on a Linux CI runner, where
+  // POSIX dirname does not recognise a backslash separator, so it collapses a
+  // Windows execPath to "." and the join below loses the drive entirely.
+  const cli = pathWin32.join(
+    pathWin32.dirname(execPath),
     'node_modules',
     'npm',
     'bin',
