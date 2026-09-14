@@ -338,7 +338,7 @@ next: installation
 
 `kind: face-page` is the D30 quality-contract key (D-Q17, D35 E1): `docs-check.mjs` errors on any `docs/site/**/*.md` without a
 `kind:`, C12 treats `face-page` as JUDGE-only against §5's own per-page skeletons, and `terms.md` carries `kind: glossary`.
-The LANDING build (the `.md` twin is a build-time projection from `page.data.getText('processed')`, one dynamic route) stamps
+The LANDING build (the `.md` twin is a build-time projection from `page.data.getText('processed')`; the ROUTE half is **UNVERIFIED** — `2026-09-14-getff-ai-rollout-and-cutover-design.md:120` records that no dynamic `.md` route exists in the landing and that `rewrites()` is inert under `output: 'export'`, and names the fallback settled at the first S1 build: keep generating N literal route folders from the pin instead of one dynamic route. F2 BU MINOR, 2026-09-14) stamps
 the rest: `url`, `verified-at: <pinned framework sha>`, each `sources:` entry resolved to `blob/<sha>/<path>#L<n>`, and
 `stale-since` = present iff the page carries a `docs-refresh: deferred` token at the pin (umbrella D26/D34). Body = the page
 text as markdown, no agent prompts (FD11). The human render shows none of this except an optional quiet «Updated <date>»
