@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# getff:no-card — ai-doc-audit C1-Audit audit-time probe; no wiring surface invokes it
 # Per-rule deterministic channel report for ai-doc-audit C1-Audit.
 # For each .claude/rules/*.md reports the activation artefacts that ACTUALLY exist on disk
 # (not what a header claims): a principle-test referencing the rule slug, a PostToolUse hook

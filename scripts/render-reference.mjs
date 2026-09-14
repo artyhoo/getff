@@ -713,7 +713,14 @@ function buildI(root) {
       twinOf = twinSourceRel;
     }
     members.push({
-      name: rel.split('/').pop().replace(/\.md$/, ''),
+      // Member key: a skill is named by its DIRECTORY (plugin/skills/<name>/SKILL.md —
+      // basename would collapse every skill to "SKILL"; caught by arm C's name-level
+      // population comparison, 2026-09-14). Commands/agents are flat files → their stem.
+      name: (() => {
+        const segs = rel.split('/');
+        const base = segs[segs.length - 1];
+        return base === 'SKILL.md' ? segs[segs.length - 2] : base.replace(/\.md$/, '');
+      })(),
       kind: 'plugin-component',
       shipsTo: { tier: 'plugin' },
       description,

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# precompact-residue.sh — PreCompact hook — writes the session-residue note before compaction
 # @cc-only-rationale: CC-specific PreCompact hook (session-residue writer) — PreCompact fires
 #   only inside a Claude Code session, and it is NOT in ZCode's event set
 #   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:46-54), so no portable counterpart

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "FSL-1.1-ALv2",
+  "description": "Next.js 15 canonical preset for rules-as-tests — ESLint plugin rule (no-server-imports-in-client) plus stack templates and RULES docs; migrated rules R14/R20 ship as declarative recipes in packages/core.",
   "type": "module",
   "main": "./eslint-rules/index.ts",
   "exports": {

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+/**
+ * triage-s4-score — S4 bench scorer + fail-closed gate: scores C0/C1/C2 per axis against s3-final.csv truth.
 // S4 bench scorer + fail-closed gate (kickoff-s4 §3.6/§3.9). Scores C0/C1/C2 per axis against
 // s3-final.csv truth, applies the §5 acceptance rule (class gate = McNemar leg AND
 // MATERIAL-miss leg; layer = same statistic vs majority bar; whose = descriptive only),

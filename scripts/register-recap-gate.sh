@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# getff:no-card — operator hand-off helper, run by hand once; never wired
 # Operator hand-off: arm the plain-words recap gate (spec:
 # .superpowers/sdd/2026-09-13-plain-words-recap-v2-slice-1-delivery, D-E, R-15).
 #

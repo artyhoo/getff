@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-handoff-on-compact.sh — SessionStart:compact hook — re-injects the model-authored handoff after compaction
 # @cc-only-rationale: CC-specific SessionStart hook (the D20 injection pipe) — a compaction
 #   orphans the model-authored handoff exactly when the fresh window needs it most, and
 #   SessionStart(source=compact) is the one event that fires at that instant. ZCode has no

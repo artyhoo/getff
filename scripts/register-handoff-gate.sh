@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# getff:no-card — operator hand-off helper, run by hand once; never wired
 # Operator hand-off: arm the D13 handoff-currency gate (spec:
 # docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md, Decision 4 + D18).
 #

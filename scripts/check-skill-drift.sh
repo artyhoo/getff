@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/check-skill-drift.sh — skill/agent file drift detector
+# check-skill-drift.sh — skill/agent file drift detector
 #
 # D-AuditC-5 channel 1 (edit-time) + channel 2 (pre-push via .husky/pre-push section 3b).
 # Principle test 14-skill-drift-detection.test.ts is channel 3 (CI last resort).

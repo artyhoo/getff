@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context
 # Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
 # stdout is injected into Claude Code's prompt context by the harness automatically.
 # Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).

@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "family": "A",
+  "familyName": "installer layers",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "05-mcp.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "MCP companion install layer (S2).",
+      "source": {
+        "path": "setup.d/05-mcp.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 5
+      },
+      "example": null
+    },
+    {
+      "name": "10-skills.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§1 Skills + §1b Hooks (deps-hash-check CC hook).",
+      "source": {
+        "path": "setup.d/10-skills.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 10
+      },
+      "example": null
+    },
+    {
+      "name": "15-companions-stack.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "Stack-specific companion selection layer (S3).",
+      "source": {
+        "path": "setup.d/15-companions-stack.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 15
+      },
+      "example": null
+    },
+    {
+      "name": "20-agents.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§2 Sub-agents + §3c skill-context overrides.",
+      "source": {
+        "path": "setup.d/20-agents.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 20
+      },
+      "example": null
+    },
+    {
+      "name": "30-templates.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md.",
+      "source": {
+        "path": "setup.d/30-templates.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 30
+      },
+      "example": null
+    },
+    {
+      "name": "40-configs.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs.",
+      "source": {
+        "path": "setup.d/40-configs.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 40
+      },
+      "example": null
+    },
+    {
+      "name": "45-python.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "Python toolchain delivery layer (python-delivery-v0 S1, Task 5).",
+      "source": {
+        "path": "setup.d/45-python.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 45
+      },
+      "example": null
+    },
+    {
+      "name": "46-cargo.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "Rust/cargo toolchain delivery layer (ecosystem-wiring W4).",
+      "source": {
+        "path": "setup.d/46-cargo.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 46
+      },
+      "example": null
+    },
+    {
+      "name": "47-go.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "Go toolchain delivery layer (adapter-jig J3).",
+      "source": {
+        "path": "setup.d/47-go.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 47
+      },
+      "example": null
+    },
+    {
+      "name": "50-hooks.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§5c .husky/ hooks cluster + core.hooksPath activation.",
+      "source": {
+        "path": "setup.d/50-hooks.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 50
+      },
+      "example": null
+    },
+    {
+      "name": "55-runtime-bridge-vendor.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§5d vendored runtime-bridge subset (factory-only).",
+      "source": {
+        "path": "setup.d/55-runtime-bridge-vendor.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 55
+      },
+      "example": null
+    },
+    {
+      "name": "60-ci.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§6b .nvmrc↔CI drift WARN + §6b-bis R2 auto-wire L1 + §6c CI-orphan WARN.",
+      "source": {
+        "path": "setup.d/60-ci.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 60
+      },
+      "example": null
+    },
+    {
+      "name": "70-deps.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root.",
+      "source": {
+        "path": "setup.d/70-deps.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 70
+      },
+      "example": null
+    },
+    {
+      "name": "80-rule-bootstrap.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "rule-bootstrapping install-time step (LIVE-or-degrade).",
+      "source": {
+        "path": "setup.d/80-rule-bootstrap.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 80
+      },
+      "example": null
+    },
+    {
+      "name": "85-worktree-scripts.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "§5e worktree scripts cluster (env+ profile).",
+      "source": {
+        "path": "setup.d/85-worktree-scripts.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 85
+      },
+      "example": null
+    },
+    {
+      "name": "99-finalize.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.",
+      "source": {
+        "path": "setup.d/99-finalize.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 99
+      },
+      "example": null
+    }
+  ]
+}

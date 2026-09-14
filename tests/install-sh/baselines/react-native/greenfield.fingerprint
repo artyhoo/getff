@@ -6,7 +6,7 @@ acafe267e1ac90afe1038da15ad9be69e8b28b8e26e67203fc414def68641068  .ai-factory/AR
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 c3d5f5cdf92be1551ebbd6f6726db7ef892ff2f8394626ed4570f4507348c9b7  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-b4b5d15c5ff8a811bb98ecd505a18e28597450a80034c20f7d1c3b52f0345daf  .ai-factory/refresh-baseline.json
+264216c6f949d2ce10cc9e6af3d2ccdfad1e7cd810a5258834bb6cb5e95f4e7d  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -23,14 +23,14 @@ dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .claude/agents
 8f9b3e025ee0981d127c23d97578daceb3dd580df79a195d89e1cc01d9161878  .claude/agents/review-sidecar.md
 a3053a760cba1ba1b12da150118d2d751f4d8c4cb348613062c93a011083b67f  .claude/agents/rule-researcher.md
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
-019ffec11048bfa80843200ef23965380be79c6cddecfc29ee4e5c9136f9ef7d  .claude/hooks/ask-question-reminder.sh
-c46cce1bd40827c283581e6fc4ffac337d71e38ca062ada64024be2131092084  .claude/hooks/check-doc-authority-header.sh
-4fc3ccee69bd4bb12f5c7ee68671841e3f944b926952bd87f2ffacf0f2ccde6a  .claude/hooks/deps-hash-check.sh
-cedd46e1cfdffb488c35ff65adf0342276e901096cc431a988eb8964ec26a26f  .claude/hooks/end-of-turn-reminder.sh
-6fdc8128cd549df4bbdd7b8549f89599f41315978a1739d1a8fe41ca405bfeeb  .claude/hooks/inject-matching-rule.sh
-d783e618156d9dc26dad1627281e44ea10a128cee9c29a91cea273b37251e47c  .claude/hooks/inject-memory-codification.sh
-005732895415bdde432bc805f0da3247776373e702a57d1be2b012738de8ccc3  .claude/hooks/inject-output-language.sh
-3c57f869dfd13167e836509ec1815919d55ef70282d58a79b59ebe1dc5798063  .claude/hooks/inject-project-digest.sh
+9c46f2c267982f31742bc4d03cd150cce67770ebf5e04106b11f9a231460673b  .claude/hooks/ask-question-reminder.sh
+696081583609571cae2f52e61a45fddd4e0d2c208d064e279fbd28ff48c6ff3e  .claude/hooks/check-doc-authority-header.sh
+4a6875f9116629c229c2b4356672296d779936969ca71d181c3efa93bc1fa351  .claude/hooks/deps-hash-check.sh
+7a3ed9eca4182c14a521456aa54ac142de4c8d2d9d593f4fe2d0d1e1c5ddbccf  .claude/hooks/end-of-turn-reminder.sh
+14ccda85a609b4f0a3832e0042fb622f241a8bbf5c072ae4e8d8865b0e2b65fc  .claude/hooks/inject-matching-rule.sh
+d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
+2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
+c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
 5766feccf3ff24f8903b4706376ebd5b6a88f2ae8cd150c08927b4a6e5ba4efa  .claude/hooks/lang/check-parity.sh
 db85bbdabc1087fa857ac713a191e1b1870fa6b1815279ab6983545cc188c763  .claude/hooks/lang/en.sh
 665ad46e3111ec206e2d99fef28248b6deaa8a986531744cc53eeeb8099ee189  .claude/hooks/lang/ru.sh
@@ -40,7 +40,7 @@ f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/sessio
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 c9ff8f038447a8e6d9ad917c3a47293cb6f947eb7d714c9751156012ff099811  .claude/skills/arch/SKILL.md
-cc1c68b942363b88fc4d06d3994f7910633dfa9c6e94c24be7307d343eb75d1f  .claude/skills/getff/SKILL.md
+afb468d3f8a666a1550f5b2fb374861cb7607012be69ab10a75789a8e1d6bb35  .claude/skills/getff/SKILL.md
 afe2a054dee4c3a8cd2ba876811c7374fe0806ff30c2ecd9151fdab23ca3f590  .claude/skills/getff/references/ai-traps.md
 6f6d09753f02be004ccfdb8ab7bfce85c2595bf55f6b5b69a8efe0bcbe03c8c4  .claude/skills/getff/references/checks-map.md
 eacf5fa883d483ee76a518e889c4aeb77fbad83c77306ca8ee0a9e237a59139f  .claude/skills/getff/references/doc-organization.md
@@ -117,7 +117,7 @@ e0b25a4e2e09595e28a22e0db5e8687854a8e2f6cc5b196ea82318e63d2c0948  .claude/skills
 d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md
 3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .claude/skills/rule-tests/SKILL.md
 a523988ad4fdb1e4b12adcac36926ef79aa252ac56a6abea753285cb8d742938  .claude/skills/template-audit/SKILL.md
-c4bc36871e3b86d36e2c989b7a389c527c7ab333f8b77a5ec30a1abd53b066ed  .claude/skills/tool-bootstrapping/SKILL.md
+739fc37d923f7459e1fced6f3dff09e7080d13b4c1b7a22f545d33958170d76d  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 f3667e900f64094ab620580f6cc9a10fc2a75fbcb724ca3a505837aedfa21bff  .dependency-cruiser.cjs
@@ -159,7 +159,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a  packages/core/hooks/package.json
 457cbfde763fcb4d7b1a6e8d9253086b0a0e31be48b86acbadec356b321c0417  packages/core/hooks/pre-push.fallback.sh
-4fbaabbe2b177612684bbac1aa17cebd68917d0785afa4252cef7e6232197ceb  packages/core/hooks/pre-push.ts
+a224c0e1597362b5eb199f237deb8bbaa25187580209c3863dced7e59fad79e2  packages/core/hooks/pre-push.ts
 ca0794944baccb739c780a6754a589d5b4f3c2c213c5605be16f90ca0c79861a  packages/core/hooks/utils/git.ts
 3138a1f52bc9f04f83a70d31793efb0eda355c1cbf1a13276f1ac4017f2c8fc2  packages/core/hooks/utils/run-check.ts
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh
@@ -180,7 +180,7 @@ ca5419371e38813b79616116dec6274147b128192147fc7b13321ea11726fb26  scripts/detect
 ffa91b9e12dc00462e7ad1b7f9cedb8dd363981057b4163c77c39515e13d77da  scripts/fences-fire-fixtures/require-use-server-directive.bad.txt
 711f6726810ec279fcbe36464a371b902f074aa42440b4ddb1778a88a163b080  scripts/fences-fire-fixtures/require-use-server-directive.good.txt
 5ee39faf997c935fd99386ca25fa69045f73fe1db5a697e536057b5de4c215ce  scripts/fences-fire-fixtures/require-use-server-directive.manifest.json
-6fc70ba99094be2bf723f26ebb501ac460af7d23986e0e5caaa440f3cf06fc7e  scripts/getff-work.sh
+c29f9616207feafa53c2086cd0005a149160b1f2483a1db929f6dbd8a91ae2bd  scripts/getff-work.sh
 6f634f183432d31f34f5bda5f094f2444218a5606ef850e4d601abfc27229671  scripts/link-coordination.sh
 b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  scripts/pre-merge-local.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  scripts/r2-na-marker.sh

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# warn-subagent-report.sh — SubagentStop hook — warns when a finishing report misses its canonical sections (non-blocking)
 # SubagentStop WARN hook — scan the finishing subagent's output for canonical
 # REPORT sections; if any are missing, WARN and exit 0 (non-blocking). Maintainer
 # chose WARN over block (exit 2) — judgment target, not mechanically gateable

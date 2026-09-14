@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# check-doc-authority-header.sh — PostToolUse gate — zero-dep consumer reimplementation of the doc-authority header check
 # @cc-only-rationale: edit-time PostToolUse gate — the consumer-shippable, zero-dep reimplementation
 #   of the framework-internal check-doc-authority.sh (which delegates to tsx + packages/core and is a
 #   DEAD no-op in every consumer). No portable hook fires at edit-time; the portable enforcement of the

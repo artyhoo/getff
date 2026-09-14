@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/getff-work.sh — `getff work <name>` workspace one-command (spec A9).
+# getff-work.sh — `getff work <name>` workspace one-command (spec A9).
 #
 # Composes:
 #   1. Worktree creation (REUSE scripts/create-worktree.sh — do NOT rewrite).

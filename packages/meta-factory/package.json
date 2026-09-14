@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "FSL-1.1-ALv2",
+  "description": "Meta-factory CLI for rules-as-tests — workspace for the self-improvement pipeline (principles, phases, enforcement artefacts); the bin is a scaffold pending Phase 4+ (stack detector, synthesizer).",
   "type": "module",
   "bin": {
     "meta-factory": "./bin/meta-factory.mjs"

@@ -1,5 +1,5 @@
 /**
- * CLI questions entrypoint — the "parked questions" collector half of the bridge.
+ * questions.ts — the "parked questions" collector half of the bridge.
  *
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/questions.ts [--project <id>] [--json]

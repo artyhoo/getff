@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# runtime-bridge-dispatch.sh — PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs
 # PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs.
 #
 # @cc-only-rationale: no §5 portable-markdown counterpart exists to anchor-pair

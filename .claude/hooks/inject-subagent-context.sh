@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-subagent-context.sh — SubagentStart fallback — digest injection for harnesses without the SubagentStart event (zcode)
 # Backup digest-injection for harnesses WITHOUT the SubagentStart hook event (zcode).
 #
 # @cc-only-rationale: SubagentDigest zcode-fallback backup — CC+ZCode dual-harness via inline

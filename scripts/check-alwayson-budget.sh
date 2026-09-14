@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# check-alwayson-budget.sh — pre-push drift-guard: fail if the always-on context baseline exceeds the ceiling set by arch-v2-context-pipeline S-E
 # Standing drift-guard: fail if the always-on context baseline exceeds the ceiling
 # set by arch-v2-context-pipeline S-E (P3a). Keeps the resident set from re-bloating
 # after the umbrella closes.

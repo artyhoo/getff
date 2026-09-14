@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# getff:no-card — one-shot live session-start measurement tool; not a wired pipeline stage
 # Measure the LIVE session-start injected set (bytes + estimated tokens) and attribute every
 # row to its injecting channel (CC-native loader | claudeMdExcludes-entry | paths:-gate | hook).
 #

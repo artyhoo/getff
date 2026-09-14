@@ -1,5 +1,5 @@
 /**
- * CLI claim entrypoint — the operator/skill-facing half of two-phase dispatch.
+ * claim.ts — the operator/skill-facing half of two-phase dispatch.
  *
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/claim.ts create <kickoff-path>

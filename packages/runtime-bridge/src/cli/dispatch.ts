@@ -1,5 +1,5 @@
 /**
- * CLI dispatch entrypoint — invoked by the PostToolUse hook, or manually on demand.
+ * dispatch.ts — the dispatch entrypoint: invoked by the PostToolUse hook, or manually on demand.
  *
  * Usage: tsx packages/runtime-bridge/src/cli/dispatch.ts <kickoff-path> [--force]
  *
