@@ -18,6 +18,18 @@ AIF_RECAP_MARKER='## 🟢 Простыми словами'
 # Category-3 match-data: matches the operator-facing turn text, which is Russian
 # when AIF_HOOK_LANG=ru. Used by end-of-turn-reminder.sh Branch B.
 AIF_EOT_QUESTION_PATTERN='выбирай|реши сам|какой (вариант|подход)|выбери|хочешь чтобы'
+AIF_EOT_SEC_WHERE='**Где мы.**'
+AIF_EOT_SEC_CHANGED='**Что изменилось.**'
+AIF_EOT_SEC_FORK='**Развилка.**'
+AIF_EOT_SEC_UNSURE='**В чём не уверен.**'
+AIF_EOT_SEC_NEXT='**Дальше.**'
+AIF_EOT_ME_PREFIX='Я:'
+AIF_EOT_FOR_YOU_PREFIX='От тебя:'
+AIF_EOT_FOR_YOU_NOTHING='ничего (<чем проверишь, если захочешь>)'
+AIF_EOT_FOR_YOU_WAITING='ждём: <что и от кого>'
+AIF_EOT_FOR_YOU_DECIDE='решить: <A> или <B>'
+AIF_EOT_FOR_YOU_HANDS='сделать руками: <одно действие>'
+AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри'
 
 # Fallback value for the session-goal anchor when extraction fails.
 aif_msg_eot_anchor_fallback() {

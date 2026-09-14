@@ -18,6 +18,18 @@ AIF_RECAP_MARKER='## 🟢 In plain words'
 # Extended-regex of trailing-fork phrases that count as "the turn ended on a choice"
 # (used by end-of-turn-reminder.sh Branch B). English phrasings; ru.sh has the Russian.
 AIF_EOT_QUESTION_PATTERN='Option [AB]|decide|which (option|approach)|you (decide|choose)|pick (one|between)'
+AIF_EOT_SEC_WHERE='**Where we are.**'
+AIF_EOT_SEC_CHANGED='**What changed.**'
+AIF_EOT_SEC_FORK='**Fork.**'
+AIF_EOT_SEC_UNSURE='**What I am unsure about.**'
+AIF_EOT_SEC_NEXT='**Next.**'
+AIF_EOT_ME_PREFIX='Me:'
+AIF_EOT_FOR_YOU_PREFIX='From you:'
+AIF_EOT_FOR_YOU_NOTHING='nothing (<what you would check, if you want to>)'
+AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
+AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
+AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
+AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
 
 # Fallback value for the session-goal anchor when extraction fails.
 aif_msg_eot_anchor_fallback() {
