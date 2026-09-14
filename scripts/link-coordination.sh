@@ -18,6 +18,10 @@
 #   Per-file limitation: a NEW gitignored file born in a worktree is only
 #   shared after re-running this helper (adopt-then-link). Author new umbrella
 #   kickoffs in the primary checkout, or re-run the helper to link them back.
+#   Root-level exception (2026-09-14): the shared root FAMILIES —
+#   `_handoff-*.md`, `_residue-*.md`, `_morning-report-*.md` — are glob-shared
+#   (ROOT-FILE sections below); they must cross checkouts, or a session in one
+#   worktree cannot see the carry-over authored in another.
 #
 # Usage: bash scripts/link-coordination.sh [<worktree-dir>] [<seed-source-dir>]
 #
@@ -183,12 +187,45 @@ if [[ -d "$WT_PROMPTS" ]]; then
 fi
 
 # ── ROOT-FILE ADOPT-THEN-LINK ───────────────────────────────────────────────
+# Exact-name root files (wordlist semantics — no spaces in names)…
 ROOT_FILES="_plan-cache.md _master-backlog-delta.json"
+# …plus the shared root FAMILIES (2026-09-14), glob-populated from ONE list:
+#   `_handoff-*.md`      model/operator-authored session carry-overs — a handoff
+#                        authored in one worktree must be readable from every other
+#                        checkout (incident 2026-09-14, getff-ai-site: the CC
+#                        worktree session's handoff 404'd for the main-clone ZCode
+#                        seat reading the path its prompt named);
+#   `_residue-*.md`      PreCompact residues, injected as pointers by /pipeline §1
+#                        from whatever checkout runs it — same cross-checkout
+#                        invisibility class, one family over;
+#   `_morning-report-*.md` operator-facing recaps, pointer-referenced from handoff
+#                        bodies — a shared handoff naming one must not 404 one hop
+#                        later.
+# Wordlist semantics stay: a name with whitespace is skipped LOUDLY (the unquoted
+# for-loop below cannot carry it); an unmatched glob fails the [[ -f ]] guard.
+ROOT_SHARED_FAMILIES=('_handoff-*.md' '_residue-*.md' '_morning-report-*.md')
+ROOT_ADOPT_FILES="$ROOT_FILES"
+for pattern in "${ROOT_SHARED_FAMILIES[@]}"; do
+  for hf in "$WT_PROMPTS"/$pattern; do
+    if [[ -f "$hf" ]]; then
+      case "${hf##*/}" in
+        *[[:space:]]*)
+          echo "link-coordination: root shared-file name contains whitespace — not shareable via the wordlist: ${hf##*/}" >&2 ;;
+        *)
+          ROOT_ADOPT_FILES="$ROOT_ADOPT_FILES ${hf##*/}" ;;
+      esac
+    fi
+  done
+done
 if [[ -d "$WT_PROMPTS" ]]; then
-  for filename in $ROOT_FILES; do
+  for filename in $ROOT_ADOPT_FILES; do
     file_path="$WT_PROMPTS/$filename"
     [[ -f "$file_path" ]] || continue
     [[ -L "$file_path" ]] && continue
+    # Tracked files are git's, never symlink-managed (same guard as the umbrella
+    # loop; protects a handoff committed via a one-off .gitignore exception from
+    # the #canon-symlink-swallows-commit shape, principle 44 arm A's class).
+    is_tracked "$file_path" && continue
     canon_target="$CANON/$filename"
     if [[ ! -e "$canon_target" ]]; then
       mv "$file_path" "$canon_target"; ln -s "$canon_target" "$file_path"
@@ -254,11 +291,31 @@ fi
 
 # ── ROOT-FILE LINK ──────────────────────────────────────────────────────────
 if [[ -d "$CANON" ]]; then
-  for filename in $ROOT_FILES; do
+  # Superset list: exact names + the shared families globbed from BOTH sides — a
+  # file adopted from ANOTHER tree exists only in $CANON, so the worktree-side
+  # glob alone would never link it into this checkout (the exact gap that kept
+  # worktree-authored handoffs invisible to sibling checkouts before 2026-09-14).
+  ROOT_LINK_FILES="$ROOT_ADOPT_FILES"
+  for pattern in "${ROOT_SHARED_FAMILIES[@]}"; do
+    for hf in "$CANON"/$pattern; do
+      if [[ -f "$hf" ]]; then
+        case "${hf##*/}" in
+          *[[:space:]]*) ;; # adopt side already warned if the same name sat there
+          *) ROOT_LINK_FILES="$ROOT_LINK_FILES ${hf##*/}" ;;
+        esac
+      fi
+    done
+  done
+  for filename in $ROOT_LINK_FILES; do
     canon_file="$CANON/$filename"
     [[ -f "$canon_file" ]] || continue
     wt_target="$WT_PROMPTS/$filename"
     [[ -L "$wt_target" ]] && continue
+    # Tracked paths are git's — same guard as the umbrella LINK loop. Covers the
+    # tracked-but-absent-on-disk shape (index keeps the name, checkout lacks the
+    # file, [[ -e ]] never fires): ln -s would swallow it into a symlink commit,
+    # the #canon-symlink-swallows-commit class (kickoff-staging-placement.md §5.2).
+    is_tracked "$wt_target" && continue
     [[ -e "$wt_target" ]] && continue
     ln -s "$canon_file" "$wt_target"
     echo "link-coordination: linked root $filename → \$CANON" >&2

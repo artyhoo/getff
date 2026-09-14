@@ -13,6 +13,11 @@
  *   (d) WRITE-BACK: edit through symlink is visible in CANON and a second linked worktree
  *   (e) PAIRED-NEGATIVE: stripped helper (LINK step removed) leaves kickoff NOT a symlink
  *   (f) SEED: seed-source seeds $CANON when empty
+ *   (g) SEED rsync variant · (h) --on-conflict policies · (i) exact-name root files
+ *   (j) git-tracked one-off exception skip (real git worktree) + neutered-guard negative
+ *   (k) shared root FAMILIES (2026-09-14): `_handoff-*.md` / `_residue-*.md` /
+ *       `_morning-report-*.md` adopt + cross-link (k1/k5), conflict-safety (k2),
+ *       tracked-skip (k3), CANON-glob paired-negative (k4)
  *
  * ALL tests set CLAUDE_COORDINATION_DIR to a temp dir — never touches real $HOME.
  */
@@ -468,6 +473,156 @@ describe('link-coordination.sh', () => {
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     expect(lstatSync(resolve(wtPrompts, 'README.md')).isSymbolicLink()).toBe(false);
     teardown(wt);
+  });
+
+  // ── (k) HANDOFF family (2026-09-14) ────────────────────────────────────────
+  // `_handoff-*.md` sits at the ROOT of orchestrator-prompts; before this family
+  // joined the shared root files, a handoff authored in one worktree was invisible
+  // in every other checkout (incident 2026-09-14, getff-ai-site — the CC worktree
+  // session's handoff 404'd for the main-clone ZCode seat).
+
+  it('(k1) ADOPT+SHARE: worktree _handoff-*.md adopted into CANON root, then linked into a SECOND worktree that never had it', () => {
+    const wt1 = setupWorktreeDir(primaryRepo, 'lnk-ho-1');
+    const wt1Prompts = resolve(wt1, '.claude/orchestrator-prompts');
+    writeFileSync(resolve(wt1Prompts, '_handoff-sess_abc123.md'), 'HANDOFF-v1\n');
+
+    const r1 = runHelper([wt1], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
+    // Adopted: worktree path is now a symlink; content lives in $CANON root
+    const ho1 = resolve(wt1Prompts, '_handoff-sess_abc123.md');
+    expect(lstatSync(ho1).isSymbolicLink(), 'handoff must be a symlink after adoption').toBe(true);
+    expect(readFileSync(resolve(canon, '_handoff-sess_abc123.md'), 'utf8')).toBe('HANDOFF-v1\n');
+
+    // A SECOND worktree that never had the file gets it from the CANON-side glob
+    // (the LINK loop superset — the exact arm the pre-fix script lacked).
+    const wt2 = setupWorktreeDir(primaryRepo, 'lnk-ho-2');
+    const r2 = runHelper([wt2], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
+    const ho2 = resolve(wt2, '.claude/orchestrator-prompts/_handoff-sess_abc123.md');
+    expect(existsSync(ho2), 'handoff must appear in the second worktree').toBe(true);
+    expect(lstatSync(ho2).isSymbolicLink()).toBe(true);
+    expect(readFileSync(ho2, 'utf8')).toBe('HANDOFF-v1\n');
+
+    teardown(wt1, wt2);
+  });
+
+  it('(k2) PAIRED-NEGATIVE CONFLICT: _handoff-*.md real in BOTH worktree and CANON → exit 1, neither clobbered', () => {
+    writeFileSync(resolve(canon, '_handoff-dupe.md'), 'CANON-version\n');
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-conf');
+    writeFileSync(
+      resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'),
+      'WORKTREE-version\n',
+    );
+    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, 'default on-conflict=skip must exit 1').toBe(1);
+    expect(r.stderr).toContain('CONFLICT');
+    expect(readFileSync(resolve(canon, '_handoff-dupe.md'), 'utf8')).toBe('CANON-version\n');
+    expect(
+      readFileSync(resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'), 'utf8'),
+    ).toBe('WORKTREE-version\n');
+    teardown(wt);
+  });
+
+  it('(k3) TRACKED handoff (one-off .gitignore exception) stays a REAL file — never symlinked', () => {
+    // The #canon-symlink-swallows-commit class (kickoff-staging-placement.md §5.2):
+    // a handoff tracked via a one-off exception must not be adopted. Uses a REAL
+    // git worktree so the is_tracked() guard resolves against a real index.
+    const repo = mkdtempSync(resolve(tmpdir(), 'link-coord-ho-tracked-'));
+    execSync('git init -q -b main', { cwd: repo });
+    execSync('git config user.email test@example.com', { cwd: repo });
+    execSync('git config user.name test', { cwd: repo });
+    const gitignore = [
+      'node_modules',
+      '.claude/orchestrator-prompts/*',
+      '!.claude/orchestrator-prompts/*/',
+      '!.claude/orchestrator-prompts/README.md',
+      '!.claude/orchestrator-prompts/_handoff-tracked.md',
+    ].join('\n');
+    writeFileSync(resolve(repo, '.gitignore'), gitignore + '\n');
+    writeFileSync(resolve(repo, 'README.md'), 'root\n');
+    mkdirSync(resolve(repo, '.claude/orchestrator-prompts'), { recursive: true });
+    writeFileSync(
+      resolve(repo, '.claude/orchestrator-prompts/_handoff-tracked.md'),
+      'tracked handoff\n',
+    );
+    writeFileSync(resolve(repo, '.claude/orchestrator-prompts/README.md'), '# OPs\n');
+    execSync('git add -A && git commit -q -m init', { cwd: repo });
+
+    const wt = resolve(repo, 'wt-ho');
+    execSync(`git worktree add -q "${wt}" HEAD`, { cwd: repo });
+    // CANON carries a same-named file — the adoption temptation the guard must refuse
+    writeFileSync(resolve(canon, '_handoff-tracked.md'), 'CANON-decoy\n');
+
+    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    const p = resolve(wt, '.claude/orchestrator-prompts/_handoff-tracked.md');
+    expect(existsSync(p)).toBe(true);
+    expect(lstatSync(p).isSymbolicLink(), 'tracked handoff must NOT be a symlink').toBe(false);
+    expect(readFileSync(p, 'utf8')).toBe('tracked handoff\n');
+
+    try { execSync(`git worktree remove --force "${wt}"`, { cwd: repo }); } catch { /* ignore */ }
+    teardown(repo);
+  });
+
+  it('(k4) PAIRED-NEGATIVE: with the CANON-side family glob stripped, a second worktree does NOT receive the handoff', () => {
+    // Prove the CANON-glob superset is load-bearing (the exact arm the pre-fix
+    // script lacked): neuter the ROOT-FILE LINK glob build by regex; wt2 then
+    // never sees a handoff that exists only in $CANON. Same neutering convention
+    // as (e) stripped-LINK and (j-neg) neutered is_tracked.
+    writeFileSync(resolve(canon, '_handoff-sess_k4.md'), 'K4\n');
+    const src = readFileSync(HELPER, 'utf8');
+    // Strip the whole CANON-glob build block; `\n  done\n` (2-space indent) is the
+    // OUTER loop's closer — the inner one is 4-space-indented, so the lazy match
+    // cannot stop early and leave a syntactically broken script behind.
+    const stripped = src.replace(
+      /(  ROOT_LINK_FILES="\$ROOT_ADOPT_FILES"\n)  for pattern[\s\S]*?\n  done\n/,
+      '$1',
+    );
+    expect(stripped, 'the CANON-glob build block must be present to strip').not.toBe(src);
+    const tmpHelper = resolve(tmpdir(), 'link-coordination-k4-stripped.sh');
+    writeFileSync(tmpHelper, stripped, { mode: 0o755 });
+
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-k4');
+    try {
+      execFileSync('bash', [tmpHelper, wt], {
+        encoding: 'utf8',
+        env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
+      });
+    } catch { /* exit code irrelevant — we assert the visibility state */ }
+
+    const ho = resolve(wt, '.claude/orchestrator-prompts/_handoff-sess_k4.md');
+    expect(
+      existsSync(ho),
+      'stripped CANON-glob must leave the second worktree WITHOUT the handoff (proves the arm is load-bearing)',
+    ).toBe(false);
+
+    try { rmSync(tmpHelper); } catch { /* ignore */ }
+    teardown(wt);
+  });
+
+  it('(k5) FAMILIES: every ROOT_SHARED_FAMILIES glob (handoff, residue, morning-report) adopts and cross-links', () => {
+    const families = [
+      '_handoff-sess_k5.md',
+      '_residue-k5.md',
+      '_morning-report-k5.md',
+    ];
+    const wt1 = setupWorktreeDir(primaryRepo, 'lnk-fam-1');
+    for (const f of families) {
+      writeFileSync(resolve(wt1, '.claude/orchestrator-prompts', f), `${f}-v1\n`);
+    }
+    const r1 = runHelper([wt1], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
+
+    const wt2 = setupWorktreeDir(primaryRepo, 'lnk-fam-2');
+    const r2 = runHelper([wt2], { CLAUDE_COORDINATION_DIR: canon });
+    expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
+    for (const f of families) {
+      const p = resolve(wt2, '.claude/orchestrator-prompts', f);
+      expect(existsSync(p), `${f} must appear in the second worktree`).toBe(true);
+      expect(lstatSync(p).isSymbolicLink(), `${f} must be a symlink`).toBe(true);
+      expect(readFileSync(p, 'utf8')).toBe(`${f}-v1\n`);
+    }
+    teardown(wt1, wt2);
   });
 });
 
