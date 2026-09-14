@@ -4,7 +4,8 @@
 #
 # Every script in the `SCRIPTS` array below writes a `settings.json`
 # (`register-precompact-hook.sh`, `register-handoff-gate.sh`, `register-recap-gate.sh` —
-# the last one added 2026-09-14 with the recap gate's hand action). Until 2026-09-09 the
+# added 2026-09-14 with the recap gate's hand action — and `register-glossary-hook.sh`,
+# added 2026-09-14 with the glossary hook's own hand action). Until 2026-09-09 the
 # first two located the repo as
 # `git rev-parse --show-toplevel` of the CURRENT DIRECTORY, which fails two ways:
 #   • run from outside any git repo → the script refuses to run at all;
@@ -20,7 +21,7 @@ set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/.." && pwd)"
-SCRIPTS=("$DIR/register-precompact-hook.sh" "$DIR/register-handoff-gate.sh" "$DIR/register-recap-gate.sh")
+SCRIPTS=("$DIR/register-precompact-hook.sh" "$DIR/register-handoff-gate.sh" "$DIR/register-recap-gate.sh" "$DIR/register-glossary-hook.sh")
 FAILED=0
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
