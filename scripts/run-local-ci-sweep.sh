@@ -187,7 +187,7 @@ gate_table() {
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}install.sh,setup,setup.d/,agents/,skills/,templates/,.claude/,.prettierrc.json,packages/,scripts/${TAB}bash scripts/build-getff-dist.sh --check" \
-    "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/run-local-ci-sweep.sh,scripts/run-local-ci-sweep.test.sh${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/run-local-ci-sweep.sh scripts/run-local-ci-sweep.test.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
+    "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
     "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
     "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}for t in tests/install-sh/*.test.sh; do /bin/bash \"\$t\" || exit 1; done" \

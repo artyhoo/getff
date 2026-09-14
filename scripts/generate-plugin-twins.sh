@@ -45,7 +45,7 @@ set -euo pipefail
 
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 log_info() { printf '[INFO] generate-plugin-twins: %s\n' "$*" >&2; }
-log_debug() { [ "$LOG_LEVEL" = "DEBUG" ] && printf '[DEBUG] generate-plugin-twins: %s\n' "$*" >&2 || true; }
+log_debug() { if [ "$LOG_LEVEL" = "DEBUG" ]; then printf '[DEBUG] generate-plugin-twins: %s\n' "$*" >&2 || true; fi; }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 SRC_DIR="$REPO_ROOT/.claude/hooks"

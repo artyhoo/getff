@@ -395,8 +395,12 @@ EOF
 
   # Source glm.env for the HELPER's env (pre-ping check below).
   # The aif runtime resolves the key from ITS OWN env via the §7b mechanism above.
+  # One command per line: a `disable` directive binds to the NEXT command only, so on the
+  # single-line form it landed on `set -a` and the `.` it was written for stayed unguarded.
+  set -a
   # shellcheck disable=SC1090
-  set -a; . "$GLM_ENV_FILE"; set +a
+  . "$GLM_ENV_FILE"
+  set +a
 
   # Pre-ping check: the var is present in the FILE (helper env). This is a file-integrity
   # check only — it says nothing about aif's env. The validate call below is what tests aif.

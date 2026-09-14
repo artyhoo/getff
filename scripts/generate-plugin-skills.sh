@@ -67,7 +67,7 @@ set -euo pipefail
 
 LOG_LEVEL="${LOG_LEVEL:-INFO}"
 log_info() { printf '[INFO] generate-plugin-skills: %s\n' "$*" >&2; }
-log_debug() { [ "$LOG_LEVEL" = "DEBUG" ] && printf '[DEBUG] generate-plugin-skills: %s\n' "$*" >&2 || true; }
+log_debug() { if [ "$LOG_LEVEL" = "DEBUG" ]; then printf '[DEBUG] generate-plugin-skills: %s\n' "$*" >&2 || true; fi; }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 PAYLOAD_DIR="$REPO_ROOT/plugin/skills"
