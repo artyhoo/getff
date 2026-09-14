@@ -20,6 +20,8 @@ import {
   runPriorArtCheck,
   extractCitedSsotIds,
   loadSsotIds,
+  loadSsotRowTitles,
+  renumberedCitedIds,
   PA_HISTORICAL_CUTOFF,
 } from './prior-art.ts';
 import type { GitProvider } from '../utils/git.ts';
@@ -36,11 +38,12 @@ function bumpedDepDiff(key: string, oldV: string, newV: string): string {
   return `--- a/package.json\n+++ b/package.json\n-    "${key}": "${oldV}"\n+    "${key}": "${newV}"`;
 }
 
-const FUTURE = '2099-01-01';   // always > cutoff → check fires
-const PAST   = '2026-01-01';   // always < cutoff → bypass
+const FUTURE = '2099-01-01'; // always > cutoff → check fires
+const PAST = '2026-01-01'; // always < cutoff → bypass
 
-const VALID_CITATION = 'Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).';
-const VALID_ESCAPE   = 'Prior-art: skipped — refactor only, no new capability';
+const VALID_CITATION =
+  'Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).';
+const VALID_ESCAPE = 'Prior-art: skipped — refactor only, no new capability';
 
 function fakeGit(overrides: Partial<GitProvider> = {}): GitProvider {
   return {
@@ -110,19 +113,20 @@ describe('isNewDepAdded()', () => {
 
   it('returns false for a version bump of an existing dep (M2 fix)', () => {
     // Same key present in both +/- lines → bump, not new dep.
-    expect(isNewDepAdded(bumpedDepDiff('existing-dep', '^1.0.0', '^2.0.0'))).toBe(false);
+    expect(
+      isNewDepAdded(bumpedDepDiff('existing-dep', '^1.0.0', '^2.0.0')),
+    ).toBe(false);
   });
 
   it('returns false when only the context lines (space prefix) are present', () => {
-    const diff = '   "ctx-dep": "^1.0.0"';  // no + or - prefix
+    const diff = '   "ctx-dep": "^1.0.0"'; // no + or - prefix
     expect(isNewDepAdded(diff)).toBe(false);
   });
 
   it('handles multiple new deps and returns true when any are new', () => {
-    const diff = [
-      '+    "dep-a": "^1.0.0"',
-      '+    "dep-b": "^2.0.0"',
-    ].join('\n');
+    const diff = ['+    "dep-a": "^1.0.0"', '+    "dep-b": "^2.0.0"'].join(
+      '\n',
+    );
     expect(isNewDepAdded(diff)).toBe(true);
   });
 
@@ -191,7 +195,7 @@ describe('isNewDepAdded()', () => {
     expect(isNewDepAdded(diff)).toBe(true);
   });
 
-  it('paired negative: the one-line block\'s OWN keys are still not deps', () => {
+  it("paired negative: the one-line block's OWN keys are still not deps", () => {
     const diff = ['+  "overrides": { "lodash": "4.17.21" }'].join('\n');
     expect(isNewDepAdded(diff)).toBe(false);
   });
@@ -205,11 +209,9 @@ describe('isNewDepAdded()', () => {
   });
 
   it('paired negative: a MULTI-line overrides block still swallows its keys', () => {
-    const diff = [
-      '+  "overrides": {',
-      '+    "qs": "^6.15.2"',
-      '+  }',
-    ].join('\n');
+    const diff = ['+  "overrides": {', '+    "qs": "^6.15.2"', '+  }'].join(
+      '\n',
+    );
     expect(isNewDepAdded(diff)).toBe(false);
   });
 
@@ -268,7 +270,8 @@ function extractCodeBlockNames(source: string): string[] {
   // Fallback: match the regex literal directly.
   const lit = /nonDepBlockRe = \/[^/]*"\(([^)]+)\)"/.exec(source);
   const alt = (lit ?? m)?.[1];
-  if (!alt) throw new Error('nonDepBlockRe alternation not found in prior-art.ts');
+  if (!alt)
+    throw new Error('nonDepBlockRe alternation not found in prior-art.ts');
   return alt.split('|');
 }
 
@@ -277,7 +280,8 @@ function extractProseBullet(claudeMd: string): string {
   const line = claudeMd
     .split('\n')
     .find((l) => l.startsWith('- Adds a new **explicit dependency**'));
-  if (!line) throw new Error('explicit-dependency bullet not found in CLAUDE.md');
+  if (!line)
+    throw new Error('explicit-dependency bullet not found in CLAUDE.md');
   return line;
 }
 
@@ -340,7 +344,9 @@ describe('detectCapabilityReason()', () => {
     // File under a new subdir (subdirExistedAtParent = false).
     const content50 = 'x\n'.repeat(50);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/index.ts' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/index.ts' },
+      ],
       fileContent: () => content50,
       subdirExistedAtParent: () => false,
     });
@@ -350,9 +356,11 @@ describe('detectCapabilityReason()', () => {
   it('does NOT flag ≥50 LOC file in an EXISTING core subdir', () => {
     const content50 = 'x\n'.repeat(50);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/existingdir/index.ts' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/existingdir/index.ts' },
+      ],
       fileContent: () => content50,
-      subdirExistedAtParent: () => true,  // subdir already existed
+      subdirExistedAtParent: () => true, // subdir already existed
     });
     expect(detectCapabilityReason('abc123', g)).toBeNull();
   });
@@ -360,7 +368,9 @@ describe('detectCapabilityReason()', () => {
   it('does NOT flag file with 49 LOC in new core subdir (threshold is ≥50)', () => {
     const content49 = 'x\n'.repeat(49);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/index.ts' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/index.ts' },
+      ],
       fileContent: () => content49,
       subdirExistedAtParent: () => false,
     });
@@ -390,7 +400,9 @@ describe('detectCapabilityReason()', () => {
   it('does NOT flag a new ≥50 LOC .md doc under a NEW packages/core subdir', () => {
     const content60 = 'x\n'.repeat(60);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/newdocs/README.md' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdocs/README.md' },
+      ],
       fileContent: () => content60,
       subdirExistedAtParent: () => false,
     });
@@ -445,7 +457,9 @@ describe('detectCapabilityReason()', () => {
   it('the ≥50 LOC arm keeps exempting a relocation of a base-tracked blob', () => {
     const content60 = 'x\n'.repeat(60);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/moved.ts' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/moved.ts' },
+      ],
       fileContent: () => content60,
       subdirExistedAtParent: () => false,
       blobTrackedAtBase: () => true,
@@ -456,7 +470,9 @@ describe('detectCapabilityReason()', () => {
   it('STILL flags a unique (non-duplicated) ≥80 LOC non-doc file under packages/', () => {
     const content100 = 'x\n'.repeat(100);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/other/new-module.ts' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/other/new-module.ts' },
+      ],
       fileContent: () => content100,
       blobTrackedAtBase: () => false,
     });
@@ -503,7 +519,10 @@ describe('checkTrailerBody()', () => {
   });
 
   it('fails (code 1) for commits with no Prior-art line at all', () => {
-    const result = checkTrailerBody('feat: add something\n\nNo trailer.', FUTURE);
+    const result = checkTrailerBody(
+      'feat: add something\n\nNo trailer.',
+      FUTURE,
+    );
     expect(result.code).toBe(1);
     expect(result.message).toMatch(/no Prior-art/);
   });
@@ -526,14 +545,20 @@ describe('checkTrailerBody()', () => {
   });
 
   it('fails (code 1) for escape-hatch with <20-char rationale', () => {
-    const result = checkTrailerBody('feat: foo\n\nPrior-art: skipped — TODO', FUTURE);
+    const result = checkTrailerBody(
+      'feat: foo\n\nPrior-art: skipped — TODO',
+      FUTURE,
+    );
     expect(result.code).toBe(1);
     expect(result.message).toMatch(/invalid.*length/);
   });
 
   it('fails (code 1) for escape-hatch with only placeholder words', () => {
     // "TODO TODO TODO TODO TODO" is ≥20 chars but all placeholder tokens.
-    const result = checkTrailerBody('feat: foo\n\nPrior-art: skipped — TODO TODO TODO TODO TODO', FUTURE);
+    const result = checkTrailerBody(
+      'feat: foo\n\nPrior-art: skipped — TODO TODO TODO TODO TODO',
+      FUTURE,
+    );
     // Placeholder rationale is caught by the all-placeholder filter → continue → code 1.
     expect(result.code).toBe(1);
   });
@@ -547,7 +572,10 @@ describe('checkTrailerBody()', () => {
     // warn-only or block based on PA_SUBSTANCE_WARN_ONLY. The current TS
     // contract: substantive skipped → code 2 (caller decides warn vs block).
     // This is the paired-negative: escape-hatch on capability → code 2.
-    const result = checkTrailerBody('feat: foo\n\nPrior-art: skipped — refactor only, no new capability', FUTURE);
+    const result = checkTrailerBody(
+      'feat: foo\n\nPrior-art: skipped — refactor only, no new capability',
+      FUTURE,
+    );
     expect(result.code).toBe(2);
   });
 
@@ -559,7 +587,10 @@ describe('checkTrailerBody()', () => {
 
   it('does NOT bypass for dates equal to the cutoff (boundary)', () => {
     // String comparison: '2026-05-12' is NOT < '2026-05-12'.
-    const result = checkTrailerBody('feat: foo\n\nno trailer', PA_HISTORICAL_CUTOFF);
+    const result = checkTrailerBody(
+      'feat: foo\n\nno trailer',
+      PA_HISTORICAL_CUTOFF,
+    );
     expect(result.code).toBe(1);
   });
 
@@ -567,7 +598,7 @@ describe('checkTrailerBody()', () => {
     const body = [
       'feat: foo',
       '',
-      'Prior-art: short',           // too short → skip
+      'Prior-art: short', // too short → skip
       'Prior-art: prior-art-evaluations.md#5 (Autogrep, verdict DEFER — different domain).',
     ].join('\n');
     const result = checkTrailerBody(body, FUTURE);
@@ -593,7 +624,10 @@ describe('boundary cases (mutation-killing)', () => {
     // 20 chars: "refactor, no new cap" (exactly)
     const exactly20 = 'refactor, no new cap'; // 20 chars
     expect(exactly20.length).toBe(20);
-    const result = checkTrailerBody(`feat: foo\n\nPrior-art: skipped — ${exactly20}`, FUTURE);
+    const result = checkTrailerBody(
+      `feat: foo\n\nPrior-art: skipped — ${exactly20}`,
+      FUTURE,
+    );
     // Substantive 20-char rationale on capability → code 2 (substance arm).
     expect(result.code).toBe(2);
   });
@@ -602,15 +636,20 @@ describe('boundary cases (mutation-killing)', () => {
     // Kills the boundary mutant from the other side.
     const exactly19 = 'refactor no new cap'; // 19 chars
     expect(exactly19.length).toBe(19);
-    const result = checkTrailerBody(`feat: foo\n\nPrior-art: skipped — ${exactly19}`, FUTURE);
+    const result = checkTrailerBody(
+      `feat: foo\n\nPrior-art: skipped — ${exactly19}`,
+      FUTURE,
+    );
     expect(result.code).toBe(1);
   });
 
   it('content null from fileContent → does not count as capability (line 58 conditional)', () => {
     // Kills ConditionalExpression false at line 58: null content → skip.
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/index.ts' }],
-      fileContent: () => null,    // null → content === null → not a capability
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/index.ts' },
+      ],
+      fileContent: () => null, // null → content === null → not a capability
       subdirExistedAtParent: () => false,
     });
     expect(detectCapabilityReason('abc', g)).toBeNull();
@@ -701,7 +740,9 @@ describe('runPriorArtCheck() — paired-negative', () => {
     const caps = ['sha1', 'sha2'];
     const g = fakeGit({
       packageJsonDiff: (sha) =>
-        sha === 'sha1' ? addedDepDiff('dep-a', '^1.0.0') : addedDepDiff('dep-b', '^2.0.0'),
+        sha === 'sha1'
+          ? addedDepDiff('dep-a', '^1.0.0')
+          : addedDepDiff('dep-b', '^2.0.0'),
       commitBody: (sha) =>
         sha === 'sha1'
           ? `feat: sha1\n\n${VALID_CITATION}`
@@ -730,7 +771,8 @@ describe('runPriorArtCheck() — paired-negative', () => {
   it('brokenCitations is empty when ssotIds is not supplied (arm disabled)', () => {
     const g = fakeGit({
       packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
-      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — rationale here).',
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — rationale here).',
       authorDate: () => FUTURE,
     });
     const report = runPriorArtCheck(['sha1'], g); // no ssotIds → no existence check
@@ -743,16 +785,22 @@ describe('runPriorArtCheck() — paired-negative', () => {
 
 describe('extractCitedSsotIds()', () => {
   it('returns [] when no citation present', () => {
-    expect(extractCitedSsotIds('Prior-art: free-form prose, no entry reference')).toEqual([]);
+    expect(
+      extractCitedSsotIds('Prior-art: free-form prose, no entry reference'),
+    ).toEqual([]);
   });
 
   it('extracts a single cited id', () => {
-    expect(extractCitedSsotIds('Prior-art: prior-art-evaluations.md#42 (verdict)')).toEqual([42]);
+    expect(
+      extractCitedSsotIds('Prior-art: prior-art-evaluations.md#42 (verdict)'),
+    ).toEqual([42]);
   });
 
   it('extracts multiple cited ids on one line', () => {
     expect(
-      extractCitedSsotIds('see prior-art-evaluations.md#1 and prior-art-evaluations.md#65'),
+      extractCitedSsotIds(
+        'see prior-art-evaluations.md#1 and prior-art-evaluations.md#65',
+      ),
     ).toEqual([1, 65]);
   });
 
@@ -765,13 +813,15 @@ describe('extractCitedSsotIds()', () => {
 
 describe('loadSsotIds()', () => {
   it('parses §4 numeric table rows', () => {
-    const ssot = '| ID | desc |\n|---|---|\n| 1 | Autogrep |\n| 2 | thing |\n| 65 | worktrees |\n';
+    const ssot =
+      '| ID | desc |\n|---|---|\n| 1 | Autogrep |\n| 2 | thing |\n| 65 | worktrees |\n';
     const ids = loadSsotIds(ssot);
     expect([...ids].sort((a, b) => a - b)).toEqual([1, 2, 65]);
   });
 
   it('ignores non-numeric schema-header rows (e.g. "| ID | string |")', () => {
-    const ssot = '| Field | Type | Required |\n|---|---|---|\n| ID | integer | yes |\n| 3 | real entry |\n';
+    const ssot =
+      '| Field | Type | Required |\n|---|---|---|\n| ID | integer | yes |\n| 3 | real entry |\n';
     const ids = loadSsotIds(ssot);
     expect(ids.has(3)).toBe(true);
     expect(ids.size).toBe(1); // "| ID |" and "| Field |" rows excluded
@@ -786,19 +836,22 @@ describe('checkTrailerBody() — C1 existence arm', () => {
   const ssotIds = new Set([1, 2, 65]);
 
   it('PAIRED-POSITIVE: valid citation to an EXISTING entry → code 0', () => {
-    const body = 'feat: x\n\nPrior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).';
+    const body =
+      'feat: x\n\nPrior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).';
     expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(0);
   });
 
   it('PAIRED-NEGATIVE: citation to a NON-EXISTENT entry → code 3 (broken citation)', () => {
-    const body = 'feat: x\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — some rationale text).';
+    const body =
+      'feat: x\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — some rationale text).';
     const result = checkTrailerBody(body, FUTURE, undefined, ssotIds);
     expect(result.code).toBe(3);
     expect(result.message).toMatch(/#999.*no such entry/);
   });
 
   it('reports every missing id when several are cited', () => {
-    const body = 'feat: x\n\nPrior-art: see prior-art-evaluations.md#1 and prior-art-evaluations.md#998 and prior-art-evaluations.md#999';
+    const body =
+      'feat: x\n\nPrior-art: see prior-art-evaluations.md#1 and prior-art-evaluations.md#998 and prior-art-evaluations.md#999';
     const result = checkTrailerBody(body, FUTURE, undefined, ssotIds);
     expect(result.code).toBe(3);
     expect(result.message).toMatch(/#998, #999/); // #1 exists, only the missing pair reported
@@ -819,7 +872,8 @@ describe('checkTrailerBody() — C1 existence arm', () => {
   });
 
   it('pre-cutoff commit bypasses the existence arm too', () => {
-    const body = 'feat: x\n\nPrior-art: prior-art-evaluations.md#999 (broken but historical).';
+    const body =
+      'feat: x\n\nPrior-art: prior-art-evaluations.md#999 (broken but historical).';
     expect(checkTrailerBody(body, PAST, undefined, ssotIds).code).toBe(0);
   });
 });
@@ -830,7 +884,8 @@ describe('runPriorArtCheck() — C1 paired-negative end-to-end', () => {
   it('PAIRED-NEGATIVE: capability commit citing a missing entry → brokenCitations non-empty', () => {
     const g = fakeGit({
       packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
-      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — rationale).',
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict X — rationale).',
       authorDate: () => FUTURE,
     });
     const report = runPriorArtCheck(['sha1'], g, undefined, ssotIds);
@@ -855,7 +910,8 @@ describe('runPriorArtCheck() — C1 paired-negative end-to-end', () => {
   it('non-capability commit is skipped even with a broken citation', () => {
     const g = fakeGit({
       // no dep / no large file → not a capability commit
-      commitBody: () => 'chore: note\n\nPrior-art: prior-art-evaluations.md#999 (irrelevant here).',
+      commitBody: () =>
+        'chore: note\n\nPrior-art: prior-art-evaluations.md#999 (irrelevant here).',
       authorDate: () => FUTURE,
     });
     const report = runPriorArtCheck(['sha1'], g, undefined, ssotIds);
@@ -870,11 +926,17 @@ describe('runPriorArtCheck() — per-commit ssotIds resolver', () => {
   it('PAIRED-POSITIVE: resolver yields the cited id for that commit → passes', () => {
     const g = fakeGit({
       packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
-      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#42 (verdict ADAPT — rationale here).',
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#42 (verdict ADAPT — rationale here).',
       authorDate: () => FUTURE,
     });
     // resolver: #42 exists in this commit's tree
-    const report = runPriorArtCheck(['sha1'], g, undefined, () => new Set([42]));
+    const report = runPriorArtCheck(
+      ['sha1'],
+      g,
+      undefined,
+      () => new Set([42]),
+    );
     expect(report.brokenCitations).toHaveLength(0);
     expect(report.failures).toHaveLength(0);
   });
@@ -882,10 +944,16 @@ describe('runPriorArtCheck() — per-commit ssotIds resolver', () => {
   it('PAIRED-NEGATIVE: resolver lacks the cited id for that commit → broken citation', () => {
     const g = fakeGit({
       packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
-      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#42 (verdict ADAPT — rationale here).',
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#42 (verdict ADAPT — rationale here).',
       authorDate: () => FUTURE,
     });
-    const report = runPriorArtCheck(['sha1'], g, undefined, () => new Set([1, 2]));
+    const report = runPriorArtCheck(
+      ['sha1'],
+      g,
+      undefined,
+      () => new Set([1, 2]),
+    );
     expect(report.brokenCitations).toHaveLength(1);
     expect(report.brokenCitations[0].message).toMatch(/#42.*no such entry/);
   });
@@ -903,7 +971,8 @@ describe('runPriorArtCheck() — per-commit ssotIds resolver', () => {
       authorDate: () => FUTURE,
     });
     // Commit A's tree has #5; commit B's tree (e.g. an older base) does NOT.
-    const perCommit = (sha: string) => (sha === 'A' ? new Set([5]) : new Set<number>());
+    const perCommit = (sha: string) =>
+      sha === 'A' ? new Set([5]) : new Set<number>();
     const report = runPriorArtCheck(['A', 'B'], g, undefined, perCommit);
     expect(report.brokenCitations).toHaveLength(1);
     expect(report.brokenCitations[0].sha).toBe('B'); // only B's tree lacked #5
@@ -912,7 +981,8 @@ describe('runPriorArtCheck() — per-commit ssotIds resolver', () => {
   it('resolver returning undefined for a sha → existence arm is a graceful no-op', () => {
     const g = fakeGit({
       packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
-      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict — rationale here).',
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict — rationale here).',
       authorDate: () => FUTURE,
     });
     // SSOT unreadable at this commit → undefined → no existence check, no broken citation.
@@ -931,8 +1001,8 @@ describe('loadSsotIds() — mutation-killing (Wave 2)', () => {
   it('does NOT parse ids from mid-line pipe sequences (requires ^ anchor)', () => {
     const ssot = 'prose text before | 99 | the real stuff\n| 1 | valid row |\n';
     const ids = loadSsotIds(ssot);
-    expect(ids.has(99)).toBe(false);  // mid-line: must NOT match
-    expect(ids.has(1)).toBe(true);    // row-start: must match
+    expect(ids.has(99)).toBe(false); // mid-line: must NOT match
+    expect(ids.has(1)).toBe(true); // row-start: must match
   });
 
   // Kills line 45 Regex mutant: /^\|\s(\d+)\s*\|/gm (\s* -> \s, requires exactly 1 space before digit)
@@ -992,7 +1062,9 @@ describe('detectCapabilityReason() — subdir status mutation-killing (Wave 2)',
   it('does NOT flag a Modified (status=M) file in a new packages/core subdir with ≥50 LOC', () => {
     const content50 = 'x\n'.repeat(50);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'M', path: 'packages/core/newdir/index.ts' }],
+      changedFiles: () => [
+        { status: 'M', path: 'packages/core/newdir/index.ts' },
+      ],
       fileContent: () => content50,
       subdirExistedAtParent: () => false, // new subdir, but file was MODIFIED, not added
     });
@@ -1008,7 +1080,9 @@ describe('detectCapabilityReason() — subdir status mutation-killing (Wave 2)',
   it('passes the CORRECT subdir name to subdirExistedAtParent (not the full path prefix)', () => {
     const content50 = 'x\n'.repeat(50);
     const g = fakeGit({
-      changedFiles: () => [{ status: 'A', path: 'packages/core/newdir/index.ts' }],
+      changedFiles: () => [
+        { status: 'A', path: 'packages/core/newdir/index.ts' },
+      ],
       fileContent: () => content50,
       // Return true for 'packages' or '' or 'packages/core' (wrong extraction by mutants),
       // but false for 'newdir' (the correct extraction by the real code).
@@ -1070,7 +1144,8 @@ describe('checkTrailerBody() — regex anchor/spacing mutation-killing (Wave 2)'
     // /^ / strips only one leading space → '  ' + 19char word → 21 chars → still code 2
     // Actually length isn't the issue here; what matters is that after double-stripping,
     // we get the actual rationale content. Test with a minimal meaningful case:
-    const body = 'feat: foo\n\nPrior-art: skipped —   refactor only, no new capability added here';
+    const body =
+      'feat: foo\n\nPrior-art: skipped —   refactor only, no new capability added here';
     const result = checkTrailerBody(body, FUTURE);
     // The ≥20 char check succeeds, not all-placeholder → substance arm → code 2
     expect(result.code).toBe(2);
@@ -1084,7 +1159,8 @@ describe('checkTrailerBody() — regex anchor/spacing mutation-killing (Wave 2)'
     // /^[—–\-:]/ strips only the leading '—', leaving 'use-this — and-that'
     // /[—–\-:]/ (no anchor) would strip the first occurrence anywhere, same result for leading
     // But for DETECTING substance: the content is clearly non-placeholder.
-    const body = 'feat: foo\n\nPrior-art: skipped — refactor: no capability — just cleanup here';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — refactor: no capability — just cleanup here';
     expect(checkTrailerBody(body, FUTURE).code).toBe(2);
   });
 });
@@ -1098,7 +1174,8 @@ describe('checkTrailerBody() — placeholder all-vs-some mutation-killing (Wave 
     // 'genuine-word TODO TODO TODO' — 'genuine-word' is not a placeholder
     // every → false (not all placeholder) → code 2 (substance arm)
     // some  → true  (some are placeholder) → code 1 (falls through as placeholder)
-    const body = 'feat: foo\n\nPrior-art: skipped — genuine-word TODO TODO TODO TODO';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — genuine-word TODO TODO TODO TODO';
     expect(checkTrailerBody(body, FUTURE).code).toBe(2);
   });
 
@@ -1112,7 +1189,8 @@ describe('checkTrailerBody() — placeholder all-vs-some mutation-killing (Wave 
     // A leading space before substantive content: the code strips /^ +/ first, so this tests
     // that the behavior is consistent for normal content.
     // Easier: test that purely empty rationale (all whitespace) is treated as all-placeholder.
-    const body = 'feat: foo\n\nPrior-art: skipped — todo todo todo todo todo todo todo';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — todo todo todo todo todo todo todo';
     // All valid placeholder tokens (≥20 chars) → allPlaceholder=true → continue → code 1
     expect(checkTrailerBody(body, FUTURE).code).toBe(1);
   });
@@ -1125,7 +1203,8 @@ describe('checkTrailerBody() — placeholder all-vs-some mutation-killing (Wave 
   // Document as equivalent: only consecutive single-space in rationale splits differently,
   // but filter(Boolean) neutralizes the difference.
   it('split regex /\\s+/ vs /\\s/ is neutralized by filter(Boolean): multi-space placeholder rationale still invalid', () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — todo  todo  todo  todo  todo todo'; // double spaces
+    const body =
+      'feat: foo\n\nPrior-art: skipped — todo  todo  todo  todo  todo todo'; // double spaces
     // Whether split by /\s/ or /\s+/, after filter(Boolean) all tokens are 'todo' → all-placeholder → code 1
     expect(checkTrailerBody(body, FUTURE).code).toBe(1);
   });
@@ -1137,39 +1216,45 @@ describe('checkTrailerBody() — PLACEHOLDERS set membership mutation-killing (W
 
   // Kills line 51:39 — 'later' replaced with ''
   it("escape-hatch with rationale 'later' only is invalid (all-placeholder)", () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — later later later later later later';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — later later later later later later';
     expect(checkTrailerBody(body, FUTURE).code).toBe(1); // all-placeholder → continue → code 1
   });
 
   // Kills line 51:48 — 'na' replaced with ''
   it("escape-hatch with rationale 'na' only is invalid (all-placeholder)", () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — na na na na na na na na na na na na';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — na na na na na na na na na na na na';
     expect(checkTrailerBody(body, FUTURE).code).toBe(1);
   });
 
   // Kills line 51:54 — 'tbd' replaced with ''
   it("escape-hatch with rationale 'tbd' only is invalid (all-placeholder)", () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — tbd tbd tbd tbd tbd tbd tbd tbd';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — tbd tbd tbd tbd tbd tbd tbd tbd';
     expect(checkTrailerBody(body, FUTURE).code).toBe(1);
   });
 
   // Kills line 51:61 — 'fixme' replaced with ''
   it("escape-hatch with rationale 'fixme' only is invalid (all-placeholder)", () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — fixme fixme fixme fixme fixme fixme';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — fixme fixme fixme fixme fixme fixme';
     expect(checkTrailerBody(body, FUTURE).code).toBe(1);
   });
 
   // Kills line 51:70 — 'placeholder' replaced with ''
   it("escape-hatch with rationale 'placeholder' only is invalid (all-placeholder)", () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — placeholder placeholder placeholder';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — placeholder placeholder placeholder';
     expect(checkTrailerBody(body, FUTURE).code).toBe(1);
   });
 
   // Kills line 51:85 — last '' replaced with 'Stryker was here!'
   // The '' entry catches empty tokens after split (e.g. double-space splits).
   // Already covered by filter(Boolean) tests above; additionally verify:
-  it("escape-hatch with empty-token rationale from double-space is still invalid", () => {
-    const body = 'feat: foo\n\nPrior-art: skipped — todo  todo  todo  todo  todo todo today'; // 'today' is not a placeholder!
+  it('escape-hatch with empty-token rationale from double-space is still invalid', () => {
+    const body =
+      'feat: foo\n\nPrior-art: skipped — todo  todo  todo  todo  todo todo today'; // 'today' is not a placeholder!
     // 'today' is NOT in PLACEHOLDERS → not all-placeholder → code 2
     expect(checkTrailerBody(body, FUTURE).code).toBe(2);
   });
@@ -1181,7 +1266,8 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
   // Test: rationale of punctuated placeholder words → should be all-placeholder → code 1 (invalid trailer).
   it('punctuated placeholder words (todo. na. tbd.) are treated as all-placeholder (code 1)', () => {
     // 'Prior-art: skipped — todo. todo. todo. todo. todo. todo.' has enough chars
-    const body = 'feat: foo\n\nPrior-art: skipped — todo. todo. todo. todo. todo. todo.';
+    const body =
+      'feat: foo\n\nPrior-art: skipped — todo. todo. todo. todo. todo. todo.';
     const result = checkTrailerBody(body, FUTURE);
     // Original: 'todo.' → stripped → 'todo' → placeholder → allPlaceholder=true → continue → code 1
     // Mutant: 'todo.' → 'todoStryker was here!' → not placeholder → code 2 (substance arm)
@@ -1225,7 +1311,8 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
   it('strips only LEADING spaces from rationale (not first internal space group)', () => {
     // Rationale after separator strip: 'todo todo todo todo todo todo' (no leading space)
     // Use 'Prior-art: skipped—todo todo...' — em-dash directly after 'skipped', no space before todos.
-    const body = 'feat: foo\n\nPrior-art: skipped—todo todo todo todo todo todo';
+    const body =
+      'feat: foo\n\nPrior-art: skipped—todo todo todo todo todo todo';
     // After slice 'skipped': '—todo todo...'
     // step1 /^ +/: no leading space → '—todo todo...' unchanged
     // step2 /^[—–\-:]/: strips leading '—' → 'todo todo...'
@@ -1256,7 +1343,8 @@ describe('runPriorArtCheck() — SHA truncation mutation-killing (Wave 2)', () =
     const ssotIds = new Set([1]);
     const g = fakeGit({
       packageJsonDiff: () => addedDepDiff('some-dep', '^1.0.0'),
-      commitBody: () => 'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict — rationale here).',
+      commitBody: () =>
+        'feat: dep\n\nPrior-art: prior-art-evaluations.md#999 (verdict — rationale here).',
       authorDate: () => FUTURE,
     });
     const report = runPriorArtCheck([longSha], g, undefined, ssotIds);
@@ -1428,7 +1516,10 @@ describe('checkTrailerBody() — resolvable-referent grammar (K-5)', () => {
   });
 
   it('the referent-free message is preferred over the generic invalid-trailer message', () => {
-    const res = checkTrailerBody('Prior-art: consulted — no entry applies', FUTURE);
+    const res = checkTrailerBody(
+      'Prior-art: consulted — no entry applies',
+      FUTURE,
+    );
     expect(res.message).not.toContain('placeholder rationale');
     expect(res.message).toContain('prior-art-evaluations.md#N');
   });
@@ -1477,5 +1568,214 @@ describe('CLAUDE.md prose ↔ prior-art.ts sync (test-material + referent gramma
     const stale =
       '## What is a capability commit?\n\nTest and fixture files never count.\n';
     expect(stale).not.toContain('packages/core/principles/');
+  });
+});
+
+// ─── C2: renumbered-citation arm ──────────────────────────────────────────────
+// The incident (getff#1772, 2026-09-14): a capability commit added register row
+// 276 and cited #276. A concurrent PR landed its OWN row 276 on the base first;
+// under the append-only register's landed-row-keeps-its-number rule the branch's
+// row was renumbered to 277, leaving the already-pushed trailer resolving to a
+// stranger's row. C1 stayed green — the id still EXISTS. Force-push is
+// classifier-blocked, so the trailer could not be amended.
+
+const ROW_LYCHEE =
+  '| 276 | lychee pre-commit file selection | L1 | 2026-09-14 | 2026-09-14 | BUILD | x |';
+const ROW_MARKDOWNLINT =
+  '| 276 | markdownlint prose-vs-registry custom rule | L1 | 2026-09-14 | 2026-09-14 | BUILD | x |';
+
+describe('loadSsotRowTitles()', () => {
+  it('maps each numeric row id to its title cell', () => {
+    const titles = loadSsotRowTitles(
+      `| ID | Prior art |\n|---|---|\n${ROW_LYCHEE}\n`,
+    );
+    expect(titles.get(276)).toBe('lychee pre-commit file selection');
+  });
+
+  it('normalises emphasis and spacing — they are not identity', () => {
+    const bold = '| 9 |  **lychee**   pre-commit  `file` selection | L1 |';
+    expect(loadSsotRowTitles(bold).get(9)).toBe(
+      'lychee pre-commit file selection',
+    );
+  });
+
+  it('ignores non-numeric schema-header rows', () => {
+    const titles = loadSsotRowTitles(
+      '| Field | Type |\n|---|---|\n| ID | integer |\n| 3 | real entry |\n',
+    );
+    expect(titles.has(3)).toBe(true);
+    expect(titles.size).toBe(1);
+  });
+
+  it('drops a row carrying the renamed-escape with a >= 20-char rationale', () => {
+    const row =
+      '| 5 | new name <!-- prior-art:renamed upstream renamed the tool in v3 --> | L1 |';
+    expect(loadSsotRowTitles(row).has(5)).toBe(false);
+  });
+
+  it('PAIRED-NEGATIVE: a renamed-escape with a too-short rationale does NOT exempt', () => {
+    const row = '| 5 | new name <!-- prior-art:renamed oops --> | L1 |';
+    expect(loadSsotRowTitles(row).has(5)).toBe(true);
+  });
+});
+
+describe('renumberedCitedIds()', () => {
+  const atCommit = loadSsotRowTitles(ROW_LYCHEE);
+
+  it('PAIRED-NEGATIVE: the id now names a different entry → reported', () => {
+    const atTip = loadSsotRowTitles(ROW_MARKDOWNLINT);
+    expect(renumberedCitedIds([276], { atCommit, atTip })).toEqual([276]);
+  });
+
+  it('PAIRED-POSITIVE: the id still names the same entry → not reported', () => {
+    const atTip = loadSsotRowTitles(ROW_LYCHEE);
+    expect(renumberedCitedIds([276], { atCommit, atTip })).toEqual([]);
+  });
+
+  it('a later edit that does not touch the title cell is not a renumber', () => {
+    const relabelled =
+      '| 276 | lychee pre-commit file selection | L1 | 2026-09-14 | 2026-10-01 | BUILD | longer rationale |';
+    expect(
+      renumberedCitedIds([276], {
+        atCommit,
+        atTip: loadSsotRowTitles(relabelled),
+      }),
+    ).toEqual([]);
+  });
+
+  it('an id absent at the tip is NOT a renumber — C1 owns non-existence', () => {
+    expect(
+      renumberedCitedIds([276], { atCommit, atTip: loadSsotRowTitles('') }),
+    ).toEqual([]);
+  });
+
+  it('an id absent in the citing tree cannot be compared', () => {
+    const atTip = loadSsotRowTitles(ROW_MARKDOWNLINT);
+    expect(
+      renumberedCitedIds([276], { atCommit: loadSsotRowTitles(''), atTip }),
+    ).toEqual([]);
+  });
+
+  it('an unreadable view on either side makes the arm a no-op', () => {
+    const atTip = loadSsotRowTitles(ROW_MARKDOWNLINT);
+    expect(renumberedCitedIds([276], { atCommit: undefined, atTip })).toEqual(
+      [],
+    );
+    expect(renumberedCitedIds([276], { atCommit, atTip: undefined })).toEqual(
+      [],
+    );
+  });
+});
+
+describe('checkTrailerBody() — C2 renumbered arm', () => {
+  const body =
+    'feat: dep\n\nPrior-art: prior-art-evaluations.md#276 (verdict BUILD — rationale here).';
+  const atCommit = loadSsotRowTitles(ROW_LYCHEE);
+
+  it('PAIRED-NEGATIVE: renumbered id → code 4, naming the id', () => {
+    const r = checkTrailerBody(body, FUTURE, undefined, new Set([276]), {
+      atCommit,
+      atTip: loadSsotRowTitles(ROW_MARKDOWNLINT),
+    });
+    expect(r.code).toBe(4);
+    expect(r.message).toMatch(/#276/);
+    expect(r.message).toMatch(/renumbered/);
+  });
+
+  it('PAIRED-POSITIVE: same entry at both ends → code 0', () => {
+    const r = checkTrailerBody(body, FUTURE, undefined, new Set([276]), {
+      atCommit,
+      atTip: loadSsotRowTitles(ROW_LYCHEE),
+    });
+    expect(r.code).toBe(0);
+  });
+
+  it('arm disabled when ssotTitles is not supplied (behaviour unchanged)', () => {
+    expect(checkTrailerBody(body, FUTURE, undefined, new Set([276])).code).toBe(
+      0,
+    );
+  });
+
+  it('C1 wins over C2: a non-existent id is a broken citation, not a renumber', () => {
+    const r = checkTrailerBody(body, FUTURE, undefined, new Set([1]), {
+      atCommit,
+      atTip: loadSsotRowTitles(ROW_MARKDOWNLINT),
+    });
+    expect(r.code).toBe(3);
+  });
+
+  it('the historical cutoff still bypasses the arm', () => {
+    const r = checkTrailerBody(body, PAST, undefined, new Set([276]), {
+      atCommit,
+      atTip: loadSsotRowTitles(ROW_MARKDOWNLINT),
+    });
+    expect(r.code).toBe(0);
+  });
+});
+
+describe('runPriorArtCheck() — C2 paired-negative end-to-end', () => {
+  const trailer =
+    'feat: dep\n\nPrior-art: prior-art-evaluations.md#276 (verdict BUILD — rationale here).';
+  const capability = {
+    packageJsonDiff: () => addedDepDiff('new-dep', '^1.0.0'),
+    commitBody: () => trailer,
+    authorDate: () => FUTURE,
+  };
+
+  it('PAIRED-NEGATIVE: the incident shape → renumberedCitations non-empty', () => {
+    const report = runPriorArtCheck(
+      ['sha1'],
+      fakeGit(capability),
+      undefined,
+      () => new Set([276]),
+      {
+        atCommit: () => loadSsotRowTitles(ROW_LYCHEE),
+        atTip: loadSsotRowTitles(ROW_MARKDOWNLINT),
+      },
+    );
+    expect(report.renumberedCitations).toHaveLength(1);
+    expect(report.renumberedCitations[0].sha).toBe('sha1');
+    expect(report.failures).toHaveLength(0);
+    expect(report.brokenCitations).toHaveLength(0);
+  });
+
+  it('PAIRED-POSITIVE: no renumber → every list empty', () => {
+    const report = runPriorArtCheck(
+      ['sha1'],
+      fakeGit(capability),
+      undefined,
+      () => new Set([276]),
+      {
+        atCommit: () => loadSsotRowTitles(ROW_LYCHEE),
+        atTip: loadSsotRowTitles(ROW_LYCHEE),
+      },
+    );
+    expect(report.renumberedCitations).toHaveLength(0);
+    expect(report.failures).toHaveLength(0);
+  });
+
+  it('renumberedCitations is empty when the arm is not wired (back-compat)', () => {
+    const report = runPriorArtCheck(
+      ['sha1'],
+      fakeGit(capability),
+      undefined,
+      () => new Set([276]),
+    );
+    expect(report.renumberedCitations).toHaveLength(0);
+  });
+
+  it('a non-capability commit is skipped even when its cited id was renumbered', () => {
+    const g = fakeGit({ commitBody: () => trailer, authorDate: () => FUTURE });
+    const report = runPriorArtCheck(
+      ['sha1'],
+      g,
+      undefined,
+      () => new Set([276]),
+      {
+        atCommit: () => loadSsotRowTitles(ROW_LYCHEE),
+        atTip: loadSsotRowTitles(ROW_MARKDOWNLINT),
+      },
+    );
+    expect(report.renumberedCitations).toHaveLength(0);
   });
 });

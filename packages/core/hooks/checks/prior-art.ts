@@ -49,6 +49,87 @@ export function loadSsotIds(ssotContent: string): Set<number> {
 }
 
 /**
+ * Escape token for a register row whose TITLE cell was deliberately reworded.
+ * Mirrors the `<!-- cite:historical … -->` precedent in
+ * `scripts/check-line-citations.mjs` and the `# ci-tool-pin: allow` precedent in
+ * `.claude/rules/ci-tool-pinning.md` §3: a rationale of >= 20 chars, on the row
+ * itself. A row carrying it is dropped from the discriminator map, so the C2 arm
+ * below can never fire on it in either direction.
+ */
+const ROW_RENAMED_RE = /<!--\s*prior-art:renamed\s+([^>]*?)\s*-->/;
+const ROW_RENAMED_RATIONALE_MIN = 20;
+
+/** Normalise a register title cell: emphasis and spacing are not identity. */
+function normaliseRowTitle(cell: string): string {
+  return cell
+    .replace(ROW_RENAMED_RE, '')
+    .replace(/[*`_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Map each numeric register row id to a DISCRIMINATOR — its title cell (column
+ * 2), the cell that names WHICH prior art the row is about. Rows carrying the
+ * `<!-- prior-art:renamed <why> -->` escape (with a >= 20-char rationale) are
+ * omitted deliberately.
+ *
+ * Why a discriminator and not the id alone: an id is a position in an
+ * append-only register, and a position is not an identity. Git's own commit
+ * reference format says the same thing — `--pretty=reference` renders
+ * `8bc9a0c769 (Add copyright notices., 2005-04-07)`, carrying a human-readable
+ * subject BESIDE the hash precisely so a reader can tell whether the id still
+ * names what the author meant.
+ */
+export function loadSsotRowTitles(ssotContent: string): Map<number, string> {
+  const titles = new Map<number, string>();
+  for (const line of ssotContent.split('\n')) {
+    const m = /^\|\s*(\d+)\s*\|([^|]*)\|/.exec(line);
+    if (m === null) continue;
+    const escape = ROW_RENAMED_RE.exec(line);
+    if (escape !== null && escape[1].trim().length >= ROW_RENAMED_RATIONALE_MIN)
+      continue;
+    titles.set(Number(m[1]), normaliseRowTitle(m[2]));
+  }
+  return titles;
+}
+
+/**
+ * The C2 renumbered-citation arm's two views of the register: as the citing
+ * commit saw it, and as the tip being pushed sees it. A trailer is written
+ * against the register of its own tree (which is why the C1 existence arm reads
+ * `git show <sha>:…`); a LATER renumber on the same branch can silently move a
+ * different prior art under that id, and C1 stays green because the id still
+ * exists.
+ */
+export interface SsotTitleViews {
+  /** Titles in the citing commit's own tree; `undefined` = unreadable, arm no-ops. */
+  atCommit: ReadonlyMap<number, string> | undefined;
+  /** Titles in the tree being pushed; `undefined` = unreadable, arm no-ops. */
+  atTip: ReadonlyMap<number, string> | undefined;
+}
+
+/**
+ * Ids whose register row names a DIFFERENT prior art at the tip than it did in
+ * the citing commit's tree. Ids absent from either view are skipped: absence is
+ * «cannot compare», never «mismatch» (the C1 arm owns non-existence).
+ */
+export function renumberedCitedIds(
+  citedIds: readonly number[],
+  views: SsotTitleViews,
+): number[] {
+  const { atCommit, atTip } = views;
+  if (atCommit === undefined || atTip === undefined) return [];
+  return citedIds.filter((id) => {
+    const then = atCommit.get(id);
+    const now = atTip.get(id);
+    if (then === undefined || now === undefined) return false;
+    return then !== now;
+  });
+}
+
+/**
  * A positive `Prior-art:` trailer must name a RESOLVABLE REFERENT — something a
  * reader can go and open. Three accepted forms, mirroring the CLAUDE.md
  * «`Prior-art:` trailer syntax» section:
@@ -275,9 +356,12 @@ export interface TrailerResult {
   /**
    * 0 = valid, 1 = missing/invalid trailer, 2 = escape-hatch substance failure,
    * 3 = broken citation — trailer cites a `prior-art-evaluations.md#N` with no
-   * such SSOT entry (Wave N8 C1; only reachable when `ssotIds` is supplied).
+   * such SSOT entry (Wave N8 C1; only reachable when `ssotIds` is supplied),
+   * 4 = renumbered citation — the cited id still EXISTS but now names a
+   * different prior art than it did in the citing commit's tree (C2; only
+   * reachable when `ssotTitles` is supplied).
    */
-  code: 0 | 1 | 2 | 3;
+  code: 0 | 1 | 2 | 3 | 4;
   message: string;
 }
 
@@ -295,6 +379,7 @@ export function checkTrailerBody(
   authorDate: string,
   cutoff: string = PA_HISTORICAL_CUTOFF,
   ssotIds?: ReadonlySet<number>,
+  ssotTitles?: SsotTitleViews,
 ): TrailerResult {
   // Historical-cutoff bypass (string compare on ISO dates, as in bash).
   if (authorDate && authorDate < cutoff) return { code: 0, message: '' };
@@ -345,6 +430,22 @@ export function checkTrailerBody(
         };
       }
     }
+    // C2: the id exists, but does it still name the prior art it named when the
+    // trailer was written? An append-only register renumbers under concurrent
+    // lanes, and the already-written trailer cannot be amended once pushed.
+    if (ssotTitles) {
+      const moved = renumberedCitedIds(extractCitedSsotIds(line), ssotTitles);
+      if (moved.length > 0) {
+        return {
+          code: 4,
+          message: `cites prior-art-evaluations.md#${moved
+            .map(String)
+            .join(
+              ', #',
+            )} but that id now names a different entry than it did in this commit's own tree — the row was renumbered under the trailer`,
+        };
+      }
+    }
     return { code: 0, message: '' };
   }
   if (sawUnreferenced) {
@@ -373,6 +474,7 @@ export interface PriorArtReport {
   failures: PriorArtFinding[]; // exit-1 class: missing/invalid trailer
   substanceFailures: PriorArtFinding[]; // exit-2 class: escape-hatch on capability
   brokenCitations: PriorArtFinding[]; // C1: cites a non-existent SSOT entry (exit-1 class)
+  renumberedCitations: PriorArtFinding[]; // C2: cited id now names a different entry (exit-1 class)
 }
 
 /**
@@ -389,6 +491,16 @@ export interface PriorArtReport {
 export type SsotIdsSource =
   | ReadonlySet<number>
   | ((sha: string) => ReadonlySet<number> | undefined);
+
+/**
+ * The C2 arm's id-source. `atCommit` resolves the register as of each citing
+ * commit's own tree; `atTip` is the single tree being pushed. Both are needed:
+ * one view alone cannot tell a renumber from an ordinary edit.
+ */
+export interface SsotTitlesSource {
+  atCommit: (sha: string) => ReadonlyMap<number, string> | undefined;
+  atTip: ReadonlyMap<number, string> | undefined;
+}
 
 /**
  * Run the §7 check over the given commits. Returns findings; the caller decides
@@ -451,25 +563,39 @@ export function runPriorArtCheck(
   g: GitProvider,
   cutoff: string = PA_HISTORICAL_CUTOFF,
   ssotIds?: SsotIdsSource,
+  ssotTitles?: SsotTitlesSource,
 ): PriorArtReport {
   const failures: PriorArtFinding[] = [];
   const substanceFailures: PriorArtFinding[] = [];
   const brokenCitations: PriorArtFinding[] = [];
+  const renumberedCitations: PriorArtFinding[] = [];
   for (const sha of commits) {
     const reason = detectCapabilityReason(sha, g);
     if (reason === null) continue; // not a capability commit
     const ids = typeof ssotIds === 'function' ? ssotIds(sha) : ssotIds;
+    const views =
+      ssotTitles === undefined
+        ? undefined
+        : { atCommit: ssotTitles.atCommit(sha), atTip: ssotTitles.atTip };
     const { code, message } = checkTrailerBody(
       g.commitBody(sha),
       g.authorDate(sha),
       cutoff,
       ids,
+      views,
     );
     if (code === 1) failures.push({ sha: sha.slice(0, 10), reason, message });
     else if (code === 2)
       substanceFailures.push({ sha: sha.slice(0, 10), reason, message });
     else if (code === 3)
       brokenCitations.push({ sha: sha.slice(0, 10), reason, message });
+    else if (code === 4)
+      renumberedCitations.push({ sha: sha.slice(0, 10), reason, message });
   }
-  return { failures, substanceFailures, brokenCitations };
+  return {
+    failures,
+    substanceFailures,
+    brokenCitations,
+    renumberedCitations,
+  };
 }
