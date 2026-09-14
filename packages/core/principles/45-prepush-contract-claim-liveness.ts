@@ -647,8 +647,13 @@ export interface QuarantineRow {
 
 /**
  * The claims that were already live-and-false when this gate shipped (2026-09-14,
- * measured against `origin/staging` d5a06c8cde5). They are NOT fixed here: the prose
- * repair is a separate docs-only PR, and duplicating it would collide.
+ * measured against `origin/staging` d5a06c8cde5). Ten of the twelve original rows were
+ * repaired by the docs-truth-prepush PR and deleted here in the same change, as the
+ * `staleQuarantine` arm below requires. What remains is one surface and its generated
+ * twin, held for a reason the gate cannot decide: `checks-map.md` §«Если стартуете с
+ * нуля» PRESCRIBES a minimum a project should wire, rather than DESCRIBING what getff
+ * wires — so the sentence is not simply false, and rewriting it is a product decision
+ * for the maintainer.
  *
  * This is a ratchet, not an allowlist, and it is load-bearing in BOTH directions:
  *
@@ -666,57 +671,6 @@ export interface QuarantineRow {
  */
 export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
   {
-    file: 'INSTALL-FOR-AI.md',
-    items: ['typecheck', 'tests', 'audit-ai-docs', 'audit run'],
-    owner: 'docs-truth-prepush PR — :354 tree annotation + :562 prose',
-  },
-  {
-    file: 'README.md',
-    items: ['typecheck', 'vitest related', 'arch', 'audit'],
-    owner: 'docs-truth-prepush PR — :34 prose + :229 table cell',
-  },
-  {
-    file: 'packages/core/templates/shared/AGENTS.md.template',
-    items: ['typecheck', 'vitest related', 'dependency-cruiser'],
-    owner: 'docs-truth-prepush PR — :46, shipped standing instruction',
-  },
-  {
-    file: 'packages/core/templates/shared/AI-USAGE-GUIDE.md',
-    items: ['typecheck', 'vitest related', 'dependency-cruiser'],
-    owner: 'docs-truth-prepush PR — :195, shipped standing instruction',
-  },
-  {
-    file: 'packages/core/templates/shared/CLAUDE.md.template',
-    items: ['typecheck', 'vitest related', 'dependency-cruiser'],
-    owner: 'docs-truth-prepush PR — :22, shipped standing instruction',
-  },
-  {
-    file: 'packages/core/templates/shared/DESCRIPTION.template.md',
-    items: ['typecheck', 'vitest related', 'dependency-cruiser'],
-    owner: 'docs-truth-prepush PR — :61, shipped standing instruction',
-  },
-  {
-    file: 'packages/core/templates/shared/skill-context/aif-rules-check/SKILL.md',
-    items: ['tsc', 'depcruise', 'audit-ai-docs.sh'],
-    owner:
-      'docs-truth-prepush PR — :18; this surface tells the agent NOT to re-run',
-  },
-  {
-    file: 'packages/preset-next-15-canonical/RULES.md',
-    items: ['tsc', 'tests', 'depcruise', 'audit-ai-docs.sh'],
-    owner: 'docs-truth-prepush PR — :7, shipped preset rules',
-  },
-  {
-    file: 'packages/preset-react-native/RULES.md',
-    items: ['tsc', 'tests', 'audit-ai-docs.react-native.sh'],
-    owner: 'docs-truth-prepush PR — :7, shipped preset rules',
-  },
-  {
-    file: 'packages/preset-react-spa/RULES.md',
-    items: ['tsc', 'tests', 'audit-ai-docs.sh'],
-    owner: 'docs-truth-prepush PR — :7, shipped preset rules',
-  },
-  {
     file: 'skills/getff/references/checks-map.md',
     items: [
       'npm run typecheck',
@@ -726,7 +680,8 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'vitest related $changed',
       'vitest related на изменённых файлах',
     ],
-    owner: 'docs-truth-prepush PR — :43 + :143, shipped skill reference',
+    owner:
+      'maintainer fork — :138-146 is PRESCRIPTIVE («if you start from scratch, here is the minimum»), not a description of what getff wires; rewriting it is a product decision, not a truth fix',
   },
   {
     file: 'plugin/skills/getff/references/checks-map.md',
@@ -738,8 +693,7 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'vitest related $changed',
       'vitest related на изменённых файлах',
     ],
-    owner:
-      'docs-truth-prepush PR — plugin twin of the row above; regenerated, not hand-edited',
+    owner: 'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
   },
 ];
 

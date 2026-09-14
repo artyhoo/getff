@@ -351,7 +351,7 @@ project/
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/
 │   ├── pre-commit                     ← runs lint-staged
-│   └── pre-push                       ← getff rule checks (globs, lint-staged, generated rules, links)
+│   └── pre-push                       ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── .github/workflows/ci.yml           ← full CI pipeline
 ├── .ai-factory/
 │   ├── DESCRIPTION.md                 ← edit this (project description)
@@ -559,7 +559,7 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Tests discoverable                      | `npx vitest list`                                     | Shows .unit.ts files (or empty if no tests yet)                                                |
 | Audit script runs                       | `npm run audit:docs`                                  | Exit 0 with PASS/FAIL/WARN output                                                              |
 | Pre-commit hook                         | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs                                                                               |
-| Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule globs, lint-staged resolution, generated-rule firing, links)       |
+| Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule-globs, lint-staged resolution, generated-rule firing, links)        |
 | A rule provably fires                   | `bash scripts/check-fences-fire.sh`                   | Planted bad input goes RED — the install is proven, not just present                           |
 | Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                        |
 

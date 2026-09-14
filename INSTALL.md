@@ -436,7 +436,7 @@ your-project/
 ├── .github/workflows/ci.yml          ← lint, test, mutation, audit-ai-docs
 ├── .husky/
 │   ├── pre-commit                    ← lint-staged
-│   └── pre-push                      ← getff rule checks (globs, lint-staged, generated rules, links)
+│   └── pre-push                      ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── eslint.config.mjs                 ← ESLint flat config
 ├── vitest.config.ts                  ← Vitest with .unit/.audit naming
 ├── stryker.config.json               ← mutation testing
