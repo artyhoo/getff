@@ -27,12 +27,12 @@ ee58f8b7d5ab72c63553ca67b26f83b2813d61b70352228a4f645b957172df58  .claude/hooks/
 f08fb7bb09646a6c6806bfc49ba26d1b072deb79d38fa288d5d40b17fa75ccdd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-2ea988db3bcf44c20e35140899551832e403c6436ee97b0614deb3e98cfa7eb9  .claude/skills/aif-doctor/SKILL.md
+5092f4a7cfbd1f3aced7e0f454e3e59ca24f66128600d34886d3e53845e53fef  .claude/skills/aif-doctor/SKILL.md
 6aa41f8948023a9de8aa1ec49a0a3f9b92598f1d1ce553a34eb0b1ee9d7d04de  .claude/skills/aif-doctor/helpers/heal.sh
 a8561e5ad736e01157d1313241acfb888a8f67daf13f243db52ceaed2872d48a  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
 b002125a5b3192b646ab5a2380053a1a7c0a839ac79df48955aaafa63bf9b754  .claude/skills/arch/SKILL.md
 e3bba025e05c493a9237c034019e32703869552c6eb15afbd7a7ddab719acfe8  .claude/skills/claude-glm-executor-handoff/SKILL.md
-50470a372ce439c48700e0e41e1a45db8c23e60f5dce916a1fd74829d0ea73f9  .claude/skills/dispatcher/SKILL.md
+4a8915af06592de7268c388b95fe0e5432628daeadc58707abe416593f6507cb  .claude/skills/dispatcher/SKILL.md
 03511710e55da8b8e55208b020e7e8534d3729e288fe870a0797dfd68315cc03  .claude/skills/dispatcher/helpers/advance-frontier.sh
 32171fb8f224dfed23e9985a70d7c4e566ff44ff15258a31d33013bb3224ff9a  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
@@ -105,7 +105,7 @@ c605506b6c8e1b51c06d0014d001ff0039de82989200d134234b25c40866f3a4  .claude/skills
 b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
 470772ebcc9ee4f3d976393197ab53a800fdccec6434cd627f4ec0d35aaa151a  .claude/skills/pipeline/references/red-flags.md
 5e53f12369a0f107451b69a4ea407c4ac3fad06750c159923cc4ba77a3fe944f  .claude/skills/pipeline/references/stage-gates.md
-735fe8ed67f24fe88897fe49e8a799642729dff1aa476a255a03559fabf55298  .claude/skills/pipeline/templates/meta-kickoff.template.md
+767bcdc9385f0109453f52005034b223cb7eaf5d2818e3ff1aae6c23953274e0  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 d838b6a2c8c3b4ff1569e6316dee928bcd4aa6fa1df1cc1376a706d9f6893ed4  .claude/skills/reviewer/SKILL.md
 7dda969e1a79814d486cea5daba91b91df9a7fc657275c5511a0bd1433dba402  .claude/skills/rule-research/SKILL.md

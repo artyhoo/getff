@@ -412,7 +412,7 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 3. Apply via `answer.ts --task <id> --answer "<recommendation>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
 4. Report what was decided and why — operator sees the outcome, not a question
 
-**Discrimination discipline (baked into this skill prose because `ask-question-reminder.sh` is operator-internal, not in the `install.sh` payload — per `ask-question-reminder.sh:2`):** a fork is TECHNICAL when the parked reason is about mechanics, implementation detail, or tradeoff within a single subsystem. A fork is STRATEGIC when it involves scope, architecture decisions, project direction, or "whether" to do something at all. When in doubt, surface to operator (Type 2 path).
+**Discrimination discipline (baked into this skill prose because `ask-question-reminder.sh` fires only a generic pre-question fork-challenge nudge and carries no TECHNICAL/STRATEGIC split of its own — and it is no longer operator-internal either: it ships to consumer CC projects, `ask-question-reminder.sh:5`):** a fork is TECHNICAL when the parked reason is about mechanics, implementation detail, or tradeoff within a single subsystem. A fork is STRATEGIC when it involves scope, architecture decisions, project direction, or "whether" to do something at all. When in doubt, surface to operator (Type 2 path).
 
 ### Type 2 — Strategic fork (WHAT/WHETHER; maintainer decides)
 
@@ -499,8 +499,8 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 
 ## §6 §1.7 self-reflexive note
 
-**Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:3`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
+**Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:44`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
 
-**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:1`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:3`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
+**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:6`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:5`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
 
 **Stage (frontier-residue-sweep S1):** `advance-frontier.sh` REUSES the `/pipeline`-owned `frontier.sh` emitter as a pure consumer — bindings, not a fork; the §2.6 `is:merged` check stays the merge authority and `basis=marker-unverified` never advances a consumer (T-FRS1-B). Tests at `packages/core/skills/dispatcher/advance-frontier.test.ts`.

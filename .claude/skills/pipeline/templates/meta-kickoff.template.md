@@ -169,7 +169,7 @@ export AGENT_SKIP_REVIEW=false
 
 **Lever 2 — park-don't-guess instruction (the dispatched kickoff carries this verbatim, addressed to the aif agent):**
 
-> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the `ask-question-reminder.sh:50-54` fork-challenge discipline. Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
+> **aif agent — fork discipline (non-negotiable):** On ANY genuine fork or ambiguity (two defensible implementations, an undecided design choice, a missing spec detail that changes behaviour) — **do NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external` with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on the unambiguous parts. This carries the fork-challenge discipline `ask-question-reminder.sh` emits (`.claude/hooks/lang/en.sh:29-38`). Guessing a fork to "keep moving" is the failure this whole loop exists to prevent.
 
 **Lever 3 — the resolve loop reviews aif's DECISIONS, not only its open questions:** the maintainer Approves / Requests-changes each completed task, so "questions" = open forks **+** aif's autonomous decisions awaiting verification (trust-but-verify). This is the runtime side delivered by `cli/answer.ts` once it ships; until then, review decisions manually in the aif web/Telegram UI.
 
