@@ -9,6 +9,12 @@
 # RED arms prove each rule fires — including, separately, BOTH detection arms: content
 # drift since authorship (blame) and a landing on a blank line (birth-correct). A gate
 # green on everything is the failure mode this file exists to exclude.
+#
+# The last two sections step outside that hermetic frame on purpose, because a checker
+# nobody calls is not a gate: they run the REAL `.husky/pre-commit` over a fixture repo
+# to prove the blank-landing arm actually blocks a commit, and compare the hook's
+# `CITE_SCOPE` against pre-push.ts's `LIVE_AUTHORITY_MD` so the two channels cannot
+# silently come to gate different surfaces.
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$DIR/check-line-citations.mjs"
@@ -330,6 +336,132 @@ if grep -qF 'untracked.md' "$TMP/err"; then
   fails=$((fails + 1))
 fi
 rm -f "$REPO/.claude/rules/untracked.md"
+
+# ============================================ the pre-commit CHANNEL, not just the flag
+# The `--blank-only` arms above prove the MODE works. They say nothing about whether any
+# channel invokes it — and for a day it did not: the mode shipped 2026-09-13, pre-push.ts
+# §9 named pre-commit as ARM 2's earliest reachable channel, and
+# `grep -c check-line-citations .husky/pre-commit` returned 0 (measured 2026-09-14,
+# research-patches/2026-09-14-citation-quoted-literal-arm-measured-and-rejected.md §S1).
+# A gate real in prose and absent in fact is the `#hope-as-gate` shape of
+# .claude/rules/attention-is-not-a-mechanism.md §2, so these arms run the REAL
+# `.husky/pre-commit` — copied byte-for-byte into the fixture, never re-implemented here —
+# and assert on its exit code.
+#
+# Two stubs, both named rather than smuggled in through PATH surgery: `npx` (the
+# markdownlint and prettier sections would otherwise reach the network from a fixture with
+# no node_modules) and `scripts/format-shipped.sh` (absent in the fixture, so the prettier
+# section would go red for an unrelated reason and make every arm below meaningless).
+# Nothing else in the hook fires: its remaining sections are scoped to staged manifest,
+# orchestrator-prompts, hooks, agents and skills paths, and this fixture stages none.
+REAL_ROOT="$(cd "$DIR/.." && pwd)"
+HOOK="$REAL_ROOT/.husky/pre-commit"
+
+new_hook_repo() {
+  new_repo "$1"
+  mkdir -p "$REPO/scripts" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
+  cp "$CHECK" "$REPO/scripts/check-line-citations.mjs"
+  cp "$HOOK" "$REPO/.husky/pre-commit"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/_stub_bin/npx"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/scripts/format-shipped.sh"
+  chmod +x "$REPO/_stub_bin/npx" "$REPO/scripts/format-shipped.sh"
+}
+
+# The hook writes its verdict on stdout and the checker's findings on stderr; a reader of
+# a blocked commit sees one stream, so both are merged and asserted together.
+run_hook() { (cd "$REPO" && PATH="$REPO/_stub_bin:$PATH" bash .husky/pre-commit) >"$TMP/hook" 2>&1; }
+
+expect_hook_block() {
+  local name="$1" needle="$2"
+  if run_hook; then
+    echo "FAIL: $name — pre-commit exited 0; the commit was NOT refused"
+    sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1)); return
+  fi
+  if ! grep -qF "$needle" "$TMP/hook"; then
+    echo "FAIL: $name — hook output did not mention '$needle'"
+    sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1))
+  fi
+}
+
+expect_hook_pass() {
+  local name="$1"
+  run_hook && return
+  echo "FAIL: $name — pre-commit exited non-zero"; sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1))
+}
+
+# --- RED: a staged rule file citing a blank line is refused at commit time
+new_hook_repo precommit-red
+printf 'alpha\n\ngamma\n' >"$REPO/.claude/rules/target.md"
+printf '# Rule\n\nThe cap is `target.md:2`.\n' >"$REPO/.claude/rules/cite.md"
+git -C "$REPO" add .claude/rules
+expect_hook_block "pre-commit refuses a blank-landing citation" "is an empty line"
+grep -qF 'blank-landing' "$TMP/hook" || {
+  echo "FAIL: the hook's own verdict line did not name the defect"
+  sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1)); }
+
+# --- GREEN: the same shape with an accurate citation must not block the commit
+new_hook_repo precommit-green
+printf 'alpha\nbeta\ngamma\n' >"$REPO/.claude/rules/target.md"
+printf '# Rule\n\nThe cap is `target.md:2`.\n' >"$REPO/.claude/rules/cite.md"
+git -C "$REPO" add .claude/rules
+expect_hook_pass "pre-commit stays quiet on an accurate citation"
+
+# --- SCOPE: outside the live-authority surface the hook must NOT fire. Retros,
+# research-patches and specs cite a line as a dated snapshot; blocking a commit there
+# would demand rewriting history to make a gate green.
+new_hook_repo precommit-scope
+printf 'alpha\n\ngamma\n' >"$REPO/docs/target.md"
+printf '# Note\n\nAt the time `target.md:2` said beta.\n' >"$REPO/docs/cite.md"
+git -C "$REPO" add docs
+expect_hook_pass "pre-commit leaves closed historical material alone"
+
+# --- a path staged and then deleted from the working tree must not produce a verdict
+# about citations. Measured 2026-09-14: without the `-f` filter the checker threw
+# `ENOENT` and the hook reported it as «blank-landing citation(s)» — a red naming a
+# defect the commit does not have, which is worse than no gate, because the committer
+# goes looking for a citation that is not there.
+new_hook_repo precommit-vanished
+printf 'alpha\nbeta\n' >"$REPO/.claude/rules/target.md"
+printf '# Rule\n\nThe cap is `target.md:2`.\n' >"$REPO/.claude/rules/cite.md"
+git -C "$REPO" add .claude/rules
+rm "$REPO/.claude/rules/cite.md"
+expect_hook_pass "a staged-then-deleted path does not fabricate a citation verdict"
+grep -qF 'ENOENT' "$TMP/hook" && {
+  echo "FAIL: the checker still crashed on the vanished path"
+  sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1)); }
+
+# --------------------------------------------- scope parity with the corpus definition
+# `CITE_SCOPE` in .husky/pre-commit is a hand-kept copy of LIVE_AUTHORITY_MD — bash cannot
+# read the checker's const. A copy whose drift is caught by «somebody notices both files»
+# is the shape this repo refuses, so the two lists are compared mechanically here.
+# Divergence is silent by construction: the hook would simply gate a narrower surface than
+# the corpus defines, and a birth-wrong citation on the dropped path would sail through
+# with every arm above still green.
+#
+# The list MOVED on 2026-09-14. It lived in packages/core/hooks/pre-push.ts until
+# `--corpus` made it a three-consumer population (pre-push §9, the CI backstop, this
+# hook), at which point a TS copy beside the checker's own would have been the
+# `#sync-by-copy-paste` shape .claude/rules/dual-implementation-discipline.md §8 names.
+# This arm follows it to scripts/check-line-citations.mjs. Reading the old home would now
+# extract nothing at all, which is exactly why the emptiness guard below is load-bearing
+# and not decoration: without it this arm would have gone green comparing two empty
+# strings the moment the constant moved.
+#
+# Unlike every arm above this one reads the real repository, on purpose: a hermetic copy
+# of the lists would be the drift it is meant to catch.
+mjs_scope=$(awk '/^const LIVE_AUTHORITY_MD/,/^\];/' "$CHECK" |
+  grep -oE "'[^']+'" | tr -d "'" | sort)
+sh_scope=$(grep -E '^CITE_SCOPE=' "$HOOK" | head -1 | cut -d"'" -f2 | tr ' ' '\n' | grep -v '^$' | sort)
+if [ -z "$mjs_scope" ] || [ -z "$sh_scope" ]; then
+  # An extraction that silently yields nothing would make this arm pass on two empty
+  # strings — the tautology it exists to exclude.
+  echo "FAIL: scope parity — extraction came back empty (check-line-citations.mjs: $(printf '%s' "$mjs_scope" | wc -c) bytes, .husky/pre-commit: $(printf '%s' "$sh_scope" | wc -c) bytes)"
+  fails=$((fails + 1))
+elif [ "$mjs_scope" != "$sh_scope" ]; then
+  echo "FAIL: .husky/pre-commit CITE_SCOPE has diverged from LIVE_AUTHORITY_MD in scripts/check-line-citations.mjs:"
+  diff <(printf '%s\n' "$mjs_scope") <(printf '%s\n' "$sh_scope") | sed 's/^/    /'
+  fails=$((fails + 1))
+fi
 
 if [ "$fails" -eq 0 ]; then
   echo "check-line-citations paired-negative: all arms passed"

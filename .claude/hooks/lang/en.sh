@@ -43,16 +43,26 @@ aif_msg_eot_anchor_fallback() {
   printf '%s' '(session goal not extractable — state it yourself)'
 }
 
-# PreToolUse:AskUserQuestion — pre-question fork-challenge (no interpolation;
-# quoted heredoc because the body contains backticks).
+# PreToolUse:AskUserQuestion — pre-question fork-challenge. Item 3 CALLS the shared
+# aif_msg_fork_card instead of restating the fork contract in its own words: two
+# hand-kept copies of one contract is #sync-by-copy-paste
+# (.claude/rules/dual-implementation-discipline.md §8). The heredoc is built in
+# three deliberate parts: part 1 is a quoted heredoc so the backticks around
+# `superpowers:brainstorming` can never execute as a command; part 2 renders the
+# shared card, indented three spaces so its own numbering cannot collide with the
+# challenge's; part 3 is unquoted so it can interpolate the two scalars.
 aif_msg_question_challenge() {
   cat <<'EOF'
-Stop — you are about to ask a question. First check the question itself, primarily for your own sake.
-1. Is this a real fork — or are you offloading a decision you could make yourself? If one option is clearly better on the merits (by the session's goals and the project's discipline) — do NOT ask: do it and say what you did.
-2. If it is a real fork — lead with YOUR reasoned recommendation first: "I recommend <option>, because <reason against the goals and trade-offs>", then the alternatives briefly. The human decides.
-3. In plain words: what exactly are we deciding and why does it block — on a concrete example, not a restatement of the question text.
-4. If this is a DESIGN/STRATEGY fork (not a quick A/B over facts) — run a structured brainstorm (e.g. the `superpowers:brainstorming` skill, if available) instead of a bare card: explore → recommend with arguments, then ask. A bare card on a design fork reads as "AI punted".
-If all of this is already done in your answer — just ask the question again: the repeat is not blocked.
+Stop — you are about to ask a question. Check the question itself first, mostly for your own sake.
+1. Is this a real fork, or are you handing over a decision you can make yourself? If one option is plainly better on the merits (session goals, project discipline) — do NOT ask: do it and say what you did.
+2. If the fork is about DESIGN or STRATEGY (not a quick factual A/B) — brainstorm it first (e.g. the `superpowers:brainstorming` skill, if available): research, then recommend with reasons, and only then ask.
+3. If it really is a fork — the card comes FIRST, in the text of your answer, and the buttons after it:
+EOF
+  aif_msg_fork_card | sed 's/^/   /'
+  cat <<EOF
+4. The first option in the buttons is your recommendation from line 4 of the card, in the same words. The reader should recognise it in the list, not have to diff two texts.
+5. In the ${AIF_RECAP_MARKER} block on this same turn, the ${AIF_EOT_SEC_FORK} section is a POINTER to the card above ("fork — card above"), never a retelling. One fork text per turn.
+If you have already done all of this in your answer, just ask again: a repeat is not blocked.
 EOF
 }
 
@@ -70,6 +80,9 @@ ${AIF_RECAP_MARKER} — a block of five sections, in this order:
 2. ${AIF_EOT_SEC_CHANGED} — if the answer is long or structural.
 3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card. Inside this block
    the card omits its own 0 and 5: sections 1 and 5 of the block already own them.
+   If the card is already above in this same answer — before the AskUserQuestion buttons, or one
+   per question in an /arch round — section 3 is ONE pointer line to it, never a second card.
+   One fork text per turn. Otherwise — the card in full:
 $(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — optional.
 5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:

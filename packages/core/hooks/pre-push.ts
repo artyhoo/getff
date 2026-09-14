@@ -1386,11 +1386,31 @@ function ruleIndexRenderSection(): void {
  * pre-push and not earlier for the BLAME arm: it compares the cited line against
  * what it said in the commit that last touched the citing sentence, so an
  * uncommitted edit has no baseline and edit-time cannot reach it at all. The
- * BLANK-LANDING arm has no such dependency and its earliest reachable channel is
- * pre-commit (`--blank-only`); wiring it there is a one-line addition to
- * `.husky/pre-commit`, maintainer-owned per the CLAUDE.md Artifact Ownership
- * Contract. Until that lands, both arms run here — correct but one rung late for
- * the arm that catches a citation wrong at birth.
+ * BLANK-LANDING arm has no such dependency, and since 2026-09-14 it also runs at
+ * ITS earliest channel: `.husky/pre-commit` invokes the same checker with
+ * `--blank-only` over a `CITE_SCOPE` list kept identical to the LIVE_AUTHORITY_MD
+ * the checker defines, so a citation wrong at birth is normally refused at the commit
+ * that writes it.
+ *
+ * «Normally», not «always», and this section runs BOTH arms because of what the word
+ * covers — five measured gaps in the earlier channel, not a belt-and-braces habit:
+ * husky is absent for aif-container commits; `git commit --no-verify` skips the file;
+ * `core.hooksPath` can resolve to a DIFFERENT checkout of that hook than the branch
+ * being committed, so the running body may predate this block entirely (measured
+ * 2026-09-14 in a `.claude/worktrees/` tree, where it was an absolute path into the
+ * main clone and every section ran at that clone's version, this one included); the
+ * hook short-circuits on an empty `--diff-filter=ACM` list, so a rename-ONLY commit
+ * reaches none of its sections even though a moved doc can break a relative citation;
+ * and the checker reads the working tree, not the index, so a defect staged and then
+ * fixed on disk without staging survives the commit.
+ *
+ * The first four arrive here under ACMR over the push range. The fifth does NOT:
+ * this section reads the working tree too, so the same unstaged fix hides the defect
+ * at both channels, and it surfaces only when someone next touches that file from a
+ * clean checkout. Declared, not papered over — the same treatment the checker's own
+ * header gives its birth-wrong-on-a-non-blank-line residue. The two scope lists are
+ * compared mechanically by the parity arm in `scripts/check-line-citations.test.sh`
+ * rather than by whoever happens to read both files.
  *
  * SCOPE (changed 2026-09-14). This section used to pass only the push's changed
  * corpus Markdown, and that had a structural hole the header above never justified:
