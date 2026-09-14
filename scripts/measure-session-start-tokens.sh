@@ -23,7 +23,12 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || { echo "FATAL: cannot cd $REPO_ROOT" >&2; exit 2; }
 
-SETTINGS="$REPO_ROOT/.claude/settings.json"
+# Settings paths are env-overridable so the paired-negative in
+# scripts/measure-session-start-tokens.test.sh can point this meter at a FIXTURE settings
+# file and assert a DIFFERENCE (row present vs absent), instead of a floor that an
+# over-count sails straight past. Same idiom as MEASURE_MEMORY_PATH below.
+SETTINGS="${MEASURE_SETTINGS_PATH:-$REPO_ROOT/.claude/settings.json}"
+SETTINGS_LOCAL="${MEASURE_SETTINGS_LOCAL_PATH:-$REPO_ROOT/.claude/settings.local.json}"
 RULES_DIR="$REPO_ROOT/.claude/rules"
 PROJECT_CLAUDE_MD="$REPO_ROOT/CLAUDE.md"
 USER_CLAUDE_MD="${HOME:+$HOME/.claude/CLAUDE.md}"
@@ -83,17 +88,29 @@ if ! jq -e '.claudeMdExcludes' "$SETTINGS" >/dev/null 2>&1; then
   exit 5
 fi
 
-# Read claudeMdExcludes into a newline-delimited set.
+# Excludes membership — the shared SSOT `scripts/lib/claude-md-excludes.sh`.
 #
-# NOT an associative array: macOS ships bash 3.2, which has no `declare -A`. There the
-# subscript `${SET[$rel]+_}` is evaluated as an ARITHMETIC expression, so a path subscript
-# aborts with `syntax error: operand expected` under `set -e` — the rule-enumeration loop
-# dies and Sections B/C silently print empty. That is the worst possible failure for this
-# script: it is the audit's own executable proof, and host-cc is the environment whose
-# numbers the budget is about. Verified 2026-07-31 on `GNU bash 3.2.57 (arm64-apple-darwin25)`.
-# Membership is tested with `grep -Fxq`, which is exact-line and bash-3.2-safe.
-EXCLUDES_SET=$(jq -r '.claudeMdExcludes[]? // empty' "$SETTINGS")
-excludes_has() { printf '%s\n' "$EXCLUDES_SET" | grep -Fxq -- "$1"; }
+# WHAT WAS HERE BEFORE, AND WHY IT WAS WRONG (fixed 2026-09-14): this block read the list
+# into a newline-delimited set and tested membership with `grep -Fxq`, which is an
+# EXACT-LINE match. The enumeration loop below feeds it `.claude/rules/<basename>`, while
+# every committed entry is the glob `**/<basename>.md` — so the test matched 0 of 8, every
+# excluded rule was counted as resident, and Section A overstated the always-on budget by
+# 2.37x (174,538 B / 47,067 est. tokens printed vs 65,770 B / 19,877 corrected). Section B
+# failed from the other side of the same bug: it stat-ed `$REPO_ROOT/<glob>`, which can
+# never be a file, and printed "file absent" for all eight live entries.
+#
+# The bash-3.2 constraint the old comment recorded is real and still honoured — the lib uses
+# a plain indexed array and a `case` loop, never `declare -A` or `mapfile`. `grep -Fxq` was
+# bash-3.2-safe AND wrong; safety was never the defect.
+# shellcheck source=lib/claude-md-excludes.sh
+. "$REPO_ROOT/scripts/lib/claude-md-excludes.sh"
+claude_md_excludes_load "$SETTINGS" "$SETTINGS_LOCAL" || {
+  # T3 — fail loudly. The lib already named the offending entries on stderr; a meter
+  # that shrugged and carried on would silently mis-price the context budget, which is
+  # the exact defect class this whole extraction closes.
+  exit 6
+}
+excludes_has() { claude_md_excludes_match "$1"; }
 
 # ---- totals ------------------------------------------------------------------
 GRAND_BYTES=0
@@ -237,14 +254,23 @@ fi
 printf '\n## Section B — Excluded by claudeMdExcludes (NOT injected at session start; recorded for attribution)\n'
 excludes_line=$(grep -n '"claudeMdExcludes"' "$SETTINGS" | head -1 | cut -d: -f1)
 if [[ -z "$excludes_line" ]]; then excludes_line="?"; fi
-printf '%s\n' "$EXCLUDES_SET" | while IFS= read -r rel; do
+printf '# excludes source composition: %s (%s entries)\n' "$CLAUDE_MD_EXCLUDES_SOURCE" "$(claude_md_excludes_count)"
+for rel in ${CLAUDE_MD_EXCLUDES[@]+"${CLAUDE_MD_EXCLUDES[@]}"}; do
   [[ -n "$rel" ]] || continue
-  if [[ -f "$REPO_ROOT/$rel" ]]; then
-    read -r b r t < <(compute_tokens "$REPO_ROOT/$rel")
-    printf '%-58s | %-8s | %8s | %s | %7s | claudeMdExcludes-entry (%s:%s)\n' \
-      "$rel" "host-cc" "$b" "$r" "$t" "$SETTINGS" "$excludes_line"
-  else
-    printf '#   WARNING: excludes entry %s listed but file absent\n' "$rel"
+  # An entry is a GLOB, so it is resolved to the tracked files it matches. Stat-ing the entry
+  # itself is what printed "file absent" for every live exclude before 2026-09-14.
+  matched=0
+  while IFS= read -r hit; do
+    [[ -n "$hit" ]] || continue
+    matched=$(( matched + 1 ))
+    read -r b r t < <(compute_tokens "$REPO_ROOT/$hit")
+    printf '%-58s | %-8s | %8s | %s | %7s | claudeMdExcludes-entry %s (%s:%s)\n' \
+      "$hit" "host-cc" "$b" "$r" "$t" "$rel" "$SETTINGS" "$excludes_line"
+  done < <(claude_md_excludes_matching_files "$rel")
+  if [[ "$matched" -eq 0 ]]; then
+    # A live RED: principle 34 asserts every entry matches >= 1 tracked file, so an entry
+    # reaching this branch is either a typo or a rule that was deleted without its exclude.
+    printf '#   WARNING: excludes entry %s matches NO tracked file (inert — see principle 34)\n' "$rel"
   fi
 done
 

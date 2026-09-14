@@ -10,29 +10,15 @@
 # spec: docs/superpowers/specs/2026-06-04-ai-doc-audit-design.md §Success-criteria
 # spec: docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md §1.6 FORK D (rev 4)
 #
-# OVERLAY SEMANTICS — MERGE (union + dedupe). Established 2026-08-07 by reading the shipped
-# client, which supersedes the earlier REPLACE-PER-KEY reading (spec §1.6 FORK D round-4
-# MAJOR-3) that this comment used to assert:
-#   `claude.exe` v2.1.207 folds every settings source through a lodash-mergeWith-shaped call
-#   whose customizer is `ipe(objValue, srcValue, key)`. For arrays it returns
-#   `Mo([...objValue, ...srcValue])` = `[...new Set(...)]` — union with dedupe — EXCEPT for
-#   `key === "fallbackModel"`, the one hard-coded replace. `claudeMdExcludes` is not that key.
-#   Therefore the effective list is `project ∪ local`: a local `.claude/settings.local.json`
-#   can only ADD excludes, never subtract. This is also what the docs say — `settings.md:278`
-#   names `fallbackModel` as the array key that does NOT merge, implying the rest do.
-#   Falsifier: a client ≥2.1.211 whose `ipe` special-cases `claudeMdExcludes` too.
-#   This meter applies the UNION of both lists; the source composition is named on stderr.
-#   See docs/meta-factory/research-patches/2026-08-06-claudemd-overlay-semantics-verdict.md
-#   for the corrected verdict narrative and the full evidence chain.
+# OVERLAY SEMANTICS + EXCLUDE-PATTERN FORM: both now live in the shared SSOT
+#   `scripts/lib/claude-md-excludes.sh`, sourced below. They used to be duplicated in prose
+#   here and implemented a fourth, DEAD way in scripts/measure-session-start-tokens.sh
+#   (`grep -Fxq` against glob entries — 0 of 8 matched, overstating the resident set 2.37x,
+#   measured 2026-09-14). The lib is the `#sync-by-copy-paste` counter from
+#   `.claude/rules/dual-implementation-discipline.md` §8: one SSOT, the consumers point at it.
+#   This meter's exclusion behaviour is unchanged by the extraction — `scripts/measure-always-on.test.sh`
+#   is the floor that says the manifest is still being measured at all.
 #
-# EXCLUDE-PATTERN FORM (bash-native; picomatch-equivalent for the **/<name>.md form):
-#   The project list uses picomatch's `**/<name>.md` form. Picomatch is not yet a declared
-#   devDep at the root (Task 3 / P2a pins it in packages/core). To stay bash-only and not
-#   introduce a runtime dependency on a transitive install, this meter matches excludes via
-#   bash `case` over the basename: `*/<name>.md|<name>.md` matches anything ending in
-#   `/<name>.md`. This is the exact bash translation of picomatch's `**/<name>.md` for
-#   single-segment filenames (all current excludes are in that form per PR #1223). A future
-#   exclude in a different form (e.g. `dir/**` or `*.ext`) would need an extension here.
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
@@ -51,53 +37,19 @@ while IFS= read -r r; do files+=( "$r" ); done < <(
   done | sort
 )
 
-# Effective claudeMdExcludes — UNION of project and local, deduped (see the header note on
-# overlay semantics). The local file can only ADD excludes; it never subtracts from project.
-SETTINGS_LOCAL=".claude/settings.local.json"
-overlay_source="none"
-excludes=()
-if command -v jq >/dev/null 2>&1; then
-  # `overlay_source` reports which files SET the key — deliberately not "which files
-  # contributed a new pattern". A local list whose every entry is already in the project
-  # list contributes nothing after dedupe, but it exists and the operator should see it;
-  # collapsing it into "project" would hide a real overlay behind an accident of content.
-  has_project=0
-  has_local=0
-  for f in "$SETTINGS" "$SETTINGS_LOCAL"; do
-    [[ -f "$f" ]] || continue
-    jq -e 'has("claudeMdExcludes")' "$f" >/dev/null 2>&1 || continue
-    [[ "$f" == "$SETTINGS" ]] && has_project=1 || has_local=1
-    while IFS= read -r e; do
-      [[ -n "$e" ]] || continue
-      # dedupe — the client's Mo() is [...new Set(...)], so a pattern present in both
-      # files is applied once.
-      for have in ${excludes[@]+"${excludes[@]}"}; do
-        [[ "$have" == "$e" ]] && continue 2
-      done
-      excludes+=( "$e" )
-    done < <(jq -r '.claudeMdExcludes[]? // empty' "$f")
-  done
-  if [[ "$has_project" -eq 1 && "$has_local" -eq 1 ]]; then
-    overlay_source="project+local"
-  elif [[ "$has_local" -eq 1 ]]; then
-    overlay_source="local"
-  elif [[ "$has_project" -eq 1 ]]; then
-    overlay_source="project"
-  fi
-fi
+# Effective claudeMdExcludes + the membership test: shared SSOT (see header).
+# shellcheck source=lib/claude-md-excludes.sh
+. "$REPO_ROOT/scripts/lib/claude-md-excludes.sh"
+claude_md_excludes_load "$SETTINGS" ".claude/settings.local.json" || {
+  # T3 — fail loudly. The lib already named the offending entries on stderr; a meter
+  # that shrugged and carried on would silently mis-price the context budget, which is
+  # the exact defect class this whole extraction closes.
+  exit 3
+}
+overlay_source="$CLAUDE_MD_EXCLUDES_SOURCE"
 
 excluded_count=0
-is_excluded() {
-  # bash-native equivalent of picomatch(**/<name>.md, {dot:true}) for single-segment names.
-  local path="$1" pat stripped
-  for pat in "${excludes[@]}"; do
-    case "$pat" in
-      '**/'*) stripped="${pat#\*\*/}"; case "$path" in */"$stripped"|"$stripped") return 0;; esac ;;
-      *) case "$path" in "$pat") return 0;; esac ;;
-    esac
-  done
-  return 1
-}
+is_excluded() { claude_md_excludes_match "$1"; }
 
 total=0
 printf '{\n  "sources": [\n'
@@ -117,4 +69,4 @@ done
 printf '\n  ],\n  "total_bytes": %s\n}\n' "$total"
 
 # Stderr diagnostic (verbose logging per plan §Settings).
-echo "[measure-always-on] overlay_source=$overlay_source resident_count=${#files[@]} excluded_count=$excluded_count excludes_applied=${#excludes[@]}" >&2
+echo "[measure-always-on] overlay_source=$overlay_source resident_count=${#files[@]} excluded_count=$excluded_count excludes_applied=$(claude_md_excludes_count)" >&2
