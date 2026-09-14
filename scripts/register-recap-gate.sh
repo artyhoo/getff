@@ -130,11 +130,27 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 # ── Preconditions ────────────────────────────────────────────────────────────
 command -v jq >/dev/null 2>&1 || fail "jq not on PATH"
 [[ -f "$ROOT/.claude/hooks/end-of-turn-reminder.sh" ]] || fail "Stop hook not found: $ROOT/.claude/hooks/end-of-turn-reminder.sh"
-[[ -f "$SETTINGS" ]] || fail "settings.json not found: $SETTINGS (run the framework install first)"
-jq -e . "$SETTINGS" >/dev/null || fail "settings.json is malformed — fix it first (a broken settings.json silently disables ALL settings from that file)"
-if [[ "$ARM_SETTINGS" != "$SETTINGS" ]]; then
+# Fatal only for the file this run actually WRITES. A broken settings.json silently disables
+# EVERY setting in it, so we refuse to edit one we cannot parse.
+if [[ "$ARM_SETTINGS" == "$SETTINGS" ]]; then
+  [[ -f "$ARM_SETTINGS" ]] || fail "settings.json not found: $ARM_SETTINGS (run the framework install first)"
+else
   [[ -f "$ARM_SETTINGS" ]] || fail "user settings not found: $ARM_SETTINGS (Claude Code writes it on first run; or pass --project)"
-  jq -e . "$ARM_SETTINGS" >/dev/null || fail "user settings.json is malformed — fix it first (a broken settings.json silently disables ALL settings from that file)"
+fi
+jq -e . "$ARM_SETTINGS" >/dev/null || fail "settings.json is malformed — fix it first (a broken settings.json silently disables ALL settings from that file)"
+
+# ADVISORY, never fatal: in --user mode this checkout's own settings.json is neither read nor
+# written, so a problem with it must not block an arm that would otherwise succeed. It is still
+# worth saying: `hooks.Stop` lives in THAT file, and a broken one disables the very hook the flag
+# arms — for this project. (The sibling scripts/register-handoff-gate.sh:183 checks it fatally and
+# is right to, because it genuinely reads $SETTINGS afterwards; this script verifies by grepping
+# the hook file instead, so that justification does not carry over.)
+if [[ "$ARM_SETTINGS" != "$SETTINGS" ]]; then
+  if [[ ! -f "$SETTINGS" ]]; then
+    echo "warn:     $SETTINGS not found — arming $ARM_SETTINGS anyway; the Stop hook is not registered for THIS checkout" >&2
+  elif ! jq -e . "$SETTINGS" >/dev/null 2>&1; then
+    echo "warn:     $SETTINGS is malformed — arming $ARM_SETTINGS anyway, but every setting in that file (including hooks.Stop) is silently dead until you fix it" >&2
+  fi
 fi
 
 echo "root:     $ROOT"
