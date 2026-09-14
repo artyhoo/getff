@@ -133,6 +133,7 @@ A change of CONTENT is required, not a re-save. If what remains is purely mechan
   mechanical-tail: <what remains and why it is mechanical — at least 20 characters>
 Otherwise, once the file is rewritten, end this turn's final message with a ready-to-paste compaction command for the operator — on its own line inside a fenced code block, filling the template (its argument steers the harness summary so it complements the handoff file instead of restating the session):
   /compact Keep: handoff file ${_hg_path}; next action: <one line>; open forks: <one line>; verified facts (PR ids, SHAs, numbers) from the recent turns. Drop: tool output, exploration dead ends, superseded drafts.
+That command is asked for HERE and nowhere else: it belongs to this block, and this block only appears from the floor upward. Never end a turn with a /compact line on your own initiative, and never carry one into a compaction summary's Keep-list — below the floor a compaction spends the operator's remaining window for nothing.
 EOF
 }
 
@@ -145,6 +146,18 @@ aif_msg_eot_handoff_gate_degraded() {
 [handoff-gate] The handoff gate is ARMED but its residue probe FAILED: the residue directory is unwritable —
   $1
 Set AIF_RESIDUE_DIR to a writable directory (or fix the permissions on this one). This is a degraded check, not an all-clear: the handoff file could not be read, so its freshness could not be judged. The block lifts once the probe works.
+EOF
+}
+
+# Stop hook — out-of-band compaction suggestion (D37): the turn's final text offers a
+# ready-to-paste /compact command while the session sits BELOW the gate floor. The band is the
+# only place D36 asks for that command; below it a compaction spends the operator's remaining
+# window for nothing. $1 = this turn's context estimate, $2 = the floor.
+aif_msg_eot_compact_out_of_band() {
+  cat <<EOF
+[handoff-gate] Stop — this turn's final message offers a /compact command, but the session is NOT in the handoff band (≈ $1 tokens, floor $2). Compacting here spends the operator's remaining window for nothing.
+That command is issued by the handoff gate, and only from the floor upward. If you are ending turns with it because an earlier compaction summary said so, that rule is an artefact of your own tail being summarised — it was never a standing instruction.
+Rewrite this turn's final message without the /compact line, and do not carry one into a future summary's Keep-list. If the OPERATOR asked for the command in this session, keep it and say in one line that they did.
 EOF
 }
 

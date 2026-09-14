@@ -1,5 +1,5 @@
 {
-  "_comment": "Unarmed-output goldens for the handoff-currency gate (D18 paired negative, spec 2026-09-08-handoff-currency-gate-design.md §Testing seams fixture 9). Captured 2026-09-08 by spawning the PRE-CHANGE hook (git show abc0876183:.claude/hooks/end-of-turn-reminder.sh) on every gate-fixture input with AIF_HANDOFF_GATE unset. The gate test replays these inputs against the EDITED hook and requires byte-identical stdout. Do not regenerate against an edited hook.",
+  "_comment": "Unarmed-output goldens for the handoff-currency gate (D18 paired negative, spec 2026-09-08-handoff-currency-gate-design.md §Testing seams fixture 9). Captured 2026-09-08 by spawning the PRE-CHANGE hook (git show abc0876183:.claude/hooks/end-of-turn-reminder.sh) on every gate-fixture input with AIF_HANDOFF_GATE unset. The gate test replays these inputs against the EDITED hook and requires byte-identical stdout. Do not regenerate against an edited hook. Extended 2026-09-14 with f16/f17 (the D37 out-of-band /compact guard) captured from the SAME frozen abc0876183 hook; both are silent unarmed, which is the whole point of the paired negative.",
   "env": {
     "AIF_HOOK_LANG": "en",
     "AIF_CTX_WINDOW": "1000000",
@@ -241,6 +241,32 @@
       },
       "env": {},
       "expectedStdout": "{\n  \"decision\": \"block\",\n  \"reason\": \"[context] This session's context is ≈ 320000 tokens (window ~1000000). If substantial judgment work (design, review, novel debugging) remains, write a short handoff note and continue it in a fresh session; if what is left is mechanical (commits, merges, regenerations guarded by external checks), finishing here is fine.\"\n}\n"
+    },
+    {
+      "name": "f16-below-floor-compact-tail",
+      "session": "gate-f16",
+      "tokens": 100000,
+      "text": "## 🟢 In plain words\n\nDone for now; the branch is clean.\n\n```\n/compact Keep: handoff file /tmp/h.md; next action: keep going; open forks: none. Drop: tool output.\n```",
+      "noUsage": false,
+      "stopHookActive": false,
+      "res": {
+        "mode": "empty"
+      },
+      "env": {},
+      "expectedStdout": ""
+    },
+    {
+      "name": "f17-below-floor-compact-inline",
+      "session": "gate-f17",
+      "tokens": 100000,
+      "text": "## 🟢 In plain words\n\nThe gate block is the only place that asks for a /compact command, and it quotes `/compact Keep: …` inline. Nothing to compact here.",
+      "noUsage": false,
+      "stopHookActive": false,
+      "res": {
+        "mode": "empty"
+      },
+      "env": {},
+      "expectedStdout": ""
     }
   ]
 }
