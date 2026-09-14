@@ -1363,60 +1363,17 @@ function ruleIndexRenderSection(): void {
 // ── 5. Principles meta-tests (maintainer, Phase 2) ───────────────────────────
 // Sections 5–5d shell out to `npm --prefix packages/core run test:*`, needing
 // packages/core/package.json + the meta-test suites — all maintainer-only.
-/**
- * The LIVE-AUTHORITY markdown surface — docs a session reads to learn what holds
- * NOW, where a `path:line` citation is a live pointer a reader follows.
- *
- * Deliberately NOT the whole markdown corpus. `docs/meta-factory/retros/`,
- * `research-patches/` and `PROPOSAL.md` are «closed historical artifact» /
- * «frozen — do not retroactively rewrite» per the CLAUDE.md Artifact Ownership
- * Contract; their citations are snapshots of what a line said on a date, and
- * renumbering those would rewrite history, which is the opposite of the repair
- * this gate performs. Measured 2026-09-13: gating the full corpus would have
- * fired on 36 citations in exactly that closed material.
- *
- * `docs/superpowers/specs/` is the ONE deliberate gap that is NOT closed history,
- * and it is kept out on a price, not on the snapshot argument — those specs do
- * carry live pointers into repo machinery and reviewers follow them. Until
- * 2026-09-14 this comment lumped them in with the retros; the measurement that
- * replaced that claim (research patch
- * `2026-09-14-citation-quoted-literal-arm-measured-and-rejected.md`, finding S2 —
- * whole directory, 86 files, at `05e41cb87e5`):
- *
- * - COST of admitting it: 1,059 citations, 765 resolved / 294 unresolvable. 363
- *   findings — ARM 1 339 (214 auto-renumberable by `--write`, 17 ambiguous, 108
- *   whose cited content is gone), ARM 2 22, line-past-EOF 2 — leaving 54 of 86
- *   files RED, 149 of the repairs hand-only, and 294 standing skip lines printed
- *   on every push that touches a spec.
- * - BENEFIT on the incident that raised the question: ZERO. PR #1765's eight
- *   birth-wrong citations would NOT have fired here. Verified at the pre-fix tree
- *   `7b600f2e7d3`: both cited coordinates are non-blank prose
- *   (`audit-self.yml:748-749` is the `--strip-components` comment,
- *   `check-hook-marker.sh:155-158` is comment prose), so ARM 2 cannot see them and
- *   ARM 1 is green by construction on a citation wrong at birth. ARM 3, the arm
- *   that would have covered that class, was built and rejected in the same patch.
- *
- * So admitting the directory buys drift-AFTER-authorship on dated design docs and
- * costs 149 hand repairs, while the class that actually escaped stays uncovered
- * either way. Narrower cells, measured the same day, for when that trade changes:
- * specs dated >= 2026-09-01 → 36 findings in 6 files; >= 2026-08-01 → 91 in 19;
- * ARM 2 alone over all specs → 24 in 15.
- *
- * Re-gate trigger: admit the directory (or the >= 2026-09-01 window) on the first
- * incident where a spec citation drifts AFTER authorship and misleads a reader —
- * the class ARM 1 actually covers. Today's 363 are repair debt, not that evidence.
- */
-const LIVE_AUTHORITY_MD: readonly string[] = [
-  '.claude/rules/',
-  '.claude/skills/',
-  'agents/',
-  'CLAUDE.md',
-  'AGENTS.md',
-  'CONTRIBUTING.md',
-];
 
 /**
- * `path:line` citation drift — scoped to the changed Markdown in this push.
+ * `path:line` citation drift — the WHOLE live-authority corpus, with the expensive arm
+ * scoped to what this push could have broken.
+ *
+ * The corpus itself is `--corpus`, defined once inside the checker (LIVE_AUTHORITY_MD in
+ * scripts/check-line-citations.mjs). It lived here until 2026-09-14; the CI backstop
+ * below made it a two-consumer list, and keeping a copy in this file would have been the
+ * `#sync-by-copy-paste` shape .claude/rules/dual-implementation-discipline.md §8 names —
+ * a seventh directory added to one copy and not the other is a silent coverage hole, in
+ * a section whose whole subject is silent coverage holes.
  *
  * A `path:NN` citation is a checkable claim about where an authority lives, and
  * until 2026-09-13 nothing checked it: lychee (§8) gates link EXISTENCE and cannot
@@ -1431,9 +1388,9 @@ const LIVE_AUTHORITY_MD: readonly string[] = [
  * uncommitted edit has no baseline and edit-time cannot reach it at all. The
  * BLANK-LANDING arm has no such dependency, and since 2026-09-14 it also runs at
  * ITS earliest channel: `.husky/pre-commit` invokes the same checker with
- * `--blank-only` over a `CITE_SCOPE` list kept identical to LIVE_AUTHORITY_MD
- * below, so a citation wrong at birth is normally refused at the commit that writes
- * it.
+ * `--blank-only` over a `CITE_SCOPE` list kept identical to the LIVE_AUTHORITY_MD
+ * the checker defines, so a citation wrong at birth is normally refused at the commit
+ * that writes it.
  *
  * «Normally», not «always», and this section runs BOTH arms because of what the word
  * covers — five measured gaps in the earlier channel, not a belt-and-braces habit:
@@ -1455,6 +1412,35 @@ const LIVE_AUTHORITY_MD: readonly string[] = [
  * compared mechanically by the parity arm in `scripts/check-line-citations.test.sh`
  * rather than by whoever happens to read both files.
  *
+ * SCOPE (changed 2026-09-14). This section used to pass only the push's changed
+ * corpus Markdown, and that had a structural hole the header above never justified:
+ * a citation goes stale when the CITED file moves, and the cited file is almost never
+ * among the changed Markdown — the citing document usually is not in the push at all.
+ * Three PRs merged on 2026-09-14 repaired staleness this gate could not see (#1755;
+ * #1761 + #1762; #1764), each found by a manual full-corpus run. #1764's two sites went
+ * stale because #1763 moved an install block inside `setup.d/10-skills.sh` while
+ * touching no corpus Markdown whatsoever, so no changed-Markdown scoping could ever
+ * have reached it.
+ *
+ * The fix inverts the scoping instead of widening it. The whole corpus is passed every
+ * push, and `--affected-by=<path>` names what the push changed; the checker then runs
+ * the `git blame` arm only for a citation whose citing file OR cited target is among
+ * them. Measured 2026-09-14 on the 103-file corpus: the unscoped sweep is 6.4s (119
+ * resolvable citations, ~53ms of `git blame` + `git show` each), parse + resolve +
+ * blank-landing is 0.12s, and over the last 60 first-parent commits 72% touch no cited
+ * file at all (mean 1.33 affected citations, max 15 → ~0.9s worst case observed). Both
+ * 2026-09-14 causing commits are caught: the probe flags 5 citations on #1763 and 3 on
+ * #1755, naming exactly the sites #1764 and #1761 later repaired.
+ *
+ * What this still cannot reach is named rather than papered over: a push that bypasses
+ * the hook, two branches where one moves a target while the other adds the citation,
+ * and a branch base behind staging. Those are the CI backstop's — `citation-fullsweep`
+ * in audit-self.yml runs the same script UNSCOPED over the same corpus on every PR,
+ * every push to staging/main and every merge group. The split mirrors guard-liveness
+ * v1 vs `guard-liveness-fullsweep.yml`: change-scoped at the earliest reachable
+ * channel, full sweep as the last resort
+ * (.claude/rules/rule-enforcement-channel-selection.md §3).
+ *
  * `owner: 'maintainer'`: the checker is not in the install manifest, so on a
  * consumer layout this section would be an unconditional no-op. Declaring 'both'
  * would claim coverage that does not exist (`#hope-as-gate`,
@@ -1468,19 +1454,16 @@ function lineCitationsSection(ctx: SectionCtx): void {
   }
   if (!existsSync(resolve(REPO_ROOT, 'scripts/check-line-citations.mjs')))
     return;
-  const changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter(
-    (f) =>
-      f.endsWith('.md') &&
-      !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
-      LIVE_AUTHORITY_MD.some((p) =>
-        p.endsWith('/') ? f.startsWith(p) : f === p,
-      ),
-  );
-  if (changedMd.length === 0) return;
+  // Every changed path, not just Markdown: `setup.d/10-skills.sh` is the shape that
+  // motivated the rewrite, and restricting the affected set to Markdown would rebuild
+  // the hole one level down.
+  const changed = getChangedFiles(rb.base, 'ACMR', rb.head);
+  if (changed.length === 0) return;
   const r = run('node', [
     'scripts/check-line-citations.mjs',
     '--check',
-    ...changedMd,
+    '--corpus',
+    ...changed.map((f) => `--affected-by=${f}`),
   ]);
   if (r.notFound) return; // no node — the other node-dependent sections already die loudly
   if (r.exitCode !== 0) die('❌ stale `path:line` citation(s):', r);

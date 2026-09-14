@@ -239,6 +239,104 @@ expect_pass "an unmatched bare basename does not fail the gate" cite.md
 grep -qF 'bare-basename' "$TMP/err" || {
   echo "FAIL: unmatched bare basename was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
 
+# ========================================== --affected-by (reverse-index push scoping)
+# The hole this closes: a citation goes stale when the CITED file moves, and the cited
+# file is almost never among the push's changed Markdown. Scoping the blame arm to
+# changed CITING files therefore left the common case invisible — measured 2026-09-14
+# over three PRs merged that day (#1755, #1761/#1762, #1764); none of them was reachable
+# by the change-scoped gate, and each was found by a manual full-corpus run instead.
+#
+# `--affected-by=<path>` is repeatable and names the push's changed files. The blame arm
+# then runs for a citation whose CITING file OR whose resolved TARGET is among them.
+# Arm 2 (blank landing) and beyond-EOF read only today's tree and cost no git call, so
+# they stay unconditional: the flag narrows the `git blame` comparison and nothing else.
+new_repo affected-by
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+printf 'The cap is `target.md:2`.\n' >"$REPO/cite.md"
+printf 'unrelated\n' >"$REPO/other.md"
+commit_all "citation written while line 2 said beta"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target reflowed — the CITING file was not touched"
+
+# The motivating shape: the push moved the target, never the citing doc.
+expect_fail "drift is caught when the push changed the CITED file" \
+  "cite.md:1" --affected-by=target.md cite.md
+
+# ...and the scoping actually scopes. Without this arm the one above would still pass if
+# `--affected-by` were ignored entirely — the vacuous-green shape these pairs exist to
+# exclude (.claude/rules/attention-is-not-a-mechanism.md §2).
+expect_pass "arm 1 stays quiet when the push touched neither side" \
+  --affected-by=other.md cite.md
+
+# The pre-2026-09-14 scope is preserved, not replaced: naming the citing file still fires.
+expect_fail "drift is still caught when the push changed the CITING file" \
+  "cite.md:1" --affected-by=cite.md cite.md
+
+# No flag at all = full sweep over whatever was passed. This is the CI backstop's
+# invocation, and it must stay the default so an omitted flag fails OPEN into more
+# checking rather than less.
+expect_fail "with no --affected-by the blame arm sweeps everything given to it" \
+  "cite.md:1" cite.md
+
+# Arm 2 is not narrowed by the flag.
+printf 'alpha\n\nbeta\n' >"$REPO/target.md"
+expect_fail "blank landing fires regardless of --affected-by" \
+  "is an empty line" --affected-by=other.md cite.md
+
+# A target named through a markdown link, not a bare path, resolves the same way — the
+# reverse edge has to survive link syntax or the corpus's linked citations stay unscoped.
+new_repo affected-by-link
+mkdir -p "$REPO/docs"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/docs/target.md"
+printf 'See [the cap](docs/target.md) at `docs/target.md:2`.\n' >"$REPO/cite.md"
+commit_all "linked citation written while line 2 said beta"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/docs/target.md"
+commit_all "target reflowed"
+expect_fail "a linked citation is reached through its target path too" \
+  "cite.md:1" --affected-by=docs/target.md cite.md
+
+# ================================================= --corpus (live-authority population)
+# The population is the other half of coverage, and it now has exactly one definition —
+# LIVE_AUTHORITY_MD inside the checker — because pre-push and the CI backstop are two
+# consumers of it. These arms pin both directions: a corpus path IS swept without being
+# named, and a path outside the corpus is NOT, so `--corpus` cannot quietly become
+# «everything» (which would fire on the closed historical material the list exists to
+# exclude) or «nothing».
+new_repo corpus
+mkdir -p "$REPO/.claude/rules" "$REPO/docs/meta-factory/retros"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+printf 'The cap is `target.md:2`.\n' >"$REPO/.claude/rules/inside.md"
+printf 'The cap is `target.md:2`.\n' >"$REPO/docs/meta-factory/retros/outside.md"
+commit_all "one citation inside the corpus, one in closed historical material"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target reflowed — both citations are now stale"
+
+# Swept without being named on the command line...
+expect_fail "--corpus reaches a corpus file nobody named" \
+  ".claude/rules/inside.md:1" --corpus
+
+# ...and the exclusion is real: the retro's identical drift must not appear.
+if grep -qF 'retros/outside.md' "$TMP/err"; then
+  echo "FAIL: --corpus swept closed historical material"; sed 's/^/    /' "$TMP/err"
+  fails=$((fails + 1))
+fi
+
+# `--corpus` composes with the push scoping — this is the pre-push invocation verbatim.
+expect_pass "--corpus + an unrelated --affected-by stays quiet" \
+  --corpus --affected-by=docs/unrelated.md
+expect_fail "--corpus + --affected-by naming the cited file fires" \
+  ".claude/rules/inside.md:1" --corpus --affected-by=target.md
+
+# An untracked corpus-shaped file is nobody's authority and must not enter the sweep:
+# the population comes from `git ls-files`, not a directory walk.
+printf 'The cap is `target.md:2`.\n' >"$REPO/.claude/rules/untracked.md"
+run_check --corpus
+if grep -qF 'untracked.md' "$TMP/err"; then
+  echo "FAIL: --corpus swept an untracked file"; sed 's/^/    /' "$TMP/err"
+  fails=$((fails + 1))
+fi
+rm -f "$REPO/.claude/rules/untracked.md"
+
 # ============================================ the pre-commit CHANNEL, not just the flag
 # The `--blank-only` arms above prove the MODE works. They say nothing about whether any
 # channel invokes it — and for a day it did not: the mode shipped 2026-09-13, pre-push.ts
@@ -332,27 +430,36 @@ grep -qF 'ENOENT' "$TMP/hook" && {
   echo "FAIL: the checker still crashed on the vanished path"
   sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1)); }
 
-# ------------------------------------------------- scope parity with pre-push §9
-# `CITE_SCOPE` in .husky/pre-commit is a hand-kept copy of LIVE_AUTHORITY_MD in
-# packages/core/hooks/pre-push.ts — bash cannot read a TS const. A copy whose drift is
-# caught by «somebody notices both files» is the shape this repo refuses, so the two lists
-# are compared mechanically here. Divergence is silent by construction: the hook would
-# simply gate a narrower surface than pre-push documents, and a birth-wrong citation on
-# the dropped path would sail through with every arm above still green.
+# --------------------------------------------- scope parity with the corpus definition
+# `CITE_SCOPE` in .husky/pre-commit is a hand-kept copy of LIVE_AUTHORITY_MD — bash cannot
+# read the checker's const. A copy whose drift is caught by «somebody notices both files»
+# is the shape this repo refuses, so the two lists are compared mechanically here.
+# Divergence is silent by construction: the hook would simply gate a narrower surface than
+# the corpus defines, and a birth-wrong citation on the dropped path would sail through
+# with every arm above still green.
+#
+# The list MOVED on 2026-09-14. It lived in packages/core/hooks/pre-push.ts until
+# `--corpus` made it a three-consumer population (pre-push §9, the CI backstop, this
+# hook), at which point a TS copy beside the checker's own would have been the
+# `#sync-by-copy-paste` shape .claude/rules/dual-implementation-discipline.md §8 names.
+# This arm follows it to scripts/check-line-citations.mjs. Reading the old home would now
+# extract nothing at all, which is exactly why the emptiness guard below is load-bearing
+# and not decoration: without it this arm would have gone green comparing two empty
+# strings the moment the constant moved.
 #
 # Unlike every arm above this one reads the real repository, on purpose: a hermetic copy
 # of the lists would be the drift it is meant to catch.
-ts_scope=$(awk '/^const LIVE_AUTHORITY_MD/,/^\];/' "$REAL_ROOT/packages/core/hooks/pre-push.ts" |
+mjs_scope=$(awk '/^const LIVE_AUTHORITY_MD/,/^\];/' "$CHECK" |
   grep -oE "'[^']+'" | tr -d "'" | sort)
 sh_scope=$(grep -E '^CITE_SCOPE=' "$HOOK" | head -1 | cut -d"'" -f2 | tr ' ' '\n' | grep -v '^$' | sort)
-if [ -z "$ts_scope" ] || [ -z "$sh_scope" ]; then
+if [ -z "$mjs_scope" ] || [ -z "$sh_scope" ]; then
   # An extraction that silently yields nothing would make this arm pass on two empty
   # strings — the tautology it exists to exclude.
-  echo "FAIL: scope parity — extraction came back empty (pre-push.ts: $(printf '%s' "$ts_scope" | wc -c) bytes, .husky/pre-commit: $(printf '%s' "$sh_scope" | wc -c) bytes)"
+  echo "FAIL: scope parity — extraction came back empty (check-line-citations.mjs: $(printf '%s' "$mjs_scope" | wc -c) bytes, .husky/pre-commit: $(printf '%s' "$sh_scope" | wc -c) bytes)"
   fails=$((fails + 1))
-elif [ "$ts_scope" != "$sh_scope" ]; then
-  echo "FAIL: .husky/pre-commit CITE_SCOPE has diverged from pre-push.ts LIVE_AUTHORITY_MD:"
-  diff <(printf '%s\n' "$ts_scope") <(printf '%s\n' "$sh_scope") | sed 's/^/    /'
+elif [ "$mjs_scope" != "$sh_scope" ]; then
+  echo "FAIL: .husky/pre-commit CITE_SCOPE has diverged from LIVE_AUTHORITY_MD in scripts/check-line-citations.mjs:"
+  diff <(printf '%s\n' "$mjs_scope") <(printf '%s\n' "$sh_scope") | sed 's/^/    /'
   fails=$((fails + 1))
 fi
 

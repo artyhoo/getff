@@ -239,7 +239,7 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   `.husky/pre-push:25` and its shipped consumer twin `packages/core/templates/shared/husky-pre-push.sh:34`
   («~130ms/push», no machine). Closing that population is a **separate** change, deliberately not
   bundled here (one concern per PR); the shape to enforce is already demonstrated by the reference
-  instance at `packages/core/principles/11-build-first-reuse-default.test.ts:731-739`, which names
+  instance at `packages/core/principles/11-build-first-reuse-default.test.ts:795-803`, which names
   both environments, both numbers, the destination, the margin, and the falsifier.
 - **§1b was measured against a gate, and the gate lost — this is why it is prose.** A candidate
   detector was built and replayed rather than reasoned about (the bar the `#contract-that-cannot-fail`

@@ -232,6 +232,13 @@ gate_table() {
   # test present in scripts/ but wired to NO CI step (probe-channels.test.sh at time of
   # writing) correctly stays out — the sweep predicts CI, it does not invent gates.
   #
+  # `citation-fullsweep` is triggered ALWAYS rather than by a path list, and that is the whole
+  # point of the row: a `path:NN` citation goes stale when the CITED file moves, and any tracked
+  # file can be a cited file (the 2026-09-14 case was `setup.d/10-skills.sh`). A prefix list here
+  # would rebuild the exact hole the gate was built to close. It runs UNSCOPED — pre-push scopes
+  # the blame arm to the push via `--affected-by`, but this row predicts the CI job, and the CI
+  # job is the unscoped backstop. ~6.4s over the 103-file corpus, measured 2026-09-14.
+  #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
   # (setup.d/10-skills.sh:172, install.sh:1156) and the runner is NOT, which is deliberate: a
@@ -277,6 +284,7 @@ gate_table() {
     "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
     "2${TAB}presets-check${TAB}packages/core/templates/shared/AI-USAGE-GUIDE.md,.claude/skills/pipeline/references/presets/,scripts/render-presets.mjs${TAB}npx tsx scripts/render-presets.mjs --check" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
+    "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \
@@ -393,6 +401,12 @@ trigger_matches() {
 CHANGED="$(changed_paths)"
 
 # --- fail-safe: any changed path matching NO gate trigger → escalate to --full ---
+# An ALWAYS row is deliberately NOT counted as coverage for a path. ALWAYS means
+# "unconditional", not "matches every path": counting it would make every path look mapped and
+# silently retire this whole fail-safe the moment the first ALWAYS row landed. Measured
+# 2026-09-14 while adding `citation-fullsweep`: with the ALWAYS row counted,
+# SWEEP_DIFF_OVERRIDE=weird/unmapped.bin went from "escalating to --full" (every gate) to
+# "1 gate(s) passed" — a false green of exactly the shape this script exists to prevent.
 if [ "$MODE" = "diff" ] && [ -n "$CHANGED" ]; then
   GATES_SNAPSHOT="$(gate_table)"
   while IFS= read -r p; do
@@ -400,6 +414,7 @@ if [ "$MODE" = "diff" ] && [ -n "$CHANGED" ]; then
     matched=0
     while IFS="$TAB" read -r _ n trig _; do
       [ -z "${n:-}" ] && continue
+      case ",$trig," in *,ALWAYS,*) continue ;; esac
       if trigger_matches "$trig" "$p"; then matched=1; break; fi
     done <<EOF
 $GATES_SNAPSHOT
@@ -415,12 +430,27 @@ EOF
 fi
 
 # --- gate_selected <trigger> ---
+# Sets GATE_SELECTED_BY on every match: "diff" when a CHANGED PATH matched the trigger,
+# "always" for an ALWAYS row, "full" in --full mode. The dirty-tree refusal at the tail keys
+# on the "diff" count, never on the raw run count: an ALWAYS row runs whatever the diff says,
+# so counting it as coverage would silently retire that refusal the moment the first ALWAYS
+# row landed. Measured 2026-09-14 on the merge that first put the two together — this file's
+# own `citation-fullsweep` row (#1772) against the refusal (#1780): `ran` was never 0 again,
+# and the refusal's two mechanism arms went red. Same shape as the coverage exclusion above.
+GATE_SELECTED_BY=""
 gate_selected() {
-  [ "$MODE" = "full" ] && return 0
+  GATE_SELECTED_BY=""
+  [ "$MODE" = "full" ] && { GATE_SELECTED_BY="full"; return 0; }
   local trig="$1" p
+  # ALWAYS means always — including an EMPTY diff. The loop below is driven by $CHANGED, so
+  # without this short-circuit an ALWAYS row selects nothing when the diff is empty and the
+  # sweep prints "no gates selected" — the `#hope-as-gate` shape
+  # (.claude/rules/attention-is-not-a-mechanism.md §2). Observed 2026-09-14 on the first run
+  # of the `citation-fullsweep` row, against a tree whose changes were all uncommitted.
+  case ",$trig," in *,ALWAYS,*) GATE_SELECTED_BY="always"; return 0 ;; esac
   while IFS= read -r p; do
     [ -z "$p" ] && continue
-    if trigger_matches "$trig" "$p"; then return 0; fi
+    if trigger_matches "$trig" "$p"; then GATE_SELECTED_BY="diff"; return 0; fi
   done <<EOF
 $CHANGED
 EOF
@@ -475,11 +505,13 @@ ensure_log_dir() {
 exec 3>&2
 
 ran=0
+diff_selected=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
 while IFS="$TAB" read -r _ name trigger cmd; do
   [ -z "${name:-}" ] && continue
   gate_selected "$trigger" || continue
   ran=$((ran + 1))
+  [ "$GATE_SELECTED_BY" = "diff" ] && diff_selected=$((diff_selected + 1))
   # Output is CAPTURED, not discarded, for two reasons. (1) Several rows degrade to a WARN-skip
   # instead of failing (actionlint/shellcheck absent, host toolchain != CI pins, the CI-only
   # markdown scanners). Piping their stdout to /dev/null made every one of those print a plain
@@ -527,8 +559,8 @@ done <<EOF
 $SORTED
 EOF
 
-if [ "$ran" -eq 0 ]; then
-  # Zero gates ran. `changed_paths` reads the COMMITTED diff, so this is an honest answer only
+if [ "$diff_selected" -eq 0 ] && [ "$MODE" != "full" ]; then
+  # No gate was selected BY THE DIFF. `changed_paths` reads the COMMITTED diff, so this is an honest answer only
   # when the working tree is also clean. On a dirty tree it is the false-green this script's
   # `</dev/null` note above already names as worse than no sweep: an operator who runs the sweep
   # mid-work to check their edits gets rc 0 about changes no gate ever looked at. Measured
@@ -554,6 +586,8 @@ if [ "$ran" -eq 0 ]; then
     echo "SWEEP: and re-run, or pass --base <ref> to scope it against a different committed base"
     exit 3
   fi
+fi
+if [ "$ran" -eq 0 ]; then
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
   echo "SWEEP: $ran gate(s) passed (mode=$MODE)"
