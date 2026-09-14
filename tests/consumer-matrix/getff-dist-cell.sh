@@ -25,7 +25,8 @@
 #       PR body / freeze record, not in CI (each arm re-installs a consumer, ~7 min apiece;
 #       `GETFF_DIST_CELL_RED_ONLY=1` + `GETFF_DIST_CELL_RED_ENTRIES="<entry>"` runs one arm alone).
 #
-# Runs on ubuntu (CI, merge-blocking via ci-success needs:) and macOS (`make consumer-matrix-getff-dist`).
+# Runs on ubuntu and windows-latest (CI, merge-blocking via ci-success needs:) and macOS
+# (`make consumer-matrix-getff-dist`).
 set -euo pipefail
 
 FRAMEWORK_ROOT="${FRAMEWORK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
@@ -37,7 +38,12 @@ fail() { echo ""; echo "✗ FAIL: $*" >&2; exit 1; }
 step() { echo ""; echo "── $*"; }
 
 PKG_DIR="$FRAMEWORK_ROOT/packages/getff"
-PKG_VERSION="$(node -e "console.log(require('$PKG_DIR/package.json').version)")"
+# The path goes through argv, not through the JS source. Interpolated, the runner workspace
+# `D:\a\getff\getff` becomes `require('D:\a\getff\getff/...')`, whose backslashes JS reads as
+# escapes — measured on windows-latest, this line died with
+# `Cannot find module 'D:agetffgetff/packages/getff/package.json'` before the cell ran a single
+# assertion. argv keeps it a string; the paired-RED arm below already uses that shape.
+PKG_VERSION="$(node -e 'console.log(require(process.argv[1]).version)' "$PKG_DIR/package.json")"
 
 # pack_and_install <pkgdir> <fixture> [--ignore-scripts] → sets TARBALL, INSTALLED
 pack_and_install() {
