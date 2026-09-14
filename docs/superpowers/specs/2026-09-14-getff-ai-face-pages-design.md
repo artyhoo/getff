@@ -114,7 +114,7 @@ slugs (`daily-cycle-*`, `factory-overview`, `degradations`, `reference`, `beta`)
 
 Shared rules for all seven (pointer target: the umbrella's reader-comfort card, D30/D35, kind «face page», points HERE and never
 copies — keep this paragraph's anchor and meaning stable): pain → mechanism → proof → honest limit (umbrella D6) in the page's own proportion; terms as defined
-in `terms.md` (umbrella D20, written as task 0; candidate terms in §8); every code block has a copy button and was executed at
+in `terms.md` (umbrella D20, skeleton built in S0q per D50; candidate terms in §8); every code block has a copy button and was executed at
 write time (D13); every number, roster, command and link is a generated region (§7); no commit/lag badge on the human render,
 full signal in the twin (D8b); one «Next» link at the end.
 
@@ -298,8 +298,9 @@ getff with your AI agent → Quick start (its four stack twins indented beneath)
 Foundations, one-line notes (journey order stays where it serves the human: sidebar and `next:` chain) → `## Proof` (`AGENTS.md` permalink at verified-at, `make self-audit`, claims ledger) → `## Reference` (generated family
 list) → `## Optional` (`llms-full.txt`, Understand/Guides lists, generated); both generated lists take their inputs from the pinned
 `docs/site/face-facts.json` and family JSON (umbrella D42), never from a landing-side generator run. The curated head is authored by the content session
-as a template in framework `docs/site/`; the LANDING build assembles `llms.txt` from that head plus the generated lists (umbrella
-D28a second clarification 2026-09-14, D29 G17, D31 R12) — `llms.txt` itself is a build projection, like the twins.
+as the template `docs/site/llms-head.txt` — a `.txt` by construction, so it sits outside D-Q17's `docs/site/**/*.md`
+population (no `kind:`, no exclusion glob; umbrella D51 (1)); the LANDING build assembles `llms.txt` from that head plus the
+generated lists (umbrella D28a second clarification 2026-09-14, D29 G17, D31 R12) — `llms.txt` itself is a build projection, like the twins.
 `llms-full.txt` = every page's processed markdown, unchanged mechanism, face pages first.
 
 ### 5.9 Landing hero delta (`app/(site)/page.tsx`, structural only)
@@ -313,7 +314,10 @@ D28a second clarification 2026-09-14, D29 G17, D31 R12) — `llms.txt` itself is
   from the pinned framework content (landing code, D31 S2) — NOT a fence region: the fence engine parses HTML comments only
   (`fence.ts` `BEGIN_RE`) and cannot host a region in TSX; license and «executable AGENTS.md today = this repo's own» stay
   hand-written.
-- Untouched: H1, eyebrow, hero terminal, videos, subscription form, tokens/theme (umbrella D7). Copy is the content session's.
+- Untouched: H1, eyebrow, hero terminal, videos, subscription form, tokens/theme (umbrella D7). Copy is the content session's:
+  written in S0b as `docs/site/hero-copy.json` — the component's props, JSON not `.md`, so outside D-Q17 — and applied by
+  the S1 landing task; the component itself and the FS8 guard are S1 landing-task items and S2 PR contents (umbrella D51 (3);
+  the D31 rollout spec owes those rows).
 Verification: `grep -nE 'four stacks|Python|Go|cargo|clippy|Rust|roadmap|alpha|beta' app/\(site\)/page.tsx` outside the
 component's props returns nothing; both CTAs are internal.
 
@@ -367,9 +371,10 @@ rename it with a pointer. Sequencing (rollout S0 → S1): in S0 the content sess
 counts, commands, labels — by hand from the named source, because no family JSON exists yet and no generator has run against
 a gold set (the generators themselves are BUILT in S0a — umbrella §2.4 as amended, r3 TD MAJOR-2 / MAJOR-3); in S1 the
 generators (`render-face-facts.mjs`, the D29 generator whose per-family JSON is S1 RUN output) must reproduce the gold
-byte-for-byte (umbrella D24b) and `--check` owns the regions from then on. The FD4 stub-manifest escape is the same rule applied to `maturity.json`. The
+byte-for-byte (umbrella D24b) and `--check` — live from S0a, the stage that builds the renderer (final-pass TD MINOR-6) —
+owns the regions from then on. The FD4 stub-manifest escape is the same rule applied to `maturity.json`. The
 framework→landing pin sync exposes the whole of framework `docs/site/` — CONTENT, authored or generated: page prose,
-`terms.md`, `face-facts.json`, `docs/site/reference/<family>.json`, the `llms.txt` head template (umbrella D28a as clarified
+`terms.md`, `face-facts.json`, `docs/site/reference/<family>.json`, `llms-head.txt`, `hero-copy.json` (umbrella D28a as clarified
 twice 2026-09-14); the `.md` twins and the assembled `llms.txt` are NOT conveyed — landing build-time projections (§5.8, §6). The four stub pages and the `markdownUrl` page-actions wiring
 (D10) are landing-repo code owned by the cutover stage (D31 S2) — authored once, never conveyed (umbrella D28a; falsifier: a
 generated artifact that needs a landing-side edit on every pin bump means the boundary is wrong — move the generator or the
@@ -380,7 +385,7 @@ before it reaches the pin; the landing PR CI (NEW — rollout R9, built in S1) o
 
 ## 8. Terms and claims discipline
 
-Face pages obey `terms.md` (umbrella D20, task 0). Candidate terms this spec introduces or relies on, for that file: getff ·
+Face pages obey `terms.md` (umbrella D20; skeleton built in S0q, umbrella D50). Candidate terms this spec introduces or relies on, for that file: getff ·
 rule · gate · channel (edit-time / pre-commit / pre-push / CI / production audit) · lane (python / cargo / go) · stack (npm
 stacks) · depth (core / env / factory) · fire / firing · self-check · soft layer / hard layer · twin (`.md`) · fence region ·
 manifest · verified-at · beta / alpha (as defined in the status source). Forbidden synonyms to register: «hook» for gate,
@@ -394,8 +399,8 @@ cold review MINOR-6).
 
 | Seam | Mechanism | RED when |
 |---|---|---|
-| FS1 facts | `render-face-facts.mjs --check` (framework pre-commit / pre-push / `audit-self.yml`, S1; never the landing build — umbrella D42) | any fence region differs from the manifest render |
-| FS2 maturity | same, over `maturity.json` (S1) | a label OR a caveat sentence typed by hand anywhere (README, pages, hero, `limits.md`) |
+| FS1 facts | `render-face-facts.mjs --check` (framework pre-commit / pre-push / `audit-self.yml`, from S0a on; never the landing build — umbrella D42) | any fence region differs from the manifest render |
+| FS2 maturity | same, over `maturity.json` (from S0a on) | a label OR a caveat sentence typed by hand anywhere (README, pages, hero, `limits.md`) |
 | FS3 examples | page `executed:` entries + the content session's fixture logs (`EXIT=` recorded); D26 refresh gate (S0/S1) | a stack page lacks a RED `fire-on-your-code` result, or result date is missing |
 | FS4 URLs | lychee over `out/` in the landing CI + census test: every B-D4 census URL serves a real page (no `refresh` meta) + stub test: every listed post-census slug serves `refresh` + `canonical` | a census slug stubbed, a stub missing or pointing at a 404 |
 | FS5 llms.txt | shape test (landing PR CI, S1): H1, blockquote, `## Start here` with exactly the seven twins in the §5.8 agent order (+ four stack twins under quick start), `## Optional` present | head drifts or lists are hand-edited |
@@ -409,17 +414,19 @@ cold review MINOR-6).
 1. Umbrella answers to E1–E4 (2026-09-13, register rows D4c / D32 / D33) and to the two follow-up asks (row D28a) are folded
    into FD1, FD4, FD5, FD8, FD12, §4, §7. No open dependency on the umbrella remains; D31 may rename stages with a pointer.
 2. Stage S0a — source-holes batch (framework): `maturity.json` + schema (per-positional rows + `caveat`), `setup cargo|go`,
-   D14d fields, hook headers + twin/baseline regen; `terms.md` task 0 (D20); the new first-steps SSOT step `fire-on-your-code`
+   D14d fields, hook headers + twin/baseline regen; the new first-steps SSOT step `fire-on-your-code`
    (npm + lanes) and `renders[1]` re-pointed at `/docs/installation/` (the `first-steps-*` slugs are stubbed, §4); the four
-   missing lineage citations in `skills/getff/references/` (§5.6.2). Then S0b — gold pages + rules (umbrella's), where the
+   missing lineage citations in `skills/getff/references/` (§5.6.2). The `terms.md` skeleton (D20) is NOT an S0a item: it is
+   built in stage S0q — quality-layer build, D30's build items, between S0a and S0b (umbrella D50). Then S0b — gold pages + rules (umbrella's), where the
    content session gold-fills every region by hand (§7). The D29 generator and `scripts/render-face-facts.mjs` are BUILT in
    S0a (umbrella §2.4 as amended, r3 TD MAJOR-2 / MAJOR-3); their RUN — the family JSON of the S1 families and the manifest
    render that must reproduce the gold — is S1 (conveyor).
 3. S1 (conveyor, rollout R9): the landing PR CI is NEW and owns seams FS5, FS6, FS8; FS1 and FS2 run framework-side (D42); FS3 is the content evidence + the D26
-   refresh gate. Cutover stage (D31 S2, landing repo): diagram render path (FS7), the hero component (§5.9), `markdownUrl`
+   refresh gate. Cutover stage (D31 S2, landing repo): diagram render path (FS7), the hero component + FS8 guard (§5.9; S1
+   landing-task items, S2 PR contents — D51 (3)), `markdownUrl`
    page actions (D10), the four stub pages; the pin sync brings all framework `docs/site/` content (prose, `terms.md`,
-   `face-facts.json`, family JSON, the `llms.txt` head template); twins and `llms.txt` are projected at build.
-4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms.txt` head, hero copy, from the content brief.
+   `face-facts.json`, family JSON, `llms-head.txt`, `hero-copy.json`); twins and `llms.txt` are projected at build.
+4. Clean Fable content session (umbrella D24b/D25) writes the seven pages, `llms-head.txt`, `hero-copy.json`, from the content brief.
 5. Cold reviews of THIS spec (D27, separate Opus session) run before step 4; their findings land in §11 with dispositions.
 
 ## 11. Review changelog
@@ -448,6 +455,8 @@ disposition; none was DISSOLVED. TD = top-down, BU = bottom-up.
 | Umbrella cross-carve-out seam (D38, 2026-09-14): D30 D-Q17 requires `kind:` on every `docs/site/**/*.md`, fail-closed; the seven face pages carried none | SEAM | FIXED — `kind: face-page` in the framework half of the frontmatter (D35 E1), FS6 asserts it; `terms.md` is `kind: glossary` (D30's, not ours) | §6, FS6 |
 | Umbrella cold review round 1, D42 (2026-09-14): `face-facts.json` cannot live in `packages/core/manifest/` — the landing pin sparse-checkouts only `docs/site/`, and `packages/core/manifest/` ships in npm via `files` | SEAM | FIXED — home is `docs/site/face-facts.json`, written by `render-face-facts.mjs`; `--check` runs framework-side only (pre-commit / pre-push / `audit-self.yml`), never in the landing build; the §5.8 generated lists read the pinned file | §7, §5.8, FS1, §10 item 3 |
 | Umbrella cold review round 3 (2026-09-14, umbrella `e30221d1e79`): §10 item 2 placed the generator BUILD in S1; umbrella §2.4 as amended (r3 TD MAJOR-2 / MAJOR-3) builds the D29 generator and `render-face-facts.mjs` in S0a | SEAM | FIXED — §10 item 2 and the §7 sequencing now read BUILD = S0a, first RUN against the gold = S1; the family JSON of the S1 families stays S1 RUN output; `§10.x` pointers rewritten as «§10 item n» (§10 is a flat list); hub `/docs/` unchanged as face page 1 of 7 (umbrella D41/D19) | §7, §10 item 2, §11 |
+| Umbrella final pass F, batch 1 (2026-09-14, umbrella `4d1d2c7bfb8`, rows D48–D52): (a) TD MAJOR-4 the `llms.txt` head template had no name and would fall under D-Q17 as `.md`; (b) TD MAJOR-5 hero copy had no home and D31 had zero `hero` rows; (c) TD MINOR-6 FS1/FS2 stamped `(S1)` though the renderer is built in S0a; (d) `terms.md` «task 0» listed under S0a | MAJOR / MAJOR / MINOR / MINOR | FIXED — (a) `docs/site/llms-head.txt`, a `.txt` outside D-Q17 by construction (D51 (1)); (b) `docs/site/hero-copy.json` = the §5.9 component's props, written in S0b, applied by the S1 landing task; component + FS8 guard = S1 landing-task items, S2 PR contents (D51 (3), D31 owes the rows); (c) FS1/FS2 «from S0a on»; (d) pointer to stage S0q (quality-layer build, umbrella D50) | §5.8, §5.9, §7, §9, §10 items 2–4 |
+| Umbrella final pass F, D48 (TD BLOCKER-1): the four `/docs/quickstart-<stack>/` pages are gated by FS4 / FS5 / R21 but every writing scope in the package, incl. §10 item 4, counts seven pages — nobody writes the four | BLOCKER | OPEN — operator fork on the umbrella side (gold set 7→11 by the clean Fable session [umbrella recommendation] / `quickstart-ts` gold + three alpha stacks as an S1 face-kind batch / all four to GLM / collapse into the chooser); batch 2 lands the exact §10 item 4 wording — do not pre-empt here | §10 item 4, §5.2 |
 | Umbrella cold review round 1, MINOR-6: testing-seam ids `S1..S9` collided with the rollout stage labels `S0a/S0b/S1/S2` | MINOR | FIXED — seams renamed to the `FS1..FS9` namespace everywhere (§9, §10 item 3, §11 pointers); stage labels unchanged | §9, §10 item 3 |
 
 ## 12. Deliverable pointers
