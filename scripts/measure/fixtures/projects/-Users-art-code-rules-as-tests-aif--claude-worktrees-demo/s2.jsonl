@@ -1,0 +1,2 @@
+{"type": "user", "message": {"content": "сделай X"}}
+{"type": "assistant", "message": {"content": [{"type": "text", "text": "Готово."}]}}

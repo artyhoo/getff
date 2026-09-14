@@ -1363,6 +1363,80 @@ function ruleIndexRenderSection(): void {
 // ── 5. Principles meta-tests (maintainer, Phase 2) ───────────────────────────
 // Sections 5–5d shell out to `npm --prefix packages/core run test:*`, needing
 // packages/core/package.json + the meta-test suites — all maintainer-only.
+/**
+ * The LIVE-AUTHORITY markdown surface — docs a session reads to learn what holds
+ * NOW, where a `path:line` citation is a live pointer a reader follows.
+ *
+ * Deliberately NOT the whole markdown corpus. `docs/meta-factory/retros/`,
+ * `research-patches/` and `PROPOSAL.md` are «closed historical artifact» /
+ * «frozen — do not retroactively rewrite» per the CLAUDE.md Artifact Ownership
+ * Contract, and `docs/superpowers/specs/` carry dated round changelogs; their
+ * citations are snapshots of what a line said on a date. Renumbering those would
+ * rewrite history, which is the opposite of the repair this gate performs.
+ * Measured 2026-09-13: gating the full corpus would have fired on 36 citations in
+ * exactly that closed material.
+ */
+const LIVE_AUTHORITY_MD: readonly string[] = [
+  '.claude/rules/',
+  '.claude/skills/',
+  'agents/',
+  'CLAUDE.md',
+  'AGENTS.md',
+  'CONTRIBUTING.md',
+];
+
+/**
+ * `path:line` citation drift — scoped to the changed Markdown in this push.
+ *
+ * A `path:NN` citation is a checkable claim about where an authority lives, and
+ * until 2026-09-13 nothing checked it: lychee (§8) gates link EXISTENCE and cannot
+ * see a line that still exists but now says something else. Census that day: 32 of
+ * 87 resolvable citations across `.claude/rules/`, `.claude/skills/`, `agents/` and
+ * `CLAUDE.md` had drifted, and cold review seats had already raised the class twice
+ * (PR #1290, PR #1376) without it sticking — the `#warning-nobody-reads` shape of
+ * .claude/rules/attention-is-not-a-mechanism.md §2. SSOT #274.
+ *
+ * pre-push and not earlier for the BLAME arm: it compares the cited line against
+ * what it said in the commit that last touched the citing sentence, so an
+ * uncommitted edit has no baseline and edit-time cannot reach it at all. The
+ * BLANK-LANDING arm has no such dependency and its earliest reachable channel is
+ * pre-commit (`--blank-only`); wiring it there is a one-line addition to
+ * `.husky/pre-commit`, maintainer-owned per the CLAUDE.md Artifact Ownership
+ * Contract. Until that lands, both arms run here — correct but one rung late for
+ * the arm that catches a citation wrong at birth.
+ *
+ * `owner: 'maintainer'`: the checker is not in the install manifest, so on a
+ * consumer layout this section would be an unconditional no-op. Declaring 'both'
+ * would claim coverage that does not exist (`#hope-as-gate`,
+ * .claude/rules/attention-is-not-a-mechanism.md §2).
+ */
+function lineCitationsSection(ctx: SectionCtx): void {
+  const { rb } = ctx;
+  if (rb.base === null) {
+    warnSkip('§9', 'no resolvable base for the path:line citation check');
+    return;
+  }
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/check-line-citations.mjs')))
+    return;
+  const changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter(
+    (f) =>
+      f.endsWith('.md') &&
+      !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
+      LIVE_AUTHORITY_MD.some((p) =>
+        p.endsWith('/') ? f.startsWith(p) : f === p,
+      ),
+  );
+  if (changedMd.length === 0) return;
+  const r = run('node', [
+    'scripts/check-line-citations.mjs',
+    '--check',
+    ...changedMd,
+  ]);
+  if (r.notFound) return; // no node — the other node-dependent sections already die loudly
+  if (r.exitCode !== 0) die('❌ stale `path:line` citation(s):', r);
+  emit(r);
+}
+
 function principlesMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
     const r = run('npm', ['--prefix', CORE, 'run', 'test:principles']);
@@ -1906,6 +1980,11 @@ const SECTIONS: readonly PrePushSection[] = [
     run: () => zizmorTemplatesSection(),
   },
   { id: 'audit-ai-docs', owner: 'maintainer', run: () => auditAiDocsSection() },
+  {
+    id: 'line-citations',
+    owner: 'maintainer',
+    run: (c) => lineCitationsSection(c),
+  },
   { id: 'skill-drift', owner: 'maintainer', run: () => skillDriftSection() },
   { id: 'rule-globs', owner: 'consumer', run: () => ruleGlobsSection() },
   {

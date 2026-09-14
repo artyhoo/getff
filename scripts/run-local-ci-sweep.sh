@@ -54,6 +54,9 @@
 #   backends/synthesizer/units/skills/spec-validation, the two drift gates, the
 #   tests/hooks/*.test.sh battery) ·
 #   manifest-render-check · probe-tests · alwayson-budget · phase-8-canonical-regen-acceptance ·
+#   scripts/measure/measure.test.sh (the recap-v2 measurement-script oracle; it needs its OWN
+#   row because the derived `script-selftests` row greps `scripts/<name>.test.sh` and cannot see
+#   a test one directory deeper) ·
 #   tests/plugin/twin-generation.test.sh (plugin twin generator acceptance — the
 #   `plugin-twin-tests` row). Named literally, not as a `tests/plugin/*` loop, so that a future
 #   test added to that dir but wired to NO CI step stays out of the sweep — same reasoning as
@@ -186,6 +189,7 @@ gate_table() {
     "5${TAB}mutation-runner-selftest${TAB}packages/core/synthesizer/${TAB}bash packages/core/synthesizer/run-generated-rule-mutation.test.sh && bash packages/core/synthesizer/run-rule-tests-firing.test.sh" \
     "5${TAB}hook-tests${TAB}packages/core/hooks/,tests/hooks/,.husky/${TAB}for t in tests/hooks/*.test.sh; do bash \"\$t\" || exit 1; done" \
     "5${TAB}dispatcher-tests${TAB}.claude/skills/dispatcher/,tests/dispatcher/${TAB}for t in tests/dispatcher/*.test.sh; do bash \"\$t\" || exit 1; done" \
+    "5${TAB}measure-scripts${TAB}scripts/measure/${TAB}bash scripts/measure/measure.test.sh" \
     "5${TAB}plugin-aifdoctor-selftests${TAB}scripts/generate-plugin-twins.sh,agents/,.claude/hooks/,plugin/,tests/plugin/,tests/aif-doctor/,scripts/aif-doctor${TAB}ts=\$(grep -vE '^[[:space:]]*#' .github/workflows/audit-self.yml | grep -oE '(tests/plugin|tests/aif-doctor)/[a-zA-Z0-9._-]+\\.test\\.sh' | sort -u); [ -n \"\$ts\" ] || { echo 'no tests/plugin or tests/aif-doctor steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "6${TAB}vitest-principles${TAB}packages/core/${TAB}npm --prefix packages/core run test:principles" \
     "6${TAB}vitest-hooks${TAB}packages/core/${TAB}npm --prefix packages/core run test:hooks" \

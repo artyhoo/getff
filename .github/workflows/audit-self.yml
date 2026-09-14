@@ -582,6 +582,15 @@ jobs:
       # grammar gate, plugin-native entries untouched.
       - name: Run plugin skills generator acceptance (derived-copy contract + transform parity)
         run: bash tests/plugin/skills-generation.test.sh
+      # Wired 2026-09-13 with the measurement scripts themselves (principle-41 obligation: a
+      # new tracked *.test.sh is CI-RED until wired). This is the only oracle for the three
+      # vendored transcript-measurement scripts behind the recap-v2 spec's table — it pins each
+      # script's output keys, its self-describing run header, and the constants that became flag
+      # defaults, so a later "cleanup" of a regex or a percentile formula fails here instead of
+      # silently changing what a spec row means. Python stdlib only; reads its own fixtures, so
+      # it needs no corpus and no network.
+      - name: Run measurement-script acceptance (recap-v2 spec table oracle)
+        run: bash scripts/measure/measure.test.sh
       # Wired 2026-08-17 by principle 41. These eleven were git-tracked and invoked by NO
       # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
       # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test
@@ -677,6 +686,13 @@ jobs:
       # hermetic (mktemp mailbox) and runs anywhere.
       - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
         run: bash scripts/check-ask-files.test.sh
+      # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
+      # state to blame against, which a shallow CI checkout does not reliably have. Its
+      # detector still needs a CI channel, or the only proof either arm fires is that
+      # someone ran it once. The paired-negative below builds throw-away git repos under
+      # mktemp, so it runs anywhere and proves BOTH arms red-on-drift.
+      - name: Run path:line citation paired-negative (both detection arms)
+        run: bash scripts/check-line-citations.test.sh
       - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)

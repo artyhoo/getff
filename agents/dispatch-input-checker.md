@@ -34,7 +34,7 @@ tools: Read, Glob, Grep, Bash
 > per kickoff §3 rev-5 — its own grammar is preserved verbatim.
 
 **Classification — operator-only (authoring-only), not shipped to consumers.** Consumers do not
-author aif-dispatch inputs. Skip-list precedent: [`install.sh:426-427`](../install.sh).
+author aif-dispatch inputs. Skip-list precedent: [`install.sh:26-27`](../install.sh).
 
 ## Role — cold by construction
 
