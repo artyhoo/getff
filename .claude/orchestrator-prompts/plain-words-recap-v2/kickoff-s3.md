@@ -10,7 +10,7 @@
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > D-F itself, owned by [`plain-words-recap-v2-design.md:247`](../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md).
 
-**Measurement SHA for every `path:line` below:** `2fb69aa00d7d4d4b30f257c3d592f18f065570fc`.
+**Measurement SHA for every `path:line` below:** `083d5fe1635eb8fad53d1de186cbfbff83ef42e8`.
 Re-measure before trusting; sibling worktrees move `origin/staging` under a running session.
 
 ## §0 The problem this stage solves

@@ -12,7 +12,7 @@
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > D-H itself, owned by [`plain-words-recap-v2-design.md:326`](../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md).
 
-**Measurement SHA for every `path:line` below:** `2fb69aa00d7d4d4b30f257c3d592f18f065570fc`.
+**Measurement SHA for every `path:line` below:** `083d5fe1635eb8fad53d1de186cbfbff83ef42e8`.
 
 ## §0 What this stage is for
 
@@ -71,7 +71,7 @@ GO-bearing lines» and listed eleven extras. Both numbers were assembled by reca
 predicate instead:
 
 ```bash
-git grep -n '\bGO\b' 2fb69aa00d7d4d4b30f257c3d592f18f065570fc -- .claude/skills/aif-doctor/SKILL.md
+git grep -n '\bGO\b' 083d5fe1635eb8fad53d1de186cbfbff83ef42e8 -- .claude/skills/aif-doctor/SKILL.md
 ```
 
 It returns **24** lines: `:23 :41 :67 :69 :70 :88 :90 :91 :94 :100 :104 :105 :150 :198 :199 :210
@@ -140,10 +140,10 @@ Write into the rule text, as a positive-and-negative pair:
   LIVE texts only**, with one «formerly …» line.
 
 **The rename set, re-measured — the first draft of this section was wrong in four ways and a
-cold review caught all four.** Ground truth, 35 files:
+cold review caught all four.** Ground truth at the measurement SHA, **37 files**:
 
 ```bash
-git grep -l 'worker-dispatch-via-subagent' 2fb69aa00d7d4d4b30f257c3d592f18f065570fc
+git grep -l 'worker-dispatch-via-subagent' 083d5fe1635eb8fad53d1de186cbfbff83ef42e8
 ```
 
 **LIVE = what an agent reads to act today (9 files) — rename all of them:**
@@ -173,9 +173,17 @@ edits there: `.claude/rules/*` (`git grep -c … -- .claude/rules/` → no hits)
 in is [`.claude/rules/parallel-subwave-isolation.md`](../../rules/parallel-subwave-isolation.md)'s
 neighbourhood — but it holds no occurrence of the old name, so that is an ADDITION, not a rename.
 
-**FROZEN = untouched (25 files):** 13 under `.claude/orchestrator-prompts/**` (12 `kickoff*.md`
+**FROZEN = untouched (27 files):** 15 under `.claude/orchestrator-prompts/**` (14 `kickoff*.md`
 plus `meta-orch-channel-discipline/done.md`) and 12 research-patches and specs. The old name
 surviving there is intentional; the «formerly …» line is what keeps it readable.
+
+**Two of those fifteen are this umbrella's own kickoffs** — `plain-words-recap-v2/kickoff.md` and
+`plain-words-recap-v2/kickoff-s5.md` — which entered the corpus when
+[PR 1778](https://github.com/artyhoo/getff/pull/1778) merged, between the first sweep (35 files)
+and this one (37). §5's «this kickoff set is itself corpus input» is therefore not a prediction any
+more; it is measured. Treat them as FROZEN like any other kickoff: the old name in them is the
+**subject** of the rename, not an instance of it, and rewriting the very text that specifies the
+rename would erase the record of what was renamed.
 
 **SSOT — `docs/meta-factory/prior-art-evaluations.md`: leave it, and say why.** It is an
 append-only register per [CLAUDE.md](../../../CLAUDE.md)'s Artifact Ownership Contract; a landed
@@ -209,9 +217,11 @@ matcher dropped a clause only after an 8-false-positive measurement
 ([`29-worker-dispatch-channel.ts:38-49`](../../../packages/core/principles/29-worker-dispatch-channel.ts));
 the narrowing gets the same treatment.
 
-**This kickoff set is itself corpus input.** These four files land on `staging` before S5 runs, so
-they are inside `.claude/orchestrator-prompts/**/kickoff*.md` when the snapshot arm is first
-captured. They prescribe no auto-launch and hand no subagent a write task — if the matcher flags
+**This kickoff set is itself corpus input — and that is now measured, not predicted.** The four
+files landed on `staging` with [PR 1778](https://github.com/artyhoo/getff/pull/1778), and the
+dispatch-name sweep in §4 grew from 35 files to 37 in exactly that step, the two additions being
+this umbrella's own `kickoff.md` and `kickoff-s5.md`. They are inside
+`.claude/orchestrator-prompts/**/kickoff*.md` when the snapshot arm is first captured. They prescribe no auto-launch and hand no subagent a write task — if the matcher flags
 any of them, that is a finding about the matcher or about this text, and either way it is examined,
 never snapshot-blessed.
 

@@ -13,7 +13,7 @@
 > [`plain-words-recap-v2-design.md:220`](../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md)
 > and `:306`.
 
-**Measurement SHA for every `path:line` below:** `2fb69aa00d7d4d4b30f257c3d592f18f065570fc`.
+**Measurement SHA for every `path:line` below:** `083d5fe1635eb8fad53d1de186cbfbff83ef42e8`.
 **Five of the spec's own citations for this stage are stale** — umbrella §3.1 lists them. Use the
 measured numbers here, not the spec's.
 
@@ -72,12 +72,12 @@ The spec names four. The predicate sweep returns **15 distinct files**:
 
 ```bash
 git grep -l -E '🎬|AIF_STORY_MARKER|The story|Как это было|по актам|by acts' \
-  2fb69aa00d7d4d4b30f257c3d592f18f065570fc -- . ':(exclude)docs/' \
+  083d5fe1635eb8fad53d1de186cbfbff83ef42e8 -- . ':(exclude)docs/' \
   ':(exclude).superpowers/' ':(exclude).claude/orchestrator-prompts/' \
   ':(exclude)packages/getff/dist/'
 ```
 
-| # | File | Lines at `2fb69aa00d7` | Named by spec | Literal edit? |
+| # | File | Lines at `083d5fe1635` | Named by spec | Literal edit? |
 |---|---|---|---|---|
 | 1 | `.claude/hooks/lang/en.sh` | `:197` (`AIF_STORY_MARKER='## 🎬 The story'`), `:206` | yes | **yes** |
 | 2 | `.claude/hooks/lang/ru.sh` | `:196` (`'## 🎬 Как это было'`), `:205` | yes | **yes** |

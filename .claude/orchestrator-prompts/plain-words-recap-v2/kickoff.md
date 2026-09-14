@@ -12,10 +12,10 @@
 > [`2026-09-13-plain-words-recap-v2-design.md`](../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md).
 
 **Measurement SHA for every `path:line` in this umbrella and in every stage kickoff:**
-`2fb69aa00d7d4d4b30f257c3d592f18f065570fc` (`origin/staging`, 2026-09-14, the commit after
+`083d5fe1635eb8fad53d1de186cbfbff83ef42e8` (`origin/staging`, 2026-09-14, the commit after
 slice 2 merged). Every file cited was read at that one ref. **Sibling worktrees share this
 repo's refs and move `origin/staging` under a running session** — that is how the census below
-was first taken at `17c364e279d` and re-read at `2fb69aa00d7` mid-command. Re-measure against
+was first taken at `17c364e279d` and re-read at `083d5fe1635` mid-command. Re-measure against
 your own pinned SHA before trusting any number here; do not inherit.
 
 ## §0 What already landed — slices 0, 1, 2
@@ -23,7 +23,7 @@ your own pinned SHA before trusting any number here; do not inherit.
 | Slice | What it shipped | Merged |
 |---|---|---|
 | 0 | `scripts/measure/` — the vendored measurement scripts behind every table row in the spec | [PR 1742](https://github.com/artyhoo/getff/pull/1742) (`cf598f85364`) |
-| 1 | Lang packs + Stop hook: the D-A section gate at `.claude/hooks/end-of-turn-reminder.sh:880`, `_eot_turn_shape()`, `AIF_RECAP_GATE` + [`scripts/register-recap-gate.sh`](../../../scripts/register-recap-gate.sh), the D-B «от тебя» grammar, the D-C card function `aif_msg_fork_card`, the D-I anchor fix, goldens regenerated once | [PR 1763](https://github.com/artyhoo/getff/pull/1763) (`b07f05533d3`) |
+| 1 | Lang packs + Stop hook: the D-A section gate at `.claude/hooks/end-of-turn-reminder.sh:926`, `_eot_turn_shape()`, `AIF_RECAP_GATE` + [`scripts/register-recap-gate.sh`](../../../scripts/register-recap-gate.sh), the D-B «от тебя» grammar, the D-C card function `aif_msg_fork_card`, the D-I anchor fix, goldens regenerated once | [PR 1763](https://github.com/artyhoo/getff/pull/1763) (`b07f05533d3`) |
 | 2 | `ask-question-reminder.sh` calls the shared card instead of restating the fork contract; card before the `AskUserQuestion` buttons with the recommendation as the FIRST option; the R-13 pointer clause in `aif_msg_eot_recap_contract` in both packs | [PR 1771](https://github.com/artyhoo/getff/pull/1771) (`17c364e279d`) |
 
 **Operator directive P-10** (spec `:581`): «0-2 в сессии, 3-5 фабрика» — slices 0–2 ran in an
@@ -103,7 +103,7 @@ were both reviewer-catch, not gate-catch.
     from an agent session — only `--print-root`, `--print-target`, `--help`. The same standing
     constraint will apply to `register-glossary-hook.sh` the moment S3 ships it.
 
-## §3 Measured census — the spec's own citations, re-read at `2fb69aa00d7`
+## §3 Measured census — the spec's own citations, re-read at `083d5fe1635`
 
 The spec was written 2026-09-13. `staging` has moved through slices 0–2 plus unrelated PRs since.
 **Five of its citations are now stale and TWO of its enumerations are incomplete (§3.2).** Each stage kickoff repeats the rows
@@ -111,12 +111,12 @@ it owns; this table is the whole set in one place.
 
 ### §3.1 Stale — do not use the spec's number
 
-| Spec says | Spec's claim | Measured at `2fb69aa00d7` | Use instead |
+| Spec says | Spec's claim | Measured at `083d5fe1635` | Use instead |
 |---|---|---|---|
-| `end-of-turn-reminder.sh:635-637` | the story-told guard | `:635` is `gate_line="$(aif_msg_eot_compact_out_of_band …)"` | the literal is consumed at **`:881`** — the D-A recap gate's story exemption, inside the `if` opened at `:880` — and at **`:927`**, which IS the story-told guard (`# Story already told this turn → do not re-inject.` at `:926`). Both must move; only `:927` deserves the name |
-| `end-of-turn-reminder.test.ts:691` | a story-literal consumer | `const RECAP_EN = '## 🟢 In plain words…'` | see §3.2 — the real consumers are `:1041`, `:1043`, `:1051`, `:1063`, `:1359`, `:1580` |
-| `end-of-turn-reminder.test.ts:1009` | a story-literal consumer | a comment about a previous turn containing `## 🟢` | as above |
-| `end-of-turn-reminder.test.ts:1230` | a story-literal consumer | `// ---- Part B: thin-recap branch …` | as above |
+| `end-of-turn-reminder.sh:635-637` | the story-told guard | `:635` is now **blank**; `:636-637` opened the D30 handoff-currency gate | the literal is consumed at **`:927`** — the D-A recap gate's story exemption, inside the `if` opened at `:926` — and at **`:973`**, which IS the story-told guard (`# Story already told this turn → do not re-inject.` at `:972`). Both must move; only `:973` deserves the name | <!-- cite:historical the spec's own number, quoted because it now points at a blank line — that is the finding -->
+| `end-of-turn-reminder.test.ts:691` | a story-literal consumer | `describe('recap gate — dormant section-checker (Task 1.5)', …` | see §3.2 — the real consumers are `:1042`, `:1044`, `:1052`, `:1064`, `:1360`, `:1581` |
+| `end-of-turn-reminder.test.ts:1009` | a story-literal consumer | the `B2 fix: AskUserQuestion-only turn after prior "## 🟢" recap` case | as above |
+| `end-of-turn-reminder.test.ts:1230` | a story-literal consumer | now **blank**; the `Part B: thin-recap branch` banner moved to `:1231` | as above | <!-- cite:historical the spec's own number, quoted because it now points at a blank line — that is the finding -->
 | `gh-934-ship-eot-hook.test.sh:82` | the `\|Как это было` alternation | `:82` is the `jq -r '.decision'` check | the alternation is **`:83`** |
 
 ### §3.2 Incomplete — the spec's file list is shorter than the predicate sweep
@@ -131,7 +131,7 @@ files**:
 
 ```bash
 git grep -l -E '🎬|AIF_STORY_MARKER|The story|Как это было|по актам|by acts' \
-  2fb69aa00d7d4d4b30f257c3d592f18f065570fc -- . ':(exclude)docs/' \
+  083d5fe1635eb8fad53d1de186cbfbff83ef42e8 -- . ':(exclude)docs/' \
   ':(exclude).superpowers/' ':(exclude).claude/orchestrator-prompts/' \
   ':(exclude)packages/getff/dist/'
 ```
@@ -171,7 +171,7 @@ description and authority header still command the chronicle D-G just removed.
 line. The predicate sweep returns **24**, not the 22 an earlier draft claimed:
 
 ```bash
-git show 2fb69aa00d7d4d4b30f257c3d592f18f065570fc:.claude/skills/aif-doctor/SKILL.md \
+git show 083d5fe1635eb8fad53d1de186cbfbff83ef42e8:.claude/skills/aif-doctor/SKILL.md \
   | grep -nE '\bGO\b' | cut -d: -f1
 # 23 41 67 69 70 88 90 91 94 100 104 105 150 198 199 210 227 229 241 244 247 256 307 320
 ```
@@ -201,13 +201,13 @@ S5 sweeps by the predicate above and classifies all 24. A stage that classifies 
 (binding (c), the round carrier) ·
 harmonization spec `:138` (the D-H11 `ADOPT … as-is` row) · `.claude/skills/pipeline/SKILL.md:389` (the
 `#worker-dispatch-via-subagent` bullet) · `29-worker-dispatch-channel.ts:60` (`READONLY_CONTEXT_RE`) ·
-`CLAUDE.md:91` and `:140` · `end-of-turn-reminder.sh:536` (the anchor `grep`) ·
+`CLAUDE.md:91` and `:140` · `end-of-turn-reminder.sh:582` (the anchor `grep`) ·
 `.claude/hooks/lang/check-parity.sh:26-34` (`keys()` collects `aif_msg_*`, the two markers,
 `AIF_EOT_*` — and nothing
 else, so the spec's F8 concern is live: a `AIF_GLOSSARY_*` key added to one pack only would pass
 parity and abort the other pack's hook under `set -u`).
 
-### §3.4 Absent at `2fb69aa00d7` — S3/S5 create these
+### §3.4 Absent at `083d5fe1635` — S3/S5 create these
 
 `CONTEXT.md` · `scripts/register-glossary-hook.sh` · `packages/core/hooks/glossary-counters.test.ts` ·
 `packages/core/principles/fixtures/29-corpus-verdicts.json`. Present and reusable:
@@ -288,19 +288,27 @@ PC_LOCAL=1 make self-audit
 
 `make self-audit` without `PC_LOCAL=1` is routed to the PC, where the mirror is not a proper git
 repo and it exits 2 on `fatal: not a git repository` — that is the harness, not your change.
-**Principle 11 F1 will go red under load, and `--testTimeout` cannot fix it — do not chase this.**
-Its budget is inline, not the vitest default:
-[`11-build-first-reuse-default.test.ts:643`](../../../packages/core/principles/11-build-first-reuse-default.test.ts)
-reads `it('F1: …', { timeout: 30000 }, () => {`, and an inline per-test timeout **wins over the CLI
-flag** — measured 2026-09-14: a run with `--testTimeout=600000` still failed with «Test timed out
-in 30000ms». The cause is host contention, not the suite: run **alone** F1 passes 19/19 in 12.7 s
-and 25.6 s across two measurements on this host — the second taken at load average 29, so «alone»
-matters more than «quiet». In the red runs 419 and then 16 neighbouring vitest processes were live
-and F1 took 100.9 s. The honest handling: re-run F1 **alone** and report that number. If
-it is still over 30 s with nothing else running, that is a real regression in the capability index
-and belongs in the PR body — the parallel-load red does not.
+**Principle 11 F1 — do not inherit the folklore; the root cause was fixed under this branch.**
+Two facts, both measured on 2026-09-14, and the second supersedes the first.
 
-`--testTimeout=90000` above is still worth passing: it raises the genuinely-default-bounded tests
-in the hooks and principles suites. It simply has no effect on F1.
+1. F1's budget is **inline**, not the vitest default:
+   [`11-build-first-reuse-default.test.ts:707`](../../../packages/core/principles/11-build-first-reuse-default.test.ts)
+   reads `it('F1: …', { timeout: 30000 }, () => {`, and an inline per-test timeout **wins over the
+   CLI flag** — a run with `--testTimeout=600000` still failed with «Test timed out in 30000ms».
+   So `--testTimeout=90000` never could have been F1's workaround, whatever an earlier draft of
+   this section claimed. It stays in the contract above because it does raise the
+   genuinely-default-bounded tests in the other suites.
+2. **The slowness itself is fixed, so stop treating an F1 red as expected.**
+   [PR #1779](https://github.com/artyhoo/getff/pull/1779) (`f82e22b922f`, in `staging`) rebuilt the
+   capability population from git instead of walking the filesystem: `build-getff-dist.sh`
+   assembles the tarball payload **into** `packages/getff/`, so any tree where the assembler had
+   run carried a second untracked copy of `packages/core/**` through the walk. Before that fix the
+   file ran 12.7 s and 25.6 s alone and timed out at 100.9 s under a parallel full-suite run;
+   after it, **3.54 s for 22/22** on this host at load average 16.
+
+**What this means for a stage.** An F1 red is now a **finding first**, not a load artifact. Re-run
+it alone (`PC_LOCAL=1 npx vitest run packages/core/principles/11-build-first-reuse-default.test.ts
+--no-file-parallelism`); if it is still over 30 s with nothing else running, the capability index
+has regressed and that belongs in the PR body.
 
 Run the **principle suite**, not only the hook suites, before `git push`.
