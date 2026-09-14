@@ -6,6 +6,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SWEEP="$HERE/run-local-ci-sweep.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fails=0
+# Hermetic: this test spawns the sweep many times, and an inherited SWEEP_LOG_DIR would make
+# every nested run write into the CALLER's log directory (the `script-selftests` row runs this
+# file from inside a real sweep). Arms that care about logging pass the var explicitly.
+unset SWEEP_LOG_DIR
 
 check() { # check <desc> <expected-rc> <actual-rc>
   if [ "$2" = "$3" ]; then echo "  ✓ $1"; else echo "  ✗ $1 (want rc=$2 got rc=$3)"; fails=$((fails + 1)); fi
