@@ -1,10 +1,10 @@
-97bc4d9830ff6f96c43491938d90eca1144acba7748939b22e5e04bf6b1c11dc  .ai-factory/AI-USAGE-GUIDE.md
+7fc1467c00cce9fb9a4aca2a3f7aabc5c37aef29141b22436f7c18904630a6ce  .ai-factory/AI-USAGE-GUIDE.md
 df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/ARCHITECTURE.md
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  .ai-factory/ARCHITECTURE.ts-server.md
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.md
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 5c035eb3e19c73eb255ee25bb4475e6b876b30a94bfe6dfa0f450dee80f47f1b  .ai-factory/RULES.md
-75f98d829003365f4cda3718778e0c3d0766b35c56ab5b2a1d7295d9ac4f6a90  .ai-factory/refresh-baseline.json
+274cbb9fe45242e6f889dfb273bfb91e1c27d343128f1c41b0374c37dcbfd523  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -39,10 +39,10 @@ d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settin
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 c9ff8f038447a8e6d9ad917c3a47293cb6f947eb7d714c9751156012ff099811  .claude/skills/arch/SKILL.md
 afb468d3f8a666a1550f5b2fb374861cb7607012be69ab10a75789a8e1d6bb35  .claude/skills/getff/SKILL.md
-afe2a054dee4c3a8cd2ba876811c7374fe0806ff30c2ecd9151fdab23ca3f590  .claude/skills/getff/references/ai-traps.md
+99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
 6f6d09753f02be004ccfdb8ab7bfce85c2595bf55f6b5b69a8efe0bcbe03c8c4  .claude/skills/getff/references/checks-map.md
 eacf5fa883d483ee76a518e889c4aeb77fbad83c77306ca8ee0a9e237a59139f  .claude/skills/getff/references/doc-organization.md
-bcff7c566ad22195b6c4884c7d0da06b3b32a8bbcab4eb8b808c79330fb19228  .claude/skills/getff/references/overview.md
+8674836e1cde6c76097325ca5e23a26905708582e002adafb242d2d87758ccb3  .claude/skills/getff/references/overview.md
 025b534cae8a3c8219e24424755c66bdca360485b1cecc248f06f51bbda7ddca  .claude/skills/getff/references/self-testing-docs.md
 a0838b662b8b8aaa06326c51a68fe99fc26e1147881bfd1eb5ea16cd456af463  .claude/skills/night-mode/SKILL.md
 8631fb4ee21fd9d7f05181a694b9ae3bc6836eb43444f852c650cc3ebdb5c02d  .claude/skills/orchestrator/SKILL.md

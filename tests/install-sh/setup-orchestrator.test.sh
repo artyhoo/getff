@@ -21,4 +21,19 @@ grep -qi 'dry-run' "$TMP/out.txt" && ok "dry-run acknowledged" || bad "dry-run n
 grep -qi 'superpowers' "$TMP/out.txt" && ok "manifest row parsed through engine (superpowers in output)" || bad "superpowers absent from output — manifest row did not reach engine"
 ! grep -qi 'command not found' "$TMP/out.txt" && ok "parser produced no garbage commands" || bad "parser produced garbage commands (command not found in output)"
 
+# getff-ai-site S0a (face spec §10 item 2, E3): `setup` learns cargo|go. install.sh already routes
+# the three non-npm toolchain lanes (install.sh:163-169 python|cargo|go → TOOLCHAIN); the wrapper's
+# positional case only forwarded python, so `./setup cargo` silently fell through to npm stack
+# auto-detect — two command shapes for one positional, exactly what E3 exists to prevent. python is
+# the CONTROL (already routed before this stage); cargo/go must reach their toolchain lanes too.
+# --dry-run keeps every arm write-free (copy_safe/refresh_safe no-op under DRY_RUN, lib.sh:226).
+for lane in python cargo go; do
+  LANE_OUT=$( cd "$TMP" && bash "$SETUP" "$lane" --dry-run 2>&1 )
+  echo "$LANE_OUT" | grep -q 'toolchain' \
+    && ok "setup $lane routes to the toolchain lane" \
+    || bad "setup $lane never reached the toolchain lane (fell through to npm auto-detect)"
+done
+[ ! -f "$TMP/clippy.toml" ] && [ ! -f "$TMP/.golangci.yml" ] \
+  && ok "lane dry-runs wrote nothing" || bad "lane dry-run wrote lane configs"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

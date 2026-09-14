@@ -14,10 +14,14 @@
 #                                         #   core | env (default) | factory — forwarded to install.sh
 #   ./setup --profile=factory ts-server   # = form, same routing
 #   ./setup python                  # Python toolchain lane (non-npm; see "Toolchain lanes" below)
+#   ./setup cargo                   # Rust toolchain lane (same non-npm shape as python)
+#   ./setup go                      # Go toolchain lane (same non-npm shape as python)
 #
 # Stack: ts-server | react-next | react-spa | react-native
-# Toolchain lanes: python — a separate non-npm delivery (ast-grep + ruff, no package.json
-# required), forwarded verbatim to `install.sh python`. See INSTALL-FOR-AI.md#python-toolchain-lane-installsh-python.
+# Toolchain lanes: python | cargo | go — separate non-npm deliveries (ast-grep + ruff / clippy /
+# golangci; no package.json required), forwarded verbatim to `install.sh <lane>`, which routes each
+# to its pure-bash delivery + firing self-check and early-exits. See
+# INSTALL-FOR-AI.md#python-toolchain-lane-installsh-python for the python lane.
 # When omitted, the stack is auto-detected from the consumer's package.json (GH #780). On the
 # yes-path (-y/--yes/--all/--full) the dispatcher fails loud (never an interactive prompt) only
 # when detection is genuinely unknown; an explicit positional stack always wins.
@@ -61,11 +65,13 @@ for a in "$@"; do
     --profile=*)       PROFILE_FLAG="--profile=${a#--profile=}" ;;
     --profile)         PROFILE_FLAG="--profile"; _awaiting_profile_value=1 ;;
     ts-server|react-next|react-spa|react-native) STACK="$a" ;;
-    # python = the getff Python toolchain lane (python-delivery-v0 S2). Forwarded verbatim to
-    # install.sh, which routes it to the pure-bash Python delivery + firing self-check and early-exits.
-    # The companion step below still offers @ast-grep/cli (the python lane's own linter); the
+    # python|cargo|go = the getff toolchain lanes (python-delivery-v0 S2 / ecosystem-wiring W4 /
+    # adapter-jig J3; face spec §10 item 2, E3 — `./setup <positional>` must be ONE command shape
+    # for every positional the manifest and the site render, not two). Forwarded verbatim to
+    # install.sh, which routes each to its pure-bash delivery + firing self-check and early-exits.
+    # The companion steps below still run (the python lane's own linter is offered there); the
     # runtime-bridge step stays opt-in [y/N] as usual.
-    python) STACK="$a" ;;
+    python|cargo|go) STACK="$a" ;;
   esac
 done
 # Cold-QA MINOR fix parity with install.sh:133 (end-of-args guard): if --profile was the LAST
