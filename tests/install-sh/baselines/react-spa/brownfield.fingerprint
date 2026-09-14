@@ -6,7 +6,7 @@
 03264d66be0aceebf3e0df0a2bd361ec7db105551b93b519122c58ac9721bcda  .ai-factory/DESCRIPTION.template.md
 cd05e605ec7874fd1c233b80f623a173087a27dade26ec5b399e76c5a01005a3  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-8143975ea4729f71c7a5d7f58ae22fbf5f5a3790799b346ed6c55f157aacbbf0  .ai-factory/refresh-baseline.json
+8642b6747300caa4573fad6d380729197168f73f15da673a02bf244aa0ed9388  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -155,7 +155,7 @@ ce1b30260c67f072f5abd658c3b542464eb2f9f67322b2ea13ff198a2ae2d472  packages/core/
 cbfca83cc97960807bf49cbd03523d875b933913fcc9558eeeaf16b514c97570  packages/core/eslint-rules/no-unsafe-zod-parse.ts
 a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/eslint-rules/require-otel-span.ts
 526b32ffb896fcba11e16378ef5b87f8bc261ddeb5d17dca69164c9409a8e814  packages/core/eslint-rules/restricted-syntax-audit-exempt.ts
-d03a610b21ee13e6dd3efedfed90e1a3a8e5722bcb998358c7aa3e163926b001  packages/core/hooks/checks/cmd-script-liveness.ts
+8a6ca70cf870b671b62599e5b222e2bc2bd04c586ee2b6dd7bc669436ae892bc  packages/core/hooks/checks/cmd-script-liveness.ts
 5c37e5f230f0fed95f6b95bb58247ff6ccb2c56b81e7b8d7f3e6fd252bd4b395  packages/core/hooks/checks/guard-liveness.ts
 2a4d82eebb0198d74ea139b69dc668bd982f17dbccce6d5f3ff83c1e19857805  packages/core/hooks/checks/prior-art.ts
 50f50e6b085102cdb3d7db60d7b4830880b0a8394dcb7ed92bb46499eddce2b6  packages/core/hooks/checks/s17.ts
