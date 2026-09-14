@@ -1,0 +1,11 @@
+# Normalise every text file to LF in the repository AND in the working tree.
+#
+# Without this, Git for Windows' default `core.autocrlf=true` checks the 336
+# tracked *.sh files out with CRLF. Git Bash tolerates the trailing \r in a
+# shebang; WSL and real Linux do not — `./setup` there dies with
+# `/usr/bin/env: 'bash\r': No such file or directory` (exit 127). A Windows
+# clone must therefore be runnable from whichever shell the consumer has.
+#
+# `text=auto` leaves detected-binary files (demo/*.gif) alone.
+# Form matches prettier and lint-staged (both ship exactly this single line).
+* text=auto eol=lf
