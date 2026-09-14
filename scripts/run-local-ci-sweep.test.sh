@@ -176,4 +176,5 @@ if grep -qF -- "--capture" "$TMP/o18_usage"; then
   echo "  ✗ usage still advertises the removed --capture flag"; fails=$((fails + 1))
 else echo "  ✓ usage no longer advertises --capture"; fi
 
+# shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }
