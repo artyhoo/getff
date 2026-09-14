@@ -114,4 +114,62 @@ printf '1\trealrun\tALWAYS\techo "WARN: drift detected but test passed"\n' >"$TM
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o12" 2>&1
 grep_out "bare-WARN output is a genuine PASS, not a degrade" "[sweep] PASS realrun" "$TMP/o12"
 
+# --- (gate-output reachability) the FAIL branch used to print a bare gate name and drop `$out`
+# on the floor — the same `#warning-nobody-reads` shape as the degrade case above, one branch
+# lower: the only consumer of a failing gate's output was a variable nobody could read. The
+# concrete cost: the single red `vitest-hooks` seen once in ~11 runs on one commit during PR
+# #1749 could never be diagnosed, because the evidence was discarded by construction. These
+# arms pin BOTH halves of the fix — the file on disk and the inline tail. ---
+LOGS="$TMP/logs-fail"
+printf '1\tgreenish\tALWAYS\techo green-gate-said-this\n2\tredgate\tALWAYS\techo "UNIQUE-FAILURE-EVIDENCE-9271"; exit 1\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" SWEEP_LOG_DIR="$LOGS" \
+  bash "$SWEEP" --full >"$TMP/o13" 2>&1
+check "failing gate still exits 1" 1 $?
+grep_out "FAIL line names the log path" "[sweep] FAIL redgate — output: $LOGS/02-redgate.log" "$TMP/o13"
+has_file "failing gate's output written to disk" "$LOGS/02-redgate.log"
+grep_out "the log file holds the failing gate's output" "UNIQUE-FAILURE-EVIDENCE-9271" "$LOGS/02-redgate.log"
+grep_out "failing output ALSO printed inline (no second command needed)" "UNIQUE-FAILURE-EVIDENCE-9271" "$TMP/o13"
+grep_out "summary points at the log directory" "SWEEP: gate logs in $LOGS" "$TMP/o13"
+# The flake half: a gate that PASSED on this run is logged too. A flag-gated capture would be
+# useless here — it would have to be passed before anyone knew the run mattered.
+has_file "a PASSING gate's output is logged too (flake diagnosable on the run that caught it)" \
+  "$LOGS/01-greenish.log"
+grep_out "the passing gate's log holds its output" "green-gate-said-this" "$LOGS/01-greenish.log"
+
+# --- (all-green run) logs land and are announced even when nothing fails ---
+LOGS_OK="$TMP/logs-green"
+printf '1\tonlygate\tALWAYS\techo all-was-well\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" SWEEP_LOG_DIR="$LOGS_OK" \
+  bash "$SWEEP" --full >"$TMP/o14" 2>&1
+check "all-green run with logging exits 0" 0 $?
+grep_out "all-green run announces the log directory" "SWEEP: gate logs in $LOGS_OK" "$TMP/o14"
+grep_out "all-green gate output is on disk" "all-was-well" "$LOGS_OK/01-onlygate.log"
+
+# --- (no litter) --list-gates runs no gate, so it must create no log directory ---
+LOGS_LIST="$TMP/logs-list"
+SWEEP_LOG_DIR="$LOGS_LIST" bash "$SWEEP" --list-gates >"$TMP/o15" 2>&1
+check "--list-gates still exits 0" 0 $?
+no_file "--list-gates created no log directory" "$LOGS_LIST"
+
+# --- (name sanitisation) a gate name carrying a slash must not write outside the log dir ---
+LOGS_SAN="$TMP/logs-san"
+printf '1\tweird/name:x\tALWAYS\techo sanitised-ok\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" SWEEP_LOG_DIR="$LOGS_SAN" \
+  bash "$SWEEP" --full >"$TMP/o16" 2>&1
+check "slash-named gate still exits 0" 0 $?
+has_file "slash in a gate name is sanitised into the log filename" "$LOGS_SAN/01-weird_name_x.log"
+no_file "slash-named gate did NOT write through the directory separator" "$LOGS_SAN/weird"
+
+# --- (removed flag) `--capture` was parsed and advertised but never read by anything: a
+# documented no-op. Its spec meaning (SNAPSHOT_MODE=capture for byte-identical,
+# docs/superpowers/specs/2026-06-26-harvest-skill-design.md) was never implemented either.
+# Removed rather than left inert — this arm pins that it is gone, not silently re-accepted. ---
+bash "$SWEEP" --capture >"$TMP/o17" 2>&1
+check "--capture is rejected as an unknown arg" 2 $?
+grep_out "--capture rejection names the arg" "[sweep] unknown arg: --capture" "$TMP/o17"
+bash "$SWEEP" --help >"$TMP/o18_usage" 2>&1
+if grep -qF -- "--capture" "$TMP/o18_usage"; then
+  echo "  ✗ usage still advertises the removed --capture flag"; fails=$((fails + 1))
+else echo "  ✓ usage no longer advertises --capture"; fi
+
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

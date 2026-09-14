@@ -119,15 +119,22 @@ TAB="$(printf '\t')"
 MODE="diff"
 BASE_REF=""
 LIST_GATES=0
-export CAPTURE=0
+# Every gate that runs writes its combined output to a file in a per-run log directory (see
+# `ensure_log_dir`). Unconditional, not flag-gated: the diagnostic is only worth anything on the
+# run that happens to catch a rare red, and no operator can know in advance which run that is —
+# a flag would have to be guessed BEFORE the failure (PR #1749: one red `vitest-hooks` in ~11
+# runs on one commit, undiagnosable because its output was discarded).
+# `SWEEP_LOG_DIR` pins the location; unset, each run gets a fresh `mktemp -d`.
+SWEEP_LOG_DIR="${SWEEP_LOG_DIR:-}"
+LOG_DIR_READY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --full) MODE="full" ;;
     --base) shift; BASE_REF="${1:-}" ;;
-    --capture) CAPTURE=1 ;;
     --list-gates) LIST_GATES=1 ;;
     -h | --help)
-      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--capture] [--list-gates]"
+      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates]"
+      echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
       exit 0 ;;
     *) echo "[sweep] unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -330,19 +337,50 @@ EOF
 # passed" while install-sh-suite and all eleven rank-6 gates never ran (the pre-push
 # stdin-detection tests feed the hook on stdin). A truncated sweep that exits 0 is worse than
 # no sweep — it is the exact false-green this script exists to prevent.
+# Created lazily, on the first gate that actually runs: `--list-gates` and a diff that selects
+# nothing must not litter a directory. A location that cannot be created degrades to "no log
+# files" — the FAIL tail below still prints, so a read-only TMPDIR loses the archive, never the
+# diagnostic itself.
+LOG_DIR_FAILED=0
+ensure_log_dir() {
+  if [ "$LOG_DIR_READY" -eq 1 ] || [ "$LOG_DIR_FAILED" -eq 1 ]; then
+    return "$LOG_DIR_FAILED"
+  fi
+  if [ -n "$SWEEP_LOG_DIR" ]; then
+    if ! mkdir -p "$SWEEP_LOG_DIR" 2>/dev/null; then LOG_DIR_FAILED=1; return 1; fi
+  else
+    SWEEP_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/run-local-ci-sweep.XXXXXX" 2>/dev/null)" || SWEEP_LOG_DIR=""
+    if [ -z "$SWEEP_LOG_DIR" ]; then LOG_DIR_FAILED=1; return 1; fi
+  fi
+  LOG_DIR_READY=1
+  return 0
+}
+
 ran=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
 while IFS="$TAB" read -r _ name trigger cmd; do
   [ -z "${name:-}" ] && continue
   gate_selected "$trigger" || continue
   ran=$((ran + 1))
-  # Output is CAPTURED, not discarded, for one reason: several rows degrade to a WARN-skip
+  # Output is CAPTURED, not discarded, for two reasons. (1) Several rows degrade to a WARN-skip
   # instead of failing (actionlint/shellcheck absent, host toolchain != CI pins, the CI-only
   # markdown scanners). Piping their stdout to /dev/null made every one of those print a plain
   # `PASS`, indistinguishable from a real run — a warning whose only consumer is a log nobody
   # can read (.claude/rules/attention-is-not-a-mechanism.md §2 `#warning-nobody-reads`). A
   # degraded gate now says so on its own line; rc is unchanged either way.
+  # (2) The captured text is then WRITTEN OUT, pass or fail. It used to be read for the WARN
+  # classification and then dropped on the floor — so a FAIL printed a bare gate name and the
+  # evidence was gone, which is the same `#warning-nobody-reads` shape one branch lower: the
+  # only consumer of a failing gate's output was a variable nobody could read.
   out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+  log_path=""
+  if ensure_log_dir; then
+    # Gate names come from gate_table()/$SWEEP_GATES_FILE, not from user input, but sanitise
+    # anyway: one `/` in a name would otherwise write outside the log dir (or just fail).
+    safe_name="${name//[^A-Za-z0-9._-]/_}"
+    log_path="$SWEEP_LOG_DIR/$(printf '%02d' "$ran")-${safe_name}.log"
+    printf '%s\n' "$out" >"$log_path" 2>/dev/null || log_path=""
+  fi
   if [ "$rc" -eq 0 ]; then
     case "$out" in
       # `[sweep] WARN`-prefixed only: every degrade row in the table emits that exact prefix,
@@ -352,8 +390,19 @@ while IFS="$TAB" read -r _ name trigger cmd; do
       *) echo "[sweep] PASS $name" ;;
     esac
   else
-    echo "[sweep] FAIL $name"
+    if [ -n "$log_path" ]; then
+      echo "[sweep] FAIL $name — output: $log_path"
+    else
+      echo "[sweep] FAIL $name — output: (log dir unavailable, tail below only)"
+    fi
+    # The path alone would still make the operator run a second command to see anything, and in
+    # a remote/agent session the file may not be reachable at all. Print a bounded tail so the
+    # common case needs no follow-up; the file holds the untruncated text.
+    echo "----- $name: last 40 lines of output -----"
+    printf '%s\n' "$out" | tail -40
+    echo "----- end $name output -----"
     echo "SWEEP: stopped at $name (mode=$MODE)"
+    [ -n "$log_path" ] && echo "SWEEP: gate logs in $SWEEP_LOG_DIR"
     exit 1
   fi
 done <<EOF
@@ -364,5 +413,6 @@ if [ "$ran" -eq 0 ]; then
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
   echo "SWEEP: $ran gate(s) passed (mode=$MODE)"
+  [ "$LOG_DIR_READY" -eq 1 ] && echo "SWEEP: gate logs in $SWEEP_LOG_DIR"
 fi
 exit 0
