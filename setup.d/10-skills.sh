@@ -258,6 +258,26 @@ if [ -f "$EOT_SRC" ]; then
   else
     # $CLAUDE_PROJECT_DIR-relative (matches the framework's own settings.json — worktree-safe).
     register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+
+    # R-15: the recap-gate REJECTION ships dormant. `--full` is the developer-install axis
+    # (orthogonal to --profile), so a full install arms it; a plain install does not. The
+    # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
+    # so this mirrors scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate,
+    # atomic mv, skip when already set. Never write the target in place: a malformed
+    # settings.json silently disables EVERY setting in it.
+    if [ "${FULL:-}" = "--full" ] && command -v jq >/dev/null 2>&1; then
+      if [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
+        echo "  AIF_RECAP_GATE already armed"
+      else
+        _rg_tmp="$(mktemp)"
+        if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$SETTINGS" > "$_rg_tmp" 2>/dev/null \
+           && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
+          mv "$_rg_tmp" "$SETTINGS" && echo "  AIF_RECAP_GATE=1 armed (--full)"
+        else
+          rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $SETTINGS left untouched"
+        fi
+      fi
+    fi
   fi
 fi
 
