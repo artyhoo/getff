@@ -402,7 +402,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.decision).toBe('block');
     // Branch B reminder body must reference the fork-vs-pseudo-fork discipline,
     // not just be a generic "answer the question" nudge.
-    expect(payload.reason).toMatch(/настоящая развилка|рекомендация/i);
+    // D-C ships the card's §4 as «➡️ Рекомендую …» (the spec's own wording), so match the
+    // stem: the claim is "this body teaches the recommendation-first discipline", not a
+    // particular inflection of it.
+    expect(payload.reason).toMatch(/настоящая развилка|рекоменд/i);
     expect(payload.systemMessage).toMatch(/^🎯 /);
   });
 
@@ -673,7 +676,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         { transcript_path: tr, stop_hook_active: false, session_id: 'gate-dormant' },
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
       );
-      expect(r.stdout).not.toContain('Fork.');
+      // `not.toContain` passes just as happily on empty stdout produced for an unrelated
+      // reason; the claim is "the gate emitted NOTHING" (final review M-9).
+      expect(r.stdout).toBe('');
     });
 
     it('never fires on a turn that has no recap block at all', () => {
@@ -682,7 +687,60 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         { transcript_path: tr, stop_hook_active: false, session_id: 'gate-noblock' },
         { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
       );
-      expect(r.stdout).not.toContain('From you:');
+      expect(r.stdout).toBe('');
+    });
+
+    // ── D-B grammar (R-17; cold review F5) ───────────────────────────────────────────
+    // The last line takes exactly ONE of four values, and `nothing` carries a verification
+    // trace in parentheses. Before this arm the gate asserted only that the literal
+    // "From you:" appeared anywhere on the line, so a bare «nothing» and free prose both
+    // passed — verbatim the `#hope-as-gate` shape F5 demanded a mechanism for.
+    const gateStdout = (block: string, session: string, lang = 'en'): string => {
+      const tdir = mkdtempSync(join(tmpdir(), 'gate-db-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(block)]);
+      return runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: session },
+        { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '1', TMPDIR: tdir },
+      ).stdout;
+    };
+    const block = (lastValue: string) =>
+      `## 🟢 In plain words\n**Where we are.** ok\n**Next.**\nMe: x. From you: ${lastValue}`;
+
+    it.each([
+      'nothing (12/12 green)',
+      'waiting on: the CI run, from GitHub',
+      'do by hand: click merge on the PR',
+    ])('accepts the well-formed D-B value %s', (value) => {
+      expect(gateStdout(block(value), `db-ok-${value.slice(0, 6)}`)).toBe('');
+    });
+
+    it.each([
+      ['nothing', 'a bare «nothing» with no verification trace — the F5 case'],
+      ['nothing ()', 'an empty parenthesis is not a trace'],
+      ['ping me when CI is green', 'free prose is not one of the four values'],
+    ])('rejects %s (%s)', (value) => {
+      const reason = JSON.parse(gateStdout(block(value), `db-bad-${value.slice(0, 6)}`))
+        .reason as string;
+      expect(reason).toContain('four allowed values');
+    });
+
+    it('reads the offloading verbs only in the VALUE, never inside its own trace', () => {
+      // `review the` inside the parenthesis is the AGENT's evidence, not an errand for the
+      // human — scanning the whole line rejected a correct block (final review M-3).
+      expect(gateStdout(block('nothing (I did review the failing job)'), 'db-trace')).toBe('');
+      const reason = JSON.parse(
+        gateStdout(block('review the diff and make sure it is fine'), 'db-offload'),
+      ).reason as string;
+      expect(reason).toContain('your own work');
+    });
+
+    it('catches English offloading in the RU pack too', () => {
+      // An operator on AIF_HOOK_LANG=ru still reads English answers; a ru-only banned list
+      // left this exact line silent in the one pack that operator runs (final review M-4).
+      const ru =
+        '## 🟢 Простыми словами\n**Где мы.** ок\n**Дальше.**\nЯ: жду. От тебя: review the diff and make sure it is fine';
+      expect(gateStdout(ru, 'db-ru-offload', 'ru')).not.toBe('');
     });
   });
 
@@ -739,7 +797,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
         `## 🟢 In plain words\n**Where we are.** ok\n**Fork.**\n${filler}\n**Next.** Me: x. From you: decide: A or B`,
         'cap-card',
       );
-      expect(card.stdout).not.toContain('15'); // the card's 20 lines do not count
+      expect(card.stdout).toBe(''); // the card's 20 lines do not count — and nothing else fires
     });
 
     // Fix round 1 (controller-confirmed live repro): the retry-bound flag must be

@@ -30,6 +30,12 @@ AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
 AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
 AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
+# Defect labels. Each one is a SELF-DESCRIBING phrase, never a bare token and never a raw
+# regex: the gate joins them into one `; `-separated list under a neutral verb, so a label
+# that only names a thing (a section, an alternation) reads to the model as "add this".
+AIF_EOT_MISSING_LABEL='missing section:'
+AIF_EOT_BANNED_LABEL='the last line asks the human to check/review something — that is your own work, not theirs'
+AIF_EOT_MALFORMED_LABEL='the last line is not one of the four allowed values (and "nothing" needs its verification trace in parentheses)'
 AIF_EOT_CAP_LABEL='longer than the line cap:'
 
 # Fallback value for the session-goal anchor when extraction fails.
@@ -62,11 +68,13 @@ aif_msg_eot_recap_contract() {
 ${AIF_RECAP_MARKER} — a block of five sections, in this order:
 1. ${AIF_EOT_SEC_WHERE} — always.
 2. ${AIF_EOT_SEC_CHANGED} — if the answer is long or structural.
-3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card:
-$(aif_msg_fork_card)
+3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card. Inside this block
+   the card omits its own 0 and 5: sections 1 and 5 of the block already own them.
+$(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — optional.
-5. ${AIF_EOT_SEC_NEXT} — always, and the block's last line is exactly this:
-   ${AIF_EOT_ME_PREFIX} <what I am doing>. ${AIF_EOT_FOR_YOU_PREFIX} <one of four>
+5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:
+   ${AIF_EOT_ME_PREFIX} <what I am doing>
+   ${AIF_EOT_FOR_YOU_PREFIX} <one of four>
    — ${AIF_EOT_FOR_YOU_NOTHING}
    — ${AIF_EOT_FOR_YOU_WAITING}
    — ${AIF_EOT_FOR_YOU_DECIDE}
@@ -81,10 +89,10 @@ EOF
 }
 
 # Stop hook — dormant section-checker gate (Task 1.5, D-A). Fires only when a recap block
-# already exists AND is missing one of its required sections — never demands a block from a
+# already exists AND is defective — never demands a block from a
 # turn that has none. $1 = the `; `-joined defect list from _eot_recap_defects().
 aif_msg_eot_recap_gate() {
-  printf '%s\n' "The $AIF_RECAP_MARKER block is there but missing: $1. Add what is missing in this same answer — do not rewrite the whole block."
+  printf '%s\n' "The $AIF_RECAP_MARKER block is there but not right: $1. Fix exactly what is named, in this same answer — do not rewrite the whole block."
 }
 
 # Stop hook — Branch C: long answer AND trailing fork-question.
@@ -198,15 +206,20 @@ EOF
 
 # Fork card template (shared with the recap block + ask-question-reminder rewrite, D-C).
 # Consumed by task 1.4 (branch payloads) and slice 2's ask-question-reminder.sh.
+# Carries ALL SIX D-C sections — this is the full card, the form slice 2 emits before the
+# AskUserQuestion buttons. A card that sits INSIDE the recap block omits 0 and 5 (the
+# block's own sections 1 and 5 own them, spec TD-N7a); the block's caller says so, so the
+# omission is one surface's instruction rather than a hole in the shared text.
 aif_msg_fork_card() {
   cat <<'EOF'
-A fork is a card, not a bare question. Six lines, in this order:
+A fork is a card, not a bare question. In this order:
 0. Where we are — one sentence, no history.
-1. What we decide — with a concrete example, never an abstraction.
-2. If A — what becomes true.
-3. If B — what becomes true.
-4. Recommendation — the MOST ESSENTIAL reason first, the rest after.
-5. Reversible or not — and what rolls it back.
+1. Title — the fork itself in everyday words.
+2. What we decide — with a concrete example from THIS project, never an analogy.
+3. If A — what becomes true. If B — what becomes true.
+4. ➡️ Recommendation — the MOST ESSENTIAL reason FIRST and in **bold**, then up to three
+   more reasons, one line each; then one line: reversible or not, and what rolls it back.
+5. From you: ok — or "not ok, because …".
 Never compress the card: the line cap does not apply to it.
 EOF
 }

@@ -664,6 +664,19 @@ text_length=${#text}
 # mode is byte-for-byte unchanged. Freshness (mtime within TTL) guards against a
 # forgotten marker silently muting a normal session. Spec: docs/superpowers/
 # specs/2026-06-01-hook-nudge-orchestration-mode-design.md.
+# "A substantial STRUCTURED answer" — the D-A gate-matrix input for section 2. Extracted so
+# branch selection and the gate share ONE predicate and differ only in the text they feed it
+# (dual-implementation-discipline §7): branch selection asks it about the whole turn, the
+# gate asks it about the answer WITHOUT the recap block, because the block's own `**`
+# headings satisfy the markdown arm on their own and would demand "what changed" on every
+# armed turn — including ones where nothing changed, which D-A says to OMIT (final review M-5).
+_eot_is_long_text() {
+  local body="$1" threshold=500
+  if [ "$orch_mode" = "true" ]; then threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"; fi
+  if [ "${#body}" -le "$threshold" ]; then return 1; fi
+  grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$body"
+}
+
 _eot_turn_shape() {
   orch_mode=false
   local marker ttl marker_now marker_mtime
@@ -696,15 +709,7 @@ _eot_turn_shape() {
   # Recap threshold is lowered in orchestration mode (status turns are short+dense)
   # but the markdown-structure gate is KEPT, so unstructured chatter stays silent.
   long_text=false
-  local recap_threshold=500
-  if [ "$orch_mode" = "true" ]; then
-    recap_threshold="${ORCHESTRATION_MODE_RECAP_MIN_CHARS:-200}"
-  fi
-  if [ "$text_length" -gt "$recap_threshold" ]; then
-    if grep -qE -- '^#|^- |^\* |\*\*|```|\[[^]]+\]\([^)]+\)' <<<"$text"; then
-      long_text=true
-    fi
-  fi
+  if _eot_is_long_text "$text"; then long_text=true; fi
 
   # Did the turn end in a question?
   asked=false
@@ -734,14 +739,59 @@ _eot_recap_block() {
 # cap is on the retelling, and a fork card is never compressed — capping it would produce
 # exactly the bare-question shape the card exists to prevent.
 _eot_recap_line_count() {
-  awk -v fork="$AIF_EOT_SEC_FORK" -v nxt="$AIF_EOT_SEC_NEXT" -v uns="$AIF_EOT_SEC_UNSURE" '
-    index($0, fork)                               { skip = 1; next }
-    skip && (index($0, nxt) || index($0, uns))    { skip = 0 }
-    skip                                          { next }
-    /^[[:space:]]*$/                              { next }
-                                                  { n++ }
+  # The card region runs from the fork heading to the NEXT BLOCK SECTION — all five of them,
+  # not the two that happen to follow a card in the common ordering. With a two-heading
+  # terminator set a `**What changed.**` (or a `**Where we are.**`) after a card left the
+  # skip armed and every line until `**Next.**` fell out of the count (final review I-3). A
+  # second `**Fork.**` re-arms the skip on the first rule, so two spec-legal cards (D-A §3)
+  # are both exempt — which is the intent (P-4: a card is never compressed to fit the cap).
+  awk -v fork="$AIF_EOT_SEC_FORK" -v whr="$AIF_EOT_SEC_WHERE" -v chg="$AIF_EOT_SEC_CHANGED" \
+      -v uns="$AIF_EOT_SEC_UNSURE" -v nxt="$AIF_EOT_SEC_NEXT" '
+    index($0, fork)                                 { skip = 1; next }
+    skip && (index($0, whr) || index($0, chg) ||
+             index($0, uns) || index($0, nxt))      { skip = 0 }
+    skip                                            { next }
+    /^[[:space:]]*$/                                { next }
+                                                    { n++ }
     END { print n + 0 }
   ' <<<"$1"
+}
+
+# Leading literal of one "От тебя:" value scalar. The scalars carry a placeholder
+# (`nothing (<what you would check…>)`), so only the part BEFORE the first `<` or `(` is the
+# fixed token the model must reproduce. Derived rather than hard-coded: the packs are the
+# single source of the four values (D-B, R-17), so a pack edit moves the gate with it and
+# the gate is never hard-coded Russian (cold review F9).
+_eot_for_you_token() {
+  local t="${1%%<*}"
+  t="${t%%(*}"
+  while [ "${t% }" != "$t" ]; do t="${t% }"; done
+  printf '%s' "$t"
+}
+
+# D-B grammar: the value after the prefix takes exactly ONE of four forms, and the gate
+# rejects anything else. It matches the FORM only — for `nothing` that is a NON-EMPTY
+# parenthesis, never the trace's substance (an open set, spec round 2 BU-N6). Without this
+# arm the line was `#hope-as-gate` (cold review F5): a bare «nothing» carries no referent a
+# reviewer can catch lying, which is the whole reason the parenthesis is REQUIRED.
+_eot_for_you_wellformed() {
+  local v="$1" tok s
+  tok="$(_eot_for_you_token "$AIF_EOT_FOR_YOU_NOTHING")"
+  case "$v" in
+    "$tok"*)
+      if grep -qE -- '\([^)]*[^)[:space:]][^)]*\)' <<<"$v"; then return 0; fi
+      return 1 ;;
+  esac
+  for s in "$AIF_EOT_FOR_YOU_WAITING" "$AIF_EOT_FOR_YOU_DECIDE" "$AIF_EOT_FOR_YOU_HANDS"; do
+    tok="$(_eot_for_you_token "$s")"
+    case "$v" in
+      "$tok"*)
+        # every one of these three tokens ends in `:` — require something after it
+        if [ -n "$(printf '%s' "${v#"$tok"}" | tr -d '[:space:]')" ]; then return 0; fi
+        return 1 ;;
+    esac
+  done
+  return 1
 }
 
 # Section checker for an EXISTING recap block (Task 1.5, D-A). Never a block demander: the
@@ -749,27 +799,42 @@ _eot_recap_line_count() {
 # _eot_recap_block), $asked and $long_text from _eot_turn_shape. Echoes a `; `-joined list of
 # missing/malformed sections, or nothing when the block is well-formed.
 _eot_recap_defects() {
-  local d="" block last cap count
+  local d="" block last cap count value
   block="$(_eot_recap_block)"
-  if ! grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$block"; then d="$d; $AIF_EOT_SEC_WHERE"; fi
-  if ! grep -qF -- "$AIF_EOT_SEC_NEXT"  <<<"$block"; then d="$d; $AIF_EOT_SEC_NEXT"; fi
+  if ! grep -qF -- "$AIF_EOT_SEC_WHERE" <<<"$block"; then d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_WHERE"; fi
+  if ! grep -qF -- "$AIF_EOT_SEC_NEXT"  <<<"$block"; then d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_NEXT"; fi
   if [ "$asked" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$block"; then
-    d="$d; $AIF_EOT_SEC_FORK"
+    d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_FORK"
   fi
-  if [ "$long_text" = "true" ] && ! grep -qF -- "$AIF_EOT_SEC_CHANGED" <<<"$block"; then
-    d="$d; $AIF_EOT_SEC_CHANGED"
+  # Section 2 is required "when long_text" — asked of the ANSWER, not of answer+block: the
+  # block's own bold headings satisfy the markdown arm by themselves (final review M-5).
+  if _eot_is_long_text "${text%%"$AIF_RECAP_MARKER"*}" \
+     && ! grep -qF -- "$AIF_EOT_SEC_CHANGED" <<<"$block"; then
+    d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_SEC_CHANGED"
   fi
   # D-B scope: the gate reads the LAST non-empty line of the block, nothing above it.
   last="$(grep -v '^[[:space:]]*$' <<<"$block" | tail -n 1)"
   if ! grep -qF -- "$AIF_EOT_FOR_YOU_PREFIX" <<<"$last"; then
-    d="$d; $AIF_EOT_FOR_YOU_PREFIX"
-  elif grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"$last"; then
-    d="$d; $AIF_EOT_FOR_YOU_BANNED"
+    d="$d; ${AIF_EOT_MISSING_LABEL} $AIF_EOT_FOR_YOU_PREFIX"
+  else
+    # Everything after the prefix is the value D-B governs. The offloading-verb scan stops at
+    # the first `(`: what is inside the parenthesis is the AGENT's own verification trace, so
+    # `nothing (I did review the failing job)` is evidence, not an errand (final review M-3).
+    value="${last#*"$AIF_EOT_FOR_YOU_PREFIX"}"
+    value="${value# }"
+    if grep -qiE -- "$AIF_EOT_FOR_YOU_BANNED" <<<"${value%%(*}"; then
+      d="$d; $AIF_EOT_BANNED_LABEL"
+    elif ! _eot_for_you_wellformed "$value"; then
+      d="$d; $AIF_EOT_MALFORMED_LABEL"
+    fi
   fi
   # Task 1.6b (R-17): cap the retelling, fork card exempt. Read from the ENV with a literal
   # default — deliberately absent from the language packs, which are sourced AFTER the
   # environment, so a pack assignment would clobber an operator's override.
   cap="${AIF_EOT_RECAP_MAX_LINES:-15}"
+  # A garbage override reached `[ -gt ]` and printed an integer-expression error to the
+  # hook's stderr on EVERY armed turn while silently disabling the cap (final review M-6).
+  case "$cap" in ''|*[!0-9]*) cap=15 ;; esac
   count="$(_eot_recap_line_count "$block")"
   if [ "$count" -gt "$cap" ]; then d="$d; $AIF_EOT_CAP_LABEL $cap"; fi
   printf '%s' "${d#; }"

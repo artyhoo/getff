@@ -29,7 +29,16 @@ AIF_EOT_FOR_YOU_NOTHING='ничего (<чем проверишь, если за
 AIF_EOT_FOR_YOU_WAITING='ждём: <что и от кого>'
 AIF_EOT_FOR_YOU_DECIDE='решить: <A> или <B>'
 AIF_EOT_FOR_YOU_HANDS='сделать руками: <одно действие>'
-AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри'
+# Both languages' offloading verbs, in BOTH packs: an operator on AIF_HOOK_LANG=ru still
+# reads English answers, so a ru-only list left "review the diff and make sure it is fine"
+# undetected in the very pack this operator runs (final review M-4).
+AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
+# Ярлыки дефектов. Каждый — САМОописательная фраза, никогда не голый токен и не сырой
+# regex: ворота склеивают их в один список через «; » под нейтральным глаголом, поэтому
+# ярлык, который просто называет вещь, читается моделью как «допиши это».
+AIF_EOT_MISSING_LABEL='нет секции:'
+AIF_EOT_BANNED_LABEL='последняя строка просит человека проверить/посмотреть — это твоя работа, не его'
+AIF_EOT_MALFORMED_LABEL='последняя строка не равна ни одному из четырёх значений (а у «ничего» нужен след проверки в скобках)'
 AIF_EOT_CAP_LABEL='длиннее лимита строк:'
 
 # Fallback value for the session-goal anchor when extraction fails.
@@ -62,11 +71,13 @@ aif_msg_eot_recap_contract() {
 ${AIF_RECAP_MARKER} — блок из пяти секций, в этом порядке:
 1. ${AIF_EOT_SEC_WHERE} — всегда.
 2. ${AIF_EOT_SEC_CHANGED} — если ответ длинный или структурный.
-3. ${AIF_EOT_SEC_FORK} — если ты задаёшь вопрос. Тогда — карточкой:
-$(aif_msg_fork_card)
+3. ${AIF_EOT_SEC_FORK} — если ты задаёшь вопрос. Тогда — карточкой. Внутри этого блока
+   карточка опускает свои 0 и 5: секции 1 и 5 блока их уже держат.
+$(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — по желанию.
-5. ${AIF_EOT_SEC_NEXT} — всегда, и последняя строка блока именно такая:
-   ${AIF_EOT_ME_PREFIX} <что делаю я>. ${AIF_EOT_FOR_YOU_PREFIX} <одно из четырёх>
+5. ${AIF_EOT_SEC_NEXT} — всегда, и ровно две строки; вторая заканчивает блок:
+   ${AIF_EOT_ME_PREFIX} <что делаю я>
+   ${AIF_EOT_FOR_YOU_PREFIX} <одно из четырёх>
    — ${AIF_EOT_FOR_YOU_NOTHING}
    — ${AIF_EOT_FOR_YOU_WAITING}
    — ${AIF_EOT_FOR_YOU_DECIDE}
@@ -81,10 +92,10 @@ EOF
 }
 
 # Stop hook — дремлющие ворота-чекер секций (Task 1.5, D-A). Срабатывают только когда блок
-# пересказа УЖЕ ЕСТЬ и в нём не хватает одной из обязательных секций — никогда не требуют блок
+# пересказа УЖЕ ЕСТЬ и он дефектный — никогда не требуют блок
 # от хода, где его вообще нет. $1 = список дефектов через «; » из _eot_recap_defects().
 aif_msg_eot_recap_gate() {
-  printf '%s\n' "Блок $AIF_RECAP_MARKER есть, но в нём не хватает: $1. Допиши недостающее в этом же ответе — блок целиком не переписывай."
+  printf '%s\n' "Блок $AIF_RECAP_MARKER есть, но он неправильный: $1. Исправь ровно то, что названо, в этом же ответе — блок целиком не переписывай."
 }
 
 # Stop hook — Branch C: long answer AND trailing fork-question.
@@ -194,15 +205,20 @@ EOF
 
 # Fork card template (shared with the recap block + ask-question-reminder rewrite, D-C).
 # Consumed by task 1.4 (branch payloads) and slice 2's ask-question-reminder.sh.
+# Carries ALL SIX D-C sections — this is the full card, the form slice 2 emits before the
+# AskUserQuestion buttons. A card that sits INSIDE the recap block omits 0 and 5 (the
+# block's own sections 1 and 5 own them, spec TD-N7a); the block's caller says so, so the
+# omission is one surface's instruction rather than a hole in the shared text.
 aif_msg_fork_card() {
   cat <<'EOF'
-Развилка — карточка, не голый вопрос. Шесть строк, в этом порядке:
+Развилка — карточка, не голый вопрос. В этом порядке:
 0. Где мы — одно предложение, без истории.
-1. Что решаем — с конкретным примером, не абстракцией.
-2. Если А — что станет правдой.
-3. Если Б — что станет правдой.
-4. Рекомендация — сначала САМАЯ СУЩЕСТВЕННАЯ причина, потом остальные.
-5. Обратимо или нет — и чем откатывается.
+1. Заголовок — сама развилка обычными словами.
+2. Что решаем — с конкретным примером ИЗ ЭТОГО проекта, не аналогией.
+3. Если А — что станет правдой. Если Б — что станет правдой.
+4. ➡️ Рекомендую — сначала САМАЯ СУЩЕСТВЕННАЯ причина и **жирным**, потом до трёх
+   остальных, по строке на каждую; затем одна строка: обратимо или нет и чем откатывается.
+5. От тебя: ок — или «не ок, потому что …».
 Карточку не сокращать: лимит строк на неё не распространяется.
 EOF
 }
