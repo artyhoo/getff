@@ -160,6 +160,13 @@ gate_table() {
   # test present in scripts/ but wired to NO CI step (probe-channels.test.sh at time of
   # writing) correctly stays out — the sweep predicts CI, it does not invent gates.
   #
+  # `citation-fullsweep` is triggered ALWAYS rather than by a path list, and that is the whole
+  # point of the row: a `path:NN` citation goes stale when the CITED file moves, and any tracked
+  # file can be a cited file (the 2026-09-14 case was `setup.d/10-skills.sh`). A prefix list here
+  # would rebuild the exact hole the gate was built to close. It runs UNSCOPED — pre-push scopes
+  # the blame arm to the push via `--affected-by`, but this row predicts the CI job, and the CI
+  # job is the unscoped backstop. ~6.4s over the 103-file corpus, measured 2026-09-14.
+  #
   # `sweep-ci-coverage` is listed explicitly even though `script-selftests` would derive it: that
   # row's trigger is `scripts/` only, and a workflow-only diff — precisely the diff this metatest
   # exists to catch — would never select it. The duplicate run on a scripts/ diff is pure grep.
@@ -184,6 +191,7 @@ gate_table() {
     "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
     "2${TAB}presets-check${TAB}packages/core/templates/shared/AI-USAGE-GUIDE.md,.claude/skills/pipeline/references/presets/,scripts/render-presets.mjs${TAB}npx tsx scripts/render-presets.mjs --check" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
+    "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}install.sh,setup,setup.d/,agents/,skills/,templates/,.claude/,.prettierrc.json,packages/,scripts/${TAB}bash scripts/build-getff-dist.sh --check" \
@@ -290,6 +298,12 @@ trigger_matches() {
 CHANGED="$(changed_paths)"
 
 # --- fail-safe: any changed path matching NO gate trigger → escalate to --full ---
+# An ALWAYS row is deliberately NOT counted as coverage for a path. ALWAYS means
+# "unconditional", not "matches every path": counting it would make every path look mapped and
+# silently retire this whole fail-safe the moment the first ALWAYS row landed. Measured
+# 2026-09-14 while adding `citation-fullsweep`: with the ALWAYS row counted,
+# SWEEP_DIFF_OVERRIDE=weird/unmapped.bin went from "escalating to --full" (every gate) to
+# "1 gate(s) passed" — a false green of exactly the shape this script exists to prevent.
 if [ "$MODE" = "diff" ] && [ -n "$CHANGED" ]; then
   GATES_SNAPSHOT="$(gate_table)"
   while IFS= read -r p; do
@@ -297,6 +311,7 @@ if [ "$MODE" = "diff" ] && [ -n "$CHANGED" ]; then
     matched=0
     while IFS="$TAB" read -r _ n trig _; do
       [ -z "${n:-}" ] && continue
+      case ",$trig," in *,ALWAYS,*) continue ;; esac
       if trigger_matches "$trig" "$p"; then matched=1; break; fi
     done <<EOF
 $GATES_SNAPSHOT
@@ -315,6 +330,12 @@ fi
 gate_selected() {
   [ "$MODE" = "full" ] && return 0
   local trig="$1" p
+  # ALWAYS means always — including an EMPTY diff. The loop below is driven by $CHANGED, so
+  # without this short-circuit an ALWAYS row selects nothing when the diff is empty and the
+  # sweep prints "no gates selected" — the `#hope-as-gate` shape
+  # (.claude/rules/attention-is-not-a-mechanism.md §2). Observed 2026-09-14 on the first run
+  # of the `citation-fullsweep` row, against a tree whose changes were all uncommitted.
+  case ",$trig," in *,ALWAYS,*) return 0 ;; esac
   while IFS= read -r p; do
     [ -z "$p" ] && continue
     if trigger_matches "$trig" "$p"; then return 0; fi

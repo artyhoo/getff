@@ -52,6 +52,29 @@ printf '1\tdoc\t.md\ttrue\n2\tother\tpackages/\ttouch %s/OTHER\n' "$TMP" >"$TMP/
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o4" 2>&1
 has_file "unmapped path escalated to full (ran all gates)" "$TMP/OTHER"
 
+# --- (always/empty-diff) an ALWAYS gate runs even when the diff selects nothing ---
+# `--base HEAD` makes `git diff HEAD...HEAD` empty, which is what a sweep over an all-uncommitted
+# tree sees. Regression 2026-09-14: `gate_selected` loops over $CHANGED, so on an empty diff the
+# loop body never ran and the ALWAYS row silently selected nothing — "SWEEP: no gates selected"
+# with rc 0, the `#hope-as-gate` shape (.claude/rules/attention-is-not-a-mechanism.md §2).
+rm -f "$TMP/ALW" "$TMP/SCOPED"
+printf '1\talways\tALWAYS\ttouch %s/ALW\n2\tscoped\tpackages/\ttouch %s/SCOPED\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" bash "$SWEEP" --base HEAD >"$TMP/o13" 2>&1
+check "empty diff exits 0" 0 $?
+has_file "ALWAYS gate ran on an empty diff" "$TMP/ALW"
+no_file "empty diff did not run the path-scoped gate" "$TMP/SCOPED"
+
+# --- (always is not coverage) an ALWAYS row must NOT satisfy the unmapped-path fail-safe ---
+# Paired negative for the arm above: ALWAYS means "unconditional", not "matches every path".
+# Counting it as coverage retires the escalation fail-safe entirely — measured 2026-09-14, the
+# real table's `citation-fullsweep` row turned `weird/unmapped.bin` from "escalating to --full"
+# (every gate) into "1 gate(s) passed".
+rm -f "$TMP/ALW2" "$TMP/SCOPED2"
+printf '1\talways\tALWAYS\ttouch %s/ALW2\n2\tscoped\tpackages/\ttouch %s/SCOPED2\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o14" 2>&1
+grep_out "unmapped path still escalates despite an ALWAYS row" "escalating to --full" "$TMP/o14"
+has_file "escalation ran the path-scoped gate too" "$TMP/SCOPED2"
+
 # --- (prefix-with-dot) a trigger that is both .*-prefixed and /-suffixed matches as PREFIX ---
 # Regression: .github/workflows/ must select via prefix, not be misread as a suffix → false escalation.
 rm -f "$TMP/WF" "$TMP/ESC"

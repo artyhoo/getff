@@ -41,10 +41,36 @@
  * the earliest channel that can reach it at all.
  *
  * Modes (precedent: scripts/render-rule-index.mjs, scripts/render-harness-config.mjs):
- *   --check       exit 1 on drift, printing the corrected line number where findable
- *   --write       renumber in place wherever the moved-to line is unambiguous
- *   --blank-only  ARM 2 alone — the pre-commit channel, no git reads at all
- *   --strict      additionally exit 1 when ANY citation could not be resolved
+ *   --check              exit 1 on drift, printing the corrected line number where findable
+ *   --write              renumber in place wherever the moved-to line is unambiguous
+ *   --blank-only         ARM 2 alone — the pre-commit channel, no git reads at all
+ *   --strict             additionally exit 1 when ANY citation could not be resolved
+ *   --affected-by=<path> repeatable; run ARM 1 only for citations touching these paths
+ *   --corpus             check the live-authority corpus (below) instead of named files
+ *
+ * WHICH FILES the caller passes is the other half of coverage, and scoping it to the
+ * push's changed Markdown — what pre-push §9 did until 2026-09-14 — has a structural
+ * hole: a citation goes stale when the CITED file moves, and the cited file is almost
+ * never among the changed Markdown. Three PRs merged on 2026-09-14 (#1755, #1761/#1762,
+ * #1764) each repaired staleness the gate could not see; #1764's two sites were stale
+ * because #1763 moved an install block in `setup.d/10-skills.sh` while touching no
+ * corpus Markdown at all.
+ *
+ * `--affected-by` closes it from the other direction: the caller passes the WHOLE
+ * corpus and names the paths its push changed, and ARM 1 runs for a citation whose
+ * citing file OR cited target is among them. Measured 2026-09-14 on the 103-file
+ * live-authority corpus: parse + resolve + ARM 2 is 0.12s, the full ARM 1 sweep is
+ * 6.4s, and 72% of the last 60 first-parent commits touch no cited file at all. Both
+ * causing commits above are caught by it (probe: 5 and 3 affected citations, naming
+ * exactly the sites #1764 and #1761 later repaired).
+ *
+ * What the scoping structurally cannot reach — a push that bypasses the hook, two
+ * branches where one moves a target while the other adds the citation, a branch base
+ * behind staging — is the CI backstop's job: `citation-fullsweep` in audit-self.yml
+ * runs this script UNSCOPED over the same corpus on every PR, every push to
+ * staging/main, and every merge group. Same split as guard-liveness v1 vs
+ * `guard-liveness-fullsweep.yml`: change-scoped at the earliest reachable channel, full
+ * sweep as the last resort (.claude/rules/rule-enforcement-channel-selection.md §3).
  *
  * Non-coverage is REPORTED, not silent (2026-09-14). A citation whose path does not
  * resolve still does not fail the default gate — many are out-of-repo by design:
@@ -105,6 +131,13 @@ const ESCAPE_RATIONALE_MIN = 20;
 /** ARM-2-only mode (`--blank-only`): the pre-commit channel, set by `run()`. */
 let blankOnly = false;
 
+/**
+ * Reverse-index scoping (`--affected-by=<path>`, repeatable): the set of paths a push
+ * changed, or `null` for an unscoped full sweep. Only ARM 1 consults it — see the
+ * `affectedBy` guard in `scanFile`.
+ */
+let affectedBy = null;
+
 const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
   encoding: 'utf8',
 }).trim();
@@ -143,6 +176,68 @@ function tracked(basename) {
     }
   }
   return basenameIndex.get(basename) ?? [];
+}
+
+/**
+ * The LIVE-AUTHORITY markdown surface — the docs a session reads to learn what holds
+ * NOW, where a `path:line` citation is a live pointer a reader follows. Selected by
+ * `--corpus`; the SSOT for the population, with exactly one definition (it lived in
+ * `packages/core/hooks/pre-push.ts` until 2026-09-14, when the CI backstop became a
+ * second consumer and a copied glob list would have been the `#sync-by-copy-paste`
+ * shape .claude/rules/dual-implementation-discipline.md §8 names).
+ *
+ * Deliberately NOT the whole markdown corpus. `docs/meta-factory/retros/`,
+ * `research-patches/` and `PROPOSAL.md` are «closed historical artifact» / «frozen — do
+ * not retroactively rewrite» per the CLAUDE.md Artifact Ownership Contract, and
+ * `docs/superpowers/specs/` carry dated round changelogs; their citations are snapshots
+ * of what a line said on a date. Renumbering those would rewrite history, which is the
+ * opposite of the repair this gate performs. Measured 2026-09-13: gating the full corpus
+ * would have fired on 36 citations in exactly that closed material.
+ *
+ * `plugin/agents/` is excluded because it is a byte-identical generated twin of
+ * `agents/` — gating both would report every finding twice and demand the fix land in a
+ * derived copy.
+ */
+const LIVE_AUTHORITY_MD = [
+  '.claude/rules/',
+  '.claude/skills/',
+  'agents/',
+  'CLAUDE.md',
+  'AGENTS.md',
+  'CONTRIBUTING.md',
+];
+const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
+
+/**
+ * The corpus as TRACKED files, or `null` when git could not be asked.
+ *
+ * `git ls-files` and not a directory walk: an untracked scratch doc is nobody's
+ * authority. The null is not an empty corpus — the caller must fail loudly on it,
+ * because a sweep that checked nothing and a sweep that found nothing are otherwise
+ * indistinguishable (`#hope-as-gate`,
+ * .claude/rules/attention-is-not-a-mechanism.md §2). That distinction is the same one
+ * the skipped-citation reporting above exists to make.
+ */
+function corpusFiles() {
+  let listing;
+  try {
+    // -z: NUL-delimited, unquoted — a non-ASCII path would otherwise arrive
+    // quoted+escaped and drop silently out of the corpus.
+    listing = git(['ls-files', '-z']);
+  } catch {
+    return null;
+  }
+  return listing
+    .split('\0')
+    .filter(
+      (f) =>
+        f.length > 0 &&
+        f.endsWith('.md') &&
+        !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
+        LIVE_AUTHORITY_MD.some((p) =>
+          p.endsWith('/') ? f.startsWith(p) : f === p,
+        ),
+    );
 }
 
 /**
@@ -345,6 +440,24 @@ export function scanFile(srcFile) {
 
       if (blankOnly) continue; // pre-commit channel: ARM 2 only, no git reads
 
+      // Reverse-index scoping. New staleness enters the corpus through exactly two
+      // doors: the citing sentence was rewritten, or the cited file moved under it.
+      // ARM 1 costs a `git blame` plus a `git show` per citation (~53ms measured
+      // 2026-09-14, i.e. 6.4s over the 119 resolvable citations of the live-authority
+      // corpus), so a caller that knows which paths its push touched can skip every
+      // citation neither door applies to. Over the last 60 first-parent commits that
+      // leaves 72% of pushes running ZERO blames and a mean of 1.33 (max 15).
+      // Deliberately one-sided: the flag narrows ARM 1 only. ARM 2 and the beyond-EOF
+      // check read today's tree and cost no git call, so narrowing them would buy
+      // nothing and would hide a defect this file can see for free.
+      if (
+        affectedBy !== null &&
+        !affectedBy.has(rel) &&
+        !affectedBy.has(target)
+      ) {
+        continue;
+      }
+
       const sha = blameCommit(rel, srcLine);
       if (sha === null) continue; // uncommitted edit — nothing to compare against yet
       const historical = fileAt(sha, target);
@@ -430,12 +543,35 @@ export function run(argv) {
   const check = argv.includes('--check');
   const strict = argv.includes('--strict');
   blankOnly = argv.includes('--blank-only');
-  const files = argv.filter((a) => !a.startsWith('--'));
+  // Absent flag => null => unscoped. An omitted `--affected-by` must fail OPEN into a
+  // full sweep: the failure mode of the opposite default is a caller that silently
+  // checks nothing, which is the silence this script's header already refuses once.
+  const affected = argv
+    .filter((a) => a.startsWith('--affected-by='))
+    .map((a) => a.slice('--affected-by='.length))
+    .filter(Boolean);
+  affectedBy = affected.length > 0 ? new Set(affected) : null;
+  const named = argv.filter((a) => !a.startsWith('--'));
   if (!write && !check) {
     console.error(
-      'usage: check-line-citations.mjs (--check [--blank-only] [--strict] | --write) <file.md>...',
+      'usage: check-line-citations.mjs\n' +
+        '  --check [--corpus] [--blank-only] [--strict] [--affected-by=<path>]... [<file.md>...]\n' +
+        '  --write <file.md>...',
     );
     return 2;
+  }
+  let files = named;
+  if (argv.includes('--corpus')) {
+    const corpus = corpusFiles();
+    if (corpus === null) {
+      console.error(
+        '❌ --corpus: `git ls-files` failed, so the live-authority corpus could not be\n' +
+          '   enumerated. The sweep would silently cover nothing. Fix the repository\n' +
+          '   state; do not skip the gate.',
+      );
+      return 2;
+    }
+    files = [...new Set([...corpus, ...named])];
   }
   if (files.length === 0) return 0;
 

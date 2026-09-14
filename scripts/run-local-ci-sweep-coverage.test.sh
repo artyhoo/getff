@@ -129,7 +129,7 @@ strip_env_prefix() {
 # setup / tool installs (out of scope). The union is asserted complete below, so a workflow that
 # starts using `node`, `pnpm` or `deno` REDs with "classify it" instead of silently shrinking the
 # population — the exact silent-hole shape this test exists to prevent.
-GATE_LEADERS="bash npm npx"
+GATE_LEADERS="bash node npm npx"
 NON_GATE_LEADERS="pip corepack"
 
 observed_leaders() { raw_run_lines | strip_env_prefix | awk '{print $1}' | sort -u; }
