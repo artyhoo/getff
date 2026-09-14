@@ -107,5 +107,6 @@
   },
   "overrides": {
     "qs": "^6.15.2"
-  }
+  },
+  "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }

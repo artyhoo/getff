@@ -6,7 +6,7 @@ FSL-1.1-ALv2
 
 ## Notice
 
-Copyright 2026 Art
+Copyright 2026 Artem Safronov
 
 ## Terms and Conditions
 
