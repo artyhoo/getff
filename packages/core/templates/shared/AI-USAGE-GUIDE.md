@@ -46,8 +46,10 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 
 <!-- step: install -->
 
-1. **Install at core depth** — from your project root run `bash <getff>/setup -y <stack>` (stacks:
-   `ts-server`, `react-next`, `react-spa`, `react-native`). Omit the stack to auto-detect.
+1. **Install at core depth** — from your project root run
+   `bash <getff>/setup -y --profile core <stack>` (stacks: `ts-server`, `react-next`,
+   `react-spa`, `react-native`). Omit the stack to auto-detect. Name `core`: `-y` on its own
+   resolves to `env` depth, not `core` (`install.sh:648`).
    Non-npm projects take a separate lane, each an explicit positional argument:
    `install.sh python`, `install.sh cargo`, `install.sh go`. Those lanes early-exit before the
    npm `package.json` precondition, so they need no `package.json` at all.
@@ -278,11 +280,11 @@ rather than implying uniformity:
 Per this program's honesty rule, a capability that is not on disk gets an **owner and a trigger**
 here instead of a section pretending it exists.
 
-| Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                   |
-| Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | the package is published under the frozen name                         |
-| Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header |
+| Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                    |
+| Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | `npm view getff version` resolves (the frozen name is unscoped `getff`) |
+| Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header  |
 
 ---
 

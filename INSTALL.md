@@ -68,7 +68,7 @@ ai-factory init --agents claude
 ```
 
 The installer:
-- Copies `skills/rules-as-tests/` → `.claude/skills/`
+- Copies `skills/getff/` → `.claude/skills/getff/` (`setup.d/10-skills.sh:10-12`)
 - Copies sub-agents → `.claude/agents/`
 - Copies AI Factory templates → `.ai-factory/`
 - Copies `audit-ai-docs.sh` → `scripts/`
@@ -153,7 +153,7 @@ These four names look like knobs but are internal constants — three are plain 
 
 | Name | Where | What it actually is |
 | --- | --- | --- |
-| `GETFF_LANES` | `setup.d/lib.sh:974` | the fixed lane list (`python cargo go`) the orphan sweep walks — a constant |
+| `GETFF_LANES` | `setup.d/lib.sh:1008` | the fixed lane list (`python cargo go`) the orphan sweep walks — a constant |
 | `GETFF_SKILLS_CORE` | `setup.d/lib.sh:61` | the core skill set; the consumer-facing control is `--profile` |
 | `GETFF_SKILLS_FACTORY` | `setup.d/lib.sh:63` | the factory skill list; the control is `--profile factory` or `--with-aif-suite` |
 | `AIF_ARCH_TARGET` | `setup.d/70-deps.sh:41-49` | wiped, then recomputed (monorepo roots → `src` → `.`) into your `package.json` `arch:check` line; to aim at exotic roots, edit that one line after install |
@@ -168,7 +168,7 @@ If you want to pick what to install file-by-file:
 
 ```bash
 mkdir -p .claude/skills .claude/agents
-cp -r path/to/pkg/skills/rules-as-tests .claude/skills/
+cp -r path/to/pkg/skills/getff .claude/skills/
 cp path/to/pkg/agents/*.md .claude/agents/
 # Authoring-only tools — not for consumers; remove if you copied them above:
 rm -f .claude/agents/manual-rule-liveness-prober.md \
@@ -423,7 +423,7 @@ Make sure `.nvmrc` is committed (`git add -f .nvmrc`).
 ```text
 your-project/
 ├── .claude/
-│   ├── skills/rules-as-tests/        ← skill (auto-activates)
+│   ├── skills/getff/                 ← skill (auto-activates)
 │   └── agents/                        ← sub-agents for /aif-verify
 ├── .ai-factory/
 │   ├── DESCRIPTION.template.md       ← edit and save as DESCRIPTION.md
