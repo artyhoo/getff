@@ -277,10 +277,19 @@ if [ -f "$EOT_SRC" ]; then
       elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
         echo "  AIF_RECAP_GATE already armed"
       else
-        _rg_tmp="$(mktemp)"
+        # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
+        # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
+        # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
+        # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
+        # the install clean while the operator believed the gate was armed (review M-7).
+        _rg_tmp="$SETTINGS.recapgate.tmp"
         if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$SETTINGS" > "$_rg_tmp" 2>/dev/null \
            && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
-          mv "$_rg_tmp" "$SETTINGS" && echo "  AIF_RECAP_GATE=1 armed (--full)"
+          if mv "$_rg_tmp" "$SETTINGS"; then
+            echo "  AIF_RECAP_GATE=1 armed (--full)"
+          else
+            rm -f "$_rg_tmp"; echo "  ⚠ could not write $SETTINGS — AIF_RECAP_GATE NOT armed"
+          fi
         else
           rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $SETTINGS left untouched"
         fi

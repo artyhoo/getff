@@ -60,7 +60,14 @@ for _a in "$@"; do
     --help|-h) HELP=1 ;;
     --user) TARGET='user' ;;
     --project) TARGET='project' ;;
-    *) ARG_ROOT="$_a" ;;
+    # A typo'd flag used to fall into the root argument, and a non-empty root suppresses
+    # BOTH the self-location resolver and the git fallback — so `--projekt` died 70 lines
+    # later with "Stop hook not found: --projekt/.claude/hooks/…" (review M-8). Reject the
+    # flag shape by name; a second positional root is the same silent-overwrite class.
+    --*|-*) echo "unknown option: $_a" >&2; exit 2 ;;
+    *)
+      if [[ -n "$ARG_ROOT" ]]; then echo "unexpected second argument: $_a" >&2; exit 2; fi
+      ARG_ROOT="$_a" ;;
   esac
 done
 
