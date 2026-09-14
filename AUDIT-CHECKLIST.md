@@ -367,10 +367,13 @@ In Claude Code, after `/aif-implement` (post-C-1 wiring):
   applies the `aif-rules-check` skill-context residue (R4/R10/R17) → verdict
 - `aif-review` runs, augmented by our `.ai-factory/skill-context/aif-review/SKILL.md`
   anti-tautology conventions → two-AI review report
-- Earlier channels (edit-time ESLint custom rules, pre-push `audit-ai-docs.sh`/tsc/depcruise)
-  are the authoritative deterministic enforcers; `/aif-verify` is the late LLM channel
+- The edit-time channel (custom ESLint rules) is the authoritative deterministic enforcer;
+  `/aif-verify` is the late LLM channel. A consumer's pre-push carries getff's own rule checks
+  (rule globs, lint-staged resolution, generated-rule firing, changed-Markdown links) — it does
+  NOT run `audit-ai-docs.sh`, tsc or depcruise, so those are not covered earlier.
 - `living-docs-auditor` (ours) is dispatched via its own name (not in AIF's coordinator
-  allowlist after rename) or run at pre-push via `audit-ai-docs.sh`
+  allowlist after rename) or run on demand via `audit-ai-docs.sh` (the pre-push `audit-ai-docs`
+  section is `owner: 'maintainer'` — it does not fire in a consumer repo)
 
 (Manual test — requires Claude Code session + AIF init.)
 

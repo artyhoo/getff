@@ -27,12 +27,12 @@
   "sequences": {
     "core": {
       "goal": "install -> a rule provably fires on your code",
-      "profileFlag": "-y (default; equivalently --profile core)",
+      "profileFlag": "--profile core (core is never the default — install.sh:648 makes the non-interactive default `env`)",
       "steps": [
         {
           "id": "install",
           "title": "Install at core depth",
-          "action": "From your project root run `bash <getff>/setup -y <stack>` (stacks: ts-server, react-next, react-spa, react-native; `install.sh python`, `install.sh cargo` and `install.sh go` are separate non-npm lanes, each an explicit positional). Omit the stack to auto-detect.",
+          "action": "From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `install.sh python`, `install.sh cargo` and `install.sh go` are separate non-npm lanes, each an explicit positional). Omit the stack to auto-detect.",
           "evidence": "install.sh; setup.d/30-templates.sh"
         },
         {
@@ -81,7 +81,7 @@
           "id": "install",
           "title": "Install at env depth",
           "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Re-run that same command — the deeper payload is added and every core artefact stays byte-identical except `.prettierignore`, whose managed block gains the new paths. Do not reach for `--refresh` to upgrade: it re-delivers fixes to what you already have and does not reliably deepen an install — on a `core` project `--refresh --profile env` exits 0 while `tier-home.md` and `.claude/skills/arch/` stay absent.",
-          "evidence": "install.sh:1090-1093 — the tier-home refresh arm is presence-gated («refresh must not create it on core»); `arch` is in no do_refresh skill loop. Measured on a core consumer against staging 2026-08-09: `--refresh --profile env` → exit 0, tier-home NO, arch NO (it is NOT a no-op, though — the ungated arm at install.sh:1001-1005 does deliver 4 env-tier scripts, a beta-delivery-ux depth-boundary defect); plain `--profile env` → exit 0, tier-home YES, arch YES, every pre-existing core file byte-identical except .prettierignore. Also INSTALL-FOR-AI.md «Install depth profiles»"
+          "evidence": "install.sh:1342-1350 — the tier-home refresh arm is presence-gated («refresh must not create it on core»); `arch` is in no do_refresh skill loop. Measured on a core consumer against staging 2026-08-09: `--refresh --profile env` → exit 0, tier-home NO, arch NO (the worktree-scripts arm at install.sh:1251-1256 was ungated and delivered 4 env-tier scripts on a core project; it has carried the env|factory|presence gate since #1334, so that depth-boundary defect is closed); plain `--profile env` → exit 0, tier-home YES, arch YES, every pre-existing core file byte-identical except .prettierignore. Also INSTALL-FOR-AI.md «Install depth profiles»"
         },
         {
           "id": "verify-payload",
