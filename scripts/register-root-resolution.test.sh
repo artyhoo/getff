@@ -18,7 +18,7 @@ set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/.." && pwd)"
-SCRIPTS=("$DIR/register-precompact-hook.sh" "$DIR/register-handoff-gate.sh")
+SCRIPTS=("$DIR/register-precompact-hook.sh" "$DIR/register-handoff-gate.sh" "$DIR/register-recap-gate.sh")
 FAILED=0
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
