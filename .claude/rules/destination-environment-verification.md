@@ -86,7 +86,7 @@ which is a legitimate outcome. Silence is not.
 **A primary-doc citation is not a probe.** This is the load-bearing half, and it is the one an
 author will get wrong, because a doc citation *looks* like evidence and satisfies every
 citation-shaped gate in this repo. Measured: the `meta-orchestrator-refactor` §4c row cited
-`runtime-bridge-setup.md:40` for «Superpowers plugins NOT available» and was **false** — the doc
+`runtime-bridge-setup.md:40` for «Superpowers plugins NOT available» and was **false** — the doc <!-- cite:historical quotes a citation that was FALSE when written; repointing it at a live line would destroy the finding -->
 described how the runtime was assembled, and the mount set had moved since. Cite the doc for *why
 it should be so*; cite the probe for *that it is so*. An existing kickoff already states the
 counter in narrower form and has the emphasis exactly here — [`arch-v2-context-pipeline-s-e/kickoff.md:257`](../orchestrator-prompts/arch-v2-context-pipeline-s-e/kickoff.md)
@@ -132,7 +132,7 @@ owned them; rows 3-6 by the cold backward sweep of 2026-08-09 (PR #1345).
 |---|---|---|---|
 | 1 | «container lacks ast-grep (no network)» | `npm view @ast-grep/cli` → `0.44.0`; `curl registry.npmjs.org` → `200` — [`generator-require-composite-tier-meta-launch/state.md:72`](../orchestrator-prompts/generator-require-composite-tier-meta-launch/state.md) records it as **FALSE** and the excuse as confabulated | a worker's unprobed assertion |
 | 2 | «container lacks `~/.claude/projects`, `/context`, live CC» | `find /home/node/.claude/projects -name '*.jsonl' \| wc -l` → **746** — [`arch-v2-context-pipeline/kickoff.md:108`](../orchestrator-prompts/arch-v2-context-pipeline/kickoff.md) FORK C, «false as written», corrected rather than re-pinned | conflating an absent **population** with an absent **surface** |
-| 3 | «Superpowers plugins NOT available — only the repo clone is bind-mounted» | `docker inspect` → 8 mounts, **two** for plugins (one mirroring the host-absolute path so `installPath` resolves verbatim); superpowers 6.2.0, 14 `SKILL.md` inside | a **primary-doc citation** (`runtime-bridge-setup.md:40`) standing in for a probe |
+| 3 | «Superpowers plugins NOT available — only the repo clone is bind-mounted» | `docker inspect` → 8 mounts, **two** for plugins (one mirroring the host-absolute path so `installPath` resolves verbatim); superpowers 6.2.0, 14 `SKILL.md` inside | a **primary-doc citation** (`runtime-bridge-setup.md:40`) standing in for a probe | <!-- cite:historical quotes a citation that was FALSE when written; repointing it at a live line would destroy the finding -->
 | 4 | «`audit-plan.md` NOT reachable — gitignored, not in the clone» | `docker exec … ls /home/node/.claude-coordination/…` lists it (33372 B); CANON is a bind mount | not-in-the-repo inferred to mean not-reachable |
 | 5 | «that path does not exist in the aif container» | `ls -d /home/node/.claude/projects/*rules-as-tests-aif*` → **102** dirs, 934 `.jsonl` | same surface-vs-population conflation as row 2, in a second umbrella |
 | 6 | «`claude-code-guide` NOT available (operator-verified precedent)» | the agent definition is compiled into the container's own CLI (`source:"built-in"`, `model:"haiku"`, v2.1.218) | an **appeal to precedent** — evidence of the form «someone verified this once» |
