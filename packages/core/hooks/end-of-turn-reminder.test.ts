@@ -644,6 +644,36 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(reason).toMatch(/15/);
   });
 
+  // R-13 (spec :171-174): when the card was already emitted above — before the AskUserQuestion
+  // buttons (slice 2) or once per question in an /arch round — section 3 of the block is ONE
+  // pointer line, never a second card. The clause lives in the SHARED contract so every branch
+  // payload teaches it and the later /arch slice inherits it without re-editing this sentence.
+  it.each([
+    ['en', /ONE pointer line/, /never a second card/],
+    ['ru', /ОДНА строка-указатель/, /а не вторая карточка/],
+  ] as const)(
+    '%s: the recap contract carries the R-13 pointer clause',
+    (lang, pointer, notSecondCard) => {
+      const tr = writeTranscript([
+        aiTitle('Pointer'),
+        userTurn('go'),
+        assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
+      ]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `r13-${lang}` },
+        { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '' },
+      );
+      const reason = JSON.parse(r.stdout).reason as string;
+      expect(reason).toMatch(pointer);
+      expect(reason).toMatch(notSecondCard);
+      // The clause is an EXCEPTION to the card, so it must precede it: a reader who meets the
+      // card first has already started writing the thing the clause forbids.
+      expect(reason.indexOf('AskUserQuestion')).toBeLessThan(
+        reason.indexOf(lang === 'en' ? 'A fork is a card' : 'Развилка — карточка'),
+      );
+    },
+  );
+
   // Task 1.5 (plain-words-recap-v2 slice 1): the dormant section-checker gate. It reads a
   // recap block the model ALREADY WROTE and names the missing sections — it never demands
   // a block from a turn that has none (that boundary is the third case below). Dormant by

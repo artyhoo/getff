@@ -80,6 +80,9 @@ ${AIF_RECAP_MARKER} — a block of five sections, in this order:
 2. ${AIF_EOT_SEC_CHANGED} — if the answer is long or structural.
 3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card. Inside this block
    the card omits its own 0 and 5: sections 1 and 5 of the block already own them.
+   If the card is already above in this same answer — before the AskUserQuestion buttons, or one
+   per question in an /arch round — section 3 is ONE pointer line to it, never a second card.
+   One fork text per turn.
 $(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — optional.
 5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:
