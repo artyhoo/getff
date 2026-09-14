@@ -188,11 +188,40 @@ function tracked(basename) {
  *
  * Deliberately NOT the whole markdown corpus. `docs/meta-factory/retros/`,
  * `research-patches/` and `PROPOSAL.md` are «closed historical artifact» / «frozen — do
- * not retroactively rewrite» per the CLAUDE.md Artifact Ownership Contract, and
- * `docs/superpowers/specs/` carry dated round changelogs; their citations are snapshots
- * of what a line said on a date. Renumbering those would rewrite history, which is the
- * opposite of the repair this gate performs. Measured 2026-09-13: gating the full corpus
- * would have fired on 36 citations in exactly that closed material.
+ * not retroactively rewrite» per the CLAUDE.md Artifact Ownership Contract; their
+ * citations are snapshots of what a line said on a date, and renumbering those would
+ * rewrite history, which is the opposite of the repair this gate performs. Measured
+ * 2026-09-13: gating the full corpus would have fired on 36 citations in exactly that
+ * closed material.
+ *
+ * `docs/superpowers/specs/` is the ONE deliberate gap that is NOT closed history, and it
+ * is kept out on a price, not on the snapshot argument — those specs do carry live
+ * pointers into repo machinery and reviewers follow them. The measurement (research patch
+ * `2026-09-14-citation-quoted-literal-arm-measured-and-rejected.md`, finding S2 — whole
+ * directory, 86 files, at `05e41cb87e5`):
+ *
+ * - COST of admitting it: 1,059 citations, 765 resolved / 294 unresolvable. 363 findings
+ *   — ARM 1 339 (214 auto-renumberable by `--write`, 17 ambiguous, 108 whose cited
+ *   content is gone), ARM 2 22, line-past-EOF 2 — leaving 54 of 86 files RED, 149 of the
+ *   repairs hand-only, and 294 standing skip lines printed on every push that touches a
+ *   spec.
+ * - BENEFIT on the incident that raised the question: ZERO. PR #1765's eight birth-wrong
+ *   citations would NOT have fired here. Verified at the pre-fix tree `7b600f2e7d3`:
+ *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the
+ *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so
+ *   ARM 2 cannot see them and ARM 1 is green by construction on a citation wrong at
+ *   birth. ARM 3, the arm that would have covered that class, was built and rejected in
+ *   the same patch.
+ *
+ * So admitting the directory buys drift-AFTER-authorship on dated design docs and costs
+ * 149 hand repairs, while the class that actually escaped stays uncovered either way.
+ * Narrower cells, measured the same day, for when that trade changes: specs dated
+ * >= 2026-09-01 → 36 findings in 6 files; >= 2026-08-01 → 91 in 19; ARM 2 alone over all
+ * specs → 24 in 15.
+ *
+ * Re-gate trigger: admit the directory (or the >= 2026-09-01 window) on the first
+ * incident where a spec citation drifts AFTER authorship and misleads a reader — the
+ * class ARM 1 actually covers. Today's 363 are repair debt, not that evidence.
  *
  * `plugin/agents/` is excluded because it is a byte-identical generated twin of
  * `agents/` — gating both would report every finding twice and demand the fix land in a

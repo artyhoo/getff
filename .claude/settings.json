@@ -1,11 +1,15 @@
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "AIF_CTX_WINDOW": "1000000",
+    "AIF_HANDOFF_GATE": "1"
   },
   "permissions": {
     "allow": [
       "Bash(bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh\")",
-      "Bash(bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh\")"
+      "Bash(bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/ask-question-reminder.sh\")",
+      "Task",
+      "Agent"
     ],
     "deny": [
       "Bash(git push --force*)",
@@ -242,12 +246,14 @@
     ]
   },
   "claudeMdExcludes": [
+    "**/autonomous-loop-continuity.md",
+    "**/cold-seat-economy.md",
+    "**/effort-worthiness.md",
     "**/egress-no-api-bypass.md",
+    "**/git-conflict-merge-forward.md",
     "**/memory-codification.md",
     "**/recommendation-laziness-discipline.md",
-    "**/reviewer-discipline.md",
-    "**/autonomous-loop-continuity.md",
-    "**/git-conflict-merge-forward.md",
-    "**/cold-seat-economy.md"
-  ]
+    "**/reviewer-discipline.md"
+  ],
+  "autoCompactWindow": 300000
 }
