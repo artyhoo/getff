@@ -6,14 +6,14 @@
 > **Rigor label (L0):** `research-grade` — this stage changes a marker LITERAL that four separate
 > guard mechanisms match by exact string, and one of the matchers is an OR whose other half keeps
 > the assertion green while the half under change stops testing anything.
-> **Authoritative for:** the S4 contract — the nine literal-consumer surfaces, the R-13 reuse, the
+> **Authoritative for:** the S4 contract — the fifteen literal-consumer files, the R-13 reuse, the
 > exit gates, and the two false-green hazards this stage must close.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > D-D and D-G themselves, owned by
 > [`plain-words-recap-v2-design.md:220`](../../../docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md)
 > and `:306`.
 
-**Measurement SHA for every `path:line` below:** `2fb69aa00d7d4d4b30f257c3d592f18f065570fc`.
+**Measurement SHA for every `path:line` below:** `083d5fe1635eb8fad53d1de186cbfbff83ef42e8`.
 **Five of the spec's own citations for this stage are stale** — umbrella §3.1 lists them. Use the
 measured numbers here, not the spec's.
 
@@ -30,6 +30,15 @@ roots first. Reversible forks may be left to the recommendation; taste, goal and
 need an explicit answer. The carrier binding at [`arch/SKILL.md:50`](../../skills/arch/SKILL.md)
 (c) is **unchanged** — verified at the measurement SHA, that line is the Frontier-pacing paragraph
 and (c) is the round-carrier clause.
+
+**Where D-D lands — name it here, because the first draft did not.** The spec's delivery list
+(`docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md:505`) says «**/arch §1 round form**». `/arch` §1 is
+[`arch/SKILL.md:42`](../../skills/arch/SKILL.md) (`## §1 Phase 1 — ideate + design (pure reuse)`),
+and that section is the round form's destination: the round shape above is written INTO §1, next to
+the Frontier-pacing paragraph at `:50` that already carries the round. Do not invent a new section
+and do not put it in the hook packs — this deliverable is skill prose, and `arch/SKILL.md` is its
+only file. If on reading §1 the fit is genuinely wrong, that is a fork for the operator, not a
+choice to make silently.
 
 **D-G — the `/story` rework.** Two halves: the marker LITERAL changes, and the body changes.
 
@@ -53,37 +62,61 @@ card call; the connector «Otherwise — the card in full:» / «Иначе — 
 separates the exception from the template. **Do not reopen that prose** — any edit there re-captures
 the `f11-long-text-in-band` golden plus 8 install fingerprints plus the manifest.
 
-## §1 The nine literal-consumer surfaces — measured, not inherited
+## §1 The fifteen literal-consumer files — measured, not inherited
 
-The spec names four. A predicate sweep (`🎬` / `AIF_STORY_MARKER` / `The story` / `Как это было` /
-`по актам` / `by acts`) over the whole tree minus `docs/`, `.superpowers/`,
-`.claude/orchestrator-prompts/` and `packages/getff/dist/` returns **nine surfaces**:
+> **This table was wrong in the first draft** — it said «nine surfaces», listed twelve rows, and
+> missed the two lines inside row 9 that matter most. A cold review re-ran the sweep. What follows
+> is the re-run; run it yourself rather than trusting the table.
 
-| # | Surface | Lines at `2fb69aa00d7` | Named by spec |
-|---|---|---|---|
-| 1 | `.claude/hooks/lang/en.sh` | `:197` (`AIF_STORY_MARKER='## 🎬 The story'`), `:206` | yes |
-| 2 | `.claude/hooks/lang/ru.sh` | `:196` (`'## 🎬 Как это было'`), `:205` | yes |
-| 3 | `plugin/hooks/lang/{en,ru}.sh` | same lines — **hand-copied twins**, `cp` in the same commit | umbrella §2 item 1 |
-| 4 | `.claude/hooks/end-of-turn-reminder.sh` | **`:881`** and **`:927`** — NOT the spec's `:635-637` | wrong lines |
-| 5 | `plugin/hooks/end-of-turn-reminder` | `:882`, `:928` — **generated** by pre-commit, never hand-edit | implied |
-| 6 | `packages/core/hooks/end-of-turn-reminder.test.ts` | **`:1041`, `:1043`, `:1051`, `:1063`, `:1359`, `:1580`** — NOT `:691/:1009/:1230` | wrong lines |
-| 7 | `packages/core/skills/emit-story-prompt.test.ts` | `:20`, `:21`, `:25`, `:26`, `:30` (33 L total) | yes, correctly |
-| 8 | `tests/install-sh/gh-934-ship-eot-hook.test.sh` | **`:83`**, not `:82` | off by one |
-| 9 | `.claude/skills/story/SKILL.md` | `:25`, `:28`, `:43-44`, `:52` | **NO — the gap** |
-| 10 | `packages/core/hooks/lang-parity.test.ts` | `:79`, `:83` | **NO** |
-| 11 | `.claude/skills/story/helpers/emit-story-prompt.sh` | `:8` (the SSOT comment) | path never given |
-| 12 | `scripts/measure/README.md` | `:34`, `:62`, `:94` — three rows keyed on `## 🎬` | **NO** |
+The spec names four. The predicate sweep returns **15 distinct files**:
 
-(Rows 3 and 5 are the twin halves of rows 1-2 and 4, so the spec's «four consumers» becomes nine
-distinct files; the numbering above is the sweep's, not a count of files.)
+```bash
+git grep -l -E '🎬|AIF_STORY_MARKER|The story|Как это было|по актам|by acts' \
+  083d5fe1635eb8fad53d1de186cbfbff83ef42e8 -- . ':(exclude)docs/' \
+  ':(exclude).superpowers/' ':(exclude).claude/orchestrator-prompts/' \
+  ':(exclude)packages/getff/dist/'
+```
 
-**Row 9 is the load-bearing omission.** [`story/SKILL.md`](../../skills/story/SKILL.md) *commands*
-«by acts» in three places — `:25` («then by acts (named files / PRs / decisions)»), the
-`## Without this skill` paragraph at `:43-44` («narrates the whole session as a story — by acts»),
-and the paired-negative `:52` («reads as a narrative by acts»). D-G replaces the by-acts chronicle
-with the session-scale D-A sections. Shipping D-G without row 9 leaves the skill's own text
-contradicting the instruction the hook emits, on the exact surface a model reads to decide what to
-write. Update all three, and update the paired-negative so it still falsifies something.
+| # | File | Lines at `083d5fe1635` | Named by spec | Literal edit? |
+|---|---|---|---|---|
+| 1 | `.claude/hooks/lang/en.sh` | `:197` (`AIF_STORY_MARKER='## 🎬 The story'`), `:206` | yes | **yes** |
+| 2 | `.claude/hooks/lang/ru.sh` | `:196` (`'## 🎬 Как это было'`), `:205` | yes | **yes** |
+| 3 | `plugin/hooks/lang/en.sh` | same lines — **hand-copied twin**, `cp` in the same commit | umbrella §2 item 1 | **yes** |
+| 4 | `plugin/hooks/lang/ru.sh` | same lines — **hand-copied twin** | umbrella §2 item 1 | **yes** |
+| 5 | `.claude/hooks/end-of-turn-reminder.sh` | **`:881`** (D-A gate's story exemption) and **`:927`** (the story-told guard) — NOT the spec's `:635-637` | wrong lines | **yes** |
+| 6 | `plugin/hooks/end-of-turn-reminder` | `:882`, `:928` — **generated** by pre-commit, never hand-edit | implied | regenerated |
+| 7 | `packages/core/hooks/end-of-turn-reminder.test.ts` | **`:1041`, `:1043`, `:1051`, `:1063`, `:1359`, `:1580`** — NOT `:691/:1009/:1230` | wrong lines | **yes** |
+| 8 | `packages/core/skills/emit-story-prompt.test.ts` | `:20`, `:21`, `:25`, `:26`, `:30` (33 L total) | yes, correctly | **yes** |
+| 9 | `tests/install-sh/gh-934-ship-eot-hook.test.sh` | **`:83`**, not `:82` | off by one | **yes** |
+| 10 | **`.claude/skills/story/SKILL.md`** | `:3`, `:8`, `:28`, `:44`, `:52` — plus the «by acts» sentence straddling `:25-26` | **NO — the gap** | **yes, all** |
+| 11 | `packages/core/hooks/lang-parity.test.ts` | `:79`, `:83` — matches the NAME `AIF_STORY_MARKER=`, not its value | **NO** | no — name-only |
+| 12 | `.claude/hooks/lang/check-parity.sh` | `:31` — probes for `^AIF_STORY_MARKER=` by NAME | **NO** | no — name-only |
+| 13 | `plugin/hooks/lang/check-parity.sh` | `:31` — hand-copied twin of row 12 | **NO** | no — name-only |
+| 14 | `.claude/skills/story/helpers/emit-story-prompt.sh` | `:8` (the SSOT comment) | path never given | **yes** |
+| 15 | `scripts/measure/README.md` | `:34`, `:62`, `:94` — three rows keyed on `## 🎬` | **NO** | **yes** |
+
+**Inclusion criterion:** every file the predicate returns is listed, name-only matches included,
+each with its disposition. Rows 11-13 need no edit because they match the variable name and not
+its value — but they are in the table, because an unstated criterion is how the first draft kept
+row 11 and dropped rows 12-13, which have exactly the same shape.
+
+**Row 10 is the load-bearing omission, and `:3` and `:8` are its sharpest edges.**
+[`story/SKILL.md`](../../skills/story/SKILL.md) *commands* the by-acts chronicle in five places:
+
+- **`:3`** — the `description:` frontmatter («…story, recap, «по актам».»). This is the field a
+  model matches on to route to `/story` at all, and the field
+  [`skill-description-quality.md`](../../rules/skill-description-quality.md) governs. Leaving it
+  makes the skill advertise the chronicle D-G removes.
+- **`:8`** — the `> **Authoritative for:**` header («session recap narrated as a story by acts»).
+  The skill's own claim about what it is. Leaving it contradicts the body one level up.
+- **`:25-26`** — «open in one sentence, then by / acts (named files / PRs / decisions)». The
+  sentence straddles two lines, which is why a single-line grep does not return `:25`; edit the
+  sentence, not the line number.
+- **`:44`** — inside `## With this skill` (`:39`, body `:41-45`): «narrates the whole session as a
+  story — by acts». **This is NOT the `## Without this skill` paragraph** — that heading is `:32`
+  and its body `:34-37` carries nothing to change. The first draft misattributed it.
+- **`:52`** — the paired-negative («reads as a narrative by acts»). Update it so it still
+  falsifies something rather than asserting the removed shape.
 
 ## §2 The two false-green hazards
 
@@ -149,7 +182,8 @@ class «a literal matched by exact string across generated twins, shipped payloa
 test assertion».
 
 **The class-specific trap for S4: sweep by predicate, never by spelling.** §1 is a live instance —
-the spec's four-item list missed four surfaces because it was assembled by recalling files rather
-than by enumerating the predicate. When you change the literal, re-run the sweep against your own
+the spec's four-item list missed eleven of the fifteen files the predicate returns, because it was
+assembled by recalling files rather than by enumerating the predicate — and so was the first draft
+of §1 itself. When you change the literal, re-run the sweep against your own
 pinned SHA and diff the surface list against §1; a surface that appears in yours and not in mine is
 a finding, not a discrepancy to smooth over.
