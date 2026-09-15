@@ -327,10 +327,14 @@ if [ -f "$AQR_SRC" ]; then
   fi
 fi
 
-# ─── 1e. Path-scoped rule-injector PostToolUse hook (GH #934) ─────────────────
-# Consumers DO get .claude/rules/* installed; without this hook that rules channel is cold-load
-# only. This edit-time injector delivers the matching rule's `inject:` summary the moment a scoped
-# path is edited. Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
+# ─── 1e. Path-scoped rule-injector PostToolUse hook (GH #934; claim corrected by GH #1520) ──
+# The HOOK below ships + registers; the `.claude/rules/` CORPUS it reads does NOT ship — it is
+# consumer-owned project data (delivery ships zero rules/ lines; setup.d/lib.sh:86-88 records the
+# non-delivery; the plugin twin carries the same corrected model). The former §1e SHIP line
+# asserting the rules corpus reaches consumers was inherited unverified from #934's draft
+# classification via PR #1004 and is retracted (2026-09-15, #1520 option B). This edit-time
+# injector delivers the matching rule's `inject:` summary the moment a scoped path is edited.
+# Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
 # framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
 # Registered with the "Edit|Write|MultiEdit" matcher (parity with the framework's own settings.json).
 IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"

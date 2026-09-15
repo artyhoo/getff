@@ -21,7 +21,7 @@ import { describe, it, expect } from 'vitest';
 import { execSync, execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -253,3 +253,30 @@ describe.skipIf(!JQ)(
     });
   },
 );
+
+// =============================================================================
+// Rules-delivery claim retraction (GH #1520, option B) — the hook's SHIP-status
+// comment asserted «consumers DO get .claude/rules/* installed», inherited
+// unverified from #934's draft classification via PR #1004. Delivery ships ZERO
+// rules/ lines (setup.d/lib.sh:86-88 records the non-delivery); the corpus is
+// consumer-owned. Comment-only contract, so the guard is textual: the false
+// claim cannot silently return, and the correction must keep pointing at the
+// two in-tree statements of the truth (lib.sh + the plugin twin's model).
+// =============================================================================
+describe('inject-matching-rule.sh — rules-delivery claim retraction (GH #1520)', () => {
+  it('source carries no SHIP claim of rules delivery; states hook-ships/corpus-does-not with pointers', () => {
+    const src = readFileSync(HOOK, 'utf8');
+    // The retracted claim, in either of its two historical phrasings.
+    expect(src).not.toMatch(/consumers DO get \S*rules/i);
+    expect(src).not.toMatch(/NOW SHIPPED[^\n]*rules\/\*/i);
+    // The corrected model: corpus does NOT ship (consumer-owned) + the lib.sh pointer.
+    expect(src).toMatch(/CORPUS it reads does NOT ship/);
+    expect(src).toMatch(/consumer-owned project data/);
+    expect(src).toMatch(/lib\.sh:86-88/);
+    // The delivery lanes stay truthfully described (hook ships + registers).
+    expect(src).toMatch(/setup\.d\/10-skills\.sh §1e/);
+    expect(src).toMatch(/install\.sh --refresh/);
+    // The @dual-pair marker survived the retraction edit untouched.
+    expect(src).toMatch(/^# @dual-pair: rule-path-scoping$/m);
+  });
+});
