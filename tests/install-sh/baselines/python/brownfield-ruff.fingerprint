@@ -4,7 +4,7 @@ fb03a9916de1ae1e6e1731dab3e939998a90008ef79c849ee1be774c53308905  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 49062080a90b66eaa853a548d45c5a505f3cfef86eaf1baa2d8d4bc27c9ee2fd  .ai-factory/RULES.md
-7ff271947e2414e527f68034ecca7b25ed03ba3495bdd0df916b018122e35360  .ai-factory/refresh-baseline.json
+e31659e44dc7b1dfaebf9894abdd8d8a7cb1e7790ed0a27608ef20ca4bd57d3a  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -22,7 +22,7 @@ aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills
 025b534cae8a3c8219e24424755c66bdca360485b1cecc248f06f51bbda7ddca  .claude/skills/getff/references/self-testing-docs.md
 d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md
 3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .claude/skills/rule-tests/SKILL.md
-739fc37d923f7459e1fced6f3dff09e7080d13b4c1b7a22f545d33958170d76d  .claude/skills/tool-bootstrapping/SKILL.md
+ac5b9394a3c98b485b8b1ca15377559abb4068e588f28be5532f618970ceddf2  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 bf24cbbc3d2dc7b19b35bfe3fc93930925070b2e13082b3273d1fb117a8c55c2  .getff/astgrep-rules/getff-no-datetime-datetime-now.yml
