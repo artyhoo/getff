@@ -39,7 +39,6 @@ import {
   mkdtempSync,
   readdirSync,
   realpathSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -112,15 +111,33 @@ function hasJq(): boolean {
 const JQ = hasJq();
 
 /**
+ * The arm-2 strict header (ref-gen spec §5 regex D) as line 2:
+ * `# <basename> — <desc>`, desc ≥10 chars after the em-dash. The header names the
+ * file's OWN basename, so it can only be spliced once the sandbox name exists.
+ */
+function withHeader(name: string, desc: string, body: string): string {
+  const [shebang, ...rest] = body.split('\n');
+  return [shebang, `# ${name} — ${desc}`, ...rest].join('\n');
+}
+
+/**
  * Write `body` to the sandbox `.claude/hooks/<name>` so the hook's path matcher
  * fires against an on-disk file (PostToolUse reads post-edit content). Returns
  * the absolute path; the whole sandbox is removed in afterAll. Uses a unique
  * name to avoid clobber.
+ *
+ * `headerDesc` splices the arm-2 strict header (see withHeader) in above any
+ * @-marker line. A fixture standing in for a CONFORMING hook must carry it —
+ * the gate runs marker, header, @file-content-gate and @matcher-parity arms
+ * against the same file, so a header-less positive fixture exits 2 on arm 2
+ * and every paired-negative below fires for the wrong arm (the 2026-09-15 CI
+ * red: 11 paired-positives exited 2 on arm 2). Omit it ONLY for a fixture
+ * whose test deliberately violates the header arm itself.
  */
-function writeHook(body: string, ext = '.sh'): string {
+function writeHook(body: string, ext = '.sh', headerDesc?: string): string {
   const name = `c4-test-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
   const abs = join(SANDBOX_HOOKS, name);
-  writeFileSync(abs, body, 'utf8');
+  writeFileSync(abs, headerDesc === undefined ? body : withHeader(name, headerDesc, body), 'utf8');
   return abs;
 }
 
@@ -164,6 +181,8 @@ describe.skipIf(!JQ)(
     it('PAIRED-POSITIVE: @cc-only-rationale present → exit 0', () => {
       const abs = writeHook(
         '#!/usr/bin/env bash\n# @cc-only-rationale: edit-time gate, no portable equivalent\nexit 0\n',
+        '.sh',
+        'edit-time gate with no portable counterpart (fixture)',
       );
       expect(runHook('Write', abs).status).toBe(0);
     });
@@ -171,6 +190,8 @@ describe.skipIf(!JQ)(
     it('PAIRED-POSITIVE: @dual-pair present → exit 0', () => {
       const abs = writeHook(
         '#!/usr/bin/env bash\n# @dual-pair: some-anchor-slug\nexit 0\n',
+        '.sh',
+        'hook with a portable counterpart (fixture)',
       );
       expect(runHook('Edit', abs).status).toBe(0);
     });
@@ -210,7 +231,14 @@ describe.skipIf(!JQ)(
       // surfaces as advisory context, not a hard gate. This test guards BOTH the JSON branch AND
       // schema compliance — catches the exact regression where a prior shape emitted
       // `{hookEventName, additionalContext}` at top level and was silently rejected by ZCode.
-      const abs = writeHook('#!/usr/bin/env bash\n# no marker\nexit 0\n');
+      // Headered fixture: the marker arm still fires (line 3 is not a marker), but on ZCode
+      // _adv_violation emits and CONTINUES — a second arm-2 emission would append a second
+      // JSON object to stdout and break the single-JSON assertions below.
+      const abs = writeHook(
+        '#!/usr/bin/env bash\n# no marker\nexit 0\n',
+        '.sh',
+        'marker-less fixture for the ZCode advisory path',
+      );
       const r = runHook('Write', abs, { ZCODE_PROJECT_DIR: SANDBOX });
       // On ZCode: exit 0 (advisory), output = JSON additionalContext.
       expect(r.status, 'ZCode path exits 0 (advisory, non-blocking)').toBe(0);
@@ -277,25 +305,34 @@ describe.skipIf(!JQ)(
 
     it('PAIRED-NEGATIVE: @file-content-gate hook registered Edit|Write (no MultiEdit) → exit 2', () => {
       const name = `zzz-fcg-neg-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      // Headered fixture: the exit 2 must come from the @file-content-gate arm (the arm
+      // under test), never from arm 2 firing on a header-less fixture.
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'file-content gate fixture, narrow registration (negative)',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        ),
+        'utf8',
       );
-      // Rename the sandbox hook to match the name the settings.json will reference.
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeSandboxSettings('Edit|Write', name);
-      expect(runHook('Edit', renamed).status).toBe(2);
+      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
     });
 
     it('PAIRED-POSITIVE: @file-content-gate hook registered Edit|Write|MultiEdit → exit 0', () => {
       const name = `zzz-fcg-pos-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'file-content gate fixture (full registration)',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeSandboxSettings('Edit|Write|MultiEdit', name);
-      expect(runHook('Edit', renamed).status).toBe(0);
+      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
     it('shipped-only @file-content-gate hook (absent from settings.json) → exit 0 (tolerated)', () => {
@@ -303,6 +340,8 @@ describe.skipIf(!JQ)(
       // and not in the plugin channel either): the gate has no matcher to check → skip.
       const abs = writeHook(
         `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        '.sh',
+        'file-content gate fixture shipped outside settings.json',
       );
       // No writeSandboxSettings — settings.json absent or has no entry for this hook.
       // (Sandbox settings.json from a prior test may exist; ensure this hook is NOT in it;
@@ -360,11 +399,17 @@ describe.skipIf(!JQ)(
 
     it('GAP-2 NEGATIVE: plugin-channel-only registration Edit|Write (no MultiEdit) → exit 2', () => {
       const name = `zzz-gap2-neg-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      // Headered fixture: the exit 2 must come from the plugin-channel @file-content-gate
+      // lookup, never from arm 2 firing on a header-less fixture.
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'plugin-channel file-content gate fixture (narrow, negative)',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       // Absent from settings.json (empty PostToolUse), registered ONLY via the plugin channel.
       writeFileSync(
         join(SANDBOX, '.claude', 'settings.json'),
@@ -372,23 +417,27 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       writeSandboxPluginHooks('Edit|Write', name);
-      expect(runHook('Edit', renamed).status).toBe(2);
+      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
     });
 
     it('GAP-2 POSITIVE: plugin-channel-only registration Edit|Write|MultiEdit → exit 0', () => {
       const name = `zzz-gap2-pos-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'plugin-channel file-content gate fixture (full registration)',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeFileSync(
         join(SANDBOX, '.claude', 'settings.json'),
         JSON.stringify({ hooks: { PostToolUse: [] } }),
         'utf8',
       );
       writeSandboxPluginHooks('Edit|Write|MultiEdit', name);
-      expect(runHook('Edit', renamed).status).toBe(0);
+      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
     it('GAP-2 PREFIX-BOUNDARY: plugin entry for <name>-header must not satisfy <name>.sh lookup', () => {
@@ -400,11 +449,18 @@ describe.skipIf(!JQ)(
       // the next helper call overwrote — the boundary property was never actually staged;
       // cold-review P2, 2026-09-13.)
       const name = `zzz-gap2-pre-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
-      );
+      // Headered fixture: the exit 2 below must come from the hook's OWN narrow plugin
+      // entry, never from arm 2 firing on a header-less fixture.
       const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
+      writeFileSync(
+        renamed,
+        withHeader(
+          name,
+          'plugin-channel prefix-boundary fixture',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n`,
+        ),
+        'utf8',
+      );
       writeFileSync(
         join(SANDBOX, '.claude', 'settings.json'),
         JSON.stringify({ hooks: { PostToolUse: [] } }),
@@ -454,37 +510,51 @@ describe.skipIf(!JQ)(
 
     it('PARITY-NEGATIVE: case-arm Edit|Write|MultiEdit but matcher Edit|Write → exit 2', () => {
       const name = `zzz-parity-neg-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+      // Headered fixture: the exit 2 must come from the @matcher-parity arm (the arm under
+      // test), never from arm 2 firing on a header-less fixture.
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'matcher-parity fixture, case arm wider than matcher',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeSandboxSettings('Edit|Write', name);
-      expect(runHook('Edit', renamed).status).toBe(2);
+      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(2);
     });
 
     it('PARITY-POSITIVE: case-arm Edit|Write|MultiEdit + matcher Edit|Write|MultiEdit → exit 0', () => {
       const name = `zzz-parity-pos-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'matcher-parity fixture (matcher covers the case arm)',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Edit | Write | MultiEdit) ;; *) exit 0 ;; esac\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeSandboxSettings('Edit|Write|MultiEdit', name);
-      expect(runHook('Edit', renamed).status).toBe(0);
+      expect(runHook('Edit', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
     it('PARITY-WRITE-ONLY (A5 self-calibration): case-arm Write + matcher Write → exit 0', () => {
       // inject-memory-codification precedent: a deliberately Write-only hook stays GREEN — the
       // parity rule requires matcher ⊇ case-arm, NOT a hardcoded MultiEdit demand.
       const name = `zzz-parity-wo-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'Write-only parity fixture (A5 self-calibration)',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeSandboxSettings('Write', name);
-      expect(runHook('Write', renamed).status).toBe(0);
+      expect(runHook('Write', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
 
     it('PARITY comment-immunity: a `case "$TOOL" in …` in PROSE above the real arm is not mis-extracted', () => {
@@ -493,13 +563,17 @@ describe.skipIf(!JQ)(
       // the REAL arm {Write}; matcher Write ⊇ {Write} → exit 0. If comments were NOT stripped,
       // head -1 would grab the prose {Read}, demand matcher ⊇ {Read}, and wrongly exit 1.
       const name = `zzz-parity-comment-${Date.now()}.sh`;
-      const abs = writeHook(
-        `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# doc: this hook once used \`case "$TOOL" in Read)\` — kept as prose\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+      writeFileSync(
+        join(SANDBOX_HOOKS, name),
+        withHeader(
+          name,
+          'comment-immunity parity fixture',
+          `#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# doc: this hook once used \`case "$TOOL" in Read)\` — kept as prose\ncase "$TOOL" in Write) ;; *) exit 0 ;; esac\nexit 0\n`,
+        ),
+        'utf8',
       );
-      const renamed = join(SANDBOX_HOOKS, name);
-      renameSync(abs, renamed);
       writeSandboxSettings('Write', name);
-      expect(runHook('Write', renamed).status).toBe(0);
+      expect(runHook('Write', join(SANDBOX_HOOKS, name)).status).toBe(0);
     });
   },
 );
@@ -555,7 +629,14 @@ describe.skipIf(!JQ)(
         'utf8',
       );
       const hookName = 'zzz-backstop.sh';
-      writeFileSync(join(hooksDir, hookName), hookBody, 'utf8');
+      // Headered fixture: the Layer-2 fixtures below assert exit 2 from the hook's OWN
+      // @file-content-gate / parity arm — arm 2 firing on a header-less fixture would
+      // mask which arm produced the violation.
+      writeFileSync(
+        join(hooksDir, hookName),
+        withHeader(hookName, 'Layer-2 backstop fixture (one deliberately narrowed arm)', hookBody),
+        'utf8',
+      );
       writeFileSync(
         join(root, '.claude', 'settings.json'),
         JSON.stringify({
@@ -753,9 +834,16 @@ describe.skipIf(!hasJq())('consumer scoping (A3-4) and matcher membership (A3-8)
       'utf8',
     );
     const hookName = 'zzz-narrow.sh';
+    // Headered fixture: the assertion below matches /missing \[MultiEdit\]/ on stderr — that
+    // message can only come from the @file-content-gate arm, so the fixture must not trip
+    // arm 2's header-grammar message instead.
     writeFileSync(
       join(hooksDir, hookName),
-      '#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n',
+      withHeader(
+        hookName,
+        'genuinely narrow matcher fixture (must be caught)',
+        '#!/usr/bin/env bash\n# @cc-only-rationale: fixture\n# @file-content-gate: test\nexit 0\n',
+      ),
       'utf8',
     );
     writeFileSync(
