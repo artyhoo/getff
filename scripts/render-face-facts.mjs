@@ -43,9 +43,10 @@
  * (FS1's page arm) activates at S1 when the face pages land (D24b byte-identity seam);
  * today the check is the manifest's own byte-identity — the pages do not exist yet.
  *
- * Channels (D42): pre-commit `--write` (.husky — maintainer repo), pre-push + audit-self.yml
- * `--check`, `scripts/render-face-facts.test.sh` acceptance arms, the run-local-ci-sweep
- * `face-facts-check` row. The landing build runs NO framework script (D35/D42).
+ * Channels (D42): author-run `--write` (output committed by hand — NO pre-commit wiring:
+ * `.husky/pre-commit` invokes neither generator; corrected 2026-09-15, review gate), pre-push +
+ * audit-self.yml `--check`, `scripts/render-face-facts.test.sh` acceptance arms, the
+ * run-local-ci-sweep `face-facts-check` row. The landing build runs NO framework script (D35/D42).
  *
  * Modes: `--write` (emit) | `--check` (drift, exit 1 naming the file) | `--root <dir>` for
  * fixture runs. Absence of a declared source is a build failure naming the file (D36:
