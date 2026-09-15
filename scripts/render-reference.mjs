@@ -29,7 +29,9 @@
  *
  * Input classes are pinned to ref-gen §7 (fragility budget): frontmatter keys via the shared
  * extractor (rule-channel-glob.ts), schema'd JSON, one strict header line per glob (the
- * HEADER_TABLE literal below — the same table the edit-time gate reads, §7 row 6), rule
+ * HEADER_TABLE literal below — the same table the edit-time gate would read (§7 row 6;
+ * that gate is DEFERRED, not built — G9 correction 2026-09-15 — HEADER_TABLE is exported
+ * for it), rule
  * header fields via render-rule-index.mjs (imported, G12), install fingerprints by path AND
  * sha256 content identity, and the wiring-surface classifier in ./census.mjs (§7 row 7).
  * No prose parsing, no installer copy-arm parsing, no git-history inference, no AI fill.
@@ -67,8 +69,9 @@ export const ABSENCE_REASONS = ['no-lane', 'no-operator-twin', 'not-byte-copied'
 
 /**
  * The shared literal header table (§5 + §7 row 6): one anchored regex per glob, the SAME
- * table the edit-time gate (check-source-header.sh) and this generator's family config read,
- * so the gate and the parser cannot disagree (#sync-by-copy-paste). `<b>` = the file's own
+ * table the edit-time gate (check-source-header.sh — DEFERRED, not built in S0a, G9
+ * correction 2026-09-15; this exported table is its designed input) and this generator's
+ * family config read, so the gate and the parser cannot disagree (#sync-by-copy-paste). `<b>` = the file's own
  * basename as it is spelled where it lives; `<stem>` = basename without the extension.
  */
 export const HEADER_TABLE = {

@@ -81,7 +81,7 @@
       },
       "extras": {
         "wired-from": [
-          "scripts/render-reference.mjs:54 (es-import, closure)"
+          "scripts/render-reference.mjs:56 (es-import, closure)"
         ]
       },
       "example": null
@@ -426,7 +426,7 @@
       "extras": {
         "wired-from": [
           ".github/workflows/audit-self.yml:252 (workflow-run:invocation-verb)",
-          "scripts/render-reference.mjs:51 (es-import, closure)"
+          "scripts/render-reference.mjs:53 (es-import, closure)"
         ]
       },
       "example": null
@@ -486,7 +486,7 @@
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1402 (spawn-argument)",
           ".github/workflows/audit-self.yml:247 (workflow-run:invocation-verb)",
-          "scripts/render-reference.mjs:50 (es-import, closure)"
+          "scripts/render-reference.mjs:52 (es-import, closure)"
         ]
       },
       "example": null
