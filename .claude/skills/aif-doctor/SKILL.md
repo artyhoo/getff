@@ -12,6 +12,8 @@ allowed-tools:
   - Bash(ls *)
   - Bash(cat *)
   - Bash(grep *)
+  - Bash(date *)   # GH #1581: age-threshold arithmetic for the -t --tail log windows (§3.7/§3.8)
+  - Bash(awk *)    # GH #1581: age cut on docker logs -t timestamps (§3.7/§3.8)
   - Read
 ---
 
@@ -155,10 +157,20 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
 - **The failure class:** a task dispatched while another task of the same project is mid-flight sits in `backlog` for the remainder of the active lane's _current pass_, despite free capacity. A pass ends at task termination (`done`) OR at an internal review→rework boundary (review is the last stage of `processProjectLane`'s single iteration, so a rework request closes the cycle mid-flight). Measured 2026-07-25, two observed windows at `active=1, limit=5` (four slots idle), with `grep -c "at capacity"` over the coordinator log = **0**: (1) **47 minutes** ending when the blocking task reached `done` at `09:37:52.345Z` — same second the coordinator logged `Poll cycle complete` → `Starting poll cycle` (do…while follow-up) → `Auto-queue advanced next backlog task` → `Auto-queue advance pass complete`, and the waiting task's activity opened with `[auto-queue] Advanced by project auto-queue mode (pool 1/5)`; (2) a second task admitted at `11:02:24Z` (worktree created, planner started) after the first task's review gate logged `rework_requested` at `11:00:57.359Z` and `Poll cycle complete` at `11:00:57.365Z` — the same instant, because the review→implementing rework transition ended the pass and closed the cycle, while the first task was still mid-rework. This is **admission latency bounded by the active lane's pass-exit (termination OR rework boundary), not starvation and not capacity** — the «only DELETE frees it» folklore (§3.2) does NOT apply to this state. A task whose review passes on iteration 1 yields exactly one pass (the original 47-min shape); a task with rework rounds opens a window per round.
 - **Detect (read-only):**
   ```bash
-  # no admission since the last advance, while a task is active and capacity is free:
-  docker logs aif-handoff-agent-1 --since 30m | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
-  docker logs aif-handoff-agent-1 --since 30m | grep -c '"at capacity"'                                          # 0 = not a §3.2 capacity problem
-  docker logs aif-handoff-agent-1 --since 30m | grep -c 'Poll cycle already active'                              # >0 = cycle busy → LATENCY, not starvation
+  # no admission since the last advance, while a task is active and capacity is free.
+  # NEVER `docker logs --since <t>`: Docker 29.2.x returns 0 lines whenever the filter has
+  # to exclude anything, so all three counters read permanently 0 and every triage
+  # degenerates to "admission window closed" (GH #1581; corroborated:
+  # docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md).
+  # Window shape instead: `docker logs -t --tail <budget>` (timestamps; the budget must
+  # EXCEED the window's line volume — the awk cut does the exact age cut) with `date -u`
+  # arithmetic (BSD -v first, GNU -d fallback) and a lexicographic compare at second
+  # resolution; 2>&1 merges container stdout+stderr so no coordinator line is missed.
+  W30_CUTOFF=$(date -u -v-30M +%FT%T 2>/dev/null || date -u -d '30 minutes ago' +%FT%T)
+  w30() { docker logs -t --tail 2000 "$1" 2>&1 | awk -v c="$W30_CUTOFF" 'substr($1,1,19) >= c'; }
+  w30 aif-handoff-agent-1 | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
+  w30 aif-handoff-agent-1 | grep -c '"at capacity"'                                        # 0 = not a §3.2 capacity problem
+  w30 aif-handoff-agent-1 | grep -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
   ```
 - **Discriminator (latency vs §3.2 capacity saturation):** the same-second `done` → `Auto-queue advanced` sequence (09:37:52) and the same-instant `rework_requested` → `Poll cycle complete` sequence (11:00:57) together prove admission fires at lane-pass exit, not only at task termination. If `Poll cycle already active` appears in the log alongside a long-running active task and `at capacity` does NOT, the wait is LATENCY (this mode). If `at capacity` appears with `active==limit`, escalate to §3.2 (true capacity saturation). The two are NOT the same mode — §3.2 has zero free slots; this mode has free slots the cycle structure cannot reach until the active lane's current pass ends.
 - **Mechanism (source-verified in `/app/packages/agent/dist/coordinator.js`, all anchors re-checked 2026-07-25):**
@@ -187,8 +199,10 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   curl -s localhost:3009/tasks/<id> | jq -r '.reviewComments' | grep -c '^## Blocking Findings'   # 0 = contract never reached
   # hook-drift discriminator (defect 2) — 0 = pre-fix hook in THIS worktree, 2 = fixed:
   docker exec <agent> grep -c CLAUDE_CODE_ENTRYPOINT <worktreePath>/.claude/hooks/end-of-turn-reminder.sh
-  # bijection deadlock (defect 3) — parse failures persist WHILE remembered findings grow:
-  docker logs <agent> --since 2h | grep -c 'Structured review contract not satisfied'   # >0 across iterations
+  # bijection deadlock (defect 3) — parse failures persist WHILE remembered findings grow
+  # (no `--since` — same Docker 29.2.x blindness, GH #1581; -t --tail budget + date -u cut as §3.7):
+  W2H_CUTOFF=$(date -u -v-2H +%FT%T 2>/dev/null || date -u -d '2 hours ago' +%FT%T)
+  docker logs -t --tail 8000 <agent> 2>&1 | awk -v c="$W2H_CUTOFF" 'substr($1,1,19) >= c' | grep -c 'Structured review contract not satisfied'   # >0 across iterations
   docker exec <api> node -e 'const t=require("better-sqlite3")("/data/aif.sqlite").prepare("SELECT length(auto_review_state_json) n FROM tasks WHERE id=?").get("<id>");console.log(t.n)'  # growing across iterations
   # no-subagent fallback (variant) — reviewComments ~105 chars containing 'Unknown command: /aif-review'
   ```

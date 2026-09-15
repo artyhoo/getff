@@ -81,13 +81,26 @@ idles in `backlog` with free slots», carrying: the failure class (from §1), re
 commands, the latency-vs-starvation discriminator, the two named non-fixes, and the batch-dispatch
 mitigation — every mechanism claim with its `file:line` anchor from §1.
 
-**Detection commands for the entry (adapt wording, keep substance):**
+**Detection commands for the entry** (rebased 2026-09-15 on `-t --tail` + `date -u` arithmetic,
+GH #1581 — Docker 29.2.x `--since` returns 0 lines whenever filtering is required, so the old
+`--since 30m` counters were always-blind; keep this copy in sync with the §3.7 Detect block in
+`.claude/skills/aif-doctor/SKILL.md`):
 
 ```bash
-# no admission since the last advance, while a task is active and capacity is free:
-docker logs aif-handoff-agent-1 --since 30m | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 0 = window closed
-docker logs aif-handoff-agent-1 --since 30m | grep -c '"at capacity"'                                        # 0 = not a capacity problem
-docker logs aif-handoff-agent-1 --since 30m | grep -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
+# no admission since the last advance, while a task is active and capacity is free.
+# NEVER `docker logs --since <t>`: Docker 29.2.x returns 0 lines whenever the filter has
+# to exclude anything, so all three counters read permanently 0 and every triage
+# degenerates to "admission window closed" (GH #1581; corroborated:
+# docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md).
+# Window shape instead: `docker logs -t --tail <budget>` (timestamps; the budget must
+# EXCEED the window's line volume — the awk cut does the exact age cut) with `date -u`
+# arithmetic (BSD -v first, GNU -d fallback) and a lexicographic compare at second
+# resolution; 2>&1 merges container stdout+stderr so no coordinator line is missed.
+W30_CUTOFF=$(date -u -v-30M +%FT%T 2>/dev/null || date -u -d '30 minutes ago' +%FT%T)
+w30() { docker logs -t --tail 2000 "$1" 2>&1 | awk -v c="$W30_CUTOFF" 'substr($1,1,19) >= c'; }
+w30 aif-handoff-agent-1 | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
+w30 aif-handoff-agent-1 | grep -c '"at capacity"'                                        # 0 = not a §3.2 capacity problem
+w30 aif-handoff-agent-1 | grep -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
 ```
 
 ## §3 «Works» — acceptance checks
