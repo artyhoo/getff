@@ -16,6 +16,8 @@
 #   refresh_baseline_stage <dst>            # consumer-refresh-integrity R1 — record a delivery
 #   refresh_baseline_flush                  # R1 — write .ai-factory/refresh-baseline.json (fail-open)
 #   refresh_baseline_diverged <dst> <src>   # R1 — 0 iff dst diverged from the baseline (if-guard only)
+#   _pre_overwrite_guard <src> <dst> [transform] # W1-A (GH #1514/#1540) — divergence sweep before a
+#                                              # destructive overwrite (copy_safe --force / tree replace)
 #   deliver_getff_workflow <tpl-src> <dst>      # getff-honest-signals S4 — branch substitution
 #   merge_prettierignore <src> <dst>
 #   _prettierignore_in_skipped <needle>
@@ -189,18 +191,35 @@ _transform_md_tree() {
 # (see transform_internal_refs above; the 2026-08-17 CI incident, run 32022158836, was exactly a
 # delivered README landing back at its untransformed source).
 #
-# NOT a delivery verb: it applies no ownership policy at all — no skip-if-exists, no `.override.md`
-# escape, no R1 divergence guard. Callers that owe the consumer an ownership decision go through
-# copy_safe / refresh_safe / refresh_tree_with_transform; this helper is only the raw sequence
-# those verbs and the fresh-install layers share. Handing it a destination the consumer may own
-# is the ledger A1-1 defect (see refresh_tree_with_transform below).
+# NOT a delivery verb: it applies no ownership policy of its own — no skip-if-exists, no `.override.md`
+# escape. Callers that owe the consumer an ownership decision go through copy_safe / refresh_safe /
+# refresh_tree_with_transform; this helper is only the raw sequence those verbs and the fresh-install
+# layers share. What it DOES owe (GH #1540, W1-A D4(a)): a read-side divergence pass before the wipe
+# — the bare `rm -rf` it replaced destroyed a consumer-edited skill tree with no warning, no
+# preserved copy and no baseline staging, which is exactly the issue-1481 defect class for the one
+# payload shape the R1 guard never reached. The pass is policy-free in the Layer-3 sense only: an
+# `.override.md` escape stays the CALLER's decision (refresh_skill_with_transform checks it before
+# calling here; the install arm's skip-if-exists is likewise upstream).
 _copy_tree_with_transform() {
   local src="$1" dst="$2"
   [ -d "$src" ] || return 0
+  # GH #1540 (W1-A D4(a)/(c)): before wiping an existing tree, route every dst file through the
+  # pre-overwrite divergence decision (setup.d/lib.sh, _pre_overwrite_guard): baseline entry
+  # present + diverged → per-file ⚠ + preserved copy; no entry + diverged from the incoming
+  # bytes → silent preserve, one aggregate line per run. `transform` makes the *.md comparison
+  # run against the TRANSFORMED source — the bytes this helper is about to write, not the raw
+  # repo bytes (see _pre_overwrite_guard). Read-only under --dry-run (callers gate it; the
+  # wrapper verbs run it themselves in their dry-run preview arms).
+  _pre_overwrite_guard "$src" "$dst" transform
   rm -rf "$dst"
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   _transform_md_tree "$dst"
+  # R1 (W1-A, GH #1540): stage the freshly delivered tree so the NEXT refresh finds baseline
+  # entries for it. Without this, skill trees stayed «unknown» forever and the no-entry arm was
+  # their only guard — the gap INSTALL-FOR-AI.md:482 used to (truthfully) document as "cannot
+  # distinguish a consumer-edited file from an unedited one" for skill dirs.
+  refresh_baseline_stage "$dst"
 }
 
 # refresh_tree_with_transform <src-dir> <dst-dir>
@@ -261,9 +280,13 @@ refresh_tree_with_transform() {
 #     consumer's edits with no warning and no conflicts copy — issue 1481, guaranteed rather
 #     than merely possible, for exactly the payloads the guard never covered.
 #
-# SCOPE: copy_safe/refresh_safe deliveries only. Skills (copy_skill_with_transform /
-# refresh_skill_with_transform), merge_fenced and the raw-cp vendor drop have their own verbs
-# and stay outside this mechanism (W-RI-1: generic, no special-casing of any pair entry).
+# SCOPE: copy_safe/refresh_safe deliveries, PLUS (W1-A, GH #1514/#1540) the destructive-overwrite
+# arms — copy_safe's --force write and the _copy_tree_with_transform tree replace (skills/* trees,
+# the runtime-bridge vendor tree) — which now run the same per-file baseline decision via
+# _pre_overwrite_guard before destroying bytes. Outside the mechanism: merge_fenced (section-scoped
+# co-ownership replaces only the fenced body, so a whole-file baseline entry cannot apply) and the
+# raw-cp vendor hook drop (single idempotent file, W-RI-1: generic, no special-casing of any pair
+# entry).
 REFRESH_BASELINE_STAGED=()
 # Paths staged WEAKLY: recorded only if the manifest has no entry for them yet (ledger A1-2).
 # copy_safe's skip-if-exists path uses this — a skipped file's bytes are evidence of what was
@@ -272,6 +295,13 @@ REFRESH_BASELINE_STAGED=()
 # file the consumer cares about.
 REFRESH_BASELINE_STAGED_WEAK=()
 REFRESH_BASELINE_NOTE_SHOWN=""
+# consumer-delivery-safety (W1-A D4(c), GH #1514/#1540): counters for the no-entry arm of the
+# pre-overwrite guard — diverged files with NO baseline entry that a destructive overwrite
+# preserved under .ai-factory/refresh-conflicts/. Reported as ONE aggregate line per run
+# (_report_unbaselined_preserves, called from refresh_baseline_flush); NEVER per file.
+REFRESH_CONFLICTS_UNBASELINED=0
+REFRESH_CONFLICTS_UNBASELINED_FAILED=0
+REFRESH_CONFLICTS_UNBASELINED_REPORTED=""
 
 # _refresh_baseline_manifest — echo the consumer-local manifest path (never tracked, never a
 # template; lives under the consumer's .ai-factory/ only).
@@ -397,6 +427,193 @@ _preserve_diverged_copy() {
   return 0
 }
 
+# ── consumer-delivery-safety (W1-A, GH #1514 + #1540): pre-overwrite divergence guard ────────
+# The R1 guard above covers the refresh path only (refresh_safe → _refresh_one_file). Two
+# destructive-overwrite paths had NO read-side check at all:
+#   - copy_safe's --force arm fell straight through to the copy (issue 1514: even a
+#     manifest-PRESENT diverged file was clobbered silently — the force arm never read the
+#     baseline), and
+#   - _copy_tree_with_transform did a bare rm -rf (issue 1540: skill trees, no guard by
+#     construction, "cannot distinguish" was literally true for them).
+# Both now consult the same baseline BEFORE destroying bytes, with one policy (kickoff D4):
+#   entry-present + diverged  → per-file ⚠ + preserved copy, the SAME shape as the refresh
+#                               guard (refresh_baseline_diverged + _preserve_diverged_copy);
+#   entry-absent  + diverged from the incoming bytes → preserve SILENTLY at file level, ONE
+#                               aggregate line per run (D4(c) — see _preserve_unbaselined_copy
+#                               for the declared supersession of closed #1512's RI-2).
+
+# _preserve_unbaselined_copy <dst-file> — the D4(c) no-entry arm of the pre-overwrite guard.
+#
+# SUPERSEDES — declared, not glossed — the RI-2 decision of closed #1512, and ONLY on the
+# destructive-overwrite paths (copy_safe --force, _copy_tree_with_transform). RI-2 ratified
+# "no manifest entry = unknown provenance = today's behaviour" AND explicitly rejected
+# warn-on-first-touch, to avoid per-file spam on pre-manifest consumers at their first
+# refresh. That no-spam contract SURVIVES here intact: this arm never prints a per-file line.
+# What is superseded is the silent DATA LOSS RI-2 accepted alongside it: when the bytes are
+# about to be destroyed (not merely overwritten-after-comparison, as on the refresh path),
+# the diverged copy is preserved aside and ONE aggregate line per run reports the count.
+# refresh_safe's own no-entry handling is unchanged (still silent, still no copy) — the
+# supersession is scoped to the destructive-overwrite paths W1-A owns.
+# Fail-open: a copy that cannot be made is counted as failed and named in the same single
+# aggregate line (_report_unbaselined_preserves); it never fails the delivery.
+_preserve_unbaselined_copy() {
+  local dst="$1" conflicts sum8
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    REFRESH_CONFLICTS_UNBASELINED=$((REFRESH_CONFLICTS_UNBASELINED + 1))
+    return 0
+  fi
+  conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
+  if sum8=$(_hash256 "$dst") \
+    && mkdir -p "$conflicts" 2>/dev/null \
+    && cp "$dst" "$conflicts/$(basename "$dst").${sum8:0:8}" 2>/dev/null; then
+    REFRESH_CONFLICTS_UNBASELINED=$((REFRESH_CONFLICTS_UNBASELINED + 1))
+  else
+    REFRESH_CONFLICTS_UNBASELINED_FAILED=$((REFRESH_CONFLICTS_UNBASELINED_FAILED + 1))
+  fi
+  return 0
+}
+
+# _report_unbaselined_preserves — the ONE aggregate line per run for the D4(c) arm. Called at the
+# top of refresh_baseline_flush, which every installer exit path reaches (explicit calls + the
+# EXIT trap), so it prints at most once per run however the installer ends. Not a per-file ⚠:
+# the RI-2 no-spam contract (closed #1512) survives on this arm — only the silent loss is gone.
+_report_unbaselined_preserves() {
+  if [ "${REFRESH_CONFLICTS_UNBASELINED_REPORTED:-}" = "1" ]; then return 0; fi
+  local n="${REFRESH_CONFLICTS_UNBASELINED:-0}" m="${REFRESH_CONFLICTS_UNBASELINED_FAILED:-0}"
+  { [ "$n" -gt 0 ] || [ "$m" -gt 0 ]; } || return 0
+  local fail_note=""
+  if [ "$m" -gt 0 ]; then fail_note="; $m could not be copied"; fi
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    echo "  [dry-run] would preserve $n unbaselined diverged file(s) under ${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts/"
+  else
+    echo "  · preserved $n unbaselined diverged file(s) under ${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts/ (no refresh-baseline entry — provenance unknown; copies kept, upstream versions installed${fail_note})"
+  fi
+  REFRESH_CONFLICTS_UNBASELINED_REPORTED=1
+  return 0
+}
+
+# _expected_transformed <src-md-file> — echo a TEMP file path holding the bytes a transform-
+# delivering pass would write for this markdown file (transform_internal_refs applied). The
+# caller MUST rm the temp. Fails (rc 1) if mktemp/cp fails; the caller then falls back to the
+# raw src bytes for the comparison. Needed because _copy_tree_with_transform post-processes
+# *.md (repo-internal refs → upstream blob URLs): comparing a delivered dst against the RAW src
+# would flag every markdown file of a pre-manifest consumer as diverged on the first
+# overwrite — first-run clutter by construction. transform_internal_refs is idempotent and
+# deterministic, so bytes(transform(src)) == what the previous install wrote for an unedited
+# file, which is what makes this comparison exact rather than heuristic.
+_expected_transformed() {
+  local t
+  t=$(mktemp) || return 1
+  if ! cp "$1" "$t" 2>/dev/null; then rm -f "$t"; return 1; fi
+  transform_internal_refs "$t" || true
+  printf '%s\n' "$t"
+}
+
+# _pre_overwrite_divergence_action <dst-file> <expected-file-or-empty>
+# ONE per-file decision for the destructive-overwrite paths. <expected> is the file whose bytes
+# this delivery is about to write at <dst> ("" when the incoming payload no longer ships that
+# path). Exit 0 = action taken (preserved copy made / dry-run would-flag printed); exit 1 = no
+# action (pristine framework delivery, bytes already identical to the incoming version, dst not
+# a readable file — fail-open, same contract as the R1 guard). Like refresh_baseline_diverged,
+# call it inside an `if` — its non-zero is a verdict, and lib.sh runs under set -euo pipefail.
+_pre_overwrite_divergence_action() {
+  local dst="$1" expected="$2" entry cur exp_hash
+  [ -f "$dst" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  _refresh_baseline_lookup "$dst"
+  entry="$REFRESH_BASELINE_ENTRY"
+  if [ -n "$entry" ]; then
+    # Entry present: the framework can attribute the file, so the divergence claim is loud
+    # (D4(a)/(b) — same shape as the refresh guard).
+    if [ "$cur" = "$entry" ]; then return 1; fi   # pristine framework delivery — ours to replace
+    if [ -n "$expected" ] && [ -f "$expected" ]; then
+      # D4(b): reuse the R1 verdict verbatim — diverged = differs from BOTH the manifest entry
+      # and the incoming bytes (cur != entry is already established above, so this call adds
+      # exactly the src comparison).
+      if refresh_baseline_diverged "$dst" "$expected"; then
+        if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+          echo "  [dry-run] would-flag: $dst (locally modified)"
+        else
+          _preserve_diverged_copy "$dst"
+        fi
+        return 0
+      fi
+      return 1   # already byte-identical to the incoming version — overwriting loses nothing
+    fi
+    # Entry present, bytes differ, and the incoming payload no longer ships this path: the
+    # consumer's edit is about to be destroyed with no src to compare against. The R1 helper
+    # cannot take this case (its src hash is unconditional), so any difference from the
+    # recorded delivery is divergence here.
+    if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+      echo "  [dry-run] would-flag: $dst (locally modified)"
+    else
+      _preserve_diverged_copy "$dst"
+    fi
+    return 0
+  fi
+  # No entry (D4(c) — supersedes RI-2 on this path, see _preserve_unbaselined_copy): diverged
+  # from the incoming bytes → silent preserve + the aggregate line. Files the incoming payload
+  # no longer ships (<expected> empty) always take this arm — they have no incoming bytes to
+  # match, and the wipe is about to destroy them.
+  if [ -n "$expected" ] && [ -f "$expected" ]; then
+    exp_hash=$(_hash256 "$expected") || exp_hash=""
+    if [ "$cur" = "$exp_hash" ]; then return 1; fi
+  fi
+  _preserve_unbaselined_copy "$dst"
+  return 0
+}
+
+# _pre_overwrite_guard <src> <dst> [transform]
+# Read-side divergence sweep BEFORE a destructive overwrite: copy_safe's --force arm (GH #1514)
+# and _copy_tree_with_transform (GH #1540). Walks every regular file under <dst> (or the single
+# file when dst is one) and routes it through _pre_overwrite_divergence_action with the incoming
+# counterpart (<src>/<rel>) as <expected>. Under --dry-run nothing is written: entry-present
+# divergence prints `would-flag` (same vocabulary as _refresh_one_file) and the no-entry arm
+# only bumps the aggregate would-preserve counter.
+#
+# SCOPE GUARD: runs only when dst sits INSIDE $PROJECT_ROOT. The conflicts dir and the baseline
+# manifest are PROJECT_ROOT-scoped state (manifest keys are dst paths relative to PROJECT_ROOT);
+# a destination outside the consumer root cannot be recorded there — and unit tests exercise
+# copy_safe against scratch paths deliberately outside PROJECT_ROOT.
+#
+# 3rd arg `transform`: *.md expectations are the TRANSFORMED src bytes (the delivered tree is
+# post-processed by _transform_md_tree — see _expected_transformed for why comparing raw src
+# would false-flag every pre-manifest markdown file).
+_pre_overwrite_guard() {
+  local src="$1" dst="$2" tf="${3:-}"
+  case "$dst" in
+    "${PROJECT_ROOT:-.}"/*) ;;
+    *) return 0 ;;
+  esac
+  [ -e "$dst" ] || return 0
+  local f rel expected tmpexp
+  if [ ! -d "$dst" ]; then
+    expected=""
+    if [ -f "$src" ]; then expected="$src"; fi
+    if _pre_overwrite_divergence_action "$dst" "$expected"; then :; fi
+    return 0
+  fi
+  while IFS= read -r -d '' f; do
+    rel="${f#"$dst"/}"
+    expected=""
+    tmpexp=""
+    if [ -f "$src/$rel" ]; then
+      expected="$src/$rel"
+      if [ "$tf" = "transform" ]; then
+        case "$rel" in
+          *.md)
+            if tmpexp=$(_expected_transformed "$src/$rel"); then
+              expected="$tmpexp"
+            fi ;;
+        esac
+      fi
+    fi
+    if _pre_overwrite_divergence_action "$f" "$expected"; then :; fi
+    if [ -n "$tmpexp" ]; then rm -f "$tmpexp"; fi
+  done < <(find "$dst" -type f -print0 2>/dev/null)
+  return 0
+}
+
 # refresh_baseline_flush — write the staged deliveries into the manifest (merge, sorted keys —
 # deterministic bytes). Called ONCE at each installer exit path AFTER every delivery + transform
 # has run. Fail-open on every branch: a failed flush is a note, never a failed install.
@@ -417,6 +634,10 @@ _refresh_baseline_hash_into() {
 
 refresh_baseline_flush() {
   local manifest tsv wtsv p h prev patch weak
+  # W1-A D4(c): the ONE aggregate line for unbaselined diverged files preserved by this run's
+  # destructive overwrites. First, before every early return below (dry-run, nothing staged):
+  # flush is reached on every installer exit path, which is what makes this line once-per-run.
+  _report_unbaselined_preserves
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
   if [ "${#REFRESH_BASELINE_STAGED[@]}" -eq 0 ] && [ "${#REFRESH_BASELINE_STAGED_WEAK[@]}" -eq 0 ]; then
     return 0
@@ -489,6 +710,17 @@ copy_safe() {
       refresh_baseline_stage_weak "$dst"
     fi
     return 0
+  fi
+
+  # consumer-delivery-safety (GH #1514, W1-A D4(b)/(c)): the --force arm used to fall straight
+  # through to the copy with NO read-side check — the exists-guard above fires only WITHOUT
+  # --force, so a locally-edited force-deliverable file was overwritten with upstream bytes,
+  # silently, even when the baseline manifest held an entry for it. Probe the baseline BEFORE
+  # the write: entry-present + diverged → per-file ⚠ + preserved copy (same shape as the
+  # refresh guard); no entry + diverged from the incoming bytes → silent preserve, one
+  # aggregate line per run. Read-only under --dry-run (would-flag / would-preserve counts).
+  if [ "$FORCE" = "--force" ] && [ -e "$dst" ]; then
+    _pre_overwrite_guard "$src" "$dst"
   fi
 
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -1772,10 +2004,15 @@ copy_skill_with_transform() {
     return 0
   fi
   if [ "$DRY_RUN" = "--dry-run" ]; then
+    # W1-A: read-only divergence preview — same would-flag/aggregate vocabulary as the real
+    # run (the guard writes nothing under --dry-run), so `--dry-run --force` predicts exactly
+    # the files the force pass would flag/preserve.
+    if [ -e "$dst" ]; then _pre_overwrite_guard "$src" "$dst" transform; fi
     echo "  [dry-run] would copy: $src → $dst (+ transform internal refs)"
     return 0
   fi
   # Wipe, recopy, rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  # The divergence pass before the wipe lives inside _copy_tree_with_transform (GH #1540).
   _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
@@ -1799,9 +2036,15 @@ refresh_skill_with_transform() {
     return 0
   fi
   if [ "$DRY_RUN" = "--dry-run" ]; then
+    # W1-A: read-only divergence preview (see copy_skill_with_transform) — under --dry-run the
+    # caller never reaches _copy_tree_with_transform's own guard, so the preview runs it here.
+    _pre_overwrite_guard "$src" "$dst" transform
     echo "  [dry-run] would refresh: $src → $dst (+ transform internal refs)"
     return 0
   fi
+  # The divergence pass before the wipe lives inside _copy_tree_with_transform (GH #1540: skill
+  # trees used to be rm -rf'd with no guard — the exact "cannot distinguish" gap the docs
+  # described for them).
   _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
