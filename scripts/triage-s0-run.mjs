@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * triage-s0-run — S0 probe runner: candidate C1 (rubric judge) over the corpus, one blind process per row.
+ */
 // S0 probe runner: candidate C1 (rubric judge) over the corpus, one blind process per row.
 // Each row is judged by a fresh `claude -p` with no tools and no session state, so the judge
 // sees the row text and the rubric and nothing else. C0 needs no runner — it is a pure mapping

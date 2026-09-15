@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * triage-s2-labels-check — S2 deliverable check: six fail-closed arms (A-F) + a COUNTS/DISTRIBUTION report block.
+ */
 // S2 deliverable check (kickoff §3.7). Six fail-closed arms (A-F) + a COUNTS/DISTRIBUTION
 // report block that is printed always and never gated (a degenerate axis is a finding, not a
 // defect). Reuses parseCsv + buildPayload; does NOT re-implement CSV parsing or prompt

@@ -10,6 +10,9 @@
 #      every family JSON lands.
 #   4. --check detects drift (non-zero, naming the artefact); --write heals it (exit 0).
 #   5. a source hole fails --write naming the file — absence-by-omission blocks the render (D36).
+#   6. an F.3 member that cannot parse, or whose `/**` header block swallows live code, fails
+#      --write naming the file — the 2026-09-15 triage-*.mjs breakage class (unterminated
+#      family headers reached review green because no gate parsed F3 members).
 #
 # Pure bash + the repo's own tsx deps; no network, no LLM (no-paid-llm-in-ci.md).
 set -u
@@ -143,6 +146,42 @@ if [ $rc -ne 0 ] && echo "$out" | grep -q 'ghost-hook.sh'; then
   ok "arm 5: a hook header hole fails --write naming the file (no token leak, no silent render)"
 else
   bad "arm 5: --write rc=$rc on a source hole; expected failure naming ghost-hook.sh (out: $(echo "$out" | head -2 | tr '\n' ' '))"
+fi
+
+# ── Arm 6: an F.3 member that cannot parse, or whose /** header swallows live code, fails ─────
+# The 2026-09-15 class (commit 6a0330a713): family headers inserted WITHOUT the closing `*/` —
+# five triage-*.mjs files stopped parsing and two more silently lost their imports to the
+# unterminated block, and every gate stayed green because nothing parsed F3 members. Two
+# sub-arms, one per subclass; the broken file is UNWIRED in its fixture on purpose — the arms
+# must hold population-wide, not only for wired members.
+make_fixture "$TMP/parse"
+printf '#!/usr/bin/env node\n/**\n * broken-parse — header block that never closes at all.\nimport { readFileSync } from "node:fs";\nexport const x = () => readFileSync;\n' \
+  >"$TMP/parse/scripts/broken-parse.mjs"
+out=$(npx tsx "$GEN" --write --root "$TMP/parse" 2>&1); rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q 'broken-parse.mjs'; then
+  ok "arm 6a: an F.3 member that cannot parse fails --write naming the file (unwired, still caught)"
+else
+  bad "arm 6a: --write rc=$rc on an unparseable F.3 member; expected failure naming broken-parse.mjs (out: $(echo "$out" | head -2 | tr '\n' ' '))"
+fi
+make_fixture "$TMP/swallow"
+# Parses CLEAN (the later `*/` closes the block) but the import below the header is dead —
+# `node --check` alone cannot see this subclass; the header-closure arm is what catches it.
+printf '#!/usr/bin/env node\n/**\n * broken-swallow — header block left open past live code.\n// Usage note.\nimport { readFileSync } from "node:fs";\n\n/** Collapse whitespace. */\nexport const normalize = (s) => s.replace(/\\s+/gu, " ").trim();\nconsole.log(typeof readFileSync);\n' \
+  >"$TMP/swallow/scripts/broken-swallow.mjs"
+out=$(npx tsx "$GEN" --write --root "$TMP/swallow" 2>&1); rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q 'broken-swallow.mjs'; then
+  ok "arm 6b: an open /** header that swallows live code fails --write even though the file parses"
+else
+  bad "arm 6b: --write rc=$rc on a silent-swallow F.3 member; expected failure naming broken-swallow.mjs (out: $(echo "$out" | head -2 | tr '\n' ' '))"
+fi
+# The green half: the same fixture with a conforming member writes clean.
+printf '#!/usr/bin/env node\n/**\n * ok-script — parses and closes its header block; unwired in this fixture.\n */\nexport const ok = true;\n' \
+  >"$TMP/swallow/scripts/broken-swallow.mjs"
+npx tsx "$GEN" --write --root "$TMP/swallow" >/dev/null 2>&1; rc=$?
+if [ $rc -eq 0 ]; then
+  ok "arm 6b: the same fixture with a closed header writes clean (the arms are fail-closed, not blanket)"
+else
+  bad "arm 6b: --write rc=$rc after the header was closed — the F.3 arms over-fire"
 fi
 
 echo "render-reference.test.sh: $PASS passed, $FAIL failed"

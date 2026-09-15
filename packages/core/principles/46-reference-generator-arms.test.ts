@@ -1064,7 +1064,11 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
         lines[1] === '/**' &&
         new RegExp(`^ \\* ${name.replace(/\.mjs$/, '')} — .{10,}$`).test(
           lines[2] ?? '',
-        )
+        ) &&
+        // Closure (2026-09-15): the grammar line alone passed while the block stayed open
+        // past live code — the triage-*.mjs breakage class. Asserted from the generator's
+        // own predicate (#sync-by-import), not re-derived here.
+        g.jsdocHeaderCloses(body) === null
       );
     };
     const violations: string[] = [];

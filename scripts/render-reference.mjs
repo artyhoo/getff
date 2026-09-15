@@ -597,12 +597,57 @@ function buildF2(root) {
   });
 }
 
+/**
+ * The F-mjs header-block closure predicate (F3 liveness, 2026-09-15): the block comment the
+ * F-mjs header opens at line 2 must reach its closing delimiter before any line that is not
+ * block continuation (a leading `*`). Returns `null` when fine (or when there is no block
+ * comment at line 2 — header PRESENCE is the grammar arm's case, not this one), else a short
+ * reason. An open block that swallows code is invisible to `node --check` — the file still
+ * parses, its imports do not (the triage-corpus-probe.mjs / triage-s0-run.mjs half of the
+ * 2026-09-15 breakage). Exported because the principle-46 arm-F backstop asserts the same
+ * contract from this one implementation (#sync-by-import, not #sync-by-copy-paste).
+ * (This doc names no literal comment-closer on purpose: writing one inside a block comment
+ * IS the breakage class this predicate exists to catch.)
+ */
+export function jsdocHeaderCloses(src) {
+  const lines = src.split('\n');
+  if (lines[1] !== '/**') return null;
+  for (let i = 2; i < lines.length; i++) {
+    if (lines[i].includes('*/')) return null;
+    if (!/^\s*\*/.test(lines[i])) {
+      return `JSDoc header block opened at line 2 has no \`*/\` before line ${i + 1}`;
+    }
+  }
+  return 'JSDoc header block opened at line 2 never closes';
+}
+
 function buildF3(root) {
   const wired = wiredSet(root);
   const scripts = listScripts(root);
   const cards = [];
   const unwired = [];
   for (const s of scripts) {
+    // Parse + header-closure arms (2026-09-15, review finding 79da7db975b6): population-wide,
+    // wired AND unwired AND test material — commit 6a0330a713 inserted F-mjs family headers
+    // WITHOUT the closing `*/` and no gate parsed F3 members, so 5 triage-*.mjs files stopped
+    // parsing and 2 more silently lost their imports while every generator gate stayed green.
+    // Deliberately BEFORE the test-material and unwired `continue`s: a tracked script that
+    // cannot parse is dead at its first invocation whoever wires it. `node --check` takes the
+    // module goal from the .mjs extension (and type-strips .ts on node ≥22.18); array-form
+    // argv only, like the git call below. scripts/*.sh are outside this arm's class.
+    if (!s.name.endsWith('.sh')) {
+      const rel2 = `scripts/${s.name}`;
+      try {
+        execFileSync(process.execPath, ['--check', join(root, rel2)], { stdio: 'pipe' });
+      } catch (e) {
+        const detail = (String((e && e.stderr) || e.message).split('\n').find((l) => l.trim()) ?? 'node --check failed').trim();
+        fail(`${rel2}: \`node --check\` rejected the file — ${detail} — fix the syntax (F3 parse arm: a tracked script that cannot parse is dead at its first invocation)`);
+      }
+      const open = jsdocHeaderCloses(readFileSync(join(root, rel2), 'utf8'));
+      if (open) {
+        fail(`${rel2}: ${open} — close the header block with \` */\` before the first non-comment line; an open \`/**\` silently comments out the code below it (F3 header-closure arm)`);
+      }
+    }
     if (s.testMaterial) continue; // test material: in the population as a gate, never a card
     if (!wired.has(s.name)) { unwired.push(s.name); continue; }
     const rel = `scripts/${s.name}`;
