@@ -314,7 +314,17 @@ _drifted() {
   # $1 = stack label for the WARN, $2 = current hash (sha256-<hex> or empty), $3 = stored
   local label="$1" current="$2" stored="$3"
   [ -n "$current" ] || return 0          # no manifest/tool → this stack contributes nothing
-  [ -n "$stored" ] || return 0           # no baseline recorded → nothing to compare
+  if [ -z "$stored" ]; then
+    # Positive control (GH #1705): this branch is silent BY DESIGN (stack hashed, no
+    # baseline line in tool-decisions.md), which made a live session unable to tell
+    # "computed fresh, nothing to compare" from "hook never dispatched". LOG_LEVEL=DEBUG
+    # surfaces the dispatch on exactly this branch — STDERR ONLY: under ZCode stdout must
+    # stay a single strict-JSON object (header contract above; kickoff §0.5) and CC surfaces
+    # stderr harmlessly. The emit lives HERE, not in the extractors, so a TTL-window memo
+    # hit still proves dispatch (the cached path runs _drifted without spawning node).
+    [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[deps-hash-check] DEBUG: dispatched — %s stack hashed, no baseline in %s (silent by design)\n' "$label" "$DECISIONS" >&2
+    return 0
+  fi
   [ "$current" = "$stored" ] && return 0 # match → silent
   # Drift. Distinguish baselined (sha256-*) from unbaselined (<pending …>) for honest wording
   # (GH #548). Accumulate into WARN_MSGS; emit once at the end.

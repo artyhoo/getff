@@ -1452,3 +1452,65 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     expect(stdout).toBe(''); // legacy-hash baseline still matches → silent
   });
 });
+
+// =============================================================================
+// DEBUG positive control (GH #1705) — the no-baseline branch of _drifted is
+// silent BY DESIGN, which made "hash fresh, silent no-op" indistinguishable
+// from "hook never dispatched" in a live session. LOG_LEVEL=DEBUG surfaces
+// the dispatch on that branch, STDERR ONLY (ZCode stdout stays a single
+// strict-JSON object; CC surfaces stderr harmlessly).
+// =============================================================================
+describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline path (GH #1705)', () => {
+  it('DEBUG: LOG_LEVEL=DEBUG + stack hashed + no baseline → one [deps-hash-check] DEBUG line on STDERR, stdout clean', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      // tool-decisions.md exists but carries NO deps-hash line → the no-baseline branch.
+      toolDecisions: `---\ntool: decisions\n---\n# no baseline here\n`,
+    });
+    const r = runHook(cwd, { LOG_LEVEL: 'DEBUG' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
+    // Exactly one DEBUG line per stack — no spill to stdout.
+    expect(r.stderr.split('\n').filter((l) => l.includes('[deps-hash-check] DEBUG:')).length).toBe(1);
+  });
+
+  it('DEBUG-WARM: the emit still fires on a TTL-window memo hit (dispatch proof survives the cache)', () => {
+    // The in-issue review noted a memo hit reads-and-returns WITHOUT writing — dispatches
+    // within 60s leave zero trace. The emit lives in _drifted (not the extractors), so the
+    // SECOND run inside the TTL must still prove dispatch.
+    const cwd = makeFixtureDir({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      toolDecisions: `---\ntool: decisions\n---\n`,
+    });
+    const first = runHook(cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
+    expect(first.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
+    const warm = runHook(cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
+    expect(warm.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
+  });
+
+  it('DEBUG-OFF: default LOG_LEVEL → no stderr line (the emit is opt-in only)', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      toolDecisions: `---\ntool: decisions\n---\n`,
+    });
+    const r = runHook(cwd);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).toBe('');
+  });
+
+  it('DEBUG-ZCODE: DEBUG + drift under ZCODE_PROJECT_DIR → stdout stays a single strict-JSON object; the DEBUG line never touches stdout', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      toolDecisions: `---\ndeps-hash-npm: sha256-${'0'.repeat(64)}\n---\n`,
+    });
+    const r = runHook(cwd, { LOG_LEVEL: 'DEBUG', ZCODE_PROJECT_DIR: cwd });
+    expect(r.status).toBe(0);
+    // stdout parses as exactly ONE JSON object (two objects would throw).
+    const parsed = JSON.parse(r.stdout);
+    expect(parsed.hookEventName).toBe('UserPromptSubmit');
+    expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
+    expect(r.stdout).not.toContain('[deps-hash-check] DEBUG:');
+  });
+});
