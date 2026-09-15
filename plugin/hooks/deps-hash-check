@@ -50,9 +50,14 @@
 #     {packages:[…]}) and pnpm-workspace.yaml `packages:` globs enumerate members, enumerated
 #     up to 8 directory levels deep (the JS MAXD in _NPM_EXTRACT_JS) and WITHOUT following
 #     directory symlinks (lstat, mirroring find -P). Members deeper than 8 levels, or reached
-#     only through a symlinked directory, stay invisible — and the memo key (_npm_memo_key,
-#     find -maxdepth 10) over-covers the same tree, so the two bounds cannot diverge into a
-#     TTL-window blind spot (key superset ⊇ extractor input set, by construction).
+#     only through a symlinked directory, stay invisible. Known memo-key edge (review-proven
+#     live): a member package.json that IS a symlink pointing OUTSIDE the cwd tree is hashed
+#     by the extractor (readFileSync follows file symlinks) but never listed by _npm_memo_key's
+#     `find -P -type f`, so its content can change without memo invalidation for up to
+#     _MEMO_TTL (60s) before the forced recompute sees it. The find deliberately stays -P
+#     (symlink-following find risks loops and perf); a 60s-bounded miss is the same trade the
+#     memo already makes for cargo's above-root workspace inputs (see the memo block below) —
+#     this hook is a nudge, not a gate.
 #   - pnpm-workspace.yaml IS hashed (GH #1264, closing the old v11-overrides blind spot):
 #     `overrides:`/`catalog:`/`catalogs:` maps are parsed and hashed, `catalog:` and
 #     `catalog:<name>` dep values resolve against the catalog map BEFORE hashing (a catalog
@@ -137,8 +142,16 @@ _sha256() {
 # Members come from npm `workspaces` globs (array or {packages:[…]}) plus pnpm-workspace.yaml
 # `packages:` globs, matched with a minimal glob subset (`*` one segment, `**` any depth,
 # `{a,b}` braces, `!` exclusions) over candidate dirs ≤8 levels deep, node_modules/.git/
-# dot-dirs skipped, symlinks NOT followed (lstat — mirrors find -P, so the extractor's input
-# set stays a subset of the _npm_memo_key find below).
+# dot-dirs skipped, directory symlinks not followed (lstat). Measured divergences vs
+# npm/minimatch — all false-NEGATIVE direction (a real member may go unseen; never a
+# phantom member): (a) `**` translates to a whole-pattern `.*` anchor, so globstar's
+# zero-segment form is absent — `packages/*/**` does NOT match `packages/a` itself, and
+# `**/foo` misses a top-level `foo`; (b) braces expand to the FIRST `}` only — nested
+# `{a,{b,c}}` mis-expands; (c) `!` is order-independent set subtraction, not minimatch's
+# ordered last-match-wins. Memo-key alignment caveat: lstat aligns DIRECTORY traversal
+# with _npm_memo_key's find -P, but a package.json that is itself an out-of-tree symlink
+# is read by the extractor (readFileSync follows file symlinks) yet invisible to that
+# find — enumerated in the blind-spots list above.
 #
 # _NPM_EXTRACT_JS is SINGLE-QUOTED on purpose: the program contains $ { } ` sequences that
 # bash must not touch. It also deliberately contains no single quotes.
@@ -172,14 +185,20 @@ _npm_current() {
   node -e "$_NPM_EXTRACT_JS" 2>/dev/null || printf ''
 }
 
-# npm-lane memo key (GH #1264): a SUPERSET of the extractor input set — every package.json
-# and pnpm-workspace.yaml under cwd within 10 levels (find -P semantics: node_modules/.git
-# pruned, directory symlinks not followed — matching the extractor's lstat walk, which is
-# additionally bounded at 8 levels), cksum'd in sorted order. The old key covered only the
-# ROOT package.json, so a workspace-member edit inside the _MEMO_TTL window served the
-# stale cached hash even after enumeration landed (the in-issue review called this the trap
-# of the fix). Superset direction is fail-safe: a non-member package.json edit over-
-# invalidates (forces one recompute, answer unchanged) — never a blind hit.
+# npm-lane memo key (GH #1264): intended as a SUPERSET of the extractor input set — every
+# package.json and pnpm-workspace.yaml under cwd within 10 levels (find -P semantics:
+# node_modules/.git pruned, directory symlinks not followed — matching the extractor's
+# lstat walk, which is additionally bounded at 8 levels), cksum'd in sorted order. The old
+# key covered only the ROOT package.json, so a workspace-member edit inside the _MEMO_TTL
+# window served the stale cached hash even after enumeration landed (the in-issue review
+# called this the trap of the fix). One PROVEN exception to the superset (documented, not
+# fixed): a manifest FILE that is a symlink pointing outside the cwd tree is hashed by the
+# extractor (readFileSync follows it) but never listed by `find -P -type f`, so its edits
+# can ride the memo for up to _MEMO_TTL=60s before the recompute sees them — bounded
+# staleness, the same trade the memo already makes for cargo's above-root workspace inputs;
+# the find stays -P because a symlink-following find risks loops and perf. Every other
+# divergence direction is fail-safe: a non-member package.json edit over-invalidates
+# (forces one recompute, answer unchanged).
 _npm_memo_key() {
   local f sig=""
   [ -f package.json ] || { printf ''; return; }

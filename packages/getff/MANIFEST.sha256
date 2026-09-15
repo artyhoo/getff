@@ -5,7 +5,7 @@ cf5989e9ba90bf80df7c8c2ae1389781b2f4c457b96229f73ff391fbd773c1f7  .claude/hooks/
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
-ec0d6d934ca0069bca88a5f1d479f23ac19b60067a4f9c5efbe6d28e0ee0a67c  .claude/hooks/deps-hash-check.sh
+6ff6ce75fd226ebd9329a74a8158e132eef6007083a8401389606478035e512d  .claude/hooks/deps-hash-check.sh
 5126e53cdea88a67f9ea8937484f39e00d7e17a8576b17b78584362cbd2a68bf  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
 b0873ba020e057267ebedd4c7c4571306c81fe12b6d230d6d31fc57ba112bee1  .claude/hooks/inject-handoff-on-compact.sh
@@ -456,7 +456,7 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
-ec0d6d934ca0069bca88a5f1d479f23ac19b60067a4f9c5efbe6d28e0ee0a67c  packages/core/hooks/deps-hash-check.sh
+6ff6ce75fd226ebd9329a74a8158e132eef6007083a8401389606478035e512d  packages/core/hooks/deps-hash-check.sh
 c83adee9cc62007b26b09eec64e0c66a5863b588c79760dbb02614775f3139a9  packages/core/hooks/deps-hash-check.test.ts
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
