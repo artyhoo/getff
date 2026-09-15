@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * triage-corpus-probe — deterministic anti-leakage probe for the triage corpus (spec §2, r2 NEW-B1/M1).
+ */
 // Deterministic anti-leakage probe for the triage corpus (spec §2, r2 NEW-B1/M1).
 // Two fail-closed arms, run over the committed CSVs, per row `provenance`:
 //   (a) provenance-substring — each row's normalized `finding` must be a substring of its

@@ -283,6 +283,8 @@ gate_table() {
     "2${TAB}rule-index-check${TAB}.claude/rules/,AGENTS.md,scripts/render-rule-index.mjs${TAB}npx tsx scripts/render-rule-index.mjs --check" \
     "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
     "2${TAB}presets-check${TAB}packages/core/templates/shared/AI-USAGE-GUIDE.md,.claude/skills/pipeline/references/presets/,scripts/render-presets.mjs${TAB}npx tsx scripts/render-presets.mjs --check" \
+    "2${TAB}reference-check${TAB}setup.d/,skills/,agents/,.claude/,plugin/,packages/core/templates/,packages/core/manifest/,packages/runtime-bridge/src/cli/,scripts/,package.json,docs/site/reference/${TAB}npx tsx scripts/render-reference.mjs --check" \
+    "2${TAB}face-facts-check${TAB}packages/core/manifest/,packages/core/templates/shared/,packages/core/composition/demo/,packages/core/principles/,packages/core/package.json,setup,install.sh,README.md,docs/,skills/getff/references/,scripts/render-face-facts.mjs,docs/site/face-facts.json${TAB}npx tsx scripts/render-face-facts.mjs --check" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \

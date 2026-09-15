@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# measure-always-on.sh — measure the always-on context baseline in bytes — the ai-doc-audit exit-criterion meter
 # Measure the always-on context baseline (bytes) — the ai-doc-audit exit-criterion meter.
 # Always-on sources = files CC loads at session start (no path-scope trigger required).
 #   manifest = CLAUDE.md + .claude/rules/*.md files LACKING ^paths: frontmatter

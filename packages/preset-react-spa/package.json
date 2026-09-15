@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "FSL-1.1-ALv2",
+  "description": "React SPA preset for rules-as-tests — custom ESLint plugin (require-error-boundary) wired into the stack, plus templates and RULES docs; the rule-pack is still growing.",
   "type": "module",
   "main": "./eslint-rules/index.ts",
   "exports": {

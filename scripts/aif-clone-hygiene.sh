@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# getff:no-card — operator-run clone-hygiene helper; no wiring surface invokes it
 # aif-clone-hygiene.sh <clone-path> [base-branch]
 #
 # Pre-dispatch hygiene for aif-handoff's per-project clone, so its branch-isolation

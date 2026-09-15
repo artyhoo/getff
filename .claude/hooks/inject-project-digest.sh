@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-project-digest.sh — UserPromptSubmit + SubagentStart hook — injects the project digest at both fire-points
 # @cc-only-rationale: CC-specific context-injection hook — its output is consumed by CC-native
 #   fire-points (UserPromptSubmit stdout auto-injection + SubagentStart additionalContext), with no
 #   portable counterpart. SHIPPED to consumer CC projects (GH #934 batch D): the PROJECT-AGNOSTIC

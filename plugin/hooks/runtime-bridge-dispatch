@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # AUTO-GENERATED from .claude/hooks/runtime-bridge-dispatch.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# runtime-bridge-dispatch.sh — PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs
 # PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs.
 #
 # @cc-only-rationale: no §5 portable-markdown counterpart exists to anchor-pair

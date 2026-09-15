@@ -50,9 +50,9 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
    `bash <getff>/setup -y --profile core <stack>` (stacks: `ts-server`, `react-next`,
    `react-spa`, `react-native`). Omit the stack to auto-detect. Name `core`: `-y` on its own
    resolves to `env` depth, not `core` (`install.sh:648`).
-   Non-npm projects take a separate lane, each an explicit positional argument:
-   `install.sh python`, `install.sh cargo`, `install.sh go`. Those lanes early-exit before the
-   npm `package.json` precondition, so they need no `package.json` at all.
+   Non-npm projects take a separate toolchain lane, each an explicit positional argument:
+   `./setup python`, `./setup cargo`, `./setup go` (or `bash install.sh <lane>`). Those lanes
+   early-exit before the npm `package.json` precondition, so they need no `package.json` at all.
 
 <!-- step: verify-payload -->
 
@@ -80,15 +80,26 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
    input in a temp dir and asserts the installed ESLint rules go RED on it. This is the
    first-rule-fires moment: an installed rule never seen to fire is an unproven claim.
 
+<!-- step: fire-on-your-code -->
+
+6. **Fire a rule on YOUR code, not a fixture** — plant one violation of a shipped getff rule in
+   YOUR tree and run your stack's native gate; the RED line names your file. npm: add
+   `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`,
+   `**/controllers/**`, `**/app/api/**`, `**/actions/**`) and run `npm run lint` — RED from
+   `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire
+   only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run
+   `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var("X")`, run
+   `cargo clippy`; go — add `os.Getenv("X")`, run `golangci-lint run`.
+
 <!-- step: run-the-gate -->
 
-6. **Run the gate you will run every day** — `bash scripts/audit-ai-docs.sh` (~10 sec). Expect
+7. **Run the gate you will run every day** — `bash scripts/audit-ai-docs.sh` (~10 sec). Expect
    findings on a fresh project; `INSTALL-FOR-AI.md` «Expected first-run failures» lists the normal
    ones.
 
 <!-- step: research-your-stack -->
 
-7. **Continue into rule research in the same session** — invoke `/rule-research`, or read
+8. **Continue into rule research in the same session** — invoke `/rule-research`, or read
    `.claude/agents/rule-researcher.md` on a harness without skills. The installer delivered a
    curated starter set; researching stack-specific rules from live documentation is the next step
    of the same lifecycle, not a later project.

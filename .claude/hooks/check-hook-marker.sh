@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# check-hook-marker.sh — PostToolUse gate — delivery-channel marker + strict header grammar on touched hook files
 # PostToolUse gate — delivery-channel marker on touched hooks (Wave N8 C4).
 # @cc-only-rationale: PostToolUse edit-time gate — fires at the moment a hook file
 #   is written; no portable hook fires then. Edit-time IS the "at next touch"
@@ -136,6 +137,22 @@ grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH" \
      # @cc-only-rationale: <why CC-only — no portable counterpart>
      # @dual-pair: <anchor shared with the portable agent/skill>
    Per dual-implementation-discipline.md §6 (prevents silent CC vendor-lock-in)."
+
+# Arm 2 (D29 reference-generator spec §5 #3): the strict header — `# <basename> — <one line>`
+# on the FIRST comment line after the shebang, BEFORE any @-marker line (ref-gen :123:
+# «first non-marker comment line» was measured and rejected — on hooks with a multi-line
+# @cc-only-rationale block it returns the block's continuation line, not a description).
+# Same file, same glob as the marker arm — one gate per glob, no new hook (§5 #3); the
+# marker block simply moves down one line when the header is inserted above it.
+BASENAME="$(basename "$REL_PATH")"
+HEADER_LINE="$(sed -n '2p' "$ABS_PATH")"
+HEADER_DESC="${HEADER_LINE#\# $BASENAME — }"
+if [ "$HEADER_DESC" = "$HEADER_LINE" ] || [ "${#HEADER_DESC}" -lt 10 ]; then
+  _adv_violation "❌ hook-marker: $REL_PATH line 2 is not the strict header.
+   Expected as line 2, immediately after the shebang: '# $BASENAME — <what this hook does>' (≥10 chars after the em-dash).
+   Insert it above any @-marker block — the marker block moves down one line; this gate reads markers anywhere in the head.
+   Per the D29 reference-generator spec §5 #3 (HEADER_TABLE['D']) + the arm-F backstop (principle 46)."
+fi
 
 # @file-content-gate invariant: a hook that validates a file's content (path-only, no
 # internal tool_name filter) MUST be registered with matcher Edit|Write|MultiEdit — else a

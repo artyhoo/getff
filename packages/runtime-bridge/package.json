@@ -4,6 +4,7 @@
   "type": "module",
   "version": "0.0.1",
   "license": "FSL-1.1-ALv2",
+  "description": "Runtime bridge for rules-as-tests — opt-in dispatch target for the CC-native runtime-bridge-dispatch hook: CLI commands invoked when a file opts in via the `<!-- bridge: auto -->` marker, keeping automation logic harness-agnostic.",
   "main": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",

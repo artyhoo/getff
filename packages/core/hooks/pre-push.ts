@@ -1410,6 +1410,41 @@ function ruleIndexRenderSection(): void {
   }
 }
 
+// ── 4c. Reference render drift (maintainer, getff-ai-site S0a / D29) ─────────
+// docs/site/reference/*.json + the fenced family tables derive from the source
+// populations (setup.d/, skills/, agents/, hooks, plugin/, templates, manifests).
+// scripts/render-reference.mjs exists in the maintainer repo only → owner=maintainer.
+function referenceRenderSection(): void {
+  if (existsSync(resolve(REPO_ROOT, 'scripts/render-reference.mjs'))) {
+    const r = run('npx', ['tsx', 'scripts/render-reference.mjs', '--check']);
+    if (r.notFound) {
+      die(
+        '❌ npx/tsx not found. Install Node.js + tsx to enable reference drift check.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ reference render drift detected:', r);
+    emit(r);
+  }
+}
+
+// ── 4d. Face-facts render drift (maintainer, getff-ai-site S0a / D42) ────────
+// docs/site/face-facts.json derives from maturity.json + the §7 fact families
+// (setup/install.sh/README flag lists, first-steps SSOT, the D29 family JSON,
+// the live demo RenderOutcomes). scripts/render-face-facts.mjs exists in the
+// maintainer repo only → owner=maintainer.
+function faceFactsRenderSection(): void {
+  if (existsSync(resolve(REPO_ROOT, 'scripts/render-face-facts.mjs'))) {
+    const r = run('npx', ['tsx', 'scripts/render-face-facts.mjs', '--check']);
+    if (r.notFound) {
+      die(
+        '❌ npx/tsx not found. Install Node.js + tsx to enable face-facts drift check.',
+      );
+    }
+    if (r.exitCode !== 0) die('❌ face-facts render drift detected:', r);
+    emit(r);
+  }
+}
+
 // ── 5. Principles meta-tests (maintainer, Phase 2) ───────────────────────────
 // Sections 5–5d shell out to `npm --prefix packages/core run test:*`, needing
 // packages/core/package.json + the meta-test suites — all maintainer-only.
@@ -2100,6 +2135,16 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'rule-index-render',
     owner: 'maintainer',
     run: () => ruleIndexRenderSection(),
+  },
+  {
+    id: 'reference-render',
+    owner: 'maintainer',
+    run: () => referenceRenderSection(),
+  },
+  {
+    id: 'face-facts-render',
+    owner: 'maintainer',
+    run: () => faceFactsRenderSection(),
   },
   {
     id: 'principles-meta',

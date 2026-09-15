@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# check-doc-authority.sh — PostToolUse gate — principle-09 doc-authority header quick-check (delegates to the 09 bin)
 # Wave 7 7.2.c — PostToolUse: principle-09 authority header quick-check.
 # Delegates to 09-doc-authority-hierarchy.bin.ts (Batch A, sub-wave 7.1.c).
 # Input: hook JSON via stdin. CLI filters to REQUIRED_HEADER_DOCS; exits 0 for other paths.

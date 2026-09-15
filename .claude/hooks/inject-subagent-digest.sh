@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-subagent-digest.sh — SubagentStart hook — injects the session-bootstrap digest into juniors at spawn
 # SubagentStart hook — inject the session-bootstrap digest into juniors at spawn.
 # Goal: every dispatched subagent gets the project anchor (goal + invariants +
 # H1 recommendation discipline) at spawn with zero per-prompt boilerplate. SSOT #108.

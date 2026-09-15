@@ -38,7 +38,7 @@ Parent rule [`phase-research-coverage.md §1.12`](phase-research-coverage.md) st
 
 Two layers ship per Option D = A+C benchmark verdict:
 
-**(A) H1 wording in `.claude/hooks/inject-session-bootstrap.sh:89`** (Sub-wave A of this I-phase) — always-on UserPromptSubmit injection; deterministic; fires every turn. Channel per [`rule-enforcement-channel-selection.md §4`](rule-enforcement-channel-selection.md): UserPromptSubmit digest, always-on.
+**(A) H1 wording in `.claude/hooks/inject-session-bootstrap.sh:90`** (Sub-wave A of this I-phase) — always-on UserPromptSubmit injection; deterministic; fires every turn. Channel per [`rule-enforcement-channel-selection.md §4`](rule-enforcement-channel-selection.md): UserPromptSubmit digest, always-on.
 
 **(C) T-trap in [`.claude/rules/ai-laziness-traps.md §2 T20`](ai-laziness-traps.md)** (Sub-wave C of this I-phase) — **T20** per maintainer override of R-phase §1.4 (b) pre-resolution (Sub-wave C shipped 2026-05-24 via [PR #212](https://github.com/Yhooi2/rules-as-tests-aif/pull/212), merge commit `eac9dce`). Auto-loaded session-start via `.claude/rules/*.md` CC convention; path-scoped reinforcement via `inject-matching-rule.sh` when touching `.claude/rules/**`.
 

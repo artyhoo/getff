@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# getff:no-card — operator hand-off helper, run by hand once; never wired
 # Operator hand-off: register the D8 PreCompact residue hook.
 #
 # WHY A SCRIPT AND NOT A jq ONE-LINER INTO settings.json:

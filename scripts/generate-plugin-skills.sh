@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# generate-plugin-skills.sh — generate plugin/skills/ entries from their in-repo source populations
 # Generate plugin/skills/ entries from their in-repo source populations.
 #
 #   plugin/skills/<name>/ ← source population per the ENTRY TABLE below:

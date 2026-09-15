@@ -1,0 +1,657 @@
+{
+  "schemaVersion": 1,
+  "family": "D",
+  "familyName": "hooks",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "adopt-orchestrator-prompts",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse: adopt a new orchestrator-prompt",
+      "source": {
+        "path": ".claude/hooks/adopt-orchestrator-prompts.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "ask-question-reminder",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "PreToolUse:AskUserQuestion hook — pre-question fork-challenge nudge (consumer-safe session UX)",
+      "source": {
+        "path": ".claude/hooks/ask-question-reminder.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PreToolUse"
+        ],
+        "matcher": [
+          "AskUserQuestion"
+        ],
+        "delivery": [
+          "@dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)",
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-doc-authority",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse gate — principle-09 doc-authority header quick-check (delegates to the 09 bin)",
+      "source": {
+        "path": ".claude/hooks/check-doc-authority.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-doc-authority-header",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "PostToolUse gate — zero-dep consumer reimplementation of the doc-authority header check",
+      "source": {
+        "path": ".claude/hooks/check-doc-authority-header.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-hook-marker",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse gate — delivery-channel marker + strict header grammar on touched hook files",
+      "source": {
+        "path": ".claude/hooks/check-hook-marker.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-kickoff-traps",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse gate — kickoff T-enumeration floor (ai-laziness-traps §3)",
+      "source": {
+        "path": ".claude/hooks/check-kickoff-traps.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-worker-dispatch-channel",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent",
+      "source": {
+        "path": ".claude/hooks/check-worker-dispatch-channel.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@dual-pair:channel-discipline-worker-dispatch",
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "deps-hash-check",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)",
+      "source": {
+        "path": ".claude/hooks/deps-hash-check.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "UserPromptSubmit"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@dual-pair:deps-hash-check-dogfood",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "end-of-turn-reminder",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Stop hook — end-of-turn recap + goal-drift verdict reminder",
+      "source": {
+        "path": ".claude/hooks/end-of-turn-reminder.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "Stop"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)",
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-handoff-on-compact",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "SessionStart:compact hook — re-injects the model-authored handoff after compaction",
+      "source": {
+        "path": ".claude/hooks/inject-handoff-on-compact.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "SessionStart"
+        ],
+        "matcher": [
+          "compact"
+        ],
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-matching-rule",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "PostToolUse hook — path-scoped just-in-time delivery of .claude/rules/*.md summaries",
+      "source": {
+        "path": ".claude/hooks/inject-matching-rule.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@dual-pair:rule-path-scoping",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-memory-codification",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "PostToolUse hook — path-scoped codify-then-pointer discipline reminder",
+      "source": {
+        "path": ".claude/hooks/inject-memory-codification.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Write"
+        ],
+        "delivery": [
+          "@dual-pair:memory-codification-writemoment",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-output-language",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "UserPromptSubmit hook — injects the active output-language line into prompt context",
+      "source": {
+        "path": ".claude/hooks/inject-output-language.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "UserPromptSubmit"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-project-digest",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "UserPromptSubmit + SubagentStart hook — injects the project digest at both fire-points",
+      "source": {
+        "path": ".claude/hooks/inject-project-digest.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "SubagentStart",
+          "UserPromptSubmit"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-session-bootstrap",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "UserPromptSubmit hook — injects the session-bootstrap digest into prompt context",
+      "source": {
+        "path": ".claude/hooks/inject-session-bootstrap.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "UserPromptSubmit"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-subagent-context",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "SubagentStart fallback — digest injection for harnesses without the SubagentStart event (zcode)",
+      "source": {
+        "path": ".claude/hooks/inject-subagent-context.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PreToolUse"
+        ],
+        "matcher": [
+          "Agent|Task"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "inject-subagent-digest",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "SubagentStart hook — injects the session-bootstrap digest into juniors at spawn",
+      "source": {
+        "path": ".claude/hooks/inject-subagent-digest.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "SubagentStart"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "precompact-residue",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PreCompact hook — writes the session-residue note before compaction",
+      "source": {
+        "path": ".claude/hooks/precompact-residue.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PreCompact"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)",
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "runtime-bridge-dispatch",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse hook — runtime-bridge dispatch for meta-launch kickoffs",
+      "source": {
+        "path": ".claude/hooks/runtime-bridge-dispatch.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse",
+          "PostToolUseFailure"
+        ],
+        "matcher": [
+          "Write|Edit|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "session-start",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "plugin"
+      },
+      "description": "Plugin SessionStart hook — injects the getff entry-point context so the using-getff skill auto-triggers",
+      "source": {
+        "path": "plugin/hooks/session-start",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "SessionStart"
+        ],
+        "matcher": [
+          "startup|clear|compact"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "validate-prompt",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse gate — validates the batch-spec section on orchestrator-prompts kickoff edits",
+      "source": {
+        "path": ".claude/hooks/validate-prompt.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Edit|Write|MultiEdit"
+        ],
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "warn-subagent-report",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "SubagentStop hook — warns when a finishing report misses its canonical sections (non-blocking)",
+      "source": {
+        "path": ".claude/hooks/warn-subagent-report.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "SubagentStop"
+        ],
+        "matcher": [],
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "warn-subagent-report-zcode",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "plugin"
+      },
+      "description": "ZCode-functional twin of .claude/hooks/warn-subagent-report.sh",
+      "source": {
+        "path": "plugin/hooks/warn-subagent-report-zcode",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse",
+          "Stop"
+        ],
+        "matcher": [
+          "Agent|Task"
+        ],
+        "delivery": [
+          "@dual-pair:warn-subagent-report",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "worktree-setup",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "WorktreeCreate hook — provisions a new worktree with node_modules symlinks",
+      "source": {
+        "path": ".claude/hooks/worktree-setup.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@dual-pair:worktree-create-setup"
+        ]
+      },
+      "example": null
+    }
+  ]
+}

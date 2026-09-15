@@ -1,6 +1,5 @@
-// packages/runtime-bridge/src/cli/park.ts
 /**
- * CLI park entrypoint — the agent-side "I hit a hard fork, stop and ask" half.
+ * park.ts — the agent-side "I hit a hard fork, stop and ask" half.
  *
  * Usage (the autonomous agent runs this on a genuine BLOCKING fork it cannot default):
  *   tsx packages/runtime-bridge/src/cli/park.ts --task <id> --question "<fork + options>"

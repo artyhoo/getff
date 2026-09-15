@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# check-worker-dispatch-channel.sh — PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent
 # PostToolUse gate — M6 edit-time channel for `#worker-dispatch-via-subagent`.
 # On Edit|Write|MultiEdit of a `.claude/orchestrator-prompts/<umbrella>/kickoff.md`,
 # delegates to the SINGLE shared matcher (29-worker-dispatch-channel.bin.ts → .ts)

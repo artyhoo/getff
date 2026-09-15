@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * triage-s4b-outcomes — S4b outcome-audit driver + fail-closed gate (kickoff-s4b §3.5/§3.8).
+ */
 // S4b outcome-audit driver + fail-closed gate (kickoff-s4b §3.5/§3.8). Establishes, for every
 // one of the 151 labelable corpus rows, what the repository actually did about the finding,
 // from the live tree + history. The register CSV is BUILT here from the auditor-seat raw

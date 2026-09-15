@@ -22,7 +22,7 @@
   ],
   "renders": [
     "packages/core/templates/shared/AI-USAGE-GUIDE.md — AI render (C1, this repo; parity-gated)",
-    "landing site First Steps x3 — human render (umbrella B / BS2, NOT yet authored; vendored per B-D5)"
+    "landing site /docs/installation/ — human render (getff-ai-site S1; the first-steps-* quick-start slugs are stubs per face spec §4, so the render target is the Installation page — BU-F14 re-point, S0a)"
   ],
   "sequences": {
     "core": {
@@ -32,7 +32,7 @@
         {
           "id": "install",
           "title": "Install at core depth",
-          "action": "From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `install.sh python`, `install.sh cargo` and `install.sh go` are separate non-npm lanes, each an explicit positional). Omit the stack to auto-detect.",
+          "action": "From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `python`, `cargo` and `go` are separate non-npm toolchain lanes, each an explicit positional — `./setup cargo` or `bash install.sh cargo`, the wrapper forwards lanes verbatim). Omit the stack to auto-detect.",
           "evidence": "install.sh; setup.d/30-templates.sh"
         },
         {
@@ -58,6 +58,12 @@
           "title": "Watch a rule actually fire",
           "action": "`bash scripts/check-fences-fire.sh` — plants deliberately-bad input in a temp dir and asserts the installed ESLint rules go RED on it. This is the first-rule-fires moment: an installed rule that has never been seen to fire is an unproven claim.",
           "evidence": "scripts/check-fences-fire.sh (shipped at core; prior-art-evaluations.md#184)"
+        },
+        {
+          "id": "fire-on-your-code",
+          "title": "Fire a rule on YOUR code, not a fixture",
+          "action": "Plant one violation of a shipped getff rule in YOUR tree and run your stack's native gate — the RED line names your file. npm: add `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`, `**/controllers/**`, `**/app/api/**`, `**/actions/**`), run `npm run lint` — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var(\"X\")`, run `cargo clippy`; go — add `os.Getenv(\"X\")`, run `golangci-lint run`.",
+          "evidence": "templates/ts-server/eslint.config.mjs:179 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
         },
         {
           "id": "run-the-gate",
