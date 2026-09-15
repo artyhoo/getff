@@ -4,8 +4,9 @@
 > **NOT authoritative for:** project goal — see consumer's README.md. SPA-specific rules (R-SPA-*) — see `RULES.react-spa.md`.
 
 These rules are enforced at the **earliest reachable channel**: custom ESLint rules at
-edit-time, `audit-ai-docs.sh` + `tsc`/tests at pre-push, and AI Factory's
-`rules-sidecar` (which reads this file) at `/aif-verify`. Each rule has a corresponding
+edit-time, getff's own rule-globs / lint-staged / generated-rule / link checks at pre-push,
+and AI Factory's `rules-sidecar` (which reads this file) at `/aif-verify`. Your `tsc` and
+test suite are yours to wire — the pre-push hook does not run them. Each rule has a corresponding
 automated check. Bypass via `/aif-rules` (with rationale), never via `--no-verify`.
 
 ## Summary table

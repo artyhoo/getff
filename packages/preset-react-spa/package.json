@@ -30,5 +30,6 @@
     "eslint-plugin-react-hooks": "^6.0.0",
     "globals": "^15.0.0",
     "typescript-eslint": "^8.59.0"
-  }
+  },
+  "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }

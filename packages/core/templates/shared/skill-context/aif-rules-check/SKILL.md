@@ -5,17 +5,17 @@ name: aif-rules-check-project-context
 # aif-rules-check skill-context — naming + test-existence residue
 
 > **Authoritative for:** project-specific rule checks injected into AI Factory's `aif-rules-check` skill (and its `rules-sidecar`) — the two checks from this project's `RULES.md` that are NOT enforced at an earlier deterministic channel (R10 naming, R4/R17 test-existence) and therefore need a verify-time pass.
-> **NOT authoritative for:** project goal — see the consumer's README.md. The R1–R20 corpus itself — that lives in `.ai-factory/RULES.md`, which `rules-sidecar` already reads; this file only adds the residue not covered by ESLint/pre-push.
+> **NOT authoritative for:** project goal — see the consumer's README.md. The R1–R20 corpus itself — that lives in `.ai-factory/RULES.md`, which `rules-sidecar` already reads; this file only adds the residue not covered by the edit-time ESLint channel.
 
 <!-- This file is the standalone SSOT for the R10/R4/R17 residue. Most rule checks
-     (R1-R3, R5-R8, R12, R14-R16, R19-R20) are enforced earlier: custom ESLint rules at
-     edit-time + tsc/depcruise at pre-push. Only the checks below have NO earlier
+     (R1-R3, R5-R8, R12, R14-R16, R19-R20) are enforced earlier by the custom ESLint rules at
+     edit-time (pre-push carries getff's own rule checks, not tsc/depcruise). Only the checks below have NO earlier
      deterministic channel, so they ship here as a skill-context augmentation rather than
      as a colliding sub-agent (C-1 KEEP-AIF resolution). There is no paired agent file —
      the former best-practices-sidecar.md was removed; this skill-context carries the
      residue spec in full. -->
 
-`rules-sidecar` already reads `.ai-factory/RULES.md` for the full R1–R20 corpus. **Do not re-run** rule checks that the project enforces at edit-time (custom ESLint rules) or pre-push (`tsc`, `depcruise`, `audit-ai-docs.sh`) — those are the authoritative, earlier channels. This file adds only the two checks that have **no** earlier deterministic enforcement and so genuinely need a verify-time review of the diff.
+`rules-sidecar` already reads `.ai-factory/RULES.md` for the full R1–R20 corpus. **Do not re-run** rule checks the project enforces at edit-time — the custom ESLint rules are the authoritative, earlier channel there. Do NOT assume pre-push covers your typecheck, tests or architecture: it runs getff's own rule checks only (rule-glob liveness, lint-staged resolution, generated-rule firing, changed-Markdown links), so anything else has no earlier deterministic channel and is in scope for this review. This file adds only the two checks that have **no** earlier deterministic enforcement and so genuinely need a verify-time review of the diff.
 
 ## R10 — Naming conventions (no earlier automated channel)
 

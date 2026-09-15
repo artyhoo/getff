@@ -58,7 +58,7 @@ These are non-negotiable. Enforced by lint/test/CI.
 Before every commit / PR, run the gate this installer ships (unconditional — needs no extra install):
 
 - `./scripts/audit-ai-docs.sh` — drift + code-vs-docs probes.
-- the pre-push hook (`.husky/pre-push`) fires on `git push` (typecheck, `vitest related`, dependency-cruiser).
+- the pre-push hook (`.husky/pre-push`) fires on `git push` — getff's own rule checks (rule-glob liveness, lint-staged resolution, generated-rule firing, changed-Markdown links), not your typecheck or tests.
 - CI gates the PR (`ci-success` required check) — the last-resort authority, independent of local tooling.
 
 For the lifecycle past install — First Steps per install depth, the daily cycle, and what degrades when a capability is absent — see `.ai-factory/AI-USAGE-GUIDE.md`.

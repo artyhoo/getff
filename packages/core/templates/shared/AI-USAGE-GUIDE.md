@@ -46,8 +46,10 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 
 <!-- step: install -->
 
-1. **Install at core depth** — from your project root run `bash <getff>/setup -y <stack>` (stacks:
-   `ts-server`, `react-next`, `react-spa`, `react-native`). Omit the stack to auto-detect.
+1. **Install at core depth** — from your project root run
+   `bash <getff>/setup -y --profile core <stack>` (stacks: `ts-server`, `react-next`,
+   `react-spa`, `react-native`). Omit the stack to auto-detect. Name `core`: `-y` on its own
+   resolves to `env` depth, not `core` (`install.sh:648`).
    Non-npm projects take a separate toolchain lane, each an explicit positional argument:
    `./setup python`, `./setup cargo`, `./setup go` (or `bash install.sh <lane>`). Those lanes
    early-exit before the npm `package.json` precondition, so they need no `package.json` at all.
@@ -203,8 +205,12 @@ The steady-state loop once First Steps is done. Every command below is shipped b
 3. **Before you commit** — `bash scripts/audit-ai-docs.sh` (drift + code-vs-docs probes) and, when
    you touched layout or added a package, `bash scripts/check-rule-globs.sh` and
    `bash scripts/check-lintstaged-resolves.sh`. The pre-commit hook runs lint-staged on its own.
-4. **On push** — `.husky/pre-push` fires automatically: typecheck, `vitest related`,
-   dependency-cruiser. It is not optional and not to be bypassed with `--no-verify`.
+4. **On push** — `.husky/pre-push` fires automatically. It runs **getff's own rule checks**:
+   rule-glob liveness (an active rule whose globs match no file fails), lint-staged binary
+   resolution, generated-rule firing, link-check on changed Markdown, and un-pinned tool
+   installs in workflows. It does **not** run your typecheck or your test suite — those stay
+   yours to wire, at pre-commit or in your CI. It is not optional and not to be bypassed with
+   `--no-verify`.
 5. **On the PR** — CI (`ci-success`) is the last-resort gate. It is the authority that does not
    depend on anyone's local tooling, which is exactly why it must never be the FIRST place a
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
@@ -285,11 +291,11 @@ rather than implying uniformity:
 Per this program's honesty rule, a capability that is not on disk gets an **owner and a trigger**
 here instead of a section pretending it exists.
 
-| Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                   |
-| Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | the package is published under the frozen name                         |
-| Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header |
+| Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                    |
+| Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | `npm view getff version` resolves (the frozen name is unscoped `getff`) |
+| Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header  |
 
 ---
 

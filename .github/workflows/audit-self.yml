@@ -1954,9 +1954,17 @@ jobs:
   # Per-cell rationale is preserved with each step below. All cells: fail-closed
   # (a missing tool is RED, never SKIP), deterministic + API-free per
   # no-paid-llm-in-ci.md §1, actions exact-pinned per ci-tool-pinning.md Rule A.
+  #
+  # WHY an `os` dimension carried on each `include` cell rather than a second
+  # `os:` axis: a full cross-product would run every cell on every runner, and
+  # only the getff-dist cell exercises the consumer path whose platform assumption
+  # was never tested. The asymmetric shape — one default OS plus named
+  # `include` cells for the others — is the one eslint (`ci.yml:64-72`) and vitest
+  # (`ci.yml:165-178`) both use. It leaves the literal `run:` tokens below
+  # untouched, so the coverage reconciliation above still sees all four scripts.
   consumer-matrix:
     name: "Consumer-matrix — ${{ matrix.label }}"
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
     strategy:
@@ -1966,14 +1974,37 @@ jobs:
       matrix:
         include:
           - cell: pnpm-monorepo
+            os: ubuntu-latest
             label: "start cell — pnpm workspace monorepo (launch-preannounce-track S2)"
           - cell: python-unfamiliar-stack
+            os: ubuntu-latest
             label: "W6 cell — python unfamiliar-stack e2e (getff-any-stack-trace S4)"
           - cell: npm-tarball
+            os: ubuntu-latest
             label: "npm-tarball cell — files allowlist + bin runnability (beta-delivery-ux R1)"
           - cell: getff-dist
+            os: ubuntu-latest
             label: "getff-dist cell — npx getff init from the assembled tarball (npm-publish-getff-init S2)"
+          # The only consumer-facing entrypoint claim this repo makes that had no
+          # platform evidence: `npx getff init` on Windows. It was broken in four
+          # independent ways at once (bash `bin` shim resolving to the WSL
+          # launcher; CRLF shebangs; `spawnSync` unable to reach npm/npx; an
+          # unguarded python3) and nothing was watching, because all 44 `runs-on:`
+          # in this directory were ubuntu. This cell is that watcher.
+          - cell: getff-dist
+            os: windows-latest
+            label: "getff-dist cell on Windows — the npx getff init path consumers actually run"
     steps:
+      # Reproduce the checkout a Windows consumer gets: Git for Windows defaults
+      # to core.autocrlf=true, which is what lands CRLF shebangs in the 336
+      # tracked *.sh. With the repo's .gitattributes (`* text=auto eol=lf`) the
+      # attribute wins and the tree is LF anyway — forcing the setting here is
+      # what makes this cell a live regression test for that file rather than a
+      # test of the runner image's git defaults. Prior art: lint-staged
+      # (`pull-requests.yml:123-124`) does exactly this.
+      - name: Force the Windows-consumer checkout defaults
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf true
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           persist-credentials: false
@@ -2070,6 +2101,55 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  citation-fullsweep:
+    # Last-resort backstop for the `path:line` citation gate. pre-push §9
+    # (packages/core/hooks/pre-push.ts) already runs this checker at the EARLIEST
+    # reachable channel over the same `--corpus`, with the expensive `git blame` arm
+    # scoped by `--affected-by` to the paths that push changed. That scoping is correct
+    # and cheap (72% of the last 60 first-parent commits touch no cited file at all;
+    # 0.12s vs 6.4s unscoped, measured 2026-09-14) but it is structurally blind to three
+    # things, which is why this job exists rather than being a duplicate of the hook:
+    #
+    #   1. a push that never ran the hook — `--no-verify`, a GitHub web edit, or a
+    #      branch moved through the REST API (a practised path in this repo);
+    #   2. two branches in flight where one moves a cited file and the other adds the
+    #      citation — neither push can see the other, and the staleness only exists on
+    #      the merged result;
+    #   3. a branch whose base is behind staging, so its corpus predates the citation.
+    #
+    # audit-self's triggers cover all three: `pull_request` evaluates the merge ref,
+    # and `push: [staging, main]` + `merge_group` evaluate the merged result after the
+    # fact. Same v1/v2 split as guard-liveness vs guard-liveness-fullsweep.yml —
+    # change-scoped first, full sweep last (.claude/rules/rule-enforcement-channel-selection.md §3).
+    #
+    # Deterministic, offline, no tool install: node + git only, so ci-tool-pinning.md has
+    # no surface here and no-paid-llm-in-ci.md is satisfied by construction. The
+    # `<!-- cite:historical <why> -->` escape works through this channel unchanged — it
+    # is read by the checker, not by the caller. `--strict` is deliberately NOT passed:
+    # 32 citations on this corpus are unresolvable by design (out-of-repo paths,
+    # consumer illustrations, template placeholders), so it would be a gate nobody can
+    # make green — the reasoning in the script header, unchanged here.
+    name: citation-fullsweep
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          # ARM 1 blames the citing line and then reads the cited file AT THAT COMMIT;
+          # a shallow clone makes every blame return the grafted boundary and the arm
+          # silently checks nothing.
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      # No npm install: the checker is dependency-free node + git by construction (see
+      # its header — it is not in the install manifest and must run from a bare tree).
+      - name: Full-corpus `path:line` citation sweep (unscoped)
+        run: node scripts/check-line-citations.mjs --check --corpus
+
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just
   # `ci-success` gates them all, and stays correct as jobs are added/removed (vs
@@ -2084,6 +2164,7 @@ jobs:
     if: always()
     needs:
       - mechanical
+      - citation-fullsweep
       # ci-needs-completeness gap (found by the beta-delivery-ux R1 backward sweep, fixed
       # here): without this line the shipped surface could drift off Prettier-clean while
       # `ci-success` stayed green and the PR merged — every consumer's first

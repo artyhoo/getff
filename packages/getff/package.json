@@ -37,5 +37,6 @@
     "build:dist": "bash ../../scripts/build-getff-dist.sh",
     "build:dist:check": "bash ../../scripts/build-getff-dist.sh --check",
     "prepack": "bash ../../scripts/build-getff-dist.sh --check && bash ../../scripts/build-getff-dist.sh"
-  }
+  },
+  "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }

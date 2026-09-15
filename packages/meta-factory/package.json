@@ -17,5 +17,6 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
-  }
+  },
+  "author": "Artem Safronov <122199423+artyhoo@users.noreply.github.com>"
 }

@@ -52,6 +52,49 @@ printf '1\tdoc\t.md\ttrue\n2\tother\tpackages/\ttouch %s/OTHER\n' "$TMP" >"$TMP/
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o4" 2>&1
 has_file "unmapped path escalated to full (ran all gates)" "$TMP/OTHER"
 
+mk_repo() { # mk_repo <dir> — a git repo with the real sweep installed at scripts/
+  local d="$1"
+  mkdir -p "$d/scripts"
+  cp "$SWEEP" "$d/scripts/run-local-ci-sweep.sh"
+  printf 'seed\n' >"$d/README.md"
+  ( cd "$d" && env -u GIT_DIR -u GIT_WORK_TREE git init -q \
+      && git config user.email t@example.com && git config user.name t \
+      && git add -A && env -u GIT_DIR -u GIT_WORK_TREE git commit -qm init ) >/dev/null 2>&1
+}
+run_sweep() { # run_sweep <repo-dir> [args…] — invoke that repo's own copy, GIT_* unset
+  local d="$1"; shift
+  env -u GIT_DIR -u GIT_WORK_TREE bash "$d/scripts/run-local-ci-sweep.sh" "$@"
+}
+
+# --- (always/empty-diff) an ALWAYS gate runs even when the diff selects nothing ---
+# `--base HEAD` makes `git diff HEAD...HEAD` empty, which is what a sweep over an all-uncommitted
+# tree sees. Regression 2026-09-14: `gate_selected` loops over $CHANGED, so on an empty diff the
+# loop body never ran and the ALWAYS row silently selected nothing — "SWEEP: no gates selected"
+# with rc 0, the `#hope-as-gate` shape (.claude/rules/attention-is-not-a-mechanism.md §2).
+# Runs in a CLEAN throwaway repo, never in the live worktree. The exit code asserted below is
+# 0, and the dirty-tree refusal (#1780) legitimately answers 3 on a dirty tree — so pointing
+# this arm at the checkout would make its verdict a function of whatever the operator happens
+# to have uncommitted. Measured 2026-09-14: it went red (rc=3) on the merge that brought the
+# two changes together, against a worktree mid-edit and nothing else.
+rm -f "$TMP/ALW" "$TMP/SCOPED"
+RALW="$TMP/repo-always"; mk_repo "$RALW"
+printf '1\talways\tALWAYS\ttouch %s/ALW\n2\tscoped\tpackages/\ttouch %s/SCOPED\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" run_sweep "$RALW" --base HEAD >"$TMP/o13" 2>&1
+check "empty diff exits 0" 0 $?
+has_file "ALWAYS gate ran on an empty diff" "$TMP/ALW"
+no_file "empty diff did not run the path-scoped gate" "$TMP/SCOPED"
+
+# --- (always is not coverage) an ALWAYS row must NOT satisfy the unmapped-path fail-safe ---
+# Paired negative for the arm above: ALWAYS means "unconditional", not "matches every path".
+# Counting it as coverage retires the escalation fail-safe entirely — measured 2026-09-14, the
+# real table's `citation-fullsweep` row turned `weird/unmapped.bin` from "escalating to --full"
+# (every gate) into "1 gate(s) passed".
+rm -f "$TMP/ALW2" "$TMP/SCOPED2"
+printf '1\talways\tALWAYS\ttouch %s/ALW2\n2\tscoped\tpackages/\ttouch %s/SCOPED2\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o14" 2>&1
+grep_out "unmapped path still escalates despite an ALWAYS row" "escalating to --full" "$TMP/o14"
+has_file "escalation ran the path-scoped gate too" "$TMP/SCOPED2"
+
 # --- (prefix-with-dot) a trigger that is both .*-prefixed and /-suffixed matches as PREFIX ---
 # Regression: .github/workflows/ must select via prefix, not be misread as a suffix → false escalation.
 rm -f "$TMP/WF" "$TMP/ESC"
@@ -191,25 +234,19 @@ else echo "  ✓ usage no longer advertises --capture"; fi
 #
 # These arms build a throwaway repo rather than using a test seam: the thing under test IS the
 # real `git status` call, and a seam for it would be a second copy that drifts from it.
-mk_repo() { # mk_repo <dir> — a git repo with the real sweep installed at scripts/
-  local d="$1"
-  mkdir -p "$d/scripts"
-  cp "$SWEEP" "$d/scripts/run-local-ci-sweep.sh"
-  printf 'seed\n' >"$d/README.md"
-  ( cd "$d" && env -u GIT_DIR -u GIT_WORK_TREE git init -q \
-      && git config user.email t@example.com && git config user.name t \
-      && git add -A && env -u GIT_DIR -u GIT_WORK_TREE git commit -qm init ) >/dev/null 2>&1
-}
-run_sweep() { # run_sweep <repo-dir> [args…] — invoke that repo's own copy, GIT_* unset
-  local d="$1"; shift
-  env -u GIT_DIR -u GIT_WORK_TREE bash "$d/scripts/run-local-ci-sweep.sh" "$@"
-}
-
 # (neg) dirty tree + a committed diff that selects nothing → refuse, non-zero, name the paths.
+# SWEEP_GATES_FILE is load-bearing here and in the paired positive below. These two arms test
+# the REFUSAL MECHANISM, not the shipped gate table, and the live table is not a fixture: it
+# grew an ALWAYS row (`citation-fullsweep`, #1772) that selects in every repo, so without the
+# override the arm's own premise — "the diff selected nothing" — stops holding, and whether it
+# passes turns on how an unrelated gate behaves inside a two-commit sandbox. Measured
+# 2026-09-14: both arms went red on the merge of #1780 with #1772, with rc=1 from that gate
+# rather than the refusal's rc=3. A row here that no diff can match keeps the premise true.
+printf '1\tnever-selected\t.nomatch\ttrue\n' >"$TMP/gates-refusal.tsv"
 R1="$TMP/repo-dirty"; mk_repo "$R1"
 printf 'edited-but-never-committed\n' >>"$R1/README.md"
 printf 'brand new\n' >"$R1/UNTRACKED-EVIDENCE.txt"
-run_sweep "$R1" --base HEAD >"$TMP/o19" 2>&1
+SWEEP_GATES_FILE="$TMP/gates-refusal.tsv" run_sweep "$R1" --base HEAD >"$TMP/o19" 2>&1
 check "dirty tree with zero gates selected exits non-zero" 3 $?
 grep_out "refusal names the modified tracked path" "README.md" "$TMP/o19"
 grep_out "refusal names the untracked path" "UNTRACKED-EVIDENCE.txt" "$TMP/o19"
@@ -219,7 +256,7 @@ else echo "  ✓ dirty tree did not print the false-green 'no gates selected' li
 
 # (pos) paired positive — CLEAN tree, genuinely empty diff, still the quiet exit-0 answer.
 R2="$TMP/repo-clean"; mk_repo "$R2"
-run_sweep "$R2" --base HEAD >"$TMP/o20" 2>&1
+SWEEP_GATES_FILE="$TMP/gates-refusal.tsv" run_sweep "$R2" --base HEAD >"$TMP/o20" 2>&1
 check "clean tree with an empty diff still exits 0" 0 $?
 grep_out "clean tree keeps the 'no gates selected' answer" "SWEEP: no gates selected for this diff" "$TMP/o20"
 
