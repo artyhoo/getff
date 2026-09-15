@@ -364,3 +364,73 @@ Auditing this audit produced three findings:
 - **Pre-existing worktree mutation** (`verify-provenance-cli.ts` mode flip) — reported,
   not investigated; not this lane's file and not staged. Settled by: whoever owns the
   worktree running `git checkout -- packages/core/synthesizer/verify-provenance-cli.ts`.
+
+---
+
+## §security-re-review (iteration 1 — full re-review, appended 2026-09-15)
+
+`/aif-security-checklist` pass over the same population and head (`origin/staging`
+`c26593c90b`), focus per its charter: auth, validation, secrets, injection, unsafe
+shell/file handling in changed code. No ignore-list exists (`.ai-factory/SECURITY.md`
+absent); no skill-context overrides. Fence re-run (§9): `node --version` → `v22.23.2`,
+`vitest --version` → `vitest/4.1.8 linux-x64 node-v22.23.2`, `git --version` → `2.39.5`.
+Same-session suite gate (§5, env-scrubbed per F4):
+`env -u CLAUDE_CODE_ENTRYPOINT node_modules/.bin/vitest run --reporter=default
+packages/core/hooks/{deps-hash-check,end-of-turn-reminder,hook-emit-prelude,
+inject-handoff-on-compact,precompact-residue}.test.ts` → **5 files / 234 tests green** —
+the suites covering the delta's new executable surface.
+
+**S14 — `TRUE` (a security FIX the delta itself ships): CWE-377 class closed in
+runtime-bridge-dispatch.** Pre-image: `origin/main:.claude/hooks/runtime-bridge-dispatch.sh:156`
+`RESULT="$(tsx "$DISPATCH_TS" "$FILE_PATH" 2>/tmp/runtime-bridge-dispatch-stderr.txt)"` —
+fixed, predictable, world-writable-target truncation (the in-comment rationale at the
+current `:223-227` names the symlink pre-plant attack verbatim). Now `:233`
+`_STDERR_LOG="$(mktemp "${TMPDIR:-/tmp}/runtime-bridge-dispatch-stderr.XXXXXX" …)"` +
+EXIT-trap removal; plugin twin carries the identical code (mktemp at its `:233`).
+→ Doc sentence: the dispatch hook's stderr capture is an unpredictable 0600 temp removed
+on exit — the fixed-name `/tmp` truncation class is fixed, by name, in shipped code.
+
+**S15 — advisory family, none blocking: predictable `/tmp` state files with `: >`
+truncation (CWE-377-adjacent).** Census (`grep -n ': >'` over the changed hooks):
+`lib/hook-emit.sh:89` `: > "$flag"` where `:87` builds
+`flag="${TMPDIR:-/tmp}/aif-$1-${SESSION_ID}"` — SESSION_ID is extracted RAW at all four
+call sites (`check-doc-authority.sh:105`, `validate-prompt.sh:113`,
+`check-worker-dispatch-channel.sh:118`,`:127`; no `tr -c`/`cut -c`, unlike the residue
+writer's sanitised key); `end-of-turn-reminder.sh:242`
+`_scan_tmp="${TMPDIR:-/tmp}/aif-eot-scan-$$"` — a PER-INVOCATION copy (PID-suffixed,
+no cross-turn stability requirement, so it could take the S14 mktemp shape); `:412`
+`{ : > "$ctx_flag"; }` + `deps-hash-check.sh:293`
+`.getff-deps-memo.<uid>.<tag>.<slot>` (umask 077 on write — the best of the family — but
+content is unsigned, so a plantable memo suppresses a drift notice); carried member
+(pre-existing source, twin generated): `check-doc-authority-header.sh:49`
+`aif-dah-jqskip-${_SID:-nosession}`, `_SID` raw. Attack prerequisites are real but local:
+`/tmp` write access plus knowledge of the session UUID (or a pre-planted PID range for
+the `$$` member); impacts are single-file truncation and suppression of a skip notice,
+as the invoking user, on dev machines. Filed as hardening debt because the delta's own
+S14 standard makes the per-invocation member an inconsistency, not a new exposure class.
+→ Doc sentence: hook session state under `/tmp` is advisory per-user state;
+per-invocation temps are mktemp'd, cross-turn debounce flags deliberately keep stable
+sanitised names.
+
+**S16 — advisory (accepted, documented): `git -c safe.directory='*'`.**
+`.claude/skills/dispatcher/helpers/probe-inflight.sh` (delta hunk) execs
+`git -c safe.directory='*' -C "$repo_path" branch -a` in the agent container — git's
+ownership defence relaxed for ONE read-only ref listing; the in-comment rationale
+(root-exec vs user-owned checkout, measured 2026-09-08) is at the call site.
+→ Doc sentence: the in-flight probe relaxes git ownership checking for a read-only
+branch listing inside the container, by design and documented where it happens.
+
+**S17 — clean surfaces, falsifiers executed:** secrets scan over every added line of the
+88-file delta (`ghp_`/`github_pat_`/`sk-`/`AKIA`/`xox`/`password=`/`api_key=`/`Bearer `)
+→ **zero hits**; `inject-handoff-on-compact.sh:39` sanitises the session key
+(`tr -c 'A-Za-z0-9._-' '_' | cut -c1-96` — `/` cannot survive, so no traversal out of
+`_handoff-<key>.md`) and passes the body through `jq -n --arg` (no jq injection);
+`run-hook.cmd`'s hook-lang fallback validates BEFORE export
+(`grep -qE '^[a-z]{2}(-[A-Za-z0-9]{2,8})?$'`); `heal.sh`'s container script crosses as a
+single-quoted heredoc (`<<'HOOKSYNC'` — no local expansion, no nested quoting), backups
+fail closed, overwrite is cp+mv; `_json_escape` now collapses `\n\r\t` and drops C0 (the
+pre-delta copies emitted invalid JSON on tab/CR); `fetch-and-wire.sh`'s delta is a
+version constant (0.2.0→0.3.0). The aif API (`localhost:3009`, no auth) quoted by the
+aif-doctor runbook is the aif runtime's pre-existing local design, not a shipped-product
+surface of this repo. **Lane stance unchanged: GO-WITH-NOTES** — no blocking security
+finding on a consumer-reachable path.
