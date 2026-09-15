@@ -93,8 +93,9 @@ Every command below ran in this session, from the repo root, on the host named i
 3. **Plugin twins + consumer copies** (T-P2-B census, byte-compared):
 
    ```text
-   10 hook twins (plugin/hooks/<name> vs .claude/hooks/<name>.sh):
-     9 × body identical after the 1 generated header line (diff | grep -c '^[<>]' → 1)
+   9 hook twins (plugin/hooks/<name> vs .claude/hooks/<name>.sh) of the 10 in-delta
+     top-level plugin/hooks scripts:
+     8 × body identical after the 1 generated header line (diff | grep -c '^[<>]' → 1)
      validate-prompt: 10 divergent lines — DECLARED in the source at
        .claude/hooks/validate-prompt.sh:15-19 `# @plugin-transform: manual — the twin drops
        the Wave-7 header lines and the @file-content-gate marker…`; hooks.json still
@@ -310,8 +311,9 @@ citation bounds-check, or fixture probe):
   2/2 in-delta presets parsed (4/4 on disk), 2/2 helpers executed, description↔body
   spot-checked on the dispatcher/orchestrator/pipeline trio, ref-existence over the T7
   population.
-- `plugin/*` (27 files) — 27/27: manifest cross-check, twin census (10/10 + lang/lib),
-  README claims (8/8 checkable sentences), fetch-and-wire live, run-hook.cmd live.
+- `plugin/*` (27 files) — 27/27: manifest cross-check, twin census (9 twins + 1 solo =
+  10/10 in-delta hooks censused; + lang/lib), README claims (8/8 checkable sentences),
+  fetch-and-wire live, run-hook.cmd live.
 - `agents/` (4) + `skills/getff` (2) — 6/6: existence + twin/comparison + referenced-
   artifact checks.
 
@@ -341,7 +343,7 @@ Auditing this audit produced three findings:
    `100644` blob, verified below), stayed under the 600-line gate, and changed no product
    file (`git status` before staging: one pre-existing mode-only worktree mutation
    `packages/core/synthesizer/verify-provenance-cli.ts` 100644→100755, NOT this lane's and
-   NOT staged).
+   NOT staged; reverted in rework R2 — see §inconclusive).
 
 ## §inconclusive
 
@@ -364,8 +366,12 @@ Auditing this audit produced three findings:
   but not reproducible here. Settled by: one ZCode session with a `ru` pin and a Russian
   locale.
 - **Pre-existing worktree mutation** (`verify-provenance-cli.ts` mode flip) — reported,
-  not investigated; not this lane's file and not staged. Settled by: whoever owns the
-  worktree running `git checkout -- packages/core/synthesizer/verify-provenance-cli.ts`.
+  not investigated; not this lane's file and not staged. SETTLED in rework R2
+  (2026-09-15, review-gate finding a006550b6a37): `git diff <path>` confirmed mode-only
+  (`old mode 100644` / `new mode 100755`, zero content hunks); `chmod 644` restored it
+  (`git checkout --` is permission-blocked for this session — the mode bit is the whole
+  mutation), and `git status --porcelain` now lists only this report file plus the two
+  sibling-lane untracked reports.
 
 ---
 
@@ -404,7 +410,7 @@ no cross-turn stability requirement, so it could take the S14 mktemp shape); `:4
 `{ : > "$ctx_flag"; }` + `deps-hash-check.sh:293`
 `.getff-deps-memo.<uid>.<tag>.<slot>` (umask 077 on write — the best of the family — but
 content is unsigned, so a plantable memo suppresses a drift notice); carried member
-(pre-existing source, twin generated): `check-doc-authority-header.sh:49`
+(pre-existing source, twin generated): `check-doc-authority-header.sh:47`
 `aif-dah-jqskip-${_SID:-nosession}`, `_SID` raw. Attack prerequisites are real but local:
 `/tmp` write access plus knowledge of the session UUID (or a pre-planted PID range for
 the `$$` member); impacts are single-file truncation and suppression of a skip notice,
