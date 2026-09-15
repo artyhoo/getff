@@ -39,7 +39,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1312 (spawn-argument)",
-          ".github/workflows/audit-self.yml:523 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:527 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -59,7 +59,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1224 (spawn-argument)",
-          ".github/workflows/audit-self.yml:528 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:532 (workflow-run:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)"
         ]
@@ -99,8 +99,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1541 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1203 (workflow-run:invocation-verb)"
+          "packages/core/hooks/pre-push.ts:1559 (spawn-argument)",
+          ".github/workflows/audit-self.yml:1212 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -119,7 +119,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1574 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1592 (spawn-argument)",
           "install.sh:1149 (quoted-path-token)"
         ]
       },
@@ -197,7 +197,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2152 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2161 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -385,6 +385,26 @@
         "wired-from": [
           "scripts/check-alwayson-budget.sh:46 (quoted-path-token, closure)",
           "scripts/check-alwayson-budget.sh:46 (command-substitution, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-face-facts.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "deterministic face-facts manifest for the getff.ai landing pin (D42).",
+      "source": {
+        "path": "scripts/render-face-facts.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1387 (spawn-argument)",
+          ".github/workflows/audit-self.yml:262 (workflow-run:invocation-verb)"
         ]
       },
       "example": null

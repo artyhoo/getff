@@ -256,6 +256,10 @@ jobs:
       # derive from the source populations. Same tsx runner pattern as the steps above.
       - name: Reference render & diff (getff-ai-site S0a)
         run: npx tsx scripts/render-reference.mjs --check
+      # getff-ai-site S0a (D42): docs/site/face-facts.json derives from maturity.json +
+      # the §7 fact families. Same tsx runner pattern as the steps above.
+      - name: Face-facts render & diff (getff-ai-site S0a)
+        run: npx tsx scripts/render-face-facts.mjs --check
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
@@ -708,6 +712,11 @@ jobs:
       # Hermetic — no network, no LLM; paired with the reference render & diff step above.
       - name: Run reference-render generator arms test (getff-ai-site S0a)
         run: bash scripts/render-reference.test.sh
+      # The D42 face-facts generator's acceptance arms: live-fire --write/--check against
+      # the real repo + throwaway mktemp fixture repos. Hermetic — no network, no LLM;
+      # paired with the face-facts render & diff step above.
+      - name: Run face-facts generator arms test (getff-ai-site S0a)
+        run: bash scripts/render-face-facts.test.sh
       # The G12 tier-read module's own test (ref-gen G12) shipped in 46e7bccf5d wired to no
       # channel — principle 41 flagged it on this branch; this step is the repair.
       - name: Run skill-tiers module test (G12 extraction)
