@@ -12,6 +12,7 @@ allowed-tools:
   - Bash(npx *)
   - Bash(bash *)
   - Bash(docker *)
+  - Bash(curl *)   # GH #1704: §1 step-0 host-side bridge-health preflight
   - Read
 ---
 
@@ -47,6 +48,14 @@ allowed-tools:
 
 Harvest the **committed** in-scope work only. aif worktrees arrive polluted (out-of-scope dirty files) on a stale base — the real work is in the commits, not the working tree.
 
+<!-- GH #1704 preflight: host-side /health check at SKILL START, not at push time.
+     Session-start bridge-health hook deliberately NOT added — the aif-doctor/SKILL.md §Class
+     promotion criterion ("≥2 «re-derived aif operational knowledge» incidents → consider a
+     session-start bridge-health hook") stands at 1/2 recorded incidents (2026-09-10 smoke =
+     incident 1; this skill-embed preflight is the D6 channel). A 2nd recorded incident
+     triggers the hook per that criterion — this comment records the count. -->
+
+0. **Bridge-health preflight — run BEFORE any egress work (GH #1704).** From the HOST (a plain session, not inside the container): `curl -s -m5 localhost:3009/health` — expected `{"status":"ok",…}`. On failure (timeout, connection refused, or anything but `"status":"ok"`), the aif channel is down: print the remediation below and **STOP — do not begin step 1**. A missing channel must surface here, at skill start — not at push time, after the wave's work is done. Remediation to print (wording from [docs/runtime-bridge-setup.md §Quick start](../../../docs/runtime-bridge-setup.md)): bring the service up — in your aif-handoff checkout with the docker daemon available, `docker compose up -d agent` (rebuild context: [/aif-doctor §3.1 Fix A](../aif-doctor/SKILL.md)); native CLI on `PATH` → start it; neither → follow the install pointer in that doc — then re-run this probe and continue.
 1. **Inspect first — in the TASK's worktree, never the base clone.** `docker exec <agent> git -C <worktree> status --porcelain` + `git log origin/staging..HEAD`. Push the committed HEAD; never `git add -A` (gotcha 1). aif runs each task in its own worktree (`<root>-<branch-slug>-<taskId>`, also on the task's `worktreePath`); the base clone sits on `staging` with permanent `?? .claude/worktrees/` residue, so measuring it fabricates the step-2 `0-ahead + dirty` shape and strands the task on a bogus HOLD (2026-08-07 defect). `harvest.ts` now resolves the worktree itself (git's worktree list → `worktreePath` → `--work-dir`) and refuses to run the guards unless that checkout's HEAD **is** the task branch.
 2. **0-commits-ahead + dirty tree** is ambiguous (false-done / parked-partial vs genuine rework). `harvest.ts` returns `needsConfirm` and exits non-zero — inspect the park signals, pass `--confirm-rework` ONLY for a genuine complete rework (false-done guard, [2026-06-23 spec](../../../docs/superpowers/specs/2026-06-23-aif-harvest-false-done-guard-design.md)).
    **≥1-commit-ahead + TRACKED files modified** is the D12 shape (aif review gate passed `done` with the deliverable partly uncommitted — 2×2026-07-25): `harvest.ts` HOLDs (`needsResidueConfirm`, exit 2). Preferred fix: a `request_changes` round so the worker commits its own work; `--confirm-dirty-residue` ships the commits and abandons the modifications (untracked-only dirt like `?? .claude/worktrees/` never holds).
