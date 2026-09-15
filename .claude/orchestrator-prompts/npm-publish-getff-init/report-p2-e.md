@@ -31,13 +31,13 @@ $ git diff --name-status <same paths> | awk '{print $1}' | sort | uniq -c
 ```
 
 By directory (files): `.claude/rules` 15 · `.claude/hooks` 10 + `lang` 3 + `lib` 2 ·
-`.claude/skills` 25 (incl. 4 preset JSONs, 2 helper scripts, 8 reference docs) ·
-`plugin/hooks` 12 + `lang` 3 + `lib` 1 + `hooks.json` + `run-hook.cmd` ·
-`plugin/skills` 8 dirs / 10 files · `plugin/install` 1 · `plugin/agents` 1 ·
+`.claude/skills` 25 (incl. 2 preset JSONs, 2 helper scripts, 8 reference docs) ·
+`plugin/hooks` 10 + `lang` 3 + `lib` 1 + `hooks.json` + `run-hook.cmd` ·
+`plugin/skills` 5 dirs / 7 files in-delta (8 dirs / 16 files on disk) · `plugin/install` 1 · `plugin/agents` 1 ·
 `plugin/.claude-plugin/plugin.json` 1 · `plugin/README.md` 1 · `agents/` 4 · `skills/getff` 2.
 
-Full 88-path listing: `/tmp/p2e-lane-files.txt` (regenerate with the `--name-status`
-command above). **Zero `*.test.*` files in the lane delta** — the literal §5 gate
+Full 88-path listing: `/tmp/p2e-lane-files.txt` (session-scratch, not carried by this
+PR — regenerate with the `--name-status` command above). **Zero `*.test.*` files in the lane delta** — the literal §5 gate
 (`vitest run <every test file your lane changed>`) is vacuous; the covering-suite
 substitution below is the gate that actually ran.
 
@@ -153,8 +153,9 @@ Every command below ran in this session, from the repo root, on the host named i
 7. **Skills + agents** (T7): `probe-inflight.sh` runs (designed verdict
    `VERDICT: PROBE-INCOMPLETE` for a non-umbrella slug — its documented no-signal path);
    `heal.sh` runs fail-closed (`hook-sync skipped — no aif agent container reachable`,
-   `/tasks curl exit non-zero — skip base-refresh (fail-closed)`); all 4 preset JSONs parse
-   (`aif.json economy.json night.json sdd.json`); agents' referenced artifacts exist, with
+   `/tasks curl exit non-zero — skip base-refresh (fail-closed)`); all 4 on-disk preset
+   JSONs parse (`aif.json economy.json night.json sdd.json`; 2 of them in-delta); agents'
+   referenced artifacts exist, with
    aif-doctor's `packages/agent/...` citations explicitly DECLARED upstream-in-container at
    `.claude/skills/aif-doctor/SKILL.md:177` («paths below are upstream, cited from the
    running aif image»).
@@ -306,9 +307,10 @@ citation bounds-check, or fixture probe):
   gate run (principles 09, 31, 22 green); claim-level depth = citations + spot line-quotes,
   not full-text re-derivation.
 - `.claude/skills` (25) — 25/25 enumerated; depth-sampled per T1 (floor 5, depth 20+):
-  4/4 presets parsed, 2/2 helpers executed, description↔body spot-checked on the
-  dispatcher/orchestrator/pipeline trio, ref-existence over the T7 population.
-- `plugin/*` (25 files) — 25/25: manifest cross-check, twin census (10/10 + lang/lib),
+  2/2 in-delta presets parsed (4/4 on disk), 2/2 helpers executed, description↔body
+  spot-checked on the dispatcher/orchestrator/pipeline trio, ref-existence over the T7
+  population.
+- `plugin/*` (27 files) — 27/27: manifest cross-check, twin census (10/10 + lang/lib),
   README claims (8/8 checkable sentences), fetch-and-wire live, run-hook.cmd live.
 - `agents/` (4) + `skills/getff` (2) — 6/6: existence + twin/comparison + referenced-
   artifact checks.
