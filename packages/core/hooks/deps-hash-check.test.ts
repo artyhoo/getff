@@ -283,6 +283,10 @@ afterEach(() => {
 /** Create a temp dir with optional fixtures. Returns the temp dir path. */
 function makeFixtureDir(opts: {
   packageJson?: object;
+  /** Workspace member manifests, GH #1264: key = dir path relative to fixture root (e.g. 'packages/a'), value = the member package.json object. */
+  members?: Record<string, object>;
+  /** Raw pnpm-workspace.yaml content, GH #1264; omitted = don't create. */
+  pnpmWorkspaceYaml?: string;
   pyprojectToml?: string; // full pyproject.toml content; omitted = don't create
   cargoToml?: string; // full Cargo.toml content; omitted = don't create
   toolDecisions?: string; // full file content; null = don't create
@@ -293,6 +297,15 @@ function makeFixtureDir(opts: {
 
   if (opts.packageJson !== undefined) {
     writeFileSync(join(dir, 'package.json'), JSON.stringify(opts.packageJson), 'utf8');
+  }
+
+  for (const [memberDir, memberPkg] of Object.entries(opts.members ?? {})) {
+    mkdirSync(join(dir, memberDir), { recursive: true });
+    writeFileSync(join(dir, memberDir, 'package.json'), JSON.stringify(memberPkg), 'utf8');
+  }
+
+  if (opts.pnpmWorkspaceYaml !== undefined) {
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), opts.pnpmWorkspaceYaml, 'utf8');
   }
 
   if (opts.pyprojectToml !== undefined) {
@@ -324,13 +337,18 @@ function runHook(cwd: string, env: Record<string, string> = {}): { status: numbe
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own dev
   // harness), which would flip _emit_warn to the JSON branch and break the plain-text assertions
   // below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors inject-subagent-context.test.ts.
+  // CLAUDE_PROJECT_DIR gets the same scrub (GH #1264 test run): the hook's T-PLUG-A relocation
+  // cds into it when set, which would point every fixture run at the RUNNER's project root
+  // instead of the fixture — same hermeticity class, one pin earlier in the hook.
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
+  if (env.CLAUDE_PROJECT_DIR === undefined) delete fullEnv.CLAUDE_PROJECT_DIR;
+  else fullEnv.CLAUDE_PROJECT_DIR = env.CLAUDE_PROJECT_DIR;
   // Any other key passes straight through — the F-4 memo arms below set TMPDIR so the
   // memo file lands inside the fixture dir instead of the shared system temp dir.
   for (const [k, v] of Object.entries(env)) {
-    if (k !== 'ZCODE_PROJECT_DIR') fullEnv[k] = v;
+    if (k !== 'ZCODE_PROJECT_DIR' && k !== 'CLAUDE_PROJECT_DIR') fullEnv[k] = v;
   }
   const r = spawnSync('bash', [HOOK], {
     cwd,
@@ -1294,5 +1312,143 @@ describe('deps-hash-check.sh — S4 rules-lock staleness seam (gated glob → /r
     // The suffix rides inside the single additionalContext string, alongside the base WARN.
     expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
     expect(parsed.additionalContext).toContain(RULES_STALE_SUFFIX);
+  });
+});
+
+// =============================================================================
+// Workspace manifest enumeration (GH #1264) — npm `workspaces` globs +
+// pnpm-workspace.yaml `packages:` globs, member deps merged under path keys,
+// pnpm overrides/catalog hashed with catalog: protocol resolution, and the
+// memo key re-keyed over the FULL manifest set (the in-issue review's trap:
+// a root-only key stays blind inside the TTL window even after enumeration).
+// =============================================================================
+describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () => {
+  /**
+   * TRUE ORACLE for the workspace-aware npm hash: extracts the hook's own
+   * `_NPM_EXTRACT_JS` verbatim from the SSOT file and runs it with cwd = the
+   * fixture dir, then sha256s the JSON exactly as _npm_final does (command
+   * substitution strips node's trailing newline). Same rationale as
+   * computePythonHash/computeCargoHash: delegating to the real extractor
+   * eliminates helper/hook drift by construction.
+   */
+  function computeNpmWorkspaceHash(cwd: string): string {
+    const hookSrc = readFileSync(HOOK, 'utf8');
+    const m = hookSrc.match(/_NPM_EXTRACT_JS='([\s\S]*?)'\n_npm_current/);
+    if (!m) throw new Error('could not extract _NPM_EXTRACT_JS from the hook');
+    const r = spawnSync('node', ['-e', m[1]], { cwd, encoding: 'utf8' });
+    if (r.status !== 0 || !r.stdout.trim()) {
+      throw new Error(`extractor failed in ${cwd}: status=${r.status} stderr=${r.stderr}`);
+    }
+    return `sha256-${crypto.createHash('sha256').update(r.stdout.replace(/\n$/, '')).digest('hex')}`;
+  }
+
+  it('WORKSPACE-NPM: matching workspace baseline → silent; MEMBER-only dep change (root untouched) → WARN', () => {
+    // The pre-#1264 extractor read only the root manifest: the member edit below was
+    // invisible (false-GREEN — Rule 5 of tool-bootstrapping never fired). The fix must
+    // warn on a member-only change while a matching baseline stays silent.
+    const rootPkg = {
+      name: 'root',
+      private: true,
+      workspaces: ['packages/*'],
+      dependencies: { react: '^18.0.0' },
+    };
+    const cwd = makeFixtureDir({
+      packageJson: rootPkg,
+      members: { 'packages/a': { name: '@scope/a', dependencies: { lodash: '^4.17.0' } } },
+      toolDecisions: `---\ndeps-hash-npm: REPLACE_ME\n---\n`,
+    });
+    // Baseline over the FULL manifest set (root + member), via the oracle.
+    writeFileSync(
+      join(cwd, '.ai-factory', 'tool-decisions.md'),
+      `---\ndeps-hash-npm: ${computeNpmWorkspaceHash(cwd)}\n---\n`,
+      'utf8',
+    );
+    // Match → silent.
+    expect(runHook(cwd, { TMPDIR: join(cwd, 'no-tmp') }).stdout).toBe('');
+    // MEMBER-only edit: root package.json byte-identical.
+    writeFileSync(
+      join(cwd, 'packages', 'a', 'package.json'),
+      JSON.stringify({ name: '@scope/a', dependencies: { lodash: '^5.0.0' } }),
+      'utf8',
+    );
+    const after = runHook(cwd, { TMPDIR: join(cwd, 'no-tmp') });
+    expect(after.status).toBe(0);
+    expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
+  });
+
+  it('WORKSPACE-MEMO: member edit inside the TTL with a WARM memo still WARNS (memo re-keyed over the manifest set)', () => {
+    // The in-issue review's trap: the memo key covered only the root package.json, so a
+    // workspace dep change within the 60s _MEMO_TTL window served the stale cached hash.
+    // After the re-key (_npm_memo_key = cksum superset over every package.json +
+    // pnpm-workspace.yaml find can see), the warm memo MUST miss and the drift MUST fire.
+    const rootPkg = { workspaces: ['packages/*'], dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: rootPkg,
+      members: { 'packages/a': { name: '@scope/a', dependencies: { lodash: '^4.17.0' } } },
+      toolDecisions: `---\ndeps-hash-npm: REPLACE_ME\n---\n`,
+    });
+    writeFileSync(
+      join(cwd, '.ai-factory', 'tool-decisions.md'),
+      `---\ndeps-hash-npm: ${computeNpmWorkspaceHash(cwd)}\n---\n`,
+      'utf8',
+    );
+    // First run: match → silent, memo written.
+    expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+    // Member-only edit, same second, memo warm — TTL nowhere near expiry.
+    writeFileSync(
+      join(cwd, 'packages', 'a', 'package.json'),
+      JSON.stringify({ name: '@scope/a', dependencies: { lodash: '^5.0.0' } }),
+      'utf8',
+    );
+    const after = runHook(cwd, { TMPDIR: cwd });
+    expect(after.status).toBe(0);
+    expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
+  });
+
+  it('WORKSPACE-PNPM: pnpm-workspace.yaml globs + catalog: resolution + overrides hashed; CATALOG-only bump (member text unchanged) → WARN', () => {
+    // pnpm lane: members come from pnpm-workspace.yaml `packages:` globs (root package.json
+    // has NO workspaces field), `catalog:` dep values resolve against the catalog map (so a
+    // catalog bump drifts the resolved payload), and overrides/catalog maps + a raw digest
+    // of the yaml ride into the hash — closing the documented pnpm-v11 blind spot.
+    const rootPkg = { name: 'root', private: true, dependencies: { react: '^18.0.0' } };
+    const yaml =
+      "packages:\n  - 'packages/*'\noverrides:\n  semver: '7.6.0'\ncatalog:\n  lodash: '^4.17.0'\n";
+    const cwd = makeFixtureDir({
+      packageJson: rootPkg,
+      members: { 'packages/a': { name: '@scope/a', dependencies: { lodash: 'catalog:' } } },
+      pnpmWorkspaceYaml: yaml,
+      toolDecisions: `---\ndeps-hash-npm: REPLACE_ME\n---\n`,
+    });
+    writeFileSync(
+      join(cwd, '.ai-factory', 'tool-decisions.md'),
+      `---\ndeps-hash-npm: ${computeNpmWorkspaceHash(cwd)}\n---\n`,
+      'utf8',
+    );
+    // Baseline matches → silent (also proves the oracle and the hook agree on the
+    // catalog-resolved shape).
+    expect(runHook(cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') }).stdout).toBe('');
+    // Catalog-only bump: member manifest text UNCHANGED, only the yaml moves.
+    writeFileSync(join(cwd, 'pnpm-workspace.yaml'), yaml.replace("lodash: '^4.17.0'", "lodash: '^5.0.0'"), 'utf8');
+    const after = runHook(cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') });
+    expect(after.status).toBe(0);
+    expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
+  });
+
+  it('WORKSPACE-LEGACY-STABLE: non-workspace package.json hashes identically to the pre-#1264 7-field shape (existing baselines do not shift)', () => {
+    // Backward-compat contract: a repo with no workspaces field and no pnpm-workspace.yaml
+    // must produce the EXACT pre-#1264 root-only JSON — otherwise every existing consumer
+    // baseline would false-warn once on upgrade. buildDepsJson IS the legacy shape.
+    const pkg = {
+      dependencies: { react: '^18.0.0' },
+      devDependencies: { vitest: '^4.0.0' },
+      overrides: { react: '^18.2.0' },
+    };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash-npm: ${computeHash(buildDepsJson(pkg))}\n---\n`,
+    });
+    const { status, stdout } = runHook(cwd);
+    expect(status).toBe(0);
+    expect(stdout).toBe(''); // legacy-hash baseline still matches → silent
   });
 });
