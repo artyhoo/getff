@@ -16,7 +16,7 @@
       "description": "Clippy severity projection rendered by the cargo backend (render-clippy.ts): promotes the clippy.toml bans to the deny surface — without it a banned call is only a WARNING and `cargo clippy` exits 0.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 2
+        "line": 3
       },
       "installedTo": [
         {
@@ -47,7 +47,7 @@
       "description": "Clippy disallowed-methods/types bans for the cargo stack (the enforced lane); severity projection lives in Cargo.lints.toml.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 3
+        "line": 7
       },
       "installedTo": [
         {
@@ -78,7 +78,7 @@
       "description": "cargo-deny config for dependency-level bans clippy cannot express (ecosystem-wiring W4); ships as a starter config no workflow runs.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 4
+        "line": 11
       },
       "installedTo": [
         {
@@ -109,7 +109,7 @@
       "description": "GitHub Actions CI for the cargo stack — runs cargo clippy with the bans CI-failing when violated.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 5
+        "line": 15
       },
       "installedTo": [
         {
@@ -140,7 +140,7 @@
       "description": "golangci-lint config for the go stack; inert until the operator opts in (rule generation deferred).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 6
+        "line": 19
       },
       "installedTo": [
         {
@@ -171,7 +171,7 @@
       "description": "GitHub Actions CI for the go stack — runs the getff golangci-lint ban surface (adapter-jig J3).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 7
+        "line": 23
       },
       "installedTo": [
         {
@@ -202,7 +202,7 @@
       "description": "ast-grep rule banning the `datetime.datetime.now` form (timezone-naive now) on the python lane.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 8
+        "line": 27
       },
       "installedTo": [
         {
@@ -238,7 +238,7 @@
       "description": "ast-grep rule banning the `datetime.now` form (timezone-naive now) on the python lane.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 9
+        "line": 31
       },
       "installedTo": [
         {
@@ -274,7 +274,7 @@
       "description": "ast-grep rule banning `eval` on the python lane.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 10
+        "line": 35
       },
       "installedTo": [
         {
@@ -310,7 +310,7 @@
       "description": "ast-grep rule banning `os.system` shell-outs on the python lane.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 11
+        "line": 39
       },
       "installedTo": [
         {
@@ -346,7 +346,7 @@
       "description": "Architecture doc rendered into python-stack consumer repos — layer rules and dependency direction.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 12
+        "line": 43
       },
       "installedTo": [
         {
@@ -380,7 +380,7 @@
       "description": "Rules doc rendered at install time for the python stack (ast-grep + ruff lane; the npm custom-rule engine does not apply).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 13
+        "line": 47
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -402,7 +402,7 @@
       "description": "GitHub Actions CI for the python stack — runs the getff ast-grep structural rules (python-delivery-v0).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 14
+        "line": 51
       },
       "installedTo": [
         {
@@ -436,7 +436,7 @@
       "description": "pre-commit framework config fragment the installer merges into the consumer's .pre-commit-config.yaml.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 15
+        "line": 55
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -458,7 +458,7 @@
       "description": "Python-lane pre-push hook — the local git rung.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 16
+        "line": 59
       },
       "installedTo": [
         {
@@ -494,7 +494,7 @@
       "description": "ruff config for the python lane.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 17
+        "line": 63
       },
       "installedTo": [
         {
@@ -545,7 +545,7 @@
       "description": "ast-grep project config; ruleDirs resolve relative to the consumer repo root where the delivery layer installs it.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 18
+        "line": 67
       },
       "installedTo": [
         {
@@ -576,7 +576,7 @@
       "description": "Storybook 10 config for the react-next stack (addon-essentials + addon-interactions merged into core — no addons needed).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 19
+        "line": 71
       },
       "installedTo": [
         {
@@ -607,7 +607,7 @@
       "description": "Storybook preview for the react-next stack.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 20
+        "line": 75
       },
       "installedTo": [
         {
@@ -641,7 +641,7 @@
       "description": "lint-staged config wired by the consumer pre-commit hook.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 21
+        "line": 79
       },
       "installedTo": [
         {
@@ -705,7 +705,7 @@
       "description": "Node version pin (22.23.1) installed into consumer repos.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 22
+        "line": 83
       },
       "installedTo": [
         {
@@ -764,7 +764,7 @@
       "description": "Prettier ignore list — excludes the generated rules-doc region that is not prettier-format-stable.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 23
+        "line": 87
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -784,7 +784,7 @@
       "description": "Universal AGENTS.md context template — pointer file read by Claude Code (CLAUDE.md fallback), Codex CLI, Cursor, Windsurf, Roo Code, and others.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 24
+        "line": 91
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -810,7 +810,7 @@
       "description": "AI usage guide rendered into consumer repos — the AI-facing lifecycle of a getff-equipped project past install.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 25
+        "line": 95
       },
       "installedTo": [
         {
@@ -889,7 +889,7 @@
       "description": "Architecture doc for the ts-server stack — layer rules and dependency direction enforced by dependency-cruiser.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 26
+        "line": 99
       },
       "installedTo": [
         {
@@ -948,7 +948,7 @@
       "description": "CLAUDE.md pointer template — real context lives in AGENTS.md and .ai-factory/.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 27
+        "line": 103
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -974,7 +974,7 @@
       "description": "Project description template loaded by every AI agent at session start; installed at .ai-factory/DESCRIPTION.md plus its .template.md companion.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 28
+        "line": 107
       },
       "installedTo": [
         {
@@ -1103,7 +1103,7 @@
       "description": "first-steps SSOT (schema getff.first-steps/v1) — the source the consumer first-steps doc renders from.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 29
+        "line": 111
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -1128,7 +1128,7 @@
       "description": "gitignore additions installed into consumer repos (node_modules, dist, …).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 30
+        "line": 115
       },
       "installedTo": [
         {
@@ -1192,7 +1192,7 @@
       "description": "Minimal package.json for the consumer's hooks directory (type: module).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 31
+        "line": 119
       },
       "installedTo": [
         {
@@ -1256,7 +1256,7 @@
       "description": "Consumer pre-commit hook — fast checks only (target <5s); heavy checks live in pre-push and CI.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 32
+        "line": 123
       },
       "installedTo": [
         {
@@ -1320,7 +1320,7 @@
       "description": "Consumer pre-push hook — the TS-core dispatcher shipped by install.sh.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 33
+        "line": 127
       },
       "installedTo": [
         {
@@ -1385,7 +1385,7 @@
       "description": "Integration rules across microservices — API contracts, CDC, event schemas, mTLS, observability, resilience (paths-scoped frontmatter).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 34
+        "line": 131
       },
       "installedTo": [
         {
@@ -1459,7 +1459,7 @@
       "description": "Shipped skill-context override for aif-orchestrator-discipline — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 35
+        "line": 135
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -1485,7 +1485,7 @@
       "description": "Shipped skill-context override for aif-review — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 36
+        "line": 139
       },
       "installedTo": [
         {
@@ -1565,7 +1565,7 @@
       "description": "Shipped skill-context override for aif-rules-check — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 37
+        "line": 143
       },
       "installedTo": [
         {
@@ -1644,7 +1644,7 @@
       "description": "Task-tier routing SSOT installed at .ai-factory/tier-home.md — tier criteria, bridge-profile mechanic, marker value rule, degradation matrix.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 38
+        "line": 147
       },
       "installedTo": [
         {
@@ -1708,7 +1708,7 @@
       "description": "Base tsconfig template installed into consumer repos.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 39
+        "line": 151
       },
       "installedTo": [
         {

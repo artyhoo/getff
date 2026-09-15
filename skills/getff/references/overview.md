@@ -77,7 +77,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 
 **JS/TS specifically:** Zod schemas at every external boundary (HTTP body, env, queue messages, DB rows) are themselves Specification by Example for contracts.
 
-**Source citation:** Gojko Adzic, *Specification by Example* (Manning, 2011) — <https://www.manning.com/books/specification-by-example>. **Taken:** behavior specified as concrete, executable input→expected pairs rather than prose — this layer's parameterized tables, boundary-first cases and independently-computed expected values are that idea. **Changed:** the natural-language specification layer (Gherkin) is dropped for dev-only teams (an anti-pattern above); the examples live directly in code-level tests, and an AI-facing twist is added — literal expected values are also the defense against an AI writing the test to pass on whatever the code currently does.
+**Source citation:** Gojko Adzic, _Specification by Example_ (Manning, 2011) — <https://www.manning.com/books/specification-by-example>. **Taken:** behavior specified as concrete, executable input→expected pairs rather than prose — this layer's parameterized tables, boundary-first cases and independently-computed expected values are that idea. **Changed:** the natural-language specification layer (Gherkin) is dropped for dev-only teams (an anti-pattern above); the examples live directly in code-level tests, and an AI-facing twist is added — literal expected values are also the defense against an AI writing the test to pass on whatever the code currently does.
 
 ---
 
@@ -125,7 +125,7 @@ Compact reference for the framework. Read when you need a quick refresher of wha
 - Tests documenting _current_ implementation rather than _intended_ contract.
 - README-driven dev without enforcement test — README is wishful thinking; test is fact.
 
-**Source citation:** Cyrille Martraire, *Living Documentation: Continuous Knowledge Sharing by Design* (Addison-Wesley, 2019) — <https://www.oreilly.com/library/view/living-documentation-continuous/9780134689418/>. **Taken:** documentation treated as a continuously-verified byproduct of development, not a written artifact — anything that can drift silently is replaced by something that executes. **Changed:** the scope narrows from business knowledge (ubiquitous language, domain concepts) to the AI- and code-facing artifact set — test names as behavior catalog, OpenAPI from Zod, ArchUnit `because(...)` clauses — each enforced by a test rather than by a writing convention.
+**Source citation:** Cyrille Martraire, _Living Documentation: Continuous Knowledge Sharing by Design_ (Addison-Wesley, 2019) — <https://www.oreilly.com/library/view/living-documentation-continuous/9780134689418/>. **Taken:** documentation treated as a continuously-verified byproduct of development, not a written artifact — anything that can drift silently is replaced by something that executes. **Changed:** the scope narrows from business knowledge (ubiquitous language, domain concepts) to the AI- and code-facing artifact set — test names as behavior catalog, OpenAPI from Zod, ArchUnit `because(...)` clauses — each enforced by a test rather than by a writing convention.
 
 ---
 
