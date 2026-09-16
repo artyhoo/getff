@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# worktree-setup.sh — WorktreeCreate hook — provisions a new worktree with node_modules symlinks
 # WorktreeCreate hook — auto-create CC worktree under .claude/worktrees/<name>/
 # with project-specific node_modules symlinks (workspace optimisation).
 #

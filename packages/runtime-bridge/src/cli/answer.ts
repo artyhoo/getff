@@ -1,5 +1,5 @@
 /**
- * CLI answer entrypoint — the "push the resolved answer back + resume" half of the bridge.
+ * answer.ts — the "push the resolved answer back + resume" half of the bridge.
  *
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<text>" [--decision request_changes] [--json]

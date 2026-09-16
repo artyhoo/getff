@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * triage-s3-agreement — triage-kernel-v2 S3: agreement statistics + operator-slice builder (design §3.2-§3.5).
+ */
 // triage-kernel-v2 S3 — agreement statistics + operator-slice builder (design §3.2-§3.5).
 // Deterministic; reads the corpus CSV masters only. No LLM calls, no network.
 //

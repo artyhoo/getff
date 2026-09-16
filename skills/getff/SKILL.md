@@ -3,6 +3,8 @@ name: getff
 description: Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong" — that is the core problem this skill addresses.
 ---
 
+<!-- @harness-posture: portable — pure prose skill; every reference is markdown readable on any harness, no hook or harness-specific primitive required -->
+
 # Rules as Tests
 
 A unified framework for treating **every codebase rule as an executable test**. Documents lie; tests don't. This becomes critical when AI agents write the code, because LLMs reliably violate undocumented conventions and generate plausible-but-vacuous tests.

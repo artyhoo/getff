@@ -1,6 +1,5 @@
-// packages/runtime-bridge/src/cli/ensure-parallel.ts
 /**
- * CLI ensure-parallel entrypoint — the self-heal half of Finding A (dirty_worktree).
+ * ensure-parallel.ts — the self-heal half of Finding A (dirty_worktree).
  *
  * Usage (operator, smoke, or auto pre-dispatch):
  *   tsx packages/runtime-bridge/src/cli/ensure-parallel.ts --project <id>

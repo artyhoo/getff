@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# generate-plugin-twins.sh — generate plugin/ twins from their in-repo sources (two populations, two contracts)
 # Generate plugin/ twins from their in-repo sources. Two populations, two contracts:
 #
 #   (1) plugin/hooks/<name>   ← .claude/hooks/<name>.sh   — copy + AUTO-GENERATED header

@@ -1,5 +1,5 @@
 /**
- * CLI harvest entrypoint — the deterministic egress leg of the bridge.
+ * harvest.ts — the deterministic egress leg of the bridge.
  *
  * Usage (framework: `packages/runtime-bridge/src/cli/harvest.ts`; consumer install:
  * `.claude/vendor/runtime-bridge/src/cli/harvest.ts` — see setup.d/55-runtime-bridge-vendor.sh):

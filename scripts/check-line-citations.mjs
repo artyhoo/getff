@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `path:line` citation drift gate.
+ * check-line-citations — `path:line` citation drift gate.
  *
  * A `path:NN` citation is a checkable claim: «the authority for what I just said
  * is on line NN of that file». Nothing checked it until now — lychee (SSOT #19)

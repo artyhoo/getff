@@ -1,5 +1,5 @@
 /**
- * CLI await/status entrypoint — the result read-back half of the bridge.
+ * await.ts — the result read-back half of the bridge (await/status).
  *
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/await.ts <taskId> [--timeout-ms N]

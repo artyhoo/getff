@@ -19,7 +19,7 @@
  *   ✅ package.json has no dependencies or devDependencies → no warning if hash matches
  *
  * Pattern: check-hook-marker.test.ts (vitest + spawnSync + mkdtempSync on-disk fixtures).
- * Reference: packages/core/hooks/check-hook-marker.test.ts:34-102
+ * Reference: packages/core/hooks/check-hook-marker.test.ts:33-101
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';

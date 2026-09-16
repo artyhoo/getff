@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# validate-prompt.sh — PostToolUse gate — validates the batch-spec section on orchestrator-prompts kickoff edits
 # Wave 7 sub-wave 7.2.b — PostToolUse hook: validate batch-spec on orchestrator-prompts.
 # Fires on Edit|Write|MultiEdit tool calls. Input: hook JSON via stdin (tool_input.file_path).
 # Exits 0 silently on pass or unmatched path; non-zero + diagnostic on red.

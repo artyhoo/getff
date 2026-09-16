@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# end-of-turn-reminder.sh — Stop hook — end-of-turn recap + goal-drift verdict reminder
 # @cc-only-rationale: CC-specific Stop hook (session-recap) — a Stop hook only runs INSIDE a
 #   Claude Code session, so there is no portable counterpart by nature (the @dual-pair below is
 #   the internal en/ru i18n split, not a portability pair). NOW SHIPPED to consumer CC projects

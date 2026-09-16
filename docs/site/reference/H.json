@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "family": "H",
+  "familyName": "bridge CLI",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "answer",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the \"push the resolved answer back + resume\" half of the bridge.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/answer.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "await",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the result read-back half of the bridge (await/status).",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/await.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "claim",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the operator/skill-facing half of two-phase dispatch.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/claim.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "dispatch",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the dispatch entrypoint: invoked by the PostToolUse hook, or manually on demand.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/dispatch.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "ensure-parallel",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the self-heal half of Finding A (dirty_worktree).",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/ensure-parallel.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "harvest",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the deterministic egress leg of the bridge.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/harvest.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "park",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the agent-side \"I hit a hard fork, stop and ask\" half.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/park.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    },
+    {
+      "name": "questions",
+      "kind": "cli-command",
+      "shipsTo": {
+        "tier": "factory"
+      },
+      "description": "the \"parked questions\" collector half of the bridge.",
+      "source": {
+        "path": "packages/runtime-bridge/src/cli/questions.ts",
+        "line": 2
+      },
+      "extras": {},
+      "example": null
+    }
+  ]
+}

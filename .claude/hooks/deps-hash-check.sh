@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# deps-hash-check.sh — UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)
 # @dual-pair: deps-hash-check-dogfood
 # spec: packages/core/hooks/deps-hash-check.sh — packages/ copy is the SOURCE shipped by
 # install.sh:261; .claude/ copy is this repo's dogfood instance wired in settings.json;

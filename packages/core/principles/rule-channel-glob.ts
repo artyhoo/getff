@@ -41,6 +41,21 @@ export function extractFrontmatterPaths(source: string): string[] | null {
     .filter(Boolean);
 }
 
+/**
+ * Extract a scalar YAML frontmatter value (`key: value`, single line, quotes stripped).
+ * The reference generator's class-1 reader (ref-gen §7 row 1: one more key on THIS parser,
+ * never a second frontmatter parser) — used for `description:` on skill/agent cards.
+ * Returns null when the file has no frontmatter or the key is absent; a present-but-empty
+ * value returns '' so the caller can fail-closed on it.
+ */
+export function extractFrontmatterScalar(source: string, key: string): string | null {
+  const fmMatch = source.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) return null;
+  const m = fmMatch[1].match(new RegExp(`^${key}:\\s*(.*)$`, 'm'));
+  if (!m) return null;
+  return m[1].replace(/^['"]|['"]$/g, '').trim();
+}
+
 /** Parse the `<!-- globs: a, b, c -->` marker (comma-separated glob subset). */
 export function extractGlobsMarker(source: string): string[] | null {
   const m = source.match(/^[ \t]*<!--[ \t]*globs:(.*?)-->/m);

@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "family": "G",
+  "familyName": "packages",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "core",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "Framework core for rules-as-tests — discipline-bearing code as the project's contract artifact. Ships the rule manifest, ESLint rules, detector/research/synthesizer/installer toolchain, templates, skills, and install wiring.",
+      "source": {
+        "path": "packages/core/package.json",
+        "line": 5
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "getff",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "npm"
+      },
+      "description": "getff — AI DX for your codebase: conventions AI agents can't silently bypass. `npx getff init` installs the enforcement layer (ESLint rules generated from live docs, husky gates, CI) into a TypeScript, Python, Rust or Go project.",
+      "source": {
+        "path": "packages/getff/package.json",
+        "line": 5
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "lint-config",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "Shared markdownlint structural config for rules-as-tests-aif workspace",
+      "source": {
+        "path": "packages/lint-config/package.json",
+        "line": 6
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "meta-factory",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "Meta-factory CLI for rules-as-tests — workspace for the self-improvement pipeline (principles, phases, enforcement artefacts); the bin is a scaffold pending Phase 4+ (stack detector, synthesizer).",
+      "source": {
+        "path": "packages/meta-factory/package.json",
+        "line": 6
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "preset-next-15-canonical",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "Next.js 15 canonical preset for rules-as-tests — ESLint plugin rule (no-server-imports-in-client) plus stack templates and RULES docs; migrated rules R14/R20 ship as declarative recipes in packages/core.",
+      "source": {
+        "path": "packages/preset-next-15-canonical/package.json",
+        "line": 6
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "preset-react-native",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "React Native preset for rules-as-tests — stack scaffold, RULES docs, and templates; no custom ESLint rule is wired yet.",
+      "source": {
+        "path": "packages/preset-react-native/package.json",
+        "line": 6
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "preset-react-spa",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "React SPA preset for rules-as-tests — custom ESLint plugin (require-error-boundary) wired into the stack, plus templates and RULES docs; the rule-pack is still growing.",
+      "source": {
+        "path": "packages/preset-react-spa/package.json",
+        "line": 6
+      },
+      "extras": {
+        "version": "0.1.0"
+      },
+      "example": null
+    },
+    {
+      "name": "runtime-bridge",
+      "kind": "package",
+      "shipsTo": {
+        "tier": "framework"
+      },
+      "description": "Runtime bridge for rules-as-tests — opt-in dispatch target for the CC-native runtime-bridge-dispatch hook: CLI commands invoked when a file opts in via the `<!-- bridge: auto -->` marker, keeping automation logic harness-agnostic.",
+      "source": {
+        "path": "packages/runtime-bridge/package.json",
+        "line": 7
+      },
+      "extras": {
+        "version": "0.0.1"
+      },
+      "example": null
+    }
+  ]
+}

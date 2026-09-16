@@ -13,7 +13,7 @@
  * false-suppress regression that prior cold-review caught.
  *
  * Pattern: spawnSync(bash, [HOOK], {input: JSON}) + on-disk JSONL transcript,
- * REFERENCEing the check-hook-marker.test.ts:50-64 fixture-spawn shape (no new
+ * REFERENCEing the check-hook-marker.test.ts:49-63 fixture-spawn shape (no new
  * test framework, no bats dep — T-M4-A counter). Skips gracefully when `jq`
  * is unavailable on the runner.
  *

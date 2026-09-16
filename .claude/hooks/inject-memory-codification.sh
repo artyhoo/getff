@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-memory-codification.sh — PostToolUse hook — path-scoped codify-then-pointer discipline reminder
 # PostToolUse memory-codification reminder — path-scoped just-in-time delivery of the
 # codify-then-pointer discipline (codify durable conventions into the repo, not just agent memory).
 # @dual-pair: memory-codification-writemoment

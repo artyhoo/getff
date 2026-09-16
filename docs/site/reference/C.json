@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "family": "C",
+  "familyName": "agents",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "aif-init",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Generate a draft .ai-factory/DESCRIPTION.md and .ai-factory/ARCHITECTURE.md for a consumer repo. Reads package.json(s) and directory layout, detects the tech stack, and writes a filled draft with a DRAFT review banner. Use whenever DESCRIPTION.md or ARCHITECTURE.md still contains <PLACEHOLDER> fields — the getff installer creates `.ai-factory/` itself, so no external tool is a prerequisite. Invoke as `/aif-init` in your AI session.",
+      "source": {
+        "path": "agents/aif-init.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Write",
+        "referenced-by": [
+          ".claude/rules/source-before-shape.md",
+          "agents/aif-init.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "capability-reuse-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Audits a proposed or just-authored new capability (a SKILL.md, an agent, or a packages/core module) for overlap with an existing own-stack or upstream capability, and checks that its Prior-art trailer's verdict matches what the body actually does. Flags reinvention before handoff. Reports; does not fix.",
+      "source": {
+        "path": "agents/capability-reuse-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep",
+        "referenced-by": [
+          ".claude/rules/source-before-shape.md",
+          "agents/capability-reuse-auditor.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "claims-conformance-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Cold conformance audit of docs-site claims against shipped reality. Given ONLY the doc surface(s) to audit (never the authoring narrative), enumerates every factual claim the docs make about the repo/state, verifies each against the live source with command+output or file:line evidence, and reports VERIFIED/GAP/UNVERIFIABLE per claim plus a machine-consumed GO/REVISE/STOP verdict. Reporting-only; never invoked from CI.",
+      "source": {
+        "path": "agents/claims-conformance-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep, Bash",
+        "referenced-by": [
+          "agents/claims-conformance-auditor.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "compliance-verifier",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Reviews PR description §1.7 Forward-check and Backward-check sections for substantive evidence — file:line citations, sweep completeness, exemption quality. Reports; does not fix.",
+      "source": {
+        "path": "agents/compliance-verifier.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep",
+        "referenced-by": [
+          ".claude/rules/attention-is-not-a-mechanism.md",
+          ".claude/rules/dual-implementation-discipline.md",
+          ".claude/rules/no-paid-llm-in-ci.md",
+          ".claude/rules/reviewer-discipline.md",
+          ".claude/skills/night-mode/SKILL.md",
+          "agents/compliance-verifier.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "docplan-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Cold semantic-grouping judgment for a DocPlan. Given ONLY the DocPlan (its sections + excluded[]) and the ConventionNodes it references — NEVER the diff, the PR body, or the rendered AGENTS.md region — judges whether each section's title coheres with its member nodes, flags mis-grouped nodes, checks exclusion reasons are substantive, and assesses section granularity. Reports CLEAN/GAP per section + an overall verdict. PR-blind by dispatch contract; reporting-only; never invoked from CI.",
+      "source": {
+        "path": "agents/docplan-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep",
+        "referenced-by": [
+          ".claude/rules/attention-is-not-a-mechanism.md",
+          "agents/docplan-auditor.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "fidelity-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Cold WHAT-conformance acceptance audit at a stage-PR boundary. Given ONLY the kickoff/spec (or a scoped section of it) and the 3-dot diff — NEVER the chat, the design dialogue, or the implementation log — judges whether the diff is what the kickoff asked for, reporting missing/extra/diverged drift with file:line and a machine-consumed FIDELITY verdict consumed by the pr-body-fidelity CI gate. Design altitude only, never code quality. Dialogue-blind by dispatch contract; reporting-only; never invoked from CI.",
+      "source": {
+        "path": "agents/fidelity-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep, Bash",
+        "referenced-by": [
+          ".claude/rules/cold-seat-economy.md",
+          ".claude/rules/git-conflict-merge-forward.md",
+          ".claude/skills/dispatcher/SKILL.md",
+          ".claude/skills/harvest/SKILL.md",
+          ".claude/skills/night-mode/SKILL.md",
+          ".claude/skills/reviewer/SKILL.md",
+          "agents/dispatch-input-checker.md",
+          "agents/fidelity-auditor.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "living-docs-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": ">-",
+      "source": {
+        "path": "agents/living-docs-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Bash",
+        "referenced-by": [
+          ".claude/rules/dual-implementation-discipline.md",
+          ".claude/rules/no-paid-llm-in-ci.md",
+          "agents/living-docs-auditor.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "memory-codification-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Audits user-scope agent memory for durable conventions that live only in memory and were never codified into the repo. Flags stage-0 entries; reports candidates with a codify-or-leave verdict. Reports; does not fix.",
+      "source": {
+        "path": "agents/memory-codification-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep",
+        "referenced-by": [
+          ".claude/rules/memory-codification.md",
+          "agents/memory-codification-auditor.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "review-sidecar",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Reviews diff as an external reviewer with no memory of how the code was written. Catches tautological tests, mock-only assertions, missing edge cases, React/Next anti-patterns. Reports; does not fix.",
+      "source": {
+        "path": "agents/review-sidecar.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep",
+        "referenced-by": [
+          ".claude/rules/no-paid-llm-in-ci.md",
+          ".claude/rules/reviewer-discipline.md",
+          ".claude/skills/reviewer/SKILL.md",
+          "agents/compliance-verifier.md",
+          "agents/review-sidecar.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "rule-researcher",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": ">-",
+      "source": {
+        "path": "agents/rule-researcher.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
+        "referenced-by": [
+          ".claude/rules/research-source-trust.md",
+          ".claude/skills/rule-research/SKILL.md",
+          ".claude/skills/rule-tests/SKILL.md",
+          "agents/rule-researcher.md",
+          "agents/rule-test-author.md",
+          "agents/shipped-agent-liveness-prober.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "rule-test-author",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": ">-",
+      "source": {
+        "path": "agents/rule-test-author.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Write, Bash, Grep, Glob",
+        "referenced-by": [
+          ".claude/skills/rule-tests/SKILL.md",
+          "agents/rule-researcher.md",
+          "agents/rule-test-author.md"
+        ]
+      },
+      "example": null
+    }
+  ]
+}

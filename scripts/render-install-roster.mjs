@@ -35,6 +35,7 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
+import { readSkillTiers } from './lib/skill-tiers.mjs';
 
 const TARGET = 'INSTALL-FOR-AI.md';
 const SECTION_ROSTER = 'install-roster';
@@ -83,14 +84,12 @@ function shippedSkills(root) {
   const base = [
     ...tenSkills.matchAll(/(?:cp -r|_copy_tree_with_transform) "\$PKG_ROOT\/skills\/([a-z0-9-]+)"/g),
   ].map((m) => m[1]);
-  const lib = readFileSync(join(root, 'setup.d', 'lib.sh'), 'utf8');
-  const readSet = (name) => {
-    const m = lib.match(new RegExp(`${name}="([^"]+)"`));
-    if (!m) throw new Error(`setup.d/lib.sh: ${name} not found`);
-    return m[1].split(/\s+/);
-  };
-  const core = [...new Set([...base, ...readSet('GETFF_SKILLS_CORE')])].sort();
-  const envContour = readSet('GETFF_SKILLS_ENV').sort();
+  // The tier-constant read lives in ONE module (ref-gen G12: a second JS reader of
+  // GETFF_SKILLS_* is the #sync-by-copy-paste shape); this roster keeps only its own
+  // 10-skills.sh literal merge.
+  const tiers = readSkillTiers(root);
+  const core = [...new Set([...base, ...tiers.core])].sort();
+  const envContour = tiers.env;
   log(`10-skills.sh base: ${base.join(', ')}; lib.sh core: ${core.length} dirs; env contour: ${envContour.length} dirs`);
   return { core, envContour };
 }
