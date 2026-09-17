@@ -295,12 +295,12 @@
       "B": {
         "familyName": "skills",
         "path": "docs/site/reference/B.json",
-        "members": 17
+        "members": 18
       },
       "C": {
         "familyName": "agents",
         "path": "docs/site/reference/C.json",
-        "members": 11
+        "members": 12
       },
       "D": {
         "familyName": "hooks",
@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 25
+        "members": 26
       },
       "G": {
         "familyName": "packages",
@@ -340,7 +340,7 @@
       "I": {
         "familyName": "plugin",
         "path": "docs/site/reference/I.json",
-        "members": 12
+        "members": 13
       }
     }
   },
@@ -353,7 +353,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 280
+      "count": 282
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
