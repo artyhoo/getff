@@ -110,6 +110,25 @@
       "example": null
     },
     {
+      "name": "docs-author",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Use when writing or editing any getff.ai docs page under docs/site/ (including the glossary terms.md), when picking a page kind or filling the reader-comfort card, or when running a docs refresh over touched pages — to apply the kind registry, the craft contract, and the docs-check done-checklist. Triggers: write a docs page, new page under docs/site, glossary entry, terms.md, docs refresh, gold page, Diátaxis, задокументировать, страница документации.",
+      "source": {
+        "path": ".claude/skills/docs-author/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/docs-author/SKILL.md"
+      },
+      "example": null
+    },
+    {
       "name": "getff",
       "kind": "skill",
       "shipsTo": {

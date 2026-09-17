@@ -78,7 +78,8 @@
       "extras": {
         "tools": "Read, Glob, Grep, Bash",
         "referenced-by": [
-          "agents/claims-conformance-auditor.md"
+          "agents/claims-conformance-auditor.md",
+          "agents/docs-form-auditor.md"
         ]
       },
       "example": null
@@ -136,6 +137,26 @@
         "referenced-by": [
           ".claude/rules/attention-is-not-a-mechanism.md",
           "agents/docplan-auditor.md"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "docs-form-auditor",
+      "kind": "agent",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Cold form audit of getff.ai docs pages against the reader-comfort card (C1-C13). Given ONLY page paths, their kinds, and the card path (never the writer's dialogue), enumerates the page population, runs scripts/docs-check.mjs for the deterministic numbers, fills the card per page with file:line evidence, diffs its verdict against the Docs-card trailer in each commit, and reports SYSTEMIC-vs-LOCAL patterns plus a GO/REVISE/STOP verdict. Reporting-only; never invoked from CI; never judges facts. Triggers: gold-page review, family checkpoint, final site check, docs refresh touching >=5 pages.",
+      "source": {
+        "path": "agents/docs-form-auditor.md",
+        "line": 3
+      },
+      "extras": {
+        "tools": "Read, Glob, Grep, Bash",
+        "referenced-by": [
+          "agents/docs-form-auditor.md"
         ]
       },
       "example": null
