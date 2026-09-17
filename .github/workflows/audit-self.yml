@@ -1175,6 +1175,84 @@ jobs:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=docs-card npx tsx packages/core/hooks/pre-push.ts
 
+  # Docs quality gates (getff-ai-site S0q, D-Q2/D-Q6/D-Q13 of
+  # docs/superpowers/specs/2026-09-14-getff-ai-docs-quality-contract-design.md).
+  # Strict severity is the CI half of the severity model: an absent vale/lychee
+  # binary is an ERROR here, where the pre-commit channel treats it as a loud
+  # SKIP — an author machine is not a CI runner. Three runs, each proving a
+  # different thing: the full population (both D-Q17 profiles), the prose
+  # profile alone (D-Q13 self-application — the discipline prose must pass its
+  # own gate; the checker's vacuity guard makes an empty prose population fail
+  # rather than silently green), and the checker's own live-fire test harness
+  # (T-S0Q-B: an arm that never went RED is a claim). Trigger scope is this
+  # workflow's own `on:` block — push to the branches it lists, plus
+  # pull_request; this job adds no `if:` guard of its own, mirroring
+  # alwayson-budget. markdownlint-cli2 needs no install step: it is a
+  # devDependency, so the checker's `npx --no-install` probe resolves it from
+  # the workspace install.
+  docs-quality:
+    name: Docs quality gates — docs-check strict full + prose self-application
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/core/package-lock.json
+      - name: Install workspace deps (hoists markdownlint-cli2 for the npx probe)
+        run: npm install --silent
+      - name: Install vale 3.21.0 (pinned version + sha256, ci-tool-pinning §1)
+        # Same install shape as the lychee step in `mechanical`: curl a pinned
+        # release tarball, sha256-verify, extract. The pin mirrors the
+        # docs/site-quality/calibration.md record — bump the two together.
+        run: |
+          curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.21.0/vale_3.21.0_Linux_64-bit.tar.gz -o "$RUNNER_TEMP/vale.tgz"
+          echo "96997d19a4ca6981673b0d4c5ca7f3ede4a9f97964a96edc29fba9e28a328336  $RUNNER_TEMP/vale.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/vale-bin"
+          tar -xzf "$RUNNER_TEMP/vale.tgz" -C "$RUNNER_TEMP/vale-bin"
+          "$RUNNER_TEMP/vale-bin/vale" --version
+      - name: Install lychee v0.24.2 (pinned version + sha256, mirrors `mechanical`)
+        # --strip-components=1 is load-bearing (see the lychee-shipped-md-offline
+        # step): the tarball wraps the binary one directory deep.
+        run: |
+          curl -sSfL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz -o "$RUNNER_TEMP/lychee.tgz"
+          echo "1f4e0ef7f6554a6ed33dd7ac144fb2e1bbed98598e7af973042fc5cd43951c9a  $RUNNER_TEMP/lychee.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/lychee-bin"
+          tar -xzf "$RUNNER_TEMP/lychee.tgz" -C "$RUNNER_TEMP/lychee-bin" --strip-components=1
+          "$RUNNER_TEMP/lychee-bin/lychee" --version
+      - name: docs-check full population, strict (absent binary = ERROR, D-Q2)
+        env:
+          VALE_BIN: ${{ runner.temp }}/vale-bin/vale
+          LYCHEE_BIN: ${{ runner.temp }}/lychee-bin/lychee
+        run: node scripts/docs-check.mjs --strict
+      - name: docs-check prose profile self-application (D-Q13)
+        env:
+          VALE_BIN: ${{ runner.temp }}/vale-bin/vale
+          LYCHEE_BIN: ${{ runner.temp }}/lychee-bin/lychee
+        run: node scripts/docs-check.mjs --strict --profile prose
+      - name: docs-check self-test, live-fire (a SKIP here is a failure, not a pass)
+        # pipefail so a RED harness is not masked by tee's exit code. The harness
+        # skips its live-fire arms LOUDLY when a binary is absent — after the two
+        # pinned installs above, a SKIP line means the installs broke, so invert
+        # it into a hard failure instead of a vacuous green.
+        env:
+          VALE_BIN: ${{ runner.temp }}/vale-bin/vale
+          LYCHEE_BIN: ${{ runner.temp }}/lychee-bin/lychee
+        run: |
+          set -o pipefail
+          bash scripts/docs-check.test.sh | tee "$RUNNER_TEMP/docs-check-test.out"
+          if grep -q '⚠ arms' "$RUNNER_TEMP/docs-check-test.out"; then
+            echo "::error::docs-check.test.sh skipped live-fire arms despite the pinned installs — this CI arm is vacuous; fix the installs above"
+            exit 1
+          fi
+
   # arch-v2 S-E P3a CI mirror of the pre-push always-on-budget gate. The resident
   # set is repo state (size of CLAUDE.md + non-path-scoped .claude/rules/*.md), not
   # a per-PR-commit property. Trigger scope is this workflow's own `on:` block —
@@ -2199,6 +2277,11 @@ jobs:
       - install-sh-c
       - typecheck
       - pr-commit-trailers
+      # getff-ai-site S0q: without this line the docs-quality job could go RED while
+      # ci-success stayed green and the PR merged — the exact shape principle 36 exists
+      # for (its completeness arm would catch the omission at pre-push/CI anyway; the
+      # entry is here so the wiring is right by construction, not by caught drift).
+      - docs-quality
       - enforce-husky-presence
       - framework-self-install-ts-server
       - framework-self-install-react-next
