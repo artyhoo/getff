@@ -46,6 +46,7 @@ import {
   loadSsotRowTitles,
 } from './checks/prior-art.ts';
 import { runS17Check } from './checks/s17.ts';
+import { runDocsCardCheck } from './checks/docs-card.ts';
 import {
   checkUnpinnedToolInstalls,
   isShellScriptPopulationFile,
@@ -479,6 +480,47 @@ function priorArtSection(rb: ResolvedBase): void {
       process.exit(1);
     }
   }
+}
+
+/**
+ * Docs-card trailer check (D30 D-Q16, getff-ai-site S0q): every range commit
+ * touching docs/site markdown prose carries the writer's self-filled criteria
+ * card (`Docs-card: C1 PASS, … C13 N/A`) or the escape. Enforcing from birth —
+ * the CI arm (`PREPUSH_ONLY=docs-card` over the PR range) is what makes this
+ * reach aif container seats, which never run the repo's git hooks. Deliberately
+ * its own section, never routed through prior-art.ts (whose path gates exclude
+ * everything outside packages/). One registry entry + one CI step re-enter
+ * THIS logic — never a second grammar (dual-implementation-discipline.md §8).
+ */
+function docsCardSection(rb: ResolvedBase): void {
+  const commits = commitsToCheck(rb, 'Docs-card');
+  if (commits === null) return;
+  const report = runDocsCardCheck(commits, realGit);
+
+  if (report.failures.length > 0) {
+    process.stdout.write(
+      '\n❌ Docs-card trailer missing or invalid on docs/site prose commit(s):\n',
+    );
+    for (const f of report.failures) {
+      process.stdout.write(`  ${f.sha}  reason: ${f.reason}; ${f.message}\n`);
+    }
+    process.stdout.write(
+      '\nFix: add a `Docs-card:` trailer listing every criterion —\n' +
+        '  Docs-card: C1 PASS, C2 PASS, … C13 N/A   (values: PASS | FAIL | N/A)\n' +
+        'or escape with a reason:\n' +
+        '  Docs-card: skipped — <why, at least 20 chars>\n' +
+        'The card is the writer\'s self-filled criteria card\n' +
+        '(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n',
+    );
+    process.exit(1);
+  }
+  // Green is NOT silent here, unlike the pre-CI siblings: the CI arm must be
+  // distinguishable from a no-op step by its output alone (T-S0Q-B — a green
+  // arm that prints nothing over a prose-less range is unobservable).
+  process.stdout.write(
+    `✓ Docs-card: ${report.checked} commit(s) checked, ` +
+      `${report.proseCommits} docs/site prose commit(s), 0 failures\n`,
+  );
 }
 
 /**
@@ -2169,6 +2211,7 @@ const SECTIONS: readonly PrePushSection[] = [
   },
   { id: 'prior-art', owner: 'maintainer', run: (c) => priorArtSection(c.rb) },
   { id: 's17', owner: 'maintainer', run: (c) => s17Section(c.rb) },
+  { id: 'docs-card', owner: 'maintainer', run: (c) => docsCardSection(c.rb) },
   {
     id: 'guard-liveness',
     owner: 'maintainer',

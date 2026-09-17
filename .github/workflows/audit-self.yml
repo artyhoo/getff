@@ -1159,6 +1159,21 @@ jobs:
         env:
           PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
         run: PREPUSH_ONLY=prior-art npx tsx packages/core/hooks/pre-push.ts
+      - name: D30 Docs-card trailer check over PR commits (docs/site prose blocks)
+        # Same promotion exemption as the two trailer steps above (head=staging && base=main).
+        # ONE grammar, never a second implementation: this step re-enters the pre-push
+        # `docs-card` section through the PREPUSH_ONLY seam (dual-implementation-discipline
+        # .md §8) — the id IS the registry id, so a typo dies loudly ("matches no pre-push
+        # section id") instead of silently running nothing.
+        # Population: every non-merge commit in the PR range touching docs/site/**/*.md(x)
+        # prose owes the full C1-C13 card or a >=20-char `Docs-card: skipped — …` escape.
+        # The arm exists because aif container seats never run the repo's git hooks — a
+        # pre-push-only gate is blind to exactly the population that writes most of the
+        # pages (qual.md:377).
+        continue-on-error: ${{ github.base_ref == 'main' && github.head_ref == 'staging' }}
+        env:
+          PREPUSH_UPSTREAM_REF: origin/${{ github.base_ref }}
+        run: PREPUSH_ONLY=docs-card npx tsx packages/core/hooks/pre-push.ts
 
   # arch-v2 S-E P3a CI mirror of the pre-push always-on-budget gate. The resident
   # set is repo state (size of CLAUDE.md + non-path-scoped .claude/rules/*.md), not
