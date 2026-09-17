@@ -101,7 +101,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1634 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1305 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1331 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -159,7 +159,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2244 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2270 (workflow-run:invocation-verb)",
           ".husky/pre-commit:172 (quoted-path-token)"
         ]
       },
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2340 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2366 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -246,8 +246,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1234 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1239 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1237 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1242 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -512,6 +512,25 @@
       "example": null
     },
     {
+      "name": "render-terms-style.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "docs/site/terms.md region (a) → the Vale substitution rule (S0q).",
+      "source": {
+        "path": "scripts/render-terms-style.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:1265 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "run-local-ci-sweep.sh",
       "kind": "script",
       "shipsTo": {
@@ -584,7 +603,6 @@
     "register-recap-gate.sh",
     "render-harness-config.mjs",
     "render-rule-channels.mjs",
-    "render-terms-style.mjs",
     "render-zcode-parity-rollup.mjs",
     "run-install-sh-suite.sh",
     "setup-cc-adoptions.sh",
