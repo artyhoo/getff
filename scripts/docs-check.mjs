@@ -4,7 +4,14 @@
  *
  * spec: docs/superpowers/specs/2026-09-14-getff-ai-docs-quality-contract-design.md
  *   D-Q2  gate set (ERROR vs SUGGESTION vs OFF, «absent binary = ERROR» in CI)
- *   D-Q6  channels — .husky/pre-commit (--changed) + audit-self.yml (full)
+ *   D-Q6  channels — LIVE: the audit-self.yml `docs-quality` job (full + prose,
+ *         strict; also carries the render-terms-style D-Q7 drift gate). The
+ *         .husky/pre-commit (--changed) arm is shipped, not applied: the
+ *         .husky/** path is agent-denied (`.claude/settings.json`
+ *         permissions.deny), so the section travels as
+ *         .claude/orchestrator-prompts/getff-ai-site/s0q-pre-commit-section.sh
+ *         for a maintainer to insert at harvest — until that apply lands, this
+ *         header's only reachable channel is the CI job (rework round 1, 2026-09-17).
  *   D-Q12 escape grammar — `<!-- vale off -->` + `<!-- vale-reason: … -->` + `<!-- vale on -->`,
  *         with the MDX brace-comment twins scanned from day one (the .md/.mdx flip is
  *         D31 S1's decision — D-Q6 greps both comment forms either way)
