@@ -417,8 +417,13 @@ the `$$` member); impacts are single-file truncation and suppression of a skip n
 as the invoking user, on dev machines. Filed as hardening debt because the delta's own
 S14 standard makes the per-invocation member an inconsistency, not a new exposure class.
 → Doc sentence: hook session state under `/tmp` is advisory per-user state;
-per-invocation temps are mktemp'd, cross-turn debounce flags deliberately keep stable
-sanitised names.
+per-invocation temps keep PID-predictable `$$`-suffixed names — none of the
+end-of-turn-reminder temps is mktemp'd (the hook family's single mktemp is
+`runtime-bridge-dispatch.sh:233`'s stderr log) — and the cross-turn debounce
+flags keep stable names of which all but one are sanitised: the story flag
+interpolates the RAW `session_id` (`end-of-turn-reminder.sh:978`/`:1175`,
+plugin twin `:979`/`:1176` ships both identically) where its ctx/rg/zcb
+siblings sanitise (`:370`/`:951`/`:1031`).
 
 **S16 — advisory (accepted, documented): `git -c safe.directory='*'`.**
 `.claude/skills/dispatcher/helpers/probe-inflight.sh` (delta hunk) execs
