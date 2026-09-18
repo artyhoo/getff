@@ -101,7 +101,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1592 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1212 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1214 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -159,7 +159,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2151 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2153 (workflow-run:invocation-verb)",
           ".husky/pre-commit:172 (quoted-path-token)"
         ]
       },
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2242 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2244 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -559,6 +559,7 @@
     "measure-turn-attribution.sh",
     "probe-channels.sh",
     "probe-zcode-runtime.sh",
+    "register-glossary-hook.sh",
     "register-handoff-gate.sh",
     "register-precompact-hook.sh",
     "register-recap-gate.sh",
