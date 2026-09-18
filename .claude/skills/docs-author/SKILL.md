@@ -99,6 +99,26 @@ re-paste outputs, re-fill the card, and bump the page's freshness marker. The re
 deferred work stays `docs-refresh: deferred` (checked by the refresh gate, not here). Do not
 rewrite untouched pages while nearby — scope is the diff, not the neighborhood.
 
+## Without this skill
+
+Pages under `docs/site/` get written against remembered conventions instead of a fixed
+interface: the seven-kind registry exists nowhere the writer can load, cards are filled from
+memory (or not at all), and the glossary drifts as each page coins its own spelling for the
+same idea. The deterministic gates still fire — `docs-check.mjs`, the `Docs-card:` pre-push
+section, the CI arm — but they fire as surprises at commit time, on work that has to be
+unpicked and redone, instead of as a checklist the writer held from the first line. Worst
+case, a writer restates Diátaxis from general knowledge and the site grows a second, drifting
+authoring doctrine next to the pinned plugin's.
+
+## With this skill
+
+One load gives the writer the whole interface: the closed kind registry (with each kind's
+required sections), the thirteen-criterion card the commit will be judged by, the craft
+contract's long form, the glossary duty with its one-home rule, and the done-checklist with
+the exact commands to run. The `refresh` mode scopes rework to the touched pages. Diátaxis
+mechanics stay with the pinned upstream plugin — this skill carries only the residue the
+plugin lacks, so nothing restates and nothing drifts.
+
 ## References (loaded on demand)
 
 - [references/page-kinds.md](references/page-kinds.md) — the registry: required sections per
