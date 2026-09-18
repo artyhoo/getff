@@ -340,7 +340,11 @@ Auditing this audit produced three findings:
 3. **The deliverable obeys the audited discipline:** this report was written and staged in
    one step (kickoff-staging-placement §5.2 `#canon-symlink-swallows-commit` — sibling
    lanes' report files are CANON symlinks in worktrees; the committed artifact must be a
-   `100644` blob, verified below), stayed under the 600-line gate, and changed no product
+   `100644` blob — no in-report verification follows this paragraph; the verification
+   lives in the egress pr-body's §1.7 Forward-check `git ls-files -s` quote and in the
+   commit tree itself: `git ls-tree HEAD
+   .claude/orchestrator-prompts/npm-publish-getff-init/report-p2-e.md` → mode `100644`),
+   stayed under the 600-line gate, and changed no product
    file (`git status` before staging: one pre-existing mode-only worktree mutation
    `packages/core/synthesizer/verify-provenance-cli.ts` 100644→100755, NOT this lane's and
    NOT staged; reverted in rework R2 — see §inconclusive).
