@@ -27,6 +27,7 @@ import { describe, it, expect, afterEach, afterAll } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
+  mkdirSync,
   writeFileSync,
   readFileSync,
   rmSync,
@@ -477,6 +478,112 @@ describe('lang-pack parity for the AIF_GLOSSARY_ key class', () => {
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/DRIFT: en\.sh and ru\.sh key sets differ/);
     expect(r.stderr).toContain('AIF_GLOSSARY_EXTRA');
+  }, SLOW_SHELL_MS);
+});
+
+describe('pack-lag (consumer delivery lag) — the pre-feature pack must not abort either hook', () => {
+  // The guards this family keeps executable: the Stop side's `command -v
+  // aif_msg_glossary_demand` before the call and its `${AIF_GLOSSARY_USES:-3}` /
+  // `${AIF_GLOSSARY_EXPLAINS:-5}` set -u defaults (end-of-turn-reminder.sh glossary arm),
+  // and the inject side's `|| true` guarded pack source. The abort class is measured, not
+  // hypothetical: an undefined function in a cmdsubst aborted the WHOLE Stop hook under
+  // set -e with rc 127 (cold-review m1, 2026-09-14). Both hooks run here from a sandbox
+  // copy whose lang/ is the CURRENT pack minus the feature (no aif_msg_glossary_demand,
+  // no AIF_GLOSSARY_* keys) — drop any guard and these cases RED instead of the hook
+  // dying on every turn of a consumer tree whose delivered pack predates the feature.
+  function packLagBox(): string {
+    const box = mkdtempSync(join(tmpdir(), 'glossary-packlag-'));
+    tmpDirs.push(box);
+    mkdirSync(join(box, 'lang'));
+    for (const f of ['en.sh', 'ru.sh']) {
+      const body = readFileSync(resolve(REPO_ROOT, '.claude/hooks/lang', f), 'utf8')
+        .replace(/^aif_msg_glossary_demand\(\) \{[\s\S]*?^\}\n/m, '')
+        .replace(/^AIF_GLOSSARY_[A-Z_]+=.*$\n?/gm, '');
+      writeFileSync(join(box, 'lang', f), body, 'utf8');
+    }
+    copyFileSync(STOP_HOOK, join(box, 'end-of-turn-reminder.sh'));
+    copyFileSync(INJECT_HOOK, join(box, 'glossary-inject.sh'));
+    return box;
+  }
+
+  function runStopFrom(script: string, opts: StopOpts): RunResult & { sb: string; residue: string } {
+    const sb = opts.tmpDir ?? mkdtempSync(join(tmpdir(), 'glossary-stop-tmp-'));
+    if (!opts.tmpDir) tmpDirs.push(sb);
+    const residue = opts.residueDir ?? mkdtempSync(join(tmpdir(), 'glossary-stop-res-'));
+    if (!opts.residueDir) tmpDirs.push(residue);
+    const sessionId = opts.sessionId ?? 'sess-stop';
+    if (opts.pending?.length) {
+      writeFileSync(pendingPath(sb, sessionId), opts.pending.map(([t, w]) => `${t}\t${w}`).join('\n') + '\n', 'utf8');
+    }
+    if (opts.counts) writeCounts(join(residue, '_glossary-counts.json'), opts.counts);
+    const transcript = writeTranscript(sb, opts.answer);
+    const r = spawnSync('bash', [script], {
+      input: JSON.stringify({
+        session_id: sessionId,
+        transcript_path: transcript,
+        stop_hook_active: false,
+      }),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        AIF_HOOK_LANG: 'ru',
+        CLAUDE_CODE_ENTRYPOINT: 'cli',
+        CLAUDE_PROJECT_DIR: REPO_ROOT,
+        AIF_RESIDUE_DIR: residue,
+        TMPDIR: sb,
+        ...opts.env,
+      },
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '', sb, residue };
+  }
+
+  it.skipIf(!JQ)('PAIRED-NEGATIVE: no demand function + no AIF_GLOSSARY_* keys → exit 0, no demand, no one-shot flag', () => {
+    const box = packLagBox();
+    const r = runStopFrom(join(box, 'end-of-turn-reminder.sh'), {
+      sessionId: 'sess-lag1',
+      answer: 'Сделал, ветка готова.', // no `Land (` form, term below threshold
+      pending: [['Land', 'приземлить']],
+      counts: { Land: { usages: 1 } },
+    });
+    expect(r.status).toBe(0); // the measured failure this guards against is an rc-127 abort
+    expect(r.stdout).not.toContain('[glossary]');
+    // guard skips the demand BEFORE the flag write → the retry stays armed for a caught-up pack
+    expect(existsSync(join(r.sb, 'aif-glossary-dem-sess-lag1-Land'))).toBe(false);
+    const counts = readCounts(join(r.residue, '_glossary-counts.json'));
+    expect(counts.terms.Land.explanations).toBeUndefined();
+  }, SLOW_SHELL_MS);
+
+  it.skipIf(!JQ)('PAIRED-NEGATIVE: the explanation still COUNTS against a pre-feature pack', () => {
+    const box = packLagBox();
+    const r = runStopFrom(join(box, 'end-of-turn-reminder.sh'), {
+      sessionId: 'sess-lag2',
+      answer: 'Land (merging the branch into staging) — готово.',
+      pending: [['Land', 'приземлить']],
+      counts: { Land: { usages: 0 } },
+    });
+    expect(r.status).toBe(0);
+    const counts = readCounts(join(r.residue, '_glossary-counts.json'));
+    expect(counts.terms.Land.explanations).toBe(1); // counting needs no keys the pack lacks
+  }, SLOW_SHELL_MS);
+
+  it.skipIf(!JQ)('PAIRED-NEGATIVE: the inject hook survives a pre-feature pack and still injects', () => {
+    const box = packLagBox();
+    const sb = sandbox();
+    const r = spawnSync('bash', [join(box, 'glossary-inject.sh')], {
+      input: JSON.stringify({ prompt: 'объясни термин приземлить', session_id: 'sess-lag3' }),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        AIF_HOOK_LANG: 'en',
+        CLAUDE_CODE_ENTRYPOINT: 'cli',
+        CLAUDE_PROJECT_DIR: REPO_ROOT,
+        AIF_RESIDUE_DIR: sb.dir,
+        TMPDIR: sb.dir,
+      },
+    });
+    expect(r.status ?? -1).toBe(0);
+    expect(r.stdout ?? '').toContain('"приземлить" = Land: ');
+    expect(readCounts(sb.counts).terms.Land.usages).toBe(1);
   }, SLOW_SHELL_MS);
 });
 
