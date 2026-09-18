@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Operator hand-off: register the D-F glossary UserPromptSubmit hook (spec:
+# register-glossary-hook.sh — operator hand-off: register the D-F glossary UserPromptSubmit hook (spec:
 # docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md §D-F, hand-action D-E).
 #
 # WHAT "REGISTERING" IS: one hooks.UserPromptSubmit entry whose command names
@@ -252,9 +252,11 @@ fi
 # (b) the registered command's script exists and is executable — catches the dangled
 #     absolute path after a checkout move (header, --user cost).
 _reg_script="$ROOT/$HOOK_REL"
-[[ -x "$_reg_script" ]] \
-  && echo "verify b:  $HOOK_REL present and executable                      OK" \
-  || { echo "verify b:  $HOOK_REL missing or not executable                   FAIL"; rc=1; }
+if [[ -x "$_reg_script" ]]; then
+  echo "verify b:  $HOOK_REL present and executable                      OK"
+else
+  echo "verify b:  $HOOK_REL missing or not executable                   FAIL"; rc=1
+fi
 
 # (c) LIVE smoke of the registered command, fully sandboxed: the residue dir AND TMPDIR are
 #     redirected to a scratch dir, so the counters write and the pending file land in the
