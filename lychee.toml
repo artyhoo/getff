@@ -23,6 +23,7 @@ exclude = [
   '^https?://gptlint\.dev', # TLS handshake fails from non-browser clients (verified live 2026-07-10, curl exit 35)
   '^https?://explainx\.ai', # 200 from local network but consistent TIMEOUT from GitHub runners (2× on PR #1511, 2026-08-21; local curl -I → HTTP/2 200) — runner-path unreachable, not a dead link
   '/\.\.\.$', # the literal ellipsis placeholder '/...' — quoted inside an escaped code span (migration-ast stage-1); lychee's parser misreads it as a link. Unanchored so it also matches the root-dir-resolved file URL form. Placeholder class, same posture as example.* above — not a link.
+  '/no-such-page\.md$', # the deliberate broken-link placeholder inside the docs-check DEFECT fixtures (tests/docs-check/fixtures/pages/) — those pages seed the checker's own live-fire arms; their dangling target is the test material, not drift. Unanchored file-URL form, same placeholder class as '/...' above. (getff-ai-site S0q harvest: the pre-push §8 arm walks changed md explicitly, which bypasses exclude_path.)
 ]
 
 # Closed historical artifacts (CLAUDE.md «Artifact Ownership Contract»):
