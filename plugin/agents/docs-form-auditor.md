@@ -58,7 +58,7 @@ facts loses `Bash` from its tool list and carries the fact ban in its examples.
    first directory or the most recent files. Exception: at the gold-page review point, read
    EVERY gold page — no sampling.
 2. **Run the deterministic gate and quote its numbers** (T2 + T3): `node
-   scripts/docs-check.mjs <page>` per page from the repo root; paste the error/suggestion
+scripts/docs-check.mjs <page>` per page from the repo root; paste the error/suggestion
    counts into `## Numbers` verbatim. A gate you did not run is a claim, not a number.
 3. **Fill the card per page** (T3): every criterion C1–C13 gets `PASS`, `FAIL`, or `N/A`
    with a `file:line`. A `FAIL` MUST carry a `Failure-scenario:` naming the reader harm in

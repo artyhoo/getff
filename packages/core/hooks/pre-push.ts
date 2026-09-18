@@ -509,7 +509,7 @@ function docsCardSection(rb: ResolvedBase): void {
         '  Docs-card: C1 PASS, C2 PASS, … C13 N/A   (values: PASS | FAIL | N/A)\n' +
         'or escape with a reason:\n' +
         '  Docs-card: skipped — <why, at least 20 chars>\n' +
-        'The card is the writer\'s self-filled criteria card\n' +
+        "The card is the writer's self-filled criteria card\n" +
         '(.claude/skills/docs-author/references/criteria-card.md, D30 D-Q16).\n\n',
     );
     process.exit(1);

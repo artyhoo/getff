@@ -1,6 +1,6 @@
 ---
 name: docs-author
-description: "Use when writing or editing any getff.ai docs page under docs/site/ (including the glossary terms.md), when picking a page kind or filling the reader-comfort card, or when running a docs refresh over touched pages — to apply the kind registry, the craft contract, and the docs-check done-checklist. Triggers: write a docs page, new page under docs/site, glossary entry, terms.md, docs refresh, gold page, Diátaxis, задокументировать, страница документации."
+description: 'Use when writing or editing any getff.ai docs page under docs/site/ (including the glossary terms.md), when picking a page kind or filling the reader-comfort card, or when running a docs refresh over touched pages — to apply the kind registry, the craft contract, and the docs-check done-checklist. Triggers: write a docs page, new page under docs/site, glossary entry, terms.md, docs refresh, gold page, Diátaxis, задокументировать, страница документации.'
 ---
 
 <!-- @harness-posture: portable — prose-only authoring standard; the deterministic half it invokes (scripts/docs-check.mjs) ships with the framework and degrades to plain-CLI use without the harness -->
@@ -38,15 +38,15 @@ One page = one kind = one `kind:` frontmatter value from the registry. The regis
 [references/page-kinds.md](references/page-kinds.md); `docs-check.mjs` reads the same seven
 values, so an unregistered kind fails the page at commit time.
 
-| kind | one line |
-|---|---|
-| `reference-sheet` | one artifact, bands A/B/C: generated fact card, explanation, evidence |
-| `family-overview` | one generated table, common-case snippets, when NOT to reach for the family |
-| `learn-tutorial` | numbered steps, real output per step, ends with what you built |
-| `guide` | goal in the title, prerequisites, steps, a runnable verify step, variations |
-| `understand` | pain, mechanism, proof, honest limit — no steps |
-| `face-page` | one of the eleven product faces; skeleton lives in the face-pages spec, judge-only |
-| `glossary` | terms.md only; frontmatter gate applies, no section skeleton |
+| kind              | one line                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `reference-sheet` | one artifact, bands A/B/C: generated fact card, explanation, evidence              |
+| `family-overview` | one generated table, common-case snippets, when NOT to reach for the family        |
+| `learn-tutorial`  | numbered steps, real output per step, ends with what you built                     |
+| `guide`           | goal in the title, prerequisites, steps, a runnable verify step, variations        |
+| `understand`      | pain, mechanism, proof, honest limit — no steps                                    |
+| `face-page`       | one of the eleven product faces; skeleton lives in the face-pages spec, judge-only |
+| `glossary`        | terms.md only; frontmatter gate applies, no section skeleton                       |
 
 ## The five reader questions (why the card exists)
 
@@ -85,7 +85,7 @@ entries render into region (b) from the members registry and are never hand-edit
    two-comment form with a reason of at least 20 characters).
 4. The commit body carries the `Docs-card:` trailer: every criterion id C1 through C13 with
    `PASS`, `FAIL`, or `N/A` — or the escape `Docs-card: skipped — <reason of at least 20
-   characters>`. Detection lives in the pre-push gate and CI, not in this prose.
+characters>`. Detection lives in the pre-push gate and CI, not in this prose.
 
 The checklist is prose for the writer; its detection is deterministic (the quality spec, D-Q6
 and D-Q16). A gate that never went red is a claim — seed a defect once and watch the gate catch
