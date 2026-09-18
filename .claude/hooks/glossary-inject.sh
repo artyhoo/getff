@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# plain-words-recap-v2 D-F — UserPromptSubmit hook: glossary injection + usage counter.
+# glossary-inject.sh — UserPromptSubmit hook: glossary injection + usage counter (plain-words-recap-v2 D-F).
 # spec: docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md §D-F
 #
 # Scans the operator's prompt for the `_Operator says_` raw words of the CONTEXT.md
