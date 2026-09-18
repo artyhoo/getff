@@ -411,7 +411,22 @@ no cross-turn stability requirement, so it could take the S14 mktemp shape); `:4
 `.getff-deps-memo.<uid>.<tag>.<slot>` (umask 077 on write — the best of the family — but
 content is unsigned, so a plantable memo suppresses a drift notice); carried member
 (pre-existing source, twin generated): `check-doc-authority-header.sh:47`
-`aif-dah-jqskip-${_SID:-nosession}`, `_SID` raw. Attack prerequisites are real but local:
+`aif-dah-jqskip-${_SID:-nosession}`, `_SID` raw.
+**Redirect-form writers of the same family** (`> "$var"` rather than `: >` — a census
+grepping only `: >` counts 5 of the 10 members; declarations in brackets):
+`end-of-turn-reminder.sh:955` `> "$_rg_tmp"` (decl `:953`, PID-suffixed `$$`),
+`:963` `> "$_rg_flag"` (decl `:952`, stable sanitised `_rg_key`), `:1035`
+`> "$_zcb_tmp"` (decl `:1033`, PID-suffixed), `:1043` `> "$_zcb_flag"` (decl `:1032`,
+stable sanitised `_zcb_key`), and `:1175` `> "${TMPDIR:-/tmp}/aif-story-${session_id}"`
+(decl `:978`, stable RAW `session_id` — the family's one unsanitised debounce name).
+**Confidentiality window:** the `$$` temps hold transcript-derived content —
+`_scan_tmp` a bounded transcript tail, `_rg_tmp`/`_zcb_tmp` the recap block / full
+turn text, up to `AIF_EOT_TAIL_BYTES` (default 2 000 000, `:230`) — default-umask-
+readable at PID-predictable names for the hook's lifetime (removed after hashing at
+`:958`/`:1038`, `_scan_tmp` via the `_eot_cleanup` EXIT trap at `:235`); the stable
+flag members persist across turns. A future census of this family counts **ten
+members, not five**.
+Attack prerequisites are real but local:
 `/tmp` write access plus knowledge of the session UUID (or a pre-planted PID range for
 the `$$` member); impacts are single-file truncation and suppression of a skip notice,
 as the invoking user, on dev machines. Filed as hardening debt because the delta's own
