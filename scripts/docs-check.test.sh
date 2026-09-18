@@ -36,7 +36,16 @@ trap 'rm -rf "$TMP"' EXIT
 
 VALE_BIN="${VALE_BIN:-$(command -v vale || true)}"
 LYCHEE_BIN="${LYCHEE_BIN:-$(command -v lychee || true)}"
+# markdownlint-cli2 resolves EXACTLY as the checker resolves it (docs-check.mjs header:
+# `MARKDOWNLINT_BIN > npx --no-install markdownlint-cli2`): the devDep's bin sits in
+# node_modules/.bin, which `command -v` misses on a CI runner that installed the
+# workspace but never put it on PATH — the divergence made the harness SKIP its
+# live-fire arms in the very job that exists to run them (vacuous-green inversion
+# fired, correctly). Env override still wins; PATH second; the workspace bin third.
 MARKDOWNLINT_BIN="${MARKDOWNLINT_BIN:-$(command -v markdownlint-cli2 || true)}"
+if [ -z "$MARKDOWNLINT_BIN" ] && [ -x "$REPO_ROOT/node_modules/.bin/markdownlint-cli2" ]; then
+  MARKDOWNLINT_BIN="$REPO_ROOT/node_modules/.bin/markdownlint-cli2"
+fi
 [ -n "$VALE_BIN" ] && export VALE_BIN
 [ -n "$LYCHEE_BIN" ] && export LYCHEE_BIN
 [ -n "$MARKDOWNLINT_BIN" ] && export MARKDOWNLINT_BIN
