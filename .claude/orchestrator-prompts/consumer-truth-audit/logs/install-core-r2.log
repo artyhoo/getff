@@ -1,0 +1,179 @@
+=== install --profile core into /tmp/census-consumer-core-r2-lacg1W @ 22:04:43 ===
+▶ Verifying shipped artefacts carry Authoritative-for headers
+  ✓ all 30 shipped artefacts carry valid headers
+[profile] core
+  ▶ Auto-detected stack from package.json: ts-server
+▶ Installing rules-as-tests-aif into /tmp/census-consumer-core-r2-lacg1W (stack: ts-server)
+▶ Skills → .claude/skills/
+  ✓ .claude/skills/getff/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/tool-bootstrapping/
+  ✓ .claude/skills/template-audit/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/ai-doc/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/rule-research/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+  ✓ .claude/skills/rule-tests/ (cross-refs rewritten to https://github.com/artyhoo/getff/blob/main)
+▶ Claude hooks → .claude/hooks/
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/deps-hash-check.sh
+  ✓ .claude/settings.json created with UserPromptSubmit hook
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/end-of-turn-reminder.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/lang/en.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/lang/ru.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/lang/check-parity.sh
+  ✓ end-of-turn-reminder registered as a Stop hook in .claude/settings.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/ask-question-reminder.sh
+  ✓ ask-question-reminder registered as a PreToolUse hook in .claude/settings.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/inject-matching-rule.sh
+  ✓ inject-matching-rule registered as a PostToolUse hook in .claude/settings.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/inject-output-language.sh
+  ✓ inject-output-language registered as a UserPromptSubmit hook in .claude/settings.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/check-doc-authority-header.sh
+  ✓ check-doc-authority-header registered as a PostToolUse hook in .claude/settings.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/inject-project-digest.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/session-bootstrap.md
+  ✓ inject-project-digest registered as a UserPromptSubmit hook in .claude/settings.json
+  ✓ inject-project-digest registered as a SubagentStart hook in .claude/settings.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/hooks/inject-memory-codification.sh
+  ✓ inject-memory-codification registered as a PostToolUse hook in .claude/settings.json
+  ▶ Stack-aware companion selection (detected: ts-server)
+    ✓ superpowers [stacks=*] — relevant for ts-server
+    ✓ runtime-bridge [stacks=*] — relevant for ts-server
+    ✓ deepwiki [stacks=*] — relevant for ts-server
+    ✓ ast-grep-cli [stacks=*] — relevant for ts-server
+    ✓ ast-grep [stacks=*] — relevant for ts-server
+    ✓ aif-handoff [stacks=*] — relevant for ts-server
+  6 companion(s) selected for stack 'ts-server'
+▶ Sub-agents → .claude/agents/
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/aif-init.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/capability-reuse-auditor.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/claims-conformance-auditor.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/compliance-verifier.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/docplan-auditor.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/fidelity-auditor.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/living-docs-auditor.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/memory-codification-auditor.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/review-sidecar.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/rule-researcher.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.claude/agents/rule-test-author.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/skill-context/aif-review/SKILL.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/skill-context/aif-rules-check/SKILL.md
+▶ AI Factory templates → .ai-factory/
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/DESCRIPTION.template.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/ARCHITECTURE.ts-server.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/RULES.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/rules/integration-rules.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/tool-decisions.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/AI-USAGE-GUIDE.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/DESCRIPTION.md
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.ai-factory/ARCHITECTURE.md
+  ✓ aif-handoff integration: skill-context files installed at .ai-factory/skill-context/ (auto)
+  ✓ /tmp/census-consumer-core-r2-lacg1W/AGENTS.md (fenced section=getff-framework)
+▶ Scripts → scripts/
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/audit-ai-docs.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/audit-r4.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/check-rule-globs.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/check-rule-enforced.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/detect-r2-boundary.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/r2-na-marker.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/check-arch-boundaries.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/check-lintstaged-resolves.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/check-fences-fire.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/fences-fire-fixtures
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/check-shields-up.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/run-generated-rule-mutation.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/run-rule-tests-firing.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/pre-merge-local.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/scripts/ci-available-probe.sh
+▶ Shared templates → project root
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.nvmrc
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.gitignore
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.lintstagedrc.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.prettierignore
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.prettierrc.json
+  ✓ /tmp/census-consumer-core-r2-lacg1W/tsconfig.json
+▶ Custom ESLint rules → eslint-rules-local/
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/no-direct-time-randomness.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/no-direct-time-randomness.mjs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/no-direct-time-randomness.d.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/no-unsafe-zod-parse.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/no-unsafe-zod-parse.mjs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/no-unsafe-zod-parse.d.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/require-otel-span.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/require-otel-span.mjs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/require-otel-span.d.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/restricted-syntax-audit-exempt.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/restricted-syntax-audit-exempt.mjs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint-rules-local/restricted-syntax-audit-exempt.d.ts
+  ✓ generated eslint-rules-local/index.mjs (4 rules)
+  · fences fixture [no-server-imports-in-client] not shipped — rule 'no-server-imports-in-client' not in this stack's barrel
+▶ Stack-specific templates (ts-server) → project root
+  ✓ /tmp/census-consumer-core-r2-lacg1W/eslint.config.mjs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/vitest.config.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/tests/setup.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.dependency-cruiser.cjs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/stryker.config.json
+  ✓ stryker packageManager → npm
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.github/workflows/ci.yml
+  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);
+    delivered workflow uses 'main' — edit /tmp/census-consumer-core-r2-lacg1W/.github/workflows/ci.yml if your default differs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.github/workflows/workflow-integrity.yml
+  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);
+    delivered workflow uses 'main' — edit /tmp/census-consumer-core-r2-lacg1W/.github/workflows/workflow-integrity.yml if your default differs
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.husky/pre-commit
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.husky/pre-push
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/pre-push.fallback.sh
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/pre-push.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/utils/run-check.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/utils/git.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/checks/prior-art.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/checks/s17.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/checks/unpinned-tool-install.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/checks/guard-liveness.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/checks/cmd-script-liveness.ts
+▶ Core ESLint rules → packages/core/eslint-rules/
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/eslint-rules/index.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/eslint-rules/no-unsafe-zod-parse.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/eslint-rules/no-direct-time-randomness.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/eslint-rules/require-otel-span.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts
+  ✓ /tmp/census-consumer-core-r2-lacg1W/packages/core/hooks/package.json
+▶ Activated git hooks → core.hooksPath=.husky
+▶ R2 auto-wire (reading the repo)
+  · R2 boundary layout ambiguous → leaving scripts/check-rule-globs.sh as the alarm. If R2 applies, widen RULE_GLOBS.boundary in eslint.config.mjs to cover your layout.
+▶ Merging canonical scripts → package.json (non-destructive)
+  ✓ added 22 script(s); 0 already present (kept)
+  ✓ added 3 hook devDep(s); 0 already present (kept)
+
+⚠  tsx is not resolvable from the workspace root — the pre-push hook will run in
+   REDUCED mode (critical-only bash checks), not the full TypeScript suite.
+   To enable full pre-push checks, run from the repo root:
+       npm i -D tsx
+▶ synth-wire: confirming synthesized rules-as-tests slice in eslint.config.mjs
+  [synth-wire] stack 'ts-server' has no synthesizer pattern set — preset baseline empty; live-research snippet (if any) still wires
+  [synth-wire] synthesizer emitted no rules for 'ts-server' — no-op
+
+ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules.
+   No .ai-factory/rules-research/ts-server.{research,selection}.json found, so the shipped
+   preset rules are your only stack fence this install. Run the rule-research protocol
+   (agents/rule-researcher.md or the rule-research skill), then re-run ./setup --full to
+   deliver live-researched rules into eslint.config.mjs (they augment + override the presets).
+  ✓ /tmp/census-consumer-core-r2-lacg1W/.prettierignore (ignored 34 freshly-shipped framework config(s); consumer-authored configs kept format-checked)
+
+✅ Installation complete.
+
+Next steps:
+  1. Review/edit the generated .ai-factory/DESCRIPTION.md (project domain, stack, constraints)
+  2. Review/edit the generated .ai-factory/ARCHITECTURE.md (layer structure, dependency direction)
+  3. Edit AGENTS.md placeholders to match your project
+  4. Install dependencies (or re-run: ./install.sh ts-server --full):
+
+     npm install --save-dev \
+       eslint@^9 typescript-eslint@^8.59 @eslint/js@^9 @typescript-eslint/utils@^8.62.0 globals@^17.7.0 prettier@3.8.3 eslint-config-prettier@^10.1.8 @vitest/eslint-plugin@^1.6.20 typescript@^5.7.0 vitest@^4.1.5 @vitest/coverage-v8@^4.1.5 @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1 dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4 husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1 npm-run-all2@~8.0.4 @types/node@^22.10.0
+
+     npm install \
+       zod@^3.24.0
+  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)
+  6. Run: ./scripts/audit-ai-docs.sh — should PASS
+  7. Run: npm run validate
+
+For full guide: see INSTALL.md
+  ✓ .ai-factory/refresh-baseline.json recorded (95 delivered files hashed)
+--- install exit=0 @ 22:04:45

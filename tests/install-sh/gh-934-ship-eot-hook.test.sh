@@ -12,6 +12,7 @@
 #   (D) firing (EN) — a markdown-rich long transcript → decision:"block" + non-empty reason
 #   (E) firing (RU) — AIF_HOOK_LANG=ru → decision:"block" + the RU recap marker in the reason
 #   (F) consumer-skip guard — jq absent from PATH → exit 0, no output (no error-spam)
+#   (G) --full arms the recap gate; a plain install leaves it dormant
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -96,6 +97,30 @@ if [ "$_guard_rc" -eq 0 ] && [ -z "$_guard_out" ]; then
 else
   bad "(F) guard: expected rc0 + empty, got rc=$_guard_rc out='$(printf '%s' "$_guard_out" | head -c 80)'"
 fi
+
+# ── (G) --full arms the recap gate; a plain install leaves it dormant ─────────
+[ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$T/.claude/settings.json")" = "" ] \
+  && ok "G1 plain install leaves AIF_RECAP_GATE unset (gate ships dormant)" \
+  || bad "G1 plain install armed the gate — R-15 says the rejection ships dormant"
+
+TF=$(mktemp -d)
+( cd "$TF" && git init -q && git config user.email t@t && git config user.name t \
+    && printf '{"name":"g934f","version":"0.0.0"}\n' > package.json \
+    && git add -A && git commit -q -m base \
+    && bash "$REPO_ROOT/install.sh" ts-server --force --full ) >"$TF/.log" 2>&1
+echo "EXIT=$?" >> "$TF/.log"
+
+grep -q '^EXIT=0$' "$TF/.log" \
+  && ok "G0 --full install exited 0" \
+  || bad "G0 --full install did NOT exit 0 — G2/G3 below are meaningless (see $TF/.log)"
+
+[ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$TF/.claude/settings.json")" = "1" ] \
+  && ok "G2 --full arms AIF_RECAP_GATE=1" \
+  || bad "G2 --full did not arm the gate (see $TF/.log)"
+jq -e '.hooks.Stop' "$TF/.claude/settings.json" >/dev/null \
+  && ok "G3 --full install still registers the Stop hook (the env write did not clobber .hooks)" \
+  || bad "G3 --full install lost the Stop hook registration"
+rm -rf "$TF"
 
 rm -rf "$T" "$JQLESS"
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

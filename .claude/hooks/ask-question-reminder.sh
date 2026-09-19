@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ask-question-reminder.sh — PreToolUse:AskUserQuestion hook — pre-question fork-challenge nudge (consumer-safe session UX)
 # @cc-only-rationale: CC-specific PreToolUse:AskUserQuestion hook — it can only fire inside a
 #   Claude Code session (the deny/permissionDecision contract is CC-native), so there is no
 #   portable counterpart by nature (the @dual-pair below is the internal en/ru i18n split, not a

@@ -1,0 +1,3 @@
+core /tmp/census-consumer-core-wYlJfn
+env /tmp/census-consumer-env-VXYTkl
+factory /tmp/census-consumer-factory-Iwbf1j

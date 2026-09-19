@@ -27,7 +27,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { PracticeEntryIdError, runPracticeRender } from './rule-bootstrap-cli.ts';
+import { PracticeEntryIdError, PracticeJoinError, runPracticeRender } from './rule-bootstrap-cli.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -291,5 +291,79 @@ describe('rule-bootstrap-cli --from-practice — real CLI invocation', () => {
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/--from-practice/);
     expect(existsSync(renderedPathOf(consumer))).toBe(false);
+  });
+});
+
+// ── A7-4 (ledger-1597-fixes): the PF-1 join is validated BEFORE the first write. ─────────────
+// Pre-fix order: every rendered .yml was written FIRST, THEN the fragment loop's defensive PF-1
+// throw fired — a rendered + research-only pair sharing an entryId (invisible to the plan-time
+// dup guard, which iterates `rendered` only) left the .yml on disk with NO generation-context
+// fragment and was reported as "practice record invalid or unreadable" with rc=0. Post-fix the
+// whole plan (entryId gates + PF-1 join) is validated before the first write: a park writes
+// NOTHING, prints the PF-1 park reason (real counts + entryId), exits NON-ZERO.
+//
+// The 0-record join shape (rendered entryId absent from records) is UNREACHABLE through the
+// public API: plan.rendered entryIds are sourced FROM the records (research-to-node.ts sets
+// node.id = practice.entryId; render-researched-astgrep.ts sets rendered.entryId = node.id), so
+// the match count is ≥1 by construction — only the ≥2 shape is reachable, and it is covered
+// below. No exported-internal jig was added for the 0-shape; the join gate stays private.
+describe('A7-4 — PF-1 join validated before the first write (park writes nothing, exits non-zero)', () => {
+  const CLI_A74 = join(REPO_ROOT, 'packages/core/install/rule-bootstrap-cli.ts');
+
+  /** Two records sharing an entryId: one fully expressible, one pattern-less (→ research-only,
+   *  `not-expressible`, pattern=absent). The plan-time dup guard sees `rendered` entries only,
+   *  so this shape reaches the render loop — exactly the A7-4 hole. */
+  function dupEntryIdDir(consumer: string): string {
+    const recDir = join(consumer, 'records');
+    mkdirSync(recDir, { recursive: true });
+    const valid = JSON.parse(readFileSync(PRACTICE_FIXTURE, 'utf8')) as Record<string, unknown>;
+    writeFileSync(join(recDir, 'a.practice.json'), JSON.stringify(valid));
+    const patternless = { ...valid };
+    delete patternless['pattern']; // JSON.stringify drops it → not single-pattern-expressible
+    writeFileSync(join(recDir, 'b.practice.json'), JSON.stringify(patternless));
+    return recDir;
+  }
+
+  it('unit: rendered+research-only pair sharing an entryId → PracticeJoinError, NOTHING written', () => {
+    const consumer = freshConsumer();
+    const recDir = dupEntryIdDir(consumer);
+    expect(() =>
+      runPracticeRender({ consumerRoot: consumer, fromPractice: recDir, log: () => {} }),
+    ).toThrow(PracticeJoinError);
+    // The park leaves the consumer untouched: no rendered .yml, no output dir created
+    // (directory creation moved after validation completes).
+    expect(existsSync(renderedPathOf(consumer))).toBe(false);
+    expect(existsSync(join(consumer, '.getff', 'rules-research'))).toBe(false);
+  });
+
+  // @arm:B2:neg-shaped park contract (A7-4): the CLI must NOT report a park as the rc=0
+  // "invalid or unreadable" degrade. RED on base: the same fixture wrote the .yml and exited 0.
+  it('cli: dup-entryId records → NON-ZERO exit, PF-1 park on stderr, no .yml written', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const recDir = dupEntryIdDir(consumer);
+    const r = spawnSync(
+      tsxBin(),
+      [CLI_A74, '--consumer-root', consumer, '--from-practice', recDir],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/PF-1 park/);
+    expect(r.stderr).toMatch(/found 2/); // the real reason: expected exactly 1, found 2
+    expect(existsSync(renderedPathOf(consumer))).toBe(false);
+  });
+
+  // The other half of the A7-4 message split: a GENUINELY unreadable record keeps the
+  // rc=0 degrade-with-guidance contract — the park path must not have swallowed it.
+  it('cli: genuinely unreadable record keeps the rc=0 degrade contract (message unchanged)', { timeout: 120_000 }, () => {
+    const consumer = freshConsumer();
+    const rec = join(consumer, 'broken.practice.json');
+    writeFileSync(rec, '{ not json');
+    const r = spawnSync(
+      tsxBin(),
+      [CLI_A74, '--consumer-root', consumer, '--from-practice', rec],
+      { cwd: REPO_ROOT, encoding: 'utf8' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr).toMatch(/invalid or unreadable/);
   });
 });

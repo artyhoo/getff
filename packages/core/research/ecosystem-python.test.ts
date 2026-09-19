@@ -81,12 +81,39 @@ dev = ["ruff"]
     expect(pipAdapter.listDirectDeps(root)).toEqual(new Set());
   });
 
-  it('DROPS multi-line arrays (documented limitation, fail-closed)', () => {
+  // A7-1 (ledger-1597-fixes): the multi-line PEP 621 array is the DOMINANT form
+  // (uv/hatch/pdm default), and listDirectDeps is load-bearing downstream — stack
+  // detection (detector/read-python-cargo.ts detectPythonFramework) and the Tier-1
+  // direct-dep gate (allowlist-resolver.ts tier1For) both consume this set. The old
+  // "documented limitation" drop is superseded; the fail-closed posture survives for
+  // MALFORMED arrays (unterminated at the section boundary — test below).
+  it('parses a MULTI-LINE PEP 621 dependencies array (uv-style default form — A7-1)', () => {
     const root = makePyprojectRoot(`[project]
+name = "myproj"
 dependencies = [
   "requests>=2.0",
   "click",
 ]
+`);
+    expect(pipAdapter.listDirectDeps(root)).toEqual(new Set(['requests', 'click']));
+  });
+
+  it('multi-line array: first element on the opening line + extras/markers with brackets inside quotes', () => {
+    const root = makePyprojectRoot(`[project]
+dependencies = ["fastapi>=0.100",
+  "django[bcrypt]>=5.0; python_version>='3.10'",
+  "click",
+]
+`);
+    expect(pipAdapter.listDirectDeps(root)).toEqual(new Set(['fastapi', 'django', 'click']));
+  });
+
+  it('DROPS an UNTERMINATED multi-line dependencies array (fail-closed preserved)', () => {
+    const root = makePyprojectRoot(`[project]
+name = "myproj"
+dependencies = [
+  "requests>=2.0",
+  "click",
 `);
     expect(pipAdapter.listDirectDeps(root)).toEqual(new Set());
   });

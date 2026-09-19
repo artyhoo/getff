@@ -1,8 +1,9 @@
 /**
- * CLI harvest entrypoint — the deterministic egress leg of the bridge.
+ * harvest.ts — the deterministic egress leg of the bridge.
  *
- * Usage:
- *   tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
+ * Usage (framework: `packages/runtime-bridge/src/cli/harvest.ts`; consumer install:
+ * `.claude/vendor/runtime-bridge/src/cli/harvest.ts` — see setup.d/55-runtime-bridge-vendor.sh):
+ *   tsx <path-to>/harvest.ts <taskId> \
  *     [--base <branch>] [--body-file <path>] [--no-auto-merge] [--container <name>] \
  *     [--repo-path <path>] [--work-dir <path>] [--host-repo <path>] \
  *     [--confirm-rework] [--confirm-unreported-files] [--confirm-dirty-residue]
@@ -101,9 +102,15 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { getTask } from './aifHttp.js';
-import type { AifTaskFull } from './aifHttp.js';
+import { join, relative } from 'node:path';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
+import { getProjects, getTask, getParticipantsModeEnabled } from './aifHttp.js';
+import {
+  postComment,
+  postEvent,
+  reviewEventUnreachableReason,
+} from './answer.js';
+import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
   bundleFileName,
   channelAFallbackCommands,
@@ -118,9 +125,85 @@ import type {
   WorkDirResolution,
 } from '../harvest.js';
 
-/** Base clone inside the container — the ROOT, not any task's checkout (see {@link resolveTaskWorkDir}).
- *  Overridable for a differently-mounted aif via `--repo-path` / RUNTIME_BRIDGE_AIF_REPO_PATH. */
-const DEFAULT_AIF_REPO_PATH = '/home/www/rules-as-tests-aif';
+/**
+ * LAST-RESORT base clone inside the container — the ROOT, not any task's checkout (see
+ * {@link resolveTaskWorkDir}).
+ *
+ * It is the FRAMEWORK's own mount, and it is the fallback only. This file ships to consumers
+ * at `.claude/vendor/runtime-bridge/src/cli/harvest.ts` (setup.d/55-runtime-bridge-vendor.sh,
+ * `--profile factory`), where aif mounts the project at `/home/www/<consumer>` and this path
+ * is not a directory at all: the `worktree list` probe swallows its failure, the checkout
+ * falls back to a repo root that does not exist, and every task aborts at `cannot read git
+ * HEAD` (#1597 review ledger A6-3). Resolution order: {@link resolveRepoPath}.
+ */
+const FALLBACK_AIF_REPO_PATH = '/home/www/rules-as-tests-aif';
+
+/** Where {@link resolveRepoPath} got the container checkout from (surfaced in the warning). */
+export type RepoPathSource = 'flag' | 'env' | 'aif-project' | 'fallback';
+
+export interface RepoPathResolution {
+  /** Absolute path of the project's base clone INSIDE the container. */
+  path: string;
+  source: RepoPathSource;
+}
+
+/**
+ * WHICH checkout inside the container is this project's base clone.
+ *
+ * aif already knows — every project record carries the `rootPath` it runs git in — so the
+ * consumer-correct answer is to ask it rather than to hard-code one repo's mount. aif exposes
+ * no `GET /projects/:id`, so this filters `GET /projects` by `RUNTIME_BRIDGE_AIF_PROJECT_ID`,
+ * the same id the dispatch leg already requires.
+ *
+ * Order: `--repo-path` → `RUNTIME_BRIDGE_AIF_REPO_PATH` → aif's project record →
+ * {@link FALLBACK_AIF_REPO_PATH}. The last step is WARNED by the caller, never silent: a
+ * fallback that is wrong produces a HOLD/abort several steps later, in a message that names
+ * a path the operator never chose.
+ *
+ * Never throws — an unreachable aif is the fallback's own trigger, and harvest's next call
+ * (`getTask`) reports that failure properly through the classified exit path.
+ */
+export async function resolveRepoPath(
+  baseUrl: string,
+  flagValue: string | undefined,
+  env: NodeJS.ProcessEnv = process.env,
+  fetchProjects: (url: string) => Promise<AifProjectFull[]> = getProjects,
+): Promise<RepoPathResolution> {
+  if (flagValue) return { path: flagValue, source: 'flag' };
+  const fromEnv = env['RUNTIME_BRIDGE_AIF_REPO_PATH'];
+  if (fromEnv) return { path: fromEnv, source: 'env' };
+  const projectId = env['RUNTIME_BRIDGE_AIF_PROJECT_ID'];
+  if (projectId) {
+    try {
+      const project = (await fetchProjects(baseUrl)).find(
+        (p) => p.id === projectId,
+      );
+      if (project?.rootPath)
+        return { path: project.rootPath, source: 'aif-project' };
+    } catch {
+      // aif unreachable / no /projects — fall through to the WARNED fallback below.
+    }
+  }
+  return { path: FALLBACK_AIF_REPO_PATH, source: 'fallback' };
+}
+
+/**
+ * How to re-invoke THIS file, as a path that works where it is actually installed.
+ *
+ * The three HOLD hints used to print `tsx packages/runtime-bridge/src/cli/harvest.ts …` — the
+ * framework's own layout. A consumer runs the vendored copy from
+ * `.claude/vendor/runtime-bridge/src/cli/harvest.ts`, where that command is an ENOENT, so
+ * every HOLD handed the operator a fix that cannot run (#1597 review ledger A6-3). Derived
+ * from `process.argv[1]`, relative to the cwd when that stays inside it (the readable form),
+ * absolute otherwise. Both inputs are parameters with NO defaults: a default would make an
+ * explicit `undefined` fall back to the live argv, so the missing-entrypoint arm could not
+ * be tested at all.
+ */
+export function selfPath(argv1: string | undefined, cwd: string): string {
+  if (!argv1) return 'harvest.ts';
+  const rel = relative(cwd, argv1);
+  return rel !== '' && !rel.startsWith('..') ? rel : argv1;
+}
 
 interface ParsedArgs {
   taskId?: string;
@@ -128,40 +211,71 @@ interface ParsedArgs {
   bodyFile?: string;
   autoMerge: boolean;
   container: string;
-  repoPath: string;
+  /** `--repo-path` ONLY — the full resolution (env → aif → fallback) is {@link resolveRepoPath}. */
+  repoPath?: string;
   workDir?: string;
   hostRepo?: string;
   confirmRework: boolean;
   confirmUnreportedFiles: boolean;
   confirmDirtyResidue: boolean;
+  /**
+   * `--report-merge <prUrl>`: run ONLY the aif return channel for an already-harvested task
+   * (see {@link reportMergeToAif}) and skip egress entirely. This is the retro-active arm —
+   * a task whose PR merged before the return channel existed has no other way to be closed.
+   */
+  reportMerge?: string;
 }
 
-function parseArgs(argv: string[]): ParsedArgs {
-  const positional = argv.find((a) => !a.startsWith('--'));
-  const flag = (name: string): string | undefined => {
-    const i = argv.indexOf(name);
-    return i !== -1 ? argv[i + 1] : undefined;
-  };
+/**
+ * Parse the harvest invocation: one positional <taskId> plus flags.
+ *
+ * Strict (cliEntry.parseCliArgs over node:util parseArgs). The hand-rolled version
+ * took the FIRST non-`--` token as the taskId, so `--base staging f1010da4` harvested
+ * task 'staging' (A6-4 / D-4), and its `--flag <value>` lookup accepted the next token
+ * even when that token was another flag, with the truthiness guard its four sibling
+ * copies had dropped along the way (A6-7 / R-6). Throws {@link CliArgError} on every
+ * such shape; main() turns that into exit 1 with the message.
+ */
+export function parseArgs(argv: string[]): ParsedArgs {
+  const { values, positionals } = parseCliArgs(argv, {
+    options: {
+      base: { type: 'string' },
+      'body-file': { type: 'string' },
+      'no-auto-merge': { type: 'boolean' },
+      container: { type: 'string' },
+      'repo-path': { type: 'string' },
+      'work-dir': { type: 'string' },
+      'host-repo': { type: 'string' },
+      'confirm-rework': { type: 'boolean' },
+      'confirm-unreported-files': { type: 'boolean' },
+      'confirm-dirty-residue': { type: 'boolean' },
+      'report-merge': { type: 'string' },
+    },
+    maxPositionals: 1,
+  });
+  const str = (name: string): string | undefined =>
+    values[name] as string | undefined;
   return {
-    taskId: positional,
-    base: flag('--base') ?? 'staging',
-    bodyFile: flag('--body-file'),
-    autoMerge: !argv.includes('--no-auto-merge'),
+    taskId: positionals[0],
+    base: str('base') ?? 'staging',
+    bodyFile: str('body-file'),
+    autoMerge: values['no-auto-merge'] !== true,
     container:
-      flag('--container') ??
+      str('container') ??
       process.env['RUNTIME_BRIDGE_AIF_CONTAINER'] ??
       'aif-handoff-agent-1',
-    repoPath:
-      flag('--repo-path') ??
-      process.env['RUNTIME_BRIDGE_AIF_REPO_PATH'] ??
-      DEFAULT_AIF_REPO_PATH,
-    workDir: flag('--work-dir'),
-    hostRepo: flag('--host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
-    confirmRework: argv.includes('--confirm-rework'),
-    confirmUnreportedFiles: argv.includes('--confirm-unreported-files'),
-    confirmDirtyResidue: argv.includes('--confirm-dirty-residue'),
+    repoPath: str('repo-path'),
+    workDir: str('work-dir'),
+    hostRepo: str('host-repo') ?? process.env['RUNTIME_BRIDGE_HOST_REPO'],
+    confirmRework: values['confirm-rework'] === true,
+    confirmUnreportedFiles: values['confirm-unreported-files'] === true,
+    confirmDirtyResidue: values['confirm-dirty-residue'] === true,
+    reportMerge: str('report-merge'),
   };
 }
+
+/** {@link ParsedArgs} once the container checkout is known (see {@link resolveRepoPath}). */
+type ResolvedArgs = ParsedArgs & { repoPath: string };
 
 /**
  * Run a git command in a specific checkout inside the aif container; returns stdout with
@@ -255,7 +369,7 @@ function resolveHostRepo(explicit?: string): string {
  */
 function resolveTaskWorkDir(
   container: string,
-  args: ParsedArgs,
+  args: ResolvedArgs,
   task: AifTaskFull,
   branch: string,
 ): WorkDirResolution {
@@ -353,7 +467,7 @@ function resolveBaseRef(
  */
 function realDeps(
   container: string,
-  args: ParsedArgs,
+  args: ResolvedArgs,
   task: AifTaskFull,
 ): { deps: HarvestDeps; checkout: () => string } {
   let resolved: WorkDirResolution | null = null;
@@ -572,6 +686,129 @@ function realDeps(
   return { deps, checkout: () => resolved?.path ?? args.repoPath };
 }
 
+/** What {@link reportMergeToAif} observed and did — returned so the CLI can report it. */
+export interface MergeReport {
+  taskId: string;
+  prUrl: string;
+  /** Whether the PR is actually merged (the probe's answer, never assumed). */
+  merged: boolean;
+  /** Whether a comment naming the PR was attached to the task. */
+  commented: boolean;
+  /** Whether `complete_review` was dispatched, taking the task out of `review`. */
+  closedReview: boolean;
+  /** Why the review was not closed, when it was not. */
+  skippedReason?: string;
+}
+
+/** Ask GitHub whether a PR is merged. Injected so the tests need neither `gh` nor a network. */
+export type PrMergeProbe = (
+  prUrl: string,
+) => Promise<{ merged: boolean; mergedAt?: string | null }>;
+
+/** The default probe: `gh pr view <url> --json state,mergedAt`. */
+export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
+  const out = execFileSync(
+    'gh',
+    ['pr', 'view', prUrl, '--json', 'state,mergedAt'],
+    { encoding: 'utf8' },
+  );
+  const parsed = JSON.parse(out) as {
+    state?: string;
+    mergedAt?: string | null;
+  };
+  return {
+    merged: parsed.state === 'MERGED',
+    mergedAt: parsed.mergedAt ?? null,
+  };
+};
+
+/**
+ * Tell aif that a harvested task's PR has merged — the RETURN CHANNEL harvest never had.
+ *
+ * Before this, harvest was strictly one-way: the branch left the container, was pushed, PR'd
+ * and merged on GitHub, and nothing ever wrote back (`grep -c "postJson|putTask"` on this file
+ * returned 0). A task had no mechanism to learn that its own work had shipped, so it stayed in
+ * `review` indefinitely — and `review` with `executionOwner:"ai"` counts toward the per-project
+ * lane cap (`countActivePipelineTasksForProject`), so shipped work throttled new work. Measured
+ * 2026-09-09: four tasks still parked with their PRs merged days earlier (#1667, #1668, #1680,
+ * #1688), while the coordinator logged `"active":6,"limit":5`. Closing them depended on a human
+ * remembering — bare attention as the detection layer, which
+ * `.claude/rules/attention-is-not-a-mechanism.md §1` forbids for a load-bearing check.
+ *
+ * Deliberately conservative in three ways:
+ *   1. An UNMERGED PR writes nothing. A comment saying «a PR exists» is noise, and an
+ *      auto-merge that later fails would leave a false claim in the task's own record.
+ *   2. The comment lands BEFORE the event, so the task carries the evidence even if the
+ *      transition is refused.
+ *   3. `complete_review` is dispatched ONLY from `review` — the state machine accepts it from
+ *      nowhere else (`stateMachine.js:91`), so any other status is reported, not forced.
+ *      It lands the task in `done`, NOT `verified`: final acceptance stays a human act
+ *      (`approve_done`), this only stops shipped work from occupying a lane.
+ */
+export async function reportMergeToAif(
+  baseUrl: string,
+  taskId: string,
+  prUrl: string,
+  probe: PrMergeProbe = ghPrMergeProbe,
+): Promise<MergeReport> {
+  const { merged, mergedAt } = await probe(prUrl);
+  if (!merged) {
+    return {
+      taskId,
+      prUrl,
+      merged: false,
+      commented: false,
+      closedReview: false,
+      skippedReason: 'PR is not merged yet — nothing reported',
+    };
+  }
+
+  const task = await getTask(baseUrl, taskId);
+  const when = mergedAt ?? 'unknown time';
+  await postComment(
+    baseUrl,
+    taskId,
+    `Harvested and merged: ${prUrl} (merged ${when}). The deliverable is on the base branch, ` +
+      `so this task's work has shipped. Reported automatically by the harvest return channel.`,
+  );
+
+  if (task.status !== 'review') {
+    return {
+      taskId,
+      prUrl,
+      merged: true,
+      commented: true,
+      closedReview: false,
+      skippedReason: `task status is "${task.status}", not "review" — complete_review is only allowed from review`,
+    };
+  }
+
+  // The close is only attempted when the deployment can serve it. With participants mode
+  // off, `complete_review` resolves through the legacy dispatcher, which has no exit from
+  // `review` for ANY owner, and the API answers 409 "Unknown task event" (measured on two
+  // live parks, 2026-09-09). That is not a harvest failure: the merge evidence is already
+  // on the task, and closing the park is bookkeeping with its own operator levers.
+  //
+  // Only an explicit `false` is skipped. A FAILING probe — a timeout, a 401/404 on
+  // /auth/session, an unparsable body — must propagate to the CLI's own error path and exit
+  // non-zero: swallowing it would report `ok:true` while a close that may well have been
+  // legal never happened, and parks would accumulate behind a green exit code with the
+  // diagnosis buried in a field nobody reads (`attention-is-not-a-mechanism.md §2`).
+  if (!(await getParticipantsModeEnabled(baseUrl))) {
+    return {
+      taskId,
+      prUrl,
+      merged: true,
+      commented: true,
+      closedReview: false,
+      skippedReason: reviewEventUnreachableReason('complete_review'),
+    };
+  }
+
+  await postEvent(baseUrl, taskId, 'complete_review');
+  return { taskId, prUrl, merged: true, commented: true, closedReview: true };
+}
+
 /**
  * The copy-pasteable form of a container-side READ, byte-identical in shape to what
  * {@link dockerGit} actually runs — including `-c safe.directory=<workDir>`, without which
@@ -588,10 +825,18 @@ function containerRead(
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  if (!args.taskId) {
+  let parsed: ParsedArgs;
+  try {
+    parsed = parseArgs(process.argv.slice(2));
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[harvest] ${msg}\n`);
+    process.exit(1);
+  }
+  if (!parsed.taskId) {
     process.stderr.write(
       '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
+        '[harvest]        harvest.ts <taskId> --report-merge <prUrl>   (return channel only, no egress)\n' +
         "[harvest]   egress = Channel A: the container's commit is bundled to the HOST and pushed from there\n" +
         "[harvest]   (--host-repo / RUNTIME_BRIDGE_HOST_REPO, default: the cwd's checkout) so .husky/pre-push runs.\n",
     );
@@ -600,17 +845,73 @@ async function main(): Promise<void> {
 
   const baseUrl =
     process.env['RUNTIME_BRIDGE_AIF_URL'] ?? 'http://localhost:3009';
-  const task = await getTask(baseUrl, args.taskId);
 
-  // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
-  // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
-  const body = args.bodyFile
-    ? readFileSync(args.bodyFile, 'utf8')
-    : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
-      `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`;
+  // Return-channel-only mode. Deliberately BEFORE every egress step: the task this closes has
+  // already shipped, so re-resolving its container checkout would fail on a worktree aif has
+  // since reaped — and there is nothing left to push anyway.
+  if (parsed.reportMerge) {
+    try {
+      const report = await reportMergeToAif(
+        baseUrl,
+        parsed.taskId,
+        parsed.reportMerge,
+      );
+      process.stdout.write(
+        JSON.stringify({ ok: true, mergeReport: report }) + '\n',
+      );
+      process.exit(0);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[harvest] --report-merge FAILED: ${msg}\n`);
+      process.exit(1);
+    }
+  }
 
-  const { deps, checkout } = realDeps(args.container, args, task);
+  // A6-3: WHICH checkout inside the container, asked of aif rather than hard-coded to the
+  // framework's own mount — the vendored copy runs on consumers whose project lives at
+  // /home/www/<consumer>. The fallback is warned, never silent: it surfaces here, before any
+  // git read, instead of as a `cannot read git HEAD` about a path the operator never chose.
+  const repoPath = await resolveRepoPath(baseUrl, parsed.repoPath);
+  if (repoPath.source === 'fallback') {
+    process.stderr.write(
+      `[harvest] WARNING: falling back to '${repoPath.path}' as this project's checkout inside ` +
+        `container '${parsed.container}' — aif's own project record was not readable ` +
+        `(set RUNTIME_BRIDGE_AIF_PROJECT_ID so GET /projects can be filtered, or pass --repo-path / ` +
+        `RUNTIME_BRIDGE_AIF_REPO_PATH). On any project other than the framework itself that path ` +
+        `does not exist and every container git read below will fail.\n`,
+    );
+  }
+  // `taskId` is restated rather than left to the spread: the `!parsed.taskId` guard above
+  // narrows `parsed`, and spreading into a fresh object would widen it back to `undefined`.
+  const args: ResolvedArgs & { taskId: string } = {
+    ...parsed,
+    taskId: parsed.taskId,
+    repoPath: repoPath.path,
+  };
+
+  // How to name THIS file back to the operator in the HOLD hints below: the framework path is
+  // wrong wherever the vendored copy is the one running (A6-3).
+  const self = selfPath(process.argv[1], process.cwd());
+
+  // A5-7: getTask and the --body-file read used to run BEFORE this try, so an
+  // unreachable aif, an unknown taskId or a mistyped --body-file escaped as a raw
+  // unhandled-rejection stack — no `[harvest] FAILED:` line, no Channel-A fallback.
+  // Every failure mode now reaches the classifier below.
+  let task: AifTaskFull | undefined;
+  let checkout: (() => string) | undefined;
   try {
+    task = await getTask(baseUrl, args.taskId);
+
+    // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
+    // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
+    const body = args.bodyFile
+      ? readFileSync(args.bodyFile, 'utf8')
+      : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
+        `> ⚠ No --body-file supplied — if this PR touches a §4b-gated path, edit the body to add the §1.7 sections before CI.`;
+
+    const real = realDeps(args.container, args, task);
+    const deps = real.deps;
+    checkout = real.checkout;
     const res = await harvestTask(
       task,
       {
@@ -634,7 +935,7 @@ async function main(): Promise<void> {
           `reviewed by aif's gate. Re-run with --confirm-unreported-files to proceed. ` +
           `(aif review-gate gap — see docs/meta-factory/research-patches/2026-07-17-aif-review-gate-affected-files-gap.md §7)\n` +
           `[harvest]   inspect:  ${containerRead(args.container, checkout(), `diff -- ${(res.unreportedFiles ?? []).join(' ')}`)}\n` +
-          `[harvest]   ship anyway:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-unreported-files\n`,
+          `[harvest]   ship anyway:  tsx ${self} ${args.taskId} --confirm-unreported-files\n`,
       );
       process.exit(2);
     }
@@ -651,7 +952,7 @@ async function main(): Promise<void> {
             ? `[harvest]   park signals in the task log: ${res.parkSignals.join(', ')} → likely INCOMPLETE; inspect before shipping.\n`
             : `[harvest]   no park markers in the log, but 0-ahead+dirty is still ambiguous — inspect the diff.\n`) +
           `[harvest]   inspect:  ${containerRead(args.container, checkout(), 'diff')}\n` +
-          `[harvest]   ship only if it IS a complete rework:  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-rework\n`,
+          `[harvest]   ship only if it IS a complete rework:  tsx ${self} ${args.taskId} --confirm-rework\n`,
       );
       process.exit(2);
     }
@@ -669,7 +970,7 @@ async function main(): Promise<void> {
           `rework). Nothing pushed.\n` +
           `[harvest]   inspect:  ${containerRead(args.container, checkout(), 'diff')}\n` +
           `[harvest]   preferred: deliver a request_changes round so the worker commits its own work\n` +
-          `[harvest]   ship WITHOUT them (discardable residue only):  tsx packages/runtime-bridge/src/cli/harvest.ts ${args.taskId} --confirm-dirty-residue\n`,
+          `[harvest]   ship WITHOUT them (discardable residue only):  tsx ${self} ${args.taskId} --confirm-dirty-residue\n`,
       );
       process.exit(2);
     }
@@ -692,6 +993,22 @@ async function main(): Promise<void> {
           `did not actually touch: ${res.unmatchedSelfReport.join(', ')} (cosmetic self-report drift, not blocking).\n`,
       );
     }
+    // Close the loop while we still hold the PR url. With --auto-merge the PR is usually still
+    // open at this instant, so this normally reports `merged:false` and writes NOTHING — that is
+    // the designed outcome, not a miss. It closes the task only when the merge already landed
+    // (a small PR whose checks were green). For the ordinary case the operator re-runs
+    // `--report-merge <prUrl>` afterwards. NEVER fatal: the egress itself has already succeeded,
+    // and failing the harvest over a bookkeeping call would lose that result.
+    let mergeReport: MergeReport | { error: string } | undefined;
+    if (res.prUrl) {
+      try {
+        mergeReport = await reportMergeToAif(baseUrl, parsed.taskId, res.prUrl);
+      } catch (err) {
+        mergeReport = {
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    }
     process.stdout.write(
       JSON.stringify({
         ok: true,
@@ -700,6 +1017,7 @@ async function main(): Promise<void> {
         autoMerge: res.autoMerge,
         committed: res.committed,
         dirtyTreeLeftBehind: res.dirtyTreeLeftBehind,
+        mergeReport,
       }) + '\n',
     );
     process.exit(0);
@@ -710,14 +1028,24 @@ async function main(): Promise<void> {
     // stuck — host-pull + host push, the same channel the automated leg takes. Never the
     // container-side `git push` this fallback used to print: that channel is dead (no
     // github.com egress from the container) and pointing at it sent the operator in circles.
-    if (task.branchName) {
+    // Channel-A fallback needs the task record; when getTask itself is what failed
+    // there is nothing to point at, so the FAILED line above stands alone.
+    if (task?.branchName) {
       const bundleName = bundleFileName(
         task.branchName,
         args.taskId ?? task.id,
       );
       const ctx: ChannelAContext = {
         container: args.container,
-        workDir: checkout(),
+        // Resolving the per-task checkout shells into docker; if that fails too, name
+        // the flag that fixes it rather than throwing out of the error handler.
+        workDir: (() => {
+          try {
+            return checkout ? checkout() : '<work-dir — pass --work-dir>';
+          } catch {
+            return '<work-dir — pass --work-dir>';
+          }
+        })(),
         branch: task.branchName,
         baseRef: `origin/${args.base}`,
         base: args.base,
@@ -746,4 +1074,17 @@ async function main(): Promise<void> {
   }
 }
 
-void main();
+// Run only as a real entrypoint (shared realpath-both-sides guard, cliEntry.ts isMain).
+// harvest.ts had a bare top-level `void main()`: importing it for parseArgs/realDeps
+// fired a real getTask and exited the importing process (A6-1 class, R-6).
+//
+// A5-7: a rejection escaping main() (including one thrown by the handler inside) must
+// still print the harvest-shaped diagnostic, never a bare unhandled-rejection stack.
+if (isMain(import.meta.url)) {
+  void main().catch((err) => {
+    process.stderr.write(
+      `[harvest] FAILED: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
+    process.exit(1);
+  });
+}

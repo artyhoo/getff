@@ -40,14 +40,33 @@ SCRATCH=$(mktemp -d)
 trap 'rm -rf "$SCRATCH"' EXIT
 
 # ── Arm 1 (pos): replace, not merge, not nest ────────────────────────────────
+# Ledger L-4 narrowed «replace» from «rm -rf the whole tree» to «remove what the refresh-baseline
+# manifest attributes to the framework»: a stale file we can PROVE we delivered still goes, but a
+# file we cannot attribute to ourselves is the consumer's and stays. So this arm now runs against
+# a real manifest — without one, every destination file is unattributable by construction and the
+# removal half would be asserting the pre-L-4 contract (delete what we cannot prove is ours,
+# which is exactly issue 1481).
 SRC="$SCRATCH/arm1-src"
 DST="$SCRATCH/arm1-dst"
 mkdir -p "$SRC" "$DST"
 echo "new" > "$SRC/a.txt"
 echo "old" > "$DST/a.txt"
-echo "stale" > "$DST/old.txt"
+echo "stale" > "$DST/old.txt"      # framework-delivered, no longer shipped → must go
+echo "mine"  > "$DST/consumer.txt" # never delivered by us → must stay
 
+ARM1_ROOT="$SCRATCH"
+mkdir -p "$ARM1_ROOT/.ai-factory"
+if command -v sha256sum >/dev/null 2>&1; then
+  ARM1_OLD_HASH=$(sha256sum "$DST/old.txt" | awk '{print $1}')
+else
+  ARM1_OLD_HASH=$(shasum -a 256 "$DST/old.txt" | awk '{print $1}')
+fi
+printf '{ "arm1-dst/old.txt": "%s" }\n' "$ARM1_OLD_HASH" > "$ARM1_ROOT/.ai-factory/refresh-baseline.json"
+
+ARM1_PREV_ROOT="$PROJECT_ROOT"
+PROJECT_ROOT="$ARM1_ROOT"
 refresh_safe "$SRC" "$DST" >/dev/null
+PROJECT_ROOT="$ARM1_PREV_ROOT"
 
 if [ "$(cat "$DST/a.txt" 2>/dev/null)" = "new" ]; then
   ok "arm1: DST/a.txt replaced with new content"
@@ -56,9 +75,15 @@ else
 fi
 
 if [ ! -e "$DST/old.txt" ]; then
-  ok "arm1: stale DST/old.txt removed (proves replace, not merge)"
+  ok "arm1: stale framework-attributed DST/old.txt removed (proves replace, not merge)"
 else
   bad "arm1: stale DST/old.txt still present (merge, not replace)"
+fi
+
+if [ "$(cat "$DST/consumer.txt" 2>/dev/null)" = "mine" ]; then
+  ok "arm1: unattributed DST/consumer.txt kept (replace is manifest-scoped, not blanket)"
+else
+  bad "arm1: unattributed DST/consumer.txt was deleted — the L-4 ownership scope regressed"
 fi
 
 if [ ! -e "$DST/$(basename "$SRC")" ]; then

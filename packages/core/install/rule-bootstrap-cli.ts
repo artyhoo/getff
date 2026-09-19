@@ -141,6 +141,25 @@ export class PracticeEntryIdError extends Error {
 }
 
 /**
+ * The S1b PF-1 join broke: a rendered rule's entryId joined 0 or ≥2 practice records instead of
+ * exactly 1. This is a PARK condition (kickoff §6 PF-1), not an honestly-malformed record — it
+ * must NEVER take the rc=0 degrade contract, and (A7-4) it is validated BEFORE the first write so
+ * a park leaves the consumer untouched: the old write-then-throw order shipped a rendered .yml
+ * with no generation-context fragment and reported the park as "invalid or unreadable" at rc=0.
+ */
+export class PracticeJoinError extends Error {
+  constructor(entryId: string, found: number) {
+    super(
+      `S1b PF-1 park: rendered entryId '${entryId}' must join exactly 1 practice record, found ` +
+        `${found}. Known shape: two *.practice.json files sharing an entryId where only one is ` +
+        `expressible (the plan-time dup guard sees rendered entries only). Rename one record's ` +
+        `entryId. Nothing was written.`,
+    );
+    this.name = 'PracticeJoinError';
+  }
+}
+
+/**
  * The shipped rule-id slug convention: lower-kebab, leading letter. Matches every starter
  * (`getff-no-eval`, `getff-no-os-system`, …) and the researched sub-namespace
  * (`getff-researched-no-yaml-load`). Deliberately excludes `.` `/` `\` whitespace and any absolute
@@ -231,12 +250,17 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   }
 
   const outDir = rulesResearchDirOf(opts.consumerRoot);
-  // Validate EVERY entryId (attack-shaped input → arbitrary file write / clobber) BEFORE touching the
-  // filesystem — one bad id refuses the whole run with nothing written, no output dir created.
-  const targets = plan.rendered.map((rule) => ({
-    rule,
-    outPath: safeRenderedPath(outDir, rule.entryId),
-  }));
+  // Validate EVERYTHING before the FIRST write (A7-4): (a) every entryId passes the
+  // filesystem-safety gate (attack-shaped input → arbitrary file write / clobber), AND (b) the
+  // S1b PF-1 join holds for every rendered rule (each rendered entryId joins EXACTLY ONE practice
+  // record — a rendered + research-only pair sharing an entryId passes the plan-time dup guard,
+  // which iterates `rendered` only, so this is the gate that catches it). One bad id or a broken
+  // join refuses the whole run with NOTHING written — no output dir, no half-rendered rule.
+  const targets = plan.rendered.map((rule) => {
+    const matches = records.filter((r) => r.entryId === rule.entryId);
+    if (matches.length !== 1) throw new PracticeJoinError(rule.entryId, matches.length);
+    return { rule, outPath: safeRenderedPath(outDir, rule.entryId), record: matches[0]! };
+  });
   const rendered: { entryId: string; path: string }[] = [];
   for (const { rule, outPath } of targets) {
     mkdirSync(outDir, { recursive: true });
@@ -277,20 +301,11 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
     'generation-context',
     'python',
   );
-  for (const rule of plan.rendered) {
-    // Defensive PF-1 park trigger (kickoff §6): the join is 1:1 BY CONSTRUCTION
-    // (planResearchedAstgrep iterates `records` → `plan.rendered`, with a loud dup-guard at
-    // render-researched-astgrep.ts:149 catching duplicate entryIds at plan time). If this
-    // throws, the §1 join assumption broke — surface LOUD, do NOT write a wrong fragment.
-    const matches = records.filter((r) => r.entryId === rule.entryId);
-    if (matches.length !== 1) {
-      throw new Error(
-        `[rule-bootstrap] S1b PF-1 park trigger fired for '${rule.entryId}': ` +
-          `expected exactly 1 record, found ${matches.length}. The §1 join ` +
-          `(record.entryId === rendered.entryId) broke — see kickoff §6 PF-1.`,
-      );
-    }
-    const record = matches[0];
+  for (const { rule, record } of targets) {
+    // The PF-1 join was validated for every rendered rule BEFORE the first write (A7-4) —
+    // unreachable-by-construction here; `record` is the pre-joined pair (DC-3: the join is
+    // 1:1 by construction from planResearchedAstgrep, and the pre-validation gate above is
+    // the load-bearing check that surfaces any break LOUD with nothing written).
     const stampedProv = stampProvenanceTier(record.provenance);
     const ruleTier = weakestTier(stampedProv);
     const fragment = { id: rule.entryId, provenance: stampedProv, tier: ruleTier };
@@ -341,6 +356,13 @@ async function main(): Promise<void> {
       // must never be swallowed as "just a bad record" that the install continues past).
       if (err instanceof PracticeEntryIdError) {
         process.stderr.write(`[rule-bootstrap] REFUSED — ${err.message}\n`);
+        process.exit(1);
+      }
+      // A PF-1 join break is a PARK condition (kickoff §6) — never the rc=0 degrade contract and
+      // never a partial render: runPracticeRender validates the whole plan before the first write
+      // (A7-4), so a park leaves the consumer untouched and exits non-zero regardless of --strict.
+      if (err instanceof PracticeJoinError) {
+        process.stderr.write(`[rule-bootstrap] ${err.message}\n`);
         process.exit(1);
       }
       // Decision B parity: a malformed/unreadable practice record degrades with guidance,

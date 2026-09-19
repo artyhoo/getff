@@ -1,4 +1,4 @@
-.PHONY: self-audit pre-commit-check pre-push-check install-hooks principles-meta-tests validate-prompts full-sweep demo demo-cargo consumer-matrix consumer-matrix-npm-tarball
+.PHONY: self-audit pre-commit-check pre-push-check install-hooks principles-meta-tests validate-prompts full-sweep demo demo-cargo consumer-matrix consumer-matrix-npm-tarball consumer-matrix-getff-dist
 
 self-audit: pre-commit-check pre-push-check principles-meta-tests
 
@@ -36,6 +36,8 @@ consumer-matrix: ## Run the consumer-matrix acceptance cells locally (launch-pre
 	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/pnpm-monorepo-cell.sh
 	@echo "▶ consumer-matrix: npm-tarball cell (pack + install + run the consumer path against packages/core)"
 	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/npm-tarball-cell.sh
+	@echo "▶ consumer-matrix: getff-dist cell (assemble + pack + install + getff init → planted violation fails)"
+	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/getff-dist-cell.sh
 
 consumer-matrix-npm-tarball: ## Run the npm-tarball cell locally (beta-delivery-ux R1 — files allowlist + bin runnability)
 	@echo "▶ consumer-matrix-npm-tarball: pack + install + run the consumer path against packages/core"
@@ -49,3 +51,7 @@ validate-prompts: ## Validate all orchestrator batch-prompt files against spec
 	    npx tsx packages/core/spec-validation/validate-batch-spec.ts "$$f" || exit 1; \
 	  done
 	@echo "validate-prompts: all files passed."
+
+consumer-matrix-getff-dist: ## Run the getff-dist cell locally (npm-publish-getff-init U10 — the `npx getff init` gate; GETFF_DIST_CELL_RED_ARMS=1 adds the paired-RED arms)
+	@echo "▶ consumer-matrix-getff-dist: assemble packages/getff, pack, install, getff init -y ts-server, planted violation must fail"
+	@FRAMEWORK_ROOT="$(CURDIR)" bash tests/consumer-matrix/getff-dist-cell.sh

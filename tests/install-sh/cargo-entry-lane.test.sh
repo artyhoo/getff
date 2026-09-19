@@ -196,19 +196,21 @@ rm -rf "$C"
 #   (8b) delivered clippy config ABSENT ([ -e "$clippy" ] false) → same constant, same obligation.
 # RED before the fix: the writer emitted "sha256:unknown" with ZERO stderr on both paths (the exact
 # W3-class silent degrade the python lane fixed — 45-python.sh loud else branch, python-rules-lock
-# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); pruned PATH holds only the
-# coreutils the writer needs — NOT the hash tools — so the no-tool rung is reached deterministically.
+# arm 10). Driven via the CARGO_LAYER_LIB_ONLY seam like arm (7); R-3: the writer now fingerprints
+# via lib.sh _hash256, so the seam sources lib.sh BEFORE the layer. The pruned-PATH intent of (8a)
+# is unchanged — NO sha tool is reachable there, so _hash256 hits its `return 1` rung deterministically
+# (verified: lib.sh's source-time surface needs none of the absent tools).
 echo "  ── (8) lock-writer degrade: no hash tool / clippy absent → loud non-authoritative warning ──"
 BASHBIN=$(command -v bash)
 BIN8=$(mktemp -d)
-for t in cat awk sed grep date mkdir rm head wc ls; do
+for t in cat awk sed grep date mkdir rm mktemp head wc ls; do
   p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$BIN8/$t"
 done
 C=$(cargo_fixture)
 cp "$TPL/clippy.toml" "$C/clippy.toml"   # getff-header copy → delivered path resolves to clippy.toml
 warn8a=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" PATH="$BIN8" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8a=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$warn8a" | grep -q "non-authoritative" \
@@ -221,7 +223,7 @@ rm -rf "$C"
 C=$(cargo_fixture)   # NO clippy config at all → the clippy-absent trigger (full PATH, hash tools present)
 warn8b=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8b=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$warn8b" | grep -q "non-authoritative" \
@@ -235,7 +237,7 @@ printf '%s' "$warn8b" | grep -q "non-authoritative" \
 cp "$TPL/clippy.toml" "$C/clippy.toml"
 warn8c=$(
   CARGO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$C" DRY_RUN="" \
-    "$BASHBIN" -c 'source "$1"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" 2>&1
+    "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8c=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
 printf '%s' "$fp8c" | grep -qE '^sha256:[0-9a-f]{64}$' \
@@ -446,6 +448,93 @@ grep -q '\[lints\.clippy\]' "$C/Cargo.toml" \
   && ok "(15) stub's merged [lints.clippy] block is exactly what arm (14)'s grep assertion catches" \
   || bad "(15) stub did not merge [lints.clippy] — fixture does not reproduce the forbidden mutation"
 rm -rf "$C" "$STUBDIR"
+
+# ── (16) A2-3: a non-zero cargo exit must NOT abort install.sh under set -euo pipefail ────────────
+# The rustup `--profile minimal` consumer (official rust:* Docker images) has cargo but NO clippy
+# component: `cargo clippy` exits 101 with EMPTY stdout (the self-check discards stderr). The
+# self-check contract (46-cargo.sh) is rc=0 on every branch, but the capture `_out=$( … cargo … )`
+# is a PLAIN assignment — it returns cargo's status, install.sh runs `set -euo pipefail` and calls
+# the self-check unguarded, so the assignment killed the WHOLE install mid-self-check: no verdict
+# lines, no refresh_baseline_flush, no completion line. The go twin guards the identical call with
+# `|| _rc=$?` (47-go.sh). cargo/rustup are absent in this runtime, so a PATH-prepended stub that
+# exits 101 with no stdout IS the deterministic minimal-profile host — driving the REAL install.sh.
+echo "  ── (16) cargo exits 101 mid-self-check → install.sh must still complete (A2-3) ──"
+C=$(cargo_fixture)
+SHIM16=$(mktemp -d)
+printf '#!/usr/bin/env sh\nexit 101\n' > "$SHIM16/cargo"
+chmod +x "$SHIM16/cargo"
+out=$( cd "$C" && PATH="$SHIM16:$PATH" bash "$INSTALL" cargo < /dev/null 2>&1 ); rc16=$?
+[ "$rc16" -eq 0 ] \
+  && ok "(16) install.sh survived the 101 exit (rc=0 — set -e did not abort mid-self-check)" \
+  || bad "(16) install.sh ABORTED on the non-zero cargo exit (rc=$rc16 — the set -e trap, A2-3): $(echo "$out" | tail -3 | tr '\n' '|')"
+echo "$out" | grep -q "getff Rust/cargo toolchain delivery complete" \
+  && ok "(16) completion line printed (self-check + refresh_baseline_flush + capstone all reached)" \
+  || bad "(16) completion line never printed — install died before the end of do_cargo_lane"
+echo "$out" | grep -q "did NOT fire on a planted violation" \
+  && ok "(16) SILENT verdict line printed (the self-check reported instead of dying)" \
+  || bad "(16) SILENT verdict line missing — the self-check never reported"
+echo "$out" | grep "self-check" | grep -q "SILENT" \
+  && ok "(16) self-check summary line printed with the SILENT count (not swallowed)" \
+  || bad "(16) self-check summary missing (or carries no SILENT count)"
+echo "$out" | grep -q "cargo exit=101" \
+  && ok "(16) ✗ verdict carries the captured cargo exit code (exit context in the log)" \
+  || bad "(16) ✗ verdict missing the captured cargo exit context"
+rm -rf "$C" "$SHIM16"
+
+# ── (17) A2-9: the fingerprint covers the PROVENANCE inputs the lock body reads ────────────────────
+# Ledger addendum A2-9 — the cargo twin of python's A2-7 (fixed in #1617). `_cargo_write_rules_lock`
+# hashes the delivered clippy config, but the lock BODY reads two more inputs in the same function:
+# `generation-context.json` (→ `version`) and `generation-context/*.json` fragments (→ `rules`). A
+# fragment-only delta that left the config byte-identical could never perturb the fingerprint, so
+# the reproducibility record silently lagged its own provenance. PAIRED arms below: (17a) pins the
+# backward-compat shape (with no manifest and no fragments the fp IS sha256(delivered config) — the
+# concatenation is separator-free, which is also what keeps arm 5b green); (17b) non-vacuity (the
+# config bytes never move); (17c/d/e) each provenance input MUST move the fp. RED before the A2-9
+# fix on 17c/17d/17e (fp unchanged); GREEN after. Drives the REAL install.sh like arms 1/2 — the
+# cargo lane rewrites the lock on every pass (no content-aware skip), so each pass lands the fp.
+echo "  ── (17) A2-9: fingerprint covers generation-context manifest + fragments ──"
+C=$(cargo_fixture)
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+LOCK17="$C/.ai-factory/synthesizer-output/rules-lock.cargo.json"
+_clippy_fp17() { sed -n 's/.*"sourceFingerprint": "sha256:\([0-9a-f]*\)".*/\1/p' "$LOCK17" 2>/dev/null; }
+fp17a=$(_clippy_fp17)
+if { command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1; } \
+   && [ -n "$fp17a" ] && [ "$fp17a" = "$(_sha256 "$C/clippy.toml")" ]; then
+  ok "(17a) precondition: fragment-free tree → fp == sha256(delivered clippy.toml) (separator-free input; arm 5b shape intact)"
+else
+  bad "(17a) precondition unmet: fp17a='${fp17a:-<none>}' expected '$(_sha256 "$C/clippy.toml")'"
+fi
+# Plant ONE provenance fragment (the parent-dir *.json the body's `rules` derivation reads) —
+# config bytes untouched. The subdir layout keeps python fragments invisible here (DC-1).
+mkdir -p "$C/.ai-factory/synthesizer-output/generation-context"
+printf '{"id":"G1","rule":"cargo-ban-x","tier":2}\n' > "$C/.ai-factory/synthesizer-output/generation-context/G1.json"
+_clippy_sha17=$(_sha256 "$C/clippy.toml")
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp17b=$(_clippy_fp17)
+[ "$(_sha256 "$C/clippy.toml")" = "$_clippy_sha17" ] \
+  && ok "(17b) non-vacuity: delivered config byte-identical across passes (the fragment is the only delta)" \
+  || bad "(17b) non-vacuity BROKEN: clippy.toml moved — a fingerprint change would prove nothing"
+if [ -n "$fp17b" ] && [ "$fp17b" != "$fp17a" ]; then
+  ok "(17c) fingerprint moved on a fragment-only delta ($fp17a → $fp17b) — A2-9 closed"
+else
+  bad "(17c) fingerprint UNCHANGED ($fp17a) after adding a provenance fragment — the lock lags its own provenance (A2-9 RED)"
+fi
+printf '{"id":"G1","rule":"cargo-ban-x","tier":0,"note":"mutated"}\n' > "$C/.ai-factory/synthesizer-output/generation-context/G1.json"
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp17c=$(_clippy_fp17)
+[ -n "$fp17c" ] && [ "$fp17c" != "$fp17b" ] \
+  && ok "(17d) fingerprint moved again on a fragment MUTATION ($fp17b → $fp17c)" \
+  || bad "(17d) fingerprint UNCHANGED ($fp17b) after mutating the fragment (A2-9 RED)"
+printf '{"framework":"cargo","version":"4.5.6","rules":[]}\n' > "$C/.ai-factory/synthesizer-output/generation-context.json"
+( cd "$C" && bash "$INSTALL" cargo < /dev/null ) >/dev/null 2>&1
+fp17d=$(_clippy_fp17)
+[ -n "$fp17d" ] && [ "$fp17d" != "$fp17c" ] \
+  && ok "(17e) fingerprint moved when the ctx MANIFEST appeared ($fp17c → $fp17d) — version input covered" \
+  || bad "(17e) fingerprint UNCHANGED ($fp17c) after adding generation-context.json (A2-9 RED)"
+grep -q '"version": "4.5.6"' "$LOCK17" \
+  && ok "(17f) the lock body actually consumed the manifest (version=4.5.6 recorded — the hashed input is a REAL input)" \
+  || bad "(17f) lock did not record the manifest version — (17e) would be hashing a dead input"
+rm -rf "$C"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

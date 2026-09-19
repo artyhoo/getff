@@ -23,13 +23,23 @@
 #   3. negative: new dep + valid escape hatch → exit 1 (substance arm ENFORCING by
 #      default since 2026-07-25, handoff item 4 — matches the S17 arm)
 #   3b. positive: same commit + explicit PA_SUBSTANCE_WARN_ONLY=true → exit 0 (local opt-in downgrade)
+#   3c. negative: same commit + PA_SUBSTANCE_WARN_ONLY=0 / '' → exit non-zero (ledger D-3:
+#       only an AFFIRMATIVE value opts in; `0`/empty used to silently downgrade the gate)
 #   4. negative: short escape hatch ("Prior-art: skipped — TODO") → exit 1
+#   11. positive: test-only >=80-LOC additions + no trailer → exit 0 (L-1/B-3)
+#   12. negative: new packages/core/principles/ file + no trailer → exit non-zero
+#       (the carve-out is narrowed, not removed — a principle IS the capability)
+#   13. negative: new dep + a referent-free `Prior-art:` line → exit non-zero (K-5)
+#   14. positive: new dep + an artefact-path referent → exit 0 (K-5 paired positive)
 #   5. anti-tautology: trailer-matching load-bearing — verified by Stryker mutation
 #      score ≥80% on prior-art.ts (checkTrailerBody paired-negative in vitest).
 #   6. anti-tautology: capability detection load-bearing — verified by Stryker mutation
 #      score ≥80% on prior-art.ts (detectCapabilityReason paired-negative in vitest).
 #   7. positive: version bump (no new dep) + no trailer → exit 0 (NOT flagged as capability)
 #   8. positive: tilde-versioned dep + valid trailer → exit 0 (M1 semver broadening)
+#   9. negative: new file + byte-identical twin in the SAME commit, no trailer → exit 1
+#      (B-1: the #1271 carve-out must resolve the duplicate against the PARENT tree)
+#   10. positive: relocation of a blob already tracked in the parent tree → exit 0
 #
 # CI: invoked from .github/workflows/audit-self.yml#principles-meta-tests.
 
@@ -200,6 +210,53 @@ PKG
   git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
 }
 
+# make_big_file: writes an N-line file (deterministic content) at $2 inside repo $1.
+make_big_file() {
+  local repo="$1" rel="$2" n="${3:-100}" i
+  mkdir -p "$repo/$(dirname "$rel")"
+  : > "$repo/$rel"
+  for ((i = 1; i <= n; i++)); do printf '// line %d\n' "$i" >> "$repo/$rel"; done
+}
+
+# add_twin_pair_commit: ONE commit adding a new >=80-LOC source file under
+# packages/ together with its byte-identical plugin twin (what the pre-commit
+# twin-sync produces for every new hook). The twin must NOT exempt the source:
+# neither blob is tracked in the PARENT tree, so nothing is being relocated.
+add_twin_pair_commit() {
+  local repo="$1"; shift
+  make_big_file "$repo" "packages/core/newcheck/new-check.ts" 100
+  mkdir -p "$repo/plugin/hooks"
+  cp "$repo/packages/core/newcheck/new-check.ts" "$repo/plugin/hooks/new-check.ts"
+  git -C "$repo" add packages/core/newcheck/new-check.ts plugin/hooks/new-check.ts
+  local args=()
+  for msg in "$@"; do args+=("-m" "$msg"); done
+  git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
+}
+
+# seed_tracked_blob: commits a >=80-LOC file OUTSIDE packages/ and moves the
+# remote refs forward, so the blob is already tracked in the parent tree of any
+# later commit and out of the hook's push range.
+seed_tracked_blob() {
+  local repo="$1"
+  make_big_file "$repo" "vendor-src/module.ts" 100
+  git -C "$repo" add vendor-src/module.ts
+  git -C "$repo" -c commit.gpgsign=false commit -q -m "seed: tracked blob"
+  git -C "$repo" update-ref refs/remotes/origin/main HEAD
+  git -C "$repo" update-ref refs/remotes/origin/staging HEAD
+}
+
+# add_relocation_commit: copies the already-tracked blob under packages/ — a
+# genuine relocation/vendor copy, which the carve-out must still exempt.
+add_relocation_commit() {
+  local repo="$1"; shift
+  mkdir -p "$repo/packages/runtime-bridge/vendor"
+  cp "$repo/vendor-src/module.ts" "$repo/packages/runtime-bridge/vendor/module.ts"
+  git -C "$repo" add packages/runtime-bridge/vendor/module.ts
+  local args=()
+  for msg in "$@"; do args+=("-m" "$msg"); done
+  git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
+}
+
 # record: print PASS/FAIL counter line.
 record() {
   local outcome="$1" desc="$2"
@@ -281,6 +338,27 @@ test_3b_positive_escape_hatch_explicit_warnonly() {
   rm -rf "$repo"
 }
 
+# Test 3c (ledger D-3): a NON-affirmative value must NOT downgrade the gate. The parse
+# used to be `(env ?? 'false') !== 'false'`, so PA_SUBSTANCE_WARN_ONLY=0 — or the empty
+# string a workflow `env:` block yields when it maps an unset repo variable — selected
+# warn-only, the exact opposite of the operator's intent. Both spellings must still BLOCK.
+test_3c_negative_nonaffirmative_warnonly_still_enforces() {
+  local repo v
+  for v in 0 "" no off; do
+    repo=$(make_test_repo)
+    add_capability_commit "$repo" \
+      "chore: bump dep" \
+      "Body." \
+      "Prior-art: skipped — refactor only, no new capability"
+    if run_hook "$repo" PA_SUBSTANCE_WARN_ONLY="$v"; then
+      record fail "3c — PA_SUBSTANCE_WARN_ONLY='$v' must NOT downgrade the gate, but the push exited 0"
+    else
+      record pass "3c — PA_SUBSTANCE_WARN_ONLY='$v' → exit non-zero (enforcing default held)"
+    fi
+    rm -rf "$repo"
+  done
+}
+
 # Test 4: short escape-hatch rationale → exit non-zero
 test_4_negative_short_escape() {
   local repo
@@ -347,17 +425,147 @@ test_8_new_dep_with_tilde_version_caught_with_trailer() {
   rm -rf "$repo"
 }
 
+# Test 9 (B-1 / L-1): a new >=80-LOC file under packages/ added together with a
+# byte-identical twin in the SAME commit + no trailer → must exit non-zero.
+# The byte-identical carve-out (PR #1271) exempts RELOCATIONS of blobs that were
+# already tracked; before the fix it resolved the duplicate against the commit's
+# own tree, so every new hook + its pre-commit-generated plugin twin silently
+# bypassed the capability trigger.
+test_9_twin_pair_in_same_commit_is_still_capability() {
+  local repo
+  repo=$(make_test_repo)
+  add_twin_pair_commit "$repo" \
+    "feat: add new check + its plugin twin" \
+    "Body without any Prior-art line."
+  if run_hook "$repo"; then
+    record fail "9 — new file + byte-identical twin in the SAME commit should be flagged as capability but exited 0"
+  else
+    record pass "9 — new file + byte-identical twin in the same commit → exit non-zero (capability still detected)"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 10 (B-1 paired positive): a new >=80-LOC file under packages/ that is
+# byte-identical to a blob ALREADY TRACKED in the parent tree is a relocation —
+# still exempt, still no trailer required.
+test_10_relocation_of_tracked_blob_is_not_capability() {
+  local repo
+  repo=$(make_test_repo)
+  seed_tracked_blob "$repo"
+  add_relocation_commit "$repo" \
+    "chore: vendor the module under packages/" \
+    "Relocation only. Intentionally no Prior-art trailer."
+  if run_hook "$repo"; then
+    record pass "10 — relocation of a blob tracked in the parent tree + no trailer → exit 0 (carve-out preserved)"
+  else
+    record fail "10 — relocation of an already-tracked blob wrongly flagged as capability"
+  fi
+  rm -rf "$repo"
+}
+
+
+# add_files_commit: stages the given paths (each a 100-line generated file) and
+# commits with the given message lines.
+add_files_commit() {
+  local repo="$1" msgcount="$2"; shift 2
+  local msgs=() paths=() i=0
+  while [ "$i" -lt "$msgcount" ]; do msgs+=("$1"); shift; i=$((i+1)); done
+  for path in "$@"; do
+    make_big_file "$repo" "$path" 100
+    paths+=("$path")
+  done
+  git -C "$repo" add "${paths[@]}"
+  local args=()
+  for msg in "${msgs[@]}"; do args+=("-m" "$msg"); done
+  git -C "$repo" -c commit.gpgsign=false commit -q "${args[@]}"
+}
+
+# Test 11 (L-1 / B-3): a commit whose only >=80-LOC new file under packages/ is
+# TEST MATERIAL is not a capability commit — CLAUDE.md has always exempted «test
+# additions for existing capabilities», the detector did not.
+test_11_test_only_commit_is_not_capability() {
+  local repo
+  repo=$(make_test_repo)
+  add_files_commit "$repo" 2 \
+    "test: cover the existing emit prelude" \
+    "Body without any Prior-art line." \
+    "packages/core/hooks/hook-emit-prelude.test.ts" \
+    "packages/runtime-bridge/test/aif-backend-semantics.ts"
+  if run_hook "$repo"; then
+    record pass "11 — test-only >=80-LOC additions + no trailer → exit 0 (prose parity)"
+  else
+    record fail "11 — test-only additions wrongly flagged as a capability commit"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 12 (L-1 paired negative): a principle file is the enforcement capability
+# itself, not a test for one — the carve-out must NOT reach it.
+test_12_principle_file_is_still_capability() {
+  local repo
+  repo=$(make_test_repo)
+  add_files_commit "$repo" 2 \
+    "feat: add principle 99" \
+    "Body without any Prior-art line." \
+    "packages/core/principles/99-new-rule.test.ts"
+  if run_hook "$repo"; then
+    record fail "12 — a new principle file should still demand a trailer but exited 0"
+  else
+    record pass "12 — new principle file + no trailer → exit non-zero (carve-out narrowed, not removed)"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 13 (K-5): a positive trailer naming no resolvable referent is not a
+# consult — it satisfied the gate by length alone before the fix.
+test_13_referent_free_trailer_rejected() {
+  local repo
+  repo=$(make_test_repo)
+  add_capability_commit "$repo" \
+    "feat: add a new dependency" \
+    "Prior-art: consulted — no entry applies"
+  if run_hook "$repo"; then
+    record fail "13 — a referent-free Prior-art line should be rejected but exited 0"
+  else
+    record pass "13 — referent-free Prior-art line on a capability commit → exit non-zero"
+  fi
+  rm -rf "$repo"
+}
+
+# Test 14 (K-5 paired positive): an artefact path is a resolvable referent — the
+# grammar is wider than «cite an SSOT id», so in-repo precedent still passes.
+test_14_artefact_path_referent_accepted() {
+  local repo
+  repo=$(make_test_repo)
+  add_capability_commit "$repo" \
+    "feat: add a new dependency" \
+    "Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom"
+  if run_hook "$repo"; then
+    record pass "14 — artefact-path referent accepted → exit 0"
+  else
+    record fail "14 — an artefact-path referent was rejected"
+  fi
+  rm -rf "$repo"
+}
+
 # ── Run all ──────────────────────────────────────────────────────────────────
 
 test_1_positive_dep_with_trailer
 test_2_negative_dep_no_trailer
 test_3_negative_escape_hatch_enforcing_default
 test_3b_positive_escape_hatch_explicit_warnonly
+test_3c_negative_nonaffirmative_warnonly_still_enforces
 test_4_negative_short_escape
 test_5_antitautology_covered_by_vitest
 test_6_antitautology_covered_by_vitest
 test_7_bump_existing_dep_no_trailer_is_not_capability
 test_8_new_dep_with_tilde_version_caught_with_trailer
+test_9_twin_pair_in_same_commit_is_still_capability
+test_10_relocation_of_tracked_blob_is_not_capability
+test_11_test_only_commit_is_not_capability
+test_12_principle_file_is_still_capability
+test_13_referent_free_trailer_rejected
+test_14_artefact_path_referent_accepted
 
 printf '\n── Summary ──\n%d pass / %d fail\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

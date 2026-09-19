@@ -158,7 +158,38 @@ reset
 write_ask '2026-08-17-dispatcher-s2-probe.md' consult answered \
   '' '## Answer' '' 'verdict: build first' 'rationale: reversible surface' \
   'decided-by: arch' 'timestamp: 2026-08-17T10:00:00+03:00' 'decisions-entry: see the morning report'
-expect_fail "decisions-entry not a decisions.md reference" "does not reference a decisions.md entry"
+expect_fail "decisions-entry not a decisions.md reference" "must LEAD with a path ending in .decisions.md"
+
+# ── RED 10b: the hole RED 10 left open until 2026-09-04 ────────────────────────────────
+# The old test was a bare `*decisions.md*` substring, so prose that merely NAMED the
+# convention passed while pointing at nothing. Probed live before the fix: it did pass.
+reset
+write_ask '2026-08-17-dispatcher-s2-probe.md' consult answered \
+  '' '## Answer' '' 'verdict: build first' 'rationale: reversible surface' \
+  'decided-by: arch' 'timestamp: 2026-08-17T10:00:00+03:00' \
+  'decisions-entry: see the morning report; we follow the usual decisions.md convention'
+expect_fail "decisions-entry prose that only mentions decisions.md" "is not a pointer"
+
+# ── GREEN: a real pointer MAY carry trailing prose — the live mailbox does exactly this ─
+# Only the leading token is the pointer; everything after the first space is the advisor's
+# free-form note. Shape is checked, existence deliberately is not (see the script header).
+reset
+write_ask '2026-08-17-dispatcher-s2-probe.md' consult answered \
+  '' '## Answer' '' 'verdict: build first' 'rationale: reversible surface' \
+  'decided-by: arch' 'timestamp: 2026-08-17T10:00:00+03:00' \
+  'decisions-entry: docs/superpowers/plans/x.decisions.md#decision-1 (record PR #1589; applied by the asker)'
+expect_pass "decisions-entry pointer followed by trailing prose"
+
+# ── GREEN: a path that does NOT exist still passes — existence is out of scope ──────────
+# Guards the header's stated non-goal against a future tightening: a new decisions file is
+# untracked by default (.gitignore:16 ignores .claude/orchestrator-prompts/*/*), so an
+# existence check would go green for its author and RED in every other worktree.
+reset
+write_ask '2026-08-17-dispatcher-s2-probe.md' consult answered \
+  '' '## Answer' '' 'verdict: build first' 'rationale: reversible surface' \
+  'decided-by: arch' 'timestamp: 2026-08-17T10:00:00+03:00' \
+  'decisions-entry: .claude/orchestrator-prompts/no-such-umbrella/kickoff.decisions.md#ask-1'
+expect_pass "decisions-entry pointing at a file that does not exist (existence is out of scope)"
 
 # ── RED 11: one bad file among good ones still fails (no first-file short-circuit) ─────
 reset

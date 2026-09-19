@@ -1,0 +1,513 @@
+{
+  "schemaVersion": 1,
+  "family": "F2",
+  "familyName": "generated rules",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "IR1",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "microservices"
+        ]
+      },
+      "description": "API contracts",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 414
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "IR2",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "microservices"
+        ]
+      },
+      "description": "Consumer-driven contracts (Pact)",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 428
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "IR3",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "microservices"
+        ]
+      },
+      "description": "Event schemas (async messaging)",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 442
+      },
+      "extras": {
+        "checkType": "script"
+      },
+      "example": null
+    },
+    {
+      "name": "IR4",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "microservices"
+        ]
+      },
+      "description": "Service-to-service auth",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 456
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "IR5",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "microservices"
+        ]
+      },
+      "description": "Observability propagation",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 470
+      },
+      "extras": {
+        "checkType": "manual"
+      },
+      "example": null
+    },
+    {
+      "name": "IR6",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "microservices"
+        ]
+      },
+      "description": "Resilience",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 489
+      },
+      "extras": {
+        "checkType": "manual"
+      },
+      "example": null
+    },
+    {
+      "name": "R1",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "TypeScript hygiene",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 2
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "R10",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Naming",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 171
+      },
+      "extras": {
+        "checkType": "manual"
+      },
+      "example": null
+    },
+    {
+      "name": "R11",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "CI integrity",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 190
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "R12",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Server vs Client Components",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 205
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R13",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Data fetching",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 224
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R14",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Forms",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 256
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R15",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Accessibility",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 284
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R16",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Performance",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 301
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R17",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Component tests",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 320
+      },
+      "extras": {
+        "checkType": "script"
+      },
+      "example": null
+    },
+    {
+      "name": "R18",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "TanStack Query / SWR",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 338
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R19",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Styles",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 370
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "R2",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Validation at boundaries",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 18
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R20",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Server Actions",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 386
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R3",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Architectural boundaries",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 40
+      },
+      "extras": {
+        "checkType": "command"
+      },
+      "example": null
+    },
+    {
+      "name": "R4",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Tests for new public code",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 54
+      },
+      "extras": {
+        "checkType": "script"
+      },
+      "example": null
+    },
+    {
+      "name": "R5",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Async correctness",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 70
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R6",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Errors",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 87
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R7",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Time, randomness, IO",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 104
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R8",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Observability",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 121
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    },
+    {
+      "name": "R9",
+      "kind": "generated-rule",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next",
+          "ts-server"
+        ]
+      },
+      "description": "Imports / dependencies",
+      "source": {
+        "path": "packages/core/manifest/rules-manifest.json",
+        "line": 143
+      },
+      "extras": {
+        "checkType": "eslint"
+      },
+      "example": null
+    }
+  ]
+}

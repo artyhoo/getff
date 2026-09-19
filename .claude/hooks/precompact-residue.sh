@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# precompact-residue.sh — PreCompact hook — writes the session-residue note before compaction
 # @cc-only-rationale: CC-specific PreCompact hook (session-residue writer) — PreCompact fires
 #   only inside a Claude Code session, and it is NOT in ZCode's event set
 #   (`ZCODE_EVENTS`, scripts/render-harness-config.mjs:46-54), so no portable counterpart
@@ -26,6 +27,56 @@
 # .claude/rules/attention-is-not-a-mechanism.md §2): the file rides the /pipeline §1 Step-1
 # injection block (.claude/skills/pipeline/SKILL.md), so the next /pipeline invocation
 # surfaces it; the D6 handoff prose points a continuing session at the same path.
+#
+# `#aif-ctx-observed` — SECOND, MACHINE-READABLE OUTPUT (ledger #1597 A3-3b). Besides the
+# residue markdown, this hook records ONE integer for the Stop hook's D7 context-arm:
+#
+#   Channel : ${TMPDIR:-/tmp}/aif-ctx-observed-<session_key>
+#   Payload : the transcript's usage sum on the LAST main-thread assistant entry, at the
+#             instant the harness chose to compact. One decimal integer, first line, nothing
+#             else. Absent = nothing was measurable; the reader then keeps its 1M default.
+#   Reader  : .claude/hooks/end-of-turn-reminder.sh, D7 arm, when AIF_CTX_WINDOW is undeclared.
+#   Key     : the same `session_key` sanitisation used for the residue filename below, which
+#             the reader repeats verbatim — changing it here silently unlinks the contract.
+#
+# WHY THIS HOOK AND NOT THAT ONE: the D7 arm needs a window and no payload reaches it with
+# one. Live-probed 2026-09-06 — the PreCompact payload is {session_id, transcript_path, cwd,
+# prompt_id, hook_event_name, trigger, custom_instructions}; there is no token count in it
+# either. What is unique HERE is the EVENT: an `auto` compaction is the harness stating that
+# the window is spent, so the usage sum at that moment is an empirical ceiling on the usable
+# window. Nothing is invented; the number comes from the transcript, the bound comes from the
+# event.
+#
+# `trigger=auto` ONLY. A manual /compact is an operator decision, not a full window — and the
+# live probe showed PreCompact firing on a manual compaction that was then REFUSED ("Not
+# enough messages to compact"), so a manual trigger can carry an arbitrarily small sum.
+#
+# `#aif-ctx-debounce-reset` — THE SECOND HALF OF THE SAME CONTRACT (ledger #1597 A3-3c). The
+# D7 arm debounces its handoff line once per session per tier via
+# `${TMPDIR:-/tmp}/aif-ctx-<session_key>-{soft,deep}`. Nothing ever cleared those flags, so a
+# session that compacted three times still got exactly ONE reminder in its whole life —
+# harmless while the arm was unreachable for a small window, load-bearing the moment A3-3b
+# made it reachable. A compaction is precisely what makes the earlier reminder spent history,
+# and this hook is the one that observes it, so this hook clears them.
+#
+#   Removes : <TMPDIR>/aif-ctx-<session_key>-soft and -deep, that session's only.
+#   Keeps   : <TMPDIR>/aif-ctx-observed-<session_key> — the measurement, which shares the
+#             directory and the `aif-ctx-` prefix. The removal is BY EXACT NAME for that
+#             reason; a `aif-ctx-<key>*` sweep would delete the ceiling it just recorded.
+#   Trigger : `auto` only, same evidence as the ceiling above — the live probe showed
+#             PreCompact firing on a manual /compact that was then REFUSED, and re-arming the
+#             reminder after a compaction that never happened makes the next turn re-fire it,
+#             which is the exact spam the debounce exists to prevent.
+#
+# KNOWN AND ACCEPTED: if a compaction leaves the session still above the (window-derived) soft
+# floor, the freshly cleared flag means the very next turn warns again. That is the honest
+# reading of the state — the context really is still nearly spent — not a debounce failure.
+#
+# NOT the residue markdown: the reader would have to resolve the orchestration home to find
+# it, i.e. a THIRD copy of the `_residue_dir()` logic flagged below as this file's only
+# duplication — on every turn end, for one integer. The tmp channel reuses the directory and
+# key convention the D7 arm already owns for its debounce flags, so no new path convention
+# enters either hook. The residue file still STATES the number, for its human reader.
 #
 # LOCATION — the resolved orchestration home (`<orch-home>/_residue-<session>.md`), NOT
 # #108's `.claude/session-state.md` sketch. Two deliberate deviations, both recorded in D8:
@@ -77,28 +128,40 @@ root="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$root" ] || root="$payload_cwd"
 [ -n "$root" ] || root="$(pwd)"
 
-# ── Residue directory — ONE resolution, shared with the reader ────────────────
-# AIF_RESIDUE_DIR is the test seam + operator escape hatch (precedent: MO_ORCH_HOME).
-# Otherwise call the /pipeline helper that §1's injection fence already calls, with
-# REPO_ROOT pinned (lib/common.sh honours a pre-set value, common.sh:17) so the helper
-# resolves THIS repo rather than whatever git toplevel the hook's cwd happens to be in.
-# The inline branch at the end is the no-helper fallback (a consumer install without the
-# skill); it mirrors resolve_orch_home() (helpers/lib/common.sh:50-57) and is the only
-# duplicated logic here — kept because a residue written to a directory nobody reads is
-# worse than a five-line mirror.
-_residue_dir() {
-  if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
-  local helper="$root/.claude/skills/pipeline/helpers/print-orch-home.sh" out=""
-  if [ -f "$helper" ]; then
-    out=$(REPO_ROOT="$root" bash "$helper" 2>/dev/null || true)
-    if [ -n "$out" ]; then printf '%s\n' "$out"; return; fi
-  fi
-  if [ -d "$root/.claude/orchestrator-prompts" ]; then
-    printf '%s\n' "$root/.claude/orchestrator-prompts"
-  else
-    printf '%s\n' "$root/.ai-factory/orchestrator-prompts"
-  fi
-}
+# ── Residue directory — ONE resolution, shared with the readers (D29) ─────────
+# The cascade moved to lib/residue-dir.sh so the Stop hook's handoff-currency gate
+# resolves the SAME directory by the SAME rule. GUARDED source, never unconditional:
+# a missing lib must degrade to the inline fallback below (identical logic), never
+# abort the write — the exact shape this file already uses for the lang pack above.
+# The fallback keeps this hook working in any project the delivery step
+# (install.sh / setup.d/10-skills.sh, same PR) has not reached.
+_residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
+if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
+  _residue_dir() {
+    if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
+    local helper="$root/.claude/skills/pipeline/helpers/print-orch-home.sh" out=""
+    if [ -f "$helper" ]; then
+      out=$(REPO_ROOT="$root" bash "$helper" 2>/dev/null || true)
+      if [ -n "$out" ]; then printf '%s\n' "$out"; return; fi
+    fi
+    if [ -d "$root/.claude/orchestrator-prompts" ]; then
+      printf '%s\n' "$root/.claude/orchestrator-prompts"
+    else
+      printf '%s\n' "$root/.ai-factory/orchestrator-prompts"
+    fi
+  }
+  # The lib also carries _residue_sha256, and the gate calls it (D19). Define it here too:
+  # a fallback that resolves the directory but leaves the hash helper undefined is fatal,
+  # not degraded — `set -euo pipefail` (:9) turns the missing call into RC 127 and kills
+  # the hook, taking the recap and F10 arms with it. Same two-branch shape as the lib.
+  _residue_sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+      sha256sum "$1" 2>/dev/null | awk '{printf "%s", $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+      shasum -a 256 "$1" 2>/dev/null | awk '{printf "%s", $1}'
+    fi
+  }
+fi
 residue_dir="$(_residue_dir)"
 mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
@@ -155,10 +218,77 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   fi
 fi
 
+# ── Observed context ceiling (`#aif-ctx-observed`, contract in the header) ───
+# Same estimator as the D7 arm it feeds (end-of-turn-reminder.sh): the LAST main-thread
+# assistant entry's usage sum. `select(.isSidechain != true)` is load-bearing for the same
+# reason as in the body extraction above — subagent turns share this transcript, and a
+# subagent's usage is not the main thread's window. `tail -50` bounds what jq PARSES (only
+# the final match is ever kept) — the grep itself still reads the file, exactly as the two
+# scans above already do. Affordable here in a way it would not be in a Stop hook: this runs
+# once per compaction, not once per turn.
+observed_tokens=""
+if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
+  observed_entry=$(grep -E '"(type|role)":"assistant"' "$transcript" 2>/dev/null \
+    | tail -50 \
+    | jq -c 'select(.isSidechain != true) | select(.message.usage.input_tokens != null)' 2>/dev/null \
+    | tail -1 || true)
+  if [ -n "$observed_entry" ]; then
+    observed_tokens=$(printf '%s' "$observed_entry" | jq -r '
+      ((.message.usage.input_tokens // 0)
+       + (.message.usage.cache_read_input_tokens // 0)
+       + (.message.usage.cache_creation_input_tokens // 0))' 2>/dev/null || true)
+    # A 0 or non-numeric result is DISCARDED rather than written: a recorded 0 would give the
+    # reader 0-derived floors and fire its arm on every single turn — strictly worse than the
+    # silence this whole contract exists to end.
+    case "$observed_tokens" in '' | *[!0-9]* | 0) observed_tokens="" ;; esac
+  fi
+  # Write failures are swallowed like every other side effect here: a full or read-only
+  # TMPDIR must never surface as a compaction error (see the non-blocking note at the top).
+  if [ -n "$observed_tokens" ]; then
+    { printf '%s\n' "$observed_tokens" > "${TMPDIR:-/tmp}/aif-ctx-observed-${session_key}"; } 2>/dev/null || true
+  fi
+
+  # `#aif-ctx-debounce-reset` (contract in the header). Exact names, never a glob: the
+  # observed-ceiling file written just above lives in the same directory under the same
+  # `aif-ctx-` prefix, and a wildcard sweep would take the measurement with the flags. The
+  # tier list is spelled out rather than derived for the same reason the key is duplicated —
+  # two scripts, no shared library; an unknown tier here is a silent no-op, not a wrong
+  # deletion. `rm -f` never fails on an absent flag, and a failure to delete must not surface
+  # as a compaction error, so the whole group is quiet.
+  for _tier in soft deep; do
+    rm -f "${TMPDIR:-/tmp}/aif-ctx-${session_key}-${_tier}" 2>/dev/null || true
+  done
+
+  # D34 — the handoff-currency gate's acceptance baseline resets at compaction, BY EXACT
+  # NAME beside the tier flags above. Same hazard, same rule: the residue directory is
+  # full of `aif-`-prefixed tmp channels, so a `aif-handoff-<key>*` glob would be a
+  # different bug in the same directory. The handoff FILE itself survives (it is the
+  # payload the SessionStart injector reads); only the acceptance baseline resets, so the
+  # post-compaction climb re-judges from scratch instead of inheriting a hash from a
+  # window that no longer exists. AUTO only, for the same refused-compact evidence.
+  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
+fi
+
 # ── Branch + head, for the continuing session ────────────────────────────────
 branch=$(git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 head_sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)
 [ -n "$branch" ] || branch="(not a git worktree)"
+
+# ── Model handoff pointer (D15) — sibling file, never owned by this writer ────
+# The model-authored handoff lives at `_handoff-<session_key>.md` (the Stop hook's gate
+# judges its currency there). This hook gains ONE pointer line and nothing else — the
+# writer stops truncating a model-authored section by never owning one. The sha short +
+# line count make staleness visible at compaction time instead of silently trusting an
+# older file (D15's own falsifier clause).
+handoff_file="${residue_dir}/_handoff-${session_key}.md"
+if [ -f "$handoff_file" ]; then
+  handoff_lines=$(wc -l < "$handoff_file" 2>/dev/null | tr -d '[:space:]' || echo 0)
+  case "$handoff_lines" in '' | *[!0-9]*) handoff_lines=0 ;; esac
+  handoff_sha8="$(_residue_sha256 "$handoff_file" | cut -c1-8)"
+  handoff_state="present, ${handoff_lines:-0} lines, ${handoff_sha8:-noshahash}"
+else
+  handoff_state="absent"
+fi
 
 # ── Write ────────────────────────────────────────────────────────────────────
 # Written even when there is NO transcript and no body: D8 requires anchor + timestamp +
@@ -173,7 +303,14 @@ head_sha=$(git -C "$root" rev-parse --short HEAD 2>/dev/null || true)
   printf -- '- **Branch:** `%s` @ `%s`\n' "$branch" "${head_sha:-unknown}"
   printf -- '- **Repo:** `%s`\n' "$root"
   printf -- '- **Transcript:** `%s`\n' "${transcript:-(absent)}"
-  printf -- '- **Body source:** %s\n\n' "$body_kind"
+  printf -- '- **Body source:** %s\n' "$body_kind"
+  printf -- '- **Model handoff:** `%s` (%s)\n' "${handoff_file}" "${handoff_state}"
+  # Stated for the human/model reader of the handoff; the machine channel is the tmp file.
+  if [ -n "$observed_tokens" ]; then
+    printf -- '- **Observed context ceiling:** %s tokens (usage at this auto-compaction — the window estimate the next turn is judged against)\n\n' "$observed_tokens"
+  else
+    printf -- '- **Observed context ceiling:** (not measurable from this trigger)\n\n'
+  fi
   if [ -n "$body" ]; then
     printf '## Last model-authored state (verbatim from the transcript)\n\n'
     printf '%s\n' "$body"

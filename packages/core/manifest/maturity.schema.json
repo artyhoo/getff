@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "getff maturity manifest (D32)",
+  "description": "Single source of truth for maturity labels: sections layers (D4) and stacks (one row per installable positional). Every row = label + label definition + caveat + verified-at; stack rows add the rule-generation status. A row traces to an operator decision or a measurement (T-S0A-B) — an unknown fact is an operator question, never a placeholder (D36).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["layers", "stacks"],
+  "properties": {
+    "layers": {
+      "description": "D4 layer badges. Closed at rules + factory.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rules", "factory"],
+      "properties": {
+        "rules": { "$ref": "#/definitions/layerRow" },
+        "factory": { "$ref": "#/definitions/layerRow" }
+      }
+    },
+    "stacks": {
+      "description": "One row per installable positional (face-pages §5.1.4). Closed at the seven positionals `setup`/`install.sh` accept.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ts-server",
+        "react-next",
+        "react-spa",
+        "react-native",
+        "python",
+        "cargo",
+        "go"
+      ],
+      "properties": {
+        "ts-server": { "$ref": "#/definitions/stackRow" },
+        "react-next": { "$ref": "#/definitions/stackRow" },
+        "react-spa": { "$ref": "#/definitions/stackRow" },
+        "react-native": { "$ref": "#/definitions/stackRow" },
+        "python": { "$ref": "#/definitions/stackRow" },
+        "cargo": { "$ref": "#/definitions/stackRow" },
+        "go": { "$ref": "#/definitions/stackRow" }
+      }
+    }
+  },
+  "definitions": {
+    "layerRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "definition", "caveat", "verified-at"],
+      "properties": {
+        "label": { "enum": ["beta", "alpha", "early", "experimental"] },
+        "definition": {
+          "type": "string",
+          "minLength": 20,
+          "description": "What the label means. Identical in every row sharing the label (label↔definition is a function; principle 46 D32 arm)."
+        },
+        "caveat": {
+          "type": "string",
+          "minLength": 20,
+          "description": "The honest limit, one sentence."
+        },
+        "verified-at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Date the row was last verified against the repo/operator record."
+        }
+      }
+    },
+    "stackRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "definition", "caveat", "generation", "verified-at"],
+      "properties": {
+        "label": { "enum": ["beta", "alpha", "early", "experimental"] },
+        "definition": {
+          "type": "string",
+          "minLength": 20,
+          "description": "What the label means. Identical in every row sharing the label (label↔definition is a function; principle 46 D32 arm)."
+        },
+        "caveat": {
+          "type": "string",
+          "minLength": 20,
+          "description": "The honest limit, one sentence (face-pages §5.1.4 column 4)."
+        },
+        "generation": {
+          "enum": ["generated", "static", "deferred"],
+          "description": "Rule-doc generation status (face-pages §5.1.4 column 5): generated = rendered from the delivered rule set (rules-manifest render or install-time render); static = shipped hand-authored rule docs; deferred = no rule-doc generation shipped."
+        },
+        "verified-at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Date the row was last verified against the repo/operator record."
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 /**
  * Content-hash idempotency for dispatch deduplication.
  *
- * State path: /tmp/runtime-bridge-dedup.jsonl
+ * State path: $RUNTIME_BRIDGE_DEDUP_PATH, default /tmp/runtime-bridge-dedup.jsonl
  * Each line: { hash, taskHandle, timestamp }
  * TTL: 24 hours (lines older than 24h are ignored on lookup).
  *
@@ -17,7 +17,25 @@ import { createHash } from 'node:crypto';
 import { existsSync, writeFileSync, readFileSync } from 'node:fs';
 import type { TaskHandle } from './types.js';
 
-const DEDUP_PATH = '/tmp/runtime-bridge-dedup.jsonl';
+/** The shared-global log, kept as the default so nothing relocates for anyone who leaves the var unset. */
+const DEFAULT_DEDUP_PATH = '/tmp/runtime-bridge-dedup.jsonl';
+
+/**
+ * Where the dedup log lives. `RUNTIME_BRIDGE_DEDUP_PATH` makes it per-project, which is what
+ * the vendored copy's own README has documented since the vendor drop landed — while no code
+ * in either copy read it and the path stayed a single hard-coded global (#1597 review ledger
+ * A5-3 / E-1). With N consumers vendored on one host, that global log made project B's
+ * identical-content kickoff read as «already dispatched» because project A had dispatched it
+ * inside the 24h TTL, and the knob the README told the consumer to export did nothing.
+ *
+ * Pure and env-injectable so both arms are testable without touching the real log; an empty
+ * or whitespace-only value falls back to the default rather than writing to `''`.
+ */
+export function resolveDedupPath(env: NodeJS.ProcessEnv = process.env): string {
+  return env['RUNTIME_BRIDGE_DEDUP_PATH']?.trim() || DEFAULT_DEDUP_PATH;
+}
+
+const DEDUP_PATH = resolveDedupPath();
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 interface DedupEntry {

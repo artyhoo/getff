@@ -22,17 +22,17 @@
   ],
   "renders": [
     "packages/core/templates/shared/AI-USAGE-GUIDE.md — AI render (C1, this repo; parity-gated)",
-    "landing site First Steps x3 — human render (umbrella B / BS2, NOT yet authored; vendored per B-D5)"
+    "landing site /docs/installation/ — human render (getff-ai-site S1; the first-steps-* quick-start slugs are stubs per face spec §4, so the render target is the Installation page — BU-F14 re-point, S0a)"
   ],
   "sequences": {
     "core": {
       "goal": "install -> a rule provably fires on your code",
-      "profileFlag": "-y (default; equivalently --profile core)",
+      "profileFlag": "--profile core (core is never the default — install.sh:648 makes the non-interactive default `env`)",
       "steps": [
         {
           "id": "install",
           "title": "Install at core depth",
-          "action": "From your project root run `bash <getff>/setup -y <stack>` (stacks: ts-server, react-next, react-spa, react-native; `install.sh python`, `install.sh cargo` and `install.sh go` are separate non-npm lanes, each an explicit positional). Omit the stack to auto-detect.",
+          "action": "From your project root run `bash <getff>/setup -y --profile core <stack>` — `core` must be named, because `-y` on its own resolves to `env` (install.sh:648). (stacks: ts-server, react-next, react-spa, react-native; `python`, `cargo` and `go` are separate non-npm toolchain lanes, each an explicit positional — `./setup cargo` or `bash install.sh cargo`, the wrapper forwards lanes verbatim). Omit the stack to auto-detect.",
           "evidence": "install.sh; setup.d/30-templates.sh"
         },
         {
@@ -60,6 +60,12 @@
           "evidence": "scripts/check-fences-fire.sh (shipped at core; prior-art-evaluations.md#184)"
         },
         {
+          "id": "fire-on-your-code",
+          "title": "Fire a rule on YOUR code, not a fixture",
+          "action": "Plant one violation of a shipped getff rule in YOUR tree and run your stack's native gate — the RED line names your file. npm: add `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`, `**/controllers/**`, `**/app/api/**`, `**/actions/**`), run `npm run lint` — RED from `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var(\"X\")`, run `cargo clippy`; go — add `os.Getenv(\"X\")`, run `golangci-lint run`.",
+          "evidence": "templates/ts-server/eslint.config.mjs:179 (R2 unconditional); setup.d/70-deps.sh:75 (npm run lint); setup.d/45-python.sh:587 / 46-cargo.sh:256 / 47-go.sh:252 (lane firing self-checks)"
+        },
+        {
           "id": "run-the-gate",
           "title": "Run the gate you will run every day",
           "action": "`bash scripts/audit-ai-docs.sh` — drift + code-vs-docs probes (~10 sec). Expect findings on a fresh project; the INSTALL-FOR-AI «Expected first-run failures» table lists which ones are normal.",
@@ -81,12 +87,12 @@
           "id": "install",
           "title": "Install at env depth",
           "action": "`bash <getff>/install.sh <stack> --profile env`. Already on core? Re-run that same command — the deeper payload is added and every core artefact stays byte-identical except `.prettierignore`, whose managed block gains the new paths. Do not reach for `--refresh` to upgrade: it re-delivers fixes to what you already have and does not reliably deepen an install — on a `core` project `--refresh --profile env` exits 0 while `tier-home.md` and `.claude/skills/arch/` stay absent.",
-          "evidence": "install.sh:1090-1093 — the tier-home refresh arm is presence-gated («refresh must not create it on core»); `arch` is in no do_refresh skill loop. Measured on a core consumer against staging 2026-08-09: `--refresh --profile env` → exit 0, tier-home NO, arch NO (it is NOT a no-op, though — the ungated arm at install.sh:1001-1005 does deliver 4 env-tier scripts, a beta-delivery-ux depth-boundary defect); plain `--profile env` → exit 0, tier-home YES, arch YES, every pre-existing core file byte-identical except .prettierignore. Also INSTALL-FOR-AI.md «Install depth profiles»"
+          "evidence": "install.sh:1342-1350 — the tier-home refresh arm is presence-gated («refresh must not create it on core»); `arch` is in no do_refresh skill loop. Measured on a core consumer against staging 2026-08-09: `--refresh --profile env` → exit 0, tier-home NO, arch NO (the worktree-scripts arm at install.sh:1251-1256 was ungated and delivered 4 env-tier scripts on a core project; it has carried the env|factory|presence gate since #1334, so that depth-boundary defect is closed); plain `--profile env` → exit 0, tier-home YES, arch YES, every pre-existing core file byte-identical except .prettierignore. Also INSTALL-FOR-AI.md «Install depth profiles»"
         },
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and `.claude/skills/arch/` — the two artefacts env adds over core.",
+          "action": "`ls AGENTS.md .ai-factory/ scripts/` plus `.ai-factory/tier-home.md` and the five skills env adds over core: `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`, `.claude/skills/pipeline/` and `.claude/skills/reviewer/`.",
           "evidence": "setup.d/30-templates.sh (tier-home at env+); verified in a temp consumer 2026-08-08"
         },
         {
@@ -128,7 +134,7 @@
         {
           "id": "verify-payload",
           "title": "Verify the payload landed",
-          "action": "`ls .claude/skills/` — on top of env you should see `pipeline`, `dispatcher`, `harvest`, `aif-doctor`, `night-mode`, `story` and `claude-glm-executor-handoff`.",
+          "action": "`ls .claude/skills/` — on top of env you should see `.claude/skills/dispatcher/`, `.claude/skills/aif-doctor/`, `.claude/skills/harvest/`, `.claude/skills/story/` and `.claude/skills/claude-glm-executor-handoff/`. `pipeline` and `night-mode` are NOT factory additions — they arrive with env+ and are already there.",
           "evidence": "setup.d/10-skills.sh; verified in a temp consumer 2026-08-08"
         },
         {
@@ -159,7 +165,7 @@
           "id": "run-pipeline",
           "title": "Ask the pipeline what to start next",
           "action": "Invoke `/pipeline`. It reads your kickoffs plus `.ai-factory/orchestrator-prompts/plan.md` (created on first run), ranks them, and emits a launch table. An empty backlog reports «nothing queued» — that is normal, not an error.",
-          "evidence": ".claude/skills/pipeline/SKILL.md (shipped at factory; verified in a temp consumer 2026-08-08)"
+          "evidence": ".claude/skills/pipeline/SKILL.md (shipped at env+; verified in a temp consumer 2026-08-08)"
         },
         {
           "id": "dispatch-one",

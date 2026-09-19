@@ -615,6 +615,81 @@ describe('realGit.subdirExistedAtParent', () => {
   });
 });
 
+// ── realGit.blobTrackedAtBase ────────────────────────────────────────────────
+// B-1 (2026-09-05): the byte-identical carve-out exempts RELOCATIONS, so the
+// duplicate must be resolved against the PRE-IMAGE tree (`<sha>^`). Resolving it
+// against `<sha>` — the commit's own tree — exempted every new file added with a
+// byte-identical twin in the SAME commit, which is what the pre-commit twin-sync
+// produces for every new hook, silently disabling the ≥50/≥80-LOC triggers.
+describe('realGit.blobTrackedAtBase', () => {
+  beforeEach(() => runCheckMock.mockReset());
+
+  const HASH = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const OTHER = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+  it('lists the PARENT tree, never the commit\'s own tree', () => {
+    runCheckMock.mockReturnValueOnce(ok(`${HASH}\n`)); // rev-parse sha:path
+    runCheckMock.mockReturnValueOnce(ok());              // rev-parse --verify sha^
+    runCheckMock.mockReturnValueOnce(ok(''));            // ls-tree
+    realGit.blobTrackedAtBase('abc123', 'packages/core/a.ts');
+    expect(runCheckMock.mock.calls[0][1]).toEqual([
+      'rev-parse',
+      'abc123:packages/core/a.ts',
+    ]);
+    expect(runCheckMock.mock.calls[2][1]).toEqual(['ls-tree', '-r', 'abc123^']);
+    expect(runCheckMock.mock.calls[2][1]).not.toContain('abc123');
+  });
+
+  it('PAIRED NEGATIVE — a duplicate that exists only in the commit itself is NOT tracked at base', () => {
+    runCheckMock.mockReturnValueOnce(ok(`${HASH}\n`));
+    runCheckMock.mockReturnValueOnce(ok());
+    // The parent tree holds other blobs only — the twin was born in this commit.
+    runCheckMock.mockReturnValueOnce(
+      ok(`100644 blob ${OTHER}\tpackages/core/old.ts\n`),
+    );
+    expect(realGit.blobTrackedAtBase('abc123', 'packages/core/a.ts')).toBe(false);
+  });
+
+  it('returns true when the same blob is already tracked at another path in the parent', () => {
+    runCheckMock.mockReturnValueOnce(ok(`${HASH}\n`));
+    runCheckMock.mockReturnValueOnce(ok());
+    runCheckMock.mockReturnValueOnce(
+      ok(
+        `100644 blob ${OTHER}\tvendor/other.ts\n100644 blob ${HASH}\tvendor/src/module.ts\n`,
+      ),
+    );
+    expect(realGit.blobTrackedAtBase('abc123', 'packages/x/module.ts')).toBe(true);
+  });
+
+  it('returns false when the path does not resolve to a blob', () => {
+    runCheckMock.mockReturnValueOnce(fail());
+    expect(realGit.blobTrackedAtBase('abc123', 'missing.ts')).toBe(false);
+    expect(runCheckMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false for a non-hash rev-parse output (defensive)', () => {
+    runCheckMock.mockReturnValueOnce(ok('not-a-hash\n'));
+    expect(realGit.blobTrackedAtBase('abc123', 'a.ts')).toBe(false);
+    expect(runCheckMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false when there is no parent (root commit) without listing anything', () => {
+    runCheckMock.mockReturnValueOnce(ok(`${HASH}\n`));
+    runCheckMock.mockReturnValueOnce(fail()); // rev-parse --verify sha^ → no parent
+    expect(realGit.blobTrackedAtBase('root', 'packages/core/a.ts')).toBe(false);
+    expect(runCheckMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('matches the ls-tree HASH column, not an incidental path substring', () => {
+    runCheckMock.mockReturnValueOnce(ok(`${HASH}\n`));
+    runCheckMock.mockReturnValueOnce(ok());
+    runCheckMock.mockReturnValueOnce(
+      ok(`100644 blob ${OTHER}\tdocs/${HASH}.md\n`),
+    );
+    expect(realGit.blobTrackedAtBase('abc123', 'packages/core/a.ts')).toBe(false);
+  });
+});
+
 // ── realGit.commitBody ────────────────────────────────────────────────────────
 describe('realGit.commitBody', () => {
   beforeEach(() => runCheckMock.mockReset());

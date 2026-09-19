@@ -172,6 +172,17 @@ Out of scope (NOT capability commits): refactors, doc edits, test additions
 for existing capabilities, bug fixes, snapshot regenerations, recipe-data
 JSON edits.
 
+Three carve-outs the detector applies to the two LOC triggers: documentation
+files (`*.md` / `*.markdown`) never count; a new file byte-identical to a blob
+already tracked in the pre-image tree is a relocation and never counts; and
+**test material** — `*.test.*` / `*.spec.*` files and anything under `test(s)/`,
+`__tests__/` or `*fixtures/` — never counts, with one exception: a file directly
+in `packages/core/principles/` IS the enforcement capability, not a test for
+one, so those still demand a consult. A commit that adds test material
+alongside a qualifying production file still trips on the production file. Full
+definition + the measurements behind each carve-out:
+[CLAUDE.md «What is a capability commit?»](CLAUDE.md).
+
 ### What you must do for a capability commit
 
 1. **Consult** [prior-art-evaluations.md](docs/meta-factory/prior-art-evaluations.md)
@@ -190,15 +201,25 @@ a new SSOT entry in the same commit** — with `Verdict` / `Rationale` /
 In the commit message body, after the blank line following the subject:
 
 ```text
-Prior-art: <narrative referencing prior-art-evaluations.md#<ID>, or escape hatch>
+Prior-art: <narrative naming a resolvable referent, or escape hatch>
 ```
 
-Positive forms (one or more lines, each starts with `Prior-art:`):
+A positive line must name something a reader can open. Three accepted referent
+forms (one or more lines, each starts with `Prior-art:`, each parsed
+independently):
 
 ```text
 Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).
-Prior-art: prior-art-evaluations.md#3 (fitness functions vocabulary adoption).
+Prior-art: REUSE — setup.d/lib.sh:359 (the copy_safe idiom this reuses).
+Prior-art: see PR #1094 (the squash-trailer-loss incident this gate came from).
 ```
+
+1. an **SSOT row** — `prior-art-evaluations.md#<ID>`; the cited row must exist.
+2. an **artefact path** — a repo file, optionally with `:NN` or `§N`.
+3. an **issue / PR reference** — `#1271`, `PR #1094`.
+
+A referent-free assertion (`Prior-art: consulted — no entry applies`) is
+rejected by the hook: it records no consult anyone can check.
 
 Escape hatch (for capability-shaped commits that intentionally skip the
 consult — e.g. you've already cited the SSOT in an earlier commit of the

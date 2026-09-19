@@ -301,6 +301,8 @@ You report. You don't fix.
 
 These two together raise the bar from "AI can fool the test suite" to "AI must satisfy both a structural validator and an independent reviewer".
 
+**Source citation:** Senko Rašić, "Code Reviews in the age of AI" (senkorasic.com, February 2026) — <https://senkorasic.com/articles/rethinking-code-reviews>. **Taken:** the two-AI review pattern — a second AI reviews artifacts in a context that never saw how they were produced, restoring an independent check that human review at AI commit velocity can no longer be. **Changed:** the sidecar's scope here is deliberately narrow — tautology detection in AI-authored tests and rules (§3, §12) — not general code review; the framework pairs it with deterministic defenses (mutation testing, AST meta-tests) instead of letting it carry enforcement alone.
+
 ---
 
 ## Higher coverage thresholds for AI-modified code

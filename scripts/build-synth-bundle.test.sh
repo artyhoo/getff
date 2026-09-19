@@ -37,12 +37,14 @@ out_foreign="$(cd "$FOREIGN" && NODE_ENV=development bash "$SCRIPT" --check 2>&1
 if [ "$rc_root" -ne 0 ]; then
   echo "FAIL: baseline --check from the repo root exited $rc_root (expected 0)."
   echo "      Install deps first: NODE_ENV=development npm install"
+  # shellcheck disable=SC2001  # sed substitutes on EVERY line of a multi-line string ('^' per line); ${var//} has no line anchor
   echo "$out_root" | sed 's/^/      /'
   FAILED=1
 fi
 
 if [ "$rc_foreign" -ne "$rc_root" ]; then
   echo "FAIL: exit code depends on cwd — $rc_root from repo root, $rc_foreign from $FOREIGN"
+  # shellcheck disable=SC2001  # sed substitutes on EVERY line of a multi-line string ('^' per line); ${var//} has no line anchor
   echo "$out_foreign" | sed 's/^/      /'
   FAILED=1
 elif [ "$out_foreign" != "$out_root" ]; then

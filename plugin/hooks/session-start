@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# session-start — Plugin SessionStart hook — injects the getff entry-point context so the using-getff skill auto-triggers
 # Plugin SessionStart bootstrap — injects the getff entry-point context so the
 # using-getff skill auto-triggers without a manual Skill invocation.
 # Invoked via run-hook.cmd from plugin/hooks/hooks.json (matcher: startup|clear|compact).

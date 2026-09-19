@@ -1,45 +1,47 @@
 #!/usr/bin/env bash
-# deliver-gate-scripts.test.sh — consumer-refresh-integrity R3 (issues 1482 + 1485).
+# deliver-gate-scripts.test.sh — consumer-refresh-integrity R3 (issue 1485) + ledger C-2 (#1597).
 #
-# Two gate scripts were authored but NEVER delivered to consumers:
-#   scripts/check-ask-files.sh   — presence-gated by pre-push.ts askFileSchemaSection()
-#                                  (silently returns when absent → the gate never fires);
+# ONE gate script is still delivered to consumers:
 #   scripts/run-local-ci-sweep.sh — gated on by .claude/skills/harvest/SKILL.md §3 (ships at
 #                                  factory / --with-aif-suite depth only).
-# R3 delivers both per kickoff RI-4's measured breadth: check-ask-files via the hooks layer
-# (setup.d/50-hooks.sh — every standard npm profile), run-local-ci-sweep via the factory suite
-# arm (setup.d/10-skills.sh), each mirrored in do_refresh (pair-list entry + gated refresh arm).
+# Its R3 companion scripts/check-ask-files.sh was RETIRED from delivery (ledger C-2, #1597):
+# the pre-push ask-file-schema section is maintainer-only (owner: 'maintainer' in
+# packages/core/hooks/pre-push.ts) and composeSections() drops maintainer sections on
+# consumers (measured live: activeSections(false) omits 'ask-file-schema'), so the delivered
+# script was never invoked by a consumer's pre-push — delivery only maintained a gate that
+# cannot fire there. The delivery site (setup.d/50-hooks.sh) and its do_refresh mirror were
+# removed; install.sh --refresh now REPORTS a stale prior-delivery copy through the shared
+# `⚠ ORPHAN:` vocabulary (setup.d/lib.sh report_getff_orphans precedent) and never deletes it.
 # Sources stay at root scripts/ — RI-4 binding (relocation would violate the session-bus v2 §9
-# claim recorded in packages/core/hooks/pre-push.ts:1323-1326).
+# claim recorded in packages/core/hooks/pre-push.ts).
 #
-# Arms (kickoff §2 R3 + dispatch WHAT-TO-CHANGE 2; T14 floor):
-#   (a) fresh install, standard profile → check-ask-files.sh present + executable;
-#       --with-aif-suite install → run-local-ci-sweep.sh present + executable.
-#   (b) T-CRI-C acceptance (constructible form): install → mutate the delivered script →
-#       --refresh → R1 `⚠` warning + preserved copy in .ai-factory/refresh-conflicts/ +
-#       live file refreshed (a consumer that vendored the script AFTER this delivery is
-#       never silently swapped — issue 1485's own precondition).
-#   (b2) PRE-VENDORED case (measured, pinned — the timeliner case: the script existed BEFORE
-#       this delivery, so the R1 manifest has no entry → RI-2 "unknown"): fresh-install path
-#       copy_safe SKIPS the pre-existing file (silent skip, consumer copy kept); refresh path
-#       with NO manifest entry overwrites silently. This is the ratified RI-2 consequence,
-#       pinned here as behaviour so any future change is a deliberate decision, not drift.
-#   (c) negative arms per the measured breadth: python toolchain lane → check-ask-files NOT
-#       delivered (no pre-push arm on non-npm lanes); profile=env → run-local-ci-sweep NOT
-#       delivered (harvest is factory-gated).
+# Arms:
+#   (a) fresh installs → check-ask-files.sh NOT delivered (C-2 paired negative, standard
+#       profile AND --with-aif-suite); run-local-ci-sweep.sh present + executable on the
+#       suite install and correctly absent on the standard profile.
+#   (b) stale prior-delivery copy (constructible form): plant scripts/check-ask-files.sh on
+#       a fresh consumer — what a pre-C-2 install landed — then --refresh: the ORPHAN
+#       divergence line is printed (identically under --dry-run), the file is NOT
+#       re-delivered, NOT rewritten and NOT deleted (report-only), and the refresh-baseline
+#       manifest correctly carries no entry for it (the report is presence-based).
+#   (c) negative arms per the measured breadth: python toolchain lane → NEITHER script
+#       delivered; profile=env → run-local-ci-sweep NOT delivered (factory-gated) and
+#       check-ask-files absent there too (the C-2 removal is profile-wide).
 #   (d) do_refresh mirror for run-local-ci-sweep: factory install → mutate → --refresh →
 #       warning + preserved copy + refreshed (the gated refresh arm incl. presence clause).
-#   (e) --dry-run of the new delivery lines: `[dry-run] would copy:` output for both scripts,
-#       and NOTHING written to the fixture.
+#   (e) --dry-run of the delivery lines: run-local-ci-sweep announced as a would-copy;
+#       check-ask-files NOT announced and NOTHING written to the fixture.
 #
 # NOT here (evidence-only on R3, per dispatch): the npm-tarball probe — root scripts/ is not
 # in the packages/core `files` allowlist (measured via the npm-tarball probe target;
-# 0 scripts/ entries in the 500-file tarball) → parked DECISION-NEEDED, not relocated.
+# 0 scripts/ entries in the 500-file tarball) → parked DECISION-NEEDED, not relocated. The
+# tarball PAYLOAD still lists scripts/check-ask-files.sh (RI-4 fork, parked in
+# consumer-refresh-integrity/done.md) — tarball membership is out of this file's population.
 #
 # Acceptance is behavioural (T2/T-CRI-A): every arm runs the REAL installer into a mktemp
 # fixture and asserts the installed tree / installer OUTPUT — never a grep of install.sh's
 # own source text. Harness shape mirrors refresh-divergence-guard.test.sh (bash 3.2, ASCII
-# substrings only for the UTF-8-glyph warning line).
+# substrings only for the UTF-8-glyph warning lines).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -62,6 +64,18 @@ SWEEP_REL="scripts/run-local-ci-sweep.sh"
 MANIFEST_REL=".ai-factory/refresh-baseline.json"
 CONFLICTS_REL=".ai-factory/refresh-conflicts"
 
+# Fixture hygiene (sibling precedent: scripts/check-ask-files.test.sh traps EXIT): every arm
+# removes its own fixture inline on the success path; this trap catches early exits so a
+# `set -u` abort cannot leak mktemp fixtures or the /tmp snapshots.
+TA=""; TA2=""; TB=""; TC=""; TC2=""; TD=""; TE=""
+cleanup() {
+  for f in "$TA" "$TA2" "$TB" "$TC" "$TC2" "$TD" "$TE"; do
+    if [ -n "$f" ] && [ -d "$f" ]; then rm -rf "$f"; fi
+  done
+  rm -f /tmp/r3dg-*.$$ 2>/dev/null || true
+}
+trap cleanup EXIT
+
 # make_consumer [extra install args...] — minimal npm consumer + full ts-server install
 # (non-interactive: stdin closed). Echoes the fixture dir.
 make_consumer() {
@@ -73,18 +87,20 @@ make_consumer() {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ARM (a) — fresh install delivers both scripts, executable, at measured breadth
+# ARM (a) — fresh installs: the retired script is NOT delivered; the sweep script is
 # ══════════════════════════════════════════════════════════════════════════════
 TA=$(make_consumer)
-if [ -f "$TA/$ASK_REL" ]; then
-  ok "arm (a): $ASK_REL delivered on a standard-profile fresh install"
+# Positive control: the hooks layer DID run (it delivers .husky/pre-push), so the
+# absence checks below are meaningful rather than a crashed-install vacuous pass.
+if [ -f "$TA/.husky/pre-push" ]; then
+  ok "arm (a) positive control: hooks layer ran (.husky/pre-push delivered) — the absence checks below are meaningful"
 else
-  bad "arm (a): $ASK_REL MISSING on a standard-profile fresh install (pre-push ask-gate stays dead — issue 1482 unfixed)"
+  bad "arm (a) positive control: .husky/pre-push NOT delivered — install never reached the hooks layer; the absence checks below are vacuous"
 fi
-if [ -x "$TA/$ASK_REL" ]; then
-  ok "arm (a): $ASK_REL is executable"
+if [ ! -e "$TA/$ASK_REL" ]; then
+  ok "arm (a): $ASK_REL NOT delivered on a standard-profile fresh install (C-2: maintainer-only gate, delivery retired)"
 else
-  bad "arm (a): $ASK_REL is NOT executable"
+  bad "arm (a): $ASK_REL DELIVERED on a standard-profile fresh install — C-2 removal regressed"
 fi
 # Standard profile (no factory opt-in) must NOT carry the factory-gated sweep script.
 if [ ! -e "$TA/$SWEEP_REL" ]; then
@@ -105,100 +121,70 @@ if [ -x "$TA2/$SWEEP_REL" ]; then
 else
   bad "arm (a): $SWEEP_REL is NOT executable"
 fi
-# Paired sanity: the suite install still carries the (ungated) ask script too.
-[ -f "$TA2/$ASK_REL" ] && ok "arm (a): $ASK_REL also present on the suite install" \
-                       || bad "arm (a): $ASK_REL MISSING on the suite install"
+# Paired negative: the suite install does not resurrect the retired ask script either.
+if [ ! -e "$TA2/$ASK_REL" ]; then
+  ok "arm (a): $ASK_REL absent on the suite install too (C-2 removal is profile-wide)"
+else
+  bad "arm (a): $ASK_REL present on the suite install — C-2 removal regressed"
+fi
+rm -rf "$TA2"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ARM (b) — T-CRI-C acceptance: post-delivery divergence → R1 warn + preserve + refresh
+# ARM (b) — stale prior-delivery copy → ORPHAN report on --refresh, file never touched
 # ══════════════════════════════════════════════════════════════════════════════
 TB=$(make_consumer)
 PROBE_B="$TB/$ASK_REL"
-if [ ! -f "$PROBE_B" ] || [ ! -f "$TB/$MANIFEST_REL" ]; then
-  bad "arm (b) precondition: install did not deliver $ASK_REL and/or $MANIFEST_REL"
+mkdir -p "$TB/scripts"
+# Plant the bytes a pre-C-2 delivery landed (copy_safe delivered the root source as-is, and
+# C-2 did not touch that source) — the constructible form of "installed before the removal".
+cp "$REPO_ROOT/$ASK_REL" "$PROBE_B"
+cp "$PROBE_B" /tmp/r3dg-stale-b.$$
+# The fresh install no longer stages the file, so the baseline manifest must NOT carry an
+# entry for it — the report below fires on PRESENCE, not on the baseline machinery.
+# Deliberately jq-free (the key is always quoted in the manifest, pretty or compact): a
+# missing local jq must not silently turn this precondition into a vacuous ok.
+ENTRY_B=""
+if [ -f "$TB/$MANIFEST_REL" ] && grep -F "\"$ASK_REL\"" "$TB/$MANIFEST_REL" > /dev/null 2>&1; then
+  ENTRY_B="staged"
+fi
+if [ -z "$ENTRY_B" ]; then
+  ok "arm (b) precondition: baseline manifest carries NO entry for $ASK_REL (nothing staged — the report is presence-based)"
 else
-  ok "arm (b) precondition: install delivered the script and wrote the baseline manifest"
-  ENTRY_B=$(jq -r --arg k "$ASK_REL" 'if has($k) then .[$k] else "" end' "$TB/$MANIFEST_REL")
-  [ -n "$ENTRY_B" ] && ok "arm (b) precondition: manifest carries a baseline entry for $ASK_REL" \
-                    || bad "arm (b) precondition: NO manifest entry for $ASK_REL — the delivery never staged"
+  bad "arm (b) precondition: manifest STILL stages $ASK_REL — the delivery did not actually go away"
+fi
 
-  cp "$PROBE_B" /tmp/r3dg-fresh-b.$$          # as-installed bytes (the refresh target)
-  printf 'CONSUMER_DIVERGENCE_MARKER_R3_ARM_B\n' > "$PROBE_B"
-  cp "$PROBE_B" /tmp/r3dg-mut-b.$$            # diverged bytes (what must be preserved)
-  SHA8_B=$(hash256 "$PROBE_B"); SHA8_B="${SHA8_B:0:8}"
+OUT_B=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
 
-  OUT_B=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+if printf '%s\n' "$OUT_B" | grep -qF 'ORPHAN: scripts/check-ask-files.sh' \
+  && printf '%s\n' "$OUT_B" | grep -qF 'no longer delivered'; then
+  ok "arm (b): --refresh reports the stale copy (ORPHAN divergence line names the file + the C-2 reason)"
+else
+  bad "arm (b): --refresh printed NO stale-copy report for $ASK_REL (silently ignored or re-delivered)"
+fi
+if printf '%s\n' "$OUT_B" | grep -qF "$ASK_REL (refreshed)"; then
+  bad "arm (b): --refresh re-delivered $ASK_REL (the retired script came back on the refresh path)"
+else
+  ok "arm (b): --refresh does NOT re-deliver $ASK_REL (no refresh of the retired script)"
+fi
+if cmp -s "$PROBE_B" /tmp/r3dg-stale-b.$$; then
+  ok "arm (b): the stale copy is STILL on disk with its exact bytes (report-only — never deleted, never rewritten)"
+else
+  bad "arm (b): the stale copy was deleted or modified by --refresh (consumer file destroyed)"
+fi
+rm -f /tmp/r3dg-stale-b.$$
 
-  if printf '%s\n' "$OUT_B" | grep -qF 'overwriting locally-modified file:' \
-    && printf '%s\n' "$OUT_B" | grep -qF "$PROBE_B"; then
-    ok "arm (b): R1 warning printed for the diverged $ASK_REL (names the dst + preserved copy)"
-  else
-    bad "arm (b): NO warning for the diverged $ASK_REL (silent swap — T-CRI-C acceptance failed)"
-  fi
-
-  PRES_B="$TB/$CONFLICTS_REL/check-ask-files.sh.$SHA8_B"
-  if [ -f "$PRES_B" ] && cmp -s "$PRES_B" /tmp/r3dg-mut-b.$$; then
-    ok "arm (b): preserved copy at $CONFLICTS_REL/check-ask-files.sh.$SHA8_B carries the exact diverged bytes"
-  else
-    bad "arm (b): preserved copy missing or bytes differ at $PRES_B (consumer edit lost silently)"
-  fi
-
-  if cmp -s "$PROBE_B" /tmp/r3dg-fresh-b.$$; then
-    ok "arm (b): live file refreshed to the as-installed bytes (warn + preserve, then refresh)"
-  else
-    bad "arm (b): live file NOT refreshed to the upstream bytes"
-  fi
-  rm -f /tmp/r3dg-fresh-b.$$ /tmp/r3dg-mut-b.$$
+OUT_BD=$( cd "$TB" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
+if printf '%s\n' "$OUT_BD" | grep -qF 'ORPHAN: scripts/check-ask-files.sh'; then
+  ok "arm (b): --refresh --dry-run prints the same report (read-only report, identical under --dry-run)"
+else
+  bad "arm (b): --dry-run did not print the stale-copy report (dry-run output diverges from the real run)"
 fi
 rm -rf "$TB"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ARM (b2) — PRE-VENDORED consumer (script existed BEFORE this delivery; RI-2 unknown)
-# ══════════════════════════════════════════════════════════════════════════════
-TB2=$(mktemp -d)
-printf '{ "name":"pre-vendored","version":"0.0.0" }\n' > "$TB2/package.json"
-( cd "$TB2" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null ) >/dev/null 2>&1
-# Simulate the timeliner case: the consumer vendored the script BEFORE this delivery existed —
-# remove the delivered copy AND its manifest entry, plant a consumer-authored diverged copy.
-rm -f "$TB2/$ASK_REL"
-jq --arg k "$ASK_REL" 'del(.[$k])' "$TB2/$MANIFEST_REL" > "$TB2/$MANIFEST_REL.tmp" 2>/dev/null \
-  && mv "$TB2/$MANIFEST_REL.tmp" "$TB2/$MANIFEST_REL"
-printf 'CONSUMER_VENDORED_COPY_R3\n' > "$TB2/$ASK_REL"
-VEND_HASH=$(hash256 "$TB2/$ASK_REL")
-
-# Path 1 — fresh-install (`--force` install again): copy_safe under --force overwrites; the
-# plain re-install (no --force) is the skip-if-exists shape. Measure the plain re-install.
-OUT_B2I=$( cd "$TB2" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
-CUR_HASH=$(hash256 "$TB2/$ASK_REL")
-if [ "$CUR_HASH" = "$VEND_HASH" ]; then
-  ok "arm (b2) fresh-install path: pre-vendored $ASK_REL KEPT (copy_safe skip-if-exists — consumer copy survives, RI-2 unknown ⇒ no divergence claim)"
-elif printf '%s\n' "$OUT_B2I" | grep -qF 'overwriting locally-modified file:'; then
-  ok "arm (b2) fresh-install path: pre-vendored copy overwritten WITH the R1 warning + preserve (guard fired)"
-else
-  bad "arm (b2) fresh-install path: pre-vendored $ASK_REL overwritten SILENTLY — behaviour drifted from the pinned RI-2 measurement (re-measure and re-pin)"
-fi
-
-# Path 2 — refresh on the same pre-vendored tree (still no manifest entry): refresh_safe
-# overwrites with NO warning (unknown ≠ diverged — ratified RI-2 consequence, pinned here).
-printf 'CONSUMER_VENDORED_COPY_R3\n' > "$TB2/$ASK_REL"
-OUT_B2R=$( cd "$TB2" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-UPSTREAM_HASH=$(hash256 "$REPO_ROOT/$ASK_REL")
-CUR_HASH2=$(hash256 "$TB2/$ASK_REL")
-if [ "$CUR_HASH2" = "$UPSTREAM_HASH" ]; then
-  if printf '%s\n' "$OUT_B2R" | grep -qF 'overwriting locally-modified file:'; then
-    ok "arm (b2) refresh path: pre-vendored copy overwritten WITH warning (guard now covers it — better than the pinned RI-2 measurement; re-pin)"
-  else
-    ok "arm (b2) refresh path: pre-vendored copy overwritten SILENTLY (pinned RI-2 consequence: no manifest entry ⇒ unknown ⇒ no divergence claim — follow-up candidate, see REPORT)"
-  fi
-else
-  bad "arm (b2) refresh path: refresh did NOT deliver the upstream bytes over the pre-vendored copy — mirror broken"
-fi
-rm -rf "$TB2"
-
-# ══════════════════════════════════════════════════════════════════════════════
 # ARM (c) — negative breadth arms
 # ══════════════════════════════════════════════════════════════════════════════
-# (c1) python toolchain lane: no npm pre-push arm → check-ask-files NOT delivered.
+# (c1) python toolchain lane: no npm pre-push arm → NEITHER script delivered.
 TC=$(mktemp -d)
 cat > "$TC/pyproject.toml" <<'EOF'
 [project]
@@ -225,8 +211,12 @@ if [ ! -e "$TC2/$SWEEP_REL" ]; then
 else
   bad "arm (c): profile=env DELIVERED $SWEEP_REL — factory gating violated"
 fi
-[ -f "$TC2/$ASK_REL" ] && ok "arm (c): profile=env still delivers $ASK_REL (hooks arm is profile-ungated)" \
-                       || bad "arm (c): profile=env MISSING $ASK_REL (hooks arm is profile-ungated)"
+# C-2 paired negative: the retired ask script is absent on every npm profile now.
+if [ ! -e "$TC2/$ASK_REL" ]; then
+  ok "arm (c): profile=env does NOT deliver $ASK_REL (C-2 removal is profile-wide)"
+else
+  bad "arm (c): profile=env DELIVERED $ASK_REL — C-2 removal regressed"
+fi
 rm -rf "$TC2"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -268,16 +258,23 @@ fi
 rm -rf "$TD"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ARM (e) — --dry-run announces the new delivery lines and writes nothing
+# ARM (e) — --dry-run announces the live delivery, NOT the retired one; writes nothing
 # ══════════════════════════════════════════════════════════════════════════════
 TE=$(mktemp -d)
 printf '{ "name":"dryrun","version":"0.0.0" }\n' > "$TE/package.json"
 ( cd "$TE" && git init -q ) >/dev/null 2>&1
 OUT_E=$( cd "$TE" && bash "$REPO_ROOT/install.sh" ts-server --dry-run < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_E" | grep -qF "[dry-run] would copy:" && printf '%s\n' "$OUT_E" | grep -qF "scripts/check-ask-files.sh"; then
-  ok "arm (e): dry-run announces the check-ask-files delivery (would-copy line)"
+# Vacuity guard first: the dry run DOES announce deliveries, so the absence below means
+# something (a bare absence-check on silent output would be a vacuous negative).
+if printf '%s\n' "$OUT_E" | grep -qF "[dry-run] would copy:"; then
+  ok "arm (e): dry-run announces copy deliveries at all (guard against a vacuous negative)"
 else
-  bad "arm (e): dry-run does NOT announce the check-ask-files delivery"
+  bad "arm (e): dry-run announced NO would-copy lines — the negative below is vacuous"
+fi
+if printf '%s\n' "$OUT_E" | grep -qF "scripts/check-ask-files.sh"; then
+  bad "arm (e): dry-run still announces the retired $ASK_REL delivery"
+else
+  ok "arm (e): dry-run does NOT announce the retired $ASK_REL delivery"
 fi
 if [ ! -e "$TE/$ASK_REL" ]; then
   ok "arm (e): dry-run wrote NO $ASK_REL into the fixture"

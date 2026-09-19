@@ -52,6 +52,12 @@
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh\""
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/runtime-bridge-dispatch.sh\""
+      }
+    ],
     "Stop": [
       {
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh\""
@@ -70,6 +76,10 @@
     "SessionStart": [
       {
         "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh\" >/dev/null 2>&1 || true"
+      },
+      {
+        "matcher": "compact",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh\""
       }
     ],
     "PreCompact": [

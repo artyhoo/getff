@@ -1,6 +1,6 @@
 # Installation guide — getff
 
-> **Authoritative for:** human-driven installation paths (A/B/C), per-path step-by-step instructions, version verification procedure, post-install validation steps.
+> **Authoritative for:** human-driven installation paths (A/B/C), per-path step-by-step instructions, Windows prerequisites and the WSL/Git-Bash boundary, version verification procedure, post-install validation steps.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](README.md#why-this-exists). AI-driven installation — see [INSTALL-FOR-AI.md](INSTALL-FOR-AI.md). Quick start (recommended path) — see [README.md#installation](README.md#installation).
 > - Tool bootstrapping (MCP/skill seeding at install time): see [INSTALL-FOR-AI.md — Tool bootstrapping](INSTALL-FOR-AI.md#tool-bootstrapping--mcp-and-skill-recommendations-at-install-time).
 
@@ -16,6 +16,81 @@ cd /tmp/getff
 ```
 
 (An npm package is not yet published. Use Path B — `install.sh` — as the current install method.)
+
+---
+
+## Windows
+
+getff installs and runs on Windows. Two things about it are not obvious, so they are stated
+here rather than left to be discovered by a failing install.
+
+### Prerequisites
+
+| Tool | Required? | Why |
+| --- | --- | --- |
+| **[Git for Windows](https://git-scm.com/download/win)** | **yes** | it supplies the `bash`, `git` and `curl` that `./setup` probes in its preflight (`setup:79`). Nothing else on a stock Windows box does. |
+| **Node.js** | yes for the npm/TS lanes | `packages/getff/package.json` declares `engines.node >= 22`. |
+| **Python 3** | recommended | preflight probes it and prints `⚠ python3 missing` rather than failing; the JSON/YAML validity probes in the delivered pre-commit hook are what use it. |
+
+**WSL is neither required nor used.** If you have it, nothing changes — see the next section for why that is worth saying.
+
+### Installing
+
+From PowerShell, `cmd`, or Windows Terminal — the same command as everywhere else:
+
+```powershell
+npx getff@latest init -y ts-server
+```
+
+The `getff` entry point is a Node program (`packages/getff/bin/getff`). It locates a bash that
+can open `C:\`-style paths and hands `./setup` to it. **It deliberately does not use the `bash`
+on your `PATH`:** on a machine with WSL installed, `bash` resolves to
+`C:\WINDOWS\system32\bash.exe` — the WSL launcher, which cannot open a Windows path and exits
+127. Git for Windows puts only its `cmd\` directory on `PATH` (that holds `git.exe`, never
+`bash.exe`), so `PATH` can never be the right answer here. The search order is:
+
+1. `%GETFF_BASH%`, if you set it;
+2. `%ProgramFiles%\Git\bin\bash.exe`, then the `(x86)` sibling;
+3. the `..\bin\bash.exe` sibling of whatever `where git` reports — this is what covers a
+   non-default Git install directory;
+4. `bash` on `PATH`, last.
+
+If none of them exists, getff says so and names the fix rather than failing obscurely:
+
+```text
+getff: no bash found. Install Git for Windows (https://git-scm.com/download/win),
+       or point GETFF_BASH at a bash.exe that can open Windows paths.
+```
+
+`GETFF_BASH` is the escape hatch for a bash that is neither of the above (an MSYS2 or Cygwin
+install, say). Point it at the executable, not at a directory.
+
+### Line endings, if you install from a clone
+
+The npm path (`npx getff …`) unpacks a tarball and is unaffected. The clone paths — `git clone`
+and `curl -fsSL getff.ai/install | sh` — are not: Git for Windows defaults to
+`core.autocrlf=true`, which would check the shipped `*.sh` files out with CRLF. Git Bash
+tolerates the trailing `\r` in a shebang; WSL and real Linux do not, and report
+`/usr/bin/env: 'bash\r': No such file or directory`.
+
+The repository ships `.gitattributes` (`* text=auto eol=lf`), so a **fresh** clone is LF
+regardless of your `core.autocrlf`. A clone made before that file existed keeps its CRLF working
+tree — the cheapest fix is to re-clone. In place, and only with nothing uncommitted to lose:
+
+```bash
+git rm --cached -r . && git reset --hard
+```
+
+### What has been measured, and what has not
+
+- `./setup --dry-run ts-server` under Git Bash on Windows 11 / Node 24.19.0: **exit 0**, 202
+  lines of plan, preflight `✓ bash ✓ git ✓ python3 ✓ curl`.
+- `getff --version` and `getff init …` from a PowerShell session whose `PATH` was rebuilt from
+  the Machine+User registry values, with `bash` resolving to the WSL launcher: both exit 0.
+  Before the Node entry point they exited 127.
+- **Not yet measured:** a full, non-dry `./setup -y <stack>` run to completion on Windows, and
+  any run on a machine with no WSL at all (there `bash` does not resolve, so the symptom differs
+  while the breakage is the same). If you hit either, please open an issue.
 
 ---
 
@@ -68,7 +143,7 @@ ai-factory init --agents claude
 ```
 
 The installer:
-- Copies `skills/rules-as-tests/` → `.claude/skills/`
+- Copies `skills/getff/` → `.claude/skills/getff/` (`setup.d/10-skills.sh:10-12`)
 - Copies sub-agents → `.claude/agents/`
 - Copies AI Factory templates → `.ai-factory/`
 - Copies `audit-ai-docs.sh` → `scripts/`
@@ -83,6 +158,81 @@ for what it ships and how the firing proof works. The rest of this section (`--f
 
 Four further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the five skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--all` — operator shorthand for `--full` + `--with-aif-suite` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
 
+### Python lane — the local hook rung and `GETFF_SKIP_HOOKS`
+
+Besides the CI gate, `install.sh python` delivers a **local** rung: `.getff/hooks/pre-push`, which runs the same ast-grep + ruff arms the CI gate runs, before a push leaves your machine. `GETFF_SKIP_HOOKS=1` is the opt-out, and it is read at **two separate moments** — it is also the only environment knob **named `GETFF_*`** any getff-delivered hook body consults at runtime (runtime variables with other prefixes exist — see [Environment knobs](#environment-knobs-read-by-delivered-artefacts) below).
+
+| When | Command | Effect |
+| --- | --- | --- |
+| **Install time** | `GETFF_SKIP_HOOKS=1 bash install.sh python` | the whole rung is skipped: the installer prints `⊝ local git hook rung skipped (GETFF_SKIP_HOOKS=1 at install)`, `.getff/hooks/pre-push` is never written, and `core.hooksPath` is left untouched. Measured against a default install of the same fixture, the two trees differ by exactly that one file. |
+| **Push time** | `GETFF_SKIP_HOOKS=1 git push …` | the delivered hook exits 0 before any linter runs, for that one push only. The hook file and `core.hooksPath` stay in place, so the next plain `git push` enforces again. |
+
+It skips **nothing else**. `sgconfig.yml`, `ruff.toml`, `.getff/astgrep-rules/`, `.getff/ruff-bans.toml` and `.github/workflows/getff-python.yml` are delivered and enforce either way — a push that skipped the local rung is still caught by the CI gate on the server. To remove the rung permanently instead, delete `.getff/hooks/pre-push` (and `git config --unset core.hooksPath` if you keep no other hooks there); the hook header repeats both escapes.
+
+Activation is separately conditional: the lane never takes `core.hooksPath` away from a consumer that already has hooks of their own (an existing `core.hooksPath`, a `.pre-commit-config.yaml`, or any live hook under `$GIT_DIR/hooks`). On those repos the hook body is delivered but **not** activated — it is integrated or declined with a printed notice — so `GETFF_SKIP_HOOKS` has nothing to suppress at push time there.
+
+### Consumer-extensible directory payloads
+
+Most files getff installs are single files it owns. A few destinations are **directory payloads** — getff fills the directory but does not claim everything in it. `scripts/fences-fire-fixtures/` is the declared example: you may add your own fixture triple there and the shipped gate will run it.
+
+**Adding your own fence fixture.** Drop three files into `scripts/fences-fire-fixtures/`:
+
+```text
+my-rule.bad.ts        # the minimal snippet your rule must reject
+my-rule.good.ts       # the closest-passing counterpart it must accept
+my-rule.manifest.json # {"rule-id": "local/my-rule"}  (+ optional "rule-options")
+```
+
+`scripts/check-fences-fire.sh` builds its corpus from a mask, not an allowlist — `find "$FIXTURE_DIR" -maxdepth 1 -name '*.manifest.json'` — so your triple is enumerated, counted toward the gate's non-vacuity assertion and probed exactly like a shipped one. The `rule-id` must exist in your `eslint-rules-local/index.mjs` barrel; the installer's barrel prune only ever removes **framework** fixture stems, so it never deletes yours.
+
+**What happens on `install.sh --refresh`.** The framework's own fixtures are re-delivered file by file. A file in the directory that getff no longer ships is removed **only** when the refresh-baseline manifest (`.ai-factory/refresh-baseline.json`) attributes it to a past getff delivery and its bytes still match. Anything else is kept — that is what protects your fixtures — and each kept file is named on stdout:
+
+```text
+⚠ ORPHAN: scripts/fences-fire-fixtures/my-rule.manifest.json sits inside the getff-delivered
+  payload scripts/fences-fire-fixtures, is not in the current template set, and has no
+  refresh-baseline entry.
+```
+
+For a file you added, that line is expected and needs no action. If you see it for a file you do **not** recognise, it is residue of an older getff version: delete it, because a stale fixture there is live configuration — the gate will still enumerate and probe it.
+
+**Owning the whole directory.** To take the directory out of getff's hands entirely, create the Layer-3 sibling `scripts/fences-fire-fixtures.override.md`. `--refresh` then skips the directory wholesale and prints `⊝ … (.override.md — consumer-owned, keeping)`. See [INSTALL-FOR-AI.md — Three-layer authority](INSTALL-FOR-AI.md#three-layer-authority-for-shipped-artefacts).
+
+---
+
+## Environment knobs read by delivered artefacts
+
+`GETFF_SKIP_HOOKS` (previous section) is the only `GETFF_*`-prefixed variable a delivered hook body reads at runtime. One further knob with a different prefix exists, plus four look-alike names that are **not** knobs at all. (`AIF_*`-prefixed tuning variables — e.g. `AIF_HOOK_LANG`, the output-language switch — are documented in the delivered hook headers themselves.)
+
+### `RULES_DIR_OVERRIDE` — scan a different rules corpus (runtime)
+
+`.claude/hooks/inject-matching-rule.sh` — delivered by the npm/ts lanes (`setup.d/10-skills.sh`) and the python lane (`setup.d/45-python.sh`), registered as `PostToolUse:Edit|Write|MultiEdit` — injects a one-line rule pointer when the file just edited matches a `<!-- globs: … -->` marker in a rule file. Which corpus it scans is decided at **every hook firing**:
+
+```bash
+RULES_DIR="${RULES_DIR_OVERRIDE:-$REPO_ROOT/.claude/rules}"
+```
+
+| Aspect | Behaviour |
+| --- | --- |
+| Read at | runtime — each Edit/Write/MultiEdit, inside your project |
+| Default | `<your project>/.claude/rules` (resolved from the hook's own location) |
+| Shape | use an absolute path; relative values resolve against the hook's working directory, which is not stable |
+| Does NOT | copy or move anything — the scan is redirected, nothing is written |
+| Does NOT | rewrite the injected pointer — it still reads `see .claude/rules/<slug>.md` even when the corpus lives elsewhere |
+| Does NOT | fail on a missing or empty directory — the hook prints a once-per-session notice, then stays silent for the session |
+
+Measured 2026-09-06 on a delivered copy in a scratch project: default → the project's own rule is injected; `RULES_DIR_OVERRIDE=/abs/alt-rules` → the alt corpus's rule is injected instead; `RULES_DIR_OVERRIDE=<nonexistent dir>` → `⚠ inject-matching-rule: no rules corpus found at <dir>` exactly once, then silence. The variable began life as the hook's test seam (its header says so), but the read sits in a delivered hook body at a boundary you control — set it if you keep your rule corpus outside `.claude/rules/`.
+
+### Installer variables that are NOT knobs
+
+These four names look like knobs but are internal constants — three are plain assignments that overwrite any exported value, and the fourth is recomputed from your project's shape before use. Proven by a double install into identical scratch projects, one clean and one with all four exported: identical trees, identical logs (modulo the scratch-project path), identical `arch:check` line.
+
+| Name | Where | What it actually is |
+| --- | --- | --- |
+| `GETFF_LANES` | `setup.d/lib.sh:1008` | the fixed lane list (`python cargo go`) the orphan sweep walks — a constant |
+| `GETFF_SKILLS_CORE` | `setup.d/lib.sh:61` | the core skill set; the consumer-facing control is `--profile` |
+| `GETFF_SKILLS_FACTORY` | `setup.d/lib.sh:63` | the factory skill list; the control is `--profile factory` or `--with-aif-suite` |
+| `AIF_ARCH_TARGET` | `setup.d/70-deps.sh:41-49` | wiped, then recomputed (monorepo roots → `src` → `.`) into your `package.json` `arch:check` line; to aim at exotic roots, edit that one line after install |
+
 ---
 
 ## Path C: manual copy (full control)
@@ -93,7 +243,7 @@ If you want to pick what to install file-by-file:
 
 ```bash
 mkdir -p .claude/skills .claude/agents
-cp -r path/to/pkg/skills/rules-as-tests .claude/skills/
+cp -r path/to/pkg/skills/getff .claude/skills/
 cp path/to/pkg/agents/*.md .claude/agents/
 # Authoring-only tools — not for consumers; remove if you copied them above:
 rm -f .claude/agents/manual-rule-liveness-prober.md \
@@ -348,7 +498,7 @@ Make sure `.nvmrc` is committed (`git add -f .nvmrc`).
 ```text
 your-project/
 ├── .claude/
-│   ├── skills/rules-as-tests/        ← skill (auto-activates)
+│   ├── skills/getff/                 ← skill (auto-activates)
 │   └── agents/                        ← sub-agents for /aif-verify
 ├── .ai-factory/
 │   ├── DESCRIPTION.template.md       ← edit and save as DESCRIPTION.md
@@ -361,7 +511,7 @@ your-project/
 ├── .github/workflows/ci.yml          ← lint, test, mutation, audit-ai-docs
 ├── .husky/
 │   ├── pre-commit                    ← lint-staged
-│   └── pre-push                      ← typecheck + tests + arch + audit
+│   └── pre-push                      ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── eslint.config.mjs                 ← ESLint flat config
 ├── vitest.config.ts                  ← Vitest with .unit/.audit naming
 ├── stryker.config.json               ← mutation testing

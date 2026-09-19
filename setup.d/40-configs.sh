@@ -350,15 +350,12 @@ if [ -n "$_ws_lines" ]; then
     case "$_ws_stack" in
       ts-server)
         copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
-        _ws_placed=$((_ws_placed + 1))
         ;;
       react-next)
         copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
-        _ws_placed=$((_ws_placed + 1))
         ;;
       react-spa)
         copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
-        _ws_placed=$((_ws_placed + 1))
         ;;
       react-native)
         # RN ships TWO baselines + a shared base; detect Expo vs bare-RN per workspace package.json.
@@ -369,7 +366,6 @@ if [ -n "$_ws_lines" ]; then
         fi
         copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
         copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
-        _ws_placed=$((_ws_placed + 1))
         ;;
       unknown)
         # Still-unknown after own + explicit-arg + root fallback: KEEP as a re-checkable marker per
@@ -380,6 +376,18 @@ if [ -n "$_ws_lines" ]; then
         continue
         ;;
     esac
+    # ledger A1-9c ("a counter is a success claim"): the four case arms above used to each do
+    # `_ws_placed=$((_ws_placed + 1))` right after copy_safe, so the aggregate loud-fail gate below
+    # was fed by a count of EXECUTED ARMS, not of configs on disk — its own message ("Every workspace
+    # classified 'unknown'") is a claim the counter could not establish. Count the observable outcome
+    # instead. skip-if-exists still counts: a consumer file already at the destination is a placed
+    # config, not a failure. Under --dry-run nothing is written by design, so the arm counts as placed
+    # (otherwise a dry-run over a perfectly classified monorepo would trip the gate's exit 1).
+    if [ -n "$DRY_RUN" ] || [ -f "$_ws_abs/eslint.config.mjs" ]; then
+      _ws_placed=$((_ws_placed + 1))
+    else
+      echo "  ⚠ $_ws_dir: eslint.config.mjs is not on disk after delivery ($_ws_stack) — not counted as placed" >&2
+    fi
     # Per-workspace eslint-rules-local stub: preset templates import './eslint-rules-local/index.mjs'
     # relative to the config's dir. Workspaces are always 2 levels deep (container/name, enforced by
     # _workspace_pkg_dirs) → 3 levels of '../' reliably reach the project root's eslint-rules-local/.

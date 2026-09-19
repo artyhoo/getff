@@ -17,7 +17,7 @@ getff compiles your conventions into native toolchain gates (ESLint/husky for np
 After install, your project has:
 
 1. **A skill** (`.claude/skills/getff/`) — auto-activates in Claude Code on questions about lint, tests, CI, mutation testing, contracts, AI-driven code drift.
-2. **Sub-agents** (`.claude/agents/`) — 8 shipped by default: `review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`:
+2. **Sub-agents** (`.claude/agents/`) — 11 shipped by default: `review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`, `claims-conformance-auditor`, `fidelity-auditor`, `rule-test-author` (`setup.d/20-agents.sh` skips seven authoring-only tools and gates two more behind `--profile factory`):
    - `review-sidecar` — two-AI tautology review of tests (our differentiator; no earlier deterministic channel — its cousin Stryker is CI-only).
    - `living-docs-auditor` — runs `audit-ai-docs.sh` and interprets results (backward Living-Documentation drift).
    - the remaining 6 cover §1.7 PR-review substance (`compliance-verifier`), memory-to-repo codification audits (`memory-codification-auditor`), AIF onboarding scaffolds (`aif-init`), live-documentation rule research (`rule-researcher`), build-vs-reuse capability audits (`capability-reuse-auditor`), and DocPlan semantic-grouping judgment for the composition gate (`docplan-auditor`) — see `agents/` for each agent's own description.
@@ -27,11 +27,11 @@ After install, your project has:
 3. **AI Factory templates** (`.ai-factory/`) — DESCRIPTION, ARCHITECTURE, RULES (R1–R11 + R12–R20 for UI + IR1–IR6 for microservices).
 4. **An audit script** (`scripts/audit-ai-docs.sh`) — drift detection + code-vs-docs probes. ~10 sec run. Each probe has a paired negative test (must fail when introduced bug).
 5. **Stack configs**:
-   - ESLint 10 flat config (typescript-eslint strictTypeChecked + Prettier; for React, also react-hooks + jsx-a11y/strict + @next/next).
+   - ESLint 9 flat config (typescript-eslint strictTypeChecked + Prettier; for React, also react-hooks + jsx-a11y/strict + @next/next) — `setup.d/70-deps.sh` pins `eslint@^9`, the verified peer matrix.
    - Vitest 4.x with `.unit.ts` / `.integration.ts` / `.audit.ts` naming and per-module coverage thresholds (90% domain, 85% application).
    - Stryker mutation testing (incremental on PR diff).
    - dependency-cruiser layered architecture rules.
-   - Husky pre-commit (lint-staged) + pre-push (typecheck + vitest related + arch + audit-ai-docs).
+   - Husky pre-commit (lint-staged) + pre-push. The pre-push hook runs getff's own rule checks — rule-glob liveness, lint-staged binary resolution, generated-rule firing, link-check on changed Markdown, un-pinned tool installs — **not** your typecheck or test suite, which stay yours to wire.
    - GitHub Actions CI with required `ci-success` job.
    - For React/Next: also Playwright (component testing + e2e) and Storybook test-runner.
 
@@ -107,6 +107,33 @@ For details, see `skills/getff/references/`:
 - `self-testing-docs.md` — the `audit-ai-docs.sh` pattern with negative tests
 - `doc-organization.md` — hot/cold split for AGENTS.md, token economy
 
+## What's in the repo (operator contour)
+
+[What you get today](#what-you-get-today) lists what `getff init` installs into *your* project.
+This section maps what the framework repo itself runs — the machinery that keeps the five
+layers above honest while the framework is being built. Most of it is **not** shipped to
+consumers: what ships, and at which tier, is a per-artifact fact, and the authoritative
+per-artifact list is generated rather than kept by hand (see the closing note).
+
+| Family | Where | What it is |
+|---|---|---|
+| **Enforcement machinery** | [`packages/core/principles/`](packages/core/principles/) | Meta-tests about the rules themselves — every rule must carry an executable check and a paired negative test. `make self-audit` runs them; this is recursive self-application in code. |
+| **Discipline rules** | [`.claude/rules/`](.claude/rules/), digest [`00-rule-index.md`](.claude/rules/00-rule-index.md) | Prose statutes, each declaring the channel it fires on (edit-time inject, hook, pre-push section, cold agent). The index is generated from the rule files, never hand-edited. |
+| **Session hooks** | [`.claude/hooks/`](.claude/hooks/) | Context injected at the moment of work: the rule matching the edited path, the session bootstrap and goal digest, the output language, kickoff traps, sub-agent context. Plus session continuity — a pre-compaction residue snapshot, a handoff-currency gate, and a plain-words session recap. |
+| **Seats (skills)** | [`.claude/skills/`](.claude/skills/) | Named roles a session takes: `/pipeline` (what to work on next — priority scoring over a deterministic feed with completion detection), `/arch` (design dialogue), `/orchestrator` and `/dispatcher` (waves, routing, in-flight probing), `/reviewer`, `/night-mode` (autonomous runs), `/harvest` (finished agent branches into PRs), `/story` (plain-words recap), `/rule-research` and `/rule-tests` (a new rule, and the test that proves it fires), `/ai-doc`, `/self-reflection`. |
+| **Cold agents** | [`agents/`](agents/) | Read-only reviewers with no memory of how the code was written: backward sweeps over a change's class, §1.7 substance checks, claims conformance, dual-channel drift, liveness probes. Session-read prompts, never metered CI calls. |
+| **Advisor mailbox** | [`scripts/check-ask-files.sh`](scripts/check-ask-files.sh) | A seat, not a skill: on a fork it cannot decide, a session files a schema-checked ask instead of guessing. The same script is the emitter and the pre-push validator, so a malformed ask is a red test rather than a lost question. |
+| **Generation** | [`packages/core/synthesizer/`](packages/core/synthesizer/), [`packages/core/detector/`](packages/core/detector/) | Declarative markdown compiled into an ESLint rule; stack detection deciding which preset a project gets. |
+| **Delivery** | [`install.sh`](install.sh), [`setup.d/`](setup.d/), [`packages/getff/`](packages/getff/), [`plugin/`](plugin/) | The one-command install, the layered installer, the npm tarball with a hash manifest, and the Claude Code / ZCode plugin twins. Byte-identical install snapshots per stack and lane guard all of it. |
+
+**The per-artifact list is generated, not written here.** A hand-kept roster of this size drifts
+on the first pull request that adds a skill — the failure mode
+[`.claude/rules/attention-is-not-a-mechanism.md`](.claude/rules/attention-is-not-a-mechanism.md)
+exists to forbid. The reference generator — one card per artifact across installer layers,
+skills, agents, hooks, templates, rules, scripts, packages, bridge CLI and plugin, with a test
+asserting population and cards match one-to-one in both directions — is designed and lands with
+the documentation site. Until it does, the directories above are the source of truth.
+
 ## Installation
 
 ### Quick start — one command (recommended)
@@ -119,8 +146,8 @@ bash /tmp/rt/setup ts-server                 # or react-next; omit to get a stac
 
 `./setup` is the one-click orchestrator (framework + companions + runtime-bridge). Flags:
 
-- `--yes` — non-interactive consumer default: skip the prompts, install missing companions, run the bridge step; ships the curated consumer set only.
-- `--all` — everything: `--yes` PLUS the AIF operator suite (6 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
+- `--yes` — non-interactive consumer default: skip the prompts, install missing companions, install the dev-dependencies, run the bridge step; ships the curated consumer set only.
+- `--all` — everything: `--yes` PLUS the AIF operator suite (5 skills + 2 agents + their skill-context — presupposes the aif-handoff runtime; operator machines).
 - `--dry-run` — print the full plan, write nothing.
 
 It runs four steps:
@@ -130,9 +157,19 @@ It runs four steps:
 3. **Companions** — manifest-driven, detect-first, consent per companion — see below.
 4. **Runtime-bridge** — optional guided aif-handoff setup (`[y/N]`, default N) — see [docs/runtime-bridge-setup.md](docs/runtime-bridge-setup.md).
 
-`./setup` deploys files; it does **not** run `npm install`. When it finishes, the installer prints the remaining wiring steps — the exact `npm install -D` dev-dependency list, the `package.json` scripts to add (`INSTALL.md §3`), and `npx husky init`.
+Interactive `./setup` deploys files and **asks** before touching your dependencies. When it finishes, the installer prints the remaining wiring steps — the exact `npm install -D` dev-dependency list, the `package.json` scripts to add (`INSTALL.md §3`), and `npx husky init`. The non-interactive flags do not ask: `-y` / `--yes` / `--full` / `--all` run the dev-dependency install for you (`setup:48` sets `--full`; `setup.d/70-deps.sh:302` takes the install arm on it), so on a reviewed or offline machine pass no flag and answer the prompt.
 
 > The previous end-to-end wrapper `setup.sh` (`ai-factory init` + `npm install` + husky init + npm scripts via `jq`) has been **retired** (2026-07-10) — `./setup` supersedes it. It also ran an unpinned `npm install -g ai-factory`; companions now install detect-first via the manifest below. If older instructions point you at `bash setup.sh`, use `./setup` instead.
+
+### On Windows
+
+Same command, one prerequisite: **[Git for Windows](https://git-scm.com/download/win)** — it
+supplies the `bash`, `git` and `curl` the preflight above probes for. WSL is neither required
+nor used: the `getff` entry point is a Node program that finds Git Bash itself and deliberately
+ignores the `bash` on `PATH`, because on a WSL machine that is
+`C:\WINDOWS\system32\bash.exe`, which cannot open `C:\`-style paths. Set `GETFF_BASH` to
+override the search. Full prerequisites, the search order and what has and has not been
+measured: [INSTALL.md § Windows](INSTALL.md#windows).
 
 ### As a Claude Code plugin (per-harness)
 
@@ -156,6 +193,21 @@ It previews the changes (dry-run, writes nothing), asks for `[y/N]`, then fetche
 - **OpenCode (and other non-CC harnesses):** the same skills are portable — see [`.opencode/INSTALL.md`](.opencode/INSTALL.md). The one accepted off-CC degradation: `SessionStart` auto-injection does not fire, so the bootstrap skill is read on demand (a documented degradation, not a portability gap).
 - **Plugin vs `./setup`:** the plugin is the **soft-layer-first** path (great for "just give me the skills"); `./setup` / `install.sh` is the **full file deploy + hard layer** in one shot. Both reach the same `install.sh` for enforcement.
 
+### As a ZCode plugin (per-harness)
+
+ZCode installs the same plugin payload from the same GitHub marketplace — one artifact serves both harnesses:
+
+In ZCode: **Settings → Plugin Management → Discover → `+`** (Add marketplace) → enter `artyhoo/getff` → install **Getff** from the `getff` marketplace section. ZCode has no plugin CLI/slash command for this (verified live, ZCode 3.11.2); the `+` dialog accepts the GitHub `owner/repo`, a git URL, or a local directory, and the Discover card's **Get/Install/Update** button installs or refreshes the payload.
+
+What the plugin delivers on ZCode, and the honest boundary:
+
+- **Skills** — the plugin's skills load into ZCode sessions from the installed payload; the `SessionStart` hook injects the `using-getff` bootstrap so they auto-trigger (same mechanism as CC).
+- **Session hooks** — ZCode runs the plugin's PostToolUse gate hooks **advisory-only** (its schema consumes `additionalContext` for PostToolUse, not `permissionDecision`) — declared loudly by the harness renderer, not silently dropped.
+- **The soft/hard boundary is the same as CC** — a plugin never mutates your git/CI. The hard layer (`.husky` + CI enforcement) is opt-in via the installer (`./setup` / `install.sh`), which is harness-independent; on CC a `/getff:install-enforcement` command is the convenience path to the same installer.
+- **Agents** — ZCode's plugin system records the plugin's sub-agents but does not execute them (known harness limitation, per ZCode's own bundled plugin documentation); their markdown stays readable by any session.
+- Per-hook parity detail — what works, what degrades, and why: the [ZCode parity doctrine](.claude/rules/zcode-parity-doctrine.md) §2 census is the SSOT.
+- **Language (human-facing output)** — ZCode has no `env`-block mechanism for plugin hooks and a GUI-launched app does not inherit your shell profile, so `AIF_HOOK_LANG` never reaches hooks there (CC reads it from `~/.claude/settings.json` `env`). The plugin's hook wrapper falls back to a file: put one line (e.g. `ru`) in `~/.config/getff/hook-lang` and hook messages + the output-language directive follow it on both harnesses; an explicit env var always wins (incident 2026-09-13: Russian explanations silently degraded to English on ZCode).
+
 ### Optional companion install (K-1)
 
 Companion installs run as `./setup` step 3, driven by a manifest (`setup.d/companions.manifest`) — one row per companion (detect command, install command, kind), looped by `setup.d/engine.sh`:
@@ -177,18 +229,18 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 | Path | Source | Edit needed? |
 |---|---|---|
 | `.claude/skills/getff/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
-| `.claude/agents/review-sidecar.md`, `living-docs-auditor.md` | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
+| `.claude/agents/` — 11 files (`review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`, `claims-conformance-auditor`, `fidelity-auditor`, `rule-test-author`) | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
 | `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue) | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
-| `.ai-factory/DESCRIPTION.template.md` | template with `<PLACEHOLDERS>` | **Yes — fill in, rename to `DESCRIPTION.md`** |
+| `.ai-factory/DESCRIPTION.template.md` + `.ai-factory/DESCRIPTION.md` | template with `<PLACEHOLDERS>`; the installer already materializes `DESCRIPTION.md` from it (`setup.d/30-templates.sh:77`, never clobbering an edited one) | **Yes — fill in `DESCRIPTION.md`** (no rename needed) |
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |
 | `AGENTS.md` (root) | from `packages/core/templates/shared/AGENTS.md.template` | **Yes — review** |
 | `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `stryker.config.json`, `.lintstagedrc.json`, `.nvmrc` | stack-specific configs | No — work out of the box |
-| `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged + typecheck + audit) | No |
+| `.husky/pre-commit`, `.husky/pre-push` | Husky hooks (lint-staged at commit; getff's rule checks at push) | No |
 | `.github/workflows/ci.yml` | full CI pipeline (lint, typecheck, arch, tests, mutation) | No — works as-is † |
 | `scripts/audit-ai-docs.sh` (and `.react-next.sh`) | code-vs-docs probes | No — extend with project-specific probes if useful † |
 
-> **† Layout-honesty caveat.** The shipped audits (`scripts/audit-ai-docs.sh` / `.react-next.sh`, and the `ci.yml` that runs them) assume the canonical `src/` + DDD layout. Several layout-specific probes are hardcoded to that layout, so on a non-`src/` project (`app/`, `lib/`, `apps/*/src/`, or a flat tree) they currently report **PASS while checking zero files** — green that means "the rule could not run on your layout", not "the rule ran and found nothing wrong". Two concrete examples at current HEAD: **R4** (`packages/core/audit-self/audit-ai-docs.ts`, `probeR4`) returns `pass` with `(skipped: no src/domain)` when `src/domain` is absent; **R17** (`audit-ai-docs.react-next.sh`, `for f in $(find src/shared/ui src/features/*/ui …)`) iterates zero times when those dirs don't exist and then unconditionally passes. So "works as-is" is accurate **on** the canonical layout, but a consumer on another layout must not read green from these audits as a real pass — extend or repoint the probes to your own paths first.
+> **† Layout-honesty caveat.** The shipped audits (`scripts/audit-ai-docs.sh` / `.react-next.sh`, and the `ci.yml` that runs them) assume the canonical `src/` + DDD layout. Several layout-specific probes are hardcoded to that layout, so on a non-`src/` project (`app/`, `lib/`, `apps/*/src/`, or a flat tree) they currently report **PASS while checking zero files** — green that means "the rule could not run on your layout", not "the rule ran and found nothing wrong". Two concrete examples at current HEAD: **R4** (`packages/core/audit-self/audit-ai-docs.ts:191`, `probeR4`) returns `warn` with `(skipped: no src/domain — probe could not run)` when `src/domain` is absent; **R17** (`audit-ai-docs.react-next.sh:86`) collects no roots when `src/shared/ui` / `src/features/*/ui` don't exist and emits `warn "… (skipped: no src/shared/ui or src/features/*/ui — probe could not run)"` instead of scanning. So "works as-is" is accurate **on** the canonical layout, but a consumer on another layout must not read green from these audits as a real pass — extend or repoint the probes to your own paths first.
 
 **Manual work after install:** the three project-specific items above (DESCRIPTION placeholders, RULES.md trimming, AGENTS.md review), plus the wiring steps the installer prints — `npm install -D` dev-deps, `package.json` scripts (`INSTALL.md §3`), `npx husky init`, and `npx depcruise --init` to generate `.dependency-cruiser.cjs` (the retired `setup.sh` wrapper used to automate these). Typically 5-10 minutes — or zero, if you delegate it to an AI (next section).
 
@@ -199,8 +251,11 @@ Paste this into Claude Code, Cursor, or any AI agent with file access in your pr
 ```text
 Install getff into this project.
 
-1. Detect stack: `ts-server` (default) or `react-next` (next.config.* present, or
-   "next"/"react" in package.json).
+1. Detect stack — or omit it and let the installer do it. `setup.d/lib.sh`
+   `_detect_stack_from_pkg` walks package.json dependency keys in order:
+   `react-native` → react-native; `next` → react-next; `react` → **react-spa**;
+   `typescript` → ts-server; otherwise unknown. It does not look at `next.config.*`,
+   and a plain React dependency resolves react-spa, not react-next.
 2. Run: bash /path/to/getff/setup <detected>
    (clone the repo to /tmp/rt first if not on disk; the package is at
    github.com/artyhoo/getff — needs SSH/HTTPS access.
@@ -255,7 +310,7 @@ Pass the stack to `./setup` (or `install.sh`) as a positional argument — `ts-s
 
 The stacks above are all inside the npm toolchain. The framework is being generalized one level up — from `{stack}` to `{toolchain: npm | cargo | go | maven, …, stack}` — via the **Convention Compiler**: a narrow-core intermediate representation plus a per-backend capability matrix (deliberately *not* a union "one IR fits all"). **Rust/cargo is the first non-npm backend.**
 
-This is a **roadmap, not shipped** — no Rust rule-pack exists yet. What is in place today: the design + kickoff ([`docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md`](docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md)), and the trust-tier system's first non-JS provenance adapter (`cargo`, deriving trusted doc-research hosts from `Cargo.toml` metadata — SSOT #197). Live cargo rule-firing needs a Rust toolchain and is not yet verified end-to-end.
+The Convention-Compiler **rule-pack** for Rust is a **roadmap, not shipped** — no Rust rule-pack exists yet. The cargo *lane* itself does ship: `install.sh cargo` (`install.sh:166`) routes to `setup.d/46-cargo.sh`, alongside the `python` and `go` lanes. What is in place today: the design + kickoff ([`docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md`](docs/superpowers/specs/2026-07-03-multi-toolchain-convention-compiler-design.md)), and the trust-tier system's first non-JS provenance adapter (`cargo`, deriving trusted doc-research hosts from `Cargo.toml` metadata — SSOT #197). Live cargo rule-firing needs a Rust toolchain and is not yet verified end-to-end.
 
 ## Forward compatibility note on AIF extensions
 
@@ -271,8 +326,8 @@ When the schema finalizes, `extension.json` may need updates. `install.sh` will 
 The framework is **AI-agnostic by design** — any harness with a CC-compatible hook system works. Per-hook coverage and dogfood depth vary; the doctrine lives at [`.claude/rules/zcode-parity-doctrine.md`](.claude/rules/zcode-parity-doctrine.md).
 
 **Supported today:**
-- **Claude Code** — primary dogfood harness; deepest coverage (all 20 hooks).
-- **ZCode** — full parity via plugin channel + `_zcode-emit` helper. Three CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
+- **Claude Code** — primary dogfood harness; deepest coverage (hook-by-hook census: [doctrine §2](.claude/rules/zcode-parity-doctrine.md)).
+- **ZCode** — full parity via plugin channel + `_zcode-emit` helper; consumers install from the same GitHub marketplace (see «As a ZCode plugin» above). Four CC-only events (`SubagentStart`, `SubagentStop`, `WorktreeCreate`, `PreCompact`) have documented fallbacks or accepted CC-only rationale per the doctrine §4.
 - **Cursor** — high CC-overlap (native `SubagentStart`/`Stop`, lifecycle hooks). Listed based on docs-verification in the [S8 agnosticism survey](docs/meta-factory/research-patches/2026-07-18-zcode-parity-s8-harness-survey.md); live end-to-end testing is a follow-up.
 
 **Roadmap (FEASIBLE-WITH-WORK — adapter needed):**
@@ -282,7 +337,7 @@ The framework is **AI-agnostic by design** — any harness with a CC-compatible 
 **Out-of-scope:**
 - **Aider** — no hook system (upstream issues `aider#2045`, `aider#2557`).
 
-**Wave B rollout status:** Stages 5 (`warn-subagent-report` ZCode variant), 6 (9-twin migration + generator), 7B (`inject-subagent-context` extension for full `SubagentStart` payload parity), 9C (`end-of-turn-reminder` ZCode multi-turn arm) are decided ([decisions.md](docs/meta-factory/zcode-parity-mega.decisions.md) §Wave A brainstorm resolutions) and implementation-pending. See doctrine §3 for live merge status.
+**Wave B rollout status:** Stages 5 (`warn-subagent-report` ZCode variant), 6 (9-twin migration + generator), 7B (`inject-subagent-context` extension for full `SubagentStart` payload parity), 9C (`end-of-turn-reminder` ZCode multi-turn arm) are **merged** (#1043/#1044/#1046/#1047). Live per-stage status lives in the [doctrine §3](.claude/rules/zcode-parity-doctrine.md) — cited here rather than restated, so this line cannot drift from the census.
 
 ## Verified versions (May 6, 2026)
 
@@ -326,7 +381,7 @@ The complete rule list (R1–R20):
 
 ## Lessons learned included
 
-`references/ai-traps.md` ends with 8 real-world lessons from running AI-driven projects:
+`references/ai-traps.md` ends with 23 real-world lessons from running AI-driven projects, among them:
 
 1. Dual-remote projects — `.claude/` in `.gitignore` of work-repo (drift symptom)
 2. Skills declared early, never created (skill-fantoms)

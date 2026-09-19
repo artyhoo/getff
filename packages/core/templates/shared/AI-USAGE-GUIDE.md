@@ -46,11 +46,13 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 
 <!-- step: install -->
 
-1. **Install at core depth** — from your project root run `bash <getff>/setup -y <stack>` (stacks:
-   `ts-server`, `react-next`, `react-spa`, `react-native`). Omit the stack to auto-detect.
-   Non-npm projects take a separate lane, each an explicit positional argument:
-   `install.sh python`, `install.sh cargo`, `install.sh go`. Those lanes early-exit before the
-   npm `package.json` precondition, so they need no `package.json` at all.
+1. **Install at core depth** — from your project root run
+   `bash <getff>/setup -y --profile core <stack>` (stacks: `ts-server`, `react-next`,
+   `react-spa`, `react-native`). Omit the stack to auto-detect. Name `core`: `-y` on its own
+   resolves to `env` depth, not `core` (`install.sh:648`).
+   Non-npm projects take a separate toolchain lane, each an explicit positional argument:
+   `./setup python`, `./setup cargo`, `./setup go` (or `bash install.sh <lane>`). Those lanes
+   early-exit before the npm `package.json` precondition, so they need no `package.json` at all.
 
 <!-- step: verify-payload -->
 
@@ -78,15 +80,26 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
    input in a temp dir and asserts the installed ESLint rules go RED on it. This is the
    first-rule-fires moment: an installed rule never seen to fire is an unproven claim.
 
+<!-- step: fire-on-your-code -->
+
+6. **Fire a rule on YOUR code, not a fixture** — plant one violation of a shipped getff rule in
+   YOUR tree and run your stack's native gate; the RED line names your file. npm: add
+   `z.string().parse(input)` to a file under a boundary glob (`**/routes/**`, `**/handlers/**`,
+   `**/controllers/**`, `**/app/api/**`, `**/actions/**`) and run `npm run lint` — RED from
+   `rules-as-tests/no-unsafe-zod-parse` (R2, the one custom rule wired unconditionally; R7/R8 fire
+   only under `AIF_STRICT_RUNTIME=1`). Lanes: python — add `datetime.utcnow()`, run
+   `ruff check . --config .getff/ruff-bans.toml`; cargo — add `std::env::var("X")`, run
+   `cargo clippy`; go — add `os.Getenv("X")`, run `golangci-lint run`.
+
 <!-- step: run-the-gate -->
 
-6. **Run the gate you will run every day** — `bash scripts/audit-ai-docs.sh` (~10 sec). Expect
+7. **Run the gate you will run every day** — `bash scripts/audit-ai-docs.sh` (~10 sec). Expect
    findings on a fresh project; `INSTALL-FOR-AI.md` «Expected first-run failures» lists the normal
    ones.
 
 <!-- step: research-your-stack -->
 
-7. **Continue into rule research in the same session** — invoke `/rule-research`, or read
+8. **Continue into rule research in the same session** — invoke `/rule-research`, or read
    `.claude/agents/rule-researcher.md` on a harness without skills. The installer delivered a
    curated starter set; researching stack-specific rules from live documentation is the next step
    of the same lifecycle, not a later project.
@@ -105,8 +118,9 @@ not know: `env` is the default, `core` is the rules-only depth below it and puts
 <!-- step: verify-payload -->
 
 2. **Verify the payload landed** — `ls AGENTS.md .ai-factory/ scripts/`, plus
-   `.ai-factory/tier-home.md` and `.claude/skills/arch/` — the two artefacts `env` adds over
-   `core`.
+   `.ai-factory/tier-home.md` and the five skills `env` adds over `core`:
+   `.claude/skills/arch/`, `.claude/skills/night-mode/`, `.claude/skills/orchestrator/`,
+   `.claude/skills/pipeline/` and `.claude/skills/reviewer/`.
 
 <!-- step: fill-passport -->
 
@@ -191,8 +205,12 @@ The steady-state loop once First Steps is done. Every command below is shipped b
 3. **Before you commit** — `bash scripts/audit-ai-docs.sh` (drift + code-vs-docs probes) and, when
    you touched layout or added a package, `bash scripts/check-rule-globs.sh` and
    `bash scripts/check-lintstaged-resolves.sh`. The pre-commit hook runs lint-staged on its own.
-4. **On push** — `.husky/pre-push` fires automatically: typecheck, `vitest related`,
-   dependency-cruiser. It is not optional and not to be bypassed with `--no-verify`.
+4. **On push** — `.husky/pre-push` fires automatically. It runs **getff's own rule checks**:
+   rule-glob liveness (an active rule whose globs match no file fails), lint-staged binary
+   resolution, generated-rule firing, link-check on changed Markdown, and un-pinned tool
+   installs in workflows. It does **not** run your typecheck or your test suite — those stay
+   yours to wire, at pre-commit or in your CI. It is not optional and not to be bypassed with
+   `--no-verify`.
 5. **On the PR** — CI (`ci-success`) is the last-resort gate. It is the authority that does not
    depend on anyone's local tooling, which is exactly why it must never be the FIRST place a
    problem is caught. A CI that died without running a step is not a red gate: when a GitHub Free
@@ -273,11 +291,11 @@ rather than implying uniformity:
 Per this program's honesty rule, a capability that is not on disk gets an **owner and a trigger**
 here instead of a section pretending it exists.
 
-| Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                  |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                   |
-| Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | the package is published under the frozen name                         |
-| Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header |
+| Capability                                                 | State today                                                                    | Owner                                           | Trigger that lands it                                                   |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------- |
+| Park routing + status classes as a consumer-facing surface | not shipped                                                                    | umbrella C, later stage                         | a shipped park/status artefact exists to render from                    |
+| Published npm install path (`npx getff@latest init`)       | not live — the install path today is a `git clone` plus `setup` / `install.sh` | release-frame phase 2, after the R1 name freeze | `npm view getff version` resolves (the frozen name is unscoped `getff`) |
+| Human-voiced First Steps on the project site               | not authored                                                                   | umbrella B / BS2                                | BS2 vendors the render from the §2 SSOT and adds the provenance header  |
 
 ---
 
@@ -289,8 +307,8 @@ The list below is **rendered from the shipped preset data** (`.claude/skills/pip
 
 <!-- getff:begin section=pipeline-presets plan=scripts/render-presets.mjs -->
 
-- `aif` — Autonomous overnight aif-handoff dispatch (mode=autonomous, marker=Claude Opus (plan+review))
-- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.2 SDK)
+- `aif` — Autonomous overnight aif-handoff dispatch (project-default profiles, no marker) (mode=autonomous)
+- `economy` — Cost-conscious whole-line on executor tier (mode=whole-line-executor, marker=Z.AI GLM-5.3 SDK)
 - `night` — Night-mode unattended single-session (mode=mode-a-inline)
 - `sdd` — Interactive single-feature SDD (mode=in-session)
 

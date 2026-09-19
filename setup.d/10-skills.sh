@@ -19,15 +19,11 @@ if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; the
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/getff"
-  cp -r "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
   # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
   # copy_skill_with_transform — its ](../../../README.md), ](../../install.sh) and
   # ](../../../.claude/rules/…) refs dangle on a consumer tree without this pass
   # (2026-07-10 flat-install smoke: first consumer push red on pre-push §8 lychee).
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/getff" -name '*.md' -print0)
+  _copy_tree_with_transform "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff"
   echo "  ✓ .claude/skills/getff/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 fi
 if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--force" ]; then
@@ -40,13 +36,9 @@ if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--
 elif [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
 else
-  rm -rf "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
-  cp -r "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for
   # install/refresh parity with do_refresh and so a future added ref cannot dangle silently.
-  while IFS= read -r -d '' mdfile; do
-    transform_internal_refs "$mdfile"
-  done < <(find "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" -name '*.md' -print0)
+  _copy_tree_with_transform "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping"
   echo "  ✓ .claude/skills/tool-bootstrapping/"
 fi
 # meta-orchestrator + its orchestration companions: shipped from authoring location
@@ -58,8 +50,10 @@ fi
 # or above), and an AIF operator SUITE (shipped ONLY at PROFILE=factory or via legacy
 # --with-aif-suite). The contour surface carries the architecture-design skill that produces
 # the contour; the suite presupposes the aif-handoff operator runtime. On a consumer without
-# that runtime the suite's triggers fire into a dead end, and `story` crashes on landing until
-# its lang-pack ships (#934). Gating is opt-in + reversible (BFR §1.1 integrate-never-hard-depend;
+# that runtime the suite's triggers fire into a dead end. `story`'s original blocker (crash
+# without the lang pack, #934) is resolved — #1003 §1c ships lang/ to every consumer — and it
+# stays gated by the operator product call 2026-09-11 (recap nicety, not must-ship consumer
+# machinery). Gating is opt-in + reversible (BFR §1.1 integrate-never-hard-depend;
 # same posture as companions.manifest — companion-install-principle.md).
 #
 # CORE (always — consumer-facing, no aif-handoff runtime assumed):
@@ -116,8 +110,10 @@ fi
 #   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
 #                      break-glass) for consumers running aif-handoff.
 #   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
-#                      output). Stays in the gated set until its lang-pack delivery is fixed
-#                      (#934) — it crashes on landing without the pack.
+#                      output). The original gate reason (#934 lang-pack crash) is RESOLVED —
+#                      #1003 §1c ships lang/{en,ru}.sh to every consumer — so the gate is now a
+#                      product choice, not a blocker fix: operator call 2026-09-11 keeps story
+#                      factory-only (not must-ship consumer machinery; revisit on demand).
 #   - claude-glm-executor-handoff — pairs an in-aif Claude coordinator with a GLM-family
 #                      executor tier (kickoff marker → bridge-profile resolver). Factory-only
 #                      by design (S5 kickoff §2 binding #3): the skill presupposes the
@@ -213,10 +209,17 @@ elif [ ! -f "$SETTINGS" ]; then
   echo "  ✓ .claude/settings.json created with UserPromptSubmit hook"
 elif command -v jq >/dev/null 2>&1; then
   if ! grep -q "deps-hash-check" "$SETTINGS" 2>/dev/null; then
-    jq --arg cmd "$HOOK_CMD" \
+    # ledger A1-9 (the A1-8 class): see setup.d/05-mcp.sh — an unconditional ✓ over a failed jq
+    # rewrite claimed the hook was registered while settings.json still had none, and left a stale
+    # settings.json.tmp behind.
+    if jq --arg cmd "$HOOK_CMD" \
       '.hooks.UserPromptSubmit += [{"hooks":[{"type":"command","command":$cmd}]}]' \
-      "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"
-    echo "  ✓ deps-hash-check registered in existing .claude/settings.json"
+      "$SETTINGS" > "$SETTINGS.tmp" && mv "$SETTINGS.tmp" "$SETTINGS"; then
+      echo "  ✓ deps-hash-check registered in existing .claude/settings.json"
+    else
+      rm -f "$SETTINGS.tmp" 2>/dev/null || true
+      echo "  ⚠ jq rewrite of $SETTINGS failed — file left unchanged, deps-hash-check NOT registered" >&2
+    fi
   else
     echo "  ⊝ .claude/hooks/deps-hash-check.sh already registered in settings.json"
   fi
@@ -241,12 +244,57 @@ if [ -f "$EOT_SRC" ]; then
   for _lp in en.sh ru.sh check-parity.sh; do
     [ -f "$PKG_ROOT/.claude/hooks/lang/$_lp" ] && copy_safe "$PKG_ROOT/.claude/hooks/lang/$_lp" "$PROJECT_ROOT/.claude/hooks/lang/$_lp"
   done
+  # D29: the Stop hook sources lib/residue-dir.sh (the handoff-currency gate's residue
+  # cascade) — delivered BY NAME like the lang packs above; without it the hook runs its
+  # inline fallback. The guarded source in the hook keeps a lib-less install working; this
+  # copy is what makes the shared lib the operative path in a fresh consumer install.
+  if [ -f "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    copy_safe "$PKG_ROOT/.claude/hooks/lib/residue-dir.sh" "$PROJECT_ROOT/.claude/hooks/lib/residue-dir.sh"
+  fi
   chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "  [dry-run] would: register end-of-turn-reminder as a Stop hook in .claude/settings.json"
   else
     # $CLAUDE_PROJECT_DIR-relative (matches the framework's own settings.json — worktree-safe).
     register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+
+    # R-15: the recap-gate REJECTION ships dormant. `--full` is the developer-install axis
+    # (orthogonal to --profile), so a full install arms it; a plain install does not. The
+    # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
+    # so this mirrors the hand-action sibling that arms the SAME key,
+    # scripts/register-recap-gate.sh:159-175, and through it the shape's origin
+    # scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate, atomic mv, skip
+    # when already set. Never write the target in place: a malformed settings.json silently
+    # disables EVERY setting in it.
+    if [ "${FULL:-}" = "--full" ]; then
+      # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
+      # no-op that prints nothing leaves the operator believing the gate is on when it is not.
+      # Same shape as this file's deps-hash-check jq-less branch (:227).
+      if ! command -v jq >/dev/null 2>&1; then
+        echo "  ⚠ jq not found — AIF_RECAP_GATE NOT armed; add manually to $SETTINGS:" >&2
+        echo '    "env": { "AIF_RECAP_GATE": "1" }' >&2
+      elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
+        echo "  AIF_RECAP_GATE already armed"
+      else
+        # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
+        # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
+        # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
+        # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
+        # the install clean while the operator believed the gate was armed (review M-7).
+        _rg_tmp="$SETTINGS.recapgate.tmp"
+        if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$SETTINGS" > "$_rg_tmp" 2>/dev/null \
+           && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
+          if mv "$_rg_tmp" "$SETTINGS"; then
+            echo "  AIF_RECAP_GATE=1 armed (--full)"
+          else
+            rm -f "$_rg_tmp"; echo "  ⚠ could not write $SETTINGS — AIF_RECAP_GATE NOT armed"
+          fi
+        else
+          rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $SETTINGS left untouched"
+        fi
+      fi
+    fi
   fi
 fi
 

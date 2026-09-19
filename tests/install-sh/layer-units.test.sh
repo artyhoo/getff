@@ -108,12 +108,18 @@ done
 echo ""; echo "  ── structural: no copy-pasted helper bodies in layers ──"
 # These function defs must NOT appear in any layer file (they belong in lib.sh only).
 # Use -E patterns and match function-definition syntax: name() { OR name () {
+# The _lane_* five are the ledger-1597 S-2 shared toolchain-lane machinery (log sink,
+# copy-or-refresh wrapper, delivered-config resolver, CI cell, cargo/go lock writer) — listed
+# here so a copy of a body back into 45/46/47 goes RED instead of silently re-growing the
+# ~200-lines-x3 duplication S-2 removed.
 SSOT_FUNS=("copy_safe" "refresh_safe" "mkdir_safe" "chmod_safe" \
            "transform_internal_refs" "detect_pm" "_detect_stack_from_pkg" \
            "_workspace_pkg_dirs" "_detect_stacks_per_workspace" \
            "patch_stryker_package_manager" \
            "copy_skill_with_transform" "refresh_skill_with_transform" \
-           "merge_prettierignore" "ignore_shipped_configs")
+           "merge_prettierignore" "ignore_shipped_configs" \
+           "_lane_log" "_lane_copy_or_refresh" "_lane_delivered_config_path" \
+           "_lane_deliver_ci" "_lane_write_toolchain_lock")
 found_paste=0
 for fn in "${SSOT_FUNS[@]}"; do
   # Match function definition syntax: "fn() {" or "fn () {" or "function fn"

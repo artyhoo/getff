@@ -113,9 +113,11 @@ wire_c() {
 verify() {
   local repo="$1" hooks_dir="$2" settings="$3"
   local fail=0
+  # shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
   [ -x "$hooks_dir/post-checkout" ] && grep -q coordination-persistence "$hooks_dir/post-checkout" \
     && ok "verify G: post-checkout present + executable" || { say "  FAIL G"; fail=1; }
   if [ -f "$settings" ]; then
+    # shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
     jq -e '[.hooks.SessionStart[]?.hooks[]?.command // empty] | any(test("link-coordination"))' "$settings" >/dev/null 2>&1 \
       && ok "verify B: SessionStart wired" || { say "  FAIL B"; fail=1; }
   fi
@@ -140,6 +142,7 @@ self_test() {
   wire_c "$sprojects"
 
   local pass=1
+  # shellcheck disable=SC2015  # grep IS the test here; the brace group is its else-branch
   [ -x "$hooks/post-checkout" ] && grep -q coordination-persistence "$hooks/post-checkout" || { say "SELFTEST FAIL: G"; pass=0; }
   jq -e '[.hooks.SessionStart[]?.hooks[]?.command // empty] | any(test("link-coordination"))' "$settings" >/dev/null || { say "SELFTEST FAIL: B"; pass=0; }
   jq -e '(.setup) | any(test("link-coordination")) and (any(test("rsync")) | not)' "$scfg" >/dev/null || { say "SELFTEST FAIL: C (rsync not replaced)"; pass=0; }

@@ -13,7 +13,7 @@
  * false-suppress regression that prior cold-review caught.
  *
  * Pattern: spawnSync(bash, [HOOK], {input: JSON}) + on-disk JSONL transcript,
- * REFERENCEing the check-hook-marker.test.ts:50-64 fixture-spawn shape (no new
+ * REFERENCEing the check-hook-marker.test.ts:49-63 fixture-spawn shape (no new
  * test framework, no bats dep — T-M4-A counter). Skips gracefully when `jq`
  * is unavailable on the runner.
  *
@@ -24,16 +24,39 @@
  *   boundary: AskUserQuestion-only turn after prior "## 🟢" recap — must FIRE
  *      (B2 idle-suppress fix at hook:129-131; this is the regression-guard).
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, afterAll } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  writeFileSync,
+  appendFileSync,
+  readFileSync,
+  rmSync,
+  mkdirSync,
+  chmodSync,
+  existsSync,
+} from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
+
+// Every case below spawns `bash .claude/hooks/end-of-turn-reminder.sh`: 106 spawn call
+// sites over 117 cases, and the D13 `fixture 9` arm replays the whole 19-case golden
+// fixture through the hook inside ONE `it`. So the vitest 5s default is a mis-set gate
+// rather than a signal — run in isolation on an idle box the slowest arms measure 1806ms
+// (F-2) and 1522ms (D13 fixture 9, measured 2026-09-14), i.e. ~2.8x headroom, and that is
+// exactly the headroom a fully parallel `npm run test` on a loaded box consumes.
+// 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
+// suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
+// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:574
+// and check-worker-dispatch-channel.test.ts:358 record the same 5000ms-under-parallel-load
+// failure, in the inline `timeout:` spelling of the same convention.
+const SLOW_SHELL_MS = 30_000;
 
 function hasJq(): boolean {
   try {
@@ -120,7 +143,10 @@ function runHook(
     // content and the transcripts embed the Russian recap marker. AIF_HOOK_LANG
     // selects the lang pack (default en); these cases are the RU-pack contract.
     // A test may override via env: { AIF_HOOK_LANG: 'en' } (see en-pack smoke).
-    env: { ...process.env, AIF_HOOK_LANG: 'ru', ...env },
+    // CLAUDE_CODE_ENTRYPOINT is inherited from the launching harness (claude-desktop, cli,
+    // sdk-ts …) and the SDK-entrypoint guard reads it — pin an interactive value so a suite
+    // run from an SDK-driven session cannot silence every block-expecting case.
+    env: { ...process.env, AIF_HOOK_LANG: 'ru', CLAUDE_CODE_ENTRYPOINT: 'cli', ...env },
   });
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
@@ -186,7 +212,7 @@ function longMarkdownText(): string {
   return block + '\n\n' + 'хвост'.repeat(40);
 }
 
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & paired-negative shape', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & paired-negative shape', { timeout: SLOW_SHELL_MS }, () => {
   // ---------------------------------------------------------------------------
   // ❌ NEGATIVE — trigger turns: reminder MUST fire (JSON output with the full
   // {decision, reason, systemMessage} payload shape per T-M4-B).
@@ -213,6 +239,30 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.reason).toMatch(/рекомендовал|жду твоего решения|перекладывай/i);
   });
 
+  // D-I (Task 1.6): the last-resort anchor candidate — the head of the first user message,
+  // used only when no ai-title record exists — must not be a tag or a bare path. NO aiTitle()
+  // here: the ai-title record outranks this fallback (hook:527-534), so a transcript that opens
+  // with one never reaches the line D-I changes (hook:536) and the test would be vacuous.
+  it('does not use a tag or a bare path as the anchor', () => {
+    for (const first of ['<system-reminder>stuff</system-reminder>', 'src/app/page.tsx', 'notes.md']) {
+      const tr = writeTranscript([
+        userTurn(first),
+        assistantText('x'.repeat(700) + '\n\n## H\n- b\n'),
+      ]);
+      // Fresh TMPDIR per candidate: the anchor is cached per session id at
+      // ${TMPDIR:-/tmp}/aif-eot-anchor-<session_id> (hook:527/540), and reusing one would let
+      // the red run's rejected string leak back into the green run via that cache.
+      const dir = mkdtempSync(join(tmpdir(), 'anchor-di-'));
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `anchor-${first.length}` },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '', TMPDIR: dir },
+      );
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, `the turn must still reach a branch for "${first}"`).not.toBe('');
+      expect(r.stdout, `"${first}" must not survive as the anchor`).not.toContain(first);
+    }
+  });
+
   it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
     // ZCode parses hook stdout against the HookJSONOutput schema (CCt at zcode.cjs:~577900),
     // which is `.strict()` — unknown top-level keys are REJECTED (→ hook.run.failed, output
@@ -220,7 +270,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     // (hook:233-237) — all three are in the allowed set today, but there is NO guard against a
     // future edit adding `hookEventName` (or any other key) at top level, which ZCode would
     // silently reject. Regression guard (cold backward-sweep finding GAP-1): pin the allowed
-    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:139.
+    // top-level set so any added key fails this test. Precedent: ask-question-reminder.test.ts:153.
     const tr = writeTranscript([
       aiTitle('Тестовая цель сессии'),
       userTurn('первое задание'),
@@ -353,7 +403,10 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(payload.decision).toBe('block');
     // Branch B reminder body must reference the fork-vs-pseudo-fork discipline,
     // not just be a generic "answer the question" nudge.
-    expect(payload.reason).toMatch(/настоящая развилка|рекомендация/i);
+    // D-C ships the card's §4 as «➡️ Рекомендую …» (the spec's own wording), so match the
+    // stem: the claim is "this body teaches the recommendation-first discipline", not a
+    // particular inflection of it.
+    expect(payload.reason).toMatch(/настоящая развилка|рекоменд/i);
     expect(payload.systemMessage).toMatch(/^🎯 /);
   });
 
@@ -520,6 +573,347 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     ).not.toBe('');
     const payload = JSON.parse(r.stdout);
     expect(payload.decision).toBe('block');
+  });
+
+  // Task 1.1 (plain-words-recap-v2 slice 1): `_eot_turn_shape()` computes
+  // orch_mode/long_text/asked once, so a later task can call it from the
+  // already-recapped guard site as well as from the branch selector below it.
+  //
+  // THE REGRESSION GUARD IS THE NO-MARKER CASE. Measured under `bash -x` on
+  // 2026-09-14: a turn carrying $AIF_RECAP_MARKER exits at the recap guard
+  // BEFORE the call site (0 entries into the function), so it cannot witness
+  // anything about the extraction; a long markdown turn ending in a question
+  // enters the function exactly once and sets long_text=true, asked=true.
+  // Only the latter turns red if the extraction reads an unset variable under
+  // `set -u`. The marker case is kept as the paired negative for the guard's
+  // silence, not as a witness for the function.
+  it('computes the turn shape through one function on a turn that reaches it', () => {
+    const tr = writeTranscript([
+      aiTitle('Turn shape'),
+      userTurn('go'),
+      assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n\nShall I proceed?'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-reached' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr, 'an unset read inside _eot_turn_shape aborts the hook under `set -u`').not.toMatch(
+      /unbound variable/,
+    );
+    // Branch C fired ⇒ both globals the function owns were computed and read
+    // by the selector. An empty stdout here means the shape never reached it.
+    expect(r.stdout, 'long markdown + trailing question must reach the branch selector').not.toBe('');
+    expect(JSON.parse(r.stdout).decision).toBe('block');
+  });
+
+  it('already-recapped guard still exits silently, ahead of the turn-shape call', () => {
+    const tr = writeTranscript([
+      aiTitle('Turn shape'),
+      userTurn('go'),
+      assistantText('## 🟢 In plain words\nWhere we are. Done.\n\nShall I proceed?'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'shape-guarded' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stderr).not.toMatch(/unbound variable/);
+    expect(r.stdout, 'the recap guard exits before the branch selector').toBe('');
+  });
+
+  // Task 1.4 (plain-words-recap-v2 slice 1): the branch payloads (Branch A/B/C) now teach
+  // the five-section recap contract + the "от тебя"/"from you" grammar via the shared
+  // aif_msg_eot_recap_contract() helper (D-A, D-B), instead of each branch spelling out its
+  // own ad-hoc instructions. This turn is long + markdown-structural + no trailing question,
+  // so it reaches Branch A (long_text=true, asked=false).
+  it('branch payloads teach the five-section contract and the from-you grammar', () => {
+    const tr = writeTranscript([
+      aiTitle('Payload'),
+      userTurn('go'),
+      assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'five-section' },
+      { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+    );
+    const reason = JSON.parse(r.stdout).reason as string;
+    for (const s of ['Where we are.', 'What changed.', 'Next.', 'From you:',
+                     'nothing (', 'waiting on:', 'decide:', 'do by hand:']) {
+      expect(reason).toContain(s);
+    }
+    expect(reason).toMatch(/15/);
+  });
+
+  // R-13 (spec :171-174): when the card was already emitted above — before the AskUserQuestion
+  // buttons (slice 2) or once per question in an /arch round — section 3 of the block is ONE
+  // pointer line, never a second card. The clause lives in the SHARED contract so every branch
+  // payload teaches it and the later /arch slice inherits it without re-editing this sentence.
+  it.each([
+    ['en', /ONE pointer line/, /never a second card/, 'Otherwise — the card in full:'],
+    ['ru', /ОДНА строка-указатель/, /а не вторая карточка/, 'Иначе — карточка целиком:'],
+  ] as const)(
+    '%s: the recap contract carries the R-13 pointer clause',
+    (lang, pointer, notSecondCard, connector) => {
+      const tr = writeTranscript([
+        aiTitle('Pointer'),
+        userTurn('go'),
+        assistantText('x'.repeat(700) + '\n\n## Heading\n- a bullet\n'),
+      ]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `r13-${lang}` },
+        { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '' },
+      );
+      const reason = JSON.parse(r.stdout).reason as string;
+      expect(reason).toMatch(pointer);
+      expect(reason).toMatch(notSecondCard);
+      // The clause is an EXCEPTION to the card, so it must precede it: a reader who meets the
+      // card first has already started writing the thing the clause forbids. Anchor on the
+      // clause's own unique phrase, not on 'AskUserQuestion' — that string occurs twice in the
+      // payload, and indexOf() would silently follow the wrong one if an edit added a mention
+      // above the clause.
+      const cardOpens = reason.indexOf(lang === 'en' ? 'A fork is a card' : 'Развилка — карточка');
+      expect(reason.search(pointer)).toBeLessThan(cardOpens);
+      // …and the exception must HAND OFF to the card rather than abut it. Without a connector
+      // the section reads «Then — as a card» → exception → full template, so a model that has
+      // already written the card in prose meets the template last and emits a second one — the
+      // duplication R-13 exists to forbid, which no gate in this repo would catch.
+      const connectorAt = reason.indexOf(connector);
+      expect(connectorAt).toBeGreaterThan(reason.search(pointer));
+      expect(connectorAt).toBeLessThan(cardOpens);
+    },
+  );
+
+  // Task 1.5 (plain-words-recap-v2 slice 1): the dormant section-checker gate. It reads a
+  // recap block the model ALREADY WROTE and names the missing sections — it never demands
+  // a block from a turn that has none (that boundary is the third case below). Dormant by
+  // default (AIF_RECAP_GATE unset) so today's behaviour is unchanged until an operator arms it.
+  describe('recap gate — dormant section-checker (Task 1.5)', () => {
+    const RECAP_EN = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+
+    it('armed gate names the missing section of an existing recap block', () => {
+      // Task 1.6b's retry bound (R-16) keys its once-per-block flag on
+      // ${TMPDIR:-/tmp}/aif-eot-rgb-<session_id>, which survives across separate test-process
+      // runs on the default OS temp dir. A fixed session id + fixed block text (both true
+      // here) would collide with a flag file left behind by an earlier run of this very test
+      // and read back as "already blocked" — a fresh TMPDIR isolates it, per the retry-bound
+      // tests' own pattern, rather than weakening the bound.
+      const tdir = mkdtempSync(join(tmpdir(), 'gate-armed-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-armed' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
+      );
+      const reason = JSON.parse(r.stdout).reason as string;
+      expect(reason).toContain('Fork.'); // asked ⇒ section 3 required
+      expect(reason).toContain('From you:'); // section 5's last line missing
+    });
+
+    it('is dormant when AIF_RECAP_GATE is unset', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(RECAP_EN)]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-dormant' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '' },
+      );
+      // `not.toContain` passes just as happily on empty stdout produced for an unrelated
+      // reason; the claim is "the gate emitted NOTHING" (final review M-9).
+      expect(r.stdout).toBe('');
+    });
+
+    it('never fires on a turn that has no recap block at all', () => {
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText('Short answer.')]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: 'gate-noblock' },
+        { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1' },
+      );
+      expect(r.stdout).toBe('');
+    });
+
+    // ── D-B grammar (R-17; cold review F5) ───────────────────────────────────────────
+    // The last line takes exactly ONE of four values, and `nothing` carries a verification
+    // trace in parentheses. Before this arm the gate asserted only that the literal
+    // "From you:" appeared anywhere on the line, so a bare «nothing» and free prose both
+    // passed — verbatim the `#hope-as-gate` shape F5 demanded a mechanism for.
+    const gateStdout = (block: string, session: string, lang = 'en'): string => {
+      const tdir = mkdtempSync(join(tmpdir(), 'gate-db-'));
+      tmpDirs.push(tdir);
+      const tr = writeTranscript([aiTitle('Gate'), userTurn('go'), assistantText(block)]);
+      return runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: session },
+        { AIF_HOOK_LANG: lang, AIF_RECAP_GATE: '1', TMPDIR: tdir },
+      ).stdout;
+    };
+    const block = (lastValue: string) =>
+      `## 🟢 In plain words\n**Where we are.** ok\n**Next.**\nMe: x. From you: ${lastValue}`;
+
+    it.each([
+      'nothing (12/12 green)',
+      'waiting on: the CI run, from GitHub',
+      'do by hand: click merge on the PR',
+    ])('accepts the well-formed D-B value %s', (value) => {
+      expect(gateStdout(block(value), `db-ok-${value.slice(0, 6)}`)).toBe('');
+    });
+
+    it.each([
+      ['nothing', 'a bare «nothing» with no verification trace — the F5 case'],
+      ['nothing ()', 'an empty parenthesis is not a trace'],
+      ['ping me when CI is green', 'free prose is not one of the four values'],
+    ])('rejects %s (%s)', (value) => {
+      const reason = JSON.parse(gateStdout(block(value), `db-bad-${value.slice(0, 6)}`))
+        .reason as string;
+      expect(reason).toContain('four allowed values');
+    });
+
+    it('reads the offloading verbs only in the VALUE, never inside its own trace', () => {
+      // `review the` inside the parenthesis is the AGENT's evidence, not an errand for the
+      // human — scanning the whole line rejected a correct block (final review M-3).
+      expect(gateStdout(block('nothing (I did review the failing job)'), 'db-trace')).toBe('');
+      const reason = JSON.parse(
+        gateStdout(block('review the diff and make sure it is fine'), 'db-offload'),
+      ).reason as string;
+      expect(reason).toContain('your own work');
+    });
+
+    it('catches English offloading in the RU pack too', () => {
+      // An operator on AIF_HOOK_LANG=ru still reads English answers; a ru-only banned list
+      // left this exact line silent in the one pack that operator runs (final review M-4).
+      const ru =
+        '## 🟢 Простыми словами\n**Где мы.** ок\n**Дальше.**\nЯ: жду. От тебя: review the diff and make sure it is fine';
+      expect(gateStdout(ru, 'db-ru-offload', 'ru')).not.toBe('');
+    });
+  });
+
+  // Task 1.6b (plain-words-recap-v2 slice 1): the gate's own retry bound (R-16) and the
+  // line cap on the retelling part (R-17, fork card exempt). The retry bound mirrors the
+  // ZCode dense arm's same-content loop bound (hook:814-842) — ZCode dispatches no
+  // stop_hook_active, so an unbounded gate would re-block an identical malformed block
+  // forever. The cap is read from AIF_EOT_RECAP_MAX_LINES (default 15) and excludes the
+  // fork-card region (D-A: fork cards are never compressed).
+  describe('recap gate — retry bound + line cap (Task 1.6b)', () => {
+    it('blocks a malformed block once, then exits silently on the same block under new prose', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const body = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+
+      const tr1 = writeTranscript([aiTitle('RB'), userTurn('go'), assistantText(body)]);
+      const first = runHook(
+        { transcript_path: tr1, stop_hook_active: false, session_id: 'retry-bound' },
+        env,
+      );
+      expect(first.stdout).toContain('Fork.');
+
+      const tr2 = writeTranscript([
+        aiTitle('RB'), userTurn('go'),
+        assistantText(`I reran the suite and it is green.\n\n${body}`),
+      ]);
+      const again = runHook(
+        { transcript_path: tr2, stop_hook_active: false, session_id: 'retry-bound' },
+        env,
+      );
+      expect(again.stdout).not.toContain('Fork.');
+    });
+
+    // The Stop channel carries this hook TWICE — the plugin registration plus the project
+    // one the installer writes (setup.d/10-skills.sh:260, install.sh:959) — so both copies
+    // fire on ONE Stop with byte-identical stdin. For the handoff gate that shared state
+    // made copy 2 invent a block the turn had not earned (D38, PR #1783). Here the same
+    // sharing is benign BY CONSTRUCTION and must stay that way: whichever copy runs first
+    // finds no matching flag, blocks, and stores the sha; its twin finds that sha and stays
+    // silent. Blocking errors are collected across registrations rather than overwritten
+    // — measured live 2026-09-14: a Stop where both copies blocked delivered BOTH blocking
+    // errors in one turn — so the single block still reaches the model, which is exactly the
+    // "one block per defect" the bound exists to enforce. This fixture is the guard against
+    // the plausible WRONG read of that silence ("the twin swallowed a block, drop the
+    // suppression"), which would hand one Stop two blocks for one defect.
+    it('blocks once when one Stop invokes the hook twice with identical input', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-twin-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const body = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+      const stdin = {
+        transcript_path: writeTranscript([aiTitle('TW'), userTurn('go'), assistantText(body)]),
+        stop_hook_active: false,
+        session_id: 'retry-bound-twin',
+      };
+
+      const copy1 = runHook(stdin, env);
+      expect(copy1.stdout, 'copy 1 of the Stop must name the defect').toContain('Fork.');
+
+      // Same Stop, same stdin, same env — the second registration, not a new turn.
+      const copy2 = runHook(stdin, env);
+      expect(copy2.stdout, 'copy 2 of the SAME Stop must not re-block the same defect').toBe('');
+    });
+
+    it('caps the retelling part but never the fork card', () => {
+      const filler = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n');
+      const mk = (text: string, session: string) => {
+        const tdir = mkdtempSync(join(tmpdir(), 'recap-cap-'));
+        tmpDirs.push(tdir);
+        const tr = writeTranscript([aiTitle('Cap'), userTurn('go'), assistantText(text)]);
+        return runHook(
+          { transcript_path: tr, stop_hook_active: false, session_id: session },
+          { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir },
+        );
+      };
+
+      const long = mk(
+        `## 🟢 In plain words\n**Where we are.** ok\n${filler}\n**Next.** Me: x. From you: nothing (wc -l)`,
+        'cap-long',
+      );
+      expect(JSON.parse(long.stdout).reason).toContain('15');
+
+      const card = mk(
+        `## 🟢 In plain words\n**Where we are.** ok\n**Fork.**\n${filler}\n**Next.** Me: x. From you: decide: A or B`,
+        'cap-card',
+      );
+      expect(card.stdout).toBe(''); // the card's 20 lines do not count — and nothing else fires
+    });
+
+    // Fix round 1 (controller-confirmed live repro): the retry-bound flag must be
+    // REFRESHED on every armed turn that reaches the gate, not only when a defect is
+    // found — mirroring the ZCode dense arm's _zcb_sha shape (unconditional store,
+    // conditional suppress) per spec :134-136. Sequence: block A blocks (turn 1), a
+    // WELL-FORMED turn passes through and must refresh the flag away from block A's sha
+    // (turn 2), then block A recurs verbatim (turn 3) — a FRESH occurrence separated by a
+    // good turn, not an immediate retry, so the gate must name it again. A version that
+    // only stores the sha inside `if [ -n "$_recap_defects" ]` never overwrites turn 1's
+    // stored sha during turn 2, so turn 3 wrongly reads as "already blocked" and stays
+    // silent.
+    it('names a fresh recurrence of the same defect after a well-formed turn in between', () => {
+      const tdir = mkdtempSync(join(tmpdir(), 'recap-rgb-fresh-'));
+      tmpDirs.push(tdir);
+      const env = { AIF_HOOK_LANG: 'en', AIF_RECAP_GATE: '1', TMPDIR: tdir };
+      const sessionId = 'retry-bound-fresh';
+      const malformed = '## 🟢 In plain words\n**Where we are.** Done.\n\nShall I proceed?';
+      const wellFormed =
+        '## 🟢 In plain words\n**Where we are.** Done.\n**Next.** Me: nothing more. From you: nothing (spot check)';
+
+      const tr1 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
+      const turn1 = runHook(
+        { transcript_path: tr1, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(turn1.stdout, 'turn 1: first sighting of the malformed block must block').toContain('Fork.');
+
+      const tr2 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(wellFormed)]);
+      const turn2 = runHook(
+        { transcript_path: tr2, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(turn2.stdout, 'turn 2: well-formed block must not block').not.toContain('Fork.');
+
+      const tr3 = writeTranscript([aiTitle('RBF'), userTurn('go'), assistantText(malformed)]);
+      const turn3 = runHook(
+        { transcript_path: tr3, stop_hook_active: false, session_id: sessionId },
+        env,
+      );
+      expect(
+        turn3.stdout,
+        'turn 3: a FRESH recurrence of the same defect, separated by a good turn, must block again',
+      ).toContain('Fork.');
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -703,6 +1097,61 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(second.stdout, 'same PR must not re-fire (debounce)').toBe('');
     });
   });
+
+  // SDK-driven (non-interactive) sessions — measured 2026-09-09 in the aif container.
+  // The Agent SDK spawns the CLI with CLAUDE_CODE_ENTRYPOINT=sdk-ts; `settingSources:["project"]`
+  // loads this Stop hook; the hook blocks the review sidecar's final turn and demands a recap;
+  // the model answers with a recap-only message; aif reads the LAST message as the sidecar
+  // result, so `## Blocking Findings` is gone and `parseStructuredSidecarOutput` returns null
+  // → 503/503 review-gate runs fell to the legacy parser and every task parked at manual
+  // review. Nobody reads a recap in an SDK session; the caller's output contract does.
+  describe('SDK-entrypoint guard (aif sidecar contract, 2026-09-09)', () => {
+    it('CLAUDE_CODE_ENTRYPOINT=sdk-ts → exit 0 silent even on a long markdown turn', () => {
+      const tr = writeTranscript([
+        aiTitle('any'),
+        userTurn('x'),
+        assistantText(longMarkdownText() + '\n\n## Blocking Findings\n- [abc] code_review | one'),
+      ]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts' });
+      expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, 'an SDK-driven session must never be blocked for a recap').toBe('');
+    });
+
+    it('sdk-py is the same class (prefix match, not one literal)', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'sdk-py' });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('PAIRED-NEGATIVE: the interactive CLI entrypoint still fires Branch A', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook({ transcript_path: tr, stop_hook_active: false }, { CLAUDE_CODE_ENTRYPOINT: 'cli' });
+      expect(r.status).toBe(0);
+      expect(r.stdout, 'a human-facing session keeps the recap').not.toBe('');
+      expect(JSON.parse(r.stdout).decision).toBe('block');
+    });
+
+    it('PAIRED-NEGATIVE: AIF_AUTONOMOUS=1 under sdk-ts is ALSO silent — the guard sits before the F10 arm', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', AIF_AUTONOMOUS: '1', RUNTIME_BRIDGE_AIF_URL: 'http://127.0.0.1:9' },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).toBe('');
+    });
+
+    it('escape hatch: AIF_EOT_SDK_RECAP=1 restores the recap demand under sdk-ts', () => {
+      const tr = writeTranscript([aiTitle('any'), userTurn('x'), assistantText(longMarkdownText())]);
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false },
+        { CLAUDE_CODE_ENTRYPOINT: 'sdk-ts', AIF_EOT_SDK_RECAP: '1' },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).not.toBe('');
+    });
+  });
 });
 
 // =============================================================================
@@ -720,9 +1169,19 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
 // (T-ZP-B: `reason` field, NOT `additionalContext`) when last text > 500 chars AND
 // markdown-dense. Non-ZCode env must NOT fire (CC dogfood byte-for-byte unchanged).
 // =============================================================================
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part A grep + Part B thin-recap)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part A grep + Part B thin-recap)', { timeout: SLOW_SHELL_MS }, () => {
   const ZCODE_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/zcode-synthetic-transcript.jsonl');
   const CC_FIXTURE = resolve(REPO_ROOT, 'tests/fixtures/cc-transcript-legacy.jsonl');
+
+  // The #1706 same-text loop bound persists a per-session sha flag under TMPDIR —
+  // every case that fires the thin-recap branch needs a private TMPDIR, or the
+  // second replay of the same fixture reuses the stored sha and goes silent (and
+  // a previous suite run would poison the next one via the developer's real /tmp).
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'zcode-partb-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
 
   // ---- Part A: grep alternation — both arms load-bearing, tested in isolation ----------
 
@@ -808,7 +1267,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     // The fixture's assistant text is 676 chars with ## headings + ** bold + blank lines.
     const r = runHook(
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
-      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'Part B must fire on ZCode + long markdown').not.toBe('');
@@ -830,7 +1289,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
     // This test fails if anyone swaps the field by pattern-matching on other hooks.
     const r = runHook(
       { transcript_path: ZCODE_FIXTURE, stop_hook_active: false },
-      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
     );
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     const parsed = JSON.parse(r.stdout);
@@ -882,6 +1341,99 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// #1706 — the ZCode thin-recap branch shadowed the marker guards; fix = hoist +
+// same-text loop bound. Live-observed twice in one ZCode session: a >500-char
+// markdown-dense final message that BEGAN with the recap marker the hook's own
+// block reason demands was re-blocked anyway, and since ZCode dispatches no
+// stop_hook_active, the re-block looped. Every case below was RED against the
+// pre-fix hook. The synthetic one-line shape has NO outer "type" field, so the
+// `role` arm of the grep alternation is load-bearing here (Bespoke #1 Part A).
+// CC neutrality is not re-tested here: fixture 9 (gate goldens) replays every
+// gate input against the edited hook and requires byte-identical unarmed output.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + same-text loop bound (ZCode)', { timeout: SLOW_SHELL_MS }, () => {
+  function privateTmp(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'zcode-1706-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** ZCode synthetic-transcript line: no outer "type" field, role inside message —
+   *  the `role` grep arm is load-bearing (mirrors the byte-pinned fixture shape). */
+  function zcodeAssistantText(text: string) {
+    return { message: { content: [{ type: 'text', text }], role: 'assistant' } };
+  }
+
+  /** >500 chars, markdown-dense (## headings + ** bold), opening with `prefix`. */
+  const denseBody = (prefix: string) => `${prefix}${longMarkdownText()}`;
+
+  it('RECAP-MARKED long markdown under ZCode → silent (hoisted guard outranks the thin-recap branch)', () => {
+    // RED pre-fix: the thin-recap branch sat ABOVE the already-recapped guard, so the
+    // recap that carried the very marker the block reason demands was re-blocked —
+    // the #1706 live finding.
+    const tr = writeTranscript([zcodeAssistantText(denseBody('## 🟢 In plain words\n\n'))]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-recap' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(
+      r.stdout,
+      'a marker-led recap must terminate the turn on ZCode — no second block over an existing recap',
+    ).toBe('');
+  });
+
+  it('STORY-MARKED long markdown with a PR signal under ZCode → silent (story-told guard hoisted too)', () => {
+    // The story-told guard was shadowed by the same branch. The PR URL inside the
+    // text sets story_signal; the marker satisfies the guard.
+    const tr = writeTranscript([
+      zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-story' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a told story must not be re-demanded on ZCode').toBe('');
+  });
+
+  it('same-text loop bound: identical dense input blocks ONCE, the identical re-stop is silent', () => {
+    // ZCode gives no stop_hook_active and has no harness-side block cap, so the
+    // pre-fix hook re-blocked identical text forever (#1706 loop hazard).
+    const tmp = privateTmp();
+    const tr = writeTranscript([zcodeAssistantText(denseBody(''))]);
+    const stdin = { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-loop' };
+    const env = { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: tmp };
+    const first = runHook(stdin, env);
+    expect(first.stdout, 'the FIRST occurrence still gets its one recap block').not.toBe('');
+    expect(JSON.parse(first.stdout).decision).toBe('block');
+    const second = runHook(stdin, env);
+    expect(second.status, `stderr: ${second.stderr}`).toBe(0);
+    expect(second.stdout, 'an IDENTICAL re-emission is bounded — no infinite re-block chain').toBe('');
+  });
+
+  it('the bound is per-CONTENT, not N-per-session: NEW dense text still blocks after the bound fired', () => {
+    // Guards the rejected alternative — a global counter would falsely silence
+    // after N legitimate distinct recap demands; only identical re-text is bounded.
+    const tmp = privateTmp();
+    const env = { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: tmp };
+    const firstTr = writeTranscript([zcodeAssistantText(denseBody(''))]);
+    const first = runHook(
+      { transcript_path: firstTr, stop_hook_active: false, session_id: 'z1706-fresh' },
+      env,
+    );
+    expect(first.stdout, 'first distinct text blocks').not.toBe('');
+    const secondTr = writeTranscript([zcodeAssistantText(denseBody('a different opening line\n\n'))]);
+    const second = runHook(
+      { transcript_path: secondTr, stop_hook_active: false, session_id: 'z1706-fresh' },
+      env,
+    );
+    expect(second.stdout, 'different content = a new recap demand, not a spent one').not.toBe('');
+    expect(JSON.parse(second.stdout).decision).toBe('block');
+  });
+});
+
 /**
  * F10 autonomy arm — spec: .claude/rules/autonomous-loop-continuity.md §1.
  *
@@ -893,7 +1445,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — zcode-parity Bespoke #1 (Part 
  * The probe is pointed at an unreachable port in every case here: the tests must not depend
  * on a live aif runtime, and the fail-CLOSED branch is itself part of the contract.
  */
-describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
+describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_MS }, () => {
   const DEAD_AIF = 'http://127.0.0.1:59997';
 
   it('OFF by default: a short turn stays silent even with work conceivably in flight', () => {
@@ -1142,6 +1694,10 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
     // Triggers the thin-recap branch: ZCODE_PROJECT_DIR set + >500 char markdown-dense text.
     // A dispatched task is in flight, so the autonomy directive MUST reach the model
     // on the SAME channel as the ZCode recap (single block decision, not two).
+    // Private TMPDIR: the #1706 same-text loop bound stores a per-session content sha —
+    // without isolation a previous suite run silences this block replay.
+    const zcbTmp = mkdtempSync(join(tmpdir(), 'f10-zcode-append-'));
+    tmpDirs.push(zcbTmp);
     const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(longMarkdownText())]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
       runHook(
@@ -1151,6 +1707,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
           RUNTIME_BRIDGE_AIF_URL: url,
           ZCODE_PROJECT_DIR: '/fake-zcode-root',
           AIF_HOOK_LANG: 'en',
+          TMPDIR: zcbTmp,
         },
       ),
     );
@@ -1164,7 +1721,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', () => {
   });
 });
 
-describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', { timeout: SLOW_SHELL_MS }, () => {
   // spec: docs/superpowers/specs/2026-08-09-pipeline-chips-session-bus-design.md §D7.
   // Thresholds under test are PROVISIONAL (D9 calibrates); none of them MOVED when the
   // window default flipped to 1M — they are now derived from the window:
@@ -1457,5 +2014,1125 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — D7 context-arm (S2a)', () => {
     expect(parsed.reason, 'recap half preserved').toMatch(/🟢/);
     expect(parsed.reason, 'context half appended').toMatch(/\[context\]/);
     expect(r.stdout.trim().startsWith('{') && r.stdout.trim().endsWith('}'), 'exactly one JSON object emitted').toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Local review ledger of promote #1597 — A3-3 / A3-5 / D-2 / F-2.
+//
+// Every case below was proven RED against the pre-fix hook (the whole point: a
+// hook test that passes while the hook does nothing is the defect class these
+// findings are about — .claude/rules/attention-is-not-a-mechanism.md §2
+// `#warning-nobody-reads`). Each defect ships with its paired negative so the
+// fix cannot be satisfied by deleting the guard it repairs.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3 / A3-5 / D-2 / F-2', { timeout: SLOW_SHELL_MS }, () => {
+  function privateTmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'ledger-1597-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** Text longer than the 64 KB pipe buffer, so an early `grep -q` match makes the
+   *  producer die of SIGPIPE — 141 under `set -o pipefail` (measured on bash 3.2.57:
+   *  60 KB → rc 0, 70 KB → rc 141). */
+  const OVER_PIPE_BUFFER = 'x'.repeat(200_000);
+
+  // ── A3-5 — SIGPIPE under pipefail flips the guards ────────────────────────
+  it('A3-5: a >64 KB markdown turn still fires the recap (producer SIGPIPE must not flip long_text)', () => {
+    // hook long_text arm: `echo "$text" | grep -qE '^#|…'`. The match is on line 1, so
+    // grep exits immediately and echo takes SIGPIPE → pipefail → 141 → long_text=false
+    // → the hook goes silent on exactly the turn it exists to recap.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## Heading\n\n${OVER_PIPE_BUFFER}`),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a35-long' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'a 200 KB markdown turn must still reach Branch A').not.toBe('');
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toMatch(/🟢/);
+  });
+
+  it('A3-5 PAIRED: a >64 KB turn that ALREADY carries the recap marker stays silent', () => {
+    // Same SIGPIPE mechanism on the already-recapped guard (`printf | grep -qF "$MARKER"`):
+    // the marker is at the top, so grep exits early, printf dies, the guard reads false and
+    // the hook re-injects a recap over an existing one. Made observable by a trailing
+    // question: pre-fix the turn falls through to Branch B instead of exiting silent.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## 🟢 Простыми словами\n\n${OVER_PIPE_BUFFER}\n\nWhat next?`),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a35-recapped' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'already-recapped guard must hold on a 200 KB turn').toBe('');
+  });
+
+  // ── D-2 — `grep -qF $'\n\n'` passes TWO EMPTY patterns → matches everything ─
+  it('D-2: ZCode arm does NOT fire on a >500-char single-paragraph turn (no blank line)', () => {
+    // `grep -qF $'\n\n'` splits on the newline into two EMPTY patterns, which match every
+    // non-empty input — so the blank-line half of the markdown-density heuristic was always
+    // true and the ZCode recap fired on every turn longer than 500 chars.
+    const flat = 'plain sentence number one and it just keeps going. '.repeat(20); // >500, one line
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(flat)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd2-flat' },
+      { TMPDIR: privateTmpDir(), ZCODE_PROJECT_DIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no blank line and no markdown → the density heuristic must be false').toBe('');
+  });
+
+  it('D-2 PAIRED-POSITIVE: the ZCode arm still fires when the turn really has a blank line', () => {
+    const para = `${'first paragraph text that is reasonably long. '.repeat(8)}\n\n${'second paragraph text here. '.repeat(8)}`;
+    const tr = writeTranscript([aiTitle('goal'), userTurn('go'), assistantText(para)]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd2-para' },
+      { TMPDIR: privateTmpDir(), ZCODE_PROJECT_DIR: privateTmpDir() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'a real paragraph break must still trigger the ZCode thin recap').toBe('block');
+  });
+
+  // ── D-2 (needle half) — an unescaped needle is parsed as grep OPTIONS ──────
+  it('D-2: idle-suppression survives a repeated question that starts with "-" (needle must be literal)', () => {
+    // `grep -qF "$current_short"` without `--`: a needle starting with `-` is parsed as
+    // options — measured `grep: invalid option`, rc 2 — so the guard silently reads false
+    // and Branch B re-fires on an idle re-ping.
+    const q =
+      '- Should we continue with this option or switch to another approach, and why exactly that way and not otherwise, briefly?';
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      assistantText(`## 🟢 Простыми словами\n\n${q}\n\nthat is all`),
+      assistantText(q),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'd2-dash' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'an idle re-ping starting with "-" must be suppressed like any other').toBe('');
+  });
+
+  // ── F-2 — 3-4 full transcript scans per turn end ──────────────────────────
+  /** A transcript whose ONLY usage-bearing entry sits at the head, followed by
+   *  `fillerBytes` of usage-free assistant turns and a final markdown turn. */
+  function transcriptWithEarlyUsage(): string {
+    const lines: Record<string, unknown>[] = [
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'early turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 317_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ];
+    for (let i = 0; i < 40; i++) lines.push(assistantText(`filler turn ${i} ${'y'.repeat(500)}`));
+    lines.push(assistantText(longMarkdownText()));
+    return writeTranscript(lines);
+  }
+
+  it('F-2: AIF_EOT_TAIL_BYTES bounds the scan — a usage entry outside the window is not read', () => {
+    const tr = transcriptWithEarlyUsage();
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f2-windowed' },
+      { TMPDIR: privateTmpDir(), AIF_EOT_TAIL_BYTES: '4096' },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.reason, 'the recap itself must still be produced').toMatch(/🟢/);
+    expect(parsed.reason, 'the 320k usage entry sits outside a 4 KB tail window').not.toMatch(/\[context\]/);
+  });
+
+  it('F-2 PAIRED-POSITIVE: the same entry inside the default window IS read', () => {
+    const tr = transcriptWithEarlyUsage();
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f2-default' },
+      { TMPDIR: privateTmpDir() },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.reason, 'default window covers the whole fixture → the ctx arm fires').toMatch(/\[context\]/);
+  });
+
+  it('F-2: at most ONE grep names the full transcript per turn end (was 3-4)', () => {
+    // Deterministic stand-in for the ledger's wall-clock measurement (3.75 s per Stop on a
+    // 114 MB transcript): a PATH shim logs every grep invocation, and the assertion counts
+    // the ones whose argv still names the ORIGINAL transcript rather than the bounded
+    // window. Pre-fix: ctx_entry, the ai-title anchor and last_line each re-scan the file.
+    const binDir = privateTmpDir();
+    const logFile = join(privateTmpDir(), 'grep.log');
+    const realGrep = spawnSync('/usr/bin/which', ['grep'], { encoding: 'utf8' }).stdout.trim() || '/usr/bin/grep';
+    writeFileSync(
+      join(binDir, 'grep'),
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> ${JSON.stringify(logFile)}\nexec ${realGrep} "$@"\n`,
+      { encoding: 'utf8', mode: 0o755 },
+    );
+    const tr = transcriptWithEarlyUsage();
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'f2-scans' },
+      { TMPDIR: privateTmpDir(), AIF_EOT_TAIL_BYTES: '4096', PATH: `${binDir}:${process.env.PATH}` },
+    );
+    expect(r.status).toBe(0);
+    const log = readFileSync(logFile, 'utf8');
+    const fullScans = log.split('\n').filter((l) => l.includes(tr)).length;
+    expect(fullScans, `greps naming the full transcript: ${fullScans}\n${log}`).toBeLessThanOrEqual(1);
+    // Generous budget: every grep in this case is a shell shim that re-execs the real binary,
+    // so the wall clock measures the harness, not the hook.
+  }, 60_000);
+
+  // ── A3-3 — the context floors must be configurable, not hard-coded ────────
+  it('A3-3: AIF_CTX_SOFT_FLOOR makes the soft tier reachable without redeclaring the window', () => {
+    // The floors were hard-coded at min(300000, 70%) / min(500000, 90%), so a consumer whose
+    // real window is smaller than the assumed 1M could never reach soft=300000 — the arm was
+    // dead by default while the in-file comment claimed it merely warned late.
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'short turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 157_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33-floor' },
+      { TMPDIR: privateTmpDir(), AIF_CTX_SOFT_FLOOR: '150000' },
+    );
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.reason, 'a declared 150k soft floor must fire at 160k').toMatch(/\[context\]/);
+  });
+
+  it('A3-3 PAIRED-NEGATIVE: a junk AIF_CTX_SOFT_FLOOR falls back to the documented 300000 default', () => {
+    const tr = writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'short turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 157_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ]);
+    for (const bad of ['abc', '0', '-5', '']) {
+      const r = runHook(
+        { transcript_path: tr, stop_hook_active: false, session_id: `a33-junk-${bad || 'empty'}` },
+        { TMPDIR: privateTmpDir(), AIF_CTX_SOFT_FLOOR: bad },
+      );
+      expect(r.status, `AIF_CTX_SOFT_FLOOR="${bad}" must not crash the hook`).toBe(0);
+      expect(r.stdout.trim(), `AIF_CTX_SOFT_FLOOR="${bad}" → 300000 default → 160k is silent`).toBe('');
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3b — the UNDECLARED-window half of A3-3 (the half #1619 could not
+// reach from inside the Stop hook).
+//
+// A3-3 made the floors configurable; it did NOT make them reachable for a consumer
+// who declares nothing. Live-probed 2026-09-06: the Stop payload carries no window,
+// the PreCompact payload carries no window either (session_id, transcript_path, cwd,
+// prompt_id, hook_event_name, trigger, custom_instructions — that is the whole set).
+// What PreCompact DOES carry is the FACT that the harness decided to compact, and the
+// transcript at that instant carries the usage sum. That sum is an empirical ceiling
+// on the usable window, and it is the only window signal either hook can observe.
+//
+// Contract under test: PreCompact writes `${TMPDIR:-/tmp}/aif-ctx-observed-<session>`;
+// the D7 arm reads it when AIF_CTX_WINDOW is undeclared. Precedence is
+// declared > observed > 1M default.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3b (observed window)', { timeout: SLOW_SHELL_MS }, () => {
+  function privateTmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33b-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  /** A turn sized for a 200k consumer: 190k spent — 95% of their real window, and
+   *  47% of the 1M the hook assumes when nothing is declared. */
+  const at190k = () =>
+    writeTranscript([
+      aiTitle('goal'),
+      userTurn('go'),
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'short turn' }],
+          usage: { input_tokens: 1000, cache_read_input_tokens: 187_000, cache_creation_input_tokens: 2000 },
+        },
+      },
+    ]);
+
+  /** Write the PreCompact-side half of the contract by hand, so the reader is tested
+   *  against the file FORMAT rather than against the writer's implementation. */
+  function recordObservation(tmp: string, sessionId: string, value: string): void {
+    writeFileSync(join(tmp, `aif-ctx-observed-${sessionId}`), `${value}\n`, 'utf8');
+  }
+
+  it('CONTROL (the honest limit): with NO observation on record, 190k is still silent', () => {
+    // Nothing observes the window before the first auto-compaction. This case is expected
+    // to hold both before and after the fix — it pins that the fix does not pretend to
+    // know a window nobody measured.
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-none' },
+      { TMPDIR: privateTmpDir() },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'no declaration and no observation → 1M assumed → 190k is 19% spent').toBe('');
+  });
+
+  it('A3-3b: an observed 195k ceiling makes the same 190k turn fire, with the observed window named', () => {
+    const tmp = privateTmpDir();
+    recordObservation(tmp, 'a33b-observed', '195000');
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-observed' },
+      { TMPDIR: tmp },
+    );
+    expect(r.status).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'soft = 70% of the observed 195000 = 136500; 190000 is past it').toBe('block');
+    expect(parsed.reason).toMatch(/\[context\]/);
+    expect(parsed.reason, 'the observed ceiling is the window it reports').toMatch(/~195000/);
+    expect(parsed.reason).toMatch(/190000 tokens/);
+  });
+
+  it('A3-3b PAIRED-NEGATIVE: an explicit AIF_CTX_WINDOW outranks the observation', () => {
+    // Operator intent beats measurement: a declared 1M window must not be overridden by a
+    // stale observation from an earlier, smaller-window run of the same session id.
+    const tmp = privateTmpDir();
+    recordObservation(tmp, 'a33b-declared', '195000');
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-declared' },
+      { TMPDIR: tmp, AIF_CTX_WINDOW: '1000000' },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim(), 'the declared 1M window wins → 190k is silent').toBe('');
+  });
+
+  it('A3-3b PAIRED-NEGATIVE: a junk observation is ignored, it neither crashes nor silences the arm', () => {
+    // Same junk-value contract as every other knob in this arm: fall back to the documented
+    // default rather than trusting a 0 (fires every turn) or a word (breaks the arithmetic).
+    for (const [bad, sid] of [
+      ['not-a-number', 'word'],
+      ['0', 'zero'],
+      ['', 'empty'],
+      ['-5', 'negative'],
+    ] as const) {
+      const tmp = privateTmpDir();
+      recordObservation(tmp, `a33b-junk-${sid}`, bad);
+      const r = runHook(
+        { transcript_path: at190k(), stop_hook_active: false, session_id: `a33b-junk-${sid}` },
+        { TMPDIR: tmp },
+      );
+      expect(r.status, `observation "${bad}" must not crash the hook`).toBe(0);
+      expect(r.stdout.trim(), `observation "${bad}" → 1M default → 190k is silent`).toBe('');
+    }
+  });
+
+  it('A3-3b: the observation is per-session — another session id does not inherit it', () => {
+    const tmp = privateTmpDir();
+    recordObservation(tmp, 'a33b-owner', '195000');
+    const r = runHook(
+      { transcript_path: at190k(), stop_hook_active: false, session_id: 'a33b-stranger' },
+      { TMPDIR: tmp },
+    );
+    expect(r.stdout.trim(), 'a neighbouring session on a 1M window must not be judged on this one').toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Ledger #1597 A3-3c — the debounce half: the D7 arm must fire once per CLIMB,
+// not once per session.
+//
+// A3-3b made the arm reachable for an undeclared small window. That exposed the
+// limitation the header had always carried: the once-per-session-per-tier flags are
+// never cleared, so a session that auto-compacts three times still gets exactly one
+// reminder. Compaction is precisely the event that makes the previous reminder spent
+// history, and PreCompact is the hook that observes it.
+//
+// It also exposed a latent defect underneath: the flag path was built from the RAW
+// session id, so an id carrying a path separator wrote into a directory that does not
+// exist, the write failed silently behind `|| true`, and the debounce failed OPEN.
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — ledger #1597 A3-3c (debounce key + reset)', { timeout: SLOW_SHELL_MS }, () => {
+  function privateTmpDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'a33c-'));
+    tmpDirs.push(dir);
+    return dir;
+  }
+
+  const at320k = () =>
+    writeTranscript([aiTitle('goal'), userTurn('go'), {
+      type: 'assistant',
+      message: {
+        content: [{ type: 'text', text: 'short turn' }],
+        usage: { input_tokens: 1000, cache_read_input_tokens: 317_000, cache_creation_input_tokens: 2000 },
+      },
+    }]);
+
+  it('A3-3c: the debounce holds for a session id carrying a path separator (key must be sanitised)', () => {
+    // RAW-id path: `${TMPDIR}/aif-ctx-a33c/slash:1-soft` names a directory that does not
+    // exist, so `: > "$ctx_flag"` fails, the failure is swallowed by the `|| true` that
+    // exists to keep a full disk quiet, and the debounce fails OPEN — the arm re-fires on
+    // every single turn for the rest of the session.
+    const tmp = privateTmpDir();
+    const tr = at320k();
+    const first = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c/slash:1' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout, 'first crossing fires').toMatch(/\[context\]/);
+    const second = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c/slash:1' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout.trim(), 'an odd session id must not disarm the debounce').toBe('');
+  });
+
+  it('A3-3c PAIRED: the ordinary session id keeps debouncing exactly as before', () => {
+    // The sanitisation must not change behaviour for the ids every real session actually
+    // uses (CC hands out UUIDs), or this fix trades one silent regression for another.
+    const tmp = privateTmpDir();
+    const tr = at320k();
+    const first = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c-plain' },
+      { TMPDIR: tmp },
+    );
+    expect(first.stdout).toMatch(/\[context\]/);
+    const second = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'a33c-plain' },
+      { TMPDIR: tmp },
+    );
+    expect(second.stdout.trim()).toBe('');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Handoff-currency gate (D13) — spec:
+// docs/superpowers/specs/2026-09-08-handoff-currency-gate-design.md §Testing seams.
+//
+// Dormant unless AIF_HANDOFF_GATE=1 (D18). The unarmed contract is guarded by FIXTURE 9:
+// every gate-fixture input is replayed UNARMED against the edited hook and must reproduce,
+// byte for byte, the output of the PRE-CHANGE hook — captured once into
+// __fixtures__/gate-unarmed-goldens.json by spawning `git show abc0876183:…` (T-HCG-B:
+// a paired negative written against the edited hook asserts that the hook equals itself).
+// Every armed claim below is a spawned run quoted into the assertion (T-HCG-A).
+// ═══════════════════════════════════════════════════════════════════════════════
+describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', { timeout: SLOW_SHELL_MS }, () => {
+  const GOLDENS = JSON.parse(
+    readFileSync(resolve(REPO_ROOT, 'packages/core/hooks/__fixtures__/gate-unarmed-goldens.json'), 'utf8'),
+  ) as {
+    env: Record<string, string>;
+    cases: Array<{
+      name: string;
+      session: string;
+      tokens: number | null;
+      text: string;
+      noUsage: boolean;
+      stopHookActive: boolean;
+      res: { mode: string; content?: string } | null;
+      env: Record<string, string>;
+      expectedStdout: string;
+    }>;
+  };
+  const goldenCase = (name: string) => {
+    const c = GOLDENS.cases.find((x) => x.name === name);
+    if (!c) throw new Error(`golden case not found: ${name}`);
+    return c;
+  };
+  const sha256File = (p: string): string =>
+    createHash('sha256').update(readFileSync(p)).digest('hex');
+  /** The baseline's first line is the content sha; D38 appends the turn key on line 2. */
+  const baselineSha = (p: string): string => readFileSync(p, 'utf8').split('\n')[0];
+
+  interface Built {
+    dir: string;
+    residueDir: string | null;
+    transcript: string;
+    baseline: string;
+    env: Record<string, string>;
+    stdin: Record<string, unknown>;
+  }
+
+  /** Rebuild a golden case's inputs EXACTLY as the capture did (same builders, same env
+   *  precedence). `armed` adds AIF_HANDOFF_GATE=1; the unarmed replay deletes it, so a
+   *  developer env that happens to carry it cannot rot fixture 9 into armed-output bytes. */
+  function buildCase(c: (typeof GOLDENS.cases)[number], armed: boolean): Built {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-fixture-'));
+    tmpDirs.push(dir);
+    const transcript = join(dir, 'transcript.jsonl');
+    const lines: Record<string, unknown>[] = [
+      { type: 'ai-title', aiTitle: 'Gate fixture' },
+      { type: 'user', message: { content: 'go' } },
+    ];
+    if (!c.noUsage) {
+      lines.push({
+        type: 'assistant',
+        isSidechain: false,
+        message: {
+          model: 'claude-opus-5',
+          usage: {
+            input_tokens: 1000,
+            cache_read_input_tokens: (c.tokens ?? 0) - 3000,
+            cache_creation_input_tokens: 2000,
+          },
+          content: [{ type: 'text', text: c.text }],
+        },
+      });
+    } else {
+      lines.push({
+        type: 'assistant',
+        isSidechain: false,
+        message: { content: [{ type: 'text', text: c.text }] },
+      });
+    }
+    writeFileSync(transcript, lines.map((l) => JSON.stringify(l)).join('\n') + '\n', 'utf8');
+
+    let residueDir: string | null = null;
+    if (c.res) {
+      residueDir = join(dir, 'residue');
+      if (c.res.mode !== 'absent') mkdirSync(residueDir, { recursive: true });
+      if (c.res.mode === 'content') {
+        writeFileSync(join(residueDir, `_handoff-${c.session}.md`), c.res.content + '\n', 'utf8');
+      }
+      if (c.res.mode === 'readonly') chmodSync(residueDir, 0o555);
+    }
+
+    // The THIRD floor input — the project `.claude/settings.json` — is pinned here for exactly
+    // the reason the env/HOME comment below gives, and used to be the one input left inherited:
+    // projectDir defaulted to REPO_ROOT, and REPO_ROOT's own settings carried no
+    // `autoCompactWindow` only for as long as that key sat uncommitted in a maintainer's working
+    // copy. Committing it (2026-09-14) turned f10c's "nothing declared" branch into "project key
+    // declared" and moved fixture 16's floor from 300000 to 201000 — a red CI on a settings-only
+    // PR. Default to an EMPTY project box; a case that needs a project key writes one.
+    const projectDir = join(dir, 'proj');
+    mkdirSync(join(projectDir, '.claude'), { recursive: true });
+    if (c.env.__settingsAutoCompact !== undefined) {
+      writeFileSync(
+        join(projectDir, '.claude', 'settings.json'),
+        JSON.stringify({ autoCompactWindow: Number(c.env.__settingsAutoCompact) }, null, 2) + '\n',
+        'utf8',
+      );
+    }
+
+    // Every input the D14 floor resolver reads is PINNED here, not inherited: the resolver
+    // walks env → project settings → USER settings (~/.claude/settings.json), and a developer
+    // Mac that has applied the operator hand-action carries BOTH `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+    // in the session env and `autoCompactWindow` in its real HOME — either one silently turns
+    // f10c ("nothing declared") into a block (the sibling-channel lesson: pin what the sibling
+    // can move). HOME points at an EMPTY box; a case that needs a user-level file writes it.
+    const home = join(dir, 'home');
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    const env: Record<string, string> = {
+      ...process.env,
+      ...GOLDENS.env,
+      TMPDIR: dir,
+      HOME: home,
+      CLAUDE_PROJECT_DIR: projectDir,
+      ...(residueDir ? { AIF_RESIDUE_DIR: residueDir } : {}),
+    } as Record<string, string>;
+    delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+    Object.assign(env, c.env);
+    delete env.AIF_HANDOFF_GATE;
+    delete env.AIF_RECAP_GATE;
+    if (armed) env.AIF_HANDOFF_GATE = '1';
+
+    return {
+      dir,
+      residueDir,
+      transcript,
+      baseline: join(dir, `aif-handoff-${c.session}`),
+      env,
+      stdin: {
+        transcript_path: transcript,
+        session_id: c.session,
+        stop_hook_active: c.stopHookActive,
+      },
+    };
+  }
+
+  function spawnCase(b: Built): { status: number; stdout: string; stderr: string } {
+    const r = spawnSync('bash', [HOOK], { input: JSON.stringify(b.stdin), encoding: 'utf8', env: b.env });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  // ── Fixture 9 — THE paired negative (T-HCG-B): unarmed output is byte-identical to the
+  // pre-change hook on EVERY gate-fixture input. The goldens were captured from
+  // `git show abc0876183:.claude/hooks/end-of-turn-reminder.sh` before the hook was edited;
+  // this test cannot pass by tautology because the comparison target is a frozen file.
+  it('fixture 9 (paired negative): AIF_HANDOFF_GATE unset → byte-identical to the pre-change hook on every gate-fixture input', () => {
+    for (const c of GOLDENS.cases) {
+      const b = buildCase(c, false);
+      const r = spawnCase(b);
+      expect(r.status, `${c.name}: exit status (stderr: ${r.stderr})`).toBe(0);
+      expect(r.stdout, `${c.name}: unarmed output must equal the captured pre-change bytes`).toBe(
+        c.expectedStdout,
+      );
+    }
+    // 19 spawns of bash+jq; the default 5s vitest timeout fits ~16 of them. Measured 5.7s.
+  }, 60_000);
+
+  it('fixture 1: armed, above floor, no handoff file → decision:block, reason names the path', () => {
+    const b = buildCase(goldenCase('f1-armed-no-handoff'), true);
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    const expectedPath = `${b.residueDir}/_handoff-${goldenCase('f1-armed-no-handoff').session}.md`;
+    expect(parsed.reason, 'the reason names the handoff file').toContain(expectedPath);
+    expect(parsed.reason, 'the reason names the five required sections').toContain('## Next action');
+    expect(parsed.reason, 'the reason carries the escape grammar').toContain('mechanical-tail:');
+  });
+
+  // ── Compact-command hint (2026-09-13, spec §Changelog round 4, D36): the block tells the
+  // model to END its final message with a ready-to-paste `/compact <focus>` command, so the
+  // operator never types the argument by hand and the harness summary complements the handoff
+  // file instead of restating the session. The template is quoted in BOTH packs; the path is
+  // the gate's own handoff path, not a placeholder.
+  it('fixture 1b: the block carries a ready-to-paste /compact command naming the handoff file (en + ru)', () => {
+    const c = goldenCase('f1-armed-no-handoff');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, lang).toBe('block');
+      const expectedPath = `${b.residueDir}/_handoff-${c.session}.md`;
+      expect(parsed.reason, `${lang}: the template names the real handoff path`).toContain(
+        `/compact Keep: handoff file ${expectedPath}; next action: <one line>; open forks: <one line>;`,
+      );
+      expect(parsed.reason, `${lang}: the template says what to drop`).toContain(
+        'Drop: tool output, exploration dead ends, superseded drafts.',
+      );
+    }
+  });
+
+  it('fixture 2: armed, valid five-section handoff, no baseline → allow (silent) + baseline written with the sha', () => {
+    const c = goldenCase('f2-armed-valid-allow');
+    const b = buildCase(c, true);
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a fresh handoff on a first in-band stop is ALLOWED').toBe('');
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    expect(baselineSha(b.baseline), 'the baseline records the content sha').toBe(
+      sha256File(handoff),
+    );
+  });
+
+  it('fixture 3: same file, second stop → block «unchanged»; touch first → STILL block (content, not mtime)', () => {
+    const c = goldenCase('f3-armed-unchanged-block');
+    const b = buildCase(c, true);
+    const first = spawnCase(b); // records the baseline
+    expect(first.stdout).toBe('');
+    // A SECOND STOP is a second TURN — say so (D38). Re-spawning on an unchanged transcript
+    // is the double-registration case instead, which fixture 19 owns.
+    nextTurn(b, c, 'f3-turn-2');
+    const second = spawnCase(b);
+    const parsed = JSON.parse(second.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'unchanged content blocks').toContain('unchanged');
+    // mtime is never read: a touch changes nothing the sha can see.
+    const before = readFileSync(b.baseline, 'utf8');
+    execSync(`touch "${b.residueDir}/_handoff-${c.session}.md"`);
+    nextTurn(b, c, 'f3-turn-3');
+    const third = spawnCase(b);
+    const parsed3 = JSON.parse(third.stdout) as { decision: string; reason: string };
+    expect(parsed3.decision, 'a touch alone must not lift the block').toBe('block');
+    expect(parsed3.reason).toContain('unchanged');
+    expect(readFileSync(b.baseline, 'utf8')).toBe(before);
+  });
+
+  it('fixture 4: file edited under one heading → allow; baseline advances', () => {
+    const c = goldenCase('f4-armed-edited-allow');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout).toBe(''); // first stop records the baseline
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    writeFileSync(handoff, readFileSync(handoff, 'utf8').replace('land the delivery manifests.', 'land the delivery manifests TODAY.'), 'utf8');
+    nextTurn(b, c, 'f4-turn-2'); // the edit lands on the NEXT turn (D38)
+    const second = spawnCase(b);
+    expect(second.stdout, 'a content change is allowed').toBe('');
+    expect(baselineSha(b.baseline), 'the baseline advanced to the new sha').toBe(
+      sha256File(handoff),
+    );
+  });
+
+  // ── Fixture 19 (D38) — per-Stop idempotence, both directions.
+  //
+  // The Stop channel carries this hook TWICE in any project that has both the getff plugin
+  // (`hooks/hooks.json` → `run-hook.cmd end-of-turn-reminder`) and the project registration the
+  // AIF installer writes (`setup.d/10-skills.sh:260`, `install.sh:959`). Measured 2026-09-14
+  // (session 319c1945): both copies fired on one Stop, both derived the same
+  // `${TMPDIR}/aif-handoff-<ctx_key>` from session_id alone, so the first copy's ALLOW advanced
+  // the baseline and the second compared the file against what its twin had just written —
+  // «CONTENT unchanged» on a turn that had in fact rewritten the file, leaving the
+  // `mechanical-tail:` escape as the only exit from a defect the turn did not have
+  // (`.claude/rules/attention-is-not-a-mechanism.md` §1).
+  //
+  // Both halves invoke the hook TWICE. The only variable is whether a real turn began in
+  // between — which is exactly what a bare sha compare cannot see and the D38 turn key can.
+  //
+  /** Model a REAL turn boundary: append a fresh assistant record, identical to the one
+   *  `buildCase` wrote except for its `uuid`. Re-spawning on an UNCHANGED transcript is a
+   *  second invocation of the SAME Stop (what the double registration does), not a new turn. */
+  const nextTurn = (b: Built, c: (typeof GOLDENS.cases)[number], uuid: string): void => {
+    const msg = c.noUsage
+      ? { content: [{ type: 'text', text: c.text }] }
+      : {
+          model: 'claude-opus-5',
+          usage: {
+            input_tokens: 1000,
+            cache_read_input_tokens: (c.tokens ?? 0) - 3000,
+            cache_creation_input_tokens: 2000,
+          },
+          content: [{ type: 'text', text: c.text }],
+        };
+    appendFileSync(
+      b.transcript,
+      JSON.stringify({ type: 'assistant', isSidechain: false, uuid, message: msg }) + '\n',
+      'utf8',
+    );
+  };
+
+  it('fixture 19a (D38): a second invocation of ONE Stop after a real edit must NOT report «unchanged»', () => {
+    const c = goldenCase('f4-armed-edited-allow');
+    const b = buildCase(c, true);
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    // Turn N-1 ends: the baseline records the pre-turn sha.
+    expect(spawnCase(b).stdout, 'the first in-band stop allows and records').toBe('');
+    const preTurn = baselineSha(b.baseline);
+    // Turn N: a new assistant record, and the model rewrites the handoff.
+    nextTurn(b, c, 'turn-N');
+    writeFileSync(
+      handoff,
+      readFileSync(handoff, 'utf8').replace(
+        'land the delivery manifests.',
+        'land the delivery manifests TODAY.',
+      ),
+      'utf8',
+    );
+    // The Stop fires — copy 1 (the plugin twin).
+    const first = spawnCase(b);
+    expect(first.stdout, 'copy 1 sees a changed file and allows').toBe('');
+    expect(baselineSha(b.baseline), 'the baseline advanced past the pre-turn value').not.toBe(
+      preTurn,
+    );
+    expect(baselineSha(b.baseline), '…to the file it just read').toBe(sha256File(handoff));
+    // …and copy 2 (the project copy), same Stop, byte-identical inputs.
+    const second = spawnCase(b);
+    expect(second.status, `stderr: ${second.stderr}`).toBe(0);
+    expect(
+      second.stdout,
+      'the twin of the SAME Stop must not invent an «unchanged» defect its twin consumed',
+    ).toBe('');
+  });
+
+  it('fixture 19b (D38, paired negative): a NEW turn that leaves the handoff alone still blocks «unchanged» — for BOTH copies', () => {
+    const c = goldenCase('f3-armed-unchanged-block');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout, 'the first in-band stop allows and records').toBe('');
+    // A genuine next turn — a new assistant record — with the handoff untouched.
+    nextTurn(b, c, 'turn-N');
+    const second = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    expect(second.decision, 'a stale handoff on a NEW turn still blocks').toBe('block');
+    expect(second.reason, 'and says why').toContain('unchanged');
+    // The twin of THAT Stop repeats the verdict: the block half of the fix must not become a
+    // silent pass, which is how an idempotence fix would fail open.
+    const twin = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    expect(twin.decision, 'both copies of one blocking Stop agree').toBe('block');
+    expect(twin.reason).toContain('unchanged');
+  });
+
+  it('fixture 5: file missing ## Rejected alternatives → block, reason names it', () => {
+    const b = buildCase(goldenCase('f5-armed-missing-heading'), true);
+    const r = spawnCase(b);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('## Rejected alternatives');
+  });
+
+  it('fixture 6: valid escape token → allow; a 4-char rationale → still block', () => {
+    // Both halves start from the SAME state — a baseline that already matches the file
+    // (the "unchanged" branch would block) — so the ONLY variable is the token.
+    // 6a — the 44-char rationale clears the gate line (D17): the stale handoff does not block.
+    const a = buildCase(goldenCase('f6a-armed-escape-valid'), true);
+    const handoffA = `${a.residueDir}/_handoff-${goldenCase('f6a-armed-escape-valid').session}.md`;
+    writeFileSync(a.baseline, sha256File(handoffA), 'utf8');
+    const r = spawnCase(a);
+    expect(r.stdout, 'a rationale ≥20 chars is an escape from an otherwise-blocking state').toBe('');
+    // 6b — «mechanical-tail: done» is NOT an escape: the block reason re-quotes the grammar.
+    const b = buildCase(goldenCase('f6b-armed-escape-short'), true);
+    const handoffB = `${b.residueDir}/_handoff-${goldenCase('f6b-armed-escape-short').session}.md`;
+    writeFileSync(b.baseline, sha256File(handoffB), 'utf8');
+    const rb = spawnCase(b);
+    const parsed = JSON.parse(rb.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'a too-short rationale blocks and re-quotes the grammar').toContain(
+      'mechanical-tail:',
+    );
+  });
+
+  it('fixture 7: below the floor → silent (existing branches only)', () => {
+    const b = buildCase(goldenCase('f7-below-floor-silent'), true);
+    const r = spawnCase(b);
+    expect(r.status).toBe(0);
+    expect(r.stdout, '100k is below every floor — the gate never speaks').toBe('');
+  });
+
+  it('fixture 8: stop_hook_active=true, armed → stdout empty AND the baseline is untouched (D19: the hook does NOTHING at :35-38)', () => {
+    // NOTE: the spec's §Testing seams row 8 reads "baseline file updated", but the landed
+    // D19 register (round-1 REVISE: "the step is DELETED") and the hook's control flow both
+    // say otherwise — the guard exits at :35-38 BEFORE session_id is even read (:154), so a
+    // baseline write there is unimplementable without reordering the hook. This fixture
+    // pins the D19 register (do-nothing); the divergence is reported as an observation.
+    const c = goldenCase('f8-stop-hook-active');
+    const b = buildCase(c, true);
+    // A baseline from an earlier allowed stop exists…
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    writeFileSync(b.baseline, sha256File(handoff), 'utf8');
+    const before = readFileSync(b.baseline, 'utf8');
+    const r = spawnCase(b);
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'the loop guard short-circuits before any output').toBe('');
+    expect(readFileSync(b.baseline, 'utf8'), 'the stop_hook_active stop must not touch the baseline').toBe(before);
+  });
+
+  it('fixture 10: floor derivation — env 300000 → 201000; settings.json autoCompactWindow → same; neither → ctx_soft', () => {
+    // (a) DECLARED env: floor = min(300000, 300000×67%) = 201000. 250k is above it → block.
+    const a = buildCase(goldenCase('f10a-floor-env-declared'), true);
+    const ra = spawnCase(a);
+    const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'the derived floor is in the reason').toContain('201000');
+    // (b) settings.json autoCompactWindow only → the same 201000.
+    const b = buildCase(goldenCase('f10b-floor-settings-declared'), true);
+    const rb = spawnCase(b);
+    const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
+    expect(pb.decision).toBe('block');
+    expect(pb.reason).toContain('201000');
+    // (c) nothing declared → gate_floor = ctx_soft = 300000 on the 1M window → 250k is below it.
+    const c = buildCase(goldenCase('f10c-floor-none'), true);
+    const rc = spawnCase(c);
+    expect(rc.stdout, 'without a compaction point the gate stands at ctx_soft').toBe('');
+  });
+
+  it('fixture 15: floor derivation — user-level ~/.claude/settings.json autoCompactWindow is the THIRD source; a project key outranks it; junk and malformed files are ignored', () => {
+    // WHY a third source (measured 2026-09-13): a desktop worktree session's project settings
+    // are the WORKTREE's committed .claude/settings.json, never the main checkout's uncommitted
+    // arming — 0 of 100+ worktrees carried a compaction point. The operator's only reach into
+    // every worktree is ~/.claude/settings.json, where Claude Code itself reads autoCompactWindow.
+    // Without this step the hook derived floor = ctx_soft (300000) while compaction happened at
+    // ~89% of the user-level 300000: an EMPTY band, silent by construction (live floors before
+    // the fix: 300000 with no env, 201000 only with the env var).
+    const userCase = (userSettings: string | null, projectAutoCompact?: number) => {
+      const b = buildCase(goldenCase('f10c-floor-none'), true);
+      if (userSettings !== null) {
+        writeFileSync(join(b.env.HOME, '.claude', 'settings.json'), userSettings, 'utf8');
+      }
+      // An isolated project dir: f10c's default CLAUDE_PROJECT_DIR is the repo root, whose
+      // .claude/settings.json is the operator's machine-local file on the main checkout.
+      const proj = join(b.dir, 'proj');
+      mkdirSync(join(proj, '.claude'), { recursive: true });
+      if (projectAutoCompact !== undefined) {
+        writeFileSync(
+          join(proj, '.claude', 'settings.json'),
+          JSON.stringify({ autoCompactWindow: projectAutoCompact }, null, 2) + '\n',
+          'utf8',
+        );
+      }
+      b.env.CLAUDE_PROJECT_DIR = proj;
+      return spawnCase(b);
+    };
+    // (a) user-level 300000, nothing else declared → floor 201000 → 250k is in the band → block.
+    const a = userCase(JSON.stringify({ autoCompactWindow: 300000 }));
+    expect(a.stderr).toBe('');
+    expect(a.stdout, 'a user-level compaction point alone must place the floor at 201000 — silence here is the measured worktree defect').not.toBe('');
+    const pa = JSON.parse(a.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'the floor derived from the USER file is in the reason').toContain('201000');
+    // (b) PAIRED NEGATIVE — precedence: a project key OUTRANKS the user key, as Claude Code's own
+    // scalar-settings precedence does. project 600000 → min(300000, 402000) = 300000 → 250k is
+    // below the floor → silent, even though the user file alone would have blocked.
+    const b = userCase(JSON.stringify({ autoCompactWindow: 300000 }), 600000);
+    expect(b.stdout, 'the project key wins; the user key must not lower the floor under it').toBe('');
+    // (c) junk value in the user file → ignored → floor = ctx_soft → silent.
+    const c = userCase(JSON.stringify({ autoCompactWindow: 'three hundred k' }));
+    expect(c.stdout).toBe('');
+    expect(c.stderr).toBe('');
+    // (d) a malformed user file → ignored, and nothing leaks to stderr (jq is muted).
+    const d = userCase('{ not json');
+    expect(d.stdout).toBe('');
+    expect(d.stderr).toBe('');
+  });
+
+  it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', () => {
+    // Fixtures 1-8 are short/tool-only turns and never reach the bottom emit site (:694).
+    // Without THIS case, appending gate_line at only _autonomy_exit ships green — the exact
+    // shadowing failure the round-1 cold review caught (M2).
+    const c = goldenCase('f11-long-text-in-band');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout, 'first stop allows and records (the recap itself still fires)')
+      .not.toBe('');
+    nextTurn(b, c, 'f11-turn-2'); // the stale handoff is stale as of the NEXT turn (D38)
+    const second = spawnCase(b);
+    expect(second.stdout.trim().startsWith('{') && second.stdout.trim().endsWith('}'), 'exactly ONE JSON object').toBe(true);
+    const parsed = JSON.parse(second.stdout) as { decision: string; reason: string; systemMessage?: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the recap half (bottom emit site)').toMatch(/🟢/);
+    expect(parsed.reason, 'the gate half — same block, not a second one').toContain('handoff-gate');
+    expect(parsed.reason, 'the context line is REPLACED by the gate (D21), never doubled').not.toMatch(/\[context\]/);
+  });
+
+  it('fixture 12 (D31): armed, transcript with NO usage record → exit 0 without error (set -u guard)', () => {
+    const b = buildCase(goldenCase('f12-armed-no-usage'), true);
+    const r = spawnCase(b);
+    expect(r.status, `no usage record must not abort the hook (stderr: ${r.stderr})`).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it('fixture 13 (D19 fail-closed): armed, AIF_RESIDUE_DIR unwritable → block whose reason names the degradation', () => {
+    const b = buildCase(goldenCase('f13-armed-readonly-residue'), true);
+    try {
+      const r = spawnCase(b);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, 'never a silent allow on a broken probe').toBe('block');
+      expect(parsed.reason, 'names the seam').toContain('AIF_RESIDUE_DIR');
+      expect(parsed.reason, 'says degraded, not all-clear').toMatch(/not an all-clear|degraded/i);
+    } finally {
+      // restore so the shared afterEach rmSync can always descend
+      if (b.residueDir) chmodSync(b.residueDir, 0o755);
+    }
+  });
+
+  it('fixture 14 (D32/D16): over the line cap → block naming the cap; a blank section → block naming it', () => {
+    // (a) 210-line handoff, all five sections present → the cap message, not a heading message.
+    const a = buildCase(goldenCase('f14a-armed-over-cap'), true);
+    const ra = spawnCase(a);
+    const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'condense, do not append').toContain('200-line cap');
+    // (b) ## Next action present but blank → named as missing/empty.
+    const b = buildCase(goldenCase('f14b-armed-blank-section'), true);
+    const rb = spawnCase(b);
+    const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
+    expect(pb.decision).toBe('block');
+    expect(pb.reason, 'a present-but-empty section is named').toContain('## Next action');
+  });
+
+  it('D36: the gate rides ONE block and the context line is suppressed from the floor upward (armed, short turn at 320k)', () => {
+    const b = buildCase(goldenCase('f2-armed-valid-allow'), true);
+    // The gate ALLOWS (fresh handoff) — the context line stays suppressed (D21), so a short
+    // in-band turn is fully silent: no ctx advice, no gate text, no fresh-session advice.
+    const r = spawnCase(b);
+    expect(r.stdout).toBe('');
+  });
+
+  // ── Fixtures 16-18 (D37) — the INVERSE of D36. D36 asks for a ready-to-paste `/compact`
+  // command on every in-band turn; the band is the only place that command is wanted, because
+  // below the floor a compaction throws away a window that was not full. Measured 2026-09-14
+  // in the getff.ai design session `5ab4a9ca`: 11 turns ended with the command, 9 of them
+  // legitimately in the band and 2 below it (193749 and 153658 tokens against a 201000 floor),
+  // BOTH on the first turn after a compaction — the summary had generalised «every turn ends
+  // with /compact» out of the in-band turns it saw. The operator ran one and lost context for
+  // nothing. The counter cannot be more prose in the channel that got paraphrased away
+  // (attention-is-not-a-mechanism.md §1), so it is detected where it LANDS: the turn's final
+  // text. These cases are in the goldens, so fixture 9 also proves the guard is silent UNARMED.
+  it('fixture 16 (D37): armed, below the floor, a /compact line in the tail → block naming the out-of-band suggestion (en + ru)', () => {
+    const c = goldenCase('f16-below-floor-compact-tail');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, lang).toBe('block');
+      expect(parsed.reason, `${lang}: the gate owns the block`).toContain('handoff-gate');
+      expect(parsed.reason, `${lang}: the reason quotes this turn's estimate`).toContain('100000');
+      expect(parsed.reason, `${lang}: … and the floor it sits below`).toContain('300000');
+      expect(parsed.reason, `${lang}: the command is still named, so the model knows what to drop`).toContain(
+        '/compact',
+      );
+      // D21 — one reason per stop: gate_floor is clamped to ≤ ctx_soft, so below the floor no
+      // context tier fired and the gate slot is free. A [context] prefix here would mean two.
+      expect(parsed.reason, `${lang}: never doubled with the context tier`).not.toMatch(/\[context\]/);
+    }
+  });
+
+  it('fixture 17 (D37 paired negative): armed, below the floor, /compact mentioned only INLINE → silent', () => {
+    // A session DISCUSSING the gate quotes `/compact …` mid-sentence; only the ready-to-paste
+    // form is a line of its own. Without the line anchor this suite's own subject matter would
+    // trip the guard on every turn.
+    const c = goldenCase('f17-below-floor-compact-inline');
+    for (const lang of ['en', 'ru'] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      expect(r.stdout, `${lang}: an inline mention is not a suggestion`).toBe('');
+    }
+  });
+
+  it('fixture 18 (D37 precedence): the same /compact tail IN the band → the ordinary gate reason wins, unchanged', () => {
+    // The guard is guarded by `-z "$gate_line"`: in the band the stale-handoff reason already
+    // holds the slot, and D36 is asking for that very command. A clone of f1 with f16's tail.
+    const c = { ...goldenCase('f1-armed-no-handoff'), text: goldenCase('f16-below-floor-compact-tail').text };
+    const b = buildCase(c, true);
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason, 'the in-band block is the handoff-file one').toContain('## Next action');
+    expect(parsed.reason, 'the out-of-band text must not appear in the band').not.toContain(
+      'NOT in the handoff band',
+    );
+  });
+});
+
+/**
+ * The SHIPPED plugin twin, armed, run from its own directory.
+ *
+ * Why the real artifact and not a synthetic lib-less copy: `plugin/hooks/` is what a
+ * ZCode/plugin-channel consumer actually receives, and it differs from `.claude/hooks/` in
+ * TWO ways that the source-side suites above cannot see, because those suites run the
+ * source hook, which always has both neighbours:
+ *   1. `plugin/hooks/lib/` carries `hook-emit.sh` only — no `residue-dir.sh` (D23/D29: the
+ *      twin is expected to run on its INLINE fallback), so the fallback must define every
+ *      member the gate calls, `_residue_sha256` included.
+ *   2. `plugin/hooks/lang/{en,ru}.sh` are hand-maintained twins that no generator rebuilds
+ *      (`scripts/generate-plugin-twins.sh` iterates `.claude/hooks/*.sh` only), so a message
+ *      function added on the source side alone is simply absent here.
+ * Either gap is FATAL rather than degraded — `set -euo pipefail` turns the missing function
+ * into RC 127 and kills the hook, taking the recap and F10 arms with it. Both were live on
+ * this stage before this arm existed: the shipped twin exited 127 at its first armed Stop.
+ * One armed run over the real artifact covers both, and any future member added to
+ * `lib/residue-dir.sh` and called from the gate is caught here the same way.
+ */
+describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Stop (lib-less + own lang pack)', { timeout: SLOW_SHELL_MS }, () => {
+  const TWIN_HOOK = resolve(REPO_ROOT, 'plugin/hooks/end-of-turn-reminder');
+  const boxes: string[] = [];
+  afterAll(() => {
+    for (const b of boxes.splice(0)) rmSync(b, { recursive: true, force: true });
+  });
+
+  function armedRun(handoff: string | null): {
+    status: number;
+    stdout: string;
+    stderr: string;
+    dir: string;
+  } {
+    const dir = mkdtempSync(join(tmpdir(), 'plugin-twin-armed-'));
+    boxes.push(dir);
+    const residue = join(dir, 'residue');
+    mkdirSync(residue, { recursive: true });
+    const proj = join(dir, 'proj');
+    mkdirSync(join(proj, '.claude'), { recursive: true });
+    writeFileSync(
+      join(proj, '.claude', 'settings.json'),
+      JSON.stringify({ autoCompactWindow: 300000 }, null, 2) + '\n',
+      'utf8',
+    );
+    const transcript = join(dir, 'transcript.jsonl');
+    writeFileSync(
+      transcript,
+      [
+        JSON.stringify({ type: 'ai-title', aiTitle: 'Plugin twin armed' }),
+        JSON.stringify({ type: 'user', message: { content: 'go' } }),
+        JSON.stringify({
+          type: 'assistant',
+          isSidechain: false,
+          message: {
+            model: 'claude-opus-5',
+            usage: {
+              input_tokens: 900000,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0,
+            },
+            content: [{ type: 'text', text: 'done.' }],
+          },
+        }),
+      ].join('\n') + '\n',
+      'utf8',
+    );
+    if (handoff !== null) writeFileSync(join(residue, '_handoff-plugintwin.md'), handoff, 'utf8');
+    const r = spawnSync('bash', [TWIN_HOOK], {
+      input: JSON.stringify({
+        session_id: 'plugintwin',
+        transcript_path: transcript,
+        stop_hook_active: false,
+        cwd: dir,
+      }),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        AIF_HOOK_LANG: 'en',
+        AIF_HANDOFF_GATE: '1',
+        AIF_RESIDUE_DIR: residue,
+        CLAUDE_PROJECT_DIR: proj,
+        TMPDIR: dir,
+      },
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '', dir };
+  }
+
+  const VALID_HANDOFF = [
+    '# Handoff',
+    '',
+    '## Decisions and why',
+    'Kept the inline fallback complete.',
+    '',
+    '## Rejected alternatives',
+    'Shipping the lib into plugin/hooks/lib/.',
+    '',
+    '## Unverified assumptions and open forks',
+    'None.',
+    '',
+    '## Skills to invoke by name',
+    'superpowers:subagent-driven-development',
+    '',
+    '## Next action',
+    'Run the host-verify contract.',
+    '',
+  ].join('\n');
+
+  it('no-file case: blocks with the gate reason instead of dying (RC 127 is the regression)', () => {
+    const r = armedRun(null);
+    expect(r.stderr, 'a missing lang key or lib member surfaces here first').not.toMatch(
+      /command not found/,
+    );
+    expect(r.status, 'RC 127 = the twin died on an undefined function').toBe(0);
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('handoff-gate');
+  });
+
+  it('valid handoff: reaches the D19 content-hash branch, which lives past the sha256 call', () => {
+    // This is the arm that covers `_residue_sha256` specifically — the no-file case above
+    // returns before the hash is ever taken, so it alone would pass with the member absent.
+    const r = armedRun(VALID_HANDOFF);
+    expect(r.stderr).not.toMatch(/command not found/);
+    expect(r.status).toBe(0);
+    expect(r.stdout, 'a fresh handoff ALLOWS — the gate is silent (D21)').toBe('');
+    // The baseline the allow-branch writes IS the file's sha256: proof the call ran.
+    const baseline = join(r.dir, 'aif-handoff-plugintwin');
+    expect(existsSync(baseline), 'no baseline = the sha branch never executed').toBe(true);
+    // Line 1 is the content sha; D38 writes the Stop's turn key on line 2.
+    expect(readFileSync(baseline, 'utf8').split('\n')[0]).toBe(
+      createHash('sha256')
+        .update(readFileSync(join(r.dir, 'residue', '_handoff-plugintwin.md')))
+        .digest('hex'),
+    );
   });
 });

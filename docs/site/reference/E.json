@@ -1,0 +1,1761 @@
+{
+  "schemaVersion": 1,
+  "family": "E",
+  "familyName": "templates",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "cargo/Cargo.lints.toml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "cargo"
+        ]
+      },
+      "description": "Clippy severity projection rendered by the cargo backend (render-clippy.ts): promotes the clippy.toml bans to the deny surface — without it a banned call is only a WARNING and `cargo clippy` exits 0.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 3
+      },
+      "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".getff/Cargo.lints.toml"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".getff/Cargo.lints.toml"
+        }
+      ],
+      "extras": {
+        "format": "toml"
+      },
+      "example": null
+    },
+    {
+      "name": "cargo/clippy.toml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "cargo"
+        ]
+      },
+      "description": "Clippy disallowed-methods/types bans for the cargo stack (the enforced lane); severity projection lives in Cargo.lints.toml.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 7
+      },
+      "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": "clippy.toml"
+        },
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": "getff-clippy.toml"
+        }
+      ],
+      "extras": {
+        "format": "toml"
+      },
+      "example": null
+    },
+    {
+      "name": "cargo/deny.toml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "cargo"
+        ]
+      },
+      "description": "cargo-deny config for dependency-level bans clippy cannot express (ecosystem-wiring W4); ships as a starter config no workflow runs.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 11
+      },
+      "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": "deny.toml"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": "deny.toml"
+        }
+      ],
+      "extras": {
+        "format": "toml"
+      },
+      "example": null
+    },
+    {
+      "name": "cargo/github-actions-ci.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "cargo"
+        ]
+      },
+      "description": "GitHub Actions CI for the cargo stack — runs cargo clippy with the bans CI-failing when violated.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 15
+      },
+      "installedTo": [
+        {
+          "stack": "cargo",
+          "lane": "brownfield-clippy",
+          "path": ".github/workflows/getff-cargo.yml"
+        },
+        {
+          "stack": "cargo",
+          "lane": "greenfield",
+          "path": ".github/workflows/getff-cargo.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "go/.golangci.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "go"
+        ]
+      },
+      "description": "golangci-lint config for the go stack; inert until the operator opts in (rule generation deferred).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 19
+      },
+      "installedTo": [
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".golangci.yml"
+        },
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": "getff-golangci.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "go/github-actions-ci.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "go"
+        ]
+      },
+      "description": "GitHub Actions CI for the go stack — runs the getff golangci-lint ban surface (adapter-jig J3).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 23
+      },
+      "installedTo": [
+        {
+          "stack": "go",
+          "lane": "brownfield-golangci",
+          "path": ".github/workflows/getff-go.yml"
+        },
+        {
+          "stack": "go",
+          "lane": "greenfield",
+          "path": ".github/workflows/getff-go.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/.getff/astgrep-rules/getff-no-datetime-datetime-now.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "ast-grep rule banning the `datetime.datetime.now` form (timezone-naive now) on the python lane.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 27
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".getff/astgrep-rules/getff-no-datetime-datetime-now.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".getff/astgrep-rules/getff-no-datetime-datetime-now.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".getff/astgrep-rules/getff-no-datetime-datetime-now.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/.getff/astgrep-rules/getff-no-datetime-now.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "ast-grep rule banning the `datetime.now` form (timezone-naive now) on the python lane.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 31
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".getff/astgrep-rules/getff-no-datetime-now.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".getff/astgrep-rules/getff-no-datetime-now.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".getff/astgrep-rules/getff-no-datetime-now.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/.getff/astgrep-rules/getff-no-eval.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "ast-grep rule banning `eval` on the python lane.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 35
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".getff/astgrep-rules/getff-no-eval.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".getff/astgrep-rules/getff-no-eval.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".getff/astgrep-rules/getff-no-eval.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/.getff/astgrep-rules/getff-no-os-system.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "ast-grep rule banning `os.system` shell-outs on the python lane.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 39
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".getff/astgrep-rules/getff-no-os-system.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".getff/astgrep-rules/getff-no-os-system.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".getff/astgrep-rules/getff-no-os-system.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/ARCHITECTURE.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "Architecture doc rendered into python-stack consumer repos — layer rules and dependency direction.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 43
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/ARCHITECTURE.python.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/ARCHITECTURE.python.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/ARCHITECTURE.python.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "python/RULES.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Rules doc rendered at install time for the python stack (ast-grep + ruff lane; the npm custom-rule engine does not apply).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 47
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "python/github-actions-ci.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "GitHub Actions CI for the python stack — runs the getff ast-grep structural rules (python-delivery-v0).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 51
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".github/workflows/getff-python.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".github/workflows/getff-python.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".github/workflows/getff-python.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/hooks/getff.pre-commit-config.yaml.fragment",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "pre-commit framework config fragment the installer merges into the consumer's .pre-commit-config.yaml.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 55
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "fragment"
+      },
+      "example": null
+    },
+    {
+      "name": "python/hooks/pre-push.sh",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "Python-lane pre-push hook — the local git rung.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 59
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".getff/hooks/pre-push"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".getff/hooks/pre-push"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".getff/hooks/pre-push"
+        }
+      ],
+      "extras": {
+        "format": "sh"
+      },
+      "example": null
+    },
+    {
+      "name": "python/ruff.toml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "ruff config for the python lane.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 63
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".getff/ruff-bans.toml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".getff/ruff-bans.toml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".getff/ruff-bans.toml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": "getff-ruff.toml"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": "ruff.toml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": "ruff.toml"
+        }
+      ],
+      "extras": {
+        "format": "toml"
+      },
+      "example": null
+    },
+    {
+      "name": "python/sgconfig.yml",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python"
+        ]
+      },
+      "description": "ast-grep project config; ruleDirs resolve relative to the consumer repo root where the delivery layer installs it.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 67
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": "sgconfig.yml"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": "sgconfig.yml"
+        }
+      ],
+      "extras": {
+        "format": "yml"
+      },
+      "example": null
+    },
+    {
+      "name": "react-next/.storybook/main.ts",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Storybook 10 config for the react-next stack (addon-essentials + addon-interactions merged into core — no addons needed).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 71
+      },
+      "installedTo": [
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".storybook/main.ts"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".storybook/main.ts"
+        }
+      ],
+      "extras": {
+        "format": "ts"
+      },
+      "example": null
+    },
+    {
+      "name": "react-next/.storybook/preview.ts",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-next"
+        ]
+      },
+      "description": "Storybook preview for the react-next stack.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 75
+      },
+      "installedTo": [
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".storybook/preview.ts"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".storybook/preview.ts"
+        }
+      ],
+      "extras": {
+        "format": "ts"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/.lintstagedrc.json",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "lint-staged config wired by the consumer pre-commit hook.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 79
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".lintstagedrc.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".lintstagedrc.json"
+        }
+      ],
+      "extras": {
+        "format": "json"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/.nvmrc",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Node version pin (22.23.1) installed into consumer repos.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 83
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".nvmrc"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".nvmrc"
+        }
+      ],
+      "extras": {
+        "format": "none"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/.prettierignore",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Prettier ignore list — excludes the generated rules-doc region that is not prettier-format-stable.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 87
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "none"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/AGENTS.md.template",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Universal AGENTS.md context template — pointer file read by Claude Code (CLAUDE.md fallback), Codex CLI, Cursor, Windsurf, Roo Code, and others.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 91
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "template"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/AI-USAGE-GUIDE.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "AI usage guide rendered into consumer repos — the AI-facing lifecycle of a getff-equipped project past install.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 95
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/AI-USAGE-GUIDE.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/ARCHITECTURE.ts-server.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Architecture doc for the ts-server stack — layer rules and dependency direction enforced by dependency-cruiser.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 99
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/ARCHITECTURE.ts-server.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/CLAUDE.md.template",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "CLAUDE.md pointer template — real context lives in AGENTS.md and .ai-factory/.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 103
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "template"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/DESCRIPTION.template.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Project description template loaded by every AI agent at session start; installed at .ai-factory/DESCRIPTION.md plus its .template.md companion.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 107
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/DESCRIPTION.template.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/first-steps.source.json",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "first-steps SSOT (schema getff.first-steps/v1) — the source the consumer first-steps doc renders from.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 111
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "json"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/gitignore",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "gitignore additions installed into consumer repos (node_modules, dist, …).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 115
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".gitignore"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".gitignore"
+        }
+      ],
+      "extras": {
+        "format": "none"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/hooks-package.json",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Minimal package.json for the consumer's hooks directory (type: module).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 119
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": "packages/core/hooks/package.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": "packages/core/hooks/package.json"
+        }
+      ],
+      "extras": {
+        "format": "json"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/husky-pre-commit.sh",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Consumer pre-commit hook — fast checks only (target <5s); heavy checks live in pre-push and CI.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 123
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".husky/pre-commit"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".husky/pre-commit"
+        }
+      ],
+      "extras": {
+        "format": "sh"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/husky-pre-push.sh",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Consumer pre-push hook — the TS-core dispatcher shipped by install.sh.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 127
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".husky/pre-push"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".husky/pre-push"
+        }
+      ],
+      "extras": {
+        "format": "sh"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/integration-rules.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Integration rules across microservices — API contracts, CDC, event schemas, mTLS, observability, resilience (paths-scoped frontmatter).",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 131
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/rules/integration-rules.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/skill-context/aif-orchestrator-discipline/SKILL.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Shipped skill-context override for aif-orchestrator-discipline — consumer-project paths absent in the source repo.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 135
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/skill-context/aif-review/SKILL.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Shipped skill-context override for aif-review — consumer-project paths absent in the source repo.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 139
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/skill-context/aif-rules-check/SKILL.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Shipped skill-context override for aif-rules-check — consumer-project paths absent in the source repo.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 143
+      },
+      "installedTo": [
+        {
+          "stack": "python",
+          "lane": "brownfield-ruff",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "python",
+          "lane": "brownfield-sgconfig",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "python",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/tier-home.md",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Task-tier routing SSOT installed at .ai-factory/tier-home.md — tier criteria, bridge-profile mechanic, marker value rule, degradation matrix.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 147
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": ".ai-factory/tier-home.md"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": ".ai-factory/tier-home.md"
+        }
+      ],
+      "extras": {
+        "format": "md"
+      },
+      "example": null
+    },
+    {
+      "name": "shared/tsconfig.json",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Base tsconfig template installed into consumer repos.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 151
+      },
+      "installedTo": [
+        {
+          "stack": "react-native",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-native",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-next",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "react-spa",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "brownfield",
+          "path": "tsconfig.json"
+        },
+        {
+          "stack": "ts-server",
+          "lane": "greenfield",
+          "path": "tsconfig.json"
+        }
+      ],
+      "extras": {
+        "format": "json"
+      },
+      "example": null
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 ---
 name: dispatcher
-description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invoked explicitly via /dispatcher only (disable-model-invocation:true). NOT for planning — priority and launch-table are /pipeline.
+description: Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invocation channel: explicit /dispatcher only — disable-model-invocation:true is a channel flag and not a permission (§0). NOT for planning — priority and launch-table are /pipeline.
 arguments: [umbrella]
 argument-hint: "[umbrella-name]"
 disable-model-invocation: true
@@ -39,7 +39,8 @@ allowed-tools:
 
 **Slash command:** `/dispatcher [<umbrella-name>]`
 
-`disable-model-invocation: true` — fires ONLY on explicit `/dispatcher` invocation.
+> **Invocation-channel flag, not a permission.** `disable-model-invocation: true` keeps a skill out of auto-load and out of subagent preload, and stops the Skill tool from invoking it — an explicit `/<name>` from the operator is its only invocation channel, so an agent never self-initiates the procedure. It does **not** seal the file: an agent already asked to do this work may read the SKILL.md and execute its documented steps, and doing so is correct behaviour, not a workaround. On ZCode the flag is not runtime-enforced (absent from the runtime, survey #1699 §5): there the explicit-only channel discipline is prompt-level — this blockquote is the gate, so an agent on ZCode must still treat an explicit /<name> as the only self-initiation channel. <!-- canonical: invocation-channel-flag -->
+> Full contract (what the flag does, what it does not, and the two misreads that cost autonomy): [operational-conventions.md §4](../../../docs/meta-factory/operational-conventions.md#4-disable-model-invocation--an-invocation-channel-flag-not-a-permission).
 
 **What this skill does:** EXECUTES a chosen umbrella's stages through the aif-control loop. It does NOT plan or score priority — that is `/pipeline`'s job. If no umbrella is named, list pending stages from `.claude/orchestrator-prompts/` and prompt the operator to choose one.
 
@@ -206,7 +207,7 @@ docker exec aif-handoff-agent-1 git -C <worktree> diff origin/staging...HEAD
   this stock path**, because `harvest.ts` pushes the container commit as-is, so its SHA
   survives to become PR head. It is WRONG on the §2.4b API path, which mints a new commit
   — see the ordering note there (`pr-body-fidelity` requires `Audited-SHA` to prefix PR
-  head, `packages/core/hooks/checks/pr-body-fidelity.ts:165`).
+  head, `packages/core/hooks/checks/pr-body-fidelity.ts:228`).
 - `REVISE` → **no egress, no PR**: `tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<auditor findings>" --decision request_changes` → task returns to `implementing`;
   the next harvest attempt audits as `Round: 2`. **Deliver rework ONLY via `answer.ts` — never a
   bare events-API POST.** A raw `POST /tasks/:id/events {"event":"request_changes"}` (curl) flips
@@ -273,7 +274,7 @@ It reads the file from the container worktree (uncommitted ok), and **append-mer
 mints a NEW commit (blobs→tree→commit), so the container commit the cold auditor judged
 never becomes PR head — and, never being pushed, CI cannot resolve it either. Running the
 §2.4 audit _before_ this helper therefore yields an `Audited-SHA` the gate MUST reject
-([`pr-body-fidelity.ts:165`](../../../packages/core/hooks/checks/pr-body-fidelity.ts) requires it to prefix PR head). Unlike stock `harvest.ts`, this
+([`pr-body-fidelity.ts:228`](../../../packages/core/hooks/checks/pr-body-fidelity.ts) requires it to prefix PR head). Unlike stock `harvest.ts`, this
 path **has a seam**: the helper only creates the branch commit, and `gh pr create` is a
 separate command. So here the audit runs **between** them, on the pushed commit — whose SHA
 IS the PR head:
@@ -411,7 +412,7 @@ Sources: `questions.ts:85-93` (detection), `answer.ts:207-212` (A-park resume).
 3. Apply via `answer.ts --task <id> --answer "<recommendation>" --decision request_changes` (B-park) OR `--decision resume` (A-park)
 4. Report what was decided and why — operator sees the outcome, not a question
 
-**Discrimination discipline (baked into this skill prose because `ask-question-reminder.sh` is operator-internal, not in the `install.sh` payload — per `ask-question-reminder.sh:2`):** a fork is TECHNICAL when the parked reason is about mechanics, implementation detail, or tradeoff within a single subsystem. A fork is STRATEGIC when it involves scope, architecture decisions, project direction, or "whether" to do something at all. When in doubt, surface to operator (Type 2 path).
+**Discrimination discipline (baked into this skill prose because `ask-question-reminder.sh` fires only a generic pre-question fork-challenge nudge and carries no TECHNICAL/STRATEGIC split of its own — and it is no longer operator-internal either: it ships to consumer CC projects, `ask-question-reminder.sh:6`):** a fork is TECHNICAL when the parked reason is about mechanics, implementation detail, or tradeoff within a single subsystem. A fork is STRATEGIC when it involves scope, architecture decisions, project direction, or "whether" to do something at all. When in doubt, surface to operator (Type 2 path).
 
 ### Type 2 — Strategic fork (WHAT/WHETHER; maintainer decides)
 
@@ -498,8 +499,8 @@ The operator manually tracked task IDs, polled `GET /tasks/:id` in a shell loop,
 
 ## §6 §1.7 self-reflexive note
 
-**Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:3`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
+**Stage 1 (dispatcher-ux):** `monitor-classify.sh` REUSES `priority-score.sh` Layer-C3 completion-detection pattern (BFR verdict REUSE, `build-first-reuse-default.md:44`; same problem class confirmed — task-status classification vs umbrella-completion classification). Tests at `packages/core/skills/dispatcher/monitor.test.ts:1`. Original BUILD-verdict forward/backward checks at `docs/meta-factory/dispatcher-skill-rphase.md`.
 
-**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:1`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:3`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
+**Stage 2 (dispatcher-ux-s2):** P2 (`§2.8` closure-marker schema + CANON sync, `CLAUDE.md:umbrella-closure`), P3 (base-normalization note in `§2.0`, `parallel-subwave-isolation.md:6`), P4 (self-application — ALREADY-DONE writes done.md without surfacing question, `recommendation-laziness-discipline.md:5`), P6 (watch-link `§2.1`, `packages/core/skills/dispatcher/dispatch.test.ts:1`). No new CLI primitives, no npm deps.
 
 **Stage (frontier-residue-sweep S1):** `advance-frontier.sh` REUSES the `/pipeline`-owned `frontier.sh` emitter as a pure consumer — bindings, not a fork; the §2.6 `is:merged` check stays the merge authority and `basis=marker-unverified` never advances a consumer (T-FRS1-B). Tests at `packages/core/skills/dispatcher/advance-frontier.test.ts`.

@@ -31,9 +31,17 @@ else
   if command -v jq >/dev/null 2>&1; then
     if [ -f "$_05mcp_json" ]; then
       # Brownfield: additive merge — only sets the context7 key; all other .mcpServers entries preserved.
-      jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
-        "$_05mcp_json" > "$_05mcp_json.tmp" && mv "$_05mcp_json.tmp" "$_05mcp_json"
-      printf '  ✓ [05-mcp] context7 added/updated in existing .mcp.json\n'
+      # ledger A1-9 (the A1-8 class): `jq … > tmp && mv` under an UNCONDITIONAL ✓ reported success
+      # over a failed rewrite — the consumer kept the old .mcp.json, a half-written .mcp.json.tmp was
+      # left in their tree, and rc stayed 0. `set -e` does not catch it (a failing left-hand side of an
+      # && list is exempt), so the honest report needs an explicit if/else.
+      if jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
+        "$_05mcp_json" > "$_05mcp_json.tmp" && mv "$_05mcp_json.tmp" "$_05mcp_json"; then
+        printf '  ✓ [05-mcp] context7 added/updated in existing .mcp.json\n'
+      else
+        rm -f "$_05mcp_json.tmp" 2>/dev/null || true
+        printf '  ⚠ [05-mcp] jq rewrite of %s failed — file left unchanged, context7 NOT added\n' "$_05mcp_json" >&2
+      fi
     else
       # Greenfield: create minimal .mcp.json with exact shape from setup.sh:289-303.
       printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' \

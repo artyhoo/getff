@@ -27,6 +27,10 @@ import {
   enumerateSuiteFiles,
   scanSuiteMarkers,
   checkPopulationParity,
+  checkMarkerRegistration,
+  registrySlots,
+  markerSlots,
+  KNOWN_MARKER_DRIFT,
   missingArmIds,
   type ArmEntry,
   type ArmGroup,
@@ -104,9 +108,25 @@ describe('Principle 33 — adapter-jig arm registry meta-check', () => {
   });
 
   describe('population sentinel — registry-set == live @arm: marker-set, both directions', () => {
-    it('the suite scan enumerates a non-empty file population (the scan itself actually ran)', () => {
+    it('the scan covers every suite the registry actually references (not merely "some files")', () => {
       const files = enumerateSuiteFiles(REPO_ROOT);
-      expect(files.length).toBeGreaterThan(0);
+      // `.length > 0` was the old assertion and it could not fail: any tree with one test
+      // file satisfied it, including a tree where the scan had silently stopped seeing the
+      // suites that matter (ledger A8-5). The real invariant is that every file the registry
+      // POINTS AT is inside the scanned population — otherwise a marker in a referenced
+      // suite is unreachable and the whole sentinel compares against a truncated set.
+      const referenced = [
+        ...new Set(
+          ADAPTER_JIG_ARMS.flatMap((a) => [...a.positive, ...a.negative]).map((r) => r.suite),
+        ),
+      ].sort();
+      expect(referenced.length).toBeGreaterThanOrEqual(ADAPTER_JIG_ARMS.length);
+      const scanned = new Set(files);
+      const unreachable = referenced.filter((r) => !scanned.has(r));
+      expect(
+        unreachable,
+        `Registry-referenced suites the population scan does NOT enumerate:\n${unreachable.join('\n')}`,
+      ).toHaveLength(0);
       // The sentinel's own test file is excluded — its synthetic tokens are not live cases.
       expect(files.some((f) => f.endsWith('33-adapter-jig-arm-registry.test.ts'))).toBe(false);
       // Both suite families are in scope (vitest + bash) — the cross-language scan is load-bearing.
@@ -114,20 +134,81 @@ describe('Principle 33 — adapter-jig arm registry meta-check', () => {
       expect(files.some((f) => f.startsWith('tests/install-sh/') && f.endsWith('.test.sh'))).toBe(true);
     });
 
-    it('marker-set == registry-set (vacuous-pass while BOTH are empty; each landed arm adds marker+row together)', () => {
+    it('marker-slots == registry-slots, per <id>:<kind> (a marked pos with no marked neg is now visible)', () => {
       const markers = scanSuiteMarkers(REPO_ROOT);
       const parity = checkPopulationParity(
-        ADAPTER_JIG_ARMS.map((a) => a.id),
-        markers.map((m) => m.id),
+        registrySlots(ADAPTER_JIG_ARMS),
+        markerSlots(markers),
       );
       expect(
         parity.missingFromRegistry,
-        `Arms marked in suites but NOT registered (escape the pairing gate):\n${parity.missingFromRegistry.join('\n')}`,
+        `Slots marked in suites but NOT registered (escape the pairing gate):\n${parity.missingFromRegistry.join('\n')}`,
       ).toHaveLength(0);
       expect(
         parity.missingFromSuites,
-        `Registry rows with NO live @arm: marker in any scanned suite (vacuous/lying):\n${parity.missingFromSuites.join('\n')}`,
+        `Registry slots with NO live @arm: marker in any scanned suite (vacuous/lying):\n${parity.missingFromSuites.join('\n')}`,
       ).toHaveLength(0);
+    });
+
+    it('every LIVE marker is registered: canonical id, canonical slug, and a ref to its own file', () => {
+      const markers = scanSuiteMarkers(REPO_ROOT);
+      // Non-vacuity: the strict comment-start pattern must still be finding the real
+      // population. A regex that stopped matching would make every arm below pass.
+      expect(markers.length).toBeGreaterThanOrEqual(ADAPTER_JIG_ARMS.length);
+      const report = checkMarkerRegistration(ADAPTER_JIG_ARMS, markers);
+      expect(
+        report.violations,
+        `Live @arm: markers the registry does not actually cover:\n${report.violations.join('\n')}`,
+      ).toHaveLength(0);
+      expect(
+        report.staleExemptions,
+        `KNOWN_MARKER_DRIFT entries that match no live marker (stale exemption widens the gate):\n${report.staleExemptions.join('\n')}`,
+      ).toHaveLength(0);
+      // Exemptions are a routed backlog, not a parking lot: keep the list short enough that
+      // it stays reviewable, and force a deliberate edit here when it grows.
+      expect(KNOWN_MARKER_DRIFT.length).toBeLessThanOrEqual(2);
+      for (const e of KNOWN_MARKER_DRIFT) expect(e.why.length).toBeGreaterThanOrEqual(20);
+    });
+
+    it('neg: a marker whose slug names a different concern is REPORTED (the gate discriminates)', () => {
+      const report = checkMarkerRegistration(
+        ADAPTER_JIG_ARMS,
+        [
+          {
+            id: 'B3',
+            kind: 'neg',
+            slug: 'something-else-entirely',
+            file: 'packages/core/research/ecosystem-go.test.ts',
+          },
+        ],
+        [],
+      );
+      expect(report.violations.join(' ')).toMatch(/is slugged "something-else-entirely"/);
+    });
+
+    it('neg: a marker in a file the registry never references is REPORTED', () => {
+      const report = checkMarkerRegistration(
+        ADAPTER_JIG_ARMS,
+        [
+          {
+            id: 'B3',
+            kind: 'neg',
+            slug: 'direct-deps-only',
+            file: 'packages/core/research/not-referenced-anywhere.test.ts',
+          },
+        ],
+        [],
+      );
+      expect(report.violations.join(' ')).toMatch(/the registry lists no neg ref to this file/);
+    });
+
+    it('neg: a stale KNOWN_MARKER_DRIFT entry is REPORTED (an exemption cannot outlive its marker)', () => {
+      const report = checkMarkerRegistration(
+        ADAPTER_JIG_ARMS,
+        [],
+        [{ file: 'gone.test.ts', locator: '@arm:B3:neg', why: 'a rationale of sufficient length' }],
+      );
+      expect(report.staleExemptions.join(' ')).toMatch(/no live marker matches it any more/);
     });
   });
 

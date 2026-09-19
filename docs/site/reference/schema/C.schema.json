@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "getff reference family C (agents)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "family",
+    "familyName",
+    "generator",
+    "members"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "family": {
+      "const": "C"
+    },
+    "familyName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generator": {
+      "const": "scripts/render-reference.mjs"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "shipsTo",
+          "description",
+          "source",
+          "extras",
+          "example"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "const": "agent"
+          },
+          "shipsTo": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tier"
+            ],
+            "properties": {
+              "tier": {
+                "const": "framework"
+              },
+              "stacks": {
+                "type": "array",
+                "minItems": 0,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "absent": {
+                "enum": [
+                  "no-lane",
+                  "no-operator-twin",
+                  "not-byte-copied"
+                ]
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "line"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "extras": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tools",
+              "referenced-by"
+            ],
+            "properties": {
+              "tools": {
+                "type": "string",
+                "minLength": 1
+              },
+              "referenced-by": {
+                "type": "array",
+                "minItems": 0,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "example": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,411 @@
+{
+  "schemaVersion": 1,
+  "family": "B",
+  "familyName": "skills",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "ai-doc",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "core",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when creating or fixing an AI-facing doc/rule/skill/agent in this repo (SKILL.md, .claude/rules/*, agents/*, CLAUDE.md, AGENTS.md) — to apply the project's context-hygiene + rule-as-test + AI-agnostic authoring standard. Triggers: write a rule, author a skill, fix a doc, doc-authority header, progressive disclosure, channel selection, документация, правило, скилл.",
+      "source": {
+        "path": ".claude/skills/ai-doc/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/ai-doc/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "aif-doctor",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "factory",
+        "absent": "no-lane"
+      },
+      "description": "Use when the aif-handoff runtime is misbehaving — a task is stuck or crash-looping, new tasks stay backlog at capacity, the claude runtime is broken. Triggers: aif-doctor, aif health, task stuck, задача висит, runtime broken, рантайм сломан, aif не отвечает, capacity skipping, native binary not installed, why won't my task start. Invokable when the dispatcher is NOT running. NOT for running the dispatch loop (/dispatcher) or planning (/pipeline).",
+      "source": {
+        "path": ".claude/skills/aif-doctor/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "slash-only",
+        "posture": "cc-only",
+        "operator-twin": ".claude/skills/aif-doctor/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "arch",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "env",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Triggers: /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (superpowers:brainstorming).",
+      "source": {
+        "path": ".claude/skills/arch/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "slash-only",
+        "posture": "cc-native-with-fallback",
+        "operator-twin": ".claude/skills/arch/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "claude-glm-executor-handoff",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "factory",
+        "absent": "no-lane"
+      },
+      "description": "Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.3 worker (any agent whose frontmatter carries `model: glm-5.3` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.3, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly).",
+      "source": {
+        "path": ".claude/skills/claude-glm-executor-handoff/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "cc-only",
+        "operator-twin": ".claude/skills/claude-glm-executor-handoff/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "dispatcher",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "factory",
+        "absent": "no-lane"
+      },
+      "description": "Use when you need to EXECUTE a chosen umbrella's stages through the aif-control loop. Triggers: dispatcher, execute umbrella, run stages, aif loop, harvest PR, stage gate advance. Invocation channel: explicit /dispatcher only — disable-model-invocation:true is a channel flag and not a permission (§0). NOT for planning — priority and launch-table are /pipeline.",
+      "source": {
+        "path": ".claude/skills/dispatcher/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "slash-only",
+        "posture": "cc-native-with-fallback",
+        "operator-twin": ".claude/skills/dispatcher/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "docs-author",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Use when writing or editing any getff.ai docs page under docs/site/ (including the glossary terms.md), when picking a page kind or filling the reader-comfort card, or when running a docs refresh over touched pages — to apply the kind registry, the craft contract, and the docs-check done-checklist. Triggers: write a docs page, new page under docs/site, glossary entry, terms.md, docs refresh, gold page, Diátaxis, задокументировать, страница документации.",
+      "source": {
+        "path": ".claude/skills/docs-author/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/docs-author/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "getff",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "core",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of \"how do I make my codebase resistant to AI agents breaking my conventions\". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that \"looks fine but is wrong\" — that is the core problem this skill addresses.",
+      "source": {
+        "path": "skills/getff/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": {
+          "absent": "no-operator-twin"
+        }
+      },
+      "example": null
+    },
+    {
+      "name": "harvest",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "factory",
+        "absent": "no-lane"
+      },
+      "description": "Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0).",
+      "source": {
+        "path": ".claude/skills/harvest/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "slash-only",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/harvest/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "night-mode",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "env",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when running a task FULLY AUTONOMOUSLY (overnight / unattended) as an orchestrator. Trigger on «работай всю ночь автономно», «оставляю на ночь», «прогони сам до готовности», «автономный режим», night mode, overnight autonomous, run to completion unattended. NOT for a single delegated edit (/orchestrator) or a one-shot review (/reviewer).",
+      "source": {
+        "path": ".claude/skills/night-mode/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable-designed-not-proven",
+        "operator-twin": ".claude/skills/night-mode/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "orchestrator",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "env",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "|",
+      "source": {
+        "path": ".claude/skills/orchestrator/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "cc-native-with-fallback",
+        "operator-twin": ".claude/skills/orchestrator/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "pipeline",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "env",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when you have ≥2 in-flight wave umbrellas with cross-stage dependencies, suspect drift between wave-sequencing-plan.md and live git reality, or need to dispatch the next wave with verified Stage N→N+1 gates. Triggers: pipeline, wave orchestrator, wave plan, stage-gate, umbrella priority, waves parallel/sequential, wave-sequencing-plan drift. Invocation channel: explicit /pipeline only — disable-model-invocation:true is a channel flag and not a permission (§0).",
+      "source": {
+        "path": ".claude/skills/pipeline/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "slash-only",
+        "posture": "cc-native-with-fallback",
+        "operator-twin": ".claude/skills/pipeline/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "reviewer",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "env",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when the operator or an orchestrator asks for an interactive review with a verdict — «проверь», «ревью», «вердикт», «это правильно?», «оцени результат», «phase N закрыт», review, second opinion, independent review, verify deliverable, \"is this correct?\" — and the deliverable is a GO/REVISE/STOP verdict or a verified answer, not code. NOT for implementing fixes or writing tests (orchestrator work), and NOT for the cold PR-boundary protocols (agents/fidelity-auditor.md, agents/review-sidecar.md — those are dispatched, not interactive).",
+      "source": {
+        "path": ".claude/skills/reviewer/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/reviewer/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "rule-research",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "core",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when a consumer wants to bootstrap stack-aware ESLint rules from LIVE documentation rather than ship pre-baked recipes. Triggers: rule research, research stack practices, generate eslint rule from docs, bootstrap rules for my stack, rules-research, rule-bootstrapping, no-head-element, исследовать практики стека, сгенерировать правило из документации.",
+      "source": {
+        "path": ".claude/skills/rule-research/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/rule-research/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "rule-tests",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "core",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when a consumer has an EXISTING generated rule whose firing test material is missing, broken, or needs a bypass variant. Triggers: rule tests, repair test material, fix negative-test, rule test material, verify the rule fires, rule-tests, починить тест правила, исправить негативный тест, проверить что правило срабатывает, тестовый материал для правила. NOT for creating new rules (/rule-research).",
+      "source": {
+        "path": ".claude/skills/rule-tests/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/rule-tests/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "self-reflection",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Use when introducing or extending a rule, principle, pattern, methodology, discipline, or process change in this repository. Auto-trigger on «правило», «принцип», «дисциплина», «методология», «процесс», recommend, introduce rule, new principle, discipline change, process rule, meta, recursive, applies to itself, check own work, self-review, forward check, backward check, closing recommendation, discipline-bearing artefact, self-reflection, anti-pattern, or any edit touching `.claude/rules/`, `packages/core/principles/`, `docs/meta-factory/EXECUTION-PLAN.md`, `docs/meta-factory/prior-art-evaluations.md`, `CLAUDE.md`. Do NOT trigger on simple typo fixes, code edits without rule changes, or routine PR work.",
+      "source": {
+        "path": ".claude/skills/self-reflection/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/self-reflection/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "story",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "factory",
+        "absent": "no-lane"
+      },
+      "description": "Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», story, recap, «по актам».",
+      "source": {
+        "path": ".claude/skills/story/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "cc-native-with-fallback",
+        "operator-twin": ".claude/skills/story/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "template-audit",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "core",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when auditing rendered templates via local advisory review. Triggers: template, audit, render, generated docs, AGENTS.md, paraphrase, cue placement, local advisory, template-render, audit-template.",
+      "source": {
+        "path": ".claude/skills/template-audit/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/template-audit/SKILL.md"
+      },
+      "example": null
+    },
+    {
+      "name": "tool-bootstrapping",
+      "kind": "skill",
+      "shipsTo": {
+        "tier": "core",
+        "stacks": [
+          "python",
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools.",
+      "source": {
+        "path": "skills/tool-bootstrapping/SKILL.md",
+        "line": 3
+      },
+      "extras": {
+        "invocation": "auto",
+        "posture": "portable",
+        "operator-twin": ".claude/skills/tool-bootstrapping/SKILL.md"
+      },
+      "example": null
+    }
+  ]
+}

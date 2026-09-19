@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-matching-rule.sh — PostToolUse hook — path-scoped just-in-time delivery of .claude/rules/*.md summaries
 # PostToolUse rule-injector — path-scoped just-in-time delivery of .claude/rules/*.md.
 # @dual-pair: rule-path-scoping
 #   Two channels deliver path-scoped rules at the same scope: CC-native `paths:` frontmatter

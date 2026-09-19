@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # AUTO-GENERATED from .claude/hooks/check-hook-marker.sh — do not edit (header injected by scripts/generate-plugin-twins.sh)
+# check-hook-marker.sh — PostToolUse gate — delivery-channel marker + strict header grammar on touched hook files
 # PostToolUse gate — delivery-channel marker on touched hooks (Wave N8 C4).
 # @cc-only-rationale: PostToolUse edit-time gate — fires at the moment a hook file
 #   is written; no portable hook fires then. Edit-time IS the "at next touch"
@@ -30,38 +31,77 @@ set -uo pipefail
 # lib/ sibling to source). CC: exit 2 + stderr = feedback the model receives (advisory in
 # effect — PostToolUse cannot block, the tool already ran). ZCode: JSON additionalContext
 # (exit 2 is swallowed as HookRunFailed); exit 0.
-_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
-# JSON-escape WITHOUT jq — jq is precisely the dependency that may be missing here.
-_json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
-# Announce a dependency-missing skip on the channel the model actually receives on an
-# exit-0 path (JSON hookSpecificOutput), keeping stderr for terminal/CI readers.
-_emit_skip() {
-  if _is_zcode; then
-    printf '{"additionalContext":"%s"}\n' "$(_json_escape "$1")"
-  else
-    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
-      "$(_json_escape "$1")"
-  fi
-  printf '%s\n' "$1" >&2
-}
-_emit_ctx() { if _is_zcode && command -v jq >/dev/null 2>&1; then
-    jq -n --arg c "$2" '{additionalContext:$c}'
-  else printf '%s\n' "$2"; fi; }
+
+# ── Shared emit prelude (#1597 review ledger R-2, K-1) ────────────────────────
+# _is_zcode / _json_escape / _emit_skip / _emit_skip_once / _emit_ctx and the Homebrew PATH
+# prepend have ONE definition, at lib/hook-emit.sh. Five gates used to carry a private 13-line
+# copy each; the copies had begun to diverge (a lost _is_zcode branch, a sed escaper that
+# produced invalid JSON for a tab or CR). Resolved next to THIS file so the framework copy and
+# the plugin twin each load their own sibling — both channels ship the directory.
+# Pure parameter expansion — no `dirname`, no `cd`, no subshell. These gates run on a
+# stripped PATH (a jq-less consumer, a sandbox that rebuilt PATH to hide a tool), and the
+# prelude must resolve before any external command is known to exist.
+_HOOK_DIR="${BASH_SOURCE[0]%/*}"
+[ "$_HOOK_DIR" = "${BASH_SOURCE[0]}" ] && _HOOK_DIR="."
+_HOOK_LIB="$_HOOK_DIR/lib/hook-emit.sh"
+# shellcheck source=lib/hook-emit.sh
+if ! . "$_HOOK_LIB" 2>/dev/null; then
+  # Broken install: announce on the model channel with constant text (no escaper available
+  # yet) and exit 0 — a missing prelude must not block the edit.
+  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' \
+    '⚠ check-hook-marker: lib/hook-emit.sh could not be sourced — this gate DID NOT RUN for this edit. This is a SKIP, not a pass; reinstall the hooks.'
+  exit 0
+fi
 _adv_violation() { if _is_zcode; then _emit_ctx "PostToolUse" "$1"; else printf '%s\n' "$1" >&2; exit 2; fi; }
 
-# Framework-self PostToolUse matcher registered for a hook (empty = not registered, i.e. a
-# shipped-only hook wired solely via setup.d/install.sh — tolerated: no framework-side matcher
-# to read). Anchors on the closing `"` after `<name>.sh` so `check-doc-authority` does not
-# spuriously match `check-doc-authority-header`'s command string.
+# PostToolUse matcher registered for a hook, looked up across BOTH registration channels:
+#   1. framework-self — .claude/settings.json (rendered from harness-model.json);
+#   2. plugin channel — plugin/hooks/hooks.json (same model, rendered for plugin consumers;
+#      the registration surface for hooks the framework self does not wire into its own
+#      settings.json, e.g. check-doc-authority-header since #1727).
+# Empty result = registered in neither channel (an install-sh-only consumer hook — tolerated:
+# no matcher to read). Boundary discipline per channel: settings.json embeds the hook path
+# inside quotes (`…/hooks/<name>.sh"`), so the anchor is the closing quote; hooks.json ends
+# its command with the EXTENSIONLESS twin name (`run-hook.cmd" <name>` — plugin twins carry
+# no .sh), so the suffix is stripped from the lookup key and the anchor is quote, whitespace,
+# or end-of-string. Both keep `check-doc-authority` from spuriously matching
+# `check-doc-authority-header`'s command string.
 _reg_matcher() {
-  local hook="$1" settings="$REPO_ROOT/.claude/settings.json"
-  [ -f "$settings" ] || { printf ''; return; }
-  jq -r --arg hook "$hook" '
-    (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook + "\"")))) | .[0].matcher // ""
-  ' "$settings" 2>/dev/null || true
+  local hook="$1" settings="$REPO_ROOT/.claude/settings.json" pluginreg="$REPO_ROOT/plugin/hooks/hooks.json" m=""
+  if [ -f "$settings" ]; then
+    m="$(jq -r --arg hook "$hook" '
+      (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook + "\"")))) | .[0].matcher // ""
+    ' "$settings" 2>/dev/null || true)"
+    if [ -n "$m" ]; then printf '%s' "$m"; return; fi
+  fi
+  # ${hook%.sh}: $hook arrives as <name>.sh from the path gate, but hooks.json registers
+  # twins extensionless — with the suffix kept the lookup never matched the real file and
+  # GAP-2 stayed open behind a green test (cold-review P1, 2026-09-13).
+  [ -f "$pluginreg" ] || { printf ''; return; }
+  jq -r --arg hook "${hook%.sh}" '
+    (.hooks.PostToolUse // []) | map(select(any(.hooks[].command; test($hook + "([\"[:space:]]|$)")))) | .[0].matcher // ""
+  ' "$pluginreg" 2>/dev/null || true
 }
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# ── Applicability: only a project that CARRIES this authoring convention ──────
+# The markers this gate demands (@dual-pair / @cc-only-rationale) are a framework-authoring
+# convention defined by .claude/rules/dual-implementation-discipline.md §6. That rule is not
+# delivered to consumers by any channel — setup.d/install.sh ship no .claude/rules/, the
+# plugin has no .claude/ directory at all, and setup.d/lib.sh rewrites rule links to upstream
+# blob URLs precisely because the files do not exist on the consumer side. Registered for
+# every plugin consumer on Edit|Write|MultiEdit, this gate therefore fired exit 2 on the
+# CONSUMER's own .claude/hooks/*.sh, demanding a getff-internal marker and citing a rule file
+# they cannot read (#1597 review ledger A3-4) — the framework-convention-leaks-to-consumer
+# class, in a gate rather than in prose.
+#
+# The probe is the rule file itself, so it is self-describing and adoption-aware: a consumer
+# who deliberately vendors the rule opts INTO the gate by that act. Exiting here is
+# NOT-APPLICABLE, not a dependency SKIP — there is no convention in this project for the edit
+# to violate — so unlike the ledger L-2 class it is correctly silent, with nothing to announce.
+[[ -f "$REPO_ROOT/.claude/rules/dual-implementation-discipline.md" ]] || exit 0
+
 if ! command -v jq >/dev/null 2>&1; then
   # jq-less best-effort path extraction (sed on raw stdin) — used ONLY to decide whether
   # this edit is in scope, so the skip notice fires on .claude/hooks/*.sh edits (or when
@@ -99,6 +139,22 @@ grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH" \
      # @dual-pair: <anchor shared with the portable agent/skill>
    Per dual-implementation-discipline.md §6 (prevents silent CC vendor-lock-in)."
 
+# Arm 2 (D29 reference-generator spec §5 #3): the strict header — `# <basename> — <one line>`
+# on the FIRST comment line after the shebang, BEFORE any @-marker line (ref-gen :123:
+# «first non-marker comment line» was measured and rejected — on hooks with a multi-line
+# @cc-only-rationale block it returns the block's continuation line, not a description).
+# Same file, same glob as the marker arm — one gate per glob, no new hook (§5 #3); the
+# marker block simply moves down one line when the header is inserted above it.
+BASENAME="$(basename "$REL_PATH")"
+HEADER_LINE="$(sed -n '2p' "$ABS_PATH")"
+HEADER_DESC="${HEADER_LINE#\# $BASENAME — }"
+if [ "$HEADER_DESC" = "$HEADER_LINE" ] || [ "${#HEADER_DESC}" -lt 10 ]; then
+  _adv_violation "❌ hook-marker: $REL_PATH line 2 is not the strict header.
+   Expected as line 2, immediately after the shebang: '# $BASENAME — <what this hook does>' (≥10 chars after the em-dash).
+   Insert it above any @-marker block — the marker block moves down one line; this gate reads markers anywhere in the head.
+   Per the D29 reference-generator spec §5 #3 (HEADER_TABLE['D']) + the arm-F backstop (principle 46)."
+fi
+
 # @file-content-gate invariant: a hook that validates a file's content (path-only, no
 # internal tool_name filter) MUST be registered with matcher Edit|Write|MultiEdit — else a
 # MultiEdit that violates the rule slips past silently (the matcher is its only tool-filter).
@@ -107,20 +163,36 @@ grep -qE '^# @(dual-pair|cc-only-rationale):' "$ABS_PATH" \
 # consistency is CC-specific — MultiEdit is inert on other harnesses — so it lives with the
 # CC-config drift tests, NOT the harness-agnostic channel-coverage probe).
 #
-# Scope: checks the FRAMEWORK-self registration in .claude/settings.json (rendered from
-# harness-model.json). A shipped-only hook (e.g. check-doc-authority-header — registered
-# solely via setup.d/install.sh for consumers, absent from the framework's own settings.json)
-# is SKIPPED here: its matcher is enforced by the install-sh firing tests (gh-934-ship-*) and
-# the CC-config backstop, not by this edit-time gate (which has no framework-side matcher to
-# read for it).
+# Scope: checks BOTH registration channels via _reg_matcher — the FRAMEWORK-self registration
+# in .claude/settings.json first, then the PLUGIN-channel registration in plugin/hooks/hooks.json
+# (both rendered from harness-model.json). GAP-2 (recorded in #1727 §1.7 Backward-check, closed
+# here): a hook registered ONLY in the plugin channel (check-doc-authority-header since #1727 —
+# plugin twin + consumer installs, absent from the framework's own settings.json) previously had
+# its @file-content-gate matcher enforced by NO edit-time gate, this lookup being
+# settings.json-only. The install-sh firing tests (gh-934-ship-*) and the CC-config backstop
+# remain the later channels; this gate is now the earliest. A hook registered in NEITHER
+# channel (install-sh-only consumer hook) is still SKIPPED (no matcher to read).
 if grep -qE '^# @file-content-gate:' "$ABS_PATH"; then
   REG_MATCHER="$(_reg_matcher "$(basename "$REL_PATH")")"
   if [ -n "$REG_MATCHER" ]; then
-    case "$REG_MATCHER" in
-      *Edit*Write*MultiEdit*) ;;  # Edit|Write|MultiEdit or Write|Edit|MultiEdit — both fine
+    # Token membership, NOT a positional glob. The old `*Edit*Write*MultiEdit*` pattern
+    # demanded that order and so rejected `Write|Edit|MultiEdit` — the very form hooks.json
+    # itself uses for runtime-bridge-dispatch — while its own comment claimed both were fine
+    # (#1597 review ledger A3-8). Membership is tested against the |-delimited token set
+    # exactly, mirroring the @matcher-parity block below, so "Edit" cannot satisfy "MultiEdit".
+    _mm_missing=""
+    for _mm_tool in Edit Write MultiEdit; do
+      case "|$REG_MATCHER|" in
+        *"|$_mm_tool|"*) ;;
+        *) _mm_missing="${_mm_missing:+$_mm_missing, }$_mm_tool" ;;
+      esac
+    done
+    case "$_mm_missing" in
+      "") ;;  # all three present, in any order
       *) _adv_violation "❌ hook-marker: $REL_PATH declares @file-content-gate but its PostToolUse
-   matcher is '$REG_MATCHER' (must include Edit, Write, AND MultiEdit — a path-only gate's
-   matcher is its ONLY tool-filter; without MultiEdit a MultiEdit edit bypasses it silently).
+   matcher is '$REG_MATCHER', missing [$_mm_missing] (must include Edit, Write, AND MultiEdit
+   in any order — a path-only gate's matcher is its ONLY tool-filter; without MultiEdit a
+   MultiEdit edit bypasses it silently).
    Fix the matcher in .ai-factory/harness-model.json + run 'node scripts/render-harness-config.mjs --write'." ;;
     esac
   fi

@@ -226,6 +226,26 @@ export interface ChannelAContext {
 }
 
 /**
+ * POSIX-shell-quote one argument of a printed copy-paste command.
+ *
+ * The fallback lines ARE the operator's recovery path, so every interpolated value has to
+ * survive a paste, and every one of them is free text somebody else controls: the PR title
+ * comes from the aif board (`cli/harvest.ts` feeds `task.title`), the branch from aif's
+ * planner, the checkout/host paths from operator flags. Raw interpolation put the title
+ * inside a double-quoted `--title "…"` and left the paths bare, so a title carrying `"`,
+ * `$(` or a backtick either broke the line or EXECUTED its contents when pasted, and a path
+ * with a space silently split into two arguments (#1597 review ledger A5-6).
+ *
+ * Values built only of shell-safe characters come back verbatim: quoting a clean path would
+ * make the printed procedure harder to read for the ordinary case and buys no safety, and
+ * the fallback's readability is the whole reason it is printed rather than executed.
+ */
+export function shellQuote(value: string): string {
+  if (value.length > 0 && /^[A-Za-z0-9@%_+=:,./-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
  * The manual egress commands harvest prints when its automated leg fails — Channel A
  * verbatim ([.claude/rules/egress-no-api-bypass.md §1](../../../.claude/rules/egress-no-api-bypass.md),
  * procedure in [/harvest §1 step 4](../../../.claude/skills/harvest/SKILL.md)).
@@ -244,15 +264,16 @@ export interface ChannelAContext {
  * Pure, deterministic, ZERO LLM.
  */
 export function channelAFallbackCommands(ctx: ChannelAContext): string[] {
-  const cGit = `docker exec ${ctx.container} git -c safe.directory=${ctx.workDir} -C ${ctx.workDir}`;
-  const hGit = `git -C ${ctx.hostRepo}`;
+  const q = shellQuote;
+  const cGit = `docker exec ${q(ctx.container)} git -c ${q(`safe.directory=${ctx.workDir}`)} -C ${q(ctx.workDir)}`;
+  const hGit = `git -C ${q(ctx.hostRepo)}`;
   return [
-    `${cGit} bundle create ${ctx.containerBundlePath} ${ctx.baseRef}..${ctx.branch}  # bundle the commit OUT (the container has no github.com egress)`,
-    `docker cp ${ctx.container}:${ctx.containerBundlePath} ${ctx.hostBundlePath}`,
-    `${hGit} fetch ${ctx.hostBundlePath} refs/heads/${ctx.branch}  # lands in FETCH_HEAD only — no local branch is created or moved`,
+    `${cGit} bundle create ${q(ctx.containerBundlePath)} ${q(`${ctx.baseRef}..${ctx.branch}`)}  # bundle the commit OUT (the container has no github.com egress)`,
+    `docker cp ${q(`${ctx.container}:${ctx.containerBundlePath}`)} ${q(ctx.hostBundlePath)}`,
+    `${hGit} fetch ${q(ctx.hostBundlePath)} ${q(`refs/heads/${ctx.branch}`)}  # lands in FETCH_HEAD only — no local branch is created or moved`,
     `# optional (/harvest §1 step 4): rebase onto live origin/${ctx.base} in a scratch worktree before pushing, if the branch forked long ago`,
-    `${hGit} push origin FETCH_HEAD:refs/heads/${ctx.branch}  # host push — runs .husky/pre-push, the gate the container cannot run`,
-    `gh pr create --base ${ctx.base} --head ${ctx.branch} --title "${ctx.title}" --body "..."`,
+    `${hGit} push origin ${q(`FETCH_HEAD:refs/heads/${ctx.branch}`)}  # host push — runs .husky/pre-push, the gate the container cannot run`,
+    `gh pr create --base ${q(ctx.base)} --head ${q(ctx.branch)} --title ${q(ctx.title)} --body "..."`,
     ...(ctx.autoMerge ? [`gh pr merge <pr-url> --auto --squash`] : []),
   ];
 }

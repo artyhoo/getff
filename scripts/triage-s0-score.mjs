@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * triage-s0-score — S0 probe scorer: C1 vs C0 against the operator labels (ground truth).
+ */
 // S0 probe scorer: C1 vs C0 against the operator labels (ground truth).
 // C0 = the deterministic status-quo bar (spec D-K8): BLOCKER/MAJOR -> MATERIAL, MINOR -> IMMATERIAL.
 // The sample deliberately over-represents the strata where C0 and the audit's start-class disagree,

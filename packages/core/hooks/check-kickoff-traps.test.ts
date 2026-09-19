@@ -817,3 +817,85 @@ describe.skipIf(!JQ)('check-kickoff-traps.sh — arm 3, filename recognition', (
     expect(r.stderr).not.toMatch(/floor: 3/);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// A3-6 (#1597 review ledger) — the host-verify runner miss is scoped, not permanent noise.
+//
+// scripts/host-verify.sh is shipped by nothing: `git ls-tree -r <sha> plugin setup.d
+// install.sh packages/core/templates | grep -c host-verify` is 0, and the arm's rule
+// (.claude/rules/destination-environment-verification.md) reaches no consumer either — no
+// setup.d/install.sh site ships .claude/rules/, and the plugin has no .claude/ at all. So a
+// plugin consumer got a LOUD "install the runner" skip on EVERY kickoff write, one they could
+// never satisfy. A permanent unsatisfiable notice is the mirror image of a silent no-op: both
+// stop carrying information.
+//
+// The fix splits on whether the project carries the rule; both halves are asserted here.
+// ═══════════════════════════════════════════════════════════════════════════════
+import { copyFileSync as _copyFileSync2 } from 'node:fs';
+
+describe.skipIf(!JQ)('host-verify runner miss is applicability-scoped (A3-6)', () => {
+  /** A tree with a kickoff and NO scripts/host-verify.sh; `withRule` picks the fork. */
+  function tree(withRule: boolean): { root: string; kickoff: string } {
+    const root = mkdtempSync(join(tmpdir(), 'kt-hv-'));
+    tmpDirs.push(root);
+    const dir = join(root, '.claude', 'orchestrator-prompts', 'u1');
+    mkdirSync(dir, { recursive: true });
+    const kickoff = join(dir, 'kickoff.md');
+    writeFileSync(kickoff, '# Kickoff\n\nA plan with no host-verification contract.\n', 'utf8');
+    if (withRule) {
+      mkdirSync(join(root, '.claude', 'rules'), { recursive: true });
+      writeFileSync(
+        join(root, '.claude', 'rules', 'destination-environment-verification.md'),
+        '# Destination-environment verification (stand-in)\n',
+        'utf8',
+      );
+    }
+    // The gate resolves the runner relative to CLAUDE_PROJECT_DIR first and to its own
+    // checkout second, so the hook must run from a COPY inside the tree — otherwise tier 2
+    // finds the framework's real scripts/host-verify.sh and the miss never happens.
+    const hooksDir = join(root, '.claude', 'hooks');
+    mkdirSync(join(hooksDir, 'lib'), { recursive: true });
+    _copyFileSync2(HOOK, join(hooksDir, 'check-kickoff-traps.sh'));
+    _copyFileSync2(
+      resolve(REPO_ROOT, '.claude/hooks/lib/hook-emit.sh'),
+      join(hooksDir, 'lib', 'hook-emit.sh'),
+    );
+    return { root, kickoff };
+  }
+
+  function run(root: string, kickoff: string) {
+    const env = { ...process.env, CLAUDE_PROJECT_DIR: root } as Record<string, string>;
+    delete env.ZCODE_PROJECT_DIR;
+    const r = spawnSync('/bin/bash', [join(root, '.claude', 'hooks', 'check-kickoff-traps.sh')], {
+      input: JSON.stringify({
+        tool_name: 'Write',
+        tool_input: { file_path: kickoff },
+      }),
+      encoding: 'utf8',
+      cwd: root,
+      env,
+    });
+    return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  }
+
+  it('a consumer without the rule is not nagged about a runner it can never install', () => {
+    const { root, kickoff } = tree(false);
+    const r = run(root, kickoff);
+    expect(r.status, 'the arm must never block the write').toBe(0);
+    expect(
+      r.stdout,
+      'pre-fix EVERY kickoff write emitted an unsatisfiable "install the runner" skip',
+    ).not.toMatch(/host-verify\.sh not found/);
+  });
+
+  it('a project that DOES carry the rule still gets the loud DID-NOT-RUN skip', () => {
+    // The other half: where the contract exists, a missing runner is a real regression and
+    // must stay announced on the model channel.
+    const { root, kickoff } = tree(true);
+    const r = run(root, kickoff);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/host-verify\.sh not found/);
+    expect(r.stdout).toMatch(/DID NOT RUN/);
+    expect(r.stdout).toMatch(/not a pass/i);
+  });
+});

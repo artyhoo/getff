@@ -129,10 +129,16 @@ export function checkNpmGlobalLine(rawLine: string): string | null {
 
   if (!/\bnpm\s+(?:install|i)\s+-g\b/.test(rawLine)) return null;
 
-  // Already pinned: a version `@<ver>` after the package name. Strip leading
-  // scope(s) (`@scope/pkg`) first — a scoped name's own `@` is not a version
-  // separator (`@angular/cli` is unpinned; `@angular/cli@15` is pinned).
-  if (/@/.test(rawLine.replace(/@[\w.-]+\//g, ''))) return null;
+  // Already pinned: a SEMVER-shaped `@<ver>` token after the package name —
+  // `@` + optional range operator (^ ~ >=) + a digit (`@1.26.1`, `@^1.2`,
+  // `@~1`, `@>=1`). Strip leading scope(s) (`@scope/pkg`) first — a scoped
+  // name's own `@` is not a version separator (`@angular/cli` is unpinned;
+  // `@angular/cli@15` is pinned). A4-7: the old any-`@`-counts-as-pin test let
+  // dist-tag forms (`@latest`, `@next` — any bare word) pass Rule A although
+  // they re-resolve on every run; a dist-tag is NOT a pin. The rule's
+  // `# ci-tool-pin: allow` escape (checked above) still exempts a deliberately
+  // floating tag.
+  if (/@[\^~>=]*\d/.test(rawLine.replace(/@[\w.-]+\//g, ''))) return null;
 
   return 'fix: add a version pin, e.g. `npm install -g <pkg>@<ver>`';
 }

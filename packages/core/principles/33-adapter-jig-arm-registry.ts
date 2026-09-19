@@ -36,7 +36,7 @@
  * cases live inside SCANNED suites is carried by the population sentinel — a ref into a
  * non-suite file resolves here but REDs the sentinel (no live marker in any scanned suite).
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 
 export type ArmGroup =
@@ -168,9 +168,15 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
     slug: 'tier1-trust-poisoned-negative',
     positive: [
       { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:B1:pos' },
+      // go lane (ledger A8-5): the marker pair has been live in this suite since the go
+      // adapter landed; the registry never learned about it, so the pairing gate never
+      // looked at it. Same arm — the adapter FEEDS raw synthesized URLs and tier1For's
+      // multi-tenant reject stage decides — expressed on the go surface.
+      { suite: 'packages/core/research/ecosystem-go.test.ts', locator: '@arm:B1:pos' },
     ],
     negative: [
       { suite: 'packages/core/synthesizer/resolve-ctx.test.ts', locator: '@arm:B1:neg' },
+      { suite: 'packages/core/research/ecosystem-go.test.ts', locator: '@arm:B1:neg' },
     ],
   },
   // B2 aggregates the paired path-escape fixtures across ALL KNOWN path-resolving
@@ -228,12 +234,15 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B3:pos' },
       { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B3:pos' },
       { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B3:pos' },
+      // go lane (ledger A8-5) — same arm, go's `// indirect` require-block form.
+      { suite: 'packages/core/research/ecosystem-go.test.ts', locator: '@arm:B3:pos' },
     ],
     negative: [
       { suite: 'packages/core/research/ecosystem-python.test.ts', locator: '@arm:B3:neg' },
       { suite: 'packages/core/research/ecosystem-cargo.test.ts', locator: '@arm:B3:neg' },
       { suite: 'packages/core/research/tier1.test.ts', locator: '@arm:B3:neg' },
       { suite: 'packages/core/research/ecosystem-adapter-precondition.test.ts', locator: '@arm:B3:neg' },
+      { suite: 'packages/core/research/ecosystem-go.test.ts', locator: '@arm:B3:neg' },
     ],
   },
   // Increment H (J2). H1+H3 co-located in ecosystem-unwired-debt.test.ts (J2
@@ -508,6 +517,13 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
       { suite: 'packages/core/backends/ruff/capability-matrix.test.ts', locator: '@arm:E3:neg' },
       { suite: 'packages/core/backends/astgrep/capability-matrix.test.ts', locator: '@arm:E3:neg' },
       { suite: 'packages/core/backends/npm/capability-matrix.test.ts', locator: '@arm:E3:neg' },
+      // golangci landed after E3 was registered and its drift negative went unlisted
+      // (ledger A8-5) — the population sentinel could not see the omission because it
+      // compared ID SETS, and E3 was present via the other four backends.
+      {
+        suite: 'packages/core/backends/golangci/capability-matrix.test.ts',
+        locator: '@arm:E3:neg',
+      },
     ],
   },
   // Increment C (J2). Delivery-cell group — bring the cargo cell matrix up to the python
@@ -716,10 +732,24 @@ export function checkArmRefsResolve(
 export interface ArmMarker {
   readonly id: string;
   readonly kind: 'pos' | 'neg';
+  /** The slug written after the locator — compared against the canonical §3 slug. */
+  readonly slug: string;
   readonly file: string;
 }
 
-const ARM_MARKER_RE = /@arm:([A-Z]\d+):(pos|neg)\b/g;
+/**
+ * A LIVE marker must OPEN a comment line: `// @arm:…` or `# @arm:…`, optionally
+ * indented, followed by the arm's slug.
+ *
+ * The old pattern matched `@arm:<id>:<kind>` anywhere in the file, so ordinary prose
+ * that CITES another arm counted as a live case — e.g. «control for the
+ * vendored-but-UNDECLARED negative (@arm:B3:neg above)» in
+ * packages/core/research/ecosystem-cargo.test.ts. Measured on this tree: 94 loose
+ * matches vs 86 real markers, i.e. 8 phantom cases inflating the population the
+ * sentinel compares (ledger A8-5).
+ */
+const ARM_MARKER_LINE_RE =
+  /^[ \t]*(?:\/\/|#)[ \t]*@arm:([A-Z]\d+):(pos|neg)[ \t]+([a-z0-9-]+)/;
 
 /** This principle's own test file — excluded from the scan: it necessarily contains
  *  synthetic `@arm:` tokens (RED-proof fixtures) that are not live suite cases. */
@@ -727,34 +757,34 @@ const SELF_TEST_BASENAME = '33-adapter-jig-arm-registry.test.ts';
 
 /**
  * Enumerate the suite population the sentinel scans: git-tracked
- * packages/core/**\/*.test.ts + tests/install-sh/**\/*.test.sh (git-aware, mirrors
- * principle 31's enumerateRuleFiles; falls back to a filesystem walk without git).
+ * packages/core/**\/*.test.ts + tests/install-sh/**\/*.test.sh.
+ *
+ * There is NO filesystem-walk fallback any more (ledger A8-5). It silently changed the
+ * POPULATION the sentinel compares against — walking untracked and gitignored files that
+ * `git ls-files` deliberately excludes — so a git failure degraded a set-equality gate into
+ * a comparison against a different set, and reported the result as if it were the same
+ * check. A gate that answers a question it was not asked is worse than one that says it
+ * could not ask: this throws instead.
  */
 export function enumerateSuiteFiles(repoRoot: string): string[] {
-  let candidates: string[];
+  let out: string;
   try {
-    const out = execFileSync(
+    out = execFileSync(
       'git',
       ['-C', repoRoot, 'ls-files', '--', 'packages/core', 'tests/install-sh'],
       { encoding: 'utf8' },
     );
-    candidates = out.split('\n').filter(Boolean);
-  } catch {
-    candidates = [];
-    const walk = (rel: string): void => {
-      const abs = `${repoRoot}/${rel}`;
-      if (!existsSync(abs)) return;
-      for (const entry of readdirSync(abs, { withFileTypes: true })) {
-        if (entry.name === 'node_modules' || entry.name === '.git') continue;
-        const childRel = `${rel}/${entry.name}`;
-        if (entry.isDirectory()) walk(childRel);
-        else if (entry.isFile()) candidates.push(childRel);
-      }
-    };
-    walk('packages/core');
-    walk('tests/install-sh');
+  } catch (err) {
+    throw new Error(
+      `adapter-jig arm sentinel: \`git ls-files\` failed in ${repoRoot}, so the suite ` +
+        `population is unknown. Refusing to substitute a filesystem walk — it would compare ` +
+        `a DIFFERENT set (untracked + gitignored files) and call the answer equality. ` +
+        `Cause: ${(err as Error).message}`,
+    );
   }
-  return candidates
+  return out
+    .split('\n')
+    .filter(Boolean)
     .filter((rel) => rel.endsWith('.test.ts') || rel.endsWith('.test.sh'))
     .filter((rel) => !rel.endsWith(`/${SELF_TEST_BASENAME}`))
     .sort();
@@ -769,36 +799,167 @@ export function scanSuiteMarkers(
   for (const rel of files) {
     const abs = `${repoRoot}/${rel}`;
     if (!existsSync(abs)) continue;
-    const source = readFileSync(abs, 'utf8');
-    for (const match of source.matchAll(ARM_MARKER_RE)) {
-      markers.push({ id: match[1], kind: match[2] as 'pos' | 'neg', file: rel });
+    for (const line of readFileSync(abs, 'utf8').split('\n')) {
+      const match = ARM_MARKER_LINE_RE.exec(line);
+      if (!match) continue;
+      markers.push({
+        id: match[1],
+        kind: match[2] as 'pos' | 'neg',
+        slug: match[3],
+        file: rel,
+      });
     }
   }
   return markers;
 }
 
 export interface PopulationParity {
-  /** Arm ids with a live suite marker but NO registry row — they escape the pairing gate. */
+  /** `<id>:<kind>` slots with a live suite marker but NO registry row. */
   readonly missingFromRegistry: string[];
-  /** Registry arm ids with NO live marker in any scanned suite — vacuous/lying rows. */
+  /** Registry `<id>:<kind>` slots with NO live marker in any scanned suite. */
   readonly missingFromSuites: string[];
 }
 
 /**
- * Gate 4 — the population sentinel: bidirectional set-difference between registry ids and
- * live marker ids (both directions RED; empty↔empty is the legal starting state — the
- * registry grows append-only with the arms).
+ * Gate 4 — the population sentinel: bidirectional set-difference over `<id>:<kind>` SLOTS,
+ * not bare ids (ledger A8-5).
+ *
+ * Comparing ids alone made the gate answer a weaker question than the one it advertised:
+ * an arm whose positive was marked and whose negative was not still showed the id on both
+ * sides, so the missing RED-proof was invisible. Slots make each half of a pair its own
+ * population member. Both directions RED; empty↔empty stays the legal starting state.
  */
 export function checkPopulationParity(
-  registryIds: Iterable<string>,
-  markerIds: Iterable<string>,
+  registrySlots: Iterable<string>,
+  markerSlots: Iterable<string>,
 ): PopulationParity {
-  const registry = new Set(registryIds);
-  const markers = new Set(markerIds);
+  const registry = new Set(registrySlots);
+  const markers = new Set(markerSlots);
   return {
-    missingFromRegistry: [...markers].filter((id) => !registry.has(id)).sort(),
-    missingFromSuites: [...registry].filter((id) => !markers.has(id)).sort(),
+    missingFromRegistry: [...markers].filter((s) => !registry.has(s)).sort(),
+    missingFromSuites: [...registry].filter((s) => !markers.has(s)).sort(),
   };
+}
+
+/** `<id>:<kind>` slots the registry declares — the left-hand side of the sentinel. */
+export function registrySlots(arms: readonly ArmEntry[]): string[] {
+  const out: string[] = [];
+  for (const arm of arms) {
+    if (arm.positive.length > 0) out.push(`${arm.id}:pos`);
+    if (arm.negative.length > 0) out.push(`${arm.id}:neg`);
+  }
+  return [...new Set(out)].sort();
+}
+
+/** `<id>:<kind>` slots the live markers occupy — the right-hand side. */
+export function markerSlots(markers: readonly ArmMarker[]): string[] {
+  return [...new Set(markers.map((m) => `${m.id}:${m.kind}`))].sort();
+}
+
+/**
+ * KNOWN drift the tightened registration gate reports but this change does NOT resolve,
+ * because resolving it is a SEMANTIC call about what the arm is, not a typo fix — and both
+ * live in suites owned elsewhere. Each entry is `<file>\t@arm:<id>:<kind>` plus a rationale.
+ *
+ * Every entry must still match a live marker (asserted below): a stale entry silently widens
+ * the exemption, which is the failure mode this whole file exists to prevent. New drift is
+ * NOT allowlisted — it reds.
+ */
+export interface KnownMarkerDrift {
+  readonly file: string;
+  readonly locator: string;
+  readonly why: string;
+}
+
+export const KNOWN_MARKER_DRIFT: readonly KnownMarkerDrift[] = [
+  {
+    file: 'packages/core/research/ecosystem-go.test.ts',
+    locator: '@arm:B2:neg',
+    why:
+      'Marked `name-guard-containment` while canonical B2 is `value-guard-containment`, and ' +
+      'the case comment states outright that it is a dep-NAME traversal guard, distinct from ' +
+      'the cargo VALUE-surface guard that go does not need. So this is a DIFFERENT concern ' +
+      'reusing the B2 id, not a mislabelled B2: it needs either its own canonical arm or a ' +
+      'reclassification, and that is the arm owner call, not this gate.',
+  },
+  {
+    file: 'packages/core/backends/golangci/firing.test.ts',
+    locator: '@arm:E3:neg',
+    why:
+      'Marked `identity-path-vs-stdout` (a wrong-jsonPath negative for parseCodesFromStdout) ' +
+      'while canonical E3 is `toolchain-freshness-vs-evidence`. Unrelated concern reusing the ' +
+      'E3 id; the golangci freshness negative that IS E3 lives in the sibling ' +
+      'capability-matrix.test.ts and is now registered. Same owner call as above.',
+  },
+];
+
+/** One tightened-registration violation, rendered for the failure message. */
+export interface MarkerRegistrationReport {
+  /** Live markers that are unregistered, mis-slugged, or in an unreferenced file. */
+  readonly violations: string[];
+  /** KNOWN_MARKER_DRIFT entries that no longer match any live marker (stale exemptions). */
+  readonly staleExemptions: string[];
+}
+
+/**
+ * Gate 5 — every LIVE marker must be REGISTERED (ledger A8-5).
+ *
+ * The old sentinel compared id sets, so `@arm:<id>:<kind>` in any scanned suite counted as a
+ * live case regardless of its slug or whether the registry pointed at that file at all. The
+ * promise in this file's header — «an arm marked in a suite but absent from the registry
+ * escapes the pairing meta-check (RED)» — therefore held per ID, never per CASE. Three
+ * conditions now make it hold per case:
+ *
+ *   1. the id is canonical (§3);
+ *   2. the slug written after the locator IS that id's canonical slug — a marker naming a
+ *      different concern is a different arm, not a spelling variant;
+ *   3. the marker's FILE appears in that arm's refs for that kind — otherwise the case is
+ *      invisible to checkArmRefsResolve, which only ever opens files the registry names.
+ */
+export function checkMarkerRegistration(
+  arms: readonly ArmEntry[],
+  markers: readonly ArmMarker[],
+  exemptions: readonly KnownMarkerDrift[] = KNOWN_MARKER_DRIFT,
+): MarkerRegistrationReport {
+  const canonical = new Map(CANONICAL_ARMS.map((c) => [c.id, c.slug]));
+  const byId = new Map(arms.map((a) => [a.id, a]));
+  const exempt = new Set(exemptions.map((e) => `${e.file}\t${e.locator}`));
+  const matched = new Set<string>();
+
+  const violations: string[] = [];
+  for (const m of markers) {
+    const locator = `@arm:${m.id}:${m.kind}`;
+    const key = `${m.file}\t${locator}`;
+    if (exempt.has(key)) {
+      matched.add(key);
+      continue;
+    }
+    const canonSlug = canonical.get(m.id);
+    if (canonSlug === undefined) {
+      violations.push(`${m.file}: ${locator} — "${m.id}" is not a canonical §3 arm id`);
+      continue;
+    }
+    if (m.slug !== canonSlug) {
+      violations.push(
+        `${m.file}: ${locator} is slugged "${m.slug}" but canonical ${m.id} is ` +
+          `"${canonSlug}" — a marker naming a different concern is a different arm`,
+      );
+    }
+    const arm = byId.get(m.id);
+    const refs = m.kind === 'pos' ? (arm?.positive ?? []) : (arm?.negative ?? []);
+    if (!refs.some((r) => r.suite === m.file)) {
+      violations.push(
+        `${m.file}: ${locator} is marked here but the registry lists no ${m.kind} ref to ` +
+          `this file — the case escapes checkArmRefsResolve, which only opens referenced files`,
+      );
+    }
+  }
+
+  const staleExemptions = exemptions
+    .filter((e) => !matched.has(`${e.file}\t${e.locator}`))
+    .map((e) => `${e.file}: ${e.locator} — exempted but no live marker matches it any more`);
+
+  return { violations: violations.sort(), staleExemptions: staleExemptions.sort() };
 }
 
 /** Canonical ids not yet registered — consumed by the REGISTRY_COMPLETE completeness gate. */

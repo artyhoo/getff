@@ -16,7 +16,7 @@ git clone https://github.com/artyhoo/getff /tmp/getff
 cd /tmp/getff
 ```
 
-> **npm path — deferred, not dropped.** `npx getff@latest init` is the designed entry point, but it is **not live**: nothing is published under the `@getff` scope today, so do not write that command into any install script or tell a consumer to run it. **Owner:** release-frame phase 2, after the R1 name freeze. **Trigger:** the package is published under the frozen name — this section then replaces the clone above. Until then the clone plus `setup` / `install.sh` below is the only path that resolves.
+> **npm path — deferred, not dropped.** `npx getff@latest init` is the designed entry point, but it is **not live**: nothing is published under the frozen name **`getff`** (unscoped — `packages/getff/package.json:2`; the `@getff` scope is reserved for libraries, not this package), so do not write that command into any install script or tell a consumer to run it. **Owner:** release-frame phase 2, after the R1 name freeze. **Trigger:** `npm view getff version` resolves — this section then replaces the clone above. Until then the clone plus `setup` / `install.sh` below is the only path that resolves.
 
 ---
 
@@ -32,7 +32,7 @@ cd /tmp/getff
 
 - Removing or skipping any rule R1–R20 (e.g. R8 OTel because the project doesn't use OpenTelemetry yet).
 - Modifying `.ai-factory/RULES.md` or any file under `.ai-factory/` after install.
-- Adding a new rule R21+ — propose it in `INSTALL-DECISIONS.md` first.
+- Adding a new rule R21+ — propose it in writing first. (`INSTALL-DECISIONS.md` is a file you create yourself if you want one: no installer step writes it and nothing reads it — `grep -rn INSTALL-DECISIONS setup.d install.sh` is empty.)
 - Disabling a probe in `audit-ai-docs.sh`.
 
 **NEVER — refuse if asked; redirect to a senior, or open a rule-change discussion on a PR:**
@@ -55,9 +55,9 @@ Install getff into this project. Follow these steps exactly:
    - npm available
    - git initialized in this project
 
-2. Detect the project stack by checking:
-   - If `next.config.{js,ts,mjs}` exists OR package.json contains "next" → stack = "react-next"
-   - Otherwise → stack = "ts-server"
+2. Detect the project stack, or omit the positional and let the installer do it.
+   `setup.d/lib.sh` `_detect_stack_from_pkg` takes the FIRST matching package.json dep key:
+   `react-native`→react-native, `next`→react-next, `react`→**react-spa** (a plain React dep does NOT give react-next), `typescript`→ts-server, else "unknown". `next.config.*` is never read.
    Show me the detection result and ask if I want to override.
 
 3. From THIS project's directory (not the framework checkout — the installer
@@ -68,7 +68,7 @@ Install getff into this project. Follow these steps exactly:
    `-y` installs the curated consumer set at `env` depth — the right default. Use
    `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
    tell you this machine runs the aif-handoff operator runtime: --all
-   additionally ships the AIF operator suite (7 skills + 2 agents +
+   additionally ships the AIF operator suite (5 skills + 2 agents +
    skill-context) at `factory` depth that dead-ends without that runtime.
    Equivalent new-syntax forms: `install.sh <stack> --profile factory` (recommended for
    new installs) or `install.sh <stack> --with-aif-suite` (legacy escape). When unsure, use -y
@@ -77,7 +77,7 @@ Install getff into this project. Follow these steps exactly:
 
    This installs (verified against a real default install, 2026-08-17):
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
-   - `.claude/agents/` — 11 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
+   - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
    - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
 <!-- getff:end section=install-roster -->
      (Roster caveats, hand-maintained outside the generated section: best-practices-sidecar is KEEP-AIF — not shipped by us; review-sidecar default-skips when AIF's exists; orchestrator-worker-discipline + reviewer-discipline appear only at --profile factory / --with-aif-suite / --all; `--profile core` ships the 6 core dirs only. NOTE the directory is `getff`, not `rules-as-tests` — see "Names you will see" below)
@@ -94,7 +94,7 @@ Install getff into this project. Follow these steps exactly:
    a. `npm run typecheck` — should pass on a fresh project
    b. `npm run lint` — may have warnings on existing code, that's OK
    c. `npm run audit:docs` — should run, may report findings (read them aloud to me)
-   d. `ls -la .claude/agents/` — confirm the 10 files listed above exist; orchestrator-worker-discipline.md + reviewer-discipline.md appear only after --profile factory / --with-aif-suite / --all
+   d. `ls -la .claude/agents/` — confirm the 11 files listed above exist; orchestrator-worker-discipline.md + reviewer-discipline.md appear only after --profile factory / --with-aif-suite / --all
    e. `ls -la .ai-factory/` — confirm DESCRIPTION.md, ARCHITECTURE.md, RULES.md, AI-USAGE-GUIDE.md exist
 
 5. Read .ai-factory/DESCRIPTION.md and tell me which placeholders need filling.
@@ -143,14 +143,14 @@ Pick a depth instead of assembling flags. Three monotonic depths, default `env` 
 **Selection surfaces:**
 
 - `--profile <name>` flag (agents / CI — flag-first; case-insensitive). Mutually-aware with `--with-aif-suite`: if both are passed and disagree → WARN + `--profile` wins.
-- TTY menu (interactive; non-TTY defaults to `core` with a one-line notice — never blocks CI / `</dev/null`).
+- TTY menu (interactive; non-TTY defaults to `env` with a one-line notice — `--refresh` is the one exception and keeps `core`, so a refresh never deepens a consumer who chose core (`install.sh:644-650`) — never blocks CI / `</dev/null`).
 - This `INSTALL-FOR-AI.md` section is the AI-dialog smart default (see "AI-dialog smart default" below).
 
 **AI-dialog smart default (the AI reading this section picks):**
 
-- Default → `core`. Recommend `core` when the consumer hasn't mentioned aif-handoff, /arch, or multi-model workflows.
+- Default → `env`, matching the installer's own non-interactive default (`install.sh:648`). Recommend `core` explicitly — and pass `--profile core` — when the consumer wants rules only and hasn't mentioned aif-handoff, /arch, or multi-model workflows; `core` is never implicit.
 - Pick `env` if the consumer's stated goal includes /arch, multi-model contour, or status/night-mode features — and explicitly NOT aif-handoff runtime.
-- Pick `factory` ONLY if the consumer explicitly runs the aif-handoff operator runtime today (or asks for the dispatcher / harvest / aif-doctor surface). When unsure, fall back to `core` — `--profile` upgrades are stateless-regen (below), so starting shallow is reversible-by-deepening.
+- Pick `factory` ONLY if the consumer explicitly runs the aif-handoff operator runtime today (or asks for the dispatcher / harvest / aif-doctor surface). When unsure, fall back to `core` **by naming it** (`--profile core`) — `--profile` upgrades are stateless-regen (below), so starting shallow is reversible-by-deepening.
 
 **Stateless-regen upgrade path (NOT additive-components):**
 
@@ -263,6 +263,7 @@ project/
 ├── .getff/
 │   ├── astgrep-rules/*.yml               ← getff structural rules (no-eval, no-os-system,
 │   │                                       no-datetime[.datetime].now) — framework-owned
+│   ├── hooks/pre-push                    ← local rung, same arms as the CI gate; opt-out `GETFF_SKIP_HOOKS=1` at install AND at push time — see [INSTALL.md](INSTALL.md#python-lane--the-local-hook-rung-and-getff_skip_hooks)
 │   └── ruff-bans.toml                    ← stable getff-bans config the CI gate points --config at
 ├── .github/workflows/getff-python.yml    ← pinned CI gate (getff-namespaced — never your ci.yml)
 └── .getff-python-install.log             ← delivery audit trail (every action + degrade path)
@@ -350,7 +351,7 @@ project/
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/
 │   ├── pre-commit                     ← runs lint-staged
-│   └── pre-push                       ← typecheck + tests + audit-ai-docs
+│   └── pre-push                       ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── .github/workflows/ci.yml           ← full CI pipeline
 ├── .ai-factory/
 │   ├── DESCRIPTION.md                 ← edit this (project description)
@@ -468,7 +469,7 @@ Consumer-authored files are **never** in the refresh set — they are not framew
 - `AGENTS.md`, `.ai-factory/RULES.md`, `.ai-factory/ARCHITECTURE.*.md` (filled in by you)
 - `eslint.config.mjs`, `vitest.config.ts`, `tsconfig.json`, `.prettierrc.json`
 - `.github/workflows/ci.yml`, `.prettierignore`
-- Any file with a sibling `.override.md` (Layer 3 — you have taken ownership)
+- Any file with a sibling `.override.md` (Layer 3 — you have taken ownership); and, inside a framework-delivered **directory** payload, any file `--refresh` cannot attribute to a past delivery — kept and named with a `⚠ ORPHAN:` line, because such a payload may be a declared extension point (`scripts/fences-fire-fixtures/` is one — see [INSTALL.md — Consumer-extensible directory payloads](INSTALL.md#consumer-extensible-directory-payloads))
 
 ### How the three-layer model and `--refresh` interact
 
@@ -535,13 +536,13 @@ push — local evidence, weaker than CI, with the NOT-COVERED list printed on ev
 
 After `bash install.sh` on a fresh project, these checks **fail intentionally** until you populate the project. Do NOT try to "fix" them by suppressing the rule:
 
-| Command                         | What fails                                         | Why it's OK                            | What to do                                                 |
-| ------------------------------- | -------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------- |
-| `npm run arch:check`            | dependency-cruiser: no `src/domain/`               | You haven't built the domain layer yet | Continue with R3 disabled until `src/domain/` exists       |
-| `npm run audit:docs`            | R4: no `src/domain/**/*.ts` exports                | No public exports yet                  | Re-run after first feature lands                           |
-| `npm run validate`              | typecheck: no `src/index.ts`                       | Empty src tree                         | Re-run after first source files                            |
-| `bash scripts/audit-ai-docs.sh` | R7: no `infrastructure/clock/`                     | Optional infrastructure                | Add when you need time injection                           |
-| `eslint .` (R8)                 | `require-otel-span` on async exports without spans | OTel not wired yet                     | Disable R8 in `INSTALL-DECISIONS.md` if OTel isn't planned |
+| Command                         | What fails                                         | Why it's OK                            | What to do                                                                                                                                                                                                       |
+| ------------------------------- | -------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run arch:check`            | dependency-cruiser: no `src/domain/`               | You haven't built the domain layer yet | Continue with R3 disabled until `src/domain/` exists                                                                                                                                                             |
+| `npm run audit:docs`            | R4: no `src/domain/**/*.ts` exports                | No public exports yet                  | Re-run after first feature lands                                                                                                                                                                                 |
+| `npm run validate`              | typecheck: no `src/index.ts`                       | Empty src tree                         | Re-run after first source files                                                                                                                                                                                  |
+| `bash scripts/audit-ai-docs.sh` | R7: no `infrastructure/clock/`                     | Optional infrastructure                | Add when you need time injection                                                                                                                                                                                 |
+| `eslint .` (R8)                 | `require-otel-span` on async exports without spans | OTel not wired yet                     | Turn the rule off in your `eslint.config.mjs` if OTel isn't planned — that is the channel that actually stops it firing (the rule ships at `packages/core/eslint-rules/require-otel-span.ts`, `install.sh:1188`) |
 
 If a check fails for a reason not in this table — **stop and report**, do not silently disable.
 
@@ -558,7 +559,7 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Tests discoverable                      | `npx vitest list`                                     | Shows .unit.ts files (or empty if no tests yet)                                                |
 | Audit script runs                       | `npm run audit:docs`                                  | Exit 0 with PASS/FAIL/WARN output                                                              |
 | Pre-commit hook                         | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs                                                                               |
-| Pre-push hook                           | `git push --dry-run`                                  | Typecheck + tests + audit run                                                                  |
+| Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule-globs, lint-staged resolution, generated-rule firing, links)        |
 | A rule provably fires                   | `bash scripts/check-fences-fire.sh`                   | Planted bad input goes RED — the install is proven, not just present                           |
 | Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                        |
 

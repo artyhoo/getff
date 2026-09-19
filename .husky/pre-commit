@@ -114,6 +114,65 @@ if [ -n "$STAGED_MD" ]; then
   fi
 fi
 
+# ── `path:line` blank landing — ARM 2 at its earliest reachable channel ─────
+# spec: scripts/check-line-citations.mjs header («Channels follow from that split»),
+#       packages/core/hooks/pre-push.ts §9.
+#
+# The checker has two arms with different earliest channels. ARM 1 (has the cited line
+# changed since the citing sentence was written) blames the citing line, so it needs a
+# committed baseline and cannot run before pre-push. ARM 2 (the cited line is blank)
+# reads only the working tree, so it is the arm that can refuse a citation WRONG AT
+# BIRTH — the shape of the originating incident (`arch/SKILL.md:94`, an empty line),
+# and the shape ARM 1 is green on by construction, because its blame commit IS the
+# birth commit. Both arms ran only at pre-push until 2026-09-14, one rung late for this
+# one. Pre-push §9 keeps running BOTH: husky is absent for aif-container commits and
+# `git commit --no-verify` skips this file entirely, so the later channel stays the
+# backstop rather than becoming a duplicate.
+#
+# CITE_SCOPE mirrors LIVE_AUTHORITY_MD in packages/core/hooks/pre-push.ts — the
+# live-authority surface, deliberately NOT the whole markdown corpus: retros,
+# research-patches and specs cite a line as a dated snapshot, and renumbering those
+# rewrites history. A trailing `/` means prefix, anything else is an exact path — the
+# same test the TS side applies. The two lists are compared mechanically by the parity
+# arm in scripts/check-line-citations.test.sh, so keeping them in step is not left to
+# whoever happens to read both files (.claude/rules/attention-is-not-a-mechanism.md §1).
+#
+# Two declared limits, measured 2026-09-14 rather than assumed, both backstopped by §9:
+#   · The checker reads the WORKING TREE, not the index — as does every other section of
+#     this file. Stage a citation onto a blank line, then fix the target on disk without
+#     staging it, and this gate passes while the INDEX still carries the defect. So the
+#     claim is «wrong at birth, as it stands on disk», not «cannot enter history».
+#   · A rename-ONLY commit never reaches this block at all: `CHANGED` above is built with
+#     `--diff-filter=ACM`, which is empty for a pure rename, and the hook exits 0 at that
+#     guard before any section runs. A rename that MOVES a doc can break a relative
+#     citation, so this is real — it is simply not this block's to fix.
+CITE_SCOPE='.claude/rules/ .claude/skills/ agents/ CLAUDE.md AGENTS.md CONTRIBUTING.md'
+CITE_MD=$(echo "$STAGED_MD" | while IFS= read -r f; do
+  # `-f` and not just the scope test: a path staged and then deleted from the working
+  # tree makes the checker throw ENOENT, which the `||` below would report as a
+  # blank-landing verdict — a red naming the wrong defect. Same guard as the per-file
+  # loop at the top of this file.
+  [ -f "$f" ] || continue
+  for p in $CITE_SCOPE; do
+    if [ "${p%/}" != "$p" ]; then
+      if [ "${f#"$p"}" != "$f" ]; then printf '%s\n' "$f"; fi
+    else
+      if [ "$f" = "$p" ]; then printf '%s\n' "$f"; fi
+    fi
+  done
+done)
+#
+# Guarded on `command -v node` rather than failing hard, for one reason and not the
+# usual one: letting a missing interpreter fall through the `||` below would print a
+# blank-landing verdict for a machine that has no node, which is an unactionable red.
+# The skip costs no coverage — pre-push §9 runs ARM 2 again, and the sections around it
+# die loudly without node, so nothing reaches origin unchecked.
+if [ -n "$CITE_MD" ] && command -v node &>/dev/null; then
+  # shellcheck disable=SC2086
+  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only $CITE_MD \
+    || { echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1; }
+fi
+
 # ── Prettier on staged SHIPPED files (mirrors CI «Shipped artifacts are Prettier-clean») ──
 #   Change-scoped: scripts/format-shipped.sh intersects the staged list with the shipped
 #   surface (same enumeration + same pinned prettier as the CI gate), so commits that do
@@ -236,6 +295,23 @@ if [ -n "$HOOKS_STAGED" ] || [ -n "$AGENTS_STAGED" ]; then
     git add plugin/agents/ 2>/dev/null || true
   else
     echo "❌ generate-plugin-twins.sh failed"
+    fail=1
+  fi
+fi
+
+# ── Plugin skills regeneration (plugin-skills-generator Stage 1, 2026-09-11) ──────
+# When a source population of a table-managed plugin/skills entry changes (top-level
+# skills/ or .claude/skills/), regenerate the derived copies and re-stage. The generator
+# self-no-ops for in-sync entries and refuses (exit 3) on un-derivable payload content,
+# so firing on the whole populations is safe and stays future-proof when Stage 2 adds
+# the CORE four to the entry table.
+# Patch: docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md
+SKILLS_STAGED=$(echo "$CHANGED" | grep -E '^(skills/|\.claude/skills/)' || true)
+if [ -n "$SKILLS_STAGED" ]; then
+  if bash "$REPO_ROOT/scripts/generate-plugin-skills.sh"; then
+    git add plugin/skills/ 2>/dev/null || true
+  else
+    echo "❌ generate-plugin-skills.sh failed"
     fail=1
   fi
 fi

@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "getff reference family F1 (rules)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "family",
+    "familyName",
+    "generator",
+    "members"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "family": {
+      "const": "F1"
+    },
+    "familyName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generator": {
+      "const": "scripts/render-reference.mjs"
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind",
+          "shipsTo",
+          "description",
+          "source",
+          "extras",
+          "example"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "const": "rule"
+          },
+          "shipsTo": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tier"
+            ],
+            "properties": {
+              "tier": {
+                "const": "framework"
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "line"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "extras": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "class",
+              "fires",
+              "channels"
+            ],
+            "properties": {
+              "class": {
+                "enum": [
+                  "A",
+                  "B",
+                  "C"
+                ]
+              },
+              "fires": {
+                "type": "string",
+                "minLength": 1
+              },
+              "channels": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "example": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

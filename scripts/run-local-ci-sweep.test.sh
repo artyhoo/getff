@@ -6,6 +6,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SWEEP="$HERE/run-local-ci-sweep.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 fails=0
+# Hermetic: this test spawns the sweep many times, and an inherited SWEEP_LOG_DIR would make
+# every nested run write into the CALLER's log directory (the `script-selftests` row runs this
+# file from inside a real sweep). Arms that care about logging pass the var explicitly.
+unset SWEEP_LOG_DIR
 
 check() { # check <desc> <expected-rc> <actual-rc>
   if [ "$2" = "$3" ]; then echo "  ✓ $1"; else echo "  ✗ $1 (want rc=$2 got rc=$3)"; fails=$((fails + 1)); fi
@@ -47,6 +51,49 @@ rm -f "$TMP/OTHER"
 printf '1\tdoc\t.md\ttrue\n2\tother\tpackages/\ttouch %s/OTHER\n' "$TMP" >"$TMP/gates.tsv"
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o4" 2>&1
 has_file "unmapped path escalated to full (ran all gates)" "$TMP/OTHER"
+
+mk_repo() { # mk_repo <dir> — a git repo with the real sweep installed at scripts/
+  local d="$1"
+  mkdir -p "$d/scripts"
+  cp "$SWEEP" "$d/scripts/run-local-ci-sweep.sh"
+  printf 'seed\n' >"$d/README.md"
+  ( cd "$d" && env -u GIT_DIR -u GIT_WORK_TREE git init -q \
+      && git config user.email t@example.com && git config user.name t \
+      && git add -A && env -u GIT_DIR -u GIT_WORK_TREE git commit -qm init ) >/dev/null 2>&1
+}
+run_sweep() { # run_sweep <repo-dir> [args…] — invoke that repo's own copy, GIT_* unset
+  local d="$1"; shift
+  env -u GIT_DIR -u GIT_WORK_TREE bash "$d/scripts/run-local-ci-sweep.sh" "$@"
+}
+
+# --- (always/empty-diff) an ALWAYS gate runs even when the diff selects nothing ---
+# `--base HEAD` makes `git diff HEAD...HEAD` empty, which is what a sweep over an all-uncommitted
+# tree sees. Regression 2026-09-14: `gate_selected` loops over $CHANGED, so on an empty diff the
+# loop body never ran and the ALWAYS row silently selected nothing — "SWEEP: no gates selected"
+# with rc 0, the `#hope-as-gate` shape (.claude/rules/attention-is-not-a-mechanism.md §2).
+# Runs in a CLEAN throwaway repo, never in the live worktree. The exit code asserted below is
+# 0, and the dirty-tree refusal (#1780) legitimately answers 3 on a dirty tree — so pointing
+# this arm at the checkout would make its verdict a function of whatever the operator happens
+# to have uncommitted. Measured 2026-09-14: it went red (rc=3) on the merge that brought the
+# two changes together, against a worktree mid-edit and nothing else.
+rm -f "$TMP/ALW" "$TMP/SCOPED"
+RALW="$TMP/repo-always"; mk_repo "$RALW"
+printf '1\talways\tALWAYS\ttouch %s/ALW\n2\tscoped\tpackages/\ttouch %s/SCOPED\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" run_sweep "$RALW" --base HEAD >"$TMP/o13" 2>&1
+check "empty diff exits 0" 0 $?
+has_file "ALWAYS gate ran on an empty diff" "$TMP/ALW"
+no_file "empty diff did not run the path-scoped gate" "$TMP/SCOPED"
+
+# --- (always is not coverage) an ALWAYS row must NOT satisfy the unmapped-path fail-safe ---
+# Paired negative for the arm above: ALWAYS means "unconditional", not "matches every path".
+# Counting it as coverage retires the escalation fail-safe entirely — measured 2026-09-14, the
+# real table's `citation-fullsweep` row turned `weird/unmapped.bin` from "escalating to --full"
+# (every gate) into "1 gate(s) passed".
+rm -f "$TMP/ALW2" "$TMP/SCOPED2"
+printf '1\talways\tALWAYS\ttouch %s/ALW2\n2\tscoped\tpackages/\ttouch %s/SCOPED2\n' "$TMP" "$TMP" >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="weird/unmapped.bin" bash "$SWEEP" >"$TMP/o14" 2>&1
+grep_out "unmapped path still escalates despite an ALWAYS row" "escalating to --full" "$TMP/o14"
+has_file "escalation ran the path-scoped gate too" "$TMP/SCOPED2"
 
 # --- (prefix-with-dot) a trigger that is both .*-prefixed and /-suffixed matches as PREFIX ---
 # Regression: .github/workflows/ must select via prefix, not be misread as a suffix → false escalation.
@@ -114,4 +161,135 @@ printf '1\trealrun\tALWAYS\techo "WARN: drift detected but test passed"\n' >"$TM
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o12" 2>&1
 grep_out "bare-WARN output is a genuine PASS, not a degrade" "[sweep] PASS realrun" "$TMP/o12"
 
+# --- (gate-output reachability) the FAIL branch used to print a bare gate name and drop `$out`
+# on the floor — the same `#warning-nobody-reads` shape as the degrade case above, one branch
+# lower: the only consumer of a failing gate's output was a variable nobody could read. The
+# concrete cost: the single red `vitest-hooks` seen once in ~11 runs on one commit during PR
+# #1749 could never be diagnosed, because the evidence was discarded by construction. These
+# arms pin BOTH halves of the fix — the file on disk and the inline tail. ---
+LOGS="$TMP/logs-fail"
+printf '1\tgreenish\tALWAYS\techo green-gate-said-this\n2\tredgate\tALWAYS\techo "UNIQUE-FAILURE-EVIDENCE-9271"; exit 1\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" SWEEP_LOG_DIR="$LOGS" \
+  bash "$SWEEP" --full >"$TMP/o13" 2>&1
+check "failing gate still exits 1" 1 $?
+grep_out "FAIL line names the log path" "[sweep] FAIL redgate — output: $LOGS/02-redgate.log" "$TMP/o13"
+has_file "failing gate's output written to disk" "$LOGS/02-redgate.log"
+grep_out "the log file holds the failing gate's output" "UNIQUE-FAILURE-EVIDENCE-9271" "$LOGS/02-redgate.log"
+grep_out "failing output ALSO printed inline (no second command needed)" "UNIQUE-FAILURE-EVIDENCE-9271" "$TMP/o13"
+grep_out "summary points at the log directory" "SWEEP: gate logs in $LOGS" "$TMP/o13"
+# The flake half: a gate that PASSED on this run is logged too. A flag-gated capture would be
+# useless here — it would have to be passed before anyone knew the run mattered.
+has_file "a PASSING gate's output is logged too (flake diagnosable on the run that caught it)" \
+  "$LOGS/01-greenish.log"
+grep_out "the passing gate's log holds its output" "green-gate-said-this" "$LOGS/01-greenish.log"
+
+# --- (all-green run) logs land and are announced even when nothing fails ---
+LOGS_OK="$TMP/logs-green"
+printf '1\tonlygate\tALWAYS\techo all-was-well\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" SWEEP_LOG_DIR="$LOGS_OK" \
+  bash "$SWEEP" --full >"$TMP/o14" 2>&1
+check "all-green run with logging exits 0" 0 $?
+grep_out "all-green run announces the log directory" "SWEEP: gate logs in $LOGS_OK" "$TMP/o14"
+grep_out "all-green gate output is on disk" "all-was-well" "$LOGS_OK/01-onlygate.log"
+
+# --- (no litter) --list-gates runs no gate, so it must create no log directory ---
+LOGS_LIST="$TMP/logs-list"
+SWEEP_LOG_DIR="$LOGS_LIST" bash "$SWEEP" --list-gates >"$TMP/o15" 2>&1
+check "--list-gates still exits 0" 0 $?
+no_file "--list-gates created no log directory" "$LOGS_LIST"
+
+# --- (name sanitisation) a gate name carrying a slash must not write outside the log dir ---
+LOGS_SAN="$TMP/logs-san"
+printf '1\tweird/name:x\tALWAYS\techo sanitised-ok\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" SWEEP_LOG_DIR="$LOGS_SAN" \
+  bash "$SWEEP" --full >"$TMP/o16" 2>&1
+check "slash-named gate still exits 0" 0 $?
+has_file "slash in a gate name is sanitised into the log filename" "$LOGS_SAN/01-weird_name_x.log"
+no_file "slash-named gate did NOT write through the directory separator" "$LOGS_SAN/weird"
+
+# --- (removed flag) `--capture` was parsed and advertised but never read by anything: a
+# documented no-op. Its spec meaning (SNAPSHOT_MODE=capture for byte-identical,
+# docs/superpowers/specs/2026-06-26-harvest-skill-design.md) was never implemented either.
+# Removed rather than left inert — this arm pins that it is gone, not silently re-accepted. ---
+bash "$SWEEP" --capture >"$TMP/o17" 2>&1
+check "--capture is rejected as an unknown arg" 2 $?
+grep_out "--capture rejection names the arg" "[sweep] unknown arg: --capture" "$TMP/o17"
+bash "$SWEEP" --help >"$TMP/o18_usage" 2>&1
+if grep -qF -- "--capture" "$TMP/o18_usage"; then
+  echo "  ✗ usage still advertises the removed --capture flag"; fails=$((fails + 1))
+else echo "  ✓ usage no longer advertises --capture"; fi
+
+# --- (dirty tree, zero gates selected) -----------------------------------------------------
+# The sweep selects gates from the COMMITTED diff (`changed_paths`, merge-base...HEAD). An
+# agent or human who runs it mid-work to check their edits therefore got `SWEEP: no gates
+# selected for this diff` + rc 0 — a green answer about changes the sweep never looked at.
+# Measured 2026-09-14 in worktree cool-swanson-d3f4b6: two files modified but uncommitted,
+# default-mode run printed exactly that and exited 0.
+#
+# Only the ZERO-gates case is a refusal, and that is deliberate. Refusing on ANY dirty tree
+# (the tempting stronger rule) would break the script's own intended path: the harvest base
+# clone measured 12 dirty entries, 5 of them tracked-modified, and .claude/skills/harvest/
+# SKILL.md §1 explicitly harvests a committed branch out of a polluted worktree. The third arm
+# below pins that non-refusal.
+#
+# These arms build a throwaway repo rather than using a test seam: the thing under test IS the
+# real `git status` call, and a seam for it would be a second copy that drifts from it.
+# (neg) dirty tree + a committed diff that selects nothing → refuse, non-zero, name the paths.
+# SWEEP_GATES_FILE is load-bearing here and in the paired positive below. These two arms test
+# the REFUSAL MECHANISM, not the shipped gate table, and the live table is not a fixture: it
+# grew an ALWAYS row (`citation-fullsweep`, #1772) that selects in every repo, so without the
+# override the arm's own premise — "the diff selected nothing" — stops holding, and whether it
+# passes turns on how an unrelated gate behaves inside a two-commit sandbox. Measured
+# 2026-09-14: both arms went red on the merge of #1780 with #1772, with rc=1 from that gate
+# rather than the refusal's rc=3. A row here that no diff can match keeps the premise true.
+printf '1\tnever-selected\t.nomatch\ttrue\n' >"$TMP/gates-refusal.tsv"
+R1="$TMP/repo-dirty"; mk_repo "$R1"
+printf 'edited-but-never-committed\n' >>"$R1/README.md"
+printf 'brand new\n' >"$R1/UNTRACKED-EVIDENCE.txt"
+SWEEP_GATES_FILE="$TMP/gates-refusal.tsv" run_sweep "$R1" --base HEAD >"$TMP/o19" 2>&1
+check "dirty tree with zero gates selected exits non-zero" 3 $?
+grep_out "refusal names the modified tracked path" "README.md" "$TMP/o19"
+grep_out "refusal names the untracked path" "UNTRACKED-EVIDENCE.txt" "$TMP/o19"
+if grep -qF "SWEEP: no gates selected for this diff" "$TMP/o19"; then
+  echo "  ✗ dirty tree still printed the false-green 'no gates selected' line"; fails=$((fails + 1))
+else echo "  ✓ dirty tree did not print the false-green 'no gates selected' line"; fi
+
+# (pos) paired positive — CLEAN tree, genuinely empty diff, still the quiet exit-0 answer.
+R2="$TMP/repo-clean"; mk_repo "$R2"
+SWEEP_GATES_FILE="$TMP/gates-refusal.tsv" run_sweep "$R2" --base HEAD >"$TMP/o20" 2>&1
+check "clean tree with an empty diff still exits 0" 0 $?
+grep_out "clean tree keeps the 'no gates selected' answer" "SWEEP: no gates selected for this diff" "$TMP/o20"
+
+# (pos) the harvest shape — dirty tree, but the committed diff DOES select a gate. The sweep
+# must run that gate and answer normally; this is the arm that keeps the refusal from
+# swallowing the script's intended caller (harvest runs on a polluted worktree by design).
+R3="$TMP/repo-harvest"; mk_repo "$R3"
+printf 'committed change\n' >>"$R3/README.md"
+( cd "$R3" && env -u GIT_DIR -u GIT_WORK_TREE git commit -qam second ) >/dev/null 2>&1
+printf 'uncommitted residue\n' >"$R3/residue.txt"
+printf '1\tdoc\t.md\ttrue\n' >"$TMP/gates-harvest.tsv"
+SWEEP_GATES_FILE="$TMP/gates-harvest.tsv" run_sweep "$R3" --base HEAD~1 >"$TMP/o21" 2>&1
+check "dirty tree with a gate-selecting committed diff still exits 0" 0 $?
+grep_out "harvest shape ran its selected gate" "PASS doc" "$TMP/o21"
+
+# --- (fd 3) a gate's live progress must escape the output capture ---
+# Gate output is captured (`out="$( (eval "$cmd") 2>&1 </dev/null )"`) and printed only on
+# completion, so a long gate is silent for its whole run — the 114-file install-sh battery was
+# silent for ~30 minutes and "working" was indistinguishable from "hung" without walking the
+# process tree by hand (.claude/rules/attention-is-not-a-mechanism.md §1). `exec 3>&2` in the
+# sweep makes fd 3 the live channel: not touched by the capture, reaching the operator as the gate
+# runs. This arm pins BOTH halves — fd 3 arrives, and stdout is still captured, not echoed live.
+printf '1\tlive\tALWAYS\techo captured-body; echo live-tick >&3\n' >"$TMP/gates.tsv"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="x.txt" \
+  bash "$SWEEP" --full >"$TMP/o22" 2>"$TMP/e22"
+check "gate writing to fd 3 still exits 0" 0 $?
+grep_out "fd 3 reaches the operator live (sweep stderr)" "live-tick" "$TMP/e22"
+if grep -qF "live-tick" "$TMP/o22"; then
+  echo "  ✗ fd 3 output leaked into the captured stdout"; fails=$((fails + 1))
+else echo "  ✓ fd 3 output did not leak into the captured stdout"; fi
+if grep -qF "captured-body" "$TMP/e22"; then
+  echo "  ✗ ordinary gate stdout escaped the capture onto stderr"; fails=$((fails + 1))
+else echo "  ✓ ordinary gate stdout is still captured, not echoed live"; fi
+
+# shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }

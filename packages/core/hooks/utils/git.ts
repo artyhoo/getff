@@ -35,12 +35,20 @@ export interface GitProvider {
   /** `git show <sha> -- <paths…>` — the unified diff restricted to those paths. */
   diffForPaths(sha: string, paths: readonly string[]): string;
   /**
-   * Is the blob at `<sha>:<path>` byte-identical to a blob tracked at ANY other
-   * path in the same tree? A true result means the file is a relocation/vendor
-   * copy — no new capability by construction (PR #1271: vendored runtime-bridge
-   * subset tripped the ≥80-LOC trigger despite being byte-identical copies).
+   * Is the blob at `<sha>:<path>` byte-identical to a blob ALREADY TRACKED in
+   * the PRE-IMAGE tree — the commit's parent, or a PR range's merge-base? True
+   * means the file is a relocation/vendor copy of content the repo already had:
+   * no new capability by construction (PR #1271, vendored runtime-bridge subset
+   * tripping the ≥80-LOC trigger).
+   *
+   * The pre-image tree is what makes the carve-out sound. Resolving the
+   * duplicate against the commit's OWN tree (the shape shipped until 2026-09-05)
+   * exempted every new file added together with a byte-identical copy in the
+   * SAME commit — which the pre-commit twin-sync produces for every new hook —
+   * so the ≥50/≥80-LOC triggers silently stopped demanding a `Prior-art:`
+   * trailer for whole classes of genuinely new capability.
    */
-  blobDuplicatedInTree(sha: string, path: string): boolean;
+  blobTrackedAtBase(sha: string, path: string): boolean;
 }
 
 /**
@@ -228,23 +236,32 @@ export const realGit: GitProvider = {
   commitSubject: (sha) =>
     gitOut(['show', '-s', '--format=%s', sha]).replace(/\n$/, ''),
   diffForPaths: (sha, paths) => gitOut(['show', sha, '--', ...paths]),
-  blobDuplicatedInTree: (sha, path) => blobDuplicatedAt(sha, path),
+  blobTrackedAtBase: (sha, path) => blobTrackedIn(`${sha}^`, sha, path),
 };
 
 /**
- * Shared impl for GitProvider.blobDuplicatedInTree: resolve the blob hash of
- * `<tree>:<path>`, then count how many paths in that tree carry the same hash.
- * ls-tree line shape: `<mode> blob <hash>\t<path>` — match on the hash column.
+ * Shared impl for GitProvider.blobTrackedAtBase: resolve the blob hash of
+ * `<sourceTree>:<path>`, then ask whether ANY path in `baseTree` (the pre-image:
+ * a commit's parent, a range's merge-base) already carries that hash.
+ *
+ * ls-tree line shape: `<mode> blob <hash>\t<path>` — the hash column is matched
+ * exactly, so a path that merely contains the hash text cannot pass. A missing
+ * baseTree (root commit, unreachable ref) yields false: nothing pre-existed, so
+ * nothing is a relocation.
  */
-function blobDuplicatedAt(tree: string, path: string): boolean {
-  const blob = runCheck('git', ['rev-parse', `${tree}:${path}`]);
+function blobTrackedIn(
+  baseTree: string,
+  sourceTree: string,
+  path: string,
+): boolean {
+  const blob = runCheck('git', ['rev-parse', `${sourceTree}:${path}`]);
   if (blob.exitCode !== 0) return false;
   const hash = blob.stdout.trim();
   if (!/^[0-9a-f]{40,64}$/.test(hash)) return false;
-  let count = 0;
-  for (const line of gitOut(['ls-tree', '-r', tree]).split('\n')) {
-    if (line.includes(hash)) count++;
-    if (count >= 2) return true;
+  if (!upstreamExists(baseTree)) return false;
+  for (const line of gitOut(['ls-tree', '-r', baseTree]).split('\n')) {
+    const m = /^\d+ blob ([0-9a-f]+)\t/.exec(line);
+    if (m && m[1] === hash) return true;
   }
   return false;
 }
@@ -282,6 +299,6 @@ export function rangeGit(baseSha: string, headSha: string): GitProvider {
     commitSubject: () => '',
     diffForPaths: (_sha, paths) =>
       gitOut(['diff', mb, headSha, '--', ...paths]),
-    blobDuplicatedInTree: (_sha, path) => blobDuplicatedAt(headSha, path),
+    blobTrackedAtBase: (_sha, path) => blobTrackedIn(mb, headSha, path),
   };
 }

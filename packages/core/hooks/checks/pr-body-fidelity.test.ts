@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { checkPrBodyFidelity } from './pr-body-fidelity.ts';
+import { FILE_LINE_RE } from './s17.ts';
 
 const HEAD = 'a1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0';
 
@@ -259,6 +260,24 @@ describe('checkPrBodyFidelity — severity-contract arm (Failure-scenario in Rev
     const body = withFindings('- MAJOR: a (src/a.ts:1)\n<!-- Failure-scenario: hidden -->');
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
   });
+  it('fails a NUMBERED-LIST BLOCKER entry without a scenario (A4-3: digit-led opener was invisible)', () => {
+    const r = checkPrBodyFidelity({ body: withFindings('1. BLOCKER: hook never fires (pre-push.ts:10)'), headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/Failure-scenario/);
+  });
+  it('fails a TABLE-ROW BLOCKER entry without a scenario (A4-3: leading-pipe opener was invisible)', () => {
+    const r = checkPrBodyFidelity({ body: withFindings('| BLOCKER | hook never fires (pre-push.ts:10) |'), headSha: HEAD });
+    expect(r.ok).toBe(false);
+    expect(r.errors.join()).toMatch(/Failure-scenario/);
+  });
+  it('passes a numbered-list entry whose indented continuation carries the scenario', () => {
+    const body = withFindings('1. BLOCKER: hook never fires (pre-push.ts:10)\n   Failure-scenario: a round-triggering finding merges with the gate green');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('passes a table-row entry whose later row carries the scenario', () => {
+    const body = withFindings('| BLOCKER | hook never fires (pre-push.ts:10) |\n| scenario | Failure-scenario: a round-triggering finding merges with the gate green |');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
   it('reports the arm error alongside the skipped path too', () => {
     const body = `## Review findings\n\n- MAJOR: a (src/a.ts:1)\n\n## Fidelity verdict\nFIDELITY: skipped — docs-only change, no kickoff applies\n`;
     const r = checkPrBodyFidelity({ body, headSha: HEAD });
@@ -275,9 +294,54 @@ describe('checkPrBodyFidelity — sidecar count lines are not findings', () => {
     const body = withFindings('- BLOCKER: 1\n- MAJOR: 3\n- MINOR: 2');
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
   });
+  it('exempts the digit zero-tally `- BLOCKER: 0` (control — pre-A4-5 behavior)', () => {
+    const body = withFindings('- BLOCKER: 0\n- MAJOR: 0');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('exempts the natural zero-form `- BLOCKER: none` / `- MAJOR: none` (A4-5)', () => {
+    const body = withFindings('- BLOCKER: none\n- MAJOR: none\n- MINOR: 2 (notes lane)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
+  });
+  it('still gates a bare grade word with trailing prose after `none` (`- BLOCKER: none found so far`)', () => {
+    const body = withFindings('- BLOCKER: none found so far (src/x.ts:1)');
+    expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
   it('still gates a real finding whose text follows the colon', () => {
     const body = withFindings('- MAJOR: 3 retries silently swallowed (src/net.ts:12)');
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(false);
+  });
+});
+
+/**
+ * R-8: two same-named `FILE_LINE_RE` constants used to judge §1.7 citations
+ * differently — the fidelity gate's local copy accepted uppercase extensions
+ * (`Foo.TS:12`) that s17's case-sensitive grammar rejects, and rejected long
+ * lowercase extensions (`x.markdown:3`) that s17's `[a-z]+` accepts. The gate
+ * now imports s17's exported regex, so both surfaces must agree on every
+ * citation. This corpus pins the shared grammar on BOTH surfaces: the regex
+ * object directly, and the gate's evidence arm through observable behavior.
+ * (A pure de-dup has no RED state by construction — this is the pin, not a
+ * regression-repro test.)
+ */
+describe('checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin)', () => {
+  const corpus: Array<[string, boolean]> = [
+    ['Foo.TS:12', false],       // uppercase ext: fidelity-accepted before R-8, s17-rejected
+    ['README.MD:3', false],     // same direction
+    ['docs/x.markdown:3', true],// lowercase ext >6 chars: fidelity-rejected before R-8
+    ['pkg@1/x.ts:2', true],     // scoped-package path tail (both agreed pre-R-8)
+    ['packages/core/hooks/pre-push.ts:42', true],
+  ];
+
+  it('the shared s17.ts regex judges each citation as declared', () => {
+    for (const [citation, accepted] of corpus) {
+      expect(FILE_LINE_RE.test(citation), citation).toBe(accepted);
+    }
+  });
+  it('the fidelity gate accepts evidence exactly when the shared regex does', () => {
+    for (const [citation, accepted] of corpus) {
+      const body = wrap(goSection({ evidence: `Evidence: ${citation}` }));
+      expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok, citation).toBe(accepted);
+    }
   });
 });
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# inject-output-language.sh — UserPromptSubmit hook — injects the active output-language line into prompt context
 # @cc-only-rationale: CC-specific UserPromptSubmit hook — its stdout is auto-injected into the
 #   Claude Code prompt context by the harness, a CC-native fire-point with no portable counterpart.
 #   SHIPPED to consumer CC projects (GH #934, per-hook audit batch B): the consumer-generic slice

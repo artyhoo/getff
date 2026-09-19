@@ -9,7 +9,7 @@
  *
  * Coverage of kickoff §5 AC-1: presets activate flag-only (non-TTY).
  *
- *   ✅ FLAG-AIF:    `--preset aif`           → exit 0, PRESET_MODE=autonomous, marker set
+ *   ✅ FLAG-AIF:    `--preset aif`           → exit 0, PRESET_MODE=autonomous, NO marker (project defaults)
  *   ✅ FLAG-ECONOMY:`--preset economy`       → exit 0, PRESET_MODE=whole-line-executor, marker set
  *   ✅ ENV-NIGHT:   AIF_PIPELINE_PRESET=night → exit 0, PRESET_MODE=mode-a-inline, no marker
  *   ✅ ENV-SDD:     AIF_PIPELINE_PRESET=sdd   → exit 0, PRESET_MODE=in-session, no marker
@@ -44,12 +44,13 @@ function runHelper(
 }
 
 describe('parse-override-flags.sh — preset activation (AC-1, seam #1)', () => {
-  // ✅ FLAG-AIF (marker preset — emits marker line)
-  it('FLAG-AIF: `--preset aif` → exit 0; PRESET_MODE=autonomous + marker set', () => {
+  // ✅ FLAG-AIF (null-marker preset since getff#1608 — aif dispatches on the project's per-mode
+  // default profiles; the former marker named a DISABLED Claude profile, kickoff.decisions.md D1)
+  it('FLAG-AIF: `--preset aif` → exit 0; PRESET_MODE=autonomous + no marker line', () => {
     const r = runHelper('some-umbrella --preset aif');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('PRESET_MODE=autonomous');
-    expect(r.stdout).toContain('PRESET_MARKER=Claude Opus (plan+review)');
+    expect(r.stdout).not.toMatch(/^PRESET_MARKER=/m);
     expect(r.stdout).toContain('PRESET_REVIEWER_TIER=aif-own');
   });
 
@@ -58,7 +59,7 @@ describe('parse-override-flags.sh — preset activation (AC-1, seam #1)', () => 
     const r = runHelper('some-umbrella --preset economy');
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('PRESET_MODE=whole-line-executor');
-    expect(r.stdout).toContain('PRESET_MARKER=Z.AI GLM-5.2 SDK');
+    expect(r.stdout).toContain('PRESET_MARKER=Z.AI GLM-5.3 SDK');
     expect(r.stdout).toContain('PRESET_REVIEWER_TIER=executor-tier');
     // §8a Park-3: economy reviewer tier is executor-tier with maxReviewIterations=1
     expect(r.stdout).toContain('PRESET_AIF_MAX_REVIEW_ITERATIONS=1');

@@ -123,3 +123,23 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 - [`tests/install-sh/byte-identical.test.sh`](../tests/install-sh/byte-identical.test.sh) — 4-stack × {greenfield,brownfield} byte-identical proof.
 - [`tests/install-sh/lib-helpers.test.sh`](../tests/install-sh/lib-helpers.test.sh) — `lib.sh` unit test (O1 regression guard).
 - [`install.sh`](../install.sh) — thin dispatcher that sources this layer set.
+<!-- getff:begin section=A-table plan=scripts/render-reference.mjs -->
+| Layer | Order | What it does | Ships-to |
+|---|---|---|---|
+| `05-mcp.sh` | 5 | MCP companion install layer (S2). | all stacks |
+| `10-skills.sh` | 10 | §1 Skills + §1b Hooks (deps-hash-check CC hook). | all stacks |
+| `15-companions-stack.sh` | 15 | Stack-specific companion selection layer (S3). | all stacks |
+| `20-agents.sh` | 20 | §2 Sub-agents + §3c skill-context overrides. | all stacks |
+| `30-templates.sh` | 30 | §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md. | all stacks |
+| `40-configs.sh` | 40 | §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs. | all stacks |
+| `45-python.sh` | 45 | Python toolchain delivery layer (python-delivery-v0 S1, Task 5). | all stacks |
+| `46-cargo.sh` | 46 | Rust/cargo toolchain delivery layer (ecosystem-wiring W4). | all stacks |
+| `47-go.sh` | 47 | Go toolchain delivery layer (adapter-jig J3). | all stacks |
+| `50-hooks.sh` | 50 | §5c .husky/ hooks cluster + core.hooksPath activation. | all stacks |
+| `55-runtime-bridge-vendor.sh` | 55 | §5d vendored runtime-bridge subset (factory-only). | all stacks |
+| `60-ci.sh` | 60 | §6b .nvmrc↔CI drift WARN + §6b-bis R2 auto-wire L1 + §6c CI-orphan WARN. | all stacks |
+| `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root. | all stacks |
+| `80-rule-bootstrap.sh` | 80 | rule-bootstrapping install-time step (LIVE-or-degrade). | all stacks |
+| `85-worktree-scripts.sh` | 85 | §5e worktree scripts cluster (env+ profile). | all stacks |
+| `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done. | all stacks |
+<!-- getff:end section=A-table -->

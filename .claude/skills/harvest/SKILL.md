@@ -1,6 +1,6 @@
 ---
 name: harvest
-description: Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invoked explicitly via /harvest only (disable-model-invocation:true).
+description: Use when harvesting a finished aif-agent branch into a PR after acceptance. Triggers: harvest, harvest aif branch, egress aif task, push harvested work, post-acceptance harvest. Invocation channel: explicit /harvest only — disable-model-invocation:true is a channel flag and not a permission (§0).
 arguments: [taskId]
 argument-hint: "[aif-taskId-or-branch]"
 disable-model-invocation: true
@@ -24,6 +24,13 @@ allowed-tools:
 > Build-vs-reuse: **ADAPT** — reuses `harvest.ts` / `harvest-via-api.sh` egress (SSOT #111) + `scripts/run-local-ci-sweep.sh` (SSOT #176, change-scoped sweep, ADAPT of #114) + `superpowers:requesting-code-review` (verify posture). No new dependency, no new code beyond the sweep.
 
 # /harvest — post-aif-acceptance harvest
+
+## §0 Invocation
+
+**Slash command:** `/harvest [<aif-taskId-or-branch>]`
+
+> **Invocation-channel flag, not a permission.** `disable-model-invocation: true` keeps a skill out of auto-load and out of subagent preload, and stops the Skill tool from invoking it — an explicit `/<name>` from the operator is its only invocation channel, so an agent never self-initiates the procedure. It does **not** seal the file: an agent already asked to do this work may read the SKILL.md and execute its documented steps, and doing so is correct behaviour, not a workaround. On ZCode the flag is not runtime-enforced (absent from the runtime, survey #1699 §5): there the explicit-only channel discipline is prompt-level — this blockquote is the gate, so an agent on ZCode must still treat an explicit /<name> as the only self-initiation channel. <!-- canonical: invocation-channel-flag -->
+> Full contract (what the flag does, what it does not, and the two misreads that cost autonomy): [operational-conventions.md §4](../../../docs/meta-factory/operational-conventions.md#4-disable-model-invocation--an-invocation-channel-flag-not-a-permission).
 
 **Origin:** 2026-06-26. Harvesting a finished aif branch reliably reddens CI (PR #724 — 3 reds in a chain) or needs manual reconciliation; the steps lived only in user-scope memory. Spec: [docs/superpowers/specs/2026-06-26-harvest-skill-design.md](../../../docs/superpowers/specs/2026-06-26-harvest-skill-design.md).
 
@@ -61,6 +68,8 @@ Run the local CI-equivalent sweep on the harvested branch:
 bash scripts/run-local-ci-sweep.sh            # diff-aware: only the gate families your change touches
 bash scripts/run-local-ci-sweep.sh --full     # explicit full CI-equivalent (~5 min) — final pre-merge / broad diff
 ```
+
+Every gate's output is written to a per-run log directory (`SWEEP_LOG_DIR` pins it); a FAIL prints that gate's log path plus the last 40 lines inline, and the final line names the directory — so a red never has to be reproduced by hand to be read.
 
 The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmapped path, runs cheapest-first with fail-fast. **Interpret reds against the merge-base:** a gate red on your branch AND on `origin/staging` is pre-existing (e.g. `layer-units`) — surface it, do NOT attribute it to the harvest. A **branch-introduced** red ⇒ **STOP, do not push** — fix it first. Whole-tree markdown gates (md-line / dead-links) and the `framework-self-*` self-install matrix are CI-only (see spec §Known gaps) — the sweep flags them as advisory, rely on CI for those.
 

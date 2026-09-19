@@ -1,0 +1,51 @@
+name: Beta feedback
+description: Tell us what happened when you tried getff — happy path or not.
+title: '[beta] '
+labels: ['enhancement', 'question']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the feedback channel of the getff beta. Anything counts: a confusing First Steps sentence, a rule you disagreed with, a step that took longer than the docs promised.
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Install depth you used
+      options:
+        - core (default) — rules from live docs
+        - env — plus /arch and in-session tasks
+        - factory — plus the multi-model pipeline
+        - did not get that far
+    validations:
+      required: true
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: Did the happy path complete?
+      description: 'link → entry command → first rule fires (core), or → first task through the pipeline (env/factory).'
+      options:
+        - 'Yes, end to end'
+        - 'Partly — I stopped or got stuck (say where below)'
+        - 'No — it failed (open a bug report too if you have output)'
+    validations:
+      required: true
+  - type: input
+    id: time
+    attributes:
+      label: Time from first command to the outcome above
+      placeholder: 'about 12 minutes'
+  - type: textarea
+    id: friction
+    attributes:
+      label: Where did it slow you down or surprise you?
+    validations:
+      required: true
+  - type: textarea
+    id: claims
+    attributes:
+      label: Anything the docs or site promised that did not hold?
+      description: Quote the sentence and say what you saw instead — claims on getff.ai are tracked one by one.
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else

@@ -1,0 +1,618 @@
+{
+  "schemaVersion": 1,
+  "family": "F3",
+  "familyName": "scripts",
+  "generator": "scripts/render-reference.mjs",
+  "members": [
+    {
+      "name": "build-getff-dist.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "assemble the `getff` distribution package (packages/getff) from the repo root.",
+      "source": {
+        "path": "scripts/build-getff-dist.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "package.json:1 (json-value:invocation-verb)",
+          "package.json:1 (json-value:invocation-verb)",
+          "scripts/run-local-ci-sweep.sh:200 (quoted-path-token, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "build-shipped-eslint-rules.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Variant A / Option A (fixes #752).",
+      "source": {
+        "path": "scripts/build-shipped-eslint-rules.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1404 (spawn-argument)",
+          ".github/workflows/audit-self.yml:527 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "build-synth-bundle.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "Bundle synth-and-wire.ts into a zero-runtime-dep .mjs (#755).",
+      "source": {
+        "path": "scripts/build-synth-bundle.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1316 (spawn-argument)",
+          ".github/workflows/audit-self.yml:532 (workflow-run:invocation-verb)",
+          "package.json:1 (json-value:invocation-verb)",
+          "package.json:1 (json-value:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "census.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "the F.3 wiring-surface line classifier (input class 7, ref-gen §7 row 7).",
+      "source": {
+        "path": "scripts/census.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "scripts/render-reference.mjs:56 (es-import, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-alwayson-budget.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "pre-push drift-guard: fail if the always-on context baseline exceeds the ceiling set by arch-v2-context-pipeline S-E",
+      "source": {
+        "path": "scripts/check-alwayson-budget.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1634 (spawn-argument)",
+          ".github/workflows/audit-self.yml:1331 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-ask-files.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "ask-file schema validity + the answered⇒decisions-entry cross-check.",
+      "source": {
+        "path": "scripts/check-ask-files.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1667 (spawn-argument)",
+          "install.sh:1149 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-bundle-dep-parity.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "guard against PHANTOM synth-bundle drift.",
+      "source": {
+        "path": "scripts/check-bundle-dep-parity.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "scripts/build-synth-bundle.sh:52 (quoted-path-token, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-line-citations.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "`path:line` citation drift gate.",
+      "source": {
+        "path": "scripts/check-line-citations.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2270 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:172 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-skill-drift.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "skill/agent file drift detector",
+      "source": {
+        "path": "scripts/check-skill-drift.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1019 (spawn-argument)",
+          "package.json:1 (json-value:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "ci-success-gate.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "aggregate pass/fail gate for the `ci-success` job.",
+      "source": {
+        "path": "scripts/ci-success-gate.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2366 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "create-worktree.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "portable worktree setup; usable from CLI, CI, or AI agent.",
+      "source": {
+        "path": "scripts/create-worktree.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
+          "install.sh:1253 (quoted-path-token)",
+          "install.sh:1255 (for-in-list)",
+          "scripts/getff-work.sh:75 (quoted-path-token, closure)",
+          "shipped-by-path (tests/install-sh/baselines)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "docs-check.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "the deterministic form gate of the getff.ai docs quality contract (S0q).",
+      "source": {
+        "path": "scripts/docs-check.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:1237 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1242 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "format-shipped.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "GH #531. Dogfood Prettier on the SHIPPED surface: the files install.sh copies",
+      "source": {
+        "path": "scripts/format-shipped.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".husky/pre-commit:184 (quoted-path-token)",
+          "package.json:1 (json-value:invocation-verb)",
+          "package.json:1 (json-value:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "generate-plugin-skills.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "generate plugin/skills/ entries from their in-repo source populations",
+      "source": {
+        "path": "scripts/generate-plugin-skills.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".husky/pre-commit:311 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "generate-plugin-twins.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "generate plugin/ twins from their in-repo sources (two populations, two contracts)",
+      "source": {
+        "path": "scripts/generate-plugin-twins.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".husky/pre-commit:290 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "getff-work.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "`getff work <name>` workspace one-command (spec A9).",
+      "source": {
+        "path": "scripts/getff-work.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
+          "install.sh:1255 (for-in-list)",
+          "shipped-by-path (tests/install-sh/baselines)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "host-verify.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "run a kickoff's declared destination-environment verification contract.",
+      "source": {
+        "path": "scripts/host-verify.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".claude/hooks/check-kickoff-traps.sh:176 (quoted-path-token)",
+          "plugin/hooks/check-kickoff-traps:177 (quoted-path-token)",
+          "scripts/host-verify.sh:60 (invocation-verb, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "link-coordination.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "cross-worktree symlink-to-canonical coordination sync.",
+      "source": {
+        "path": "scripts/link-coordination.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          ".claude/settings.json:1 (json-value:quoted-path-token)",
+          "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
+          "install.sh:1255 (for-in-list)",
+          ".claude/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
+          ".claude/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
+          ".claude/hooks/worktree-setup.sh:164 (quoted-path-token)",
+          ".claude/hooks/worktree-setup.sh:167 (quoted-path-token)",
+          "scripts/create-worktree.sh:127 (quoted-path-token, closure)",
+          "scripts/create-worktree.sh:130 (quoted-path-token, closure)",
+          "shipped-by-path (tests/install-sh/baselines)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "measure-always-on.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "measure the always-on context baseline in bytes — the ai-doc-audit exit-criterion meter",
+      "source": {
+        "path": "scripts/measure-always-on.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "scripts/check-alwayson-budget.sh:46 (quoted-path-token, closure)",
+          "scripts/check-alwayson-budget.sh:46 (command-substitution, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-face-facts.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "deterministic face-facts manifest for the getff.ai landing pin (D42).",
+      "source": {
+        "path": "scripts/render-face-facts.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1479 (spawn-argument)",
+          ".github/workflows/audit-self.yml:262 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-install-roster.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "deterministic consumer install roster for INSTALL-FOR-AI.md",
+      "source": {
+        "path": "scripts/render-install-roster.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:252 (workflow-run:invocation-verb)",
+          "scripts/render-reference.mjs:53 (es-import, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-presets.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "deterministic launch-preset section for AI-USAGE-GUIDE.md",
+      "source": {
+        "path": "scripts/render-presets.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:254 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-reference.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "the D29 reference generator (ref-gen spec §3-§8): eleven families,",
+      "source": {
+        "path": "scripts/render-reference.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1461 (spawn-argument)",
+          ".github/workflows/audit-self.yml:258 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-rule-index.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "deterministic rule-index digest for CTX Stage 1 (Tier-0 context budget).",
+      "source": {
+        "path": "scripts/render-rule-index.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:1444 (spawn-argument)",
+          ".github/workflows/audit-self.yml:247 (workflow-run:invocation-verb)",
+          "scripts/render-reference.mjs:52 (es-import, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-terms-style.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "docs/site/terms.md region (a) → the Vale substitution rule (S0q).",
+      "source": {
+        "path": "scripts/render-terms-style.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:1265 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "run-local-ci-sweep.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "local CI-equivalent gate sweep for harvest pre-push.",
+      "source": {
+        "path": "scripts/run-local-ci-sweep.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "setup.d/10-skills.sh:172 (quoted-path-token)",
+          "setup.d/10-skills.sh:173 (quoted-path-token)",
+          "setup.d/10-skills.sh:174 (quoted-path-token)",
+          "install.sh:1154 (quoted-path-token)",
+          "install.sh:1155 (quoted-path-token)",
+          "install.sh:1156 (quoted-path-token)",
+          "install.sh:1157 (quoted-path-token)",
+          "install.sh:1158 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "worktree-node-modules.sh",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "consumer",
+        "stacks": [
+          "react-native",
+          "react-next",
+          "react-spa",
+          "ts-server"
+        ]
+      },
+      "description": "SSOT for worktree node_modules provisioning.",
+      "source": {
+        "path": "scripts/worktree-node-modules.sh",
+        "line": 2
+      },
+      "extras": {
+        "wired-from": [
+          "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
+          "install.sh:1255 (for-in-list)",
+          ".claude/hooks/worktree-setup.sh:73 (quoted-path-token)",
+          ".claude/hooks/worktree-setup.sh:118 (quoted-path-token)",
+          "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
+          "shipped-by-path (tests/install-sh/baselines)"
+        ]
+      },
+      "example": null
+    }
+  ],
+  "unwired": [
+    "aif-clone-hygiene.sh",
+    "apply-doc-fixes.sh",
+    "fire-routine.sh",
+    "getff-glm-onebutton.sh",
+    "host-verify-coverage.sh",
+    "install-coordination-wiring.sh",
+    "kickoff-hv-inventory.sh",
+    "measure-session-start-tokens.sh",
+    "measure-turn-attribution.sh",
+    "probe-channels.sh",
+    "probe-zcode-runtime.sh",
+    "register-handoff-gate.sh",
+    "register-precompact-hook.sh",
+    "register-recap-gate.sh",
+    "render-harness-config.mjs",
+    "render-rule-channels.mjs",
+    "render-zcode-parity-rollup.mjs",
+    "run-install-sh-suite.sh",
+    "setup-cc-adoptions.sh",
+    "triage-corpus-probe.mjs",
+    "triage-s0-run.mjs",
+    "triage-s0-score.mjs",
+    "triage-s2-labels-check.mjs",
+    "triage-s3-agreement.mjs",
+    "triage-s4-score.mjs",
+    "triage-s4b-outcomes.mjs",
+    "worktree-doctor.sh"
+  ]
+}

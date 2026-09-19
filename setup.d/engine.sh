@@ -37,11 +37,11 @@ companion_step() {
   fi
 
   if eval "$detect_cmd" >/dev/null 2>&1; then
-    [ "$kind" = "mcp" ] && printf '  [mcp:%s] detect: present (%s) — skip\n' "$name" "$_scope_label"
+    if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] detect: present (%s) — skip\n' "$name" "$_scope_label"; fi
     printf '  ⊝ %s already present — skipping\n' "$name"
     return 0
   fi
-  [ "$kind" = "mcp" ] && printf '  [mcp:%s] detect: absent (%s)\n' "$name" "$_scope_label"
+  if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] detect: absent (%s)\n' "$name" "$_scope_label"; fi
 
   if [ "$mode" = "dry-run" ]; then
     printf '  [dry-run] would install %s: %s\n' "$name" "$install_cmd"
@@ -58,19 +58,27 @@ companion_step() {
   if [ "$do_it" = "yes" ]; then
     if [ "$kind" = "mcp" ]; then
       printf '  [mcp:%s] installing (%s): %s\n' "$name" "$_scope_label" "$install_cmd"
-      [ "$_scope_label" = "user-scope (machine-global)" ] && \
+      if [ "$_scope_label" = "user-scope (machine-global)" ]; then
         printf '  ⚠ machine-scope (one-time): %s added to user MCP scope — persists across all projects on this machine\n' "$name"
+      fi
     fi
     if eval "$install_cmd"; then
       printf '  ✓ %s installed\n' "$name"
-      [ "$kind" = "mcp" ] && printf '  [mcp:%s] install: success\n' "$name"
+      if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: success\n' "$name"; fi
     else
       printf '  ⚠ %s install failed — run manually: %s\n' "$name" "$install_cmd"
-      [ "$kind" = "mcp" ] && printf '  [mcp:%s] install: failed\n' "$name"
+      if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: failed\n' "$name"; fi
     fi
   else
     printf '  ⊝ %s skipped\n' "$name"
   fi
+  # Always 0: a companion is optional by contract (the ⚠ line already says «run manually»).
+  # The caller (`setup`, `set -e`) must never die on a companion — before this line the
+  # trailing `[ "$kind" = "mcp" ] && printf` made every non-mcp companion return 1 on BOTH
+  # branches, so a fresh machine (superpowers absent → install attempted) killed `setup -y`
+  # right after «✓ superpowers installed» — or, without the claude CLI, after the ⚠ line
+  # (caught by tests/consumer-matrix/getff-dist-cell.sh in CI, PR #1613).
+  return 0
 }
 
 # Lib-only guard: when sourced for tests, expose the function without parsing the manifest.

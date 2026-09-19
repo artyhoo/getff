@@ -21,7 +21,8 @@
 // `params:{kind ∈ {method,type,macro}, path:<FQ-path>}` (a fully-qualified path to ban, NOT an astgrep
 // pattern), `defaultSeverity:'warning'` (→ `rendered`; `error`/`note` → `degraded`). Extending the
 // astgrep bridge to carry both shapes would risk the landed LG-S1 for zero reuse gain. So this is a
-// sibling that REUSES the frozen `ConventionNode` IR, `runGrammarGate`, `validateProvenance`, and the
+// sibling that REUSES the frozen `ConventionNode` IR, `runGrammarGate`, the exported
+// `firstProvenanceRejection` (the canonical provenance-rejection wrapper — R-5), and the
 // exported `ResearchOnlyReason`/`ResearchToNodeResult` result types (research-to-node.ts:80-84).
 //
 // TWO HONESTY LINES, both non-negotiable (§Qb + Phase -1), identical to the astgrep lane:
@@ -43,12 +44,13 @@ import { runGrammarGate } from '../ir/gates/grammar.ts';
 // Mechanical mirror of the astgrep bridge's threading (research-to-node.ts).
 import {
   resolveAllowedSources,
-  validateProvenance,
   type ResolveCtx,
-  type ResolvedSources,
 } from '../research/allowlist-resolver.ts';
 import type { Provenance } from '../research/types.ts';
-import type { ResearchOnlyReason, ResearchToNodeResult } from './research-to-node.ts';
+// R-5 (ledger-1597-fixes): the provenance-rejection trust policy has ONE owner — this
+// bridge imports the CANONICAL wrapper from the astgrep bridge instead of carrying a
+// private copy of it (the two copies were line-identical modulo two comment lines).
+import { firstProvenanceRejection, type ResearchOnlyReason, type ResearchToNodeResult } from './research-to-node.ts';
 
 // Re-export the shared result vocabulary so callers can import the clippy lane's types from one place
 // without depending on the astgrep bridge module name. The types themselves are REUSED verbatim.
@@ -210,48 +212,4 @@ function buildClippyNode(practice: ClippyResearchedPractice): ConventionNode {
       positive: practice.examples.good,
     },
   };
-}
-
-/**
- * Return the first provenance rejection reason, or null if every record resolves to a trusted source.
- * A practice with ZERO provenance cannot be trusted (fail-closed).
- *
- * Tier model (S1 getff-any-stack-trace, spec §4 W1-1): the validator runs in its two-arg
- * resolved-aware form. When the caller threads a `ResolveCtx`, `resolved` carries Tier-0,
- * Tier-1 (the manifest-derived hosts), and Tier-2 (the ack file); otherwise `resolved` is
- * Tier-0-only and the validator falls back to the historical behaviour. Either way the
- * validator is the SSOT — the bridge never re-implements the host-tier call.
- *
- * `entryPackage` opt (S1): the validator's Tier-1 branch is gated on `opts.entryPackage`
- * (allowlist-resolver.ts:316). The clippy bridge's input shape has no separate `package`
- * field (mirror of the astgrep lane): a single-practice record IS scoped to whatever its
- * provenance records declare — the practice's package IS `p.packageName`. We therefore
- * thread `{ entryPackage: p.packageName }` so the Tier-1 branch activates for manifest-
- * derived admission. The scope-lock check becomes a self-check (trivially satisfied); the
- * multi-entry scope-lock is the plan-level validator's concern (gates/provenance.ts), not
- * the bridge's.
- *
- * Operational consequence (FF2010 is structurally unreachable from the bridge): because
- * `entryPackage === p.packageName` by construction, the validator's `packageName !==
- * opts.entryPackage` branch (FF2010) can NEVER fire from a bridge call. The effective
- * scope-lock on the bridge's single-practice path is the `tier1For` direct-dep gate
- * (FF2007, allowlist-resolver.ts:206). FF2010 remains the scope-lock for the plan-level
- * validator, where `entry.package` and `provenance.packageName` are independent claims.
- *
- * Re-implemented locally (mirroring research-to-node.ts) because the astgrep bridge's
- * version is module-private.
- */
-function firstProvenanceRejection(
-  provenance: Provenance[],
-  resolved: ResolvedSources,
-): string | null {
-  if (provenance.length === 0) {
-    return 'no provenance record — cannot resolve a trusted documentation source';
-  }
-  for (const p of provenance) {
-    const opts = p.packageName !== undefined ? { entryPackage: p.packageName } : undefined;
-    const d = validateProvenance(p, resolved, opts);
-    if (d !== null) return d.message;
-  }
-  return null;
 }

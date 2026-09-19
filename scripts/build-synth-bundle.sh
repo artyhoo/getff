@@ -77,7 +77,7 @@ _build() {
   # workspace install). These embedded paths are inert in the inlined output
   # (everything is bundled; the keys are not used for runtime resolution), so
   # collapsing the prefix is safe. Portable (.bak + rm) for BSD (macOS) + GNU (CI).
-  sed -i.bak -E 's#(["(/[:space:]]|^)([A-Za-z0-9_.-]+/)*node_modules/#\1node_modules/#g' "$outfile" && rm -f "$outfile.bak"
+  sed -i.bak -E 's#(["(/[:space:]]|^)([A-Za-z0-9_.@-]+/)*node_modules/#\1node_modules/#g' "$outfile" && rm -f "$outfile.bak"
 }
 
 MODE="${1:-build}"

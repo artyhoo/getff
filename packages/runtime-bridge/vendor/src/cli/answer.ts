@@ -1,10 +1,12 @@
 /**
- * CLI answer entrypoint — the "push the resolved answer back + resume" half of the bridge.
+ * answer.ts — the "push the resolved answer back + resume" half of the bridge.
  *
  * Usage:
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<text>" [--decision request_changes] [--json]
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --decision approve
  *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --decision retry
+ *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --decision complete_review
+ *   tsx packages/runtime-bridge/src/cli/answer.ts --task <id> --answer "<text>" --decision request_review_changes
  *
  * The resolve side of the question-loop: after a human brainstorms a parked
  * task's question(s) in a chat (cli/questions.ts surfaced them), this command
@@ -27,7 +29,11 @@
  *                              POST /tasks/:id/events   { event: 'request_changes' }
  *                              → done → implementing, reworkRequested:true (aif redoes with the feedback)
  *   approve : POST /tasks/:id/events { event: 'approve_done' }        → done → verified
+ *   complete_review        : POST /tasks/:id/events                    → review → done
+ *   request_review_changes : POST /comments then POST /events          → review → implementing
  *   retry   : POST /tasks/:id/events { event: 'retry_from_blocked' }  → blocked_external → prior status
+ *   resume  : PUT  /tasks/:id { plan+answer, paused:false, blockedReason:null }
+ *                              → lifts an A-park; NO event, so it REQUIRES paused:true (A6-6b)
  *
  * Non-destructive (kickoff §4.2 "idempotent/reversible"): only ever creates a
  * comment + dispatches a FORWARD state-machine event — no DELETE, no force-push.
@@ -40,7 +46,8 @@
  * Flags:
  *   --task <id>      — REQUIRED: the parked task to resolve.
  *   --answer <text>  — the resolution text; REQUIRED for request_changes (attached as a comment).
- *   --decision <d>   — request_changes (default) | approve | retry.
+ *   --decision <d>   — request_changes (default) | approve | retry | resume (A-park only)
+ *                      | complete_review | request_review_changes (both `review`-state only).
  *   --json           — print the result as a JSON object.
  *
  * Exit codes:
@@ -51,14 +58,31 @@
  *   maintainer's bash smoke-test and from an orchestrator session. No CC-only
  *   primitive, no Superset import, no paid LLM.
  */
-import { fileURLToPath } from 'node:url';
+import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import { BackendError } from '../backend.js';
-import { getTask, putTask } from './aifHttp.js';
+import {
+  getTask,
+  putTask,
+  postJson,
+  getParticipantsModeEnabled,
+} from './aifHttp.js';
 
 const DEFAULT_AIF_URL = 'http://localhost:3009';
 
-/** The four human resolution decisions accepted by the CLI. */
-export type AnswerDecision = 'request_changes' | 'approve' | 'retry' | 'resume';
+/**
+ * The human resolution decisions accepted by the CLI.
+ *
+ * The first four target a task in `done`. `complete_review` and `request_review_changes`
+ * target one in `review` — the state a MANUAL-REVIEW PARK actually sits in, which until
+ * 2026-09-09 no decision here could reach (see {@link resolveStep}).
+ */
+export type AnswerDecision =
+  | 'request_changes'
+  | 'approve'
+  | 'retry'
+  | 'resume'
+  | 'complete_review'
+  | 'request_review_changes';
 
 /** The valid decisions, in CLI-help order (request_changes is the default). */
 export const VALID_DECISIONS: readonly AnswerDecision[] = [
@@ -66,6 +90,8 @@ export const VALID_DECISIONS: readonly AnswerDecision[] = [
   'approve',
   'retry',
   'resume',
+  'complete_review',
+  'request_review_changes',
 ];
 
 /** Append a marked OPERATOR ANSWER block to the plan (read by the implementer on the next tick). */
@@ -81,22 +107,44 @@ export function appendAnswerToPlan(
 /** A decision resolved to its aif-handoff state-machine event + whether the answer rides as a comment. */
 export interface ResolveStep {
   /** aif-handoff state-machine event (POST /tasks/:id/events). Source: TASK_EVENTS. */
-  event: 'request_changes' | 'approve_done' | 'retry_from_blocked';
+  event:
+    | 'request_changes'
+    | 'approve_done'
+    | 'retry_from_blocked'
+    | 'complete_review'
+    | 'request_review_changes';
   /** Whether the answer text MUST be attached as a comment before the event. */
   needsComment: boolean;
 }
 
 /**
- * Resolve a decision to its S1-verified event sequence.
- * Source (DeepWiki lee-to/aif-handoff stateMachine.ts / types.ts):
+ * Resolve a decision to its verified event sequence.
+ * Source (DeepWiki lee-to/aif-handoff stateMachine.ts / types.ts, and for the review-state
+ * pair the running image's own `packages/shared/dist/stateMachine.js:91,100`):
  *   request_changes → done→implementing (answer rides as the latest comment);
  *   approve_done    → done→verified;
- *   retry_from_blocked → blocked_external→prior status.
+ *   retry_from_blocked → blocked_external→prior status;
+ *   complete_review → review→done (or →verify when the task has runPostVerify);
+ *   request_review_changes → review→implementing, reworkRequested (answer rides as a comment).
+ *
+ * WHY the review pair exists (2026-09-09): a task handed to a human by the auto-review gate
+ * stops in `review`, not `done` (`coordinator.js:442-467` sets executionOwner=human +
+ * manualReviewRequired there). `review` accepts ONLY `complete_review` /
+ * `request_review_changes`; every done-state event is refused from it with
+ * `HTTP 409 {"error":"approve_done is only allowed from done"}` (measured live on task
+ * 5dfecf25). So this CLI — the tool whose whole job is releasing parks — could not reach the
+ * one state parks occupy, and they accumulated with no exit: 4 parks were still held open
+ * weeks after their PRs had merged. The bare `POST /tasks/:id/events` workaround is
+ * classifier-blocked by policy, so without these two there is no path at all.
  */
 export function resolveStep(decision: AnswerDecision): ResolveStep {
   switch (decision) {
     case 'approve':
       return { event: 'approve_done', needsComment: false };
+    case 'complete_review':
+      return { event: 'complete_review', needsComment: false };
+    case 'request_review_changes':
+      return { event: 'request_review_changes', needsComment: true };
     case 'retry':
       return { event: 'retry_from_blocked', needsComment: false };
     case 'resume':
@@ -119,17 +167,24 @@ export interface AnswerArgs {
   json: boolean;
 }
 
-/** Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes), --json. */
+/**
+ * Parse CLI args: --task <id>, --answer <text>, --decision <d> (default request_changes), --json.
+ * Throws {@link CliArgError} on a malformed invocation — see cliEntry.ts (A6-7).
+ */
 export function parseAnswerArgs(argv: string[]): AnswerArgs {
-  const valueOf = (flag: string): string | undefined => {
-    const i = argv.indexOf(flag);
-    return i !== -1 && argv[i + 1] ? argv[i + 1] : undefined;
-  };
+  const { values } = parseCliArgs(argv, {
+    options: {
+      task: { type: 'string' },
+      answer: { type: 'string' },
+      decision: { type: 'string' },
+      json: { type: 'boolean' },
+    },
+  });
   return {
-    taskId: valueOf('--task'),
-    answer: valueOf('--answer'),
-    decision: valueOf('--decision') ?? 'request_changes',
-    json: argv.includes('--json'),
+    taskId: values.task as string | undefined,
+    answer: values.answer as string | undefined,
+    decision: (values.decision as string | undefined) ?? 'request_changes',
+    json: values.json === true,
   };
 }
 
@@ -144,73 +199,76 @@ export function validateAnswerArgs(args: AnswerArgs): string | null {
   if (!(VALID_DECISIONS as readonly string[]).includes(args.decision)) {
     return `invalid --decision "${args.decision}" (expected: ${VALID_DECISIONS.join(' | ')})`;
   }
-  if (
-    (args.decision === 'request_changes' || args.decision === 'resume') &&
-    !args.answer?.trim()
-  ) {
+  const needsAnswer = ['request_changes', 'resume', 'request_review_changes'];
+  if (needsAnswer.includes(args.decision) && !args.answer?.trim()) {
     return `decision "${args.decision}" requires --answer <text> (the resolution to push back)`;
   }
   return null;
 }
 
 /**
- * POST a JSON body to an aif-handoff endpoint; map failures to BackendError
- * (same mapping as AifHandoffBackend._rest, kept consistent across the package):
- *   connection refused / abort → 'unavailable'
- *   HTTP 429                   → 'quota_exceeded'
- *   any other non-2xx          → 'dispatch_failed'
+ * Attach the human's answer to the task as a comment (POST /tasks/:id/comments { message }).
+ * The transport + BackendError mapping live in cli/aifHttp.ts — this file used to carry a
+ * verbatim copy of it (S-4).
  */
-async function post(
-  baseUrl: string,
-  path: string,
-  body: unknown,
-): Promise<unknown> {
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new BackendError(
-      `aif-handoff POST ${path} unreachable: ${msg}`,
-      'unavailable',
-      'aif-handoff',
-    );
-  }
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
-    if (res.status === 429) {
-      throw new BackendError(
-        `aif-handoff rate limit (POST ${path}): ${errBody}`,
-        'quota_exceeded',
-        'aif-handoff',
-      );
-    }
-    throw new BackendError(
-      `aif-handoff POST ${path} HTTP ${res.status}: ${errBody}`,
-      'dispatch_failed',
-      'aif-handoff',
-    );
-  }
-  const text = await res.text();
-  if (!text) return {};
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return text;
-  }
-}
-
-/** Attach the human's answer to the task as a comment (POST /tasks/:id/comments { message }). */
 export async function postComment(
   baseUrl: string,
   taskId: string,
   message: string,
 ): Promise<void> {
-  await post(baseUrl, `/tasks/${taskId}/comments`, { message });
+  await postJson(baseUrl, `/tasks/${taskId}/comments`, { message });
+}
+
+/**
+ * The decisions whose events exist ONLY in aif's human-owner dispatcher
+ * (`resolveHumanOwnerAction`). Every other decision targets `done` / `blocked_external`,
+ * which the legacy dispatcher serves, so only these two depend on the mode probe below.
+ */
+export const HUMAN_OWNER_ONLY_DECISIONS: readonly AnswerDecision[] = [
+  'complete_review',
+  'request_review_changes',
+];
+
+/**
+ * Refuse a review-state decision the deployment cannot serve, naming the cause and the
+ * levers that DO exist.
+ *
+ * `resolveTaskAction` picks `resolveHumanOwnerAction` — the only dispatcher carrying
+ * `complete_review` / `request_review_changes` — solely when participants mode is on. With
+ * it off, every event resolves through `resolveLegacyAction`, whose cases cover `backlog`,
+ * `plan_ready`, `done` and `blocked_external` and NOTHING from `review`; the request falls
+ * to its `default:` and comes back as `409 {"error":"Unknown task event"}`, which names
+ * neither the mode nor a way forward. Measured 2026-09-09 against two live parks, one
+ * ai-owned and one human-owned — the owner is not the gate, the mode is.
+ */
+export function reviewEventUnreachableReason(decision: string): string {
+  return (
+    `"${decision}" cannot be dispatched: this aif deployment runs with participants mode OFF ` +
+    `(GET /auth/session → participantsModeEnabled:false), so every task event resolves through ` +
+    `the legacy dispatcher, which has no event out of "review" for any owner — the API would ` +
+    `answer 409 "Unknown task event". A manual-review park has two exits here: hand it back to ` +
+    `the coordinator (POST /tasks/:id/handoff {"executionOwner":"ai"} — legal from review, and ` +
+    `the coordinator's candidate query takes ai-owned review tasks, so its auto-review re-runs ` +
+    `and can close the task itself), or DELETE the task outright (destructive, operator GO).`
+  );
+}
+
+/**
+ * Throwing wrapper for the CLI path. A FAILING probe is deliberately NOT converted into a
+ * refusal message — it propagates as its own BackendError, because "the deployment cannot
+ * serve this" and "we could not ask" are different answers and only the first is a reason
+ * to stop quietly.
+ */
+export async function assertReviewEventReachable(
+  baseUrl: string,
+  decision: AnswerDecision,
+): Promise<void> {
+  if (await getParticipantsModeEnabled(baseUrl)) return;
+  throw new BackendError(
+    reviewEventUnreachableReason(decision),
+    'dispatch_failed',
+    'aif-handoff',
+  );
 }
 
 /** Dispatch a forward state-machine event (POST /tasks/:id/events { event }). */
@@ -219,7 +277,7 @@ export async function postEvent(
   taskId: string,
   event: string,
 ): Promise<void> {
-  await post(baseUrl, `/tasks/${taskId}/events`, { event });
+  await postJson(baseUrl, `/tasks/${taskId}/events`, { event });
 }
 
 /**
@@ -233,6 +291,26 @@ export async function resumePark(
   answer: string,
 ): Promise<PushResult> {
   const task = await getTask(baseUrl, taskId);
+  // A6-6b guard (#1597 ledger, the half #1625 deferred): `resume` dispatches NO
+  // state-machine event — it is a bare PUT that lifts `paused`. On a task that is not
+  // paused there is nothing to lift, so the call degrades to a silent plan rewrite: the
+  // operator's answer is appended to the plan of a task whose status nothing changed, no
+  // worker re-reads it, and the CLI still prints its success line. That is the easy
+  // misroute in the park-type taxonomy (dispatcher SKILL.md §3) — a B-park (blockedReason
+  // set, paused false) and an A-park differ only by `paused`, and `resume` is correct for
+  // exactly one of them. Refuse, naming the decisions that DO move a non-paused task.
+  // Deliberately here and not in pushAnswer: request_changes / approve / retry are
+  // event-driven and legitimately act on non-paused tasks (the /pipeline done→REVISE flow).
+  if (task.paused !== true) {
+    throw new BackendError(
+      `task ${taskId} is not paused (status=${task.status}) — "resume" only lifts an A-park ` +
+        `(paused:true + an OPEN QUESTION block in the plan) and dispatches no state-machine ` +
+        `event, so on this task it would rewrite the plan and change nothing else, losing the ` +
+        `answer. Use --decision request_changes (or retry for blocked_external) instead.`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
   const plan = appendAnswerToPlan(task.plan, answer);
   await putTask(baseUrl, taskId, { plan, paused: false, blockedReason: null });
   return {
@@ -274,16 +352,23 @@ export async function pushAnswer(
     return resumePark(baseUrl, taskId, answer.trim());
   }
   const step = resolveStep(decision);
+  // Argument validation first: it is free, and a caller who forgot the answer text deserves
+  // that error rather than a message about the deployment's dispatcher.
+  if (step.needsComment && !answer?.trim()) {
+    throw new BackendError(
+      `decision "${decision}" requires answer text to attach as a comment`,
+      'dispatch_failed',
+      'aif-handoff',
+    );
+  }
+  // Probe BEFORE any write: a review-state event this deployment cannot serve must not
+  // leave a comment behind as the only trace of a call that was always going to 409.
+  if (HUMAN_OWNER_ONLY_DECISIONS.includes(decision)) {
+    await assertReviewEventReachable(baseUrl, decision);
+  }
   let commented = false;
   if (step.needsComment) {
-    if (!answer || !answer.trim()) {
-      throw new BackendError(
-        `decision "${decision}" requires answer text to attach as a comment`,
-        'dispatch_failed',
-        'aif-handoff',
-      );
-    }
-    await postComment(baseUrl, taskId, answer.trim());
+    await postComment(baseUrl, taskId, (answer as string).trim());
     commented = true;
   }
   await postEvent(baseUrl, taskId, step.event);
@@ -305,7 +390,14 @@ export function formatResult(result: PushResult): string {
 
 async function main(): Promise<void> {
   const baseUrl = process.env.RUNTIME_BRIDGE_AIF_URL || DEFAULT_AIF_URL;
-  const args = parseAnswerArgs(process.argv.slice(2));
+  let args: AnswerArgs;
+  try {
+    args = parseAnswerArgs(process.argv.slice(2));
+  } catch (err) {
+    const msg = err instanceof CliArgError ? err.message : String(err);
+    process.stderr.write(`[runtime-bridge] answer: ${msg}\n`);
+    process.exit(1);
+  }
 
   const argError = validateAnswerArgs(args);
   if (argError) {
@@ -338,8 +430,9 @@ async function main(): Promise<void> {
 }
 
 // Run only as a real entrypoint — importing the module (e.g. from tests) must
-// NOT trigger the fetch + process.exit side effects.
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// NOT trigger the fetch + process.exit side effects. realpath BOTH sides
+// (cliEntry.isMain): a symlinked invocation path used to silently no-op (A6-1).
+if (isMain(import.meta.url)) {
   main().catch((err) => {
     process.stderr.write(`[runtime-bridge] answer: unhandled error: ${err}\n`);
     process.exit(1);

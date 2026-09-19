@@ -16,6 +16,11 @@
     "tests/install-sh/baselines",
     "plugin/agents",
     "plugin/skills/getff",
+    "plugin/skills/tool-bootstrapping",
+    "plugin/skills/ai-doc",
+    "plugin/skills/rule-research",
+    "plugin/skills/rule-tests",
+    "plugin/skills/template-audit",
     ".github",
     ".husky",
     "scripts"
