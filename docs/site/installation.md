@@ -114,8 +114,8 @@ The command exits with code 0. Afterwards the project folder held exactly what i
 before: `package.json` and `src`.
 
 Two lines need a word. `AI Factory templates → .ai-factory/` is the folder of guidance
-files every install gets. The name comes from `aif-handoff`, a separate task runtime.
-The folder does not need that runtime. `Companions` are optional outside tools the wrapper offers to set up, such as
+files every install gets. The folder keeps `AI Factory`, a name the project used before; the glossary lists it
+under [getff](terms.md#getff). The folder works without any other tool. `Companions` are optional outside tools the wrapper offers to set up, such as
 the superpowers skills and ast-grep. It skips any you already have.
 
 The name `rules-as-tests-aif` in the output is the project's older name. It is the same
@@ -144,10 +144,10 @@ To add the hard layer from inside the plugin, run this in Claude Code:
 It fetches the installer and shows you the same kind of plan as the dry run above. It
 writes only after you confirm. This is the start of that preview, on a second small
 `ts-server` project. One line that names the installer's own folder comes first and is
-left out. The lines after the block list the files, as above.
+left out, and the long project path is cut to `…`. The lines after the block list the files, as above.
 
 ```text
-▶ PREVIEW (dry-run) — wiring plan for …
+▶ PREVIEW (dry-run) — wiring plan for … (stack=ts-server); nothing will be written:
 ▶ Verifying shipped artefacts carry Authoritative-for headers
   ✓ all 30 shipped artefacts carry valid headers
 [profile] env (non-interactive default; --profile core for rules-only, --profile factory for the AIF suite)

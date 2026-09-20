@@ -36,8 +36,9 @@ not to this page's enforcement.
 The framework this site documents — an installable convention set that makes agent
 guardrails executable tests rather than prose promises.
 
-Do not use (name): AI Factory — the project's former name, retired; it survives in
-history documents only.
+Do not use (name): AI Factory — the project's former name, retired. It survives in
+history documents and in one installer output line, `AI Factory templates →
+.ai-factory/`, which [Installation](installation.md#preview-first) explains.
 
 ### Claude Code
 

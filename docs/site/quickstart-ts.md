@@ -26,6 +26,7 @@ executed:
   - { step: watch-a-rule-fire, stack: ts-server, date: 2026-09-21, result: exit-0 }
   - { step: fire-on-your-code, stack: ts-server, date: 2026-09-21, result: RED }
   - { step: run-the-gate, stack: ts-server, date: 2026-09-21, result: exit-0 }
+  - { step: strict-runtime-second-red, stack: ts-server, date: 2026-09-21, result: RED }
 next: installation.md
 ---
 
@@ -88,9 +89,11 @@ Near its end the installer checks its own work and prints this line:
 ✓ self-verify: 3/3 checks passed — fences fire, shields wired (form check), generated tests non-vacuous
 ```
 
-After it come `✅ Installation complete.`, a numbered list of next steps, and a
-`▶ Companions` section that names each companion tool it added or skipped. Those lines
-are not shown here. The very last line of the run is:
+After it come `✅ Installation complete.`, a numbered list of next steps, a line about
+`refresh-baseline.json`, a `▶ Companions` section that names each companion tool it
+added or skipped, and a `▶ Runtime-bridge` section. On a machine without Docker that
+last section says the daemon is not running. It is a note, not an error: our run exited
+with code 0. Those lines are not shown here. The very last line of the run is:
 
 ```text
 ✅ ./setup complete (yes).
@@ -236,6 +239,9 @@ One more command. It compares what `AGENTS.md` claims with what is on disk:
 bash scripts/audit-ai-docs.sh
 ```
 
+The script prints one `PASS:` or `WARN:` line per check, then a rule. Only its last
+line is shown here:
+
 ```text
 Audit complete: 4 PASS, 0 FAIL, 2 WARN
 ```
@@ -248,7 +254,28 @@ yet, and that `package.json` changed after the tool notes were written.
 - **Two shipped rules are off by default.** The rules against direct time and randomness
   calls, and the one that requires tracing spans, only run when you set
   `AIF_STRICT_RUNTIME=1`. A default `npm run lint` stays green on `Math.random()`. The
-  check in step 4 tells you so with its `skipped` line.
+  check in step 4 tells you so with its `skipped` line. To see one of them fire, add a
+  file `src/dice.ts` that returns `Math.floor(Math.random() * 6) + 1` from a function,
+  then run the linter with the switch on:
+
+  ```bash
+  AIF_STRICT_RUNTIME=1 npm run lint
+  ```
+
+  ```text
+  > ts-qs@1.0.0 lint
+  > eslint . --max-warnings=0
+
+
+  …/src/dice.ts
+    2:21  error  Use an injected Random source instead of `Math.random()` (R7)  rules-as-tests/no-direct-time-randomness
+
+  ✖ 1 problem (1 error, 0 warnings)
+  ```
+
+  The command exits with code 1. The path is shortened to `…` as before, and one empty
+  line before the block and one after it are left out. Without the switch, the same
+  command on the same file printed no findings and exited with code 0.
 - **One rule fired, not all of them.** You saw the one custom rule that every npm stack
   wires with no conditions. The rest of the rule pack is standard ESLint and
   TypeScript rules.

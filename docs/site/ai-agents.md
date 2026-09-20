@@ -136,10 +136,11 @@ run. Some findings are about the product, not the pages, and are still open:
   code. Its index lags. On 2026-09-21 it read "Last indexed: 20 July 2026", two months
   behind the repository. Trust it for structure and check it for details.
 - **The Claude Code plugin.** `/plugin marketplace add artyhoo/getff`, then
-  `/plugin install getff@getff`. It brings [skills](terms.md#skill) your agent loads
-  when needed: `getff` for the method, `using-getff` as the entry point,
+  `/plugin install getff@getff`. It brings eight [skills](terms.md#skill) your agent
+  loads when needed. The four you meet first: `getff` for the method, `using-getff` as the entry point,
   `installing-enforcement` for adding the hard layer, and `tool-bootstrapping` for
-  setting up missing tools. [Installation](installation.md#claude-code-plugin) says what
+  setting up missing tools. The other four are `ai-doc`, `rule-research`, `rule-tests`,
+  and `template-audit`. [Installation](installation.md#claude-code-plugin) says what
   the plugin does and does not do.
 
 ## What the Markdown pages carry

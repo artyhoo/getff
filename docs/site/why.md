@@ -104,7 +104,7 @@ cannot, and each says why with an error code.
 
 Now the test. A documentation line like this is exactly the kind of thing that rots: one
 day someone edits it to say `✅` where the truth is `FF7001`. We did that on purpose. In
-a clone of the getff repository, we changed `cargo-clippy-toml — FF7001 (…)` to
+a working copy of the getff repository, we changed `cargo-clippy-toml — FF7001 (…)` to
 `cargo-clippy-toml ✅` in that line and ran the check that guards the region:
 
 ```bash

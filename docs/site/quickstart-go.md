@@ -118,7 +118,9 @@ with neither tool. The self-check part, exactly as printed:
 ⚠  getff self-check: 0 proven-firing · 1 NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it.
 ```
 
-It could not run, so it said "not proven". It did not say "passed". The install exited
+It could not run, so it said "not proven". It did not say "passed". The line that starts
+"Per kickoff §1.3" is internal wording that leaked into the installer. It points at a
+project planning note, not at anything you were meant to read. Skip it. The install exited
 with code 0 in this case too, so read the last lines and do not trust the exit code alone.
 
 ## Honest limits

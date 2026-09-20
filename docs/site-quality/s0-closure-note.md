@@ -178,12 +178,30 @@ Disposition **SURFACED** means out of scope per kickoff §8 and left unedited.
 
 ### Contract and process — SURFACED
 
-- `executed:` records have no field for the install depth.
+- `executed:` records have no field for the install depth. No gate reads `executed:` at
+  all: a page can claim a step ran and show no output for it (form audit, card gap 2).
+- Four face pages each invented the same gloss for internal wording in pasted output.
+  The convention has no home in the docs-author skill's `references/craft.md`, so a
+  fifth page missed it (form audit, pattern 1).
 - The `ts-demo` fixture holds 15 `_handoff-*.md` files under
   `.claude/orchestrator-prompts/`. A consumer project should hold none.
 - 3 of 9 lineage sources are uncited; the content brief is absent; no re-review GO is
   recorded after #1785.
 - `nav.json` has no consumer yet, so its shape for sheets is this stage's guess.
+- **The calibration record was initialised in this stage; three parts of it stay open.**
+  The quality spec (D-Q14) gives the act to the stage that lands the gold copies, so the
+  band (FRE 84.1 to 91.3, FK at most 4.7), the sentence threshold (35 words) and the
+  per-page numbers are now in `calibration.md`, under "Gold record". A first reading of
+  kickoff §8 took the record for the quality contract; the contract is the spec file, and
+  the record is this stage's output. Still open, and not done here:
+  - **The ERROR promotion of `Microsoft.SentenceLength` is not switched on.** At 35 words
+    the 34 gold-set pages hold 5 sentences over the threshold (15 over 30, 2 over 40, the
+    longest is 45). The flip would turn those pages red. It belongs to the owner of the
+    Vale profile.
+  - **The face pages' second dated entry** is not written. It follows their own gold
+    review and may only widen the band.
+  - **The per-kind notes on what good looks like** are not written. The five frozen copies
+    are the baseline until they are.
 
 ### Phase 0 (kickoff §3) — FIXED in session or none
 
@@ -201,3 +219,24 @@ over those 12 and this note (verdict REVISE: 2 BLOCKER, 7 MAJOR). Most findings 
 output blocks with undeclared cuts, one of them in this note. All were fixed, and the
 fixes had no second cold pass. So "gold" for those pages rests on the deterministic
 gates, one cold pass and the author's card.
+
+After the first fidelity round (REVISE), the two named auditors then ran cold over the same
+12 pages, per T-S0B-B:
+
+- `agents/claims-conformance-auditor.md`: **REVISE, 5 gaps.** It confirmed that all 18
+  output blocks are real log bytes and that all 15 glossary anchors resolve. The gaps
+  were undeclared cuts on `quickstart-ts.md` and `installation.md`, a link on
+  `foundations.md` that stopped one hop short, and a skill count on `ai-agents.md` that
+  named four of eight. All fixed.
+- `agents/docs-form-auditor.md`: **REVISE, 4 FAIL rows** (one already fixed by the item
+  above). Internal wording in pasted output on `quickstart-go.md` had no gloss (C4). The
+  optional second RED with `AIF_STRICT_RUNTIME=1` was named but not shown on
+  `quickstart-ts.md` (C12); it was then run and pasted. The glossary said a retired name
+  lives "in history documents only" while `installation.md` shows it in installer output
+  (C10). All fixed.
+
+The form auditor scored C11 as N/A, not PASS: its gate lives in the landing build and
+cannot be reached from this repo. The author's card said PASS; read it as unmeasured.
+It also noted that six pages changed while it read them, because it was handed live
+paths and not a snapshot. Its report is against the pinned commit. These fixes had no
+second named-auditor pass.

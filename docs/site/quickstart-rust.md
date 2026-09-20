@@ -50,7 +50,8 @@ bash /tmp/rt/setup -y cargo
 ```
 
 The installer writes four things: `clippy.toml` with the bans, `deny.toml` as a starter
-for dependency bans, a CI workflow, and a note in `.getff/` that you will use in step 3.
+for dependency bans, a CI workflow, and a note in `.getff/` that you will use in step 3. It also leaves an
+`.ai-factory/` folder and an install log.
 Then it tests itself in a temporary folder:
 
 ```text

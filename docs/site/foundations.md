@@ -14,6 +14,7 @@ sources:
   - README.md
   - docs/meta-factory/principles-as-tests.md
   - docs/meta-factory/prior-art-evaluations.md
+  - docs/site/index.md
   - docs/meta-factory/research-patches/2026-05-21-instruction-compliance-empirical.md
   - docs/meta-factory/research-patches/2026-05-25-defer-reflex-detection.md
   - docs/meta-factory/research-patches/2026-08-09-context-degradation-calibration.md
@@ -179,7 +180,7 @@ pattern. The tests live in `packages/core/principles/`.
   measurement that a team using getff ships fewer convention breaks. Treat that as open.
 - **[Stack](terms.md#stack) labels follow field experience.** Beta, alpha, early, and experimental are
   judgments from real installs, not scores from a test matrix. The
-  [quick start](quick-start.md) page says what each label means.
+  [Introduction](index.md#honest-status) says what each label means.
 - **The lineage table is incomplete.** Three of nine sources have no full citation yet.
 
 ## Reading list

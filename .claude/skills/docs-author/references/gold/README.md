@@ -1,4 +1,4 @@
-# Gold pages — frozen baseline (empty until the Opus GO)
+# Gold pages — frozen baseline (five copies landed 2026-09-21, after the Opus GO)
 
 One frozen copy per bulk kind lands here after the gold review returns GO: reference sheet,
 family overview, learn tutorial, guide, understand. The face-page kind's gold is the eleven
