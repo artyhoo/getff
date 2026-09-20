@@ -75,7 +75,7 @@
       "go": {
         "label": "alpha",
         "definition": "Installs one-command and fires on verified fixtures; rule generation is partial or deferred.",
-        "caveat": "Rules ship as a golangci config that is inert until you opt in; rule generation is deferred (operator, 2026-09-09).",
+        "caveat": "The forbidigo ban ships as .golangci.yml on a fresh repo, or as getff-golangci.yml when you already have one (inert locally until you opt in); the delivered CI workflow runs it build-failing in both cells; rule generation is deferred (operator, 2026-09-09).",
         "generation": "deferred",
         "verified-at": "2026-09-14"
       }
@@ -295,12 +295,12 @@
       "B": {
         "familyName": "skills",
         "path": "docs/site/reference/B.json",
-        "members": 17
+        "members": 18
       },
       "C": {
         "familyName": "agents",
         "path": "docs/site/reference/C.json",
-        "members": 11
+        "members": 12
       },
       "D": {
         "familyName": "hooks",
@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 25
+        "members": 27
       },
       "G": {
         "familyName": "packages",
@@ -340,7 +340,7 @@
       "I": {
         "familyName": "plugin",
         "path": "docs/site/reference/I.json",
-        "members": 12
+        "members": 13
       }
     }
   },
@@ -353,12 +353,12 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 281
+      "count": 283
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 272
+      "count": 273
     },
     "specs": {
       "source": "docs/superpowers/specs/",

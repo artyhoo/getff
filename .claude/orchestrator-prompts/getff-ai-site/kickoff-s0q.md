@@ -261,12 +261,19 @@ test -f docs/superpowers/specs/2026-09-14-getff-ai-docs-quality-contract-design.
 test -f packages/core/hooks/pre-push.ts
 test -f packages/core/hooks/checks/prior-art.ts
 test -f scripts/render-reference.mjs
+test -e packages/core/hooks/checks/docs-card.ts
 bash scripts/check-ask-files.sh
 ```
 
 `scripts/render-reference.mjs` is a genuine precondition here — S0q builds after S0a merges, and
 region (b) of `terms.md` reads the generator. If that line exits 1, **S0a has not merged** and this
 stage must not start.
+
+`packages/core/hooks/checks/docs-card.ts` is the opposite polarity: it is **this stage's own
+output** (§2), so it reads RED until task 1 builds it — at the Phase-0 run (§4) that is the
+expected RED, disposition «goes green by this stage's work», and at the §6 last-acts re-run it
+must be GREEN. The S0b chip's contract (kickoff-s0b.md §9) asserts the same line as its exit
+gate, which is what D50's falsifier measures.
 
 ## §10 D44 — names this stage invokes, measured at `79fa1b56b74`
 
@@ -276,4 +283,6 @@ stage must not start.
 and at the PR boundary `reviewer` + [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md).
 All **PRESENT** at the SHA above. `docs-author` and `agents/docs-form-auditor.md` are this stage's
 **outputs**, so they are absent at its dispatch by construction and are asserted by the S0b chip's
-contract instead — see the umbrella kickoff §3 and §5.
+contract instead — see the umbrella kickoff §3 and §5. (The third output,
+`packages/core/hooks/checks/docs-card.ts`, is additionally asserted by this stage's own §9 fence —
+RED at Phase 0 by construction, GREEN by the last acts.)

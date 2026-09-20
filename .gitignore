@@ -142,4 +142,9 @@ tests/agnosticism/conformance-record.tsv
 !.claude/orchestrator-prompts/npm-publish-getff-init/kickoff-p*.md
 !.claude/orchestrator-prompts/npm-publish-getff-init/report-p*.md
 !.claude/orchestrator-prompts/getff-ai-site/kickoff-s*.md
+# getff-ai-site S0q (auto-review finding 1): the held pre-commit section ships tracked —
+# it is the apply-at-harvest reconstruction of the `.husky/pre-commit` sections (the
+# `.husky/**` path is agent-denied), so the harvest PR must actually carry it instead of
+# leaving it on the authoring machine (same durable-committed class as done.md/report.md).
+!.claude/orchestrator-prompts/getff-ai-site/s0q-pre-commit-section.sh
 !.claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s*.md

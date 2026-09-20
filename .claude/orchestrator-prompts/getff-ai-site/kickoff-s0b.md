@@ -184,6 +184,7 @@ test -f docs/site/terms.md
 test -d docs/site-quality
 test -f .claude/skills/docs-author/SKILL.md
 test -f agents/docs-form-auditor.md
+test -e packages/core/hooks/checks/docs-card.ts
 test -f agents/claims-conformance-auditor.md
 test -n "$(find "$HOME/.claude/plugins/cache" -type d -name diataxis -print -quit)"
 test -n "$(find "$HOME/.claude/plugins/cache" -type f -name SKILL.md -path '*superpowers*/verification-before-completion/*' -print -quit)"

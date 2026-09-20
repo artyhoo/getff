@@ -19,7 +19,7 @@ copy_safe "$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh" "$PROJECT_ROOT/pa
 # packages/core/hooks/ is preserved so the dispatcher resolves $REPO_ROOT/packages/
 # core/hooks/pre-push.ts. Complete graph: pre-push.ts → static imports
 # {utils/run-check.ts, utils/git.ts, checks/prior-art.ts, checks/s17.ts,
-# checks/unpinned-tool-install.ts} + dynamic await-import() targets
+# checks/docs-card.ts, checks/unpinned-tool-install.ts} + dynamic await-import() targets
 # {checks/guard-liveness.ts, checks/cmd-script-liveness.ts} — these die()/push-block
 # when absent (pre-push.ts:406-407 → process.exit(1)); NOT graceful degradation.
 # The transitive eslint-rules barrel is shipped separately below. (#735)
@@ -29,6 +29,7 @@ for ts_hook in \
   utils/git.ts \
   checks/prior-art.ts \
   checks/s17.ts \
+  checks/docs-card.ts \
   checks/unpinned-tool-install.ts \
   checks/guard-liveness.ts \
   checks/cmd-script-liveness.ts; do

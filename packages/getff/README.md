@@ -22,10 +22,18 @@ required nor used. See [INSTALL.md § Windows](https://github.com/artyhoo/getff/
 
 ## What you get
 
-- **Rules from live docs** (beta) — ESLint rules generated from the framework docs your project actually uses, wired into the editor and the pre-commit hook, with a pre-push gate that proves every generated rule still fires. The first violation fails; the rule names the doc it came from. CI stays yours — getff ships no workflow for the npm lane.
+- **Rules from live docs** (beta) — ESLint rules generated from the framework docs your project actually uses, wired into the editor and the pre-commit hook, with a pre-push gate that proves every generated rule still fires. The first violation fails; the rule names the doc it came from. getff ships CI workflows (`.github/workflows/ci.yml` + `workflow-integrity.yml`, your default branch substituted at install time) that run lint/typecheck/tests — they never publish; publishing stays yours.
 - **The AI factory** (experimental, `env`/`factory` depth) — `/arch`, launch presets and the multi-model task pipeline around those rules.
 
 Depth is a product decision, not a flag combination: `core` = rules + tests + guards; `env` = plus the in-session tooling; `factory` = plus the pipeline. Upgrade by re-running `init` with a deeper profile.
+
+Beyond the files it copies, `init` can install **companion tools** — the Claude Code plugins, MCP
+servers and CLIs listed in `setup.d/companions.manifest`. Each row's detect and install commands
+are `eval`'d verbatim by the shipped engine (`setup.d/engine.sh:39` and `setup.d/engine.sh:65`), so
+installing getff means trusting those command strings the same way you trust the installer itself;
+without `-y` each one is confirmed interactively first. Companions carry **no version pin** — they
+are installed through their own official registries and update to whatever those registries serve,
+independently of the getff version you installed.
 
 ## What is in the tarball
 

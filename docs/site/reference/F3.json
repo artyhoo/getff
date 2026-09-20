@@ -39,7 +39,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1362 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1404 (spawn-argument)",
           ".github/workflows/audit-self.yml:527 (workflow-run:invocation-verb)"
         ]
       },
@@ -59,7 +59,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1274 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1316 (spawn-argument)",
           ".github/workflows/audit-self.yml:532 (workflow-run:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)"
@@ -100,8 +100,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1592 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1214 (workflow-run:invocation-verb)"
+          "packages/core/hooks/pre-push.ts:1634 (spawn-argument)",
+          ".github/workflows/audit-self.yml:1333 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -120,7 +120,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1625 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1667 (spawn-argument)",
           "install.sh:1149 (quoted-path-token)"
         ]
       },
@@ -159,7 +159,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2153 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2272 (workflow-run:invocation-verb)",
           ".husky/pre-commit:172 (quoted-path-token)"
         ]
       },
@@ -179,7 +179,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:977 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1019 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)"
         ]
       },
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2244 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2368 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -224,10 +224,30 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1252 (quoted-path-token)",
-          "install.sh:1254 (for-in-list)",
+          "install.sh:1253 (quoted-path-token)",
+          "install.sh:1255 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "docs-check.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "the deterministic form gate of the getff.ai docs quality contract (S0q).",
+      "source": {
+        "path": "scripts/docs-check.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:1239 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1244 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -311,7 +331,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1254 (for-in-list)",
+          "install.sh:1255 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -359,7 +379,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1254 (for-in-list)",
+          "install.sh:1255 (for-in-list)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -405,7 +425,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1437 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1479 (spawn-argument)",
           ".github/workflows/audit-self.yml:262 (workflow-run:invocation-verb)"
         ]
       },
@@ -464,7 +484,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1419 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1461 (spawn-argument)",
           ".github/workflows/audit-self.yml:258 (workflow-run:invocation-verb)"
         ]
       },
@@ -484,9 +504,28 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1402 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1444 (spawn-argument)",
           ".github/workflows/audit-self.yml:247 (workflow-run:invocation-verb)",
           "scripts/render-reference.mjs:52 (es-import, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-terms-style.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "docs/site/terms.md region (a) → the Vale substitution rule (S0q).",
+      "source": {
+        "path": "scripts/render-terms-style.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:1267 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -537,7 +576,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1254 (for-in-list)",
+          "install.sh:1255 (for-in-list)",
           ".claude/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",

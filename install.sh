@@ -1171,6 +1171,7 @@ do_refresh() {
     utils/git.ts \
     checks/prior-art.ts \
     checks/s17.ts \
+    checks/docs-card.ts \
     checks/unpinned-tool-install.ts \
     checks/guard-liveness.ts \
     checks/cmd-script-liveness.ts; do
