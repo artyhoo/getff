@@ -180,6 +180,11 @@ Disposition **SURFACED** means out of scope per kickoff §8 and left unedited.
 
 - `executed:` records have no field for the install depth. No gate reads `executed:` at
   all: a page can claim a step ran and show no output for it (form audit, card gap 2).
+- Two texts outside this stage's reach still describe the gold set as not landed. The
+  docs-author `SKILL.md` lists `references/gold/` as "empty until then". Principle 46
+  (`packages/core/principles/46-reference-generator-arms.test.ts:217`) reports "arm A
+  dormant — fixtures/reference-gold/ empty until S0b"; the fixture is held out of the
+  repo (see the generator batch above), so the arm stays dormant after S0b.
 - Four face pages each invented the same gloss for internal wording in pasted output.
   The convention has no home in the docs-author skill's `references/craft.md`, so a
   fifth page missed it (form audit, pattern 1).

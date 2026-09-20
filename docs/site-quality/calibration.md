@@ -89,8 +89,10 @@ own word count.
 
 1. Re-run Vale over the gold pages before family 1: every ERROR rule that shows a false
    positive that is not a vocabulary miss demotes to suggestion (D-Q2 falsifier).
+   **Done 2026-09-21** — see the gold record above; nothing was demoted.
 2. Initialise the readability band and the sentence threshold from the gold pages, and
-   record them in the table above (D-Q4/D-Q5).
+   record them in the table above (D-Q4/D-Q5). **Done 2026-09-21** — see the gold record
+   above. The ERROR promotion of the threshold stays open.
 3. The escape is the two-comment form — a bare `<!-- vale off -->` immediately followed
    by a `<!-- vale-reason: ... -->` comment, closed by `<!-- vale on -->`; the
    single-comment `vale off: reason` form is INERT in Vale 3.21.0 and both D-Q12 and

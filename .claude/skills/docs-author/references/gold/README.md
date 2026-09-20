@@ -5,6 +5,6 @@ family overview, learn tutorial, guide, understand. The face-page kind's gold is
 product faces, recorded as a dated second entry in the calibration record rather than copied.
 
 Frozen means frozen: these copies never track the live pages. They are the baseline the
-auditor's readability band and per-kind notes point at. Until the copies land, every band in
-the calibration record is `corpus-derived, uncalibrated`, and a kind without gold reports `N/A`
-in the auditor's report — never a guess at PASS.
+auditor's readability band and per-kind notes point at. The band in the calibration record
+was initialised from these five copies on 2026-09-21. A kind without a gold copy still
+reports `N/A` in the auditor's report — never a guess at PASS.
