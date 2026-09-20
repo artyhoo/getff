@@ -28,9 +28,16 @@
 # package granularity here; at call-site granularity in no-unsafe-zod-parse.ts (GH #737) — same
 # principle, different files, neither duplicated.
 #
-# Exit: 0 = R2 is in the resolved config of every checked boundary file (or no boundary file yet, or
-#           eslint not installed → skip); 1 = R2 is missing from the resolved config of ≥1 boundary
-#           file (silent inertness — the false-green this gate exists to catch).
+# Severity, not presence (2026-09-21): "applied" means the resolved severity is 2/"error". 0/"off" is
+# NOT applied (print-config still lists a disabled rule by name — the old name-only grep passed it).
+# 1/"warn" is NOT applied by default either: a warning fails a build only where every lint run passes
+# --max-warnings=0, which this gate cannot verify across the consumer's channels. A consumer who does
+# run every channel that way opts in with AIF_ENFORCED_ALLOW_WARN=1 (it never admits an OFF rule).
+#
+# Exit: 0 = R2 resolves to 'error' for every checked boundary file (or no boundary file yet, or
+#           eslint not installed → skip); 1 = R2 is missing from, or switched off / down to warn in,
+#           the resolved config of ≥1 boundary file (silent inertness — the false-green this gate
+#           exists to catch).
 set -uo pipefail
 
 CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
@@ -187,8 +194,26 @@ package_has_zod() { # $1=boundary file → 0 iff nearest package.json declares "
   grep -qE '"zod"[[:space:]]*:' "$pj"
 }
 
+# Severity of $RULE in a print-config JSON on stdin → error | warn | off | absent | unparseable.
+# The rule NAME being present proves nothing: print-config keeps a disabled rule as `"<rule>": [0]`,
+# so a name-only match reported `'<rule>': 'off'` as "applied" (measured 2026-09-21 on a fresh
+# ts-server install). check-fences-fire.sh lints in a temp dir with its own config and by design
+# cannot see a consumer-side 'off', so this gate is the only one that can. node is always present
+# where eslint is; if it somehow is not, the answer is `unparseable` and the caller fails closed.
+rule_severity() {
+  AIF_RULE="$RULE" node -e '
+    let raw = "";
+    process.stdin.on("data", (c) => (raw += c)).on("end", () => {
+      let v;
+      try { v = (JSON.parse(raw).rules || {})[process.env.AIF_RULE]; } catch { return console.log("unparseable"); }
+      if (v === undefined) return console.log("absent");
+      const s = Array.isArray(v) ? v[0] : v;
+      console.log(s === 2 || s === "error" ? "error" : s === 1 || s === "warn" ? "warn" : s === 0 || s === "off" ? "off" : "unparseable");
+    });' 2>/dev/null || echo unparseable
+}
+
 verify_file() { # $1=file
-  local file="$1" gd rel label out rc err errfile
+  local file="$1" gd rel label out rc err errfile sev=""
   gd=$(governing_dir "$file")
   if [ "$gd" = "." ]; then rel="$file"; label="root config"; else rel="${file#"$gd"/}"; label="${gd#./}"; fi
   CHECKED=$((CHECKED + 1))
@@ -207,8 +232,22 @@ verify_file() { # $1=file
     echo "  ✗ $label: eslint --print-config FAILED (rc=$rc) for ${file#./} — R2 enforcement is UNVERIFIED here, not known to be absent. This is a crash, not rule inertness: fix the eslint invocation, then re-run. eslint stderr:" >&2
     printf '%s\n' "${err:-(eslint wrote nothing to stderr)}" | sed 's/^/       /' >&2
     FAIL=1
-  elif printf '%s' "$out" | grep -q "$RULE"; then
-    echo "  ✓ $label: R2 applied to ${file#./}"
+    return 0
+  fi
+  sev=$(printf '%s' "$out" | rule_severity)
+  if [ "$sev" = "error" ] || { [ "$sev" = "warn" ] && [ "${AIF_ENFORCED_ALLOW_WARN:-}" = "1" ]; }; then
+    echo "  ✓ $label: R2 applied to ${file#./} (severity: $sev)"
+  elif [ "$sev" = "off" ]; then
+    echo "  ✗ $label: R2 ($RULE) is switched OFF in the resolved ESLint config for ${file#./} — present by name, but it reports nothing (SILENTLY INERT here)." >&2
+    echo "     Set '$RULE' to 'error' in the eslint config governing $label (look for an 'off' / 0 entry on a block that matches ${file#./})." >&2
+    FAIL=1
+  elif [ "$sev" = "warn" ]; then
+    echo "  ✗ $label: R2 ($RULE) is only 'warn' in the resolved ESLint config for ${file#./} — a warning fails no build unless every lint run passes --max-warnings=0." >&2
+    echo "     Set '$RULE' to 'error' in the eslint config governing $label (or, if every lint channel really runs --max-warnings=0, export AIF_ENFORCED_ALLOW_WARN=1 for this gate)." >&2
+    FAIL=1
+  elif [ "$sev" = "unparseable" ]; then
+    echo "  ✗ $label: could not read the rule severity from \`eslint --print-config\` for ${file#./} (output is not JSON, or node is unavailable) — R2 enforcement is UNVERIFIED here, not known to be absent." >&2
+    FAIL=1
   else
     echo "  ✗ $label: R2 ($RULE) is NOT in the resolved ESLint config for ${file#./} — SILENTLY INERT here (verified from the package's own cwd, as \`turbo run lint\` resolves it)." >&2
     echo "     Wire '$RULE' into the eslint config governing $label (or re-export the root config that wires it)." >&2

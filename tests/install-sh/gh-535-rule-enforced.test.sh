@@ -94,6 +94,12 @@ if ( cd "$ESV9" && printf '{"name":"e","private":true}\n' > package.json && npm 
   else
     bad "Arm2 (real eslint v9): gate false-failed a re-export-of-root package"
   fi
+  # CASE C (2026-09-21) — pkg config names the rule but switches it OFF → real print-config still
+  # lists it as [0]; the gate must read the severity, not the name → FAIL
+  printf "export default [{ files: ['**/routes/**/*.{ts,tsx}'], rules: { 'no-console': 'off' } }];\n" > "$ESV9/apps/api/eslint.config.mjs"
+  ( cd "$ESV9" && AIF_ENFORCED_RULE=no-console bash "$GATE" ) >/tmp/g535r3.$$ 2>&1
+  [ $? -ne 0 ] && grep -q 'switched OFF' /tmp/g535r3.$$ && ok "Arm2 (real eslint v9): rule set to 'off' → gate FAILS (severity read, not name)" || bad "Arm2 (real eslint v9): gate PASSED a rule that is 'off' ($(tr '\n' ';' </tmp/g535r3.$$))"
+  rm -f /tmp/g535r3.$$
 else
   echo "  · Arm2 skipped — could not install eslint@9 (offline); Arm1 (cwd-aware fake) still proves the fix."
 fi
@@ -187,6 +193,48 @@ if ( cd "$MSD" && env -u AIF_ESLINT_CMD PATH="$STUBBIN:$PATH" bash "$GATE" ) >/t
 else
   bad "#807 (deps-free): gate hard-failed / no SKIP when eslint absent on a multi-stack monorepo ($(tr '\n' ';' </tmp/g535msd.$$))"
 fi
+
+# ── Severity arms (2026-09-21): a rule that is PRESENT but switched OFF is not enforced ──────────
+# `eslint --print-config` keeps a disabled rule in its output as `"<rule>": [0]`, so the old
+# name-only grep reported `'<rule>': 'off'` as "R2 applied" + exit 0 — the exact silent inertness
+# this gate exists to catch. check-fences-fire.sh cannot see it either (it lints in a temp dir with
+# its own config), so this gate is the only one that can. The fake prints the rule at the severity
+# given in AIF_FAKE_SEV (raw JSON, so every spelling ESLint can emit is exercised).
+SEVFAKE=$(mktemp)
+cat > "$SEVFAKE" <<'ES'
+#!/bin/sh
+[ "$1" = "--print-config" ] || exit 0
+printf '{ "rules": { "%s": %s } }\n' "$AIF_FAKE_RULE" "$AIF_FAKE_SEV"
+ES
+chmod +x "$SEVFAKE"
+S=$(mktemp -d); mkdir -p "$S/src/routes"
+write_root_cfg "$S" no-console
+printf '{"name":"s","dependencies":{"zod":"3.0.0"}}\n' > "$S/package.json"
+printf 'export const x = 1;\n' > "$S/src/routes/users.ts"
+run_sev() { # $1=raw JSON severity, rest = extra env assignments → gate rc; output in /tmp/g535s.$$
+  local sev="$1"; shift
+  ( cd "$S" && env "$@" AIF_ESLINT_CMD="$SEVFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_SEV="$sev" bash "$GATE" ) >/tmp/g535s.$$ 2>&1
+}
+for sev in '[0]' '["off"]' '0' '"off"' '[0, {"x":1}]'; do
+  if run_sev "$sev"; then
+    bad "Severity NEG: rule printed as $sev (off) but gate PASSED — disabled rule reported as enforced"
+  else
+    grep -q 'src/routes/users.ts' /tmp/g535s.$$ && grep -qi "'error'" /tmp/g535s.$$ \
+      && ok "Severity NEG: rule $sev (off) → gate FAILS, names the file and the fix" \
+      || bad "Severity NEG: rule $sev failed but message lacks the file / the fix ($(tr '\n' ';' </tmp/g535s.$$))"
+  fi
+done
+for sev in '[2]' '["error"]' '2' '[2, {"x":1}]'; do
+  run_sev "$sev" && ok "Severity POS: rule $sev (error) → gate PASSES" || bad "Severity POS: gate FAILED a rule at $sev (error) ($(tr '\n' ';' </tmp/g535s.$$))"
+done
+for sev in '[1]' '["warn"]'; do
+  run_sev "$sev" && bad "Severity WARN: rule $sev (warn) PASSED by default — warn blocks nothing without --max-warnings=0" \
+    || ok "Severity WARN: rule $sev (warn) → gate FAILS by default (fail-closed)"
+  run_sev "$sev" AIF_ENFORCED_ALLOW_WARN=1 && ok "Severity WARN: $sev + AIF_ENFORCED_ALLOW_WARN=1 → gate PASSES (documented escape)" \
+    || bad "Severity WARN: AIF_ENFORCED_ALLOW_WARN=1 did not admit $sev"
+done
+run_sev '[0]' AIF_ENFORCED_ALLOW_WARN=1 && bad "Severity NEG: AIF_ENFORCED_ALLOW_WARN=1 admitted an OFF rule" || ok "Severity NEG: the warn escape does NOT admit an OFF rule"
+rm -f "$SEVFAKE" /tmp/g535s.$$
 
 rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
