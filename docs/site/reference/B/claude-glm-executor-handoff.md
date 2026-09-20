@@ -1,0 +1,118 @@
+---
+title: claude-glm-executor-handoff skill
+description: The skill that tells a Claude coordinator how to brief a cheaper GLM worker model and how to read its reply, for teams that run both inside the task runtime.
+kind: reference-sheet
+generator: scripts/render-reference.mjs
+sources:
+  - .claude/skills/claude-glm-executor-handoff/SKILL.md
+  - agents/orchestrator-worker-discipline.md
+  - setup.d/10-skills.sh
+  - setup.d/lib.sh
+  - docs/site/reference/B.json
+  - docs/site/reference/B.md
+  - docs/site/terms.md
+executed:
+  - { example: list-skill-sections, stack: repo, date: 2026-09-21, result: listed }
+---
+
+# claude-glm-executor-handoff skill
+
+## Fact card
+
+What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
+
+<!-- vale off -->
+<!-- vale-reason: the description row is the skill's own frontmatter, quoted verbatim, with internal runtime and model names -->
+
+<!-- getff:begin section=B-card-claude-glm-executor-handoff plan=scripts/render-reference.mjs -->
+| Field | Value |
+|---|---|
+| name | `claude-glm-executor-handoff` |
+| kind | skill |
+| ships-to | no lane (no-lane) |
+| description | Use when an in-aif Claude coordinator is about to dispatch an executable task to a GLM-5.3 worker (any agent whose frontmatter carries `model: glm-5.3` or a GLM-family model). Triggers: writing a dispatch prompt for a GLM worker inside aif-handoff, GLM executor, implement-worker GLM, cross-model dispatch within aif, planning a handoff to GLM-5.3, parsing a GLM worker's REPORT. NOT for Claude→Claude worker dispatch (use SDD directly). |
+| source | `.claude/skills/claude-glm-executor-handoff/SKILL.md:3` |
+| invocation | auto |
+| posture | cc-only |
+| operator-twin | .claude/skills/claude-glm-executor-handoff/SKILL.md |
+<!-- getff:end section=B-card-claude-glm-executor-handoff -->
+
+<!-- vale on -->
+
+## Explanation
+
+This is one of the [skills](../B.md) getff installs at the `factory`
+[depth](../../terms.md#depth), and it serves a narrow case. You run aif-handoff, the
+task runtime that depth is built around. Inside it, a Claude model plans the work and
+hands each piece to a cheaper worker model from the GLM family, served by Z.ai. A brief
+written "as for another Claude" fails quietly on a different model. This
+[skill](../../terms.md#skill) gives the coordinator a fixed shape for the brief and a
+fixed way to read the answer. If you do not run that pairing, you do not need it.
+
+The agent picks the skill up by itself, when a coordinator is about to write a brief for
+a GLM worker or is reading one's report. It is not meant for a Claude model handing work
+to another Claude model. The skill says so and tells the agent to stop if it catches
+itself doing that.
+
+The card says `ships-to: no lane`. What is true: the skill installs when you pass
+`--profile factory` or `--with-aif-suite`. The [family overview](../B.md) explains why
+the card reads otherwise. The card's `posture` row, `cc-only`, means the skill cannot
+work without a [Claude Code](../../terms.md#claude-code) coordinator, the runtime, and a
+GLM worker.
+
+Inside, the skill has five parts:
+
+- **Facts about the worker model**, each linked to the vendor's documentation. For
+  example, the model is text only, so the coordinator must describe a screenshot in words.
+- **A brief in six blocks**: task, context, constraints, tools, output, verify. One task
+  per brief. Every tool named. A cap on iterations to control cost.
+- **A way to read the reply.** Every reply maps to done, partial, or blocked. A reply
+  with no clear status counts as blocked, never as done.
+- **Recovery limits.** At most two retries and two rounds of clarification. After that
+  the task goes up to a stronger reviewer or a person.
+- **Honest gaps.** The skill lists what nobody has measured yet. More on that below.
+
+The file has one section per part. This listing is from the getff repository itself:
+
+```bash
+grep -n '^## ' .claude/skills/claude-glm-executor-handoff/SKILL.md
+```
+
+```text
+15:## §0 When this fires (and when it does NOT)
+31:## §1 GLM facts (verified against the GLM-5.2 spec card, source-grounded)
+51:## §2 Input contract for the GLM edge
+76:## §3 Status translation (GLM reply → orchestrator REPORT)
+89:## §4 Recovery protocol
+112:## §5 Honest gaps — designed-not-proven
+124:## Without this skill
+128:## With this skill
+132:## See also
+```
+
+What the skill does not do: it does not choose which model runs, connect you to the
+vendor, or start any task. Other parts of the runtime own those jobs. It is also part of
+the [soft layer](../../terms.md#soft-layer-and-hard-layer), so no
+[gate](../../terms.md#gate) checks that a coordinator followed the six blocks.
+
+Be aware of what is unproven. The skill calls its own brief format, status reading, and
+recovery limits "designed, not proven". Nobody has yet measured whether the worker model
+reliably reports a status, or whether it stays inside the iteration cap. The model facts
+were checked against the GLM-5.2 documentation. The skill now names glm-5.3 as the
+worker and tells you to re-check each fact against that model first.
+
+## Evidence
+
+- The description is line 3 of `.claude/skills/claude-glm-executor-handoff/SKILL.md`.
+  The posture marker is line 6. The "does not apply" list is lines 23 to 29.
+- The model facts and their sources are the table under line 31 of that file. The
+  re-check warning for glm-5.3 is line 33. The six blocks are lines 55 to 63.
+- The status mapping is lines 80 to 87. The retry and clarification limits are lines 93
+  to 103. The unproven claims are lines 112 to 122.
+- The report format the skill reads is defined in
+  `agents/orchestrator-worker-discipline.md`. The skill points to it and does not repeat it.
+- The skill is in the `factory` list at line 63 of `setup.d/lib.sh`. The reason it is
+  `factory` only is lines 117 to 123 of `setup.d/10-skills.sh`. The loop that copies it
+  is lines 163 to 167 of the same file.
+- The card above is built from the `claude-glm-executor-handoff` entry in
+  `docs/site/reference/B.json`, which starts at line 75.

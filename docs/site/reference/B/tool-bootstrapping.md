@@ -1,0 +1,111 @@
+---
+title: tool-bootstrapping skill
+description: The skill that has your AI agent propose doc servers and skills that fit your dependencies, ask once before installing anything, and remember what you turned down.
+kind: reference-sheet
+generator: scripts/render-reference.mjs
+sources:
+  - skills/tool-bootstrapping/SKILL.md
+  - skills/tool-bootstrapping/references/decision-format.md
+  - skills/tool-bootstrapping/templates/tool-decisions.md.template
+  - .claude/skills/tool-bootstrapping/SKILL.md
+  - packages/core/hooks/deps-hash-check.sh
+  - setup.d/10-skills.sh
+  - setup.d/30-templates.sh
+  - setup.d/45-python.sh
+  - docs/site/reference/B.json
+  - docs/site/reference/B.md
+  - docs/site/terms.md
+executed:
+  - { example: list-tool-bootstrapping-tree, stack: ts-server, date: 2026-09-21, result: listed }
+---
+
+# tool-bootstrapping skill
+
+## Fact card
+
+What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
+
+<!-- vale off -->
+<!-- vale-reason: the description row is the skill's own frontmatter, quoted verbatim, including its Russian trigger words -->
+
+<!-- getff:begin section=B-card-tool-bootstrapping plan=scripts/render-reference.mjs -->
+| Field | Value |
+|---|---|
+| name | `tool-bootstrapping` |
+| kind | skill |
+| ships-to | core: python, react-native, react-next, react-spa, ts-server |
+| description | Use when analysing project stack for MCP or skill recommendations. Triggers: tool bootstrapping, MCP installation, skill discovery, project onboarding tools, package.json deps changed, .ai-factory/tool-decisions.md, AIF /aif, tool detection, инструменты, бутстраппинг, MCP серверы, скиллы, зависимости, онбординг, подбор инструментов, предложение инструментов, подтверждение установки, tool proposal confirmation, incremental tool re-evaluation, rejected tools memory, memory persistence for tools. |
+| source | `skills/tool-bootstrapping/SKILL.md:3` |
+| invocation | auto |
+| posture | portable |
+| operator-twin | .claude/skills/tool-bootstrapping/SKILL.md |
+<!-- getff:end section=B-card-tool-bootstrapping -->
+
+<!-- vale on -->
+
+## Explanation
+
+This is one of the [skills](../B.md) getff installs. An agent works better with the right
+helpers: a server that looks up library docs, a [skill](../../terms.md#skill) for your
+test runner. Each helper that loads in every session also costs context. This skill
+gives your agent a fixed way to propose helpers for your [stack](../../terms.md#stack),
+and a file where the team's yes and no are kept, so a rejected tool does not come back.
+
+The agent picks the skill up by itself. It wakes when you start on a project, ask which
+tools to install, or change your dependencies. A "server" here is an MCP server. MCP is
+the Model Context Protocol, the way an agent talks to outside tools.
+
+Inside are six rules:
+
+1. **Read the stack** from your package manifest, `.mcp.json`, and framework configs.
+2. **Propose at most five tools per block.** Each one names the dependency that needs it.
+3. **Ask once.** One yes or no for the whole list. Nothing is installed without it.
+4. **Count the cost.** If a skill can do the job, propose the skill and not a server. If
+   a server costs more context than it saves, drop it.
+5. **Notice change.** A small hook compares a hash of your dependencies with the one
+   stored in `.ai-factory/tool-decisions.md`, and prints a one-line warning on mismatch.
+6. **Remember.** Accepted and rejected tools go into that file, which you commit. A
+   rejected tool is not proposed again unless its written condition has come true.
+
+The installer seeds that file from the template in the skill folder. List the folder:
+
+```bash
+ls -R .claude/skills/tool-bootstrapping
+```
+
+```text
+SKILL.md
+references
+templates
+
+.claude/skills/tool-bootstrapping/references:
+decision-format.md
+
+.claude/skills/tool-bootstrapping/templates:
+tool-decisions.md.template
+```
+
+What the skill does not do: it cannot stop an agent that skips the question, because it
+is part of the [soft layer](../../terms.md#soft-layer-and-hard-layer). Rules 1 to 4 were shaped
+after an outside stack detector, the `/aif` command of a separate tool. getff does not bundle it, and the skill says
+those rules work from your config files when it is absent. The skill prefers the
+context7 docs server and names web search as the fallback. One detail is out of step:
+`references/decision-format.md` describes a single `deps-hash` field, while the seeded
+template carries one field per stack.
+
+## Evidence
+
+- In `skills/tool-bootstrapping/SKILL.md`: the description is line 3, the six rules are
+  lines 25 to 47, the hard rule is line 35, the note about the outside `/aif` detector is line 51, and the context7
+  fallback is line 55.
+- The installer copies the skill from the repository root: `setup.d/10-skills.sh`, lines
+  29 to 43. The `python` [lane](../../terms.md#lane) copies it on line 1226 of
+  `setup.d/45-python.sh`.
+- The decisions file is seeded on line 41 of `setup.d/30-templates.sh` from
+  `skills/tool-bootstrapping/templates/tool-decisions.md.template`. Its per-stack hash
+  fields are lines 5 to 7. The single-field schema is line 16 of
+  `skills/tool-bootstrapping/references/decision-format.md`.
+- The hook is `packages/core/hooks/deps-hash-check.sh`, copied and registered by lines
+  195 to 218 of `setup.d/10-skills.sh`.
+- The `operator-twin` row names `.claude/skills/tool-bootstrapping/SKILL.md`, the copy
+  getff uses on itself. The card is built from `docs/site/reference/B.json`.

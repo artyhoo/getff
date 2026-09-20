@@ -1,0 +1,118 @@
+---
+title: arch skill
+description: The skill you start with /arch to take a raw idea through a design conversation, two independent reviews of the design, and a clear decision about who builds it.
+kind: reference-sheet
+generator: scripts/render-reference.mjs
+sources:
+  - .claude/skills/arch/SKILL.md
+  - setup
+  - setup.d/10-skills.sh
+  - setup.d/companions.manifest
+  - setup.d/lib.sh
+  - docs/site/guides/add-design-and-review-skills.md
+  - docs/site/reference/B.json
+  - docs/site/reference/B.md
+  - docs/site/terms.md
+  - packages/core/principles/15-skill-paired-negative.test.ts
+  - tests/install-sh/baselines/ts-server/greenfield.fingerprint
+executed:
+  - { example: show-arch-invocation-lines, stack: ts-server, date: 2026-09-21, result: printed }
+---
+
+# arch skill
+
+## Fact card
+
+What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
+
+<!-- vale off -->
+<!-- vale-reason: the description row is the skill's own frontmatter, quoted verbatim, including maintainer jargon and Russian trigger words -->
+
+<!-- getff:begin section=B-card-arch plan=scripts/render-reference.mjs -->
+| Field | Value |
+|---|---|
+| name | `arch` |
+| kind | skill |
+| ships-to | env: react-native, react-next, react-spa, ts-server |
+| description | Use when starting the EXTERNAL design contour — turning a raw idea or prep-doc into a reviewed design and a routed handoff. Triggers: /arch, external contour, внешний контур, спроектируй идею, задумка в архитектуру, design contour, arch loop, продумай и спроектируй, идея → kickoff, research contour, research-spec, distillate, исследовательский контур. NOT for reviewing code (/reviewer), dispatching stages (/pipeline), factory runtime questions (aif-doctor), or a bare brainstorm with no handoff (superpowers:brainstorming). |
+| source | `.claude/skills/arch/SKILL.md:3` |
+| invocation | slash-only |
+| posture | cc-native-with-fallback |
+| operator-twin | .claude/skills/arch/SKILL.md |
+<!-- getff:end section=B-card-arch -->
+
+<!-- vale on -->
+
+## Explanation
+
+This is one of the [skills](../B.md) getff installs at the `env`
+[depth](../../terms.md#depth). A design that sounds right in conversation can still be
+wrong, and the cheapest moment to find out is before anyone writes code. This
+[skill](../../terms.md#skill) runs one fixed path from idea to handoff. The design gets
+read by two reviewers who never saw your conversation, so they cannot share its blind
+spots.
+
+You start it yourself. Type `/arch` and a topic, or `/arch` and the path to a notes file.
+The agent never starts it, because the skill file sets `disable-model-invocation: true`.
+Run it in a session with the strongest model you have.
+
+The path has three parts, plus an optional research pass before the first one:
+
+1. **Design.** The skill hands the conversation to `superpowers:brainstorming`, a skill
+   from the separate superpowers plugin, and changes nothing in it. The resulting design
+   document must also carry a table of every decision, each with a note on what would
+   prove it wrong.
+2. **Two cold reviews.** Two read-only [sub-agents](../../terms.md#sub-agent) receive
+   file paths only. One reads from the top: does the design serve the goal? One reads
+   from the bottom: do the named files and APIs exist? Each answers `GO`, `REVISE`, or
+   `STOP`. The two reports stay side by side and are never merged. After two `REVISE`
+   rounds the disagreement comes to you.
+3. **Exit.** A tiny change is just made. Work that needs you close by goes on in the
+   same session as a written plan. Bulky work becomes a written task brief for a task
+   runtime.
+
+The research pass is for ideas in unfamiliar ground. It requires two lines before any
+code: what would make the idea fail, and what test would prove it wrong.
+
+To check the two lines that make the skill manual, in a project installed at `env`:
+
+```bash
+grep -n '^disable-model-invocation\|^argument-hint' .claude/skills/arch/SKILL.md
+```
+
+```text
+5:argument-hint: '<topic | path/to/prep-doc.md>'
+6:disable-model-invocation: true
+```
+
+What the skill does not do: it writes no code and reviews no code. It is part of the
+[soft layer](../../terms.md#soft-layer-and-hard-layer), so no [gate](../../terms.md#gate)
+checks that a part was run. The file was written for the people who maintain getff, and
+its wording shows it. It cites getff's own planning documents, which the installed copy
+links on GitHub. The research pass and the task-brief exit expect `aif-handoff`, a
+separate task runtime whose connection arrives only at the `factory` depth. Without it,
+the skill says the exit falls back to work in the same session. It also leans on two
+outside plugins that are optional. The `setup` wrapper offers one of them, superpowers,
+as a companion. The other, `mattpocock-skills`, paces the design questions. The
+installer does not offer it yet, so you add it yourself. When it is absent, the skill
+tells the agent to say so and use a plain fallback. A `core` install does not include
+this skill. The guide
+[Add the design and review skills](../../guides/add-design-and-review-skills.md) shows
+how to get it.
+
+## Evidence
+
+- In `.claude/skills/arch/SKILL.md`: the description is line 3, the manual-only flag is
+  line 6, and the fallbacks are line 22. The design part is lines 42 to 50, the research
+  pass is lines 52 to 83, the two reviews are lines 85 to 106, and the three exits are
+  lines 119 to 123.
+- The skill is in `GETFF_SKILLS_ENV`, line 62 of `setup.d/lib.sh`. Lines 157 to 162 of
+  `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 72 to 75 there
+  say why it sits at `env`.
+- The superpowers plugin is an optional companion: line 17 of `setup.d/companions.manifest`.
+- The question-pacing plugin is named on line 50 of `.claude/skills/arch/SKILL.md`, with
+  the fallback. `setup.d/companions.manifest` has no row for it.
+- `ships-to` is measured: the skill's file is listed in
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.
+- The card is built from `docs/site/reference/B.json`. The "with and without" sections
+  are required by `packages/core/principles/15-skill-paired-negative.test.ts`.

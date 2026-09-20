@@ -1,0 +1,109 @@
+---
+title: reviewer skill
+description: The skill that turns your AI agent into a second pair of eyes that checks finished work and answers with a verdict, not with more code.
+kind: reference-sheet
+generator: scripts/render-reference.mjs
+sources:
+  - .claude/skills/reviewer/SKILL.md
+  - .claude/rules/reviewer-discipline.md
+  - setup.d/10-skills.sh
+  - setup.d/lib.sh
+  - docs/site/reference/B.json
+  - docs/site/reference/B.md
+  - docs/site/terms.md
+executed:
+  - { example: list-reviewer-sections, stack: ts-server, date: 2026-09-21, result: listed }
+---
+
+# reviewer skill
+
+## Fact card
+
+What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
+
+<!-- vale off -->
+<!-- vale-reason: the description row is the skill's own frontmatter, quoted verbatim, including its Russian wake phrases -->
+
+<!-- getff:begin section=B-card-reviewer plan=scripts/render-reference.mjs -->
+| Field | Value |
+|---|---|
+| name | `reviewer` |
+| kind | skill |
+| ships-to | env: react-native, react-next, react-spa, ts-server |
+| description | Use when the operator or an orchestrator asks for an interactive review with a verdict — «проверь», «ревью», «вердикт», «это правильно?», «оцени результат», «phase N закрыт», review, second opinion, independent review, verify deliverable, "is this correct?" — and the deliverable is a GO/REVISE/STOP verdict or a verified answer, not code. NOT for implementing fixes or writing tests (orchestrator work), and NOT for the cold PR-boundary protocols (agents/fidelity-auditor.md, agents/review-sidecar.md — those are dispatched, not interactive). |
+| source | `.claude/skills/reviewer/SKILL.md:3` |
+| invocation | auto |
+| posture | portable |
+| operator-twin | .claude/skills/reviewer/SKILL.md |
+<!-- getff:end section=B-card-reviewer -->
+
+<!-- vale on -->
+
+## Explanation
+
+This is one of the [skills](../B.md) getff installs at the `env`
+[depth](../../terms.md#depth). It gives you a reviewer that does not write code. You
+ask "is this right?" about work that you or another agent session just finished. The
+agent checks the work with real commands and file reads, then answers with a verdict.
+That matters because an agent that built something tends to believe its own story. This
+[skill](../../terms.md#skill) tells the agent to trust only what it can open or run.
+
+The agent picks the skill up by itself. Its description lists the phrases that wake it:
+review, second opinion, verify deliverable, "is this correct?". You can also type
+`/reviewer` in Claude Code.
+
+Inside, the skill describes three ways to review:
+
+| Mode | You say | You get |
+|---|---|---|
+| Question | "Does X match the plan?" | `YES`, `NO`, or `PARTIALLY`, one line of why, and a file and line as proof |
+| Deliverable verification | "This part is done, verify" | the agent runs the acceptance commands itself and writes a verdict block |
+| Full cold review | "Review this branch" | a skeptical read of the whole branch from a fresh start |
+
+Every verdict has the same shape. It opens with `GO`, `REVISE`, or `STOP`. Findings are
+sorted into `BLOCKER`, `MAJOR`, `ESCALATED`, and a notes list. A `BLOCKER` or `MAJOR`
+finding must name a concrete failure, a short story of what breaks. Only those findings
+can send the work back for another round. The block ends with exactly one next step.
+
+The skill also sets a cost habit. Checks that need three or more commands or files go to
+a cheaper model, which returns raw output and no opinion. The verdict always stays with
+the main session.
+
+To see what the installed skill covers, list its sections:
+
+```bash
+grep -n '^## ' .claude/skills/reviewer/SKILL.md
+```
+
+```text
+25:## Modes
+34:## Economy default (verification vs synthesis)
+42:## Verdict shape (severity contract binding)
+66:## Hard bounds
+75:## Without this skill
+84:## With this skill
+93:## See also
+```
+
+What the skill does not do: it writes no code, makes no commits, and does not start the
+next piece of work. When a finding needs a strategy choice, the agent describes both
+options and stops. It does not pick one for you. The skill is part of the
+[soft layer](../../terms.md#soft-layer-and-hard-layer), so nothing forces the agent to
+follow it. The grading rules it leans on live in `.claude/rules/reviewer-discipline.md`
+in the framework repository. That file is not copied into your project. The installed
+skill links to it on GitHub instead. The skill is also not the automatic review that
+runs when a pull request is opened. Those are separate agent files, and the skill's own
+description says so.
+
+## Evidence
+
+- The description and the `auto` invocation come from line 3 of
+  `.claude/skills/reviewer/SKILL.md`. The posture marker is line 6 of the same file.
+- The three modes are lines 25 to 32. The cost habit is lines 34 to 40. The verdict
+  block is lines 44 to 53. The "no code, no commits" bounds are lines 66 to 73.
+- The rule that only a finding with a failure story can reopen a round is quoted at
+  lines 55 to 57, from section 6 of `.claude/rules/reviewer-discipline.md`.
+- The skill belongs to the `env` list on line 62 of `setup.d/lib.sh`. The installer
+  copies that list on lines 157 to 161 of `setup.d/10-skills.sh`. Lines 89 to 91 of the
+  same file record why it joined `env`.
+- The card above is built from `docs/site/reference/B.json`.
