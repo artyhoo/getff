@@ -1,0 +1,25 @@
+# getff
+
+> getff turns a team's coding conventions into checks that fail, so an AI agent cannot quietly break them. It installs with one command into seven stacks; each stack carries its own maturity label, from beta to experimental, and the Introduction lists them.
+
+getff is for developers who let AI agents write code in a real codebase. It wires linters, git hooks, and CI so that a broken convention stops the commit or the build. No language model runs inside any check: every gate is a plain command with an exit code, and it costs nothing to run. Every page below also exists as plain Markdown at the same address plus `.md`. Each Markdown page names the framework commit it was checked against, so you can cite a file at a fixed commit and tell when a page has gone stale.
+
+## Start here
+
+- [Introduction](/docs/): what getff is, who it is for, and the maturity label of every stack.
+- [Use getff with your AI agent](/docs/ai-agents/): how an agent should read this site, and three prompts to start with.
+- [Quick start](/docs/quick-start/): pick your stack, then watch a rule fire on your own code.
+  - [TypeScript and React](/docs/quickstart-ts/): the npm stacks.
+  - [Python](/docs/quickstart-python/): the ruff and ast-grep lane.
+  - [Rust](/docs/quickstart-rust/): the cargo clippy lane.
+  - [Go](/docs/quickstart-go/): the golangci-lint lane.
+- [Installation](/docs/installation/): every install path, the three depths, and what each one writes to your project.
+- [Why getff](/docs/why/): the problem with conventions that live only in documents.
+- [How it works](/docs/how-it-works/): the channels a rule can run on, from edit time to CI.
+- [Foundations](/docs/foundations/): the ideas getff is built on, and where they come from.
+
+## Proof
+
+- The framework's own `AGENTS.md`: its generated regions end each rule with an `Enforced:` line that names which backends enforce it, and a test fails if that line is edited by hand.
+- `make self-audit`: the framework runs its own hooks and its own principle tests on itself.
+- The claims ledger of this site: every public claim, with the file that backs it.
