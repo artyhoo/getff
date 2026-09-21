@@ -129,7 +129,7 @@ fi
 # `git commit --no-verify` skips this file entirely, so the later channel stays the
 # backstop rather than becoming a duplicate.
 #
-# CITE_SCOPE mirrors LIVE_AUTHORITY_MD in packages/core/hooks/pre-push.ts — the
+# CITE_SCOPE mirrors LIVE_AUTHORITY_MD in scripts/check-line-citations.mjs — the
 # live-authority surface, deliberately NOT the whole markdown corpus: retros,
 # research-patches and specs cite a line as a dated snapshot, and renumbering those
 # rewrites history. A trailing `/` means prefix, anything else is an exact path — the
@@ -146,7 +146,7 @@ fi
 #     `--diff-filter=ACM`, which is empty for a pure rename, and the hook exits 0 at that
 #     guard before any section runs. A rename that MOVES a doc can break a relative
 #     citation, so this is real — it is simply not this block's to fix.
-CITE_SCOPE='.claude/rules/ .claude/skills/ agents/ CLAUDE.md AGENTS.md CONTRIBUTING.md'
+CITE_SCOPE='.claude/rules/ .claude/skills/ agents/ CLAUDE.md AGENTS.md CONTRIBUTING.md docs/site/'
 CITE_MD=$(echo "$STAGED_MD" | while IFS= read -r f; do
   # `-f` and not just the scope test: a path staged and then deleted from the working
   # tree makes the checker throw ENOENT, which the `||` below would report as a

@@ -115,8 +115,8 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
   section 3.7 block, lines 160 to 196, and section 3.8 reuses it on lines 225 to 228.
   The two kinds of change start on lines 247 and 266. The network limit is line 294.
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
-  line 12. Line 137 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
-  does not exist outside the framework repository.
+  line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
+  exists only in the framework repository.
 - The skill belongs to the `factory` list on line 65 of `setup.d/lib.sh`. The installer
   copies that list on lines 170 to 174 of `setup.d/10-skills.sh`, and marks the helpers
   executable on line 194. Line 17 of `install.sh` names the flag.
