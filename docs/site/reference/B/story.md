@@ -102,13 +102,13 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
   line 6. The three steps are lines 19 to 30, and the "must not" list is lines 47 to 53.
 - The helper is `.claude/skills/story/helpers/emit-story-prompt.sh`. Line 12 picks the
   language file from `AIF_HOOK_LANG` and line 13 falls back to English.
-- The instruction text is the function at line 203 of `.claude/hooks/lang/en.sh`. The
+- The instruction text is the function at line 233 of `.claude/hooks/lang/en.sh`. The
   end-of-session reminder calls the same function:
-  `.claude/hooks/end-of-turn-reminder.sh`, line 1175.
+  `.claude/hooks/end-of-turn-reminder.sh`, line 1348.
 - The installer delivers the language files at every depth: `setup.d/10-skills.sh`,
-  lines 231 to 246. The skill itself is in the `factory` list at line 63 of
-  `setup.d/lib.sh`. The reason it stays there is a product choice recorded at lines 112
-  to 116 of `setup.d/10-skills.sh`.
+  lines 238 to 253. The skill itself is in the `factory` list at line 65 of
+  `setup.d/lib.sh`. The reason it stays there is a product choice recorded at lines 119
+  to 123 of `setup.d/10-skills.sh`.
 - The skill's "with and without" sections are checked by
   `packages/core/principles/15-skill-paired-negative.test.ts`.
 - The card above is built from the `story` entry in `docs/site/reference/B.json`, which

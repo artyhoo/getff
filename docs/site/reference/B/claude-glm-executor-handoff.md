@@ -111,8 +111,8 @@ worker and tells you to re-check each fact against that model first.
   to 103. The unproven claims are lines 112 to 122.
 - The report format the skill reads is defined in
   `agents/orchestrator-worker-discipline.md`. The skill points to it and does not repeat it.
-- The skill is in the `factory` list at line 63 of `setup.d/lib.sh`. The reason it is
-  `factory` only is lines 117 to 123 of `setup.d/10-skills.sh`. The loop that copies it
-  is lines 163 to 167 of the same file.
+- The skill is in the `factory` list at line 65 of `setup.d/lib.sh`. The reason it is
+  `factory` only is lines 124 to 130 of `setup.d/10-skills.sh`. The loop that copies it
+  is lines 170 to 174 of the same file.
 - The card above is built from the `claude-glm-executor-handoff` entry in
   `docs/site/reference/B.json`, which starts at line 75.

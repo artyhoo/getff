@@ -109,7 +109,7 @@ how to get it.
   line 6, and the fallbacks are line 22. The design part is lines 42 to 50, the research
   pass is lines 52 to 83, the two reviews are lines 85 to 106, and the three exits are
   lines 119 to 123.
-- The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 164 to 169 of
+- The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 164 to 168 of
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 79 to 82 there
   say why it sits at `env`.
 - The superpowers plugin is an optional companion: line 17 of `setup.d/companions.manifest`.

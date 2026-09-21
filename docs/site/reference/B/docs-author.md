@@ -111,7 +111,7 @@ template.
   The long craft contract is `.claude/skills/docs-author/references/craft.md`.
 - `.claude/skills/docs-author/references/terms.md` points to the real glossary and says
   it is not a copy.
-- The installer's three lists are lines 61 to 63 of `setup.d/lib.sh`. The name
+- The installer's three lists are lines 63 to 65 of `setup.d/lib.sh`. The name
   `docs-author` is in none of them, and `setup.d/10-skills.sh` never mentions it.
 - The card above is built from the `docs-author` entry in `docs/site/reference/B.json`,
   which starts at line 113.

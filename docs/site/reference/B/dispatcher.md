@@ -115,8 +115,8 @@ guard script and your own [gates](../../terms.md#gate).
 - The two kinds of question are lines 404 and 417. Line 456 says what happens without
   the companion skill. The hand-over to `aif-doctor` is line 34. The "Does NOT" limits
   are lines 476 and 477. The "6–10 manual steps" sentence is line 492.
-- The skill belongs to the `factory` list on line 63 of `setup.d/lib.sh`. The installer
-  copies that list on lines 163 to 167 of `setup.d/10-skills.sh`. Line 17 of
+- The skill belongs to the `factory` list on line 65 of `setup.d/lib.sh`. The installer
+  copies that list on lines 170 to 174 of `setup.d/10-skills.sh`. Line 17 of
   `install.sh` names the flag.
 - The superpowers plugin is an optional companion: line 17 of
   `setup.d/companions.manifest`. The loop that offers each companion is lines 92 to 104

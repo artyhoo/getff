@@ -113,7 +113,7 @@ and blocks nothing.
 - The fresh-reviewer step starts on line 225. The "no two batches edit the same file"
   check is line 346. The token thresholds are lines 199 to 205. Queue mode is lines 423
   to 427, with details in `.claude/skills/orchestrator/references/queue-mode.md`.
-- The skill belongs to the `env` list on line 62 of `setup.d/lib.sh`. Lines 76 to 84 of
+- The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. Lines 83 to 91 of
   `setup.d/10-skills.sh` record why. Lines 34 and 35 of the skill file name `dispatcher`
   as a `factory` skill, without a link.
 - The superpowers plugin is an optional companion: line 17 of
