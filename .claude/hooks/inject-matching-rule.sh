@@ -26,10 +26,19 @@
 # Precedent for the once-per-session shape: this hook's own session-cache at $CACHE below +
 # deps-hash-check.sh — same ${TMPDIR:-/tmp}/cc-…-${SESSION}.txt convention.
 #
-# SHIP status (GH #934): NOW SHIPPED to consumer CC projects — consumers DO get .claude/rules/*
-# installed, and without this hook that rules channel is cold-load only. Consumer-safe: the only
-# runtime path is the consumer's own $RULES_DIR (no framework-internal artefact), and it degrades
-# to exit 0 when the rules dir or jq is absent. Delivered by install.sh + do_refresh (setup.d).
+# SHIP status (GH #934, claim corrected by GH #1520): the HOOK ships and is registered in
+# consumer projects (first install: setup.d/10-skills.sh §1e below; brownfield refresh:
+# install.sh --refresh, the refresh_safe arm at install.sh:969-990). The `.claude/rules/`
+# CORPUS it reads does NOT ship — it is consumer-owned project data: delivery ships zero
+# rules/ lines, and setup.d/lib.sh:89-90 (transform_internal_refs) records exactly that
+# non-delivery when rewriting relative rules/ links; the plugin twin
+# (plugin/hooks/inject-matching-rule) has always carried this corrected model. The former
+# SHIP-status claim that the rules corpus reaches consumers was inherited unverified from
+# #934's draft classification table via PR #1004 — never measured against the install
+# manifest — and is retracted (2026-09-15, #1520 option B). Without a consumer-authored
+# corpus this hook is a facility awaiting input: it reports ONCE per session (above) and
+# otherwise no-ops by design. Consumer-safe: the only runtime path is the consumer's own $RULES_DIR
+# (no framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
 set -uo pipefail
 
 # @plugin-transform: manual — plugin twin carries T-PLUG-A relocation comment block (~30 lines of prose documenting plugin-channel path resolution). Not mechanically transformable; semantic prose divergence stays hand-maintained.

@@ -93,6 +93,25 @@ else
   bad "(D) firing (ask-question): no deny+reason ($(printf '%s' "$OUT_AQR" | head -c 120))"
 fi
 
+# ── ARM (H): GH #1520 — §1e's rules-delivery claim is retracted; hook ships, corpus never did ──
+# MUST run BEFORE ARM (E): (E) mkdir -p's .claude/rules itself — creating the corpus it then
+# proves the hook reads was the original admission that delivery never shipped one. The §1e
+# header in setup.d/10-skills.sh asserted «Consumers DO get .claude/rules/* installed»,
+# inherited unverified from #934's draft classification via PR #1004 and never measured
+# against the manifest. Truth: delivery ships ZERO rules/ lines (setup.d/lib.sh:89-90
+# records the non-delivery); the corpus is consumer-owned. Both halves guarded here:
+# the delivery fact (against the pristine post-install $T) AND the retracted text.
+if [ ! -d "$T/.claude/rules" ]; then
+  ok "(H) GH #1520: install ships NO .claude/rules/ corpus (consumer-owned project data)"
+else
+  bad "(H) GH #1520: .claude/rules/ exists post-install — the corpus must NOT ship"
+fi
+if grep -q "Consumers DO get" "$REPO_ROOT/setup.d/10-skills.sh"; then
+  bad "(H) GH #1520: setup.d/10-skills.sh §1e still carries the retracted claim"
+else
+  ok "(H) GH #1520: setup.d/10-skills.sh §1e claim retracted (hook ships; corpus does not)"
+fi
+
 # ── ARM (E): firing inject-matching-rule ──────────────────────────────────────
 # Seed a consumer rule with a distinctive glob + inject summary, then edit a matching path.
 mkdir -p "$T/.claude/rules"

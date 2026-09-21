@@ -5,11 +5,11 @@ cf5989e9ba90bf80df7c8c2ae1389781b2f4c457b96229f73ff391fbd773c1f7  .claude/hooks/
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
-4a6875f9116629c229c2b4356672296d779936969ca71d181c3efa93bc1fa351  .claude/hooks/deps-hash-check.sh
+e383049be099b2a8b927f6d571bb596446971a36cd4962ef786433a306d0a1b8  .claude/hooks/deps-hash-check.sh
 5126e53cdea88a67f9ea8937484f39e00d7e17a8576b17b78584362cbd2a68bf  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
 b0873ba020e057267ebedd4c7c4571306c81fe12b6d230d6d31fc57ba112bee1  .claude/hooks/inject-handoff-on-compact.sh
-14ccda85a609b4f0a3832e0042fb622f241a8bbf5c072ae4e8d8865b0e2b65fc  .claude/hooks/inject-matching-rule.sh
+bcf3519b40d80b88914d0d70c3280210c3d530eebf18ec3f5d03634fa7a813d4  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
@@ -20,7 +20,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 937346a47eeca9d76681ccca80d15ef30520a29b7a379261743ab4fa347f7e4f  .claude/hooks/lang/en.sh
 93de6f819428394064ba177909201704a89238b7009162f41e6001d93b4114ca  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
-4778252c1573a1b62351d2a108c501fab09edd7b1dfa765911108294239b24a8  .claude/hooks/lib/residue-dir.sh
+4e6f130d789ff632906ad5f42f54267da47b18457444f722db67cb399b9aac6f  .claude/hooks/lib/residue-dir.sh
 722241fc84acfe24ff9dfc1d6d55a867e1feb4d7d1cbea70488a726ad4f96771  .claude/hooks/precompact-residue.sh
 9d9548c80a55b8544eefa490f24eb644bf52f624b77ca78821bb9802743fc729  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
@@ -456,8 +456,8 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
-4a6875f9116629c229c2b4356672296d779936969ca71d181c3efa93bc1fa351  packages/core/hooks/deps-hash-check.sh
-87513ea9749ed160bd5a34cd87abf55d44034f88f9a132415a829308ab047b7a  packages/core/hooks/deps-hash-check.test.ts
+e383049be099b2a8b927f6d571bb596446971a36cd4962ef786433a306d0a1b8  packages/core/hooks/deps-hash-check.sh
+5baf52220611fe725ab8636b3f33ef12e0a5a092767134b3023a256287b828b2  packages/core/hooks/deps-hash-check.test.ts
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
@@ -470,7 +470,7 @@ e8bcb769b383ebf58aa2c800cb01424400a73461f4afe245a703f112eabf5348  packages/core/
 d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/hooks/hook-emit-prelude.test.ts
 7350acfe0ef00b35578d8ba305aaee1c3be428a1ac3ca4f6fb5b4d8d257cd433  packages/core/hooks/host-verify.test.ts
 53acc72a47a55e8a8266bb1a2aadac94c3149e2a29044d86fcabd3407828b978  packages/core/hooks/inject-handoff-on-compact.test.ts
-62463bc2709d3dd8b0a7e94991b6669d66c9d2479891c4549f1db0ef75f194ce  packages/core/hooks/inject-matching-rule.test.ts
+e1100ec9ee1891c724d5954e7f03f015f96ed4a1dcfb93bcd55208398585c1ca  packages/core/hooks/inject-matching-rule.test.ts
 634c5c10bab343b7df3b401e8c297ba608eea434fb47ef8b623ff6c118221435  packages/core/hooks/inject-memory-codification.test.ts
 06c3dcb13bbe99daaa9995c194d1f081fb7fbd952942d2dedb8ecbd7fef8fe09  packages/core/hooks/inject-project-digest.test.ts
 f41481a8528f2afa5507e863fa807c660a8bf82d6a1be5ceb947b0672d0456b3  packages/core/hooks/inject-session-bootstrap.test.ts
@@ -1064,7 +1064,7 @@ bd7ffff72a578a9d4d13c9be2c8d3f0c04c737eeeb8a8c169adea90e9e437e60  scripts/run-lo
 b90976eade8b6aaef9389f8720ceb41d97c5dd397f6fb892b69ff538a56eac20  scripts/worktree-node-modules.sh
 f5478f91d45403b50c4c2fbcf0d4afb9a8e4337400433cb7f3c461966b8afcfc  setup
 5f8e77eff6d24617787156419afe26eae1c27d35a84d2789c099ceb156be7492  setup.d/05-mcp.sh
-a1c743d9d6245c48a7a23d0b7d48fb2d936d3b910d424668fe30b7525101b30a  setup.d/10-skills.sh
+89264f5a075a5716bc9d6bc1202bb3244becd465a4cea7c61fc7a98226e2cfcc  setup.d/10-skills.sh
 29200fa13a26533dce3f937dc300ea6e2d6003415d5a136be85882895956c59f  setup.d/15-companions-stack.sh
 fda85ab4c7b2d0b34758d895ee431e966dc0282368dfcf4838206cec5e864852  setup.d/20-agents.sh
 5f1068a954de5f2a6655b9ccf192aa732233e2ffcc20820839bc45c04ece45b4  setup.d/30-templates.sh
