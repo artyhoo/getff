@@ -82,10 +82,14 @@ four sidebar tabs (§1 of the umbrella spec) and D30's `kind:` registry — and 
 row came from**. That is non-negotiable 5, and it is a precondition, not a task: *enumerate D49's
 third population and record its provenance BEFORE the dispatchability grep can mean anything.*
 
-Three census pages get explicit RUN rows now: `/docs/executable-agents-md/` (the full demo page,
-D12), `/docs/limits/` (a real page whose stack table is a `maturity.json` fence region), and
-`/docs/faq/`. A slug that fits no registered `kind:` **escalates to D30** for a registered kind —
-never an open enum.
+Three census pages get explicit RUN rows: `/docs/executable-agents-md/` (the full demo page, D12;
+kind `understand`) and `/docs/limits/` (a real page whose stack table is a `maturity.json` fence
+region; kind `understand`) are dispatchable now. **`/docs/faq/` is NOT.** Its live page is seven
+«What is…» questions with no step, no command and no verification, which fits none of D30's seven
+kinds, so its inventory row reads `ESCALATED to D30` and carries no kind. A slug that fits no
+registered `kind:` **escalates to D30** for a registered kind — never an open enum, and never a
+kind the conveyor picks for itself. **Do not write `/docs/faq/` in this stage** until that row
+carries one of the seven; see §7 item 2.
 
 **The inventory exists as of 2026-09-21: [`kickoff-s1.inventory.md`](kickoff-s1.inventory.md)**
 (a `sidecar` by `classifyKickoffName`, merged to `staging` before this stage's dispatch per
@@ -96,7 +100,8 @@ table would create exactly the open enum D49 forbids. Read it before generating 
 is **230 pages owed by S1 RUN, not «~105»** (§6 there: 3 + 211 + 16). Its population-2 table also
 holds 230 rows — an unrelated coincidence of arithmetic, named here so neither number is read as
 an explanation of the other. 219 family members sit across eleven families, of which only family
-B's 18 are written, so at D19's ~20-pages-per-task ceiling the remaining ten families are ten aif
+B is written — its 18 sheets **plus its overview = 19 rows**, which is why 230 − 19 = 211 and not
+212 — so at D19's ~20-pages-per-task ceiling the remaining ten families are ten aif
 tasks. Second, **two live URLs have no successor page in any source** — `/docs/beta` and
 `/docs/reference` — and each is an open operator decision (stub target or `retired-urls.txt`),
 recorded rather than invented. The cold review of the inventory (2026-09-21) found
@@ -144,7 +149,28 @@ were improvised, and the completeness check cannot see the omission direction at
    .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` — and the repo gates that apply to
    your diff. The **path** form, never the slug form (see §7 item 6).
 3. **Run the git-hook probe of §5 and record it** — it is a Phase-0 deliverable, not a note.
-4. **Fix what you find here**, and report findings **with dispositions**. «Self-check: OK» with no
+4. **Probe the SECOND repository, and record the probe with its date and output.** This stage is
+   two tasks in two repositories (R23), and every sentence in this prompt about reaching
+   `getff-landing` is a claim about live container state, which
+   [`destination-environment-verification.md §1b`](../../rules/destination-environment-verification.md)
+   says must be probed, never inferred from a doc or a compose file. The landing task runs:
+
+   ```bash
+   git -C /home/www/getff-landing rev-parse --abbrev-ref HEAD
+   git -C /home/www/getff-landing log --oneline -1
+   git -C /home/www/getff-landing status --short
+   ```
+
+   The path is not guessed: it is the aif project record's `rootPath` (`GET /projects` → the
+   record named `getff-landing`), the same resolution the in-flight probe's signal 4 uses. **What
+   the host measured on 2026-09-21, which you must re-confirm rather than assume:** the checkout
+   was on `main` at `b65ff4b`, **eleven PRs behind `origin/main` = `c091883`**, and its working
+   tree carried an unrelated Astro scaffold's uncommitted `package.json` that blocked the
+   fast-forward. If your probe still shows a stale or dirty tree, **STOP and surface** — do not
+   clone a second copy, do not write into the framework repo instead, and do not proceed against a
+   base eleven PRs old. If the repository is not reachable at all, say
+   `INCONCLUSIVE — could not probe getff-landing (<why>)` and stop; silence is not an answer.
+5. **Fix what you find here**, and report findings **with dispositions**. «Self-check: OK» with no
    enumeration is a skipped phase.
 
 ## §5 The container `--write` arm and the git-hook probe
@@ -206,15 +232,29 @@ needs re-reading before anything else in this stage is believed.
   gate before S2, never «we will watch it»**; the smoke build needs a secret or a paid call → the
   design is wrong, stop; the preview build and the production build differ by more than
   `PREVIEW_BASE_PATH` → the seat is certifying an artifact that will not ship (R8).
-- **RUN-half falsifier (D41 (a)):** the first GLM family's REVISE rate at the D17c measurement
-  exceeds the gold pass's by **>2×** → that family and the next go back to a Fable chip, and the
-  measured rate becomes the exchange rate. There is **no fixed exchange rate** between a Fable page
-  and a GLM page; it is measured, not priced.
-  **Its denominator is an S0b deliverable, so check it exists before trusting this test:** «the
-  gold pass's rate» is the number [`kickoff-s0b.md §6`](kickoff-s0b.md) requires in the S0 closure
-  note (`roll.md:105`). If that note is missing or carries no rate, this falsifier cannot fire at
-  all and the only mechanism returning a family to Fable is dead — **STOP and surface, do not
-  substitute a rate of your own**, and do not read the absence as a pass.
+- **RUN-half falsifier (D41 (a)):** the first GLM family's REVISE measurement exceeds the gold
+  pass's by **>2×** → that family and the next go back to a Fable chip, and the measured figure
+  becomes the exchange rate. There is **no fixed exchange rate** between a Fable page and a GLM
+  page; it is measured, not priced.
+
+  **The denominator is `mean REVISE rounds per page`, NOT the page-level REVISE rate.** The gold
+  pass measured **1.0** (5 rounds over the 5 trial pages) and **1.05** (20 rounds over the 19
+  family-B pages) — [`docs/site-quality/s0-closure-note.md:42-44`](../../../docs/site-quality/s0-closure-note.md).
+  Compare the first GLM family's mean rounds-per-page against **1.05**; >2× (i.e. >2.1) sends that
+  family and the next back to a Fable chip.
+
+  **Why this paragraph exists, and the safeguard it replaces.** This falsifier shipped against the
+  page-level rate, and the S0 closure note records at its own `:31-34` that the page-level rate
+  **saturated at 22 of 22 = 100%**, so «exceeds it by 2×» is arithmetically unreachable — the note
+  says so in words: «S1's falsifier … cannot fire against it. Use the **per-round** figures
+  instead.» The old safeguard asked only whether the note existed and carried *a* rate; it does
+  and it did, so the safeguard would have returned green over a dead check — `#contract-that-cannot-fail`
+  ([`destination-environment-verification.md §4`](../../rules/destination-environment-verification.md))
+  pointed at the only mechanism that returns a family to Fable. Caught by the P-AM cold review,
+  2026-09-21. **The saturation, not the absence, is the failure mode to watch for:** if the S1
+  denominator you are about to use is itself saturated (every page revised, every round revised),
+  the test cannot fire — **STOP and surface**, do not substitute a figure of your own, and never
+  read «nothing fired» as «quality is fine».
 - **Measured:** landing build time from a cold checkout (budget: under 10 min on `ubuntu-latest` —
   **measured, not assumed**, and the machine is named because a budget sized to the wrong machine
   is its own anti-pattern); the number of redirect stubs written (must equal the mapping size); and
@@ -226,7 +266,11 @@ needs re-reading before anything else in this stage is believed.
 2. Confirm every page merged in this batch has a row in [`kickoff-s1.inventory.md`](kickoff-s1.inventory.md).
    A page with no row — or one whose row still carries a `<token>` slug — means the batch prompt was
    not generated from the inventory: **fix the generation, not the page.** A token row is replaced
-   with the final slug **in the same commit that writes the page**.
+   with the final slug **in the same commit that writes the page**. **A row whose `kind` column
+   reads `ESCALATED to D30` blocks that page outright** — writing it means either inventing a kind
+   (widening D30's closed set by practice) or skipping the page (a silent hole in coverage), and no
+   gate downstream can see either. **STOP and surface** instead; the row must carry one of the
+   seven before the page is written (inventory §7, «Escalation that never resolves»).
 3. Confirm the inventory's Learn/Guides/Understand rows (§4 there) still carry their provenance
    column, and that regenerating its §3 rows from `docs/site/reference/<F>.json` still reproduces
    them — a family whose membership moved leaves the inventory stale.
@@ -234,9 +278,11 @@ needs re-reading before anything else in this stage is believed.
    the RED, not just the green.
 5. `bash scripts/check-ask-files.sh` — a RED ask file blocks every push.
 6. `bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` on the
-   host; quote the output. **The path form is load-bearing** — the slug form resolves to the
-   umbrella's `kickoff.md` (`scripts/host-verify.sh:98`) and returns its always-green 13 lines,
-   so this stage's contract — red by design until its inputs merge (§6) — would never be seen.
+   host; quote the output. **The path form is load-bearing** — the slug form silently resolves to
+   the umbrella's `kickoff.md` (`scripts/host-verify.sh:98`) and returns ITS always-green 13
+   lines, so you would be quoting a different stage's contract and would never see this one. Until
+   the framework task's deliverable exists, the correct result here is **RED on the last three
+   lines of §10** — a fully green run before you have built anything means you ran the slug form.
 7. Re-walk **this prompt's own citations** (non-negotiable 11).
 8. Capture the diff's **hunk headers** and list, per shifted file, the citations INTO it that now
    sit past a shift point — into the PR body. No gate performs this.
@@ -302,21 +348,39 @@ test -f scripts/docs-check.mjs
 test -f docs/site/terms.md
 test -f docs/site/hero-copy.json
 bash scripts/check-ask-files.sh
+test -f scripts/check-docs-refresh.mjs
+test -f .github/workflows/notify-landing.yml
+test -f .github/workflows/pin-freshness.yml
 ```
 
-All nineteen lines are **green at the re-pin** — `bash scripts/host-verify.sh
-.claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` → `19/19 passed on Darwin`, run on the
-host 2026-09-21. When this contract was authored, four of them (`docs-author`,
-`docs-form-auditor`, `docs-check.mjs`, `terms.md`) and both `render-*.mjs` lines were red **and
-had to be**: they assert that S0a and S0q have merged, and they now do (#1807, #1817). That is
-D44's design working — a contract is evaluated at **its own stage's dispatch**, never at
-authoring time, and this stage's dispatch is the first moment it can be green.
+**Nineteen of these twenty-two lines assert this stage's INPUTS and are green at the re-pin.**
+Measured on the host 2026-09-21 with the contract exactly as it stands above:
+`bash scripts/host-verify.sh .claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` →
+`19/22 passed on Darwin`, exit **1**, failing on lines 20, 21 and 22 and on nothing else. When
+the contract was authored, four of them (`docs-author`, `docs-form-auditor`, `docs-check.mjs`,
+`terms.md`) and both `render-*.mjs` lines were red **and had to be**: they assert that S0a and S0q
+have merged, and they now do (#1807, #1817). That is D44's design working — a contract is
+evaluated at **its own stage's dispatch**, never at authoring time.
+
+**The last three lines are this stage's OWN deliverable (§1, framework task) and are RED today —
+deliberately.** Measured 2026-09-21: `git cat-file -e d266fdf01ea:<path>` returns non-zero for all
+three. A contract composed only of input-presence lines is green before the worker does anything
+and stays green if the worker does nothing — `#contract-that-cannot-fail`
+([`destination-environment-verification.md §4`](../../rules/destination-environment-verification.md)),
+and it was exactly that until the P-AM cold review of 2026-09-21 said so. These three lines are
+what makes the contract capable of failing. **Do not "fix" them by deleting them: they go green
+when the framework task builds its deliverable, and not before.**
 
 ## §11 D44 — names this stage invokes, re-measured at `d266fdf01ea`
 
 BUILD: `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`,
-`superpowers:writing-plans` (the conveyor plan, P-R), `superpowers:executing-plans`,
+`superpowers:writing-plans`, `superpowers:executing-plans`,
 `superpowers:test-driven-development` (every BUILD script) — **all PRESENT** at the SHA above.
+**The conveyor plan (P-R) is NOT yours.** [`roll.md:107`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md)
+gives it to Opus on the host, before this kickoff is merged and before you are dispatched: «Opus
+writes the conveyor plan (P-R); the kickoff is merged to `staging` first». A container task
+**consumes** that plan and never authors it — `superpowers:writing-plans` is listed because the
+BUILD half writes plans for its own scripts, not because you write P-R.
 
 RUN: `docs-author` in **EVERY** S1 RUN Worker prompt and in the D26 refresh executor's prompt
 (D-Q8 «same skill on every seat», its `refresh` mode) — the conveyor writes 230 pages and the
