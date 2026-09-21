@@ -3,8 +3,9 @@
 > **Umbrella:** [kickoff.md](kickoff.md) — §2 non-negotiables and §3 name census are binding.
 > **Class:** stage kickoff (dispatch input). **Base branch:** `staging`. **Channel:** aif on GLM,
 > **two tasks, one per repository** (R23) — one task cannot write two repos.
-> **Rigor label (effort-worthiness L0):** `research-grade` — the RUN half writes ~105
-> consumer-facing pages and the BUILD half ships the gates that are the only thing standing
+> **Rigor label (effort-worthiness L0):** `research-grade` — the RUN half writes **230**
+> consumer-facing pages (the enumerated figure from the §2 inventory, which supersedes the
+> «~105» estimate) and the BUILD half ships the gates that are the only thing standing
 > between a wrong page and publication.
 > **Authoritative for:** the S1 stage contract — the BUILD/RUN split, the page inventory
 > obligation, the container `--write` arm, the git-hook probe, the exit gates, the last acts
@@ -15,7 +16,11 @@
 > page content standards, owned by the quality contract.
 
 **Measurement SHA for every `path:line` below:** `origin/staging` =
-`79fa1b56b748899bc807f23ea8dfba9258e0acc3`. Every file cited here was read at that one ref.
+`d266fdf01ea9a3fa16cccd025f87e96a1d84ecce` (S0b, PR #1817). Every file cited here was re-read at
+that one ref. **Re-pinned from `79fa1b56b74`** while landing the §2 inventory: of the five cited
+specs only `ref-gen.md` had moved (31 insertions, 31 deletions), and it moved the §5 premise from
+true to false — see the §5 correction. That is `T-GA-A` firing exactly as the umbrella predicted,
+and it is why non-negotiable 11 is not optional.
 
 ## §0 The split, and why RUN cannot start early
 
@@ -28,7 +33,7 @@ the stage row is [`roll.md:107`](../../../docs/superpowers/specs/2026-09-14-getf
   remaining non-family page on aif/GLM, few-shot from the S0b gold pages.
 
 RUN is gated on BUILD because the gates ARE the control system: «aif's review loop plus the
-deterministic gates» is what replaces a human reading 105 pages. Writing pages before the gates
+deterministic gates» is what replaces a human reading 230 pages. Writing pages before the gates
 exist means nothing measured them.
 
 **The generator is NOT in this stage.** S0a built it (umbrella round 2, R16). S1 BUILD keeps
@@ -82,6 +87,17 @@ D12), `/docs/limits/` (a real page whose stack table is a `maturity.json` fence 
 `/docs/faq/`. A slug that fits no registered `kind:` **escalates to D30** for a registered kind —
 never an open enum.
 
+**The inventory exists as of 2026-09-21: [`kickoff-s1.inventory.md`](kickoff-s1.inventory.md)**
+(a `sidecar` by `classifyKickoffName`, merged to `staging` before this stage's dispatch per
+non-negotiable 7). It carries the one table across its three populations, plus a companion table
+for non-page URLs — a redirect stub has no `kind:` frontmatter, and forcing it into the page
+table would create exactly the open enum D49 forbids. Read it before generating any batch prompt.
+**Two findings it produced, which a Worker must not re-derive:** the conveyor's real size is
+**230 pages, not «~105»** (§6 there — 219 family members across eleven families, of which only
+family B's 18 are written), so at D19's ~20-pages-per-task ceiling the remaining ten families are
+ten aif tasks; and `/docs/beta` has **no successor page in any source** and is an open operator
+decision (stub target or `retired-urls.txt`), recorded rather than invented.
+
 **D49 falsifiers, verbatim:** (a) a page merged in S1 that is in no inventory row → the batch
 prompt was not generated from the inventory; **fix the generation, never the page**; (b) the
 Learn/Guides/Understand rows carry no provenance column naming where each slug came from → they
@@ -128,9 +144,20 @@ were improvised, and the completeness check cannot see the omission direction at
 ## §5 The container `--write` arm and the git-hook probe
 
 **The arm (F2 TD MAJOR-2, [`roll.md:107`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md)
-(e)).** `.husky/pre-commit` is the **only** channel that FILLS the generated fences and derives
-`sources:` ([`ref-gen.md:201`](../../../docs/superpowers/specs/2026-09-14-getff-ai-reference-generator-design.md);
-`qual.md:114` D-Q18), while every DETECTION channel was deliberately duplicated into CI. So:
+(e)).** **CORRECTED at the re-pin, 2026-09-21 — the premise this section shipped with is false at
+current staging.** `--write` is **author-run before commit** and **no pre-commit wiring exists**:
+[`ref-gen.md:201`](../../../docs/superpowers/specs/2026-09-14-getff-ai-reference-generator-design.md)
+now reads «`.husky/pre-commit` invokes neither generator — the G9 pre-commit decision is not
+implemented», corrected there 2026-09-15, and the file confirms it
+(`grep -n 'render-reference' .husky/pre-commit` → no match, run on the host 2026-09-21). The
+earlier text — «`.husky/pre-commit` is the only channel that FILLS the fences» — was read at
+`79fa1b56b74` and is a `T-GA-A` casualty.
+
+Nothing changes about the arm itself; its **reason** changes, and the reason is what a Worker
+reasons from. Nothing fills the generated fences or derives `sources:` automatically **anywhere**
+(`qual.md:114` D-Q18 — `sources:` is DERIVED by the renderer's `--write`, never authored), and
+drift is caught only by `--check` at pre-push and in `audit-self.yml`. So the arm is needed on
+every seat, host or container, not because a container skips a hook:
 
 - each container task carries `npx tsx scripts/render-reference.mjs --write` as its **LAST act
   before every commit**;
@@ -140,8 +167,12 @@ Without the arm, the family PR's `audit-self.yml --check` errors on every page w
 only a host seat can run.
 
 **The probe (required, [`destination-environment-verification.md §1b`](../../rules/destination-environment-verification.md)).**
-That arm rests on «aif containers never run the repo's git hooks» (R13's second caller and D29a's
-backstop), and **that claim has never been probed at the SHA the spec cites.** A primary-doc
+The arm no longer rests on «aif containers never run the repo's git hooks» — after the correction
+above it stands on its own. The probe stays, retargeted: what now depends on that claim is
+**pre-push** (`packages/core/hooks/pre-push.ts` referenceRender + faceFactsRender `--check`), the
+first channel that can see the drift. If the container does not run it, the harvest seat's host
+push is the first detection, and the task report must say so. **That claim has never been probed
+at the SHA the spec cites.** A primary-doc
 citation is not a probe. So this stage **records a live probe** inside the container, with its
 command, its output and its date — for example a commit in a scratch clone plus
 `ls -l .git/hooks` and a marker file the `pre-commit` hook would have written. If it cannot be
@@ -186,9 +217,13 @@ needs re-reading before anything else in this stage is believed.
 ## §7 Last acts before commit (non-negotiable 10)
 
 1. `npx tsx scripts/render-reference.mjs --write` — every commit, last act (§5).
-2. Confirm every page merged in this batch has a row in the D49 inventory. A page with no row means
-   the batch prompt was not generated from the inventory: **fix the generation, not the page.**
-3. Confirm the inventory's Learn/Guides/Understand rows still carry their provenance column.
+2. Confirm every page merged in this batch has a row in [`kickoff-s1.inventory.md`](kickoff-s1.inventory.md).
+   A page with no row — or one whose row still carries a `<token>` slug — means the batch prompt was
+   not generated from the inventory: **fix the generation, not the page.** A token row is replaced
+   with the final slug **in the same commit that writes the page**.
+3. Confirm the inventory's Learn/Guides/Understand rows (§4 there) still carry their provenance
+   column, and that regenerating its §3 rows from `docs/site/reference/<F>.json` still reproduces
+   them — a family whose membership moved leaves the inventory stale.
 4. Re-run the paired negatives — both Mermaid fixtures and the redirect coverage check — and quote
    the RED, not just the green.
 5. `bash scripts/check-ask-files.sh` — a RED ask file blocks every push.
@@ -263,21 +298,30 @@ test -f docs/site/hero-copy.json
 bash scripts/check-ask-files.sh
 ```
 
-Four of these lines (`docs-author`, `docs-form-auditor`, `docs-check.mjs`, `terms.md`) and both
-`render-*.mjs` lines are **red today and must be** — they assert that S0a and S0q have merged. That
-is D44's design: a contract is evaluated at **its own stage's dispatch**, never at authoring time.
+All nineteen lines are **green at the re-pin** — `bash scripts/host-verify.sh
+.claude/orchestrator-prompts/getff-ai-site/kickoff-s1.md` → `19/19 passed on Darwin`, run on the
+host 2026-09-21. When this contract was authored, four of them (`docs-author`,
+`docs-form-auditor`, `docs-check.mjs`, `terms.md`) and both `render-*.mjs` lines were red **and
+had to be**: they assert that S0a and S0q have merged, and they now do (#1807, #1817). That is
+D44's design working — a contract is evaluated at **its own stage's dispatch**, never at
+authoring time, and this stage's dispatch is the first moment it can be green.
 
-## §11 D44 — names this stage invokes, measured at `79fa1b56b74`
+## §11 D44 — names this stage invokes, re-measured at `d266fdf01ea`
 
 BUILD: `orchestrator`, `dispatcher`, `pipeline`, `claude-glm-executor-handoff`, `harvest`,
 `superpowers:writing-plans` (the conveyor plan, P-R), `superpowers:executing-plans`,
 `superpowers:test-driven-development` (every BUILD script) — **all PRESENT** at the SHA above.
 
 RUN: `docs-author` in **EVERY** S1 RUN Worker prompt and in the D26 refresh executor's prompt
-(D-Q8 «same skill on every seat», its `refresh` mode) — the conveyor writes ~105 pages and the
-D17c rate is measured **with** the instrument, never without it. `docs-author` is **ABSENT today**
-and is S0q's output; the §10 contract is what makes that a hard stop rather than a silent
-substitution.
+(D-Q8 «same skill on every seat», its `refresh` mode) — the conveyor writes 230 pages and the
+D17c rate is measured **with** the instrument, never without it. **Re-measured at
+`d266fdf01ea`** (non-negotiable 4, never copied from the earlier kickoff): `docs-author` and
+`agents/docs-form-auditor.md` are now **PRESENT** — S0q built them and merged them (#1807), so
+the earlier «ABSENT today» line is retired. The §10 contract is what turned that from a silent
+substitution into a checkable transition.
+
+All ten repo names above were re-measured with `git cat-file -e d266fdf01ea:<path>` on
+2026-09-21 — ten PRESENT, zero ABSENT — and the §10 runner confirms them on the host.
 
 Review seats: `reviewer` + [`agents/fidelity-auditor.md`](../../../agents/fidelity-auditor.md) at
 the PR boundary; for the S1 close (D22) and the D17c batch measurement, the content auditors
