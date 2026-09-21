@@ -10,7 +10,8 @@ vendored 2026-09-13 so a number in that table can be re-derived rather than trus
   presence, distribution over blocks and over whole messages).
 - `measure-interaction-shape.py` — turn-level classification (re-explain asks, handoff asks, bare
   confirmations, autonomy complaints, «жду го»-class agent waits, recap emissions and what follows
-  them).
+  them). `--dedup` counts a message once across transcripts (a resumed session copies
+  its messages); the numbers recorded below predate the flag and were read without it.
 - `measure-permission-denials.py` — real harness permission denials, ranked by tool-call prefix.
 
 All three are read-only over transcript files (stdlib only, no writes) and print a small
