@@ -2,7 +2,7 @@
 # Behaviour test for install.sh:transform_internal_refs() (sed-rewrites repo-internal
 # markdown links to GitHub blob URLs at install time).
 #
-# Single source of truth: install.sh:39-47 — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
+# Single source of truth: setup.d/lib.sh:146-167, via install.sh — sourced in lib-only mode (INSTALL_SH_LIB_ONLY=1)
 # so the function definition is available without running the install pipeline.
 #
 # Sub-tests covering the transform classes + idempotency:
@@ -48,7 +48,7 @@
 #       — 2026-07-25 handoff item 5: agents/*.md at repo root reach skills via
 #       ../.claude/skills/...; shipped to <consumer>/.claude/agents/ that ref resolves to
 #       <consumer>/.claude/.claude/skills/... (doubled segment). Blob URL, not relative:
-#       the target skill may be absent (aif-suite–gated). Leak: agents/fidelity-auditor.md:22.
+#       the target skill may be absent (aif-suite–gated). Leak: agents/fidelity-auditor.md:22. cite:historical incident record, the cited line gained text later
 #   5.  LEAVES ](../../../hooks/bar.sh) intact (consumer has .claude/hooks/ post-install)
 #   6.  idempotent — second pass produces no further change
 #

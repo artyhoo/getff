@@ -290,7 +290,7 @@ done
 # ============================================================================
 # SECTION D — Hook channel enumeration (every arm in .claude/settings.json)
 # ============================================================================
-printf '\n## Section D — Hook channel enumeration (registrations in .claude/settings.json:65-217)\n'
+printf '\n## Section D — Hook channel enumeration (registrations in .claude/settings.json:65-247)\n'
 printf '# Each row = one registered arm. Payload size = stdout bytes from a STUB invocation (timeout 3s,\n'
 printf '# stdin /dev/null). Hooks whose real payload requires a live CC hook-event JSON context or that\n'
 printf '# mutate state are marked `unmeasured` rather than probed. This is the only channel through which\n'

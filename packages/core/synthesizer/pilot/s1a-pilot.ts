@@ -6,7 +6,7 @@
 //
 // Run: NODE_PATH=/app/node_modules tsx packages/core/synthesizer/pilot/s1a-pilot.ts
 //
-// Mirrors gate-rule-tester.ts:137-164 (buildSingleRuleConfig + Linter.verify) — path (b):
+// Mirrors gate-rule-tester.ts:137-168 (buildSingleRuleConfig + Linter.verify) — path (b):
 // standalone script, avoids assembling a full SynthesisPlan object.
 
 import { createRequire } from 'node:module';

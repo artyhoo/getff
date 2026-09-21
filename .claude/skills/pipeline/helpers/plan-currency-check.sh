@@ -175,10 +175,10 @@ mkdir -p "${_PROMPTS_DIR_BASE}"
 } > "${_RAW_FILE}" 2>&1 || true
 
 # ── Emit compact digest to stdout (pipeline-ux Stage 1A) ─────────────────────
-# Line 1: header (test-asserted — plan-currency-check.test.ts:185)
+# Line 1: header (test-asserted — plan-currency-check.test.ts:197)
 echo "=== plan-currency-check: umbrella='${UMBRELLA}' ==="
 
-# Section headers (test-asserted — plan-currency-check.test.ts:199-204)
+# Section headers (test-asserted — plan-currency-check.test.ts:201-202)
 echo "--- open PRs (json) ---"
 echo "(see _plan-currency-raw.txt)"
 echo "--- merged PRs last 30 days (json) ---"
@@ -195,7 +195,7 @@ fi
 echo "--- research patches (last 10) ---"
 echo "(see _plan-currency-raw.txt)"
 
-# Reverse-currency section header (test-asserted — plan-currency-check.test.ts:179)
+# Reverse-currency section header (test-asserted — plan-currency-check.test.ts:192)
 echo "--- reverse-currency (L2 extension — reality → plan): UNTRACKED entries ---"
 
 # UNTRACKED lines to stdout (backward-compat — tests grep stdout for these).
@@ -204,7 +204,7 @@ if [[ -f "${_RAW_FILE}" ]]; then
   grep '^UNTRACKED-' "${_RAW_FILE}" 2>/dev/null || true
 fi
 
-# WARN line for missing wave plan (test-asserted — plan-currency-check.test.ts:269-275)
+# WARN line for missing wave plan (test-asserted — plan-currency-check.test.ts:270-271)
 if [[ ! -f "${MO_WAVE_PLAN}" ]]; then
   echo "(WARN: ${MO_WAVE_PLAN} not found — skipping reverse-currency checks)"
 fi

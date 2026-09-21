@@ -40,7 +40,7 @@ import crypto from 'node:crypto';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/deps-hash-check.sh');
-/** The shipped SOURCE copy (install.sh:261). HOOK above is the dogfood copy. */
+/** The shipped SOURCE copy (setup.d/10-skills.sh:202). HOOK above is the dogfood copy. */
 const HOOK_SOURCE = resolve(REPO_ROOT, 'packages/core/hooks/deps-hash-check.sh');
 
 /** Compute the same sha256 the hook computes for a given deps JSON string. */
@@ -418,7 +418,7 @@ describe('deps-hash-check.sh — UserPromptSubmit deps-drift context injector', 
 
   it('UNBASELINED: <pending> placeholder (not a sha256- baseline) → honest "not yet baselined" warning, NOT "deps changed" (GH #548)', () => {
     // Fresh-install state: install.sh seeds `deps-hash: <pending …>` (Option B, per
-    // install.sh:566). The placeholder is non-empty, so the hook STILL warns every prompt
+    // setup.d/30-templates.sh:36). The placeholder is non-empty, so the hook STILL warns every prompt
     // (the deliberate onboarding nudge) — but it must NOT claim deps "changed": nothing
     // changed and there was never a prior baseline.
     const pkg = { dependencies: { react: '^18.0.0' }, devDependencies: { vitest: '^4.0.0' } };

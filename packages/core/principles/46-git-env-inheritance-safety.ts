@@ -37,7 +37,7 @@
  * same answer: the invariant is relational over the whole repository and over shared state, so
  * it is not change-scoped — a change-scoped arm is green whenever only the other side moves.
  * Principle tests already run at pre-push through `principlesMetaSection`
- * (`packages/core/hooks/pre-push.ts:1611`), so this is the earliest reachable channel for a
+ * (`packages/core/hooks/pre-push.ts:1661`), so this is the earliest reachable channel for a
  * repo-wide property, not a retreat to CI. And the channel is reachable when it matters:
  * `core.bare=true` does not break linked worktrees, so a push from one still runs this suite.
  *

@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:564 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1415 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -67,7 +67,7 @@
 # this guard never fires. It exists for the *_LAYER_LIB_ONLY test seam at the foot of this file,
 # which sources the layer ALONE: before S-2 these bodies were inline and resolved under that seam;
 # after S-2 they do not, so pull lib.sh in on demand. Guarded on a helper name, never unconditional
-# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:267), so
+# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:290), so
 # re-sourcing it on the delivery path would drop already-staged refresh-baseline state.
 if ! declare -F _lane_log >/dev/null 2>&1; then
   # shellcheck source=setup.d/lib.sh
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:381, long before do_refresh at install.sh:1276).
+# (do_python_lane exits at install.sh:540, long before do_refresh at install.sh:1401).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:732 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -115,7 +115,7 @@ _py_copy_or_refresh() {
 # _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
 # Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
 # (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
-# orchestration-skills arm (install.sh:705).
+# orchestration-skills arm (install.sh:824).
 _py_skill_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     refresh_skill_with_transform "$1"
@@ -271,7 +271,7 @@ _py_sgconfig_merge() {
 # (ecosystem-wiring W5). The rule-bootstrap CLI --from-practice arm
 # (packages/core/install/rule-bootstrap-cli.ts) renders researched practice records SESSION-SIDE to
 # <consumer>/.getff/rules-research/<entryId>.yml — the durable researched home that SURVIVES
-# --refresh (refresh_safe rm-rf-replaces .getff/astgrep-rules from the template, lib.sh:126, so a
+# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1229, so a
 # researched rule can never live there as its only copy). This join re-assembles the scan dir on
 # EVERY delivery pass (install / --force / --refresh): each rules-research/*.yml is copied into
 # .getff/astgrep-rules/ so it fires via the consumer's single existing `ruleDirs:` entry (§Qd
@@ -616,7 +616,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (46-cargo.sh:262, 47-go.sh:229). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1599). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -680,7 +680,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (46-cargo.sh:262, 47-go.sh:229), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1599), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -1200,15 +1200,15 @@ $msgs"
 # them would deliver nothing. The replication is line-for-line from:
 #   - setup.d/05-mcp.sh:17-46       (context7 → .mcp.json, idempotency-guarded)
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
-#   - setup.d/10-skills.sh:92-94    (rule-research + rule-tests: copy_skill_with_transform)
-#   - setup.d/10-skills.sh:200-229  (deps-hash-check hook + UserPromptSubmit wiring)
+#   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
+#   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
 #   - setup.d/10-skills.sh:340-350  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
-#   - setup.d/20-agents.sh:66-77    (skill-context overrides via SHIPPED_DOCS iteration)
+#   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
-#   - setup.d/30-templates.sh:81    (AGENTS.md)
+#   - setup.d/30-templates.sh:99    (AGENTS.md)
 #
-# The python lane has NO STACK context (it bypasses the npm stack pick at install.sh:200+), so the
+# The python lane has NO STACK context (it bypasses the npm stack pick at install.sh:257+), so the
 # stack-specific ARCHITECTURE/RULES branches in 30-templates.sh don't apply — we always use the
 # default ts-server source (canonical SSOT).
 #
@@ -1222,14 +1222,14 @@ _py_deliver_agent_surface() {
   # Replicates setup.d/10-skills.sh:11-50 (getff, tool-bootstrapping) + 92-94 (rule-research, rule-tests).
   mkdir_safe "$PROJECT_ROOT/.claude/skills"
   # getff + tool-bootstrapping ship from repo-root skills/ (not .claude/skills/). Same direct cp
-  # + transform pattern as 10-skills.sh:22-30 (getff) and :43-49 (tool-bootstrapping) — the
+  # + transform pattern as 10-skills.sh:27-31 (getff) and :45-47 (tool-bootstrapping) — the
   # up-dir repo refs in getff/SKILL.md would dangle on a consumer tree without this pass.
   # A2-4: refresh-aware (was an inline skip-if-exists block). _py_plain_skill_deliver keeps the
   # install-path behaviour byte-for-byte and adds the --refresh branch + `.override.md` escape.
   for _py_skill in getff tool-bootstrapping; do
     _py_plain_skill_deliver "$_py_skill"
   done
-  # rule-research + rule-tests ship from .claude/skills/ via copy_skill_with_transform (10-skills.sh:92-94).
+  # rule-research + rule-tests ship from .claude/skills/ via copy_skill_with_transform (10-skills.sh:143-145).
   for _py_skill in rule-research rule-tests; do
     _py_skill_copy_or_refresh "$_py_skill"   # A2-4: refresh-aware
   done
@@ -1248,9 +1248,9 @@ _py_deliver_agent_surface() {
   done
 
   # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (PostToolUse:Edit|Write|MultiEdit) ─
-  # Replicates setup.d/10-skills.sh:200-229 (deps-hash-check) + 201-211 (inject-matching-rule).
+  # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 340-350 (inject-matching-rule).
   # Both wired into .claude/settings.json via register_cc_hook — the canonical helper. The inline
-  # settings-creation block in 10-skills.sh:211-229 was written before register_cc_hook existed;
+  # settings-creation block in 10-skills.sh:211-236 was written before register_cc_hook existed;
   # register_cc_hook handles the same create-or-merge + idempotence shape strictly better.
   mkdir_safe "$PROJECT_ROOT/.claude/hooks"
   _py_settings="$PROJECT_ROOT/.claude/settings.json"
@@ -1346,7 +1346,7 @@ _py_deliver_agent_surface() {
   # (install.sh:1366). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
-  # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-82). AGENTS.md.template sends the
+  # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
   # first agent session to .ai-factory/DESCRIPTION.md + ARCHITECTURE.md; without materialization
   # the references dangle on landing (the framework's first impression).
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
@@ -1363,13 +1363,13 @@ _py_deliver_agent_surface() {
   copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst" arch-header
   rewrite_arch_sot_header "$_py_arch_dst" "$_py_arch_existed"
 
-  # skill-context overrides (replicates 20-agents.sh:66-77). SHIPPED_DOCS is in scope from install.sh:200.
+  # skill-context overrides (replicates 20-agents.sh:66-79). SHIPPED_DOCS is in scope from install.sh:200.
   # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
   for _py_doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
     case "$_py_doc" in
       packages/core/templates/shared/skill-context/*/SKILL.md)
         _py_sc="${_py_doc#packages/core/templates/shared/skill-context/}"; _py_sc="${_py_sc%/SKILL.md}"
-        # Same suite-gate as 20-agents.sh:64-65 — aif-orchestrator-discipline pairs with the gated
+        # Same suite-gate as 20-agents.sh:73-75 — aif-orchestrator-discipline pairs with the gated
         # orchestrator-worker-discipline agent (not in the python curated subset, so this skips too).
         if [ "$_py_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi

@@ -2,7 +2,7 @@
 # setup.d/70-deps.sh — §7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §7 (install.sh:1358-1440), §8 (install.sh:1442-1538), §8b (install.sh:1540-1595)
+# S0 rows: §7 (install.sh:1358-1440), §8 (install.sh:1442-1538), §8b (install.sh:1540-1595) cite:historical S0 inventory rows = pre-extraction install.sh line ranges
 # Depends on: 60-ci (eslint.config.mjs, detect-r2-boundary, etc. already written)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O9: §7 declare devDeps BEFORE §8 install (intra-layer order)

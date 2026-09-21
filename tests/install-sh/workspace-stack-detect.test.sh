@@ -32,7 +32,7 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 # ws_run <fixture_dir> <shell-snippet> — source install.sh in lib-only mode with PROJECT_ROOT=cwd
 # set to the fixture (install.sh:56 `PROJECT_ROOT="$(pwd)"`), then run the snippet. Mirrors the
 # stack-autodetect.test.sh harness. Helpers are exposed because lib.sh is sourced before the
-# INSTALL_SH_LIB_ONLY guard (install.sh:61/50). set -euo pipefail is active (install.sh:52).
+# INSTALL_SH_LIB_ONLY guard (install.sh:61/68). set -euo pipefail is active (install.sh:52).
 ws_run() {
   local dir="$1" snippet="$2"
   ( cd "$dir" && INSTALL_SH_LIB_ONLY=1 bash -c 'source "'"$INSTALL_SH"'"; '"$snippet" 2>/dev/null )

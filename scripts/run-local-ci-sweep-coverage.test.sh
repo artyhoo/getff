@@ -7,7 +7,7 @@
 # the class is live — during #1355 a hand-listed row naming four `scripts/*.test.sh` files was
 # already one short (`scripts/host-verify-coverage.test.sh`, wired to CI in #1339) before it merged,
 # and by the time THIS test was written a third consumer-matrix cell
-# (`consumer-matrix-npm-tarball-cell`, audit-self.yml:1607) had shipped without reaching the sweep's
+# (`consumer-matrix-npm-tarball-cell`, audit-self.yml:1607) had shipped without reaching the sweep's cite:historical job location when this test was written
 # own UNREACHABLE list. A gate whose failure mode is "nobody re-read the workflow" is bare attention,
 # not a mechanism (.claude/rules/attention-is-not-a-mechanism.md §1).
 #
@@ -119,7 +119,7 @@ unreachable_allowlist() {
 # ── Extraction ─────────────────────────────────────────────────────────────────────────────────
 # Single-line `run:` steps only (see CEILING). Leading `VAR=value` assignments are stripped so
 # `PREPUSH_ONLY=s17 npx tsx …` classifies by its real interpreter — without that, two live gate
-# commands (audit-self.yml:1147, :856) would sit outside the population unseen.
+# commands (audit-self.yml:1153, :1165) would sit outside the population unseen.
 # `- run: cmd` (step written without a `name:`) is legal YAML and unused in this workflow today —
 # which is exactly why the leading `- ` must be optional here rather than assumed away: the first
 # nameless step to land would otherwise drop out of the population silently.

@@ -174,7 +174,7 @@ interface Surface {
 
 // Consumer-mirror surfaces removed 2026-05-25 (Item 12 closure): install.sh now
 // generates the consumer copy at install time from these authoring files via
-// transform_internal_refs() — see install.sh:39-47 + tests/install-sh/transform-internal-refs.test.sh.
+// transform_internal_refs() — see setup.d/lib.sh:146-167 + tests/install-sh/transform-internal-refs.test.sh.
 const SURFACES: readonly Surface[] = [
   {
     label: 'authoring SKILL.md §10',
@@ -263,8 +263,8 @@ const PARK_CHIP_SURFACES: readonly Surface[] = [
 ];
 
 // Night-end chip surface: the sole v3 §7 emitter. Like every other surface in this file it is
-// a SHIPPED skill (`GETFF_SKILLS_FACTORY`, setup.d/lib.sh:60 — `arch`/`pipeline` ship at the env
-// tier, setup.d/lib.sh:59), so shipping is a shared property here, not the discriminator; the
+// a SHIPPED skill (`GETFF_SKILLS_ENV`, setup.d/lib.sh:64 — the same env tier `arch`/`pipeline`
+// ship at), so shipping is a shared property here, not the discriminator; the
 // discriminator is unattended emission (see the family comment above).
 const NIGHT_CHIP_SURFACES: readonly Surface[] = [
   {

@@ -79,7 +79,7 @@ fire_env 0 "$PAYLOAD"
 # live probe in docs/meta-factory/research-patches/2026-07-24-posttooluse-channel-verification.md
 # §2 measured zero bytes arriving in the model's context. The warning's consumer is the
 # orchestrator MODEL, so the same text must also go out as stdout JSON
-# hookSpecificOutput.additionalContext (the shape .claude/hooks/warn-subagent-report.sh:57-59
+# hookSpecificOutput.additionalContext (the shape .claude/hooks/warn-subagent-report.sh:54-56
 # already uses). The stderr copy stays for terminal/CI readers; the old assertion pinned the
 # DEFECT ("must not contain additionalContext") and is inverted here.
 CC_CTX="$(printf '%s' "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["hookSpecificOutput"]["hookEventName"]); print(d["hookSpecificOutput"]["additionalContext"])' 2>/dev/null || true)"

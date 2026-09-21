@@ -21,7 +21,7 @@ copy_safe "$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh" "$PROJECT_ROOT/pa
 # {utils/run-check.ts, utils/git.ts, checks/prior-art.ts, checks/s17.ts,
 # checks/docs-card.ts, checks/unpinned-tool-install.ts} + dynamic await-import() targets
 # {checks/guard-liveness.ts, checks/cmd-script-liveness.ts} — these die()/push-block
-# when absent (pre-push.ts:406-407 → process.exit(1)); NOT graceful degradation.
+# when absent (pre-push.ts:612-613 → process.exit(1)); NOT graceful degradation.
 # The transitive eslint-rules barrel is shipped separately below. (#735)
 for ts_hook in \
   pre-push.ts \

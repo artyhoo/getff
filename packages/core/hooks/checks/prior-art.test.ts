@@ -862,7 +862,7 @@ describe('checkTrailerBody() — C1 existence arm', () => {
     // nothing for the C1 arm to resolve; the K-5 grammar still requires it to
     // name SOME resolvable referent, here an in-repo artefact path.
     const body =
-      'feat: x\n\nPrior-art: novel capability, no upstream analog after the 6-item sweep; nearest in-repo precedent setup.d/lib.sh:359.';
+      'feat: x\n\nPrior-art: novel capability, no upstream analog after the 6-item sweep; nearest in-repo precedent setup.d/lib.sh:359.'; // cite:historical fixture data, not a live pointer
     expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(0);
   });
 
@@ -1261,7 +1261,7 @@ describe('checkTrailerBody() — PLACEHOLDERS set membership mutation-killing (W
 });
 
 describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () => {
-  // Kills prior-art.ts:62 StringLiteral: .replace(/[...]/g, '') -> .replace(/[...]/g, 'Stryker was here!')
+  // Kills prior-art.ts:175 StringLiteral: .replace(/[...]/g, '') -> .replace(/[...]/g, 'Stryker was here!')
   // With original strip, 'todo.' → 'todo' (placeholder). With non-empty replace, 'todo.' → 'todoStryker was here!' (NOT placeholder).
   // Test: rationale of punctuated placeholder words → should be all-placeholder → code 1 (invalid trailer).
   it('punctuated placeholder words (todo. na. tbd.) are treated as all-placeholder (code 1)', () => {
@@ -1487,7 +1487,7 @@ describe('checkTrailerBody() — resolvable-referent grammar (K-5)', () => {
     ['SSOT row', VALID_CITATION],
     [
       'artefact path',
-      'Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom',
+      'Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom', // cite:historical fixture data, not a live pointer
     ],
     [
       'research patch',

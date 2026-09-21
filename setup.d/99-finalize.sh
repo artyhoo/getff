@@ -2,8 +2,8 @@
 # setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657),
-#          ignore_shipped_configs CALL (install.sh:1659-1661), Done (install.sh:1663-1705)
+# S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657), cite:historical pre-split install.sh lines, code moved into this file by #719
+#          ignore_shipped_configs CALL (install.sh:1659-1661), Done (install.sh:1663-1705) cite:historical pre-split install.sh lines, code moved into this file by #719
 # Depends on: 70-deps (ts-morph installed; DEPS_INSTALLED + DEVDEPS set),
 #             60-ci (_r2_verdict set), ALL prior layers (SKIPPED fully accumulated)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone

@@ -21,7 +21,7 @@
  *
  * That predicted failure had already materialised **twice over**: `shipped-prettier` (:99) and
  * `framework-fresh-install-validate-multistack` (:1094) were both unwired on `origin/staging`
- * at 2026-08-10, and `.claude/orchestrator-prompts/launch-preannounce-track/kickoff.md:46` had
+ * at 2026-08-10, and `.claude/orchestrator-prompts/launch-preannounce-track/kickoff.md:46` had cite:historical quotes the kickoff as of 2026-08-10, order since replaced by a DONE note
  * ordered exactly this fix once before — «immediately, one line, before anything else» — after
  * which it never happened and the list drifted further. A fix without a mechanism regressed
  * once already; this file is the mechanism.

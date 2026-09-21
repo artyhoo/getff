@@ -24,7 +24,7 @@
  *
  * Skips gracefully when jq is unavailable (the ZCode JSON branch needs jq).
  * Precedent: inject-project-digest.test.ts (temp-repo + dual-event pattern),
- * deps-hash-check.test.ts:279 (ZCode schema arm).
+ * deps-hash-check.test.ts:402 (ZCode schema arm).
  */
 import { describe, it, expect } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';

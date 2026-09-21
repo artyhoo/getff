@@ -32,7 +32,7 @@ import {
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-// NOTE: this file ships verbatim into consumer projects (install.sh:929-938), so a
+// NOTE: this file ships verbatim into consumer projects (install.sh:1173-1183), so a
 // static bare-package import of anything outside the consumer's tree crashes the hook
 // with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
 // imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
@@ -410,7 +410,7 @@ function priorArtSection(rb: ResolvedBase): void {
         'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
         'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n' +
         'A positive line must also name a resolvable referent — an SSOT row\n' +
-        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\n' +
+        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\n' + // cite:historical example data, not a live pointer
         'issue/PR reference (#1271). See CLAUDE.md §`Prior-art:` trailer syntax.\n\n',
     );
     process.exit(1);
@@ -1852,9 +1852,9 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:34-44 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:46-65 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:125-127 — derivation of
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derivation of
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
@@ -1900,13 +1900,13 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
  * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
- * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:279-281).
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:286-288).
  * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
  * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1312 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1320 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
   '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1335 (ledger A2-10)
@@ -1923,7 +1923,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1010 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1024 (conditional starter)
 ];
 
 /**
@@ -1987,7 +1987,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:379-424) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:756-814) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
@@ -2034,7 +2034,7 @@ export function isFrameworkShippedMarkdown(
 
 // plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)
 // (24-plugin-manifest-integrity.test.ts) compares bytes, and
-// scripts/generate-plugin-twins.sh:183-185 states the agent arm is a bare `cp`:
+// scripts/generate-plugin-twins.sh:184-186 states the agent arm is a bare `cp`:
 // "No header, no marker, no transform".
 //
 // The twin sits ONE DIRECTORY DEEPER than its source, so a `](../x)` link that
@@ -2049,7 +2049,7 @@ export function isFrameworkShippedMarkdown(
 // same section; (b) a twin can never legitimately carry content its source does not —
 // principle 24(d) goes RED on any divergence, and the generator REFUSES to write a twin
 // that matches neither the source nor that source at HEAD
-// (generate-plugin-twins.sh:205-224). So the twin's link text is always some source's
+// (generate-plugin-twins.sh:207-228). So the twin's link text is always some source's
 // link text, checked at the source path.
 //
 // (c) — added 2026-09-06 (#1597 ledger L-3), because (a)+(b) covered only the link's

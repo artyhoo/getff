@@ -45,7 +45,7 @@
  *   4. `git -C <hostRepo> push origin <sha>:refs/heads/<branch>` — the real push, which
  *      runs `.husky/pre-push` for real. Pushing a ref the host checkout is NOT on is
  *      supported by design: the hook derives its range from git's push stdin (`local_sha`),
- *      not from HEAD (`packages/core/hooks/pre-push.ts:165-171`, the 2026-06-17
+ *      not from HEAD (`packages/core/hooks/pre-push.ts:165-176`, the 2026-06-17
  *      cross-checkout fix). Host repo from --host-repo / RUNTIME_BRIDGE_HOST_REPO, else
  *      the cwd's `git rev-parse --show-toplevel`.
  *

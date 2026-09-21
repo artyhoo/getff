@@ -19,7 +19,7 @@
  * the MCP tool pattern `^mcp__<server>__`.
  *
  * SCOPE — the framework's *shipped* delivery surface, exactly what `install.sh`
- * copies (install.sh:13,108-120):
+ * copies (install.sh:13,108-120): cite:historical install.sh:13 listed these 4 dirs when written; skill tiers now live at setup.d/lib.sh:63-65
  *   - agents/*.md                                       (the #551 surface)
  *   - skills/<slug>/SKILL.md                            (top-level shipped skills)
  *   - .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/SKILL.md
@@ -68,7 +68,7 @@ export const CC_CANONICAL_TOOLS: ReadonlySet<string> = new Set([
 /** MCP tools are `mcp__<server>__<tool>` — server segment has no underscores. */
 const MCP_TOOL_RE = /^mcp__[^_]+__/;
 
-/** The 4 `.claude/skills/` companion skills install.sh ships (install.sh:13). */
+/** The 4 `.claude/skills/` companion skills install.sh ships (install.sh:13). cite:historical install.sh:13 listed these 4 dirs when written; skill tiers now live at setup.d/lib.sh:63-65 */
 const SHIPPED_CC_SKILL_DIRS = ['pipeline', 'dispatcher', 'aif-doctor', 'template-audit'];
 
 export interface ToolViolation {
@@ -164,7 +164,7 @@ export function checkFile(
     .map((entry) => ({ file: relPath, entry, base: baseToolName(entry) }));
 }
 
-// ── Shipped-surface enumeration (mirrors install.sh:13,108-120) ───────────────
+// ── Shipped-surface enumeration (mirrors install.sh:13,108-120) ─────────────── cite:historical install.sh:13 listed these 4 dirs when written; skill tiers now live at setup.d/lib.sh:63-65
 
 /** Every shipped `agents/*.md` (the #551 surface). */
 export function collectAgentFiles(): string[] {

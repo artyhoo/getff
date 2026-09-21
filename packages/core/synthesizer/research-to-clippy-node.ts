@@ -17,7 +17,7 @@
 // clippy-incompatible values — `selectorClass:'syntax'` (research-to-node.ts:196, which render-clippy
 // REFUSES with FF7001), astgrep kinds `{call,attribute,import}` + a `pattern` param, and a default
 // severity of `'error'` (research-to-node.ts:179, which render-clippy DEGRADES with FF7003). Clippy's
-// RENDER CONTRACT (Phase-1-grounded, render-clippy.ts:81-133) needs ALL of: `selectorClass:'type-aware'`,
+// RENDER CONTRACT (Phase-1-grounded, render-clippy.ts:83-156) needs ALL of: `selectorClass:'type-aware'`,
 // `params:{kind ∈ {method,type,macro}, path:<FQ-path>}` (a fully-qualified path to ban, NOT an astgrep
 // pattern), `defaultSeverity:'warning'` (→ `rendered`; `error`/`note` → `degraded`). Extending the
 // astgrep bridge to carry both shapes would risk the landed LG-S1 for zero reuse gain. So this is a

@@ -12,7 +12,7 @@
  * ## Why this gate exists
  *
  * `.claude/orchestrator-prompts/` is NEVER delivered to a consumer: the only install action is
- * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:86-87,
+ * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:98-100,
  * setup.d/30-templates.sh:17). The skills are shipped byte-for-byte
  * (`copy_skill_with_transform`, setup.d/lib.sh:2158), so a fence that hardcodes the framework
  * path executes against a directory that cannot exist — silently, because every such fence
@@ -203,7 +203,7 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
     expect(
       report,
       `These fenced lines hardcode \`${FRAMEWORK_ORCH_HOME}\`, which no consumer install ever ` +
-        `receives (setup.d/lib.sh:86-87) — the fence runs against a directory that cannot exist:\n` +
+        `receives (setup.d/lib.sh:98-100) — the fence runs against a directory that cannot exist:\n` +
         report.join('\n') +
         `\n\nResolve the home instead: \`"$(bash "\${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"\`. ` +
         `If a fence genuinely must name the framework path, append a same-line ` +

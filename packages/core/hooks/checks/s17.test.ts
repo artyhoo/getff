@@ -19,7 +19,7 @@ import {
 const GENERIC =
   '§1.7: forward-check applied — Checked all rules, compliant. Backward-check — complete sweep performed.';
 const CITATION =
-  '§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:216 mutation arm verified; backward: 0 new .md files';
+  '§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified; backward: 0 new .md files'; // cite:historical fixture data, not a live pointer
 const BOOTSTRAP =
   '§1.7 Bootstrap: introduces substance arm for §1.7 trailer with 2026-06-10 calibration window';
 const RECENT = '2026-05-21'; // after cutoff
@@ -65,7 +65,7 @@ describe('checkS17TrailerBody — ported pre-push.test.sh scenarios', () => {
   });
   it('7. prose mention + valid §1.7: trailer → pass (code 0)', () => {
     const b = body(
-      'I performed §1.7 forward and backward checks per the rule.\n§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:216 verified; backward: 0 new .md files',
+      'I performed §1.7 forward and backward checks per the rule.\n§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 verified; backward: 0 new .md files', // cite:historical fixture data, not a live pointer
     );
     expect(checkS17TrailerBody(b, RECENT).code).toBe(0);
   });

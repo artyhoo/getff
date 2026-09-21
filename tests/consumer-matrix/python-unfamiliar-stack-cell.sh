@@ -36,8 +36,8 @@
 # RED, never SKIP. ast-grep is installed PINNED (ci-tool-pinning.md Rule A — version-pin
 # bare run: installs). Deterministic + API-free.
 #
-# CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix-python-unfamiliar-stack-cell`
-# job at .github/workflows/audit-self.yml:1563. Unlike its two sibling cells this one is
+# CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
+# (.github/workflows/audit-self.yml:2088). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
 # host state OUTSIDE its tmpdir. Line 346 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
@@ -78,7 +78,7 @@ git config user.name CI
 
 # pyproject.toml: minimal PEP-621 project with FastAPI + SQLAlchemy as direct deps.
 # These two packages are what the vendored METADATA will declare — Tier-1 needs them
-# present as DIRECT deps (listDirectDeps in ecosystem-python.ts:249 reads [project]
+# present as DIRECT deps (listDirectDeps in ecosystem-python.ts:250 reads [project]
 # dependencies). `dependencies = [...]` on a single line because that is the shape
 # pipAdapter's extractPep621Deps regex matches (single-line array, the parser's
 # documented input shape).
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:854-856.
+# per setup.d/45-python.sh:1215-1217.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -337,7 +337,7 @@ sed 's/^/    /' "$RENDERED"
 
 # Re-run install.sh python (--refresh) so _py_join_researched_rules joins the new rule
 # into .getff/astgrep-rules/ (the dir sgconfig.yml points ast-grep at). The join runs
-# on EVERY pass (setup.d/45-python.sh:203), so the refresh is what surfaces the rule
+# on EVERY pass (setup.d/45-python.sh:276), so the refresh is what surfaces the rule
 # to ast-grep's ruleDirs.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --refresh --force > "$LOG" 2>&1 \
   || { echo "----- refresh install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python --refresh exited non-zero"; }
@@ -465,7 +465,7 @@ echo "  ✓ REJECT arm: research-only verdict LOUD + no rule file written (hones
 step "R1-input assertion — delivered workflow branches: [master]"
 
 # The python lane delivers .github/workflows/getff-python.yml via deliver_getff_workflow
-# (setup.d/45-python.sh:342 + setup.d/lib.sh:1308), which sed-substitutes
+# (setup.d/45-python.sh:472 → setup.d/lib.sh:1483,1308), which sed-substitutes
 # `branches: [main]` → `branches: [master]` because the consumer's default branch
 # (git symbolic-ref origin/HEAD) is master. The `getff-python.yml` filename is
 # namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:458).

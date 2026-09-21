@@ -167,7 +167,7 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# Same cascade as end-of-turn-reminder.sh:245-253 — CC's own session title first (present
+# Same cascade as end-of-turn-reminder.sh:596-635 — CC's own session title first (present
 # even when the first user message carries no extractable text block), head of the first
 # user instruction second. grep-then-jq avoids slurping a large transcript.
 anchor=""
@@ -186,7 +186,7 @@ fi
 # `select(.isSidechain != true)` is REQUIRED and load-bearing for the same reason it is in
 # the D7 context-arm: subagent turns share the transcript file, so without it the residue can
 # capture a sub-agent's recap instead of the main thread's. The `"(type|role)"` alternation
-# mirrors end-of-turn-reminder.sh:269 (CC writes an outer `type`; the ZCode synthetic
+# mirrors end-of-turn-reminder.sh:657 (CC writes an outer `type`; the ZCode synthetic
 # producer writes only `message.role`) — carried here so the extractor is not narrower than
 # the transcript shapes the repo already knows about.
 body=""

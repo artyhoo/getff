@@ -125,7 +125,7 @@ const CITATION_RE =
 const MD_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 /**
  * Bare backreference — `` `:272` `` — a second line in the file the nearest
- * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271`
+ * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271` cite:historical example of the backref form, not a live pointer
  * (`rustup toolchain install …`) + `:272` (`rustup default …`)"). Left unchecked,
  * `--write` half-fixes such a sentence: the anchor moves, the sibling does not.
  * Resolution is deterministic — nearest preceding resolved citation, same line.
@@ -243,8 +243,8 @@ function tracked(basename) {
  *   spec.
  * - BENEFIT on the incident that raised the question: ZERO. PR #1765's eight birth-wrong
  *   citations would NOT have fired here. Verified at the pre-fix tree `7b600f2e7d3`:
- *   both cited coordinates are non-blank prose (`audit-self.yml:772-773` is the
- *   `--strip-components` comment, `check-hook-marker.sh:172-175` is comment prose), so
+ *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the cite:historical coordinates at pre-fix tree 7b600f2e7d3
+ *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so cite:historical coordinates at pre-fix tree 7b600f2e7d3
  *   ARM 2 cannot see them and ARM 1 is green by construction on a citation wrong at
  *   birth. ARM 3, the arm that would have covered that class, was built and rejected in
  *   the same patch.
@@ -714,7 +714,7 @@ function renumber(findings) {
       // The trailing backtick is part of a bare backreference's token (`` `:272` ``),
       // so an end-anchored `:\d+$` never matches one and `--write` silently half-fixed
       // the sentence: the anchor moved, the sibling did not. Measured 2026-09-13 on
-      // `.claude/rules/evidence-regeneration.md:77` — and arm 1 then goes BLIND to the
+      // `.claude/rules/evidence-regeneration.md:77` — and arm 1 then goes BLIND to the cite:historical line as measured on 2026-09-13
       // sibling, because rewriting the line makes its blame uncommitted.
       const fixed = f.token.replace(/:\d+(-\d+)?(`?)$/, `:${span}$2`);
       lines[f.srcLine - 1] = lines[f.srcLine - 1].split(f.token).join(fixed);

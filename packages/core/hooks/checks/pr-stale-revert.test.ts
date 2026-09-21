@@ -313,7 +313,7 @@ describe('collectArchaeology — range walk over an injected git', () => {
 });
 
 /**
- * Same defect, same day, sibling copy (pr-body-fidelity.ts:89 / pr-stale-revert.ts:114).
+ * Same defect, same day, sibling copy (pr-body-fidelity.ts:166 / pr-stale-revert.ts:166 — both now call utils/markdown-comments.ts).
  * A body that DOCUMENTS an HTML-comment marker inside code used to lose every line
  * between that `<!--` and the next real `-->` — including the escape token itself,
  * so the author was told to add a token they had added.

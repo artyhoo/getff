@@ -6,7 +6,7 @@
  * Fails CLOSED on its own misconfiguration — a false PASS is the dangerous direction
  * here, because the gate's whole subject is content that vanished silently:
  *   - an unset/renamed env var must never degrade the gate into a permanently-green
- *     no-op (BASE_REF arm copied from pr-body-fidelity-bin.ts:9-14);
+ *     no-op (BASE_REF arm copied from pr-body-fidelity-bin.ts:14-17);
  *   - an unresolvable BASE_SHA/HEAD_SHA, or an unresolvable merge-base, means the
  *     checkout is shallow or landed on the synthetic `refs/pull/N/merge` commit. Both
  *     produce an EMPTY file set, which is indistinguishable from "clean" — so they

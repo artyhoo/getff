@@ -9,7 +9,7 @@
 //
 // Reuse is by IMPORT (parseCsv, buildPayload) or COPY-with-source-comment (kickoff §2):
 //   choose/mcnemar/kappa  — copied from scripts/triage-s0-score.mjs:33-52 (frozen, never edit)
-//   arm-B differential    — copied from scripts/triage-s2-labels-check.mjs:38,91-108, extended
+//   arm-B differential    — copied from scripts/triage-s2-labels-check.mjs:38,94-111, extended
 //   GRADE_TOKEN/FINDING_ID — copied from scripts/triage-corpus-probe.mjs:43-44 (module-private)
 //
 // Usage: node scripts/triage-s4-score.mjs           → scoring report (needs judge artifacts)

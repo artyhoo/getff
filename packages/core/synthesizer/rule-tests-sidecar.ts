@@ -25,7 +25,7 @@
 // no rule-tests exemption), so the framework's OWN sidecar instances CANNOT live there. They are
 // committed with the live-generation fixtures under
 // packages/core/synthesizer/fixtures/live-generation/rule-tests/<backend>.json — the same committed-
-// path precedent render-researched-astgrep.ts:53-55 (LIVE_GEN_DIR) uses for the rendered artifacts
+// path precedent render-researched-astgrep.ts:55-57 (LIVE_GEN_DIR) uses for the rendered artifacts
 // the samples fire against.
 //
 // NAMING-INVERSION FOOTGUN (spec §2; to-node.ts:112-114): the node speaks positive/negative, the

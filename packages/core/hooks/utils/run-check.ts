@@ -48,7 +48,7 @@ export const SPAWN_FAILURE_EXIT_CODE = 127;
  * (EINVAL, surfaced here as ENOENT). Measured on Windows 11 / Node 24.19.0:
  * `node`, `git`, `bash`, `python3`, `ruff` and `actionlint` all spawn bare and
  * only `npm` + `npx` fail — so this rewrite covers the whole failing set. The
- * user-visible symptom was `pre-push.ts:958` announcing "npx not found — install
+ * user-visible symptom was `pre-push.ts:1008` announcing "npx not found — install
  * Node.js" on a machine running the hook *under* Node.
  *
  * `shell: true` is deliberately NOT the fix: runCheck is the single funnel for

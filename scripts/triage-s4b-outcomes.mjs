@@ -10,7 +10,7 @@
 // Reuse is by IMPORT (parseCsv from the frozen probe — kickoff §2: import, never edit):
 //   strata/grouping derivation — the kickoff §3.1/§3.2 one-liners, verbatim logic
 //   canonical-block + prose reconciliation — the S4 arm-E pattern (triage-s4-score.mjs:406-436)
-//   blob-freeze shape — triage-s4-score.mjs arm F (:435-459), base moved to the S4 squash
+//   blob-freeze shape — triage-s4-score.mjs arm F (:438-462), base moved to the S4 squash
 //
 // Usage: node scripts/triage-s4b-outcomes.mjs            → driver: raw → s4b-outcomes.csv + numbers
 //        node scripts/triage-s4b-outcomes.mjs --seats    → seat-input JSON (30 groups) to stdout
@@ -29,7 +29,7 @@ const SEATS = process.argv.includes('--seats');
 
 // §3.8 arm F: the S4 squash merge — never HEAD, never merge-base (both make the arm vacuous).
 const FROZEN_S4 = 'fa8da9406c';
-// §3.2: seats run on the pinned model; a substitution is a PARK (triage-s4-score.mjs:26 precedent).
+// §3.2: seats run on the pinned model; a substitution is a PARK (triage-s4-score.mjs:29 precedent).
 const PINNED_MODEL = 'sonnet';
 const POPULATIONS = ['audit-1369', 's4-round7', 'arch-reviews', 'kickoff-loops', 'td-m3', 'research-forks'];
 const CORPUS_DIR = join(REPO_ROOT, 'docs/meta-factory/triage-corpus');

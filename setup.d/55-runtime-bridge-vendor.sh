@@ -36,7 +36,7 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:405-408).
+#                        install.sh:588-589).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
 #   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
@@ -97,16 +97,16 @@ fi
 # Real install path.
 mkdir_safe "$PROJECT_ROOT/.claude/vendor"
 # Wipe + recopy (vendor updates land via re-running ./setup --force; matches
-# the existing skills/* idempotent wipe-and-recopy pattern in 10-skills.sh:22).
+# the existing skills/* idempotent wipe-and-recopy pattern in 10-skills.sh:31).
 # Wipe + recopy + rewrite repo-internal relative refs in the DELIVERED markdown (2026-08-17).
 # This bare `cp -r` used to be the only shipped-markdown path in setup.d/ that skipped
-# transform_internal_refs (cf. 10-skills.sh:29,48 · 20-agents.sh:53 · lib.sh:2088,930), so
+# transform_internal_refs (cf. 10-skills.sh:31,48 · 20-agents.sh:53 · lib.sh:180), so
 # vendor/README.md's two `](../../../…)` refs shipped verbatim. They resolve in-repo —
 # packages/runtime-bridge/vendor/ sits three levels below the repo root, the same depth as
 # .claude/vendor/runtime-bridge/ below a consumer root — which is exactly why the breakage is
 # invisible here and fatal there: on a consumer both targets are absent, and pre-push §8
 # (`lychee --offline` over changed *.md) goes red on the FIRST push. That is the 2026-07-10
-# flat-install smoke incident (lib.sh:70-98).
+# flat-install smoke incident (lib.sh:86-93).
 # Delivery-time, not source-time, ON PURPOSE: PR #1417 keeps this vendor drop byte-identical to
 # its tracked source, and rewriting the delivered copy preserves that (the tracked file is not
 # touched) where re-authoring the README would break it.

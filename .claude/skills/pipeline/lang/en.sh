@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# @cc-only-rationale: NONE — this pack IS shipped (the /pipeline skill ships via install.sh:237-256). EN is the canonical default.
+# @cc-only-rationale: NONE — this pack IS shipped (the /pipeline skill ships via setup.d/10-skills.sh:164-169, the env+ skill loop). EN is the canonical default.
 # @dual-pair: pipeline-lang-i18n
 #
 # English emitted-token pack for the /pipeline skill session report.

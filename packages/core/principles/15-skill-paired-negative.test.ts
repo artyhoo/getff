@@ -11,7 +11,7 @@
  *   grandfathered must carry a body-section paired-negative block (design §3) — both
  *   `## Without this skill` and `## With this skill`, each non-trivial, and the two halves
  *   differing (anti-tautology — mirrors principle 02's bad !== good at
- *   02-paired-negative-test.test.ts:80).
+ *   02-paired-negative-test.test.ts:214).
  *
  * Grandfather (design §5): an explicit EXEMPT_SKILLS allowlist — mirrors principle 09's
  *   EXEMPT_PATTERNS mechanism (an allowlist, NOT a date-cutoff). The 5 skills predating this

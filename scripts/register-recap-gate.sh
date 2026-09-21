@@ -150,7 +150,7 @@ jq -e . "$ARM_SETTINGS" >/dev/null || fail "settings.json is malformed — fix i
 # ADVISORY, never fatal: in --user mode this checkout's own settings.json is neither read nor
 # written, so a problem with it must not block an arm that would otherwise succeed. It is still
 # worth saying: `hooks.Stop` lives in THAT file, and a broken one disables the very hook the flag
-# arms — for this project. (The sibling scripts/register-handoff-gate.sh:184 checks it fatally and
+# arms — for this project. (The sibling scripts/register-handoff-gate.sh:133 checks it fatally and
 # is right to, because it genuinely reads $SETTINGS afterwards; this script verifies by grepping
 # the hook file instead, so that justification does not carry over.)
 if [[ "$ARM_SETTINGS" != "$SETTINGS" ]]; then

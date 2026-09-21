@@ -5,7 +5,7 @@
 #
 # ── A2-4 ────────────────────────────────────────────────────────────────────────────────────────
 # `install.sh python --refresh` cannot reach install.sh's do_refresh() at all: do_python_lane exits
-# at install.sh:381, and do_refresh lives at :1276. Inside _py_deliver_agent_surface every delivery
+# at install.sh:540, and do_refresh lives at :740. Inside _py_deliver_agent_surface every delivery
 # was skip-if-exists, so a brownfield python consumer got "✅ … re-delivery complete" while
 # .claude/skills, .claude/agents and .claude/hooks stayed at the version they first installed.
 # MEASURED RED-before-GREEN (2026-09-05) — the pre-fix layer (`git show HEAD:setup.d/45-python.sh`,

@@ -138,7 +138,7 @@ function writeOrchestratorPrompt(content: string, name = 'kickoff.md'): string {
  * Run validate-prompt.sh with the given stdin JSON. Returns exit code.
  * Uses `spawnSync` identical to the check-hook-marker.test.ts reference pattern.
  * env merged onto process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the
- * exit-code branch (mirrors deps-hash-check.test.ts:114). Pass ZCODE_PROJECT_DIR to
+ * exit-code branch (mirrors deps-hash-check.test.ts:339). Pass ZCODE_PROJECT_DIR to
  * exercise the JSON additionalContext branch (hook:47-50).
  */
 function runHook(

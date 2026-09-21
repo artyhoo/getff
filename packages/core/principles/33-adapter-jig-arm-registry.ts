@@ -381,7 +381,7 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
   //
   // D1 registers the EXISTING python-rules-lock arms as the canonical cases (recon:
   // honest none-spotted — the W5 rework already made the skip guard content-aware,
-  // 45-python.sh:705-713, and cargo's always-write, 46-cargo.sh, cannot go stale):
+  // 45-python.sh:762-770, and cargo's always-write, 46-cargo.sh, cannot go stale):
   // pos = arm 6 (true no-change re-run byte-stable), neg = arms 9 + 11 (the W3
   // --force-stale and W5 plain-pass-join-stale pre-fix reproductions — the exact
   // incidents the spec §3.4 D1 row cites). RED re-proven at registration time by

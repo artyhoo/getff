@@ -7,7 +7,7 @@
 #
 # Arms (kickoff consumer-refresh-integrity §2 row R2 — the floor):
 #   (a) consumer-added rule (.mjs only, NO .ts — the no-tsc consumer reality,
-#       setup.d/40-configs.sh:174-177) + hand-extended barrel → --refresh keeps the entry;
+#       setup.d/40-configs.sh:229-234) + hand-extended barrel → --refresh keeps the entry;
 #       the barrel must stay LOADABLE (an entry pointing at a missing module is the FQA
 #       S1-A W1 failure mode — all rules dead while CI stays green — it is NOT a pass);
 #   (a2) consumer rule carrying .ts + .mjs + .d.ts + hand-added barrel entry → --refresh

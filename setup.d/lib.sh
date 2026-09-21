@@ -108,7 +108,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # 2026-07-25 added the agent-shape `.claude/skills/` arm: agents/*.md live at repo root, so
 # in-repo they reach skills via ](../.claude/skills/...); shipped to `<consumer>/.claude/agents/`
 # that same ref resolves to `<consumer>/.claude/.claude/skills/...` — a doubled segment that
-# does not exist (lychee-shipped-md-offline RED on agents/fidelity-auditor.md:22 → dispatcher).
+# does not exist (lychee-shipped-md-offline RED on agents/fidelity-auditor.md:22 → dispatcher). cite:historical incident record of the 2026-07-25 lychee RED
 # Blob URL, not a relative rewrite: the target skill may be absent (aif-suite–gated) — same
 # verdict as the agents/ arm above.
 # 2026-08-17 — six arms added after the lychee gate's population was widened from core to
@@ -2335,7 +2335,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:174-177); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:229-234); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just

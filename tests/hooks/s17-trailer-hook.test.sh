@@ -107,7 +107,7 @@ test_1_positive_citation() {
   add_discipline_commit "$repo" \
     "feat(rules): add test rule" \
     "Body." \
-    "§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:216 verified; backward: 0 new files"
+    "§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 verified; backward: 0 new files" # cite:historical fixture data, not a live pointer
   if S17_WARN_ONLY=false S17_SUBSTANCE_WARN_ONLY=false run_hook "$repo"; then
     record pass "1 — discipline commit + valid citation trailer → exit 0"
   else

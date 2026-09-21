@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1361-1371 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1361-1392 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -53,7 +53,7 @@ const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
 // exactly the headroom a fully parallel `npm run test` on a loaded box consumes.
 // 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
 // suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
-// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:574
+// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:575
 // and check-worker-dispatch-channel.test.ts:358 record the same 5000ms-under-parallel-load
 // failure, in the inline `timeout:` spelling of the same convention.
 const SLOW_SHELL_MS = 30_000;

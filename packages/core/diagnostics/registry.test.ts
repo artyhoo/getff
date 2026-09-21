@@ -38,7 +38,7 @@ const registrySource = readFileSync(new URL('./registry.ts', import.meta.url), '
 
 // Matches top-level `FFxxxx: {` key declarations inside the REGISTRY object
 // literal, e.g. "  FF2001: {" — the exact shape every entry in registry.ts
-// uses (see registry.ts:36, :40, etc.).
+// uses (see registry.ts:38, :47, etc.).
 const REGISTRY_KEY_DECL_RE = /^\s{2}(FF[1-8]\d{3}):\s*\{/gm;
 
 function extractRegistryKeyDeclarations(source: string): string[] {

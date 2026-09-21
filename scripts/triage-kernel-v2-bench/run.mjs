@@ -73,7 +73,7 @@ function parseC2Group(raw, ids) {
   return out;
 }
 
-/** One judge call — byte-identical to provider.mjs / the S2 cold rater (triage-s0-run.mjs:56). */
+/** One judge call — byte-identical to provider.mjs / the S2 cold rater (triage-s0-run.mjs:59). */
 function claudeCall(payload) {
   return new Promise((resolve) => {
     execFile(

@@ -594,19 +594,19 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:468 fail-loud instead of showing
-# the stack menu; --full/--dry-run at :316 and :348 decline the python/cargo
+# else in this script (--full/-y at install.sh:693 fail-loud instead of showing
+# the stack menu; --full/--dry-run at :470 decline the python/cargo
 # toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:65
 # tells an AI to run — hangs on `read -rp` here, regressing kickoff §4 item 3
 # (existing flag back-compat) and breaking the diff's own claim at
-# INSTALL-FOR-AI.md:88 ("Every flag that worked before still works"). The flag
+# INSTALL-FOR-AI.md:181 ("Every flag that worked before still works"). The flag
 # LAYERS OVER the menu; it does not replace it.
 #
 # Round-3 gate (rework MAJOR): the menu MUST also skip when a positional stack
 # arg was supplied (STACK_EXPLICIT=1). Per the reviewer's binding constraint
 # («existing interactive prompt order must keep working»), the §8 dev-deps →
-# §8b tsx prompts in setup.d/70-deps.sh:329/374 are the existing interactive
+# §8b tsx prompts in setup.d/70-deps.sh:332/485 are the existing interactive
 # flow for `install.sh <stack>`; inserting the profile menu in front of them
 # intercepts the first positional answer meant for §8 (e.g. 'n') and exits 1
 # at the `*)` branch below. tests/install-sh/gh-636-ensure-tsx-root.test.sh
@@ -639,7 +639,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:825 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:840 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -1141,7 +1141,7 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:620-628), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:644-646), the presence
   # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1717-1720).
   #
@@ -1284,7 +1284,7 @@ do_refresh() {
     chmod_safe +x "$_fb_dst" 2>/dev/null || true
   fi
   # #635: also refresh the hooks-scoped {"type":"module"} marker (mirrors the full-install copy_safe
-  # at install.sh:915). Without this, a consumer upgraded via --refresh gets the new multi-file
+  # at setup.d/50-hooks.sh:59). Without this, a consumer upgraded via --refresh gets the new multi-file
   # pre-push.ts WITHOUT type:module → Node ≥22 dies with ERR_REQUIRE_CYCLE_MODULE on the require(esm)
   # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
@@ -1421,7 +1421,7 @@ done
 # Under PROFILE=factory (or legacy --with-aif-suite), offer the consented guided INSTALL
 # for the aif-handoff runtime. The helper mirrors setup.d/bridge-guided.sh's shape: detect-first
 # (bridge_diagnose), consented docker-compose install, decline → graceful env-level degradation.
-# Gating matches setup.d/10-skills.sh:125 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
+# Gating matches setup.d/10-skills.sh:170 exactly (PROFILE=factory OR WITH_AIF_SUITE set).
 # Runs AFTER the setup.d layer loop so RUNTIME_BRIDGE_AIF_URL is in scope + all layers shipped.
 if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "▶ aif-handoff guided install (profile=factory)"

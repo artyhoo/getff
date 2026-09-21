@@ -205,7 +205,7 @@ export function getTrackedFileSet(repoRoot: string): Set<string> {
  *
  * The population this removes is not hypothetical: `scripts/build-getff-dist.sh`
  * assembles the npm tarball payload INTO `packages/getff/` (its PAYLOAD list,
- * scripts/build-getff-dist.sh:42) and `packages/getff/.gitignore` keeps it
+ * scripts/build-getff-dist.sh:43) and `packages/getff/.gitignore` keeps it
  * untracked, so any tree where the assembler or `npm pack`'s prepack has run
  * carried a second copy of `packages/core/**` into this walk. See the
  * capability-walk suite at the bottom of this file for the measurements.
@@ -1199,7 +1199,7 @@ describe('Principle 11 — single-call lookup awkward cases', () => {
 
 // ── Capability-walk population ───────────────────────────────────────────────
 // `scripts/build-getff-dist.sh` assembles the npm tarball payload INTO
-// `packages/getff/` itself (PAYLOAD list, scripts/build-getff-dist.sh:42), where
+// `packages/getff/` itself (PAYLOAD list, scripts/build-getff-dist.sh:43), where
 // `packages/getff/.gitignore` keeps every copied root untracked. So any working
 // tree in which somebody has run the assembler — or `npm pack`'s `prepack` —
 // carries a second, untracked copy of `packages/core/**` under
