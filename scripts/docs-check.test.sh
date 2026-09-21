@@ -16,6 +16,12 @@
 #      tool skips — the shipped tree passes its own gate, and the D-Q17 populations are live.
 #   7. prose-profile paired negative (RED unconditional; healed GREEN needs bins).
 #   8. --changed live-fire (needs bins + git): the pre-commit channel over a throwaway repo.
+#   9. R19 mermaid renderability (pure, no bins): the canonical allow-list module REDs the
+#      silent-loss class (unknown header / click / subgraph / garbage / unterminated / empty),
+#      ACCEPTs the six supported types and the repo's live fences, reports ABSOLUTE markdown
+#      line numbers, and the real checker REDs+GREENs a fixture page through --root. Plus the
+#      sources-presence paired negative on checkFrontmatter (D-Q18's mapping input — never
+#      exempt, pages profile).
 #
 # Tool binaries resolve exactly as the checker resolves them: VALE_BIN / LYCHEE_BIN /
 # MARKDOWNLINT_BIN env or PATH. Missing binaries SKIP their arms LOUDLY — the audit-self.yml
@@ -259,6 +265,115 @@ if have_bins; then
   fi
 else
   bins_note "8"
+fi
+
+# ── Arm 9: R19 mermaid renderability + the sources-presence paired negative (pure — no bins) ───
+cat >"$TMP/mermaid-arms.mjs" <<EOF
+import { readFileSync } from 'node:fs';
+import { validateMermaidFence, extractMermaidFences, validateMarkdownMermaid } from '$REPO_ROOT/scripts/lib/mermaid-allowlist.mjs';
+import { checkFrontmatter } from '$REPO_ROOT/scripts/docs-check.mjs';
+let bad = 0;
+const assert = (name, cond, detail = '') => {
+  if (cond) console.log('OK ' + name); else { bad++; console.log('NO ' + name + ' :: ' + detail); }
+};
+const rules = (md) => validateMarkdownMermaid(md).map((e) => e.rule);
+const fence = (body) => '\`\`\`mermaid\n' + body + '\n\`\`\`\n';
+assert('arm 9: an unknown diagram header REDs as mermaid.allowlist.type',
+  rules(fence('mindmap\n  root((A))\n')).includes('mermaid.allowlist.type'),
+  JSON.stringify(rules(fence('mindmap\n  root((A))\n'))));
+assert('arm 9: a click directive REDs as silent-loss (the renderer drops it silently, R6 BU-3)',
+  rules(fence('flowchart LR\n  A --> B\n  click A call alert()\n')).includes('mermaid.allowlist.silent-loss'));
+assert('arm 9: a subgraph REDs as silent-loss',
+  rules(fence('flowchart LR\n  subgraph X\n  A --> B\n  end\n')).includes('mermaid.allowlist.silent-loss'));
+assert('arm 9: a garbage statement REDs as mermaid.allowlist.statement',
+  rules(fence('flowchart LR\n  A --> %%% nonsense\n')).includes('mermaid.allowlist.statement'));
+assert('arm 9: a style line REDs as silent-loss (use classDef + class)',
+  rules(fence('flowchart LR\n  A[Go]\n  style A fill:#f9f\n')).includes('mermaid.allowlist.silent-loss'));
+assert('arm 9: an unterminated fence REDs as mermaid.allowlist.unterminated',
+  rules('\`\`\`mermaid\nflowchart LR\n  A --> B\n').includes('mermaid.allowlist.unterminated'));
+assert('arm 9: an empty fence REDs as mermaid.allowlist.empty',
+  rules(fence('')).includes('mermaid.allowlist.empty'));
+assert('arm 9: a par/and control block REDs as silent-loss, not a bare statement miss',
+  rules(fence('sequenceDiagram\n  A->>B: hi\n  par one\n    A->>B: x\n  and two\n    A->>B: y\n  end\n')).filter((r) => r === 'mermaid.allowlist.silent-loss').length >= 2);
+const SIX = [
+  'flowchart LR\n  A[Beta · test] -->|tag| B\n  C -- labeled --> D\n  D -. dotted .-> E\n  classDef ok fill:#fde68a,stroke:#92400e\n  class A ok',
+  'stateDiagram-v2\n  [*] --> s1\n  s1 --> [*]: done\n  state "Named" as s2',
+  'sequenceDiagram\n  participant IR as Convention IR\n  IR->>R: rules\n  R-->>IR: drift → RED',
+  'classDiagram\n  class Animal\n  Animal : +int age\n  Animal <|-- Dog',
+  'erDiagram\n  CUSTOMER {\n    string name PK\n  }\n  CUSTOMER ||--o{ ORDER : places',
+  'xychart-beta\n  title "t"\n  x-axis [a, b, c]\n  y-axis "n" 0 --> 10\n  bar [1, 2, 3]',
+];
+assert('arm 9: all six supported types ACCEPT (an allow-list that accepts nothing REDs the site)',
+  SIX.every((body) => validateMermaidFence(body).length === 0),
+  JSON.stringify(SIX.map((b) => validateMermaidFence(b))));
+// CommonMark fence variants must not skip the allow-list (harvest review 2026-09-21): a longer
+// fence, a capitalised info string and an info string with attributes are all mermaid fences.
+const BAD = 'flowchart LR\n  A --> B\n  click A call alert()\n';
+for (const [open, close] of [['\`\`\`\`mermaid', '\`\`\`\`'], ['\`\`\`Mermaid', '\`\`\`'], ['\`\`\`mermaid title="x"', '\`\`\`'], ['~~~mermaid', '~~~']]) {
+  const got = rules('x\n' + open + '\n' + BAD + close + '\n');
+  assert('arm 9: a silent-loss construct REDs inside a ' + open + ' fence too', got.includes('mermaid.allowlist.silent-loss'), JSON.stringify(got));
+}
+assert('arm 9: a shorter inner run does not close a 4-backtick fence (the click line stays inside)',
+  rules('\`\`\`\`mermaid\nflowchart LR\n  A --> B\n\`\`\`\n  click A call alert()\n\`\`\`\`\n').includes('mermaid.allowlist.silent-loss'),
+  'inner fence run closed the fence early');
+const live = readFileSync('$REPO_ROOT/docs/site/how-it-works.md', 'utf8');
+assert('arm 9: the repo live fences (how-it-works.md, 3 fences) ACCEPT',
+  extractMermaidFences(live).length === 3 && validateMarkdownMermaid(live).length === 0,
+  'fences=' + extractMermaidFences(live).length + ' findings=' + JSON.stringify(validateMarkdownMermaid(live)));
+const padded = 'intro line\n\n' + fence('flowchart LR\n  A --> %%% nope\n');
+const paddedErr = validateMarkdownMermaid(padded)[0];
+assert('arm 9: findings carry ABSOLUTE markdown line numbers (fence offset + in-fence line)',
+  paddedErr && paddedErr.line === 5, JSON.stringify(paddedErr));
+const noSources = checkFrontmatter({ title: 't', description: 'd', kind: 'guide' }, 'docs/site/x.md');
+assert('arm 9: sources: missing REDs unconditionally (D26 refresh mapping input — never exempt)',
+  noSources.some((e) => e.rule === 'docs-check.frontmatter' && e.message.includes('\`sources:\` missing')),
+  JSON.stringify(noSources));
+const withSources = checkFrontmatter({ title: 't', description: 'd', kind: 'guide', sources: ['setup.d/x.sh'] }, 'docs/site/x.md');
+assert('arm 9: sources: present passes the frontmatter gate on an otherwise-complete page',
+  !withSources.some((e) => e.message.includes('\`sources:\`')), JSON.stringify(withSources));
+process.exit(bad > 0 ? 1 : 0);
+EOF
+if node "$TMP/mermaid-arms.mjs" >"$TMP/mermaid.out" 2>&1; then
+  while IFS= read -r line; do ok "${line#OK }"; done <"$TMP/mermaid.out"
+else
+  bad "arm 9: R19 mermaid + sources pure arms failed:"
+  sed 's/^/      /' "$TMP/mermaid.out"
+fi
+
+# arm 9b: the real checker REDs + GREENs a fixture page through --root (the seam, not just the module)
+make_mermaid_root() {
+  local root="$1"; local fence_body="$2"
+  mkdir -p "$root/docs/site"
+  cp "$REPO_ROOT/.markdownlint.json" "$root/"
+  node -e '
+    const fs = require("node:fs");
+    // `node -e` puts every extra arg at argv[1..]; take all three from slice(1).
+    const [root, body, src] = process.argv.slice(1);
+    // clean-guide.md links to sibling fixture pages that are NOT copied into this root;
+    // unlink them to plain text so an installed lychee (CI pins one) does not RED the
+    // GREEN run on a missing target that has nothing to do with the mermaid gate.
+    let page = fs.readFileSync(src, "utf8").replace(/\[([^\]]*)\]\(\.\/[^)]+\)/g, "$1");
+    page += "\n```mermaid\n" + body + "\n```\n";
+    fs.writeFileSync(root + "/docs/site/mermaid-page.md", page);
+  ' "$root" "$fence_body" "$REPO_ROOT/$FIXPAGES/clean-guide.md"
+}
+make_mermaid_root "$TMP/m-red" 'flowchart LR
+  A --> B
+  click A call alert()'
+out=$(node "$GEN" --json --root "$TMP/m-red" --profile pages 2>/dev/null); rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q 'mermaid.allowlist'; then
+  ok "arm 9b: the real checker REDs a page carrying a click directive (exit $rc, rule named)"
+else
+  bad "arm 9b: fixture RED run rc=$rc — the mermaid gate did not fire through docs-check"
+fi
+make_mermaid_root "$TMP/m-green" 'flowchart LR
+  A --> B
+  B --> C'
+out=$(node "$GEN" --json --root "$TMP/m-green" --profile pages 2>/dev/null); rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q '"docs/site/mermaid-page.md"'; then
+  ok "arm 9b: the same page with an allow-listed fence passes the full page gate"
+else
+  bad "arm 9b: fixture GREEN run rc=$rc (out: $(echo "$out" | grep '✗' | head -3 | tr '\n' ' '))"
 fi
 
 echo "docs-check.test.sh: $PASS passed, $FAIL failed"

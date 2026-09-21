@@ -16,6 +16,7 @@ sources:
   - tests/install-sh/baselines/ts-server/greenfield.fingerprint
 executed:
   - { example: list-installed-skill, stack: ts-server, date: 2026-09-20, result: listed }
+docs-refresh: deferred — re-verified 2026-09-21, only the hash values on lines 7 and 162 of the cited install fingerprint changed (pre-push.ts and refresh-baseline.json); every line and path this page cites is unchanged; clears at the next gold refresh of this page
 ---
 
 # getff skill

@@ -1487,6 +1487,62 @@ function faceFactsRenderSection(): void {
   }
 }
 
+// ── 4e. Docs refresh gate (maintainer, getff-ai-site S1 / R13) ───────────────
+// D26 refresh-at-merge: over this push's range, `changed files ∩ cited paths` per
+// docs/site page frontmatter must leave every affected page refreshed in-range or
+// carrying `docs-refresh: deferred — <reason ≥20 chars>`. scripts/check-docs-refresh.mjs
+// exists in the maintainer repo only → owner=maintainer. The range comes from the SAME
+// base-resolution machinery every commit-scoped section uses (rb.base..rb.head) — the
+// script takes it as an explicit argument so the CI caller (audit-self.yml docs-refresh,
+// fetch-depth: 0) can hand it its own disjoint base..HEAD range and the drift falsifier
+// can compare verdicts on the SAME range. A page without cited paths cannot be affected;
+// `kind:` is never consulted (ref-gen.md:201 — that gate belongs to the reference
+// generator). Plain-node ESM, zero deps — no tsx/npx resolution needed.
+function docsRefreshSection(c: SectionCtx): void {
+  if (existsSync(resolve(REPO_ROOT, 'scripts/check-docs-refresh.mjs'))) {
+    if (c.rb.base === null) {
+      warnSkip(
+        'docs-refresh',
+        'no PREPUSH_UPSTREAM_REF, no git stdin, no default branch',
+      );
+      return;
+    }
+    if (c.rb.head === Z40) {
+      // `git push origin --delete <b>`: local_sha is all-zero, there is no head to gate —
+      // the script would exit 2 on the bad object and die() would block the deletion.
+      warnSkip('docs-refresh', 'branch deletion push — no head commit to gate');
+      return;
+    }
+    // Gate what the branch introduces over the trunk, not the raw push range: a
+    // merge-forward commit (git-conflict-merge-forward.md §2) pulls the trunk's own
+    // changes into `rb.base..rb.head` (the new-branch base is the oldest new commit's
+    // parent, an old trunk commit), and every page citing one of them would read as
+    // unrefreshed. merge-base(trunk, head) is the range the CI caller and the sweep
+    // evaluate; fall back to the push range only when no trunk resolves.
+    const trunk = resolveDefaultBase();
+    const mb = trunk ? run('git', ['merge-base', trunk, c.rb.head]) : null;
+    const base =
+      mb && mb.exitCode === 0 && mb.stdout.trim()
+        ? mb.stdout.trim()
+        : c.rb.base;
+    const r = run('node', [
+      'scripts/check-docs-refresh.mjs',
+      `${base}..${c.rb.head}`,
+    ]);
+    if (r.notFound) {
+      die(
+        '❌ node not found. Install Node.js to enable the docs refresh gate.',
+      );
+    }
+    if (r.exitCode === 2) {
+      // Usage/git-fatal: a crashed gate must never read as clean.
+      die('❌ docs refresh gate could not run:', r);
+    }
+    if (r.exitCode !== 0) die('❌ docs refresh gate failed:', r);
+    emit(r);
+  }
+}
+
 // ── 5. Principles meta-tests (maintainer, Phase 2) ───────────────────────────
 // Sections 5–5d shell out to `npm --prefix packages/core run test:*`, needing
 // packages/core/package.json + the meta-test suites — all maintainer-only.
@@ -2187,6 +2243,11 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'face-facts-render',
     owner: 'maintainer',
     run: () => faceFactsRenderSection(),
+  },
+  {
+    id: 'docs-refresh',
+    owner: 'maintainer',
+    run: (c) => docsRefreshSection(c),
   },
   {
     id: 'principles-meta',

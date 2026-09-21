@@ -77,8 +77,10 @@ through the GitHub API is the last resort, for when your own machine cannot reac
 either. That path skips the pre-push checks, so the check script becomes mandatory.
 
 The check script is `scripts/run-local-ci-sweep.sh`. The installer delivers it together
-with the skill. With no flag it runs only the [gates](../../terms.md#gate) that match
-what your branch changed. Here it prints its usage, from the getff repository itself:
+with the skill. With no flag it runs the [gates](../../terms.md#gate) that match what
+your branch changed, plus a few that run on every branch because any file can be the one
+they check (a cited line, a source a docs page names). Here it prints its usage, from the
+getff repository itself:
 
 ```bash
 bash scripts/run-local-ci-sweep.sh --help

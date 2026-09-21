@@ -30,6 +30,7 @@ sources:
   - skills/getff/references/ai-traps.md
   - skills/getff/references/checks-map.md
   - skills/getff/references/overview.md
+docs-refresh: deferred — re-verified 2026-09-21, the cited register only gained rows 284-286; counts are renderer-owned and no prose here depends on row content; clears at the next gold refresh of this page
 next: ai-agents.md
 ---
 
