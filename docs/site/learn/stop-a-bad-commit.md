@@ -15,6 +15,7 @@ sources:
 executed:
   - { example: commit-refused, stack: ts-server, date: 2026-09-21, result: exit-1 }
   - { example: commit-accepted, stack: ts-server, date: 2026-09-21, result: exit-0 }
+docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
 ---
 
 # Stop a bad commit

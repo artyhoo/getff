@@ -18,6 +18,7 @@ executed:
   - { step: fire-on-your-code, stack: go, date: 2026-09-21, result: "exit-1; forbidigo named the os.Getenv line" }
   - { step: install-without-go-tools, stack: go, date: 2026-09-21, result: "exit-0; self-check reported NOT proven" }
 next: installation.md
+docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
 ---
 
 # Quick start for Go

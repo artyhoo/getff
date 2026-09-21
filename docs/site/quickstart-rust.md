@@ -17,6 +17,7 @@ executed:
   - { step: install, stack: cargo, date: 2026-09-21, result: exit-0, versions: "clippy 0.1.98" }
   - { step: fire-on-your-code, stack: cargo, date: 2026-09-21, result: "warning exit-0 with plain clippy; RED exit-101 with the gate command" }
 next: installation.md
+docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
 ---
 
 # Quick start for Rust
