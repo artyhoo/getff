@@ -113,7 +113,7 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
   line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
   exists only in the framework repository.
-- The skill belongs to the `factory` list on line 63 of `setup.d/lib.sh`. The installer
-  copies that list on lines 163 to 167 of `setup.d/10-skills.sh`, and marks the helpers
+- The skill belongs to the `factory` list on line 65 of `setup.d/lib.sh`. The installer
+  copies that list on lines 170 to 174 of `setup.d/10-skills.sh`, and marks the helpers
   executable on lines 185 to 189. Line 17 of `install.sh` names the flag.
 - The card above is built from `docs/site/reference/B.json`.
