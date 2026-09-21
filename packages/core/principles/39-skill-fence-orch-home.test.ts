@@ -56,7 +56,7 @@
  * `codeFlowValue` fence-scoping vocabulary is ADOPTED.
  *
  * Note what is NOT the reason: `markdownlint-cli2` is already a devDependency (package.json:21)
- * run at .husky/pre-commit:92, so "it would add a dependency" would be false. The grounds are
+ * run at .husky/pre-commit:112, so "it would add a dependency" would be false. The grounds are
  * that a custom micromark rule plus its own test surface exceeds ~40 LOC inside an existing
  * suite, and that the repo's markdownlint pass sees STAGED files only — it cannot make the
  * population-wide claim of arm (a) nor carry arm (e)'s shrink-only allowlist ratchet. If this
