@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 27
+        "members": 28
       },
       "G": {
         "familyName": "packages",
@@ -353,7 +353,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 283
+      "count": 286
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",

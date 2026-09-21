@@ -20,7 +20,7 @@
         "wired-from": [
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:200 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:201 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -100,7 +100,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1634 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1690 (spawn-argument)",
           ".github/workflows/audit-self.yml:1335 (workflow-run:invocation-verb)"
         ]
       },
@@ -120,7 +120,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1667 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1723 (spawn-argument)",
           "install.sh:1155 (quoted-path-token)"
         ]
       },
@@ -146,6 +146,25 @@
       "example": null
     },
     {
+      "name": "check-docs-refresh.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "the D26 refresh MERGE GATE (getff-ai-site R13).",
+      "source": {
+        "path": "scripts/check-docs-refresh.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2316 (workflow-run:invocation-verb)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "check-line-citations.mjs",
       "kind": "script",
       "shipsTo": {
@@ -159,7 +178,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2274 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2365 (workflow-run:invocation-verb)",
           ".husky/pre-commit:172 (quoted-path-token)"
         ]
       },
@@ -199,7 +218,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2370 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2466 (workflow-run:invocation-verb)"
         ]
       },
       "example": null

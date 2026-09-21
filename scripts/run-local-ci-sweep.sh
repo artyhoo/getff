@@ -72,6 +72,7 @@
 #   `agents/` trigger is load-bearing beyond CI prediction: the suite RUNS the generator, so a
 #   sweep after an agents/*.md edit re-syncs the plugin/agents twins that .husky/pre-commit
 #   does not yet regenerate ·
+#   docs-refresh (the D26 cited-source refresh gate, over merge-base..HEAD) ·
 #   f17-node-compat (host Node only) · shipped-prettier (its `npm run format:check` is the
 #   sweep's format-check row; it became a `ci-success` need in #1362) ·
 #   `Template render probes — P1/P4/P6` (framework-self-template-render.yml — a required context
@@ -239,6 +240,11 @@ gate_table() {
   # the blame arm to the push via `--affected-by`, but this row predicts the CI job, and the CI
   # job is the unscoped backstop. ~6.4s over the 103-file corpus, measured 2026-09-14.
   #
+  # `docs-refresh` is ALWAYS for the same reason: a docs/site page cites arbitrary tracked files as
+  # `sources:`, so any path can be the cited source that drifted. It runs the D26 gate over the
+  # merge-base..HEAD range — the range the audit-self `docs-refresh` job evaluates on a
+  # pull_request — and is git plumbing only (no install), so the unconditional run is cheap.
+  #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
   # (setup.d/10-skills.sh:172, install.sh:1156) and the runner is NOT, which is deliberate: a
@@ -289,6 +295,7 @@ gate_table() {
     "2${TAB}docs-quality-strict${TAB}docs/site/,docs/site-quality/,.claude/skills/docs-author/,agents/docs-form-auditor.md,scripts/docs-check.mjs,tests/docs-check/${TAB}if command -v vale >/dev/null 2>&1 && command -v lychee >/dev/null 2>&1; then node scripts/docs-check.mjs --strict && node scripts/docs-check.mjs --strict --profile prose; else echo '[sweep] WARN-skip docs-quality-strict: vale/lychee absent on host (CI installs them version+sha256-pinned)'; fi" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
+    "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \

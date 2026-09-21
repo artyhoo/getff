@@ -2224,6 +2224,97 @@ jobs:
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
 
+  # D26 docs refresh gate (getff-ai-site S1, R13 of
+  # docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md) —
+  # caller 2 of the one-script-two-callers gate
+  # (scripts/check-docs-refresh.mjs + the `docs-refresh` pre-push section). The
+  # two callers see different ranges by construction: pre-push gates the push
+  # (host seats only — the kickoff-s1 §5 probe, 2026-09-21, confirmed aif
+  # container seats never run the repo's git hooks), this job gates the MERGE:
+  # `pull_request` evaluates the merge ref against origin/<base_ref>,
+  # `push: [staging, main]` + `merge_group` evaluate the merged result after
+  # the fact — so a push that never ran the hook (aif seat, --no-verify, web
+  # edit) still cannot merge cited-source drift past this job.
+  #
+  # fetch-depth: 0 is LOAD-BEARING (amended cold round 1, BU-5): at the default
+  # depth 1 the gate's range is empty and it reports clean on every PR — a
+  # check mark over #hope-as-gate, in exactly the container population caller
+  # 2 exists for. If the base ref is unresolvable the step FAILS, never skips:
+  # an unresolvable range must not be how this gate goes green.
+  #
+  # Dependency-free by construction (node + git only — the script's header),
+  # so no npm install and no pinned tool install: ci-tool-pinning.md has no
+  # surface here and no-paid-llm-in-ci.md is satisfied, mirroring
+  # citation-fullsweep. The `docs-refresh: deferred — <reason ≥20 chars>`
+  # escape works through this channel unchanged — it is read by the script,
+  # not by the caller.
+  docs-refresh:
+    name: Docs refresh gate — cited-source drift vs page refresh (D26/R13)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          # The gate diffs an explicit <base>..<head> range; at depth 1 the base
+          # is not fetched, the range collapses, and the gate vacuously passes
+          # (BU-5). Full history is the only depth under which the range means
+          # anything.
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+      - name: Resolve the gate range for this event
+        # Event context via env, not inline ${{ }} in run:, to avoid
+        # template-injection (zizmor). pull_request supplies github.base_ref;
+        # merge_group carries the base branch on the event payload instead
+        # (github.event.merge_group.base_ref, full form `refs/heads/<name>`) —
+        # the `||` picks whichever the event populated; the shell step strips
+        # the prefix so both arrive as a bare branch name.
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref || github.event.merge_group.base_ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          BASE_REF="${BASE_REF#refs/heads/}"
+          case "$EVENT" in
+            pull_request)
+              # The checkout is the merge ref; its FIRST parent is the exact base tree it was
+              # built on. Re-fetching origin/<base> instead would compare a moved base against
+              # a stale merge (a re-run reuses github.sha), and a page edited on the base in
+              # between would read as `refreshed`. Refuse, never skip, if HEAD is not a merge.
+              git rev-parse --verify --quiet "HEAD^2" >/dev/null \
+                || { echo "::error::pull_request checkout is not a merge commit — refusing to guess the D26 range"; exit 1; }
+              echo "GATE_RANGE=HEAD^1..HEAD" >> "$GITHUB_ENV"
+              ;;
+            merge_group)
+              git fetch --no-tags --quiet origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+              git rev-parse --verify "origin/${BASE_REF}" >/dev/null \
+                || { echo "::error::base ref origin/${BASE_REF} not resolvable — refusing to run with an empty range (the D26 gate would falsely pass)"; exit 1; }
+              echo "GATE_RANGE=origin/${BASE_REF}..HEAD" >> "$GITHUB_ENV"
+              ;;
+            push)
+              # A new branch pushes with an all-zero `before`: no ancestor range
+              # exists. Skipping is safe here (not a #warning-nobody-reads hole):
+              # the same commits are gated at the merge by the pull_request arm,
+              # whose base ref always resolves, and on host seats by the pre-push
+              # section. A non-zero `before` is the post-merge trunk check.
+              if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+                echo "::warning::push created a branch (all-zero 'before') — no range to gate; the pull_request arm covers these commits at merge time"
+                echo "GATE_RANGE=" >> "$GITHUB_ENV"
+              else
+                echo "GATE_RANGE=${BEFORE}..${AFTER}" >> "$GITHUB_ENV"
+              fi
+              ;;
+            *) echo "::error::unhandled event '$EVENT' for the docs-refresh gate"; exit 1 ;;
+          esac
+      - name: D26 refresh gate (changed ∩ cited paths per page)
+        if: env.GATE_RANGE != ''
+        run: node scripts/check-docs-refresh.mjs "$GATE_RANGE"
+
   citation-fullsweep:
     # Last-resort backstop for the `path:line` citation gate. pre-push §9
     # (packages/core/hooks/pre-push.ts) already runs this checker at the EARLIEST
@@ -2312,6 +2403,11 @@ jobs:
       # for (its completeness arm would catch the omission at pre-push/CI anyway; the
       # entry is here so the wiring is right by construction, not by caught drift).
       - docs-quality
+      # getff-ai-site S1 (D26/R13): the docs-refresh job is the merge-side half of the
+      # one-script-two-callers refresh gate. Without this line it could FAIL on real
+      # cited-source drift while ci-success stayed green and the PR merged — the same
+      # principle-36 shape; wired by construction, not by caught drift.
+      - docs-refresh
       - enforce-husky-presence
       - framework-self-install-ts-server
       - framework-self-install-react-next
