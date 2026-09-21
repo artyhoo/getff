@@ -48,6 +48,10 @@
  *   --affected-by=<path> repeatable; run ARM 1 only for citations touching these paths
  *   --corpus             check the live-authority corpus (below) instead of named files
  *
+ * Both arms read two citation shapes: `path:NN` and the explicit prose form
+ * «line 63 of `setup.d/lib.sh`» / «`setup.d/10-skills.sh`, lines 22 to 27» that the
+ * docs/site pages write (PROSE_OF_RE below, with why a bare «line N» is excluded).
+ *
  * WHICH FILES the caller passes is the other half of coverage, and scoping it to the
  * push's changed Markdown — what pre-push §9 did until 2026-09-14 — has a structural
  * hole: a citation goes stale when the CITED file moves, and the cited file is almost
@@ -125,6 +129,29 @@ const MD_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
  * Resolution is deterministic — nearest preceding resolved citation, same line.
  */
 const BACKREF_RE = /`:(\d+)(?:-(\d+))?`/g;
+/**
+ * Prose form — the docs/site reference pages cite in sentences, not `path:NN`:
+ * «line 63 of `setup.d/lib.sh`», «lines 163 to 167 of `setup.d/10-skills.sh`»,
+ * «`setup.d/10-skills.sh`, lines 22 to 27». Invisible to CITATION_RE, so W1-A (#1821)
+ * and W1-B (#1826) moved both files under 13 such pages with every arm here green
+ * (repaired by hand in PR #1830, 2026-09-21).
+ *
+ * Only the EXPLICIT form counts: the sentence names its file right next to the number.
+ * A bare «line 6» leans on an antecedent the prose chose — sometimes the previous
+ * sentence's file, sometimes a file named two bullets up, sometimes «the skill file»
+ * with no path at all. Binding it to the nearest preceding backticked path was measured
+ * the same day over docs/site: ~22 of ~150 bound to the wrong file, several of them past
+ * that file's end, so a hard gate on them would ship false reds. Same precision stance
+ * as the sentence guard on BACKREF_RE.
+ *
+ * Matched over the whole file, not per line: pages are hard-wrapped, and «line 63 of\n
+ * `setup.d/lib.sh`» is one citation. `d` flag: group indices locate the NUMBERS, which
+ * is where blame is taken and what `--write` rewrites.
+ */
+const PROSE_NUM = String.raw`\blines?\s+(\d+)(?:(?:\s+(?:to|and|through)\s+|\s*[-–]\s*)(\d+))?`;
+const PROSE_PATH = '`([^`\\s:]+)`';
+const PROSE_OF_RE = new RegExp(`${PROSE_NUM}\\s+(?:of|in)\\s+${PROSE_PATH}`, 'gid');
+const PROSE_COMMA_RE = new RegExp(`${PROSE_PATH},?\\s+${PROSE_NUM}\\b`, 'gid');
 const ESCAPE_RE = /<!--\s*cite:historical\s+([^>]*?)\s*-->/;
 const ESCAPE_RATIONALE_MIN = 20;
 
@@ -223,6 +250,14 @@ function tracked(basename) {
  * incident where a spec citation drifts AFTER authorship and misleads a reader — the
  * class ARM 1 actually covers. Today's 363 are repair debt, not that evidence.
  *
+ * `docs/site/` joined 2026-09-21: the public docs are the live authority a CONSUMER
+ * reads, and their reference pages carry ~90 explicit prose citations (PROSE_OF_RE) into
+ * installer and skill files that move often. Not snapshots — each page's `sources:`
+ * frontmatter is refreshed by the D26 gate (scripts/check-docs-refresh.mjs), which proves
+ * a page was TOUCHED when a source moved, never that its numbers are right. Cost when
+ * admitted: 18 `path:NN` citations, all clean; the prose arm's findings were zero after
+ * PR #1830's hand repair.
+ *
  * `plugin/agents/` is excluded because it is a byte-identical generated twin of
  * `agents/` — gating both would report every finding twice and demand the fix land in a
  * derived copy.
@@ -234,6 +269,7 @@ const LIVE_AUTHORITY_MD = [
   'CLAUDE.md',
   'AGENTS.md',
   'CONTRIBUTING.md',
+  'docs/site/',
 ];
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
 
@@ -330,6 +366,122 @@ export function scanFile(srcFile) {
   const skips = [];
   let resolvedCount = 0;
 
+  // One verdict per resolved citation, shared by both citation forms: `path:NN` (and its
+  // bare backreferences) from the per-line pass, and the prose form from the whole-file
+  // pass below. `pos` is set only for prose, where `--write` edits the numbers in place.
+  function judge({ srcLine, token, target, weak, n, end, escape, pos = null }) {
+    resolvedCount += 1;
+
+    if (escape) {
+      if (squash(escape[1]).length < ESCAPE_RATIONALE_MIN) {
+        findings.push({
+          kind: 'weak-escape',
+          srcFile: rel,
+          srcLine,
+          token,
+          detail: `cite:historical rationale must be >= ${ESCAPE_RATIONALE_MIN} chars, got ${squash(escape[1]).length}`,
+        });
+      }
+      return;
+    }
+
+    const current = readFileSync(resolve(REPO_ROOT, target), 'utf8').split(
+      '\n',
+    );
+    if (n > current.length) {
+      // A basename-inferred target that does not even have the cited line is more
+      // likely the WRONG file than a real beyond-EOF defect, so the weak arm reports
+      // rather than blocks. An author-named path keeps the hard failure.
+      if (weak) {
+        resolvedCount -= 1;
+        skips.push({
+          srcFile: rel,
+          srcLine,
+          token,
+          reason: 'line-out-of-range',
+          candidates: [target],
+          detail: `${target} has ${current.length} lines`,
+        });
+        return;
+      }
+      findings.push({
+        kind: 'beyond-eof',
+        srcFile: rel,
+        srcLine,
+        token,
+        target,
+        detail: `${target} has ${current.length} lines`,
+      });
+      return;
+    }
+
+    // Arm 2 — blank landing. Independent of blame, so unlike arm 1 it holds for
+    // a citation that was WRONG AT BIRTH and survives a reflow of the citing
+    // line (which resets arm 1's baseline). Nobody deliberately cites an empty
+    // line, so this arm has no false-positive shape. It is what catches the
+    // motivating case: `arch/SKILL.md:94` was an empty line.
+    if (squash(current[n - 1]) === '') {
+      findings.push({
+        kind: 'blank-landing',
+        srcFile: rel,
+        srcLine,
+        token,
+        target,
+        detail: `${target}:${n} is an empty line — the citation points at nothing`,
+      });
+      return;
+    }
+
+    if (blankOnly) return; // pre-commit channel: ARM 2 only, no git reads
+
+    // Reverse-index scoping. New staleness enters the corpus through exactly two
+    // doors: the citing sentence was rewritten, or the cited file moved under it.
+    // ARM 1 costs a `git blame` plus a `git show` per citation (~53ms measured
+    // 2026-09-14, i.e. 6.4s over the 119 resolvable citations of the live-authority
+    // corpus), so a caller that knows which paths its push touched can skip every
+    // citation neither door applies to. Over the last 60 first-parent commits that
+    // leaves 72% of pushes running ZERO blames and a mean of 1.33 (max 15).
+    // Deliberately one-sided: the flag narrows ARM 1 only. ARM 2 and the beyond-EOF
+    // check read today's tree and cost no git call, so narrowing them would buy
+    // nothing and would hide a defect this file can see for free.
+    if (
+      affectedBy !== null &&
+      !affectedBy.has(rel) &&
+      !affectedBy.has(target)
+    ) {
+      return;
+    }
+
+    const sha = blameCommit(rel, srcLine);
+    if (sha === null) return; // uncommitted edit — nothing to compare against yet
+    const historical = fileAt(sha, target);
+    if (historical === null || n > historical.length) return; // target absent then
+
+    const wasText = squash(historical[n - 1]);
+    const nowText = squash(current[n - 1]);
+    if (wasText === nowText) return;
+
+    const matches = current
+      .map((l, i) => (squash(l) === wasText ? i + 1 : 0))
+      .filter(Boolean);
+    const movedTo = wasText && matches.length ? matches[0] : null;
+    findings.push({
+      kind: 'drifted',
+      srcFile: rel,
+      srcLine,
+      token,
+      target,
+      movedTo,
+      // A range citation moves as a block: shift the end by the same delta the
+      // start moved, rather than collapsing `:89-128` to a single line.
+      movedEnd: movedTo && end ? movedTo + (end - n) : null,
+      ambiguous: matches.length > 1,
+      pos,
+      was: wasText.slice(0, 100),
+      now: nowText.slice(0, 100),
+    });
+  }
+
   lines.forEach((text, idx) => {
     const srcLine = idx + 1;
     const escape = ESCAPE_RE.exec(text);
@@ -405,117 +557,45 @@ export function scanFile(srcFile) {
         }
       }
       if (target === null) continue;
-      resolvedCount += 1;
-
-      if (escape) {
-        if (squash(escape[1]).length < ESCAPE_RATIONALE_MIN) {
-          findings.push({
-            kind: 'weak-escape',
-            srcFile: rel,
-            srcLine,
-            token,
-            detail: `cite:historical rationale must be >= ${ESCAPE_RATIONALE_MIN} chars, got ${squash(escape[1]).length}`,
-          });
-        }
-        continue;
-      }
-
-      const current = readFileSync(resolve(REPO_ROOT, target), 'utf8').split(
-        '\n',
-      );
-      if (n > current.length) {
-        // A basename-inferred target that does not even have the cited line is more
-        // likely the WRONG file than a real beyond-EOF defect, so the weak arm reports
-        // rather than blocks. An author-named path keeps the hard failure.
-        if (weak) {
-          resolvedCount -= 1;
-          skips.push({
-            srcFile: rel,
-            srcLine,
-            token,
-            reason: 'line-out-of-range',
-            candidates: [target],
-            detail: `${target} has ${current.length} lines`,
-          });
-          continue;
-        }
-        findings.push({
-          kind: 'beyond-eof',
-          srcFile: rel,
-          srcLine,
-          token,
-          target,
-          detail: `${target} has ${current.length} lines`,
-        });
-        continue;
-      }
-
-      // Arm 2 — blank landing. Independent of blame, so unlike arm 1 it holds for
-      // a citation that was WRONG AT BIRTH and survives a reflow of the citing
-      // line (which resets arm 1's baseline). Nobody deliberately cites an empty
-      // line, so this arm has no false-positive shape. It is what catches the
-      // motivating case: `arch/SKILL.md:94` was an empty line.
-      if (squash(current[n - 1]) === '') {
-        findings.push({
-          kind: 'blank-landing',
-          srcFile: rel,
-          srcLine,
-          token,
-          target,
-          detail: `${target}:${n} is an empty line — the citation points at nothing`,
-        });
-        continue;
-      }
-
-      if (blankOnly) continue; // pre-commit channel: ARM 2 only, no git reads
-
-      // Reverse-index scoping. New staleness enters the corpus through exactly two
-      // doors: the citing sentence was rewritten, or the cited file moved under it.
-      // ARM 1 costs a `git blame` plus a `git show` per citation (~53ms measured
-      // 2026-09-14, i.e. 6.4s over the 119 resolvable citations of the live-authority
-      // corpus), so a caller that knows which paths its push touched can skip every
-      // citation neither door applies to. Over the last 60 first-parent commits that
-      // leaves 72% of pushes running ZERO blames and a mean of 1.33 (max 15).
-      // Deliberately one-sided: the flag narrows ARM 1 only. ARM 2 and the beyond-EOF
-      // check read today's tree and cost no git call, so narrowing them would buy
-      // nothing and would hide a defect this file can see for free.
-      if (
-        affectedBy !== null &&
-        !affectedBy.has(rel) &&
-        !affectedBy.has(target)
-      ) {
-        continue;
-      }
-
-      const sha = blameCommit(rel, srcLine);
-      if (sha === null) continue; // uncommitted edit — nothing to compare against yet
-      const historical = fileAt(sha, target);
-      if (historical === null || n > historical.length) continue; // target absent then
-
-      const wasText = squash(historical[n - 1]);
-      const nowText = squash(current[n - 1]);
-      if (wasText === nowText) continue;
-
-      const matches = current
-        .map((l, i) => (squash(l) === wasText ? i + 1 : 0))
-        .filter(Boolean);
-      const movedTo = wasText && matches.length ? matches[0] : null;
-      findings.push({
-        kind: 'drifted',
-        srcFile: rel,
-        srcLine,
-        token,
-        target,
-        movedTo,
-        // A range citation moves as a block: shift the end by the same delta the
-        // start moved, rather than collapsing `:89-128` to a single line.
-        movedEnd: movedTo && c.end ? movedTo + (c.end - n) : null,
-        ambiguous: matches.length > 1,
-        was: wasText.slice(0, 100),
-        now: nowText.slice(0, 100),
-      });
+      judge({ srcLine, token, target, weak, n, end: c.end, escape });
     }
   });
+
+  // Prose pass (PROSE_OF_RE / PROSE_COMMA_RE header). Over the whole text so a wrapped
+  // citation is one citation; a match spanning a blank line is two paragraphs, not one.
+  const text = lines.join('\n');
+  const lineOf = (off) => text.slice(0, off).split('\n').length;
+  const colOf = (off) => off - text.lastIndexOf('\n', off - 1) - 1;
+  const numAt = ([s, e]) => ({ line: lineOf(s), col: colOf(s), len: e - s });
+  const ofMatches = [...text.matchAll(PROSE_OF_RE)].map((m) => ({ m, path: m[3], ni: 1 }));
+  // «`X`, line N of `Y`»: the number belongs to Y. A comma-form match whose number the
+  // «of» form already claimed is dropped, never double-bound to the token before it.
+  const claimed = new Set(ofMatches.map(({ m }) => m.indices[1][0]));
+  const commaMatches = [...text.matchAll(PROSE_COMMA_RE)]
+    .map((m) => ({ m, path: m[1], ni: 2 }))
+    .filter(({ m }) => !claimed.has(m.indices[2][0]));
+  for (const { m, path, ni } of [...ofMatches, ...commaMatches]) {
+    if (/\n\s*\n/.test(m[0])) continue;
+    const start = m.indices[ni];
+    const endIdx = m.indices[ni + 1];
+    const srcLine = lineOf(start[0]); // blame the line carrying the number (self-healing)
+    const token = squash(m[0]);
+    const r = resolveCitedPath(rel, path, null);
+    if (!r.target) {
+      skips.push({ srcFile: rel, srcLine, token, reason: r.reason, candidates: r.candidates });
+      continue;
+    }
+    judge({
+      srcLine,
+      token,
+      target: r.target,
+      weak: r.weak,
+      n: Number(m[ni]),
+      end: m[ni + 1] ? Number(m[ni + 1]) : null,
+      escape: ESCAPE_RE.exec(lines[srcLine - 1]),
+      pos: { start: numAt(start), end: endIdx ? numAt(endIdx) : null },
+    });
+  }
 
   return { findings, skips, resolved: resolvedCount };
 }
@@ -531,7 +611,24 @@ function renumber(findings) {
   for (const [file, fs_] of byFile) {
     const abs = resolve(REPO_ROOT, file);
     const lines = readFileSync(abs, 'utf8').split('\n');
-    for (const f of fs_) {
+    // Prose citations are edited by POSITION, not by token: the token was squashed
+    // across a wrap and no longer occurs verbatim. Edits run right-to-left so an earlier
+    // one never shifts a later column; the digits are asserted before the write, so a
+    // file changed since the scan is skipped rather than corrupted.
+    const edits = fs_
+      .filter((f) => f.pos)
+      .flatMap((f) => [
+        [f.pos.start, f.movedTo],
+        ...(f.pos.end && f.movedEnd ? [[f.pos.end, f.movedEnd]] : []),
+      ])
+      .sort(([a], [b]) => b.line - a.line || b.col - a.col);
+    for (const [{ line, col, len }, value] of edits) {
+      const l = lines[line - 1];
+      if (!/^\d+$/.test(l.slice(col, col + len))) continue;
+      lines[line - 1] = l.slice(0, col) + value + l.slice(col + len);
+    }
+    written += fs_.filter((f) => f.pos).length;
+    for (const f of fs_.filter((x) => !x.pos)) {
       const span = f.movedEnd ? `${f.movedTo}-${f.movedEnd}` : `${f.movedTo}`;
       // The trailing backtick is part of a bare backreference's token (`` `:272` ``),
       // so an end-anchored `:\d+$` never matches one and `--write` silently half-fixed
