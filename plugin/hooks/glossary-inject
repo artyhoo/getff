@@ -160,6 +160,42 @@ case "$gl_uses_thr" in '' | *[!0-9]* | 0) gl_uses_thr=3 ;; esac
 gl_explains_thr="${AIF_GLOSSARY_EXPLAINS:-5}"
 case "$gl_explains_thr" in '' | *[!0-9]* | 0) gl_explains_thr=5 ;; esac
 
+# ── Counters lock (plain-words-recap-v2 S3, cold review 2026-09-21) ──────────
+# The counters file is machine-shared BY DESIGN (kickoff-s3.md §1 item 4), and the
+# increment below is a read-modify-write: two sessions that read the same value both
+# write value+1 and one usage is lost. Measured before this block existed: 10 concurrent
+# prompts carrying one term → `usages: 2`; the same 10 run one at a time → `usages: 10`.
+# With 4+ worktree sessions the norm here, `usages >= AIF_GLOSSARY_USES` was effectively
+# unreachable, so the «stop explaining after N times» throttle — the whole BUILD rationale
+# of prior-art row #283 — never engaged.
+#
+# `mkdir` is the portable atomic test-and-set (flock(1) is absent on macOS). Best-effort by
+# construction, exactly like every other counters write here: a lock we cannot take within
+# the bound is skipped, never fatal — a hook that blocks a turn over a learning counter is
+# worse than an undercount. Bound: 100 × 20 ms = 2 s. A lock dir older than a minute is a
+# crashed holder and is reclaimed, so one killed session cannot wedge the counter forever.
+_gl_lock() {
+  _gl_lockdir="${1}.lock"
+  _gl_held=""
+  _gl_i=0
+  while ! mkdir "$_gl_lockdir" 2>/dev/null; do
+    if [ -n "$(find "$_gl_lockdir" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$_gl_lockdir" 2>/dev/null || true
+      continue
+    fi
+    _gl_i=$((_gl_i + 1))
+    [ "$_gl_i" -ge 100 ] && return 1
+    sleep 0.02 2>/dev/null || true
+  done
+  _gl_held=1
+  return 0
+}
+_gl_unlock() {
+  [ -n "${_gl_held:-}" ] || return 0
+  rmdir "$_gl_lockdir" 2>/dev/null || true
+  _gl_held=""
+}
+
 # Best-effort state: a counters write that fails (read-only residue, no dir) must never
 # kill the hook or leak to stdout — the injection below still happens.
 [ -f "$counts_file" ] || { printf '{"terms":{}}' > "$counts_file" 2>/dev/null || true; }
@@ -173,11 +209,15 @@ while IFS=$'\t' read -r rec term word; do
   case "${_done}" in *"${term}"$'\n'*) continue ;; esac
   grep -qEi -- "$(_words_re "$word")" <<<"$prompt" || continue
   _done="${_done}${term}"$'\n'
+  # Read AND write inside one lock hold — the read is what the increment is derived from,
+  # so a lock taken only around the write would leave the same lost-update window.
+  _gl_lock "$counts_file" || true
   gl_u="$(jq -r --arg t "$term" '(.terms[$t].usages // 0)' "$counts_file" 2>/dev/null || echo 0)"
   gl_e="$(jq -r --arg t "$term" '(.terms[$t].explanations // 0)' "$counts_file" 2>/dev/null || echo 0)"
   case "$gl_u" in '' | *[!0-9]*) gl_u=0 ;; esac
   case "$gl_e" in '' | *[!0-9]*) gl_e=0 ;; esac
   if [ "$gl_u" -ge "$gl_uses_thr" ] || [ "$gl_e" -ge "$gl_explains_thr" ]; then
+    _gl_unlock
     continue  # learned — above threshold nothing fires (D-F): no line, no pending entry
   fi
   gl_u=$((gl_u + 1))
@@ -185,6 +225,7 @@ while IFS=$'\t' read -r rec term word; do
        "$counts_file" > "$gl_tmp" 2>/dev/null; then
     mv -f "$gl_tmp" "$counts_file" 2>/dev/null || rm -f "$gl_tmp" 2>/dev/null || true
   fi
+  _gl_unlock
   def="$(printf '%s\n' "$_pairs" | awk -F'\t' -v t="$term" '$1 == "T" && $2 == t { print $3; exit }')"
   [ -n "$def" ] || def="$term"
   out="${out}\"${word}\" = ${term}: ${def}"$'\n'

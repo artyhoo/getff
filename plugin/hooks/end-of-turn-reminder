@@ -762,6 +762,42 @@ fi
 # The root is resolved env-first (CLAUDE → ZCODE → pwd), the same chain the inject side
 # pins and _residue_dir now carries — under a harness whose hook cwd ≠ project root, the
 # CONTEXT.md check and the counters file must land on the SAME tree (cold-review m2).
+# ── Counters lock (plain-words-recap-v2 S3, cold review 2026-09-21) ──────────
+# The counters file is machine-shared BY DESIGN (kickoff-s3.md §1 item 4), and the
+# increment below is a read-modify-write: two sessions that read the same value both
+# write value+1 and one usage is lost. Measured before this block existed: 10 concurrent
+# prompts carrying one term → `usages: 2`; the same 10 run one at a time → `usages: 10`.
+# With 4+ worktree sessions the norm here, `usages >= AIF_GLOSSARY_USES` was effectively
+# unreachable, so the «stop explaining after N times» throttle — the whole BUILD rationale
+# of prior-art row #283 — never engaged.
+#
+# `mkdir` is the portable atomic test-and-set (flock(1) is absent on macOS). Best-effort by
+# construction, exactly like every other counters write here: a lock we cannot take within
+# the bound is skipped, never fatal — a hook that blocks a turn over a learning counter is
+# worse than an undercount. Bound: 100 × 20 ms = 2 s. A lock dir older than a minute is a
+# crashed holder and is reclaimed, so one killed session cannot wedge the counter forever.
+_gl_lock() {
+  _gl_lockdir="${1}.lock"
+  _gl_held=""
+  _gl_i=0
+  while ! mkdir "$_gl_lockdir" 2>/dev/null; do
+    if [ -n "$(find "$_gl_lockdir" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$_gl_lockdir" 2>/dev/null || true
+      continue
+    fi
+    _gl_i=$((_gl_i + 1))
+    [ "$_gl_i" -ge 100 ] && return 1
+    sleep 0.02 2>/dev/null || true
+  done
+  _gl_held=1
+  return 0
+}
+_gl_unlock() {
+  [ -n "${_gl_held:-}" ] || return 0
+  rmdir "$_gl_lockdir" 2>/dev/null || true
+  _gl_held=""
+}
+
 _gl_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
 if [ -n "$text" ] && [ -f "$_gl_root/CONTEXT.md" ]; then
   _gl_session_key="$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)"
@@ -776,11 +812,14 @@ if [ -n "$text" ] && [ -f "$_gl_root/CONTEXT.md" ]; then
     _gl_tmp="${_gl_counts}.tmp-$$"
     while IFS=$'\t' read -r _gl_term _gl_word; do
       [ -n "${_gl_term:-}" ] && [ -n "${_gl_word:-}" ] || continue
+      # One lock hold spans the read and the write — see the _gl_lock block above.
+      _gl_lock "$_gl_counts" || true
       _gl_u="$(jq -r --arg t "$_gl_term" '(.terms[$t].usages // 0)' "$_gl_counts" 2>/dev/null || echo 0)"
       _gl_e="$(jq -r --arg t "$_gl_term" '(.terms[$t].explanations // 0)' "$_gl_counts" 2>/dev/null || echo 0)"
       case "$_gl_u" in '' | *[!0-9]*) _gl_u=0 ;; esac
       case "$_gl_e" in '' | *[!0-9]*) _gl_e=0 ;; esac
       if [ "$_gl_u" -ge "$_gl_uses" ] || [ "$_gl_e" -ge "$_gl_explains" ]; then
+        _gl_unlock
         continue  # learned between the prompt and this Stop — nothing fires (D-F); drop it
       fi
       if grep -qF -- "${_gl_term} (" <<<"$text"; then
@@ -792,8 +831,11 @@ if [ -n "$text" ] && [ -f "$_gl_root/CONTEXT.md" ]; then
              "$_gl_counts" > "$_gl_tmp" 2>/dev/null; then
           mv -f "$_gl_tmp" "$_gl_counts" 2>/dev/null || rm -f "$_gl_tmp" 2>/dev/null || true
         fi
+        _gl_unlock
         continue
       fi
+      # No counter write on the demand path — release before the (slower) message work.
+      _gl_unlock
       _gl_flag="${TMPDIR:-/tmp}/aif-glossary-dem-${_gl_session_key}-$(printf '%s' "$_gl_term" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-48)"
       # command -v BEFORE the call AND before the flag: an undefined function in a cmdsubst
       # aborts the WHOLE hook under set -e (measured: rc 127) — a pack older than this

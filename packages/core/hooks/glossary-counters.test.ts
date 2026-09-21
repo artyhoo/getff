@@ -587,6 +587,82 @@ describe('pack-lag (consumer delivery lag) — the pre-feature pack must not abo
   }, SLOW_SHELL_MS);
 });
 
+describe('concurrent sessions — the counters file is machine-shared, so the increment must not lose updates', () => {
+  // The counters file is shared across every session on the machine BY DESIGN (kickoff-s3.md
+  // §1 item 4). The increment is a read-modify-write, so without a lock two sessions that read
+  // the same value both write value+1 and one usage is lost. Measured on the pre-fix hook:
+  // 10 concurrent prompts carrying one term produced `usages: 2`; the same 10 run one at a
+  // time produced 10. With several worktree sessions running at once — the norm in this repo —
+  // `usages >= AIF_GLOSSARY_USES` became effectively unreachable and the throttle that is the
+  // whole BUILD rationale of prior-art row #283 never engaged.
+  //
+  // PAIRED: the sequential arm is the control. A fix that broke counting outright would make
+  // the concurrent arm pass by counting nothing, so the control has to hold at the same time.
+  const N = 10;
+
+  function spawnInjects(dir: string, parallel: boolean): void {
+    const one = (i: number): void => {
+      spawnSync('bash', [INJECT_HOOK], {
+        input: JSON.stringify({ prompt: 'надо приземлить', session_id: `conc-${i}` }),
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          AIF_HOOK_LANG: 'en',
+          CLAUDE_CODE_ENTRYPOINT: 'cli',
+          CLAUDE_PROJECT_DIR: REPO_ROOT,
+          AIF_RESIDUE_DIR: dir,
+          TMPDIR: dir,
+          // High thresholds: this family measures the counter, never the learned cutoff.
+          AIF_GLOSSARY_USES: '999',
+          AIF_GLOSSARY_EXPLAINS: '999',
+        },
+      });
+    };
+    if (!parallel) {
+      for (let i = 0; i < N; i += 1) one(i);
+      return;
+    }
+    // One shell backgrounds all N and waits — the same shape the defect was measured with.
+    const cmd = Array.from({ length: N }, (_, i) =>
+      `printf '%s' '${JSON.stringify({ prompt: 'надо приземлить', session_id: `conc-${i}` })}' | bash ${INJECT_HOOK} >/dev/null 2>&1 &`,
+    ).join('\n');
+    execSync(`${cmd}\nwait`, {
+      shell: '/bin/bash',
+      env: {
+        ...process.env,
+        AIF_HOOK_LANG: 'en',
+        CLAUDE_CODE_ENTRYPOINT: 'cli',
+        CLAUDE_PROJECT_DIR: REPO_ROOT,
+        AIF_RESIDUE_DIR: dir,
+        TMPDIR: dir,
+        AIF_GLOSSARY_USES: '999',
+        AIF_GLOSSARY_EXPLAINS: '999',
+      },
+    });
+  }
+
+  it.skipIf(!JQ)(`${N} CONCURRENT prompts each carrying one term count ${N} usages, not fewer`, () => {
+    const sb = sandbox();
+    writeCounts(sb.counts, {});
+    spawnInjects(sb.dir, true);
+    expect(readCounts(sb.counts).terms.Land?.usages).toBe(N);
+  });
+
+  it.skipIf(!JQ)(`control: the same ${N} prompts run SEQUENTIALLY also count ${N}`, () => {
+    const sb = sandbox();
+    writeCounts(sb.counts, {});
+    spawnInjects(sb.dir, false);
+    expect(readCounts(sb.counts).terms.Land?.usages).toBe(N);
+  });
+
+  it.skipIf(!JQ)('the lock is released — no lock directory survives a run', () => {
+    const sb = sandbox();
+    writeCounts(sb.counts, {});
+    spawnInjects(sb.dir, true);
+    expect(existsSync(`${sb.counts}.lock`)).toBe(false);
+  });
+});
+
 afterAll(() => {
   for (const d of tmpDirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
