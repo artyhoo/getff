@@ -108,11 +108,11 @@ CI-only, and the skill says so: whole-tree Markdown checks are not in the local 
 - The four parts are the sections that start at lines 41, 59, 63, and 76 of that file.
   The default push path is step 4 (line 54). The last-resort path is step 5 (line 55).
   The CI-only checks are named at line 74.
-- The list of `factory` skills is line 63 of `setup.d/lib.sh`. The loop that copies
-  them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 163
-  to 167.
+- The list of `factory` skills is line 65 of `setup.d/lib.sh`. The loop that copies
+  them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 170
+  to 174.
 - The same block delivers `scripts/run-local-ci-sweep.sh` next to the skill:
-  `setup.d/10-skills.sh`, lines 168 to 175. The usage text printed above is lines 144 to
-  147 of that script.
+  `setup.d/10-skills.sh`, lines 175 to 182. The usage text printed above is lines 145 to
+  148 of that script.
 - The card above is built from the `harvest` entry in `docs/site/reference/B.json`,
   which starts at line 159.
