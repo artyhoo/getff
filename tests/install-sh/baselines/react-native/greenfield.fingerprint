@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8663dd738937a92647d552bedab0d4a03f13c273dab7f12523874da536d95b27  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-3d5615c8c77d315d6041bb75dddfdc33374c13c893ff6aff863b236f5829e565  .ai-factory/refresh-baseline.json
+2780b884c3094b0bf7e6952facfe7506ceaa20298e9d395ef5bf4be12ac29163  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -21,7 +21,7 @@ b02f777e22aebaaf970752897b29ebc4eebf7c360eabe33fa2ee32b831ff71b1  .claude/agents
 94ffb1f4838b8ff9abfe3852ed24b8df2e16aaec2cb19816a02257be47fd09e6  .claude/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .claude/agents/memory-codification-auditor.md
-f3b4b83cb7e21b2dfbe0ef0bbd837d795c7ebea6ff90be2e54c7a82242854008  .claude/agents/review-sidecar.md
+4e68c2b29073769643fe2798143639e51804372d38b6c5f12959b03428c39cf8  .claude/agents/review-sidecar.md
 a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents/rule-researcher.md
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 9c46f2c267982f31742bc4d03cd150cce67770ebf5e04106b11f9a231460673b  .claude/hooks/ask-question-reminder.sh
