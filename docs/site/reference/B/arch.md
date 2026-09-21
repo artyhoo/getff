@@ -18,6 +18,7 @@ sources:
   - tests/install-sh/baselines/ts-server/greenfield.fingerprint
 executed:
   - { example: show-arch-invocation-lines, stack: ts-server, date: 2026-09-21, result: printed }
+docs-refresh: deferred — re-verified 2026-09-21, only the hash values on lines 7 and 162 of the cited install fingerprint changed (pre-push.ts and refresh-baseline.json); every line and path this page cites is unchanged; clears at the next gold refresh of this page
 ---
 
 # arch skill
