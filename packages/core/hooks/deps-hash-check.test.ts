@@ -30,6 +30,7 @@ import {
   rmSync,
   readFileSync,
   readdirSync,
+  renameSync,
 } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -1433,6 +1434,70 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     const after = runHook(cwd, { TMPDIR: join(cwd, 'nonexistent-tmp') });
     expect(after.status).toBe(0);
     expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
+  });
+
+  // Glob-spelling forms (W1-B verify-seat code review): the glob matcher compared patterns
+  // against candidate dirs literally, so the npm-documented `./packages/a` form, a trailing
+  // `/`, and a trailing ` # comment` on a pnpm-workspace.yaml line each matched NO member —
+  // the #1264 false-GREEN again, in the most common spellings. Each form must see a
+  // member-only bump even with a WARM memo (TMPDIR = cwd, so the memo is exercised).
+  const GLOB_FORMS: Array<{ name: string; pkg: object; yaml?: string }> = [
+    { name: 'npm "./packages/*"', pkg: { name: 'r', workspaces: ['./packages/*'] } },
+    { name: 'npm "packages/*/"', pkg: { name: 'r', workspaces: ['packages/*/'] } },
+    { name: 'npm {packages:["./packages/a/"]}', pkg: { name: 'r', workspaces: { packages: ['./packages/a/'] } } },
+    { name: 'npm "!./packages/b" + "./packages/*"', pkg: { name: 'r', workspaces: ['!./packages/b', './packages/*'] } },
+    { name: 'pnpm block item + comment', pkg: { name: 'r' }, yaml: 'packages:\n  - "packages/*" # all libs\n' },
+    { name: 'pnpm flow sequence + comment', pkg: { name: 'r' }, yaml: 'packages: ["./packages/*"] # libs\n' },
+  ];
+  for (const form of GLOB_FORMS) {
+    it(`WORKSPACE-GLOB-FORM (${form.name}): member-only bump with a warm memo → WARN`, () => {
+      const cwd = makeFixtureDir({
+        packageJson: form.pkg,
+        members: { 'packages/a': { name: 'a', dependencies: { lodash: '1.0.0' } } },
+        ...(form.yaml !== undefined ? { pnpmWorkspaceYaml: form.yaml } : {}),
+        toolDecisions: `---\ndeps-hash-npm: REPLACE_ME\n---\n`,
+      });
+      // The member IS enumerated: its path-keyed entry is in the extractor payload.
+      const pb = runHook(cwd, { TMPDIR: cwd }, ['--print-baseline']);
+      writeFileSync(join(cwd, '.ai-factory', 'tool-decisions.md'), `---\n${pb.stdout.trim()}\n---\n`, 'utf8');
+      expect(runHook(cwd, { TMPDIR: cwd }).stdout).toBe('');
+      writeFileSync(
+        join(cwd, 'packages', 'a', 'package.json'),
+        JSON.stringify({ name: 'a', dependencies: { lodash: '2.0.0' } }),
+        'utf8',
+      );
+      const after = runHook(cwd, { TMPDIR: cwd });
+      expect(after.status).toBe(0);
+      expect(after.stdout).toContain('package.json deps changed since last tool-bootstrap');
+    });
+  }
+
+  it('WORKSPACE-CATALOG-COMMENT: a trailing comment on a catalog value does not leak into the resolved version', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { name: 'r' },
+      members: { 'packages/a': { name: 'a', dependencies: { react: 'catalog:' } } },
+      pnpmWorkspaceYaml: "packages:\n  - 'packages/*'\ncatalog:\n  react: '^18.3.0' # pinned for RN\n",
+    });
+    const hookSrc = readFileSync(HOOK, 'utf8');
+    const m = hookSrc.match(/_NPM_EXTRACT_JS='([\s\S]*?)'\n_npm_current/);
+    if (!m) throw new Error('could not extract _NPM_EXTRACT_JS from the hook');
+    const r = spawnSync('node', ['-e', m[1]], { cwd, encoding: 'utf8' });
+    const payload = JSON.parse(r.stdout);
+    expect(payload['packages/a/package.json']).toEqual({ react: '^18.3.0' });
+  });
+
+  it('WORKSPACE-MEMO-RENAME: moving a member to a new dir with identical bytes re-keys a warm memo (the key carries paths)', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { name: 'r', workspaces: ['packages/*'] },
+      members: { 'packages/a': { name: 'a', dependencies: { lodash: '1.0.0' } } },
+    });
+    const before = runHook(cwd, { TMPDIR: cwd }, ['--print-baseline']).stdout;
+    renameSync(join(cwd, 'packages', 'a'), join(cwd, 'packages', 'b'));
+    const after = runHook(cwd, { TMPDIR: cwd }, ['--print-baseline']).stdout;
+    // The extractor keys members by "<dir>/package.json", so the true hash moves; a key
+    // built from contents alone would serve the stale "packages/a" hash for up to the TTL.
+    expect(after).not.toBe(before);
+    expect(after).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}\n$/);
   });
 
   it('WORKSPACE-LEGACY-STABLE: non-workspace package.json hashes identically to the pre-#1264 7-field shape (existing baselines do not shift)', () => {
