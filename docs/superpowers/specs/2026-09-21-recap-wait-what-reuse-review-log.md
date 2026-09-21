@@ -138,3 +138,19 @@ session re-reads it).
   parked — **ACCEPTED** (surfaced under Consequences, not fixed here); hand-listed stems decay as
   the glossary grows — **ACCEPTED** (D8 «Script upkeep», owned by R-17's run);
   `upstream-skill-reference.test.ts` resolves only `superpowers:` names — **ACCEPTED** as is.
+
+## Revision 3 — operator answers (2026-09-22), no cold pass
+
+Three operator decisions, recorded as R-16, R-18, R-19 in the spec. The two-round REVISE cap was
+already spent; each reversal below is the concept holder's call, not a reviewer's.
+
+- R-16 — «оставь выключеными»: the `usages` counter stays dormant. Closes TD2-F3 (**ESCALATED** →
+  answered).
+- R-18 — the re-explain rate returns as a ground and the D5 trigger. Reverses the round-2
+  disposition that dropped it. What round 2 measured still stands, so the defect is fixed rather
+  than argued away: `measure-interaction-shape.py --dedup` (new), read over 35 days only —
+  98 / 1237 = 7.9 % on 2026-09-22 (without the flag: 122 / 1507 = 8.1 %).
+- R-19 — ADRs adopted; D9 vendors the whole upstream body with both format files. Reverses the
+  round-2 narrowing to five sections. Its three grounds are each answered: the ADR half is now
+  wanted, `ADR-FORMAT.md` is vendored so nothing dangles, and silent spelling mapping is kept by
+  binding (ii).

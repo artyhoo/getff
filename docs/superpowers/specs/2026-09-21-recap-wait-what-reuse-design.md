@@ -51,7 +51,7 @@ the session; the commands are reproducible.
 
 Net effect: D1 is rewritten (examples added, line 3 changed); D2 and D3 are **PARKED** with a
 revisit trigger; D8-D11 are new; the R-1 fork and the arm-the-gate precondition (R-7) are moot
-while the arms are parked. One fork is open to the operator: R-16 (the `usages` counter).
+while the arms are parked. R-16 closed on 2026-09-22: the `usages` counter stays dormant.
 
 ## Context
 
@@ -139,12 +139,12 @@ python3 scripts/measure/measure-recap-sentences.py <same flags> --since 2026-09-
 That window is biased low: most of its blocks come from sessions that were discussing sentence
 length. It is still the honest «before» number for R-10.
 
-**The re-explain rate is not used as a ground or a trigger.** Revision 1 cited
-`measure-interaction-shape.py` (35 days: 118 / 1498 = 7.9 %; 7 days to 2026-09-21: 6 / 174 =
-3.4 %). Cold review round 2 re-ran it a day later: 7 days = 14 / 143 = **9.8 %**, 35 days =
-123 / 1509 = 8.2 %. Of the 14 hits, 9 are this very design dialogue, counted twice (a resumed
-transcript; that script has no `--dedup`), and 2 are false positives on «что надо». A metric
-that rises because the operator discusses wording cannot decide whether wording got better.
+**The re-explain rate is a ground and the D5 trigger again (R-18), read over 35 days with
+`--dedup`.** Round 2 dropped it: the 7-day rate went 3.4 % → 9.8 % in a day, 9 of 14 hits being
+this dialogue counted twice. The operator then said those re-asks were a probe («просто так
+переспросил чтобы поверить»), and the double count is fixed by a new `--dedup` flag:
+`measure-interaction-shape.py --days 35 --dedup` → 98 / 1237 = **7.9 %** (7 days: 10 / 101).
+The 7-day window stays unusable; «что надо» false positives remain a known limit.
 
 Known limits: the blocks predate any «short sentences» contract line, so every over-N rate is an
 upper bound on the post-rollout retry rate; the glossary landed on 2026-09-21 (PR 1824), so «0
@@ -255,9 +255,9 @@ the measuring script reports `avoid_phrase_blocks` > 0.
 
 ### D5 Auto-`/wait-what` on a re-ask — out of scope
 
-It would be a UserPromptSubmit-side feature, a different hook. The operator has not asked for
-it, and the only metric that could argue for it is noise (Measurements).
-**Trigger to revisit as its own slice:** the operator asks for it.
+It would be a UserPromptSubmit-side feature, a different hook. **Trigger to revisit as its own
+slice:** the operator asks for it, or the 35-day `--dedup` re-explain rate is above 7.9 % at the
+R-17 re-measure.
 
 ### D6 The 15-line cap does not move
 
@@ -326,7 +326,7 @@ revises one:
 | Parent R-4 part                                                        | Revision 2                                                                                                                   |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | (a) operator words live in the added `_Operator says_` field           | kept                                                                                                                         |
-| (b) upstream's «challenge the user against the glossary» NOT adopted   | **revised:** adopt the five «During the session» moves listed below; a challenge is about *meaning*, never about his spelling or his word |
+| (b) upstream's «challenge the user against the glossary» NOT adopted   | **revised:** adopt the «During the session» moves listed below; a challenge is about *meaning*, never about his spelling or his word |
 | (c) process terms allowed in the seed                                  | kept                                                                                                                         |
 
 The fear behind (b) was real — upstream's `_Avoid_` would have steered the operator away from
@@ -336,39 +336,40 @@ out is the half the operator now asks for: «важно определиться
 
 **What is adopted, by upstream section name** (`domain-modeling/SKILL.md`, «During the
 session»): «Challenge against the glossary», «Sharpen fuzzy language», «Discuss concrete
-scenarios», «Cross-reference with code», «Update CONTEXT.md inline» — every move of that
-chapter except the last one. In idea sessions `/arch` invokes
+scenarios», «Cross-reference with code», «Update CONTEXT.md inline», «Offer ADRs sparingly» —
+the whole chapter. In idea sessions `/arch` invokes
 `mattpocock-skills:domain-modeling` next to `grilling` — upstream's own pairing (`grill-with-docs`,
 `wayfinder`, `triage` each «call the Skill tool twice, for grilling and domain-modeling»). The
 moves are read from the upstream text, never from a paraphrase here.
 
-**What is NOT adopted:** the ADR half («Offer ADRs sparingly», `ADR-FORMAT.md`, `docs/adr/`) and
-`CONTEXT-MAP.md` — D-H11 records «ADR dir REJECT», and this repo's decision record is the SSOT
-register; and `CONTEXT-FORMAT.md`'s rule to list rejected synonyms
-under `_Avoid_`. So this is **not** an «AS IS» adoption, and cold review round 2 was right to
-reject that wording.
+**ADRs are adopted (R-19).** Round 2 excluded them on D-H11 («ADR dir REJECT — specs and
+research-patches cover it»). The operator reversed that on 2026-09-22 («адр круто же»): a spec
+here runs to 600 lines, an upstream ADR is one paragraph saying *that* and *why*. `docs/adr/`
+is created lazily, per upstream. **Not adopted:** `CONTEXT-MAP.md` (one context here) and
+`CONTEXT-FORMAT.md`'s `_Avoid_` rule.
 
 `/arch` owns the bindings: (i) `_Operator says_` holds the operator's raw words where upstream
 would use `_Avoid_`; (ii) a challenge or a «X or Y?» question is about what a word *means* —
 the agent never tells the operator to stop using his word, and a different spelling is D8's
-silent mapping, not a challenge; (iii) the five moves run only inside idea sessions.
+silent mapping, not a challenge; (iii) the moves run only inside idea sessions; (iv) an ADR
+points at the spec that owns the argument and never restates it (doc-authority-hierarchy).
 
 **Channel for (iii).** `/arch` is `disable-model-invocation: true`, so its text is absent from
 ordinary sessions, while upstream `domain-modeling` is model-invocable with the trigger «writing
 or editing a `CONTEXT.md`» — exactly what D8 makes every session do. The binding therefore also
 lands in the always-injected layer that already owns such collisions: one line under `CLAUDE.md`
 «Skill routing bindings» — `domain-modeling` is invoked from `/arch` idea sessions only;
-elsewhere a vocabulary question follows D8, and no ADR is ever offered. A live misroute is a
+elsewhere a vocabulary question follows D8, and no ADR is offered. A live misroute is a
 D-H7 incident (#253).
 
 **Consumer delivery.** `/arch` ships at the env tier and the plugin is not in the companions
 manifest, so the text is vendored under `.claude/skills/arch/references/` like `grilling` — but
-as a wrapper holding the **five adopted sections verbatim**, each pinned by its own sha256, plus
-`CONTEXT-FORMAT.md` beside it (the «Update CONTEXT.md inline» section links it relatively). The
+as the **whole upstream body verbatim**, pinned by one sha256, with `CONTEXT-FORMAT.md` and
+`ADR-FORMAT.md` beside it (the body links both relatively); the bindings above override. The
 test is its own contract, not a copy of `grilling-vendored-body.test.ts`: that test asserts «the
 body heading is the last heading» (`:57-60`), which holds only because `grilling` has no
-headings. No `ADR-FORMAT.md` link enters the repo, so nothing dangles. Provenance is pinned by
-the marketplace commit SHA and the section hashes, never by the version string (#253's dated
+headings. Both linked files are vendored, so nothing dangles. Provenance is pinned by
+the marketplace commit SHA and the body hash, never by the version string (#253's dated
 provenance correction). The existing install lines already copy `references/` (`setup.d/lib.sh`
 `copy_skill_with_transform`). Today `/arch` mentions neither `CONTEXT.md` nor `domain-modeling`
 (`git grep -n -iE 'domain-modeling|CONTEXT\.md|glossary' origin/staging -- .claude/skills/arch`
@@ -398,13 +399,9 @@ is its own decision with its own consult, not a side effect of this slice. `glos
 other job — injecting `"<raw word>" = <term>: <definition>` when the operator's prompt uses a
 term — is also dormant for the same unregistered reason.
 
-**Open fork R-16.** On 2026-09-21 22:01 UTC the operator asked for a combination: «нам нужно
-комбо! и наше и его и счетчик — но оставить только наше употребление» — keep the operator-side
-`usages` counter, drop the `explanations` half. Eight minutes later he hedged: «может все это уже
-лишнее и переусложнение». The hedge is not an answer, so the spec does not grade it as one.
-Recommendation: leave it dormant — nothing in revision 2 reads `usages`, and arming stays one
-operator command away (`bash scripts/register-glossary-hook.sh`). Either answer changes no other
-decision here.
+**R-16 closed.** The operator first asked for «комбо … и счетчик — но оставить только наше
+употребление», then hedged; asked directly, he answered «оставь выключеными» (2026-09-22).
+Arming stays one operator command away (`bash scripts/register-glossary-hook.sh`).
 
 ### D7 Rollout (revision 2)
 
@@ -421,7 +418,7 @@ decision here.
      directory, never source↔twin;
    - `.claude/skills/story/SKILL.md` `:25-26` and `:43` (D10);
    - `.claude/skills/arch/SKILL.md` §1 binding, `references/domain-modeling.md`,
-     `references/CONTEXT-FORMAT.md`, the section-hash test, the `CLAUDE.md` routing line (D9);
+     `references/CONTEXT-FORMAT.md`, `references/ADR-FORMAT.md`, the body-hash test, the `CLAUDE.md` routing line (D9);
    - `CONTEXT.md` header rewrite, the Env tier check, the spelling-uniqueness test (D8), one
      «superseded in part» line on the harmonization spec's D-H11 row;
    - the contract golden `packages/core/hooks/__fixtures__/gate-unarmed-goldens.json` (EN only,
@@ -458,10 +455,12 @@ decision here.
 | R-11 | Always the glossary term, never a paraphrase; jargon outside the glossary in plain words; no special case for «От тебя» | answered | operator, 2026-09-22 («выученые можно использовать», finding 4); D1 line 3 | the operator re-asks a bare glossary term more than once in two weeks (`measure-term-reasks.py`) → that entry's definition is the defect, rewrite it |
 | R-12 | The operator's question is the signal that grows the glossary  | answered      | operator's own proposal, 2026-09-22 (finding 5); D8 | `git log --all -- CONTEXT.md` shows no entry or spelling added in four weeks although `measure-term-reasks.py` shows asks → the growth rule is not followed; move it to a hook-side reminder |
 | R-13 | Spellings mapped silently, reported in one line                | answered      | operator, 2026-09-22; D8                     | the spelling-uniqueness test goes red, or the operator corrects a mapping once → switch to a confirmation question |
-| R-14 | `/arch` adopts five `domain-modeling` moves; parent R-4(b) reversed in part; ADR half not adopted | answered | operator, 2026-09-22; D9 | the agent corrects the operator away from his own word, or offers an ADR, once → binding (ii) or the routing line failed; tighten or withdraw |
+| R-14 | `/arch` adopts the `domain-modeling` «During the session» chapter; parent R-4(b) reversed in part | answered | operator, 2026-09-22; D9 | the agent corrects the operator away from his own word, or offers an ADR outside an idea session, once → binding (ii) or the routing line failed; tighten or withdraw |
 | R-15 | `/story` carries D1 lines 1-3                                   | answered      | operator, 2026-09-22; D10                    | — (text-only; covered by R-10's re-measure)                                                                                        |
-| R-16 | The operator-side `usages` counter: arm it, or leave it dormant | **operator-fork** | recommendation: dormant (D11)            | — (open)                                                                                                                           |
+| R-16 | The operator-side `usages` counter stays dormant | answered | operator, 2026-09-22: «оставь выключеными»; D11 | the operator asks how often he uses a term → arm it with the one command |
 | R-17 | The two-week re-measure is a scheduled task, not a memory      | answered      | cold review round 2 (TD-F9); D7 step 3       | the task fires and nobody acts on its report twice → promote the re-measure to a CI-visible dated check                           |
+| R-18 | The re-explain rate is a ground and the D5 trigger, 35 days with `--dedup` | answered | operator, 2026-09-22; Measurements | two consecutive 35-day reads move over 2 points with no contract change → the metric is noise; drop it again |
+| R-19 | ADRs adopted per upstream (`docs/adr/`, lazy); D-H11 «ADR dir REJECT» reversed | answered | operator, 2026-09-22; D9 | an ADR restates a spec instead of pointing at it, twice → tighten binding (iv) or withdraw |
 
 ### The R-1 fork, priced (parked with D2)
 
@@ -504,7 +503,7 @@ The seams of the parked D2/D3 (sentence fixtures under `LC_ALL=C` and `C.UTF-8`,
   idea sessions (D9). Entries nobody asks about stay as they are.
 - A shipped, tested capability (#283 counters) is now unused by design as well as unregistered
   in fact. D11 leaves the removal decision open on purpose.
-- `/arch` takes a second vendored upstream text (five sections, not a whole body); `CLAUDE.md`
+- `/arch` takes a second vendored upstream text (the whole body plus two format files); `CLAUDE.md`
   gains one routing line; the #253 misroute ladder covers a live misroute.
 - Inherited and now unowned: `AIF_EOT_RECAP_MAX_LINES` is interpolated unsanitized
   (`lang/ru.sh:100`). Its fix rode D2's slice and is parked with it — surfaced, not fixed here.
@@ -561,7 +560,10 @@ row #283 («unused since revision 2 of the reuse spec») and to #253 (second ven
   dash. Read as: R-11 — learned terms go bare in «От тебя» too.
 - «теперь я понял что нам нужно комбо! и наше и его и счетчик - но оставить только наше
   употребление + во время идеи считать» (2026-09-22), then «может все это уже лишнее и
-  переусложнение». Read as: an open fork, R-16 — not an answer either way.
+  переусложнение». Asked directly: «оставь выключеными». Read as: R-16 — dormant.
+- «верни это норм тема я просто так переспросил чтобы поверить … понял спервого раза»; «адр
+  круто же почему отключена? го короче скилы его переиспользовать … а не изоббретать велосипед»
+  (2026-09-22). Read as: R-18, R-19, and the whole-scheme «да».
 - «можно без вопроса чтобы он сам соотносил» (2026-09-22). Read as: R-13.
 - «взять его domain-modeling оно же реально хорошо еще и для уточнения идеи … важно определиться
   в терминах что мы одно и тоже понимаем» (2026-09-22). Read as: R-14.
@@ -590,3 +592,5 @@ Dates in this register are the operator's local dates; the transcripts stamp the
   trigger, `--since` window added, D9 narrowed from «AS IS» to five named sections with the ADR
   half excluded and a `CLAUDE.md` routing line, D7 file list and regeneration chain completed,
   R-16 opened as an operator fork, R-17 gives the re-measure an owner, three anchors corrected.
+- 2026-09-22 — **revision 3**, operator answers: R-16 closed (dormant); R-18 restores the
+  re-explain rate with a new `--dedup` flag; R-19 adopts ADRs, so D9 vendors the whole body.
