@@ -491,7 +491,7 @@ SP `requesting-code-review` upstream problem class = «dispatch a reviewer subag
 - **Does NOT re-litigate R-phase verdicts.** If a missed candidate is noticed, write `docs/meta-factory/research-patches/2026-<date>-meta-orchestrator-followup-<gap>.md` and surface to maintainer.
 - **Night delta — no new-scope planning at night.** Authoring NEW scope (kickoffs, umbrellas) is intent-class work, floored at night by the same envelope that floors intent parks; /pipeline is a day seat by policy ([autonomous-night v3 §5](../../../docs/superpowers/specs/2026-08-09-autonomous-night-v3-design.md)).
 
-**One-button-install coupling (load-bearing):** this skill lives at `.claude/skills/pipeline/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Ships directly from `.claude/skills/pipeline/` (single source of truth; no repo-root mirror — Item 12 closure 2026-05-25). Delivery moved out of `install.sh` into the tier rosters: this skill is in the `env+` tier at `setup.d/lib.sh:62`, walked by `setup.d/10-skills.sh:159`.
+**One-button-install coupling (load-bearing):** this skill lives at `.claude/skills/pipeline/` (project-scope, committed). It is templatable for N6b `npx` scaffold via `install.sh` payload. All cross-references use `${CLAUDE_SKILL_DIR}` or repo-relative paths — no absolute paths inside skill body. Ships directly from `.claude/skills/pipeline/` (single source of truth; no repo-root mirror — Item 12 closure 2026-05-25). Delivery moved out of `install.sh` into the tier rosters: this skill is in the `env+` tier at `setup.d/lib.sh:64`, walked by `setup.d/10-skills.sh:166`.
 
 ---
 
