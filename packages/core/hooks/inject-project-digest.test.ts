@@ -37,7 +37,7 @@
  *
  * Skips gracefully when jq is unavailable (the SubagentStart path needs jq; the UserPromptSubmit
  * path uses awk and works without jq).
- * Precedent: inject-subagent-digest.test.ts (SSOT+schema pattern), deps-hash-check.test.ts:279.
+ * Precedent: inject-subagent-digest.test.ts (SSOT+schema pattern), deps-hash-check.test.ts:402.
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { execSync, spawnSync } from 'node:child_process';

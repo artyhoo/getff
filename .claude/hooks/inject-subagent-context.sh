@@ -47,7 +47,7 @@ DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
 
 # Extract the digest block (awk pipeline mirrored from inject-project-digest.sh:37). No-op when
 # the file is absent or the block is empty/whitespace-only (zero-setup default — same semantics
-# as inject-project-digest.sh:31,38).
+# as inject-project-digest.sh:31,39).
 if [ ! -f "$DIGEST_FILE" ]; then
   [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: no digest file, no-op\n' >&2
   exit 0

@@ -667,6 +667,13 @@ printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/tool.sh"
 git -C "$REPO" add target.sh scripts/tool.sh
 expect_hook_block "pre-commit refuses a blank-landing citation in a code comment" "is an empty line"
 
+# --- a staged path with a space is one argument, not two fragments --in-corpus drops
+new_hook_repo precommit-code-space
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/my tool.sh"
+git -C "$REPO" add target.sh "scripts/my tool.sh"
+expect_hook_block "pre-commit checks a staged code file whose path has a space" "is an empty line"
+
 # --- ...and outside the corpus they are not: the hook asks the checker for the scope
 new_hook_repo precommit-code-scope
 mkdir -p "$REPO/.claude/orchestrator-prompts/k"

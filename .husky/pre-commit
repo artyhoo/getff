@@ -146,22 +146,30 @@ fi
 #     `--diff-filter=ACM`, which is empty for a pure rename, and the hook exits 0 at that
 #     guard before any section runs. A rename that MOVES a doc can break a relative
 #     citation, so this is real — it is simply not this block's to fix.
-CITE_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | while IFS= read -r f; do
+# An array, not a word-split string: a staged path with a space would otherwise reach the
+# checker as two fragments, which --in-corpus drops, and the file would go unchecked.
+CITE_FILES=()
+while IFS= read -r f; do
   # `-f`: a path staged and then deleted from the working tree makes the checker throw
   # ENOENT, which the `||` below would report as a blank-landing verdict — a red naming
   # the wrong defect. Same guard as the per-file loop at the top of this file.
-  [ -f "$f" ] && printf '%s\n' "$f"
-done || true)
+  [ -f "$f" ] && CITE_FILES+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 #
 # Guarded on `command -v node` rather than failing hard, for one reason and not the
 # usual one: letting a missing interpreter fall through the `||` below would print a
 # blank-landing verdict for a machine that has no node, which is an unactionable red.
 # The skip costs no coverage — pre-push §9 runs ARM 2 again, and the sections around it
 # die loudly without node, so nothing reaches origin unchecked.
-if [ -n "$CITE_FILES" ] && command -v node &>/dev/null; then
-  # shellcheck disable=SC2086
-  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only --in-corpus $CITE_FILES \
-    || { echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1; }
+if [ "${#CITE_FILES[@]}" -gt 0 ] && command -v node &>/dev/null; then
+  cite_rc=0
+  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only --in-corpus "${CITE_FILES[@]}" \
+    || cite_rc=$?
+  if [ "$cite_rc" -eq 1 ]; then
+    echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1
+  elif [ "$cite_rc" -ne 0 ]; then
+    echo "❌ check-line-citations could not run (exit $cite_rc) — see its message above"; fail=1
+  fi
 fi
 
 # ── Prettier on staged SHIPPED files (mirrors CI «Shipped artifacts are Prettier-clean») ──

@@ -160,6 +160,9 @@ const ESCAPE_RE = /<!--\s*cite:historical\s+([^>]*?)\s*-->/;
  * the citing line, rationale running to the end of the line (a closing comment marker is
  * not part of it). Code-only on purpose — in Markdown prose a sentence that merely
  * MENTIONS «cite:historical» would otherwise silence a real drift on its own line.
+ * Declared limits: the 20-character floor counts whatever follows the token, so code
+ * after it on the same line counts toward the rationale; and the escape silences every
+ * citation on its line, so write the token after the last live citation, or split the line.
  */
 const ESCAPE_CODE_RE = /cite:historical\s+(.*?)\s*(?:\*\/|-->)?\s*$/;
 const ESCAPE_RATIONALE_MIN = 20;
