@@ -49,7 +49,7 @@
  *
  * Mechanically detectable → gate, not injection (§3 step 1). A principle test is the earliest
  * gate that fires: the principles suite runs at pre-push (`principlesMetaSection`,
- * packages/core/hooks/pre-push.ts) and in CI (`principles-meta-tests`, audit-self.yml:210) —
+ * packages/core/hooks/pre-push.ts) and in CI (`principles-meta-tests`, audit-self.yml:264) —
  * developer-time first, CI as backstop, per the README "earliest reachable channel" invariant.
  *
  * Deliberately NOT placed in `workflow-integrity.yml`'s own job: that job cannot read branch

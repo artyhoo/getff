@@ -251,7 +251,7 @@ describe('isNewDepAdded()', () => {
 // ─── CLAUDE.md prose ↔ hook sync (executable, was attention-only) ─────────────
 //
 // CLAUDE.md «What is a capability commit?» promises «the prose definition and
-// the hook stay in sync» (CLAUDE.md:36) — until this test, that promise was
+// the hook stay in sync» (CLAUDE.md:30) — until this test, that promise was
 // enforced by nobody (#hope-as-gate, attention-is-not-a-mechanism.md §1).
 // These tests make the overrides-exclusion clause of the sync executable: the
 // non-dep block names skipped by isNewDepAdded() must each be named in the
@@ -1274,7 +1274,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(result.code).toBe(1);
   });
 
-  // Kills prior-art.ts:74 Regex mutant: remove ^ anchor from dep detection regex
+  // Kills prior-art.ts:217 Regex mutant: remove ^ anchor from dep detection regex
   // Without ^, a line where + or - appears mid-string (not at line start) would be falsely matched.
   // e.g. '   some text + "my-lib": "^1.0.0"' → without ^, the + and dep-key pattern is found mid-string.
   it('does NOT detect a dep when + appears mid-line before a dep-format string (^ anchor required)', () => {
@@ -1283,7 +1283,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(isNewDepAdded(diff)).toBe(false);
   });
 
-  // Kills prior-art.ts:152:37 Regex mutant: /^[—–\-:]/ → /[—–\-:]/ (no ^ anchor)
+  // Kills prior-art.ts:396:37 Regex mutant: /^[—–\-:]/ → /[—–\-:]/ (no ^ anchor)
   // Without ^, the first separator found ANYWHERE in the rationale is stripped (not just leading).
   // Test: rationale where separator is NOT at start but IS mid-string (after placeholder words).
   // 'todo — todo todo todo' → original: /^[—–\-:]/ strips nothing (starts with 'todo') → keep '—' mid-string
@@ -1303,7 +1303,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(checkTrailerBody(body, FUTURE).code).toBe(2);
   });
 
-  // Kills prior-art.ts:152:61 Regex mutant: /^ +/ → / +/ (second strip — no anchor)
+  // Kills prior-art.ts:396:61 Regex mutant: /^ +/ → / +/ (second strip — no anchor)
   // Without ^, the first group of spaces found ANYWHERE is stripped (not just leading spaces).
   // Test: rationale with NO leading spaces but WITH internal spaces between placeholder words.
   // Original /^ +/: no leading spaces → nothing stripped → 'todo todo todo todo todo todo' → all-placeholder → code 1

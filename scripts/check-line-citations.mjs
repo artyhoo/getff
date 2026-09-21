@@ -243,8 +243,8 @@ function tracked(basename) {
  *   spec.
  * - BENEFIT on the incident that raised the question: ZERO. PR #1765's eight birth-wrong
  *   citations would NOT have fired here. Verified at the pre-fix tree `7b600f2e7d3`:
- *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the
- *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so
+ *   both cited coordinates are non-blank prose (`audit-self.yml:772-773` is the
+ *   `--strip-components` comment, `check-hook-marker.sh:172-175` is comment prose), so
  *   ARM 2 cannot see them and ARM 1 is green by construction on a citation wrong at
  *   birth. ARM 3, the arm that would have covered that class, was built and rejected in
  *   the same patch.

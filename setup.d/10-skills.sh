@@ -270,7 +270,7 @@ if [ -f "$EOT_SRC" ]; then
     # (orthogonal to --profile), so a full install arms it; a plain install does not. The
     # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
     # so this mirrors the hand-action sibling that arms the SAME key,
-    # scripts/register-recap-gate.sh:159-175, and through it the shape's origin
+    # scripts/register-recap-gate.sh:160-176, and through it the shape's origin
     # scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate, atomic mv, skip
     # when already set. Never write the target in place: a malformed settings.json silently
     # disables EVERY setting in it.

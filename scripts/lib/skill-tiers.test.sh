@@ -30,17 +30,17 @@ tiers="$(node -e '
 if [ -n "$tiers" ]; then
   case "$tiers" in
     *'"core":["ai-doc","rule-research","rule-tests","template-audit"]'*)
-      ok "core tier = 4 dirs sorted (lib.sh:61)" ;;
+      ok "core tier = 4 dirs sorted (lib.sh:63)" ;;
     *) bad "core tier mismatch: $tiers" ;;
   esac
   case "$tiers" in
     *'"env":["arch","night-mode","orchestrator","pipeline","reviewer"]'*)
-      ok "env tier = 5 dirs sorted (lib.sh:62)" ;;
+      ok "env tier = 5 dirs sorted (lib.sh:64)" ;;
     *) bad "env tier mismatch: $tiers" ;;
   esac
   case "$tiers" in
     *'"factory":["aif-doctor","claude-glm-executor-handoff","dispatcher","harvest","story"]'*)
-      ok "factory tier = 5 dirs sorted (lib.sh:63)" ;;
+      ok "factory tier = 5 dirs sorted (lib.sh:65)" ;;
     *) bad "factory tier mismatch: $tiers" ;;
   esac
 fi

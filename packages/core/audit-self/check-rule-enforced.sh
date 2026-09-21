@@ -23,7 +23,7 @@
 # GH #730: verification is scoped to R2-relevant packages — those whose nearest package.json declares
 # `zod` in dependencies / devDependencies. A zod-less package (e.g. an Expo/RN app) cannot have an
 # unsafe-zod-parse boundary → silently skipped as "R2 N/A", not a hard fail. Grep shape reuses
-# detect-r2-boundary.sh:84 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
+# detect-r2-boundary.sh:87 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
 # `"zod-to-json-schema":` / `"@hono/zod-openapi":`. The "R2 ⟺ zod present" principle applies at
 # package granularity here; at call-site granularity in no-unsafe-zod-parse.ts (GH #737) — same
 # principle, different files, neither duplicated.

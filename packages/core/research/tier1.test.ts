@@ -266,7 +266,7 @@ describe('Task 2.3 — Tier-1 derivation (DN #6 lead: A-via-C multi-tenant conta
 
 // --- tier1ReasonToDiagnostic FF2008/FF2009 code coverage ---
 // Reviewer finding (whole-work pass): tier1ReasonToDiagnostic
-// (allowlist-resolver.ts:342) maps tier1For's {ok,reason} string to an FF code
+// (allowlist-resolver.ts:372) maps tier1For's {ok,reason} string to an FF code
 // via substring match. Only the FF2007 branch was end-to-end .code-asserted
 // (AC 3 "degradation" test above); FF2008 (no adapter) and FF2009 (adapter
 // present, zero eligible hosts — the silent `else` fallthrough) were not.

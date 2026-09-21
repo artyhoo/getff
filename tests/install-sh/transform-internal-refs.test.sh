@@ -31,7 +31,7 @@
 #   4f4-4f5. The sibling-skill shape stays RELATIVE, and `reviewer` must stay in a tier. The
 #       same widening caught ](../reviewer/SKILL.md) dangling, and the first fix rewrote it to a
 #       blob URL — treating the symptom. «sibling-skill links stay relative (sibling ships too)»
-#       (setup.d/10-skills.sh:107) means a dangling SIBLING ref proves the sibling is missing:
+#       (setup.d/10-skills.sh:137) means a dangling SIBLING ref proves the sibling is missing:
 #       arch (env tier) tells consumers `/reviewer` loads the project skill, while `reviewer`
 #       shipped to nobody. Fixed by shipping it at env; 4f4 asserts the link stayed relative and
 #       4f5 asserts the tier membership that makes it resolve.
@@ -43,7 +43,7 @@
 #       — S2 2026-07-25 round-1 rework: .claude/orchestrator-prompts/ is NEVER delivered
 #       to consumers (the only install action is mkdir_safe "$PROJECT_ROOT/.ai-factory/
 #       orchestrator-prompts" at setup.d/30-templates.sh:17 — note: .ai-factory/, not
-#       .claude/). One leak surfaced in .claude/skills/aif-doctor/SKILL.md:26.
+#       .claude/). One leak surfaced in .claude/skills/aif-doctor/SKILL.md:30.
 #   4h. transforms ](../.claude/skills/foo/SKILL.md) → ](${URL}/.claude/skills/foo/SKILL.md)
 #       — 2026-07-25 handoff item 5: agents/*.md at repo root reach skills via
 #       ../.claude/skills/...; shipped to <consumer>/.claude/agents/ that ref resolves to
@@ -186,12 +186,12 @@ grep -qF "](${UPSTREAM_BLOB_URL}/.claude/hooks/check-worker-dispatch-channel.sh)
 # Sub-test 4f4: the sibling-skill shape stays RELATIVE. `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:94 dangled at factory depth, and the first fix rewrote it to a blob URL — wrong
 # cause. The invariant is «sibling-skill links stay relative (sibling ships too)»
-# (setup.d/10-skills.sh:107), so a dangling sibling ref proves the SIBLING IS MISSING, not that
+# (setup.d/10-skills.sh:137), so a dangling sibling ref proves the SIBLING IS MISSING, not that
 # the ref needs bending. `reviewer` was in no tier while arch — an env-tier skill consumers do
 # get — promised them that `/reviewer` loads the project skill. Shipping it at env is the fix;
 # this assertion is what keeps a future author from re-reaching for the rewrite.
 grep -qF "](../reviewer/SKILL.md)" <<<"$OUT" \
-  && ok "4f4: sibling ](../reviewer/ left RELATIVE (sibling ships too — 10-skills.sh:107)" \
+  && ok "4f4: sibling ](../reviewer/ left RELATIVE (sibling ships too — 10-skills.sh:137)" \
   || bad "4f4: sibling-skill ref was rewritten — a dangling sibling means the sibling is missing from a tier list, not that the link is wrong; got: $(grep -F 'reviewer/' <<<"$OUT")"
 
 # Sub-test 4f5: the other half of 4f4 — the ref only resolves while `reviewer` actually ships.

@@ -225,7 +225,7 @@ describe('driver guard — duplicate entryId in a plan fails loud (no silent clo
   it('two practices sharing an entryId render to the same path → planResearchedAstgrep throws', () => {
     // Two identical flagship records both project to id RULE_ID → the same firing/rules/<id>.yml
     // path. Without the guard, writeResearchedAstgrep would silently clobber the first. Sibling of
-    // planPythonTemplates' lane guard (render-python-templates.ts:127-133).
+    // planPythonTemplates' lane guard (render-python-templates.ts:152-158).
     const flagship = loadPracticeRecord(RECORD_ABS);
     expect(() => planResearchedAstgrep([flagship, flagship])).toThrow(
       /duplicate rendered entryId/,

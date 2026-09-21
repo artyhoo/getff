@@ -84,7 +84,7 @@ describe.skipIf(!JQ)('inject-subagent-digest.sh — SubagentStart digest injecti
     // additionalContext}}` shape (hookEventName INSIDE hookSpecificOutput is allowed by the
     // discriminated union Uan; top-level hookEventName is NOT). Regression guard: catches anyone
     // flattening the wrapper or leaking hookEventName to top level (a prior shape emitted it
-    // top-level and was silently rejected by ZCode). Precedent: inject-matching-rule.test.ts:72.
+    // top-level and was silently rejected by ZCode). Precedent: inject-matching-rule.test.ts:82.
     // NOTE: this hook ships CC-only (SubagentStart has no ZCode event — emitZcode skips it),
     // but its JSON output must still be schema-valid for any future harness or manual replay.
     const json = JSON.parse(runHook(subagentStartPayload('general-purpose')));

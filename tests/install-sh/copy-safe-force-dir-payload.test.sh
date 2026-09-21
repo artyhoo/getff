@@ -162,7 +162,7 @@ done
 
 # ── Arm 9: a consumer-RESEARCHED rule survives the newly-wiping --force pass ─
 # The fix makes --force a rm-rf-replace pass for .getff/astgrep-rules, which is exactly what
-# _py_join_researched_rules' docstring already claims (setup.d/45-python.sh:153 — "install /
+# _py_join_researched_rules' docstring already claims (setup.d/45-python.sh:276 — "install /
 # --force / --refresh"). Its durable home is .getff/rules-research/, and the join runs after the
 # copy on every pass, so the wipe must not strand a researched rule.
 mkdir -p "$P/.getff/rules-research"

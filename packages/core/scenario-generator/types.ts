@@ -7,7 +7,7 @@
  *
  * PressureType mirrors principle 02 line 462:
  *   type PressureType = 'time' | 'authority' | 'sunk-cost' | 'scope-creep';
- * Cross-ref: packages/core/principles/02-paired-negative-test.test.ts:462
+ * Cross-ref: packages/core/principles/02-paired-negative-test.test.ts:490
  */
 
 // ── Pressure vocabulary — single source (mirrors principle 02:462) ──────────

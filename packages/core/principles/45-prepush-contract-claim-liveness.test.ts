@@ -45,7 +45,7 @@
  * this defect enumerated DOCUMENTS and reported eight surfaces; enumerating CLAIMS
  * finds sixteen. The eight it missed include `INSTALL-FOR-AI.md:354` (an ASCII tree
  * annotation), `README.md:229` (a table cell), the three `packages/preset-*\/RULES.md:7`
- * lines, and `skills/getff/references/checks-map.md:43`+`:143` with their `plugin/`
+ * lines, and `skills/getff/references/checks-map.md:43`+`:152` with their `plugin/`
  * twins. The `corpus covers every markdown-bearing shipped pathspec` arm keeps the
  * pathspec list honest by DERIVING the shipped surface from `scripts/format-shipped.sh`
  * — the repo's shipped-surface SSOT — instead of trusting the list to be maintained.

@@ -100,7 +100,7 @@ function parseArgs(argv: string[]): Args {
 // eslint-only: `engine:'ast-grep'` is parked at the L4 gates as error-severity FF3003/FF3010/FF3012
 // («ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)»,
 // diagnostics/registry.ts:182), and install() writes `.ai-factory/` which the python lane forbids
-// (setup.d/45-python.sh:438 + tests/install-sh/python-entry-lane.test.sh). The SHIPPED researched-
+// (setup.d/45-python.sh:564 + tests/install-sh/python-entry-lane.test.sh). The SHIPPED researched-
 // python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
 // `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
 //
@@ -270,9 +270,9 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
 
   // S1b (unparks PARK-S1-7): emit a per-rule generation-context fragment for the python lane.
   // The fragment is the substrate for getff staleness (spec §7 item 1 — «the substrate for what
-  // went stale»): the python lock reader `_py_json_rules` (setup.d/45-python.sh:528) cat's it
+  // went stale»): the python lock reader `_py_json_rules` (setup.d/45-python.sh:621) cat's it
   // verbatim into the lock's `rules[]`. Without this producer the reader falls through to the
-  // literal `{"id":...,"provenance":[],"tier":2}` at 45-python.sh:531 — provenance records the
+  // literal `{"id":...,"provenance":[],"tier":2}` at 45-python.sh:624 — provenance records the
   // research moment (url/allowlistKey/fetchedAt), so its absence is exactly the empty-substrate
   // defect S1 shipped and S2 (targeted staleness) cannot consume.
   //

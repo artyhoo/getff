@@ -36,7 +36,7 @@ MANIFEST="$PKG/MANIFEST.sha256"
 # requires the same root in packages/getff/package.json `files` (checked below) and in
 # packages/getff/.gitignore (or the copy would be committed).
 # scripts/: the SHIPPED SUBSET only — the six files install.sh / setup.d read from PKG_ROOT
-# (install.sh:1015,1024 + the worktree cluster install.sh:1113-1118 / setup.d/85-worktree-scripts.sh:46-51).
+# (install.sh:1015,1024 + the worktree cluster install.sh:1259-1264 / setup.d/85-worktree-scripts.sh:46-51).
 # Not the whole tree: factory-only scripts (measure-*, render-*, *.test.sh, this assembler) would
 # couple every framework PR to the drift gate and ship operator tooling to consumers.
 PAYLOAD="install.sh setup setup.d agents skills templates .claude/hooks .claude/skills .claude/templates .prettierrc.json packages/core packages/preset-next-15-canonical packages/preset-react-spa packages/preset-react-native packages/runtime-bridge scripts/check-ask-files.sh scripts/run-local-ci-sweep.sh scripts/create-worktree.sh scripts/worktree-node-modules.sh scripts/link-coordination.sh scripts/getff-work.sh"

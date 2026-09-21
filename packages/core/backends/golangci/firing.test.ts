@@ -16,7 +16,7 @@
 // run that never fired it (T-AJ-A). There is deliberately NO `!isCI` guard (mirrors ruff's
 // firing.test.ts:14-16 STOP-line — CI fires it for real wherever the install step is present,
 // and it IS present on this branch's base: PR #1171 merged as 124d2c4212 and installs
-// `golangci-lint@v1.55.2` at `.github/workflows/audit-self.yml:306-315`).
+// `golangci-lint@v1.55.2` at `.github/workflows/audit-self.yml:376-385`).
 //
 // FORK #2 CLOSED (host-verify §6 step 7, CI run 31132752600): firing-contract.json now carries
 // `jsonPath: "$.FromLinter"` + `expectedCodes: ["forbidigo"]`, so the loops below are no longer

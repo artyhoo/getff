@@ -41,7 +41,7 @@ export function buildPayload(row, rubric) {
 }
 
 // Main execution guard — without this, importing buildPayload would trigger the runner's
-// argv parsing, file reads, and judge loop. Same pattern as triage-corpus-probe.mjs:119.
+// argv parsing, file reads, and judge loop. Same pattern as triage-corpus-probe.mjs:122.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const [csv, out] = args;

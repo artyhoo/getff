@@ -22,7 +22,7 @@ set -uo pipefail
 #
 # Graceful-SKIP paths are a different case: they exit 0, and on an exit-0 PostToolUse the
 # model receives ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody
-# (inject-matching-rule.sh:17 + :89-90, the proven channel). A dependency-missing skip
+# (inject-matching-rule.sh:18 + :89-90, the proven channel). A dependency-missing skip
 # announced on stderr is therefore indistinguishable from a pass. Observed live in the aif
 # container on 2026-07-23, where `jq` is absent and the notice reached no one:
 # docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1.

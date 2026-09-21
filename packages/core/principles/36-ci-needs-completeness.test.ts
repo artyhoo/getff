@@ -30,8 +30,8 @@
  *
  * The violation is mechanically detectable → gate, not injection (§3 step 1). Of the reachable
  * gate channels, a principle test is the earliest that actually fires: the principles suite runs
- * at **pre-push** (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1267) *and* in CI
- * (`principles-meta-tests`, audit-self.yml:210) — developer-time first, CI as backstop, per the
+ * at **pre-push** (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1661) *and* in CI
+ * (`principles-meta-tests`, audit-self.yml:264) — developer-time first, CI as backstop, per the
  * README "earliest reachable channel" invariant which makes CI the last resort.
  *
  * Deliberately NOT placed inside `scripts/ci-success-gate.sh`: that script is the body of the
@@ -77,7 +77,7 @@ const AGGREGATE = 'ci-success';
  *
  * A genuinely push-only job (one whose `if:` can never be true on a `pull_request` event)
  * would be the other legitimate shape, and this map is where it would be declared. There is
- * none today: the only `if:`-guarded job is `pr-commit-trailers` (audit-self.yml:803,
+ * none today: the only `if:`-guarded job is `pr-commit-trailers` (audit-self.yml:1108,
  * `github.event_name == 'pull_request'`), which is wired in and whose `skipped` result the
  * aggregate accepts as OK by design (scripts/ci-success-gate.sh:30). So an `if:` guard is NOT
  * a reason to leave a job out — `skipped` already counts as passing.

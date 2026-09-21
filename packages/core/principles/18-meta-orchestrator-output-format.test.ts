@@ -62,7 +62,7 @@
  *     there is exactly the pressure that turns a 3-5-line pointer into a restatement. Its
  *     continuation-chip line adds no restriction of its own (it names rung «day» of a ladder
  *     the owner holds in full), it has one commit ever and has never been edited, and it does
- *     not ship (`setup.d/lib.sh:58-60` ships skills; no rule). Fixing it at the owner is also
+ *     not ship (`setup.d/lib.sh:63-65` ships skills; no rule). Fixing it at the owner is also
  *     wrong: this principle's class is emitter INSTRUCTIONS an agent reads at work time, not
  *     design specs. Full rationale + falsifier: ADR D1 «Build trigger» paragraph.
  *

@@ -34,7 +34,7 @@
 # "idle" and yanked the base out from under running workers. We now scan /tasks directly
 # and treat any fetch/parse error as BUSY (fail-closed): skipping the heal is NOT the
 # same as failing the dispatch (runPreflight warns-and-proceeds regardless —
-# packages/runtime-bridge/src/cli/dispatch.ts:74-89).
+# packages/runtime-bridge/src/cli/dispatch.ts:122-137).
 #
 # A task is in-flight when:
 #   status ∈ {planning, implementing, review}                              — always

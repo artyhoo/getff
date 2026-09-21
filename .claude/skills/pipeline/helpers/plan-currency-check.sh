@@ -178,14 +178,14 @@ mkdir -p "${_PROMPTS_DIR_BASE}"
 # Line 1: header (test-asserted — plan-currency-check.test.ts:185)
 echo "=== plan-currency-check: umbrella='${UMBRELLA}' ==="
 
-# Section headers (test-asserted — plan-currency-check.test.ts:188-193)
+# Section headers (test-asserted — plan-currency-check.test.ts:199-204)
 echo "--- open PRs (json) ---"
 echo "(see _plan-currency-raw.txt)"
 echo "--- merged PRs last 30 days (json) ---"
 echo "(see _plan-currency-raw.txt)"
 
 # Kickoff section — replay EXISTS/MISSING lines from side-file for test compat.
-# Tests in plan-currency-check-kickoff.test.ts:198-200 assert these on stdout.
+# Tests in plan-currency-check-kickoff.test.ts:211-213 assert these on stdout.
 echo "--- kickoff existence check ---"
 echo "--- all umbrella kickoffs ---"
 if [[ -f "${_RAW_FILE}" ]]; then
@@ -204,7 +204,7 @@ if [[ -f "${_RAW_FILE}" ]]; then
   grep '^UNTRACKED-' "${_RAW_FILE}" 2>/dev/null || true
 fi
 
-# WARN line for missing wave plan (test-asserted — plan-currency-check.test.ts:258-264)
+# WARN line for missing wave plan (test-asserted — plan-currency-check.test.ts:269-275)
 if [[ ! -f "${MO_WAVE_PLAN}" ]]; then
   echo "(WARN: ${MO_WAVE_PLAN} not found — skipping reverse-currency checks)"
 fi

@@ -15,7 +15,7 @@
 #
 # POPULATION — factory depth, not core (widened 2026-08-17, same class as GH #1377/PR #1413):
 # the fixture used to install `ts-server --full --force`. `--full` is the dev-deps flag, NOT a
-# depth flag (install.sh:114 sets FULL; PROFILE is a separate `--profile` arg at :128), so with
+# depth flag (install.sh:128 sets FULL; PROFILE is a separate `--profile` arg at :128), so with
 # no `--profile` the fixture resolved to `core` — 35 *.md, 4 skills. Everything gated behind
 # env/factory depth was therefore OUTSIDE the gate's population entirely and stayed green while
 # shipping dangling links: the 6 env+factory skills (GETFF_SKILLS_ENV/_FACTORY, setup.d/lib.sh:59)

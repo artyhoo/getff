@@ -128,7 +128,7 @@ beforeEach(() => {
   // 30-day cutoff window regardless of wall-clock date. A hard-coded date (was 2026-05-01)
   // bit-rots: once `now` advances >30d past it, both PRs get filtered out and the positive
   // UNTRACKED-N tests silently fail. The date math mirrors the script's own portable
-  // darwin (`-v`) → GNU (`-d`) fallback (plan-currency-check.sh:82,136).
+  // darwin (`-v`) → GNU (`-d`) fallback (plan-currency-check.sh:87,136).
   const mockGhDir = join(tmpRoot, 'bin');
   mkdirSync(mockGhDir, { recursive: true });
   mockGhBin = join(mockGhDir, 'mock-gh');

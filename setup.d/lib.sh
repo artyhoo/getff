@@ -100,7 +100,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     setup.d/30-templates.sh:17 (note: `.ai-factory/`, not `.claude/`). A skill file
 #     carrying ](../../orchestrator-prompts/aif-doctor-skill/kickoff.md) resolves to
 #     `<consumer>/.claude/orchestrator-prompts/...` post-install — a path that does not
-#     exist. Observed leaking from .claude/skills/aif-doctor/SKILL.md:26.
+#     exist. Observed leaking from .claude/skills/aif-doctor/SKILL.md:30.
 # scripts/ is INTENTIONALLY UNHANDLED — partially shipped (subset via 40-configs.sh),
 # per-file ambiguity is a §4 park trigger (kickoff getff-honest-signals-s2). Extend only with a
 # shipped-scripts allowlist if a future scripts/ ref to a non-shipped script re-breaks a push.
@@ -137,7 +137,7 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
 # arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
-# ships too)», 10-skills.sh:107 — so a dangling sibling ref means the SIBLING IS MISSING, not
+# ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
 # that `/reviewer` loads it; the fix was to ship it at env, not to bend the link.
 # Recurrence is now caught mechanically, not by review attention: the widened factory-depth
@@ -2024,7 +2024,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/70-deps.sh:37, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/70-deps.sh:43, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default

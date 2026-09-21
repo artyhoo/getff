@@ -115,7 +115,7 @@ describe('renderAstgrep — paired negatives (routing; inverse of cargo)', () =>
 });
 
 describe('renderAstgrep — YAML shape', () => {
-  it('message is ALWAYS node.claim (parity with render-clippy.ts:112), never a params field', () => {
+  it('message is ALWAYS node.claim (parity with render-clippy.ts:135), never a params field', () => {
     const n = node({ id: 'no-datetime-now', claim: 'Never sleep in request handlers' });
     const { yaml } = renderAstgrep([n]);
     expect(yaml).toContain('message: "Never sleep in request handlers"');

@@ -5,7 +5,7 @@
 #
 #   _workspace_pkg_dirs [root]        — enumerate workspace package dirs (those WITH a package.json)
 #                                       under the 5-dir convention (apps packages services libs
-#                                       modules — same set as setup.d/70-deps.sh:37), node-free, no
+#                                       modules — same set as setup.d/70-deps.sh:43), node-free, no
 #                                       yq/pnpm/turbo dependency. Echoes one relative dir per line.
 #   _detect_stacks_per_workspace [root] — walk each workspace dir × _detect_stack_from_pkg <dir> →
 #                                       echo `dir<TAB>stack` per workspace (mirrors the 15-companions
@@ -30,9 +30,9 @@ ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # ws_run <fixture_dir> <shell-snippet> — source install.sh in lib-only mode with PROJECT_ROOT=cwd
-# set to the fixture (install.sh:38 `PROJECT_ROOT="$(pwd)"`), then run the snippet. Mirrors the
+# set to the fixture (install.sh:56 `PROJECT_ROOT="$(pwd)"`), then run the snippet. Mirrors the
 # stack-autodetect.test.sh harness. Helpers are exposed because lib.sh is sourced before the
-# INSTALL_SH_LIB_ONLY guard (install.sh:43/50). set -euo pipefail is active (install.sh:34).
+# INSTALL_SH_LIB_ONLY guard (install.sh:61/50). set -euo pipefail is active (install.sh:52).
 ws_run() {
   local dir="$1" snippet="$2"
   ( cd "$dir" && INSTALL_SH_LIB_ONLY=1 bash -c 'source "'"$INSTALL_SH"'"; '"$snippet" 2>/dev/null )

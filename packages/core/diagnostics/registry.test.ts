@@ -38,7 +38,7 @@ const registrySource = readFileSync(new URL('./registry.ts', import.meta.url), '
 
 // Matches top-level `FFxxxx: {` key declarations inside the REGISTRY object
 // literal, e.g. "  FF2001: {" — the exact shape every entry in registry.ts
-// uses (see registry.ts:31, :40, etc.).
+// uses (see registry.ts:36, :40, etc.).
 const REGISTRY_KEY_DECL_RE = /^\s{2}(FF[1-8]\d{3}):\s*\{/gm;
 
 function extractRegistryKeyDeclarations(source: string): string[] {
@@ -222,7 +222,7 @@ describe('diagnostics registry — message-fidelity (NEW-3): templates reproduce
   it('FF2007 message does NOT collapse to "unknown allowlistKey" text', () => {
     expect(diag('FF2007', CODE_FIXTURES.FF2007).message).not.toMatch(/unknown allowlistKey/);
   });
-  it('FF3003 astgrep-deferred message matches gate-rule-tester.test.ts:206 assertion', () => {
+  it('FF3003 astgrep-deferred message matches gate-rule-tester.test.ts:208 assertion', () => {
     expect(diag('FF3003', CODE_FIXTURES.FF3003).message).toMatch(
       /ast-grep engine reserved but not wired/,
     );

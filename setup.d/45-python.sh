@@ -105,7 +105,7 @@ _py_copy_or_refresh() {
 # (do_python_lane exits at install.sh:381, long before do_refresh at install.sh:1276).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:614 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:732 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -176,7 +176,7 @@ _py_plain_skill_deliver() {
 # pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
 # `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
 # 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
-# install.sh:650). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# install.sh:768). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
 # `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
 _py_agent_copy_or_refresh() {
   local src="$1" dst="$2"
@@ -1082,7 +1082,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:614 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:732 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
@@ -1201,10 +1201,10 @@ $msgs"
 #   - setup.d/05-mcp.sh:17-46       (context7 → .mcp.json, idempotency-guarded)
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:92-94    (rule-research + rule-tests: copy_skill_with_transform)
-#   - setup.d/10-skills.sh:117-146  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:201-211  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
+#   - setup.d/10-skills.sh:200-229  (deps-hash-check hook + UserPromptSubmit wiring)
+#   - setup.d/10-skills.sh:340-350  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
-#   - setup.d/20-agents.sh:58-69    (skill-context overrides via SHIPPED_DOCS iteration)
+#   - setup.d/20-agents.sh:66-77    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
 #   - setup.d/30-templates.sh:81    (AGENTS.md)
 #
@@ -1248,9 +1248,9 @@ _py_deliver_agent_surface() {
   done
 
   # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (PostToolUse:Edit|Write|MultiEdit) ─
-  # Replicates setup.d/10-skills.sh:117-146 (deps-hash-check) + 201-211 (inject-matching-rule).
+  # Replicates setup.d/10-skills.sh:200-229 (deps-hash-check) + 201-211 (inject-matching-rule).
   # Both wired into .claude/settings.json via register_cc_hook — the canonical helper. The inline
-  # settings-creation block in 10-skills.sh:128-146 was written before register_cc_hook existed;
+  # settings-creation block in 10-skills.sh:211-229 was written before register_cc_hook existed;
   # register_cc_hook handles the same create-or-merge + idempotence shape strictly better.
   mkdir_safe "$PROJECT_ROOT/.claude/hooks"
   _py_settings="$PROJECT_ROOT/.claude/settings.json"
@@ -1267,7 +1267,7 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:201-209 (kickoff §2 item 1 binding).
+  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:340-348 (kickoff §2 item 1 binding).
   local _py_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
@@ -1343,10 +1343,10 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1218). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1366). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
-  # Materialize the AGENTS.md-referenced SoT (30-templates.sh:67-73). AGENTS.md.template sends the
+  # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-82). AGENTS.md.template sends the
   # first agent session to .ai-factory/DESCRIPTION.md + ARCHITECTURE.md; without materialization
   # the references dangle on landing (the framework's first impression).
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
@@ -1363,7 +1363,7 @@ _py_deliver_agent_surface() {
   copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst" arch-header
   rewrite_arch_sot_header "$_py_arch_dst" "$_py_arch_existed"
 
-  # skill-context overrides (replicates 20-agents.sh:58-69). SHIPPED_DOCS is in scope from install.sh:145.
+  # skill-context overrides (replicates 20-agents.sh:66-77). SHIPPED_DOCS is in scope from install.sh:200.
   # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
   for _py_doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
     case "$_py_doc" in
@@ -1374,7 +1374,7 @@ _py_deliver_agent_surface() {
         if [ "$_py_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi
         mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc"
-        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1231).
+        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1379).
         _py_copy_or_refresh "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
     esac
   done

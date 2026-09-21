@@ -30,7 +30,7 @@
 // Seam reuse (VERBATIM, no edit): the driver below sources setup.d/lib.sh + setup.d/45-python.sh with
 // PY_LAYER_LIB_ONLY=1 and calls the seam's own public entrypoint `deliver_python_toolchain`, exactly
 // as tests/install-sh/python-delivery.test.sh does. The researched rule joins the consumer's single
-// `ruleDirs: [.getff/astgrep-rules]` because `_py_deliver_astgrep` (45-python.sh:148-155) copies the
+// `ruleDirs: [.getff/astgrep-rules]` because `_py_deliver_astgrep` (45-python.sh:314-321) copies the
 // WHOLE assembled `.getff/astgrep-rules` dir — the reuse hook is PY_TEMPLATE_DIR (45-python.sh:416).
 
 import { spawnSync } from 'node:child_process';

@@ -2,7 +2,7 @@
 # setup.d/05-mcp.sh — MCP companion install layer (S2).
 #
 # Ported from orphaned setup.sh:289-303 (T3/M2 — setup.sh is dead code; do NOT revive it).
-# Gated on FULL ("yes" / --full carrier, install.sh:56+63) so the non-full / snapshot path
+# Gated on FULL ("yes" / --full carrier, install.sh:95+63) so the non-full / snapshot path
 # no-ops this layer → byte-identical guarantee preserved (D2).
 # Processes kind=mcp manifest rows INSIDE install.sh (before 70-deps) per I1 channel constraint.
 #

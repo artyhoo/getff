@@ -9,7 +9,7 @@
 //
 // Reuse is by IMPORT (parseCsv from the frozen probe — kickoff §2: import, never edit):
 //   strata/grouping derivation — the kickoff §3.1/§3.2 one-liners, verbatim logic
-//   canonical-block + prose reconciliation — the S4 arm-E pattern (triage-s4-score.mjs:403-433)
+//   canonical-block + prose reconciliation — the S4 arm-E pattern (triage-s4-score.mjs:406-436)
 //   blob-freeze shape — triage-s4-score.mjs arm F (:435-459), base moved to the S4 squash
 //
 // Usage: node scripts/triage-s4b-outcomes.mjs            → driver: raw → s4b-outcomes.csv + numbers

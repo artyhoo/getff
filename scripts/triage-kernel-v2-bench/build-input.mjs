@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // S4 bench input builder (kickoff-s4 §3.2). Joins the six population CSVs to s3-final.csv
 // by id, defensively drops provenance:author-cell rows, and emits the per-row judge payload
-// via the FROZEN builder `buildPayload` (scripts/triage-s0-run.mjs:36 — imported, never
+// via the FROZEN builder `buildPayload` (scripts/triage-s0-run.mjs:39 — imported, never
 // edited, kickoff §2). Judges therefore see rubric + context + finding ONLY; the blindness
 // differential (arm B) is enforced by the scorer over this same frozen builder.
 //

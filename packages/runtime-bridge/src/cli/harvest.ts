@@ -45,7 +45,7 @@
  *   4. `git -C <hostRepo> push origin <sha>:refs/heads/<branch>` — the real push, which
  *      runs `.husky/pre-push` for real. Pushing a ref the host checkout is NOT on is
  *      supported by design: the hook derives its range from git's push stdin (`local_sha`),
- *      not from HEAD (`packages/core/hooks/pre-push.ts:133-139`, the 2026-06-17
+ *      not from HEAD (`packages/core/hooks/pre-push.ts:165-171`, the 2026-06-17
  *      cross-checkout fix). Host repo from --host-repo / RUNTIME_BRIDGE_HOST_REPO, else
  *      the cwd's `git rev-parse --show-toplevel`.
  *
@@ -58,7 +58,7 @@
  * graceful degradation, no silent half-egress, and never a pointer at the dead channel.
  *
  * False-done guard (2026-06-23): aif can mark a task `done` while its agent internally
- * PARKED subtasks and left the work uncommitted (the Finding-F gap, `park.ts:139`). That
+ * PARKED subtasks and left the work uncommitted (the Finding-F gap, `park.ts:173`). That
  * lands as the SAME shape as a legit rework leg — dirty tree + 0 commits ahead of base.
  * Harvest no longer auto-commits that shape silently: it HOLDS (exit 2), surfaces the
  * ambiguity + any park markers from the task log, and ships only when the operator re-runs

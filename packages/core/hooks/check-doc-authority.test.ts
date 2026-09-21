@@ -232,7 +232,7 @@ function runHook(
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own
   // dev harness), which would flip _emit_ctx to the JSON branch and break the CC exit-code
   // assertions below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors
-  // deps-hash-check.test.ts:106.
+  // deps-hash-check.test.ts:114.
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;
@@ -458,7 +458,7 @@ describe.skipIf(!JQ || !TSX)(
 // Dependency-missing SKIP must reach the model, not just stderr.
 //
 // On an exit-0 PostToolUse the model receives ONLY JSON hookSpecificOutput —
-// plain stdout/stderr reaches nobody (inject-matching-rule.sh:17,89-90). So a
+// plain stdout/stderr reaches nobody (inject-matching-rule.sh:18,89-90). So a
 // stderr-only "jq unavailable — skipping" is indistinguishable from a PASS: the
 // gate reads as alive in a settings audit while enforcing nothing. Observed live
 // in the aif container (jq absent) on 2026-07-23 —

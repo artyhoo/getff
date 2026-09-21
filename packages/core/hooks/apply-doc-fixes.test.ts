@@ -93,7 +93,7 @@ describe('apply-doc-fixes.sh', () => {
     expect(rule).not.toContain('Activation pending');
     expect(rule).not.toContain('add a PostToolUse');
     expect(rule).toContain('Activation confirmed');
-    expect(rule).toContain('.claude/settings.json:114');
+    expect(rule).toContain('.claude/settings.json:127');
 
     // DN-2: badges repointed to staging (no main badge remains)
     expect(readme).not.toContain('badge.svg?branch=main');

@@ -1854,7 +1854,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // SSOT for the shipped surface (predicate reuse, BFR):
 //   (1) scripts/format-shipped.sh:34-44 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:121-123 — derivation of
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:125-127 — derivation of
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
@@ -1877,7 +1877,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * were already realized:
  *
  *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
- *       `.ai-factory/tier-home.md` (30-templates.sh:109) had no row at all, so on a
+ *       `.ai-factory/tier-home.md` (30-templates.sh:113) had no row at all, so on a
  *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
  *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
  *       (no docs/ on that checkout) and OUR shipped content blocks THEIR push — the
@@ -1900,16 +1900,16 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
  * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
- * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:260-262).
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:279-281).
  * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
  * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:95 / 45-python.sh:1313 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1312 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1341 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1335 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -1923,14 +1923,14 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:338 / install.sh:892 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1010 (conditional starter)
 ];
 
 /**
  * The one shipped markdown namespace an exact enumeration cannot cover: skill-context
  * overrides are delivered as `.ai-factory/skill-context/$_sc/SKILL.md` for every entry of
- * SHIPPED_DOCS (20-agents.sh:74), and WHICH entries land is profile-gated — a factory
- * consumer also gets aif-orchestrator-discipline (20-agents.sh:70-72). The whole subtree
+ * SHIPPED_DOCS (20-agents.sh:77), and WHICH entries land is profile-gated — a factory
+ * consumer also gets aif-orchestrator-discipline (20-agents.sh:73-75). The whole subtree
  * is framework territory by construction: every path under it is an override of a
  * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
  *
@@ -1960,7 +1960,7 @@ export const SHIPPED_MD_PREFIXES: readonly string[] = [
  * Delivering a skill under `<slug>.override.md` marks it consumer-OWNED, and that path
  * does not match `<slug>/` — correctly walked as consumer content.
  *
- * SSOT: setup.d/lib.sh:61-63 (GETFF_SKILLS_CORE/_ENV/_FACTORY) + the two dirs
+ * SSOT: setup.d/lib.sh:63-65 (GETFF_SKILLS_CORE/_ENV/_FACTORY) + the two dirs
  * 10-skills.sh:12-50 copies by name. Kept honest by a derivation check in
  * pre-push.test.ts, which parses those shell sources — adding a skill to a tier without
  * adding it here (or vice versa) fails that test, so this half is a GATE, not attention.
@@ -1987,7 +1987,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:310-355) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:379-424) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
@@ -2078,7 +2078,7 @@ export function isFrameworkShippedMarkdown(
 //
 // Rejected alternative: root-relative links `](/…)`. This section DOES pass `--root-dir`
 // (below), so lychee would resolve them at both depths — but `transform_internal_refs`
-// (setup.d/lib.sh:147-163) only matches `](../…)`, so a root-relative ref would ship
+// (setup.d/lib.sh:149-165) only matches `](../…)`, so a root-relative ref would ship
 // VERBATIM into consumer projects and dangle there. It fixes the gate and keeps the
 // defect.
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';

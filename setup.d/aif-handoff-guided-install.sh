@@ -15,7 +15,7 @@
 set -euo pipefail
 
 # --- Source bridge-guided.sh for bridge_diagnose / bridge_health_ok (SSOT — §7) ---
-# Resolve root via BASH_SOURCE (cwd-independent — mirrors bridge-guided.sh:41).
+# Resolve root via BASH_SOURCE (cwd-independent — mirrors bridge-guided.sh:52).
 _aif_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=setup.d/bridge-guided.sh
 source "$_aif_root/setup.d/bridge-guided.sh"

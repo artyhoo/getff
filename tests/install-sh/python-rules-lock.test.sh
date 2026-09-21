@@ -368,7 +368,7 @@ else
     # R2 correction (cold audit round 2, MINOR): an earlier draft of this comment claimed the
     # lanes «declined at manifest-detect» without a Cargo.toml/go.mod. There is no such gate —
     # the positional `cargo`/`go` arg sets TOOLCHAIN and routes to do_cargo_lane/do_go_lane
-    # (install.sh:152/155 → :290/:318), which export GETFF_TOOLCHAIN and deliver unconditionally;
+    # (install.sh:166/155 → :290/:318), which export GETFF_TOOLCHAIN and deliver unconditionally;
     # `_cargo_write_rules_lock` runs before the firing self-check, so the lock lands either way.
     # The seeds stay because a cargo lock emitted onto a tree with no Cargo.toml is an artefact
     # of the fixture rather than a realistic consumer — but they are a REALISM choice, not a

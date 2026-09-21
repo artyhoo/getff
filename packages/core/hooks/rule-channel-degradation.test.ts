@@ -3,7 +3,7 @@
  * scripts/render-rule-channels.mjs, "channel-as-data" lite — design §4 Тезис B).
  *
  * Channel: test:hooks (`vitest run hooks/`), already armed in CI at
- * audit-self.yml:244 — no workflow edit needed (same channel as the sibling
+ * audit-self.yml:489 — no workflow edit needed (same channel as the sibling
  * harness-config-drift.test.ts, #894).
  *
  * Two enforcement surfaces:

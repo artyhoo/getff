@@ -27,7 +27,7 @@
  * (ABS_PATH#$REPO_ROOT/, hook:54) resolves to the scoped star-slash-kickoff.md matcher (hook:59).
  *
  * Skips gracefully when jq or tsx are unavailable (the hook itself no-ops without them).
- * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:164
+ * Precedent: check-kickoff-traps.test.ts (sandbox pattern), deps-hash-check.test.ts:279
  * (ZCode schema arm).
  */
 import { describe, it, expect, afterEach } from 'vitest';
@@ -52,7 +52,7 @@ function hasJq(): boolean {
 
 /**
  * Check whether the hook's own tsx resolution will succeed. Post-fix the hook resolves tsx
- * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:48-62): repo-local,
+ * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:53-67): repo-local,
  * main-worktree via `git --git-common-dir`, then `command -v tsx` on PATH. This guard must
  * mirror that tier list or every test under describe.skipIf(!TSX) silently skips when the
  * suite happens to run in a linked worktree (the very defect class this sweep closes — the
@@ -117,7 +117,7 @@ function writeKickoff(body: string): string {
 
 /** Run the hook with a PostToolUse payload. Returns status + stdout. env merged onto
  *  process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the exit-code branch
- *  (mirrors deps-hash-check.test.ts:106). cwd is forced to REPO_ROOT because the hook delegates
+ *  (mirrors deps-hash-check.test.ts:114). cwd is forced to REPO_ROOT because the hook delegates
  *  to bin.ts via tsx WITHOUT setting cwd, and bin.ts resolves its argv (a repo-relative path)
  *  against process.cwd() via existsSync(). CC's PostToolUse runs hooks with cwd=project root;
  *  vitest runs from packages/core/, which would break the rel-path lookup. */

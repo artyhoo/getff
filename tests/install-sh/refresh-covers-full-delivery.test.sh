@@ -67,7 +67,7 @@ for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
 # with an empty array throws "unbound variable" and aborts the test ungracefully. Same shape as
-# setup.d/lib.sh:281-283 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
+# setup.d/lib.sh:1863-1865 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
 # the test cleanly with a message rather than crashing on the array expansion below.
 [ "${#NPM_LANE_LAYERS[@]}" -gt 0 ] || { echo "FATAL: NPM_LANE_LAYERS empty — setup.d/[0-9]*.sh glob found no npm-lane layers"; exit 1; }
 
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:398 + setup.d/lib.sh:194 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:398 + setup.d/lib.sh:1848 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
@@ -336,7 +336,7 @@ fi
 # on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
 LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
-  # 45-python.sh agent-surface docs (45-python.sh:1344-1377). The ARCHITECTURE.md token is the
+  # 45-python.sh agent-surface docs (45-python.sh:1328-1361). The ARCHITECTURE.md token is the
   # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (:1351/:1377 — two consumer-owned
   # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
   45-python.sh|$PKG_ROOT/packages/core/templates/python
