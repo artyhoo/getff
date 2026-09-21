@@ -208,7 +208,11 @@ AIF_GLOSSARY_EXPLAINS=5
 # Surface 1 gates machinery shell to no Cyrillic outside the packs, and the pack home is
 # that rule's §5 counter to #match-data-translated-away. Identical value in both packs by
 # design (the class is script-agnostic); the hook builds [^A-Za-z<CLASS>0-9] bounds from it.
-AIF_GLOSSARY_WORD_CLASS='А-Яа-яЁё'
+# Letters are ENUMERATED, never a range: GNU grep under glibc C.UTF-8 (the ubuntu CI
+# default) rejects a Cyrillic range in a bracket with "Invalid collation character", and
+# the hook's `grep ... || continue` then silently skips every term (measured 2026-09-21,
+# PR 1824 CI). The enumerated form is valid in POSIX, C.UTF-8 and en_US.UTF-8 alike.
+AIF_GLOSSARY_WORD_CLASS='АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
 
 # Stop hook — glossary demand (D-F): the operator's prompt used a still-unlearned term and
 # this is the first turn it fires (one-shot flag per term). $1 = the term, $2 = the raw word
