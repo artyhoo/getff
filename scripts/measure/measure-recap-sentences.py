@@ -81,12 +81,13 @@ def main():
     ap.add_argument("--card-start", default="**Развилка.**")
     ap.add_argument("--section", action="append", default=[], help="a block section heading that ends a card region (repeatable)")
     ap.add_argument("--dedup", action="store_true", help="count a byte-identical block once (resumed sessions copy messages)")
+    ap.add_argument("--since", default="", help="YYYY-MM-DD (UTC): keep only blocks whose message timestamp is on or after this day, so a before/after comparison is not diluted by the cumulative history")
     ap.add_argument("--band", default="", help="LO-HI: print every sentence whose word count is in the band")
     ap.add_argument("--show", type=int, default=0, help="print the N longest sentences")
     argv = []
     it = iter(sys.argv[1:])
     for tok in it:
-        if tok in ("--root", "--glob", "--marker", "--context", "--show", "--require", "--end-at", "--card-start", "--section", "--band"):
+        if tok in ("--root", "--glob", "--marker", "--context", "--show", "--require", "--end-at", "--card-start", "--section", "--band", "--since"):
             argv.append(f"{tok}={next(it)}")
         else:
             argv.append(tok)
@@ -116,6 +117,8 @@ def main():
                 except Exception:
                     continue
                 if o.get("type") != "assistant":
+                    continue
+                if args.since and (o.get("timestamp") or "")[:10] < args.since:
                     continue
                 for part in (o.get("message") or {}).get("content") or []:
                     if not isinstance(part, dict) or part.get("type") != "text":

@@ -187,3 +187,20 @@ in a block with or without the inline `Term (explanation)` form. The sentence an
 definitions are in its docstring and are the ones that spec proposes for the hook, so changing
 them means re-running and re-citing that spec's numbers (§5 applies). Not covered by
 `measure.test.sh` yet — the fixtures carry no new-format block.
+
+## 8. `measure-term-reasks.py` (added 2026-09-22)
+
+Design-time evidence for revision 2 of
+`docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md` (D8): how often the operator
+asks what a glossary word means, and whether he asks about the same word twice. Read-only,
+stdlib only. A hit is a short user message carrying both an ask phrase and a stem of a glossary
+word; every hit is printed, because a message that merely uses a word next to «объясни» is a hit
+too — treat the counts as an upper bound and read the list.
+
+```bash
+python3 scripts/measure/measure-term-reasks.py
+```
+
+`measure-recap-sentences.py` gained `--since YYYY-MM-DD` the same day: its population is every
+transcript ever written, so a percentage falls as history grows; a before/after comparison must
+window the blocks by message date (UTC).
