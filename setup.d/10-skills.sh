@@ -329,7 +329,7 @@ fi
 
 # ─── 1e. Path-scoped rule-injector PostToolUse hook (GH #934; claim corrected by GH #1520) ──
 # The HOOK below ships + registers; the `.claude/rules/` CORPUS it reads does NOT ship — it is
-# consumer-owned project data (delivery ships zero rules/ lines; setup.d/lib.sh:86-88 records the
+# consumer-owned project data (delivery ships zero rules/ lines; setup.d/lib.sh:89-90 records the
 # non-delivery; the plugin twin carries the same corrected model). The former §1e SHIP line
 # asserting the rules corpus reaches consumers was inherited unverified from #934's draft
 # classification via PR #1004 and is retracted (2026-09-15, #1520 option B). This edit-time

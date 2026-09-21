@@ -28,9 +28,9 @@
 #
 # SHIP status (GH #934, claim corrected by GH #1520): the HOOK ships and is registered in
 # consumer projects (first install: setup.d/10-skills.sh §1e below; brownfield refresh:
-# install.sh --refresh, the refresh_safe arm at install.sh:963-985). The `.claude/rules/`
+# install.sh --refresh, the refresh_safe arm at install.sh:969-990). The `.claude/rules/`
 # CORPUS it reads does NOT ship — it is consumer-owned project data: delivery ships zero
-# rules/ lines, and setup.d/lib.sh:86-88 (transform_internal_refs) records exactly that
+# rules/ lines, and setup.d/lib.sh:89-90 (transform_internal_refs) records exactly that
 # non-delivery when rewriting relative rules/ links; the plugin twin
 # (plugin/hooks/inject-matching-rule) has always carried this corrected model. The former
 # SHIP-status claim that the rules corpus reaches consumers was inherited unverified from

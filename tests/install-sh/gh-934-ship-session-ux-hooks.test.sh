@@ -98,7 +98,7 @@ fi
 # proves the hook reads was the original admission that delivery never shipped one. The §1e
 # header in setup.d/10-skills.sh asserted «Consumers DO get .claude/rules/* installed»,
 # inherited unverified from #934's draft classification via PR #1004 and never measured
-# against the manifest. Truth: delivery ships ZERO rules/ lines (setup.d/lib.sh:86-88
+# against the manifest. Truth: delivery ships ZERO rules/ lines (setup.d/lib.sh:89-90
 # records the non-delivery); the corpus is consumer-owned. Both halves guarded here:
 # the delivery fact (against the pristine post-install $T) AND the retracted text.
 if [ ! -d "$T/.claude/rules" ]; then

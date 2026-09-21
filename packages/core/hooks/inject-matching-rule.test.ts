@@ -258,7 +258,7 @@ describe.skipIf(!JQ)(
 // Rules-delivery claim retraction (GH #1520, option B) — the hook's SHIP-status
 // comment asserted «consumers DO get .claude/rules/* installed», inherited
 // unverified from #934's draft classification via PR #1004. Delivery ships ZERO
-// rules/ lines (setup.d/lib.sh:86-88 records the non-delivery); the corpus is
+// rules/ lines (setup.d/lib.sh:89-90 records the non-delivery); the corpus is
 // consumer-owned. Comment-only contract, so the guard is textual: the false
 // claim cannot silently return, and the correction must keep pointing at the
 // two in-tree statements of the truth (lib.sh + the plugin twin's model).
@@ -272,10 +272,29 @@ describe('inject-matching-rule.sh — rules-delivery claim retraction (GH #1520)
     // The corrected model: corpus does NOT ship (consumer-owned) + the lib.sh pointer.
     expect(src).toMatch(/CORPUS it reads does NOT ship/);
     expect(src).toMatch(/consumer-owned project data/);
-    expect(src).toMatch(/lib\.sh:86-88/);
+    // The lib.sh pointer must land on the statement it cites — shell-comment
+    // citations are not covered by the markdown line-citation gate, so the
+    // range is resolved here rather than pinned as a literal.
+    const cite = src.match(/setup\.d\/lib\.sh:(\d+)-(\d+)/);
+    expect(cite).not.toBeNull();
+    const [from, to] = [Number(cite![1]), Number(cite![2])];
+    const cited = readFileSync(resolve(REPO_ROOT, 'setup.d/lib.sh'), 'utf8')
+      .split('\n')
+      .slice(from - 1, to)
+      .join('\n');
+    expect(cited).toMatch(/`\.claude\/rules\/` is\s*\n#\s*NOT shipped to consumers/);
     // The delivery lanes stay truthfully described (hook ships + registers).
     expect(src).toMatch(/setup\.d\/10-skills\.sh §1e/);
     expect(src).toMatch(/install\.sh --refresh/);
+    // …and the cited install.sh range really holds this hook's refresh_safe arm.
+    const arm = src.match(/refresh_safe arm at install\.sh:(\d+)-(\d+)/);
+    expect(arm).not.toBeNull();
+    const armText = readFileSync(resolve(REPO_ROOT, 'install.sh'), 'utf8')
+      .split('\n')
+      .slice(Number(arm![1]) - 1, Number(arm![2]))
+      .join('\n');
+    expect(armText).toMatch(/refresh_safe "\$_IMR_SRC" "\$_IMR_DST"/);
+    expect(armText).toMatch(/"inject-matching-rule" "Edit\|Write\|MultiEdit"/);
     // The @dual-pair marker survived the retraction edit untouched.
     expect(src).toMatch(/^# @dual-pair: rule-path-scoping$/m);
   });
