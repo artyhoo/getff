@@ -77,11 +77,16 @@ def main():
     ap.add_argument("--context", default="CONTEXT.md")
     ap.add_argument("--require", action="append", default=[], help="keep only blocks containing this substring (repeatable)")
     ap.add_argument("--end-at", default="", help="truncate the block after the LAST line containing this substring")
+    ap.add_argument("--skip-card", action="store_true", help="drop the fork-card region (from --card-start to the next --section heading) before sentence counting, as the hook's line cap does")
+    ap.add_argument("--card-start", default="**Развилка.**")
+    ap.add_argument("--section", action="append", default=[], help="a block section heading that ends a card region (repeatable)")
+    ap.add_argument("--dedup", action="store_true", help="count a byte-identical block once (resumed sessions copy messages)")
+    ap.add_argument("--band", default="", help="LO-HI: print every sentence whose word count is in the band")
     ap.add_argument("--show", type=int, default=0, help="print the N longest sentences")
     argv = []
     it = iter(sys.argv[1:])
     for tok in it:
-        if tok in ("--root", "--glob", "--marker", "--context", "--show", "--require", "--end-at"):
+        if tok in ("--root", "--glob", "--marker", "--context", "--show", "--require", "--end-at", "--card-start", "--section", "--band"):
             argv.append(f"{tok}={next(it)}")
         else:
             argv.append(tok)
@@ -91,10 +96,12 @@ def main():
     root = os.path.expanduser(args.root)
     files = sorted(glob.glob(os.path.join(root, args.glob, "*.jsonl")))
     blocks, sent_lens, longest = 0, [], []
+    seen_blocks = set()
     block_max = []
     lines_now = []
     term_blocks = {t: [0, 0] for t in terms}  # [blocks using the term or an operator word, of those with `Term (`]
-    blocks_any_term = blocks_any_unexplained = avoid_hits = 0
+    blocks_any_term = blocks_any_unexplained = avoid_hits = both30 = blocks_any_term_raw = 0
+    sess_terms = {}
     for f in files:
         try:
             fh = open(f, encoding="utf-8", errors="ignore")
@@ -123,25 +130,51 @@ def main():
                         bl = block.split("\n")
                         last = max(i for i, l in enumerate(bl) if args.end_at in l)
                         block = "\n".join(bl[: last + 1])
+                    if args.dedup:
+                        if block in seen_blocks:
+                            continue
+                        seen_blocks.add(block)
                     blocks += 1
                     lines_now.append(len([l for l in block.split("\n") if l.strip()]))
-                    ss = list(sentences(block))
+                    sblock = block
+                    if args.skip_card:
+                        keep, skip = [], False
+                        for l in block.split("\n"):
+                            if args.card_start in l:
+                                skip = True
+                                continue
+                            if skip and any(h in l for h in args.section):
+                                skip = False
+                            if not skip:
+                                keep.append(l)
+                        sblock = "\n".join(keep)
+                    ss = list(sentences(sblock))
                     if ss:
                         block_max.append(max(n for n, _ in ss))
                     for n, s in ss:
                         sent_lens.append(n)
                         longest.append((n, s))
                     any_t = any_u = False
+                    # Term matching reads prose only: a path, a skill name or a branch slug in a
+                    # code span, a URL or a link target is not a use of the glossary term.
+                    prose = URL.sub(" ", CODE.sub(" ", MDLINK.sub(r"\1", block)))
+                    raw_t = any(word_re(w).search(block) for g in terms.values() for w in g["words"])
+                    blocks_any_term_raw += raw_t
+                    avoid_here = False
                     for name, g in terms.items():
-                        if any(word_re(w).search(block) for w in g["words"]):
+                        if any(word_re(w).search(prose) for w in g["words"]):
                             term_blocks[name][0] += 1
                             any_t = True
                             if any(re.search(re.escape(w) + r"\*{0,2}\s*\(", block, re.I) for w in g["words"]):
                                 term_blocks[name][1] += 1
                             else:
                                 any_u = True
-                        if any(word_re(a).search(block) for a in g["avoid"]):
-                            avoid_hits += 1
+                        if any(word_re(a).search(prose) for a in g["avoid"]):
+                            avoid_here = True
+                    avoid_hits += avoid_here
+                    sess_terms.setdefault(f, set()).update(n for n, g in terms.items() if any(word_re(w).search(prose) for w in g["words"]))
+                    if any_u or (ss and max(n for n, _ in ss) > 30):
+                        both30 += 1
                     blocks_any_term += any_t
                     blocks_any_unexplained += any_u
 
@@ -164,12 +197,21 @@ def main():
         print(f"block_lines_p50: {percentile(lines_now, .5)}")
         print(f"block_lines_p90: {percentile(lines_now, .9)}")
         print(f"blocks_over_15_lines: {sum(1 for x in lines_now if x > 15)}")
+    print(f"blocks_d2_or_d3_at_30: {both30}")
     print(f"glossary_terms: {len(terms)}")
+    print(f"blocks_with_any_term_raw_text: {blocks_any_term_raw}")
     print(f"blocks_with_any_term: {blocks_any_term}")
+    pairs = sum(len(v) for v in sess_terms.values())
+    print(f"session_term_pairs: {pairs} (transcripts with a block: {len(sess_terms)})")
     print(f"blocks_with_term_lacking_inline_form: {blocks_any_unexplained}")
     for name, (u, e) in sorted(term_blocks.items(), key=lambda kv: -kv[1][0]):
         print(f"term[{name}]: blocks={u} with_inline_form={e}")
     print(f"avoid_phrase_blocks: {avoid_hits}")
+    if args.band:
+        lo, hi = (int(x) for x in args.band.split("-"))
+        for n, t in sorted(set(longest)):
+            if lo <= n <= hi:
+                print(f"--- {n} words: {t[:500]}")
     if args.show:
         for n, s in sorted(longest, key=lambda x: -x[0])[: args.show]:
             print(f"--- {n} words: {s[:400]}")
