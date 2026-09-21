@@ -325,6 +325,42 @@ else
   bad "arm 5c: $UNDECLARED post-mutating copy_safe caller(s) without a parity mode"
 fi
 
+# Census-row gate (fidelity round 1, MAJOR 1): the census comment in setup.d/lib.sh is closure
+# evidence for why six non-primary call-site files were touched, and it cites path:NN coordinates.
+# scripts/check-line-citations.mjs only reads *.md, so those coordinates are ungated by
+# construction — they were ALL stale one round ago. This arm parses the CENSUS-BEGIN/END block and
+# fails unless each cited line really holds a copy_safe carrying the declared mode.
+echo "▶ Arm 5d: every census row resolves to a copy_safe carrying its declared parity mode"
+BADROW=0; ROWS=0
+while IFS= read -r row; do
+  # row shape: "#   <file>:<line>   <post-processor>   → <mode>"
+  coord=$(printf '%s\n' "$row" | awk '{print $2}')
+  mode=$(printf '%s\n' "$row" | sed 's/.*→[[:space:]]*//' | awk '{print $1}')
+  case "$coord" in *:*) ;; *) continue ;; esac
+  f=${coord%%:*}; ln=${coord##*:}
+  ROWS=$((ROWS+1))
+  if [ ! -f "$REPO_ROOT/$f" ]; then
+    BADROW=$((BADROW+1)); echo "    census row names a missing file: $coord"; continue
+  fi
+  actual=$(sed -n "${ln}p" "$REPO_ROOT/$f")
+  case "$actual" in
+    *"copy_safe "*" $mode"*) ;;
+    *) BADROW=$((BADROW+1)); echo "    census row stale: $coord declares '$mode' but the line is: $actual" ;;
+  esac
+done <<EOF3
+$(sed -n '/CENSUS-BEGIN/,/CENSUS-END/p' "$REPO_ROOT/setup.d/lib.sh" | grep '→')
+EOF3
+if [ "$ROWS" -lt 10 ]; then
+  bad "arm 5d: parsed only $ROWS census row(s) — the block shape changed, gate is vacuous"
+else
+  ok "arm 5d: parsed $ROWS census rows"
+fi
+if [ "$BADROW" -eq 0 ]; then
+  ok "arm 5d: every census row resolves to a copy_safe with its declared mode"
+else
+  bad "arm 5d: $BADROW stale census row(s)"
+fi
+
 rm -rf "$A5"
 
 rm -rf "$TC" "$UT"

@@ -50,7 +50,7 @@ Prior-art: <narrative naming a resolvable referent — prior-art-evaluations.md#
 A positive trailer must name something a reader can open. Three accepted referent forms (enforced by `packages/core/hooks/checks/prior-art.ts`; measured 2026-09-06 against the post-cutoff first-parent history — 2 of 145 capability commits with a positive trailer fail this grammar, both from before 2026-07-19):
 
 1. an **SSOT row** — `prior-art-evaluations.md#<ID>` (the primary form; the cited row must exist);
-2. an **artefact path** — `setup.d/lib.sh:798`, `research-patches/2026-05-23-guard-liveness-gate.md §2`;
+2. an **artefact path** — `setup.d/lib.sh:816`, `research-patches/2026-05-23-guard-liveness-gate.md §2`;
 3. an **issue / PR reference** — `#1271`, `PR #1094`.
 
 A referent-free assertion (`Prior-art: consulted — no entry applies`) is rejected: it is the `#hope-as-gate` shape of [attention-is-not-a-mechanism.md §2](.claude/rules/attention-is-not-a-mechanism.md).

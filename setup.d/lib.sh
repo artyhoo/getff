@@ -649,15 +649,33 @@ _pre_overwrite_divergence_action() {
 # the walk then compares per file against the raw src.
 #
 # POST-MUTATING CALLER CENSUS (closed — every copy_safe caller that post-processes its dst now
-# declares a parity mode, so no pristine delivery can take the no-entry arm). Enumerated by
-# predicate, not by spelling: a copy_safe call followed by an in-place mutation of the same dst.
-#   setup.d/20-agents.sh:48            transform_internal_refs      → md-refs
-#   setup.d/30-templates.sh:81         rewrite_arch_sot_header      → arch-header
-#   install.sh do_refresh              rewrite_arch_sot_header      → arch-header
-#   setup.d/45-python.sh:194           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1357          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:442,463,479,502  patch_stryker_package_manager → stryker-pm
-#   setup.d/lib.sh merge_prettierignore    appended marker blocks   → suppress-no-entry (proved)
+# declares a parity mode, so no pristine delivery can take the no-entry arm). CENSUS-BEGIN — the
+# rows below are GATED: arm 5d of tests/install-sh/consumer-delivery-safety-guard.test.sh parses
+# this block and fails unless each cited line really holds a copy_safe carrying the declared mode.
+# Without that gate the coordinates would rot on the first line insertion and nothing would say so
+# — scripts/check-line-citations.mjs only reads *.md, so a path:NN in a shell comment is ungated by
+# construction (fidelity round 1 caught exactly that here: all 8 numbers were pre-edit and one
+# landed on an unrelated unparitied playwright delivery).
+#   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
+#   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
+#   install.sh:1348                    rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
+#   setup.d/45-python.sh:1363          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:446          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:471          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:491          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:518          patch_stryker_package_manager → stryker-pm
+#   setup.d/lib.sh:1758                appended marker blocks       → suppress-no-entry (proved)
+# CENSUS-END
+# Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
+# block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
+# declared mode) by scanning `copy_safe ` lines in install.sh + setup.d/*.sh for one of three
+# post-processor NAMES within 3 lines of the call — a spelling-bounded scan, so it cannot see a
+# caller inside lib.sh itself (merge_prettierignore, wired by hand and covered by arm 5d), a
+# mutation further than 3 lines from its call, a post-processor added under a new name, or a
+# delivery routed through _lane_copy_or_refresh. Verified today, not assumed: the cargo and go
+# lanes post-mutate nothing (`grep -n 'transform_internal_refs \|rewrite_arch_sot_header \
+# |patch_stryker_package_manager' setup.d/46-cargo.sh setup.d/47-go.sh` → empty).
 # The earlier revision of this comment declared the last two rows out of bounds and claimed each
 # was "a one-line parity arg"; the stryker row was NOT (patch_stryker_package_manager took no
 # argument and mutated $PROJECT_ROOT/stryker.config.json in place), so it needed the same in-place

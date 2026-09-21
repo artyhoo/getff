@@ -210,7 +210,7 @@ independently):
 
 ```text
 Prior-art: prior-art-evaluations.md#1 (Autogrep, verdict DEFER — different domain).
-Prior-art: REUSE — setup.d/lib.sh:798 (the copy_safe idiom this reuses).
+Prior-art: REUSE — setup.d/lib.sh:816 (the copy_safe idiom this reuses).
 Prior-art: see PR #1094 (the squash-trailer-loss incident this gate came from).
 ```
 
