@@ -73,6 +73,17 @@
 #
 # Register in consumer's .claude/settings.json:
 #   "UserPromptSubmit": [{"hooks":[{"type":"command","command":"bash .claude/hooks/deps-hash-check.sh"}]}]
+#
+# Usage — the no-arg invocation above is the UserPromptSubmit dispatch; two explicit
+# invocations exist beside it:
+#   bash .claude/hooks/deps-hash-check.sh --print-baseline
+#       Prints the hook's CURRENT per-stack hashes as ready-to-record
+#       `deps-hash-npm:|deps-hash-python:|deps-hash-cargo: sha256-…` lines (one per
+#       present stack). This — not a hand-rolled recipe over the root manifest — is the
+#       way to record a baseline the no-arg dispatch accepts as a match: the
+#       workspace-aware npm hash (GH #1264) is reproducible only by the hook itself.
+#       Update the matching deps-hash-* lines in .ai-factory/tool-decisions.md with the
+#       printed values. Plain stdout by design (CLI arm, not a hook dispatch).
 
 set -uo pipefail
 
@@ -86,6 +97,15 @@ _emit_warn() {
   fi
 }
 
+# Resolve this hook's own invocation path BEFORE the CLAUDE_PROJECT_DIR relocation below:
+# a relative $0 (the registered `.claude/hooks/deps-hash-check.sh` command) goes stale after
+# that cd, and the drift WARN's guidance names a runnable --print-baseline invocation. Falls
+# back to $0 whenever the directory cannot be re-resolved (never fails the dispatch).
+SELF_PATH="$0"
+case "$0" in
+  */*) _sp_dir=$(cd "${0%/*}" 2>/dev/null && pwd) && [ -n "$_sp_dir" ] && SELF_PATH="$_sp_dir/${0##*/}" ;;
+esac
+
 # T-PLUG-A: plugin channel sets CLAUDE_PROJECT_DIR; pin cwd there so the bare-relative
 # package.json / pyproject.toml / .ai-factory/tool-decisions.md reads below resolve to the
 # CONSUMER root (not the plugin payload dir). When CLAUDE_PROJECT_DIR is unset (dogfood /
@@ -96,8 +116,12 @@ _emit_warn() {
 
 DECISIONS=".ai-factory/tool-decisions.md"
 
-# If no tool-decisions.md exists yet, nothing to compare against.
-[ -f "$DECISIONS" ] || exit 0
+# If no tool-decisions.md exists yet, nothing to compare against. The explicit
+# --print-baseline arm below bypasses this guard — it prints current hashes, it does not
+# compare them, and must work on a fresh install that has not been baselined yet.
+if [ "${1:-}" != "--print-baseline" ] && [ ! -f "$DECISIONS" ]; then
+  exit 0
+fi
 
 # Read a stored per-stack baseline. Precedence: <stack-key>: wins over legacy bare deps-hash:
 # for the npm slot (design §3a M1). $1 = stack-specific key (e.g. deps-hash-npm), $2 = legacy
@@ -435,6 +459,28 @@ _npm_final() {
   if [ -n "$c" ]; then _sha256 "$c"; else printf ''; fi
 }
 
+# ── Explicit --print-baseline arm (W1-B review F1) ──────────────────────────
+# The workspace-aware npm hash (root 7 fields + one <dir>/package.json entry per member +
+# the pnpm-workspace.yaml catalog/overrides entry, GH #1264) cannot be reproduced by
+# following the documented tool-bootstrapping recipe (root manifest only): a consumer that
+# re-ran the recipe after the WARN would record a baseline this hook never accepts and cry
+# wolf on every prompt. This arm exposes the hook's OWN current per-stack hashes in the
+# exact .ai-factory/tool-decisions.md line format, and the WARN guidance names it — the
+# consumer-side loop becomes: run this, update the matching deps-hash-* lines. Shares the
+# memoised extractor path with the dispatch, so a printed value is by construction what
+# the next dispatch compares. This is a CLI invocation, NOT a UserPromptSubmit dispatch:
+# stdout here is plain baseline lines by design (the strict-JSON contract governs the
+# no-arg dispatch path), and the drift WARN never fires in this mode.
+if [ "${1:-}" = "--print-baseline" ]; then
+  _pb_npm=$(_memo npm "$(_npm_memo_key)" _npm_final)
+  _pb_python=$(_memo python "$(_memo_key pyproject.toml)" _python_current)
+  _pb_cargo=$(_memo cargo "$(_memo_key Cargo.toml Cargo.lock)" _cargo_current)
+  [ -n "$_pb_npm" ] && printf 'deps-hash-npm: %s\n' "$_pb_npm"
+  [ -n "$_pb_python" ] && printf 'deps-hash-python: %s\n' "$_pb_python"
+  [ -n "$_pb_cargo" ] && printf 'deps-hash-cargo: %s\n' "$_pb_cargo"
+  exit 0
+fi
+
 NPM_STORED=$(_read_stored deps-hash-npm deps-hash)
 PY_STORED=$(_read_stored deps-hash-python)
 CARGO_STORED=$(_read_stored deps-hash-cargo)
@@ -469,7 +515,10 @@ for f in .ai-factory/synthesizer-output/rules-lock*.json; do
 done
 
 if [ -n "$WARN_MSGS" ]; then
-  _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate${RULES_STALE_SUFFIX}"
+  # The re-record pointer (W1-B review F1): the only reproducer of the workspace-aware hash
+  # is the hook itself, so the guidance names the --print-baseline arm — an agent following
+  # the WARN can then record a baseline this same hook accepts as a match.
+  _emit_warn "${WARN_MSGS} — run /tool-bootstrapping to re-evaluate, then update the deps-hash-* lines in ${DECISIONS} with: bash ${SELF_PATH} --print-baseline${RULES_STALE_SUFFIX}"
 fi
 
 exit 0

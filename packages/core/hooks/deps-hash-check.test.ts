@@ -332,8 +332,9 @@ function makeFixtureDir(opts: {
 }
 
 /** Run the hook with cwd set to the fixture dir. Returns { status, stdout, stderr }.
- *  env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path). */
-function runHook(cwd: string, env: Record<string, string> = {}): { status: number; stdout: string; stderr: string } {
+ *  env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path);
+ *  args are appended after the hook path (the --print-baseline CLI arm). */
+function runHook(cwd: string, env: Record<string, string> = {}, args: string[] = []): { status: number; stdout: string; stderr: string } {
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own dev
   // harness), which would flip _emit_warn to the JSON branch and break the plain-text assertions
   // below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors inject-subagent-context.test.ts.
@@ -350,7 +351,7 @@ function runHook(cwd: string, env: Record<string, string> = {}): { status: numbe
   for (const [k, v] of Object.entries(env)) {
     if (k !== 'ZCODE_PROJECT_DIR' && k !== 'CLAUDE_PROJECT_DIR') fullEnv[k] = v;
   }
-  const r = spawnSync('bash', [HOOK], {
+  const r = spawnSync('bash', [HOOK, ...args], {
     cwd,
     encoding: 'utf8',
     env: fullEnv,
@@ -1512,5 +1513,88 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
     expect(parsed.hookEventName).toBe('UserPromptSubmit');
     expect(parsed.additionalContext).toContain('package.json deps changed since last tool-bootstrap');
     expect(r.stdout).not.toContain('[deps-hash-check] DEBUG:');
+  });
+});
+
+// =============================================================================
+// --print-baseline arm (W1-B review F1, GH #1264) — the workspace-aware npm hash
+// (root 7 fields + one <dir>/package.json entry per member + the pnpm-workspace.yaml
+// catalog/overrides entry) is reproducible only by the hook itself: the documented
+// tool-bootstrapping recipe hashes the root manifest only, so a consumer following
+// the drift WARN could never record a matching baseline — a permanent cry-wolf. The
+// arm prints the hook's CURRENT per-stack hashes in tool-decisions.md line format
+// and the WARN guidance names it. Round-trip contract: record the printed lines →
+// the SAME hook's next no-arg dispatch is silent; a real member edit still drifts
+// (the printed value is a real hash, not a self-consistent constant).
+// =============================================================================
+describe('deps-hash-check.sh — --print-baseline arm (W1-B review F1, GH #1264)', () => {
+  it('PRINT-BASELINE-ROUNDTRIP (workspace): recording the printed line into tool-decisions.md makes the next dispatch silent; a member dep bump re-drifts', () => {
+    // Mirrors the F1 acceptance fixture: pnpm workspace, root + catalog + two members.
+    const rootPkg = { name: 'root', private: true, dependencies: { typescript: '^5.0.0' } };
+    const yaml = "packages:\n  - 'apps/*'\n  - 'packages/*'\ncatalog:\n  react: '^18.0.0'\n";
+    const cwd = makeFixtureDir({
+      packageJson: rootPkg,
+      members: {
+        'apps/web': { name: 'web', dependencies: { react: 'catalog:' } },
+        'packages/db': { name: 'db', devDependencies: { prettier: '^3.0.0' } },
+      },
+      pnpmWorkspaceYaml: yaml,
+      // The fresh-install seed the WARN fires against.
+      toolDecisions: `---\ndeps-hash-npm: <pending — populated on first tool-bootstrap>\n---\n`,
+    });
+    // Memo off (unwritable TMPDIR): every run recomputes, deterministically.
+    const noTmp = { TMPDIR: join(cwd, 'no-tmp') };
+    // The WARN fires against the pending seed AND its guidance names the mechanism.
+    const warn = runHook(cwd, noTmp);
+    expect(warn.status).toBe(0);
+    expect(warn.stdout).toContain('not yet baselined');
+    expect(warn.stdout).toContain('--print-baseline');
+    // Mechanism: print current baselines — plain stdout by design (CLI arm, not a dispatch).
+    const pb = runHook(cwd, noTmp, ['--print-baseline']);
+    expect(pb.status).toBe(0);
+    expect(pb.stderr).toBe('');
+    const lines = pb.stdout.trim().split('\n');
+    expect(lines.length).toBe(1); // npm-only fixture: exactly the deps-hash-npm line
+    expect(lines[0]).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}$/);
+    // Record: replace the pending line with the printed one (the guided flow).
+    writeFileSync(join(cwd, '.ai-factory', 'tool-decisions.md'), `---\n${lines[0]}\n---\n`, 'utf8');
+    // The SAME hook now accepts its own baseline → silent.
+    const silent = runHook(cwd, noTmp);
+    expect(silent.status).toBe(0);
+    expect(silent.stdout).toBe('');
+    // Member-only dep bump (root untouched) re-drifts — the round-trip is a real hash.
+    writeFileSync(
+      join(cwd, 'packages', 'db', 'package.json'),
+      JSON.stringify({ name: 'db', devDependencies: { prettier: '^3.8.3' } }),
+      'utf8',
+    );
+    const drift = runHook(cwd, noTmp);
+    expect(drift.status).toBe(0);
+    expect(drift.stdout).toContain('package.json deps changed since last tool-bootstrap');
+  });
+
+  it('PRINT-BASELINE-NO-DECISIONS: works with no .ai-factory/tool-decisions.md (print arm bypasses the compare guard)', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+      // no toolDecisions → file absent; the no-arg dispatch exits silent at the guard,
+      // but the print arm must still print the current hash.
+    });
+    const pb = runHook(cwd, {}, ['--print-baseline']);
+    expect(pb.status).toBe(0);
+    expect(pb.stderr).toBe('');
+    expect(pb.stdout).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}\n$/);
+  });
+
+  it('PRINT-BASELINE-ZCODE: under ZCODE_PROJECT_DIR the CLI arm still prints PLAIN baseline lines (it is not a hook dispatch; _emit_warn is never called)', () => {
+    // Guards the §0.5 boundary from the other side: the no-arg dispatch emits strict
+    // JSON under ZCode, the explicit CLI arm stays machine-plain — an agent running it
+    // in a Bash tool (which may inherit ZCODE_PROJECT_DIR) must get recordable lines.
+    const cwd = makeFixtureDir({
+      packageJson: { dependencies: { react: '^18.0.0' } },
+    });
+    const pb = runHook(cwd, { ZCODE_PROJECT_DIR: cwd }, ['--print-baseline']);
+    expect(pb.status).toBe(0);
+    expect(pb.stdout).toMatch(/^deps-hash-npm: sha256-[0-9a-f]{64}\n$/);
+    expect(pb.stdout.trim().startsWith('{')).toBe(false); // never a JSON object
   });
 });

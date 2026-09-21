@@ -10,7 +10,7 @@
 # Members:
 #   _residue_dir            the cascade: AIF_RESIDUE_DIR → print-orch-home.sh → inline default
 #   _residue_sha256 <file>  portable file sha256 (sha256sum → shasum -a 256), the
-#                           deps-hash-check.sh:97-104 two-branch shape; used by the
+#                           deps-hash-check.sh:141-147 two-branch shape; used by the
 #                           handoff-currency gate's baseline (D19) and the PreCompact
 #                           pointer line (D15)
 #
@@ -58,7 +58,7 @@ _residue_dir() {
   fi
 }
 
-# ── sha256 of a file — portable, two-branch (deps-hash-check.sh:97-104 shape) ──
+# ── sha256 of a file — portable, two-branch (deps-hash-check.sh:141-147 shape) ──
 # Echoes the hex digest, or EMPTY when no hashing tool exists. An empty digest is the
 # caller's signal to skip the compare (the deps-hash precedent: "treats empty-current as
 # 'skip compare'") — the gate must never treat a missing tool as "content unchanged".
