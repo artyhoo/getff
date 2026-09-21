@@ -1571,9 +1571,9 @@ function docsRefreshSection(c: SectionCtx): void {
  * uncommitted edit has no baseline and edit-time cannot reach it at all. The
  * BLANK-LANDING arm has no such dependency, and since 2026-09-14 it also runs at
  * ITS earliest channel: `.husky/pre-commit` invokes the same checker with
- * `--blank-only` over a `CITE_SCOPE` list kept identical to the LIVE_AUTHORITY_MD
- * the checker defines, so a citation wrong at birth is normally refused at the commit
- * that writes it.
+ * `--blank-only --in-corpus` over the staged paths, so the corpus the checker defines
+ * is the one scope both channels use, and a citation wrong at birth is normally refused
+ * at the commit that writes it.
  *
  * «Normally», not «always», and this section runs BOTH arms because of what the word
  * covers — five measured gaps in the earlier channel, not a belt-and-braces habit:
@@ -1591,9 +1591,14 @@ function docsRefreshSection(c: SectionCtx): void {
  * this section reads the working tree too, so the same unstaged fix hides the defect
  * at both channels, and it surfaces only when someone next touches that file from a
  * clean checkout. Declared, not papered over — the same treatment the checker's own
- * header gives its birth-wrong-on-a-non-blank-line residue. The two scope lists are
- * compared mechanically by the parity arm in `scripts/check-line-citations.test.sh`
- * rather than by whoever happens to read both files.
+ * header gives its birth-wrong-on-a-non-blank-line residue. There is one scope
+ * definition, not two: until 2026-09-22 the hook kept a hand copy of it that a parity arm
+ * in `scripts/check-line-citations.test.sh` diffed, and that arm now pins that the copy
+ * stays gone.
+ *
+ * Since 2026-09-22 the corpus also takes code comments (the checker's CODE_EXT_RE
+ * population): the first sweep found 403 stale citations there, none of which any
+ * channel had read.
  *
  * SCOPE (changed 2026-09-14). This section used to pass only the push's changed
  * corpus Markdown, and that had a structural hole the header above never justified:
