@@ -38,7 +38,7 @@ bad()  { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
 # Sets up the dispatcher-scope globals + sources lib.sh + both lanes (LIB_ONLY seam).
 # Mirrors tests/install-sh/python-delivery.test.sh:38-49 + the cargo lane's CARGO_LAYER_LIB_ONLY
-# seam (cargo-entry-lane.test.sh:288-301).
+# seam (cargo-entry-lane.test.sh:290-303).
 setup_lanes() {
   PKG_ROOT="$REPO_ROOT"
   PROJECT_ROOT=""

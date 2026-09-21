@@ -54,7 +54,7 @@ const LIVE_GEN_DIR = join(REPO_ROOT, 'packages/core/synthesizer/fixtures/live-ge
  *  is gitignored in this repo — .gitignore:42 — so the framework's instance lives with the fixtures). */
 const SIDECAR_PATH = join(LIVE_GEN_DIR, 'rule-tests', 'astgrep.json');
 /** The committed rendered artifacts the samples fire against (renderedRulePath →
- *  firing/rules/<ruleId>.yml, render-researched-astgrep.ts:65-66). */
+ *  firing/rules/<ruleId>.yml, render-researched-astgrep.ts:66-67). */
 const RULES_DIR = join(LIVE_GEN_DIR, 'firing', 'rules');
 
 // Loaded at module scope (needed to generate the per-sample `it`s) — a malformed committed sidecar

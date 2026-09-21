@@ -13,7 +13,7 @@
  * scripts/render-rule-index.mjs and packages/core/principles/31-rule-channel-declaration.ts
  * import it.
  *
- * Grammar mirrors .claude/hooks/inject-matching-rule.sh:44-51 glob_match: `prefix/**` (prefix
+ * Grammar mirrors .claude/hooks/inject-matching-rule.sh:86-93 glob_match: `prefix/**` (prefix
  * may contain slashes, e.g. ".github/workflows/**"), `*.ext` (suffix match), or an exact path —
  * each alternative anchored so a pattern must be wholly one shape, never a mix.
  */

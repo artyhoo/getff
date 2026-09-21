@@ -18,6 +18,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: list-rule-research-and-its-protocol, stack: ts-server, date: 2026-09-21, result: listed }
+docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
 ---
 
 # rule-research skill

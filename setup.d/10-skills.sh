@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:405-408), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:588-589), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"
@@ -270,8 +270,8 @@ if [ -f "$EOT_SRC" ]; then
     # (orthogonal to --profile), so a full install arms it; a plain install does not. The
     # installer has no settings-`env` writer — register_cc_hook (lib.sh) writes .hooks only —
     # so this mirrors the hand-action sibling that arms the SAME key,
-    # scripts/register-recap-gate.sh:159-175, and through it the shape's origin
-    # scripts/register-handoff-gate.sh:161-174: temp file, `jq -e .` validate, atomic mv, skip
+    # scripts/register-recap-gate.sh:167-183, and through it the shape's origin
+    # scripts/register-handoff-gate.sh:162-176: temp file, `jq -e .` validate, atomic mv, skip
     # when already set. Never write the target in place: a malformed settings.json silently
     # disables EVERY setting in it.
     if [ "${FULL:-}" = "--full" ]; then

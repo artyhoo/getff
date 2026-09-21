@@ -43,9 +43,9 @@
  * POPULATION — enumerated by PREDICATE over the whole shipped corpus, never by a
  * hand-picked file list. This is load-bearing: the manual verification pass that found
  * this defect enumerated DOCUMENTS and reported eight surfaces; enumerating CLAIMS
- * finds sixteen. The eight it missed include `INSTALL-FOR-AI.md:354` (an ASCII tree
- * annotation), `README.md:229` (a table cell), the three `packages/preset-*\/RULES.md:7`
- * lines, and `skills/getff/references/checks-map.md:43`+`:143` with their `plugin/`
+ * finds sixteen. The eight it missed include `INSTALL-FOR-AI.md:354` (an ASCII tree cite:historical line numbers as of the pre-#1784 defect state
+ * annotation), `README.md:229` (a table cell), the three `packages/preset-*\/RULES.md:7` cite:historical line numbers as of the pre-#1784 defect state
+ * lines, and `skills/getff/references/checks-map.md:43`+`:143` with their `plugin/` cite:historical line numbers as of the pre-#1784 defect state
  * twins. The `corpus covers every markdown-bearing shipped pathspec` arm keeps the
  * pathspec list honest by DERIVING the shipped surface from `scripts/format-shipped.sh`
  * — the repo's shipped-surface SSOT — instead of trusting the list to be maintained.
@@ -174,7 +174,7 @@ describe('Principle 45 — pre-push contract claim liveness', () => {
   it('the corpus covers every tracked markdown at the repo root', () => {
     // The other half of the population, gated the same way — from git, not from a list.
     // Principle 45 shipped with five root canon files named by hand, and that hand-picked
-    // spelling is what hid `INSTALL.md:439` («pre-push ← typecheck + tests + arch +
+    // spelling is what hid `INSTALL.md:439` («pre-push ← typecheck + tests + arch + cite:historical line number at the time the parallel docs branch found it
     // audit»): the claims INSIDE each listed file were enumerated by predicate, but the
     // list of files was not. A parallel docs branch found it; this gate did not. Root
     // canon is small, uniformly authoritative, and cheap to take whole — so take it whole.

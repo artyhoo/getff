@@ -12,7 +12,7 @@
 # Asserts (kickoff §2 item 1 chain, in order):
 #   (1) scripted fresh python project (FastAPI/SQLAlchemy-class fixture, pyproject.toml)
 #   (2) `master` as the default branch ON PURPOSE (R1-input W5.4 regression guard — see
-#       setup.d/lib.sh:194 `deliver_getff_workflow` sed-substitutes `branches: [main]` to
+#       setup.d/lib.sh:1308 `deliver_getff_workflow` sed-substitutes `branches: [main]` to
 #       the consumer's default branch; assert the delivered workflow trigger carries master)
 #   (3) `install.sh python` under a Node-stripped PATH — proves F-A DECLARE (the python
 #       install stays Node-free; Node in the CI RUNNER is fine, per kickoff §6 anti-scope)
@@ -25,7 +25,7 @@
 #   (6) the rule LANDS at <consumer>/.getff/rules-research/<entryId>.yml
 #   (7) RED arm: ast-grep fires non-zero on a planted violation matching the new rule
 #   (8) GREEN arm: ast-grep silent on conforming code (clean control — paired per
-#       adapter-jig E1, mirrors setup.d/45-python.sh:397 _py_firing_self_check)
+#       adapter-jig E1, mirrors setup.d/45-python.sh:490 _py_firing_self_check)
 #   (9) REJECT arm: a practice record citing a NON-direct-dep package (`requests`) is
 #       downgraded to research-only — provenance-rejected by Tier-1 (FF2007 — not a direct
 #       dependency). NO file written under rules-research/ for the rejected entryId.
@@ -36,8 +36,8 @@
 # RED, never SKIP. ast-grep is installed PINNED (ci-tool-pinning.md Rule A — version-pin
 # bare run: installs). Deterministic + API-free.
 #
-# CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix-python-unfamiliar-stack-cell`
-# job at .github/workflows/audit-self.yml:1563. Unlike its two sibling cells this one is
+# CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
+# (.github/workflows/audit-self.yml:2088). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
 # host state OUTSIDE its tmpdir. Line 346 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
@@ -65,7 +65,7 @@ step() { echo ""; echo "── $*"; }
 
 # Pin per ci-tool-pinning.md Rule A (bare run: installs require version pin).
 # ast-grep is the only on-CI tool we install for the firing arm — pinned to the same
-# version setup.d/45-python.sh:437 advertises in its degrade hint.
+# version setup.d/45-python.sh:530 advertises in its degrade hint.
 ASTGREP_VERSION='0.44.1'
 ASTGREP_PKG="@ast-grep/cli@${ASTGREP_VERSION}"
 
@@ -78,7 +78,7 @@ git config user.name CI
 
 # pyproject.toml: minimal PEP-621 project with FastAPI + SQLAlchemy as direct deps.
 # These two packages are what the vendored METADATA will declare — Tier-1 needs them
-# present as DIRECT deps (listDirectDeps in ecosystem-python.ts:249 reads [project]
+# present as DIRECT deps (listDirectDeps in ecosystem-python.ts:250 reads [project]
 # dependencies). `dependencies = [...]` on a single line because that is the shape
 # pipAdapter's extractPep621Deps regex matches (single-line array, the parser's
 # documented input shape).
@@ -104,10 +104,10 @@ PY
 # Tier-1 vendored metadata. We ARE NOT installing FastAPI/SQLAlchemy via pip — that
 # would introduce PyPI network nondeterminism (kickoff §4 trigger #1). The vendor/pin
 # alternative the same trigger explicitly allows: minimal .dist-info/METADATA files
-# carrying `Project-URL: Documentation, <url>` so ecosystem-python.ts:281 readInstalledMeta
+# carrying `Project-URL: Documentation, <url>` so ecosystem-python.ts:289 readInstalledMeta
 # derives the docs host. PEP 503 normalization makes `Name: SQLAlchemy` and the
 # directory's `SqlAlchemy-` spelling both normalize to `sqlalchemy` — verified at
-# ecosystem-python.ts:283 (normalizePep503).
+# ecosystem-python.ts:291 (normalizePep503).
 mkdir -p .venv/lib/python3.12/site-packages
 mkdir -p .venv/lib/python3.12/site-packages/fastapi-0.115.0.dist-info
 mkdir -p .venv/lib/python3.12/site-packages/SqlAlchemy-2.0.36.dist-info
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:854-856.
+# per setup.d/45-python.sh:1215-1217.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -337,7 +337,7 @@ sed 's/^/    /' "$RENDERED"
 
 # Re-run install.sh python (--refresh) so _py_join_researched_rules joins the new rule
 # into .getff/astgrep-rules/ (the dir sgconfig.yml points ast-grep at). The join runs
-# on EVERY pass (setup.d/45-python.sh:203), so the refresh is what surfaces the rule
+# on EVERY pass (setup.d/45-python.sh:276), so the refresh is what surfaces the rule
 # to ast-grep's ruleDirs.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --refresh --force > "$LOG" 2>&1 \
   || { echo "----- refresh install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python --refresh exited non-zero"; }
@@ -353,7 +353,7 @@ step "RED arm — planted violation, ast-grep fires non-zero"
 
 # Install ast-grep PINNED (ci-tool-pinning.md Rule A — bare `run:` install must pin).
 # `npm install -g` rather than `npx -p` so the cell's later ast-grep invocations are
-# straightforward; the version is the same setup.d/45-python.sh:437 advertises.
+# straightforward; the version is the same setup.d/45-python.sh:530 advertises.
 # The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :56).
 # The pre-push regex gate resolves no variables, so these three lines carry the §3 escape token.
 if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :56
@@ -374,7 +374,7 @@ export PATH
 
 # Confirm ast-grep is on PATH and is the pinned version. Belt-and-braces: also catch
 # the Linux `sg` collision — `command -v sg` matches the setgid(1) coreutil, so the
-# ast-grep binary is the only name we trust (mirrors setup.d/45-python.sh:404-410).
+# ast-grep binary is the only name we trust (mirrors setup.d/45-python.sh:497-503).
 ASTGREP_BIN="$(command -v ast-grep || true)"
 [ -n "$ASTGREP_BIN" ] || fail "ast-grep not on PATH after npm install -g (looked in: $NPM_GLOBAL_BIN)"  # ci-tool-pin: allow error message, not an install
 ast-grep --version || fail "ast-grep --version exited non-zero"
@@ -446,7 +446,7 @@ echo "  reject-bootstrap.log (the research-only verdict must be loud):"
 sed 's/^/    /' "$REJECT_LOG"
 
 # The bootstrap CLI returns rc=0 on research-only findings (they're honest degrades,
-# NOT errors — see rule-bootstrap-cli.ts:215 runPracticeRender header). The LOUD log
+# NOT errors — see rule-bootstrap-cli.ts:238 runPracticeRender header). The LOUD log
 # line carries the verdict.
 grep -F 'researched but not rendered' "$REJECT_LOG" >/dev/null 2>&1 \
   || fail "REJECT arm: research-only verdict NOT logged (the loud degrade is the contract — silent reject is T-AST-B)"
@@ -465,10 +465,10 @@ echo "  ✓ REJECT arm: research-only verdict LOUD + no rule file written (hones
 step "R1-input assertion — delivered workflow branches: [master]"
 
 # The python lane delivers .github/workflows/getff-python.yml via deliver_getff_workflow
-# (setup.d/45-python.sh:342 + setup.d/lib.sh:194), which sed-substitutes
+# (setup.d/45-python.sh:472 → setup.d/lib.sh:1483,1308), which sed-substitutes
 # `branches: [main]` → `branches: [master]` because the consumer's default branch
 # (git symbolic-ref origin/HEAD) is master. The `getff-python.yml` filename is
-# namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:330).
+# namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:458).
 DELIVERED_WF="$CONSUMER/.github/workflows/getff-python.yml"
 [ -f "$DELIVERED_WF" ] || fail "delivered workflow missing at $DELIVERED_WF"
 

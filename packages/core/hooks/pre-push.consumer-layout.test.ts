@@ -105,7 +105,7 @@ const CLEANUP_RETRY_DELAY_MS = 50;
  *  1. **Retry** narrows the window. This is a Node-side recursive-rm race (nodejs/node#54561,
  *     "[fs.rm] Reports ENOTEMPTY randomly"), not an un-reaped child of ours: every git
  *     invocation on this path is synchronous — `execSync` in the fixture builders above,
- *     and `spawnSync` inside the hook itself (`utils/run-check.ts:51`, the single funnel
+ *     and `spawnSync` inside the hook itself (`utils/run-check.ts:99`, the single funnel
  *     `utils/git.ts` routes all git I/O through) — so each is reaped before control
  *     returns here. There is no child left to await.
  *  2. **Tolerate** is the structural guarantee: teardown is hygiene, never an assertion,
@@ -163,7 +163,7 @@ function makeConsumerSandbox(): { dir: string; baseSha: string; hook: string } {
   const dir = mkdtempSync(join(tmpdir(), 'prepush-consumer-'));
   sandboxes.push(dir);
 
-  // The exact install.sh consumer copy-list (install.sh:343-367).
+  // The exact install.sh consumer copy-list (install.sh:1174-1198).
   cpSync(
     resolve(REPO_ROOT, 'packages/core/hooks'),
     join(dir, 'packages/core/hooks'),
@@ -711,7 +711,7 @@ describe(
       chmodSync(join(stubBin, 'lychee'), 0o755);
 
       // A SHIPPED file (AGENTS.md is the canonical framework-shipped top-level starter,
-      // 30-templates.sh:81) carrying a dangling framework-internal ref — the exact shape
+      // 30-templates.sh:99) carrying a dangling framework-internal ref — the exact shape
       // that blocked a consumer's first push before Part 1.
       addConsumerCommit(
         dir,
@@ -1103,7 +1103,7 @@ describe(
       const dir = mkdtempSync(join(tmpdir(), 'prepush-smoke-'));
       sandboxes.push(dir);
 
-      // Consumer copy-list only (install.sh:343-367 shape): hooks + eslint-rules.
+      // Consumer copy-list only (install.sh:1174-1198 shape): hooks + eslint-rules.
       cpSync(
         resolve(REPO_ROOT, 'packages/core/hooks'),
         join(dir, 'packages/core/hooks'),

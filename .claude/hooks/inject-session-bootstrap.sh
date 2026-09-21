@@ -14,7 +14,7 @@
 # R4 (consumer-refresh-integrity, issue 1484): consumer-aware digest. Consumers receive
 # this hook through the plugin twin, where $0-relative paths point at the plugin dir, not
 # the consumer root — so the tree root resolves env-first (CLAUDE_PROJECT_DIR, then
-# ZCODE_PROJECT_DIR, then $0-relative), the same pattern as inject-project-digest.sh:28.
+# ZCODE_PROJECT_DIR, then $0-relative), the same pattern as inject-project-digest.sh:29.
 # Every path-shaped citation below is existence-checked against that live tree at render
 # time; an absent target degrades to the rule/target NAME without the dead path — never a
 # silent drop of the invariant text itself. Fail-open: an unreachable tree degrades all

@@ -12,9 +12,9 @@
  * ## Why this gate exists
  *
  * `.claude/orchestrator-prompts/` is NEVER delivered to a consumer: the only install action is
- * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:65-66,
+ * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:98-100,
  * setup.d/30-templates.sh:17). The skills are shipped byte-for-byte
- * (`copy_skill_with_transform`, setup.d/lib.sh:879), so a fence that hardcodes the framework
+ * (`copy_skill_with_transform`, setup.d/lib.sh:2158), so a fence that hardcodes the framework
  * path executes against a directory that cannot exist — silently, because every such fence
  * ends in `2>/dev/null` or a `[ -d "$dir" ] || exit 0` short-circuit.
  *
@@ -26,7 +26,7 @@
  * resolve the home (#1244) — so the two halves of `/pipeline` read and wrote different
  * directories, and nothing noticed.
  *
- * `transform_internal_refs` (setup.d/lib.sh:94) already rewrites the *markdown-link* shape of
+ * `transform_internal_refs` (setup.d/lib.sh:146) already rewrites the *markdown-link* shape of
  * this same literal on delivery. This gate is the executable-fence half of that pair: the half
  * no transform can fix, because a fence is a command, not a link.
  *
@@ -34,8 +34,8 @@
  *
  * "A literal appears inside a ``` fence" is mechanically detectable → gate, not injection.
  * A principle test is the earliest channel that actually fires for this population: the suite
- * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1267) and in CI
- * (`principles-meta-tests`, audit-self.yml:210).
+ * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1661) and in CI
+ * (`principles-meta-tests`, audit-self.yml:264).
  *
  * ## Honest ceiling — the fence slice only
  *
@@ -55,8 +55,8 @@
  * since prose provenance mentions of the same literal must stay legal. Its `codeFenced` /
  * `codeFlowValue` fence-scoping vocabulary is ADOPTED.
  *
- * Note what is NOT the reason: `markdownlint-cli2` is already a devDependency (package.json:19)
- * run at .husky/pre-commit:92, so "it would add a dependency" would be false. The grounds are
+ * Note what is NOT the reason: `markdownlint-cli2` is already a devDependency (package.json:21)
+ * run at .husky/pre-commit:112, so "it would add a dependency" would be false. The grounds are
  * that a custom micromark rule plus its own test surface exceeds ~40 LOC inside an existing
  * suite, and that the repo's markdownlint pass sees STAGED files only — it cannot make the
  * population-wide claim of arm (a) nor carry arm (e)'s shrink-only allowlist ratchet. If this
@@ -203,7 +203,7 @@ describe('Principle 39 — shipped skill fences never hardcode the framework orc
     expect(
       report,
       `These fenced lines hardcode \`${FRAMEWORK_ORCH_HOME}\`, which no consumer install ever ` +
-        `receives (setup.d/lib.sh:65-66) — the fence runs against a directory that cannot exist:\n` +
+        `receives (setup.d/lib.sh:98-100) — the fence runs against a directory that cannot exist:\n` +
         report.join('\n') +
         `\n\nResolve the home instead: \`"$(bash "\${CLAUDE_SKILL_DIR}/helpers/print-orch-home.sh" 2>/dev/null)"\`. ` +
         `If a fence genuinely must name the framework path, append a same-line ` +

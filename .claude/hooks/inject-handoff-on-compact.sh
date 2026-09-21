@@ -36,7 +36,7 @@ source_kind=$(printf '%s' "$input" | jq -r '.source // empty' 2>/dev/null || tru
 
 session_id=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -n "$session_id" ] || exit 0
-# The writer's own sanitisation (precompact-residue.sh:122, Stop hook :307).
+# The writer's own sanitisation (precompact-residue.sh:123, Stop hook end-of-turn-reminder.sh:404).
 session_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
 
 # Repo root: CLAUDE_PROJECT_DIR is set by CC in the hook subprocess; the payload's `cwd`

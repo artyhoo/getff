@@ -26,7 +26,7 @@ grep -qi 'superpowers' "$TMP/out.txt" && ok "manifest row parsed through engine 
 # positional case only forwarded python, so `./setup cargo` silently fell through to npm stack
 # auto-detect — two command shapes for one positional, exactly what E3 exists to prevent. python is
 # the CONTROL (already routed before this stage); cargo/go must reach their toolchain lanes too.
-# --dry-run keeps every arm write-free (copy_safe/refresh_safe no-op under DRY_RUN, lib.sh:226).
+# --dry-run keeps every arm write-free (copy_safe/refresh_safe no-op under DRY_RUN, lib.sh:856 / :1132).
 for lane in python cargo go; do
   LANE_OUT=$( cd "$TMP" && bash "$SETUP" "$lane" --dry-run 2>&1 )
   echo "$LANE_OUT" | grep -q 'toolchain' \

@@ -153,7 +153,7 @@ jobs:
           if [ "$forward_citations" -lt 1 ]; then
             echo "::error::Forward-check section contains 0 file:line citations (regex [^[:space:]]+\\.[a-z]+:[0-9]+)."
             echo "Substance arm (Wave 8.1) — §1.7 must cite specific evidence, not generic prose."
-            echo "Example: 'packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified'"
+            echo "Example: 'packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified'" # cite:historical example text for the trailer shape, not a live pointer
             echo "Bootstrap exemption: §1.7 Skipped marker with rationale ≥60 chars."
             exit 1
           fi

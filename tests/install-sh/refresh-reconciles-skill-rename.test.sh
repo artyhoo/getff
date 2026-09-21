@@ -38,7 +38,7 @@ run_refresh() {
   local fixture="$1"
   # Refresh auto-detects stack from existing files; pass `ts-server` positional to
   # make the test independent of fixture content. --refresh early-exits at
-  # install.sh:816 so the full install pipeline never runs (only do_refresh).
+  # install.sh:1399 so the full install pipeline never runs (only do_refresh).
   ( cd "$fixture" && bash "$INSTALL" ts-server --refresh ) 2>&1
   echo "EXIT=$?"
 }

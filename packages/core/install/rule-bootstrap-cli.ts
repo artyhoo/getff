@@ -100,14 +100,14 @@ function parseArgs(argv: string[]): Args {
 // eslint-only: `engine:'ast-grep'` is parked at the L4 gates as error-severity FF3003/FF3010/FF3012
 // («ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)»,
 // diagnostics/registry.ts:182), and install() writes `.ai-factory/` which the python lane forbids
-// (setup.d/45-python.sh:438 + tests/install-sh/python-entry-lane.test.sh). The SHIPPED researched-
+// (setup.d/45-python.sh + tests/install-sh/python-entry-lane.test.sh). The SHIPPED researched-
 // python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
 // `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
 //
 // This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON → rendered
 // rule YAML at `<consumer>/.getff/rules-research/<entryId>.yml` — a consumer-side researched home
 // that SURVIVES `--refresh` (unlike `.getff/astgrep-rules/`, which refresh_safe rm-rf-replaces from
-// the template — lib.sh:126). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
+// the template — lib.sh:1072). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
 // then joins `rules-research/*.yml` into `.getff/astgrep-rules/` on every install/refresh pass, so
 // the rendered rule fires via the consumer's existing single `ruleDirs:` entry (§Qd additive).
 //
@@ -270,16 +270,16 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
 
   // S1b (unparks PARK-S1-7): emit a per-rule generation-context fragment for the python lane.
   // The fragment is the substrate for getff staleness (spec §7 item 1 — «the substrate for what
-  // went stale»): the python lock reader `_py_json_rules` (setup.d/45-python.sh:528) cat's it
+  // went stale»): the python lock reader `_py_json_rules` (setup.d/45-python.sh:623) cat's it
   // verbatim into the lock's `rules[]`. Without this producer the reader falls through to the
-  // literal `{"id":...,"provenance":[],"tier":2}` at 45-python.sh:531 — provenance records the
+  // literal `{"id":...,"provenance":[],"tier":2}` at 45-python.sh:632 — provenance records the
   // research moment (url/allowlistKey/fetchedAt), so its absence is exactly the empty-substrate
   // defect S1 shipped and S2 (targeted staleness) cannot consume.
   //
   // Path layout (DC-1, kickoff §6 Tier-2 call): `<consumerRoot>/.ai-factory/synthesizer-output/
   // generation-context/python/<entryId>.json` — the per-lane subdir closes criterion 4 by
   // construction. Cargo/go glob `*.json` NON-recursively on the parent generation-context/ dir
-  // (46-cargo.sh:262, 47-go.sh:229), so a python lane fragment in the subdir is invisible to
+  // (lib.sh:1599, shared lock writer), so a python lane fragment in the subdir is invisible to
   // them. The Node synthesize path (emit.ts:97-103) keeps writing `G${n}.json` to the parent
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //

@@ -8,9 +8,9 @@
 // measures the confounding slice, and — under --check — runs the eight arms A-H.
 //
 // Reuse is by IMPORT (parseCsv, buildPayload) or COPY-with-source-comment (kickoff §2):
-//   choose/mcnemar/kappa  — copied from scripts/triage-s0-score.mjs:30-49 (frozen, never edit)
-//   arm-B differential    — copied from scripts/triage-s2-labels-check.mjs:35,91-108, extended
-//   GRADE_TOKEN/FINDING_ID — copied from scripts/triage-corpus-probe.mjs:40-41 (module-private)
+//   choose/mcnemar/kappa  — copied from scripts/triage-s0-score.mjs:33-52 (frozen, never edit)
+//   arm-B differential    — copied from scripts/triage-s2-labels-check.mjs:38,94-111, extended
+//   GRADE_TOKEN/FINDING_ID — copied from scripts/triage-corpus-probe.mjs:43-44 (module-private)
 //
 // Usage: node scripts/triage-s4-score.mjs           → scoring report (needs judge artifacts)
 //        node scripts/triage-s4-score.mjs --check   → arms A-H, exit 1 on any RED
@@ -33,21 +33,21 @@ const REPORT_REL = 'docs/meta-factory/research-patches/2026-08-16-triage-kernel-
 const VALID_CLASS = new Set(['MATERIAL', 'IMMATERIAL']);
 const VALID_LAYER = new Set(['idea', 'design', 'architecture', 'plan', 'implementation']);
 const VALID_WHOSE = new Set(['reviewer', 'advisor', 'operator-floor']);
-// Copied from triage-s2-labels-check.mjs:35 and EXTENDED per kickoff §3.9 arm B with every
+// Copied from triage-s2-labels-check.mjs:38 and EXTENDED per kickoff §3.9 arm B with every
 // *_cold / *_final key (+ s3-final's status) — the S4 join columns the shim must never project.
 const FORBIDDEN_PAYLOAD_FIELDS = [
   'id', 'source', 'provenance', 'class_start', 'orig_grade',
   'class_cold', 'layer_cold', 'whose_cold',
   'class_final', 'layer_final', 'whose_final', 'status',
 ];
-// Copied from triage-corpus-probe.mjs:40-41 (module-private there; §2 copy provision).
+// Copied from triage-corpus-probe.mjs:43-44 (module-private there; §2 copy provision).
 const GRADE_TOKEN = /\b(?:BLOCKER|MAJOR|MINOR)\b/u;
 const FINDING_ID = /\b(?:R\d+\s+[MB]\d+|(?:TD|BU)\s+[MBN]\d+)\b/u;
 
 const die = (msg) => { console.error(`[ERROR] ${msg}`); process.exit(1); };
 const pct = (x) => (Number.isNaN(x) ? 'n/a' : `${(100 * x).toFixed(1)}%`);
 
-// ==== Copied statistics (triage-s0-score.mjs:30-49 — frozen; never re-derived) ====
+// ==== Copied statistics (triage-s0-score.mjs:33-52 — frozen; never re-derived) ====
 const acc = (rs, k) => rs.filter((r) => r[k] === r.truth).length / rs.length;
 const choose = (n, k) => { let v = 1; for (let i = 0; i < k; i += 1) v = (v * (n - i)) / (i + 1); return v; };
 const mcnemar = (b, c) => {

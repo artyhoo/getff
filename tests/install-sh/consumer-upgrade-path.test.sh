@@ -296,7 +296,7 @@ rm -rf "$TC5" "$TC5_NEG"
 # do_refresh statically; this arm proves the refresh ACTUALLY writes them on a real
 # consumer. .husky/pre-push staleness is the worst case (a pre-#636 dispatcher HARD-
 # CRASHES instead of degrading to the bash fallback on a pnpm monorepo). eslint-rules-
-# local/ ships framework-authored core rules (lib.sh:194 "consumer never owns") as
+# local/ ships framework-authored core rules (lib.sh:1854 "consumer never owns") as
 # pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
 # ══════════════════════════════════════════════════════════════════════════════
 TC6=$(make_consumer)
@@ -425,8 +425,8 @@ rm -rf "$TC7"
 # not ship (TEST 10), and honours an explicit deeper --profile (TEST 11).
 # ══════════════════════════════════════════════════════════════════════════════
 
-# env-depth-only artefacts (install: setup.d/10-skills.sh:125 arch+pipeline,
-# setup.d/30-templates.sh:108 tier-home, setup.d/85-worktree-scripts.sh:34 the four scripts)
+# env-depth-only artefacts (install: setup.d/10-skills.sh:164 arch+pipeline,
+# setup.d/30-templates.sh:112 tier-home, setup.d/85-worktree-scripts.sh:34 the four scripts)
 ENVPLUS_ONLY=(
   "scripts/create-worktree.sh"
   "scripts/worktree-node-modules.sh"
@@ -436,7 +436,7 @@ ENVPLUS_ONLY=(
   ".claude/skills/pipeline"
   ".ai-factory/tier-home.md"
 )
-# factory-depth-only artefacts (install: setup.d/10-skills.sh:131 + setup.d/20-agents.sh:39 +
+# factory-depth-only artefacts (install: setup.d/10-skills.sh:170 + setup.d/20-agents.sh:39 +
 # setup.d/55-runtime-bridge-vendor.sh:65 — the vendored runtime-bridge payload, whose refresh arm
 # landed after #1412 left it out of scope. Layer 55 is its ONLY deliverer, so a core consumer has
 # no other route to it and its presence here would be a depth-boundary breach like any other.)

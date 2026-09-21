@@ -12,6 +12,7 @@ executed:
   - { example: dry-run-env, stack: ts-server, date: 2026-09-20, result: exit-0 }
   - { example: install-env, stack: ts-server, date: 2026-09-20, result: exit-0 }
   - { example: verify-skills-folder, stack: ts-server, date: 2026-09-20, result: eleven-skills }
+docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
 ---
 
 # Add the design and review skills

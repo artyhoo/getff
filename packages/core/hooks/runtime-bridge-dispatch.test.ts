@@ -256,7 +256,7 @@ describe.skipIf(!JQ || !NODE)(
 // ── Forwarded-output schema arm (cold backward-sweep GAP-2) ─────────────────────
 //
 // The hook forwards dispatch.ts stdout VERBATIM (hook:106-108). dispatch.ts constructs the
-// JSON in a SEPARATE source location (packages/runtime-bridge/src/cli/dispatch.ts:218-226),
+// JSON in a SEPARATE source location (packages/runtime-bridge/src/cli/dispatch.ts:307-315),
 // so a drift there (e.g. adding hookEventName at top level) would NOT be caught by the
 // guard-chain tests above — and dispatch.ts's own tests cover AIF dispatch logic, not the
 // hook-glue forward contract. To exercise the forward path WITHOUT a live AIF backend, we
@@ -311,7 +311,7 @@ describe.skipIf(!JQ || !NODE || !TSX)(
         `#!/usr/bin/env tsx
 // STUB — stands in for the real dispatch.ts to test the hook's forward contract.
 // Emits the schema-valid {hookSpecificOutput:{hookEventName:"PostToolUse", additionalContext}}
-// shape that the real dispatch.ts produces (packages/runtime-bridge/src/cli/dispatch.ts:218-226).
+// shape that the real dispatch.ts produces (packages/runtime-bridge/src/cli/dispatch.ts:307-315).
 console.log(JSON.stringify({
   hookSpecificOutput: {
     hookEventName: 'PostToolUse',
@@ -349,7 +349,7 @@ console.log(JSON.stringify({
       // a SEPARATE source location, so drift there is invisible to the hook's own tests. This
       // arm pins the forward contract: the forwarded JSON must keep hookEventName INSIDE
       // hookSpecificOutput (NOT at top level). Regression guard (cold backward-sweep GAP-2).
-      // Precedent: inject-matching-rule.test.ts:72 (hookSpecificOutput-wrapper schema arm).
+      // Precedent: inject-matching-rule.test.ts:82 (hookSpecificOutput-wrapper schema arm).
       const { hookAbs, kickoffAbs } = makeStubRepo();
       const r = spawnSync('bash', [hookAbs], {
         input: JSON.stringify({

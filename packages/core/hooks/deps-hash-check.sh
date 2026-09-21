@@ -2,7 +2,7 @@
 # deps-hash-check.sh — UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)
 # @dual-pair: deps-hash-check-dogfood
 # spec: packages/core/hooks/deps-hash-check.sh — packages/ copy is the SOURCE shipped by
-# install.sh:261; .claude/ copy is this repo's dogfood instance wired in settings.json;
+# install.sh:932; .claude/ copy is this repo's dogfood instance wired in settings.json;
 # plugin/hooks/deps-hash-check is the consumer-plugin twin (T-PLUG-A). All three are kept
 # byte-identical; drift is guarded by deps-hash-check.test.ts (#382 §6, 3-way guard).
 # Consumer-facing UserPromptSubmit hook — DH-S1/DH-S2 multistack (kickoff #1016).

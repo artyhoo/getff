@@ -32,7 +32,7 @@ import {
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-// NOTE: this file ships verbatim into consumer projects (install.sh:929-938), so a
+// NOTE: this file ships verbatim into consumer projects (install.sh:1173-1183), so a
 // static bare-package import of anything outside the consumer's tree crashes the hook
 // with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
 // imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
@@ -410,7 +410,7 @@ function priorArtSection(rb: ResolvedBase): void {
         'Rules: ≥20 chars after "Prior-art:" (or after "skipped — "); placeholder\n' +
         'rationales (TODO / later / n/a / tbd / fixme / placeholder) are rejected.\n' +
         'A positive line must also name a resolvable referent — an SSOT row\n' +
-        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\n' +
+        '(prior-art-evaluations.md#N), an artefact path (setup.d/lib.sh:359), or an\n' + // cite:historical example data, not a live pointer
         'issue/PR reference (#1271). See CLAUDE.md §`Prior-art:` trailer syntax.\n\n',
     );
     process.exit(1);
@@ -1571,9 +1571,9 @@ function docsRefreshSection(c: SectionCtx): void {
  * uncommitted edit has no baseline and edit-time cannot reach it at all. The
  * BLANK-LANDING arm has no such dependency, and since 2026-09-14 it also runs at
  * ITS earliest channel: `.husky/pre-commit` invokes the same checker with
- * `--blank-only` over a `CITE_SCOPE` list kept identical to the LIVE_AUTHORITY_MD
- * the checker defines, so a citation wrong at birth is normally refused at the commit
- * that writes it.
+ * `--blank-only --in-corpus` over the staged paths, so the corpus the checker defines
+ * is the one scope both channels use, and a citation wrong at birth is normally refused
+ * at the commit that writes it.
  *
  * «Normally», not «always», and this section runs BOTH arms because of what the word
  * covers — five measured gaps in the earlier channel, not a belt-and-braces habit:
@@ -1591,9 +1591,14 @@ function docsRefreshSection(c: SectionCtx): void {
  * this section reads the working tree too, so the same unstaged fix hides the defect
  * at both channels, and it surfaces only when someone next touches that file from a
  * clean checkout. Declared, not papered over — the same treatment the checker's own
- * header gives its birth-wrong-on-a-non-blank-line residue. The two scope lists are
- * compared mechanically by the parity arm in `scripts/check-line-citations.test.sh`
- * rather than by whoever happens to read both files.
+ * header gives its birth-wrong-on-a-non-blank-line residue. There is one scope
+ * definition, not two: until 2026-09-22 the hook kept a hand copy of it that a parity arm
+ * in `scripts/check-line-citations.test.sh` diffed, and that arm now pins that the copy
+ * stays gone.
+ *
+ * Since 2026-09-22 the corpus also takes code comments (the checker's CODE_EXT_RE
+ * population): the first sweep found 403 stale citations there, none of which any
+ * channel had read.
  *
  * SCOPE (changed 2026-09-14). This section used to pass only the push's changed
  * corpus Markdown, and that had a structural hole the header above never justified:
@@ -1847,9 +1852,9 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:34-44 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:46-65 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:121-123 — derivation of
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derivation of
 //       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
@@ -1872,7 +1877,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * were already realized:
  *
  *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
- *       `.ai-factory/tier-home.md` (30-templates.sh:109) had no row at all, so on a
+ *       `.ai-factory/tier-home.md` (30-templates.sh:113) had no row at all, so on a
  *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
  *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
  *       (no docs/ on that checkout) and OUR shipped content blocks THEIR push — the
@@ -1895,16 +1900,16 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * `AGENTS.md` and the whole `.ai-factory/*` set are ALSO recorded in
  * .ai-factory/refresh-baseline.json on a real install — verified by installing ts-server
  * into a scratch fixture 2026-09-06: 95 keys, every one of these paths present except
- * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:260-262).
+ * AGENTS.md (merge_fenced is outside the baseline mechanism by design, setup.d/lib.sh:286-288).
  * So on a consumer WITH a readable manifest this list is redundant. It is kept for the
  * arm that has no manifest — no jq, or an unwritable .ai-factory/ — where dropping it
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:95 / 45-python.sh:1313 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1320 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1341 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1335 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -1918,14 +1923,14 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:338 / install.sh:892 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1024 (conditional starter)
 ];
 
 /**
  * The one shipped markdown namespace an exact enumeration cannot cover: skill-context
  * overrides are delivered as `.ai-factory/skill-context/$_sc/SKILL.md` for every entry of
- * SHIPPED_DOCS (20-agents.sh:74), and WHICH entries land is profile-gated — a factory
- * consumer also gets aif-orchestrator-discipline (20-agents.sh:70-72). The whole subtree
+ * SHIPPED_DOCS (20-agents.sh:77), and WHICH entries land is profile-gated — a factory
+ * consumer also gets aif-orchestrator-discipline (20-agents.sh:73-75). The whole subtree
  * is framework territory by construction: every path under it is an override of a
  * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
  *
@@ -1955,7 +1960,7 @@ export const SHIPPED_MD_PREFIXES: readonly string[] = [
  * Delivering a skill under `<slug>.override.md` marks it consumer-OWNED, and that path
  * does not match `<slug>/` — correctly walked as consumer content.
  *
- * SSOT: setup.d/lib.sh:61-63 (GETFF_SKILLS_CORE/_ENV/_FACTORY) + the two dirs
+ * SSOT: setup.d/lib.sh:63-65 (GETFF_SKILLS_CORE/_ENV/_FACTORY) + the two dirs
  * 10-skills.sh:12-50 copies by name. Kept honest by a derivation check in
  * pre-push.test.ts, which parses those shell sources — adding a skill to a tier without
  * adding it here (or vice versa) fails that test, so this half is a GATE, not attention.
@@ -1982,7 +1987,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:310-355) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:756-814) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer
@@ -2029,7 +2034,7 @@ export function isFrameworkShippedMarkdown(
 
 // plugin/agents/*.md are BYTE-IDENTICAL copies of agents/*.md — principle 24(d)
 // (24-plugin-manifest-integrity.test.ts) compares bytes, and
-// scripts/generate-plugin-twins.sh:183-185 states the agent arm is a bare `cp`:
+// scripts/generate-plugin-twins.sh:184-186 states the agent arm is a bare `cp`:
 // "No header, no marker, no transform".
 //
 // The twin sits ONE DIRECTORY DEEPER than its source, so a `](../x)` link that
@@ -2044,7 +2049,7 @@ export function isFrameworkShippedMarkdown(
 // same section; (b) a twin can never legitimately carry content its source does not —
 // principle 24(d) goes RED on any divergence, and the generator REFUSES to write a twin
 // that matches neither the source nor that source at HEAD
-// (generate-plugin-twins.sh:205-224). So the twin's link text is always some source's
+// (generate-plugin-twins.sh:207-228). So the twin's link text is always some source's
 // link text, checked at the source path.
 //
 // (c) — added 2026-09-06 (#1597 ledger L-3), because (a)+(b) covered only the link's
@@ -2073,7 +2078,7 @@ export function isFrameworkShippedMarkdown(
 //
 // Rejected alternative: root-relative links `](/…)`. This section DOES pass `--root-dir`
 // (below), so lychee would resolve them at both depths — but `transform_internal_refs`
-// (setup.d/lib.sh:147-163) only matches `](../…)`, so a root-relative ref would ship
+// (setup.d/lib.sh:149-165) only matches `](../…)`, so a root-relative ref would ship
 // VERBATIM into consumer projects and dangle there. It fixes the gate and keeps the
 // defect.
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';

@@ -12,7 +12,7 @@
 #   block a spawn) and delivers context via JSON hookSpecificOutput.additionalContext.
 #   Plain stdout is a SILENT NO-OP here (unlike UserPromptSubmit, which auto-injects
 #   stdout) — emitting the wrong format = the hook fires but does nothing (#discipline-theatre,
-#   T-108-A). Hence the jq-wrapped JSON below, mirroring inject-matching-rule.sh:78-79.
+#   T-108-A). Hence the jq-wrapped JSON below, mirroring inject-matching-rule.sh:125-126.
 set -uo pipefail
 
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"

@@ -15,7 +15,7 @@
 #                           pointer line (D15)
 #
 # LOADING CONTRACT (D29) — never source this file UNCONDITIONALLY. Both consumers load it
-# behind the guarded shape (`if ! [ -f … ] || ! . …`, the check-doc-authority.sh:40-48
+# behind the guarded shape (`if ! [ -f … ] || ! . …`, the check-doc-authority.sh:41-49
 # guard shape with an inline fallback instead of a SKIP), because end-of-turn-reminder.sh
 # runs under `set -euo pipefail`: an unconditional `.` of a missing lib aborts the Stop
 # hook on EVERY turn of any project the delivery step has not reached. Each consumer

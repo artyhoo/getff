@@ -251,7 +251,7 @@ describe('isNewDepAdded()', () => {
 // ─── CLAUDE.md prose ↔ hook sync (executable, was attention-only) ─────────────
 //
 // CLAUDE.md «What is a capability commit?» promises «the prose definition and
-// the hook stay in sync» (CLAUDE.md:36) — until this test, that promise was
+// the hook stay in sync» (CLAUDE.md:30) — until this test, that promise was
 // enforced by nobody (#hope-as-gate, attention-is-not-a-mechanism.md §1).
 // These tests make the overrides-exclusion clause of the sync executable: the
 // non-dep block names skipped by isNewDepAdded() must each be named in the
@@ -862,7 +862,7 @@ describe('checkTrailerBody() — C1 existence arm', () => {
     // nothing for the C1 arm to resolve; the K-5 grammar still requires it to
     // name SOME resolvable referent, here an in-repo artefact path.
     const body =
-      'feat: x\n\nPrior-art: novel capability, no upstream analog after the 6-item sweep; nearest in-repo precedent setup.d/lib.sh:359.';
+      'feat: x\n\nPrior-art: novel capability, no upstream analog after the 6-item sweep; nearest in-repo precedent setup.d/lib.sh:359.'; // cite:historical fixture data, not a live pointer
     expect(checkTrailerBody(body, FUTURE, undefined, ssotIds).code).toBe(0);
   });
 
@@ -1261,7 +1261,7 @@ describe('checkTrailerBody() — PLACEHOLDERS set membership mutation-killing (W
 });
 
 describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () => {
-  // Kills prior-art.ts:62 StringLiteral: .replace(/[...]/g, '') -> .replace(/[...]/g, 'Stryker was here!')
+  // Kills prior-art.ts:175 StringLiteral: .replace(/[...]/g, '') -> .replace(/[...]/g, 'Stryker was here!')
   // With original strip, 'todo.' → 'todo' (placeholder). With non-empty replace, 'todo.' → 'todoStryker was here!' (NOT placeholder).
   // Test: rationale of punctuated placeholder words → should be all-placeholder → code 1 (invalid trailer).
   it('punctuated placeholder words (todo. na. tbd.) are treated as all-placeholder (code 1)', () => {
@@ -1274,7 +1274,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(result.code).toBe(1);
   });
 
-  // Kills prior-art.ts:74 Regex mutant: remove ^ anchor from dep detection regex
+  // Kills prior-art.ts:217 Regex mutant: remove ^ anchor from dep detection regex
   // Without ^, a line where + or - appears mid-string (not at line start) would be falsely matched.
   // e.g. '   some text + "my-lib": "^1.0.0"' → without ^, the + and dep-key pattern is found mid-string.
   it('does NOT detect a dep when + appears mid-line before a dep-format string (^ anchor required)', () => {
@@ -1283,7 +1283,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(isNewDepAdded(diff)).toBe(false);
   });
 
-  // Kills prior-art.ts:152:37 Regex mutant: /^[—–\-:]/ → /[—–\-:]/ (no ^ anchor)
+  // Kills prior-art.ts:396:37 Regex mutant: /^[—–\-:]/ → /[—–\-:]/ (no ^ anchor)
   // Without ^, the first separator found ANYWHERE in the rationale is stripped (not just leading).
   // Test: rationale where separator is NOT at start but IS mid-string (after placeholder words).
   // 'todo — todo todo todo' → original: /^[—–\-:]/ strips nothing (starts with 'todo') → keep '—' mid-string
@@ -1303,7 +1303,7 @@ describe('checkTrailerBody() — regex mutation-killing round 2 (Wave 2)', () =>
     expect(checkTrailerBody(body, FUTURE).code).toBe(2);
   });
 
-  // Kills prior-art.ts:152:61 Regex mutant: /^ +/ → / +/ (second strip — no anchor)
+  // Kills prior-art.ts:396:61 Regex mutant: /^ +/ → / +/ (second strip — no anchor)
   // Without ^, the first group of spaces found ANYWHERE is stripped (not just leading spaces).
   // Test: rationale with NO leading spaces but WITH internal spaces between placeholder words.
   // Original /^ +/: no leading spaces → nothing stripped → 'todo todo todo todo todo todo' → all-placeholder → code 1
@@ -1487,7 +1487,7 @@ describe('checkTrailerBody() — resolvable-referent grammar (K-5)', () => {
     ['SSOT row', VALID_CITATION],
     [
       'artefact path',
-      'Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom',
+      'Prior-art: REUSE — setup.d/lib.sh:359 copy_safe skip-if-exists idiom', // cite:historical fixture data, not a live pointer
     ],
     [
       'research patch',

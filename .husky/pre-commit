@@ -129,13 +129,13 @@ fi
 # `git commit --no-verify` skips this file entirely, so the later channel stays the
 # backstop rather than becoming a duplicate.
 #
-# CITE_SCOPE mirrors LIVE_AUTHORITY_MD in scripts/check-line-citations.mjs — the
-# live-authority surface, deliberately NOT the whole markdown corpus: retros,
-# research-patches and specs cite a line as a dated snapshot, and renumbering those
-# rewrites history. A trailing `/` means prefix, anything else is an exact path — the
-# same test the TS side applies. The two lists are compared mechanically by the parity
-# arm in scripts/check-line-citations.test.sh, so keeping them in step is not left to
-# whoever happens to read both files (.claude/rules/attention-is-not-a-mechanism.md §1).
+# SCOPE is the checker's own corpus definition, asked for with `--in-corpus`: every
+# staged path goes in and the checker keeps the corpus members — live-authority Markdown
+# (retros, research-patches and specs cite a line as a dated snapshot, and renumbering
+# those rewrites history) plus code comments, since 2026-09-22. Until then this block
+# kept `CITE_SCOPE`, a hand copy of the Markdown list with a parity arm diffing the two;
+# the code half excludes generated twins, kickoff material and fixture data by rules no
+# flat list here could express, so the copy was retired rather than extended.
 #
 # Two declared limits, measured 2026-09-14 rather than assumed, both backstopped by §9:
 #   · The checker reads the WORKING TREE, not the index — as does every other section of
@@ -146,31 +146,30 @@ fi
 #     `--diff-filter=ACM`, which is empty for a pure rename, and the hook exits 0 at that
 #     guard before any section runs. A rename that MOVES a doc can break a relative
 #     citation, so this is real — it is simply not this block's to fix.
-CITE_SCOPE='.claude/rules/ .claude/skills/ agents/ CLAUDE.md AGENTS.md CONTRIBUTING.md docs/site/'
-CITE_MD=$(echo "$STAGED_MD" | while IFS= read -r f; do
-  # `-f` and not just the scope test: a path staged and then deleted from the working
-  # tree makes the checker throw ENOENT, which the `||` below would report as a
-  # blank-landing verdict — a red naming the wrong defect. Same guard as the per-file
-  # loop at the top of this file.
-  [ -f "$f" ] || continue
-  for p in $CITE_SCOPE; do
-    if [ "${p%/}" != "$p" ]; then
-      if [ "${f#"$p"}" != "$f" ]; then printf '%s\n' "$f"; fi
-    else
-      if [ "$f" = "$p" ]; then printf '%s\n' "$f"; fi
-    fi
-  done
-done)
+# An array, not a word-split string: a staged path with a space would otherwise reach the
+# checker as two fragments, which --in-corpus drops, and the file would go unchecked.
+CITE_FILES=()
+while IFS= read -r f; do
+  # `-f`: a path staged and then deleted from the working tree makes the checker throw
+  # ENOENT, which the `||` below would report as a blank-landing verdict — a red naming
+  # the wrong defect. Same guard as the per-file loop at the top of this file.
+  [ -f "$f" ] && CITE_FILES+=("$f")
+done < <(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 #
 # Guarded on `command -v node` rather than failing hard, for one reason and not the
 # usual one: letting a missing interpreter fall through the `||` below would print a
 # blank-landing verdict for a machine that has no node, which is an unactionable red.
 # The skip costs no coverage — pre-push §9 runs ARM 2 again, and the sections around it
 # die loudly without node, so nothing reaches origin unchecked.
-if [ -n "$CITE_MD" ] && command -v node &>/dev/null; then
-  # shellcheck disable=SC2086
-  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only $CITE_MD \
-    || { echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1; }
+if [ "${#CITE_FILES[@]}" -gt 0 ] && command -v node &>/dev/null; then
+  cite_rc=0
+  node "$REPO_ROOT/scripts/check-line-citations.mjs" --check --blank-only --in-corpus "${CITE_FILES[@]}" \
+    || cite_rc=$?
+  if [ "$cite_rc" -eq 1 ]; then
+    echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1
+  elif [ "$cite_rc" -ne 0 ]; then
+    echo "❌ check-line-citations could not run (exit $cite_rc) — see its message above"; fail=1
+  fi
 fi
 
 # ── Prettier on staged SHIPPED files (mirrors CI «Shipped artifacts are Prettier-clean») ──

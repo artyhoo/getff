@@ -16,7 +16,7 @@
 # SINGLE-RULE ISOLATION (binding — spec §2 / T-RTS-C): reported codes alias across rules on ruff
 # (TID251/TID253) and cargo (clippy::disallowed_methods), so firing runs one rule + one sample at
 # a time in a fresh OS temp dir (mktemp -d — NEVER under the tracked tree). Mirrors the plant+fire
-# mechanic of setup.d/45-python.sh:388 (_py_firing_self_check) and setup.d/46-cargo.sh:233.
+# mechanic of setup.d/45-python.sh:490 (_py_firing_self_check) and setup.d/46-cargo.sh:201.
 #
 # CONTRACT:
 #   - sidecar absent/empty for a backend       → silent no-op for that backend.

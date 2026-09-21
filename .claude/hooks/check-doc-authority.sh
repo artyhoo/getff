@@ -22,7 +22,7 @@ set -uo pipefail
 #
 # Graceful-SKIP paths are a different case: they exit 0, and on an exit-0 PostToolUse the
 # model receives ONLY JSON hookSpecificOutput — plain stdout/stderr reaches nobody
-# (inject-matching-rule.sh:17 + :89-90, the proven channel). A dependency-missing skip
+# (inject-matching-rule.sh:18 + :125-126, the proven channel). A dependency-missing skip
 # announced on stderr is therefore indistinguishable from a pass. Observed live in the aif
 # container on 2026-07-23, where `jq` is absent and the notice reached no one:
 # docs/meta-factory/research-patches/2026-07-23-aif-parity-s4-synthesis.md §3 item 1.
@@ -112,7 +112,7 @@ REL_PATH="${ABS_PATH#"$REPO_ROOT/"}"
 
 # Extension prefilter BEFORE any spawn. Every path the bin can require is markdown — the
 # static REQUIRED_HEADER_DOCS list is *.md throughout and all four REQUIRED_PATH_PATTERNS
-# (packages/core/principles/09-doc-authority-hierarchy.ts:177-182) end in `\.md$` — so a
+# (packages/core/principles/09-doc-authority-hierarchy.ts:181-186) end in `\.md$` — so a
 # non-markdown edit can only ever make the bin exit 0 after a ~0.45 s cold tsx boot.
 # Measured 0.44-0.46 s per no-op edit (#1597 review ledger F-3).
 case "$REL_PATH" in

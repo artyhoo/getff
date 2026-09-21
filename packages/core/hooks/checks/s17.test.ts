@@ -19,7 +19,7 @@ import {
 const GENERIC =
   '§1.7: forward-check applied — Checked all rules, compliant. Backward-check — complete sweep performed.';
 const CITATION =
-  '§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified; backward: 0 new .md files';
+  '§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 mutation arm verified; backward: 0 new .md files'; // cite:historical fixture data, not a live pointer
 const BOOTSTRAP =
   '§1.7 Bootstrap: introduces substance arm for §1.7 trailer with 2026-06-10 calibration window';
 const RECENT = '2026-05-21'; // after cutoff
@@ -65,7 +65,7 @@ describe('checkS17TrailerBody — ported pre-push.test.sh scenarios', () => {
   });
   it('7. prose mention + valid §1.7: trailer → pass (code 0)', () => {
     const b = body(
-      'I performed §1.7 forward and backward checks per the rule.\n§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 verified; backward: 0 new .md files',
+      'I performed §1.7 forward and backward checks per the rule.\n§1.7: forward-check: packages/core/principles/02-paired-negative-test.test.ts:82 verified; backward: 0 new .md files', // cite:historical fixture data, not a live pointer
     );
     expect(checkS17TrailerBody(b, RECENT).code).toBe(0);
   });
@@ -410,7 +410,7 @@ describe('checkS17TrailerBody() — regex anchor/spacing mutation-killing (Wave 
     // Correct stripping: ≥1 tab stripped + remaining 19 chars checked → <20 → no exempt
     // Well, we want to test that BOTH leading tabs/spaces are stripped. Let's use a simpler approach:
     // Bootstrap with 20 substantive chars (≥20) and NO leading spaces = definitely exempts.
-    // Kills s17.ts:75 Regex mutant /^[ \t]/ (strips only ONE leading whitespace char).
+    // Kills s17.ts:90 Regex mutant /^[ \t]/ (strips only ONE leading whitespace char).
     // Bootstrap with 2 leading tabs + 19 substantive chars (22 total after colon).
     // /^[ \t]+/ (greedy): strips both tabs + space → 19 chars → < 20 → NOT exempt → code 2.
     // /^[ \t]/ (single):  strips 1 tab → '\t ' + 19 chars = 21 chars → ≥ 20 → wrongly exempts (code 0).

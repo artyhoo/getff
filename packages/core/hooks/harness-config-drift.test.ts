@@ -2,7 +2,7 @@
  * Drift gate for the per-harness config renderer (scripts/render-harness-config.mjs, #894).
  *
  * Channel: test:hooks (`vitest run hooks/`), already armed in CI at
- * audit-self.yml:232 — no workflow edit needed. This is the "attention is not a
+ * audit-self.yml:489 — no workflow edit needed. This is the "attention is not a
  * mechanism" (attention-is-not-a-mechanism.md §1) gate for the zcode shim: a
  * hand-edit to a rendered harness config, or a hook added to settings.json
  * bypassing the SSOT, fails HERE rather than rotting until someone notices.

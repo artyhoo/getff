@@ -41,7 +41,7 @@ fi
 ABS_PATH="$(cat | jq -r '.tool_input.file_path // ""' 2>/dev/null || true)"
 [[ -z "$ABS_PATH" ]] && exit 0
 
-# In-script path filter (mirror check-doc-authority.sh:15-20): only fire for writes
+# In-script path filter (mirror check-doc-authority.sh:105-121): only fire for writes
 # under .claude/orchestrator-prompts/. The settings matcher cannot glob a path.
 case "$ABS_PATH" in
   */.claude/orchestrator-prompts/*) ;;

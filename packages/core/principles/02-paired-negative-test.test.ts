@@ -152,7 +152,7 @@ const HAS_UM = MUTATION_OPT_IN && hasUniversalMutator();
 /**
  * Run the Stage 2 B bash-mutation wrapper
  * (packages/core/audit-self/run-bash-mutation.sh).
- * Output format verified against run-bash-mutation.test.ts:91-101 (T16).
+ * Output format verified against run-bash-mutation.test.ts:94-104 (T16).
  */
 function runBashMutator(hookPath: string, testCmd: string, floor = '60') {
   return spawnSync('bash', [BASH_MUTATOR, hookPath, testCmd, floor], {
@@ -304,7 +304,7 @@ describe.skipIf(!HAS_UM)(
      * hook is never written, so concurrent suite instances cannot interleave
      * mutate/restore on the real file (hooks-tree-guard.ts is the tripwire).
      *
-     * Output format verified against run-bash-mutation.test.ts:91-101 (T16):
+     * Output format verified against run-bash-mutation.test.ts:94-104 (T16):
      *   "kill rate: XX%  (killed N / survived M of P)"
      *   "PASS — XX% ≥ YY% floor" or "FAIL — XX% < YY% floor", exit 0/1.
      *

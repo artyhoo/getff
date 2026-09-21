@@ -13,7 +13,7 @@ import { FIXTURE_NODE, RELATIONAL_FIXTURE_NODE } from './test-fixtures.ts';
 
 // Real YAML round-trip parser, same idiom as principles/24-plugin-manifest-integrity.test.ts:39-40
 // (createRequire sidesteps the absent @types/js-yaml so `tsc --noEmit` stays clean; js-yaml is a
-// packages/core dependency — package.json:62). Used ONLY by the kind-escaping regression test
+// packages/core dependency — packages/core/package.json:95). Used ONLY by the kind-escaping regression test
 // below to prove the rendered YAML round-trips to the exact source value, not an injected key.
 const nodeRequire = createRequire(import.meta.url);
 const { load: parseYaml } = nodeRequire('js-yaml') as { load: (s: string) => unknown };
@@ -115,7 +115,7 @@ describe('renderAstgrep — paired negatives (routing; inverse of cargo)', () =>
 });
 
 describe('renderAstgrep — YAML shape', () => {
-  it('message is ALWAYS node.claim (parity with render-clippy.ts:112), never a params field', () => {
+  it('message is ALWAYS node.claim (parity with render-clippy.ts:135), never a params field', () => {
     const n = node({ id: 'no-datetime-now', claim: 'Never sleep in request handlers' });
     const { yaml } = renderAstgrep([n]);
     expect(yaml).toContain('message: "Never sleep in request handlers"');

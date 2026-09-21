@@ -14,7 +14,7 @@
 # …except that A8-1 (below) owns that matrix and lives in this same file since #1635.
 #
 # Scope A8-1 (upstream #1635): the go lane's two-cell collision matrix for .golangci.yml
-# (setup.d/47-go.sh:87-116):
+# (setup.d/47-go.sh:95-122):
 #   fresh   — no consumer config → ours is copied to .golangci.yml.
 #   REFUSE  — the consumer already has a .golangci.yml (golangci-lint reads exactly ONE), so
 #             ours ships alongside as getff-golangci.yml and their file is left untouched.

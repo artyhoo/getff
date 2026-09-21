@@ -47,6 +47,8 @@
  *   --strict             additionally exit 1 when ANY citation could not be resolved
  *   --affected-by=<path> repeatable; run ARM 1 only for citations touching these paths
  *   --corpus             check the live-authority corpus (below) instead of named files
+ *   --in-corpus          keep only the named files the corpus contains (pre-commit's scope)
+ *   --show-skips         list unresolvable citations in code files too (counted by default)
  *
  * Both arms read two citation shapes: `path:NN` and the explicit prose form
  * «line 63 of `setup.d/lib.sh`» / «`setup.d/10-skills.sh`, lines 22 to 27» that the
@@ -123,7 +125,7 @@ const CITATION_RE =
 const MD_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
 /**
  * Bare backreference — `` `:272` `` — a second line in the file the nearest
- * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271`
+ * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271` cite:historical example of the backref form, not a live pointer
  * (`rustup toolchain install …`) + `:272` (`rustup default …`)"). Left unchecked,
  * `--write` half-fixes such a sentence: the anchor moves, the sibling does not.
  * Resolution is deterministic — nearest preceding resolved citation, same line.
@@ -153,6 +155,16 @@ const PROSE_PATH = '`([^`\\s:]+)`';
 const PROSE_OF_RE = new RegExp(`${PROSE_NUM}\\s+(?:of|in)\\s+${PROSE_PATH}`, 'gid');
 const PROSE_COMMA_RE = new RegExp(`${PROSE_PATH},?\\s+${PROSE_NUM}\\b`, 'gid');
 const ESCAPE_RE = /<!--\s*cite:historical\s+([^>]*?)\s*-->/;
+/**
+ * The same escape in a code file, which has no HTML comment: the bare token anywhere on
+ * the citing line, rationale running to the end of the line (a closing comment marker is
+ * not part of it). Code-only on purpose — in Markdown prose a sentence that merely
+ * MENTIONS «cite:historical» would otherwise silence a real drift on its own line.
+ * Declared limits: the 20-character floor counts whatever follows the token, so code
+ * after it on the same line counts toward the rationale; and the escape silences every
+ * citation on its line, so write the token after the last live citation, or split the line.
+ */
+const ESCAPE_CODE_RE = /cite:historical\s+(.*?)\s*(?:\*\/|-->)?\s*$/;
 const ESCAPE_RATIONALE_MIN = 20;
 
 /** ARM-2-only mode (`--blank-only`): the pre-commit channel, set by `run()`. */
@@ -234,8 +246,8 @@ function tracked(basename) {
  *   spec.
  * - BENEFIT on the incident that raised the question: ZERO. PR #1765's eight birth-wrong
  *   citations would NOT have fired here. Verified at the pre-fix tree `7b600f2e7d3`:
- *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the
- *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so
+ *   both cited coordinates are non-blank prose (`audit-self.yml:748-749` is the cite:historical coordinates at pre-fix tree 7b600f2e7d3
+ *   `--strip-components` comment, `check-hook-marker.sh:155-158` is comment prose), so cite:historical coordinates at pre-fix tree 7b600f2e7d3
  *   ARM 2 cannot see them and ARM 1 is green by construction on a citation wrong at
  *   birth. ARM 3, the arm that would have covered that class, was built and rejected in
  *   the same patch.
@@ -274,6 +286,50 @@ const LIVE_AUTHORITY_MD = [
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
 
 /**
+ * The CODE half of the corpus (2026-09-22): a comment in a script or module — «mirrors
+ * setup.d/10-skills.sh:92-94», «parity with render-clippy.ts:40» — is the same checkable
+ * claim as a sentence in a rule file, and a maintainer following it lands on the wrong
+ * line just the same. Nothing read those comments until then. The first sweep found 403
+ * stale citations in 1,035 code files, against 11 on the whole Markdown corpus the week
+ * before; one of them sent `setup.d/45-python.sh` readers to an installer block that had
+ * moved 51 lines.
+ *
+ * Every tracked source file, minus what is not live authority:
+ * - `plugin/` — generated twins of `.claude/hooks/` and `agents/`, fixed at the source;
+ * - `.claude/orchestrator-prompts/` — kickoff material, closed once its umbrella lands;
+ * - `docs/` — its code is lint configuration and captured corpora, and its prose half is
+ *   already governed by the Markdown list above;
+ * - `packages/getff/` — the published bundle, a build output;
+ * - vendored trees, build output and fixture data (`vendor/`, `dist/`, `node_modules/`,
+ *   `fixtures/`), whose citations belong to someone else's tree or are test data.
+ *
+ * Code carries far more citations the checker cannot follow than prose does — fixture
+ * strings, consumer illustrations, package-relative paths — 221 on the first sweep. Those
+ * are counted but not printed one per line (`--show-skips` lists them), so the push log
+ * keeps the Markdown skip lines readable instead of burying them.
+ */
+const CODE_EXT_RE = /\.(?:sh|bash|mjs|cjs|js|ts|tsx|py|yml|yaml)$/;
+const CODE_EXTENSIONLESS = new Set(['setup', 'Makefile', '.husky/pre-commit', '.husky/pre-push', '.husky/post-checkout']);
+const CODE_EXCLUDED_PREFIXES = ['plugin/', '.claude/orchestrator-prompts/', 'docs/', 'packages/getff/'];
+const CODE_EXCLUDED_SEGMENT_RE = /(?:^|\/)(?:vendor|dist|node_modules|fixtures|__fixtures__)\//;
+
+const isCodeFile = (f) => CODE_EXT_RE.test(f) || CODE_EXTENSIONLESS.has(f);
+
+function inCorpus(f) {
+  if (f.endsWith('.md')) {
+    return (
+      !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
+      LIVE_AUTHORITY_MD.some((p) => (p.endsWith('/') ? f.startsWith(p) : f === p))
+    );
+  }
+  return (
+    isCodeFile(f) &&
+    !CODE_EXCLUDED_PREFIXES.some((p) => f.startsWith(p)) &&
+    !CODE_EXCLUDED_SEGMENT_RE.test(f)
+  );
+}
+
+/**
  * The corpus as TRACKED files, or `null` when git could not be asked.
  *
  * `git ls-files` and not a directory walk: an untracked scratch doc is nobody's
@@ -292,17 +348,7 @@ function corpusFiles() {
   } catch {
     return null;
   }
-  return listing
-    .split('\0')
-    .filter(
-      (f) =>
-        f.length > 0 &&
-        f.endsWith('.md') &&
-        !f.startsWith(PLUGIN_AGENT_TWIN_PREFIX) &&
-        LIVE_AUTHORITY_MD.some((p) =>
-          p.endsWith('/') ? f.startsWith(p) : f === p,
-        ),
-    );
+  return listing.split('\0').filter((f) => f.length > 0 && inCorpus(f));
 }
 
 /**
@@ -391,6 +437,8 @@ function fileAt(commit, path) {
 export function scanFile(srcFile) {
   const rel = relative(REPO_ROOT, resolve(REPO_ROOT, srcFile)) || srcFile;
   const lines = readFileSync(resolve(REPO_ROOT, rel), 'utf8').split('\n');
+  const code = !rel.endsWith('.md');
+  const escapeOf = (t) => ESCAPE_RE.exec(t) ?? (code ? ESCAPE_CODE_RE.exec(t) : null);
   const findings = [];
   const skips = [];
   let resolvedCount = 0;
@@ -513,7 +561,7 @@ export function scanFile(srcFile) {
 
   lines.forEach((text, idx) => {
     const srcLine = idx + 1;
-    const escape = ESCAPE_RE.exec(text);
+    const escape = escapeOf(text);
     const links = [...text.matchAll(MD_LINK_RE)].map((m) => [
       m.index,
       m.index + m[0].length,
@@ -626,12 +674,13 @@ export function scanFile(srcFile) {
       weak: r.weak,
       n: Number(m[ni]),
       end: m[ni + 1] ? Number(m[ni + 1]) : null,
-      escape: spans.map((l) => ESCAPE_RE.exec(lines[l - 1])).find(Boolean) ?? null,
+      escape: spans.map((l) => escapeOf(lines[l - 1])).find(Boolean) ?? null,
       pos: { start: numAt(start), end: endIdx ? numAt(endIdx) : null },
       spans,
     });
   }
 
+  for (const k of skips) k.code = code;
   return { findings, skips, resolved: resolvedCount };
 }
 
@@ -668,7 +717,7 @@ function renumber(findings) {
       // The trailing backtick is part of a bare backreference's token (`` `:272` ``),
       // so an end-anchored `:\d+$` never matches one and `--write` silently half-fixed
       // the sentence: the anchor moved, the sibling did not. Measured 2026-09-13 on
-      // `.claude/rules/evidence-regeneration.md:77` — and arm 1 then goes BLIND to the
+      // `.claude/rules/evidence-regeneration.md:77` — and arm 1 then goes BLIND to the cite:historical line as measured on 2026-09-13
       // sibling, because rewriting the line makes its blame uncommitted.
       const fixed = f.token.replace(/:\d+(-\d+)?(`?)$/, `:${span}$2`);
       lines[f.srcLine - 1] = lines[f.srcLine - 1].split(f.token).join(fixed);
@@ -704,6 +753,7 @@ export function run(argv) {
   const check = argv.includes('--check');
   const strict = argv.includes('--strict');
   blankOnly = argv.includes('--blank-only');
+  const showSkips = argv.includes('--show-skips');
   // Absent flag => null => unscoped. An omitted `--affected-by` must fail OPEN into a
   // full sweep: the failure mode of the opposite default is a caller that silently
   // checks nothing, which is the silence this script's header already refuses once.
@@ -716,7 +766,8 @@ export function run(argv) {
   if (!write && !check) {
     console.error(
       'usage: check-line-citations.mjs\n' +
-        '  --check [--corpus] [--blank-only] [--strict] [--affected-by=<path>]... [<file.md>...]\n' +
+        '  --check [--corpus] [--in-corpus] [--blank-only] [--strict] [--show-skips]\n' +
+        '          [--affected-by=<path>]... [<file>...]\n' +
         '  --write <file.md>...',
     );
     return 2;
@@ -733,6 +784,18 @@ export function run(argv) {
       return 2;
     }
     files = [...new Set([...corpus, ...named])];
+  }
+  // `--in-corpus`: keep only the named files the corpus contains. The pre-commit hook
+  // passes every staged path and lets this definition decide — the hand-kept copy of the
+  // scope it carried until 2026-09-22 could not express the code exclusions above.
+  if (argv.includes('--in-corpus')) {
+    const corpus = corpusFiles();
+    if (corpus === null) {
+      console.error('❌ --in-corpus: `git ls-files` failed, so corpus membership is unknown.');
+      return 2;
+    }
+    const members = new Set(corpus);
+    files = files.filter((f) => members.has(relative(REPO_ROOT, resolve(REPO_ROOT, f))));
   }
   if (files.length === 0) return 0;
 
@@ -758,7 +821,14 @@ export function run(argv) {
   // cannot follow is not coverage; dropping it silently made 98 of 141 citations on
   // the getff.ai specs look checked when none of them were (measured 2026-09-14).
   if (skips.length > 0) {
-    for (const s of skips) reportSkip(s);
+    const listed = skips.filter((s) => showSkips || !s.code);
+    for (const s of listed) reportSkip(s);
+    const hidden = skips.length - listed.length;
+    if (hidden > 0) {
+      console.error(
+        `check-line-citations: ${hidden} unresolvable citation(s) in code files not listed (--show-skips lists them).`,
+      );
+    }
     console.error(
       `\ncheck-line-citations: resolved ${resolved} / skipped ${skips.length} citation(s).`,
     );
@@ -768,7 +838,8 @@ export function run(argv) {
     console.error(
       `\n❌ ${findings.length} stale \`path:line\` citation(s).\n` +
         `   Fix: npx tsx scripts/check-line-citations.mjs --write <files>\n` +
-        `   A deliberate past-state citation takes \`<!-- cite:historical <why> -->\` on the same line.`,
+        `   A deliberate past-state citation takes \`<!-- cite:historical <why> -->\` on the same line\n` +
+        `   (in a code comment: \`cite:historical <why>\` to the end of the line).`,
     );
     return 1;
   }

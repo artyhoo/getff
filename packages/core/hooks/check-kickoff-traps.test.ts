@@ -649,9 +649,9 @@ describe('check-kickoff-traps.sh — destination-environment contract arm', () =
     // detect a spread reversion: the runner's locale-independent `tr -d '\200-\277'`
     // count is invariant across LC_ALL (verified at scripts/host-verify.sh:328-332),
     // so removing the spread leaves them passing. The sibling
-    // inject-session-bootstrap.test.ts:196 case uses AIF_HOOK_LANG because that
+    // inject-session-bootstrap.test.ts:208 case uses AIF_HOOK_LANG because that
     // hook echoes it; this hook does not echo any var, so the observable side
-    // effect is REL_PATH — `.claude/hooks/check-kickoff-traps.sh:45` reads
+    // effect is REL_PATH — `.claude/hooks/check-kickoff-traps.sh:50` reads
     // CLAUDE_PROJECT_DIR into REPO_ROOT, and line 77 computes REL_PATH as
     // `ABS_PATH#"$REPO_ROOT/"`. A foreign CLAUDE_PROJECT_DIR (one that is NOT a
     // prefix of ABS_PATH) leaves REL_PATH equal to ABS_PATH unchanged; that

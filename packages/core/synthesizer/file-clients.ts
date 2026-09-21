@@ -66,7 +66,7 @@ export class FileGenerateClient implements GenerateClient {
 
 /**
  * Would this candidate route to check.type:'manual' in synthesizeGenerate?
- * READ-ONLY mirror of generate.ts:58-73 (factory untouched): a candidate is
+ * READ-ONLY mirror of generate.ts:60-75 (factory untouched): a candidate is
  * declarative-expressible iff presence:'forbid' AND selector; eslint-expressible iff
  * a non-empty eslintConfig. Neither → manual (an inert rule L4 passes WITHOUT a firing
  * test — the §MAJOR-1 masquerade). Keep in sync with generate.ts routing.

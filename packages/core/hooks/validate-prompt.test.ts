@@ -65,7 +65,7 @@ function hasGh(): boolean {
 
 /**
  * Check whether the hook's own tsx resolution will succeed. Post-fix the hook resolves tsx
- * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:48-62): repo-local,
+ * through a 3-tier list (`_resolve_tsx`, mirroring check-doc-authority.sh:53-67): repo-local,
  * main-worktree via `git --git-common-dir`, then `command -v tsx` on PATH. This guard must
  * mirror that tier list or every test under describe.skipIf(!TSX) silently skips when the
  * suite happens to run in a linked worktree (the very defect class this sweep closes — the
@@ -138,7 +138,7 @@ function writeOrchestratorPrompt(content: string, name = 'kickoff.md'): string {
  * Run validate-prompt.sh with the given stdin JSON. Returns exit code.
  * Uses `spawnSync` identical to the check-hook-marker.test.ts reference pattern.
  * env merged onto process.env; default-scrubs ZCODE_PROJECT_DIR so CC-arms stay in the
- * exit-code branch (mirrors deps-hash-check.test.ts:106). Pass ZCODE_PROJECT_DIR to
+ * exit-code branch (mirrors deps-hash-check.test.ts:339). Pass ZCODE_PROJECT_DIR to
  * exercise the JSON additionalContext branch (hook:47-50).
  */
 function runHook(

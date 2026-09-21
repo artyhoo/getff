@@ -63,7 +63,7 @@
 # this guard never fires. It exists for the *_LAYER_LIB_ONLY test seam at the foot of this file,
 # which sources the layer ALONE: before S-2 these bodies were inline and resolved under that seam;
 # after S-2 they do not, so pull lib.sh in on demand. Guarded on a helper name, never unconditional
-# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:267), so
+# — lib.sh resets accumulator arrays at top level (REFRESH_BASELINE_STAGED, lib.sh:290), so
 # re-sourcing it on the delivery path would drop already-staged refresh-baseline state.
 if ! declare -F _lane_log >/dev/null 2>&1; then
   # shellcheck source=setup.d/lib.sh

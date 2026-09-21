@@ -100,7 +100,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1690 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1695 (spawn-argument)",
           ".github/workflows/audit-self.yml:1335 (workflow-run:invocation-verb)"
         ]
       },
@@ -120,7 +120,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1723 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1728 (spawn-argument)",
           "install.sh:1155 (quoted-path-token)"
         ]
       },
@@ -179,7 +179,7 @@
       "extras": {
         "wired-from": [
           ".github/workflows/audit-self.yml:2365 (workflow-run:invocation-verb)",
-          ".husky/pre-commit:172 (quoted-path-token)"
+          ".husky/pre-commit:166 (quoted-path-token)"
         ]
       },
       "example": null
@@ -285,7 +285,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:184 (quoted-path-token)",
+          ".husky/pre-commit:183 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)"
         ]
@@ -306,7 +306,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:311 (quoted-path-token)"
+          ".husky/pre-commit:310 (quoted-path-token)"
         ]
       },
       "example": null
@@ -325,7 +325,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:290 (quoted-path-token)"
+          ".husky/pre-commit:289 (quoted-path-token)"
         ]
       },
       "example": null

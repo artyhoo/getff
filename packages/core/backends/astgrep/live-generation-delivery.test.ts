@@ -30,8 +30,8 @@
 // Seam reuse (VERBATIM, no edit): the driver below sources setup.d/lib.sh + setup.d/45-python.sh with
 // PY_LAYER_LIB_ONLY=1 and calls the seam's own public entrypoint `deliver_python_toolchain`, exactly
 // as tests/install-sh/python-delivery.test.sh does. The researched rule joins the consumer's single
-// `ruleDirs: [.getff/astgrep-rules]` because `_py_deliver_astgrep` (45-python.sh:148-155) copies the
-// WHOLE assembled `.getff/astgrep-rules` dir — the reuse hook is PY_TEMPLATE_DIR (45-python.sh:416).
+// `ruleDirs: [.getff/astgrep-rules]` because `_py_deliver_astgrep` (45-python.sh:314-325) copies the
+// WHOLE assembled `.getff/astgrep-rules` dir — the reuse hook is PY_TEMPLATE_DIR (45-python.sh:823).
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -77,7 +77,7 @@ const AUDIT_LOG = '.getff-python-install.log';
 
 // Delivery driver — REUSES the seam VERBATIM (no edit): source lib.sh + the layer (lib-only mode so
 // the activation guard does not auto-run), then call the seam's public entrypoint. PY_TEMPLATE_DIR is
-// read by deliver_python_toolchain (45-python.sh:416); PROJECT_ROOT/PKG_ROOT/FORCE/DRY_RUN/SKIPPED are
+// read by deliver_python_toolchain (45-python.sh:823); PROJECT_ROOT/PKG_ROOT/FORCE/DRY_RUN/SKIPPED are
 // the dispatcher-scope globals the layer + lib helpers read (same set python-delivery.test.sh sets).
 const DELIVER_DRIVER = `
 set -uo pipefail

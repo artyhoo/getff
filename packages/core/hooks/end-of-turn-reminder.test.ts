@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:249-259 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1361-1392 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -53,7 +53,7 @@ const HOOK = resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh');
 // exactly the headroom a fully parallel `npm run test` on a loaded box consumes.
 // 30_000 is the SLOW_SHELL_MS convention already used by the sibling shell-spawning
 // suites (priority-score-synthetic, priority-score-skip-closed, done-md-completion-filter,
-// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:574
+// pre-push.consumer-layout, create-worktree, worktree-setup); validate-prompt.test.ts:575
 // and check-worker-dispatch-channel.test.ts:358 record the same 5000ms-under-parallel-load
 // failure, in the inline `timeout:` spelling of the same convention.
 const SLOW_SHELL_MS = 30_000;
@@ -816,7 +816,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     });
 
     // The Stop channel carries this hook TWICE — the plugin registration plus the project
-    // one the installer writes (setup.d/10-skills.sh:260, install.sh:959) — so both copies
+    // one the installer writes (setup.d/10-skills.sh:267, install.sh:965) — so both copies
     // fire on ONE Stop with byte-identical stdin. For the handoff gate that shared state
     // made copy 2 invent a block the turn had not earned (D38, PR #1783). Here the same
     // sharing is benign BY CONSTRUCTION and must stay that way: whichever copy runs first
@@ -2674,7 +2674,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   //
   // The Stop channel carries this hook TWICE in any project that has both the getff plugin
   // (`hooks/hooks.json` → `run-hook.cmd end-of-turn-reminder`) and the project registration the
-  // AIF installer writes (`setup.d/10-skills.sh:260`, `install.sh:959`). Measured 2026-09-14
+  // AIF installer writes (`setup.d/10-skills.sh:267`, `install.sh:965`). Measured 2026-09-14
   // (session 319c1945): both copies fired on one Stop, both derived the same
   // `${TMPDIR}/aif-handoff-<ctx_key>` from session_id alone, so the first copy's ALLOW advanced
   // the baseline and the second compared the file against what its twin had just written —

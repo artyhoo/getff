@@ -37,17 +37,17 @@ command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 INPUT="$(cat)"
 TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || true)"
 # Defensive: the matcher (Agent|Task) already restricts this, but never act on another tool
-# if the matcher is ever broadened (cf. ask-question-reminder.sh:46).
+# if the matcher is ever broadened (cf. ask-question-reminder.sh:57).
 case "$TOOL_NAME" in Agent | Task) ;; *) exit 0 ;; esac
 
 # B1 fix: env-first REPO_ROOT resolution — `$0`-relative breaks when invoked as a plugin twin
-# ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/, NOT the consumer root). Mirrors inject-project-digest.sh:28.
+# ($0 = ${CLAUDE_PLUGIN_ROOT}/hooks/, NOT the consumer root). Mirrors inject-project-digest.sh:29.
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"
 DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
 
-# Extract the digest block (awk pipeline mirrored from inject-project-digest.sh:36). No-op when
+# Extract the digest block (awk pipeline mirrored from inject-project-digest.sh:37). No-op when
 # the file is absent or the block is empty/whitespace-only (zero-setup default — same semantics
-# as inject-project-digest.sh:30,38).
+# as inject-project-digest.sh:31,39).
 if [ ! -f "$DIGEST_FILE" ]; then
   [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[DEBUG] inject-subagent-context: no digest file, no-op\n' >&2
   exit 0

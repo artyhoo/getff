@@ -36,8 +36,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // HERE = <repo>/packages/core/synthesizer/ → repo root is 3 levels up.
-// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:39-40
-// via git rev-parse --show-toplevel) and pre-push.ts:60 (same '../../..' climb from
+// Mirrors the runner's own REPO_ROOT resolution (run-generated-rule-mutation.sh:46-47
+// via git rev-parse --show-toplevel) and pre-push.ts:72 (same '../../..' climb from
 // packages/core/hooks/). The previous '../..' resolved to <repo>/packages/, causing
 // PROBES_AVAILABLE=false in standard CI (deps at <repo>/node_modules/.bin/ via root
 // `npm ci` or <repo>/packages/core/node_modules/.bin/ via `npm ci --prefix packages/core`

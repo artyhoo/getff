@@ -291,7 +291,7 @@ describe('capability-matrix.json — the committed file passes validateMatrix', 
   // In CI the pinned install step puts golangci-lint v1.55.2 on PATH, so a pin bump without
   // evidence-regen turns this RED there. That step IS present on this branch's base: PR #1171
   // merged as 124d2c4212 and the go arm installs `golangci-lint@v1.55.2` at
-  // `.github/workflows/audit-self.yml:306-315`. NO `!isCI` guard: ruff's firing.test.ts:14-16
+  // `.github/workflows/audit-self.yml:376-385`. NO `!isCI` guard: ruff's firing.test.ts:14-16
   // documents this STOP-line — CI must fire for real wherever the install step is present.
   const resolvedVersion = deriveGolangciVersion();
   it.skipIf(resolvedVersion === undefined)(

@@ -49,7 +49,7 @@ unset _gloss_env_uses _gloss_env_explains
 # `set -euo pipefail` (:9), so sourcing a missing lib would abort it on EVERY turn of any
 # project the delivery step has not reached. Lib absent or unreadable → the inline fallback
 # below, identical logic, so the gate still resolves the same directory the writer does.
-# (The check-doc-authority.sh:40-48 guard shape — with a fallback instead of a SKIP:
+# (The check-doc-authority.sh:41-49 guard shape — with a fallback instead of a SKIP:
 # silently skipping the gate on a missing lib would be fail-open.)
 _residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
 if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
@@ -533,7 +533,7 @@ if [ -n "$ctx_entry" ]; then
             # than once per Stop. The Stop channel carries it twice in any project holding
             # BOTH the plugin registration (the plugin's hooks.json → `run-hook.cmd
             # end-of-turn-reminder`) and the project one the installer writes
-            # (setup.d/10-skills.sh:260, install.sh:959). Both copies derive this baseline path
+            # (setup.d/10-skills.sh:267, install.sh:965). Both copies derive this baseline path
             # from session_id alone, so the first copy's ALLOW wrote the new sha and the second
             # compared the file against what its twin had just written: «CONTENT unchanged» on a
             # turn that had in fact rewritten the file. Measured 2026-09-14 (session 319c1945):

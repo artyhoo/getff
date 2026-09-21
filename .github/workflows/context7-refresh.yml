@@ -43,7 +43,7 @@ jobs:
       - name: Trigger Context7 refresh
         env:
           # `env:` indirection rather than `${{ … }}` inside `run:` — the repo's established
-          # zizmor template-injection posture (audit-self.yml:946, :1153).
+          # zizmor template-injection posture (audit-self.yml:1131, :1477).
           CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
           LIBRARY_NAME: /${{ github.repository }}
         run: |

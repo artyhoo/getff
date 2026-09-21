@@ -45,9 +45,9 @@ export const REPO_ROOT = resolve(HERE, '../../..');
  * by predicate — and not the five names this list carried when principle 45 shipped.
  * That spelling was the brief's own forbidden shape one level up: the claims inside
  * each listed file were enumerated by predicate, but the list of root canon was picked
- * by hand, so `INSTALL.md:439` («pre-push ← typecheck + tests + arch + audit», the same
- * ASCII-tree shape already caught at `INSTALL-FOR-AI.md:354`) and
- * `AUDIT-CHECKLIST.md:370,:373` sat outside the corpus and read green. Both were found
+ * by hand, so `INSTALL.md:439` («pre-push ← typecheck + tests + arch + audit», the same cite:historical quotes root docs as measured 2026-09-14, since repaired
+ * ASCII-tree shape already caught at `INSTALL-FOR-AI.md:354`) and cite:historical quotes root docs as measured 2026-09-14, since repaired
+ * `AUDIT-CHECKLIST.md:370,:373` sat outside the corpus and read green. Both were found cite:historical quotes root docs as measured 2026-09-14, since repaired
  * by a parallel docs-repair branch, not by this gate — measured 2026-09-14. A root
  * glob also admits each future root canon without an edit here.
  */
@@ -116,7 +116,7 @@ const MENTION_RE = /(?:\.husky\/)?pre[-‑–]?push/gi;
  */
 const POST_CONNECTIVE_RE = /[:—–←]|<-/;
 /**
- * The other way prose opens the same enumeration: a verb of execution. `README.md:34`
+ * The other way prose opens the same enumeration: a verb of execution. `README.md:34` cite:historical quotes root docs as measured 2026-09-14, since repaired
  * uses the parenthesis arm and `AGENTS.md.template:46` the em-dash arm, but the
  * sentence the operator's brief QUOTES — «the pre-push hook runs typecheck + vitest
  * related + dependency-cruiser» — has neither, and a gate blind to it would miss any
@@ -126,7 +126,7 @@ const POST_VERB_RE =
   /\b(?:runs?|executes?|invokes?|performs?|запускает|прогоняет)\b/i;
 /*
  * KNOWN BLIND SPOT, declared rather than patched: a slash-joined list apposed to the
- * mention with NO connective at all — `AUDIT-CHECKLIST.md:370`, «Earlier channels
+ * mention with NO connective at all — `AUDIT-CHECKLIST.md:370`, «Earlier channels cite:historical quotes root docs as measured 2026-09-14, since repaired
  * (edit-time ESLint custom rules, pre-push `audit-ai-docs.sh`/tsc/depcruise)». The
  * paren arm does not reach it (the mention is INSIDE the parenthetical), and nothing
  * opens an enumeration after it.

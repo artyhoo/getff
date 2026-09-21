@@ -10,7 +10,7 @@
  *
  *   - `AIF_HANDOFF_GATE=1` armed the D13 handoff-currency gate inside the D7 context-arm
  *     tests. The gate then legitimately REPLACES the context line
- *     (.claude/hooks/end-of-turn-reminder.sh:426, D21), so 13 assertions matching
+ *     (.claude/hooks/end-of-turn-reminder.sh:490, D21), so 13 assertions matching
  *     /\[context\]/ received the `[handoff-gate]` block instead.
  *   - `CLAUDE_CODE_AUTO_COMPACT_WINDOW=300000` reached `f10c-floor-none`, the golden case
  *     whose entire premise is "neither the env nor settings.json declares a compaction

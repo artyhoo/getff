@@ -37,7 +37,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
 for a in "$@"; do
   if [ "$_awaiting_profile_value" -eq 1 ]; then
-    # Cold-QA MINOR fix parity with install.sh:133 (flag-after-`--profile` guard): a value
+    # Cold-QA MINOR fix parity with install.sh:147 (flag-after-`--profile` guard): a value
     # that starts with `-` is another flag, not the profile name. Mirror install.sh's own
     # fail-loud instead of silently consuming the flag as the value.
     if [ "${a#-}" != "${a:-}" ]; then
@@ -74,7 +74,7 @@ for a in "$@"; do
     python|cargo|go) STACK="$a" ;;
   esac
 done
-# Cold-QA MINOR fix parity with install.sh:133 (end-of-args guard): if --profile was the LAST
+# Cold-QA MINOR fix parity with install.sh:147 (end-of-args guard): if --profile was the LAST
 # token with no value following it, fail-loud rather than silently passing an empty value.
 if [ "$_awaiting_profile_value" -eq 1 ]; then
   echo "❌ --profile requires a value (core|env|factory)" >&2

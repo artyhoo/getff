@@ -102,7 +102,7 @@ export async function synthesizeGenerate(
     // enrichment round-trips) through the IR plane — grammar gate + npm adapter for the
     // declarative-syntax class. Output stays byte-identical: mergeEnrichment rebuilds in the
     // composed rule's key order [id,title,stack,check,examples,research,negative-test].
-    // Mirrors synthesize.ts:90-102.
+    // Mirrors synthesize.ts:97-109.
     const rule = wireRuleThroughNode(composed);
 
     rules.push(rule);

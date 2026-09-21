@@ -139,7 +139,7 @@ export function planResearchedClippy(
 
   // Loud dup guard: two practices sharing an entryId would render two disallowed-table entries the
   // caller cannot tell apart, and (more importantly) signal a duplicated researched convention. Fail
-  // LOUD, mirroring the sibling astgrep driver's guard (render-researched-astgrep.ts:137-148).
+  // LOUD, mirroring the sibling astgrep driver's guard (render-researched-astgrep.ts:149-160).
   const seenIds = new Set<string>();
   for (const node of nodes) {
     if (seenIds.has(node.id)) {
@@ -162,7 +162,7 @@ export function planResearchedClippy(
       // A node the bridge accepted but the backend refused/degraded is a real driver/backend
       // inconsistency — fail LOUD rather than ship a half-rendered artifact. The bridge only ever
       // builds selectorClass:'type-aware' + {kind∈method/type/macro, path} + severity 'warning' nodes
-      // (research-to-clippy-node.ts:167-188), which renderCargoClippy renders (not degrades), so this
+      // (research-to-clippy-node.ts:194-215), which renderCargoClippy renders (not degrades), so this
       // branch is unreachable in practice — it guards a future bridge/backend drift.
       throw new Error(
         `planResearchedClippy(): ${node.id} passed the clippy bridge but renderCargoClippy ` +

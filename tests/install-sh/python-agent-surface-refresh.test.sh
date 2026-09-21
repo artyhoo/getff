@@ -5,7 +5,7 @@
 #
 # ── A2-4 ────────────────────────────────────────────────────────────────────────────────────────
 # `install.sh python --refresh` cannot reach install.sh's do_refresh() at all: do_python_lane exits
-# at install.sh:381, and do_refresh lives at :1276. Inside _py_deliver_agent_surface every delivery
+# at install.sh:540, and do_refresh lives at :740. Inside _py_deliver_agent_surface every delivery
 # was skip-if-exists, so a brownfield python consumer got "✅ … re-delivery complete" while
 # .claude/skills, .claude/agents and .claude/hooks stayed at the version they first installed.
 # MEASURED RED-before-GREEN (2026-09-05) — the pre-fix layer (`git show HEAD:setup.d/45-python.sh`,
@@ -136,7 +136,7 @@ else
 fi
 
 # ── (4) A2-4 boundary: consumer-authored .ai-factory docs are NEVER refreshed ─────────────────────
-# do_refresh's own contract (install.sh:614) names RULES.md / DESCRIPTION.md / ARCHITECTURE.md
+# do_refresh's own contract (install.sh:732) names RULES.md / DESCRIPTION.md / ARCHITECTURE.md
 # consumer-authored. The python lane must not be more destructive than the npm lane.
 echo ""; echo "  ── (4) consumer-authored .ai-factory docs survive --refresh (npm-lane boundary parity) ──"
 for _f in .ai-factory/RULES.md .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md \
@@ -155,12 +155,12 @@ else
   bad "(4) --refresh clobbered consumer-authored doc(s):$_clobbered"
 fi
 
-# ── (5) A2-4: the framework-owned AI-USAGE-GUIDE.md IS refreshed (do_refresh install.sh:1218) ─────
+# ── (5) A2-4: the framework-owned AI-USAGE-GUIDE.md IS refreshed (do_refresh install.sh:1366) ─────
 echo ""; echo "  ── (5) .ai-factory/AI-USAGE-GUIDE.md is framework-owned → refreshed ──"
 printf '\nSTALE-GUIDE\n' >> "$P/.ai-factory/AI-USAGE-GUIDE.md"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
 if grep -qF 'STALE-GUIDE' "$P/.ai-factory/AI-USAGE-GUIDE.md"; then
-  bad "(5) AI-USAGE-GUIDE.md not refreshed — diverges from do_refresh (install.sh:1218)"
+  bad "(5) AI-USAGE-GUIDE.md not refreshed — diverges from do_refresh (install.sh:1366)"
 else
   ok "(5) AI-USAGE-GUIDE.md re-delivered on --refresh (npm-lane parity)"
 fi
@@ -230,7 +230,7 @@ EOF
   if grep -qF 'MY-OWN-RULE' "$RULES"; then
     ok "(9) --refresh preserved the consumer's own RULES.md edits"
   else
-    bad "(9) --refresh overwrote RULES.md — it is consumer-authored (install.sh:614)"
+    bad "(9) --refresh overwrote RULES.md — it is consumer-authored (install.sh:732)"
   fi
 fi
 rm -rf "$PR"

@@ -149,7 +149,7 @@ function runHook(
   // Default-scrub ZCODE_PROJECT_DIR: the runner may execute inside zcode (the framework's own
   // dev harness), which would flip _adv_violation to the JSON branch and break the exit-code
   // assertions below. The ZCode-JSON case passes ZCODE_PROJECT_DIR explicitly. Mirrors
-  // deps-hash-check.test.ts:106.
+  // deps-hash-check.test.ts:339.
   const fullEnv = { ...process.env };
   if (env.ZCODE_PROJECT_DIR === undefined) delete fullEnv.ZCODE_PROJECT_DIR;
   else fullEnv.ZCODE_PROJECT_DIR = env.ZCODE_PROJECT_DIR;

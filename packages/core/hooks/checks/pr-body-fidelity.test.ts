@@ -13,7 +13,7 @@ const goSection = (o: { verdict?: string; sha?: string; basis?: string; round?: 
     `Basis: ${o.basis ?? '.claude/orchestrator-prompts/u/kickoff.md'}`,
     `Round: ${o.round ?? '1'}`,
     `Audited-SHA: ${o.sha ?? HEAD}`,
-    ...(o.evidence === undefined ? ['Evidence: packages/core/hooks/pre-push.ts:42'] : o.evidence ? [o.evidence] : []),
+    ...(o.evidence === undefined ? ['Evidence: packages/core/hooks/pre-push.ts:42'] : o.evidence ? [o.evidence] : []), // cite:historical fixture data, not a live pointer
   ].join('\n');
 
 const wrap = (section: string) => `## Summary\nx\n\n## Fidelity verdict\n\n${section}\n\n## Parked questions\nnone\n`;
@@ -147,7 +147,7 @@ describe('two-file contract: the shipped PR template matches the checker', () =>
 
 describe('checkPrBodyFidelity — section boundary (any heading closes it)', () => {
   it('does not borrow file:line evidence from a neighbouring §1.7 block', () => {
-    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n### §1.7 Forward-check applied\ncomplies with foo per packages/core/hooks/pre-push.ts:42\n`;
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n### §1.7 Forward-check applied\ncomplies with foo per packages/core/hooks/pre-push.ts:42\n`; // cite:historical fixture data, not a live pointer
     const r = checkPrBodyFidelity({ body, headSha: HEAD });
     expect(r.ok).toBe(false);
     expect(r.errors.join()).toMatch(/file:line evidence/);
@@ -199,11 +199,11 @@ describe('checkPrBodyFidelity — stage detector cannot be decoyed', () => {
 
 describe('checkPrBodyFidelity — fenced blocks do not truncate the section', () => {
   it('reads Evidence that follows a fenced block containing a # comment', () => {
-    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# regenerate baselines\nbash tests/install-sh/snapshot.sh\n\`\`\`\n\nEvidence: packages/core/hooks/pre-push.ts:42\n`;
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# regenerate baselines\nbash tests/install-sh/snapshot.sh\n\`\`\`\n\nEvidence: packages/core/hooks/pre-push.ts:42\n`; // cite:historical fixture data, not a live pointer
     expect(checkPrBodyFidelity({ body, headSha: HEAD }).ok).toBe(true);
   });
   it('still closes the section on a real heading after a fenced block', () => {
-    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# noise\n\`\`\`\n\n### §1.7 Forward-check applied\nper packages/core/hooks/pre-push.ts:42\n`;
+    const body = `## Fidelity verdict\nFIDELITY: GO\nBasis: docs/spec.md\nRound: 1\nAudited-SHA: ${HEAD}\n\n\`\`\`bash\n# noise\n\`\`\`\n\n### §1.7 Forward-check applied\nper packages/core/hooks/pre-push.ts:42\n`; // cite:historical fixture data, not a live pointer
     const r = checkPrBodyFidelity({ body, headSha: HEAD });
     expect(r.ok).toBe(false);
     expect(r.errors.join()).toMatch(/file:line evidence/);

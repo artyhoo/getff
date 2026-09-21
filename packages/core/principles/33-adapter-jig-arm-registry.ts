@@ -157,7 +157,7 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
     ],
   },
   // Increment B (J2). B1 poisoned-host FF2011 negative — retrofit gap: FF2011
-  // (allowlist-resolver.ts:313) had ZERO behavioural coverage in the research
+  // (allowlist-resolver.ts:330) had ZERO behavioural coverage in the research
   // suite (only the diagnostics-registry shape test referenced the code). The
   // production error fires correctly (no fix needed); the arm pins it on the
   // production entrypoint seam (function-level per J2 decisions log #5, with the
@@ -221,7 +221,7 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
   // B3 direct-deps-only — per-family transitive-exclusion pairs across the three
   // wired lanes, with a REGISTERED positive per family (spec §3.2 B3 "Paired
   // fixture per family"): npm (tier1.test.ts S2-N2 + precondition Part B pair —
-  // markers added), python (was the REAL gap — ecosystem-python.ts:219
+  // markers added), python (was the REAL gap — ecosystem-python.ts:250
   // listDirectDeps transitive exclusion entirely untested), cargo (the true
   // transitive-with-attacker-metadata negative (vendored-but-undeclared) paired
   // with the declared-serde-derives-Tier-1 positive — registered in J2 B review
@@ -381,7 +381,7 @@ export const ADAPTER_JIG_ARMS: readonly ArmEntry[] = [
   //
   // D1 registers the EXISTING python-rules-lock arms as the canonical cases (recon:
   // honest none-spotted — the W5 rework already made the skip guard content-aware,
-  // 45-python.sh:559-567, and cargo's always-write, 46-cargo.sh, cannot go stale):
+  // 45-python.sh:762-770, and cargo's always-write, 46-cargo.sh, cannot go stale):
   // pos = arm 6 (true no-change re-run byte-stable), neg = arms 9 + 11 (the W3
   // --force-stale and W5 plain-pass-join-stale pre-fix reproductions — the exact
   // incidents the spec §3.4 D1 row cites). RED re-proven at registration time by

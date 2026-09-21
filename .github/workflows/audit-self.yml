@@ -1615,7 +1615,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/70-deps.sh:35-44) — the same safe target the green flat job uses.
+          # (setup.d/70-deps.sh:41-50) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`

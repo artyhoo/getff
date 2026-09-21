@@ -12,9 +12,9 @@
 #
 # The last two sections step outside that hermetic frame on purpose, because a checker
 # nobody calls is not a gate: they run the REAL `.husky/pre-commit` over a fixture repo
-# to prove the blank-landing arm actually blocks a commit, and compare the hook's
-# `CITE_SCOPE` against pre-push.ts's `LIVE_AUTHORITY_MD` so the two channels cannot
-# silently come to gate different surfaces.
+# to prove the blank-landing arm actually blocks a commit, and pin that the hook takes
+# its scope from the checker (`--in-corpus`) instead of keeping a copy that could
+# silently come to gate a different surface.
 set -uo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$DIR/check-line-citations.mjs"
@@ -478,6 +478,87 @@ commit_all "target reflowed"
 grep -qF 'line 10 of `target.sh`' "$REPO/cite.md" || {
   echo "FAIL: --write applied a prose edit twice: $(cat "$REPO/cite.md")"; fails=$((fails + 1)); }
 
+# ------------------------------------------------ code comments are corpus too
+# A comment in a script («mirrors setup.d/10-skills.sh:92-94») is the same checkable
+# claim as a sentence in a rule file, and until 2026-09-22 nothing read it: a sweep that
+# day found 403 stale citations in code comments against 11 in the Markdown corpus.
+new_repo code-corpus
+mkdir -p "$REPO/scripts" "$REPO/plugin/hooks" "$REPO/.claude/orchestrator-prompts/k" \
+  "$REPO/tests/fixtures" "$REPO/.husky"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/tool.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/.husky/pre-commit"
+printf '// mirrors target.sh:2\n' >"$REPO/scripts/tool.ts"
+for f in plugin/hooks/twin.sh .claude/orchestrator-prompts/k/gen.mjs tests/fixtures/data.sh; do
+  printf '# mirrors target.sh:2\n' >"$REPO/$f"
+done
+commit_all "code comments citing line 2"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_fail "--corpus reaches a shell comment" "scripts/tool.sh:2" --corpus
+for needle in scripts/tool.ts:1 .husky/pre-commit:2; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: --corpus did not reach $needle"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+# Generated twins, closed kickoff material and fixture data are not live authority.
+for f in plugin/hooks/twin.sh .claude/orchestrator-prompts/k/gen.mjs tests/fixtures/data.sh; do
+  grep -qF "$f" "$TMP/err" && {
+    echo "FAIL: --corpus swept $f"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- the escape in a language with no HTML comment
+new_repo code-escape
+printf 'alpha\nbeta\n' >"$REPO/target.sh"
+printf '# target.sh:2 said beta at incident time  cite:historical quoted as of the 2026-09 incident\n' >"$REPO/tool.sh"
+printf '# target.sh:2 said beta  cite:historical short\n' >"$REPO/short.sh"
+commit_all "escaped code citations"
+printf 'alpha\nCHANGED\n' >"$REPO/target.sh"
+commit_all "target changed"
+expect_pass "cite:historical in a code comment suppresses the drift finding" tool.sh
+expect_fail "a too-short code-comment escape is rejected" "rationale must be >= 20 chars" short.sh
+
+# --- the HTML-comment escape stays the only Markdown form: a bare token in prose is
+# not an escape, or «see cite:historical» in a sentence would silence a real drift.
+new_repo md-bare-escape
+printf 'alpha\nbeta\n' >"$REPO/target.md"
+printf 'The cap is `target.md:2`, cite:historical explains the escape syntax here.\n' >"$REPO/cite.md"
+commit_all "markdown with a bare escape token"
+printf 'alpha\nCHANGED\n' >"$REPO/target.md"
+commit_all "target changed"
+expect_fail "a bare cite:historical in Markdown prose is not an escape" "cite.md:1" cite.md
+
+# --- unresolvable citations in code collapse to a count; Markdown keeps one line each.
+# Code carries fixture strings and consumer illustrations by the hundred (221 skips on
+# the 2026-09-22 sweep), and printing each on every push is a log nobody reads.
+new_repo code-skips
+mkdir -p "$REPO/scripts"
+printf '# see nope/missing.ts:3\n' >"$REPO/scripts/tool.sh"
+printf 'See `nope/missing.ts:3`.\n' >"$REPO/cite.md"
+commit_all "unresolvable citations in both kinds of file"
+expect_pass "unresolvable code citations do not fail the gate" scripts/tool.sh cite.md
+grep -qF 'cite.md:1' "$TMP/err" || {
+  echo "FAIL: the Markdown skip line disappeared"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+grep -qF 'scripts/tool.sh:1' "$TMP/err" && {
+  echo "FAIL: a code skip was printed line by line"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+grep -qF 'skipped 2' "$TMP/err" || {
+  echo "FAIL: the summary does not count the collapsed code skip"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+expect_pass "--show-skips lists code skips too" --show-skips scripts/tool.sh
+grep -qF 'scripts/tool.sh:1' "$TMP/err" || {
+  echo "FAIL: --show-skips did not list the code skip"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- `--in-corpus` narrows named files to corpus members: how pre-commit asks the
+# checker for the scope instead of keeping a copy of it
+new_repo in-corpus
+mkdir -p "$REPO/scripts" "$REPO/plugin/hooks"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# see target.sh:2\n' >"$REPO/scripts/tool.sh"
+printf '# see target.sh:2\n' >"$REPO/plugin/hooks/twin.sh"
+commit_all "two blank landings, one outside the corpus"
+expect_fail "--in-corpus keeps a corpus member" "scripts/tool.sh:1" --blank-only --in-corpus scripts/tool.sh plugin/hooks/twin.sh
+grep -qF 'plugin/hooks/twin.sh' "$TMP/err" && {
+  echo "FAIL: --in-corpus kept a file outside the corpus"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in-corpus plugin/hooks/twin.sh
+
 # ============================================ the pre-commit CHANNEL, not just the flag
 # The `--blank-only` arms above prove the MODE works. They say nothing about whether any
 # channel invokes it — and for a day it did not: the mode shipped 2026-09-13, pre-push.ts
@@ -579,38 +660,40 @@ grep -qF 'ENOENT' "$TMP/hook" && {
   echo "FAIL: the checker still crashed on the vanished path"
   sed 's/^/    /' "$TMP/hook"; fails=$((fails + 1)); }
 
-# --------------------------------------------- scope parity with the corpus definition
-# `CITE_SCOPE` in .husky/pre-commit is a hand-kept copy of LIVE_AUTHORITY_MD — bash cannot
-# read the checker's const. A copy whose drift is caught by «somebody notices both files»
-# is the shape this repo refuses, so the two lists are compared mechanically here.
-# Divergence is silent by construction: the hook would simply gate a narrower surface than
-# the corpus defines, and a birth-wrong citation on the dropped path would sail through
-# with every arm above still green.
-#
-# The list MOVED on 2026-09-14. It lived in packages/core/hooks/pre-push.ts until
-# `--corpus` made it a three-consumer population (pre-push §9, the CI backstop, this
-# hook), at which point a TS copy beside the checker's own would have been the
-# `#sync-by-copy-paste` shape .claude/rules/dual-implementation-discipline.md §8 names.
-# This arm follows it to scripts/check-line-citations.mjs. Reading the old home would now
-# extract nothing at all, which is exactly why the emptiness guard below is load-bearing
-# and not decoration: without it this arm would have gone green comparing two empty
-# strings the moment the constant moved.
-#
-# Unlike every arm above this one reads the real repository, on purpose: a hermetic copy
-# of the lists would be the drift it is meant to catch.
-mjs_scope=$(awk '/^const LIVE_AUTHORITY_MD/,/^\];/' "$CHECK" |
-  grep -oE "'[^']+'" | tr -d "'" | sort)
-sh_scope=$(grep -E '^CITE_SCOPE=' "$HOOK" | head -1 | cut -d"'" -f2 | tr ' ' '\n' | grep -v '^$' | sort)
-if [ -z "$mjs_scope" ] || [ -z "$sh_scope" ]; then
-  # An extraction that silently yields nothing would make this arm pass on two empty
-  # strings — the tautology it exists to exclude.
-  echo "FAIL: scope parity — extraction came back empty (check-line-citations.mjs: $(printf '%s' "$mjs_scope" | wc -c) bytes, .husky/pre-commit: $(printf '%s' "$sh_scope" | wc -c) bytes)"
-  fails=$((fails + 1))
-elif [ "$mjs_scope" != "$sh_scope" ]; then
-  echo "FAIL: .husky/pre-commit CITE_SCOPE has diverged from LIVE_AUTHORITY_MD in scripts/check-line-citations.mjs:"
-  diff <(printf '%s\n' "$mjs_scope") <(printf '%s\n' "$sh_scope") | sed 's/^/    /'
-  fails=$((fails + 1))
+# --- code files are in scope at commit time too
+new_hook_repo precommit-code
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/tool.sh"
+git -C "$REPO" add target.sh scripts/tool.sh
+expect_hook_block "pre-commit refuses a blank-landing citation in a code comment" "is an empty line"
+
+# --- a staged path with a space is one argument, not two fragments --in-corpus drops
+new_hook_repo precommit-code-space
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# mirrors target.sh:2\n' >"$REPO/scripts/my tool.sh"
+git -C "$REPO" add target.sh "scripts/my tool.sh"
+expect_hook_block "pre-commit checks a staged code file whose path has a space" "is an empty line"
+
+# --- ...and outside the corpus they are not: the hook asks the checker for the scope
+new_hook_repo precommit-code-scope
+mkdir -p "$REPO/.claude/orchestrator-prompts/k"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '// mirrors target.sh:2\n' >"$REPO/.claude/orchestrator-prompts/k/gen.mjs"
+git -C "$REPO" add target.sh .claude/orchestrator-prompts
+expect_hook_pass "pre-commit leaves closed kickoff material alone"
+
+# --------------------------------------------- one scope definition, no copy to drift
+# Until 2026-09-22 the hook kept `CITE_SCOPE`, a hand copy of LIVE_AUTHORITY_MD, and an
+# arm here diffed the two lists. The code corpus has exclusion rules no flat list can
+# express, so the hook now passes every staged file with `--in-corpus` and the checker
+# applies its own definition. This arm pins that the copy stays gone: a second list in
+# the hook would be the `#sync-by-copy-paste` shape
+# .claude/rules/dual-implementation-discipline.md §8 names, with nothing left to diff it.
+if grep -qE '^CITE_SCOPE=' "$HOOK"; then
+  echo "FAIL: .husky/pre-commit keeps its own CITE_SCOPE list again"; fails=$((fails + 1))
 fi
+grep -qF -- '--in-corpus' "$HOOK" || {
+  echo "FAIL: .husky/pre-commit does not ask the checker for its scope (--in-corpus)"; fails=$((fails + 1)); }
 
 if [ "$fails" -eq 0 ]; then
   echo "check-line-citations paired-negative: all arms passed"

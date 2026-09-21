@@ -78,7 +78,7 @@
 # (no associative arrays, no mapfile) — macOS ships 3.2 and the pre-push hook runs there.
 set -uo pipefail
 
-# Same expression as scripts/link-coordination.sh:74 and spec §2 — one convention, one
+# Same expression as scripts/link-coordination.sh:78 and spec §2 — one convention, one
 # default, no second knob. Tests point CLAUDE_COORDINATION_DIR at a tmpdir.
 CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/rules-as-tests-aif}"
 ASKS_DIR="$CANON/session-bus/asks"
