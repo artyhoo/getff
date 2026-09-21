@@ -24,7 +24,7 @@
  *
  * No paid LLM (no-paid-llm-in-ci.md): fs + regex + the generator's own deterministic modules.
  */
-import { describe, it, expect, afterAll } from 'vitest';
+import { describe, it, expect, afterAll, beforeAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
   mkdtempSync,
@@ -168,6 +168,21 @@ function scaffold(root: string) {
 }
 
 describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
+  // The live-repo population is built ONCE and shared by every arm that reads it. Five arms
+  // each re-ran buildAllFamilies(REPO_ROOT) (a full repo walk), and under a loaded pre-push
+  // arm B and arm C crossed vitest's 5 s default (measured 2026-09-21: 6.0 s / 5.8 s, twice).
+  // The prime runs under its own budget, and liveFamilies() throws if it never landed, so a
+  // prime that silently cached nothing fails loudly instead of looking like a speed-up.
+  let LIVE_FAMILIES: Record<string, { name: string }[]> | undefined;
+  beforeAll(async () => {
+    LIVE_FAMILIES = (await gen()).buildAllFamilies(REPO_ROOT);
+  }, 120_000);
+  const liveFamilies = () => {
+    if (!LIVE_FAMILIES || Object.keys(LIVE_FAMILIES).length === 0)
+      throw new Error('beforeAll prime of buildAllFamilies(REPO_ROOT) did not land');
+    return LIVE_FAMILIES;
+  };
+
   it('the generator exists and exposes the arm-testable surface', async () => {
     const g = await gen();
     for (const fn of ['buildFamily', 'buildAllFamilies', 'familyDoc', 'run']) {
@@ -234,7 +249,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   it('arm B: every family doc validates against its draft-07 schema; no empty strings', async () => {
     const g = await gen();
     const ajv = new Ajv({ allErrors: true, strict: false });
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = liveFamilies();
     for (const id of FAMILY_IDS) {
       const schemaPath = join(SCHEMA_DIR, `${id}.schema.json`);
       expect(
@@ -272,7 +287,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   // ---- Arm C — population ↔ cards 1:1, re-derived from §4, never from the output ----
   it('arm C: per family, the §4 population predicate re-derived independently equals the member set (both directions)', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = liveFamilies();
     const emitted = (id: string) =>
       families[id].map((m: { name: string }) => m.name).sort();
 
@@ -487,7 +502,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
 
   it('arm C: absence tokens count per reason, printed and asserted; every token is enum-closed', async () => {
     const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = liveFamilies();
     const counts: Record<string, number> = {};
     const walk = (id: string, v: unknown) => {
       if (Array.isArray(v)) return v.forEach((x) => walk(id, x));
@@ -998,8 +1013,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
 
   // ---- Arm E — F.1 parity vs the committed rule index ----
   it('arm E: reference F.1 rows are identical to the 00-rule-index.md rows', async () => {
-    const g = await gen();
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = liveFamilies();
     const index = readFileSync(
       join(REPO_ROOT, '.claude/rules/00-rule-index.md'),
       'utf8',
@@ -1043,7 +1057,7 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
       'the header table must be exported for the shared-gate contract',
     ).toBeTypeOf('object');
 
-    const families = g.buildAllFamilies(REPO_ROOT);
+    const families = liveFamilies();
     // Families whose description IS the header (A, D, F.3, H) are already header-gated by
     // construction: buildFamily threw if any member lacked it. So the backstop here asserts
     // the census⇒header implication directly on the live tree:
