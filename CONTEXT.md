@@ -67,7 +67,7 @@ _Operator says_: «красное».
 **Harvest**: take a finished aif-agent branch and egress it into a PR after acceptance; the
 [harvest skill](.claude/skills/harvest/SKILL.md) owns the flow and is operator-invoked.
 
-_Operator says_: harvest.
+_Operator says_: harvest, «харвест».
 
 ## Egress
 
@@ -75,7 +75,7 @@ _Operator says_: harvest.
 API calls. Container seats run on a measured egress map, and the
 [egress rule](.claude/rules/egress-no-api-bypass.md) owns the no-API-bypass discipline.
 
-_Operator says_: egress.
+_Operator says_: egress, «эгресс».
 
 ## Handoff
 
@@ -83,4 +83,4 @@ _Operator says_: egress.
 autonomous agent session (`HANDOFF_MODE=1`). A handoff session never switches branches and
 never rebases or force-pushes.
 
-_Operator says_: handoff.
+_Operator says_: handoff, «хендофф», «хэндофф».

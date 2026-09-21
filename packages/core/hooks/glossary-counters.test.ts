@@ -206,6 +206,32 @@ describe('glossary inject hook — usage counting', () => {
     expect(readCounts(r.sb.counts).terms.Harvest.usages).toBe(1);
   }, SLOW_SHELL_MS);
 
+  it.skipIf(!JQ)('counts the transliteration — «харвест» is a usage of Harvest', () => {
+    // Kickoff item 4/8: a usage is the term itself OR its transliteration. The Cyrillic
+    // spelling of a Latin term must count toward the same learned threshold, or the operator's
+    // own spelling of the word never teaches it.
+    const r = runInjectTracked('что значит харвест тут', { sessionId: 'sess-translit' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('"харвест" = Harvest: ');
+    expect(readCounts(r.sb.counts).terms.Harvest.usages).toBe(1);
+  }, SLOW_SHELL_MS);
+
+  it.skipIf(!JQ)('term + transliteration in one prompt is still ONE usage', () => {
+    const r = runInjectTracked('harvest или харвест — одно и то же', { sessionId: 'sess-translit2' });
+    expect(r.status).toBe(0);
+    expect(readCounts(r.sb.counts).terms.Harvest.usages).toBe(1);
+  }, SLOW_SHELL_MS);
+
+  it.skipIf(!JQ)('every Latin-named term carries a Cyrillic transliteration in CONTEXT.md', () => {
+    // Data-contract arm: a Latin-only raw-word list silently drops the Cyrillic spelling.
+    const ctx = readFileSync(resolve(REPO_ROOT, 'CONTEXT.md'), 'utf8');
+    for (const term of ['Harvest', 'Egress', 'Handoff']) {
+      const block = ctx.split(/^## /m).find((b) => b.startsWith(`${term}\n`)) ?? '';
+      const says = block.split('\n').find((l) => l.startsWith('_Operator says_:')) ?? '';
+      expect(says, term).toMatch(/[\u0400-\u04FF]/);
+    }
+  });
+
   it.skipIf(!JQ)('a synonym is NOT a usage — «слияние» means merge but matches nothing', () => {
     const r = runInjectTracked('объясни слияние ветки', { sessionId: 'sess-syn' });
     expect(r.status).toBe(0);

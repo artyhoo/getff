@@ -10,8 +10,9 @@
 # only the `_Operator says_` list is the curated match contract. Matching the English
 # canonical names would false-positive on ordinary words (a term literally named Red) —
 # the raw-word list is what the operator actually says (kickoff item 4's «the term itself»
-# for the Russian seeds IS the raw word; harvest/egress/handoff are listed as raw words
-# too, so their English use matches). The Stop-side twin (the glossary arm inside
+# for the Russian seeds IS the raw word; harvest/egress/handoff are listed as raw words,
+# each with its Cyrillic transliteration, so both spellings count as a usage of the one
+# term — kickoff item 4 counts the transliteration). The Stop-side twin (the glossary arm inside
 # end-of-turn-reminder.sh) reads the per-session pending file this hook writes and counts
 # the agent→operator direction (the fixed «term (explanation)» form). BOTH sides derive
 # the counters file as `_residue_dir()/_glossary-counts.json` — a path split between the
