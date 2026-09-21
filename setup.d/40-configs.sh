@@ -439,7 +439,11 @@ else
     # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
     # with no config on the ./setup path — the template exists, just copy it).
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver via deliver_getff_workflow so the consumer's actual
     # default branch is substituted for the template's hard-coded `main` at install time.
@@ -460,7 +464,11 @@ else
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
     # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
@@ -476,7 +484,11 @@ else
     # stack-agnostic; SPA layering (Feature-Sliced Design) is enforced by eslint-plugin-boundaries
     # in the shipped eslint.config, so dependency-cruiser stays the universal base here.
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
     # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).
@@ -499,7 +511,11 @@ else
     # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
     # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).
     copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
-    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json"
+    # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
+    # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
+    # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
+    # consumers, where the substitution is byte-changing).
+    copy_safe "$PKG_ROOT/templates/ts-server/stryker.config.json" "$PROJECT_ROOT/stryker.config.json" stryker-pm
     patch_stryker_package_manager
     # getff-honest-signals S4 — deliver_getff_workflow substitutes the consumer's actual
     # default branch for the template's hard-coded `main` (kickoff §2 item 2 — class sweep).

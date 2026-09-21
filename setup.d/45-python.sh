@@ -191,7 +191,10 @@ _py_agent_copy_or_refresh() {
     if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
       _writes=0
     fi
-    copy_safe "$src" "$dst"
+    # md-refs parity (W1-A round 2): the transform below post-processes the freshly-written copy,
+    # so the divergence guard must compare against the TRANSFORMED bytes (same wiring as
+    # setup.d/20-agents.sh) — else a pristine python skill file false-flags as consumer-diverged.
+    copy_safe "$src" "$dst" md-refs
   fi
   if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$dst" ]; then
     transform_internal_refs "$dst"
@@ -1355,7 +1358,9 @@ _py_deliver_agent_surface() {
   # that helper (no STACK), so the source is named directly rather than by adding a python case to
   # a stack map the python lane does not consult. The python starter carries the same
   # `> Drop into …` first line, so rewrite_arch_sot_header below still fires on the COPY.
-  copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst"
+  # arch-header parity (W1-A round 2): rewrite_arch_sot_header below post-processes the freshly-
+  # written copy, so the divergence guard must compare against the REWRITTEN bytes.
+  copy_safe "${PY_TEMPLATE_DIR:-$PKG_ROOT/packages/core/templates/python}/ARCHITECTURE.md" "$_py_arch_dst" arch-header
   rewrite_arch_sot_header "$_py_arch_dst" "$_py_arch_existed"
 
   # skill-context overrides (replicates 20-agents.sh:58-69). SHIPPED_DOCS is in scope from install.sh:145.

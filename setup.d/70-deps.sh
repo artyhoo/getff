@@ -104,8 +104,32 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         want["build-storybook"] = "storybook build";
         want["test-storybook"] = "test-storybook";
       }
+      // Snapshot BEFORE the merge: which canonical keys the consumer already had (for the
+      // kept-names log line below, #1531 observability).
+      const preExisting = new Set(Object.keys(pkg.scripts));
       let added = 0;
       for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
+      // #1531: AFTER the strictly non-destructive merge, exact-string overwrite of the npm-init
+      // `test` placeholder. `npm init` seeds scripts.test with a placeholder whose string is
+      // npm-init noise ("Error: no test specified"), not consumer intent; the merge above KEPT
+      // it forever and the shipped `validate` (whose last lane is `test`) was permanently red on
+      // every npm-init consumer: npm runs the KEPT string (`echo … && exit 1`), so no green path
+      // existed until the consumer rewrote it. Overwrite ONLY the exact placeholder string; any
+      // other existing `test` value is deliberate consumer wiring and stays kept (and is named
+      // below).
+      // (NOTE: this JS lives inside the bash single-quoted node -e block opened below the want
+      // map — never put an apostrophe in JS here: it would end the bash string and the segment
+      // between the apostrophes is re-glued UNQUOTED, so any space or double-ampersand inside it
+      // word-splits the script. Hence the \" escapes instead of apostrophe literals.)
+      const NPM_INIT_TEST_PLACEHOLDER = "echo \"Error: no test specified\" && exit 1";
+      let placeholderReplaced = false;
+      if (pkg.scripts.test === NPM_INIT_TEST_PLACEHOLDER) {
+        pkg.scripts.test = want["test"];
+        placeholderReplaced = true;
+      }
+      // Kept-key NAMES, not just a count: a kept `test` on a brownfield now says "your own test
+      // wiring survived" instead of hiding behind "1 already present".
+      const keptNames = Object.keys(want).filter(k => preExisting.has(k) && !(k === "test" && placeholderReplaced));
       // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
       // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
       // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
@@ -124,7 +148,10 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       let addedDev = 0;
       for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
       fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
-      process.stderr.write("  ✓ added " + added + " script(s); " + (Object.keys(want).length - added) + " already present (kept)\n");
+      process.stderr.write("  ✓ added " + added + " script(s); " + keptNames.length + " already present (kept: " + (keptNames.length ? keptNames.join(", ") : "none") + ")\n");
+      if (placeholderReplaced) {
+        process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
+      }
       process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
     '
   else

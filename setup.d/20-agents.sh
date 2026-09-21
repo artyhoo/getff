@@ -45,7 +45,10 @@ for f in "$PKG_ROOT"/agents/*.md; do
   # consumer-owned file (2026-07-10 flat-install smoke: first push red on lychee §8).
   _writes=1
   if [ -e "$_dst" ] && [ "$FORCE" != "--force" ]; then _writes=0; fi
-  copy_safe "$f" "$_dst"
+  # md-refs parity (W1-A review MAJOR 1): the transform below post-processes freshly-written
+  # copies, so the divergence guard must compare against the TRANSFORMED bytes — else every
+  # pristine agents copy false-flags as consumer-diverged on a pre-manifest --force run.
+  copy_safe "$f" "$_dst" md-refs
   if [ "$_writes" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_dst" ]; then
     transform_internal_refs "$_dst"
   fi

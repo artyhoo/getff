@@ -65,5 +65,5 @@ TEST: <command>
 CHECK_ALL: <command or sequence>
 PROJECT_SKILLS: <list from .claude/skills/>
 PROJECT_RULES: <list from .claude/rules/>
-PROMPTS_DIR: .claude/orchestrator-prompts/ # gitignored # orch-home: allow framework-only skill, never delivered to a consumer (setup.d/lib.sh:61-63)
+PROMPTS_DIR: .claude/orchestrator-prompts/ # gitignored # orch-home: allow framework-only skill, never delivered to a consumer (setup.d/lib.sh:63-65)
 ```

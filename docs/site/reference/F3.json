@@ -101,7 +101,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1634 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1333 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1335 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -121,7 +121,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1667 (spawn-argument)",
-          "install.sh:1149 (quoted-path-token)"
+          "install.sh:1155 (quoted-path-token)"
         ]
       },
       "example": null
@@ -159,7 +159,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2272 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2274 (workflow-run:invocation-verb)",
           ".husky/pre-commit:172 (quoted-path-token)"
         ]
       },
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2368 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2370 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -224,8 +224,8 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:51 (quoted-path-token)",
-          "install.sh:1253 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1259 (quoted-path-token)",
+          "install.sh:1261 (for-in-list)",
           "scripts/getff-work.sh:75 (quoted-path-token, closure)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
@@ -246,8 +246,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1239 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1244 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1241 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1246 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -331,7 +331,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:54 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1261 (for-in-list)",
           "shipped-by-path (tests/install-sh/baselines)"
         ]
       },
@@ -379,7 +379,7 @@
         "wired-from": [
           ".claude/settings.json:1 (json-value:quoted-path-token)",
           "setup.d/85-worktree-scripts.sh:53 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1261 (for-in-list)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:68 (quoted-path-token)",
           ".claude/hooks/adopt-orchestrator-prompts.sh:70 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:164 (quoted-path-token)",
@@ -525,7 +525,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1267 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1269 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -544,14 +544,14 @@
       },
       "extras": {
         "wired-from": [
-          "setup.d/10-skills.sh:172 (quoted-path-token)",
-          "setup.d/10-skills.sh:173 (quoted-path-token)",
-          "setup.d/10-skills.sh:174 (quoted-path-token)",
-          "install.sh:1154 (quoted-path-token)",
-          "install.sh:1155 (quoted-path-token)",
-          "install.sh:1156 (quoted-path-token)",
-          "install.sh:1157 (quoted-path-token)",
-          "install.sh:1158 (quoted-path-token)"
+          "setup.d/10-skills.sh:179 (quoted-path-token)",
+          "setup.d/10-skills.sh:180 (quoted-path-token)",
+          "setup.d/10-skills.sh:181 (quoted-path-token)",
+          "install.sh:1160 (quoted-path-token)",
+          "install.sh:1161 (quoted-path-token)",
+          "install.sh:1162 (quoted-path-token)",
+          "install.sh:1163 (quoted-path-token)",
+          "install.sh:1164 (quoted-path-token)"
         ]
       },
       "example": null
@@ -576,7 +576,7 @@
       "extras": {
         "wired-from": [
           "setup.d/85-worktree-scripts.sh:52 (quoted-path-token)",
-          "install.sh:1255 (for-in-list)",
+          "install.sh:1261 (for-in-list)",
           ".claude/hooks/worktree-setup.sh:73 (quoted-path-token)",
           ".claude/hooks/worktree-setup.sh:118 (quoted-path-token)",
           "scripts/create-worktree.sh:87 (quoted-path-token, closure)",
