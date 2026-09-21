@@ -162,15 +162,38 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   # to exclude anything, so all three counters read permanently 0 and every triage
   # degenerates to "admission window closed" (GH #1581; corroborated:
   # docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md).
-  # Window shape instead: `docker logs -t --tail <budget>` (timestamps; the budget must
-  # EXCEED the window's line volume — the awk cut does the exact age cut) with `date -u`
-  # arithmetic (BSD -v first, GNU -d fallback) and a lexicographic compare at second
-  # resolution; 2>&1 merges container stdout+stderr so no coordinator line is missed.
+  # `--tail N` has its own trap (measured 2026-09-21, Docker 29.8.0, json-file): once N
+  # reaches back past a break in the container's log (one sat between 14:22:11 and the
+  # 14:23:34 container start; a later start at 17:04:41 left none), it returns ONLY the
+  # lines before the break and drops every newer one, and those count to a plausible 0.
+  # So a bigger budget is not a safer one, and a bare count is never trusted: win() cuts the
+  # window (`date -u`, BSD -v first, GNU -d fallback; lexicographic compare at second
+  # resolution; 2>&1 merges stdout+stderr) and returns it ONLY when the slice (a) reaches the
+  # newest line, read first via `--tail 1` (`>=` absorbs lines logged between the two
+  # reads), and (b) starts at or before the cutoff. Otherwise it returns one WINDOW-UNCOVERED
+  # line, which cnt() prints instead of a count. A window that spans a break cannot be
+  # covered by --tail at all: shorten it to start after the break.
   W30_CUTOFF=$(date -u -v-30M +%FT%T 2>/dev/null || date -u -d '30 minutes ago' +%FT%T)
-  w30() { docker logs -t --tail 2000 "$1" 2>&1 | awk -v c="$W30_CUTOFF" 'substr($1,1,19) >= c'; }
-  w30 aif-handoff-agent-1 | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
-  w30 aif-handoff-agent-1 | grep -c '"at capacity"'                                        # 0 = not a §3.2 capacity problem
-  w30 aif-handoff-agent-1 | grep -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
+  win() {  # win <container> <budget> <cutoff>
+    newest=$(docker logs -t --tail 1 "$1" 2>&1 | awk '{print substr($1,1,19)}')
+    docker logs -t --tail "$2" "$1" 2>&1 | awk -v c="$3" -v n="$newest" '
+      NR == 1 { first = substr($1,1,19) }
+      { last = substr($1,1,19) }
+      substr($1,1,19) >= c { keep[++k] = $0 }
+      END {
+        if (n !~ /^[0-9]/) { print "WINDOW-UNCOVERED: no timestamped log line (" n ")"; exit }
+        if (last < n) { print "WINDOW-UNCOVERED: slice ends " last ", newest line is " n " (--tail stopped at a log break)"; exit }
+        if (first > c) { print "WINDOW-UNCOVERED: slice starts " first ", after cutoff " c " (budget too small, or the window spans a log break)"; exit }
+        for (i = 1; i <= k; i++) print keep[i]
+      }'
+  }
+  cnt() {  # cnt <slice> <grep args>: the count, or the slice's WINDOW-UNCOVERED line
+    case "$1" in WINDOW-UNCOVERED*) echo "$1" ;; *) s=$1; shift; grep "$@" <<<"$s" ;; esac
+  }
+  W30=$(win aif-handoff-agent-1 5000 "$W30_CUTOFF")
+  cnt "$W30" -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
+  cnt "$W30" -c '"at capacity"'                                        # 0 = not a §3.2 capacity problem
+  cnt "$W30" -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
   ```
 - **Discriminator (latency vs §3.2 capacity saturation):** the same-second `done` → `Auto-queue advanced` sequence (09:37:52) and the same-instant `rework_requested` → `Poll cycle complete` sequence (11:00:57) together prove admission fires at lane-pass exit, not only at task termination. If `Poll cycle already active` appears in the log alongside a long-running active task and `at capacity` does NOT, the wait is LATENCY (this mode). If `at capacity` appears with `active==limit`, escalate to §3.2 (true capacity saturation). The two are NOT the same mode — §3.2 has zero free slots; this mode has free slots the cycle structure cannot reach until the active lane's current pass ends.
 - **Mechanism (source-verified in `/app/packages/agent/dist/coordinator.js`, all anchors re-checked 2026-07-25):**
@@ -200,9 +223,9 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   # hook-drift discriminator (defect 2) — 0 = pre-fix hook in THIS worktree, 2 = fixed:
   docker exec <agent> grep -c CLAUDE_CODE_ENTRYPOINT <worktreePath>/.claude/hooks/end-of-turn-reminder.sh
   # bijection deadlock (defect 3) — parse failures persist WHILE remembered findings grow
-  # (no `--since` — same Docker 29.2.x blindness, GH #1581; -t --tail budget + date -u cut as §3.7):
+  # (no `--since` and no bare `--tail` count, GH #1581 — needs win()/cnt() from the §3.7 Detect block):
   W2H_CUTOFF=$(date -u -v-2H +%FT%T 2>/dev/null || date -u -d '2 hours ago' +%FT%T)
-  docker logs -t --tail 8000 <agent> 2>&1 | awk -v c="$W2H_CUTOFF" 'substr($1,1,19) >= c' | grep -c 'Structured review contract not satisfied'   # >0 across iterations
+  cnt "$(win <agent> 8000 "$W2H_CUTOFF")" -c 'Structured review contract not satisfied'   # >0 across iterations
   docker exec <api> node -e 'const t=require("better-sqlite3")("/data/aif.sqlite").prepare("SELECT length(auto_review_state_json) n FROM tasks WHERE id=?").get("<id>");console.log(t.n)'  # growing across iterations
   # no-subagent fallback (variant) — reviewComments ~105 chars containing 'Unknown command: /aif-review'
   ```
