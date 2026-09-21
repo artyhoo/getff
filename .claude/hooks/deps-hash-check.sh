@@ -84,6 +84,11 @@
 #       workspace-aware npm hash (GH #1264) is reproducible only by the hook itself.
 #       Update the matching deps-hash-* lines in .ai-factory/tool-decisions.md with the
 #       printed values. Plain stdout by design (CLI arm, not a hook dispatch).
+#   LOG_LEVEL=DEBUG bash .claude/hooks/deps-hash-check.sh 2>&1 >/dev/null
+#       # ^ the live-session one-liner proving the hook DISPATCHED (GH #1705): exactly one
+#       # stderr [deps-hash-check] DEBUG line per hashed stack, naming the outcome —
+#       # "no baseline in .ai-factory/tool-decisions.md (silent by design)" or
+#       # "baseline matched". A drifted stack is visible without DEBUG via the WARN itself.
 
 set -uo pipefail
 
@@ -367,7 +372,15 @@ _drifted() {
     [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[deps-hash-check] DEBUG: dispatched — %s stack hashed, no baseline in %s (silent by design)\n' "$label" "$DECISIONS" >&2
     return 0
   fi
-  [ "$current" = "$stored" ] && return 0 # match → silent
+  if [ "$current" = "$stored" ]; then
+    # Matched-baseline dispatch is stdout-silent by design; LOG_LEVEL=DEBUG names the
+    # outcome on STDERR so a baselined steady-state session can still tell "dispatched,
+    # all fresh" from "hook never dispatched" (GH #1705 — the fresh-path emit alone left
+    # THIS branch indistinguishable from a no-op; W1-B review F2). Stderr only: under
+    # ZCode stdout stays a single strict-JSON object (§0.5).
+    [ "${LOG_LEVEL:-}" = "DEBUG" ] && printf '[deps-hash-check] DEBUG: dispatched — %s stack hashed, baseline matched\n' "$label" >&2
+    return 0
+  fi
   # Drift. Distinguish baselined (sha256-*) from unbaselined (<pending …>) for honest wording
   # (GH #548). Accumulate into WARN_MSGS; emit once at the end.
   local msg

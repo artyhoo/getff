@@ -1455,13 +1455,14 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
 });
 
 // =============================================================================
-// DEBUG positive control (GH #1705) — the no-baseline branch of _drifted is
-// silent BY DESIGN, which made "hash fresh, silent no-op" indistinguishable
-// from "hook never dispatched" in a live session. LOG_LEVEL=DEBUG surfaces
-// the dispatch on that branch, STDERR ONLY (ZCode stdout stays a single
-// strict-JSON object; CC surfaces stderr harmlessly).
+// DEBUG positive control (GH #1705) — the silent-by-design branches of _drifted
+// (no-baseline AND matched-baseline) made "hash fresh, silent no-op" indistinguishable
+// from "hook never dispatched" in a live session. LOG_LEVEL=DEBUG surfaces the
+// dispatch on BOTH branches, STDERR ONLY (ZCode stdout stays a single
+// strict-JSON object; CC surfaces stderr harmlessly). A drifted stack needs no
+// DEBUG line — the WARN itself is the outcome signal.
 // =============================================================================
-describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline path (GH #1705)', () => {
+describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline AND matched paths (GH #1705)', () => {
   it('DEBUG: LOG_LEVEL=DEBUG + stack hashed + no baseline → one [deps-hash-check] DEBUG line on STDERR, stdout clean', () => {
     const cwd = makeFixtureDir({
       packageJson: { dependencies: { react: '^18.0.0' } },
@@ -1488,6 +1489,30 @@ describe('deps-hash-check.sh — DEBUG positive control on the fresh/no-baseline
     expect(first.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
     const warm = runHook(cwd, { LOG_LEVEL: 'DEBUG', TMPDIR: cwd });
     expect(warm.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
+  });
+
+  it('DEBUG-MATCHED: LOG_LEVEL=DEBUG + MATCHING baseline → exactly one DEBUG line naming "baseline matched" on stderr; default LOG_LEVEL → no stderr (W1-B review F2)', () => {
+    // The baselined steady state is the normal state of a consumer who has run
+    // /tool-bootstrapping — the fresh-path emit alone left it indistinguishable from
+    // "never dispatched". The matched branch must name its outcome too.
+    const pkg = { dependencies: { react: '^18.0.0' } };
+    const cwd = makeFixtureDir({
+      packageJson: pkg,
+      toolDecisions: `---\ndeps-hash-npm: ${computeHash(buildDepsJson(pkg))}\n---\n`,
+    });
+    const r = runHook(cwd, { LOG_LEVEL: 'DEBUG' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe(''); // match → stdout still silent (the WARN contract is untouched)
+    expect(r.stderr).toContain('[deps-hash-check] DEBUG: dispatched');
+    expect(r.stderr).toContain('baseline matched');
+    // Exactly one DEBUG line for the single present stack — no spill, no duplicates.
+    const debugLines = r.stderr.split('\n').filter((l) => l.includes('[deps-hash-check] DEBUG:'));
+    expect(debugLines.length).toBe(1);
+    // Default LOG_LEVEL: no stderr at all (the emit is opt-in only).
+    const quiet = runHook(cwd);
+    expect(quiet.status).toBe(0);
+    expect(quiet.stdout).toBe('');
+    expect(quiet.stderr).toBe('');
   });
 
   it('DEBUG-OFF: default LOG_LEVEL → no stderr line (the emit is opt-in only)', () => {
