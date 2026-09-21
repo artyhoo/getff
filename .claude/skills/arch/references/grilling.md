@@ -22,7 +22,7 @@
 > consumes exactly one of them and binds two away
 > ([CLAUDE.md](../../../../CLAUDE.md) «Skill routing bindings»), and those bindings live in
 > `.claude/rules/` + `CLAUDE.md`, neither of which is shipped to consumers
-> (`setup.d/lib.sh:88` — not linked: `setup.d/` is outside the shipped-ref transform's
+> (`setup.d/lib.sh:90` — not linked: `setup.d/` is outside the shipped-ref transform's
 > rewrite table, so a link here would ship dangling). Vendoring delivers the one skill that is
 > wanted without shipping the ten that are not.
 
