@@ -173,13 +173,17 @@ describe('Principle 46 — D29 reference generator arms (spec §8)', () => {
   // arm B and arm C crossed vitest's 5 s default (measured 2026-09-21: 6.0 s / 5.8 s, twice).
   // The prime runs under its own budget, and liveFamilies() throws if it never landed, so a
   // prime that silently cached nothing fails loudly instead of looking like a speed-up.
-  let LIVE_FAMILIES: Record<string, { name: string }[]> | undefined;
+  let LIVE_FAMILIES:
+    | Record<string, { name: string; extras: Record<string, unknown> }[]>
+    | undefined;
   beforeAll(async () => {
     LIVE_FAMILIES = (await gen()).buildAllFamilies(REPO_ROOT);
   }, 120_000);
   const liveFamilies = () => {
     if (!LIVE_FAMILIES || Object.keys(LIVE_FAMILIES).length === 0)
-      throw new Error('beforeAll prime of buildAllFamilies(REPO_ROOT) did not land');
+      throw new Error(
+        'beforeAll prime of buildAllFamilies(REPO_ROOT) did not land',
+      );
     return LIVE_FAMILIES;
   };
 
