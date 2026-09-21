@@ -21,6 +21,7 @@ executed:
   - { step: prompt-explain-a-rule, stack: ts-server, date: 2026-09-21, result: "answered; no rule page exists yet, used the tutorial and the installed files" }
   - { step: deepwiki-indexed-at, stack: repo, date: 2026-09-21, result: "Last indexed 20 July 2026 (2c77e4)" }
   - { step: context7-lookup, stack: repo, date: 2026-09-21, result: "/artyhoo/getff found" }
+docs-refresh: deferred — re-verified 2026-09-21, the cited tool-bootstrapping skill only gained the GH #1507 registry-search step inside Rule 2 (line 31, no line shift); this page names that skill in one line and that line still holds; clears at the next gold refresh of this page
 next: index.md
 ---
 

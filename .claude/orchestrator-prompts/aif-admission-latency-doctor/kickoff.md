@@ -81,13 +81,49 @@ idles in `backlog` with free slots», carrying: the failure class (from §1), re
 commands, the latency-vs-starvation discriminator, the two named non-fixes, and the batch-dispatch
 mitigation — every mechanism claim with its `file:line` anchor from §1.
 
-**Detection commands for the entry (adapt wording, keep substance):**
+**Detection commands for the entry** (rebased 2026-09-15 on `-t --tail` + `date -u` arithmetic,
+GH #1581 — Docker 29.2.x `--since` returns 0 lines whenever filtering is required, so the old
+`--since 30m` counters were always-blind; keep this copy in sync with the §3.7 Detect block in
+`.claude/skills/aif-doctor/SKILL.md`):
 
 ```bash
-# no admission since the last advance, while a task is active and capacity is free:
-docker logs aif-handoff-agent-1 --since 30m | grep -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 0 = window closed
-docker logs aif-handoff-agent-1 --since 30m | grep -c '"at capacity"'                                        # 0 = not a capacity problem
-docker logs aif-handoff-agent-1 --since 30m | grep -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
+# no admission since the last advance, while a task is active and capacity is free.
+# NEVER `docker logs --since <t>`: Docker 29.2.x returns 0 lines whenever the filter has
+# to exclude anything, so all three counters read permanently 0 and every triage
+# degenerates to "admission window closed" (GH #1581; corroborated:
+# docs/superpowers/specs/2026-09-02-beta-release-night-morning-report.decisions.md).
+# `--tail N` has its own trap (measured 2026-09-21, Docker 29.8.0, json-file): once N
+# reaches back past a break in the container's log (one sat between 14:22:11 and the
+# 14:23:34 container start; a later start at 17:04:41 left none), it returns ONLY the
+# lines before the break and drops every newer one, and those count to a plausible 0.
+# So a bigger budget is not a safer one, and a bare count is never trusted: win() cuts the
+# window (`date -u`, BSD -v first, GNU -d fallback; lexicographic compare at second
+# resolution; 2>&1 merges stdout+stderr) and returns it ONLY when the slice (a) reaches the
+# newest line, read first via `--tail 1` (`>=` absorbs lines logged between the two
+# reads), and (b) starts at or before the cutoff. Otherwise it returns one WINDOW-UNCOVERED
+# line, which cnt() prints instead of a count. A window that spans a break cannot be
+# covered by --tail at all: shorten it to start after the break.
+W30_CUTOFF=$(date -u -v-30M +%FT%T 2>/dev/null || date -u -d '30 minutes ago' +%FT%T)
+win() {  # win <container> <budget> <cutoff>
+  newest=$(docker logs -t --tail 1 "$1" 2>&1 | awk '{print substr($1,1,19)}')
+  docker logs -t --tail "$2" "$1" 2>&1 | awk -v c="$3" -v n="$newest" '
+    NR == 1 { first = substr($1,1,19) }
+    { last = substr($1,1,19) }
+    substr($1,1,19) >= c { keep[++k] = $0 }
+    END {
+      if (n !~ /^[0-9]/) { print "WINDOW-UNCOVERED: no timestamped log line (" n ")"; exit }
+      if (last < n) { print "WINDOW-UNCOVERED: slice ends " last ", newest line is " n " (--tail stopped at a log break)"; exit }
+      if (first > c) { print "WINDOW-UNCOVERED: slice starts " first ", after cutoff " c " (budget too small, or the window spans a log break)"; exit }
+      for (i = 1; i <= k; i++) print keep[i]
+    }'
+}
+cnt() {  # cnt <slice> <grep args>: the count, or the slice's WINDOW-UNCOVERED line
+  case "$1" in WINDOW-UNCOVERED*) echo "$1" ;; *) s=$1; shift; grep "$@" <<<"$s" ;; esac
+}
+W30=$(win aif-handoff-agent-1 5000 "$W30_CUTOFF")
+cnt "$W30" -cE '"msg":"(Auto-queue advanced|Poll cycle complete)"'   # 0 = admission window closed
+cnt "$W30" -c '"at capacity"'                                        # 0 = not a §3.2 capacity problem
+cnt "$W30" -c 'Poll cycle already active'                            # >0 = cycle busy → LATENCY, not starvation
 ```
 
 ## §3 «Works» — acceptance checks

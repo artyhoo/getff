@@ -22,7 +22,7 @@ Read `package.json`, `.mcp.json`, and any framework config files (`next.config.t
 
 ### Rule 2 — Propose tool set
 
-Based on detected stack, surface relevant MCPs and skills. Use AIF `skills.sh` registry and skill-acquisition flow (SSOT #32 ADOPT VOCABULARY): `npx skills search` → `install --agent claude` → security-scan → generate-if-missing → learn-from-docs. Cap proposals at ≤5 per block; each must carry a load-bearing rationale (which specific dep or service requires this tool?). Prefer `context7` for documentation lookup over library-specific MCPs — one meta-MCP subsumes many.
+Based on detected stack, surface relevant MCPs and skills. **Hard step (GH #1507): after Rule 1's enumeration, run exactly ONE `npx skills search <core>` per detected framework core** (the language, the UI framework, the metaframework, the database — one search per core, no more). From each result, surface the **top canonical candidate** (≥100K installs or first-party) in the Rule 3 confirmation block — propose it, never install it. This step does not depend on the AIF `/aif` detector being present: `npx skills search` fetches the registry on demand, so ambient stack cores (present since onboarding, invisible as dep-deltas) still get their proposal. Use AIF `skills.sh` registry and skill-acquisition flow (SSOT #32 ADOPT VOCABULARY): `npx skills search` → `install --agent claude` → security-scan → generate-if-missing → learn-from-docs — everything after `search` is confirmation-gated by Rule 3. Cap proposals at ≤5 per block; each must carry a load-bearing rationale (which specific dep or service requires this tool?). Prefer `context7` for documentation lookup over library-specific MCPs — one meta-MCP subsumes many.
 
 ### Rule 3 — Confirm bulk
 

@@ -59,6 +59,9 @@ Inside are six rules:
 
 1. **Read the stack** from your package manifest, `.mcp.json`, and framework configs.
 2. **Propose at most five tools per block.** Each one names the dependency that needs it.
+   First the agent runs one `npx skills search` for each core of your stack: the
+   language, the UI framework, the full-stack framework, the database. The top well-known result
+   of each search goes on the list. It is proposed, never installed.
 3. **Ask once.** One yes or no for the whole list. Nothing is installed without it.
 4. **Count the cost.** If a skill can do the job, propose the skill and not a server. If
    a server costs more context than it saves, drop it.

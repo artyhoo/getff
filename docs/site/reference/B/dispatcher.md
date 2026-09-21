@@ -18,7 +18,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: probe-without-job-name, stack: repo, date: 2026-09-21, result: probe-incomplete }
-docs-refresh: deferred — re-verified 2026-09-21, the cited aif-doctor page only had two line numbers corrected in its evidence list; this page links to it by name and quotes none of those numbers; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-21, the cited aif-doctor page changed in this range (its evidence line numbers were refreshed, one sentence was added, and two evidence lines were corrected); this page links to it by name and quotes none of those numbers; this page's own evidence line numbers were not re-verified here; clears at the next gold refresh of this page
 ---
 
 # dispatcher skill

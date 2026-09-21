@@ -13,6 +13,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: list-reviewer-sections, stack: ts-server, date: 2026-09-21, result: listed }
+docs-refresh: deferred — re-verified 2026-09-21, the cited reviewer-discipline rule only had one link anchor refreshed on line 117 (harvest SKILL.md 91 to 100), with no line shift and no contract change; this page quotes none of that line; clears at the next gold refresh of this page
 ---
 
 # reviewer skill
