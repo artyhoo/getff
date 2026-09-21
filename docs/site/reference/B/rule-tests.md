@@ -104,9 +104,9 @@ cannot tell you that the docs behind a rule have aged.
   are lines 35 to 46, the reason for firing one rule alone is line 50, coverage per lane
   is lines 67 to 70, and the staleness steps are lines 78 to 89.
 - The firing script is copied from `packages/core/synthesizer/run-rule-tests-firing.sh`
-  by line 1083 of `install.sh`. The method file is on the installer's list at line 228.
-- The skill is in `GETFF_SKILLS_CORE`, line 61 of `setup.d/lib.sh`, copied by lines 136
-  to 138 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1230 of
+  by line 1089 of `install.sh`. The method file is on the installer's list at line 228.
+- The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
+  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1233 of
   `setup.d/45-python.sh`.
 - The card is built from `docs/site/reference/B.json`. The "with and without" sections
   are required by `packages/core/principles/15-skill-paired-negative.test.ts`.

@@ -111,8 +111,8 @@ The test that demands them lists it as an exception.
 - The two required sections and their minimums are lines 45 to 63 of the same file.
 - The CI job is `.github/workflows/discipline-self-check.yml`. Line 102 matches the
   forward-check heading and line 115 is the error for a section under 40 characters.
-- The decision not to install the skill is lines 125 to 128 of `setup.d/10-skills.sh`.
-  The three install lists are lines 61 to 63 of `setup.d/lib.sh`, and the name is in
+- The decision not to install the skill is lines 132 to 135 of `setup.d/10-skills.sh`.
+  The three install lists are lines 63 to 65 of `setup.d/lib.sh`, and the name is in
   none of them.
 - The exception list that names this skill is line 36 of
   `packages/core/principles/15-skill-paired-negative.test.ts`.

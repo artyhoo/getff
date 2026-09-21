@@ -110,6 +110,6 @@ ignore the data it is shown and go on.
 - The folder for briefs is resolved on lines 50 to 57 of
   `.claude/skills/pipeline/helpers/lib/common.sh`, and created by line 17 of
   `setup.d/30-templates.sh`.
-- The skill belongs to the `env` list on line 62 of `setup.d/lib.sh`. Lines 85 to 88 of
+- The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. Lines 92 to 95 of
   `setup.d/10-skills.sh` record why.
 - The card above is built from `docs/site/reference/B.json`.

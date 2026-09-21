@@ -106,7 +106,7 @@ receive skills at all.
 - The description and the invocation mode come from line 3 of `skills/getff/SKILL.md`.
   The posture marker is line 6 of the same file.
 - The installer copies this skill from the repository root and rewrites its links:
-  `setup.d/10-skills.sh`, lines 22 to 27.
+  `setup.d/10-skills.sh`, lines 27 to 32.
 - `ships-to` is measured, not declared. The path `.claude/skills/getff/` appears six
   times in the install fingerprint of each of five stacks, for example
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`. It appears zero times
