@@ -5,7 +5,7 @@ cf5989e9ba90bf80df7c8c2ae1389781b2f4c457b96229f73ff391fbd773c1f7  .claude/hooks/
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
-d1db210ddbc71ab051cabc7f0842aac886423592d58bc9ffc0beb1c96e748e4b  .claude/hooks/deps-hash-check.sh
+042037334bed25f66e7f1a93ceddc5637f8113bfad3b2ca38d53bfc00b303225  .claude/hooks/deps-hash-check.sh
 5126e53cdea88a67f9ea8937484f39e00d7e17a8576b17b78584362cbd2a68bf  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
 b0873ba020e057267ebedd4c7c4571306c81fe12b6d230d6d31fc57ba112bee1  .claude/hooks/inject-handoff-on-compact.sh
@@ -456,8 +456,8 @@ f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
-d1db210ddbc71ab051cabc7f0842aac886423592d58bc9ffc0beb1c96e748e4b  packages/core/hooks/deps-hash-check.sh
-3afa43656643b980049e5f61c44bafe88f9b3e280a84fc73df987fba9d57b037  packages/core/hooks/deps-hash-check.test.ts
+042037334bed25f66e7f1a93ceddc5637f8113bfad3b2ca38d53bfc00b303225  packages/core/hooks/deps-hash-check.sh
+77adc81c724087c4c930a8b7f52ba308f0f42347ab910adab9f29ea68d96ef1e  packages/core/hooks/deps-hash-check.test.ts
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 8e34d65552e50c3798c30fcbdb888132a081e7d68ebf4136754ad2e89ddc2b00  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
