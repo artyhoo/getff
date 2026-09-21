@@ -114,9 +114,9 @@
  * Rationale-length floor mirrors the escape-token precedent in
  * `.claude/rules/ci-tool-pinning.md` §3.
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { dirname, join, normalize, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 
 const CITATION_RE =
   /(?<![\w/.-])((?:\.{0,2}[/\w][\w./-]*)\.(?:md|markdown|ts|tsx|js|mjs|cjs|sh|json|jsonc|yml|yaml|py|toml))[:](\d+)(?:-(\d+))?/g;
@@ -148,7 +148,7 @@ const BACKREF_RE = /`:(\d+)(?:-(\d+))?`/g;
  * `setup.d/lib.sh`» is one citation. `d` flag: group indices locate the NUMBERS, which
  * is where blame is taken and what `--write` rewrites.
  */
-const PROSE_NUM = String.raw`\blines?\s+(\d+)(?:(?:\s+(?:to|and|through)\s+|\s*[-–]\s*)(\d+))?`;
+const PROSE_NUM = String.raw`\blines?\s+(\d+)(?:(?:\s+(?:to|through)\s+|\s*[-–]\s*)(\d+))?(?!\s*(?:,|and)\s*\d)`;
 const PROSE_PATH = '`([^`\\s:]+)`';
 const PROSE_OF_RE = new RegExp(`${PROSE_NUM}\\s+(?:of|in)\\s+${PROSE_PATH}`, 'gid');
 const PROSE_COMMA_RE = new RegExp(`${PROSE_PATH},?\\s+${PROSE_NUM}\\b`, 'gid');
@@ -328,8 +328,12 @@ function resolveCitedPath(srcFile, citedPath, linkTarget) {
   candidates.push(normalize(join(dirname(srcFile), citedPath)));
   candidates.push(normalize(citedPath));
   for (const c of candidates) {
-    if (!c || c.startsWith('..')) continue;
-    if (existsSync(resolve(REPO_ROOT, c))) return { target: c, weak: false };
+    // In-repo REGULAR files only: the prose form accepts any backticked token, so a
+    // directory (`packages/core`, `.`) once reached readFileSync as EISDIR and aborted the
+    // scan, and an absolute path (`/etc/hosts`) read a file outside the repository.
+    if (!c || c.startsWith('..') || isAbsolute(c)) continue;
+    const abs = resolve(REPO_ROOT, c);
+    if (existsSync(abs) && statSync(abs).isFile()) return { target: c, weak: false };
   }
   if (citedPath.includes('/')) return { reason: 'path-missing', candidates: [] };
   const hits = tracked(citedPath);
@@ -351,6 +355,31 @@ function blameCommit(srcFile, line) {
   return /^0+$/.test(sha) ? null : sha;
 }
 
+/**
+ * The newest of the commits that last wrote each of these lines — the baseline for a
+ * citation wrapped over several lines. Any uncommitted line makes the whole citation
+ * uncommitted (null), as for a single line.
+ */
+function newestBlame(srcFile, lineNos) {
+  const shas = [];
+  for (const l of lineNos) {
+    const sha = blameCommit(srcFile, l);
+    if (sha === null) return null;
+    if (!shas.includes(sha)) shas.push(sha);
+  }
+  if (shas.length === 1) return shas[0];
+  let newest = shas[0];
+  for (const sha of shas.slice(1)) {
+    try {
+      git(['merge-base', '--is-ancestor', newest, sha]);
+      newest = sha; // newest is an ancestor of sha, so sha is newer
+    } catch {
+      // not an ancestor: keep the current newest
+    }
+  }
+  return newest;
+}
+
 function fileAt(commit, path) {
   try {
     return git(['show', `${commit}:${path}`]).split('\n');
@@ -369,7 +398,7 @@ export function scanFile(srcFile) {
   // One verdict per resolved citation, shared by both citation forms: `path:NN` (and its
   // bare backreferences) from the per-line pass, and the prose form from the whole-file
   // pass below. `pos` is set only for prose, where `--write` edits the numbers in place.
-  function judge({ srcLine, token, target, weak, n, end, escape, pos = null }) {
+  function judge({ srcLine, token, target, weak, n, end, escape, pos = null, spans = [srcLine] }) {
     resolvedCount += 1;
 
     if (escape) {
@@ -452,7 +481,7 @@ export function scanFile(srcFile) {
       return;
     }
 
-    const sha = blameCommit(rel, srcLine);
+    const sha = newestBlame(rel, spans);
     if (sha === null) return; // uncommitted edit — nothing to compare against yet
     const historical = fileAt(sha, target);
     if (historical === null || n > historical.length) return; // target absent then
@@ -566,7 +595,7 @@ export function scanFile(srcFile) {
   const text = lines.join('\n');
   const lineOf = (off) => text.slice(0, off).split('\n').length;
   const colOf = (off) => off - text.lastIndexOf('\n', off - 1) - 1;
-  const numAt = ([s, e]) => ({ line: lineOf(s), col: colOf(s), len: e - s });
+  const numAt = ([s, e]) => ({ line: lineOf(s), col: colOf(s), len: e - s, was: text.slice(s, e) });
   const ofMatches = [...text.matchAll(PROSE_OF_RE)].map((m) => ({ m, path: m[3], ni: 1 }));
   // «`X`, line N of `Y`»: the number belongs to Y. A comma-form match whose number the
   // «of» form already claimed is dropped, never double-bound to the token before it.
@@ -578,7 +607,12 @@ export function scanFile(srcFile) {
     if (/\n\s*\n/.test(m[0])) continue;
     const start = m.indices[ni];
     const endIdx = m.indices[ni + 1];
-    const srcLine = lineOf(start[0]); // blame the line carrying the number (self-healing)
+    const srcLine = lineOf(start[0]); // the finding is reported at the number's line
+    // Blame and escape look at EVERY line the citation spans: the newest of their commits
+    // is the baseline, so fixing the number self-heals (the fix is newest) and so does
+    // re-pointing the path on its own wrapped line.
+    const first = lineOf(m.index);
+    const spans = Array.from({ length: lineOf(m.index + m[0].length - 1) - first + 1 }, (_, i) => first + i);
     const token = squash(m[0]);
     const r = resolveCitedPath(rel, path, null);
     if (!r.target) {
@@ -592,8 +626,9 @@ export function scanFile(srcFile) {
       weak: r.weak,
       n: Number(m[ni]),
       end: m[ni + 1] ? Number(m[ni + 1]) : null,
-      escape: ESCAPE_RE.exec(lines[srcLine - 1]),
+      escape: spans.map((l) => ESCAPE_RE.exec(lines[l - 1])).find(Boolean) ?? null,
       pos: { start: numAt(start), end: endIdx ? numAt(endIdx) : null },
+      spans,
     });
   }
 
@@ -613,21 +648,21 @@ function renumber(findings) {
     const lines = readFileSync(abs, 'utf8').split('\n');
     // Prose citations are edited by POSITION, not by token: the token was squashed
     // across a wrap and no longer occurs verbatim. Edits run right-to-left so an earlier
-    // one never shifts a later column; the digits are asserted before the write, so a
-    // file changed since the scan is skipped rather than corrupted.
+    // one never shifts a later column; the ORIGINAL digits are asserted before the write,
+    // so a file changed since the scan (or named twice) is skipped rather than corrupted.
     const edits = fs_
       .filter((f) => f.pos)
       .flatMap((f) => [
-        [f.pos.start, f.movedTo],
-        ...(f.pos.end && f.movedEnd ? [[f.pos.end, f.movedEnd]] : []),
+        [f.pos.start, f.movedTo, true],
+        ...(f.pos.end && f.movedEnd ? [[f.pos.end, f.movedEnd, false]] : []),
       ])
       .sort(([a], [b]) => b.line - a.line || b.col - a.col);
-    for (const [{ line, col, len }, value] of edits) {
+    for (const [{ line, col, len, was }, value, isStart] of edits) {
       const l = lines[line - 1];
-      if (!/^\d+$/.test(l.slice(col, col + len))) continue;
+      if (l.slice(col, col + len) !== was) continue;
       lines[line - 1] = l.slice(0, col) + value + l.slice(col + len);
+      if (isStart) written += 1; // one per citation, as for the token form
     }
-    written += fs_.filter((f) => f.pos).length;
     for (const f of fs_.filter((x) => !x.pos)) {
       const span = f.movedEnd ? `${f.movedTo}-${f.movedEnd}` : `${f.movedTo}`;
       // The trailing backtick is part of a bare backreference's token (`` `:272` ``),

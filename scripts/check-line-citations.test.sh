@@ -397,11 +397,13 @@ grep -qF 'path-missing' "$TMP/err" || {
 
 # --- «line N of `X`» outranks «`Y`, line N»: in «`GETFF_SKILLS_CORE`, line 63 of
 # `setup.d/lib.sh`» the number belongs to the file after it, not the token before it
+# Line 2 of the file is BLANK so the binding is observable: a quiet run would pass with
+# the prose arm deleted outright, which is what this arm first did (cold review, #1832).
 new_repo prose-precedence
-printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
 printf 'It is in `SOME_LIST`, line 2 of `target.sh`.\n' >"$REPO/cite.md"
 commit_all "number between a non-path token and its file"
-expect_pass "the «of» form wins over the comma form" cite.md
+expect_fail "the «of» form binds the number to the file after it" "is an empty line" cite.md
 if grep -qF 'SOME_LIST' "$TMP/err"; then
   echo "FAIL: the number was also bound to the token before it"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
 fi
@@ -415,6 +417,66 @@ commit_all "docs site page with a prose citation"
 printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
 commit_all "target reflowed"
 expect_fail "--corpus reaches docs/site" "docs/site/reference/page.md:1" --corpus --affected-by=target.sh
+
+# --- a prose path that is not a regular in-repo file is a skip, never a crash: a
+# directory once reached readFileSync (EISDIR) and aborted the whole scan, and the
+# pre-commit hook reported that as a blank landing; an absolute path read outside the repo
+new_repo prose-nonfile
+mkdir -p "$REPO/sub"
+printf 'x\n' >"$REPO/sub/f.sh"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf 'The helper is on line 1 in `sub`.\nThe host is line 1 of `/etc/hosts`.\nThe cap is line 2 of `target.sh`.\n' >"$REPO/cite.md"
+commit_all "directory + absolute prose paths ahead of a real blank landing"
+expect_fail "non-file prose paths are skipped and the scan reaches the real defect" "cite.md:3" cite.md
+if grep -qE 'EISDIR|cite.md:[12] ' "$TMP/err" && ! grep -qE 'cite.md:[12] .*skipped' "$TMP/err"; then
+  echo "FAIL: a non-file prose path was judged instead of skipped"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+expect_fail "--blank-only survives a directory prose path too" "is an empty line" --blank-only cite.md
+
+# --- a wrapped citation whose PATH line is later edited: the baseline is the newest commit
+# over every line the citation spans, not just the number's line. Blaming the number's
+# line alone compared against the file the sentence cited BEFORE the edit (cold review).
+new_repo prose-path-edit
+printf 'alpha\nbeta\ngamma\n' >"$REPO/a.sh"
+printf 'x\nOLD\nz\n' >"$REPO/b.sh"
+printf -- '- The cap is on line 2 of\n  `a.sh`, as shipped.\n' >"$REPO/cite.md"
+commit_all "wrapped citation of a.sh"
+printf 'x\nbeta\nz\n' >"$REPO/b.sh"
+commit_all "b.sh line 2 changes"
+printf -- '- The cap is on line 2 of\n  `b.sh`, as shipped.\n' >"$REPO/cite.md"
+commit_all "the citation now names b.sh, whose line 2 is correct"
+expect_pass "editing only the path line re-baselines the citation" cite.md
+
+# --- «lines 2 and 3» is a list, not a range: it is not read at all, rather than read as
+# 2..3 and then rewritten as a block when the two lines moved independently
+new_repo prose-list
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf 'The pair is `target.sh`, lines 2 and 3.\n' >"$REPO/cite.md"
+commit_all "a list of two lines"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_pass "a list of line numbers is not a range citation" cite.md
+
+# --- the escape counts on any line the citation spans, e.g. after the path it wraps onto
+new_repo prose-escape-wrapped
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+printf -- '- The cap was on line 2 of\n  `target.sh`. <!-- cite:historical snapshot of the old layout, kept on purpose -->\n' >"$REPO/cite.md"
+commit_all "historical wrapped citation"
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+expect_pass "an escape on the wrapped path line is honoured" cite.md
+
+# --- --write with the same file named twice edits each number once: the positional write
+# checks the ORIGINAL digits, so a second pass over «10» does not become «100»
+new_repo prose-write-twice
+printf '1\n2\n3\n4\n5\n6\n7\n8\nNINE\n' >"$REPO/target.sh"
+printf 'The mark is line 9 of `target.sh`.\n' >"$REPO/cite.md"
+commit_all "citation of line 9"
+printf '0\n1\n2\n3\n4\n5\n6\n7\n8\nNINE\n' >"$REPO/target.sh"
+commit_all "target reflowed"
+(cd "$REPO" && node "$CHECK" --write cite.md cite.md) >/dev/null 2>&1
+grep -qF 'line 10 of `target.sh`' "$REPO/cite.md" || {
+  echo "FAIL: --write applied a prose edit twice: $(cat "$REPO/cite.md")"; fails=$((fails + 1)); }
 
 # ============================================ the pre-commit CHANNEL, not just the flag
 # The `--blank-only` arms above prove the MODE works. They say nothing about whether any
