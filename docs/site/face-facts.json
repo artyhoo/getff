@@ -363,7 +363,7 @@
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 87
+      "count": 89
     },
     "academicSources": {
       "source": [
