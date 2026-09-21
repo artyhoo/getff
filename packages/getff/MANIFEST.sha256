@@ -20,7 +20,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 937346a47eeca9d76681ccca80d15ef30520a29b7a379261743ab4fa347f7e4f  .claude/hooks/lang/en.sh
 93de6f819428394064ba177909201704a89238b7009162f41e6001d93b4114ca  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
-83b5593b8a7997d146d18fb78383da174f2a606af94ebe3824783b3ea0378540  .claude/hooks/lib/residue-dir.sh
+4e6f130d789ff632906ad5f42f54267da47b18457444f722db67cb399b9aac6f  .claude/hooks/lib/residue-dir.sh
 722241fc84acfe24ff9dfc1d6d55a867e1feb4d7d1cbea70488a726ad4f96771  .claude/hooks/precompact-residue.sh
 9d9548c80a55b8544eefa490f24eb644bf52f624b77ca78821bb9802743fc729  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh

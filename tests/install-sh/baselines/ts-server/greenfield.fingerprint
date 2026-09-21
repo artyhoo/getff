@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 5650d70f65379fb7124151f9fa54000709c9bcf74fb9fd7a200f1a667d5fd384  .ai-factory/RULES.md
-78c2063490656350f009071bab081d503bbb003b43af0acee5b27e1a4ab36b85  .ai-factory/refresh-baseline.json
+b8b840d37daf0c05c57bf7cd3b7eaf0bdba19e5234b95c56ea5225a44eb121d9  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -33,7 +33,7 @@ c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 937346a47eeca9d76681ccca80d15ef30520a29b7a379261743ab4fa347f7e4f  .claude/hooks/lang/en.sh
 93de6f819428394064ba177909201704a89238b7009162f41e6001d93b4114ca  .claude/hooks/lang/ru.sh
-83b5593b8a7997d146d18fb78383da174f2a606af94ebe3824783b3ea0378540  .claude/hooks/lib/residue-dir.sh
+4e6f130d789ff632906ad5f42f54267da47b18457444f722db67cb399b9aac6f  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
