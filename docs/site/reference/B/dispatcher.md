@@ -18,6 +18,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: probe-without-job-name, stack: repo, date: 2026-09-21, result: probe-incomplete }
+docs-refresh: deferred — cascade only, checked 2026-09-21: the cited aif-doctor.md page changed in this range (line numbers plus one sentence), and this page only links to it at line 94, which still resolves and still holds; this page's own evidence line numbers were not re-verified here; clears at the next gold refresh of this page
 ---
 
 # dispatcher skill
