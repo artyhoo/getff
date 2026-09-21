@@ -877,6 +877,8 @@ jobs:
         run: bash tests/install-sh/first-commit-passable.test.sh
       - name: "install-sh — refresh-divergence-guard (#1481 R1: baseline manifest + warn/preserve guard, arms a-e incl. pre-manifest + override + dry-run)"
         run: bash tests/install-sh/refresh-divergence-guard.test.sh
+      - name: "install-sh — consumer-delivery-safety-guard (#1514/#1540/#1531 W1-A: pre-overwrite guard on the destructive paths, D4(b)/(c) arms, post-mutating-delivery parity + call-site census)"
+        run: bash tests/install-sh/consumer-delivery-safety-guard.test.sh
       - name: "install-sh — refresh-vendor-single-delivery (ledger A1-1 + S-7: one guarded vendor delivery honouring .override.md; single _copy_tree_with_transform)"
         run: bash tests/install-sh/refresh-vendor-single-delivery.test.sh
       - name: "install-sh — refresh-dir-payload-ownership (ledger L-4: directory payloads walk per file through the divergence guard; deletion is manifest-scoped)"

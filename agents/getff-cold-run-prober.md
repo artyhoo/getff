@@ -51,7 +51,7 @@ claude --agent getff-cold-run-prober /path/to/fresh/consumer
 The consumer path MUST have:
 
 - A successfully completed `install.sh python` (or peer-lane) run — the agent surface, `.mcp.json`, starter `AGENTS.md`, `.ai-factory/` subtree are present.
-- A git remote resolvable to a default branch (so `deliver_getff_workflow`'s substitution works — see `setup.d/lib.sh:946`).
+- A git remote resolvable to a default branch (so `deliver_getff_workflow`'s substitution works — see `setup.d/lib.sh:1308`).
 - NO pre-existing generated rule under `.getff/astgrep-rules/` or `.getff/ruff-bans.toml` (the cold agent must reach that state itself, or fail to).
 
 You MAY `Read` the consumer's installed `.claude/` tree BEFORE dispatching — those ARE the shipped docs the probe is testing. You MAY NOT pass their contents to the cold agent in the task-prompt (the cold agent must discover them by opening files itself).

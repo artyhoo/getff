@@ -794,6 +794,12 @@ do_refresh() {
       continue
     fi
     if [ "$DRY_RUN" = "--dry-run" ]; then
+      # W1-A review MAJOR 2: read-only divergence preview — the real run's _copy_tree_with
+      # _transform runs its guard before the wipe, but the dry-run arm above never reaches it,
+      # so a diverged plain-skill file showed only "would refresh" while the real run DID
+      # flag+preserve it. Preview the guard here (transform parity: the delivered tree's .md
+      # are post-processed); writes nothing under --dry-run.
+      if [ -e "$_dst" ]; then _pre_overwrite_guard "$_src" "$_dst" transform; fi
       echo "  [dry-run] would refresh: $_src → $_dst"
       continue
     fi
@@ -1337,7 +1343,9 @@ do_refresh() {
   _arch_sot_src="$(arch_sot_src_for_stack)"
   _arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
   _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
-  copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+  # arch-header parity (W1-A review MAJOR 1): rewrite_arch_sot_header below post-processes
+  # freshly-written copies, so the divergence guard must compare against the REWRITTEN bytes.
+  copy_safe "$_arch_sot_src" "$_arch_sot_dst" arch-header
   rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
 
   # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──

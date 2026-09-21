@@ -17,6 +17,11 @@ if [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && [ "$FORCE" != "--force" ]; the
     echo "  ⊝ .claude/skills/getff (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
+  # W1-A review MAJOR 2: the dry-run arm never reaches _copy_tree_with_transform's guard, so a
+  # diverged copy under --force showed only "would copy". Preview the guard when the dst exists
+  # (= the --force overwrite case; a greenfield copy overwrites nothing). Transform parity: the
+  # delivered tree's .md are post-processed. Writes nothing under --dry-run.
+  [ -e "$PROJECT_ROOT/.claude/skills/getff" ] && _pre_overwrite_guard "$PKG_ROOT/skills/getff" "$PROJECT_ROOT/.claude/skills/getff" transform
   echo "  [dry-run] would copy: $PKG_ROOT/skills/getff → $PROJECT_ROOT/.claude/skills/getff"
 else
   # getff ships from repo-root skills/ (not .claude/skills/), so it bypasses
@@ -34,6 +39,8 @@ if [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && [ "$FORCE" != "--
     echo "  ⊝ .claude/skills/tool-bootstrapping (exists — skipping)"
   fi
 elif [ "$DRY_RUN" = "--dry-run" ]; then
+  # Same MAJOR 2 preview as the getff arm above (reached only when dst is absent or --force).
+  [ -e "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" ] && _pre_overwrite_guard "$PKG_ROOT/skills/tool-bootstrapping" "$PROJECT_ROOT/.claude/skills/tool-bootstrapping" transform
   echo "  [dry-run] would copy: $PKG_ROOT/skills/tool-bootstrapping → $PROJECT_ROOT/.claude/skills/tool-bootstrapping"
 else
   # No up-dir repo refs in tool-bootstrapping today (transform is a no-op) — run it anyway for

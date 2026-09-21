@@ -39,7 +39,7 @@ You have NO shared memory with the Worker who produced this output. Do not assum
 
 ## Verdict format
 
-Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.md`  <!-- orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:61-63) -->
+Write verdict to: `.claude/orchestrator-prompts/<queue-dir>/review-<K>-iter-<N>.md`  <!-- orch-home: allow framework-only skill, never in GETFF_SKILLS_* delivery tiers (setup.d/lib.sh:63-65) -->
 
 **Structure:**
 ```
