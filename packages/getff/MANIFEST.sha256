@@ -31,7 +31,8 @@ caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills
 9700846efa4c4c6080a7294a68ee015f3b14fa8c4b119207e26c03e3cfc5a8db  .claude/skills/aif-doctor/SKILL.md
 6aa41f8948023a9de8aa1ec49a0a3f9b92598f1d1ce553a34eb0b1ee9d7d04de  .claude/skills/aif-doctor/helpers/heal.sh
 a8561e5ad736e01157d1313241acfb888a8f67daf13f243db52ceaed2872d48a  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-b002125a5b3192b646ab5a2380053a1a7c0a839ac79df48955aaafa63bf9b754  .claude/skills/arch/SKILL.md
+c1b6d938b02b5c699bb1029afe925c972bf5f2bcc7f80e5143013f8ac25019f9  .claude/skills/arch/SKILL.md
+4be720ce0a9b0cd2ca88447af62c65ba7580ce7a4375762842a9e1ae8e39ff11  .claude/skills/arch/references/grilling.md
 e3bba025e05c493a9237c034019e32703869552c6eb15afbd7a7ddab719acfe8  .claude/skills/claude-glm-executor-handoff/SKILL.md
 5498bacddef0706a189cbe26d88613de4bc6d9f0d4e99c45be731aa039d56202  .claude/skills/dispatcher/SKILL.md
 03511710e55da8b8e55208b020e7e8534d3729e288fe870a0797dfd68315cc03  .claude/skills/dispatcher/helpers/advance-frontier.sh
@@ -712,6 +713,7 @@ c6de328a5e660c581783e5b44aec0a6a3bf607d43c58416d106324506bac7373  packages/core/
 3932f8cd1ab4bfbed00616da1fae4f3fb95459043c5a5313b00ae938f87e67d7  packages/core/skills/dup-detect.test.ts
 4aedba4588370202c58ef6a2fba78dcbed12c7295ff29b2bd89902e10f3a9431  packages/core/skills/emit-output-strings.test.ts
 af3121b00601d64629ce23449de441d9dfd59b894cfe2475b376142bb76d6466  packages/core/skills/emit-story-prompt.test.ts
+236cfee2d13a6ddc8c96f0d7a52b6a125785e72d65edc4ed48f770f4c2ccb878  packages/core/skills/grilling-vendored-body.test.ts
 337a1891e61c0556650156417569c344b1bf4f8d3317dc195e977866f8a03517  packages/core/skills/inflight-check.test.ts
 57c64a5e5c436de6151c74a90c5f255acb440c6ea0cc49d5f3f1930fe37097e6  packages/core/skills/integer-name-guard.test.ts
 15b2eba03721edad3bf77f984b7fbf0aa9bc9f2123310b23ab0ae03f413af6e0  packages/core/skills/orch-home-resolver.test.ts
