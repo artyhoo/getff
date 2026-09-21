@@ -52,6 +52,46 @@ fence, would have edited upstream's text.
 **Re-census trigger:** upstream's `skills/productivity/grilling/SKILL.md` no longer hashes to
 the upstream-file sha256 above → diff it, refresh this file, and append a dated note to SSOT #253.
 
+## License — upstream's MIT notice, reproduced in full
+
+MIT clause 2 requires the copyright notice **and** this permission notice to travel with
+every copy or substantial portion of the software. The body below is redistributed inside
+an FSL-1.1-ALv2 payload (repo `LICENSE.md`) to every `env`+ consumer, so upstream's notice
+is reproduced here verbatim from the marketplace checkout's `LICENSE`:
+
+```text
+MIT License
+
+Copyright (c) 2026 Matt Pocock
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+**Extraction contract — the byte-identity gate depends on it.** The next heading is the
+LAST heading in this file; everything after that heading line, minus exactly one leading
+newline, IS the upstream body and must hash to the «Vendored body sha256» recorded above.
+Nothing may be appended after the body. Enforced by
+`packages/core/skills/grilling-vendored-body.test.ts` — prose alone would be
+`#hope-as-gate` ([attention-is-not-a-mechanism.md §2](../../../rules/attention-is-not-a-mechanism.md)),
+and the risk is live: `scripts/format-shipped.sh` prettifies `.claude/skills` whole, so a
+future prettier-config change could silently rewrite "verbatim" bytes.
+
 ## Upstream body (verbatim — do not edit)
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.

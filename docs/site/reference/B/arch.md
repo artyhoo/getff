@@ -5,6 +5,7 @@ kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/arch/SKILL.md
+  - .claude/skills/arch/references/grilling.md
   - setup
   - setup.d/10-skills.sh
   - setup.d/companions.manifest
@@ -91,12 +92,13 @@ checks that a part was run. The file was written for the people who maintain get
 its wording shows it. It cites getff's own planning documents, which the installed copy
 links on GitHub. The research pass and the task-brief exit expect `aif-handoff`, a
 separate task runtime whose connection arrives only at the `factory` depth. Without it,
-the skill says the exit falls back to work in the same session. It also leans on two
-outside plugins that are optional. The `setup` wrapper offers one of them, superpowers,
-as a companion. The other, `mattpocock-skills`, paces the design questions. The
-installer does not offer it yet, so you add it yourself. When it is absent, the skill
-tells the agent to say so and use a plain fallback. A `core` install does not include
-this skill. The guide
+the skill says the exit falls back to work in the same session. It also leans on outside
+plugins that are optional. The `setup` wrapper offers one of them, superpowers, as a
+companion. The question pacing came from a second plugin, `mattpocock-skills`. The
+installer does not offer that one. Instead the single skill getff uses from it travels
+with getff, as a copy of its text inside the arch skill's own folder. When the plugin
+is absent, the agent reads that copy and paces the questions the same way. A `core`
+install does not include this skill. The guide
 [Add the design and review skills](../../guides/add-design-and-review-skills.md) shows
 how to get it.
 
@@ -110,8 +112,13 @@ how to get it.
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 72 to 75 there
   say why it sits at `env`.
 - The superpowers plugin is an optional companion: line 17 of `setup.d/companions.manifest`.
-- The question-pacing plugin is named on line 50 of `.claude/skills/arch/SKILL.md`, with
-  the fallback. `setup.d/companions.manifest` has no row for it.
+- The question-pacing plugin is named on line 50 of `.claude/skills/arch/SKILL.md`,
+  together with the copy that stands in for it. The copy is
+  `.claude/skills/arch/references/grilling.md`; its provenance table is lines 31 to 38,
+  and lines 16 to 27 say why the plugin is not offered.
+- The copy ships with the skill: it is listed in
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, line 42.
+  `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.
 - The card is built from `docs/site/reference/B.json`. The "with and without" sections

@@ -70,6 +70,17 @@ without the [dual-implementation-discipline.md §3](../../../.claude/rules/dual-
 degrade — the grilling edge is deliberately operator-axis only (`.claude/skills/arch/` is
 not shipped).
 
+> **Corrected 2026-09-21 — the parenthetical premise above is false.** `arch` is an `env`-tier
+> shipped skill (`GETFF_SKILLS_ENV`, `setup.d/lib.sh:62`; «CONTOUR SURFACE (env+)»,
+> `setup.d/10-skills.sh:69`), and has been since this spec's own date — so the grilling edge
+> was never operator-axis-only. The shipped-axis obligation in the first half of this
+> paragraph stands and was discharged the way it prescribes: `mattpocock-skills` is still
+> absent from `setup.d/companions.manifest`, and the consumer instead receives upstream's
+> own words as a vendored byte-copy with provenance,
+> [`.claude/skills/arch/references/grilling.md`](../../../.claude/skills/arch/references/grilling.md)
+> — the fallback arm SSOT #253 recorded. Dated note appended to
+> [SSOT #253](../../meta-factory/prior-art-evaluations.md).
+
 ## §2 Collision map (per capability area)
 
 Collision classes: **T** = trigger overlap (two model-invocable descriptions claim the same
