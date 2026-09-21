@@ -26,11 +26,24 @@ _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 # Provides AIF_RECAP_MARKER (the recap heading, used by the guard below AND embedded
 # in the messages) + aif_msg_eot_* functions.
 # @dual-pair: hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md)
+#
+# Glossary thresholds (plain-words-recap-v2 D-F) ride the pack as CONFIG keys
+# (AIF_GLOSSARY_USES / AIF_GLOSSARY_EXPLAINS — key parity guarded by lang/check-parity.sh).
+# The operator's env override must beat the pack value, and the source below is
+# UNCONDITIONAL, so the env is captured here and put back after it — the same reason
+# AIF_EOT_RECAP_MAX_LINES stays OUT of the packs (:876-879). A pack older than this
+# feature (consumer delivery lag) simply never assigns the keys; every read of them in
+# this hook uses `${AIF_GLOSSARY_USES:-3}` so `set -u` (:9) cannot abort on the gap.
+_gloss_env_uses="${AIF_GLOSSARY_USES:-}"
+_gloss_env_explains="${AIF_GLOSSARY_EXPLAINS:-}"
 _lang_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lang"
 _lang_file="${_lang_dir}/${AIF_HOOK_LANG:-en}.sh"
 [ -f "$_lang_file" ] || _lang_file="${_lang_dir}/en.sh"
 # shellcheck source=/dev/null
 . "$_lang_file"
+if [ -n "$_gloss_env_uses" ]; then AIF_GLOSSARY_USES="$_gloss_env_uses"; fi
+if [ -n "$_gloss_env_explains" ]; then AIF_GLOSSARY_EXPLAINS="$_gloss_env_explains"; fi
+unset _gloss_env_uses _gloss_env_explains
 
 # Residue-directory primitives (D29) — the cascade the handoff-currency gate needs, shared
 # with the PreCompact writer. GUARDED source, never unconditional: this hook runs under
@@ -43,7 +56,11 @@ _residue_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/residue-dir.sh"
 if ! [ -f "$_residue_lib" ] || ! . "$_residue_lib" 2>/dev/null; then
   _residue_dir() {
     if [ -n "${AIF_RESIDUE_DIR:-}" ]; then printf '%s\n' "$AIF_RESIDUE_DIR"; return; fi
-    local _rd_root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    # The ZCODE arm mirrors the lib's (and the inject hook's env-first pin): the PLUGIN twin
+    # always runs this fallback (plugin/hooks/lib ships no residue-dir.sh), and a ZCode plugin
+    # run sets neither CLAUDE_PROJECT_DIR nor `root` — without the arm its counters path
+    # diverges from the inject side's (cold-review m2, 2026-09-14).
+    local _rd_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
     local _rd_helper="$_rd_root/.claude/skills/pipeline/helpers/print-orch-home.sh" _rd_out=""
     if [ -f "$_rd_helper" ]; then
       _rd_out=$(REPO_ROOT="$_rd_root" bash "$_rd_helper" 2>/dev/null || true)
@@ -127,6 +144,11 @@ esac
 autonomy_line=""
 ctx_line=""
 gate_line=""
+# Glossary demand line (plain-words-recap-v2 D-F), computed later — AFTER $text exists
+# (:700+) — but initialized HERE because _autonomy_exit reads it and the early exits
+# (:405 / :426 / :625) precede the arm. Empty unless the glossary arm has something to
+# demand, so every pre-existing golden path is byte-identical.
+glossary_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -203,6 +225,17 @@ _autonomy_exit() {
       _extra="${_extra}"$'\n\n'"${gate_line}"
     else
       _extra="${gate_line}"
+    fi
+  fi
+  # plain-words-recap-v2 D-F: the glossary demand rides the same single block — never a
+  # second block per turn (:185-187) — and this slot is the ONLY way it survives a
+  # recap-marked turn: the already-recapped guard exits through here, and a re-stop after
+  # the block carries the marker, so an arm placed behind that guard would never fire.
+  if [ -n "${glossary_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${glossary_line}"
+    else
+      _extra="${glossary_line}"
     fi
   fi
   if [ -n "$_extra" ]; then
@@ -696,6 +729,141 @@ if [ -z "$text" ] && [ "$has_askuserquestion" != "true" ] && [ -z "$story_signal
   _autonomy_exit
 fi
 
+# ── Glossary explanations arm (plain-words-recap-v2 D-F) ─────────────────────
+# spec: docs/superpowers/specs/2026-09-13-plain-words-recap-v2-design.md §D-F.
+# The UserPromptSubmit twin (glossary-inject.sh) wrote THIS session's pending file when the
+# operator's prompt used a still-unlearned glossary term (CONTEXT.md). Here — at the Stop of
+# the turn answering that prompt — the arm counts the fixed «term (explanation)» form in the
+# answer (once per message, per term) into `_glossary-counts.json`, and when the answer does
+# NOT carry the form and the term is still below threshold, demands the inline form once:
+# per-term one-shot flag, OWN prefix `aif-glossary-dem-` (one flag shared between two bounds
+# lets each suppress the other's first block — #1644->#1651). The flag is the loop bound of
+# the same class as the #1706 sha-bounds: ZCode re-stops carry stop_hook_active=false
+# (:1017-1019), so an unbounded demand re-blocks identical text forever there.
+#
+# POSITION IS LOAD-BEARING: after the tool-only guard above — a turn with no answer text
+# cannot carry an explanation, so it must not spend the one-shot — and BEFORE the marker
+# guards (:905+), whose _autonomy_exit routes carry the line via the glossary slot. A
+# recap-marked answer is exactly where the demand must survive (see the slot comment).
+#
+# Learned = usages ≥ AIF_GLOSSARY_USES OR explanations ≥ AIF_GLOSSARY_EXPLAINS (D-F),
+# thresholds read from the env-restored pack keys with literal defaults (a pack older than
+# this feature must not abort the hook under set -u). Known undercount, accepted: the RETRY
+# stop after the demand exits at the stop_hook_active guard (:72) before reaching this arm,
+# so an explanation written to satisfy the demand is not counted — the same accepted shape
+# as the recap gate, whose fixed defects in the retry turn are likewise not re-verified.
+#
+# Inert unless ALL of: the answer has text, CONTEXT.md exists at the project root (an
+# unarmed tree → glossary_line stays empty → the unarmed goldens keep byte-identity), the
+# pending file for THIS session exists (the UserPromptSubmit twin ran on this prompt), jq is
+# present (:14). The counters file is created on demand: the Stop side must be able to
+# count explanations even when the inject side never ran (registration lag) — its usages
+# simply stay 0.
+# The root is resolved env-first (CLAUDE → ZCODE → pwd), the same chain the inject side
+# pins and _residue_dir now carries — under a harness whose hook cwd ≠ project root, the
+# CONTEXT.md check and the counters file must land on the SAME tree (cold-review m2).
+# ── Counters lock (plain-words-recap-v2 S3, cold review 2026-09-21) ──────────
+# The counters file is machine-shared BY DESIGN (kickoff-s3.md §1 item 4), and the
+# increment below is a read-modify-write: two sessions that read the same value both
+# write value+1 and one usage is lost. Measured before this block existed: 10 concurrent
+# prompts carrying one term → `usages: 2`; the same 10 run one at a time → `usages: 10`.
+# With 4+ worktree sessions the norm here, `usages >= AIF_GLOSSARY_USES` was effectively
+# unreachable, so the «stop explaining after N times» throttle — the whole BUILD rationale
+# of prior-art row #283 — never engaged.
+#
+# `mkdir` is the portable atomic test-and-set (flock(1) is absent on macOS). Best-effort by
+# construction, exactly like every other counters write here: a lock we cannot take within
+# the bound is skipped, never fatal — a hook that blocks a turn over a learning counter is
+# worse than an undercount. Bound: 100 × 20 ms = 2 s. A lock dir older than a minute is a
+# crashed holder and is reclaimed, so one killed session cannot wedge the counter forever.
+_gl_lock() {
+  _gl_lockdir="${1}.lock"
+  _gl_held=""
+  _gl_i=0
+  while ! mkdir "$_gl_lockdir" 2>/dev/null; do
+    if [ -n "$(find "$_gl_lockdir" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then
+      rmdir "$_gl_lockdir" 2>/dev/null || true
+      continue
+    fi
+    _gl_i=$((_gl_i + 1))
+    [ "$_gl_i" -ge 100 ] && return 1
+    sleep 0.02 2>/dev/null || true
+  done
+  _gl_held=1
+  return 0
+}
+_gl_unlock() {
+  [ -n "${_gl_held:-}" ] || return 0
+  rmdir "$_gl_lockdir" 2>/dev/null || true
+  _gl_held=""
+}
+
+_gl_root="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(pwd)}}"
+if [ -n "$text" ] && [ -f "$_gl_root/CONTEXT.md" ]; then
+  _gl_session_key="$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)"
+  _gl_pending="${TMPDIR:-/tmp}/aif-glossary-pending-${_gl_session_key}"
+  if [ -f "$_gl_pending" ]; then
+    _gl_counts="$(_residue_dir)/_glossary-counts.json"
+    _gl_uses="${AIF_GLOSSARY_USES:-3}"
+    case "$_gl_uses" in '' | *[!0-9]* | 0) _gl_uses=3 ;; esac
+    _gl_explains="${AIF_GLOSSARY_EXPLAINS:-5}"
+    case "$_gl_explains" in '' | *[!0-9]* | 0) _gl_explains=5 ;; esac
+    [ -f "$_gl_counts" ] || { printf '{"terms":{}}' > "$_gl_counts" 2>/dev/null || true; }
+    _gl_tmp="${_gl_counts}.tmp-$$"
+    while IFS=$'\t' read -r _gl_term _gl_word; do
+      [ -n "${_gl_term:-}" ] && [ -n "${_gl_word:-}" ] || continue
+      # One lock hold spans the read and the write — see the _gl_lock block above.
+      _gl_lock "$_gl_counts" || true
+      _gl_u="$(jq -r --arg t "$_gl_term" '(.terms[$t].usages // 0)' "$_gl_counts" 2>/dev/null || echo 0)"
+      _gl_e="$(jq -r --arg t "$_gl_term" '(.terms[$t].explanations // 0)' "$_gl_counts" 2>/dev/null || echo 0)"
+      case "$_gl_u" in '' | *[!0-9]*) _gl_u=0 ;; esac
+      case "$_gl_e" in '' | *[!0-9]*) _gl_e=0 ;; esac
+      if [ "$_gl_u" -ge "$_gl_uses" ] || [ "$_gl_e" -ge "$_gl_explains" ]; then
+        _gl_unlock
+        continue  # learned between the prompt and this Stop — nothing fires (D-F); drop it
+      fi
+      if grep -qF -- "${_gl_term} (" <<<"$text"; then
+        # The answer carries the fixed form — count it (once per message: this loop visits a
+        # term once per Stop). It just explained, so never demand on this same turn; the
+        # next prompt-use of the term re-arms the demand while it is still below threshold.
+        _gl_e=$((_gl_e + 1))
+        if jq --arg t "$_gl_term" --argjson e "$_gl_e" '.terms[$t].explanations = $e' \
+             "$_gl_counts" > "$_gl_tmp" 2>/dev/null; then
+          mv -f "$_gl_tmp" "$_gl_counts" 2>/dev/null || rm -f "$_gl_tmp" 2>/dev/null || true
+        fi
+        _gl_unlock
+        continue
+      fi
+      # No counter write on the demand path — release before the (slower) message work.
+      _gl_unlock
+      _gl_flag="${TMPDIR:-/tmp}/aif-glossary-dem-${_gl_session_key}-$(printf '%s' "$_gl_term" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-48)"
+      # command -v BEFORE the call AND before the flag: an undefined function in a cmdsubst
+      # aborts the WHOLE hook under set -e (measured: rc 127) — a pack older than this
+      # feature lacks aif_msg_glossary_demand while still carrying every aif_msg_eot_* the
+      # arms above call. Degradation: the demand is skipped but the explanation still counts
+      # above, and the flag stays unset so the next turn retries once the pack catches up
+      # (cold-review m1, 2026-09-14 — the arm's pack-lag comment claimed keys only).
+      if [ ! -f "$_gl_flag" ] && command -v aif_msg_glossary_demand >/dev/null 2>&1; then
+        _gl_demand="$(aif_msg_glossary_demand "$_gl_term" "$_gl_word")"
+        { printf 'fired' > "$_gl_flag"; } 2>/dev/null || true
+        if [ -n "$glossary_line" ]; then
+          glossary_line="${glossary_line}"$'\n'"${_gl_demand}"
+        else
+          glossary_line="${_gl_demand}"
+        fi
+      fi
+    done < "$_gl_pending"
+    # Pending is consumed at the first Stop that reaches this arm — learned terms dropped,
+    # explained terms counted, unexplained terms demanded once. The next prompt-use of the
+    # term (the operator uses these words repeatedly — that is the measured pattern) re-arms
+    # it via the UserPromptSubmit twin.
+    rm -f "$_gl_pending" 2>/dev/null || true
+    rm -f "$_gl_tmp" 2>/dev/null || true
+  fi
+  unset _gl_session_key _gl_pending _gl_counts _gl_uses _gl_explains _gl_tmp \
+        _gl_term _gl_word _gl_u _gl_e _gl_flag 2>/dev/null || true
+fi
+
 text_length=${#text}
 
 # Turn shape — one answer, two call sites. The already-recapped guard below needs `asked`
@@ -1063,6 +1231,11 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$gate_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${gate_line}"
     fi
+    # Same parity arm for the glossary demand (D-F): rides the dense block, never a second
+    # block per turn. Works on ZCode — the pending file is TMP-residue, not transcript data.
+    if [ -n "$glossary_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${glossary_line}"
+    fi
     _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
@@ -1206,6 +1379,10 @@ fi
 # substantive turns it exists for (the F10 shadowing class, postmortem at :51-62).
 if [ -n "$gate_line" ]; then
   reminder="${reminder}"$'\n\n'"${gate_line}"
+fi
+# The glossary demand (D-F) rides the same block — one block per turn (:185-187).
+if [ -n "$glossary_line" ]; then
+  reminder="${reminder}"$'\n\n'"${glossary_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{

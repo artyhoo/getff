@@ -193,6 +193,36 @@ Rewrite this turn's final message without the /compact line, and do not carry on
 EOF
 }
 
+# Glossary learning thresholds (plain-words-recap-v2 D-F) — the first CONFIG keys in a pack
+# (everything above is match data or message prose). A term is learned once the operator has
+# used it AIF_GLOSSARY_USES times OR the agent has carried the inline "term (explanation)"
+# form AIF_GLOSSARY_EXPLAINS times; below that the Stop hook demands the inline explanation
+# once (per-term one-shot flag). Hooks capture the operator's env BEFORE sourcing this pack
+# and put it back afterwards: the pack value is the DEFAULT, an env override always wins.
+# The parity probe in check-parity.sh (^AIF_GLOSSARY_[A-Z_]+=) exists so this key class can
+# never land in one pack only and abort the other pack's hook under set -u.
+AIF_GLOSSARY_USES=3
+AIF_GLOSSARY_EXPLAINS=5
+# Word-boundary character class for the glossary raw-word match — category-3 MATCH DATA
+# (language-discipline.md §1), homed in the packs rather than the hook body: principle 22
+# Surface 1 gates machinery shell to no Cyrillic outside the packs, and the pack home is
+# that rule's §5 counter to #match-data-translated-away. Identical value in both packs by
+# design (the class is script-agnostic); the hook builds [^A-Za-z<CLASS>0-9] bounds from it.
+# Letters are ENUMERATED, never a range: GNU grep under glibc C.UTF-8 (the ubuntu CI
+# default) rejects a Cyrillic range in a bracket with "Invalid collation character", and
+# the hook's `grep ... || continue` then silently skips every term (measured 2026-09-21,
+# PR 1824 CI). The enumerated form is valid in POSIX, C.UTF-8 and en_US.UTF-8 alike.
+AIF_GLOSSARY_WORD_CLASS='АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя'
+
+# Stop hook — glossary demand (D-F): the operator's prompt used a still-unlearned term and
+# this is the first turn it fires (one-shot flag per term). $1 = the term, $2 = the raw word
+# the operator actually used. Asks for the fixed inline form the explanations counter greps.
+aif_msg_glossary_demand() {
+  cat <<EOF
+[glossary] The operator used "$2" (= $1) — a term still being learned. Somewhere in this answer, explain it inline once in the fixed form: $1 (<one-line explanation>). The parentheses are the point: that exact form is what stops the explanation from scrolling away.
+EOF
+}
+
 # Story-recap heading (Stop-hook story branch + /story skill greps/embeds this).
 AIF_STORY_MARKER='## 🎬 The story'
 

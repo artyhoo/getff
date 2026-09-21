@@ -258,6 +258,32 @@
       "example": null
     },
     {
+      "name": "glossary-inject",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "UserPromptSubmit hook: glossary injection + usage counter (plain-words-recap-v2 D-F).",
+      "source": {
+        "path": ".claude/hooks/glossary-inject.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": {
+          "absent": "unregistered"
+        },
+        "matcher": {
+          "absent": "unregistered"
+        },
+        "delivery": [
+          "@cc-only-rationale",
+          "plugin"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "inject-handoff-on-compact",
       "kind": "hook",
       "shipsTo": {

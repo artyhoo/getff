@@ -576,6 +576,8 @@ jobs:
         run: bash tests/hooks/prepush-cross-checkout-range.test.sh
       - name: Run runtime-bridge dispatch opt-IN gate paired-negative (one-click-installer kickoff §7)
         run: bash tests/hooks/runtime-bridge-dispatch-optin.test.sh
+      - name: Run register-glossary-hook idempotence regression (cold-review M2, plain-words-recap-v2 S3)
+        run: bash tests/hooks/register-glossary-hook.test.sh
       # Wired 2026-08-17. This suite had existed since the S6 twin generator shipped but was
       # invoked by NO workflow step and NO pre-push section — a test nobody ran. It is the only
       # coverage of scripts/generate-plugin-twins.sh, including the sandbox arms proving the

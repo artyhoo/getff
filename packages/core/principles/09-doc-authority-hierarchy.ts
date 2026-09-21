@@ -32,6 +32,9 @@ export const REQUIRED_HEADER_DOCS: readonly string[] = [
   'CONTRIBUTING.md',
   'INSTALL.md',
   'INSTALL-FOR-AI.md',
+  // Repo-root glossary (plain-words-recap-v2 S3) — term list + operator raw words,
+  // scanned by the glossary hooks and read by /wait-what.
+  'CONTEXT.md',
 
   // Hot operational
   '.claude/session-bootstrap.md',

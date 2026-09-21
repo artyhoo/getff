@@ -43,7 +43,7 @@ Conflicting authority claims become detectable at review time and at session-sta
 ## §2 When a doc needs Authoritative-for header
 
 **Required for:**
-- Project-root docs: `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `INSTALL.md`, `INSTALL-FOR-AI.md`
+- Project-root docs: `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `INSTALL.md`, `INSTALL-FOR-AI.md`, `CONTEXT.md`
 - Operational reference docs under `docs/meta-factory/*.md` (excluding the transient-by-naming subset below)
 - Skill primary docs + cold references: `skills/*/SKILL.md`, `skills/*/references/*.md`
 - Hot operational docs: `.claude/session-bootstrap.md`, `.claude/rules/*.md`
