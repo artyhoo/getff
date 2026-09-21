@@ -68,6 +68,7 @@ packages/*/node_modules
 # dispatch session to read (.claude/rules/kickoff-staging-placement.md §1). Per-umbrella
 # glob mirrors the beta-delivery-ux exception above.
 !.claude/orchestrator-prompts/triage-kernel-v2/kickoff-s*.md
+!.claude/orchestrator-prompts/open-issues-2026-09-fix-waves/kickoff-w*.md
 # aif-handoff-runtime-bridge-iphase §12 audit-trail extraction (2026-08-08): the
 # kickoff hit the 600-line pre-commit gate (651 lines), so §12 moved verbatim to
 # kickoff-amendments.md. Tracked for the same reason as the globs above — it is
