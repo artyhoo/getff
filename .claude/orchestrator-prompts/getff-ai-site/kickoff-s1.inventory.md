@@ -49,11 +49,32 @@ D49 forbids. Its rows are still greppable by slug from this file.
 | 3 — Learn/Guides/Understand | the four sidebar tabs, `nav.json`, D19's task shape, D30's kind registry, and the R7/D37 successor obligation | per-row in §4; no row without a named source |
 | 5 — non-page URLs | the live site's own tree | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883` |
 
-The population-2 rows are **generated**, not typed: the slug is the member id with its extension
-dropped and `/` folded to `-`. Regenerating them from the same JSONs must reproduce §3 byte for
-byte; if it does not, a family's membership moved and the inventory is stale. This follows the
-`old-urls.txt` precedent — an enumerated list committed with the command that produced it
-([`roll.md:59`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md), R7).
+The population-2 rows are **generated**, not typed. An earlier draft of this paragraph described
+the rule in prose — «the member id with its extension dropped and `/` folded to `-`» — and the
+cold review implemented that prose literally and reproduced only **181 of 230** rows: the prose
+omitted the lowercasing (all 26 `F2` rows are `IR1`→`ir1`), the folding of a remaining `.` to `-`,
+and the leading-dot handling. A drift falsifier you cannot re-run is decoration, so the rule is
+now **the code**, not a description of it:
+
+```js
+(m.slug || m.id || m.name)
+  .replace(/([^./])\.[^./]+$/, '$1') // drop the LAST extension — and only when a real character
+                                     // precedes the dot, which is what leaves `.nvmrc` whole
+  .replace(/\//g, '-')               // fold path separators
+  .toLowerCase()
+  .replace(/[^a-z0-9-]/g, '-')       // fold every remaining non-slug character, `.` included
+  .replace(/-+/g, '-')               // collapse runs (this is what absorbs a leading dot)
+  .replace(/^-|-$/g, '');
+```
+
+Run over `docs/site/reference/<F>.json` `.members[]` in the §3 family order, that must reproduce
+§3 **byte for byte**; if it does not, a family's membership moved and the inventory is stale.
+**Live-fired 2026-09-21** against the table as committed: the code above produced 230 rows
+matching all 230 table rows exactly (`JSON.stringify(generated) === JSON.stringify(table)` →
+`true`), while the prose rule it replaces produced 49 differing rows — reproducing 181 of 230.
+The falsifier discriminates; it was not merely asserted. This
+follows the `old-urls.txt` precedent — an enumerated list committed with the command that produced
+it ([`roll.md:59`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md), R7).
 
 ## §2 Population 1 — D28 §4: the pinned seven, rows 2a–d, the census URLs, the AI surface
 
@@ -74,20 +95,40 @@ The eleven face pages are **gold, written in S0b, never conveyor** — the hub `
 | `/docs/foundations/` | `face-page` | S0b | gold (Fable) | D28 §4 row 6; `docs/site/foundations.md` |
 | `/docs/ai-agents/` | `face-page` | S0b | gold (Fable) | D28 §4 row 7; `docs/site/ai-agents.md` |
 | `/docs/terms/` | `glossary` | S0b | gold (Fable) | D30 registry `glossary` («`terms.md` only»); `docs/site/terms.md`; `nav.json` `glossary` |
-| `/docs/executable-agents-md/` | `learn-tutorial` | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub; D12: How it works §3 and Why §proof LINK it |
+| `/docs/executable-agents-md/` | `understand` | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub; D12: How it works §3 and Why §proof LINK it |
 | `/docs/limits/` | `understand` | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33); its stack table is a `maturity.json` fence region (D28 `:105`) |
-| `/docs/faq/` | `guide` | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub |
+| `/docs/faq/` | **ESCALATED to D30** — fits none of the seven | **S1 RUN** | conveyor (aif/GLM) | D49 explicit RUN row; census URL (D33) — real content, no stub |
 | `/llms.txt` | n/a — build projection | S1 BUILD (landing) | landing build | D28 §5.8 `face.md:293`; head authored as `docs/site/llms-head.txt` (S0b), lists generated from `face-facts.json` + family JSON |
 | `/llms-full.txt` | n/a — build projection | S1 BUILD (landing) | landing build | D28 §5.8 `face.md:304`; every page's processed markdown, face pages first |
 
-**Kind assignments for the three D49 rows, and what would falsify them.** D49 says their `kind:`
-is assigned from D30's registry. `/docs/executable-agents-md/` walks three properties through
-three live-fired claims and closes on what the reader now has — `learn-tutorial`'s two sections.
-`/docs/limits/` is mechanism-and-where-it-stops with no steps — `understand`, whose `## Limits`
-section is the page's whole subject. `/docs/faq/` answers «how do I…» questions with verifiable
-steps — `guide`. **Wrong if** the conveyor cannot fill a kind's required sections without
-inventing content: then the page escalates to D30 for a registered kind, and the inventory row is
-amended — the kind is never widened here.
+**Kind assignments for the three D49 rows — decided against the LIVE pages, not against the slug.**
+D49 says their `kind:` is assigned from D30's registry, and D30 is the authority. A first pass
+assigned them by reading the slugs; the cold review read the pages at `getff-landing`
+`origin/main` = `c091883` and two of the three were wrong. Deferring that to «the conveyor will
+notice it cannot fill a section» would have been `#hope-as-gate`
+([`attention-is-not-a-mechanism.md §2`](../../rules/attention-is-not-a-mechanism.md)) over pages
+that are readable today. The three, with their live headings:
+
+- **`/docs/executable-agents-md/` → `understand`.** Its sections are «The three properties» /
+  «Walkthrough: three real claims» / «Honest framing» — which is `understand`'s
+  `## Mechanism` / `## Proof` / `## Limits` almost word for word. It was first assigned
+  `learn-tutorial`, which requires `## Steps` whose «first runnable step appears before any
+  concept explanation» ([`page-kinds.md`](../../skills/docs-author/references/page-kinds.md)):
+  the page opens with concept and asks the reader to run nothing. D12's own framing — a page that
+  How it works and Why **link as proof** — is the `understand` role.
+- **`/docs/limits/` → `understand`, and this one is the least-bad fit, not a clean one.** The live
+  page is three numbered limits with no mechanism section and no proof section. `understand`
+  demands `## Mechanism` and `## Proof` ahead of `## Limits`; the `maturity.json` fence region
+  (D28 `:105`) is the only thing available to serve as `## Proof`. **Escalate to D30 if** the
+  conveyor cannot write a `## Mechanism` for it from the pin without inventing one.
+- **`/docs/faq/` → ESCALATED to D30; no kind assigned here.** Its seven headings are «What is an
+  executable AGENTS.md?», «Does getff need an LLM?», «Is getff open source?» and four
+  «How is this different from …?» — not one is a «how do I», and the page carries no step, no
+  command and no verification. `guide` is four GATE sections — `## Prerequisites`, `## Steps`,
+  `## Verify`, `## Variations` — plus «the goal belongs in the title», and the title is «FAQ».
+  Assigning it would guarantee the conveyor invents all four. None of the other six fits either,
+  so this is exactly the case D49 routes to D30 for a registered kind. **It is not an open enum
+  and not a licence to widen the set here.**
 
 ## §3 Population 2 — the D29 reference families
 
@@ -352,9 +393,12 @@ its own row; nothing is improvised. Four sources carry this population:
 4. **The R7/D37 successor obligation**
    ([`roll.md:206`](../../../docs/superpowers/specs/2026-09-14-getff-ai-rollout-and-cutover-design.md),
    TD-12): «stubs only where a successor exists; draft URLs without a successor go to
-   `retired-urls.txt` and 404 from cutover». Five post-census slugs on the live site have **no
-   declared successor** (§5). Four of them are tab-shaped pages and appear below as the successor
-   that keeps the old URL from 404ing; the fifth is escalated, not invented.
+   `retired-urls.txt` and 404 from cutover». **Six** post-census slugs on the live site have **no
+   declared successor** (§5) — D28 §4 names all six at
+   [`face.md:111`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md)
+   («`daily-cycle-*`, `factory-overview`, `degradations`, `reference`, `beta`»). Four of them are
+   tab-shaped pages and appear below as the successor that keeps the old URL from 404ing; the
+   other two — `/docs/beta` and `/docs/reference` — are escalated, not invented.
 
 **Token rows.** Ten family guides and two Learn tutorials have a source for their *existence* but
 no source for their *title*. Their slug is a token `<…>`. The conveyor plan (P-R) replaces the
@@ -387,17 +431,26 @@ here would be the improvisation falsifier (b) names.
 **19 rows against D41's «~15».** The estimate is superseded by the enumeration, which is what D49
 asks for; the delta is +4 and its whole size is the successor obligation, which D41 never priced.
 
-**One escalation, not an invention.** `/docs/beta` («Join the beta») has no successor page in any
+**Two escalations, not inventions.** `/docs/beta` («Join the beta») has no successor page in any
 of the four sources: it is a programme surface, not a tutorial, a guide or a mechanism, and D30's
-closed set has no kind for it. Per R7/D37 it is therefore either a landing-side page outside
-`docs/site/**` or a `retired-urls.txt` entry — **an operator decision, recorded in §5 as open.**
-Writing a row for it here would be exactly the improvised row falsifier (b) forbids.
+closed set has no kind for it. `/docs/reference` («Framework reference (raw)») is the old site's
+raw-reference **index**, whose successor would be the Reference tab itself — but `nav.json`
+`tabs[reference]` carries families and overviews and **no index page**, so no slug in this
+inventory is its successor. Per R7/D37 each is either a landing-side page outside `docs/site/**`
+or a `retired-urls.txt` entry — **operator decisions, recorded in §5 as open.** Writing rows for
+them here would be exactly the improvised row falsifier (b) forbids.
 
 ## §5 Non-page URLs — redirect stubs, kept census URLs, and the one open successor
 
 Not pages: no `kind:` frontmatter, written by `write-redirect-stubs.mjs` in the landing repo
 (R7/R21). Enumerated from `git ls-tree -r --name-only origin/main -- content/docs` in
-`artyhoo/getff-landing` @ `c091883` — 16 top-level docs pages.
+`artyhoo/getff-landing` @ `c091883` — 16 top-level `*.md` pages — **plus `/docs/reference`,
+which that command structurally cannot see**: it is a folder index (`content/docs/reference/meta.json`,
+title «Framework reference (raw)»), not a top-level `*.md`, so the enumeration that found the
+other sixteen was blind to it by construction. It was recovered from D28 §4's own bulk-map list
+and from `content/docs/meta.json`, which carries `"reference"` as a nav entry between `"faq"` and
+`"beta"`. **17 rows.** That miss is the omission direction D49 exists to make visible, and it took
+a second enumeration path to see it — one command was not enough.
 
 | old URL | disposition | successor | provenance |
 |---|---|---|---|
@@ -411,6 +464,7 @@ Not pages: no `kind:` frontmatter, written by `write-redirect-stubs.mjs` in the 
 | `/docs/factory-overview` | stub | `/docs/understand/<successor-factory-overview>/` | §4 row; R7/D37 |
 | `/docs/degradations` | stub | `/docs/understand/<successor-degradations>/` | §4 row; R7/D37 |
 | `/docs/beta` | **OPEN** — stub or `retired-urls.txt` | none identified | R7/D37; operator decision (§4) |
+| `/docs/reference` | **OPEN** — stub or `retired-urls.txt` | none identified | D28 §4 bulk-map list (`face.md:111`); live nav entry in `content/docs/meta.json` @ `c091883`, title «Framework reference (raw)»; `nav.json` `tabs[reference]` has no index page |
 | `/docs/quickstart-ts` | **no stub, no redirect** | itself (real page) | census set, D33 / R21 — a stub here is a FAILURE |
 | `/docs/quickstart-rust` | **no stub, no redirect** | itself (real page) | census set, D33 / R21 |
 | `/docs/executable-agents-md` | **no stub, no redirect** | itself (real page, §2) | census set, D33 / R21 |
@@ -431,9 +485,11 @@ committed with its own command. This file owns the *page* population; `old-urls.
 | 2 — D29 families | 230 | 19 | 211 |
 | 3 — Learn / Guides / Understand | 19 | 3 | 16 |
 | **Total pages** | **266** | **34** | **230** |
-| 5 — non-page URLs | 16 | — | landing build (R7) |
+| 5 — non-page URLs | 17 | — | landing build (R7) |
 
-**The conveyor's real size is 230 pages, not «~105».** D41's «~105 non-gold pages» and D25's
+**The conveyor's real size is 230 pages owed by S1 RUN, not «~105».** (Population 2 also happens
+to hold 230 rows. The two numbers are unrelated — the owed total is 3 + 211 + 16 — and the
+coincidence is worth naming so no one reads one as an explanation of the other.) D41's «~105 non-gold pages» and D25's
 «~125-page scope» were estimates taken before any population was enumerated; this is the first
 enumeration, and it more than doubles them. The whole delta is population 2: 219 members across
 eleven families, of which only family B's 18 are written. **This is a finding for the operator and
@@ -459,6 +515,13 @@ guide and understand pages in population 3).
   and re-check §6's counts in the same commit.
 - **Kind widening** — a page whose content fits none of D30's seven kinds → escalate to D30 for a
   registered kind. A new word in the `kind` column of this file is the defect, not the fix.
+- **Escalation that never resolves** — a row reading `ESCALATED to D30` (today: `/docs/faq/`) is a
+  parked question, not a kind. If that page merges while the row still reads `ESCALATED`, D30's
+  registry was widened in practice without being widened on the record — the same defect as the
+  bullet above, arriving by silence instead of by a new word. The row must carry one of the seven
+  before the page is written. Its sibling shape is a §5 row still reading **OPEN** (today
+  `/docs/beta`, `/docs/reference`) at cutover: an un-decided URL 404s by default, which is a
+  decision taken by nobody.
 - **T10 order** — this file is the population, and it precedes every coverage claim about the site
   ([`ai-laziness-digest.md`](../../rules/ai-laziness-digest.md) T10). A coverage percentage quoted
   against anything other than §6's totals is measuring an unenumerated denominator.

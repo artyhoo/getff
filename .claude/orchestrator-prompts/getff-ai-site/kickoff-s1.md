@@ -92,11 +92,17 @@ never an open enum.
 non-negotiable 7). It carries the one table across its three populations, plus a companion table
 for non-page URLs — a redirect stub has no `kind:` frontmatter, and forcing it into the page
 table would create exactly the open enum D49 forbids. Read it before generating any batch prompt.
-**Two findings it produced, which a Worker must not re-derive:** the conveyor's real size is
-**230 pages, not «~105»** (§6 there — 219 family members across eleven families, of which only
-family B's 18 are written), so at D19's ~20-pages-per-task ceiling the remaining ten families are
-ten aif tasks; and `/docs/beta` has **no successor page in any source** and is an open operator
-decision (stub target or `retired-urls.txt`), recorded rather than invented.
+**Two findings it produced, which a Worker must not re-derive.** First, the conveyor's real size
+is **230 pages owed by S1 RUN, not «~105»** (§6 there: 3 + 211 + 16). Its population-2 table also
+holds 230 rows — an unrelated coincidence of arithmetic, named here so neither number is read as
+an explanation of the other. 219 family members sit across eleven families, of which only family
+B's 18 are written, so at D19's ~20-pages-per-task ceiling the remaining ten families are ten aif
+tasks. Second, **two live URLs have no successor page in any source** — `/docs/beta` and
+`/docs/reference` — and each is an open operator decision (stub target or `retired-urls.txt`),
+recorded rather than invented. The cold review of the inventory (2026-09-21) found
+`/docs/reference` missing from a first enumeration that used a single command; it is a folder
+index, and the `git ls-tree … *.md` arm that found the other sixteen was blind to it by
+construction. A Worker enumerating live URLs uses **two** paths, never one.
 
 **D49 falsifiers, verbatim:** (a) a page merged in S1 that is in no inventory row → the batch
 prompt was not generated from the inventory; **fix the generation, never the page**; (b) the
