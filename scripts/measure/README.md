@@ -200,3 +200,7 @@ too — treat the counts as an upper bound and read the list.
 ```bash
 python3 scripts/measure/measure-term-reasks.py
 ```
+
+`measure-recap-sentences.py` gained `--since YYYY-MM-DD` the same day: its population is every
+transcript ever written, so a percentage falls as history grows; a before/after comparison must
+window the blocks by message date (UTC).

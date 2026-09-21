@@ -69,3 +69,72 @@ Round 2 was not run: every MAJOR is FIXED or DISSOLVED with evidence and the one
 the operator's fork, which no cold seat can close
 ([effort-worthiness.md](../../../.claude/rules/effort-worthiness.md): what breaks if a fix is
 wrong is a spec line the implementing slice's own review re-reads, at the cost of one edit).
+
+## Revision 2 review (2026-09-22)
+
+The paragraph above is about revision 1. Revision 2 of the spec got its own cold two-altitude
+pass: two mid-tier seats, artifact snapshots only (`git show 350895ecbf9:<spec>` plus the
+commissioning handoff), unique output files. **Top-down: REVISE (2 BLOCKER, 7 MAJOR, 4 MINOR).
+Bottom-up: REVISE (5 MAJOR, 5 MINOR).** Both seats reproduced every upstream wording, every
+negative grep and every absolute count; the findings are about one measurement, two readings of
+the operator, D9's «AS IS», and D7's file list. One revision round was applied; a third cold pass
+was not run ([effort-worthiness.md](../../../.claude/rules/effort-worthiness.md): the slice is
+text-only and blocked behind S4, so a wrong spec line costs one edit when the implementing
+session re-reads it).
+
+### Top-down
+
+- TD2-F1 BLOCKER — the 7-day re-explain rate read 9.8 % a day after the spec pinned 3.4 %; 9 of
+  14 hits were this design dialogue, double-counted — **FIXED** (the rate is no longer a ground
+  or a trigger anywhere: Measurements, D2, D5, R-5, R-10; D2's trigger is the operator's report).
+- TD2-F2 BLOCKER — R-11 dropped the operator's clause about the «От тебя» line — **DISSOLVED in
+  part, FIXED in part.** The clause is the operator quoting the agent's proposal of 21:10 UTC
+  (verified in the transcript: the same sentence appears in the assistant message 23 minutes
+  earlier); his reply starts at the dash. The register now carries the message whole with that
+  note, and D1 line 3 states the one reading «learned» has once the counters are out.
+- TD2-F3 MAJOR — D11/R-12 graded a hedge as an answer and omitted «нам нужно комбо … и счетчик» —
+  **ESCALATED** (new operator fork R-16 with a recommendation; both quotes in the register; R-12
+  narrowed to the growth signal only).
+- TD2-F4 MAJOR — «AS IS» re-admits «Challenge against the glossary» against D8's silent mapping —
+  **FIXED** (D8 «spelling is mapped; meaning is asked»; D9 binding (ii)).
+- TD2-F5 MAJOR — binding (iii) lives in a `disable-model-invocation` skill while upstream
+  `domain-modeling` is model-invocable — **FIXED** (D9 «Channel for (iii)»: a `CLAUDE.md` routing
+  line in the always-injected layer; D7 file list).
+- TD2-F6 MAJOR — the ADR half rides «AS IS»; `ADR-FORMAT.md` would dangle — **FIXED** (D9: five
+  named sections adopted, ADR half and `CONTEXT-MAP.md` excluded per D-H11 «ADR dir REJECT»).
+- TD2-F7 MAJOR — the one-line report is bare attention — **FIXED in part, ACCEPTED in part** (D8:
+  a spelling-uniqueness test plus the PR diff; the residue is recorded as a known, reversible
+  limit; R-13's falsifier is now observable).
+- TD2-F8 MAJOR — no story for how a `CONTEXT.md` edit reaches `staging` — **ACCEPTED** (D8: rides
+  the session's PR; the PR-less session is a recorded limit; R-12 reads `git log --all`).
+- TD2-F9 MAJOR — the re-measure had no owner — **FIXED** (R-17, D7 step 3: a scheduled task whose
+  id the done-claim names).
+- TD2-F10 MINOR — «one script … vendored by this PR» false — **FIXED** (Measurements intro).
+- TD2-F11 MINOR — provenance pinned to the version string — **FIXED** (D9, Prior art).
+- TD2-F12 MINOR — the population slides under the falsifier — **FIXED** (`--since` flag added to
+  `measure-recap-sentences.py`; windowed baseline 6 / 75 = 8.0 % recorded with its bias).
+- TD2-F13 MINOR — D7 omitted `arch/SKILL.md` from S4's files — **FIXED** (D7 step 1).
+- TD2 notes — `Handoff` hits on two days are phrase-match noise — **ACCEPTED** (the script's
+  docstring already says upper bound); mixed date base — **FIXED** (one note in the register).
+
+### Bottom-up
+
+- BU2-F1 MAJOR — D7 omitted fingerprints, `MANIFEST.sha256` and four `docs/site` pages —
+  **FIXED** (D7 step 2: file list plus the regeneration chain of `kickoff-s4.md:137`).
+- BU2-F2 MAJOR — same ground as TD2-F6 — **FIXED** (one disposition, D9).
+- BU2-F3 MAJOR — the `grilling` hash test's «last heading» contract does not transfer —
+  **FIXED** (D9: per-section hashes under a test with its own contract).
+- BU2-F4 MAJOR — same ground as TD2-F12 — **FIXED** (one disposition).
+- BU2-F5 MAJOR — same ground as TD2-F10 — **FIXED** (one disposition).
+- BU2-F6 MINOR — `story/SKILL.md` carries the phrase twice — **FIXED** (D10, D7: `:25-26`, `:43`).
+- BU2-F7 MINOR — three anchors off by a line — **FIXED** (`:90-92`, `lang/ru.sh:210-213`,
+  parent `:249-259`).
+- BU2-F8 MINOR — percentages no longer reproduce, counts do; two staging bases in one file —
+  **FIXED** (Measurements note; header names both bases).
+- BU2-F9 MINOR — the per-term breakdown is not a partition — **FIXED** (table cell says so).
+- BU2-F10 MINOR — D1 line 4 belongs after the «instructions to yourself» seam — **FIXED** (D1
+  «Placement»).
+- BU2 notes — the unsanitized `AIF_EOT_RECAP_MAX_LINES` interpolation loses its owner with D2
+  parked — **ACCEPTED** (surfaced under Consequences, not fixed here); hand-listed stems decay as
+  the glossary grows — **ACCEPTED** (D8 «Script upkeep», owned by R-17's run);
+  `upstream-skill-reference.test.ts` resolves only `superpowers:` names — **ACCEPTED** as is.
