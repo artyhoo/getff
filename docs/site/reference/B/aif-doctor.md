@@ -71,7 +71,10 @@ Inside, the skill works in four moves. The last move comes in two kinds:
 
 When nothing in the catalogue matches, the skill tells the agent to say so and not to
 guess. It also tells the agent to leave slow tasks alone, because the runtime has its
-own watchdog for those. No default install contains this skill, so the example runs in the getff repository:
+own watchdog for those. Two failures are found by counting container log lines over a
+time window. The count is printed only when the log that was read covers the whole
+window. Otherwise the skill prints `WINDOW-UNCOVERED` and the reason, never a
+misleading 0. No default install contains this skill, so the example runs in the getff repository:
 
 ```bash
 ls .claude/skills/aif-doctor .claude/skills/aif-doctor/helpers
@@ -101,19 +104,20 @@ part of the [soft layer](../../terms.md#soft-layer-and-hard-layer).
 ## Evidence
 
 - The description comes from line 3 of `.claude/skills/aif-doctor/SKILL.md`. Line 5
-  sets `disable-model-invocation: false`, and line 36 says the skill "auto-fires". The
-  posture marker is line 18.
+  sets `disable-model-invocation: false`, and line 38 says the skill "auto-fires". The
+  posture marker is line 20.
 - Line 328 of `scripts/render-reference.mjs` prints `slash-only` whenever that key is
   present, whatever its value. That explains the card row.
-- The probes are lines 49 to 57, with the address on line 53 and the container filter
-  on line 55. The watchdog note is line 59. The four moves are lines 67 to 70, and line
-  68 holds the "do not guess" rule.
-- The catalogue is sections 3.1 to 3.8, from line 80. The two kinds of change start on
-  lines 210 and 229. The network limit is line 257.
+- The probes are lines 51 to 59, with the address on line 55 and the container filter
+  on line 57. The watchdog note is line 61. The four moves are lines 69 to 72, and line
+  70 holds the "do not guess" rule.
+- The catalogue is sections 3.1 to 3.8, from line 82. The log-window check is the
+  section 3.7 block, lines 160 to 196, and section 3.8 reuses it on lines 225 to 228.
+  The two kinds of change start on lines 247 and 266. The network limit is line 294.
 - `.claude/skills/aif-doctor/helpers/heal.sh` states its "always exits 0" contract on
-  line 12. Line 55 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
-  exists only in the framework repository.
-- The skill belongs to the `factory` list on line 63 of `setup.d/lib.sh`. The installer
-  copies that list on lines 163 to 167 of `setup.d/10-skills.sh`, and marks the helpers
-  executable on lines 185 to 189. Line 17 of `install.sh` names the flag.
+  line 12. Line 137 of `.claude/skills/dispatcher/SKILL.md` says the `packages/` path
+  does not exist outside the framework repository.
+- The skill belongs to the `factory` list on line 65 of `setup.d/lib.sh`. The installer
+  copies that list on lines 170 to 174 of `setup.d/10-skills.sh`, and marks the helpers
+  executable on line 194. Line 17 of `install.sh` names the flag.
 - The card above is built from `docs/site/reference/B.json`.

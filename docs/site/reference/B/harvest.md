@@ -71,7 +71,9 @@ Inside, the skill has four parts:
 | Run the checks | runs one script that repeats the CI checks your change touches |
 | Review and open | gets a fresh review of the diff, then opens the pull request |
 
-The first part carries the most detail. The default is to copy the branch to your own
+The first part carries the most detail. It opens with a health check from your own
+machine: if the runtime does not answer on `localhost:3009`, the skill stops there
+instead of starting work it cannot finish. The default is to copy the branch to your own
 machine and push from there, so your normal pre-push checks run. Landing the commit
 through the GitHub API is the last resort, for when your own machine cannot reach GitHub
 either. That path skips the pre-push checks, so the check script becomes mandatory.
@@ -104,15 +106,16 @@ CI-only, and the skill says so: whole-tree Markdown checks are not in the local 
 
 - The description is line 3 of `.claude/skills/harvest/SKILL.md`. Line 6 of the same
   file is `disable-model-invocation: true`, which the card shows as `slash-only`. The
-  posture marker is line 18.
-- The four parts are the sections that start at lines 41, 59, 63, and 76 of that file.
-  The default push path is step 4 (line 54). The last-resort path is step 5 (line 55).
-  The CI-only checks are named at line 74.
-- The list of `factory` skills is line 63 of `setup.d/lib.sh`. The loop that copies
-  them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 163
-  to 167.
+  posture marker is line 19.
+- The four parts are the sections that start at lines 42, 68, 72, and 85 of that file.
+  The runtime health check is step 0 (line 58). The default push path is step 4
+  (line 63). The last-resort path is step 5 (line 64). The CI-only checks are named at
+  line 83.
+- The list of `factory` skills is line 65 of `setup.d/lib.sh`. The loop that copies
+  them runs only for `factory` or `--with-aif-suite`: `setup.d/10-skills.sh`, lines 170
+  to 174.
 - The same block delivers `scripts/run-local-ci-sweep.sh` next to the skill:
-  `setup.d/10-skills.sh`, lines 168 to 175. The usage text printed above is lines 144 to
-  147 of that script.
+  `setup.d/10-skills.sh`, lines 175 to 182. The usage text printed above is lines 145 to
+  148 of that script.
 - The card above is built from the `harvest` entry in `docs/site/reference/B.json`,
   which starts at line 159.

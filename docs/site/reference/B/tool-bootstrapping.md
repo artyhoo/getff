@@ -59,6 +59,9 @@ Inside are six rules:
 
 1. **Read the stack** from your package manifest, `.mcp.json`, and framework configs.
 2. **Propose at most five tools per block.** Each one names the dependency that needs it.
+   First the agent runs one `npx skills search` for each core of your stack: the
+   language, the UI framework, the metaframework, the database. The top well-known result
+   of each search goes on the list. It is proposed, never installed.
 3. **Ask once.** One yes or no for the whole list. Nothing is installed without it.
 4. **Count the cost.** If a skill can do the job, propose the skill and not a server. If
    a server costs more context than it saves, drop it.
@@ -99,13 +102,13 @@ template carries one field per stack.
   lines 25 to 47, the hard rule is line 35, the note about the outside `/aif` detector is line 51, and the context7
   fallback is line 55.
 - The installer copies the skill from the repository root: `setup.d/10-skills.sh`, lines
-  29 to 43. The `python` [lane](../../terms.md#lane) copies it on line 1226 of
+  34 to 50. The `python` [lane](../../terms.md#lane) copies it on line 1229 of
   `setup.d/45-python.sh`.
 - The decisions file is seeded on line 41 of `setup.d/30-templates.sh` from
   `skills/tool-bootstrapping/templates/tool-decisions.md.template`. Its per-stack hash
   fields are lines 5 to 7. The single-field schema is line 16 of
   `skills/tool-bootstrapping/references/decision-format.md`.
 - The hook is `packages/core/hooks/deps-hash-check.sh`, copied and registered by lines
-  195 to 218 of `setup.d/10-skills.sh`.
+  202 to 236 of `setup.d/10-skills.sh`.
 - The `operator-twin` row names `.claude/skills/tool-bootstrapping/SKILL.md`, the copy
   getff uses on itself. The card is built from `docs/site/reference/B.json`.
