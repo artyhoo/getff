@@ -16,6 +16,8 @@
 #   refresh_baseline_stage <dst>            # consumer-refresh-integrity R1 — record a delivery
 #   refresh_baseline_flush                  # R1 — write .ai-factory/refresh-baseline.json (fail-open)
 #   refresh_baseline_diverged <dst> <src>   # R1 — 0 iff dst diverged from the baseline (if-guard only)
+#   _pre_overwrite_guard <src> <dst> [transform] # W1-A (GH #1514/#1540) — divergence sweep before a
+#                                              # destructive overwrite (copy_safe --force / tree replace)
 #   deliver_getff_workflow <tpl-src> <dst>      # getff-honest-signals S4 — branch substitution
 #   merge_prettierignore <src> <dst>
 #   _prettierignore_in_skipped <needle>
@@ -189,18 +191,35 @@ _transform_md_tree() {
 # (see transform_internal_refs above; the 2026-08-17 CI incident, run 32022158836, was exactly a
 # delivered README landing back at its untransformed source).
 #
-# NOT a delivery verb: it applies no ownership policy at all — no skip-if-exists, no `.override.md`
-# escape, no R1 divergence guard. Callers that owe the consumer an ownership decision go through
-# copy_safe / refresh_safe / refresh_tree_with_transform; this helper is only the raw sequence
-# those verbs and the fresh-install layers share. Handing it a destination the consumer may own
-# is the ledger A1-1 defect (see refresh_tree_with_transform below).
+# NOT a delivery verb: it applies no ownership policy of its own — no skip-if-exists, no `.override.md`
+# escape. Callers that owe the consumer an ownership decision go through copy_safe / refresh_safe /
+# refresh_tree_with_transform; this helper is only the raw sequence those verbs and the fresh-install
+# layers share. What it DOES owe (GH #1540, W1-A D4(a)): a read-side divergence pass before the wipe
+# — the bare `rm -rf` it replaced destroyed a consumer-edited skill tree with no warning, no
+# preserved copy and no baseline staging, which is exactly the issue-1481 defect class for the one
+# payload shape the R1 guard never reached. The pass is policy-free in the Layer-3 sense only: an
+# `.override.md` escape stays the CALLER's decision (refresh_skill_with_transform checks it before
+# calling here; the install arm's skip-if-exists is likewise upstream).
 _copy_tree_with_transform() {
   local src="$1" dst="$2"
   [ -d "$src" ] || return 0
+  # GH #1540 (W1-A D4(a)/(c)): before wiping an existing tree, route every dst file through the
+  # pre-overwrite divergence decision (setup.d/lib.sh, _pre_overwrite_guard): baseline entry
+  # present + diverged → per-file ⚠ + preserved copy; no entry + diverged from the incoming
+  # bytes → silent preserve, one aggregate line per run. `transform` makes the *.md comparison
+  # run against the TRANSFORMED source — the bytes this helper is about to write, not the raw
+  # repo bytes (see _pre_overwrite_guard). Read-only under --dry-run (callers gate it; the
+  # wrapper verbs run it themselves in their dry-run preview arms).
+  _pre_overwrite_guard "$src" "$dst" transform
   rm -rf "$dst"
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
   _transform_md_tree "$dst"
+  # R1 (W1-A, GH #1540): stage the freshly delivered tree so the NEXT refresh finds baseline
+  # entries for it. Without this, skill trees stayed «unknown» forever and the no-entry arm was
+  # their only guard — the gap INSTALL-FOR-AI.md:482 used to (truthfully) document as "cannot
+  # distinguish a consumer-edited file from an unedited one" for skill dirs.
+  refresh_baseline_stage "$dst"
 }
 
 # refresh_tree_with_transform <src-dir> <dst-dir>
@@ -261,9 +280,13 @@ refresh_tree_with_transform() {
 #     consumer's edits with no warning and no conflicts copy — issue 1481, guaranteed rather
 #     than merely possible, for exactly the payloads the guard never covered.
 #
-# SCOPE: copy_safe/refresh_safe deliveries only. Skills (copy_skill_with_transform /
-# refresh_skill_with_transform), merge_fenced and the raw-cp vendor drop have their own verbs
-# and stay outside this mechanism (W-RI-1: generic, no special-casing of any pair entry).
+# SCOPE: copy_safe/refresh_safe deliveries, PLUS (W1-A, GH #1514/#1540) the destructive-overwrite
+# arms — copy_safe's --force write and the _copy_tree_with_transform tree replace (skills/* trees,
+# the runtime-bridge vendor tree) — which now run the same per-file baseline decision via
+# _pre_overwrite_guard before destroying bytes. Outside the mechanism: merge_fenced (section-scoped
+# co-ownership replaces only the fenced body, so a whole-file baseline entry cannot apply) and the
+# raw-cp vendor hook drop (single idempotent file, W-RI-1: generic, no special-casing of any pair
+# entry).
 REFRESH_BASELINE_STAGED=()
 # Paths staged WEAKLY: recorded only if the manifest has no entry for them yet (ledger A1-2).
 # copy_safe's skip-if-exists path uses this — a skipped file's bytes are evidence of what was
@@ -272,6 +295,13 @@ REFRESH_BASELINE_STAGED=()
 # file the consumer cares about.
 REFRESH_BASELINE_STAGED_WEAK=()
 REFRESH_BASELINE_NOTE_SHOWN=""
+# consumer-delivery-safety (W1-A D4(c), GH #1514/#1540): counters for the no-entry arm of the
+# pre-overwrite guard — diverged files with NO baseline entry that a destructive overwrite
+# preserved under .ai-factory/refresh-conflicts/. Reported as ONE aggregate line per run
+# (_report_unbaselined_preserves, called from refresh_baseline_flush); NEVER per file.
+REFRESH_CONFLICTS_UNBASELINED=0
+REFRESH_CONFLICTS_UNBASELINED_FAILED=0
+REFRESH_CONFLICTS_UNBASELINED_REPORTED=""
 
 # _refresh_baseline_manifest — echo the consumer-local manifest path (never tracked, never a
 # template; lives under the consumer's .ai-factory/ only).
@@ -397,6 +427,314 @@ _preserve_diverged_copy() {
   return 0
 }
 
+# ── consumer-delivery-safety (W1-A, GH #1514 + #1540): pre-overwrite divergence guard ────────
+# The R1 guard above covers the refresh path only (refresh_safe → _refresh_one_file). Two
+# destructive-overwrite paths had NO read-side check at all:
+#   - copy_safe's --force arm fell straight through to the copy (issue 1514: even a
+#     manifest-PRESENT diverged file was clobbered silently — the force arm never read the
+#     baseline), and
+#   - _copy_tree_with_transform did a bare rm -rf (issue 1540: skill trees, no guard by
+#     construction, "cannot distinguish" was literally true for them).
+# Both now consult the same baseline BEFORE destroying bytes, with one policy (kickoff D4):
+#   entry-present + diverged  → per-file ⚠ + preserved copy, the SAME shape as the refresh
+#                               guard (refresh_baseline_diverged + _preserve_diverged_copy);
+#   entry-absent  + diverged from the incoming bytes → preserve SILENTLY at file level, ONE
+#                               aggregate line per run (D4(c) — see _preserve_unbaselined_copy
+#                               for the declared supersession of closed #1512's RI-2).
+
+# _preserve_unbaselined_copy <dst-file> — the D4(c) no-entry arm of the pre-overwrite guard.
+#
+# SUPERSEDES — declared, not glossed — the RI-2 decision of closed #1512, and ONLY on the
+# destructive-overwrite paths (copy_safe --force, _copy_tree_with_transform). RI-2 ratified
+# "no manifest entry = unknown provenance = today's behaviour" AND explicitly rejected
+# warn-on-first-touch, to avoid per-file spam on pre-manifest consumers at their first
+# refresh. That no-spam contract SURVIVES here intact: this arm never prints a per-file line.
+# What is superseded is the silent DATA LOSS RI-2 accepted alongside it: when the bytes are
+# about to be destroyed (not merely overwritten-after-comparison, as on the refresh path),
+# the diverged copy is preserved aside and ONE aggregate line per run reports the count.
+# refresh_safe's own no-entry handling is unchanged (still silent, still no copy) — the
+# supersession is scoped to the destructive-overwrite paths W1-A owns.
+# Fail-open: a copy that cannot be made is counted as failed and named in the same single
+# aggregate line (_report_unbaselined_preserves); it never fails the delivery.
+_preserve_unbaselined_copy() {
+  local dst="$1" conflicts sum8
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    REFRESH_CONFLICTS_UNBASELINED=$((REFRESH_CONFLICTS_UNBASELINED + 1))
+    return 0
+  fi
+  conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
+  if sum8=$(_hash256 "$dst") \
+    && mkdir -p "$conflicts" 2>/dev/null \
+    && cp "$dst" "$conflicts/$(basename "$dst").${sum8:0:8}" 2>/dev/null; then
+    REFRESH_CONFLICTS_UNBASELINED=$((REFRESH_CONFLICTS_UNBASELINED + 1))
+  else
+    REFRESH_CONFLICTS_UNBASELINED_FAILED=$((REFRESH_CONFLICTS_UNBASELINED_FAILED + 1))
+  fi
+  return 0
+}
+
+# _report_unbaselined_preserves — the ONE aggregate line per run for the D4(c) arm. Called at the
+# top of refresh_baseline_flush, which every installer exit path reaches (explicit calls + the
+# EXIT trap), so it prints at most once per run however the installer ends. Not a per-file ⚠:
+# the RI-2 no-spam contract (closed #1512) survives on this arm — only the silent loss is gone.
+_report_unbaselined_preserves() {
+  if [ "${REFRESH_CONFLICTS_UNBASELINED_REPORTED:-}" = "1" ]; then return 0; fi
+  local n="${REFRESH_CONFLICTS_UNBASELINED:-0}" m="${REFRESH_CONFLICTS_UNBASELINED_FAILED:-0}"
+  { [ "$n" -gt 0 ] || [ "$m" -gt 0 ]; } || return 0
+  local fail_note=""
+  if [ "$m" -gt 0 ]; then fail_note="; $m could not be copied"; fi
+  if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+    echo "  [dry-run] would preserve $n unbaselined diverged file(s) under ${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts/"
+  else
+    echo "  · preserved $n unbaselined diverged file(s) under ${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts/ (no refresh-baseline entry — provenance unknown; copies kept, upstream versions installed${fail_note})"
+  fi
+  REFRESH_CONFLICTS_UNBASELINED_REPORTED=1
+  return 0
+}
+
+# _expected_post <src-file> <fn> — echo a TEMP file path holding <fn> applied to a copy of
+# <src-file> (the bytes a delivery that post-processes with <fn> would leave on disk). The caller
+# MUST rm the temp. Fails (rc 1) if mktemp/cp fails; the caller then falls back to the raw src
+# bytes for the comparison. Shared base for the per-post-processor expectations below — the
+# reconstruction must use the SAME function the delivery pipeline runs, or the parity is fiction.
+_expected_post() {
+  local t
+  t=$(mktemp) || return 1
+  if ! cp "$1" "$t" 2>/dev/null; then rm -f "$t"; return 1; fi
+  "$2" "$t" || true
+  printf '%s\n' "$t"
+}
+
+# _expected_transformed <src-md-file> — transform_internal_refs variant, for *.md whose delivery
+# post-processes repo-internal refs → upstream blob URLs (skill trees, agents). transform_internal_refs
+# is idempotent and deterministic, so bytes(transform(src)) == what the previous install wrote for an
+# unedited file, which is what makes this comparison exact rather than heuristic.
+_expected_transformed() {
+  _expected_post "$1" transform_internal_refs
+}
+
+# _expected_arch_header <src-file> — rewrite_arch_sot_header variant, for the materialized
+# .ai-factory/ARCHITECTURE.md copy_safe delivery (30-templates.sh / install.sh do_refresh / the
+# python lane) whose first line the rewrite post-processes. W1-A review MAJOR 1: without this
+# candidate a pristine materialized ARCHITECTURE.md false-flagged as consumer-diverged on every
+# pre-manifest force run.
+_expected_arch_header() {
+  _expected_post "$1" _rewrite_arch_sot_header_inplace
+}
+
+# _expected_stryker_pm <src-file> — patch_stryker_package_manager variant, for the
+# stryker.config.json copy_safe deliveries (setup.d/40-configs.sh, 4 stack lanes) whose
+# packageManager value the patch post-processes. Byte-changing on pnpm/yarn consumers only, so
+# without this candidate a pristine patched config false-flagged as consumer-diverged there.
+_expected_stryker_pm() {
+  _expected_post "$1" _patch_stryker_package_manager_inplace
+}
+
+# _prettierignore_pristine <src> <dst> — exit 0 IFF <dst> is the shipped .prettierignore <src>
+# plus ONLY the framework's managed marker blocks (merge_prettierignore's AIF block and
+# ignore_shipped_configs' shipped-configs block, both marker-delimited and appended after the
+# copy_safe delivery). Such a file is a pristine delivery, not a consumer edit — the raw-src
+# comparison in the guard cannot see the appended blocks (W1-A review MAJOR 1: .prettierignore was
+# one of the 8 false positives), so merge_prettierignore's --force arm checks this itself and
+# suppresses the no-entry claim when it holds.
+_prettierignore_pristine() {
+  local src="$1" dst="$2" t want
+  t=$(mktemp) || return 1
+  if ! cp "$dst" "$t" 2>/dev/null; then rm -f "$t"; return 1; fi
+  # Strip both managed blocks (marker line … marker line, inclusive). Pure read-loop rewrite:
+  # bash-3.2/BSD-tool safe, no sed path escaping.
+  local out="${t}.stripped" line in_block=""
+  : > "$out"
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      "$PRETTIERIGNORE_BEGIN"|"$PRETTIERIGNORE_CFG_BEGIN") in_block=1 ;;
+      "$PRETTIERIGNORE_END"|"$PRETTIERIGNORE_CFG_END") in_block=""; continue ;;
+    esac
+    [ -n "$in_block" ] || printf '%s\n' "$line" >> "$out"
+  done < "$t"
+  want=$(_hash256 "$src") || { rm -f "$t" "$out"; return 1; }
+  if [ "$(_hash256 "$out")" = "$want" ]; then
+    rm -f "$t" "$out"
+    return 0
+  fi
+  rm -f "$t" "$out"
+  return 1
+}
+
+# _pre_overwrite_divergence_action <dst-file> <expected-file-or-empty> [suppress-no-entry]
+# ONE per-file decision for the destructive-overwrite paths. <expected> is the file whose bytes
+# this delivery is about to write at <dst> ("" when the incoming payload no longer ships that
+# path) — for post-processed deliveries the CALLER passes the reconstructed final bytes via the
+# guard's parity mode (see _pre_overwrite_guard). <suppress-no-entry> (W1-A review MAJOR 1):
+# skip the no-entry arm entirely — for a caller that has itself proven the on-disk bytes pristine
+# modulo framework-managed content the raw comparison cannot see (merge_prettierignore's marker
+# blocks); the entry-present arm still fires. Exit 0 = action taken (preserved copy made / dry-run
+# would-flag printed); exit 1 = no action (pristine delivery, bytes already identical, dst not a
+# readable file — fail-open, same contract as the R1 guard). Like refresh_baseline_diverged, call
+# it inside an `if` — its non-zero is a verdict, and lib.sh runs under set -euo pipefail.
+_pre_overwrite_divergence_action() {
+  local dst="$1" expected="$2" suppress="${3:-}" entry cur exp_hash
+  [ -f "$dst" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  _refresh_baseline_lookup "$dst"
+  entry="$REFRESH_BASELINE_ENTRY"
+  if [ -n "$entry" ]; then
+    # Entry present: the framework can attribute the file, so the divergence claim is loud
+    # (D4(a)/(b) — same shape as the refresh guard).
+    if [ "$cur" = "$entry" ]; then return 1; fi   # pristine framework delivery — ours to replace
+    if [ -n "$expected" ] && [ -f "$expected" ]; then
+      # D4(b): reuse the R1 verdict verbatim — diverged = differs from BOTH the manifest entry
+      # and the incoming bytes (cur != entry is already established above, so this call adds
+      # exactly the src comparison).
+      if refresh_baseline_diverged "$dst" "$expected"; then
+        if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+          echo "  [dry-run] would-flag: $dst (locally modified)"
+        else
+          _preserve_diverged_copy "$dst"
+        fi
+        return 0
+      fi
+      return 1   # already byte-identical to the incoming version — overwriting loses nothing
+    fi
+    # Entry present, bytes differ, and the incoming payload no longer ships this path: the
+    # consumer's edit is about to be destroyed with no src to compare against. The R1 helper
+    # cannot take this case (its src hash is unconditional), so any difference from the
+    # recorded delivery is divergence here.
+    if [ "${DRY_RUN:-}" = "--dry-run" ]; then
+      echo "  [dry-run] would-flag: $dst (locally modified)"
+    else
+      _preserve_diverged_copy "$dst"
+    fi
+    return 0
+  fi
+  # No entry (D4(c) — supersedes RI-2 on this path, see _preserve_unbaselined_copy): diverged
+  # from the incoming bytes → silent preserve + the aggregate line. Files the incoming payload
+  # no longer ships (<expected> empty) always take this arm — they have no incoming bytes to
+  # match, and the wipe is about to destroy them. Suppressed when the caller proved the bytes
+  # pristine modulo framework-managed content it owns (W1-A review MAJOR 1).
+  if [ -n "$suppress" ]; then return 1; fi
+  if [ -n "$expected" ] && [ -f "$expected" ]; then
+    exp_hash=$(_hash256 "$expected") || exp_hash=""
+    if [ "$cur" = "$exp_hash" ]; then return 1; fi
+  fi
+  _preserve_unbaselined_copy "$dst"
+  return 0
+}
+
+# _pre_overwrite_guard <src> <dst> [mode]
+# Read-side divergence sweep BEFORE a destructive overwrite: copy_safe's --force arm (GH #1514)
+# and _copy_tree_with_transform (GH #1540). Walks every regular file under <dst> (or the single
+# file when dst is one) and routes it through _pre_overwrite_divergence_action with the incoming
+# counterpart (<src>/<rel>) as <expected>. Under --dry-run nothing is written: entry-present
+# divergence prints `would-flag` (same vocabulary as _refresh_one_file) and the no-entry arm
+# only bumps the aggregate would-preserve counter.
+#
+# MODE — the shape of the DELIVERED bytes (W1-A review MAJOR 1: the no-entry arm compares the
+# on-disk bytes against what the delivery pipeline writes; for deliveries that POST-PROCESS the
+# dst after copy_safe, the raw src is NOT those bytes and a pristine copy false-flags —
+# review-proven: 8 pristine files preserved out of 10 claims on a pre-manifest force run):
+#   "" (default)     plain delivery: delivered bytes == src (hooks, configs, templates).
+#   transform        TREE replace whose *.md are post-processed by transform_internal_refs
+#                    (_copy_tree_with_transform, copy_skill/refresh_skill dry-run previews).
+#   md-refs          single FILE post-processed by transform_internal_refs (agents, 20-agents.sh).
+#   arch-header      single FILE post-processed by rewrite_arch_sot_header (the materialized
+#                    .ai-factory/ARCHITECTURE.md, 30-templates.sh + install.sh do_refresh + the
+#                    python lane's ARCHITECTURE.md, 45-python.sh).
+#   stryker-pm       single FILE post-processed by patch_stryker_package_manager (the copied
+#                    stryker.config.json, 40-configs.sh — 4 stack lanes).
+#   suppress-no-entry  caller proved the dst pristine modulo framework-managed content the raw
+#                    comparison cannot see (merge_prettierignore's marker blocks): no-entry arm
+#                    suppressed, entry-present arm still active.
+# A mode naming a file post-processor has no meaning for a DIRECTORY dst (no such call site);
+# the walk then compares per file against the raw src.
+#
+# POST-MUTATING CALLER CENSUS (closed — every copy_safe caller that post-processes its dst now
+# declares a parity mode, so no pristine delivery can take the no-entry arm). CENSUS-BEGIN — the
+# rows below are GATED: arm 5d of tests/install-sh/consumer-delivery-safety-guard.test.sh parses
+# this block and fails unless each cited line really holds a copy_safe carrying the declared mode.
+# Without that gate the coordinates would rot on the first line insertion and nothing would say so
+# — scripts/check-line-citations.mjs only reads *.md, so a path:NN in a shell comment is ungated by
+# construction (fidelity round 1 caught exactly that here: all 8 numbers were pre-edit and one
+# landed on an unrelated unparitied playwright delivery).
+#   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
+#   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
+#   install.sh:1348                    rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
+#   setup.d/45-python.sh:1363          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:446          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:471          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:491          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:518          patch_stryker_package_manager → stryker-pm
+#   setup.d/lib.sh:1758                appended marker blocks       → suppress-no-entry (proved)
+# CENSUS-END
+# Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
+# block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
+# declared mode) by scanning `copy_safe ` lines in install.sh + setup.d/*.sh for one of three
+# post-processor NAMES within 3 lines of the call — a spelling-bounded scan, so it cannot see a
+# caller inside lib.sh itself (merge_prettierignore, wired by hand and covered by arm 5d), a
+# mutation further than 3 lines from its call, a post-processor added under a new name, or a
+# delivery routed through _lane_copy_or_refresh. Verified today, not assumed: the cargo and go
+# lanes post-mutate nothing (`grep -n 'transform_internal_refs \|rewrite_arch_sot_header \
+# |patch_stryker_package_manager' setup.d/46-cargo.sh setup.d/47-go.sh` → empty).
+# The earlier revision of this comment declared the last two rows out of bounds and claimed each
+# was "a one-line parity arg"; the stryker row was NOT (patch_stryker_package_manager took no
+# argument and mutated $PROJECT_ROOT/stryker.config.json in place), so it needed the same in-place
+# helper extraction as arch-header. Both rows are now wired and the claim is retired rather than
+# left standing (review round 2).
+#
+# SCOPE GUARD: runs only when dst sits INSIDE $PROJECT_ROOT. The conflicts dir and the baseline
+# manifest are PROJECT_ROOT-scoped state (manifest keys are dst paths relative to PROJECT_ROOT);
+# a destination outside the consumer root cannot be recorded there — and unit tests exercise
+# copy_safe against scratch paths deliberately outside PROJECT_ROOT.
+_pre_overwrite_guard() {
+  local src="$1" dst="$2" mode="${3:-}"
+  case "$dst" in
+    "${PROJECT_ROOT:-.}"/*) ;;
+    *) return 0 ;;
+  esac
+  [ -e "$dst" ] || return 0
+  local f rel expected tmpexp suppress
+  if [ ! -d "$dst" ]; then
+    expected=""
+    tmpexp=""
+    suppress=""
+    if [ -f "$src" ]; then
+      expected="$src"
+      case "$mode" in
+        md-refs)
+          if tmpexp=$(_expected_transformed "$src"); then expected="$tmpexp"; fi ;;
+        arch-header)
+          if tmpexp=$(_expected_arch_header "$src"); then expected="$tmpexp"; fi ;;
+        stryker-pm)
+          if tmpexp=$(_expected_stryker_pm "$src"); then expected="$tmpexp"; fi ;;
+      esac
+    fi
+    if [ "$mode" = "suppress-no-entry" ]; then suppress="1"; fi
+    if _pre_overwrite_divergence_action "$dst" "$expected" "$suppress"; then :; fi
+    if [ -n "$tmpexp" ]; then rm -f "$tmpexp"; fi
+    return 0
+  fi
+  while IFS= read -r -d '' f; do
+    rel="${f#"$dst"/}"
+    expected=""
+    tmpexp=""
+    if [ -f "$src/$rel" ]; then
+      expected="$src/$rel"
+      if [ "$mode" = "transform" ]; then
+        case "$rel" in
+          *.md)
+            if tmpexp=$(_expected_transformed "$src/$rel"); then
+              expected="$tmpexp"
+            fi ;;
+        esac
+      fi
+    fi
+    if _pre_overwrite_divergence_action "$f" "$expected"; then :; fi
+    if [ -n "$tmpexp" ]; then rm -f "$tmpexp"; fi
+  done < <(find "$dst" -type f -print0 2>/dev/null)
+  return 0
+}
+
 # refresh_baseline_flush — write the staged deliveries into the manifest (merge, sorted keys —
 # deterministic bytes). Called ONCE at each installer exit path AFTER every delivery + transform
 # has run. Fail-open on every branch: a failed flush is a note, never a failed install.
@@ -417,6 +755,10 @@ _refresh_baseline_hash_into() {
 
 refresh_baseline_flush() {
   local manifest tsv wtsv p h prev patch weak
+  # W1-A D4(c): the ONE aggregate line for unbaselined diverged files preserved by this run's
+  # destructive overwrites. First, before every early return below (dry-run, nothing staged):
+  # flush is reached on every installer exit path, which is what makes this line once-per-run.
+  _report_unbaselined_preserves
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
   if [ "${#REFRESH_BASELINE_STAGED[@]}" -eq 0 ] && [ "${#REFRESH_BASELINE_STAGED_WEAK[@]}" -eq 0 ]; then
     return 0
@@ -474,6 +816,15 @@ refresh_baseline_flush() {
 copy_safe() {
   local src="$1"
   local dst="$2"
+  # W1-A review MAJOR 1 (parity): optional 3rd arg declaring the SHAPE OF THE DELIVERED BYTES
+  # for deliveries whose caller POST-PROCESSES the dst after copy_safe returns — the no-entry
+  # arm of the force guard compares against the delivered bytes, and the raw src is NOT those
+  # bytes (review-proven: pristine transformed agents / header-rewritten ARCHITECTURE.md /
+  # block-appended .prettierignore copies false-flagged as consumer-diverged). Values map 1:1
+  # to _pre_overwrite_guard modes: md-refs | arch-header | stryker-pm | suppress-no-entry. The
+  # census of every post-mutating caller lives at _pre_overwrite_guard. Plain deliveries
+  # (the vast majority) pass nothing and compare against the raw src.
+  local parity="${3:-}"
 
   if [ -e "$dst" ] && [ "$FORCE" != "--force" ]; then
     SKIPPED+=("$dst")
@@ -489,6 +840,17 @@ copy_safe() {
       refresh_baseline_stage_weak "$dst"
     fi
     return 0
+  fi
+
+  # consumer-delivery-safety (GH #1514, W1-A D4(b)/(c)): the --force arm used to fall straight
+  # through to the copy with NO read-side check — the exists-guard above fires only WITHOUT
+  # --force, so a locally-edited force-deliverable file was overwritten with upstream bytes,
+  # silently, even when the baseline manifest held an entry for it. Probe the baseline BEFORE
+  # the write: entry-present + diverged → per-file ⚠ + preserved copy (same shape as the
+  # refresh guard); no entry + diverged from the incoming bytes → silent preserve, one
+  # aggregate line per run. Read-only under --dry-run (would-flag / would-preserve counts).
+  if [ "$FORCE" = "--force" ] && [ -e "$dst" ]; then
+    _pre_overwrite_guard "$src" "$dst" "$parity"
   fi
 
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -1353,11 +1715,20 @@ arch_sot_src_for_stack() {
 # Guard mirrors copy_safe's WRITE condition (not dry-run; freshly created OR --force-overwritten) so
 # a consumer-edited ARCHITECTURE.md is never mutated. No-op for react-* variants (no "Drop into" line).
 # sed -i.bak for BSD/GNU portability.
+#
+# The sed itself lives in _rewrite_arch_sot_header_inplace so the pre-overwrite divergence guard can
+# reconstruct the DELIVERED bytes (src → rewrite) for its no-entry comparison — copy_safe deliveries
+# that this rewrite post-processes must not be compared against the raw src (W1-A review MAJOR 1:
+# pristine materialized ARCHITECTURE.md copies false-flagged as consumer-diverged).
+_rewrite_arch_sot_header_inplace() {
+  sed -i.bak -e 's#^> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs\. #> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. #' "$1"
+  rm -f "${1}.bak"
+}
+
 rewrite_arch_sot_header() {
   local dst="$1" existed="$2"
   if [ "$DRY_RUN" != "--dry-run" ] && { [ "$existed" -eq 0 ] || [ "$FORCE" = "--force" ]; }; then
-    sed -i.bak -e 's#^> Drop into `.ai-factory/ARCHITECTURE.md` and override only what your project needs\. #> This install-generated starter IS your `.ai-factory/ARCHITECTURE.md` — edit it to match your project. #' "$dst"
-    rm -f "${dst}.bak"
+    _rewrite_arch_sot_header_inplace "$dst"
   fi
 }
 
@@ -1378,7 +1749,16 @@ merge_prettierignore() {
 
   # --force: behave like copy_safe (overwrite wholesale).
   if [ "$FORCE" = "--force" ]; then
-    copy_safe "$src" "$dst"
+    # W1-A review MAJOR 1: .prettierignore legitimately carries framework-managed marker blocks
+    # APPENDED after the copy_safe delivery (our AIF block below + ignore_shipped_configs'
+    # shipped-configs block), so the guard's raw-src comparison would false-flag every pristine
+    # installed copy as consumer-diverged. Prove pristine-modulo-blocks here and suppress the
+    # no-entry claim for exactly that case; a genuinely consumer-edited file keeps the claim.
+    if [ -e "$dst" ] && _prettierignore_pristine "$src" "$dst"; then
+      copy_safe "$src" "$dst" suppress-no-entry
+    else
+      copy_safe "$src" "$dst"
+    fi
     return 0
   fi
 
@@ -1722,6 +2102,41 @@ _resolve_workspace_stacks() {
 # self-detect). Patch the COPIED config in place to match the consumer's lockfile so a
 # pnpm/yarn consumer doesn't get an npm-locked mutation run. Non-destructive: rewrites only
 # the packageManager key. Guarded on --dry-run and on node availability (no node → leave npm).
+#
+# The substitution itself lives in _patch_stryker_package_manager_inplace so the pre-overwrite
+# divergence guard can reconstruct the DELIVERED bytes (src → patch) for its no-entry comparison:
+# the copy_safe delivery at the 40-configs.sh call sites is post-processed by this patch, and
+# comparing a pristine patched config against the RAW template would false-flag it as
+# consumer-diverged on a pre-manifest --force run (same defect class as the arch-header and
+# md-refs parities). Byte-changing only on pnpm/yarn consumers — on npm the template value makes
+# the substitution a no-op — which is why the false claim was pnpm/yarn-only.
+_patch_stryker_package_manager_inplace() {
+  local _f="$1" _pm
+  command -v node >/dev/null 2>&1 || return 0
+  [ -f "$_f" ] || return 0
+  # R-S4-3: install.sh runs BEFORE the consumer's `npm/pnpm install` in the canonical flow,
+  # so a lockfile may not exist yet (a pnpm monorepo would silently stay "npm"). Detect from
+  # signals present AT INSTALL TIME: the explicit package.json "packageManager" field (corepack
+  # source of truth) wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install
+  # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
+  # npm — re-run install after the lockfile lands, or set package.json "packageManager".
+  # Detected from PROJECT_ROOT signals, so the reconstruction on a temp copy yields the same
+  # value the real delivery writes.
+  _pm=$(detect_pm)   # SSOT detector (lockfile/workspace/corepack signals; see detect_pm above)
+  # GH #531: rewrite ONLY the packageManager VALUE in place (string-substitution), NOT a full
+  # JSON.stringify re-serialize. The template ships prettier-clean (short arrays collapsed to one
+  # line); JSON.stringify(,,2) would re-expand those arrays and break `prettier --check` on the
+  # consumer. A targeted value swap preserves the template's prettier formatting byte-for-byte.
+  AIF_STRYKER_CFG="$_f" AIF_STRYKER_PM="$_pm" node -e '
+    const fs = require("fs");
+    const p = process.env.AIF_STRYKER_CFG;
+    const pm = process.env.AIF_STRYKER_PM;
+    const src = fs.readFileSync(p, "utf8");
+    const out = src.replace(/("packageManager"\s*:\s*")[^"]*(")/, `$1${pm}$2`);
+    if (out !== src) fs.writeFileSync(p, out);
+  '
+}
+
 patch_stryker_package_manager() {
   _cfg="$PROJECT_ROOT/stryker.config.json"
   if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -1730,26 +2145,8 @@ patch_stryker_package_manager() {
   fi
   command -v node >/dev/null 2>&1 || return 0
   [ -f "$_cfg" ] || return 0
-  # R-S4-3: install.sh runs BEFORE the consumer's `npm/pnpm install` in the canonical flow,
-  # so a lockfile may not exist yet (a pnpm monorepo would silently stay "npm"). Detect from
-  # signals present AT INSTALL TIME: the explicit package.json "packageManager" field (corepack
-  # source of truth) wins; else workspace/lock markers (pnpm-workspace.yaml exists pre-install
-  # in a monorepo); else npm. A flat pnpm consumer with neither marker nor field still defaults
-  # npm — re-run install after the lockfile lands, or set package.json "packageManager".
-  _pm=$(detect_pm)   # SSOT detector (lockfile/workspace/corepack signals; see detect_pm above)
-  # GH #531: rewrite ONLY the packageManager VALUE in place (string-substitution), NOT a full
-  # JSON.stringify re-serialize. The template ships prettier-clean (short arrays collapsed to one
-  # line); JSON.stringify(,,2) would re-expand those arrays and break `prettier --check` on the
-  # consumer. A targeted value swap preserves the template's prettier formatting byte-for-byte.
-  AIF_STRYKER_CFG="$_cfg" AIF_STRYKER_PM="$_pm" node -e '
-    const fs = require("fs");
-    const p = process.env.AIF_STRYKER_CFG;
-    const pm = process.env.AIF_STRYKER_PM;
-    const src = fs.readFileSync(p, "utf8");
-    const out = src.replace(/("packageManager"\s*:\s*")[^"]*(")/, `$1${pm}$2`);
-    if (out !== src) fs.writeFileSync(p, out);
-  '
-  echo "  ✓ stryker packageManager → $_pm"
+  _patch_stryker_package_manager_inplace "$_cfg"
+  echo "  ✓ stryker packageManager → $(detect_pm)"
 }
 
 # copy_skill_with_transform <skill-slug>
@@ -1772,10 +2169,18 @@ copy_skill_with_transform() {
     return 0
   fi
   if [ "$DRY_RUN" = "--dry-run" ]; then
+    # W1-A: read-only divergence preview — same would-flag/aggregate vocabulary as the real
+    # run (the guard writes nothing under --dry-run), so `--dry-run --force` predicts exactly
+    # the files the force pass would flag/preserve. The plain-skills arms (getff /
+    # tool-bootstrapping, which bypass this verb) preview the guard in their OWN dry-run
+    # branches (setup.d/10-skills.sh install arm, install.sh do_refresh arm — W1-A review
+    # MAJOR 2), so the preview contract holds for every skill delivery path.
+    if [ -e "$dst" ]; then _pre_overwrite_guard "$src" "$dst" transform; fi
     echo "  [dry-run] would copy: $src → $dst (+ transform internal refs)"
     return 0
   fi
   # Wipe, recopy, rewrite repo-internal cross-refs in all .md files to GitHub blob URLs.
+  # The divergence pass before the wipe lives inside _copy_tree_with_transform (GH #1540).
   _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }
@@ -1799,9 +2204,15 @@ refresh_skill_with_transform() {
     return 0
   fi
   if [ "$DRY_RUN" = "--dry-run" ]; then
+    # W1-A: read-only divergence preview (see copy_skill_with_transform) — under --dry-run the
+    # caller never reaches _copy_tree_with_transform's own guard, so the preview runs it here.
+    _pre_overwrite_guard "$src" "$dst" transform
     echo "  [dry-run] would refresh: $src → $dst (+ transform internal refs)"
     return 0
   fi
+  # The divergence pass before the wipe lives inside _copy_tree_with_transform (GH #1540: skill
+  # trees used to be rm -rf'd with no guard — the exact "cannot distinguish" gap the docs
+  # described for them).
   _copy_tree_with_transform "$src" "$dst"
   echo "  ✓ .claude/skills/$slug/ (refreshed, cross-refs rewritten to ${UPSTREAM_BLOB_URL})"
 }

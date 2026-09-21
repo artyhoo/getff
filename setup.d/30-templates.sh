@@ -78,7 +78,11 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$P
 
 _arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
 _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
-copy_safe "$_arch_sot_src" "$_arch_sot_dst"
+# arch-header parity (W1-A review MAJOR 1): rewrite_arch_sot_header below post-processes the
+# freshly-written copy, so the divergence guard must compare against the REWRITTEN bytes — else
+# a pristine materialized ARCHITECTURE.md false-flags as consumer-diverged on a pre-manifest
+# --force run. No-op difference for react-* variants (the rewrite is a no-op there).
+copy_safe "$_arch_sot_src" "$_arch_sot_dst" arch-header
 rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
 
 # ── aif-handoff integration note ─────────────────────────
