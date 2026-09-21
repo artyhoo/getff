@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 5650d70f65379fb7124151f9fa54000709c9bcf74fb9fd7a200f1a667d5fd384  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-b813ea307b2300eda39ac01346c8a856cff6b484dd057937673b7da14dda12b6  .ai-factory/refresh-baseline.json
+142fbec006a337b677a7f524cd05647a4eee295f4a8d0293714840f7ed5f29cd  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -26,7 +26,7 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 9c46f2c267982f31742bc4d03cd150cce67770ebf5e04106b11f9a231460673b  .claude/hooks/ask-question-reminder.sh
 696081583609571cae2f52e61a45fddd4e0d2c208d064e279fbd28ff48c6ff3e  .claude/hooks/check-doc-authority-header.sh
-6ff6ce75fd226ebd9329a74a8158e132eef6007083a8401389606478035e512d  .claude/hooks/deps-hash-check.sh
+d1db210ddbc71ab051cabc7f0842aac886423592d58bc9ffc0beb1c96e748e4b  .claude/hooks/deps-hash-check.sh
 5126e53cdea88a67f9ea8937484f39e00d7e17a8576b17b78584362cbd2a68bf  .claude/hooks/end-of-turn-reminder.sh
 74e0abcf4a2a08538a3993b5742fe38de7b240986eaeb005dd93bee37be05836  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
@@ -35,7 +35,7 @@ c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 937346a47eeca9d76681ccca80d15ef30520a29b7a379261743ab4fa347f7e4f  .claude/hooks/lang/en.sh
 93de6f819428394064ba177909201704a89238b7009162f41e6001d93b4114ca  .claude/hooks/lang/ru.sh
-4778252c1573a1b62351d2a108c501fab09edd7b1dfa765911108294239b24a8  .claude/hooks/lib/residue-dir.sh
+83b5593b8a7997d146d18fb78383da174f2a606af94ebe3824783b3ea0378540  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 781828291e9f09647dbb14d06fe9bfa959dd77405340e12364879cb163690431  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
