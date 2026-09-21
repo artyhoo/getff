@@ -71,3 +71,33 @@ Checked against [`attention-is-not-a-mechanism.md §1-§3`](../../../.claude/rul
 ### §1.7 Backward-check applied
 
 Swept the sibling lane of the same promote window rather than the finding's own PR: #1803's `fidelity-verdict-in-pr-body` RED at 01:37:10 was followed by a GREEN re-run at 01:38:13 before its 01:45 merge — so the handling failure is not uniform across the window, and the sweep is what downgrades this from «the lane ignores CI» to «one PR did». Swept the gate's own two channels for the same class: pre-push §8 runs `lychee --offline` on changed `*.md` only, so it cannot fire on a 404 and is not a second site of this bug; the weekly full-sweep job shares `lychee.toml`, so whichever closure lands covers both live arms at once. Swept `lychee.toml`'s existing `exclude` / `exclude_path` entries: none of the eleven covers a `main`-pinned blob URL, confirming this is an uncovered class rather than a regression of an existing exemption.
+
+## Resolution (appended 2026-09-21, same day) — candidate 2 shipped
+
+The operator picked candidate 2. [`lychee.toml`](../../../lychee.toml) now carries
+
+```toml
+remap = [
+  "https://github.com/artyhoo/getff/blob/main/ https://github.com/artyhoo/getff/blob/staging/",
+]
+```
+
+Proven by what it refuses, on lychee **v0.24.2** — the version `lycheeverse/lychee-action@e747777` installs by default (`action.yml` `lycheeVersion` at that pinned SHA), which is also the local binary the probe ran on. The probe URL is the `blob/main` form of **this very patch file**, merged to `staging` in #1816 and not yet promoted, so it is a live instance of the class rather than a fixture:
+
+```text
+$ curl -s -o /dev/null -w '%{http_code}' <blob/main form>   → 404
+$ curl -s -o /dev/null -w '%{http_code}' <blob/staging form> → 200
+
+$ lychee --no-progress ./probe.md                       ; echo $?   # control, no remap
+  🔍 1 Total | ✅ 0 OK | 🚫 1 Error                     ; 2
+$ lychee --no-progress --config lychee.toml ./probe.md  ; echo $?   # the real config
+  🔍 1 Total | ✅ 1 OK | 🚫 0 Errors                    ; 0
+$ lychee --no-progress --config lychee.toml ./rot.md    ; echo $?   # path on NEITHER ref
+  🚫 1 Error                                            ; 2
+$ lychee --no-progress --config lychee.toml ./plugin/README.md ; echo $?
+  🔍 3 Total | ✅ 3 OK | 🚫 0 Errors                    ; 0
+```
+
+The middle two lines are the whole argument: the gate passes the structural class and still **fails** on a `blob/main` path that exists on neither ref. An `exclude` would have made both of those pass, which is the `#hope-as-gate` shape the rule forbids.
+
+Half B (whether red-at-merge is a habit) stays open at n=2, with the falsifier under **Prevention** unchanged.
