@@ -1448,6 +1448,8 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
     { name: 'npm "!./packages/b" + "./packages/*"', pkg: { name: 'r', workspaces: ['!./packages/b', './packages/*'] } },
     { name: 'pnpm block item + comment', pkg: { name: 'r' }, yaml: 'packages:\n  - "packages/*" # all libs\n' },
     { name: 'pnpm flow sequence + comment', pkg: { name: 'r' }, yaml: 'packages: ["./packages/*"] # libs\n' },
+    { name: 'pnpm comment on the bare packages: key', pkg: { name: 'r' }, yaml: 'packages: # apps and libs\n  - packages/*\n' },
+    { name: 'npm "./" inside a brace alternative', pkg: { name: 'r', workspaces: ['{./packages/a,./packages/c}'] } },
   ];
   for (const form of GLOB_FORMS) {
     it(`WORKSPACE-GLOB-FORM (${form.name}): member-only bump with a warm memo → WARN`, () => {
@@ -1477,6 +1479,20 @@ describe('deps-hash-check.sh — workspace manifest enumeration (GH #1264)', () 
       packageJson: { name: 'r' },
       members: { 'packages/a': { name: 'a', dependencies: { react: 'catalog:' } } },
       pnpmWorkspaceYaml: "packages:\n  - 'packages/*'\ncatalog:\n  react: '^18.3.0' # pinned for RN\n",
+    });
+    const hookSrc = readFileSync(HOOK, 'utf8');
+    const m = hookSrc.match(/_NPM_EXTRACT_JS='([\s\S]*?)'\n_npm_current/);
+    if (!m) throw new Error('could not extract _NPM_EXTRACT_JS from the hook');
+    const r = spawnSync('node', ['-e', m[1]], { cwd, encoding: 'utf8' });
+    const payload = JSON.parse(r.stdout);
+    expect(payload['packages/a/package.json']).toEqual({ react: '^18.3.0' });
+  });
+
+  it('WORKSPACE-CATALOGS-HEADER-COMMENT: a comment after a named-catalog header keeps the catalog', () => {
+    const cwd = makeFixtureDir({
+      packageJson: { name: 'r' },
+      members: { 'packages/a': { name: 'a', dependencies: { react: 'catalog:r18' } } },
+      pnpmWorkspaceYaml: "packages:\n  - 'packages/*'\ncatalogs:\n  r18: # legacy line\n    react: '^18.3.0'\n",
     });
     const hookSrc = readFileSync(HOOK, 'utf8');
     const m = hookSrc.match(/_NPM_EXTRACT_JS='([\s\S]*?)'\n_npm_current/);

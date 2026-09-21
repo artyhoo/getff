@@ -170,9 +170,9 @@ _sha256() {
 #   one "pnpm-workspace.yaml" entry (overrides/catalog/catalogs + raw digest) when present.
 # Members come from npm `workspaces` globs (array or {packages:[…]}) plus pnpm-workspace.yaml
 # `packages:` globs, matched with a minimal glob subset (`*` one segment, `**` any depth,
-# `{a,b}` braces, `!` exclusions; a leading `./` and a trailing `/` are normalised away —
-# npm documents the `./packages/a` form — and a trailing ` # comment` on a
-# pnpm-workspace.yaml line is dropped) over candidate dirs ≤8 levels deep, node_modules/.git/
+# `{a,b}` braces, `!` exclusions; a leading `./` and a trailing `/` are normalised away, also
+# per `{…}` alternative — npm documents the `./packages/a` form — and a ` # comment` on a
+# pnpm-workspace.yaml line is dropped, including one right after a bare `packages:` key) over candidate dirs ≤8 levels deep, node_modules/.git/
 # dot-dirs skipped, directory symlinks not followed (lstat). Measured divergences vs
 # npm/minimatch — all false-NEGATIVE direction (a real member may go unseen; never a
 # phantom member): (a) `**` translates to a whole-pattern `.*` anchor, so globstar's
@@ -192,11 +192,11 @@ const MAXD=8;
 const o=(v)=>(v&&typeof v==="object")?v:{};
 const sq=(s)=>{s=String(s).trim();const a=s.charAt(0),z=s.slice(-1);return (s.length>1&&((a==="\u0022"&&z==="\u0022")||(a==="\u0027"&&z==="\u0027")))?s.slice(1,-1):s;};
 const nz=(g)=>{g=String(g).trim();while(g.slice(0,2)==="./")g=g.slice(2);while(g.length>1&&g.slice(-1)==="/")g=g.slice(0,-1);return g;};
-const unc=(s)=>{s=String(s).trim();const a=s.charAt(0);if(a==="\u0022"||a==="\u0027"){const j=s.indexOf(a,1);return j>0?s.slice(0,j+1):s;}const k=s.search(/\s#/);return k>=0?s.slice(0,k).trim():s;};
+const unc=(s)=>{s=String(s).trim();const a=s.charAt(0);if(a==="\u0022"||a==="\u0027"){const j=s.indexOf(a,1);return j>0?s.slice(0,j+1):s;}const k=s.search(/(^|\s)#/);return k>=0?s.slice(0,k).trim():s;};
 const g2r=(g)=>new RegExp("^"+g.replace(/\*\*/g,"\u0000").replace(/[.+^${}()|[\]\\?]/g,(c)=>"\\"+c).replace(/\*/g,"[^/]*").replace(/\u0000/g,".*")+"$");
 function braces(p){const i=p.indexOf("{");if(i<0)return[p];const j=p.indexOf("}",i);if(j<0)return[p];const out=[];for(const a of p.slice(i+1,j).split(",")){for(const r of braces(p.slice(0,i)+a+p.slice(j+1)))out.push(r);}return out;}
 function dirsUnder(base,depth,acc){let ns;try{ns=fs.readdirSync(base);}catch(e){return;}for(const n of ns){if(n==="node_modules"||n===".git"||n.charAt(0)===".")continue;const rel=(base==="."?n:base+"/"+n);let st;try{st=fs.lstatSync(rel);}catch(e){continue;}if(!st.isDirectory())continue;acc.push(rel);if(depth<MAXD)dirsUnder(rel,depth+1,acc);}}
-function memberDirs(globs){const inc=[],exc=[];for(const g of globs){const neg=g.charAt(0)==="!";const body=nz(neg?g.slice(1):g);for(const p of braces(body))(neg?exc:inc).push(g2r(p));}if(!inc.length)return[];const cand=[];dirsUnder(".",1,cand);const seen={},out=[];for(const d of cand){let ok=false;for(const r of inc)if(r.test(d)){ok=true;break;}if(!ok)continue;let bad=false;for(const r of exc)if(r.test(d)){bad=true;break;}if(bad)continue;if(seen[d])continue;seen[d]=1;if(fs.existsSync(d+"/package.json"))out.push(d);}return out.sort();}
+function memberDirs(globs){const inc=[],exc=[];for(const g of globs){const neg=g.charAt(0)==="!";const body=nz(neg?g.slice(1):g);for(const p of braces(body).map(nz))(neg?exc:inc).push(g2r(p));}if(!inc.length)return[];const cand=[];dirsUnder(".",1,cand);const seen={},out=[];for(const d of cand){let ok=false;for(const r of inc)if(r.test(d)){ok=true;break;}if(!ok)continue;let bad=false;for(const r of exc)if(r.test(d)){bad=true;break;}if(bad)continue;if(seen[d])continue;seen[d]=1;if(fs.existsSync(d+"/package.json"))out.push(d);}return out.sort();}
 function parseWs(text){const ws={packages:[],overrides:{},catalog:{},catalogs:{}};let sec=null,cat=null;const kv=/^("[^"]*"|\u0027[^\u0027]*\u0027|[^:]+):(.*)$/;for(const raw of text.split(/\r?\n/)){const t=raw.trim();if(!t||t.charAt(0)==="#")continue;const ind=(raw.match(/^ */))[0].length;if(ind===0){sec=null;cat=null;const m=t.match(/^([A-Za-z0-9_-]+):(.*)$/);if(!m)continue;const rest=unc(m[2]);if(m[1]!=="packages"&&m[1]!=="overrides"&&m[1]!=="catalog"&&m[1]!=="catalogs")continue;sec=m[1];if(rest.charAt(0)==="-"){const it=sq(unc(rest.replace(/^-\s*/,"")));if(sec==="packages"&&it)ws.packages.push(it);}else if(rest.charAt(0)==="["&&rest.slice(-1)==="]"){if(sec==="packages")for(const it of rest.slice(1,-1).split(",")){const s=sq(it);if(s)ws.packages.push(s);}sec=null;}else if(rest)sec=null;continue;}if(sec==="packages"){const m=t.match(/^-(.*)$/);if(m){const s=sq(unc(m[1]));if(s)ws.packages.push(s);}}else if(sec==="overrides"||sec==="catalog"){const m=t.match(kv);if(m)ws[sec][sq(m[1])]=sq(unc(m[2]));}else if(sec==="catalogs"){const m=t.match(kv);if(!m)continue;if(ind===2&&!unc(m[2])){cat=sq(m[1]);ws.catalogs[cat]={};}else if(cat){ws.catalogs[cat][sq(m[1])]=sq(unc(m[2]));}}}return ws;}
 const root=JSON.parse(fs.readFileSync("package.json","utf8"));
 let wsText="";try{wsText=fs.readFileSync("pnpm-workspace.yaml","utf8");}catch(e){}
