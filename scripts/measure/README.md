@@ -176,3 +176,14 @@ a zero-match run emits the five-key header plus only `transcripts_scanned`, `ses
 `blocks`, `marker` and the window/min_size pair — never the percentile or question-count keys.
 That mirrors the vendored original's behaviour and is a known, deferred minor; it is not a bug to
 fix as part of this doc.
+
+## 7. `measure-recap-sentences.py` (added 2026-09-21)
+
+A fourth script, behind the Measurements table of
+`docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md` — not the 2026-09-13 spec's
+table above. Words per sentence inside the recap block, blocks over N words, block line counts,
+and how often a `CONTEXT.md` term (or its `_Operator says_` word, or an `_Avoid_` phrase) appears
+in a block with or without the inline `Term (explanation)` form. The sentence and word
+definitions are in its docstring and are the ones that spec proposes for the hook, so changing
+them means re-running and re-citing that spec's numbers (§5 applies). Not covered by
+`measure.test.sh` yet — the fixtures carry no new-format block.
