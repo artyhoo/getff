@@ -1,6 +1,6 @@
 # Recap hook reuses `/wait-what` + `CONTEXT.md` — design
 
-> **Status:** DRAFT, **revision 2 (2026-09-22)** — design only; no hook code ships with this spec.
+> **Status:** DRAFT, **revision 3 (2026-09-22)** — design only; no hook code ships with this spec.
 > Revision 2 narrows the design after the operator reopened it in dialogue: see «Revision 2»
 > below for what is superseded. Cold `/arch` §2 review dispositions live in the
 > [review log](2026-09-21-recap-wait-what-reuse-review-log.md).
@@ -405,13 +405,15 @@ Arming stays one operator command away (`bash scripts/register-glossary-hook.sh`
 
 ### D7 Rollout (revision 2)
 
-1. Implementation starts **only after recap-v2 slice S4 lands** (aif task
+1. **Part B** of the implementation starts only after recap-v2 slice S4 lands (aif task
    `6ae9ecab-efa4-4829-9113-2a45059f2191`, in flight, not to be redispatched; not on `staging`
    as of `8fd9c297acd`, 2026-09-22): S4 edits both lang packs, their `plugin/hooks/lang/` twins,
    `end-of-turn-reminder.test.ts`, the `/story` rework **and `.claude/skills/arch/SKILL.md` §1**
    (`kickoff-s4.md:1`, `:30`, `:36`, `:82-95`, `:137`) — the files D1, D9 and D10 edit. S5 names
-   none of them (grep count 0), so there is no ordering against S5.
-2. One PR to `staging`. Hand-edited files:
+   none of them (grep count 0), so there is no ordering against S5. Part A — `CONTEXT.md`, the
+   spelling-uniqueness test (SSOT #287), the `CLAUDE.md` line and the #283 note, none of which S4
+   touches — lands first. Plans: [Part A](../plans/2026-09-22-recap-wait-what-reuse-part-a.md), [Part B](../plans/2026-09-22-recap-wait-what-reuse-part-b.md).
+2. Two PRs to `staging`, Part A then Part B. Hand-edited files:
    - both `lang/*.sh` packs (`aif_msg_eot_recap_contract`, `aif_msg_eot_branch_story`) **and a
      hand `cp` to `plugin/hooks/lang/`** — no generator rebuilds the pack twins
      (`end-of-turn-reminder.test.ts:3014-3019`), and `check-parity.sh` compares en↔ru inside one
@@ -530,9 +532,9 @@ adds the SSOT row; this spec-only PR ships no capability.
 ADAPT toward ADOPT-with-bindings in `/arch` (harmonization spec D-H11; the same lift `grilling`
 took, #253). Upstream texts were read from the installed plugin cache on 2026-09-22 — the
 directory is named 1.2.3, but per #253's provenance correction the text is identified by the
-marketplace commit the cache records, and the implementing slice pins that SHA plus section hashes
-(`wait-what/SKILL.md`, `domain-modeling/SKILL.md`, `CONTEXT-FORMAT.md`, `productivity/README.md`,
-and every `SKILL.md` naming `domain-modeling`). Problem-class check (T16): upstream = a glossary
+marketplace commit the cache records, and the implementing slice pins that SHA plus one sha256
+per vendored file, per D9 (`domain-modeling/SKILL.md` without its frontmatter,
+`CONTEXT-FORMAT.md`, `ADR-FORMAT.md`). Problem-class check (T16): upstream = a glossary
 the human co-authors in design interviews, consumed bare by agents; ours after revision 2 = the
 same, plus a recorded-spellings field. Match. The implementing commit appends a dated note to
 row #283 («unused since revision 2 of the reuse spec») and to #253 (second vendored body).
@@ -594,3 +596,5 @@ Dates in this register are the operator's local dates; the transcripts stamp the
   R-16 opened as an operator fork, R-17 gives the re-measure an owner, three anchors corrected.
 - 2026-09-22 — **revision 3**, operator answers: R-16 closed (dormant); R-18 restores the
   re-explain rate with a new `--dedup` flag; R-19 adopts ADRs, so D9 vendors the whole body.
+- 2026-09-22 — implementation split into Part A (before S4) and Part B (after S4); D7 steps
+  1-2 and the Prior-art pin follow revision 3.
