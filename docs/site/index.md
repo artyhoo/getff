@@ -15,6 +15,7 @@ sources:
   - docs/site/terms.md
   - docs/site/why.md
   - packages/core/manifest/maturity.json
+docs-refresh: deferred — re-verified 2026-09-22, CLAUDE.md only gained one skill-routing line for domain-modeling, which nothing on this page describes; clears at the next gold refresh of this page
 next: quick-start.md
 ---
 

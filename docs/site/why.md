@@ -19,7 +19,7 @@ sources:
   - packages/core/manifest/maturity.json
   - packages/core/principles/17-no-paid-llm-in-ci.test.ts
   - skills/getff/references/ai-traps.md
-docs-refresh: deferred — re-verified 2026-09-21, the cited register only gained rows 284-286; counts are renderer-owned and no prose here depends on row content; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-22, the cited register gained rows 284-287 and a dated note on row 283, and CLAUDE.md gained one skill-routing line for domain-modeling; counts are renderer-owned and no prose here depends on either; clears at the next gold refresh of this page
 executed:
   - { step: demo-region-green, stack: repo, date: 2026-09-21, result: "exit-0, 9 tests passed" }
   - { step: demo-region-flipped-line, stack: repo, date: 2026-09-21, result: "exit-1, 2 tests failed, diff names the line" }

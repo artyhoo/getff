@@ -597,6 +597,7 @@ d8b3410bfa8b908605ff43b88cdb8e598b7896529d5913e4cb20208a91de5b58  packages/core/
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
 a90de10703cc048f113060f4fcbb10709b5b5871eaa172ecc53d1596927cb8e2  packages/core/principles/42-context-md-pointer-rule.test.ts
+4855016c0e4bc571d8f882b2014d6b1227c0c76a3fd6531d5252a5c4799356ef  packages/core/principles/42-context-md-spelling-uniqueness.test.ts
 5b361a30b9881057c031376e255e2bbf528251d90ccc603d23080324910bf6df  packages/core/principles/43-kickoff-host-verify-presence.test.ts
 8fbe181dbddbade859afb728f49e4dcdcd0493e024a0f71a0e2c3f0380d6bc39  packages/core/principles/44-kickoff-authoring-traps.test.ts
 f5520ed7d0765e5831d48c5bc6572f9953fff25fb8c7660b92ba221d57c54fb5  packages/core/principles/45-prepush-contract-claim-liveness.test.ts
