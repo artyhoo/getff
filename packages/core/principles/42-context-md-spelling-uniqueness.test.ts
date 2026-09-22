@@ -20,10 +20,12 @@
  * entry; the says payload loses one trailing period and every « and », is split on commas and
  * trimmed; a says-line above the first heading belongs to no entry; words match with `grep -i`.
  * The hook keeps only an entry's LAST says-line and drops the rest silently, so a second line
- * is a violation here. Stricter than the hook in two places. It still counts the spellings of
- * an entry that has no `**Term**:` definition, which the hook skips. And it counts each heading
- * as a spelling, which the hook never matches: a says-word that names another entry's term
- * would inject the wrong definition whenever the operator uses that term's name.
+ * is a violation here. A `**Term**:` paragraph runs to the first blank line, and a says-line
+ * inside it is read as definition text, so the hook loses those words; that is a violation too.
+ * Stricter than the hook in two places. It still counts the spellings of an entry that has no
+ * `**Term**:` definition, which the hook skips. And it counts each heading as a spelling, which
+ * the hook never matches: a says-word that names another entry's term would inject the wrong
+ * definition whenever the operator uses that term's name.
  *
  * OUT OF SCOPE — whether a mapping is right. D8 records that limit and names the PR diff as
  * its review surface. Absence of CONTEXT.md is a valid state: the real-tree arms skip and the
@@ -49,10 +51,12 @@ interface Spelling {
 interface ParsedGlossary {
   spellings: Spelling[];
   repeatedSaysLines: string[];
+  gluedSaysLines: string[];
 }
 
 const HEADING_RE = /^## (.*)$/;
 const SAYS_RE = /^_Operator says_:[ ]?(.*)$/;
+const DEFINITION_RE = /^\*\*[^*]+\*\*:/;
 
 /** The comparison key. The hook matches with `grep -i`, so case never separates spellings. */
 const normalizeSpelling = (raw: string): string => raw.trim().toLowerCase();
@@ -69,20 +73,39 @@ const splitSays = (payload: string): string[] =>
 function parseSpellings(src: string): ParsedGlossary {
   const spellings: Spelling[] = [];
   const repeatedSaysLines: string[] = [];
+  const gluedSaysLines: string[] = [];
   const lines = src.split('\n');
   let term = '';
   let saysLines = 0;
+  // The hook's `inde` state: a definition paragraph runs until the first blank line.
+  let inDefinition = false;
   for (let i = 0; i < lines.length; i++) {
     const line = i + 1;
     const heading = HEADING_RE.exec(lines[i]);
     if (heading) {
       term = heading[1].trim();
       saysLines = 0;
+      inDefinition = false;
       if (term !== '') spellings.push({ term, spelling: term, line });
+      continue;
+    }
+    if (lines[i] === '') {
+      inDefinition = false;
+      continue;
+    }
+    if (DEFINITION_RE.test(lines[i]) && term !== '' && !inDefinition) {
+      inDefinition = true;
       continue;
     }
     const says = SAYS_RE.exec(lines[i]);
     if (!says || term === '') continue;
+    if (inDefinition) {
+      gluedSaysLines.push(
+        `CONTEXT.md:${line} entry '${term}' has its _Operator says_: line inside the definition ` +
+          'paragraph — the glossary hook reads it as definition text and drops the words; ' +
+          'put a blank line before it',
+      );
+    }
     saysLines += 1;
     if (saysLines > 1) {
       repeatedSaysLines.push(
@@ -92,7 +115,7 @@ function parseSpellings(src: string): ParsedGlossary {
     }
     for (const w of splitSays(says[1])) spellings.push({ term, spelling: w, line });
   }
-  return { spellings, repeatedSaysLines };
+  return { spellings, repeatedSaysLines, gluedSaysLines };
 }
 
 function crossEntryDuplicates(spellings: Spelling[]): string[] {
@@ -112,8 +135,8 @@ function crossEntryDuplicates(spellings: Spelling[]): string[] {
 }
 
 function spellingViolations(src: string): string[] {
-  const { spellings, repeatedSaysLines } = parseSpellings(src);
-  return [...repeatedSaysLines, ...crossEntryDuplicates(spellings)];
+  const { spellings, repeatedSaysLines, gluedSaysLines } = parseSpellings(src);
+  return [...repeatedSaysLines, ...gluedSaysLines, ...crossEntryDuplicates(spellings)];
 }
 
 /** An inline glossary: a title line, then the given lines verbatim. */
@@ -174,6 +197,19 @@ describe('Principle 42 (sibling) — one CONTEXT.md spelling names one entry', (
     );
     expect(repeatedSaysLines).toHaveLength(1);
     expect(repeatedSaysLines[0]).toContain("'Harvest'");
+  });
+
+  it('flags a says-line glued to the definition, which the hook reads as definition text', () => {
+    const v = spellingViolations(
+      glossary('## Harvest', '**Harvest**: take a finished branch.', '_Operator says_: «харвест».'),
+    );
+    expect(v).toHaveLength(1);
+    expect(v[0]).toContain("'Harvest'");
+  });
+
+  it('passes a says-line separated from the definition by a blank line', () => {
+    const src = glossary('## Harvest', '**Harvest**: take a finished branch.', '', '_Operator says_: «харвест».');
+    expect(spellingViolations(src)).toEqual([]);
   });
 
   it('passes distinct spellings across entries', () => {
