@@ -281,7 +281,7 @@ git commit -m "feat(story): the story spec and /story carry D1 lines 1-3 instead
 ### Task B3: `/arch` adopts `domain-modeling` (spec D9)
 
 **Files:** three vendored files, `packages/core/skills/domain-modeling-vendored-body.test.ts`,
-`.claude/skills/arch/SKILL.md`, `CONTEXT.md`, the harmonization spec, the register.
+`.claude/skills/arch/SKILL.md`, `CONTEXT.md`, the harmonization spec, the register, `open-questions.md`.
 
 - [ ] **Step 1: Confirm the upstream bytes still match the pins**
 
@@ -472,7 +472,7 @@ so prettier pads the provenance table. Read the diff: only wrapper lines may cha
 
 Then `bash scripts/format-shipped.sh --write .claude/skills/arch/SKILL.md` and read the diff.
 
-- [ ] **Step 6: Three notes**
+- [ ] **Step 6: Four notes**
 
 1. `CONTEXT.md` header — `Consumers: the `/wait-what` skill (operator-invoked).` becomes
    ``Consumers: the `/wait-what` skill (operator-invoked) and `/arch` idea sessions, which run
@@ -482,13 +482,14 @@ Then `bash scripts/format-shipped.sh --write .claude/skills/arch/SKILL.md` and r
    the cell's closing ` |`: ` **Superseded in part 2026-09-22 ([reuse spec D9](2026-09-21-recap-wait-what-reuse-design.md)):** `/arch` idea sessions adopt the whole «During the session» chapter, ADRs included — «ADR dir REJECT» is reversed; the operator's words stay under `_Operator says_`.`
 3. Register row 253 — set its `Last reviewed` cell to today (`date +%F`) and append before the
    row's final ` |`: ` **Note (<today>, [reuse spec](../superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md) D9/R-19):** a second body from the same marketplace commit — `domain-modeling` plus `CONTEXT-FORMAT.md` and `ADR-FORMAT.md` — is vendored beside `grilling.md` under `.claude/skills/arch/references/`, ADOPT-with-bindings in `/arch` idea sessions, ADRs adopted; gated by `packages/core/skills/domain-modeling-vendored-body.test.ts`.`
+4. `docs/meta-factory/open-questions.md` §13.20 — append to its `**Status:**` line, after one space: ``**Superseded in part 2026-09-22** ([reuse spec D9/R-19](../superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md)): `/arch` idea sessions write upstream-format ADRs, created lazily in `docs/adr/`; a later promotion of this entry uses that directory, not a second `docs/adrs/`, and ADRs for supersedes stay deferred.``
 
-Check: the harmonization spec's `wc -l` is unchanged, and both principle-42 tests pass.
+Check: the `wc -l` of the harmonization spec and of `open-questions.md` is unchanged, and both principle-42 tests pass.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add .claude/skills/arch packages/core/skills/domain-modeling-vendored-body.test.ts CONTEXT.md docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md docs/meta-factory/prior-art-evaluations.md
+git add .claude/skills/arch packages/core/skills/domain-modeling-vendored-body.test.ts CONTEXT.md docs/superpowers/specs/2026-08-18-skill-stack-harmonization-design.md docs/meta-factory/prior-art-evaluations.md docs/meta-factory/open-questions.md
 git commit -F - <<'MSG'
 feat(arch): adopt mattpocock domain-modeling in idea sessions, vendored and hash-pinned (reuse spec D9)
 
