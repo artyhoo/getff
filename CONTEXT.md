@@ -1,18 +1,22 @@
 # CONTEXT — project glossary
 
 > **Authoritative for:** the project term list — what each term means, the operator's raw
-> words for it (`_Operator says_:`), and which owner doc a term points at. Consumers: the
-> `/wait-what` skill (operator-invoked) and the glossary hooks — `glossary-inject.sh`
-> injects `"<raw word>" = <term>: <definition>` on a matching prompt, and the Stop hook
-> counts the inline `term (explanation)` form; the learning counters live in the residue dir.
+> words for it (`_Operator says_:`), and which owner doc a term points at. How it grows:
+> when the operator asks what a word means, the agent explains it and, in the same turn,
+> adds or extends the entry here. A new spelling of a known term is appended to that
+> entry's `_Operator says_:` line without asking and reported in one line; a word that
+> seems to mean something else is asked about. One spelling belongs to one entry
+> ([spelling-uniqueness test](packages/core/principles/42-context-md-spelling-uniqueness.test.ts)),
+> and an entry has one `_Operator says_:` line. The agent never tells the operator to stop
+> using their own word. Consumers: the `/wait-what` skill (operator-invoked). The glossary
+> hooks and their learning counters are dormant: `glossary-inject.sh` is registered
+> nowhere, and arming it is the operator's call (`bash scripts/register-glossary-hook.sh`).
 > **NOT authoritative for:** role and dispatch-channel definitions (Orchestrator / Worker /
 > Reviewer, Mode A / Mode B) — the owner doc
 > [glossary.md](.claude/skills/orchestrator/references/glossary.md) owns those, so this file
-> carries only a gist + link for them; the Tier 0/1/2 routing criteria live in
-> [tier-home.md](packages/core/templates/shared/tier-home.md). Upstream's «challenge the
-> user against the glossary» rule is NOT adopted: the agent answers with the term plus its
-> inline explanation and never corrects the operator's word (ADAPT, plain-words-recap-v2
-> R-4 — the superseded ADOPT row is D-H11 in the harmonization spec).
+> carries only a gist + link for them; the Tier 0/1/2 routing criteria — those live in
+> [tier-home.md](packages/core/templates/shared/tier-home.md) and are not the Env tier below;
+> the design of these rules — [reuse spec D8](docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md#d8-the-glossary-grows-from-the-operators-questions-spellings-are-mapped-silently).
 
 ## Land
 
@@ -26,11 +30,12 @@ _Avoid_: «merge to main» as an agent action — the promote step is not an age
 
 ## Env tier
 
-**Env tier**: the task-tier routing (Tier 0/1/2) that decides which model plans a piece of
-work and whether the pipeline runs at all; the criteria live in
-[tier-home.md](packages/core/templates/shared/tier-home.md).
+**Env tier**: the middle install depth of getff — `--profile env`, the default: core plus
+the operator working contour, without the aif runtime; `factory` is the depth above it. The
+depths are listed in [Install depth profiles](INSTALL-FOR-AI.md#install-depth-profiles---profile-core--env--factory).
+Not the Tier 0/1/2 task routing.
 
-_Operator says_: «энв-тир».
+_Operator says_: «энв-тир», «энв тир».
 
 ## Vendor
 
@@ -38,7 +43,7 @@ _Operator says_: «энв-тир».
 dependency. A vendor copy is still a capability decision and rides the same consult gate —
 byte-identity with an already-tracked blob is the only form that rides free.
 
-_Operator says_: «вендорить».
+_Operator says_: «вендорить», «вендерить», «ведерить».
 
 ## Chips
 
@@ -67,7 +72,7 @@ _Operator says_: «красное».
 **Harvest**: take a finished aif-agent branch and egress it into a PR after acceptance; the
 [harvest skill](.claude/skills/harvest/SKILL.md) owns the flow and is operator-invoked.
 
-_Operator says_: harvest, «харвест».
+_Operator says_: harvest, «харвест», «хервест», «хеверст», «херверс».
 
 ## Egress
 
