@@ -47,8 +47,10 @@ _Operator says_: «вендорить», «вендерить», «ведери�
 
 ## Chips
 
-**Chips**: the token/quota units an agent session spends. «Да, чип на aif-диспатч» is an
-approval to spend them on a dispatch.
+**Chips**: a card-button in the Claude app that carries a task prompt; clicking it opens a
+new, separate agent session with that prompt as its first message. Skills emit them through
+`spawn_task` — `/pipeline` one per stage, `/arch` one per routed next action; the contract is
+[output-format.md §9](.claude/skills/pipeline/references/output-format.md#9-dispatch-chips-adr-d1d2).
 
 _Operator says_: «чипы», «чип».
 
