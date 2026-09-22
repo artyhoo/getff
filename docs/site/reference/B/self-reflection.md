@@ -18,7 +18,7 @@ sources:
   - docs/site/reference/B.json
   - docs/site/reference/B.md
   - docs/site/terms.md
-docs-refresh: deferred — re-verified 2026-09-21, the cited register only gained rows 284-286; counts are renderer-owned and no prose here depends on row content; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-22: the cited register gained rows 284-287 and a dated note on row 283, and CLAUDE.md gained one skill-routing line for domain-modeling; counts are renderer-owned and no prose here depends on either; clears at the next gold refresh of this page
 executed:
   - { example: list-framework-skill, stack: repo, date: 2026-09-21, result: listed }
 ---
