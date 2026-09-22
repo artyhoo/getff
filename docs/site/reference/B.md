@@ -33,7 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
-docs-refresh: deferred — re-verified 2026-09-22: the cited register gained rows 284-287 and a dated note on row 283, and CLAUDE.md gained one skill-routing line for domain-modeling; counts are renderer-owned and no prose here depends on either; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-22, the cited register gained rows 284-287 and a dated note on row 283, and CLAUDE.md gained one skill-routing line for domain-modeling; counts are renderer-owned and no prose here depends on either; clears at the next gold refresh of this page
 ---
 
 # Skills

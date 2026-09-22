@@ -336,7 +336,7 @@ On `docs/site/index.md`, add as the last frontmatter key before the closing `---
 placement `foundations.md` uses:
 
 ```yaml
-docs-refresh: deferred — re-verified 2026-09-22: CLAUDE.md only gained one skill-routing line for domain-modeling, which nothing on this page describes; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-22, CLAUDE.md only gained one skill-routing line for domain-modeling, which nothing on this page describes; clears at the next gold refresh of this page
 ```
 
 On `foundations.md`, `why.md`, `reference/B.md` and `reference/B/self-reflection.md`, the
@@ -344,7 +344,7 @@ existing reason says the register «only gained rows 284-286», which stops bein
 the whole line with:
 
 ```yaml
-docs-refresh: deferred — re-verified 2026-09-22: the cited register gained rows 284-287 and a dated note on row 283, and CLAUDE.md gained one skill-routing line for domain-modeling; counts are renderer-owned and no prose here depends on either; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-22, the cited register gained rows 284-287 and a dated note on row 283, and CLAUDE.md gained one skill-routing line for domain-modeling; counts are renderer-owned and no prose here depends on either; clears at the next gold refresh of this page
 ```
 
 - [ ] **Step 4: Gate sweep**
