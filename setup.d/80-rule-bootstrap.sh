@@ -39,7 +39,7 @@ fi
 
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
 # Stack-keyed research pair: the install's $STACK selects the artefacts (mirrors the
-# ${STACK:-ts-server} D3 notice in 99-finalize.sh:49-50). Multi-stack delivery (#827 B1):
+# ${STACK:-ts-server} D3 notice in 99-finalize.sh:108-109). Multi-stack delivery (#827 B1):
 # react-native / ts-server / react-spa each look up their own <stack>.{research,selection}.json,
 # instead of the former react-next-only hardcode that silently degraded every other stack.
 _plan="$_research_dir/${STACK:-ts-server}.research.json"

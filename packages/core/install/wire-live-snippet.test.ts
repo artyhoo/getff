@@ -216,7 +216,7 @@ describe('#827 B2 — live snippet wires for a stack with NO STACK_PATTERNS entr
       cwd: REPO_ROOT,
       stdio: 'pipe',
       // Anchor the bundle's fs-based schema reads (import.meta.url collapses to install/ under
-      // bundling, #755) — the same env var 99-finalize.sh:34 sets when it runs the bundle.
+      // bundling, #755) — the same env var 99-finalize.sh:37 sets when it runs the bundle.
       env: { ...process.env, AIF_SYNTH_PKG_ROOT: resolve(REPO_ROOT, 'packages/core') },
     });
 

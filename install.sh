@@ -1291,14 +1291,14 @@ do_refresh() {
     chmod_safe +x "$_fb_dst" 2>/dev/null || true
   fi
   # #635: also refresh the hooks-scoped {"type":"module"} marker (mirrors the full-install copy_safe
-  # at setup.d/50-hooks.sh:62). Without this, a consumer upgraded via --refresh gets the new multi-file
+  # at setup.d/50-hooks.sh:74). Without this, a consumer upgraded via --refresh gets the new multi-file
   # pre-push.ts WITHOUT type:module → Node ≥22 dies with ERR_REQUIRE_CYCLE_MODULE on the require(esm)
   # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
                "$PROJECT_ROOT/packages/core/hooks/package.json"
 
   # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
-  # 50-hooks.sh:14-15 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # 50-hooks.sh:26-27 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
   # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
   # by install.sh". #636/#638 added a load-bearing tsx-ESM probe to husky-pre-push.sh without
   # which the hook HARD-CRASHES instead of degrading to the bash fallback on a pnpm monorepo. A

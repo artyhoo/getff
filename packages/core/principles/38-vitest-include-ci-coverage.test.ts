@@ -22,7 +22,7 @@
  *
  * A test wired at NO channel fails at none: it is the `#armed-but-not-fired` false-green this
  * project exists to prevent, and the same class `tests/install-sh/meta-all-wired.test.sh`
- * already closes for the shell battery. audit-self.yml:978 even admitted the hole in prose
+ * already closes for the shell battery. audit-self.yml:982 even admitted the hole in prose
  * («the install/ vitest dir is otherwise un-gated») — a comment is not a mechanism
  * (.claude/rules/attention-is-not-a-mechanism.md §1: bare attention may be merge AUTHORITY,
  * never the DETECTION layer). Wiring the 87 without a gate would regress exactly as the
