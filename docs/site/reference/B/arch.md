@@ -119,8 +119,8 @@ how to get it.
   together with the copy that stands in for it. The copy is
   `.claude/skills/arch/references/grilling.md`; its provenance table is lines 31 to 38,
   and lines 16 to 27 say why the plugin is not offered.
-- The word-meaning moves are named on line 54 of `.claude/skills/arch/SKILL.md`. Their
-  copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
+- The word-meaning moves, the four rules `/arch` lays over them and the two upstream parts it
+  leaves out are all on line 54 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
   lines 22 to 29 and its two format files beside it.
 - The copies ship with the skill: they are listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 42 to 45.
