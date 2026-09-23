@@ -33,6 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
+docs-refresh: deferred — re-verified 2026-09-23, the only change to the cited docs/site/reference/B/story.md in this range is one path:line renumbering in its Evidence list (hook line 1348 → 1361); this overview quotes neither that line nor that hook; clears at the next refresh of this page
 ---
 
 # Skills
