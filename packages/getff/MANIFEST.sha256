@@ -714,7 +714,7 @@ f0cf7817f44e50f88aef386e9e1bf7485b90459d85adfe1716b67a5e3e933f69  packages/core/
 c6de328a5e660c581783e5b44aec0a6a3bf607d43c58416d106324506bac7373  packages/core/skills/dispatcher/dispatch.test.ts
 e6c00f9729864de8960ccec6f840cdf57f79662ef902955bb98e24160d7044fc  packages/core/skills/dispatcher/monitor.test.ts
 4093d5a12df27a3adce4c489761b72b3192e44fadebaed9008481bf7705c9c57  packages/core/skills/dispatcher/probe-inflight.test.ts
-81e6081ff1c09ca8de3d5ccf01225c69d2514482406d0de73d723571d4d58cd8  packages/core/skills/domain-modeling-vendored-body.test.ts
+1dcbd334f5d22989ed0145e83e2bd54658bddcadfbe381dc1110769cc777e0ac  packages/core/skills/domain-modeling-vendored-body.test.ts
 953daa58befa8475ac2d103f970e5571bd242a4ccea6532e0bf1d432c9867a81  packages/core/skills/dup-detect-skip-closed.test.ts
 3932f8cd1ab4bfbed00616da1fae4f3fb95459043c5a5313b00ae938f87e67d7  packages/core/skills/dup-detect.test.ts
 4aedba4588370202c58ef6a2fba78dcbed12c7295ff29b2bd89902e10f3a9431  packages/core/skills/emit-output-strings.test.ts
