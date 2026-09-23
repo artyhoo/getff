@@ -42,6 +42,14 @@ bad code. Skills come earlier: they tell the agent how to do a job well before a
 has to fire. This page lists every skill, so you can find the one you need or check
 what an install gave you.
 
+> **One row in the table below is a dated snapshot, by design.** The `story` row still
+> advertises the by-acts chronicle («по актам») that the plain-words recap v2 rework
+> retired from the story skill's own routing description. This page is a frozen gold copy
+> (see references/gold/README.md — frozen means frozen: these copies never track the live
+> pages and are never regenerated), so the stale row is dispositioned as
+> stale-by-freeze, not regenerated. For the current routing, read the live story sheet
+> under docs/site/reference/B/.
+
 ## Common cases
 
 The table below is built by a script from the skill files themselves. Nobody types it.
