@@ -2630,7 +2630,7 @@ husky_hookspath_blocker() {
     echo "the install root is not the git toplevel ($top)"; return 0
   fi
   if [ -z "$cur" ]; then
-    hooks_dir=$(cd "$proj" 2>/dev/null && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P || true)
+    hooks_dir=$(if cd "$proj" 2>/dev/null && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null; then pwd -P; fi)
     if [ -n "$hooks_dir" ]; then
       for h in "$hooks_dir"/*; do
         case "$h" in *.sample) continue ;; esac

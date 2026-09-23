@@ -22,8 +22,9 @@
 #       false-positive probe: agents/hooks are post-delivery-transformed, so a baseline hashed
 #       at copy time instead of flush time would spam here).
 #   (c) pre-manifest consumer (manifest deleted) → refresh → ZERO divergence claims
-#       (T-CRI-B: unknown != diverged, no first-refresh spam); paired-negative: after the
-#       refresh heals the manifest, the SAME mutation DOES warn.
+#       (T-CRI-B: unknown != diverged, no first-refresh spam); since critical-review wave 1
+#       (M2, D4(c)) the diverged bytes are still preserved aside, reported by ONE aggregate
+#       line; paired-negative: after the refresh heals the manifest, the SAME mutation DOES warn.
 #   (d) .override.md file → unchanged Layer-3 skip path: no conflict copy, no warning for it,
 #       while a second mutated file WITHOUT the override is guarded in the same run.
 #   (e) --dry-run lists `would-flag` for the diverged file and writes nothing (no manifest
@@ -161,7 +162,7 @@ fi
 rm -rf "$TCB"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ARM (c) — pre-manifest consumer: unknown ≠ diverged, zero claims
+# ARM (c) — pre-manifest consumer: unknown ≠ diverged, zero per-file claims, bytes preserved
 # ══════════════════════════════════════════════════════════════════════════════
 TCC=$(make_consumer)
 rm -f "$TCC/$MANIFEST_REL"
@@ -172,10 +173,18 @@ if printf '%s\n' "$OUT_C" | grep -qF 'overwriting locally-modified file:'; then
 else
   ok "arm (c): manifest deleted → refresh makes ZERO divergence claims (unknown = today's behaviour)"
 fi
-if [ -e "$TCC/$CONFLICTS_REL" ]; then
-  bad "arm (c): $CONFLICTS_REL/ created for a pre-manifest consumer"
+# Critical-review wave 1 (M2, D4(c)) superseded RI-2's silent overwrite on this path: the
+# unbaselined diverged bytes are copied aside SILENTLY, reported by ONE aggregate line — the
+# per-file no-spam contract above still holds, only the data loss is gone.
+if grep -rqF 'CONSUMER_DIVERGENCE_MARKER_ARM_C' "$TCC/$CONFLICTS_REL" 2>/dev/null; then
+  ok "arm (c): pre-manifest consumer's diverged bytes preserved under $CONFLICTS_REL/ (D4(c), no data loss)"
 else
-  ok "arm (c): no conflicts dir for a pre-manifest consumer"
+  bad "arm (c): pre-manifest consumer's diverged bytes NOT preserved under $CONFLICTS_REL/ — silent data loss"
+fi
+if [ "$(printf '%s\n' "$OUT_C" | grep -c 'preserved [0-9]* unbaselined diverged file')" = "1" ]; then
+  ok "arm (c): exactly ONE aggregate preserve line (no per-file spam)"
+else
+  bad "arm (c): expected exactly one aggregate preserve line (got: $(printf '%s\n' "$OUT_C" | grep -c 'unbaselined diverged'))"
 fi
 # neg (LOAD-BEARING): the SAME consumer, now that the refresh healed the manifest, must warn
 # on a NEW mutation — proving arm (c)'s silence was the unknown-entry path, not a dead guard.
