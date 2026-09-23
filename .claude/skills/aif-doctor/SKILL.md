@@ -66,7 +66,7 @@ Run these in order; each is $0 and read-only. **Reuse, do not reimplement.**
 
 ## §2 The triage flow
 
-1. **Read-only sweep** (autonomous, no GO): run §1 probes top-to-bottom. Stop early only if `/health` is unreachable → containers down → `docker ps`/`docker logs` first.
+1. **Read-only sweep** (autonomous, no GO): run §1 probes top-to-bottom, then read the agent log's error levels — `docker logs <agent> --tail 20000 2>&1 | grep -E '"level":(40|50|60)' | tail` — because a provider rejection (§3.9) is recorded nowhere else and every heartbeat probe stays green through it. Stop early only if `/health` is unreachable → containers down → `docker ps`/`docker logs` first.
 2. **Classify** the failure into one §3 mode using the detector signatures. If no §3 mode matches and `bridge-health.sh` is green → report «no known failure mode; collect a fresh symptom» (do NOT speculate, T-AIFDOC-B).
 3. **Emit the mapped fix command** with its file:line / log-line evidence and a one-line reversibility note. Read-only fixes (re-run a probe) you may run; **mutations stop here for GO**.
 4. **On GO** (and only then): run the mutation, re-run the relevant §1 probe to confirm, report the delta.
@@ -238,6 +238,30 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   5. **`Unknown command: /aif-review` variant:** per-task escape is `PUT {"useSubagents:true}` (the subagent route skips the missing slash command, `reviewer.ts:168`); verified live — security-sidecar completed, code-review ran real commands.
 - **Parked, not prescribed:** the durable fixes for defects 3–4 belong in `lee-to/aif-handoff` — subset adjudication (treat unadjudicated remembered findings as `still_blocking`) and/or dedupe-at-state-write (canonical IDs over normalized text), plus a sane `AGENT_MAX_REVIEW_ITERATIONS` default. Batch them into one base refresh at a board-drain point (§3.4).
 
+### §3.9 Provider quota exhausted (Z.AI 429 [1310]) — blind heartbeat (verified live 2026-09-23)
+
+- **The failure class:** the model provider rejects every request because the plan's quota is spent. The task never fails for good: aif retries the stage every few minutes, forever, and nothing on the task record says why. Measured 2026-09-23: tasks `514693af` and `71ad40d7` sat in `status:"implementing"` from 2026-09-22 ~09:17Z with **zero** new commits for ~22 h.
+- **Symptom:**
+  - the task's `agentActivityLog` (on `GET /tasks/<id>`) alternates `aif-implement started (runtime=claude, transport=sdk, model=glm-5.3-flash, …)` / `aif-implement failed (runtime=claude) — Runtime request failed.` roughly every 3 minutes — hundreds of failures. The log lines are **not strictly time-ordered**, so count the pairs, do not read the last line as «the current state»;
+  - `lastHeartbeatAt` / `updatedAt` stay fresh, and `/agent/status` showed `activeTasks: []` at the same moment.
+- **Why every heartbeat detector misses it:** the coordinator writes `lastHeartbeatAt` / `updatedAt` for **every locked task in the same poll** (identical to the millisecond across tasks) — the value proves the coordinator is alive, not that the worker made progress. The upstream 90-min watchdog (§1) and any «heartbeat older than N» check stay green. Same blind-spot family as §3.1 and §3.5, but with no crash in the task record at all.
+- **Discriminator (progress, not heartbeat):**
+  - worktree commits — `docker exec <agent> git -C <worktreePath> log --oneline origin/staging..HEAD` (`worktreePath` from `GET /tasks/<id>`) is empty or unchanged across polls, and `docker exec <agent> sh -c 'cd <worktreePath> && find . -mmin -60 -not -path "./.git/*" | head'` prints nothing;
+  - the activity-log failure cadence above (a started/failed pair every ~3 min).
+  - Both together = the worker is being refused, not slow. A slow worker writes files; this one writes nothing.
+- **Detect the cause (read-only) — it is ONLY in the agent container log, at level 50:**
+  ```bash
+  docker logs <agent> --tail 20000 2>&1 | grep -E '"level":(40|50|60)' | tail
+  ```
+  → `diagnosticsReason`: `API Error: Request rejected (429) · [1310][Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-09-25 18:33:59]`. Use `--tail`, never `--since` (returns 0 lines on this host — the §3.7 trap). If the stack runs on another machine, run `docker` against that machine's daemon (a docker context, `ssh <host> docker`, or a command-routing wrapper); a local daemon answers `No such container`, which says where you ran it, not that the agent is gone. Container name observed on 2026-09-23: `aif-agent-1` — resolve yours per the §3 note.
+- **The reset time is in UTC+8, not UTC.** Proven by the request id: prefix `20260923153116…` was logged at 07:31:19Z, an 8-hour offset. So `2026-09-25 18:33:59` = **10:34Z**. Convert before telling the operator when work resumes.
+- **Root cause:** every aif project routes task, plan and review stages to Z.AI runtime profiles, and those profiles share one `ZAI_API_KEY`. One exhausted plan therefore stops **the whole factory**, not one task.
+- **Fix — tiered (§4):**
+  1. **Wait for the reset (no-op, default).** aif keeps retrying on its own; no task needs touching. Report the converted reset time and the stalled task ids. Unverified as of 2026-09-23: that every task resumes cleanly after the reset — check worktree commits after it.
+  2. **Operator tops up the plan** — the operator's money and the operator's account; name it and stop.
+  3. **Switch runtime profile or transport (Tier 2 — GO required).** Not a fix on its own: the other Z.AI profile reads the same key, and a Claude profile may be disabled by operator policy (on the maintainer's stack: «GLM only inside aif»). Any switch to a paid path also falls under §8.
+- **Do NOT:** restart containers, delete or re-dispatch the stalled tasks, or treat the fresh heartbeat as health. None of these touches the quota; a re-dispatch only adds a second refused task.
+
 ---
 
 ## §4 Mutation discipline (the Q2 contract)
@@ -364,3 +388,4 @@ The operator re-derives aif operational knowledge every session: which port the 
 - No existing rule or skill is superseded; this is a new operational artefact added on incidence (the 2026-06-03 environment breakage).
 - **Incidence-driven update 2026-06-04 (T-AIFDOC-B — grow on pain, not speculation):** the second live incidence added §3.1 **Fix D (mirror install)** + the §3.3 **discriminator** (github/google/mirror probe) + §7.1 bench-row. No new failure _mode_ invented — these refine the existing §3.1/§3.3 modes with an empirically-verified resolution path (`registry.npmmirror.com` → 200; `claude --version` → `2.1.161`; 0 errors/45s; task resumed). The earlier §3.3 framing «whole-tunnel down → name-and-stop» was over-absolute (T20: it asserted the tunnel was dead without the github/mirror discriminator that proves it host-selective). Corrected in place; no other artefact superseded; `bridge-health.sh`/`verify-bridge.sh` still REUSED unedited.
 - **Incidence-driven update 2026-07-24 (T15 self-application — the detector was teaching the same blind spot the helper had):** §1 base-currency probe + §3.4 Mismatch + §3.4 helper description were corrected to require the two-part check (branch ref AND working-tree HEAD), matching the fix ported into `refresh-aif-base.sh` the same day. The prior detector (`gh api … vs rev-parse staging` — ref only) reproduced the exact blind spot of the buggy helper: a base clone whose ref was current but whose working tree was parked on another branch certified as healthy. The §3.4 symptom list now names «base clone checked out on another branch» as a named cause of stale-base garbage, parallel to the synthetic-base and tunnel-block causes.
+- **Incidence-driven update 2026-09-23 (T-AIFDOC-B — a new mode, observed live, not pre-enumerated):** §3.9 added after tasks `514693af` / `71ad40d7` sat `implementing` for ~22 h behind a Z.AI 429 [1310] quota rejection that every heartbeat probe — including the §1 upstream watchdog — reported as healthy. §2 step 1 now reads the agent log's error levels, the only place the cause was recorded. No existing mode superseded; the §3.7 `--since` warning is reused, not restated.

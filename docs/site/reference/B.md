@@ -33,7 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
-docs-refresh: deferred — re-verified 2026-09-23, the cited register gained a dated note on row 253 (the vendored domain-modeling copy); no prose on this page names that row or the mattpocock skills; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-23, two cited changes in this range and neither touches this page's prose; the register gained dated notes on rows 253 and 255 (the vendored domain-modeling copy, ADRs in /arch idea sessions), which no line here names; the aif-doctor page gained failure mode 3.9 and refreshed evidence line numbers, which this page links by name only and whose table row is the unchanged skill description; clears at the next gold refresh of this page
 ---
 
 # Skills

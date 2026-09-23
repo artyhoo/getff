@@ -28,7 +28,7 @@ fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-f7385b7441a27d1865d22376fdace5e7e67e6dd564f5ad895132defabe169ec0  .claude/skills/aif-doctor/SKILL.md
+b52880f3273eb3f2fdf8b0e87d0b1b0ec13836d6d57bdd28972e462a9965e038  .claude/skills/aif-doctor/SKILL.md
 0659e00cedd3c219a4087924cc1eccb51806a638f0bd1214bf4646e4c9b79ff4  .claude/skills/aif-doctor/helpers/heal.sh
 a8561e5ad736e01157d1313241acfb888a8f67daf13f243db52ceaed2872d48a  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
 6b8e1bc3967e4c108998a798b829f73328a39c3eb9402234547c27e1987d90b1  .claude/skills/arch/SKILL.md
@@ -427,7 +427,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/
 e17af43db948bcf554c9eef3e3851ff9a4af8be67d7689276bd214f1abaeee7b  packages/core/hooks/check-hook-marker.test.ts
 e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/hooks/check-kickoff-portability.test.ts
 bbfddb2ab1f6e5d3c2688478be17940faff90746ba95194bf5518ddd6a09b3f0  packages/core/hooks/check-kickoff-traps.test.ts
-634c0be0d989935ff74277be295142fb8d703a13bc232cf7e2c3ee89f0aa814f  packages/core/hooks/check-skill-drift.test.ts
+a29967a291be5f5007a68a31bef794d2f82b318051e1eb136baa753c006abb0e  packages/core/hooks/check-skill-drift.test.ts
 96fe50f01c03b100317ecbdede7fa453133be0bf549623a4f9391200f93a997b  packages/core/hooks/check-worker-dispatch-channel.test.ts
 8118c5fd2106622234924042b1ab738b8fad3cee6654f079306be60f5de2aabe  packages/core/hooks/checks/cmd-script-liveness.test.ts
 8a6ca70cf870b671b62599e5b222e2bc2bd04c586ee2b6dd7bc669436ae892bc  packages/core/hooks/checks/cmd-script-liveness.ts
