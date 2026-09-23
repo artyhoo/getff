@@ -121,7 +121,7 @@ c605506b6c8e1b51c06d0014d001ff0039de82989200d134234b25c40866f3a4  .claude/skills
 b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
 42d0d38043f4838d08a99386659f48846fc46d412b055f92367fa0ffa4172253  .claude/skills/pipeline/references/red-flags.md
 5e53f12369a0f107451b69a4ea407c4ac3fad06750c159923cc4ba77a3fe944f  .claude/skills/pipeline/references/stage-gates.md
-c68287fc368fcb4702acde811429f507f7a41de8dbeb9764224fb3546a092fc4  .claude/skills/pipeline/templates/meta-kickoff.template.md
+205f8df133e685e037faae42fc228a5eab70318fc08be21c3c8a4d30d56db3b6  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 d838b6a2c8c3b4ff1569e6316dee928bcd4aa6fa1df1cc1376a706d9f6893ed4  .claude/skills/reviewer/SKILL.md
 7dda969e1a79814d486cea5daba91b91df9a7fc657275c5511a0bd1433dba402  .claude/skills/rule-research/SKILL.md
