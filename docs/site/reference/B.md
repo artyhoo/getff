@@ -33,6 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
+docs-refresh: deferred — re-verified 2026-09-23, the only cited change in this range is the aif-doctor page gaining failure mode 3.9 and refreshed evidence line numbers; this page links that page by name only, quotes none of its numbers, and its aif-doctor table row is the unchanged skill description; clears at the next gold refresh of this page
 ---
 
 # Skills
