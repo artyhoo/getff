@@ -34,7 +34,7 @@ What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
 | name | `story` |
 | kind | skill |
 | ships-to | no lane (no-lane) |
-| description | Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», story, recap, «по актам». |
+| description | Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», «что изменилось за сессию», story, recap. |
 | source | `.claude/skills/story/SKILL.md:3` |
 | invocation | auto |
 | posture | cc-native-with-fallback |
@@ -48,9 +48,9 @@ What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
 This is one of the [skills](../B.md) getff installs at the `factory`
 [depth](../../terms.md#depth). After a long agent session you often get a dense status
 list that was written for the agent's own bookkeeping. This
-[skill](../../terms.md#skill) asks for something you can read with pleasure: what you
-set out to do, what happened act by act, what is still shaky, and the one thing left
-for you to decide.
+[skill](../../terms.md#skill) asks for something you can read with pleasure: why the
+work was done, what is different now, what was decided and by whom, what is still
+shaky, and the one thing left for you to decide.
 
 The agent picks the skill up by itself. Its description wakes it when work is done, when
 a pull request was pushed, or when you ask for a recap. You can also type `/story`.
@@ -71,20 +71,34 @@ Here is the helper, run from the getff repository itself:
 AIF_HOOK_LANG=en bash .claude/skills/story/helpers/emit-story-prompt.sh
 ```
 
+<!-- vale off -->
+<!-- vale-reason: the block below is the helper's own printed output, pasted verbatim, Russian offloading words included -->
+
 ```text
-The work is done (a PR was just pushed) — now tell the human the story of this whole session, primarily for them.
-You MUST begin the block with exactly the line "## 🎬 The story" — so the human spots it at a glance.
+The work is done (a PR was just pushed) — now tell the human what this whole session changed, primarily for them.
+You MUST begin the block with exactly the line "## 🎬 What changed this session" — so the human spots it at a glance.
 
 Session goal (from the title / first instruction): "(name it yourself from context)".
 
-Tell it as a story, in plain, engaging language — NOT a dry checklist:
-• Open in one sentence — what we set out to do and why, in human terms.
-• By acts — the narrative arc of the key moves, named (file / PR / decision): what we did, what went wrong, how we fixed it.
-• Explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
-• Be honest — where it is thinly verified (one run, one case), what you are least sure of, what is still left.
-• End on the human — the one thing left for them to decide or do ("one step — your go").
-Tone: interesting, like a story; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
+The same five-section recap as every turn, session-scale — one block, in this order:
+1. **Why all this was.** — always, one sentence: what this was for, in human terms.
+2. **What is different now.** — per change: before, after, what it gives the operator; no chronology.
+3. **What was decided and by whom.** — one line each, and who decided (you / me).
+4. **What I am least sure about.** — where it is thinly verified (one run, one case), what is still left.
+5. **Next.** — always, and exactly two lines; the second one ends the block:
+   Me: <what I am doing>
+   From you: <one of four>
+   — nothing (<what you would check, if you want to>)
+   — waiting on: <what, from whom>
+   — decide: <A> or <B>
+   — do by hand: <one action>
+Nothing else ever follows "From you:". The words
+"проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look" are not work for the human — they are offloading your own.
+Outside the sections: explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
+Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 ```
+
+<!-- vale on -->
 
 That output is what the agent reads. What you see afterwards is a block that starts
 with the marker line it names. The card's `posture` row says the skill leans on two
@@ -99,18 +113,21 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
 
 ## Evidence
 
-- The description is line 3 of `.claude/skills/story/SKILL.md`. The posture marker is
-  line 6. The three steps are lines 19 to 30, and the "must not" list is lines 47 to 53.
+- The description is line 3 of `.claude/skills/story/SKILL.md`, and carries the
+  «что изменилось за сессию» session-recap trigger among its match data. The posture
+  marker is line 6. The three steps are lines 19 to 31, and the "must not" list is
+  lines 48 to 54.
 - The helper is `.claude/skills/story/helpers/emit-story-prompt.sh`. Line 12 picks the
   language file from `AIF_HOOK_LANG` and line 13 falls back to English.
-- The instruction text is the function at line 233 of `.claude/hooks/lang/en.sh`. The
-  end-of-session reminder calls the same function:
+- The instruction text is the story branch at line 267 of `.claude/hooks/lang/en.sh`,
+  which renders the shared recap sections from line 81 in session scope. The
+  end-of-session reminder calls the same branch:
   `.claude/hooks/end-of-turn-reminder.sh`, line 1348.
 - The installer delivers the language files at every depth: `setup.d/10-skills.sh`,
   lines 238 to 253. The skill itself is in the `factory` list at line 65 of
-  `setup.d/lib.sh`. The reason it stays there is a product choice recorded at lines 119
-  to 123 of `setup.d/10-skills.sh`.
+  `setup.d/lib.sh`. Why it stays there, a product choice rather than a blocker fix, is
+  recorded at lines 119 to 123 of `setup.d/10-skills.sh`.
 - The skill's "with and without" sections are checked by
   `packages/core/principles/15-skill-paired-negative.test.ts`.
 - The card above is built from the `story` entry in `docs/site/reference/B.json`, which
-  starts at line 343.
+  starts at line 342.

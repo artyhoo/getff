@@ -346,7 +346,7 @@
         "tier": "factory",
         "absent": "no-lane"
       },
-      "description": "Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», story, recap, «по актам».",
+      "description": "Use when work is done / a PR was pushed, or when the user asks to recap what was done — «расскажи что сделали», «расскажи историю», «что изменилось за сессию», story, recap.",
       "source": {
         "path": ".claude/skills/story/SKILL.md",
         "line": 3

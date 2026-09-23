@@ -32,7 +32,7 @@ One row per spec-table claim, naming the script and the exact output key(s) it p
 | Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | `measure-recap-len.py` | `blocks_over_15` / `blocks_over_25` (the % is `blocks_over_15 / blocks`) |
 | Whole-message lines p50 / p90 / max | 11 / 25 / 80 | `measure-recap-len.py` | `message_lines_p50` / `message_lines_p90` / `message_lines_max` |
 | Blocks containing a question | 6 % | `measure-recap-len.py` | `blocks_with_question_pct` (count in `blocks_with_question`) |
-| `## 🎬` story emissions | 166 | NONE — a one-off `grep -l` | no script, no key |
+| `## 🎬` story emissions (pre-D-G heading «Как это было»/«The story» — renamed 2026-09-21, see honesty note 1) | 166 | NONE — a one-off `grep -l` | no script, no key |
 
 ### Re-run 2026-09-13 (slice 0)
 
@@ -60,7 +60,7 @@ Run headers (verbatim):
 | Blocks over 15 lines / over 25 | 36 (2.2 %) / 5 | 36 (2.1 %) / 5 | Absolute counts (`blocks_over_15`, `blocks_over_25`) unchanged even though total `blocks` grew by 111; the percentage drifted only because its denominator grew. Not a mapping concern. |
 | Whole-message lines p50 / p90 / max | 11 / 25 / 80 | 11 / 25 / 80 | Unchanged. |
 | Blocks containing a question | 6 % | 6 % | Unchanged (`blocks_with_question: 111` of 1718, same ratio). |
-| `## 🎬` story emissions | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
+| `## 🎬` story emissions (pre-D-G heading; renamed 2026-09-21 — see honesty note 1) | 166 | not re-derivable | No script exists for this row (see honesty note 1 above) — the 166 figure came from an ad-hoc `grep -l` at authoring time. Retrofitting a script for it is a follow-up task, not part of this re-run. |
 
 **Finding (OPEN) — the two `mapping inferred` rows are not yet settled.** Both moved more than
 the evidence-backed `agent_wait_phrases` row (+4.1%), which reads as the mapping being loose.
@@ -96,6 +96,10 @@ Two honesty notes on this table:
    transcripts at authoring time and is the one number in the spec table that this slice does
    NOT make re-derivable. Do not invent a command that "would" produce it — if it needs to become
    re-derivable, that is a follow-up task, not something to retrofit into this README.
+   The `## 🎬` heading itself was renamed by plain-words-recap-v2 D-G (2026-09-21): the
+   baseline figures counted the old heading («Как это было» / «The story»); a post-rename
+   re-run must grep the new literal («Что изменилось за сессию» / «What changed this session»)
+   and is NOT comparable to the 166 baseline.
 2. **Evidence-backed vs inferred mappings.** The 636 mapping (`agent_wait_phrases`) is
    evidence-backed: the `ASKC` regex at `measure-interaction-shape.py:51-57` is literally the
    «жду го» vocabulary (`жду твоего`, `дай го`, `твой клик`, `решай ты`, `GO оператора`, …), so

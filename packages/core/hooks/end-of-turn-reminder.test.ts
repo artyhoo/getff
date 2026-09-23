@@ -1070,9 +1070,11 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
       expect(r.stdout, 'gh pr create turn must fire the story branch').not.toBe('');
       const payload = JSON.parse(r.stdout);
       expect(payload.decision).toBe('block');
-      expect(payload.reason).toContain('## 🎬 Как это было');
-      // case-insensitive: the RU prose bullet is capitalized ("По актам")
-      expect(payload.reason).toMatch(/по актам/i);
+      expect(payload.reason).toContain('## 🎬 Что изменилось за сессию');
+      // D-G inverted the former "по актам" assertion ON PURPOSE: the session sections
+      // carry the block now, and the removed chronicle bullet must stay absent.
+      expect(payload.reason).toContain('Зачем всё это было');
+      expect(payload.reason, 'D-G removed the «по актам» chronicle').not.toMatch(/по актам/i);
     });
 
     it('NO PR signal: long markdown → dry recap (## 🟢), NOT 🎬 (paired-negative)', () => {
@@ -1388,7 +1390,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // The story-told guard was shadowed by the same branch. The PR URL inside the
     // text sets story_signal; the marker satisfies the guard.
     const tr = writeTranscript([
-      zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
+      zcodeAssistantText(denseBody('## 🎬 What changed this session\n\nhttps://github.com/o/r/pull/1700\n\n')),
     ]);
     const r = runHook(
       { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-story' },
@@ -1396,6 +1398,30 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     );
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'a told story must not be re-demanded on ZCode').toBe('');
+  });
+
+  it('D-G mutation check: a turn carrying the PRE-D-G marker does NOT satisfy the story-told guard', () => {
+    // The guard matches the CURRENT pack literal exactly (grep -qF on $AIF_STORY_MARKER).
+    // Feeding the retired "## 🎬 The story" heading must NOT suppress — the exact
+    // regression D-G's literal move exists to prevent (R-5: a told story re-injects),
+    // and one an assertion that only reads the new literal cannot see. The CONTRAST
+    // with the sibling test above is the proof: identical turn, only the marker
+    // spelling differs — there the hook is silent, here it re-blocks. Which arm
+    // supplies the reason is arm-order, not the mutation's subject (measured
+    // 2026-09-21: the D-A recap-contract gate — its marker exemption at
+    // end-of-turn-reminder.sh:1096 misses the retired literal), so the assertions pin
+    // "a block was re-demanded", never a reason flavour.
+    const tr = writeTranscript([
+      zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
+    ]);
+    const r = runHook(
+      { transcript_path: tr, stop_hook_active: false, session_id: 'z1706-story-predg' },
+      { ZCODE_PROJECT_DIR: '/fake-zcode-root', AIF_HOOK_LANG: 'en', TMPDIR: privateTmp() },
+    );
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'the retired marker must not be read as a told story').not.toBe('');
+    const payload = JSON.parse(r.stdout);
+    expect(payload.decision).toBe('block');
   });
 
   it('same-text loop bound: identical dense input blocks ONCE, the identical re-stop is silent', () => {
@@ -1609,7 +1635,7 @@ describe('end-of-turn-reminder.sh — F10 autonomy arm', { timeout: SLOW_SHELL_M
     // one fires right after `gh pr create`, i.e. at a moment when dispatched work
     // very plausibly is still running.
     const tr = writeTranscript([
-      assistantBashToolUse(`## 🎬 Как это было\nоткрыл PR`, 'gh pr create --fill'),
+      assistantBashToolUse(`## 🎬 Что изменилось за сессию\nоткрыл PR`, 'gh pr create --fill'),
     ]);
     const r = withTasks(JSON.stringify([task('implementing')]), (url) =>
       runHook(
