@@ -19,9 +19,9 @@ const END = '<!-- prettier-ignore-end -->';
 // Recorded 2026-09-22 from marketplace commit 9c9f36ccd3995266cd675468af71639c8dde1ec5:
 // SKILL.md minus its 5-line frontmatter (`tail -n +6 | shasum -a 256`); the format files whole.
 const VENDORED = [
-  { file: 'domain-modeling.md', sha: '6e49118599619a407f89024b4fc6435883f13728c95707a32136eacf8fe887ca', starts: '# Domain Modeling\n' },
-  { file: 'CONTEXT-FORMAT.md', sha: 'b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597', starts: '# CONTEXT.md Format\n' },
-  { file: 'ADR-FORMAT.md', sha: 'f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2', starts: '# ADR Format\n' },
+  { file: 'domain-modeling.md', sha: '6e49118599619a407f89024b4fc6435883f13728c95707a32136eacf8fe887ca', starts: '# Domain Modeling\n', links: ['CONTEXT-FORMAT.md', 'ADR-FORMAT.md'] },
+  { file: 'CONTEXT-FORMAT.md', sha: 'b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597', starts: '# CONTEXT.md Format\n', links: [] },
+  { file: 'ADR-FORMAT.md', sha: 'f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2', starts: '# ADR Format\n', links: [] },
 ] as const;
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
@@ -42,7 +42,7 @@ function extractBody(doc: string): string {
   return range.slice(0, -1);
 }
 
-describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', ({ file, sha, starts }) => {
+describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', ({ file, sha, starts, links }) => {
   const path = join(REFS, file);
   const doc = existsSync(path) ? readFileSync(path, 'utf8') : '';
 
@@ -70,9 +70,13 @@ describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', (
   });
 
   // Fenced blocks are skipped: upstream's CONTEXT-FORMAT.md shows a sample CONTEXT-MAP.md whose
-  // `./src/<context>/CONTEXT.md` links are example text, not links a renderer follows.
+  // `./src/<context>/CONTEXT.md` links are example text, not links a renderer follows. The link
+  // list is pinned per file, so a body with no links asserts that it has none rather than
+  // passing on a loop that never ran.
   it('every relative link in the body resolves to a vendored sibling', () => {
     const prose = extractBody(doc).replace(/^```[^\n]*\n[\s\S]*?^```$/gm, '');
-    for (const m of prose.matchAll(/\]\(\.\/([^)]+)\)/g)) expect(existsSync(join(REFS, m[1])), m[1]).toBe(true);
+    const targets = [...prose.matchAll(/\]\(([^)]+)\)/g)].map((m) => m[1]).filter((t) => !/^https?:/.test(t));
+    expect(targets).toEqual(links.map((l) => `./${l}`));
+    for (const l of links) expect(existsSync(join(REFS, l)), l).toBe(true);
   });
 });
