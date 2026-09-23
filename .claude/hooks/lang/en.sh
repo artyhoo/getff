@@ -277,7 +277,10 @@ Session goal (from the title / first instruction): "${anchor:-(name it yourself 
 
 The same five-section recap as every turn, session-scale — one block, in this order:
 $(aif_msg_eot_recap_sections session)
-Outside the sections: explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
+Outside the sections, how to write:
+• Short sentences, at most 25 words. Split a long one in two instead of chaining clauses with colons, dashes and parentheses. Bad: "The test failed — the assert expected the old text (fixed it), green now". Good: "The test failed: the assert expected the old text. I fixed it. The test is green."
+• One idea per sentence. Bad: "Fixed X, but CI is red because of Y". Good: "Fixed X. CI is red: Y."
+• Write a CONTEXT.md term bare, as the glossary spells it, and never replace it with a paraphrase. Say jargon that is not in the glossary in plain words. Bad: "did a merge-forward". Good: "merged fresh staging into the branch".
 Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 EOF
 }

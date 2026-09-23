@@ -3198,4 +3198,17 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
     }
     expect(r.stdout.indexOf(p.growth)).toBeGreaterThan(seamAt);
   });
+
+  it.each(D1_PACKS)('%s %s: the story spec carries lines 1-3 and no «jargon on the spot»', (lang, pack) => {
+    const r = callPack(pack, 'aif_msg_eot_branch_story');
+    expect(r.status, r.stderr).toBe(0);
+    for (const phrase of D1_PHRASES[lang].rules) expect(r.stdout, phrase).toContain(phrase);
+    expect(r.stdout).not.toContain(D1_PHRASES[lang].oldJargon);
+  });
+
+  it('story/SKILL.md teaches the same thing as the story spec', () => {
+    const skill = readFileSync(resolve(REPO_ROOT, '.claude/skills/story/SKILL.md'), 'utf8');
+    expect(skill).not.toMatch(/jargon (explained )?on the spot/i);
+    expect(skill).toMatch(/terms written bare/);
+  });
 });
