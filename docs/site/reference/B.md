@@ -33,6 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
+docs-refresh: deferred — re-verified 2026-09-23, the cited register gained a dated note on row 253 (the vendored domain-modeling copy); no prose on this page names that row or the mattpocock skills; clears at the next gold refresh of this page
 ---
 
 # Skills

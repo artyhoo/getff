@@ -15,8 +15,7 @@ sources:
   - docs/site/reference/B.md
   - docs/site/terms.md
 executed:
-  - { example: emit-story-instruction, stack: repo, date: 2026-09-21, result: printed }
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+  - { example: emit-story-instruction, stack: repo, date: 2026-09-23, result: printed }
 ---
 
 # story skill
@@ -94,7 +93,10 @@ The same five-section recap as every turn, session-scale — one block, in this 
    — do by hand: <one action>
 Nothing else ever follows "From you:". The words
 "проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look" are not work for the human — they are offloading your own.
-Outside the sections: explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
+Outside the sections, how to write:
+• Short sentences, at most 25 words. Split a long one in two instead of chaining clauses with colons, dashes and parentheses. Bad: "The test failed — the assert expected the old text (fixed it), green now". Good: "The test failed: the assert expected the old text. I fixed it. The test is green."
+• One idea per sentence. Bad: "Fixed X, but CI is red because of Y". Good: "Fixed X. CI is red: Y."
+• Write a CONTEXT.md term bare, as the glossary spells it, and never replace it with a paraphrase. Say jargon that is not in the glossary in plain words. Bad: "did a merge-forward". Good: "merged fresh staging into the branch".
 Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 ```
 
@@ -119,7 +121,7 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
   lines 48 to 54.
 - The helper is `.claude/skills/story/helpers/emit-story-prompt.sh`. Line 12 picks the
   language file from `AIF_HOOK_LANG` and line 13 falls back to English.
-- The instruction text is the story branch at line 267 of `.claude/hooks/lang/en.sh`,
+- The instruction text is the story branch at line 271 of `.claude/hooks/lang/en.sh`,
   which renders the shared recap sections from line 81 in session scope. The
   end-of-session reminder calls the same branch:
   `.claude/hooks/end-of-turn-reminder.sh`, line 1348.
