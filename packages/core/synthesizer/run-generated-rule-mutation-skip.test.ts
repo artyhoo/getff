@@ -184,6 +184,83 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(code, `runner output:\n${out}`).toBe(0);
     });
 
+    // critical-review S8-1: the extraction step swallowed every failure into `[]`, so a manifest
+    // that did not parse took the RULE_COUNT=0 exit — «nothing to test», exit 0 — and a push gate
+    // stayed green on material it never read.
+    it('unparseable manifest → fails closed (exit 1), never «nothing to test»', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'mutrunner-skip-'));
+      tmpDirs.push(dir);
+      const manifest = join(dir, 'manifest.json');
+      writeFileSync(manifest, '{ "rule-a": { "check": ', 'utf8');
+      const { code, out } = runRunner(manifest);
+
+      expect(code, `runner output:\n${out}`).toBe(1);
+      expect(out).not.toContain('nothing to test');
+      expect(out).toContain('could not read the manifest');
+    });
+
+    // critical-review S8-1: a declarative rule whose negative-test key is missing or misspelled was
+    // filtered out before counting, so a manifest of such rules also read as «nothing to test».
+    it('declarative rule with a misspelled negative-test key → counted and skipped, NOT green', () => {
+      const manifest = writeManifest({
+        'rule-misspelled': {
+          check: { type: 'declarative', selector: "MemberExpression[object.name='localStorage']" },
+          negative_test: { input: ["localStorage.getItem('token');"] },
+        },
+      });
+      const { code, out } = runRunner(manifest);
+
+      expect(code, `runner output:\n${out}`).toBe(1);
+      expect(out).not.toContain('nothing to test');
+      expect(out).toContain('skipped=1');
+      expect(out).toContain('NOT green');
+    });
+
+    // critical-review S8-1: the manifest path was spliced raw into a JS string literal, so a `'`
+    // in the path broke the extraction and the runner again reported «nothing to test».
+    it("a manifest path containing a quote is read, and its live rule is tested", () => {
+      const dir = mkdtempSync(join(tmpdir(), "mutrunner-o'quote-"));
+      tmpDirs.push(dir);
+      const manifest = join(dir, 'manifest.json');
+      writeFileSync(
+        manifest,
+        JSON.stringify({
+          'rule-live': {
+            check: { type: 'declarative', selector: "MemberExpression[object.name='localStorage']" },
+            'negative-test': { input: ["localStorage.getItem('token');"] },
+          },
+        }),
+        'utf8',
+      );
+      const { code, out } = runRunner(manifest);
+
+      expect(out, `runner output:\n${out}`).not.toContain('nothing to test');
+      expect(out).toContain('=== overall:');
+      expect(code, `runner output:\n${out}`).toBe(0);
+    });
+
+    // critical-review cold pass (M3 sibling): the shipped manifest's negative inputs are
+    // TypeScript (`function send(): void {…}`) and may hold JSX. The probe parsed them with
+    // the default JS parser, so a correct rule read as «did NOT fire» and was skipped — on a
+    // TS consumer every such rule skipped and the gate ended NOT green on material it never
+    // evaluated.
+    it.each([
+      ['TypeScript', "CallExpression[callee.name='fetch']", "function send(): void { fetch('/x'); }"],
+      ['JSX', "JSXIdentifier[name='head']", 'export const H = () => <head />;'],
+    ])('a %s negative input is parsed and its rule tested', (_label, selector, input) => {
+      const manifest = writeManifest({
+        'rule-typed': {
+          check: { type: 'declarative', selector },
+          'negative-test': { input: [input] },
+        },
+      });
+      const { code, out } = runRunner(manifest);
+
+      expect(out, `runner output:\n${out}`).not.toContain('did NOT fire on negative-test input');
+      expect(out).toContain('=== overall:');
+      expect(code, `runner output:\n${out}`).toBe(0);
+    });
+
     it('anti-scope guard: empty manifest (RULE_COUNT=0) still exits 0 honestly', () => {
       // §6 anti-scope: «Do NOT change the RULE_COUNT -eq 0 early-exit path (§1)».
       // That path is ALREADY HONEST — it claims nothing. Pins it in place: if a

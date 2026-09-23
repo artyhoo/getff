@@ -19,7 +19,7 @@
 //      planted `yaml.load(raw)`, CLEAN (zero findings, exit 0) on `yaml.safe_load(raw)`.
 //
 // Also proven: refresh-survival (a --refresh pass re-delivers the scan dir from the template,
-// lib.sh:1229 — the join re-assembles the researched rule, so it still fires), and the CLI-hop
+// lib.sh:1293 — the join re-assembles the researched rule, so it still fires), and the CLI-hop
 // non-vacuity control (no practice record → the SAME planted violation does NOT report the id).
 //
 // Home rationale (backends/astgrep/): the firing arms need the REAL pinned ast-grep binary, which
@@ -233,7 +233,7 @@ describe('W5 live path — render + delivery hops (always-on)', () => {
       expect(existsSync(joined)).toBe(true);
 
       expect(runDelivery(consumer, 'refresh')).toBe(0);
-      // Still present after the refresh_safe directory re-delivery + sweep (lib.sh:1229) — the join ran.
+      // Still present after the refresh_safe directory re-delivery + sweep (lib.sh:1293) — the join ran.
       expect(existsSync(joined)).toBe(true);
       expect(readFileSync(joined, 'utf8')).toBe(readFileSync(RENDERED_SRC, 'utf8'));
     },

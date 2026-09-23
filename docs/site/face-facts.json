@@ -83,8 +83,8 @@
   },
   "installCommands": {
     "source": {
-      "positionals": "setup:67",
-      "laneTable": "install.sh:281",
+      "positionals": "setup:72",
+      "laneTable": "install.sh:288",
       "flags": "README.md:147"
     },
     "stacks": [

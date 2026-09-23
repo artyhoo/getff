@@ -32,7 +32,7 @@ import {
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-// NOTE: this file ships verbatim into consumer projects (install.sh:1173-1183), so a
+// NOTE: this file ships verbatim into consumer projects (install.sh:1180-1190), so a
 // static bare-package import of anything outside the consumer's tree crashes the hook
 // with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
 // imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
@@ -1854,8 +1854,8 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // SSOT for the shipped surface (predicate reuse, BFR):
 //   (1) scripts/format-shipped.sh:46-65 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derivation of
-//       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derives the
+//       consumer-DESTINATION shipped set from the setup.d copy_safe / copy_unless_foreign commands.
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
 // corpus (predicate (4)'s question answered by a real install rather than a shell scan).
@@ -1923,7 +1923,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1024 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1031 (conditional starter)
 ];
 
 /**
@@ -1987,7 +1987,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:756-814) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:779-837) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer

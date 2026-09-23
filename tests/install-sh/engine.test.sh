@@ -59,7 +59,7 @@ out=$(PATH="$_stub_bin:$PATH" companion_step "ctx7" "false" "echo SHOULD_NOT_RUN
 echo "$out" | grep -qx SHOULD_NOT_RUN && bad "kind=mcp dry-run ran install" || ok "kind=mcp dry-run → no install"
 
 # kind=mcp with --scope user in install_cmd → machine-scope label emitted
-out=$(PATH="$_stub_bin:$PATH" companion_step "deepwiki" "false" "echo --scope user INSTALLED" "mcp" "yes")
+out=$(GETFF_GLOBAL=1 PATH="$_stub_bin:$PATH" companion_step "deepwiki" "false" "echo --scope user INSTALLED" "mcp" "yes")
 echo "$out" | grep -qi 'machine.scope\|machine scope' && ok "kind=mcp --scope user → machine-scope label emitted" || bad "no machine-scope label for user-scope MCP"
 
 # kind=mcp with claude CLI absent → graceful skip (no install, return 0)
@@ -68,6 +68,20 @@ out=$(PATH="$_empty_bin:/usr/bin:/bin" companion_step "ctx7" "false" "echo SHOUL
 echo "$out" | grep -qi 'absent' && ok "claude CLI absent → notice emitted" || bad "no 'absent' notice when claude CLI missing"
 echo "$out" | grep -q SHOULD_NOT_RUN && bad "ran install despite claude CLI absent" || ok "no install when claude CLI absent"
 rm -rf "$_empty_bin"
+
+# === machine-global installs need --global under -y (critical-review S1-4, operator decision
+# 2026-09-23: «-y только в проект»). -y used to be the only consent for user-scope plugin / MCP /
+# marketplace adds and `npm install -g`, and INSTALL-FOR-AI.md tells agents to run -y unasked. ===
+for _g in "npm install -g @ast-grep/cli" "claude plugin install x@y --scope user" "claude plugin marketplace add a/b && claude plugin install c"; do  # ci-tool-pin: allow fixture strings fed to the classifier, not an install
+  out=$(GETFF_GLOBAL="" PATH="$_stub_bin:$PATH" companion_step "g" "false" "echo GLOBAL_RAN # $_g" "cc-plugin" "yes")
+  echo "$out" | grep -qx GLOBAL_RAN && bad "-y without --global ran a machine-global install ($_g)" || ok "-y without --global: machine-global install NOT run ($_g)"
+  echo "$out" | grep -q -- '--global' && ok "the skip line names --global ($_g)" || bad "the skip line does not say how to allow it ($_g)"
+  out=$(GETFF_GLOBAL=1 PATH="$_stub_bin:$PATH" companion_step "g" "false" "echo GLOBAL_RAN # $_g" "cc-plugin" "yes")
+  echo "$out" | grep -qx GLOBAL_RAN && ok "GETFF_GLOBAL=1 (--global): machine-global install runs ($_g)" || bad "--global did not allow the machine-global install ($_g)"
+done
+# paired negative: a project-scoped install still runs under plain -y.
+out=$(GETFF_GLOBAL="" companion_step "p" "false" "echo PROJECT_RAN" "cli" "yes")
+echo "$out" | grep -qx PROJECT_RAN && ok "-y still runs a project-scoped companion install" || bad "-y no longer runs a project-scoped install"
 
 rm -rf "$_stub_bin"
 

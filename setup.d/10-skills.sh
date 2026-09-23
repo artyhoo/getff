@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:588-589), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:595-596), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"

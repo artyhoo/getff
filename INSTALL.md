@@ -127,7 +127,7 @@ cd /path/to/your-project
 ai-factory init --agents claude
 
 # 4. Run the installer (one-shot recommended):
-/path/to/getff/setup -y ts-server       # non-interactive: all layers + dev-deps + companions
+/path/to/getff/setup -y ts-server       # non-interactive: all layers + dev-deps + project companions (add --global for machine-wide ones)
 /path/to/getff/setup -y react-next      # for React/Next
 /path/to/getff/setup -y react-spa       # for React + Vite SPA
 /path/to/getff/setup -y react-native    # for React Native / Expo
@@ -156,7 +156,7 @@ required) — see [INSTALL-FOR-AI.md — Python toolchain lane](INSTALL-FOR-AI.m
 for what it ships and how the firing proof works. The rest of this section (`--force`, `--full`,
 `--wire-ci`, etc.) describes the npm-stack path (`ts-server`/`react-next`/`react-spa`/`react-native`).
 
-Four further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the five skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--all` — operator shorthand for `--full` + `--with-aif-suite` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
+Five further opt-in flags (see `install.sh` header for exact semantics): `--full` — also auto-installs the shipped dev-deps via the consumer's package manager (mutating, no prompts; stack arg required); `--wire-ci` — also auto-wires missing CI gates into an existing workflow via `yq` (detect-first); `--with-aif-suite` — also ships the AIF operator suite: the five skills (dispatcher, aif-doctor, harvest, story, claude-glm-executor-handoff) plus the two suite agents (orchestrator-worker-discipline, reviewer-discipline) and their aif-orchestrator-discipline skill-context — all presuppose the aif-handoff operator runtime (default installs only the consumer-facing set); `--global` — also installs machine-global companions (user-scope Claude plugins and MCP servers, `npm -g` tools, the runtime-bridge), which `-y` / `--full` alone skip; `--all` — operator shorthand for `--full` + `--with-aif-suite` + `--global` («everything»). The recommended `./setup -y <stack>` one-shot path already implies `--full` + project-scoped companions and stays curated; `./setup --all <stack>` is the operator-machine equivalent that also pulls the suite.
 
 ### Python lane — the local hook rung and `GETFF_SKIP_HOOKS`
 

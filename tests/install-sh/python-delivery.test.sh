@@ -81,7 +81,7 @@ inert_out=$(
   ls -A "$INERT_P" 2>/dev/null | tr '\n' ' '
 )
 if [ -z "$(echo "$inert_out" | tr -d '[:space:]')" ]; then
-  ok "layer sourced with no GETFF_TOOLCHAIN → wrote nothing (npm flow inert; install.sh:1415 auto-source is a no-op)"
+  ok "layer sourced with no GETFF_TOOLCHAIN → wrote nothing (npm flow inert; install.sh:1422 auto-source is a no-op)"
 else
   bad "layer NOT inert without GETFF_TOOLCHAIN → wrote: $inert_out"
 fi

@@ -129,6 +129,9 @@ while [ "$#" -gt 0 ]; do
     --wire-ci)              WIRE_CI="--wire-ci" ;;
     --refresh)              REFRESH="--refresh" ;;
     --with-aif-suite)       WITH_AIF_SUITE="--with-aif-suite" ;;
+    # --global: allow machine-global companions under --full (critical-review S1-4) — read by
+    # setup.d/engine.sh companion_step via GETFF_GLOBAL; ./setup exports it for --global / --all.
+    --global)               export GETFF_GLOBAL=1 ;;
     # --profile <name> — install depth (kickoff §0 + design spec §4 A1, beta-delivery-ux S1).
     # Three values, monotonic depth: core (rules-only, no operator contour) → env (the default;
     # multi-model contour surface as placeholders, no AIF runtime) → factory (env + the AIF
@@ -155,7 +158,7 @@ while [ "$#" -gt 0 ]; do
     # convenience alias (owner directive 2026-07-11); consumer default (-y/--full) stays curated.
     # Under --profile semantics (S1): --all additionally implies --profile factory, since
     # factory = env + AIF suite per inventory §2.1 (the AIF suite IS the factory-only payload).
-    --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
+    --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite"; export GETFF_GLOBAL=1 ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
     # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
     # auto-detect (python-delivery-v0 S2 §1). Routed to do_python_lane below, before the npm
@@ -172,6 +175,10 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 SKIPPED=()
+# critical-review wave 1: framework pieces deliberately NOT wired because the consumer already owns
+# that surface (their own core.hooksPath, their own lint config under another name). Each entry is
+# one line: what was left alone + the one action that wires it by hand. Printed by 99-finalize.
+NOT_WIRED=()
 
 # Refuse to install into the package itself
 if [ "$PKG_ROOT" = "$PROJECT_ROOT" ]; then
@@ -594,7 +601,7 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:693 fail-loud instead of showing
+# else in this script (--full/-y at install.sh:700 fail-loud instead of showing
 # the stack menu; --full/--dry-run at :470 decline the python/cargo
 # toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:65
@@ -639,7 +646,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:840 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:847 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -1141,7 +1148,7 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:644-646), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:651-653), the presence
   # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1717-1720).
   #
@@ -1202,10 +1209,10 @@ do_refresh() {
   # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
   # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
-  # framework-namespace files a consumer never owns (setup.d/lib.sh:1854) — DISTINCT from the
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:1918) — DISTINCT from the
   # packages/core/eslint-rules/ copy above (guard-liveness dep). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
-  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:198-227
+  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:204-233
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
   # source-dir parity (a core-only refresh silently stranded preset rules on react-next/react-spa
   # consumers before this — the exact #869 class, verified live).
@@ -1284,14 +1291,14 @@ do_refresh() {
     chmod_safe +x "$_fb_dst" 2>/dev/null || true
   fi
   # #635: also refresh the hooks-scoped {"type":"module"} marker (mirrors the full-install copy_safe
-  # at setup.d/50-hooks.sh:59). Without this, a consumer upgraded via --refresh gets the new multi-file
+  # at setup.d/50-hooks.sh:62). Without this, a consumer upgraded via --refresh gets the new multi-file
   # pre-push.ts WITHOUT type:module → Node ≥22 dies with ERR_REQUIRE_CYCLE_MODULE on the require(esm)
   # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
                "$PROJECT_ROOT/packages/core/hooks/package.json"
 
   # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
-  # 50-hooks.sh:11-12 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # 50-hooks.sh:14-15 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
   # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
   # by install.sh". #636/#638 added a load-bearing tsx-ESM probe to husky-pre-push.sh without
   # which the hook HARD-CRASHES instead of degrading to the bash fallback on a pnpm monorepo. A

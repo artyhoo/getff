@@ -7,8 +7,10 @@
 # in CI per .claude/rules/no-paid-llm-in-ci.md.
 #
 # Tests:
-#   (a) install.sh <stack> --full --force → .mcp.json exists with correct context7 shape
-#   (b) idempotency: second --full run → context7 not duplicated, deepwiki not double-installed
+#   (a) install.sh <stack> --full --force --global → .mcp.json exists with correct context7 shape,
+#       and the user-scope deepwiki row is installed (--global is its consent)
+#   (b) idempotency: second --full run → context7 not duplicated; and WITHOUT --global the
+#       user-scope deepwiki row is never installed (critical-review S1-4: -y = project only)
 #   (c) --full --dry-run → no .mcp.json written
 #   (d) byte-identical guard (D2): --force WITHOUT --full → no .mcp.json (gate proven)
 #   (e) brownfield: pre-seeded .mcp.json with non-context7 entry preserved (additive merge)
@@ -57,7 +59,7 @@ _run_install() {
 echo "  ── (a) greenfield: --full --force creates .mcp.json with context7 ──"
 _proj_a=$(mktemp -d)
 echo '{}' > "$_proj_a/package.json"
-_run_install "$_proj_a" --full --force >/dev/null 2>&1 || true
+_run_install "$_proj_a" --full --force --global >/dev/null 2>&1 || true
 
 _mcp_a="$_proj_a/.mcp.json"
 [ -f "$_mcp_a" ] && ok "(a) .mcp.json created" || bad "(a) .mcp.json not created"
@@ -76,9 +78,9 @@ if [ -f "$_mcp_a" ]; then
     || bad "(a) context7.args[1] mismatch"
 fi
 
-# claude mcp add (deepwiki row) must have been invoked
+# claude mcp add (deepwiki row, --scope user) must have been invoked — --global allowed it
 grep -q 'claude-stub mcp add' "$_claude_log" \
-  && ok "(a) claude mcp add was invoked (kind=mcp row)" \
+  && ok "(a) claude mcp add was invoked under --global (kind=mcp row)" \
   || bad "(a) claude mcp add was NOT invoked"
 rm -f "$_claude_log"; > "$_claude_log"
 rm -rf "$_proj_a"
@@ -103,6 +105,10 @@ fi
 #  empty output → installs on each run via stub. We just assert the stub was called, not the
 #  exact idempotency of the stub itself — true idempotency is a cold-QA / manual step per T-MIF-C.)
 ok "(b) second-run idempotency: context7 checked (deepwiki idempotency is manual cold-QA per T-MIF-C)"
+# paired negative for (a): neither --full run passed --global, so the user-scope row stays out.
+grep -q 'claude-stub mcp add' "$_claude_log" \
+  && bad "(b) claude mcp add ran WITHOUT --global — a machine-global install under plain --full" \
+  || ok "(b) without --global the user-scope MCP row is skipped (project-only install)"
 rm -f "$_claude_log"; > "$_claude_log"
 rm -rf "$_proj_b"
 

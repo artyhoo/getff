@@ -79,4 +79,45 @@ else
 fi
 
 rm -rf "$T"
+
+# ── ARM (D): consumer-owned hooks survive (critical-review S3-1) ──────────────
+# A consumer that already had its OWN .husky/pre-commit + pre-push before the install: 50-hooks'
+# copy_safe keeps them (skip-if-exists), so the re-assert after deps must keep them too. Before
+# the fix it overwrote any hook differing from the template — the consumer's checks vanished.
+T2=$(mktemp -d)
+git -C "$T2" init -q
+mkdir -p "$T2/.husky"
+printf '#!/usr/bin/env sh\nnpm run typecheck\n' > "$T2/.husky/pre-commit"
+printf '#!/usr/bin/env sh\nnpm run e2e\n' > "$T2/.husky/pre-push"
+echo '{ "name": "c-own", "version": "0.0.0" }' > "$T2/package.json"
+if ! command -v husky_note_consumer_hooks >/dev/null 2>&1; then
+  bad "(D) husky_note_consumer_hooks not exported from lib.sh"
+else
+  HUSKY_CONSUMER_HOOKS=""
+  husky_note_consumer_hooks "$REPO_ROOT" "$T2"
+  _out3=$(reassert_husky_shields "$REPO_ROOT" "$T2" 2>&1)
+  grep -q 'npm run typecheck' "$T2/.husky/pre-commit" && ok "(D) consumer pre-commit kept" || bad "(D) consumer pre-commit overwritten by re-assert"
+  grep -q 'npm run e2e' "$T2/.husky/pre-push" && ok "(D) consumer pre-push kept" || bad "(D) consumer pre-push overwritten by re-assert"
+  echo "$_out3" | grep -q 're-asserted' && bad "(D) re-assert WARNed about consumer-owned hooks" || ok "(D) no re-assert WARN for consumer-owned hooks"
+  # A pristine framework hook on disk is NOT consumer-owned: noting must leave it re-assertable.
+  cp "$PC_TPL" "$T2/.husky/pre-commit"
+  HUSKY_CONSUMER_HOOKS=""
+  husky_note_consumer_hooks "$REPO_ROOT" "$T2"
+  case " $HUSKY_CONSUMER_HOOKS " in
+    *" pre-commit "*) bad "(D) a pristine framework pre-commit was noted as consumer-owned" ;;
+    *) ok "(D) a pristine framework pre-commit is not noted as consumer-owned" ;;
+  esac
+  # A hook from an OLDER framework version (bytes differ from today's template, identity marker
+  # present) is still the framework's: noting it as consumer-owned would skip the post-deps
+  # re-assert on an upgrade re-install, and a prepare-driven manager would clobber it for good.
+  { sed -n '1p' "$PC_TPL"; echo '# older framework revision'; sed -n '2,$p' "$PC_TPL"; } > "$T2/.husky/pre-commit"
+  { sed -n '1p' "$PP_TPL"; echo '# older framework revision'; sed -n '2,$p' "$PP_TPL"; } > "$T2/.husky/pre-push"
+  HUSKY_CONSUMER_HOOKS=""
+  husky_note_consumer_hooks "$REPO_ROOT" "$T2"
+  [ -z "$HUSKY_CONSUMER_HOOKS" ] && ok "(D) an older framework revision of both hooks is not noted as consumer-owned" \
+    || bad "(D) an older framework hook revision was noted as consumer-owned:$HUSKY_CONSUMER_HOOKS"
+  HUSKY_CONSUMER_HOOKS=""
+fi
+rm -rf "$T2"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

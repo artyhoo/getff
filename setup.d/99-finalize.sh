@@ -357,6 +357,12 @@ else
 fi
 
 # ─── Done ───────────────────────────────────────────────
+if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
+  echo ""
+  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why and what to do:"
+  printf '      - %s\n' "${NOT_WIRED[@]}"
+  echo ""
+fi
 if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo ""
   echo "⚠  ${#SKIPPED[@]} files were skipped because they already exist."
@@ -422,7 +428,11 @@ else
   echo "     $_add_rt \\"
   printf '       %s\n' "${RUNTIME_DEPS[*]-}"
 fi
-echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
+if [ "${HUSKY_HOOKSPATH_OWNED:-1}" = "0" ] && [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)" != ".husky/_" ]; then
+  echo "  5. Git hooks: NOT activated — the NOT wired list above says why and gives the command"
+else
+  echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
+fi
 echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
 echo "  7. Run: npm run validate"
 echo ""

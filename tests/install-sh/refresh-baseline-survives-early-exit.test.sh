@@ -156,6 +156,101 @@ else
 fi
 rm -rf "$TC4"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# ARM 5 (critical-review S2-2) — a consumer file that PRE-DATES the install is not baselined
+# ══════════════════════════════════════════════════════════════════════════════
+# The weak stage must only record bytes getff itself delivered. A consumer's own file sitting at a
+# delivery path before the FIRST install is skipped by copy_safe; staging it anyway made the
+# consumer's bytes the «pristine framework» baseline, so the next `--force` overwrote it with no
+# preserved copy (the guard saw baseline == disk → pristine).
+TC5=$(make_bare)
+mkdir -p "$TC5/$(dirname "$PROBE_REL")"
+printf 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL\n' > "$TC5/$PROBE_REL"
+( cd "$TC5" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+E5=$(jq -r --arg k "$PROBE_REL" 'if (type=="object") and has($k) then .[$k] else "" end' "$TC5/$MANIFEST_REL" 2>/dev/null)
+if [ -z "$E5" ]; then
+  ok "arm 5: the consumer's pre-existing $PROBE_REL was NOT recorded as a framework delivery"
+else
+  bad "arm 5: the consumer's own pre-existing file became the framework baseline (entry $E5)"
+fi
+( cd "$TC5" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null ) >/dev/null 2>&1
+PRES_5=""
+for _f in "$TC5/.ai-factory/refresh-conflicts"/deps-hash-check.sh.*; do
+  [ -e "$_f" ] && grep -qF 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL' "$_f" && PRES_5="$_f"
+done
+if [ -n "$PRES_5" ]; then
+  ok "arm 5: --force preserved the consumer's own bytes under .ai-factory/refresh-conflicts/"
+else
+  bad "arm 5: --force overwrote the consumer's own file with no preserved copy"
+fi
+rm -rf "$TC5"
+
+# ARM 5b — the same unbaselined consumer file under --refresh (critical-review cold pass, M2).
+# RI-2 (#1512) let the refresh path overwrite a no-entry file silently; W1-A lifted that only for
+# the destructive paths. With weak staging now limited to byte-identical files, every pre-existing
+# consumer file is no-entry — so --refresh must preserve it the same D4(c) way (silent copy +
+# one aggregate line), never drop it.
+TC5B=$(make_bare)
+mkdir -p "$TC5B/$(dirname "$PROBE_REL")"
+printf 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL\n' > "$TC5B/$PROBE_REL"
+( cd "$TC5B" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+OUT_5B=$( cd "$TC5B" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
+PRES_5B=""
+for _f in "$TC5B/.ai-factory/refresh-conflicts"/deps-hash-check.sh.*; do
+  [ -e "$_f" ] && grep -qF 'CONSUMER_OWN_FILE_BEFORE_FIRST_INSTALL' "$_f" && PRES_5B="$_f"
+done
+if [ -n "$PRES_5B" ]; then
+  ok "arm 5b: --refresh preserved the consumer's unbaselined bytes under .ai-factory/refresh-conflicts/"
+else
+  bad "arm 5b: --refresh overwrote the consumer's unbaselined file with no preserved copy"
+fi
+if printf '%s\n' "$OUT_5B" | grep -q 'preserved [0-9]* unbaselined diverged file'; then
+  ok "arm 5b: --refresh reported the preserve in the one aggregate line"
+else
+  bad "arm 5b: no aggregate preserve line on --refresh"
+fi
+rm -rf "$TC5B"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ARM 6 (critical-review S2-1) — a consumer file inside a delivered DIRECTORY survives --refresh
+# ══════════════════════════════════════════════════════════════════════════════
+# scripts/fences-fire-fixtures is a consumer-extensible payload. If the consumer created the
+# directory (with their own fixture) before the first install, copy_safe skips the whole dir; the
+# weak stage used to baseline every file in it, and --refresh then treated the consumer's fixture
+# as framework residue and deleted it.
+TC6=$(make_bare)
+FIX_REL="scripts/fences-fire-fixtures/consumer-own.manifest.json"
+mkdir -p "$TC6/scripts/fences-fire-fixtures"
+printf '{"consumer":"own"}\n' > "$TC6/$FIX_REL"
+( cd "$TC6" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+( cd "$TC6" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null ) >/dev/null 2>&1
+if [ -f "$TC6/$FIX_REL" ]; then
+  ok "arm 6: the consumer's own fixture inside the delivered dir survived --refresh"
+else
+  bad "arm 6: --refresh deleted the consumer's own $FIX_REL"
+fi
+rm -rf "$TC6"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ARM 7 (critical-review cold pass) — post-processed deliveries are re-baselined on an all-skip run
+# ══════════════════════════════════════════════════════════════════════════════
+# Weak staging stages only bytes that equal the delivery. For a post-processed delivery
+# (arch-header ARCHITECTURE.md, md-refs agents) the delivery is NOT the raw src, so a raw-src
+# comparison never matched and the A1-2 manifest rebuild silently lost those files.
+TC7=$(make_bare)
+( cd "$TC7" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+rm -f "$TC7/$MANIFEST_REL"
+( cd "$TC7" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
+for _rel in .ai-factory/ARCHITECTURE.md $(cd "$TC7" && ls .claude/agents/*.md 2>/dev/null | head -1); do
+  E7=$(jq -r --arg k "$_rel" 'if (type=="object") and has($k) then .[$k] else "" end' "$TC7/$MANIFEST_REL" 2>/dev/null)
+  if [ -n "$E7" ]; then
+    ok "arm 7: the all-skip re-install re-baselined the post-processed $_rel"
+  else
+    bad "arm 7: the all-skip re-install left the post-processed $_rel out of the baseline"
+  fi
+done
+rm -rf "$TC7"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
