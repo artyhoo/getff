@@ -42,6 +42,7 @@ import { resolve, dirname, join, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 
 // A REAL YAML parser — the point of the P3 strengthening (a presence-regex cannot see a parse
 // error). js-yaml@4.1.1 is transitively present via the markdownlint-cli2 (root) + eslint
@@ -393,6 +394,63 @@ export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: strin
 
 const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 
+
+// ── (i) version-bump gate — a payload change ships under a NEW version ────────────────────────
+// Claude Code caches an installed plugin under `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`
+// and refreshes it only when the declared version changes: «If the resolved version matches what
+// a user already has, `/plugin update` and auto-update skip the plugin»
+// (https://code.claude.com/docs/en/plugin-marketplaces). ZCode's update check is the same shape
+// (docs/meta-factory/research-patches/2026-09-13-cdn-zcode-official-research.md F4), and the
+// marketplace this repo publishes is `artyhoo/getff` at its DEFAULT branch — staging — so every
+// merge that changes `plugin/**` is a release. Measured 2026-09-23: the D38 fix (#1783) edited
+// `plugin/hooks/end-of-turn-reminder` under an unchanged 0.3.0, the operator's cache kept the
+// pre-D38 twin (`grep -c gate_base_turn` → 0 in the cache, 3 in the repo), and that stale copy
+// ran beside the fixed project hook on every Stop — the D39 incident. Re-running the update
+// command could not have helped: same version, nothing to fetch.
+//
+// Base = the merge-base with the branch the change lands on (GITHUB_BASE_REF in a PR, else
+// staging), so the rule is «bump once per release», not «bump per commit»: after the first
+// payload-changing PR bumps, later branches see a version that already differs from their base
+// and pass. A parallel PR that bumped to the same value is caught after merge-forward, because
+// its new base already carries that version.
+/** Pure: the violation for one base→head comparison, or null. Exported shape for (i)'s arms. */
+export function versionBumpViolation(
+  changedPayload: readonly string[],
+  baseVersion: string | undefined,
+  headVersion: string | undefined,
+): string | null {
+  if (changedPayload.length === 0) return null;
+  if (baseVersion === undefined) return null; // the plugin did not exist at the base
+  if (headVersion !== baseVersion) return null;
+  const shown = changedPayload.slice(0, 5).join(', ') + (changedPayload.length > 5 ? ', …' : '');
+  return (
+    `plugin payload changed (${changedPayload.length} file(s): ${shown}) but plugin.json version ` +
+    `is still ${headVersion} — installed caches never refresh on an unchanged version. Bump the ` +
+    `version in plugin/.claude-plugin/plugin.json, .claude-plugin/marketplace.json (both fields) ` +
+    `and plugin/install/fetch-and-wire.sh RAT_PLUGIN_VERSION (arms (a)/(c) enforce the parity).`
+  );
+}
+
+/** Git plumbing for (i): resolve the merge-base and read both sides. Throws when `baseRef`
+ *  cannot be resolved — the caller decides whether that is a skip or a failure. */
+export function pluginVersionBumpCheck(repo: string, baseRef: string): string | null {
+  const git = (...args: string[]): string =>
+    execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const mb = git('merge-base', baseRef, 'HEAD').trim();
+  const changed = git('diff', '--name-only', mb, 'HEAD', '--', 'plugin/')
+    .split('\n')
+    .filter(Boolean);
+  const versionAt = (rev: string): string | undefined => {
+    try {
+      return (JSON.parse(git('show', `${rev}:plugin/.claude-plugin/plugin.json`)) as { version?: string })
+        .version;
+    } catch {
+      return undefined;
+    }
+  };
+  return versionBumpViolation(changed, versionAt(mb), versionAt('HEAD'));
+}
+
 describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => {
   const PLUGIN = resolve(REPO_ROOT, 'plugin');
   // marketplace.json lives at the repo-root marketplace dir; plugin.json is resolved FROM its
@@ -648,6 +706,78 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       expect(existsSync(resolve(REPO_ROOT, 'agents/fidelity-auditor.md')), 'probe target must exist at the source depth').toBe(true);
       const l2 = checkPluginPayloadLinks(tmp).filter((x) => x.detail.startsWith('probe.md:'));
       expect(l2.map((x) => x.code), `expected L2 for the source-depth-only link; got ${JSON.stringify(l2)}`).toEqual(['L2']);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  // ── (i) version-bump gate (D39) ─────────────────────────────────────────────
+  const bumpBase = `origin/${process.env.GITHUB_BASE_REF || 'staging'}`;
+  const bumpBaseResolvable = (() => {
+    try {
+      execFileSync('git', ['-C', REPO_ROOT, 'rev-parse', '--verify', '--quiet', `${bumpBase}^{commit}`], {
+        stdio: 'ignore',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  it('(i) real-tree: a plugin payload change since the base carries a version bump', () => {
+    // In CI the base MUST resolve (the job checks out with fetch-depth 0) — a skip there would
+    // be a silent pass. Locally, a clone without the remote ref is the only skip.
+    if (!bumpBaseResolvable) {
+      expect(process.env.CI, `${bumpBase} unresolvable in CI — refusing to skip the gate`).toBeFalsy();
+      return;
+    }
+    const v = pluginVersionBumpCheck(REPO_ROOT, bumpBase);
+    expect(v, v ?? '').toBeNull();
+  });
+
+  it('(i) paired-negative: a payload edit under the base version is RED; the bump, and no payload edit, are GREEN', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'p24-bump-'));
+    try {
+      const git = (...a: string[]) =>
+        execFileSync('git', ['-C', tmp, ...a], { stdio: ['ignore', 'pipe', 'pipe'] });
+      git('init', '-q', '-b', 'staging');
+      git('config', 'user.email', 't@example.invalid');
+      git('config', 'user.name', 't');
+      const pj = (v: string) =>
+        writeFileSync(join(tmp, 'plugin/.claude-plugin/plugin.json'), JSON.stringify({ name: 'x', version: v }));
+      mkdirSync(join(tmp, 'plugin/.claude-plugin'), { recursive: true });
+      mkdirSync(join(tmp, 'plugin/hooks'), { recursive: true });
+      pj('0.3.0');
+      writeFileSync(join(tmp, 'plugin/hooks/h'), 'old\n');
+      writeFileSync(join(tmp, 'README.md'), 'r\n');
+      git('add', '-A');
+      git('commit', '-qm', 'base');
+      git('checkout', '-qb', 'feature');
+
+      // A change outside the payload needs no bump.
+      writeFileSync(join(tmp, 'README.md'), 'r2\n');
+      git('commit', '-qam', 'docs');
+      expect(pluginVersionBumpCheck(tmp, 'staging'), 'non-payload change').toBeNull();
+
+      // The D38 shape: the twin changes, the version does not.
+      writeFileSync(join(tmp, 'plugin/hooks/h'), 'new\n');
+      git('commit', '-qam', 'twin edit');
+      const red = pluginVersionBumpCheck(tmp, 'staging');
+      expect(red, 'a twin edit under an unchanged version must be RED').toMatch(/plugin\/hooks\/h/);
+      expect(red).toMatch(/still 0\.3\.0/);
+
+      pj('0.3.1');
+      git('commit', '-qam', 'bump');
+      expect(pluginVersionBumpCheck(tmp, 'staging'), 'the bump clears it').toBeNull();
+
+      // Parallel PR that bumped to the SAME value: once the first lands on staging, the second
+      // (merged forward) is RED again against its new base.
+      git('checkout', '-q', 'staging');
+      git('merge', '-q', '--no-ff', '-m', 'land feature', 'feature');
+      git('checkout', '-qb', 'second');
+      writeFileSync(join(tmp, 'plugin/hooks/h'), 'newer\n');
+      git('commit', '-qam', 'second twin edit, no bump');
+      expect(pluginVersionBumpCheck(tmp, 'staging'), 'the next release needs its own bump').not.toBeNull();
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
