@@ -140,6 +140,45 @@ printf 'At incident time `target.md:2` said alpha. <!-- cite:historical old -->\
 commit_all "escape with a placeholder rationale"
 expect_fail "a too-short escape rationale is rejected" "rationale must be >= 20 chars" cite.md
 
+# ------------------------------------------------ generator-owned region (ARM 1 defers)
+# Lines inside a `plan=<generator>` region are emitted bytes: blame records the
+# generator's last run, not an authorship event, and a byte-stable row cannot be
+# re-born when the SCANNED source's content changes — so ARM 1 inside such a region
+# is unreachable green by construction (first hit, 2026-09-21: the plain-words-recap-v2
+# PR rewrote story/SKILL.md:3 under the byte-stable B-card `| source |` row citing it).
+# The region's freshness currency is the generator's own byte-identity gate
+# (render-reference.mjs --check), which runs in CI. ARM 1 defers; the paired negatives
+# prove the defer is region-SCOPED (same drift outside still fires) and ARM 2 still
+# applies inside (a generated row landing on a blank line is wrong at birth).
+new_repo genregion
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+cat >"$REPO/page.md" <<'EOF'
+Outside the region, a plain citation: `target.md:3`.
+<!-- getff:begin section=B-card plan=scripts/render-reference.mjs -->
+| source | `target.md:2` |
+<!-- getff:end section=B-card -->
+EOF
+commit_all "page born while target read alpha/beta/gamma"
+# The scanned source's line 2 — the row the generator emitted — is rewritten, exactly
+# the D-G shape: source content changed, emitted row byte-stable.
+printf 'alpha\nBETA-REWRITTEN\ngamma\n' >"$REPO/target.md"
+commit_all "scanned source line rewritten under the emitted row"
+expect_pass "ARM 1 defers inside a plan= region" page.md
+# The defer must be VISIBLE in the accounting, not silently folded into `resolved` —
+# a summary that counts deferred rows as ARM-verified overstates coverage (cold-review
+# NIT 1, 2026-09-21). At this point: the outside citation :3 is blame-green (resolved 1),
+# the region row :2 is deferred (1), nothing is skipped.
+grep -qF 'resolved 1 / skipped 0 citation(s). (1 deferred to generator regions)' "$TMP/err" \
+  || { echo "FAIL: deferred rows must be accounted separately in the summary"; fails=$((fails + 1)); }
+# The defer is region-scoped, not global: the same drift outside the region fires.
+printf 'alpha\nBETA-REWRITTEN\nGAMMA-REWRITTEN\n' >"$REPO/target.md"
+commit_all "the outside citation's target is rewritten too"
+expect_fail "the same drift outside the region still fires" "page.md:1" page.md
+# ...and ARM 2 (blank landing) stays on inside the region.
+printf 'alpha\n\nGAMMA-REWRITTEN\n' >"$REPO/target.md"
+commit_all "the region row's cited line is now blank"
+expect_fail "blank landing still fires inside a plan= region" "is an empty line" page.md
+
 # ------------------------------------------------------------ bare backreference
 new_repo backref
 printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.md"

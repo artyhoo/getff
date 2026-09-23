@@ -115,6 +115,16 @@
  *
  * Rationale-length floor mirrors the escape-token precedent in
  * `.claude/rules/ci-tool-pinning.md` §3.
+ *
+ * Generator-owned regions (`<!-- getff:begin … plan=<generator> -->` … `:end`, the
+ * docs/site B-cards): ARM 1 DEFERS inside one. The region's currency is the generator's
+ * own byte-identity gate (`render-reference.mjs --check`, wired in CI) — an emitted row
+ * whose bytes did not change cannot be re-born when the SCANNED source's content
+ * changes, so ARM 1's blame baseline is unreachable green there, not merely expensive
+ * (first hit, 2026-09-21: the plain-words-recap-v2 PR rewrote `story/SKILL.md:3` and the
+ * byte-stable B-card `| source |` row citing it went red with no legal repair — a hand
+ * edit breaks the render gate, and `cite:historical` would assert a past state that
+ * never existed). ARM 2 deliberately still applies inside regions.
  */
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -166,6 +176,17 @@ const ESCAPE_RE = /<!--\s*cite:historical\s+([^>]*?)\s*-->/;
  */
 const ESCAPE_CODE_RE = /cite:historical\s+(.*?)\s*(?:\*\/|-->)?\s*$/;
 const ESCAPE_RATIONALE_MIN = 20;
+/**
+ * Generator-owned region markers — `<!-- getff:begin section=B-card-story
+ * plan=scripts/render-reference.mjs -->` … `<!-- getff:end section=B-card-story -->`,
+ * the frame render-reference.mjs's injectRegion rewrites. The `plan=` attribute is the
+ * load-bearing half: it NAMES the writer, so the region's freshness currency is that
+ * generator's byte-identity gate, not this file's blame baseline (header, «Generator-
+ * owned regions»). Matched loosely on the `:begin`/`:end` comment shape plus `plan=`
+ * so a second generator can adopt the frame without editing this file.
+ */
+const GENERATOR_REGION_BEGIN_RE = /<!--\s*[\w-]*:begin\b[^>]*\bplan=\S+/;
+const GENERATOR_REGION_END_RE = /<!--\s*[\w-]*:end\b/;
 
 /** ARM-2-only mode (`--blank-only`): the pre-commit channel, set by `run()`. */
 let blankOnly = false;
@@ -442,6 +463,21 @@ export function scanFile(srcFile) {
   const findings = [];
   const skips = [];
   let resolvedCount = 0;
+  // Rows the generator-region defer exempted from ARM 1. Counted separately so the
+  // `resolved N / skipped M` summary keeps meaning «ARM-verified»: a deferred row is
+  // neither — its freshness currency is the generator's own byte-identity gate (header,
+  // «Generator-owned regions»). Cold-review NIT 1, 2026-09-21.
+  let deferredCount = 0;
+
+  // Generator-owned region lines (1-based), for the ARM-1 defer in `judge`. The marker
+  // lines themselves stay hand-authored — only the interior is emitted.
+  const generatorLines = new Set();
+  let inGeneratorRegion = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (GENERATOR_REGION_BEGIN_RE.test(lines[i])) inGeneratorRegion = true;
+    else if (GENERATOR_REGION_END_RE.test(lines[i])) inGeneratorRegion = false;
+    else if (inGeneratorRegion) generatorLines.add(i + 1);
+  }
 
   // One verdict per resolved citation, shared by both citation forms: `path:NN` (and its
   // bare backreferences) from the per-line pass, and the prose form from the whole-file
@@ -510,6 +546,19 @@ export function scanFile(srcFile) {
     }
 
     if (blankOnly) return; // pre-commit channel: ARM 2 only, no git reads
+
+    // Generator-owned region: ARM 1 defers (header, «Generator-owned regions»). The
+    // rows inside a `plan=<generator>` region are emitted bytes — blame records the
+    // generator's last run, not an authorship event, and a byte-stable row cannot be
+    // re-born when the scanned source's content changes, so the drift verdict here
+    // would be unreachable green by construction. The generator's own byte-identity
+    // gate (render-reference.mjs --check, wired in CI) is those rows' freshness
+    // currency. ARM 2 above deliberately still applies: a generated row landing on a
+    // blank line is wrong at birth exactly like a hand-written one.
+    if (spans.some((l) => generatorLines.has(l))) {
+      deferredCount += 1;
+      return;
+    }
 
     // Reverse-index scoping. New staleness enters the corpus through exactly two
     // doors: the citing sentence was rewritten, or the cited file moved under it.
@@ -681,7 +730,12 @@ export function scanFile(srcFile) {
   }
 
   for (const k of skips) k.code = code;
-  return { findings, skips, resolved: resolvedCount };
+  return {
+    findings,
+    skips,
+    resolved: resolvedCount - deferredCount,
+    deferred: deferredCount,
+  };
 }
 
 function renumber(findings) {
@@ -803,6 +857,11 @@ export function run(argv) {
   const findings = scans.flatMap((r) => r.findings);
   const skips = scans.flatMap((r) => r.skips);
   const resolved = scans.reduce((a, r) => a + r.resolved, 0);
+  const deferred = scans.reduce((a, r) => a + (r.deferred ?? 0), 0);
+  // The deferred clause prints only when non-zero: the `resolved N / skipped M`
+  // substring is asserted verbatim by the unit suite (test.sh), and a permanent
+  // `0 deferred` suffix on every non-generator run would be noise.
+  const deferredClause = deferred > 0 ? ` (${deferred} deferred to generator regions)` : '';
 
   if (write) {
     if (findings.length === 0) return 0;
@@ -820,7 +879,9 @@ export function run(argv) {
   // Skipped citations are printed even when the gate passes. A citation the checker
   // cannot follow is not coverage; dropping it silently made 98 of 141 citations on
   // the getff.ai specs look checked when none of them were (measured 2026-09-14).
-  if (skips.length > 0) {
+  // Same honesty for the deferred clause: a corpus run that deferred rows to generator
+  // regions must say so even when nothing else needs printing.
+  if (skips.length > 0 || deferred > 0) {
     const listed = skips.filter((s) => showSkips || !s.code);
     for (const s of listed) reportSkip(s);
     const hidden = skips.length - listed.length;
@@ -830,7 +891,7 @@ export function run(argv) {
       );
     }
     console.error(
-      `\ncheck-line-citations: resolved ${resolved} / skipped ${skips.length} citation(s).`,
+      `\ncheck-line-citations: resolved ${resolved} / skipped ${skips.length} citation(s).${deferredClause}`,
     );
   }
 
