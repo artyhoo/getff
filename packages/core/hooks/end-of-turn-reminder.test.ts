@@ -3162,3 +3162,40 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     );
   });
 });
+
+// Reuse spec D1 (docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md): four
+// teaching lines with bad/good examples. Lines 1-3 are block rules and sit before the
+// «instructions to yourself» seam; line 4 is about the turn and sits after it. All four pack
+// files are sourced, twins included, because no generator rebuilds `plugin/hooks/lang/`.
+describe('reuse spec D1 — teaching lines in the recap contract and the story spec', () => {
+  const D1_PACKS = [
+    ['en', '.claude/hooks/lang/en.sh'],
+    ['en', 'plugin/hooks/lang/en.sh'],
+    ['ru', '.claude/hooks/lang/ru.sh'],
+    ['ru', 'plugin/hooks/lang/ru.sh'],
+  ] as const;
+  // oldJargon is the case-free core of S4's «explain jargon on the spot» line, so the negative
+  // check cannot pass on a capitalisation difference alone.
+  const D1_PHRASES = {
+    en: { seam: 'it is instructions to yourself:', growth: 'record it in CONTEXT.md', oldJargon: 'jargon on the spot',
+      rules: ['at most 25 words', 'One idea per sentence', 'Write a CONTEXT.md term bare'] },
+    ru: { seam: 'а инструкции тебе самому:', growth: 'запиши слово в CONTEXT.md', oldJargon: 'объясняй на месте',
+      rules: ['до 25 слов', 'Одна мысль — одна фраза', 'Термин из CONTEXT.md пиши голым'] },
+  } as const;
+  const callPack = (pack: string, fn: string) =>
+    spawnSync('bash', ['-c', `source "$1"; ${fn}`, '_', resolve(REPO_ROOT, pack)], { encoding: 'utf8' });
+
+  it.each(D1_PACKS)('%s %s: the contract carries lines 1-3 before the seam, line 4 after it', (lang, pack) => {
+    const r = callPack(pack, 'aif_msg_eot_recap_contract');
+    expect(r.status, r.stderr).toBe(0);
+    const p = D1_PHRASES[lang];
+    const seamAt = r.stdout.indexOf(p.seam);
+    expect(seamAt).toBeGreaterThan(-1);
+    for (const phrase of p.rules) {
+      const at = r.stdout.indexOf(phrase);
+      expect(at, phrase).toBeGreaterThan(-1);
+      expect(at, phrase).toBeLessThan(seamAt);
+    }
+    expect(r.stdout.indexOf(p.growth)).toBeGreaterThan(seamAt);
+  });
+});
