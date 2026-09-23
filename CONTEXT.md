@@ -8,9 +8,12 @@
 > seems to mean something else is asked about. One spelling belongs to one entry
 > ([spelling-uniqueness test](packages/core/principles/42-context-md-spelling-uniqueness.test.ts)),
 > and an entry has one `_Operator says_:` line. The agent never tells the operator to stop
-> using their own word. Consumers: the `/wait-what` skill (operator-invoked). The glossary
-> hooks and their learning counters are dormant: `glossary-inject.sh` is registered
-> nowhere, and arming it is the operator's call (`bash scripts/register-glossary-hook.sh`).
+> using their own word. Consumers: the `/wait-what` skill (operator-invoked) and `/arch`
+> idea sessions, which run upstream `domain-modeling` with the operator ([reuse spec
+> D9](docs/superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md#d9-arch-adopts-mattpocock-domain-modeling-parent-r-4-is-reversed-in-part);
+> parent recap-v2 R-4(b) is reversed there in part). The glossary hooks and their learning
+> counters are dormant: `glossary-inject.sh` is registered nowhere, and arming it is the
+> operator's call (`bash scripts/register-glossary-hook.sh`).
 > **NOT authoritative for:** role and dispatch-channel definitions (Orchestrator / Worker /
 > Reviewer, Mode A / Mode B) — the owner doc
 > [glossary.md](.claude/skills/orchestrator/references/glossary.md) owns those, so this file

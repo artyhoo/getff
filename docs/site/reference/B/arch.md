@@ -6,6 +6,8 @@ generator: scripts/render-reference.mjs
 sources:
   - .claude/skills/arch/SKILL.md
   - .claude/skills/arch/references/grilling.md
+  - .claude/skills/arch/references/domain-modeling.md
+  - CONTEXT.md
   - setup
   - setup.d/10-skills.sh
   - setup.d/companions.manifest
@@ -18,7 +20,6 @@ sources:
   - tests/install-sh/baselines/ts-server/greenfield.fingerprint
 executed:
   - { example: show-arch-invocation-lines, stack: ts-server, date: 2026-09-21, result: printed }
-docs-refresh: deferred — re-verified 2026-09-21, only the hash values on lines 7 and 162 of the cited install fingerprint changed (pre-push.ts and refresh-baseline.json); every line and path this page cites is unchanged; clears at the next gold refresh of this page
 ---
 
 # arch skill
@@ -96,9 +97,11 @@ separate task runtime whose connection arrives only at the `factory` depth. With
 the skill says the exit falls back to work in the same session. It also leans on outside
 plugins that are optional. The `setup` wrapper offers one of them, superpowers, as a
 companion. The question pacing came from a second plugin, `mattpocock-skills`. The
-installer does not offer that one. Instead the single skill getff uses from it travels
-with getff, as a copy of its text inside the arch skill's own folder. When the plugin
-is absent, the agent reads that copy and paces the questions the same way. A `core`
+installer does not offer that one. Instead the two skills getff uses from it travel
+with getff, as copies of their text inside the arch skill's own folder. One paces the
+questions. The other pins down what the words of an idea mean: it records them in the
+project glossary, `CONTEXT.md`, and writes short decision records. When the plugin is
+absent, the agent reads those copies and works the same way. A `core`
 install does not include this skill. The guide
 [Add the design and review skills](../../guides/add-design-and-review-skills.md) shows
 how to get it.
@@ -106,9 +109,9 @@ how to get it.
 ## Evidence
 
 - In `.claude/skills/arch/SKILL.md`: the description is line 3, the manual-only flag is
-  line 6, and the fallbacks are line 22. The design part is lines 42 to 50, the research
-  pass is lines 52 to 83, the two reviews are lines 85 to 106, and the three exits are
-  lines 119 to 123.
+  line 6, and the fallbacks are line 22. The design part is lines 42 to 55, the research
+  pass is lines 56 to 88, the two reviews are lines 89 to 111, and the three exits are
+  lines 123 to 127.
 - The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 164 to 168 of
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 79 to 82 there
   say why it sits at `env`.
@@ -117,8 +120,11 @@ how to get it.
   together with the copy that stands in for it. The copy is
   `.claude/skills/arch/references/grilling.md`; its provenance table is lines 31 to 38,
   and lines 16 to 27 say why the plugin is not offered.
-- The copy ships with the skill: it is listed in
-  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, line 42.
+- The word-meaning moves, the four rules `/arch` lays over them and the two upstream parts it
+  leaves out are all on line 54 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
+  lines 22 to 29 and its two format files beside it.
+- The copies ship with the skill: they are listed in
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 42 to 45.
   `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.

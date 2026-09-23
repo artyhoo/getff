@@ -125,9 +125,13 @@ aif_msg_eot_recap_contract() {
 ${AIF_RECAP_MARKER} — a block of five sections, in this order:
 $(aif_msg_eot_recap_sections turn)
 The whole block is no longer than ${AIF_EOT_RECAP_MAX_LINES:-15} lines; the fork card does not count toward the cap.
+Sentences in the block are short, at most 25 words. Split a long one in two instead of chaining clauses with colons, dashes and parentheses. Bad: "The test failed — the assert expected the old text (fixed it), green now". Good: "The test failed: the assert expected the old text. I fixed it. The test is green."
+One idea per sentence. Bad: "Fixed X, but CI is red because of Y". Good: "Fixed X. CI is red: Y."
+Write a CONTEXT.md term bare, as the glossary spells it, and never replace it with a paraphrase. Say jargon that is not in the glossary in plain words. Bad: "did a merge-forward". Good: "merged fresh staging into the branch".
 What follows is not a block section and not in its cap — it is instructions to yourself:
 • If in this turn you recommended something, or said "you decide" / "waiting for your call" / "PR is ready, awaiting your click" — check yourself: were the alternatives really weighed, or did you take the first that came to mind? If there is a clearly better option on the merits (by goals and discipline) — do NOT offload, do it and say what you did. Handing off a decision = reserved for real forks.
 • The inverse: did you in this turn decide a fork SILENTLY — by a direct action/command/dispatch, without surfacing it as a question? If it is ambiguous (no clearly better option by the project's measures) — that is a silently-decided fork: surface it NOW via AskUserQuestion, do not leave it silently decided. The operator must see both open and closed forks.
+• If the human asked this turn what a word means, explain it in the answer and, in the same turn, record it in CONTEXT.md: the definition plus their spelling under _Operator says_.
 EOF
 }
 
@@ -273,7 +277,10 @@ Session goal (from the title / first instruction): "${anchor:-(name it yourself 
 
 The same five-section recap as every turn, session-scale — one block, in this order:
 $(aif_msg_eot_recap_sections session)
-Outside the sections: explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
+Outside the sections, how to write:
+• Short sentences, at most 25 words. Split a long one in two instead of chaining clauses with colons, dashes and parentheses. Bad: "The test failed — the assert expected the old text (fixed it), green now". Good: "The test failed: the assert expected the old text. I fixed it. The test is green."
+• One idea per sentence. Bad: "Fixed X, but CI is red because of Y". Good: "Fixed X. CI is red: Y."
+• Write a CONTEXT.md term bare, as the glossary spells it, and never replace it with a paraphrase. Say jargon that is not in the glossary in plain words. Bad: "did a merge-forward". Good: "merged fresh staging into the branch".
 Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 EOF
 }

@@ -33,7 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
-docs-refresh: deferred — re-verified 2026-09-23, the only cited change in this range is the aif-doctor page gaining failure mode 3.9 and refreshed evidence line numbers; this page links that page by name only, quotes none of its numbers, and its aif-doctor table row is the unchanged skill description; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-23, two cited changes in this range and neither touches this page's prose; the register gained dated notes on rows 253 and 255 (the vendored domain-modeling copy, decision records in /arch idea sessions), which no line here names; the aif-doctor page gained failure mode 3.9 and refreshed evidence line numbers, which this page links by name only and whose table row is the unchanged skill description; clears at the next gold refresh of this page
 ---
 
 # Skills
