@@ -462,7 +462,7 @@ c7fc99171a5c2ec6fd8912cf5bd671f5fb685865bb51631294928920e1adc19f  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-050c39bb96ff06e28dae09164ecf160eb2a731a80222155655b2d077cf7846de  packages/core/hooks/end-of-turn-reminder.test.ts
+ef6e2202c54636a251a5ebb0349696e7e71ce9fb7120571321353ee9c6e63f07  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
