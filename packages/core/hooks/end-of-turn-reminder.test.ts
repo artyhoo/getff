@@ -816,7 +816,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     });
 
     // The Stop channel carries this hook TWICE — the plugin registration plus the project
-    // one the installer writes (setup.d/10-skills.sh:267, install.sh:965) — so both copies
+    // one the installer writes (setup.d/10-skills.sh:267, install.sh:972) — so both copies
     // fire on ONE Stop with byte-identical stdin. For the handoff gate that shared state
     // made copy 2 invent a block the turn had not earned (D38, PR #1783). Here the same
     // sharing is benign BY CONSTRUCTION and must stay that way: whichever copy runs first
@@ -2674,7 +2674,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   //
   // The Stop channel carries this hook TWICE in any project that has both the getff plugin
   // (`hooks/hooks.json` → `run-hook.cmd end-of-turn-reminder`) and the project registration the
-  // AIF installer writes (`setup.d/10-skills.sh:267`, `install.sh:965`). Measured 2026-09-14
+  // AIF installer writes (`setup.d/10-skills.sh:267`, `install.sh:972`). Measured 2026-09-14
   // (session 319c1945): both copies fired on one Stop, both derived the same
   // `${TMPDIR}/aif-handoff-<ctx_key>` from session_id alone, so the first copy's ALLOW advanced
   // the baseline and the second compared the file against what its twin had just written —

@@ -24,7 +24,7 @@ cd /tmp/getff
 
 **ALWAYS — proceed without asking the user:**
 
-- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + companions) or `bash install.sh <stack>` (framework-only).
+- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; **ask first** before adding `--global`, which also installs user-scope Claude plugins and MCP servers, `npm -g` tools and the runtime-bridge on this machine.
 - Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
 - Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
 

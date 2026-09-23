@@ -151,6 +151,59 @@ else
   bad "(c-neg) one sentinel only → file was adopted/clobbered — false-positive adopt"
 fi
 
+# (c-edit) critical-review S2-3 — a pre-fence copy the consumer EXTENDED (both sentinels still
+# present) used to be replaced whole: no copy kept, no warning, their additions gone. The adopt may
+# still happen, but only after the consumer's bytes are kept under .ai-factory/refresh-conflicts/
+# and a warning names the copy.
+W=$(mktemp -d)
+{ cat "$TPL"; printf '\n## Our team conventions\n\nTEAM-EDIT-KEEPME\n'; } > "$W/AGENTS.md"
+_saved_pr="$PROJECT_ROOT"; PROJECT_ROOT="$W"
+_out=$(install_agents_md "$TPL" "$W/AGENTS.md" 2>&1)
+PROJECT_ROOT="$_saved_pr"
+if grep -rqF 'TEAM-EDIT-KEEPME' "$W/.ai-factory/refresh-conflicts/" 2>/dev/null; then
+  ok "(c-edit) the consumer's extended pre-fence copy was kept under .ai-factory/refresh-conflicts/"
+else
+  bad "(c-edit) adopting an extended pre-fence copy destroyed the consumer's additions (no copy kept)"
+fi
+echo "$_out" | grep -q 'refresh-conflicts' \
+  && ok "(c-edit) the adopt warned and named the kept copy" \
+  || bad "(c-edit) no warning naming the kept copy (got: $_out)"
+# paired negative: a byte-identical pre-fence copy of the CURRENT template loses nothing → no copy.
+W=$(mktemp -d); cp "$TPL" "$W/AGENTS.md"
+_saved_pr="$PROJECT_ROOT"; PROJECT_ROOT="$W"
+install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
+PROJECT_ROOT="$_saved_pr"
+[ ! -e "$W/.ai-factory/refresh-conflicts" ] \
+  && ok "(c-edit neg) an unedited copy of the current template is adopted without a conflict copy" \
+  || bad "(c-edit neg) a conflict copy was made for an unedited template copy (noise)"
+
+# (b-edit) critical-review S2-3 (same contract) — an edit INSIDE our fenced body was discarded
+# silently on the next plain run. The section is still ours to replace, but the previous bytes
+# must be kept and named.
+W=$(mktemp -d)
+_saved_pr="$PROJECT_ROOT"; PROJECT_ROOT="$W"
+install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
+awk -v END_TOK="$END" 'index($0, END_TOK) > 0 { print "IN-FENCE-EDIT-KEEPME" } { print }' "$W/AGENTS.md" > "$W/x" && mv "$W/x" "$W/AGENTS.md"
+_out=$(install_agents_md "$TPL" "$W/AGENTS.md" 2>&1)
+PROJECT_ROOT="$_saved_pr"
+if grep -rqF 'IN-FENCE-EDIT-KEEPME' "$W/.ai-factory/refresh-conflicts/" 2>/dev/null; then
+  ok "(b-edit) an in-fence edit replaced by the section refresh was kept under refresh-conflicts/"
+else
+  bad "(b-edit) the in-fence edit was discarded with no copy kept"
+fi
+echo "$_out" | grep -q 'refresh-conflicts' \
+  && ok "(b-edit) the section refresh named the kept copy" \
+  || bad "(b-edit) no line naming the kept copy (got: $_out)"
+# paired negative: an idempotent re-run (nothing changes) makes no copy.
+W=$(mktemp -d)
+_saved_pr="$PROJECT_ROOT"; PROJECT_ROOT="$W"
+install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
+install_agents_md "$TPL" "$W/AGENTS.md" >/dev/null 2>&1
+PROJECT_ROOT="$_saved_pr"
+[ ! -e "$W/.ai-factory/refresh-conflicts" ] \
+  && ok "(b-edit neg) an unchanged section re-run makes no conflict copy" \
+  || bad "(b-edit neg) a conflict copy was made on a no-op re-run (noise)"
+
 # (force) --force replaces OUR section only, never the whole file.
 W=$(mktemp -d)
 printf '# Their file\n\nFORCE-FOREIGN-KEEPME\n' > "$W/AGENTS.md"

@@ -7,7 +7,8 @@
 #   ./setup ts-server               # interactive install; explicit stack; companions optional
 #   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
 #   ./setup --yes ts-server         # alias for -y
-#   ./setup --all ts-server         # EVERYTHING: -y + the AIF operator suite (operator machines)
+#   ./setup -y --global ts-server   # -y + machine-global companions (user-scope plugins/MCP, npm -g, bridge)
+#   ./setup --all ts-server         # EVERYTHING: -y --global + the AIF operator suite (operator machines)
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
 #   ./setup --profile factory ts-server   # install depth profiles (beta-delivery-ux S1 / A1):
@@ -37,7 +38,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MODE="interactive"; DRY=""; STACK=""; FULL=""; WITH_AIF_SUITE=""; PROFILE_FLAG=""; PROFILE_VALUE=""; _awaiting_profile_value=0
 for a in "$@"; do
   if [ "$_awaiting_profile_value" -eq 1 ]; then
-    # Cold-QA MINOR fix parity with install.sh:147 (flag-after-`--profile` guard): a value
+    # Cold-QA MINOR fix parity with install.sh:150 (flag-after-`--profile` guard): a value
     # that starts with `-` is another flag, not the profile name. Mirror install.sh's own
     # fail-loud instead of silently consuming the flag as the value.
     if [ "${a#-}" != "${a:-}" ]; then
@@ -52,7 +53,11 @@ for a in "$@"; do
     -y|--yes)          MODE="yes"; FULL="--full" ;;
     # --all = everything: the -y full path PLUS the AIF operator suite (owner directive
     # 2026-07-11). Consumer defaults (-y/--full) stay curated; --all is the operator switch.
-    --all)             MODE="all"; FULL="--full"; WITH_AIF_SUITE="--with-aif-suite" ;;
+    --all)             MODE="all"; FULL="--full"; WITH_AIF_SUITE="--with-aif-suite"; export GETFF_GLOBAL=1 ;;
+    # critical-review S1-4 (operator decision 2026-09-23): -y installs into the project only;
+    # machine-global companions (user-scope plugins/MCP, npm -g) and the runtime-bridge (it
+    # writes your shell rc) need this explicit flag. Exported: install.sh's 05-mcp reads it too.
+    --global)          export GETFF_GLOBAL=1 ;;
     --full)            MODE="yes"; FULL="--full" ;;
     --dry-run)         DRY="--dry-run"; MODE="dry-run" ;;
     # F7: opt-in AIF operator suite — forward to install.sh (default omits it). This is the
@@ -74,7 +79,7 @@ for a in "$@"; do
     python|cargo|go) STACK="$a" ;;
   esac
 done
-# Cold-QA MINOR fix parity with install.sh:147 (end-of-args guard): if --profile was the LAST
+# Cold-QA MINOR fix parity with install.sh:150 (end-of-args guard): if --profile was the LAST
 # token with no value following it, fail-loud rather than silently passing an empty value.
 if [ "$_awaiting_profile_value" -eq 1 ]; then
   echo "❌ --profile requires a value (core|env|factory)" >&2
@@ -106,6 +111,8 @@ done < "$HERE/setup.d/companions.manifest"
 echo "▶ Runtime-bridge"
 if [ "$MODE" = "dry-run" ]; then
   echo "  [dry-run] would run bridge guided-detect"
+elif { [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; } && [ "${GETFF_GLOBAL:-}" != "1" ]; then
+  echo "  ⊝ runtime-bridge skipped — it writes machine-global settings (your shell rc, Claude settings); -y installs into the project only, re-run with --global to allow it"
 elif [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; then
   source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run
 else

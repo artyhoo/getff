@@ -13,7 +13,7 @@
 # → byte-identical guarantee preserved. $0-in-CI (principle 17): the consume path is a pure
 # file-read (the live MCP research already happened in the human session); the CI self-install
 # path never sets FULL. Degrades on absence (no node / missing CLI / no research files) and
-# never aborts install (rc=0).
+# never aborts install (rc=0); a generator that runs and fails is reported, not swallowed.
 #
 # Decision B: research artefacts ABSENT → degrade + guidance, ship no rule (NEVER the stub on the
 # consumer path). The stub stays the CI/test default injection only (rule-bootstrap.ts). #183.
@@ -67,7 +67,17 @@ ensure_workspace_pkg_links "$PKG_ROOT"
 printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock (--full, %s)\n' "${STACK:-ts-server}"
 # Run tsx from PKG_ROOT (the framework — tsx is present there) while targeting the consumer
 # via --consumer-root, so this works even when the consumer has no tsx of its own.
+# critical-review S5-9 (interim): the old `|| true` hid a generator that could not run at all — the
+# published getff package ships none of its dependencies (tsx, ajv) — so the consumer's research
+# produced no rule and the install said nothing. Still rc=0 (never abort the install), but the
+# failure is now loud and lands in the final NOT wired summary.
+_rb_rc=0
 ( cd "$PKG_ROOT" && npx --no-install tsx "$_rb_cli" \
     --consumer-root "$PROJECT_ROOT" \
     --from-research "$_plan" \
-    --from-selection "$_sel" 2>&1 ) || true  # rc=0: never abort install
+    --from-selection "$_sel" 2>&1 ) || _rb_rc=$?
+if [ "$_rb_rc" -ne 0 ]; then
+  printf '  ⚠ [80-rule-bootstrap] rule generation FAILED (exit %s) — no rule was generated from your research this pass
+' "$_rb_rc"
+  note_not_wired "generated rules from .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json — the generator exited $_rb_rc (output above, [80-rule-bootstrap]); the preset rules still apply"
+fi

@@ -27,7 +27,7 @@
 # DEGRADES GRACEFULLY when:
 #   - Manifest absent (80-rule-bootstrap skipped → zero generated rules → exit 0)
 #   - ESLint binary absent (tsx not available → skip with guidance)
-#   - No rules with both selector + negative-test (degenerate → exit 0)
+#   - No declarative rules in the manifest (degenerate → exit 0; an unreadable manifest is a FAIL)
 #
 # NOT a CI gate — runs ONLY under FULL (--full install). MUST NOT run on CI self-install
 # path (FULL unset). rc=0 on degrade, rc=1 on kill-rate failure.
@@ -111,16 +111,30 @@ if (!selector || !code) {
   process.exit(9);
 }
 
+// Generated negative inputs are TypeScript and may hold JSX (the shipped manifest's own inputs
+// carry `(): void` annotations), so parse them the way the consumer's lint does: with the
+// typescript-eslint parser when the consumer has it, JSX on. `files` is required — a flat-config
+// object without it matches only js/mjs/cjs (see run-generated-rule-mutation.sh's probe).
+let parser: unknown;
+try { parser = (await import('typescript-eslint')).parser; } catch { parser = undefined; }
 const linter = new Linter();
 const cfg = [{
+  files: ['**/*.{ts,tsx,js,jsx}'],
   rules: {
     'no-restricted-syntax': ['error' as const, { selector, message: 'mutation-probe' }],
   },
-  languageOptions: { ecmaVersion: 2022, sourceType: 'module' },
+  languageOptions: {
+    ecmaVersion: 2022, sourceType: 'module',
+    ...(parser ? { parser } : {}),
+    parserOptions: { ecmaFeatures: { jsx: true } },
+  },
 }];
 
 try {
-  const msgs = linter.verify(code, cfg, { filename: 'probe.js' });
+  const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
+  // An input the parser rejects says nothing about the selector: infrastructure, not a miss.
+  const fatal = msgs.find(m => m.fatal);
+  if (fatal) { process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); process.exit(9); }
   process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);
 } catch (e) {
   process.stderr.write('probe error: ' + String(e) + '\n');
@@ -144,22 +158,32 @@ _probe_selector() {
 
 # ─── Extract rules from manifest ──────────────────────────────────────────────
 # Returns JSON array: [{id, selector, negativeTestInputs}] for declarative rules with negative-test.
-RULES_JSON=$(node --input-type=module -e "
+# critical-review S8-1 — fail closed: a manifest that does not parse used to become `[]` here and
+# read as «no declarative rules … skipped», exit 0. The path travels in the environment (a `'` in a
+# consumer path broke the old JS string splice the same way). A declarative rule whose negative-test
+# is missing or misspelled is kept with inputs=[] so _test_rule reports it instead of it vanishing.
+_rules_err=$(mktemp)
+if ! RULES_JSON=$(GETFF_MUTATION_MANIFEST="$MANIFEST" node --input-type=module -e "
 import { readFileSync } from 'node:fs';
-const manifest = JSON.parse(readFileSync('$MANIFEST', 'utf8'));
+const manifest = JSON.parse(readFileSync(process.env.GETFF_MUTATION_MANIFEST, 'utf8'));
+if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)) throw new Error('manifest is not a JSON object');
 const rules = [];
 for (const [id, rule] of Object.entries(manifest)) {
-  const r = rule;
+  const r = rule ?? {};
   const check = r.check ?? {};
   const selector = check.selector ?? '';
   if (!selector || check.type !== 'declarative') continue;
   // handle both 'negative-test' (hyphenated, SynthesizedRule) and 'negativeTest' (camelCase)
   const nt = r['negative-test'] ?? r['negativeTest'] ?? null;
-  if (!nt || !Array.isArray(nt.input) || nt.input.length === 0) continue;
-  rules.push({ id, selector, inputs: nt.input });
+  rules.push({ id, selector, inputs: nt && Array.isArray(nt.input) ? nt.input : [] });
 }
 process.stdout.write(JSON.stringify(rules));
-" 2>/dev/null || echo '[]')
+" 2>"$_rules_err"); then
+  bad "check-generated-rule-mutation: could not read the manifest $MANIFEST: $(grep -m1 -E 'Error' "$_rules_err" || head -n 1 "$_rules_err")"
+  rm -f "$_rules_err"
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES_TESTED=0"; exit 1
+fi
+rm -f "$_rules_err"
 
 RULE_COUNT=$(echo "$RULES_JSON" | node --input-type=module -e "
 import { createInterface } from 'node:readline';
@@ -213,19 +237,22 @@ _test_rule() {
   local INPUTS_JSON="$3"  # JSON array of bad input strings
   local MIN_KILL_PCT=60
 
-  # Read inputs array into bash array
+  # Read inputs array into bash array — NUL-delimited end to end (critical-review S8-1 sibling).
+  # The old `| tr '\x00' '\n'` never touched the NUL (BSD tr reads '\x00' as the characters
+  # `x` `0` `0` and mapped every x and 0 to a newline instead), so inputs were cut at those letters,
+  # the last one — lacking a newline — was dropped by `read`, and a rule with a single input took
+  # the «no inputs» skip below. `read -d ''` splits on the NUL directly.
   local INPUTS=()
-  while IFS= read -r _line; do
+  while IFS= read -r -d '' _line; do
     INPUTS+=("$_line")
   done < <(node --input-type=module -e "
-    import { createInterface } from 'node:readline';
     const chunks = [];
     process.stdin.on('data', c => chunks.push(c));
     process.stdin.on('end', () => {
       const arr = JSON.parse(chunks.join(''));
-      arr.forEach(s => process.stdout.write(s + '\x00'));
+      arr.slice(0, 3).forEach(s => process.stdout.write(String(s) + '\x00'));
     });
-  " 2>/dev/null <<< "$INPUTS_JSON" | tr '\x00' '\n' | head -3 || true)
+  " 2>/dev/null <<< "$INPUTS_JSON" || true)
 
   if [ "${#INPUTS[@]}" -eq 0 ]; then
     skip "[$RULE_ID] no inputs in negative-test — skipped"
@@ -236,9 +263,13 @@ _test_rule() {
   local BAD_CODE="${INPUTS[0]}"
 
   # First verify the ORIGINAL selector fires on the bad input
-  if ! _probe_selector "$SELECTOR" "$BAD_CODE"; then
-    if [ $? -eq 9 ]; then
-      skip "[$RULE_ID] probe infrastructure error — skipped"
+  # rc is captured BEFORE branching: inside `if ! cmd; then` $? is the negation's 0, so the
+  # old `[ $? -eq 9 ]` there never fired and every probe error read as a broken selector.
+  local _orig_rc=0
+  _probe_selector "$SELECTOR" "$BAD_CODE" || _orig_rc=$?
+  if [ "$_orig_rc" -ne 0 ]; then
+    if [ "$_orig_rc" -eq 9 ]; then
+      skip "[$RULE_ID] probe could not evaluate the negative-test input (parse or infrastructure error) — skipped"
       return
     fi
     bad "[$RULE_ID] ORIGINAL selector did NOT fire on negative-test input (selector broken before mutation?)"

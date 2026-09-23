@@ -118,6 +118,6 @@ and blocks nothing.
   `setup.d/10-skills.sh` record why. Lines 34 and 35 of the skill file name `dispatcher`
   as a `factory` skill, without a link.
 - The superpowers plugin is an optional companion: line 17 of
-  `setup.d/companions.manifest`. The loop that offers each companion is lines 92 to 104
+  `setup.d/companions.manifest`. The loop that offers each companion is lines 97 to 109
   of `setup`.
 - The card above is built from `docs/site/reference/B.json`.

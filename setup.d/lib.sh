@@ -356,18 +356,40 @@ refresh_baseline_stage() {
   return 0
 }
 
-# refresh_baseline_stage_weak <dst> — record a dst that this run did NOT write but found already
-# in place (copy_safe's skip path). Same path-only, hash-at-flush contract; the flush lets any
-# existing manifest entry win over these (ledger A1-2 — see REFRESH_BASELINE_STAGED_WEAK above).
-refresh_baseline_stage_weak() {
-  local p="$1" f
+# refresh_baseline_stage_weak_matching <src> <dst> — record a dst that this run did NOT write but
+# found already in place (copy_safe's skip path). Same path-only, hash-at-flush contract; the flush
+# lets any existing manifest entry win over these (ledger A1-2 — see REFRESH_BASELINE_STAGED_WEAK
+# above). Limited to bytes getff itself delivered (critical-review S2-1/S2-2). A skipped dst is
+# staged only where it is byte-identical to the incoming src: a FILE when `cmp` matches; a DIRECTORY file by file,
+# each only when the same relative path under src matches. Anything else on disk is either the
+# consumer's own file (it pre-dated the install) or a consumer edit — staging it made those bytes
+# the «pristine framework» baseline, so `--force` overwrote them without a preserved copy and
+# `--refresh` deleted consumer-added files inside a delivered directory as framework residue.
+# Unstaged = no manifest entry = «unknown»: every overwrite path then preserves a diverged copy
+# (_preserve_unbaselined_copy — copy_safe --force, _copy_tree_with_transform, and _refresh_one_file).
+# Optional 3rd arg = copy_safe's parity mode: a post-processed delivery (md-refs / arch-header /
+# stryker-pm) is compared against the post-processed bytes, via the same _expected_* helpers the
+# --force guard uses — the raw src never matches those, and they would silently drop out of the
+# A1-2 manifest rebuild.
+refresh_baseline_stage_weak_matching() {
+  local src="$1" dst="$2" mode="${3:-}" f rel expected tmpexp=""
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then return 0; fi
-  if [ -f "$p" ]; then
-    REFRESH_BASELINE_STAGED_WEAK+=("$p")
-  elif [ -d "$p" ]; then
+  if [ -f "$dst" ] && [ -f "$src" ]; then
+    expected="$src"
+    case "$mode" in
+      md-refs)     if tmpexp=$(_expected_transformed "$src"); then expected="$tmpexp"; fi ;;
+      arch-header) if tmpexp=$(_expected_arch_header "$src"); then expected="$tmpexp"; fi ;;
+      stryker-pm)  if tmpexp=$(_expected_stryker_pm "$src"); then expected="$tmpexp"; fi ;;
+    esac
+    if cmp -s "$expected" "$dst"; then REFRESH_BASELINE_STAGED_WEAK+=("$dst"); fi
+    if [ -n "$tmpexp" ]; then rm -f "$tmpexp"; fi
+  elif [ -d "$dst" ] && [ -d "$src" ]; then
     while IFS= read -r -d '' f; do
-      REFRESH_BASELINE_STAGED_WEAK+=("$f")
-    done < <(find "$p" -type f -print0 2>/dev/null)
+      rel="${f#"$dst"/}"
+      if [ -f "$src/$rel" ] && cmp -s "$src/$rel" "$f"; then
+        REFRESH_BASELINE_STAGED_WEAK+=("$f")
+      fi
+    done < <(find "$dst" -type f -print0 2>/dev/null)
   fi
   return 0
 }
@@ -452,8 +474,9 @@ _preserve_diverged_copy() {
 # What is superseded is the silent DATA LOSS RI-2 accepted alongside it: when the bytes are
 # about to be destroyed (not merely overwritten-after-comparison, as on the refresh path),
 # the diverged copy is preserved aside and ONE aggregate line per run reports the count.
-# refresh_safe's own no-entry handling is unchanged (still silent, still no copy) — the
-# supersession is scoped to the destructive-overwrite paths W1-A owns.
+# The refresh path (_refresh_one_file) joined this arm in critical-review wave 1: once weak
+# staging stopped baselining consumer bytes (S2-1/S2-2), every pre-existing consumer file is
+# no-entry, and RI-2's silent overwrite there was the same data loss.
 # Fail-open: a copy that cannot be made is counted as failed and named in the same single
 # aggregate line (_report_unbaselined_preserves); it never fails the delivery.
 _preserve_unbaselined_copy() {
@@ -658,14 +681,14 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1348                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1355                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1363          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:446          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:471          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:491          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:518          patch_stryker_package_manager → stryker-pm
-#   setup.d/lib.sh:1758                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/40-configs.sh:454          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:479          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:499          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:526          patch_stryker_package_manager → stryker-pm
+#   setup.d/lib.sh:1822                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -837,7 +860,9 @@ copy_safe() {
       # 99-finalize `exit 1` on a deps-incomplete --full), no later re-run could ever rebuild the
       # manifest. Staged WEAKLY: fills a hole, never overwrites an entry a real delivery made,
       # so a consumer edit sitting on disk at re-install time cannot become its own baseline.
-      refresh_baseline_stage_weak "$dst"
+      # critical-review S2-1/S2-2: and only where the bytes on disk ARE the incoming delivery — a
+      # consumer's own pre-existing file must never become the framework baseline.
+      refresh_baseline_stage_weak_matching "$src" "$dst" "$parity"
     fi
     return 0
   fi
@@ -1002,6 +1027,7 @@ merge_fenced() {
       SKIPPED+=("$dst")
       return 0
     fi
+    local _splice_ok=1
     if ! awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
       state == 0 && index($0, BEG) > 0 {
         print                                     # keep the begin marker verbatim
@@ -1015,7 +1041,14 @@ merge_fenced() {
       state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
       state == 1 { next }                         # drop the previous body
       { print }
-    ' "$dst" > "$tmp" || ! mv "$tmp" "$dst"; then
+    ' "$dst" > "$tmp"; then
+      _splice_ok=0
+    elif ! cmp -s "$tmp" "$dst"; then
+      # critical-review S2-3: the replaced body may hold the consumer's own in-fence edits —
+      # keep the previous bytes before they are gone (a no-op re-run never reaches here).
+      _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed"
+    fi
+    if [ "$_splice_ok" = "0" ] || ! mv "$tmp" "$dst"; then
       rm -f "$tmp" 2>/dev/null || true
       echo "  ⚠ $dst: fenced splice failed (awk or write error) — left unchanged, section=$section" >&2
       SKIPPED+=("$dst")
@@ -1032,6 +1065,11 @@ merge_fenced() {
       echo "  [dry-run] would adopt (wrap in fence): $dst"
       return 0
     fi
+    # critical-review S2-3: the sentinels prove the file STARTED as our template, not that it
+    # still is one — a consumer who extended it would lose every addition. Keep their bytes first.
+    if ! cmp -s "$src" "$dst"; then
+      _merge_fenced_keep_copy "$dst" "pre-fence copy differs from the current template"
+    fi
     { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } > "$dst"
     echo "  ✓ $dst (pre-fence getff copy adopted into section=$section)"
     return 0
@@ -1046,6 +1084,25 @@ merge_fenced() {
   [ -s "$dst" ] && [ "$(tail -c 1 "$dst")" != "" ] && echo "" >> "$dst"
   { echo "$begin_full"; echo ""; cat "$src"; echo ""; echo "$end_tok"; } >> "$dst"
   echo "  ✓ $dst (fenced section=$section appended; existing content preserved)"
+}
+
+# _merge_fenced_keep_copy <dst> <why> — keep the co-owned file's bytes before merge_fenced
+# replaces part of it with bytes the consumer may have written (critical-review S2-3). Same
+# location and naming as the refresh guard (_preserve_diverged_copy); merge_fenced sits outside
+# the baseline manifest, so it cannot tell a consumer edit from an older template and keeps a
+# copy whenever the replaced bytes differ. Fail-open: a failed copy changes only the message.
+_merge_fenced_keep_copy() {
+  local dst="$1" why="$2" conflicts sum8 kept
+  conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
+  if sum8=$(_hash256 "$dst"); then
+    kept="$conflicts/$(basename "$dst").${sum8:0:8}"
+    if mkdir -p "$conflicts" 2>/dev/null && cp "$dst" "$kept" 2>/dev/null; then
+      echo "  ⚠ $dst: $why — previous content kept at $kept (copy back any local edits you want)"
+      return 0
+    fi
+  fi
+  echo "  ⚠ $dst: $why — could not keep a copy under $conflicts; replacing anyway"
+  return 0
 }
 
 # install_agents_md <src> <dst>
@@ -1129,15 +1186,22 @@ _refresh_one_file() {
   # reports `would-flag` for exactly the files the real refresh would warn about. The override
   # skip in refresh_safe returns BEFORE this — the Layer-3 escape produces no conflict copy,
   # no warning.
+  # No entry (REFRESH_BASELINE_ENTRY="", set by the lookup inside refresh_baseline_diverged
+  # whenever dst is a file) + bytes differing from src → the D4(c) arm: silent copy, one
+  # aggregate line (_preserve_unbaselined_copy).
   if [ "$DRY_RUN" = "--dry-run" ]; then
     if refresh_baseline_diverged "$dst" "$src"; then
       echo "  [dry-run] would-flag: $dst (locally modified)"
+    elif [ -f "$dst" ] && [ -z "$REFRESH_BASELINE_ENTRY" ] && ! cmp -s "$src" "$dst"; then
+      _preserve_unbaselined_copy "$dst"
     fi
     echo "  [dry-run] would refresh: $src → $dst"
     return 0
   fi
   if refresh_baseline_diverged "$dst" "$src"; then
     _preserve_diverged_copy "$dst"
+  elif [ -f "$dst" ] && [ -z "$REFRESH_BASELINE_ENTRY" ] && ! cmp -s "$src" "$dst"; then
+    _preserve_unbaselined_copy "$dst"
   fi
   mkdir -p "$(dirname "$dst")"
   cp -r "$src" "$dst"
@@ -2335,7 +2399,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:229-234); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:235-240); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2545,6 +2609,150 @@ ensure_workspace_pkg_links() {
   _workspace_pkg_resolves "$_root" && echo "  · workspace-link self-heal: linked @rules-as-tests/* in $_nm (#827 B4)"
 }
 
+# husky_hookspath_blocker PROJECT_ROOT (critical-review S4-3)
+# Echo ONE line naming why core.hooksPath must NOT be pointed at .husky — empty output means it is
+# safe. Blocked when the consumer already runs its own hooks: a core.hooksPath other than ours
+# (.husky, or husky v9's .husky/_ which calls .husky/<hook>), or — with core.hooksPath unset — any
+# live non-sample hook in the hooks dir (lefthook, pre-commit, hand-written). Also blocked when the
+# install root is below the git toplevel: a relative hooksPath resolves against the toplevel, where
+# this .husky does not exist, so setting it would switch every hook off. Never fails (rc 0).
+husky_hookspath_blocker() {
+  local proj="$1" cur top here hooks_dir h
+  git -C "$proj" rev-parse --git-dir >/dev/null 2>&1 || return 0
+  cur=$(git -C "$proj" config --get core.hooksPath 2>/dev/null || true)
+  case "$cur" in
+    ""|.husky|.husky/|.husky/_|.husky/_/) ;;
+    *) echo "core.hooksPath is already '$cur' (your own hooks)"; return 0 ;;
+  esac
+  top=$(git -C "$proj" rev-parse --show-toplevel 2>/dev/null || true)
+  here=$(cd "$proj" 2>/dev/null && pwd -P)
+  if [ -n "$top" ] && [ "$here" != "$(cd "$top" 2>/dev/null && pwd -P)" ]; then
+    echo "the install root is not the git toplevel ($top)"; return 0
+  fi
+  if [ -z "$cur" ]; then
+    hooks_dir=$(cd "$proj" 2>/dev/null && cd "$(git rev-parse --git-path hooks 2>/dev/null)" 2>/dev/null && pwd -P || true)
+    if [ -n "$hooks_dir" ]; then
+      for h in "$hooks_dir"/*; do
+        case "$h" in *.sample) continue ;; esac
+        if [ -f "$h" ] && [ -x "$h" ]; then
+          echo "live git hook ${h##*/} in $hooks_dir"; return 0
+        fi
+      done
+    fi
+  fi
+  return 0
+}
+
+# note_not_wired <line> — record a framework piece left unwired because the consumer owns that
+# surface (printed in the 99-finalize summary). Tolerates NOT_WIRED being undeclared (lib-only use).
+note_not_wired() {
+  NOT_WIRED+=("$1")
+}
+
+# foreign_tool_config <dir> <eslint|lint-staged|prettier> — echo the consumer's own config for that
+# tool in <dir> under any name OTHER than the one we ship (critical-review S4-2/S4-4/S4-5). copy_safe
+# only sees its exact destination name, so a consumer eslint.config.cjs, .prettierrc or
+# package.json#lint-staged used to get our file placed beside it — and each tool picks ours first,
+# which switched the consumer's settings off without a word. Echoes nothing when there is none.
+# The package.json key is read as JSON (node): a devDependency named "lint-staged" is not a config.
+foreign_tool_config() {
+  local dir="$1" kind="$2" names key f
+  case "$kind" in
+    eslint)
+      # Flat names only: the install pins eslint@^9 (70-deps CORE_DEVDEPS), which never reads an
+      # .eslintrc* / package.json#eslintConfig — see legacy_eslint_config below.
+      names="eslint.config.js eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts"
+      key="" ;;
+    lint-staged)
+      names=".lintstagedrc .lintstagedrc.js .lintstagedrc.cjs .lintstagedrc.mjs .lintstagedrc.ts .lintstagedrc.yaml .lintstagedrc.yml lint-staged.config.js lint-staged.config.cjs lint-staged.config.mjs lint-staged.config.ts"
+      key=lint-staged ;;
+    prettier)
+      names=".prettierrc .prettierrc.yaml .prettierrc.yml .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs .prettierrc.ts .prettierrc.toml prettier.config.js prettier.config.cjs prettier.config.mjs prettier.config.ts"
+      key=prettier ;;
+    *) return 0 ;;
+  esac
+  for f in $names; do
+    if [ -e "$dir/$f" ]; then echo "$f"; return 0; fi
+  done
+  if [ -n "$key" ] && [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1 \
+    && GETFF_PKG="$dir/package.json" GETFF_KEY="$key" node -e '
+      const p = JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8"));
+      process.exit(p && Object.prototype.hasOwnProperty.call(p, process.env.GETFF_KEY) ? 0 : 1);
+    ' 2>/dev/null; then
+    echo "package.json#$key"
+  fi
+  return 0
+}
+
+# legacy_eslint_config <dir> — echo the eslintrc-format config in <dir> (.eslintrc*, or
+# package.json#eslintConfig), or nothing. ESLint 9 ignores these, so they are NOT a reason to skip
+# the flat config (skipping left ESLint with no config and the placed lint-staged `eslint --fix`
+# failed every commit — critical-review cold pass M1); the consumer is told instead.
+legacy_eslint_config() {
+  local dir="$1" f
+  for f in .eslintrc .eslintrc.js .eslintrc.cjs .eslintrc.json .eslintrc.yml .eslintrc.yaml; do
+    if [ -e "$dir/$f" ]; then echo "$f"; return 0; fi
+  done
+  if [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1 \
+    && GETFF_PKG="$dir/package.json" node -e '
+      const p = JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8"));
+      process.exit(p && Object.prototype.hasOwnProperty.call(p, "eslintConfig") ? 0 : 1);
+    ' 2>/dev/null; then
+    echo "package.json#eslintConfig"
+  fi
+  return 0
+}
+
+# copy_unless_foreign <eslint|lint-staged|prettier> <src> <dst> [copy_safe args…] — copy_safe, unless
+# the consumer already configures that tool under another name in dst's directory: then place
+# nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
+# skip + report, never overwrite or merge a consumer's tool config).
+copy_unless_foreign() {
+  local kind="$1" src="$2" dst="$3" own
+  shift 3
+  own=$(foreign_tool_config "$(dirname "$dst")" "$kind")
+  if [ -n "$own" ]; then
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (your own $kind config $own is kept)"
+    else
+      echo "  ⊝ $dst not placed — your own $kind config ($own) is kept"
+    fi
+    note_not_wired "$kind: ${dst##*/} not placed in $(dirname "$dst") because your $own configures $kind there; to get the framework settings, merge $src into it"
+    return 0
+  fi
+  copy_safe "$src" "$dst" "$@"
+  if [ "$kind" = "eslint" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+    own=$(legacy_eslint_config "$(dirname "$dst")")
+    [ -z "$own" ] || note_not_wired "eslint: your $own in $(dirname "$dst") is not read by ESLint 9 (flat config only) — ${dst##*/} now drives lint there; port your rules into it"
+  fi
+}
+
+# husky_note_consumer_hooks PKG_ROOT PROJECT_ROOT (critical-review S3-1)
+# Call BEFORE 50-hooks' copy_safe of .husky/pre-{commit,push}. Appends to HUSKY_CONSUMER_HOOKS the
+# name of every hook already on disk whose bytes differ from the shipped template and that lacks
+# the framework's identity marker: those are the consumer's own, copy_safe will keep them, and
+# reassert_husky_shields must keep them too. A hook byte-identical to the template, or marked as
+# the framework's, is the framework's own delivery and stays re-assertable. Under
+# --force the consumer asked for the overwrite (copy_safe preserves a copy), so nothing is noted.
+HUSKY_CONSUMER_HOOKS=""
+husky_note_consumer_hooks() {
+  local fw_root="$1" proj="$2" hook src dst
+  [ "${FORCE:-}" = "--force" ] && return 0
+  for hook in pre-commit pre-push; do
+    src="$fw_root/packages/core/templates/shared/husky-$hook.sh"; dst="$proj/.husky/$hook"
+    [ -e "$dst" ] || continue
+    cmp -s "$src" "$dst" && continue
+    # An older framework revision carries the hook's identity marker (pre-commit since #1001,
+    # pre-push since 2026-05-22): still the framework's, still re-assertable on an upgrade.
+    case "$hook" in
+      pre-commit) grep -q '@aif-shield: pre-commit' "$dst" 2>/dev/null && continue ;;
+      pre-push)   grep -q 'shipped by install.sh via husky-pre-push.sh' "$dst" 2>/dev/null && continue ;;
+    esac
+    HUSKY_CONSUMER_HOOKS="$HUSKY_CONSUMER_HOOKS $hook"
+  done
+  return 0
+}
+
 # reassert_husky_shields PKG_ROOT PROJECT_ROOT (GH #975)
 # 50-hooks copies .husky/pre-{commit,push} + sets core.hooksPath BEFORE 70-deps. A consumer
 # whose package.json declares a `prepare`-driven git-hooks manager (simple-git-hooks, or husky
@@ -2566,6 +2774,8 @@ reassert_husky_shields() {
     "packages/core/templates/shared/husky-pre-push.sh:.husky/pre-push"; do
     src="$fw_root/${pair%%:*}"; dst="$proj/${pair##*:}"
     [ -f "$src" ] || continue
+    # S3-1: a hook the consumer owned before this install is theirs — never re-assert over it.
+    case " ${HUSKY_CONSUMER_HOOKS:-} " in *" ${dst##*/} "*) continue ;; esac
     if [ ! -f "$dst" ] || ! cmp -s "$src" "$dst"; then
       mkdir -p "$(dirname "$dst")"
       cp "$src" "$dst"
@@ -2573,7 +2783,12 @@ reassert_husky_shields() {
       reasserted=1
     fi
   done
-  git -C "$proj" config core.hooksPath .husky 2>/dev/null || true
+  # S4-3: re-pin only when this install is the one that pointed core.hooksPath at .husky (50-hooks
+  # sets HUSKY_HOOKSPATH_OWNED=1) — never over a hook setup the consumer owns. Lib-only callers
+  # (tests) that do not set it keep the historical re-pin.
+  if [ "${HUSKY_HOOKSPATH_OWNED:-1}" = "1" ]; then
+    git -C "$proj" config core.hooksPath .husky 2>/dev/null || true
+  fi
   if [ "$reasserted" = "1" ]; then
     local mgr=""
     grep -q '"simple-git-hooks"' "$proj/package.json" 2>/dev/null && mgr="simple-git-hooks"

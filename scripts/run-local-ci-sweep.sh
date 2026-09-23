@@ -247,7 +247,7 @@ gate_table() {
   #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
-  # (setup.d/10-skills.sh:179, install.sh:1162) and the runner is NOT, which is deliberate: a
+  # (setup.d/10-skills.sh:179, install.sh:1169) and the runner is NOT, which is deliberate: a
   # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
   # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
   # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.

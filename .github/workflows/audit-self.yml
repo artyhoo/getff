@@ -757,6 +757,8 @@ jobs:
         run: bash tests/install-sh/f8d-ai-factory-sot-materialized.test.sh
       - name: Run install-sh AGENTS.md fenced co-ownership test (beta-ai-docs-agnosticism S1 D1b)
         run: bash tests/install-sh/fence-agents-coownership.test.sh
+      - name: "install-sh — critical-review S4-4 consumer-owned eslint / lint-staged / prettier configs kept"
+        run: bash tests/install-sh/foreign-tool-configs.test.sh
       - name: Run install-sh with-aif-suite flag test (F7 — operator-suite skills gated behind explicit opt-in)
         run: bash tests/install-sh/with-aif-suite-flag.test.sh
       - name: Run install-sh no-husky-init-advice test (consumer-install-hardening F8c)
@@ -903,6 +905,8 @@ jobs:
         run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
       - name: "install-sh — gh-975 husky re-assert after deps (prepare-driven manager clobber; @aif-shield marker gate)"
         run: bash tests/install-sh/gh-975-husky-reassert.test.sh
+      - name: "install-sh — critical-review S4-3 consumer-owned core.hooksPath kept (not wired + manual command)"
+        run: bash tests/install-sh/hookspath-consumer-owned.test.sh
       - name: "install-sh — gh-974 honest incomplete-deps banner (--full + failed dep-install → degraded banner + rc!=0, not silent ✅)"
         run: bash tests/install-sh/gh-974-honest-incomplete-deps.test.sh
       - name: "install-sh — gh-934 ship end-of-turn Stop hook + lang (delivery + settings-merge + firing EN/RU + jq-guard)"
@@ -962,6 +966,10 @@ jobs:
         run: npm install -g @ast-grep/cli@0.44.1 # zizmor: ignore[adhoc-packages]
       - name: Run install-sh engine test (one-click-installer S2)
         run: bash tests/install-sh/engine.test.sh
+      - name: "install-sh — critical-review S5 rule-bootstrap failure is loud (not swallowed)"
+        run: bash tests/install-sh/rule-bootstrap-failure-loud.test.sh
+      - name: "install-sh — critical-review S8-1 generated-rule mutation gate fails closed on an unreadable manifest"
+        run: bash tests/install-sh/generated-rule-mutation-manifest-fail-closed.test.sh
       - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
         run: bash tests/install-sh/preset-staleness.test.sh
       - name: Run install-sh B4 worktree workspace-resolve test (multistack-augment-first #827 B4)

@@ -106,19 +106,25 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/gitignore" "$PROJECT_ROOT/.g
 if _prettierignore_in_skipped "$PROJECT_ROOT/.gitignore" && ! grep -q 'node_modules' "$PROJECT_ROOT/.gitignore" 2>/dev/null; then
   echo "  ⚠ .gitignore exists without a node_modules line — 'git add -A' will stage node_modules/. Consider adding node_modules/ to .gitignore (file left untouched)." >&2
 fi
-copy_safe "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
+copy_unless_foreign lint-staged "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
 # cih-s3 F14 (M3): in a workspace, a single root .lintstagedrc runs `eslint` from git-root; in
 # a pnpm/isolated-node_modules monorepo the per-package eslint binary isn't at root → ENOENT
 # blocks the commit. Drop a per-package .lintstagedrc.json stub in each EXISTING package dir so
 # lint-staged runs with cwd=that package and resolves the local binary. PM-agnostic (no
 # `pnpm exec`). Best-effort — packages added later need the same stub; scripts/check-lintstaged-
 # resolves.sh is the alarm that catches an unstubbed package before its first blocked commit.
-if [ "$DRY_RUN" != "--dry-run" ] && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
+# critical-review S4-4: stub only when the root config is OUR delivery — never copy a consumer's
+# own .lintstagedrc.json into every package, and never stub when their config kept ours out.
+if [ "$DRY_RUN" != "--dry-run" ] \
+  && cmp -s "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json" \
+  && { [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; }; then
   _ndrop=0
   while IFS= read -r _pkgjson; do
     _pkgdir=$(dirname "$_pkgjson")
     [ "$_pkgdir" = "$PROJECT_ROOT" ] && continue
-    if [ ! -f "$_pkgdir/.lintstagedrc.json" ]; then
+    # …and never next to the package's OWN lint-staged config (any name, or package.json key):
+    # lint-staged uses the closest config, so the stub would silently replace theirs.
+    if [ ! -f "$_pkgdir/.lintstagedrc.json" ] && [ -z "$(foreign_tool_config "$_pkgdir" lint-staged)" ]; then
       cp "$PROJECT_ROOT/.lintstagedrc.json" "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
     fi
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
@@ -134,7 +140,7 @@ merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" 
 # same style the shipped artefacts are formatted in (singleQuote — the framework's existing TS/JS
 # style). Without it, prettier defaults (double-quote) would flag every shipped .ts/.mjs/.cjs.
 # copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
-copy_safe "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
+copy_unless_foreign prettier "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
 
 # ─── 5a. tests/setup.ts delivery gate (first-commit-passable, issue 1530) ───
@@ -307,8 +313,8 @@ if [ -n "$_ws_lines" ]; then
       if [ -n "$_stryker_vcfg" ] && [ -f "$_ws_abs/tsconfig.json" ]; then
         _ws_slug=$(printf '%s' "$_ws_dir" | tr '/' '-')
         _stryker_dst="$PROJECT_ROOT/stryker/$_ws_slug.json"
-        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:829 — precedent
-        # rewrite_arch_sot_header, lib.sh:1728-1733) so a consumer's hand-tuned per-package config
+        # C1/A3 fix (dual-review): mirror copy_safe's WRITE guard (setup.d/lib.sh:852 — precedent
+        # rewrite_arch_sot_header, lib.sh:1792-1797) so a consumer's hand-tuned per-package config
         # is never silently clobbered on re-install.
         if [ -e "$_stryker_dst" ] && [ "$FORCE" != "--force" ]; then
           SKIPPED+=("$_stryker_dst")
@@ -349,13 +355,13 @@ if [ -n "$_ws_lines" ]; then
 
     case "$_ws_stack" in
       ts-server)
-        copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$_ws_abs/eslint.config.mjs"
         ;;
       react-next)
-        copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
         ;;
       react-spa)
-        copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$_ws_abs/eslint.config.mjs"
         ;;
       react-native)
         # RN ships TWO baselines + a shared base; detect Expo vs bare-RN per workspace package.json.
@@ -364,8 +370,8 @@ if [ -n "$_ws_lines" ]; then
         else
           _rn_eslint="eslint.config.bare-rn.mjs"
         fi
-        copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
-        copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
+        copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$_ws_abs/eslint.config.mjs"
+        [ -n "$(foreign_tool_config "$_ws_abs" eslint)" ] || copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$_ws_abs/eslint.config.rn-common.mjs"
         ;;
       unknown)
         # Still-unknown after own + explicit-arg + root fallback: KEEP as a re-checkable marker per
@@ -383,7 +389,9 @@ if [ -n "$_ws_lines" ]; then
     # instead. skip-if-exists still counts: a consumer file already at the destination is a placed
     # config, not a failure. Under --dry-run nothing is written by design, so the arm counts as placed
     # (otherwise a dry-run over a perfectly classified monorepo would trip the gate's exit 1).
-    if [ -n "$DRY_RUN" ] || [ -f "$_ws_abs/eslint.config.mjs" ]; then
+    # A consumer's own ESLint config under another name (critical-review S4-2) is a placed config
+    # too: the workspace is configured, just not by us — it is listed as not wired, not as missing.
+    if [ -n "$DRY_RUN" ] || [ -f "$_ws_abs/eslint.config.mjs" ] || [ -n "$(foreign_tool_config "$_ws_abs" eslint)" ]; then
       _ws_placed=$((_ws_placed + 1))
     else
       echo "  ⚠ $_ws_dir: eslint.config.mjs is not on disk after delivery ($_ws_stack) — not counted as placed" >&2
@@ -433,7 +441,7 @@ else
   # ── Flat / single-root repo: original single-stack behavior unchanged ──────────────────────────
   echo "▶ Stack-specific templates ($STACK) → project root"
   if [ "$STACK" = "ts-server" ]; then
-    copy_safe "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_unless_foreign eslint "$PKG_ROOT/templates/ts-server/eslint.config.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/templates/ts-server/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     fc3_deliver_tests_setup "$PKG_ROOT/templates/ts-server/tests-setup.ts"
     # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
@@ -457,7 +465,7 @@ else
     # for symmetry; a push to a non-main default touching .github/workflows/** now triggers it.
     deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-next" ]; then
-    copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_unless_foreign eslint "$PKG_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     fc3_deliver_tests_setup "$PKG_ROOT/packages/preset-next-15-canonical/templates/tests-setup.ts"
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
@@ -476,7 +484,7 @@ else
     # R11 branch-protection self-assertion (stack-agnostic — asserts ci-success stays required).
     deliver_getff_workflow "$PKG_ROOT/templates/ts-server/github-actions-workflow-integrity.yml" "$PROJECT_ROOT/.github/workflows/workflow-integrity.yml"
   elif [ "$STACK" = "react-spa" ]; then
-    copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
+    copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs" "$PROJECT_ROOT/eslint.config.mjs"
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     fc3_deliver_tests_setup "$PKG_ROOT/packages/preset-react-spa/templates/tests-setup.ts"
     copy_safe "$PKG_ROOT/packages/preset-react-spa/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
@@ -505,8 +513,8 @@ else
     else
       _rn_eslint="eslint.config.bare-rn.mjs"
     fi
-    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
-    copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
+    copy_unless_foreign eslint "$PKG_ROOT/packages/preset-react-native/templates/$_rn_eslint" "$PROJECT_ROOT/eslint.config.mjs"
+    [ -n "$(foreign_tool_config "$PROJECT_ROOT" eslint)" ] || copy_safe "$PKG_ROOT/packages/preset-react-native/templates/eslint.config.rn-common.mjs" "$PROJECT_ROOT/eslint.config.rn-common.mjs"
     copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
     # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).

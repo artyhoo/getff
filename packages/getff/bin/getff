@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // getff — the CLI entry of the `getff` npm distribution package.
 //
-//   npx getff init [<stack>] [-y] [--profile core|env|factory] [--dry-run] ...
+//   npx getff init [<stack>] [-y] [--global] [--profile core|env|factory] [--dry-run] ...
 //
 // `init` hands every argument to the shipped `setup` orchestrator (README:10 — «getff init
 // (via ./setup)»), which runs install.sh from THIS package's root. The tarball lays its
@@ -33,14 +33,16 @@ function usage() {
   return `getff — AI DX for your codebase: conventions AI agents can't silently bypass.
 
 Usage:
-  getff init [<stack>] [-y|--yes] [--profile core|env|factory] [--dry-run] [--all]
+  getff init [<stack>] [-y|--yes] [--global] [--profile core|env|factory] [--dry-run] [--all]
   getff --version
   getff --help
 
   init     Install the enforcement layer into the current project (runs the shipped
            setup/install.sh from this package). <stack> = ts-server | react-next |
            react-spa | react-native | python; omitted = auto-detected from package.json.
-           Run it from the project root.
+           Run it from the project root. -y installs into the project only; add
+           --global to also install machine-wide companions (user-scope Claude
+           plugins and MCP servers, npm -g tools, the runtime-bridge).
 
 Docs: https://getff.ai/docs/  ·  Issues: https://github.com/artyhoo/getff/issues
 `;

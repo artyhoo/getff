@@ -2,7 +2,7 @@
 # setup.d/20-agents.sh — §2 Sub-agents + §3c skill-context overrides.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §2 (install.sh:779-801), §3c (install.sh:838-845)
+# S0 rows: §2 (install.sh:779-801), §3c (install.sh:838-845)  cite:historical S0 extraction rows, pre-split monolithic install.sh at 1c08b16
 # Depends on: SHIPPED_DOCS (set in dispatcher scope before layers run)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 

@@ -8,6 +8,9 @@
 
 # ─── §5c: .husky/ hooks ─────────────────────────────────
 mkdir_safe "$PROJECT_ROOT/.husky"
+# critical-review S3-1: note consumer-owned hooks BEFORE copy_safe keeps them, so the post-deps
+# re-assert in 99-finalize (reassert_husky_shields) keeps them too.
+husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
 # Wave 10.5: also install the bash critical-only fallback so the dispatcher can find it.
@@ -72,8 +75,28 @@ chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 
 if [ -n "$DRY_RUN" ]; then
   echo "▶ git hooks → [dry-run] would set core.hooksPath=.husky"
 elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-  git -C "$PROJECT_ROOT" config core.hooksPath .husky
-  echo "▶ Activated git hooks → core.hooksPath=.husky"
+  # critical-review S4-3: never repoint a hook setup the consumer already runs (their own
+  # hooksPath, live .git/hooks) or a hooksPath that would resolve outside this install root.
+  _hp_block=$(husky_hookspath_blocker "$PROJECT_ROOT")
+  if [ -n "$_hp_block" ]; then
+    HUSKY_HOOKSPATH_OWNED=0
+    echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
+    # A relative hooksPath resolves against the toplevel, so a subdirectory install must name
+    # its prefix — and git runs hooks from the toplevel, so the hooks then need a `cd` first.
+    _hp_prefix=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix 2>/dev/null || true)
+    if [ -n "$_hp_prefix" ]; then
+      note_not_wired "framework git hooks (${_hp_prefix}.husky/) — $_hp_block; to use them run: git config core.hooksPath ${_hp_prefix}.husky (git runs hooks from the repo root: add 'cd ${_hp_prefix%/}' at the top of each hook)"
+    else
+      note_not_wired "framework git hooks (.husky/) — $_hp_block; to use them instead run: git config core.hooksPath .husky"
+    fi
+  elif [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null)" = ".husky/_" ]; then
+    HUSKY_HOOKSPATH_OWNED=0
+    echo "▶ git hooks → core.hooksPath=.husky/_ kept (husky v9 runs .husky/pre-commit + pre-push)"
+  else
+    HUSKY_HOOKSPATH_OWNED=1
+    git -C "$PROJECT_ROOT" config core.hooksPath .husky
+    echo "▶ Activated git hooks → core.hooksPath=.husky"
+  fi
 else
   echo "  ⚠  not a git repo — skipped core.hooksPath activation (run: git config core.hooksPath .husky)"
 fi

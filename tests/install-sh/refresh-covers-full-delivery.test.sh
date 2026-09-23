@@ -10,7 +10,7 @@
 # framework file delivered by --full but omitted from do_refresh can therefore never reach an
 # already-installed consumer non-destructively — the framework's own fixes false-RED (or, for
 # .husky/pre-push, HARD-CRASH per #636) forever on it. This gate is the mechanical form of the
-# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1394 prose promise
+# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1401 prose promise
 # ("Consumer-owned files … were not touched") — encoded as an executable assertion.
 #
 # SCOPE: copy_safe deliveries only (the skip-if-exists mechanism that causes the bug). Other
@@ -67,7 +67,7 @@ for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
 # with an empty array throws "unbound variable" and aborts the test ungracefully. Same shape as
-# setup.d/lib.sh:1863-1865 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
+# setup.d/lib.sh:1927-1929 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
 # the test cleanly with a message rather than crashing on the array expansion below.
 [ "${#NPM_LANE_LAYERS[@]}" -gt 0 ] || { echo "FATAL: NPM_LANE_LAYERS empty — setup.d/[0-9]*.sh glob found no npm-lane layers"; exit 1; }
 
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:1394 + setup.d/lib.sh:1854 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:1401 + setup.d/lib.sh:1918 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'

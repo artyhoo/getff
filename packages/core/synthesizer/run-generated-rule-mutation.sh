@@ -94,9 +94,13 @@ const linter = new Linter();
 // selector-not-firing skip path and no mutation is ever measured. Same trap as #832
 // in audit-self/check-fences-fire.sh:177-182; the paired-negative arm that pins this
 // is `POSITIVE (probe liveness)` in run-generated-rule-mutation-skip.test.ts.
-const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module' } }];
+// Generated negative inputs are TypeScript and may hold JSX, so parse them as the consumer's lint
+// does: typescript-eslint's parser when installed, JSX on (critical-review cold pass, M3 sibling).
+let parser: unknown;
+try { parser = (await import('typescript-eslint')).parser; } catch { parser = undefined; }
+const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module', ...(parser ? { parser } : {}), parserOptions: { ecmaFeatures: { jsx: true } } } }];
 try {
-  const msgs = linter.verify(code, cfg, { filename: 'probe.ts' });
+  const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
   process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);
 } catch (e) { process.stderr.write(String(e) + '\n'); process.exit(9); }
 PROBE
@@ -135,21 +139,35 @@ _mutate() {
 }
 
 # ─── Extract rules from manifest ──────────────────────────────────────────────
-RULES_JSON=$(node --input-type=module -e "
+# critical-review S8-1 — fail closed. The extraction used to end in `2>/dev/null || echo '[]'`, so
+# a manifest that did not parse took the RULE_COUNT=0 exit («nothing to test», exit 0) and the push
+# gate stayed green on material it never read. The path also used to be spliced into a JS string
+# literal (a `'` in it broke the parse the same way); it now travels in the environment. A
+# declarative rule without usable negative-test inputs (key missing, misspelled or empty) is kept
+# with inputs=[] so the loop below counts it as a malformed skip instead of it vanishing here.
+_rules_err=$(mktemp)
+if ! RULES_JSON=$(GETFF_MUTATION_MANIFEST="$MANIFEST" node --input-type=module -e "
   import { readFileSync } from 'node:fs';
-  const m = JSON.parse(readFileSync('$MANIFEST', 'utf8'));
+  const m = JSON.parse(readFileSync(process.env.GETFF_MUTATION_MANIFEST, 'utf8'));
+  if (m === null || typeof m !== 'object' || Array.isArray(m)) throw new Error('manifest is not a JSON object');
   const rules = [];
   for (const [id, rule] of Object.entries(m)) {
-    const r = rule;
+    const r = rule ?? {};
     const check = r.check ?? {};
     const selector = check.selector ?? '';
     if (!selector || check.type !== 'declarative') continue;
     const nt = r['negative-test'] ?? r['negativeTest'] ?? null;
-    if (!nt || !Array.isArray(nt.input) || !nt.input.length) continue;
-    rules.push({ id, selector, inputs: nt.input });
+    const inputs = nt && Array.isArray(nt.input) ? nt.input : [];
+    rules.push({ id, selector, inputs });
   }
   process.stdout.write(JSON.stringify(rules));
-" 2>/dev/null || echo '[]')
+" 2>"$_rules_err"); then
+  echo "FAIL — could not read the manifest $MANIFEST: $(grep -m1 -E 'Error' "$_rules_err" || head -n 1 "$_rules_err")"
+  echo "NOT green: the generated-rule material was not tested (regenerate it: ./setup --full)"
+  rm -f "$_rules_err"
+  exit 1
+fi
+rm -f "$_rules_err"
 
 RULE_COUNT=$(node --input-type=module -e "
   const chunks = [];

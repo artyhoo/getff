@@ -14,7 +14,7 @@
  * `.claude/orchestrator-prompts/` is NEVER delivered to a consumer: the only install action is
  * `mkdir_safe "$PROJECT_ROOT/.ai-factory/orchestrator-prompts"` (setup.d/lib.sh:98-100,
  * setup.d/30-templates.sh:17). The skills are shipped byte-for-byte
- * (`copy_skill_with_transform`, setup.d/lib.sh:2158), so a fence that hardcodes the framework
+ * (`copy_skill_with_transform`, setup.d/lib.sh:2222), so a fence that hardcodes the framework
  * path executes against a directory that cannot exist — silently, because every such fence
  * ends in `2>/dev/null` or a `[ -d "$dir" ] || exit 0` short-circuit.
  *

@@ -241,7 +241,7 @@ fi
 #   (b) *.md BLANKET — the fixture .prettierignore used to carry `*.md`, which hid the vendored
 #       README.md (1 of the 7). Removed: the shipped .md family is covered by its own managed block
 #       (#884, Arm 9), so a real md escape must FAIL this arm rather than be masked by fixture noise.
-# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1449).
+# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1456).
 if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   TB=$(mktemp -d)
   printf '{"name":"g531b","version":"0.0.0"}\n' > "$TB/package.json"

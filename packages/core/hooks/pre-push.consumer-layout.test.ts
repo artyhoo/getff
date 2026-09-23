@@ -163,7 +163,7 @@ function makeConsumerSandbox(): { dir: string; baseSha: string; hook: string } {
   const dir = mkdtempSync(join(tmpdir(), 'prepush-consumer-'));
   sandboxes.push(dir);
 
-  // The exact install.sh consumer copy-list (install.sh:1174-1198).
+  // The exact install.sh consumer copy-list (install.sh:1181-1205).
   cpSync(
     resolve(REPO_ROOT, 'packages/core/hooks'),
     join(dir, 'packages/core/hooks'),
@@ -1103,7 +1103,7 @@ describe(
       const dir = mkdtempSync(join(tmpdir(), 'prepush-smoke-'));
       sandboxes.push(dir);
 
-      // Consumer copy-list only (install.sh:1174-1198 shape): hooks + eslint-rules.
+      // Consumer copy-list only (install.sh:1181-1205 shape): hooks + eslint-rules.
       cpSync(
         resolve(REPO_ROOT, 'packages/core/hooks'),
         join(dir, 'packages/core/hooks'),

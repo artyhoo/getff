@@ -2,6 +2,7 @@
 # Companion manifest engine. Sourceable in lib-only mode (ENGINE_LIB_ONLY=1).
 # companion_step <name> <detect_cmd> <install_cmd> <kind> <mode>
 #   mode: interactive | yes | dry-run
+#   env:  GETFF_GLOBAL=1 allows machine-global installs under mode=yes (./setup --global / --all)
 # Principle: detect-first; install only via the companion's own official command; no version pin.
 #
 # kind values:
@@ -10,6 +11,15 @@
 #   mcp              — Claude MCP server (claude mcp add …); detect-first; consumed by the
 #                      05-mcp layer INSIDE install.sh (before 70-deps), NOT the post-install
 #                      wrapper loop (D5/I1 ordering — setup wrapper MUST skip kind=mcp rows).
+
+# companion_is_machine_global <install_cmd> — rc 0 when the install reaches beyond this project:
+# a user-scope Claude plugin / MCP server, a plugin marketplace, or a global npm package.
+companion_is_machine_global() {
+  case "$1" in
+    *"--scope user"*|*"marketplace add"*|*"npm install -g "*|*"npm i -g "*|*"npm install --global"*) return 0 ;;  # ci-tool-pin: allow case patterns that classify manifest commands, not an install
+  esac
+  return 1
+}
 
 companion_step() {
   local name="$1" detect_cmd="$2" install_cmd="$3" kind="$4" mode="$5"
@@ -48,9 +58,26 @@ companion_step() {
     return 0
   fi
 
+  # critical-review S1-4 (operator decision 2026-09-23): -y installs into the PROJECT only. -y was
+  # the sole consent for machine-global installs, and INSTALL-FOR-AI.md lets an agent run -y
+  # without asking — so user-scope plugins/MCP servers and `npm -g` landed on developer machines
+  # with no human yes. Under -y they now need --global (GETFF_GLOBAL=1, set by ./setup --global or
+  # --all); the interactive prompt names the machine-global reach instead.
+  local _global=""
+  if companion_is_machine_global "$install_cmd"; then _global=1; fi
+  if [ "$mode" = "yes" ] && [ -n "$_global" ] && [ "${GETFF_GLOBAL:-}" != "1" ]; then
+    printf '  ⊝ %s skipped — machine-global install (outside this project): %s\n' "$name" "$install_cmd"
+    printf '    -y installs into the project only; re-run with --global to allow it, or run the command yourself\n'
+    return 0
+  fi
+
   local do_it="$mode"
   if [ "$mode" = "interactive" ]; then
-    printf '  Install %s? [y/N]: ' "$name"
+    if [ -n "$_global" ]; then
+      printf '  Install %s machine-wide (all projects on this machine: %s)? [y/N]: ' "$name" "$install_cmd"
+    else
+      printf '  Install %s? [y/N]: ' "$name"
+    fi
     read -r ans || ans=""
     case "$ans" in [yY]|[yY][eE][sS]) do_it="yes" ;; *) do_it="no" ;; esac
   fi

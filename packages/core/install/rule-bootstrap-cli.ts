@@ -107,7 +107,7 @@ function parseArgs(argv: string[]): Args {
 // This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON → rendered
 // rule YAML at `<consumer>/.getff/rules-research/<entryId>.yml` — a consumer-side researched home
 // that SURVIVES `--refresh` (unlike `.getff/astgrep-rules/`, which refresh_safe rm-rf-replaces from
-// the template — lib.sh:1072). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
+// the template — lib.sh:1129). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
 // then joins `rules-research/*.yml` into `.getff/astgrep-rules/` on every install/refresh pass, so
 // the rendered rule fires via the consumer's existing single `ruleDirs:` entry (§Qd additive).
 //
@@ -279,7 +279,7 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   // Path layout (DC-1, kickoff §6 Tier-2 call): `<consumerRoot>/.ai-factory/synthesizer-output/
   // generation-context/python/<entryId>.json` — the per-lane subdir closes criterion 4 by
   // construction. Cargo/go glob `*.json` NON-recursively on the parent generation-context/ dir
-  // (lib.sh:1599, shared lock writer), so a python lane fragment in the subdir is invisible to
+  // (lib.sh:1663, shared lock writer), so a python lane fragment in the subdir is invisible to
   // them. The Node synthesize path (emit.ts:97-103) keeps writing `G${n}.json` to the parent
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //
