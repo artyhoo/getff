@@ -33,7 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
-docs-refresh: deferred — re-verified 2026-09-23, the only change to the cited docs/site/reference/B/story.md in this range is one path:line renumbering in its Evidence list (hook line 1348 → 1361); this overview quotes neither that line nor that hook; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-23, the cited changes in this range are the aif-doctor page gaining failure mode 3.9 with refreshed evidence line numbers, and one path:line renumbering in the story page's Evidence list (hook line 1348 → 1361); this page links both pages by name only and quotes none of their numbers; clears at the next gold refresh of this page
 ---
 
 # Skills
