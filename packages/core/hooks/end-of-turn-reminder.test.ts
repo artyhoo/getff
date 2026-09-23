@@ -3209,6 +3209,8 @@ describe('reuse spec D1 — teaching lines in the recap contract and the story s
   it('story/SKILL.md teaches the same thing as the story spec', () => {
     const skill = readFileSync(resolve(REPO_ROOT, '.claude/skills/story/SKILL.md'), 'utf8');
     expect(skill).not.toMatch(/jargon (explained )?on the spot/i);
+    expect(skill).toMatch(/short sentences/);
+    expect(skill).toMatch(/one idea\s+each/);
     expect(skill).toMatch(/terms written bare/);
   });
 });

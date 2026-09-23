@@ -18,10 +18,11 @@ const END = '<!-- prettier-ignore-end -->';
 
 // Recorded 2026-09-22 from marketplace commit 9c9f36ccd3995266cd675468af71639c8dde1ec5:
 // SKILL.md minus its 5-line frontmatter (`tail -n +6 | shasum -a 256`); the format files whole.
+// `upstream` is the whole cached file, the value each file's «Re-census trigger» compares against.
 const VENDORED = [
-  { file: 'domain-modeling.md', sha: '6e49118599619a407f89024b4fc6435883f13728c95707a32136eacf8fe887ca', starts: '# Domain Modeling\n', links: ['CONTEXT-FORMAT.md', 'ADR-FORMAT.md'] },
-  { file: 'CONTEXT-FORMAT.md', sha: 'b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597', starts: '# CONTEXT.md Format\n', links: [] },
-  { file: 'ADR-FORMAT.md', sha: 'f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2', starts: '# ADR Format\n', links: [] },
+  { file: 'domain-modeling.md', sha: '6e49118599619a407f89024b4fc6435883f13728c95707a32136eacf8fe887ca', upstream: '9617041db9b0f6606ecf974e2061c83596b05059b5bb20ddb884c60f147c70e9', starts: '# Domain Modeling\n', links: ['CONTEXT-FORMAT.md', 'ADR-FORMAT.md'] },
+  { file: 'CONTEXT-FORMAT.md', sha: 'b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597', upstream: 'b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597', starts: '# CONTEXT.md Format\n', links: [] },
+  { file: 'ADR-FORMAT.md', sha: 'f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2', upstream: 'f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2', starts: '# ADR Format\n', links: [] },
 ] as const;
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
@@ -42,7 +43,7 @@ function extractBody(doc: string): string {
   return range.slice(0, -1);
 }
 
-describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', ({ file, sha, starts, links }) => {
+describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', ({ file, sha, upstream, starts, links }) => {
   const path = join(REFS, file);
   const doc = existsSync(path) ? readFileSync(path, 'utf8') : '';
 
@@ -61,12 +62,20 @@ describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', (
     expect(sha256(extractBody(doc))).toBe(sha);
   });
 
-  it('a one-character edit breaks the hash (the check is not tautological)', () => {
-    expect(sha256(`${extractBody(doc)} `)).not.toBe(sha);
+  // The gate is only as good as the extraction boundary: an edit inside the body must reach the
+  // hash, and an edit to the wrapper must not, or a reflowed provenance table would read as drift.
+  it('the extraction boundary: a body edit changes the hash, a wrapper edit does not', () => {
+    const at = doc.indexOf(starts) + 2;
+    const bodyEdit = `${doc.slice(0, at)}X${doc.slice(at + 1)}`;
+    expect(sha256(extractBody(bodyEdit))).not.toBe(sha);
+    const wrapperEdit = doc.replace('## Provenance\n', '## Provenance (edited)\n');
+    expect(wrapperEdit).not.toBe(doc);
+    expect(sha256(extractBody(wrapperEdit))).toBe(sha);
   });
 
-  it("the provenance table's own pin equals this test's constant", () => {
+  it("the provenance table's two pins equal this test's constants", () => {
     expect(doc.match(/\|\s*Vendored body sha256\s*\|\s*`([0-9a-f]{64})`/)?.[1]).toBe(sha);
+    expect(doc.match(/\|\s*Upstream file sha256\s*\|\s*`([0-9a-f]{64})`/)?.[1]).toBe(upstream);
   });
 
   // Fenced blocks are skipped: upstream's CONTEXT-FORMAT.md shows a sample CONTEXT-MAP.md whose
