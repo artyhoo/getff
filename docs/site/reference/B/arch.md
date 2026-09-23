@@ -7,6 +7,7 @@ sources:
   - .claude/skills/arch/SKILL.md
   - .claude/skills/arch/references/grilling.md
   - .claude/skills/arch/references/domain-modeling.md
+  - CONTEXT.md
   - setup
   - setup.d/10-skills.sh
   - setup.d/companions.manifest
