@@ -105,7 +105,7 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
   language file from `AIF_HOOK_LANG` and line 13 falls back to English.
 - The instruction text is the function at line 233 of `.claude/hooks/lang/en.sh`. The
   end-of-session reminder calls the same function:
-  `.claude/hooks/end-of-turn-reminder.sh`, line 1348.
+  `.claude/hooks/end-of-turn-reminder.sh`, line 1361.
 - The installer delivers the language files at every depth: `setup.d/10-skills.sh`,
   lines 238 to 253. The skill itself is in the `factory` list at line 65 of
   `setup.d/lib.sh`. The reason it stays there is a product choice recorded at lines 119
