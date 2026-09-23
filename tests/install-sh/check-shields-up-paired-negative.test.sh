@@ -24,6 +24,10 @@
 #   (vi)   POSITIVE: core.hooksPath=<abs>/.husky/_         → gate exits 0 (absolute form is valid; git honours it)
 #   (vii)  NEGATIVE: core.hooksPath=.husky/_, dir ABSENT   → gate exits non-zero (git skips every shield SILENTLY)
 #   (viii) NEGATIVE: core.hooksPath=<abs>/.git/hooks       → gate exits non-zero (absolute, but not a husky dir)
+#   (ix)   control:  consumer pre-commit, no exemption      → gate exits non-zero
+#   (x)    POSITIVE: consumer pre-commit exempted by name   → gate exits 0
+#   (xi)   NEGATIVE: pre-commit exempted, pre-push dead     → gate exits non-zero
+#   (xii)  NEGATIVE: pre-commit exempted, hooksPath unset   → gate exits non-zero
 #
 # SKIP condition: git not available (same graceful-degrade as the gate itself). rc=0 on SKIP, rc=1 on FAIL.
 set -uo pipefail
@@ -149,6 +153,49 @@ if [ "$RC" -ne 0 ]; then
 else
   bad "(viii) NEGATIVE: core.hooksPath=<abs>/.git/hooks → gate exited 0 — resolution degraded into accepting any absolute path"
 fi
+
+# ─── Arms (ix)–(xii): a consumer-owned hook is skipped, the rest is still checked ─
+# install.sh keeps a consumer's own .husky/<hook> (HUSKY_CONSUMER_HOOKS) and passes the names in
+# AIF_SHIELDS_CONSUMER_HOOKS. Only those hooks are exempt: hooksPath and the other hook must still be
+# checked, or one kept pre-commit would hide a dead push shield (critical-review wave 2, cold-review F6).
+cp "$SCRATCH/.husky/pre-commit" "$SCRATCH/pre-commit.framework"
+printf '#!/usr/bin/env sh\necho consumer-own-pre-commit\n' > "$SCRATCH/.husky/pre-commit"
+run_gate_consumer() {  # $1 = hooksPath value or empty; AIF_SHIELDS_CONSUMER_HOOKS=pre-commit
+  if [ -z "$1" ]; then
+    git -C "$SCRATCH" config --unset core.hooksPath 2>/dev/null || true
+  else
+    git -C "$SCRATCH" config core.hooksPath "$1"
+  fi
+  GATE_OUT=$(AIF_SHIELDS_CONSUMER_HOOKS="pre-commit" AIF_PROJECT_ROOT="$SCRATCH" bash "$GATE_SCRIPT" 2>&1)
+  echo $? > "$SCRATCH/.rc"
+}
+RC=$(run_gate ".husky")
+if [ "$RC" -ne 0 ]; then
+  ok "(ix) control: a consumer pre-commit without the exemption → gate exits non-zero (rc=$RC)"
+else
+  bad "(ix) control: a consumer pre-commit without the exemption → gate exited 0 — (x) would prove nothing"
+fi
+run_gate_consumer ".husky"; RC=$(cat "$SCRATCH/.rc")
+if [ "$RC" -eq 0 ] && printf '%s\n' "$GATE_OUT" | grep -q 'pre-commit: your own hook'; then
+  ok "(x) POSITIVE: AIF_SHIELDS_CONSUMER_HOOKS=pre-commit → the kept hook is skipped by name, gate exits 0"
+else
+  bad "(x) POSITIVE: AIF_SHIELDS_CONSUMER_HOOKS=pre-commit → rc=$RC or no «your own hook» line"
+fi
+chmod -x "$SCRATCH/.husky/pre-push"
+run_gate_consumer ".husky"; RC=$(cat "$SCRATCH/.rc")
+chmod +x "$SCRATCH/.husky/pre-push"
+if [ "$RC" -ne 0 ]; then
+  ok "(xi) NEGATIVE: pre-commit exempt, pre-push not executable → gate exits non-zero (rc=$RC) — the push shield is still checked"
+else
+  bad "(xi) NEGATIVE: pre-commit exempt, pre-push not executable → gate exited 0 — the exemption hid a dead push shield"
+fi
+run_gate_consumer ""; RC=$(cat "$SCRATCH/.rc")
+if [ "$RC" -ne 0 ]; then
+  ok "(xii) NEGATIVE: pre-commit exempt, core.hooksPath unset → gate exits non-zero (rc=$RC) — hooksPath is still checked"
+else
+  bad "(xii) NEGATIVE: pre-commit exempt, core.hooksPath unset → gate exited 0 — the exemption hid unwired hooks"
+fi
+cp "$SCRATCH/pre-commit.framework" "$SCRATCH/.husky/pre-commit"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 echo ""

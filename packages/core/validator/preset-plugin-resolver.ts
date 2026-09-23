@@ -22,7 +22,7 @@
 // The (i) anchor is `createRequire(resolve(cwd, 'package.json'))`, NOT this file's directory:
 // the shipped bin runs from the framework's own node_modules with cwd = consumer root, so
 // framework-anchored resolution would miss the consumer's freshly vendored barrel and falsely
-// degrade (the GH #642 lesson recorded at wire-eslint-r2.ts:124-129). The anchor file itself
+// degrade (the GH #642 lesson recorded at wire-eslint-r2.ts:132-137). The anchor file itself
 // need not exist — `createRequire` only needs a path to resolve relatively from.
 //
 // Resolution is SYNCHRONOUS (`createRequire`), deliberately: `validate()` / `install()` are

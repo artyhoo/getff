@@ -39,6 +39,12 @@ export interface TransformOpts {
   /** When provided, emits `{ files: [...], rules: {...} }` — workspace-scoped block. */
   scope?: { files: string[] };
   /**
+   * Per-rule scope, taking precedence over `scope`: returns the `files:` a freshly appended block
+   * for that rule-id must carry, or undefined for the default. Lets a preset keep the scope its
+   * template gives each rule when the rules are appended to a brownfield config (critical-review S7-2).
+   */
+  scopeFor?: (ruleKey: string) => { files: string[] } | undefined;
+  /**
    * Live-wins override set (D2). Rule-ids in this set REPLACE an existing simple-rule value in
    * the config (rather than the default append-if-missing, which keeps the preset). Used by the
    * live-research augment-first path so a live rule sharing a preset rule-id is authoritative.
@@ -80,6 +86,8 @@ export interface WireResult {
   modified: string;
   degradeReason?: string;
   variant?: TransformVariant;
+  /** Set when the write stands but the post-write lint probe could not verify it. */
+  probeNote?: string;
 }
 
 export function generateDegradedSnippet(configPath: string): string {
@@ -292,10 +300,19 @@ function buildRuleConfigElement(
  * `plugins` property whose initializer object has a `rules-as-tests` key. A rule-id like
  * `rules-as-tests/foo` under `rules:` does NOT count (the slash is the discriminator): a rule
  * reference is not a plugin registration. Mirrors mergeSelectorsIntoExistingWrapper's AST walk.
+ *
+ * Only a GLOBAL registration counts — an element with no `files` / `ignores` key. In flat config a
+ * `plugins` entry applies only to the files its own block matches, and the shipped templates
+ * register the plugin inside `files:`-scoped blocks; treating those as global left an appended
+ * bare block unresolvable on every other file (critical-review S7-1).
  */
 function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): boolean {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    const propNames = (el.getProperties?.() ?? []).map((p: any) => {
+      try { return normPropName(p.getName?.()); } catch { return ''; }
+    });
+    if (propNames.includes('files') || propNames.includes('ignores')) continue;
     for (const prop of el.getProperties?.() ?? []) {
       let propName: string;
       try { propName = normPropName(prop.getName?.()); } catch { continue; }
@@ -519,6 +536,7 @@ export async function wireNRules(
   const selfRegisterEligible =
     !!opts.customRulesImportPath && !configRegistersRulesAsTestsPlugin(configElements, SyntaxKind);
   let didSelfRegister = false;
+  const scopeOf = (ruleKey: string) => opts.scopeFor?.(ruleKey) ?? opts.scope;
   const registerFor = (ruleKey: string): boolean => {
     const yes = selfRegisterEligible && ruleKey.startsWith('rules-as-tests/');
     if (yes) didSelfRegister = true;
@@ -535,16 +553,17 @@ export async function wireNRules(
     } else if (outcome === 'not-found') {
       // String-present but not locatable as a rules property (e.g. in a comment) — append fresh.
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop — appending`);
-      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
-      else exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
+      else exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       changed = true;
     } // 'same' → no change (idempotent)
   }
 
   for (const { key, value } of missing) {
     changed = true;
-    if (opts.scope) {
-      console.log(`  [wire:N-rule] scoping ${key} to files=${opts.scope.files.join(', ')}`);
+    const keyScope = scopeOf(key);
+    if (keyScope) {
+      console.log(`  [wire:N-rule] scoping ${key} to files=${keyScope.files.join(', ')}`);
     }
     if (Array.isArray(value)) {
       const missingSels = (value.slice(1) as Array<{ selector?: string; message?: string }>).filter(
@@ -554,9 +573,9 @@ export async function wireNRules(
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
         if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+          callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
         } else {
-          exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+          exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
         }
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
@@ -564,9 +583,9 @@ export async function wireNRules(
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
       if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+        callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       } else {
-        exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+        exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       }
     }
   }
@@ -705,6 +724,161 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
   // 4. degrade: restore, never leave a half-edit
   writeFileSync(configPath, original, 'utf8');
   return { status: 'degrade', original, modified: original, degradeReason: `probe verdict: ${v1}` };
+}
+
+// ─── N-rule post-write lint probe + restore (critical-review wave 2) ─────────────
+
+export interface LintProbeResult {
+  verdict: 'ok' | 'broken' | 'unavailable';
+  detail?: string;
+}
+
+export interface LintProbeOptions {
+  /** `files:` globs of the appended blocks — each is linted at one concrete path it matches. */
+  scopeGlobs?: string[];
+  /** Per-ESLint-run limit; a run that exceeds it reads as `unavailable`. */
+  timeoutMs?: number;
+}
+
+const PROBE_BASENAME = '__aif_nrule_probe__';
+const PROBE_TIMEOUT_MS = 120_000;
+const MISSING_PACKAGE = /Cannot find package '/;
+
+/**
+ * One concrete relative path that `glob` matches, for linting a `files:`-scoped block
+ * (cold-review F3). `**` segments collapse, `*` directory segments become `x`, a brace list takes its
+ * first alternative, and a file-less glob gets a `.js` probe. Negations and character classes have
+ * no single obvious witness → undefined (that scope is not probed).
+ */
+export function probeScopePath(glob: string): string | undefined {
+  if (glob.startsWith('!') || /[[\]?]/.test(glob)) return undefined;
+  const expanded = glob.replace(/\{([^{}]*)\}/g, (_m, alts: string) => alts.split(',')[0] ?? '');
+  const segs = expanded.split('/').filter((seg) => seg !== '**' && seg !== '');
+  const last = segs[segs.length - 1];
+  let file = `${PROBE_BASENAME}.js`;
+  if (last !== undefined && last.includes('*')) {
+    segs.pop();
+    const ext = /^\*(\.[A-Za-z0-9]+)$/.exec(last)?.[1];
+    if (ext === undefined) return undefined;
+    file = `${PROBE_BASENAME}${ext}`;
+  }
+  return [...segs.map((seg) => (seg === '*' ? 'x' : seg)), file].join('/');
+}
+
+type EslintRun = { rc: number | 'timeout' | 'error'; text: string };
+
+function runEslint(nodeArgs: string[], eslintBin: string, eslintArgs: string[], dir: string, timeoutMs: number, input?: string): EslintRun {
+  try {
+    execFileSync(process.execPath, [...nodeArgs, eslintBin, ...eslintArgs], {
+      cwd: dir, stdio: 'pipe', timeout: timeoutMs, killSignal: 'SIGKILL', ...(input !== undefined ? { input } : {}),
+    });
+    return { rc: 0, text: '' };
+  } catch (e: unknown) {
+    const err = e as { status?: number | null; signal?: string | null; stderr?: Buffer; stdout?: Buffer };
+    const text = `${String(err.stderr ?? '')}\n${String(err.stdout ?? '')}`.trim();
+    if (err.signal) return { rc: 'timeout', text };
+    return { rc: typeof err.status === 'number' ? err.status : 'error', text };
+  }
+}
+
+function verdictOf(run: EslintRun): LintProbeResult {
+  if (run.rc === 0 || run.rc === 1) return { verdict: 'ok' };
+  if (run.rc === 2) {
+    // A missing PACKAGE (bare specifier) means deps are not installed yet — it says nothing about
+    // the wiring (cold-review F2). A missing relative module stays `broken`: that can be ours.
+    if (MISSING_PACKAGE.test(run.text)) return { verdict: 'unavailable', detail: run.text.slice(0, 400) };
+    return { verdict: 'broken', detail: run.text.slice(0, 400) };
+  }
+  return { verdict: 'unavailable', detail: run.rc === 'timeout' ? 'ESLint did not finish in time' : run.text.slice(0, 400) };
+}
+
+/**
+ * Lint throwaway files with the consumer's own ESLint from the config's directory. Unlike
+ * probeViaEslint's `--print-config`, this makes ESLint resolve every rule of every block matching the
+ * file — the step a plugin-less `rules-as-tests/*` block fails on. Two real files (`.js` + `.ts`) sit
+ * next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at a path it
+ * matches, so no directory is created in the consumer tree. Exit 0/1 means the config loads and lints
+ * (1 = the probe file drew findings); exit 2 means ESLint cannot use the config.
+ */
+export async function probeLintViaEslint(configPath: string, cwd: string, opts: LintProbeOptions = {}): Promise<LintProbeResult> {
+  const dir = dirname(resolve(configPath));
+  // The config's own directory first: a per-workspace config is wired from the project root, where
+  // a workspace-only ESLint (no hoisting) does not resolve. Node's lookup still walks up to the root.
+  const resolveFrom = (id: string): string | undefined => {
+    for (const base of [dir, cwd]) {
+      try { return createRequire(resolve(base, 'package.json')).resolve(id); } catch { /* next base */ }
+    }
+    return undefined;
+  };
+  const pj = resolveFrom('eslint/package.json');
+  if (pj === undefined) return { verdict: 'unavailable' };
+  const eslintBin = join(dirname(pj), 'bin', 'eslint.js');
+  if (!existsSync(eslintBin)) return { verdict: 'unavailable' };
+  // tsx not resolvable → plain node (same fallback as probeViaEslint)
+  const nodeArgs: string[] = resolveFrom('tsx') !== undefined ? ['--import', 'tsx'] : [];
+  const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
+  const body = 'export const __aif_probe = 1;\n';
+  // Every path handed to ESLint is relative to its cwd (`dir`): an absolute path through a symlinked
+  // dir (macOS /var → /private/var) reads as «outside of base path» — ignored, exit 0, a false ok.
+  const names = [`${PROBE_BASENAME}.js`, `${PROBE_BASENAME}.ts`];
+  const targets = names.map((n) => resolve(dir, n));
+  let root: LintProbeResult;
+  for (const t of targets) writeFileSync(t, body, 'utf8');
+  try {
+    root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+  } finally {
+    for (const t of targets) {
+      try { unlinkSync(t); } catch { /* best-effort */ }
+    }
+  }
+  if (root.verdict !== 'ok') return root;
+  const scoped = [...new Set((opts.scopeGlobs ?? []).map(probeScopePath).filter((x): x is string => x !== undefined))];
+  for (const rel of scoped) {
+    if (rel === `${PROBE_BASENAME}.js` || rel === `${PROBE_BASENAME}.ts`) continue;
+    const r = verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, body));
+    if (r.verdict !== 'ok') return r;
+  }
+  return { verdict: 'ok' };
+}
+
+/**
+ * Write `modified`, lint-probe it, and restore `original` only when the probe proves the WIRING broke
+ * ESLint: the modified config is broken while the original lints clean. When the original fails too
+ * (typed-lint parser setup, plugins not installed yet — cold-review F1/F2) the probe cannot judge the
+ * change, so the write stands — the pre-probe behaviour — with a `probeNote` saying it was not
+ * verified. An `unavailable` probe likewise proves nothing either way.
+ */
+export async function writeWithLintProbe(args: {
+  configPath: string;
+  cwd: string;
+  original: string;
+  modified: string;
+  runProbe: (configPath: string, cwd: string) => Promise<LintProbeResult>;
+}): Promise<WireResult> {
+  const { configPath, cwd, original, modified, runProbe } = args;
+  writeFileSync(configPath, modified, 'utf8');
+  const after = await runProbe(configPath, cwd);
+  if (after.verdict === 'ok') return { status: 'wired', original, modified };
+  if (after.verdict === 'unavailable') {
+    return { status: 'wired', original, modified, probeNote: `not verified: ${after.detail ?? 'ESLint could not be run'}` };
+  }
+
+  writeFileSync(configPath, original, 'utf8');
+  const before = await runProbe(configPath, cwd);
+  // Keep a proven-broken write only on evidence the original fails the same probe too: exit 2, or a
+  // missing package. A re-check that merely could not run (timeout) is no such evidence (round 2, N6).
+  const originalFails = before.verdict === 'broken' || MISSING_PACKAGE.test(before.detail ?? '');
+  if (!originalFails) {
+    return {
+      status: 'degrade', original, modified: original,
+      degradeReason: `the wiring broke ESLint, so it was rolled back (${after.detail ?? 'exit 2'})`,
+    };
+  }
+  writeFileSync(configPath, modified, 'utf8');
+  return {
+    status: 'wired', original, modified,
+    probeNote: `not verified: ESLint already fails on this config without the change (${before.detail ?? 'exit 2'})`,
+  };
 }
 
 // ─── CLI entry point ──────────────────────────────────────────────────────────

@@ -77,7 +77,7 @@ const AGGREGATE = 'ci-success';
  *
  * A genuinely push-only job (one whose `if:` can never be true on a `pull_request` event)
  * would be the other legitimate shape, and this map is where it would be declared. There is
- * none today: the only `if:`-guarded job is `pr-commit-trailers` (audit-self.yml:1116,
+ * none today: the only `if:`-guarded job is `pr-commit-trailers` (audit-self.yml:1120,
  * `github.event_name == 'pull_request'`), which is wired in and whose `skipped` result the
  * aggregate accepts as OK by design (scripts/ci-success-gate.sh:30). So an `if:` guard is NOT
  * a reason to leave a job out — `skipped` already counts as passing.

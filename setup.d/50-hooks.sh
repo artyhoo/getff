@@ -11,6 +11,18 @@ mkdir_safe "$PROJECT_ROOT/.husky"
 # critical-review S3-1: note consumer-owned hooks BEFORE copy_safe keeps them, so the post-deps
 # re-assert in 99-finalize (reassert_husky_shields) keeps them too.
 husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
+# critical-review wave 2: a kept consumer hook runs none of the framework's checks — say so in the
+# NOT wired summary. 99-finalize's self-verify exempts only that hook: the rest of shields-up still
+# runs and its FAIL counts, but a pass is counted as SKIP, never as «shields wired».
+for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
+  case "$_ch" in
+    # Never the template's `@aif-shield` marker: a hook that follows this advice would then read as
+    # the framework's, and the next --full run's reassert_husky_shields would overwrite it.
+    pre-commit) _ch_cmd="npx lint-staged" ;;
+    *)          _ch_cmd="node --import tsx/esm packages/core/hooks/pre-push.ts  (no Node 20 + tsx: bash packages/core/hooks/pre-push.fallback.sh)" ;;
+  esac
+  note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks; to add them, call from it: $_ch_cmd"
+done
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
 # Wave 10.5: also install the bash critical-only fallback so the dispatcher can find it.
@@ -80,6 +92,7 @@ elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   _hp_block=$(husky_hookspath_blocker "$PROJECT_ROOT")
   if [ -n "$_hp_block" ]; then
     HUSKY_HOOKSPATH_OWNED=0
+    HUSKY_HOOKS_BLOCKED="$_hp_block"
     echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
     # A relative hooksPath resolves against the toplevel, so a subdirectory install must name
     # its prefix — and git runs hooks from the toplevel, so the hooks then need a `cd` first.

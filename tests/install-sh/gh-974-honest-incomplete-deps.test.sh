@@ -7,7 +7,10 @@
 # ARMS (stub the package manager on PATH to control dep-install success, hermetically):
 #   (A) --force (FULL unset, no deps promised)      → "✅ Installation complete", rc=0
 #   (B) --full + PM install FAILS (deps incomplete) → degraded banner, rc=1  ← the #974 fix
-#   (C) --full + PM install SUCCEEDS                 → "✅ Installation complete", rc=0  (no regression)
+#   (C) --full + PM install claims SUCCESS           → NO degraded-deps banner (no #974 regression);
+#       the stub installs nothing, so self-verify's strict fences-fire FAILs on the missing eslint
+#       and the install exits non-zero without "✅ Installation complete" (critical-review S4-8:
+#       a self-verify FAIL is not a success — before it, this arm printed ✅ over a FAILED check).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -53,12 +56,13 @@ else
   bad "(B) --full+failed-deps expected degraded banner + rc!=0, got rc=$rc (tail: $(tail -3 "$log" | tr '\n' '|'))"
 fi
 
-# ── ARM (C): --full + succeeding deps → ✅ complete, rc=0 (no regression) ──────
+# ── ARM (C): --full + deps claim success → no #974 banner; self-verify decides ─
 res=$(run_install 0 ts-server --full); rc="${res%%|*}"; log="${res##*|}"
-if [ "$rc" -eq 0 ] && grep -q '✅ Installation complete' "$log" && ! grep -q 'dependencies did NOT' "$log"; then
-  ok "(C) --full + successful dep-install → ✅ Installation complete, rc=0 (happy path unchanged)"
+if ! grep -q 'dependencies did NOT' "$log" \
+   && [ "$rc" -ne 0 ] && grep -q 'self-verify FAILED' "$log" && ! grep -q '✅ Installation complete' "$log"; then
+  ok "(C) --full + dep-install claims success → no degraded-deps banner; the empty stub install fails self-verify → rc=$rc, no ✅"
 else
-  bad "(C) --full+ok-deps expected ✅ + rc=0, got rc=$rc (tail: $(tail -3 "$log" | tr '\n' '|'))"
+  bad "(C) --full+ok-deps expected no #974 banner + self-verify FAILED + rc!=0, got rc=$rc (tail: $(tail -3 "$log" | tr '\n' '|'))"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

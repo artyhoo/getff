@@ -435,6 +435,38 @@ describe('#829: wireNRules plugin self-registration', () => {
     },
   );
 
+  // Critical-review S7-1: the shipped templates register the plugin only inside `files:`-scoped
+  // blocks. In ESLint flat config a `plugins` entry applies only to files its own block matches, so
+  // a bare appended block that lints OTHER files hits "could not find plugin 'rules-as-tests'" and
+  // the whole lint run errors. Only an unscoped registration (no `files` / `ignores`) counts.
+  const SCOPED_ONLY = [
+    `import customRules from './eslint-rules-local/index.mjs';`,
+    `export default [`,
+    `  { files: ['src/**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } },`,
+    `];`,
+    ``,
+  ].join('\n');
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    '✅ S7-1: plugin registered only in a files:-scoped block → the new global block self-registers, import not duplicated',
+    async () => {
+      const r = await wireNRules(SCOPED_ONLY, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.status).toBe('wired');
+      const added = r.modified.slice(r.modified.indexOf(`'rules-as-tests/no-unsafe-zod-parse'`));
+      expect(added).toMatch(/\{\s*plugins: \{ 'rules-as-tests': customRules \}, rules: \{ ['"]rules-as-tests\/no-direct-time-randomness['"]/);
+      expect((r.modified.match(/import customRules from/g) ?? []).length).toBe(1);
+    },
+  );
+
+  it.skipIf(!TS_MORPH_AVAILABLE)(
+    '✅ S7-1: a registration scoped by ignores: only is still scoped → self-registers',
+    async () => {
+      const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `ignores: ['dist/**']`);
+      const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.modified).toMatch(/\{\s*plugins: \{ 'rules-as-tests': customRules \}, rules: \{ ['"]rules-as-tests\/no-direct-time-randomness['"]/);
+    },
+  );
+
   it.skipIf(!TS_MORPH_AVAILABLE)(
     'absent customRulesImportPath → degrades to bare (no throw, backward-compatible)',
     async () => {

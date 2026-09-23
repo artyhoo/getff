@@ -2718,6 +2718,10 @@ copy_unless_foreign() {
       echo "  ⊝ $dst not placed — your own $kind config ($own) is kept"
     fi
     note_not_wired "$kind: ${dst##*/} not placed in $(dirname "$dst") because your $own configures $kind there; to get the framework settings, merge $src into it"
+    # The root ESLint config is what the self-verify fences-fire claim is about (99-finalize).
+    if [ "$kind" = "eslint" ] && [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ]; then
+      ESLINT_ROOT_NOT_WIRED=1
+    fi
     return 0
   fi
   copy_safe "$src" "$dst" "$@"

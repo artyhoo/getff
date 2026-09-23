@@ -21,13 +21,13 @@
  *   99-finalize.sh is the primary gatekeeper.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import process from 'node:process';
 import { loadEntries } from '../research/load.ts';
 import { synthesize } from '../synthesizer/synthesize.ts';
 import { ESLINT_RESTRICTED_RULE_NAME } from '../synthesizer/compile-declarative-md.ts';
-import { customRulesImportSpecifier, wireNRules } from './wire-eslint-r2.ts';
+import { customRulesImportSpecifier, probeLintViaEslint, wireNRules, writeWithLintProbe } from './wire-eslint-r2.ts';
 
 // ─── Canonical pattern sets per install stack ─────────────────────────────────
 // Mirrors the WRAPPER_TEMPLATES in packages/core/principles/26-template-selector-sync.test.ts.
@@ -45,6 +45,35 @@ const STACK_PATTERNS: Record<string, { framework: string; version: string; patte
     ],
   },
 };
+
+/** Exit code meaning «ran, but the rules were NOT wired» — read by setup.d/99-finalize.sh. */
+const NOT_WIRED_RC = 3;
+
+// ─── Preset rule scopes (critical-review S7-2) ─────────────────────────────────
+// The files: each preset template gives its rules. A brownfield config keeps the consumer's own
+// eslint.config.mjs (copy_safe), so the preset rules are APPENDED — and an unscoped append turned
+// R20 on for every exported async function repo-wide. Mirrors RULE_GLOBS in
+// packages/preset-next-15-canonical/templates/eslint.config.react.mjs; the drift guard is the
+// «presetRuleScopes(react-next) mirrors the preset template» test in wire-synth-rules.test.ts.
+// Live-research selectors merged into the wrapper share its scope, exactly as they do when they
+// merge into the template's own boundary-scoped wrapper block.
+const NEXT_BOUNDARY_GLOBS = [
+  '**/app/**/actions/**/*.{ts,tsx}',
+  '**/app/api/**/*.{ts,tsx}',
+  '**/actions/**/*.{ts,tsx}',
+  '**/features/*/api/**/*.{ts,tsx}',
+];
+const STACK_RULE_SCOPES: Record<string, Record<string, string[]>> = {
+  'react-next': {
+    'rules-as-tests/no-server-imports-in-client': ['**/*.{ts,tsx}'],
+    [ESLINT_RESTRICTED_RULE_NAME]: NEXT_BOUNDARY_GLOBS,
+  },
+};
+
+/** The preset's per-rule `files:` for `stack` (empty when the stack scopes nothing). */
+export function presetRuleScopes(stack: string): Record<string, string[]> {
+  return STACK_RULE_SCOPES[stack] ?? {};
+}
 
 // ─── Live-research augment-first merge ────────────────────────────────────────
 // Union the deterministic preset-baseline rule set with the consumer's LIVE-research snippet
@@ -244,6 +273,10 @@ async function main(): Promise<void> {
 
   console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(mergedRules).length} rule(s): ${Object.keys(mergedRules).join(', ')}`);
 
+  // S7-2: appended preset rules keep the preset's files: scope.
+  const scopes = presetRuleScopes(stack);
+  const scopeForStack = (key: string) => (scopes[key] ? { files: scopes[key] } : undefined);
+
   // Dry-run: check config existence and report what would happen, no writes
   if (dryRun) {
     if (!existsSync(configPath)) {
@@ -256,6 +289,7 @@ async function main(): Promise<void> {
         // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
         // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
         customRulesImportPath: customRulesImportSpecifier(configPath, dirname(configPath)),
+        scopeFor: scopeForStack,
       });
       if (result.status === 'already-wired') {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
@@ -277,19 +311,35 @@ async function main(): Promise<void> {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
     customRulesImportPath: customRulesImportSpecifier(configPath, dirname(configPath)),
+    scopeFor: scopeForStack,
   });
 
-  switch (result.status) {
+  // Post-write lint probe (critical-review wave 2): ESLint lints probe files against the written
+  // config — one next to it plus one inside every appended block's files: scope; if the wiring made
+  // the config unusable, the original bytes are restored and this reads as degrade.
+  const scopeGlobs = [...new Set(Object.keys(mergedRules).flatMap((key) => scopes[key] ?? []))];
+  const final =
+    result.status === 'wired'
+      ? await writeWithLintProbe({
+          configPath,
+          cwd: process.cwd(),
+          original: source,
+          modified: result.modified,
+          runProbe: (p, c) => probeLintViaEslint(p, c, { scopeGlobs }),
+        })
+      : result;
+
+  switch (final.status) {
     case 'already-wired':
       console.log(`  [synth-wire] ✓ all synthesized rules confirmed in ${configPath} (idempotent — no change)`);
       break;
     case 'wired':
-      writeFileSync(configPath, result.modified, 'utf8');
       console.log(`  [synth-wire] ✓ synthesized rules wired into ${configPath}`);
+      if (final.probeNote) console.log(`    (lint probe ${final.probeNote})`);
       break;
     case 'degrade':
       console.log(
-        `  · synth-and-wire: could not auto-wire (${result.degradeReason ?? 'unknown'}).` +
+        `  · synth-and-wire: could not auto-wire (${final.degradeReason ?? 'unknown'}).` +
         `\n    Add the rules-as-tests slice manually to ${configPath}:` +
         `\n    (run \`npx tsx synth-and-wire.ts --stack ${stack} --dry-run\` to preview)`,
       );
@@ -301,7 +351,9 @@ async function main(): Promise<void> {
       break;
   }
 
-  process.exit(0);
+  // Exit NOT_WIRED_RC when the rules did not land, so 99-finalize.sh lists the config under
+  // «NOT wired» instead of swallowing the message; every other outcome stays 0 (install never aborts).
+  process.exit(final.status === 'degrade' || final.status === 'unrecognised' ? NOT_WIRED_RC : 0);
 }
 
 // Only run as CLI; when imported as a module, skip main() (allows unit-testing imports)
