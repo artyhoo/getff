@@ -161,7 +161,7 @@ resolve_layer() {  # $1 = layer file → its non-comment text with $VAR dsts sub
   if [ -n "$sedexpr" ]; then printf '%s\n' "$body" | sed -E "$sedexpr"; else printf '%s\n' "$body"; fi
 }
 LAYER_TEXT=$(for _lyr in "${NPM_LANE_LAYERS[@]}"; do resolve_layer "$_lyr"; done)
-DELIVER_LINES=$(printf '%s\n' "$LAYER_TEXT" | grep -E 'copy_safe|deliver_getff_workflow|install_agents_md')
+DELIVER_LINES=$(printf '%s\n' "$LAYER_TEXT" | grep -E 'copy_safe|copy_unless_foreign|deliver_getff_workflow|install_agents_md')
 [ -n "$DELIVER_LINES" ] || { echo "FATAL: no delivery lines found across the npm-lane layers — resolve_layer broke"; exit 1; }
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
 FULL=$(printf '%s\n' "$DELIVER_LINES" | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)

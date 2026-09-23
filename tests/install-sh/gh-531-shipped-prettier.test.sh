@@ -88,7 +88,7 @@ fi
 # parentheses — `copy_safe|deliver_getff_workflow [^|]*...` without them would bind the alternation
 # wrongly. Bare verb (no env prefix) is correct on BOTH sides here because this gate iterates the
 # union (FRESH ∪ REFRESH) — there is no FRESH/REFRESH asymmetry to preserve.
-shipped_root=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
+shipped_root=$(grep -ohE '(copy_safe|copy_unless_foreign|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/[^"/]+\.(ts|tsx|mjs|cjs|js|json|yml|yaml)"' \
   $REPO_ROOT/install.sh $REPO_ROOT/setup.d/*.sh 2>/dev/null \
   | sed -E 's#.*"\$PROJECT_ROOT/([^"]+)".*#\1#' | grep -vx '.prettierrc.json' | sort -u)
 shipped_wf=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/\.github/workflows/[^"]+\.ya?ml"' \
@@ -98,6 +98,10 @@ shipped_wf=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/
 # S4's copy_safe → deliver_getff_workflow swap did (shipped_wf went 5 → 0 entries, gate stayed 42/0
 # green). A derived set with no non-empty guard is a green that can mean "nothing was checked".
 [ -n "$shipped_wf" ] || { echo "FATAL: shipped_wf empty — workflow copy verb extraction broke"; exit 1; }
+# Critical-review wave 1 moved every eslint.config.mjs placement onto copy_unless_foreign, and the
+# root extraction went blind to it the same way (the neg arm below went VACUOUS in CI, PR #1840).
+printf '%s\n' "$shipped_root" | grep -qx 'eslint.config.mjs' \
+  || { echo "FATAL: shipped_root lacks eslint.config.mjs — root copy verb extraction broke"; exit 1; }
 cand_miss=""
 for c in $shipped_root $shipped_wf; do
   printf '%s\n' "$cand_block" | grep -qF "\"$c\"" || cand_miss="$cand_miss $c"

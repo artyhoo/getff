@@ -1854,8 +1854,8 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // SSOT for the shipped surface (predicate reuse, BFR):
 //   (1) scripts/format-shipped.sh:46-65 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derivation of
-//       the consumer-DESTINATION shipped set from setup.d copy_safe commands.
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derives the
+//       consumer-DESTINATION shipped set from the setup.d copy_safe / copy_unless_foreign commands.
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
 // corpus (predicate (4)'s question answered by a real install rather than a shell scan).

@@ -488,7 +488,7 @@ b18862d59e115e39680cc30be386ea1724603ee5cc860c79dc5792af170b8d20  packages/core/
 77dce7bd339563d5b6e45ba8f38e05f89f00a4eb40e6332b7af5389657a27aa7  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 06f9d5cf7f306933e33ed70f4b964d2be8a5c04b6f4b6b247b8571abe4e7374f  packages/core/hooks/pre-push.test.ts
-23d391bede3812164742cd2d7d4bf2fc1e8541f5c2dc8bcb69f90b593be972ab  packages/core/hooks/pre-push.ts
+aff18669c560e025dab38c2f125384854799bc39c561045dedfbdb620ae176d5  packages/core/hooks/pre-push.ts
 8696b72d7d726e9b44b6ae0dcabad85020aaa34d1adbab2ae0de88101ccc34c7  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts

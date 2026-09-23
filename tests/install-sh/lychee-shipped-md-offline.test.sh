@@ -45,7 +45,7 @@ printf '{"name":"lychee-fixture","version":"0.0.0"}\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force --profile factory ) >/dev/null 2>&1 \
   || { bad "install.sh exited non-zero — fixture install failed"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
 
-# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:256):
+# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:260):
 # every factory-depth assertion below is silently VACUOUS if the profile gate regresses and the
 # deep surface never lands. Assert the two markers of factory depth — the vendor drop (the
 # factory-only layer) and an env-tier skill — before trusting a green lychee run.
