@@ -2788,6 +2788,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const r = spawnCase(b);
     expect(r.status, `stderr: ${r.stderr}`).toBe(0);
     expect(r.stdout, 'a rewritten handoff allows no matter which copy ran first').toBe('');
+    // …nor poison: this copy never writes the old name, or the old twin would read a two-line
+    // file as «changed» forever and silently stop blocking.
+    expect(readFileSync(join(b.dir, `aif-handoff-${c.session}`), 'utf8')).toBe(sha256File(handoff));
   });
 
   it('fixture 20b (D39, paired negative): with the stale twin writing, an UNCHANGED handoff on a new turn still blocks', () => {
@@ -2800,6 +2803,9 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     // shared pre-D39 name it did: a foreign sha reads as «changed», so this copy failed OPEN.
     writeStaleTwinBaseline(b, c.session, 'f'.repeat(64));
     const parsed = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    expect(readFileSync(join(b.dir, `aif-handoff-${c.session}`), 'utf8'), 'the old name stays the old twin\'s').toBe(
+      'f'.repeat(64),
+    );
     expect(parsed.decision, 'separating the baselines must not turn a real block into a pass').toBe(
       'block',
     );

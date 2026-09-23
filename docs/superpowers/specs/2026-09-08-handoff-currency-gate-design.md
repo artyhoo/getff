@@ -521,8 +521,11 @@ wins the race its ALLOW writes a bare sha to the shared name, this copy reads an
 an equal sha, and blocks «unchanged» on EVERY turn that rewrote the handoff; new-first is correct.
 Fix: the baseline is `aif-handoff-<key>.v2` — each copy judges against the file it wrote, so a stale
 twin can neither satisfy nor poison this one; D34 clears both exact names. Any future format change
-bumps the suffix. The class is closed upstream by principle 24 arm (i): a `plugin/**` change since
-the merge-base must carry a version bump (0.3.1 here), or no installed cache ever sees it.
+bumps the suffix, at a known cost: a session already in the band when it upgrades has no `.v2` file
+yet, so its first Stop allows once and records (the same one free turn D19 accepts for a new key). The class is closed upstream by principle 24 arm (i): a `plugin/**` change since
+the merge-base must move the version FORWARD (0.3.1 here), or no installed cache ever sees it; a
+push to staging/main re-checks `before..after`, because two parallel PRs bumping to the same value
+merge cleanly and staging protection is not strict.
 **Rejected:** making this copy accept a single-line baseline (it cannot tell a twin's write from
 this Stop from a previous turn's, so it either fails open or keeps the false block); documenting
 `claude plugin marketplace update` alone (same version ⇒ nothing to fetch — an operator step that
