@@ -921,6 +921,10 @@ jobs:
         run: bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
+      - name: "install-sh — self-verify skip + exit (critical-review S4-7/S4-8: checked-nothing is SKIP, a FAIL exits non-zero, NOT wired surfaces are SKIP)"
+        run: bash tests/install-sh/install-self-verify-skip-and-exit.test.sh
+      - name: "install-sh — synth-wire lint probe + restore (critical-review wave 2: a wiring ESLint cannot use is rolled back and listed as NOT wired)"
+        run: bash tests/install-sh/synth-wire-lint-probe-restore.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
         run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"

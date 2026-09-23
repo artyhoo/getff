@@ -31,11 +31,17 @@ if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
     # AIF_SYNTH_PKG_ROOT anchors the bundle's fs-based recipe + schema reads to the
     # correct framework payload dir (packages/core/) — import.meta.url collapses to
     # install/ under bundling (zero-dep Path-3, #755); env var is the load-bearing bridge.
+    # rc 3 = the wirer ran but the rules did NOT land (unrecognised shape, or its post-write lint
+    # probe found ESLint could no longer use the config and restored it). Any other failure stays
+    # non-fatal as before — the install never aborts here.
     ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
         node "$_synth_wirer" \
           --stack "${STACK:-ts-server}" \
           --path "$PROJECT_ROOT/eslint.config.mjs" \
-          ${DRY_RUN:+--dry-run} 2>&1 ) || true
+          ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
+    if [ "$_sw_rc" -eq 3 ]; then
+      note_not_wired "stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added (reason printed by synth-and-wire above); add it by hand"
+    fi
   fi
 fi
 
@@ -79,7 +85,10 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
               node "$_synth_wirer_ws" \
                 --stack "${STACK:-ts-server}" \
                 --path "$_sw_cfg" \
-                --snippet "$_ws_snippet" 2>&1 ) || true
+                --snippet "$_ws_snippet" 2>&1 ) && _sw_rc=0 || _sw_rc=$?
+          if [ "$_sw_rc" -eq 3 ]; then
+            note_not_wired "live-research rules in ${_sw_cfg#"$PROJECT_ROOT"/} — not added (reason printed by synth-and-wire above); add them by hand"
+          fi
         done < <(find "$PROJECT_ROOT/$_sw_dir" \
           -name 'eslint.config.mjs' \
           ! -path '*/node_modules/*' \
@@ -265,9 +274,14 @@ else
   echo "▶ install-self-verify: probing — do fences fire, are shields wired, are generated tests non-vacuous"
 
   _ISV_PASS=0; _ISV_FAIL=0; _ISV_SKIP=0; _ISV_SKIPPED_NAMES=""
-  # A SKIP is a check that DID NOT RUN (its script is absent) — it is NOT a pass. Counting it
-  # separately keeps the success banner from claiming a property the run never proved
-  # (attention-is-not-a-mechanism.md §1: a check nobody ran is not a mechanism).
+  # A SKIP is a check that proved nothing — its script is absent, it ran and checked nothing
+  # (rc 77, below), or it guards a surface this install deliberately left unwired (NOT wired
+  # list) — and it is NOT a pass. Counting it separately keeps the success banner from claiming a
+  # property the run never proved (attention-is-not-a-mechanism.md §1: a check nobody ran is not
+  # a mechanism).
+  # Every check is run with GETFF_SKIP_RC=77 (the automake/TAP SKIP code): each exits 77 instead
+  # of 0 when it ran but checked nothing, which used to be counted as PASS (critical-review S4-7).
+  _ISV_SKIP_RC=77
   _isv_skip() {  # $1 = check name
     _ISV_SKIP=$((_ISV_SKIP+1))
     if [ -z "$_ISV_SKIPPED_NAMES" ]; then
@@ -284,7 +298,12 @@ else
   # probe cannot be counted as a pass here. When deps were NOT installed this run, leave the env
   # untouched — the gate's own default (auto-strict only under CI) applies.
   _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
-  if [ -x "$_FF_SCRIPT" ]; then
+  if [ -n "${ESLINT_ROOT_NOT_WIRED:-}" ]; then
+    # The consumer's own ESLint config is kept (copy_unless_foreign): the fences are not in their
+    # lint, so «fences fire» is not this install's to claim — and not a failure either.
+    echo "  · fences-fire: skipped — eslint.config.mjs was not placed, your own ESLint config is kept (see NOT wired below)"
+    _isv_skip "fences-fire (not wired)"
+  elif [ -x "$_FF_SCRIPT" ]; then
     # GH #976: this is a --full install self-verify (the capstone only runs on FULL), so a
     # PLACED eslint.config.mjs that cannot `import()` is a real delivery gap even when the
     # dep-install was only PARTIAL (#974 trust-downgrade → DEPS_INSTALLED unset) — the install
@@ -292,12 +311,15 @@ else
     # here (and ONLY here) so it does not fire in the check-fences-fire-full-barrel test / plain
     # CI runs, which legitimately probe fences without a full plugin install.
     if [ "${DEPS_INSTALLED:-}" = "1" ]; then
-      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+      GETFF_SKIP_RC=$_ISV_SKIP_RC AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_STRICT=1 FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
     else
-      AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
+      GETFF_SKIP_RC=$_ISV_SKIP_RC AIF_PROJECT_ROOT="$PROJECT_ROOT" FENCES_FIRE_LOAD_PROBE=1 bash "$_FF_SCRIPT" && _ff_rc=0 || _ff_rc=$?
     fi
     if [ "$_ff_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
+    elif [ "$_ff_rc" -eq "$_ISV_SKIP_RC" ]; then
+      echo "  · fences-fire: ran, but no fence was proved to fire — skipped"
+      _isv_skip "fences-fire (proved nothing)"
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
       # Two distinct causes land here and rc alone cannot tell them apart; the specific reason is
@@ -312,9 +334,25 @@ else
 
   # D2: shields up
   _SU_SCRIPT="$PROJECT_ROOT/scripts/check-shields-up.sh"
-  if [ -x "$_SU_SCRIPT" ]; then
-    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_SU_SCRIPT"; then
+  if [ -n "${HUSKY_HOOKS_BLOCKED:-}" ]; then
+    # 50-hooks did not activate core.hooksPath: no shield is wired, by consent. A FAIL here
+    # contradicted the NOT wired summary; a PASS was never earned.
+    echo "  · shields-up: skipped — your git hooks were left as they are (see NOT wired below)"
+    _isv_skip "shields-up (not wired)"
+  elif [ -x "$_SU_SCRIPT" ]; then
+    # A kept consumer hook (HUSKY_CONSUMER_HOOKS) exempts only itself: hooksPath and the other hook
+    # are still checked, so one kept pre-commit cannot hide a dead push shield.
+    GETFF_SKIP_RC=$_ISV_SKIP_RC AIF_SHIELDS_CONSUMER_HOOKS="${HUSKY_CONSUMER_HOOKS:-}" \
+      AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_SU_SCRIPT" && _su_rc=0 || _su_rc=$?
+    if [ "$_su_rc" -eq 0 ] && [ -n "${HUSKY_CONSUMER_HOOKS:-}" ]; then
+      # The rest passed, but a kept hook is not the framework's shield: never «shields wired».
+      echo "  · shields-up: the rest passed; your own hook(s)${HUSKY_CONSUMER_HOOKS} kept and not checked (see NOT wired below)"
+      _isv_skip "shields-up (your own hooks kept)"
+    elif [ "$_su_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
+    elif [ "$_su_rc" -eq "$_ISV_SKIP_RC" ]; then
+      echo "  · shields-up: ran, but checked nothing (not a git repository?) — skipped"
+      _isv_skip "shields-up (checked nothing)"
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
       echo "  ✗ shields-up FAILED — Husky hooks not fully wired (see above)"
@@ -327,8 +365,12 @@ else
   # D5: mutation gate (install-time, framework-side — not shipped to consumer)
   _MUT_SCRIPT="$PKG_ROOT/packages/core/audit-self/check-generated-rule-mutation.sh"
   if [ -x "$_MUT_SCRIPT" ]; then
-    if AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_MUT_SCRIPT" "$PROJECT_ROOT"; then
+    GETFF_SKIP_RC=$_ISV_SKIP_RC AIF_PROJECT_ROOT="$PROJECT_ROOT" bash "$_MUT_SCRIPT" "$PROJECT_ROOT" && _mut_rc=0 || _mut_rc=$?
+    if [ "$_mut_rc" -eq 0 ]; then
       _ISV_PASS=$((_ISV_PASS+1))
+    elif [ "$_mut_rc" -eq "$_ISV_SKIP_RC" ]; then
+      echo "  · generated-rule-mutation: ran, but no generated rule was tested — skipped"
+      _isv_skip "generated-rule-mutation (no rule tested)"
     else
       _ISV_FAIL=$((_ISV_FAIL+1))
       echo "  ✗ generated-rule-mutation FAILED — some generated tests are selector-blind (theatre)"
@@ -395,6 +437,11 @@ elif [ -n "$_deps_incomplete" ]; then
   echo "    toolchain is not usable yet. This is NOT a full success (see step 4 below to complete it,"
   echo "    or re-run \`./install.sh ${STACK:-ts-server} --full\`). Exiting non-zero so this is not"
   echo "    mistaken for a green install."
+elif [ "${_ISV_FAIL:-0}" -gt 0 ]; then
+  # critical-review S4-8: a failed self-verify used to end here as «complete», rc 0 — so
+  # `npx getff init -y` in CI or from an agent read green while a shipped rule stayed silent.
+  echo "⚠  Installation finished, but self-verify FAILED ($_ISV_FAIL check(s), output above) — this"
+  echo "    is NOT a full success. Exiting non-zero so this is not mistaken for a green install."
 else
   echo "✅ Installation complete."
 fi
@@ -440,6 +487,6 @@ echo "For full guide: see INSTALL.md"
 
 # GH #974: honest non-zero exit on a --full install whose deps did not fully land (banner above
 # already said so). The dispatcher sources this file last, so this is install.sh's final rc.
-if [ -n "${_deps_incomplete:-}" ]; then
+if [ -n "${_deps_incomplete:-}" ] || [ "${_ISV_FAIL:-0}" -gt 0 ]; then
   exit 1
 fi

@@ -31,6 +31,9 @@
 #
 # NOT a CI gate — runs ONLY under FULL (--full install). MUST NOT run on CI self-install
 # path (FULL unset). rc=0 on degrade, rc=1 on kill-rate failure.
+# A run that tested no rule exits ${GETFF_SKIP_RC:-0}: the install self-verify capstone sets
+# GETFF_SKIP_RC=77 (the automake/TAP SKIP code) so «checked nothing» is counted as SKIP, not PASS
+# (critical-review S4-7); every other caller keeps rc 0.
 #
 # @cc-only-rationale: sourced by install.sh dispatcher (setup.d/99-finalize.sh); not a
 #   consumer-facing npm script (mutation depth pass uses run-generated-rule-mutation.sh).
@@ -58,7 +61,7 @@ if [ ! -f "$MANIFEST" ]; then
     echo "    (80-rule-bootstrap skipped or no research artefacts under $_research_dir —"
     echo "     zero generated rules; skipped)"
   fi
-  exit 0
+  exit "${GETFF_SKIP_RC:-0}"
 fi
 
 PASS=0; FAIL=0; SKIP=0; RULES_TESTED=0
@@ -87,7 +90,7 @@ done
 
 if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
   skip "check-generated-rule-mutation SKIP — tsx ($([ -n "$TSX_BIN" ] && echo found || echo missing)) or eslint ($([ -n "$ESLINT_BIN" ] && echo found || echo missing)) not available"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit 0
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
 NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
@@ -197,7 +200,7 @@ process.stdin.on('end', () => {
 
 if [ "$RULE_COUNT" -eq 0 ]; then
   skip "check-generated-rule-mutation: manifest has no declarative rules with negative-test inputs — skipped"
-  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES=0"; exit 0
+  echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES=0"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
 echo "▶ check-generated-rule-mutation: testing $RULE_COUNT generated rule(s) for mutation kill-rate ≥60%"
@@ -344,4 +347,5 @@ done
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES_TESTED=$RULES_TESTED"
-[ "$FAIL" -eq 0 ]
+[ "$FAIL" -eq 0 ] || exit 1
+[ "$RULES_TESTED" -gt 0 ] || exit "${GETFF_SKIP_RC:-0}"

@@ -165,7 +165,13 @@ finish() {
       exit 1
     fi
   fi
-  [ "$FAIL" -eq 0 ] && exit 0 || exit 1
+  [ "$FAIL" -eq 0 ] || exit 1
+  # No fence was proved to fire (no manifest, or every one skipped under an allowed escape): the
+  # run checked nothing. rc 0 for every existing caller; the install self-verify capstone passes
+  # GETFF_SKIP_RC=77 (the automake/TAP SKIP code) so it counts this as SKIP, not as «fences
+  # fire» (critical-review S4-7). Load-probe passes prove configs import, never that a rule fires.
+  [ "$FIXTURE_OK" -gt 0 ] || exit "${GETFF_SKIP_RC:-0}"
+  exit 0
 }
 
 if [ -z "$FIXTURE_DIR" ]; then

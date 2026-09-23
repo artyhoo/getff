@@ -8873,7 +8873,7 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync7, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync7 } from "node:fs";
 import { dirname as dirname7, resolve as resolve6 } from "node:path";
 import process3 from "node:process";
 
@@ -10275,6 +10275,14 @@ function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) 
 function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    const propNames = (el.getProperties?.() ?? []).map((p) => {
+      try {
+        return normPropName(p.getName?.());
+      } catch {
+        return "";
+      }
+    });
+    if (propNames.includes("files") || propNames.includes("ignores")) continue;
     for (const prop of el.getProperties?.() ?? []) {
       let propName;
       try {
@@ -10439,6 +10447,7 @@ async function wireNRules(source, synthRules, opts = {}) {
   let changed = false;
   const selfRegisterEligible = !!opts.customRulesImportPath && !configRegistersRulesAsTestsPlugin(configElements, SyntaxKind);
   let didSelfRegister = false;
+  const scopeOf = (ruleKey) => opts.scopeFor?.(ruleKey) ?? opts.scope;
   const registerFor = (ruleKey) => {
     const yes = selfRegisterEligible && ruleKey.startsWith("rules-as-tests/");
     if (yes) didSelfRegister = true;
@@ -10452,15 +10461,16 @@ async function wireNRules(source, synthRules, opts = {}) {
       changed = true;
     } else if (outcome === "not-found") {
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
-      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
-      else exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
+      else exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       changed = true;
     }
   }
   for (const { key, value } of missing) {
     changed = true;
-    if (opts.scope) {
-      console.log(`  [wire:N-rule] scoping ${key} to files=${opts.scope.files.join(", ")}`);
+    const keyScope = scopeOf(key);
+    if (keyScope) {
+      console.log(`  [wire:N-rule] scoping ${key} to files=${keyScope.files.join(", ")}`);
     }
     if (Array.isArray(value)) {
       const missingSels = value.slice(1).filter(
@@ -10470,9 +10480,9 @@ async function wireNRules(source, synthRules, opts = {}) {
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
         if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+          callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
         } else {
-          exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+          exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
         }
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
@@ -10480,9 +10490,9 @@ async function wireNRules(source, synthRules, opts = {}) {
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
       if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+        callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       } else {
-        exportArr.addElement(buildRuleConfigElement(key, value, opts.scope, registerFor(key)));
+        exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       }
     }
   }
@@ -10564,6 +10574,117 @@ async function resolveAndWire(args) {
   }
   writeFileSync(configPath, original, "utf8");
   return { status: "degrade", original, modified: original, degradeReason: `probe verdict: ${v1}` };
+}
+var PROBE_BASENAME = "__aif_nrule_probe__";
+var PROBE_TIMEOUT_MS = 12e4;
+var MISSING_PACKAGE = /Cannot find package '/;
+function probeScopePath(glob) {
+  if (glob.startsWith("!") || /[[\]?]/.test(glob)) return void 0;
+  const expanded = glob.replace(/\{([^{}]*)\}/g, (_m, alts) => alts.split(",")[0] ?? "");
+  const segs = expanded.split("/").filter((seg) => seg !== "**" && seg !== "");
+  const last = segs[segs.length - 1];
+  let file = `${PROBE_BASENAME}.js`;
+  if (last !== void 0 && last.includes("*")) {
+    segs.pop();
+    const ext = /^\*(\.[A-Za-z0-9]+)$/.exec(last)?.[1];
+    if (ext === void 0) return void 0;
+    file = `${PROBE_BASENAME}${ext}`;
+  }
+  return [...segs.map((seg) => seg === "*" ? "x" : seg), file].join("/");
+}
+function runEslint(nodeArgs, eslintBin, eslintArgs, dir, timeoutMs, input) {
+  try {
+    execFileSync(process2.execPath, [...nodeArgs, eslintBin, ...eslintArgs], {
+      cwd: dir,
+      stdio: "pipe",
+      timeout: timeoutMs,
+      killSignal: "SIGKILL",
+      ...input !== void 0 ? { input } : {}
+    });
+    return { rc: 0, text: "" };
+  } catch (e) {
+    const err = e;
+    const text = `${String(err.stderr ?? "")}
+${String(err.stdout ?? "")}`.trim();
+    if (err.signal) return { rc: "timeout", text };
+    return { rc: typeof err.status === "number" ? err.status : "error", text };
+  }
+}
+function verdictOf(run) {
+  if (run.rc === 0 || run.rc === 1) return { verdict: "ok" };
+  if (run.rc === 2) {
+    if (MISSING_PACKAGE.test(run.text)) return { verdict: "unavailable", detail: run.text.slice(0, 400) };
+    return { verdict: "broken", detail: run.text.slice(0, 400) };
+  }
+  return { verdict: "unavailable", detail: run.rc === "timeout" ? "ESLint did not finish in time" : run.text.slice(0, 400) };
+}
+async function probeLintViaEslint(configPath, cwd, opts = {}) {
+  const dir = dirname6(resolve5(configPath));
+  const resolveFrom = (id) => {
+    for (const base of [dir, cwd]) {
+      try {
+        return createRequire(resolve5(base, "package.json")).resolve(id);
+      } catch {
+      }
+    }
+    return void 0;
+  };
+  const pj = resolveFrom("eslint/package.json");
+  if (pj === void 0) return { verdict: "unavailable" };
+  const eslintBin = join2(dirname6(pj), "bin", "eslint.js");
+  if (!existsSync3(eslintBin)) return { verdict: "unavailable" };
+  const nodeArgs = resolveFrom("tsx") !== void 0 ? ["--import", "tsx"] : [];
+  const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
+  const body = "export const __aif_probe = 1;\n";
+  const names = [`${PROBE_BASENAME}.js`, `${PROBE_BASENAME}.ts`];
+  const targets = names.map((n) => resolve5(dir, n));
+  let root;
+  for (const t of targets) writeFileSync(t, body, "utf8");
+  try {
+    root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+  } finally {
+    for (const t of targets) {
+      try {
+        unlinkSync(t);
+      } catch {
+      }
+    }
+  }
+  if (root.verdict !== "ok") return root;
+  const scoped = [...new Set((opts.scopeGlobs ?? []).map(probeScopePath).filter((x) => x !== void 0))];
+  for (const rel of scoped) {
+    if (rel === `${PROBE_BASENAME}.js` || rel === `${PROBE_BASENAME}.ts`) continue;
+    const r = verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, body));
+    if (r.verdict !== "ok") return r;
+  }
+  return { verdict: "ok" };
+}
+async function writeWithLintProbe(args) {
+  const { configPath, cwd, original, modified, runProbe } = args;
+  writeFileSync(configPath, modified, "utf8");
+  const after = await runProbe(configPath, cwd);
+  if (after.verdict === "ok") return { status: "wired", original, modified };
+  if (after.verdict === "unavailable") {
+    return { status: "wired", original, modified, probeNote: `not verified: ${after.detail ?? "ESLint could not be run"}` };
+  }
+  writeFileSync(configPath, original, "utf8");
+  const before = await runProbe(configPath, cwd);
+  const originalFails = before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? "");
+  if (!originalFails) {
+    return {
+      status: "degrade",
+      original,
+      modified: original,
+      degradeReason: `the wiring broke ESLint, so it was rolled back (${after.detail ?? "exit 2"})`
+    };
+  }
+  writeFileSync(configPath, modified, "utf8");
+  return {
+    status: "wired",
+    original,
+    modified,
+    probeNote: `not verified: ESLint already fails on this config without the change (${before.detail ?? "exit 2"})`
+  };
 }
 async function main() {
   const argv = process2.argv.slice(2);
@@ -10676,6 +10797,22 @@ var STACK_PATTERNS = {
     ]
   }
 };
+var NOT_WIRED_RC = 3;
+var NEXT_BOUNDARY_GLOBS = [
+  "**/app/**/actions/**/*.{ts,tsx}",
+  "**/app/api/**/*.{ts,tsx}",
+  "**/actions/**/*.{ts,tsx}",
+  "**/features/*/api/**/*.{ts,tsx}"
+];
+var STACK_RULE_SCOPES = {
+  "react-next": {
+    "rules-as-tests/no-server-imports-in-client": ["**/*.{ts,tsx}"],
+    [ESLINT_RESTRICTED_RULE_NAME]: NEXT_BOUNDARY_GLOBS
+  }
+};
+function presetRuleScopes(stack) {
+  return STACK_RULE_SCOPES[stack] ?? {};
+}
 var RULE_ID_SAFE = /^[A-Za-z0-9@/_-]+$/;
 function unionWrapperSelectors(presetArr, liveArr) {
   const severity = typeof liveArr[0] === "string" ? liveArr[0] : typeof presetArr[0] === "string" ? presetArr[0] : "error";
@@ -10803,6 +10940,8 @@ async function main2() {
     process3.exit(0);
   }
   console.debug(`  [synth-wire] DEBUG: emitted ${Object.keys(mergedRules).length} rule(s): ${Object.keys(mergedRules).join(", ")}`);
+  const scopes = presetRuleScopes(stack);
+  const scopeForStack = (key) => scopes[key] ? { files: scopes[key] } : void 0;
   if (dryRun) {
     if (!existsSync4(configPath)) {
       console.log(`  [dry-run] [synth-wire] ${configPath} not found \u2014 would skip`);
@@ -10813,7 +10952,8 @@ async function main2() {
         // #829: enable plugin self-registration for presets that don't pre-register `rules-as-tests`
         // (RN/ts-server). Resolved against the config's own dir → `./eslint-rules-local/index.mjs`
         // (40-configs.sh provisions it at the root AND per-workspace), so it works for both layouts.
-        customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath))
+        customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath)),
+        scopeFor: scopeForStack
       });
       if (result2.status === "already-wired") {
         console.log(`  [dry-run] [synth-wire] all synthesized rules already present in ${configPath} (no change needed)`);
@@ -10831,19 +10971,28 @@ async function main2() {
   const result = await wireNRules(source, mergedRules, {
     overrideKeys,
     // #829: see the dry-run site above — enables plugin self-registration for presets lacking it.
-    customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath))
+    customRulesImportPath: customRulesImportSpecifier(configPath, dirname7(configPath)),
+    scopeFor: scopeForStack
   });
-  switch (result.status) {
+  const scopeGlobs = [...new Set(Object.keys(mergedRules).flatMap((key) => scopes[key] ?? []))];
+  const final = result.status === "wired" ? await writeWithLintProbe({
+    configPath,
+    cwd: process3.cwd(),
+    original: source,
+    modified: result.modified,
+    runProbe: (p, c) => probeLintViaEslint(p, c, { scopeGlobs })
+  }) : result;
+  switch (final.status) {
     case "already-wired":
       console.log(`  [synth-wire] \u2713 all synthesized rules confirmed in ${configPath} (idempotent \u2014 no change)`);
       break;
     case "wired":
-      writeFileSync2(configPath, result.modified, "utf8");
       console.log(`  [synth-wire] \u2713 synthesized rules wired into ${configPath}`);
+      if (final.probeNote) console.log(`    (lint probe ${final.probeNote})`);
       break;
     case "degrade":
       console.log(
-        `  \xB7 synth-and-wire: could not auto-wire (${result.degradeReason ?? "unknown"}).
+        `  \xB7 synth-and-wire: could not auto-wire (${final.degradeReason ?? "unknown"}).
     Add the rules-as-tests slice manually to ${configPath}:
     (run \`npx tsx synth-and-wire.ts --stack ${stack} --dry-run\` to preview)`
       );
@@ -10854,7 +11003,7 @@ async function main2() {
       );
       break;
   }
-  process3.exit(0);
+  process3.exit(final.status === "degrade" || final.status === "unrecognised" ? NOT_WIRED_RC : 0);
 }
 if (process3.argv[1] && (process3.argv[1].endsWith("synth-and-wire.ts") || process3.argv[1].endsWith("synth-and-wire.bundle.mjs"))) {
   main2().catch((err) => {
@@ -10863,5 +11012,6 @@ if (process3.argv[1] && (process3.argv[1].endsWith("synth-and-wire.ts") || proce
   });
 }
 export {
-  mergeLiveRules
+  mergeLiveRules,
+  presetRuleScopes
 };

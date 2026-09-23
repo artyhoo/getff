@@ -100,11 +100,15 @@ mk_consumer() {  # $1 = workspace|flat-pnpm|npm  ; echoes a fresh consumer dir
 seed_tsx()     { mkdir -p "$1/node_modules/tsx"; printf '{"name":"tsx","version":"0.0.0","exports":{"./esm":"./esm.mjs"}}\n' > "$1/node_modules/tsx/package.json"; : > "$1/node_modules/tsx/esm.mjs"; }
 tsx_resolves() { ( cd "$1" && node --import tsx/esm -e '' ) >/dev/null 2>&1; }
 run_install()  { local d="$1"; shift; OUT=$( cd "$d" && bash "$REPO_ROOT/install.sh" "$@" </dev/null 2>&1 ); RC=$?; }
+# ran_to_end — the install reached its final banner. Under --full the stub package managers install
+# nothing, so the post-install self-verify honestly FAILs and install.sh exits 1 (critical-review
+# S4-8); that banner is printed at the very end of 99-finalize, so it still proves no mid-install crash.
+ran_to_end()   { [ "$RC" -eq 0 ] || { [ "$RC" -eq 1 ] && printf '%s\n' "$OUT" | grep -q 'Installation finished, but self-verify FAILED'; }; }
 
 # ════ Arm A — --full + tsx missing at root → §8b lands tsx at the ROOT (-w on a workspace); resolves; silent ════
 A=$(mk_consumer workspace); export AIF_PM_LOG="$A.log"; : > "$AIF_PM_LOG"
 run_install "$A" ts-server --force --full
-if [ "$RC" -eq 0 ]; then ok "A: install.sh rc=0 (a mid-install crash would false-green the rest)"; else bad "A: install.sh rc=$RC"; fi
+if ran_to_end; then ok "A: install.sh ran to its final banner, rc=$RC (a mid-install crash would false-green the rest)"; else bad "A: install.sh rc=$RC without the final banner"; fi
 grep -qx 'add -D -w tsx' "$AIF_PM_LOG" \
   && ok "A: --full + tsx-not-at-root → targeted 'pnpm add -D -w tsx' invoked (root hoist via -w, #636)" \
   || bad "A: targeted root tsx install NOT invoked on --full ($(tr '\n' ';' < "$AIF_PM_LOG"))"
