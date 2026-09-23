@@ -266,7 +266,10 @@ if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
   # payload the SessionStart injector reads); only the acceptance baseline resets, so the
   # post-compaction climb re-judges from scratch instead of inheriting a hash from a
   # window that no longer exists. AUTO only, for the same refused-compact evidence.
-  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
+  # Two exact names (D39): `.v2` is the current gate's baseline; the unsuffixed one belongs
+  # to a pre-D38 plugin twin that may still run beside it from a stale plugin cache.
+  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}.v2" \
+        "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
 fi
 
 # ── Branch + head, for the continuing session ────────────────────────────────

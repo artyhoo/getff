@@ -2554,7 +2554,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
       dir,
       residueDir,
       transcript,
-      baseline: join(dir, `aif-handoff-${c.session}`),
+      baseline: join(dir, `aif-handoff-${c.session}.v2`),
       env,
       stdin: {
         transcript_path: transcript,
@@ -2754,6 +2754,56 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const twin = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
     expect(twin.decision, 'both copies of one blocking Stop agree').toBe('block');
     expect(twin.reason).toContain('unchanged');
+  });
+
+  // ── Fixture 20 (D39) — a pre-D38 twin from a STALE plugin cache runs beside this copy.
+  //
+  // The installed plugin cache refreshes only when `plugin.json` `version` changes, and the
+  // D38 twin edit shipped under an unchanged 0.3.0 — so the plugin registration kept running
+  // the pre-D38 hook next to the fixed project copy. Measured 2026-09-23 (session 9620a56b):
+  // whenever the old copy won the race, its ALLOW wrote a bare sha (`printf '%s' "$gate_sha"`,
+  // no newline, no turn key) to the SHARED baseline, and this copy then blocked «CONTENT
+  // unchanged» on a turn that had rewritten the handoff. `writeStaleTwinBaseline` reproduces
+  // that writer's exact bytes at its exact path — the unsuffixed pre-D38 name.
+  const writeStaleTwinBaseline = (b: Built, session: string, sha: string): void => {
+    writeFileSync(join(b.dir, `aif-handoff-${session}`), sha, 'utf8');
+  };
+
+  it('fixture 20a (D39): a stale pre-D38 twin that ALLOWED first cannot make this copy report «unchanged»', () => {
+    const c = goldenCase('f4-armed-edited-allow');
+    const b = buildCase(c, true);
+    const handoff = `${b.residueDir}/_handoff-${c.session}.md`;
+    expect(spawnCase(b).stdout, 'turn N-1: allows and records').toBe('');
+    nextTurn(b, c, 'turn-N');
+    writeFileSync(
+      handoff,
+      readFileSync(handoff, 'utf8').replace(
+        'land the delivery manifests.',
+        'land the delivery manifests TODAY.',
+      ),
+      'utf8',
+    );
+    // The old twin wins the race: it sees the rewrite, allows, and records the NEW sha.
+    writeStaleTwinBaseline(b, c.session, sha256File(handoff));
+    const r = spawnCase(b);
+    expect(r.status, `stderr: ${r.stderr}`).toBe(0);
+    expect(r.stdout, 'a rewritten handoff allows no matter which copy ran first').toBe('');
+  });
+
+  it('fixture 20b (D39, paired negative): with the stale twin writing, an UNCHANGED handoff on a new turn still blocks', () => {
+    const c = goldenCase('f3-armed-unchanged-block');
+    const b = buildCase(c, true);
+    expect(spawnCase(b).stdout, 'turn N-1: allows and records').toBe('');
+    nextTurn(b, c, 'turn-N');
+    // The old twin, on this unchanged turn, blocks by itself and writes nothing — but a
+    // baseline left under its name from an earlier turn must not read as an allow here. On the
+    // shared pre-D39 name it did: a foreign sha reads as «changed», so this copy failed OPEN.
+    writeStaleTwinBaseline(b, c.session, 'f'.repeat(64));
+    const parsed = JSON.parse(spawnCase(b).stdout) as { decision: string; reason: string };
+    expect(parsed.decision, 'separating the baselines must not turn a real block into a pass').toBe(
+      'block',
+    );
+    expect(parsed.reason).toContain('unchanged');
   });
 
   it('fixture 5: file missing ## Rejected alternatives → block, reason names it', () => {
@@ -3126,7 +3176,7 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
     expect(r.status).toBe(0);
     expect(r.stdout, 'a fresh handoff ALLOWS — the gate is silent (D21)').toBe('');
     // The baseline the allow-branch writes IS the file's sha256: proof the call ran.
-    const baseline = join(r.dir, 'aif-handoff-plugintwin');
+    const baseline = join(r.dir, 'aif-handoff-plugintwin.v2');
     expect(existsSync(baseline), 'no baseline = the sha branch never executed').toBe(true);
     // Line 1 is the content sha; D38 writes the Stop's turn key on line 2.
     expect(readFileSync(baseline, 'utf8').split('\n')[0]).toBe(
