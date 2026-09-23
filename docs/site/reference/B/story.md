@@ -125,8 +125,8 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
   `.claude/hooks/end-of-turn-reminder.sh`, line 1348.
 - The installer delivers the language files at every depth: `setup.d/10-skills.sh`,
   lines 238 to 253. The skill itself is in the `factory` list at line 65 of
-  `setup.d/lib.sh`. The reason it stays there is a product choice recorded at lines 119
-  to 123 of `setup.d/10-skills.sh`.
+  `setup.d/lib.sh`. Why it stays there, a product choice rather than a blocker fix, is
+  recorded at lines 119 to 123 of `setup.d/10-skills.sh`.
 - The skill's "with and without" sections are checked by
   `packages/core/principles/15-skill-paired-negative.test.ts`.
 - The card above is built from the `story` entry in `docs/site/reference/B.json`, which
