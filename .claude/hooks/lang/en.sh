@@ -23,6 +23,12 @@ AIF_EOT_SEC_CHANGED='**What changed.**'
 AIF_EOT_SEC_FORK='**Fork.**'
 AIF_EOT_SEC_UNSURE='**What I am unsure about.**'
 AIF_EOT_SEC_NEXT='**Next.**'
+# Session-scale story block (D-G, plain-words recap v2): sections 1-4 carry their own
+# names; section 5 reuses AIF_EOT_SEC_NEXT + the shared closing grammar below.
+AIF_EOT_STORY_SEC_WHY='**Why all this was.**'
+AIF_EOT_STORY_SEC_NOW='**What is different now.**'
+AIF_EOT_STORY_SEC_DECIDED='**What was decided and by whom.**'
+AIF_EOT_STORY_SEC_UNSURE='**What I am least sure about.**'
 AIF_EOT_ME_PREFIX='Me:'
 AIF_EOT_FOR_YOU_PREFIX='From you:'
 AIF_EOT_FOR_YOU_NOTHING='nothing (<what you would check, if you want to>)'
@@ -66,16 +72,23 @@ If you have already done all of this in your answer, just ask again: a repeat is
 EOF
 }
 
-# Shared five-section recap contract (D-A, D-B) — the body every Stop-hook branch below
-# carries verbatim via command substitution, so the three branches teach one contract
-# instead of three slightly different ones (a model learns none of them from drift).
-# Interpolates the Task 1.2 scalars rather than restating their text, and calls the
-# Task 1.3 fork-card template — a literal copy of either would drift from the pack a
-# later gate reads. AIF_EOT_RECAP_MAX_LINES is deliberately NOT a pack scalar so an
-# operator's env override survives.
-aif_msg_eot_recap_contract() {
-  cat <<EOF
-${AIF_RECAP_MARKER} — a block of five sections, in this order:
+# Shared section body for the two recap scopes (D-G, plain-words recap v2): $1 = "turn"
+# (the per-turn contract below) | "session" (the /story block). Sections 1-4 are scoped;
+# section 5 — the D-B gate scope (R-17: the gate reads the last line) — is shared verbatim,
+# so both scopes teach the same closing grammar. Interpolates the Task 1.2 scalars rather
+# than restating their text, and calls the Task 1.3 fork-card template — a literal copy of
+# either would drift from the pack a later gate reads.
+aif_msg_eot_recap_sections() {
+  _eot_recap_scope="${1:-turn}"
+  if [ "$_eot_recap_scope" = "session" ]; then
+    cat <<EOF
+1. ${AIF_EOT_STORY_SEC_WHY} — always, one sentence: what this was for, in human terms.
+2. ${AIF_EOT_STORY_SEC_NOW} — per change: before, after, what it gives the operator; no chronology.
+3. ${AIF_EOT_STORY_SEC_DECIDED} — one line each, and who decided (you / me).
+4. ${AIF_EOT_STORY_SEC_UNSURE} — where it is thinly verified (one run, one case), what is still left.
+EOF
+  else
+    cat <<EOF
 1. ${AIF_EOT_SEC_WHERE} — always.
 2. ${AIF_EOT_SEC_CHANGED} — if the answer is long or structural.
 3. ${AIF_EOT_SEC_FORK} — if you are asking a question. Then — as a card. Inside this block
@@ -85,6 +98,9 @@ ${AIF_RECAP_MARKER} — a block of five sections, in this order:
    One fork text per turn. Otherwise — the card in full:
 $(aif_msg_fork_card | sed 's/^/   /')
 4. ${AIF_EOT_SEC_UNSURE} — optional.
+EOF
+  fi
+  cat <<EOF
 5. ${AIF_EOT_SEC_NEXT} — always, and exactly two lines; the second one ends the block:
    ${AIF_EOT_ME_PREFIX} <what I am doing>
    ${AIF_EOT_FOR_YOU_PREFIX} <one of four>
@@ -94,6 +110,20 @@ $(aif_msg_fork_card | sed 's/^/   /')
    — ${AIF_EOT_FOR_YOU_HANDS}
 Nothing else ever follows "${AIF_EOT_FOR_YOU_PREFIX}". The words
 "${AIF_EOT_FOR_YOU_BANNED}" are not work for the human — they are offloading your own.
+EOF
+}
+
+# The per-turn recap contract (D-A, D-B) — the body every Stop-hook branch below carries
+# verbatim via command substitution, so the three branches teach one contract instead of
+# three slightly different ones (a model learns none of them from drift). The sections live
+# in aif_msg_eot_recap_sections above, shared with the session-scale (story) scope — one
+# text, so the two forms cannot drift. The turn-only parts stay here: the line cap and the
+# two self-check bullets. AIF_EOT_RECAP_MAX_LINES is deliberately NOT a pack scalar so an
+# operator's env override survives.
+aif_msg_eot_recap_contract() {
+  cat <<EOF
+${AIF_RECAP_MARKER} — a block of five sections, in this order:
+$(aif_msg_eot_recap_sections turn)
 The whole block is no longer than ${AIF_EOT_RECAP_MAX_LINES:-15} lines; the fork card does not count toward the cap.
 What follows is not a block section and not in its cap — it is instructions to yourself:
 • If in this turn you recommended something, or said "you decide" / "waiting for your call" / "PR is ready, awaiting your click" — check yourself: were the alternatives really weighed, or did you take the first that came to mind? If there is a clearly better option on the merits (by goals and discipline) — do NOT offload, do it and say what you did. Handing off a decision = reserved for real forks.
@@ -224,26 +254,27 @@ EOF
 }
 
 # Story-recap heading (Stop-hook story branch + /story skill greps/embeds this).
-AIF_STORY_MARKER='## 🎬 The story'
+# P-7 operator-ratified heading (plain-words recap v2, D-G): it names the content
+# of the block, not its genre — the story-told guard matches this literal exactly.
+AIF_STORY_MARKER='## 🎬 What changed this session'
 
-# Stop hook story branch / /story skill: engaging plain-language session recap when
-# work is done (a PR was pushed). Hook-style: the whole instruction is localized so
-# output language follows the active pack. ${anchor:-} is safe when unset (the /story
-# skill has no transcript anchor and names the goal from context).
+# Stop hook story branch / /story skill: the session-scale recap in plain language when
+# work is done (a PR was pushed). Body = the same five sections as the per-turn recap,
+# session scope (aif_msg_eot_recap_sections session), so the two forms cannot drift.
+# Hook-style: the whole instruction is localized so output language follows the active
+# pack. ${anchor:-} is safe when unset (the /story skill has no transcript anchor and
+# names the goal from context).
 aif_msg_eot_branch_story() {
   cat <<EOF
-The work is done (a PR was just pushed) — now tell the human the story of this whole session, primarily for them.
+The work is done (a PR was just pushed) — now tell the human what this whole session changed, primarily for them.
 You MUST begin the block with exactly the line "${AIF_STORY_MARKER}" — so the human spots it at a glance.
 
 Session goal (from the title / first instruction): "${anchor:-(name it yourself from context)}".
 
-Tell it as a story, in plain, engaging language — NOT a dry checklist:
-• Open in one sentence — what we set out to do and why, in human terms.
-• By acts — the narrative arc of the key moves, named (file / PR / decision): what we did, what went wrong, how we fixed it.
-• Explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
-• Be honest — where it is thinly verified (one run, one case), what you are least sure of, what is still left.
-• End on the human — the one thing left for them to decide or do ("one step — your go").
-Tone: interesting, like a story; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
+The same five-section recap as every turn, session-scale — one block, in this order:
+$(aif_msg_eot_recap_sections session)
+Outside the sections: explain jargon on the spot — hit a term (egress, caffeinate, Docker) → give a one-line analogy right there.
+Tone: plain and concrete; no filler, no self-congratulation; truth over smoothness. If a part does not come out concrete, say so plainly.
 EOF
 }
 

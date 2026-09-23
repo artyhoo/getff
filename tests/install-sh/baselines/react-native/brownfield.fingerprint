@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8663dd738937a92647d552bedab0d4a03f13c273dab7f12523874da536d95b27  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-1f08599276c3e7beee7a104893010674056a0c2867ed9e295a32d3a61238f0a0  .ai-factory/refresh-baseline.json
+5a8760e51b3fa729051857350b78d3243e60251df29ded5fa24a9cd52a7a30df  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
@@ -34,14 +34,14 @@ d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/
 2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
-937346a47eeca9d76681ccca80d15ef30520a29b7a379261743ab4fa347f7e4f  .claude/hooks/lang/en.sh
-93de6f819428394064ba177909201704a89238b7009162f41e6001d93b4114ca  .claude/hooks/lang/ru.sh
+31c7da4adde0699be3336609abcad1fc69d7b2deee3e64eb6055a95bc0715248  .claude/hooks/lang/en.sh
+65ea101dddc81ad8c16300b1f512414ab9d72a4dec837e20f7b5b85f654a2106  .claude/hooks/lang/ru.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-9546245eb738707ef272be5f1553318d7e4e622150fe2ae4a27935ebe5a222c4  .claude/skills/arch/SKILL.md
+26a7648213e37e79bd37ea55b567e309a1b4bee3d67302276d2f1504b73a16ee  .claude/skills/arch/SKILL.md
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
 afb468d3f8a666a1550f5b2fb374861cb7607012be69ab10a75789a8e1d6bb35  .claude/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
@@ -114,7 +114,7 @@ b1e2f1f3cb0fb98fa8b8cf55f90004cd3d7724b2f046d3e4e449bb718e534248  .claude/skills
 b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
 002379dd4b444b4b6a15012937cc615149f1458b592e9ae3d4fab8b77e38e14d  .claude/skills/pipeline/references/red-flags.md
 bc53597f6a73d28624a588a52230763b478cb549948d528b98752d2a2c86887e  .claude/skills/pipeline/references/stage-gates.md
-30c9036ffffb70843f56f330ad7968217c4b9b4383dcd11ec47a82f1cabd57e9  .claude/skills/pipeline/templates/meta-kickoff.template.md
+c68287fc368fcb4702acde811429f507f7a41de8dbeb9764224fb3546a092fc4  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 e0b25a4e2e09595e28a22e0db5e8687854a8e2f6cc5b196ea82318e63d2c0948  .claude/skills/reviewer/SKILL.md
 d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md

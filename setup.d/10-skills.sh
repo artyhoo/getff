@@ -116,7 +116,7 @@ fi
 #   - aif-doctor    — diagnoses that same aif-handoff runtime when a task stalls / runtime breaks.
 #   - harvest        — egress a finished aif-agent branch into a PR (host-push default, API
 #                      break-glass) for consumers running aif-handoff.
-#   - story          — plain-language, by-act recap of a session's work (AIF_HOOK_LANG-gated
+#   - story          — plain-language recap of what changed in a session (AIF_HOOK_LANG-gated
 #                      output). The original gate reason (#934 lang-pack crash) is RESOLVED —
 #                      #1003 §1c ships lang/{en,ru}.sh to every consumer — so the gate is now a
 #                      product choice, not a blocker fix: operator call 2026-09-11 keeps story

@@ -10,7 +10,11 @@
 #       UserPromptSubmit=deps-hash both present (append, not clobber)
 #   (C) idempotent — a second install adds no duplicate Stop entry
 #   (D) firing (EN) — a markdown-rich long transcript → decision:"block" + non-empty reason
-#   (E) firing (RU) — AIF_HOOK_LANG=ru → decision:"block" + the RU recap marker in the reason
+#   (E) firing (RU) — AIF_HOOK_LANG=ru → decision:"block" + the RU RECAP marker in the reason
+#   (E2) firing (RU, story) — a gh pr create tool_use → decision:"block" + the RU STORY marker
+#       (pinned separately from (E): the old `Простыми словами|Как это было` OR stayed green
+#       through a story-literal change because the recap half matched — sibling-channel
+#       false green, plain-words-recap-v2 S4 hazard 1)
 #   (F) consumer-skip guard — jq absent from PATH → exit 0, no output (no error-spam)
 #   (G) --full arms the recap gate; a plain install leaves it dormant
 set -uo pipefail
@@ -62,9 +66,9 @@ TR="$T/transcript.jsonl"
   printf '{"type":"assistant","message":{"content":[{"type":"text","text":"%s"}]}}\n' "$body"
 } > "$TR"
 
-_run_hook() {  # $1 = lang ('' | ru) ; echoes hook stdout
-  local lang="$1"
-  printf '{"transcript_path":"%s","stop_hook_active":false,"session_id":"g934"}' "$TR" \
+_run_hook() {  # $1 = lang ('' | ru) [$2 = transcript, def $TR] [$3 = session id, def g934]
+  local lang="$1" tr="${2:-$TR}" sid="${3:-g934}"
+  printf '{"transcript_path":"%s","stop_hook_active":false,"session_id":"%s"}' "$tr" "$sid" \
     | AIF_HOOK_LANG="${lang:-en}" bash "$H/end-of-turn-reminder.sh" 2>/dev/null
 }
 
@@ -77,13 +81,37 @@ else
   bad "(D) firing (EN): hook did not emit a block+reason ($(printf '%s' "$OUT_EN" | head -c 120))"
 fi
 
-# ── ARM (E): firing RU ────────────────────────────────────────────────────────
+# ── ARM (E): firing RU (recap path) ──────────────────────────────────────────
 OUT_RU=$(_run_hook ru)
 if [ "$(printf '%s' "$OUT_RU" | jq -r '.decision' 2>/dev/null)" = "block" ] \
-   && printf '%s' "$OUT_RU" | jq -r '.reason' 2>/dev/null | grep -qE 'Простыми словами|Как это было'; then
+   && printf '%s' "$OUT_RU" | jq -r '.reason' 2>/dev/null | grep -q 'Простыми словами'; then
   ok "(E) firing (RU): AIF_HOOK_LANG=ru → block + the RU recap marker in the reason (lang pack live)"
 else
   bad "(E) firing (RU): no RU-marked block reason ($(printf '%s' "$OUT_RU" | head -c 120))"
+fi
+
+# ── ARM (E2): firing RU — story branch, story literal pinned ─────────────────
+# The transcript mirrors the unit-tested shape (gh pr create tool_use sets the story
+# signal); the reason must carry the STORY marker — only the story literal satisfies
+# this arm, so a future story-literal drift cannot hide behind the recap marker again.
+TR_STORY="$T/transcript-story.jsonl"
+{
+  printf '{"type":"ai-title","aiTitle":"Fix the widget bug"}\n'
+  printf '{"type":"user","message":{"content":"fix the bug"}}\n'
+  printf '{"type":"assistant","message":{"content":[{"type":"text","text":"Открываю PR."},{"type":"tool_use","name":"Bash","input":{"command":"gh pr create --base staging --title x --body y"}}]}}\n'
+} > "$TR_STORY"
+# The story branch persists a debounce flag keyed on the session id
+# (${TMPDIR:-/tmp}/aif-story-<sid>): a hardcoded sid left that flag carrying the still-valid
+# signal, so this arm failed on every SECOND warm-host run. Unique sid per run + explicit
+# cleanup keeps the arm reproducible.
+SID_STORY="g934-story-$$"
+OUT_STORY=$(_run_hook ru "$TR_STORY" "$SID_STORY")
+rm -f "${TMPDIR:-/tmp}/aif-story-$SID_STORY"
+if [ "$(printf '%s' "$OUT_STORY" | jq -r '.decision' 2>/dev/null)" = "block" ] \
+   && printf '%s' "$OUT_STORY" | jq -r '.reason' 2>/dev/null | grep -qF 'Что изменилось за сессию'; then
+  ok "(E2) firing (RU) story branch: gh pr create → block + the RU story marker (story literal pinned)"
+else
+  bad "(E2) firing (RU) story branch: no story-marked block reason ($(printf '%s' "$OUT_STORY" | head -c 120))"
 fi
 
 # ── ARM (F): consumer-skip guard — jq absent → exit 0, no output ──────────────
