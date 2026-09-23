@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 5650d70f65379fb7124151f9fa54000709c9bcf74fb9fd7a200f1a667d5fd384  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-44f0a09c16aac2c200feb43f2e16383b50c5a3a700761a37667e19f356fe2647  .ai-factory/refresh-baseline.json
+80831b9a8184eb99ddb5579186f4f5599ac58cf8d80ff358f7f1689d09e72a59  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
@@ -35,13 +35,13 @@ d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 bf15241e237df9d4b63e203d3fc0fc68e205ebe6622f555a7149b15db00f56c8  .claude/hooks/lang/en.sh
-33eb4fa4ce9f660d452db6a91acb51e414db0582f427910a9e00b5988e2b9167  .claude/hooks/lang/ru.sh
+35981c11bcbe09b5685342ca042f132bc88ea724f755e565a8bca812945d031c  .claude/hooks/lang/ru.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
 f7c2ec64c5f8769d1c3571ac7dbbdea501ede58f2c68a0b8b2f47e9b02797d2a  .claude/session-bootstrap.md
 d069eb1cabf8a67875ee885b180c6cced2e5787b96e32a19cdef5cf0dde2a7ec  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-e4f06159e8e92a8200a77b632573d175f94b1b62eac68b1da767df0719536338  .claude/skills/arch/SKILL.md
+3db62b0a8ab5b996876beb99574d05fb27f0b3da3c033a8e5830ee7379a86c49  .claude/skills/arch/SKILL.md
 49dd8098ef293252761d49860369bb85b35658ea4fe330ecf1cbd3ce2d40cfb1  .claude/skills/arch/references/ADR-FORMAT.md
 dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills/arch/references/CONTEXT-FORMAT.md
 7224f19478be102adb3e7924b677a77736fb1d2f403e89bbd8eb395c565fe43a  .claude/skills/arch/references/domain-modeling.md

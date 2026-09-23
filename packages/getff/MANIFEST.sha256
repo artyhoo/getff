@@ -18,7 +18,7 @@ c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/
 cde32f185b4a770570803a9d9a7ac864f475bbac875576daf04df0db0965bf17  .claude/hooks/inject-subagent-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 bf15241e237df9d4b63e203d3fc0fc68e205ebe6622f555a7149b15db00f56c8  .claude/hooks/lang/en.sh
-33eb4fa4ce9f660d452db6a91acb51e414db0582f427910a9e00b5988e2b9167  .claude/hooks/lang/ru.sh
+35981c11bcbe09b5685342ca042f132bc88ea724f755e565a8bca812945d031c  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
 b878b5dd89538ab4cd6f9586021dbdc8898b3e08c3ab737689c003ce3406da99  .claude/hooks/precompact-residue.sh
@@ -31,7 +31,7 @@ caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills
 f7385b7441a27d1865d22376fdace5e7e67e6dd564f5ad895132defabe169ec0  .claude/skills/aif-doctor/SKILL.md
 0659e00cedd3c219a4087924cc1eccb51806a638f0bd1214bf4646e4c9b79ff4  .claude/skills/aif-doctor/helpers/heal.sh
 a8561e5ad736e01157d1313241acfb888a8f67daf13f243db52ceaed2872d48a  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-493f7a4853ffa52c3753ad1533b89e5855adb716d06ee0c684bb0468f60a95b3  .claude/skills/arch/SKILL.md
+6b8e1bc3967e4c108998a798b829f73328a39c3eb9402234547c27e1987d90b1  .claude/skills/arch/SKILL.md
 dfc6e1c3758628d79454a4dc70e9de987b2cce32d591bf28c1190f67737e9799  .claude/skills/arch/references/ADR-FORMAT.md
 97c7ffe11168c61055acc8611b932277323dd1a8ea07ade81d6538006e5d4e9f  .claude/skills/arch/references/CONTEXT-FORMAT.md
 4c83fe7dec4343c3487b6dc67ff4a755821164a15f992c2f7ad89479017021c2  .claude/skills/arch/references/domain-modeling.md
@@ -465,7 +465,7 @@ c7fc99171a5c2ec6fd8912cf5bd671f5fb685865bb51631294928920e1adc19f  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-9d13edfaee96bd5eb85e400e9ae36c88cf72c83a75d380046a3400818a08d19b  packages/core/hooks/end-of-turn-reminder.test.ts
+addd534cfad723a23b54f98a800acc0decf2fd59aae07f40eedcb4610e2aebc9  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
@@ -714,7 +714,7 @@ f0cf7817f44e50f88aef386e9e1bf7485b90459d85adfe1716b67a5e3e933f69  packages/core/
 c6de328a5e660c581783e5b44aec0a6a3bf607d43c58416d106324506bac7373  packages/core/skills/dispatcher/dispatch.test.ts
 e6c00f9729864de8960ccec6f840cdf57f79662ef902955bb98e24160d7044fc  packages/core/skills/dispatcher/monitor.test.ts
 4093d5a12df27a3adce4c489761b72b3192e44fadebaed9008481bf7705c9c57  packages/core/skills/dispatcher/probe-inflight.test.ts
-1dcbd334f5d22989ed0145e83e2bd54658bddcadfbe381dc1110769cc777e0ac  packages/core/skills/domain-modeling-vendored-body.test.ts
+d005e749e11e2b1bfb3d7e496ac559091ddc2a84f90a0283d0aaa30bace0b3a4  packages/core/skills/domain-modeling-vendored-body.test.ts
 953daa58befa8475ac2d103f970e5571bd242a4ccea6532e0bf1d432c9867a81  packages/core/skills/dup-detect-skip-closed.test.ts
 3932f8cd1ab4bfbed00616da1fae4f3fb95459043c5a5313b00ae938f87e67d7  packages/core/skills/dup-detect.test.ts
 4aedba4588370202c58ef6a2fba78dcbed12c7295ff29b2bd89902e10f3a9431  packages/core/skills/emit-output-strings.test.ts
