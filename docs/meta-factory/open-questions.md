@@ -297,7 +297,7 @@ Phase 8 entry research (see [phase-8-research.md §6](phase-8-research.md)) clos
 
 ### 13.20 ADR formal adoption (deferred — `docs/adrs/` directory + first ADR file)
 
-**Status:** deferred 2026-05-09. Recorded during goal-hierarchy restructure.
+**Status:** deferred 2026-05-09. Recorded during goal-hierarchy restructure. **Superseded in part 2026-09-22** ([reuse spec D9/R-19](../superpowers/specs/2026-09-21-recap-wait-what-reuse-design.md)): `/arch` idea sessions write upstream-format ADRs, created lazily in `docs/adr/`; a later promotion of this entry uses that directory, not a second `docs/adrs/`, and ADRs for supersedes stay deferred.
 **Origin:** [research-patches/2026-05-08-phase-8.8-ssot-format-vs-adr.md](research-patches/2026-05-08-phase-8.8-ssot-format-vs-adr.md) noted prior-art-evaluations.md format converged with ADR/MADR fields without consult; goal-hierarchy research 2026-05-09 §6 OQ2 surfaced ADR-supersede as the canonical pattern for the §6.0 #2 trigger change.
 
 **What was adopted now:** ADR-supersede *semantics* applied inline in [EXECUTION-PLAN.md §6.0 #2](EXECUTION-PLAN.md) — original rule retained, supersede note states new evaluative trigger, no automatic unblock. AWS ADR practice cited inline. **No `docs/adrs/` directory created**, no separate ADR file format adopted.

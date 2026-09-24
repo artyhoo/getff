@@ -296,78 +296,12 @@ Expected: commit `9c9f36ccd3995266cd675468af71639c8dde1ec5`; `SKILL.md`
 `9617041db9b0f6606ecf974e2061c83596b05059b5bb20ddb884c60f147c70e9`; the two format files and the
 body hash as pinned in Step 2. Any other value means the cache moved: stop and re-census.
 
-- [ ] **Step 2: Write the failing test** `packages/core/skills/domain-modeling-vendored-body.test.ts`:
-
-```ts
-// Byte-identity gate for the three vendored `domain-modeling` texts (reuse spec D9: the whole
-// body plus the two format files it links, one sha256 each). Sibling of grilling-vendored-body
-// .test.ts, except that `domain-modeling` has headings of its own, so «the body heading is the
-// last heading» cannot hold: the body is the prettier-ignore range after the body heading. It
-// must NOT claim an upstream comparison — upstream lives in the operator's plugin cache, absent
-// on CI, and each file's «Re-census trigger» owns that step.
-import { describe, it, expect } from 'vitest';
-import { readFileSync, existsSync } from 'node:fs';
-import { createHash } from 'node:crypto';
-import { resolve, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const REFS = resolve(HERE, '../../..', '.claude/skills/arch/references');
-const BODY_HEADING = '## Upstream body (verbatim — do not edit)\n';
-const START = '<!-- prettier-ignore-start -->\n';
-const END = '<!-- prettier-ignore-end -->';
-
-// Recorded 2026-09-22 from marketplace commit 9c9f36ccd3995266cd675468af71639c8dde1ec5:
-// SKILL.md minus its 5-line frontmatter (`tail -n +6 | shasum -a 256`); the format files whole.
-const VENDORED = [
-  { file: 'domain-modeling.md', sha: '6e49118599619a407f89024b4fc6435883f13728c95707a32136eacf8fe887ca', starts: '# Domain Modeling\n' },
-  { file: 'CONTEXT-FORMAT.md', sha: 'b8cc318f2a4285b530e908b6bc43901c3c5cd11100362636bbc4216639bef597', starts: '# CONTEXT.md Format\n' },
-  { file: 'ADR-FORMAT.md', sha: 'f1f36cd3f8d3b6474ddd5855da4e233bfc4ae1a1c5024909ccf11871819a41b2', starts: '# ADR Format\n' },
-] as const;
-
-const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
-const occurrences = (doc: string, needle: string) => doc.split(needle).length - 1;
-
-/** The extraction contract: the text between START (after the body heading) and END. */
-function extractBody(doc: string): string {
-  const s = doc.indexOf(START, doc.indexOf(BODY_HEADING));
-  const e = doc.indexOf(END, s);
-  if (doc.indexOf(BODY_HEADING) === -1 || s === -1 || e === -1) throw new Error('body heading or markers absent');
-  return doc.slice(s + START.length, e);
-}
-
-describe.each(VENDORED)('vendored domain-modeling text $file matches its pin', ({ file, sha, starts }) => {
-  const path = join(REFS, file);
-  const doc = existsSync(path) ? readFileSync(path, 'utf8') : '';
-
-  it('the body heading and each marker occur once, in that order', () => {
-    for (const needle of [BODY_HEADING, START, END]) expect(occurrences(doc, needle), needle).toBe(1);
-    expect(doc.indexOf(BODY_HEADING)).toBeLessThan(doc.indexOf(START));
-    expect(doc.indexOf(START)).toBeLessThan(doc.indexOf(END));
-  });
-
-  it('nothing but one newline follows the body', () => {
-    expect(doc.slice(doc.indexOf(END) + END.length)).toBe('\n');
-  });
-
-  it('the body is the upstream text and hashes to the pin', () => {
-    expect(extractBody(doc).startsWith(starts)).toBe(true);
-    expect(sha256(extractBody(doc))).toBe(sha);
-  });
-
-  it('a one-character edit breaks the hash (the check is not tautological)', () => {
-    expect(sha256(`${extractBody(doc)} `)).not.toBe(sha);
-  });
-
-  it("the provenance table's own pin equals this test's constant", () => {
-    expect(doc.match(/\|\s*Vendored body sha256\s*\|\s*`([0-9a-f]{64})`/)?.[1]).toBe(sha);
-  });
-
-  it('every relative link in the body resolves to a vendored sibling', () => {
-    for (const m of extractBody(doc).matchAll(/\]\(\.\/([^)]+)\)/g)) expect(existsSync(join(REFS, m[1])), m[1]).toBe(true);
-  });
-});
-```
+- [ ] **Step 2: Write the failing test** `packages/core/skills/domain-modeling-vendored-body.test.ts` —
+the shipped file is the reference copy (this plan's draft drifted from it at execution): six
+checks per vendored file — marker order, one trailing newline, body hash equals the pin, a
+one-character edit breaks the hash, the provenance table repeats the pin, and a pinned list of
+relative links outside fenced blocks, each resolving to a sibling. The body is the text between
+the start marker and the one blank line before the end marker (see Step 3).
 
 Run: `PC_LOCAL=1 npx vitest run packages/core/skills/domain-modeling-vendored-body.test.ts`.
 Expected: FAIL, because the files do not exist yet.
@@ -444,22 +378,24 @@ for (const f of FILES) {
     grilling.slice(from, to).trimEnd(),
     '',
     '**Extraction contract — the byte-identity gate depends on it.** Everything between the',
-    '`prettier-ignore-start` line after the next heading and the `prettier-ignore-end` line IS the',
-    'upstream body and must hash to the «Vendored body sha256» above; only one newline follows the end',
-    'marker. Enforced by `packages/core/skills/domain-modeling-vendored-body.test.ts`.',
+    '`prettier-ignore-start` line after the next heading and the one blank line before the',
+    '`prettier-ignore-end` line IS the upstream body and must hash to the «Vendored body sha256» above;',
+    'only one newline follows the end marker. The blank line keeps the end marker out of a body that',
+    'ends in a list, where Markdown would read it as part of the last item. Enforced by `packages/core/skills/domain-modeling-vendored-body.test.ts`.',
     '',
     '## Upstream body (verbatim — do not edit)',
     '',
     '<!-- prettier-ignore-start -->',
   ];
-  writeFileSync(join(REFS, f.out), `${lines.join('\n')}\n${body}<!-- prettier-ignore-end -->\n`);
+  writeFileSync(join(REFS, f.out), `${lines.join('\n')}\n${body}\n<!-- prettier-ignore-end -->\n`);
   console.log(f.out, sha(body));
 }
 ```
 
 The three printed hashes must equal the test's pins. Then run
 `bash scripts/format-shipped.sh --write .claude/skills/arch/references/domain-modeling.md .claude/skills/arch/references/CONTEXT-FORMAT.md .claude/skills/arch/references/ADR-FORMAT.md`
-so prettier pads the provenance table. Read the diff: only wrapper lines may change.
+so prettier pads the provenance table; if it leaves the tables unpadded, run `npx prettier --write`
+on the three files and re-run `format-shipped.sh --check`. Read the diff: only wrapper lines may change.
 
 - [ ] **Step 4: Run the test** — the Step 2 command. Expected: PASS, 18 tests (6 × 3 files).
 

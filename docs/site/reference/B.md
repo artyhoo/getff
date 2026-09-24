@@ -33,7 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
-docs-refresh: deferred — re-verified 2026-09-23, the cited changes in this range are the aif-doctor page gaining failure mode 3.9 with refreshed evidence line numbers, and one path:line renumbering in the story page's Evidence list (hook line 1348 → 1361); this page links both pages by name only and quotes none of their numbers; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-24, three cited changes in this range and none touches this page's prose; the register gained dated notes on rows 253 and 255 (the vendored domain-modeling copy, decision records in /arch idea sessions), which no line here names; the aif-doctor page gained failure mode 3.9 and refreshed evidence line numbers, and the story page's Evidence list renumbered hook citations, both pages linked here by name only with none of their numbers quoted; clears at the next gold refresh of this page
 ---
 
 # Skills

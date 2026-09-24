@@ -25,7 +25,8 @@ of what changed for the reader vs. a checklist for your own sake.
 2. Render the recap, following that instruction exactly — the five session-scale sections:
    why all this was (one sentence); what is different now (per change: before, after, what it
    gives the operator — no chronology); what was decided and by whom (one line each); what is
-   least sure; and the two-line closing (Me / From you). Explain jargon on the spot. Begin with
+   least sure; and the two-line closing (Me / From you). Write in short sentences of one idea
+   each, with `CONTEXT.md` terms written bare and other jargon in plain words. Begin with
    the marker line the instruction gives you (`## 🎬 …`).
 
 3. Write in the language the emitted instruction uses — do not translate it.
