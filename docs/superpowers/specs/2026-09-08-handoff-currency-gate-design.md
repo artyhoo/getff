@@ -512,6 +512,27 @@ Live re-run of the operator's reproduction: allow / allow / allow across three i
 Stop after an edit, block / block across both invocations of the next turn without one, and block on
 a legacy single-line baseline.
 
+**D39 (2026-09-23) — the twins can run DIFFERENT versions; the baseline format takes its own
+name.** D38 assumed both Stop copies run the same code. They do not: Claude Code refreshes an
+installed plugin only when its declared `version` changes, and #1783 edited the twin under an
+unchanged 0.3.0 — so the plugin registration kept the pre-D38 hook (the 924-vs-1168 line gap
+measured above was this, unread). Reproduced 2026-09-23 against the real cache: when the old copy
+wins the race its ALLOW writes a bare sha to the shared name, this copy reads an empty turn key and
+an equal sha, and blocks «unchanged» on EVERY turn that rewrote the handoff; new-first is correct.
+Fix: the baseline is `aif-handoff-<key>.v2` — each copy judges against the file it wrote, so a stale
+twin can neither satisfy nor poison this one; D34 clears both exact names. Any future format change
+bumps the suffix, at a known cost: a session already in the band when it upgrades has no `.v2` file
+yet, so its first Stop allows once and records (the same one free turn D19 accepts for a new key). The class is closed upstream by principle 24 arm (i): a `plugin/**` change since
+the merge-base must move the version FORWARD (0.3.1 here), or no installed cache ever sees it; a
+push to staging/main re-checks `before..after`, because two parallel PRs bumping to the same value
+merge cleanly and staging protection is not strict.
+**Rejected:** making this copy accept a single-line baseline (it cannot tell a twin's write from
+this Stop from a previous turn's, so it either fails open or keeps the false block); documenting
+`claude plugin marketplace update` alone (same version ⇒ nothing to fetch — an operator step that
+cannot work). **Verification:** fixtures 20a/20b (RED on the pre-D39 hook — 20b also showed the
+fail-open side: a stale single-line baseline let an untouched handoff pass), and the live replay
+old→new / new→old / new→new: allow, allow, block in all three orders.
+
 ## Consumer-axis addendum — the audience decision is WITHDRAWN (2026-09-08, post-review)
 
 **Premise 7 (operator, after this spec's cold-review round closed; faithful to meaning):** the

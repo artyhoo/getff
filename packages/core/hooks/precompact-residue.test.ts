@@ -805,8 +805,10 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
+    writeFileSync(join(tmp, 'aif-handoff-pc34.v2'), 'stale-baseline\nturn', 'utf8');
+    // D39 — a pre-D38 plugin twin from a stale cache keeps its own unsuffixed baseline.
     writeFileSync(join(tmp, 'aif-handoff-pc34'), 'stale-baseline', 'utf8');
-    writeFileSync(join(tmp, 'aif-handoff-neighbour'), 'another session', 'utf8');
+    writeFileSync(join(tmp, 'aif-handoff-neighbour.v2'), 'another session', 'utf8');
     writeFileSync(join(tmp, 'aif-ctx-observed-pc34'), '190000', 'utf8');
     const handoff = join(residueDir, '_handoff-pc34.md');
     writeFileSync(handoff, '# the handoff survives compaction\n', 'utf8');
@@ -818,8 +820,9 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
       { TMPDIR: tmp },
     );
     expect(r.status).toBe(0);
-    expect(existsSync(join(tmp, 'aif-handoff-pc34')), 'own baseline cleared').toBe(false);
-    expect(existsSync(join(tmp, 'aif-handoff-neighbour')), 'a neighbouring session baseline is untouched').toBe(true);
+    expect(existsSync(join(tmp, 'aif-handoff-pc34.v2')), 'own baseline cleared').toBe(false);
+    expect(existsSync(join(tmp, 'aif-handoff-pc34')), 'the stale twin\'s baseline cleared too').toBe(false);
+    expect(existsSync(join(tmp, 'aif-handoff-neighbour.v2')), 'a neighbouring session baseline is untouched').toBe(true);
     expect(readFileSync(join(tmp, 'aif-ctx-observed-pc34'), 'utf8').trim(), 'the observed ceiling shares the prefix — must survive').toBe('190000');
     expect(existsSync(handoff), 'the handoff FILE survives (the injector reads it)').toBe(true);
   });
@@ -828,14 +831,14 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     const { dir, residueDir } = sandbox();
     const tmp = privateTmp();
     const transcript = writeTranscript(dir, [userTurn('go'), usageEntry(190_000)]);
-    writeFileSync(join(tmp, 'aif-handoff-pc34m'), 'keepme', 'utf8');
+    writeFileSync(join(tmp, 'aif-handoff-pc34m.v2'), 'keepme', 'utf8');
     run(
       residueDir,
       { session_id: 'pc34m', transcript_path: transcript, trigger: 'manual' },
       'en',
       { TMPDIR: tmp },
     );
-    expect(readFileSync(join(tmp, 'aif-handoff-pc34m'), 'utf8')).toBe('keepme');
+    expect(readFileSync(join(tmp, 'aif-handoff-pc34m.v2'), 'utf8')).toBe('keepme');
   });
 
   it('D34 END-TO-END: compaction resets the baseline, so a stale handoff is re-judged from scratch', () => {
@@ -886,12 +889,12 @@ describe.skipIf(!JQ)('precompact-residue.sh — handoff-currency gate siblings (
     // trigger=auto + transcript-present block as the A3-3c tier-flag reset — "alongside",
     // per D34 — so the transcript path here must be a REAL file, as it always is in CC.)
     run(residueDir, { session_id: 'pc34e2e', transcript_path: transcript, trigger: 'auto' }, 'en', { TMPDIR: tmp });
-    expect(existsSync(join(tmp, 'aif-handoff-pc34e2e')), 'baseline cleared by the auto compaction').toBe(false);
+    expect(existsSync(join(tmp, 'aif-handoff-pc34e2e.v2')), 'baseline cleared by the auto compaction').toBe(false);
     expect(existsSync(handoff), 'the handoff file itself survived').toBe(true);
 
     nextTurn('e2e-turn-3');
     const third = stop();
     expect((third.stdout || ''), 'post-compaction the first stop allows once and re-records').toBe('');
-    expect(existsSync(join(tmp, 'aif-handoff-pc34e2e')), 'the gate re-recorded the baseline').toBe(true);
+    expect(existsSync(join(tmp, 'aif-handoff-pc34e2e.v2')), 'the gate re-recorded the baseline').toBe(true);
   });
 });

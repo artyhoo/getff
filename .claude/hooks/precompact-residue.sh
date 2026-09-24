@@ -167,7 +167,7 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# Same cascade as end-of-turn-reminder.sh:596-635 — CC's own session title first (present
+# Same cascade as end-of-turn-reminder.sh:609-648 — CC's own session title first (present
 # even when the first user message carries no extractable text block), head of the first
 # user instruction second. grep-then-jq avoids slurping a large transcript.
 anchor=""
@@ -186,7 +186,7 @@ fi
 # `select(.isSidechain != true)` is REQUIRED and load-bearing for the same reason it is in
 # the D7 context-arm: subagent turns share the transcript file, so without it the residue can
 # capture a sub-agent's recap instead of the main thread's. The `"(type|role)"` alternation
-# mirrors end-of-turn-reminder.sh:657 (CC writes an outer `type`; the ZCode synthetic
+# mirrors end-of-turn-reminder.sh:670 (CC writes an outer `type`; the ZCode synthetic
 # producer writes only `message.role`) — carried here so the extractor is not narrower than
 # the transcript shapes the repo already knows about.
 body=""
@@ -266,7 +266,10 @@ if [ "$trigger" = "auto" ] && [ -n "$transcript" ] && [ -f "$transcript" ]; then
   # payload the SessionStart injector reads); only the acceptance baseline resets, so the
   # post-compaction climb re-judges from scratch instead of inheriting a hash from a
   # window that no longer exists. AUTO only, for the same refused-compact evidence.
-  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
+  # Two exact names (D39): `.v2` is the current gate's baseline; the unsuffixed one belongs
+  # to a pre-D38 plugin twin that may still run beside it from a stale plugin cache.
+  rm -f "${TMPDIR:-/tmp}/aif-handoff-${session_key}.v2" \
+        "${TMPDIR:-/tmp}/aif-handoff-${session_key}" 2>/dev/null || true
 fi
 
 # ── Branch + head, for the continuing session ────────────────────────────────

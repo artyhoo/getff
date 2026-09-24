@@ -493,7 +493,19 @@ if [ -n "$ctx_entry" ]; then
       gate_handoff_file="${gate_residue_dir}/_handoff-${ctx_key}.md"
       # Same key derivation as the D7 flags (:307); the writer clears it BY EXACT NAME at
       # compaction (D34), so a rename here silently unlinks that contract.
-      gate_baseline="${TMPDIR:-/tmp}/aif-handoff-${ctx_key}"
+      #
+      # D39 — the `.v2` suffix names the baseline FORMAT (line 1 sha, line 2 D38 turn key), and
+      # it exists because the two Stop copies can run DIFFERENT versions of this hook: the
+      # installed plugin cache refreshes only when `plugin.json` `version` changes, so a twin
+      # edit shipped under an unchanged version leaves the pre-D38 copy running beside this one.
+      # Measured 2026-09-23 (session 9620a56b, plugin cache 0.3.0): on the shared pre-D38 name
+      # the old copy's ALLOW rewrote the baseline as a bare sha, this copy then read an empty
+      # turn key and a matching sha, and blocked «CONTENT unchanged» on a turn that had
+      # rewritten the file — on EVERY such turn the old copy happened to win the race. A
+      # format change therefore takes a new name: each copy judges against the baseline it
+      # wrote, and a stale twin can neither satisfy nor poison this one. Any future change to
+      # the baseline format MUST bump the suffix for the same reason.
+      gate_baseline="${TMPDIR:-/tmp}/aif-handoff-${ctx_key}.v2"
       if ! mkdir -p "$gate_residue_dir" 2>/dev/null || [ ! -w "$gate_residue_dir" ]; then
         # D19 — fail CLOSED and SAY the probe broke (F10 property 2); never a silent pass.
         gate_line="$(aif_msg_eot_handoff_gate_degraded "$gate_residue_dir")"
@@ -549,9 +561,10 @@ if [ -n "$ctx_entry" ]; then
             # that finds its own turn key there re-uses that Stop's already-computed ALLOW
             # (only the allow branch writes, so a BLOCKING Stop is re-derived identically by
             # both copies — the fix must not turn a real block into a silent pass).
-            # Line 1 stays the sha — the D34 clearer still deletes one file by one exact name,
-            # and a pre-D38 single-line baseline reads back with an EMPTY turn, which can never
-            # match, so it falls through to the sha compare with no migration.
+            # Line 1 stays the sha — the D34 clearer still deletes this file by one exact name.
+            # A single-line baseline under THIS name reads back with an EMPTY turn, which can
+            # never match, so it falls through to the sha compare; the pre-D38 writer's own
+            # single-line file lives under the old, unsuffixed name and is never read here (D39).
             #
             # The key is the content hash of the turn's LAST assistant record — the same grep
             # the `last_line` arm runs below, over the same bounded window. Two invocations of
