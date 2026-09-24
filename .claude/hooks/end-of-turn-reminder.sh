@@ -606,10 +606,13 @@ if [ -n "$ctx_entry" ]; then
   fi
 fi
 
-# Session-goal anchor (deterministic, no LLM). Primary signal: CC's own session
-# title (`{"type":"ai-title","aiTitle":...}`) — empirically present even when the
-# first user message has no extractable text block. Fallback: head of the first
-# user instruction. grep avoids a full-file jq slurp (cheap on large transcripts).
+# Session-goal anchor (deterministic, no LLM). Primary signal: the session title. An explicit
+# name (`{"type":"custom-title","customTitle":...}`, written by the desktop app and by /rename)
+# outranks CC's generated one (`{"type":"ai-title","aiTitle":...}`) — the desktop app writes
+# ONLY custom-title, so an ai-title-only read left every desktop session without a title
+# (incident 2026-09-24: 58 custom-title records, 0 ai-title, anchor fell to the fallback).
+# Fallback: head of the first user instruction. grep avoids a full-file jq slurp (cheap on
+# large transcripts).
 #
 # F-2: both source records sit near the START of the session, so re-deriving the anchor from
 # the whole file on EVERY turn was the most wasteful of this hook's passes. Resolution order:
@@ -618,15 +621,26 @@ fi
 #   (2) the per-session cache — one file per session_id, same convention as the ctx/story flags;
 #   (3) one full scan, whose result is cached so no later turn in this session repeats it.
 _anchor_cache="${TMPDIR:-/tmp}/aif-eot-anchor-${session_id}"
-anchor=$(grep -F '"type":"ai-title"' "$scan_file" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+# ONE grep for both record types (F-2 budget: at most one full-transcript grep per turn end);
+# jq then prefers the last custom-title and falls back to the last ai-title.
+_session_title() {
+  grep -E '"type":"(custom|ai)-title"' "$1" 2>/dev/null \
+    | jq -rs '([.[] | .customTitle // empty] | last) // ([.[] | .aiTitle // empty] | last) // empty' 2>/dev/null || true
+}
+anchor=$(_session_title "$scan_file")
 if [ -z "$anchor" ] && [ -f "$_anchor_cache" ]; then
   anchor=$(cat "$_anchor_cache" 2>/dev/null || true)
 fi
 if [ -z "$anchor" ] && [ "$scan_file" != "$transcript" ]; then
-  anchor=$(grep -F '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 | jq -r '.aiTitle // empty' 2>/dev/null || true)
+  anchor=$(_session_title "$transcript")
 fi
 if [ -z "$anchor" ]; then
-  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+  # `lead` drops the tag blocks a hook injects AHEAD of the instruction — the worktree
+  # SessionStart hook prepends `<system-reminder>…</system-reminder>` to the first message, so
+  # its first line was the bare tag and D-I (below) rejected it, leaving no anchor at all.
+  # split/join rather than index(): jq 1.6 index() on strings returns BYTE offsets while
+  # slicing counts codepoints, which would cut a Cyrillic instruction mid-word.
+  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'def lead: if test("^\\s*<[A-Za-z][-A-Za-z0-9_]*>") then (capture("^\\s*<(?<t>[A-Za-z][-A-Za-z0-9_]*)>").t) as $t | ("</" + $t + ">") as $c | (split($c)) as $p | if ($p|length) < 2 then . else ($p[1:] | join($c) | lead) end else sub("^\\s+"; "") end; if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text | lead) else (.message.content // empty | lead) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
   # `head -1` echoes the line's own trailing newline, which the `tr` just above turns into a
   # trailing space on every candidate (verified live: a plain "src/app/page.tsx" comes out of
   # the pipeline above as "src/app/page.tsx "). Strip it before the space-arm check below, or

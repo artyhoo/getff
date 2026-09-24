@@ -28,7 +28,7 @@
 # Read-path priority (B1 — scan-nothing trap avoidance):
 #   1. If last_assistant_message is non-empty → scan it directly (no disk I/O).
 #   2. Else open agent_transcript_path as JSONL and extract the final assistant
-#      text — reuses the exact grep|tail|jq pattern from end-of-turn-reminder.sh:670-680.
+#      text — reuses the exact grep|tail|jq pattern from end-of-turn-reminder.sh:684-694.
 #   3. If BOTH yield empty → silent exit 0 (genuinely nothing to scan; capability
 #      to scan was verified — this is NOT theatre).
 #
@@ -81,7 +81,7 @@ TEXT=""
 # Path 1: last_assistant_message (available since CC 2.1.47 per DeepWiki)
 TEXT="$(printf '%s' "$INPUT" | jq -r '.last_assistant_message // ""' 2>/dev/null || true)"
 
-# Path 2: agent_transcript_path JSONL — reuses end-of-turn-reminder.sh:670-680 pattern
+# Path 2: agent_transcript_path JSONL — reuses end-of-turn-reminder.sh:684-694 pattern
 if [ -z "$TEXT" ]; then
   TRANSCRIPT="$(printf '%s' "$INPUT" | jq -r '.agent_transcript_path // ""' 2>/dev/null || true)"
   if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then

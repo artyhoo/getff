@@ -167,16 +167,19 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# Same cascade as end-of-turn-reminder.sh:609-648 — CC's own session title first (present
-# even when the first user message carries no extractable text block), head of the first
-# user instruction second. grep-then-jq avoids slurping a large transcript.
+# Same cascade as end-of-turn-reminder.sh:609-662 — the session title first (an explicit
+# `custom-title`, which the desktop app writes INSTEAD of CC's `ai-title`, outranks the
+# generated one), head of the first user instruction second, with the tag blocks a hook
+# injects ahead of it (`<system-reminder>…</system-reminder>`) dropped — see that hook for
+# the 2026-09-24 incident and why `lead` splits rather than slicing by index().
+# grep-then-jq avoids slurping a large transcript.
 anchor=""
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  anchor=$(grep '"type":"ai-title"' "$transcript" 2>/dev/null | tail -1 \
-    | jq -r '.aiTitle // empty' 2>/dev/null || true)
+  anchor=$(grep -E '"type":"(custom|ai)-title"' "$transcript" 2>/dev/null \
+    | jq -rs '([.[] | .customTitle // empty] | last) // ([.[] | .aiTitle // empty] | last) // empty' 2>/dev/null || true)
   if [ -z "$anchor" ]; then
     anchor=$(grep -m1 '"type":"user"' "$transcript" 2>/dev/null \
-      | jq -r 'if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text) else (.message.content // empty) end' 2>/dev/null \
+      | jq -r 'def lead: if test("^\\s*<[A-Za-z][-A-Za-z0-9_]*>") then (capture("^\\s*<(?<t>[A-Za-z][-A-Za-z0-9_]*)>").t) as $t | ("</" + $t + ">") as $c | (split($c)) as $p | if ($p|length) < 2 then . else ($p[1:] | join($c) | lead) end else sub("^\\s+"; "") end; if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text | lead) else (.message.content // empty | lead) end' 2>/dev/null \
       | head -1 | tr '\n' ' ' | cut -c1-120 || true)
   fi
 fi
@@ -186,7 +189,7 @@ fi
 # `select(.isSidechain != true)` is REQUIRED and load-bearing for the same reason it is in
 # the D7 context-arm: subagent turns share the transcript file, so without it the residue can
 # capture a sub-agent's recap instead of the main thread's. The `"(type|role)"` alternation
-# mirrors end-of-turn-reminder.sh:670 (CC writes an outer `type`; the ZCode synthetic
+# mirrors end-of-turn-reminder.sh:684 (CC writes an outer `type`; the ZCode synthetic
 # producer writes only `message.role`) — carried here so the extractor is not narrower than
 # the transcript shapes the repo already knows about.
 body=""

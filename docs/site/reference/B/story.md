@@ -125,7 +125,7 @@ asks the agent to name what is thinly verified, but nothing tests that it did.
 - The instruction text is the story branch at line 271 of `.claude/hooks/lang/en.sh`,
   which renders the shared recap sections from line 81 in session scope. The
   end-of-session reminder calls the same branch:
-  `.claude/hooks/end-of-turn-reminder.sh`, line 1361.
+  `.claude/hooks/end-of-turn-reminder.sh`, line 1375.
 - The installer delivers the language files at every depth: `setup.d/10-skills.sh`,
   lines 238 to 253. The skill itself is in the `factory` list at line 65 of
   `setup.d/lib.sh`. Why it stays there, a product choice rather than a blocker fix, is
