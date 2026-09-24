@@ -6,7 +6,7 @@ eb124d77f5093cf3e78536abd5aa7ea93e2d99b63e9f28c99d31026abf6cd470  .claude/hooks/
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
 17ddf49b050256242a8fcb2cc8b1fb4b987a9b2c1631f3a6b4ccccaf82512715  .claude/hooks/deps-hash-check.sh
-7160cc8ab886322c4e2f612a04d204e17d7970e8cec8fc3b7760b4f9ffd6a651  .claude/hooks/end-of-turn-reminder.sh
+8955c78b247264458698e70003e25e6ded4fdb2ad7298cc875d8dfa6df955aae  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
 8a4789e250be12610174ca7bc8c78a640938e62e1031593f3ecdc1b010f05828  .claude/hooks/inject-handoff-on-compact.sh
 eb176ad96d605eb507a742294a5fab9c49330e6ad27b4665c2ff7dff8d797d15  .claude/hooks/inject-matching-rule.sh
@@ -21,10 +21,10 @@ bf15241e237df9d4b63e203d3fc0fc68e205ebe6622f555a7149b15db00f56c8  .claude/hooks/
 35981c11bcbe09b5685342ca042f132bc88ea724f755e565a8bca812945d031c  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
-f54a8864e760d7e716dbb11b3b929fb7bdf6d771ffd21cc3947c11aacf3a9cea  .claude/hooks/precompact-residue.sh
+6adcaaf76b93a094a3a9651706357e1a1e7c1253d51d05e44609df0acfb57d7c  .claude/hooks/precompact-residue.sh
 9d9548c80a55b8544eefa490f24eb644bf52f624b77ca78821bb9802743fc729  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
-f3d1492f2333b8f48744e7221304f2c8fa7814e92da8e8a1eb61d4921937bdea  .claude/hooks/warn-subagent-report.sh
+0818cf288d4db0750844de4ac5cf8f7a04b2262e469843fa393cd41229916ac1  .claude/hooks/warn-subagent-report.sh
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
@@ -465,7 +465,7 @@ c7fc99171a5c2ec6fd8912cf5bd671f5fb685865bb51631294928920e1adc19f  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-a3888b7a9e5e8f10fe45f3c8b9d5dc3cebfa9af7070ad7fb13ccd81e5df8c6db  packages/core/hooks/end-of-turn-reminder.test.ts
+f3438b6e9e57c58a52d674dfeced6e30ca617a3bdab0303e42058005d057b70c  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
@@ -492,7 +492,7 @@ b18862d59e115e39680cc30be386ea1724603ee5cc860c79dc5792af170b8d20  packages/core/
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 06f9d5cf7f306933e33ed70f4b964d2be8a5c04b6f4b6b247b8571abe4e7374f  packages/core/hooks/pre-push.test.ts
 aff18669c560e025dab38c2f125384854799bc39c561045dedfbdb620ae176d5  packages/core/hooks/pre-push.ts
-d4e9c7de5d553ae27f01be8debb6807f64028fd5c73e3b79a1c3d8281ebb40be  packages/core/hooks/precompact-residue.test.ts
+0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts
 984700c4813aaa788f359e41b6279633a031323d1cfee3ac3cfa8070f7542e63  packages/core/hooks/priority-score-skip-closed.test.ts

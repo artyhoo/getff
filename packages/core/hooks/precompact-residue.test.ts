@@ -328,6 +328,19 @@ describe.skipIf(!JQ)('precompact-residue.sh (S2b / D8)', () => {
     expect(r2.residue).not.toContain('<system-reminder>');
   });
 
+  it('falls back to the no-anchor line when the first message is tags only, never a blank headline', () => {
+    const a = sandbox();
+    const r = run(a.residueDir, {
+      session_id: 'sess-tagsonly',
+      transcript_path: writeTranscript(a.dir, [
+        userTurn('<system-reminder>\nWorktree path: /x/y\n</system-reminder>'),
+        ccAssistant('x'),
+      ]),
+      trigger: 'manual',
+    });
+    expect(r.residue).toContain('# Session residue — (no session anchor in the transcript)');
+  });
+
   it('sanitises the session id — a `../` id cannot escape the residue dir', () => {
     const { residueDir } = sandbox();
     const r = run(residueDir, { session_id: '../../escaped', trigger: 'auto' });

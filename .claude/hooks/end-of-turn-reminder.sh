@@ -622,10 +622,13 @@ fi
 #   (3) one full scan, whose result is cached so no later turn in this session repeats it.
 _anchor_cache="${TMPDIR:-/tmp}/aif-eot-anchor-${session_id}"
 # ONE grep for both record types (F-2 budget: at most one full-transcript grep per turn end);
-# jq then prefers the last custom-title and falls back to the last ai-title.
+# jq then prefers the last non-empty custom-title and falls back to the last ai-title. Known
+# limit: precedence holds within ONE read — a window holding only an ai-title wins over a
+# custom-title written once before the window. The desktop app re-writes custom-title
+# throughout the session, so its title stays inside the window.
 _session_title() {
   grep -E '"type":"(custom|ai)-title"' "$1" 2>/dev/null \
-    | jq -rs '([.[] | .customTitle // empty] | last) // ([.[] | .aiTitle // empty] | last) // empty' 2>/dev/null || true
+    | jq -rs '([.[] | .customTitle // empty | select(. != "")] | last) // ([.[] | .aiTitle // empty | select(. != "")] | last) // empty' 2>/dev/null || true
 }
 anchor=$(_session_title "$scan_file")
 if [ -z "$anchor" ] && [ -f "$_anchor_cache" ]; then
@@ -639,8 +642,11 @@ if [ -z "$anchor" ]; then
   # SessionStart hook prepends `<system-reminder>…</system-reminder>` to the first message, so
   # its first line was the bare tag and D-I (below) rejected it, leaving no anchor at all.
   # split/join rather than index(): jq 1.6 index() on strings returns BYTE offsets while
-  # slicing counts codepoints, which would cut a Cyrillic instruction mid-word.
-  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'def lead: if test("^\\s*<[A-Za-z][-A-Za-z0-9_]*>") then (capture("^\\s*<(?<t>[A-Za-z][-A-Za-z0-9_]*)>").t) as $t | ("</" + $t + ">") as $c | (split($c)) as $p | if ($p|length) < 2 then . else ($p[1:] | join($c) | lead) end else sub("^\\s+"; "") end; if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text | lead) else (.message.content // empty | lead) end' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
+  # slicing counts codepoints, which would cut a Cyrillic instruction mid-word. `cmd` keeps a
+  # slash-command session's task — `<command-name>/x</command-name><command-args>y</…>` becomes
+  # «/x y» instead of being stripped to nothing — and `select(test("\\S"))` drops a text block
+  # that was tags only, so `head -1` reaches the instruction in the NEXT block.
+  anchor=$(grep -m1 -F '"type":"user"' "$transcript" 2>/dev/null | jq -r 'def cmd: if test("^\\s*<command-(name|message)>") then [(capture("<command-name>(?<n>[^<]*)</command-name>").n), (capture("<command-args>(?<a>[^<]*)</command-args>").a)] | join(" ") else . end; def lead: if test("^\\s*<[A-Za-z][-A-Za-z0-9_]*>") then (capture("^\\s*<(?<t>[A-Za-z][-A-Za-z0-9_]*)>").t) as $t | ("</" + $t + ">") as $c | (split($c)) as $p | if ($p|length) < 2 then . else ($p[1:] | join($c) | lead) end else sub("^\\s+"; "") end; if (.message.content|type=="array") then (.message.content[]? | select(.type=="text") | .text | cmd | lead) else (.message.content // empty | cmd | lead) end | select(test("\\S"))' 2>/dev/null | head -1 | tr "\n" " " | cut -c1-120 || true)
   # `head -1` echoes the line's own trailing newline, which the `tr` just above turns into a
   # trailing space on every candidate (verified live: a plain "src/app/page.tsx" comes out of
   # the pipeline above as "src/app/page.tsx "). Strip it before the space-arm check below, or

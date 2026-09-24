@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1388-1419 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1394-1425 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -303,6 +303,24 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     );
     expect(both).toContain('Named by the operator');
     expect(both).not.toContain('Generated later by the model');
+
+    // A rename mid-session appends a new record: the LAST one is the current name. An empty
+    // customTitle is no name at all and must not shadow the ai-title.
+    const renamed = anchorRun(
+      [
+        { type: 'custom-title', customTitle: 'First name' },
+        userTurn('задание'),
+        { type: 'custom-title', customTitle: 'Renamed later' },
+      ],
+      'anchor-custom-renamed',
+    );
+    expect(renamed).toContain('Renamed later');
+    expect(renamed).not.toContain('First name');
+    const blank = anchorRun(
+      [{ type: 'custom-title', customTitle: '' }, aiTitle('The generated title'), userTurn('задание')],
+      'anchor-custom-blank',
+    );
+    expect(blank).toContain('The generated title');
   });
 
   it('skips a leading injected tag block and anchors on the first real instruction', () => {
@@ -318,6 +336,38 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     expect(r).toContain('Fix the goal extraction in the stop hook');
     expect(r).not.toContain('system-reminder');
     expect(r).not.toContain('Worktree path');
+  });
+
+  it('reaches the instruction in the next text block when the first block is tags only', () => {
+    const r = anchorRun(
+      [
+        {
+          type: 'user',
+          message: {
+            content: [
+              { type: 'text', text: '<system-reminder>\ninjected\n</system-reminder>' },
+              { type: 'text', text: 'Instruction in the second block' },
+            ],
+          },
+        },
+      ],
+      'anchor-array-blocks',
+    );
+    expect(r).toContain('Instruction in the second block');
+  });
+
+  it('keeps a slash-command session task instead of stripping it with the tags', () => {
+    const r = anchorRun(
+      [
+        userTurn(
+          '<command-message>pipeline</command-message>\n<command-name>/pipeline</command-name>\n' +
+            '<command-args>getff-ai-site</command-args>',
+        ),
+      ],
+      'anchor-slash-command',
+    );
+    expect(r).toContain('/pipeline getff-ai-site');
+    expect(r).not.toContain('command-');
   });
 
   it('ZCode schema-compliance: top-level keys match CCt.strict() — no stray hookEventName', () => {
@@ -1466,7 +1516,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1123 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1129 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
