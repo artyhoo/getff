@@ -18,6 +18,7 @@ sources:
   - docs/site/terms.md
   - packages/core/principles/15-skill-paired-negative.test.ts
   - tests/install-sh/baselines/ts-server/greenfield.fingerprint
+docs-refresh: deferred — re-verified 2026-09-24, the cited install fingerprint changed only two hash values (the end-of-turn-reminder hook and the refresh baseline) with no line added or removed; lines 42 to 45 this page cites are byte-identical; clears at the next gold refresh of this page
 executed:
   - { example: show-arch-invocation-lines, stack: ts-server, date: 2026-09-21, result: printed }
 ---
