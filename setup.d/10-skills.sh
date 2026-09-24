@@ -94,7 +94,7 @@ fi
 #                      «pipeline presets, status, …» verbatim
 #                      (docs/superpowers/specs/2026-07-23-beta-program-design.md:211).
 #   - reviewer       — interactive GO/REVISE/STOP verdict seat. Joined env 2026-08-17 (#1432):
-#                      arch/SKILL.md:94 promises consumers that in-repo `/reviewer` loads the
+#                      arch/SKILL.md «Effort-worthiness» promises consumers that in-repo `/reviewer` loads the
 #                      project skill, a promise that dangled while reviewer sat in no tier.
 #   - night-mode     — overnight-autonomous orchestration over SDD (executor + dual-reviewer +
 #                      on-demand top-tier advisor); harness-agnostic, relative model tiers,
@@ -144,7 +144,7 @@ for _skill in $GETFF_SKILLS_CORE; do
   copy_skill_with_transform "$_skill"
 done
 # env+ contour surface (spec A8): /arch is the architecture-design skill that produces the
-# contour; consumer-facing at env+. /reviewer joined env 2026-08-17: arch/SKILL.md:94 tells the
+# contour; consumer-facing at env+. /reviewer joined env 2026-08-17: arch/SKILL.md «Effort-worthiness» tells the
 # consumer that in-repo `/reviewer` loads the project skill (skill precedence over a same-named
 # personal command) and that it binds the reviewer-discipline §6 severity contract — a promise
 # that dangled, because reviewer was in no tier. env is the minimal sufficient depth: arch is

@@ -16,6 +16,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: emit-story-instruction, stack: repo, date: 2026-09-23, result: printed }
+docs-refresh: deferred — re-verified 2026-09-24, the only change to the cited setup.d/10-skills.sh in this range swaps two in-comment pointers (arch/SKILL.md line 94 becomes the «Effort-worthiness» paragraph name) with the line count unchanged, so every line number this page cites still holds; clears at the next gold refresh of this page
 ---
 
 # story skill
