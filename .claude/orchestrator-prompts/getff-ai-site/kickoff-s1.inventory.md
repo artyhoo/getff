@@ -16,6 +16,15 @@
 `d266fdf01ea9a3fa16cccd025f87e96a1d84ecce` (PR #1817, S0b). The landing rows were read at
 `artyhoo/getff-landing` `origin/main` = `c091883`. Nothing here was read from a stale worktree.
 
+**Population-2 re-measure 2026-09-25 at `origin/staging` = `c16c432edc1` (#1848):** the §7
+drift falsifier fired — two members landed after `d266fdf01ea` and were absent from §3:
+`D.json` member `glossary-inject` (row `/docs/reference/D/glossary-inject/`) and `F3.json`
+member `check-docs-refresh.mjs` (row `/docs/reference/F3/check-docs-refresh/`, added by the
+S1 BUILD framework task, #1827). Both rows are added below in `members[]` order; the §6 counts
+are amended in the same commit (230→232 rows, 219→221 members, 211→213 owed). Regeneration of
+all eleven families at `c16c432edc1` produced 232 rows matching the amended §3 exactly; the two
+new rows are the complete delta.
+
 ## §0 Why this file exists
 
 D49 ([`site-design.md:176`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md))
@@ -45,7 +54,7 @@ D49 forbids. Its rows are still greppable by slug from this file.
 | Population | Enumerated from | Command / citation |
 |---|---|---|
 | 1 — D28 §4 | the page-set table, the census URL paragraph, the post-census stub list | [`face.md:88`–`:111`](../../../docs/superpowers/specs/2026-09-14-getff-ai-face-pages-design.md); census set re-read at D33 ([`site-design.md:157`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) |
-| 2 — D29 families | the eleven per-family JSONs the generator owns | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 219 members; the rows in §3 are that read, ordered by D19's family order |
+| 2 — D29 families | the eleven per-family JSONs the generator owns | `node -e` over `docs/site/reference/<F>.json` `.members[]` — 11 families, 221 members (re-measured 2026-09-25, see header); the rows in §3 are that read, ordered by D19's family order |
 | 3 — Learn/Guides/Understand | the four sidebar tabs, `nav.json`, D19's task shape, D30's kind registry, and the R7/D37 successor obligation | per-row in §4; no row without a named source |
 | 5 — non-page URLs | the live site's own tree | `git ls-tree -r --name-only origin/main -- content/docs` in `artyhoo/getff-landing` @ `c091883` |
 
@@ -132,14 +141,15 @@ that are readable today. The three, with their live headings:
 
 ## §3 Population 2 — the D29 reference families
 
-Eleven families, 219 members, one `family-overview` each: **230 rows.** Family order is D19's
+Eleven families, 221 members, one `family-overview` each: **232 rows.** Family order is D19's
 ([`site-design.md:136`](../../../docs/superpowers/specs/2026-09-13-getff-ai-site-design.md)) —
 STRUCTURED first (B → D → F1 → F2 → I), then the PARTIAL families (A, C, E, F3, G, H), which
 D19 gates behind their D14d source holes being fixed (S0a). Family B is the gold family: its
 overview and 18 sheets shipped in S0b, so they are `writer: gold`, not conveyor.
 
 The slug is the member id with its extension dropped and `/` folded to `-`; the mapping is
-injective across all 230 rows (checked — no collision).
+injective across all 232 rows (checked — no collision; re-checked over the regenerated set at
+`c16c432edc1`, 2026-09-25).
 
 | slug | kind | stage | writer | provenance |
 |---|---|---|---|---|
@@ -172,6 +182,7 @@ injective across all 230 rows (checked — no collision).
 | `/docs/reference/D/check-worker-dispatch-channel/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `check-worker-dispatch-channel` |
 | `/docs/reference/D/deps-hash-check/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `deps-hash-check` |
 | `/docs/reference/D/end-of-turn-reminder/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `end-of-turn-reminder` |
+| `/docs/reference/D/glossary-inject/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `glossary-inject` (added at `c16c432edc1`, 2026-09-25 re-measure) |
 | `/docs/reference/D/inject-handoff-on-compact/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `inject-handoff-on-compact` |
 | `/docs/reference/D/inject-matching-rule/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `inject-matching-rule` |
 | `/docs/reference/D/inject-memory-codification/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `D.json` member `inject-memory-codification` |
@@ -335,6 +346,7 @@ injective across all 230 rows (checked — no collision).
 | `/docs/reference/F3/check-alwayson-budget/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-alwayson-budget.sh` |
 | `/docs/reference/F3/check-ask-files/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-ask-files.sh` |
 | `/docs/reference/F3/check-bundle-dep-parity/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-bundle-dep-parity.sh` |
+| `/docs/reference/F3/check-docs-refresh/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-docs-refresh.mjs` (added at `c16c432edc1`, 2026-09-25 re-measure; shipped by #1827) |
 | `/docs/reference/F3/check-line-citations/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-line-citations.mjs` |
 | `/docs/reference/F3/check-skill-drift/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `check-skill-drift.sh` |
 | `/docs/reference/F3/ci-success-gate/` | `reference-sheet` | S1 RUN | conveyor (aif/GLM) | `F3.json` member `ci-success-gate.sh` |
@@ -482,16 +494,16 @@ committed with its own command. This file owns the *page* population; `old-urls.
 | Population | Rows | Written (S0b) | Owed by S1 RUN |
 |---|---|---|---|
 | 1 — D28 §4 + census + AI surface | 17 | 12 | 3 pages + 2 build projections |
-| 2 — D29 families | 230 | 19 | 211 |
+| 2 — D29 families | 232 | 19 | 213 |
 | 3 — Learn / Guides / Understand | 19 | 3 | 16 |
-| **Total pages** | **266** | **34** | **230** |
+| **Total pages** | **268** | **34** | **232** |
 | 5 — non-page URLs | 17 | — | landing build (R7) |
 
-**The conveyor's real size is 230 pages owed by S1 RUN, not «~105».** (Population 2 also happens
-to hold 230 rows. The two numbers are unrelated — the owed total is 3 + 211 + 16 — and the
+**The conveyor's real size is 232 pages owed by S1 RUN, not «~105».** (Population 2 also happens
+to hold 232 rows. The two numbers are unrelated — the owed total is 3 + 213 + 16 — and the
 coincidence is worth naming so no one reads one as an explanation of the other.) D41's «~105 non-gold pages» and D25's
 «~125-page scope» were estimates taken before any population was enumerated; this is the first
-enumeration, and it more than doubles them. The whole delta is population 2: 219 members across
+enumeration, and it more than doubles them. The whole delta is population 2: 221 members across
 eleven families, of which only family B's 18 are written. **This is a finding for the operator and
 for the conveyor plan (P-R), not a licence to trim the population** — D19's own falsifier («a task
 >30 pages → review cannot sample at floor 5 per kind») prices it: at ~20 pages per family task,
