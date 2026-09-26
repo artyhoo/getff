@@ -1,6 +1,6 @@
 ---
 title: warn-subagent-report-zcode hook
-description: The plugin-channel twin of the subagent-report warner — two arms instead of one, because ZCode has no SubagentStop event: it reads the Agent tool's payload the instant it returns, then sweeps the transcript at turn end.
+description: "The plugin-channel twin of the subagent-report warner — two arms instead of one, because ZCode has no SubagentStop event: it reads the Agent tool's payload the instant it returns, then sweeps the transcript at turn end."
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
