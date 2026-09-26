@@ -426,7 +426,7 @@ here would be the improvisation falsifier (b) names.
 | `/docs/guides/add-design-and-review-skills/` | `guide` | S0b | gold (Fable) | `nav.json` `tabs[guides].pages[0]`; D17c trial page; family B's D19 guide |
 | `/docs/guides/<family-A>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136` «each = overview + sheets + its guide»; family A `installer layers` (`A.json`) |
 | `/docs/guides/<family-C>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family C `agents` (`C.json`) |
-| `/docs/guides/<family-D>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family D `hooks` (`D.json`) |
+| `/docs/guides/check-your-installed-hooks/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family D `hooks` (`D.json`) |
 | `/docs/guides/<family-E>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family E `templates` (`E.json`) |
 | `/docs/guides/<family-F1>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family F1 `rules` (`F1.json`) |
 | `/docs/guides/<family-F2>/` | `guide` | S1 RUN | conveyor (aif/GLM) | D19 `:136`; family F2 `generated rules` (`F2.json`) |
