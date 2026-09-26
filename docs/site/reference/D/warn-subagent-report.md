@@ -1,6 +1,6 @@
 ---
-title: warn-subagent-report hook
-description: When a dispatched subagent finishes, this hook reads its final report and warns the orchestrator — out loud, in the model-visible channel — if the canonical sections are missing. It never blocks; it makes incompleteness visible.
+title: The sub-agent report warner
+description: When a dispatched sub-agent finishes, this hook reads its final report and warns the orchestrator — out loud, in the model-visible channel — if the canonical sections are missing. It never blocks; it makes incompleteness visible.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -21,7 +21,7 @@ executed:
 docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
 ---
 
-# warn-subagent-report hook
+# `warn-subagent-report` hook
 
 ## Fact card
 
@@ -47,7 +47,7 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 
 ## Explanation
 
-A dispatched subagent hands its work back as a report, and the orchestrator has to
+A dispatched sub-agent hands its work back as a report, and the orchestrator has to
 decide in that moment whether to trust it. The framework's reports therefore have a
 canonical shape — `VERIFY:` what you did, `Confidence:` how sure you are, `ATTN:`
 what the reader should watch — and this hook checks the shape at the moment the
@@ -55,7 +55,7 @@ report lands. Missing sections produce a warning that travels on the
 model-visible channel: the orchestrator reads «treat the report as incomplete»
 before it acts on the claims.
 
-Deliberately, it only warns. Blocking a finished subagent is a
+Deliberately, it only warns. Blocking a finished sub-agent is a
 [gate](../../terms.md#gate), and whether a report is complete enough is a judgment
 call the source names as such (`#gate-where-judgment-needed`, lines 4-6) — a
 missing section gets surfaced, and the orchestrator decides. Here is the warning,
@@ -69,7 +69,10 @@ printf '%s' '{"session_id":"docs-demo-wsr-1","agent_type":"general-purpose",
 ```
 
 ```text
+<!-- vale off -->
+<!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
 {"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":"⚠ SubagentStop: subagent REPORT missing section(s): Confidence,ATTN — treat the report as incomplete; ask the subagent for the missing section(s) before acting on its claims."}}
+<!-- vale on -->
 ⚠ SubagentStop: subagent REPORT missing section(s): Confidence,ATTN — treat the report as incomplete; ask the subagent for the missing section(s) before acting on its claims.
 ```
 
@@ -107,7 +110,7 @@ printf '%s' '{"session_id":"docs-demo-wsr-3","agent_type":"general-purpose",
 ```
 
 Reading the report takes two paths, in priority order (lines 28-33): the payload's
-`last_assistant_message` field directly when present, otherwise the subagent's
+`last_assistant_message` field directly when present, otherwise the sub-agent's
 transcript file, scanned for the final assistant text. When both yield nothing the
 hook exits silently — a genuine nothing-to-scan, not a skipped check.
 
@@ -115,10 +118,10 @@ Delivery per the card: this one is the framework-internal half of the pair. It i
 registered only in the project's own settings (`.claude/settings.json:213`) and
 carries a plain `@cc-only-rationale` — internal orchestrator machinery, maintainer
 environment (line 16). Consumers meet its ZCode-functional twin instead:
-[warn-subagent-report-zcode](warn-subagent-report-zcode.md), which anchors the
+[`warn-subagent-report-zcode`](warn-subagent-report-zcode.md), which anchors the
 `@dual-pair: warn-subagent-report` pair and owns the plugin channel. One posture
 difference worth noticing: unlike the reminder hooks, a missing `jq` here is a
-*loud* skip (lines 60-65) — SubagentStop fires once per finished subagent, so a
+*loud* skip (lines 60-65) — SubagentStop fires once per finished sub-agent, so a
 «this is a SKIP, not a pass» notice is low-noise and keeps a dead check from
 reading as a clean one.
 

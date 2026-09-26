@@ -48,7 +48,7 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 
 Your agent keeps a memory: notes it writes about your project so the next session starts
 smarter. Memory is good at remembering. It is bad at sharing — a lesson that lives only
-in your memory directory helps your sessions, and nobody else's. The discipline this
+in your memory directory helps your sessions — and no other sessions. The discipline this
 hook nudges is called codify-then-pointer: when a note is a durable behavioural
 convention, write it into the repository where every session and every teammate gets it,
 and shrink the memory entry to a one-line pointer at the new home.

@@ -88,7 +88,10 @@ printf '%s' '{"tool_name":"Edit","session_id":"docs-demo-cwd-2",
    Rule `#worker-dispatch-via-subagent` (.claude/skills/pipeline/SKILL.md §5): a write-task Worker
    must NOT be dispatched via the Agent tool from the meta-orchestrator session. Use a fresh
    maintainer-opened CC session (paste the §10 1-liner) or dispatch.ts. The Agent tool is ONLY
+<!-- vale off -->
+<!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
    for Phase -1 read-only reviewers + read-only research subagents.
+<!-- vale on -->
    If this line legitimately QUOTES/TEACHES the anti-pattern, append on the same line:
    <!-- channel-discipline: allow <reason> -->
 ```
@@ -100,7 +103,10 @@ the original conversion sweep and this hook is the correction.
 
 The matcher discriminates, it does not panic. Four clauses decide a line: it must name
 the Agent-tool channel, target a write Worker, carry no read-only context
+<!-- vale off -->
+<!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
 (`read-only`, `reviewer`, `Phase -1`, `research subagent`), and no escape token. That
+<!-- vale on -->
 last clause is the honest way to let a kickoff *teach* the anti-pattern — a kickoff
 section like this very family's guide can quote the bad line, and as long as the line
 ends with `<!-- channel-discipline: allow <reason> -->`, the gate stays silent. Same

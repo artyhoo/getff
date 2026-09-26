@@ -109,7 +109,10 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
   quotes: `# inject-project-digest.sh — UserPromptSubmit + SubagentStart hook — injects the project digest at both fire-points`.
 - The one-source design is header lines 15-16: «The shared digest source is the block
   between the markers in .claude/session-bootstrap.md, so the main session AND every
+<!-- vale off -->
+<!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
   dispatched subagent get the same project anchor from ONE source of truth».
+<!-- vale on -->
 - Zero-setup exits: line 31 — `[ -f "$DIGEST_FILE" ] || exit 0   # no anchor authored —
   nothing to inject (zero-setup default)`; line 39 — the whitespace-only block check
   `[ -z "$(printf '%s' "$BLOCK" | tr -d '[:space:]')" ] && exit 0`.
@@ -132,7 +135,7 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
   `grep -c inject-project-digest .claude/settings.json` prints `0`).
 - Family relationships are stated in the hook's own header, lines 5-7: «the
   PROJECT-AGNOSTIC adaptation of the maintainer-only inject-session-bootstrap.sh /
-  inject-subagent-digest.sh pair (which hard-code the FRAMEWORK's own goal/invariants
+  `inject-subagent-digest.sh` pair (which hard-code the goal/invariants the FRAMEWORK itself owns
   digest — wrong to inject into a consumer's project)». The mirroring fallback is
   declared in `.claude/hooks/inject-subagent-context.sh:23-26`.
 - Paired test: `packages/core/hooks/inject-project-digest.test.ts` (381 lines) — its

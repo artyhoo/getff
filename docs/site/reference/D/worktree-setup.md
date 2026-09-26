@@ -67,7 +67,7 @@ the same one `scripts/create-worktree.sh` calls — one implementation, two
 entry points, the `@dual-pair:worktree-create-setup` on the card). A tsx
 self-heal follows for a worktree whose primary lost its binaries (lines
 120-145). Last, the coordination store: `scripts/link-coordination.sh` links
-the worktree's `.claude/orchestrator-prompts/` into the canonical store — the
+the worktree path `.claude/orchestrator-prompts/` into the canonical store — the
 same world [adopt-orchestrator-prompts](adopt-orchestrator-prompts.md) guards
 at write time — and if that helper is missing, the hook is loud about what did
 not happen (lines 153-166).

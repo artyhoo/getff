@@ -109,7 +109,7 @@ printf '%s' '{"tool_name":"Write","session_id":"docs-demo-vp-3",
 ```
 
 Everything the gate needs it resolves by tier — repo-local `tsx`, then the main
-worktree's, then one on `PATH`; the batch-spec validator likewise, framework layout
+worktree, then one on `PATH`; the batch-spec validator likewise, framework layout
 first, vendor drop second. A miss at any tier is announced on the model channel with
 the same «SKIP, not a pass» wording, so a tooling gap on an unusual layout never
 masquerades as a clean file.
@@ -137,7 +137,7 @@ masquerades as a clean file.
   (lines 150-154).
 - Tier resolution: `_resolve_tsx` at lines 57-71 (comment at line 56 cites its
   precedent) and `_resolve_validator` at lines 84-92; the header comment (lines 75-83)
-  explains the loud-miss branch — «a shipped artefact that resolves a FRAMEWORK-ONLY
+  explains the loud-miss branch — «a shipped artifact that resolves a FRAMEWORK-ONLY
   path and then exits 0 is a permanent silent no-op on every consumer».
 - Opt-out: line 96, `[[ "${AIF_VALIDATE_PROMPT:-1}" == "0" ]] && exit 0`, with the
   rationale-bearing escape precedent noted at lines 94-95.

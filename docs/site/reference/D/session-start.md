@@ -101,7 +101,7 @@ says `@cc-only-rationale` without a `@dual-pair:` anchor: the rationale
 (lines 6-10) records that there is deliberately no separate portable
 counterpart artifact — the inline branching IS the portability, so the
 dual-pair grammar (which requires a distinct twin) does not apply. Contrast
-[warn-subagent-report-zcode](warn-subagent-report-zcode.md), whose two
+[`warn-subagent-report-zcode`](warn-subagent-report-zcode.md), whose two
 harnesses needed two files.
 
 The matcher `startup|clear|compact` covers three session beginnings. Two of

@@ -19,7 +19,7 @@ pin someone can re-verify or a duty someone must re-measure.
 
 | Tool | Version | Integrity | Source |
 |---|---|---|---|
-| Vale | 3.21.0 | `sha256 96997d19a4ca6981673b0d4c5ca7f3ede4a9f97964a96edc29fba9e28a328336` (`vale_3.21.0_Linux_64-bit.tar.gz`, checked against upstream `vale_3.21.0_checksums.txt`) | release download |
+| Vale | 3.23.0 | `sha256 cc35445a45186b8f0b01e11c01359694cf941e72cf6ab0fc44774f0e54c9d5fc` (`vale_3.23.0_Linux_64-bit.tar.gz`, checked against upstream `vale_3.23.0_checksums.txt`) | release download |
 | Microsoft style pack | v0.15.1 | `sha256 0b37660b244a9399d7f10225895773291d27b2967ed0d239a1d379b633e8cd16` (`Microsoft.zip`) | `vale-cli/Microsoft` releases (MIT) |
 | Readability style pack | v0.1.1 | `sha256 fbe178b4b648c4d41bb72cee533addfd8f51cf0f3d1f0adfa08808770b418106` (`Readability.zip`) | `vale-cli/readability` releases (MIT) |
 | lychee | v0.24.2 | pinned in `.github/workflows/audit-self.yml` (the docs-check job reuses that pin) | existing CI pin |
@@ -101,3 +101,11 @@ own word count.
 4. Vocabulary lookup is `<StylesPath>/config/vocabularies/<name>/accept.txt` in Vale
    3.21.0 — a vocabulary outside `config/` is not found (`E100`, measured). Keep the
    tree layout when moving anything.
+
+**Pin bump 2026-09-27, 3.21.0 → 3.23.0** (S1 RUN batch 0, family D): Vale 3.21.0 applies
+`getff.Names`/`Vale.Spelling` inside code fences, inline code and quote blocks, which
+false-positives on verbatim quotations of hook output/source and on hook paths inside
+runnable demos — content the pages must quote byte-exact (T-RUN-D-1). 3.23.0 scopes those
+correctly. Re-measured on the bump: `docs-check --strict` over the full population (61 pages
++ 7 prose files) → 0 errors on 3.23.0 (the same corpus carries 2 false positives that admit no page-side fix on
+3.21.0). The severity split and rule set are unchanged; only the tool version moved.

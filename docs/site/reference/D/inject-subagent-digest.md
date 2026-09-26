@@ -1,5 +1,5 @@
 ---
-title: inject-subagent-digest hook
+title: The sub-agent digest injector
 description: Every sub-agent you dispatch starts with the project's non-negotiables already in its context — injected at spawn, with zero boilerplate in your dispatch.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
@@ -16,11 +16,11 @@ sources:
   - docs/site/terms.md
   - packages/core/hooks/inject-subagent-digest.test.ts
 executed:
-  - { example: subagent-digest-at-spawn, stack: repo, date: 2026-09-25, result: printed }
+  - { example: digest-at-sub-agent-spawn, stack: repo, date: 2026-09-25, result: printed }
 docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
 ---
 
-# inject-subagent-digest hook
+# `inject-subagent-digest` hook
 
 ## Fact card
 
@@ -86,7 +86,7 @@ exits quietly when the digest comes back empty, rather than injecting an empty e
 
 This hook is Claude-Code-only, and that is a statement about harness events, not
 preference: the SubagentStart event does not exist on the framework's second harness.
-There the role is played by [inject-subagent-context](inject-subagent-context.md), the
+There the role is played by [`inject-subagent-context`](inject-subagent-context.md), the
 pre-dispatch fallback. The two deliver different text on purpose — the CC anchor
 delivers this framework digest, the fallback delivers the project digest block — and
 that asymmetry is recorded as an accepted, live-verified divergence in the framework's
@@ -96,9 +96,14 @@ parity doctrine rather than smoothed over.
 
 - `.claude/hooks/inject-subagent-digest.sh:2` is the header the card's description row
   quotes: `# inject-subagent-digest.sh — SubagentStart hook — injects the session-bootstrap digest into juniors at spawn`.
-- The goal and its origin: lines 4-5 — «every dispatched subagent gets the project
-  anchor (goal + invariants + H1 recommendation discipline) at spawn with zero
-  per-prompt boilerplate. SSOT #108».
+- The goal and its origin: lines 4-5 — the header states, verbatim:
+
+  <!-- vale off -->
+  <!-- vale-reason: verbatim quotation of the hook source header; restyling it would falsify the quote (T-RUN-D-1) -->
+  > every dispatched subagent gets the project
+  > anchor (goal + invariants + H1 recommendation discipline) at spawn with zero
+  > per-prompt boilerplate. SSOT #108
+  <!-- vale on -->
 - The reuse that prevents drift: line 8 — `# spec: reuses
   .claude/hooks/inject-session-bootstrap.sh as the single digest source (no
   #two-prompts-drift)`; line 23 does it:
@@ -118,7 +123,7 @@ parity doctrine rather than smoothed over.
   event is inexpressible on the framework's second harness
   (`.claude/rules/zcode-parity-doctrine.md` §2 row 16 records the classification and
   §4 its rationale, naming row 15's fallback as the replacement).
-- The delivery-shape divergence (this hook's inline digest vs the fallback's digest
+- The delivery-shape divergence (this hook's inline digest vs the fallback digest
   block) is recorded in the same doctrine table under «Digest-anchor delivery asymmetry
   — ACCEPTED DIVERGENCE», both arms live-verified.
 - Paired test: `packages/core/hooks/inject-subagent-digest.test.ts` — its header

@@ -1,5 +1,5 @@
 ---
-title: inject-subagent-context hook
+title: The sub-agent context injector
 description: When your harness has no sub-agent-start event, this hook catches the dispatch itself and appends your project's anchor to the sub-agent's prompt — so juniors get their bearings even where the graceful event does not exist.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
@@ -17,12 +17,12 @@ sources:
   - docs/site/reference/D/inject-project-digest.md
   - docs/site/reference/D/inject-subagent-digest.md
 executed:
-  - { example: subagent-context-on-claude-code, stack: repo, date: 2026-09-25, result: silent }
-  - { example: subagent-context-on-a-harness-without-subagent-start, stack: repo, date: 2026-09-25, result: printed }
+  - { example: context-anchor-on-claude-code, stack: repo, date: 2026-09-25, result: silent }
+  - { example: context-anchor-on-a-harness-without-a-dedicated-start-event, stack: repo, date: 2026-09-25, result: printed }
 docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
 ---
 
-# inject-subagent-context hook
+# `inject-subagent-context` hook
 
 ## Fact card
 
@@ -49,7 +49,7 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 ## Explanation
 
 The family's cleanest way to brief a sub-agent is the SubagentStart event
-([inject-subagent-digest](inject-subagent-digest.md) does exactly that). Not every
+([`inject-subagent-digest`](inject-subagent-digest.md) does exactly that). Not every
 harness has that event. This hook is the fallback for the ones that do not: instead of
 a lifecycle event, it watches for the moment a sub-agent is about to be dispatched —
 the pre-tool-use moment of the dispatch call itself — and rewrites the sub-agent's
@@ -58,11 +58,14 @@ prompt to carry your project's anchor at the end.
 On Claude Code, which has the real event, the hook deliberately says nothing. Here it
 is running on Claude Code — and doing nothing is the correct behaviour:
 
+<!-- vale off -->
+<!-- vale-reason: verbatim demo payload — the JSON keys are the real Agent-tool API field names, quoted as-is -->
 ```bash
 printf '%s' '{"tool_name":"Task","session_id":"docs-demo-sc-1",
-  "tool_input":{"prompt":"do the thing","subagent_type":"Explore"}}' \
+  "tool_input":{"prompt":"do the thing"}}' \
   | bash .claude/hooks/inject-subagent-context.sh
 ```
+<!-- vale on -->
 
 ```text
 (nothing — exit 0)
@@ -84,7 +87,10 @@ printf '%s' '{"tool_name":"Task","session_id":"docs-demo-sc-2",
 do the thing
 
 ---
+<!-- vale off -->
+<!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
 [subagent context anchor]
+<!-- vale on -->
 Project: rules-as-tests-aif — a framework repo that is self-hosting (it enforces its own rules on itself). Goal SSOT: README.md#why-this-exists — never redefine the goal here or in task docs.
 Repo map: README.md (goal) → .claude/session-bootstrap.md (this anchor, reading order) → CLAUDE.md (AI-tooling conventions) → .claude/rules/*.md (discipline rules; index: 00-rule-index.md) → docs/meta-factory/prior-art-evaluations.md (build-vs-reuse SSOT) + EXECUTION-PLAN.md → packages/core/ (enforcement machinery: principles meta-tests, synthesizer) → docs/meta-factory/research-patches/ (dated evidence records).
 Hard pointers: keep `make self-audit` green (recursive self-application); every capability commit carries a build-vs-reuse verdict (`Prior-art:` trailer); hooks SSOT is `.claude/hooks/*.sh` — ZCode consumes rendered plugin twins, edit the source, never the twin; new research patches require a §1.7 self-review section; staging PRs carry `## Fidelity verdict` + §1.7 Forward/Backward-check sections; agent must not edit `.claude/settings.json`.
@@ -139,7 +145,7 @@ delivers the project block — an accepted divergence, both arms verified live e
   explains why the FULL tool_input is echoed back («the host re-validates updatedInput …
   and silently reverts to the original if a required field … is missing»).
 - The declared degradation is header lines 17-21: «on zcode the digest is one-shot — it
-  becomes the subagent's FIRST user message via updatedInput.prompt, not a
+  becomes the sub-agent's FIRST user message via updatedInput.prompt, not a
   persistent-lifecycle context as on CC».
 - The harness split is doctrine: `.claude/rules/zcode-parity-doctrine.md` §2 row 15
   records this hook as live-verified end-to-end (2026-09-10) and notes the digest source

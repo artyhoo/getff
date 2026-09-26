@@ -143,7 +143,7 @@ harnesses.
   DID-NOT-RUN emit at line 95; `_is_zcode` at line 68.
 - stderr capture: lines 220-235 — a private per-invocation mktemp file (`_run` at
   248/250 sends the CLI's stderr there), so one dispatch's stderr can never leak into
-  another's context (A5-5, `#warning-nobody-reads` fix).
+  another session's context (A5-5, `#warning-nobody-reads` fix).
 - Fallback ladder: lines 253-261 — tsx, then npx, then the manual instructions; the
   `spec_invalid` abort (exit 2 from the CLI, hook still 0) at header lines 31-37.
 - Output contract: header lines 39-42 («plain stdout IGNORED for PostToolUse —

@@ -58,7 +58,7 @@ countable floor: engage the traps rule, and you must enumerate at least three di
 canonical T-numbers. The floor is deliberately mechanical; whether you picked the
 *right* traps stays a judgment for review.
 
-Kickoffs are also the one artefact class written and dispatched before any CI can look
+Kickoffs are also the one artifact class written and dispatched before any CI can look
 at them — which is why this check lives at edit time, the only moment it can. Here it
 is passing on the framework's real umbrella kickoff, which engages the rule and names
 six distinct T-numbers:

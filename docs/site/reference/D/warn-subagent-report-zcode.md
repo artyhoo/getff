@@ -1,6 +1,6 @@
 ---
-title: warn-subagent-report-zcode hook
-description: The plugin-channel twin of the subagent-report warner — two arms instead of one, because ZCode has no SubagentStop event: it reads the Agent tool's payload the instant it returns, then sweeps the transcript at turn end.
+title: The ZCode sub-agent report warner
+description: "The plugin-channel twin of the sub-agent report warner — two arms instead of one, because ZCode has no SubagentStop event: it reads the Agent tool's payload the instant it returns, then sweeps the transcript at turn end."
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -16,13 +16,13 @@ sources:
   - plugin/hooks/hooks.json
   - plugin/hooks/warn-subagent-report-zcode
 executed:
-  - { example: warn-subagent-report-zcode-arm-a-warns-on-a-missing-section, stack: repo, date: 2026-09-25, result: printed }
-  - { example: warn-subagent-report-zcode-dedup-silences-the-second-look, stack: repo, date: 2026-09-25, result: silent }
-  - { example: warn-subagent-report-zcode-arm-b-sweeps-the-transcript-at-stop, stack: repo, date: 2026-09-25, result: printed }
+  - { example: zcode-warner-arm-a-warns-on-a-missing-section, stack: repo, date: 2026-09-25, result: printed }
+  - { example: zcode-warner-dedup-silences-the-second-look, stack: repo, date: 2026-09-25, result: silent }
+  - { example: zcode-warner-arm-b-sweeps-the-transcript-at-stop, stack: repo, date: 2026-09-25, result: printed }
 docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
 ---
 
-# warn-subagent-report-zcode hook
+# `warn-subagent-report-zcode` hook
 
 ## Fact card
 
@@ -49,7 +49,7 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 ## Explanation
 
 ZCode has no SubagentStop event, so the report-completeness warning from
-[warn-subagent-report](warn-subagent-report.md) needs a different fire-point there.
+[`warn-subagent-report`](warn-subagent-report.md) needs a different fire-point there.
 This twin replaces the one event with two it does have: **Arm A** fires the moment
 the Agent tool returns and reads the tool's payload directly — up to 120 KB of
 result text, far more than the CC payload carries — and **Arm B** fires at turn end
@@ -69,7 +69,10 @@ printf '%s' '{"hook_event_name":"PostToolUse","session_id":"docs-demo-wsz-1",
 ```
 
 ```text
+<!-- vale off -->
+<!-- vale-reason: verbatim capture of hook/rule output — the flagged token is part of what the source prints; restyling it would falsify the quote (T-RUN-D-1) -->
 ⚠ PostToolUse:Agent: subagent REPORT missing section(s): Confidence,ATTN
+<!-- vale on -->
 {
   "hookSpecificOutput": {
     "hookEventName": "PostToolUse",
@@ -153,10 +156,10 @@ same discipline on two fire-points.
   NUL-delimited records at lines 270-283, aggregation of multiple missing-section
   signatures at lines 285-294, the `stop_hook_active` guard at lines 196-199.
 - Grammar SSOT: the mirror note at line 67 — «Mirrors
-  .claude/hooks/warn-subagent-report.sh:74-97 VERBATIM (grammar SSOT)» — directly
+  `.claude/hooks/warn-subagent-report.sh:74-97` VERBATIM (grammar SSOT)» — directly
   above `_required_sections_check` (lines 73-94, returns 0/1/2); the CC file owns
   `REPORT_CUE_RE` (line 102) and the section regexes (lines 113-121).
-- Dedup: `_dedup_key` at lines 99-107 (`toolCallId` → `tool_call_id` → sha256 →
+- Duplicate suppression: `_dedup_key` at lines 99-107 (`toolCallId` → `tool_call_id` → sha256 →
   cksum), session state file at lines 111-127; Arm A records judged keys at
   line 182 so Arm B skips them (line 263).
 - Channel fix: `_warn` at lines 50-64; the A3-1 rationale (stderr-reaches-no-model

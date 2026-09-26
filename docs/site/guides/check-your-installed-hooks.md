@@ -127,6 +127,6 @@ Ten minutes, nothing modified.
   [gates](../terms.md#gate) that can block an edit; their pages each carry a
   paired RED demo you can run the same way this guide ran an injector.
 - **A hook fires and you want it to stop.** Its registration is an entry in
-  your project's `.claude/settings.json`; removing the entry unwires the
+  your project's `.claude/settings.json`; removing the entry disconnects the
   moment, and the file it ran stays on disk for the next time you want it.
   The hook pages name the registry they are wired in.

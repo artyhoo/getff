@@ -140,7 +140,7 @@ always exits 0.
 - The twin is hand-written, not generated: `.claude/hooks/inject-matching-rule.sh:44`
   says `@plugin-transform: manual`, and `plugin/hooks/inject-matching-rule` opens as
   «Plugin-relocated PostToolUse rule-injector — path-scoped just-in-time delivery of the
-  CONSUMER's .claude/rules/*.md» (its line 2), resolving the project via
+  CONSUMER tree at .claude/rules/*.md» (its line 2), resolving the project via
   `CLAUDE_PROJECT_DIR` because `$0` points into the plugin payload.
 - Ship status: lines 29-41 of the hook record the GH #934 delivery claim corrected by
   GH #1520 — «the HOOK ships and is registered in consumer projects … The `.claude/rules/`

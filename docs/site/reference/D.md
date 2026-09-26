@@ -95,8 +95,8 @@ explanation, and the files that prove each fact. They group by the job they do:
   [inject-output-language](D/inject-output-language.md),
   [inject-project-digest](D/inject-project-digest.md),
   [inject-session-bootstrap](D/inject-session-bootstrap.md),
-  [inject-subagent-context](D/inject-subagent-context.md),
-  [inject-subagent-digest](D/inject-subagent-digest.md),
+  [`inject-subagent-context`](D/inject-subagent-context.md),
+  [`inject-subagent-digest`](D/inject-subagent-digest.md),
   [inject-handoff-on-compact](D/inject-handoff-on-compact.md),
   [glossary-inject](D/glossary-inject.md)
 - **Check your edits as you make them:**
@@ -109,8 +109,8 @@ explanation, and the files that prove each fact. They group by the job they do:
 - **Nudge at the turn boundaries:**
   [ask-question-reminder](D/ask-question-reminder.md),
   [end-of-turn-reminder](D/end-of-turn-reminder.md),
-  [warn-subagent-report](D/warn-subagent-report.md),
-  [warn-subagent-report-zcode](D/warn-subagent-report-zcode.md)
+  [`warn-subagent-report`](D/warn-subagent-report.md),
+  [`warn-subagent-report-zcode`](D/warn-subagent-report-zcode.md)
 - **Manage sessions, dependencies, and worktrees:**
   [adopt-orchestrator-prompts](D/adopt-orchestrator-prompts.md),
   [deps-hash-check](D/deps-hash-check.md),
@@ -164,7 +164,7 @@ before you go looking for the file.
 
 Two members live only on the plugin [channel](../terms.md#channel):
 [session-start](D/session-start.md) and
-[warn-subagent-report-zcode](D/warn-subagent-report-zcode.md). Without the
+[`warn-subagent-report-zcode`](D/warn-subagent-report-zcode.md). Without the
 getff plugin installed they have nothing to run from.
 
 Do not assume a green hook means a guard is awake. Some of these hooks are

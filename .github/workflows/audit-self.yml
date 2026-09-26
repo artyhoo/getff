@@ -1227,13 +1227,13 @@ jobs:
             packages/core/package-lock.json
       - name: Install workspace deps (hoists markdownlint-cli2 for the npx probe)
         run: npm install --silent
-      - name: Install vale 3.21.0 (pinned version + sha256, ci-tool-pinning §1)
+      - name: Install vale 3.23.0 (pinned version + sha256, ci-tool-pinning §1)
         # Same install shape as the lychee step in `mechanical`: curl a pinned
         # release tarball, sha256-verify, extract. The pin mirrors the
         # docs/site-quality/calibration.md record — bump the two together.
         run: |
-          curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.21.0/vale_3.21.0_Linux_64-bit.tar.gz -o "$RUNNER_TEMP/vale.tgz"
-          echo "96997d19a4ca6981673b0d4c5ca7f3ede4a9f97964a96edc29fba9e28a328336  $RUNNER_TEMP/vale.tgz" | sha256sum -c -
+          curl -sSfL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz -o "$RUNNER_TEMP/vale.tgz"
+          echo "cc35445a45186b8f0b01e11c01359694cf941e72cf6ab0fc44774f0e54c9d5fc  $RUNNER_TEMP/vale.tgz" | sha256sum -c -
           mkdir -p "$RUNNER_TEMP/vale-bin"
           tar -xzf "$RUNNER_TEMP/vale.tgz" -C "$RUNNER_TEMP/vale-bin"
           "$RUNNER_TEMP/vale-bin/vale" --version

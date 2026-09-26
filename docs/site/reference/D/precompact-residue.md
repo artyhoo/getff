@@ -62,14 +62,14 @@ no degraded arm to ship.
 The write is silent on stdout. A PreCompact hook *could* block compaction by
 exiting non-zero, and this one never does — by choice, recorded in the header
 (lines 20-24): the residue is a side effect, not a veto. Here is a real
-auto-compaction on a small transcript (recap block plus turns, one subagent
+auto-compaction on a small transcript (recap block plus turns, one sub-agent
 turn mixed in):
 
 ```bash
 D="$(mktemp -d)"; mkdir -p "$D/tr" "$D/tmp" "$D/out"
 printf '%s\n' \
 '{"type":"assistant","isSidechain":false,"message":{"usage":{"input_tokens":11,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"text","text":"early turn"}]}}' \
-'{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":555,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"text","text":"subagent turn"}]}}' \
+'{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":555,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"text","text":"sub-agent turn"}]}}' \
 '{"type":"assistant","isSidechain":false,"message":{"usage":{"input_tokens":101,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"content":[{"type":"text","text":"## 🟢 In plain words\n\nFix the flaky timeout test.\n\nNext: rerun the suite twice."}]}}' \
 > "$D/tr/main.jsonl"
 printf '%s' '{"hook_event_name":"PreCompact","trigger":"auto","session_id":"docs-demo-pc-1","transcript_path":"'$D'/tr/main.jsonl","cwd":"'$D'"}' \
@@ -102,8 +102,8 @@ Two numbers in that file are earned, not copied. The **observed ceiling** is
 the usage sum — input plus cache reads — on the *last main-thread* assistant
 entry at the instant the harness declared the window spent (lines 227-255).
 The demo transcript's last main-thread entry sums to 101; the 555-token
-subagent turn sits between entries and must not be counted, because a
-subagent's usage is not the main thread's window — the
+sub-agent turn sits between entries and must not be counted, because a
+sub-agent's usage is not the main thread's window — the
 `select(.isSidechain != true)` filter is load-bearing for the body extraction
 (lines 192-203) and again here. A computed 0 is discarded rather than written:
 a zero floor would fire the reader's arm on every turn, strictly worse than
