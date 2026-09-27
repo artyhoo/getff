@@ -5,7 +5,7 @@
 # install.sh, so DRY_RUN / FULL are invisible to it. Three defects followed:
 #   A1-3  the helper prompts [y/N] and, on y, `git clone` + `docker compose up -d` —
 #         real side effects AFTER 99-finalize printed "Nothing was written", and a
-#         blocking prompt on the -y/--all path that setup:22 documents as never-prompting.
+#         blocking prompt on the -y/--all path that setup:27 documents as never-prompting.
 #   A1-4  under `set -euo pipefail` the clone/compose pipelines carried no `|| …`, so a
 #         failure aborted the helper before the degrade notice, the audit-log line and
 #         the health wait — while install.sh's `|| true` reported the install as fine.

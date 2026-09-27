@@ -130,9 +130,73 @@ import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
 
+/**
+ * `path:NN`, `path:NN-MM`, and `path:NN,MM,PP-QQ` — the comma list is group 4, parsed by
+ * `commaMembers` below.
+ *
+ * The path is either an extension we ship or one of the EXTENSIONLESS files the corpus
+ * already names as citing files (`CODE_EXTENSIONLESS`). The closed set is the whole
+ * safety argument: `word:12` is far too common in code to gate on, so an open «any bare
+ * name» rule would ship false reds. Measured 2026-09-27 over the 980-file code corpus —
+ * 7 citations name one of these files (`.husky/pre-commit:112` at
+ * `packages/core/principles/39-skill-fence-orch-home.test.ts:59`), and the FP probe found
+ * exactly one other `setup:NN`-shaped string, which was that same citation. Before this,
+ * such a citation was not a citation at all: not judged, and not even counted as a skip,
+ * so `--show-skips` could not surface it either. One had already drifted and was found by
+ * hand (principle 39 cited `:92`, repaired to `:112` in #1838).
+ *
+ * `d` flag: group indices locate the NUMBERS, which is what `--write` rewrites in a comma
+ * list — see the `pos` branch in `commaMembers`.
+ */
 const CITATION_RE =
-  /(?<![\w/.-])((?:\.{0,2}[/\w][\w./-]*)\.(?:md|markdown|ts|tsx|js|mjs|cjs|sh|json|jsonc|yml|yaml|py|toml))[:](\d+)(?:-(\d+))?/g;
+  /(?<![\w/.-])((?:\.{0,2}[/\w][\w./-]*)\.(?:md|markdown|ts|tsx|js|mjs|cjs|sh|json|jsonc|yml|yaml|py|toml)|\.husky\/(?:pre-commit|pre-push|post-checkout)|setup|Makefile)[:](\d+)(?:-(\d+))?((?:,\d+(?:-\d+)?)+)?/gd;
 const MD_LINK_RE = /\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
+const COMMA_MEMBER_RE = /(\d+)(?:-(\d+))?/g;
+/**
+ * The line references one `path:NN[,MM…]` match carries — the anchor, then each member of
+ * the comma list. Measured 2026-09-27: 18 sites in the code corpus write a list, and
+ * nothing checked anything but the first number — `.claude/hooks/inject-subagent-context.sh:50`
+ * writes `inject-project-digest.sh:31,39`, whose first number was judged and whose second
+ * was not a citation at all.
+ *
+ * A plain `path:NN` stays exactly as it was: one member, no `pos`, rewritten by token.
+ * A list cannot be: the token writer anchors on `:\d+(-\d+)?$`, which a list never ends
+ * with, so it would no-op on every member and report a fix it did not make — the same
+ * silent half-fix the BACKREF_RE note records. List members therefore carry `pos` and go
+ * through the prose writer's right-to-left, digits-asserted positional edit. Each member
+ * also gets its own display token so a finding names `path:MM`, not the whole list.
+ */
+function commaMembers(m, srcLine) {
+  const anchor = { n: Number(m[2]), end: m[3] ? Number(m[3]) : null };
+  if (!m[4]) return [{ ...anchor, token: m[0], pos: null }];
+  const digitsAt = (gi) => {
+    const [s, e] = m.indices[gi];
+    return { line: srcLine, col: s, len: e - s, was: m[0].slice(s - m.index, e - m.index) };
+  };
+  const members = [
+    {
+      ...anchor,
+      token: `${m[1]}:${m[2]}${m[3] ? `-${m[3]}` : ''}`,
+      pos: { start: digitsAt(2), end: m[3] ? digitsAt(3) : null },
+    },
+  ];
+  const tailAt = m.indices[4][0];
+  for (const t of m[4].matchAll(COMMA_MEMBER_RE)) {
+    const col = tailAt + t.index;
+    members.push({
+      n: Number(t[1]),
+      end: t[2] ? Number(t[2]) : null,
+      token: `${m[1]}:${t[0]}`,
+      pos: {
+        start: { line: srcLine, col, len: t[1].length, was: t[1] },
+        end: t[2]
+          ? { line: srcLine, col: col + t[0].length - t[2].length, len: t[2].length, was: t[2] }
+          : null,
+      },
+    });
+  }
+  return members;
+}
 /**
  * Bare backreference — `` `:272` `` — a second line in the file the nearest
  * preceding `path:NN` on the SAME line already named ("…`audit-self.yml:271` cite:historical example of the backref form, not a live pointer
@@ -632,22 +696,22 @@ export function scanFile(srcFile) {
         m,
         token: m[0],
         path: m[1],
-        n: Number(m[2]),
-        end: m[3] ? Number(m[3]) : null,
+        members: commaMembers(m, srcLine),
         bare: false,
       })),
       ...[...text.matchAll(BACKREF_RE)].map((m) => ({
         m,
         token: m[0],
         path: null,
-        n: Number(m[1]),
-        end: m[2] ? Number(m[2]) : null,
+        members: [
+          { n: Number(m[1]), end: m[2] ? Number(m[2]) : null, token: m[0], pos: null },
+        ],
         bare: true,
       })),
     ].sort((a, b) => a.m.index - b.m.index);
 
     for (const c of cites) {
-      const { m, token, n } = c;
+      const { m, token } = c;
       let target;
       let weak = false;
       if (c.bare) {
@@ -683,7 +747,20 @@ export function scanFile(srcFile) {
         }
       }
       if (target === null) continue;
-      judge({ srcLine, token, target, weak, n, end: c.end, escape });
+      // One resolve per match, one verdict per member: a comma list whose path does not
+      // resolve is ONE skip line, not one per number.
+      for (const mem of c.members) {
+        judge({
+          srcLine,
+          token: mem.token,
+          target,
+          weak,
+          n: mem.n,
+          end: mem.end,
+          escape,
+          pos: mem.pos,
+        });
+      }
     }
   });
 
