@@ -462,6 +462,94 @@ describe('isTokenOnlyPatch / parseRefreshFrontmatter edges', () => {
       ),
     ).toBe(false);
   });
+  // ── OBS1 (non-fork half): a page may carry TWO `docs-refresh:` lines. The parser kept
+  // only the LAST, so `parseDeferredToken` never saw the first and a malformed or
+  // too-short earlier token passed unjudged. Three live pages stack two tokens each
+  // (docs/site/index.md, docs/site/ai-agents.md, docs/site/reference/B/arch.md), so this
+  // is the real shape, not a hypothetical.
+  it('every docs-refresh: occurrence is kept, in order (not just the last)', async () => {
+    const { parseRefreshFrontmatter } = await import(SCRIPT);
+    const fm = parseRefreshFrontmatter(
+      '---\ntitle: t\ndocs-refresh: deferred — the first reason, long enough to pass\n' +
+        'docs-refresh: deferred — the second reason, long enough to pass\n---\nbody\n',
+    );
+    expect(fm.docsRefreshAll).toEqual([
+      'deferred — the first reason, long enough to pass',
+      'deferred — the second reason, long enough to pass',
+    ]);
+    // The scalar stays the LAST occurrence so existing readers are unaffected.
+    expect(fm.docsRefresh).toBe(
+      'deferred — the second reason, long enough to pass',
+    );
+  });
+
+  it('a MALFORMED first token is judged even when a valid second one follows', async () => {
+    const { verdictForPage } = await import(SCRIPT);
+    const v = verdictForPage(
+      'docs/site/p.md',
+      {
+        sources: ['scripts/a.mjs'],
+        docsRefresh: 'deferred — the second reason, long enough to pass',
+        docsRefreshAll: [
+          'deferred - hyphen not em dash, so this is malformed',
+          'deferred — the second reason, long enough to pass',
+        ],
+      },
+      new Set(['scripts/a.mjs']),
+    );
+    expect(v.status).toBe('fail');
+    expect(v.message).toMatch(/malformed docs-refresh token/);
+  });
+
+  it('a TOO-SHORT first token is judged even when a valid second one follows', async () => {
+    const { verdictForPage } = await import(SCRIPT);
+    const v = verdictForPage(
+      'docs/site/p.md',
+      {
+        sources: ['scripts/a.mjs'],
+        docsRefresh: 'deferred — the second reason, long enough to pass',
+        docsRefreshAll: [
+          'deferred — TODO',
+          'deferred — the second reason, long enough to pass',
+        ],
+      },
+      new Set(['scripts/a.mjs']),
+    );
+    expect(v.status).toBe('fail');
+    expect(v.message).toMatch(/floor is 20/);
+  });
+
+  it('paired-negative — two VALID tokens still defer, on the last reason', async () => {
+    const { verdictForPage } = await import(SCRIPT);
+    const v = verdictForPage(
+      'docs/site/p.md',
+      {
+        sources: ['scripts/a.mjs'],
+        docsRefresh: 'deferred — the second reason, long enough to pass',
+        docsRefreshAll: [
+          'deferred — the first reason, long enough to pass',
+          'deferred — the second reason, long enough to pass',
+        ],
+      },
+      new Set(['scripts/a.mjs']),
+    );
+    expect(v.status).toBe('deferred');
+    expect(v.reason).toBe('the second reason, long enough to pass');
+  });
+
+  it('a frontmatter without docsRefreshAll still works (older callers)', async () => {
+    const { verdictForPage } = await import(SCRIPT);
+    const v = verdictForPage(
+      'docs/site/p.md',
+      {
+        sources: ['scripts/a.mjs'],
+        docsRefresh: 'deferred — a single reason, long enough to pass',
+      },
+      new Set(['scripts/a.mjs']),
+    );
+    expect(v.status).toBe('deferred');
+  });
+
   it('sources: items at any indentation and quoted are read (form-valid page is never source-less)', async () => {
     const { parseRefreshFrontmatter } = await import(SCRIPT);
     const fm = parseRefreshFrontmatter(
