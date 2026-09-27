@@ -62,6 +62,8 @@ agent executes or skims; `—` = absent; `✗` = states the opposite of the code
 | `docs/site/quick-start.md` | «copies the rules» (`:24`) | — | — | — |
 | `docs/site/installation.md` | «One command» (`:42`) | — | — | — |
 | `docs/site/terms.md` glossary | `rule`, `gate`, `fire` | — (no `test`, `rule test`, `research`, `generated rule`, `preset`) | — | — |
+| `docs/site/llms-head.txt` (the map an agent reads first) | «installs with one command» (`:3`) | — | — (no mention of research) | — |
+| `docs/site/ai-agents.md` three agent prompts (`:60`, `:76`, `:99`) | — | — | — (the install prompt ends at a `--dry-run`, `:85`) | — |
 | `setup.d/99-finalize.sh` printed Next steps (`:450-484`) | — | — | — (7 numbered steps, no research) | ℹ note outside the list (`:113-118`) |
 | `setup.d/99-finalize.sh` code comment (`:102`) | — | — | — | Y «Live-research is the DEFAULT … presets are the FALLBACK» |
 | `setup.d/LAYERS.md` | — | — | layer 80 one row (`:142`) | — |
@@ -93,6 +95,12 @@ still concluded the generation step does not exist.
 names research; no prose surface in its log states the chain. So the correct answer is reachable, but
 only by a reader that out-reads the documentation — which is exactly what a navigable repo should not
 require.
+
+**An earlier in-class run does not contradict this.** `docs/site/ai-agents.md:19` records a
+2026-09-21 run of the site's «Evaluate» prompt («what an install would add», `:60-62`) that the agent
+answered correctly (`:65-71`). That question asks what the install *writes*, and the install writes
+no rule — so a correct answer there never has to name research. The operator's question asks what is
+*generated*, which is where all three probes went wrong.
 
 The probes also found things this session missed: Sonnet found the husky contradiction (N7); Opus
 found the default-profile contradiction (N12), six smaller doc/code conflicts (N13) and a possible
@@ -161,10 +169,13 @@ Each fix channel is a gate or a named cold-agent protocol, per
   `DESCRIPTION.template.md` …». `INSTALL-FOR-AI.md:101`: «DO NOT fill them yourself».
 - `agents/aif-init.md` (PR #610) can fill the passport. `grep -rn aif-init` over `setup.d`, `setup`,
   `skills`, `plugin`, `.claude/hooks`, `packages/core/hooks` finds only the copy list `install.sh:232`
-  and a comment at `setup.d/45-python.sh:1240`. Nothing invokes it.
-- **Gate:** a shipped-agent reachability arm: every agent in the install roster must be named by at
-  least one executed surface (a prompt fence, a skill, a hook, or the Next-steps banner). An agent that
-  ships with no caller fails. Same shape as the population derivation in principle 21 (#1852).
+  and a comment at `setup.d/45-python.sh:1240`. The consumer `AGENTS.md` lists it among «review and
+  audit seats» (`packages/core/templates/shared/AGENTS.md.template:99`) — a listing, not a step that
+  calls it. Nothing invokes it.
+- **Gate:** a shipped-agent reachability arm: every agent in the install roster must be **invoked** by
+  at least one executed step (a prompt step, a skill step, a hook, or a numbered Next-steps item). A
+  roster listing such as `AGENTS.md.template:99` does not count — otherwise `aif-init` already passes.
+  Same shape as the population derivation in principle 21 (#1852).
 
 ### N6 — Machine-global consent never reaches the human
 
@@ -231,7 +242,8 @@ Each fix channel is a gate or a named cold-agent protocol, per
 - `install-enforcement.md:29` says the installer is «pinned to the plugin version»;
   `plugin/install/fetch-and-wire.sh:22-30` tracks `main`.
 - **Gate:** phase 2 input; the reachability arm of N5 applied to the plugin twin catches the missing
-  agents.
+  agents. The pin claim (`:29`) has no gate yet; it belongs in the claim-liveness population of
+  N7/N13.
 
 ### N12 — Three surfaces name the wrong default depth
 
@@ -266,8 +278,9 @@ Found by the backward sweep for this patch's PR, after the operator signed phase
 
 - **Decided.** The binding spec `docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md`
   D1 (`:72-76`): «After install the agent MUST continue into research→rules in the same session
-  without a second human prompt.» W3 item 1 (`:212-215`) puts the continuation clause in
-  `INSTALL-FOR-AI.md` and the delivered starter `AGENTS.md`, with an explicit opt-out.
+  without a second human prompt.» Work item W3 puts the continuation clause in `INSTALL-FOR-AI.md`
+  and the delivered starter `AGENTS.md`, with an explicit opt-out; its binding Done line (`:226-227`)
+  is that the one-beat cold-run protocol (§9.3, `:279`) passes on a fresh python consumer.
 - **Wired where the installing agent is not looking.** S3 (#1253) added the clause after the prompt
   (`INSTALL-FOR-AI.md:568`) and in `packages/core/templates/shared/AGENTS.md.template:75`. It kept the
   prompt's «Stop here» and re-read it as «stop feature work» (`INSTALL-FOR-AI.md:570-572`). The
@@ -275,13 +288,16 @@ Found by the backward sweep for this patch's PR, after the operator signed phase
   read its instructions before the clause existed; whether a harness picks the new file up in the same
   session is INCONCLUSIVE-needs-run. The opt-out shape was parked as an operator decision
   (`INSTALL-FOR-AI.md:593-600`) and is still open.
-- **Closed without its acceptance.** The spec's named acceptance for D1 is the one-beat cold-run
-  (`agents/getff-cold-run-prober.md`, SSOT #239). At umbrella closure the run was PARKED because the
-  container could not produce a cold agent (`.claude/orchestrator-prompts/getff-any-stack-trace/done.md:22`),
-  and deferred to the host. No run is recorded afterwards: the prober is still «Status: DORMANT»
-  (`agents/getff-cold-run-prober.md:14`), and `gh search prs "cold-run-prober"` (2026-09-28) returns
-  #1257 and #1262 (the authoring PRs) and #1832 (it edited a different prober). The umbrella
-  is marked DONE.
+- **Closed without its acceptance — twice.** The spec's named acceptance for D1 is the one-beat
+  cold-run (`agents/getff-cold-run-prober.md`, SSOT #239). At umbrella closure the run was PARKED
+  because the container could not produce a cold agent
+  (`.claude/orchestrator-prompts/getff-any-stack-trace/done.md:22`), and deferred to the host. The
+  successor umbrella scheduled that host run as its S5, «its FIRST run, not a re-run»
+  (`.claude/orchestrator-prompts/getff-freshness-widening/kickoff.md:79-87`). S2-S5 were never
+  dispatched, and that umbrella was closed too (`getff-freshness-widening/done.md:17`). No run is
+  recorded anywhere: the prober is still «Status: DORMANT» (`agents/getff-cold-run-prober.md:14`),
+  and `gh search prs "cold-run-prober"` (2026-09-28) returns #1257 and #1262 (the authoring PRs) and
+  #1832 (it edited a different prober). Both umbrellas are marked DONE.
 - **This patch's §2 probes are that deferred run, approximately** (a framework clone, not a fresh
   consumer — see §6). It fails: 2 of 3 cold agents never name `/rule-research`.
 - **The «tools» step of the operator's button is level 2, still a stub.**
@@ -290,9 +306,10 @@ Found by the backward sweep for this patch's PR, after the operator signed phase
   two-client ledger it was meant to plug into
   (`.claude/orchestrator-prompts/getff-freshness-widening/done.md:17`).
 - **Gate:** no new mechanism. (1) Run the parked protocol on the host and treat its verdict as the
-  phase-2 acceptance. (2) An umbrella `done.md` that records its own acceptance run as PARKED should
-  not count as closed — today it does, which is the `#hope-as-gate` shape
-  (`attention-is-not-a-mechanism.md §2`). Phase 2 starts from this spec, not from a blank page.
+  phase-2 acceptance. (2) An umbrella `done.md` whose acceptance run is PARKED, or was scheduled in
+  a stage that was never dispatched, should not count as closed — today both do, which is the
+  `#hope-as-gate` shape (`attention-is-not-a-mechanism.md §2`). Phase 2 starts from this spec, not
+  from a blank page.
 
 ## §4 Root cause
 
@@ -326,7 +343,7 @@ because none of them reads the docs the way an agent does.
 | N14 | Measured in the phase-2 acceptance run | session-bound probe | `pc-probe.sh` |
 | N9 | Glossary entries with «Do not use» | edit-time inject | `glossary-inject` hook |
 | N10 | Re-armed cold-run prober with the operator's question | session-bound cold agent | SSOT #239 |
-| N15 | Run the parked one-beat protocol on the host; a PARKED acceptance blocks `done.md` | session-bound cold agent + closure check | SSOT #239; spec 2026-07-23 §9.3 |
+| N15 | Run the parked one-beat protocol on the host; a PARKED or never-dispatched acceptance blocks `done.md` | session-bound cold agent + closure check | SSOT #239; spec 2026-07-23 §9.3 |
 
 ## §6 Coverage and confidence (T6, T14)
 
@@ -338,28 +355,128 @@ because none of them reads the docs the way an agent does.
   errors shared across probes, and that the only correct chain came with the deepest code reading.
 - Every probe-reported contradiction used in N7, N12, N13 was re-read at its cited line before it
   was written here. N14 is not measured.
+- The probe transcripts are not in the repo (they lived in a session scratchpad). The prompt is
+  reproduced verbatim in the appendix, so the run can be repeated; the numbers above cannot be
+  re-checked from the repo alone.
 - Contamination: probes ran with the machine-global `~/.claude/CLAUDE.md` loaded (it mentions aif and
   deepwiki); none of them read the handoff, which is gitignored and absent from the clones.
 - The RED fresh-install gates (typecheck, lint, test, build, validate) are real but belong to chip
   `task_aa05bd63`; they are cited here only where a doc promises the opposite
   (`INSTALL-FOR-AI.md:94` «should pass on a fresh project»).
 
+## Solution
+
+Recording-side only: this patch. Every fix is a phase-2 input (§5), not done here (T5). Phase 2
+starts from the binding 2026-07-23 spec (N15), not from a blank page.
+
+## Prevention
+
+- Before shipping a product-level decision that changes the chain (as on 2026-06-28), also re-derive
+  every entry surface that states the chain, and add it to a rendered or gated population (§5 rows
+  N1-N4); patching the surfaces line by line is what left the old story on top.
+- Before closing an umbrella, also check that its named acceptance run happened: a `done.md` that
+  records it as PARKED, or schedules it in a stage that was never dispatched, is not closed (N15).
+
+## Tags
+
+`#two-prompts-drift` · `#hope-as-gate` · `#discipline-application-scope-blindness` · `#parked-acceptance-closure`
+
 ## §1.7 self-review (recursive self-application of this very patch)
 
 ### §1.7 Forward-check applied
 
-Checked against [`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md):
-every finding carries a gate or a named cold-agent protocol, none relies on «a reader will notice».
-Checked against [`ai-laziness-traps.md`](../../../.claude/rules/ai-laziness-traps.md) T3 (every finding
-has a file:line or command output) and T10 (population in §1 before sampling in §2).
+- [`attention-is-not-a-mechanism.md §1`](../../../.claude/rules/attention-is-not-a-mechanism.md):
+  thirteen findings name a deterministic gate or a named cold-agent protocol. Two do not, and say
+  so: N9's glossary entries plus edit-time injection are a reminder channel, not a gate (ranked
+  below N1-N5); N14 is a measurement to run, not a gate. N11's pin claim has no gate today and is
+  routed to the claim-liveness population.
+- [`ai-laziness-traps.md`](../../../.claude/rules/ai-laziness-traps.md): T3 — every finding has a
+  file:line or a command with its output; T10 — the population (§1) precedes the probes (§2); T6 and
+  T14 — §6 states coverage and calibration as predicates, and what was not read.
+- Negative-existence claims (phase-research-coverage §1.4): «no one-beat run is recorded» (N15) was
+  checked with the counter-prompt «if it had run, where would it be recorded?» — the prober's status
+  line, a PR quoting its verdict, either umbrella's `done.md`, a research patch. All four came back
+  empty. «Nothing invokes `aif-init`» (N5) rests on a grep over executed steps and skills.
+- Folder charter ([`research-patches/README.md:3`](README.md)): the five required sections are
+  present (Root Cause is §4). The body exceeds the ≤100 LOC cap (`README.md:24`). Deviation, stated:
+  15 findings share one root cause, and splitting them would lose it. Measured drift, not a
+  precedent claim: 199 of 254 patches on `origin/staging` exceed 100 lines
+  (`git ls-tree` over the folder + `wc -l`, 2026-09-28).
+- Doc authority: patches inherit folder authority (`README.md:3`); the scope comment is line 1.
+  Language: English. Capability commit: no — doc only (`Prior-art: skipped` trailer).
+- Trigger sweep (§1.6): not applicable — this is not phase-entry research.
 
 ### §1.7 Backward-check applied
 
-Swept the sibling class «a copy-paste prompt for agents» beyond the one the handoff named: found the
-second prompt in `README.md:251-278` (N4), which the handoff did not list. Swept «a shipped agent with
-no caller» beyond `aif-init`: the plugin twin (N11) lacks the two agents its own skills delegate to.
-Swept the class «earlier records of the same gap» across `docs/meta-factory/research-patches/` and
-`docs/superpowers/specs/` (`grep -l 'Stop here'`, `grep -l 'cold-run-prober'`, `grep -l 'install prompt'`):
-`2026-08-07-getff-s3-cold-read-baseline.md:51` had already recorded the missing continuation clause,
-which led to the binding 2026-07-23 program and to N15. The other hits (`2026-07-02-doc-audit-delta.md:129`
-and four older patches) are about the prompt's legacy `setup.sh` entry, fixed since.
+Class of this change = «a record that an entry surface tells an AI agent the wrong install chain, or
+that the chain's acceptance run never happened». Surfaces where the class occurs, and a verdict for
+each:
+
+**(A) Earlier records in patches and specs.** Command:
+`git grep -l -i '<phrase>' origin/staging -- docs/meta-factory/research-patches docs/superpowers/specs`.
+Hits: «Stop here» 1, «cold-run-prober» 1, «install prompt» 5, «continuation clause» 2, «one beat» 1.
+
+- `specs/2026-07-23-getff-any-stack-closure-design.md` — IN-CLASS: the binding one-beat decision.
+  Folded into N15.
+- `2026-08-07-getff-s3-cold-read-baseline.md:51` — IN-CLASS: the BEFORE baseline that S3 of that
+  spec recorded («Continuation clause (spec §6.1 / D1): absent on both surfaces»). The spec produced
+  the baseline, not the reverse. Folded into N15.
+- `specs/2026-08-07-s-d-prime-subtraction-maps.md:355` — names the prober as the DORMANT acceptance
+  probe and keeps it out of trimming. SWEPT-CLEAN: consistent with N10 and N15.
+- `2026-07-02-doc-audit-delta.md:129` — IN-CLASS, fixed: the prompt used the legacy `setup.sh`
+  entry. SWEPT-CLEAN today: the prompt runs `bash /tmp/getff/setup -y` (`INSTALL-FOR-AI.md:65`).
+- `2026-05-27-install-sh-k1-extension.md:43,437` and
+  `2026-05-27-stage-6-readme-update-verification.md:175` — the installer's own `read -rp`
+  companion prompts, not the agent prompt. Adjacent to N6: this is the interactive question that
+  `-y` skips. No conflict with N6.
+- `2026-06-14-s3-workflow-merge-adopt-vs-build.md:225` — a dependency-install `[y/N]` prompt. Out
+  of class.
+- `2026-06-27-§13.32-A4-aif-integration-depth.md:174` — adjacent: third-party skill names on the
+  same entry doc may go stale. Belongs to the claim-liveness population of N7/N13; not re-verified
+  here.
+
+**(B) Umbrella and stage records.** Command:
+`git grep -n -i 'cold-run\|one-beat\|one beat' origin/staging -- .claude/orchestrator-prompts`.
+
+- `getff-any-stack-trace/done.md:22` — PARKED run. GAP, recorded in N15.
+- `getff-freshness-widening/kickoff.md:79-87` with `done.md:17` — the re-scheduled first run, never
+  dispatched. GAP, added to N15 by this sweep.
+- `consumer-truth-audit/gen-census.mjs:147` — the census lists the prober as framework-only.
+  SWEPT-CLEAN.
+- `consumer-truth-audit/kickoff.md:141` — lane V1, «do README/INSTALL-FOR-AI/AGENTS match V0's
+  measured delivery», is the same class of check. No `report-v1.md` on `origin/staging`;
+  `gh pr list --search "consumer-truth-audit in:title"` returns V0, V2, the V2 addendum, the V3R
+  kickoff and the umbrella, no V1. GAP: a second doc-vs-delivery check that was planned and not
+  run. Recorded here as a phase-2 input.
+
+**(C) Entry surfaces an agent executes.** These came from the §1 population, not from the greps
+above: the second prompt in `README.md:251-278` (N4) and the plugin command's weaker chain (N11),
+neither of which the handoff listed; `docs/site/ai-agents.md` and `docs/site/llms-head.txt` (§1).
+
+## Appendix — the cold-probe prompt (verbatim)
+
+Sent unchanged to each of the three probes in §2; only the clone path differed.
+
+```text
+A developer is considering the framework in the repository at:
+<clone path>
+
+Their question, verbatim (translated from Russian):
+"Will this framework really let me install everything a project needs with one button — skills, MCP, rules and tests? Is everything generated fully automatically, at least for React? Fully turnkey?"
+
+Their project would be a fresh React/Next.js app.
+
+Answer their question as exactly as you can, based only on the contents of that repository directory.
+
+Constraints:
+- Read only files inside that directory. Do not read anything under ~/.claude or any other path outside it.
+- Read-only: do not run the installer, do not install packages, do not use the network, do not modify files. Reading, grep, ls, git log/show inside the directory are fine.
+
+Report format (plain text, English):
+1. SHORT ANSWER: yes / partly / no, one paragraph.
+2. PER COMPONENT: for each of skills, MCP servers, rules, tests — what gets installed/generated for a fresh React/Next project, automatically or only after some extra step (say which step and who performs it), with a file:line citation for each claim.
+3. WHAT DOES THE DEVELOPER (OR THEIR AI AGENT) HAVE TO DO after the install command, in order.
+4. NAVIGATION LOG: the files you read, in the order you read them, one line each: path — what you took from it — whether it turned out to be accurate, misleading, or contradicted by another file.
+5. CONFUSIONS: every place where you were unsure, found two files disagreeing, or had to guess. Quote the conflicting lines with file:line.
+6. CONFIDENCE: which claims you verified in code vs only read in prose docs.
+```
