@@ -94,3 +94,13 @@ autonomous agent session (`HANDOFF_MODE=1`). A handoff session never switches br
 never rebases or force-pushes.
 
 _Operator says_: handoff, «хендофф», «хэндофф».
+
+## One button
+
+**One button**: one agent session takes a fresh project from nothing to a green project —
+install, passport, tools, rule research, generated rules with their firing tests — with no
+second human prompt to continue. It is one session, not one shell command; the human may
+still answer questions inside it. Owner: the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md);
+the «one beat» decision it builds on is D1 of the [any-stack closure spec](docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md).
+
+_Operator says_: «одна кнопка», «одной кнопкой», «от и до», «под ключ».
