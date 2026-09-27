@@ -358,7 +358,7 @@
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 273
+      "count": 274
     },
     "specs": {
       "source": "docs/superpowers/specs/",
