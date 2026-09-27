@@ -23,6 +23,8 @@ by code and a real install on 2026-09-27, is:
 - The design says the installing agent continues into `/rule-research` in the same session
   (`INSTALL-FOR-AI.md:568-576`). The prompt the agent actually executes ends at «Stop here»
   (`INSTALL-FOR-AI.md:107`) and never names it. So «one button» is designed and not wired.
+- The design is not new: a binding spec of 2026-07-23 decided «one beat» and a cold-run acceptance
+  for it; the acceptance run was parked at closure and never run (N15).
 
 This patch measures where a cold reader goes wrong and why.
 
@@ -258,6 +260,40 @@ Each fix channel is a gate or a named cold-agent protocol, per
 - **Gate:** the phase-2 acceptance run (the `pc-probe.sh` fresh-install probe extended by a research
   fixture) measures it.
 
+### N15 — «One beat» was already decided, half-wired, and closed without its acceptance run
+
+Found by the backward sweep for this patch's PR, after the operator signed phase 1 off.
+
+- **Decided.** The binding spec `docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md`
+  D1 (`:72-76`): «After install the agent MUST continue into research→rules in the same session
+  without a second human prompt.» W3 item 1 (`:212-215`) puts the continuation clause in
+  `INSTALL-FOR-AI.md` and the delivered starter `AGENTS.md`, with an explicit opt-out.
+- **Wired where the installing agent is not looking.** S3 (#1253) added the clause after the prompt
+  (`INSTALL-FOR-AI.md:568`) and in `packages/core/templates/shared/AGENTS.md.template:75`. It kept the
+  prompt's «Stop here» and re-read it as «stop feature work» (`INSTALL-FOR-AI.md:570-572`). The
+  consumer `AGENTS.md` does not exist until the install writes it, so the agent that runs the install
+  read its instructions before the clause existed; whether a harness picks the new file up in the same
+  session is INCONCLUSIVE-needs-run. The opt-out shape was parked as an operator decision
+  (`INSTALL-FOR-AI.md:593-600`) and is still open.
+- **Closed without its acceptance.** The spec's named acceptance for D1 is the one-beat cold-run
+  (`agents/getff-cold-run-prober.md`, SSOT #239). At umbrella closure the run was PARKED because the
+  container could not produce a cold agent (`.claude/orchestrator-prompts/getff-any-stack-trace/done.md:22`),
+  and deferred to the host. No run is recorded afterwards: the prober is still «Status: DORMANT»
+  (`agents/getff-cold-run-prober.md:14`), and `gh search prs "cold-run-prober"` (2026-09-28) returns
+  #1257 and #1262 (the authoring PRs) and #1832 (it edited a different prober). The umbrella
+  is marked DONE.
+- **This patch's §2 probes are that deferred run, approximately** (a framework clone, not a fresh
+  consumer — see §6). It fails: 2 of 3 cold agents never name `/rule-research`.
+- **The «tools» step of the operator's button is level 2, still a stub.**
+  `.claude/orchestrator-prompts/stack-tooling-generation/kickoff.md` is «STUB — unfold before
+  dispatch». Its gate file exists, but the umbrella behind it closed without dispatching the
+  two-client ledger it was meant to plug into
+  (`.claude/orchestrator-prompts/getff-freshness-widening/done.md:17`).
+- **Gate:** no new mechanism. (1) Run the parked protocol on the host and treat its verdict as the
+  phase-2 acceptance. (2) An umbrella `done.md` that records its own acceptance run as PARKED should
+  not count as closed — today it does, which is the `#hope-as-gate` shape
+  (`attention-is-not-a-mechanism.md §2`). Phase 2 starts from this spec, not from a blank page.
+
 ## §4 Root cause
 
 The product changed on 2026-06-28 (research is agent-driven and is the default rule delivery) and the
@@ -273,6 +309,11 @@ fence guards `INSTALL-FOR-AI.md:79-82` and not the count four lines below it (N8
 #1852 guarded four of fourteen skills. The fix channel is therefore mostly **widening existing gate
 populations**, not new mechanisms.
 
+A third pattern explains why the first two survived a program that was aimed straight at them (N15):
+**the one check that measures the chain through a cold reader's eyes was parked at closure, and a
+parked acceptance did not block the umbrella from closing.** Every deterministic cell stayed green
+because none of them reads the docs the way an agent does.
+
 ## §5 Fix channels — summary (inputs to phase 2, not decisions)
 
 | # | Gate | Channel | Reuse |
@@ -285,6 +326,7 @@ populations**, not new mechanisms.
 | N14 | Measured in the phase-2 acceptance run | session-bound probe | `pc-probe.sh` |
 | N9 | Glossary entries with «Do not use» | edit-time inject | `glossary-inject` hook |
 | N10 | Re-armed cold-run prober with the operator's question | session-bound cold agent | SSOT #239 |
+| N15 | Run the parked one-beat protocol on the host; a PARKED acceptance blocks `done.md` | session-bound cold agent + closure check | SSOT #239; spec 2026-07-23 §9.3 |
 
 ## §6 Coverage and confidence (T6, T14)
 
@@ -316,3 +358,8 @@ has a file:line or command output) and T10 (population in §1 before sampling in
 Swept the sibling class «a copy-paste prompt for agents» beyond the one the handoff named: found the
 second prompt in `README.md:251-278` (N4), which the handoff did not list. Swept «a shipped agent with
 no caller» beyond `aif-init`: the plugin twin (N11) lacks the two agents its own skills delegate to.
+Swept the class «earlier records of the same gap» across `docs/meta-factory/research-patches/` and
+`docs/superpowers/specs/` (`grep -l 'Stop here'`, `grep -l 'cold-run-prober'`, `grep -l 'install prompt'`):
+`2026-08-07-getff-s3-cold-read-baseline.md:51` had already recorded the missing continuation clause,
+which led to the binding 2026-07-23 program and to N15. The other hits (`2026-07-02-doc-audit-delta.md:129`
+and four older patches) are about the prompt's legacy `setup.sh` entry, fixed since.
