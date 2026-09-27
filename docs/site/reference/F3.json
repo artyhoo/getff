@@ -288,7 +288,8 @@
         "wired-from": [
           ".husky/pre-commit:183 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
-          "package.json:1 (json-value:invocation-verb)"
+          "package.json:1 (json-value:invocation-verb)",
+          "scripts/run-local-ci-sweep.sh:233 (quoted-path-token, closure)"
         ]
       },
       "example": null
