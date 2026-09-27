@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8663dd738937a92647d552bedab0d4a03f13c273dab7f12523874da536d95b27  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-c5a6ad430504fef90c163aaef1615a35d3046daec1a2b8386de7d0caa8db1d65  .ai-factory/refresh-baseline.json
+9480e2d83833034ae7e519b7e55dc5dde7100dae10d0ecf7635eb8283aac4d5b  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
@@ -27,9 +27,9 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 9c46f2c267982f31742bc4d03cd150cce67770ebf5e04106b11f9a231460673b  .claude/hooks/ask-question-reminder.sh
 696081583609571cae2f52e61a45fddd4e0d2c208d064e279fbd28ff48c6ff3e  .claude/hooks/check-doc-authority-header.sh
-17ddf49b050256242a8fcb2cc8b1fb4b987a9b2c1631f3a6b4ccccaf82512715  .claude/hooks/deps-hash-check.sh
-8955c78b247264458698e70003e25e6ded4fdb2ad7298cc875d8dfa6df955aae  .claude/hooks/end-of-turn-reminder.sh
-eb176ad96d605eb507a742294a5fab9c49330e6ad27b4665c2ff7dff8d797d15  .claude/hooks/inject-matching-rule.sh
+a25f9e1722b9e951d00173b5f534a1c8bb103c609d7553128a8bff74059a611f  .claude/hooks/deps-hash-check.sh
+b3478c6453bf2a9967ad85f8081ef56971a96719d77a691909231766067de1e2  .claude/hooks/end-of-turn-reminder.sh
+00310de71455d9de8d9a9ed118e98bb605d0bdde4d27eca825987d5376ac8531  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
@@ -167,7 +167,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  packages/core/
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 3ca9d4afd21425087cf31893b8f9f63c81b0b8408db5e343ca76e5f8aa26ab9a  packages/core/hooks/package.json
 77dce7bd339563d5b6e45ba8f38e05f89f00a4eb40e6332b7af5389657a27aa7  packages/core/hooks/pre-push.fallback.sh
-aff18669c560e025dab38c2f125384854799bc39c561045dedfbdb620ae176d5  packages/core/hooks/pre-push.ts
+4a7851ae1dbfa977b05b03734e950be88c7e1c92f1a1ec57fbc873b50f1e07fa  packages/core/hooks/pre-push.ts
 ca0794944baccb739c780a6754a589d5b4f3c2c213c5605be16f90ca0c79861a  packages/core/hooks/utils/git.ts
 f0a659b99f0b539b214213148ba5cd2415c6bcc0f299783acad8167dcc1c277e  packages/core/hooks/utils/run-check.ts
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh

@@ -38,11 +38,15 @@ bridge_guided_run() {
     docker-down) printf '  aif-handoff not responding and the docker daemon is not running — start docker, then re-run.\n' ;;
     absent)  printf '  aif-handoff not detected (no docker, no CLI). See docs/runtime-bridge-setup.md for install.\n' ;;
   esac
-  # Cross-layer warning (owner GO 2026-07-11): the AIF operator suite (--with-aif-suite/--all)
-  # presupposes this runtime — files landed but no runtime means the suite skills dead-end.
-  # WITH_AIF_SUITE is in scope when sourced from ./setup; harmless empty otherwise.
-  if [ "$state" != "up" ] && [ -n "${WITH_AIF_SUITE:-}" ]; then
-    printf '  ⚠ AIF operator suite installed (--with-aif-suite/--all) but the aif-handoff runtime is not reachable — suite skills (pipeline/dispatcher/harvest/…) will dead-end until it is up.\n'
+  # Cross-layer warning (owner GO 2026-07-11): the AIF operator suite (--profile factory, or
+  # the legacy --with-aif-suite/--all escape) presupposes this runtime — files landed but no
+  # runtime means the suite skills dead-end. Both depth signals must be read: --profile factory
+  # is the one that installs the suite today, and checking only the legacy escape meant the
+  # modern flag installed the suite and got no warning. PROFILE_DEPTH is in scope when sourced
+  # from ./setup, PROFILE when exported by install.sh; harmless empty otherwise.
+  if [ "$state" != "up" ] \
+    && { [ -n "${WITH_AIF_SUITE:-}" ] || [ "${PROFILE_DEPTH:-${PROFILE:-}}" = "factory" ]; }; then
+    printf '  ⚠ AIF operator suite installed (--profile factory / --with-aif-suite / --all) but the aif-handoff runtime is not reachable — suite skills (pipeline/dispatcher/harvest/…) will dead-end until it is up.\n'
   fi
   # our-side writes are delegated to the existing, tested script:
   if [ "$state" = "up" ]; then
