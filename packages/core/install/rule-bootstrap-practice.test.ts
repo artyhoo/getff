@@ -3,7 +3,9 @@
 // The JS live path (FileResearchClient/FileGenerateClient → generate.ts → L4 → install) is
 // eslint-only: `engine:'ast-grep'` is parked in the L4 gates ("reserved but not wired —
 // deferred per generator-forbid-mvp decision (i)", gate-autofix-clean.ts:121) and install()
-// writes `.ai-factory/` which the python lane forbids. The SHIPPED researched-python
+// needs Node at install time, which the python lane deliberately does not have. (This sentence
+// used to say the lane forbids `.ai-factory/`; since D8/#1169 it ships the agent surface there.)
+// The SHIPPED researched-python
 // generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
 // `researchedPracticeToNode` bridge → `renderAstgrep` (both pure, proven LG-S1 INC-1/2).
 // This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON →

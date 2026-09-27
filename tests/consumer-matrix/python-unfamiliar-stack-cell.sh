@@ -446,7 +446,7 @@ echo "  reject-bootstrap.log (the research-only verdict must be loud):"
 sed 's/^/    /' "$REJECT_LOG"
 
 # The bootstrap CLI returns rc=0 on research-only findings (they're honest degrades,
-# NOT errors — see rule-bootstrap-cli.ts:238 runPracticeRender header). The LOUD log
+# NOT errors — see rule-bootstrap-cli.ts:240 runPracticeRender header). The LOUD log
 # line carries the verdict.
 grep -F 'researched but not rendered' "$REJECT_LOG" >/dev/null 2>&1 \
   || fail "REJECT arm: research-only verdict NOT logged (the loud degrade is the contract — silent reject is T-AST-B)"
