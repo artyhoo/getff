@@ -57,6 +57,7 @@ import {
 import { resolve, dirname, join, basename } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -1090,6 +1091,221 @@ describe(
 
       expect(r.status, out).toBe(0);
       expect(existsSync(marker), out).toBe(true);
+    });
+
+    // ── OBS8: the payload-drift section (generated artefacts, pre-push channel) ──
+    // Two committed generated artefacts had NO pre-push gate and were detected only by
+    // a CI round-trip: packages/getff/MANIFEST.sha256 (scripts/build-getff-dist.sh) and
+    // tests/install-sh/baselines/**/*.fingerprint (tests/install-sh/snapshot.sh). Both
+    // fired live during the #1851/#1852/#1853 sequence; the baseline half cost a red
+    // shard C and a merge-forward.
+    //
+    // The section is change-scoped in BOTH arms, so every arm below pairs a positive
+    // with the negative that proves the scoping is not a hole.
+
+    /** sha256 of a string — the hash form both MANIFEST.sha256 and the install
+     *  fingerprints record (`<sha256>  <path>`). */
+    function sha256(s: string): string {
+      return createHash('sha256').update(s).digest('hex');
+    }
+
+    /** Plant the maintainer-side inputs of arm A: the payload lister (the single
+     *  source for WHICH repo paths ship) and a manifest. Written UNCOMMITTED on
+     *  purpose — committing them would put them in the push's changed set and
+     *  contaminate the scoping arms. */
+    function plantGetffDist(
+      dir: string,
+      payload: string[],
+      manifest: Record<string, string>,
+    ): void {
+      const script = join(dir, 'scripts/build-getff-dist.sh');
+      mkdirSync(dirname(script), { recursive: true });
+      writeFileSync(
+        script,
+        `#!/bin/sh\n[ "$1" = "--list-payload" ] || exit 2\n` +
+          payload.map((p) => `echo "${p}"`).join('\n') +
+          '\n',
+      );
+      chmodSync(script, 0o755);
+      const m = join(dir, 'packages/getff/MANIFEST.sha256');
+      mkdirSync(dirname(m), { recursive: true });
+      writeFileSync(
+        m,
+        Object.entries(manifest)
+          .map(([p, h]) => `${h}  ${p}`)
+          .join('\n') + '\n',
+      );
+    }
+
+    /** Plant one install fingerprint. `rows` maps a CONSUMER-destination path to the
+     *  sha256 of the bytes the installer delivered there. */
+    function plantBaseline(
+      dir: string,
+      name: string,
+      rows: Record<string, string>,
+    ): void {
+      const f = join(dir, `tests/install-sh/baselines/${name}.fingerprint`);
+      mkdirSync(dirname(f), { recursive: true });
+      writeFileSync(
+        f,
+        Object.entries(rows)
+          .map(([p, h]) => `${h}  ${p}`)
+          .join('\n') + '\n',
+      );
+    }
+
+    /** A shipped file that exists at the sandbox's base commit, with its pre-image. */
+    const VICTIM = 'packages/core/hooks/utils/run-check.ts';
+    function preimageOf(dir: string, baseSha: string, path: string): string {
+      return execSync(`git show ${baseSha}:${path}`, { cwd: dir }).toString();
+    }
+
+    it('P-0 — the REAL assembler answers --list-payload (the sandbox stub is not a lie)', () => {
+      const script = resolve(REPO_ROOT, 'scripts/build-getff-dist.sh');
+      if (!existsSync(script)) return; // consumer checkout: nothing to assert
+      const r = spawnSync('bash', [script, '--list-payload'], {
+        encoding: 'utf8',
+        cwd: REPO_ROOT,
+      });
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+      const lines = r.stdout.split('\n').filter(Boolean);
+      // The flag exists so the hook never keeps a second copy of the payload list.
+      expect(lines.length, out).toBeGreaterThanOrEqual(15);
+      expect(lines, out).toContain('install.sh');
+      expect(lines, out).toContain('packages/core');
+    });
+
+    it('P-1 — a non-payload push does NOT judge the manifest (arm A is change-scoped)', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // A manifest that is WRONG about an untouched payload file. An unscoped arm
+      // would red on it; a change-scoped one never looks.
+      plantGetffDist(dir, ['packages/core'], {
+        [VICTIM]: sha256('not what is on disk'),
+      });
+      addConsumerCommit(dir, 'docs/notes.md', '# Notes\n', 'docs: a docs push');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+    });
+
+    it('P-2 — a payload file edited without re-running the assembler is DRIFT', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantGetffDist(dir, ['packages/core'], {
+        [VICTIM]: sha256('the content the manifest was built from'),
+      });
+      addConsumerCommit(
+        dir,
+        VICTIM,
+        preimageOf(dir, baseSha, VICTIM) + '\n// touched\n',
+        'chore: touch a shipped file',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/MANIFEST\.sha256/);
+      expect(out, out).toContain(VICTIM);
+      expect(out, out).toMatch(/build-getff-dist\.sh/);
+    });
+
+    it('P-3 paired-negative — the same edit WITH the manifest re-run is clean', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const next = preimageOf(dir, baseSha, VICTIM) + '\n// touched\n';
+      plantGetffDist(dir, ['packages/core'], { [VICTIM]: sha256(next) });
+      addConsumerCommit(dir, VICTIM, next, 'chore: touch a shipped file');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+    });
+
+    it('P-4 — a NEW payload file missing from the manifest is DRIFT', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantGetffDist(dir, ['packages/core'], { [VICTIM]: sha256('whatever') });
+      addConsumerCommit(
+        dir,
+        'packages/core/brand-new.ts',
+        'export const x = 1;\n',
+        'feat(core): a new shipped file',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/MANIFEST\.sha256/);
+      expect(out, out).toContain('packages/core/brand-new.ts');
+    });
+
+    it('P-4b — a DELETED payload file still listed in the manifest is DRIFT', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      // Not VICTIM: the hook imports run-check.ts, so deleting it crashes the loader
+      // before any section runs (measured). A rule source is shipped and unimported.
+      const doomed = 'packages/core/eslint-rules/no-direct-time-randomness.ts';
+      plantGetffDist(dir, ['packages/core'], {
+        [doomed]: sha256(preimageOf(dir, baseSha, doomed)),
+      });
+      rmSync(join(dir, doomed));
+      execSync(`git add -A "${doomed}"`, { cwd: dir });
+      execSync('git commit -m "chore: drop a shipped file"', { cwd: dir });
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      // Both assertions matter: a bare exit-1 arm passed against the UNKNOWN-section
+      // error while the section did not exist yet (measured while watching RED).
+      expect(out, out).toMatch(/MANIFEST\.sha256/);
+      expect(out, out).toContain(doomed);
+    });
+
+    it('P-5 — a changed file whose OLD bytes are still in an install baseline is STALE', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const before = preimageOf(dir, baseSha, VICTIM);
+      // The baseline records a CONSUMER-destination path, which is not the repo path —
+      // membership is by hash precisely so the source→destination map is not needed.
+      plantBaseline(dir, 'ts-server/greenfield', {
+        '.ai-factory/vendor/run-check.ts': sha256(before),
+      });
+      addConsumerCommit(dir, VICTIM, before + '\n// touched\n', 'chore: touch');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/baselines/);
+      expect(out, out).toContain(VICTIM);
+      expect(out, out).toMatch(/SNAPSHOT_MODE=capture/);
+    });
+
+    it('P-6 paired-negative — a push that ALSO re-captures the baseline is clean', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      const before = preimageOf(dir, baseSha, VICTIM);
+      const after = before + '\n// touched\n';
+      // Baselines are read at HEAD, so a re-capture in the same push removes the old
+      // hash and the arm has nothing to report.
+      plantBaseline(dir, 'ts-server/greenfield', {
+        '.ai-factory/vendor/run-check.ts': sha256(after),
+      });
+      addConsumerCommit(dir, VICTIM, after, 'chore: touch');
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+    });
+
+    it('P-7 — a consumer (no manifest, no baselines) is never blocked', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      addConsumerCommit(
+        dir,
+        VICTIM,
+        preimageOf(dir, baseSha, VICTIM) + '\n// touched\n',
+        'chore: touch',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'payload-drift');
+      const out = `${r.stdout}\n${r.stderr}`;
+      expect(r.status, out).toBe(0);
+      expect(out, out).not.toMatch(/DRIFT|STALE/);
     });
 
     // ── S3 deliverable 2: consumer-topology smoke ──────────────────────────────

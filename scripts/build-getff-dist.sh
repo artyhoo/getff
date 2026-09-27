@@ -24,6 +24,9 @@
 #   scripts/build-getff-dist.sh            # assemble packages/getff/ + rewrite MANIFEST.sha256
 #   scripts/build-getff-dist.sh --check    # drift gate: exit 1 if committed manifest != fresh assembly,
 #                                          # or if package.json `files` misses a payload root
+#   scripts/build-getff-dist.sh --list-payload   # one PAYLOAD pathspec per line, for callers that
+#                                          # need to ask "is this changed path shipped?" without
+#                                          # keeping a second copy of the list (pre-push payload-drift)
 #
 # Runs from any cwd (root derived from this file's location). Bash 3.2-compatible (macOS default).
 set -euo pipefail
@@ -119,6 +122,14 @@ case "$MODE" in
     rm -f "$tmp.manifest"
     echo "✓ packages/getff/MANIFEST.sha256 in sync with the repo root ($(wc -l < "$MANIFEST" | tr -d ' ') files); \`files\` covers every payload root"
     ;;
+  --list-payload)
+    # The payload list is a single source. scripts/run-local-ci-sweep.sh already parses
+    # this file's `PAYLOAD=` line with sed to derive its trigger; a second consumer
+    # (packages/core/hooks/pre-push.ts payloadDriftSection) asks for it properly instead
+    # of growing a third hand-kept copy.
+    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
+    printf '%s\n' $PAYLOAD
+    ;;
   build)
     files_check || exit 1
     assemble "$PKG"
@@ -126,7 +137,7 @@ case "$MODE" in
     echo "✓ assembled packages/getff/ from the repo root — $(wc -l < "$MANIFEST" | tr -d ' ') files in MANIFEST.sha256"
     ;;
   *)
-    echo "usage: scripts/build-getff-dist.sh [--check]" >&2
+    echo "usage: scripts/build-getff-dist.sh [--check|--list-payload]" >&2
     exit 2
     ;;
 esac
