@@ -601,13 +601,13 @@ expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in
 # =================================== extensionless targets + comma-separated line lists
 # Two shapes the path grammar could not see. Measured 2026-09-27 over the 980-file code
 # corpus: 7 citations name an extensionless file (`.husky/pre-commit:112` at
-# `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, `setup:22` at
-# `tests/install-sh/aif-guided-install-gating.test.sh:8`) and 18 sites carry a comma list
+# `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
+# `tests/install-sh/aif-guided-install-gating.test.sh:8`), and 18 sites carry a comma list
 # whose second and later numbers nothing checked (`inject-project-digest.sh:31,39` at
 # `.claude/hooks/inject-subagent-context.sh:50`). Neither shape even reached the skip
 # tally — they were not citations at all, so `--show-skips` could not surface them either.
-# Both populations were blank-landing-clean at measurement time: this closes a detection
-# hole before it drifts, it does not repair live drift.
+# Both populations were blank-landing-clean, so arm 2 had nothing to say; arm 1 found two
+# that had genuinely drifted, repaired in the commit after this one.
 #
 # The extensionless set is the SAME closed set the corpus already names as citING files
 # (`CODE_EXTENSIONLESS`), not an open «any path» rule: a bare word plus a colon plus
