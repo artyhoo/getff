@@ -1371,7 +1371,11 @@ _py_deliver_agent_surface() {
         _py_sc="${_py_doc#packages/core/templates/shared/skill-context/}"; _py_sc="${_py_sc%/SKILL.md}"
         # Same suite-gate as 20-agents.sh:73-75 — aif-orchestrator-discipline pairs with the gated
         # orchestrator-worker-discipline agent (not in the python curated subset, so this skips too).
-        if [ "$_py_sc" = "aif-orchestrator-discipline" ] && [ -z "${WITH_AIF_SUITE:-}" ] \
+        # The PROFILE half of that predicate was missing here, which was invisible while
+        # install.sh dispatched this lane before resolving PROFILE at all: --profile factory
+        # reached the npm lane and not this one. Both halves now, so the two lanes gate alike.
+        if [ "$_py_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
+          && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi
         mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc"
         # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1386).

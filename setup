@@ -86,6 +86,15 @@ if [ "$_awaiting_profile_value" -eq 1 ]; then
   exit 1
 fi
 
+# The two --profile spellings land in two different variables above, because the wrapper
+# forwards them verbatim and never interprets them. The runtime-bridge step below is the one
+# place in this file that has to KNOW the depth (its cross-layer warning fires at factory), so
+# funnel both spellings into one lower-cased variable for it. Validation stays in install.sh —
+# an unknown value never reaches the bridge step, because install.sh exits 1 first.
+PROFILE_DEPTH="$PROFILE_VALUE"
+case "$PROFILE_FLAG" in --profile=*) PROFILE_DEPTH="${PROFILE_FLAG#--profile=}" ;; esac
+PROFILE_DEPTH="$(printf '%s' "$PROFILE_DEPTH" | tr '[:upper:]' '[:lower:]')"
+
 echo "▶ Preflight"
 for tool in bash git python3 curl; do
   if command -v "$tool" >/dev/null 2>&1; then echo "  ✓ $tool"; else echo "  ⚠ $tool missing"; fi

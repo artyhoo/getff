@@ -542,21 +542,20 @@ SPEC
   done
 fi
 
-if [ "$TOOLCHAIN" = "python" ]; then
-  do_python_lane
-  exit 0
-fi
-
-if [ "$TOOLCHAIN" = "cargo" ]; then
-  do_cargo_lane
-  exit 0
-fi
-
-if [ "$TOOLCHAIN" = "go" ]; then
-  do_go_lane
-  exit 0
-fi
-
+# ─── Why this block sits ABOVE the lane dispatch ─────────────────────────────
+# The python / cargo / go lanes dispatch-and-exit a few lines below. While this block
+# sat under them, every `--profile` on those lanes was a silent no-op: `--profile bogus`
+# exited 0 instead of failing loud, and `--profile factory` shipped none of the factory-
+# gated payload the same flag ships on the npm lane (setup.d/45-python.sh reads PROFILE
+# through the same `${PROFILE:-core}` contract as setup.d/20-agents.sh:39). Resolving the
+# depth before the dispatch is what makes the flag mean the same thing on every lane.
+#
+# The TTY MENU, however, stays npm-only — see its own guard below. A non-npm lane reached
+# this point either by an explicit positional (`install.sh python`, which sets TOOLCHAIN
+# but NOT STACK_EXPLICIT) or by the lane-detect offer just above, and both paths already
+# spent the consumer's stdin; inserting a second `read -rp` in front of them is the exact
+# answer-eating hazard the menu guard documents for the §8 dev-deps prompts. Those lanes
+# take the non-interactive default instead, the same one agents and CI get on npm.
 # ─── Profile resolution (beta-delivery-ux S1, design spec §4 A1) ──────────────
 # Resolve the install depth: core (default) | env (core + multi-model contour
 # placeholders, no AIF runtime) | factory (env + AIF operator suite + runtime-bridge
@@ -622,7 +621,7 @@ fi
 # depth selection via `--profile <name>` still works as a flag in that case.
 # The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY).
 if [ -z "$PROFILE" ]; then
-  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ]; then
+  if [ -t 0 ] && [ -z "$DRY_RUN" ] && [ -z "$FULL" ] && [ -z "$STACK_EXPLICIT" ] && [ -z "$TOOLCHAIN" ]; then
     echo "What install depth do you want?"
     echo "  1) core    — rules + tests + guard hooks + killer payload only. No operator contour, no AIF runtime."
     echo "  2) env     — core + the operator working contour (/arch, /orchestrator, /pipeline, /reviewer, night-mode/SDD, tier criteria); no AIF runtime. THE DEFAULT."
@@ -659,6 +658,22 @@ if [ -z "$PROFILE" ]; then
 fi
 export PROFILE
 echo "[profile] $PROFILE"
+
+if [ "$TOOLCHAIN" = "python" ]; then
+  do_python_lane
+  exit 0
+fi
+
+if [ "$TOOLCHAIN" = "cargo" ]; then
+  do_cargo_lane
+  exit 0
+fi
+
+if [ "$TOOLCHAIN" = "go" ]; then
+  do_go_lane
+  exit 0
+fi
+
 
 # Must be a project (has package.json) — but in dry-run we just warn so the user can preview.
 if [ ! -f "$PROJECT_ROOT/package.json" ]; then
