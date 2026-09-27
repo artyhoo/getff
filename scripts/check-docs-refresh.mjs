@@ -115,12 +115,20 @@ export function pagePopulation(root) {
 }
 
 /**
- * Parse ONLY the two keys this gate owns. Returns { sources: string[], docsRefresh: string|null }.
+ * Parse ONLY the two keys this gate owns. Returns
+ * { sources: string[], docsRefresh: string|null, docsRefreshAll: string[] }.
  * Line-based on purpose: `sources:` opens a `  - item` list, `docs-refresh:` is a scalar.
  * Every other key (title, kind, …) is invisible here — never re-checked (ref-gen.md:201).
+ *
+ * `docs-refresh:` may appear more than once: three live pages stack two deferrals, one per
+ * verification the author did (docs/site/index.md, docs/site/ai-agents.md,
+ * docs/site/reference/B/arch.md). Keeping only the last made every earlier token invisible
+ * to parseDeferredToken, so a malformed or placeholder one passed unjudged. `docsRefreshAll`
+ * holds every occurrence in order; `docsRefresh` stays the LAST so existing readers see no
+ * change.
  */
 export function parseRefreshFrontmatter(source) {
-  const parsed = { sources: [], docsRefresh: null };
+  const parsed = { sources: [], docsRefresh: null, docsRefreshAll: [] };
   if (!source.startsWith('---')) return parsed;
   const end = source.indexOf('\n---', 3);
   if (end === -1) return parsed;
@@ -141,7 +149,10 @@ export function parseRefreshFrontmatter(source) {
       if (value.trim()) parsed.sources.push(value.trim()); // inline `sources: [a, b]` first entry
     } else {
       listKey = null;
-      if (key === 'docs-refresh') parsed.docsRefresh = value.trim();
+      if (key === 'docs-refresh') {
+        parsed.docsRefresh = value.trim();
+        parsed.docsRefreshAll.push(value.trim());
+      }
     }
   }
   return parsed;
@@ -298,7 +309,23 @@ export function verdictForPage(fileRel, frontmatter, changedSet) {
   const exemptInfo = exemptVia.length > 0 ? { exemptVia } : {};
   if (changedSet.has(fileRel))
     return { affected: true, via, status: 'refreshed', ...exemptInfo };
-  const token = parseDeferredToken(frontmatter.docsRefresh);
+  // EVERY token on the page is judged, not just the surviving scalar: a page that stacks
+  // two deferrals must have both of them well-formed, or the earlier one is a claim nothing
+  // reads (.claude/rules/attention-is-not-a-mechanism.md §2 #warning-nobody-reads).
+  const all = Array.isArray(frontmatter.docsRefreshAll)
+    ? frontmatter.docsRefreshAll
+    : [frontmatter.docsRefresh];
+  const tokens = all.map(parseDeferredToken).filter((t) => t !== null);
+  const bad = tokens.find((t) => !t.ok);
+  if (bad)
+    return {
+      affected: true,
+      via,
+      status: 'fail',
+      ...exemptInfo,
+      message: bad.error,
+    };
+  const token = tokens.length > 0 ? tokens[tokens.length - 1] : null;
   if (token === null) {
     return {
       affected: true,
@@ -308,14 +335,6 @@ export function verdictForPage(fileRel, frontmatter, changedSet) {
       message: `cited source(s) moved in this range but the page did not change — refresh the page in the same PR, or carry \`docs-refresh: deferred — <reason ≥${REASON_MIN} chars>\` (renders as the D8 stale badge)`,
     };
   }
-  if (!token.ok)
-    return {
-      affected: true,
-      via,
-      status: 'fail',
-      ...exemptInfo,
-      message: token.error,
-    };
   return {
     affected: true,
     via,
