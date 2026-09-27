@@ -598,6 +598,81 @@ grep -qF 'plugin/hooks/twin.sh' "$TMP/err" && {
   echo "FAIL: --in-corpus kept a file outside the corpus"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
 expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in-corpus plugin/hooks/twin.sh
 
+# =================================== extensionless targets + comma-separated line lists
+# Two shapes the path grammar could not see. Measured 2026-09-27 over the 980-file code
+# corpus: 7 citations name an extensionless file (`.husky/pre-commit:112` at
+# `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, `setup:22` at
+# `tests/install-sh/aif-guided-install-gating.test.sh:8`) and 18 sites carry a comma list
+# whose second and later numbers nothing checked (`inject-project-digest.sh:31,39` at
+# `.claude/hooks/inject-subagent-context.sh:50`). Neither shape even reached the skip
+# tally — they were not citations at all, so `--show-skips` could not surface them either.
+# Both populations were blank-landing-clean at measurement time: this closes a detection
+# hole before it drifts, it does not repair live drift.
+#
+# The extensionless set is the SAME closed set the corpus already names as citING files
+# (`CODE_EXTENSIONLESS`), not an open «any path» rule: a bare word plus a colon plus
+# digits is too common in code to gate on. FP probe over the same corpus: exactly one
+# `setup:NN` occurrence, the real citation above.
+
+# --- ARM 1: drift behind a citation to an extensionless file
+new_repo extensionless-drift
+mkdir -p "$REPO/.husky" "$REPO/scripts"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/.husky/pre-commit"
+printf 'set -e\ncheck\n' >"$REPO/setup"
+printf '# the gate runs at .husky/pre-commit:2\n# the flag is documented at setup:2\n' >"$REPO/scripts/tool.sh"
+commit_all "citations to two extensionless files, both accurate"
+expect_pass "accurate extensionless citations are quiet" scripts/tool.sh
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/.husky/pre-commit"
+commit_all "the hook grew a line under the citation"
+expect_fail "drift behind an extensionless citation is caught" "scripts/tool.sh:1" scripts/tool.sh
+
+# --- ARM 2: a blank landing in an extensionless target, at the pre-commit channel
+new_repo extensionless-blank
+mkdir -p "$REPO/.husky" "$REPO/scripts"
+printf 'alpha\n\ngamma\n' >"$REPO/.husky/pre-push"
+printf '# see .husky/pre-push:2\n' >"$REPO/scripts/tool.sh"
+commit_all "citation lands on the blank line"
+expect_fail "blank landing in an extensionless target is caught" "scripts/tool.sh:1" --blank-only scripts/tool.sh
+
+# --- a bare word that merely looks like one is NOT a citation (the FP guard)
+new_repo extensionless-fp
+mkdir -p "$REPO/scripts"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# teardown:2 and Setup:2 and my-setup:2 are not citations\n' >"$REPO/scripts/tool.sh"
+commit_all "lookalikes only"
+expect_pass "lookalike words are not treated as extensionless citations" --blank-only scripts/tool.sh
+
+# --- every number in a comma list is checked, not only the first
+new_repo comma-list
+mkdir -p "$REPO/scripts"
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '# see target.sh:1,3\n' >"$REPO/scripts/tool.sh"
+commit_all "both numbers accurate at authorship"
+expect_pass "an accurate comma list is quiet" scripts/tool.sh
+# The FIRST number stays put (line 1 is untouched); only the second one drifts, so an arm
+# that checked the anchor alone would stay green here.
+printf 'alpha\nbeta\nINSERTED\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "only the second number's line moved"
+expect_fail "drift behind a later number in a comma list is caught" "scripts/tool.sh:1" scripts/tool.sh
+grep -qF 'target.sh:3' "$TMP/err" || {
+  echo "FAIL: the finding does not name the drifted member of the comma list"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
+# --- a range inside a comma list is a range, and a blank landing on a later member fires
+new_repo comma-list-blank
+mkdir -p "$REPO/scripts"
+printf 'alpha\nbeta\n\ndelta\n' >"$REPO/target.sh"
+printf '# see target.sh:1,3-4\n' >"$REPO/scripts/tool.sh"
+commit_all "third member is blank"
+expect_fail "blank landing on a later comma-list member is caught" "scripts/tool.sh:1" --blank-only scripts/tool.sh
+
+# --- the escape covers the whole list, as it does every citation on its line
+new_repo comma-list-escape
+mkdir -p "$REPO/scripts"
+printf 'alpha\n\ngamma\n' >"$REPO/target.sh"
+printf '# see target.sh:1,2 cite:historical records the pre-extraction layout\n' >"$REPO/scripts/tool.sh"
+commit_all "escaped comma list"
+expect_pass "the code escape silences a whole comma list" --blank-only scripts/tool.sh
+
 # ============================================ the pre-commit CHANNEL, not just the flag
 # The `--blank-only` arms above prove the MODE works. They say nothing about whether any
 # channel invokes it — and for a day it did not: the mode shipped 2026-09-13, pre-push.ts
