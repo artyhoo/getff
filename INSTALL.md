@@ -402,16 +402,16 @@ Also: `import 'server-only'` and `import 'client-only'` packages — bundled wit
 
 ---
 
-## Section 5 — Initialize Husky
+## Section 5 — Git hooks
 
 ```bash
-npx husky init
-
-# Husky created .husky/pre-commit and .husky/pre-push template hooks.
-# Replace them with the ones we copied:
-cp path/to/pkg/packages/core/templates/shared/husky-pre-commit.sh .husky/pre-commit
-cp path/to/pkg/packages/core/templates/shared/husky-pre-push.sh .husky/pre-push
-chmod +x .husky/pre-commit .husky/pre-push
+# Path A/B (install.sh): nothing to run — the installer ships .husky/pre-commit
+# + .husky/pre-push and sets core.hooksPath itself. Verify only:
+git config core.hooksPath    # should print .husky (or .husky/_ after npm install)
+# Do NOT run `npx husky init` — it would clobber the shipped hooks.
+# Path C (manual): you already copied both hooks in C.4. Add the
+# "prepare": "husky" script (Section 3) and activate them:
+git config core.hooksPath .husky
 ```
 
 ---
@@ -547,3 +547,54 @@ Consumer-owned files (`AGENTS.md`, `RULES.md`, `eslint.config.mjs`, `ci.yml`, et
 **Path C (force overwrite):** re-run `./install.sh <stack> --force` to overwrite. **Will overwrite ALL configs including your customizations** — back up first.
 
 **Path D (manual):** cherry-pick what changed.
+
+---
+
+## Uninstalling
+
+There is no uninstall command. Everything getff installs is a file in your repository plus at most one git config value (`core.hooksPath`), so removal is a git operation.
+
+**Cleanest path:** if the install landed as its own commit, `git revert <install-commit>`. That also un-merges the five files getff edits in place (`eslint.config.mjs`, `.claude/settings.json`, `package.json`, `.prettierignore`, and — on the `--full`/yes pass, or always on the `python` lane — `.mcp.json`, where it adds a `context7` entry) — the installer marks only its two `.prettierignore` blocks (`# >>> rules-as-tests-aif (managed) >>>` and `# >>> rules-as-tests-aif shipped-configs (managed) >>>`); the `package.json` / `.claude/settings.json` merges are unmarked data merges, so it cannot list them for you later. The installer does not commit for you.
+
+**Manual removal** (install already mixed into other work). The commands are the npm-stack shape; the `python`/`cargo`/`go` lanes additionally deliver lane files (CI workflow, lint configs, an install log, a `.pre-commit-config.yaml` fragment) — [docs/site/installation.md](docs/site/installation.md) lists them per lane. From the repo root:
+
+```bash
+# 1. Deactivate the hooks wiring — getff's own values only (.husky as the installer sets it; .husky/_
+#    as husky 9's "prepare" re-points; .getff/hooks python lane). Any other hooksPath of yours is left
+#    alone — but .husky/.husky/_ are ambiguous: husky predating getff → skip this reset, see step 2.
+case "$(git config --get core.hooksPath)" in .husky|.husky/|.husky/_|.husky/_/|.getff/hooks) git config --unset core.hooksPath;; esac
+
+# 2. Remove the delivered trees. .getff/.ai-factory/eslint-rules-local and the packages/core/{hooks,eslint-rules} hook
+#    runtime (setup.d/50-hooks.sh) are getff-owned; .claude/ is NOT (the installer adds named entries under
+#    .claude/{agents,hooks,skills}/ and never touches yours — delete only what the install added:
+#    `git show <install-commit> --name-only -- .claude/`). Same for .husky/ when husky predates getff:
+#    a plain install skips files that exist (copy_safe), so the tree holds YOUR pre-commit/pre-push too —
+#    don't rm it whole; delete only the added files: `git show <install-commit> --name-only -- .husky/`.
+rm -rf .getff .husky .ai-factory eslint-rules-local packages/core/hooks packages/core/eslint-rules
+rm -rf .claude/agents .claude/hooks .claude/skills .claude/vendor .claude/session-bootstrap.md   # only if you keep no own entries there (.claude/vendor is the factory-profile runtime-bridge)
+
+# 3. Remove getff's check + helper scripts under scripts/ (rm -f skips absent names; deeper profiles/other stacks deliver more — the diff at the end lists every name)
+rm -f scripts/audit-ai-docs.sh scripts/audit-ai-docs.react-next.sh scripts/audit-ai-docs.react-spa.sh \
+      scripts/audit-ai-docs.react-native.sh scripts/audit-r4.ts scripts/check-rule-globs.sh \
+      scripts/check-rule-enforced.sh scripts/detect-r2-boundary.sh scripts/r2-na-marker.sh \
+      scripts/check-arch-boundaries.sh scripts/check-lintstaged-resolves.sh scripts/check-fences-fire.sh \
+      scripts/check-shields-up.sh scripts/run-generated-rule-mutation.sh scripts/run-rule-tests-firing.sh \
+      scripts/pre-merge-local.sh scripts/ci-available-probe.sh scripts/run-mutation.sh \
+      scripts/create-worktree.sh scripts/getff-work.sh scripts/link-coordination.sh \
+      scripts/worktree-node-modules.sh scripts/run-local-ci-sweep.sh
+rm -rf scripts/fences-fire-fixtures
+
+# 4. AGENTS.md is CO-OWNED: install appends one fenced getff block and preserves everything outside it.
+#    Remove only that block; drop the file if nothing remains (fresh installs: it was created by install, fence-only).
+sed -i.bak '/<!-- getff:begin section=getff-framework/,/<!-- getff:end section=getff-framework -->/d' AGENTS.md && rm AGENTS.md.bak
+[ -s AGENTS.md ] || rm AGENTS.md
+
+# 5. Remove the CI + integrity workflows — ONLY if getff wrote them (pre-existing files are left alone); workflow-integrity.yml keeps firing after uninstall and fails PRs once ci.yml is gone.
+rm -f .github/workflows/ci.yml .github/workflows/workflow-integrity.yml
+```
+
+Then check the five merged files against your git history (`git diff <commit-before-install> HEAD -- eslint.config.mjs .claude/settings.json package.json .prettierignore .mcp.json`) and un-merge by hand: the getff custom-rules block in `eslint.config.mjs`, the getff-registered hooks in `.claude/settings.json`, the getff `scripts` entries plus development dependencies in `package.json`, the two marker-delimited getff blocks in `.prettierignore`, and the `context7` entry under `mcpServers` in `.mcp.json`. Any `scripts/` entry the list above missed shows in `git diff <commit-before-install> HEAD --name-only -- scripts/`.
+
+Stack scaffolding written from the chosen template (`tsconfig.json`, `tests/setup.ts`, `vitest.config.ts`, `stryker.config.json`, `.prettierrc.json`, `.lintstagedrc.json`, `.dependency-cruiser.cjs`, `.nvmrc`, the `.gitignore` seed) is left in place — keep it or delete it by hand.
+
+**Kept on purpose:** `*.override.md` files next to shipped docs (your recorded divergences) and `.ai-factory/refresh-conflicts/` (copies of your edited files preserved by `--refresh`). Both live under paths the commands above remove — salvage what you want before running them.

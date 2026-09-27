@@ -83,20 +83,29 @@ Columns: `| Capability absent | Tier-system degradation | Current evidence sourc
 | no Fable (top-tier advisor seat absent — Claude-stack-specific instance of «the top-tier model is unavailable») | The advisor seat (night-mode «top tier → advisor + SDD's final whole-branch review», currently instantiated as Fable on this operator's Claude stack) slides down to the next-available tier. Per night-mode: «Claude with no Fable → [advisor Opus, executor Sonnet, cheap Haiku]» — Opus takes the advisor seat; the tier-routing criteria and the executor tier are unaffected. This is an instantiation-level degradation, not a criteria-level one.                                                                                                                                                                                                      | `.claude/skills/night-mode/SKILL.md:17`: «Claude with no Fable → [advisor Opus, executor Sonnet, cheap Haiku]». Spec §4 A3 (`docs/superpowers/specs/2026-07-23-beta-program-design.md:262`): «no Fable → Opus tops».                                                                                                                                                                                                            | TO-BE-VALIDATED by C3 — **C3 probe class: top-tier advisor seat enumerator** over `runtime-bridge/runtime-profiles` + `night-mode/SKILL.md` advisor-consult mechanism (delta item 7). Built in umbrella C, post-A3.                                                                                                                                                                          |
 | non-CC harness (Claude Code primitives absent — zcode/GLM/other)                                                | Per `night-mode/SKILL.md:19` portability table: the loop runs on any harness with sequential subagent dispatch; CC-named primitives degrade gracefully — `Workflow` (context-economy) → manual summaries-only discipline; `ScheduleWakeup` (quota-backoff) → harness sleep/resume or manual; `isolation:"worktree"` (parallel executors) → sequential; subagent **hooks** (digest/report injection) absent on zcode event set → carried in the dispatch prompt instead. Per-artifact: 16 zcode plugin twins (S1 inventory §1.7) carry the dispatch surface on the plugin channel. Net: only parallel-executor speedup and hook-based context-hygiene degrade. | `.claude/skills/night-mode/SKILL.md:19`: full portability table (verified 2026-07-04: `~/.zcode/cli/agents/` holds real subagent sessions). S1 inventory §1.7 (`docs/meta-factory/research-patches/2026-07-25-beta-a-s1-inventory.md:86-94`): 16 zcode twins catalogued. Spec §4 A3 (`docs/superpowers/specs/2026-07-23-beta-program-design.md:262-263`): «non-CC harness → per-artifact degradations (validated by C3)».       | TO-BE-VALIDATED by C3 — **C3 probe class: harness-portability degradation enumerator** over `plugin/hooks/` zcode twins + `.claude/rules/zcode-parity-doctrine.md §2` census. C3 verifies the per-artifact degradation claims by exercising the non-CC harness path end-to-end (night-mode §5 declares portability «designed-not-proven» as of S3 stage time). Built in umbrella C, post-A3. |
 
+> **Where the evidence paths above live (consumer reachability):** repo-root `CLAUDE.md`,
+> `.claude/rules/…`, `plugin/hooks/…`, `docs/superpowers/specs/…` and `docs/meta-factory/research-patches/…` are framework-repo
+> records — NOT delivered to your install; read them on the public tree at
+> <https://github.com/artyhoo/getff>. The `.claude/skills/night-mode/SKILL.md` citations DO
+> resolve on your machine: the `env`/`factory` profiles install the night-mode skill into
+> `.claude/skills/` (line numbers match — the delivery transform rewrites links in place and
+> never reflows lines).
+
 ---
 
-## §4 Payload home — F-A′ PARKED
+## §4 Payload home — F-A′ (resolved 2026-08-07)
 
-> **Fork status:** **PARKED** (HANDOFF_MODE=1 worker, kickoff §7). Decision deferred to the
-> maintainer. Both candidate install locations are wired in `setup.d/30-templates.sh` per the
-> parking discipline; the maintainer's post-decision follow-up removes the unchosen path.
+> **Fork status:** **RESOLVED 2026-08-07 (operator-delegated) — Option A shipped, Option B
+> dropped** (Resolution at the end of this section). The tradeoff below is design history. Only
+> Option A is wired: `setup.d/30-templates.sh` §3e installs `.ai-factory/tier-home.md` (env+
+> profiles); the Option B skill-context slot was never installed (no live reader).
 
 **The fork (spec §11 F-A′):** the spec explicitly leaves the payload home open: «pick the home
 that the C1 AGENTS.md pointer + non-CC harnesses read most cheaply; decided in A3 planning with
-a one-beat read test». Under the autonomous worker posture the one-beat test is not run; the
-decision is parked.
+a one-beat read test». Under the autonomous worker posture the one-beat test had not run at
+ship time; the Fork status above records the outcome.
 
-**Option A — `.ai-factory/tier-home.md` (shipped default for the PARKED path):**
+**Option A — `.ai-factory/tier-home.md` (the shipped default):**
 
 - **Pros:** readable by `AGENTS.md` pointer + non-CC harnesses cheaply (just a file on disk);
   no skill-context mechanism required; lighter-weight; matches the existing `.ai-factory/` doc
@@ -116,8 +125,9 @@ aif-review,aif-rules-check}/SKILL.md` pattern.
 
 **Decision rule (kickoff §1.1 + §7):** DECIDED via one-beat read test under interactive mode
 (author the doc, then for each candidate home check whether a fresh AGENTS.md-following agent +
-a non-CC harness (zcode) read it cheaply; pick the cheaper). PARKED under autonomous worker
-posture; both options shipped so the maintainer's decision is delete-one-not-rewrite.
+a non-CC harness (zcode) read it cheaply; pick the cheaper). This test did NOT run pre-ship
+(autonomous worker posture) — the Resolution below supplies the outcome; Option B was never
+installed (no live reader), so there was nothing to delete-one-of.
 
 **Resolution (2026-08-07, operator-delegated):** Option A — the install step copies the doc
 source (`packages/core/templates/shared/tier-home.md`) to `.ai-factory/tier-home.md` only,
