@@ -38,13 +38,13 @@ check "one-fail exits 1" 1 $?
 grep_out "failing gate reported FAIL" "FAIL" "$TMP/o2"
 no_file "fail-fast: later gate skipped" "$TMP/RAN"
 
-# --- (diff-aware) md-only diff selects the doc gate, not the shipped gate ---
+# --- (diff-aware) md-only diff selects the doc gate, not the path-scoped one ---
 rm -f "$TMP/BYTE"
-printf '1\tdoc\t.md\ttrue\n4\tbyte\tSHIPPED\ttouch %s/BYTE\n' "$TMP" >"$TMP/gates.tsv"
+printf '1\tdoc\t.md\ttrue\n4\tbyte\tpackages/\ttouch %s/BYTE\n' "$TMP" >"$TMP/gates.tsv"
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="README.md" bash "$SWEEP" >"$TMP/o3" 2>&1
 check "md diff exits 0" 0 $?
 grep_out "md diff ran doc gate" "PASS doc" "$TMP/o3"
-no_file "md diff skipped shipped gate" "$TMP/BYTE"
+no_file "md diff skipped the path-scoped gate" "$TMP/BYTE"
 
 # --- (fail-safe) an unmapped path escalates to full (runs every gate) ---
 rm -f "$TMP/OTHER"
@@ -103,11 +103,24 @@ SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE=".github/workflows/audit-s
 has_file "dot-prefix trigger matched as prefix (wf gate ran)" "$TMP/WF"
 no_file "dot-prefix trigger did NOT escalate to full (other gate skipped)" "$TMP/ESC"
 
-# --- (shipped) a shipped-source path selects the SHIPPED gate ---
+# --- (shipped-token retired) `SHIPPED` is no longer a trigger-grammar token ---
+# It used to be a fifth case of `trigger_matches` meaning "any of six shipped roots" — a
+# population restated beside the gates it fed instead of derived from them. Removed 2026-09-27:
+# the format-check and byte-identical rows now derive their triggers from the gated command's
+# own path list, and the real-row coverage for that lives in
+# scripts/run-local-ci-sweep-coverage.test.sh arms 10 and 11. What remains testable here is the
+# grammar: a trigger spelled `SHIPPED` is now an ordinary literal, so it selects nothing but a
+# path spelled exactly that way.
 rm -f "$TMP/BYTE2"
 printf '1\tdoc\t.md\ttrue\n4\tbyte\tSHIPPED\ttouch %s/BYTE2\n' "$TMP" >"$TMP/gates.tsv"
 SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="skills/foo/SKILL.md" bash "$SWEEP" >"$TMP/o5" 2>&1
-has_file "shipped path selected SHIPPED gate" "$TMP/BYTE2"
+no_file "retired SHIPPED token no longer selects by shipped root" "$TMP/BYTE2"
+grep_out "the .md row covered that path (no escalation masking the negative)" "1 gate(s)" "$TMP/o5"
+
+# --- (shipped-token retired, literal arm) the paired positive: still matched as a literal ---
+rm -f "$TMP/BYTE2"
+SWEEP_GATES_FILE="$TMP/gates.tsv" SWEEP_DIFF_OVERRIDE="SHIPPED" bash "$SWEEP" >"$TMP/o5b" 2>&1
+has_file "a path spelled exactly SHIPPED still matches it as a literal" "$TMP/BYTE2"
 
 # --- (self-truncation) a gate command carrying its own `exit 1` (the real
 # install-sh-suite row shape: `for t in …; do bash "$t" || exit 1; done`) must fail
