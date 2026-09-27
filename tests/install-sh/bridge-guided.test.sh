@@ -77,6 +77,19 @@ curl() { case "$*" in *"/health"*) return 0 ;; *) return 1 ;; esac; }
 export -f curl
 out=$(WITH_AIF_SUITE="--with-aif-suite" bridge_guided_run)
 case "$out" in *"dead-end"*) bad "suite flag + runtime up: warning misfired: $out" ;; *) ok "suite flag + runtime up → no warning" ;; esac
+# --profile factory is the flag that installs the suite TODAY; --with-aif-suite is the legacy
+# escape that routes through it. Reading only the escape meant the modern flag installed the
+# suite and got no warning. Both depth variables must work: PROFILE_DEPTH when sourced from
+# ./setup, PROFILE when install.sh exported it.
+curl() { return 1; }  # nothing responds again
+export -f curl
+out=$(PROFILE_DEPTH="factory" bridge_guided_run)
+case "$out" in *"suite skills"*"dead-end"*) ok "--profile factory (wrapper) + runtime down → warning shown" ;; *) bad "--profile factory: warning missing: $out" ;; esac
+out=$(PROFILE="factory" bridge_guided_run)
+case "$out" in *"suite skills"*"dead-end"*) ok "PROFILE=factory (install.sh export) + runtime down → warning shown" ;; *) bad "PROFILE=factory: warning missing: $out" ;; esac
+# Paired-negative 3: a shallower profile must NOT warn — otherwise the depth half is constant-true.
+out=$(PROFILE_DEPTH="env" bridge_guided_run)
+case "$out" in *"dead-end"*) bad "--profile env: warning leaked: $out" ;; *) ok "--profile env + runtime down → no warning" ;; esac
 rm -rf "$TMP_WARN"
 
 # --- A1-7 (ledger #1597): docker-down is its OWN state ------------------------

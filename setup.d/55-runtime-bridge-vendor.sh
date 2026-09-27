@@ -36,7 +36,7 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:595-596).
+#                        install.sh:594-595).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
 #   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
@@ -45,7 +45,7 @@
 #     aif-handoff is reachable, it looks for that script at
 #     $root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh; absent in a
 #     consumer install, it prints the docs/runtime-bridge-setup.md pointer
-#     (bridge-guided.sh:57-59).
+#     (bridge-guided.sh:61-63).
 #   - This layer 55 runs at INSTALL time; setup-runtime-bridge.sh runs at
 #     RUNTIME (post-install, when the consumer invokes ./setup's bridge-guided
 #     step OR sources bridge-guided.sh and aif-handoff answers /health).

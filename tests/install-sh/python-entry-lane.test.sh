@@ -756,6 +756,40 @@ done
   || bad "(17) A2-10 arm RED — see items above"
 rm -rf "$P9"
 
+# ── (18) --profile is HONOURED on the python lane ────────────────────────────────────────────────
+# install.sh dispatches the non-npm lanes and exits before the profile block ever runs, so every
+# `--profile` on this lane used to be a silent no-op: an unknown value exited 0 instead of failing
+# loud, and `--profile factory` shipped none of the factory-gated payload the npm lane ships for
+# the same flag. The gate is BOTH directions — factory ships the AIF skill-context override, core
+# does not — so a lane that ignores the flag cannot pass by shipping everything.
+echo ""
+echo "  ── (18) --profile on the python lane: validated, and factory-gated payload follows it ──"
+_P18_SC=".ai-factory/skill-context/aif-orchestrator-discipline/SKILL.md"
+
+P18=$(py_fixture)
+out=$( cd "$P18" && bash "$INSTALL" python --profile bogus < /dev/null 2>&1 ); rc=$?
+[ "$rc" -ne 0 ] \
+  && ok "(18a) an unknown --profile value fails loud on this lane (exit $rc)" \
+  || bad "(18a) --profile bogus exited 0 — the flag is a no-op on this lane"
+printf '%s' "$out" | grep -q -- '--profile' \
+  && ok "(18a) the rejection names the flag" \
+  || bad "(18a) exited without naming --profile: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+rm -rf "$P18"
+
+P18=$(py_fixture)
+( cd "$P18" && bash "$INSTALL" python --profile factory < /dev/null > /dev/null 2>&1 )
+[ -f "$P18/$_P18_SC" ] \
+  && ok "(18b) --profile factory ships the AIF skill-context override (20-agents.sh parity)" \
+  || bad "(18b) --profile factory shipped no $_P18_SC — the factory depth never reached the lane"
+rm -rf "$P18"
+
+P18=$(py_fixture)
+( cd "$P18" && bash "$INSTALL" python --profile core < /dev/null > /dev/null 2>&1 )
+[ ! -e "$P18/$_P18_SC" ] \
+  && ok "(18c) paired negative: --profile core ships no factory-gated skill-context" \
+  || bad "(18c) --profile core shipped $_P18_SC — the gate is constant-true, (18b) proves nothing"
+rm -rf "$P18"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

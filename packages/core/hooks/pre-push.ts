@@ -32,7 +32,7 @@ import {
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-// NOTE: this file ships verbatim into consumer projects (install.sh:1180-1190), so a
+// NOTE: this file ships verbatim into consumer projects (install.sh:1195-1205), so a
 // static bare-package import of anything outside the consumer's tree crashes the hook
 // with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
 // imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
@@ -1923,7 +1923,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1031 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1046 (conditional starter)
 ];
 
 /**

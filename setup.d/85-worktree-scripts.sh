@@ -21,7 +21,7 @@
 #   - PROFILE=factory  → install.
 #   - PROFILE=core     → skip (core lacks the workspace surface).
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:595-596).
+#                        install.sh:594-595).
 #
 # REUSE contract (kickoff §4 binding):
 #   The scripts are copied VERBATIM from $PKG_ROOT/scripts/ — no rewrite,
