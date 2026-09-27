@@ -31,6 +31,8 @@ import {
   statSync,
 } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 // NOTE: this file ships verbatim into consumer projects (install.sh:1195-1205), so a
 // static bare-package import of anything outside the consumer's tree crashes the hook
@@ -1416,6 +1418,192 @@ function shippedRuleDriftSection(ctx: SectionCtx): void {
   }
 }
 
+// ── 3h. Generated-payload drift (maintainer, OBS8) ───────────────────────────
+// Two committed generated artefacts had no gate before CI, and both went red on
+// real PRs in the #1851/#1852/#1853 sequence:
+//
+//   packages/getff/MANIFEST.sha256          (scripts/build-getff-dist.sh)
+//   tests/install-sh/baselines/**.fingerprint (tests/install-sh/snapshot.sh)
+//
+// The CI cells that catch them are a full re-assembly and a full install matrix —
+// minutes, and on #1853 a red shard C plus a merge-forward. Both defects are
+// detectable from hashes alone, at O(changed files), with no re-assembly and no
+// install, which is what this section does.
+//
+// Arm A — manifest membership + hash, for CHANGED payload paths only. A modified
+// payload file's manifest row must carry sha256 of what is on disk; an added one
+// must have a row; a deleted one must not. That is the complete statement of
+// `--check` restricted to this push's diff, and it is the only part of `--check`
+// this push can have broken.
+//
+// Arm B — baseline staleness by PRE-IMAGE hash membership. The installer copies
+// most payload files verbatim, so the bytes a fingerprint recorded are the bytes
+// the repo held at the base commit. If sha256 of `<base>:<path>` still appears in
+// any fingerprint, that fingerprint records content this push replaced. Membership
+// is by hash, not by path, precisely because source path and consumer destination
+// differ (`templates/…` → `.ai-factory/…`). Files the installer TRANSFORMS never
+// match and are silently out of arm B's reach — the CI snapshot cell stays their
+// gate, which is a deterministic channel, not attention
+// (.claude/rules/attention-is-not-a-mechanism.md §1).
+//
+// Fingerprints are read at HEAD: a push that also re-captures them has already
+// removed the old hash, so re-blessing needs no escape token.
+//
+// Owner = maintainer by both routing and an existsSync guard: neither artefact is
+// in install.sh's consumer copy-list. An unresolvable base means the push cannot be
+// scoped, so arm A falls back to the full `--check` and arm B — which has no
+// pre-image to hash — cedes to the CI cell.
+type PayloadChange = { status: 'A' | 'M' | 'D'; path: string };
+
+function payloadChanges(base: string, head: string): PayloadChange[] {
+  const out = runCheck('git', [
+    'diff',
+    '--name-status',
+    `${base}..${head}`,
+  ]).stdout;
+  const entries: PayloadChange[] = [];
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue;
+    const cols = line.split('\t');
+    const code = cols[0] ?? '';
+    // A rename is a delete of the old path and an add of the new one — both are
+    // manifest-relevant, and collapsing them to one entry would miss the orphan.
+    if (code.startsWith('R') || code.startsWith('C')) {
+      if (cols[1]) entries.push({ status: 'D', path: cols[1] });
+      if (cols[2]) entries.push({ status: 'A', path: cols[2] });
+    } else if (cols[1]) {
+      const status = code.startsWith('D')
+        ? 'D'
+        : code.startsWith('A')
+          ? 'A'
+          : 'M';
+      entries.push({ status, path: cols[1] });
+    }
+  }
+  return entries;
+}
+
+/** sha256 of raw bytes — never of a decoded string, so a payload file that is not
+ *  valid UTF-8 hashes the same here as it does in the two generators. */
+function sha256Bytes(buf: Buffer): string {
+  return createHash('sha256').update(buf).digest('hex');
+}
+
+function payloadDriftSection(ctx: SectionCtx): void {
+  const manifestPath = resolve(REPO_ROOT, 'packages/getff/MANIFEST.sha256');
+  const baselineDir = resolve(REPO_ROOT, 'tests/install-sh/baselines');
+  const lister = resolve(REPO_ROOT, 'scripts/build-getff-dist.sh');
+  const hasManifest = existsSync(manifestPath) && existsSync(lister);
+  const hasBaselines = existsSync(baselineDir);
+  if (!hasManifest && !hasBaselines) return;
+
+  if (ctx.rb.base === null) {
+    if (hasManifest) {
+      const r = run('bash', ['scripts/build-getff-dist.sh', '--check']);
+      if (r.exitCode !== 0)
+        die(
+          '❌ getff-dist payload drift — run: bash scripts/build-getff-dist.sh',
+          r,
+        );
+      emit(r);
+    }
+    return;
+  }
+
+  const changes = payloadChanges(ctx.rb.base, ctx.rb.head);
+  const problems: string[] = [];
+
+  // ── arm A ──
+  let judged = 0;
+  if (hasManifest) {
+    const listed = run('bash', [
+      'scripts/build-getff-dist.sh',
+      '--list-payload',
+    ]);
+    const roots = listed.stdout
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const inPayload = (p: string): boolean =>
+      roots.some((root) => p === root || p.startsWith(`${root}/`));
+    const manifest = new Map<string, string>();
+    for (const line of readFileSync(manifestPath, 'utf8').split('\n')) {
+      const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
+      if (m?.[1] && m[2]) manifest.set(m[2], m[1]);
+    }
+    for (const { status, path } of changes) {
+      if (!inPayload(path)) continue;
+      judged += 1;
+      const recorded = manifest.get(path);
+      if (status === 'D') {
+        if (recorded !== undefined)
+          problems.push(`  ${path} — deleted, still listed in MANIFEST.sha256`);
+        continue;
+      }
+      if (recorded === undefined) {
+        problems.push(`  ${path} — shipped, missing from MANIFEST.sha256`);
+        continue;
+      }
+      const abs = resolve(REPO_ROOT, path);
+      if (!existsSync(abs)) continue; // deleted in the worktree after the commit
+      if (sha256Bytes(readFileSync(abs)) !== recorded)
+        problems.push(
+          `  ${path} — content differs from its MANIFEST.sha256 row`,
+        );
+    }
+    if (problems.length)
+      die(
+        '❌ getff-dist payload drift — packages/getff/MANIFEST.sha256 does not describe this push:\n' +
+          problems.join('\n') +
+          '\n       Re-run: bash scripts/build-getff-dist.sh',
+      );
+  }
+
+  // ── arm B ──
+  let fingerprints = 0;
+  if (hasBaselines) {
+    const recorded = new Set<string>();
+    const walk = (dir: string): void => {
+      for (const name of readdirSync(dir)) {
+        const abs = `${dir}/${name}`;
+        if (statSync(abs).isDirectory()) {
+          walk(abs);
+          continue;
+        }
+        if (!name.endsWith('.fingerprint')) continue;
+        fingerprints += 1;
+        for (const line of readFileSync(abs, 'utf8').split('\n')) {
+          const m = /^([0-9a-f]{64})\s/.exec(line.trim());
+          if (m?.[1]) recorded.add(m[1]);
+        }
+      }
+    };
+    walk(baselineDir);
+
+    const stale: string[] = [];
+    for (const { status, path } of changes) {
+      if (status === 'A') continue; // no pre-image to have been installed
+      const show = spawnSync('git', ['show', `${ctx.rb.base}:${path}`], {
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      if (show.status !== 0 || !show.stdout) continue;
+      if (recorded.has(sha256Bytes(show.stdout))) stale.push(`  ${path}`);
+    }
+    if (stale.length)
+      die(
+        '❌ stale install baselines — these changed files are still recorded in\n' +
+          '   tests/install-sh/baselines by the bytes this push replaced:\n' +
+          stale.join('\n') +
+          '\n       Re-run: SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh',
+      );
+  }
+
+  process.stdout.write(
+    `✓ payload drift: ${judged} changed payload file(s) match MANIFEST.sha256;` +
+      ` ${fingerprints} install fingerprint(s) current\n`,
+  );
+}
+
 // ── 4. Manifest render drift (maintainer) ────────────────────────────────────
 // packages/core/render/ is maintainer-only (not in install.sh's consumer copy-list).
 function manifestRenderSection(): void {
@@ -2228,6 +2416,11 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'shipped-rule-drift',
     owner: 'maintainer',
     run: (c) => shippedRuleDriftSection(c),
+  },
+  {
+    id: 'payload-drift',
+    owner: 'maintainer',
+    run: (c) => payloadDriftSection(c),
   },
   {
     id: 'manifest-render',

@@ -329,7 +329,7 @@ describe('checkPrBodyFidelity — ONE shared FILE_LINE_RE (R-8 contract pin)', (
     ['README.MD:3', false],     // same direction
     ['docs/x.markdown:3', true],// lowercase ext >6 chars: fidelity-rejected before R-8
     ['pkg@1/x.ts:2', true],     // scoped-package path tail (both agreed pre-R-8)
-    ['packages/core/hooks/pre-push.ts:42', true],
+    ['packages/core/hooks/pre-push.ts:44', true],
   ];
 
   it('the shared s17.ts regex judges each citation as declared', () => {
