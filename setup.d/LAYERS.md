@@ -78,7 +78,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 |--------|-----------|---------|
 | `transform_internal_refs` | `<file>` | Rewrites `](../../../{docs,packages}/…)`, `](../../../README.md…)`, `](../../install.sh…)`, and `.claude/rules/` refs (`](../../rules/…)` skill shape + `](../.claude/rules/…)` agent shape — rules/ is not shipped) in-place to `$UPSTREAM_BLOB_URL/…` GitHub blob URLs. Leaves genuinely consumer-resolvable refs (e.g. `hooks/`) intact. |
 | `copy_safe` | `<src> <dst>` | Copies `<src>` to `<dst>` unless `<dst>` already exists (skip if exists, unless `--force`). Appends to `SKIPPED` on skip. Respects `--dry-run`. |
-| `refresh_safe` | `<src> <dst>` | Overwrites `<dst>` unless a sibling `<dst%.md>.override.md` exists (Layer-3 consumer ownership signal). Used by `--refresh` path. |
+| `refresh_safe` | `<src> <dst>` | Overwrites `<dst>` unless a sibling `<dst%.md>.override.md` exists (Layer-3 consumer ownership signal). Per-file divergence guard (`_refresh_one_file`): baselined + diverged → copy preserved under `.ai-factory/refresh-conflicts/` + `⚠` (`--dry-run`: `would-flag`); **no baseline entry → silent preserved copy + one aggregate line per run, then overwrite**. Used by `--refresh` path. |
 | `merge_prettierignore` | `<src> <dst>` | Non-destructive `.prettierignore` merge (GH #531): greenfield → copy; existing file → append marker-delimited block of missing AIF entries; idempotent. |
 | `_prettierignore_in_skipped` | `<needle>` | Returns 0 if `<needle>` is already in the consumer's `.prettierignore` (used by `merge_prettierignore`). |
 | `ignore_shipped_configs` | (none) | Appends AIF-generated file patterns (`RULES.md`, `RULES.*.md`, `.claude/settings.json`, barrel paths) to `.prettierignore` that aren't already excluded. Called **once** by `99-finalize.sh` after `SKIPPED` is fully accumulated. |
@@ -87,7 +87,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `detect_pm` | (none) | Prints `npm`, `pnpm`, or `yarn` based on lockfile detection in `$PROJECT_ROOT`. |
 | `patch_stryker_package_manager` | (none) | Patches `stryker.config.mjs` `packageManager` field to match detected PM (idempotent). |
 | `copy_skill_with_transform` | `<slug>` | `copy_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each copied file. |
-| `refresh_skill_with_transform` | `<slug>` | `refresh_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each refreshed file. |
+| `refresh_skill_with_transform` | `<slug>` | `refresh_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each refreshed file — routes through `_copy_tree_with_transform`'s pre-overwrite guard (baselined diverged → preserved + `⚠`; no entry → silently preserved, one aggregate line per run), never a bare `rm -rf`. |
 
 ### Constants (set by lib.sh, used by helpers)
 

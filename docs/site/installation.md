@@ -5,6 +5,7 @@ kind: face-page
 sources:
   - AGENTS.md
   - INSTALL-FOR-AI.md
+  - INSTALL.md
   - README.md
   - docs/site/face-facts.json
   - docs/site/guides/add-design-and-review-skills.md
@@ -26,7 +27,6 @@ executed:
   - { step: preview-plugin-helper, stack: ts-server, date: 2026-09-21, result: "exit-0, nothing written" }
   - { step: preview-refresh, stack: ts-server, date: 2026-09-21, result: "exit-0, 86 would-refresh, 0 would-flag" }
 next: why.md
-docs-refresh: deferred — re-verified 2026-09-21, the only change to the cited setup.d/10-skills.sh in this range is one census comment line (the story skill's plain-language wording), which this page neither quotes nor pins a line number to; clears at the next refresh of this page
 ---
 
 # Installation
@@ -236,20 +236,68 @@ as `would-flag`.
 ## If you want it out
 
 There is no uninstall command today. Everything getff does is a file in your
-repository, so removal is a git operation.
+repository plus at most one git config value (`core.hooksPath`), so removal is a git
+operation.
 
 The clean way is to install on a branch and commit the install as one commit. To back
 out, revert that commit. The installer does not commit for you.
 
-If the install is already mixed into other work, remove these by hand:
+If the install is already mixed into other work, start with these commands (the full
+step-by-step removal, including the `scripts/` list and what is kept on purpose, lives in
+[`INSTALL.md` § Uninstalling](https://github.com/artyhoo/getff/blob/main/INSTALL.md#uninstalling)):
 
-- `AGENTS.md`, `.ai-factory/`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`
-- `eslint-rules-local/` and the getff block in your ESLint config
-- `.husky/`, then `git config --unset core.hooksPath`
-- `.github/workflows/ci.yml`, if getff wrote it
-- The scripts getff added to `package.json`, and the development dependencies it installed
+```bash
+# ONLY getff's own hooksPath values — .husky (set by the installer), .husky/_ (husky 9's
+# "prepare" script re-points to it on npm install), .getff/hooks (python lane). Any other
+# hooksPath you had before installing is left alone by the installer and by this reset.
+case "$(git config --get core.hooksPath)" in .husky|.husky/|.husky/_|.husky/_/|.getff/hooks) git config --unset core.hooksPath;; esac
+rm -rf .getff .husky .ai-factory eslint-rules-local packages/core/hooks packages/core/eslint-rules
+rm -rf .claude/agents .claude/hooks .claude/skills .claude/vendor .claude/session-bootstrap.md   # only if you keep no own entries there (.claude/vendor is the factory-profile runtime-bridge)
+```
 
-Check the last item against your git history. The installer merges into
-`package.json` and does not mark its lines, so it cannot list them for you later.
+**If you used husky before installing getff**, skip the `hooksPath` reset and drop `.husky`
+from the first `rm -rf` (keep the rest of that line): the installer accepts a
+`.husky`/`.husky/_` `hooksPath` without blocking, and its
+`pre-commit`/`pre-push` copies skip files that already exist (`copy_safe`'s exists-guard; a
+`--force` install is the overwrite case warned about above) — so
+the value alone cannot tell your wiring from getff's, and the reset would unset your `hooksPath`
+while `rm -rf .husky` deletes your hooks with the framework's. Skip the reset, keep `.husky` out
+of the removal, and delete only what the install added there:
+`git show <install-commit> --name-only -- .husky/`.
+
+Then, by hand: getff's check scripts under `scripts/`; the fenced `getff:` block in
+`AGENTS.md` — that file is co-owned, install preserves everything outside the fence, so
+remove only its block; the getff block in your ESLint config; the getff-registered hooks
+in `.claude/settings.json`; the two getff blocks in `.prettierignore`; `.github/workflows/ci.yml` and
+`workflow-integrity.yml`, if getff wrote them; and the scripts plus development dependencies getff merged into
+`package.json`. On a `--full` install — and always on the `python` lane, `--full` or not — it
+also adds a `context7` entry under `mcpServers` in
+`.mcp.json` — remove that entry too. Check these against your git history: the installer
+marks only its `.prettierignore` blocks; its other merges are unmarked, so it cannot list
+them for you later. The installer adds named entries
+under `.claude/{agents,hooks,skills}/` plus `session-bootstrap.md` and never touches your own files there. Salvage
+`*.override.md` and `.ai-factory/refresh-conflicts/` before removing `.ai-factory/` —
+they hold your own edits, kept on purpose.
+
+The commands above are the npm stacks. The `python`, `cargo`, and `go` [lanes](terms.md#lane)
+deliver less of the npm surface (no `eslint-rules-local/`, `packages/core/`, or `.husky/`)
+and more of their own:
+
+- **python** — `.github/workflows/getff-python.yml`; `sgconfig.yml` when getff wrote it fresh,
+  or the `.getff/astgrep-rules` entry it added to your existing `ruleDirs`; `ruff.toml`, or
+  `getff-ruff.toml` when you already had your own `ruff.toml`; an appended
+  `getff-python-pre-push` entry in your `.pre-commit-config.yaml`;
+  `.getff-python-install.log`; the `context7` entry in `.mcp.json` (always on this lane,
+  not only with `--full`); and the lane hooks under `.getff/hooks/` (that lane's
+  `core.hooksPath` value in the reset above). The `.claude/` and `.ai-factory/` removals
+  still apply to this lane.
+- **cargo** — `.github/workflows/getff-cargo.yml`; `clippy.toml` and `deny.toml` when getff
+  wrote them fresh, or `getff-clippy.toml` / `getff-deny.toml` when you already had your own;
+  `.getff/Cargo.lints.toml` (inside the `.getff/` removal); `.getff-cargo-install.log`.
+- **go** — `.github/workflows/getff-go.yml`; `.golangci.yml` when getff wrote it fresh, or
+  `getff-golangci.yml` when you already had your own; `.getff-go-install.log`.
+
+The `factory` [profile](terms.md#depth) also vendors `.claude/vendor/runtime-bridge/` and
+`.claude/hooks/runtime-bridge-dispatch.sh`, both covered by the `.claude/` removal above.
 
 Next: [Why getff](why.md) explains the problem this solves, and when you do not need it.
