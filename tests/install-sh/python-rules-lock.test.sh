@@ -337,7 +337,7 @@ URL_13="https://pyyaml.org/wiki/PyYAMLDocumentation"
 # spreads the original fields via tier.ts:26-29), so coverage of all three beats coverage of one.
 ALLOWKEY_13="pyyaml"
 FETCHEDAT_13="2026-07-11T00:00:00.000Z"
-# Find tsx (mirror rule-bootstrap-practice.test.ts:52 tsxBin): per-dir CI layouts install
+# Find tsx (mirror rule-bootstrap-practice.test.ts:54 tsxBin): per-dir CI layouts install
 # packages/core deps only, so tsx lives in packages/core/node_modules/.bin before any root hoist.
 TSX_BIN=""
 for _cand in "$REPO_ROOT/packages/core/node_modules/.bin/tsx" "$REPO_ROOT/node_modules/.bin/tsx"; do

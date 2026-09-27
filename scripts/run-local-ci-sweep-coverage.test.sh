@@ -377,8 +377,10 @@ fi
 # That row's trigger used to be a hand-written restatement of scripts/build-getff-dist.sh's
 # PAYLOAD= line — two lists, nobody reconciling them — and by 2026-09-14 it had drifted WIDER in
 # three places (`.claude/` for three named subdirectories, `packages/` for five named packages,
-# `scripts/` for six named files), so a `.claude/rules/*.md` edit selected a 547s gate whose input
-# set that file is not in. The sweep derives it now; this arm is the fixpoint that keeps the
+# `scripts/` for six named files), so a `.claude/rules/*.md` edit selected a gate whose input set
+# that file is not in — a wrong selection, not an expensive one (the 547s this note used to quote
+# was measured under parallel load; alone the gate is 9.4s). The sweep derives it now; this arm is
+# the fixpoint that keeps the
 # derivation honest in BOTH directions — every payload entry must still be selectable, and a path
 # the payload does not contain must not be.
 #

@@ -19,10 +19,13 @@
  * the MCP tool pattern `^mcp__<server>__`.
  *
  * SCOPE — the framework's *shipped* delivery surface, exactly what `install.sh`
- * copies (install.sh:13,108-120): cite:historical install.sh:13 listed these 4 dirs when written; skill tiers now live at setup.d/lib.sh:63-65
+ * copies:
  *   - agents/*.md                                       (the #551 surface)
  *   - skills/<slug>/SKILL.md                            (top-level shipped skills)
- *   - .claude/skills/{pipeline,dispatcher,aif-doctor,template-audit}/SKILL.md
+ *   - .claude/skills/<slug>/SKILL.md for every slug in the three install tiers
+ *     (`GETFF_SKILLS_CORE` / `_ENV` / `_FACTORY`, setup.d/lib.sh:63-65) — derived,
+ *     never re-listed here, because the four-slug literal this replaced drifted to
+ *     ten skills behind it
  *   - packages/core/templates/shared/skill-context/[dir]/SKILL.md
  * The broad `.claude/skills/aif-*` set is VENDORED AI-Factory harness — NOT shipped
  * by this installer — and is deliberately OUT OF SCOPE. (Those carry `Questions` /
@@ -68,8 +71,24 @@ export const CC_CANONICAL_TOOLS: ReadonlySet<string> = new Set([
 /** MCP tools are `mcp__<server>__<tool>` — server segment has no underscores. */
 const MCP_TOOL_RE = /^mcp__[^_]+__/;
 
-/** The 4 `.claude/skills/` companion skills install.sh ships (install.sh:13). cite:historical install.sh:13 listed these 4 dirs when written; skill tiers now live at setup.d/lib.sh:63-65 */
-const SHIPPED_CC_SKILL_DIRS = ['pipeline', 'dispatcher', 'aif-doctor', 'template-audit'];
+/**
+ * The `.claude/skills/` companion skills install.sh ships, read from the SSOT the
+ * installer itself reads: the three tier constants in setup.d/lib.sh (`GETFF_SKILLS_CORE`
+ * / `_ENV` / `_FACTORY`, consumed by setup.d/10-skills.sh and by install.sh do_refresh).
+ * This used to be a four-slug literal; the tiers grew to fourteen and the literal did not,
+ * so ten shipped skills' `allowed-tools` were validated by nothing — #551's mechanism one
+ * tier deeper. Deriving is what keeps it from drifting again; arm (k) is the gate.
+ * Profile does not narrow the population: a skill any profile can ship must be valid.
+ */
+export function shippedCcSkillDirs(): string[] {
+  const libSh = resolve(REPO_ROOT, 'setup.d/lib.sh');
+  if (!existsSync(libSh)) return [];
+  const src = readFileSync(libSh, 'utf8');
+  return ['CORE', 'ENV', 'FACTORY'].flatMap((tier) => {
+    const m = src.match(new RegExp(`^GETFF_SKILLS_${tier}="([^"]*)"`, 'm'));
+    return m ? m[1].split(/\s+/).filter(Boolean) : [];
+  });
+}
 
 export interface ToolViolation {
   file: string;
@@ -202,8 +221,8 @@ export function collectShippedSkillFiles(): string[] {
       if (existsSync(p)) files.push(p);
     }
   }
-  // (b) the 4 named .claude/skills/ companion skills install.sh ships
-  for (const name of SHIPPED_CC_SKILL_DIRS) {
+  // (b) the .claude/skills/ companion skills install.sh ships (tiers, setup.d/lib.sh)
+  for (const name of shippedCcSkillDirs()) {
     const p = resolve(REPO_ROOT, '.claude/skills', name, 'SKILL.md');
     if (existsSync(p)) files.push(p);
   }
@@ -243,7 +262,9 @@ describe('Principle 21 — shipped agent/skill tools-name validity (M1 gate, clo
   // ── Arm (b): real-tree — every shipped skill allowed-tools entry is canonical ──
   it('(b) real-tree: every shipped SKILL.md allowed-tools entry is a canonical CC tool', () => {
     const skills = collectShippedSkillFiles();
-    expect(skills.length, 'expected ≥1 shipped SKILL.md to scan').toBeGreaterThan(0);
+    // Non-vacuity floor that cannot go stale: at minimum every tier skill is scanned.
+    expect(skills.length, 'expected every tier skill (plus top-level + skill-context) to scan')
+      .toBeGreaterThanOrEqual(shippedCcSkillDirs().length);
 
     const violations = skills.flatMap((p) => checkFile(rel(p), readFileSync(p, 'utf8'), 'allowed-tools'));
     expect(
@@ -266,6 +287,31 @@ describe('Principle 21 — shipped agent/skill tools-name validity (M1 gate, clo
       expect(entries.some((e) => baseToolName(e) === 'Bash')).toBe(true);
       expect(entries.every((e) => isValidToolEntry(e))).toBe(true);
     }
+  });
+
+  // ── Arm (k): population coverage — the scan covers everything install.sh ships ──
+  it('(k) coverage: every skill in the three install tiers is inside the scanned population', () => {
+    // Independent oracle: read the tier lists from setup.d/lib.sh — the SSOT both
+    // setup.d/10-skills.sh (install) and install.sh do_refresh read — rather than from
+    // this file's own constant, so a shrunk constant cannot make the arm vacuous.
+    const libSh = readFileSync(resolve(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
+    const tiers = ['CORE', 'ENV', 'FACTORY'].map((t) => {
+      const m = libSh.match(new RegExp(`^GETFF_SKILLS_${t}="([^"]*)"`, 'm'));
+      expect(m, `setup.d/lib.sh should declare GETFF_SKILLS_${t}`).not.toBeNull();
+      return (m as RegExpMatchArray)[1].split(/\s+/).filter(Boolean);
+    });
+    const shipped = tiers.flat();
+    // Non-vacuity (T1/T10): the tiers are non-empty and every tier contributes.
+    expect(shipped.length, 'expected the three tiers to name ≥10 skills').toBeGreaterThanOrEqual(10);
+    for (const [i, t] of tiers.entries()) expect(t.length, `tier ${i} is empty`).toBeGreaterThan(0);
+
+    const scanned = new Set(collectShippedSkillFiles().map((p) => rel(p)));
+    const missing = shipped.filter((s) => !scanned.has(`.claude/skills/${s}/SKILL.md`));
+    expect(
+      missing,
+      `Shipped skills whose allowed-tools nothing validates (the #551 mechanism, one tier deeper):\n` +
+        missing.map((s) => `  .claude/skills/${s}/SKILL.md`).join('\n'),
+    ).toHaveLength(0);
   });
 
   // ── Arm (d): PAIRED-NEGATIVE (mandatory, principle-02) — #551 is DETECTED ───

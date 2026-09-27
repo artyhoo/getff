@@ -158,8 +158,11 @@ done
 # already exists in the repo is a second copy, and it drifts silently. Measured 2026-09-14, the
 # `getff-dist-manifest` trigger had already drifted WIDER than the payload it restates — `.claude/`
 # for three named subdirectories, `packages/` for five named packages, `scripts/` for six named
-# files — so a one-line `.claude/rules/*.md` edit selected a 547s gate whose input set that file is
-# not in. Deriving means the trigger follows the payload for free, in both directions.
+# files — so a one-line `.claude/rules/*.md` edit selected a gate whose input set that file is not
+# in. (This note used to price that gate at 547s. That number came from a run under parallel load;
+# measured alone on the same Mac, `build-getff-dist.sh --check` is 9.4s — the `~12s` the
+# `script-selftests` note above already carried. The defect was the wrong selection, not the cost.)
+# Deriving means the trigger follows the payload for free, in both directions.
 #
 # The helper falls back to ALWAYS when its source stops parsing. That direction is deliberate:
 # a shrunken trigger is the one failure this file must not have — a gate nobody selects is a gate

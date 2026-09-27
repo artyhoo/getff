@@ -20,7 +20,7 @@
         "wired-from": [
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:201 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:204 (quoted-path-token, closure)"
         ]
       },
       "example": null
