@@ -945,6 +945,8 @@ jobs:
         run: bash tests/install-sh/synth-wire-consumer-config.test.sh
       - name: "install-sh — the install hands back no manual step (Q4.7: jq-less JSON writes through node, hooks/deps/foreign configs as NOT-wired reasons, checks it ran itself instead of «Next steps»)"
         run: bash tests/install-sh/install-no-manual-step.test.sh
+      - name: "install-sh — R2 wirer from the install: getff's own per-package config wired without --full, and what does not land is a NOT wired line, never a manual step (Q4.7)"
+        run: bash tests/install-sh/r2-wirer-no-hand-step.test.sh
       - name: "install-sh — vitest.config.ts test globs follow a project without src/ (Q4.5 layout class; consumer's own config untouched; vitest-layout parity)"
         run: bash tests/install-sh/vitest-layout-roots.test.sh
       - name: "install-sh — own-config cell KNOWN ROT matchers name only the preset-template rot they were written for (Q4.4)"

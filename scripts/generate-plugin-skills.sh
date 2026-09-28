@@ -50,8 +50,8 @@
 # Enforcement channels (corrected 2026-09-28 — the 2026-09-12 «CI only / pre-commit arm
 # MAINTAINER-PENDING» wording went stale when PR #1732, commit b4b58428e2e, 2026-09-13, wired
 # the arm):
-#   1. pre-commit — `.husky/pre-commit:308-316`: when a staged path is under `skills/` or
-#      `.claude/skills/`, runs this script (`:310`) and re-stages `plugin/skills/`; a non-zero
+#   1. pre-commit — `.husky/pre-commit:350-358`: when a staged path is under `skills/` or
+#      `.claude/skills/`, runs this script (`:352`) and re-stages `plugin/skills/`; a non-zero
 #      exit fails the commit.
 #   2. CI — `.github/workflows/audit-self.yml` runs tests/plugin/skills-generation.test.sh
 #      (regen no-op + sandbox contract arms + transform-arm parity).
