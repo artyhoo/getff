@@ -21,7 +21,7 @@
           "packages/core/hooks/pre-push.ts:1526 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:204 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:205 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -122,7 +122,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1907 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1355 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1361 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -180,7 +180,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2360 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2394 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2409 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2443 (workflow-run:invocation-verb)",
           ".husky/pre-commit:166 (quoted-path-token)"
         ]
       },
@@ -239,7 +239,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2510 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2544 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -286,8 +286,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1261 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1266 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1267 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1272 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -309,7 +309,7 @@
           ".husky/pre-commit:183 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:233 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:234 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -566,7 +566,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1289 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1295 (workflow-run:invocation-verb)"
         ]
       },
       "example": null

@@ -27,6 +27,7 @@ FAILED=0
 
 FOREIGN="$(mktemp -d)"
 BACKUP="$(mktemp -d)"
+# shellcheck disable=SC2329  # invoked via the EXIT trap below
 restore() {
   # Arm (3) edits a committed bundle; put the original bytes back on any exit.
   for b in "${BUNDLES[@]}"; do

@@ -271,7 +271,7 @@ _py_sgconfig_merge() {
 # (ecosystem-wiring W5). The rule-bootstrap CLI --from-practice arm
 # (packages/core/install/rule-bootstrap-cli.ts) renders researched practice records SESSION-SIDE to
 # <consumer>/.getff/rules-research/<entryId>.yml — the durable researched home that SURVIVES
-# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1293, so a
+# --refresh (refresh_safe's framework-exclusive sweep resets .getff/astgrep-rules to the template, lib.sh:1330, so a
 # researched rule can never live there as its only copy). This join re-assembles the scan dir on
 # EVERY delivery pass (install / --force / --refresh): each rules-research/*.yml is copied into
 # .getff/astgrep-rules/ so it fires via the consumer's single existing `ruleDirs:` entry (§Qd
@@ -1343,7 +1343,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1388). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1387). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
