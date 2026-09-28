@@ -107,10 +107,12 @@ _Operator says_: «одна кнопка», «одной кнопкой», «о�
 
 ## Passport
 
-**Passport**: the project's description file as the one button leaves it — the human's intent
-(purpose, what must never happen, hard constraints) plus a stack block generated from the
-project manifest. A line stays only if only the human knows it and no check can express it; the
-agent proposes every line from repo evidence and the human only confirms or corrects. Owner: the
+**Passport**: the human's intent as the one button leaves it — purpose, what must never happen,
+and hard constraints — kept in one getff-owned source and shown in the project's description file
+and agent guide as copies of that source. The stack is not repeated there: the description file
+points at the project manifest. A line stays only if only the human knows it and no check can
+express it; the agent proposes every line from repo evidence and the human only confirms or
+corrects. Owner: the
 [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) §4.3.
 
 _Operator says_: «паспорт», «проекта паспорт».
