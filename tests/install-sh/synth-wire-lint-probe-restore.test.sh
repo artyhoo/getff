@@ -160,6 +160,9 @@ detect_pm() { echo npm; }
 warn_preset_staleness() { :; }
 reassert_husky_shields() { :; }
 source "$REPO_ROOT/setup.d/lib.sh"
+# The config under test is getff's: this run staged it. Unstaged and absent from the baseline
+# manifest it is the consumer's own, and 99-finalize never runs the wirer on it (getff_delivered).
+REFRESH_BASELINE_STAGED=("$PROJECT_ROOT/eslint.config.mjs")
 source "$FINALIZE"
 EOF
 
@@ -174,7 +177,10 @@ run_finalize() {
 }
 
 run_finalize 3
-if printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs'; then
+# The rc-3 wording, not just «stack rules in eslint.config.mjs»: the consumer-owned branch prints
+# that too, without running the wirer, so the bare phrase would pass with the mapping gone.
+if printf '%s\n' "$F_OUT" | grep -q 'stub wirer' \
+   && printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added'; then
   ok "F1: wirer rc 3 → 99-finalize lists the stack rules under NOT wired"
 else
   bad "F1: wirer rc 3 was swallowed — no NOT wired line (tail: $(printf '%s\n' "$F_OUT" | tail -6 | tr '\n' '|'))"
