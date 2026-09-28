@@ -674,8 +674,10 @@ JS
     || bad "F11 monorepo: no R2 in apps/api/eslint.config.mjs — the arm below assumes Layer 2 added it (install said: $(grep -E 'R2' "$T24.log" | head -3 | tr '\n' '|'))"
   OUT24=$(f11_gate "$T24"); RC24=$?
   [ "$RC24" = "0" ] || bad "F11 monorepo: check:globs exited $RC24 — the arm below assumes it passes after the install (saw: $(printf '%s' "$OUT24" | grep -E '⚠|✗' | head -1))"
-  f11_not_wired "$T24.log" | grep -q 'check-rule-globs' \
-    && bad "F11 monorepo: the summary says check-rule-globs.sh fails, though it passes after the install: $(f11_not_wired "$T24.log" | grep check-rule-globs | head -1)" \
+  # F11's own wording only: a monorepo gets no ci.yml, so 60-ci.sh names each CI gate, check:globs
+  # among them, as not in a workflow (#1878) — a line about CI, not about the gate failing.
+  f11_not_wired "$T24.log" | grep -qE 'check-rule-globs\.sh(, which runs on every push| fails on)' \
+    && bad "F11 monorepo: the summary says check-rule-globs.sh fails, though it passes after the install: $(f11_not_wired "$T24.log" | grep -E 'check-rule-globs\.sh(, which runs on every push| fails on)' | head -1)" \
     || ok "F11 monorepo: the install asks the gate after every R2 pass — nothing about a gate that passes"
 
   # A recorded R2 N/A that no longer holds (an earlier install wrote it; the project now has boundary
