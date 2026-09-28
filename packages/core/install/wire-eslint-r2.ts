@@ -26,7 +26,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
@@ -104,15 +104,18 @@ export const R2_NO_ENGINE = 'its AST editor (ts-morph) could not be loaded; a --
  * R2 not landing in `configPath`, as the install reports it (operator decision Q4.7, 2026-09-28): one
  * «  · not wired: <what> — <why>» line, which 99-finalize.sh copies into its NOT wired summary. The
  * install never gets a snippet to add by hand; that one (generateDegradedSnippet) is for a human who
- * runs this CLI directly.
+ * runs this CLI directly. The install reads that line by line, so a multi-line reason (an ESLint
+ * error text) is folded onto the one line.
  */
 export function r2NotWiredLine(configPath: string, why: string, cwd: string = process.cwd()): string {
-  // Both sides resolved: process.cwd() is the physical directory while --path may run through a
-  // symlink (macOS /var → /private/var), which `relative` renders as a ../ walk out of the project.
+  // Directories resolved on both sides: process.cwd() is the physical directory while --path may run
+  // through a symlink (macOS /var → /private/var), which `relative` renders as a ../ walk out of the
+  // project. The file itself is not resolved: a config that is a symlink is named by its own path.
   const real = (p: string): string => {
     try { return realpathSync(p); } catch { return p; }
   };
-  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), real(configPath))} — ${why}`;
+  const file = join(real(dirname(configPath)), basename(configPath));
+  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
 }
 
 export function generateDegradedSnippet(configPath: string): string {

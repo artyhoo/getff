@@ -14,6 +14,14 @@
 #       non-interactive wirer printed the «Add to <config>» snippet and left R2 out.
 #   F2  the same config in an export shape the wirer cannot append to: no manual step, and the NOT
 #       wired summary names the config with the wirer's reason.
+#   F3  a config getff placed on an EARLIER install (the refresh-baseline manifest holds its hash) that
+#       the consumer has edited since: its bytes are the consumer's, so R2 goes in the own-config way —
+#       insertions only, scoped to the boundary code, the original kept — never the AST re-print that
+#       drops the consumer's comments and adds an unscoped R2 block.
+#   F4  the wirer crashes with no output → the NOT wired summary still names the config.
+#   F6  paired with F3: the manifest's hash still matches the file → getff's own branch (--install, not
+#       --own-config), so F3's route is the edit, not the manifest.
+#   F5  the wirer reports R2 wired AND a part it could not add → that part still reaches the summary.
 #   W1  wirer CLI, --install, ts-morph not in the consumer's node_modules → one not-wired line, no snippet.
 #   W2  wirer CLI, --install --yes, ESLint not resolvable → the probe cannot confirm the write, so it is
 #       undone and named as not wired with the probe verdict, no snippet; the file is as it was.
@@ -78,11 +86,13 @@ make_project() {
   echo "$p"
 }
 
-# Stub package root: the real R2 wirer (it imports node built-ins only, so a single-file copy is whole)
-# and a no-op synth bundle, so only the R2 pass under test runs.
+# Stub package root: the real R2 wirer (it imports node built-ins only, so a single-file copy is whole),
+# the real boundary detector the own-config branch reads, and a no-op synth bundle, so only the R2
+# pass under test runs.
 PKG="$WORK/pkg"
-mkdir -p "$PKG/packages/core/install"
+mkdir -p "$PKG/packages/core/install" "$PKG/packages/core/audit-self"
 cp "$WIRER" "$PKG/packages/core/install/"
+cp "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" "$PKG/packages/core/audit-self/"
 printf 'console.log("stub synth");\n' > "$PKG/packages/core/install/synth-and-wire.bundle.mjs"
 
 DRIVER="$WORK/driver.sh"
@@ -95,21 +105,33 @@ ignore_shipped_configs() { :; }
 detect_pm() { echo npm; }
 warn_preset_staleness() { :; }
 reassert_husky_shields() { :; }
-# `npx --no-install tsx <wirer> <args>` → the repo's tsx, with the wirer's arguments recorded.
-npx() { shift 2; printf '%s\n' "$*" >> "$ARGS_LOG"; "$TSX" "$@"; }
+# `npx --no-install tsx <wirer> <args>` → the repo's tsx, with the wirer's arguments recorded; with
+# NPX_STUB_OUT set, a stand-in wirer that prints it (printf %b) and returns NPX_STUB_RC.
+npx() {
+  shift 2; printf '%s\n' "$*" >> "$ARGS_LOG"
+  if [ -n "${NPX_STUB_OUT+x}" ]; then printf '%b' "$NPX_STUB_OUT"; return "${NPX_STUB_RC:-0}"; fi
+  "$TSX" "$@"
+}
 source "$REPO_ROOT/setup.d/lib.sh"
-REFRESH_BASELINE_STAGED=("$PROJECT_ROOT/eslint.config.mjs" "$PROJECT_ROOT/apps/api/eslint.config.mjs")
+# This run staged apps/api's config (getff placed it now), unless API_FROM_MANIFEST says an earlier
+# install did — then only the project's refresh-baseline manifest records it.
+REFRESH_BASELINE_STAGED=("$PROJECT_ROOT/eslint.config.mjs")
+[ -n "${API_FROM_MANIFEST:-}" ] || REFRESH_BASELINE_STAGED+=("$PROJECT_ROOT/apps/api/eslint.config.mjs")
 source "$FINALIZE"
 EOF
 
-# run_finalize <project> → output in $F_OUT, the wirer's recorded arguments in $F_ARGS
+# run_finalize <project> [VAR=value…] → output in $F_OUT, the wirer's recorded arguments in $F_ARGS
 run_finalize() {
-  local log="$WORK/$(basename "$1").args"
+  local p="$1" log="$WORK/$(basename "$1").args"
+  shift
   : > "$log"
-  F_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$1" PKG_ROOT="$PKG" FINALIZE="$FINALIZE" \
-    TSX="$TSX" ARGS_LOG="$log" bash "$DRIVER" < /dev/null 2>&1)
+  F_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$p" PKG_ROOT="$PKG" FINALIZE="$FINALIZE" \
+    TSX="$TSX" ARGS_LOG="$log" "$@" bash "$DRIVER" < /dev/null 2>&1)
   F_ARGS=$(cat "$log")
 }
+h256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | awk '{print $1}'; }
+# summary_has <extended regex after the «      - » prefix> — the NOT wired summary holds that entry
+summary_has() { printf '%s\n' "$F_OUT" | grep -qE "^      - $1"; }
 
 F1=$(make_project f1 "$TS_CONFIG")
 run_finalize "$F1"
@@ -118,10 +140,10 @@ printf 'export const x = 1;\n' > "$F1/apps/api/probe.ts"
 if [ -z "$F_ARGS" ]; then
   bad "F1: the Layer-2 pass never ran the R2 wirer, so F1 proves nothing (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
 elif grep -q 'rules-as-tests/no-unsafe-zod-parse' "$F1/apps/api/eslint.config.mjs" && [ "$lint_rc" -ne 2 ] \
-     && ! printf '%s\n' "$F_OUT" | grep -qiE "$MANUAL"; then
-  ok "F1: getff's own per-package config is wired on an install without --full (ESLint loads it, rc=$lint_rc), no manual step"
+     && ! printf '%s\n' "$F_OUT" | grep -qiE "$MANUAL" && ! summary_has 'R2 '; then
+  ok "F1: getff's own per-package config is wired on an install without --full (ESLint loads it, rc=$lint_rc), no manual step, nothing in NOT wired"
 else
-  bad "F1: expected R2 in apps/api/eslint.config.mjs, ESLint loading it and no manual step (eslint rc=$lint_rc; wirer args: $(printf '%s' "$F_ARGS" | tr '\n' '|'); manual: $(manual_lines "$F_OUT"))"
+  bad "F1: expected R2 in apps/api/eslint.config.mjs, ESLint loading it, no manual step and no NOT wired entry (eslint rc=$lint_rc; wirer args: $(printf '%s' "$F_ARGS" | tr '\n' '|'); manual: $(manual_lines "$F_OUT"); summary: $(printf '%s\n' "$F_OUT" | grep -E '^      - ' | tr '\n' '|'))"
 fi
 
 F2=$(make_project f2 "$UNRECOGNISED")
@@ -135,6 +157,53 @@ elif printf '%s\n' "$F_OUT" | grep -qE '^      - R2 \(rules-as-tests/no-unsafe-z
 else
   bad "F2: expected a NOT wired line for apps/api/eslint.config.mjs and no manual step (manual: $(manual_lines "$F_OUT"); summary: $(printf '%s\n' "$F_OUT" | grep -E '^      - ' | tr '\n' '|'))"
 fi
+
+EDITED="import tsParser from '@typescript-eslint/parser';
+export default [
+  // team note: the parser entry stays first
+  { files: ['**/*.ts'], languageOptions: { parser: tsParser } },
+  { rules: { 'no-console': 'warn' } },
+];"
+F3=$(make_project f3 "$EDITED")
+mkdir -p "$F3/apps/api/routes" "$F3/.ai-factory"
+printf 'export const users = (body: unknown) => body;\n' > "$F3/apps/api/routes/users.ts"
+printf '%s\n' "$TS_CONFIG" > "$WORK/f3-as-placed.mjs"
+printf '{"apps/api/eslint.config.mjs":"%s"}\n' "$(h256 "$WORK/f3-as-placed.mjs")" > "$F3/.ai-factory/refresh-baseline.json"
+run_finalize "$F3" API_FROM_MANIFEST=1
+f3_cfg=$(cat "$F3/apps/api/eslint.config.mjs")
+if [ -z "$F_ARGS" ]; then
+  bad "F3: the Layer-2 pass never ran the R2 wirer, so F3 proves nothing (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
+elif printf '%s\n' "$f3_cfg" | grep -q 'team note: the parser entry stays first' \
+     && printf '%s\n' "$f3_cfg" | tr -d '\n' | grep -qE "\{ ?files: RULE_GLOBS\.boundary, plugins: \{[^}]*\}, rules: \{ ?'rules-as-tests/no-unsafe-zod-parse'" \
+     && grep -rqF 'team note: the parser entry stays first' "$F3/.ai-factory/before-getff" 2>/dev/null \
+     && ! printf '%s\n' "$F_OUT" | grep -qiE "$MANUAL"; then
+  ok "F3: a getff-placed config the consumer edited since gets R2 by insertions, scoped to the boundary, its original kept"
+else
+  bad "F3: expected the consumer's comment kept, R2 scoped to RULE_GLOBS.boundary and the original under .ai-factory/before-getff/ (wirer args: $(printf '%s' "$F_ARGS" | tr '\n' '|'); config: $(printf '%s' "$f3_cfg" | tr '\n' ' '))"
+fi
+
+F6=$(make_project f6 "$TS_CONFIG")
+mkdir -p "$F6/.ai-factory"
+printf '{"apps/api/eslint.config.mjs":"%s"}\n' "$(h256 "$F6/apps/api/eslint.config.mjs")" > "$F6/.ai-factory/refresh-baseline.json"
+run_finalize "$F6" API_FROM_MANIFEST=1
+if printf '%s\n' "$F_ARGS" | grep -q -- '--yes --install' && ! printf '%s\n' "$F_ARGS" | grep -q -- '--own-config' \
+   && grep -q 'rules-as-tests/no-unsafe-zod-parse' "$F6/apps/api/eslint.config.mjs"; then
+  ok "F6: paired — a manifest-recorded config with its bytes unchanged is still getff's own and gets R2"
+else
+  bad "F6: an unedited manifest-recorded config left getff's own branch (wirer args: $(printf '%s' "$F_ARGS" | tr '\n' '|'))"
+fi
+
+F4=$(make_project f4 "$TS_CONFIG")
+run_finalize "$F4" NPX_STUB_OUT= NPX_STUB_RC=1
+summary_has 'R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api/eslint.config.mjs — the R2 wirer did not add it' \
+  && ok "F4: a wirer that crashes without a word still leaves the config named in NOT wired" \
+  || bad "F4: a silent wirer crash dropped out of the NOT wired summary (summary: $(printf '%s\n' "$F_OUT" | grep -E '^      - ' | tr '\n' '|'))"
+
+F5=$(make_project f5 "$TS_CONFIG")
+run_finalize "$F5" 'NPX_STUB_OUT=✓ R2 wired into apps/api/eslint.config.mjs\n  · not wired: RULE_GLOBS in apps/api/eslint.config.mjs — the stub could not add it\n'
+summary_has 'RULE_GLOBS in apps/api/eslint.config.mjs — the stub could not add it' \
+  && ok "F5: a part the wirer could not add reaches NOT wired even when R2 itself landed" \
+  || bad "F5: a not-wired part printed next to «✓ R2 wired» was dropped (summary: $(printf '%s\n' "$F_OUT" | grep -E '^      - ' | tr '\n' '|'))"
 
 # ─── W1-W3, H1: the wirer CLI itself ─────────────────────────────────────────
 # run_wirer <dir> <args…> → output in $W_OUT, rc in $W_RC (cwd = the consumer, as the install runs it)

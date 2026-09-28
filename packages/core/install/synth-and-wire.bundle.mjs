@@ -10124,7 +10124,7 @@ function synthesize(plan) {
 import { execFileSync } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync6, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
+import { basename, dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
@@ -10147,7 +10147,8 @@ function r2NotWiredLine(configPath, why, cwd = process2.cwd()) {
       return p;
     }
   };
-  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), real(configPath))} \u2014 ${why}`;
+  const file = join2(real(dirname6(configPath)), basename(configPath));
+  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} \u2014 ${why.replace(/\s*\n\s*/g, " ")}`;
 }
 function generateDegradedSnippet(configPath) {
   return [
