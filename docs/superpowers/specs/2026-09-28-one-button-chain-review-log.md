@@ -58,10 +58,10 @@ real; the partial ones are the round-2 findings they name.
   the honest limit stated, a consumer CI mirror, and the changed-lines list in every check report.
 - **M3** (the baseline compares gates, not failures) — ACCEPTED → R5-5.
 - **M4** (declining an unrelated question voids blanket consent and stalls the chain) — ESCALATED
-  → operator fork R5-8, together with E2.
+  → operator fork R5-8, together with E2; answered A.
 - **M5** (the lane contract covers green only) — ACCEPTED → R5-6 (items 10-12).
 - **E1** (no project-specific architecture reaches any lane) — ESCALATED → operator fork R5-9.
-- **E2** (a bare go-ahead read as consent to everything) — ESCALATED → operator fork R5-8.
+- **E2** (a bare go-ahead read as consent to everything) — ESCALATED → operator fork R5-8; answered A.
 - **m1** (npm lanes share `package.json`) — FIXED: recognition adds a dependency test (§4.2,
   §4.5 item 1).
 - **m2** (two chain-record writers) and **m3** (no capture point for a late «skip research») —
