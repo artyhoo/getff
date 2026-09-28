@@ -1,9 +1,11 @@
 # Consumer-side plugin hook dedup — design
 
-> **Status:** DRAFT (2026-09-28) — design only; no code ships with this spec. Approved in dialogue
-> section by section (parts 1-3 below); implementation waits for an explicit operator go.
+> **Status:** APPROVED (2026-09-28), revision 2 — design only; no code ships with this spec.
+> Approved in dialogue section by section. Revision 2 (same day, during planning) replaces the
+> approved sibling yield with a twin transform (D5): the sibling yield left the language line
+> doubled for a consumer that also ran the installer.
 > **Authoritative for:** when a getff plugin hook stays silent in a CONSUMER project (D1-D4), the
-> sibling yield inside the plugin payload (D5), the harness/platform scope (D6-D7), and the gates
+> single owner of the output-language line in the plugin payload (D5), the harness/platform scope (D6-D7), and the gates
 > that keep the source-hash manifest honest (D8-D11).
 > **NOT authoritative for:** project goal — [README.md#why-this-exists](../../../README.md#why-this-exists);
 > the source-checkout yield itself — `plugin/hooks/run-hook.cmd` section «Yield to the plugin's own
@@ -30,10 +32,11 @@ older one.
 **Principle (inherited from #1879):** a duplicate costs context; a lost or older gate costs the
 gate. Every doubt resolves to «run».
 
-A second duplicate needs no installer at all: in a plugin-only project the plugin's
-`inject-output-language` and the plugin's `inject-session-bootstrap` both emit the same
-`[output-language]` line on `UserPromptSubmit` (`plugin/hooks/inject-session-bootstrap:121-128`
-appends it to the digest).
+A second duplicate needs no installer at all: the plugin's `inject-output-language` and the
+plugin's `inject-session-bootstrap` both emit the same `[output-language]` line on
+`UserPromptSubmit` (`plugin/hooks/inject-session-bootstrap:121-128` appends it to the digest). In a
+plugin-only project that line arrives twice; in a consumer that also ran the installer, the
+installed `inject-output-language` plus the plugin digest carry it twice even after D3.
 
 ## Prior art
 
@@ -65,8 +68,9 @@ running. `--refresh` plus a plugin update realigns them.
 
 ### D1 — Source-hash manifest in the plugin payload
 
-New file `plugin/hooks/source-sha256`, `sha256sum` text format, one line per file a yield must
-match:
+New file `plugin/hooks/lib/source-sha256.txt`, `sha256sum` text format, one line per file a yield
+must match. It lives under `lib/` because `tests/plugin/hook-paths.test.sh` treats every top-level
+file in `plugin/hooks/` (except `run-hook.cmd`, `*.json`, `*.md`, `_zcode-*`) as a hook script:
 
 ```text
 <sha256>  inject-output-language.sh
@@ -81,8 +85,11 @@ match:
   `inject-project-digest`, `inject-matching-rule`, `inject-subagent-context`, `validate-prompt`)
   enter the manifest exactly like generated ones. Correspondence twin ↔ source is the same trust
   #1879 already places in the `Plugin twin of` / `AUTO-GENERATED from` line.
-- Written by `scripts/generate-plugin-twins.sh` (already run at pre-commit) for every hook that
-  has a twin in `plugin/hooks/`. No manual step.
+- Written by `scripts/generate-plugin-twins.sh` (already run at pre-commit, which re-stages
+  `plugin/hooks/`) for every hook that has a twin in `plugin/hooks/`. No manual step.
+- One hashing implementation, `plugin/hooks/lib/source-hash.sh` (POSIX sh — `run-hook.cmd` runs
+  under dash on Linux), sourced by both `run-hook.cmd` and the manifest writer, so the value
+  written at build time and the value computed at run time cannot diverge.
 
 ### D2 — Declared dependency closure
 
@@ -92,14 +99,17 @@ A hook that sources files from its own directory declares them on one line:
 # @plugin-yield-deps: lang/ lib/residue-dir.sh
 ```
 
-A directory entry means every regular file under it, sorted. Live cases:
+A directory entry (trailing `/`) hashes the sorted `<sha256>  <file>` listing of every regular
+file directly in it, so an added file (a new `lang/de.sh`) is a mismatch too. Live cases:
 `end-of-turn-reminder.sh:38-42` picks `lang/<AIF_HOOK_LANG>.sh`, and `:54-55` falls back to an
 inline copy when `lib/residue-dir.sh` is missing — a different file set is different behaviour,
 so the installed copy's closure must match, not just the script.
 
-**Safe by construction:** if a source contains a `.`/`source` statement and no
+**Safe by construction:** if a source has a non-comment line with a `.`/`source` statement,
+`BASH_SOURCE`, or `_HOOK_DIR` (the ways a hook reaches files beside itself) and no
 `@plugin-yield-deps` line, the generator writes NO manifest entry for that hook. No entry ⇒ never
-yields (D3) ⇒ today's behaviour, never a lost gate. No separate gate needed for omission.
+yields (D3) ⇒ today's behaviour, never a lost gate. No separate gate needed for omission. Of the
+consumer-shared set, `end-of-turn-reminder` and `ask-question-reminder` need a declaration.
 
 ### D3 — Consumer yield branch in `run-hook.cmd`
 
@@ -136,33 +146,38 @@ lost-gate case. The hook's `$TMPDIR` memo (`.claude/hooks/deps-hash-check.sh:430
 computation, not the fact of output, so both copies do print. Migrating the registration to the
 `$CLAUDE_PROJECT_DIR` form is separate installer work, out of scope here.
 
-### D5 — Sibling yield inside the plugin payload
+### D5 — One owner for the output-language line in the plugin payload
 
-`@plugin-yields-to: <target>` (added by #1879 to `inject-output-language`) gains a second way to be
-satisfied: the plugin's OWN `hooks.json` registers `<target>` on every (event, matcher) pair the
-yielding hook is registered on. Both hooks ship in one payload, so no version question arises and
-no hash check applies. Guards:
+The plugin twin of `inject-session-bootstrap` no longer carries the `[output-language]` line;
+the plugin's `inject-output-language` is its only emitter. The source keeps the line (the framework
+repo registers `inject-session-bootstrap` and not `inject-output-language` in its own
+`.claude/settings.json`). Mechanism: the existing generator `sed` mode
+(`scripts/generate-plugin-twins.sh`, `@plugin-transform: sed <expr>`), deleting a block the source
+brackets with `# >>> plugin-drop: output-language` / `# <<< plugin-drop: output-language`. The
+twin becomes a sed-mode twin; no new mechanism.
 
-- Coverage: any pair where the target is not registered ⇒ run.
-- No chains: the sibling arm is refused when the target itself carries `@plugin-yields-to`
-  (prevents A-for-B / B-for-A with nobody emitting). Also gated statically (D10).
-- Both hooks receive the same environment, including the `run-hook.cmd` language fallback, so
-  their inputs are equal.
+Every case then carries the line once:
 
-Residual risk accepted: if `inject-session-bootstrap` crashes, the language line is lost — together
-with the whole digest it belongs to.
+| Case | Emitters |
+|---|---|
+| framework source checkout | project `inject-session-bootstrap`; plugin copies yield (#1879, incl. `@plugin-yields-to`) |
+| same, language pin from the fallback file | plugin `inject-output-language` only (project copy is blind to the pin, plugin digest has no line) |
+| plugin-only consumer | plugin `inject-output-language` |
+| consumer with installer, identical copy | project `inject-output-language`; plugin copy yields (D3) |
+| consumer with installer, differing copy | project + plugin `inject-output-language` (accepted D3 duplicate) |
+| ZCode | plugin `inject-output-language` |
+
+Revision 1 proposed a sibling yield (plugin `inject-output-language` silent when the plugin also
+runs `inject-session-bootstrap`). Dropped: it removed the plugin-only duplicate but left the
+installed `inject-output-language` plus the plugin digest doubled, and it needed chain guards.
 
 ### D6 — ZCode
 
 ZCode never reads `.claude/settings.json`; hooks reach it only through the plugin channel
 ([2026-07-04-zcode-harness-visibility.md](../../meta-factory/research-patches/2026-07-04-zcode-harness-visibility.md) line 13).
-Therefore:
-
-- D3 (yield to a project copy) never fires on ZCode — the project copy does not run there, so
-  there is no duplicate to remove and yielding would lose the hook.
-- D5 (sibling yield) DOES fire on ZCode — both hooks are plugin hooks, and ZCode supports
-  `UserPromptSubmit` (same research patch, line 15). The #1879 ZCode guard is scoped to the
-  project-copy arms only.
+Therefore D3 (yield to a project copy) never fires on ZCode — the project copy does not run
+there, so there is no duplicate to remove and yielding would lose the hook. The ZCode duplicate
+that does exist, the language line inside the plugin, is removed by D5 without any yield.
 
 ### D7 — Windows batch branch stays run-always (operator decision 2026-09-28)
 
@@ -188,10 +203,10 @@ the point: a consumer's cached plugin must refresh to carry the new hashes. Cons
 editing a twinned source now always implies a plugin release, even when the manual twin's bytes
 did not change.
 
-### D10 — Marker integrity
+### D10 — Language-line ownership
 
-The same new arm checks: every `@plugin-yields-to` target has a twin in `plugin/hooks/`; no target
-itself carries `@plugin-yields-to` (no chains).
+The same new arm checks D5 holds on the shipped payload: the plugin `inject-session-bootstrap`
+contains no `[output-language]` string, and the plugin `inject-output-language` does.
 
 ### D11 — Dual-source hooks
 
@@ -212,12 +227,15 @@ run twin that differs by one input):
 - no manifest entry (undeclared `source`) ⇒ runs;
 - no `sha256sum` and no `shasum` ⇒ runs;
 - relative `deps-hash-check` registration ⇒ runs;
-- ZCode: identical project copy ⇒ runs (D6); sibling covered ⇒ silent (D5);
-- sibling not registered on every pair ⇒ runs; target carrying its own marker ⇒ runs;
+- ZCode: identical project copy ⇒ runs (D6);
+- real tree: a simulated consumer (installed copies + installer registration forms) with every
+  plugin `UserPromptSubmit` hook dispatched carries the language line once; a plugin-only project
+  likewise;
 - Windows branch untouched (no new arm; D7).
 
 Principle 24 arm: paired negative replays — a stale manifest line, a missing line for a declared
-dependency, a chained marker, a diverged `packages/core/hooks` copy — each RED.
+dependency, a language line back in the plugin digest, a diverged `packages/core/hooks` copy —
+each RED.
 
 ## Live verification before merge
 
@@ -231,10 +249,11 @@ dependency, a chained marker, a diverged `packages/core/hooks` copy — each RED
 ## Implementation order
 
 1. Wait for artyhoo/getff#1879 to merge; branch from staging.
-2. Generator: `@plugin-yield-deps` parsing + `plugin/hooks/source-sha256` emission.
-3. `run-hook.cmd`: consumer branch (D3) + sibling arm (D5), sharing #1879's jq registration check.
-4. Principle 24 arm (D8, D10, D11) + run-hook test arms.
-5. Plugin version bump (arm (i)), live runs, PR with §1.7 sections and a `Prior-art:` trailer.
+2. Hashing lib + generator: `@plugin-yield-deps` parsing + `plugin/hooks/lib/source-sha256.txt`.
+3. `run-hook.cmd`: consumer branch (D3), sharing #1879's jq registration check.
+4. D5 twin transform for `inject-session-bootstrap`.
+5. Principle 24 arm (D8, D10, D11) + run-hook test arms.
+6. Plugin version bump (arm (i)), live runs, PR with §1.7 sections and a `Prior-art:` trailer.
 
 ## Out of scope
 
