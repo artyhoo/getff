@@ -795,13 +795,8 @@ fi
 
 # ─── Done ───────────────────────────────────────────────
 # Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
-# step. Each NOT-wired line names what was left undone and why; nothing here tells them what to do.
-if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
-  echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
-  printf '      - %s\n' "${NOT_WIRED[@]}"
-  echo ""
-fi
+# step. Each NOT-wired line names what was left undone and why (lib.sh print_not_wired).
+print_not_wired
 # A consumer-owned config that got getff's block (Q4.7) was copy_safe-skipped earlier, so it sits in
 # SKIPPED too — but it was not left as it was. List it apart, never under «skipped».
 _skipped_left=()

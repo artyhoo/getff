@@ -11,13 +11,14 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   R2_RULE_ID,
   customRulesImportSpecifier,
   formatLikeConsumer,
+  importSpecifierFrom,
   generateDegradedSnippet,
   probeViaEslint,
   r2NotWiredLine,
@@ -271,6 +272,92 @@ describe('customRulesImportSpecifier (#644)', () => {
   });
 });
 
+// install.sh hands the wirer an absolute --path under its logical `pwd`, while node's process.cwd() is
+// the physical directory: macOS /var → /private/var, a symlinked Linux workspace, a Windows junction or
+// 8.3 short name (C:\Users\RUNNER~1). Two spellings of one directory made `relative` walk out of the
+// project and back in under the other spelling, and the wired config failed to load (ESLint exit 2).
+describe('customRulesImportSpecifier — one project, two spellings of its path', () => {
+  /** A physical project with the barrel and apps/api, plus a link to it (a junction on Windows). */
+  const withLinkedProject = (fn: (real: string, link: string) => void): void => {
+    const real = realpathSync.native(mkdtempSync(join(tmpdir(), 'r2-spec-')));
+    const link = `${real}-link`;
+    try {
+      mkdirSync(join(real, 'eslint-rules-local'));
+      writeFileSync(join(real, 'eslint-rules-local', 'index.mjs'), 'export default {};\n', 'utf8');
+      mkdirSync(join(real, 'apps', 'api'), { recursive: true });
+      symlinkSync(real, link, 'junction');
+      fn(real, link);
+    } finally {
+      if (existsSync(link)) unlinkSync(link);
+      rmSync(real, { recursive: true, force: true });
+    }
+  };
+  /** The specifier reaches the barrel from the config's dir, under either spelling, in `/` form. */
+  const expectReachesBarrel = (spec: string, configDirs: string[]): void => {
+    expect(spec, 'an import specifier is a URL path: `/`, never `\\`').not.toContain('\\');
+    expect(spec.startsWith('./') || spec.startsWith('../'), spec).toBe(true);
+    for (const d of configDirs) expect(existsSync(resolve(d, spec)), `${spec} from ${d}`).toBe(true);
+  };
+
+  it('config under the link, cwd physical (what install.sh + node produce)', () => {
+    withLinkedProject((real, link) => {
+      const spec = customRulesImportSpecifier(join(link, 'apps', 'api', 'eslint.config.mjs'), real);
+      expectReachesBarrel(spec, [join(link, 'apps', 'api'), join(real, 'apps', 'api')]);
+      expect(spec).toBe('../../eslint-rules-local/index.mjs');
+    });
+  });
+
+  it('config physical, cwd under the link (the reverse)', () => {
+    withLinkedProject((real, link) => {
+      const spec = customRulesImportSpecifier(join(real, 'apps', 'api', 'eslint.config.mjs'), link);
+      expectReachesBarrel(spec, [join(link, 'apps', 'api'), join(real, 'apps', 'api')]);
+      expect(spec).toBe('../../eslint-rules-local/index.mjs');
+    });
+  });
+
+  it('the temp dir as the OS spells it vs its canonical form (macOS /var, Windows 8.3 short names)', () => {
+    const spelled = mkdtempSync(join(tmpdir(), 'r2-spell-'));
+    const canonical = realpathSync.native(spelled);
+    // Measurement, printed so each platform's CI log shows which spellings it has.
+    console.log(`[r2-spec] tmpdir=${spelled} realpathSync=${realpathSync(spelled)} realpathSync.native=${canonical}`);
+    try {
+      // macOS always has two spellings here; without them this case would pass on the old code too.
+      if (process.platform === 'darwin') expect(spelled).not.toBe(canonical);
+      mkdirSync(join(canonical, 'eslint-rules-local'));
+      writeFileSync(join(canonical, 'eslint-rules-local', 'index.mjs'), 'export default {};\n', 'utf8');
+      mkdirSync(join(canonical, 'apps', 'api'), { recursive: true });
+      const spec = customRulesImportSpecifier(join(spelled, 'apps', 'api', 'eslint.config.mjs'), canonical);
+      expectReachesBarrel(spec, [join(spelled, 'apps', 'api'), join(canonical, 'apps', 'api')]);
+      expect(spec).toBe('../../eslint-rules-local/index.mjs');
+    } finally {
+      rmSync(canonical, { recursive: true, force: true });
+    }
+  });
+
+  it('a config dir that does not exist yet keeps the spelling of its existing ancestor', () => {
+    withLinkedProject((real, link) => {
+      const spec = customRulesImportSpecifier(join(link, 'apps', 'new', 'eslint.config.mjs'), real);
+      expect(spec).toBe('../../eslint-rules-local/index.mjs');
+    });
+  });
+});
+
+describe('importSpecifierFrom — a URL path, whatever the platform', () => {
+  it('Windows, same drive: `/`-joined, never `\\`', () => {
+    expect(importSpecifierFrom('C:\\proj\\apps\\api', 'C:\\proj\\eslint-rules-local\\index.mjs', win32)).toBe(
+      '../../eslint-rules-local/index.mjs',
+    );
+  });
+  it('Windows, another drive (no relative path exists): the file URL', () => {
+    expect(importSpecifierFrom('C:\\proj\\apps\\api', 'D:\\proj\\eslint-rules-local\\index.mjs', win32)).toBe(
+      'file:///D:/proj/eslint-rules-local/index.mjs',
+    );
+  });
+  it('POSIX, a barrel next to the config: ./-prefixed', () => {
+    expect(importSpecifierFrom('/proj', '/proj/eslint-rules-local/index.mjs', posix)).toBe('./eslint-rules-local/index.mjs');
+  });
+});
+
 describe('resolveAndWire (#644)', () => {
   const body = `import base from './base.mjs';\nexport default [...base];\n`;
   function tmpConfig(src: string): { dir: string; p: string } {
@@ -390,6 +477,40 @@ for (const { nm, version } of ESLINT_INSTALLS) {
         expect(lint.rc, lint.out).not.toBe(2);
       } finally {
         if (existsSync(link)) unlinkSync(link);
+        rmSync(real, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // The install's own-config call: --path under the logical root (install.sh `pwd`), cwd the physical
+    // one (node's process.cwd()). The wired workspace's own `eslint .` must load the customRules import.
+    it.skipIf(!TS_MORPH_AVAILABLE)('own config wired through a linked project root → the workspace still lints (rc 0)', async () => {
+      const real = realpathSync.native(mkdtempSync(join(tmpdir(), 'r2-own-link-')));
+      // One level deeper than the project, like /var vs /private/var: a sibling link would let the
+      // mixed-spelling ../ walk land back on the real dir by accident.
+      const linkParent = `${real}-links`;
+      const link = join(linkParent, 'p');
+      try {
+        mkdirSync(linkParent);
+        symlinkSync(nm, join(real, 'node_modules'), 'junction');
+        mkdirSync(join(real, 'eslint-rules-local'));
+        writeFileSync(join(real, 'eslint-rules-local', 'index.mjs'), R2_BARREL, 'utf8');
+        mkdirSync(join(real, 'apps', 'api', 'src', 'routes'), { recursive: true });
+        writeFileSync(join(real, 'apps', 'api', 'src', 'routes', 'order.js'), 'export const o = 1;\n', 'utf8');
+        writeFileSync(join(real, 'apps', 'api', 'eslint.config.mjs'), `export default [{ files: ['**/*.js'], rules: {} }];\n`, 'utf8');
+        symlinkSync(real, link, 'junction');
+        const out = (await wireR2IntoOwnConfig({
+          configPath: join(link, 'apps', 'api', 'eslint.config.mjs'),
+          cwd: real,
+          boundaryGlobs: ['**/routes/**/*.js'],
+        })).join('\n');
+        expect(out).toMatch(/✓ R2 wired into /);
+        const lint = lintRc(join(real, 'apps', 'api'));
+        expect(lint.rc, lint.out).toBe(0);
+        expect(readFileSync(join(real, 'apps', 'api', 'eslint.config.mjs'), 'utf8')).toContain(`from '../../eslint-rules-local/index.mjs'`);
+      } finally {
+        if (existsSync(link)) unlinkSync(link);
+        rmSync(linkParent, { recursive: true, force: true });
+        if (existsSync(join(real, 'node_modules'))) unlinkSync(join(real, 'node_modules'));
         rmSync(real, { recursive: true, force: true });
       }
     }, 60_000);

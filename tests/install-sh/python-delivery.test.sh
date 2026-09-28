@@ -47,12 +47,23 @@ source "$REPO_ROOT/setup.d/lib.sh"
 export PY_LAYER_LIB_ONLY=1
 # shellcheck source=/dev/null
 source "$LAYER"
+# shellcheck source=lib/manual-step.sh
+source "$REPO_ROOT/tests/install-sh/lib/manual-step.sh"
 
 # run_delivery <project_root> — set globals + run the layer entrypoint; echo captured stdout+stderr.
 run_delivery() {
   PROJECT_ROOT="$1"
   SKIPPED=()
   deliver_python_toolchain 2>&1
+}
+
+# run_delivery_nw <project_root> — run_delivery, then the NOT-wired summary the lane prints before
+# it exits (install.sh do_python_lane). Operator directive 2026-09-28 (Q4.7): a REFUSE cell leaves a
+# fact line there, never an instruction.
+run_delivery_nw() {
+  NOT_WIRED=()
+  run_delivery "$1"
+  print_not_wired
 }
 
 # fingerprint of delivered CONFIG artefacts (EXCLUDES the running audit log).
@@ -81,7 +92,7 @@ inert_out=$(
   ls -A "$INERT_P" 2>/dev/null | tr '\n' ' '
 )
 if [ -z "$(echo "$inert_out" | tr -d '[:space:]')" ]; then
-  ok "layer sourced with no GETFF_TOOLCHAIN → wrote nothing (npm flow inert; install.sh:1440 auto-source is a no-op)"
+  ok "layer sourced with no GETFF_TOOLCHAIN → wrote nothing (npm flow inert; install.sh:1444 auto-source is a no-op)"
 else
   bad "layer NOT inert without GETFF_TOOLCHAIN → wrote: $inert_out"
 fi
@@ -255,30 +266,41 @@ echo ""; echo "  ── cell (iii): pre-existing ruff.toml (REFUSE — silent-wi
 P=$(mktemp -d); printf '{"name":"c3","version":"0.0.0"}\n' > "$P/package.json"
 printf '[lint]\nselect = ["E"]\n' > "$P/ruff.toml"
 before=$(cat "$P/ruff.toml")
-out=$(run_delivery "$P" 2>&1)
+out=$(run_delivery_nw "$P" 2>&1)
 [ "$before" = "$(cat "$P/ruff.toml")" ] \
   && ok "(iii) consumer ruff.toml left byte-identical (no silent clobber)" \
   || bad "(iii) consumer ruff.toml was overwritten — silent-clobber STOP-line violation"
 cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
   && ok "(iii) shipped getff-ruff.toml reference copy (== template bytes; ruff does not auto-discover it)" \
   || bad "(iii) getff-ruff.toml missing or differs from template"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'extend' && echo "$out" | grep -qF 'getff-ruff.toml' \
-  && ok "(iii) printed REFUSE + extend manual instructions" \
-  || bad "(iii) refusal/extend instructions not printed: $(echo "$out" | tr '\n' '|')"
-# sub-case: consumer ruff.toml already sets extend → scalar caveat surfaced
+echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'getff-ruff.toml' \
+  && echo "$out" | grep -qF "ruff: getff's TID bans are not in your ruff.toml" \
+  && ok "(iii) printed REFUSE + a NOT-wired line naming the consumer ruff.toml" \
+  || bad "(iii) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
+echo "$out" | grep -qF "ruff-bans.toml, which the getff CI workflow reads" \
+  && ok "(iii) with no workflow of the consumer's in the way, the line names the getff CI as the bans' reader" \
+  || bad "(iii) the NOT-wired line does not name the getff CI workflow as the reader: $(echo "$out" | grep -F 'TID bans')"
+printf '%s\n' "$out" > "$P/.out"
+asks_by_hand "$P/.out" \
+  && bad "(iii) hands a manual step back (Q4.7): $(manual_step_lines "$P/.out" | tr '\n' '|')" \
+  || ok "(iii) no manual step handed back (Q4.7 — a fact line, not «add extend»)"
+# sub-case: consumer ruff.toml already sets extend → still untouched, still a fact line, no step
 P=$(mktemp -d); printf '{"name":"c3e","version":"0.0.0"}\n' > "$P/package.json"
 printf '[lint]\nextend = "base.toml"\n' > "$P/ruff.toml"
-out=$(run_delivery "$P" 2>&1)
-echo "$out" | grep -qiE 'scalar|already sets' \
-  && ok "(iii) consumer already uses extend → scalar-one-per-file caveat surfaced" \
-  || bad "(iii) extend-scalar caveat not surfaced: $(echo "$out" | tr '\n' '|')"
+before=$(cat "$P/ruff.toml")
+out=$(run_delivery_nw "$P" 2>&1)
+printf '%s\n' "$out" > "$P/.out"
+[ "$before" = "$(cat "$P/ruff.toml")" ] && grep -qF "ruff: getff's TID bans are not in your ruff.toml" "$P/.out" \
+  && ! asks_by_hand "$P/.out" \
+  && ok "(iii) consumer already uses extend → ruff.toml untouched, NOT-wired line, no manual step" \
+  || bad "(iii) extend sub-case: $(echo "$out" | tr '\n' '|')"
 
 # sub-case: consumer has a DOTFILE .ruff.toml (no ruff.toml) → same REFUSE path (:153 collision
 # trigger — was untested until now).
 P=$(mktemp -d); printf '{"name":"c3d","version":"0.0.0"}\n' > "$P/package.json"
 printf '[lint]\nselect = ["E"]\n' > "$P/.ruff.toml"
 before=$(cat "$P/.ruff.toml")
-out=$(run_delivery "$P" 2>&1)
+out=$(run_delivery_nw "$P" 2>&1)
 [ ! -e "$P/ruff.toml" ] \
   && ok "(iii-dotfile) no ruff.toml written when consumer has .ruff.toml (dotfile variant)" \
   || bad "(iii-dotfile) ruff.toml written next to consumer .ruff.toml — silent-clobber STOP-line violation"
@@ -288,9 +310,10 @@ out=$(run_delivery "$P" 2>&1)
 cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
   && ok "(iii-dotfile) shipped getff-ruff.toml reference copy (== template bytes)" \
   || bad "(iii-dotfile) getff-ruff.toml missing or differs from template"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'extend' && echo "$out" | grep -qF 'getff-ruff.toml' \
-  && ok "(iii-dotfile) printed REFUSE + extend manual instructions" \
-  || bad "(iii-dotfile) refusal/extend instructions not printed: $(echo "$out" | tr '\n' '|')"
+echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'getff-ruff.toml' \
+  && echo "$out" | grep -qF "ruff: getff's TID bans are not in your .ruff.toml" \
+  && ok "(iii-dotfile) printed REFUSE + a NOT-wired line naming the consumer .ruff.toml" \
+  || bad "(iii-dotfile) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
 grep -qi 'REFUSE' "$P/$LOG_NAME" \
   && ok "(iii-dotfile) refusal recorded in $LOG_NAME (degrade path logged)" \
   || bad "(iii-dotfile) refusal not in audit log"
@@ -300,7 +323,7 @@ echo ""; echo "  ── cell (iv): pre-existing pyproject.toml [tool.ruff] (REFU
 P=$(mktemp -d); printf '{"name":"c4","version":"0.0.0"}\n' > "$P/package.json"
 printf '[project]\nname = "c4"\n\n[tool.ruff.lint]\nselect = ["E"]\n' > "$P/pyproject.toml"
 before=$(cat "$P/pyproject.toml")
-out=$(run_delivery "$P" 2>&1)
+out=$(run_delivery_nw "$P" 2>&1)
 [ ! -e "$P/ruff.toml" ] \
   && ok "(iv) NO ruff.toml written (a sibling ruff.toml would SILENTLY override their [tool.ruff])" \
   || bad "(iv) ruff.toml written next to pyproject [tool.ruff] — silent-override STOP-line violation"
@@ -310,9 +333,13 @@ out=$(run_delivery "$P" 2>&1)
 cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
   && ok "(iv) shipped getff-ruff.toml reference copy" \
   || bad "(iv) getff-ruff.toml missing or differs"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'tool.ruff.lint' \
-  && ok "(iv) printed REFUSE + merge-into-[tool.ruff.lint] instructions" \
-  || bad "(iv) refusal/merge instructions not printed: $(echo "$out" | tr '\n' '|')"
+echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml" \
+  && ok "(iv) printed REFUSE + a NOT-wired line naming [tool.ruff] of pyproject.toml" \
+  || bad "(iv) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
+printf '%s\n' "$out" > "$P/.out"
+asks_by_hand "$P/.out" \
+  && bad "(iv) hands a manual step back (Q4.7): $(manual_step_lines "$P/.out" | tr '\n' '|')" \
+  || ok "(iv) no manual step handed back (Q4.7 — a fact line, not «merge into [tool.ruff.lint]»)"
 
 # ── Cell (bans): stable .getff/ruff-bans.toml + CI getff-bans gate (S2-T2 fix) ────────────────
 # The shipped CI ran a bare `ruff check .` with no --config. In a ruff-collision cell the consumer's
