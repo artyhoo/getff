@@ -763,7 +763,13 @@ const GH_TRANSIENT_RE =
  * `gh <args>` for a READ, repeated on a transient network failure (4 attempts, 3 s then 6 s then
  * 12 s apart; `RUNTIME_BRIDGE_GH_RETRY_BASE_MS` overrides the 3 s). Only for idempotent reads —
  * never a write such as `gh pr merge`. Any other failure is thrown at once.
+ *
+ * `maxBuffer` is raised from Node's 1 MiB default: the sweep's one merged-PR search returns every
+ * matching PR body at once (measured 1.4 MB for 160 PRs on 2026-09-28), and at 1 MiB the call died
+ * with `spawnSync gh ENOBUFS` on the first live tick after #1874.
  */
+const GH_READ_MAX_BUFFER = 64 * 1024 * 1024;
+
 export function ghRead(args: string[]): string {
   const base = Number(process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] ?? 3000);
   const attempts = 4;
@@ -772,6 +778,7 @@ export function ghRead(args: string[]): string {
       return execFileSync('gh', args, {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: GH_READ_MAX_BUFFER,
       });
     } catch (err) {
       const e = err as { message?: string; stderr?: string | Buffer };
