@@ -14,7 +14,7 @@ eb02bc137301120499702afda868b7fe033b395b615783b285cf521452dc2c84  .claude/hooks/
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
-b0e1d6129328ae37b273e2b6f0c1e6483f6998cc36e60d220bc84ba47981571a  .claude/hooks/inject-session-bootstrap.sh
+c86641390347b45e78056143d2884fd09f5aec2893d9f3649383b34f4ea66bfb  .claude/hooks/inject-session-bootstrap.sh
 662cec213c70fe0c77d932ff58612de7c63072068ed6e15055f009329e9381ee  .claude/hooks/inject-subagent-context.sh
 cde32f185b4a770570803a9d9a7ac864f475bbac875576daf04df0db0965bf17  .claude/hooks/inject-subagent-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
@@ -598,10 +598,10 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 39405835e483d18e8e025e875b39226da0d210ca8bb4684439dec92d438d1dce  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 d4fdba5eb0954792c779636cb02742bc8f80195cf6ac4e0bc40f670eea24e2ad  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-96d1033b62e4e8177d259b4168a2245713a298a95a9af3dcf503b0255612b20c  packages/core/principles/36-ci-needs-completeness.test.ts
+d402a677397ef60cba4eb1a5bed4790cc298f2bc20b0bd1dd4c6928ec0dc1183  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 f16dee603792884519230c0f66c087964dc2f3e93f2a6c0858cdcd87af6f6c03  packages/core/principles/37-required-context-completeness.test.ts
-1aa44697eae247f3d0fd6afd7eef075a2b565236c9852dacd0c95f3301cba438  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+aa0e0966bc0d6911b9dce27509db05d943fa21021e0d35a282404edaf03597c0  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 461d044a50785a08c6cb5b27f0c69a34a2bb04fa128c100d418ee5e6b410a82e  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
