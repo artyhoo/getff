@@ -300,9 +300,15 @@ OUT11=$(repo_gate "$T11"); RC11=$?
 # calling it «your own config, the install kept it» is false on a fresh RN install. The baseline
 # manifest records what getff delivered; the message must follow it.
 sha_of() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | awk '{print $1}'; }
-manifest_for() { # $1 = dir, $2 = recorded hash for eslint.config.mjs
+manifest_for() { # $1 = dir, $2 = recorded hash for eslint.config.mjs, $3 = rn → getff also placed
+  # the react-native sibling eslint.config.rn-common.mjs, as a react-native install does
   mkdir -p "$1/.ai-factory"
-  printf '{\n  "eslint.config.mjs": "%s"\n}\n' "$2" > "$1/.ai-factory/refresh-baseline.json"
+  if [ "${3:-}" = rn ]; then
+    printf '{\n  "eslint.config.mjs": "%s",\n  "eslint.config.rn-common.mjs": "%s"\n}\n' "$2" "$2" \
+      > "$1/.ai-factory/refresh-baseline.json"
+  else
+    printf '{\n  "eslint.config.mjs": "%s"\n}\n' "$2" > "$1/.ai-factory/refresh-baseline.json"
+  fi
 }
 T12=$(own_cfg_dir "export default [];")
 manifest_for "$T12" "$(sha_of "$T12/eslint.config.mjs")"
@@ -312,18 +318,37 @@ OUT12=$(repo_gate "$T12"); RC12=$?
   && ok "own-config provenance: getff's own marker-less config is skipped as getff's, not called the consumer's" \
   || bad "own-config provenance: rc=$RC12, message misattributes getff's config (saw: $(printf '%s' "$OUT12" | head -1))"
 
-# getff placed the config and it has been edited since (the manifest hash no longer matches). Still
-# a skip, not the full alarm: getff's react-native config never had a RULE_GLOBS block, and failing
-# every edit of it would turn check:globs RED on a one-line comment. The message must say the file
-# was edited, so a RULE_GLOBS block cut out of a config that had one is reported, not passed over.
+# The same lookup with an ABSOLUTE ESLINT_CONFIG: the manifest key is relative to the project root,
+# so a lookup by the path as given would call getff's config the consumer's.
+OUT12b=$( cd "$T12" && ESLINT_CONFIG="$T12/eslint.config.mjs" bash "$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh" 2>&1 ); RC12b=$?
+[ "$RC12b" = "0" ] && ! printf '%s' "$OUT12b" | grep -q "your own config" \
+  && printf '%s' "$OUT12b" | grep -q "getff placed" \
+  && ok "own-config provenance: an absolute ESLINT_CONFIG still finds getff's manifest entry" \
+  || bad "own-config provenance: rc=$RC12b, an absolute ESLINT_CONFIG misattributes getff's config (saw: $(printf '%s' "$OUT12b" | head -1))"
+
+# getff placed a react-native config (its rn-common sibling is in the manifest) and it has been
+# edited since. Still a skip, not the full alarm: getff's react-native config never had a
+# RULE_GLOBS block, and failing every edit of it would turn check:globs RED on a one-line comment.
+# The message says the file was edited.
 T13=$(own_cfg_dir "export default [];")
-manifest_for "$T13" "0000000000000000000000000000000000000000000000000000000000000000"
+manifest_for "$T13" "0000000000000000000000000000000000000000000000000000000000000000" rn
 OUT13=$(repo_gate "$T13"); RC13=$?
 [ "$RC13" = "0" ] && printf '%s' "$OUT13" | grep -q "getff placed eslint.config.mjs and it has been edited since" \
-  && ok "own-config provenance: an edited getff config is skipped and named as edited" \
-  || bad "own-config provenance: rc=$RC13, an edited getff config was not reported as edited (saw: $(printf '%s' "$OUT13" | head -1))"
+  && ok "own-config provenance: an edited getff react-native config is skipped and named as edited" \
+  || bad "own-config provenance: rc=$RC13, an edited getff react-native config was not reported as edited (saw: $(printf '%s' "$OUT13" | head -1))"
 ! printf '%s' "$OUT12" | grep -q "edited since" \
   && ok "own-config provenance: the unedited getff config is not called edited (the hash is compared)" \
   || bad "own-config provenance: the config as delivered was called edited"
+
+# getff placed a config of a stack whose template HAS a RULE_GLOBS block (no rn-common sibling),
+# and an edit removed the block and every getff rule. That is getff's enforcement cut out of
+# getff's own file — the bypass this gate exists to catch — so it FAILS, as it did before the
+# consumer-owned skip existed; a recorded R2 N/A decision still applies.
+T14=$(own_cfg_dir "export default [];")
+manifest_for "$T14" "0000000000000000000000000000000000000000000000000000000000000000"
+OUT14=$(repo_gate "$T14"); RC14=$?
+[ "$RC14" = "1" ] && printf '%s' "$OUT14" | grep -q "RULE_GLOBS block and its rules-as-tests rules are gone" \
+  && ok "own-config provenance: getff's RULE_GLOBS block cut out of getff's own config FAILS, naming why" \
+  || bad "own-config provenance: rc=$RC14, stripping getff's rules out of getff's config passed (saw: $(printf '%s' "$OUT14" | head -2 | tr '\n' '|'))"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

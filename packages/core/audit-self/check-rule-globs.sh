@@ -78,11 +78,13 @@ fi
 # getff-shaped and keeps the full alarm below. Whose config it is comes from the baseline manifest
 # (.ai-factory/refresh-baseline.json records every file getff delivered, with its sha256), not from
 # its content: getff's react-native config also has no RULE_GLOBS block — that preset ships no
-# custom rules. The manifest's sha256 tells a config still as delivered from one edited since; both
-# are skipped, and the edited one is named as such. Failing it instead would turn every edit of
-# getff's react-native config RED — that config never had a RULE_GLOBS block to lose (measured
-# 2026-09-28: one appended comment line failed check:globs) — while an edit that cut getff's rules
-# out of a config that had them leaves the project where a consumer-owned config is: skip + report.
+# custom rules. The manifest's sha256 tells a config still as delivered from one edited since. As
+# delivered: skipped. Edited, and getff also placed the react-native sibling eslint.config.rn-common.mjs:
+# skipped and named as edited — that config never had a RULE_GLOBS block to lose, and failing it
+# would turn check:globs RED on one appended comment line (measured 2026-09-28). Edited otherwise:
+# the stack's template HAD a RULE_GLOBS block and getff rules, and an edit cut both out of getff's
+# own file — the bypass this gate exists to catch — so it takes the full alarm below, as it did
+# before this skip existed (a recorded R2 N/A decision still applies there).
 if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
   _bl=.ai-factory/refresh-baseline.json
   _bl_key="${CFG#"$PWD"/}"
@@ -96,11 +98,16 @@ if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-par
   _bl_actual=$( { sha256sum "$CFG" 2>/dev/null || shasum -a 256 "$CFG" 2>/dev/null; } | awk '{print $1}')
   if [ -n "$_bl_recorded" ] && [ "$_bl_recorded" = "$_bl_actual" ]; then
     echo "check-rule-globs: getff placed $CFG for this stack and it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
-  else
-    echo "check-rule-globs: getff placed $CFG and it has been edited since; it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
-    echo "  If getff's RULE_GLOBS block and rules were in it and were not removed on purpose, restore them from the stack's template."
+    exit 0
   fi
-  exit 0
+  _bl_dir=$(dirname "$_bl_key")
+  if [ "$_bl_dir" = . ]; then _bl_rn=eslint.config.rn-common.mjs; else _bl_rn="$_bl_dir/eslint.config.rn-common.mjs"; fi
+  if grep -qF "\"$_bl_rn\":" "$_bl" 2>/dev/null; then
+    echo "check-rule-globs: getff placed $CFG and it has been edited since; it is getff's react-native config, which wires none of getff's custom rules (R2/R7/R8) and has no RULE_GLOBS block, so there is no rule glob to verify (skipped)."
+    exit 0
+  fi
+  echo "check-rule-globs: getff placed $CFG with a RULE_GLOBS block and rules-as-tests rules, and it has been edited since: the RULE_GLOBS block and its rules-as-tests rules are gone, so getff's custom rules (R2/R7/R8) no longer run."
+  echo "  Restore them from the stack's template; the checks below say what is missing."
 fi
 
 # C4 (GH #547 Point 2): honor a recorded R2 N/A decision via the shared marker helper (sibling file),
