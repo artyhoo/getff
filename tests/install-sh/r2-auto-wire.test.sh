@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# r2-auto-wire.test.sh — GH #547 Point 2 C2/C3 end-to-end. Fixtures A–D + self-probe. Each arm
+# r2-auto-wire.test.sh — GH #547 Point 2 C2/C3 end-to-end. Fixtures A–F + self-probe. Each arm
 # asserts install rc=0 (a mid-install crash must never false-green — lesson GH #531/#544).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -68,6 +68,59 @@ OUT=$(globs "$D"); RC=$?
 [ "$RC" = "1" ] \
   && ok "D: ambiguous → check:globs stays the RED alarm (no false auto-green on doubt)" \
   || bad "D: ambiguous layout did not stay red (rc=$RC)"
+
+# ── Fixture E — the consumer owns eslint.config.mjs: a boundary is found, nothing is patched ──
+# A plain install keeps a pre-existing config (copy_safe skip + report — operator decision
+# 2026-09-23). The auto-wire used to rewrite it anyway: awk + mv over the consumer's file, and a
+# «✓ added 1 glob(s)» even when the config had no `boundary: [` line and nothing changed. This
+# config carries such a line, so an unguarded patch would visibly change it.
+E=$(mktemp -d)
+printf '{"name":"e","version":"0.0.0"}\n' > "$E/package.json"
+mkdir -p "$E/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$E/src/api/handler.ts"
+cat > "$E/eslint.config.mjs" <<'JS'
+// The consumer's own config; its RULE_GLOBS-like block is theirs, not getff's.
+const OWN = {
+  boundary: [
+    'server/**/*.ts',
+  ],
+};
+export default [{ files: OWN.boundary, rules: {} }];
+JS
+cp "$E/eslint.config.mjs" "$E.before"
+( cd "$E" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$E.log" 2>&1
+rc_e=$?
+[ "$rc_e" = "0" ] || bad "E: install rc=$rc_e (tail: $(tail -3 "$E.log" | tr '\n' '|'))"
+grep -q 'R2 auto-wire' "$E.log" || bad "E: the R2 auto-wire never ran — the arm below would be vacuous"
+cmp -s "$E/eslint.config.mjs" "$E.before" \
+  && ok "E: a boundary in the consumer's own config's project → eslint.config.mjs byte-identical" \
+  || bad "E: the R2 auto-wire rewrote the consumer's eslint.config.mjs ($(diff "$E.before" "$E/eslint.config.mjs" | head -4 | tr '\n' '|'))"
+! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$E.log" \
+  && ok "E: no «added N glob(s)» claim over a config the install did not touch" \
+  || bad "E: the install claimed it added globs to the consumer's config"
+awk '/NOT wired, or wired only in part/{on=1} on' "$E.log" | grep -q 'R2.*your own config' \
+  && ok "E: the not-wired summary says R2 is not wired into the consumer's own config" \
+  || bad "E: the not-wired summary does not report the unwired R2 boundary"
+rm -f "$E.before" "$E.log"
+
+# ── Fixture F — getff's own config with no `boundary: [` array (react-native ships none) ──────
+# The awk patch copies such a config unchanged; the counter still went up and the install said
+# «✓ added 1 glob(s)» over a file it had not changed.
+F=$(mktemp -d)
+printf '{"name":"f","version":"0.0.0","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$F/package.json"
+mkdir -p "$F/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$F/src/api/handler.ts"
+install_into "$F" react-native
+grep -q 'R2 auto-wire' "$F/.install.log" || bad "F: the R2 auto-wire never ran — the arm below would be vacuous"
+! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$F/.install.log" \
+  && ok "F: a config with no boundary array → no «added N glob(s)» claim" \
+  || bad "F: the install claimed it added globs to a config that has no RULE_GLOBS.boundary array"
+# The react-native preset ships no R2 and its config no RULE_GLOBS block, so there is nothing to
+# widen: a per-glob «could not add» warning and «widen RULE_GLOBS.boundary by hand» are wrong advice.
+! grep -qE 'could not add glob|widen RULE_GLOBS.boundary by hand' "$F/.install.log" \
+  && ok "F: no «could not add glob» / «widen RULE_GLOBS.boundary by hand» advice for a config with no RULE_GLOBS block" \
+  || bad "F: the install told the consumer to widen a RULE_GLOBS.boundary their stack's config does not have"
+grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
+  && ok "F: the install says why R2 is not wired (this stack's config has no RULE_GLOBS block)" \
+  || bad "F: no line saying the stack's config has no RULE_GLOBS block"
 
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )

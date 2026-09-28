@@ -5,7 +5,9 @@
 # the human's interactive agent session authored (agents/rule-researcher.md → two committed
 # JSON files), through the deterministic factory:
 #   FileResearchClient + FileGenerateClient → generate.ts factory → install() → rules-lock.json
-# Payload: packages/core/install/rule-bootstrap-cli.ts (the shared entry). This step is the
+# Payload: packages/core/install/rule-bootstrap-cli.bundle.mjs — the shared entry
+# (packages/core/install/rule-bootstrap-cli.ts) prebuilt by scripts/build-runtime-bundles.mjs, so
+# plain `node` runs it with no tsx and no node_modules in the getff clone. This step is the
 # Option-1 gate placement — a standalone setup.d step, mirroring 05-mcp.sh's FULL gate (the
 # placement fork the spike parked per kickoff §6; resolved to Option 1 at harvest time).
 #
@@ -26,7 +28,7 @@ if [ -z "${FULL:-}" ]; then
   return 0 2>/dev/null || true
 fi
 
-_rb_cli="$PKG_ROOT/packages/core/install/rule-bootstrap-cli.ts"
+_rb_cli="$PKG_ROOT/packages/core/install/rule-bootstrap-cli.bundle.mjs"
 
 if [ ! -f "$_rb_cli" ]; then
   return 0 2>/dev/null || true   # payload absent — degrade silently
@@ -39,7 +41,7 @@ fi
 
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
 # Stack-keyed research pair: the install's $STACK selects the artefacts (mirrors the
-# ${STACK:-ts-server} D3 notice in 99-finalize.sh:108-109). Multi-stack delivery (#827 B1):
+# ${STACK:-ts-server} D3 notice in 99-finalize.sh:130-131). Multi-stack delivery (#827 B1):
 # react-native / ts-server / react-spa each look up their own <stack>.{research,selection}.json,
 # instead of the former react-next-only hardcode that silently degraded every other stack.
 _plan="$_research_dir/${STACK:-ts-server}.research.json"
@@ -59,20 +61,16 @@ if [ -n "${DRY_RUN:-}" ]; then
   return 0 2>/dev/null || true
 fi
 
-# B4 (#827): guarantee the factory's workspace deps (@rules-as-tests/*) resolve from PKG_ROOT
-# before invoking the factory (defined in lib.sh — sourced in dispatcher scope). No-op on the
-# happy path (properly-installed checkout); self-heals a borrowed/dangling worktree node_modules.
-ensure_workspace_pkg_links "$PKG_ROOT"
-
 printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock (--full, %s)\n' "${STACK:-ts-server}"
-# Run tsx from PKG_ROOT (the framework — tsx is present there) while targeting the consumer
-# via --consumer-root, so this works even when the consumer has no tsx of its own.
-# critical-review S5-9 (interim): the old `|| true` hid a generator that could not run at all — the
-# published getff package ships none of its dependencies (tsx, ajv) — so the consumer's research
-# produced no rule and the install said nothing. Still rc=0 (never abort the install), but the
-# failure is now loud and lands in the final NOT wired summary.
+# critical-review S5-9 / N14: this used to be `cd $PKG_ROOT && npx --no-install tsx <cli>.ts`, and
+# a getff clone has no node_modules — the generator died on ERR_MODULE_NOT_FOUND before generating
+# anything. The prebuilt bundle inlines its dependencies and loads ESLint + the TypeScript parser
+# from the PROJECT (the §8 toolchain install put them there), so it runs from the project root: the
+# project's node_modules and its eslint-rules-local/ barrel resolve from the cwd.
+# Still rc=0 on failure (never abort the install), but the failure is loud and lands in the final
+# NOT wired summary.
 _rb_rc=0
-( cd "$PKG_ROOT" && npx --no-install tsx "$_rb_cli" \
+( cd "$PROJECT_ROOT" && node "$_rb_cli" \
     --consumer-root "$PROJECT_ROOT" \
     --from-research "$_plan" \
     --from-selection "$_sel" 2>&1 ) || _rb_rc=$?

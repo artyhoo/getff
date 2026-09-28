@@ -1178,70 +1178,6 @@
       "example": null
     },
     {
-      "name": "shared/hooks-package.json",
-      "kind": "template",
-      "shipsTo": {
-        "tier": "framework",
-        "stacks": [
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
-      },
-      "description": "Minimal package.json for the consumer's hooks directory (type: module).",
-      "source": {
-        "path": "packages/core/templates/templates.manifest.json",
-        "line": 119
-      },
-      "installedTo": [
-        {
-          "stack": "react-native",
-          "lane": "brownfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "react-native",
-          "lane": "greenfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": "packages/core/hooks/package.json"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "greenfield",
-          "path": "packages/core/hooks/package.json"
-        }
-      ],
-      "extras": {
-        "format": "json"
-      },
-      "example": null
-    },
-    {
       "name": "shared/husky-pre-commit.sh",
       "kind": "template",
       "shipsTo": {
@@ -1256,7 +1192,7 @@
       "description": "Consumer pre-commit hook — fast checks only (target <5s); heavy checks live in pre-push and CI.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 123
+        "line": 119
       },
       "installedTo": [
         {
@@ -1320,7 +1256,7 @@
       "description": "Consumer pre-push hook — the TS-core dispatcher shipped by install.sh.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 127
+        "line": 123
       },
       "installedTo": [
         {
@@ -1385,7 +1321,7 @@
       "description": "Integration rules across microservices — API contracts, CDC, event schemas, mTLS, observability, resilience (paths-scoped frontmatter).",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 131
+        "line": 127
       },
       "installedTo": [
         {
@@ -1459,7 +1395,7 @@
       "description": "Shipped skill-context override for aif-orchestrator-discipline — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 135
+        "line": 131
       },
       "installedTo": {
         "absent": "not-byte-copied"
@@ -1485,7 +1421,7 @@
       "description": "Shipped skill-context override for aif-review — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 139
+        "line": 135
       },
       "installedTo": [
         {
@@ -1565,7 +1501,7 @@
       "description": "Shipped skill-context override for aif-rules-check — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 143
+        "line": 139
       },
       "installedTo": [
         {
@@ -1644,7 +1580,7 @@
       "description": "Task-tier routing SSOT installed at .ai-factory/tier-home.md — tier criteria, bridge-profile mechanic, marker value rule, degradation matrix.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 147
+        "line": 143
       },
       "installedTo": [
         {
@@ -1708,7 +1644,7 @@
       "description": "Base tsconfig template installed into consumer repos.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
-        "line": 151
+        "line": 147
       },
       "installedTo": [
         {

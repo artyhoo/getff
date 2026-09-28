@@ -310,7 +310,7 @@
       "E": {
         "familyName": "templates",
         "path": "docs/site/reference/E.json",
-        "members": 38
+        "members": 37
       },
       "F1": {
         "familyName": "rules",
@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 28
+        "members": 29
       },
       "G": {
         "familyName": "packages",

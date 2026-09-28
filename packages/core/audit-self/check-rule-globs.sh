@@ -69,13 +69,55 @@ EOF
 fi
 [ -f "$CFG" ] || { echo "check-rule-globs: $CFG not found (run from the project root)" >&2; exit 2; }
 
+# A config the CONSUMER owns: the install kept a pre-existing eslint.config.mjs (copy_safe skip +
+# report — operator decision 2026-09-23, never overwrite or merge a consumer's tool config), so
+# getff's RULE_GLOBS block and its custom rules never landed in it. There is no getff glob to
+# verify, and «no globs found» would fail validate and every push of such a project on a config
+# getff does not own. Skip and say what is not wired — the same verdict check-rule-enforced.sh
+# gives a config with no boundary tokens. A config that mentions RULE_GLOBS or a getff rule is
+# getff-shaped and keeps the full alarm below. Whose config it is comes from the baseline manifest
+# (.ai-factory/refresh-baseline.json records every file getff delivered, with its sha256), not from
+# its content: getff's react-native config also has no RULE_GLOBS block — that preset ships no
+# custom rules. The manifest's sha256 tells a config still as delivered from one edited since. As
+# delivered: skipped. Edited, and getff also placed the react-native sibling eslint.config.rn-common.mjs:
+# skipped and named as edited — that config never had a RULE_GLOBS block to lose, and failing it
+# would turn check:globs RED on one appended comment line (measured 2026-09-28). Edited otherwise:
+# the stack's template HAD a RULE_GLOBS block and getff rules, and an edit cut both out of getff's
+# own file — the bypass this gate exists to catch — so it takes the full alarm below, as it did
+# before this skip existed (a recorded R2 N/A decision still applies there).
+if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
+  _bl=.ai-factory/refresh-baseline.json
+  _bl_key="${CFG#"$PWD"/}"
+  _bl_key="${_bl_key#./}"
+  if ! grep -qF "\"$_bl_key\":" "$_bl" 2>/dev/null; then
+    echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config (no RULE_GLOBS block, no rules-as-tests rule), so there is no rule glob to verify (skipped)."
+    echo "  To enforce them, merge getff's RULE_GLOBS block and rules-as-tests plugin into $CFG by hand; the install kept your config and did not touch it."
+    exit 0
+  fi
+  _bl_recorded=$(awk -v k="\"$_bl_key\":" 'index($0, k) { n = split($0, a, "\""); if (n >= 4) print a[4]; exit }' "$_bl" 2>/dev/null)
+  _bl_actual=$( { sha256sum "$CFG" 2>/dev/null || shasum -a 256 "$CFG" 2>/dev/null; } | awk '{print $1}')
+  if [ -n "$_bl_recorded" ] && [ "$_bl_recorded" = "$_bl_actual" ]; then
+    echo "check-rule-globs: getff placed $CFG for this stack and it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
+    exit 0
+  fi
+  _bl_dir=$(dirname "$_bl_key")
+  if [ "$_bl_dir" = . ]; then _bl_rn=eslint.config.rn-common.mjs; else _bl_rn="$_bl_dir/eslint.config.rn-common.mjs"; fi
+  if grep -qF "\"$_bl_rn\":" "$_bl" 2>/dev/null; then
+    echo "check-rule-globs: getff placed $CFG and it has been edited since; it is getff's react-native config, which wires none of getff's custom rules (R2/R7/R8) and has no RULE_GLOBS block, so there is no rule glob to verify (skipped)."
+    exit 0
+  fi
+  echo "check-rule-globs: getff placed $CFG with a RULE_GLOBS block and rules-as-tests rules, and it has been edited since: the RULE_GLOBS block and its rules-as-tests rules are gone, so getff's custom rules (R2/R7/R8) no longer run."
+  echo "  Restore them from the stack's template; the checks below say what is missing."
+fi
+
 # C4 (GH #547 Point 2): honor a recorded R2 N/A decision via the shared marker helper (sibling file),
 # re-verifying its precondition mechanically — so a recorded N/A is conditional, not a permanent off.
 # shellcheck source=/dev/null
 . "$(dirname "$0")/r2-na-marker.sh"
 
 # `packages/core` is the framework's VENDORED install target (install.sh ships hooks/,
-# eslint-rules/, audit-self/, principles/ there). Post-#735 the shipped
+# audit-self/, principles/ there; eslint-rules/ too from #735 until 2026-09-28, and a consumer
+# installed in that window still carries it). Such a copy of
 # packages/core/eslint-rules/index.ts matches the install-injected `**/eslint-rules/**`
 # boundary glob — counting vendored framework code toward USER R2 coverage is exactly the
 # FALSE-GREEN this gate exists to prevent (see the shadow-package rationale below). Prune it

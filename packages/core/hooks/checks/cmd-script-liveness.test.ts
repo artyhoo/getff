@@ -401,12 +401,12 @@ describe('config-presence mode', () => {
   };
 
   it('✅ passes when an architectural dependency-cruiser config exists', () => {
-    writeAt(repoRoot, 'templates/ts-server/dependency-cruiser.cjs', 'module.exports = {};');
-    track(repoRoot, 'templates/ts-server/dependency-cruiser.cjs');
+    writeAt(repoRoot, 'templates/ts-server/dependency-cruiser.mjs', 'export default {};');
+    track(repoRoot, 'templates/ts-server/dependency-cruiser.mjs');
     const r = runRuleLiveness('R3', r3, { repoRoot });
     expect(r.status).toBe('pass');
     expect(r.mode).toBe('config-presence');
-    expect(r.reason).toContain('templates/ts-server/dependency-cruiser.cjs');
+    expect(r.reason).toContain('templates/ts-server/dependency-cruiser.mjs');
   });
   it('❌ fails when no architectural config is present', () => {
     mkdirSync(repoRoot, { recursive: true });
@@ -424,13 +424,13 @@ describe('config-presence mode', () => {
    * the very same path passes once staged.
    */
   it('❌ an UNTRACKED build-output copy does not satisfy config presence', () => {
-    writeAt(repoRoot, 'packages/getff/templates/ts-server/dependency-cruiser.cjs', 'module.exports = {};');
+    writeAt(repoRoot, 'packages/getff/templates/ts-server/dependency-cruiser.mjs', 'export default {};');
     const r = runRuleLiveness('R3', r3, { repoRoot });
     expect(r.status).toBe('fail');
     expect(r.failures?.[0]).toMatch(/no tracked dependency-cruiser/);
   });
   it('✅ the SAME path satisfies it once tracked (predicate is trackedness, not the path)', () => {
-    const rel = 'packages/getff/templates/ts-server/dependency-cruiser.cjs';
+    const rel = 'packages/getff/templates/ts-server/dependency-cruiser.mjs';
     writeAt(repoRoot, rel, 'module.exports = {};');
     track(repoRoot, rel);
     const r = runRuleLiveness('R3', r3, { repoRoot });

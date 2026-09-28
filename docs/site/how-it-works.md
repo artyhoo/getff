@@ -17,6 +17,7 @@ sources:
   - packages/core/templates/python/ruff.toml
   - packages/core/templates/python/sgconfig.yml
   - skills/getff/SKILL.md
+docs-refresh: deferred — re-verified 2026-09-28, the only change to the cited skills/getff/SKILL.md in this range renames one file in its config table (dependency-cruiser.cjs becomes .mjs) with the line count unchanged; this page names the tool, never the file; clears at the next gold refresh of this page
 executed:
   - { step: demo-region-flipped-line, stack: repo, date: 2026-09-21, result: "exit-1; shown once on the Why page" }
 next: foundations.md

@@ -69,7 +69,7 @@ Production-ready configs, shipped from the framework repo's `packages/core/templ
 | `templates/ts-server/eslint.config.mjs`                                                                                 | Server-side TS: typescript-eslint strict + Prettier + custom rules              |
 | `packages/preset-next-15-canonical/templates/eslint.config.react.mjs`                                                   | React/Next.js: above + react-hooks + jsx-a11y/strict + @next/next               |
 | `packages/core/templates/shared/tsconfig.json`                                                                          | Strict TypeScript with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` |
-| `templates/ts-server/dependency-cruiser.cjs`                                                                            | Architectural rules: layering, no-cycles, no-cross-feature-imports              |
+| `templates/ts-server/dependency-cruiser.mjs`                                                                            | Architectural rules: layering, no-cycles, no-cross-feature-imports              |
 | `templates/ts-server/stryker.config.json`                                                                               | Mutation testing with incremental mode, thresholds 60/70/85                     |
 | `templates/ts-server/vitest.config.ts` (or `packages/preset-next-15-canonical/templates/vitest.config.ts`)              | Test runner with per-module coverage thresholds                                 |
 | `packages/core/templates/shared/.lintstagedrc.json`                                                                     | Pre-commit: prettier + eslint --fix on staged only                              |

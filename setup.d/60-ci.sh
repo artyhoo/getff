@@ -51,6 +51,20 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
     boundary-present)
       _patched=0
       _r2_glob_failed=0
+      # Only getff's own config is patched. A config the consumer owns (copy_safe kept it) is theirs
+      # — operator decision 2026-09-23: skip + report, never overwrite or merge a consumer's tool
+      # config — so the boundary is reported as not wired instead of written into their file.
+      _r2_own_cfg=0
+      _r2_no_slot=0
+      if ! getff_delivered "$PROJECT_ROOT/eslint.config.mjs"; then
+        _r2_own_cfg=1
+        _r2_out=""   # no glob lines → the patch loop below writes nothing
+      elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
+        # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
+        # ships no R2) — there is no boundary array to widen, so no per-glob warning either.
+        _r2_no_slot=1
+        _r2_out=""
+      fi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
@@ -58,21 +72,29 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
         # stale eslint.config.mjs.tmp.
+        # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
+        # NOT added, never a «✓ added».
         if awk -v ins="    '$_g'," '
           done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
+          && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
           && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"; then
           _patched=$((_patched + 1))
         else
           rm -f "$PROJECT_ROOT/eslint.config.mjs.tmp" 2>/dev/null || true
           _r2_glob_failed=$((_r2_glob_failed + 1))
-          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (awk or write failure) — eslint.config.mjs left unchanged" >&2
+          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (no \`boundary: [\` array, or a write failure) — eslint.config.mjs left unchanged" >&2
         fi
       done <<EOF
 $_r2_out
 EOF
-      if [ "$_patched" -gt 0 ]; then
+      if [ "$_r2_own_cfg" = "1" ]; then
+        echo "  · HTTP boundary detected, but eslint.config.mjs is your own config (the install kept it) — R2 was NOT wired into it"
+        note_not_wired "R2 (no-unsafe-zod-parse) on your HTTP boundary — eslint.config.mjs is your own config, and the install never merges into a consumer's tool config; add getff's RULE_GLOBS block and the rule by hand if you want it"
+      elif [ "$_r2_no_slot" = "1" ]; then
+        echo "  · HTTP boundary detected, but this stack's eslint.config.mjs has no RULE_GLOBS block — its preset ships no R2, so there is nothing to widen"
+      elif [ "$_patched" -gt 0 ]; then
         echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
       elif [ "$_r2_glob_failed" -gt 0 ]; then
         echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does NOT cover it yet; widen RULE_GLOBS.boundary by hand" >&2
@@ -144,9 +166,12 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   }
   _aif_detect_gates() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
     _aif_missing=(); _aif_steps=(); _aif_cmds=()
+    # arch:check's artifact is whichever dependency-cruiser config is on disk: ours, or the
+    # consumer's own that 40-configs.sh kept (copy_unless_foreign).
+    local _dc; _dc=$(depcruise_config "$PROJECT_ROOT")
     _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
     _aif_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
-    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           ".dependency-cruiser.cjs"              "- run: npm run arch:check"
+    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           "${_dc:-.dependency-cruiser.mjs}"       "- run: npm run arch:check"
     _aif_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
     _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
     _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"

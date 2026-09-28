@@ -368,7 +368,7 @@ refresh_baseline_stage() {
 # Unstaged = no manifest entry = «unknown»: every overwrite path then preserves a diverged copy
 # (_preserve_unbaselined_copy — copy_safe --force, _copy_tree_with_transform, and _refresh_one_file).
 # Optional 3rd arg = copy_safe's parity mode: a post-processed delivery (md-refs / arch-header /
-# stryker-pm) is compared against the post-processed bytes, via the same _expected_* helpers the
+# stryker-pm / vitest-layout) is compared against the post-processed bytes, via the same _expected_* helpers the
 # --force guard uses — the raw src never matches those, and they would silently drop out of the
 # A1-2 manifest rebuild.
 refresh_baseline_stage_weak_matching() {
@@ -380,6 +380,7 @@ refresh_baseline_stage_weak_matching() {
       md-refs)     if tmpexp=$(_expected_transformed "$src"); then expected="$tmpexp"; fi ;;
       arch-header) if tmpexp=$(_expected_arch_header "$src"); then expected="$tmpexp"; fi ;;
       stryker-pm)  if tmpexp=$(_expected_stryker_pm "$src"); then expected="$tmpexp"; fi ;;
+      vitest-layout) if tmpexp=$(_expected_vitest_layout "$src"); then expected="$tmpexp"; fi ;;
     esac
     if cmp -s "$expected" "$dst"; then REFRESH_BASELINE_STAGED_WEAK+=("$dst"); fi
     if [ -n "$tmpexp" ]; then rm -f "$tmpexp"; fi
@@ -392,6 +393,24 @@ refresh_baseline_stage_weak_matching() {
     done < <(find "$dst" -type f -print0 2>/dev/null)
   fi
   return 0
+}
+
+# getff_delivered <abs-dst> — exit 0 IFF getff itself delivered <abs-dst>: this run staged it (a
+# copy_safe write, or a skip whose bytes ARE the incoming delivery) or the baseline manifest of an
+# earlier install holds an entry for it. Anything else is the consumer's own file — it pre-dated
+# the install and copy_safe kept it — and a post-processor must leave it alone (operator decision
+# 2026-09-23: skip + report, never overwrite or merge a consumer's tool config). Provenance, not
+# content: getff's react-native eslint config carries no RULE_GLOBS block, a consumer's may carry
+# one. A pre-manifest re-install of an edited getff file reads as the consumer's — the safe side.
+getff_delivered() {
+  local dst="$1" p manifest
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  manifest=$(_refresh_baseline_manifest)
+  [ -f "$manifest" ] && command -v jq >/dev/null 2>&1 || return 1
+  jq -e --arg k "${dst#"${PROJECT_ROOT:-.}"/}" 'has($k)' "$manifest" >/dev/null 2>&1
 }
 
 # refresh_baseline_diverged <dst> <src> — exit 0 IFF <dst> is a consumer-diverged file:
@@ -553,6 +572,15 @@ _expected_stryker_pm() {
   _expected_post "$1" _patch_stryker_package_manager_inplace
 }
 
+# _expected_vitest_layout <src-file> — rewrite_vitest_source_roots variant, for the
+# vitest.config.ts copy_safe deliveries (setup.d/40-configs.sh, 4 stack lanes) whose `src/**/`
+# globs the rewrite anchors on the project's own source roots. Byte-changing on projects without
+# src/ only, so without this candidate a pristine rewritten config false-flagged as
+# consumer-diverged on a pre-manifest force run and never re-entered a rebuilt manifest.
+_expected_vitest_layout() {
+  _expected_post "$1" _rewrite_vitest_source_roots_inplace
+}
+
 # _prettierignore_pristine <src> <dst> — exit 0 IFF <dst> is the shipped .prettierignore <src>
 # plus ONLY the framework's managed marker blocks (merge_prettierignore's AIF block and
 # ignore_shipped_configs' shipped-configs block, both marker-delimited and appended after the
@@ -665,6 +693,8 @@ _pre_overwrite_divergence_action() {
 #                    python lane's ARCHITECTURE.md, 45-python.sh).
 #   stryker-pm       single FILE post-processed by patch_stryker_package_manager (the copied
 #                    stryker.config.json, 40-configs.sh — 4 stack lanes).
+#   vitest-layout    single FILE post-processed by rewrite_vitest_source_roots (the copied
+#                    vitest.config.ts, 40-configs.sh — 4 stack lanes).
 #   suppress-no-entry  caller proved the dst pristine modulo framework-managed content the raw
 #                    comparison cannot see (merge_prettierignore's marker blocks): no-entry arm
 #                    suppressed, entry-present arm still active.
@@ -681,18 +711,22 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1370                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1369                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1363          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:454          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:479          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:499          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:526          patch_stryker_package_manager → stryker-pm
-#   setup.d/lib.sh:1822                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/40-configs.sh:471          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:497          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:518          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:546          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:461          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:486          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:506          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:537          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
-# declared mode) by scanning `copy_safe ` lines in install.sh + setup.d/*.sh for one of three
+# declared mode) by scanning `copy_safe ` lines in install.sh + setup.d/*.sh for one of four
 # post-processor NAMES within 3 lines of the call — a spelling-bounded scan, so it cannot see a
 # caller inside lib.sh itself (merge_prettierignore, wired by hand and covered by arm 5d), a
 # mutation further than 3 lines from its call, a post-processor added under a new name, or a
@@ -730,6 +764,8 @@ _pre_overwrite_guard() {
           if tmpexp=$(_expected_arch_header "$src"); then expected="$tmpexp"; fi ;;
         stryker-pm)
           if tmpexp=$(_expected_stryker_pm "$src"); then expected="$tmpexp"; fi ;;
+        vitest-layout)
+          if tmpexp=$(_expected_vitest_layout "$src"); then expected="$tmpexp"; fi ;;
       esac
     fi
     if [ "$mode" = "suppress-no-entry" ]; then suppress="1"; fi
@@ -844,7 +880,8 @@ copy_safe() {
   # arm of the force guard compares against the delivered bytes, and the raw src is NOT those
   # bytes (review-proven: pristine transformed agents / header-rewritten ARCHITECTURE.md /
   # block-appended .prettierignore copies false-flagged as consumer-diverged). Values map 1:1
-  # to _pre_overwrite_guard modes: md-refs | arch-header | stryker-pm | suppress-no-entry. The
+  # to _pre_overwrite_guard modes: md-refs | arch-header | stryker-pm | vitest-layout |
+  # suppress-no-entry. The
   # census of every post-mutating caller lives at _pre_overwrite_guard. Plain deliveries
   # (the vast majority) pass nothing and compare against the raw src.
   local parity="${3:-}"
@@ -1942,7 +1979,7 @@ ignore_shipped_configs() {
   # Framework configs that ship at a consumer-ownable path. Each is ignored ONLY if shipped fresh.
   local candidates=(
     "eslint.config.mjs" "eslint.config.rn-common.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
-    ".dependency-cruiser.cjs" "stryker.config.json" ".lintstagedrc.json"
+    ".dependency-cruiser.mjs" "stryker.config.json" ".lintstagedrc.json"
     ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml"
   )
   # GH #807: a #793/#796 multi-stack monorepo ships per-workspace configs (apps/*/eslint.config.mjs,
@@ -2213,6 +2250,78 @@ patch_stryker_package_manager() {
   echo "  ✓ stryker packageManager → $(detect_pm)"
 }
 
+# consumer_source_roots <dir> — the top-level directories that hold a project's own code when it
+# has NO src/ (lib/; app/ + components/ + lib/, the create-next-app and Expo layouts without src/),
+# space-separated in glob order. Nothing when src/ exists or no directory holds code yet. Not code
+# roots: build output and static assets, end-to-end test directories (Playwright and Cypress specs
+# are not vitest's), and the directories getff itself delivers into. Glob-safe names only — the
+# result is spliced into glob patterns.
+consumer_source_roots() {
+  local dir="$1" d name roots=""
+  [ -d "$dir/src" ] && return 0
+  for d in "$dir"/*/; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    case "$name" in
+      node_modules | dist | build | out | coverage | public | e2e | cypress | playwright \
+        | packages | scripts | tests | eslint-rules-local) continue ;;
+    esac
+    case "$name" in *[!A-Za-z0-9._-]*) continue ;; esac
+    if [ -n "$(find "$d" -name node_modules -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \
+      -o -name '*.mts' -o -name '*.cts' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \
+      -o -name '*.cjs' \) -print -quit 2>/dev/null)" ]; then
+      roots="${roots:+$roots }$name"
+    fi
+  done
+  if [ -n "$roots" ]; then printf '%s\n' "$roots"; fi
+  return 0
+}
+
+# _rewrite_vitest_source_roots_inplace <file> — anchor a vitest config's quoted `src/**/` globs on
+# the project's own source roots: one root → `lib/**/`, several → `{app,components,lib}/**/`.
+# Every such glob moves together (test include and exclude, coverage include and exclude), so the
+# config stays self-consistent; directory-scoped keys (`src/domain/**` thresholds,
+# `src/app/**/page.tsx`) and the `@` alias are left as they are. A no-op for a src/ project and for
+# one with no code yet. Reads $PROJECT_ROOT's layout, not the file's directory, so _expected_post's
+# temp-copy reconstruction derives the same roots the delivery did.
+_rewrite_vitest_source_roots_inplace() {
+  local f="$1" roots anchor tmp
+  [ -f "$f" ] || return 0
+  roots=$(consumer_source_roots "${PROJECT_ROOT:-.}")
+  [ -n "$roots" ] || return 0
+  case "$roots" in
+    *" "*) anchor="{$(printf '%s' "$roots" | tr ' ' ',')}" ;;
+    *) anchor="$roots" ;;
+  esac
+  tmp=$(mktemp) || return 0
+  if sed "s#\\(['\"]\\)src/\\*\\*/#\\1${anchor}/**/#g" "$f" > "$tmp" 2>/dev/null; then
+    cat "$tmp" > "$f"
+  fi
+  rm -f "$tmp"
+  return 0
+}
+
+# rewrite_vitest_source_roots <src> <dst> — run right after `copy_safe <src> <dst> vitest-layout`
+# (Q4.5, 2026-09-28: layout assumptions are fixed by class, from the layout). Every preset's
+# vitest.config.ts anchors its globs on src/, so a project that keeps its code in lib/ got «No test
+# files found» from `npm test` and a RED validate right after install. Rewrites ONLY the bytes
+# copy_safe wrote this run: a skipped dst (the consumer's own config, or an earlier delivery the
+# consumer now owns — vitest.config.ts is never refreshed) is left alone, as is anything that is
+# not the template's bytes.
+rewrite_vitest_source_roots() {
+  local src="$1" dst="$2" s
+  [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
+  { [ -f "$dst" ] && cmp -s "$src" "$dst"; } || return 0
+  for s in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
+    [ "$s" = "$dst" ] && return 0
+  done
+  _rewrite_vitest_source_roots_inplace "$dst"
+  if ! cmp -s "$src" "$dst"; then
+    echo "  ✓ vitest.config.ts test globs → $(consumer_source_roots "${PROJECT_ROOT:-.}" | sed 's#\([^ ]*\)#\1/#g') (this project has no src/)"
+  fi
+  return 0
+}
+
 # copy_skill_with_transform <skill-slug>
 # Copies .claude/skills/<slug>/ to the consumer and rewrites repo-internal markdown
 # cross-refs to GitHub blob URLs (transform_internal_refs). Used for pipeline + its
@@ -2399,7 +2508,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:235-240); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:251-256); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2575,40 +2684,6 @@ warn_preset_staleness() {
   fi
 }
 
-# ── #827 B4: ensure the rule-factory's workspace deps (@rules-as-tests/*) resolve ──
-# The factory CLI (packages/core/install/rule-bootstrap-cli.ts) imports @rules-as-tests/preset-*
-# via packages/core/validator/gate-rule-tester.ts. When the framework checkout is a git worktree
-# whose node_modules is BORROWED (symlinked) from a primary checkout on a DIVERGENT branch, those
-# package links can dangle → the factory crashes (ERR_MODULE_NOT_FOUND) even though the worktree's
-# OWN packages/ has them. This helper self-heals by linking each of the worktree's own workspace
-# packages into a worktree-local node_modules/@rules-as-tests/. Idempotent; never writes THROUGH a
-# borrowed (symlinked) node_modules (that would point a foreign checkout's deps at this worktree).
-_workspace_pkg_resolves() {
-  local _root="${1:-${PKG_ROOT:-.}}"
-  ( cd "$_root" && node -e 'require.resolve("@rules-as-tests/preset-react-spa/eslint-rules")' ) >/dev/null 2>&1
-}
-ensure_workspace_pkg_links() {
-  local _root="${1:-${PKG_ROOT:-.}}"
-  command -v node >/dev/null 2>&1 || return 0
-  _workspace_pkg_resolves "$_root" && return 0
-  if [ -L "$_root/node_modules" ]; then
-    echo "  · workspace-link self-heal: $_root/node_modules is a borrowed symlink and @rules-as-tests/* do not resolve;"
-    echo "    run 'npm ci --prefix packages/core && npm install' in $_root to self-contain it."
-    return 0
-  fi
-  local _nm="$_root/node_modules/@rules-as-tests"
-  mkdir -p "$_nm" 2>/dev/null || return 0
-  local _pkgdir _name
-  for _pkgdir in "$_root"/packages/*/; do
-    [ -f "${_pkgdir}package.json" ] || continue
-    _name=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).name||"")' "${_pkgdir}package.json" 2>/dev/null)
-    case "$_name" in
-      @rules-as-tests/*) ln -sfn "${_pkgdir%/}" "$_nm/${_name#@rules-as-tests/}" 2>/dev/null || true ;;
-    esac
-  done
-  _workspace_pkg_resolves "$_root" && echo "  · workspace-link self-heal: linked @rules-as-tests/* in $_nm (#827 B4)"
-}
-
 # husky_hookspath_blocker PROJECT_ROOT (critical-review S4-3)
 # Echo ONE line naming why core.hooksPath must NOT be pointed at .husky — empty output means it is
 # safe. Blocked when the consumer already runs its own hooks: a core.hooksPath other than ours
@@ -2649,7 +2724,23 @@ note_not_wired() {
   NOT_WIRED+=("$1")
 }
 
-# foreign_tool_config <dir> <eslint|lint-staged|prettier> — echo the consumer's own config for that
+# DEPCRUISE_CONFIG_NAMES — the config names dependency-cruiser loads by default, in its own lookup
+# order (doc/cli.md `--config`: .js, .cjs, .mjs, .ts, .cts, .mts, .json). Shared by
+# foreign_tool_config and depcruise_config; packages/core/audit-self/check-arch-boundaries.sh ships
+# to the consumer without lib.sh and repeats the list.
+DEPCRUISE_CONFIG_NAMES=".dependency-cruiser.js .dependency-cruiser.cjs .dependency-cruiser.mjs .dependency-cruiser.ts .dependency-cruiser.cts .dependency-cruiser.mts .dependency-cruiser.json"
+
+# depcruise_config <dir> — echo the dependency-cruiser config in <dir> that dependency-cruiser itself
+# would load (the first of DEPCRUISE_CONFIG_NAMES present), or nothing.
+depcruise_config() {
+  local dir="$1" f
+  for f in $DEPCRUISE_CONFIG_NAMES; do
+    if [ -e "$dir/$f" ]; then echo "$f"; return 0; fi
+  done
+  return 0
+}
+
+# foreign_tool_config <dir> <eslint|lint-staged|prettier|dependency-cruiser> — echo the consumer's own config for that
 # tool in <dir> under any name OTHER than the one we ship (critical-review S4-2/S4-4/S4-5). copy_safe
 # only sees its exact destination name, so a consumer eslint.config.cjs, .prettierrc or
 # package.json#lint-staged used to get our file placed beside it — and each tool picks ours first,
@@ -2669,6 +2760,11 @@ foreign_tool_config() {
     prettier)
       names=".prettierrc .prettierrc.yaml .prettierrc.yml .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs .prettierrc.ts .prettierrc.toml prettier.config.js prettier.config.cjs prettier.config.mjs prettier.config.ts"
       key=prettier ;;
+    dependency-cruiser)
+      # Every name dependency-cruiser loads by default except the .mjs we ship — a .cjs left by an
+      # earlier getff install is consumer-owned after that install (refresh never touches it).
+      names="${DEPCRUISE_CONFIG_NAMES/.dependency-cruiser.mjs /}"
+      key="" ;;
     *) return 0 ;;
   esac
   for f in $names; do
@@ -2703,7 +2799,7 @@ legacy_eslint_config() {
   return 0
 }
 
-# copy_unless_foreign <eslint|lint-staged|prettier> <src> <dst> [copy_safe args…] — copy_safe, unless
+# copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
 # skip + report, never overwrite or merge a consumer's tool config).

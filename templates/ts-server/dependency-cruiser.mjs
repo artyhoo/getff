@@ -2,7 +2,7 @@
  * Dependency-cruiser configuration.
  * Enforces architectural rules at the module-graph level.
  *
- * Run: `npx depcruise --config .dependency-cruiser.cjs <source-root(s)>`
+ * Run: `npx depcruise --config .dependency-cruiser.mjs <source-root(s)>`
  *   flat / layered -> `src`; pnpm monorepo -> `apps packages` (the installed `arch:check`
  *   script auto-targets the roots that exist; a hardcoded `src` hard-fails on a monorepo).
  *
@@ -11,9 +11,14 @@
  * nested package source dirs (apps and packages workspaces), not only the root-src layout.
  *
  * Test naming: .unit.ts, .integration.ts, .audit.ts (co-located with source).
+ *
+ * An ES module on purpose: ESLint lints this file with the project's OWN config, and a
+ * CommonJS `module.exports` is `no-undef` under any config that parses files as ES modules
+ * (the typescript-eslint getting-started config does). A named const, not an anonymous
+ * default export, keeps `import/no-anonymous-default-export` quiet too.
  */
 /** @type {import('dependency-cruiser').IConfiguration} */
-module.exports = {
+const config = {
   forbidden: [
     {
       name: 'no-circular',
@@ -211,3 +216,5 @@ module.exports = {
     },
   },
 };
+
+export default config;

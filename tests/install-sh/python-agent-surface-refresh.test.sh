@@ -155,12 +155,12 @@ else
   bad "(4) --refresh clobbered consumer-authored doc(s):$_clobbered"
 fi
 
-# ── (5) A2-4: the framework-owned AI-USAGE-GUIDE.md IS refreshed (do_refresh install.sh:1388) ─────
+# ── (5) A2-4: the framework-owned AI-USAGE-GUIDE.md IS refreshed (do_refresh install.sh:1387) ─────
 echo ""; echo "  ── (5) .ai-factory/AI-USAGE-GUIDE.md is framework-owned → refreshed ──"
 printf '\nSTALE-GUIDE\n' >> "$P/.ai-factory/AI-USAGE-GUIDE.md"
 ( cd "$P" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
 if grep -qF 'STALE-GUIDE' "$P/.ai-factory/AI-USAGE-GUIDE.md"; then
-  bad "(5) AI-USAGE-GUIDE.md not refreshed — diverges from do_refresh (install.sh:1388)"
+  bad "(5) AI-USAGE-GUIDE.md not refreshed — diverges from do_refresh (install.sh:1387)"
 else
   ok "(5) AI-USAGE-GUIDE.md re-delivered on --refresh (npm-lane parity)"
 fi

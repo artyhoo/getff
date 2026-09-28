@@ -105,6 +105,32 @@ expect 'external package is out of scope' 0 "$TMP/c5" 'semver@7.8.5'
 mkdir -p "$TMP/c6"
 expect 'missing lockfiles are exit 2' 2 "$TMP/c6" 'required file missing'
 
+# 6b — NEGATIVE (every committed bundle, 2026-09-28): the synth bundle agrees, but a SECOND
+#      committed bundle (the rule generator, scripts/build-runtime-bundles.mjs) inlines ajv, a
+#      first-party source imports ajv directly, and the two locks plan different ajv versions.
+#      A guard that reads only the synth bundle passes this tree — the phantom drift then lands
+#      on the other bundle's --check instead.
+fixture "$TMP/c6b" 7.8.5 7.8.5 7.8.5
+printf '// node_modules/ajv/dist/ajv.js\nvar Ajv = 1;\n' \
+  >"$TMP/c6b/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+printf "import Ajv from 'ajv';\n" >"$TMP/c6b/packages/core/research/validate.ts"
+python3 - "$TMP/c6b" <<'PY'
+import json, sys
+d = sys.argv[1]
+for rel, key, ver in (('package-lock.json', 'node_modules/ajv', '8.17.1'),
+                      ('packages/core/package-lock.json', 'node_modules/ajv', '8.12.0')):
+    p = f'{d}/{rel}'
+    lock = json.load(open(p))
+    lock['packages'][key] = {'version': ver}
+    json.dump(lock, open(p, 'w'))
+PY
+expect 'a second bundle is checked too' 1 "$TMP/c6b" 'ajv'
+
+# 6c — USAGE: a tree with lockfiles but no committed bundle at all is exit 2, never a silent pass.
+fixture "$TMP/c6c" 7.8.5 7.8.5 7.8.5
+rm -f "$TMP/c6c/packages/core/install/synth-and-wire.bundle.mjs"
+expect 'no committed bundle is exit 2' 2 "$TMP/c6c" 'no committed'
+
 # 7 — CWD-INDEPENDENCE: with no argument the target is the repo the script lives in, derived
 #     from its own path. A cwd-derived root would answer about the caller's checkout instead —
 #     and outside any repo it had nothing to answer with at all. Run from a non-repo directory.

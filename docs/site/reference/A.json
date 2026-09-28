@@ -202,7 +202,7 @@
       "shipsTo": {
         "tier": "all"
       },
-      "description": "§7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root.",
+      "description": "§7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28).",
       "source": {
         "path": "setup.d/70-deps.sh",
         "line": 2

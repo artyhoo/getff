@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-bundle-dep-parity.sh — guard against PHANTOM synth-bundle drift.
+# check-bundle-dep-parity.sh — guard against PHANTOM bundle drift.
 #
 # WHY THIS EXISTS (incidents 2026-07-02 ×2, 2026-07-21, 2026-08-06)
 #   `scripts/build-synth-bundle.sh` inlines third-party packages into the committed
@@ -24,6 +24,11 @@
 #   A phantom drift is a lockfile disagreement wearing a bundle-drift costume. This check names
 #   the disagreement directly, at the layer where it is actually decidable (two committed
 #   lockfiles), so the confusing symptom can never be the only signal again.
+#
+#   Every committed `packages/core/**/*.bundle.mjs` is read, not only the synth bundle: since
+#   2026-09-28 scripts/build-runtime-bundles.mjs commits two more (the consumer pre-push hook and
+#   the rule generator), and the rule generator inlines ajv, semver and friends through the very
+#   same packages/core resolution walk.
 #
 # WHAT IT CHECKS
 #   1. LOCKFILE PARITY (static; no node_modules needed). For every third-party package that is
@@ -71,15 +76,24 @@ python3 - "$ROOT" <<'PY'
 import json, os, re, sys
 
 root = sys.argv[1]
-BUNDLE = os.path.join(root, 'packages/core/install/synth-and-wire.bundle.mjs')
 ROOT_LOCK = os.path.join(root, 'package-lock.json')
 CORE_LOCK = os.path.join(root, 'packages/core/package-lock.json')
 CORE_SRC = os.path.join(root, 'packages/core')
 
-for p in (BUNDLE, ROOT_LOCK, CORE_LOCK):
+for p in (ROOT_LOCK, CORE_LOCK):
     if not os.path.isfile(p):
         print(f"check-bundle-dep-parity: required file missing: {os.path.relpath(p, root)}", file=sys.stderr)
         sys.exit(2)
+
+# Every committed bundle under packages/core (node_modules and dot-dirs excluded).
+BUNDLES = []
+for dirpath, dirnames, filenames in os.walk(CORE_SRC):
+    dirnames[:] = sorted(d for d in dirnames if d != 'node_modules' and not d.startswith('.'))
+    BUNDLES += [os.path.join(dirpath, fn) for fn in sorted(filenames) if fn.endswith('.bundle.mjs')]
+if not BUNDLES:
+    print('check-bundle-dep-parity: no committed packages/core/**/*.bundle.mjs found — nothing to '
+          'check is a usage error, not a pass', file=sys.stderr)
+    sys.exit(2)
 
 # ── 1. packages inlined into the committed bundle ────────────────────────────
 # esbuild emits one `// node_modules/<path>` line comment per file it inlines, and
@@ -89,8 +103,10 @@ for p in (BUNDLE, ROOT_LOCK, CORE_LOCK):
 # string literals — e.g. the runtime probe `existsSync("node_modules/ts-morph/package.json")`,
 # whose version cannot affect a single bundled byte.
 PKG_RE = re.compile(r'^\s*//\s*node_modules/((?:@[^/\s]+/)?[^/\s]+)/', re.MULTILINE)
-with open(BUNDLE, encoding='utf-8') as fh:
-    inlined = set(PKG_RE.findall(fh.read()))
+inlined = set()
+for bundle in BUNDLES:
+    with open(bundle, encoding='utf-8') as fh:
+        inlined |= set(PKG_RE.findall(fh.read()))
 
 # ── 2. of those, the ones imported DIRECTLY by a first-party packages/core source ────────────
 # Only these resolve by walking up from inside packages/core, so only these can be shadowed by a
@@ -182,12 +198,13 @@ for pkg, want in agreed.items():
         )
 
 if failures:
-    print('❌ synth-bundle dependency parity FAILED\n', file=sys.stderr)
+    print('❌ bundle dependency parity FAILED\n', file=sys.stderr)
     print('\n'.join(failures), file=sys.stderr)
     print(
-        '\n   A rebuild of packages/core/install/synth-and-wire.bundle.mjs would inline whichever\n'
-        '   copy the ambient install left in place, so the drift gate would report a PHANTOM\n'
-        '   `synth-bundle drift` on a branch that never touched a synth file.\n'
+        '\n   A rebuild of a committed bundle ('
+        + ', '.join(os.path.relpath(b, root) for b in BUNDLES) + ')\n'
+        '   would inline whichever copy the ambient install left in place, so its drift gate\n'
+        '   would report a PHANTOM drift on a branch that never touched that bundle\'s sources.\n'
         '\n   Fix the disagreement, do not regenerate the bundle around it:\n'
         '     • lockfiles disagree → pin the SAME exact version in package.json (root, dev) and\n'
         '       packages/core/package.json, then regenerate BOTH locks:\n'

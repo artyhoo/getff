@@ -23,9 +23,9 @@ sources:
   - setup.d/99-finalize.sh
   - setup.d/lib.sh
 executed:
-  - { step: preview-one-command, stack: ts-server, date: 2026-09-21, result: "exit-0, nothing written" }
+  - { step: preview-one-command, stack: ts-server, date: 2026-09-28, result: "exit-0, nothing written" }
   - { step: preview-plugin-helper, stack: ts-server, date: 2026-09-21, result: "exit-0, nothing written" }
-  - { step: preview-refresh, stack: ts-server, date: 2026-09-21, result: "exit-0, 86 would-refresh, 0 would-flag" }
+  - { step: preview-refresh, stack: ts-server, date: 2026-09-28, result: "exit-0, 72 would-refresh, 0 would-flag" }
 next: why.md
 ---
 
@@ -75,7 +75,7 @@ Run the dry run before the real install. Add `--profile core` to preview the dep
 bash /tmp/rt/setup --dry-run ts-server
 ```
 
-The full output on a `ts-server` project with two files was 204 lines. Below are only
+The full output on a `ts-server` project with two files was 188 lines. Below are only
 the lines that begin with `▶`, `[profile]`, or `✅`, in order, with none of those left
 out. One change: the long project path is cut to `…`. Under most headings the real
 output lists one `[dry-run] would …` line per file, folder, or hook. After
@@ -97,13 +97,11 @@ that list in a preview: nothing was written.
 ▶ Shared templates → project root
 ▶ Custom ESLint rules → eslint-rules-local/
 ▶ Stack-specific templates (ts-server) → project root
-▶ Core ESLint rules → packages/core/eslint-rules/
 ▶ git hooks → [dry-run] would set core.hooksPath=.husky
 ▶ Runtime-bridge vendor → [dry-run] skipped (profile=env, factory-only)
 ▶ R2 auto-wire → [dry-run] would classify the repo and patch RULE_GLOBS / record R2 N/A as warranted
 ▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)
 ▶ dev-deps → [dry-run] would offer to install 24 dev-dep(s) + 1 runtime dep(s) with npm
-▶ tsx-at-root → [dry-run] would ensure tsx resolves from the workspace root (pre-push TS hook runtime)
 ▶ Worktree scripts → scripts/ (profile=env)
 ✅ Dry-run complete. Nothing was written.
 ▶ Companions
@@ -218,7 +216,7 @@ Three rules protect your edits during a refresh:
   leaves the rest of the file to you. What a refresh does replace is the machinery:
   skills, helper agents, session hooks, the check scripts in `scripts/`, and the rule
   code in `eslint-rules-local/`. On a fresh `ts-server` install at the `core` depth, a
-  refresh preview listed 86 such files and none of yours.
+  refresh preview listed 72 such files and none of yours.
 - **An edited getff file is saved before it is replaced.** The installer notices the
   file differs from what it delivered, copies yours to `.ai-factory/refresh-conflicts/`,
   and prints a warning that names both paths.

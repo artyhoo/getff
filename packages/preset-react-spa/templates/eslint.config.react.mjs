@@ -73,7 +73,7 @@ export default defineConfig(
       'eslint.config.mjs',
       'vitest.config.ts',
       'playwright.config.ts',
-      '.dependency-cruiser.cjs',
+      '.dependency-cruiser.mjs',
     ],
   },
 

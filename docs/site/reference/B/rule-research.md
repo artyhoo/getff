@@ -108,6 +108,6 @@ is a pointer only, and the `go` lane is out of scope. The skill text says to run
   to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1233 of
   `setup.d/45-python.sh`. The method file is on the installer's list at line 233 of
   `install.sh`.
-- The step that reads the two JSON files is `setup.d/80-rule-bootstrap.sh`, lines 40 to
-  54. With no files it prints guidance and ships no rule. `--full` is line 12 of `setup`.
+- The step that reads the two JSON files is `setup.d/80-rule-bootstrap.sh`, lines 42 to
+  56. With no files it prints guidance and ships no rule. `--full` is line 12 of `setup`.
 - The card is built from `docs/site/reference/B.json`.

@@ -522,7 +522,9 @@ function workflowExists(rule: CmdScriptRule, repoRoot: string): RuleLivenessResu
  * exists in the repo. Today: an architectural dependency-cruiser config.
  */
 function configPresence(rule: CmdScriptRule, repoRoot: string): RuleLivenessResult {
-  const candidates = findConfigs(repoRoot, /^(\.?dependency-cruiser)\.(c?js|json|ts)$/);
+  // Every extension dependency-cruiser loads a config from (doc/cli.md `--config`): the
+  // shipped template is .mjs since 2026-09-28.
+  const candidates = findConfigs(repoRoot, /^(\.?dependency-cruiser)\.([cm]?js|[cm]?ts|json)$/);
   if (candidates.length === 0) {
     return {
       status: 'fail',

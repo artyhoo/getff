@@ -215,6 +215,28 @@ if [ "$rc_f4" -eq 0 ] && [ -f "$FF4/tests/setup.ts" ] && [ "$notes_f4" -eq 0 ]; 
 else
   bad "arm-f4: setup exists=$([ -f "$FF4/tests/setup.ts" ] && echo yes || echo no), notes=$notes_f4, rc=$rc_f4"
 fi
+# f5: a whole-tree GLOB include (`**/*.ts` — the tsc --init / create-next-app family) covers
+# tests/setup.ts as surely as a `tests/**` entry does (Q4.5 layout class, 2026-09-28: the
+# own-config consumer-matrix cell measured «Cannot find module tests/setup.ts» on react-next and
+# react-spa because only entries STARTING with "tests" were recognised). Paired negatives: a
+# whole-tree glob for another extension, and a glob rooted in another directory, do not cover it.
+f5_arm() { # $1 = name, $2 = include JSON array, $3 = want (delivered|skipped)
+  local d="$SCRATCH/arm-f5-$1" out rc notes have
+  seed_fixture "$d"
+  printf '{ "compilerOptions": { "strict": true }, "include": %s }\n' "$2" > "$d/tsconfig.json"
+  out=$(run_install ts-server "$d"); rc=$?
+  notes=$(printf '%s\n' "$out" | grep -c 'tests/setup.ts NOT delivered' || true)
+  have=skipped; [ -f "$d/tests/setup.ts" ] && have=delivered
+  if [ "$rc" -eq 0 ] && [ "$have" = "$3" ] && { [ "$3" = skipped ] || [ "$notes" -eq 0 ]; }; then
+    ok "arm-f5 ($1): include $2 → setup $3"
+  else
+    bad "arm-f5 ($1): include $2 → setup $have (wanted $3), notes=$notes, rc=$rc"
+  fi
+}
+f5_arm whole-tree '["**/*.ts", "**/*.tsx", "**/*.mts"]' delivered
+f5_arm dot-slash '["./**/*"]' delivered
+f5_arm tsx-only '["**/*.tsx"]' skipped
+f5_arm other-root '["lib/**/*.ts"]' skipped
 # f3: JSONC tsconfig (// comment) → fail-OPEN: delivered, no note, exit 0.
 FF3="$SCRATCH/arm-f3"
 seed_fixture "$FF3"

@@ -40,7 +40,7 @@ done
 # NEG (load-bearing): framework CONFIG files must NOT be statically hard-ignored — a consumer may own
 # any of them (copy_safe keeps theirs), and a static line here would hide a consumer-authored config
 # (violates the project's "format authored content, don't hide it" rule). They are conditional (Arm 1c).
-for p in 'eslint.config.mjs' 'vitest.config.ts' 'tsconfig.json' 'playwright.config.ts' '.dependency-cruiser.cjs' 'stryker.config.json' '.lintstagedrc.json' '.github/workflows/ci.yml' '.github/workflows/workflow-integrity.yml'; do
+for p in 'eslint.config.mjs' 'vitest.config.ts' 'tsconfig.json' 'playwright.config.ts' '.dependency-cruiser.mjs' 'stryker.config.json' '.lintstagedrc.json' '.github/workflows/ci.yml' '.github/workflows/workflow-integrity.yml'; do
   grep -qxF "$p" "$IGN" \
     && bad "neg: static .prettierignore hard-ignores config '$p' — would hide a consumer-authored copy (must be conditional)" \
     || ok "neg: config '$p' is NOT statically ignored (handled conditionally — consumer-owned copy stays checked)"
@@ -245,7 +245,7 @@ fi
 #   (b) *.md BLANKET — the fixture .prettierignore used to carry `*.md`, which hid the vendored
 #       README.md (1 of the 7). Removed: the shipped .md family is covered by its own managed block
 #       (#884, Arm 9), so a real md escape must FAIL this arm rather than be masked by fixture noise.
-# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1471).
+# `</dev/null` because PROFILE=factory reaches the guided aif-handoff install offer (install.sh:1470).
 if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   TB=$(mktemp -d)
   printf '{"name":"g531b","version":"0.0.0"}\n' > "$TB/package.json"

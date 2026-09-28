@@ -199,9 +199,9 @@ ENF_OUT=$( cd "$T" && bash scripts/check-rule-enforced.sh 2>&1 ); ENF_RC=$?
 
 # arch:check (Batch B) — verified by PLACEMENT (deps-free: cannot run depcruise). Root config
 # must be placed by the multi-stack branch (it only placed per-ws eslint before).
-[ -f "$T/.dependency-cruiser.cjs" ] \
-  && ok "§9 arch:check: root .dependency-cruiser.cjs placed in the multi-stack branch (Batch B)" \
-  || bad "§9 arch:check: root .dependency-cruiser.cjs NOT placed (arch:check would exit 1)"
+[ -f "$T/.dependency-cruiser.mjs" ] \
+  && ok "§9 arch:check: root .dependency-cruiser.mjs placed in the multi-stack branch (Batch B)" \
+  || bad "§9 arch:check: root .dependency-cruiser.mjs NOT placed (arch:check would exit 1)"
 
 # format:check (Batch C) — verified by PLACEMENT (deps-free: cannot run prettier). The
 # fresh-shipped per-workspace configs must be in the managed .prettierignore block.
