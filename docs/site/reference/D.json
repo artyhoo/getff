@@ -210,12 +210,12 @@
         "line": 2
       },
       "extras": {
-        "event": {
-          "absent": "unregistered"
-        },
-        "matcher": {
-          "absent": "unregistered"
-        },
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Bash"
+        ],
         "delivery": [
           "@cc-only-rationale"
         ]
