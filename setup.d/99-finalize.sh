@@ -23,16 +23,20 @@
 # rc=0 on every branch — install must not abort on wirer failure.
 #
 # A root config the CONSUMER owns (copy_safe kept it; getff_delivered says getff never placed it)
-# gets no preset merge: that is merging into a consumer's tool config, which the 2026-09-23
+# gets nothing merged into it: that is merging into a consumer's tool config, which the 2026-09-23
 # decision rules out, and it left the config with getff rules but no RULE_GLOBS block, so
-# check:globs failed validate and every push (own-config consumer-matrix cell, react-next). The
-# live-research delivery — a snippet the operator produced and re-ran --full to deliver — still
-# runs as before; how generated rules land in a config is the rule-generation chain's scope.
+# check:globs failed validate and every push (own-config consumer-matrix cell, react-next). That
+# holds for the live-research delivery too — a snippet the operator produced, delivered by
+# re-running --full — which merges the preset baseline along with it: the snippet stays where it
+# is and the not-wired summary points at it.
 _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
 if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ] \
-   && [ ! -f "$_synth_live_snippet" ] && ! getff_delivered "$PROJECT_ROOT/eslint.config.mjs"; then
+   && ! getff_delivered "$PROJECT_ROOT/eslint.config.mjs"; then
   echo "▶ synth-wire: eslint.config.mjs is your own config (the install kept it) — the preset's synthesized rules-as-tests rules were NOT merged into it"
   note_not_wired "stack rules in eslint.config.mjs — it is your own config, and the install never merges into a consumer's tool config; add the rules-as-tests slice by hand if you want it"
+  if [ -f "$_synth_live_snippet" ]; then
+    note_not_wired "live-researched rules in ${_synth_live_snippet#"$PROJECT_ROOT"/} — not merged into eslint.config.mjs, your own config; copy them into its rules by hand"
+  fi
 elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
   if [ ! -f "$_synth_wirer" ]; then
@@ -92,6 +96,12 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
         # stack's live rule. Other-stack workspaces are delivered on their own ./setup <stack> run.
         [ "$_sw_stack" = "${STACK:-ts-server}" ] || continue
         while IFS= read -r -d '' _sw_cfg; do
+          # A workspace config the consumer owns gets the root block's verdict: nothing merged.
+          if ! getff_delivered "$_sw_cfg"; then
+            echo "  · synth-wire (live): ${_sw_cfg#"$PROJECT_ROOT"/} is your own config — not merged into"
+            note_not_wired "live-researched rules in ${_sw_cfg#"$PROJECT_ROOT"/} — it is your own config, and the install never merges into a consumer's tool config; copy them from ${_ws_snippet#"$PROJECT_ROOT"/} by hand"
+            continue
+          fi
           echo "  · synth-wire (live): $_sw_cfg"
           ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
               node "$_synth_wirer_ws" \

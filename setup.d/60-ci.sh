@@ -51,6 +51,14 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
     boundary-present)
       _patched=0
       _r2_glob_failed=0
+      # Only getff's own config is patched. A config the consumer owns (copy_safe kept it) is theirs
+      # — operator decision 2026-09-23: skip + report, never overwrite or merge a consumer's tool
+      # config — so the boundary is reported as not wired instead of written into their file.
+      _r2_own_cfg=0
+      if ! getff_delivered "$PROJECT_ROOT/eslint.config.mjs"; then
+        _r2_own_cfg=1
+        _r2_out=""   # no glob lines → the patch loop below writes nothing
+      fi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
@@ -58,21 +66,27 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
         # stale eslint.config.mjs.tmp.
+        # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
+        # NOT added, never a «✓ added».
         if awk -v ins="    '$_g'," '
           done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
+          && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
           && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"; then
           _patched=$((_patched + 1))
         else
           rm -f "$PROJECT_ROOT/eslint.config.mjs.tmp" 2>/dev/null || true
           _r2_glob_failed=$((_r2_glob_failed + 1))
-          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (awk or write failure) — eslint.config.mjs left unchanged" >&2
+          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (no \`boundary: [\` array, or a write failure) — eslint.config.mjs left unchanged" >&2
         fi
       done <<EOF
 $_r2_out
 EOF
-      if [ "$_patched" -gt 0 ]; then
+      if [ "$_r2_own_cfg" = "1" ]; then
+        echo "  · HTTP boundary detected, but eslint.config.mjs is your own config (the install kept it) — R2 was NOT wired into it"
+        note_not_wired "R2 (no-unsafe-zod-parse) on your HTTP boundary — eslint.config.mjs is your own config, and the install never merges into a consumer's tool config; add getff's RULE_GLOBS block and the rule by hand if you want it"
+      elif [ "$_patched" -gt 0 ]; then
         echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
       elif [ "$_r2_glob_failed" -gt 0 ]; then
         echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does NOT cover it yet; widen RULE_GLOBS.boundary by hand" >&2
