@@ -40,6 +40,7 @@ const rnCommon = [
       'eslint.config.mjs',
       'eslint.config.rn-common.mjs',
       'vitest.config.ts',
+      '.dependency-cruiser.mjs',
     ],
   },
 

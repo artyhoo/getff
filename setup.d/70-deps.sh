@@ -26,7 +26,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
     # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
     # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
-    # layer rules in .dependency-cruiser.cjs match nested package src via (?:^|/)src/<layer>.
+    # layer rules in .dependency-cruiser.mjs match nested package src via (?:^|/)src/<layer>.
     # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
     #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
     #   2. else a root src/ present → src
@@ -62,7 +62,12 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # configs were emitted" signal — wire⟺emit by construction.
     AIF_HAS_MUTATION_WRAPPER=0
     [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
+    # arch:check cruises with the config that is on disk after 40-configs.sh: ours
+    # (.dependency-cruiser.mjs), or the consumer's own under any name dependency-cruiser reads —
+    # 40-configs.sh placed nothing beside it (copy_unless_foreign), so naming ours would crash.
+    AIF_DEPCRUISE_CFG=$(depcruise_config "$PROJECT_ROOT")
+    AIF_DEPCRUISE_CFG="${AIF_DEPCRUISE_CFG:-.dependency-cruiser.mjs}"
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -83,7 +88,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
         "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
         "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
-        "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
+        "arch:check": "depcruise --config " + (process.env.AIF_DEPCRUISE_CFG || ".dependency-cruiser.mjs") + " " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
         "check:globs": "bash scripts/check-rule-globs.sh",
         "check:enforced": "bash scripts/check-rule-enforced.sh",

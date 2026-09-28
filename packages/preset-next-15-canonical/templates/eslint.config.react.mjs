@@ -71,7 +71,7 @@ export default defineConfig(
       'vitest.config.ts',
       'playwright.config.ts',
       '.storybook/**',
-      '.dependency-cruiser.cjs',
+      '.dependency-cruiser.mjs',
     ],
   },
 

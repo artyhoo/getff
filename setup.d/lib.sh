@@ -1942,7 +1942,7 @@ ignore_shipped_configs() {
   # Framework configs that ship at a consumer-ownable path. Each is ignored ONLY if shipped fresh.
   local candidates=(
     "eslint.config.mjs" "eslint.config.rn-common.mjs" "vitest.config.ts" "tsconfig.json" "playwright.config.ts"
-    ".dependency-cruiser.cjs" "stryker.config.json" ".lintstagedrc.json"
+    ".dependency-cruiser.mjs" "stryker.config.json" ".lintstagedrc.json"
     ".github/workflows/ci.yml" ".github/workflows/workflow-integrity.yml"
   )
   # GH #807: a #793/#796 multi-stack monorepo ships per-workspace configs (apps/*/eslint.config.mjs,
@@ -2615,7 +2615,23 @@ note_not_wired() {
   NOT_WIRED+=("$1")
 }
 
-# foreign_tool_config <dir> <eslint|lint-staged|prettier> — echo the consumer's own config for that
+# DEPCRUISE_CONFIG_NAMES — the config names dependency-cruiser loads by default, in its own lookup
+# order (doc/cli.md `--config`: .js, .cjs, .mjs, .ts, .cts, .mts, .json). Shared by
+# foreign_tool_config and depcruise_config; packages/core/audit-self/check-arch-boundaries.sh ships
+# to the consumer without lib.sh and repeats the list.
+DEPCRUISE_CONFIG_NAMES=".dependency-cruiser.js .dependency-cruiser.cjs .dependency-cruiser.mjs .dependency-cruiser.ts .dependency-cruiser.cts .dependency-cruiser.mts .dependency-cruiser.json"
+
+# depcruise_config <dir> — echo the dependency-cruiser config in <dir> that dependency-cruiser itself
+# would load (the first of DEPCRUISE_CONFIG_NAMES present), or nothing.
+depcruise_config() {
+  local dir="$1" f
+  for f in $DEPCRUISE_CONFIG_NAMES; do
+    if [ -e "$dir/$f" ]; then echo "$f"; return 0; fi
+  done
+  return 0
+}
+
+# foreign_tool_config <dir> <eslint|lint-staged|prettier|dependency-cruiser> — echo the consumer's own config for that
 # tool in <dir> under any name OTHER than the one we ship (critical-review S4-2/S4-4/S4-5). copy_safe
 # only sees its exact destination name, so a consumer eslint.config.cjs, .prettierrc or
 # package.json#lint-staged used to get our file placed beside it — and each tool picks ours first,
@@ -2635,6 +2651,11 @@ foreign_tool_config() {
     prettier)
       names=".prettierrc .prettierrc.yaml .prettierrc.yml .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs .prettierrc.ts .prettierrc.toml prettier.config.js prettier.config.cjs prettier.config.mjs prettier.config.ts"
       key=prettier ;;
+    dependency-cruiser)
+      # Every name dependency-cruiser loads by default except the .mjs we ship — a .cjs left by an
+      # earlier getff install is consumer-owned after that install (refresh never touches it).
+      names="${DEPCRUISE_CONFIG_NAMES/.dependency-cruiser.mjs /}"
+      key="" ;;
     *) return 0 ;;
   esac
   for f in $names; do
@@ -2669,7 +2690,7 @@ legacy_eslint_config() {
   return 0
 }
 
-# copy_unless_foreign <eslint|lint-staged|prettier> <src> <dst> [copy_safe args…] — copy_safe, unless
+# copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
 # skip + report, never overwrite or merge a consumer's tool config).

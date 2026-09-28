@@ -425,14 +425,14 @@ if [ -n "$_ws_lines" ]; then
     exit 1
   fi
   # GH #807: the multi-stack branch placed per-workspace ESLint configs but no root
-  # .dependency-cruiser.cjs, so `arch:check` (depcruise --config .dependency-cruiser.cjs) exited 1
+  # dependency-cruiser config, so `arch:check` (depcruise --config <that config>) exited 1
   # and validate went RED. Unlike ESLint's per-config (nearest-config) scoping, dependency-cruiser
   # is a REPO-WIDE arch tool that crawls from src/ — it is naturally root-level. Place it ONCE at
   # root, AFTER the per-workspace loop (NOT inside it — that would copy_safe to the same root path N
   # times). Mirrors the flat-path placement at the ts-server/react-* branches below. (kickoff ⚑M2)
-  copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+  copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
   # #931 PR-2: the test:mutation runner for the per-workspace stryker/*.json configs emitted
-  # above. Placed ONCE after the loop (mirrors the .dependency-cruiser.cjs placement immediately
+  # above. Placed ONCE after the loop (mirrors the .dependency-cruiser.mjs placement immediately
   # above — not inside the per-workspace loop, which would copy_safe to the same root path N
   # times). setup.d/70-deps.sh wires "test:mutation" to this script on monorepo detection.
   copy_safe "$PKG_ROOT/templates/ts-server/run-mutation.sh.tmpl" "$PROJECT_ROOT/scripts/run-mutation.sh"
@@ -446,7 +446,7 @@ else
     fc3_deliver_tests_setup "$PKG_ROOT/templates/ts-server/tests-setup.ts"
     # Ship the arch config directly (FQA S1-A W2: deferring to legacy setup.sh left arch:check
     # with no config on the ./setup path — the template exists, just copy it).
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
     # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
     # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
     # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
@@ -471,7 +471,7 @@ else
     copy_safe "$PKG_ROOT/packages/preset-next-15-canonical/templates/playwright.config.ts" "$PROJECT_ROOT/playwright.config.ts"
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; a react-tailored layering config is a follow-up (residual R-1).
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
     # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
     # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
     # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
@@ -491,7 +491,7 @@ else
     # Ship the arch config (FQA S1-A W2). The ts-server base (no-circular/no-orphans) is
     # stack-agnostic; SPA layering (Feature-Sliced Design) is enforced by eslint-plugin-boundaries
     # in the shipped eslint.config, so dependency-cruiser stays the universal base here.
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
     # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
     # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
     # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn
@@ -518,7 +518,7 @@ else
     copy_safe "$PKG_ROOT/packages/preset-react-native/templates/vitest.config.ts" "$PROJECT_ROOT/vitest.config.ts"
     # RN is native / web-less → NO playwright (E2E is Detox/Maestro, not wired by install).
     # Ship the arch config (stack-agnostic ts-server base: no-circular/no-orphans).
-    copy_safe "$PKG_ROOT/templates/ts-server/dependency-cruiser.cjs" "$PROJECT_ROOT/.dependency-cruiser.cjs"
+    copy_unless_foreign dependency-cruiser "$PKG_ROOT/templates/ts-server/dependency-cruiser.mjs" "$PROJECT_ROOT/.dependency-cruiser.mjs"
     # stryker-pm parity (W1-A round 2): patch_stryker_package_manager below post-processes the
     # freshly-written copy, so the divergence guard must compare against the PATCHED bytes — else a
     # pristine config false-flags as consumer-diverged on a pre-manifest --force run (pnpm/yarn

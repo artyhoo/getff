@@ -144,9 +144,12 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   }
   _aif_detect_gates() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
     _aif_missing=(); _aif_steps=(); _aif_cmds=()
+    # arch:check's artifact is whichever dependency-cruiser config is on disk: ours, or the
+    # consumer's own that 40-configs.sh kept (copy_unless_foreign).
+    local _dc; _dc=$(depcruise_config "$PROJECT_ROOT")
     _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
     _aif_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
-    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           ".dependency-cruiser.cjs"              "- run: npm run arch:check"
+    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           "${_dc:-.dependency-cruiser.mjs}"       "- run: npm run arch:check"
     _aif_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
     _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
     _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"

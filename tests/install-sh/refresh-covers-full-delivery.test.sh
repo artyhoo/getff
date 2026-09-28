@@ -89,7 +89,7 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   # after first install — the consumer extends/edits them; refresh must never clobber.
   .gitignore
   tests/setup.ts
-  .dependency-cruiser.cjs
+  .dependency-cruiser.mjs
   stryker.config.json
   vitest.config.ts
   playwright.config.ts

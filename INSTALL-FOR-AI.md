@@ -85,7 +85,7 @@ Install getff into this project. Follow these steps exactly:
    - .ai-factory/DESCRIPTION.template.md + DESCRIPTION.md, ARCHITECTURE.ts-server.md + ARCHITECTURE.md, RULES.md, RULES.react-next.md (if applicable), AI-USAGE-GUIDE.md, tool-decisions.md, skill-context/{aif-review,aif-rules-check}/
    - AGENTS.md — written as a `getff:begin section=getff-framework` fenced block, so a root AGENTS.md another tool already generates is extended, never replaced
    - scripts/audit-ai-docs.sh (or .react-next.sh) + the check-\* gate scripts
-   - Configs in project root: eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
+   - Configs in project root: eslint.config.mjs, vitest.config.ts, .dependency-cruiser.mjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
    - .husky/pre-commit, .husky/pre-push
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
@@ -345,7 +345,7 @@ project/
 ├── vitest.config.ts                   ← unit/integration/audit test discovery
 ├── tests/setup.ts                     ← vitest setup hook (skipped unless your tsconfig include covers tests/ — add "tests/**/*", re-run; the install-time ⚠ note says so)
 ├── stryker.config.json                ← mutation testing
-├── .dependency-cruiser.cjs            ← architectural rules
+├── .dependency-cruiser.mjs            ← architectural rules
 ├── .gitignore                         ← seed (node_modules/, dist/, coverage/, …); skipped when your own exists
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next

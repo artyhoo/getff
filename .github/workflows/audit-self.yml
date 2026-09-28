@@ -779,6 +779,8 @@ jobs:
         run: bash tests/install-sh/nvmrc-ci-drift.test.sh
       - name: Run install-sh arch-boundaries shipped-config test (GH #534 — was present-but-unwired)
         run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
+      - name: Run install-sh dependency-cruiser config test (ES module, lint-clean under the consumer's config; a consumer's own config is kept)
+        run: bash tests/install-sh/depcruise-config-esm.test.sh
       - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
         run: bash tests/install-sh/c1-wiring.test.sh
       - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
@@ -1601,7 +1603,7 @@ jobs:
     # into a SINGLE-package consumer and never exercises the no-root-config path — this is the
     # genuinely-different monorepo fixture (⚑m3). It asserts the 3 deps-installed-meaningful gates:
     # check:globs + check:enforced (Batch-A per-workspace recursion) and arch:check (Batch-B root
-    # .dependency-cruiser.cjs). format:check is covered deps-free by the §9 .prettierignore placement
+    # .dependency-cruiser.mjs). format:check is covered deps-free by the §9 .prettierignore placement
     # assertion (its #807 surface is a brownfield consumer-.prettierrc mismatch, NOT reproduced by a
     # greenfield fixture whose configs are AIF-prettier-clean). Deterministic + API-free per
     # no-paid-llm-in-ci.md — NOT the full `npm run validate` (typecheck/test/lint arms depend on
@@ -1683,7 +1685,7 @@ jobs:
           echo "✓ consumer toolchain present (eslint + dependency-cruiser)"
       - name: "Consumer (multi-stack): the deps-installed #807 gates must be green"
         # check:globs + check:enforced recurse per-workspace (Batch A); arch:check needs the root
-        # .dependency-cruiser.cjs the multi-stack branch now places (Batch B). All three were RED on a
+        # .dependency-cruiser.mjs the multi-stack branch now places (Batch B). All three were RED on a
         # no-root-config monorepo before the fix (check:globs/enforced exit 2; arch:check exit 1).
         # check:enforced runs `eslint --print-config` per workspace (eslint asserted above); apps/api
         # has no zod boundary and apps/mobile no boundary tokens → both skip R2 cleanly → exit 0.

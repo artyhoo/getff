@@ -290,14 +290,14 @@ cp path/to/pkg/packages/core/templates/shared/tsconfig.json .
 # For ts-server:
 cp path/to/pkg/templates/ts-server/eslint.config.mjs .
 cp path/to/pkg/templates/ts-server/vitest.config.ts .
-cp path/to/pkg/templates/ts-server/dependency-cruiser.cjs .dependency-cruiser.cjs
+cp path/to/pkg/templates/ts-server/dependency-cruiser.mjs .dependency-cruiser.mjs
 cp path/to/pkg/templates/ts-server/stryker.config.json .
 
 # For react-next:
 cp path/to/pkg/packages/preset-next-15-canonical/templates/eslint.config.react.mjs eslint.config.mjs
 cp path/to/pkg/packages/preset-next-15-canonical/templates/vitest.config.ts .
 cp path/to/pkg/packages/preset-next-15-canonical/templates/playwright.config.ts .
-cp path/to/pkg/templates/ts-server/dependency-cruiser.cjs .dependency-cruiser.cjs
+cp path/to/pkg/templates/ts-server/dependency-cruiser.mjs .dependency-cruiser.mjs
 cp path/to/pkg/templates/ts-server/stryker.config.json .
 
 # Husky hooks:
@@ -336,8 +336,8 @@ After install, add these scripts to your `package.json`:
     "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
     "test:mutation": "stryker run",
     "test:mutation:incremental": "stryker run --incremental",
-    "arch:check": "depcruise --config .dependency-cruiser.cjs src",
-    "arch:graph": "depcruise --config .dependency-cruiser.cjs --output-type dot src | dot -T svg > docs/arch.svg",
+    "arch:check": "depcruise --config .dependency-cruiser.mjs src",
+    "arch:graph": "depcruise --config .dependency-cruiser.mjs --output-type dot src | dot -T svg > docs/arch.svg",
     "audit:docs": "./scripts/audit-ai-docs.sh",
     "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs test",
     "prepare": "husky"
@@ -478,7 +478,7 @@ Some legacy code in your project uses runtime-only imports of types. Either:
 
 ### `dependency-cruiser` fails with missing tsconfig
 
-Check `.dependency-cruiser.cjs` — it reads `tsConfig: { fileName: 'tsconfig.json' }`. Adjust if your tsconfig is named differently.
+Check `.dependency-cruiser.mjs` — it reads `tsConfig: { fileName: 'tsconfig.json' }`. Adjust if your tsconfig is named differently.
 
 ### `audit-ai-docs.sh` fails on probe X
 
@@ -518,7 +518,7 @@ your-project/
 ├── eslint.config.mjs                 ← ESLint flat config
 ├── vitest.config.ts                  ← Vitest with .unit/.audit naming
 ├── stryker.config.json               ← mutation testing
-├── .dependency-cruiser.cjs           ← architecture rules
+├── .dependency-cruiser.mjs           ← architecture rules
 ├── .lintstagedrc.json                ← pre-commit config
 ├── .nvmrc                            ← Node version pin
 ├── .gitignore                        ← seed (skipped if you have your own)

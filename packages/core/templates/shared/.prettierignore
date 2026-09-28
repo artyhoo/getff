@@ -51,7 +51,7 @@ eslint-rules-local/*.mjs
 # consumer's). They are not the consumer's code to format-check, so ignore them config-agnostically.
 #
 # Framework CONFIG files the consumer MIGHT already own (eslint.config.mjs, vitest.config.ts,
-# tsconfig.json, .dependency-cruiser.cjs, stryker.config.json, .lintstagedrc.json, the CI workflows)
+# tsconfig.json, .dependency-cruiser.mjs, stryker.config.json, .lintstagedrc.json, the CI workflows)
 # are handled CONDITIONALLY in install.sh (`ignore_shipped_configs`): each is ignored ONLY when
 # install actually SHIPPED it fresh — never when copy_safe kept a consumer-authored one. That keeps
 # a consumer's own config format-checked instead of silently hiding it. (GH #531 reopen)

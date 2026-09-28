@@ -45,7 +45,7 @@ case "$MONO_TARGET" in
 esac
 # NEG (load-bearing): the target must NOT be the bare `src` that hard-fails on a monorepo.
 case "$MONO_TARGET" in
-  *"cjs src") bad "monorepo-neg: arch:check still ends in bare 'src' → would hard-fail";;
+  *"mjs src") bad "monorepo-neg: arch:check still ends in bare 'src' → would hard-fail";;
   *) ok "monorepo-neg: arch:check does not end in bare 'src' (no 'Can't open src' crash)";;
 esac
 
@@ -57,7 +57,7 @@ mkdir -p "$T2/src"
 [ "$FLAT_RC" = "0" ] && ok "flat: install exited 0" || bad "flat: install exited $FLAT_RC (regression)"
 FLAT_TARGET=$(arch_target "$T2")
 case "$FLAT_TARGET" in
-  *"cjs src") ok "flat: arch:check targets src (detection is conditional, not always apps/packages)";;
+  *"mjs src") ok "flat: arch:check targets src (detection is conditional, not always apps/packages)";;
   *) bad "flat: arch:check unexpectedly = ($FLAT_TARGET) — flat layout regressed";;
 esac
 
@@ -72,14 +72,14 @@ mkdir -p "$TS/services/api/src"
 [ "$SVC_RC" = "0" ] && ok "services-workspace: install exited 0 (M1 — no bare-src crash)" || bad "services-workspace: install exited $SVC_RC (M1 regression — re-crashes #508)"
 SVC_TARGET=$(arch_target "$TS")
 case "$SVC_TARGET" in
-  *"cjs src"|*"cjs ") bad "services-workspace-neg: arch:check fell back to bare 'src'/'' → would hard-fail ($SVC_TARGET)";;
-  *services*|*"cjs .") ok "services-workspace: arch:check targets an existing root ($SVC_TARGET)";;
+  *"mjs src"|*"mjs ") bad "services-workspace-neg: arch:check fell back to bare 'src'/'' → would hard-fail ($SVC_TARGET)";;
+  *services*|*"mjs .") ok "services-workspace: arch:check targets an existing root ($SVC_TARGET)";;
   *) bad "services-workspace: unexpected target ($SVC_TARGET)";;
 esac
 
-# ── shipped dependency-cruiser.cjs: layout-agnostic layer prefixes ──
-CFG="$T/.dependency-cruiser.cjs"
-[ -f "$CFG" ] || bad "monorepo: .dependency-cruiser.cjs not installed"
+# ── shipped dependency-cruiser.mjs: layout-agnostic layer prefixes ──
+CFG="$T/.dependency-cruiser.mjs"
+[ -f "$CFG" ] || bad "monorepo: .dependency-cruiser.mjs not installed"
 grep -qF '(?:^|/)src/domain' "$CFG" \
   && ok "config: layer prefixes are layout-agnostic ((?:^|/)src/<layer>)" \
   || bad "config: no layout-agnostic (?:^|/)src/ layer prefix found"

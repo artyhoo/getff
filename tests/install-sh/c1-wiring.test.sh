@@ -33,7 +33,7 @@ ni=$(grep -c '^import ' "$T/eslint-rules-local/index.mjs")
 [ "$nf" = "$ni" ] && [ "$nf" -ge 4 ] && ok "W1: barrel covers all $nf rule files" || bad "W1: barrel $ni imports vs $nf rule files"
 
 # W2 — arch config lands so arch:check has something to run against
-[ -f "$T/.dependency-cruiser.cjs" ] && ok "W2: .dependency-cruiser.cjs landed" || bad "W2: .dependency-cruiser.cjs missing"
+[ -f "$T/.dependency-cruiser.mjs" ] && ok "W2: .dependency-cruiser.mjs landed" || bad "W2: .dependency-cruiser.mjs missing"
 
 # W4 — canonical scripts merged non-destructively (existing kept, gate scripts added)
 node -e 'const s=require(process.argv[1]).scripts||{}; process.exit((s.lint&&s["arch:check"]&&s.validate&&s["test:coverage"]&&s.test==="echo keep")?0:1)' "$T/package.json" \
