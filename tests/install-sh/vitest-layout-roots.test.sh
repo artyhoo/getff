@@ -120,7 +120,7 @@ else
 fi
 rm -f "$d/.ai-factory/refresh-baseline.json"
 install_into "$d" react-spa --force
-if ls "$d/.ai-factory/refresh-conflicts/" 2>/dev/null | grep -q '^vitest\.config\.ts\.'; then
+if compgen -G "$d/.ai-factory/refresh-conflicts/vitest.config.ts.*" >/dev/null; then
   bad "E: --force preserved the unedited rewritten vitest.config.ts as a consumer edit (parity mode missing)"
 else
   ok "E: --force re-install preserves nothing for the unedited rewritten vitest.config.ts"
