@@ -345,9 +345,11 @@ Principle tests (`packages/core/principles/`), all internal as tests:
 - **F5.** getff breaks C5 itself: `pipeline/SKILL.md` 600 lines (ships), `dispatcher/SKILL.md` 506
   (internal); 17 shipped references over 100 lines have no table of contents (the five getff
   references among them, 180-481 lines).
-- **F6.** Dangling links: 33 of the 57 shipped skill and agent files link to `.claude/rules/*.md`,
+- **F6.** Off-machine links: 33 of the 57 shipped skill and agent files link to `.claude/rules/*.md`,
   and that corpus never reaches a consumer (measured over the fingerprint's `.claude/skills` and
-  `.claude/agents` paths). The base core cannot ship by reference to a folder that is absent (A16).
+  `.claude/agents` paths). Install rewrites those links to GitHub blob URLs (`setup.d/lib.sh:154`),
+  so they resolve only with network access and a fetch tool; they do not dangle (corrected
+  2026-09-29). The base core cannot ship by reference to a folder the consumer does not hold (A16).
 - **F7.** Two budgets for one fact: the shipped `doc-organization.md` says AGENTS.md ≤150
   (`:16`, `:261`), a skill ≤300 and a rule ≤80 (`:81`), with no source. Under C2 and D10 it follows
   C5's sourced limits.
