@@ -78,22 +78,31 @@ run_sweep() {
 notified() { [ -s "$NOTES" ] || fail "$1: no notification raised"; }
 silent() { [ -s "$NOTES" ] && fail "$1: notified on a clean run ($(head -1 "$NOTES"))"; }
 
-CLOSED_JSON='{"ok":true,"repo":"o/r","closeMerged":[{"taskId":"t1","status":"done","prUrl":"https://github.com/o/r/pull/1","report":{"taskId":"t1","prUrl":"https://github.com/o/r/pull/1","merged":true,"commented":true,"closedReview":false,"approved":true}},{"taskId":"t2","status":"done","prUrl":"https://github.com/o/r/pull/2","report":{"taskId":"t2","prUrl":"https://github.com/o/r/pull/2","merged":true,"commented":false,"closedReview":false,"approved":false,"alreadyClosed":true}},{"taskId":"t3","status":"review","skippedReason":"no merged PR maps to this task"},{"taskId":"t4","status":"done","prUrl":"https://github.com/o/r/pull/4","report":{"taskId":"t4","prUrl":"https://github.com/o/r/pull/4","merged":false,"commented":false,"closedReview":false,"approved":false}},{"taskId":"t5","status":"review","prUrl":"https://github.com/o/r/pull/5","report":{"taskId":"t5","prUrl":"https://github.com/o/r/pull/5","merged":true,"commented":false,"closedReview":false,"approved":false,"skippedReason":"participants mode is off"}}]}'
+CLOSED_JSON='{"ok":true,"repo":"o/r","closeMerged":[{"taskId":"t1","status":"done","prUrl":"https://github.com/o/r/pull/1","report":{"taskId":"t1","prUrl":"https://github.com/o/r/pull/1","merged":true,"commented":true,"closedReview":false,"approved":true}},{"taskId":"t2","status":"done","prUrl":"https://github.com/o/r/pull/2","report":{"taskId":"t2","prUrl":"https://github.com/o/r/pull/2","merged":true,"commented":false,"closedReview":false,"approved":false,"alreadyClosed":true}},{"taskId":"t3","status":"review","skippedReason":"no merged PR maps to this task"},{"taskId":"t4","status":"done","prUrl":"https://github.com/o/r/pull/4","report":{"taskId":"t4","prUrl":"https://github.com/o/r/pull/4","merged":false,"commented":false,"closedReview":false,"approved":false}},{"taskId":"t5","status":"review","prUrl":"https://github.com/o/r/pull/5","report":{"taskId":"t5","prUrl":"https://github.com/o/r/pull/5","merged":true,"commented":false,"closedReview":false,"approved":false,"skippedReason":"participants mode is off"}},{"taskId":"t6","status":"review","prUrl":"https://github.com/o/r/pull/6","error":"complete_review was refused for manual-review park t6"}]}'
 
 # ── GREEN 1: aif up, one task closed → exit 0, counted summary, staging's harvest.ts run ─────
 run_sweep RUNTIME_BRIDGE_AIF_PROJECT_ID=proj-1 CLOSE_MERGED_CURL="$TMP/curl" STUB_OUT="$CLOSED_JSON"
 rc=$?
 [ "$rc" -eq 0 ] || fail "closed: expected exit 0, got $rc"
-grep -q 'OK closed=1 already=1 unmerged=1 refused=1 skipped=1' "$LOG" || fail "closed: summary line missing or miscounted"
+grep -q 'OK closed=1 already=1 unmerged=1 refused=1 failed=1 skipped=1' "$LOG" || fail "closed: summary line missing or miscounted"
 grep -q 'closed t1 .*pull/1' "$LOG" || fail "closed: the closed task + PR are not named in the log"
 # Merged-but-refused is the state a sweep must never report as a clean OK (participants mode off
 # parks a task in review forever): counted, named with its reason, and notified.
 grep -q 'refused t5 .*pull/5: participants mode is off' "$LOG" || fail "refused: t5 not named with its reason"
 notified "refused"
-grep -q '1 merged PR' "$NOTES" 2>/dev/null || fail "refused: notification does not count the refused PRs"
+grep -q '1 refused + 1 failed' "$NOTES" 2>/dev/null || fail "refused: notification does not count the refused + failed closes"
+# A task whose close THREW (harvest.ts records `error` per task instead of aborting the sweep) is
+# its own bucket — never folded into `skipped`, which means "no PR maps to it".
+grep -q 'failed t6 .*pull/6: complete_review was refused' "$LOG" || fail "failed: t6 not named with its error"
 grep -q -- '--close-merged --project proj-1' "$TMP/argv" || fail "closed: harvest.ts not called with --close-merged --project"
 grep -q "^$CACHE/.*/packages/runtime-bridge/src/cli/harvest.ts" "$TMP/argv" || fail "closed: harvest.ts not run from the staging snapshot cache"
 grep -q '// v1' "$TMP/argv.src" 2>/dev/null || fail "closed: ran the clone's checked-out harvest.ts instead of origin/staging's"
+
+# ── GREEN 1c: only a failed close (nothing refused) still notifies ───────────────────────────
+run_sweep RUNTIME_BRIDGE_AIF_PROJECT_ID=proj-1 CLOSE_MERGED_CURL="$TMP/curl" \
+  STUB_OUT='{"ok":true,"repo":"o/r","closeMerged":[{"taskId":"t6","status":"review","prUrl":"https://github.com/o/r/pull/6","error":"boom"}]}'
+grep -q 'refused=0 failed=1 skipped=0' "$LOG" || fail "failed-only: summary miscounted"
+notified "failed-only"
 
 # ── GREEN 2: staging moves on origin → the next tick fetches and runs the NEW snapshot ────────
 echo "'close-merged': { type: 'boolean' }, // v2" >"$SEED/packages/runtime-bridge/src/cli/harvest.ts"

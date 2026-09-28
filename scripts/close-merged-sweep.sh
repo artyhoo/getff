@@ -39,13 +39,15 @@
 #   4. logs ONE summary line to $CLOSE_MERGED_LOG (default ~/Library/Logs/aif-close-merged.log,
 #      rotated past 512 KB): closed / already / unmerged (auto-merge still pending — normal) /
 #      refused (merged, but harvest.ts would not close it: mapping, activity order, participants
-#      mode, status — each named with its reason) / skipped (no PR maps to the task).
-#   5. ERROR, FAIL and a non-zero refused count raise a macOS notification: under launchd nobody
+#      mode, status — each named with its reason) / failed (closing that one task threw, e.g. an
+#      aif build without the manual-review exit; the others still close) / skipped (no PR maps to
+#      the task).
+#   5. ERROR, FAIL and a non-zero refused or failed count raise a macOS notification: under launchd nobody
 #      reads stdout, so a problem the operator never sees would be #warning-nobody-reads. It fires
 #      when the problem CHANGES, not on every tick (a standing ERROR would otherwise notify 96×/day);
 #      a clean run re-arms it.
 #
-# Exit codes: 0 = swept (incl. refused entries — logged + notified) or skipped (aif down),
+# Exit codes: 0 = swept (incl. refused and failed entries — logged + notified) or skipped (aif down),
 #             1 = harvest failed / timed out / unparsable output,
 #             2 = misconfigured (no project id, tsx, jq, or usable origin/staging), 64 = usage.
 #
@@ -228,30 +230,35 @@ cmd_run() {
   fi
   rm -f "$err"
 
-  local line summary refused
+  local line summary refused failed
   line=$(printf '%s\n' "$out" | grep -E '^\{.*"ok":true' | tail -1 || true)
   # Buckets partition every entry harvest.ts can emit (MergeReport in harvest.ts): an entry
-  # without a report was skipped before the merge proof; a report is closed, already closed,
-  # unmerged, or merged-but-refused (approved:false with a report-level skippedReason).
+  # with an `error` threw while closing; one without a report or error was skipped before the
+  # merge proof; a report is closed, already closed, unmerged, or merged-but-refused (approved:false
+  # with a report-level skippedReason).
   if [ -z "$line" ] || ! summary=$(printf '%s' "$line" | jq -r '
       .closeMerged as $e
       | ($e | map(select(.report != null and .report.approved == true and (.report.alreadyClosed | not)))) as $closed
       | ($e | map(select(.report != null and .report.merged == true and .report.approved != true and (.report.alreadyClosed | not)))) as $refused
+      | ($e | map(select(.error != null))) as $failed
       | "OK closed=\($closed | length)"
         + " already=\($e | map(select(.report.alreadyClosed == true)) | length)"
         + " unmerged=\($e | map(select(.report != null and .report.merged != true)) | length)"
         + " refused=\($refused | length)"
-        + " skipped=\($e | map(select(.report == null)) | length)"
+        + " failed=\($failed | length)"
+        + " skipped=\($e | map(select(.report == null and .error == null)) | length)"
         + ($closed | map(" | closed \(.taskId) \(.prUrl)") | join(""))
-        + ($refused | map(" | refused \(.taskId) \(.prUrl): \(.report.skippedReason // "no reason given")") | join(""))' 2>/dev/null); then
+        + ($refused | map(" | refused \(.taskId) \(.prUrl): \(.report.skippedReason // "no reason given")") | join(""))
+        + ($failed | map(" | failed \(.taskId) \(.prUrl): \(.error)") | join(""))' 2>/dev/null); then
     log "FAIL unparsable harvest output: $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-600)"
     notify "harvest --close-merged printed no ok:true JSON; see $LOG"
     return 1
   fi
   log "$summary$fetch_note"
   refused=$(printf '%s' "$summary" | sed -n 's/.* refused=\([0-9]*\) .*/\1/p')
-  if [ "${refused:-0}" -gt 0 ]; then
-    notify "$refused merged PR(s) whose aif task harvest refused to close; see $LOG"
+  failed=$(printf '%s' "$summary" | sed -n 's/.* failed=\([0-9]*\) .*/\1/p')
+  if [ "${refused:-0}" -gt 0 ] || [ "${failed:-0}" -gt 0 ]; then
+    notify "${refused:-0} refused + ${failed:-0} failed aif close(s) for merged PRs; see $LOG"
   else
     notify_clear
   fi
