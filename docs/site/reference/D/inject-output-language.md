@@ -16,7 +16,7 @@ sources:
 executed:
   - { example: output-language-unset-english-default, stack: repo, date: 2026-09-25, result: silent }
   - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29, the framework-path paragraph and the inject-session-bootstrap.sh citation are updated for the run-hook.cmd project-channel dedup; the rest of the page was not re-read against its sources; clears at the next refresh of this page
 ---
 
 # inject-output-language hook
@@ -93,7 +93,9 @@ Where this hook fits in the family: it was extracted from the framework's own
 without the framework-internal goal-and-invariants text around it. The framework's own
 repository actually reaches itself the other way — its bootstrap digest embeds the same
 language line, and this standalone hook reaches consumers through the plugin
-distribution rather than the project settings file.
+distribution rather than the project settings file. When both are live — the framework
+repository with the plugin enabled — the plugin copy steps aside for the project's own
+digest, so a prompt carries the line once.
 
 ## Evidence
 
@@ -115,7 +117,7 @@ distribution rather than the project settings file.
   maintainer-only inject-session-bootstrap.sh — it emits ONLY the language signal (never
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
-  `.claude/hooks/inject-session-bootstrap.sh:120-128`.
+  `.claude/hooks/inject-session-bootstrap.sh:125-134`.
 - Registration is plugin-channel only: `plugin/hooks/hooks.json:16` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
   UserPromptSubmit, and no settings.json registration exists (measured:

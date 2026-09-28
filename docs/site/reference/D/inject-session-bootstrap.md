@@ -19,7 +19,7 @@ sources:
 executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-25, result: printed }
   - { example: session-bootstrap-autonomy-opt-in, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29, the language-line, registration and language-append bullets are updated for the run-hook.cmd project-channel dedup; the Evidence list's other line numbers predate this change and have drifted (the digest assembly is now lines 109-115, the autonomy gate line 162); clears at the next full refresh of this page
 ---
 
 # inject-session-bootstrap hook
@@ -86,7 +86,9 @@ Three details make this more than a heredoc:
 - **The language line rides along too.** With `AIF_HOOK_LANG` pinned to a non-English
   language, the same reminder the standalone
   [inject-output-language](inject-output-language.md) hook delivers is appended to this
-  digest — one mechanism on the framework side.
+  digest — one mechanism on the framework side. The plugin copy of this hook leaves the
+  line out, because the plugin ships inject-output-language beside it; either way a
+  prompt carries the line once.
 - **One more block exists, strictly opt-in.** Run with `AIF_AUTONOMOUS=1` and a fourth
   section appears:
 
@@ -113,7 +115,8 @@ mark those anchor points so the rendered rule index reports the full delivery su
 - `.claude/hooks/inject-session-bootstrap.sh:2` is the header the card's description row
   quotes: `# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context`.
 - Registration: `.claude/settings.json:70` (UserPromptSubmit) and
-  `plugin/hooks/hooks.json:24` both wire it; no matcher is set.
+  `plugin/hooks/hooks.json:24` both wire it; no matcher is set. When both are live,
+  `plugin/hooks/run-hook.cmd` drops the plugin copy, so the digest arrives once.
 - The harness-portable output helpers are inline, lines 25-28 — `_is_zcode` branching on
   `ZCODE_PROJECT_DIR` and `_emit_ctx` choosing plain stdout or strict-JSON
   `additionalContext`; header lines 10-12 explain why (under ZCode, plain stdout is
@@ -132,8 +135,9 @@ mark those anchor points so the rendered rule index reports the full delivery su
 - Digest assembly is lines 103-109, opening
   `[session-bootstrap digest — auto-injected at prompt submit]` and closing
   `[/session-bootstrap digest]`; the demo above is that string verbatim.
-- The language append is the case at lines 114-122; the Russian branch (line 117) appends
-  the same `[output-language]` line the standalone hook prints.
+- The language append is the case at lines 125-134; the Russian branch (line 129) appends
+  the same `[output-language]` line the standalone hook prints, and the `plugin:*` branch
+  (line 126) skips it on the plugin channel.
 - The autonomy block: gated by line 150 `if [ "${AIF_AUTONOMOUS:-0}" = "1" ]`; the
   honest classification is comment lines 140-145 — «this is PROSE delivered reliably,
   NOT a gate … Falsifier: if a session with AIF_AUTONOMOUS=1 still stops at a reportable
