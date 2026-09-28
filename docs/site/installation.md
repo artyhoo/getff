@@ -185,6 +185,7 @@ block to your file. The block tells ESLint to skip getff's own code, such as its
 and its hook bundle. It also turns on the rules that apply to your project, such as the
 rule for request handlers once the install finds HTTP handlers. getff changes and removes
 nothing you wrote, and keeps your original file at `.ai-factory/before-getff/<name>.<hash>`.
+getff treats a config it placed on an earlier install the same way once you have edited it.
 Adding the block needs the `--full` install, which `setup -y` runs. getff leaves any other
 ESLint config as it is and lists it in the «NOT wired» summary at the end of the install. It
 never edits your `tsconfig.json`.
