@@ -7,8 +7,9 @@
 > the NOT-wired summary mechanism — `setup.d/lib.sh` `note_not_wired`; the ESLint insertion —
 > PR #1868 (`packages/core/install/wire-eslint-r2.ts`).
 
-Status: DRAFT r3 (round-1 findings absorbed, D10 answered; §2 round 2 pending) · Date: 2026-09-28 · Base: staging
-`47ff45bdaa1` + open PR #1890 (head `1a8f4e5949f`).
+Status: DRAFT r4 (round-1 and round-2 findings absorbed; D12 decided — see §8) · Date: 2026-09-28 · Base: staging
+`b3a1981` + open PR #1890 (head `8c82c1a1e7b`). Line citations into `setup.d/99-finalize.sh` are to
+the #1890 branch.
 
 ## 1. Context
 
@@ -35,8 +36,8 @@ Two facts the round-1 review established shape the whole design:
 - **Shape recognition alone cannot prove safety.** A syntactically clean insertion can still
   change the consumer's lint behaviour: a ruff child table shadows the parent's in an `extend`
   chain, an `ignore` entry can defeat `extend-select`, a member crate's own `clippy.toml` shadows
-  the root one, forbidigo can be enabled by `presets`. Only the tool itself sees the effective
-  configuration.
+  the root one (and a nested ruff config shadows the root one for its subtree the same way),
+  forbidigo can be enabled by `presets`. Only the tool itself sees the effective configuration.
 
 ## 2. Operator-premise register
 
@@ -48,6 +49,7 @@ Two facts the round-1 review established shape the whole design:
 | P4 | Design first through `/arch`; no code before an approved spec. | this session's task |
 | P5 | `pyproject.toml` `[tool.ruff.*]` may receive insertions; `Cargo.toml` may not. | this session, fork D3 answered |
 | P6 | `--refresh` may remove what getff itself inserted when a getff tag names it and the template dropped it; consumer bytes are never removed. | this session, fork D10 answered |
+| P7 | The install may *run* a pinned lint tool one-shot to prove an insertion; it never *installs* one (nothing added to PATH, to the toolchain, or to the consumer's dependencies). | D12, decided by the design session on existing precedent (`45-python.sh:557` `uvx ruff@<pin>`) + companion-install-principle.md §1; open to operator override at spec review |
 
 ## 3. Invariants every insertion obeys
 
@@ -68,14 +70,18 @@ Two facts the round-1 review established shape the whole design:
   (`cat tmp > dst`), never `mv tmp dst`, so a symlinked config stays a symlink and keeps its mode.
   If the original cannot be kept, the write is undone and the file is NOT-wired.
 - **I4 — tool proof required** (decision D2, revised in round 1). An insertion stands only if a
-  *differential probe* (§5) run with the lane's tool shows that the effective configuration after
-  the edit equals the one before plus exactly the payload. Tool absent, tool unable to read the
-  consumer's config before the edit, or any extra delta → restore the original and write a
-  NOT-wired line naming the reason. Shape recognition authorises the attempt; only the tool
-  authorises the result.
-- **I5 — CI reads getff's own files** (decision D9, extended in round 1 by §4.0). Every getff CI
-  gate reads a getff-owned config, so the CI verdict never depends on whether an insertion
-  happened or survived. The insertion closes the *local* gap only.
+  *differential probe* (§5) run with the lane's tool shows that the results after the edit equal
+  the results before plus exactly the payload's results: every before-result is still present and
+  unchanged (the consumer's own rules included), and every new result is getff-attributable and in
+  the payload. Tool unavailable (per D12), tool unable to read the consumer's config before the
+  edit, or any other delta → restore the original and write a NOT-wired line naming the reason.
+  Shape recognition authorises the attempt; only the tool authorises the result.
+- **I5 — CI verdict independent of the insertion** (decision D9, extended by §4.0). Every getff CI
+  gate enforces getff's bans from a getff-owned config, so the CI verdict never depends on whether
+  an insertion happened or survived. The insertion closes the *local* gap only. The getff-owned CI
+  configs (`.getff/ruff-bans.toml`, `getff-golangci.yml`, §4.0's cargo and ast-grep configs) are
+  delivered in **every** cell where the consumer owns the tool's config, whether or not the
+  insertion succeeded.
 - **I6 — payload derived from the template, normalised per schema.** Inserted values are read
   from getff's own template (a file getff authored, in a shape getff controls) and translated to
   the target schema where the schemas differ (golangci v1 `p:` → v2 `pattern:`, §4.6).
@@ -84,18 +90,41 @@ Two facts the round-1 review established shape the whole design:
 
 ### 4.0 Prerequisite — isolate the two CI gates that read the consumer's config
 
-- **cargo:** the getff clippy gate sets `CLIPPY_CONF_DIR` to a getff-owned directory
-  (`.getff/clippy/`, holding getff's `clippy.toml`), so `-D clippy::disallowed_methods` fires on
-  getff's bans in every cell. Today, in the collision cell, it fires on nothing getff shipped.
-- **ast-grep:** the getff ast-grep gate runs `ast-grep scan -c <getff-owned sgconfig>` over the
-  project. Whether `-c` with a config outside the project root still scans the root with rule dirs
-  resolved relative to the config file is a plan prerequisite probe (T3 INCONCLUSIVE, pinned
-  `@ast-grep/cli@0.44.1`). If it does not, the ast-grep gate stays on the consumer's
+- **cargo:** the getff clippy gate reads getff's bans from a getff-owned directory
+  (`.getff/clippy/clippy.toml`) through an **absolute** `CLIPPY_CONF_DIR`
+  (`$GITHUB_WORKSPACE/.getff/clippy`) — the directory always holds the file, because a missing
+  directory is a clippy error and a directory without the file makes clippy walk upward and load
+  the consumer's `clippy.toml` again. Setting `CLIPPY_CONF_DIR` replaces the consumer's whole
+  clippy config for that run (DeepWiki `rust-clippy` `lookup_conf_file`, round 2), so the gate
+  must also not fire on the consumer's own lints: it runs with every clippy lint group allowed and
+  only `disallowed_methods` / `_types` / `_macros` denied (`-A clippy::all -A clippy::pedantic -A
+  clippy::nursery -A clippy::restriction -A clippy::cargo -D clippy::disallowed_…`). Whether
+  those trailing command-line levels override `Cargo.toml [lints]` and `[workspace.lints]` is a
+  plan prerequisite probe; if they do not, the fallback is to keep the gate on the consumer's
+  config and let §4.3's insertion be what it enforces, with the NOT-wired wording of §4.4 saying
+  so. Delivery contract: `.getff/clippy/clippy.toml` is framework-owned (`refresh_safe`, getff
+  header), delivered in every consumer-owned cell, covered by `refresh-covers-full-delivery`; the
+  rules-lock `sourceFingerprint` and adapter-jig E2 resolve **this** file — `_lane_delivered_config_path`
+  learns it — so lock, self-check and CI attest the same ban set. `getff-clippy.toml` is retired
+  into it (C4 no-orphan-residue check). Precedent: the python lane's `.getff/ruff-bans.toml`
+  (`setup.d/45-python.sh:386-395`).
+- **ast-grep:** the getff ast-grep gate runs `ast-grep scan -c .getff/sgconfig.yml` over the
+  project, with a getff-owned `.getff/sgconfig.yml` (framework-owned, same delivery contract as
+  above). DeepWiki (`ast-grep/ast-grep`, round 2) says `ruleDirs` resolve relative to the config
+  file and the scan defaults to the working directory; confirming that on the pinned
+  `@ast-grep/cli@0.44.1` is a plan prerequisite probe. If it does not, the ast-grep gate stays on the consumer's
   `sgconfig.yml` and I5 carries a recorded exception for it: then §4.2's insertion is what CI
   depends on, and a refused or deleted entry is a NOT-wired line saying the getff ast-grep gate
   runs the consumer's rules only.
 
-This fixes a present defect independently of any insertion; it ships first (§11).
+- **go:** unchanged — the gate already keys on `getff-golangci.yml`. Its `else` branch, which
+  exits 0 when that file is absent, learns D11's lookup names so a `.golangci.yaml` consumer does
+  not pass green while enforcing nothing.
+
+This fixes a present defect independently of any insertion; it ships first (§11). Behaviour change
+to announce: after `--refresh`, a collision-cell consumer's getff cargo / ast-grep gate starts
+enforcing getff's bans and can turn red on code it always should have flagged; the refresh prints
+that as a fact line.
 
 ### 4.1 ruff — `.ruff.toml` / `ruff.toml` / `pyproject.toml [tool.ruff]`
 
@@ -104,9 +133,15 @@ This fixes a present defect independently of any insertion; it ships first (§11
 `extend-select`, which adds to the consumer's `select` (ruff docs; DeepWiki `astral-sh/ruff`,
 2026-09-28).
 
-Target file: the one ruff loads for the project root, in ruff's own precedence order (plan
-prerequisite probe: the order among `.ruff.toml`, `ruff.toml`, `pyproject.toml` in one directory).
-Prefix `P` = `` (ruff.toml family) or `tool.ruff.` (pyproject).
+Targets: **every** ruff config in the project that ruff would load for some Python file — ruff
+uses the closest config (DeepWiki `astral-sh/ruff`, round 2), so a sub-package's own `ruff.toml`
+or `[tool.ruff]` shadows the root one for its subtree, exactly like clippy (§4.3). Per directory,
+the file ruff loads in its own precedence order (plan prerequisite probe: the order among
+`.ruff.toml`, `ruff.toml`, `pyproject.toml`); each target is processed on its own and gets its own
+NOT-wired line when it cannot be wired. A ruff `--config` passed by the consumer's own tooling
+(e.g. `.pre-commit-config.yaml` args) is detected and makes that path NOT-wired (the config
+loaded there is not the file getff edits). Prefix `P` = `` (ruff.toml family) or `tool.ruff.`
+(pyproject).
 
 | Shape | Action |
 |---|---|
@@ -116,16 +151,18 @@ Prefix `P` = `` (ruff.toml family) or `tool.ruff.` (pyproject).
 | `[Plint.flake8-tidy-imports]` present | insert / extend `banned-module-level-imports` as above |
 | `[Plint.flake8-tidy-imports.banned-api]` present | insert each missing key after the header; a key the consumer already defines is kept (I1) |
 | either tidy-imports table absent, no other spelling of it | append the table at EOF — **unless** the config has `extend` and any file in its local `extend` chain defines that table or key: then NOT-wired, because the child table would replace the inherited one (DeepWiki `astral-sh/ruff`, round 1) |
-| a getff code, or a prefix of it (`TID`, `DTZ`, `ALL` excluded — see below), listed in the consumer's `ignore` / `extend-ignore` | that code is **NOT-wired**: the consumer switched it off; it is not inserted |
+| a getff code, or any prefix of it (`TID`, `TID2`, `DTZ`, `ALL` …), listed in `ignore` / `extend-ignore` of the target or of any file in its local `extend` chain | that code is **NOT-wired**: the consumer switched it off; it is not inserted |
 | top-level `select` / `extend-select` (legacy form), dotted `lint.*` keys, inline tables for the targets | **NOT-wired** |
 
 `per-file-ignores` entries are the consumer's per-path decision and are left alone; the ban still
-applies to every other path. An `ignore = ["ALL"]`-style blanket switch-off is caught by the
-differential probe (the code does not appear in the effective enabled set) and rolls back.
+applies to every other path. The differential probe is the backstop for any switch-off the row
+above misses (the code does not appear in the effective enabled set → rollback).
 
-Proof (§5): `ruff check --show-settings <probe.py>` before and after. The ruff used is the
-consumer's own (PATH) when present, else the lane's pinned `uvx` fetch; if that ruff cannot read
-the consumer's config before the edit, the cell is NOT-wired with ruff's message.
+Proof (§5): `ruff check --show-settings <path>` before and after, for a path inside the target's
+directory so ruff resolves that target (whether the path must exist is a plan probe; if it must,
+the probe file is created and removed within the install run). The ruff used is chosen per D12;
+if that ruff cannot read the consumer's config before the edit, the cell is NOT-wired with ruff's
+message.
 
 ### 4.2 ast-grep — `sgconfig.yml`
 
@@ -151,7 +188,9 @@ after-set of rule ids equals the before-set plus getff's rule ids.
 own `clippy.toml` shadows the root one for that crate (DeepWiki `rust-lang/rust-clippy`
 `lookup_conf_file`, round 1). The targets are therefore **every** clippy config in the workspace
 (excluding `target/`); each is processed on its own and gets its own NOT-wired line when it cannot
-be wired. A directory holding both `clippy.toml` and `.clippy.toml` is NOT-wired.
+be wired. A directory holding both `clippy.toml` and `.clippy.toml` is NOT-wired, and so is a
+workspace whose `.cargo/config.toml` sets `CLIPPY_CONF_DIR` in `[env]` (clippy loads that
+directory, not the file walk getff edits).
 
 Payload: every `disallowed-*` key the template carries (today `disallowed-methods`; the same rows
 apply to `disallowed-types` / `disallowed-macros` when the template grows them).
@@ -166,18 +205,22 @@ apply to `disallowed-types` / `disallowed-macros` when the template grows them).
 `disallowed-methods` defaults to empty and clippy errors on an unknown or invalid key (DeepWiki
 `rust-lang/rust-clippy`, 2026-09-28).
 
-Proof: `cargo clippy` with `CLIPPY_CONF_DIR=<that config's dir>` on a getff probe crate outside
-the project, before and after; the `disallowed_methods` hits (matched by lint code, the technique
-the cargo self-check already uses) gain exactly getff's paths.
+Proof: `cargo clippy` with an absolute `CLIPPY_CONF_DIR=<that config's dir>` on a getff probe
+crate outside the project, before and after, each run with its own fresh `--target-dir` so the
+second run cannot reuse cached results; the `disallowed_*` hits (matched by lint code, the
+technique the cargo self-check already uses) gain exactly getff's paths and nothing else changes.
 
 ### 4.4 `Cargo.toml [lints.clippy]` — NOT inserted (decision D3)
 
 `disallowed_methods` is `warn` by default (style group), so after §4.3 a local `cargo clippy`
 reports the ban; `[lints.clippy] disallowed_methods = "deny"` would only lift it to a build error.
-After §4.0 the getff CI gate makes it an error in every cell. `Cargo.toml` is the build manifest,
-and a member crate with `lints.workspace = true` cannot take other `[lints]` keys. The NOT-wired
-line reads: *the ban is a warning on a local build and an error in getff's CI; getff does not edit
-`Cargo.toml`* — true only once §4.0 has shipped, which §11 orders first.
+`Cargo.toml` is the build manifest, and a member crate with `lints.workspace = true` cannot take
+other `[lints]` keys. The NOT-wired line states what holds, from two facts the lane already has:
+whether §4.0's isolated gate is in place (else whether §4.3 wired the consumer's config) and
+whether the getff CI workflow is getff's own (the existing `_ci` branch,
+`setup.d/46-cargo.sh:133-136` on #1890, kept): *the ban is a warning on a local build and an error
+in getff's CI; getff does not edit `Cargo.toml`* — or, when either fact fails, the narrower true
+sentence.
 
 ### 4.5 cargo-deny — `deny.toml` — nothing to insert (decision D6)
 
@@ -219,17 +262,23 @@ v2-only top-level key (`formatters`) is never a target. getff's `disable-all` /
 
 Why D4: an explicit `forbid` list replaces forbidigo's defaults entirely (DeepWiki
 `ashanbrown/forbidigo`, 2026-09-28). forbidigo can be enabled by `linters.enable`, `enable-all`,
-v2 `default: all`, v1 `presets`, or a `-E forbidigo` flag in the consumer's own scripts — so the
-«was the default active?» question is answered by the before-probe, not by reading one key: the
-probe module contains a `fmt.Println` call, and the default pattern is inserted exactly when the
-before-run flags it. A `-E forbidigo` used only on a command line the install cannot see is the
-one recorded blind spot; the tag on the preserved default (§6) keeps it from being refreshed away.
+v2 `default: all`, v1 `presets` — so «was the default active?» is answered by the before-probe,
+not by reading one key. The probe runs the consumer's config **exactly as the consumer's own run
+would**: no linter-selection flags at all (no `-E`, no `--disable-all` / `--default`, which would
+force forbidigo on and answer the question by construction — round 2; the flags also differ
+between v1 and v2), with machine-readable output filtered to issues whose linter is `forbidigo`.
+The probe module contains `fmt.Println`; the default pattern is inserted exactly when the
+before-run reports forbidigo on it. When forbidigo was not active before, the insertion enables it
+with getff's pattern only, so the consumer's `fmt.Println` stays unflagged. A `-E forbidigo` used
+only on a command line the install cannot see is the recorded blind spot (§12); the
+`kept-default` tag (§6) keeps a preserved default from being refreshed away.
 
-Proof: `golangci-lint run` with the consumer's config, `--disable-all -E forbidigo`, on a getff
-probe module holding `os.Getenv` and `fmt.Println`, before and after. After must flag `os.Getenv`,
-and flag `fmt.Println` iff before did. A config the local binary cannot read (e.g. a v2 file under
-a v1 binary) is NOT-wired with the binary's message. How the probe module is placed so that
-relative paths in the consumer's config still resolve is a plan design item (round-1 F3).
+Proof: that same unflagged run, before and after, on a getff probe module holding `os.Getenv`
+and `fmt.Println`. After must add forbidigo's `os.Getenv` issue, keep every before-issue
+(forbidigo's `fmt.Println` included, iff it was there), and add nothing else. A config the local
+binary cannot read (e.g. a v2 file under a v1 binary) is NOT-wired with the binary's message. How
+the probe module is placed so that relative paths in the consumer's config still resolve is a
+plan design item (round-1 F3).
 
 ### 4.7 Consumer CI workflows — NOT-wired stays (decision D7)
 
@@ -249,9 +298,21 @@ from #1890.
   stay pinned to getff's delivered config — adapter-jig arm E2 `self-check-resolves-delivered-config`
   (`packages/core/principles/33-adapter-jig-arm-registry.ts:82`, `:486-494`) is a registered
   invariant and is not reversed. The probe runs the tool twice against the consumer's config
-  (before, after) on a getff probe input and compares **getff-attributable** results only (rule
-  ids / lint codes / patterns getff ships), so the consumer's own rules firing on the probe input
-  is not a false delta.
+  (before, after) on a getff probe input and applies I4's rule: before-results (the consumer's own
+  rules firing on the probe input included) must reappear unchanged, and the new results must be
+  exactly the payload's getff-attributable ones (rule ids / lint codes / patterns getff ships). A
+  consumer rule firing on the probe input is therefore neither a false delta nor ignored.
+- **Tool availability** (D12, P7) — one rule on all three lanes, in this order:
+  1. the consumer's own tool on PATH (`ruff`, `ast-grep`/`sg`, `golangci-lint`, `cargo clippy`);
+  2. else a one-shot run of the version pinned in the getff CI template, through the ecosystem's
+     own runner, which writes only to that runner's cache: `uvx ruff@<pin>`,
+     `uvx --from ast-grep-cli@<pin> ast-grep` (runner form is a plan probe),
+     `go run github.com/golangci/golangci-lint/cmd/golangci-lint@<pin>` (the CI pin, v1.55.2);
+  3. else `not-proven <tool> unavailable (<why>)` — offline, runner absent, or the pinned tool
+     fails to build against the consumer's toolchain.
+  clippy has no step 2: `rustup component add clippy` changes the consumer's toolchain, which is
+  an install. The pin and the CI template's pin are one value (ci-tool-pinning.md Rule A), held
+  in one place the plan names.
 - **Result contract.** Each call returns `added <n>` · `already-present` ·
   `not-recognised <why>` · `not-proven <why>` · `rolled-back <why>`. `added` →
   `note_getff_added <rel>`; `already-present` → a log line; the rest → `note_not_wired` with the
@@ -281,7 +342,7 @@ from #1890.
 ## 7. What stays a NOT-wired line
 
 - every shape §4 marks NOT-wired, with the recogniser's reason;
-- `not-proven` (tool absent, tool cannot read the config before the edit) and `rolled-back`
+- `not-proven` (tool unavailable under D12, tool cannot read the config before the edit) and `rolled-back`
   (differential delta beyond the payload), with the tool's message;
 - a getff code the consumer lists in `ignore` (§4.1), `forbidigo` under `disable` (§4.6);
 - `Cargo.toml [lints.clippy]` (§4.4);
@@ -293,16 +354,17 @@ from #1890.
 | # | Decision | Status | Resolution | Falsifier |
 |---|---|---|---|---|
 | D1 | Writer engine | answered | bash shape recogniser + inserter, no parser dependency (SSOT #216 BUILD; #117 rejects yq as silent default; lanes are Node-free) | >1/3 of a sample of ≥20 real public repos' configs fall outside the recognised shapes → re-weigh a format-preserving library via `uvx` |
-| D2 | Proof bar | answered (revised r2) | I4: differential tool probe required; absent tool = `not-proven` NOT-wired | a proven insertion is later found to change a consumer's lint result on code outside getff's bans |
+| D2 | Proof bar | answered (revised r2, r4) | I4: differential tool probe required; before-results must reappear unchanged and new results equal the payload's; unavailable tool = `not-proven` NOT-wired | a proven insertion is later found to change a consumer's lint result on code outside getff's bans |
 | D3 | Manifests | operator-fork → answered | `pyproject.toml [tool.ruff.*]` yes; `Cargo.toml` no | a warn-level local clippy result let a violation through that deny would have stopped before CI |
-| D4 | forbidigo defaults | answered (revised r2) | insert the default pattern exactly when the before-probe flags `fmt.Println`; tag `kept-default` | forbidigo changes `DefaultPatterns()` in the version the consumer runs → the inserted literal diverges |
+| D4 | forbidigo defaults | answered (revised r2, r4) | insert the default pattern exactly when the before-probe — the consumer's own run, no linter-selection flags — reports forbidigo on `fmt.Println`; tag `kept-default` | forbidigo changes `DefaultPatterns()` in the version the consumer runs → the inserted literal diverges |
 | D5 | Marker | answered | content idempotence + `# getff` / `# getff: +…` / `kept-default` tags + before-getff original; getff paths self-attesting | a refresh removes a consumer-owned item |
 | D6 | deny.toml | answered | nothing to insert; the NOT-wired line becomes a fact; template guard test | cargo-deny changes the `multiple-versions` default, or the template gains a non-default key |
 | D7 | Squatted CI name | answered | stays NOT-wired | — (no alternative name is ever written) |
 | D8 | sgconfig widening | answered | add S2 single-line flow list; S3 only if the no-`ruleDirs` probe shows it is valid config | ast-grep rejects a file the S2 inserter produced |
-| D9 | CI path | answered (extended r2) | every getff CI gate reads a getff-owned config (§4.0); insertion is local-only | any getff CI gate reads a consumer config after §4.0 ships (ast-grep only if the §4.0 probe forces the recorded exception) |
+| D9 | CI path | answered (extended r2, r4) | every getff CI gate enforces getff's bans from a getff-owned config delivered in every consumer-owned cell (§4.0); insertion is local-only; cargo gate isolated with all clippy groups allowed | any getff CI gate reads a consumer config after §4.0 ships (unless a §4.0 probe forces the recorded fallback), or the isolated cargo gate goes red on a consumer lint that is not a getff ban |
 | D10 | Refresh removal of getff-tagged items | operator-fork → answered | remove only what a getff tag names; consumer bytes never (same property adapter-jig C4 gives the ast-grep scan dir) | a refresh removes an element no tag named, or leaves a tagged element the template dropped |
-| D11 | Config lookup names | answered (r2) | target the file each tool loads, per its own lookup order (probe-derived); also fixes the go/cargo fresh-cell detection | a consumer file the tool loads is missed and getff's copy lands beside it |
+| D11 | Config lookup names | answered (r2, r4) | target every config the tool loads (nested ruff / clippy configs included), per its own lookup order (probe-derived); also fixes the go/cargo fresh-cell detection and the go CI `else` branch | a consumer file the tool loads is missed and getff's copy lands beside it |
+| D12 | May the install obtain a lint tool to run the proof? | decided (design session; operator may override at spec review) | run, never install: consumer's tool first, else a one-shot pinned run through the ecosystem runner (`uvx`, `go run`), else `not-proven`; never `rustup component add` / `go install` / `pip install` (P7, §5) | a one-shot run leaves anything outside the runner's cache (PATH entry, toolchain component, lockfile change), or a proof result differs between the pinned run and the CI gate's pinned tool |
 
 ## 9. Testing seams
 
@@ -314,7 +376,12 @@ golden output; each NOT-wired row → the file is byte-identical afterwards and 
 line carries the reason. Cross-cutting arms: re-run byte-identity (D5), `--refresh` behaviour per
 D10, rollback on an injected probe delta (I4), `not-proven` with the tool removed from PATH,
 unkeepable original (I3), symlinked config stays a symlink (I3), the deny.toml template guard (D6),
-and the §4.0 CI isolation (a consumer config without getff's bans; the getff gate still fires).
+the §4.0 CI isolation (a consumer config without getff's bans: the getff gate still fires; a
+consumer lint set to deny in `Cargo.toml` with a clippy.toml threshold: the isolated cargo gate
+stays green on code with no getff ban), and nested ruff / clippy configs each wired or NOT-wired on
+their own. §4.0 moves the cargo and python delivered-file sets, so the plan regenerates the lane
+snapshot baselines and `refresh-baseline.json`, and extends `refresh-covers-full-delivery` to the
+new getff-owned configs.
 
 Tool availability (round-1 F6): the lane suites run in install-sh shards that have no clippy or
 golangci-lint today (`.github/workflows/audit-self.yml`, the tools exist only in the
@@ -339,10 +406,15 @@ probe arms or moves those arms to the job that has them; a probe arm whose tool 
 3. D11 lookup names + fresh-cell detection.
 4. Writer + probe + per-format insertion (§4.1–§4.3, §4.6), one PR per lane.
 
-Plan prerequisite probes (T3 INCONCLUSIVE until run): ruff config precedence in one directory;
-ast-grep `scan -c` from outside the root (§4.0) and the no-`ruleDirs` case (§4.2); golangci-lint
-config lookup order and v1.55.2 behaviour on a v2 file (§4.6); ruff's resolution of `ignore` vs
-`extend-select` at equal specificity (§4.1 — the design NOT-wires the overlap either way).
+Plan prerequisite probes (T3 INCONCLUSIVE until run; DeepWiki answers noted where round 2 found
+them): ruff config precedence in one directory, and whether `--show-settings` needs an existing
+path (§4.1); ast-grep `scan -c .getff/sgconfig.yml` resolving `ruleDirs` relative to the config
+(DeepWiki: yes) and the no-`ruleDirs` case (DeepWiki: valid — which would also correct the reason
+text at `setup.d/45-python.sh:358-359`) on the pinned 0.44.1 (§4.0, §4.2); whether trailing
+`-A clippy::<group>` flags override `Cargo.toml [lints]` / `[workspace.lints]` and source-level
+`#![deny]` for the isolated cargo gate (§4.0); golangci-lint config lookup order, JSON output's
+linter field, and v1.55.2 behaviour on a v2 file (§4.6); ruff's resolution of `ignore` vs
+`extend-select` at equal specificity (§4.1 — the design NOT-wires the overlap either way); the D12 ladder's one-shot runs — `go run …/golangci-lint@v1.55.2` building against a current Go (if it cannot, the go lane's step 2 is `not-proven` by construction and the pin bump becomes its own task), the `uvx` form for ast-grep 0.44.1, and that neither leaves anything outside the runner's cache (§5).
 
 ## 12. Known limits
 
@@ -350,6 +422,9 @@ config lookup order and v1.55.2 behaviour on a v2 file (§4.6); ruff's resolutio
 - A formatter that strips trailing comments turns getff's items into consumer-owned ones (§6).
 - The probe's ruff may differ from the version the consumer pins elsewhere; the probe uses the
   consumer's PATH ruff first.
+- Source-level `#![deny(clippy::…)]` in the consumer's crates is not overridden by command-line
+  levels; if the §4.0 probe shows it survives `-A`, the isolated cargo gate can still report such a
+  consumer lint, and that is recorded here rather than papered over.
 
 ## 13. Changelog
 
@@ -382,3 +457,22 @@ config lookup order and v1.55.2 behaviour on a v2 file (§4.6); ruff's resolutio
 | BU-F11 `--show-settings` proof under-specified; version skew | MINOR | FIXED — §5 getff-attributable comparison; §4.1 unreadable-before = NOT-wired |
 | BU-E1 lane detects only one config name per tool | ESCALATED | ACCEPTED — in scope as D11 (same lookup list the targets need) |
 | TD-ESC refresh removal rewrites lines holding consumer bytes vs P3 | ESCALATED | ESCALATED → answered by the operator as D10 (remove tag-named getff items only); P6 added |
+
+### r4 — §2 cold review round 2 (top-down + bottom-up, both REVISE; cap of 2 REVISE rounds reached)
+
+| Finding | Grade | Disposition |
+|---|---|---|
+| TD2-1 / BU2-F1 D4 before-probe forces forbidigo on with `-E`; `--disable-all` gone in v2 | MAJOR | FIXED — §4.6 probe runs the consumer's own configuration with no linter-selection flags, filtered by linter |
+| TD2-2 ruff closest-config shadowing; probe path location | MAJOR | FIXED — §4.1 targets every nested ruff config; probe path inside the target's directory |
+| TD2-3 uneven «tool absent» handling across lanes | MAJOR | FIXED — D12 / P7: one availability ladder on all three lanes (§5) |
+| TD2-4 / BU2-F3 third clippy config without a delivery contract; go gate `else` branch | MAJOR | FIXED — §4.0 delivery contract (absolute path, always-present file, lock/E2/refresh parity, `getff-clippy.toml` retired); go `else` branch learns D11 |
+| BU2-F2 `CLIPPY_CONF_DIR` swaps the whole consumer config → false red in the getff gate | MAJOR | ACCEPTED — §4.0 isolated gate allows every clippy group and denies only `disallowed_*`; probe-gated with a recorded fallback; §12 limit for source-level `#![deny]` |
+| TD2-MINOR-1 I4 «any extra delta» vs §5 «getff-attributable only» | MINOR | FIXED — one rule in I4, §5 points at it |
+| TD2-MINOR-2 `ignore` prefix row ambiguous; `ignore` in the extend chain | MINOR | FIXED — §4.1 row |
+| TD2-MINOR-3 clippy cache between probe runs | MINOR | FIXED — fresh `--target-dir` per run |
+| TD2-MINOR-4 §4.0 turns existing consumers' CI red after refresh | MINOR | FIXED — announced as a fact line on refresh |
+| TD2-MINOR-5 `CLIPPY_CONF_DIR` in `.cargo/config.toml`; ruff `--config` in pre-commit args | MINOR | FIXED — both NOT-wired paths |
+| TD2-MINOR-6 / BU2-F5 stale base and head pins | MINOR | FIXED — header |
+| BU2-F4 ast-grep no-`ruleDirs` likely valid | MINOR | ACCEPTED — §11 probe notes the DeepWiki answer and the reason text it would correct |
+| BU2-F6 §4.4 wording needs the `_ci` condition | MINOR | FIXED — §4.4 |
+| TD2-ESC may the install fetch / install a lint tool to prove an insertion | ESCALATED | DECIDED — D12: run pinned one-shot, never install; decided on the `uvx ruff@<pin>` precedent + companion-install-principle §1 after the question hook blocked an operator ask twice; flagged for operator override at spec review |
