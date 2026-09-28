@@ -151,6 +151,48 @@ awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q '
   && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added" \
   || bad "G: the not-wired summary does not report the boundary globs that could not be added"
 
+# ── Fixture H — a flat repo whose own root config is not an ES-module flat config ─────────────
+# getff adds its block (R2 with it) only to an eslint.config.mjs or an ES-module eslint.config.js.
+# A root eslint.config.ts / .cjs / .mts / .cts is left as it is, and the R2 auto-wire used to skip
+# it without a word: HTTP boundary code the install could see ended the install unchecked by R2,
+# and the NOT wired summary named only «getff's rules», never R2 or that code (Q4.7).
+# $1 dir, $2 config name, $3 config body. Installs without --force so the consumer's config stays.
+own_cfg_install() {
+  printf '{"name":"h","version":"0.0.0"}\n' > "$1/package.json"
+  mkdir -p "$1/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$1/src/api/handler.ts"
+  printf '%s\n' "$3" > "$1/$2"
+  cp "$1/$2" "$1.before"
+  ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$1.log" 2>&1 \
+    || bad "H: install into $2 exited non-zero (tail: $(tail -3 "$1.log" | tr '\n' '|'))"
+  cmp -s "$1/$2" "$1.before" || bad "H: the install changed the consumer's $2"
+  [ ! -e "$1/eslint.config.mjs" ] || bad "H: getff placed an eslint.config.mjs beside the consumer's $2 — the arm below would be vacuous"
+}
+r2_summary_lines() { awk '/NOT wired, or wired only in part/{on=1} on' "$1" | grep -F 'R2 (rules-as-tests/no-unsafe-zod-parse)'; }
+for _hcfg in eslint.config.ts eslint.config.cjs; do
+  H=$(mktemp -d)
+  own_cfg_install "$H" "$_hcfg" 'export default [{ rules: {} }];'
+  _hl=$(r2_summary_lines "$H.log" | grep -F "$_hcfg")
+  [ "$(printf '%s' "$_hl" | grep -c .)" = "1" ] \
+    && ok "H: boundary code + own $_hcfg → exactly one NOT wired line names R2 in $_hcfg" \
+    || bad "H: expected one NOT wired line naming R2 in $_hcfg, got: $(r2_summary_lines "$H.log" | tr '\n' '|')"
+  printf '%s' "$_hl" | grep -q 'eslint.config.mjs or an ES-module eslint.config.js' \
+    && printf '%s' "$_hl" | grep -qF "'**/api/**/*.{ts,tsx}'" \
+    && ok "H: the line says why ($_hcfg is not a config getff adds to) and names the boundary code" \
+    || bad "H: the R2 line for $_hcfg gives no reason or no boundary glob: $_hl"
+  ! grep -iE 'eslint|R2' "$H.log" | grep -qiE 'by hand|manually' \
+    && ok "H: nothing asks for a manual ESLint edit ($_hcfg)" \
+    || bad "H: the install asks for a manual ESLint edit: $(grep -iE 'eslint|R2' "$H.log" | grep -iE 'by hand|manually' | head -2 | tr '\n' '|')"
+  rm -f "$H.before" "$H.log"
+done
+# Paired negative: the same config already sets R2 as a quoted rule id → no R2 line.
+H=$(mktemp -d)
+own_cfg_install "$H" eslint.config.ts "export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+grep -q 'eslint.config.ts' "$H.log" || bad "H neg: the install never mentioned eslint.config.ts — the arm below would be vacuous"
+[ -z "$(r2_summary_lines "$H.log")" ] \
+  && ok "H neg: own eslint.config.ts that already sets R2 → no R2 NOT wired line" \
+  || bad "H neg: an R2 line was reported for a config that already sets R2: $(r2_summary_lines "$H.log" | tr '\n' '|')"
+rm -f "$H.before" "$H.log"
+
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )
 [ "$SELF" != "no-boundary-confident" ] \

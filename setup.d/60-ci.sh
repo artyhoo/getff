@@ -155,6 +155,25 @@ EOF
         echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
       fi ;;
   esac
+elif [ -n "$_r2_root_cfg" ] && [ -z "$(_detect_stacks_per_workspace "$PROJECT_ROOT")" ]; then
+  # A flat repo whose own root config is an eslint.config.cjs / .ts / .mts / .cts: getff adds its
+  # block, R2 with it, only to an eslint.config.mjs or an ES-module eslint.config.js (99-finalize
+  # leaves this one as it is). copy_unless_foreign already named «getff's rules» as not wired; HTTP
+  # boundary code the install can see gets its own line, naming R2 and that code (Q4.7), unless the
+  # config already sets R2 as a quoted rule id. A monorepo's workspaces are 99-finalize's to report.
+  _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
+  # Each glob quoted, as in RULE_GLOBS: a glob holds commas of its own (`*.{ts,tsx}`).
+  _r2_globs=$(printf '%s\n' "$_r2_out" | sed -n "s/^glob:\(.*\)/'\1'/p" | paste -sd ',' - | sed "s/','/', '/g")
+  if [ "$(printf '%s\n' "$_r2_out" | head -1)" = boundary-present ] && [ -n "$_r2_globs" ] \
+     && ! grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+          "$PROJECT_ROOT/$_r2_root_cfg" 2>/dev/null; then
+    case "${STACK:-ts-server}" in
+      ts-server|react-next|react-spa) _r2_why="getff adds R2 only to an eslint.config.mjs or an ES-module eslint.config.js, so your $_r2_root_cfg is left as it is" ;;
+      *) _r2_why="the ${STACK:-} preset ships no R2, and getff does not change your $_r2_root_cfg" ;;
+    esac
+    echo "▶ R2 auto-wire: HTTP boundary code found, but R2 is not added to your $_r2_root_cfg (see NOT wired below)"
+    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_r2_root_cfg — $_r2_why; the HTTP boundary code the install found ($_r2_globs) is not checked by R2"
+  fi
 fi
 
 # ─── 6c. #507 (reopen) + #521: CI-orphan WARN — completeness across ALL enforcement gates ───
