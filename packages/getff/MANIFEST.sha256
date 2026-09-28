@@ -5,6 +5,7 @@ eb124d77f5093cf3e78536abd5aa7ea93e2d99b63e9f28c99d31026abf6cd470  .claude/hooks/
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
+eb02bc137301120499702afda868b7fe033b395b615783b285cf521452dc2c84  .claude/hooks/close-aif-task-on-merge.sh
 a25f9e1722b9e951d00173b5f534a1c8bb103c609d7553128a8bff74059a611f  .claude/hooks/deps-hash-check.sh
 b3478c6453bf2a9967ad85f8081ef56971a96719d77a691909231766067de1e2  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
@@ -457,6 +458,7 @@ a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/
 ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/hooks/checks/skill-core-edit-scope.ts
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 9590356cdcb215bdfa724f360eba5aa0fa58f43634735232074fc6ade16524fc  packages/core/hooks/classify-work.test.ts
+082058e36aa37527ab093ae96b36ce6387b7197f341072008b17a48c3af80aba  packages/core/hooks/close-aif-task-on-merge.test.ts
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
@@ -470,7 +472,7 @@ ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
 97dd72e2d0259e1d92567fff67775d880b44f65c95d1c1c7241e048319f5a086  packages/core/hooks/glossary-counters.test.ts
-d41a62ac4b22ecc2e827100bc7aa7479827b899837b4668cdb4dcb63045b1c75  packages/core/hooks/harness-config-drift.test.ts
+4c6442dc4e6bd8a5215297ba12ccf2f04126533a41a62125fb5bcedac3a5e47a  packages/core/hooks/harness-config-drift.test.ts
 d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/hooks/hook-emit-prelude.test.ts
 7350acfe0ef00b35578d8ba305aaee1c3be428a1ac3ca4f6fb5b4d8d257cd433  packages/core/hooks/host-verify.test.ts
 53acc72a47a55e8a8266bb1a2aadac94c3149e2a29044d86fcabd3407828b978  packages/core/hooks/inject-handoff-on-compact.test.ts
@@ -937,7 +939,7 @@ fb462012e49e50ef3ed30b1d063c45e3901aa8dfa0f9d05ae1a6fae5a60d62dc  packages/core/
 24031fb4246f2caf734d116266bb2339a63423a605463ef2957607976cfe3043  packages/core/validator/validate.test.ts
 a48342eab3a1a811e7d7280c9a867c2c35cea7752860f9f63767f248b760c577  packages/core/validator/validate.ts
 2149b57c0fa6e2c4f523b2a4e85c9cdcef60ea721570d3a9fe71e4884e08efca  packages/core/vitest.config.ts
-6d653b2d0daf9e5af7049d939a4c1a6f614ca7d031532401a88a654f4f86b5e2  packages/core/vitest.host-env.ts
+1bd2e7cdd8cd32e15d2744a6d06fece23fce9cdeb61776fcf04fec1380b909fa  packages/core/vitest.host-env.ts
 2a3c4165d22e9184f79e741de8270c8e4ccb74199430d04f429bb4af92c6e055  packages/core/vitest.setup.ts
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  packages/preset-next-15-canonical/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  packages/preset-next-15-canonical/RULES.react-next.md

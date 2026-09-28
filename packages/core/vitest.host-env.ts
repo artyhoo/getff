@@ -37,6 +37,9 @@ export const SCRUBBED_EXACT: readonly string[] = [
   'CLAUDE_PLUGIN_ROOT',
   'CLAUDE_PROJECT_DIR',
   'CLAUDE_SKILL_DIR',
+  // close-aif-task-on-merge.sh network bounds; its test pins them per case.
+  'CLOSE_AIF_GH_TIMEOUT',
+  'CLOSE_AIF_HARVEST_TIMEOUT',
   'LOG_LEVEL',
   'RULES_DIR_OVERRIDE',
   // Assigned from the hook payload by every caller — but `.claude/hooks/lib/hook-emit.sh:86`
