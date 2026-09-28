@@ -90,7 +90,8 @@ Near its end the installer checks its own work and prints this line:
 ✓ self-verify: 3/3 checks passed — fences fire, shields wired (form check), generated tests non-vacuous
 ```
 
-After it come `✅ Installation complete.`, a numbered list of next steps, a line about
+After it come `✅ Installation complete.`, a `Checked by the install:` block (git hooks
+active, the docs audit's result, dependencies installed), a line about
 `refresh-baseline.json`, a `▶ Companions` section that names each companion tool it
 added or skipped, and a `▶ Runtime-bridge` section. On a machine without Docker that
 last section says the daemon is not running. It is a note, not an error: our run exited

@@ -36,7 +36,7 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:594-595).
+#                        install.sh:598-599).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
 #   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
@@ -124,13 +124,9 @@ if [ -f "$HOOK_SRC" ]; then
   chmod_safe +x "$HOOK_DST" 2>/dev/null || true
 fi
 
-# Surface the install + the post-install manual step (the consumer still needs
-# to set RUNTIME_BRIDGE_* env vars + register the PostToolUse hook in
-# settings.json when they bring up aif-handoff — see vendor README).
+# The hook is delivered but not registered: it reports to an aif-handoff instance, and the install
+# does not know that instance. The gap is a NOT-wired line with its reason, never a to-do list
+# (Q4.7, 2026-09-28); ./setup's runtime-bridge step is where a found instance gets wired.
 echo "  ✓ .claude/vendor/runtime-bridge/ (vendored COPY per spec A7; P1-P5 parked)"
 echo "  ✓ .claude/hooks/runtime-bridge-dispatch.sh (PostToolUse dispatch hook)"
-echo "    ↳ NEXT (consumer runtime step, not install-time): when you bring up"
-echo "      aif-handoff, run \`bash packages/runtime-bridge/scripts/setup-runtime-bridge.sh\`"
-echo "      (if you have the framework checkout) OR set RUNTIME_BRIDGE_MODE +"
-echo "      RUNTIME_BRIDGE_AIF_URL + RUNTIME_BRIDGE_AIF_PROJECT_ID + register the"
-echo "      hook in .claude/settings.json — see .claude/vendor/runtime-bridge/README.md"
+note_not_wired "runtime-bridge dispatch hook — delivered to .claude/hooks/ but not registered in .claude/settings.json: it reports to an aif-handoff instance (RUNTIME_BRIDGE_AIF_URL, RUNTIME_BRIDGE_AIF_PROJECT_ID) that this install does not know; .claude/vendor/runtime-bridge/README.md describes the wiring"
