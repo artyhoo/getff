@@ -10723,6 +10723,7 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
 }
 var R2_PROBE_PATHS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"].map((ext) => `__aif_r2_probe__.${ext}`);
 var execFileAsync = promisify(execFile);
+var PRINT_CONFIG_TIMEOUT_MS = 6e4;
 function r2SeverityIn(printed) {
   try {
     const cfg = JSON.parse(printed);
@@ -10732,7 +10733,8 @@ function r2SeverityIn(printed) {
     return 0;
   }
 }
-async function probeViaEslint(configPath, cwd, scope) {
+async function probeViaEslint(configPath, cwd, scope, opts = {}) {
+  const timeoutMs = opts.timeoutMs ?? PRINT_CONFIG_TIMEOUT_MS;
   let eslintBin;
   try {
     const reqd = createRequire(resolve5(cwd, "package.json"));
@@ -10756,14 +10758,22 @@ async function probeViaEslint(configPath, cwd, scope) {
       try {
         const { stdout } = await execFileAsync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", path], {
           cwd: dir,
-          maxBuffer: 16 * 1024 * 1024
+          maxBuffer: 16 * 1024 * 1024,
+          timeout: timeoutMs,
+          killSignal: "SIGKILL"
         });
         return { resolvedR2: r2SeverityIn(stdout) > 0 };
       } catch (e) {
-        return { stderr: String(e.stderr ?? "") };
+        const err = e;
+        if (err.killed || err.signal) return { timedOut: true };
+        return { stderr: String(err.stderr ?? "") };
       }
     })
   );
+  if (runs.some((r) => "timedOut" in r)) {
+    console.error(`  \xB7 R2 probe: ESLint did not answer --print-config within ${timeoutMs / 1e3} s in ${dir} \u2192 degrading`);
+    return "timed-out";
+  }
   const failures = runs.flatMap((r) => "stderr" in r ? [r.stderr] : []);
   if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return "could-not-find-plugin";
   if (failures.length > 0) {
