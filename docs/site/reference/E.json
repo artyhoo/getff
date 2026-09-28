@@ -1410,76 +1410,16 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "python",
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
+        "absent": "no-lane"
       },
       "description": "Shipped skill-context override for aif-review — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 135
       },
-      "installedTo": [
-        {
-          "stack": "python",
-          "lane": "brownfield-ruff",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "python",
-          "lane": "brownfield-sgconfig",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "python",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "react-native",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "react-native",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-review/SKILL.md"
-        }
-      ],
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
       "extras": {
         "format": "md"
       },
@@ -1490,76 +1430,16 @@
       "kind": "template",
       "shipsTo": {
         "tier": "framework",
-        "stacks": [
-          "python",
-          "react-native",
-          "react-next",
-          "react-spa",
-          "ts-server"
-        ]
+        "absent": "no-lane"
       },
       "description": "Shipped skill-context override for aif-rules-check — consumer-project paths absent in the source repo.",
       "source": {
         "path": "packages/core/templates/templates.manifest.json",
         "line": 139
       },
-      "installedTo": [
-        {
-          "stack": "python",
-          "lane": "brownfield-ruff",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "python",
-          "lane": "brownfield-sgconfig",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "python",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "react-native",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "react-native",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "brownfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        },
-        {
-          "stack": "ts-server",
-          "lane": "greenfield",
-          "path": ".ai-factory/skill-context/aif-rules-check/SKILL.md"
-        }
-      ],
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
       "extras": {
         "format": "md"
       },
