@@ -7,14 +7,17 @@
  * tests skip gracefully (mirror audit-ai-docs.ts:199 degrade pattern).
  */
 
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   R2_RULE_ID,
   customRulesImportSpecifier,
   generateDegradedSnippet,
+  probeViaEslint,
   resolveAndWire,
   wireConfigSource,
   wireNRules,
@@ -281,6 +284,92 @@ describe('resolveAndWire (#644)', () => {
     expect(out).toContain(`'${R2_RULE_ID}': 'error'`);
   });
 });
+
+// The default probe against the real ESLint (2026-09-28): `eslint --print-config <file>` exits 0
+// printing `undefined` for a file no config block matches, so a probe built on it read «ok» for a
+// config ESLint never resolved R2 against. The wirer then kept the plugin-less bare element and the
+// consumer's lint died with exit 2 («could not find plugin "rules-as-tests"»). The end state is what
+// matters: once the wirer reports `wired`, ESLint must be able to lint the fixture's files. Runs once
+// per ESLint this checkout has — the repo root's (9.x, what consumers get) and packages/core's (10.x):
+// the symlinked-dir shape reproduces on 9.39.4 only.
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const ESLINT_INSTALLS = [join(REPO_ROOT, 'node_modules'), join(REPO_ROOT, 'packages', 'core', 'node_modules')]
+  .filter((nm) => existsSync(join(nm, 'eslint', 'package.json')))
+  .map((nm) => ({ nm, version: (JSON.parse(readFileSync(join(nm, 'eslint', 'package.json'), 'utf8')) as { version: string }).version }));
+const R2_BARREL = `export default { rules: { 'no-unsafe-zod-parse': { create: () => ({}) } } };\n`;
+
+for (const { nm, version } of ESLINT_INSTALLS) {
+  describe(`resolveAndWire + probeViaEslint (ESLint ${version}) — wired means ESLint can lint`, () => {
+    /** A consumer dir on a physical path whose node_modules is this ESLint install; barrel + two files. */
+    function fixture(config: string): string {
+      const dir = mkdtempSync(join(realpathSync(tmpdir()), 'r2-probe-'));
+      symlinkSync(nm, join(dir, 'node_modules'));
+      mkdirSync(join(dir, 'eslint-rules-local'));
+      writeFileSync(join(dir, 'eslint-rules-local', 'index.mjs'), R2_BARREL, 'utf8');
+      mkdirSync(join(dir, 'src'));
+      writeFileSync(join(dir, 'src', 'h.js'), 'export const x = 1;\n', 'utf8');
+      writeFileSync(join(dir, 'src', 'h.ts'), 'export const y = 1;\n', 'utf8');
+      writeFileSync(join(dir, 'eslint.config.mjs'), config, 'utf8');
+      return dir;
+    }
+
+    /** The consumer's own lint over both files, run the way a consumer runs it. */
+    function lintRc(dir: string): { rc: number; out: string } {
+      try {
+        execFileSync(process.execPath, [join(nm, 'eslint', 'bin', 'eslint.js'), 'src/h.js', 'src/h.ts'], { cwd: dir, stdio: 'pipe' });
+        return { rc: 0, out: '' };
+      } catch (e: unknown) {
+        const err = e as { status?: number; stderr?: Buffer; stdout?: Buffer };
+        return { rc: err.status ?? -1, out: `${String(err.stderr ?? '')}${String(err.stdout ?? '')}`.slice(0, 300) };
+      }
+    }
+
+    // Shape 1: the config is reached through a symlinked dir (macOS /var → /private/var, a symlinked
+    // checkout). The base matches `.ts`, so only the path form can hide the plugin-less element.
+    it.skipIf(!TS_MORPH_AVAILABLE)('config reached through a symlinked dir → not wired plugin-less', async () => {
+      const real = fixture(`const base = [{ files: ['**/*.ts'], rules: {} }];\nexport default [...base];\n`);
+      const link = `${real}-link`;
+      try {
+        symlinkSync(real, link);
+        const r = await resolveAndWire({ configPath: join(link, 'eslint.config.mjs'), cwd: link, runProbe: probeViaEslint });
+        expect(r.status).toBe('wired');
+        const lint = lintRc(real);
+        expect(lint.rc, lint.out).not.toBe(2);
+      } finally {
+        if (existsSync(link)) unlinkSync(link);
+        rmSync(real, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // Shape 2: no block matches a `.ts` file, so a `.ts` probe target has no config at all.
+    it.skipIf(!TS_MORPH_AVAILABLE)('config whose blocks match only .js → not wired plugin-less', async () => {
+      const dir = fixture(`export default [{ files: ['**/*.js'], rules: {} }];\n`);
+      try {
+        const r = await resolveAndWire({ configPath: join(dir, 'eslint.config.mjs'), cwd: dir, runProbe: probeViaEslint });
+        expect(r.status).toBe('wired');
+        const lint = lintRc(dir);
+        expect(lint.rc, lint.out).not.toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // A `files:`-scoped element never applies to a probe file outside its scope.
+    it.skipIf(!TS_MORPH_AVAILABLE)('scoped element → the probe resolves R2 inside the scope', async () => {
+      const dir = fixture(`export default [];\n`);
+      try {
+        const r = await resolveAndWire({
+          configPath: join(dir, 'eslint.config.mjs'), cwd: dir, runProbe: probeViaEslint, scope: { files: ['src/**'] },
+        });
+        expect(r.status).toBe('wired');
+        const lint = lintRc(dir);
+        expect(lint.rc, lint.out).not.toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+  });
+}
 
 describe('manual snippets are self-contained (#644)', () => {
   it('degraded snippet registers the plugin (import + plugins), not a bare rule', () => {
