@@ -1152,6 +1152,11 @@ export interface SweepEntry {
   prUrl?: string;
   report?: MergeReport;
   skippedReason?: string;
+  /**
+   * Set when closing THIS task threw (a refused aif transition, a failed read-back). It is
+   * recorded per task so one un-closable task cannot stop the sweep from closing the others.
+   */
+  error?: string;
 }
 
 /** The statuses a sweep looks at: a harvested task waits at one of these until closed. */
@@ -1164,7 +1169,8 @@ const SWEEP_STATUSES = new Set(['done', 'review']);
  * and every close still passes {@link reportMergeToAif}'s own merge proof. So it is safe to run
  * after any merge, however the PR was opened (harvest.ts, a host-side bundle harvest, pc-hub),
  * and a second run changes nothing. A task with zero or several matching PRs is reported,
- * never guessed at.
+ * never guessed at. A task whose close throws is recorded with its `error`, and the sweep
+ * goes on to the next task.
  */
 export async function closeMergedTasks(
   baseUrl: string,
@@ -1213,13 +1219,27 @@ export async function closeMergedTasks(
       });
       continue;
     }
-    const report = await reportMergeToAif(baseUrl, task.id, prs[0].url, probe);
-    out.push({
-      taskId: task.id,
-      status: task.status,
-      prUrl: prs[0].url,
-      report,
-    });
+    try {
+      const report = await reportMergeToAif(
+        baseUrl,
+        task.id,
+        prs[0].url,
+        probe,
+      );
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        report,
+      });
+    } catch (err) {
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
   return out;
 }

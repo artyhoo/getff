@@ -439,6 +439,31 @@ describe('closeMergedTasks — the sweep needs no PR url', () => {
     expect(entries[0].report?.merged).toBe(false);
   });
 
+  it('one task whose close throws is recorded; the sweep still closes the others', async () => {
+    const aif = stubAif([
+      { id: 'bad', title: 'x', status: 'done' },
+      { id: 'good', title: 'x', status: 'done' },
+    ]);
+    const probe: PrMergeProbe = async (url) => {
+      if (url.endsWith('/7')) throw new Error('gh: probe exploded');
+      return MERGED(url);
+    };
+    const entries = await closeMergedTasks(
+      BASE,
+      { projectId: 'p1' },
+      async (t) => [pr(t.id === 'bad' ? 'https://gh/x/y/pull/7' : 'https://gh/x/y/pull/8')],
+      probe,
+    );
+
+    expect(entries.find((e) => e.taskId === 'bad')).toMatchObject({
+      prUrl: 'https://gh/x/y/pull/7',
+      error: 'gh: probe exploded',
+    });
+    expect(entries.find((e) => e.taskId === 'bad')?.report).toBeUndefined();
+    expect(aif.status('bad')).toBe('done');
+    expect(aif.status('good')).toBe('verified');
+  });
+
   it('a whole-list sweep without a project scope is refused before any read', async () => {
     const aif = stubAif([{ id: 'z', title: 'x', status: 'done' }]);
 
