@@ -931,8 +931,11 @@ export async function formatLikeConsumer(configPath: string, cwd: string, origin
 
 // ─── Probe-driven resolution (try-bare → escalate → degrade) ────────────────────
 
-/** `unconfirmed`: ESLint ran, but resolved R2 for none of the probe paths — no evidence either way. */
-export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error' | 'unconfirmed';
+/**
+ * `unconfirmed`: ESLint ran, but resolved R2 for none of the probe paths — no evidence either way.
+ * `timed-out`: a `--print-config` run did not finish within the probe's limit.
+ */
+export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error' | 'unconfirmed' | 'timed-out';
 
 export interface ResolveWireArgs {
   configPath: string;
@@ -952,6 +955,13 @@ const LINTABLE_EXTENSIONS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts
 const R2_PROBE_PATHS = LINTABLE_EXTENSIONS.map((ext) => `__aif_r2_probe__.${ext}`);
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Limit on one `--print-config` run. It resolves a config and reads no file (~0.45 s measured with the tsx
+ * loader), so the limit only has to outlast a slow cold config load — and a run that never finishes (a config
+ * whose import blocks, a hung loader) no longer holds the install: the probe reads `timed-out` and the wirer degrades.
+ */
+const PRINT_CONFIG_TIMEOUT_MS = 60_000;
 
 /** R2's severity in a `--print-config` result (ESLint prints it normalised: `[2]`); 0 when absent or `undefined`. */
 function r2SeverityIn(printed: string): number {
@@ -978,7 +988,13 @@ function r2SeverityIn(printed: string): number {
  * global bare element reaches the rest); each scope glob gets one path it matches. The paths run in parallel
  * (~0.45 s each with the tsx loader).
  */
-export async function probeViaEslint(configPath: string, cwd: string, scope?: { files: string[] }): Promise<ProbeVerdict> {
+export async function probeViaEslint(
+  configPath: string,
+  cwd: string,
+  scope?: { files: string[] },
+  opts: { timeoutMs?: number } = {},
+): Promise<ProbeVerdict> {
+  const timeoutMs = opts.timeoutMs ?? PRINT_CONFIG_TIMEOUT_MS;
   let eslintBin: string;
   try {
     const reqd = createRequire(resolve(cwd, 'package.json'));
@@ -1007,18 +1023,29 @@ export async function probeViaEslint(configPath: string, cwd: string, scope?: { 
   const scoped = (scope?.files ?? []).map(probeScopePath).filter((x): x is string => x !== undefined);
   const paths = [...new Set([...R2_PROBE_PATHS, ...scoped])];
   const runs = await Promise.all(
-    paths.map(async (path): Promise<{ resolvedR2: boolean } | { stderr: string }> => {
+    paths.map(async (path): Promise<{ resolvedR2: boolean } | { stderr: string } | { timedOut: true }> => {
       try {
         const { stdout } = await execFileAsync(process.execPath, [...nodeArgs, eslintBin, '--print-config', path], {
           cwd: dir,
           maxBuffer: 16 * 1024 * 1024,
+          timeout: timeoutMs,
+          killSignal: 'SIGKILL',
         });
         return { resolvedR2: r2SeverityIn(stdout) > 0 };
       } catch (e: unknown) {
-        return { stderr: String((e as { stderr?: string }).stderr ?? '') };
+        // `killed` is set only when execFile itself killed the child, i.e. on the timeout; a child that
+        // dies of its own signal (SIGSEGV, a V8 heap-limit abort, the OOM killer) is an error, and its
+        // stderr is what the degrade message shows.
+        const err = e as { stderr?: string; killed?: boolean };
+        if (err.killed) return { timedOut: true };
+        return { stderr: String(err.stderr ?? '') };
       }
     }),
   );
+  if (runs.some((r) => 'timedOut' in r)) {
+    console.error(`  · R2 probe: ESLint did not answer --print-config within ${timeoutMs / 1000} s in ${dir} → degrading`);
+    return 'timed-out';
+  }
   const failures = runs.flatMap((r) => ('stderr' in r ? [r.stderr] : []));
   if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return 'could-not-find-plugin';
   if (failures.length > 0) {

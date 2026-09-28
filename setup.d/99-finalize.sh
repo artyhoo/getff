@@ -32,6 +32,16 @@
 # part that does not land is named in the not-wired summary with its reason. Before Q4.7 the install
 # printed «add it by hand» here instead, and getff's rules stayed off in every such project.
 _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
+# _ts_morph_why <it|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
+# install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
+# step's output above says why it did not.
+_ts_morph_why() {
+  if [ -n "${FULL:-}" ]; then
+    echo "adding $1 needs ts-morph, which this --full install's dev-dependency step did not put in node_modules (its output is above)"
+  else
+    echo "adding $1 needs ts-morph, which only a --full install puts in node_modules; re-run the install with --full and getff adds $1"
+  fi
+}
 _root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
 # _own_eslint_ignores — the lintable files getff delivered that its own configs ignore (the
 # templates' machinery ignores), one per line: never a directory the consumer might own too.
@@ -57,7 +67,7 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it needs ts-morph, which this install did not put in node_modules"
     _own_what="getff's rules"
     [ -z "${_r2_own_globs:-}" ] || _own_what="getff's rules, RULE_GLOBS and R2 (60-ci found an HTTP boundary)"
-    note_not_wired "$_own_what in $_root_eslint (your own config) — adding them needs ts-morph, which only a --full install puts in node_modules; re-run the install with --full and getff adds them"
+    note_not_wired "$_own_what in $_root_eslint (your own config) — $(_ts_morph_why them)"
   else
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it (additions only; the original is kept if anything changes)"
     _own_args=( --own-config --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$_root_eslint" )
@@ -266,6 +276,9 @@ getff_bytes_intact() {
   cur=$(_hash256 "$dst") || return 1
   [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
 }
+# _r2_getff_owned <abs-cfg> — exit 0 IFF getff placed <abs-cfg> and it still holds getff's bytes: the
+# config _r2_wire_cfg hands the wirer as getff's own; every other config takes the own-config branch.
+_r2_getff_owned() { getff_delivered "$1" && getff_bytes_intact "$1"; }
 _r2_wire_cfg() {
   local cfg="$1" wirer="$2" rel dir out snap kept l
   local args=()
@@ -315,39 +328,69 @@ _r2_note_outcome() {
   esac
   return 0
 }
+# When an R2 pass cannot run at all (no Node, no ts-morph, no wirer), each config it would have
+# changed is named in the «NOT wired» summary with the reason (operator decision Q4.7) — only those:
+# a config that already names R2 (getff's ts-server template carries it) is not listed, and neither
+# is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
+# boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
+# reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
+# only a quoted rule id — a comment naming the rule is not a rule entry (simpleRulePresent).
+# _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
+_r2_boundary_under() {
+  local out
+  out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
+  [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
+}
+_r2_would_wire() {
+  if _r2_getff_owned "$1"; then
+    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
+    return
+  fi
+  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null && return 1
+  _r2_boundary_under "$(dirname "$1")"
+}
+# _r2_pass_blocker <wirer> — why the pass cannot run, on stdout; empty when it can.
+_r2_pass_blocker() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "adding it needs Node, which this install did not find on PATH"
+  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+    _ts_morph_why it
+  elif [ ! -f "$1" ]; then
+    echo "the R2 wirer is missing from this getff package ($1)"
+  fi
+}
+# _r2_note_unwired <reason> <config>... — one summary line per config the pass would have changed.
+_r2_note_unwired() {
+  local why="$1" cfg rel
+  shift
+  for cfg in "$@"; do
+    _r2_would_wire "$cfg" || continue
+    rel="${cfg#"$PROJECT_ROOT"/}"
+    echo "  · R2: not added to $rel — $why"
+    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — $why"
+  done
+  return 0
+}
 if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
    && { [ "$_root_eslint" = eslint.config.mjs ] || [ "$_root_eslint" = eslint.config.js ]; }; then
-  _l2_degrade() {
-    echo "  · R2 not added to per-package eslint configs: its AST editor (Node + ts-morph) is not available;"
-    echo "    a --full install puts ts-morph in node_modules, and the install then adds R2 to them itself"
-  }
-  if ! command -v node >/dev/null 2>&1; then
-    _l2_degrade
-  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
-    _l2_degrade
+  # Find per-package eslint.config.mjs files (not the root one, not node_modules)
+  _l2_configs=()
+  while IFS= read -r -d '' _cfg; do
+    _l2_configs+=("$_cfg")
+  done < <(find "$PROJECT_ROOT" \
+    -name node_modules -prune -o \
+    -name 'eslint.config.mjs' ! -path "$PROJECT_ROOT/eslint.config.mjs" -print0 2>/dev/null)
+  _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+  _r2_why=$(_r2_pass_blocker "$_wirer")
+  if [ "${#_l2_configs[@]}" -eq 0 ]; then
+    : # no per-package configs — nothing to wire
+  elif [ -n "$_r2_why" ]; then
+    _r2_note_unwired "$_r2_why" "${_l2_configs[@]}"
   else
-    _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
-    if [ ! -f "$_wirer" ]; then
-      echo "  · R2 Layer-2 wirer not found at $_wirer — skipped"
-    else
-      # Find per-package eslint.config.mjs files (not the root one, not node_modules)
-      _l2_configs=()
-      while IFS= read -r -d '' _cfg; do
-        _l2_configs+=("$_cfg")
-      done < <(find "$PROJECT_ROOT" \
-        -name 'eslint.config.mjs' \
-        ! -path "$PROJECT_ROOT/eslint.config.mjs" \
-        ! -path '*/node_modules/*' \
-        -print0 2>/dev/null)
-      if [ "${#_l2_configs[@]}" -eq 0 ]; then
-        : # no per-package configs — nothing to wire
-      else
-        echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
-        for _cfg in "${_l2_configs[@]}"; do
-          _r2_wire_cfg "$_cfg" "$_wirer"
-        done
-      fi
-    fi
+    echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
+    for _cfg in "${_l2_configs[@]}"; do
+      _r2_wire_cfg "$_cfg" "$_wirer"
+    done
   fi
 fi
 
@@ -361,44 +404,50 @@ fi
 if [ "$DRY_RUN" != "--dry-run" ] \
    && [ "$_root_eslint" != eslint.config.mjs ] && [ "$_root_eslint" != eslint.config.js ]; then
   _ws_map_r2=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
-  if [ -n "$_ws_map_r2" ]; then
-    if ! command -v node >/dev/null 2>&1 || \
-       [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
-      echo "  · R2 per-workspace: Node/ts-morph not available — R2 not added to ts-server workspace configs (a --full install puts ts-morph in node_modules)"
+  _ws_r2_configs=()
+  while IFS=$'\t' read -r _ws_dir _ws_stack; do
+    [ -n "$_ws_dir" ] || continue
+    case "$_ws_stack" in
+      ts-server)
+        # Every eslint.config.mjs within this workspace: the ones getff placed, and one the consumer
+        # owns (40-configs.sh kept it) — _r2_wire_cfg adds R2 to that only for HTTP boundary code under it.
+        while IFS= read -r -d '' _ws_cfg; do
+          _ws_r2_configs+=("$_ws_cfg")
+        done < <(find "$PROJECT_ROOT/$_ws_dir" \
+          -name node_modules -prune -o -name 'eslint.config.mjs' -print0 2>/dev/null)
+        ;;
+      unknown)
+        echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
+        # Named in the summary only when there is HTTP boundary code under it and no config there
+        # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
+        # its root fallback; a comment naming the rule is not a rule entry).
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
+           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
+                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
+          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server one; the HTTP boundary code under $_ws_dir is not checked by R2"
+        fi
+        ;;
+      *)
+        : # react-native / react-next / react-spa: R2 is a server-boundary rule; not wired per-workspace
+        ;;
+    esac
+  done <<< "$_ws_map_r2"
+  if [ "${#_ws_r2_configs[@]}" -gt 0 ]; then
+    _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+    _r2_why=$(_r2_pass_blocker "$_wirer_ws")
+    if [ -n "$_r2_why" ]; then
+      _r2_note_unwired "$_r2_why" "${_ws_r2_configs[@]}"
     else
-      _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
-      if [ ! -f "$_wirer_ws" ]; then
-        echo "  · R2 per-workspace: wirer not found at $_wirer_ws — skipped"
-      else
-        echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
-        while IFS=$'\t' read -r _ws_dir _ws_stack; do
-          [ -n "$_ws_dir" ] || continue
-          case "$_ws_stack" in
-            ts-server)
-              # Wire R2 into every eslint.config.mjs within this workspace: the ones getff placed, and
-              # one the consumer owns (40-configs.sh kept it) when it has HTTP boundary code under it —
-              # added by insertions, scoped to that code (_r2_wire_cfg).
-              # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
-              # scoping is already provided by config placement — a dir-prefixed files: glob
-              # inside a workspace-local config would be relative to that config's own dir,
-              # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
-              while IFS= read -r -d '' _ws_cfg; do
-                if getff_delivered "$_ws_cfg"; then echo "  · R2 wiring: $_ws_cfg"; fi
-                _r2_wire_cfg "$_ws_cfg" "$_wirer_ws"
-              done < <(find "$PROJECT_ROOT/$_ws_dir" \
-                -name 'eslint.config.mjs' \
-                ! -path '*/node_modules/*' \
-                -print0 2>/dev/null)
-              ;;
-            unknown)
-              echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
-              ;;
-            *)
-              : # react-native / react-next / react-spa: R2 is a server-boundary rule; not wired per-workspace
-              ;;
-          esac
-        done <<< "$_ws_map_r2"
-      fi
+      echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
+      # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
+      # scoping is already provided by config placement — a dir-prefixed files: glob
+      # inside a workspace-local config would be relative to that config's own dir,
+      # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
+      for _ws_cfg in "${_ws_r2_configs[@]}"; do
+        if getff_delivered "$_ws_cfg"; then echo "  · R2 wiring: $_ws_cfg"; fi
+        _r2_wire_cfg "$_ws_cfg" "$_wirer_ws"
+      done
     fi
   fi
 fi
