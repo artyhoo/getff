@@ -2463,6 +2463,38 @@ function invariantsRenderSection(): void {
   }
 }
 
+// ── Local harness-config drift (maintainer, T21 sweep 2026-09-29) ────────────
+// The zcode shim (.zcode/config.json + the .zcode/skills link) is gitignored, so the CI
+// drift gate (harness-config-drift.test.ts, real-tree case) loud-skips its branch on
+// every runner — this checkout is the only place the files exist. Runs the renderer's
+// own `--check` when `.zcode/` is present here and is a no-op otherwise (CI, fresh
+// worktrees). Pre-push, not pre-commit: the defect lives in untracked local state no
+// commit stages, so commit time is not earlier in any sense that matters, and this
+// registry gives the gate owner composition + a PREPUSH_ONLY test seam. Lazy import per
+// the maintainer-gate shape noted at the imports; decision logic in
+// checks/harness-config-local.ts.
+async function harnessConfigLocalSection(): Promise<void> {
+  const { checkLocalHarnessConfig } =
+    await import('./checks/harness-config-local.ts');
+  const v = checkLocalHarnessConfig(REPO_ROOT, (root, args) =>
+    runCheck(process.execPath, args, { cwd: root }),
+  );
+  if (v.kind === 'skip') return;
+  if (v.kind === 'drift') {
+    die(
+      '❌ local harness config drifted from .ai-factory/harness-model.json ' +
+        '(.zcode/ shim or tracked settings.json/.mcp.json).\n' +
+        '   Fix: node scripts/render-harness-config.mjs --write',
+      v.result,
+    );
+  }
+  // One line, not the renderer's full notes: its ⚠ degradation declarations are
+  // already surfaced on --write and would repeat on every push from this checkout.
+  process.stdout.write(
+    '✓ local harness config (.zcode/ shim) matches the model\n',
+  );
+}
+
 /**
  * The ordered section registry — the SSOT for pre-push composition. Ordering is
  * preserved from the historical inline main() body (§1 actionlint before §2 zizmor;
@@ -2549,6 +2581,11 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'face-facts-render',
     owner: 'maintainer',
     run: () => faceFactsRenderSection(),
+  },
+  {
+    id: 'harness-config-local',
+    owner: 'maintainer',
+    run: () => harnessConfigLocalSection(),
   },
   {
     id: 'docs-refresh',

@@ -1,6 +1,62 @@
 /* eslint-disable */
 // @ts-nocheck
 import{createRequire as ___cr}from'node:module';const require=___cr(import.meta.url);
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// packages/core/hooks/checks/harness-config-local.ts
+var harness_config_local_exports = {};
+__export(harness_config_local_exports, {
+  RENDERER_REL: () => RENDERER_REL,
+  ZCODE_DIR: () => ZCODE_DIR,
+  checkLocalHarnessConfig: () => checkLocalHarnessConfig
+});
+import { lstatSync } from "node:fs";
+import { join } from "node:path";
+function present(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function checkLocalHarnessConfig(root, runRenderer) {
+  if (!present(join(root, ZCODE_DIR))) {
+    return {
+      kind: "skip",
+      reason: `${ZCODE_DIR}/ absent \u2014 no local shim to check`
+    };
+  }
+  if (!present(join(root, RENDERER_REL))) {
+    return {
+      kind: "skip",
+      reason: `${RENDERER_REL} absent \u2014 not the framework layout`
+    };
+  }
+  const result = runRenderer(root, [RENDERER_REL, "--check", "--root", root]);
+  return result.exitCode === 0 ? { kind: "ok", result } : { kind: "drift", result };
+}
+var ZCODE_DIR, RENDERER_REL;
+var init_harness_config_local = __esm({
+  "packages/core/hooks/checks/harness-config-local.ts"() {
+    "use strict";
+    ZCODE_DIR = ".zcode";
+    RENDERER_REL = "scripts/render-harness-config.mjs";
+  }
+});
 
 // packages/core/hooks/pre-push.ts
 import {
@@ -1939,6 +1995,23 @@ function invariantsRenderSection() {
     emit(r);
   }
 }
+async function harnessConfigLocalSection() {
+  const { checkLocalHarnessConfig: checkLocalHarnessConfig2 } = await Promise.resolve().then(() => (init_harness_config_local(), harness_config_local_exports));
+  const v = checkLocalHarnessConfig2(
+    REPO_ROOT,
+    (root, args) => runCheck(process.execPath, args, { cwd: root })
+  );
+  if (v.kind === "skip") return;
+  if (v.kind === "drift") {
+    die(
+      "\u274C local harness config drifted from .ai-factory/harness-model.json (.zcode/ shim or tracked settings.json/.mcp.json).\n   Fix: node scripts/render-harness-config.mjs --write",
+      v.result
+    );
+  }
+  process.stdout.write(
+    "\u2713 local harness config (.zcode/ shim) matches the model\n"
+  );
+}
 var SECTIONS = [
   // FIRST by design: must land the symlinks before any section shells out to vitest, which
   // would otherwise plant node_modules/.vite and freeze this worktree out of provisioning
@@ -2018,6 +2091,11 @@ var SECTIONS = [
     id: "face-facts-render",
     owner: "maintainer",
     run: () => faceFactsRenderSection()
+  },
+  {
+    id: "harness-config-local",
+    owner: "maintainer",
+    run: () => harnessConfigLocalSection()
   },
   {
     id: "docs-refresh",
