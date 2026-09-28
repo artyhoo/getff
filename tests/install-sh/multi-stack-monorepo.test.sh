@@ -272,9 +272,13 @@ EOF
   cmp -s "$P/.mobile-before.mjs" "$P/apps/mobile/eslint.config.mjs" \
     && ok "neg §6b: apps/mobile (react-native) config is left as it was (its preset ships no R2)" \
     || bad "neg §6b: apps/mobile (react-native) config was changed ($(tr '\n' '|' < "$P/apps/mobile/eslint.config.mjs"))"
-  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/' "$P/.install.log" \
-    && bad "§6b: R2 landed, yet the NOT wired summary lists an apps/ config ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))" \
-    || ok "§6b: no R2 line in the NOT wired summary once the pass ran"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/(api|web|spa)[ /]' "$P/.install.log" \
+    && bad "§6b: R2 landed, yet the NOT wired summary lists a wired apps/ config ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))" \
+    || ok "§6b: no R2 line in the NOT wired summary for the configs the pass wired"
+  # apps/mobile has boundary code its react-native preset gives no R2 for: one line, as in §6c.
+  [ "$(grep -cE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile — .*react-native preset' "$P/.install.log")" = 1 ] \
+    && ok "§6b: apps/mobile (react-native) is one NOT wired line naming its preset" \
+    || bad "§6b: expected one NOT wired line for apps/mobile naming the react-native preset ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))"
   rm -rf "$P" "$SHIM"
 fi
 
