@@ -521,8 +521,8 @@ export interface PrBodyPriorArtResult {
 /**
  * PR-body arm of the §7 check (2026-07-22 squash-trailer-loss incident,
  * PR #1094 → #1097 on artyhoo/getff): a squash merge writes ONE commit whose
- * diff is the whole PR range and whose message the agent merge path takes from
- * the PR BODY — branch-commit `Prior-art:` trailers do NOT survive, so the F1
+ * diff is the whole PR range and whose message is the PR BODY (repo setting
+ * squash_merge_commit_message=PR_BODY, 2026-09-28) — branch-commit `Prior-art:` trailers do NOT survive, so the F1
  * gate (principle 11) goes red on the next unrelated PR. Counter: a capability
  * PR must carry a valid `Prior-art:` line in the PR body itself.
  *
