@@ -984,6 +984,33 @@ export function ghMergedPrLookup(repo: string): PrLookup {
   };
 }
 
+/**
+ * The sweep's lookup: ONE `gh` search for every merged PR carrying an aif-task marker, fetched on
+ * the first task and matched in memory for the rest; a per-task `--head` search runs only for a
+ * task with a persisted `branchName`. {@link ghMergedPrLookup} costs one GitHub search per task,
+ * and a project sweep visits every done/review task — 241 of them on 2026-09-28, almost none with
+ * a marker, so a tick spent 10-30 min on searches that found nothing and hit the 600 s watchdog.
+ * `limit` caps the marker index (newest first); a PR older than that has long been swept.
+ */
+export function ghMergedPrIndexLookup(repo: string, limit = 1000): PrLookup {
+  const json = 'url,body,headRefName';
+  let index: MergedPr[] | undefined;
+  return async (task) => {
+    index ??= JSON.parse(
+      ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', String(limit), '--search', '"aif-task:" in:body', '--json', json]),
+    ) as MergedPr[];
+    const found = new Map<string, MergedPr>();
+    for (const pr of index) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    if (task.branchName) {
+      const onBranch = JSON.parse(
+        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', '--head', task.branchName, '--json', json]),
+      ) as MergedPr[];
+      for (const pr of onBranch) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    }
+    return [...found.values()];
+  };
+}
+
 /** The GitHub repo of the cwd's checkout (`gh repo view`), for a sweep given no `--repo`. */
 export function cwdRepo(): string {
   return ghRead(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim();
@@ -1098,7 +1125,7 @@ async function main(): Promise<void> {
       const entries = await closeMergedTasks(
         baseUrl,
         { projectId: parsed.project, taskId: parsed.taskId },
-        ghMergedPrLookup(repo),
+        ghMergedPrIndexLookup(repo),
       );
       process.stdout.write(JSON.stringify({ ok: true, repo, closeMerged: entries }) + '\n');
       process.exit(0);
@@ -1173,7 +1200,7 @@ async function main(): Promise<void> {
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
     // Every body carries the aif-task marker line: it is how the return channel maps the
-    // merged PR back to this task (ghMergedPrLookup).
+    // merged PR back to this task (ghMergedPrIndexLookup / ghMergedPrLookup).
     const body = withTaskMarker(args.bodyFile
       ? readFileSync(args.bodyFile, 'utf8')
       : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
