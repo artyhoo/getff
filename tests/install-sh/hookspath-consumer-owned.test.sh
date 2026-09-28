@@ -3,7 +3,8 @@
 # A consumer's own hooksPath (.githooks, lefthook, …) or live hooks in .git/hooks silently stopped
 # firing; from a subdirectory of the repo NO hook fired at all (a relative hooksPath resolves
 # against the toplevel, where .husky does not exist). Now the install keeps a foreign hook setup,
-# records it as not wired, and prints the one command to wire the framework hooks by hand.
+# records it as not wired with the reason — and, since the operator directive of 2026-09-28 (Q4.7),
+# prints no command to wire the framework hooks by hand.
 #
 # ARMS:
 #   (A) husky_hookspath_blocker: foreign hooksPath → blocked; .husky / .husky/_ / unset → free
@@ -59,7 +60,9 @@ printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 git -C "$T" config core.hooksPath .githooks
 _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
 [ "$(git -C "$T" config core.hooksPath)" = ".githooks" ] && ok "(D) install kept the consumer's core.hooksPath=.githooks" || bad "(D) install repointed core.hooksPath to $(git -C "$T" config core.hooksPath)"
-echo "$_out" | grep -q 'git config core.hooksPath .husky' && ok "(D) install printed the manual wiring command" || bad "(D) no manual wiring command in install output"
+echo "$_out" | grep -q 'git config core.hooksPath' && bad "(D) install still prints a git config command to run by hand" || ok "(D) no manual wiring command in install output"
+echo "$_out" | grep -E '^[[:space:]]*- framework git hooks' | grep -q '\.githooks' \
+  && ok "(D) the NOT-wired line names the kept core.hooksPath=.githooks" || bad "(D) no NOT-wired git hooks line naming .githooks"
 rm -rf "$T"
 
 # ── (E) paired negative ──
@@ -69,14 +72,16 @@ printf '{ "name":"t","version":"0.0.0" }\n' > "$T/package.json"
 [ "$(git -C "$T" config core.hooksPath)" = ".husky" ] && ok "(E) fresh repo still gets core.hooksPath=.husky" || bad "(E) fresh repo lost hook activation"
 rm -rf "$T"
 
-# ── (F) subdirectory install: the printed command must name the subdirectory. A bare
-#    `core.hooksPath .husky` resolves against the toplevel, where .husky does not exist — the
-#    exact every-hook-dead state the blocker exists to prevent (critical-review cold pass) ──
+# ── (F) subdirectory install: the NOT-wired line names the subdirectory's web/.husky/ and the
+#    toplevel reason. It used to print `git config core.hooksPath web/.husky` (a bare `.husky`
+#    resolves against the toplevel, where .husky does not exist — critical-review cold pass); since
+#    Q4.7 no command is printed at all ──
 T=$(newrepo); mkdir -p "$T/web"
 printf '{ "name":"t","version":"0.0.0" }\n' > "$T/web/package.json"
 _out=$( cd "$T/web" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
-echo "$_out" | grep -q 'git config core.hooksPath web/\.husky' && ok "(F) subdirectory install prints core.hooksPath web/.husky" || bad "(F) subdirectory install did not print the web/.husky command"
-echo "$_out" | grep -q 'git config core.hooksPath \.husky\b' && bad "(F) subdirectory install still prints the toplevel-relative .husky command" || ok "(F) no toplevel-relative .husky command for a subdirectory install"
+echo "$_out" | grep -E '^[[:space:]]*- framework git hooks' | grep 'web/\.husky/' | grep -q 'toplevel' \
+  && ok "(F) the NOT-wired line names web/.husky/ and the toplevel reason" || bad "(F) no NOT-wired line naming web/.husky/ and the toplevel"
+echo "$_out" | grep -q 'git config core.hooksPath' && bad "(F) subdirectory install still prints a git config command" || ok "(F) no git config command for a subdirectory install"
 [ -z "$(git -C "$T" config core.hooksPath)" ] && ok "(F) core.hooksPath left unset" || bad "(F) core.hooksPath was set to $(git -C "$T" config core.hooksPath)"
 rm -rf "$T"
 

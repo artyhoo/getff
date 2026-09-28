@@ -10,6 +10,10 @@
 # O3: HIGHEST-RISK ordering item — must run AFTER 70-deps (ts-morph) and LAST (SKIPPED complete)
 # O2: reads _r2_verdict (from 60-ci) + DEPS_INSTALLED + DEVDEPS (from 70-deps)
 
+# GETFF_ADDED_TO is declared by install.sh; a caller that sources this file alone (the layer-units
+# test) may not have it, and the summary reads its length under set -u.
+[ -n "${GETFF_ADDED_TO+x}" ] || GETFF_ADDED_TO=()
+
 # ─── synth-wire: deterministic synthesizer → root eslint.config.mjs ─────────────
 # Runs synthesize() for the detected stack and AST-merges emitted rules-as-tests rules
 # (R12/R14/R20 for react-next) into the consumer's root eslint.config.mjs.  Idempotent:
@@ -39,7 +43,7 @@ _ts_morph_why() {
   if [ -n "${FULL:-}" ]; then
     echo "adding $1 needs ts-morph, which this --full install's dev-dependency step did not put in node_modules (its output is above)"
   else
-    echo "adding $1 needs ts-morph, which only a --full install puts in node_modules; re-run the install with --full and getff adds $1"
+    echo "adding $1 needs ts-morph, which only a --full install puts in node_modules, and this install was not --full"
   fi
 }
 _root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
@@ -82,7 +86,10 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
     # settle rc 1: the original could not be kept aside, so the write was undone (its warning above).
     _own_undone=0
     _own_kept=$(keep_original_settle "$PROJECT_ROOT/$_root_eslint" "$_own_snap") || _own_undone=1
-    [ -z "$_own_kept" ] || echo "  · your original $_root_eslint is kept at ${_own_kept#"$PROJECT_ROOT"/}"
+    if [ -n "$_own_kept" ]; then
+      echo "  · your original $_root_eslint is kept at ${_own_kept#"$PROJECT_ROOT"/}"
+      note_getff_added "$_root_eslint"
+    fi
     if [ "$_own_undone" = 1 ]; then
       note_not_wired "getff's rules in $_root_eslint (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
     # rc 3: parts did not land — each is one «  · not wired: <what> — <why>» line of the output.
@@ -184,7 +191,10 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
           printf '%s\n' "$_sw_out"
           _sw_undone=0
           _sw_kept=$(keep_original_settle "$_sw_cfg" "$_sw_snap") || _sw_undone=1
-          [ -z "$_sw_kept" ] || echo "  · your original $_sw_rel is kept at ${_sw_kept#"$PROJECT_ROOT"/}"
+          if [ -n "$_sw_kept" ]; then
+            echo "  · your original $_sw_rel is kept at ${_sw_kept#"$PROJECT_ROOT"/}"
+            note_getff_added "$_sw_rel"
+          fi
           if [ "$_sw_undone" = 1 ]; then
             note_not_wired "live-research rules in $_sw_rel (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
           elif [ "$_sw_rc" -eq 3 ] && [ "${#_sw_own[@]}" -gt 0 ]; then
@@ -218,9 +228,9 @@ elif [ ! -f "$_rr_plan" ] || [ ! -f "$_rr_sel" ]; then
   echo ""
   echo "ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules."
   echo "   No .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json found, so the shipped"
-  echo "   preset rules are your only stack fence this install. Run the rule-research protocol"
-  echo "   (agents/rule-researcher.md or the rule-research skill), then re-run ./setup --full to"
-  echo "   deliver live-researched rules into eslint.config.mjs (they augment + override the presets)."
+  echo "   preset rules are your only stack fence this install. Live-researched rules come from the"
+  echo "   rule-research protocol (agents/rule-researcher.md, the rule-research skill), which an install"
+  echo "   does not run; a --full install delivers its output into eslint.config.mjs when it is there."
 fi
 
 # ─── D4 (#811): preset staleness guard — frozen-snapshot vs installed-major WARN ───
@@ -309,7 +319,10 @@ _r2_wire_cfg() {
     note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
     return 0
   fi
-  [ -z "$kept" ] || echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
+  if [ -n "$kept" ]; then
+    echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
+    note_getff_added "$rel"
+  fi
   _r2_note_outcome "$rel" "$out"
   return 0
 }
@@ -330,7 +343,7 @@ _r2_note_outcome() {
 }
 # When an R2 pass cannot run at all (no Node, no ts-morph, no wirer), each config it would have
 # changed is named in the «NOT wired» summary with the reason (operator decision Q4.7) — only those:
-# a config that already names R2 (getff's ts-server template carries it) is not listed, and neither
+# a config that already names R2 (getff's ts-server and react templates carry it) is not listed, and neither
 # is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
 # boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
 # reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
@@ -396,7 +409,9 @@ fi
 
 # §13.5 I-2 L2: R2 per-workspace wiring for multi-stack monorepos (SSOT #182).
 # The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
-# monorepo there is NO root config; this block wires R2 into ts-server workspace configs only.
+# monorepo there is NO root config; this block wires R2 into the configs of the workspaces whose
+# getff preset carries R2 — ts-server, react-next, react-spa, the three 60-ci.sh adds it to in a flat
+# repo's own config. The react-native preset ships no R2, so there is nothing to add to one.
 # No --scope: workspace-local config placement already scopes ESLint to that workspace — a
 # dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
 # making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
@@ -408,7 +423,7 @@ if [ "$DRY_RUN" != "--dry-run" ] \
   while IFS=$'\t' read -r _ws_dir _ws_stack; do
     [ -n "$_ws_dir" ] || continue
     case "$_ws_stack" in
-      ts-server)
+      ts-server|react-next|react-spa)
         # Every eslint.config.mjs within this workspace: the ones getff placed, and one the consumer
         # owns (40-configs.sh kept it) — _r2_wire_cfg adds R2 to that only for HTTP boundary code under it.
         while IFS= read -r -d '' _ws_cfg; do
@@ -425,11 +440,11 @@ if [ "$DRY_RUN" != "--dry-run" ] \
            && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
                 -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
                 "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
-          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server one; the HTTP boundary code under $_ws_dir is not checked by R2"
+          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
         ;;
       *)
-        : # react-native / react-next / react-spa: R2 is a server-boundary rule; not wired per-workspace
+        : # react-native: its preset ships no R2 — nothing to add (60-ci.sh leaves a flat repo's alike)
         ;;
     esac
   done <<< "$_ws_map_r2"
@@ -465,7 +480,7 @@ elif [ -f "$PROJECT_ROOT/package.json" ] && \
      [ "${AIF_STRICT_RUNTIME:-}" != "1" ]; then
   echo ""
   echo "⚠  Detected @opentelemetry/* but AIF_STRICT_RUNTIME is unset — R8 (require-otel-span) will not fire."
-  echo "   Set AIF_STRICT_RUNTIME=1 to arm runtime-discipline rules (R7/R8)."
+  note_not_wired "R8 (require-otel-span) and R7 — not armed: @opentelemetry/* is in package.json but AIF_STRICT_RUNTIME is unset, and getff does not arm the runtime-discipline rules on its own"
 fi
 
 # GH #531 (reopen): ignore the framework configs we shipped FRESH (consumer-owned ones stay checked).
@@ -611,7 +626,7 @@ else
   if [ "$_ISV_FAIL" -gt 0 ]; then
     _isv_fail_tail=""
     [ "$_ISV_SKIP" -gt 0 ] && _isv_fail_tail=", $_ISV_SKIP skipped"
-    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — review output above before committing"
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — the failing check's output is above"
   elif [ "$_ISV_SKIP" -gt 0 ]; then
     # No failures, but ≥1 check never ran — DO NOT claim the three properties. Skipped checks
     # are unproven, not proven-good.
@@ -626,20 +641,33 @@ else
 fi
 
 # ─── Done ───────────────────────────────────────────────
+# Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
+# step. Each NOT-wired line names what was left undone and why; nothing here tells them what to do.
 if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
   echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why and what to do:"
+  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
   printf '      - %s\n' "${NOT_WIRED[@]}"
   echo ""
 fi
-if [ ${#SKIPPED[@]} -gt 0 ]; then
+# A consumer-owned config that got getff's block (Q4.7) was copy_safe-skipped earlier, so it sits in
+# SKIPPED too — but it was not left as it was. List it apart, never under «skipped».
+_skipped_left=()
+for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
+  _sk_added=""
+  for _ga in ${GETFF_ADDED_TO[@]+"${GETFF_ADDED_TO[@]}"}; do
+    [ "$_sk" = "$PROJECT_ROOT/$_ga" ] && _sk_added=1
+  done
+  [ -n "$_sk_added" ] || _skipped_left+=( "$_sk" )
+done
+if [ "${#GETFF_ADDED_TO[@]}" -gt 0 ]; then
   echo ""
-  echo "⚠  ${#SKIPPED[@]} files were skipped because they already exist."
-  echo "    Your project may now have a configuration that diverges from the framework's expectations."
-  echo "    To overwrite them: re-run with --force"
-  echo "    To preview what would change: re-run with --dry-run --force"
-  echo "    Skipped paths:"
-  printf '      - %s\n' "${SKIPPED[@]}"
+  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
+  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
+fi
+if [ "${#_skipped_left[@]}" -gt 0 ]; then
+  echo ""
+  echo "·  ${#_skipped_left[@]} file(s) already existed and were left as they are — getff does not overwrite a project's files:"
+  printf '      - %s\n' "${_skipped_left[@]#"$PROJECT_ROOT"/}"
   echo ""
 fi
 
@@ -661,9 +689,8 @@ if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "✅ Dry-run complete. Nothing was written."
 elif [ -n "$_deps_incomplete" ]; then
   echo "⚠  Installation finished, but dependencies did NOT fully install — the shipped ESLint/test"
-  echo "    toolchain is not usable yet. This is NOT a full success (see step 4 below to complete it,"
-  echo "    or re-run \`./install.sh ${STACK:-ts-server} --full\`). Exiting non-zero so this is not"
-  echo "    mistaken for a green install."
+  echo "    toolchain is not usable yet (the NOT wired list above says why). This is NOT a full"
+  echo "    success. Exiting non-zero so this is not mistaken for a green install."
 elif [ "${_ISV_FAIL:-0}" -gt 0 ]; then
   # critical-review S4-8: a failed self-verify used to end here as «complete», rc 0 — so
   # `npx getff init -y` in CI or from an agent read green while a shipped rule stayed silent.
@@ -673,43 +700,57 @@ else
   echo "✅ Installation complete."
 fi
 echo ""
-echo "Next steps:"
-echo "  1. Review/edit the generated .ai-factory/DESCRIPTION.md (project domain, stack, constraints)"
-echo "  2. Review/edit the generated .ai-factory/ARCHITECTURE.md (layer structure, dependency direction)"
-echo "  3. Edit AGENTS.md placeholders to match your project"
-if [ "${DEPS_INSTALLED:-}" = "1" ]; then
-  echo "  4. ✓ Dev + runtime dependencies installed into node_modules/ — nothing to do."
-else
-  # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given, or
-  # the install ran but didn't fully succeed). Built from the SAME DEVDEPS/RUNTIME_DEPS arrays the
-  # installer uses (setup.d/70-deps.sh) → the list cannot drift from what we install (#two-prompts-drift).
-  # The npm arm mirrors §8's $NPM_PEER_FLAG (react-native a11y-peer ERESOLVE workaround, set in
-  # 70-deps.sh) for the same reason: a copy-pasted RN command without it aborts on the very
-  # ERESOLVE the automated install avoids. `:+` expansion keeps set -u safety + no trailing space.
-  case "$(detect_pm)" in
-    pnpm) _add="pnpm add -D"; _add_rt="pnpm add" ;;
-    yarn) _add="yarn add -D"; _add_rt="yarn add" ;;
-    *)    _add="npm install --save-dev${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}"; _add_rt="npm install${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}" ;;
-  esac
-  echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
+# What the install checked itself — facts, never a to-do list (Q4.7). This block used to be
+# «Next steps»: review/edit three files, a copy-paste dependency command, «verify git hooks», «run
+# audit-ai-docs.sh — should PASS», «run npm run validate». Each is now either checked here or, when
+# the install could not do it, a NOT-wired line above with its reason.
+if [ "$DRY_RUN" != "--dry-run" ]; then
+  echo "Checked by the install:"
+  _hp_now=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
+  # .husky (set by 50-hooks) and .husky/_ (husky v9, kept by 50-hooks) both run .husky/<hook>; a
+  # blocker (the consumer's own hooksPath, a subdirectory install) is the only «not active».
+  if [ -z "${HUSKY_HOOKS_BLOCKED:-}" ] && { [ "$_hp_now" = ".husky" ] || [ "$_hp_now" = ".husky/_" ]; }; then
+    echo "  ✓ git hooks active — core.hooksPath=$_hp_now"
+  else
+    echo "  · git hooks — not active (NOT wired above)"
+  fi
+  # Only the script getff placed: a scripts/audit-ai-docs.sh the project already had is its own
+  # code (copy_safe kept it), and the install does not run a project's code.
+  if [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ] && ! getff_delivered "$PROJECT_ROOT/scripts/audit-ai-docs.sh"; then
+    echo "  · scripts/audit-ai-docs.sh — not run: the file is the project's own (it existed before the install), and the install does not run a project's code"
+  elif [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ]; then
+    _aud_out=$( cd "$PROJECT_ROOT" && bash scripts/audit-ai-docs.sh 2>&1 ) && _aud_rc=0 || _aud_rc=$?
+    _aud_sum=$(printf '%s\n' "$_aud_out" | sed -n 's/^Audit complete: //p' | tail -1)
+    if [ "$_aud_rc" -eq 0 ] && [ -n "$_aud_sum" ]; then
+      echo "  ✓ scripts/audit-ai-docs.sh — $_aud_sum"
+    else
+      echo "  ✗ scripts/audit-ai-docs.sh — ${_aud_sum:-exited $_aud_rc}:"
+      # awk, not grep: a grep that selects nothing exits 1, and under set -euo pipefail that ended
+      # a finished install (cold review M1, 2026-09-28).
+      printf '%s\n' "$_aud_out" | awk '/FAIL/ && !/^Audit complete/ { print "      " $0 }'
+    fi
+  fi
+  if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+    echo "  ✓ dev + runtime dependencies installed into node_modules/"
+  elif [ -f "$PROJECT_ROOT/package.json" ]; then
+    echo "  · dependencies — not installed (NOT wired above)"
+  fi
+  # Only the files placed in this run: one the project already had was kept, and it is not a template.
+  _placed_docs=""
+  for _pd in .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md AGENTS.md; do
+    [ -f "$PROJECT_ROOT/$_pd" ] || continue
+    _pd_kept=""
+    for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do [ "$_sk" = "$PROJECT_ROOT/$_pd" ] && _pd_kept=1; done
+    [ -n "$_pd_kept" ] || _placed_docs="${_placed_docs:+$_placed_docs, }$_pd"
+  done
+  if [ -n "$_placed_docs" ]; then
+    echo "  · $_placed_docs — placed from getff's templates; their project-specific parts"
+    echo "    (domain, layers, conventions) are placeholders an install cannot know"
+  fi
+  echo "  · npm run validate — not run: it runs this project's own lint, typecheck and tests, whose result"
+  echo "    is about the project's code, not about what the install placed"
   echo ""
-  # `[*]-` (default-empty) = bash-3.2-safe under set -u when the array is empty/unset (macOS
-  # ships 3.2); non-empty output is byte-identical. Real installs always reach here with both
-  # arrays populated by 70-deps.sh — the guard covers minimal-scope sourcing (layer-units test).
-  echo "     $_add \\"
-  printf '       %s\n' "${DEVDEPS[*]-}"
-  echo ""
-  echo "     $_add_rt \\"
-  printf '       %s\n' "${RUNTIME_DEPS[*]-}"
 fi
-if [ "${HUSKY_HOOKSPATH_OWNED:-1}" = "0" ] && [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)" != ".husky/_" ]; then
-  echo "  5. Git hooks: NOT activated — the NOT wired list above says why and gives the command"
-else
-  echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
-fi
-echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
-echo "  7. Run: npm run validate"
-echo ""
 echo "For full guide: see INSTALL.md"
 
 # GH #974: honest non-zero exit on a --full install whose deps did not fully land (banner above

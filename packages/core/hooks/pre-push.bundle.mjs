@@ -1783,11 +1783,11 @@ async function cmdScriptLivenessEntry(ctx) {
 }
 var SHIPPED_MD_DESTINATIONS = [
   "AGENTS.md",
-  // 30-templates.sh:99 / 45-python.sh:1320 (install_agents_md)
+  // 30-templates.sh:99 / 45-python.sh:1319 (install_agents_md)
   ".ai-factory/AI-USAGE-GUIDE.md",
   ".ai-factory/ARCHITECTURE.md",
   ".ai-factory/ARCHITECTURE.python.md",
-  // 45-python.sh:1335 (ledger A2-10)
+  // 45-python.sh:1334 (ledger A2-10)
   ".ai-factory/ARCHITECTURE.react-native.md",
   ".ai-factory/ARCHITECTURE.react-next.md",
   ".ai-factory/ARCHITECTURE.react-spa.md",
@@ -1802,7 +1802,7 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
   ".claude/session-bootstrap.md"
-  // 10-skills.sh:405 / install.sh:1046 (conditional starter)
+  // 10-skills.sh:415 / install.sh:1050 (conditional starter)
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/"
