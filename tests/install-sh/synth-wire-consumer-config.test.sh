@@ -136,11 +136,12 @@ kept_original() {
 # The not-wired summary: its header, then one «- …» line per piece, up to the blank line that ends
 # it (the «files were skipped» list after it names kept files, which is not a not-wired report).
 not_wired() { awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$1"; }
-# asks_by_hand <log> — a line about the ESLint config that hands the work back to the human, in any
-# wording the wirers have used (T3: the R2 snippet said «Add to <cfg> (adjust the relative path…)»).
-asks_by_hand() {
-  grep -iE 'eslint|R2' "$1" | grep -qiE 'by hand|manually|merge .* into it|add to .*adjust|adjust the relative path'
-}
+# asks_by_hand <log> — any line of the install that hands work back to the human (operator directive
+# 2026-09-28, Q4.7). Shared with install-no-manual-step.test.sh: the wordings it knows include every one
+# this file's ESLint-only predicate used to (T3: the R2 snippet said «Add to <cfg> (adjust the relative
+# path…)»), so a narrower check here would pass a manual step the other test fails.
+# shellcheck source=tests/install-sh/lib/manual-step.sh
+. "$REPO_ROOT/tests/install-sh/lib/manual-step.sh"
 in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.json" >/dev/null 2>&1; }
 
 # ── U: lib.sh helpers ──────────────────────────────────────────────────────────────────────────
@@ -262,12 +263,21 @@ kept_original "$A" eslint.config.mjs "$WORK/own.before" \
 in_baseline "$A" eslint.config.mjs \
   && bad "A: the consumer's config was recorded in the refresh baseline — a refresh would treat it as getff's" \
   || ok "A: the config stays the consumer's (not recorded in the refresh baseline)"
-not_wired "$WORK/a.log" | grep -q 'eslint.config' \
-  && bad "A: the not-wired summary still lists the eslint config: $(not_wired "$WORK/a.log" | grep 'eslint.config' | head -2 | tr '\n' '|')" \
+not_wired "$WORK/a.log" | grep -q 'eslint\.config' \
+  && bad "A: the not-wired summary still lists the eslint config: $(not_wired "$WORK/a.log" | grep 'eslint\.config' | head -2 | tr '\n' '|')" \
   || ok "A: the not-wired summary has no eslint config line"
 asks_by_hand "$WORK/a.log" \
-  && bad "A: the install still asks for a manual ESLint edit: $(grep -iE 'eslint' "$WORK/a.log" | grep -iE 'by hand|manually|merge .* into it' | head -2 | tr '\n' '|')" \
-  || ok "A: nothing in the install output asks for a manual ESLint edit"
+  && bad "A: the install still asks for a manual step: $(manual_step_lines "$WORK/a.log" | head -2 | tr '\n' '|')" \
+  || ok "A: nothing in the install output asks for a manual step"
+# The summary's two file lists: the config getff added its block to is named there, never among the
+# files «left as they are» (before Q4.7's follow-up it sat in «N files were skipped … re-run with --force»).
+summary_list() { awk -v h="$2" 'index($0, h){on=1; next} on && /^[[:space:]]*$/{exit} on' "$1"; }
+summary_list "$WORK/a.log" "of your own file(s)" | grep -q -- '- eslint\.config\.mjs$' \
+  && ok "A: the summary lists eslint.config.mjs as the file getff added its block to" \
+  || bad "A: eslint.config.mjs is not in the summary's «getff's block added» list: $(grep -A4 -E "block added|left as they are" "$WORK/a.log" | tr '\n' '|')"
+summary_list "$WORK/a.log" "were left as they are" | grep -q 'eslint\.config\.mjs' \
+  && bad "A: the summary still lists eslint.config.mjs among the files left as they are" \
+  || ok "A: eslint.config.mjs is not among the files left as they are"
 ( cd "$A" && bash scripts/check-rule-globs.sh ) >"$WORK/a.globs" 2>&1 \
   && ok "A: check:globs passes on the wired config (no RULE_GLOBS: no boundary was found)" \
   || bad "A: check:globs fails on the wired config: $(tail -3 "$WORK/a.globs" | tr '\n' '|')"
@@ -288,7 +298,7 @@ cmp -s "$P/eslint.config.mjs" "$WORK/own.before" \
 not_wired "$WORK/p.log" | grep 'eslint.config.mjs' | grep -q -- '--full' \
   && ok "P: the not-wired summary says a --full install adds getff's block" \
   || bad "P: the not-wired summary does not point at --full: $(not_wired "$WORK/p.log" | grep 'eslint' | head -2 | tr '\n' '|')"
-asks_by_hand "$WORK/p.log" && bad "P: the install asks for a manual ESLint edit" || ok "P: nothing asks for a manual ESLint edit"
+asks_by_hand "$WORK/p.log" && bad "P: the install asks for a manual step: $(manual_step_lines "$WORK/p.log" | head -2 | tr '\n' '|')" || ok "P: nothing asks for a manual step"
 
 # ── B: getff's own config — fresh install, then a plain re-install ─────────────────────────────
 B="$WORK/fresh"; mkdir -p "$B"
@@ -367,7 +377,7 @@ only_insertions "$WORK/own.before" "$R/eslint.config.mjs" && kept_original "$R" 
 grep -q 'rules-as-tests/no-unsafe-zod-parse' "$WORK/r.lint" \
   && ok "R: R2 fires on src/routes/users.ts under the consumer's own config" \
   || bad "R: R2 did not fire on the boundary file: $(tail -4 "$WORK/r.lint" | tr '\n' '|')"
-asks_by_hand "$WORK/r.log" && bad "R: the install asks for a manual ESLint edit" || ok "R: nothing asks for a manual ESLint edit"
+asks_by_hand "$WORK/r.log" && bad "R: the install asks for a manual step: $(manual_step_lines "$WORK/r.log" | head -2 | tr '\n' '|')" || ok "R: nothing asks for a manual step"
 
 # ── G: a root eslint.config.js (ESM) ──────────────────────────────────────────────────────────
 G="$WORK/own-js"; mkdir -p "$G/lib"
@@ -386,7 +396,7 @@ grep -q 'rules-as-tests/' "$G/eslint.config.js" && only_insertions "$WORK/own.be
 ( cd "$G" && bash scripts/check-rule-globs.sh ) >"$WORK/g.globs" 2>&1 \
   && ok "G: check:globs finds eslint.config.js and passes" \
   || bad "G: check:globs on an eslint.config.js project: $(tail -2 "$WORK/g.globs" | tr '\n' '|')"
-asks_by_hand "$WORK/g.log" && bad "G: the install asks for a manual ESLint edit" || ok "G: nothing asks for a manual ESLint edit"
+asks_by_hand "$WORK/g.log" && bad "G: the install asks for a manual step: $(manual_step_lines "$WORK/g.log" | head -2 | tr '\n' '|')" || ok "G: nothing asks for a manual step"
 
 # ── H: a root eslint.config.cjs ────────────────────────────────────────────────────────────────
 H="$WORK/own-cjs"; mkdir -p "$H/lib"
@@ -425,6 +435,9 @@ grep -qF 'swcLiveProbe' "$D/apps/mobile/eslint.config.mjs" && only_insertions "$
   || bad "D: the consumer's apps/mobile/eslint.config.mjs was not wired with its original kept"
 not_wired "$WORK/d.log" | grep -q 'apps/mobile/eslint.config.mjs' \
   && bad "D: the not-wired summary still lists apps/mobile/eslint.config.mjs" || ok "D: the workspace config is not reported as unwired"
+summary_list "$WORK/d.log" "of your own file(s)" | grep -q -- '- apps/mobile/eslint\.config\.mjs$' \
+  && ok "D: the summary lists apps/mobile/eslint.config.mjs as a file getff added its block to" \
+  || bad "D: apps/mobile/eslint.config.mjs is not in the summary's «getff's block added» list"
 
 # ── I, J, K: a config getff placed on an earlier install, edited or not since ────────────────
 # The first install wires one live rule (eqeqeq) into getff's config, so the manifest records the
@@ -688,6 +701,9 @@ prettier_accepts "$E" apps/api/eslint.config.mjs \
   || bad "E: prettier rejects the wired apps/api/eslint.config.mjs — format:check would fail every push"
 not_wired "$WORK/e.log" | grep -q 'apps/api/eslint.config.mjs' \
   && bad "E: the not-wired summary still lists apps/api/eslint.config.mjs" || ok "E: the per-package config is not reported as unwired"
+summary_list "$WORK/e.log" "of your own file(s)" | grep -q -- '- apps/api/eslint\.config\.mjs$' \
+  && ok "E: the summary lists apps/api/eslint.config.mjs as a file getff added its block to" \
+  || bad "E: apps/api/eslint.config.mjs is not in the summary's «getff's block added» list"
 cmp -s "$WORK/pkg.before" "$E/apps/lib/eslint.config.mjs" && [ ! -e "$E/.ai-factory/before-getff/apps/lib" ] \
   && ok "E: apps/lib, with no HTTP boundary code, keeps its config byte-identical — R2 has nothing to guard there" \
   || bad "E: R2 was added to apps/lib/eslint.config.mjs, whose package has no HTTP boundary code"
@@ -699,7 +715,7 @@ cmp -s "$WORK/web.before" "$E/apps/web/eslint.config.mjs" && [ ! -e "$E/.ai-fact
 not_wired "$WORK/e.log" | grep -q 'apps/web/eslint.config.mjs' \
   && ok "E: the not-wired summary names apps/web/eslint.config.mjs" \
   || bad "E: apps/web/eslint.config.mjs (not wired) is missing from the not-wired summary"
-asks_by_hand "$WORK/e.log" && bad "E: the install asks for a manual ESLint edit" || ok "E: nothing asks for a manual ESLint edit"
+asks_by_hand "$WORK/e.log" && bad "E: the install asks for a manual step: $(manual_step_lines "$WORK/e.log" | head -2 | tr '\n' '|')" || ok "E: nothing asks for a manual step"
 
 # F — multi-stack monorepo, no root config: two ts-server workspaces, the consumer owns the config
 # of apps/api, getff places the one in apps/svc.
@@ -728,7 +744,7 @@ only_insertions "$WORK/pkg.before" "$F/apps/api/eslint.config.mjs" \
 cmp -s "$WORK/pkg.before" "$F/apps/lib/eslint.config.mjs" && [ ! -e "$F/.ai-factory/before-getff/apps/lib" ] \
   && ok "F: the library workspace apps/lib (no HTTP code) keeps its config byte-identical" \
   || bad "F: R2 was added to apps/lib/eslint.config.mjs, a workspace with no HTTP boundary code"
-asks_by_hand "$WORK/f.log" && bad "F: the install asks for a manual ESLint edit" || ok "F: nothing asks for a manual ESLint edit"
+asks_by_hand "$WORK/f.log" && bad "F: the install asks for a manual step: $(manual_step_lines "$WORK/f.log" | head -2 | tr '\n' '|')" || ok "F: nothing asks for a manual step"
 not_wired "$WORK/f.log" | grep -q 'apps/api/eslint.config.mjs' \
   && bad "F: the not-wired summary still lists apps/api/eslint.config.mjs" || ok "F: the workspace config is not reported as unwired"
 grep -q 'R2 wiring: .*apps/svc/eslint.config.mjs' "$WORK/f.log" \
