@@ -136,13 +136,20 @@ echo "  ── (5) self-check degrade (go/golangci-lint absent) — loud «insuf
 G=$(go_fixture)
 cp "$TPL/.golangci.yml" "$G/.golangci.yml"
 deg_rc=0
+# lib.sh is sourced first, as install.sh does: the degrade records a NOT-wired line (Q4.7), and
+# print_not_wired is the lane's own summary (install.sh do_toolchain_lane).
 deg=$( GO_LAYER_LIB_ONLY=1 PROJECT_ROOT="$G" PATH="/usr/bin:/bin" bash -c '
+  source "'"$REPO_ROOT"'/setup.d/lib.sh"
   source "'"$LAYER"'"
   _go_firing_self_check
+  print_not_wired
 ' 2>&1 ) || deg_rc=$?
-echo "$deg" | grep -q "go or golangci-lint not on PATH" \
+echo "$deg" | grep -qE "(go|golangci-lint) is not on PATH — firing NOT proven" \
   && ok "(5) stripped-PATH self-check prints the loud tool-absent degrade" \
   || bad "(5) degrade arm did not fire on a stripped PATH"
+echo "$deg" | grep -qE "^ +- firing self-check \(golangci-lint\): not proven — (go|golangci-lint) is not on PATH" \
+  && ok "(5) the degrade is a NOT-wired line with its reason (Q4.7)" \
+  || bad "(5) no NOT-wired line for the degrade: $(echo "$deg" | tr '\n' '|')"
 echo "$deg" | grep -q "insufficient (tool absent)" \
   && ok "(5) the §1.3 load-bearing label «insufficient (tool absent)» is printed (never silently green)" \
   || bad "(5) §1.3 label missing from the degrade output"
