@@ -2069,8 +2069,8 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // SSOT for the shipped surface (predicate reuse, BFR):
 //   (1) scripts/format-shipped.sh:48-67 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derives the
-//       consumer-DESTINATION shipped set from the setup.d copy_safe / copy_unless_foreign commands.
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:168-171 — derives the
+//       consumer-DESTINATION shipped set from the setup.d delivery calls (copy_safe et al.).
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
 // corpus (predicate (4)'s question answered by a real install rather than a shell scan).
@@ -2144,10 +2144,10 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
 /**
  * The one shipped markdown namespace an exact enumeration cannot cover: skill-context
  * overrides are delivered as `.ai-factory/skill-context/$_sc/SKILL.md` for every entry of
- * SHIPPED_DOCS (20-agents.sh:77), and WHICH entries land is profile-gated — a factory
- * consumer also gets aif-orchestrator-discipline (20-agents.sh:73-75). The whole subtree
- * is framework territory by construction: every path under it is an override of a
- * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
+ * SHIPPED_DOCS (20-agents.sh:77, via install_skill_context), and WHICH entries land is
+ * profile-gated — a factory consumer also gets aif-orchestrator-discipline (20-agents.sh:73-75).
+ * No consumer-authored FILE lives under it, but each file is co-owned with AI Factory's
+ * /aif-evolve: the rules it adds outside getff's fenced block are excluded along with the file.
  *
  * Same gate as SHIPPED_MD_DESTINATIONS: pre-push.test.ts requires every row here to prefix
  * at least one delivered *.md in the fingerprint corpus, and to stay scoped below a

@@ -1056,6 +1056,8 @@ jobs:
           GETFF_REQUIRE_RESEARCH_TOOLS: '1'
       - name: "install-sh — Python agent surface: --refresh parity (A2-4) + python-lane RULES.md (A2-5)"
         run: bash tests/install-sh/python-agent-surface-refresh.test.sh
+      - name: "install-sh — skill-context co-owned with /aif-evolve: install keeps evolved rules + delivers getff's fenced block, --refresh re-injects only that block (npm + python lanes)"
+        run: bash tests/install-sh/skill-context-evolve-coownership.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
