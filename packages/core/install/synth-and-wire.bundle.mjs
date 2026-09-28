@@ -10721,7 +10721,8 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
     return modified;
   }
 }
-var R2_PROBE_PATHS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"].map((ext) => `__aif_r2_probe__.${ext}`);
+var LINTABLE_EXTENSIONS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"];
+var R2_PROBE_PATHS = LINTABLE_EXTENSIONS.map((ext) => `__aif_r2_probe__.${ext}`);
 var execFileAsync = promisify(execFile);
 function r2SeverityIn(printed) {
   try {
@@ -10806,7 +10807,20 @@ var PROBE_TIMEOUT_MS = 12e4;
 var MISSING_PACKAGE = /Cannot find package '/;
 function probeScopePath(glob) {
   if (glob.startsWith("!") || /[[\]?]/.test(glob)) return void 0;
-  const expanded = glob.replace(/\{([^{}]*)\}/g, (_m, alts) => alts.split(",")[0] ?? "");
+  return witnessPath(glob.replace(/\{([^{}]*)\}/g, (_m, alts) => alts.split(",")[0] ?? ""));
+}
+function probeScopePaths(glob) {
+  if (glob.startsWith("!") || /[[\]?]/.test(glob)) return [];
+  return [...new Set(braceAlternatives(glob).map(witnessPath).filter((p) => p !== void 0))];
+}
+function braceAlternatives(glob) {
+  const m = /\{([^{}]*)\}/.exec(glob);
+  if (!m) return [glob];
+  const head = glob.slice(0, m.index);
+  const tail = glob.slice(m.index + m[0].length);
+  return (m[1] ?? "").split(",").flatMap((alt) => braceAlternatives(`${head}${alt}${tail}`));
+}
+function witnessPath(expanded) {
   const segs = expanded.split("/").filter((seg) => seg !== "**" && seg !== "");
   const last = segs[segs.length - 1];
   let file = `${PROBE_BASENAME}.js`;
@@ -10817,6 +10831,12 @@ function probeScopePath(glob) {
     file = `${PROBE_BASENAME}${ext}`;
   }
   return [...segs.map((seg) => seg === "*" ? "x" : seg), file].join("/");
+}
+function withoutIgnoredNotices(text) {
+  return text.split(/\n\s*\n/).filter((block) => {
+    const messages = block.split("\n").slice(1).filter((l) => l.trim() !== "");
+    return messages.length === 0 || !messages.every((l) => /File ignored because/.test(l));
+  }).join("\n\n");
 }
 function runEslint(nodeArgs, eslintBin, eslintArgs, dir, timeoutMs, input) {
   try {
@@ -10830,8 +10850,8 @@ function runEslint(nodeArgs, eslintBin, eslintArgs, dir, timeoutMs, input) {
     return { rc: 0, text: "" };
   } catch (e) {
     const err = e;
-    const text = `${String(err.stderr ?? "")}
-${String(err.stdout ?? "")}`.trim();
+    const text = withoutIgnoredNotices(`${String(err.stderr ?? "")}
+${String(err.stdout ?? "")}`).trim();
     if (err.signal) return { rc: "timeout", text };
     return { rc: typeof err.status === "number" ? err.status : "error", text };
   }
@@ -10839,11 +10859,11 @@ ${String(err.stdout ?? "")}`.trim();
 var TYPED_LINT_REFUSAL = /not found by the project service|parserOptions\.project|allowDefaultProject|default project/;
 function verdictOf(run) {
   const syntaxError = run.text.split("\n").some((l) => l.includes("Parsing error") && !TYPED_LINT_REFUSAL.test(l));
-  if (run.rc === 1 && syntaxError) return { verdict: "broken", detail: run.text.slice(0, 400) };
+  if (run.rc === 1 && syntaxError) return { verdict: "broken", detail: run.text.slice(0, 400), failure: "parse" };
   if (run.rc === 0 || run.rc === 1) return { verdict: "ok" };
   if (run.rc === 2) {
     if (MISSING_PACKAGE.test(run.text)) return { verdict: "unavailable", detail: run.text.slice(0, 400) };
-    return { verdict: "broken", detail: run.text.slice(0, 400) };
+    return { verdict: "broken", detail: run.text.slice(0, 400), failure: "config" };
   }
   return { verdict: "unavailable", detail: run.rc === "timeout" ? "ESLint did not finish in time" : run.text.slice(0, 400) };
 }
@@ -10865,10 +10885,17 @@ async function probeLintViaEslint(configPath, cwd, opts = {}) {
   const nodeArgs = resolveFrom("tsx") !== void 0 ? ["--import", "tsx"] : [];
   const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
   const bodyFor = (name) => /\.tsx?$/.test(name) ? "export const __aif_probe: number = 1;\n" : "export const __aif_probe = 1;\n";
-  const names = [`${PROBE_BASENAME}.js`, `${PROBE_BASENAME}.ts`];
+  const neutralBody = "var __aif_probe = 1;\n";
+  const rootBodies = new Map(
+    LINTABLE_EXTENSIONS.map((ext) => {
+      const name = `${PROBE_BASENAME}.${ext}`;
+      return [name, ext === "js" || ext === "ts" ? bodyFor(name) : neutralBody];
+    })
+  );
+  const names = [...rootBodies.keys()];
   const targets = names.map((n) => resolve5(dir, n));
   let root;
-  targets.forEach((t, i) => writeFileSync(t, bodyFor(names[i]), "utf8"));
+  names.forEach((n, i) => writeFileSync(targets[i], rootBodies.get(n) ?? neutralBody, "utf8"));
   try {
     root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
   } finally {
@@ -10879,14 +10906,23 @@ async function probeLintViaEslint(configPath, cwd, opts = {}) {
       }
     }
   }
-  if (root.verdict !== "ok") return root;
-  const scoped = [...new Set((opts.scopeGlobs ?? []).map(probeScopePath).filter((x) => x !== void 0))];
-  for (const rel of scoped) {
-    if (rel === `${PROBE_BASENAME}.js` || rel === `${PROBE_BASENAME}.ts`) continue;
-    const r = verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, bodyFor(rel)));
-    if (r.verdict !== "ok") return r;
+  if (root.verdict === "unavailable" || root.failure === "config") return root;
+  const witnesses = /* @__PURE__ */ new Map();
+  for (const glob of opts.scopeGlobs ?? []) {
+    const first = probeScopePath(glob);
+    for (const rel of probeScopePaths(glob)) {
+      if (rel === first) witnesses.set(rel, bodyFor(rel));
+      else if (!witnesses.has(rel)) witnesses.set(rel, neutralBody);
+    }
   }
-  return { verdict: "ok" };
+  let worst = root;
+  for (const [rel, body] of witnesses) {
+    if (rootBodies.get(rel) === body || body === neutralBody && rootBodies.has(rel)) continue;
+    const r = verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, body));
+    if (r.verdict === "unavailable" || r.failure === "config") return r;
+    if (worst.verdict === "ok") worst = r;
+  }
+  return worst;
 }
 async function writeWithLintProbe(args) {
   const { configPath, cwd, original, modified, runProbe } = args;
@@ -10898,7 +10934,8 @@ async function writeWithLintProbe(args) {
   }
   writeFileSync(configPath, original, "utf8");
   const before = await runProbe(configPath, cwd);
-  const originalFails = before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? "");
+  const worsened = after.failure === "config" && before.failure === "parse";
+  const originalFails = !worsened && (before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? ""));
   if (!originalFails) {
     return {
       status: "degrade",
