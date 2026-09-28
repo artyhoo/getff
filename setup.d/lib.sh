@@ -368,7 +368,7 @@ refresh_baseline_stage() {
 # Unstaged = no manifest entry = «unknown»: every overwrite path then preserves a diverged copy
 # (_preserve_unbaselined_copy — copy_safe --force, _copy_tree_with_transform, and _refresh_one_file).
 # Optional 3rd arg = copy_safe's parity mode: a post-processed delivery (md-refs / arch-header /
-# stryker-pm) is compared against the post-processed bytes, via the same _expected_* helpers the
+# stryker-pm / vitest-layout) is compared against the post-processed bytes, via the same _expected_* helpers the
 # --force guard uses — the raw src never matches those, and they would silently drop out of the
 # A1-2 manifest rebuild.
 refresh_baseline_stage_weak_matching() {
@@ -380,6 +380,7 @@ refresh_baseline_stage_weak_matching() {
       md-refs)     if tmpexp=$(_expected_transformed "$src"); then expected="$tmpexp"; fi ;;
       arch-header) if tmpexp=$(_expected_arch_header "$src"); then expected="$tmpexp"; fi ;;
       stryker-pm)  if tmpexp=$(_expected_stryker_pm "$src"); then expected="$tmpexp"; fi ;;
+      vitest-layout) if tmpexp=$(_expected_vitest_layout "$src"); then expected="$tmpexp"; fi ;;
     esac
     if cmp -s "$expected" "$dst"; then REFRESH_BASELINE_STAGED_WEAK+=("$dst"); fi
     if [ -n "$tmpexp" ]; then rm -f "$tmpexp"; fi
@@ -571,6 +572,15 @@ _expected_stryker_pm() {
   _expected_post "$1" _patch_stryker_package_manager_inplace
 }
 
+# _expected_vitest_layout <src-file> — rewrite_vitest_source_roots variant, for the
+# vitest.config.ts copy_safe deliveries (setup.d/40-configs.sh, 4 stack lanes) whose `src/**/`
+# globs the rewrite anchors on the project's own source roots. Byte-changing on projects without
+# src/ only, so without this candidate a pristine rewritten config false-flagged as
+# consumer-diverged on a pre-manifest force run and never re-entered a rebuilt manifest.
+_expected_vitest_layout() {
+  _expected_post "$1" _rewrite_vitest_source_roots_inplace
+}
+
 # _prettierignore_pristine <src> <dst> — exit 0 IFF <dst> is the shipped .prettierignore <src>
 # plus ONLY the framework's managed marker blocks (merge_prettierignore's AIF block and
 # ignore_shipped_configs' shipped-configs block, both marker-delimited and appended after the
@@ -683,6 +693,8 @@ _pre_overwrite_divergence_action() {
 #                    python lane's ARCHITECTURE.md, 45-python.sh).
 #   stryker-pm       single FILE post-processed by patch_stryker_package_manager (the copied
 #                    stryker.config.json, 40-configs.sh — 4 stack lanes).
+#   vitest-layout    single FILE post-processed by rewrite_vitest_source_roots (the copied
+#                    vitest.config.ts, 40-configs.sh — 4 stack lanes).
 #   suppress-no-entry  caller proved the dst pristine modulo framework-managed content the raw
 #                    comparison cannot see (merge_prettierignore's marker blocks): no-entry arm
 #                    suppressed, entry-present arm still active.
@@ -699,18 +711,22 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1370                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1369                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1363          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:454          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:479          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:499          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:526          patch_stryker_package_manager → stryker-pm
-#   setup.d/lib.sh:1822                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/40-configs.sh:471          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:497          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:518          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:546          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:461          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:486          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:506          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:537          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
-# declared mode) by scanning `copy_safe ` lines in install.sh + setup.d/*.sh for one of three
+# declared mode) by scanning `copy_safe ` lines in install.sh + setup.d/*.sh for one of four
 # post-processor NAMES within 3 lines of the call — a spelling-bounded scan, so it cannot see a
 # caller inside lib.sh itself (merge_prettierignore, wired by hand and covered by arm 5d), a
 # mutation further than 3 lines from its call, a post-processor added under a new name, or a
@@ -748,6 +764,8 @@ _pre_overwrite_guard() {
           if tmpexp=$(_expected_arch_header "$src"); then expected="$tmpexp"; fi ;;
         stryker-pm)
           if tmpexp=$(_expected_stryker_pm "$src"); then expected="$tmpexp"; fi ;;
+        vitest-layout)
+          if tmpexp=$(_expected_vitest_layout "$src"); then expected="$tmpexp"; fi ;;
       esac
     fi
     if [ "$mode" = "suppress-no-entry" ]; then suppress="1"; fi
@@ -862,7 +880,8 @@ copy_safe() {
   # arm of the force guard compares against the delivered bytes, and the raw src is NOT those
   # bytes (review-proven: pristine transformed agents / header-rewritten ARCHITECTURE.md /
   # block-appended .prettierignore copies false-flagged as consumer-diverged). Values map 1:1
-  # to _pre_overwrite_guard modes: md-refs | arch-header | stryker-pm | suppress-no-entry. The
+  # to _pre_overwrite_guard modes: md-refs | arch-header | stryker-pm | vitest-layout |
+  # suppress-no-entry. The
   # census of every post-mutating caller lives at _pre_overwrite_guard. Plain deliveries
   # (the vast majority) pass nothing and compare against the raw src.
   local parity="${3:-}"
@@ -2229,6 +2248,78 @@ patch_stryker_package_manager() {
   [ -f "$_cfg" ] || return 0
   _patch_stryker_package_manager_inplace "$_cfg"
   echo "  ✓ stryker packageManager → $(detect_pm)"
+}
+
+# consumer_source_roots <dir> — the top-level directories that hold a project's own code when it
+# has NO src/ (lib/; app/ + components/ + lib/, the create-next-app and Expo layouts without src/),
+# space-separated in glob order. Nothing when src/ exists or no directory holds code yet. Not code
+# roots: build output and static assets, end-to-end test directories (Playwright and Cypress specs
+# are not vitest's), and the directories getff itself delivers into. Glob-safe names only — the
+# result is spliced into glob patterns.
+consumer_source_roots() {
+  local dir="$1" d name roots=""
+  [ -d "$dir/src" ] && return 0
+  for d in "$dir"/*/; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    case "$name" in
+      node_modules | dist | build | out | coverage | public | e2e | cypress | playwright \
+        | packages | scripts | tests | eslint-rules-local) continue ;;
+    esac
+    case "$name" in *[!A-Za-z0-9._-]*) continue ;; esac
+    if [ -n "$(find "$d" -name node_modules -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \
+      -o -name '*.mts' -o -name '*.cts' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' \
+      -o -name '*.cjs' \) -print -quit 2>/dev/null)" ]; then
+      roots="${roots:+$roots }$name"
+    fi
+  done
+  if [ -n "$roots" ]; then printf '%s\n' "$roots"; fi
+  return 0
+}
+
+# _rewrite_vitest_source_roots_inplace <file> — anchor a vitest config's quoted `src/**/` globs on
+# the project's own source roots: one root → `lib/**/`, several → `{app,components,lib}/**/`.
+# Every such glob moves together (test include and exclude, coverage include and exclude), so the
+# config stays self-consistent; directory-scoped keys (`src/domain/**` thresholds,
+# `src/app/**/page.tsx`) and the `@` alias are left as they are. A no-op for a src/ project and for
+# one with no code yet. Reads $PROJECT_ROOT's layout, not the file's directory, so _expected_post's
+# temp-copy reconstruction derives the same roots the delivery did.
+_rewrite_vitest_source_roots_inplace() {
+  local f="$1" roots anchor tmp
+  [ -f "$f" ] || return 0
+  roots=$(consumer_source_roots "${PROJECT_ROOT:-.}")
+  [ -n "$roots" ] || return 0
+  case "$roots" in
+    *" "*) anchor="{$(printf '%s' "$roots" | tr ' ' ',')}" ;;
+    *) anchor="$roots" ;;
+  esac
+  tmp=$(mktemp) || return 0
+  if sed "s#\\(['\"]\\)src/\\*\\*/#\\1${anchor}/**/#g" "$f" > "$tmp" 2>/dev/null; then
+    cat "$tmp" > "$f"
+  fi
+  rm -f "$tmp"
+  return 0
+}
+
+# rewrite_vitest_source_roots <src> <dst> — run right after `copy_safe <src> <dst> vitest-layout`
+# (Q4.5, 2026-09-28: layout assumptions are fixed by class, from the layout). Every preset's
+# vitest.config.ts anchors its globs on src/, so a project that keeps its code in lib/ got «No test
+# files found» from `npm test` and a RED validate right after install. Rewrites ONLY the bytes
+# copy_safe wrote this run: a skipped dst (the consumer's own config, or an earlier delivery the
+# consumer now owns — vitest.config.ts is never refreshed) is left alone, as is anything that is
+# not the template's bytes.
+rewrite_vitest_source_roots() {
+  local src="$1" dst="$2" s
+  [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
+  { [ -f "$dst" ] && cmp -s "$src" "$dst"; } || return 0
+  for s in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
+    [ "$s" = "$dst" ] && return 0
+  done
+  _rewrite_vitest_source_roots_inplace "$dst"
+  if ! cmp -s "$src" "$dst"; then
+    echo "  ✓ vitest.config.ts test globs → $(consumer_source_roots "${PROJECT_ROOT:-.}" | sed 's#\([^ ]*\)#\1/#g') (this project has no src/)"
+  fi
+  return 0
 }
 
 # copy_skill_with_transform <skill-slug>
