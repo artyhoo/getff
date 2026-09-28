@@ -418,8 +418,12 @@ done
 # EXCLUDES: node_modules (installed deps), templates/ (source templates import a
 # relative barrel that only exists post-install → would false-fail), and scratch/build
 # dirs. In the framework repo (no active root eslint.config.mjs, only the template) this
-# finds nothing → structural skip.
+# finds nothing → structural skip. The root eslint.config.js is probed too: it is the name ESLint
+# loads first, and the install adds getff's block to a consumer's own one (Q4.7, 2026-09-28). Only
+# the root one — the per-workspace passes wire eslint.config.mjs files, so a nested eslint.config.js
+# (an example app, a fixture) is a config getff never placed or wrote (cold-review F7).
 _PLACED_CONFIGS=()
+[ -f "$PROJECT_ROOT/eslint.config.js" ] && _PLACED_CONFIGS+=("$PROJECT_ROOT/eslint.config.js")
 while IFS= read -r -d '' _c; do _PLACED_CONFIGS+=("$_c"); done < <(
   find "$PROJECT_ROOT" -maxdepth 4 -name 'eslint.config.mjs' \
     -not -path '*/node_modules/*' \
@@ -432,7 +436,7 @@ while IFS= read -r -d '' _c; do _PLACED_CONFIGS+=("$_c"); done < <(
     -print0 2>/dev/null | sort -z)
 
 if [ "${#_PLACED_CONFIGS[@]}" -eq 0 ]; then
-  l_skip "load-probe: no placed eslint.config.mjs found under $PROJECT_ROOT — skipped (pre-install/authoring, or framework repo)"
+  l_skip "load-probe: no eslint.config.mjs / eslint.config.js found under $PROJECT_ROOT — skipped (pre-install/authoring, or framework repo)"
 else
   for _cfg in "${_PLACED_CONFIGS[@]}"; do
     _rel="${_cfg#"$PROJECT_ROOT"/}"

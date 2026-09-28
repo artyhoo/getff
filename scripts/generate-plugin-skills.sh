@@ -47,14 +47,16 @@
 # differently from an existing payload still refuses (exit 3): with no HEAD evidence the
 # payload is not known reproducible, so the guard fails safe.
 #
-# Enforcement channels TODAY (2026-09-12): CI only. `.github/workflows/audit-self.yml` runs
-# tests/plugin/skills-generation.test.sh (regen no-op + sandbox contract arms), and principle 24
-# (packages/core/principles/24-plugin-manifest-integrity.test.ts, tiers (g)/(h)) guards drift
-# population-wide. The pre-commit regen arm is MAINTAINER-PENDING, NOT wired: `.husky/` is
-# maintainer-owned per the Artifact Ownership Contract, and the exact block to insert is
-# recorded in docs/meta-factory/research-patches/2026-09-11-plugin-skills-generator-stage0-reverif.md
-# §7. No hook invokes this script yet — stating otherwise would be the #hope-as-gate shape, so
-# this comment is the contract until the arm lands.
+# Enforcement channels (corrected 2026-09-28 — the 2026-09-12 «CI only / pre-commit arm
+# MAINTAINER-PENDING» wording went stale when PR #1732, commit b4b58428e2e, 2026-09-13, wired
+# the arm):
+#   1. pre-commit — `.husky/pre-commit:308-316`: when a staged path is under `skills/` or
+#      `.claude/skills/`, runs this script (`:310`) and re-stages `plugin/skills/`; a non-zero
+#      exit fails the commit.
+#   2. CI — `.github/workflows/audit-self.yml` runs tests/plugin/skills-generation.test.sh
+#      (regen no-op + sandbox contract arms + transform-arm parity).
+#   3. CI backstop — principle 24 (packages/core/principles/24-plugin-manifest-integrity.test.ts,
+#      tiers (g)/(h)) guards payload drift and link form population-wide.
 #
 # Transform parity obligation: the arm block below is a DELIBERATE mirror of
 # setup.d/lib.sh:150-164 (F2 verdict: reimplement + parity gate — the kickoff §6 non-goal
@@ -115,8 +117,8 @@ transform_one_file() {
   [ -f "$f" ] || return 0
   # Uses `-i.bak` for BSD-sed/GNU-sed portability, then removes the backup — the same idiom
   # as the mirrored setup.d/lib.sh:149 (bare `-i` is GNU-only). Portable so the script behaves
-  # identically wherever it runs — CI today; the maintainer-pending pre-commit arm later (see
-  # «Enforcement channels TODAY» in the header).
+  # identically wherever it runs — the pre-commit arm on a developer machine and CI (see
+  # «Enforcement channels» in the header).
   sed -E -i.bak \
     -e "s#\]\((\.\./)+docs/#](${UPSTREAM_BLOB_URL}/docs/#g" \
     -e "s#\]\((\.\./)+packages/#](${UPSTREAM_BLOB_URL}/packages/#g" \

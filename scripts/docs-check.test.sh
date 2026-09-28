@@ -227,7 +227,8 @@ else
   bad "arm 7: prose-root RED run rc=$rc (out: $(echo "$out" | grep '✗' | head -2 | tr '\n' ' '))"
 fi
 if have_bins; then
-  sed -i '/vale off/d;/vale on/d;/zorblify/d' "$TMP/prose/docs/site-quality/calibration.md"
+  # -i.bak + rm: bare `sed -i '<expr>'` is GNU-only (BSD sed eats the expr as a backup suffix).
+  sed -i.bak '/vale off/d;/vale on/d;/zorblify/d' "$TMP/prose/docs/site-quality/calibration.md" && rm -f "$TMP/prose/docs/site-quality/calibration.md.bak"
   out=$(node "$GEN" --strict --json --root "$TMP/prose" 2>/dev/null); rc=$?
   if [ $rc -eq 0 ] && ! echo "$out" | grep -q '"tool": "docs-check".*skips'; then
     ok "arm 7: the healed prose root goes GREEN under strict with no tool skipped"

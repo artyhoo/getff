@@ -166,6 +166,35 @@ for _su in 'exit 1' 'exit 0'; do
 done
 nw_arm "git hooks not activated" su HUSKY_HOOKS_BLOCKED="core.hooksPath is .githooks"
 nw_arm "consumer ESLint config kept" ff ESLINT_ROOT_NOT_WIRED=1
+# The consumer's own root eslint.config.mjs that getff's block did not land in (here: the
+# synth-and-wire bundle is absent from the stub package) is the same NOT-wired state: the fences are
+# not in their lint, so «fences fire» is not this install's to claim (cold-review F8 — only a
+# .cjs/.ts root used to set the signal, in copy_unless_foreign). The driver's lib.sh stand-ins make
+# the root config the consumer's.
+OWN_DRIVER="$WORK/driver-own.sh"
+{ sed '/^source "\$FINALIZE"$/d' "$DRIVER"
+  printf '%s\n' 'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 1; }' \
+    'note_not_wired() { NOT_WIRED+=("$1"); }' 'source "$FINALIZE"'; } > "$OWN_DRIVER"
+grep -q '^getff_delivered()' "$OWN_DRIVER" || bad "F8: the own-config driver was not built — the arms below would be vacuous"
+own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire must run
+  make_tree "own-$3" 'exit 1' 'exit 0' 'exit 0'
+  printf '%s\n' "$2" > "$WORK/own-$3-proj/eslint.config.mjs"
+  CAP_OUT=$(env -u CI PROJECT_ROOT="$WORK/own-$3-proj" PKG_ROOT="$WORK/own-$3-pkg" FINALIZE="$FINALIZE" \
+    DEPS_INSTALLED=1 bash "$OWN_DRIVER" 2>&1); CAP_RC=$?
+  printf '%s\n' "$CAP_OUT" | grep -q 'synth-and-wire: bundle not found' \
+    || bad "F8 $1: the own-config branch never ran — the arm would be vacuous"
+  if [ "$3" = no ] && [ ! -e "$WORK/own-no.ff.ran" ] && [ "$CAP_RC" -eq 0 ] \
+    && printf '%s\n' "$CAP_OUT" | grep -qE 'self-verify: .*1 skipped'; then
+    ok "F8 $1: fences-fire not run, counted as skipped, install rc 0"
+  elif [ "$3" = yes ] && [ -e "$WORK/own-yes.ff.ran" ] && [ "$CAP_RC" -ne 0 ]; then
+    ok "F8 $1: fences-fire runs and its FAIL counts"
+  else
+    bad "F8 $1: ran=$([ -e "$WORK/own-$3.ff.ran" ] && echo yes || echo no) rc=$CAP_RC banner=$(printf '%s\n' "$CAP_OUT" | grep 'self-verify:' | tail -1)"
+  fi
+}
+own_root_arm "own root config without getff's block" "export default [];" no
+own_root_arm "paired: own root config carrying getff's rules" \
+  "export default [{ rules: { 'rules-as-tests/no-bare-todo': 'error' } }];" yes
 # paired: the same trees with no NOT wired signal run the (failing) check and fail the install
 make_tree nw-paired 'exit 0' 'exit 1' 'exit 0'
 run_capstone "$WORK/nw-paired-proj" "$WORK/nw-paired-pkg"
