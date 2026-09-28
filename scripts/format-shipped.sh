@@ -32,8 +32,10 @@ FILTER=("$@") # optional: restrict to these repo-relative paths (empty = full sh
 REPO_TOP="$(git rev-parse --show-toplevel)" || exit 1
 cd "$REPO_TOP" || exit 1
 
-# Shipped paths (dirs + the exact pre-push closure — NOT the whole hooks/ dir, which is mostly
-# framework-internal tests + the dynamically-imported guard-liveness.ts that does not ship).
+# Shipped paths. packages/core/hooks/ is NOT here: the consumer's pre-push hook ships as the
+# prebuilt pre-push.bundle.mjs (raw esbuild output, drift-gated by build-runtime-bundles.mjs --check
+# and ignored by the consumer's .prettierignore), not as the formatted .ts sources it shipped as
+# before 2026-09-28.
 #
 # `.claude/skills` is taken WHOLE, not as an allowlist of shipped slugs. The former list
 # (pipeline / dispatcher / aif-doctor / template-audit) was hand-maintained and had drifted from
@@ -48,8 +50,6 @@ PATHSPECS=(
   .claude/skills
   agents
   packages/core/eslint-rules packages/core/probes
-  packages/core/hooks/pre-push.ts packages/core/hooks/utils/run-check.ts packages/core/hooks/utils/git.ts
-  packages/core/hooks/checks/prior-art.ts packages/core/hooks/checks/s17.ts
   packages/core/templates
   packages/preset-next-15-canonical/eslint-rules packages/preset-next-15-canonical/templates
   templates
@@ -71,7 +71,7 @@ while IFS= read -r f; do
     *.template) continue ;;              # handled below, parsed as markdown
     *.test.ts | *.test.tsx) continue ;;  # framework-internal tests do not ship
     */eslint-rules/*.mjs | */eslint-rules/*.d.ts) continue ;; # compiled rule artifacts (raw tsc output, baseline-identical, generated — ship as-is, #752 Variant A)
-    */install/*.bundle.mjs) continue ;;  # esbuild-generated zero-dep bundle (#755, raw esbuild output, drift-gated by build-synth-bundle.sh --check — Prettier would break byte-reproducibility)
+    *.bundle.mjs) continue ;;            # esbuild-generated zero-dep bundles (#755 synth, 2026-09-28 pre-push + rule generator — raw esbuild output, drift-gated by build-synth-bundle.sh / build-runtime-bundles.mjs --check; Prettier would break byte-reproducibility)
     packages/core/templates/python/*) continue ;; # getff-rendered Python delivery templates (S1 T4): verbatim backend-renderer output, byte-drift-gated (packages/core/backends/python-templates-drift.test.ts) — Prettier would break byte-reproducibility, same class as *.bundle.mjs above
     *.md | *.mjs | *.cjs | *.json | *.yml | *.yaml | *.ts | *.tsx) FILES+=("$f") ;;
   esac

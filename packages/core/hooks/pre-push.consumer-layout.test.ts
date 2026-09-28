@@ -2,8 +2,9 @@
  * Consumer-context regression test for pre-push.ts (GH #920 / #921).
  *
  * The bug: several pre-push sections shell out to MAINTAINER-ONLY paths that a
- * consumer install never receives. `install.sh` ships only
- * `packages/core/{hooks,eslint-rules}` to a consumer — NOT `package.json`,
+ * consumer install never receives. `install.sh` ships only the hook itself to a consumer
+ * (since 2026-09-28 the prebuilt `packages/core/hooks/pre-push.bundle.mjs` + its bash
+ * fallback; before that `packages/core/{hooks,eslint-rules}` source) — NOT `package.json`,
  * `audit-self/`, `render/`, `manifest/`, `spec-validation/`, nor `docs/meta-factory/`.
  * Sections that referenced those paths without the `existsSync` consumer-skip guard
  * their siblings (3b–3f/4b) use would `die()` (or bubble a raw ENOENT → "pre-push
@@ -12,8 +13,9 @@
  * executes the check chain. Only a REAL push does.
  *
  * This test closes that coverage gap: it runs the ACTUAL orchestrator against a
- * fixture consumer layout (a copy of exactly the install.sh consumer copy-list,
- * with every maintainer-only path absent) and asserts the push reaches `exit 0`.
+ * fixture consumer layout (the hook source tree, with every maintainer-only path
+ * absent) and asserts the push reaches `exit 0`. The last describe block runs the
+ * SHIPPED artefact — the bundle on plain node, with nothing else from getff beside it.
  * Runs in CI via `test:hooks` (audit-self.yml → `vitest run hooks/`).
  *
  * Coverage of all 8 guards (each exercised by a case whose failure the guard prevents,
@@ -154,8 +156,8 @@ function rootPkg(dependencies: Record<string, string>): string {
 }
 
 /**
- * Build a temp git repo mirroring a CONSUMER install: only the two directory
- * groups install.sh ships (`packages/core/{hooks,eslint-rules}`), a node_modules
+ * Build a temp git repo mirroring a CONSUMER install at SOURCE level: the hook source
+ * tree the bundle is built from (`packages/core/{hooks,eslint-rules}`), a node_modules
  * symlink for tsx/esm, and exit-0 stubs for the consumer-appropriate binaries.
  * Every maintainer-only path (package.json / audit-self / render / manifest /
  * spec-validation / docs/meta-factory) is DELIBERATELY absent.
@@ -164,7 +166,8 @@ function makeConsumerSandbox(): { dir: string; baseSha: string; hook: string } {
   const dir = mkdtempSync(join(tmpdir(), 'prepush-consumer-'));
   sandboxes.push(dir);
 
-  // The exact install.sh consumer copy-list (install.sh:1196-1220).
+  // The hook source graph (what install.sh shipped before 2026-09-28 and what
+  // scripts/build-runtime-bundles.mjs bundles today).
   cpSync(
     resolve(REPO_ROOT, 'packages/core/hooks'),
     join(dir, 'packages/core/hooks'),
@@ -1862,3 +1865,92 @@ describe('removeSandbox — fixture teardown contract', () => {
     }
   });
 });
+
+// ── The SHIPPED layout (2026-09-28). The arms above run the hook SOURCE through tsx so each
+//    section's guard can be exercised against its source; what a consumer actually receives is
+//    ONE prebuilt file plus its bash fallback (principle 27 arm (a)/(b)), run by the dispatcher
+//    with plain `node` (packages/core/templates/shared/husky-pre-push.sh). This arm runs exactly
+//    that: no tsx loader, no NODE_PATH, no node_modules, no getff source beside the bundle, and a
+//    root package.json with no "type" field (the .mjs extension alone makes it ESM).
+describe(
+  'pre-push.bundle.mjs — the shipped hook on plain node, in the shipped layout',
+  { timeout: SLOW_SHELL_MS },
+  () => {
+    const SHIPPED = [
+      'packages/core/hooks/pre-push.bundle.mjs',
+      'packages/core/hooks/pre-push.fallback.sh',
+    ];
+
+    function makeShippedLayout(): { dir: string; baseSha: string } {
+      const dir = mkdtempSync(join(tmpdir(), 'prepush-shipped-'));
+      sandboxes.push(dir);
+      for (const rel of SHIPPED) {
+        mkdirSync(dirname(join(dir, rel)), { recursive: true });
+        cpSync(resolve(REPO_ROOT, rel), join(dir, rel));
+      }
+      writeFileSync(
+        join(dir, 'package.json'),
+        `${JSON.stringify({ name: 'shipped-fixture', private: true }, null, 2)}\n`,
+      );
+      execSync('git init', { cwd: dir });
+      execSync('git config user.email t@t.com', { cwd: dir });
+      execSync('git config user.name Test', { cwd: dir });
+      execSync('git config commit.gpgsign false', { cwd: dir });
+      writeFileSync(join(dir, 'README.md'), 'base\n');
+      execSync('git add -A', { cwd: dir });
+      execSync('git commit -m "chore: base"', { cwd: dir });
+      const baseSha = execSync('git rev-parse HEAD', { cwd: dir })
+        .toString()
+        .trim();
+      return { dir, baseSha };
+    }
+
+    function runPlainNode(
+      dir: string,
+      entry: string,
+      baseRef: string,
+    ): { status: number; out: string } {
+      const env: NodeJS.ProcessEnv = {
+        ...process.env,
+        PREPUSH_UPSTREAM_REF: baseRef,
+      };
+      delete env['NODE_PATH'];
+      delete env['NODE_OPTIONS'];
+      const r = spawnSync('node', [join(dir, entry)], {
+        encoding: 'utf8',
+        cwd: dir,
+        env,
+      });
+      return {
+        status: r.status ?? -1,
+        out: `${r.stdout ?? ''}\n${r.stderr ?? ''}`,
+      };
+    }
+
+    it('POSITIVE — `node pre-push.bundle.mjs` in the shipped layout reaches exit 0 on a consumer push', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.out, r.out).not.toMatch(/ERR_MODULE_NOT_FOUND|ERR_UNKNOWN_FILE_EXTENSION/);
+      expect(r.out, r.out).not.toMatch(/pre-push hook crashed/);
+      expect(r.status, r.out).toBe(0);
+    });
+
+    it('NEGATIVE — the same layout holds no hook source: the pre-2026-09-28 entry cannot run there', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');
+      // Only the entry file, as a stale partial copy would leave it; its imports are absent.
+      cpSync(
+        resolve(REPO_ROOT, 'packages/core/hooks/pre-push.ts'),
+        join(dir, 'packages/core/hooks/pre-push.ts'),
+      );
+
+      const r = runPlainNode(dir, 'packages/core/hooks/pre-push.ts', baseSha);
+
+      // Proves the POSITIVE arm's exit 0 comes from the bundle, not from a reachable source graph.
+      expect(r.status, r.out).not.toBe(0);
+    });
+  },
+);

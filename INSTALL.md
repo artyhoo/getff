@@ -305,6 +305,9 @@ mkdir -p .husky
 cp path/to/pkg/packages/core/templates/shared/husky-pre-commit.sh .husky/pre-commit
 cp path/to/pkg/packages/core/templates/shared/husky-pre-push.sh .husky/pre-push
 chmod +x .husky/pre-commit .husky/pre-push
+# What .husky/pre-push runs: the prebuilt hook (plain node ≥20) and its bash fallback.
+mkdir -p packages/core/hooks
+cp path/to/pkg/packages/core/hooks/pre-push.bundle.mjs path/to/pkg/packages/core/hooks/pre-push.fallback.sh packages/core/hooks/
 
 # CI workflow:
 mkdir -p .github/workflows

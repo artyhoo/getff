@@ -41,7 +41,10 @@ eslint-rules-local/index.mjs
 eslint-rules-local/*.mjs
 
 # Vendored framework SOURCE — install.sh always ships these framework-namespace files fresh; a
-# consumer never authors `eslint-rules-local/`, `packages/core/hooks/`, `packages/core/eslint-rules/`, or `scripts/audit-r4.ts`.
+# consumer never authors `eslint-rules-local/`, `packages/core/hooks/` (the prebuilt pre-push
+# bundle — raw esbuild output — and its bash fallback), or `scripts/audit-r4.ts`.
+# `packages/core/eslint-rules/` no longer ships (2026-09-28) and stays listed so a copy left by a
+# prior installer version does not turn the consumer's `prettier --check .` RED.
 # They ship formatted to THIS framework's Prettier config (printWidth 80, singleQuote, no plugins);
 # a consumer with its OWN .prettierrc rejects the same bytes — the #531 config-mismatch root cause
 # (NOT a Prettier version skew: identical bytes are clean under our config and dirty under the

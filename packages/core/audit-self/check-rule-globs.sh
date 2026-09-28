@@ -75,7 +75,8 @@ fi
 . "$(dirname "$0")/r2-na-marker.sh"
 
 # `packages/core` is the framework's VENDORED install target (install.sh ships hooks/,
-# eslint-rules/, audit-self/, principles/ there). Post-#735 the shipped
+# audit-self/, principles/ there; eslint-rules/ too from #735 until 2026-09-28, and a consumer
+# installed in that window still carries it). Such a copy of
 # packages/core/eslint-rules/index.ts matches the install-injected `**/eslint-rules/**`
 # boundary glob — counting vendored framework code toward USER R2 coverage is exactly the
 # FALSE-GREEN this gate exists to prevent (see the shadow-package rationale below). Prune it

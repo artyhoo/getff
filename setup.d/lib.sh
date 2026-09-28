@@ -2575,40 +2575,6 @@ warn_preset_staleness() {
   fi
 }
 
-# ── #827 B4: ensure the rule-factory's workspace deps (@rules-as-tests/*) resolve ──
-# The factory CLI (packages/core/install/rule-bootstrap-cli.ts) imports @rules-as-tests/preset-*
-# via packages/core/validator/gate-rule-tester.ts. When the framework checkout is a git worktree
-# whose node_modules is BORROWED (symlinked) from a primary checkout on a DIVERGENT branch, those
-# package links can dangle → the factory crashes (ERR_MODULE_NOT_FOUND) even though the worktree's
-# OWN packages/ has them. This helper self-heals by linking each of the worktree's own workspace
-# packages into a worktree-local node_modules/@rules-as-tests/. Idempotent; never writes THROUGH a
-# borrowed (symlinked) node_modules (that would point a foreign checkout's deps at this worktree).
-_workspace_pkg_resolves() {
-  local _root="${1:-${PKG_ROOT:-.}}"
-  ( cd "$_root" && node -e 'require.resolve("@rules-as-tests/preset-react-spa/eslint-rules")' ) >/dev/null 2>&1
-}
-ensure_workspace_pkg_links() {
-  local _root="${1:-${PKG_ROOT:-.}}"
-  command -v node >/dev/null 2>&1 || return 0
-  _workspace_pkg_resolves "$_root" && return 0
-  if [ -L "$_root/node_modules" ]; then
-    echo "  · workspace-link self-heal: $_root/node_modules is a borrowed symlink and @rules-as-tests/* do not resolve;"
-    echo "    run 'npm ci --prefix packages/core && npm install' in $_root to self-contain it."
-    return 0
-  fi
-  local _nm="$_root/node_modules/@rules-as-tests"
-  mkdir -p "$_nm" 2>/dev/null || return 0
-  local _pkgdir _name
-  for _pkgdir in "$_root"/packages/*/; do
-    [ -f "${_pkgdir}package.json" ] || continue
-    _name=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).name||"")' "${_pkgdir}package.json" 2>/dev/null)
-    case "$_name" in
-      @rules-as-tests/*) ln -sfn "${_pkgdir%/}" "$_nm/${_name#@rules-as-tests/}" 2>/dev/null || true ;;
-    esac
-  done
-  _workspace_pkg_resolves "$_root" && echo "  · workspace-link self-heal: linked @rules-as-tests/* in $_nm (#827 B4)"
-}
-
 # husky_hookspath_blocker PROJECT_ROOT (critical-review S4-3)
 # Echo ONE line naming why core.hooksPath must NOT be pointed at .husky — empty output means it is
 # safe. Blocked when the consumer already runs its own hooks: a core.hooksPath other than ours

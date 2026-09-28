@@ -1373,6 +1373,30 @@ function synthBundleSection(): void {
   }
 }
 
+// ── 3f'. Runtime-bundle drift (maintainer, 2026-09-28) ───────────────────────
+// This hook and the rule generator ship to consumers as prebuilt zero-dependency .mjs bundles
+// (scripts/build-runtime-bundles.mjs) that plain `node` runs; each committed bundle must stay in
+// sync with its .ts source — a push that edits this file without rebuilding would ship the
+// previous hook. The builder exists in the maintainer repo only → owner=maintainer.
+// exit 2 = esbuild absent → skip, not fail (the synthBundleSection contract above).
+function runtimeBundlesSection(): void {
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/build-runtime-bundles.mjs'))) return;
+  const r = run('node', ['scripts/build-runtime-bundles.mjs', '--check']);
+  if (r.exitCode === 2) {
+    process.stderr.write(
+      '⚠️  runtime-bundle drift gate skipped — esbuild not installed' +
+        ' (run: NODE_ENV=development npm install --include=dev)\n',
+    );
+  } else if (r.exitCode !== 0) {
+    die(
+      '❌ runtime-bundle drift detected — run: node scripts/build-runtime-bundles.mjs',
+      r,
+    );
+  } else {
+    emit(r);
+  }
+}
+
 // ── 3g. Shipped-rule compiled-artifact drift + orphan gate (maintainer, #752/#990) ──
 // Committed eslint-rule .mjs/.d.ts must match a fresh recompile of their .ts
 // sources, and every artifact must still HAVE a source (orphan walk — deleting
@@ -2412,6 +2436,11 @@ const SECTIONS: readonly PrePushSection[] = [
     run: () => kickoffPortabilitySection(),
   },
   { id: 'synth-bundle', owner: 'maintainer', run: () => synthBundleSection() },
+  {
+    id: 'runtime-bundles',
+    owner: 'maintainer',
+    run: () => runtimeBundlesSection(),
+  },
   {
     id: 'shipped-rule-drift',
     owner: 'maintainer',

@@ -25,7 +25,7 @@ make_consumer() {
 }
 
 # A consumer installed at an explicit --profile depth (TESTs 8-11: the depth-boundary arms).
-# `< /dev/null` closes stdin so the §8 dev-deps / §8b tsx prompts take the declining EOF path
+# `< /dev/null` closes stdin so the §8 dev-deps prompt takes the declining EOF path
 # instead of eating the harness's stdin when the suite is run from a terminal.
 make_consumer_profile() {
   local T prof="$1"
@@ -185,43 +185,52 @@ fi
 rm -rf "$TC3"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TEST 4 — #635: --refresh ships the hooks {"type":"module"} marker
-# A consumer that predates the marker (or whose marker was lost) must regain
-# packages/core/hooks/package.json on --refresh — else the refreshed multi-file
-# pre-push.ts loads as CJS and dies with ERR_REQUIRE_CYCLE_MODULE on Node ≥22.
-# Paired-negative: WITHOUT --refresh the deleted marker stays absent (non-vacuous).
+# TEST 4 — --refresh ships the prebuilt pre-push hook and REPORTS the old .ts closure
+# The consumer's pre-push hook is packages/core/hooks/pre-push.bundle.mjs (since 2026-09-28;
+# before that pre-push.ts + its import graph + a hooks/package.json type:module marker, #635).
+# (pos)    a consumer whose bundle is missing regains it on --refresh, byte-identical;
+# (orphan) a pre-2026-09-28 pre-push.ts is named in an ORPHAN report and left in place — the
+#          installer never deletes consumer-tree files;
+# (neg)    WITHOUT --refresh the deleted bundle stays absent (non-vacuous).
 # ══════════════════════════════════════════════════════════════════════════════
 TC4=$(make_consumer)
-MARKER_DST="$TC4/packages/core/hooks/package.json"
-MARKER_SRC="$REPO_ROOT/packages/core/templates/shared/hooks-package.json"
+BUNDLE_DST="$TC4/packages/core/hooks/pre-push.bundle.mjs"
+BUNDLE_SRC="$REPO_ROOT/packages/core/hooks/pre-push.bundle.mjs"
+STALE_TS="$TC4/packages/core/hooks/pre-push.ts"
 
-# Simulate the pre-fix state: a consumer that has no type:module marker.
-rm -f "$MARKER_DST"
+# Simulate a consumer from a prior installer version: no bundle, a stale .ts hook.
+rm -f "$BUNDLE_DST"
+printf '// stale pre-push.ts from a prior installer version\n' > "$STALE_TS"
 
 # Run --refresh (non-dry-run so it actually writes)
-( cd "$TC4" && bash "$REPO_ROOT/install.sh" --refresh ) >/dev/null 2>&1
+REFRESH4_OUT=$( cd "$TC4" && bash "$REPO_ROOT/install.sh" --refresh 2>&1 )
 
-# (pos) marker now exists and equals the shipped source (not a stub)
-if [ -f "$MARKER_DST" ]; then
-  ok "gh-635 pos: hooks/package.json exists after --refresh (marker re-shipped)"
+if [ -f "$BUNDLE_DST" ] && cmp -s "$BUNDLE_DST" "$BUNDLE_SRC"; then
+  ok "hook-bundle pos: pre-push.bundle.mjs re-shipped by --refresh, identical to the framework bundle"
 else
-  bad "gh-635 pos: hooks/package.json still ABSENT after --refresh (#635 not fixed)"
+  bad "hook-bundle pos: pre-push.bundle.mjs missing or not the framework bundle after --refresh"
 fi
-if [ -f "$MARKER_DST" ] && [ "$(cat "$MARKER_DST")" = "$(cat "$MARKER_SRC")" ]; then
-  ok "gh-635 pos: refreshed marker content equals shipped hooks-package.json (type:module, not a stub)"
+if printf '%s\n' "$REFRESH4_OUT" | grep -q 'ORPHAN: the pre-push hook now ships as packages/core/hooks/pre-push.bundle.mjs' \
+  && printf '%s\n' "$REFRESH4_OUT" | grep -qE '^ +packages/core/hooks/pre-push\.ts$'; then
+  ok "hook-bundle orphan: --refresh names the stale packages/core/hooks/pre-push.ts"
 else
-  bad "gh-635 pos: refreshed marker does NOT match shipped source"
+  bad "hook-bundle orphan: --refresh did not report the stale pre-push.ts"
+fi
+if [ -f "$STALE_TS" ]; then
+  ok "hook-bundle orphan: the stale pre-push.ts is left in place (report, never delete)"
+else
+  bad "hook-bundle orphan: --refresh DELETED a consumer-tree file"
 fi
 
-# neg (LOAD-BEARING): delete the marker, do NOT refresh → it stays absent (non-vacuous).
+# neg (LOAD-BEARING): delete the bundle, do NOT refresh → it stays absent (non-vacuous).
 TC4_NEG=$(make_consumer)
-MARKER_NEG="$TC4_NEG/packages/core/hooks/package.json"
-rm -f "$MARKER_NEG"
+BUNDLE_NEG="$TC4_NEG/packages/core/hooks/pre-push.bundle.mjs"
+rm -f "$BUNDLE_NEG"
 # Do NOT run --refresh
-if [ ! -f "$MARKER_NEG" ]; then
-  ok "gh-635 neg: without --refresh, deleted marker stays absent (assertion is non-vacuous)"
+if [ ! -f "$BUNDLE_NEG" ]; then
+  ok "hook-bundle neg: without --refresh, the deleted bundle stays absent (assertion is non-vacuous)"
 else
-  bad "gh-635 neg: marker reappeared without --refresh → test was vacuous"
+  bad "hook-bundle neg: bundle reappeared without --refresh → test was vacuous"
 fi
 
 rm -rf "$TC4" "$TC4_NEG"
@@ -232,7 +241,7 @@ rm -rf "$TC4" "$TC4_NEG"
 # #837 (fences-fire files: key + TS parser) can regain those fixes only via a
 # non-destructive path if do_refresh() re-copies the scripts. copy_safe skips-if-
 # exists, so a plain --full never updates them on a brownfield consumer →
-# check:fences-fire / check:shields-up false-RED forever. Same class as TEST 4
+# check:fences-fire / check:shields-up false-RED forever. Same class as the old TEST 4
 # (#635) and #735. Includes run-generated-rule-mutation.sh (the issue's "Consider":
 # the consumer-shipped mutation surface, also --full-delivered but refresh-omitted).
 # Paired-negative: WITHOUT --refresh each planted stale marker persists (non-vacuous).
