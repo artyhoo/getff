@@ -339,7 +339,9 @@ cmd_install() {
     echo "close-merged-sweep: $ROOT has no $BASE_REF — pass --repo-root <the clone>" >&2
     return 2
   fi
-  if ! git -C "$ROOT" show "$BASE_REF:$HARVEST_REL" 2>/dev/null | grep -q "'close-merged'"; then
+  # `grep -q` would exit on the first match and SIGPIPE `git show`, which pipefail reads as failure
+  # on any harvest.ts larger than a pipe buffer (the real one is 66 KB) — so read it all.
+  if ! git -C "$ROOT" show "$BASE_REF:$HARVEST_REL" 2>/dev/null | grep "'close-merged'" >/dev/null; then
     echo "close-merged-sweep: $BASE_REF:$HARVEST_REL in $ROOT has no --close-merged mode (needs PR #1862) — git fetch origin staging" >&2
     return 2
   fi

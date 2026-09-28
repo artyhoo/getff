@@ -229,7 +229,13 @@ rc=$?
 grep -q 'ERROR cannot extract' "$LOG" || fail "no-staging: wrong or missing diagnosis"
 notified "no-staging"
 mv "$TMP/origin.gone" "$TMP/origin.git"
-echo "'close-merged': { type: 'boolean' }, // v4" >"$SEED/packages/runtime-bridge/src/cli/harvest.ts"
+# v4 has the real file's shape: the flag early, then far more than a pipe buffer (the real
+# harvest.ts is 66 KB with the flag at line 253). `git show | grep -q` under pipefail SIGPIPEs on
+# exactly this and read as "no --close-merged" — the operator's second `install` hit it live.
+{
+  echo "'close-merged': { type: 'boolean' }, // v4"
+  head -c 1000000 /dev/zero | tr '\0' '\n' | sed 's|^|// pad|'
+} >"$SEED/packages/runtime-bridge/src/cli/harvest.ts"
 g -C "$SEED" commit -qam v4 && g -C "$SEED" push -q "$TMP/origin.git" main:staging
 g -C "$CLONE" fetch -q origin staging
 
