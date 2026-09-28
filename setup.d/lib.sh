@@ -2756,7 +2756,9 @@ eslint_flat_config() {
 }
 
 # eslint_flat_configs_under <dir> — the config ESLint loads in each directory at or under <dir> that
-# has one (eslint_flat_config), NUL-terminated, once per directory, node_modules pruned. The
+# has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, .git, and
+# .claude/worktrees — Claude Code's checked-out copies of the repo, not packages of it (the prune list
+# of check-rule-globs.sh, less its */packages/core, which would cut a workspace of that name). The
 # per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
 # package's own eslint.config.js is found as the root one is (they used to look for
 # eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
@@ -2769,7 +2771,8 @@ eslint_flat_configs_under() {
     seen="$seen$d|"
     n=$(eslint_flat_config "$d")
     [ -z "$n" ] || printf '%s\0' "$d/$n"
-  done < <(find "$1" -name node_modules -prune -o \( "${names[@]:1}" \) -print0 2>/dev/null)
+  done < <(find "$1" \( -name node_modules -o -name .git -o -path '*/.claude/worktrees' \) -prune \
+             -o \( "${names[@]:1}" \) -print0 2>/dev/null)
   return 0
 }
 

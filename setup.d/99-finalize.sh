@@ -87,27 +87,32 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
       note_not_wired "getff's rules in $_root_eslint (your own config) — synth-and-wire exited $_sw_rc (output above)"
     fi
   fi
-  # A config that sets getff's custom rules itself (R2, R7 or R8) with no RULE_GLOBS block, where the
-  # install has no boundary globs to add: scripts/check-rule-globs.sh reads it as it does (the same
-  # grep) and fails on it for want of RULE_GLOBS.boundary — its globs are not getff's to verify —
-  # unless 60-ci recorded R2 N/A for a declarative-validation layout. With boundary globs, the wirer
-  # adds RULE_GLOBS or names why not; without, this names it. The install used to stay silent while
+  # scripts/check-rule-globs.sh reads a root config the consumer owns this way (the same greps): one
+  # that mentions RULE_GLOBS must have a RULE_GLOBS.boundary array (extract_key), and one that does not
+  # passes only if it names none of getff's custom rules (R2, R7, R8) — else it fails every push, unless
+  # 60-ci recorded R2 N/A for a declarative-validation layout. With boundary globs, the wirer adds
+  # RULE_GLOBS or names why not; without, this names the state. The install used to stay silent while
   # every push failed (cold-review F11).
   case "$_root_eslint" in
     eslint.config.js | eslint.config.mjs)
-      if [ "$DRY_RUN" != "--dry-run" ] && [ -z "${_r2_own_globs:-}" ] \
-         && ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null \
-         && grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null \
+      _f11_cfg="$PROJECT_ROOT/$_root_eslint"
+      _f11_what=""
+      if grep -q 'RULE_GLOBS' "$_f11_cfg" 2>/dev/null; then
+        grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' "$_f11_cfg" || _f11_what="it mentions RULE_GLOBS with no boundary array"
+      elif grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$_f11_cfg" 2>/dev/null; then
+        _f11_ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$_f11_cfg" \
+          | sort -u | sed 's|^|rules-as-tests/|' | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
+        _f11_what="it sets $_f11_ids itself with no RULE_GLOBS block"
+      fi
+      if [ -n "$_f11_what" ] && [ "$DRY_RUN" != "--dry-run" ] && [ -z "${_r2_own_globs:-}" ] \
          && ! { [ "${_r2_verdict:-}" = no-boundary-confident ] \
                 && grep -qF '<!-- aif:r2-na:begin -->' "$PROJECT_ROOT/.ai-factory/tool-decisions.md" 2>/dev/null; }; then
-        _f11_ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$PROJECT_ROOT/$_root_eslint" \
-          | sort -u | sed 's|^|rules-as-tests/|' | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
         if [ "${_r2_verdict:-}" = boundary-present ]; then
-          _f11_why="the ${STACK:-ts-server} preset ships no R2, so the install has no RULE_GLOBS to add"
+          _f11_why="the ${STACK:-ts-server} preset ships no R2, so the install has no RULE_GLOBS.boundary to add"
         else
-          _f11_why="the install found no HTTP boundary code to scope R2 to, so it adds no RULE_GLOBS"
+          _f11_why="the install found no HTTP boundary code to scope R2 to, so it adds no RULE_GLOBS.boundary"
         fi
-        note_not_wired "RULE_GLOBS in $_root_eslint (your own config) — it sets $_f11_ids itself with no RULE_GLOBS block, and $_f11_why; scripts/check-rule-globs.sh fails on this config for want of RULE_GLOBS.boundary"
+        note_not_wired "RULE_GLOBS in $_root_eslint (your own config) — $_f11_what, and $_f11_why; scripts/check-rule-globs.sh fails on this config for want of RULE_GLOBS.boundary"
       fi ;;
   esac
   # The self-verify's «fences fire» claim (D1 below) is about this root config: when getff's rules
@@ -397,6 +402,26 @@ if [ "$DRY_RUN" != "--dry-run" ] \
       fi
     fi
   fi
+fi
+
+# A workspace's own ESLint config that this install added nothing to is named, not passed over in
+# silence: 40-configs places no preset beside it, and the passes above add to it only what applies
+# there (the live-research rules of this install's stack, R2 for HTTP boundary code under it; with a
+# root config, Layer 2 alone). An eslint.config.cjs/.ts is named where it is found
+# (note_eslint_config_not_esm), and a config a line already names is not named twice.
+if [ "$DRY_RUN" != "--dry-run" ]; then
+  while IFS=$'\t' read -r _ow_dir _; do
+    [ -n "$_ow_dir" ] || continue
+    _ow_cfg=$(eslint_flat_config "$PROJECT_ROOT/$_ow_dir")
+    case "$_ow_cfg" in eslint.config.js | eslint.config.mjs) : ;; *) continue ;; esac
+    getff_delivered "$PROJECT_ROOT/$_ow_dir/$_ow_cfg" && continue
+    grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_ow_dir/$_ow_cfg" 2>/dev/null && continue
+    _ow_named=0
+    for _n in ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}; do
+      case "$_n" in *"$_ow_dir/$_ow_cfg"*) _ow_named=1 ;; esac
+    done
+    [ "$_ow_named" = 1 ] || note_not_wired "eslint: getff's rules are not in the ESLint config of $PROJECT_ROOT/$_ow_dir — your $_ow_cfg configures ESLint there, so getff placed no config of its own beside it, and this install added none of its rules to yours"
+  done < <(_detect_stacks_per_workspace "$PROJECT_ROOT")
 fi
 
 # ─── cih-s3 V2: runtime-discipline arming WARN (consumer-side, deps-free) ───

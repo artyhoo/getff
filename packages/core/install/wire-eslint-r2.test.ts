@@ -751,6 +751,12 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     expect(r.modified).not.toContain(R2_RULE_ID);
     expect(r.modified).toContain(`{ ignores: ['eslint-rules-local/**', 'packages/core/**'] }`);
     expect(r.notes?.join(' ')).toMatch(/RULE_GLOBS/);
+    // A package config: the gate reads no RULE_GLOBS of it, so the note makes no claim about the gate.
+    expect(r.notes?.join(' ')).not.toMatch(/check-rule-globs/);
+    // The root config: the gate wants RULE_GLOBS.boundary there and fails without it — the note says so.
+    const root = await wireOwnConfig(src, { ignores: IGNORES, boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH, gateReadsRuleGlobs: true });
+    expect(root.notes?.join(' ')).toMatch(/scripts\/check-rule-globs\.sh fails on this config/);
+    for (const n of root.notes ?? []) expect(n.length).toBeLessThanOrEqual(300);
   });
 
   it.skipIf(!TS_MORPH_AVAILABLE)('a global rules-as-tests registration → the R2 element does not register the plugin again', async () => {
@@ -897,14 +903,16 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     `];`,
     ``,
   ].join('\n');
+  // The root config: the gate reads its RULE_GLOBS (gateReadsRuleGlobs).
+  const ROOT = { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH, gateReadsRuleGlobs: true };
   it.skipIf(!TS_MORPH_AVAILABLE)('R2 already set to error, no RULE_GLOBS block → RULE_GLOBS and the scoped R2 element are added (F11)', async () => {
-    const r = await wireOwnConfig(R2_BY_HAND, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+    const r = await wireOwnConfig(R2_BY_HAND, ROOT);
     expect(r.status).toBe('wired');
     expect(onlyInserts(R2_BY_HAND, r.modified)).toBe(true);
     expect(gateBoundary(r.modified)).toEqual(BOUNDARY);
     expect(r.modified).toMatch(/\{ files: RULE_GLOBS\.boundary, rules: \{ 'rules-as-tests\/no-unsafe-zod-parse': 'error' \} \}/);
     expect(r.notes ?? []).toEqual([]);
-    const again = await wireOwnConfig(r.modified, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+    const again = await wireOwnConfig(r.modified, ROOT);
     expect(again.status).toBe('already-wired');
   });
 
@@ -913,8 +921,11 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     const hidden = `const base = [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'off' } }];\nexport default [...base];\n`;
     // 'error', then 'off' further down: ESLint's last setting wins, and getff's element would outrank it.
     const twice = R2_BY_HAND.replace(`];`, `  { files: ['legacy/**'], rules: { 'rules-as-tests/no-unsafe-zod-parse': 'off' } },\n];`);
-    for (const src of [warn, hidden, twice]) {
-      const r = await wireOwnConfig(src, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+    // 'error' for some files only: a RULE_GLOBS.boundary element at 'error' would reach the files the consumer left out.
+    const scoped = R2_BY_HAND.replace(`{ plugins:`, `{ files: ['src/api/**'], plugins:`);
+    const excepted = R2_BY_HAND.replace(`{ plugins:`, `{ ignores: ['src/routes/legacy/**'], plugins:`);
+    for (const src of [warn, hidden, twice, scoped, excepted]) {
+      const r = await wireOwnConfig(src, ROOT);
       expect(r.modified).toBe(src);
       expect(r.status).toBe('already-wired');
       const note = (r.notes ?? []).join('\n');
@@ -923,7 +934,16 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
       // The hyphen form: the colon form «check:globs» is the CI-orphan WARN's (r2-glob-reach per-gate accuracy).
       expect(note).toMatch(/check-rule-globs\.sh/);
       expect(note).not.toMatch(/by hand|manually/i);
+      // printNotWired keeps 300 characters of a root note.
+      for (const n of r.notes ?? []) expect(n.length).toBeLessThanOrEqual(300);
     }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('a per-package config (the gate reads no RULE_GLOBS of it) with R2 at error for every file → nothing added, no note', async () => {
+    const r = await wireOwnConfig(R2_BY_HAND, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('already-wired');
+    expect(r.modified).toBe(R2_BY_HAND);
+    expect(r.notes ?? []).toEqual([]);
   });
 });
 
@@ -1078,25 +1098,28 @@ describe('wireR2IntoOwnConfig — R2 in a per-package config the consumer owns (
     ``,
   ].join('\n');
 
-  it.skipIf(!TS_MORPH_AVAILABLE)('R2 already set to error, no RULE_GLOBS → RULE_GLOBS added by insertions, not «already enforced» (F11)', async () => {
+  // check-rule-globs.sh reads no package config's RULE_GLOBS: a package config that sets R2 wires it for
+  // the gate by naming it (classify_config_r2), so R2 at 'error' for every file is enforced as it stands.
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 already set to error for every file, no RULE_GLOBS → «already enforced», byte-identical (F11)', async () => {
     await inPkg(HAND, async (cfg, root) => {
       const out = (await wireR2IntoOwnConfig({ configPath: cfg, cwd: root, boundaryGlobs: BOUNDARY, runProbe: probeOk })).join('\n');
-      const after = readFileSync(cfg, 'utf8');
-      expect(onlyInserts(HAND, after)).toBe(true);
-      expect(gateBoundary(after)).toEqual(BOUNDARY);
-      expect(out).toMatch(/✓ R2 wired into /);
-      expect(out).not.toMatch(/R2 already enforced|not wired/);
+      expect(readFileSync(cfg, 'utf8')).toBe(HAND);
+      expect(out).toMatch(/R2 already enforced/);
+      expect(out).not.toMatch(/not wired/);
     });
   });
 
-  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to warn, no RULE_GLOBS → untouched, one not-wired line naming RULE_GLOBS (F11)', async () => {
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to warn, or for some files only → untouched, one not-wired line, no claim about the gate (F11)', async () => {
     const warn = HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
-    await inPkg(warn, async (cfg, root) => {
-      const out = (await wireR2IntoOwnConfig({ configPath: cfg, cwd: root, boundaryGlobs: BOUNDARY, runProbe: probeOk })).join('\n');
-      expect(readFileSync(cfg, 'utf8')).toBe(warn);
-      expect(out).toMatch(/^ {2}· not wired: R2 \(rules-as-tests\/no-unsafe-zod-parse\) in .* — .*RULE_GLOBS/m);
-      expect(out).not.toMatch(/R2 already enforced|manually|by hand/i);
-    });
+    const scoped = HAND.replace(`{ plugins:`, `{ files: ['src/api/**'], plugins:`);
+    for (const src of [warn, scoped]) {
+      await inPkg(src, async (cfg, root) => {
+        const out = (await wireR2IntoOwnConfig({ configPath: cfg, cwd: root, boundaryGlobs: BOUNDARY, runProbe: probeOk })).join('\n');
+        expect(readFileSync(cfg, 'utf8')).toBe(src);
+        expect(out).toMatch(/^ {2}· not wired: R2 \(rules-as-tests\/no-unsafe-zod-parse\) in .* — .*does not change a setting of yours/m);
+        expect(out).not.toMatch(/check-rule-globs|R2 already enforced|manually|by hand/i);
+      });
+    }
   });
 
   it.skipIf(!TS_MORPH_AVAILABLE)('the lint probe proves the wiring broke ESLint → the original is restored, one not-wired line', async () => {

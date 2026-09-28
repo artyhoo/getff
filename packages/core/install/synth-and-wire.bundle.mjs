@@ -8873,7 +8873,7 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync7 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync7, realpathSync } from "node:fs";
 import { dirname as dirname7, resolve as resolve6 } from "node:path";
 import process3 from "node:process";
 
@@ -10307,6 +10307,28 @@ function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   }
   return false;
 }
+function ruleSetForSomeFilesOnly(elements, SyntaxKind, ruleName) {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    const names = (el.getProperties?.() ?? []).map((p) => {
+      try {
+        return normPropName(p.getName?.());
+      } catch {
+        return "";
+      }
+    });
+    if (!names.some((n) => n === "files" || n === "ignores" || n === "basePath")) continue;
+    const rules = el.getProperty?.("rules")?.getInitializer?.();
+    if (!rules?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const rp of rules.getProperties?.() ?? []) {
+      try {
+        if (normPropName(rp.getName?.()) === ruleName) return true;
+      } catch {
+      }
+    }
+  }
+  return false;
+}
 function exprEqual(a, b) {
   const norm = (s) => s.replace(/['"`]/g, '"').replace(/\s+/g, "");
   return norm(a) === norm(b);
@@ -10653,11 +10675,13 @@ async function wireOwnConfig(source, opts = {}) {
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : void 0;
     };
     const r2Mentions = source.split(`'${R2_RULE_ID}'`).length + source.split(`"${R2_RULE_ID}"`).length - 2;
-    const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
+    const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration("RULE_GLOBS")) {
       const arr = arrOf();
       if (!arr) {
-        notes.push("R2 not wired: the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it");
+        notes.push(
+          "R2 \u2014 the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh fails on this config without RULE_GLOBS.boundary" : "")
+        );
       } else {
         const have = new Set(stringElements(arr, SyntaxKind));
         missingGlobs = boundary.filter((g) => !have.has(g));
@@ -10665,9 +10689,9 @@ async function wireOwnConfig(source, opts = {}) {
       }
     } else if (r2Present && r2Setting !== "same") {
       notes.push(
-        `RULE_GLOBS for R2 \u2014 the config sets ${R2_RULE_ID} itself, not to 'error' or where getff cannot read it, and has no RULE_GLOBS block; getff does not change a setting of yours, so it adds none, and scripts/check-rule-globs.sh fails on this config for want of RULE_GLOBS.boundary`
+        opts.gateReadsRuleGlobs ? `RULE_GLOBS for R2 \u2014 the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them` : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds nothing for R2`
       );
-    } else {
+    } else if (!r2Present || opts.gateReadsRuleGlobs) {
       ruleGlobsBlock = [
         "// Added by getff: where its R2 rule looks for an unguarded zod .parse() \u2014 the HTTP boundary code the",
         "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.",
@@ -11343,7 +11367,8 @@ async function wireIntoOwnConfig(a) {
     else if (r.status !== "already-wired") notWired.push(`the stack's rules-as-tests rules \u2014 ${reasonOf(r)}`);
     notWired.push(...r.notes ?? []);
   }
-  const own = await wireOwnConfig(text, { ignores: a.ignores, boundaryGlobs: a.boundaryGlobs, customRulesImportPath });
+  const gateReadsRuleGlobs = realpathSync(dirname7(resolve6(configPath))) === realpathSync(process3.cwd());
+  const own = await wireOwnConfig(text, { ignores: a.ignores, boundaryGlobs: a.boundaryGlobs, customRulesImportPath, gateReadsRuleGlobs });
   if (own.status === "wired") text = own.modified;
   else if (own.status !== "already-wired") notWired.push(`getff's ignores and R2 \u2014 ${reasonOf(own)}`);
   notWired.push(...own.notes ?? []);

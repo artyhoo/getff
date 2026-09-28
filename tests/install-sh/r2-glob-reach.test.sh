@@ -529,12 +529,40 @@ else
     && ok "F11 R7: the not-wired summary names RULE_GLOBS for a config that sets R7 alone (the gate is red on it)" \
     || bad "F11 R7: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T19.log" | tr '\n' '|'))"
 
-  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
-    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" | grep -iE 'by hand|manually' | head -1)"
+  # error for some files only + boundary: a RULE_GLOBS.boundary element at 'error' would reach the files the
+  # consumer's own files: leaves out — the setting stays as it is, and the summary names RULE_GLOBS.
+  T20=$(f11_project error boundary)
+  perl -0pi -e "s/\{\n  plugins:/{\n  files: ['src\/api\/**'],\n  plugins:/" "$T20/eslint.config.mjs"
+  grep -q "files: \['src/api/\*\*'\]," "$T20/eslint.config.mjs" || bad "F11 scoped: the fixture has no files: on the consumer's R2 element"
+  f11_install "$T20" "$T20.log"
+  ! grep -q 'RULE_GLOBS' "$T20/eslint.config.mjs" \
+    && ok "F11 scoped: no RULE_GLOBS element widens the consumer's R2 past its own files:" \
+    || bad "F11 scoped: getff added RULE_GLOBS over R2 the consumer set for some files only"
+  f11_not_wired "$T20.log" | grep 'eslint.config.mjs' | grep -q 'RULE_GLOBS' \
+    && ok "F11 scoped: the not-wired summary names RULE_GLOBS for eslint.config.mjs" \
+    || bad "F11 scoped: the gate fails on this config while the not-wired summary says nothing (summary: $(f11_not_wired "$T20.log" | tr '\n' '|'))"
+
+  # A RULE_GLOBS of the consumer's with no boundary array, no custom rule, no boundary code: the gate reads
+  # RULE_GLOBS.boundary wherever RULE_GLOBS appears and fails — the summary names it (cold-review, after #1868).
+  T21=$(f11_project error none)
+  cat > "$T21/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = { appCode: ['**/*.ts'] };
+
+export default [{ files: RULE_GLOBS.appCode, rules: { 'no-console': 'error' } }];
+JS
+  f11_install "$T21" "$T21.log"
+  OUT21=$(f11_gate "$T21"); RC21=$?
+  [ "$RC21" = "1" ] || bad "F11 no-boundary-array: check:globs exited $RC21 — the arm below assumes the gate is red here"
+  f11_not_wired "$T21.log" | grep 'eslint.config.mjs' | grep -q 'RULE_GLOBS' \
+    && ok "F11 no-boundary-array: the not-wired summary names RULE_GLOBS for eslint.config.mjs (the gate is red on it)" \
+    || bad "F11 no-boundary-array: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T21.log" | tr '\n' '|'))"
+
+  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
+    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" | grep -iE 'by hand|manually' | head -1)"
   else
     ok "F11: no install output asks for a manual ESLint edit"
   fi
-  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log"
+  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

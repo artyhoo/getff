@@ -173,13 +173,18 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
     && echo "OK a file whose original this run already kept gets no second copy" \
     || echo "BAD second pass: snapshot='$snap' kept='$kept' copies=$n"
   # eslint_flat_configs_under: in each directory, the config ESLint loads there (eslint_flat_config),
-  # once per directory, node_modules left out.
-  mkdir -p "$u/tree/a" "$u/tree/b/c" "$u/tree/node_modules/x"
+  # once per directory; node_modules, .git and the repo copies under .claude/worktrees left out — a
+  # workspace named packages/core kept (the gate prunes that path for getff's vendored copy only).
+  mkdir -p "$u/tree/a" "$u/tree/b/c" "$u/tree/node_modules/x" "$u/tree/.git/x" "$u/tree/.claude/worktrees/w/apps/a" \
+    "$u/tree/packages/core"
   : > "$u/tree/eslint.config.mjs"; : > "$u/tree/a/eslint.config.mjs"; : > "$u/tree/a/eslint.config.js"
   : > "$u/tree/b/c/eslint.config.cjs"; : > "$u/tree/node_modules/x/eslint.config.mjs"
+  : > "$u/tree/.git/x/eslint.config.mjs"; : > "$u/tree/.claude/worktrees/w/eslint.config.mjs"
+  : > "$u/tree/.claude/worktrees/w/apps/a/eslint.config.mjs"; : > "$u/tree/packages/core/eslint.config.mjs"
   got=$(eslint_flat_configs_under "$u/tree" | tr '\0' '\n' | sed "s#^$u/tree/##" | sort | tr '\n' ' ')
-  [ "$got" = "a/eslint.config.js b/c/eslint.config.cjs eslint.config.mjs " ] \
-    && echo "OK eslint_flat_configs_under lists the config ESLint loads in each directory, once, node_modules pruned" \
+  [ "$got" = "a/eslint.config.js b/c/eslint.config.cjs eslint.config.mjs packages/core/eslint.config.mjs " ] \
+    && [ "$(eslint_flat_configs_under "$u/tree/packages/core" | tr '\0' '\n')" = "$u/tree/packages/core/eslint.config.mjs" ] \
+    && echo "OK eslint_flat_configs_under lists the config ESLint loads in each directory, once, node_modules/.git/worktree copies pruned" \
     || echo "BAD eslint_flat_configs_under: '$got'"
   # A config getff cannot add to is named once, however many steps reach it.
   NOT_WIRED=()
@@ -546,6 +551,11 @@ only_insertions "$WORK/pkg.before" "$F/apps/api/eslint.config.mjs" \
 cmp -s "$WORK/pkg.before" "$F/apps/lib/eslint.config.mjs" && [ ! -e "$F/.ai-factory/before-getff/apps/lib" ] \
   && ok "F: the library workspace apps/lib (no HTTP code) keeps its config byte-identical" \
   || bad "F: R2 was added to apps/lib/eslint.config.mjs, a workspace with no HTTP boundary code"
+# Nothing of getff reaches apps/lib — 40-configs placed no preset beside its own config, and no pass added
+# to it: the summary names it once, not a silence (cold-review, after #1868).
+_n=$(not_wired "$WORK/f.log" | grep -c 'apps/lib.*eslint\.config\.mjs')
+[ "$_n" -eq 1 ] && ok "F: the not-wired summary names apps/lib/eslint.config.mjs once" \
+  || bad "F: the not-wired summary names apps/lib/eslint.config.mjs $_n time(s), expected 1 (summary: $(not_wired "$WORK/f.log" | tr '\n' '|' | head -c 400))"
 asks_by_hand "$WORK/f.log" && bad "F: the install asks for a manual ESLint edit" || ok "F: nothing asks for a manual ESLint edit"
 not_wired "$WORK/f.log" | grep -q 'apps/api/eslint.config.mjs' \
   && bad "F: the not-wired summary still lists apps/api/eslint.config.mjs" || ok "F: the workspace config is not reported as unwired"
