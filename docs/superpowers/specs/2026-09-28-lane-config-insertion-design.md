@@ -7,7 +7,7 @@
 > the NOT-wired summary mechanism — `setup.d/lib.sh` `note_not_wired`; the ESLint insertion —
 > PR #1868 (`packages/core/install/wire-eslint-r2.ts`).
 
-Status: DRAFT r2 (after §2 cold review round 1, §13) · Date: 2026-09-28 · Base: staging
+Status: DRAFT r3 (round-1 findings absorbed, D10 answered; §2 round 2 pending) · Date: 2026-09-28 · Base: staging
 `47ff45bdaa1` + open PR #1890 (head `1a8f4e5949f`).
 
 ## 1. Context
@@ -47,6 +47,7 @@ Two facts the round-1 review established shape the whole design:
 | P3 | Never overwrite a consumer-owned file: add by insertions only and keep the original, as #1868 did for ESLint. | Q4.7 floor |
 | P4 | Design first through `/arch`; no code before an approved spec. | this session's task |
 | P5 | `pyproject.toml` `[tool.ruff.*]` may receive insertions; `Cargo.toml` may not. | this session, fork D3 answered |
+| P6 | `--refresh` may remove what getff itself inserted when a getff tag names it and the template dropped it; consumer bytes are never removed. | this session, fork D10 answered |
 
 ## 3. Invariants every insertion obeys
 
@@ -270,8 +271,10 @@ from #1890.
   - Elements getff inserted into a consumer's single-line array are named on that line:
     `# getff: +"TID251","TID253"` (after an existing comment as `; getff: +…`).
   - The forbidigo default preserved under D4 is tagged `# getff: kept-default`.
-- **`--refresh`** inserts items the current template adds. Removal of items the template dropped
-  is decision D10 (§8, operator fork). A `kept-default` item is never removed by refresh. An item
+- **`--refresh`** inserts items the current template adds and removes items the template dropped
+  **only where a tag names them as getff's** (decision D10): a whole `# getff` line is removed; in a
+  single-line array only the elements the `# getff: +…` tag lists are removed, together with the
+  tag — no consumer byte is touched. A `kept-default` item is never removed by refresh. An item
   whose tag the consumer deleted, or a formatter stripped, is the consumer's (the safe direction).
 - **Original.** `.ai-factory/before-getff/<path>.<sha8>`, kept only when a write changed the file.
 
@@ -298,7 +301,7 @@ from #1890.
 | D7 | Squatted CI name | answered | stays NOT-wired | — (no alternative name is ever written) |
 | D8 | sgconfig widening | answered | add S2 single-line flow list; S3 only if the no-`ruleDirs` probe shows it is valid config | ast-grep rejects a file the S2 inserter produced |
 | D9 | CI path | answered (extended r2) | every getff CI gate reads a getff-owned config (§4.0); insertion is local-only | any getff CI gate reads a consumer config after §4.0 ships (ast-grep only if the §4.0 probe forces the recorded exception) |
-| D10 | Refresh removal of getff-tagged items | operator-fork | pending | — |
+| D10 | Refresh removal of getff-tagged items | operator-fork → answered | remove only what a getff tag names; consumer bytes never (same property adapter-jig C4 gives the ast-grep scan dir) | a refresh removes an element no tag named, or leaves a tagged element the template dropped |
 | D11 | Config lookup names | answered (r2) | target the file each tool loads, per its own lookup order (probe-derived); also fixes the go/cargo fresh-cell detection | a consumer file the tool loads is missed and getff's copy lands beside it |
 
 ## 9. Testing seams
@@ -378,4 +381,4 @@ config lookup order and v1.55.2 behaviour on a v2 file (§4.6); ruff's resolutio
 | BU-F10 sgconfig tag changes fingerprints; untagged legacy entries | MINOR | FIXED — getff paths self-attesting, no tag |
 | BU-F11 `--show-settings` proof under-specified; version skew | MINOR | FIXED — §5 getff-attributable comparison; §4.1 unreadable-before = NOT-wired |
 | BU-E1 lane detects only one config name per tool | ESCALATED | ACCEPTED — in scope as D11 (same lookup list the targets need) |
-| TD-ESC refresh removal rewrites lines holding consumer bytes vs P3 | ESCALATED | ESCALATED — D10, to the operator |
+| TD-ESC refresh removal rewrites lines holding consumer bytes vs P3 | ESCALATED | ESCALATED → answered by the operator as D10 (remove tag-named getff items only); P6 added |
