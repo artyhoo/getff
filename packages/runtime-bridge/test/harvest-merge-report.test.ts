@@ -25,6 +25,7 @@ import {
   ghMergedPrLookup,
   lastAgentActivityAt,
   ghPrMergeProbe,
+  ghRead,
   parseArgs,
   reportMergeToAif,
   taskMarker,
@@ -439,6 +440,31 @@ describe('closeMergedTasks — the sweep needs no PR url', () => {
     expect(entries[0].report?.merged).toBe(false);
   });
 
+  it('one task whose close throws is recorded; the sweep still closes the others', async () => {
+    const aif = stubAif([
+      { id: 'bad', title: 'x', status: 'done' },
+      { id: 'good', title: 'x', status: 'done' },
+    ]);
+    const probe: PrMergeProbe = async (url) => {
+      if (url.endsWith('/7')) throw new Error('gh: probe exploded');
+      return MERGED(url);
+    };
+    const entries = await closeMergedTasks(
+      BASE,
+      { projectId: 'p1' },
+      async (t) => [pr(t.id === 'bad' ? 'https://gh/x/y/pull/7' : 'https://gh/x/y/pull/8')],
+      probe,
+    );
+
+    expect(entries.find((e) => e.taskId === 'bad')).toMatchObject({
+      prUrl: 'https://gh/x/y/pull/7',
+      error: 'gh: probe exploded',
+    });
+    expect(entries.find((e) => e.taskId === 'bad')?.report).toBeUndefined();
+    expect(aif.status('bad')).toBe('done');
+    expect(aif.status('good')).toBe('verified');
+  });
+
   it('a whole-list sweep without a project scope is refused before any read', async () => {
     const aif = stubAif([{ id: 'z', title: 'x', status: 'done' }]);
 
@@ -502,6 +528,60 @@ describe('the gh-backed probe and lookup', () => {
       );
     }
     expect(execMock.mock.calls[1][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc']));
+  });
+});
+
+describe('ghRead — a gh READ survives a flaky tunnel', () => {
+  const netErr = (msg: string) => Object.assign(new Error(`Command failed: gh pr list\n${msg}`), { stderr: msg });
+  afterEach(() => {
+    delete process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'];
+  });
+
+  it('repeats a TLS handshake timeout and returns the first good answer', () => {
+    process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] = '0';
+    execMock
+      .mockImplementationOnce(() => {
+        throw netErr('Post "https://api.github.com/graphql": net/http: TLS handshake timeout');
+      })
+      .mockImplementationOnce(() => {
+        throw netErr('read tcp 1.2.3.4:5->6.7.8.9:443: i/o timeout');
+      })
+      .mockReturnValueOnce('ok\n');
+
+    expect(ghRead(['pr', 'list'])).toBe('ok\n');
+    expect(execMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up after 4 attempts and throws the last network error', () => {
+    process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] = '0';
+    execMock.mockImplementation(() => {
+      throw netErr('net/http: TLS handshake timeout');
+    });
+
+    expect(() => ghRead(['pr', 'list'])).toThrow(/TLS handshake timeout/);
+    expect(execMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('a non-network failure (bad auth, unknown PR) is thrown at once, never repeated', () => {
+    process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] = '0';
+    execMock.mockImplementation(() => {
+      throw netErr('GraphQL: Could not resolve to a PullRequest with the number of 99999.');
+    });
+
+    expect(() => ghRead(['pr', 'view', '99999'])).toThrow(/PullRequest/);
+    expect(execMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('the sweep lookup goes through it: one flaky call no longer fails the task', async () => {
+    process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] = '0';
+    const task = { id: 'abc-123', title: 't', status: 'done' };
+    execMock
+      .mockImplementationOnce(() => {
+        throw netErr('net/http: TLS handshake timeout');
+      })
+      .mockReturnValueOnce(JSON.stringify([{ url: 'u-marker', headRefName: 'x', body: taskMarker('abc-123') }]));
+
+    await expect(ghMergedPrLookup('artyhoo/getff')(task)).resolves.toHaveLength(1);
   });
 });
 

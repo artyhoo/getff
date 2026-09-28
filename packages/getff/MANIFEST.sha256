@@ -5,6 +5,7 @@ eb124d77f5093cf3e78536abd5aa7ea93e2d99b63e9f28c99d31026abf6cd470  .claude/hooks/
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
+eb02bc137301120499702afda868b7fe033b395b615783b285cf521452dc2c84  .claude/hooks/close-aif-task-on-merge.sh
 e8e8fff21e8352986ac05cd7898a16ab77acb3c407950e2d27965915013117a1  .claude/hooks/deps-hash-check.sh
 5cb9988fc8a34a92881a24bddd60656a66a993552036394fd088dc730ebabfeb  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
@@ -55,7 +56,7 @@ ab4ab7372692dd0c43cba9b03e0761dc5df0c4676d9b3181403df46da3094084  .claude/skills
 2315eea3c5ffb31b7d119c25a6dcd12ca43b6f6b48eaeb7287d46538ecfb352b  .claude/skills/docs-author/references/gold/understand.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
-def1e8756b038dd7700a297aa12935a7934d8bd06395f58645549c656b973a77  .claude/skills/harvest/SKILL.md
+f8f6f94033bbb896014a09ab5f62ce59d94955ce138c0062a85f67bd5423c292  .claude/skills/harvest/SKILL.md
 bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
 14d99a821b04c84a78195a09adbd461cfcfd2485a50ea9d5a1e9d9e332c0e33a  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
@@ -457,6 +458,7 @@ a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/
 ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/hooks/checks/skill-core-edit-scope.ts
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 9590356cdcb215bdfa724f360eba5aa0fa58f43634735232074fc6ade16524fc  packages/core/hooks/classify-work.test.ts
+082058e36aa37527ab093ae96b36ce6387b7197f341072008b17a48c3af80aba  packages/core/hooks/close-aif-task-on-merge.test.ts
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
@@ -470,7 +472,7 @@ c6f0aead746db537908c242df60ada31f27a031bad7e02294624131ba5320a69  packages/core/
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
 97dd72e2d0259e1d92567fff67775d880b44f65c95d1c1c7241e048319f5a086  packages/core/hooks/glossary-counters.test.ts
-d41a62ac4b22ecc2e827100bc7aa7479827b899837b4668cdb4dcb63045b1c75  packages/core/hooks/harness-config-drift.test.ts
+4c6442dc4e6bd8a5215297ba12ccf2f04126533a41a62125fb5bcedac3a5e47a  packages/core/hooks/harness-config-drift.test.ts
 d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/hooks/hook-emit-prelude.test.ts
 7350acfe0ef00b35578d8ba305aaee1c3be428a1ac3ca4f6fb5b4d8d257cd433  packages/core/hooks/host-verify.test.ts
 53acc72a47a55e8a8266bb1a2aadac94c3149e2a29044d86fcabd3407828b978  packages/core/hooks/inject-handoff-on-compact.test.ts
@@ -521,10 +523,10 @@ cef9bb80a941be81171c58ace5610ba487bd6fe5e005b242a7e0820770305ece  packages/core/
 49bddb652d90d370582d213238fee0cda31cb8906b4f3441357154a3eb225023  packages/core/install/rule-bootstrap-cli.test.ts
 11ee9d5903c627542bcd9daea0333b9f4e1205dd97e13e7e246952a8caf72852  packages/core/install/rule-bootstrap-cli.ts
 3d8622dfd4eb2205ec6a9107922399b366bdf3afbaecd58edb17ed4fdf80969a  packages/core/install/rule-bootstrap-practice.test.ts
-ad744c598073045d7005d6299c48dc60aa4cbe55a6a3f58449ae94ab02e723f5  packages/core/install/synth-and-wire.bundle.mjs
+4eb6b62f1a87b5ebb412758410378360e91ea43c086459f60e5a90c20b8035e9  packages/core/install/synth-and-wire.bundle.mjs
 1602613ba5a82060ca36bf74657ce47a4c2c1f1af643f229eb8c52ea6eedc474  packages/core/install/synth-and-wire.ts
-09a6321964927b8eb33061ccaba370f2379363b57e3c175556b5a7b05bf106fe  packages/core/install/wire-eslint-r2.test.ts
-0463d102941cd1de3376dbff7cef2e4e2e863c487125ba146a59946a63a853f2  packages/core/install/wire-eslint-r2.ts
+9e46ff7e310bb45202f0d4c0c468eb089184827fcef40de22c9f3ca7ca02b76d  packages/core/install/wire-eslint-r2.test.ts
+e94e8afca7132611386fada02b820b0c363870176a2f6ca7ce54e98a629531d4  packages/core/install/wire-eslint-r2.ts
 cbb5f0f9d3fd011ebe33d074ca7230a3c68cc14da5f886b80a8f2d245a154d56  packages/core/install/wire-live-snippet.test.ts
 7cc2ec189fd0cb1cccd27307df3119d5c5e1a1c3dd0a036f3af545f9cbc6b767  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
@@ -594,10 +596,10 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 b9f70aea495bdc476f6975ece96c5e7ed66d4d3aff605e94ca38df97aaf27eee  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 7f868d2e905abaf82d6fa42946e515d15aab92a929d24a2527923dec14c16783  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-a3867e5ed7ab7a79ba7e934e080dcf52bff37dbb61352712dd4549009584798c  packages/core/principles/36-ci-needs-completeness.test.ts
+114b280f3d5462ed3bf70753ad88399f11a4b31428dc6e59d85662fca93c28b5  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 f16dee603792884519230c0f66c087964dc2f3e93f2a6c0858cdcd87af6f6c03  packages/core/principles/37-required-context-completeness.test.ts
-2fc09c22ec2e349a68b06a79097c8d4c781b36d48a070671280b54328b101c6a  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+d01ce44b4f8ca572c21980279f92c1d191c0844dcd19a57725abe0146182ad2f  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 59a4f92072a43d46a987df42c9f6c0ce08541cf44ecfb1230a1619e110fc41c8  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
@@ -927,7 +929,7 @@ f6ee56b9f109066a6acdbbf00363fd421f4e61df485a1da5476d29a610102ef7  packages/core/
 fe0ddd619372c3f7676cef7a1a9a27ef503590d81bd75b623a13a4b3cf7c7a8f  packages/core/validator/index.ts
 a4e19bdeb5ada011ee6563537ab12cba020e2b940d7cbbad2c5a260fd6feba60  packages/core/validator/internal-validators.ts
 ce481c941e1e535a1ec1b3c82b79ad4b80bdb1426090f03884665387405a1de8  packages/core/validator/preset-plugin-resolver.test.ts
-f8e5002adbb68398b43cadb4e5e039c90f1958be9be4639eac2868609dd5c884  packages/core/validator/preset-plugin-resolver.ts
+e9eac0ad5715c1669a3dd0dfb20983061082f447862f067d3a45c7110ac37401  packages/core/validator/preset-plugin-resolver.ts
 457d52b0924d67e3ba3317edbeb6b6d245059cac0b46eb57d5852149da732e4f  packages/core/validator/r14-r20-declarative-migration.test.ts
 9a77e411e3888d0b2e89d2d1666ea176213512f0737bf57f658a91a02ee24599  packages/core/validator/snapshot.adversarial.test.ts
 3fe8713535201a6bbdb6139b7b8eda3921fecb0023f3feb2c83b9e9285b7de78  packages/core/validator/snapshot.test.ts
@@ -937,7 +939,7 @@ fb462012e49e50ef3ed30b1d063c45e3901aa8dfa0f9d05ae1a6fae5a60d62dc  packages/core/
 24031fb4246f2caf734d116266bb2339a63423a605463ef2957607976cfe3043  packages/core/validator/validate.test.ts
 a48342eab3a1a811e7d7280c9a867c2c35cea7752860f9f63767f248b760c577  packages/core/validator/validate.ts
 2149b57c0fa6e2c4f523b2a4e85c9cdcef60ea721570d3a9fe71e4884e08efca  packages/core/vitest.config.ts
-6d653b2d0daf9e5af7049d939a4c1a6f614ca7d031532401a88a654f4f86b5e2  packages/core/vitest.host-env.ts
+1bd2e7cdd8cd32e15d2744a6d06fece23fce9cdeb61776fcf04fec1380b909fa  packages/core/vitest.host-env.ts
 2a3c4165d22e9184f79e741de8270c8e4ccb74199430d04f429bb4af92c6e055  packages/core/vitest.setup.ts
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  packages/preset-next-15-canonical/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  packages/preset-next-15-canonical/RULES.react-next.md
@@ -1007,7 +1009,7 @@ baa2a748f512efdf44dd6ef9bb2e3a525522c265c24acfa8cf785cbc3c40a891  packages/runti
 8faed2d35bd152d5d797f00c76c327b57b1fd86412ebe23a9754e7b67992d8ed  packages/runtime-bridge/src/cli/cliEntry.ts
 5b7ed21744412842d284c8cc608b47d4186a6644223964b183720a96e5078128  packages/runtime-bridge/src/cli/dispatch.ts
 390255ce8a72b50943b30d3ce3f769e70833f0b1f8a1997c548b71ac10b0d6e4  packages/runtime-bridge/src/cli/ensure-parallel.ts
-f7dc7a80e1c09a87a1e017f34c7ae84a23d970c2f71686ec5d6d93b8a319e7dc  packages/runtime-bridge/src/cli/harvest.ts
+63bae55524e657b91c0404df9ba9e95b0e1801e81db27f176793f035534bb39d  packages/runtime-bridge/src/cli/harvest.ts
 5aa1424032f590af9ceac7cc09fc565b2798dcc342fd97dd7466a5cdc99934c1  packages/runtime-bridge/src/cli/openQuestion.ts
 e7f6f8bdf51e95cf197c7e39874e0121301e688c1c2b3b1f4bd6bc7e9a140345  packages/runtime-bridge/src/cli/park.ts
 8b68b448114102051ba2d3b5ae37d66d0fb82b0359e2e993f5412ed5afcc8880  packages/runtime-bridge/src/cli/questions.ts
@@ -1036,7 +1038,7 @@ f0c6046e80e13e90f9d33cf3983b1428f43a3063765f439b979a5edb31803950  packages/runti
 872d09bc07df5b5d2c1f353e6baa54d26db64bc817f498954ec74abc528e5a36  packages/runtime-bridge/test/dispatch-import-no-sideeffect.test.ts
 ee4a8f31d270bb57e80f650e770f98b1200daf99eb58622cd993c23d476ee434  packages/runtime-bridge/test/dispatch-spec-invalid.test.ts
 2c9f0e6e2a2f291b16022c126299bacb8385295cbe67892d6a0b2bf69d615609  packages/runtime-bridge/test/harvest-cli.test.ts
-5d078624d5d07327cb7a24516d29fabf81af65646c4c2ed27c1b078badb73bfb  packages/runtime-bridge/test/harvest-merge-report.test.ts
+117888a0ec1ed4da226ab5eace5a662272e4e589c9608f5271aa9e71c8807062  packages/runtime-bridge/test/harvest-merge-report.test.ts
 df9eac7e09c2d4d0b4f8d4a443436e603fd2af9b0a3d2644a8053178aeebc72d  packages/runtime-bridge/test/harvest.test.ts
 963100cc509c966cb0125b857e4575052d86a0d883a8a1d5a2ece21fb6606b6d  packages/runtime-bridge/test/runtime-bridge.test.ts
 e3645c38b9279fa2136caf5691633cfbb22998b89695d210c071978a497e1671  packages/runtime-bridge/test/vendor-hook-stderr.test.ts
@@ -1054,7 +1056,7 @@ c2d1e0679642813b7e06c65b8acb6da9bd3edf0f32af0eeb5957b1fca2bd2558  packages/runti
 03f8e2a979bde25b9b8918718536ebfc8cefa1bd930023b3ea3ddeff90c82baf  packages/runtime-bridge/vendor/src/cli/cliEntry.ts
 bd644a566089ca6f42603046019c428c19bbe8eb9ab11d665ef040d1f1ff8484  packages/runtime-bridge/vendor/src/cli/dispatch.ts
 9e371e2864da2c2fc16ee571008f1a2836b807db550a83f395b6cf9d33448646  packages/runtime-bridge/vendor/src/cli/ensure-parallel.ts
-8aa3ae09de0310330e63147f82fad01db5a83503440826e893087027cd9b6ea8  packages/runtime-bridge/vendor/src/cli/harvest.ts
+15bba00cff7fe70b14a8417fc02d52aad503bdec63df2b6f58617729baf58b5d  packages/runtime-bridge/vendor/src/cli/harvest.ts
 5aa1424032f590af9ceac7cc09fc565b2798dcc342fd97dd7466a5cdc99934c1  packages/runtime-bridge/vendor/src/cli/openQuestion.ts
 aae65a4256c31c86cdd9613964e0b8afa894bdbd8440d50a57098e7a7afbba15  packages/runtime-bridge/vendor/src/cli/park.ts
 3e4e2f39c84e3484c95c1dd919f37ebaa3cec37542bf2dc1ee5c0adc7adeaf0f  packages/runtime-bridge/vendor/src/cli/questions.ts
@@ -1092,7 +1094,7 @@ cf0e559478446ae063b418810d359ba4698b4dfbc25829c684e3576e8394d60d  setup.d/aif-ha
 9abd0e565ac4b59c84a568789e5a4c966696b0f1765388a9efe3111aec0b0f8b  setup.d/bridge-guided.sh
 99cae53e95cd2f5f520d722012a7ca8e2b7d09eb0de7c9238fa44908ec64231d  setup.d/companions.manifest
 edddc4d21d1807c15b9f8880d84c55317d5292a184cf87d039f27367000b7bf8  setup.d/engine.sh
-33a0cb29a1f9115ccd2b3b93fcc007c4af77c1dc9eafe311a96927126abb26b8  setup.d/lib.sh
+29f24c13c1a9d39cb66bf3dfdb366fa23da7811ab61744c8e6656d8dd20367b3  setup.d/lib.sh
 d1750fe467f732d5a18c0f78785390713fc114938c1a2c8890f9e3f90dc42a88  skills/getff/SKILL.md
 f1b528b72daa2ef3f5670279db24110b14d86faa610f1f16a99a8f9431f30d1e  skills/getff/references/ai-traps.md
 8289dd7a1fc2e3c5330e3376c4af1add7574af69abb16f5e15226c33d8557ca2  skills/getff/references/checks-map.md

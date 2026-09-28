@@ -2903,7 +2903,7 @@ copy_unless_foreign() {
     own=$(legacy_eslint_config "$(dirname "$dst")")
     # Reason only: carrying the eslintrc rules over is a migration getff does not run — the
     # official @eslint/migrate-config writes eslint.config.mjs (the file getff just placed), needs
-    # the network and new packages, and drops any logic in a JS eslintrc (prior-art-evaluations.md#288).
+    # the network and new packages, and drops any logic in a JS eslintrc (prior-art-evaluations.md#289).
     [ -z "$own" ] || note_not_wired "eslint: your $own in $where is not read by ESLint 9 (flat config only), so its rules are not in the lint — ${dst##*/} drives lint there, and getff does not migrate an eslintrc"
   fi
 }
