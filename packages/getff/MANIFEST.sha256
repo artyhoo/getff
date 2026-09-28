@@ -526,7 +526,7 @@ cef9bb80a941be81171c58ace5610ba487bd6fe5e005b242a7e0820770305ece  packages/core/
 4eb6b62f1a87b5ebb412758410378360e91ea43c086459f60e5a90c20b8035e9  packages/core/install/synth-and-wire.bundle.mjs
 1602613ba5a82060ca36bf74657ce47a4c2c1f1af643f229eb8c52ea6eedc474  packages/core/install/synth-and-wire.ts
 9e46ff7e310bb45202f0d4c0c468eb089184827fcef40de22c9f3ca7ca02b76d  packages/core/install/wire-eslint-r2.test.ts
-e94e8afca7132611386fada02b820b0c363870176a2f6ca7ce54e98a629531d4  packages/core/install/wire-eslint-r2.ts
+326016338a9c89114ec1e951ce0543c581d4adcf0e84bb785fad806f14841cef  packages/core/install/wire-eslint-r2.ts
 cbb5f0f9d3fd011ebe33d074ca7230a3c68cc14da5f886b80a8f2d245a154d56  packages/core/install/wire-live-snippet.test.ts
 7cc2ec189fd0cb1cccd27307df3119d5c5e1a1c3dd0a036f3af545f9cbc6b767  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
@@ -1088,7 +1088,7 @@ a98b3d3dca489619951ddb338b8af1142e09a512cef753a7fb0d2cb55852efbc  setup.d/47-go.
 6f86fd196747973d819b7c342c7317fe541a851fab869ab40fc8679e84b6d8f3  setup.d/70-deps.sh
 9d99dfac5bcf2799c3fcba71de3353fb28d3887dbfdd960ac39d67fc8acc889a  setup.d/80-rule-bootstrap.sh
 a3956e4f8bc52422cc131d54e4b3e8d06fc14fd8aeadedc97655df5197d16a81  setup.d/85-worktree-scripts.sh
-829f7be6dd126277a6580123d5a0e70083db94d632e5476ab1bd16596c8150c7  setup.d/99-finalize.sh
+09d609200ec31b40716bbc383e6a29256dea904b999cf752e419ad2b91adba0f  setup.d/99-finalize.sh
 74655433d82a7a1774662e249eb9a046b890880d32421fe18190cc674be21ffc  setup.d/LAYERS.md
 cf0e559478446ae063b418810d359ba4698b4dfbc25829c684e3576e8394d60d  setup.d/aif-handoff-guided-install.sh
 9abd0e565ac4b59c84a568789e5a4c966696b0f1765388a9efe3111aec0b0f8b  setup.d/bridge-guided.sh

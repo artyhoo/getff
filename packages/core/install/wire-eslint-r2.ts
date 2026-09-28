@@ -1284,6 +1284,8 @@ async function main(): Promise<void> {
       '                  to --boundary, in its prettier style; anything not added is a «  · not wired:',
       '                  <what> — <why>» line, never a manual step',
       '  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config',
+      '  --report-not-wired  The installer runs this mode (Q4.7): whatever is not added is a',
+      '                  «  · not wired: <what> — <why>» line instead of a snippet to paste',
     ].join('\n'));
     process.exit(0);
   }
@@ -1297,14 +1299,17 @@ async function main(): Promise<void> {
   const dryRun = argv.includes('--dry-run');
   const diffOnly = argv.includes('--diff');
   const ownConfig = argv.includes('--own-config');
+  // The installer never hands back a snippet to paste (Q4.7): with --report-not-wired every path that
+  // leaves R2 out prints what is missing and why. A person running the wirer by hand keeps the snippet.
+  const reportNotWired = ownConfig || argv.includes('--report-not-wired');
+  const leftOut = (why: string, snippet: string): string =>
+    reportNotWired ? `  · not wired: R2 (${R2_RULE_ID}) in ${relative(process.cwd(), configPath)} — ${why}` : snippet;
   const boundaryGlobs = argv.flatMap((v, i) => (v === '--boundary' && i + 1 < argv.length ? [argv[i + 1]] : []));
 
   // Belt-and-suspenders degrade: bash probe should have checked this already
   if (!existsSync('node_modules/ts-morph/package.json')) {
     // A consumer's own config gets no «add it by hand» advice: what did not land is named, with why.
-    console.log(ownConfig
-      ? `  · not wired: R2 (${R2_RULE_ID}) in ${relative(process.cwd(), configPath)} — its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules`
-      : generateDegradedSnippet(configPath));
+    console.log(leftOut('its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules', generateDegradedSnippet(configPath)));
     process.exit(0);
   }
 
@@ -1329,17 +1334,17 @@ async function main(): Promise<void> {
       break;
 
     case 'degrade':
-      console.log(generateDegradedSnippet(configPath));
+      console.log(leftOut('its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules', generateDegradedSnippet(configPath)));
       process.exit(0);
       break;
 
     case 'unrecognised':
-      console.log([
+      console.log(leftOut('the config exports a shape the wirer does not recognise, so it is left as it is', [
         `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
         `  Add manually (adjust the relative path to your eslint-rules-local/):`,
         `    import customRules from './eslint-rules-local/index.mjs';`,
         `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
-      ].join('\n'));
+      ].join('\n')));
       process.exit(0);
       break;
 
@@ -1355,8 +1360,8 @@ async function main(): Promise<void> {
       let apply = assumeYes;
       if (!apply) {
         if (!process.stdin.isTTY) {
-          // Non-interactive without --yes → degrade to manual snippet
-          console.log(generateDegradedSnippet(configPath));
+          // Non-interactive without --yes → the snippet by hand, or a not-wired line from the installer
+          console.log(leftOut('the install ran without --full and without a terminal to confirm the change, so the config is left as it is', generateDegradedSnippet(configPath)));
           process.exit(0);
         }
         const { createInterface } = await import('node:readline');
@@ -1369,7 +1374,7 @@ async function main(): Promise<void> {
       }
 
       if (!apply) {
-        console.log(generateDegradedSnippet(configPath));
+        console.log(leftOut('the change was declined at the prompt, so the config is left as it is', generateDegradedSnippet(configPath)));
         process.exit(0);
       }
 
@@ -1380,7 +1385,7 @@ async function main(): Promise<void> {
       } else if (wired.status === 'already-wired') {
         console.log(`· R2 already enforced in ${configPath}`);
       } else {
-        console.log(generateDegradedSnippet(configPath));
+        console.log(leftOut(`${wired.degradeReason ?? 'ESLint could not use the config with R2 added'}; the config is as it was`, generateDegradedSnippet(configPath)));
       }
       process.exit(0);
     }
