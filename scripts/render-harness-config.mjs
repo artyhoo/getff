@@ -414,6 +414,13 @@ const PLUGIN_INCOMPATIBLE = {
   // the skip loudly rather than dropping the hook silently.
   'inject-handoff-on-compact':
     'operator-axis only — consumers receive no residue writer (parent F6), so there is no handoff file to inject, and the plugin SessionStart slot is occupied by the session-start bootstrap (spec D20)',
+  // close-aif-task-on-merge (operator directive 2026-09-28): OPERATOR-AXIS ONLY. It closes
+  // tasks in the operator's own aif-handoff stack (reachable only through `aif-tunnel on`) via
+  // packages/runtime-bridge/src/cli/harvest.ts; a marketplace consumer has neither, and the hook
+  // has no plugin/hooks/ twin. Listed here so registering it in the SSOT cannot leak a
+  // run-hook.cmd entry pointing at a script the plugin payload does not carry.
+  'close-aif-task-on-merge':
+    'operator-axis only — closes tasks in the operator\'s own aif-handoff stack through the framework\'s harvest.ts; a plugin consumer has neither, and the hook has no plugin twin',
 };
 
 /** plugin backend: plugin/hooks/hooks.json — the CC-plugin convention (hooks/hooks.json, bare

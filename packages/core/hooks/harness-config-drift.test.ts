@@ -58,7 +58,11 @@ const MODEL_HOOK_NAME_RE = /\/(?:\.claude\/hooks|scripts)\/([A-Za-z0-9_-]+)\.sh/
 const PLUGIN_HOOK_NAME_RE = /run-hook\.cmd"\s+([A-Za-z0-9_-]+)/;
 /** Maintainer-env-only model hooks that emitPlugin drops (PLUGIN_INCOMPATIBLE) — mirrored here as
  *  the documented exception to the model→plugin coverage rule; grow if that renderer list grows. */
-const PLUGIN_INCOMPATIBLE_NAMES = new Set(['link-coordination', 'inject-handoff-on-compact']);
+const PLUGIN_INCOMPATIBLE_NAMES = new Set([
+  'link-coordination',
+  'inject-handoff-on-compact',
+  'close-aif-task-on-merge',
+]);
 
 /** Run the generator against `root`; return exit code + combined stdout/stderr. */
 function gen(root: string, ...args: string[]): { status: number; out: string } {

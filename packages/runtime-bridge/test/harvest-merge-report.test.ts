@@ -13,7 +13,9 @@
  *   merged + `done`               → comment naming the PR, THEN approve_done → `verified`.
  *   merged + already `verified`   → no-op: no comment, no event.
  *   merged + `review`             → complete_review (participants mode on) → approve_done.
- *   merged + legacy-mode `review` → comment only; the review exit does not exist there.
+ *   merged + legacy-mode manual-review park (human-owned, manualReviewRequired)
+ *                                 → complete_review (the legacy exit) → approve_done.
+ *   merged + legacy-mode `review`, not a park → comment only; never a handoff hint.
  *   merged + other status         → comment only; never forced.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -42,6 +44,7 @@ interface StubTask {
   status: string;
   branchName?: string;
   executionOwner?: 'ai' | 'human';
+  manualReviewRequired?: boolean;
   agentActivityLog?: string;
 }
 
@@ -62,7 +65,13 @@ interface Call {
  */
 function stubAif(
   tasks: StubTask[],
-  opts: { participantsMode?: boolean | 'missing' | 401; concurrentApprove?: boolean; commentsShape?: unknown } = {},
+  opts: {
+    participantsMode?: boolean | 'missing' | 401;
+    concurrentApprove?: boolean;
+    commentsShape?: unknown;
+    /** false = an aif build from before the legacy manual-review exit (artyhoo/aif-handoff#1). */
+    legacyManualReviewExit?: boolean;
+  } = {},
 ) {
   const store = new Map(tasks.map((t) => [t.id, { branchName: HEAD, ...t }]));
   const comments = new Map<string, { message: string }[]>();
@@ -106,9 +115,14 @@ function stubAif(
       return json(task);
     }
     if (event === 'complete_review') {
-      if (task.status !== 'review' || opts.participantsMode === false) {
+      // Legacy mode serves complete_review only for a manual-review park (human-owned,
+      // manualReviewRequired) — and only on an aif build that carries that exit.
+      const legacyParkExit =
+        opts.legacyManualReviewExit !== false && task.executionOwner === 'human' && task.manualReviewRequired === true;
+      if (task.status !== 'review' || (opts.participantsMode === false && !legacyParkExit)) {
         return json({ error: 'Unknown task event' }, 409);
       }
+      task.manualReviewRequired = false;
       task.status = 'done';
       return json(task);
     }
@@ -311,7 +325,20 @@ describe('reportMergeToAif — the review leg', () => {
     expect(report).toMatchObject({ closedReview: true, approved: true, finalStatus: 'verified' });
   });
 
-  it('legacy mode: comments, skips the event, and names the two real levers', async () => {
+  it('legacy mode, manual-review park: complete_review through the legacy exit, then approve_done → verified', async () => {
+    const aif = stubAif(
+      [{ id: 't-pk', title: 'x', status: 'review', executionOwner: 'human', manualReviewRequired: true }],
+      { participantsMode: false },
+    );
+
+    const report = await reportMergeToAif(BASE, 't-pk', 'https://gh/x/y/pull/1843', MERGED);
+
+    expect(aif.writes().map((c) => c.body?.event ?? 'comment')).toEqual(['comment', 'complete_review', 'approve_done']);
+    expect(report).toMatchObject({ closedReview: true, approved: true, finalStatus: 'verified' });
+    expect(aif.status('t-pk')).toBe('verified');
+  });
+
+  it('legacy mode, ai-owned review (auto review in flight): comment only, and no handoff advice', async () => {
     const aif = stubAif([{ id: 't-lg', title: 'x', status: 'review', executionOwner: 'ai' }], {
       participantsMode: false,
     });
@@ -319,9 +346,37 @@ describe('reportMergeToAif — the review leg', () => {
     const report = await reportMergeToAif(BASE, 't-lg', 'https://gh/x/y/pull/1680', MERGED);
 
     expect(aif.writes().map((c) => c.path)).toEqual(['/tasks/t-lg/comments']);
-    expect(report).toMatchObject({ commented: true, closedReview: false, approved: false });
-    expect(report.skippedReason).toMatch(/participants mode/i);
-    expect(report.skippedReason).toMatch(/handoff/i);
+    expect(report).toMatchObject({ commented: true, closedReview: false, approved: false, finalStatus: 'review' });
+    expect(report.skippedReason).toMatch(/auto review/i);
+    expect(report.skippedReason).not.toMatch(/handoff/i);
+  });
+
+  it('legacy mode, human-owned review that is not parked: comment only, and no handoff advice', async () => {
+    const aif = stubAif(
+      [{ id: 't-hu', title: 'x', status: 'review', executionOwner: 'human', manualReviewRequired: false }],
+      { participantsMode: false },
+    );
+
+    const report = await reportMergeToAif(BASE, 't-hu', 'https://gh/x/y/pull/1680', MERGED);
+
+    expect(aif.writes().map((c) => c.path)).toEqual(['/tasks/t-hu/comments']);
+    expect(report).toMatchObject({ closedReview: false, approved: false, finalStatus: 'review' });
+    expect(report.skippedReason).toMatch(/manualReviewRequired/);
+    expect(report.skippedReason).not.toMatch(/handoff/i);
+  });
+
+  it('legacy mode, park on an aif build without the exit: fails loudly and names the missing deploy', async () => {
+    const aif = stubAif(
+      [{ id: 't-old', title: 'x', status: 'review', executionOwner: 'human', manualReviewRequired: true }],
+      { participantsMode: false, legacyManualReviewExit: false },
+    );
+
+    const err = await reportMergeToAif(BASE, 't-old', 'https://gh/x/y/pull/1843', MERGED).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/aif-handoff#1/);
+    expect((err as Error).message).not.toMatch(/\/handoff/);
+    expect(aif.status('t-old')).toBe('review');
   });
 
   it('a probe that FAILS is not a skip — it propagates, so the CLI exits non-zero', async () => {
@@ -382,6 +437,31 @@ describe('closeMergedTasks — the sweep needs no PR url', () => {
 
     expect(aif.writes()).toEqual([]);
     expect(entries[0].report?.merged).toBe(false);
+  });
+
+  it('one task whose close throws is recorded; the sweep still closes the others', async () => {
+    const aif = stubAif([
+      { id: 'bad', title: 'x', status: 'done' },
+      { id: 'good', title: 'x', status: 'done' },
+    ]);
+    const probe: PrMergeProbe = async (url) => {
+      if (url.endsWith('/7')) throw new Error('gh: probe exploded');
+      return MERGED(url);
+    };
+    const entries = await closeMergedTasks(
+      BASE,
+      { projectId: 'p1' },
+      async (t) => [pr(t.id === 'bad' ? 'https://gh/x/y/pull/7' : 'https://gh/x/y/pull/8')],
+      probe,
+    );
+
+    expect(entries.find((e) => e.taskId === 'bad')).toMatchObject({
+      prUrl: 'https://gh/x/y/pull/7',
+      error: 'gh: probe exploded',
+    });
+    expect(entries.find((e) => e.taskId === 'bad')?.report).toBeUndefined();
+    expect(aif.status('bad')).toBe('done');
+    expect(aif.status('good')).toBe('verified');
   });
 
   it('a whole-list sweep without a project scope is refused before any read', async () => {

@@ -198,6 +198,31 @@
       "example": null
     },
     {
+      "name": "close-aif-task-on-merge",
+      "kind": "hook",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "PostToolUse(Bash) hook — close the aif task a merged harvest PR names",
+      "source": {
+        "path": ".claude/hooks/close-aif-task-on-merge.sh",
+        "line": 2
+      },
+      "extras": {
+        "event": [
+          "PostToolUse"
+        ],
+        "matcher": [
+          "Bash"
+        ],
+        "delivery": [
+          "@cc-only-rationale"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "deps-hash-check",
       "kind": "hook",
       "shipsTo": {

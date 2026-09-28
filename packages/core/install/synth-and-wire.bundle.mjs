@@ -10121,12 +10121,13 @@ function synthesize(plan) {
 }
 
 // packages/core/install/wire-eslint-r2.ts
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync6, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
 function r2Element(variant, scope) {
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
@@ -10732,12 +10733,18 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
     return modified;
   }
 }
-function synthProbeTarget(configDir) {
-  const p = resolve5(configDir, "__aif_r2_probe__.ts");
-  writeFileSync(p, "export const __aif_probe = 1;\n", "utf8");
-  return p;
+var R2_PROBE_PATHS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"].map((ext) => `__aif_r2_probe__.${ext}`);
+var execFileAsync = promisify(execFile);
+function r2SeverityIn(printed) {
+  try {
+    const cfg = JSON.parse(printed);
+    const entry = cfg?.rules?.[R2_RULE_ID];
+    return Array.isArray(entry) && typeof entry[0] === "number" ? entry[0] : 0;
+  } catch {
+    return 0;
+  }
 }
-async function probeViaEslint(configPath, cwd) {
+async function probeViaEslint(configPath, cwd, scope) {
   let eslintBin;
   try {
     const reqd = createRequire(resolve5(cwd, "package.json"));
@@ -10754,22 +10761,31 @@ async function probeViaEslint(configPath, cwd) {
   } catch {
   }
   const dir = dirname6(resolve5(configPath));
-  const target = synthProbeTarget(dir);
-  try {
-    execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", target], { cwd: dir, stdio: "pipe" });
-    return "ok";
-  } catch (e) {
-    const stderr = String(e.stderr ?? "");
-    if (/could not find plugin/i.test(stderr)) return "could-not-find-plugin";
+  const scoped = (scope?.files ?? []).map(probeScopePath).filter((x) => x !== void 0);
+  const paths = [.../* @__PURE__ */ new Set([...R2_PROBE_PATHS, ...scoped])];
+  const runs = await Promise.all(
+    paths.map(async (path) => {
+      try {
+        const { stdout } = await execFileAsync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", path], {
+          cwd: dir,
+          maxBuffer: 16 * 1024 * 1024
+        });
+        return { resolvedR2: r2SeverityIn(stdout) > 0 };
+      } catch (e) {
+        return { stderr: String(e.stderr ?? "") };
+      }
+    })
+  );
+  const failures = runs.flatMap((r) => "stderr" in r ? [r.stderr] : []);
+  if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return "could-not-find-plugin";
+  if (failures.length > 0) {
     console.error(`  \xB7 R2 probe: unexpected eslint error \u2192 degrading:
-${stderr.slice(0, 400)}`);
+${(failures[0] ?? "").slice(0, 400)}`);
     return "other-error";
-  } finally {
-    try {
-      unlinkSync(target);
-    } catch {
-    }
   }
+  if (runs.some((r) => "resolvedR2" in r && r.resolvedR2)) return "ok";
+  console.error(`  \xB7 R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(", ")} in ${dir} \u2192 degrading`);
+  return "unconfirmed";
 }
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
@@ -10783,14 +10799,14 @@ async function resolveAndWire(args) {
   const bare = await wireConfigSource(original, { variant: "bare", scope });
   if (bare.status !== "wired") return bare;
   writeFileSync(configPath, bare.modified, "utf8");
-  const v1 = await runProbe(configPath, cwd);
+  const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === "ok") return { ...bare, variant: "bare" };
   if (v1 === "could-not-find-plugin") {
     const spec = customRulesImportSpecifier(configPath, cwd);
     const sc = await wireConfigSource(original, { variant: "self-contained", customRulesImportPath: spec, scope });
     if (sc.status === "wired") {
       writeFileSync(configPath, sc.modified, "utf8");
-      const v2 = await runProbe(configPath, cwd);
+      const v2 = await runProbe(configPath, cwd, scope);
       if (v2 === "ok") return { ...sc, variant: "self-contained" };
     }
   }

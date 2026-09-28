@@ -114,9 +114,10 @@ import {
   postJson,
 } from './aifHttp.js';
 import {
+  isManualReviewPark,
+  MERGE_REPORT_PREFIX,
   postComment,
   postEvent,
-  reviewEventUnreachableReason,
 } from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
@@ -804,6 +805,28 @@ export function prMapsToTask(
   return (pr.body ?? '').split('\n').some((line) => line.trim() === marker);
 }
 
+/**
+ * Why a merged task in `review` cannot be closed with participants mode off. Deliberately no
+ * handoff advice: the work is on the base branch, and a handoff to AI only re-runs a capped
+ * review over it.
+ */
+export function mergedReviewUnclosableReason(task: AifTaskFull): string {
+  if (task.executionOwner !== 'human') {
+    return (
+      `task is ai-owned in "review" — the coordinator's auto review is still running on it, and ` +
+      `participants mode is OFF, so no event may cut it short. The work is already merged: re-run ` +
+      `--report-merge once the auto review leaves "review" (approved → done, or parked for a human ` +
+      `→ closable via the legacy manual-review exit).`
+    );
+  }
+  return (
+    `task is human-owned in "review" but not parked for manual review (manualReviewRequired is not ` +
+    `true); with participants mode OFF the legacy dispatcher serves complete_review only for such a ` +
+    `park, so there is no legal exit to close it. The work is already merged; closing it needs ` +
+    `participants mode, or an operator decision.`
+  );
+}
+
 /** A task as the return channel reads it: the REST shape plus the agent's activity log. */
 type TaskWithActivity = AifTaskFull & { agentActivityLog?: string | null };
 
@@ -870,7 +893,7 @@ const CLOSED_STATUS = 'verified';
  *      the earlier merge. Either refusal writes nothing.
  *   3. The comment lands BEFORE any event, so the task carries the evidence even if a
  *      transition is refused — and only once: a comment already naming the PR is not repeated.
- *   4. `review` → `complete_review` (only when participants mode can serve it — see below),
+ *   4. `review` → `complete_review` (participants mode, or a legacy-mode manual-review park — see below),
  *      then `done` → `approve_done` with `commitOnApprove:false` and `deletePlanFile:false`.
  *      The UI's modal defaults `commitOnApprove` to true, which would start aif's
  *      `/aif-commit` flow in the container for work that is already on the base branch.
@@ -960,7 +983,7 @@ export async function reportMergeToAif(
     await postComment(
       baseUrl,
       taskId,
-      `Harvested and merged: ${prUrl} (merged ${mergedAt ?? 'unknown time'}, merge commit ` +
+      `${MERGE_REPORT_PREFIX}${prUrl} (merged ${mergedAt ?? 'unknown time'}, merge commit ` +
         `${mergeCommit ?? 'unknown'}). The deliverable is on the base branch, so this task's work ` +
         `has shipped. Reported and closed automatically by the harvest return channel.`,
     );
@@ -970,22 +993,44 @@ export async function reportMergeToAif(
   let closedReview = false;
   if (task.status === 'review') {
     // With participants mode off, `complete_review` resolves through the legacy dispatcher,
-    // which has no exit from `review` for ANY owner: the API answers 409 "Unknown task event"
-    // (measured on two live parks, 2026-09-09). Only an explicit `false` is skipped — a
-    // FAILING probe propagates, so a close that may have been legal never hides behind a
-    // green exit code (`attention-is-not-a-mechanism.md §2`).
+    // which serves it for exactly one case: a manual-review park (human-owned,
+    // manualReviewRequired — the auto review hit max_iterations; artyhoo/aif-handoff#1).
+    // Every other review task is skipped, and the reason never suggests a handoff: the work is
+    // already merged, so handing it back to AI only re-runs a capped review loop. Only an
+    // explicit `false` counts as "off" — a FAILING probe propagates, so a close that may have
+    // been legal never hides behind a green exit code (`attention-is-not-a-mechanism.md §2`).
     if (!(await getParticipantsModeEnabled(baseUrl))) {
-      return {
-        ...base,
-        commented,
-        closedReview: false,
-        approved: false,
-        finalStatus: task.status,
-        skippedReason: reviewEventUnreachableReason('complete_review'),
-      };
+      if (!isManualReviewPark(task)) {
+        return {
+          ...base,
+          commented,
+          closedReview: false,
+          approved: false,
+          finalStatus: task.status,
+          skippedReason: mergedReviewUnclosableReason(task),
+        };
+      }
+      try {
+        await postEvent(baseUrl, taskId, 'complete_review');
+        closedReview = true;
+      } catch (err) {
+        // Decided by the read-back, not the error text: a park still in `review` means this aif
+        // build predates the legacy exit (or refused it) — a deploy problem, not a skip.
+        const again = (await getTask(baseUrl, taskId)) as TaskWithActivity;
+        if (again.status === 'review') {
+          throw new Error(
+            `complete_review was refused for manual-review park ${taskId} with participants mode off — ` +
+              `this aif deployment lacks the legacy manual-review exit (artyhoo/aif-handoff#1); deploy it ` +
+              `and re-run --report-merge. The merged work needs no further review. Cause: ` +
+              `${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+        // A concurrent run moved it out of `review` first — carry on from what it reads back.
+      }
+    } else {
+      await postEvent(baseUrl, taskId, 'complete_review');
+      closedReview = true;
     }
-    await postEvent(baseUrl, taskId, 'complete_review');
-    closedReview = true;
     task = (await getTask(baseUrl, taskId)) as TaskWithActivity;
   }
 
@@ -1107,6 +1152,11 @@ export interface SweepEntry {
   prUrl?: string;
   report?: MergeReport;
   skippedReason?: string;
+  /**
+   * Set when closing THIS task threw (a refused aif transition, a failed read-back). It is
+   * recorded per task so one un-closable task cannot stop the sweep from closing the others.
+   */
+  error?: string;
 }
 
 /** The statuses a sweep looks at: a harvested task waits at one of these until closed. */
@@ -1119,7 +1169,8 @@ const SWEEP_STATUSES = new Set(['done', 'review']);
  * and every close still passes {@link reportMergeToAif}'s own merge proof. So it is safe to run
  * after any merge, however the PR was opened (harvest.ts, a host-side bundle harvest, pc-hub),
  * and a second run changes nothing. A task with zero or several matching PRs is reported,
- * never guessed at.
+ * never guessed at. A task whose close throws is recorded with its `error`, and the sweep
+ * goes on to the next task.
  */
 export async function closeMergedTasks(
   baseUrl: string,
@@ -1168,13 +1219,27 @@ export async function closeMergedTasks(
       });
       continue;
     }
-    const report = await reportMergeToAif(baseUrl, task.id, prs[0].url, probe);
-    out.push({
-      taskId: task.id,
-      status: task.status,
-      prUrl: prs[0].url,
-      report,
-    });
+    try {
+      const report = await reportMergeToAif(
+        baseUrl,
+        task.id,
+        prs[0].url,
+        probe,
+      );
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        report,
+      });
+    } catch (err) {
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
   return out;
 }
