@@ -291,8 +291,11 @@ have merged after the task's last agent activity (the newest `[<ISO>]` stamp in 
 so an earlier merge never closes a rework round on the same branch; either refusal writes nothing.
 This holds for `--report-merge` too. A whole-list sweep needs `--project` (or
 `RUNTIME_BRIDGE_AIF_PROJECT_ID`) and searches one repo (`--repo`, default the cwd's checkout); zero
-or several matches are reported, never guessed. A `review` task is first moved by `complete_review`,
-which exists only in participants mode.
+or several matches are reported, never guessed. A `review` task is first moved by `complete_review`.
+In participants mode that covers any review task; with it off, only a manual-review park
+(human-owned, `manualReviewRequired` — the auto review hit its iteration cap) has that exit
+(artyhoo/aif-handoff#1). Any other merged `review` task gets a comment and a reason, never a
+handoff hint: the work is merged, so a handoff would only re-run a capped review.
 
 ---
 
