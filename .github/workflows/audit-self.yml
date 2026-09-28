@@ -626,6 +626,11 @@ jobs:
         run: bash tests/plugin/opencode-adapter.test.sh
       - name: Run plugin run-hook test
         run: bash tests/plugin/run-hook.test.sh
+      # run-hook.cmd drops the plugin copy of a hook the project registers itself (same event,
+      # same matcher). This test fires the real hooks on both channels at once, the way Claude
+      # Code does, and counts what reaches the model: one injection per hook, never two.
+      - name: Run plugin project-channel dedup test
+        run: bash tests/plugin/project-channel-dedup.test.sh
       - name: Run plugin twin-emit test
         run: bash tests/plugin/twin-emit.test.sh
       - name: Run plugin warn-subagent-report ZCode arm test
