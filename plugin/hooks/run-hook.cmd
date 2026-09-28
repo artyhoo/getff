@@ -63,6 +63,7 @@ if [ -z "${AIF_HOOK_LANG:-}" ]; then
     if printf '%s' "$_lang_val" | grep -qE '^[a-z]{2}(-[A-Za-z0-9]{2,8})?$'; then
       AIF_HOOK_LANG="$_lang_val"
       export AIF_HOOK_LANG
+      _lang_from_file=1
     fi
   fi
 fi
@@ -74,60 +75,96 @@ fi
 AIF_HOOK_CHANNEL=plugin
 export AIF_HOOK_CHANNEL
 
-# ── Project-channel dedup (Claude Code only) ──────────────────────────────────
+# ── Project-channel dedup — opt-in, Claude Code only ──────────────────────────
 # Claude Code merges plugin hooks with the project's own hooks and runs every matching
 # entry concurrently; it does not deduplicate across the two sources
-# (anthropics/claude-code#76297, closed not-planned). Measured 2026-09-29: in the framework
-# repo 14 registrations fired twice (the bootstrap digest 2x and [output-language] 3x per
-# prompt, the Stop gate blocked twice), and install.sh gives a plugin consumer the same
-# doubling for the 9 hooks it registers.
+# (anthropics/claude-code#76297, closed not-planned). Measured 2026-09-29 in the framework
+# repo, which registers its own hook sources AND has the plugin enabled: 14 registrations
+# fired twice (the bootstrap digest 2x and [output-language] 3x per prompt, the Stop gate
+# blocked twice).
 #
-# Rule: when the project registers THIS hook — .claude/hooks/<name>.sh exists and
-# .claude/settings.json or settings.local.json lists it — for the same event with the same
-# matcher as this plugin entry, the project copy runs and this one exits silently. The project
-# copy wins because the project controls it and refreshes it; the plugin cache can be older.
-# Skipped on ZCode: it does not run .claude/settings.json hooks, so this entry is the only one.
-# Fail-open by construction: no jq, no event in the payload, unparseable settings, or a
-# different matcher → no skip. The worst case is the old duplicate, never a lost hook.
+# The dedup runs only when the project DECLARES it owns these hooks: AIF_HOOK_DEDUP=project in
+# the `env` block of its own .claude/settings.json. The declaration lives in the same file as
+# the project's hook registrations, so a session that did not load that file (--setting-sources
+# without `project`, an Agent SDK host without settingSources "project") has no declaration
+# either, and every plugin copy runs. Inferring "the project copy will run" from files on disk
+# is unsound — those same sessions skip the project hooks while the files are still there — so
+# there is no undeclared mode.
+#
+# Rule: this plugin copy exits silently when the project's settings register THIS hook —
+# .claude/hooks/<name>.sh exists, and a command entry with no `if` and no `async` runs it — for
+# the same event with the same matcher as EVERY plugin entry that dispatches this hook.
+# Kept running in every other case (fail-open, the worst case is the old duplicate):
+#   - ZCode (ZCODE_PROJECT_DIR set): it runs no project hooks, this entry is the only one;
+#   - AIF_HOOK_LANG came from the hook-lang file above: only this wrapper reads that file, so
+#     the project copy would run without the language and the two copies are not equivalent;
+#   - no jq, stdin is a terminal, no event in the payload, unparseable settings, a different
+#     matcher, or a covering script that does not exist.
+# Residual, accepted with the declaration: a managed strictPluginOnlyCustomization policy blocks
+# a project's settings hooks but not its settings env; a project declaring the dedup under such
+# a policy loses these hooks. Consumers whose .claude/hooks copies are vendored by install.sh
+# should not declare it — the vendored copy only changes on --refresh, the plugin copy is newer.
+# POSIX sh only in this block (no arrays): a non-bash caller must still dispatch.
 # Windows: the batch block above calls the script directly and never reaches this block.
 _dd_proj="${CLAUDE_PROJECT_DIR:-}"
-if [ -n "$_dd_proj" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] && [ -f "${SCRIPT_DIR}/hooks.json" ] \
+if [ "${AIF_HOOK_DEDUP:-}" = project ] && [ -n "$_dd_proj" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] \
+   && [ -z "${_lang_from_file:-}" ] && [ ! -t 0 ] && [ -f "${SCRIPT_DIR}/hooks.json" ] \
    && command -v jq >/dev/null 2>&1; then
   # inject-session-bootstrap carries the [output-language] line when it runs on the project
   # channel, so a project that registers it already covers inject-output-language.
   case "$SCRIPT_NAME" in
-    inject-output-language) _dd_names="inject-output-language inject-session-bootstrap" ;;
-    *) _dd_names="$SCRIPT_NAME" ;;
+    inject-output-language) _dd_cands="inject-output-language inject-session-bootstrap" ;;
+    *) _dd_cands="$SCRIPT_NAME" ;;
   esac
-  # Cheap prefilter (no stdin read, no jq): a covering script exists and a settings file names it.
-  _dd_hit=""; _dd_files=()
-  for _dd_s in "$_dd_proj/.claude/settings.json" "$_dd_proj/.claude/settings.local.json"; do
-    [ -f "$_dd_s" ] || continue
-    for _dd_n in $_dd_names; do
-      if [ -f "$_dd_proj/.claude/hooks/$_dd_n.sh" ] && grep -qF ".claude/hooks/$_dd_n.sh" "$_dd_s" 2>/dev/null; then
-        _dd_hit=1
-      fi
+  # Only names whose script exists can cover this hook; jq below matches against these alone.
+  _dd_names=""
+  for _dd_n in $_dd_cands; do
+    [ -f "$_dd_proj/.claude/hooks/$_dd_n.sh" ] && _dd_names="${_dd_names:+$_dd_names }$_dd_n"
+  done
+  # Cheap prefilter (no stdin read, no jq): a settings file names one of those scripts.
+  _dd_hit=""; _dd_f1=""; _dd_f2=""
+  [ -f "$_dd_proj/.claude/settings.json" ] && _dd_f1="$_dd_proj/.claude/settings.json"
+  [ -f "$_dd_proj/.claude/settings.local.json" ] && _dd_f2="$_dd_proj/.claude/settings.local.json"
+  for _dd_n in $_dd_names; do
+    for _dd_s in "$_dd_f1" "$_dd_f2"; do
+      [ -n "$_dd_s" ] && grep -qF ".claude/hooks/$_dd_n.sh" "$_dd_s" 2>/dev/null && _dd_hit=1
     done
-    _dd_files+=("$_dd_s")
   done
   if [ -n "$_dd_hit" ] && _dd_in="$(mktemp "${TMPDIR:-/tmp}/getff-hook-in.XXXXXX" 2>/dev/null)"; then
+    # The buffered payload can hold a prompt or Write contents: never leave it behind.
+    trap 'rm -f "$_dd_in"' EXIT
+    trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
     # The event name is only in the payload: buffer stdin so the script still receives it whole.
-    cat > "$_dd_in"
-    _dd_ev="$(jq -r '.hook_event_name // empty' "$_dd_in" 2>/dev/null || true)"
+    # If the write fails, stdin is already consumed and the buffer is all that is left — hand it
+    # on, but decide nothing from a possibly truncated payload.
+    _dd_ev=""
+    if cat > "$_dd_in"; then
+      _dd_ev="$(jq -r '.hook_event_name // empty' "$_dd_in" 2>/dev/null || true)"
+    fi
     _dd_skip=""
+    # Commands are compared after spelling the project directory one way ($CLAUDE_PROJECT_DIR);
+    # a covering path is then relative or under it, bounded by a quote, a space, or the end.
     if [ -n "$_dd_ev" ] && jq -n -e --arg ev "$_dd_ev" --arg self "$SCRIPT_NAME" --arg names "$_dd_names" \
-         --slurpfile plugin "${SCRIPT_DIR}/hooks.json" '
+         --arg proj "$_dd_proj" --slurpfile plugin "${SCRIPT_DIR}/hooks.json" '
         def matcher: (.matcher // "") | if . == "*" then "" else . end;
-        def matchers($doc; $re): [ $doc.hooks[$ev][]? | select(any(.hooks[]?; (.command // "") | test($re))) | matcher ];
-        matchers($plugin[0]; "run-hook\\.cmd\"? +" + $self + "( |$)") as $mine
+        def norm: split($proj) | join("$CLAUDE_PROJECT_DIR")
+          | split("${CLAUDE_PROJECT_DIR}") | join("$CLAUDE_PROJECT_DIR");
+        def covering: ((.type // "command") == "command") and (has("if") | not) and ((.async // false) | not);
+        [ $plugin[0].hooks[$ev][]?
+          | select(any(.hooks[]?; (.command // "") | test("run-hook\\.cmd\"? +" + $self + "( |$)")))
+          | matcher ] as $mine
         | [ inputs as $doc | ($names | split(" ")[]) as $n
-            | matchers($doc; "(^|[^A-Za-z0-9_.-])\\.claude/hooks/" + $n + "\\.sh($|[^A-Za-z0-9_])")[] ] as $theirs
-        | any($mine[]; . as $m | any($theirs[]; . == $m))
-      ' "${_dd_files[@]}" >/dev/null 2>&1; then
+            | ("(^|[\\s\"\u0027])(\\$CLAUDE_PROJECT_DIR/)?\\.claude/hooks/" + $n + "\\.sh($|[\\s\"\u0027])") as $re
+            | $doc.hooks[$ev][]?
+            | select(any(.hooks[]?; covering and ((.command // "") | norm | test($re))))
+            | matcher ] as $theirs
+        | ($mine | length) > 0 and all($mine[]; . as $m | any($theirs[]; . == $m))
+      ' ${_dd_f1:+"$_dd_f1"} ${_dd_f2:+"$_dd_f2"} >/dev/null 2>&1; then
       _dd_skip=1
     fi
     exec 3<"$_dd_in"
     rm -f "$_dd_in"
+    trap - EXIT HUP INT TERM
     [ -n "$_dd_skip" ] && exit 0
     exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@" <&3 3<&-
   fi
