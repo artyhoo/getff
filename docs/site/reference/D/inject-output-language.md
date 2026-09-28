@@ -13,10 +13,11 @@ sources:
   - docs/site/terms.md
   - plugin/hooks/hooks.json
   - plugin/hooks/inject-output-language
+  - plugin/hooks/run-hook.cmd
 executed:
   - { example: output-language-unset-english-default, stack: repo, date: 2026-09-25, result: silent }
   - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-29, the framework-path paragraph and the inject-session-bootstrap.sh citation are updated for the run-hook.cmd project-channel dedup; the rest of the page was not re-read against its sources; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29, the framework-path paragraph and the inject-session-bootstrap.sh citation are updated for the run-hook.cmd project-channel dedup, which a project opts into with AIF_HOOK_DEDUP=project; the rest of the page was not re-read against its sources; clears at the next refresh of this page
 ---
 
 # inject-output-language hook
@@ -94,8 +95,11 @@ without the framework-internal goal-and-invariants text around it. The framework
 repository actually reaches itself the other way — its bootstrap digest embeds the same
 language line, and this standalone hook reaches consumers through the plugin
 distribution rather than the project settings file. When both are live — the framework
-repository with the plugin enabled — the plugin copy steps aside for the project's own
-digest, so a prompt carries the line once.
+repository with the plugin enabled — each prompt gets the line twice, once from each copy.
+A project that owns its hooks can say so: `"AIF_HOOK_DEDUP": "project"` in the `env` block
+of its own `.claude/settings.json`. The plugin copy then steps aside for the project's
+digest, and a prompt carries the line once. Nothing is inferred without that line, because
+a session can skip the project's settings while its files are still on disk.
 
 ## Evidence
 

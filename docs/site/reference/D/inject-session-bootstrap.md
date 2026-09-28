@@ -15,11 +15,12 @@ sources:
   - docs/site/reference/D.md
   - docs/site/terms.md
   - plugin/hooks/hooks.json
+  - plugin/hooks/run-hook.cmd
   - packages/core/hooks/inject-session-bootstrap.test.ts
 executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-25, result: printed }
   - { example: session-bootstrap-autonomy-opt-in, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-29, the language-line, registration and language-append bullets are updated for the run-hook.cmd project-channel dedup; the Evidence list's other line numbers predate this change and have drifted (the digest assembly is now lines 109-115, the autonomy gate line 162); clears at the next full refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29, the language-line, registration and language-append bullets are updated for the run-hook.cmd project-channel dedup, which a project opts into with AIF_HOOK_DEDUP=project; the Evidence list's other line numbers predate this change and have drifted (the digest assembly is now lines 109-115, the autonomy gate line 162); clears at the next full refresh of this page
 ---
 
 # inject-session-bootstrap hook
@@ -87,8 +88,9 @@ Three details make this more than a heredoc:
   language, the same reminder the standalone
   [inject-output-language](inject-output-language.md) hook delivers is appended to this
   digest — one mechanism on the framework side. The plugin copy of this hook leaves the
-  line out, because the plugin ships inject-output-language beside it; either way a
-  prompt carries the line once.
+  line out, because the plugin ships inject-output-language beside it, so a plugin-only
+  project gets the line once. A project that also registers this hook itself gets it
+  once only after it opts into the dedup described under Evidence.
 - **One more block exists, strictly opt-in.** Run with `AIF_AUTONOMOUS=1` and a fourth
   section appears:
 
@@ -115,8 +117,9 @@ mark those anchor points so the rendered rule index reports the full delivery su
 - `.claude/hooks/inject-session-bootstrap.sh:2` is the header the card's description row
   quotes: `# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context`.
 - Registration: `.claude/settings.json:70` (UserPromptSubmit) and
-  `plugin/hooks/hooks.json:24` both wire it; no matcher is set. When both are live,
-  `plugin/hooks/run-hook.cmd` drops the plugin copy, so the digest arrives once.
+  `plugin/hooks/hooks.json:24` both wire it; no matcher is set. When both are live, the
+  digest arrives twice unless the project declares `"AIF_HOOK_DEDUP": "project"` in its
+  settings `env`; then `plugin/hooks/run-hook.cmd` drops the plugin copy.
 - The harness-portable output helpers are inline, lines 25-28 — `_is_zcode` branching on
   `ZCODE_PROJECT_DIR` and `_emit_ctx` choosing plain stdout or strict-JSON
   `additionalContext`; header lines 10-12 explain why (under ZCode, plain stdout is
