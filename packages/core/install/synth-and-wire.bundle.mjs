@@ -10960,7 +10960,9 @@ async function main() {
       "  --own-config    The config is the consumer's own (Q4.7): add R2 by text insertions only, scoped",
       "                  to --boundary, in its prettier style; anything not added is a \xAB  \xB7 not wired:",
       "                  <what> \u2014 <why>\xBB line, never a manual step",
-      "  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config"
+      "  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config",
+      "  --report-not-wired  The installer runs this mode (Q4.7): whatever is not added is a",
+      "                  \xAB  \xB7 not wired: <what> \u2014 <why>\xBB line instead of a snippet to paste"
     ].join("\n"));
     process2.exit(0);
   }
@@ -10973,9 +10975,11 @@ async function main() {
   const dryRun = argv.includes("--dry-run");
   const diffOnly = argv.includes("--diff");
   const ownConfig = argv.includes("--own-config");
+  const reportNotWired = ownConfig || argv.includes("--report-not-wired");
+  const leftOut = (why, snippet) => reportNotWired ? `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(process2.cwd(), configPath)} \u2014 ${why}` : snippet;
   const boundaryGlobs = argv.flatMap((v, i) => v === "--boundary" && i + 1 < argv.length ? [argv[i + 1]] : []);
   if (!existsSync3("node_modules/ts-morph/package.json")) {
-    console.log(ownConfig ? `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(process2.cwd(), configPath)} \u2014 its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules` : generateDegradedSnippet(configPath));
+    console.log(leftOut("its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules", generateDegradedSnippet(configPath)));
     process2.exit(0);
   }
   if (!existsSync3(configPath)) {
@@ -10995,16 +10999,16 @@ async function main() {
       process2.exit(0);
       break;
     case "degrade":
-      console.log(generateDegradedSnippet(configPath));
+      console.log(leftOut("its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules", generateDegradedSnippet(configPath)));
       process2.exit(0);
       break;
     case "unrecognised":
-      console.log([
+      console.log(leftOut("the config exports a shape the wirer does not recognise, so it is left as it is", [
         `\xB7 R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
         `  Add manually (adjust the relative path to your eslint-rules-local/):`,
         `    import customRules from './eslint-rules-local/index.mjs';`,
         `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`
-      ].join("\n"));
+      ].join("\n")));
       process2.exit(0);
       break;
     case "wired": {
@@ -11021,7 +11025,7 @@ ${diff}
       let apply = assumeYes;
       if (!apply) {
         if (!process2.stdin.isTTY) {
-          console.log(generateDegradedSnippet(configPath));
+          console.log(leftOut("the install ran without --full and without a terminal to confirm the change, so the config is left as it is", generateDegradedSnippet(configPath)));
           process2.exit(0);
         }
         const { createInterface } = await import("node:readline");
@@ -11033,7 +11037,7 @@ ${diff}
         apply = /^y(es)?$/i.test(answer.trim());
       }
       if (!apply) {
-        console.log(generateDegradedSnippet(configPath));
+        console.log(leftOut("the change was declined at the prompt, so the config is left as it is", generateDegradedSnippet(configPath)));
         process2.exit(0);
       }
       const wired = await resolveAndWire({ configPath, cwd: process2.cwd(), runProbe: probeViaEslint, scope });
@@ -11042,7 +11046,7 @@ ${diff}
       } else if (wired.status === "already-wired") {
         console.log(`\xB7 R2 already enforced in ${configPath}`);
       } else {
-        console.log(generateDegradedSnippet(configPath));
+        console.log(leftOut(`${wired.degradeReason ?? "ESLint could not use the config with R2 added"}; the config is as it was`, generateDegradedSnippet(configPath)));
       }
       process2.exit(0);
     }

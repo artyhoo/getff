@@ -523,7 +523,7 @@ cef9bb80a941be81171c58ace5610ba487bd6fe5e005b242a7e0820770305ece  packages/core/
 49bddb652d90d370582d213238fee0cda31cb8906b4f3441357154a3eb225023  packages/core/install/rule-bootstrap-cli.test.ts
 11ee9d5903c627542bcd9daea0333b9f4e1205dd97e13e7e246952a8caf72852  packages/core/install/rule-bootstrap-cli.ts
 3d8622dfd4eb2205ec6a9107922399b366bdf3afbaecd58edb17ed4fdf80969a  packages/core/install/rule-bootstrap-practice.test.ts
-4eb6b62f1a87b5ebb412758410378360e91ea43c086459f60e5a90c20b8035e9  packages/core/install/synth-and-wire.bundle.mjs
+e177dbe5527c0f65ae207cc7f0ef839ea17c425e5a165310d1286eac315ac4cc  packages/core/install/synth-and-wire.bundle.mjs
 1602613ba5a82060ca36bf74657ce47a4c2c1f1af643f229eb8c52ea6eedc474  packages/core/install/synth-and-wire.ts
 9e46ff7e310bb45202f0d4c0c468eb089184827fcef40de22c9f3ca7ca02b76d  packages/core/install/wire-eslint-r2.test.ts
 326016338a9c89114ec1e951ce0543c581d4adcf0e84bb785fad806f14841cef  packages/core/install/wire-eslint-r2.ts
