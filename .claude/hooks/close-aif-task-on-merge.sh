@@ -14,9 +14,10 @@
 # close still ran only when an agent remembered /harvest §4 step 5. This hook runs it at the moment
 # the merge happens in a session: after a Bash call that merges a PR.
 #
-# What counts as a merge call (per shell segment, split on && || ; |):
+# What counts as a merge call (per shell segment whose command word is `gh`):
 #   - `gh pr merge [<number|url|branch>] [flags]`  (no selector = the cwd's current branch);
-#   - `gh api … repos/<owner>/<repo>/pulls/<n>/merge`  (the REST fallback used when GraphQL is down).
+#   - `gh api -X PUT … repos/<owner>/<repo>/pulls/<n>/merge`  (the REST fallback used when
+#     GraphQL is down; a GET on that path is only a status probe and is ignored).
 #   `gh pr merge --disable-auto` is ignored. A selector built from a shell variable cannot be
 #   resolved here and is announced, not guessed.
 #
@@ -46,6 +47,9 @@ if ! . "$HOOK_DIR/lib/hook-emit.sh" 2>/dev/null; then
   exit 0
 fi
 
+# Task ids come from a PR body and are word-split below: never let one glob-expand.
+set -f
+
 INPUT="$(cat)"
 
 # ── Cheap pre-filter before any dependency is required ───────────────────────
@@ -58,7 +62,7 @@ esac
 MANUAL_HINT='tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged'
 
 if ! command -v jq >/dev/null 2>&1; then
-  _emit_skip "⚠ close-aif-task-on-merge: jq unavailable — a PR merge ran but its aif task was NOT checked or closed. Close manually: $MANUAL_HINT"
+  _emit_skip "⚠ close-aif-task-on-merge: jq unavailable — a command that may have merged a PR ran, but its aif task was NOT checked or closed. Close manually: $MANUAL_HINT"
   exit 0
 fi
 
@@ -80,34 +84,96 @@ flush() {
   _emit_skip "$joined"
 }
 
-# ── Find merge calls → "<selector>\t<repo>" lines ────────────────────────────
-# Segments are split on the shell separators ; | & ( ) OUTSIDE quotes (a `--subject "a; b"`
-# stays one segment); quoting inside a segment is honoured by xargs' tokenizer. Anything this
-# parser misreads costs a missed selector, never a wrong close — step 4 re-proves everything.
+# ── Find merge calls → "<selector>\t<repo>\t<cwd>" lines ─────────────────────
+# The command is split into shell segments on ; | & ( ) and newlines — but only OUTSIDE quotes
+# (a `--subject "a; b"` or a multi-line `-m "…"` stays one segment), a trailing `\` joins the next
+# line, and an unquoted heredoc body (`<<[-]WORD … WORD`) is dropped. A segment counts only when
+# `gh` is its COMMAND word (after VAR=val / env / command prefixes): a commit message, PR body or
+# echo that merely mentions `gh pr merge 42` is never a merge. Quoting inside a segment is honoured
+# by xargs' tokenizer. Anything this parser misreads costs a missed selector, never a wrong
+# close — step 4 re-proves everything.
 _split_segments() {
-  awk '{
-    out = ""
-    for (i = 1; i <= length($0); i++) {
-      c = substr($0, i, 1)
-      if (q != "") { out = out c; if (c == q) q = ""; continue }
+  awk '
+  function emit() { print out; out = "" }
+  {
+    line = $0
+    if (hd != "") {
+      t = line
+      if (hddash) sub(/^\t+/, "", t)
+      if (t == hd) hd = ""
+      next
+    }
+    n = length(line); pend = ""
+    for (i = 1; i <= n; i++) {
+      c = substr(line, i, 1)
+      if (q != "") {
+        out = out c
+        if (c == "\\" && q == "\"" && i < n) { i++; out = out substr(line, i, 1); continue }
+        if (c == q) q = ""
+        continue
+      }
+      if (c == "\\" && i == n) { cont = 1; continue }
+      if (c == "\\") { out = out c substr(line, i + 1, 1); i++; continue }
       if (c == "\"" || c == "\047") { q = c; out = out c; continue }
-      if (c == ";" || c == "|" || c == "&" || c == "(" || c == ")") { out = out "\n"; continue }
+      if (substr(line, i, 2) == "<<" && substr(line, i, 3) != "<<<") {
+        j = i + 2; dash = 0
+        if (substr(line, j, 1) == "-") { dash = 1; j++ }
+        while (substr(line, j, 1) == " " || substr(line, j, 1) == "\t") j++
+        w = ""
+        while (j <= n) {
+          d = substr(line, j, 1)
+          if (d == " " || d == "\t" || d == ";" || d == "|" || d == "&" || d == "(" || d == ")" || d == "<" || d == ">") break
+          if (d != "\"" && d != "\047" && d != "\\") w = w d
+          j++
+        }
+        if (w != "") { pend = w; pdash = dash }
+        out = out substr(line, i, j - i); i = j - 1; continue
+      }
+      if (c == ";" || c == "|" || c == "&" || c == "(" || c == ")") { emit(); continue }
       out = out c
     }
-    print out
-  }'
+    if (q != "") { out = out " "; next }
+    if (cont) { cont = 0; out = out " " } else emit()
+    if (pend != "") { hd = pend; hddash = pdash }
+  }
+  END { if (out != "") print out }'
+}
+_strip_prefixes() {
+  sed -E 's/^[[:space:]]+//
+    s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//
+    s/^((do|then|else|!|\{)[[:space:]]+)+//
+    s/^(command|builtin|env|time)[[:space:]]+//
+    s/^([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)+//'
 }
 VALUE_FLAGS=' -R --repo -b --body -F --body-file -t --subject -A --author-email --match-head-commit '
 SELECTORS=()
 UNRESOLVED=0
+SEG_CWD="$CWD"
 while IFS= read -r seg; do
-  if printf '%s' "$seg" | grep -Eq '(^|[[:space:]])gh[[:space:]]+api([[:space:]]|$)'; then
+  seg="$(printf '%s' "$seg" | _strip_prefixes)"
+  # Track a literal `cd <dir>` so `cd ../other && gh pr merge 5` asks the right repo.
+  case "$seg" in
+    'cd '*)
+      dir="$(printf '%s' "${seg#cd }" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+      dir="${dir#[\"\']}"; dir="${dir%[\"\']}"
+      case "$dir" in *'$'*|*'`'*|'') ;; *)
+        case "$dir" in '~'*) dir="$HOME${dir#\~}" ;; /*) ;; *) dir="$SEG_CWD/$dir" ;; esac
+        [ -d "$dir" ] && SEG_CWD="$dir" ;;
+      esac
+      continue ;;
+  esac
+  if printf '%s' "$seg" | grep -Eq '^gh[[:space:]]+api([[:space:]]|$)'; then
+    printf '%s' "$seg" | grep -Eq '/pulls/[^/[:space:]]+/merge' || continue
+    # Only a PUT merges; a bare GET on the same path is the "is it merged?" probe.
+    printf '%s' "$seg" | grep -Eq '(-X|--method)[[:space:]=]*PUT([[:space:]]|$)' || continue
     rest_api="$(printf '%s' "$seg" | sed -nE 's#.*repos/([^/[:space:]"'"'"']+/[^/[:space:]"'"'"']+)/pulls/([0-9]+)/merge.*#\2	\1#p')"
-    [ -n "$rest_api" ] && SELECTORS+=("$rest_api")
+    if [ -z "$rest_api" ]; then UNRESOLVED=1; continue; fi
+    case "${rest_api#*	}" in *'{'*|*'$'*) rest_api="${rest_api%%	*}	" ;; esac
+    SELECTORS+=("${rest_api}	${SEG_CWD}")
     continue
   fi
-  printf '%s' "$seg" | grep -Eq '(^|[[:space:]])gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$)' || continue
-  rest="$(printf '%s' "$seg" | sed -E 's/.*gh[[:space:]]+pr[[:space:]]+merge//')"
+  printf '%s' "$seg" | grep -Eq '^gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$)' || continue
+  rest="$(printf '%s' "$seg" | sed -E 's/^gh[[:space:]]+pr[[:space:]]+merge//')"
   if ! tokens="$(printf '%s' "$rest" | xargs -n1 printf '%s\n' 2>/dev/null)"; then
     UNRESOLVED=1
     continue
@@ -126,6 +192,9 @@ while IFS= read -r seg; do
       --*=*) ;;
       -*)
         case "$VALUE_FLAGS" in *" $tok "*) want_value="$tok" ;; esac ;;
+      # Redirections (`2>/dev/null`, `>log`, a bare `>` followed by its target) are not selectors.
+      *'>'|*'<') want_value="redirect" ;;
+      [0-9]*'>'*|[0-9]*'<'*|'>'*|'<'*) ;;
       *) [ -z "$sel" ] && sel="$tok" ;;
     esac
   done <<< "$tokens"
@@ -133,18 +202,34 @@ while IFS= read -r seg; do
   case "$sel$repo" in
     *'$'*|*'`'*) UNRESOLVED=1; continue ;;
   esac
-  SELECTORS+=("${sel}	${repo}")
+  SELECTORS+=("${sel}	${repo}	${SEG_CWD}")
 done < <(printf '%s\n' "$COMMAND" | _split_segments)
 
+if [ "$UNRESOLVED" -eq 1 ]; then
+  note "⚠ close-aif-task-on-merge: a PR merge ran but its selector could not be resolved (shell variable or unbalanced quoting) — its aif task was NOT checked. If the PR carries an aif-task line, close it: $MANUAL_HINT"
+fi
 if [ "${#SELECTORS[@]}" -eq 0 ]; then
-  if [ "$UNRESOLVED" -eq 1 ]; then
-    _emit_skip "⚠ close-aif-task-on-merge: a PR merge ran but its selector could not be resolved (shell variable or unbalanced quoting) — its aif task was NOT checked. If the PR carries an aif-task line, close it: $MANUAL_HINT"
-  fi
+  flush
   exit 0
 fi
 
+# bash 3.2 has no `timeout`: fall back to perl's alarm (SIGALRM survives exec → exit 142).
+# A hook the harness kills emits nothing, so every network call is bounded here instead.
+GH_TIMEOUT="${CLOSE_AIF_GH_TIMEOUT:-20}"
+HARVEST_TIMEOUT="${CLOSE_AIF_HARVEST_TIMEOUT:-60}"
+_bounded() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then timeout "$secs" "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$secs" "$@"
+  elif command -v perl >/dev/null 2>&1; then perl -e 'alarm shift @ARGV; exec @ARGV or exit 127' "$secs" "$@"
+  else "$@"
+  fi
+}
+_timed_out() { [ "$1" -eq 124 ] || [ "$1" -eq 142 ]; }
+
 if ! command -v gh >/dev/null 2>&1; then
-  _emit_skip "⚠ close-aif-task-on-merge: gh unavailable — a PR merge ran but its aif task was NOT checked or closed. Close manually: $MANUAL_HINT"
+  note "⚠ close-aif-task-on-merge: gh unavailable — a PR merge ran but its aif task was NOT checked or closed. Close manually: $MANUAL_HINT"
+  flush
   exit 0
 fi
 
@@ -154,18 +239,27 @@ PAIRS=()
 SEEN_URLS=" "
 for entry in "${SELECTORS[@]}"; do
   sel="${entry%%	*}"
-  repo="${entry#*	}"
+  rest_e="${entry#*	}"
+  repo="${rest_e%%	*}"
+  sel_cwd="${rest_e#*	}"
   args=(pr view)
   [ -n "$sel" ] && args+=("$sel")
   [ -n "$repo" ] && args+=(--repo "$repo")
   args+=(--json 'url,state,body')
-  if ! view="$(cd "$CWD" && gh "${args[@]}" 2>/dev/null)"; then
-    note "⚠ close-aif-task-on-merge: gh pr view ${sel:-<current branch>} failed — could not read the merged PR, so its aif task was NOT checked. Close manually: $MANUAL_HINT"
+  view="$(cd "$sel_cwd" && _bounded "$GH_TIMEOUT" gh "${args[@]}" 2>/dev/null)"
+  rc=$?
+  if [ "$rc" -ne 0 ]; then
+    why="failed"
+    _timed_out "$rc" && why="timed out after ${GH_TIMEOUT}s"
+    note "⚠ close-aif-task-on-merge: gh pr view ${sel:-<current branch>} $why — could not read the merged PR, so its aif task was NOT checked. Close manually: $MANUAL_HINT"
     continue
   fi
   url="$(printf '%s' "$view" | jq -r '.url // ""' 2>/dev/null || true)"
   state="$(printf '%s' "$view" | jq -r '.state // ""' 2>/dev/null || true)"
-  [ -n "$url" ] || continue
+  if [ -z "$url" ]; then
+    note "⚠ close-aif-task-on-merge: gh pr view ${sel:-<current branch>} returned no PR url — its aif task was NOT checked. Close manually: $MANUAL_HINT"
+    continue
+  fi
   case "$SEEN_URLS" in *" $url "*) continue ;; esac
   SEEN_URLS="$SEEN_URLS$url "
   ids="$(printf '%s' "$view" | jq -r '.body // ""' 2>/dev/null | tr -d '\r' \
@@ -245,21 +339,24 @@ for p in "${PAIRS[@]}"; do
   id="${p%%	*}"
   url="${p#*	}"
   if [ -n "$ERR_LOG" ]; then
-    out="$(cd "$REPO_ROOT" && RUNTIME_BRIDGE_AIF_URL="$AIF_URL" "$TSX" "$HARVEST_TS" "$id" --report-merge "$url" 2>"$ERR_LOG")"
+    out="$(cd "$REPO_ROOT" && RUNTIME_BRIDGE_AIF_URL="$AIF_URL" _bounded "$HARVEST_TIMEOUT" "$TSX" "$HARVEST_TS" "$id" --report-merge "$url" 2>"$ERR_LOG")"
   else
-    out="$(cd "$REPO_ROOT" && RUNTIME_BRIDGE_AIF_URL="$AIF_URL" "$TSX" "$HARVEST_TS" "$id" --report-merge "$url" 2>/dev/null)"
+    out="$(cd "$REPO_ROOT" && RUNTIME_BRIDGE_AIF_URL="$AIF_URL" _bounded "$HARVEST_TIMEOUT" "$TSX" "$HARVEST_TS" "$id" --report-merge "$url" 2>/dev/null)"
   fi
   rc=$?
   if [ "$rc" -ne 0 ]; then
     err=""
     [ -n "$ERR_LOG" ] && err="$(tail -n 5 "$ERR_LOG" 2>/dev/null | tr '\n' ' ')"
+    _timed_out "$rc" && err="timed out after ${HARVEST_TIMEOUT}s${err:+; $err}"
     note "⚠ close-aif-task-on-merge: closing aif task $id for $url FAILED (exit $rc): ${err:-no stderr}. Retry: tsx packages/runtime-bridge/src/cli/harvest.ts $id --report-merge $url"
     continue
   fi
   approved="$(printf '%s' "$out" | jq -r '.mergeReport.approved // false' 2>/dev/null || true)"
   already="$(printf '%s' "$out" | jq -r '.mergeReport.alreadyClosed // false' 2>/dev/null || true)"
-  final="$(printf '%s' "$out" | jq -r '.mergeReport.finalStatus // "?"' 2>/dev/null || true)"
+  final="$(printf '%s' "$out" | jq -r '.mergeReport.finalStatus // ""' 2>/dev/null || true)"
   reason="$(printf '%s' "$out" | jq -r '.mergeReport.skippedReason // ""' 2>/dev/null || true)"
+  [ -n "$final" ] || final="unknown"
+  printf '%s' "$out" | jq -e '.mergeReport' >/dev/null 2>&1 || reason="${reason:-harvest.ts printed no mergeReport}"
   if [ "$approved" = "true" ]; then
     note "close-aif-task-on-merge: aif task $id closed (done → verified) — $url merged."
   elif [ "$already" = "true" ]; then
