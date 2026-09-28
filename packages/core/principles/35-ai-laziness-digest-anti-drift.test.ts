@@ -114,6 +114,37 @@ function digestBytes(src: string): number {
   return Buffer.byteLength(src, 'utf8');
 }
 
+/** T19's counter must not state who merges — CLAUDE.md «Agent PR merge policy» owns that.
+ *  The counter used to say «Merge» is the maintainer's decision while CLAUDE.md had agents
+ *  merge their own staging PRs (operator directive 2026-09-10); both texts reach every
+ *  session, so the contradiction was live (found 2026-09-28). The check: the counter (and
+ *  its digest quote) points at the CLAUDE.md bullet, that bullet exists, and no sentence of
+ *  the counter pairs «merge» with a human role outside the pointer sentence. */
+const MERGE_POLICY_POINTER = 'CLAUDE.md «Agent PR merge policy»';
+
+function checkT19MergeAuthority(counter: string, digestLine: string, claudeMd: string): string[] {
+  const errs: string[] = [];
+  if (!/^- \*\*Agent PR merge policy\b/m.test(claudeMd)) {
+    errs.push('CLAUDE.md has no «Agent PR merge policy» bullet — the T19 pointer is dead');
+  }
+  for (const [where, text] of [['catalogue T19 counter', counter], ['digest T19 line', digestLine]] as const) {
+    if (!text.includes(MERGE_POLICY_POINTER)) {
+      errs.push(`${where}: does not point to ${MERGE_POLICY_POINTER}`);
+    }
+    for (const sentence of text.split(/(?<=[.;])\s+/)) {
+      if (/merg/i.test(sentence) && /\b(maintainer|operator|human)\b/i.test(sentence) && !sentence.includes(MERGE_POLICY_POINTER)) {
+        errs.push(`${where}: restates merge authority instead of pointing to CLAUDE.md: "${sentence.trim()}"`);
+      }
+    }
+  }
+  return errs;
+}
+
+function t19Counter(): string {
+  const t19 = parseCatalogue().find((e) => e.num === 'T19');
+  return t19?.block.split('\n').find((l) => l.startsWith('Counter:')) ?? '';
+}
+
 /** Check the entire digest against the catalogue. Accepts an optional mutated digest
  *  source for the paired-negative. */
 function checkDigest(src?: string): string[] {
@@ -150,6 +181,40 @@ describe('Principle 35 — ai-laziness-digest anti-drift (catalogue ↔ digest)'
     // otherwise this guard would be vacuous on the artefact it actually protects.
     const src = readFileSync(DIGEST_PATH, 'utf8');
     expect(digestBytes(src)).toBeGreaterThan(src.length);
+  });
+
+  describe('N35-3 — T19 defers merge authority to CLAUDE.md «Agent PR merge policy»', () => {
+    const claudeMd = (): string => readFileSync(resolve(REPO_ROOT, 'CLAUDE.md'), 'utf8');
+    // The pre-2026-09-28 counter ending, verbatim.
+    const RETIRED = ' «Merge» is the maintainer\'s decision; «QA» is yours.';
+
+    it('GREEN: the catalogue counter and its digest quote point to CLAUDE.md and restate nothing', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      expect(t19Counter()).not.toBe('');
+      expect(checkT19MergeAuthority(t19Counter(), digestLine, claudeMd())).toEqual([]);
+    });
+
+    it('RED: the retired «Merge is the maintainer\'s decision» counter is rejected', () => {
+      const old = t19Counter().replace(/ «QA» is yours whoever merges;.*?(?= \*\(codifies)/, RETIRED);
+      expect(old).toContain(RETIRED); // sanity: the rewrite fired
+      const errs = checkT19MergeAuthority(old, old, claudeMd());
+      expect(errs.some((e) => e.includes('restates merge authority'))).toBe(true);
+      expect(errs.some((e) => e.includes('does not point to'))).toBe(true);
+    });
+
+    it('RED: a paraphrased merge claim next to the pointer is still rejected', () => {
+      const counter = `${t19Counter()} Merging stays the operator's call.`;
+      const errs = checkT19MergeAuthority(counter, counter, claudeMd());
+      expect(errs.some((e) => e.includes("Merging stays the operator's call."))).toBe(true);
+    });
+
+    it('RED: a pointer to a CLAUDE.md bullet that no longer exists is rejected', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      const gone = claudeMd().replace(/^- \*\*Agent PR merge policy\b/m, '- **Something else');
+      expect(checkT19MergeAuthority(t19Counter(), digestLine, gone)).toContain(
+        'CLAUDE.md has no «Agent PR merge policy» bullet — the T19 pointer is dead',
+      );
+    });
   });
 
   describe('N35-1 — paired-negative: deleting one digest line makes the check RED', () => {
