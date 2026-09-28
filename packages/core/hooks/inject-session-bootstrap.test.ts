@@ -10,8 +10,9 @@
  *   - Digest is bounded by sentinel tags:
  *       opening: "[session-bootstrap digest — auto-injected at prompt submit]" (line 7)
  *       closing: "[/session-bootstrap digest]" (line 13)
- *   - Content invariants (lines 8-12): project goal, 4 invariants, Step-0 reading
- *     order, recommendation discipline.
+ *   - Content invariants (lines 8-12): project goal, the invariants rendered from
+ *     README.md by scripts/render-invariants.mjs, Step-0 reading order,
+ *     recommendation discipline.
  *
  * Paired-negative contract:
  *   ❌ hook output MUST NOT be empty (the core injection contract)
@@ -27,7 +28,14 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -268,7 +276,8 @@ describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection',
 // not exist. The hook now existence-checks every path-shaped citation at render
 // time and degrades an absent target to its NAME (canonical forms asserted as
 // literals below) — never dropping the invariant text. The framework tree must
-// render byte-identically to the pre-R4 golden (dogfood unchanged, hard arm).
+// render byte-identically to FRAMEWORK_GOLDEN (dogfood hard arm; the golden's
+// Invariants line follows README since 2026-09-28 — see the render block below).
 // ---------------------------------------------------------------------------
 
 const RULE_NAMES = [
@@ -276,6 +285,7 @@ const RULE_NAMES = [
   'recommendation-laziness-discipline',
   'phase-research-coverage',
   'ai-laziness-traps',
+  'no-paid-llm-in-ci',
 ] as const;
 
 const fixtureRoots: string[] = [];
@@ -311,9 +321,11 @@ const fullRulesFixture = (): Record<string, string> => {
 // bfb964c68d via `env -u ZCODE_PROJECT_DIR -u AIF_AUTONOMOUS -u AIF_HOOK_LANG
 // -u CLAUDE_PROJECT_DIR bash .claude/hooks/inject-session-bootstrap.sh`
 // (R4 dispatch VERIFY 3). Any framework-tree render change breaks this arm.
+// Re-captured 2026-09-28 when the Invariants line became a rendering of README.md
+// (five invariants, scripts/render-invariants.mjs); every other line is unchanged.
 const FRAMEWORK_GOLDEN = `[session-bootstrap digest — auto-injected at prompt submit]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
-Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline (.claude/rules/build-first-reuse-default.md); (2) recursive self-application green (make self-audit); (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort).
+Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
 Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.
 Recommendation discipline (H1): before issuing a verdict/recommendation (ADOPT/BUILD/REJECT/DEFER, «we should X», «use Y», «pick A over B») — (1) cite SSOT/prior-art by ID, (2) give file:line or command-output evidence, (3) state what would falsify it («wrong if …»), (4) for «nothing exists» claims run the 6-item search check. An unbacked verdict is provisional, not load-bearing. This is a reminder, not a gate. (see also .claude/rules/recommendation-laziness-discipline.md + T-trap in ai-laziness-traps.md §2) (.claude/rules/phase-research-coverage.md §1.7)
 Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.md
@@ -321,7 +333,7 @@ Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.
 `;
 
 describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)', () => {
-  it('R4(b) framework tree: digest is BYTE-IDENTICAL to the pre-R4 golden (dogfood unchanged)', () => {
+  it('R4(b) framework tree: digest is BYTE-IDENTICAL to FRAMEWORK_GOLDEN (dogfood)', () => {
     // CLAUDE_PROJECT_DIR/AIF_* are scrubbed by runHook; the hook falls back to
     // its own $0-relative root = this repo, where every cited target exists.
     const { stdout, status } = runHook('r4-golden');
@@ -340,7 +352,7 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
     expect(stdout).toContain(CLOSING_TAG);
     expect(stdout).toContain(GOAL_ANCHOR);
     expect(stdout).toContain(
-      'Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline (rule build-first-reuse-default); (2) recursive self-application green; (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort).',
+      "Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (rule build-first-reuse-default); (2) Recursive self-application — self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (rule phase-research-coverage); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (rule no-paid-llm-in-ci); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.",
     );
     // Canonical degradation literals:
     expect(stdout).toContain('Step-0 reading order: task-specific docs.');
@@ -384,7 +396,7 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
     });
     expect(status).toBe(0);
     expect(stdout).toContain('(rule build-first-reuse-default)');
-    expect(stdout).toContain('(make self-audit)');
+    expect(stdout).toContain('Recursive self-application — make self-audit green');
     // README.md alive in the fixture → stays in Step-0 with the dead ones dropped:
     expect(stdout).toContain('Step-0 reading order: README.md → task-specific docs.');
   });
@@ -397,7 +409,7 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout);
     expect(parsed.additionalContext).toContain('(rule build-first-reuse-default)');
-    expect(parsed.additionalContext).toContain('recursive self-application green;');
+    expect(parsed.additionalContext).toContain('Recursive self-application — self-audit green = ');
     expect(parsed.additionalContext).not.toContain('.claude/rules/');
   });
 
@@ -480,5 +492,132 @@ describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)'
       'a citable line in CLAUDE.md, a rule file, or a skill is NOT a constraint',
     );
     expect(stdout).toContain('`packages/runtime-bridge/src/cli/await.ts`');
+  });
+});
+
+// ── Single source: the Invariants line is a rendering of README.md ─────────────
+// The line used to be a hand copy of README «What must not break (invariants)» and
+// drifted (README had five, the digest four — «No paid LLM in CI» was missing;
+// found 2026-09-28). scripts/render-invariants.mjs renders the hook region from
+// README; `--check` gates it at pre-push (`invariants-render`) and this block gates
+// it in CI (`test:hooks`).
+
+interface RenderInvariants {
+  parseInvariants(readme: string): { title: string; body: string }[];
+  renderHook(hook: string, readme: string): string;
+}
+const RENDERER = resolve(REPO_ROOT, 'scripts/render-invariants.mjs');
+const renderer = async (): Promise<RenderInvariants> =>
+  (await import(RENDERER)) as RenderInvariants;
+const README_SRC = (): string => readFileSync(resolve(REPO_ROOT, 'README.md'), 'utf8');
+const HOOK_SRC = (): string => readFileSync(HOOK, 'utf8');
+
+// The hand-written line the hook carried before the region was rendered.
+const PRE_RENDER_LINE =
+  'INVARIANTS_LINE="Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline $BFR_REF; (2) recursive self-application green$SELF_AUDIT; (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort)."';
+
+/** README invariant titles, parsed here independently of the renderer: EVERY list-item
+ *  line between the heading and the next heading counts — nested, `*`-marked, or after
+ *  prose — so a bullet the renderer dropped shows up here as an extra title. */
+function readmeTitles(readme: string): string[] {
+  const lines = readme.split('\n');
+  const start = lines.indexOf('### What must not break (invariants)');
+  const titles: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('#')) break;
+    if (!/^\s*([-*+]|\d+[.)])\s/.test(line)) continue;
+    titles.push(line.match(/\*\*(.+?)\*\*/)?.[1] ?? line.trim());
+  }
+  return titles;
+}
+
+/** Replace the generated region's content line (keeps the markers). */
+function withRegionLine(hook: string, line: string): string {
+  return hook.replace(
+    /(# <!-- getff:begin section=invariants-line [^\n]*\n)[^\n]*(\n# <!-- getff:end section=invariants-line -->)/,
+    `$1${line}$2`,
+  );
+}
+
+describe('inject-session-bootstrap.sh — Invariants line is rendered from README.md', () => {
+  it('GREEN: the hook region equals the rendering of the current README', async () => {
+    const { renderHook } = await renderer();
+    const hook = HOOK_SRC();
+    expect(renderHook(hook, README_SRC())).toBe(hook);
+  });
+
+  it('RED: the pre-render hand-written 4-item line is reported as drift', async () => {
+    const { renderHook } = await renderer();
+    const stale = withRegionLine(HOOK_SRC(), PRE_RENDER_LINE);
+    expect(stale).toContain(PRE_RENDER_LINE); // sanity: the splice fired
+    expect(renderHook(stale, README_SRC())).not.toBe(stale);
+    expect(renderHook(stale, README_SRC())).toBe(HOOK_SRC()); // and --write repairs it
+  });
+
+  it('RED: a README invariant added or removed without re-rendering is drift', async () => {
+    const { renderHook } = await renderer();
+    const hook = HOOK_SRC();
+    const readme = README_SRC();
+    const dropped = readme.replace(/^- \*\*No paid LLM in CI\*\* — .*\n/m, '');
+    expect(dropped).not.toBe(readme); // sanity: the bullet existed
+    expect(renderHook(hook, dropped)).not.toBe(hook);
+    expect(renderHook(hook, dropped)).not.toContain('No paid LLM in CI');
+  });
+
+  it('the emitted Invariants line carries every README invariant, in order, and no others', () => {
+    const titles = readmeTitles(README_SRC());
+    expect(titles.length).toBeGreaterThan(0);
+    const { stdout } = runHook('invariants-from-readme');
+    const line = stdout.split('\n').find((l) => l.startsWith('Invariants: ')) ?? '';
+    const numbered = [...line.matchAll(/\((\d+)\) ([^—]+?) — /g)];
+    expect(numbered.map((m) => m[2])).toEqual(titles);
+    expect(numbered.map((m) => Number(m[1]))).toEqual(titles.map((_, i) => i + 1));
+  });
+
+  it('parse failures are loud, never a silently short list', async () => {
+    const { parseInvariants, renderHook } = await renderer();
+    expect(() => parseInvariants('# no heading here\n')).toThrow(/heading not found/);
+    expect(() =>
+      parseInvariants('### What must not break (invariants)\n\n- plain bullet without a bold title\n'),
+    ).toThrow(/not a one-line «- \*\*Title\*\* — body» bullet/);
+    expect(() => parseInvariants('### What must not break (invariants)\n\nprose only\n')).toThrow();
+    // Shapes a stop-at-first-odd-line parser would truncate to a short list (cold review M1):
+    const H = '### What must not break (invariants)\n\n';
+    const truncating = {
+      wrapped: `${H}- **A** — first thing\n  continued here.\n- **B** — second.\n`,
+      nested: `${H}- **A** — first.\n  - sub point\n- **B** — second.\n`,
+      starMarker: `${H}- **A** — first.\n* **B** — second.\n`,
+      listAfterProse: `${H}- **A** — first.\n\nSome prose.\n- **B** — second.\n`,
+      unbalancedCode: `${H}- **A** — \`foo: bar is odd.\n`,
+    };
+    for (const [shape, readme] of Object.entries(truncating)) {
+      expect(() => parseInvariants(readme), shape).toThrow();
+    }
+    // Prose after the list is allowed, and a colon inside a code span does not cut the clause.
+    expect(
+      parseInvariants(`${H}- **A** — use \`x: y\` here. More.\n- **B** — second.\n\nClosing prose.\n`).map(
+        (i) => i.title,
+      ),
+    ).toEqual(['A', 'B']);
+    expect(() => renderHook('#!/usr/bin/env bash\nINVARIANTS_LINE="x"\n', README_SRC())).toThrow(
+      /markers missing/,
+    );
+  });
+
+  it('CLI: --check exits 1 on drift, 0 when current, 2 on an unparseable README; --write repairs', () => {
+    const root = makeFixture({
+      'README.md': '### What must not break (invariants)\n\n- **Alpha** — first thing. More.\n',
+      '.claude/hooks/inject-session-bootstrap.sh': `#!/usr/bin/env bash\n# <!-- getff:begin section=invariants-line plan=scripts/render-invariants.mjs -->\nINVARIANTS_LINE="stale"\n# <!-- getff:end section=invariants-line -->\n`,
+    });
+    const cli = (...args: string[]) =>
+      spawnSync(process.execPath, [RENDERER, ...args, '--root', root], { encoding: 'utf8' });
+    expect(cli('--check').status).toBe(1);
+    expect(cli('--write').status).toBe(0);
+    expect(cli('--check').status).toBe(0);
+    expect(readFileSync(join(root, '.claude/hooks/inject-session-bootstrap.sh'), 'utf8')).toContain(
+      'INVARIANTS_LINE="Invariants: (1) Alpha — first thing."',
+    );
+    writeFileSync(join(root, 'README.md'), '# no invariants block\n');
+    expect(cli('--check').status).toBe(2);
   });
 });

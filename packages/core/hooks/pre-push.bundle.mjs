@@ -1899,6 +1899,17 @@ function lycheeSection(ctx) {
     warnSkip("\xA78", "no resolvable base for the changed-Markdown link check");
   }
 }
+function invariantsRenderSection() {
+  if (existsSync2(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
+    const r = run("node", ["scripts/render-invariants.mjs", "--check"]);
+    if (r.notFound) {
+      die("\u274C node not found. Install Node.js to enable the invariants-line drift check.");
+    }
+    if (r.exitCode === 1) die("\u274C invariants-line drift detected:", r);
+    if (r.exitCode !== 0) die("\u274C invariants-line render failed (README invariants block or hook markers unparseable):", r);
+    emit(r);
+  }
+}
 var SECTIONS = [
   // FIRST by design: must land the symlinks before any section shells out to vitest, which
   // would otherwise plant node_modules/.vite and freeze this worktree out of provisioning
@@ -1963,6 +1974,11 @@ var SECTIONS = [
     id: "rule-index-render",
     owner: "maintainer",
     run: () => ruleIndexRenderSection()
+  },
+  {
+    id: "invariants-render",
+    owner: "maintainer",
+    run: () => invariantsRenderSection()
   },
   {
     id: "reference-render",
