@@ -132,10 +132,15 @@ missing **fails**. How each arm reaches the tool (name it in the PR body):
   `go` that fails the build asserts `not-proven` and a byte-identical file.
 - **v2 rows.** The writer's v2 golden outputs are tool-free and run everywhere. A v2 *probe*
   proof needs a v2 binary, which no CI job installs today (`principles-meta-tests` pins v1.55.2
-  only; golangci-lint 2.14.0 needs go ≥ 1.26.0 to build, measured). Adding a v2 pin to CI is a
-  genuine fork (A: pin a v2 binary and a second Go in `principles-meta-tests` → v2 rows
-  probe-proven in CI; B: v2 rows proven at writer level only, the v2 probe arm recorded as a
-  gap). Do not pick: park that fork (§9) after the unambiguous parts are done.
+  only; golangci-lint 2.14.0 needs go ≥ 1.26.0 to build, measured). **Operator decision
+  (2026-09-29, AskUserQuestion in the design session): option A.** Add to `principles-meta-tests`
+  an exact-pinned golangci-lint **v2.14.0 prebuilt release binary** (official release tarball,
+  sha256-verified in the step, per ci-tool-pinning.md Rule A; not `go install`, which needs
+  go ≥ 1.26), on a path separate from v1.55.2, and run the v2 probe arms with it — so the v2
+  output parser (P-L5-2) is proven in CI like v1's. If the prebuilt binary cannot load packages
+  under the job's go1.22.0, add a second exact-pinned `actions/setup-go` (`go-version: '1.26.0'`)
+  scoped to the v2 arm only, and say so in the PR body. Option B (writer-level proof only) was
+  rejected by the operator. This is not a park.
 
 ### 2d Tests
 
