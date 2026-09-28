@@ -525,7 +525,7 @@ e334c384ae41693fd1e64be84aacba005c115f653136546de9007ad7da64b3ae  packages/core/
 3d8622dfd4eb2205ec6a9107922399b366bdf3afbaecd58edb17ed4fdf80969a  packages/core/install/rule-bootstrap-practice.test.ts
 5f1013ba8035057b108f0f3e6d8752a649d1d175aa8ab953a39f9b3cdf66d0ea  packages/core/install/synth-and-wire.bundle.mjs
 1602613ba5a82060ca36bf74657ce47a4c2c1f1af643f229eb8c52ea6eedc474  packages/core/install/synth-and-wire.ts
-fbe7f3b5007395a7f136fd7af03d5b0d2b82c8b49c05d319a2cd52634c8539c3  packages/core/install/wire-eslint-r2.test.ts
+f590d88a7415c40f9007de6810dd5817702b8a6324c4c2536ff81dfff9a40123  packages/core/install/wire-eslint-r2.test.ts
 0a4fff7a911bf3c893a7e79b5f2b1b0bd22a7de0018a33380dcf4cf8ba401772  packages/core/install/wire-eslint-r2.ts
 b95fa77a5505ac95d0f8eec4a49081156b9d3094ff659df7b18ec0d0de527236  packages/core/install/wire-live-snippet.test.ts
 528d3f707d9284f607ecaa9627b79147004c5851f49a4bc83b1d10aa43a6b40f  packages/core/install/wire-synth-rules.test.ts
