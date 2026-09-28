@@ -10720,12 +10720,8 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
     return modified;
   }
 }
-function synthProbeTarget(configDir) {
-  const p = resolve5(configDir, "__aif_r2_probe__.ts");
-  writeFileSync(p, "export const __aif_probe = 1;\n", "utf8");
-  return p;
-}
-async function probeViaEslint(configPath, cwd) {
+var R2_PROBE_PATHS = ["__aif_r2_probe__.js", "__aif_r2_probe__.ts"];
+async function probeViaEslint(configPath, cwd, scope) {
   let eslintBin;
   try {
     const reqd = createRequire(resolve5(cwd, "package.json"));
@@ -10742,22 +10738,25 @@ async function probeViaEslint(configPath, cwd) {
   } catch {
   }
   const dir = dirname6(resolve5(configPath));
-  const target = synthProbeTarget(dir);
-  try {
-    execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", target], { cwd: dir, stdio: "pipe" });
-    return "ok";
-  } catch (e) {
-    const stderr = String(e.stderr ?? "");
-    if (/could not find plugin/i.test(stderr)) return "could-not-find-plugin";
-    console.error(`  \xB7 R2 probe: unexpected eslint error \u2192 degrading:
-${stderr.slice(0, 400)}`);
-    return "other-error";
-  } finally {
+  const scoped = (scope?.files ?? []).map(probeScopePath).filter((x) => x !== void 0);
+  const paths = [.../* @__PURE__ */ new Set([...R2_PROBE_PATHS, ...scoped])];
+  let resolvedR2 = false;
+  for (const path of paths) {
+    let printed;
     try {
-      unlinkSync(target);
-    } catch {
+      printed = String(execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", path], { cwd: dir, stdio: "pipe" }));
+    } catch (e) {
+      const stderr = String(e.stderr ?? "");
+      if (/could not find plugin/i.test(stderr)) return "could-not-find-plugin";
+      console.error(`  \xB7 R2 probe: unexpected eslint error \u2192 degrading:
+${stderr.slice(0, 400)}`);
+      return "other-error";
     }
+    if (printed.includes(`"${R2_RULE_ID}"`)) resolvedR2 = true;
   }
+  if (resolvedR2) return "ok";
+  console.error(`  \xB7 R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(", ")} in ${dir} \u2192 degrading`);
+  return "unconfirmed";
 }
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
@@ -10771,14 +10770,14 @@ async function resolveAndWire(args) {
   const bare = await wireConfigSource(original, { variant: "bare", scope });
   if (bare.status !== "wired") return bare;
   writeFileSync(configPath, bare.modified, "utf8");
-  const v1 = await runProbe(configPath, cwd);
+  const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === "ok") return { ...bare, variant: "bare" };
   if (v1 === "could-not-find-plugin") {
     const spec = customRulesImportSpecifier(configPath, cwd);
     const sc = await wireConfigSource(original, { variant: "self-contained", customRulesImportPath: spec, scope });
     if (sc.status === "wired") {
       writeFileSync(configPath, sc.modified, "utf8");
-      const v2 = await runProbe(configPath, cwd);
+      const v2 = await runProbe(configPath, cwd, scope);
       if (v2 === "ok") return { ...sc, variant: "self-contained" };
     }
   }

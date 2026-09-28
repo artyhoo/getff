@@ -909,32 +909,33 @@ export async function formatLikeConsumer(configPath: string, cwd: string, origin
 
 // ─── Probe-driven resolution (try-bare → escalate → degrade) ────────────────────
 
-export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error';
+/** `unconfirmed`: ESLint ran, but resolved R2 for none of the probe paths — no evidence either way. */
+export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error' | 'unconfirmed';
 
 export interface ResolveWireArgs {
   configPath: string;
   cwd: string;
-  runProbe: (configPath: string, cwd: string) => Promise<ProbeVerdict>;
+  runProbe: (configPath: string, cwd: string, scope?: { files: string[] }) => Promise<ProbeVerdict>;
   /** Workspace scope for scoped emission (SSOT #182). When set, emits { files: [...], rules: {...} }. */
   scope?: { files: string[] };
 }
 
-function synthProbeTarget(configDir: string): string {
-  // ALWAYS synthesize in configDir (deterministic). For scoped elements (files: ['<dir>/**']),
-  // the probe file must be inside the scope dir so ESLint matches the files: glob. configDir is
-  // the workspace dir (e.g. apps/api/) when the config is placed per-workspace, so the probe file
-  // naturally lands inside the scope glob when ESLint is run from project root (see probeViaEslint).
-  const p = resolve(configDir, '__aif_r2_probe__.ts');
-  writeFileSync(p, 'export const __aif_probe = 1;\n', 'utf8');
-  return p;
-}
+/** Paths handed to `--print-config`, relative to the config's dir. It resolves a config per path; no file is read. */
+const R2_PROBE_PATHS = ['__aif_r2_probe__.js', '__aif_r2_probe__.ts'];
 
 /**
- * Default probe: resolve the consumer's eslint and run `--print-config` on a synthesized target.
+ * Default probe: resolve the consumer's eslint and run `--print-config` on probe paths next to the config.
  * eslint's package `exports` does NOT expose `./bin/eslint.js` (resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED
  * on v9/v10) — resolve the EXPORTED `./package.json` and derive the bin path. GH #644 (#535 trap).
+ *
+ * `ok` needs ESLint to have resolved R2 for at least one probe path. `--print-config` exits 0 printing
+ * `undefined` for a path no block matches — a `.ts` path under a config that matches no `.ts`, an absolute
+ * path through a symlinked dir (macOS /var → /private/var reads as outside the base path), a path outside a
+ * `files:` scope — so exit 0 alone proved nothing: the plugin-less bare element passed, and the consumer's
+ * lint then died with exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28). `.js` is
+ * matched by ESLint's default `files`, `.ts` by a TypeScript block, each scope glob by one path it matches.
  */
-export async function probeViaEslint(configPath: string, cwd: string): Promise<ProbeVerdict> {
+export async function probeViaEslint(configPath: string, cwd: string, scope?: { files: string[] }): Promise<ProbeVerdict> {
   let eslintBin: string;
   try {
     const reqd = createRequire(resolve(cwd, 'package.json'));
@@ -957,28 +958,28 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
   } catch {
     /* tsx not resolvable → plain node */
   }
+  // Run from the config's own directory (dir) so ESLint discovers the workspace-local config; running
+  // from project root in multi-stack mode (no root config) fails to load it → 'other-error' → degrade.
   const dir = dirname(resolve(configPath));
-  const target = synthProbeTarget(dir);
-  // Run probe from the config's own directory (dir) so ESLint discovers the workspace-local
-  // config by walking up from the probe file. Running from project root in multi-stack mode
-  // (where no root config exists) causes ESLint to fail to load the config → 'other-error' →
-  // degrade. Global elements (no files: filter) are unaffected by cwd choice.
-  try {
-    execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
-    return 'ok';
-  } catch (e: unknown) {
-    const stderr = String((e as { stderr?: Buffer }).stderr ?? '');
-    if (/could not find plugin/i.test(stderr)) return 'could-not-find-plugin';
-    // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
-    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${stderr.slice(0, 400)}`);
-    return 'other-error';
-  } finally {
+  const scoped = (scope?.files ?? []).map(probeScopePath).filter((x): x is string => x !== undefined);
+  const paths = [...new Set([...R2_PROBE_PATHS, ...scoped])];
+  let resolvedR2 = false;
+  for (const path of paths) {
+    let printed: string;
     try {
-      unlinkSync(target);
-    } catch {
-      /* best-effort */
+      printed = String(execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', path], { cwd: dir, stdio: 'pipe' }));
+    } catch (e: unknown) {
+      const stderr = String((e as { stderr?: Buffer }).stderr ?? '');
+      if (/could not find plugin/i.test(stderr)) return 'could-not-find-plugin';
+      // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
+      console.error(`  · R2 probe: unexpected eslint error → degrading:\n${stderr.slice(0, 400)}`);
+      return 'other-error';
     }
+    if (printed.includes(`"${R2_RULE_ID}"`)) resolvedR2 = true;
   }
+  if (resolvedR2) return 'ok';
+  console.error(`  · R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(', ')} in ${dir} → degrading`);
+  return 'unconfirmed';
 }
 
 /**
@@ -1004,7 +1005,7 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
   writeFileSync(configPath, bare.modified, 'utf8');
 
   // 2. probe
-  const v1 = await runProbe(configPath, cwd);
+  const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === 'ok') return { ...bare, variant: 'bare' };
 
   // 3. escalate: self-contained (only when the base registers the plugin nowhere)
@@ -1013,7 +1014,7 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
     const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec, scope });
     if (sc.status === 'wired') {
       writeFileSync(configPath, sc.modified, 'utf8');
-      const v2 = await runProbe(configPath, cwd);
+      const v2 = await runProbe(configPath, cwd, scope);
       if (v2 === 'ok') return { ...sc, variant: 'self-contained' };
     }
   }
@@ -1103,8 +1104,9 @@ function verdictOf(run: EslintRun): LintProbeResult {
 
 /**
  * Lint throwaway files with the consumer's own ESLint from the config's directory. Unlike
- * probeViaEslint's `--print-config`, this makes ESLint resolve every rule of every block matching the
- * file — the step a plugin-less `rules-as-tests/*` block fails on. Two real files (`.js` + `.ts`) sit
+ * probeViaEslint's `--print-config` (config resolution only), this makes ESLint resolve and run every
+ * rule of every block matching the file, and parse it — so it also sees a block that leaves the file
+ * unparseable. A plugin-less `rules-as-tests/*` block fails both. Two real files (`.js` + `.ts`) sit
  * next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at a path it
  * matches, so no directory is created in the consumer tree. Exit 0/1 means the config loads and lints
  * (1 = the probe file drew findings); exit 2 means ESLint cannot use the config.

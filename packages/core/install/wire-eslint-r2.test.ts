@@ -377,6 +377,23 @@ for (const { nm, version } of ESLINT_INSTALLS) {
       }
     }, 60_000);
 
+    // Shape 3: the base registers the plugin for `.ts` only, but the bare element is global — every
+    // `.js`/`.mjs` file then resolves R2 without the plugin. A `.ts`-only probe read this as ok.
+    it.skipIf(!TS_MORPH_AVAILABLE)('plugin registered for .ts only → not wired plugin-less', async () => {
+      const dir = fixture(
+        `import customRules from './eslint-rules-local/index.mjs';\n` +
+          `export default [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\n`,
+      );
+      try {
+        const r = await resolveAndWire({ configPath: join(dir, 'eslint.config.mjs'), cwd: dir, runProbe: probeViaEslint });
+        expect(r.status).toBe('wired');
+        const lint = lintRc(dir);
+        expect(lint.rc, lint.out).not.toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+
     // A `files:`-scoped element never applies to a probe file outside its scope.
     it.skipIf(!TS_MORPH_AVAILABLE)('scoped element → the probe resolves R2 inside the scope', async () => {
       const dir = fixture(`export default [];\n`);
@@ -387,6 +404,22 @@ for (const { nm, version } of ESLINT_INSTALLS) {
         expect(r.status).toBe('wired');
         const lint = lintRc(dir);
         expect(lint.rc, lint.out).not.toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // A scope with no single witness path (character class): ESLint applies R2 to no probe path, so
+    // nothing is known — degrade and restore, never report a blind `wired`.
+    it.skipIf(!TS_MORPH_AVAILABLE)('scope the probe cannot witness → degrade, config restored', async () => {
+      const config = `export default [];\n`;
+      const dir = fixture(config);
+      try {
+        const r = await resolveAndWire({
+          configPath: join(dir, 'eslint.config.mjs'), cwd: dir, runProbe: probeViaEslint, scope: { files: ['src/[ab]/**'] },
+        });
+        expect(r.status).toBe('degrade');
+        expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toBe(config);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
