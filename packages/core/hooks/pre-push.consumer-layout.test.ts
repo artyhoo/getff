@@ -1938,6 +1938,26 @@ describe(
       expect(r.status, r.out).toBe(0);
     });
 
+    // The arm above cannot tell a hook that ran every section from a module that was only
+    // imported: when the bundle's direct-run check comes out false, `node` loads it, runs
+    // nothing and exits 0 — every consumer push silently checks nothing. A section the
+    // consumer composition carries must be seen rejecting a push.
+    it('NEGATIVE — the bundle really runs the consumer sections: an unpinned workflow install is rejected', () => {
+      const { dir, baseSha } = makeShippedLayout();
+      addConsumerCommit(
+        dir,
+        '.github/workflows/ci.yml',
+        'jobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pip install requests\n',
+        'ci: add a workflow',
+      );
+
+      const r = runPlainNode(dir, SHIPPED[0], baseSha);
+
+      expect(r.status, r.out).toBe(1);
+      expect(r.out, r.out).toMatch(/Unpinned bare-run tool install/);
+      expect(r.out, r.out).toMatch(/\.github\/workflows\/ci\.yml:5: /);
+    });
+
     it('NEGATIVE — the same layout holds no hook source: the pre-2026-09-28 entry cannot run there', () => {
       const { dir, baseSha } = makeShippedLayout();
       addConsumerCommit(dir, 'src/app.ts', 'export const x = 1;\n', 'feat: app');

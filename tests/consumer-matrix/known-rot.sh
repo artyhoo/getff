@@ -19,10 +19,19 @@
 ROT_ENTRIES="K2:typecheck,build:ts-server,react-next,react-spa K4:test:ts-server"
 _strip_ansi() { sed $'s/\x1b\\[[0-9;]*m//g' "$1"; }
 _rot_k2() { # every tsc error is the poolOptions overload error in vitest.config.ts
-  local errs
-  errs=$(grep -E 'error TS[0-9]+' "$1") || return 1
-  printf '%s\n' "$errs" | grep -qvE '^vitest\.config\.ts\([0-9]+,[0-9]+\): error TS2769:' && return 1
-  grep -qF "'poolOptions' does not exist in type 'InlineConfig'" "$1"
+  # Per error, not per log: each `error TS` line opens a block that must be a vitest.config.ts
+  # TS2769 AND carry the poolOptions text before the next error — so a second TS2769 in the same
+  # file about another key is not absorbed by the first one's message.
+  grep -qE 'error TS[0-9]+' "$1" || return 1
+  awk -v msg="'poolOptions' does not exist in type 'InlineConfig'" '
+    /error TS[0-9]+/ {
+      if (open && !seen) bad = 1
+      if ($0 !~ /^vitest\.config\.ts\([0-9]+,[0-9]+\): error TS2769:/) bad = 1
+      open = 1; seen = 0; next
+    }
+    open && index($0, msg) { seen = 1 }
+    END { if (open && !seen) bad = 1; exit bad }
+  ' "$1"
 }
 _rot_k4() { # vitest found nothing although it looked in lib/ — only for the *.unit / *.audit naming
   local inc

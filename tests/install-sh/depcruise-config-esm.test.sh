@@ -15,7 +15,7 @@
 # Arms:
 #   A  the template is an ES module whose default export is the rules object;
 #   B  it lints clean under the typescript-eslint getting-started config, and the old CJS
-#      shape does not (paired negative — proves the lint arm can fail);
+#      shape does not (paired negative — proves the lint arm can fail); no eslint is a FAIL;
 #   C  a fresh install places `.dependency-cruiser.mjs` and arch:check names it;
 #   D  a project with its own `.dependency-cruiser.js` keeps it: nothing placed beside it,
 #      arch:check names the consumer's file, the not-wired summary says so;
@@ -74,7 +74,9 @@ CFG
     bad "B neg: the CommonJS shape did not fail with no-undef (rc=$rc_cjs) — arm B proves nothing"
   fi
 else
-  echo "  · B skipped — the framework's eslint/typescript-eslint are not installed (run npm install first)"
+  # A skip here would let arm B pass unseen wherever nobody reads the log; CI's root npm install
+  # always provides both, so their absence is a FAIL, as in synth-wire-consumer-config.test.sh.
+  bad "B: the framework's eslint/typescript-eslint are not installed (run npm install first) — arm B cannot run"
 fi
 
 # ── C: fresh install ────────────────────────────────────────────────────────────────────────────

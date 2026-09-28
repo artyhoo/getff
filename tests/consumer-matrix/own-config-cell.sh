@@ -136,6 +136,17 @@ describe('answer', () => {
 TS
 git add -A
 git commit -qm "consumer baseline"
+# The consumer's configs, byte for byte: every install below must leave them exactly so.
+OWN_CONFIGS="eslint.config.mjs tsconfig.json"
+for c in $OWN_CONFIGS; do cp "$c" "$WORK/own-$c.before"; done
+configs_changed() { # prints each consumer config an install changed, with its first diff lines
+  local c
+  for c in $OWN_CONFIGS; do
+    cmp -s "$c" "$WORK/own-$c.before" && continue
+    echo "the install changed the consumer's own $c:"
+    diff "$WORK/own-$c.before" "$c" | head -8 | sed 's/^/    /'
+  done
+}
 
 step "fixture installs its OWN deps (before getff, as a real project would have them)"
 npm install --silent --no-audit --no-fund >"$WORK/own-install.log" 2>&1 \
@@ -154,7 +165,7 @@ mkdir -p "$GETFF"
 framework_files() {
   if git -C "$FRAMEWORK_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git -C "$FRAMEWORK_ROOT" ls-files -z --cached --others --exclude-standard \
-      | while IFS= read -r -d '' f; do [ -e "$FRAMEWORK_ROOT/$f" ] && printf '%s\0' "$f"; done
+      | while IFS= read -r -d '' f; do if [ -e "$FRAMEWORK_ROOT/$f" ]; then printf '%s\0' "$f"; fi; done
   else
     ( cd "$FRAMEWORK_ROOT" && find . \( -name node_modules -o -name .git -o -path ./.claude/worktrees \) \
         -prune -o \( -type f -o -type l \) -print0 )
@@ -176,9 +187,10 @@ for bin in eslint tsc vitest; do
   test -x "node_modules/.bin/$bin" \
     || fail "$bin not installed after install.sh --full — the step-4 list below cannot run (false-green guard)"
 done
-# The premise of this cell: the consumer's configs survived the install.
-grep -q "tseslint.config" eslint.config.mjs || fail "the consumer's own eslint.config.mjs was replaced — fixture premise broken"
-grep -q '"\*\*/\*.ts"' tsconfig.json || fail "the consumer's own tsconfig.json was replaced — fixture premise broken"
+# The premise of this cell: the consumer's configs survived the install — neither replaced nor
+# merged into (operator decision 2026-09-23: skip + report, never overwrite or merge).
+CHANGED=$(configs_changed)
+[ -z "$CHANGED" ] || { echo "$CHANGED"; fail "install.sh changed a config the consumer owns — fixture premise broken"; }
 
 # ── KNOWN ROT: preset-template defects this cell SHOWS but does not fail on ──────────────────────
 # The entries, their signatures and why they are not patched: tests/consumer-matrix/known-rot.sh
@@ -316,6 +328,10 @@ if [ -n "$RESEARCH" ]; then
     fi
     ls .ai-factory/synthesizer-output/rules-lock.*.json >/dev/null 2>&1 \
       || { echo "no rules-lock.*.json written under .ai-factory/synthesizer-output/"; return 1; }
+    # The generated rules are the consumer's to wire; the second install must not merge them in.
+    local changed
+    changed=$(configs_changed)
+    [ -z "$changed" ] || { echo "$changed"; return 1; }
   }
   run_step "generator" generator_runs_clean
 else

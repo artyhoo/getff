@@ -45,6 +45,13 @@ expect ts-server typecheck "$T/k2-plus.log" "" "K2 + one more tsc error is a pla
 sed "s/'poolOptions'/'pool'/" "$T/k2.log" > "$T/k2-other.log"
 expect ts-server typecheck "$T/k2-other.log" "" "a TS2769 in vitest.config.ts about another key is not K2"
 
+# One poolOptions error plus a SECOND TS2769 in vitest.config.ts about another key: every error
+# line has K2's shape and the poolOptions text is in the log, yet the second error is not K2.
+{ cat "$T/k2.log"; sed -e 's/(62,5)/(70,7)/' -e "s/'poolOptions'/'coverageDir'/" "$T/k2.log" | grep -v '^>' | grep -v '^$'; } > "$T/k2-second.log"
+expect ts-server typecheck "$T/k2-second.log" "" "K2 + a second TS2769 about another key is a plain FAIL, not rot"
+{ cat "$T/k2.log"; sed 's/(62,5)/(80,9)/' "$T/k2.log" | grep -v '^>' | grep -v '^$'; } > "$T/k2-twice.log"
+expect ts-server typecheck "$T/k2-twice.log" K2 "K2 reported twice (typecheck + build share a log) is still K2"
+
 sed 's/^vitest.config.ts(62,5)/eslint.config.mjs(62,5)/' "$T/k2.log" > "$T/k2-file.log"
 expect ts-server typecheck "$T/k2-file.log" "" "the same error in another file is not K2"
 
