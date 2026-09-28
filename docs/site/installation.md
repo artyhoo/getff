@@ -27,7 +27,7 @@ executed:
   - { step: preview-plugin-helper, stack: ts-server, date: 2026-09-21, result: "exit-0, nothing written" }
   - { step: preview-refresh, stack: ts-server, date: 2026-09-28, result: "exit-0, 72 would-refresh, 0 would-flag" }
 next: why.md
-docs-refresh: deferred — re-verified 2026-09-28, the only change to the cited plugin/install/fetch-and-wire.sh in this range is the RAT_PLUGIN_VERSION bump 0.3.4 → 0.3.5 (principle 24, for the re-rendered session-bootstrap twin); this page names no plugin version and the preview it quotes does not print one, and the helper still fetches from main; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-28, the only changes to the cited plugin/install/fetch-and-wire.sh in this range are the RAT_PLUGIN_VERSION bumps 0.3.4 → 0.3.5 → 0.3.6 (principle 24, for re-rendered hook twins); this page names no plugin version and the preview it quotes does not print one, and the helper still fetches from main; clears at the next refresh of this page
 ---
 
 # Installation
@@ -80,8 +80,8 @@ The full output on a `ts-server` project with two files was 188 lines. Below are
 the lines that begin with `▶`, `[profile]`, or `✅`, in order, with none of those left
 out. One change: the long project path is cut to `…`. Under most headings the real
 output lists one `[dry-run] would …` line per file, folder, or hook. After
-`Dry-run complete` it also prints a `Next steps` list meant for a real install. Ignore
-that list in a preview: nothing was written.
+`Dry-run complete` comes only a pointer to `INSTALL.md`. A real install prints a
+`Checked by the install` block there. A preview skips it, because it wrote nothing to check.
 
 ```text
 ▶ Preflight
