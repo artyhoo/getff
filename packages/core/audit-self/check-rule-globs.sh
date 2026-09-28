@@ -72,14 +72,17 @@ config_dirs() {
 }
 
 # RULE_GLOBS is read the way JavaScript reads it, not only the way getff's template lays it out: the
-# key bare or quoted, anywhere on its line (a one-line RULE_GLOBS object too), globs in single or double
-# quotes (prettier's default is double), and the array read only up to its own `]` — on one line, the
-# next key's globs are not this key's (second cold review, after #1868). A comment is not code: each line
-# is read with its // and /* */ comments cut out (uncomment; quoted text stays, a /* */ comment may span
-# lines), and a key is the whole key — `my-boundary` is not `boundary` (third cold review). The quote
-# characters come in through -v; `[[]` is a literal `[` that needs no backslash.
+# key bare, quoted or a computed literal (`["boundary"]`), anywhere on its line (a one-line RULE_GLOBS
+# object too), globs in single or double quotes (prettier's default is double), and the array read only
+# up to its own `]` — on one line, the next key's globs are not this key's (second cold review, after
+# #1868). A comment is not code: the file is read with its // and /* */ comments cut out (uncomment;
+# quoted text stays, a /* */ comment may span lines), and a key is the whole key — `my-boundary` is not
+# `boundary` (third cold review). Only a key of the top-level `const RULE_GLOBS = { … }` object counts —
+# the object wireOwnConfig in packages/core/install/wire-eslint-r2.ts reads, inside parentheses or
+# Object.freeze( … ) if it is wrapped. Another object's `boundary`, or one nested inside RULE_GLOBS, is not
+# RULE_GLOBS.boundary: added to the list, a nested `boundary: ['**/*.ts']` made a dead list pass (#1889).
+# The quote characters come in through -v.
 RG_AWK_LIB='
-function opener(key) { return "(^|[^A-Za-z0-9_$." sq dq "-])(" sq key sq "|" dq key dq "|" key ")[[:space:]]*:[[:space:]]*[[]" }
 function uncomment(s,   out, c, q, i, n) {
   out = ""; q = ""; n = length(s)
   for (i = 1; i <= n; i++) {
@@ -92,14 +95,78 @@ function uncomment(s,   out, c, q, i, n) {
     out = out c
   }
   return out
+}
+function blank(c) { return c == " " || c == "\t" || c == "\r" || c == "\n" }
+# The globs of RULE_GLOBS.<key> in source s (comments cut): printed one per line unless quiet; returns 1
+# when the array is there. Walks s once, counting ( [ { outside strings: the declaration must sit at depth
+# 0, and a key counts only at the depth of the RULE_GLOBS object, right after its { or a ,.
+function rule_globs(s, key, quiet,   n, i, c, q, d, ph, od, last, name, rest, j) {
+  n = length(s); d = 0; ph = 0; q = ""; last = ""
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (q != "") { if (c == "\\") i++; else if (c == q) q = ""; continue }
+    if (blank(c)) continue
+    if (ph == 1) {
+      if (c == "(") { d++; continue }
+      if (substr(s, i, 13) == "Object.freeze") { i += 12; continue }
+      if (c != "{") return 0
+      d++; od = d; ph = 2; last = c; continue
+    }
+    rest = substr(s, i)
+    if (ph == 0 && d == 0 && (i == 1 || substr(s, i - 1, 1) !~ /[A-Za-z0-9_$.]/) \
+        && match(rest, /^(const|let|var)[ \t\r\n]+RULE_GLOBS[ \t\r\n]*(:[^=]*)?=/)) {
+      i += RLENGTH - 1; ph = 1; continue
+    }
+    if (ph == 2 && d == od && (last == "{" || last == ",")) {
+      name = ""
+      if (match(rest, /^[A-Za-z_$][A-Za-z0-9_$]*/)) name = substr(rest, 1, RLENGTH)
+      else if (match(rest, "^[[]?[ \t\r\n]*(" sq "[^" sq "]*" sq "|" dq "[^" dq "]*" dq ")[ \t\r\n]*[]]?")) {
+        name = substr(rest, 1, RLENGTH)
+        if ((substr(name, 1, 1) == "[") != (substr(name, RLENGTH, 1) == "]")) name = ""
+        gsub(/^[[]?[ \t\r\n]*/, "", name); gsub(/[ \t\r\n]*[]]?$/, "", name)
+        name = substr(name, 2, length(name) - 2)
+      }
+      if (name == key) {
+        j = i + RLENGTH
+        while (j <= n && blank(substr(s, j, 1))) j++
+        if (substr(s, j, 1) == ":") {
+          j++
+          while (j <= n && blank(substr(s, j, 1))) j++
+          if (substr(s, j, 1) == "[") {
+            for (j++; j <= n; j++) {
+              c = substr(s, j, 1)
+              if (c == "]") return 1
+              if (c == sq || c == dq) {
+                rest = substr(s, j + 1); i = index(rest, c)
+                if (i == 0) return 1
+                if (!quiet) print substr(rest, 1, i - 1)
+                j += i
+              }
+            }
+            return 1
+          }
+        }
+      }
+    }
+    if (c == sq || c == dq || c == "`") { q = c; last = c; continue }
+    if (c == "{" || c == "(" || c == "[") d++
+    else if (c == "}" || c == ")" || c == "]") { d--; if (ph == 2 && d < od) return 0 }
+    last = c
+  }
+  return 0
 }'
 
-# Does file $2 (default $CFG) open a `<key>: [` array?
+# File $1 with its comments cut out, as the reader sees it. A rule id or RULE_GLOBS that only a comment
+# names is not in the config (#1889 observation 7: `// TODO: turn on <R2>` read as R2 wired).
+code_of() {
+  awk -v sq="'" -v dq='"' "$RG_AWK_LIB"'{ print uncomment($0) }' "$1"
+}
+
+# Does file $2 (default $CFG) hold a RULE_GLOBS.<key> array?
 has_key() {
   awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_LIB"'
-    { $0 = uncomment($0) }
-    match($0, opener(key)) { found = 1; exit }
-    END { exit !found }
+    { src = src uncomment($0) "\n" }
+    END { exit !rule_globs(src, key, 1) }
   ' "${2:-$CFG}"
 }
 
@@ -107,22 +174,8 @@ has_key() {
 # $CFG). Prints one glob per line.
 extract_key() {
   awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_LIB"'
-    function take(s,   c, rest, j) {
-      while (length(s) > 0) {
-        c = substr(s, 1, 1)
-        if (c == "]") return 1
-        if (c == sq || c == dq) {
-          rest = substr(s, 2); j = index(rest, c)
-          if (j == 0) return 0
-          print substr(rest, 1, j - 1); s = substr(rest, j + 1); continue
-        }
-        s = substr(s, 2)
-      }
-      return 0
-    }
-    { $0 = uncomment($0) }
-    !grab { if (!match($0, opener(key))) next; grab = 1; $0 = substr($0, RSTART + RLENGTH) }
-    grab { if (take($0)) grab = 0 }
+    { src = src uncomment($0) "\n" }
+    END { rule_globs(src, key, 0) }
   ' "${2:-$CFG}"
 }
 # <<< rule-globs reader
@@ -158,9 +211,11 @@ SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 # layer there too; stopping at «skipped» left them unchecked (cold-review F3 — the lookup order made a
 # consumer's root .cjs «the root config», where before this gate found no root config and recursed).
 _own_root_without_globs() {
-  local k="${CFG#./}"
-  [ -f "$CFG" ] && ! grep -q 'RULE_GLOBS' "$CFG" \
-    && ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$CFG" \
+  local k="${CFG#./}" code
+  [ -f "$CFG" ] || return 1
+  code=$(code_of "$CFG")   # a comment that names RULE_GLOBS or a rule is not the config holding it
+  ! grep -q 'RULE_GLOBS' <<<"$code" \
+    && ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$code" \
     && ! grep -qF "\"$k\":" .ai-factory/refresh-baseline.json 2>/dev/null
 }
 if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; }; then
@@ -213,10 +268,11 @@ fi
 _bl=.ai-factory/refresh-baseline.json
 _bl_key="${CFG#"$PWD"/}"
 _bl_key="${_bl_key#./}"
-if grep -q 'RULE_GLOBS' "$CFG"; then
+_cfg_code=$(code_of "$CFG")   # what the config says in code: a comment naming a rule does not wire it
+if grep -q 'RULE_GLOBS' <<<"$_cfg_code"; then
   : # getff's RULE_GLOBS block is there — the checks below verify it
 elif ! grep -qF "\"$_bl_key\":" "$_bl" 2>/dev/null; then
-  if ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$CFG"; then
+  if ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$_cfg_code"; then
     echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config and has no RULE_GLOBS block, so there is no rule glob to verify (skipped)."
     case "$CFG" in
       *.js | *.mjs) echo "  The install adds RULE_GLOBS and R2 to it once it finds an HTTP boundary in the project (with --full, which puts ts-morph in node_modules)." ;;
@@ -224,7 +280,7 @@ elif ! grep -qF "\"$_bl_key\":" "$_bl" 2>/dev/null; then
     esac
     exit 0
   fi
-elif ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
+elif ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' <<<"$_cfg_code"; then
   _bl_recorded=$(awk -v k="\"$_bl_key\":" 'index($0, k) { n = split($0, a, "\""); if (n >= 4) print a[4]; exit }' "$_bl" 2>/dev/null)
   _bl_actual=$( { sha256sum "$CFG" 2>/dev/null || shasum -a 256 "$CFG" 2>/dev/null; } | awk '{print $1}')
   if [ -n "$_bl_recorded" ] && [ "$_bl_recorded" = "$_bl_actual" ]; then
@@ -318,17 +374,20 @@ any_glob_matches() {
 #               re-export-of-root monorepo). (GH #516 broadened this to the base-file import style.)
 #   dead      — self-contained config with no R2 and no extends → R2 is genuinely inert there.
 classify_config_r2() {
-  local cfg="$1"
+  local cfg="$1" code
   [ -n "$cfg" ] && [ -f "$cfg" ] || { echo uncertain; return; }
-  if grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$cfg"; then echo wired; return; fi
+  # Read the config without its comments: `// TODO: turn on rules-as-tests/no-unsafe-zod-parse` wires
+  # nothing, and a commented-out `extends` extends nothing (#1889 observation 7).
+  code=$(code_of "$cfg")
+  if grep -qE 'rules-as-tests|no-unsafe-zod-parse' <<<"$code"; then echo wired; return; fi
   # A package re-exports / extends a shared base when it: `extends`; imports an `eslint-config`
   # pkg/path; OR imports a config FILE whose specifier contains `eslint` and ends in a JS/TS module
   # extension (timeliner's `import base from '@scope/config/eslint/base.mjs'`). Any of these MAY
   # inherit R2 — bash can't follow the chain → uncertain (WARN), never a false-FAIL. The trailing
   # extension anchors the file-import branch so a bare plugin like `@typescript-eslint/eslint-plugin`
   # (no module extension in its specifier) is NOT swallowed and stays classifiable as dead. (GH #516.)
-  if grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[.-]?config[^'\"]*['\"]|extends" "$cfg" \
-     || grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[^'\"]*\.(mjs|cjs|js|ts)['\"]" "$cfg"; then
+  if grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[.-]?config[^'\"]*['\"]|extends" <<<"$code" \
+     || grep -qE "(from|require\()[[:space:]]*[(]?['\"][^'\"]*eslint[^'\"]*\.(mjs|cjs|js|ts)['\"]" <<<"$code"; then
     echo uncertain; return
   fi
   echo dead

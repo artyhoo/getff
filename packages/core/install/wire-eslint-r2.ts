@@ -877,12 +877,16 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   let boundaryArr: any;
   if (boundary.length > 0) {
     // RULE_GLOBS.boundary as check-rule-globs.sh reads it: the key quoted or not, the object inside
-    // parentheses or a type assertion (`/** @type {const} */ ({ … })`, `{ … } as const`).
+    // parentheses, a type assertion (`/** @type {const} */ ({ … })`, `{ … } as const`) or Object.freeze( … ).
     const arrOf = (): any => {
       const wrappers = new Set([SyntaxKind.ParenthesizedExpression, SyntaxKind.AsExpression,
         SyntaxKind.SatisfiesExpression, SyntaxKind.TypeAssertionExpression]);
+      const frozen = (n: any): boolean => n.isKind(SyntaxKind.CallExpression)
+        && n.getExpression().getText().replace(/\s/g, '') === 'Object.freeze' && n.getArguments().length === 1;
       let init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
-      while (init && wrappers.has(init.getKind())) init = init.getExpression();
+      while (init && (wrappers.has(init.getKind()) || frozen(init))) {
+        init = frozen(init) ? init.getArguments()[0] : init.getExpression();
+      }
       const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression)
         ? init.getProperties().find((p: any) => normPropName(p.getName?.()) === 'boundary')
         : undefined;
