@@ -129,9 +129,12 @@ grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
   || bad "F: no line saying the stack's config has no RULE_GLOBS block"
 
 # ── Fixture G — getff's own config whose `boundary: [` array was edited away, then a re-install ──
-# The boundary globs cannot be written. The install used to answer «widen RULE_GLOBS.boundary by
-# hand» on stderr and put nothing in the NOT-wired summary (cold-review F5b, Q4.7: never a manual
-# step). It must name what is not wired and why, in the summary.
+# The edit makes the config the consumer's, as for the synth-wire (getff_delivered AND
+# getff_bytes_intact): 60-ci no longer writes into it, and its boundary globs go to 99-finalize's
+# own-config pass, which keeps the original first — and needs ts-morph, which a plain re-install
+# does not have. So the file stays as the consumer left it. The install used to answer «widen
+# RULE_GLOBS.boundary by hand» on stderr and put nothing in the NOT-wired summary (cold-review F5b,
+# Q4.7: never a manual step). It must name what is not wired and why, in the summary.
 G=$(mktemp -d)
 printf '{"name":"g","version":"0.0.0"}\n' > "$G/package.json"
 mkdir -p "$G/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$G/src/api/handler.ts"
@@ -140,16 +143,39 @@ awk '/^[[:space:]]*boundary:[[:space:]]*\[/{skip=1} skip{ if ($0 ~ /\]/) skip=0;
   "$G/eslint.config.mjs" > "$G/eslint.config.mjs.edit" && mv "$G/eslint.config.mjs.edit" "$G/eslint.config.mjs"
 grep -q 'RULE_GLOBS' "$G/eslint.config.mjs" && ! grep -qE '^[[:space:]]*boundary:' "$G/eslint.config.mjs" \
   || bad "G: the fixture edit did not leave RULE_GLOBS without its boundary array — the arm below would be vacuous"
+cp "$G/eslint.config.mjs" "$G.edited"
 ( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$G/.install2.log" 2>&1 \
   || bad "G: the re-install exited non-zero (tail: $(tail -3 "$G/.install2.log" | tr '\n' '|'))"
-grep -q 'could not add glob' "$G/.install2.log" \
-  || bad "G: the glob write never failed — the arm below would be vacuous"
+grep -q 'getff placed eslint.config.mjs, and it has been edited since, so it is treated as your own config' "$G/.install2.log" \
+  && ok "G: 60-ci treats getff's edited config as the consumer's" \
+  || bad "G: 60-ci did not route the edited config as the consumer's: $(grep -A2 'R2 auto-wire' "$G/.install2.log" | tr '\n' '|')"
+cmp -s "$G/eslint.config.mjs" "$G.edited" && ! grep -q 'could not add glob' "$G/.install2.log" \
+  && ok "G: the edited config is left as the consumer left it — 60-ci does not write into it" \
+  || bad "G: the re-install wrote into the edited config, or tried to: $(diff "$G.edited" "$G/eslint.config.mjs" | head -3 | tr '\n' '|')"
 ! grep -qiE 'by hand|manually' "$G/.install2.log" \
   && ok "G: a boundary glob getff cannot write → no manual-edit advice" \
   || bad "G: the install asks for a manual edit: $(grep -iE 'by hand|manually' "$G/.install2.log" | head -1)"
-awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q 'RULE_GLOBS.boundary.*eslint.config.mjs' \
-  && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added" \
-  || bad "G: the not-wired summary does not report the boundary globs that could not be added"
+awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q 'RULE_GLOBS.boundary.*eslint.config.mjs.*--full' \
+  && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added, and --full" \
+  || bad "G: the not-wired summary does not report the boundary globs that could not be added: $(awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -i 'eslint.config' | head -2 | tr '\n' '|')"
+rm -f "$G.edited"
+
+# ── Fixture G2 — getff's own, untouched config whose glob write fails ────────────────────────────
+# 60-ci still writes into getff's own config itself; a write that fails (here the temp file it
+# writes through is a directory) must be a NOT-wired line with its reason, never «✓ added» and
+# never a manual step.
+G2=$(mktemp -d)
+printf '{"name":"g2","version":"0.0.0"}\n' > "$G2/package.json"
+mkdir -p "$G2/src/api" "$G2/eslint.config.mjs.tmp"; echo 'export const h = (b) => schema.parse(b);' > "$G2/src/api/handler.ts"
+install_into "$G2" ts-server
+grep -q 'could not add glob' "$G2/.install.log" \
+  || bad "G2: the glob write never failed — the arm below would be vacuous"
+! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$G2/.install.log" && ! grep -qiE 'by hand|manually' "$G2/.install.log" \
+  && ok "G2: a failed glob write → no «added N glob(s)» claim and no manual-edit advice" \
+  || bad "G2: the install claimed the globs, or asked for a manual edit, after a failed write"
+awk '/NOT wired, or wired only in part/{on=1} on' "$G2/.install.log" | grep -q 'RULE_GLOBS.boundary of eslint.config.mjs.*the write failed' \
+  && ok "G2: the not-wired summary names the boundary globs that were not added, and why" \
+  || bad "G2: the not-wired summary does not report the failed glob write"
 
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )

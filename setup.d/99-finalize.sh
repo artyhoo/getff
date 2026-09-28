@@ -41,7 +41,8 @@
 # branch too: its content is theirs, and the AST writer of getff's branch re-prints the list it
 # appends to — a comment on the consumer's last entry swallowed the new blocks, so the rule never
 # reached ESLint. A write on getff's branch stages the config again (refresh_baseline_stage), so the
-# bytes it leaves are read as getff's on the next install too.
+# bytes it leaves are read as getff's on the next install too. 60-ci reads a root config the same
+# way: an edited one gets its boundary globs here, in _r2_own_globs, after its original is kept.
 _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
 # _ts_morph_why <it|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
 # install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
@@ -63,6 +64,24 @@ _getff_rules_in() {
         --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$1" --dry-run 2>&1 ) || return 1
   case "$out" in *"all synthesized rules already present in"*|*"synthesizer emitted no rules"*) return 0 ;; esac
   return 1
+}
+# _r2_own_gap <rel-cfg> — what R2 still lacks in <rel-cfg> for the HTTP boundary 60-ci found
+# (_r2_own_globs), worded for a not-wired line; nothing when it lacks nothing. A config that names R2
+# as a quoted rule id (as getff's templates do) lacks only the boundary globs it does not carry yet,
+# read the way 60-ci's own insert reads them (a fixed-string match); _getff_rules_in does not look
+# at R2 at all.
+_r2_own_gap() {
+  local cfg="$PROJECT_ROOT/$1" g missing=""
+  [ -n "${_r2_own_globs:-}" ] || return 0
+  if ! grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$cfg" 2>/dev/null; then
+    echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)"
+    return 0
+  fi
+  while IFS= read -r g; do
+    [ -n "$g" ] && ! grep -qF -- "$g" "$cfg" 2>/dev/null && missing="${missing:+$missing, }'$g'"
+  done <<< "$_r2_own_globs"
+  [ -z "$missing" ] || echo "R2's boundary globs $missing (RULE_GLOBS.boundary, for the HTTP boundary code 60-ci found)"
+  return 0
 }
 _root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
 # _root_edited=1: getff placed the root config, and the consumer has edited it since.
@@ -94,14 +113,22 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
     echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
     note_not_wired "getff's rules in $_root_eslint (your own config) — the synth-and-wire bundle is missing from this getff package ($_synth_wirer)"
   elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ] && [ -n "$_root_edited" ] \
-       && [ -z "${_r2_own_globs:-}" ] && _getff_rules_in "$_root_eslint"; then
-    # Nothing can be inserted without ts-morph, and nothing needs to be: getff's rules came with its
-    # template and are still in the consumer's edit (as are its ignores), so there is no gap to report.
-    echo "▶ synth-wire: getff's rules are already in $_root_eslint — nothing to add"
+       && _getff_rules_in "$_root_eslint"; then
+    # Nothing can be inserted without ts-morph. getff's rules came with its template and are still in
+    # the consumer's edit (as are its ignores), so the only gap left is what R2 lacks there for an
+    # HTTP boundary 60-ci found — the boundary globs the edit does not carry yet, as a rule.
+    _own_gap=$(_r2_own_gap "$_root_eslint")
+    if [ -z "$_own_gap" ]; then
+      echo "▶ synth-wire: getff's rules are already in $_root_eslint — nothing to add"
+    else
+      echo "▶ synth-wire: getff's rules are already in $_root_eslint — adding what R2 lacks there needs ts-morph, which this install did not put in node_modules"
+      note_not_wired "$_own_gap in $_root_eslint (your own config) — $(_ts_morph_why them)"
+    fi
   elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it needs ts-morph, which this install did not put in node_modules"
     _own_what="getff's rules"
-    [ -z "${_r2_own_globs:-}" ] || _own_what="getff's rules, RULE_GLOBS and R2 (60-ci found an HTTP boundary)"
+    _own_gap=$(_r2_own_gap "$_root_eslint")
+    [ -z "$_own_gap" ] || _own_what="getff's rules, $_own_gap"
     note_not_wired "$_own_what in $_root_eslint (your own config) — $(_ts_morph_why them)"
   else
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it (additions only; the original is kept if anything changes)"

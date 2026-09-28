@@ -49,6 +49,12 @@
 #      on that install and the next;
 #   Q  an edited getff config on an install without ts-morph: nothing is reported as not wired while
 #      getff's rules are already in it; Q neg: a live rule it does not carry is reported, with --full;
+#   N  HTTP boundary code appears after the consumer edited getff's config: the boundary globs reach
+#      it through the own-config pass — insertions only, the edited original kept without them —
+#      never 60-ci's in-place insert, which M (its paired negative) keeps for getff's untouched config;
+#   O  the same on an install without ts-morph: the config is left as it is and the not-wired summary
+#      names the boundary globs it lacks, with --full — not getff's rules, which are in it; O neg:
+#      when it lacks none (the first install added them), nothing is reported;
 #   E  the R2 Layer-2 wirer (`--yes` under --full) on a per-package config the consumer owns: R2
 #      lands in it, the original is kept, and prettier still accepts the file;
 #   F  the R2 per-workspace wirer on a multi-stack monorepo: the consumer's workspace config gets R2
@@ -604,6 +610,7 @@ done
 # template, so an edited config that still carries them has nothing to report (Q); one live rule it
 # does not carry is a real gap, and the summary names it (Q neg).
 edited_plain_reinstall() { # $1 = project dir, $2 = live snippet for the re-install ("" = none)
+  # $3 = a command run on the project dir after the edit, before the re-install ("" = none)
   printf '{ "name": "swq", "version": "0.0.0" }\n' > "$1/package.json"
   ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.1.log" 2>&1 \
     || bad "$(basename "$1"): the first plain install failed (tail: $(tail -3 "$1.1.log" | tr '\n' '|'))"
@@ -611,6 +618,7 @@ edited_plain_reinstall() { # $1 = project dir, $2 = live snippet for the re-inst
   grep -qF "$NOTE" "$1/eslint.config.mjs" || bad "$(basename "$1"): the fixture edit did not land — the arm would be vacuous"
   cp "$1/eslint.config.mjs" "$1.edited"
   [ -z "$2" ] || live_snippet "$1" "$2"
+  [ -z "${3:-}" ] || "$3" "$1"
   ( cd "$1" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.2.log" 2>&1 \
     || bad "$(basename "$1"): the plain re-install failed (tail: $(tail -3 "$1.2.log" | tr '\n' '|'))"
   [ ! -e "$1/node_modules/ts-morph/package.json" ] \
@@ -630,6 +638,78 @@ edited_plain_reinstall "$Qn" '{ "no-var": "error" }'
 not_wired "$Qn.2.log" | grep -F 'eslint.config.mjs' | grep -q -- '--full' \
   && ok "Q neg: a live rule the edited config does not carry is named in the not-wired summary, with --full" \
   || bad "Q neg: the missing live rule is not reported: $(not_wired "$Qn.2.log" | head -3 | tr '\n' '|')"
+
+# ── N, O: HTTP boundary code appears in a project whose getff config the consumer has edited ───
+# 60-ci widens RULE_GLOBS.boundary in place only in a config that is getff's: delivered AND still
+# holding getff's bytes (M). An edited one is the consumer's, as for the synth-wire (I): its boundary
+# globs go to 99-finalize's own-config pass (_r2_own_globs → --r2-boundary), which keeps the edited
+# original before it inserts them. 60-ci's own insert bypassed that keep — no copy recorded the
+# change, and a copy kept later already carried getff's globs.
+HANDLERS_GLOB="'**/handlers/**/*.{ts,tsx}'"   # a detector glob the react-next template does not carry
+add_handler() { # $1 = project dir — HTTP boundary code under handlers/, which only HANDLERS_GLOB covers
+  mkdir -p "$1/lib/handlers"
+  printf "import { z } from 'zod';\nexport const create = (body: unknown) => z.object({ a: z.string() }).parse(body);\n" \
+    > "$1/lib/handlers/create.ts"
+}
+N="$WORK/placed-edited-boundary"; mkdir -p "$N"
+printf '{ "name": "swn", "version": "0.0.0" }\n' > "$N/package.json"
+borrow "$N"
+( cd "$N" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.1.log" 2>&1 \
+  || bad "N: the first install.sh react-next failed (tail: $(tail -3 "$N.1.log" | tr '\n' '|'))"
+edit_last_entry "$N/eslint.config.mjs"
+cp "$N/eslint.config.mjs" "$N.edited"
+grep -qF "$NOTE" "$N.edited" && ! grep -qF "$HANDLERS_GLOB" "$N.edited" \
+  || bad "N: the edited config lacks the edit or already carries the handlers glob — the arm would be vacuous"
+add_handler "$N"
+( cd "$N" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.2.log" 2>&1 \
+  || bad "N: the re-install failed (tail: $(tail -3 "$N.2.log" | tr '\n' '|'))"
+unborrow "$N"
+grep -q 'getff placed eslint.config.mjs, and it has been edited since' "$N.2.log" \
+  || bad "N: the re-install did not route the edited config as the consumer's — the arm would be vacuous"
+grep -qF "$HANDLERS_GLOB" "$N/eslint.config.mjs" \
+  && ok "N: the boundary glob for the new HTTP boundary code is in the edited config" \
+  || bad "N: the handlers glob did not land in the edited config: $(grep -nE 'R2 auto-wire|HTTP boundary|synth-wire' "$N.2.log" | head -3 | tr '\n' '|')"
+grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$N.2.log" \
+  && bad "N: 60-ci wrote the boundary globs into the consumer's edited config itself" \
+  || ok "N: 60-ci leaves the edited config to the own-config pass"
+kept_original "$N" eslint.config.mjs "$N.edited" \
+  && ok "N: the edited original is kept at .ai-factory/before-getff/, byte-equal to the consumer's edit" \
+  || bad "N: no single byte-equal kept original of the edited config ($(ls "$N/.ai-factory/before-getff" 2>&1 | tr '\n' ' '))"
+cat "$N/.ai-factory/before-getff/eslint.config.mjs".* 2>/dev/null | grep -qF "$HANDLERS_GLOB" \
+  && bad "N: a kept 'original' already carries getff's boundary glob" \
+  || ok "N: no kept original carries getff's boundary glob"
+only_insertions "$N.edited" "$N/eslint.config.mjs" \
+  && ok "N: nothing of the edited config was changed or removed — getff only inserted" \
+  || bad "N: a character of the edited config was changed or removed"
+not_wired "$N.2.log" | grep -qF 'eslint.config.mjs' \
+  && bad "N: the not-wired summary lists the eslint config: $(not_wired "$N.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
+  || ok "N: the not-wired summary has no eslint config line"
+
+# Without ts-morph nothing can be inserted into the consumer's config. Only the globs it does not
+# carry are a gap — never getff's rules, which came with its template and are still in it.
+O="$WORK/placed-edited-boundary-plain"; mkdir -p "$O"
+edited_plain_reinstall "$O" "" add_handler
+cmp -s "$O/eslint.config.mjs" "$O.edited" && ok "O: the edited config is left byte-identical" \
+  || bad "O: the edited config changed on an install that cannot run the AST editor: $(diff "$O.edited" "$O/eslint.config.mjs" | head -4 | tr '\n' '|')"
+_o_line=$(not_wired "$O.2.log" | grep -F 'eslint.config.mjs')
+printf '%s\n' "$_o_line" | grep -qF "$HANDLERS_GLOB" && printf '%s\n' "$_o_line" | grep -q -- '--full' \
+  && ok "O: the not-wired summary names the missing boundary glob, with --full" \
+  || bad "O: the missing boundary glob is not reported: $(not_wired "$O.2.log" | head -3 | tr '\n' '|')"
+printf '%s\n' "$_o_line" | grep -qF "getff's rules" \
+  && bad "O: the not-wired line says getff's rules are missing, but they are in the edited config: $_o_line" \
+  || ok "O: the not-wired line does not claim getff's rules are missing"
+# O neg: the boundary code was there on the first install, whose 60-ci added every glob while the
+# config was getff's; after the consumer's edit there is nothing left to add, so nothing to report.
+On="$WORK/placed-edited-boundary-covered"; mkdir -p "$On"
+add_handler "$On"
+edited_plain_reinstall "$On" ""
+grep -qF "$HANDLERS_GLOB" "$On.edited" \
+  || bad "O neg: the first install did not add the handlers glob — the arm would be vacuous"
+not_wired "$On.2.log" | grep -qF 'eslint.config.mjs' \
+  && bad "O neg: the not-wired summary lists eslint.config.mjs although every boundary glob is in it: $(not_wired "$On.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
+  || ok "O neg: with every boundary glob already in the edited config, nothing about it is reported"
+cmp -s "$On/eslint.config.mjs" "$On.edited" && ok "O neg: the edited config is left byte-identical" \
+  || bad "O neg: the edited config changed"
 
 # ── E, F: the R2 wirer under --full ────────────────────────────────────────────────────────────
 if [ ! -x "$FW_NM/.bin/tsx" ]; then
