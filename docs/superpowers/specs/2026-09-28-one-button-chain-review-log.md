@@ -167,6 +167,17 @@ real; the partial ones are the round-2 findings they name.
   no rows each name a `build` or `corpus` trigger» does not hold by the status column: eleven of them
   name only a `generated`, `live` or `always-on` one (B1, B6, D9, E12, H1, H3, H4, H7, H8, H10, H11), so
   the inventory counts by trigger status, not by «Ships today».
+  Round 11's cards came back in part: Q1 = A, and the operator made building the 48 waiting triggers
+  its own isolated task (a plan by carrier, chip `task_ed1d38f7`, built after spec approval); Q3 = A.
+  Q2 (the always-on set, to be chosen as «the foundation of everything else, the most general») and
+  Q4 (when a signal is needed and how often it fires) reopened for round 12, so both stay provisional.
+- **r7 (2026-09-29): restructure.** The base core now comes first (§4: what ships, how a principle
+  reaches the agent, the trigger build, getff running what it ships), then the one button (§5), then
+  the shipped list (§6). R6-10's resolution moved into §4.2; R7-1 and R7-2 record how a not-delivered
+  principle counts and who builds the triggers. Complete install gained two parts: the base core (part
+  2) and architecture (part 6, which R6-2 B already required and §4.4 had missed). Wrapped prose was
+  joined, one paragraph per line (640 → 412 lines). **Renumbered:** old §4 → §5, §5 → §7, §6 → §8,
+  §7 → §9, §8 → §10, §9 → §11, §10 → §12; section numbers in the entries above are the old ones.
 
 ## Rejected alternatives index
 
