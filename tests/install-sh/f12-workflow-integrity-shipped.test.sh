@@ -36,12 +36,12 @@ R=$(mktemp -d); printf '{ "name": "f12r", "version": "0.0.0" }\n' > "$R/package.
 # F12-neg (load-bearing) — the shipped RULES.md R11 row names workflow-integrity.yml. If the rule
 # stops referencing it, this arm fails and shipping the workflow is revealed as no longer needed.
 r11_row=$(grep -E '^\| \*\*R11 CI integrity\*\*' "$T/.ai-factory/RULES.md" || true)
-echo "$r11_row" | grep -q 'workflow-integrity.yml' \
+grep -q 'workflow-integrity.yml' <<<"$r11_row" \
   && ok "F12-neg: shipped RULES.md R11 row references workflow-integrity.yml (fix is load-bearing)" \
   || bad "F12-neg: R11 row no longer names workflow-integrity.yml — fix may be vacuous"
 
 # Negative honesty — R11 must NOT claim an artefact install does not ship (actionlint/zizmor/audit-self).
-echo "$r11_row" | grep -qiE 'actionlint|zizmor|audit-self' \
+grep -qiE 'actionlint|zizmor|audit-self' <<<"$r11_row" \
   && bad "F12-honesty: R11 row claims actionlint/zizmor/audit-self — none are shipped" \
   || ok "F12-honesty: R11 row claims no unshipped actionlint/zizmor/audit-self artefact"
 

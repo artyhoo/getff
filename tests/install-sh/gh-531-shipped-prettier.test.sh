@@ -100,11 +100,11 @@ shipped_wf=$(grep -ohE '(copy_safe|deliver_getff_workflow) [^|]*"\$PROJECT_ROOT/
 [ -n "$shipped_wf" ] || { echo "FATAL: shipped_wf empty — workflow copy verb extraction broke"; exit 1; }
 # Critical-review wave 1 moved every eslint.config.mjs placement onto copy_unless_foreign, and the
 # root extraction went blind to it the same way (the neg arm below went VACUOUS in CI, PR #1840).
-printf '%s\n' "$shipped_root" | grep -qx 'eslint.config.mjs' \
+grep -qx 'eslint.config.mjs' <<<"$shipped_root" \
   || { echo "FATAL: shipped_root lacks eslint.config.mjs — root copy verb extraction broke"; exit 1; }
 cand_miss=""
 for c in $shipped_root $shipped_wf; do
-  printf '%s\n' "$cand_block" | grep -qF "\"$c\"" || cand_miss="$cand_miss $c"
+  grep -qF "\"$c\"" <<<"$cand_block" || cand_miss="$cand_miss $c"
 done
 [ -z "$cand_miss" ] \
   && ok "every shipped consumer-ownable config is in ignore_shipped_configs candidates[] (no drift)" \
@@ -113,7 +113,7 @@ done
 cand_block_neg=$(printf '%s\n' "$cand_block" | sed 's/"eslint.config.mjs" //')
 neg_caught=0
 for c in $shipped_root $shipped_wf; do
-  printf '%s\n' "$cand_block_neg" | grep -qF "\"$c\"" || neg_caught=1
+  grep -qF "\"$c\"" <<<"$cand_block_neg" || neg_caught=1
 done
 [ "$neg_caught" -eq 1 ] \
   && ok "neg: dropping a config from candidates[] makes the completeness guard fail (non-vacuous)" \
@@ -126,7 +126,7 @@ _stryker_src="$REPO_ROOT/install.sh"
 grep -q 'replace(/("packageManager"' "$_stryker_src" \
   && ok "stryker patch swaps the packageManager VALUE in place (preserves prettier formatting)" \
   || bad "stryker patch is not an in-place value replace (#531 regression risk)"
-if grep -A6 'patch_stryker_package_manager' "$_stryker_src" | grep -q 'JSON.stringify(cfg'; then
+if grep -q 'JSON.stringify(cfg' <<<"$(grep -A6 'patch_stryker_package_manager' "$_stryker_src")"; then
   bad "neg: stryker patch still uses JSON.stringify (re-expands prettier-collapsed arrays → re-breaks consumer)"
 else
   ok "neg: stryker patch no longer JSON.stringify-re-serializes the whole config"
@@ -314,7 +314,7 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   # Capture into a var first: `prettier --check` exits 1 when it finds issues, and piping it straight
   # into the conditional would trip `set -o pipefail` (the pipeline inherits prettier's exit 1).
   out7=$( cd "$TC" && npx --yes prettier@3.8.3 --check . 2>&1 )
-  printf '%s\n' "$out7" | grep -q 'eslint.config.mjs' \
+  grep -q 'eslint.config.mjs' <<<"$out7" \
     && ok "prettier --check still flags the consumer's own dirty eslint.config.mjs (kept under check)" \
     || bad "prettier --check does NOT see the consumer's eslint.config.mjs (it was hidden after all)"
 else
@@ -391,7 +391,7 @@ done
 _ign_884_neg=$(grep -vxF '.ai-factory/DESCRIPTION.template.md' "$_ign_884")
 neg884_caught=0
 for f in $shipped_aif_md; do
-  printf '%s\n' "$_ign_884_neg" | grep -qxF "$f" || neg884_caught=1
+  grep -qxF "$f" <<<"$_ign_884_neg" || neg884_caught=1
 done
 [ "$neg884_caught" -eq 1 ] \
   && ok "#884 neg: dropping DESCRIPTION.template.md from the block flips the population guard to fail (non-vacuous)" \
@@ -425,7 +425,7 @@ done
 _ign_v_neg=$(grep -vxF '.claude/vendor/runtime-bridge/**' "$_ign_v")
 negv_caught=0
 for v in $shipped_vendor; do
-  printf '%s\n' "$_ign_v_neg" | grep -qxF "$v/**" || negv_caught=1
+  grep -qxF "$v/**" <<<"$_ign_v_neg" || negv_caught=1
 done
 [ "$negv_caught" -eq 1 ] \
   && ok "vendor neg: dropping runtime-bridge from the block flips the population guard to fail (non-vacuous)" \
@@ -462,7 +462,7 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   # the POS arm above is satisfied by a check that never looks at anything.
   perl -pi -e "s|'/tmp/runtime-bridge-dedup\.jsonl'|'/tmp/_neg_probe_drift.jsonl'|" "$_p3_src"
   _p3_out=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check 2>&1 )
-  printf '%s' "$_p3_out" | grep -q 'DRIFT .*vendor/src/idempotency\.ts' \
+  grep -q 'DRIFT .*vendor/src/idempotency\.ts' <<<"$_p3_out" \
     && ok "vendor parity neg: a content edit to src/ with no re-vendor is caught (non-vacuous)" \
     || bad "vendor parity neg: planted src drift NOT caught → the parity check is VACUOUS"
   cp "$_p3_bak" "$_p3_src"
@@ -489,12 +489,12 @@ if npx --yes prettier@3.8.3 --version >/dev/null 2>&1; then
   cp "$_hv" "$_hv_bak"
   printf '\n# _neg_probe twin drift\n' >> "$_hv"
   _hv_out=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check 2>&1 )
-  printf '%s' "$_hv_out" | grep -q 'dispatch hook has drifted' \
+  grep -q 'dispatch hook has drifted' <<<"$_hv_out" \
     && ok "hook twin neg: vendor/hooks ↔ .claude/hooks drift is caught (D-5 gap closed, non-vacuous)" \
     || bad "hook twin neg: planted twin drift NOT caught → the twin is still ungated"
   # Change-scoped reality: a commit staging ONLY the .claude/hooks half must still wake the phase.
   _hv_scoped=$( cd "$REPO_ROOT" && bash scripts/format-shipped.sh --check .claude/hooks/runtime-bridge-dispatch.sh 2>&1 )
-  printf '%s' "$_hv_scoped" | grep -q 'dispatch hook has drifted' \
+  grep -q 'dispatch hook has drifted' <<<"$_hv_scoped" \
     && ok "hook twin: a filter naming only the .claude/hooks half still runs the parity phase" \
     || bad "hook twin: filtering to the .claude/hooks half skipped the phase — pre-commit blind spot"
   cp "$_hv_bak" "$_hv"

@@ -125,9 +125,9 @@ done
 POS_OUTPUT=$(AIF_PROJECT_ROOT="$POS_SCRATCH" bash "$GATE_SCRIPT" 2>&1)
 POS_RC=$?
 
-if [ "$POS_RC" -eq 0 ] && echo "$POS_OUTPUT" | grep -q 'fence fires on bad input'; then
+if [ "$POS_RC" -eq 0 ] && grep -q 'fence fires on bad input' <<<"$POS_OUTPUT"; then
   ok "(pos) POSITIVE arm: gate exits 0 + fences ACTIVE on unmodified source-plugin fixtures — gate is NON-VACUOUS (not always-silent)"
-elif echo "$POS_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+elif grep -qE "$GATE_SKIP_PATTERN" <<<"$POS_OUTPUT"; then
   skip "(pos) gate SKIP'd in scratch env (tool/barrel resolution) — POSITIVE arm inconclusive: $(echo "$POS_OUTPUT" | head -3 | tr '\n' '|')"
 else
   bad "(pos) POSITIVE arm: gate did NOT exit 0 + fences-ACTIVE on unmodified bad fixtures (rc=$POS_RC) — fences are SILENT (the #832 always-silent bug)"
@@ -238,7 +238,7 @@ _vac_root "$VAC_ROOT" "$VAC_MISSING_PKG"
 # (no CI, no FENCES_FIRE_STRICT) — vacuity is its own axis, not a strict-mode side effect.
 VAC_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$VAC_ROOT" bash "$GATE_SCRIPT" 2>&1)
 VAC_RC=$?
-if [ "$VAC_RC" -ne 0 ] && echo "$VAC_OUT" | grep -q 'VACUOUS'; then
+if [ "$VAC_RC" -ne 0 ] && grep -q 'VACUOUS' <<<"$VAC_OUT"; then
   ok "(viii) vacuity arm: manifests present + every fixture skipped → rc=$VAC_RC with a VACUOUS verdict (#1391)"
 else
   bad "(viii) vacuity arm: expected rc!=0 + VACUOUS, got rc=$VAC_RC — the gate reports success having proved no fence (#1391)"
@@ -246,9 +246,9 @@ else
 fi
 
 # (ix) the skip line must NAME the real error, not render an empty parenthetical (#1390)
-if echo "$VAC_OUT" | grep -q "module load failed ($VAC_MISSING_PKG\|module load failed (.*$VAC_MISSING_PKG"; then
+if grep -q "module load failed ($VAC_MISSING_PKG\|module load failed (.*$VAC_MISSING_PKG" <<<"$VAC_OUT"; then
   ok "(ix) error-capture arm: dep-skip parenthetical names the unresolvable package (#1390)"
-elif echo "$VAC_OUT" | grep -q 'module load failed ()'; then
+elif grep -q 'module load failed ()' <<<"$VAC_OUT"; then
   bad "(ix) error-capture arm: parenthetical is EMPTY — head -1 read the blank first line, the real cause never reached the log (#1390)"
 else
   bad "(ix) error-capture arm: parenthetical does not name '$VAC_MISSING_PKG' (#1390)"
@@ -287,9 +287,9 @@ VAC_OK_ROOT=$(mktemp -d)
 _vac_root "$VAC_OK_ROOT" "$REPO_ROOT/packages/core/eslint-rules/index.ts"
 VAC_OK_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$VAC_OK_ROOT" bash "$GATE_SCRIPT" 2>&1)
 VAC_OK_RC=$?
-if [ "$VAC_OK_RC" -eq 0 ] && echo "$VAC_OK_OUT" | grep -qE 'proved=[1-9]'; then
+if [ "$VAC_OK_RC" -eq 0 ] && grep -qE 'proved=[1-9]' <<<"$VAC_OK_OUT"; then
   ok "(xii) paired-positive: working barrel → rc=0 and the summary reports the fixture axis (proved=N) separately from load-probes"
-elif echo "$VAC_OK_OUT" | grep -qE 'module load failed|dep missing'; then
+elif grep -qE 'module load failed|dep missing' <<<"$VAC_OK_OUT"; then
   # Narrower than GATE_SKIP_PATTERN on purpose: that pattern also matches the load-probe's
   # structural "— skipped" line, which is EXPECTED here (no eslint.config.mjs / eslint.config.js in a
   # scratch root) and would turn this arm permanently inconclusive — vacuity by another name.
@@ -323,7 +323,7 @@ SILENT_ROOT=$(mktemp -d)
 _stub_tsx_root "$SILENT_ROOT" 'exit 0'
 SILENT_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$SILENT_ROOT" bash "$GATE_SCRIPT" 2>&1)
 SILENT_RC=$?
-if [ "$SILENT_RC" -ne 0 ] && ! echo "$SILENT_OUT" | grep -q 'ACTIVE'; then
+if [ "$SILENT_RC" -ne 0 ] && ! grep -q 'ACTIVE' <<<"$SILENT_OUT"; then
   ok "(xiii) silent-probe arm: a probe exiting 0 with no output is NOT counted as a fired fence (rc=$SILENT_RC, no ACTIVE claim)"
 else
   bad "(xiii) silent-probe arm: rc=$SILENT_RC and ACTIVE-claim present=$(echo "$SILENT_OUT" | grep -c 'ACTIVE') — a probe that never ran reported a live fence (#1391 secondary)"
@@ -337,7 +337,7 @@ SENTINEL_ROOT=$(mktemp -d)
 _stub_tsx_root "$SENTINEL_ROOT" 'echo FENCE_PROBE_DONE; exit 0'
 SENTINEL_OUT=$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$SENTINEL_ROOT" bash "$GATE_SCRIPT" 2>&1)
 SENTINEL_RC=$?
-if [ "$SENTINEL_RC" -eq 0 ] && echo "$SENTINEL_OUT" | grep -q 'ACTIVE'; then
+if [ "$SENTINEL_RC" -eq 0 ] && grep -q 'ACTIVE' <<<"$SENTINEL_OUT"; then
   ok "(xiv) sentinel paired-positive: probe emitting the success sentinel counts as a fired fence (rc=0) — arm (xiii) is non-vacuous"
 else
   bad "(xiv) sentinel paired-positive: expected rc=0 + ACTIVE, got rc=$SENTINEL_RC — the sentinel requirement rejects a legitimate pass"
@@ -414,7 +414,7 @@ ARM2_RC=$?
 
 if [ "$ARM2_RC" -ne 0 ]; then
   ok "(ii) FENCE SILENT arm: gate exits non-zero (rc=$ARM2_RC) when bad fixture has valid code — probe is falsifiable"
-elif echo "$ARM2_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+elif grep -qE "$GATE_SKIP_PATTERN" <<<"$ARM2_OUTPUT"; then
   skip "(ii) gate SKIP'd (tool resolution issue in scratch env) — arm inconclusive"
 else
   bad "(ii) FENCE SILENT arm: gate exited 0 when bad file is valid code — probe accepts silent fences (vacuous pass)"
@@ -447,7 +447,7 @@ ARM3_RC=$?
 
 if [ "$ARM3_RC" -ne 0 ]; then
   ok "(iii) FALSE POSITIVE arm: gate exits non-zero (rc=$ARM3_RC) when good fixture has bad code — probe catches false positives"
-elif echo "$ARM3_OUTPUT" | grep -qE "$GATE_SKIP_PATTERN"; then
+elif grep -qE "$GATE_SKIP_PATTERN" <<<"$ARM3_OUTPUT"; then
   skip "(iii) gate SKIP'd — arm inconclusive"
 else
   bad "(iii) FALSE POSITIVE arm: gate exited 0 when good file triggers the rule — probe misses false positives"

@@ -148,7 +148,7 @@ else
   echo "ARM3 SKILL EDIT" >> "$SKILL"
   OUT3=$( cd "$TC" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
   N_PRESERVED=$(ls -1 "$TC/$CONFLICTS_REL" 2>/dev/null | wc -l | tr -d ' ')
-  if printf '%s\n' "$OUT3" | grep -qF "preserved 2 unbaselined diverged file(s)"; then
+  if grep -qF "preserved 2 unbaselined diverged file(s)" <<<"$OUT3"; then
     ok "arm 3: aggregate line reports exactly 2 preserved"
   else
     bad "arm 3: aggregate line wrong (got: $(printf '%s\n' "$OUT3" | grep -F 'unbaselined' || echo NONE)); files: $(ls "$TC/$CONFLICTS_REL" 2>/dev/null | tr '\n' ' ')"
@@ -187,7 +187,7 @@ rm -rf "$TC/$CONFLICTS_REL"
 echo "ARM4 SKILL EDIT" >> "$SKILL"
 MAN_BEFORE=$(mktemp); cp "$TC/$MANIFEST_REL" "$MAN_BEFORE"
 OUT4=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh --dry-run < /dev/null 2>&1 )
-if printf '%s\n' "$OUT4" | grep -F "would-flag:" | grep -qF "skills/getff/SKILL.md"; then
+if grep -qF "skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4" | grep -F "would-flag:")"; then
   ok "arm 4: --refresh --dry-run reports would-flag for the diverged plain skill"
 else
   bad "arm 4: no would-flag for .claude/skills/getff/SKILL.md under --refresh --dry-run (MAJOR 2 regression)"
@@ -204,7 +204,7 @@ cmp -s "$TC/$MANIFEST_REL" "$MAN_BEFORE" \
 # neg (LOAD-BEARING): the real refresh right after DOES warn + preserve — the would-flag
 # predicted a real divergence (preview faithful).
 OUT4B=$( cd "$TC" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:" | grep -qF "skills/getff/SKILL.md"; then
+if grep -qF "skills/getff/SKILL.md" <<<"$(printf '%s\n' "$OUT4B" | grep -F "overwriting locally-modified file:")"; then
   ok "arm 4 neg: the real refresh warns for exactly the file the dry-run would-flagged"
 else
   bad "arm 4 neg: real refresh did not warn for the dry-run-flagged file"

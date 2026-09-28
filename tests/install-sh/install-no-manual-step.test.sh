@@ -128,7 +128,7 @@ ln -s "$(command -v node)" "$NOJQ/node"
   # Not in $( ): a command substitution is a subshell, and its NOT_WIRED entry would be lost.
   PATH="$NONODE" register_cc_hook "$n" Stop "bash .claude/hooks/eot.sh" eot.sh > "$WORK/u-none.out" 2>&1
   out=$(cat "$WORK/u-none.out")
-  printf '%s\n' "${NOT_WIRED[@]-}" | grep -q 'eot.sh' \
+  grep -q 'eot.sh' <<<"$(printf '%s\n' "${NOT_WIRED[@]-}")" \
     && echo "OK with neither jq nor node the hook is a NOT-wired line" || echo "BAD no NOT-wired line without jq and node"
   printf '%s\n%s\n' "$out" "${NOT_WIRED[@]-}" > "$WORK/u.log"
   asks_by_hand "$WORK/u.log" && echo "BAD the jq-less path asks for a manual edit: $(manual_step_lines "$WORK/u.log" | head -1)" \
@@ -149,7 +149,7 @@ grep -qE '✓ git hooks active — core\.hooksPath=\.husky' "$WORK/n.log" \
   && ok "N: the install reports the hooks active from git config" || bad "N: no «git hooks active» line read from git config"
 grep -qE '✓ scripts/audit-ai-docs\.sh — [0-9]+ PASS, 0 FAIL' "$WORK/n.log" \
   && ok "N: the install ran audit-ai-docs.sh itself and reports its result" || bad "N: no audit-ai-docs.sh result in the install output"
-not_wired "$WORK/n.log" | grep -E '^[[:space:]]*- dependencies' | grep -q 'not installed' \
+grep -q 'not installed' <<<"$(not_wired "$WORK/n.log" | grep -E '^[[:space:]]*- dependencies')" \
   && ok "N: the dependency install is a NOT-wired line with its reason" \
   || bad "N: no NOT-wired line for the dependencies: $(not_wired "$WORK/n.log" | head -3 | tr '\n' '|')"
 grep -q 'npm install --save-dev' "$WORK/n.log" && bad "N: the install still prints an npm install command to copy" \
@@ -162,7 +162,7 @@ H="$WORK/own-hooks"; project "$H"; git -C "$H" config core.hooksPath .githooks
 install_into "$H" "$WORK/h.log" ts-server
 [ "$(git -C "$H" config core.hooksPath)" = .githooks ] && ok "H: core.hooksPath=.githooks kept" \
   || bad "H: core.hooksPath repointed to $(git -C "$H" config core.hooksPath)"
-not_wired "$WORK/h.log" | grep 'git hooks' | grep -q "\.githooks" \
+grep -q "\.githooks" <<<"$(not_wired "$WORK/h.log" | grep 'git hooks')" \
   && ok "H: the NOT-wired line names the consumer's hooksPath" || bad "H: no NOT-wired line naming .githooks"
 grep -q 'git config core.hooksPath' "$WORK/h.log" && bad "H: the install still prints a git config command" \
   || ok "H: no git config command printed"
@@ -171,7 +171,7 @@ no_manual H "$WORK/h.log"
 # ── S: subdirectory install ──────────────────────────────────────────────────────────────────
 S="$WORK/sub"; mkdir -p "$S"; git -C "$S" init -q; project "$S/web" nogit
 install_into "$S/web" "$WORK/s.log" ts-server
-not_wired "$WORK/s.log" | grep 'git hooks' | grep -q 'toplevel' \
+grep -q 'toplevel' <<<"$(not_wired "$WORK/s.log" | grep 'git hooks')" \
   && ok "S: the NOT-wired line says the install root is not the git toplevel" || bad "S: no NOT-wired hooks line naming the toplevel"
 grep -q 'git config core.hooksPath' "$WORK/s.log" && bad "S: the install still prints a git config command" \
   || ok "S: no git config command printed"
@@ -180,7 +180,7 @@ no_manual S "$WORK/s.log"
 # ── G: not a git repository ──────────────────────────────────────────────────────────────────
 G="$WORK/nogit"; project "$G" nogit
 install_into "$G" "$WORK/g.log" ts-server
-not_wired "$WORK/g.log" | grep 'git hooks' | grep -q 'not a git repository' \
+grep -q 'not a git repository' <<<"$(not_wired "$WORK/g.log" | grep 'git hooks')" \
   && ok "G: the NOT-wired line says the project is not a git repository" || bad "G: no NOT-wired hooks line for a non-git project"
 no_manual G "$WORK/g.log"
 
@@ -189,14 +189,14 @@ P="$WORK/own-prettier"; project "$P"; printf '{ "semi": false }\n' > "$P/.pretti
 install_into "$P" "$WORK/p.log" ts-server
 [ "$(cat "$P/.prettierrc")" = '{ "semi": false }' ] && ok "P: the consumer's .prettierrc is byte-identical" \
   || bad "P: the consumer's .prettierrc changed"
-not_wired "$WORK/p.log" | grep -q '^[[:space:]]*- prettier' \
+grep -q '^[[:space:]]*- prettier' <<<"$(not_wired "$WORK/p.log")" \
   && ok "P: prettier is a NOT-wired line" || bad "P: no NOT-wired line for prettier"
 no_manual P "$WORK/p.log"
 
 # ── L: a legacy .eslintrc.json beside the placed flat config ─────────────────────────────────
 L="$WORK/legacy"; project "$L"; printf '{ "rules": { "no-console": "error" } }\n' > "$L/.eslintrc.json"
 install_into "$L" "$WORK/l.log" ts-server
-not_wired "$WORK/l.log" | grep -q '\.eslintrc\.json' \
+grep -q '\.eslintrc\.json' <<<"$(not_wired "$WORK/l.log")" \
   && ok "L: the legacy eslintrc is a NOT-wired line" || bad "L: no NOT-wired line for .eslintrc.json"
 no_manual L "$WORK/l.log"
 
@@ -206,7 +206,7 @@ for _h in pre-commit pre-push; do printf '#!/bin/sh\necho own-%s\n' "$_h" > "$K/
 install_into "$K" "$WORK/k.log" ts-server
 for _h in pre-commit pre-push; do
   grep -q "own-$_h" "$K/.husky/$_h" && ok "K: the consumer's .husky/$_h is kept" || bad "K: the consumer's .husky/$_h was overwritten"
-  not_wired "$WORK/k.log" | grep "\.husky/$_h" | grep -q 'runs none of the framework' \
+  grep -q 'runs none of the framework' <<<"$(not_wired "$WORK/k.log" | grep "\.husky/$_h")" \
     && ok "K: the kept .husky/$_h is a NOT-wired line saying the framework checks do not run" \
     || bad "K: no NOT-wired line for the kept .husky/$_h"
 done
@@ -245,7 +245,7 @@ grep -q 'git hooks — not active' "$WORK/v.log" && bad "V: the checked block sa
 O="$WORK/otel"; mkdir -p "$O"; git -C "$O" init -q
 printf '{ "name": "nms", "version": "0.0.0", "dependencies": { "@opentelemetry/api": "^1.0.0" } }\n' > "$O/package.json"
 ( cd "$O" && unset AIF_STRICT_RUNTIME; bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/o.log" 2>&1
-not_wired "$WORK/o.log" | grep 'R8' | grep -q 'AIF_STRICT_RUNTIME is unset' \
+grep -q 'AIF_STRICT_RUNTIME is unset' <<<"$(not_wired "$WORK/o.log" | grep 'R8')" \
   && ok "O: R8 unarmed is a NOT-wired line with its reason" || bad "O: no NOT-wired line for the unarmed R8"
 grep -qE 'Set AIF_STRICT_RUNTIME=1 to' "$WORK/o.log" && bad "O: the install still tells the reader to set AIF_STRICT_RUNTIME" \
   || ok "O: no «Set AIF_STRICT_RUNTIME=1» instruction"
@@ -273,7 +273,7 @@ lane_into() { # <dir> <log> <PATH> <args…>
 }
 # nw_has <arm> <log> <regex> <what> — the lane's NOT-wired summary carries a line matching <regex>.
 nw_has() {
-  not_wired "$2" | grep -qiE "$3" && ok "$1: NOT wired names $4" \
+  grep -qiE "$3" <<<"$(not_wired "$2")" && ok "$1: NOT wired names $4" \
     || bad "$1: no NOT-wired line for $4: $(not_wired "$2" | tr '\n' '|' | cut -c1-300)"
 }
 # nw_lacks <arm> <log> <regex> <what> — no line of the lane's NOT-wired summary matches <regex>.
@@ -324,7 +324,7 @@ grep -qx 'pre-commit install --hook-type pre-push' "$WORK/pc.calls" 2>/dev/null 
   && ok "Y2: the install ran pre-commit's own pre-push stage install" || bad "Y2: pre-commit install --hook-type pre-push was not run"
 grep -q 'pre-push stage installed' "$WORK/y2.log" && ok "Y2: the log says the pre-push stage is installed" \
   || bad "Y2: no «pre-push stage installed» line: $(grep -i pre-commit "$WORK/y2.log" | tr '\n' '|')"
-not_wired "$WORK/y2.log" | grep -qi 'pre-commit' && bad "Y2: pre-commit still listed as NOT wired" || ok "Y2: pre-commit is not in NOT wired"
+grep -qi 'pre-commit' <<<"$(not_wired "$WORK/y2.log")" && bad "Y2: pre-commit still listed as NOT wired" || ok "Y2: pre-commit is not in NOT wired"
 no_manual Y2 "$WORK/y2.log"
 # Y2b: the consumer's own .git/hooks/pre-push is never handed to pre-commit (it would move it aside).
 Y2B="$WORK/py-precommit-own"; mkdir -p "$Y2B"; git -C "$Y2B" init -q
@@ -375,7 +375,7 @@ grep -q 'uvx --from ast-grep-cli==0.44.1 ast-grep scan' "$WORK/uvx.calls" 2>/dev
   && ok "Y5: ast-grep ran through uvx at the pinned 0.44.1" || bad "Y5: no pinned uvx ast-grep run: $(cat "$WORK/uvx.calls" 2>/dev/null | tr '\n' '|')"
 grep -q 'ast-grep fired RED on the planted violation' "$WORK/y5.log" && ok "Y5: the ast-grep lane is proven through uvx" \
   || bad "Y5: ast-grep lane not proven: $(grep -i 'ast-grep' "$WORK/y5.log" | tr '\n' '|')"
-not_wired "$WORK/y5.log" | grep -qi 'ast-grep' && bad "Y5: ast-grep still listed as NOT wired" || ok "Y5: ast-grep is not in NOT wired"
+grep -qi 'ast-grep' <<<"$(not_wired "$WORK/y5.log")" && bad "Y5: ast-grep still listed as NOT wired" || ok "Y5: ast-grep is not in NOT wired"
 
 # ── Y6: uvx present but it cannot fetch (offline, index blocked) — a gap, never a verdict ──────
 # A failed fetch exits non-zero on the bad AND the clean file, which the self-check would read as
@@ -542,7 +542,7 @@ chmod +x "$STUB/npm" "$STUB/pnpm" "$STUB/yarn"
 F="$WORK/full-fail"; project "$F"
 ( cd "$F" && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/f.log" 2>&1; rc=$?
 [ "$rc" -ne 0 ] && ok "F: a --full install whose dependencies failed still exits non-zero" || bad "F: rc 0 on failed dependencies"
-not_wired "$WORK/f.log" | grep -E '^[[:space:]]*- dependencies' | grep -q 'failed' \
+grep -q 'failed' <<<"$(not_wired "$WORK/f.log" | grep -E '^[[:space:]]*- dependencies')" \
   && ok "F: the dependency NOT-wired line says the install failed" \
   || bad "F: no NOT-wired dependency line saying it failed: $(not_wired "$WORK/f.log" | grep dependencies | head -1)"
 grep -q 'step 4' "$WORK/f.log" && bad "F: the degraded banner still points at «step 4»" || ok "F: the banner points at no numbered step"

@@ -49,13 +49,13 @@ if [ -x "$HOOK" ]; then ok "(A) check-doc-authority-header.sh shipped + executab
 _post=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 _matcher=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("check-doc-authority-header"))) | .[0].matcher // ""' "$S" 2>/dev/null)
 _dah_cmd=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | map(select(test("check-doc-authority-header"))) | .[0] // ""' "$S" 2>/dev/null)
-if echo "$_dah_cmd" | grep -q 'check-doc-authority-header' && echo "$_dah_cmd" | grep -q 'CLAUDE_PROJECT_DIR'; then
+if grep -q 'check-doc-authority-header' <<<"$_dah_cmd" && grep -q 'CLAUDE_PROJECT_DIR' <<<"$_dah_cmd"; then
   ok "(B) PostToolUse has check-doc-authority-header, its own command is \$CLAUDE_PROJECT_DIR-relative"
 else
   bad "(B) check-doc-authority-header PostToolUse entry missing/mis-shaped (got: '$_dah_cmd')"
 fi
 [ "$_matcher" = "Edit|Write|MultiEdit" ] && ok "(B) registered with the Edit|Write|MultiEdit matcher" || bad "(B) wrong matcher (got: '$_matcher')"
-if echo "$_post" | grep -q 'inject-matching-rule'; then
+if grep -q 'inject-matching-rule' <<<"$_post"; then
   ok "(B) pre-existing §1e inject-matching-rule PostToolUse hook SURVIVED (non-destructive, same event)"
 else
   bad "(B) inject-matching-rule hook lost — merge clobbered a sibling on the same event (got: $_post)"
@@ -90,7 +90,7 @@ _run() { # $1=rel_path [$2=env assignment]  → prints combined out, RETURNS hoo
 
 # ── ARM (D): firing — header-less scoped doc → exit 2 + stderr names it ────────
 _err=$(_fire ".claude/rules/g934da-missing.md"); _rc=$?
-if [ "$_rc" -eq 2 ] && printf '%s' "$_err" | grep -q 'Authoritative for'; then
+if [ "$_rc" -eq 2 ] && grep -q 'Authoritative for' <<<"$_err"; then
   ok "(D) firing: header-less .claude/rules/*.md → exit 2, stderr flags the missing header (delivery→liveness)"
 else
   bad "(D) firing: expected exit 2 + message (rc=$_rc err='$(printf '%s' "$_err" | head -c 80)')"
@@ -137,7 +137,7 @@ done
 G_TMP=$(mktemp -d)
 _payload='{"tool_name":"Write","session_id":"g934da","tool_input":{"file_path":"'"$T/.claude/rules/g934da-missing.md"'"}}'
 _gout=$(printf '%s' "$_payload" | PATH="$JQLESS" TMPDIR="$G_TMP" CLAUDE_PROJECT_DIR="$T" bash "$HOOK" 2>/dev/null); _grc=$?
-if [ "$_grc" -eq 0 ] && printf '%s' "$_gout" | grep -q 'DID NOT RUN'; then
+if [ "$_grc" -eq 0 ] && grep -q 'DID NOT RUN' <<<"$_gout"; then
   ok "(G1) degrades LOUDLY once: jq absent + in-scope path → exit 0 + additionalContext saying the check did not run"
 else
   bad "(G1) first jq-less edit did not announce the dead gate (rc=$_grc out='$(printf '%s' "$_gout" | head -c 80)')"
@@ -167,7 +167,7 @@ jq '.hooks.PostToolUse |= (map(select((.hooks[].command | test("check-doc-author
   "$S" > "$S.tmp" && mv "$S.tmp" "$S"
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
 _post2=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
-if [ -x "$HOOK" ] && echo "$_post2" | grep -q 'check-doc-authority-header' && echo "$_post2" | grep -q 'inject-matching-rule'; then
+if [ -x "$HOOK" ] && grep -q 'check-doc-authority-header' <<<"$_post2" && grep -q 'inject-matching-rule' <<<"$_post2"; then
   ok "(H) --refresh restores the hook + registration for a brownfield consumer (inject-matching-rule still present)"
 else
   bad "(H) --refresh did not restore (post=$_post2, $(ls "$H" 2>/dev/null | tr '\n' ' '))"

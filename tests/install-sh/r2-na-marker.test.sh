@@ -42,7 +42,7 @@ OUT=$(globs "$T"); RC=$?
 [ "$RC" = "0" ] \
   && ok "marker holds (declarative repo, no boundary) → check:globs PASSES instead of the red alarm" \
   || bad "marker-holds case exited $RC (expected 0). out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
-printf '%s' "$OUT" | grep -qiE 'R2 .*N/A.*precondition holds' \
+grep -qiE 'R2 .*N/A.*precondition holds' <<<"$OUT" \
   && ok "marker-holds prints the 'R2 N/A — precondition holds' note" \
   || bad "no 'precondition holds' note (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
 
@@ -53,7 +53,7 @@ OUT=$(globs "$T"); RC=$?
 [ "$RC" = "1" ] \
   && ok "NEG: marker present but a parse boundary now exists → check:globs FAILS (stale-marker alarm)" \
   || bad "NEG: stale marker did not fail the gate (rc=$RC) — N/A would be a permanent off-switch"
-printf '%s' "$OUT" | grep -qiE 'marked N/A.*but a parse boundary now exists' \
+grep -qiE 'marked N/A.*but a parse boundary now exists' <<<"$OUT" \
   && ok "NEG: stale-marker FAIL names the broken precondition" \
   || bad "NEG: no stale-marker message (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
 
@@ -68,7 +68,7 @@ OUT=$(globs "$T"); RC=$?
 enforced() { ( cd "$1" && ESLINT_CONFIG="$1/eslint.config.mjs" bash scripts/check-rule-enforced.sh ) 2>&1; }
 T=$(mkproj); write_marker "$T"
 OUT=$(enforced "$T"); RC=$?
-{ [ "$RC" = "0" ] && printf '%s' "$OUT" | grep -qiE 'N/A.*precondition holds'; } \
+{ [ "$RC" = "0" ] && grep -qiE 'N/A.*precondition holds' <<<"$OUT"; } \
   && ok "check:enforced honors the marker (holds → PASS) — two gates, one marker" \
   || bad "check:enforced diverged from check:globs on a holding marker (rc=$RC: $(printf '%s' "$OUT" | tr '\n' '|'))"
 # NEG: same marker, boundary now exists → check:enforced also stale-FAILs.

@@ -62,7 +62,7 @@ TCL
 [ -n "$TOOLCHAIN_LANES" ] || { echo "FATAL: TOOLCHAIN_LANES empty — heredoc parse broke"; exit 1; }
 NPM_LANE_LAYERS=()
 for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
-  printf '%s\n' "$TOOLCHAIN_LANES" | awk '{print $1}' | grep -qxF "$(basename "$_lyr")" && continue
+  grep -qxF "$(basename "$_lyr")" <<<"$(printf '%s\n' "$TOOLCHAIN_LANES" | awk '{print $1}')" && continue
   NPM_LANE_LAYERS+=("$_lyr")
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
@@ -170,7 +170,7 @@ FULL=$(printf '%s\n' "$DELIVER_LINES" | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]
 # ("$PROJECT_ROOT/$x") — it would normalize to the empty string and silently escape FULL
 # (a false-GREEN hole). None exist today.
 # shellcheck disable=SC2016
-if printf '%s\n' "$DELIVER_LINES" | grep -qE '"\$PROJECT_ROOT/\$'; then
+if grep -qE '"\$PROJECT_ROOT/\$' <<<"$DELIVER_LINES"; then
   echo "FATAL: a copy_safe/deliver_getff_workflow dst starts with an immediate \$var after \$PROJECT_ROOT/ — unparseable; extend the gate"; exit 1
 fi
 
@@ -201,7 +201,7 @@ unresolved_dst_vars() {
 }
 new_var_dst=""
 for _v in $(unresolved_dst_vars); do
-  printf '%s\n' "$UNPARSEABLE_DST" | grep -qxF "$_v" || new_var_dst="$new_var_dst \$$_v"
+  grep -qxF "$_v" <<<"$UNPARSEABLE_DST" || new_var_dst="$new_var_dst \$$_v"
 done
 if [ -z "${new_var_dst// }" ]; then
   ok "dst-resolution: every delivery dst is either a resolved \$PROJECT_ROOT path or a declared out-of-population form"
@@ -209,8 +209,8 @@ else
   bad "dst-resolution: delivery dst(s) this scan cannot read and that are NOT declared out-of-population → the artefact escapes FULL unflagged (the variable-dst hole):$new_var_dst"
 fi
 # neg (LOAD-BEARING): a synthetic variable dst must be reported, or the guard reads nothing.
-if printf '%s\n' '  copy_safe "$SRC" "$BRAND_NEW_DST"' | sed -E 's/.*"([^"]*)"[[:space:]]*$/\1/' \
-   | grep '^\$' | sed -E 's/^\$\{?([A-Za-z_0-9][A-Za-z0-9_]*).*/\1/' | grep -qx 'BRAND_NEW_DST'; then
+if grep -qx 'BRAND_NEW_DST' <<<"$(printf '%s\n' '  copy_safe "$SRC" "$BRAND_NEW_DST"' | sed -E 's/.*"([^"]*)"[[:space:]]*$/\1/' \
+   | grep '^\$' | sed -E 's/^\$\{?([A-Za-z_0-9][A-Za-z0-9_]*).*/\1/')"; then
   ok "neg (dst-resolution): a synthetic \$VAR dst is extracted by the same predicate (guard non-vacuous)"
 else
   bad "neg (dst-resolution): synthetic \$VAR dst slipped the extractor → the guard is VACUOUS"
@@ -251,8 +251,8 @@ REFRESH=$( { refresh_writes | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -
 compute_missing() {  # $1 = refresh set (newline list); prints FULL entries not in it/EXCLUDED
   local refresh="$1" f
   for f in $FULL; do
-    printf '%s\n' "$refresh"  | grep -qxF "$f" && continue
-    printf '%s\n' "$EXCLUDED" | grep -qxF "$f" && continue
+    grep -qxF "$f" <<<"$refresh" && continue
+    grep -qxF "$f" <<<"$EXCLUDED" && continue
     printf '%s ' "$f"
   done
 }
@@ -266,7 +266,7 @@ fi
 # ── Check 2 (hygiene): EXCLUDED ⊆ FULL (no stale exclusion for a delivery that no longer exists) ─
 stale_excl=""
 for e in $EXCLUDED; do
-  printf '%s\n' "$FULL" | grep -qxF "$e" || stale_excl="$stale_excl $e"
+  grep -qxF "$e" <<<"$FULL" || stale_excl="$stale_excl $e"
 done
 if [ -z "${stale_excl// }" ]; then
   ok "every EXCLUDED entry is still a live copy_safe delivery (no stale exclusions)"
@@ -287,7 +287,7 @@ REFRESH_RULE_DIRS=$(refresh_writes | grep -oE 'packages/[A-Za-z0-9._-]+/eslint-r
 [ -n "$DELIV_RULE_DIRS" ] || { echo "FATAL: no packages/*/eslint-rules dirs found in 40-configs.sh — extraction broke"; exit 1; }
 missing_dirs=""
 for d in $DELIV_RULE_DIRS; do
-  printf '%s\n' "$REFRESH_RULE_DIRS" | grep -qxF "$d" || missing_dirs="$missing_dirs $d"
+  grep -qxF "$d" <<<"$REFRESH_RULE_DIRS" || missing_dirs="$missing_dirs $d"
 done
 if [ -z "${missing_dirs// }" ]; then
   ok "eslint-rules-local: do_refresh iterates every packages/*/eslint-rules source dir delivery ships (preset parity)"
@@ -371,8 +371,8 @@ lane_refresh_parity() {  # $1 = layer basename, $2 = the lane's copy-or-refresh 
   lane_excl=$(printf '%s\n' "$LANE_EXCLUDED" | grep -F "$base|" | cut -d'|' -f2-)
   [ -n "$lane_excl" ] && echo "  · $base: LANE_EXCLUDED (consumer-owned PKG_ROOT sources, exempt from parity): $(printf '%s' "$lane_excl" | tr '\n' ' ')"
   for s in $copy_src; do
-    printf '%s\n' "$refresh_src" | grep -qxF "$s" && continue
-    printf '%s\n' "$lane_excl" | grep -qxF "$s" && continue
+    grep -qxF "$s" <<<"$refresh_src" && continue
+    grep -qxF "$s" <<<"$lane_excl" && continue
     missing="$missing $s"
   done
   if [ -z "${missing// }" ]; then
@@ -384,7 +384,7 @@ lane_refresh_parity() {  # $1 = layer basename, $2 = the lane's copy-or-refresh 
   probe=$(printf '%s\n' "$copy_src" | head -1)
   broken=$(printf '%s\n' "$refresh_src" | grep -vxF "$probe")
   for s in $copy_src; do
-    printf '%s\n' "$broken" | grep -qxF "$s" || neg_missing="$neg_missing $s"
+    grep -qxF "$s" <<<"$broken" || neg_missing="$neg_missing $s"
   done
   case " $neg_missing " in
     *" $probe "*) ok "neg ($base): removing '$probe' from the refresh set flips the gate to flag it (non-vacuous)" ;;
@@ -403,7 +403,7 @@ TCLOOP
 # (compute_missing only iterates FULL, so a REFRESH-only entry would prove nothing).
 probe=""
 for f in $FULL; do
-  if printf '%s\n' "$REFRESH" | grep -qxF "$f"; then probe="$f"; break; fi
+  if grep -qxF "$f" <<<"$REFRESH"; then probe="$f"; break; fi
 done
 [ -n "$probe" ] || { echo "FATAL: no FULL∩REFRESH entry to probe non-vacuity with"; exit 1; }
 REFRESH_BROKEN=$(printf '%s\n' "$REFRESH" | grep -vxF "$probe")
@@ -436,7 +436,7 @@ if [ -f "$RBV_LAYER" ]; then
   else
     rbv_missing=""
     for _d in $rbv_delivered; do
-      printf '%s\n' "$rbv_refreshed" | grep -qxF "$_d" || rbv_missing="$rbv_missing $_d"
+      grep -qxF "$_d" <<<"$rbv_refreshed" || rbv_missing="$rbv_missing $_d"
     done
     if [ -z "${rbv_missing// }" ]; then
       ok "runtime-bridge vendor parity: do_refresh writes every destination 55-runtime-bridge-vendor.sh delivers ($(printf '%s' "$rbv_delivered" | tr '\n' ' '))"
@@ -446,13 +446,13 @@ if [ -f "$RBV_LAYER" ]; then
     # neg (LOAD-BEARING): drop the vendor DIRECTORY from the refresh side — the half Check 1 cannot
     # see — and prove this check is what flags it.
     rbv_probe=".claude/vendor/runtime-bridge"
-    if ! printf '%s\n' "$rbv_delivered" | grep -qxF "$rbv_probe"; then
+    if ! grep -qxF "$rbv_probe" <<<"$rbv_delivered"; then
       bad "neg (runtime-bridge vendor parity): '$rbv_probe' is no longer a delivered destination → probe stale, update this gate"
     else
       rbv_broken=$(printf '%s\n' "$rbv_refreshed" | grep -vxF "$rbv_probe")
       rbv_neg_missing=""
       for _d in $rbv_delivered; do
-        printf '%s\n' "$rbv_broken" | grep -qxF "$_d" || rbv_neg_missing="$rbv_neg_missing $_d"
+        grep -qxF "$_d" <<<"$rbv_broken" || rbv_neg_missing="$rbv_neg_missing $_d"
       done
       case " $rbv_neg_missing " in
         *" $rbv_probe "*) ok "neg (runtime-bridge vendor parity): dropping '$rbv_probe' from the refresh set flips the comparison (non-vacuous — and Check 1 alone never sees this half)" ;;
@@ -520,8 +520,8 @@ else
   tier_gaps() {
     local itxt="$1" rtxt="$2" v
     for v in $TIER_VARS; do
-      printf '%s\n' "$itxt" | grep -qF "\$$v" || { printf 'install:%s ' "$v"; continue; }
-      printf '%s\n' "$rtxt" | grep -qF "\$$v" || printf 'refresh:%s ' "$v"
+      grep -qF "\$$v" <<<"$itxt" || { printf 'install:%s ' "$v"; continue; }
+      grep -qF "\$$v" <<<"$rtxt" || printf 'refresh:%s ' "$v"
     done
   }
   INSTALL_TXT=$(grep -vE '^[[:space:]]*#' "$SKILLS_LAYER")
@@ -552,7 +552,7 @@ else
   bad "skill-tier SSOT: literal-slug loop(s) bypass the shared tier lists → drift can reland: $(printf '%s' "$literal_loops" | tr '\n' '|')"
 fi
 # neg (LOAD-BEARING): a synthetic literal loop MUST be caught by the same filter.
-if printf '%s\n' '  for _skill in arch; do' | grep -v 'GETFF_SKILLS_' | grep -qE 'for _skill in '; then
+if grep -qE 'for _skill in ' <<<"$(printf '%s\n' '  for _skill in arch; do' | grep -v 'GETFF_SKILLS_')"; then
   ok "neg (skill-tier SSOT): a synthetic literal-slug loop is caught by the filter (non-vacuous)"
 else
   bad "neg (skill-tier SSOT): synthetic literal-slug loop slipped the filter → literal check is VACUOUS"

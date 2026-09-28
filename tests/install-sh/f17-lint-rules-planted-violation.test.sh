@@ -83,9 +83,9 @@ raw_out=$(cd "$E" && node --input-type=module -e \
 raw_rc=$?
 if [ "$raw_rc" -eq 0 ]; then
   ok "Check3 Arm(iii): barrel + rules load via RAW node import — NO tsx — on Node $(node -p 'process.versions.node') (raw pre-commit/npx-eslint channel; #752 fix proof)"
-elif echo "$raw_out" | grep -qiE "cannot find package|cannot find package 'eslint'|ERR_MODULE_NOT_FOUND.*@typescript-eslint"; then
+elif grep -qiE "cannot find package|cannot find package 'eslint'|ERR_MODULE_NOT_FOUND.*@typescript-eslint" <<<"$raw_out"; then
   skip "Check3 Arm(iii) SKIP — runtime dep (@typescript-eslint/utils / eslint) not resolvable in this harness ($(echo "$raw_out" | head -1 | tr -d '\n')); the .mjs barrel itself is present (Arm i). CI Node-matrix job resolves deps."
-elif echo "$raw_out" | grep -qiE "unknown file extension|cannot find module '\./"; then
+elif grep -qiE "unknown file extension|cannot find module '\./" <<<"$raw_out"; then
   bad "Check3 Arm(iii): RAW barrel load FAILED on Node $(node -p 'process.versions.node') ($(echo "$raw_out" | head -1 | tr -d '\n')) — the .ts-loader / missing-sibling-.mjs regression is NOT fixed on the raw channel (#752 / S1 class)"
 else
   skip "Check3 Arm(iii) SKIP — inconclusive raw-load (rc=$raw_rc; $(echo "$raw_out" | head -1 | tr -d '\n'))"
@@ -171,7 +171,7 @@ pos_out=$(cd "$E" && "$TSX_BIN" f17-pos.mts 2>&1)
 pos_rc=$?
 if [ "$pos_rc" -eq 0 ]; then
   ok "Check3 Arm(ii): planted .parse() violation FLAGGED by shipped eslint-rules-local/no-unsafe-zod-parse.ts (live signal; NOT a reimplementation)"
-elif echo "$pos_out" | grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+elif grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$pos_out"; then
   skip "Check3 Arm(ii) SKIP — tsx failed to load module (infrastructure: $(echo "$pos_out" | grep -iE 'cannot find|ERR_MODULE' | head -1 | tr -d '\n')). Rule file + barrel confirmed present by Arm(i)."
 else
   bad "Check3 Arm(ii): shipped rule did NOT flag planted violation (rule deleted/broken/mis-selectored; rc=$pos_rc; out=$(echo "$pos_out" | head -3 | tr '\n' '|'))"
@@ -180,7 +180,7 @@ fi
 # ── PAIRED-NEGATIVE: audit:exempt → rule skips the line ─────────────────────
 neg_out=$(cd "$E" && "$TSX_BIN" f17-neg.mts 2>&1)
 neg_rc=$?
-if echo "$neg_out" | grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+if grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$neg_out"; then
   skip "Check3 Arm(ii) neg SKIP — tsx module load failed (same infrastructure issue as positive arm)"
 elif [ "$neg_rc" -eq 0 ]; then
   ok "Check3 Arm(ii) neg: audit:exempt → rule skips line (non-vacuous: shipped rule is live + exempt path works)"
@@ -193,7 +193,7 @@ fi
 # SILENT (a). Both must hold or the shield dies — silent rule and crying rule alike.
 lit_out=$(cd "$E" && "$TSX_BIN" f17-lit.mts 2>&1)
 lit_rc=$?
-if echo "$lit_out" | grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+if grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$lit_out"; then
   skip "Check3 Arm(iv) SKIP — tsx module load failed (same infrastructure issue as positive arm)"
 elif [ "$lit_rc" -eq 0 ]; then
   ok "Check3 Arm(iv): literal ConfigSchema.parse({...}) NOT flagged (false-positive guard: non-boundary fail-fast config parse stays clean)"

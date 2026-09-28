@@ -227,7 +227,7 @@ GLOBS_OUT=$( cd "$T" && bash scripts/check-rule-globs.sh 2>&1 ); GLOBS_RC=$?
   || bad "§9 check:globs: exit $GLOBS_RC (expected 0) — out: $(printf '%s' "$GLOBS_OUT" | tr '\n' '|')"
 # PAIRED-NEGATIVE: the exit-2 "run from the project root" path must NOT be what we hit (proves we
 # recursed into the per-workspace configs, not silently swallowed the guard).
-! printf '%s' "$GLOBS_OUT" | grep -q 'not found (run from the project root)' \
+! grep -q 'not found (run from the project root)' <<<"$GLOBS_OUT" \
   && ok "§9 neg check:globs: NOT the exit-2 'run from the project root' path (recursed per-ws)" \
   || bad "§9 neg check:globs: still hit the exit-2 root-config guard (recursion not reached)"
 
@@ -236,7 +236,7 @@ ENF_OUT=$( cd "$T" && bash scripts/check-rule-enforced.sh 2>&1 ); ENF_RC=$?
 [ "$ENF_RC" -eq 0 ] \
   && ok "§9 check:enforced: exits 0 on no-root-config monorepo (was exit 2; eslint absent → SKIP)" \
   || bad "§9 check:enforced: exit $ENF_RC (expected 0) — out: $(printf '%s' "$ENF_OUT" | tr '\n' '|')"
-! printf '%s' "$ENF_OUT" | grep -q 'not found (run from the project root)' \
+! grep -q 'not found (run from the project root)' <<<"$ENF_OUT" \
   && ok "§9 neg check:enforced: NOT the exit-2 root-config guard path (recursed per-ws)" \
   || bad "§9 neg check:enforced: still hit the exit-2 root-config guard (recursion not reached)"
 
