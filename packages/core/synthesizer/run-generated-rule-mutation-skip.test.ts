@@ -163,7 +163,7 @@ describe.skipIf(!PROBES_AVAILABLE)(
       // matches js/mjs/cjs by default, so a `.ts` filename matches NO config object —
       // verify returns "No matching configuration found for probe.ts", _probe exits
       // non-zero, and EVERY rule takes the `:182` selector-not-firing path. Same trap
-      // already documented and fixed in audit-self/check-fences-fire.sh:177-182.
+      // already documented and fixed in audit-self/check-fences-fire.sh:260-265.
       const manifest = writeManifest({
         'rule-live': {
           check: {

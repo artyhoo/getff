@@ -23,7 +23,7 @@
  * that was WRONG WHEN WRITTEN is green (its blame commit IS the birth commit, so
  * «then» and «now» agree), and any later reflow of the citing line resets the
  * baseline forever. The RED-proof for this file found both: reintroducing the
- * motivating `arch/SKILL.md:94` drift in a fresh commit produced exit 0.
+ * motivating `arch/SKILL.md:94` drift in a fresh commit produced exit 0. cite:historical line number at incident time
  *
  * ARM 2 — blank landing. The cited line is empty. Reads only today's target, so
  * it is birth-correct and reflow-proof — exactly ARM 1's hole. Nobody deliberately
@@ -102,6 +102,15 @@
  * `line-out-of-range` rather than asserting a beyond-EOF defect — the likelier reading
  * is that the basename matched the wrong file. An author-named path keeps the hard
  * failure.
+ *
+ * Partial paths resolve the same way (2026-09-29). A slashed token that misses both
+ * relative to the citing file and to the repo root — `install/wire-eslint-r2.ts:NN`
+ * for `packages/core/install/wire-eslint-r2.ts` — is looked up as a UNIQUE tracked path
+ * ending in `/<token>`; several matches are `ambiguous-basename` with candidates, none
+ * is `path-missing`, and a match is weak exactly like a basename one. Before this, every
+ * such token was `path-missing` at once and, in a code file, vanished into the skip
+ * count: the corpus carried 29 stale partial-path citations that exit 0 had hidden. A
+ * token starting with `/` or `.` is never suffix-matched — it names a place, not a tail.
  *
  * `--strict` is deliberately NOT wired into pre-push §9: 32 citations on that corpus
  * remain unresolvable and most are out-of-repo by construction, so switching it on
@@ -444,7 +453,8 @@ function corpusFiles() {
  * citation cannot be followed. A reason is NOT a failure: it is the line the reader
  * needs in order to decide, which until 2026-09-14 this function threw away.
  *
- * Bare basenames are resolved only when the basename is UNIQUE among tracked files.
+ * Bare basenames — and partial paths, by tracked suffix — are resolved only when the
+ * match is UNIQUE among tracked files.
  * Two files named `questions.ts` (a vendored copy beside its source) make the citation
  * genuinely ambiguous, and guessing one would manufacture a confident wrong answer —
  * the shape `.claude/rules/ai-laziness-traps.md` T3 exists to forbid.
@@ -466,7 +476,21 @@ function resolveCitedPath(srcFile, citedPath, linkTarget) {
     const abs = resolve(REPO_ROOT, c);
     if (existsSync(abs) && statSync(abs).isFile()) return { target: c, weak: false };
   }
-  if (citedPath.includes('/')) return { reason: 'path-missing', candidates: [] };
+  if (citedPath.includes('/')) {
+    // A partial path (`install/wire-eslint-r2.ts:NN` for
+    // `packages/core/install/wire-eslint-r2.ts`) resolves by UNIQUE tracked suffix, the
+    // basename rule's analogue. Until 2026-09-29 it went straight to `path-missing`, so a
+    // stale partial-path cite was folded into the code-file skip count and passed —
+    // measured that day: 29 stale citations in 19 corpus files (PR #1899 found the first).
+    // A token rooted at `/` or `.` names a location, not a suffix, and is left alone.
+    if (/^[/.]/.test(citedPath)) return { reason: 'path-missing', candidates: [] };
+    const suffix = '/' + normalize(citedPath);
+    const base = citedPath.slice(citedPath.lastIndexOf('/') + 1);
+    const hits = tracked(base).filter((t) => t.endsWith(suffix));
+    if (hits.length === 1) return { target: hits[0], weak: true };
+    if (hits.length > 1) return { reason: 'ambiguous-basename', candidates: hits };
+    return { reason: 'path-missing', candidates: [] };
+  }
   const hits = tracked(citedPath);
   if (hits.length === 1) return { target: hits[0], weak: true };
   if (hits.length > 1) return { reason: 'ambiguous-basename', candidates: hits };
@@ -596,7 +620,7 @@ export function scanFile(srcFile) {
     // a citation that was WRONG AT BIRTH and survives a reflow of the citing
     // line (which resets arm 1's baseline). Nobody deliberately cites an empty
     // line, so this arm has no false-positive shape. It is what catches the
-    // motivating case: `arch/SKILL.md:94` was an empty line.
+    // motivating case: `arch/SKILL.md:94` was an empty line. cite:historical line number at incident time
     if (squash(current[n - 1]) === '') {
       findings.push({
         kind: 'blank-landing',

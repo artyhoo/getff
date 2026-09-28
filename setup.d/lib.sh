@@ -123,19 +123,19 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     only matches the bare `](../../orchestrator-prompts/` shape, so a ref written as
 #     `](../../../.claude/orchestrator-prompts/…)` slipped past it untouched (vendor README:4).
 #   - `.github/` — never shipped except `.github/workflows/` (verified: the factory fixture has
-#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:366.
+#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:367.
 # The last three are DELIBERATELY per-file, not blanket arms, because their parent directories
 # are PARTIALLY shipped — a blanket arm would rewrite genuinely consumer-resolvable refs into
 # blob URLs and lose in-repo navigability:
 #   - `scripts/run-local-ci-sweep.sh` — this is the "shipped-scripts allowlist" the §park note
 #     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
 #     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
-#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:18,20.
+#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
+# arch/SKILL.md:110 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
 # ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers

@@ -278,6 +278,45 @@ expect_pass "an unmatched bare basename does not fail the gate" cite.md
 grep -qF 'bare-basename' "$TMP/err" || {
   echo "FAIL: unmatched bare basename was not reported"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
 
+# --- a PARTIAL path names a nested file by its tail, so it resolves by unique suffix and
+# its drift is caught. Until 2026-09-29 any slashed token that missed at the repo root was
+# `path-missing` at once — PR #1899's stale `install/wire-eslint-r2.ts:NN` cite in a code
+# comment passed that way, one of 29 in the corpus.
+new_repo partial-unique
+mkdir -p "$REPO/packages/core/install"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/packages/core/install/wire.ts"
+printf 'The cap is `install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "partial-path citation to a nested file"
+expect_pass "an accurate partial-path citation is quiet" cite.md
+printf 'alpha\nINSERTED\nbeta\ngamma\n' >"$REPO/packages/core/install/wire.ts"
+commit_all "target reflowed under the partial-path citation"
+expect_fail "drift behind a partial path is caught, not skipped" "cite.md:1" cite.md
+
+# --- an ambiguous suffix is REPORTED with its candidates, never guessed
+new_repo partial-ambiguous
+mkdir -p "$REPO/a/install" "$REPO/b/install"
+printf 'alpha\nbeta\n' >"$REPO/a/install/wire.ts"
+printf 'ZULU\nYANKEE\n' >"$REPO/b/install/wire.ts"
+printf 'See `install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "same suffix in two places"
+expect_pass "an ambiguous partial path does not fail the gate" cite.md
+for needle in 'ambiguous-basename' 'a/install/wire.ts' 'b/install/wire.ts'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: ambiguous partial path did not report '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- a suffix is matched on a path-segment boundary: `wire.ts` under `rewire/` is not a
+# tail of `install/wire.ts`, and a `./`-rooted token names a place, not a suffix
+new_repo partial-boundary
+mkdir -p "$REPO/pkg/reinstall" "$REPO/pkg/install"
+printf 'alpha\nbeta\n' >"$REPO/pkg/reinstall/wire.ts"
+printf 'alpha\nbeta\n' >"$REPO/pkg/install/wire.ts"
+printf 'See `install/wire.ts:2` and `./install/wire.ts:2`.\n' >"$REPO/cite.md"
+commit_all "suffix must align to a segment"
+expect_pass "a segment-aligned suffix resolves; a dot-rooted token is left alone" cite.md
+grep -qF 'resolved 1 / skipped 1' "$TMP/err" || {
+  echo "FAIL: suffix boundary / dot-rooted handling wrong"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
 # ========================================== --affected-by (reverse-index push scoping)
 # The hole this closes: a citation goes stale when the CITED file moves, and the cited
 # file is almost never among the push's changed Markdown. Scoping the blame arm to
