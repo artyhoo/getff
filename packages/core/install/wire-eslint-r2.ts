@@ -23,12 +23,13 @@
  *            prior-art-evaluations.md#118 (check:enforced oracle ADOPT)
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 export const R2_RULE_ID = 'rules-as-tests/no-unsafe-zod-parse';
 
@@ -909,32 +910,51 @@ export async function formatLikeConsumer(configPath: string, cwd: string, origin
 
 // ─── Probe-driven resolution (try-bare → escalate → degrade) ────────────────────
 
-export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error';
+/** `unconfirmed`: ESLint ran, but resolved R2 for none of the probe paths — no evidence either way. */
+export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error' | 'unconfirmed';
 
 export interface ResolveWireArgs {
   configPath: string;
   cwd: string;
-  runProbe: (configPath: string, cwd: string) => Promise<ProbeVerdict>;
+  runProbe: (configPath: string, cwd: string, scope?: { files: string[] }) => Promise<ProbeVerdict>;
   /** Workspace scope for scoped emission (SSOT #182). When set, emits { files: [...], rules: {...} }. */
   scope?: { files: string[] };
 }
 
-function synthProbeTarget(configDir: string): string {
-  // ALWAYS synthesize in configDir (deterministic). For scoped elements (files: ['<dir>/**']),
-  // the probe file must be inside the scope dir so ESLint matches the files: glob. configDir is
-  // the workspace dir (e.g. apps/api/) when the config is placed per-workspace, so the probe file
-  // naturally lands inside the scope glob when ESLint is run from project root (see probeViaEslint).
-  const p = resolve(configDir, '__aif_r2_probe__.ts');
-  writeFileSync(p, 'export const __aif_probe = 1;\n', 'utf8');
-  return p;
+/**
+ * Paths handed to `--print-config`, relative to the config's dir: one per extension ESLint may lint (its default
+ * `files` cover .js/.mjs/.cjs, a TypeScript or JSX block adds the rest). It resolves a config per path; no file is read.
+ */
+const R2_PROBE_PATHS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts'].map((ext) => `__aif_r2_probe__.${ext}`);
+
+const execFileAsync = promisify(execFile);
+
+/** R2's severity in a `--print-config` result (ESLint prints it normalised: `[2]`); 0 when absent or `undefined`. */
+function r2SeverityIn(printed: string): number {
+  try {
+    const cfg = JSON.parse(printed) as { rules?: Record<string, unknown> } | null;
+    const entry = cfg?.rules?.[R2_RULE_ID];
+    return Array.isArray(entry) && typeof entry[0] === 'number' ? entry[0] : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * Default probe: resolve the consumer's eslint and run `--print-config` on a synthesized target.
+ * Default probe: resolve the consumer's eslint and run `--print-config` on probe paths next to the config.
  * eslint's package `exports` does NOT expose `./bin/eslint.js` (resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED
  * on v9/v10) — resolve the EXPORTED `./package.json` and derive the bin path. GH #644 (#535 trap).
+ *
+ * `ok` needs ESLint to have resolved R2 for at least one probe path, and no path to fail. `--print-config`
+ * exits 0 printing `undefined` for a path no block matches — a `.ts` path under a config that matches no `.ts`,
+ * an absolute path through a symlinked dir (macOS /var → /private/var reads as outside the base path), a path
+ * outside a `files:` scope — so exit 0 alone proved nothing: the plugin-less bare element passed, and the
+ * consumer's lint then died with exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28).
+ * One path per lintable extension catches a base that registers the plugin for some extensions only (the
+ * global bare element reaches the rest); each scope glob gets one path it matches. The paths run in parallel
+ * (~0.45 s each with the tsx loader).
  */
-export async function probeViaEslint(configPath: string, cwd: string): Promise<ProbeVerdict> {
+export async function probeViaEslint(configPath: string, cwd: string, scope?: { files: string[] }): Promise<ProbeVerdict> {
   let eslintBin: string;
   try {
     const reqd = createRequire(resolve(cwd, 'package.json'));
@@ -957,28 +977,34 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
   } catch {
     /* tsx not resolvable → plain node */
   }
+  // Run from the config's own directory (dir) so ESLint discovers the workspace-local config; running
+  // from project root in multi-stack mode (no root config) fails to load it → 'other-error' → degrade.
   const dir = dirname(resolve(configPath));
-  const target = synthProbeTarget(dir);
-  // Run probe from the config's own directory (dir) so ESLint discovers the workspace-local
-  // config by walking up from the probe file. Running from project root in multi-stack mode
-  // (where no root config exists) causes ESLint to fail to load the config → 'other-error' →
-  // degrade. Global elements (no files: filter) are unaffected by cwd choice.
-  try {
-    execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
-    return 'ok';
-  } catch (e: unknown) {
-    const stderr = String((e as { stderr?: Buffer }).stderr ?? '');
-    if (/could not find plugin/i.test(stderr)) return 'could-not-find-plugin';
+  const scoped = (scope?.files ?? []).map(probeScopePath).filter((x): x is string => x !== undefined);
+  const paths = [...new Set([...R2_PROBE_PATHS, ...scoped])];
+  const runs = await Promise.all(
+    paths.map(async (path): Promise<{ resolvedR2: boolean } | { stderr: string }> => {
+      try {
+        const { stdout } = await execFileAsync(process.execPath, [...nodeArgs, eslintBin, '--print-config', path], {
+          cwd: dir,
+          maxBuffer: 16 * 1024 * 1024,
+        });
+        return { resolvedR2: r2SeverityIn(stdout) > 0 };
+      } catch (e: unknown) {
+        return { stderr: String((e as { stderr?: string }).stderr ?? '') };
+      }
+    }),
+  );
+  const failures = runs.flatMap((r) => ('stderr' in r ? [r.stderr] : []));
+  if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return 'could-not-find-plugin';
+  if (failures.length > 0) {
     // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
-    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${stderr.slice(0, 400)}`);
+    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${(failures[0] ?? '').slice(0, 400)}`);
     return 'other-error';
-  } finally {
-    try {
-      unlinkSync(target);
-    } catch {
-      /* best-effort */
-    }
   }
+  if (runs.some((r) => 'resolvedR2' in r && r.resolvedR2)) return 'ok';
+  console.error(`  · R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(', ')} in ${dir} → degrading`);
+  return 'unconfirmed';
 }
 
 /**
@@ -1004,16 +1030,16 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
   writeFileSync(configPath, bare.modified, 'utf8');
 
   // 2. probe
-  const v1 = await runProbe(configPath, cwd);
+  const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === 'ok') return { ...bare, variant: 'bare' };
 
-  // 3. escalate: self-contained (only when the base registers the plugin nowhere)
+  // 3. escalate: self-contained — the bare element reaches a file the base registers no plugin for
   if (v1 === 'could-not-find-plugin') {
     const spec = customRulesImportSpecifier(configPath, cwd);
     const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec, scope });
     if (sc.status === 'wired') {
       writeFileSync(configPath, sc.modified, 'utf8');
-      const v2 = await runProbe(configPath, cwd);
+      const v2 = await runProbe(configPath, cwd, scope);
       if (v2 === 'ok') return { ...sc, variant: 'self-contained' };
     }
   }
@@ -1103,8 +1129,9 @@ function verdictOf(run: EslintRun): LintProbeResult {
 
 /**
  * Lint throwaway files with the consumer's own ESLint from the config's directory. Unlike
- * probeViaEslint's `--print-config`, this makes ESLint resolve every rule of every block matching the
- * file — the step a plugin-less `rules-as-tests/*` block fails on. Two real files (`.js` + `.ts`) sit
+ * probeViaEslint's `--print-config` (config resolution only), this makes ESLint resolve and run every
+ * rule of every block matching the file, and parse it — so it also sees a block that leaves the file
+ * unparseable. A plugin-less `rules-as-tests/*` block fails both. Two real files (`.js` + `.ts`) sit
  * next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at a path it
  * matches, so no directory is created in the consumer tree. Exit 0/1 means the config loads and lints
  * (1 = the probe file drew findings); exit 2 means ESLint cannot use the config.
@@ -1257,6 +1284,8 @@ async function main(): Promise<void> {
       '                  to --boundary, in its prettier style; anything not added is a «  · not wired:',
       '                  <what> — <why>» line, never a manual step',
       '  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config',
+      '  --report-not-wired  The installer runs this mode (Q4.7): whatever is not added is a',
+      '                  «  · not wired: <what> — <why>» line instead of a snippet to paste',
     ].join('\n'));
     process.exit(0);
   }
@@ -1270,14 +1299,17 @@ async function main(): Promise<void> {
   const dryRun = argv.includes('--dry-run');
   const diffOnly = argv.includes('--diff');
   const ownConfig = argv.includes('--own-config');
+  // The installer never hands back a snippet to paste (Q4.7): with --report-not-wired every path that
+  // leaves R2 out prints what is missing and why. A person running the wirer by hand keeps the snippet.
+  const reportNotWired = ownConfig || argv.includes('--report-not-wired');
+  const leftOut = (why: string, snippet: string): string =>
+    reportNotWired ? `  · not wired: R2 (${R2_RULE_ID}) in ${relative(process.cwd(), configPath)} — ${why}` : snippet;
   const boundaryGlobs = argv.flatMap((v, i) => (v === '--boundary' && i + 1 < argv.length ? [argv[i + 1]] : []));
 
   // Belt-and-suspenders degrade: bash probe should have checked this already
   if (!existsSync('node_modules/ts-morph/package.json')) {
     // A consumer's own config gets no «add it by hand» advice: what did not land is named, with why.
-    console.log(ownConfig
-      ? `  · not wired: R2 (${R2_RULE_ID}) in ${relative(process.cwd(), configPath)} — its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules`
-      : generateDegradedSnippet(configPath));
+    console.log(leftOut('its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules', generateDegradedSnippet(configPath)));
     process.exit(0);
   }
 
@@ -1302,17 +1334,17 @@ async function main(): Promise<void> {
       break;
 
     case 'degrade':
-      console.log(generateDegradedSnippet(configPath));
+      console.log(leftOut('its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules', generateDegradedSnippet(configPath)));
       process.exit(0);
       break;
 
     case 'unrecognised':
-      console.log([
+      console.log(leftOut('the config exports a shape the wirer does not recognise, so it is left as it is', [
         `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
         `  Add manually (adjust the relative path to your eslint-rules-local/):`,
         `    import customRules from './eslint-rules-local/index.mjs';`,
         `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
-      ].join('\n'));
+      ].join('\n')));
       process.exit(0);
       break;
 
@@ -1328,8 +1360,8 @@ async function main(): Promise<void> {
       let apply = assumeYes;
       if (!apply) {
         if (!process.stdin.isTTY) {
-          // Non-interactive without --yes → degrade to manual snippet
-          console.log(generateDegradedSnippet(configPath));
+          // Non-interactive without --yes → the snippet by hand, or a not-wired line from the installer
+          console.log(leftOut('the install ran without --full and without a terminal to confirm the change, so the config is left as it is', generateDegradedSnippet(configPath)));
           process.exit(0);
         }
         const { createInterface } = await import('node:readline');
@@ -1342,7 +1374,7 @@ async function main(): Promise<void> {
       }
 
       if (!apply) {
-        console.log(generateDegradedSnippet(configPath));
+        console.log(leftOut('the change was declined at the prompt, so the config is left as it is', generateDegradedSnippet(configPath)));
         process.exit(0);
       }
 
@@ -1353,7 +1385,7 @@ async function main(): Promise<void> {
       } else if (wired.status === 'already-wired') {
         console.log(`· R2 already enforced in ${configPath}`);
       } else {
-        console.log(generateDegradedSnippet(configPath));
+        console.log(leftOut(`${wired.degradeReason ?? 'ESLint could not use the config with R2 added'}; the config is as it was`, generateDegradedSnippet(configPath)));
       }
       process.exit(0);
     }

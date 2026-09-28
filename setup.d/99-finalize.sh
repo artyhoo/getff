@@ -252,12 +252,32 @@ fi
 # consumer's comments and trailing commas) and names in a «  · not wired: » line anything it could
 # not add; the original is kept at .ai-factory/before-getff/ whenever the write changes it. rc=0 on
 # every branch — install must not abort on wirer failure.
+# _r2_route_not_wired <rel> <wirer output> — each «  · not wired: » line the wirer printed goes to the
+# NOT-wired summary; output with neither a wired line nor a reason gets one generic line.
+_r2_route_not_wired() {
+  local rel="$1" out="$2" l
+  case "$out" in
+    *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
+    *"  · not wired: "*)
+      while IFS= read -r l; do
+        case "$l" in "  · not wired: "*) note_not_wired "${l#  · not wired: }" ;; esac
+      done <<< "$out" ;;
+    *) note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — the R2 wirer did not add it (its output is above)" ;;
+  esac
+}
 _r2_wire_cfg() {
   local cfg="$1" wirer="$2" rel dir out snap kept l
   local args=()
   rel="${cfg#"$PROJECT_ROOT"/}"
   if getff_delivered "$cfg"; then
-    ( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" ${FULL:+--yes} 2>&1 ) || true
+    # getff's own config: the wirer's AST mode, with a NOT-wired line (never a snippet) for whatever
+    # it leaves out — no terminal and no --full, a declined prompt, an unrecognised shape (Q4.7).
+    # tee, not $( ): the wirer may ask [y/N] on a terminal, and the question has to reach the screen.
+    snap=$(mktemp) || snap=""
+    ( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" ${FULL:+--yes} --report-not-wired 2>&1 ) \
+      | tee "${snap:-/dev/null}" || true
+    out=""; [ -n "$snap" ] && { out=$(cat "$snap"); rm -f "$snap"; }
+    _r2_route_not_wired "$rel" "$out"
     return 0
   fi
   dir=$(dirname "$cfg")
@@ -281,14 +301,7 @@ _r2_wire_cfg() {
     echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
     note_getff_added "$rel"
   fi
-  case "$out" in
-    *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
-    *"  · not wired: "*)
-      while IFS= read -r l; do
-        case "$l" in "  · not wired: "*) note_not_wired "${l#  · not wired: }" ;; esac
-      done <<< "$out" ;;
-    *) note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — the R2 wirer did not add it (its output is above)" ;;
-  esac
+  _r2_route_not_wired "$rel" "$out"
   return 0
 }
 if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \

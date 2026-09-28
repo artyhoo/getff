@@ -64,6 +64,7 @@ types it.
 | `check-hook-marker` | PostToolUse | PostToolUse gate — delivery-channel marker + strict header grammar on touched hook files | @cc-only-rationale + plugin | not installed on any lane (no-lane) |
 | `check-kickoff-traps` | PostToolUse | PostToolUse gate — kickoff T-enumeration floor (ai-laziness-traps §3) | @cc-only-rationale + plugin | not installed on any lane (no-lane) |
 | `check-worker-dispatch-channel` | PostToolUse | PostToolUse gate — edit-time channel for #worker-dispatch-via-subagent | @dual-pair:channel-discipline-worker-dispatch + @cc-only-rationale + plugin | not installed on any lane (no-lane) |
+| `close-aif-task-on-merge` | PostToolUse | PostToolUse(Bash) hook — close the aif task a merged harvest PR names | @cc-only-rationale | not installed on any lane (no-lane) |
 | `deps-hash-check` | UserPromptSubmit | UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml) | @dual-pair:deps-hash-check-dogfood + plugin | framework: python, react-native, react-next, react-spa, ts-server |
 | `end-of-turn-reminder` | Stop | Stop hook — end-of-turn recap + goal-drift verdict reminder | @dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md) + @cc-only-rationale + plugin | framework: react-native, react-next, react-spa, ts-server |
 | `glossary-inject` | not registered (unregistered) | UserPromptSubmit hook: glossary injection + usage counter (plain-words-recap-v2 D-F). | @cc-only-rationale + plugin | not installed on any lane (no-lane) |

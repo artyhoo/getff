@@ -34,7 +34,9 @@
 #      installed by the install (never over the consumer's own pre-push, never without pre-commit);
 #      Y3 outside git / Y4 a legacy git hook and [tool.ruff]; Y5 ast-grep fetched through uvx;
 #   C  the cargo lane with the consumer's clippy.toml / deny.toml / CI workflow and no cargo;
-#   W  the go lane with the consumer's .golangci.yml / CI workflow and no go;
+#   J  the go lane with the consumer's .golangci.yml / CI workflow and no go;
+#   W  the R2 wirer on a config getff placed: an unrecognised shape, or no --full and no terminal,
+#      is a NOT-wired line with the wirer's reason, never an «Add to / Add manually» snippet;
 #   R  the predicate: a positive control, a negative control, and a sweep of the installer source;
 #   F  --full with a package manager that fails: the dependency line says the install failed,
 #      the degraded banner points at the NOT-wired list, not at a manual step.
@@ -374,17 +376,17 @@ nw_has C "$WORK/c.log" 'Cargo\.toml' "the build-failing lint table and the consu
 nw_has C "$WORK/c.log" 'CI.*getff-cargo\.yml' "the CI gate and the kept workflow"
 nw_has C "$WORK/c.log" 'cargo.*not on PATH' "the unproven clippy firing"
 
-# ── W: go lane, the consumer's own .golangci.yml / CI workflow, no go ───────────────────────────
-W="$WORK/go-owned"; mkdir -p "$W/.github/workflows"; git -C "$W" init -q
-printf 'module demo\n\ngo 1.22\n' > "$W/go.mod"
-printf 'linters:\n  enable: [govet]\n' > "$W/.golangci.yml"
-printf 'name: my go ci\n' > "$W/.github/workflows/getff-go.yml"
-lane_into "$W" "$WORK/w.log" "$NOTOOLS" go; rc=$?
-[ "$rc" -eq 0 ] && ok "W: the go lane exits 0 with every surface owned" || bad "W: rc $rc"
-no_manual W "$WORK/w.log"
-nw_has W "$WORK/w.log" 'golangci.*\.golangci\.yml' "golangci-lint and the consumer's .golangci.yml"
-nw_has W "$WORK/w.log" 'CI.*getff-go\.yml' "the CI gate and the kept workflow"
-nw_has W "$WORK/w.log" 'golangci-lint.*not on PATH' "the unproven golangci firing"
+# ── J: go lane, the consumer's own .golangci.yml / CI workflow, no go ───────────────────────────
+J="$WORK/go-owned"; mkdir -p "$J/.github/workflows"; git -C "$J" init -q
+printf 'module demo\n\ngo 1.22\n' > "$J/go.mod"
+printf 'linters:\n  enable: [govet]\n' > "$J/.golangci.yml"
+printf 'name: my go ci\n' > "$J/.github/workflows/getff-go.yml"
+lane_into "$J" "$WORK/j.log" "$NOTOOLS" go; rc=$?
+[ "$rc" -eq 0 ] && ok "J: the go lane exits 0 with every surface owned" || bad "J: rc $rc"
+no_manual J "$WORK/j.log"
+nw_has J "$WORK/j.log" 'golangci.*\.golangci\.yml' "golangci-lint and the consumer's .golangci.yml"
+nw_has J "$WORK/j.log" 'CI.*getff-go\.yml' "the CI gate and the kept workflow"
+nw_has J "$WORK/j.log" 'golangci-lint.*not on PATH' "the unproven golangci firing"
 
 # ── R: the predicate itself — it fires on every wording the installer used, never on a fact ────
 # A positive control: each line below is a manual step the installer printed at some point; a
@@ -464,6 +466,35 @@ _sweep=$(cd "$REPO_ROOT" && for f in install.sh setup setup.d/*.sh; do
 done)
 [ -z "$_sweep" ] && ok "R: no line in install.sh, setup or setup.d hands back a manual step" \
   || bad "R: installer source still prints a manual step: $(printf '%s\n' "$_sweep" | head -5 | cut -c1-160 | tr '\n' '|')"
+
+# ── W: the R2 wirer on a config getff placed ─────────────────────────────────────────────────
+# 99-finalize's _r2_wire_cfg runs the wirer's plain mode on a per-package config getff delivered.
+# Without --full and without a terminal, or on an export shape the wirer does not recognise, that
+# mode printed an «Add to <cfg> … / Add manually» snippet. Driven through the real function with the
+# real wirer (tsx + ts-morph from this checkout's node_modules, read only, never installed into).
+W="$WORK/r2own"; mkdir -p "$W/apps/api"
+ln -s "$REPO_ROOT/node_modules" "$W/node_modules"
+eval "$(sed -n '/^_r2_route_not_wired() {/,/^}/p;/^_r2_wire_cfg() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+# w_case <name> <config source> <reason> — run _r2_wire_cfg on apps/api/eslint.config.mjs, no --full,
+# no tty; the NOT-wired line must carry the wirer's own reason, not the generic fallback.
+w_case() {
+  printf '%s\n' "$2" > "$W/apps/api/eslint.config.mjs"
+  (
+    # shellcheck disable=SC1090
+    INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+    NOT_WIRED=(); GETFF_ADDED_TO=()
+    getff_delivered() { return 0; }
+    PROJECT_ROOT="$W" PKG_ROOT="$REPO_ROOT" FULL=""
+    _r2_wire_cfg "$W/apps/api/eslint.config.mjs" "$REPO_ROOT/packages/core/install/wire-eslint-r2.ts" </dev/null >"$WORK/w-$1.out" 2>&1
+    printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} >"$WORK/w-$1.nw"
+  )
+  grep '^R2 .* — ' "$WORK/w-$1.nw" | grep -q "$3" && ok "W $1: R2 left out of a getff-placed config is a NOT-wired line with its reason" \
+    || bad "W $1: no NOT-wired R2 line: out=$(head -3 "$WORK/w-$1.out" | tr '\n' '|')"
+  no_manual "W $1" "$WORK/w-$1.out"
+}
+w_case unrecognised 'import makeConfig from "./preset.mjs";
+export default makeConfig();' 'does not recognise'
+w_case unconfirmed 'export default [];' 'without a terminal'
 
 # ── F: --full, the package manager fails ────────────────────────────────────────────────────
 STUB="$WORK/stub-fail"; mkdir -p "$STUB"
