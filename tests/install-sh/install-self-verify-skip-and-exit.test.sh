@@ -166,6 +166,35 @@ for _su in 'exit 1' 'exit 0'; do
 done
 nw_arm "git hooks not activated" su HUSKY_HOOKS_BLOCKED="core.hooksPath is .githooks"
 nw_arm "consumer ESLint config kept" ff ESLINT_ROOT_NOT_WIRED=1
+# The consumer's own root eslint.config.mjs that getff's block did not land in (here: the
+# synth-and-wire bundle is absent from the stub package) is the same NOT-wired state: the fences are
+# not in their lint, so «fences fire» is not this install's to claim (cold-review F8 — only a
+# .cjs/.ts root used to set the signal, in copy_unless_foreign). The driver's lib.sh stand-ins make
+# the root config the consumer's.
+OWN_DRIVER="$WORK/driver-own.sh"
+{ sed '/^source "\$FINALIZE"$/d' "$DRIVER"
+  printf '%s\n' 'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 1; }' \
+    'note_not_wired() { NOT_WIRED+=("$1"); }' 'source "$FINALIZE"'; } > "$OWN_DRIVER"
+grep -q '^getff_delivered()' "$OWN_DRIVER" || bad "F8: the own-config driver was not built — the arms below would be vacuous"
+own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire must run
+  make_tree "own-$3" 'exit 1' 'exit 0' 'exit 0'
+  printf '%s\n' "$2" > "$WORK/own-$3-proj/eslint.config.mjs"
+  CAP_OUT=$(env -u CI PROJECT_ROOT="$WORK/own-$3-proj" PKG_ROOT="$WORK/own-$3-pkg" FINALIZE="$FINALIZE" \
+    DEPS_INSTALLED=1 bash "$OWN_DRIVER" 2>&1); CAP_RC=$?
+  printf '%s\n' "$CAP_OUT" | grep -q 'synth-and-wire: bundle not found' \
+    || bad "F8 $1: the own-config branch never ran — the arm would be vacuous"
+  if [ "$3" = no ] && [ ! -e "$WORK/own-no.ff.ran" ] && [ "$CAP_RC" -eq 0 ] \
+    && printf '%s\n' "$CAP_OUT" | grep -qE 'self-verify: .*1 skipped'; then
+    ok "F8 $1: fences-fire not run, counted as skipped, install rc 0"
+  elif [ "$3" = yes ] && [ -e "$WORK/own-yes.ff.ran" ] && [ "$CAP_RC" -ne 0 ]; then
+    ok "F8 $1: fences-fire runs and its FAIL counts"
+  else
+    bad "F8 $1: ran=$([ -e "$WORK/own-$3.ff.ran" ] && echo yes || echo no) rc=$CAP_RC banner=$(printf '%s\n' "$CAP_OUT" | grep 'self-verify:' | tail -1)"
+  fi
+}
+own_root_arm "own root config without getff's block" "export default [];" no
+own_root_arm "paired: own root config carrying getff's rules" \
+  "export default [{ rules: { 'rules-as-tests/no-bare-todo': 'error' } }];" yes
 # paired: the same trees with no NOT wired signal run the (failing) check and fail the install
 make_tree nw-paired 'exit 0' 'exit 1' 'exit 0'
 run_capstone "$WORK/nw-paired-proj" "$WORK/nw-paired-pkg"
@@ -196,10 +225,10 @@ else
   ok "NW-h paired: the framework-delivered .husky/pre-push is not listed"
 fi
 
-# ─── NW-h2: following the printed advice keeps the hook the consumer's (cold-review F4) ─
-# The advice is pasted into the consumer's own hook. If it carried the framework's identity marker,
-# the next --full run would classify the hook as the framework's and reassert_husky_shields would
-# overwrite it — the exact loss the NOT wired line exists to prevent.
+# ─── NW-h2: the kept hook's line names what does not run, and hands back no step (Q4.7) ─
+# It used to end «to add them, call from it: <cmd>» — advice to paste into the consumer's hook (cold-
+# review F4 then kept that advice free of the framework's identity marker). Q4.7 (2026-09-28): the
+# install hands back no manual step, so the line now says which check does not run and why, only.
 TC2="$WORK/consumer-hooks-2"; mkdir -p "$TC2/.husky"
 ( cd "$TC2" && git init -q . && printf '{ "name":"c2","version":"0.0.0" }\n' > package.json )
 for _h in pre-commit pre-push; do
@@ -207,18 +236,18 @@ for _h in pre-commit pre-push; do
 done
 OUT_H2=$( cd "$TC2" && env -u CI bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
 for _h in pre-commit pre-push; do
-  _advice=$(printf '%s\n' "$OUT_H2" | sed -n "s|.*your own \.husky/$_h is kept.*call from it: ||p" | head -1)
-  if [ -z "$_advice" ]; then
-    bad "NW-h2 $_h: no «call from it:» advice printed for the kept hook"
-    continue
+  case "$_h" in pre-commit) _what='lint-staged' ;; *) _what='pre-push\.bundle\.mjs' ;; esac
+  _line=$(printf '%s\n' "$OUT_H2" | grep "your own \.husky/$_h is kept" | head -1)
+  if printf '%s\n' "$_line" | grep -qE "runs none of the framework checks \(.*$_what.*\)"; then
+    ok "NW-h2 $_h: the NOT-wired line names the framework check that does not run"
+  else
+    bad "NW-h2 $_h: the NOT-wired line does not name the missing check: $_line"
   fi
-  printf '%s\n' "$_advice" >> "$TC2/.husky/$_h"
-  _classified=$( HUSKY_CONSUMER_HOOKS=""; FORCE=""; source "$REPO_ROOT/setup.d/lib.sh" >/dev/null 2>&1
-    husky_note_consumer_hooks "$REPO_ROOT" "$TC2"; printf '%s' "$HUSKY_CONSUMER_HOOKS" )
-  case " $_classified " in
-    *" $_h "*) ok "NW-h2 $_h: a hook that follows the advice is still the consumer's (never re-asserted over)" ;;
-    *)         bad "NW-h2 $_h: pasting the advice ($_advice) made the hook read as the framework's — --full would overwrite it" ;;
-  esac
+  if printf '%s\n' "$_line" | grep -qE 'call from it|to add them'; then
+    bad "NW-h2 $_h: the line still hands back a step to paste into the hook: $_line"
+  else
+    ok "NW-h2 $_h: the line hands back no step"
+  fi
 done
 
 echo ""

@@ -307,13 +307,14 @@ while IFS= read -r hit; do
   mutates=""
   case "$nxt" in
     *transform_internal_refs*"$dst"*|*rewrite_arch_sot_header*"$dst"*) mutates=1 ;;
+    *rewrite_vitest_source_roots*"$dst"*) mutates=1 ;;
   esac
   case "$nxt$dst" in
     *patch_stryker_package_manager*stryker.config.json*) mutates=1 ;;
   esac
   [ -n "$mutates" ] || continue
   case "$cs_line" in
-    *" md-refs"*|*" arch-header"*|*" stryker-pm"*|*" transform"*|*" suppress-no-entry"*) ;;
+    *" md-refs"*|*" arch-header"*|*" stryker-pm"*|*" vitest-layout"*|*" transform"*|*" suppress-no-entry"*) ;;
     *) UNDECLARED=$((UNDECLARED+1)); echo "    undeclared: $file:$lineno  dst=$dst" ;;
   esac
 done <<EOF2

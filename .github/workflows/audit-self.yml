@@ -553,6 +553,12 @@ jobs:
             exit 1
           fi
           echo "✓ synth-bundle smoke test passed: bundle loaded and synthesized rules for react-next"
+      # Same class as #755, two more artefacts (2026-09-28): the consumer's pre-push hook and the
+      # rule generator ship as prebuilt zero-dependency .mjs bundles that plain node runs
+      # (scripts/build-runtime-bundles.mjs). This gate fails if either committed bundle drifts
+      # from a fresh esbuild rebuild of its .ts source.
+      - name: runtime-bundles drift gate (pre-push hook + rule generator)
+        run: NODE_ENV=development node scripts/build-runtime-bundles.mjs --check
       # CI-gap option C sibling (render-suite-rot): the packages/core/render/ vitest
       # suite was never gated — only principles/ and hooks/ were — which is how a real
       # snapshot drift (R11 audit-self.yml → ci.yml: the manifest R11 row was updated in
@@ -702,6 +708,12 @@ jobs:
       # hermetic (mktemp mailbox) and runs anywhere.
       - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
         run: bash scripts/check-ask-files.test.sh
+      # The aif close-on-merge sweep's own channel is a launchd agent on the operator's Mac
+      # (the aif API is reachable only through the aif-tunnel, which CI never has). Its
+      # skip/fail/summary logic still needs a CI channel — the paired-negative below stubs
+      # tsx/curl/launchctl under mktemp, so it runs anywhere.
+      - name: Run aif close-merged sweep paired-negative (auto-merge close trigger)
+        run: bash scripts/close-merged-sweep.test.sh
       # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
       # state to blame against, which a shallow CI checkout does not reliably have. Its
       # detector still needs a CI channel, or the only proof either arm fires is that
@@ -723,10 +735,12 @@ jobs:
       # channel — principle 41 flagged it on this branch; this step is the repair.
       - name: Run skill-tiers module test (G12 extraction)
         run: bash scripts/lib/skill-tiers.test.sh
-      - name: Run synth-bundle dep-parity paired-negative (phantom-drift guard)
+      - name: Run bundle dep-parity paired-negative (phantom-drift guard, every committed bundle)
         run: bash scripts/check-bundle-dep-parity.test.sh
       - name: Run synth-bundle cwd-independence test (build runs from any directory)
         run: bash scripts/build-synth-bundle.test.sh
+      - name: Run runtime-bundles build test (cwd-independent, no machine paths, drift gate fires)
+        run: bash scripts/build-runtime-bundles.test.sh
       # Same class as the row above, on the settings-writing side: the two registration
       # scripts must resolve the checkout THEY live in, never the git toplevel of the cwd.
       # The paired negative is case 5 — invoked from inside a foreign git repo, the resolved
@@ -771,6 +785,8 @@ jobs:
         run: bash tests/install-sh/nvmrc-ci-drift.test.sh
       - name: Run install-sh arch-boundaries shipped-config test (GH #534 — was present-but-unwired)
         run: bash tests/install-sh/gh-534-arch-boundaries.test.sh
+      - name: Run install-sh dependency-cruiser config test (ES module, lint-clean under the consumer's config; a consumer's own config is kept)
+        run: bash tests/install-sh/depcruise-config-esm.test.sh
       - name: Run install-sh C1 skill-context wiring test (was present-but-unwired)
         run: bash tests/install-sh/c1-wiring.test.sh
       - name: Run install-sh ship-orchestration-skills test (#500 — was present-but-unwired)
@@ -799,8 +815,8 @@ jobs:
         run: bash tests/install-sh/consumer-upgrade-path.test.sh
       - name: "install-sh — refresh regenerates eslint barrel (#876: --refresh re-derives index.mjs so a new rule isn't stranded)"
         run: bash tests/install-sh/refresh-regenerates-barrel.test.sh
-      - name: install-sh — gh-636 ensure-tsx-root (install guarantees tsx resolves from workspace root; --full/offer/warn)
-        run: bash tests/install-sh/gh-636-ensure-tsx-root.test.sh
+      - name: "install-sh — no tsx step (the prebuilt pre-push hook needs no tsx; a positional stack skips the profile menu)"
+        run: bash tests/install-sh/install-no-tsx-step.test.sh
       - name: install-sh — f17 lint rules planted-violation (post-install liveness smoke Check3 Arm ii)
         run: bash tests/install-sh/f17-lint-rules-planted-violation.test.sh
       - name: "install-sh — f18 eslint non-TS no-crash (#973: strictTypeChecked must not fatal on .js/.cjs/.mjs outside tsconfig)"
@@ -899,6 +915,8 @@ jobs:
         run: bash tests/install-sh/deliver-gate-scripts.test.sh
       - name: install-sh — wire-eslint-r2 (GH #547 Layer 2 AST wirer degrade fixtures D+F)
         run: bash tests/install-sh/wire-eslint-r2.test.sh
+      - name: "install-sh — R2 passes that cannot run name each config they would have changed in the NOT wired summary, with the reason (Q4.7; no ts-morph / no wirer / unknown-stack workspace)"
+        run: bash tests/install-sh/r2-not-wired-summary.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
@@ -925,6 +943,16 @@ jobs:
         run: bash tests/install-sh/install-self-verify-skip-and-exit.test.sh
       - name: "install-sh — synth-wire lint probe + restore (critical-review wave 2: a wiring ESLint cannot use is rolled back and listed as NOT wired)"
         run: bash tests/install-sh/synth-wire-lint-probe-restore.test.sh
+      - name: "install-sh — synth-wire adds getff's block to a consumer's own eslint config by insertions only, original kept (Q4.7; getff's own config still wired)"
+        run: bash tests/install-sh/synth-wire-consumer-config.test.sh
+      - name: "install-sh — the install hands back no manual step (Q4.7: jq-less JSON writes through node, hooks/deps/foreign configs as NOT-wired reasons, checks it ran itself instead of «Next steps»)"
+        run: bash tests/install-sh/install-no-manual-step.test.sh
+      - name: "install-sh — R2 wirer from the install: getff's own per-package config wired without --full, and what does not land is a NOT wired line, never a manual step (Q4.7)"
+        run: bash tests/install-sh/r2-wirer-no-hand-step.test.sh
+      - name: "install-sh — vitest.config.ts test globs follow a project without src/ (Q4.5 layout class; consumer's own config untouched; vitest-layout parity)"
+        run: bash tests/install-sh/vitest-layout-roots.test.sh
+      - name: "install-sh — own-config cell KNOWN ROT matchers name only the preset-template rot they were written for (Q4.4)"
+        run: bash tests/install-sh/own-config-known-rot.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
         run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
@@ -976,8 +1004,6 @@ jobs:
         run: bash tests/install-sh/generated-rule-mutation-manifest-fail-closed.test.sh
       - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)
         run: bash tests/install-sh/preset-staleness.test.sh
-      - name: Run install-sh B4 worktree workspace-resolve test (multistack-augment-first #827 B4)
-        run: bash tests/install-sh/b4-worktree-workspace-resolve.test.sh
       # live-research-default-delivery §6 oracle: the live-snippet wiring + live-wins override
       # proof must FIRE in CI (the install/ vitest dir is otherwise un-gated — armed-but-not-fired,
       # PR #796 lesson). Targeted to the two new specs (no full install/ dir gate — scope).
@@ -1011,8 +1037,8 @@ jobs:
         run: bash tests/install-sh/refresh-safe-dir-payload.test.sh
       - name: "install-sh — copy-safe --force dir-payload (A2-1: copy_safe --force replaces directory payloads, not nests)"
         run: bash tests/install-sh/copy-safe-force-dir-payload.test.sh
-      - name: install-sh — gh-636 dispatcher tsx probe (degrade to fallback, never crash on unresolvable tsx)
-        run: bash tests/install-sh/gh-636-dispatcher-tsx-probe.test.sh
+      - name: "install-sh — pre-push dispatcher route (plain node runs the prebuilt hook; degrade to fallback, never block)"
+        run: bash tests/install-sh/pre-push-dispatcher-route.test.sh
       - name: install-sh — f16 stryker live-mutants (post-install liveness smoke #549 class)
         run: bash tests/install-sh/f16-stryker-live-mutants.test.sh
       - name: "install-sh — f20 stryker monorepo emit (#931 PR-2: per-package stryker/*.json + scripts/run-mutation.sh wrapper on a multi-stack monorepo)"
@@ -1466,7 +1492,7 @@ jobs:
   # react-spa/react-native are a follow-up (they ship preset RULES/ARCHITECTURE docs not yet in
   # the shipped .prettierignore — a separate latent fresh-install validate-RED, distinct from #779).
   framework-fresh-install-validate:
-    name: "Fresh-install validate smoke (${{ matrix.stack }}) — closes #779"
+    name: "Fresh-install validate smoke (${{ matrix.stack }}, ${{ matrix.fixture }}) — closes #779"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1474,6 +1500,14 @@ jobs:
       fail-fast: false
       matrix:
         stack: [ts-server, react-next, react-spa, react-native]
+        # empty-manifest — install into an empty package.json: getff's own eslint/tsconfig land and
+        #   ignore everything getff ships (the #779 / first-commit-passable replays below).
+        # own-configs — install into a project that already OWNS its eslint.config.mjs + tsconfig,
+        #   so the consumer's tools check getff's delivery, then run the whole INSTALL-FOR-AI.md
+        #   step-4 list (operator decision Q4.3, 2026-09-28: the empty fixture never ran typecheck,
+        #   build or validate and planted its test under src/, which is how a red fresh install of
+        #   a real project shipped green). Stack-neutral: one fixture, STACK only picks the preset.
+        fixture: [empty-manifest, own-configs]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -1486,6 +1520,7 @@ jobs:
             package-lock.json
             packages/core/package-lock.json
       - name: "Fresh ./setup -y install (install.sh --full) into a tmp consumer"
+        if: matrix.fixture == 'empty-manifest'
         # STACK via env (not inline ${{…}} in run:) to avoid template-injection (zizmor). The
         # value is a GitHub-controlled matrix token from the allowlist above.
         env:
@@ -1503,6 +1538,7 @@ jobs:
           bash "$GITHUB_WORKSPACE/install.sh" "$STACK" --full
           echo "CONSUMER=$CONSUMER" >> "$GITHUB_ENV"
       - name: Seed a minimal source module (so the validate arms have inputs)
+        if: matrix.fixture == 'empty-manifest'
         # Added AFTER install so the arch:check target stayed "." (above). A single prettier-clean
         # module gives tsconfig inputs — without it tsc/depcruise abort with TS18003 on an empty
         # tree — while target="." keeps the vendored packages/core/** in depcruise's scope. No
@@ -1516,6 +1552,7 @@ jobs:
           mkdir -p src
           printf 'export const answer = 42;\n' > src/index.ts
       - name: "Plant a test file matching THIS stack's vitest include glob (first-commit-passable)"
+        if: matrix.fixture == 'empty-manifest'
         # The name must match the stack's vitest.config.ts `include` or `npx vitest run` exits 1
         # with "No test files found" — a failure unrelated to the three issues under replay:
         #   ts-server    → src/tests/seed.unit.ts (matches src/**/*.unit.ts)
@@ -1536,6 +1573,7 @@ jobs:
           fi
           printf "import { describe, expect, it } from 'vitest';\n\ndescribe('seed', () => {\n  it('passes', () => {\n    expect(1).toBe(1);\n  });\n});\n" > "$SEED"
       - name: "Consumer: git commit through the REAL shipped pre-commit (issues 1528+1529 replay)"
+        if: matrix.fixture == 'empty-manifest'
         # No hand-added .gitignore here — the FC-2 seed is what keeps node_modules/ out of the
         # index on this gitignore-less consumer (issue 1528); and the delivered .lintstagedrc.json
         # with --no-warn-ignored is what lets the eslint tasks pass on the eslint-ignored
@@ -1546,12 +1584,14 @@ jobs:
           git add -A
           git commit -m "install"
       - name: "Consumer: npx vitest run (issue 1530 replay)"
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           test -x node_modules/.bin/vitest \
             || { echo "::error::vitest not installed — install.sh --full dep install failed; the vitest arm cannot run (false-green guard)"; exit 1; }
           npx vitest run
       - name: Assert the consumer toolchain installed (else the validate gate is vacuous)
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           for bin in prettier depcruise; do
@@ -1560,14 +1600,17 @@ jobs:
           done
           echo "✓ consumer toolchain present (prettier + dependency-cruiser)"
       - name: "Consumer: npm run format:check (the #779 prettier gate)"
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           npm run format:check
       - name: "Consumer: npm run arch:check (the #779 dependency-cruiser gate)"
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           npm run arch:check
       - name: "Consumer: npm run lint (all stacks — GH #779 lint follow-up)"
+        if: matrix.fixture == 'empty-manifest'
         # All 4 stacks run the consumer's `npm run lint` (eslint . --max-warnings=0). A fresh
         # `install.sh <stack> --full` vendors the AIF framework namespace (eslint-rules-local/**,
         # packages/core/**, scripts/audit-r4.ts, the root .mjs/.cjs/.ts configs) into the consumer
@@ -1586,6 +1629,17 @@ jobs:
           test -x node_modules/.bin/eslint \
             || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"; exit 1; }
           npm run lint
+      - name: "Own-configs cell: a project that owns its eslint + tsconfig → the whole INSTALL-FOR-AI.md step-4 list (Q4.3)"
+        # tests/consumer-matrix/own-config-cell.sh: fixture → a clean-clone copy of this tree →
+        # install.sh $STACK --full → typecheck · lint · test · build · validate · first commit ·
+        # first push (through the real shipped hooks) · the rule generator on an empty npm cache.
+        # Known preset-template rot is printed as ROT, strictly (tests/consumer-matrix/known-rot.sh,
+        # decision Q4.4). Deterministic + API-free per .claude/rules/no-paid-llm-in-ci.md.
+        if: matrix.fixture == 'own-configs'
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+          STACK: ${{ matrix.stack }}
+        run: bash tests/consumer-matrix/own-config-cell.sh
 
   framework-fresh-install-validate-multistack:
     # GH #807: the deps-installed e2e companion to tests/install-sh/multi-stack-monorepo.test.sh §9.
@@ -1595,7 +1649,7 @@ jobs:
     # into a SINGLE-package consumer and never exercises the no-root-config path — this is the
     # genuinely-different monorepo fixture (⚑m3). It asserts the 3 deps-installed-meaningful gates:
     # check:globs + check:enforced (Batch-A per-workspace recursion) and arch:check (Batch-B root
-    # .dependency-cruiser.cjs). format:check is covered deps-free by the §9 .prettierignore placement
+    # .dependency-cruiser.mjs). format:check is covered deps-free by the §9 .prettierignore placement
     # assertion (its #807 surface is a brownfield consumer-.prettierrc mismatch, NOT reproduced by a
     # greenfield fixture whose configs are AIF-prettier-clean). Deterministic + API-free per
     # no-paid-llm-in-ci.md — NOT the full `npm run validate` (typecheck/test/lint arms depend on
@@ -1677,7 +1731,7 @@ jobs:
           echo "✓ consumer toolchain present (eslint + dependency-cruiser)"
       - name: "Consumer (multi-stack): the deps-installed #807 gates must be green"
         # check:globs + check:enforced recurse per-workspace (Batch A); arch:check needs the root
-        # .dependency-cruiser.cjs the multi-stack branch now places (Batch B). All three were RED on a
+        # .dependency-cruiser.mjs the multi-stack branch now places (Batch B). All three were RED on a
         # no-root-config monorepo before the fix (check:globs/enforced exit 2; arch:check exit 1).
         # check:enforced runs `eslint --print-config` per workspace (eslint asserted above); apps/api
         # has no zod boundary and apps/mobile no boundary tokens → both skip R2 cleanly → exit 0.
@@ -2254,6 +2308,43 @@ jobs:
       # cleanly» is not the assertion (T-NPI-A); the first violation failing is.
       # The consumer install fetches the ts-server dev-deps from the registry
       # exactly as a real `npx getff init` would.
+      # The R2 wirer computes the customRules import between a --path under
+      # install.sh's logical `pwd` and node's physical cwd. On Windows the two
+      # can differ by a junction or an 8.3 short name (C:\Users\RUNNER~1); this
+      # runs the spelling cases here, the only Windows runner, and writes the
+      # TEMP spellings it measured to the step summary. JSON reporter, not a
+      # grep of the console: vitest colours its output on win32 and under CI.
+      - name: R2 import specifier across path spellings (junction, 8.3 short name)
+        if: matrix.cell == 'getff-dist' && runner.os == 'Windows'
+        shell: bash
+        run: |
+          npm ci --prefix packages/core --silent
+          cd packages/core
+          rc=0
+          NO_COLOR=1 npx --no-install vitest run install/wire-eslint-r2.test.ts \
+            -t 'two spellings|URL path|linked project root' --reporter=default \
+            --reporter=json --outputFile.json="$RUNNER_TEMP/r2-spec.json" > "$RUNNER_TEMP/r2-spec.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/r2-spec.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          # A skipped case (no ts-morph, no ESLint) passes vitest too: require each one by name, and
+          # require this runner's TEMP to have a second spelling, or the 8.3 arm was never exercised.
+          node - "$RUNNER_TEMP/r2-spec.json" "$RUNNER_TEMP/r2-spec.log" <<'JS'
+          const fs = require('node:fs');
+          const [json, log] = process.argv.slice(2);
+          const passed = JSON.parse(fs.readFileSync(json, 'utf8')).testResults
+            .flatMap((f) => f.assertionResults).filter((a) => a.status === 'passed').map((a) => a.fullName);
+          const want = ['config under the link, cwd physical', 'the temp dir as the OS spells it',
+            'another drive (no relative path exists)', 'own config wired through a linked project root'];
+          const missing = want.filter((w) => !passed.some((n) => n.includes(w)));
+          if (missing.length) { console.log(`::error::did not run: ${missing.join(' | ')}`); process.exit(1); }
+          const m = /\[r2-spec\] tmpdir=(.*) realpathSync=(.*) realpathSync\.native=(.*)/.exec(fs.readFileSync(log, 'utf8'));
+          if (!m) { console.log('::error::no [r2-spec] measurement line'); process.exit(1); }
+          const [, spelled, js, native] = m;
+          const line = `TEMP as spelled: ${spelled}\nrealpathSync:    ${js}\nrealpathSync.native: ${native}`;
+          if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\`\`\`\n${line}\n\`\`\`\n`);
+          console.log(line);
+          if (spelled.trim() === native.trim()) { console.log('::error::TEMP has one spelling on this runner: the short-name case was not exercised'); process.exit(1); }
+          JS
       - name: Run the consumer-matrix getff-dist cell
         if: matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh

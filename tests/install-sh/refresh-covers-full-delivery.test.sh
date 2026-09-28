@@ -10,7 +10,7 @@
 # framework file delivered by --full but omitted from do_refresh can therefore never reach an
 # already-installed consumer non-destructively — the framework's own fixes false-RED (or, for
 # .husky/pre-push, HARD-CRASH per #636) forever on it. This gate is the mechanical form of the
-# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1416 prose promise
+# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1419 prose promise
 # ("Consumer-owned files … were not touched") — encoded as an executable assertion.
 #
 # SCOPE: copy_safe deliveries only (the skip-if-exists mechanism that causes the bug). Other
@@ -67,7 +67,7 @@ for _lyr in "$REPO_ROOT"/setup.d/[0-9]*.sh; do
 done
 # Guard the empty-array expansion: under `set -u` on bash 3.2 (macOS), "${NPM_LANE_LAYERS[@]}"
 # with an empty array throws "unbound variable" and aborts the test ungracefully. Same shape as
-# setup.d/lib.sh:1927-1929 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
+# setup.d/lib.sh:1964-1966 (_prettierignore_in_skipped's SKIPPED guard) — check length first, fail
 # the test cleanly with a message rather than crashing on the array expansion below.
 [ "${#NPM_LANE_LAYERS[@]}" -gt 0 ] || { echo "FATAL: NPM_LANE_LAYERS empty — setup.d/[0-9]*.sh glob found no npm-lane layers"; exit 1; }
 
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:1416 + setup.d/lib.sh:1918 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:1419 + setup.d/lib.sh:1955 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
@@ -89,7 +89,7 @@ EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed 
   # after first install — the consumer extends/edits them; refresh must never clobber.
   .gitignore
   tests/setup.ts
-  .dependency-cruiser.cjs
+  .dependency-cruiser.mjs
   stryker.config.json
   vitest.config.ts
   playwright.config.ts
@@ -328,7 +328,7 @@ fi
 # which the alternation already covers.
 # ── LANE_EXCLUDED: $PKG_ROOT-sourced delivery SOURCES deliberately NOT refreshed, per lane ────────
 # A2-11's widened extraction sees a SECOND source form (`$PKG_ROOT/…`). Widening without an escape
-# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1332-1334
+# hatch would false-flag the DELIBERATELY consumer-owned PKG_ROOT deliveries: 45-python.sh:1331-1333
 # classifies the `.ai-factory/ARCHITECTURE.*` family as consumer-owned from first landing — «the same
 # classification its ts-server sibling carries in tests/install-sh/refresh-covers-full-delivery.test.sh's
 # EXCLUDED list» — and :1346 extends the contract to the sibling docs («consumer-editable by contract»).
@@ -336,7 +336,7 @@ fi
 # on destination) because lane parity keys on source. A NEW $PKG_ROOT-sourced FRAMEWORK-OWNED
 # artefact must be REFRESHED (routed through the lane's copy_or_refresh wrapper), never added here.
 LANE_EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'LEXC' | sed '/^$/d'
-  # 45-python.sh agent-surface docs (45-python.sh:1328-1363). The ARCHITECTURE.md token is the
+  # 45-python.sh agent-surface docs (45-python.sh:1327-1362). The ARCHITECTURE.md token is the
   # ${PY_TEMPLATE_DIR:-$PKG_ROOT/...python}/ARCHITECTURE.md source (:1335/:1363 — two consumer-owned
   # dsts: ARCHITECTURE.python.md and the materialized ARCHITECTURE.md SoT).
   45-python.sh|$PKG_ROOT/packages/core/templates/python

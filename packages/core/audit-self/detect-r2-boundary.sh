@@ -38,8 +38,9 @@ DECLARATIVE_ALLOWLIST="${R2_DECLARATIVE_ALLOWLIST:-@hono/zod-openapi}"
 # generates into the consumer. That dir's own rule source (e.g. no-unsafe-zod-parse.ts) literally
 # contains `.safeParse(`/`.parse(` as the thing the rule TALKS ABOUT — counting it as a consumer
 # boundary signal would false-positive every install to boundary-present (GH #547 self-test finding).
-# Post-#735: install.sh ALSO ships the framework's vendored rules to `packages/core/eslint-rules/`
-# (so guard-liveness.ts can load) — same `.parse(`-as-rule-subject false-positive as eslint-rules-local
+# From #735 until 2026-09-28 install.sh ALSO shipped the framework's vendored rules to
+# `packages/core/eslint-rules/` (so guard-liveness.ts could load), and a consumer installed in that
+# window still carries them — same `.parse(`-as-rule-subject false-positive as eslint-rules-local
 # above, at a different path. Prune the vendored framework tree too. (GH #777)
 PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
 BOUNDARY_TOKENS=( handlers routes controllers actions )   # app/api is two-segment → path-probed below

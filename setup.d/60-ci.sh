@@ -37,13 +37,18 @@ fi
 
 # ─── 6b-bis. GH #547 Point 2: auto-wire R2 by reading the repo ───────────────
 # Classify the consumer's layout (C1) and configure R2 enforcement so the shipped check:globs gate
-# is green-because-understood, never red-because-unconfigured — WITHOUT mutating consumer-authored
-# per-package eslint configs (deferred Layer 2 / --wire-rules). We only ever patch the ROOT
-# eslint.config.mjs (OUR shipped file, whose own comment invites editing RULE_GLOBS), additively +
-# idempotently. rc=0 on every branch (a crash here must never abort install — lesson GH #531/#544).
+# is green-because-understood, never red-because-unconfigured. Here we only patch the ROOT
+# eslint.config.mjs getff placed (whose own comment invites editing RULE_GLOBS), additively +
+# idempotently. A root config the consumer owns (an eslint.config.mjs copy_safe kept, or an
+# eslint.config.js — the name ESLint loads first) is not patched here: the boundary globs go to
+# 99-finalize in _r2_own_globs, which adds RULE_GLOBS and R2 to it with the rest of getff's block
+# in one write, keeping the original (operator decision Q4.7, 2026-09-28). rc=0 on every branch (a
+# crash here must never abort install — lesson GH #531/#544).
+_r2_root_cfg=$(eslint_flat_config "$PROJECT_ROOT")
+_r2_own_globs=""
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "▶ R2 auto-wire → [dry-run] would classify the repo and patch RULE_GLOBS / record R2 N/A as warranted"
-elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.config.js ]; then
   echo "▶ R2 auto-wire (reading the repo)"
   _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
   _r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"
@@ -51,6 +56,22 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
     boundary-present)
       _patched=0
       _r2_glob_failed=0
+      # Only getff's own config is patched here. A config the consumer owns gets RULE_GLOBS and R2
+      # from 99-finalize (_r2_own_globs), for the stacks whose preset ships R2.
+      _r2_own_cfg=0
+      _r2_no_slot=0
+      if ! getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
+        _r2_own_cfg=1
+        case "${STACK:-ts-server}" in
+          ts-server|react-next|react-spa) _r2_own_globs=$(printf '%s\n' "$_r2_out" | sed -n 's/^glob://p') ;;
+        esac
+        _r2_out=""   # no glob lines → the patch loop below writes nothing
+      elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
+        # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
+        # ships no R2) — there is no boundary array to widen, so no per-glob warning either.
+        _r2_no_slot=1
+        _r2_out=""
+      fi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
@@ -58,24 +79,36 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
         # stale eslint.config.mjs.tmp.
+        # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
+        # NOT added, never a «✓ added».
         if awk -v ins="    '$_g'," '
           done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
+          && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
           && mv "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs"; then
           _patched=$((_patched + 1))
         else
           rm -f "$PROJECT_ROOT/eslint.config.mjs.tmp" 2>/dev/null || true
           _r2_glob_failed=$((_r2_glob_failed + 1))
-          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (awk or write failure) — eslint.config.mjs left unchanged" >&2
+          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (no \`boundary: [\` array, or a write failure) — eslint.config.mjs left unchanged" >&2
         fi
       done <<EOF
 $_r2_out
 EOF
-      if [ "$_patched" -gt 0 ]; then
+      if [ "$_r2_own_cfg" = "1" ] && [ -n "$_r2_own_globs" ]; then
+        echo "  · HTTP boundary detected — $_r2_root_cfg is your own config; getff adds RULE_GLOBS and R2 to it at the end of the install"
+      elif [ "$_r2_own_cfg" = "1" ]; then
+        echo "  · HTTP boundary detected, but the ${STACK:-ts-server} preset ships no R2 — nothing to add to your $_r2_root_cfg"
+      elif [ "$_r2_no_slot" = "1" ]; then
+        echo "  · HTTP boundary detected, but this stack's eslint.config.mjs has no RULE_GLOBS block — its preset ships no R2, so there is nothing to widen"
+      elif [ "$_patched" -gt 0 ]; then
         echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
       elif [ "$_r2_glob_failed" -gt 0 ]; then
-        echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does NOT cover it yet; widen RULE_GLOBS.boundary by hand" >&2
+        # Q4.7 (2026-09-28): what is not wired goes to the NOT-wired summary with its reason, never
+        # as a manual step (cold-review F5b — this used to say «widen RULE_GLOBS.boundary by hand»).
+        echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does not cover that code yet (see NOT wired below)" >&2
+        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no \`boundary: [\` array any more (edited since getff placed it), or the write failed; the file is left as it is"
       else
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
@@ -116,7 +149,11 @@ EOF
     *)
       # NB: say "scripts/check-rule-globs.sh" (hyphen), NOT the colon-form "check:globs" — the colon
       # form is reserved for the CI-orphan WARN's missing-gate list (r2-glob-reach asserts per-gate accuracy).
-      echo "  · R2 boundary layout ambiguous → leaving scripts/check-rule-globs.sh as the alarm. If R2 applies, widen RULE_GLOBS.boundary in eslint.config.mjs to cover your layout." ;;
+      if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
+        echo "  · R2 boundary layout ambiguous → RULE_GLOBS.boundary in eslint.config.mjs keeps its default globs; scripts/check-rule-globs.sh fails, naming them, if they match no source file"
+      else
+        echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
+      fi ;;
   esac
 fi
 
@@ -144,9 +181,12 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   }
   _aif_detect_gates() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
     _aif_missing=(); _aif_steps=(); _aif_cmds=()
+    # arch:check's artifact is whichever dependency-cruiser config is on disk: ours, or the
+    # consumer's own that 40-configs.sh kept (copy_unless_foreign).
+    local _dc; _dc=$(depcruise_config "$PROJECT_ROOT")
     _aif_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
     _aif_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
-    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           ".dependency-cruiser.cjs"              "- run: npm run arch:check"
+    _aif_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           "${_dc:-.dependency-cruiser.mjs}"       "- run: npm run arch:check"
     _aif_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
     _aif_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
     _aif_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
@@ -176,6 +216,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       if [ -n "$_job" ] && [ "$_job" != "null" ]; then _wire_wf="$_wf"; _wire_job="$_job"; break; fi
     done
     if [ -n "$_wire_job" ]; then
+      _aif_yq_ran=1
       _wired=0
       # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
       # _cmd is one of the 4 hard-coded gate commands (no quotes/special chars) — keep it that way:
@@ -194,11 +235,11 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       echo "  ✓ auto-wired ${_wired} gate(s) into ${_wire_wf#"$PROJECT_ROOT"/} job '${_wire_job}' via yq (idempotent — re-running install adds nothing)."
       _aif_detect_gates   # re-check: wired gates are now referenced → drop them from the WARN below
     else
-      echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — see the paste-block below."
+      echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — the gates are not wired (NOT wired below)"
     fi
   }
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
-    _aif_wire="no"
+    _aif_wire="no"; _aif_yq_ran=""
     if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
     elif [ -z "${FULL:-}" ] && [ -t 0 ]; then
       printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
@@ -227,15 +268,16 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
                 if command -v yq >/dev/null 2>&1; then
                   _aif_yq_wire
                 else
-                  echo "  ⚠ yq install did not succeed — see the paste-block below."
+                  echo "  ⚠ yq install did not succeed — the gates are not wired (NOT wired below)"
                 fi ;;
+              *) echo "  ⊝ yq not installed — the offer to install it was declined, so the gates are not wired (NOT wired below)" ;;
             esac
           else
             # --wire-ci with no TTY: do NOT silently install a binary on a non-interactive run.
-            echo "  ⚠ --wire-ci: 'yq' not installed; non-interactive — run '$_aif_yq_inst' then re-run, or see the paste-block below."
+            echo "  ⚠ --wire-ci: 'yq' is not installed, and a run with no terminal does not install a binary ($_aif_yq_inst) — the gates are not wired (NOT wired below)"
           fi
         else
-          echo "  ⚠ 'yq' is not installed and no supported auto-installer (brew/snap) was found — install it manually (https://github.com/mikefarah/yq#install), or see the paste-block below."
+          echo "  ⚠ 'yq' is not installed and neither brew nor snap is on PATH to install it — the gates are not wired (NOT wired below)"
         fi
       fi
     fi
@@ -247,8 +289,6 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
     echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
     for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
-    echo "   Add the missing step(s) to your lint/test job's \`steps:\` (only these):"
-    for _s in "${_aif_steps[@]}"; do echo "       $_s"; done
     # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
     # not cover it (per-package eslint configs win under nearest-config resolution). Surface that.
     for _m in "${_aif_missing[@]}"; do
@@ -260,9 +300,20 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
           break ;;
       esac
     done
-    echo "   (or re-run install with --wire-ci to auto-wire them via yq — edits your workflow in place, opt-in;"
-    echo "    or with --force to adopt the shipped ci.yml that wires them — but --force overwrites ALL kept files,"
-    echo "    e.g. vitest.config.ts / .prettierignore, not just the workflow)."
+    # One NOT-wired line per gate, with the reason — never a paste-block or a flag to re-run with
+    # (operator directive 2026-09-28, Q4.7). The workflow is the consumer's: getff edits it only on
+    # --wire-ci or a yes at the prompt, because its only editor (yq) does not keep every comment
+    # (research-patch 2026-06-14-s3-workflow-merge §4/§6, SSOT #117).
+    if [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
+      _aif_why="yq did not add it to the job it wired the other gates into"
+    elif [ "${_aif_wire:-no}" = "yes" ]; then
+      _aif_why="the wiring through yq did not land (its reason is above)"
+    else
+      _aif_why="the workflow is your own, and getff edits it only on --wire-ci or a yes at the install prompt, which this run did not have"
+    fi
+    for _i in "${!_aif_missing[@]}"; do
+      note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): $_aif_why"
+    done
   fi
   unset -f _aif_gate_check _aif_detect_gates _aif_yq_wire
 fi

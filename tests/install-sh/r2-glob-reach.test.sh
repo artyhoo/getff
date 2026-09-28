@@ -92,7 +92,7 @@ BROWNFIELD_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: pnpm turbo r
 PARTIAL_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: bash scripts/check-rule-globs.sh\n      - run: pnpm turbo run lint typecheck test'
 
 # ── POS-all: none wired → WARN names all 4 (colon forms are WARN-exclusive; install copy-echoes use
-#    hyphenated file names) + paste-block has the check:lintstaged step; rc=0; consumer ci.yml intact.
+#    hyphenated file names) + the check:lintstaged NOT-wired line names its step; rc=0; consumer ci.yml intact.
 P=$(mktemp -d); LOG=$(mktemp); seed_install "$P" "$BROWNFIELD_CI" "$LOG"; RCP=$?
 [ "$RCP" = "0" ] && ok "#1 POS-all: install exited 0 (CI-orphan warn never aborts)" || bad "#1 POS-all: install exited $RCP"
 grep -q "CI-orphan" "$LOG" \
@@ -103,9 +103,9 @@ for _g in "check:globs" "arch:check" "audit:docs" "check:lintstaged"; do
     && ok "#1 POS-all: WARN names $_g" \
     || bad "#1 POS-all: WARN omits $_g (under-reporting — the #521 bug)"
 done
-grep -q "run: bash scripts/check-lintstaged-resolves.sh" "$LOG" \
-  && ok "#1 POS-all: paste-block includes the check:lintstaged step" \
-  || bad "#1 POS-all: paste-block missing the check:lintstaged step"
+grep -E '^[[:space:]]*- CI gate check:lintstaged' "$LOG" | grep -q "run: bash scripts/check-lintstaged-resolves.sh" \
+  && ok "#1 POS-all: the check:lintstaged NOT-wired line names its step" \
+  || bad "#1 POS-all: no NOT-wired check:lintstaged line naming its step"
 # #521 follow-up: when check:globs is missing, the WARN must explain that a present `lint` step
 # does NOT enforce R2/R7/R8 on packages with their own eslint config (nearest-config shadow).
 grep -q "nearest-config resolution shadows the root AIF rules" "$LOG" \
@@ -248,5 +248,173 @@ SRC516="$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh"
 grep -Eq 'awk[[:space:]]+-v[[:space:]]+[A-Za-z_]+="\$SHADOWS"' "$SRC516" \
   && bad "#516 §1 guard: \$SHADOWS passed via 'awk -v' (multi-line crashes BSD/macOS awk — use env/ENVIRON)" \
   || ok "#516 §1 guard: \$SHADOWS not passed via 'awk -v' (newline-free → BSD/macOS awk safe)"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2026-09-28 (Q4.5) — a root eslint.config.mjs the CONSUMER owns
+# ══════════════════════════════════════════════════════════════════════════════
+# A project that already had an eslint.config.mjs keeps it, and getff's RULE_GLOBS block lands there
+# only once the install finds an HTTP boundary (Q4.7, 2026-09-28: getff adds its block to the
+# consumer's config; before that it added nothing). The gate used to read a config without the
+# block as «no globs found — check the config» and failed validate and the first push on every such
+# project. There is no getff glob in such a config to verify: skip it and say why, the way
+# check-rule-enforced.sh already does. A config that wires one of R2/R7/R8 keeps the alarm.
+own_cfg_dir() { # $1 = eslint.config.mjs body → a project with one source file, gate run from the repo
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/lib"; echo 'export const x = 1;' > "$d/lib/answer.ts"
+  printf '%s\n' "$1" > "$d/eslint.config.mjs"
+  printf '%s' "$d"
+}
+repo_gate() { ( cd "$1" && bash "$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh" ) 2>&1; }
+
+T9=$(own_cfg_dir "import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
+export default tseslint.config(eslint.configs.recommended, tseslint.configs.recommended);")
+OUT9=$(repo_gate "$T9"); RC9=$?
+[ "$RC9" = "0" ] \
+  && ok "own-config POS: a consumer-owned root config (no RULE_GLOBS, no getff rule) → gate exits 0" \
+  || bad "own-config POS: gate exited $RC9 on a consumer-owned root config (saw: $(printf '%s' "$OUT9" | tail -2 | tr '\n' '|'))"
+printf '%s' "$OUT9" | grep -q "not wired into eslint.config.mjs" \
+  && ok "own-config POS: the skip names what is not wired and where" \
+  || bad "own-config POS: no 'not wired into eslint.config.mjs' report line (a silent skip hides the gap)"
+
+# NEG-a: getff's own config shape with the boundary key gone is still the alarm.
+T10=$(own_cfg_dir "const RULE_GLOBS = {
+  appCode: ['**/*.{ts,tsx}'],
+};
+export default [];")
+OUT10=$(repo_gate "$T10"); RC10=$?
+[ "$RC10" = "1" ] && printf '%s' "$OUT10" | grep -q "no globs found under RULE_GLOBS.boundary" \
+  && ok "own-config NEG-a: a RULE_GLOBS block without its boundary key still FAILS" \
+  || bad "own-config NEG-a: gate exited $RC10 — a broken getff config was skipped as consumer-owned"
+
+# NEG-b: a consumer config that wires the getff rule by hand still FAILS — its globs are not ours
+# to read, so the gate cannot call the rule live.
+T11=$(own_cfg_dir "import r from './r.mjs';
+export default [{ plugins: { 'rules-as-tests': r }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];")
+OUT11=$(repo_gate "$T11"); RC11=$?
+[ "$RC11" = "1" ] \
+  && ok "own-config NEG-b: a hand-wired getff rule without RULE_GLOBS still FAILS (not skipped)" \
+  || bad "own-config NEG-b: gate exited $RC11 — a config that wires the rule was skipped as not wired"
+
+# Q4.7 (2026-09-28): the install now ADDS getff's block to a consumer's own config — the stack's
+# rules-as-tests rules always, RULE_GLOBS + R2 only once it finds an HTTP boundary. Such a config
+# carries getff's rules and no RULE_GLOBS block: still nothing of getff's to glob-check, so skip.
+T11b=$(own_cfg_dir "import eslint from '@eslint/js';
+import rulesAsTests from './eslint-rules-local/index.mjs';
+export default [
+  eslint.configs.recommended,
+  { plugins: { 'rules-as-tests': rulesAsTests }, rules: { 'rules-as-tests/no-bare-todo': 'error' } },
+  { ignores: ['eslint-rules-local/**'] },
+];")
+OUT11b=$(repo_gate "$T11b"); RC11b=$?
+[ "$RC11b" = "0" ] && printf '%s' "$OUT11b" | grep -q "not wired into eslint.config.mjs" \
+  && ok "own-config Q4.7: getff's block without RULE_GLOBS (no boundary found yet) → skipped, rc 0" \
+  || bad "own-config Q4.7: gate exited $RC11b on a consumer config getff wired without a boundary (saw: $(printf '%s' "$OUT11b" | tail -2 | tr '\n' '|'))"
+# The skip never hands the consumer a manual step.
+if printf '%s\n%s\n' "$OUT9" "$OUT11b" | grep -qiE 'by hand|manually'; then
+  bad "own-config Q4.7: the skip asks for a manual edit: $(printf '%s\n%s\n' "$OUT9" "$OUT11b" | grep -iE 'by hand|manually' | head -1)"
+else
+  ok "own-config Q4.7: the skip names what is not wired, with no manual step"
+fi
+# eslint.config.js: ESLint loads it before eslint.config.mjs, and the install wires a consumer's own
+# one. The gate must read it — not stop with «eslint.config.mjs not found».
+T11c=$(mktemp -d); mkdir -p "$T11c/lib"; echo 'export const x = 1;' > "$T11c/lib/answer.ts"
+printf 'export default [];\n' > "$T11c/eslint.config.js"
+OUT11c=$(repo_gate "$T11c"); RC11c=$?
+[ "$RC11c" = "0" ] && printf '%s' "$OUT11c" | grep -q "not wired into eslint.config.js" \
+  && ok "own-config Q4.7: a consumer's eslint.config.js is the config the gate reads" \
+  || bad "own-config Q4.7: gate exited $RC11c on an eslint.config.js project (saw: $(printf '%s' "$OUT11c" | tail -2 | tr '\n' '|'))"
+# eslint.config.cjs: getff adds nothing to it; the gate says so and passes (validate stays green).
+T11d=$(mktemp -d); mkdir -p "$T11d/lib"; echo 'export const x = 1;' > "$T11d/lib/answer.ts"
+printf 'module.exports = [];\n' > "$T11d/eslint.config.cjs"
+OUT11d=$(repo_gate "$T11d"); RC11d=$?
+[ "$RC11d" = "0" ] && printf '%s' "$OUT11d" | grep -q "eslint.config.cjs is left as it is" \
+  && ok "own-config Q4.7: an eslint.config.cjs project passes, the gate saying getff added nothing to it" \
+  || bad "own-config Q4.7: gate exited $RC11d on an eslint.config.cjs project (saw: $(printf '%s' "$OUT11d" | tail -2 | tr '\n' '|'))"
+rm -rf "$T11c" "$T11d"
+
+# A monorepo whose root config is the consumer's own eslint.config.cjs, with a workspace config that
+# carries getff's RULE_GLOBS. ESLint lints the workspace with its own config, so the workspace
+# configs are the rule layer — as in a monorepo with no root config at all (§807). Reading the
+# ESLint lookup order made that .cjs «the root config»; the gate must still check the workspace
+# configs under it, not stop at «skipped» (cold-review F3: before the lookup order it recursed).
+own_root_mono() { # $1 = yes → apps/api has a routes/ file its boundary glob matches
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/apps/api/src/lib"
+  printf 'module.exports = [];\n' > "$d/eslint.config.cjs"
+  printf "const RULE_GLOBS = {\n  boundary: ['**/routes/**/*.{ts,tsx}'],\n};\nexport default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" \
+    > "$d/apps/api/eslint.config.mjs"
+  echo 'export const x = 1;' > "$d/apps/api/src/lib/x.ts"
+  if [ "$1" = yes ]; then mkdir -p "$d/apps/api/src/routes"; echo 'export const u = 1;' > "$d/apps/api/src/routes/u.ts"; fi
+  printf '%s' "$d"
+}
+T11e=$(own_root_mono no)
+OUT11e=$(repo_gate "$T11e"); RC11e=$?
+[ "$RC11e" = "1" ] && printf '%s' "$OUT11e" | grep -q "SILENTLY INERT" \
+  && ok "own-root monorepo: under the consumer's eslint.config.cjs, a workspace boundary glob matching nothing FAILS" \
+  || bad "own-root monorepo: gate exited $RC11e — the workspace configs under a consumer's .cjs root were not checked (saw: $(printf '%s' "$OUT11e" | tail -2 | tr '\n' '|'))"
+# Paired negative: the same layout with a routes/ file passes, and the pass comes from the workspace check.
+T11f=$(own_root_mono yes)
+OUT11f=$(repo_gate "$T11f"); RC11f=$?
+[ "$RC11f" = "0" ] && printf '%s' "$OUT11f" | grep -q "check-rule-globs: OK" \
+  && ok "own-root monorepo neg: a workspace boundary glob that matches passes, checked in the workspace" \
+  || bad "own-root monorepo neg: gate exited $RC11f or never checked the workspace (saw: $(printf '%s' "$OUT11f" | tail -2 | tr '\n' '|'))"
+rm -rf "$T11e" "$T11f"
+
+# Provenance of the skip message. getff's own react-native config wires none of R2/R7/R8 (the RN
+# preset ships zero custom rules) and carries no RULE_GLOBS block, so it takes the same skip — but
+# calling it «your own config, the install kept it» is false on a fresh RN install. The baseline
+# manifest records what getff delivered; the message must follow it.
+sha_of() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | awk '{print $1}'; }
+manifest_for() { # $1 = dir, $2 = recorded hash for eslint.config.mjs, $3 = rn → getff also placed
+  # the react-native sibling eslint.config.rn-common.mjs, as a react-native install does
+  mkdir -p "$1/.ai-factory"
+  if [ "${3:-}" = rn ]; then
+    printf '{\n  "eslint.config.mjs": "%s",\n  "eslint.config.rn-common.mjs": "%s"\n}\n' "$2" "$2" \
+      > "$1/.ai-factory/refresh-baseline.json"
+  else
+    printf '{\n  "eslint.config.mjs": "%s"\n}\n' "$2" > "$1/.ai-factory/refresh-baseline.json"
+  fi
+}
+T12=$(own_cfg_dir "export default [];")
+manifest_for "$T12" "$(sha_of "$T12/eslint.config.mjs")"
+OUT12=$(repo_gate "$T12"); RC12=$?
+[ "$RC12" = "0" ] && ! printf '%s' "$OUT12" | grep -q "your own config" \
+  && printf '%s' "$OUT12" | grep -q "getff placed eslint.config.mjs" \
+  && ok "own-config provenance: getff's own marker-less config is skipped as getff's, not called the consumer's" \
+  || bad "own-config provenance: rc=$RC12, message misattributes getff's config (saw: $(printf '%s' "$OUT12" | head -1))"
+
+# The same lookup with an ABSOLUTE ESLINT_CONFIG: the manifest key is relative to the project root,
+# so a lookup by the path as given would call getff's config the consumer's.
+OUT12b=$( cd "$T12" && ESLINT_CONFIG="$T12/eslint.config.mjs" bash "$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh" 2>&1 ); RC12b=$?
+[ "$RC12b" = "0" ] && ! printf '%s' "$OUT12b" | grep -q "your own config" \
+  && printf '%s' "$OUT12b" | grep -q "getff placed" \
+  && ok "own-config provenance: an absolute ESLINT_CONFIG still finds getff's manifest entry" \
+  || bad "own-config provenance: rc=$RC12b, an absolute ESLINT_CONFIG misattributes getff's config (saw: $(printf '%s' "$OUT12b" | head -1))"
+
+# getff placed a react-native config (its rn-common sibling is in the manifest) and it has been
+# edited since. Still a skip, not the full alarm: getff's react-native config never had a
+# RULE_GLOBS block, and failing every edit of it would turn check:globs RED on a one-line comment.
+# The message says the file was edited.
+T13=$(own_cfg_dir "export default [];")
+manifest_for "$T13" "0000000000000000000000000000000000000000000000000000000000000000" rn
+OUT13=$(repo_gate "$T13"); RC13=$?
+[ "$RC13" = "0" ] && printf '%s' "$OUT13" | grep -q "getff placed eslint.config.mjs and it has been edited since" \
+  && ok "own-config provenance: an edited getff react-native config is skipped and named as edited" \
+  || bad "own-config provenance: rc=$RC13, an edited getff react-native config was not reported as edited (saw: $(printf '%s' "$OUT13" | head -1))"
+! printf '%s' "$OUT12" | grep -q "edited since" \
+  && ok "own-config provenance: the unedited getff config is not called edited (the hash is compared)" \
+  || bad "own-config provenance: the config as delivered was called edited"
+
+# getff placed a config of a stack whose template HAS a RULE_GLOBS block (no rn-common sibling),
+# and an edit removed the block and every getff rule. That is getff's enforcement cut out of
+# getff's own file — the bypass this gate exists to catch — so it FAILS, as it did before the
+# consumer-owned skip existed; a recorded R2 N/A decision still applies.
+T14=$(own_cfg_dir "export default [];")
+manifest_for "$T14" "0000000000000000000000000000000000000000000000000000000000000000"
+OUT14=$(repo_gate "$T14"); RC14=$?
+[ "$RC14" = "1" ] && printf '%s' "$OUT14" | grep -q "RULE_GLOBS block and its rules-as-tests rules are gone" \
+  && ok "own-config provenance: getff's RULE_GLOBS block cut out of getff's own config FAILS, naming why" \
+  || bad "own-config provenance: rc=$RC14, stripping getff's rules out of getff's config passed (saw: $(printf '%s' "$OUT14" | head -2 | tr '\n' '|'))"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

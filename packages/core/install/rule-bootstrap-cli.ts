@@ -109,7 +109,7 @@ function parseArgs(argv: string[]): Args {
 // This arm is the MINIMAL glue making that lane invokable for a CONSUMER: practice JSON → rendered
 // rule YAML at `<consumer>/.getff/rules-research/<entryId>.yml` — a consumer-side researched home
 // that SURVIVES `--refresh` (unlike `.getff/astgrep-rules/`, which refresh_safe rm-rf-replaces from
-// the template — lib.sh:1129). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
+// the template — lib.sh:1166). The python delivery seam (`_py_deliver_astgrep`, setup.d/45-python.sh)
 // then joins `rules-research/*.yml` into `.getff/astgrep-rules/` on every install/refresh pass, so
 // the rendered rule fires via the consumer's existing single `ruleDirs:` entry (§Qd additive).
 //
@@ -281,7 +281,7 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   // Path layout (DC-1, kickoff §6 Tier-2 call): `<consumerRoot>/.ai-factory/synthesizer-output/
   // generation-context/python/<entryId>.json` — the per-lane subdir closes criterion 4 by
   // construction. Cargo/go glob `*.json` NON-recursively on the parent generation-context/ dir
-  // (lib.sh:1663, shared lock writer), so a python lane fragment in the subdir is invisible to
+  // (lib.sh:1700, shared lock writer), so a python lane fragment in the subdir is invisible to
   // them. The Node synthesize path (emit.ts:97-103) keeps writing `G${n}.json` to the parent
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //
@@ -411,8 +411,8 @@ async function main(): Promise<void> {
     const why = err instanceof ResearchPlanError ? err.message : (err as Error).message;
     process.stderr.write(
       `[rule-bootstrap] live research artefact invalid or unreadable — ${why}\n` +
-        `[rule-bootstrap] run the rule-research protocol (agents/rule-researcher.md or the ` +
-        `rule-research skill) to (re)author the two files, then re-run ./setup --full.\n`,
+        `[rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the ` +
+        `rule-research protocol (agents/rule-researcher.md, the rule-research skill).\n`,
     );
     process.exit(args.strict ? 1 : 0); // rc=0: never abort install (the bash gate also || true's)
   }

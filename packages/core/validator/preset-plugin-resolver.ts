@@ -10,7 +10,7 @@
 // even with every dev-dependency promoted (docs/meta-factory/getff-name-architecture-freeze.md,
 // «U10 WARNING»). Ratified resolution: dynamic resolution with an honest degrade.
 //
-// RESOLUTION ORDER (mirrors the shipped ts-morph degrade at install/wire-eslint-r2.ts:115-143):
+// RESOLUTION ORDER (mirrors the shipped ts-morph degrade at install/wire-eslint-r2.ts:161-182):
 //   (i)  the CONSUMER's vendored barrel `<cwd>/eslint-rules-local/index.mjs` — what install.sh
 //        generates (setup.d/lib.sh generate_eslint_barrel), a single plugin object whose
 //        `rules` map unions the core rules with this stack's preset rules;
@@ -22,7 +22,7 @@
 // The (i) anchor is `createRequire(resolve(cwd, 'package.json'))`, NOT this file's directory:
 // the shipped bin runs from the framework's own node_modules with cwd = consumer root, so
 // framework-anchored resolution would miss the consumer's freshly vendored barrel and falsely
-// degrade (the GH #642 lesson recorded at wire-eslint-r2.ts:132-137). The anchor file itself
+// degrade (the GH #642 lesson recorded at wire-eslint-r2.ts:191-196). The anchor file itself
 // need not exist — `createRequire` only needs a path to resolve relatively from.
 //
 // Resolution is SYNCHRONOUS (`createRequire`), deliberately: `validate()` / `install()` are

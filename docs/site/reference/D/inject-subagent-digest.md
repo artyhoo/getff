@@ -65,7 +65,7 @@ printf '%s' '{"session_id":"docs-demo-sd-1"}' \
 ```text
 [session-bootstrap digest — auto-injected at prompt submit]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
-Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline (.claude/rules/build-first-reuse-default.md); (2) recursive self-application green (make self-audit); (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort).
+Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
 Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.
 Recommendation discipline (H1): before issuing a verdict/recommendation (ADOPT/BUILD/REJECT/DEFER, «we should X», «use Y», «pick A over B») — (1) cite SSOT/prior-art by ID, (2) give file:line or command-output evidence, (3) state what would falsify it («wrong if …»), (4) for «nothing exists» claims run the 6-item search check. An unbacked verdict is provisional, not load-bearing. This is a reminder, not a gate. (see also .claude/rules/recommendation-laziness-discipline.md + T-trap in ai-laziness-traps.md §2) (.claude/rules/phase-research-coverage.md §1.7)
 Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.md
@@ -116,7 +116,7 @@ parity doctrine rather than smoothed over.
   without jq`. Empty digest: line 24 — `[[ -z "$DIGEST" ]] && exit 0`.
 - The output: lines 26-27 wrap the digest in
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`.
-- Registration: `.claude/settings.json:198` opens the SubagentStart block with the
+- Registration: `.claude/settings.json:207` opens the SubagentStart block with the
   command at line 203.
 - No plugin twin: the card's delivery row carries only the CC-only marker, and
   `ls plugin/hooks | grep inject-subagent-digest` finds nothing — the SubagentStart

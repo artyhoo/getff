@@ -23,12 +23,13 @@
  *            prior-art-evaluations.md#118 (check:enforced oracle ADOPT)
  */
 
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execFile, execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative, resolve } from 'node:path';
+import path, { basename, dirname, join, relative, resolve, win32, type PlatformPath } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 export const R2_RULE_ID = 'rules-as-tests/no-unsafe-zod-parse';
 
@@ -50,6 +51,11 @@ export interface TransformOpts {
    * live-research augment-first path so a live rule sharing a preset rule-id is authoritative.
    */
   overrideKeys?: Set<string>;
+  /**
+   * A config the consumer owns (Q4.7): each new block is a text insertion on its own line and the
+   * customRules import follows the file's quotes — no line the config already has is re-printed.
+   */
+  insertOnly?: boolean;
 }
 
 function r2Element(variant: TransformVariant, scope?: { files: string[] }): string {
@@ -63,15 +69,44 @@ function r2Element(variant: TransformVariant, scope?: { files: string[] }): stri
 }
 
 /**
+ * One spelling per directory, so `relative` between a --path-derived dir and cwd never walks out of
+ * the project: process.cwd() is the physical directory while install.sh passes --path under its
+ * logical `pwd` (macOS /var → /private/var, a symlinked Linux workspace, a Windows junction or 8.3
+ * short name like C:\Users\RUNNER~1). `.native` because only it expands 8.3 names on Windows; the JS
+ * realpathSync resolves links but keeps a short name. A path that does not exist yet is its nearest
+ * existing ancestor, resolved, plus the rest, so both sides still share one spelling. (A `subst`
+ * drive is resolved to its target too, where Node's module URL keeps the drive: a specifier that
+ * climbs above such a drive's root would miss. Not a layout the install produces.)
+ */
+function canonicalDir(p: string): string {
+  const abs = resolve(p);
+  try {
+    return realpathSync.native(abs);
+  } catch {
+    const parent = dirname(abs);
+    return parent === abs ? abs : join(canonicalDir(parent), basename(abs));
+  }
+}
+
+/**
+ * The ESM specifier that imports `target` from a module in `fromDir`. A specifier is a URL path, so
+ * it is joined with `/`; with no relative path between them (another Windows drive) it is the file
+ * URL. `p` is the path flavour, so the Windows arm is testable on any platform.
+ */
+export function importSpecifierFrom(fromDir: string, target: string, p: PlatformPath = path): string {
+  const rel = p.relative(fromDir, target);
+  if (p.isAbsolute(rel)) return pathToFileURL(target, { windows: p === win32 }).href;
+  const spec = rel.split(p.sep).join('/');
+  return spec.startsWith('.') ? spec : `./${spec}`;
+}
+
+/**
  * Relative import specifier from a per-package config to the consumer-root
  * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.mjs).
- * Computed per config depth — never hardcoded.
+ * Computed per config depth — never hardcoded — between one spelling of each directory (canonicalDir).
  */
 export function customRulesImportSpecifier(configPath: string, cwd: string): string {
-  const target = resolve(cwd, 'eslint-rules-local/index.mjs');
-  let rel = relative(dirname(resolve(configPath)), target);
-  if (!rel.startsWith('.')) rel = `./${rel}`;
-  return rel;
+  return importSpecifierFrom(canonicalDir(dirname(configPath)), join(canonicalDir(cwd), 'eslint-rules-local', 'index.mjs'));
 }
 
 export interface WireOpts {
@@ -88,6 +123,30 @@ export interface WireResult {
   variant?: TransformVariant;
   /** Set when the write stands but the post-write lint probe could not verify it. */
   probeNote?: string;
+  /** Parts of the block that were NOT written, each with its reason (wireOwnConfig). */
+  notes?: string[];
+}
+
+/** Why R2 did not land when its AST editor could not be loaded (the install's not-wired reason). */
+export const R2_NO_ENGINE = 'its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules';
+
+/**
+ * R2 not landing in `configPath`, as the install reports it (operator decision Q4.7, 2026-09-28): one
+ * «  · not wired: <what> — <why>» line, which 99-finalize.sh copies into its NOT wired summary. The
+ * install never gets a snippet to add by hand; that one (generateDegradedSnippet) is for a human who
+ * runs this CLI directly. The install reads that line by line, so a multi-line reason (an ESLint
+ * error text) is folded onto the one line.
+ */
+export function r2NotWiredLine(configPath: string, why: string, cwd: string = process.cwd()): string {
+  return `  · not wired: R2 (${R2_RULE_ID}) in ${projectRelative(configPath, cwd)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
+}
+
+/**
+ * `configPath` relative to `cwd` for a message, directories on both sides in one spelling (canonicalDir).
+ * The file itself is not resolved: a config that is a symlink is named by its own path.
+ */
+function projectRelative(configPath: string, cwd: string): string {
+  return relative(canonicalDir(cwd), join(canonicalDir(dirname(configPath)), basename(configPath)));
 }
 
 export function generateDegradedSnippet(configPath: string): string {
@@ -341,13 +400,15 @@ function exprEqual(a: string, b: string): boolean {
  * differs. Returns 'changed' (replaced), 'same' (value already matches — idempotent no-op), or
  * 'not-found' (no such property — caller appends a new block). Only simple/scalar+array rule
  * values are handled; the restricted-syntax wrapper augments via selector-union, never replace.
+ * `apply: false` (a config the consumer owns) never replaces: a different value is 'differs'.
  */
 function replaceSimpleRuleValue(
   elements: any[],
   SyntaxKind: any,
   ruleName: string,
   desiredExpr: string,
-): 'changed' | 'same' | 'not-found' {
+  apply = true,
+): 'changed' | 'differs' | 'same' | 'not-found' {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
     for (const prop of el.getProperties?.() ?? []) {
@@ -363,6 +424,7 @@ function replaceSimpleRuleValue(
         const init = rp.getInitializer?.();
         if (!init) return 'not-found';
         if (exprEqual(init.getText(), desiredExpr)) return 'same';
+        if (!apply) return 'differs';
         rp.setInitializer(desiredExpr);
         return 'changed';
       }
@@ -501,8 +563,12 @@ export async function wireNRules(
   // flat-config element, not nested inside an array. callExprNode holds the CallExpression.
   let isCallExprMode = false;
   let callExprNode: any = null;
+  let identifierExport = false;
 
   if (exportArr.isKind(SyntaxKind.CallExpression)) {
+    if (opts.insertOnly && !isFlatConfigHelperCall(exportArr, SyntaxKind)) {
+      return { status: 'unrecognised', original: source, modified: source };
+    }
     const args = exportArr.getArguments();
     if (args.length > 0 && args[0].isKind(SyntaxKind.ArrayLiteralExpression)) {
       // defineConfig([...]) — single array arg; unwrap to the array
@@ -513,18 +579,32 @@ export async function wireNRules(
       callExprNode = exportArr;
     }
   } else if (exportArr.isKind(SyntaxKind.Identifier)) {
-    exportAssignment.setExpression(`[...${exportArr.getText()}]`);
-    exportArr = exportAssignment.getExpression();
+    if (opts.insertOnly) {
+      identifierExport = true; // wrapped by insertions at the end
+    } else {
+      exportAssignment.setExpression(`[...${exportArr.getText()}]`);
+      exportArr = exportAssignment.getExpression();
+    }
   }
 
-  if (!isCallExprMode && !exportArr.isKind(SyntaxKind.ArrayLiteralExpression)) {
+  if (!isCallExprMode && !identifierExport && !exportArr.isKind(SyntaxKind.ArrayLiteralExpression)) {
     return { status: 'unrecognised', original: source, modified: source };
   }
 
   // configElements: the individual flat-config objects to search for the wrapper rule.
-  const configElements: any[] = isCallExprMode
-    ? callExprNode.getArguments()
-    : exportArr.getElements?.() ?? [];
+  // An identifier's elements live elsewhere — nothing of them is visible here.
+  const configElements: any[] = identifierExport
+    ? []
+    : isCallExprMode
+      ? callExprNode.getArguments()
+      : exportArr.getElements?.() ?? [];
+  // insertOnly: blocks wait here and land as text insertions once every AST edit is done.
+  const pending: string[] = [];
+  const append = (element: string): void => {
+    if (opts.insertOnly) pending.push(element);
+    else if (isCallExprMode) callExprNode.addArgument(element);
+    else exportArr.addElement(element);
+  };
 
   let changed = false;
 
@@ -544,17 +624,21 @@ export async function wireNRules(
   };
 
   // Live-wins overrides first: replace an existing simple-rule value when the live value differs.
+  // insertOnly (a config the consumer owns) changes no value the consumer set: the rule keeps it,
+  // and the note names it (cold-review F2 — a deliberate 'off' used to become "error").
+  const notes: string[] = [];
   for (const { key, value } of overrides) {
     const desired = buildRuleValueExpr(value);
-    const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired);
-    if (outcome === 'changed') {
+    const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired, !opts.insertOnly);
+    if (outcome === 'differs') {
+      notes.push(`${key} at ${desired} — your config already sets this rule, and getff does not change a setting of yours`);
+    } else if (outcome === 'changed') {
       console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
       changed = true;
     } else if (outcome === 'not-found') {
       // String-present but not locatable as a rules property (e.g. in a comment) — append fresh.
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop — appending`);
-      if (isCallExprMode) callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
-      else exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
+      append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       changed = true;
     } // 'same' → no change (idempotent)
   }
@@ -572,72 +656,372 @@ export async function wireNRules(
       const merged = mergeSelectorsIntoExistingWrapper(configElements, SyntaxKind, missingSels);
       if (!merged) {
         console.debug(`  [synth-wire] DEBUG: adding new wrapper block for '${key}'`);
-        if (isCallExprMode) {
-          callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
-        } else {
-          exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
-        }
+        append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       } else {
         console.debug(`  [synth-wire] DEBUG: merged ${missingSels.length} selector(s) into existing '${key}' block`);
       }
     } else {
       console.debug(`  [synth-wire] DEBUG: appending simple rule block for '${key}'`);
-      if (isCallExprMode) {
-        callExprNode.addArgument(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
-      } else {
-        exportArr.addElement(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
-      }
+      append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
     }
   }
 
   // Overrides that all matched (outcome 'same') and no missing rules ⇒ byte-identical no-op.
   if (!changed) {
-    return { status: 'already-wired', original: source, modified: source };
+    return { status: 'already-wired', original: source, modified: source, notes };
   }
 
   // #829: inject the customRules import exactly once when any block self-registered the plugin.
   // Dedupe-guarded (mirror the self-contained variant) so a re-run never adds a second import.
-  if (didSelfRegister && opts.customRulesImportPath) {
-    const already = sf.getImportDeclarations().some(
-      (d: any) => d.getDefaultImport()?.getText() === 'customRules',
-    );
-    if (!already) {
-      sf.addImportDeclaration({ defaultImport: 'customRules', moduleSpecifier: opts.customRulesImportPath });
+  const needsImport =
+    didSelfRegister &&
+    !!opts.customRulesImportPath &&
+    !sf.getImportDeclarations().some((d: any) => d.getDefaultImport()?.getText() === 'customRules');
+  if (!opts.insertOnly) {
+    if (needsImport) sf.addImportDeclaration({ defaultImport: 'customRules', moduleSpecifier: opts.customRulesImportPath });
+    return { status: 'wired', original: source, modified: sf.getFullText() };
+  }
+  const text = sf.getFullText();
+  const inserts: Insertion[] = [];
+  if (pending.length > 0) inserts.push(...exportAppendInsertions(text, exportOfSource(sf).getExpression(), SyntaxKind, pending));
+  if (needsImport) inserts.push(importInsertion(sf, text, SyntaxKind, opts.customRulesImportPath!));
+  return { status: 'wired', original: source, modified: applyInsertions(text, inserts), notes };
+}
+
+// ─── getff's block in a config the CONSUMER owns (operator decision Q4.7, 2026-09-28) ──────
+// The install used to keep a consumer-owned eslint config byte-identical and print «add it by hand»
+// (the 2026-09-23 skip + report rule): getff's rules then never ran in any project with its own
+// config. Now getff writes its block itself, additively — every consumer line stays, in order:
+//  - one global-ignores element for the files getff delivered, so the consumer's own lint does not
+//    check getff's machinery (a ts-only config reported the bundles' `/* eslint-disable */` banner
+//    as an unused directive and failed `--max-warnings=0`);
+//  - R2, scoped by a `RULE_GLOBS.boundary` block in the form the shipped gates read
+//    (check-rule-globs.sh / check-rule-enforced.sh: a `boundary: [` line, single-quoted globs).
+// The caller keeps a copy of the original and lint-probes the result (writeWithLintProbe).
+
+export interface OwnConfigOpts {
+  /** Paths getff delivered that the consumer's lint must skip — added as one global-ignores element. */
+  ignores?: string[];
+  /** RULE_GLOBS.boundary for R2. Absent or empty → R2 is not wired (the install found no boundary). */
+  boundaryGlobs?: string[];
+  /** eslint-rules-local specifier, for the R2 element's plugin registration. */
+  customRulesImportPath?: string;
+}
+
+/** A glob as a single-quoted string literal — the only form the bash gates extract. */
+function singleQuoted(s: string): string {
+  return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
+}
+
+/** String values of an array literal's string-literal elements. */
+function stringElements(arr: any, SyntaxKind: any): string[] {
+  return (arr.getElements?.() ?? [])
+    .filter((e: any) => e.isKind(SyntaxKind.StringLiteral) || e.isKind(SyntaxKind.NoSubstitutionTemplateLiteral))
+    .map((e: any) => e.getLiteralValue());
+}
+
+/** Globs already ignored globally: elements whose only key is `ignores` (ESLint's global-ignores form). */
+function globallyIgnored(elements: any[], SyntaxKind: any): Set<string> {
+  const out = new Set<string>();
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    const props = el.getProperties?.() ?? [];
+    if (props.length !== 1) continue;
+    let name: string;
+    try { name = normPropName(props[0].getName?.()); } catch { continue; }
+    const init = props[0].getInitializer?.();
+    if (name !== 'ignores' || !init?.isKind?.(SyntaxKind.ArrayLiteralExpression)) continue;
+    for (const g of stringElements(init, SyntaxKind)) out.add(g);
+  }
+  return out;
+}
+
+/** The list a flat config's elements live in: an array literal, or a call's arguments (tseslint.config(…)). */
+interface ElementList { items: any[]; open: number; close: number }
+
+/**
+ * A call to one of the variadic flat-config helpers — `defineConfig(…)` (eslint/config) or
+ * `<typescript-eslint import>.config(…)` — whose arguments ARE the config list. Any other call is a
+ * factory that reads its own arguments: a block appended to them would load and never run, while the
+ * install said «wired» (cold-review F4).
+ */
+function isFlatConfigHelperCall(call: any, SyntaxKind: any): boolean {
+  const callee = call.getExpression();
+  if (callee.isKind(SyntaxKind.Identifier)) return callee.getText() === 'defineConfig';
+  if (!callee.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  const name = callee.getName();
+  if (name === 'defineConfig') return true;
+  const obj = callee.getExpression();
+  if (name !== 'config' || !obj.isKind(SyntaxKind.Identifier)) return false;
+  return call.getSourceFile().getImportDeclarations().some((d: any) =>
+    d.getModuleSpecifierValue() === 'typescript-eslint'
+    && (d.getDefaultImport()?.getText() === obj.getText() || d.getNamespaceImport()?.getText() === obj.getText()));
+}
+
+function elementList(expr: any, SyntaxKind: any): ElementList | undefined {
+  if (expr.isKind(SyntaxKind.ArrayLiteralExpression)) {
+    return { items: expr.getElements(), open: expr.getStart(), close: expr.getEnd() - 1 };
+  }
+  if (expr.isKind(SyntaxKind.CallExpression)) {
+    if (!isFlatConfigHelperCall(expr, SyntaxKind)) return undefined;
+    const args = expr.getArguments();
+    if (args.length > 0 && args[0].isKind(SyntaxKind.ArrayLiteralExpression)) return elementList(args[0], SyntaxKind);
+    return { items: args, open: expr.getExpression().getEnd(), close: expr.getEnd() - 1 };
+  }
+  return undefined;
+}
+
+/**
+ * The insertion that appends `add` to `list` without touching a character already in the file: a
+ * multi-line list gets one item per line at its last item's indentation, in the list's own
+ * trailing-comma style (after a trailing line comment, not before it); a one-line list gets `, item`.
+ */
+function appendInsertion(src: string, list: ElementList, add: string[]): { pos: number; text: string } {
+  if (list.items.length === 0) return { pos: list.close, text: add.join(', ') };
+  const last = list.items[list.items.length - 1];
+  const lastEnd = last.getEnd();
+  const comma = /^\s*,/.exec(src.slice(lastEnd, list.close));
+  if (src.slice(list.open, list.close).includes('\n')) {
+    const lineStart = src.lastIndexOf('\n', last.getStart()) + 1;
+    const indent = /^[ \t]*/.exec(src.slice(lineStart))?.[0] ?? '';
+    if (!comma) return { pos: lastEnd, text: add.map((a) => `,\n${indent}${a}`).join('') };
+    let pos = lastEnd + comma[0].length;
+    const eol = src.indexOf('\n', pos);
+    if (eol !== -1 && eol < list.close && /^[ \t]*(\/\/.*)?$/.test(src.slice(pos, eol))) pos = eol;
+    return { pos, text: add.map((a) => `\n${indent}${a},`).join('') };
+  }
+  if (comma) return { pos: lastEnd + comma[0].length, text: add.map((a) => ` ${a},`).join('') };
+  return { pos: lastEnd, text: add.map((a) => `, ${a}`).join('') };
+}
+
+type Insertion = { pos: number; text: string };
+
+/** Apply insertions to `text`, last position first so the earlier positions stay valid. */
+function applyInsertions(text: string, inserts: Insertion[]): string {
+  let out = text;
+  for (const ins of [...inserts].sort((a, b) => b.pos - a.pos)) out = out.slice(0, ins.pos) + ins.text + out.slice(ins.pos);
+  return out;
+}
+
+function exportOfSource(sf: any): any {
+  return sf.getExportAssignment((ea: any) => !ea.isExportEquals());
+}
+
+/** Append `add` to the exported list; an exported identifier becomes `[...name, …]`. */
+function exportAppendInsertions(src: string, expr: any, SyntaxKind: any, add: string[]): Insertion[] {
+  if (expr.isKind(SyntaxKind.Identifier)) {
+    return [{ pos: expr.getStart(), text: '[...' }, { pos: expr.getEnd(), text: `, ${add.join(', ')}]` }];
+  }
+  return [appendInsertion(src, elementList(expr, SyntaxKind)!, add)];
+}
+
+/** `import customRules from …;` on its own line after the last import, in the quotes the file's imports use. */
+function importInsertion(sf: any, src: string, SyntaxKind: any, specifier: string): Insertion {
+  const imports = sf.getImportDeclarations();
+  const quoted = imports[0]?.getModuleSpecifier().getText() ?? sf.getFirstDescendantByKind(SyntaxKind.StringLiteral)?.getText();
+  const line = `import customRules from ${quoted?.startsWith('"') ? JSON.stringify(specifier) : singleQuoted(specifier)};`;
+  if (imports.length === 0) return { pos: 0, text: `${line}\n` };
+  let pos = imports[imports.length - 1].getEnd();
+  const eol = src.indexOf('\n', pos);
+  if (eol !== -1 && /^[ \t]*(\/\/.*)?$/.test(src.slice(pos, eol))) pos = eol; // after a trailing line comment
+  return { pos, text: `\n${line}` };
+}
+
+export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): Promise<WireResult> {
+  let Project: any;
+  let SyntaxKind: any;
+  try {
+    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
+    const mod = await import(pathToFileURL(requireFromCwd.resolve('ts-morph')).href); // GH #642: consumer cwd
+    Project = mod.Project;
+    SyntaxKind = mod.SyntaxKind;
+  } catch {
+    return { status: 'degrade', original: source, modified: source, degradeReason: 'ts-morph import failed' };
+  }
+  const project = new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { allowJs: true, target: 99, module: 99 },
+    skipFileDependencyResolution: true,
+    skipLoadingLibFiles: true,
+  });
+  const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+  const exportOf = (): any => sf.getExportAssignment((ea: any) => !ea.isExportEquals());
+  const exported = exportOf()?.getExpression();
+  if (!exported) return { status: 'unrecognised', original: source, modified: source };
+  const isIdentifier = exported.isKind(SyntaxKind.Identifier);
+  // An identifier's elements live elsewhere — nothing of them is visible here.
+  const visible = isIdentifier ? [] : elementList(exported, SyntaxKind)?.items;
+  if (!visible) return { status: 'unrecognised', original: source, modified: source };
+
+  const notes: string[] = [];
+  const toAdd: string[] = [];
+  const ignored = globallyIgnored(visible, SyntaxKind);
+  const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
+  if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(', ')}] }`);
+
+  // R2: a quoted rule-id is a rule entry; a mention in a comment is not (the RULE_GLOBS comment below).
+  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  const boundary = [...new Set(opts.boundaryGlobs ?? [])];
+  let registerR2 = false;
+  let missingGlobs: string[] = [];
+  let ruleGlobsBlock: string | undefined;
+  if (boundary.length > 0) {
+    const arrOf = (): any => {
+      const init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
+      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperty('boundary') : undefined;
+      const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : undefined;
+      return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : undefined;
+    };
+    if (sf.getVariableDeclaration('RULE_GLOBS')) {
+      const arr = arrOf();
+      if (!arr) {
+        notes.push('R2 not wired: the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it');
+      } else {
+        const have = new Set(stringElements(arr, SyntaxKind));
+        missingGlobs = boundary.filter((g) => !have.has(g));
+        registerR2 = !r2Present;
+      }
+    } else if (!r2Present) {
+      ruleGlobsBlock = [
+        '// Added by getff: where its R2 rule looks for an unguarded zod .parse() — the HTTP boundary code the',
+        '// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.',
+        '// prettier-ignore',
+        'const RULE_GLOBS = {',
+        '  boundary: [',
+        ...boundary.map((g) => `    ${singleQuoted(g)},`),
+        '  ],',
+        '};',
+      ].join('\n');
+      registerR2 = true;
     }
   }
+  let importR2 = false;
+  if (registerR2) {
+    // A files:-scoped block needs its own plugin registration unless one applies to every file (S7-1).
+    importR2 = !!opts.customRulesImportPath && !configRegistersRulesAsTestsPlugin(visible, SyntaxKind);
+    const plugins = importR2 ? `plugins: { 'rules-as-tests': customRules }, ` : '';
+    toAdd.push(`{ files: RULE_GLOBS.boundary, ${plugins}rules: { '${R2_RULE_ID}': 'error' } }`);
+  }
+  const needsImport = importR2 && !sf.getImportDeclarations().some((d: any) => d.getDefaultImport()?.getText() === 'customRules');
 
-  const modified = sf.getFullText();
-  return { status: 'wired', original: source, modified };
+  // Every change lands as a text insertion.
+  const current = sf.getFullText();
+  const inserts: Insertion[] = [];
+  if (missingGlobs.length > 0) {
+    const init = sf.getVariableDeclarationOrThrow('RULE_GLOBS').getInitializerOrThrow();
+    const arr = init.getPropertyOrThrow('boundary').getInitializerOrThrow();
+    inserts.push(appendInsertion(current, elementList(arr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
+  }
+  if (toAdd.length > 0) inserts.push(...exportAppendInsertions(current, exportOf().getExpression(), SyntaxKind, toAdd));
+  if (needsImport) inserts.push(importInsertion(sf, current, SyntaxKind, opts.customRulesImportPath!));
+  if (ruleGlobsBlock) {
+    // Right above the export — and above a comment that sits on it, which stays with its export.
+    const ea = exportOf();
+    const lead = ea.getLeadingCommentRanges();
+    inserts.push({ pos: lead.length > 0 ? lead[0].getPos() : ea.getStart(), text: `${ruleGlobsBlock}\n\n` });
+  }
+  const text = applyInsertions(current, inserts);
+
+  if (text === source) return { status: 'already-wired', original: source, modified: source, notes };
+  return { status: 'wired', original: source, modified: text, notes };
+}
+
+interface PrettierApi {
+  resolveConfig(file: string, opts?: { editorconfig?: boolean }): Promise<Record<string, unknown> | null>;
+  check(text: string, opts: Record<string, unknown>): Promise<boolean> | boolean;
+  format(text: string, opts: Record<string, unknown>): Promise<string> | string;
+}
+
+/**
+ * `modified` in the consumer's own prettier style, when their prettier already accepts `original` (Q4.7).
+ * format:check (`prettier --check .`) reads a config the consumer owns, so an unformatted insertion into
+ * a file prettier accepted would fail every push. A config prettier does not accept, or a project with
+ * no prettier, gets `modified` back unchanged: formatting it would rewrite the consumer's own lines.
+ * wireOwnConfig marks RULE_GLOBS `// prettier-ignore`, so the gates keep reading it. Options resolve as
+ * the prettier CLI resolves them (.editorconfig included).
+ */
+export async function formatLikeConsumer(configPath: string, cwd: string, original: string, modified: string): Promise<string> {
+  let prettier: PrettierApi | undefined;
+  for (const base of [dirname(resolve(configPath)), cwd]) {
+    try {
+      const mod = await import(pathToFileURL(createRequire(resolve(base, 'package.json')).resolve('prettier')).href);
+      prettier = (mod.default ?? mod) as PrettierApi;
+      break;
+    } catch { /* next base */ }
+  }
+  if (typeof prettier?.format !== 'function' || typeof prettier.check !== 'function') return modified;
+  try {
+    const options = { ...((await prettier.resolveConfig(configPath, { editorconfig: true })) ?? {}), filepath: configPath };
+    if (!(await prettier.check(original, options))) return modified;
+    return await prettier.format(modified, options);
+  } catch {
+    return modified;
+  }
 }
 
 // ─── Probe-driven resolution (try-bare → escalate → degrade) ────────────────────
 
-export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error';
+/**
+ * `unconfirmed`: ESLint ran, but resolved R2 for none of the probe paths — no evidence either way.
+ * `timed-out`: a `--print-config` run did not finish within the probe's limit.
+ */
+export type ProbeVerdict = 'ok' | 'could-not-find-plugin' | 'unavailable' | 'other-error' | 'unconfirmed' | 'timed-out';
 
 export interface ResolveWireArgs {
   configPath: string;
   cwd: string;
-  runProbe: (configPath: string, cwd: string) => Promise<ProbeVerdict>;
+  runProbe: (configPath: string, cwd: string, scope?: { files: string[] }) => Promise<ProbeVerdict>;
   /** Workspace scope for scoped emission (SSOT #182). When set, emits { files: [...], rules: {...} }. */
   scope?: { files: string[] };
 }
 
-function synthProbeTarget(configDir: string): string {
-  // ALWAYS synthesize in configDir (deterministic). For scoped elements (files: ['<dir>/**']),
-  // the probe file must be inside the scope dir so ESLint matches the files: glob. configDir is
-  // the workspace dir (e.g. apps/api/) when the config is placed per-workspace, so the probe file
-  // naturally lands inside the scope glob when ESLint is run from project root (see probeViaEslint).
-  const p = resolve(configDir, '__aif_r2_probe__.ts');
-  writeFileSync(p, 'export const __aif_probe = 1;\n', 'utf8');
-  return p;
+/**
+ * Paths handed to `--print-config`, relative to the config's dir: one per extension ESLint may lint (its default
+ * `files` cover .js/.mjs/.cjs, a TypeScript or JSX block adds the rest). It resolves a config per path; no file is read.
+ */
+const R2_PROBE_PATHS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts'].map((ext) => `__aif_r2_probe__.${ext}`);
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Limit on one `--print-config` run. It resolves a config and reads no file (~0.45 s measured with the tsx
+ * loader), so the limit only has to outlast a slow cold config load — and a run that never finishes (a config
+ * whose import blocks, a hung loader) no longer holds the install: the probe reads `timed-out` and the wirer degrades.
+ */
+const PRINT_CONFIG_TIMEOUT_MS = 60_000;
+
+/** R2's severity in a `--print-config` result (ESLint prints it normalised: `[2]`); 0 when absent or `undefined`. */
+function r2SeverityIn(printed: string): number {
+  try {
+    const cfg = JSON.parse(printed) as { rules?: Record<string, unknown> } | null;
+    const entry = cfg?.rules?.[R2_RULE_ID];
+    return Array.isArray(entry) && typeof entry[0] === 'number' ? entry[0] : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * Default probe: resolve the consumer's eslint and run `--print-config` on a synthesized target.
+ * Default probe: resolve the consumer's eslint and run `--print-config` on probe paths next to the config.
  * eslint's package `exports` does NOT expose `./bin/eslint.js` (resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED
  * on v9/v10) — resolve the EXPORTED `./package.json` and derive the bin path. GH #644 (#535 trap).
+ *
+ * `ok` needs ESLint to have resolved R2 for at least one probe path, and no path to fail. `--print-config`
+ * exits 0 printing `undefined` for a path no block matches — a `.ts` path under a config that matches no `.ts`,
+ * an absolute path through a symlinked dir (macOS /var → /private/var reads as outside the base path), a path
+ * outside a `files:` scope — so exit 0 alone proved nothing: the plugin-less bare element passed, and the
+ * consumer's lint then died with exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28).
+ * One path per lintable extension catches a base that registers the plugin for some extensions only (the
+ * global bare element reaches the rest); each scope glob gets one path it matches. The paths run in parallel
+ * (~0.45 s each with the tsx loader).
  */
-export async function probeViaEslint(configPath: string, cwd: string): Promise<ProbeVerdict> {
+export async function probeViaEslint(
+  configPath: string,
+  cwd: string,
+  scope?: { files: string[] },
+  opts: { timeoutMs?: number } = {},
+): Promise<ProbeVerdict> {
+  const timeoutMs = opts.timeoutMs ?? PRINT_CONFIG_TIMEOUT_MS;
   let eslintBin: string;
   try {
     const reqd = createRequire(resolve(cwd, 'package.json'));
@@ -660,28 +1044,45 @@ export async function probeViaEslint(configPath: string, cwd: string): Promise<P
   } catch {
     /* tsx not resolvable → plain node */
   }
+  // Run from the config's own directory (dir) so ESLint discovers the workspace-local config; running
+  // from project root in multi-stack mode (no root config) fails to load it → 'other-error' → degrade.
   const dir = dirname(resolve(configPath));
-  const target = synthProbeTarget(dir);
-  // Run probe from the config's own directory (dir) so ESLint discovers the workspace-local
-  // config by walking up from the probe file. Running from project root in multi-stack mode
-  // (where no root config exists) causes ESLint to fail to load the config → 'other-error' →
-  // degrade. Global elements (no files: filter) are unaffected by cwd choice.
-  try {
-    execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', target], { cwd: dir, stdio: 'pipe' });
-    return 'ok';
-  } catch (e: unknown) {
-    const stderr = String((e as { stderr?: Buffer }).stderr ?? '');
-    if (/could not find plugin/i.test(stderr)) return 'could-not-find-plugin';
-    // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
-    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${stderr.slice(0, 400)}`);
-    return 'other-error';
-  } finally {
-    try {
-      unlinkSync(target);
-    } catch {
-      /* best-effort */
-    }
+  const scoped = (scope?.files ?? []).map(probeScopePath).filter((x): x is string => x !== undefined);
+  const paths = [...new Set([...R2_PROBE_PATHS, ...scoped])];
+  const runs = await Promise.all(
+    paths.map(async (path): Promise<{ resolvedR2: boolean } | { stderr: string } | { timedOut: true }> => {
+      try {
+        const { stdout } = await execFileAsync(process.execPath, [...nodeArgs, eslintBin, '--print-config', path], {
+          cwd: dir,
+          maxBuffer: 16 * 1024 * 1024,
+          timeout: timeoutMs,
+          killSignal: 'SIGKILL',
+        });
+        return { resolvedR2: r2SeverityIn(stdout) > 0 };
+      } catch (e: unknown) {
+        // `killed` is set only when execFile itself killed the child, i.e. on the timeout; a child that
+        // dies of its own signal (SIGSEGV, a V8 heap-limit abort, the OOM killer) is an error, and its
+        // stderr is what the degrade message shows.
+        const err = e as { stderr?: string; killed?: boolean };
+        if (err.killed) return { timedOut: true };
+        return { stderr: String(err.stderr ?? '') };
+      }
+    }),
+  );
+  if (runs.some((r) => 'timedOut' in r)) {
+    console.error(`  · R2 probe: ESLint did not answer --print-config within ${timeoutMs / 1000} s in ${dir} → degrading`);
+    return 'timed-out';
   }
+  const failures = runs.flatMap((r) => ('stderr' in r ? [r.stderr] : []));
+  if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return 'could-not-find-plugin';
+  if (failures.length > 0) {
+    // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
+    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${(failures[0] ?? '').slice(0, 400)}`);
+    return 'other-error';
+  }
+  if (runs.some((r) => 'resolvedR2' in r && r.resolvedR2)) return 'ok';
+  console.error(`  · R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(', ')} in ${dir} → degrading`);
+  return 'unconfirmed';
 }
 
 /**
@@ -707,16 +1108,16 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
   writeFileSync(configPath, bare.modified, 'utf8');
 
   // 2. probe
-  const v1 = await runProbe(configPath, cwd);
+  const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === 'ok') return { ...bare, variant: 'bare' };
 
-  // 3. escalate: self-contained (only when the base registers the plugin nowhere)
+  // 3. escalate: self-contained — the bare element reaches a file the base registers no plugin for
   if (v1 === 'could-not-find-plugin') {
     const spec = customRulesImportSpecifier(configPath, cwd);
     const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec, scope });
     if (sc.status === 'wired') {
       writeFileSync(configPath, sc.modified, 'utf8');
-      const v2 = await runProbe(configPath, cwd);
+      const v2 = await runProbe(configPath, cwd, scope);
       if (v2 === 'ok') return { ...sc, variant: 'self-contained' };
     }
   }
@@ -781,7 +1182,19 @@ function runEslint(nodeArgs: string[], eslintBin: string, eslintArgs: string[], 
   }
 }
 
+/**
+ * A typed-lint parser refusing a file outside its tsconfig (typescript-eslint projectService /
+ * parserOptions.project) — also reported as a «Parsing error», but about the probe path, not the
+ * wiring: the original config refuses the probe the same way.
+ */
+const TYPED_LINT_REFUSAL = /not found by the project service|parserOptions\.project|allowDefaultProject|default project/;
+
 function verdictOf(run: EslintRun): LintProbeResult {
+  // Exit 1 is findings, which the probe files may draw — except a syntax parsing error: the config
+  // cannot read the file at all, and `eslint .` would report it on every real file there (Q4.7: a
+  // TS-scoped block appended to a consumer config that parses no TypeScript).
+  const syntaxError = run.text.split('\n').some((l) => l.includes('Parsing error') && !TYPED_LINT_REFUSAL.test(l));
+  if (run.rc === 1 && syntaxError) return { verdict: 'broken', detail: run.text.slice(0, 400) };
   if (run.rc === 0 || run.rc === 1) return { verdict: 'ok' };
   if (run.rc === 2) {
     // A missing PACKAGE (bare specifier) means deps are not installed yet — it says nothing about
@@ -794,8 +1207,9 @@ function verdictOf(run: EslintRun): LintProbeResult {
 
 /**
  * Lint throwaway files with the consumer's own ESLint from the config's directory. Unlike
- * probeViaEslint's `--print-config`, this makes ESLint resolve every rule of every block matching the
- * file — the step a plugin-less `rules-as-tests/*` block fails on. Two real files (`.js` + `.ts`) sit
+ * probeViaEslint's `--print-config` (config resolution only), this makes ESLint resolve and run every
+ * rule of every block matching the file, and parse it — so it also sees a block that leaves the file
+ * unparseable. A plugin-less `rules-as-tests/*` block fails both. Two real files (`.js` + `.ts`) sit
  * next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at a path it
  * matches, so no directory is created in the consumer tree. Exit 0/1 means the config loads and lints
  * (1 = the probe file drew findings); exit 2 means ESLint cannot use the config.
@@ -817,13 +1231,15 @@ export async function probeLintViaEslint(configPath: string, cwd: string, opts: 
   // tsx not resolvable → plain node (same fallback as probeViaEslint)
   const nodeArgs: string[] = resolveFrom('tsx') !== undefined ? ['--import', 'tsx'] : [];
   const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
-  const body = 'export const __aif_probe = 1;\n';
+  // A `.ts`/`.tsx` probe carries TypeScript-only syntax, so a config that cannot parse TypeScript there shows.
+  const bodyFor = (name: string): string =>
+    /\.tsx?$/.test(name) ? 'export const __aif_probe: number = 1;\n' : 'export const __aif_probe = 1;\n';
   // Every path handed to ESLint is relative to its cwd (`dir`): an absolute path through a symlinked
   // dir (macOS /var → /private/var) reads as «outside of base path» — ignored, exit 0, a false ok.
   const names = [`${PROBE_BASENAME}.js`, `${PROBE_BASENAME}.ts`];
   const targets = names.map((n) => resolve(dir, n));
   let root: LintProbeResult;
-  for (const t of targets) writeFileSync(t, body, 'utf8');
+  targets.forEach((t, i) => writeFileSync(t, bodyFor(names[i]), 'utf8'));
   try {
     root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
   } finally {
@@ -835,7 +1251,7 @@ export async function probeLintViaEslint(configPath: string, cwd: string, opts: 
   const scoped = [...new Set((opts.scopeGlobs ?? []).map(probeScopePath).filter((x): x is string => x !== undefined))];
   for (const rel of scoped) {
     if (rel === `${PROBE_BASENAME}.js` || rel === `${PROBE_BASENAME}.ts`) continue;
-    const r = verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, body));
+    const r = verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, bodyFor(rel)));
     if (r.verdict !== 'ok') return r;
   }
   return { verdict: 'ok' };
@@ -881,6 +1297,52 @@ export async function writeWithLintProbe(args: {
   };
 }
 
+/**
+ * `--own-config` (Q4.7): R2 in a config the consumer owns, added the way synth-and-wire adds getff's
+ * block to one (wireOwnConfig): text insertions only, scoped to the HTTP boundary globs found under
+ * that config (RULE_GLOBS.boundary), in the consumer's prettier style, lint-probed and rolled back when
+ * it breaks ESLint. The AST path (wireConfigSource / resolveAndWire) re-prints the list it edits, which
+ * drops the consumer's comments and trailing commas, and adds R2 to every file (cold-review F1/F15), so
+ * it serves getff's own configs only. Returns the output lines; anything not added is one
+ * «  · not wired: <what> — <why>» line, never a manual step.
+ */
+export async function wireR2IntoOwnConfig(a: {
+  configPath: string;
+  cwd: string;
+  boundaryGlobs: string[];
+  dryRun?: boolean;
+  runProbe?: (configPath: string, cwd: string) => Promise<LintProbeResult>;
+}): Promise<string[]> {
+  const { configPath, cwd } = a;
+  const rel = projectRelative(configPath, cwd);
+  const notWired = (why: string): string => r2NotWiredLine(configPath, why, cwd);
+  const boundaryGlobs = [...new Set(a.boundaryGlobs)];
+  if (boundaryGlobs.length === 0) return [`· R2: no HTTP boundary found for ${rel} — nothing for R2 to guard, so it is left as it is`];
+  const source = readFileSync(configPath, 'utf8');
+  const own = await wireOwnConfig(source, { boundaryGlobs, customRulesImportPath: customRulesImportSpecifier(configPath, cwd) });
+  const notes = (own.notes ?? []).map(notWired);
+  switch (own.status) {
+    case 'already-wired':
+      return notes.length > 0 ? notes : [`· R2 already enforced in ${configPath} (no change)`];
+    case 'unrecognised':
+      return [...notes, notWired('its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`), so it added nothing to it')];
+    case 'degrade':
+      return [...notes, notWired(R2_NO_ENGINE)];
+    default:
+      break;
+  }
+  if (a.dryRun) return [`  [dry-run] would add R2 to ${configPath} (insertions only, scoped to RULE_GLOBS.boundary)`, ...notes];
+  const styled = await formatLikeConsumer(configPath, cwd, source, own.modified);
+  const runProbe = a.runProbe ?? ((p: string, c: string) => probeLintViaEslint(p, c, { scopeGlobs: boundaryGlobs }));
+  const final = await writeWithLintProbe({ configPath, cwd, original: source, modified: styled, runProbe });
+  if (final.status !== 'wired') return [...notes, notWired(`${final.degradeReason ?? 'ESLint could not use the config with R2 added'}; the config is as it was`)];
+  return [
+    `  ✓ R2 wired into ${rel} (insertions only, scoped to RULE_GLOBS.boundary)`,
+    ...(final.probeNote ? [`    (lint probe ${final.probeNote})`] : []),
+    ...notes,
+  ];
+}
+
 // ─── CLI entry point ──────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -896,6 +1358,12 @@ async function main(): Promise<void> {
       '  --yes           Auto-apply without confirmation',
       '  --dry-run       Print what would change, no write',
       '  --diff          Print diff and exit (no write, no prompt)',
+      '  --own-config    The config is the consumer\'s own (Q4.7): add R2 by text insertions only, scoped',
+      '                  to --boundary, in its prettier style; anything not added is a «  · not wired:',
+      '                  <what> — <why>» line, never a manual step',
+      '  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config',
+      '  --install       The install is running this (Q4.7): never prompt, and report what did not land as',
+      '                  one «  · not wired: <what> — <why>» line instead of a snippet to add by hand',
     ].join('\n'));
     process.exit(0);
   }
@@ -908,15 +1376,29 @@ async function main(): Promise<void> {
   const assumeYes = argv.includes('--yes');
   const dryRun = argv.includes('--dry-run');
   const diffOnly = argv.includes('--diff');
+  const ownConfig = argv.includes('--own-config');
+  const install = argv.includes('--install') || ownConfig;
+  const boundaryGlobs = argv.flatMap((v, i) => (v === '--boundary' && i + 1 < argv.length ? [argv[i + 1]] : []));
+  // R2 did not land: the install gets one not-wired line with the reason; a human running this CLI
+  // directly gets `forHuman`, the snippet to act on. Two audiences, never mixed (Q4.7).
+  const notLanded = (why: string, forHuman: string): void => {
+    console.log(install ? r2NotWiredLine(configPath, why) : forHuman);
+  };
 
   // Belt-and-suspenders degrade: bash probe should have checked this already
   if (!existsSync('node_modules/ts-morph/package.json')) {
-    console.log(generateDegradedSnippet(configPath));
+    notLanded(R2_NO_ENGINE, generateDegradedSnippet(configPath));
     process.exit(0);
   }
 
   if (!existsSync(configPath)) {
     console.log(`· wire-eslint-r2: ${configPath} not found — skipped`);
+    process.exit(0);
+  }
+
+  if (ownConfig) {
+    const lines = await wireR2IntoOwnConfig({ configPath, cwd: process.cwd(), boundaryGlobs, dryRun: dryRun || diffOnly });
+    for (const line of lines) console.log(line);
     process.exit(0);
   }
 
@@ -930,17 +1412,20 @@ async function main(): Promise<void> {
       break;
 
     case 'degrade':
-      console.log(generateDegradedSnippet(configPath));
+      notLanded(R2_NO_ENGINE, generateDegradedSnippet(configPath));
       process.exit(0);
       break;
 
     case 'unrecognised':
-      console.log([
-        `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
-        `  Add manually (adjust the relative path to your eslint-rules-local/):`,
-        `    import customRules from './eslint-rules-local/index.mjs';`,
-        `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
-      ].join('\n'));
+      notLanded(
+        'its export is not a shape getff can add R2 to (`export default [...]`, `export default <config>`, `export default defineConfig([...])`), so nothing was added',
+        [
+          `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
+          `  Add manually (adjust the relative path to your eslint-rules-local/):`,
+          `    import customRules from './eslint-rules-local/index.mjs';`,
+          `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
+        ].join('\n'),
+      );
       process.exit(0);
       break;
 
@@ -953,13 +1438,9 @@ async function main(): Promise<void> {
 
       console.log(`\nProposed change to ${configPath}:\n${diff}\n`);
 
+      // Only a human at a terminal is asked; the install never waits on a prompt.
       let apply = assumeYes;
-      if (!apply) {
-        if (!process.stdin.isTTY) {
-          // Non-interactive without --yes → degrade to manual snippet
-          console.log(generateDegradedSnippet(configPath));
-          process.exit(0);
-        }
+      if (!apply && !install && process.stdin.isTTY) {
         const { createInterface } = await import('node:readline');
         const rl = createInterface({ input: process.stdin, output: process.stdout });
         const answer = await new Promise<string>((done) => {
@@ -970,7 +1451,7 @@ async function main(): Promise<void> {
       }
 
       if (!apply) {
-        console.log(generateDegradedSnippet(configPath));
+        notLanded('the wirer was run without --yes, so nothing was written', generateDegradedSnippet(configPath));
         process.exit(0);
       }
 
@@ -981,7 +1462,10 @@ async function main(): Promise<void> {
       } else if (wired.status === 'already-wired') {
         console.log(`· R2 already enforced in ${configPath}`);
       } else {
-        console.log(generateDegradedSnippet(configPath));
+        notLanded(
+          `ESLint could not confirm the config loads with R2 added (${wired.degradeReason ?? 'no verdict'}), so the change was undone and the config is as it was`,
+          generateDegradedSnippet(configPath),
+        );
       }
       process.exit(0);
     }

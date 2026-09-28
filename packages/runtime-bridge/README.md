@@ -267,6 +267,36 @@ the printed fallback commands).
 tsx packages/runtime-bridge/src/cli/harvest.ts "$HANDOFF_TASK_ID" --base staging
 ```
 
+### Closing the task after the merge (return channel)
+
+Every PR body harvest opens ends with an `aif-task: <taskId>` line — the PR → task mapping. Once the
+PR merges, the task is closed through the same route the web UI's **Approve** button uses:
+`POST /tasks/:id/events {event:"approve_done", commitOnApprove:false, deletePlanFile:false}`
+(`done → verified`). `commitOnApprove:false` matters: the UI defaults it to true, which would start
+aif's `/aif-commit` flow for work that is already on the base branch.
+
+```bash
+# every done/review task whose harvested PR has merged (no url needed)
+tsx packages/runtime-bridge/src/cli/harvest.ts --close-merged --project <id> [--repo <owner/repo>]
+# one task, PR resolved the same way
+tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged
+# one task, PR given
+tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --report-merge <prUrl>
+```
+
+The PR must read `state: MERGED` with a recorded `mergeCommit` (`gh pr view --json state,mergeCommit`),
+or nothing is written. An already-`verified` task is a no-op. The PR must also BE the task's harvest
+— an exact `aif-task: <taskId>` body line, or the task's own `branchName` as the PR head — and must
+have merged after the task's last agent activity (the newest `[<ISO>]` stamp in `agentActivityLog`),
+so an earlier merge never closes a rework round on the same branch; either refusal writes nothing.
+This holds for `--report-merge` too. A whole-list sweep needs `--project` (or
+`RUNTIME_BRIDGE_AIF_PROJECT_ID`) and searches one repo (`--repo`, default the cwd's checkout); zero
+or several matches are reported, never guessed. A `review` task is first moved by `complete_review`.
+In participants mode that covers any review task; with it off, only a manual-review park
+(human-owned, `manualReviewRequired` — the auto review hit its iteration cap) has that exit
+(artyhoo/aif-handoff#1). Any other merged `review` task gets a comment and a reason, never a
+handoff hint: the work is merged, so a handoff would only re-run a capped review.
+
 ---
 
 ## park

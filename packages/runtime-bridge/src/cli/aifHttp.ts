@@ -37,6 +37,12 @@ export interface AifTaskFull {
   executionOwner?: 'ai' | 'human';
   /** Optimistic-concurrency counter for ownership; `POST /tasks/:id/handoff` must echo it back. */
   ownershipRevision?: number;
+  /**
+   * True when the auto review parked the task for a human (it reached `maxReviewIterations`;
+   * ownership moved to `"human"`). With participants mode off, a human-owned task with this
+   * flag is the ONE `review` task `complete_review` serves (artyhoo/aif-handoff#1).
+   */
+  manualReviewRequired?: boolean;
 }
 
 /**

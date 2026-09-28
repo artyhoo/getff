@@ -30,7 +30,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 | 50 | `50-hooks.sh` | §5c `.husky/` hooks cluster + `core.hooksPath` activation | 40-configs (`tsconfig.json` etc. written) | Done |
 | 55 | `55-runtime-bridge-vendor.sh` | §5d vendored runtime-bridge subset (dispatch CLI + PostToolUse hook) — **factory-only** per spec A7 | 10-skills (`.claude/` exists), 50-hooks (hook dir exists) | Done (S5 A7) — vendor COPY + hook idempotent with `setup-runtime-bridge.sh` (install-time vs runtime split) |
 | 60 | `60-ci.sh` | §6b `.nvmrc`↔CI drift WARN + §6b-bis R2 auto-wire L1 (sets `_r2_verdict`) + §6c CI-orphan WARN + yq auto-wire | 40-configs (`eslint.config.mjs` + `.github/workflows/` written) | Done |
-| 70 | `70-deps.sh` | §7 `package.json` scripts merge + §8 dev-dep install (sets `DEPS_INSTALLED`, `DEVDEPS`) + §8b tsx-at-root | 60-ci (`eslint.config.mjs`, `detect-r2-boundary` etc. written) | Done |
+| 70 | `70-deps.sh` | §7 `package.json` scripts merge + §8 dev-dep install (sets `DEPS_INSTALLED`, `DEVDEPS`); §8b tsx-at-root retired 2026-09-28 | 60-ci (`eslint.config.mjs`, `detect-r2-boundary` etc. written) | Done |
 | 99 | `99-finalize.sh` | **synth-wire** (synthesizer → root `eslint.config.mjs`; idempotent) + §6b-bis-L2 R2 AST-wire (ts-morph, per-package) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
 
 ### `kind=mcp` manifest contract (S2)
@@ -78,7 +78,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 |--------|-----------|---------|
 | `transform_internal_refs` | `<file>` | Rewrites `](../../../{docs,packages}/…)`, `](../../../README.md…)`, `](../../install.sh…)`, and `.claude/rules/` refs (`](../../rules/…)` skill shape + `](../.claude/rules/…)` agent shape — rules/ is not shipped) in-place to `$UPSTREAM_BLOB_URL/…` GitHub blob URLs. Leaves genuinely consumer-resolvable refs (e.g. `hooks/`) intact. |
 | `copy_safe` | `<src> <dst>` | Copies `<src>` to `<dst>` unless `<dst>` already exists (skip if exists, unless `--force`). Appends to `SKIPPED` on skip. Respects `--dry-run`. |
-| `refresh_safe` | `<src> <dst>` | Overwrites `<dst>` unless a sibling `<dst%.md>.override.md` exists (Layer-3 consumer ownership signal). Used by `--refresh` path. |
+| `refresh_safe` | `<src> <dst>` | Overwrites `<dst>` unless a sibling `<dst%.md>.override.md` exists (Layer-3 consumer ownership signal). Per-file divergence guard (`_refresh_one_file`): baselined + diverged → copy preserved under `.ai-factory/refresh-conflicts/` + `⚠` (`--dry-run`: `would-flag`); **no baseline entry → silent preserved copy + one aggregate line per run, then overwrite**. Used by `--refresh` path. |
 | `merge_prettierignore` | `<src> <dst>` | Non-destructive `.prettierignore` merge (GH #531): greenfield → copy; existing file → append marker-delimited block of missing AIF entries; idempotent. |
 | `_prettierignore_in_skipped` | `<needle>` | Returns 0 if `<needle>` is already in the consumer's `.prettierignore` (used by `merge_prettierignore`). |
 | `ignore_shipped_configs` | (none) | Appends AIF-generated file patterns (`RULES.md`, `RULES.*.md`, `.claude/settings.json`, barrel paths) to `.prettierignore` that aren't already excluded. Called **once** by `99-finalize.sh` after `SKIPPED` is fully accumulated. |
@@ -87,7 +87,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `detect_pm` | (none) | Prints `npm`, `pnpm`, or `yarn` based on lockfile detection in `$PROJECT_ROOT`. |
 | `patch_stryker_package_manager` | (none) | Patches `stryker.config.mjs` `packageManager` field to match detected PM (idempotent). |
 | `copy_skill_with_transform` | `<slug>` | `copy_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each copied file. |
-| `refresh_skill_with_transform` | `<slug>` | `refresh_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each refreshed file. |
+| `refresh_skill_with_transform` | `<slug>` | `refresh_safe` of `.claude/skills/<slug>/` then `transform_internal_refs` on each refreshed file — routes through `_copy_tree_with_transform`'s pre-overwrite guard (baselined diverged → preserved + `⚠`; no entry → silently preserved, one aggregate line per run), never a bare `rm -rf`. |
 
 ### Constants (set by lib.sh, used by helpers)
 
@@ -138,7 +138,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `50-hooks.sh` | 50 | §5c .husky/ hooks cluster + core.hooksPath activation. | all stacks |
 | `55-runtime-bridge-vendor.sh` | 55 | §5d vendored runtime-bridge subset (factory-only). | all stacks |
 | `60-ci.sh` | 60 | §6b .nvmrc↔CI drift WARN + §6b-bis R2 auto-wire L1 + §6c CI-orphan WARN. | all stacks |
-| `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root. | all stacks |
+| `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28). | all stacks |
 | `80-rule-bootstrap.sh` | 80 | rule-bootstrapping install-time step (LIVE-or-degrade). | all stacks |
 | `85-worktree-scripts.sh` | 85 | §5e worktree scripts cluster (env+ profile). | all stacks |
 | `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done. | all stacks |

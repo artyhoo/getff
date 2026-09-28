@@ -275,6 +275,48 @@ if (bad.length) {
 fi
 
 
+# ── Invariants-line render (2026-09-28) ───────────────────────────────
+# The session digest's INVARIANTS_LINE is rendered from README.md «What must not break
+# (invariants)» by scripts/render-invariants.mjs. When README.md or the hook is staged:
+#   - both files match the index (no unstaged edits): re-render and stage the hook, so the
+#     twin block below regenerates plugin/hooks/inject-session-bootstrap in the same commit
+#     and nobody has to remember `--write`;
+#   - otherwise (unstaged edits, `git add -p`): auto-staging would sweep unstaged work into
+#     the commit, and the working tree is not what gets committed — so check the STAGED pair
+#     (index README.md against index hook, in a temp root) and fail on drift.
+# Here-strings, not `echo "$CHANGED" | grep -q`: under pipefail the early-exiting grep can
+# SIGPIPE echo on a large $CHANGED, and the test then reads false and skips the block.
+INV_HOOK=".claude/hooks/inject-session-bootstrap.sh"
+INV_RENDER="$REPO_ROOT/scripts/render-invariants.mjs"
+if [ -f "$INV_RENDER" ] && { grep -qx 'README.md' <<<"$CHANGED" || grep -qxF "$INV_HOOK" <<<"$CHANGED"; }; then
+  if ! command -v node >/dev/null 2>&1; then
+    echo "⚠ node not found — invariants-line render skipped (pre-push and CI still check it)"
+  elif git diff --quiet -- README.md "$INV_HOOK"; then
+    if node "$INV_RENDER" --write >/dev/null; then
+      if ! git diff --quiet -- "$INV_HOOK"; then
+        git add "$INV_HOOK"
+        CHANGED=$(printf '%s\n%s' "$CHANGED" "$INV_HOOK")
+        echo "✓ invariants line re-rendered from README.md and staged ($INV_HOOK)"
+      fi
+    else
+      fail=1
+    fi
+  else
+    inv_tmp=$(mktemp -d)
+    mkdir -p "$inv_tmp/.claude/hooks"
+    if git show ":README.md" >"$inv_tmp/README.md" && git show ":$INV_HOOK" >"$inv_tmp/$INV_HOOK"; then
+      if ! node "$INV_RENDER" --check --root "$inv_tmp"; then
+        echo "  (checked the STAGED README.md + $INV_HOOK; run node scripts/render-invariants.mjs --write and stage both)"
+        fail=1
+      fi
+    else
+      echo "❌ could not read the staged README.md / $INV_HOOK for the invariants-line check"
+      fail=1
+    fi
+    rm -rf "$inv_tmp"
+  fi
+fi
+
 # ── Plugin twin regeneration ──────────────────────────────────────────
 # When .claude/hooks/*.sh or agents/*.md changes, regenerate plugin twins and re-stage.
 # Spec: .ai-factory/plans/zcode-parity-s6-twin-generator.md (Stage 6).

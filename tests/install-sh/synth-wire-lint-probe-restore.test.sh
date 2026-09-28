@@ -11,8 +11,14 @@
 #
 #   P1  a brownfield config that already declares `const customRules` (critical-review S7-7) gets a
 #       second `customRules` binding injected — a SyntaxError, so ESLint exits 2 on every file.
-#       The post-write lint probe must restore the original bytes and exit 3 (NOT wired).
+#       The post-write lint probe must restore the original bytes and exit 3 (NOT wired). What did
+#       not land is one «  · not wired: <what> — <why>» line, never advice to add it by hand: adding
+#       the same rules by hand breaks ESLint the same way (operator decision Q4.7, 2026-09-28).
 #   P2  paired: a brownfield config the wiring does not break → rules land, rc 0, ESLint loads it.
+#       Like any TypeScript project's config, it parses TypeScript in the .ts/.tsx files the rules cover.
+#   P5  the same config without a TypeScript parser: the stack rules are scoped to .ts/.tsx, so
+#       adding them makes ESLint parse those files as JavaScript — a parsing error on every file that
+#       uses a type → rolled back, rc 3, the parsing error named, no «by hand» advice.
 #   P3  a config whose own plugin is not installed yet (every no-deps install) fails ESLint with AND
 #       without the change → the probe cannot judge the wiring, so the rules stay wired (rc 0) and
 #       the output says «not verified». Rolling back here un-wired every no-deps install (cold-review
@@ -21,6 +27,7 @@
 #       a probe file next to the config never reaches that block, so the probe also lints one path
 #       inside every appended scope → rolled back, rc 3 (cold-review F3).
 #   F1  99-finalize maps the wirer's rc 3 to a «NOT wired» summary line (it used to be `|| true`).
+#   F1b the wirer's own «  · not wired: <what> — <why>» line reaches that summary with its reason.
 #   F2  paired: rc 0 adds no such line.
 #
 # P1/P2 run the real bundle against the real ESLint (node_modules linked read-only, never installed
@@ -73,6 +80,15 @@ run_wirer() {
   W_RC=$?
 }
 
+# no_hand_step <arm> — a wiring that did not land is named with its reason, never left to the consumer
+no_hand_step() {
+  if printf '%s\n' "$W_OUT" | grep -q '^  · not wired: ' && ! printf '%s\n' "$W_OUT" | grep -qiE 'manually|by hand'; then
+    ok "$1: what did not land is a «not wired» line with its reason, no «add it by hand» advice"
+  else
+    bad "$1: expected a «  · not wired: » line and no manual-step advice (output: $(printf '%s\n' "$W_OUT" | grep -iE 'not wired|manually|by hand' | head -3 | tr '\n' '|'))"
+  fi
+}
+
 if [ -z "$NM_SRC" ]; then
   if [ -n "${CI:-}" ]; then
     bad "P1/P2: eslint + ts-morph are not installed under packages/core or the repo root — the probe arms cannot run in CI"
@@ -92,6 +108,7 @@ export default [{ rules: customRules }];"
   else
     bad "P1: expected rc 3 + original bytes + 'rolled back', got rc=$W_RC identical=$(cmp -s "$P1/eslint.config.mjs" "$WORK/p1.orig" && echo yes || echo no) (tail: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
   fi
+  no_hand_step P1
   if ls "$P1"/__aif_nrule_probe__.* >/dev/null 2>&1; then
     bad "P1: the probe left its throwaway files behind"
   else
@@ -99,7 +116,8 @@ export default [{ rules: customRules }];"
   fi
 
   # ─── P2: paired — a wiring ESLint accepts lands, rc 0 ─────────────────────────
-  CLEAN_SRC="const eslintConfig = [{ rules: { 'no-console': 'warn' } }];
+  CLEAN_SRC="import tsParser from '@typescript-eslint/parser';
+const eslintConfig = [{ files: ['**/*.{ts,tsx}'], languageOptions: { parser: tsParser } }, { rules: { 'no-console': 'warn' } }];
 export default [...eslintConfig];"
   P2=$(make_consumer p2 "$CLEAN_SRC")
   cp "$P2/eslint.config.mjs" "$WORK/p2.orig"
@@ -146,6 +164,20 @@ JSON
   else
     ok "P4: the scoped probe left nothing in the consumer tree"
   fi
+
+  # ─── P5: TS-scoped rules into a config that parses no TypeScript → rolled back ─
+  JS_ONLY_SRC="const eslintConfig = [{ rules: { 'no-console': 'warn' } }];
+export default [...eslintConfig];"
+  P5=$(make_consumer p5 "$JS_ONLY_SRC")
+  cp "$P5/eslint.config.mjs" "$WORK/p5.orig"
+  run_wirer "$P5"
+  if [ "$W_RC" -eq 3 ] && cmp -s "$P5/eslint.config.mjs" "$WORK/p5.orig" \
+     && printf '%s\n' "$W_OUT" | grep -q 'Parsing error'; then
+    ok "P5: rules over .ts files a config cannot parse → original restored, rc 3, the parsing error named"
+  else
+    bad "P5: expected rc 3 + original bytes + 'Parsing error', got rc=$W_RC identical=$(cmp -s "$P5/eslint.config.mjs" "$WORK/p5.orig" && echo yes || echo no) (tail: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
+  fi
+  no_hand_step P5
 fi
 
 # ─── F1/F2: 99-finalize turns the wirer's rc 3 into a NOT wired line ───────────
@@ -160,24 +192,40 @@ detect_pm() { echo npm; }
 warn_preset_staleness() { :; }
 reassert_husky_shields() { :; }
 source "$REPO_ROOT/setup.d/lib.sh"
+# The config under test is getff's: this run staged it. Unstaged and absent from the baseline
+# manifest it is the consumer's own, and 99-finalize never runs the wirer on it (getff_delivered).
+REFRESH_BASELINE_STAGED=("$PROJECT_ROOT/eslint.config.mjs")
 source "$FINALIZE"
 EOF
 
-# run_finalize <wirer-rc> → output in $F_OUT
+# run_finalize <wirer-rc> [<line the stub wirer prints>] → output in $F_OUT
 run_finalize() {
-  local proj="$WORK/f$1-proj" pkg="$WORK/f$1-pkg"
+  local proj="$WORK/f$1-proj${2:+-said}" pkg="$WORK/f$1-pkg${2:+-said}"
   mkdir -p "$proj" "$pkg/packages/core/install"
   : > "$proj/eslint.config.mjs"
-  printf 'console.log("stub wirer"); process.exit(%s);\n' "$1" > "$pkg/packages/core/install/synth-and-wire.bundle.mjs"
+  printf 'console.log("stub wirer"); if (process.env.STUB_LINE) console.log(process.env.STUB_LINE); process.exit(%s);\n' "$1" \
+    > "$pkg/packages/core/install/synth-and-wire.bundle.mjs"
   F_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$proj" PKG_ROOT="$pkg" FINALIZE="$FINALIZE" \
-    bash "$DRIVER" 2>&1)
+    STUB_LINE="${2:-}" bash "$DRIVER" 2>&1)
 }
 
 run_finalize 3
-if printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs'; then
+# The rc-3 fallback wording (this stub prints no «not wired» line of its own), and «stub wirer» so
+# the arm fails when the wirer never ran rather than passing on some other NOT wired line.
+if printf '%s\n' "$F_OUT" | grep -q 'stub wirer' \
+   && printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added'; then
   ok "F1: wirer rc 3 → 99-finalize lists the stack rules under NOT wired"
 else
   bad "F1: wirer rc 3 was swallowed — no NOT wired line (tail: $(printf '%s\n' "$F_OUT" | tail -6 | tr '\n' '|'))"
+fi
+run_finalize 3 "  · not wired: the stack's rules-as-tests rules — stub-reason-4711"
+# The reason must reach the NOT wired summary itself («      - <line>»), not only the wirer's own
+# output above it.
+if printf '%s\n' "$F_OUT" | grep -q 'stub wirer' \
+   && printf '%s\n' "$F_OUT" | grep -qE '^      - .*stub-reason-4711'; then
+  ok "F1b: the wirer's «not wired» line reaches the NOT wired summary with its reason"
+else
+  bad "F1b: the reason the wirer printed is not in the NOT wired summary (tail: $(printf '%s\n' "$F_OUT" | tail -6 | tr '\n' '|'))"
 fi
 run_finalize 0
 if printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs'; then
@@ -187,6 +235,29 @@ elif printf '%s\n' "$F_OUT" | grep -q 'stub wirer'; then
 else
   bad "F2: the stub wirer never ran, so F1/F2 prove nothing (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
 fi
+
+# ─── K: the consumer's original cannot be kept aside → the write is undone and reported ────────
+# The consumer's own root config, a wirer that adds a line to it, and .ai-factory/before-getff taken
+# by a file, so the original cannot be kept there. Run under set -e, as install.sh runs 99-finalize:
+# the install must go on, put the original back, and list the config under NOT wired (cold-review
+# F10 — the original used to be deleted silently, the changed file left in place).
+OWN_DRIVER="$WORK/driver-own.sh"
+{ echo 'set -eo pipefail'; grep -v '^REFRESH_BASELINE_STAGED=' "$DRIVER" | grep -v '^set -o pipefail$'; } > "$OWN_DRIVER"
+K="$WORK/k-proj"; KP="$WORK/k-pkg"
+mkdir -p "$K/.ai-factory" "$K/node_modules/ts-morph" "$KP/packages/core/install"
+printf '{"name":"ts-morph","version":"0.0.0"}\n' > "$K/node_modules/ts-morph/package.json"
+: > "$K/.ai-factory/before-getff"
+printf 'export default [];\n' > "$K/eslint.config.mjs"
+printf '%s\n' "import { appendFileSync } from 'node:fs';" \
+  "const i = process.argv.indexOf('--path'); appendFileSync(process.argv[i + 1], '// getff block\n');" \
+  "console.log('stub own wirer');" > "$KP/packages/core/install/synth-and-wire.bundle.mjs"
+K_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$K" PKG_ROOT="$KP" FINALIZE="$FINALIZE" bash "$OWN_DRIVER" 2>&1); K_RC=$?
+printf '%s\n' "$K_OUT" | grep -q 'stub own wirer' \
+  || bad "K: the own-config wirer never ran — the arm would be vacuous (tail: $(printf '%s\n' "$K_OUT" | tail -4 | tr '\n' '|'))"
+[ "$K_RC" -eq 0 ] && [ "$(cat "$K/eslint.config.mjs")" = 'export default [];' ] \
+  && printf '%s\n' "$K_OUT" | grep -qE '^      - .*eslint.config.mjs.*original could not be kept' \
+  && ok "K: an original that cannot be kept → the install goes on, the file is as it was, NOT wired says why" \
+  || bad "K: rc=$K_RC file='$(cat "$K/eslint.config.mjs")' (tail: $(printf '%s\n' "$K_OUT" | tail -6 | tr '\n' '|'))"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -84,7 +84,8 @@
 #                         and its peers); locally they also read gitignored files CI's clean
 #                         checkout never has → false red (see the NOTE below).
 #   zizmor                needs `pip install zizmor==1.26.1` (network + python env).
-#   framework-self-install-ts-server / -react-next, framework-fresh-install-validate (×4 stacks),
+#   framework-self-install-ts-server / -react-next, framework-fresh-install-validate (×4 stacks
+#   × 2 fixtures; the own-configs cell is tests/consumer-matrix/own-config-cell.sh),
 #   framework-fresh-install-validate-multistack, consumer-matrix-start-cell
 #   (tests/consumer-matrix/pnpm-monorepo-cell.sh), consumer-matrix-python-unfamiliar-stack-cell,
 #   consumer-matrix-npm-tarball-cell, consumer-matrix-getff-dist-cell
@@ -217,8 +218,37 @@ getff_payload_trigger() {
   printf '%s' "${out#,}"
 }
 
+# formatted_surface_trigger — the exact input set of `npm run format:check`.
+# That script's PATHSPECS=( … ) array IS the population it enumerates with `git ls-files`, so a
+# path outside it cannot be prettier-checked and cannot red this gate. Same derivation shape,
+# same fallback reasoning, same both-directions fixpoint (arm 10 of the coverage test) as the
+# payload trigger above.
+#
+# The hand-written `SHIPPED` token this replaced named six roots and was not that population:
+# measured 2026-09-27, 57 of the script's 248 tracked files were outside it — all of
+# `templates/`, `packages/core/eslint-rules/`, `packages/core/probes/`, the five named
+# `packages/core/hooks/` files and `packages/runtime-bridge/vendor/`. A prettier-dirty edit to
+# any of them selected no format gate at all and went red in CI instead.
+# shellcheck disable=SC2329  # invoked from the gate-table rows at table-construction time
+formatted_surface_trigger() {
+  local src="scripts/format-shipped.sh" entry out="" n=0
+  [ -f "$src" ] || { printf '%s' "$GETFF_PAYLOAD_FALLBACK"; return; }
+  # The array body only: `sed` takes the PATHSPECS=( … ) block, drops its two delimiter lines and
+  # every trailing comment, then word-splits what is left. A quoted or substituted entry is
+  # unresolvable here and is dropped by the same literal-path filter the payload trigger uses.
+  # shellcheck disable=SC2013  # word-splitting is the point: the array is one entry per word
+  for entry in $(sed -n '/^PATHSPECS=(/,/^)/p' "$src" | sed '1d;$d; s/#.*//'); do
+    case "$entry" in '' | *'$'* | *'`'* | *'*'*) continue ;; esac
+    if [ -d "$entry" ]; then out="$out,$entry/"; n=$((n + 1))
+    elif [ -e "$entry" ]; then out="$out,$entry"; n=$((n + 1))
+    fi
+  done
+  [ "$n" -ge 8 ] || { printf '%s' "$GETFF_PAYLOAD_FALLBACK"; return; }
+  printf '%s' "${out#,}"
+}
+
 # --- gate table: rank<TAB>name<TAB>trigger<TAB>command (cheapest rank first) ---
-# trigger: ALWAYS | SHIPPED | a path prefix (ends with /) | a suffix (starts with .) | a literal.
+# trigger: ALWAYS | a path prefix (ends with /) | a suffix (starts with .) | a literal.
 gate_table() {
   if [ -n "${SWEEP_GATES_FILE:-}" ]; then cat "$SWEEP_GATES_FILE"; return; fi
   # NOTE: the whole-tree `mechanical`-job scanners (md-line-gate, .md→.md dead-links,
@@ -250,7 +280,7 @@ gate_table() {
   #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
-  # (setup.d/10-skills.sh:179, install.sh:1184) and the runner is NOT, which is deliberate: a
+  # (setup.d/10-skills.sh:179, install.sh:1188) and the runner is NOT, which is deliberate: a
   # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
   # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
   # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.
@@ -287,7 +317,7 @@ gate_table() {
     "1${TAB}claude-dir-ci-only${TAB}.claude/${TAB}echo '[sweep] WARN: .claude/ is gated per-subtree, not as a whole. hooks/ skills/ templates/ ship, so getff-dist-manifest covers them; rules/ has render-check + rule-index-check. settings.json and orchestrator-prompts/ have no row of their own — their readers (the hooks harness-config drift test; vitest-spec-validation) are selected by their own triggers, and the whole-tree json/bash scanners are CI-only — verify on CI'" \
     "1${TAB}actionlint${TAB}.github/workflows/${TAB}{ command -v actionlint >/dev/null 2>&1 && actionlint .github/workflows/*.yml; } || echo '[sweep] WARN-skip actionlint absent'" \
     "1${TAB}alwayson-budget${TAB}CLAUDE.md,.claude/rules/,scripts/measure-always-on.sh,scripts/check-alwayson-budget.sh${TAB}bash scripts/measure-always-on.test.sh && bash scripts/check-alwayson-budget.test.sh && bash scripts/check-alwayson-budget.sh" \
-    "2${TAB}format-check${TAB}SHIPPED${TAB}npm run format:check" \
+    "2${TAB}format-check${TAB}$(formatted_surface_trigger)${TAB}npm run format:check" \
     "2${TAB}render-check${TAB}.claude/rules/${TAB}npx tsx packages/core/render/render-rules.ts --check" \
     "2${TAB}rule-index-check${TAB}.claude/rules/,AGENTS.md,scripts/render-rule-index.mjs${TAB}npx tsx scripts/render-rule-index.mjs --check" \
     "2${TAB}install-roster-check${TAB}INSTALL-FOR-AI.md,setup.d/,agents/,scripts/render-install-roster.mjs${TAB}npx tsx scripts/render-install-roster.mjs --check" \
@@ -303,8 +333,9 @@ gate_table() {
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \
     "3${TAB}shellcheck${TAB}setup.d/,install.sh,scripts/${TAB}{ command -v shellcheck >/dev/null 2>&1 && shellcheck -x -P SCRIPTDIR --exclude=SC2034,SC2016,SC2317 setup.d/*.sh install.sh scripts/*.sh scripts/lib/*.sh; } || echo '[sweep] WARN-skip shellcheck absent'" \
-    "4${TAB}byte-identical${TAB}SHIPPED${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
+    "4${TAB}byte-identical${TAB}$(getff_payload_trigger),tests/install-sh/${TAB}SNAPSHOT_MODE=compare bash tests/install-sh/byte-identical.test.sh" \
     "4${TAB}synth-bundle-drift${TAB}packages/core/,package.json,package-lock.json${TAB}NODE_ENV=development bash scripts/build-synth-bundle.sh --check" \
+    "4${TAB}runtime-bundles-drift${TAB}packages/core/,scripts/build-runtime-bundles.mjs,scripts/check-bundle-dep-parity.sh,package.json,package-lock.json${TAB}NODE_ENV=development node scripts/build-runtime-bundles.mjs --check" \
     "5${TAB}install-sh-suite${TAB}tests/install-sh/${TAB}bash scripts/run-install-sh-suite.sh tests/install-sh/" \
     "5${TAB}agnosticism${TAB}packages/core/${TAB}bash tests/agnosticism/harness-self.test.sh" \
     "5${TAB}premerge-carrier-selftest${TAB}packages/core/audit-self/${TAB}bash packages/core/audit-self/pre-merge-local.test.sh" \
@@ -393,17 +424,13 @@ dirty_paths() {
 
 # --- trigger_matches <trigger-list> <path> ---
 # trigger-list is one or more triggers joined by commas; matches if ANY matches.
-# Each trigger: ALWAYS | SHIPPED | a prefix (ends with /) | a suffix (starts with .) | a literal.
+# Each trigger: ALWAYS | a prefix (ends with /) | a suffix (starts with .) | a literal.
 trigger_matches() {
   local triglist="$1" p="$2" trig
   local IFS=,
   for trig in $triglist; do
     case "$trig" in
       ALWAYS) return 0 ;;
-      SHIPPED)
-        case "$p" in
-          skills/* | agents/* | packages/core/templates/* | packages/preset-*/* | .claude/rules/* | .claude/skills/*) return 0 ;;
-        esac ;;
       */) case "$p" in "$trig"*) return 0 ;; esac ;;   # prefix (before suffix: .github/workflows/ is both .*-prefixed and /-suffixed)
       .*) case "$p" in *"$trig") return 0 ;; esac ;;   # suffix
       *) case "$p" in "$trig") return 0 ;; esac ;;       # literal/glob

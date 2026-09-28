@@ -516,7 +516,7 @@ export function deriveToolchainTokens(depsSh: string): Set<string> {
     }
   }
   // The PROSE spelling of a tool, taken from the CONFIG FILE its script points at.
-  // `arch:check` runs `depcruise --config .dependency-cruiser.cjs`: the binary is
+  // `arch:check` runs `depcruise --config .dependency-cruiser.mjs`: the binary is
   // `depcruise`, but every document that describes the check calls it
   // «dependency-cruiser». Without this the gate missed one of the four checks at the
   // centre of the incident — caught by planting a claim naming it and watching only two

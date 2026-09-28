@@ -65,7 +65,7 @@ export default defineConfig(
       'scripts/audit-r4.ts',
       'eslint.config.mjs',
       'vitest.config.ts',
-      '.dependency-cruiser.cjs',
+      '.dependency-cruiser.mjs',
     ],
   },
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.d/70-deps.sh — §7 package.json scripts merge + §8 dev-dep install + §8b tsx-at-root.
+# setup.d/70-deps.sh — §7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28).
 #
 # Sources: lib.sh (already in dispatcher scope)
 # S0 rows: §7 (install.sh:1358-1440), §8 (install.sh:1442-1538), §8b (install.sh:1540-1595) cite:historical S0 inventory rows = pre-extraction install.sh line ranges
@@ -26,7 +26,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
     # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
     # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
-    # layer rules in .dependency-cruiser.cjs match nested package src via (?:^|/)src/<layer>.
+    # layer rules in .dependency-cruiser.mjs match nested package src via (?:^|/)src/<layer>.
     # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
     #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
     #   2. else a root src/ present → src
@@ -62,7 +62,12 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # configs were emitted" signal — wire⟺emit by construction.
     AIF_HAS_MUTATION_WRAPPER=0
     [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
+    # arch:check cruises with the config that is on disk after 40-configs.sh: ours
+    # (.dependency-cruiser.mjs), or the consumer's own under any name dependency-cruiser reads —
+    # 40-configs.sh placed nothing beside it (copy_unless_foreign), so naming ours would crash.
+    AIF_DEPCRUISE_CFG=$(depcruise_config "$PROJECT_ROOT")
+    AIF_DEPCRUISE_CFG="${AIF_DEPCRUISE_CFG:-.dependency-cruiser.mjs}"
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -83,7 +88,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
         "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
         "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
-        "arch:check": "depcruise --config .dependency-cruiser.cjs " + (process.env.AIF_ARCH_TARGET || "src"),
+        "arch:check": "depcruise --config " + (process.env.AIF_DEPCRUISE_CFG || ".dependency-cruiser.mjs") + " " + (process.env.AIF_ARCH_TARGET || "src"),
         "audit:docs": "./scripts/audit-ai-docs.sh",
         "check:globs": "bash scripts/check-rule-globs.sh",
         "check:enforced": "bash scripts/check-rule-enforced.sh",
@@ -155,7 +160,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
     '
   else
-    echo "  ⚠  node not found — skipped scripts merge; add them manually per INSTALL.md §3"
+    echo "  ⚠  node not found — package.json scripts NOT merged"
+    note_not_wired "package.json scripts (validate, check:*, prepare) and the husky / lint-staged / sort-package-json devDependencies — not added: node is not on PATH, and getff edits package.json only through node"
   fi
 fi
 
@@ -333,13 +339,27 @@ elif [ -t 0 ]; then
   read -r _ans || _ans=""
   case "$_ans" in [yY]|[yY][eE][sS]) _do_dep_install="yes" ;; esac
 else
-  :   # non-interactive (no tty) without --full → default No; the manual command prints in Next steps
+  :   # non-interactive (no tty) without --full → default No; 99-finalize lists the deps as not wired
+fi
+
+# _deps_not_wired <reason> — the dependency install did not land: one NOT-wired line naming the
+# packages and the reason (operator directive 2026-09-28: no copy-paste install command instead).
+_deps_not_wired() {
+  note_not_wired "dependencies (${#DEVDEPS[@]} dev + ${#RUNTIME_DEPS[@]} runtime: ${DEVDEPS[*]-} ${RUNTIME_DEPS[*]-}) — not installed: $1"
+}
+if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/package.json" ] && [ "$_do_dep_install" != "yes" ]; then
+  if [ -t 0 ] && [ -z "$FULL" ]; then
+    _deps_not_wired "the install adds packages only on --full or a yes at its prompt, and the prompt was answered no"
+  else
+    _deps_not_wired "the install adds packages only on --full or a yes at its prompt, and this run had neither (no terminal to ask on)"
+  fi
 fi
 
 if [ "$_do_dep_install" = "yes" ]; then
   _pm=$(detect_pm)
   if ! command -v "$_pm" >/dev/null 2>&1; then
-    echo "  ⚠  $_pm not found on PATH — skipped dev-dep install (install manually, see Next steps)."
+    echo "  ⚠  $_pm not found on PATH — dependencies NOT installed"
+    _deps_not_wired "$_pm (the package manager this project uses) is not on PATH"
   else
     echo "▶ Installing ${#DEVDEPS[@]} dev-dependencies with $_pm (this may take a minute) …"
     # npm ONLY: bound the ONE wildcard peer that makes arborist crash.
@@ -405,7 +425,7 @@ if [ "$_do_dep_install" = "yes" ]; then
           # missing `workspace:` symlinks — so typecheck/lint/test falsely fail while Next-steps
           # claims "nothing to do". Follow with a full `pnpm install` to materialise the whole
           # workspace link graph; idempotent + cheap when the tree is already warm. The `&&` keeps
-          # honesty: if linking fails, _ok stays empty → the "install failed, run manually" path.
+          # honesty: if linking fails, _ok stays empty → the «install failed» not-wired path.
           if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
         else
           if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
@@ -443,64 +463,14 @@ if [ "$_do_dep_install" = "yes" ]; then
       DEPS_INSTALLED="1"
       echo "  ✓ dev + runtime dependencies installed → node_modules/ (wired hooks now have their tools)"
     else
-      echo "  ⚠  dep install incomplete — run the remainder manually (see Next steps)."
+      echo "  ⚠  dep install incomplete — $_pm failed (output above)"
+      _deps_not_wired "the $_pm install failed (its output is above)"
     fi
   fi
 fi
 
-# ─── 8b. GH #636 (a): guarantee the pre-push TS hook runtime (tsx) resolves from the ROOT ─────
-# The dispatcher runs `node --import tsx/esm <root>/packages/core/hooks/pre-push.ts` from the repo
-# ROOT, so tsx must resolve THERE. tsx is in CORE_DEVDEPS, but on a pnpm monorepo a tsx that lives in
-# a sub-package is NOT hoisted to the root, so the TS hook degrades to the bash fallback (critical-only
-# checks — #638 made that degradation graceful instead of a crash). Close the gap: probe tsx-at-root
-# with the SAME expression the dispatcher uses (#638); if missing, install it (--full → silent;
-# interactive tty → [y/N], even without --full; refused / non-tty → WARN with the exact command).
-# tsx ONLY — NOT ts-morph/R2 (separate concern, §6b-bis-L2 below). Idempotent: the probe short-circuits
-# when tsx already resolves (incl. the --full §8 install above, which lands tsx with -w on a workspace).
-_tsx_resolves() { ( cd "$PROJECT_ROOT" && node --import tsx/esm -e '' ) >/dev/null 2>&1; }
-if [ "$DRY_RUN" = "--dry-run" ]; then
-  echo "▶ tsx-at-root → [dry-run] would ensure tsx resolves from the workspace root (pre-push TS hook runtime)"
-elif [ ! -f "$PROJECT_ROOT/package.json" ]; then
-  :   # no package.json — nothing to install into
-elif ! command -v node >/dev/null 2>&1; then
-  :   # no node → the dispatcher can't run the TS hook anyway; the bash fallback covers it
-elif _tsx_resolves; then
-  :   # already resolvable from the root (incl. the --full §8 install) — nothing to do
-else
-  # tsx is NOT resolvable from the root. Build the PM-aware, root-targeted install command ONCE — the
-  # SSOT for both the actual install and the WARN message, so the two can't drift (#two-prompts-drift).
-  _pm=$(detect_pm)
-  case "$_pm" in
-    pnpm) if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ]; then _tsx_argv=(pnpm add -D -w tsx); else _tsx_argv=(pnpm add -D tsx); fi ;;
-    yarn) _tsx_argv=(yarn add -D tsx) ;;
-    *)    _tsx_argv=(npm i -D tsx) ;;
-  esac
-  _tsx_cmd="${_tsx_argv[*]}"
-  # Decide whether to install (mirror the §8 gate: --full → silent; interactive → offer; else No).
-  _do_tsx=""
-  if [ -n "$FULL" ]; then
-    _do_tsx="yes"
-  elif [ -t 0 ]; then
-    printf "▶ tsx is not resolvable from the workspace root (needed by the pre-push TS hook).\n"
-    printf "  Install it now with '%s'? [y/N] " "$_tsx_cmd"
-    read -r _ans || _ans=""
-    case "$_ans" in [yY]|[yY][eE][sS]) _do_tsx="yes" ;; esac
-  fi
-  if [ "$_do_tsx" = "yes" ]; then
-    if ! command -v "$_pm" >/dev/null 2>&1; then
-      echo "  ⚠  $_pm not found on PATH — could not install tsx."
-    else
-      echo "▶ Ensuring tsx at the workspace root: $_tsx_cmd"
-      ( cd "$PROJECT_ROOT" && "${_tsx_argv[@]}" ) || echo "  ⚠  '$_tsx_cmd' failed."
-    fi
-  fi
-  # Honest end-state: if tsx STILL doesn't resolve (refused, non-tty, PM missing, or install failed),
-  # the pre-push hook will run in REDUCED mode — say so + print the exact enabling command.
-  if ! _tsx_resolves; then
-    echo ""
-    echo "⚠  tsx is not resolvable from the workspace root — the pre-push hook will run in"
-    echo "   REDUCED mode (critical-only bash checks), not the full TypeScript suite."
-    echo "   To enable full pre-push checks, run from the repo root:"
-    echo "       $_tsx_cmd"
-  fi
-fi
+# ─── 8b. (retired 2026-09-28) tsx at the workspace root ─────────────────────────────────────
+# This step used to guarantee that `node --import tsx/esm` resolved from the repo root, because the
+# pre-push dispatcher ran packages/core/hooks/pre-push.ts through tsx (GH #636/#638). The hook now
+# ships as a prebuilt packages/core/hooks/pre-push.bundle.mjs that plain `node` runs, so nothing on
+# the hook path needs tsx any more; tsx itself still arrives with CORE_DEVDEPS in §8.

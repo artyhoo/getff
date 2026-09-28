@@ -41,14 +41,17 @@ eslint-rules-local/index.mjs
 eslint-rules-local/*.mjs
 
 # Vendored framework SOURCE — install.sh always ships these framework-namespace files fresh; a
-# consumer never authors `eslint-rules-local/`, `packages/core/hooks/`, `packages/core/eslint-rules/`, or `scripts/audit-r4.ts`.
+# consumer never authors `eslint-rules-local/`, `packages/core/hooks/` (the prebuilt pre-push
+# bundle — raw esbuild output — and its bash fallback), or `scripts/audit-r4.ts`.
+# `packages/core/eslint-rules/` no longer ships (2026-09-28) and stays listed so a copy left by a
+# prior installer version does not turn the consumer's `prettier --check .` RED.
 # They ship formatted to THIS framework's Prettier config (printWidth 80, singleQuote, no plugins);
 # a consumer with its OWN .prettierrc rejects the same bytes — the #531 config-mismatch root cause
 # (NOT a Prettier version skew: identical bytes are clean under our config and dirty under the
 # consumer's). They are not the consumer's code to format-check, so ignore them config-agnostically.
 #
 # Framework CONFIG files the consumer MIGHT already own (eslint.config.mjs, vitest.config.ts,
-# tsconfig.json, .dependency-cruiser.cjs, stryker.config.json, .lintstagedrc.json, the CI workflows)
+# tsconfig.json, .dependency-cruiser.mjs, stryker.config.json, .lintstagedrc.json, the CI workflows)
 # are handled CONDITIONALLY in install.sh (`ignore_shipped_configs`): each is ignored ONLY when
 # install actually SHIPPED it fresh — never when copy_safe kept a consumer-authored one. That keeps
 # a consumer's own config format-checked instead of silently hiding it. (GH #531 reopen)

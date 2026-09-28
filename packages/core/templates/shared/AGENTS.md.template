@@ -123,12 +123,12 @@ npx playwright test                # E2E — react-next config only; needs @play
 - TypeScript strict + `noUncheckedIndexedAccess`; Node.js version pinned in `.nvmrc` (CI depends on it).
 - ESLint 10 flat config — `eslint.config.mjs`.
 - Mutation kill rate ≥70% on the PR diff (Stryker incremental); coverage thresholds per-module (`vitest.config.ts`).
-- Architecture rules in `.dependency-cruiser.cjs` — fail on violation.
+- Architecture rules in `.dependency-cruiser.mjs` — fail on violation.
 
 ## Files NOT to edit without explicit reason
 
 - `.ai-factory/RULES.md` — rules are added/changed via PR with rationale, not silently.
-- `.dependency-cruiser.cjs`, `eslint.config.mjs`, `.github/workflows/ci.yml` — same.
+- `.dependency-cruiser.mjs`, `eslint.config.mjs`, `.github/workflows/ci.yml` — same.
 - `scripts/audit-ai-docs.sh` — additions need a paired negative test (see `references/self-testing-docs.md`).
 
 ## Quick reminders

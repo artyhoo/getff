@@ -177,8 +177,12 @@ done
 SKIPPED=()
 # critical-review wave 1: framework pieces deliberately NOT wired because the consumer already owns
 # that surface (their own core.hooksPath, their own lint config under another name). Each entry is
-# one line: what was left alone + the one action that wires it by hand. Printed by 99-finalize.
+# one line: what was left alone and why — never a manual step (operator directive 2026-09-28, Q4.7).
+# Printed by 99-finalize.
 NOT_WIRED=()
+# Q4.7: consumer-owned files getff added its block to (by insertions, original kept in
+# .ai-factory/before-getff/), project-relative. Filled + printed by 99-finalize.
+GETFF_ADDED_TO=()
 
 # Refuse to install into the package itself
 if [ "$PKG_ROOT" = "$PROJECT_ROOT" ]; then
@@ -600,7 +604,7 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:715 fail-loud instead of showing
+# else in this script (--full/-y at install.sh:719 fail-loud instead of showing
 # the stack menu; --full/--dry-run at :470 decline the python/cargo
 # toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:65
@@ -611,13 +615,13 @@ fi
 #
 # Round-3 gate (rework MAJOR): the menu MUST also skip when a positional stack
 # arg was supplied (STACK_EXPLICIT=1). Per the reviewer's binding constraint
-# («existing interactive prompt order must keep working»), the §8 dev-deps →
-# §8b tsx prompts in setup.d/70-deps.sh:332/485 are the existing interactive
-# flow for `install.sh <stack>`; inserting the profile menu in front of them
-# intercepts the first positional answer meant for §8 (e.g. 'n') and exits 1
-# at the `*)` branch below. tests/install-sh/gh-636-ensure-tsx-root.test.sh
-# Arm D feeds `n` then `y` under a real pty — the menu ate `n` → exit 1 (16/3
-# red). A positional stack signals the user is already on the existing flow;
+# («existing interactive prompt order must keep working»), the §8 dev-deps
+# prompt in setup.d/70-deps.sh is the existing interactive flow for
+# `install.sh <stack>`; inserting the profile menu in front of it intercepts the
+# first positional answer meant for §8 (e.g. 'n') and exits 1 at the `*)` branch
+# below. tests/install-sh/install-no-tsx-step.test.sh Arm D feeds `n` under a
+# real pty — when the menu ate `n` it exited 1 (16/3 red, when the arm lived in
+# the since-retired gh-636-ensure-tsx-root test). A positional stack signals the user is already on the existing flow;
 # depth selection via `--profile <name>` still works as a flag in that case.
 # The menu only fires for the no-stack-arg path (`./install.sh` bare at a TTY).
 if [ -z "$PROFILE" ]; then
@@ -645,11 +649,11 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:862 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:866 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
-      echo "[profile] core (refresh keeps the depth already on disk; pass --profile env to deepen)"
+      echo "[profile] core (refresh keeps the depth already on disk; --profile env deepens it)"
     else
       PROFILE="env"
       echo "[profile] env (non-interactive default; --profile core for rules-only, --profile factory for the AIF suite)"
@@ -944,7 +948,7 @@ do_refresh() {
       #   (d) does NOT embed a recommended action (would tacitly pick A).
       echo "  ⚠ $_CONSUMER_LINTSTAGED differs from framework template"
       echo "    framework template: $_TEMPLATE_LINTSTAGED"
-      echo "    consumer-owned — never overwritten; review the diff and decide."
+      echo "    consumer-owned — never overwritten; getff's template differs from it."
     fi
   fi
   unset _CONSUMER_LINTSTAGED _TEMPLATE_LINTSTAGED
@@ -1163,9 +1167,9 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:650-652), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:654-656), the presence
   # clause is what keeps an installed tier updated.
-  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1905-1908).
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1977-1980).
   #
   # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
   # ask-file-schema section is maintainer-only (owner: 'maintainer' in
@@ -1176,7 +1180,7 @@ do_refresh() {
   # a consumer-tree file). The report is read-only, so it prints identically under --dry-run.
   if [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
     echo "  ⚠ ORPHAN: scripts/check-ask-files.sh is no longer delivered (its pre-push ask-file gate is maintainer-only and never ran on consumers — ledger C-2)."
-    echo "    Stale artefact from a PRIOR installer version — review and remove it manually (the installer never deletes consumer-tree files)."
+    echo "    Stale artefact from a PRIOR installer version — left in place, because the installer never deletes files in the project."
   fi
   if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
     || [ -e "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
@@ -1188,46 +1192,51 @@ do_refresh() {
     fi
   fi
 
-  # ── Core hooks (TS pre-push pipeline) ───────────────────
-  # Ships the COMPLETE import graph of pre-push.ts: static imports (lines 30-32)
-  # AND dynamic await import() targets (lines 405/469). Missing entries crash the
-  # hook with ERR_MODULE_NOT_FOUND before any gate runs. (#735)
-  echo "▶ Core hooks (TS) → packages/core/hooks/"
-  for _ts in \
-    pre-push.ts \
-    utils/run-check.ts \
-    utils/git.ts \
-    checks/prior-art.ts \
-    checks/s17.ts \
-    checks/docs-card.ts \
-    checks/unpinned-tool-install.ts \
-    checks/guard-liveness.ts \
-    checks/cmd-script-liveness.ts; do
-    refresh_safe "$PKG_ROOT/packages/core/hooks/$_ts" "$PROJECT_ROOT/packages/core/hooks/$_ts"
+  # ── Core hook (prebuilt pre-push bundle) ────────────────
+  # The TS-core pre-push hook ships as ONE prebuilt .mjs (scripts/build-runtime-bundles.mjs;
+  # delivery site setup.d/50-hooks.sh) that plain `node` runs. Earlier versions shipped
+  # pre-push.ts + its import graph + the packages/core/eslint-rules barrel + a hooks-scoped
+  # {"type":"module"} marker (#735, GH #532/#635). In a project that owns its eslint.config /
+  # tsconfig those .ts files are linted and type-checked as the project's own code and keep lint,
+  # typecheck and build RED — so a copy left by a prior delivery is reported, never refreshed and
+  # never deleted (the installer never deletes consumer-tree files; same shape as the
+  # check-ask-files.sh ORPHAN above). The report is read-only, so it prints identically under
+  # --dry-run.
+  echo "▶ Core hook (prebuilt) → packages/core/hooks/pre-push.bundle.mjs"
+  refresh_safe "$PKG_ROOT/packages/core/hooks/pre-push.bundle.mjs" \
+               "$PROJECT_ROOT/packages/core/hooks/pre-push.bundle.mjs"
+  _stale_hook_src=""
+  for _stale in \
+    packages/core/hooks/pre-push.ts \
+    packages/core/hooks/utils/run-check.ts \
+    packages/core/hooks/utils/git.ts \
+    packages/core/hooks/checks/prior-art.ts \
+    packages/core/hooks/checks/s17.ts \
+    packages/core/hooks/checks/docs-card.ts \
+    packages/core/hooks/checks/unpinned-tool-install.ts \
+    packages/core/hooks/checks/guard-liveness.ts \
+    packages/core/hooks/checks/cmd-script-liveness.ts \
+    packages/core/hooks/package.json \
+    packages/core/eslint-rules/index.ts \
+    packages/core/eslint-rules/no-unsafe-zod-parse.ts \
+    packages/core/eslint-rules/no-direct-time-randomness.ts \
+    packages/core/eslint-rules/require-otel-span.ts \
+    packages/core/eslint-rules/restricted-syntax-audit-exempt.ts; do
+    [ -e "$PROJECT_ROOT/$_stale" ] && _stale_hook_src="$_stale_hook_src $_stale"
   done
-  # ── Core ESLint rules (transitive dep of guard-liveness.ts) ─────────────────
-  # guard-liveness.ts imports ../../eslint-rules/index.ts (relative, not node_modules).
-  # Without this group, guard-liveness.ts dies on load even after the 3 checks ship.
-  # Destination: packages/core/eslint-rules/ on the consumer (same relative path). (#735)
-  echo "▶ Core ESLint rules → packages/core/eslint-rules/"
-  for _esl in \
-    index.ts \
-    no-unsafe-zod-parse.ts \
-    no-direct-time-randomness.ts \
-    require-otel-span.ts \
-    restricted-syntax-audit-exempt.ts; do
-    refresh_safe "$PKG_ROOT/packages/core/eslint-rules/$_esl" \
-                 "$PROJECT_ROOT/packages/core/eslint-rules/$_esl"
-  done
+  if [ -n "$_stale_hook_src" ]; then
+    echo "  ⚠ ORPHAN: the pre-push hook now ships as packages/core/hooks/pre-push.bundle.mjs — these copies from a PRIOR installer version are no longer used:"
+    for _stale in $_stale_hook_src; do echo "      $_stale"; done
+    echo "    Your own eslint and tsc check them as project code (TS5097, unresolved imports). They are left in place, because the installer never deletes files in the project."
+  fi
 
   # ── Custom ESLint rules plugin → eslint-rules-local/ (#869-class: framework-owned) ──
   # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
   # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
-  # framework-namespace files a consumer never owns (setup.d/lib.sh:1918) — DISTINCT from the
-  # packages/core/eslint-rules/ copy above (guard-liveness dep). A rule-logic fix must reach a
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:1955). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
-  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:204-233
+  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:222-251
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
   # source-dir parity (a core-only refresh silently stranded preset rules on react-next/react-spa
   # consumers before this — the exact #869 class, verified live).
@@ -1305,20 +1314,14 @@ do_refresh() {
   if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_fb_dst" ]; then
     chmod_safe +x "$_fb_dst" 2>/dev/null || true
   fi
-  # #635: also refresh the hooks-scoped {"type":"module"} marker (mirrors the full-install copy_safe
-  # at setup.d/50-hooks.sh:74). Without this, a consumer upgraded via --refresh gets the new multi-file
-  # pre-push.ts WITHOUT type:module → Node ≥22 dies with ERR_REQUIRE_CYCLE_MODULE on the require(esm)
-  # bridge. Same AIF-owned, hooks-scoped marker — cannot collide with a consumer's own package.
-  refresh_safe "$PKG_ROOT/packages/core/templates/shared/hooks-package.json" \
-               "$PROJECT_ROOT/packages/core/hooks/package.json"
 
   # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
-  # 50-hooks.sh:26-27 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # 50-hooks.sh:27-28 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
   # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
-  # by install.sh". #636/#638 added a load-bearing tsx-ESM probe to husky-pre-push.sh without
-  # which the hook HARD-CRASHES instead of degrading to the bash fallback on a pnpm monorepo. A
-  # brownfield consumer whose .husky/pre-push predates that fix can only receive it non-
-  # destructively via --refresh — copy_safe never updates it. refresh_safe honours a sibling
+  # by install.sh". Its routing changes with the hook it starts (a tsx-ESM probe for pre-push.ts,
+  # #636/#638; plain `node` for pre-push.bundle.mjs since 2026-09-28), and a brownfield consumer
+  # whose .husky/pre-push predates such a change can only receive it non-destructively via
+  # --refresh — copy_safe never updates it. refresh_safe honours a sibling
   # .husky/pre-push.override.md for a consumer that has taken Layer-3 ownership.
   # LITERAL destinations (not a loop var): the delivery in 50-hooks.sh names these two files
   # literally, so the refresh must too — a per-file refresh-completeness gate can only exact-match
@@ -1410,7 +1413,7 @@ do_refresh() {
   echo ""
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "✅ Dry-run complete (--refresh preview). Nothing was written."
-    echo "   Re-run without --dry-run to apply, or add --force to also overwrite consumer files."
+    echo "   Without --dry-run the refresh writes the above; --force also overwrites consumer files."
   else
     echo "✅ Framework artefacts refreshed."
     echo "   Consumer-owned files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs, etc.) were not touched."

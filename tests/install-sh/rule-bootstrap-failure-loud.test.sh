@@ -8,6 +8,10 @@
 # ARMS:
 #   (A) generator exits non-zero → loud FAILED line + one NOT_WIRED entry, layer returns 0
 #   (B) paired negative: generator exits 0 → no FAILED line, NOT_WIRED stays empty
+#   (C) how the generator is started (N14, critical-review S5-9): plain `node` on the prebuilt
+#       packages/core/install/rule-bootstrap-cli.bundle.mjs, from the PROJECT root — never npx/tsx,
+#       which needed the getff clone's own node_modules (a clone has none). The project root is
+#       the cwd so the bundle loads the project's own eslint + parser and eslint-rules-local/.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -18,16 +22,17 @@ run_layer() {  # $1 = exit code of the stub generator; prints layer output, then
   local rc="$1" W
   W=$(mktemp -d)
   mkdir -p "$W/pkg/packages/core/install" "$W/proj/.ai-factory/rules-research" "$W/bin"
-  : > "$W/pkg/packages/core/install/rule-bootstrap-cli.ts"
+  : > "$W/pkg/packages/core/install/rule-bootstrap-cli.bundle.mjs"
   echo '{}' > "$W/proj/.ai-factory/rules-research/ts-server.research.json"
   echo '{}' > "$W/proj/.ai-factory/rules-research/ts-server.selection.json"
-  printf '#!/bin/sh\necho "stub generator"\nexit %s\n' "$rc" > "$W/bin/npx"; chmod +x "$W/bin/npx"
+  # Stub `node` and `npx`: each reports how it was started, the generator stand-in exits $rc.
+  printf '#!/bin/sh\necho "stub generator: node cwd=$PWD args=$*"\nexit %s\n' "$rc" > "$W/bin/node"; chmod +x "$W/bin/node"
+  printf '#!/bin/sh\necho "stub generator: npx cwd=$PWD args=$*"\nexit %s\n' "$rc" > "$W/bin/npx"; chmod +x "$W/bin/npx"
   (
     PATH="$W/bin:$PATH"; FULL=--full; DRY_RUN=""; STACK=ts-server
     PKG_ROOT="$W/pkg"; PROJECT_ROOT="$W/proj"; NOT_WIRED=()
     # shellcheck disable=SC1090
     INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
-    ensure_workspace_pkg_links() { :; }
     # shellcheck disable=SC1090
     source "$REPO_ROOT/setup.d/80-rule-bootstrap.sh"; echo "LAYER_RC=$?"
     echo "NOT_WIRED_COUNT=${#NOT_WIRED[@]}"
@@ -45,5 +50,10 @@ echo "$_out" | grep -q 'NOT_WIRED: .*rules-research' && ok "(A) the NOT wired li
 _out=$(run_layer 0)
 echo "$_out" | grep -q 'FAILED' && bad "(B) FAILED printed for a successful generation" || ok "(B) a successful generation prints no FAILED line"
 echo "$_out" | grep -q 'NOT_WIRED_COUNT=0' && ok "(B) a successful generation records nothing as not wired" || bad "(B) NOT_WIRED recorded on success (got: $_out)"
+
+echo "$_out" | grep -q 'stub generator: npx' && bad "(C) the generator was started through npx (needs the clone's node_modules)" || ok "(C) the generator is not started through npx/tsx"
+echo "$_out" | grep -Eq 'stub generator: node cwd=[^ ]*/proj args=[^ ]*/pkg/packages/core/install/rule-bootstrap-cli\.bundle\.mjs --consumer-root [^ ]*/proj ' \
+  && ok "(C) plain node runs the prebuilt bundle from the project root" \
+  || bad "(C) expected 'node <pkg>/…/rule-bootstrap-cli.bundle.mjs --consumer-root <proj>' from cwd <proj> (got: $_out)"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

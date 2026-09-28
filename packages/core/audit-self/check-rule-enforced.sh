@@ -23,7 +23,7 @@
 # GH #730: verification is scoped to R2-relevant packages — those whose nearest package.json declares
 # `zod` in dependencies / devDependencies. A zod-less package (e.g. an Expo/RN app) cannot have an
 # unsafe-zod-parse boundary → silently skipped as "R2 N/A", not a hard fail. Grep shape reuses
-# detect-r2-boundary.sh:87 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
+# detect-r2-boundary.sh:88 — `"zod"[[:space:]]*:` — matching `"zod":` exactly and NOT matching
 # `"zod-to-json-schema":` / `"@hono/zod-openapi":`. The "R2 ⟺ zod present" principle applies at
 # package granularity here; at call-site granularity in no-unsafe-zod-parse.ts (GH #737) — same
 # principle, different files, neither duplicated.
@@ -40,7 +40,16 @@
 #           exists to catch).
 set -uo pipefail
 
-CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
+# The config ESLint itself loads from here: the first of its flat-config names that exists, in its
+# own lookup order (eslint.config.js wins over .mjs), eslint.config.mjs when there is none. The
+# install adds getff's block to a consumer's own eslint.config.js too (Q4.7, 2026-09-28).
+CFG="${ESLINT_CONFIG:-}"
+if [ -z "$CFG" ]; then
+  CFG=eslint.config.mjs
+  for _c in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts; do
+    if [ -f "$_c" ]; then CFG="$_c"; break; fi
+  done
+fi
 RULE="${AIF_ENFORCED_RULE:-rules-as-tests/no-unsafe-zod-parse}"
 
 # §807 multi-stack: a #793/#796 monorepo ships per-workspace eslint.config.mjs files and NO root
@@ -53,10 +62,23 @@ RULE="${AIF_ENFORCED_RULE:-rules-as-tests/no-unsafe-zod-parse}"
 # Capture an ABSOLUTE self-path BEFORE any cd so the `bash "$SELF"` re-exec survives `cd "$_wd"`
 # (and the child's r2-na-marker source resolves via its own absolute $0). (kickoff ⚑M1 / T-807-A)
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-if [ ! -f "$CFG" ] && [ -z "${ESLINT_CONFIG:-}" ]; then
+# The same holds under a root config that is the consumer's own (not in the baseline manifest) and
+# carries no RULE_GLOBS block and no getff custom rule — the same case check-rule-globs.sh recurses
+# on. ESLint lints each workspace with that workspace's config, so the workspace configs are the rule
+# layer there too; «no boundary tokens — skipped» on the root left them unchecked (cold-review F3 —
+# the lookup order made a consumer's root .cjs «the root config», where before this gate found no
+# root config and recursed).
+_own_root_without_globs() {
+  local k="${CFG#./}"
+  [ -f "$CFG" ] && ! grep -q 'RULE_GLOBS' "$CFG" \
+    && ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$CFG" \
+    && ! grep -qF "\"$k\":" .ai-factory/refresh-baseline.json 2>/dev/null
+}
+if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; }; then
   _ws_cfgs="$(find . \( -name node_modules -o -path '*/packages/core' \) -prune -o \
               -type f -name 'eslint.config.mjs' ! -path './eslint.config.mjs' -print 2>/dev/null)"
   if [ -n "$_ws_cfgs" ]; then
+    [ -f "$CFG" ] && echo "check-rule-enforced: $CFG is your own config with no RULE_GLOBS block — checking the workspace configs under it, which ESLint uses for their own files."
     _agg=0
     while IFS= read -r _wc; do
       [ -n "$_wc" ] || continue
@@ -72,7 +94,8 @@ $_ws_cfgs
 EOF
     exit "$_agg"
   fi
-  # No per-workspace configs either → fall through to the exit-2 guard (genuine "run from root" error).
+  # No per-workspace configs either → fall through: to the exit-2 guard when there is no root config
+  # (genuine "run from root" error), to the no-boundary-tokens skip below when it is the consumer's own.
 fi
 [ -f "$CFG" ] || { echo "check-rule-enforced: $CFG not found (run from the project root)" >&2; exit 2; }
 

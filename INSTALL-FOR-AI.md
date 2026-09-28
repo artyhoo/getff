@@ -85,7 +85,7 @@ Install getff into this project. Follow these steps exactly:
    - .ai-factory/DESCRIPTION.template.md + DESCRIPTION.md, ARCHITECTURE.ts-server.md + ARCHITECTURE.md, RULES.md, RULES.react-next.md (if applicable), AI-USAGE-GUIDE.md, tool-decisions.md, skill-context/{aif-review,aif-rules-check}/
    - AGENTS.md — written as a `getff:begin section=getff-framework` fenced block, so a root AGENTS.md another tool already generates is extended, never replaced
    - scripts/audit-ai-docs.sh (or .react-next.sh) + the check-\* gate scripts
-   - Configs in project root: eslint.config.mjs, vitest.config.ts, dependency-cruiser.cjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
+   - Configs in project root: eslint.config.mjs, vitest.config.ts, .dependency-cruiser.mjs, stryker.config.json, tsconfig.json, .nvmrc, .lintstagedrc.json
    - .husky/pre-commit, .husky/pre-push
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
@@ -345,7 +345,7 @@ project/
 ├── vitest.config.ts                   ← unit/integration/audit test discovery
 ├── tests/setup.ts                     ← vitest setup hook (skipped unless your tsconfig include covers tests/ — add "tests/**/*", re-run; the install-time ⚠ note says so)
 ├── stryker.config.json                ← mutation testing
-├── .dependency-cruiser.cjs            ← architectural rules
+├── .dependency-cruiser.mjs            ← architectural rules
 ├── .gitignore                         ← seed (node_modules/, dist/, coverage/, …); skipped when your own exists
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next
@@ -439,7 +439,7 @@ The three-layer model maps onto these patterns: Layer 1 ≈ the shareable preset
 
 ## Refreshing framework artefacts after an upgrade
 
-When the framework ships a fix (e.g. a corrected `agents/*.md`, an updated hook, or a revised skill), consumers who installed before the fix need a safe way to pull in the change without losing their own customisations.
+When the framework ships a fix (e.g. a corrected `agents/*.md`, an updated hook, or a revised skill), consumers who installed before the fix need a safe way to pull in the change without losing their own customisations. Removing getff from a project entirely is the inverse operation — `INSTALL.md § Uninstalling` walks it command by command.
 
 **Use `install.sh --refresh`** — an opt-in, stateless re-sync that overwrites the framework-owned set and respects the three-layer authority model:
 
@@ -476,10 +476,10 @@ Consumer-authored files are **never** in the refresh set — they are not framew
 | Layer                              | File state                                            | `--refresh` behaviour                                                           |
 | ---------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
 | **1. Framework default**           | File was never edited by the consumer                 | Overwrites to latest framework version                                          |
-| **2. Consumer in-place edit**      | Consumer edited the file directly (no `.override.md`) | **Also overwrites** — Layer-2 in-place edits are not preserved. See note below. |
+| **2. Consumer in-place edit**      | Consumer edited the file directly (no `.override.md`) | Depends on provenance: baselined + diverged → your copy preserved under `.ai-factory/refresh-conflicts/` + `⚠` line, then overwritten (`--dry-run` prints `would-flag`). **No baseline entry → copy preserved silently (no per-file line; one aggregate line per run), then overwritten.** See note below. |
 | **3. `.override.md` escape hatch** | Consumer created `<file>.override.md` sibling         | **Skips** — the base file is left untouched                                     |
 
-> **Note on Layer-2 edits:** `--refresh` is stateless (no hash stamp) and cannot distinguish a consumer-edited Layer-2 file from an unedited one. If you have edited a framework-owned file in place **without** using `.override.md`, run `--dry-run` first and rescue any customisations before applying. The recommended divergence path is to move your edits into `<file>.override.md` before refreshing — then `--refresh` is always safe to run.
+> **Note on Layer-2 edits:** a plain `--refresh` DOES detect an in-place edit for any file delivered under the refresh baseline (hashed at install and at each refresh): diverged bytes → your copy preserved under `.ai-factory/refresh-conflicts/` + a `⚠ overwriting locally-modified file` line, then the overwrite; `--dry-run` prints `would-flag` instead. A file with **no baseline entry** (pre-baseline installs, files getff never delivered) is also overwritten on first refresh, but your bytes are preserved under `.ai-factory/refresh-conflicts/` with no per-file line — one aggregate line per run reports the count; getff cannot tell such a file from its own older residue, which is why the `.override.md` escape hatch still exists. `--force` and skill-tree replaces guard baselined files the same way, with the same silent preserve and aggregate line for unbaselined diverged files. Either way: run `--dry-run` first, and keep standing customisations in `<file>.override.md` so `--refresh` is always safe.
 
 ### Refresh-safe divergence workflow
 
@@ -496,9 +496,7 @@ To diverge from a framework file AND keep `--refresh` safe:
 
 ### Editor coupling (Claude Code only)
 
-This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4.
-
-The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
+This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4. The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
 
 **Per layer, what a non-Claude-Code harness actually gets:**
 
@@ -509,7 +507,7 @@ The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json
 | 4 — skills (`.claude/skills/*`)                 | auto-activate on relevant queries | present on disk; do **not** auto-activate — read the `SKILL.md` when the topic comes up |
 | 5 — harness hooks (`.claude/settings.json`)     | activate automatically on install | inert; nothing above is affected                                                        |
 
-So the title's "Claude Code, Cursor, etc." (install + layers 1-4) and this section's "Claude Code-specific" (layer 5) are both true at their own altitude.
+So the title's "Claude Code, Cursor, etc." (install + layers 1-4) and this section's "Claude Code-specific" (layer 5) are both true at their own altitude. On ZCode specifically the plugin channel delivers skills + advisory-only PostToolUse gates and cannot execute sub-agents — per-hook parity census: <https://github.com/artyhoo/getff#as-a-zcode-plugin-per-harness>.
 
 ### Subscription requirement
 
@@ -543,6 +541,7 @@ After `bash install.sh` on a fresh project, these checks **fail intentionally** 
 | `npm run validate`              | typecheck: no `src/index.ts`                       | Empty src tree                         | Re-run after first source files                                                                                                                                                                                  |
 | `bash scripts/audit-ai-docs.sh` | R7: no `infrastructure/clock/`                     | Optional infrastructure                | Add when you need time injection                                                                                                                                                                                 |
 | `eslint .` (R8)                 | `require-otel-span` on async exports without spans | OTel not wired yet                     | Turn the rule off in your `eslint.config.mjs` if OTel isn't planned — that is the channel that actually stops it firing (the rule ships at `packages/core/eslint-rules/require-otel-span.ts`, `install.sh:1188`) |
+| `git push` (pre-push)           | R2 rule-glob liveness: matches ZERO source files    | Fresh layout, shipped globs miss it    | Widen `RULE_GLOBS.boundary` in your `eslint.config.mjs` to cover your layout — see `AI-USAGE-GUIDE.md` §3 «Daily cycle» (on push) and §3.1 «widening the globs»; the check ships as `scripts/check-rule-globs.sh` (prepush-claim: allow — the two backticked phrases name a failure reason and a guide cross-reference, not pre-push section ids) |
 
 If a check fails for a reason not in this table — **stop and report**, do not silently disable.
 

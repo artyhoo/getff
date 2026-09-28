@@ -10,6 +10,10 @@
 # O3: HIGHEST-RISK ordering item — must run AFTER 70-deps (ts-morph) and LAST (SKIPPED complete)
 # O2: reads _r2_verdict (from 60-ci) + DEPS_INSTALLED + DEVDEPS (from 70-deps)
 
+# GETFF_ADDED_TO is declared by install.sh; a caller that sources this file alone (the layer-units
+# test) may not have it, and the summary reads its length under set -u.
+[ -n "${GETFF_ADDED_TO+x}" ] || GETFF_ADDED_TO=()
+
 # ─── synth-wire: deterministic synthesizer → root eslint.config.mjs ─────────────
 # Runs synthesize() for the detected stack and AST-merges emitted rules-as-tests rules
 # (R12/R14/R20 for react-next) into the consumer's root eslint.config.mjs.  Idempotent:
@@ -21,7 +25,87 @@
 # Runs regardless of _r2_verdict (R12/R14/R20 are not boundary-gated like R2) and
 # honours --dry-run (writes nothing, prints what would change).
 # rc=0 on every branch — install must not abort on wirer failure.
-if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+#
+# A root config the CONSUMER owns (copy_safe kept an eslint.config.mjs, or it is an eslint.config.js
+# — the name ESLint loads first, so getff placed nothing beside it) gets getff's block added by
+# insertions only, the original kept at .ai-factory/before-getff/ whenever the write changes it
+# (operator decision Q4.7, 2026-09-28): the stack's rules-as-tests rules and a live-research snippet
+# (as for getff's own config), an ignores entry for the lintable files getff delivered, and — when
+# 60-ci found an HTTP boundary — a RULE_GLOBS block with R2 (_r2_own_globs), so check:globs has the
+# globs it reads. The config stays the consumer's: nothing records it in the refresh baseline. Any
+# part that does not land is named in the not-wired summary with its reason. Before Q4.7 the install
+# printed «add it by hand» here instead, and getff's rules stayed off in every such project.
+_synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
+# _ts_morph_why <it|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
+# install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
+# step's output above says why it did not.
+_ts_morph_why() {
+  if [ -n "${FULL:-}" ]; then
+    echo "adding $1 needs ts-morph, which this --full install's dev-dependency step did not put in node_modules (its output is above)"
+  else
+    echo "adding $1 needs ts-morph, which only a --full install puts in node_modules, and this install was not --full"
+  fi
+}
+_root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
+# _own_eslint_ignores — the lintable files getff delivered that its own configs ignore (the
+# templates' machinery ignores), one per line: never a directory the consumer might own too.
+_own_eslint_ignores() {
+  [ -f "$PROJECT_ROOT/eslint-rules-local/index.mjs" ] && echo 'eslint-rules-local/**'
+  local rel
+  for rel in packages/core/hooks/pre-push.bundle.mjs scripts/audit-r4.ts .dependency-cruiser.mjs \
+             vitest.config.ts playwright.config.ts .storybook/main.ts .storybook/preview.ts; do
+    getff_delivered "$PROJECT_ROOT/$rel" && echo "$rel"
+  done
+  return 0
+}
+if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
+   && ! getff_delivered "$PROJECT_ROOT/$_root_eslint"; then
+  _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
+  if [ "$_root_eslint" != eslint.config.js ] && [ "$_root_eslint" != eslint.config.mjs ]; then
+    # copy_unless_foreign already listed it as not wired (no ES-module flat config to add to).
+    echo "▶ synth-wire: $_root_eslint is your own config — getff adds its block only to an eslint.config.mjs or an ES-module eslint.config.js, so it is left as it is"
+  elif [ ! -f "$_synth_wirer" ]; then
+    echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
+    note_not_wired "getff's rules in $_root_eslint (your own config) — the synth-and-wire bundle is missing from this getff package ($_synth_wirer)"
+  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+    echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it needs ts-morph, which this install did not put in node_modules"
+    _own_what="getff's rules"
+    [ -z "${_r2_own_globs:-}" ] || _own_what="getff's rules, RULE_GLOBS and R2 (60-ci found an HTTP boundary)"
+    note_not_wired "$_own_what in $_root_eslint (your own config) — $(_ts_morph_why them)"
+  else
+    echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it (additions only; the original is kept if anything changes)"
+    _own_args=( --own-config --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$_root_eslint" )
+    while IFS= read -r _g; do [ -n "$_g" ] && _own_args+=( --ignore "$_g" ); done < <(_own_eslint_ignores)
+    while IFS= read -r _g; do [ -n "$_g" ] && _own_args+=( --r2-boundary "$_g" ); done <<< "${_r2_own_globs:-}"
+    [ -f "$_synth_live_snippet" ] && _own_args+=( --snippet "$_synth_live_snippet" )
+    _own_snap=""
+    if [ "$DRY_RUN" != "--dry-run" ]; then _own_snap=$(keep_original_snapshot "$PROJECT_ROOT/$_root_eslint") || _own_snap=""; fi
+    _own_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+        node "$_synth_wirer" "${_own_args[@]}" ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
+    printf '%s\n' "$_own_out"
+    # settle rc 1: the original could not be kept aside, so the write was undone (its warning above).
+    _own_undone=0
+    _own_kept=$(keep_original_settle "$PROJECT_ROOT/$_root_eslint" "$_own_snap") || _own_undone=1
+    if [ -n "$_own_kept" ]; then
+      echo "  · your original $_root_eslint is kept at ${_own_kept#"$PROJECT_ROOT"/}"
+      note_getff_added "$_root_eslint"
+    fi
+    if [ "$_own_undone" = 1 ]; then
+      note_not_wired "getff's rules in $_root_eslint (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
+    # rc 3: parts did not land — each is one «  · not wired: <what> — <why>» line of the output.
+    elif [ "$_sw_rc" -eq 3 ]; then
+      while IFS= read -r _l; do
+        case "$_l" in "  · not wired: "*) note_not_wired "${_l#  · not wired: } ($_root_eslint)" ;; esac
+      done <<< "$_own_out"
+    elif [ "$_sw_rc" -ne 0 ]; then
+      note_not_wired "getff's rules in $_root_eslint (your own config) — synth-and-wire exited $_sw_rc (output above)"
+    fi
+  fi
+  # The self-verify's «fences fire» claim (D1 below) is about this root config: when getff's rules
+  # did not land in it, that claim is not this install's to make — the same signal a .cjs/.ts root
+  # sets in copy_unless_foreign (cold-review F8).
+  grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null || ESLINT_ROOT_NOT_WIRED=1
+elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
   if [ ! -f "$_synth_wirer" ]; then
     echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
@@ -32,15 +116,22 @@ if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
     # correct framework payload dir (packages/core/) — import.meta.url collapses to
     # install/ under bundling (zero-dep Path-3, #755); env var is the load-bearing bridge.
     # rc 3 = the wirer ran but the rules did NOT land (unrecognised shape, or its post-write lint
-    # probe found ESLint could no longer use the config and restored it). Any other failure stays
-    # non-fatal as before — the install never aborts here.
-    ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+    # probe found ESLint could no longer use the config and restored it); each part is one
+    # «  · not wired: <what> — <why>» line, copied into the summary with its reason (Q4.7: no
+    # «add it by hand»). Any other failure stays non-fatal as before — the install never aborts here.
+    _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
         node "$_synth_wirer" \
           --stack "${STACK:-ts-server}" \
           --path "$PROJECT_ROOT/eslint.config.mjs" \
           ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
+    printf '%s\n' "$_sw_out"
     if [ "$_sw_rc" -eq 3 ]; then
-      note_not_wired "stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added (reason printed by synth-and-wire above); add it by hand"
+      _sw_listed=0
+      while IFS= read -r _l; do
+        case "$_l" in "  · not wired: "*) note_not_wired "${_l#  · not wired: }"; _sw_listed=1 ;; esac
+      done <<< "$_sw_out"
+      [ "$_sw_listed" -eq 1 ] \
+        || note_not_wired "stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added (reason printed by synth-and-wire above)"
     fi
   fi
 fi
@@ -63,7 +154,7 @@ fi
 # Gated on NO root config (mutually exclusive with the root block above — no double-wire).
 # Honours --dry-run; rc=0 on every branch — install must not abort on wirer failure.
 if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
-   && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+   && [ "$_root_eslint" != eslint.config.mjs ] && [ "$_root_eslint" != eslint.config.js ]; then
   _synth_wirer_ws="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
   _ws_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
   if [ ! -f "$_synth_wirer_ws" ]; then
@@ -80,14 +171,38 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
         # stack's live rule. Other-stack workspaces are delivered on their own ./setup <stack> run.
         [ "$_sw_stack" = "${STACK:-ts-server}" ] || continue
         while IFS= read -r -d '' _sw_cfg; do
-          echo "  · synth-wire (live): $_sw_cfg"
-          ( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
-              node "$_synth_wirer_ws" \
+          # A workspace config the consumer owns gets the root block's treatment (Q4.7): getff's
+          # block is added by insertions only and the original kept if the write changes it.
+          _sw_rel="${_sw_cfg#"$PROJECT_ROOT"/}"
+          _sw_own=()
+          _sw_snap=""
+          if getff_delivered "$_sw_cfg"; then
+            echo "  · synth-wire (live): $_sw_cfg"
+          else
+            echo "  · synth-wire (live): $_sw_rel is your own config — adding getff's block to it (additions only)"
+            _sw_own=( --own-config )
+            _sw_snap=$(keep_original_snapshot "$_sw_cfg") || _sw_snap=""
+          fi
+          _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+              node "$_synth_wirer_ws" ${_sw_own[@]+"${_sw_own[@]}"} \
                 --stack "${STACK:-ts-server}" \
                 --path "$_sw_cfg" \
                 --snippet "$_ws_snippet" 2>&1 ) && _sw_rc=0 || _sw_rc=$?
-          if [ "$_sw_rc" -eq 3 ]; then
-            note_not_wired "live-research rules in ${_sw_cfg#"$PROJECT_ROOT"/} — not added (reason printed by synth-and-wire above); add them by hand"
+          printf '%s\n' "$_sw_out"
+          _sw_undone=0
+          _sw_kept=$(keep_original_settle "$_sw_cfg" "$_sw_snap") || _sw_undone=1
+          if [ -n "$_sw_kept" ]; then
+            echo "  · your original $_sw_rel is kept at ${_sw_kept#"$PROJECT_ROOT"/}"
+            note_getff_added "$_sw_rel"
+          fi
+          if [ "$_sw_undone" = 1 ]; then
+            note_not_wired "live-research rules in $_sw_rel (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
+          elif [ "$_sw_rc" -eq 3 ] && [ "${#_sw_own[@]}" -gt 0 ]; then
+            while IFS= read -r _l; do
+              case "$_l" in "  · not wired: "*) note_not_wired "${_l#  · not wired: } ($_sw_rel)" ;; esac
+            done <<< "$_sw_out"
+          elif [ "$_sw_rc" -eq 3 ]; then
+            note_not_wired "live-research rules in $_sw_rel — not added (reason printed by synth-and-wire above)"
           fi
         done < <(find "$PROJECT_ROOT/$_sw_dir" \
           -name 'eslint.config.mjs' \
@@ -113,9 +228,9 @@ elif [ ! -f "$_rr_plan" ] || [ ! -f "$_rr_sel" ]; then
   echo ""
   echo "ℹ  Presets are the FALLBACK baseline — prefer live-research for fresh, stack-specific rules."
   echo "   No .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json found, so the shipped"
-  echo "   preset rules are your only stack fence this install. Run the rule-research protocol"
-  echo "   (agents/rule-researcher.md or the rule-research skill), then re-run ./setup --full to"
-  echo "   deliver live-researched rules into eslint.config.mjs (they augment + override the presets)."
+  echo "   preset rules are your only stack fence this install. Live-researched rules come from the"
+  echo "   rule-research protocol (agents/rule-researcher.md, the rule-research skill), which an install"
+  echo "   does not run; a --full install delivers its output into eslint.config.mjs when it is there."
 fi
 
 # ─── D4 (#811): preset staleness guard — frozen-snapshot vs installed-major WARN ───
@@ -132,96 +247,222 @@ fi
 
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
-# Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
-# when engine absent. rc=0 on every branch (lesson GH #531/#544).
-# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 patches
-# CONSUMER per-package eslint.config.mjs files that re-export a base lacking R2.
-if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
-   && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
-  _l2_degrade() {
-    echo "  · R2 not auto-wired: AST editor unavailable (Node or ts-morph not present)."
-    echo "    Add to <pkg>/eslint.config.mjs:"
-    echo "      export default [...base, { rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
-    echo "    (or run ./install.sh ts-server --full to install dev-deps and auto-wire)"
-  }
-  if ! command -v node >/dev/null 2>&1; then
-    _l2_degrade
-  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
-    _l2_degrade
-  else
-    _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
-    if [ ! -f "$_wirer" ]; then
-      echo "  · R2 Layer-2 wirer not found at $_wirer — skipped"
-    else
-      # Find per-package eslint.config.mjs files (not the root one, not node_modules)
-      _l2_configs=()
-      while IFS= read -r -d '' _cfg; do
-        _l2_configs+=("$_cfg")
-      done < <(find "$PROJECT_ROOT" \
-        -name 'eslint.config.mjs' \
-        ! -path "$PROJECT_ROOT/eslint.config.mjs" \
-        ! -path '*/node_modules/*' \
-        -print0 2>/dev/null)
-      if [ "${#_l2_configs[@]}" -eq 0 ]; then
-        : # no per-package configs — nothing to wire
-      else
-        echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
-        for _cfg in "${_l2_configs[@]}"; do
-          # rc=0 forced by || true — never abort install on wirer failure
-          ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer" \
-              --path "$_cfg" ${FULL:+--yes} 2>&1 ) || true
-        done
-      fi
+# Option A (migration-ast Stage 4): ensure-then-use; degrade when engine absent. rc=0 on every
+# branch (lesson GH #531/#544).
+# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 finds per-package
+# eslint.config.mjs files that re-export a base lacking R2, and wires only the ones getff placed.
+#
+# _r2_wire_cfg <abs-cfg> <wirer> — R2 wiring of one config, shared by Layer 2 and the per-workspace
+# block below. A config the consumer owns gets R2 added too (operator decision Q4.7, 2026-09-28),
+# but only for HTTP boundary code under that config's own directory — read the way 60-ci reads the
+# repo (detect-r2-boundary.sh; its globs are directory-agnostic, so they hold relative to the config)
+# — and scoped to it through RULE_GLOBS.boundary: a package with no boundary code gets nothing, since
+# R2 has nothing to guard there (cold-review F15). The wirer runs with --own-config, which adds R2 by
+# text insertions only in the consumer's prettier style (cold-review F1: the AST writer dropped the
+# consumer's comments and trailing commas) and names in a «  · not wired: » line anything it could
+# not add; the original is kept at .ai-factory/before-getff/ whenever the write changes it. rc=0 on
+# every branch — install must not abort on wirer failure.
+#
+# A config getff placed is written on every install, --full or not: the --full gate here was the
+# consent to edit a file the consumer wrote (install-ast-wiring spec Q5, 2026-06-17), and since
+# provenance (#1860) only getff's own files reach that branch — while its bytes are still the ones
+# getff left (getff_bytes_intact). One the consumer has edited since takes the own-config branch: its
+# content is theirs, and the AST writer re-prints the list it edits, dropping their comments. --install
+# makes the wirer report what did not land as a not-wired line, never as a snippet to add by hand (Q4.7).
+# getff_bytes_intact <abs-cfg> — exit 0 IFF <abs-cfg> still holds the bytes getff left in it: this run
+# staged it (the delivery itself), or its sha256 equals the refresh-baseline entry an earlier install
+# recorded (hashed at that install's end, after this post-processing). A getff_delivered file the
+# consumer edited since fails it — those bytes are theirs now — and so does an unknown one (no entry,
+# no jq, no sha256 tool): the safe side.
+getff_bytes_intact() {
+  local dst="$1" p cur
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
+}
+# _r2_getff_owned <abs-cfg> — exit 0 IFF getff placed <abs-cfg> and it still holds getff's bytes: the
+# config _r2_wire_cfg hands the wirer as getff's own; every other config takes the own-config branch.
+_r2_getff_owned() { getff_delivered "$1" && getff_bytes_intact "$1"; }
+_r2_wire_cfg() {
+  local cfg="$1" wirer="$2" rel dir out snap kept l
+  local args=()
+  rel="${cfg#"$PROJECT_ROOT"/}"
+  if getff_delivered "$cfg"; then
+    if getff_bytes_intact "$cfg"; then
+      out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --install 2>&1 ) || true
+      printf '%s\n' "$out"
+      _r2_note_outcome "$rel" "$out"
+      return 0
     fi
+    echo "  · R2: getff placed $rel, and it has been edited since — it is treated as your own config"
+  fi
+  dir=$(dirname "$cfg")
+  out=$(R2_DETECT_ROOT="$dir" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
+  while IFS= read -r l; do
+    case "$l" in glob:*) args+=( --boundary "${l#glob:}" ) ;; esac
+  done <<< "$out"
+  if [ "$(printf '%s\n' "$out" | head -1)" != boundary-present ] || [ "${#args[@]}" -eq 0 ]; then
+    echo "  · R2: no HTTP boundary code under ${dir#"$PROJECT_ROOT"/} — nothing for R2 to guard, so your $rel is left as it is"
+    return 0
+  fi
+  echo "  · R2: $rel is your own config — adding R2 for the HTTP boundary code under ${dir#"$PROJECT_ROOT"/} (additions only; the original is kept if anything changes)"
+  snap=$(keep_original_snapshot "$cfg") || snap=""
+  out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --own-config "${args[@]}" 2>&1 ) || true
+  printf '%s\n' "$out"
+  if ! kept=$(keep_original_settle "$cfg" "$snap"); then
+    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
+    return 0
+  fi
+  if [ -n "$kept" ]; then
+    echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
+    note_getff_added "$rel"
+  fi
+  _r2_note_outcome "$rel" "$out"
+  return 0
+}
+# _r2_note_outcome <rel> <wirer output> — the NOT wired summary for one run of the R2 wirer: each
+# «  · not wired: <what> — <why>» line the wirer printed, as it is, whether or not R2 itself landed;
+# and when R2 neither landed nor was there already and the wirer named nothing (a crash), the config,
+# pointing at the wirer's output above.
+_r2_note_outcome() {
+  local rel="$1" out="$2" l noted=""
+  while IFS= read -r l; do
+    case "$l" in "  · not wired: "*) note_not_wired "${l#  · not wired: }"; noted=1 ;; esac
+  done <<< "$out"
+  case "$out" in
+    *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
+    *) [ -n "$noted" ] || note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — the R2 wirer did not add it (its output is above)" ;;
+  esac
+  return 0
+}
+# When an R2 pass cannot run at all (no Node, no ts-morph, no wirer), each config it would have
+# changed is named in the «NOT wired» summary with the reason (operator decision Q4.7) — only those:
+# a config that already names R2 (getff's ts-server and react templates carry it) is not listed, and neither
+# is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
+# boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
+# reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
+# only a quoted rule id — a comment naming the rule is not a rule entry (simpleRulePresent).
+# _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
+_r2_boundary_under() {
+  local out
+  out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
+  [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
+}
+_r2_would_wire() {
+  if _r2_getff_owned "$1"; then
+    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
+    return
+  fi
+  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null && return 1
+  _r2_boundary_under "$(dirname "$1")"
+}
+# _r2_pass_blocker <wirer> — why the pass cannot run, on stdout; empty when it can.
+_r2_pass_blocker() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "adding it needs Node, which this install did not find on PATH"
+  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
+    _ts_morph_why it
+  elif [ ! -f "$1" ]; then
+    echo "the R2 wirer is missing from this getff package ($1)"
+  fi
+}
+# _r2_note_unwired <reason> <config>... — one summary line per config the pass would have changed.
+_r2_note_unwired() {
+  local why="$1" cfg rel
+  shift
+  for cfg in "$@"; do
+    _r2_would_wire "$cfg" || continue
+    rel="${cfg#"$PROJECT_ROOT"/}"
+    echo "  · R2: not added to $rel — $why"
+    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — $why"
+  done
+  return 0
+}
+if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
+   && { [ "$_root_eslint" = eslint.config.mjs ] || [ "$_root_eslint" = eslint.config.js ]; }; then
+  # Find per-package eslint.config.mjs files (not the root one, not node_modules)
+  _l2_configs=()
+  while IFS= read -r -d '' _cfg; do
+    _l2_configs+=("$_cfg")
+  done < <(find "$PROJECT_ROOT" \
+    -name node_modules -prune -o \
+    -name 'eslint.config.mjs' ! -path "$PROJECT_ROOT/eslint.config.mjs" -print0 2>/dev/null)
+  _wirer="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+  _r2_why=$(_r2_pass_blocker "$_wirer")
+  if [ "${#_l2_configs[@]}" -eq 0 ]; then
+    : # no per-package configs — nothing to wire
+  elif [ -n "$_r2_why" ]; then
+    _r2_note_unwired "$_r2_why" "${_l2_configs[@]}"
+  else
+    echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
+    for _cfg in "${_l2_configs[@]}"; do
+      _r2_wire_cfg "$_cfg" "$_wirer"
+    done
   fi
 fi
 
 # §13.5 I-2 L2: R2 per-workspace wiring for multi-stack monorepos (SSOT #182).
 # The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
-# monorepo there is NO root config; this block wires R2 into ts-server workspace configs only.
+# monorepo there is NO root config; this block wires R2 into the configs of the workspaces whose
+# getff preset carries R2 — ts-server, react-next, react-spa, the three 60-ci.sh adds it to in a flat
+# repo's own config. The react-native preset ships no R2, so there is nothing to add to one.
 # No --scope: workspace-local config placement already scopes ESLint to that workspace — a
 # dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
 # making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
 # Scope source = _detect_stacks_per_workspace detection map, NOT recipe appliesTo (T-MS-A).
-if [ "$DRY_RUN" != "--dry-run" ] && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+if [ "$DRY_RUN" != "--dry-run" ] \
+   && [ "$_root_eslint" != eslint.config.mjs ] && [ "$_root_eslint" != eslint.config.js ]; then
   _ws_map_r2=$(_detect_stacks_per_workspace "$PROJECT_ROOT")
-  if [ -n "$_ws_map_r2" ]; then
-    if ! command -v node >/dev/null 2>&1 || \
-       [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
-      echo "  · R2 per-workspace: Node/ts-morph not available — add R2 manually to ts-server workspace configs"
+  _ws_r2_configs=()
+  while IFS=$'\t' read -r _ws_dir _ws_stack; do
+    [ -n "$_ws_dir" ] || continue
+    case "$_ws_stack" in
+      ts-server|react-next|react-spa)
+        # Every eslint.config.mjs within this workspace: the ones getff placed, and one the consumer
+        # owns (40-configs.sh kept it) — _r2_wire_cfg adds R2 to that only for HTTP boundary code under it.
+        while IFS= read -r -d '' _ws_cfg; do
+          _ws_r2_configs+=("$_ws_cfg")
+        done < <(find "$PROJECT_ROOT/$_ws_dir" \
+          -name node_modules -prune -o -name 'eslint.config.mjs' -print0 2>/dev/null)
+        ;;
+      unknown)
+        echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
+        # Named in the summary only when there is HTTP boundary code under it and no config there
+        # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
+        # its root fallback; a comment naming the rule is not a rule entry).
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
+           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
+                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
+          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
+        fi
+        ;;
+      *)
+        : # react-native: its preset ships no R2 — nothing to add (60-ci.sh leaves a flat repo's alike)
+        ;;
+    esac
+  done <<< "$_ws_map_r2"
+  if [ "${#_ws_r2_configs[@]}" -gt 0 ]; then
+    _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
+    _r2_why=$(_r2_pass_blocker "$_wirer_ws")
+    if [ -n "$_r2_why" ]; then
+      _r2_note_unwired "$_r2_why" "${_ws_r2_configs[@]}"
     else
-      _wirer_ws="$PKG_ROOT/packages/core/install/wire-eslint-r2.ts"
-      if [ ! -f "$_wirer_ws" ]; then
-        echo "  · R2 per-workspace: wirer not found at $_wirer_ws — skipped"
-      else
-        echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
-        while IFS=$'\t' read -r _ws_dir _ws_stack; do
-          [ -n "$_ws_dir" ] || continue
-          case "$_ws_stack" in
-            ts-server)
-              # Wire R2 into every eslint.config.mjs within this workspace.
-              # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
-              # scoping is already provided by config placement — a dir-prefixed files: glob
-              # inside a workspace-local config would be relative to that config's own dir,
-              # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
-              while IFS= read -r -d '' _ws_cfg; do
-                echo "  · R2 wiring: $_ws_cfg"
-                ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer_ws" \
-                    --path "$_ws_cfg" ${FULL:+--yes} 2>&1 ) || true
-              done < <(find "$PROJECT_ROOT/$_ws_dir" \
-                -name 'eslint.config.mjs' \
-                ! -path '*/node_modules/*' \
-                -print0 2>/dev/null)
-              ;;
-            unknown)
-              echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
-              ;;
-            *)
-              : # react-native / react-next / react-spa: R2 is a server-boundary rule; not wired per-workspace
-              ;;
-          esac
-        done <<< "$_ws_map_r2"
-      fi
+      echo "▶ R2 per-workspace: scoped wiring (multi-stack monorepo)"
+      # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
+      # scoping is already provided by config placement — a dir-prefixed files: glob
+      # inside a workspace-local config would be relative to that config's own dir,
+      # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
+      for _ws_cfg in "${_ws_r2_configs[@]}"; do
+        if getff_delivered "$_ws_cfg"; then echo "  · R2 wiring: $_ws_cfg"; fi
+        _r2_wire_cfg "$_ws_cfg" "$_wirer_ws"
+      done
     fi
   fi
 fi
@@ -239,7 +480,7 @@ elif [ -f "$PROJECT_ROOT/package.json" ] && \
      [ "${AIF_STRICT_RUNTIME:-}" != "1" ]; then
   echo ""
   echo "⚠  Detected @opentelemetry/* but AIF_STRICT_RUNTIME is unset — R8 (require-otel-span) will not fire."
-  echo "   Set AIF_STRICT_RUNTIME=1 to arm runtime-discipline rules (R7/R8)."
+  note_not_wired "R8 (require-otel-span) and R7 — not armed: @opentelemetry/* is in package.json but AIF_STRICT_RUNTIME is unset, and getff does not arm the runtime-discipline rules on its own"
 fi
 
 # GH #531 (reopen): ignore the framework configs we shipped FRESH (consumer-owned ones stay checked).
@@ -299,9 +540,10 @@ else
   # untouched — the gate's own default (auto-strict only under CI) applies.
   _FF_SCRIPT="$PROJECT_ROOT/scripts/check-fences-fire.sh"
   if [ -n "${ESLINT_ROOT_NOT_WIRED:-}" ]; then
-    # The consumer's own ESLint config is kept (copy_unless_foreign): the fences are not in their
-    # lint, so «fences fire» is not this install's to claim — and not a failure either.
-    echo "  · fences-fire: skipped — eslint.config.mjs was not placed, your own ESLint config is kept (see NOT wired below)"
+    # getff's rules are not in the consumer's own root ESLint config (a .cjs/.ts one, or a block that
+    # did not land): the fences are not in their lint, so «fences fire» is not this install's to
+    # claim — and not a failure either.
+    echo "  · fences-fire: skipped — getff's rules are not in your own root ESLint config (see NOT wired below)"
     _isv_skip "fences-fire (not wired)"
   elif [ -x "$_FF_SCRIPT" ]; then
     # GH #976: this is a --full install self-verify (the capstone only runs on FULL), so a
@@ -384,7 +626,7 @@ else
   if [ "$_ISV_FAIL" -gt 0 ]; then
     _isv_fail_tail=""
     [ "$_ISV_SKIP" -gt 0 ] && _isv_fail_tail=", $_ISV_SKIP skipped"
-    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — review output above before committing"
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — the failing check's output is above"
   elif [ "$_ISV_SKIP" -gt 0 ]; then
     # No failures, but ≥1 check never ran — DO NOT claim the three properties. Skipped checks
     # are unproven, not proven-good.
@@ -399,20 +641,33 @@ else
 fi
 
 # ─── Done ───────────────────────────────────────────────
+# Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
+# step. Each NOT-wired line names what was left undone and why; nothing here tells them what to do.
 if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
   echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why and what to do:"
+  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
   printf '      - %s\n' "${NOT_WIRED[@]}"
   echo ""
 fi
-if [ ${#SKIPPED[@]} -gt 0 ]; then
+# A consumer-owned config that got getff's block (Q4.7) was copy_safe-skipped earlier, so it sits in
+# SKIPPED too — but it was not left as it was. List it apart, never under «skipped».
+_skipped_left=()
+for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
+  _sk_added=""
+  for _ga in ${GETFF_ADDED_TO[@]+"${GETFF_ADDED_TO[@]}"}; do
+    [ "$_sk" = "$PROJECT_ROOT/$_ga" ] && _sk_added=1
+  done
+  [ -n "$_sk_added" ] || _skipped_left+=( "$_sk" )
+done
+if [ "${#GETFF_ADDED_TO[@]}" -gt 0 ]; then
   echo ""
-  echo "⚠  ${#SKIPPED[@]} files were skipped because they already exist."
-  echo "    Your project may now have a configuration that diverges from the framework's expectations."
-  echo "    To overwrite them: re-run with --force"
-  echo "    To preview what would change: re-run with --dry-run --force"
-  echo "    Skipped paths:"
-  printf '      - %s\n' "${SKIPPED[@]}"
+  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
+  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
+fi
+if [ "${#_skipped_left[@]}" -gt 0 ]; then
+  echo ""
+  echo "·  ${#_skipped_left[@]} file(s) already existed and were left as they are — getff does not overwrite a project's files:"
+  printf '      - %s\n' "${_skipped_left[@]#"$PROJECT_ROOT"/}"
   echo ""
 fi
 
@@ -434,9 +689,8 @@ if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "✅ Dry-run complete. Nothing was written."
 elif [ -n "$_deps_incomplete" ]; then
   echo "⚠  Installation finished, but dependencies did NOT fully install — the shipped ESLint/test"
-  echo "    toolchain is not usable yet. This is NOT a full success (see step 4 below to complete it,"
-  echo "    or re-run \`./install.sh ${STACK:-ts-server} --full\`). Exiting non-zero so this is not"
-  echo "    mistaken for a green install."
+  echo "    toolchain is not usable yet (the NOT wired list above says why). This is NOT a full"
+  echo "    success. Exiting non-zero so this is not mistaken for a green install."
 elif [ "${_ISV_FAIL:-0}" -gt 0 ]; then
   # critical-review S4-8: a failed self-verify used to end here as «complete», rc 0 — so
   # `npx getff init -y` in CI or from an agent read green while a shipped rule stayed silent.
@@ -446,43 +700,57 @@ else
   echo "✅ Installation complete."
 fi
 echo ""
-echo "Next steps:"
-echo "  1. Review/edit the generated .ai-factory/DESCRIPTION.md (project domain, stack, constraints)"
-echo "  2. Review/edit the generated .ai-factory/ARCHITECTURE.md (layer structure, dependency direction)"
-echo "  3. Edit AGENTS.md placeholders to match your project"
-if [ "${DEPS_INSTALLED:-}" = "1" ]; then
-  echo "  4. ✓ Dev + runtime dependencies installed into node_modules/ — nothing to do."
-else
-  # step 4 fallback: the manual dep-install (run only when --full/[y/N] consent was not given, or
-  # the install ran but didn't fully succeed). Built from the SAME DEVDEPS/RUNTIME_DEPS arrays the
-  # installer uses (setup.d/70-deps.sh) → the list cannot drift from what we install (#two-prompts-drift).
-  # The npm arm mirrors §8's $NPM_PEER_FLAG (react-native a11y-peer ERESOLVE workaround, set in
-  # 70-deps.sh) for the same reason: a copy-pasted RN command without it aborts on the very
-  # ERESOLVE the automated install avoids. `:+` expansion keeps set -u safety + no trailing space.
-  case "$(detect_pm)" in
-    pnpm) _add="pnpm add -D"; _add_rt="pnpm add" ;;
-    yarn) _add="yarn add -D"; _add_rt="yarn add" ;;
-    *)    _add="npm install --save-dev${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}"; _add_rt="npm install${NPM_PEER_FLAG:+ $NPM_PEER_FLAG}" ;;
-  esac
-  echo "  4. Install dependencies (or re-run: ./install.sh ${STACK:-ts-server} --full):"
+# What the install checked itself — facts, never a to-do list (Q4.7). This block used to be
+# «Next steps»: review/edit three files, a copy-paste dependency command, «verify git hooks», «run
+# audit-ai-docs.sh — should PASS», «run npm run validate». Each is now either checked here or, when
+# the install could not do it, a NOT-wired line above with its reason.
+if [ "$DRY_RUN" != "--dry-run" ]; then
+  echo "Checked by the install:"
+  _hp_now=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
+  # .husky (set by 50-hooks) and .husky/_ (husky v9, kept by 50-hooks) both run .husky/<hook>; a
+  # blocker (the consumer's own hooksPath, a subdirectory install) is the only «not active».
+  if [ -z "${HUSKY_HOOKS_BLOCKED:-}" ] && { [ "$_hp_now" = ".husky" ] || [ "$_hp_now" = ".husky/_" ]; }; then
+    echo "  ✓ git hooks active — core.hooksPath=$_hp_now"
+  else
+    echo "  · git hooks — not active (NOT wired above)"
+  fi
+  # Only the script getff placed: a scripts/audit-ai-docs.sh the project already had is its own
+  # code (copy_safe kept it), and the install does not run a project's code.
+  if [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ] && ! getff_delivered "$PROJECT_ROOT/scripts/audit-ai-docs.sh"; then
+    echo "  · scripts/audit-ai-docs.sh — not run: the file is the project's own (it existed before the install), and the install does not run a project's code"
+  elif [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ]; then
+    _aud_out=$( cd "$PROJECT_ROOT" && bash scripts/audit-ai-docs.sh 2>&1 ) && _aud_rc=0 || _aud_rc=$?
+    _aud_sum=$(printf '%s\n' "$_aud_out" | sed -n 's/^Audit complete: //p' | tail -1)
+    if [ "$_aud_rc" -eq 0 ] && [ -n "$_aud_sum" ]; then
+      echo "  ✓ scripts/audit-ai-docs.sh — $_aud_sum"
+    else
+      echo "  ✗ scripts/audit-ai-docs.sh — ${_aud_sum:-exited $_aud_rc}:"
+      # awk, not grep: a grep that selects nothing exits 1, and under set -euo pipefail that ended
+      # a finished install (cold review M1, 2026-09-28).
+      printf '%s\n' "$_aud_out" | awk '/FAIL/ && !/^Audit complete/ { print "      " $0 }'
+    fi
+  fi
+  if [ "${DEPS_INSTALLED:-}" = "1" ]; then
+    echo "  ✓ dev + runtime dependencies installed into node_modules/"
+  elif [ -f "$PROJECT_ROOT/package.json" ]; then
+    echo "  · dependencies — not installed (NOT wired above)"
+  fi
+  # Only the files placed in this run: one the project already had was kept, and it is not a template.
+  _placed_docs=""
+  for _pd in .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md AGENTS.md; do
+    [ -f "$PROJECT_ROOT/$_pd" ] || continue
+    _pd_kept=""
+    for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do [ "$_sk" = "$PROJECT_ROOT/$_pd" ] && _pd_kept=1; done
+    [ -n "$_pd_kept" ] || _placed_docs="${_placed_docs:+$_placed_docs, }$_pd"
+  done
+  if [ -n "$_placed_docs" ]; then
+    echo "  · $_placed_docs — placed from getff's templates; their project-specific parts"
+    echo "    (domain, layers, conventions) are placeholders an install cannot know"
+  fi
+  echo "  · npm run validate — not run: it runs this project's own lint, typecheck and tests, whose result"
+  echo "    is about the project's code, not about what the install placed"
   echo ""
-  # `[*]-` (default-empty) = bash-3.2-safe under set -u when the array is empty/unset (macOS
-  # ships 3.2); non-empty output is byte-identical. Real installs always reach here with both
-  # arrays populated by 70-deps.sh — the guard covers minimal-scope sourcing (layer-units test).
-  echo "     $_add \\"
-  printf '       %s\n' "${DEVDEPS[*]-}"
-  echo ""
-  echo "     $_add_rt \\"
-  printf '       %s\n' "${RUNTIME_DEPS[*]-}"
 fi
-if [ "${HUSKY_HOOKSPATH_OWNED:-1}" = "0" ] && [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)" != ".husky/_" ]; then
-  echo "  5. Git hooks: NOT activated — the NOT wired list above says why and gives the command"
-else
-  echo "  5. Verify git hooks: 'git config core.hooksPath' should print .husky (install activated it; do NOT run 'npx husky init' — it would clobber the shipped .husky/pre-commit + pre-push)"
-fi
-echo "  6. Run: ./scripts/audit-ai-docs.sh — should PASS"
-echo "  7. Run: npm run validate"
-echo ""
 echo "For full guide: see INSTALL.md"
 
 # GH #974: honest non-zero exit on a --full install whose deps did not fully land (banner above
