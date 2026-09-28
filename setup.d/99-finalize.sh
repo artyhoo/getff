@@ -33,26 +33,11 @@
 # printed «add it by hand» here instead, and getff's rules stayed off in every such project.
 #
 # A config getff placed is getff's only while its bytes are still the ones getff left
-# (getff_bytes_intact). One the consumer has edited since takes the own-config branch too: its
-# content is theirs, and the AST writer of getff's branch re-prints the list it appends to — a
-# comment on the consumer's last entry swallowed the new blocks, so the rule never reached ESLint.
-# getff_bytes_intact <abs-cfg> — exit 0 IFF <abs-cfg> still holds the bytes getff left in it: this run
-# staged it (the delivery itself), or its sha256 equals the refresh-baseline entry an earlier install
-# recorded (hashed at that install's end, after this post-processing). A getff_delivered file the
-# consumer edited since fails it — those bytes are theirs now — and so does an unknown one (no entry,
-# no jq, no sha256 tool): the safe side.
-getff_bytes_intact() {
-  local dst="$1" p cur
-  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
-    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
-    [ "$p" = "$dst" ] && return 0
-  done
-  [ -f "$dst" ] || return 1
-  _refresh_baseline_lookup "$dst"
-  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
-  cur=$(_hash256 "$dst") || return 1
-  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
-}
+# (getff_bytes_intact, setup.d/lib.sh). One the consumer has edited since takes the own-config
+# branch too: its content is theirs, and the AST writer of getff's branch re-prints the list it
+# appends to — a comment on the consumer's last entry swallowed the new blocks, so the rule never
+# reached ESLint. A write on getff's branch stages the config again (refresh_baseline_stage), so the
+# bytes it leaves are read as getff's on the next install too.
 _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
 # _ts_morph_why <it|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
 # install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
@@ -63,6 +48,17 @@ _ts_morph_why() {
   else
     echo "adding $1 needs ts-morph, which only a --full install puts in node_modules; re-run the install with --full and getff adds $1"
   fi
+}
+# _getff_rules_in <rel-cfg> — exit 0 IFF the stack's rules and the live snippet's are all in <rel-cfg>
+# already: getff's wirer on getff's branch, as a dry-run — a string check that needs no ts-morph and
+# writes nothing. Any other answer, or a wirer that cannot run, is a «no».
+_getff_rules_in() {
+  local out
+  out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
+      node "$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs" \
+        --stack "${STACK:-ts-server}" --path "$PROJECT_ROOT/$1" --dry-run 2>&1 ) || return 1
+  case "$out" in *"all synthesized rules already present in"*|*"synthesizer emitted no rules"*) return 0 ;; esac
+  return 1
 }
 _root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
 # _root_edited=1: getff placed the root config, and the consumer has edited it since.
@@ -93,6 +89,11 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
   elif [ ! -f "$_synth_wirer" ]; then
     echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"
     note_not_wired "getff's rules in $_root_eslint (your own config) — the synth-and-wire bundle is missing from this getff package ($_synth_wirer)"
+  elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ] && [ -n "$_root_edited" ] \
+       && [ -z "${_r2_own_globs:-}" ] && _getff_rules_in "$_root_eslint"; then
+    # Nothing can be inserted without ts-morph, and nothing needs to be: getff's rules came with its
+    # template and are still in the consumer's edit (as are its ignores), so there is no gap to report.
+    echo "▶ synth-wire: getff's rules are already in $_root_eslint — nothing to add"
   elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
     echo "▶ synth-wire: $_root_eslint is your own config — adding getff's block to it needs ts-morph, which this install did not put in node_modules"
     _own_what="getff's rules"
@@ -124,10 +125,10 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
       note_not_wired "getff's rules in $_root_eslint (your own config) — synth-and-wire exited $_sw_rc (output above)"
     fi
   fi
-  # The self-verify's «fences fire» claim (D1 below) is about this root config: when getff's rules
-  # did not land in it, that claim is not this install's to make — the same signal a .cjs/.ts root
-  # sets in copy_unless_foreign (cold-review F8).
-  grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null || ESLINT_ROOT_NOT_WIRED=1
+  # D1 below claims «fences fire» for this root config: when getff's rules did not land in it, that is
+  # not this install's to claim (cold-review F8; a .cjs/.ts root sets the same in copy_unless_foreign).
+  # An edited getff config still holds getff's fences, as on getff's branch before, so D1 checks it.
+  [ -n "$_root_edited" ] || grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null || ESLINT_ROOT_NOT_WIRED=1
 elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
   if [ ! -f "$_synth_wirer" ]; then
@@ -142,12 +143,17 @@ elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]
     # probe found ESLint could no longer use the config and restored it); each part is one
     # «  · not wired: <what> — <why>» line, copied into the summary with its reason (Q4.7: no
     # «add it by hand»). Any other failure stays non-fatal as before — the install never aborts here.
+    _root_getff=""
+    getff_delivered "$PROJECT_ROOT/eslint.config.mjs" && getff_bytes_intact "$PROJECT_ROOT/eslint.config.mjs" \
+      && _root_getff=1
     _sw_out=$( cd "$PROJECT_ROOT" && AIF_SYNTH_PKG_ROOT="$PKG_ROOT/packages/core" \
         node "$_synth_wirer" \
           --stack "${STACK:-ts-server}" \
           --path "$PROJECT_ROOT/eslint.config.mjs" \
           ${DRY_RUN:+--dry-run} 2>&1 ) && _sw_rc=0 || _sw_rc=$?
     printf '%s\n' "$_sw_out"
+    # What the wirer left in getff's intact config is getff's too (no-op under --dry-run).
+    [ -z "$_root_getff" ] || refresh_baseline_stage "$PROJECT_ROOT/eslint.config.mjs"
     if [ "$_sw_rc" -eq 3 ]; then
       _sw_listed=0
       while IFS= read -r _l; do
@@ -221,6 +227,7 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
                 --path "$_sw_cfg" \
                 --snippet "$_ws_snippet" 2>&1 ) && _sw_rc=0 || _sw_rc=$?
           printf '%s\n' "$_sw_out"
+          [ -z "$_sw_getff" ] || refresh_baseline_stage "$_sw_cfg"   # what getff's branch left is getff's
           _sw_undone=0
           _sw_kept=$(keep_original_settle "$_sw_cfg" "$_sw_snap") || _sw_undone=1
           [ -z "$_sw_kept" ] || echo "  · your original $_sw_rel is kept at ${_sw_kept#"$PROJECT_ROOT"/}"
@@ -298,7 +305,7 @@ fi
 # getff left (getff_bytes_intact). One the consumer has edited since takes the own-config branch: its
 # content is theirs, and the AST writer re-prints the list it edits, dropping their comments. --install
 # makes the wirer report what did not land as a not-wired line, never as a snippet to add by hand (Q4.7).
-# getff_bytes_intact is defined with the root synth-wire above, its first caller.
+# getff_bytes_intact is defined in setup.d/lib.sh, the content twin of getff_delivered.
 # _r2_getff_owned <abs-cfg> — exit 0 IFF getff placed <abs-cfg> and it still holds getff's bytes: the
 # config _r2_wire_cfg hands the wirer as getff's own; every other config takes the own-config branch.
 _r2_getff_owned() { getff_delivered "$1" && getff_bytes_intact "$1"; }
@@ -310,6 +317,7 @@ _r2_wire_cfg() {
     if getff_bytes_intact "$cfg"; then
       out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --install 2>&1 ) || true
       printf '%s\n' "$out"
+      refresh_baseline_stage "$cfg"   # what the wirer left in getff's intact config is getff's too
       _r2_note_outcome "$rel" "$out"
       return 0
     fi
