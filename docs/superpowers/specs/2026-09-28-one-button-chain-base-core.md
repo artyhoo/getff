@@ -32,7 +32,8 @@ concrete rule a project gets for its stack (an ESLint rule, a ruff rule, a depen
 core even when the principle ships: a consumer project gets its own generated check.
 
 **Ships today** — measured on the react-spa greenfield fingerprint
-(`tests/install-sh/baselines/react-spa/greenfield.fingerprint`, 202 files):
+(`tests/install-sh/baselines/react-spa/greenfield.fingerprint`, 188 files after the staging merge
+`21fbbacde1f`; the pre-push checks now ship as one bundle, `packages/core/hooks/pre-push.bundle.mjs`):
 
 - `check` — ships with something that fails or injects at run time;
 - `partial` — ships, but with a named gap (opt-in, one stack only, or incomplete);
@@ -115,7 +116,7 @@ skill names TypeScript tools today (§9 F3).
 | C11 | Docs, rules and research carry a date and are re-checked when their source changes | `check-docs-refresh.mjs`; audit-ai-docs | partial: the refresh check does not ship |
 | C12 | A doc changes in the same change as the code it describes | operator global CLAUDE.md «Update project docs after any significant changes»; ai-traps lesson 5 | partial: drift is caught by C1 |
 | C13 | Frozen and append-only records are not rewritten | doc-authority-hierarchy `#frozen-doc-still-edited` | no |
-| C14 | A capability that does not ship is named with an owner and a trigger, never described as if it existed | AI-USAGE-GUIDE §5 (`:289-291`) | prose |
+| C14 | A capability that does not ship is named with an owner and a trigger, never described as if it existed | AI-USAGE-GUIDE §6 (`:291`) | prose |
 | C15 | Config holds no TODO; stale working files are archived | doc-organization `:236`, `:349`; ai-traps lesson 3 | prose |
 | C16 | Only MCP servers in active use stay installed: each one costs system-prompt tokens | doc-organization `:279` | prose |
 | C17 | The goal is stated once; the method is not the goal; a doc that contradicts the goal has drifted | `README.md:40-41`; session-bootstrap `:9`, `:13` | partial: `inject-project-digest.sh` with an empty bootstrap template |
@@ -224,7 +225,7 @@ What holds §3 in a consumer project and ships for that reason:
 - hooks: `ask-question-reminder`, `end-of-turn-reminder`, `inject-matching-rule`,
   `inject-project-digest`, `inject-memory-codification`, `inject-output-language`,
   `check-doc-authority-header`, `deps-hash-check`;
-- pre-commit and pre-push (`.husky/*`, `packages/core/hooks/*`) with the checks `prior-art`,
+- pre-commit and pre-push (`.husky/*`, `packages/core/hooks/pre-push.bundle.mjs`) with the checks `prior-art`,
   `guard-liveness`, `cmd-script-liveness`, `unpinned-tool-install`, `s17`, `docs-card`;
 - scripts: `audit-ai-docs.sh`, `check-rule-enforced.sh`, `check-rule-globs.sh`,
   `check-lintstaged-resolves.sh`, `check-arch-boundaries.sh`, `check-fences-fire.sh`,
@@ -332,7 +333,7 @@ Principle tests (`packages/core/principles/`), all internal as tests:
   review 102 (F8).
 - **F2.** 21 principles do not reach a consumer at all and 39 ship as prose only; 32 ship partly —
   opt-in, one stack only, or with a named gap. Most of groups D and E arrive only inside agent
-  protocols: the `.claude/rules/` corpus does not ship (`setup.d/10-skills.sh:331`).
+  protocols: the `.claude/rules/` corpus does not ship (`setup.d/10-skills.sh:341`).
 - **F3.** The shipped getff skill mixes base principles with TypeScript tools (ESLint,
   dependency-cruiser, Stryker, Vitest) in the same lines. Under P18 the layers are base and the
   tools are generated per stack, so the skill splits along that line.
