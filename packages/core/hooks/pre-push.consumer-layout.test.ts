@@ -61,6 +61,12 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import {
+  CANON_PHRASE,
+  DOWNSTREAM_DOCS,
+  GOAL_POINTER,
+  GOAL_POINTER_DOCS,
+} from '../audit-self/audit-ai-docs.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -1777,6 +1783,65 @@ describe(
       expect(out, out).toContain(
         `${basename(dir)}/.ai-factory/synthesizer-output/rules-manifest-additions.json`,
       );
+    });
+
+    // ── §3 audit-ai-docs LIVE on the repo itself (2026-09-28) ────────────────────
+    // The section used to run only the auditor's fixture tests: the auditor never ran on
+    // the repo that ships it, and its first live run found D3 + D5 failures that had sat
+    // unread since #1228 / #1420. These arms copy the REAL auditor (both implementations)
+    // into a maintainer-layout sandbox and drive the section through the PREPUSH_ONLY seam.
+    // The fixture test file is deliberately NOT copied, so only the live arm runs.
+    function plantLiveAuditLayout(dir: string): void {
+      const dst = join(dir, 'packages/core/audit-self');
+      mkdirSync(dst, { recursive: true });
+      for (const f of ['audit-ai-docs.sh', 'audit-ai-docs.ts']) {
+        cpSync(resolve(REPO_ROOT, 'packages/core/audit-self', f), join(dst, f));
+      }
+      // Every enrolled goal-bearing doc, so D3 holds; a pointer doc carries the link.
+      for (const doc of DOWNSTREAM_DOCS) {
+        const p = join(dir, doc);
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(
+          p,
+          GOAL_POINTER_DOCS.includes(doc)
+            ? `[goal](${GOAL_POINTER})\n`
+            : `Goal: ${CANON_PHRASE}.\n`,
+        );
+      }
+      execSync('git add -A', { cwd: dir });
+      execSync('git commit -q -m "chore: goal docs + auditor"', { cwd: dir });
+    }
+
+    it('audit-ai-docs live POSITIVE — every goal-bearing file enrolled → the section passes and reports the live run', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantLiveAuditLayout(dir);
+
+      const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(0);
+      // Both implementations ran — a section that silently skipped the live arm would
+      // also exit 0, so the pass line is what makes this positive non-vacuous.
+      expect(out, out).toMatch(/audit-ai-docs\.sh live: Audit complete: \d+ PASS, 0 FAIL/);
+      expect(out, out).toMatch(/audit-ai-docs\.ts live: Audit complete: \d+ PASS, 0 FAIL/);
+    });
+
+    it('audit-ai-docs live NEGATIVE — an unenrolled file restating the goal blocks the push', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantLiveAuditLayout(dir);
+      addConsumerCommit(
+        dir,
+        'docs/new-goal-copy.md',
+        `We exist so ${CANON_PHRASE}.\n`,
+        'docs: restate the goal somewhere new',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/audit-ai-docs\.sh FAILED on this repo/);
+      expect(out, out).toContain('docs/new-goal-copy.md');
     });
   },
 );

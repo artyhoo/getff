@@ -1146,6 +1146,20 @@ function auditAiDocsSection() {
     if (r.exitCode !== 0) die("\u274C audit-ai-docs.test.ts failed:", r);
     emit(r);
   }
+  if (existsSync2(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
+    const live = [
+      ["audit-ai-docs.sh", "bash", ["packages/core/audit-self/audit-ai-docs.sh"]],
+      ["audit-ai-docs.ts", "npx", ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]]
+    ];
+    for (const [label, cmd, args] of live) {
+      const r = run(cmd, args);
+      if (r.notFound) die(`\u274C ${cmd} not found \u2014 cannot run ${label} live`);
+      if (r.exitCode !== 0) die(`\u274C ${label} FAILED on this repo:`, r);
+      const summary = r.stdout.split("\n").find((l) => l.startsWith("Audit complete:")) ?? "(no summary line)";
+      process.stdout.write(`\u2713 ${label} live: ${summary}
+`);
+    }
+  }
 }
 function skillDriftSection() {
   if (existsSync2(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
