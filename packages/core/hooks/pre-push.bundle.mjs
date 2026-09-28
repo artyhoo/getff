@@ -1640,15 +1640,34 @@ function lineCitationsSection(ctx) {
     return;
   const changed = getChangedFiles(rb.base, "ACMR", rb.head);
   if (changed.length === 0) return;
-  const r = run("node", [
-    "scripts/check-line-citations.mjs",
-    "--check",
-    "--corpus",
-    ...changed.map((f) => `--affected-by=${f}`)
-  ]);
+  const timeoutMs = lineCitationsTimeoutMs();
+  const r = runCheck(
+    "node",
+    [
+      "scripts/check-line-citations.mjs",
+      "--check",
+      "--corpus",
+      ...changed.map((f) => `--affected-by=${f}`)
+    ],
+    { cwd: REPO_ROOT, timeoutMs }
+  );
   if (r.notFound) return;
+  if (r.timedOut) {
+    die(
+      `\u274C path:line citation checker timed out after ${Math.round(timeoutMs / 1e3)} s \u2014 no citation was found stale; the check did not finish.
+   Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on
+   git blame/show per affected citation). Retry when load drops, or raise
+   PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.`
+    );
+  }
   if (r.exitCode !== 0) die("\u274C stale `path:line` citation(s):", r);
   emit(r);
+}
+var LINE_CITATIONS_TIMEOUT_MS = 6e5;
+function lineCitationsTimeoutMs() {
+  const raw = process.env["PREPUSH_LINE_CITATIONS_TIMEOUT_MS"]?.trim() ?? "";
+  if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
+  return Number(raw);
 }
 var HEAVY_RUNNER_TIMEOUT_MS = 6e5;
 function runCoreSuite(script) {

@@ -1863,15 +1863,50 @@ function lineCitationsSection(ctx: SectionCtx): void {
   // the hole one level down.
   const changed = getChangedFiles(rb.base, 'ACMR', rb.head);
   if (changed.length === 0) return;
-  const r = run('node', [
-    'scripts/check-line-citations.mjs',
-    '--check',
-    '--corpus',
-    ...changed.map((f) => `--affected-by=${f}`),
-  ]);
+  const timeoutMs = lineCitationsTimeoutMs();
+  const r = runCheck(
+    'node',
+    [
+      'scripts/check-line-citations.mjs',
+      '--check',
+      '--corpus',
+      ...changed.map((f) => `--affected-by=${f}`),
+    ],
+    { cwd: REPO_ROOT, timeoutMs },
+  );
   if (r.notFound) return; // no node — the other node-dependent sections already die loudly
+  // Checked before exitCode: a timeout synthesises exit 124, and routing it to the
+  // «stale» message sent the operator hunting for citations that did not exist
+  // (2026-09-28, load average ~108). Still fail-closed — an unfinished check is not green.
+  if (r.timedOut) {
+    die(
+      `❌ path:line citation checker timed out after ${Math.round(timeoutMs / 1000)} s ` +
+        '— no citation was found stale; the check did not finish.\n' +
+        '   Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on\n' +
+        '   git blame/show per affected citation). Retry when load drops, or raise\n' +
+        '   PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.',
+    );
+  }
   if (r.exitCode !== 0) die('❌ stale `path:line` citation(s):', r);
   emit(r);
+}
+
+/**
+ * Wall-clock cap for the citation checker. 600 s, not runCheck's 120 s default: the
+ * checker's work is ~1.5 s of CPU and its wall time is scheduler wait on per-citation
+ * git subprocesses — measured 12.4 s / 14.6 s at load average ~63, over 120 s twice at
+ * ~108 (2026-09-28). A 120 s cap turned load into a blocked push without adding any
+ * protection a longer cap lacks; the cap exists to stop a hang, and 600 s matches
+ * HEAVY_RUNNER_TIMEOUT_MS. PREPUSH_LINE_CITATIONS_TIMEOUT_MS overrides it; anything
+ * that is not a positive integer falls back to the default, so a typo can never
+ * disable the cap.
+ */
+const LINE_CITATIONS_TIMEOUT_MS = 600_000;
+
+function lineCitationsTimeoutMs(): number {
+  const raw = process.env['PREPUSH_LINE_CITATIONS_TIMEOUT_MS']?.trim() ?? '';
+  if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
+  return Number(raw);
 }
 
 // ── Heavy suite runner (opt-in, machine-local) ─────────────────────────────────
