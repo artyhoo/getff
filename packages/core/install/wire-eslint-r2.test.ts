@@ -595,9 +595,13 @@ describe('probeViaEslint — an ESLint that does not answer', () => {
     }
   }, 20_000);
 
-  it('reads an ESLint that crashes on its own signal as an error, not as a timeout', async () => {
+  // The stand-in dies of SIGKILL — the same signal the probe's own timeout sends — so only execFile's
+  // `killed` flag can tell the two apart (the OOM killer's shape). Not SIGSEGV: that signal dumps core,
+  // and a host whose core_pattern pipes to a handler (WSL's `/wsl-capture-crash`, ~1.4 s per crash,
+  // serialized) turns the 8 parallel probe children into a real timeout.
+  it('reads an ESLint that dies of its own signal as an error, not as a timeout', async () => {
     const dir = hangingEslint();
-    writeFileSync(join(dir, 'node_modules', 'eslint', 'bin', 'eslint.js'), "process.kill(process.pid, 'SIGSEGV');\n", 'utf8');
+    writeFileSync(join(dir, 'node_modules', 'eslint', 'bin', 'eslint.js'), "process.kill(process.pid, 'SIGKILL');\n", 'utf8');
     try {
       const v = await probeViaEslint(join(dir, 'eslint.config.mjs'), dir, undefined, { timeoutMs: 10_000 });
       expect(v).not.toBe('timed-out');
