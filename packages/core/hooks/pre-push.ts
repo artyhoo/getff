@@ -35,7 +35,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 // NOTE: this file is the entry of pre-push.bundle.mjs (scripts/build-runtime-bundles.mjs), the
-// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:42; --refresh: install.sh:1210).
+// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:42; --refresh: install.sh:1215).
 // The bundle inlines every import and must stay free of third-party code (`thirdParty: false`),
 // because a consumer has no getff dependency installed and a missing package crashes the
 // hook with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
