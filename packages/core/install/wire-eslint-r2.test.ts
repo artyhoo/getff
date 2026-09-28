@@ -838,6 +838,144 @@ describe('#829: wireNRules plugin self-registration', () => {
     },
   );
 
+  // A spread carries its keys into the element: `{ ...onlyJs, plugins: … }` with
+  // `const onlyJs = { files: ['**/*.js'] }` is scoped to .js even though the literal shows no
+  // `files` key. Read as global, the appended block went bare and `eslint .` exited 2 on every
+  // .mjs/.ts file (measured 2026-09-28, ESLint 9.39.4). Only a spread whose object literal is
+  // resolvable in the same file and carries no scope key counts as global.
+  const registeredVia = (decl: string, spread: string): string =>
+    [
+      `import customRules from './eslint-rules-local/index.mjs';`,
+      decl,
+      `export default [{ ${spread}, plugins: { 'rules-as-tests': customRules }, rules: {} }];`,
+      ``,
+    ].join('\n');
+  const SELF_REGISTERED = /\{\s*plugins: \{ 'rules-as-tests': customRules \}, rules: \{ ['"]rules-as-tests\/no-direct-time-randomness['"]/;
+  const BARE = /\{\s*rules: \{ ['"]rules-as-tests\/no-direct-time-randomness['"]/;
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration scoped by a spread carrying files: → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toMatch(SELF_REGISTERED);
+    expect((r.modified.match(/import customRules from/g) ?? []).length).toBe(1);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration scoped by a spread carrying ignores: → self-registers', async () => {
+    const src = registeredVia(`const skipDist = { ignores: ['dist/**'] };`, '...skipDist');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration scoped by a spread carrying basePath: → self-registers', async () => {
+    const src = registeredVia(`const web = { basePath: 'apps/web' };`, '...web');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration with a spread of an identifier this file does not define → self-registers', async () => {
+    const src = registeredVia(`import shared from './shared.mjs';`, '...shared');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread that carries files: through a nested spread → self-registers', async () => {
+    const src = registeredVia(`const inner = { files: ['**/*.js'] };\nconst outer = { ...inner };`, '...outer');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element that sets basePath: itself → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `basePath: 'apps/web'`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A const the file changes after binding it: its literal no longer tells what the spread carries.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a const that gains files: by a property write → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = {};\nonlyJs.files = ['**/*.js'];`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a const that gains files: by Object.assign → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = {};\nObject.assign(onlyJs, { files: ['**/*.js'] });`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a let reassigned to a scoped literal → self-registers', async () => {
+    const src = registeredVia(`let onlyJs = {};\nonlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element with a computed files key → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `['files']: ['src/**/*.ts']`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element whose files key is spelled with an escape → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `'fil\\x65s': ['src/**/*.ts']`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A spread after `plugins` replaces the whole `plugins` object when the spread carries one.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread after plugins: that may replace them → self-registers', async () => {
+    const src = [
+      `import customRules from './eslint-rules-local/index.mjs';`,
+      `const base = { plugins: {} };`,
+      `export default [{ plugins: { 'rules-as-tests': customRules }, ...base, rules: {} }];`,
+      ``,
+    ].join('\n');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a second plugins: key that drops the registration → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts'], `, '').replace(`rules: {`, `plugins: {}, rules: {`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A getter runs during the spread and can add `files` to the object it belongs to.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a literal with an accessor → self-registers', async () => {
+    const src = registeredVia(`const b = { get x() { return 1; } };`, '...b');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('❌ an inline spread literal and a nested spread with no scope key → still global, block stays bare', async () => {
+    for (const src of [
+      registeredVia('', `...{ name: 'shared' }`),
+      registeredVia(`const inner = { name: 'shared' };\nconst outer = { ...inner };`, '...outer'),
+    ]) {
+      const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toMatch(BARE);
+    }
+  });
+
+  // Anti-tautology: «every spread self-registers» would pass the cases above. A spread whose
+  // literal is right here and carries no scope key keeps the registration global → bare block.
+  it.skipIf(!TS_MORPH_AVAILABLE)('❌ a spread of a same-file literal with no scope key → still global, block stays bare', async () => {
+    const src = registeredVia(`const shared = { linterOptions: { reportUnusedDisableDirectives: 'error' } };`, '...shared');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toMatch(BARE);
+    expect(r.modified).not.toMatch(SELF_REGISTERED);
+  });
+
+  // The own-config path (Q4.7) asks the same question before its R2 block.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ wireOwnConfig: a registration scoped by a spread → the R2 block registers the plugin', async () => {
+    const src = registeredVia(`const onlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireOwnConfig(src, { boundaryGlobs: ['src/routes/**/*.ts'], customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toContain(`{ files: RULE_GLOBS.boundary, plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }`);
+  });
+
   it.skipIf(!TS_MORPH_AVAILABLE)(
     'absent customRulesImportPath → degrades to bare (no throw, backward-compatible)',
     async () => {

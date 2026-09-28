@@ -10,7 +10,7 @@
 // even with every dev-dependency promoted (docs/meta-factory/getff-name-architecture-freeze.md,
 // «U10 WARNING»). Ratified resolution: dynamic resolution with an honest degrade.
 //
-// RESOLUTION ORDER (mirrors the shipped ts-morph degrade at install/wire-eslint-r2.ts:161-182):
+// RESOLUTION ORDER (mirrors the shipped ts-morph degrade at wire-eslint-r2.ts:191-212):
 //   (i)  the CONSUMER's vendored barrel `<cwd>/eslint-rules-local/index.mjs` — what install.sh
 //        generates (setup.d/lib.sh generate_eslint_barrel), a single plugin object whose
 //        `rules` map unions the core rules with this stack's preset rules;

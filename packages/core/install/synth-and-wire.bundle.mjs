@@ -10295,33 +10295,26 @@ function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) 
 function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-    const propNames = (el.getProperties?.() ?? []).map((p) => {
+    if (!provablyUnscoped(el, SyntaxKind, /* @__PURE__ */ new Set())) continue;
+    const props = el.getProperties?.() ?? [];
+    let last = -1;
+    props.forEach((p, i) => {
       try {
-        return normPropName(p.getName?.());
+        if (normPropName(p.getName?.()) === "plugins") last = i;
       } catch {
-        return "";
       }
     });
-    if (propNames.includes("files") || propNames.includes("ignores")) continue;
-    for (const prop of el.getProperties?.() ?? []) {
-      let propName;
+    if (last < 0 || props.slice(last + 1).some((p) => p.isKind?.(SyntaxKind.SpreadAssignment))) continue;
+    const pluginsInit = props[last].getInitializer?.();
+    if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const pp of pluginsInit.getProperties?.() ?? []) {
+      let ppName;
       try {
-        propName = normPropName(prop.getName?.());
+        ppName = normPropName(pp.getName?.());
       } catch {
         continue;
       }
-      if (propName !== "plugins") continue;
-      const pluginsInit = prop.getInitializer?.();
-      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-      for (const pp of pluginsInit.getProperties?.() ?? []) {
-        let ppName;
-        try {
-          ppName = normPropName(pp.getName?.());
-        } catch {
-          continue;
-        }
-        if (ppName === "rules-as-tests") return true;
-      }
+      if (ppName === "rules-as-tests") return true;
     }
   }
   return false;
@@ -10354,6 +10347,55 @@ function ruleSetForSomeFilesOnly(elements, SyntaxKind, ruleName) {
     }
   }
   return false;
+}
+var SCOPE_KEYS = /* @__PURE__ */ new Set(["files", "ignores", "basePath"]);
+function provablyUnscoped(obj, SyntaxKind, seen) {
+  if (seen.has(obj)) return false;
+  seen.add(obj);
+  for (const p of obj.getProperties?.() ?? []) {
+    if (p.isKind?.(SyntaxKind.SpreadAssignment)) {
+      const lit = spreadObjectLiteral(p.getExpression(), SyntaxKind);
+      if (!lit || !provablyUnscoped(lit, SyntaxKind, seen)) return false;
+      continue;
+    }
+    if (p.isKind?.(SyntaxKind.GetAccessor) || p.isKind?.(SyntaxKind.SetAccessor) || p.isKind?.(SyntaxKind.MethodDeclaration)) return false;
+    const nameNode = p.getNameNode?.();
+    if (nameNode?.isKind?.(SyntaxKind.ComputedPropertyName) || nameNode?.getText?.().includes("\\")) return false;
+    let name;
+    try {
+      name = normPropName(p.getName?.());
+    } catch {
+      return false;
+    }
+    if (SCOPE_KEYS.has(name)) return false;
+  }
+  return true;
+}
+function spreadObjectLiteral(expr, SyntaxKind) {
+  const unwrap = (e2) => {
+    let cur = e2;
+    while (cur && (cur.isKind(SyntaxKind.ParenthesizedExpression) || cur.isKind(SyntaxKind.AsExpression) || cur.isKind(SyntaxKind.SatisfiesExpression))) {
+      cur = cur.getExpression();
+    }
+    return cur;
+  };
+  const e = unwrap(expr);
+  if (e?.isKind(SyntaxKind.ObjectLiteralExpression)) return e;
+  if (!e?.isKind(SyntaxKind.Identifier)) return void 0;
+  const name = e.getText();
+  const sf = e.getSourceFile();
+  const decls = sf.getDescendantsOfKind(SyntaxKind.VariableDeclaration).filter((d) => d.getName() === name);
+  if (decls.length !== 1) return void 0;
+  const decl = decls[0];
+  if (decl.getVariableStatement?.()?.getDeclarationKind?.() !== "const") return void 0;
+  const init = unwrap(decl.getInitializer?.());
+  if (!init?.isKind(SyntaxKind.ObjectLiteralExpression)) return void 0;
+  const nameNode = decl.getNameNode();
+  const onlySpread = sf.getDescendantsOfKind(SyntaxKind.Identifier).filter((id) => id.getText() === name && id !== nameNode).every((id) => {
+    const parent = id.getParent();
+    return parent?.isKind(SyntaxKind.SpreadAssignment) || parent?.isKind(SyntaxKind.SpreadElement);
+  });
+  return onlySpread ? init : void 0;
 }
 function exprEqual(a, b) {
   const norm = (s) => s.replace(/['"`]/g, '"').replace(/\s+/g, "");
