@@ -66,23 +66,27 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
           ts-server|react-next|react-spa) _r2_own_globs=$(printf '%s\n' "$_r2_out" | sed -n 's/^glob://p') ;;
         esac
         _r2_out=""   # no glob lines → the patch loop below writes nothing
-      elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
+      elif ! grep -q 'RULE_GLOBS' <<<"$(eslint_config_code "$PROJECT_ROOT/eslint.config.mjs")"; then
         # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
-        # ships no R2) — there is no boundary array to widen, so no per-glob warning either.
+        # ships no R2) — there is no boundary array to widen, so no per-glob warning either. Read as
+        # code: RULE_GLOBS named only in a comment is no block (#1889 observation 7).
         _r2_no_slot=1
         _r2_out=""
       fi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
-        grep -qF "$_g" "$PROJECT_ROOT/eslint.config.mjs" && continue   # already covered → idempotent
+        # already covered → idempotent; a glob only a comment names covers nothing
+        grep -qF "$_g" <<<"$(eslint_config_code "$PROJECT_ROOT/eslint.config.mjs")" && continue
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
         # stale eslint.config.mjs.tmp.
         # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
         # NOT added, never a «✓ added».
-        if awk -v ins="    '$_g'," '
-          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
+        # The array is found in the config's code: a `boundary: [` inside a comment is not the one
+        # the rule reads, and a glob put there would be «added» again on every install.
+        if awk -v ins="    '$_g'," -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'
+          done2!=1 && uncomment($0) ~ /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
           && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \

@@ -2791,14 +2791,65 @@ eslint_flat_configs_under() {
   return 0
 }
 
+# eslint_config_code <file> — <file> with its // and /* */ comments cut out, as the ESLint config's
+# code: quoted strings stay, a /* */ comment may span lines, and a template literal's text and a regex
+# literal are cut too (neither is a rule id). The install's greps for a rule id, RULE_GLOBS or a boundary
+# glob read this, not the raw file — `// TODO: turn on 'rules-as-tests/no-unsafe-zod-parse'` is not R2
+# wired (#1889 observation 7). uncomment() and the regexctx() it calls are the push gates' own (the
+# rule-globs reader in packages/core/audit-self/check-rule-globs.sh and check-rule-enforced.sh, which
+# ship without lib.sh), byte for byte: tests/install-sh/installer-greps-read-code.test.sh compares them.
+# Prints nothing for a missing file, so a grep over the result is false as a grep of that file would be.
+ESLINT_UNCOMMENT_AWK='
+function regexctx(out,   w) {
+  if (last == "" || index("(,=:[!&|?{};+-*%<>~^}", last) > 0) return 1
+  if (last !~ /[A-Za-z]/) return 0
+  w = out; sub(/[[:space:]]+$/, "", w)
+  if (!match(w, /[A-Za-z_$][A-Za-z0-9_$]*$/)) return 0
+  return substr(w, RSTART) ~ /^(return|typeof|case|in|of|delete|void|throw|new|else|do|yield|await|instanceof)$/
+}
+function uncomment(s,   out, c, q, i, j, n, cls) {
+  out = ""; q = ""; n = length(s)
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (incmt) { if (c == "*" && substr(s, i + 1, 1) == "/") { incmt = 0; i++ }; continue }
+    if (intpl) { if (c == "\\") i++; else if (c == "`") { intpl = 0; out = out c; last = c }; continue }
+    if (q != "") { out = out c; if (c == "\\") { out = out substr(s, i + 1, 1); i++ } else if (c == q) { q = ""; last = c }; continue }
+    if (c == "/" && substr(s, i + 1, 1) == "/") break
+    if (c == "/" && substr(s, i + 1, 1) == "*") { incmt = 1; i++; continue }
+    if (c == "/" && regexctx(out)) {
+      cls = 0
+      for (j = i + 1; j <= n; j++) {
+        c = substr(s, j, 1)
+        if (c == "\\") j++
+        else if (cls) { if (c == "]") cls = 0 }
+        else if (c == "[") cls = 1
+        else if (c == "/") break
+      }
+      if (j <= n) { out = out "0"; last = "0"; i = j; continue }
+      c = "/"
+    }
+    if (c == "`") { intpl = 1; out = out c; last = c; continue }
+    if (c == sq || c == dq) q = c
+    out = out c
+    if (c !~ /[[:space:]]/) last = c
+  }
+  return out
+}
+'
+eslint_config_code() {
+  [ -f "$1" ] && [ -r "$1" ] || return 0
+  awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'{ print uncomment($0) }' "$1" 2>/dev/null || return 0
+}
+
 # eslint_config_has_getff_rules <file> — true when the config names one of getff's rules
 # (rules-as-tests/…) or imports / re-exports / require()s, by a relative path, a config that does: a
 # workspace config spreading a sibling's getff preset has getff's rules (second cold review, after
 # #1868). Every relative import on a line counts (third cold review). Followed up to
 # four imports deep, each file read once, so an import cycle ends. A bare package import is not
-# followed — what it resolves to is not a file of this project to read.
+# followed — what it resolves to is not a file of this project to read. Each file is read as code
+# (eslint_config_code): a rule id or an import in a comment does not count.
 eslint_config_has_getff_rules() {
-  local seen="|" f dir spec depth=0
+  local seen="|" f dir spec code depth=0
   local queue=("$1") next
   while [ "${#queue[@]}" -gt 0 ] && [ "$depth" -le 4 ]; do
     next=()
@@ -2806,11 +2857,12 @@ eslint_config_has_getff_rules() {
       case "$seen" in *"|$f|"*) continue ;; esac
       seen="$seen$f|"
       [ -f "$f" ] || continue
-      grep -q 'rules-as-tests/' "$f" && return 0
+      code=$(eslint_config_code "$f")   # a rule or an import in a comment is not in the config
+      grep -q 'rules-as-tests/' <<<"$code" && return 0
       dir=$(dirname "$f")
       while IFS= read -r spec; do
         [ -n "$spec" ] && next+=("$dir/$spec")
-      done < <(grep -oE "(from|import|require)[[:space:]]*[(]?[[:space:]]*['\"]\.\.?/[^'\"]+['\"]" "$f" \
+      done < <(grep -oE "(from|import|require)[[:space:]]*[(]?[[:space:]]*['\"]\.\.?/[^'\"]+['\"]" <<<"$code" \
                  | sed -E "s/.*['\"](\.\.?\/[^'\"]+)['\"]$/\1/")
     done
     queue=(${next[@]+"${next[@]}"})

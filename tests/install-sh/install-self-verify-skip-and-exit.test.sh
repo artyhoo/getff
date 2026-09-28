@@ -169,11 +169,13 @@ nw_arm "consumer ESLint config kept" ff ESLINT_ROOT_NOT_WIRED=1
 # The consumer's own root eslint.config.mjs that getff's block did not land in (here: the
 # synth-and-wire bundle is absent from the stub package) is the same NOT-wired state: the fences are
 # not in their lint, so «fences fire» is not this install's to claim (cold-review F8 — only a
-# .cjs/.ts root used to set the signal, in copy_unless_foreign). The driver's lib.sh stand-ins make
-# the root config the consumer's.
+# .cjs/.ts root used to set the signal, in copy_unless_foreign). The driver sources the real lib.sh
+# (the finalize reads the root config through its eslint_config_code), then its stand-ins make the
+# root config the consumer's.
 OWN_DRIVER="$WORK/driver-own.sh"
 { sed '/^source "\$FINALIZE"$/d' "$DRIVER"
-  printf '%s\n' 'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 1; }' \
+  printf '%s\n' "source \"$REPO_ROOT/setup.d/lib.sh\"" \
+    'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 1; }' \
     'note_not_wired() { NOT_WIRED+=("$1"); }' 'source "$FINALIZE"'; } > "$OWN_DRIVER"
 grep -q '^getff_delivered()' "$OWN_DRIVER" || bad "F8: the own-config driver was not built — the arms below would be vacuous"
 own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire must run

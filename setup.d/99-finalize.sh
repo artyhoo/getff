@@ -106,8 +106,8 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
   _f11_check=1
   # The self-verify's «fences fire» claim (D1 below) is about this root config: when getff's rules
   # did not land in it, that claim is not this install's to make — the same signal a .cjs/.ts root
-  # sets in copy_unless_foreign (cold-review F8).
-  grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null || ESLINT_ROOT_NOT_WIRED=1
+  # sets in copy_unless_foreign (cold-review F8). Read as code: a comment naming a rule is not the rule.
+  grep -q 'rules-as-tests/' <<<"$(eslint_config_code "$PROJECT_ROOT/$_root_eslint")" || ESLINT_ROOT_NOT_WIRED=1
 elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
   if [ ! -f "$_synth_wirer" ]; then
@@ -357,21 +357,36 @@ _r2_note_outcome() {
 # changed is named in the «NOT wired» summary with the reason (operator decision Q4.7) — only those:
 # a config that already names R2 (getff's ts-server and react templates carry it) is not listed, and neither
 # is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
-# boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
-# reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
-# only a quoted rule id — a comment naming the rule is not a rule entry (simpleRulePresent).
+# boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» follows the wirer's two
+# branches — getff's own config counts any mention (resolveAndWire), the consumer's only a quoted
+# rule id (simpleRulePresent) — but reads the config's code (eslint_config_code): a comment naming
+# the rule, quoted or not, is not R2 (#1889 observation 7). The wirer itself still searches the raw
+# text, comments included (wire-eslint-r2.ts resolveAndWire / simpleRulePresent), so when the pass
+# does run, a comment-only R2 still comes back «already enforced»; that half is a separate fix.
 # _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
 _r2_boundary_under() {
   local out
   out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
   [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
 }
+# _r2_quoted_under <abs dir> — exit 0 IFF an eslint.config.* at or under <dir> (node_modules aside)
+# sets R2 as a quoted rule id in its code — not in a comment, quoted or not.
+_r2_quoted_under() {
+  local f
+  while IFS= read -r -d '' f; do
+    grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+      <<<"$(eslint_config_code "$f")" && return 0
+  done < <(find "$1" -name node_modules -prune -o -type f -name 'eslint.config.*' -print0 2>/dev/null)
+  return 1
+}
 _r2_would_wire() {
+  local code
+  code=$(eslint_config_code "$1")
   if _r2_getff_owned "$1"; then
-    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
+    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' <<<"$code"
     return
   fi
-  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null && return 1
+  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' <<<"$code" && return 1
   _r2_boundary_under "$(dirname "$1")"
 }
 # _r2_pass_blocker <wirer> — why the pass cannot run, on stdout; empty when it can.
@@ -452,10 +467,7 @@ if [ "$DRY_RUN" != "--dry-run" ] \
         # Named in the summary only when there is HTTP boundary code under it and no config there
         # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
         # its root fallback; a comment naming the rule is not a rule entry).
-        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
-           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
-                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
-                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_quoted_under "$PROJECT_ROOT/$_ws_dir"; then
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
         ;;
@@ -516,8 +528,9 @@ _f11_gate="$PROJECT_ROOT/scripts/check-rule-globs.sh"
 case "${_f11_check:-}:$_root_eslint" in
   1:eslint.config.js | 1:eslint.config.mjs)
     _f11_cfg="$PROJECT_ROOT/$_root_eslint"
+    _f11_code=$(eslint_config_code "$_f11_cfg")   # the config's code: a comment naming a rule sets none
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11_gate" ] \
-       && grep -qE 'RULE_GLOBS|no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$_f11_cfg" 2>/dev/null \
+       && grep -qE 'RULE_GLOBS|no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$_f11_code" \
        && ! printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} | grep -F "($_root_eslint)" | grep -qF 'check-rule-globs.sh fails on this config'; then
       _f11_out=$( cd "$PROJECT_ROOT" && env -u ESLINT_CONFIG bash "$_f11_gate" 2>&1 ) && _f11_rc=0 || _f11_rc=$?
       if [ "$_f11_rc" -ne 0 ]; then
@@ -526,10 +539,10 @@ case "${_f11_check:-}:$_root_eslint" in
         # array is named here, the other keys by the gate's own line below.
         if printf '%s\n' "$_f11_out" | grep -q 'no globs found under RULE_GLOBS\.boundary'; then
           _f11_r2=1
-          if grep -q 'RULE_GLOBS' "$_f11_cfg"; then
+          if grep -q 'RULE_GLOBS' <<<"$_f11_code"; then
             _f11_what="its RULE_GLOBS has no boundary array of quoted globs"
           else
-            _f11_ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$_f11_cfg" \
+            _f11_ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$_f11_code" \
               | sort -u | sed 's|^|rules-as-tests/|' | tr '\n' ' ' | sed 's/ $//; s/ /, /g')
             _f11_what="it sets $_f11_ids itself with no RULE_GLOBS block"
           fi

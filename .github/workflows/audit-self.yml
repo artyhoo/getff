@@ -917,6 +917,8 @@ jobs:
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: "install-sh — R2 passes that cannot run name each config they would have changed in the NOT wired summary, with the reason (Q4.7; no ts-morph / no wirer / unknown-stack workspace)"
         run: bash tests/install-sh/r2-not-wired-summary.test.sh
+      - name: "install-sh — installer greps read the consumer's ESLint config as code (#1889 obs. 7: a rule id, RULE_GLOBS or a glob in a comment is not wired)"
+        run: bash tests/install-sh/installer-greps-read-code.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
