@@ -36,7 +36,7 @@
 #   - PROFILE=env      → skip (env depth lacks the aif-handoff operator runtime).
 #   - PROFILE=core     → skip.
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:594-595).
+#                        install.sh:598-599).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
 #   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
