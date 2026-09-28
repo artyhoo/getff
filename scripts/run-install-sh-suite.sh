@@ -114,15 +114,24 @@ progress() { printf '%s\n' "$*" >&"$PROGRESS_FD"; }
 #     argv is relative to the repo root: a runner that re-roots the cwd onto a mirror cannot
 #     translate an absolute path.
 #
-# The routed half only counts when its own summary line says it ran exactly the tests routed from
+# The routed half only counts when its own output says it ran exactly the tests routed from
 # here — a runner that exits 0 without running anything, or ran a different set, is a failure,
 # never a green (see collect_routed below).
 #
 # PC_LOCAL=1 is the escape the only runner in use (the operator's ~/bin/pc-run) already defines.
 # The runner honours it by running the routed half locally, which would open a SECOND local pool
 # next to this one; honouring it here as well keeps an escaped run identical to an unrouted one.
+# A runner can also fall back to running here on its own (host unreachable, lock timeout). The
+# far end detects that through `--origin <path>`: a file in this run's work directory, which exists
+# only on this host. Found → it runs nothing and says so, and this pool takes the routed tests
+# after its own — never two full pools on one machine.
 RUNNER="${INSTALL_SH_HEAVY_RUNNER:-}"
-stays_local() { grep -q '^# stays-local:' "$1"; }
+# The marker is read from the header only (it sits on line 2), so a test that merely mentions it
+# stays routable. ~/bin/pc-run-bash on the operator's Mac reads it with this same awk.
+stays_local() { awk 'NR > 5 { exit } /^# stays-local:/ { f = 1; exit } END { exit !f }' "$1"; }
+# The quarantined test is kept here whatever its header says: it must finish before the routed
+# half starts (see the quarantine below), and a runner's host must never run it next to others.
+quarantined() { case " $QUARANTINE_SERIAL " in *" $(basename "$1") "*) return 0 ;; esac; return 1; }
 
 # ── Worker mode ────────────────────────────────────────────────────────────────────────────────
 # Re-entrant: `xargs -P` invokes this script with `--one` per test file. Each worker writes its
@@ -157,9 +166,17 @@ fi
 # `--routed` is the far end of OFFLOAD: run only the tests WITHOUT a `# stays-local:` line, and
 # never route again (a runner that simply execs its argv inherits INSTALL_SH_HEAVY_RUNNER).
 ROUTED_MODE=0
+ORIGIN=""
 if [ "${1:-}" = "--routed" ]; then ROUTED_MODE=1; shift; fi
+if [ "$ROUTED_MODE" -eq 1 ] && [ "${1:-}" = "--origin" ]; then ORIGIN="${2:-}"; shift 2; fi
 LABEL="install-sh"
 [ "$ROUTED_MODE" -eq 1 ] && LABEL="install-sh:routed"
+if [ -n "$ORIGIN" ] && [ -e "$ORIGIN" ]; then
+  # The runner ran us on the host that routed us (its own local fallback). Running the list here
+  # would put a second full pool next to the origin's; the origin runs it in its own pool instead.
+  echo "[install-sh:routed] ON-ORIGIN: the runner ran the routed half on the routing host; nothing run"
+  exit 97
+fi
 
 # The optional positional argument is the suite directory. It exists so the sweep's gate-table row
 # can name `tests/install-sh/` literally: scripts/run-local-ci-sweep-coverage.test.sh requires the
@@ -191,7 +208,7 @@ if [ "$ROUTED_MODE" -eq 1 ] || { [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; }; 
   KEEP=""
   while IFS= read -r t; do
     [ -z "$t" ] && continue
-    if stays_local "$t"; then KEEP="$KEEP$t
+    if stays_local "$t" || quarantined "$t"; then KEEP="$KEEP$t
 "; else ROUTE_LIST="$ROUTE_LIST$t
 "; fi
   done <<EOF2
@@ -239,12 +256,9 @@ SERIAL_LIST=""
 POOL_LIST=""
 while IFS= read -r t; do
   [ -z "$t" ] && continue
-  case " $QUARANTINE_SERIAL " in
-    *" $(basename "$t") "*) SERIAL_LIST="$SERIAL_LIST$t
-" ;;
-    *) POOL_LIST="$POOL_LIST$t
-" ;;
-  esac
+  if quarantined "$t"; then SERIAL_LIST="$SERIAL_LIST$t
+"; else POOL_LIST="$POOL_LIST$t
+"; fi
 done <<EOF2
 $LOCAL
 EOF2
@@ -264,10 +278,14 @@ $SERIAL_LIST
 EOF2
 
 if [ "$ROUTE_N" -gt 0 ]; then
-  # Its progress (and the runner's own status lines) go to the progress channel; its stdout — the
-  # per-test blocks and the summary collect_routed reads — to a file replayed at collection.
-  ( cd "$REPO_ROOT" && exec "$RUNNER" bash scripts/run-install-sh-suite.sh --routed "$SUITE_REL" ) \
-    >"$WORK/routed.out" 2>&"$PROGRESS_FD" </dev/null &
+  # Its progress (and the runner's own status lines) go to the progress channel and to a file
+  # replayed if the half fails — a runner's «why nothing ran» must reach the report even when the
+  # progress channel is a capture nobody reads. Its stdout — the per-test blocks and the summary
+  # collect_routed reads — goes to a file replayed at collection. The one absolute path in argv is
+  # the origin mark, which exists to NOT resolve on the runner's host.
+  : >"$WORK/origin"
+  ( cd "$REPO_ROOT" && exec "$RUNNER" bash scripts/run-install-sh-suite.sh --routed --origin "$WORK/origin" "$SUITE_REL" ) \
+    >"$WORK/routed.out" 2> >(tee "$WORK/routed.err" >&"$PROGRESS_FD") </dev/null &
   ROUTED_PID=$!
 fi
 
@@ -277,6 +295,15 @@ ROUTED_RC=0
 if [ -n "$ROUTED_PID" ]; then
   wait "$ROUTED_PID"; ROUTED_RC=$?
   ROUTED_PID=""
+fi
+
+# The runner fell back to this host: take the routed tests into this pool, after its own tests.
+if [ "$ROUTE_N" -gt 0 ] && grep -q '^\[install-sh:routed\] ON-ORIGIN:' "$WORK/routed.out"; then
+  progress "[install-sh] ${RUNNER} ran the routed half on this host (its own fallback) — running those ${ROUTE_N} tests in this pool instead"
+  printf '%s' "$ROUTE_LIST" | grep -v '^$' | xargs -P "$JOBS" -I{} bash "$SELF" --one {} "$WORK" "$TOTAL" "$LABEL"
+  LOCAL="$LOCAL$ROUTE_LIST"
+  LOCAL_N=$((LOCAL_N + ROUTE_N))
+  ROUTE_N=0
 fi
 
 END=$(date +%s)
@@ -324,6 +351,17 @@ collect_routed() {
   if [ -z "$summary" ] || [ "$rt" != "$ROUTE_N" ]; then
     MISSING="$MISSING routed-half(${ROUTE_N}-tests,runner-exit=${ROUTED_RC},reported=${rt:-none})"
     echo "───── routed half: NO VALID RESULT — expected a summary for ${ROUTE_N} tests, got ${rt:-none} ─────"
+    replay_routed_err
+    return
+  fi
+  # The right count is not enough: the per-test headers must name exactly the tests routed from here.
+  printf '%s' "$ROUTE_LIST" | grep -v '^$' | sed 's|.*/||' | LC_ALL=C sort >"$WORK/routed.want"
+  LC_ALL=C sed -n 's/^───── \([^ ]*\.test\.sh\) ─────$/\1/p' "$WORK/routed.out" | LC_ALL=C sort >"$WORK/routed.got"
+  if ! cmp -s "$WORK/routed.want" "$WORK/routed.got"; then
+    MISSING="$MISSING routed-half(ran-a-different-set)"
+    echo "───── routed half: NO VALID RESULT — its ${rt} tests are not the ${ROUTE_N} routed from here ─────"
+    LC_ALL=C comm -23 "$WORK/routed.want" "$WORK/routed.got" | sed 's/^/  routed but not reported: /'
+    LC_ALL=C comm -13 "$WORK/routed.want" "$WORK/routed.got" | sed 's/^/  reported but not routed: /'
     return
   fi
   PASSED=$((PASSED + rp))
@@ -334,7 +372,15 @@ collect_routed() {
   # A short tally or a non-zero exit with no named culprit is still a failure.
   if { [ "$rp" != "$rt" ] || [ "$ROUTED_RC" -ne 0 ]; } && [ -z "$named" ]; then
     FAILED="$FAILED routed-half(runner-exit=${ROUTED_RC},passed=${rp}/${rt})"
+    replay_routed_err
   fi
+}
+# replay_routed_err — the runner's own lines (why it could not run, where it fell back), minus the
+# far end's per-test progress, which the per-test blocks above already carry.
+replay_routed_err() {
+  [ -s "$WORK/routed.err" ] || return 0
+  echo "───── routed half: the runner's own output ─────"
+  grep -vE '^\[install-sh:routed\] [0-9]+/[0-9]+ done · ' "$WORK/routed.err" | tail -n 20
 }
 [ "$ROUTE_N" -gt 0 ] && collect_routed
 
