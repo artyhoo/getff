@@ -30,12 +30,10 @@
 #     (two-sided) so neither can drift alone.
 #
 # #two-prompts-drift (printed manual fallback vs automated install):
-#   - Arm F: react-native + npm, NO --full → the Next-steps manual commands (devDep AND runtime)
-#     carry --legacy-peer-deps, mirroring the §8 npm arms' $NPM_PEER_FLAG (the a11y-peer ERESOLVE
-#     workaround) — a consumer who declined the automated install and copy-pastes must not hit
-#     the very ERESOLVE abort the automated path avoids.
-#   - Arm G (paired-negative): ts-server + npm, NO --full → NEITHER printed npm command carries
-#     --legacy-peer-deps (the flag is react-native-scoped, not blanket).
+#   - Arms F (react-native) + G (ts-server), NO --full → no dependency command is printed at all and
+#     the dependencies are one NOT-wired line with the reason (operator directive 2026-09-28, Q4.7).
+#     They used to assert that the printed copy carried --legacy-peer-deps for react-native only;
+#     with no printed copy there is nothing left that could drift from the §8 npm arms.
 #
 # npx-float (2026-07-10, same failure class as P0.2's typescript@7.0.2): the shipped react-next CI
 # template (packages/preset-next-15-canonical/templates/github-actions-ci-ui.yml, test-storybook
@@ -203,49 +201,36 @@ grep -q 'typescript@\^5\.7\.0' <<< "$_rn_devdep_line" \
   && ok "E: the surviving react-native typescript spec is the pinned typescript@^5.7.0 (not the old bare entry)" \
   || bad "E: react-native devDep line missing the pinned typescript@^5.7.0"
 
-# ════ Arm F (#two-prompts-drift) — react-native + npm, NO --full → printed fallback carries --legacy-peer-deps ════
-# The automated §8 npm arms (setup.d/70-deps.sh devDep + runtime installs) pass $NPM_PEER_FLAG
-# (--legacy-peer-deps) for react-native because eslint-plugin-react-native-a11y peer-deps
-# eslint ^3..^8 while the preset ships eslint ^9 → npm 7+ ERESOLVE hard-fail. The Next-steps
-# manual fallback (setup.d/99-finalize.sh) is built from the same DEVDEPS/RUNTIME_DEPS arrays but
-# used to drop the flag — an RN consumer who declined the automated install and copy-pasted the
-# printed command got the exact ERESOLVE abort the automated path avoids. Both printed npm lines
-# (devDep + runtime) must carry the flag.
+# ════ Arm F (#two-prompts-drift, retired form) — react-native + npm, NO --full → nothing to copy ════
+# The Next-steps block used to print the npm commands for a declined install, and an RN copy lacking
+# $NPM_PEER_FLAG (--legacy-peer-deps) hit the ERESOLVE abort the automated §8 arms avoid. Since the
+# operator directive of 2026-09-28 (Q4.7) the install prints no command to run: the dependencies are
+# one NOT-wired line with the reason. The drift class is gone with the printed copy — nothing is left
+# that could drop the flag.
 F=$(mktemp -d); export AIF_PM_LOG="$F.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
 ( cd "$F" && git init -q )
 F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
 
-_f_dev_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install --save-dev' || true)
-_f_rt_line=$(printf '%s\n' "$F_OUT" | grep -E '^ *npm install' | grep -v -- '--save-dev' || true)
-[ -n "$_f_dev_line" ] \
-  && ok "F: no --full → Next-steps prints the manual 'npm install --save-dev' fallback" \
-  || bad "F: printed devDep fallback command missing from install output"
-case "$_f_dev_line" in
-  *--legacy-peer-deps*) ok "F: printed RN devDep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
-  *) bad "F: printed RN devDep command LACKS --legacy-peer-deps → copy-paste ERESOLVE abort ($_f_dev_line)" ;;
-esac
-case "$_f_rt_line" in
-  *--legacy-peer-deps*) ok "F: printed RN runtime-dep command carries --legacy-peer-deps (mirrors §8 npm arm)" ;;
-  *) bad "F: printed RN runtime-dep command LACKS --legacy-peer-deps ($_f_rt_line)" ;;
-esac
+printf '%s\n' "$F_OUT" | grep -qE '^ *(npm install|pnpm add|yarn add)' \
+  && bad "F: no --full → the install still prints a dependency command to copy" \
+  || ok "F: no --full → no dependency command to copy"
+printf '%s\n' "$F_OUT" | grep -E '^[[:space:]]*- dependencies' | grep -q 'not installed' \
+  && ok "F: no --full → the dependencies are a NOT-wired line with the reason" \
+  || bad "F: no NOT-wired dependencies line in the react-native install output"
 
-# ════ Arm G (paired-negative for F) — ts-server + npm, NO --full → NO --legacy-peer-deps ════
-# Proves the printed flag is react-native-scoped: every other stack keeps strict peer resolution,
-# so a blanket flag (weakening peer checks for everyone) would be its own defect.
+# ════ Arm G — ts-server + npm, NO --full → the same NOT-wired line, no command ════
 G=$(mktemp -d); export AIF_PM_LOG="$G.log"; : > "$AIF_PM_LOG"
 printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
 ( cd "$G" && git init -q )
 G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
 
-_g_npm_lines=$(printf '%s\n' "$G_OUT" | grep -E '^ *npm install' || true)
-[ -n "$_g_npm_lines" ] \
-  && ok "G: ts-server no --full → Next-steps prints the manual npm fallback" \
-  || bad "G: printed npm fallback commands missing from ts-server install output"
-case "$_g_npm_lines" in
-  *--legacy-peer-deps*) bad "G neg: ts-server printed command carries --legacy-peer-deps (flag not RN-scoped): $_g_npm_lines" ;;
-  *) ok "G neg: ts-server printed commands carry NO --legacy-peer-deps (flag is RN-scoped)" ;;
-esac
+printf '%s\n' "$G_OUT" | grep -qE '^ *(npm install|pnpm add|yarn add)' \
+  && bad "G: ts-server no --full → the install still prints a dependency command to copy" \
+  || ok "G: ts-server no --full → no dependency command to copy"
+printf '%s\n' "$G_OUT" | grep -E '^[[:space:]]*- dependencies' | grep -q 'not installed' \
+  && ok "G: ts-server no --full → the dependencies are a NOT-wired line with the reason" \
+  || bad "G: no NOT-wired dependencies line in the ts-server install output"
 
 # ════ Arm H (npx-float) — react-next --full → storybook-CI npx toolchain lands as devDeps ════
 # The shipped react-next CI template runs `npx concurrently/http-server/wait-on`; without these in

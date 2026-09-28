@@ -84,7 +84,7 @@
   "installCommands": {
     "source": {
       "positionals": "setup:72",
-      "laneTable": "install.sh:288",
+      "laneTable": "install.sh:292",
       "flags": "README.md:147"
     },
     "stacks": [
@@ -353,7 +353,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 288
+      "count": 289
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
