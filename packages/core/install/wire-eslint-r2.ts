@@ -1062,6 +1062,16 @@ export interface LintProbeResult {
    * `config` — ESLint could not use the config at all (exit 2). The second is the worse failure.
    */
   failure?: 'parse' | 'config';
+  /**
+   * What ESLint made of each probed path (relative to the config's dir). writeWithLintProbe compares the
+   * paths one by one: an original that already fails on one path says nothing about another.
+   */
+  paths?: Record<string, LintProbePath>;
+}
+
+export interface LintProbePath {
+  outcome: 'ok' | 'parse' | 'config' | 'unavailable';
+  detail?: string;
 }
 
 export interface LintProbeOptions {
@@ -1171,6 +1181,14 @@ function verdictOf(run: EslintRun): LintProbeResult {
   return { verdict: 'unavailable', detail: run.rc === 'timeout' ? 'ESLint did not finish in time' : run.text.slice(0, 400) };
 }
 
+function outcomeOf(r: LintProbeResult): LintProbePath['outcome'] {
+  if (r.verdict === 'ok' || r.verdict === 'unavailable') return r.verdict;
+  return r.failure ?? 'config';
+}
+
+/** Worst first: an exit 2, then a parsing error, then a run that could not finish (it proves nothing). */
+const OUTCOME_SEVERITY: Record<LintProbePath['outcome'], number> = { ok: 0, unavailable: 1, parse: 2, config: 3 };
+
 /**
  * Lint throwaway files with the consumer's own ESLint from the config's directory. Unlike
  * probeViaEslint's `--print-config` (config resolution only), this makes ESLint resolve and run every
@@ -1178,8 +1196,9 @@ function verdictOf(run: EslintRun): LintProbeResult {
  * unparseable. A plugin-less `rules-as-tests/*` block fails both. One real file per lintable extension
  * sits next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at one path per
  * brace alternative, so no directory is created in the consumer tree. Exit 0/1 means the config loads
- * and lints (1 = the probe file drew findings); exit 2 means ESLint cannot use the config. The worst
- * run decides: an exit 2 anywhere beats a parsing error.
+ * and lints (1 = the probe file drew findings); exit 2 means ESLint cannot use the config. The verdict
+ * is the worst path's: an exit 2, then a parsing error, then a run that could not finish; short of
+ * `ok`, `paths` holds every path's outcome.
  */
 export async function probeLintViaEslint(configPath: string, cwd: string, opts: LintProbeOptions = {}): Promise<LintProbeResult> {
   const dir = dirname(resolve(configPath));
@@ -1198,61 +1217,71 @@ export async function probeLintViaEslint(configPath: string, cwd: string, opts: 
   // tsx not resolvable → plain node (same fallback as probeViaEslint)
   const nodeArgs: string[] = resolveFrom('tsx') !== undefined ? ['--import', 'tsx'] : [];
   const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
-  // A `.ts`/`.tsx` probe carries TypeScript-only syntax, so a config that cannot parse TypeScript there shows.
-  const bodyFor = (name: string): string =>
-    /\.tsx?$/.test(name) ? 'export const __aif_probe: number = 1;\n' : 'export const __aif_probe = 1;\n';
-  // Every other probe file asks one question — can ESLint use the config for a file at this path — so
-  // its body parses as a script, a module, CommonJS and TypeScript alike: only an exit 2 can fail it.
-  const neutralBody = 'var __aif_probe = 1;\n';
+  // A `.ts` probe carries TypeScript-only syntax, so a config that cannot parse TypeScript there shows;
+  // a `.js` probe is an ES module. Every other probe file asks one question — can ESLint use the config
+  // for a file at this path — so its body parses as a script, a module, CommonJS and TypeScript alike:
+  // only an exit 2 can fail it. `.tsx` stays neutral: a `.ts` block with no TypeScript parser already
+  // fails the `.ts` body, and a `{ts,tsx}` block added to it would newly fail a TypeScript `.tsx` body
+  // too — a rollback of a sound wiring (2026-09-28).
+  const bodyFor = (rel: string): string =>
+    /\.ts$/.test(rel) ? 'export const __aif_probe: number = 1;\n'
+      : /\.js$/.test(rel) ? 'export const __aif_probe = 1;\n'
+        : 'var __aif_probe = 1;\n';
   // One file per lintable extension: `eslint .` also lints `.mjs`/`.cjs` (the config itself) and every
   // extension a block names, and a rule block whose plugin the base registers for some of them only
   // reaches the rest without it — exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28).
-  const rootBodies = new Map(
-    LINTABLE_EXTENSIONS.map((ext): [string, string] => {
-      const name = `${PROBE_BASENAME}.${ext}`;
-      return [name, ext === 'js' || ext === 'ts' ? bodyFor(name) : neutralBody];
-    }),
-  );
   // Every path handed to ESLint is relative to its cwd (`dir`): an absolute path through a symlinked
   // dir (macOS /var → /private/var) reads as «outside of base path» — ignored, exit 0, a false ok.
-  const names = [...rootBodies.keys()];
+  const names = LINTABLE_EXTENSIONS.map((ext) => `${PROBE_BASENAME}.${ext}`);
   const targets = names.map((n) => resolve(dir, n));
-  let root: LintProbeResult;
-  names.forEach((n, i) => writeFileSync(targets[i], rootBodies.get(n) ?? neutralBody, 'utf8'));
+  const runs = new Map<string, LintProbeResult>();
+  names.forEach((n, i) => writeFileSync(targets[i], bodyFor(n), 'utf8'));
   try {
-    root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    const pooled = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    if (pooled.verdict === 'unavailable') return pooled;
+    // One run has one exit code. When it fails, each file is linted alone, so writeWithLintProbe can tell
+    // a path the change broke from one the original already fails on (an extension the project lacks).
+    for (const n of names) runs.set(n, pooled.verdict === 'ok' ? pooled : verdictOf(runEslint(nodeArgs, eslintBin, [n], dir, timeoutMs)));
   } finally {
     for (const t of targets) {
       try { unlinkSync(t); } catch { /* best-effort */ }
     }
   }
-  if (root.verdict === 'unavailable' || root.failure === 'config') return root;
-  // A scope's first alternative carries bodyFor's body, as before; the other alternatives are neutral.
-  const witnesses = new Map<string, string>();
-  for (const glob of opts.scopeGlobs ?? []) {
-    const first = probeScopePath(glob);
-    for (const rel of probeScopePaths(glob)) {
-      if (rel === first) witnesses.set(rel, bodyFor(rel));
-      else if (!witnesses.has(rel)) witnesses.set(rel, neutralBody);
-    }
+  // Each scope at every brace alternative, unless the run above linted that path already.
+  for (const rel of new Set((opts.scopeGlobs ?? []).flatMap(probeScopePaths))) {
+    if (runs.has(rel)) continue;
+    runs.set(rel, verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, bodyFor(rel))));
   }
-  // A parsing error does not end the probe: an exit 2 further on is the worse failure.
-  let worst = root;
-  for (const [rel, body] of witnesses) {
-    // The root run already linted this path: with the same body, or — for a neutral body, which only asks
-    // whether ESLint can use the config there — with any body.
-    if (rootBodies.get(rel) === body || (body === neutralBody && rootBodies.has(rel))) continue;
-    const r = verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, body));
-    if (r.verdict === 'unavailable' || r.failure === 'config') return r;
-    if (worst.verdict === 'ok') worst = r;
+  const paths: Record<string, LintProbePath> = {};
+  let worst: LintProbeResult = { verdict: 'ok' };
+  for (const [rel, r] of runs) {
+    paths[rel] = { outcome: outcomeOf(r), ...(r.detail !== undefined ? { detail: r.detail } : {}) };
+    if (OUTCOME_SEVERITY[outcomeOf(r)] > OUTCOME_SEVERITY[outcomeOf(worst)]) worst = r;
   }
-  return worst;
+  return worst.verdict === 'ok' ? worst : { ...worst, paths };
+}
+
+/**
+ * A probed path where the modified config fails worse than the original (an exit 2 beats a parsing
+ * error); a run that could not finish on either side proves nothing there. Without per-path results,
+ * only an exit 2 against an original that merely fails to parse counts.
+ */
+function worsenedPath(after: LintProbeResult, before: LintProbeResult): LintProbePath | undefined {
+  const rank = (o: LintProbePath['outcome']): number => ({ ok: 0, parse: 1, config: 2, unavailable: -1 })[o];
+  if (after.paths === undefined || before.paths === undefined) {
+    return after.failure === 'config' && before.failure === 'parse' ? { outcome: 'config', detail: after.detail } : undefined;
+  }
+  for (const [rel, a] of Object.entries(after.paths)) {
+    const b = before.paths[rel];
+    if (b !== undefined && rank(a.outcome) >= 0 && rank(b.outcome) >= 0 && rank(a.outcome) > rank(b.outcome)) return a;
+  }
+  return undefined;
 }
 
 /**
  * Write `modified`, lint-probe it, and restore `original` only when the probe proves the WIRING broke
- * ESLint: the modified config is broken while the original lints clean, or exits 2 while the original
- * only fails to parse a probe file. When the original fails too
+ * ESLint: the modified config is broken while the original lints clean, or fails worse than the
+ * original on some probed path (worsenedPath). When the original fails too
  * (typed-lint parser setup, plugins not installed yet — cold-review F1/F2) the probe cannot judge the
  * change, so the write stands — the pre-probe behaviour — with a `probeNote` saying it was not
  * verified. An `unavailable` probe likewise proves nothing either way.
@@ -1276,15 +1305,15 @@ export async function writeWithLintProbe(args: {
   const before = await runProbe(configPath, cwd);
   // Keep a proven-broken write only on evidence the original fails the same probe too: exit 2, or a
   // missing package. A re-check that merely could not run (timeout) is no such evidence (round 2, N6).
-  // Nor is an original that only fails to parse a probe file, when the change makes ESLint exit 2: the
-  // change made the failure worse (a `.ts` block with no TypeScript parser hid a plugin-less rule
-  // block, 2026-09-28).
-  const worsened = after.failure === 'config' && before.failure === 'parse';
-  const originalFails = !worsened && (before.verdict === 'broken' || MISSING_PACKAGE.test(before.detail ?? ''));
+  // Nor is an original that fails elsewhere or less badly: a path the change made fail worse — a `.ts`
+  // block with no TypeScript parser hid a plugin-less rule block, and an exit 2 on an extension the
+  // project lacks hid one on `.ts` (2026-09-28).
+  const worse = worsenedPath(after, before);
+  const originalFails = worse === undefined && (before.verdict === 'broken' || MISSING_PACKAGE.test(before.detail ?? ''));
   if (!originalFails) {
     return {
       status: 'degrade', original, modified: original,
-      degradeReason: `the wiring broke ESLint, so it was rolled back (${after.detail ?? 'exit 2'})`,
+      degradeReason: `the wiring broke ESLint, so it was rolled back (${worse?.detail ?? after.detail ?? 'exit 2'})`,
     };
   }
   writeFileSync(configPath, modified, 'utf8');

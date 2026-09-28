@@ -10867,6 +10867,11 @@ function verdictOf(run) {
   }
   return { verdict: "unavailable", detail: run.rc === "timeout" ? "ESLint did not finish in time" : run.text.slice(0, 400) };
 }
+function outcomeOf(r) {
+  if (r.verdict === "ok" || r.verdict === "unavailable") return r.verdict;
+  return r.failure ?? "config";
+}
+var OUTCOME_SEVERITY = { ok: 0, unavailable: 1, parse: 2, config: 3 };
 async function probeLintViaEslint(configPath, cwd, opts = {}) {
   const dir = dirname6(resolve5(configPath));
   const resolveFrom = (id) => {
@@ -10884,20 +10889,15 @@ async function probeLintViaEslint(configPath, cwd, opts = {}) {
   if (!existsSync3(eslintBin)) return { verdict: "unavailable" };
   const nodeArgs = resolveFrom("tsx") !== void 0 ? ["--import", "tsx"] : [];
   const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
-  const bodyFor = (name) => /\.tsx?$/.test(name) ? "export const __aif_probe: number = 1;\n" : "export const __aif_probe = 1;\n";
-  const neutralBody = "var __aif_probe = 1;\n";
-  const rootBodies = new Map(
-    LINTABLE_EXTENSIONS.map((ext) => {
-      const name = `${PROBE_BASENAME}.${ext}`;
-      return [name, ext === "js" || ext === "ts" ? bodyFor(name) : neutralBody];
-    })
-  );
-  const names = [...rootBodies.keys()];
+  const bodyFor = (rel) => /\.ts$/.test(rel) ? "export const __aif_probe: number = 1;\n" : /\.js$/.test(rel) ? "export const __aif_probe = 1;\n" : "var __aif_probe = 1;\n";
+  const names = LINTABLE_EXTENSIONS.map((ext) => `${PROBE_BASENAME}.${ext}`);
   const targets = names.map((n) => resolve5(dir, n));
-  let root;
-  names.forEach((n, i) => writeFileSync(targets[i], rootBodies.get(n) ?? neutralBody, "utf8"));
+  const runs = /* @__PURE__ */ new Map();
+  names.forEach((n, i) => writeFileSync(targets[i], bodyFor(n), "utf8"));
   try {
-    root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    const pooled = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    if (pooled.verdict === "unavailable") return pooled;
+    for (const n of names) runs.set(n, pooled.verdict === "ok" ? pooled : verdictOf(runEslint(nodeArgs, eslintBin, [n], dir, timeoutMs)));
   } finally {
     for (const t of targets) {
       try {
@@ -10906,23 +10906,28 @@ async function probeLintViaEslint(configPath, cwd, opts = {}) {
       }
     }
   }
-  if (root.verdict === "unavailable" || root.failure === "config") return root;
-  const witnesses = /* @__PURE__ */ new Map();
-  for (const glob of opts.scopeGlobs ?? []) {
-    const first = probeScopePath(glob);
-    for (const rel of probeScopePaths(glob)) {
-      if (rel === first) witnesses.set(rel, bodyFor(rel));
-      else if (!witnesses.has(rel)) witnesses.set(rel, neutralBody);
-    }
+  for (const rel of new Set((opts.scopeGlobs ?? []).flatMap(probeScopePaths))) {
+    if (runs.has(rel)) continue;
+    runs.set(rel, verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, bodyFor(rel))));
   }
-  let worst = root;
-  for (const [rel, body] of witnesses) {
-    if (rootBodies.get(rel) === body || body === neutralBody && rootBodies.has(rel)) continue;
-    const r = verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, body));
-    if (r.verdict === "unavailable" || r.failure === "config") return r;
-    if (worst.verdict === "ok") worst = r;
+  const paths = {};
+  let worst = { verdict: "ok" };
+  for (const [rel, r] of runs) {
+    paths[rel] = { outcome: outcomeOf(r), ...r.detail !== void 0 ? { detail: r.detail } : {} };
+    if (OUTCOME_SEVERITY[outcomeOf(r)] > OUTCOME_SEVERITY[outcomeOf(worst)]) worst = r;
   }
-  return worst;
+  return worst.verdict === "ok" ? worst : { ...worst, paths };
+}
+function worsenedPath(after, before) {
+  const rank = (o) => ({ ok: 0, parse: 1, config: 2, unavailable: -1 })[o];
+  if (after.paths === void 0 || before.paths === void 0) {
+    return after.failure === "config" && before.failure === "parse" ? { outcome: "config", detail: after.detail } : void 0;
+  }
+  for (const [rel, a] of Object.entries(after.paths)) {
+    const b = before.paths[rel];
+    if (b !== void 0 && rank(a.outcome) >= 0 && rank(b.outcome) >= 0 && rank(a.outcome) > rank(b.outcome)) return a;
+  }
+  return void 0;
 }
 async function writeWithLintProbe(args) {
   const { configPath, cwd, original, modified, runProbe } = args;
@@ -10934,14 +10939,14 @@ async function writeWithLintProbe(args) {
   }
   writeFileSync(configPath, original, "utf8");
   const before = await runProbe(configPath, cwd);
-  const worsened = after.failure === "config" && before.failure === "parse";
-  const originalFails = !worsened && (before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? ""));
+  const worse = worsenedPath(after, before);
+  const originalFails = worse === void 0 && (before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? ""));
   if (!originalFails) {
     return {
       status: "degrade",
       original,
       modified: original,
-      degradeReason: `the wiring broke ESLint, so it was rolled back (${after.detail ?? "exit 2"})`
+      degradeReason: `the wiring broke ESLint, so it was rolled back (${worse?.detail ?? after.detail ?? "exit 2"})`
     };
   }
   writeFileSync(configPath, modified, "utf8");

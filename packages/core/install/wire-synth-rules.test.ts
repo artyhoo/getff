@@ -599,6 +599,46 @@ describe('N-rule post-write lint probe + restore', () => {
     expect(r.degradeReason).toMatch(/rolled back/);
   });
 
+  // The probe lints one file per extension. An original that already exits 2 on an extension the
+  // project does not have (a `.mts` block naming a plugin it never registers) must not make every
+  // later break look like «the original fails too»: the verdict is compared path by path.
+  it('probe exits 2 after write on a path the original lints, the original exits 2 on another → original restored', async () => {
+    const { dir, p } = withFile();
+    const runProbe = async () =>
+      readFileSync(p, 'utf8') === MODIFIED
+        ? ({
+            verdict: 'broken', failure: 'config', detail: 'Could not find plugin "foo"',
+            paths: { 'x.mts': { outcome: 'config', detail: 'Could not find plugin "foo"' }, 'x.ts': { outcome: 'config', detail: 'Could not find plugin "rules-as-tests"' } },
+          } as const)
+        : ({ verdict: 'broken', failure: 'config', detail: 'Could not find plugin "foo"', paths: { 'x.mts': { outcome: 'config' }, 'x.ts': { outcome: 'ok' } } } as const);
+    const r = await writeWithLintProbe({ configPath: p, cwd: dir, original: ORIGINAL, modified: MODIFIED, runProbe });
+    expect(r.status).toBe('degrade');
+    expect(readFileSync(p, 'utf8')).toBe(ORIGINAL);
+    // The reason quotes the path the change broke, not the failure the original already had.
+    expect(r.degradeReason).toMatch(/wiring broke ESLint.*"rules-as-tests"/);
+  });
+
+  it('probe adds a parsing error on a path the original lints → original restored', async () => {
+    const { dir, p } = withFile();
+    const runProbe = async () =>
+      readFileSync(p, 'utf8') === MODIFIED
+        ? ({ verdict: 'broken', failure: 'parse', detail: 'Parsing error', paths: { 'x.mts': { outcome: 'config' }, 'x.tsx': { outcome: 'parse' } } } as const)
+        : ({ verdict: 'broken', failure: 'config', detail: 'Could not find plugin "foo"', paths: { 'x.mts': { outcome: 'config' }, 'x.tsx': { outcome: 'ok' } } } as const);
+    const r = await writeWithLintProbe({ configPath: p, cwd: dir, original: ORIGINAL, modified: MODIFIED, runProbe });
+    expect(r.status).toBe('degrade');
+    expect(readFileSync(p, 'utf8')).toBe(ORIGINAL);
+  });
+
+  // Paired: every path fails the same way with and without the change → the probe cannot judge it.
+  it('paired: the same paths fail the same way with and without the change → modified kept, unverified', async () => {
+    const { dir, p } = withFile();
+    const runProbe = async () => ({ verdict: 'broken', failure: 'config', detail: 'Could not find plugin "foo"', paths: { 'x.mts': { outcome: 'config' }, 'x.ts': { outcome: 'ok' } } } as const);
+    const r = await writeWithLintProbe({ configPath: p, cwd: dir, original: ORIGINAL, modified: MODIFIED, runProbe });
+    expect(r.status).toBe('wired');
+    expect(readFileSync(p, 'utf8')).toBe(MODIFIED);
+    expect(r.probeNote).toMatch(/already fails/);
+  });
+
   it('probeScopePath: a files: glob becomes one concrete path the glob matches', () => {
     expect(probeScopePath('**/app/api/**/*.{ts,tsx}')).toBe('app/api/__aif_nrule_probe__.ts');
     expect(probeScopePath('**/*.{ts,tsx}')).toBe('__aif_nrule_probe__.ts');
@@ -749,6 +789,26 @@ describe('N-rule post-write lint probe + restore', () => {
     }
   }, 60_000);
 
+  // A run that could not finish proves nothing; it must not replace a parsing error another run proved.
+  it.skipIf(!ESLINT_RESOLVABLE)('probeLintViaEslint: a scope run that times out keeps the parsing error the root run found', async () => {
+    const dir = mkdtempSync(join(HERE, '.nrule-probe-'));
+    try {
+      const p = join(dir, 'eslint.config.mjs');
+      writeFileSync(
+        p,
+        `const hang = { parse() { for (;;) {} } };\n` +
+          `export default [{ files: ['**/*.ts'], rules: {} }, { files: ['**/app/api/**/*.{ts,tsx}'], languageOptions: { parser: hang } }];\n`,
+        'utf8',
+      );
+      const r = await probeLintViaEslint(p, dir, { scopeGlobs: ['**/app/api/**/*.{ts,tsx}'], timeoutMs: 3000 });
+      expect(r.verdict).toBe('broken');
+      expect(r.failure).toBe('parse');
+      expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   // A type-aware config (typescript-eslint projectService or parserOptions.project — any stack) refuses
   // a probe file its tsconfig does not include, also as a «Parsing error». That says nothing about the
   // wiring, and the original config refuses it the same way: read as broken, every such install would
@@ -890,7 +950,7 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
       try {
         await wire(dir, LIVE_RULE);
         const lint = lintRc(dir);
-        expect(lint.rc, lint.out).not.toBe(2);
+        expect(lint.rc, lint.out).toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -905,7 +965,7 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
       try {
         await wire(dir, { 'rules-as-tests/no-server-imports-in-client': 'error' });
         const lint = lintRc(dir);
-        expect(lint.rc, lint.out).not.toBe(2);
+        expect(lint.rc, lint.out).toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -920,7 +980,7 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
       try {
         await wire(dir, { 'rules-as-tests/restricted-syntax-audit-exempt': ['error', { selector: 'DebuggerStatement', message: 'x' }] });
         const lint = lintRc(dir);
-        expect(lint.rc, lint.out).not.toBe(2);
+        expect(lint.rc, lint.out).toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -937,7 +997,7 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
         expect(lintRc(dir).rc).toBe(0);
         await wire(dir, LIVE_RULE);
         const lint = lintRc(dir);
-        expect(lint.rc, lint.out).not.toBe(2);
+        expect(lint.rc, lint.out).toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -955,7 +1015,47 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
         expect(lintRc(dir).rc).toBe(0);
         await wire(dir, { 'rules-as-tests/restricted-syntax-audit-exempt': ['error', { selector: 'DebuggerStatement', message: 'x' }] });
         const lint = lintRc(dir);
-        expect(lint.rc, lint.out).not.toBe(2);
+        expect(lint.rc, lint.out).toBe(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // The original already exits 2 on `.mts` (a block naming a plugin registered for other extensions),
+    // a file the project does not have: its `eslint .` is clean. A write that makes ESLint exit 2 on
+    // `.ts` must still be rolled back — one pooled run over every probe file reads «fails either way».
+    it.skipIf(!TS_MORPH_AVAILABLE)('an original that exits 2 on an extension the project lacks does not hide an exit 2 the wiring caused', async () => {
+      const config =
+        `${IMPORT_BARREL}const foo = { rules: { x: { create: () => ({}) } } };\n${ONLY_JS}` +
+        `export default [{ files: ['**/*.{js,mjs,cjs,ts}'], plugins: { foo } }, { files: ['**/*.mts'], rules: { 'foo/x': 'error' } },` +
+        ` { ...onlyJs, plugins: { 'rules-as-tests': customRules }, rules: {} }];\n`;
+      const dir = consumer(config, SRC);
+      try {
+        expect(lintRc(dir).rc).toBe(0);
+        const r = await wire(dir, LIVE_RULE);
+        expect(r.status).toBe('degrade');
+        expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toBe(config);
+        const lint = lintRc(dir);
+        expect(lint.rc, lint.out).toBe(0);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // A `.ts` block with no TypeScript parser, the plugin registered for every file, and react-next's
+    // rule over `{ts,tsx}`: the wiring is sound and must stay. The block makes ESLint lint `.tsx` too, so
+    // a `.tsx` probe body with TypeScript syntax would fail to parse there only after the write — a
+    // rollback of a sound wiring into exactly the config shape the `.ts` body already cannot judge.
+    it.skipIf(!TS_MORPH_AVAILABLE)('paired: a .ts block with no TS parser and a sound block over {ts,tsx} → still wired', async () => {
+      const config = `${IMPORT_BARREL}export default [{ plugins: { 'rules-as-tests': customRules } }, { files: ['**/*.ts'], rules: {} }];\n`;
+      const dir = consumer(config, { ...SRC, 'src/c.tsx': 'export const z = 1;\n' });
+      try {
+        expect(lintRc(dir).rc).toBe(0);
+        const r = await wire(dir, { 'rules-as-tests/no-server-imports-in-client': 'error' });
+        expect(r.status).toBe('wired');
+        expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toContain('rules-as-tests/no-server-imports-in-client');
+        const lint = lintRc(dir);
+        expect(lint.rc, lint.out).toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -973,7 +1073,7 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
         expect(r.status).toBe('wired');
         expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toContain('rules-as-tests/live-rule');
         const lint = lintRc(dir);
-        expect(lint.rc, lint.out).not.toBe(2);
+        expect(lint.rc, lint.out).toBe(0);
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
