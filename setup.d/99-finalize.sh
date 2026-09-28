@@ -354,8 +354,8 @@ _r2_boundary_under() {
   out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
   [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
 }
-# _r2_named_under <abs dir> — exit 0 IFF an ESLint config under it names R2 as a quoted rule id (a
-# comment naming the rule is not a rule entry).
+# _r2_named_under <abs dir> — exit 0 when an ESLint config under it names R2 as a quoted rule id, the
+# test the wirer's simpleRulePresent applies (wire-eslint-r2.ts). A bare, unquoted mention does not count.
 _r2_named_under() {
   grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
     -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null
@@ -442,7 +442,7 @@ if [ "$DRY_RUN" != "--dry-run" ] \
         echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
         # Named in the summary only when there is HTTP boundary code under it and no config there
         # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
-        # its root fallback; a comment naming the rule is not a rule entry).
+        # its root fallback; an unquoted mention of the rule is not a rule entry).
         if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
@@ -450,7 +450,7 @@ if [ "$DRY_RUN" != "--dry-run" ] \
       react-native)
         # Its preset ships no R2, so nothing is added to any config here (60-ci.sh leaves a flat repo's
         # alike). HTTP boundary code under the workspace that no config there checks with R2 is one line
-        # for the workspace — whether or not the pass above could run.
+        # for the workspace — whether or not the pass below could run.
         if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — getff's react-native preset ships no R2, so the install adds it to no react-native config; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi

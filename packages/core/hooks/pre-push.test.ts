@@ -260,7 +260,7 @@ describe('isFrameworkShippedMarkdown — shipped, not "everything under .claude/
  * replaced 10-skills.sh's `cp -r` with _copy_tree_with_transform and a verb-shaped regex
  * went stale within hours. A path-shape scan of setup.d would also have to distinguish
  * DELIVERIES from mere READS of the same path (install.sh:694-707 probes
- * `.ai-factory/RULES.react-next.md` to detect the stack; 60-ci.sh:123 reads
+ * `.ai-factory/RULES.react-next.md` to detect the stack; 60-ci.sh:131 reads
  * tool-decisions.md), and getting that wrong in the read direction would manufacture a
  * row for a consumer-authored path — the over-reach half of this very finding.
  *

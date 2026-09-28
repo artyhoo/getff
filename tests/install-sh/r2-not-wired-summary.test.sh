@@ -118,6 +118,7 @@ run_finalize() {
 }
 sum_has() { printf '%s\n' "$F_SUM" | grep -qE "$1"; }
 sum_show() { printf '%s\n' "$F_SUM" | tr '\n' '|'; }
+sum_count() { printf '%s\n' "$F_SUM" | grep -cE "$1" || true; }
 # ran_through <arm> — the finalize reached its last line: under set -e a failing command in it would
 # have stopped the driver before the summary, and an arm asserting «no line» would pass on that.
 ran_through() {
@@ -265,7 +266,7 @@ ws_arm() {
     bad "$1: expected a NOT wired line naming «$2» for:$missing (summary: $(sum_show))"
   fi
   if sum_has "${R2_LINE}apps/mobile — .*react-native preset ships no R2" \
-     && ! sum_has "${R2_LINE}apps/mobile/"; then
+     && [ "$(sum_count "${R2_LINE}apps/mobile[ /]")" = 1 ]; then
     ok "$1: the react-native workspace is one NOT wired line naming its preset, not a line per config"
   else
     bad "$1: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(sum_show))"
@@ -316,6 +317,12 @@ if sum_has "${R2_LINE}apps/(api|web|spa|site)[/ ]"; then
   bad "W3: the stand-in reported R2 wired, yet the pass put an R2 line in the NOT wired summary (summary: $(sum_show))"
 else
   ok "W3: the stand-in reported R2 wired for each config, and the pass adds no NOT wired line after it"
+fi
+if sum_has "${R2_LINE}apps/mobile — .*react-native preset ships no R2" \
+   && [ "$(sum_count "${R2_LINE}apps/mobile[ /]")" = 1 ]; then
+  ok "W3: the react-native workspace keeps its one NOT wired line while the pass runs"
+else
+  bad "W3: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(sum_show))"
 fi
 ran_through W3
 
@@ -405,6 +412,7 @@ if sum_has "${R2_LINE}apps/m"; then
 else
   ok "RN2: paired — a react-native workspace whose own config names R2 is not listed"
 fi
+ran_through RN2
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -199,7 +199,7 @@ else
       || bad "§6c: no NOT wired line for apps/$_w naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
   done
   grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile — .*react-native preset ships no R2' "$O/.install.log" \
-    && ! grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile/' "$O/.install.log" \
+    && [ "$(grep -cE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile[ /]' "$O/.install.log")" = 1 ] \
     && ok "§6c: apps/mobile (react-native, boundary code) is one NOT wired line naming its preset" \
     || bad "§6c: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
 fi
