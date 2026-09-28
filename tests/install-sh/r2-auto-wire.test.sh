@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# r2-auto-wire.test.sh — GH #547 Point 2 C2/C3 end-to-end. Fixtures A–F + self-probe. Each arm
+# r2-auto-wire.test.sh — GH #547 Point 2 C2/C3 end-to-end. Fixtures A–G2 + self-probe. Each arm
 # asserts install rc=0 (a mid-install crash must never false-green — lesson GH #531/#544).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -15,6 +15,8 @@ install_into() {
   return 0
 }
 globs() { ( cd "$1" && ESLINT_CONFIG="$1/eslint.config.mjs" bash "$1/scripts/check-rule-globs.sh" ) 2>&1; }
+# The not-wired summary of an install log: one «- …» line per piece, up to the blank line that ends it.
+not_wired() { awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$1"; }
 
 # ── Fixture A — declarative Hono: red→green via recorded N/A (the timeliner case) ──────
 A=$(mktemp -d)
@@ -69,6 +71,17 @@ OUT=$(globs "$D"); RC=$?
   && ok "D: ambiguous → check:globs stays the RED alarm (no false auto-green on doubt)" \
   || bad "D: ambiguous layout did not stay red (rc=$RC)"
 
+# ── Fixture D2 — the same ambiguous layout after the consumer edited getff's config ───────────
+# The edit makes the config the consumer's (getff_delivered AND getff_bytes_intact, as everywhere
+# else in 60-ci): the message no longer vouches for «its default globs», which the edit may have changed.
+printf '\n// edited by the consumer\n' >> "$D/eslint.config.mjs"
+( cd "$D" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$D/.install2.log" 2>&1 \
+  || bad "D2: the re-install exited non-zero (tail: $(tail -3 "$D/.install2.log" | tr '\n' '|'))"
+grep 'R2 boundary layout ambiguous' "$D/.install2.log" | grep -q 'edited since' \
+  && ! grep -q 'keeps its default globs' "$D/.install2.log" \
+  && ok "D2: an ambiguous layout with getff's config edited since → the message says so, not «keeps its default globs»" \
+  || bad "D2: the ambiguous-layout message still reads the edited config as getff's: $(grep 'R2 boundary layout ambiguous' "$D/.install2.log" | tr '\n' '|')"
+
 # ── Fixture E — the consumer owns eslint.config.mjs: a boundary is found, the awk patch stays off ──
 # The awk glob patch is for getff's own config only. It used to rewrite a consumer's config: awk +
 # mv over their file, and a «✓ added 1 glob(s)» even when the config had no `boundary: [` line and
@@ -108,6 +121,30 @@ awk '/NOT wired, or wired only in part/{on=1} on' "$E.log" | grep -q 'R2.*your o
   || bad "E: the install asks for a manual ESLint edit: $(grep -iE 'eslint|R2' "$E.log" | grep -iE 'by hand|manually' | head -2 | tr '\n' '|')"
 rm -f "$E.before" "$E.log"
 
+# ── Fixture E2 — the consumer's own config registers R2 itself, with no RULE_GLOBS block ───────
+# The own-config wirer adds RULE_GLOBS and R2 only to a config that has neither; R2 registered by the
+# consumer, scoped their own way, gets nothing from it — not with --full either. So the not-wired
+# summary must not promise R2's boundary globs for this config.
+E2=$(mktemp -d)
+printf '{"name":"e2","version":"0.0.0"}\n' > "$E2/package.json"
+mkdir -p "$E2/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$E2/src/api/handler.ts"
+cat > "$E2/eslint.config.mjs" <<'JS'
+// The consumer's own config: R2 on, scoped the consumer's way, no RULE_GLOBS block.
+import rulesAsTests from './eslint-rules-local/index.mjs';
+export default [
+  { files: ['src/**/*.ts'], plugins: { 'rules-as-tests': rulesAsTests }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } },
+];
+JS
+( cd "$E2" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$E2.log" 2>&1 \
+  || bad "E2: install exited non-zero (tail: $(tail -3 "$E2.log" | tr '\n' '|'))"
+grep -q 'eslint.config.mjs is your own config' "$E2.log" \
+  || bad "E2: 60-ci did not route the consumer's config as their own — the arm below would be vacuous"
+_e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs')
+! printf '%s\n' "$_e2_line" | grep -qiE 'boundary glob|RULE_GLOBS' \
+  && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary promises no boundary globs getff would not add" \
+  || bad "E2: the not-wired summary promises R2 boundary globs for a config the wirer leaves R2 alone in: $(printf '%s' "$_e2_line" | tr '\n' '|')"
+rm -f "$E2.log"
+
 # ── Fixture F — getff's own config with no `boundary: [` array (react-native ships none) ──────
 # The awk patch copies such a config unchanged; the counter still went up and the install said
 # «✓ added 1 glob(s)» over a file it had not changed.
@@ -128,13 +165,30 @@ grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
   && ok "F: the install says why R2 is not wired (this stack's config has no RULE_GLOBS block)" \
   || bad "F: no line saying the stack's config has no RULE_GLOBS block"
 
+# ── Fixture F2 — the same react-native project after the consumer edited getff's config ────────
+# An edited config is the consumer's, and react-native's preset still ships no R2: nothing is
+# written, nothing is promised, and nothing about R2 lands in the not-wired summary.
+printf '\n// edited by the consumer\n' >> "$F/eslint.config.mjs"; cp "$F/eslint.config.mjs" "$F.edited"
+( cd "$F" && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$F/.install2.log" 2>&1 \
+  || bad "F2: the re-install exited non-zero (tail: $(tail -3 "$F/.install2.log" | tr '\n' '|'))"
+grep -q 'ships no R2' "$F/.install2.log" && cmp -s "$F/eslint.config.mjs" "$F.edited" \
+  && ! grep -qE 'could not add glob|added [0-9]* glob' "$F/.install2.log" \
+  && ok "F2: getff's edited react-native config → no R2 to add, the file is left as the consumer left it" \
+  || bad "F2: the re-install wrote, or tried to write, R2 globs into the edited react-native config: $(grep -A2 'R2 auto-wire' "$F/.install2.log" | tr '\n' '|')"
+# Scoped to the config's lines: the summary's CI-gate line names check:globs «R2/R7/R8» on any stack.
+! not_wired "$F/.install2.log" | grep -F 'eslint.config' | grep -qiE 'R2|boundary' \
+  && ok "F2: the not-wired summary has no R2 line for a stack whose preset ships no R2" \
+  || bad "F2: the not-wired summary lists R2 for react-native: $(not_wired "$F/.install2.log" | grep -F 'eslint.config' | grep -iE 'R2|boundary' | head -1)"
+rm -f "$F.edited"
+
 # ── Fixture G — getff's own config whose `boundary: [` array was edited away, then a re-install ──
 # The edit makes the config the consumer's, as for the synth-wire (getff_delivered AND
 # getff_bytes_intact): 60-ci no longer writes into it, and its boundary globs go to 99-finalize's
-# own-config pass, which keeps the original first — and needs ts-morph, which a plain re-install
-# does not have. So the file stays as the consumer left it. The install used to answer «widen
-# RULE_GLOBS.boundary by hand» on stderr and put nothing in the NOT-wired summary (cold-review F5b,
-# Q4.7: never a manual step). It must name what is not wired and why, in the summary.
+# own-config pass. That pass does not redefine a RULE_GLOBS the config declares, so with the
+# boundary array gone R2 is refused with or without ts-morph, and --full is no remedy. The file stays
+# as the consumer left it. The install used to answer «widen RULE_GLOBS.boundary by hand» on stderr
+# and put nothing in the NOT-wired summary (cold-review F5b, Q4.7: never a manual step). The summary
+# must name what is not wired and the real reason — the one the wirer itself gives.
 G=$(mktemp -d)
 printf '{"name":"g","version":"0.0.0"}\n' > "$G/package.json"
 mkdir -p "$G/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$G/src/api/handler.ts"
@@ -155,15 +209,17 @@ cmp -s "$G/eslint.config.mjs" "$G.edited" && ! grep -q 'could not add glob' "$G/
 ! grep -qiE 'by hand|manually' "$G/.install2.log" \
   && ok "G: a boundary glob getff cannot write → no manual-edit advice" \
   || bad "G: the install asks for a manual edit: $(grep -iE 'by hand|manually' "$G/.install2.log" | head -1)"
-awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q 'RULE_GLOBS.boundary.*eslint.config.mjs.*--full' \
-  && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added, and --full" \
-  || bad "G: the not-wired summary does not report the boundary globs that could not be added: $(awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -i 'eslint.config' | head -2 | tr '\n' '|')"
+_g_line=$(not_wired "$G/.install2.log" | grep -F 'eslint.config.mjs')
+printf '%s\n' "$_g_line" | grep -qF 'declares its own RULE_GLOBS with no boundary array, and getff does not redefine it' \
+  && ! printf '%s\n' "$_g_line" | grep -q -- '--full' \
+  && ok "G: the not-wired summary says R2 is refused because the config declares RULE_GLOBS with no boundary array — not --full, which would not add it either" \
+  || bad "G: the not-wired summary does not give the wirer's reason for R2 in eslint.config.mjs: $(printf '%s' "$_g_line" | head -2 | tr '\n' '|')"
 rm -f "$G.edited"
 
 # ── Fixture G2 — getff's own, untouched config whose glob write fails ────────────────────────────
 # 60-ci still writes into getff's own config itself; a write that fails (here the temp file it
 # writes through is a directory) must be a NOT-wired line with its reason, never «✓ added» and
-# never a manual step.
+# never a manual step. The reason is the one that happened: the config has its `boundary: [` array.
 G2=$(mktemp -d)
 printf '{"name":"g2","version":"0.0.0"}\n' > "$G2/package.json"
 mkdir -p "$G2/src/api" "$G2/eslint.config.mjs.tmp"; echo 'export const h = (b) => schema.parse(b);' > "$G2/src/api/handler.ts"
@@ -173,9 +229,10 @@ grep -q 'could not add glob' "$G2/.install.log" \
 ! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$G2/.install.log" && ! grep -qiE 'by hand|manually' "$G2/.install.log" \
   && ok "G2: a failed glob write → no «added N glob(s)» claim and no manual-edit advice" \
   || bad "G2: the install claimed the globs, or asked for a manual edit, after a failed write"
-awk '/NOT wired, or wired only in part/{on=1} on' "$G2/.install.log" | grep -q 'RULE_GLOBS.boundary of eslint.config.mjs.*the write failed' \
-  && ok "G2: the not-wired summary names the boundary globs that were not added, and why" \
-  || bad "G2: the not-wired summary does not report the failed glob write"
+_g2_line=$(not_wired "$G2/.install.log" | grep -F 'RULE_GLOBS.boundary of eslint.config.mjs')
+printf '%s\n' "$_g2_line" | grep -q 'the write failed' && ! printf '%s\n' "$_g2_line" | grep -qF 'no `boundary: [` array' \
+  && ok "G2: the not-wired summary names the boundary globs that were not added, and the one reason that applies" \
+  || bad "G2: the not-wired summary does not report the failed glob write, or offers a cause that did not happen: $(printf '%s' "$_g2_line" | tr '\n' '|')"
 
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )
