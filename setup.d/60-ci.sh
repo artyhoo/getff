@@ -159,8 +159,9 @@ elif [ -n "$_r2_root_cfg" ] && [ -z "$(_detect_stacks_per_workspace "$PROJECT_RO
   # A flat repo whose own root config is an eslint.config.cjs / .ts / .mts / .cts: getff adds its
   # block, R2 with it, only to an eslint.config.mjs or an ES-module eslint.config.js (99-finalize
   # leaves this one as it is). copy_unless_foreign already named «getff's rules» as not wired; HTTP
-  # boundary code the install can see gets its own line, naming R2 and that code (Q4.7), unless the
-  # config already sets R2 as a quoted rule id. A monorepo's workspaces are 99-finalize's to report.
+  # boundary code the install can see gets its own line, naming R2 and the globs it would cover
+  # (Q4.7), unless the config already sets R2 as a quoted rule id. Flat repos only: a monorepo's R2
+  # goes through 99-finalize's per-workspace pass, which does not report an own .ts/.cjs workspace config yet.
   _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
   # Each glob quoted, as in RULE_GLOBS: a glob holds commas of its own (`*.{ts,tsx}`).
   _r2_globs=$(printf '%s\n' "$_r2_out" | sed -n "s/^glob:\(.*\)/'\1'/p" | paste -sd ',' - | sed "s/','/', '/g")
@@ -172,7 +173,7 @@ elif [ -n "$_r2_root_cfg" ] && [ -z "$(_detect_stacks_per_workspace "$PROJECT_RO
       *) _r2_why="the ${STACK:-} preset ships no R2, and getff does not change your $_r2_root_cfg" ;;
     esac
     echo "▶ R2 auto-wire: HTTP boundary code found, but R2 is not added to your $_r2_root_cfg (see NOT wired below)"
-    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_r2_root_cfg — $_r2_why; the HTTP boundary code the install found ($_r2_globs) is not checked by R2"
+    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_r2_root_cfg — $_r2_why; the install found HTTP boundary code, and R2 does not check it (R2 would cover it through the boundary globs $_r2_globs)"
   fi
 fi
 
