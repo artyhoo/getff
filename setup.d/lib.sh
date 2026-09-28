@@ -2755,14 +2755,58 @@ eslint_flat_config() {
   return 0
 }
 
+# eslint_flat_configs_under <dir> — the config ESLint loads in each directory at or under <dir> that
+# has one (eslint_flat_config), NUL-terminated, once per directory, node_modules pruned. The
+# per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
+# package's own eslint.config.js is found as the root one is (they used to look for
+# eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
+eslint_flat_configs_under() {
+  local n f d seen="|" names=()
+  for n in $ESLINT_FLAT_CONFIG_NAMES; do names+=( -o -name "$n" ); done
+  while IFS= read -r -d '' f; do
+    d=$(dirname "$f")
+    case "$seen" in *"|$d|"*) continue ;; esac
+    seen="$seen$d|"
+    n=$(eslint_flat_config "$d")
+    [ -z "$n" ] || printf '%s\0' "$d/$n"
+  done < <(find "$1" -name node_modules -prune -o \( "${names[@]:1}" \) -print0 2>/dev/null)
+  return 0
+}
+
+# note_eslint_config_not_esm <abs-dir> <config-name> — the not-wired line for a flat config getff does
+# not add its block to: an eslint.config.cjs/.ts/.mts/.cts has no ES-module export to append to.
+# Named once however many steps reach it — 40-configs places nothing beside it, and each 99-finalize
+# pass that would add to it finds it again.
+note_eslint_config_not_esm() {
+  local line n
+  line="eslint: getff's rules are not in the ESLint config of $1 — your $2 configures ESLint there, and getff adds its block only to an ES-module flat config (eslint.config.js or eslint.config.mjs)"
+  for n in ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}; do [ "$n" = "$line" ] && return 0; done
+  note_not_wired "$line"
+}
+
+# KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
+# two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
+# first only: the second pass's copy would already carry the first pass's block, and be announced
+# as a second «original» (cold-review F9).
+KEPT_ORIGINALS=()
+
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
 keep_original_snapshot() {
-  local f="$1" snap
+  local f="$1" snap k
+  for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
   echo "$snap"
+}
+
+# keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
+# own shell: settle runs inside $(…), where a global it set would be lost.
+keep_original_mark() {
+  KEPT_ORIGINALS+=("$1")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -2854,8 +2898,8 @@ legacy_eslint_config() {
 # copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
-# skip + report, never overwrite or merge a consumer's tool config). A root eslint.config.js is not
-# recorded: 99-finalize adds getff's block to it (operator decision Q4.7, 2026-09-28).
+# skip + report, never overwrite or merge a consumer's tool config). An eslint.config.js is not
+# recorded, at the root or in a workspace: 99-finalize adds getff's block to it (operator decision Q4.7).
 copy_unless_foreign() {
   local kind="$1" src="$2" dst="$3" own
   shift 3
@@ -2868,12 +2912,13 @@ copy_unless_foreign() {
     fi
     if [ "$kind" != "eslint" ]; then
       note_not_wired "$kind: ${dst##*/} not placed in $(dirname "$dst") because your $own configures $kind there; to get the framework settings, merge $src into it"
-    elif [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ] && [ "$own" = "eslint.config.js" ]; then
-      # 99-finalize adds getff's block to a root eslint.config.js the way it does to a consumer's
-      # own eslint.config.mjs (operator decision Q4.7) and reports the outcome there.
+    elif [ "$own" = "eslint.config.js" ]; then
+      # 99-finalize adds getff's block to an eslint.config.js — at the root and in a workspace — the
+      # way it does to a consumer's own eslint.config.mjs (operator decision Q4.7), and reports the
+      # outcome there.
       :
     else
-      note_not_wired "eslint: getff's rules are not in the ESLint config of $(dirname "$dst") — your $own configures ESLint there, and getff adds its block only to an eslint.config.mjs, or to an ES-module eslint.config.js at the project root"
+      note_eslint_config_not_esm "$(dirname "$dst")" "$own"
       # The root ESLint config is what the self-verify fences-fire claim is about (99-finalize).
       if [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ]; then
         ESLINT_ROOT_NOT_WIRED=1

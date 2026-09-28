@@ -33,10 +33,15 @@
 #      check:globs no longer exits 2 on it;
 #   D  a monorepo workspace config the consumer owns: the live snippet lands in it, original kept;
 #   E  the R2 Layer-2 wirer (`--yes` under --full) on a per-package config the consumer owns: R2
-#      lands in it, the original is kept, and prettier still accepts the file;
+#      lands in it, the original is kept, and prettier still accepts the file; a per-package
+#      ES-module eslint.config.js gets R2 the same way, and an eslint.config.cjs with boundary code
+#      is named in the not-wired summary (ESLint's own lookup order, as for the root config);
 #   F  the R2 per-workspace wirer on a multi-stack monorepo: the consumer's workspace config gets R2
-#      with its original kept, and the one getff placed in a sibling workspace goes through as before.
-# E and F need --full (the wirer only writes with --yes); the dependency install it triggers is
+#      with its original kept, and the one getff placed in a sibling workspace goes through as before;
+#   M  a workspace config the consumer owns that BOTH per-workspace passes write (live snippet, then
+#      R2): exactly one kept original — the true one — announced once (cold-review F9); and a
+#      workspace whose own config is an ES-module eslint.config.js gets both, as an .mjs does.
+# E, F and M need --full (the wirer only writes with --yes); the dependency install it triggers is
 # stubbed — `npm`, `pnpm` and `yarn` install/add exit 0 without touching the network, every other
 # command of theirs is real.
 # ts-morph is borrowed from the framework through per-package symlinks inside a REAL node_modules
@@ -157,6 +162,33 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
         || echo "BAD the kept copy is not the original, or the snapshot was left behind" ;;
     *) echo "BAD a changed file's original was not kept where expected (got '$kept')" ;;
   esac
+  # A second pass over a file whose original this run already kept keeps nothing more: its copy
+  # would carry the first pass's block and be announced as a second «original» (cold-review F9).
+  keep_original_mark "$f"
+  snap=$(keep_original_snapshot "$f")
+  printf 'export default [{ ignores: [] }, { rules: {} }];\n' > "$f"
+  kept=$(keep_original_settle "$f" "$snap")
+  n=$(find "$PROJECT_ROOT/.ai-factory/before-getff" -type f | grep -c .)
+  [ -z "$snap" ] && [ -z "$kept" ] && [ "$n" -eq 1 ] \
+    && echo "OK a file whose original this run already kept gets no second copy" \
+    || echo "BAD second pass: snapshot='$snap' kept='$kept' copies=$n"
+  # eslint_flat_configs_under: in each directory, the config ESLint loads there (eslint_flat_config),
+  # once per directory, node_modules left out.
+  mkdir -p "$u/tree/a" "$u/tree/b/c" "$u/tree/node_modules/x"
+  : > "$u/tree/eslint.config.mjs"; : > "$u/tree/a/eslint.config.mjs"; : > "$u/tree/a/eslint.config.js"
+  : > "$u/tree/b/c/eslint.config.cjs"; : > "$u/tree/node_modules/x/eslint.config.mjs"
+  got=$(eslint_flat_configs_under "$u/tree" | tr '\0' '\n' | sed "s#^$u/tree/##" | sort | tr '\n' ' ')
+  [ "$got" = "a/eslint.config.js b/c/eslint.config.cjs eslint.config.mjs " ] \
+    && echo "OK eslint_flat_configs_under lists the config ESLint loads in each directory, once, node_modules pruned" \
+    || echo "BAD eslint_flat_configs_under: '$got'"
+  # A config getff cannot add to is named once, however many steps reach it.
+  NOT_WIRED=()
+  note_eslint_config_not_esm "$u/tree/b/c" eslint.config.cjs
+  note_eslint_config_not_esm "$u/tree/b/c" eslint.config.cjs
+  [ "${#NOT_WIRED[@]}" -eq 1 ] && printf '%s' "${NOT_WIRED[0]}" | grep -q "b/c — your eslint.config.cjs" \
+    && ! printf '%s' "${NOT_WIRED[0]}" | grep -qiE 'by hand|manually' \
+    && echo "OK a config getff cannot add to is named once in the not-wired summary, with no manual step" \
+    || echo "BAD not-esm note: ${#NOT_WIRED[@]} line(s): $(printf '%s|' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"})"
   # The original cannot be kept aside (here .ai-factory/before-getff is a file): the write is undone
   # and the caller told, never the original silently lost (cold-review F10).
   PROJECT_ROOT="$u/proj2"; mkdir -p "$PROJECT_ROOT/.ai-factory"; : > "$PROJECT_ROOT/.ai-factory/before-getff"
@@ -423,16 +455,26 @@ r2_scoped() {
 # parse boundary in src/api makes the root R2 verdict boundary-present (r2-auto-wire fixture B).
 # apps/api has HTTP boundary code of its own (routes/), apps/lib has none, and apps/web has boundary
 # code under a config whose export shape the wirer cannot add to.
-E="$WORK/l2"; mkdir -p "$E/src/api" "$E/apps/api/src/routes" "$E/apps/lib/src" "$E/apps/web/src/routes"
+# tools/esm (a package, not a workspace: _workspace_pkg_dirs reads apps/ packages/ services/ libs/ modules/
+# only) has boundary code under an ES-module eslint.config.js — the name ESLint loads first, as at
+# the root — and tools/cjs under an eslint.config.cjs, which has no ES-module export to add to.
+E="$WORK/l2"; mkdir -p "$E/src/api" "$E/apps/api/src/routes" "$E/apps/lib/src" "$E/apps/web/src/routes" \
+  "$E/tools/esm/src/routes" "$E/tools/cjs/src/routes"
 printf '{ "name": "swe", "version": "0.0.0" }\n' > "$E/package.json"
 echo 'export const h = (b) => schema.parse(b);' > "$E/src/api/handler.ts"
 echo 'export const u = (b) => schema.parse(b);' > "$E/apps/api/src/routes/users.ts"
 printf 'export const x = 1;\n' > "$E/apps/lib/src/h.ts"
 echo 'export const w = (b) => schema.parse(b);' > "$E/apps/web/src/routes/w.ts"
+echo 'export const e = (b) => schema.parse(b);' > "$E/tools/esm/src/routes/e.ts"
+echo 'export const c = (b) => schema.parse(b);' > "$E/tools/cjs/src/routes/c.ts"
 cp "$WORK/pkg.before" "$E/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$E/apps/lib/eslint.config.mjs"
 printf "import { makeConfig } from './make.mjs';\nexport default makeConfig();\n" > "$WORK/web.before"
 cp "$WORK/web.before" "$E/apps/web/eslint.config.mjs"
+printf '{ "name": "esm", "version": "0.0.0", "type": "module" }\n' > "$E/tools/esm/package.json"
+cp "$WORK/pkg.before" "$E/tools/esm/eslint.config.js"
+printf "module.exports = [{ rules: { 'no-console': 'error' } }];\n" > "$WORK/cjs-pkg.before"
+cp "$WORK/cjs-pkg.before" "$E/tools/cjs/eslint.config.cjs"
 borrow "$E" tsx
 ( cd "$E" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/e.log" 2>&1
 unborrow "$E"
@@ -463,6 +505,18 @@ cmp -s "$WORK/web.before" "$E/apps/web/eslint.config.mjs" && [ ! -e "$E/.ai-fact
 not_wired "$WORK/e.log" | grep -q 'apps/web/eslint.config.mjs' \
   && ok "E: the not-wired summary names apps/web/eslint.config.mjs" \
   || bad "E: apps/web/eslint.config.mjs (not wired) is missing from the not-wired summary"
+r2_scoped "$E/tools/esm/eslint.config.js" && only_insertions "$WORK/pkg.before" "$E/tools/esm/eslint.config.js" \
+  && kept_original "$E" tools/esm/eslint.config.js "$WORK/pkg.before" \
+  && ok "E: a per-package ES-module eslint.config.js gets R2 the way an .mjs does — scoped, insertions only, original kept" \
+  || bad "E: tools/esm/eslint.config.js (the config ESLint loads there) did not get R2 with its original kept"
+not_wired "$WORK/e.log" | grep -q 'tools/esm' \
+  && bad "E: tools/esm is in the not-wired summary, though R2 was added to it" || ok "E: tools/esm is not reported as unwired"
+cmp -s "$WORK/cjs-pkg.before" "$E/tools/cjs/eslint.config.cjs" && [ ! -e "$E/.ai-factory/before-getff/tools/cjs" ] \
+  && ok "E: a per-package eslint.config.cjs is left byte-identical, no copy kept" \
+  || bad "E: tools/cjs/eslint.config.cjs changed, or a copy of it was kept"
+not_wired "$WORK/e.log" | grep 'tools/cjs' | grep -q 'eslint.config.cjs' \
+  && ok "E: the not-wired summary names tools/cjs's eslint.config.cjs (boundary code R2 does not reach)" \
+  || bad "E: tools/cjs/eslint.config.cjs, with boundary code and no R2, is missing from the not-wired summary"
 asks_by_hand "$WORK/e.log" && bad "E: the install asks for a manual ESLint edit" || ok "E: nothing asks for a manual ESLint edit"
 
 # F — multi-stack monorepo, no root config: two ts-server workspaces, the consumer owns the config
@@ -500,6 +554,54 @@ grep -q 'R2 wiring: .*apps/svc/eslint.config.mjs' "$WORK/f.log" \
   || bad "F neg: the R2 wirer skipped the config getff placed in apps/svc"
 [ ! -e "$F/.ai-factory/before-getff/apps/svc" ] && ok "F neg: getff's own apps/svc config keeps no 'before getff' copy" \
   || bad "F neg: a copy of getff's own apps/svc config was kept as if it were the consumer's"
+
+# M — the two per-workspace passes on one config. A live-research snippet goes to every ts-server
+# workspace (synth-wire per-workspace), then R2 to those with HTTP boundary code (R2 per-workspace):
+# apps/api's own eslint.config.mjs is written by both. apps/js owns an ES-module eslint.config.js.
+# r2_scoped_after_live <file> — R2 is in <file> as the RULE_GLOBS.boundary-scoped element, after the
+# live pass: getff's live element already registers the plugin for every file, so the R2 element
+# carries files and rules only, and the plugin is registered once.
+r2_scoped_after_live() {
+  tr '\n' ' ' < "$1" | tr -s ' ' \
+    | grep -qE "\{ ?files: RULE_GLOBS\.boundary, rules: \{ ?'rules-as-tests/no-unsafe-zod-parse'" \
+    && grep -q '^const RULE_GLOBS = {' "$1" \
+    && [ "$(grep -cF "plugins: { 'rules-as-tests': customRules }" "$1")" -eq 1 ]
+}
+M="$WORK/twopass"; mkdir -p "$M/apps/api/src/routes" "$M/apps/js/src/routes"
+printf '{"name":"swm","version":"0.0.0","private":true}\n' > "$M/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$M/pnpm-workspace.yaml"
+printf '{"name":"api","version":"0.0.0","dependencies":{"hono":"^4.0.0"},"devDependencies":{"typescript":"^5.4.0"}}\n' > "$M/apps/api/package.json"
+printf '{"name":"js","version":"0.0.0","type":"module","dependencies":{"hono":"^4.0.0"},"devDependencies":{"typescript":"^5.4.0"}}\n' > "$M/apps/js/package.json"
+echo 'export const u = (b) => schema.parse(b);' > "$M/apps/api/src/routes/users.ts"
+echo 'export const j = (b) => schema.parse(b);' > "$M/apps/js/src/routes/j.ts"
+cp "$WORK/pkg.before" "$M/apps/api/eslint.config.mjs"
+cp "$WORK/pkg.before" "$M/apps/js/eslint.config.js"
+seed_snippet "$M"
+borrow "$M" tsx
+( cd "$M" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/m.log" 2>&1
+unborrow "$M"
+{ grep -q 'synth-wire per-workspace' "$WORK/m.log" && grep -q 'R2 per-workspace: scoped wiring' "$WORK/m.log"; } \
+  || bad "M: a per-workspace pass never ran — the arm below would be vacuous (tail: $(tail -3 "$WORK/m.log" | tr '\n' '|'))"
+grep -qF 'swcLiveProbe' "$M/apps/api/eslint.config.mjs" && r2_scoped_after_live "$M/apps/api/eslint.config.mjs" \
+  || bad "M: apps/api/eslint.config.mjs did not get both the live rule and R2 — the F9 check below would be vacuous"
+kept_original "$M" apps/api/eslint.config.mjs "$WORK/pkg.before" \
+  && ok "M: one kept original of apps/api/eslint.config.mjs, byte-equal to the consumer's file before getff (F9)" \
+  || bad "M: kept originals of apps/api/eslint.config.mjs: $(ls "$M/.ai-factory/before-getff/apps/api/" 2>/dev/null | tr '\n' ' ')— not exactly one true original (F9)"
+[ "$(grep -c 'your original apps/api/eslint.config.mjs is kept at' "$WORK/m.log")" -eq 1 ] \
+  && ok "M: the kept original is announced once" \
+  || bad "M: the kept original of apps/api/eslint.config.mjs is announced $(grep -c 'your original apps/api/eslint.config.mjs is kept at' "$WORK/m.log") times"
+[ ! -e "$M/apps/js/eslint.config.mjs" ] && ok "M: no eslint.config.mjs placed beside apps/js's own eslint.config.js" \
+  || bad "M: eslint.config.mjs placed in apps/js — ESLint still loads the .js, getff's file would be dead"
+grep -qF 'swcLiveProbe' "$M/apps/js/eslint.config.js" && r2_scoped_after_live "$M/apps/js/eslint.config.js" \
+  && only_insertions "$WORK/pkg.before" "$M/apps/js/eslint.config.js" \
+  && ok "M: the workspace's own ES-module eslint.config.js gets the live rule and scoped R2, insertions only" \
+  || bad "M: apps/js/eslint.config.js (the config ESLint loads there) did not get the live rule and scoped R2"
+kept_original "$M" apps/js/eslint.config.js "$WORK/pkg.before" \
+  && ok "M: one kept original of apps/js/eslint.config.js" || bad "M: no single true kept original of apps/js/eslint.config.js"
+not_wired "$WORK/m.log" | grep -qE 'apps/(js|api)' \
+  && bad "M: the not-wired summary lists a workspace config getff wired: $(not_wired "$WORK/m.log" | grep -E 'apps/(js|api)' | head -2 | tr '\n' '|')" \
+  || ok "M: neither workspace config is reported as unwired"
+asks_by_hand "$WORK/m.log" && bad "M: the install asks for a manual ESLint edit" || ok "M: nothing asks for a manual ESLint edit"
 
 fw_print > "$WORK/fw.after"
 if cmp -s "$WORK/fw.before" "$WORK/fw.after"; then

@@ -820,6 +820,16 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : undefined;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : undefined;
     };
+    // No RULE_GLOBS block, but the config sets R2 itself (a hand merge of the snippet the install
+    // printed before Q4.7): check-rule-globs.sh reads R2's globs from RULE_GLOBS.boundary and fails a
+    // config that sets R2 without one (cold-review F11). At 'error', where getff can read it, the block
+    // and the scoped element that uses it add nothing the consumer did not ask for; any other value
+    // stays as the consumer set it, and the note says what that leaves. Set more than once, the last
+    // setting wins in ESLint and getff's element would outrank it: read as a setting getff cannot confirm.
+    const r2Mentions = source.split(`'${R2_RULE_ID}'`).length + source.split(`"${R2_RULE_ID}"`).length - 2;
+    const r2Setting = !r2Present ? 'not-found'
+      : r2Mentions > 1 ? 'differs'
+        : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration('RULE_GLOBS')) {
       const arr = arrOf();
       if (!arr) {
@@ -829,7 +839,12 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
         missingGlobs = boundary.filter((g) => !have.has(g));
         registerR2 = !r2Present;
       }
-    } else if (!r2Present) {
+    } else if (r2Present && r2Setting !== 'same') {
+      notes.push(
+        `RULE_GLOBS for R2 — the config sets ${R2_RULE_ID} itself, not to 'error' or where getff cannot read it, and has no RULE_GLOBS block; ` +
+          'getff does not change a setting of yours, so it adds none, and scripts/check-rule-globs.sh fails on this config for want of RULE_GLOBS.boundary',
+      );
+    } else {
       ruleGlobsBlock = [
         '// Added by getff: where its R2 rule looks for an unguarded zod .parse() — the HTTP boundary code the',
         '// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.',

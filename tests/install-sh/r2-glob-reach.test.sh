@@ -417,4 +417,124 @@ OUT14=$(repo_gate "$T14"); RC14=$?
   && ok "own-config provenance: getff's RULE_GLOBS block cut out of getff's own config FAILS, naming why" \
   || bad "own-config provenance: rc=$RC14, stripping getff's rules out of getff's config passed (saw: $(printf '%s' "$OUT14" | head -2 | tr '\n' '|'))"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# cold-review F11 — the install on a consumer config that already sets R2, with no RULE_GLOBS block
+# ══════════════════════════════════════════════════════════════════════════════
+# NEG-b above: the gate full-alarms such a config — its R2 globs are not getff's to read. The install
+# called it «R2 already enforced» and added nothing, so every push failed while the install said
+# nothing. Now R2 at 'error' with an HTTP boundary → the install adds RULE_GLOBS (and the scoped R2
+# element that uses it) by insertions and the gate passes; R2 at another value, or no boundary to
+# scope it to → the gate stays red and the not-wired summary names it. A recorded R2 N/A (a
+# declarative-validation layout) keeps the gate green, and then there is nothing to name. The gate
+# reads R7 and R8 the same way: a config that sets R7 alone, with no RULE_GLOBS block, fails it too.
+# The wirer needs ts-morph (a --full install puts it in node_modules): borrowed from the framework
+# package by package inside a real node_modules, so no install in the fixture writes into the
+# framework's tree (synth-wire-consumer-config.test.sh borrow()).
+FW_NM="$REPO_ROOT/node_modules"
+f11_borrow() {
+  local p q
+  mkdir -p "$1/node_modules"
+  for p in ts-morph typescript eslint @eslint typescript-eslint @typescript-eslint; do
+    [ -e "$FW_NM/$p" ] || continue
+    case "$p" in
+      @*) mkdir -p "$1/node_modules/$p"
+          for q in "$FW_NM/$p"/*; do ln -s "$q" "$1/node_modules/$p/${q##*/}"; done ;;
+      *)  ln -s "$FW_NM/$p" "$1/node_modules/$p" ;;
+    esac
+  done
+}
+f11_unborrow() {
+  find "$1/node_modules" -maxdepth 2 -type l -exec rm -f {} + 2>/dev/null
+  rmdir "$1/node_modules/@eslint" "$1/node_modules/@typescript-eslint" "$1/node_modules" 2>/dev/null; return 0
+}
+f11_project() { # $1 = rule value, $2 = boundary | none | declarative, $3 = rule (default R2)
+  local d rule="${3:-no-unsafe-zod-parse}"; d=$(mktemp -d)
+  if [ "$2" = declarative ]; then
+    printf '{ "name": "f11", "version": "0.0.0", "dependencies": { "@hono/zod-openapi": "^0.18.0" } }\n' > "$d/package.json"
+  else
+    printf '{ "name": "f11", "version": "0.0.0" }\n' > "$d/package.json"
+  fi
+  cat > "$d/eslint.config.mjs" <<JS
+import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import customRules from './eslint-rules-local/index.mjs';
+
+export default tseslint.config(eslint.configs.recommended, tseslint.configs.recommended, {
+  plugins: { 'rules-as-tests': customRules },
+  rules: { 'rules-as-tests/$rule': '$1' },
+});
+JS
+  if [ "$2" = boundary ]; then
+    mkdir -p "$d/src/routes"
+    printf "import { z } from 'zod';\n\nconst User = z.object({ name: z.string() });\n\nexport const create = (body: unknown) => User.parse(body);\n" > "$d/src/routes/users.ts"
+  else
+    mkdir -p "$d/lib"; echo 'export const x = 1;' > "$d/lib/answer.ts"
+  fi
+  printf '%s' "$d"
+}
+f11_install() { # $1 = dir, $2 = log
+  f11_borrow "$1"
+  ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) > "$2" 2>&1
+  f11_unborrow "$1"
+}
+f11_not_wired() { awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$1"; }
+f11_gate() { ( cd "$1" && bash scripts/check-rule-globs.sh ) 2>&1; }
+
+if [ ! -f "$FW_NM/ts-morph/package.json" ]; then
+  bad "F11: ts-morph is not installed in the framework (run npm install first) — the F11 arms would be vacuous"
+else
+  # error + boundary → RULE_GLOBS added, the gate passes.
+  T15=$(f11_project error boundary); f11_install "$T15" "$T15.log"
+  grep -q '^const RULE_GLOBS = {' "$T15/eslint.config.mjs" \
+    && ok "F11 error: RULE_GLOBS is added to a config that sets R2 to 'error' itself" \
+    || bad "F11 error: no RULE_GLOBS block added (install said: $(grep -E 'R2|synth-wire' "$T15.log" | head -3 | tr '\n' '|'))"
+  grep -q "'rules-as-tests/no-unsafe-zod-parse': 'error'" "$T15/eslint.config.mjs" \
+    && ok "F11 error: the consumer's own R2 setting is still there" || bad "F11 error: the consumer's own R2 setting is gone"
+  OUT15=$(f11_gate "$T15"); RC15=$?
+  [ "$RC15" = "0" ] && ok "F11 error: check:globs passes after the install" \
+    || bad "F11 error: check:globs exited $RC15 after the install (saw: $(printf '%s' "$OUT15" | tail -2 | tr '\n' '|'))"
+  f11_not_wired "$T15.log" | grep -q 'RULE_GLOBS' \
+    && bad "F11 error: the not-wired summary names RULE_GLOBS, though it was added" || ok "F11 error: nothing about RULE_GLOBS in the not-wired summary"
+
+  # warn + boundary → getff does not change the consumer's setting: no RULE_GLOBS, and the summary says so.
+  T16=$(f11_project warn boundary); f11_install "$T16" "$T16.log"
+  grep -q "'rules-as-tests/no-unsafe-zod-parse': 'warn'" "$T16/eslint.config.mjs" && ! grep -q 'RULE_GLOBS' "$T16/eslint.config.mjs" \
+    && ok "F11 warn: the consumer's 'warn' is kept and no RULE_GLOBS is added" \
+    || bad "F11 warn: the config's R2 setting was changed, or RULE_GLOBS added over it"
+  f11_not_wired "$T16.log" | grep 'eslint.config.mjs' | grep -q 'RULE_GLOBS' \
+    && ok "F11 warn: the not-wired summary names RULE_GLOBS for eslint.config.mjs" \
+    || bad "F11 warn: the gate fails on this config while the install's not-wired summary says nothing about it"
+
+  # error + no boundary (layout ambiguous) → nothing to scope R2 to: the gate stays red, the summary says why.
+  T17=$(f11_project error none); f11_install "$T17" "$T17.log"
+  OUT17=$(f11_gate "$T17"); RC17=$?
+  [ "$RC17" = "1" ] || bad "F11 ambiguous: check:globs exited $RC17 — the arm below assumes the gate is red here"
+  f11_not_wired "$T17.log" | grep 'eslint.config.mjs' | grep -q 'RULE_GLOBS' \
+    && ok "F11 ambiguous: the not-wired summary names RULE_GLOBS for eslint.config.mjs (the gate is red on it)" \
+    || bad "F11 ambiguous: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T17.log" | tr '\n' '|'))"
+
+  # Paired negative: a declarative-validation layout records R2 N/A, the gate is green, nothing to name.
+  T18=$(f11_project error declarative); f11_install "$T18" "$T18.log"
+  OUT18=$(f11_gate "$T18"); RC18=$?
+  [ "$RC18" = "0" ] || bad "F11 N/A: check:globs exited $RC18 on a recorded R2 N/A (saw: $(printf '%s' "$OUT18" | tail -2 | tr '\n' '|'))"
+  f11_not_wired "$T18.log" | grep -q 'RULE_GLOBS' \
+    && bad "F11 N/A: the summary names RULE_GLOBS though the recorded R2 N/A keeps the gate green" \
+    || ok "F11 N/A: nothing about RULE_GLOBS when a recorded R2 N/A keeps the gate green"
+
+  # R7 alone, no RULE_GLOBS, no boundary: the gate reads it as it reads R2 — red, and named.
+  T19=$(f11_project error none no-direct-time-randomness); f11_install "$T19" "$T19.log"
+  OUT19=$(f11_gate "$T19"); RC19=$?
+  [ "$RC19" = "1" ] || bad "F11 R7: check:globs exited $RC19 — the arm below assumes the gate is red here"
+  f11_not_wired "$T19.log" | grep 'eslint.config.mjs' | grep -q 'RULE_GLOBS' \
+    && ok "F11 R7: the not-wired summary names RULE_GLOBS for a config that sets R7 alone (the gate is red on it)" \
+    || bad "F11 R7: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T19.log" | tr '\n' '|'))"
+
+  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
+    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" | grep -iE 'by hand|manually' | head -1)"
+  else
+    ok "F11: no install output asks for a manual ESLint edit"
+  fi
+  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

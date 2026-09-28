@@ -743,6 +743,47 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     expect(onlyInserts(src, r.modified)).toBe(true);
     expect(r.modified).toMatch(/selector: ['"]B['"]/);
   });
+
+  // A config that already sets R2 — a hand merge of the snippet the install printed before Q4.7 — but has
+  // no RULE_GLOBS block. check-rule-globs.sh reads R2's globs from that block and full-alarms a config
+  // that wires R2 without one, so leaving it «already enforced» failed every push while the install said
+  // nothing (cold-review F11).
+  const R2_BY_HAND = [
+    `import customRules from './eslint-rules-local/index.mjs';`,
+    ``,
+    `export default [`,
+    `  { plugins: { 'rules-as-tests': customRules }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } },`,
+    `];`,
+    ``,
+  ].join('\n');
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 already set to error, no RULE_GLOBS block → RULE_GLOBS and the scoped R2 element are added (F11)', async () => {
+    const r = await wireOwnConfig(R2_BY_HAND, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(onlyInserts(R2_BY_HAND, r.modified)).toBe(true);
+    expect(gateBoundary(r.modified)).toEqual(BOUNDARY);
+    expect(r.modified).toMatch(/\{ files: RULE_GLOBS\.boundary, rules: \{ 'rules-as-tests\/no-unsafe-zod-parse': 'error' \} \}/);
+    expect(r.notes ?? []).toEqual([]);
+    const again = await wireOwnConfig(r.modified, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+    expect(again.status).toBe('already-wired');
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to another value, or where getff cannot read it, no RULE_GLOBS → nothing added for R2, the note names it (F11)', async () => {
+    const warn = R2_BY_HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
+    const hidden = `const base = [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'off' } }];\nexport default [...base];\n`;
+    // 'error', then 'off' further down: ESLint's last setting wins, and getff's element would outrank it.
+    const twice = R2_BY_HAND.replace(`];`, `  { files: ['legacy/**'], rules: { 'rules-as-tests/no-unsafe-zod-parse': 'off' } },\n];`);
+    for (const src of [warn, hidden, twice]) {
+      const r = await wireOwnConfig(src, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
+      expect(r.modified).toBe(src);
+      expect(r.status).toBe('already-wired');
+      const note = (r.notes ?? []).join('\n');
+      expect(note).toMatch(/RULE_GLOBS/);
+      expect(note).toMatch(/does not change a setting of yours/);
+      // The hyphen form: the colon form «check:globs» is the CI-orphan WARN's (r2-glob-reach per-gate accuracy).
+      expect(note).toMatch(/check-rule-globs\.sh/);
+      expect(note).not.toMatch(/by hand|manually/i);
+    }
+  });
 });
 
 describe('formatLikeConsumer — getff\'s insertions in the consumer\'s own prettier style (Q4.7)', () => {
@@ -882,6 +923,38 @@ describe('wireR2IntoOwnConfig — R2 in a per-package config the consumer owns (
       expect(readFileSync(cfg, 'utf8')).toBe(src);
       expect(out).toMatch(/^ {2}· not wired: R2 \(rules-as-tests\/no-unsafe-zod-parse\) in .*apps\/api\/eslint\.config\.mjs — /m);
       expect(out).not.toMatch(/manually|by hand|Add to /i);
+    });
+  });
+
+  // A package config that already sets R2 with no RULE_GLOBS block (cold-review F11): «R2 already
+  // enforced» left the rule unscoped for the gate that reads RULE_GLOBS.boundary.
+  const HAND = [
+    `import customRules from '../../eslint-rules-local/index.mjs';`,
+    ``,
+    `export default [`,
+    `  { plugins: { 'rules-as-tests': customRules }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } },`,
+    `];`,
+    ``,
+  ].join('\n');
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 already set to error, no RULE_GLOBS → RULE_GLOBS added by insertions, not «already enforced» (F11)', async () => {
+    await inPkg(HAND, async (cfg, root) => {
+      const out = (await wireR2IntoOwnConfig({ configPath: cfg, cwd: root, boundaryGlobs: BOUNDARY, runProbe: probeOk })).join('\n');
+      const after = readFileSync(cfg, 'utf8');
+      expect(onlyInserts(HAND, after)).toBe(true);
+      expect(gateBoundary(after)).toEqual(BOUNDARY);
+      expect(out).toMatch(/✓ R2 wired into /);
+      expect(out).not.toMatch(/R2 already enforced|not wired/);
+    });
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to warn, no RULE_GLOBS → untouched, one not-wired line naming RULE_GLOBS (F11)', async () => {
+    const warn = HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
+    await inPkg(warn, async (cfg, root) => {
+      const out = (await wireR2IntoOwnConfig({ configPath: cfg, cwd: root, boundaryGlobs: BOUNDARY, runProbe: probeOk })).join('\n');
+      expect(readFileSync(cfg, 'utf8')).toBe(warn);
+      expect(out).toMatch(/^ {2}· not wired: R2 \(rules-as-tests\/no-unsafe-zod-parse\) in .* — .*RULE_GLOBS/m);
+      expect(out).not.toMatch(/R2 already enforced|manually|by hand/i);
     });
   });
 

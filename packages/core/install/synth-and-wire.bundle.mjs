@@ -10651,6 +10651,8 @@ async function wireOwnConfig(source, opts = {}) {
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : void 0;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : void 0;
     };
+    const r2Mentions = source.split(`'${R2_RULE_ID}'`).length + source.split(`"${R2_RULE_ID}"`).length - 2;
+    const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration("RULE_GLOBS")) {
       const arr = arrOf();
       if (!arr) {
@@ -10660,7 +10662,11 @@ async function wireOwnConfig(source, opts = {}) {
         missingGlobs = boundary.filter((g) => !have.has(g));
         registerR2 = !r2Present;
       }
-    } else if (!r2Present) {
+    } else if (r2Present && r2Setting !== "same") {
+      notes.push(
+        `RULE_GLOBS for R2 \u2014 the config sets ${R2_RULE_ID} itself, not to 'error' or where getff cannot read it, and has no RULE_GLOBS block; getff does not change a setting of yours, so it adds none, and scripts/check-rule-globs.sh fails on this config for want of RULE_GLOBS.boundary`
+      );
+    } else {
       ruleGlobsBlock = [
         "// Added by getff: where its R2 rule looks for an unguarded zod .parse() \u2014 the HTTP boundary code the",
         "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.",
