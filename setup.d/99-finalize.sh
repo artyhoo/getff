@@ -227,8 +227,8 @@ fi
 
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
-# Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
-# when engine absent. rc=0 on every branch (lesson GH #531/#544).
+# Option A (migration-ast Stage 4): ensure-then-use; degrade when engine absent. rc=0 on every
+# branch (lesson GH #531/#544).
 # Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 finds per-package
 # eslint.config.mjs files that re-export a base lacking R2, and wires only the ones getff placed.
 #
@@ -242,12 +242,19 @@ fi
 # consumer's comments and trailing commas) and names in a «  · not wired: » line anything it could
 # not add; the original is kept at .ai-factory/before-getff/ whenever the write changes it. rc=0 on
 # every branch — install must not abort on wirer failure.
+#
+# A config getff placed is written on every install, --full or not: the --full gate here was the
+# consent to edit a file the consumer wrote (install-ast-wiring spec Q5, 2026-06-17), and since
+# provenance (#1860) only getff's own files reach that branch. --install makes the wirer report what
+# did not land as a not-wired line, never as a snippet to add by hand (Q4.7).
 _r2_wire_cfg() {
   local cfg="$1" wirer="$2" rel dir out snap kept l
   local args=()
   rel="${cfg#"$PROJECT_ROOT"/}"
   if getff_delivered "$cfg"; then
-    ( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" ${FULL:+--yes} 2>&1 ) || true
+    out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --install 2>&1 ) || true
+    printf '%s\n' "$out"
+    _r2_note_outcome "$rel" "$out"
     return 0
   fi
   dir=$(dirname "$cfg")
@@ -268,6 +275,14 @@ _r2_wire_cfg() {
     return 0
   fi
   [ -z "$kept" ] || echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
+  _r2_note_outcome "$rel" "$out"
+  return 0
+}
+# _r2_note_outcome <rel> <wirer output> — the NOT wired summary for one run of the R2 wirer: nothing
+# when R2 landed or was there already; each «  · not wired: <what> — <why>» line the wirer printed,
+# as it is; otherwise (a crash) the config, pointing at the wirer's output above.
+_r2_note_outcome() {
+  local rel="$1" out="$2" l
   case "$out" in
     *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
     *"  · not wired: "*)
