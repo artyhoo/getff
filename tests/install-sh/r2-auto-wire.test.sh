@@ -218,6 +218,86 @@ not_wired "$G2/.install2.log" | grep -q 'R2 boundary globs in eslint.config.mjs 
   && ok "G2: the NOT wired summary names the boundary globs not added and why (no RULE_GLOBS block)" \
   || bad "G2: no NOT wired line for the boundary globs of a config without RULE_GLOBS (summary: $(not_wired "$G2/.install2.log" | tr '\n' '|'))"
 
+# ── Fixture H — N/A recorded, a boundary appears, the install is re-run ──────────────────────
+# The no-boundary-confident branch replaces an older N/A block; the boundary branches never removed
+# one. The stale marker then made check:globs fail «marked N/A» on every push, even after the
+# re-install had widened RULE_GLOBS.boundary to cover the new code. A re-install that finds the
+# precondition broken must drop the block it recorded, so the gate judges the wired globs instead.
+H=$(mktemp -d)
+printf '{"name":"h","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H/package.json"
+mkdir -p "$H/src"; echo 'export const app = 1;' > "$H/src/app.ts"
+install_into "$H" ts-server
+grep -qF '<!-- aif:r2-na:begin -->' "$H/.ai-factory/tool-decisions.md" \
+  || bad "H: the first install recorded no R2 N/A block — the arm below would be vacuous"
+echo 'Consumer note kept after the block.' >> "$H/.ai-factory/tool-decisions.md"
+mkdir -p "$H/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$H/src/api/handler.ts"
+( cd "$H" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H/.install2.log" 2>&1 \
+  || bad "H: the re-install exited non-zero (tail: $(tail -3 "$H/.install2.log" | tr '\n' '|'))"
+grep -qF "'**/api/**/*.{ts,tsx}'" "$H/eslint.config.mjs" \
+  || bad "H: the re-install did not widen RULE_GLOBS.boundary — the arm below would be vacuous"
+! grep -qF 'aif:r2-na' "$H/.ai-factory/tool-decisions.md" \
+  && ok "H: a boundary found on re-install → the stale R2 N/A block is removed" \
+  || bad "H: the stale R2 N/A block survived the re-install ($(grep -n 'aif:r2-na' "$H/.ai-factory/tool-decisions.md" | tr '\n' '|'))"
+grep -qF 'Consumer note kept after the block.' "$H/.ai-factory/tool-decisions.md" \
+  && ok "H: the consumer's own lines in tool-decisions.md survive the removal" \
+  || bad "H: removing the N/A block took the consumer's own lines with it"
+grep -q 'removed the R2 N/A' "$H/.install2.log" \
+  && ok "H: the install says it removed the stale R2 N/A record" \
+  || bad "H: the install removed nothing or said nothing about the stale R2 N/A record"
+OUT=$(globs "$H"); RC=$?
+[ "$RC" = "0" ] \
+  && ok "H: check:globs GREEN after the re-install (no «marked N/A» red)" \
+  || bad "H: check:globs exited $RC after the re-install. out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
+OUT=$( cd "$H" && AIF_ESLINT_CMD=true bash scripts/check-rule-enforced.sh 2>&1 )
+! printf '%s' "$OUT" | grep -q 'stale R2 N/A marker' \
+  && ok "H: check:enforced no longer fails on a stale R2 N/A marker" \
+  || bad "H: check:enforced still fails on the stale marker. out: $(printf '%s' "$OUT" | tail -2 | tr '\n' '|')"
+
+# ── Fixture H2 — N/A recorded, then the layout turns ambiguous (the declarative framework is gone) ──
+# The gates read ambiguous as a broken precondition too (r2_na_recheck → broke), so a re-install
+# drops the block here as well and the gate falls back to judging the default globs.
+H2=$(mktemp -d)
+printf '{"name":"h2","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H2/package.json"
+mkdir -p "$H2/src"; echo 'export const app = 1;' > "$H2/src/app.ts"
+install_into "$H2" ts-server
+grep -qF '<!-- aif:r2-na:begin -->' "$H2/.ai-factory/tool-decisions.md" \
+  || bad "H2: the first install recorded no R2 N/A block — the arm below would be vacuous"
+printf '{"name":"h2","version":"0.0.0"}\n' > "$H2/package.json"
+[ "$( cd "$H2" && bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" | head -1 )" = ambiguous ] \
+  || bad "H2: the edited fixture does not classify as ambiguous — the arm below would be vacuous"
+( cd "$H2" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H2/.install2.log" 2>&1 \
+  || bad "H2: the re-install exited non-zero (tail: $(tail -3 "$H2/.install2.log" | tr '\n' '|'))"
+! grep -qF 'aif:r2-na' "$H2/.ai-factory/tool-decisions.md" \
+  && ok "H2: a layout turned ambiguous on re-install → the stale R2 N/A block is removed" \
+  || bad "H2: the stale R2 N/A block survived an ambiguous re-install"
+! globs "$H2" | grep -q 'marked N/A' \
+  && ok "H2: check:globs no longer reports «marked N/A» (it judges the default globs again)" \
+  || bad "H2: check:globs still reports the stale «marked N/A»"
+
+# ── Fixture H3 — a recorded block whose end line was edited away, then a boundary appears ──────
+# The strip skips from begin to end; with no end it would cut the rest of the consumer's file.
+# The install must leave the file as it is and name the record it could not remove.
+H3=$(mktemp -d)
+printf '{"name":"h3","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H3/package.json"
+mkdir -p "$H3/src"; echo 'export const app = 1;' > "$H3/src/app.ts"
+install_into "$H3" ts-server
+grep -v 'aif:r2-na:end' "$H3/.ai-factory/tool-decisions.md" > "$H3/td" && mv "$H3/td" "$H3/.ai-factory/tool-decisions.md"
+echo 'Consumer note after a truncated block.' >> "$H3/.ai-factory/tool-decisions.md"
+cp "$H3/.ai-factory/tool-decisions.md" "$H3.before"
+mkdir -p "$H3/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$H3/src/api/handler.ts"
+( cd "$H3" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H3/.install2.log" 2>&1 \
+  || bad "H3: the re-install exited non-zero (tail: $(tail -3 "$H3/.install2.log" | tr '\n' '|'))"
+cmp -s "$H3/.ai-factory/tool-decisions.md" "$H3.before" \
+  && ok "H3: a block with no end line → tool-decisions.md left byte-identical (nothing cut)" \
+  || bad "H3: the strip changed a file whose block has no end line ($(diff "$H3.before" "$H3/.ai-factory/tool-decisions.md" | head -4 | tr '\n' '|'))"
+awk '/NOT wired, or wired only in part/{on=1} on' "$H3/.install2.log" | grep -q 'R2 N/A record' \
+  && ok "H3: the not-wired summary names the R2 N/A record the install could not remove" \
+  || bad "H3: the not-wired summary does not report the R2 N/A record left in place"
+! grep -qiE 'by hand|manually' "$H3/.install2.log" \
+  && ok "H3: no manual-edit advice" \
+  || bad "H3: the install asks for a manual edit: $(grep -iE 'by hand|manually' "$H3/.install2.log" | head -1)"
+rm -f "$H3.before"
+
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )
 [ "$SELF" != "no-boundary-confident" ] \
