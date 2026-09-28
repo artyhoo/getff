@@ -1658,10 +1658,16 @@ function runCoreSuite(script) {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS
   });
-  if (r.notFound) {
+  if (r.notFound || /^spawnSync .* E[A-Z]+$/m.test(r.stderr)) {
     die(
       `\u274C PREPUSH_HEAVY_RUNNER='${runner}' could not be started (${r.stderr.trim()}).
    Fix the path, or unset PREPUSH_HEAVY_RUNNER to run the suite here.`
+    );
+  }
+  if (r.timedOut) {
+    die(
+      `\u274C PREPUSH_HEAVY_RUNNER='${runner}' did not finish \`npm run ${script}\` within ${HEAVY_RUNNER_TIMEOUT_MS / 6e4} min.
+   Unset PREPUSH_HEAVY_RUNNER to run the suite here.`
     );
   }
   return r;

@@ -104,6 +104,16 @@ describe('PREPUSH_HEAVY_RUNNER', () => {
     expect(existsRecord()).toBe(false);
   });
 
+  it('a runner that is not executable fails loudly and names the variable', () => {
+    const plain = join(dir, 'not-executable.sh');
+    writeFileSync(plain, '#!/bin/sh\nexit 0\n');
+    chmodSync(plain, 0o644);
+    const r = hook('ir-meta', { PREPUSH_HEAVY_RUNNER: plain });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/PREPUSH_HEAVY_RUNNER='.*not-executable\.sh' could not be started/);
+    expect(r.stderr).not.toMatch(/IR grammar-gate tests failed/);
+  });
+
   it('empty value = unset: the suite does not go through the runner', () => {
     // Fake npm first on PATH proves which path ran without running a real suite.
     const bin = join(dir, 'bin');

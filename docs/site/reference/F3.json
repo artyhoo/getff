@@ -121,7 +121,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1946 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1955 (spawn-argument)",
           ".github/workflows/audit-self.yml:1371 (workflow-run:invocation-verb)"
         ]
       },
@@ -141,7 +141,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1979 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1988 (spawn-argument)",
           "install.sh:1177 (quoted-path-token)"
         ]
       },
@@ -506,7 +506,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2439 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2448 (spawn-argument)",
           ".husky/pre-commit:290 (quoted-path-token)"
         ]
       },

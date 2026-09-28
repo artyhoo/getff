@@ -1899,11 +1899,20 @@ function runCoreSuite(script: string): CheckResult {
     cwd: CORE,
     timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
   });
-  if (r.notFound) {
+  // notFound covers ENOENT only; a runner that exists but is not executable
+  // fails the spawn with EACCES, which would otherwise read as failing tests.
+  if (r.notFound || /^spawnSync .* E[A-Z]+$/m.test(r.stderr)) {
     die(
       `❌ PREPUSH_HEAVY_RUNNER='${runner}' could not be started ` +
         `(${r.stderr.trim()}).\n` +
         '   Fix the path, or unset PREPUSH_HEAVY_RUNNER to run the suite here.',
+    );
+  }
+  if (r.timedOut) {
+    die(
+      `❌ PREPUSH_HEAVY_RUNNER='${runner}' did not finish \`npm run ${script}\` ` +
+        `within ${HEAVY_RUNNER_TIMEOUT_MS / 60_000} min.\n` +
+        '   Unset PREPUSH_HEAVY_RUNNER to run the suite here.',
     );
   }
   return r;
