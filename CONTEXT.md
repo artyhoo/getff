@@ -104,3 +104,23 @@ still answer questions inside it. Owner: the [one-button chain spec](docs/superp
 the «one beat» decision it builds on is D1 of the [any-stack closure spec](docs/superpowers/specs/2026-07-23-getff-any-stack-closure-design.md).
 
 _Operator says_: «одна кнопка», «одной кнопкой», «от и до», «под ключ».
+
+## Passport
+
+**Passport**: the project's description file as the one button leaves it — the human's intent
+(purpose, what must never happen, hard constraints) plus a stack block generated from the
+project manifest. A line stays only if only the human knows it and no check can express it; the
+agent proposes every line from repo evidence and the human only confirms or corrects. Owner: the
+[one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) §4.3.
+
+_Operator says_: «паспорт», «проекта паспорт».
+
+## Green project
+
+**Green project**: the state the one button must reach — the project's own checks pass; every
+generated rule fires on its bad example and stays silent on its good one, both in its fixture
+and planted in a real source file; the rules lock exists and matches; and the report says so
+from those checks, never from the installer's exit code. Zero new rules can still be green when
+the report explains why. Owner: the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) §4.4.
+
+_Operator says_: «стать зеленым после установки».
