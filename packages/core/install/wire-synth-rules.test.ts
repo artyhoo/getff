@@ -664,6 +664,51 @@ describe('N-rule post-write lint probe + restore', () => {
     }
   }, 60_000);
 
+  // Q4.7: getff now writes a files:-scoped R2 block over .ts files into a config the CONSUMER owns.
+  // A config with no TypeScript parser for that scope makes `eslint .` report a parsing error on every
+  // boundary file — the probe must read that as broken (a TS-only probe body), so the write is rolled back.
+  it.skipIf(!ESLINT_RESOLVABLE)('probeLintViaEslint: a scoped block over .ts files the config cannot parse → broken; with a TS parser → ok', async () => {
+    const dir = mkdtempSync(join(HERE, '.nrule-probe-'));
+    try {
+      const p = join(dir, 'eslint.config.mjs');
+      writeFileSync(p, `export default [{ files: ['**/routes/**/*.{ts,tsx}'], rules: { 'no-console': 'error' } }];\n`, 'utf8');
+      const r = await probeLintViaEslint(p, dir, { scopeGlobs: ['**/routes/**/*.{ts,tsx}'] });
+      expect(r.verdict).toBe('broken');
+      expect(r.detail).toMatch(/Parsing error/);
+      writeFileSync(
+        p,
+        `import tseslint from 'typescript-eslint';\nexport default [{ files: ['**/routes/**/*.{ts,tsx}'], languageOptions: { parser: tseslint.parser }, rules: { 'no-console': 'error' } }];\n`,
+        'utf8',
+      );
+      expect((await probeLintViaEslint(p, dir, { scopeGlobs: ['**/routes/**/*.{ts,tsx}'] })).verdict).toBe('ok');
+      expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  // A type-aware config (typescript-eslint projectService or parserOptions.project — any stack) refuses
+  // a probe file its tsconfig does not include, also as a «Parsing error». That says nothing about the
+  // wiring, and the original config refuses it the same way: read as broken, every such install would
+  // report «ESLint already fails on this config». Only a syntax parsing error counts.
+  it.skipIf(!ESLINT_RESOLVABLE)('probeLintViaEslint: a typed-lint parser refusing a probe outside its tsconfig → ok, not broken', async () => {
+    const dir = mkdtempSync(join(HERE, '.nrule-probe-'));
+    try {
+      const p = join(dir, 'eslint.config.mjs');
+      writeFileSync(join(dir, 'tsconfig.json'), '{ "compilerOptions": { "strict": true }, "include": ["src"] }\n', 'utf8');
+      writeFileSync(
+        p,
+        `import tseslint from 'typescript-eslint';\nexport default [{ files: ['**/*.{ts,tsx}'], languageOptions: { parser: tseslint.parser, parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } }, rules: { 'no-console': 'error' } }];\n`,
+        'utf8',
+      );
+      const r = await probeLintViaEslint(p, dir, { scopeGlobs: ['**/routes/**/*.{ts,tsx}'] });
+      expect(r).toEqual({ verdict: 'ok' });
+      expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs', 'tsconfig.json']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   // Cold-review F7: per-workspace wiring runs from the project root, where a workspace-only ESLint
   // (no hoisting) does not resolve. The config's own directory is tried first.
   const REPO_NODE_MODULES = resolve(HERE, '..', '..', '..', 'node_modules');

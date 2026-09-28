@@ -31,7 +31,16 @@
 #           provably does not wire R2 (silent-inertness alarm).
 set -uo pipefail
 
-CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
+# The config ESLint itself loads from here: the first of its flat-config names that exists, in its
+# own lookup order (eslint.config.js wins over .mjs), eslint.config.mjs when there is none. The
+# install adds getff's block to a consumer's own eslint.config.js too (Q4.7, 2026-09-28).
+CFG="${ESLINT_CONFIG:-}"
+if [ -z "$CFG" ]; then
+  CFG=eslint.config.mjs
+  for _c in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts; do
+    if [ -f "$_c" ]; then CFG="$_c"; break; fi
+  done
+fi
 
 # §807 multi-stack: a #793/#796 monorepo ships per-workspace eslint.config.mjs files and NO root
 # config — the per-workspace configs ARE the rule layer. Without this, the exit-2 guard below fires
@@ -43,13 +52,25 @@ CFG="${ESLINT_CONFIG:-eslint.config.mjs}"
 # Capture an ABSOLUTE self-path BEFORE any cd so the `bash "$SELF"` re-exec survives `cd "$_wd"`
 # (and the child's r2-na-marker source resolves via its own absolute $0). (kickoff ⚑M1 / T-807-A)
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
-if [ ! -f "$CFG" ] && [ -z "${ESLINT_CONFIG:-}" ]; then
+# The same holds under a root config that is the consumer's own (not in the baseline manifest) and
+# carries no RULE_GLOBS block and no getff custom rule — the config the own-config skip below passes
+# over. ESLint lints each workspace with that workspace's config, so the workspace configs are the rule
+# layer there too; stopping at «skipped» left them unchecked (cold-review F3 — the lookup order made a
+# consumer's root .cjs «the root config», where before this gate found no root config and recursed).
+_own_root_without_globs() {
+  local k="${CFG#./}"
+  [ -f "$CFG" ] && ! grep -q 'RULE_GLOBS' "$CFG" \
+    && ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$CFG" \
+    && ! grep -qF "\"$k\":" .ai-factory/refresh-baseline.json 2>/dev/null
+}
+if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; }; then
   # Prune node_modules and the framework's vendored packages/core (mirrors the PRUNE below) so a
-  # vendored config there can't fake a workspace. Exclude the root config (it doesn't exist on this
-  # path, but the `! -path` keeps the find symmetric with check-rule-enforced.sh).
+  # vendored config there can't fake a workspace. Exclude the root config (the consumer's own
+  # eslint.config.mjs, when that is the root on this path).
   _ws_cfgs="$(find . \( -name node_modules -o -path '*/packages/core' \) -prune -o \
               -type f -name 'eslint.config.mjs' ! -path './eslint.config.mjs' -print 2>/dev/null)"
   if [ -n "$_ws_cfgs" ]; then
+    [ -f "$CFG" ] && echo "check-rule-globs: $CFG is your own config with no RULE_GLOBS block — checking the workspace configs under it, which ESLint uses for their own files."
     _agg=0
     while IFS= read -r _wc; do
       [ -n "$_wc" ] || continue
@@ -65,35 +86,47 @@ $_ws_cfgs
 EOF
     exit "$_agg"
   fi
-  # No per-workspace configs either → fall through to the exit-2 guard (genuine "run from root" error).
+  # No per-workspace configs either → fall through: to the exit-2 guard when there is no root config
+  # (genuine "run from root" error), to the own-config skip below when it is the consumer's own.
 fi
 [ -f "$CFG" ] || { echo "check-rule-globs: $CFG not found (run from the project root)" >&2; exit 2; }
 
-# A config the CONSUMER owns: the install kept a pre-existing eslint.config.mjs (copy_safe skip +
-# report — operator decision 2026-09-23, never overwrite or merge a consumer's tool config), so
-# getff's RULE_GLOBS block and its custom rules never landed in it. There is no getff glob to
-# verify, and «no globs found» would fail validate and every push of such a project on a config
-# getff does not own. Skip and say what is not wired — the same verdict check-rule-enforced.sh
-# gives a config with no boundary tokens. A config that mentions RULE_GLOBS or a getff rule is
-# getff-shaped and keeps the full alarm below. Whose config it is comes from the baseline manifest
+# A config with no RULE_GLOBS block. Whose config it is comes from the baseline manifest
 # (.ai-factory/refresh-baseline.json records every file getff delivered, with its sha256), not from
-# its content: getff's react-native config also has no RULE_GLOBS block — that preset ships no
-# custom rules. The manifest's sha256 tells a config still as delivered from one edited since. As
-# delivered: skipped. Edited, and getff also placed the react-native sibling eslint.config.rn-common.mjs:
-# skipped and named as edited — that config never had a RULE_GLOBS block to lose, and failing it
-# would turn check:globs RED on one appended comment line (measured 2026-09-28). Edited otherwise:
-# the stack's template HAD a RULE_GLOBS block and getff rules, and an edit cut both out of getff's
-# own file — the bypass this gate exists to catch — so it takes the full alarm below, as it did
-# before this skip existed (a recorded R2 N/A decision still applies there).
-if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
-  _bl=.ai-factory/refresh-baseline.json
-  _bl_key="${CFG#"$PWD"/}"
-  _bl_key="${_bl_key#./}"
-  if ! grep -qF "\"$_bl_key\":" "$_bl" 2>/dev/null; then
-    echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config (no RULE_GLOBS block, no rules-as-tests rule), so there is no rule glob to verify (skipped)."
-    echo "  To enforce them, merge getff's RULE_GLOBS block and rules-as-tests plugin into $CFG by hand; the install kept your config and did not touch it."
+# its content.
+#
+# The CONSUMER's own config (not in the manifest): the install adds getff's block to it (Q4.7,
+# 2026-09-28), and RULE_GLOBS with R2 only once 60-ci finds an HTTP boundary — so without a boundary
+# it carries getff's other rules and no RULE_GLOBS block, and a .cjs/.ts config (getff adds nothing
+# to those) carries neither. Either way there is no getff glob to verify, and «no globs found» would
+# fail validate and every push of the project. Skip and say what is not wired — the same verdict
+# check-rule-enforced.sh gives a config with no boundary tokens. One that wires a custom rule
+# (R2/R7/R8) without RULE_GLOBS keeps the full alarm below: its globs are not getff's to verify.
+#
+# getff's OWN config (in the manifest) that wires no rules-as-tests rule either: getff's
+# react-native config also has no RULE_GLOBS block — that preset ships no custom rules. The
+# manifest's sha256 tells a config still as delivered from one edited since. As delivered: skipped.
+# Edited, and getff also placed the react-native sibling eslint.config.rn-common.mjs: skipped and
+# named as edited — that config never had a RULE_GLOBS block to lose, and failing it would turn
+# check:globs RED on one appended comment line (measured 2026-09-28). Edited otherwise: the stack's
+# template HAD a RULE_GLOBS block and getff rules, and an edit cut both out of getff's own file —
+# the bypass this gate exists to catch — so it takes the full alarm below, as it did before this
+# skip existed (a recorded R2 N/A decision still applies there).
+_bl=.ai-factory/refresh-baseline.json
+_bl_key="${CFG#"$PWD"/}"
+_bl_key="${_bl_key#./}"
+if grep -q 'RULE_GLOBS' "$CFG"; then
+  : # getff's RULE_GLOBS block is there — the checks below verify it
+elif ! grep -qF "\"$_bl_key\":" "$_bl" 2>/dev/null; then
+  if ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$CFG"; then
+    echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config and has no RULE_GLOBS block, so there is no rule glob to verify (skipped)."
+    case "$CFG" in
+      *.js | *.mjs) echo "  The install adds RULE_GLOBS and R2 to it once it finds an HTTP boundary in the project (with --full, which puts ts-morph in node_modules)." ;;
+      *) echo "  getff adds its block only to an ES-module flat config (eslint.config.js / eslint.config.mjs); $CFG is left as it is." ;;
+    esac
     exit 0
   fi
+elif ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
   _bl_recorded=$(awk -v k="\"$_bl_key\":" 'index($0, k) { n = split($0, a, "\""); if (n >= 4) print a[4]; exit }' "$_bl" 2>/dev/null)
   _bl_actual=$( { sha256sum "$CFG" 2>/dev/null || shasum -a 256 "$CFG" 2>/dev/null; } | awk '{print $1}')
   if [ -n "$_bl_recorded" ] && [ "$_bl_recorded" = "$_bl_actual" ]; then

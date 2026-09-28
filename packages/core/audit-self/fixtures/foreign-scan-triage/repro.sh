@@ -280,7 +280,7 @@ mkdir -p "$PREPUSH_WORK/packages/core/hooks" "$PREPUSH_WORK/scripts"
 mkdir -p "$PREPUSH_WORK/node_modules"
 cp "$AUDIT/check-rule-globs.sh"          "$PREPUSH_WORK/scripts/"
 cp "$AUDIT/check-lintstaged-resolves.sh" "$PREPUSH_WORK/scripts/"
-# r2-na-marker.sh is sourced by check-rule-globs.sh:75 — install.sh:594 ships it to scripts/.
+# r2-na-marker.sh is sourced by check-rule-globs.sh:136 — install.sh:594 ships it to scripts/.
 cp "$AUDIT/r2-na-marker.sh"              "$PREPUSH_WORK/scripts/" 2>/dev/null || true
 # Dispatcher targets so .husky/pre-push gets past 'skipping checks' (Node ≥20 + tsx loader).
 cp "$REPO_ROOT/packages/core/hooks/pre-push.ts"          "$PREPUSH_WORK/packages/core/hooks/" 2>/dev/null || true
