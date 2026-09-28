@@ -14,14 +14,15 @@ husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
 # critical-review wave 2: a kept consumer hook runs none of the framework's checks — say so in the
 # NOT wired summary. 99-finalize's self-verify exempts only that hook: the rest of shields-up still
 # runs and its FAIL counts, but a pass is counted as SKIP, never as «shields wired».
+# The line names the check that does not run and why; it never tells the reader to paste a call into
+# their hook (Q4.7: the install hands back no manual step). Adding that call to a hook the consumer
+# owns is an operator decision, not made here.
 for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
   case "$_ch" in
-    # Never the template's `@aif-shield` marker: a hook that follows this advice would then read as
-    # the framework's, and the next --full run's reassert_husky_shields would overwrite it.
-    pre-commit) _ch_cmd="npx lint-staged" ;;
-    *)          _ch_cmd="node packages/core/hooks/pre-push.bundle.mjs  (no Node 20: bash packages/core/hooks/pre-push.fallback.sh)" ;;
+    pre-commit) _ch_what="lint-staged on the staged files" ;;
+    *)          _ch_what="getff's rule checks (packages/core/hooks/pre-push.bundle.mjs)" ;;
   esac
-  note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks; to add them, call from it: $_ch_cmd"
+  note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks ($_ch_what); getff does not change a git hook the project already has"
 done
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
@@ -61,14 +62,11 @@ elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     HUSKY_HOOKSPATH_OWNED=0
     HUSKY_HOOKS_BLOCKED="$_hp_block"
     echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
-    # A relative hooksPath resolves against the toplevel, so a subdirectory install must name
-    # its prefix — and git runs hooks from the toplevel, so the hooks then need a `cd` first.
+    # Reason only (operator directive 2026-09-28): the consumer's own hook setup stays in charge,
+    # and a subdirectory install would repoint the hooks of the whole repository — both are the
+    # consumer's to decide, so the line names what is not active and why, with no command.
     _hp_prefix=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix 2>/dev/null || true)
-    if [ -n "$_hp_prefix" ]; then
-      note_not_wired "framework git hooks (${_hp_prefix}.husky/) — $_hp_block; to use them run: git config core.hooksPath ${_hp_prefix}.husky (git runs hooks from the repo root: add 'cd ${_hp_prefix%/}' at the top of each hook)"
-    else
-      note_not_wired "framework git hooks (.husky/) — $_hp_block; to use them instead run: git config core.hooksPath .husky"
-    fi
+    note_not_wired "framework git hooks (${_hp_prefix}.husky/) — not active: $_hp_block, and getff does not repoint a hook setup the repository already has or one that covers more than this install"
   elif [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null)" = ".husky/_" ]; then
     HUSKY_HOOKSPATH_OWNED=0
     echo "▶ git hooks → core.hooksPath=.husky/_ kept (husky v9 runs .husky/pre-commit + pre-push)"
@@ -78,5 +76,6 @@ elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     echo "▶ Activated git hooks → core.hooksPath=.husky"
   fi
 else
-  echo "  ⚠  not a git repo — skipped core.hooksPath activation (run: git config core.hooksPath .husky)"
+  echo "  ⊝ git hooks NOT activated — not a git repository"
+  note_not_wired "framework git hooks (.husky/) — not active: $PROJECT_ROOT is not a git repository, so there is no core.hooksPath to set"
 fi

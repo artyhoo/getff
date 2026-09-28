@@ -13536,7 +13536,7 @@ async function main2() {
     const why = err instanceof ResearchPlanError ? err.message : err.message;
     process3.stderr.write(
       `[rule-bootstrap] live research artefact invalid or unreadable \u2014 ${why}
-[rule-bootstrap] run the rule-research protocol (agents/rule-researcher.md or the rule-research skill) to (re)author the two files, then re-run ./setup --full.
+[rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the rule-research protocol (agents/rule-researcher.md, the rule-research skill).
 `
     );
     process3.exit(args.strict ? 1 : 0);
