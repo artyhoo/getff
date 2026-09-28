@@ -78,3 +78,6 @@ printf '%s' "$INPUT" | jq -c --arg d "$DIGEST" \
   '{hookSpecificOutput:{hookEventName:"PreToolUse",
      updatedInput:(.tool_input | .prompt = (.prompt + "\n\n---\n[subagent context anchor]\n" + $d))}}'
 exit 0
+
+# Plugin twin of .claude/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep
+# the plugin copy silent where the project runs its own copy (kept last so line citations hold).

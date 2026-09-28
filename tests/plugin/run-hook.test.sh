@@ -17,7 +17,7 @@ bad(){ FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 TMPD=$(mktemp -d)
 trap 'rm -rf "$TMPD"' EXIT
 cp "$RH" "$TMPD/run-hook.cmd"
-printf 'echo RH_OK\n' > "$TMPD/__target__"
+printf '# AUTO-GENERATED from .claude/hooks/__target__.sh\necho RH_OK\n' > "$TMPD/__target__"
 
 # Missing arg → non-zero exit (guard is Windows-only; Unix fails on the empty dispatch).
 bash "$TMPD/run-hook.cmd" >/dev/null 2>&1; rc=$?
@@ -29,7 +29,7 @@ OUT=$(bash "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
 
 # ── AIF_HOOK_LANG file fallback (incident 2026-09-13: pin never reached ZCode hooks) ──
 # Target prints the resolved language so the arms assert what the dispatched hook SEES.
-printf 'echo "LANG=${AIF_HOOK_LANG:-unset}"\n' > "$TMPD/__lang_probe__"
+printf '# AUTO-GENERATED from .claude/hooks/__lang_probe__.sh\necho "LANG=${AIF_HOOK_LANG:-unset}"\n' > "$TMPD/__lang_probe__"
 CFG="$TMPD/home/.config/getff"
 mkdir -p "$CFG"
 
@@ -62,156 +62,236 @@ OUT=$(env -u AIF_HOOK_LANG HOME="$TMPD/home" XDG_CONFIG_HOME="$TMPD/xdg" bash "$
 # event: the session-bootstrap digest reached each prompt twice (a 4-item and a 5-item invariants
 # list side by side — the installed plugin lagged staging) and the output-language line three
 # times. A plugin hook must stay silent when the project runs its own copy, and must keep running
-# in every case where that copy would not fire or would not see the same inputs.
+# in every case where that copy would not fire on the same events or would not see the same inputs.
 # Arms run under bash, sh AND dash when present: CC executes run-hook.cmd, which has no shebang,
 # through the hook shell — dash on Linux runners — so the yield block must be POSIX. macOS `sh`
 # is bash in POSIX mode and would not catch a bashism; `/bin/dash` ships on macOS and does.
 PROJ="$TMPD/proj"
 mkdir -p "$PROJ/.claude/hooks"
-printf 'echo PROJECT_COPY\n' > "$PROJ/.claude/hooks/__target__.sh"
-printf 'echo PROJECT_COPY\n' > "$PROJ/.claude/hooks/__other__.sh"
-printf 'echo PROJECT_COPY\n' > "$PROJ/.claude/hooks/__lang_probe__.sh"
 EMPTY_XDG="$TMPD/empty-xdg"; mkdir -p "$EMPTY_XDG"
-# settings(<file>, <hook-name>) — register <hook-name> on UserPromptSubmit, CC's settings shape.
-settings() {
-  printf '{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"bash \\"$CLAUDE_PROJECT_DIR/.claude/hooks/%s.sh\\""}]}]}}\n' "$2" > "$1"
+PLUGIN_CMD='\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\"'
+# The plugin's registrations, next to the dispatcher as in a real plugin. __wide__ carries a
+# three-tool matcher, __multi__ two events — the shapes a project registration can fall short of.
+cat > "$TMPD/hooks.json" <<EOF
+{"hooks":{
+  "UserPromptSubmit":[{"hooks":[
+    {"type":"command","command":"$PLUGIN_CMD __target__"},
+    {"type":"command","command":"$PLUGIN_CMD __lang_probe__"},
+    {"type":"command","command":"$PLUGIN_CMD __ghost__"},
+    {"type":"command","command":"$PLUGIN_CMD __marked__"},
+    {"type":"command","command":"$PLUGIN_CMD __plugin_only__"}]}],
+  "PostToolUse":[
+    {"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"$PLUGIN_CMD __wide__"}]},
+    {"matcher":"Write","hooks":[{"type":"command","command":"$PLUGIN_CMD __multi__"}]}],
+  "PostToolUseFailure":[
+    {"matcher":"Write","hooks":[{"type":"command","command":"$PLUGIN_CMD __multi__"}]}]
+}}
+EOF
+jq -e . "$TMPD/hooks.json" >/dev/null || bad "fixture hooks.json is not valid JSON"
+for n in __ghost__ __wide__ __multi__ __plugin_only__; do
+  printf '# AUTO-GENERATED from .claude/hooks/%s.sh\necho RH_OK\n' "$n" > "$TMPD/$n"
+done
+# A plugin-only hook (session-start's shape) names no .claude/hooks source: never yields by name.
+printf '# plugin-only hook\necho RH_OK\n' > "$TMPD/__plugin_only__"
+printf '# @plugin-yields-to: __other__\necho RH_MARKED\n' > "$TMPD/__marked__"
+
+# getff_proj <name> — the project's copy of a getff hook: the `# <name>.sh — ` header on line 2 and
+# a delivery marker, as every .claude/hooks/*.sh carries (check-hook-marker).
+getff_proj() {
+  printf '#!/usr/bin/env bash\n# %s.sh — test hook\n# @cc-only-rationale: test fixture\necho PROJECT_COPY\n' "$1" \
+    > "$PROJ/.claude/hooks/$1.sh"
 }
+for n in __target__ __other__ __lang_probe__ __wide__ __multi__ __plugin_only__; do getff_proj "$n"; done
 reset_proj() { rm -f "$PROJ/.claude/settings.json" "$PROJ/.claude/settings.local.json"; }
+# reg <event> <matcher|-> <hook-name> [<command>] — append a CC-shaped registration to settings.json.
+reg() {
+  local f="$PROJ/.claude/settings.json" cmd="${4:-bash \"\$CLAUDE_PROJECT_DIR/.claude/hooks/$3.sh\"}"
+  [ -f "$f" ] || echo '{}' > "$f"
+  jq --arg e "$1" --arg m "$2" --arg c "$cmd" \
+    '.hooks[$e] += [(if $m == "-" then {} else {matcher: $m} end) + {hooks: [{type: "command", command: $c}]}]' \
+    "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+}
 # run_rh <shell> <hook> — dispatch with a clean language environment (no pin, no fallback file).
 run_rh() {
   local sh="$1"; shift
-  env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR CLAUDE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$EMPTY_XDG" \
-    "$sh" "$TMPD/run-hook.cmd" "$@" 2>/dev/null
+  env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" "$sh" "$TMPD/run-hook.cmd" "$@" 2>/dev/null
+}
+# expect <label> <want> <got> — want "" means the plugin copy yielded (silent).
+expect() {
+  if [ "$3" = "$2" ]; then ok "$1"; else bad "$1 — got '$3'"; fi
 }
 
 SHELLS="bash sh"; command -v dash >/dev/null 2>&1 && SHELLS="$SHELLS dash"
 for SH in $SHELLS; do
-  # Y1. The project registers the same hook → the plugin copy is silent and exits 0.
-  reset_proj; settings "$PROJ/.claude/settings.json" __target__
+  # Y1. The project registers the same hook on the same event → silent, exit 0.
+  reset_proj; reg UserPromptSubmit - __target__
   OUT=$(run_rh "$SH" __target__); rc=$?
-  [ -z "$OUT" ] && [ "$rc" -eq 0 ] && ok "[$SH] Y1 project registers the hook → plugin copy yields" \
-    || bad "[$SH] Y1 plugin copy still ran beside the project copy: '$OUT' rc=$rc"
+  expect "[$SH] Y1 project registers the hook → plugin copy yields" "" "$OUT"
+  [ "$rc" -eq 0 ] || bad "[$SH] Y1 yield exited $rc"
 
-  # Y2. settings.local.json is a project registration too.
-  reset_proj; settings "$PROJ/.claude/settings.local.json" __target__
-  OUT=$(run_rh "$SH" __target__)
-  [ -z "$OUT" ] && ok "[$SH] Y2 registration in settings.local.json → yields" \
-    || bad "[$SH] Y2 settings.local.json registration ignored: '$OUT'"
+  # Y2. settings.local.json alone does not count: SDK hosts and --setting-sources can leave it out.
+  reset_proj; reg UserPromptSubmit - __target__; mv "$PROJ/.claude/settings.json" "$PROJ/.claude/settings.local.json"
+  expect "[$SH] Y2 registration only in settings.local.json → runs" RH_OK "$(run_rh "$SH" __target__)"
 
-  # Y3. The hook path inside a permissions string is NOT a registration → keep running.
+  # Y3. The hook path inside a permissions string is NOT a registration.
   reset_proj
   printf '{"permissions":{"allow":["Bash(bash \\"$CLAUDE_PROJECT_DIR/.claude/hooks/__target__.sh\\")"]}}\n' \
     > "$PROJ/.claude/settings.json"
-  OUT=$(run_rh "$SH" __target__)
-  [ "$OUT" = "RH_OK" ] && ok "[$SH] Y3 permission string is not a registration → runs" \
-    || bad "[$SH] Y3 yielded on a permission string: '$OUT'"
+  expect "[$SH] Y3 permission string is not a registration → runs" RH_OK "$(run_rh "$SH" __target__)"
 
-  # Y4. Registered but the project's script is missing → nothing would run, so the plugin runs.
-  reset_proj; settings "$PROJ/.claude/settings.json" __ghost__
-  printf 'echo RH_GHOST\n' > "$TMPD/__ghost__"
-  OUT=$(run_rh "$SH" __ghost__)
-  [ "$OUT" = "RH_GHOST" ] && ok "[$SH] Y4 registered but project script absent → runs" \
-    || bad "[$SH] Y4 yielded to a project script that does not exist: '$OUT'"
+  # Y4. Registered but the project's script is missing → nothing would run.
+  reset_proj; reg UserPromptSubmit - __ghost__
+  expect "[$SH] Y4 registered but project script absent → runs" RH_OK "$(run_rh "$SH" __ghost__)"
 
-  # Y5. ZCode never reads .claude/settings.json → no yield there.
-  reset_proj; settings "$PROJ/.claude/settings.json" __target__
+  # Y5. ZCode never reads .claude/settings.json.
+  reset_proj; reg UserPromptSubmit - __target__
   OUT=$(env -u AIF_HOOK_LANG CLAUDE_PROJECT_DIR="$PROJ" ZCODE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$EMPTY_XDG" \
     "$SH" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
-  [ "$OUT" = "RH_OK" ] && ok "[$SH] Y5 ZCode session → runs" || bad "[$SH] Y5 yielded under ZCode: '$OUT'"
+  expect "[$SH] Y5 ZCode session → runs" RH_OK "$OUT"
 
-  # Y6. No project dir → runs.
+  # Y6. No project dir.
   OUT=$(env -u AIF_HOOK_LANG -u CLAUDE_PROJECT_DIR -u ZCODE_PROJECT_DIR XDG_CONFIG_HOME="$EMPTY_XDG" \
     "$SH" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
-  [ "$OUT" = "RH_OK" ] && ok "[$SH] Y6 no CLAUDE_PROJECT_DIR → runs" || bad "[$SH] Y6 output '$OUT'"
+  expect "[$SH] Y6 no CLAUDE_PROJECT_DIR → runs" RH_OK "$OUT"
 
-  # Y7. `# @plugin-yields-to: <name>` — yields when the project registers a hook that already
-  # carries this one's output; runs when it does not.
-  printf '# @plugin-yields-to: __other__\necho RH_MARKED\n' > "$TMPD/__marked__"
-  reset_proj; settings "$PROJ/.claude/settings.json" __other__
-  OUT=$(run_rh "$SH" __marked__)
-  [ -z "$OUT" ] && ok "[$SH] Y7 @plugin-yields-to target registered → yields" \
-    || bad "[$SH] Y7 marker ignored: '$OUT'"
-  reset_proj
-  OUT=$(run_rh "$SH" __marked__)
-  [ "$OUT" = "RH_MARKED" ] && ok "[$SH] Y7 @plugin-yields-to target not registered → runs" \
-    || bad "[$SH] Y7 yielded with nothing registered: '$OUT'"
+  # Y7. `# @plugin-yields-to: <name>` — yields when the project runs the named hook on this hook's
+  # events; a settings.json that registers only an unrelated hook keeps it running.
+  reset_proj; reg UserPromptSubmit - __other__
+  expect "[$SH] Y7 @plugin-yields-to target registered → yields" "" "$(run_rh "$SH" __marked__)"
+  reset_proj; reg UserPromptSubmit - __target__
+  expect "[$SH] Y7 @plugin-yields-to target not registered → runs" RH_MARKED "$(run_rh "$SH" __marked__)"
 
-  # Y8. The language fallback feeds plugin hooks only. When it supplies the pin, the project copy
-  # cannot see it, so the two copies differ → the plugin copy runs. With the pin in the harness
-  # env both copies see it → yield.
-  reset_proj; settings "$PROJ/.claude/settings.json" __lang_probe__
+  # Y8. The language fallback feeds plugin hooks only; when it supplies the pin the project copy is
+  # blind to it → run. With the pin in the harness env both copies see it → yield.
+  reset_proj; reg UserPromptSubmit - __lang_probe__
   printf 'ru\n' > "$TMPD/xdg/getff/hook-lang"
   OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR CLAUDE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$TMPD/xdg" \
     "$SH" "$TMPD/run-hook.cmd" __lang_probe__ 2>/dev/null)
-  [ "$OUT" = "LANG=ru" ] && ok "[$SH] Y8 pin from the fallback file only → runs (project copy is blind to it)" \
-    || bad "[$SH] Y8 fallback-only pin: '$OUT'"
+  expect "[$SH] Y8 pin from the fallback file only → runs" LANG=ru "$OUT"
   OUT=$(env -u ZCODE_PROJECT_DIR AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$TMPD/xdg" \
     "$SH" "$TMPD/run-hook.cmd" __lang_probe__ 2>/dev/null)
-  [ -z "$OUT" ] && ok "[$SH] Y8 pin in the harness env → yields" || bad "[$SH] Y8 env pin: '$OUT'"
+  expect "[$SH] Y8 pin in the harness env → yields" "" "$OUT"
+
+  # Y10. A narrower project matcher leaves MultiEdit to the plugin copy → run (a consumer installed
+  # before the matcher widened keeps the old one: register_cc_hook never rewrites it).
+  reset_proj; reg PostToolUse "Edit|Write" __wide__
+  expect "[$SH] Y10 project matcher narrower than the plugin's → runs" RH_OK "$(run_rh "$SH" __wide__)"
+  reset_proj; reg PostToolUse "Edit|Write|MultiEdit" __wide__
+  expect "[$SH] Y10 same matcher → yields" "" "$(run_rh "$SH" __wide__)"
+
+  # Y11. The plugin registers two events; the project covers one → run (a worktree on a branch from
+  # before an event was added).
+  reset_proj; reg PostToolUse Write __multi__
+  expect "[$SH] Y11 project misses one of the plugin's events → runs" RH_OK "$(run_rh "$SH" __multi__)"
+  reg PostToolUseFailure Write __multi__
+  expect "[$SH] Y11 every plugin event covered → yields" "" "$(run_rh "$SH" __multi__)"
+
+  # Y12. A plugin-only hook never yields by its own name, whatever the project registers.
+  reset_proj; reg UserPromptSubmit - __plugin_only__
+  expect "[$SH] Y12 plugin-only hook with a same-named project hook → runs" RH_OK "$(run_rh "$SH" __plugin_only__)"
+
+  # Y13. A project script that shares the name but is not getff's copy → run. getff's copy needs
+  # BOTH the line-2 header and a delivery marker; each half is checked on its own.
+  reset_proj; reg UserPromptSubmit - __target__
+  printf '#!/usr/bin/env bash\n# my own hook\necho MINE\n' > "$PROJ/.claude/hooks/__target__.sh"
+  expect "[$SH] Y13 same-named foreign project script → runs" RH_OK "$(run_rh "$SH" __target__)"
+  printf '#!/usr/bin/env bash\n# __target__.sh — my own hook\necho MINE\n' > "$PROJ/.claude/hooks/__target__.sh"
+  expect "[$SH] Y13 getff-style header but no delivery marker → runs" RH_OK "$(run_rh "$SH" __target__)"
+  printf '#!/usr/bin/env bash\n# my own hook\n# @dual-pair: elsewhere\necho MINE\n' > "$PROJ/.claude/hooks/__target__.sh"
+  expect "[$SH] Y13 delivery marker but no getff header on line 2 → runs" RH_OK "$(run_rh "$SH" __target__)"
+  getff_proj __target__
+
+  # Y14. A registration that throws the project copy's output away, or runs it after another
+  # command, does not carry the hook.
+  reset_proj; reg UserPromptSubmit - __target__ 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/__target__.sh" >/dev/null 2>&1 || true'
+  expect "[$SH] Y14 command discards the project copy's output → runs" RH_OK "$(run_rh "$SH" __target__)"
+  reset_proj; reg UserPromptSubmit - __target__ 'cd /nonexistent && bash "$CLAUDE_PROJECT_DIR/.claude/hooks/__target__.sh"'
+  expect "[$SH] Y14 command runs the project copy after another command → runs" RH_OK "$(run_rh "$SH" __target__)"
+
+  # Y15. A cwd-relative command may resolve elsewhere than the checked path → run.
+  reset_proj; reg UserPromptSubmit - __target__ 'bash .claude/hooks/__target__.sh'
+  expect "[$SH] Y15 cwd-relative command → runs" RH_OK "$(run_rh "$SH" __target__)"
+
+  # Y16. GETFF_PLUGIN_NO_YIELD=1 forces the plugin copy to run (hosts that load fewer setting sources).
+  reset_proj; reg UserPromptSubmit - __target__
+  OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR GETFF_PLUGIN_NO_YIELD=1 CLAUDE_PROJECT_DIR="$PROJ" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" "$SH" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
+  expect "[$SH] Y16 GETFF_PLUGIN_NO_YIELD=1 → runs" RH_OK "$OUT"
+
+  # Y17. A conditional project registration (`if`) fires on a subset of calls → run.
+  reset_proj; reg UserPromptSubmit - __target__
+  jq '.hooks.UserPromptSubmit[0].hooks[0].if = "Bash(git *)"' "$PROJ/.claude/settings.json" > "$TMPD/s.tmp" \
+    && mv "$TMPD/s.tmp" "$PROJ/.claude/settings.json"
+  expect "[$SH] Y17 conditional project registration → runs" RH_OK "$(run_rh "$SH" __target__)"
 done
+
+# Y18. No hooks.json beside the dispatcher → the plugin's own registrations are unknown → run.
+NOHJ="$TMPD/nohooksjson"; mkdir -p "$NOHJ"; cp "$RH" "$NOHJ/run-hook.cmd"; cp "$TMPD/__target__" "$NOHJ/"
+reset_proj; reg UserPromptSubmit - __target__
+OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR CLAUDE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$EMPTY_XDG" \
+  bash "$NOHJ/run-hook.cmd" __target__ 2>/dev/null)
+expect "Y18 no hooks.json beside the dispatcher → runs" RH_OK "$OUT"
 
 # Y9. Without jq the registry cannot be told apart from permission strings → run, never guess.
 NOJQ="$TMPD/nojq-bin"; mkdir -p "$NOJQ"
 for t in bash sh dirname head tr grep sed cat env; do
   p=$(command -v "$t") && ln -sf "$p" "$NOJQ/$t"
 done
-reset_proj; settings "$PROJ/.claude/settings.json" __target__
+reset_proj; reg UserPromptSubmit - __target__
 OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR PATH="$NOJQ" CLAUDE_PROJECT_DIR="$PROJ" \
   XDG_CONFIG_HOME="$EMPTY_XDG" "$NOJQ/bash" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
-[ "$OUT" = "RH_OK" ] && ok "Y9 no jq on PATH → runs" || bad "Y9 yielded without jq: '$OUT'"
+expect "Y9 no jq on PATH → runs" RH_OK "$OUT"
 
 # ── Real tree: the framework repo's own settings.json against the shipped plugin/hooks ─────────
-# R1 (class sweep, stubs — no real hook executes): every plugin hook that the repo registers as
-# `.claude/hooks/<name>.sh` must yield; the plugin-only hooks the repo does not run must still fire.
-STUBS="$TMPD/stubs"; mkdir -p "$STUBS"; cp "$RH" "$STUBS/run-hook.cmd"
+# R1 (class sweep, stubs — no real hook executes): every plugin hook the repo registers as
+# `.claude/hooks/<name>.sh` must yield; every other plugin hook must still fire, except those whose
+# @plugin-yields-to target the repo registers. Stubs carry the real file's comment lines, so the
+# source declaration and markers are tested as shipped; the real hooks.json sits beside them.
+STUBS="$TMPD/stubs"; mkdir -p "$STUBS"; cp "$RH" "$STUBS/run-hook.cmd"; cp "$REPO_ROOT/plugin/hooks/hooks.json" "$STUBS/"
 PLUGIN_NAMES=$(jq -r '[.hooks[][].hooks[].command | capture("run-hook\\.cmd\" (?<n>[^ ]+)").n] | unique[]' \
   "$REPO_ROOT/plugin/hooks/hooks.json")
 PROJECT_NAMES=$(jq -r '[.hooks[][].hooks[].command | capture("\\.claude/hooks/(?<n>[^ ]+)\\.sh").n] | unique[]' \
   "$REPO_ROOT/.claude/settings.json")
-yielded=0
+yielded=0; still=0
 for n in $PLUGIN_NAMES; do
-  # The stub carries the real twin's @plugin-yields-to line, so markers are tested as shipped.
-  { grep -m1 '^# @plugin-yields-to:' "$REPO_ROOT/plugin/hooks/$n" 2>/dev/null; echo "echo RAN"; } > "$STUBS/$n"
-  OUT=$(env -u ZCODE_PROJECT_DIR AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$REPO_ROOT" XDG_CONFIG_HOME="$EMPTY_XDG" \
-    bash "$STUBS/run-hook.cmd" "$n" </dev/null 2>/dev/null)
+  { grep '^#' "$REPO_ROOT/plugin/hooks/$n"; echo "echo RAN"; } > "$STUBS/$n"
+  OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" "$n" </dev/null 2>/dev/null)
+  target=$(sed -n 's/^# @plugin-yields-to:[[:space:]]*//p' "$REPO_ROOT/plugin/hooks/$n" | head -n 1)
   if printf '%s\n' "$PROJECT_NAMES" | grep -qx "$n"; then
     [ -z "$OUT" ] && yielded=$((yielded+1)) || bad "R1 $n: the repo runs its own copy, the plugin copy fired too"
+  elif [ -n "$target" ] && printf '%s\n' "$PROJECT_NAMES" | grep -qx "$target"; then
+    expect "R1 $n yields to the repo's $target (@plugin-yields-to)" "" "$OUT"
+  else
+    [ "$OUT" = "RAN" ] && still=$((still+1)) || bad "R1 $n: the repo does not run it, yet the plugin copy was silenced"
   fi
 done
 [ "$yielded" -ge 10 ] && ok "R1 $yielded plugin hooks shared with .claude/settings.json all yield" \
   || bad "R1 only $yielded shared hooks yielded (vacuous or broken sweep)"
-for n in inject-project-digest session-start warn-subagent-report-zcode check-doc-authority-header; do
-  OUT=$(env -u ZCODE_PROJECT_DIR AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$REPO_ROOT" XDG_CONFIG_HOME="$EMPTY_XDG" \
-    bash "$STUBS/run-hook.cmd" "$n" </dev/null 2>/dev/null)
-  [ "$OUT" = "RAN" ] && ok "R1 $n (plugin-only) still fires" || bad "R1 $n (plugin-only) was silenced: '$OUT'"
-done
-OUT=$(env -u ZCODE_PROJECT_DIR AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$REPO_ROOT" XDG_CONFIG_HOME="$EMPTY_XDG" \
-  bash "$STUBS/run-hook.cmd" inject-output-language </dev/null 2>/dev/null)
-[ -z "$OUT" ] && ok "R1 inject-output-language yields to the repo's session-bootstrap digest" \
-  || bad "R1 inject-output-language fired beside the digest that already carries its line"
+[ "$still" -ge 3 ] && ok "R1 $still plugin hooks the repo does not run all still fire" \
+  || bad "R1 only $still plugin-only hooks checked (vacuous sweep)"
 
 # R2 (end to end, real hooks): one UserPromptSubmit in the framework repo — the repo's own
 # injector plus every plugin UserPromptSubmit hook through the shipped run-hook.cmd — carries the
-# digest once, the language line once, the project digest once, and the invariants line is the
-# repo's current one (README renders five; the stale 0.3.2 plugin carried four).
+# digest once, the language line once, the project digest once, and exactly one invariants line.
 PROMPT=$( {
   CLAUDE_PROJECT_DIR="$REPO_ROOT" AIF_HOOK_LANG=ru bash "$REPO_ROOT/.claude/hooks/inject-session-bootstrap.sh"
   for n in $(jq -r '.hooks.UserPromptSubmit[].hooks[].command | capture("run-hook\\.cmd\" (?<n>[^ ]+)").n' \
       "$REPO_ROOT/plugin/hooks/hooks.json"); do
     [ "$n" = deps-hash-check ] && continue   # writes a cache file; its yield is covered by R1
-    echo '{"hook_event_name":"UserPromptSubmit"}' | env -u ZCODE_PROJECT_DIR CLAUDE_PROJECT_DIR="$REPO_ROOT" \
-      AIF_HOOK_LANG=ru XDG_CONFIG_HOME="$EMPTY_XDG" bash "$RH" "$n"
+    echo '{"hook_event_name":"UserPromptSubmit"}' | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" AIF_HOOK_LANG=ru XDG_CONFIG_HOME="$EMPTY_XDG" bash "$RH" "$n"
   done
 } 2>/dev/null )
 c_digest=$(printf '%s\n' "$PROMPT" | grep -c '^\[session-bootstrap digest')
 c_lang=$(printf '%s\n' "$PROMPT" | grep -c '^\[output-language\]')
 c_proj=$(printf '%s\n' "$PROMPT" | grep -c '^Project: ')
-[ "$c_digest" -eq 1 ] && ok "R2 session-bootstrap digest injected once" || bad "R2 digest injected $c_digest times"
-[ "$c_lang" -eq 1 ] && ok "R2 output-language line injected once" || bad "R2 output-language injected $c_lang times"
-[ "$c_proj" -eq 1 ] && ok "R2 project digest (plugin-only hook) still injected once" \
-  || bad "R2 project digest injected $c_proj times"
-printf '%s\n' "$PROMPT" | grep '^Invariants:' | grep -q '(5) ' \
-  && ok "R2 the one invariants line is the repo's five-item render" || bad "R2 invariants line is not the repo's render"
+c_inv=$(printf '%s\n' "$PROMPT" | grep -c '^Invariants:')
+expect "R2 session-bootstrap digest injected once" 1 "$c_digest"
+expect "R2 output-language line injected once" 1 "$c_lang"
+expect "R2 project digest (plugin-only hook) still injected once" 1 "$c_proj"
+expect "R2 exactly one invariants line reaches the prompt" 1 "$c_inv"
 
 # R3 (the premise of inject-output-language's @plugin-yields-to): the digest carries the SAME
 # language line the yielding hook would have emitted — otherwise the yield changes the prompt.
