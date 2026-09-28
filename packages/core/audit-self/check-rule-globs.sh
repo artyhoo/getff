@@ -75,10 +75,16 @@ fi
 # verify, and «no globs found» would fail validate and every push of such a project on a config
 # getff does not own. Skip and say what is not wired — the same verdict check-rule-enforced.sh
 # gives a config with no boundary tokens. A config that mentions RULE_GLOBS or a getff rule is
-# getff-shaped and keeps the full alarm below.
+# getff-shaped and keeps the full alarm below. Whose config it is comes from the baseline manifest
+# (.ai-factory/refresh-baseline.json records every file getff delivered), not from its content:
+# getff's react-native config also has no RULE_GLOBS block — that preset ships no custom rules.
 if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
-  echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config (no RULE_GLOBS block, no rules-as-tests rule), so there is no rule glob to verify (skipped)."
-  echo "  To enforce them, merge getff's RULE_GLOBS block and rules-as-tests plugin into $CFG by hand; the install kept your config and did not touch it."
+  if grep -qF "\"$CFG\":" .ai-factory/refresh-baseline.json 2>/dev/null; then
+    echo "check-rule-globs: getff placed $CFG for this stack and it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
+  else
+    echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config (no RULE_GLOBS block, no rules-as-tests rule), so there is no rule glob to verify (skipped)."
+    echo "  To enforce them, merge getff's RULE_GLOBS block and rules-as-tests plugin into $CFG by hand; the install kept your config and did not touch it."
+  fi
   exit 0
 fi
 

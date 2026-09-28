@@ -21,7 +21,19 @@
 # Runs regardless of _r2_verdict (R12/R14/R20 are not boundary-gated like R2) and
 # honours --dry-run (writes nothing, prints what would change).
 # rc=0 on every branch — install must not abort on wirer failure.
-if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
+#
+# A root config the CONSUMER owns (copy_safe kept it; getff_delivered says getff never placed it)
+# gets no preset merge: that is merging into a consumer's tool config, which the 2026-09-23
+# decision rules out, and it left the config with getff rules but no RULE_GLOBS block, so
+# check:globs failed validate and every push (own-config consumer-matrix cell, react-next). The
+# live-research delivery — a snippet the operator produced and re-ran --full to deliver — still
+# runs as before; how generated rules land in a config is the rule-generation chain's scope.
+_synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
+if command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ] \
+   && [ ! -f "$_synth_live_snippet" ] && ! getff_delivered "$PROJECT_ROOT/eslint.config.mjs"; then
+  echo "▶ synth-wire: eslint.config.mjs is your own config (the install kept it) — the preset's synthesized rules-as-tests rules were NOT merged into it"
+  note_not_wired "stack rules in eslint.config.mjs — it is your own config, and the install never merges into a consumer's tool config; add the rules-as-tests slice by hand if you want it"
+elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
   if [ ! -f "$_synth_wirer" ]; then
     echo "  · synth-and-wire: bundle not found at $_synth_wirer — skipped"

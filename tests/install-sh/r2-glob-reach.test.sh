@@ -295,4 +295,18 @@ OUT11=$(repo_gate "$T11"); RC11=$?
   && ok "own-config NEG-b: a hand-wired getff rule without RULE_GLOBS still FAILS (not skipped)" \
   || bad "own-config NEG-b: gate exited $RC11 — a config that wires the rule was skipped as not wired"
 
+# Provenance of the skip message. getff's own react-native config wires none of R2/R7/R8 (the RN
+# preset ships zero custom rules) and carries no RULE_GLOBS block, so it takes the same skip — but
+# calling it «your own config, the install kept it» is false on a fresh RN install. The baseline
+# manifest records what getff delivered; the message must follow it.
+T12=$(own_cfg_dir "export default [];")
+mkdir -p "$T12/.ai-factory"
+printf '{\n  "eslint.config.mjs": "0000000000000000000000000000000000000000000000000000000000000000"\n}\n' \
+  > "$T12/.ai-factory/refresh-baseline.json"
+OUT12=$(repo_gate "$T12"); RC12=$?
+[ "$RC12" = "0" ] && ! printf '%s' "$OUT12" | grep -q "your own config" \
+  && printf '%s' "$OUT12" | grep -q "getff placed eslint.config.mjs" \
+  && ok "own-config provenance: getff's own marker-less config is skipped as getff's, not called the consumer's" \
+  || bad "own-config provenance: rc=$RC12, message misattributes getff's config (saw: $(printf '%s' "$OUT12" | head -1))"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -394,6 +394,24 @@ refresh_baseline_stage_weak_matching() {
   return 0
 }
 
+# getff_delivered <abs-dst> — exit 0 IFF getff itself delivered <abs-dst>: this run staged it (a
+# copy_safe write, or a skip whose bytes ARE the incoming delivery) or the baseline manifest of an
+# earlier install holds an entry for it. Anything else is the consumer's own file — it pre-dated
+# the install and copy_safe kept it — and a post-processor must leave it alone (operator decision
+# 2026-09-23: skip + report, never overwrite or merge a consumer's tool config). Provenance, not
+# content: getff's react-native eslint config carries no RULE_GLOBS block, a consumer's may carry
+# one. A pre-manifest re-install of an edited getff file reads as the consumer's — the safe side.
+getff_delivered() {
+  local dst="$1" p manifest
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  manifest=$(_refresh_baseline_manifest)
+  [ -f "$manifest" ] && command -v jq >/dev/null 2>&1 || return 1
+  jq -e --arg k "${dst#"${PROJECT_ROOT:-.}"/}" 'has($k)' "$manifest" >/dev/null 2>&1
+}
+
 # refresh_baseline_diverged <dst> <src> — exit 0 IFF <dst> is a consumer-diverged file:
 # sha256(dst) ≠ manifest entry AND ≠ sha256(src), with a manifest entry present. Everything
 # else — no entry (unknown), dst absent, directory dst, jq/sha tooling missing, unreadable
