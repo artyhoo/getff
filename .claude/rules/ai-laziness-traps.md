@@ -154,7 +154,7 @@ Counter: verify the redundancy **empirically** first; keep the file (deletion is
 
 Trigger: a load-bearing / discipline-bearing PR is ready and CI is green.
 Tempted output: «CI green → merge it, or hand it on to be reviewed and merged».
-Counter: run your **own** adversarial cold-review of the diff (a fresh reviewer over the actual change) BEFORE handoff. CI checks form/structure (lint, trailers, schema), not design substance — the 2026-05-22 DN-4 round-1 (§1.11) and round-2 (§1.12) cold-reviews each caught real MAJOR findings a green CI missed. «QA» is yours whoever merges; who merges is set by [CLAUDE.md «Agent PR merge policy»](../../CLAUDE.md) (an agent merges its own `base=staging` PR once CI is green). *(codifies memory `own_qa_before_handoff`)*
+Counter: run your **own** adversarial cold-review of the diff (a fresh reviewer over the actual change) BEFORE handoff. CI checks form/structure (lint, trailers, schema), not design substance — the 2026-05-22 DN-4 round-1 (§1.11) and round-2 (§1.12) cold-reviews each caught real MAJOR findings a green CI missed. «QA» is yours whoever merges; who merges is set by [CLAUDE.md «Agent PR merge policy»](../../CLAUDE.md). *(codifies memory `own_qa_before_handoff`)*
 
 ### T20 — Inline-verdict-without-evidence
 

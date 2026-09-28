@@ -118,8 +118,12 @@ function digestBytes(src: string): number {
  *  The counter used to say «Merge» is the maintainer's decision while CLAUDE.md had agents
  *  merge their own staging PRs (operator directive 2026-09-10); both texts reach every
  *  session, so the contradiction was live (found 2026-09-28). The check: the counter (and
- *  its digest quote) points at the CLAUDE.md bullet, that bullet exists, and no sentence of
- *  the counter pairs «merge» with a human role outside the pointer sentence. */
+ *  its digest quote) points at the CLAUDE.md bullet, that bullet exists, and no sentence —
+ *  with the pointer text itself removed, so sharing a sentence with the pointer is no
+ *  shelter — pairs a merge verb («merge/merges/merging», or «land» with «PR») with a role
+ *  (maintainer, operator, human, owner, agent). «merged» is not a merge verb: «revert a
+ *  merged PR» states no authority. Agents count as a role so a restated copy of the policy
+ *  itself («an agent merges its own staging PR») is rejected too — one source, CLAUDE.md. */
 const MERGE_POLICY_POINTER = 'CLAUDE.md «Agent PR merge policy»';
 
 function checkT19MergeAuthority(counter: string, digestLine: string, claudeMd: string): string[] {
@@ -132,7 +136,9 @@ function checkT19MergeAuthority(counter: string, digestLine: string, claudeMd: s
       errs.push(`${where}: does not point to ${MERGE_POLICY_POINTER}`);
     }
     for (const sentence of text.split(/(?<=[.;])\s+/)) {
-      if (/merg/i.test(sentence) && /\b(maintainer|operator|human)\b/i.test(sentence) && !sentence.includes(MERGE_POLICY_POINTER)) {
+      const bare = sentence.split(MERGE_POLICY_POINTER).join('');
+      const mergeVerb = /\bmerg(e|es|ing)\b/i.test(bare) || (/\bland(s|ing)?\b/i.test(bare) && /\bPRs?\b/.test(bare));
+      if (mergeVerb && /\b(maintainers?|operators?|humans?|owners?|agents?)\b/i.test(bare)) {
         errs.push(`${where}: restates merge authority instead of pointing to CLAUDE.md: "${sentence.trim()}"`);
       }
     }
@@ -206,6 +212,27 @@ describe('Principle 35 — ai-laziness-digest anti-drift (catalogue ↔ digest)'
       const counter = `${t19Counter()} Merging stays the operator's call.`;
       const errs = checkT19MergeAuthority(counter, counter, claudeMd());
       expect(errs.some((e) => e.includes("Merging stays the operator's call."))).toBe(true);
+    });
+
+    it('RED: other phrasings of a human merge role are rejected, even inside the pointer sentence', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      for (const claim of [
+        'Merging stays with the maintainers.',
+        "Merging is the owner's call.",
+        'Only the maintainer may land the PR.',
+        `Merging stays with the maintainers per ${MERGE_POLICY_POINTER}.`,
+        'An agent merges its own `base=staging` PR once CI is green.',
+      ]) {
+        const counter = `${t19Counter()} ${claim}`;
+        const errs = checkT19MergeAuthority(counter, digestLine, claudeMd());
+        expect(errs.some((e) => e.includes(claim)), claim).toBe(true);
+      }
+    });
+
+    it('GREEN: a sentence that names a role and a merged PR without assigning who merges passes', () => {
+      const digestLine = parseDigest().get('T19') ?? '';
+      const counter = `${t19Counter()} The operator may still revert a merged PR.`;
+      expect(checkT19MergeAuthority(counter, digestLine, claudeMd())).toEqual([]);
     });
 
     it('RED: a pointer to a CLAUDE.md bullet that no longer exists is rejected', () => {
