@@ -23,12 +23,13 @@
  *            prior-art-evaluations.md#118 (check:enforced oracle ADOPT)
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { promisify } from 'node:util';
 
 export const R2_RULE_ID = 'rules-as-tests/no-unsafe-zod-parse';
 
@@ -920,20 +921,27 @@ export interface ResolveWireArgs {
   scope?: { files: string[] };
 }
 
-/** Paths handed to `--print-config`, relative to the config's dir. It resolves a config per path; no file is read. */
-const R2_PROBE_PATHS = ['__aif_r2_probe__.js', '__aif_r2_probe__.ts'];
+/**
+ * Paths handed to `--print-config`, relative to the config's dir: one per extension ESLint may lint (its default
+ * `files` cover .js/.mjs/.cjs, a TypeScript or JSX block adds the rest). It resolves a config per path; no file is read.
+ */
+const R2_PROBE_PATHS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts'].map((ext) => `__aif_r2_probe__.${ext}`);
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Default probe: resolve the consumer's eslint and run `--print-config` on probe paths next to the config.
  * eslint's package `exports` does NOT expose `./bin/eslint.js` (resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED
  * on v9/v10) — resolve the EXPORTED `./package.json` and derive the bin path. GH #644 (#535 trap).
  *
- * `ok` needs ESLint to have resolved R2 for at least one probe path. `--print-config` exits 0 printing
- * `undefined` for a path no block matches — a `.ts` path under a config that matches no `.ts`, an absolute
- * path through a symlinked dir (macOS /var → /private/var reads as outside the base path), a path outside a
- * `files:` scope — so exit 0 alone proved nothing: the plugin-less bare element passed, and the consumer's
- * lint then died with exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28). `.js` is
- * matched by ESLint's default `files`, `.ts` by a TypeScript block, each scope glob by one path it matches.
+ * `ok` needs ESLint to have resolved R2 for at least one probe path, and no path to fail. `--print-config`
+ * exits 0 printing `undefined` for a path no block matches — a `.ts` path under a config that matches no `.ts`,
+ * an absolute path through a symlinked dir (macOS /var → /private/var reads as outside the base path), a path
+ * outside a `files:` scope — so exit 0 alone proved nothing: the plugin-less bare element passed, and the
+ * consumer's lint then died with exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28).
+ * One path per lintable extension catches a base that registers the plugin for some extensions only (the
+ * global bare element reaches the rest); each scope glob gets one path it matches. The paths run in parallel
+ * (~0.45 s each with the tsx loader).
  */
 export async function probeViaEslint(configPath: string, cwd: string, scope?: { files: string[] }): Promise<ProbeVerdict> {
   let eslintBin: string;
@@ -963,21 +971,27 @@ export async function probeViaEslint(configPath: string, cwd: string, scope?: { 
   const dir = dirname(resolve(configPath));
   const scoped = (scope?.files ?? []).map(probeScopePath).filter((x): x is string => x !== undefined);
   const paths = [...new Set([...R2_PROBE_PATHS, ...scoped])];
-  let resolvedR2 = false;
-  for (const path of paths) {
-    let printed: string;
-    try {
-      printed = String(execFileSync(process.execPath, [...nodeArgs, eslintBin, '--print-config', path], { cwd: dir, stdio: 'pipe' }));
-    } catch (e: unknown) {
-      const stderr = String((e as { stderr?: Buffer }).stderr ?? '');
-      if (/could not find plugin/i.test(stderr)) return 'could-not-find-plugin';
-      // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
-      console.error(`  · R2 probe: unexpected eslint error → degrading:\n${stderr.slice(0, 400)}`);
-      return 'other-error';
-    }
-    if (printed.includes(`"${R2_RULE_ID}"`)) resolvedR2 = true;
+  const runs = await Promise.all(
+    paths.map(async (path): Promise<{ resolvedR2: boolean } | { stderr: string }> => {
+      try {
+        const { stdout } = await execFileAsync(process.execPath, [...nodeArgs, eslintBin, '--print-config', path], {
+          cwd: dir,
+          maxBuffer: 16 * 1024 * 1024,
+        });
+        return { resolvedR2: stdout.includes(`"${R2_RULE_ID}"`) };
+      } catch (e: unknown) {
+        return { stderr: String((e as { stderr?: string }).stderr ?? '') };
+      }
+    }),
+  );
+  const failures = runs.flatMap((r) => ('stderr' in r ? [r.stderr] : []));
+  if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return 'could-not-find-plugin';
+  if (failures.length > 0) {
+    // Surface WHY we degrade (e.g. type-aware projectService/tsconfig error) — no silent degrade.
+    console.error(`  · R2 probe: unexpected eslint error → degrading:\n${(failures[0] ?? '').slice(0, 400)}`);
+    return 'other-error';
   }
-  if (resolvedR2) return 'ok';
+  if (runs.some((r) => 'resolvedR2' in r && r.resolvedR2)) return 'ok';
   console.error(`  · R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(', ')} in ${dir} → degrading`);
   return 'unconfirmed';
 }

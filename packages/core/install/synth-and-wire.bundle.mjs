@@ -10121,12 +10121,13 @@ function synthesize(plan) {
 }
 
 // packages/core/install/wire-eslint-r2.ts
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync6, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 var R2_RULE_ID = "rules-as-tests/no-unsafe-zod-parse";
 function r2Element(variant, scope) {
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
@@ -10720,7 +10721,8 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
     return modified;
   }
 }
-var R2_PROBE_PATHS = ["__aif_r2_probe__.js", "__aif_r2_probe__.ts"];
+var R2_PROBE_PATHS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"].map((ext) => `__aif_r2_probe__.${ext}`);
+var execFileAsync = promisify(execFile);
 async function probeViaEslint(configPath, cwd, scope) {
   let eslintBin;
   try {
@@ -10740,21 +10742,27 @@ async function probeViaEslint(configPath, cwd, scope) {
   const dir = dirname6(resolve5(configPath));
   const scoped = (scope?.files ?? []).map(probeScopePath).filter((x) => x !== void 0);
   const paths = [.../* @__PURE__ */ new Set([...R2_PROBE_PATHS, ...scoped])];
-  let resolvedR2 = false;
-  for (const path of paths) {
-    let printed;
-    try {
-      printed = String(execFileSync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", path], { cwd: dir, stdio: "pipe" }));
-    } catch (e) {
-      const stderr = String(e.stderr ?? "");
-      if (/could not find plugin/i.test(stderr)) return "could-not-find-plugin";
-      console.error(`  \xB7 R2 probe: unexpected eslint error \u2192 degrading:
-${stderr.slice(0, 400)}`);
-      return "other-error";
-    }
-    if (printed.includes(`"${R2_RULE_ID}"`)) resolvedR2 = true;
+  const runs = await Promise.all(
+    paths.map(async (path) => {
+      try {
+        const { stdout } = await execFileAsync(process2.execPath, [...nodeArgs, eslintBin, "--print-config", path], {
+          cwd: dir,
+          maxBuffer: 16 * 1024 * 1024
+        });
+        return { resolvedR2: stdout.includes(`"${R2_RULE_ID}"`) };
+      } catch (e) {
+        return { stderr: String(e.stderr ?? "") };
+      }
+    })
+  );
+  const failures = runs.flatMap((r) => "stderr" in r ? [r.stderr] : []);
+  if (failures.some((stderr) => /could not find plugin/i.test(stderr))) return "could-not-find-plugin";
+  if (failures.length > 0) {
+    console.error(`  \xB7 R2 probe: unexpected eslint error \u2192 degrading:
+${(failures[0] ?? "").slice(0, 400)}`);
+    return "other-error";
   }
-  if (resolvedR2) return "ok";
+  if (runs.some((r) => "resolvedR2" in r && r.resolvedR2)) return "ok";
   console.error(`  \xB7 R2 probe: ESLint applied ${R2_RULE_ID} to none of ${paths.join(", ")} in ${dir} \u2192 degrading`);
   return "unconfirmed";
 }

@@ -336,10 +336,10 @@ for (const { nm, version } of ESLINT_INSTALLS) {
       return dir;
     }
 
-    /** The consumer's own lint over both files, run the way a consumer runs it. */
+    /** The consumer's own lint over the whole fixture (`eslint .`), run the way a consumer runs it. */
     function lintRc(dir: string): { rc: number; out: string } {
       try {
-        execFileSync(process.execPath, [join(nm, 'eslint', 'bin', 'eslint.js'), 'src/h.js', 'src/h.ts'], { cwd: dir, stdio: 'pipe' });
+        execFileSync(process.execPath, [join(nm, 'eslint', 'bin', 'eslint.js'), '.'], { cwd: dir, stdio: 'pipe' });
         return { rc: 0, out: '' };
       } catch (e: unknown) {
         const err = e as { status?: number; stderr?: Buffer; stdout?: Buffer };
@@ -383,6 +383,22 @@ for (const { nm, version } of ESLINT_INSTALLS) {
       const dir = fixture(
         `import customRules from './eslint-rules-local/index.mjs';\n` +
           `export default [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\n`,
+      );
+      try {
+        const r = await resolveAndWire({ configPath: join(dir, 'eslint.config.mjs'), cwd: dir, runProbe: probeViaEslint });
+        expect(r.status).toBe('wired');
+        const lint = lintRc(dir);
+        expect(lint.rc, lint.out).not.toBe(2);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }, 60_000);
+
+    // Shape 4: the plugin is registered for `.js` only; `eslint .` also lints `.mjs` (the config itself).
+    it.skipIf(!TS_MORPH_AVAILABLE)('plugin registered for .js only → not wired plugin-less', async () => {
+      const dir = fixture(
+        `import customRules from './eslint-rules-local/index.mjs';\n` +
+          `export default [{ files: ['**/*.js'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\n`,
       );
       try {
         const r = await resolveAndWire({ configPath: join(dir, 'eslint.config.mjs'), cwd: dir, runProbe: probeViaEslint });
