@@ -140,6 +140,12 @@ real; the partial ones are the round-2 findings they name.
   ways; no button over getff) and P17 narrowed (no stack choice; the tools step installs). Rows
   R6-1, R6-4, R6-6 answered, R6-8 and R6-9 added; R6-3 corrected: `restricted-syntax-audit-exempt`
   is the engine generated rules compile into, so it keeps shipping. Spec §8's row index moved here.
+  Model round 3: the operator found the first base-core list incomplete (reuse, adapting,
+  laziness, questions); the [base-core inventory](2026-09-28-one-button-chain-base-core.md) swept
+  the full population (75 principles, every rule and principle test mapped); a cold seat returned
+  REVISE (56 findings: security, rule lifecycle, reference integrity, portability, 15 statuses),
+  folded in revision 2 (102 principles). Q11: the 600-line markdown gate is dropped; the sourced
+  limits of R6-9 replace it.
 
 ## Rejected alternatives index
 
