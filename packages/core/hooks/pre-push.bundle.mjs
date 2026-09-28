@@ -1386,7 +1386,8 @@ function synthBundleSection() {
   }
 }
 function runtimeBundlesSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs"))) return;
+  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
+    return;
   const r = run("node", ["scripts/build-runtime-bundles.mjs", "--check"]);
   if (r.exitCode === 2) {
     process.stderr.write(
@@ -1649,9 +1650,31 @@ function lineCitationsSection(ctx) {
   if (r.exitCode !== 0) die("\u274C stale `path:line` citation(s):", r);
   emit(r);
 }
+var HEAVY_RUNNER_TIMEOUT_MS = 6e5;
+function runCoreSuite(script) {
+  const runner = process.env["PREPUSH_HEAVY_RUNNER"]?.trim();
+  if (!runner) return run("npm", ["--prefix", CORE, "run", script]);
+  const r = runCheck(runner, ["npm", "run", script], {
+    cwd: CORE,
+    timeoutMs: HEAVY_RUNNER_TIMEOUT_MS
+  });
+  if (r.notFound || /^spawnSync .* E[A-Z]+$/m.test(r.stderr)) {
+    die(
+      `\u274C PREPUSH_HEAVY_RUNNER='${runner}' could not be started (${r.stderr.trim()}).
+   Fix the path, or unset PREPUSH_HEAVY_RUNNER to run the suite here.`
+    );
+  }
+  if (r.timedOut) {
+    die(
+      `\u274C PREPUSH_HEAVY_RUNNER='${runner}' did not finish \`npm run ${script}\` within ${HEAVY_RUNNER_TIMEOUT_MS / 6e4} min.
+   Unset PREPUSH_HEAVY_RUNNER to run the suite here.`
+    );
+  }
+  return r;
+}
 function principlesMetaSection() {
   if (existsSync2(resolve(CORE, "package.json"))) {
-    const r = run("npm", ["--prefix", CORE, "run", "test:principles"]);
+    const r = runCoreSuite("test:principles");
     if (r.notFound) {
       die(
         "\u274C npm/npx not found. Install Node.js to enable principles meta-tests."
@@ -1695,7 +1718,7 @@ function askFileSchemaSection() {
 }
 function irMetaSection() {
   if (existsSync2(resolve(CORE, "package.json"))) {
-    const r = run("npm", ["--prefix", CORE, "run", "test:ir"]);
+    const r = runCoreSuite("test:ir");
     if (r.notFound) {
       die("\u274C npm/npx not found. Install Node.js to enable IR meta-tests.");
     }
@@ -1706,7 +1729,7 @@ function irMetaSection() {
 }
 function backendsMetaSection() {
   if (existsSync2(resolve(CORE, "package.json"))) {
-    const r = run("npm", ["--prefix", CORE, "run", "test:backends"]);
+    const r = runCoreSuite("test:backends");
     if (r.notFound) {
       die(
         "\u274C npm/npx not found. Install Node.js to enable backend meta-tests."
@@ -1718,7 +1741,7 @@ function backendsMetaSection() {
 }
 function compositionMetaSection() {
   if (existsSync2(resolve(CORE, "package.json"))) {
-    const r = run("npm", ["--prefix", CORE, "run", "test:composition"]);
+    const r = runCoreSuite("test:composition");
     if (r.notFound) {
       die(
         "\u274C npm/npx not found. Install Node.js to enable composition meta-tests."
@@ -1903,10 +1926,16 @@ function invariantsRenderSection() {
   if (existsSync2(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
     const r = run("node", ["scripts/render-invariants.mjs", "--check"]);
     if (r.notFound) {
-      die("\u274C node not found. Install Node.js to enable the invariants-line drift check.");
+      die(
+        "\u274C node not found. Install Node.js to enable the invariants-line drift check."
+      );
     }
     if (r.exitCode === 1) die("\u274C invariants-line drift detected:", r);
-    if (r.exitCode !== 0) die("\u274C invariants-line render failed (README invariants block or hook markers unparseable):", r);
+    if (r.exitCode !== 0)
+      die(
+        "\u274C invariants-line render failed (README invariants block or hook markers unparseable):",
+        r
+      );
     emit(r);
   }
 }
