@@ -149,6 +149,9 @@ grep -qF 'packages/config → ts-server preset (explicit stack arg)' "$T/.instal
 # template, which already names R2, so there is nothing to list for it. The pass running for real is §6b.
 echo ""
 echo "▶ §6a R2 without ts-morph — no manual step, no NOT wired line for getff's own template"
+[ ! -e "$T/node_modules/ts-morph/package.json" ] \
+  && ok "§6a premise: no ts-morph in the fixture's node_modules (the R2 pass cannot run)" \
+  || bad "§6a premise: ts-morph is in the fixture's node_modules — §6a no longer tests the no-ts-morph path"
 grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api' "$T/.install.log" 2>/dev/null \
   && bad "R2 without ts-morph: apps/api is in the NOT wired summary, yet its template already names R2" \
   || ok "R2 without ts-morph: no NOT wired line for apps/api (getff's template already names R2)"
@@ -205,26 +208,32 @@ rm -rf "$O"
 # ts-morph — never in CI). The pass checks for ts-morph by its package.json in the project and then
 # runs `npx --no-install tsx <wirer>`, which loads ts-morph from the project's node_modules
 # (wire-eslint-r2.ts resolves it from cwd). So the fixture's node_modules/ts-morph is a symlink to
-# packages/core's (installed by `npm ci --prefix packages/core` in the install-sh-c job), and a
-# stand-in npx on PATH routes that one call to packages/core's own tsx: the real wirer edits the
-# consumer's configs. Stand-in npm/pnpm/yarn refuse any install, so none can run through the symlink. Expected: R2 in each ts-server,
+# the framework's (installed in the install-sh-c job), and a stand-in npx on PATH routes that one
+# call to the framework's tsx: the real wirer edits the consumer's configs. Stand-in npm/pnpm/yarn
+# refuse any install, so none can run through the symlink. Expected: R2 in each ts-server,
 # react-next and react-spa workspace config, scoped by the boundary globs found under that workspace
 # — never by a dir-prefixed files: glob, which inside a workspace-local config resolves against that
 # config's own directory ('apps/api/**' → apps/api/apps/api/**, nothing; 99-finalize.sh R2
 # per-workspace block). The react-native config stays as it was.
 echo ""
 echo "▶ §6b R2 with ts-morph: the real wirer adds R2 to the consumer's workspace configs, scoped by boundary globs"
-CORE_TSX="$REPO_ROOT/packages/core/node_modules/.bin/tsx"
-if [ ! -x "$CORE_TSX" ] || [ ! -f "$REPO_ROOT/packages/core/node_modules/ts-morph/package.json" ]; then
+# The framework's install: packages/core's own node_modules, or the root one, where the job's
+# workspace `npm install` hoists tsx and ts-morph (audit-self.yml, install-sh-c) — both from one dir.
+NM_SRC=""
+for _nm in "$REPO_ROOT/packages/core/node_modules" "$REPO_ROOT/node_modules"; do
+  [ -f "$_nm/ts-morph/package.json" ] && [ -x "$_nm/.bin/tsx" ] && NM_SRC="$_nm" && break
+done
+if [ -z "$NM_SRC" ]; then
   if [ -n "${CI:-}" ]; then
-    bad "§6b: packages/core deps missing (tsx / ts-morph) — the arm cannot run in CI; run npm ci --prefix packages/core"
+    bad "§6b: tsx + ts-morph are not installed under packages/core or the repo root — the arm cannot run in CI"
   else
-    echo "  · SKIP §6b — packages/core deps not installed (npm ci --prefix packages/core)"
+    echo "  · SKIP §6b — tsx + ts-morph not installed (npm ci --prefix packages/core)"
   fi
 else
+  CORE_TSX="$NM_SRC/.bin/tsx"
   P=$(mktemp -d); own_mono "$P"
   mkdir -p "$P/node_modules"
-  ln -s "$REPO_ROOT/packages/core/node_modules/ts-morph" "$P/node_modules/ts-morph"
+  ln -s "$NM_SRC/ts-morph" "$P/node_modules/ts-morph"
   cp "$P/apps/mobile/eslint.config.mjs" "$P/.mobile-before.mjs"
   SHIM=$(mktemp -d)
   cat > "$SHIM/npx" << EOF
@@ -236,8 +245,11 @@ EOF
     _real=$(command -v "$_pm" 2>/dev/null || true)
     cat > "$SHIM/$_pm" << EOF
 #!/usr/bin/env bash
-case "\${1:-}" in i|install|ci|add|prune|remove|rm|uninstall|update|up)
-  echo "stand-in $_pm: refusing '\$*' — the fixture's node_modules/ts-morph is a symlink" >&2; exit 127 ;; esac
+all="\$*"
+refuse() { echo "stand-in $_pm: refusing '\$all' — the fixture's node_modules/ts-morph is a symlink" >&2; exit 127; }
+[ "$_pm" = yarn ] && [ "\$#" -eq 0 ] && refuse
+for a in "\$@"; do case "\$a" in
+  i|install|ci|add|prune|remove|rm|uninstall|update|up|upgrade|dedupe|rebuild|link) refuse ;; esac; done
 [ -n "$_real" ] && exec "$_real" "\$@"; exit 127
 EOF
   done
