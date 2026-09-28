@@ -190,3 +190,57 @@ for itself in its token-economy work; for consumers, the base core reaches the a
 the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) P19 and R6-10.
 
 _Operator says_: «Прогрессив дискавери», «загружать динамически».
+
+## Alarm
+
+**Alarm**: a hook or an injection that fires at the moment a rule applies and reminds the agent of
+it — as opposed to a test that fires after the fact, and to rule text that sits in context all the
+time. The way a base-core principle reaches the agent when no check can catch it. Owner: the
+[one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) P19 and R6-10.
+
+_Operator says_: «сигнализация».
+
+## Enforcement channel
+
+**Enforcement channel**: one step of the ladder a check can sit on — edit, commit, push, CI,
+production. A check sits on the earliest channel its time budget allows; CI catches what no earlier
+channel can. Not the dispatch channels (Mode A / Mode B) of the orchestrator glossary. Owner: the
+[base-core inventory](docs/superpowers/specs/2026-09-28-one-button-chain-base-core.md) A6.
+
+_Operator says_: «рубеж».
+
+## Bypass
+
+**Bypass**: any way an agent gets past a check without satisfying it — skipping the git hooks,
+a disable comment, a switched-off rule, a lowered threshold, a removed CI step. Owner: the
+[base-core inventory](docs/superpowers/specs/2026-09-28-one-button-chain-base-core.md) A10.
+
+_Operator says_: «обход», «обходы».
+
+## Rule generator
+
+**Rule generator**: getff's path from a stack's official docs to a project rule — research reads
+the docs, and each practice it finds becomes a rule plus a firing test that fails on the bad example
+and passes on the good one. Owner: the [rule-research skill](.claude/skills/rule-research/SKILL.md).
+
+_Operator says_: «генератор правил», «генератор».
+
+## Advisor seat
+
+**Advisor seat**: a senior-model session that holds the idea's context and decides forks in the
+human's place — including loosening a check no recorded rule covers. It decides but does not
+review. The human keeps only the floors: merge to main, publish, money, passwords, a change of goal.
+Owner: the [advisor pattern spec](docs/superpowers/specs/2026-08-10-advisor-pattern-design.md) §3;
+for consumers, the [base-core inventory](docs/superpowers/specs/2026-09-28-one-button-chain-base-core.md) F9.
+
+_Operator says_: «советник», «паттерн советника», «старшая модель с нужным контекстом», «главная старшая сессия советника».
+
+## Reviewer seat
+
+**Reviewer seat**: a seat that did not write a change and checks it by a named protocol: it finds
+and reports findings and forks, and never picks the strategy — the advisor seat decides those.
+Gist only: the orchestrator's Reviewer role is defined in the
+[orchestrator glossary](.claude/skills/orchestrator/references/glossary.md); the base-core
+principle is [inventory](docs/superpowers/specs/2026-09-28-one-button-chain-base-core.md) B8.
+
+_Operator says_: «ревьювер».

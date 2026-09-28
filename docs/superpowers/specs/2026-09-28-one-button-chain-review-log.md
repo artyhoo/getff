@@ -156,6 +156,10 @@ real; the partial ones are the round-2 findings they name.
   (a check or a timely signal per principle; a small always-on part; the budget check and the
   `paths:` rule files ship) and slice 6 carries it. Q18 (principles with no trigger yet) moved to
   the base-core review session: «мы в отдельной сессии это все рассматриваем как сделать лучше».
+  The review session walked all 102 rows in ten rounds; the inventory's revision 3 folds its verdicts
+  (100 principles: 9 merged, 7 added, among them the advisor seat F9 and the pre-merge review B8). Its
+  I4 verdict (no always-loaded exception for security) overrode the Q17 card's «security always-on»,
+  and R6-10 was corrected. Six glossary terms from the review joined CONTEXT.md.
 
 ## Rejected alternatives index
 
