@@ -113,7 +113,12 @@ import {
   getParticipantsModeEnabled,
   postJson,
 } from './aifHttp.js';
-import { postComment, postEvent } from './answer.js';
+import {
+  isManualReviewPark,
+  MERGE_REPORT_PREFIX,
+  postComment,
+  postEvent,
+} from './answer.js';
 import type { AifProjectFull, AifTaskFull } from './aifHttp.js';
 import {
   bundleFileName,
@@ -800,11 +805,6 @@ export function prMapsToTask(
   return (pr.body ?? '').split('\n').some((line) => line.trim() === marker);
 }
 
-/** A review task the auto review parked for a human: the only legacy-mode `complete_review` case. */
-function isManualReviewPark(task: AifTaskFull): boolean {
-  return task.executionOwner === 'human' && task.manualReviewRequired === true;
-}
-
 /**
  * Why a merged task in `review` cannot be closed with participants mode off. Deliberately no
  * handoff advice: the work is on the base branch, and a handoff to AI only re-runs a capped
@@ -983,7 +983,7 @@ export async function reportMergeToAif(
     await postComment(
       baseUrl,
       taskId,
-      `Harvested and merged: ${prUrl} (merged ${mergedAt ?? 'unknown time'}, merge commit ` +
+      `${MERGE_REPORT_PREFIX}${prUrl} (merged ${mergedAt ?? 'unknown time'}, merge commit ` +
         `${mergeCommit ?? 'unknown'}). The deliverable is on the base branch, so this task's work ` +
         `has shipped. Reported and closed automatically by the harvest return channel.`,
     );
