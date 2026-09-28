@@ -404,6 +404,29 @@ const RULE_GLOBS = {
   boundary: ['**/routes/**/*.{ts,tsx}'],
 };
 JS
+# A `/*`, `//` or quote inside a regex literal or a template string is not a comment or a string opener
+# (fourth cold review: the comment cut read `/\/*$/` as the start of a block comment and dropped the
+# rest of the file, and a template string's second line as code).
+cat > "$RD/regex.mjs" <<'JS'
+const here = import.meta.dirname.replace(/\/*$/, '');
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+cat > "$RD/regex-class.mjs" <<'JS'
+const sep = /[/*'"`]/g; const url = /https?:\/\//;
+const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
+printf "const re = /'/; const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };\n" > "$RD/regex-quote.mjs"
+cat > "$RD/template-lines.mjs" <<'JS'
+const help = `
+  lint src/*.ts only, see https://example.com/docs
+  don't forget
+`;
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
 cat > "$RD/template-url.mjs" <<'JS'
 const msg = `Lint config,
 see https://eslint.org/docs /* not a comment`;
@@ -417,7 +440,10 @@ JS
 cat > "$RD/decl-list.mjs" <<'JS'
 const A = 1, RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
 JS
-for f in apostrophe line-comment block-comment key-suffix nested-other second-object nested-inside computed-key frozen regex-above template-url type-assert decl-list; do
+cat > "$RD/division.mjs" <<'JS'
+const half = 10 /*two*/ / 2, third = (9) / 3; const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
+for f in apostrophe line-comment block-comment key-suffix nested-other second-object nested-inside computed-key frozen regex-above template-url type-assert decl-list regex regex-class regex-quote template-lines division; do
   got=$(rg_read boundary "$RD/$f.mjs")
   [ "$got" = '**/routes/**/*.{ts,tsx}|' ] \
     && ok "rule-globs reader ($f): RULE_GLOBS.boundary is read as JavaScript reads it" \
@@ -504,6 +530,22 @@ if ( cd "$RD/e2e" && bash "$GLOBS_GATE" ) >/dev/null 2>&1; then
   bad "check-rule-globs: passed on a glob in a comment, while RULE_GLOBS.boundary matches no source file"
 else
   ok "check-rule-globs: a glob in a comment does not make a dead RULE_GLOBS.boundary pass"
+fi
+# A workspace config with a regex literal above a dead boundary: the gate must fail on the boundary, not
+# lose the array to a comment the regex seemed to open and skip the workspace as R2 N/A.
+mkdir -p "$RD/ws/apps/api/src/routes"; printf '{"name":"m","private":true}\n' > "$RD/ws/package.json"
+printf 'export const h = 1;\n' > "$RD/ws/apps/api/src/routes/users.ts"
+cat > "$RD/ws/apps/api/eslint.config.mjs" <<'JS'
+const here = import.meta.dirname.replace(/\/*$/, '');
+const RULE_GLOBS = {
+  boundary: ['**/handlers/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];
+JS
+if ( cd "$RD/ws" && bash "$GLOBS_GATE" ) >/dev/null 2>&1; then
+  bad "check-rule-globs: passed a workspace whose RULE_GLOBS.boundary matches no source file, with a regex literal above it"
+else
+  ok "check-rule-globs: a regex literal above a dead workspace RULE_GLOBS.boundary does not make it pass"
 fi
 rm -rf "$RD"
 

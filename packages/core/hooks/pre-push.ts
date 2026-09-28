@@ -35,7 +35,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 // NOTE: this file is the entry of pre-push.bundle.mjs (scripts/build-runtime-bundles.mjs), the
-// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:41; --refresh: install.sh:1202).
+// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:42; --refresh: install.sh:1206).
 // The bundle inlines every import and must stay free of third-party code (`thirdParty: false`),
 // because a consumer has no getff dependency installed and a missing package crashes the
 // hook with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
@@ -1383,7 +1383,8 @@ function synthBundleSection(): void {
 // previous hook. The builder exists in the maintainer repo only → owner=maintainer.
 // exit 2 = esbuild absent → skip, not fail (the synthBundleSection contract above).
 function runtimeBundlesSection(): void {
-  if (!existsSync(resolve(REPO_ROOT, 'scripts/build-runtime-bundles.mjs'))) return;
+  if (!existsSync(resolve(REPO_ROOT, 'scripts/build-runtime-bundles.mjs')))
+    return;
   const r = run('node', ['scripts/build-runtime-bundles.mjs', '--check']);
   if (r.exitCode === 2) {
     process.stderr.write(
@@ -1873,9 +1874,53 @@ function lineCitationsSection(ctx: SectionCtx): void {
   emit(r);
 }
 
+// ── Heavy suite runner (opt-in, machine-local) ─────────────────────────────────
+// The four vitest suite sections below (principles / ir / backends / composition)
+// are the hook's heaviest work: principles-meta alone measured 35.8 s of ~70 s summed
+// hook on a loaded Mac (2026-09-28), and under load average 40-158 principle 31's
+// glob-parity test hit vitest's 5 s timeout on 4 consecutive pushes while taking
+// 1.8 s alone. PREPUSH_HEAVY_RUNNER names an executable that takes a command line
+// and runs it — e.g. an operator's remote runner that executes it on another host
+// against a mirror of this repo and exits with the command's real code.
+//
+// Unset or empty → the suites run exactly as before, so consumers and CI never
+// see a difference. Set → `<runner> npm run <script>` from packages/core: argv
+// carries no absolute path, because a runner that re-roots the cwd onto a mirror
+// cannot translate one (`--prefix /Users/...` does not exist on the other host).
+// The runner owns its own opt-outs (the operator's runner honours PC_LOCAL=1);
+// the hook only routes. Timeout widened to 10 min: a first run on a fresh mirror
+// includes a dependency install (measured 56 s) on top of the suite.
+const HEAVY_RUNNER_TIMEOUT_MS = 600_000;
+
+function runCoreSuite(script: string): CheckResult {
+  const runner = process.env['PREPUSH_HEAVY_RUNNER']?.trim();
+  if (!runner) return run('npm', ['--prefix', CORE, 'run', script]);
+  const r = runCheck(runner, ['npm', 'run', script], {
+    cwd: CORE,
+    timeoutMs: HEAVY_RUNNER_TIMEOUT_MS,
+  });
+  // notFound covers ENOENT only; a runner that exists but is not executable
+  // fails the spawn with EACCES, which would otherwise read as failing tests.
+  if (r.notFound || /^spawnSync .* E[A-Z]+$/m.test(r.stderr)) {
+    die(
+      `❌ PREPUSH_HEAVY_RUNNER='${runner}' could not be started ` +
+        `(${r.stderr.trim()}).\n` +
+        '   Fix the path, or unset PREPUSH_HEAVY_RUNNER to run the suite here.',
+    );
+  }
+  if (r.timedOut) {
+    die(
+      `❌ PREPUSH_HEAVY_RUNNER='${runner}' did not finish \`npm run ${script}\` ` +
+        `within ${HEAVY_RUNNER_TIMEOUT_MS / 60_000} min.\n` +
+        '   Unset PREPUSH_HEAVY_RUNNER to run the suite here.',
+    );
+  }
+  return r;
+}
+
 function principlesMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
-    const r = run('npm', ['--prefix', CORE, 'run', 'test:principles']);
+    const r = runCoreSuite('test:principles');
     if (r.notFound) {
       die(
         '❌ npm/npx not found. Install Node.js to enable principles meta-tests.',
@@ -1959,7 +2004,7 @@ function askFileSchemaSection(): void {
 // ── 5b. IR grammar-gate tests (maintainer, MT S1) ────────────────────────────
 function irMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
-    const r = run('npm', ['--prefix', CORE, 'run', 'test:ir']);
+    const r = runCoreSuite('test:ir');
     if (r.notFound) {
       die('❌ npm/npx not found. Install Node.js to enable IR meta-tests.');
     }
@@ -1972,7 +2017,7 @@ function irMetaSection(): void {
 // ── 5c. Backend tests (maintainer, MT S2) ────────────────────────────────────
 function backendsMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
-    const r = run('npm', ['--prefix', CORE, 'run', 'test:backends']);
+    const r = runCoreSuite('test:backends');
     if (r.notFound) {
       die(
         '❌ npm/npx not found. Install Node.js to enable backend meta-tests.',
@@ -1986,7 +2031,7 @@ function backendsMetaSection(): void {
 // ── 5d. Composition tests (maintainer, MT S4) ────────────────────────────────
 function compositionMetaSection(): void {
   if (existsSync(resolve(CORE, 'package.json'))) {
-    const r = run('npm', ['--prefix', CORE, 'run', 'test:composition']);
+    const r = runCoreSuite('test:composition');
     if (r.notFound) {
       die(
         '❌ npm/npx not found. Install Node.js to enable composition meta-tests.',
@@ -2121,10 +2166,10 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1320 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1319 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1335 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1334 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2138,7 +2183,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:405 / install.sh:1046 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:415 / install.sh:1050 (conditional starter)
 ];
 
 /**
@@ -2402,12 +2447,18 @@ function invariantsRenderSection(): void {
   if (existsSync(resolve(REPO_ROOT, 'scripts/render-invariants.mjs'))) {
     const r = run('node', ['scripts/render-invariants.mjs', '--check']);
     if (r.notFound) {
-      die('❌ node not found. Install Node.js to enable the invariants-line drift check.');
+      die(
+        '❌ node not found. Install Node.js to enable the invariants-line drift check.',
+      );
     }
     // Exit 1 = the rendered line differs (re-run --write); anything else = README or the
     // hook's markers could not be parsed, which --write would not fix.
     if (r.exitCode === 1) die('❌ invariants-line drift detected:', r);
-    if (r.exitCode !== 0) die('❌ invariants-line render failed (README invariants block or hook markers unparseable):', r);
+    if (r.exitCode !== 0)
+      die(
+        '❌ invariants-line render failed (README invariants block or hook markers unparseable):',
+        r,
+      );
     emit(r);
   }
 }

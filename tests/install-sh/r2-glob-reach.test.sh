@@ -92,7 +92,7 @@ BROWNFIELD_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: pnpm turbo r
 PARTIAL_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: bash scripts/check-rule-globs.sh\n      - run: pnpm turbo run lint typecheck test'
 
 # ── POS-all: none wired → WARN names all 4 (colon forms are WARN-exclusive; install copy-echoes use
-#    hyphenated file names) + paste-block has the check:lintstaged step; rc=0; consumer ci.yml intact.
+#    hyphenated file names) + the check:lintstaged NOT-wired line names its step; rc=0; consumer ci.yml intact.
 P=$(mktemp -d); LOG=$(mktemp); seed_install "$P" "$BROWNFIELD_CI" "$LOG"; RCP=$?
 [ "$RCP" = "0" ] && ok "#1 POS-all: install exited 0 (CI-orphan warn never aborts)" || bad "#1 POS-all: install exited $RCP"
 grep -q "CI-orphan" "$LOG" \
@@ -103,9 +103,9 @@ for _g in "check:globs" "arch:check" "audit:docs" "check:lintstaged"; do
     && ok "#1 POS-all: WARN names $_g" \
     || bad "#1 POS-all: WARN omits $_g (under-reporting — the #521 bug)"
 done
-grep -q "run: bash scripts/check-lintstaged-resolves.sh" "$LOG" \
-  && ok "#1 POS-all: paste-block includes the check:lintstaged step" \
-  || bad "#1 POS-all: paste-block missing the check:lintstaged step"
+grep -E '^[[:space:]]*- CI gate check:lintstaged' "$LOG" | grep -q "run: bash scripts/check-lintstaged-resolves.sh" \
+  && ok "#1 POS-all: the check:lintstaged NOT-wired line names its step" \
+  || bad "#1 POS-all: no NOT-wired check:lintstaged line naming its step"
 # #521 follow-up: when check:globs is missing, the WARN must explain that a present `lint` step
 # does NOT enforce R2/R7/R8 on packages with their own eslint config (nearest-config shadow).
 grep -q "nearest-config resolution shadows the root AIF rules" "$LOG" \
@@ -674,8 +674,10 @@ JS
     || bad "F11 monorepo: no R2 in apps/api/eslint.config.mjs — the arm below assumes Layer 2 added it (install said: $(grep -E 'R2' "$T24.log" | head -3 | tr '\n' '|'))"
   OUT24=$(f11_gate "$T24"); RC24=$?
   [ "$RC24" = "0" ] || bad "F11 monorepo: check:globs exited $RC24 — the arm below assumes it passes after the install (saw: $(printf '%s' "$OUT24" | grep -E '⚠|✗' | head -1))"
-  f11_not_wired "$T24.log" | grep -q 'check-rule-globs' \
-    && bad "F11 monorepo: the summary says check-rule-globs.sh fails, though it passes after the install: $(f11_not_wired "$T24.log" | grep check-rule-globs | head -1)" \
+  # F11's own wording only: a monorepo gets no ci.yml, so 60-ci.sh names each CI gate, check:globs
+  # among them, as not in a workflow (#1878) — a line about CI, not about the gate failing.
+  f11_not_wired "$T24.log" | grep -qE 'check-rule-globs\.sh(, which runs on every push| fails on)' \
+    && bad "F11 monorepo: the summary says check-rule-globs.sh fails, though it passes after the install: $(f11_not_wired "$T24.log" | grep -E 'check-rule-globs\.sh(, which runs on every push| fails on)' | head -1)" \
     || ok "F11 monorepo: the install asks the gate after every R2 pass — nothing about a gate that passes"
 
   # A recorded R2 N/A that no longer holds (an earlier install wrote it; the project now has boundary
@@ -716,13 +718,47 @@ JS
     && bad "F11 strict: the summary says the config has no boundary array, though it has one: $(f11_not_wired "$T26.log" | grep 'no boundary array' | head -1)" \
     || ok "F11 strict: nothing about a missing boundary array the config has"
 
-  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
-    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" | grep -iE 'by hand|manually' | head -1)"
+  # A gate that fails with no failure line the install can read (a consumer's own scripts/check-rule-globs.sh,
+  # which copy_safe keeps; a crash): under install.sh's `set -euo pipefail` the empty grep in the fallback
+  # used to end the install there, silently, before the NOT wired summary (fourth cold review).
+  T27=$(f11_project error none); mkdir -p "$T27/scripts"
+  printf '#!/usr/bin/env bash\necho "check-rule-globs: something else went wrong"\nexit 2\n' > "$T27/scripts/check-rule-globs.sh"
+  f11_install "$T27" "$T27.log"
+  f11_not_wired "$T27.log" | grep 'check-rule-globs.sh' | grep -q 'exits 2' \
+    && ok "F11 no failure line: the install goes on and the summary says the gate exits 2" \
+    || bad "F11 no failure line: the install stopped in the F11 check, or its summary does not name the gate's exit (tail: $(tail -3 "$T27.log" | tr '\n' '|'))"
+
+  # With AIF_STRICT_RUNTIME=1, a RULE_GLOBS.appCode that matches nothing is named as such — without the
+  # clause about R2's boundary, which matches and is not what the gate fails on (fourth cold review).
+  T28=$(f11_project error none)
+  cat > "$T28/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ['**/lib/**/*.ts'],
+  appCode: ['**/nowhere/**/*.ts'],
+  application: ['**/lib/**/*.ts'],
+};
+
+export default [{ files: RULE_GLOBS.boundary, rules: { 'no-console': 'error' } }];
+JS
+  export AIF_STRICT_RUNTIME=1
+  f11_install "$T28" "$T28.log"
+  OUT28=$(f11_gate "$T28"); RC28=$?
+  unset AIF_STRICT_RUNTIME
+  [ "$RC28" = "1" ] || bad "F11 strict zero-match: check:globs exited $RC28 — the arm below assumes the gate is red on appCode"
+  f11_not_wired "$T28.log" | grep -q 'RULE_GLOBS\.appCode matches none' \
+    && ok "F11 strict zero-match: the summary names RULE_GLOBS.appCode matching no source file" \
+    || bad "F11 strict zero-match: the summary does not name RULE_GLOBS.appCode (summary: $(f11_not_wired "$T28.log" | tr '\n' '|'))"
+  f11_not_wired "$T28.log" | grep 'RULE_GLOBS\.appCode' | grep -q 'RULE_GLOBS\.boundary' \
+    && bad "F11 strict zero-match: the appCode line explains it by R2's boundary: $(f11_not_wired "$T28.log" | grep 'RULE_GLOBS\.appCode' | head -1)" \
+    || ok "F11 strict zero-match: the appCode line says nothing about R2's boundary"
+
+  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" "$T27.log" "$T28.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
+    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" "$T27.log" "$T28.log" | grep -iE 'by hand|manually' | head -1)"
   else
     ok "F11: no install output asks for a manual ESLint edit"
   fi
-  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T22" "$T23" "$T24" "$T25" "$T26" \
-    "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log"
+  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T22" "$T23" "$T24" "$T25" "$T26" "$T27" "$T28" \
+    "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" "$T27.log" "$T28.log"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
