@@ -167,7 +167,7 @@ fee81f35059851ee2a13223abeed4d56dc665f05385c4329398e1f60714ccab0  packages/core/
 ffae7b26eb12ec84403cbd3c72ef351a3c36c24f282e4f151105700981e116da  packages/core/audit-self/audit-ai-docs.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
-6de693e6ac3d1a5ce6e118d95dec1dccd7e7fa187f9e68736ccc85f6e7253078  packages/core/audit-self/check-fences-fire.sh
+feed4bdc929087732e411d00b0e5eb2643b6515faa7dbe0fcf9e56746f315b28  packages/core/audit-self/check-fences-fire.sh
 f1fd99c2e91995164518644569338e0d1726c66eafd10e9d1a111e3e14c03c96  packages/core/audit-self/check-generated-rule-mutation.sh
 71b8f1b150f4b70010d50beffba8cc7ecd51da441e6a434a026fb0b8f39ca101  packages/core/audit-self/check-kickoff-portability.sh
 a69a0c4335a6225bc9c0edd80974ba201af2d3af188f7963ecb8ff75bec448ec  packages/core/audit-self/check-lintstaged-resolves.sh

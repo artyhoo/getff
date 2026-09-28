@@ -256,7 +256,7 @@ c1p_out=$(cd "$E" && "$TSX_BIN" t6-c1-pos.mts 2>&1)
 c1p_rc=$?
 if echo "$c1p_out" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
   # Drop the `throw new ERR_…(` / `return new ERR_…(` source excerpt Node 24.20 prints above the error (#1390;
-  # same predicate as check-fences-fire.sh _first_err).
+  # same excerpt filter as check-fences-fire.sh _first_err).
   skip "t6 C1 pos SKIP — module load failed ($(echo "$c1p_out" | grep -vE 'new ERR_[A-Z0-9_]+\(' | grep -m1 -iE 'cannot find|ERR_' | tr -d '\n'))"
 elif [ "$c1p_rc" -eq 3 ]; then
   bad "t6 C1 pos: R20 rule NOT FOUND in installed eslint.config.mjs — synth-and-wire did not wire it (T-GIW-A FAIL; detail=$(echo "$c1p_out" | head -1 | tr -d '\n'))"

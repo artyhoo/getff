@@ -8,6 +8,9 @@
 #   (A) unparseable manifest → exit non-zero, FAIL line names the manifest
 #   (B) a valid manifest under a path with a `'` is read AND its rule is actually tested — the
 #       old NUL→newline `tr` was a no-op, so before the fix every rule took the «no inputs» skip
+#   (C)/(D) TypeScript and JSX negative inputs are parsed and their rules tested
+#   (E) an input that does not parse is a skip, never a «selector broken» FAIL
+#   (F) the FAIL line names the error, not the source line that threw it (#1390 class)
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 GATE="$REPO_ROOT/packages/core/audit-self/check-generated-rule-mutation.sh"

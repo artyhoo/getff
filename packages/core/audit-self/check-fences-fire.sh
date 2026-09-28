@@ -119,13 +119,13 @@ l_skip()     { LOAD_SKIP=$((LOAD_SKIP+1));       skip "$1"; }
 # `  throw new ERR_MODULE_NOT_FOUND(packageName, …);`, `  return new ERR_PACKAGE_PATH_NOT_EXPORTED(`
 # — so a bare ERR_ token matched that excerpt first. Any line constructing `new ERR_…(` is
 # source, never the message, and is dropped before every tier. Tiers: the `Cannot find` line,
-# then the `Error [ERR_…]:` line, then any line naming a resolution code, then the first
-# non-blank line.
+# then the first line naming a resolution code — with the excerpt gone that is the
+# `Error [ERR_…]:` message line — then the first non-blank line. No tier takes an arbitrary
+# `Error [ERR_…]:` line: in a cause chain that is the WRAPPER, and the cause is what went missing.
 _first_err() {
   local _out _line
   _out=$(printf '%s\n' "$1" | grep -vE 'new ERR_[A-Z0-9_]+\(')
   _line=$(printf '%s\n' "$_out" | grep -m1 -iE 'cannot find (module|package)')
-  [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -E 'Error \[ERR_[A-Z0-9_]+\]:')
   [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -iE 'ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT')
   [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -vE '^[[:space:]]*$')
   printf '%s' "$_line" | tr -d '\n' | cut -c1-240
