@@ -328,7 +328,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:334 (quoted-path-token)"
+          ".husky/pre-commit:352 (quoted-path-token)"
         ]
       },
       "example": null
@@ -347,7 +347,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:313 (quoted-path-token)"
+          ".husky/pre-commit:331 (quoted-path-token)"
         ]
       },
       "example": null
@@ -507,9 +507,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2403 (spawn-argument)",
-          ".husky/pre-commit:285 (quoted-path-token)",
-          ".husky/pre-commit:287 (quoted-path-token)",
-          ".husky/pre-commit:297 (quoted-path-token)"
+          ".husky/pre-commit:290 (quoted-path-token)"
         ]
       },
       "example": null
