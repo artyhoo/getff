@@ -154,7 +154,40 @@ run_sweep RUNTIME_BRIDGE_AIF_PROJECT_ID=proj-1 CLOSE_MERGED_CURL="$TMP/curl" CLO
 rc=$?
 [ "$rc" -eq 1 ] || fail "harvest-fail: expected exit 1, got $rc"
 grep -q 'FAIL harvest rc=1.*aif 500' "$LOG" || fail "harvest-fail: FAIL line lacks rc or harvest's stderr"
+grep -q 'retry' "$LOG" && fail "harvest-fail: a non-network failure was retried"
 notified "harvest-fail"
+
+# ── GREEN 1b: a transient network error (measured under launchd: gh's 10 s TLS handshake
+# timeout over the tunnel) is retried in-run — harvest.ts is idempotent, so a re-run is safe ──
+cat >"$TMP/tsx-flaky" <<'EOF'
+#!/usr/bin/env bash
+n=$(( $(cat "$STUB_COUNT" 2>/dev/null || echo 0) + 1 ))
+echo "$n" >"$STUB_COUNT"
+if [ "$n" -lt "${STUB_FAIL_TIMES:-1}" ] || [ "$n" -eq "${STUB_FAIL_TIMES:-1}" ]; then
+  echo 'Post "https://api.github.com/graphql": net/http: TLS handshake timeout' >&2
+  exit 1
+fi
+printf '%s\n' "$STUB_OUT"
+EOF
+chmod +x "$TMP/tsx-flaky"
+rm -f "$TMP/count"
+run_sweep RUNTIME_BRIDGE_AIF_PROJECT_ID=proj-1 CLOSE_MERGED_CURL="$TMP/curl" CLOSE_MERGED_TSX="$TMP/tsx-flaky" \
+  CLOSE_MERGED_RETRY_DELAY=0 STUB_COUNT="$TMP/count" STUB_FAIL_TIMES=1 STUB_OUT="$CLOSED_JSON"
+rc=$?
+[ "$rc" -eq 0 ] || fail "retry: a transient TLS timeout followed by success should exit 0, got $rc"
+[ "$(cat "$TMP/count")" = 2 ] || fail "retry: expected 2 harvest attempts, got $(cat "$TMP/count")"
+grep -q 'retry 1/2 .*TLS handshake timeout' "$LOG" || fail "retry: the retried attempt is not logged"
+grep -q 'OK closed=1' "$LOG" || fail "retry: the successful attempt's summary is missing"
+
+# ── RED 3a: the network stays down → FAIL after the last attempt, exit 1 ─────────────────────
+rm -f "$TMP/count"
+run_sweep RUNTIME_BRIDGE_AIF_PROJECT_ID=proj-1 CLOSE_MERGED_CURL="$TMP/curl" CLOSE_MERGED_TSX="$TMP/tsx-flaky" \
+  CLOSE_MERGED_RETRY_DELAY=0 STUB_COUNT="$TMP/count" STUB_FAIL_TIMES=99
+rc=$?
+[ "$rc" -eq 1 ] || fail "retry-exhausted: expected exit 1, got $rc"
+[ "$(cat "$TMP/count")" = 3 ] || fail "retry-exhausted: expected 3 attempts, got $(cat "$TMP/count")"
+grep -q 'FAIL harvest rc=1.*TLS handshake timeout' "$LOG" || fail "retry-exhausted: FAIL line missing"
+notified "retry-exhausted"
 
 # ── RED 3b: harvest hangs → the watchdog kills it, FAIL timeout, exit 1 ──────────────────────
 cat >"$TMP/tsx-hang" <<'EOF'
@@ -249,7 +282,10 @@ if command -v zsh >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
   pa=()
   while IFS= read -r a; do pa+=("$a"); done < <(python3 -c 'import plistlib,sys; print("\n".join(plistlib.load(open(sys.argv[1],"rb"))["ProgramArguments"]))' "$PLIST")
   rm -f "$LOG"
-  (cd "$CLONE" && env CLOSE_MERGED_LOG="$LOG" CLOSE_MERGED_CACHE="$CACHE" CLOSE_MERGED_NOTIFY=0 \
+  # An empty ZDOTDIR keeps the operator's ~/.zshenv out: it exports the live RUNTIME_BRIDGE_AIF_URL,
+  # which would override the dead URL below whenever aif-tunnel happens to be on.
+  mkdir -p "$TMP/zdot"
+  (cd "$CLONE" && env ZDOTDIR="$TMP/zdot" CLOSE_MERGED_LOG="$LOG" CLOSE_MERGED_CACHE="$CACHE" CLOSE_MERGED_NOTIFY=0 \
     CLOSE_MERGED_REPO_ROOT="$CLONE" RUNTIME_BRIDGE_AIF_PROJECT_ID=proj-1 CLOSE_MERGED_TSX="$TMP/tsx" \
     RUNTIME_BRIDGE_AIF_URL=http://127.0.0.1:1 "${pa[@]}") >/dev/null 2>&1
   grep -q 'SKIP aif-down' "$LOG" 2>/dev/null || fail "install: the rendered ProgramArguments did not run the installed copy as run"

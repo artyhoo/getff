@@ -51,7 +51,8 @@
 #
 # Env: CLOSE_MERGED_REPO_ROOT (the clone; `install` bakes it into the plist), CLOSE_MERGED_REPO,
 # CLOSE_MERGED_LOG, CLOSE_MERGED_CACHE, CLOSE_MERGED_NOTIFY (0 = off), CLOSE_MERGED_FETCH_TIMEOUT
-# (s, default 60), CLOSE_MERGED_HARVEST_TIMEOUT (s, default 600). Test seams
+# (s, default 60), CLOSE_MERGED_HARVEST_TIMEOUT (s, default 600), CLOSE_MERGED_RETRY_DELAY (s between
+# transient-network retries, default 20). Test seams
 # (scripts/close-merged-sweep.test.sh): CLOSE_MERGED_TSX, CLOSE_MERGED_CURL, CLOSE_MERGED_NOTIFIER,
 # CLOSE_MERGED_LAUNCHCTL, CLOSE_MERGED_LAUNCH_AGENTS_DIR, CLOSE_MERGED_INSTALL_DIR.
 set -euo pipefail
@@ -69,6 +70,8 @@ BRIDGE_REL="packages/runtime-bridge"
 HARVEST_REL="$BRIDGE_REL/src/cli/harvest.ts"
 BASE_REF="origin/staging"
 TIMEOUT_RC=142 # 128 + SIGALRM, what the perl watchdog's alarm leaves behind
+# Network failures worth one more attempt (Go net/http as printed by gh, plus curl/node wording).
+TRANSIENT_NET_RE='TLS handshake timeout|i/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve|ETIMEDOUT|ECONNRESET|EAI_AGAIN'
 
 ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
 
@@ -195,9 +198,22 @@ cmd_run() {
   local args=("$bridge/$HARVEST_REL" --close-merged --project "$project")
   [ -n "${CLOSE_MERGED_REPO:-}" ] && args+=(--repo "$CLOSE_MERGED_REPO")
 
-  local out err rc=0 limit="${CLOSE_MERGED_HARVEST_TIMEOUT:-600}"
+  # A transient network error is retried in-run: gh's 10 s TLS handshake timeout over the tunnel
+  # was measured failing 1 of 3 calls under launchd while the same call passed from a shell, and
+  # harvest.ts is idempotent, so a re-run changes nothing it already did. Anything else fails fast.
+  local out err rc limit="${CLOSE_MERGED_HARVEST_TIMEOUT:-600}" attempt=1 attempts=3
   err=$(mktemp "${TMPDIR:-/tmp}/close-merged-sweep.XXXXXX")
-  out=$(cd "$root" && with_timeout "$limit" "$tsx" "${args[@]}" 2>"$err") || rc=$?
+  while :; do
+    rc=0
+    out=$(cd "$root" && with_timeout "$limit" "$tsx" "${args[@]}" 2>"$err") || rc=$?
+    if [ "$rc" -eq 0 ] || [ "$rc" -eq "$TIMEOUT_RC" ] || [ "$attempt" -ge "$attempts" ] ||
+      ! grep -qiE "$TRANSIENT_NET_RE" "$err"; then
+      break
+    fi
+    log "retry $attempt/$((attempts - 1)) harvest rc=$rc (transient network): $(tr '\n' ' ' <"$err" | cut -c1-300)"
+    attempt=$((attempt + 1))
+    sleep "${CLOSE_MERGED_RETRY_DELAY:-20}"
+  done
   if [ "$rc" -eq "$TIMEOUT_RC" ]; then
     log "FAIL timeout harvest ran past ${limit}s and was killed$fetch_note"
     rm -f "$err"
