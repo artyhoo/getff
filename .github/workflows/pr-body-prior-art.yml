@@ -4,8 +4,8 @@ name: pr-body-prior-art
 # syntax» + packages/core/hooks/checks/prior-art.ts).
 #
 # Why this exists (2026-07-22 squash-trailer-loss incident, PR #1094 → #1097):
-# a squash merge writes ONE commit whose message the agent merge path takes
-# from the PR BODY — branch-commit `Prior-art:` trailers do not survive, so
+# a squash merge writes ONE commit whose message is the PR BODY (repo setting
+# squash_merge_commit_message=PR_BODY, 2026-09-28) — branch-commit `Prior-art:` trailers do not survive, so
 # principle 11 F1 went red on the NEXT unrelated PR. This gate requires the
 # trailer in the PR body itself (exactly what survives the squash), at the
 # earliest reachable in-repo channel: PR-time CI, before any merge.
