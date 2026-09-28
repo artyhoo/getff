@@ -354,9 +354,7 @@ _py_deliver_astgrep() {
   fi
   _py_log "⚠ REFUSE: existing sgconfig.yml is not a shape we can safely rewrite (not a single block-list"
   _py_log "  ruleDirs: key). NOT modifying it (a bad merge trips ast-grep exit 6/8)."
-  _py_log "  MANUAL: add this line under your sgconfig.yml 'ruleDirs:' list:"
-  _py_log "      - .getff/astgrep-rules"
-  _py_log "  The rule files are already installed at .getff/astgrep-rules/ (ready once you add the entry)."
+  note_not_wired "ast-grep: .getff/astgrep-rules is not in the ruleDirs of your sgconfig.yml — its ruleDirs is not a block list getff can add a line to without risking a broken config, so \`ast-grep scan\`, locally and in the getff CI workflow, runs your rules only"
 }
 
 # _py_deliver_ruff — ruff lane: fresh copy | refuse (ruff.toml present | pyproject [tool.ruff] present).
@@ -399,15 +397,8 @@ _py_deliver_ruff() {
     local existing="$ruff_dst"; [ -e "$existing" ] || existing="$PROJECT_ROOT/.ruff.toml"
     _py_copy_or_refresh "$tpl/ruff.toml" "$getff_ref"
     _py_log "⚠ REFUSE ruff.toml (cell iii): a sibling ruff.toml would override your $(basename "$existing") entirely."
-    _py_log "  Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it — inert until you opt in)."
-    _py_log "  MANUAL: in your $(basename "$existing") add:"
-    _py_log "      extend = \"getff-ruff.toml\""
-    _py_log "      extend-select = [\"TID251\", \"TID253\"]"
-    if grep -qE '^[[:space:]]*extend[[:space:]]*=' "$existing" 2>/dev/null; then
-      _py_log "  NOTE: your $(basename "$existing") already sets 'extend' — extend is a SCALAR (one file per"
-      _py_log "  config). You cannot add a second 'extend'; instead merge our getff-ruff.toml [lint] TID251/"
-      _py_log "  TID253 tables into the file your existing 'extend' points at, or inline them into this config."
-    fi
+    _py_log "  Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it)."
+    note_not_wired "ruff: getff's TID bans are not in your $(basename "$existing") — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, which the getff CI workflow reads"
     return 0
   fi
 
@@ -418,13 +409,7 @@ _py_deliver_ruff() {
     _py_log "⚠ REFUSE ruff.toml (cell iv): a sibling ruff.toml would SILENTLY override your pyproject.toml"
     _py_log "  [tool.ruff] (probe-proven — closest-config-wins, ruff.toml beats pyproject, no warning)."
     _py_log "  Shipped our rules as getff-ruff.toml for reference."
-    _py_log "  MANUAL: merge our TID lines into your pyproject.toml [tool.ruff.lint]:"
-    _py_log "      [tool.ruff.lint]"
-    _py_log "      extend-select = [\"TID251\", \"TID253\"]"
-    _py_log "      [tool.ruff.lint.flake8-tidy-imports]"
-    _py_log "      banned-module-level-imports = [\"tensorflow\"]"
-    _py_log "      [tool.ruff.lint.flake8-tidy-imports.banned-api]"
-    _py_log "      \"datetime.datetime.utcnow\".msg = \"use datetime.now(timezone.utc)\""
+    note_not_wired "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, which the getff CI workflow reads"
     return 0
   fi
 
@@ -462,27 +447,25 @@ _py_deliver_prettierignore() {
 #   - our own getff-generated file    → idempotent no-op on install; overwrite on --refresh (updated
 #                                       pins reach a brownfield consumer). refresh_safe honours a
 #                                       sibling getff-python.yml.override.md (Layer-3 consumer ownership).
-#   - a NON-getff file at our path    → REFUSE-LOUDLY, never overwrite; print the manual wiring. A
-#                                       consumer who authored their own getff-python.yml keeps it.
+#   - a NON-getff file at our path    → REFUSE-LOUDLY, never overwrite; a NOT-wired line says the
+#                                       gates are not in CI and why. A consumer who authored their
+#                                       own getff-python.yml keeps it.
 # NEVER writes to the consumer's ci.yml — a pre-existing consumer CI workflow is not clobbered.
-# S-2: body = lib.sh _lane_deliver_ci. The pins in the REFUSE hints MIRROR github-actions-ci.yml
-# (the delivered template) — keep the two in sync on any pin bump (both bump together per
-# ci-tool-pinning.md Rule A).
+# S-2: body = lib.sh _lane_deliver_ci.
 _py_deliver_ci() {
   _lane_deliver_ci "$1" ".github/workflows/getff-python.yml" \
     "CI workflow → .github/workflows/getff-python.yml (pinned ast-grep + ruff gates)" \
     "CI workflow → refreshed (.github/workflows/getff-python.yml, framework-owned pins)" \
-    "  NOT overwriting your workflow. To wire the getff Python gates, add jobs running:" \
-    "      npm install -g @ast-grep/cli@0.44.1 && ast-grep scan" \
-    "      pip install ruff==0.15.21 && ruff check .                                 # your config" \
-    "      pip install ruff==0.15.21 && ruff check . --config .getff/ruff-bans.toml  # getff bans (isolated)"
+    "the getff ast-grep and ruff gates are"
 }
 
 # _py_firing_self_check — post-install firing PROOF (the «works» in the umbrella goal). Plants a
 # violating .py in an OS temp dir ONLY (mktemp -d — NEVER under the consumer's tracked tree, a binding
 # STOP line), runs the DELIVERED ast-grep rules + ruff config against it, and asserts BOTH FIRE RED
-# (non-zero exit = a diagnostic was raised). Then removes the temp dir. Tool-gated: an absent tool →
-# LOUD degrade printing the exact manual command (never silently green — attention-is-not-a-mechanism.md
+# (non-zero exit = a diagnostic was raised). Then removes the temp dir. Tool-gated: with no ast-grep
+# binary the pinned ast-grep is fetched through uvx (the same route the ruff lane takes, keeping the
+# lane Node-free); a tool the install cannot reach → LOUD degrade plus a NOT-wired line naming what
+# is missing (Q4.7: a gap, never a command to run by hand; never silently green — attention-is-not-a-mechanism.md
 # §1: a check nobody ran is not a mechanism; mirrors the 99-finalize.sh capstone self-verify honesty,
 # where a SKIP is accounted separately and never counted as a proven property). rc=0 on every branch —
 # a self-check must not abort the install. Called by install.sh's python lane after delivery (NOT from
@@ -498,9 +481,12 @@ _py_firing_self_check() {
   # Guard the alias with an identity probe (`sg --version` prints "ast-grep <ver>")
   # so a host with the setgid `sg` but no ast-grep DEGRADES honestly instead of
   # running the wrong binary and mis-reporting the clean control as OVER-BROAD.
+  # No binary but uvx → the pinned PyPI build of the same release (ast-grep-cli mirrors the
+  # @ast-grep/cli version the delivered CI workflow installs).
   local _sg=""
   if   command -v ast-grep >/dev/null 2>&1; then _sg="ast-grep"
-  elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"; fi
+  elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"
+  elif command -v uvx >/dev/null 2>&1; then _sg="uvx --from ast-grep-cli==0.44.1 ast-grep"; fi
   if [ -n "$_sg" ] && [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import datetime\nx = eval("1+1")\nos.system("echo hi")\na = datetime.now()\nb = datetime.datetime.now()\n' > "$_t/getff_selfcheck.py"
@@ -510,14 +496,16 @@ _py_firing_self_check() {
     printf 'import json\nx = json.dumps({"ok": 1})\n' > "$_t/getff_selfcheck_clean.py"
     # ABSOLUTE ruleDirs → the rules resolve regardless of cwd (the delivered rules dir, read-only).
     printf 'ruleDirs:\n  - %s\n' "$PROJECT_ROOT/.getff/astgrep-rules" > "$_t/sgconfig.yml"
-    if ( cd "$_t" && "$_sg" scan getff_selfcheck.py ) >/dev/null 2>&1; then
+    # shellcheck disable=SC2086 # $_sg is a command line (the uvx route is several words)
+    if ( cd "$_t" && $_sg scan getff_selfcheck.py ) >/dev/null 2>&1; then
       echo "  ✗ ast-grep did NOT fire on a planted violation — the delivered rules are SILENT (delivery bug)"
       _silent=$((_silent+1))
     else
       echo "  ✓ ast-grep fired RED on the planted violation (eval / os.system / datetime.now bans live)"
       _pass=$((_pass+1))
     fi
-    if ( cd "$_t" && "$_sg" scan getff_selfcheck_clean.py ) >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    if ( cd "$_t" && $_sg scan getff_selfcheck_clean.py ) >/dev/null 2>&1; then
       echo "  ✓ ast-grep clean control GREEN — no diagnostics on conforming code (rules discriminate)"
       _pass=$((_pass+1))
     else
@@ -526,8 +514,13 @@ _py_firing_self_check() {
     fi
     rm -rf "$_t"
   else
-    echo "  ⚠ ast-grep not on PATH — firing NOT proven (degrade, NOT green). Verify manually from your repo root:"
-    echo "      npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan .    # must exit non-zero on bad Python"
+    if [ -n "$_sg" ]; then
+      echo "  ⚠ .getff/astgrep-rules missing — ast-grep firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ast-grep): not proven — .getff/astgrep-rules is missing, so there were no delivered rules to run against the planted violation"
+    else
+      echo "  ⚠ ast-grep not on PATH, and no uvx to fetch it — firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ast-grep): not proven — ast-grep is not on PATH and neither is uvx, so the delivered rules were not run against a planted violation"
+    fi
     _degraded=$((_degraded+1))
   fi
 
@@ -576,16 +569,21 @@ _py_firing_self_check() {
     fi
     rm -rf "$_t"
   else
-    echo "  ⚠ ruff not on PATH — firing NOT proven (degrade, NOT green). Verify manually:"
-    echo "      uvx ruff@0.15.21 check --config ${_ruffcfg:-ruff.toml} <a .py doing 'import tensorflow'>   # must exit non-zero"
+    if [ -n "$_ruff_mode" ]; then
+      echo "  ⚠ no delivered ruff config — ruff firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ruff): not proven — no delivered ruff config (.getff/ruff-bans.toml, getff-ruff.toml or ruff.toml) to run against the planted violation"
+    else
+      echo "  ⚠ ruff not on PATH, and no uvx to fetch it — firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ruff): not proven — ruff is not on PATH and neither is uvx, so the delivered bans were not run against a planted violation"
+    fi
     _degraded=$((_degraded+1))
   fi
 
   echo ""
   if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — a delivered rule failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — a delivered rule failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input), so enforcement is NOT proven."
   elif [ "$_degraded" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it."
+    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why)."
   else
     echo "✓ getff self-check: both lanes fired RED on planted violations and stayed GREEN on clean controls — enforcement is live."
   fi
@@ -940,7 +938,7 @@ _py_deliver_local_hook_rung() {
   # Cases 1, 3, and default all use `git -C` — guard against non-git fatal here.
   if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "  ⊝ not a git repo — hook body delivered to .getff/hooks/pre-push but NOT activated"
-    echo "    run 'git init' then 'git config core.hooksPath .getff/hooks' to activate" >&2
+    note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — $PROJECT_ROOT is not a git repository, and getff does not create one"
     return 0
   fi
 
@@ -975,22 +973,22 @@ _py_deliver_local_hook_rung() {
 
 # _py_integrate_existing_hookspath — Case 1: consumer has core.hooksPath set to a non-getff path.
 # We deliver our hook body to .getff/hooks/pre-push but do NOT overwrite their core.hooksPath.
-# A printed notice tells them how to wire it manually. This is «cleanly declined WITH a printed
-# notice» per kickoff §3 — the consumer's setup still works, getff rung integrated or declined,
-# never silently broken.
+# A NOT-wired line names the rung and the hooksPath that keeps it off (Q4.7: a gap, never the
+# commands to wire it by hand). This is «cleanly declined WITH a printed notice» per kickoff §3 —
+# the consumer's setup still works, getff rung integrated or declined, never silently broken.
 _py_integrate_existing_hookspath() {
   local existing="$1"
   echo "  ⚠ consumer core.hooksPath='$existing' — NOT overwriting (T-S2B-B / augment-first)" >&2
   echo "    getff hook body delivered to .getff/hooks/pre-push but NOT activated." >&2
-  echo "    To activate, EITHER:" >&2
-  echo "      (a) source it from your existing hook:  . .getff/hooks/pre-push" >&2
-  echo "      (b) relocate: git config core.hooksPath .getff/hooks  (migrate your old hooksPath first)" >&2
+  note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — core.hooksPath=$existing, and getff does not repoint a hook setup the repository already has"
 }
 
 # _py_integrate_precommit_consumer — Case 2: consumer has .pre-commit-config.yaml.
 # Append the getff entry as a local-hook fragment into their .pre-commit-config.yaml (idempotent —
 # marker-grep before append). We do NOT set core.hooksPath — pre-commit manages it. The fragment
-# references .getff/hooks/pre-push (delivered above), so the hook body is single-source.
+# references .getff/hooks/pre-push (delivered above), so the hook body is single-source. The entry
+# runs at pre-push, a stage pre-commit installs only on request: _py_precommit_prepush_stage does
+# that with pre-commit's own command (Q4.7 — never left to the reader).
 _py_integrate_precommit_consumer() {
   local tpl="$1"
   local cfg="$PROJECT_ROOT/.pre-commit-config.yaml"
@@ -1004,6 +1002,7 @@ _py_integrate_precommit_consumer() {
 
   if grep -qF "$frag_marker" "$cfg" 2>/dev/null; then
     echo "  ⊝ .pre-commit-config.yaml already has the getff entry — no-op (idempotent)"
+    _py_precommit_prepush_stage
     return 0
   fi
 
@@ -1016,7 +1015,40 @@ _py_integrate_precommit_consumer() {
   printf '\n%s\n' "$frag_marker" >> "$cfg"
   cat "$frag_src" >> "$cfg"
   echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
-  echo "    ⚠ run 'pre-commit install --hook-type pre-push' to activate the pre-push stage" >&2
+  _py_precommit_prepush_stage
+}
+
+# _py_precommit_prepush_stage — install the consumer's pre-commit pre-push stage with pre-commit's
+# own command, so the getff entry appended above runs. Never over a hook the consumer owns:
+# `pre-commit install` moves an existing pre-push aside (its migration mode), and it refuses to run
+# while core.hooksPath is set — both cases, a non-git project and a missing pre-commit binary are
+# NOT-wired lines instead (Q4.7). A pre-push that pre-commit generated is already the stage.
+_py_precommit_prepush_stage() {
+  local _nw="pre-commit pre-push stage (runs the getff entry in .pre-commit-config.yaml): not installed"
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    echo "  [dry-run] would: pre-commit install --hook-type pre-push"
+    return 0
+  fi
+  if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    note_not_wired "$_nw — $PROJECT_ROOT is not a git repository, and getff does not create one"
+    return 0
+  fi
+  local _hp _pp
+  _hp=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
+  _pp="$(_py_git_hooks_dir)/pre-push"
+  if [ -f "$_pp" ] && grep -q 'generated by pre-commit' "$_pp" 2>/dev/null; then
+    echo "  ⊝ pre-commit pre-push stage already installed"
+  elif [ -n "$_hp" ]; then
+    note_not_wired "$_nw — core.hooksPath=$_hp is set, and pre-commit does not install hooks while it is"
+  elif [ -e "$_pp" ]; then
+    note_not_wired "$_nw — the repository has its own pre-push hook, and getff does not replace a hook it did not write"
+  elif ! command -v pre-commit >/dev/null 2>&1; then
+    note_not_wired "$_nw — pre-commit is not on PATH"
+  elif ( cd "$PROJECT_ROOT" && pre-commit install --hook-type pre-push ) >/dev/null 2>&1; then
+    echo "  ✓ pre-commit pre-push stage installed (the getff entry runs on git push)"
+  else
+    note_not_wired "$_nw — pre-commit exited non-zero installing it"
+  fi
 }
 
 # _py_git_hooks_dir — absolute path of the repository's REAL hook directory.
@@ -1054,17 +1086,15 @@ _py_existing_git_hooks() {
 }
 
 # _py_integrate_legacy_githook — Case 3: consumer has live hook(s) in $GIT_DIR/hooks (no
-# core.hooksPath). A printed notice is the entire integration — we never touch $GIT_DIR/hooks
-# directly, and we do NOT set core.hooksPath, which would make git ignore that whole directory
-# (T-S2B-B / augment-first; the never-clobber contract in the rung docstring above).
+# core.hooksPath). A printed notice and a NOT-wired line are the entire integration — we never
+# touch $GIT_DIR/hooks directly, and we do NOT set core.hooksPath, which would make git ignore that
+# whole directory (T-S2B-B / augment-first; the never-clobber contract in the rung docstring above).
 _py_integrate_legacy_githook() {
   local hooks_dir="$1" names="$2" list
   list=$(printf '%s' "$names" | tr '\n' ' ')
   echo "  ⚠ existing git hook(s) in $hooks_dir: ${list% } — NOT setting core.hooksPath (T-S2B-B / augment-first)" >&2
   echo "    core.hooksPath would make git look ONLY in .getff/hooks, silently disabling them." >&2
-  echo "    getff hook body delivered to .getff/hooks/pre-push; to activate, EITHER:" >&2
-  echo "      (a) add this line to $hooks_dir/pre-push:  . \"\$(git rev-parse --show-toplevel)/.getff/hooks/pre-push\"" >&2
-  echo "      (b) move your hooks into .getff/hooks/ and run: git config core.hooksPath .getff/hooks" >&2
+  note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — the repository has its own git hook(s) (${list% }), and core.hooksPath=.getff/hooks would switch them off"
 }
 
 # ── Python-lane RULES.md (A2-5) ──────────────────────────────────────────────────────────────────
@@ -1101,7 +1131,7 @@ _py_render_rules_md() {
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip: $dst (exists)"
     else
-      echo "  ⊝ $dst (exists — skipping; use --force to overwrite)"
+      echo "  ⊝ $dst (exists — skipping)"
     fi
     return 0
   fi
@@ -1290,7 +1320,7 @@ _py_deliver_agent_surface() {
     _py_mcp_skip=1
   fi
   if [ "$_py_mcp_skip" = "1" ]; then
-    echo "  ⊝ context7 already in .mcp.json — skipping (use --force to refresh)"
+    echo "  ⊝ context7 already in .mcp.json — kept as it is"
   elif [ -n "${DRY_RUN:-}" ]; then
     echo "  [dry-run] would: add context7 to .mcp.json ($_py_mcp)"
   elif command -v jq >/dev/null 2>&1; then

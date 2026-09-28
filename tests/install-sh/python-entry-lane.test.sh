@@ -226,17 +226,22 @@ deg=$(
     source "'"$REPO_ROOT"'/setup.d/lib.sh"
     PY_LAYER_LIB_ONLY=1 source "'"$REPO_ROOT"'/setup.d/45-python.sh"
     PATH="$NOTOOLS" _py_firing_self_check
+    print_not_wired
   ' 2>&1
 )
 echo "$deg" | grep -qF 'ast-grep not on PATH' && echo "$deg" | grep -qF 'ruff not on PATH' \
-  && ok "(9) both lanes print a loud tool-absent degrade with the exact manual command" \
+  && ok "(9) both lanes print a loud tool-absent degrade" \
   || bad "(9) degrade lines missing: $(echo "$deg" | tr '\n' '|')"
 echo "$deg" | grep -qiE 'NOT proven|NOT green' \
   && ok "(9) degrade summary refuses to claim green (attention-is-not-a-mechanism honesty)" \
   || bad "(9) degrade summary did not withhold the green claim"
-echo "$deg" | grep -qF '@ast-grep/cli@0.44.1' && echo "$deg" | grep -qF 'ruff@0.15.21' \
-  && ok "(9) manual commands carry the PINNED tool versions (@0.44.1 / ==0.15.21 lineage)" \
-  || bad "(9) manual commands missing pinned versions"
+# Q4.7: the degrade hands back no manual command — its reason is a NOT-wired line instead.
+echo "$deg" | grep -qE 'firing self-check \(ast-grep\): not proven' && echo "$deg" | grep -qE 'firing self-check \(ruff\): not proven' \
+  && ok "(9) each degrade is a NOT-wired line with its reason (Q4.7)" \
+  || bad "(9) degrade NOT-wired lines missing: $(echo "$deg" | tr '\n' '|')"
+echo "$deg" | grep -qE 'npx|uvx ruff|pip install' \
+  && bad "(9) the degrade still prints a command to run by hand: $(echo "$deg" | grep -E 'npx|uvx ruff|pip install' | head -1)" \
+  || ok "(9) the degrade prints no command to run by hand"
 [ ! -e "$P/.ruff_cache" ] \
   && ok "(9) degrade run wrote nothing under the consumer tree (temp-dir-only STOP line holds)" \
   || bad "(9) .ruff_cache leaked during the degrade run"

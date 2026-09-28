@@ -347,6 +347,8 @@ do_toolchain_lane() {
   fi
   # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
   refresh_baseline_flush
+  # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
+  print_not_wired
 }
 
 # The python lane keeps its own body: its flow carries two python-specific steps the other lanes do
@@ -394,6 +396,8 @@ do_python_lane() {
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
   refresh_baseline_flush
+  # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
+  print_not_wired
   echo ""
   echo "✅ getff Python toolchain + agent surface ${REFRESH:+re-}delivery complete."
 }
@@ -1453,7 +1457,8 @@ if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   if [ ! -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
     # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
     # with --profile factory but the helper file was not in the original payload). Graceful skip.
-    echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+    # It runs after 99-finalize printed the NOT-wired summary, so the gap is printed in place (Q4.7).
+    echo "  ⚠ NOT wired: aif-handoff — not installed: setup.d/aif-handoff-guided-install.sh is not in this getff checkout, so the guided install did not run"
   elif [ "$DRY_RUN" = "--dry-run" ]; then
     # ledger A1-3: the helper clones a repo and starts containers on consent. 99-finalize has
     # already printed "Dry-run complete. Nothing was written." by now, so a --dry-run that

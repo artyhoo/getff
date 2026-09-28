@@ -1568,7 +1568,7 @@ _lane_delivered_config_path() {
   fi
 }
 
-# _lane_deliver_ci <tpl> <wf-rel> <fresh-msg> <refreshed-msg> <refuse-intro> [hint …] — the
+# _lane_deliver_ci <tpl> <wf-rel> <fresh-msg> <refreshed-msg> <gates> — the
 # consumer CI-workflow cell shared by all toolchain lanes: ship the pinned gate template as a
 # getff-NAMESPACED <wf-rel> (never the consumer's ci.yml). Collision policy (same class as the
 # config cells): no file at our path → deliver via deliver_getff_workflow (getff-honest-signals
@@ -1576,16 +1576,14 @@ _lane_delivered_config_path() {
 # our own getff-generated file → idempotent no-op on install, re-deliver on --refresh (updated
 # pins + re-detected branch reach a brownfield consumer; the getff-<lane>.yml.override.md
 # Layer-3 escape hatch is preserved — the helper delegates to refresh_safe internally); a
-# NON-getff file at our path → REFUSE-LOUDLY, never overwrite: print <refuse-intro> + the
-# <hint> lines (the lane's manual-wiring commands; the pins in them MIRROR the template — keep
-# the two in sync on any pin bump, ci-tool-pinning.md Rule A). Every message string is a
-# caller argument so the per-lane log output stays byte-identical to the pre-S-2 bodies. Was
+# NON-getff file at our path → REFUSE-LOUDLY, never overwrite: the workflow is kept as it is and
+# a NOT-wired line names <gates> (what the lane's CI runs) and why it is not in CI (Q4.7, operator
+# directive 2026-09-28: a gap, never the commands to wire it by hand). Every message string is a
+# caller argument so the per-lane log output stays lane-specific. Was
 # _py_deliver_ci/_cargo_deliver_ci/_go_deliver_ci.
 _lane_deliver_ci() {
-  local tpl="$1" wf_rel="$2" fresh_msg="$3" refreshed_msg="$4" refuse_intro="$5"
-  shift 5
+  local tpl="$1" wf_rel="$2" fresh_msg="$3" refreshed_msg="$4" gates="$5"
   local wf_dst="$PROJECT_ROOT/$wf_rel"
-  local hint
 
   if [ ! -f "$tpl/github-actions-ci.yml" ]; then
     _lane_log "⊝ no CI template at $tpl/github-actions-ci.yml — skipping CI delivery (rules still enforced locally)"
@@ -1605,11 +1603,8 @@ _lane_deliver_ci() {
       fi
       return 0
     fi
-    _lane_log "⚠ REFUSE CI: $wf_rel exists and is NOT getff-generated."
-    _lane_log "$refuse_intro"
-    for hint in "$@"; do
-      _lane_log "$hint"
-    done
+    _lane_log "⚠ REFUSE CI: $wf_rel exists and is NOT getff-generated — kept as it is"
+    note_not_wired "CI: $gates not in CI — $wf_rel is your own workflow, and getff does not change a workflow it did not write"
     return 0
   fi
 
@@ -2724,6 +2719,18 @@ husky_hookspath_blocker() {
 # surface (printed in the 99-finalize summary). Tolerates NOT_WIRED being undeclared (lib-only use).
 note_not_wired() {
   NOT_WIRED+=("$1")
+}
+
+# print_not_wired — print the NOT-wired summary: a header, then one «- …» line per piece. Shared by
+# 99-finalize and the toolchain lanes, which exit before 99-finalize runs and so print their own.
+# Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
+# tells the reader what to do.
+print_not_wired() {
+  [ "${#NOT_WIRED[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
+  printf '      - %s\n' "${NOT_WIRED[@]}"
+  echo ""
 }
 
 # note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
