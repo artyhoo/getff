@@ -22,6 +22,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
   closeMergedTasks,
+  ghMergedPrIndexLookup,
   ghMergedPrLookup,
   lastAgentActivityAt,
   ghPrMergeProbe,
@@ -582,6 +583,46 @@ describe('ghRead — a gh READ survives a flaky tunnel', () => {
       .mockReturnValueOnce(JSON.stringify([{ url: 'u-marker', headRefName: 'x', body: taskMarker('abc-123') }]));
 
     await expect(ghMergedPrLookup('artyhoo/getff')(task)).resolves.toHaveLength(1);
+  });
+});
+
+describe('ghMergedPrIndexLookup — one search per sweep, not per task', () => {
+  it('searches once, then maps every task in memory; a mere mention never maps', async () => {
+    execMock.mockReturnValueOnce(
+      JSON.stringify([
+        { url: 'u-a', headRefName: 'x', body: `done\n${taskMarker('task-a')}\n` },
+        { url: 'u-mention', headRefName: 'y', body: 'retro about aif-task: task-b in prose' },
+      ]),
+    );
+    const lookup = ghMergedPrIndexLookup('artyhoo/getff');
+
+    const a = await lookup({ id: 'task-a', title: 't', status: 'done' });
+    const b = await lookup({ id: 'task-b', title: 't', status: 'done' });
+    const c = await lookup({ id: 'task-c', title: 't', status: 'review' });
+
+    expect(a.map((p) => p.url)).toEqual(['u-a']);
+    expect(b).toEqual([]);
+    expect(c).toEqual([]);
+    expect(execMock).toHaveBeenCalledTimes(1);
+    expect(execMock.mock.calls[0][1]).toEqual(
+      expect.arrayContaining(['--repo', 'artyhoo/getff', '--state', 'merged', '--search', '"aif-task:" in:body']),
+    );
+  });
+
+  it('a task with a persisted branch adds one --head search of its own', async () => {
+    execMock
+      .mockReturnValueOnce(JSON.stringify([]))
+      .mockReturnValueOnce(JSON.stringify([{ url: 'u-branch', headRefName: 'feature/x-abc', body: '' }]));
+
+    const found = await ghMergedPrIndexLookup('artyhoo/getff')({
+      id: 'abc',
+      title: 't',
+      status: 'done',
+      branchName: 'feature/x-abc',
+    });
+
+    expect(found.map((p) => p.url)).toEqual(['u-branch']);
+    expect(execMock.mock.calls[1][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc']));
   });
 });
 
