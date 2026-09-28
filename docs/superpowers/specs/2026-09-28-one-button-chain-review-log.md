@@ -1,7 +1,8 @@
 # getff one-button chain — cold review log
 
 > **Authoritative for:** the per-finding dispositions of the `/arch` §2 cold reviews of
-> [2026-09-28-one-button-chain-design.md](2026-09-28-one-button-chain-design.md).
+> [2026-09-28-one-button-chain-design.md](2026-09-28-one-button-chain-design.md), and that spec's
+> revision history (r1-r6, with commits).
 > **NOT authoritative for:** the design itself — the spec; project goal —
 > [README.md#why-this-exists](../../../README.md#why-this-exists).
 
@@ -9,7 +10,8 @@ Disposition vocabulary per [arch/SKILL.md §2](../../../.claude/skills/arch/SKIL
 `ACCEPTED | DISSOLVED | ESCALATED | FIXED`. Seats: top-down TD and bottom-up BU, both mid tier,
 given artifact paths only, on immutable snapshots. The reports are kept per seat and never merged;
 each verdict stands on its own axis. The contract allows two rounds, and both ran; no third round
-runs, so what remains open goes to the operator (R5-8, R5-9, and the overturnable call R5-1).
+runs, so what remained open went to the operator: R5-1 and R5-8 were answered A; R5-9 was
+superseded by R6-2 after the operator's premises P15-P16.
 
 ## Round 1 — 2026-09-28, on r3 (TD REVISE, BU REVISE), folded into r4
 
@@ -113,3 +115,21 @@ real; the partial ones are the round-2 findings they name.
   residue); N6 FIXED (§4.2 item 2, §4.6); N7 FIXED → R5-7; N8 FIXED (R5-14 lists it); N9 recorded
   (an environment fact measured in session, not a repo fact); N10 recorded (chip
   `task_b6036daf`); N11 FIXED (step 4 reads user scope and claims presence only).
+
+## Revision history
+
+- **r1** (`e5fb19bde99`): round 1 (Q1-Q4).
+- **r2** (`a8241c7e611`): round 2 with OP-15 to OP-17 and the `/aif` probe; premises P8-P12.
+- **r3** (`9f57c0efac0`, anchors `33147ff9228`): the round-2 cold re-review and OP-18; then P13, P14
+  (`93481336849`) and R3-12 (`c61055cade7`).
+- **r4** (`66917ad162d`): §2 cold review round 1 of 2, on r3 (both seats REVISE); restructured
+  around the complete install and lanes; rows R4-1…R4-13.
+- **r5** (`2fa7648f655`): §2 cold review round 2 of 2, on r4. Top-down REVISE (1 BLOCKER, 5 MAJOR,
+  2 ESCALATED, 12 MINOR); bottom-up REVISE (4 MAJOR, 9 MINOR; 89 of 89 anchors resolve). Rows
+  R5-1…R5-16; the two ESCALATED findings became forks R5-8 and R5-9. No third round runs. The
+  operator's answers R5-1 = A and R5-8 = A: `8617beedccf`.
+- **r6:** operator premises P15-P16 (after r5) recorded in §2 and measured by two cold read-only
+  seats; the evidence is the research patch
+  [2026-09-28-core-and-self-application.md](../../meta-factory/research-patches/2026-09-28-core-and-self-application.md).
+  Rows R6-1…R6-6; R6-2 supersedes R5-9; forks R6-2, R6-3, R6-6; slice 6 «Core and
+  self-application» added, acceptance became slice 7. Not a §2 round: no seat reviewed the design.

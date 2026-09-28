@@ -1,13 +1,9 @@
 # getff one-button chain — design
 
-> **Status:** DRAFT r5. `/arch` phase 1 is complete. The §2 cold review ran both of its rounds
-> (round 1 on r3, round 2 on r4); both are folded in, and no third round runs. Per-finding
-> dispositions live in the [review log](2026-09-28-one-button-chain-review-log.md). The operator
-> answered R5-8 and R5-1 (A) and approved the spec pending fork R5-9, which is re-asked; no code
-> until R5-9 is answered.
-> - Rounds 1-2 were decided in separate discussion sessions; round 3 closed with no fork. P13, P14
->   and R3-12 are operator corrections after r3. Rows R4-* and R5-* hold the author decisions the
->   two review rounds forced.
+> **Status:** DRAFT r6. The §2 cold review ran both rounds (on r3 and r4), both folded; no third
+> round runs. Dispositions and revision history: the [review log](2026-09-28-one-button-chain-review-log.md).
+> r6 folds operator premises P15-P16 (round 6; R6-2 supersedes R5-9). Open forks: R6-2, R6-3,
+> R6-6. No code until they are answered and the spec is re-approved.
 >
 > **Authoritative for:** the one-button chain: its ordered steps (the CONTENT of the step file) and
 > the chain record; the start round; the consumer passport the chain leaves; the complete-install
@@ -15,38 +11,33 @@
 > acceptance run and the closure rule.
 >
 > **NOT authoritative for:** the project goal ([README.md#why-this-exists](../../../README.md#why-this-exists));
-> the docs-truth contract and the step file's SHAPE (the step schema and its gates, one source per
-> fact, drift checks at pre-push, goal governance), owned by the truth-pipeline contract spec, whose
-> draft until it lands under `docs/superpowers/specs/` is `_design-2026-09-28-truth-pipeline.md`
-> (r3) in the operator's coordination directory (boundary: §6); the «one beat» decision D1 (the
-> [any-stack closure spec](2026-07-23-getff-any-stack-closure-design.md)); stream 1, the RED fresh
-> install with prebuilt bundles (its own track, landed as #1860 and #1868).
+> the step file's SHAPE and the docs-truth contract (step schema and gates, one source per fact,
+> pre-push drift checks, goal governance): the truth-pipeline contract, drafted as
+> `_design-2026-09-28-truth-pipeline.md` (r3, coordination directory; boundary §6); the «one beat»
+> D1 ([any-stack closure spec](2026-07-23-getff-any-stack-closure-design.md)); stream 1 (#1860, #1868).
 >
 > Anchors: `origin/staging` `33147ff9228` unless marked.
 
 ## 1. Goal
 
-One button installs everything getff offers a project, completely, in one agent session:
-1. getff itself;
-2. the passport;
-3. tools: skills and MCP servers, in the project and, with consent, machine-global;
-4. live rule research;
-5. generated rules, each with its firing test.
+One button installs everything getff offers a project, completely, in one agent session: getff
+itself; the passport; tools (skills and MCP servers, in the project and, with consent,
+machine-global); live rule research; generated rules, each with its firing test. The shipped core
+seeds the research that generates rules (P15, R6-3); getff uses on itself what it ships (P16).
 
 The target state is a **complete install** (P13): every part above is in place and proven by the
 final check, or the human declined it and the report lists it (§4.4). A green project (the
 project's own checks pass and every generated rule proves itself) is one condition of a complete
 install, not the goal by itself. The chain names no stack: each stack plugs in as a **lane**
 through one contract (P14, §4.5). «One button» means one agent session, not one shell command.
-Glossary ([CONTEXT.md](../../../CONTEXT.md)): One button, Passport, Complete install, Green project, Lane.
-
-Measured 2026-09-27/28, it is not turnkey today: the parts exist, the road between them does not
-([research patch N1-N15](../../meta-factory/research-patches/2026-09-27-ai-navigability-what-getff-installs.md); §3).
+Glossary ([CONTEXT.md](../../../CONTEXT.md)): One button, Passport, Complete install, Green project, Lane,
+Core, Recursive self-application. Measured 2026-09-27/28, it is not turnkey today: the parts exist,
+the road between them does not ([research patch N1-N15](../../meta-factory/research-patches/2026-09-27-ai-navigability-what-getff-installs.md); §3).
 
 ## 2. Operator premise register
 
-Faithful to meaning. P1-P7 were settled 2026-09-27/28 in this session and round 1; P8-P12 come
-from the round-2 session (2026-09-28); P13-P14 are the operator's corrections after r3.
+Faithful to meaning. P1-P7: this session and round 1 (2026-09-27/28); P8-P12: the round-2
+session; P13-P14 and P15-P16: the operator's corrections after r3 and after r5.
 
 | # | Premise | Source |
 |---|---|---|
@@ -64,6 +55,8 @@ from the round-2 session (2026-09-28); P13-P14 are the operator's corrections af
 | P12 | Recursive self-application: what getff ships as «one source per fact» also applies to the getff repo. «Да конечно должно рекурсивно на самом себе … это принцип нашего проекта!». Owned by truth-pipeline T13. It matters here because T13 step 4 gives the getff repo this spec's passport scheme. | operator OP-15, round-2 session |
 | P13 | The goal is a complete one-button install, not «green». «Green» is a formal target that can be reached many ways; what counts is that everything is installed and works. «Кажется это уже формализм цели … цель же установка всего с одной кнопки - генерация правил и тестов скилов и мсп и тд - полностью!» | operator, 2026-09-28, after r3 |
 | P14 | Design one universal, stack-scalable architecture now; the python, rust and go lanes stay alpha and are not this program's target. «на Rust и Go и питон пока пофиг они в альфа версии остаются -тут суть только в том чтобы делать сразу мастшабируемую под любой стек архитектуру разу проектировать унивеерсальный дизайн под все!» | operator, 2026-09-28, after r3 |
+| P15 | Rules are generated from the stack: research reads the docs and uses MCP servers and skills with best-practice patterns and anti-patterns, and writes the rules from them. Only the core ships: the universal rules that fit every project, from which all other rules and tests derive. The core principles cannot be generated; everything else is generated from them (e.g. «search the docs for best practices» is such a rule). «правила должны генерироваться из стека - читаться документация использоваться мсп и скилы с бест практис патернами и антипатернами и из них писаться правила, поставляется только едро … есть некие правила которые нельзя сгенерировать - основные принципы, из них уже генерируется все остальное! ТИпа правило искать в документации бест практики и тд» | operator, 2026-09-28, after r5 |
+| P16 | Recursive self-application means getff uses on itself everything it installs for consumers: the rules and tests for docs, for AI, for everything, and the architecture and the passport too. It widens P12 from «one source per fact» to every shipped artefact. «Рекурсивное самоприменения касается самого этого проекта все что он ставит своим консьюмерам используется и у него, есть правила и тесты для документации для ии для всего точно так же и архитектура и паспорт тоже» | operator, 2026-09-28, after r5 |
 
 ## 3. Starting point (measured)
 
@@ -99,16 +92,17 @@ from the round-2 session (2026-09-28); P13-P14 are the operator's corrections af
   `.claude/CLAUDE.md` or `CLAUDE.local.md` exists at or above the working directory, and directly
   only from 2.1.277; the Mac runs 2.1.270, the factory 2.1.220 (code.claude.com/docs/en/memory.md,
   re-verified by three seats). getff writes no `@AGENTS.md` import.
-- **The non-npm lanes (alpha, P14).** The python lane exits before the npm layer loop
-  (`install.sh:383-389`), so stage 80 and the `05-mcp` layer never run there; under `-y` without
-  `--global` the `setup` wrapper skips each machine-global step with one line (`setup:77`,
-  `:113-118`; `setup.d/engine.sh:69-70`). Python rules are ast-grep YAML
-  (`agents/rule-researcher.md:164`): python CI installs ast-grep pinned
-  (`packages/core/templates/python/github-actions-ci.yml:45-46`), the pre-push hook fails open
-  without it (`packages/core/templates/python/hooks/pre-push.sh:36`, `:44-45`), and setup's
-  self-check plants a fixed violation set (`setup.d/45-python.sh:505-507`). Cargo and go write a
-  lock (`setup.d/46-cargo.sh:24`, `47-go.sh:19`) but no agent surface; research has a Rust pointer
-  only (`agents/rule-researcher.md:262`).
+- **The non-npm lanes (alpha, P14).** Python exits before the npm layer loop (`install.sh:383-389`),
+  so stage 80 and `05-mcp` never run there; `-y` without `--global` skips each machine-global step
+  with one line (`setup.d/engine.sh:69-70`). Python rules are ast-grep YAML
+  (`agents/rule-researcher.md:164`); python CI pins ast-grep and its pre-push fails open without it
+  (`packages/core/templates/python/github-actions-ci.yml:45-46`, `hooks/pre-push.sh:44-45` there).
+  Cargo and go write a lock (`setup.d/46-cargo.sh:24`, `47-go.sh:19`) but have no agent surface.
+- **P15-P16, measured** ([research patch](../../meta-factory/research-patches/2026-09-28-core-and-self-application.md)).
+  The invariant core was designed (`docs/meta-factory/architecture.md:16`) and never shipped: the
+  «core» in force is 4 ESLint rules picked by a 2-stack test (`closed-questions.md:129`), one layered
+  dependency-cruiser preset ships to every npm stack, and generation cannot express boundaries
+  (`agents/rule-researcher.md:117`). getff runs 4 of its 16 shipped groups as consumers do.
 - **A fresh scaffold has no repository and no app tests** (R5-1, R5-2). The #1860 cell has both
   (`tests/consumer-matrix/own-config-cell.sh:73`, `:130`), so it hides the gap.
 - **Acceptance has never run.** The 2026-07-23 program's acceptance was dropped twice (research
@@ -319,13 +313,15 @@ through one contract. A lane supplies:
 6. **Lock and yield:** the lock, the yield sidecar with the research hash, and the table fragment.
 7. **Scaffold placeholders:** template texts that are not purpose evidence.
 8. **Question effects:** which start-round questions change anything on the lane.
-9. **Boundary derivation** (optional): boundary rules from an existing import graph. No lane has it.
+9. **Architecture arm** (optional, R6-2): boundary rules generated from research on the stack, the
+   intent and the import graph, proven like any generated rule. No lane has it.
 10. **Install arm:** how setup installs the lane and writes its setup record entry.
 11. **Hook arm:** how the lane wires the pre-push gates, the intent gate among them.
 12. **Dependency reader:** the project's dependencies, behind tool proposals (Q3.1).
 
 A lane that lacks a required item (every item but 9) leaves each part that needs it `not-done`,
-«not built on this lane»; lacking item 9 is `not-applicable-on-lane` (R5-3).
+«not built on this lane»; lacking item 9 is `not-applicable-on-lane` (R5-3). A stub lane fixture
+(a fake manifest and stub lane scripts) proves that the chain names no stack (§7).
 
 **The npm lanes are built first, and only they are this program's target.** Recognition:
 `_detect_stack_from_pkg` (`setup.d/lib.sh:2111-2120`). Install arm: the npm layer loop and
@@ -342,16 +338,14 @@ is not built on this lane yet» and lists what did run; P2 there rests on the Q2
 records the facts for that later work; the F-A reading «the python install stays Node-free»
 (`agents/rule-researcher.md:212-213`) is not touched.
 
-**Proof that the chain names no stack:** a stub lane fixture (a fake manifest and stub lane scripts)
-runs the start-round recognition and the final check end to end (§7).
-
 ### 4.6 Acceptance and closure (R2-Q3, R2-Q4)
 
 **Setup of the run.**
 - A cold agent gets an official scaffold per stack and the new pasted prompt, nothing else. The
   scaffolds are two npm stacks, neither Next (P4, P7): React via `npm create vite` react-ts, and a
   TypeScript server from an official generator chosen at landing, with no repository or app test
-  beyond what the generator makes (R5-1, R5-2). It runs in a fresh container on the PC (R5-16).
+  beyond what the generator makes (R5-1, R5-2). It runs in a fresh container on the PC, whose
+  headless CLI is logged in (the Mac's is not); a logged-out CLI is NOT-RUN, never a pass (R5-16).
 - A stand-in answers the real AskUserQuestion through the Agent SDK `canUseTool` callback, never in
   the SDK's `dontAsk` mode, which denies it; the report quotes every question verbatim. This
   replaces the DORMANT `getff-cold-run-prober`, a subagent, which has no AskUserQuestion.
@@ -368,13 +362,11 @@ runs the start-round recognition and the final check end to end (§7).
 - the questions came before setup, research asked nothing, and there was no second human message
   (start-round answers count as answers, not messages);
 - after `/aif` and `/aif-architecture` run on the result, every getff fence survives;
-- the report says whether an MCP server added at step 4 was live at step 5, as measured (R5-15).
+- the report says whether an MCP server added at step 4 was live at step 5, as measured (R5-15);
+- on getff itself (P16, R6-6): the shipped-list gate is green and the intent gate runs on its push.
 
 The closure spec's binding python Done line (`2026-07-23-getff-any-stack-closure-design.md:226-227`)
 is not discharged by this program; it stays open with the python lane (P14).
-
-**Where it runs.** The run needs a logged-in headless CLI: the factory's, because the Mac CLI is
-logged out. A logged-out CLI is reported as NOT-RUN, never as a pass.
 
 **Closure.** The acceptance report is a committed file with a machine-readable verdict line. This
 program's `done.md` must cite a PASS report; «PARKED» is not closed. A report goes stale when an
@@ -383,13 +375,12 @@ agent step's `run` file changes after the run, by path or content; a stale repor
 
 ## 5. Live decision register
 
-Status values: **answered** (the operator chose); **delegated** (a discussion session decided);
-**on recommendation** (the brief let it stand, unobjected); **author** (an authoring session
-decided with no operator fork, P8; FYI'd to the operator); **operator-fork** (open, with a
-recommendation). *Blanket* marks a row confirmed by round 1's «ок согласен с тобой полностью».
-Round-2 rows cite `_decisions-2026-09-28-one-button-round2.md` (coordination directory): its §4
-blocks win over its §1 rows, and its last block («§2 cold re-review, round 2 of 2») wins over all
-above it. A superseded row keeps its text and names its successor.
+Status: **answered** (the operator chose); **delegated** (a discussion session decided); **on
+recommendation** (unobjected); **author** (decided with no operator fork, P8; FYI'd);
+**operator-fork** (open, with a recommendation). *Blanket*: confirmed by round 1's «ок согласен с
+тобой полностью». Round-2 rows cite `_decisions-2026-09-28-one-button-round2.md` (coordination
+directory; its §4 blocks win over its §1 rows, its last block over all). A superseded row keeps
+its text and names its successor.
 
 ### Round 1 (separate session; «в отдельной сессии подумать и обсудить как сделать лучше»)
 
@@ -436,7 +427,7 @@ above it. A superseded row keeps its text and names its successor.
 | R2-Q2 | What «green project» means | answered (zero-rule branch: «Готово, с объяснением»); the rest on recommendation | §4.4. Since P13, green is one condition of the complete install (R4-1). | On real projects research almost always yields zero → «green with zero» hides a chain that produces nothing; zero becomes failure. |
 | R2-Q3 | Acceptance | answered: «A + доработки (Recommended)»; widened by review amendments 7, 8, 11 | §4.6. Its python scaffolds left in r4 (P14). | The operator finds a quoted question unclear, or the stand-in hides a problem a live human would hit → add one manual run. |
 | R2-Q4 | Closure | on recommendation | §4.6. This is the 2nd incident of the class (`getff-any-stack-trace/done.md:22`, `getff-freshness-widening/done.md:17`). A 3rd triggers a general `done.md` check (`attention-is-not-a-mechanism.md` §3). | A 3rd parked-as-done program appears before the general check exists. |
-| R2-Q5 | Presets vs the generator | on recommendation | Out of this spec. The generator makes rules only; tool-config templates are the round-1 «level-2 tooling». A broken template line is a stream-1 bug fix. | A shipped template breaks the green check on the acceptance scaffolds and stream 1 has not fixed it. |
+| R2-Q5 | Presets vs the generator | on recommendation; rule presets re-opened by P15 (R6-3) | Out of this spec. The generator makes rules only; tool-config templates are the round-1 «level-2 tooling». A broken template line is a stream-1 bug fix. | A shipped template breaks the green check on the acceptance scaffolds and stream 1 has not fixed it. |
 | R2-Q6 | How the chain calls the generator | on recommendation | One command on every npm lane: `./setup --full <stack>`, repeated with the chain record's flags (§4.1). A python render inside setup is alpha-lane work (P14), which also leaves the F-A «Node-free» question untouched. | Step 6's second setup run is slow enough that humans abandon the chain → step 6 calls the generator bundle directly. |
 | R2-Q7 | Docs, passport, architecture and site as one process | answered (direction; the design went to the truth-pipeline contract) | Every fact has one structured source; everything else is rendered from it or is AI prose citing only sources and code. The chain's source is `first-steps.source.json`, extended. The operator: «Давай попробуем все это вместе интегрировать, по сути это один процесс». | `first-steps.source.json` cannot express the chain (F1), or a cold agent still misses `/rule-research` after integration (F3). |
 
@@ -483,7 +474,7 @@ R4-1 and R4-2 carry the operator's P13 and P14; the rest are author calls, each 
 
 ### Round 5 (author decisions forced by the §2 cold review, round 2, and two operator forks)
 
-The operator answered R5-1 and R5-8 on 2026-09-28; R5-9 is open.
+The operator answered R5-1 and R5-8 on 2026-09-28; R6-2 supersedes R5-9.
 
 | # | Decision | Status | Resolution | Falsifier («wrong if …») |
 |---|---|---|---|---|
@@ -495,14 +486,27 @@ The operator answered R5-1 and R5-8 on 2026-09-28; R5-9 is open.
 | R5-6 | The lane contract covers the whole install (top-down M5) | author | Items 10-12 join (§4.5): the install arm with its setup record entry, the hook arm, and the dependency reader behind tool proposals. | The stub lane still needs a change outside its lane → another item is missing. |
 | R5-7 | Writers, files and stamp-free probes (top-down m2, m3, m5, N5; bottom-up m1, m7, N7) | author | One writer per file: the intent writer writes `.getff/intent.md` and `.getff/chain.json` (a late «skip research» through `--skip-research`) and runs the baseline; only the baseline mode writes `.getff/baseline.json`; only setup writes `.getff/setup.json`. `intent.md` is tracked, because the intent gate reads its history; the other three are machine-local and gitignored. The generator writes the yield sidecar before its research-only return (`packages/core/synthesizer/rule-bootstrap.ts:110-111`), so every sequence proves research and generation without stamps (§4.1). | A chain verdict needs a fact only another writer has → the record gains a field, not a writer. |
 | R5-8 | Research consent scope (top-down M4, E2) | answered: A | Does a declined companion or tool withdraw blanket consent, and does a bare go-ahead give it? **A (recommended):** consent to research is its own answer: research writes unless the human said «skip research», and declines elsewhere do not touch it; the FYI line says a bare go-ahead lets research write, and the report lists every rule with a one-command removal. **B:** r4 as written: any decline brings the bulk Y/n back mid-chain, which stalls an unattended run. **C:** an explicit «complete install, consent to everything» option; every other answer keeps the Y/n. In every option an unacked Tier-2 source never becomes a rule. | (A) Humans remove many generated rules as unwanted → C. |
-| R5-9 | Project-specific architecture (top-down E1; the operator's «мне кажется нужен и паспорт и архитектура проекта», `_decisions-2026-09-28-one-button-round2.md:42`) | **operator-fork** | **A (recommended):** this program ships the generic boundary check and the ARCHITECTURE.md pointer, and the report says «no project-specific architecture rules yet»; boundary derivation (§4.5 item 9) is the next program, with its own prior-art consult. Fresh scaffolds, the acceptance target, have no import graph to derive from. **B:** build npm boundary derivation now, as a sixth complete-install part. | (A) Existing-project users report boundaries getff missed that a derivation would have caught → B opens the next program. |
+| R5-9 | Project-specific architecture (top-down E1; the operator's «мне кажется нужен и паспорт и архитектура проекта», `_decisions-2026-09-28-one-button-round2.md:42`) | operator-fork; **superseded by R6-2** (P15), the operator did not pick A or B | **A (recommended):** this program ships the generic boundary check and the ARCHITECTURE.md pointer, and the report says «no project-specific architecture rules yet»; boundary derivation (§4.5 item 9) is the next program, with its own prior-art consult. Fresh scaffolds, the acceptance target, have no import graph to derive from. **B:** build npm boundary derivation now, as a sixth complete-install part. | (A) Existing-project users report boundaries getff missed that a derivation would have caught → B opens the next program. |
 | R5-10 | The setup record (top-down m7, N4; bottom-up m2) | author | `.getff/setup.json` holds one entry per setup run: profile, flags, time and the self-verify result. «Pass» means no failure and only accepted skips: zero rules is accepted, «not a git repository» is not (`99-finalize.sh:532`; skipped checks «are NOT proven», `:569`). Step 3 and step 6 each read their own entry. | A step reads pass while its setup run failed → the entry misses a failure class. |
 | R5-11 | Rule 3 of `tool-bootstrapping` (bottom-up MAJOR-4) | author; an open amendment (P9) | Rule 3 («never install any MCP or skill without explicit user confirmation», `skills/tool-bootstrapping/SKILL.md:35`) is amended in slice 5: the recorded start-round answer is that confirmation, so the agent does not ask again. «No env/config bypass» still holds: only the human's answer fills the record. | The agent re-asks the tool Y/n after setup in acceptance → the amendment did not reach the step. |
 | R5-12 | The logic proof (bottom-up MAJOR-3, mismatch 5) | author | **Reuse the generator's own proof.** Each rule carries a bad and a good example and a negative test (`packages/core/synthesizer/generate-port.ts:34`, `:39`), gated at generation; declarative rules are mutation-checked at install and at pre-push (`packages/core/audit-self/check-generated-rule-mutation.sh:2-5`, `99-finalize.sh:544`, `packages/core/hooks/pre-push.ts:1198`). Rejected: r4's firing triple, which the ORPHAN check flags (`install.sh:1266`, `setup.d/lib.sh:1285`). §3 is corrected: `check-fences-fire.sh` proves the installed fences, not generated rules (`:2`). | A generated rule class has no lasting test a consumer can run → a triple under an attributed path. |
 | R5-13 | The table section and refresh (bottom-up MAJOR-1, m9, N1; top-down m8) | author | The table goes into a new generated-section mode with no keep-copy; today every change writes one (`setup.d/lib.sh:1083`, `:1137`). Its section id does not start with `getff-framework`, because the begin marker matches by prefix (`:1013`). Refresh's passport copies (`install.sh:1363`, `:1369-1370`) give way to the render function, and the «not touched» line (`:1415`) is reworded. | A re-run leaves a `refresh-conflicts/` keep-copy, or a plain `./setup` drops the table → the render function is not the only writer. |
 | R5-14 | The npm wiring proof (top-down m11; bottom-up m5, N8) | author | `eslint --stdin --stdin-filename <path>` loads the project's config the way its `lint` script does (`setup.d/70-deps.sh:80`). Rejected as precedent: `check-fences-fire.sh`'s synthetic config (`:264-269`), which proves logic only; the CLI crash it avoids is a harness fact (`tests/install-sh/f17-lint-rules-planted-violation.test.sh:32-36`). Unknowns measured in slice 3: an ignored path reads «not wired»; typed rules need a path the project's tsconfig covers; `_oxlintrc.json`. A rule without a path is «wiring unproven», never passed. | Stdin linting disagrees with on-disk linting for some rule class → R4-5's falsifier: the trade-off goes to the operator. |
 | R5-15 | MCP servers added mid-chain (bottom-up m6; top-down N6) | author; re-opens R4-10's premise | The vendor docs describe dynamic tool updates, against R4-10's «not live until a new session». Acceptance measures it, and the report says which held (§4.6). | Measured live → step 5 drops the web fallback in the button session; measured not live → R4-10 stands. |
-| R5-16 | Closure and outside dependencies (top-down m9; bottom-up m8) | author | Acceptance may run once slices 1-5 land. The docs pass waits on the contract's §6.7 steps 3-4 and the site umbrella (P6); a run made before the pass goes stale per T7.1 and is repeated. «PARKED» does not close. | The site umbrella stalls for weeks → the operator is asked whether to close on a pre-pass run with the pass as a named follow-up. |
+| R5-16 | Closure and outside dependencies (top-down m9; bottom-up m8) | author | Acceptance may run once slices 1-6 land (6 since r6). The docs pass waits on the contract's §6.7 steps 3-4 and the site umbrella (P6); a run made before the pass goes stale per T7.1 and is repeated. «PARKED» does not close. | The site umbrella stalls for weeks → the operator is asked whether to close on a pre-pass run with the pass as a named follow-up. |
+
+### Round 6 (operator premises P15-P16, after r5)
+
+Measured by two cold read-only seats on `8617beedccf`, spot-checked by the author (§3).
+
+| # | Decision | Status | Resolution | Falsifier («wrong if …») |
+|---|---|---|---|---|
+| R6-1 | What «the core» is (P15) | author: the operator's words define it | **The invariant core the repo designed** (§3): the principles and meta-rules no research may generate (every rule has an executable check and a firing test; no tautology; documents lie; rules come from researching the stack's live docs), plus the machinery that holds them: the research protocol, the generator's gates, the meta-gate scripts. Every other shipped rule is a preset. For this program it replaces the 2-stack test (`closed-questions.md:129`). The shipped list (R6-6) tags each shipped artefact `core` or `preset`, and the report shows the tags. `packages/core/` and `--profile core` are unrelated uses of the word. | The operator names a core item the list lacks, or a `core` item proves stack-specific on the stub lane → the list is wrong. |
+| R6-2 | Architecture rules under P15 (supersedes R5-9) | **operator-fork** | **A (recommended):** architecture rules are generated, never shipped as a layout preset. Generation cannot express cross-file boundaries today (§3), so this program reports «architecture: not generated yet»: lane item 9 stays empty, the ARCHITECTURE.md fence says so, and the layered dependency-cruiser config is tagged `preset`. The next program extends the generator: research on the stack, the intent and the import graph yields boundary rules, on npm lanes rendered to dependency-cruiser (the backend SSOT #139 adopts), each with a two-file firing test; it plugs in as lane item 9 with no chain change. **B:** extend the generator in this program, as a sixth complete-install part. | (A) Acceptance or first users show architecture rules are what they miss most → B's program starts next. |
+| R6-3 | Rule presets under P15 («поставляется только ядро») | **operator-fork** | **A (recommended):** no preset is deleted in this program. Each is tagged `preset` and named as fallback in the report; a preset class retires once generation reproduces it on the npm lanes, with the preset as the oracle (`2026-06-22-stage-2-generate-path-design.md:14`). This keeps the 2026-06-29 «demoted to fallback» ruling (`live-research-default-delivery/done.md:4`) until that evidence exists. Tool configs (tsconfig, test runner, CI) are not rules and stay (R2-Q5). **B:** stop shipping rule presets now; the install ships the core and generated rules only. | (A) A preset contradicts a generated rule on an acceptance scaffold → that preset class retires at once. |
+| R6-4 | Skills and MCP servers as rule sources (P15) | author | They are where research FINDS practices and anti-patterns, with step 4's tools used in step 5; slice 4 makes the recursion line (`agents/rule-researcher.md:109`) a named protocol step. A rule still cites the canonical doc its practice comes from (`:111`), so an unacked source never becomes a rule. A maintainer-published skill as a trust tier is a question for the owner of `research-source-trust.md`, not this spec. | Acceptance shows many practices found only in an installed skill and blocked for want of a doc → propose maintainer-published skills as a trust tier. |
+| R6-5 | «Search the docs for best practices» as a core rule (P15) | author | Its machine form is the chain: research runs by default (R2-OP18). After install, the shipped dependency hook also names rule research when dependencies change; today it names only `/tool-bootstrapping` and `/rule-tests` (`.claude/hooks/deps-hash-check.sh:533`, `:540`). Slice 4. | Consumers change dependencies and research never re-runs → the final check reports research older than the dependency hash. |
+| R6-6 | How far P16 reaches in this program | **operator-fork** | **A (recommended):** (1) the parts this program adds run on getff too: the intent gate's pre-push section is owned `both` (principle 32), and getff's passport comes through truth-pipeline T13 step 4 (P12); (2) **the shipped list**: one row per shipped artefact class, tagged `core` or `preset` (R6-1) and `applied on getff` (naming how) or `exempt` (a reason of 20 characters or more and a reopen trigger), in both directions, so framework-only machinery is listed too; a principle test fails when a path in the install fingerprints (`tests/install-sh/baselines/`) matches no row; (3) today's gaps (§3) enter it as dated exemptions, and the next program closes them from that list. **B:** close every gap in this program, before closure. | (A) The exemptions grow across two releases instead of shrinking → closing them becomes a precondition of promote. |
 
 ## 6. Boundary with the truth-pipeline contract
 
@@ -546,16 +550,16 @@ The operator answered R5-1 and R5-8 on 2026-09-28; R5-9 is open.
   (`.github/workflows/audit-self.yml:1490`, #1860) plus a variant with no repository and no app
   tests (R5-1, R5-2); `check-fences-fire.sh`, `check-generated-rule-mutation.sh`,
   `tests/fixtures/shipped-agent-liveness/aif-init.md`, `scripts/host-verify.sh` and the
-  `tests/install-sh/snapshot.sh` baselines. The python seams stay as they are.
+  `tests/install-sh/snapshot.sh` baselines. The python seams stay as they are. The shipped list's
+  principle test reads those baselines' fingerprints (R6-6).
 - **The one non-mechanical seam is the acceptance run** (§4.6), with the SDK stand-in for the human.
 
 ## 8. Rejected alternatives
 
-Each lives in the register row that rejected it: R2-Q1, R2-Q1.1, R2-P1, R2-Stack, R2-Arch,
-R2-Guard, R2-OP18, R3-1, R3-2, R4-3, R4-4, R4-5, R4-7, R5-5, R5-12 and R5-14. «Green» as the goal
-fell to P13; per-stack chains, python acceptance and its tool route fell to P14. With no row of
-their own: the whole chain in the pasted prompt (it drifts); the plugin command as owner (Claude
-Code only, no `--full`); a breaking `-y` backstop (reverses S1-4); level-2 researched tooling.
+Each lives in its row: Q1 (the chain in the prompt; the plugin command as owner), Q2.1 (a breaking
+`-y` backstop, reversing S1-4), Q3 (level-2 tooling), R2-Q1, R2-Q1.1, R2-P1, R2-Stack, R2-Arch,
+R2-Guard, R2-OP18, R3-1, R3-2, R4-3, R4-4, R4-5, R4-7, R5-5, R5-12, R5-14. «Green» as the goal fell
+to P13; per-stack chains, python acceptance and its tool route fell to P14.
 
 ## 9. Implementation slices (for writing-plans, after approval)
 
@@ -578,23 +582,19 @@ Code only, no `--full`); a breaking `-y` backstop (reverses S1-4); level-2 resea
    logic proof. The npm wiring proof lands after slice 4's path field.
 4. **Research in the chain.** It reads the intent (R2-P2); the protocol's human checks rewritten
    for blanket consent (`agents/rule-researcher.md:142-150`, R3-12, R5-8); the allowlist render
-   (R4-8); the path field (R4-13); the blocked-by-provenance count in the research files.
+   (R4-8); the path field (R4-13); the blocked-by-provenance count in the research files; the
+   recursion step (R6-4); the dependency hook names research (R6-5).
 5. **Tools step.** The Q3.1 and Q3.2 scan, the installed-tool check, the Rule 3 amendment (R5-11).
-6. **Acceptance run and report**, after slices 1-5 (R5-16); then `done.md`.
+6. **Core and self-application.** The shipped list with its tags and exemptions, its principle
+   test, the intent-gate section owned `both`, the report's `core` / `preset` tags (R6-1, R6-3, R6-6).
+7. **Acceptance run and report**, after slices 1-6 (R5-16); then `done.md`.
 
-Slices 2-5 run in parallel once slice 1's schema lands; only slice 3's wiring proof waits for
+Slices 2-6 run in parallel once slice 1's schema lands; only slice 3's wiring proof waits for
 slice 4. Prior-art consults (CLAUDE.md build-vs-reuse gate) are owed for the step file (contract
-N-p), the intent gate, the final check, the chain record, the yield sidecar and the
-generated-section mode.
+N-p), the intent gate, the final check, the chain record, the yield sidecar, the generated-section
+mode and the shipped list.
 
 ## 10. Changelog
 
-Per-finding dispositions: the [review log](2026-09-28-one-button-chain-review-log.md).
-- **r1** (`e5fb19bde99`): round 1 (Q1-Q4). **r2** (`a8241c7e611`): round 2 with OP-15 to OP-17
-  and the `/aif` probe; premises P8-P12. **r3** (`9f57c0efac0`, anchors `33147ff9228`): the
-  round-2 cold re-review and OP-18; then P13, P14 (`93481336849`) and R3-12 (`c61055cade7`).
-- **r4** (`66917ad162d`): §2 cold review round 1 of 2, on r3 (both seats REVISE); restructured
-  around the complete install and lanes; rows R4-1…R4-13.
-- **r5:** §2 cold review round 2 of 2, on r4. Top-down REVISE (1 BLOCKER, 5 MAJOR, 2 ESCALATED,
-  12 MINOR); bottom-up REVISE (4 MAJOR, 9 MINOR; 89 of 89 anchors resolve). Rows R5-1…R5-16; the
-  two ESCALATED findings became forks R5-8 (answered A) and R5-9. No third round runs.
+Revisions r1-r6 with their commits, and every per-finding disposition: the
+[review log](2026-09-28-one-button-chain-review-log.md). **r6:** P15-P16 recorded; rows R6-1…R6-6.
