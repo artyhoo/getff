@@ -750,21 +750,52 @@ export interface PrMergeState {
   body?: string | null;
 }
 
+/**
+ * Network failures a `gh` READ is worth repeating for: Go net/http as gh prints it. Measured
+ * 2026-09-28 on the operator's Mac: through the VPN tunnel the TLS handshake to api.github.com
+ * took 2-8 s and 4 of 6 consecutive `gh api graphql` calls timed out, so a sweep making one
+ * `gh` call per task almost never finished in one piece.
+ */
+const GH_TRANSIENT_RE =
+  /TLS handshake timeout|i\/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve host/i;
+
+/**
+ * `gh <args>` for a READ, repeated on a transient network failure (4 attempts, 3 s then 6 s then
+ * 12 s apart; `RUNTIME_BRIDGE_GH_RETRY_BASE_MS` overrides the 3 s). Only for idempotent reads —
+ * never a write such as `gh pr merge`. Any other failure is thrown at once.
+ */
+export function ghRead(args: string[]): string {
+  const base = Number(process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] ?? 3000);
+  const attempts = 4;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return execFileSync('gh', args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      const text = `${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`;
+      if (attempt >= attempts || !GH_TRANSIENT_RE.test(text)) throw err;
+      Atomics.wait(
+        new Int32Array(new SharedArrayBuffer(4)),
+        0,
+        0,
+        base * 2 ** (attempt - 1),
+      );
+    }
+  }
+}
+
 /** The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`. */
 export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
-  const out = execFileSync(
-    'gh',
-    [
-      'pr',
-      'view',
-      prUrl,
-      '--json',
-      'state,mergedAt,mergeCommit,headRefName,body',
-    ],
-    {
-      encoding: 'utf8',
-    },
-  );
+  const out = ghRead([
+    'pr',
+    'view',
+    prUrl,
+    '--json',
+    'state,mergedAt,mergeCommit,headRefName,body',
+  ]);
   const parsed = JSON.parse(out) as {
     state?: string;
     mergedAt?: string | null;
@@ -1107,23 +1138,19 @@ export function ghMergedPrLookup(repo: string): PrLookup {
   return async (task) => {
     const list = (args: string[]): MergedPr[] =>
       JSON.parse(
-        execFileSync(
-          'gh',
-          [
-            'pr',
-            'list',
-            '--repo',
-            repo,
-            '--state',
-            'merged',
-            '--limit',
-            '100',
-            ...args,
-            '--json',
-            'url,body,headRefName',
-          ],
-          { encoding: 'utf8' },
-        ),
+        ghRead([
+          'pr',
+          'list',
+          '--repo',
+          repo,
+          '--state',
+          'merged',
+          '--limit',
+          '100',
+          ...args,
+          '--json',
+          'url,body,headRefName',
+        ]),
       ) as MergedPr[];
     const found = new Map<string, MergedPr>();
     for (const pr of list(['--search', `"${taskMarker(task.id)}" in:body`]))
@@ -1136,13 +1163,14 @@ export function ghMergedPrLookup(repo: string): PrLookup {
 
 /** The GitHub repo of the cwd's checkout (`gh repo view`), for a sweep given no `--repo`. */
 export function cwdRepo(): string {
-  return execFileSync(
-    'gh',
-    ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'],
-    {
-      encoding: 'utf8',
-    },
-  ).trim();
+  return ghRead([
+    'repo',
+    'view',
+    '--json',
+    'nameWithOwner',
+    '--jq',
+    '.nameWithOwner',
+  ]).trim();
 }
 
 /** One task's outcome in a {@link closeMergedTasks} sweep. */
