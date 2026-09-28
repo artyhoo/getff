@@ -193,8 +193,8 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   }
   _aif_detect_gates
 
-  # A multi-stack monorepo gets NO getff ci.yml: 40-configs.sh delivers it only in the single-stack
-  # branch (since #796 wrapped the per-stack block), but still creates the directory. With no
+  # A monorepo with workspace packages gets NO getff ci.yml: 40-configs.sh delivers it only in the
+  # flat / single-root branch (since #796 wrapped the per-stack block), but still creates the directory. With no
   # workflow file there is nothing of the consumer's to keep or to wire into, so the WARN below must
   # not claim a kept workflow and the yq offer must not fire (defect seen 2026-09-28, getff#1889).
   _aif_has_wf=""
@@ -300,7 +300,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
     else
       echo "⚠ CI-orphan: no workflow exists under .github/workflows/, so every rule-enforcement gate fires only on a"
-      echo "   local 'npm run validate' — nothing checks a pushed commit. Gates with no CI job:"
+      echo "   local 'npm run validate' — no CI job checks a pushed commit. Gates with no CI job:"
     fi
     for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
     # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
@@ -319,10 +319,10 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     # --wire-ci or a yes at the prompt, because its only editor (yq) does not keep every comment
     # (research-patch 2026-06-14-s3-workflow-merge §4/§6, SSOT #117).
     # _ws_lines is 40-configs.sh's workspace map (setup.d layers are sourced into one shell): it is
-    # non-empty exactly when that layer took the multi-stack branch, which is the branch that places
-    # no ci.yml.
+    # non-empty exactly when that layer took its workspace (monorepo) branch — one stack or several —
+    # which is the branch that places no ci.yml.
     if [ -z "$_aif_has_wf" ] && [ -n "${_ws_lines:-}" ]; then
-      _aif_why="no workflow exists under .github/workflows/ — getff places its ci.yml only in a single-stack repo (each shipped ci.yml runs one stack's jobs at the repo root), and this repo is a multi-stack monorepo"
+      _aif_why="no workflow exists under .github/workflows/ — getff places its ci.yml only in a repo with no workspace packages under apps/, packages/, services/, libs/ or modules/ (each shipped ci.yml runs one stack's jobs at the repo root), and this repo has workspace packages there"
     elif [ -z "$_aif_has_wf" ]; then
       _aif_why="no workflow exists under .github/workflows/, and this install placed none"
     elif [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
