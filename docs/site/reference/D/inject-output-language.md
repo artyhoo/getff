@@ -11,6 +11,7 @@ sources:
   - docs/site/reference/D.json
   - docs/site/reference/D.md
   - docs/site/terms.md
+  - plugin/.claude-plugin/plugin.json
   - plugin/hooks/hooks.json
   - plugin/hooks/inject-output-language
   - plugin/hooks/run-hook.cmd
@@ -98,12 +99,14 @@ project's `.claude/settings.json`, and the plugin ships a copy of its own. The
 framework's own repository registers neither. Its bootstrap digest embeds the same line
 instead.
 
-With both in place, the plugin's copy stays silent and you see the line once. The
-plugin's launcher checks three things first. The session is Claude Code, `jq` is on the
-hook's `PATH`, and the project's `.claude/settings.json` registers its own copy on the
-same event. The framework's repository gets the same treatment: the launcher finds
-`inject-session-bootstrap` registered there, and that digest carries the same line. On
-ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
+With both in place you see the line twice. The plugin's copy keeps running next to the
+installed one, because the installed copy was frozen at install time and can be older than
+the plugin's. The plugin's copy goes silent in one place only: getff's own source
+repository, whose hooks are the source the plugin is built from. There the plugin's
+launcher finds `inject-session-bootstrap` registered in `.claude/settings.json`, and that
+digest carries the same line. The full list of conditions is the comment above the yield
+in `plugin/hooks/run-hook.cmd`. On ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the
+plugin's copy always runs.
 
 ## Evidence
 
@@ -136,15 +139,18 @@ ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
   .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 10-16)
   naming the extensionless filename and the inline zcode adapter as the two deltas.
-- Silent beside a project copy: the plugin file's line 2 names its source
+- Silent only in getff's own repository: the plugin file's line 2 names its source
   (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 19
   declares `# @plugin-yields-to: inject-session-bootstrap`. The yield block at
   `plugin/hooks/run-hook.cmd:70` exits before the plugin copy runs. It does so only when
-  the project's `.claude/settings.json` runs getff's copy of a named hook on every event
-  and matcher the plugin registers. `tests/plugin/run-hook.test.sh` arms Y1-Y18 pin each
-  condition. R1 asserts the silence against this repo's settings, and R2 counts one
-  language line per prompt. R3 asserts the digest line equals this hook's line for `ru`
-  and `de`.
+  the project is the plugin's source checkout: it ships `plugin/.claude-plugin/plugin.json`
+  under the same plugin name, and `plugin/hooks/inject-output-language`. Its
+  `.claude/settings.json` must also run getff's copy of the named hook, in the installer's
+  exact form, on every event and matcher the plugin registers.
+  `tests/plugin/run-hook.test.sh` pins these conditions with arms Y1-Y25. Y19 is the
+  consumer case, where both copies run. R1 asserts the silence against this repo's
+  settings, and R2 counts one language line per prompt. R3 asserts the digest line equals
+  this hook's line for `ru` and `de`.
 - No test under `packages/core/hooks/` carries this hook's name, and this page states
   that rather than implying coverage. The demos above and the
   `tests/plugin/run-hook.test.sh` arms in the previous bullet pin its output.
