@@ -26,7 +26,7 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import path, { basename, dirname, join, relative, resolve, win32, type PlatformPath } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
@@ -73,24 +73,40 @@ function r2Element(variant: TransformVariant, scope?: { files: string[] }): stri
  * the project: process.cwd() is the physical directory while install.sh passes --path under its
  * logical `pwd` (macOS /var → /private/var, a symlinked Linux workspace, a Windows junction or 8.3
  * short name like C:\Users\RUNNER~1). `.native` because only it expands 8.3 names on Windows; the JS
- * realpathSync resolves links but keeps a short name. The input stands when it cannot be resolved.
+ * realpathSync resolves links but keeps a short name. A path that does not exist yet is its nearest
+ * existing ancestor, resolved, plus the rest, so both sides still share one spelling. (A `subst`
+ * drive is resolved to its target too, where Node's module URL keeps the drive: a specifier that
+ * climbs above such a drive's root would miss. Not a layout the install produces.)
  */
 function canonicalDir(p: string): string {
-  try { return realpathSync.native(p); } catch { return resolve(p); }
+  const abs = resolve(p);
+  try {
+    return realpathSync.native(abs);
+  } catch {
+    const parent = dirname(abs);
+    return parent === abs ? abs : join(canonicalDir(parent), basename(abs));
+  }
+}
+
+/**
+ * The ESM specifier that imports `target` from a module in `fromDir`. A specifier is a URL path, so
+ * it is joined with `/`; with no relative path between them (another Windows drive) it is the file
+ * URL. `p` is the path flavour, so the Windows arm is testable on any platform.
+ */
+export function importSpecifierFrom(fromDir: string, target: string, p: PlatformPath = path): string {
+  const rel = p.relative(fromDir, target);
+  if (p.isAbsolute(rel)) return pathToFileURL(target, { windows: p === win32 }).href;
+  const spec = rel.split(p.sep).join('/');
+  return spec.startsWith('.') ? spec : `./${spec}`;
 }
 
 /**
  * Relative import specifier from a per-package config to the consumer-root
  * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.mjs).
- * Computed per config depth — never hardcoded. An import specifier is a URL path, so it is joined
- * with `/`; a barrel on another Windows drive (no relative path exists) is imported by file URL.
+ * Computed per config depth — never hardcoded — between one spelling of each directory (canonicalDir).
  */
 export function customRulesImportSpecifier(configPath: string, cwd: string): string {
-  const target = join(canonicalDir(cwd), 'eslint-rules-local', 'index.mjs');
-  const rel = relative(canonicalDir(dirname(resolve(configPath))), target);
-  if (isAbsolute(rel)) return pathToFileURL(target).href;
-  const spec = rel.split(sep).join('/');
-  return spec.startsWith('.') ? spec : `./${spec}`;
+  return importSpecifierFrom(canonicalDir(dirname(configPath)), join(canonicalDir(cwd), 'eslint-rules-local', 'index.mjs'));
 }
 
 export interface WireOpts {

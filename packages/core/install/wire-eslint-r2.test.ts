@@ -11,13 +11,14 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   R2_RULE_ID,
   customRulesImportSpecifier,
   formatLikeConsumer,
+  importSpecifierFrom,
   generateDegradedSnippet,
   probeViaEslint,
   r2NotWiredLine,
@@ -295,6 +296,8 @@ describe('customRulesImportSpecifier — one project, two spellings of its path'
     // Measurement, printed so each platform's CI log shows which spellings it has.
     console.log(`[r2-spec] tmpdir=${spelled} realpathSync=${realpathSync(spelled)} realpathSync.native=${canonical}`);
     try {
+      // macOS always has two spellings here; without them this case would pass on the old code too.
+      if (process.platform === 'darwin') expect(spelled).not.toBe(canonical);
       mkdirSync(join(canonical, 'eslint-rules-local'));
       writeFileSync(join(canonical, 'eslint-rules-local', 'index.mjs'), 'export default {};\n', 'utf8');
       mkdirSync(join(canonical, 'apps', 'api'), { recursive: true });
@@ -304,6 +307,29 @@ describe('customRulesImportSpecifier — one project, two spellings of its path'
     } finally {
       rmSync(canonical, { recursive: true, force: true });
     }
+  });
+
+  it('a config dir that does not exist yet keeps the spelling of its existing ancestor', () => {
+    withLinkedProject((real, link) => {
+      const spec = customRulesImportSpecifier(join(link, 'apps', 'new', 'eslint.config.mjs'), real);
+      expect(spec).toBe('../../eslint-rules-local/index.mjs');
+    });
+  });
+});
+
+describe('importSpecifierFrom — a URL path, whatever the platform', () => {
+  it('Windows, same drive: `/`-joined, never `\\`', () => {
+    expect(importSpecifierFrom('C:\\proj\\apps\\api', 'C:\\proj\\eslint-rules-local\\index.mjs', win32)).toBe(
+      '../../eslint-rules-local/index.mjs',
+    );
+  });
+  it('Windows, another drive (no relative path exists): the file URL', () => {
+    expect(importSpecifierFrom('C:\\proj\\apps\\api', 'D:\\proj\\eslint-rules-local\\index.mjs', win32)).toBe(
+      'file:///D:/proj/eslint-rules-local/index.mjs',
+    );
+  });
+  it('POSIX, a barrel next to the config: ./-prefixed', () => {
+    expect(importSpecifierFrom('/proj', '/proj/eslint-rules-local/index.mjs', posix)).toBe('./eslint-rules-local/index.mjs');
   });
 });
 
@@ -459,7 +485,7 @@ for (const { nm, version } of ESLINT_INSTALLS) {
       } finally {
         if (existsSync(link)) unlinkSync(link);
         rmSync(linkParent, { recursive: true, force: true });
-        unlinkSync(join(real, 'node_modules'));
+        if (existsSync(join(real, 'node_modules'))) unlinkSync(join(real, 'node_modules'));
         rmSync(real, { recursive: true, force: true });
       }
     }, 60_000);
