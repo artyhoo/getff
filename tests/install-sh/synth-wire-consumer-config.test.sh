@@ -28,11 +28,14 @@
 #      consumer owns is byte-identical and reported, while the one getff placed in a sibling
 #      ts-server workspace still goes through the wirer (the gate is not blanket).
 # E and F need --full (the wirer only writes with --yes); the dependency install it triggers is
-# stubbed — `npm install` exits 0 without touching the network, every other npm command is real.
+# stubbed — `npm`, `pnpm` and `yarn` install/add exit 0 without touching the network, every other
+# command of theirs is real.
 # ts-morph is borrowed from the framework through per-package symlinks inside a REAL node_modules
-# directory: a symlinked node_modules directory would let any package install write into the
-# framework's tree. Without ts-morph the wirer degrades to «add it by hand» and arm A would pass
-# vacuously, so its absence is a FAIL, not a skip.
+# directory, and a scope such as @eslint is a real directory too, with each of its packages linked:
+# any symlinked directory would let a package install write into the framework's tree. The last
+# check compares the framework's scope directories before and after all arms. Without ts-morph the
+# wirer degrades to «add it by hand» and arm A would pass vacuously, so its absence is a FAIL, not
+# a skip.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -45,10 +48,17 @@ trap 'rm -rf "$WORK"' EXIT INT TERM
 FW_NM="$REPO_ROOT/node_modules"
 borrow() { # $1 = project dir — link the packages the wirer and its lint probe resolve
   # $2 = tsx: also link tsx, so the R2 wirer's `npx --no-install tsx` resolves (arms E, F)
-  local p
+  # A scope directory is created for real and its packages linked one by one: a linked scope
+  # directory is the framework's own, and a package install in the fixture writes into it.
+  local p q
   mkdir -p "$1/node_modules"
   for p in ts-morph typescript eslint @eslint typescript-eslint @typescript-eslint; do
-    [ -e "$FW_NM/$p" ] && ln -s "$FW_NM/$p" "$1/node_modules/$p"
+    [ -e "$FW_NM/$p" ] || continue
+    case "$p" in
+      @*) mkdir -p "$1/node_modules/$p"
+          for q in "$FW_NM/$p"/*; do ln -s "$q" "$1/node_modules/$p/${q##*/}"; done ;;
+      *)  ln -s "$FW_NM/$p" "$1/node_modules/$p" ;;
+    esac
   done
   if [ "${2:-}" = tsx ]; then
     ln -s "$FW_NM/tsx" "$1/node_modules/tsx"
@@ -58,13 +68,27 @@ borrow() { # $1 = project dir — link the packages the wirer and its lint probe
 }
 unborrow() {
   find "$1/node_modules" -maxdepth 2 -type l -exec rm -f {} + 2>/dev/null
-  rmdir "$1/node_modules/.bin" 2>/dev/null; rmdir "$1/node_modules" 2>/dev/null; return 0
+  rmdir "$1/node_modules/.bin" "$1/node_modules/@eslint" "$1/node_modules/@typescript-eslint" 2>/dev/null
+  rmdir "$1/node_modules" 2>/dev/null; return 0
 }
 
 if [ ! -f "$FW_NM/ts-morph/package.json" ]; then
   bad "ts-morph is not installed in the framework (run npm install first) — without it arm A is vacuous"
   echo "PASS=$PASS FAIL=$FAIL"; exit 1
 fi
+# The framework's scope directories, entry by entry with link targets. A package manager that runs
+# in a fixture writes through any directory the fixture reaches by symlink: pnpm renamed
+# @eslint/js to .ignored_js here and left a link into a .pnpm store the framework does not have.
+fw_print() {
+  local d e
+  for d in "$FW_NM/@eslint" "$FW_NM/@typescript-eslint"; do
+    for e in "$d"/* "$d"/.[!.]*; do
+      [ -e "$e" ] || [ -L "$e" ] || continue
+      if [ -L "$e" ]; then printf '%s -> %s\n' "$e" "$(readlink "$e")"; else printf '%s\n' "$e"; fi
+    done
+  done
+}
+fw_print > "$WORK/fw.before"
 
 SKIP_LINE='your own config'
 
@@ -179,13 +203,17 @@ if [ ! -x "$FW_NM/.bin/tsx" ]; then
   echo "PASS=$PASS FAIL=$FAIL"; exit 1
 fi
 STUB="$WORK/stub-bin"; mkdir -p "$STUB"
-REAL_NPM=$(command -v npm)
-cat > "$STUB/npm" <<SH
+# F is a pnpm workspace, so 70-deps.sh runs `pnpm add -D -w … && pnpm install` there, not npm.
+for pm in npm pnpm yarn; do
+  real=$(command -v "$pm" || true)
+  cat > "$STUB/$pm" <<SH
 #!/usr/bin/env bash
 case "\$1" in install|i|ci|add) exit 0 ;; esac
-exec "$REAL_NPM" "\$@"
+[ -n "$real" ] && exec "$real" "\$@"
+exit 127
 SH
-chmod +x "$STUB/npm"
+  chmod +x "$STUB/$pm"
+done
 # A per-package config shape the wirer can wire (wire-eslint-r2.test.sh fixture P1).
 printf "const base = [{ files: ['**/*.ts'], rules: { 'no-console': 'error' } }];\nexport default [...base];\n" > "$WORK/pkg.before"
 
@@ -245,6 +273,14 @@ awk '/NOT wired, or wired only in part/{on=1} on' "$WORK/f.log" | grep -q 'apps/
 grep -q 'R2 wiring: .*apps/svc/eslint.config.mjs' "$WORK/f.log" \
   && ok "F neg: the workspace config getff placed (apps/svc) still goes through the R2 wirer" \
   || bad "F neg: the R2 wirer skipped the config getff placed in apps/svc"
+
+fw_print > "$WORK/fw.after"
+if cmp -s "$WORK/fw.before" "$WORK/fw.after"; then
+  ok "the framework's node_modules scope directories are unchanged after every arm"
+else
+  bad "a fixture install wrote into the framework's node_modules:"
+  diff "$WORK/fw.before" "$WORK/fw.after" | head -8 | sed 's/^/      /'
+fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
