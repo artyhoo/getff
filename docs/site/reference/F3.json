@@ -180,7 +180,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2406 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2443 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2455 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2492 (workflow-run:invocation-verb)",
           ".husky/pre-commit:166 (quoted-path-token)"
         ]
       },
@@ -239,7 +239,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2556 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2593 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
