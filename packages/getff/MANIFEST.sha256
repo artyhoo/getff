@@ -494,7 +494,7 @@ c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/
 77dce7bd339563d5b6e45ba8f38e05f89f00a4eb40e6332b7af5389657a27aa7  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
-8cbdfcf14757ea59e4a2b81904f0e7f155b8c6d93028b4f000fe18c196c1fdb2  packages/core/hooks/pre-push.test.ts
+8552772cbf854c6cd0589c9ddd5f30a984ac2c4bc6f6d14a9f38890ad373ff29  packages/core/hooks/pre-push.test.ts
 4a0b1cc9633b9608c00beb6e4bd4e50673bae3cc96c448aa10bbcb256548b996  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
@@ -1086,7 +1086,7 @@ a7cfb1c38d249f111aa1dd92500301b2b7cb1ecec5a941ed1e6e71503e6b791f  setup.d/45-pyt
 80397ed7535a74218595f636785ac7c40f252fafc9b0f43312f3fabfc872e94a  setup.d/47-go.sh
 018f3a4248e3302d1b215965568e1ca6f6898d261e6ba54a8a9a878bccda8c01  setup.d/50-hooks.sh
 d6ad69e14127a47b7feac493b57a1b63c4484da66e63231495722ff7dc3a566f  setup.d/55-runtime-bridge-vendor.sh
-39d109a0d107c17c1653fc896758a413e5214e724750f93d3f5b568f1462ebff  setup.d/60-ci.sh
+941c0099a23bc15f16b0ab7cdedb5ba063ed02abd143f23024b44ebf928af3db  setup.d/60-ci.sh
 6f86fd196747973d819b7c342c7317fe541a851fab869ab40fc8679e84b6d8f3  setup.d/70-deps.sh
 0659632793627065e9a1acd09ce742bea011ac7897c34d582da078b559add8f9  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
