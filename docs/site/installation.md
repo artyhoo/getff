@@ -27,6 +27,7 @@ executed:
   - { step: preview-plugin-helper, stack: ts-server, date: 2026-09-21, result: "exit-0, nothing written" }
   - { step: preview-refresh, stack: ts-server, date: 2026-09-28, result: "exit-0, 72 would-refresh, 0 would-flag" }
 next: why.md
+docs-refresh: deferred — re-verified 2026-09-28, the only changes to the cited plugin/install/fetch-and-wire.sh in this range are the RAT_PLUGIN_VERSION bumps 0.3.4 → 0.3.5 → 0.3.6 (principle 24, for re-rendered hook twins); this page names no plugin version and the preview it quotes does not print one, and the helper still fetches from main; clears at the next refresh of this page
 ---
 
 # Installation
@@ -184,6 +185,7 @@ block to your file. The block tells ESLint to skip getff's own code, such as its
 and its hook bundle. It also turns on the rules that apply to your project, such as the
 rule for request handlers once the install finds HTTP handlers. getff changes and removes
 nothing you wrote, and keeps your original file at `.ai-factory/before-getff/<name>.<hash>`.
+getff treats a config it placed on an earlier install the same way once you have edited it.
 Adding the block needs the `--full` install, which `setup -y` runs. getff leaves any other
 ESLint config as it is and lists it in the «NOT wired» summary at the end of the install. It
 never edits your `tsconfig.json`.

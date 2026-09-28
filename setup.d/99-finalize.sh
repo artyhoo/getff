@@ -237,8 +237,8 @@ fi
 
 # ─── 6b-bis-L2. GH #547 Layer 2: AST-wire R2 into consumer per-package configs ─
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
-# Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
-# when engine absent. rc=0 on every branch (lesson GH #531/#544).
+# Option A (migration-ast Stage 4): ensure-then-use; degrade when engine absent. rc=0 on every
+# branch (lesson GH #531/#544).
 # Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 finds per-package
 # eslint.config.mjs files that re-export a base lacking R2, and wires only the ones getff placed.
 #
@@ -252,33 +252,42 @@ fi
 # consumer's comments and trailing commas) and names in a «  · not wired: » line anything it could
 # not add; the original is kept at .ai-factory/before-getff/ whenever the write changes it. rc=0 on
 # every branch — install must not abort on wirer failure.
-# _r2_route_not_wired <rel> <wirer output> — each «  · not wired: » line the wirer printed goes to the
-# NOT-wired summary; output with neither a wired line nor a reason gets one generic line.
-_r2_route_not_wired() {
-  local rel="$1" out="$2" l
-  case "$out" in
-    *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
-    *"  · not wired: "*)
-      while IFS= read -r l; do
-        case "$l" in "  · not wired: "*) note_not_wired "${l#  · not wired: }" ;; esac
-      done <<< "$out" ;;
-    *) note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — the R2 wirer did not add it (its output is above)" ;;
-  esac
+#
+# A config getff placed is written on every install, --full or not: the --full gate here was the
+# consent to edit a file the consumer wrote (install-ast-wiring spec Q5, 2026-06-17), and since
+# provenance (#1860) only getff's own files reach that branch — while its bytes are still the ones
+# getff left (getff_bytes_intact). One the consumer has edited since takes the own-config branch: its
+# content is theirs, and the AST writer re-prints the list it edits, dropping their comments. --install
+# makes the wirer report what did not land as a not-wired line, never as a snippet to add by hand (Q4.7).
+# getff_bytes_intact <abs-cfg> — exit 0 IFF <abs-cfg> still holds the bytes getff left in it: this run
+# staged it (the delivery itself), or its sha256 equals the refresh-baseline entry an earlier install
+# recorded (hashed at that install's end, after this post-processing). A getff_delivered file the
+# consumer edited since fails it — those bytes are theirs now — and so does an unknown one (no entry,
+# no jq, no sha256 tool): the safe side.
+getff_bytes_intact() {
+  local dst="$1" p cur
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
 }
 _r2_wire_cfg() {
   local cfg="$1" wirer="$2" rel dir out snap kept l
   local args=()
   rel="${cfg#"$PROJECT_ROOT"/}"
   if getff_delivered "$cfg"; then
-    # getff's own config: the wirer's AST mode, with a NOT-wired line (never a snippet) for whatever
-    # it leaves out — no terminal and no --full, a declined prompt, an unrecognised shape (Q4.7).
-    # tee, not $( ): the wirer may ask [y/N] on a terminal, and the question has to reach the screen.
-    snap=$(mktemp) || snap=""
-    ( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" ${FULL:+--yes} --report-not-wired 2>&1 ) \
-      | tee "${snap:-/dev/null}" || true
-    out=""; [ -n "$snap" ] && { out=$(cat "$snap"); rm -f "$snap"; }
-    _r2_route_not_wired "$rel" "$out"
-    return 0
+    if getff_bytes_intact "$cfg"; then
+      out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --yes --install 2>&1 ) || true
+      printf '%s\n' "$out"
+      _r2_note_outcome "$rel" "$out"
+      return 0
+    fi
+    echo "  · R2: getff placed $rel, and it has been edited since — it is treated as your own config"
   fi
   dir=$(dirname "$cfg")
   out=$(R2_DETECT_ROOT="$dir" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
@@ -301,7 +310,22 @@ _r2_wire_cfg() {
     echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
     note_getff_added "$rel"
   fi
-  _r2_route_not_wired "$rel" "$out"
+  _r2_note_outcome "$rel" "$out"
+  return 0
+}
+# _r2_note_outcome <rel> <wirer output> — the NOT wired summary for one run of the R2 wirer: each
+# «  · not wired: <what> — <why>» line the wirer printed, as it is, whether or not R2 itself landed;
+# and when R2 neither landed nor was there already and the wirer named nothing (a crash), the config,
+# pointing at the wirer's output above.
+_r2_note_outcome() {
+  local rel="$1" out="$2" l noted=""
+  while IFS= read -r l; do
+    case "$l" in "  · not wired: "*) note_not_wired "${l#  · not wired: }"; noted=1 ;; esac
+  done <<< "$out"
+  case "$out" in
+    *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
+    *) [ -n "$noted" ] || note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — the R2 wirer did not add it (its output is above)" ;;
+  esac
   return 0
 }
 if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \

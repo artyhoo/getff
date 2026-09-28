@@ -10122,9 +10122,9 @@ function synthesize(plan) {
 
 // packages/core/install/wire-eslint-r2.ts
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync as existsSync3, readFileSync as readFileSync6, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync as existsSync3, readFileSync as readFileSync6, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
+import { basename, dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -10138,6 +10138,18 @@ function customRulesImportSpecifier(configPath, cwd) {
   let rel = relative(dirname6(resolve5(configPath)), target);
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;
+}
+var R2_NO_ENGINE = "its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules";
+function r2NotWiredLine(configPath, why, cwd = process2.cwd()) {
+  const real = (p) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const file = join2(real(dirname6(configPath)), basename(configPath));
+  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} \u2014 ${why.replace(/\s*\n\s*/g, " ")}`;
 }
 function generateDegradedSnippet(configPath) {
   return [
@@ -10918,7 +10930,7 @@ async function writeWithLintProbe(args) {
 async function wireR2IntoOwnConfig(a) {
   const { configPath, cwd } = a;
   const rel = relative(cwd, configPath);
-  const notWired = (why) => `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${rel} \u2014 ${why}`;
+  const notWired = (why) => r2NotWiredLine(configPath, why, cwd);
   const boundaryGlobs = [...new Set(a.boundaryGlobs)];
   if (boundaryGlobs.length === 0) return [`\xB7 R2: no HTTP boundary found for ${rel} \u2014 nothing for R2 to guard, so it is left as it is`];
   const source = readFileSync6(configPath, "utf8");
@@ -10930,7 +10942,7 @@ async function wireR2IntoOwnConfig(a) {
     case "unrecognised":
       return [...notes, notWired("its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`), so it added nothing to it")];
     case "degrade":
-      return [...notes, notWired("its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules")];
+      return [...notes, notWired(R2_NO_ENGINE)];
     default:
       break;
   }
@@ -10961,8 +10973,8 @@ async function main() {
       "                  to --boundary, in its prettier style; anything not added is a \xAB  \xB7 not wired:",
       "                  <what> \u2014 <why>\xBB line, never a manual step",
       "  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config",
-      "  --report-not-wired  The installer runs this mode (Q4.7): whatever is not added is a",
-      "                  \xAB  \xB7 not wired: <what> \u2014 <why>\xBB line instead of a snippet to paste"
+      "  --install       The install is running this (Q4.7): never prompt, and report what did not land as",
+      "                  one \xAB  \xB7 not wired: <what> \u2014 <why>\xBB line instead of a snippet to add by hand"
     ].join("\n"));
     process2.exit(0);
   }
@@ -10975,11 +10987,13 @@ async function main() {
   const dryRun = argv.includes("--dry-run");
   const diffOnly = argv.includes("--diff");
   const ownConfig = argv.includes("--own-config");
-  const reportNotWired = ownConfig || argv.includes("--report-not-wired");
-  const leftOut = (why, snippet) => reportNotWired ? `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(process2.cwd(), configPath)} \u2014 ${why}` : snippet;
+  const install = argv.includes("--install") || ownConfig;
   const boundaryGlobs = argv.flatMap((v, i) => v === "--boundary" && i + 1 < argv.length ? [argv[i + 1]] : []);
+  const notLanded = (why, forHuman) => {
+    console.log(install ? r2NotWiredLine(configPath, why) : forHuman);
+  };
   if (!existsSync3("node_modules/ts-morph/package.json")) {
-    console.log(leftOut("its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules", generateDegradedSnippet(configPath)));
+    notLanded(R2_NO_ENGINE, generateDegradedSnippet(configPath));
     process2.exit(0);
   }
   if (!existsSync3(configPath)) {
@@ -10999,16 +11013,19 @@ async function main() {
       process2.exit(0);
       break;
     case "degrade":
-      console.log(leftOut("its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules", generateDegradedSnippet(configPath)));
+      notLanded(R2_NO_ENGINE, generateDegradedSnippet(configPath));
       process2.exit(0);
       break;
     case "unrecognised":
-      console.log(leftOut("the config exports a shape the wirer does not recognise, so it is left as it is", [
-        `\xB7 R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
-        `  Add manually (adjust the relative path to your eslint-rules-local/):`,
-        `    import customRules from './eslint-rules-local/index.mjs';`,
-        `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`
-      ].join("\n")));
+      notLanded(
+        "its export is not a shape getff can add R2 to (`export default [...]`, `export default <config>`, `export default defineConfig([...])`), so nothing was added",
+        [
+          `\xB7 R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
+          `  Add manually (adjust the relative path to your eslint-rules-local/):`,
+          `    import customRules from './eslint-rules-local/index.mjs';`,
+          `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`
+        ].join("\n")
+      );
       process2.exit(0);
       break;
     case "wired": {
@@ -11023,11 +11040,7 @@ Proposed change to ${configPath}:
 ${diff}
 `);
       let apply = assumeYes;
-      if (!apply) {
-        if (!process2.stdin.isTTY) {
-          console.log(leftOut("the install ran without --full and without a terminal to confirm the change, so the config is left as it is", generateDegradedSnippet(configPath)));
-          process2.exit(0);
-        }
+      if (!apply && !install && process2.stdin.isTTY) {
         const { createInterface } = await import("node:readline");
         const rl = createInterface({ input: process2.stdin, output: process2.stdout });
         const answer = await new Promise((done) => {
@@ -11037,7 +11050,7 @@ ${diff}
         apply = /^y(es)?$/i.test(answer.trim());
       }
       if (!apply) {
-        console.log(leftOut("the change was declined at the prompt, so the config is left as it is", generateDegradedSnippet(configPath)));
+        notLanded("the wirer was run without --yes, so nothing was written", generateDegradedSnippet(configPath));
         process2.exit(0);
       }
       const wired = await resolveAndWire({ configPath, cwd: process2.cwd(), runProbe: probeViaEslint, scope });
@@ -11046,7 +11059,10 @@ ${diff}
       } else if (wired.status === "already-wired") {
         console.log(`\xB7 R2 already enforced in ${configPath}`);
       } else {
-        console.log(leftOut(`${wired.degradeReason ?? "ESLint could not use the config with R2 added"}; the config is as it was`, generateDegradedSnippet(configPath)));
+        notLanded(
+          `ESLint could not confirm the config loads with R2 added (${wired.degradeReason ?? "no verdict"}), so the change was undone and the config is as it was`,
+          generateDegradedSnippet(configPath)
+        );
       }
       process2.exit(0);
     }
