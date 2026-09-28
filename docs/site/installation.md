@@ -27,6 +27,7 @@ executed:
   - { step: preview-plugin-helper, stack: ts-server, date: 2026-09-21, result: "exit-0, nothing written" }
   - { step: preview-refresh, stack: ts-server, date: 2026-09-28, result: "exit-0, 72 would-refresh, 0 would-flag" }
 next: why.md
+docs-refresh: deferred — re-verified 2026-09-28, the only change to the cited plugin/install/fetch-and-wire.sh in this range is the RAT_PLUGIN_VERSION bump 0.3.4 → 0.3.5 (principle 24, for the re-rendered session-bootstrap twin); this page names no plugin version and the preview it quotes does not print one, and the helper still fetches from main; clears at the next refresh of this page
 ---
 
 # Installation

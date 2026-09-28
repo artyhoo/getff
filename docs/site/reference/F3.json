@@ -328,7 +328,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:310 (quoted-path-token)"
+          ".husky/pre-commit:352 (quoted-path-token)"
         ]
       },
       "example": null
@@ -347,7 +347,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:289 (quoted-path-token)"
+          ".husky/pre-commit:331 (quoted-path-token)"
         ]
       },
       "example": null
@@ -488,6 +488,26 @@
         "wired-from": [
           ".github/workflows/audit-self.yml:252 (workflow-run:invocation-verb)",
           "scripts/render-reference.mjs:53 (es-import, closure)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "render-invariants.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "renders the session digest's `INVARIANTS_LINE` from README.md.",
+      "source": {
+        "path": "scripts/render-invariants.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:2403 (spawn-argument)",
+          ".husky/pre-commit:290 (quoted-path-token)"
         ]
       },
       "example": null
