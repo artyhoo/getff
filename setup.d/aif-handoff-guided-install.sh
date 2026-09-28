@@ -15,10 +15,15 @@
 set -euo pipefail
 
 # --- Source bridge-guided.sh for bridge_diagnose / bridge_health_ok (SSOT — §7) ---
-# Resolve root via BASH_SOURCE (cwd-independent — mirrors bridge-guided.sh:56).
+# Resolve root via BASH_SOURCE (cwd-independent — mirrors bridge-guided.sh:76).
 _aif_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=setup.d/bridge-guided.sh
 source "$_aif_root/setup.d/bridge-guided.sh"
+# --- companion_not_wired / companion_not_wired_summary (engine.sh, lib-only) ---
+# This helper runs after 99-finalize printed the install's NOT-wired summary, as its own process,
+# so a gap here goes to a summary of its own (Q4.7: a gap with its reason, never a step).
+# shellcheck source=setup.d/engine.sh
+ENGINE_LIB_ONLY=1 source "$_aif_root/setup.d/engine.sh"
 
 # --- Constants ---
 AIF_URL="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
@@ -61,8 +66,10 @@ _aif_handoff_record_failure() {
 # non-interactive run. Sets $_AIF_CONSENT to yes|no (a global, not stdout: the [y/N] prompt
 # has to reach the user's terminal, and command substitution would swallow it).
 _AIF_CONSENT=""
+_AIF_WHY=""
 _aif_handoff_resolve_consent() {
   _AIF_CONSENT="no"
+  _AIF_WHY="not installed: the guided install was declined (AIF_GUIDED_INSTALL=$AIF_GUIDED_INSTALL)"
   case "$AIF_GUIDED_INSTALL" in
     1|y|Y|yes|YES|true)
       _AIF_CONSENT="yes"
@@ -76,7 +83,7 @@ _aif_handoff_resolve_consent() {
   esac
   if [ "$GETFF_NONINTERACTIVE" = "1" ]; then
     printf '  Non-interactive run (-y / --full / --all) — declining the guided install rather than blocking on a prompt.\n'
-    printf '  Set AIF_GUIDED_INSTALL=1 to opt in without a prompt.\n'
+    _AIF_WHY="not installed: the guided install clones a repository and starts containers, and a non-interactive run does that only with AIF_GUIDED_INSTALL=1"
     _log "consent=auto-decline (GETFF_NONINTERACTIVE=1 — the never-prompt contract in ./setup)"
     return 0
   fi
@@ -85,6 +92,7 @@ _aif_handoff_resolve_consent() {
   read -r ans || ans=""
   case "$ans" in
     [yY]|[yY][eE][sS]) _AIF_CONSENT="yes" ;;
+    *) _AIF_WHY="not installed: the guided install was declined at the prompt" ;;
   esac
 }
 
@@ -120,7 +128,7 @@ aif_handoff_guided_install() {
       _aif_handoff_resolve_consent
       if [ "$_AIF_CONSENT" != "yes" ]; then
         _log "consent=no: declining guided install"
-        _aif_handoff_degrade
+        _aif_handoff_degrade "$_AIF_WHY"
         return 0
       fi
       _log "consent=yes: cloning $AIF_HANDOFF_REPO_URL → $AIF_HANDOFF_CHECKOUT"
@@ -134,7 +142,7 @@ aif_handoff_guided_install() {
       elif ! git clone "$AIF_HANDOFF_REPO_URL" "$AIF_HANDOFF_CHECKOUT" 2>&1 | sed 's/^/    /' >&2; then
         printf '  ⚠ git clone of %s failed\n' "$AIF_HANDOFF_REPO_URL" >&2
         _aif_handoff_record_failure "failed git-clone"
-        _aif_handoff_degrade
+        _aif_handoff_degrade "not installed: git clone of $AIF_HANDOFF_REPO_URL failed (its output is above)"
         return 0
       fi
       # Docker compose v2 is the 2026 default (compose v1 is docker-compose, deprecated).
@@ -142,7 +150,7 @@ aif_handoff_guided_install() {
       if ! (cd "$AIF_HANDOFF_CHECKOUT" && docker compose up -d) 2>&1 | sed 's/^/    /' >&2; then
         printf '  ⚠ docker compose up -d failed in %s\n' "$AIF_HANDOFF_CHECKOUT" >&2
         _aif_handoff_record_failure "failed docker-compose-up"
-        _aif_handoff_degrade
+        _aif_handoff_degrade "not running: docker compose up -d failed in $AIF_HANDOFF_CHECKOUT (its output is above)"
         return 0
       fi
       # Wait for health (max ~30s — mirrors setup-runtime-bridge.sh health-wait pattern).
@@ -160,15 +168,14 @@ aif_handoff_guided_install() {
       done
       printf '  ⚠ aif-handoff failed to come up in 30s\n' >&2
       _aif_handoff_record_failure "failed docker-compose-timeout"
-      _aif_handoff_degrade
+      _aif_handoff_degrade "not running: docker compose up -d succeeded in $AIF_HANDOFF_CHECKOUT, but $AIF_URL did not answer /health within 30s"
       return 0
       ;;
     native)
-      # aif CLI present, not responding → instruct start (no auto-install).
+      # aif CLI present, not responding → a NOT-wired fact (no auto-start: getff did not install it).
       printf '  aif-handoff CLI present but not responding.\n'
-      printf '  Start it manually (e.g. `aif-handoff serve`), then re-run with --profile factory.\n'
-      _log "state=native: instruct start, no auto-install"
-      _aif_handoff_degrade
+      _log "state=native: not started by getff, no auto-install"
+      _aif_handoff_degrade "not running: the aif-handoff CLI is installed but does not answer at $AIF_URL, and getff does not start a service it did not install"
       return 0
       ;;
     docker-down)
@@ -177,36 +184,36 @@ aif_handoff_guided_install() {
       # produced `absent`, so the branch was unreachable and this user was told to INSTALL
       # docker. bridge_diagnose now reports the two apart.
       printf '  aif-handoff not detected. Docker binary present but the daemon is not running.\n'
-      printf '  Start docker, then re-run with --profile factory for guided install.\n'
-      _log "state=docker-down: instruct start-docker, degrade to env-level"
-      _aif_handoff_degrade
+      _log "state=docker-down: degrade to env-level"
+      _aif_handoff_degrade "not installed: the guided install runs it in docker, and the docker daemon is not running — getff does not start the docker daemon"
       return 0
       ;;
     absent)
-      # No docker binary and no CLI → nothing to offer; degrade with install guidance.
+      # No docker binary and no CLI → nothing to offer; degrade with the reason.
       printf '  aif-handoff not detected (no docker, no CLI).\n'
-      printf '  Install docker, then re-run with --profile factory for guided install.\n'
       _log "state=absent: degrade to env-level"
-      _aif_handoff_degrade
+      _aif_handoff_degrade "not installed: the guided install runs it in docker, and this machine has no docker and no aif-handoff CLI, and getff installs neither"
       return 0
       ;;
     *)
       printf '  ⚠ aif-handoff diagnose returned unknown state: %s\n' "$state" >&2
-      _aif_handoff_degrade
+      _aif_handoff_degrade "not installed: its diagnose returned an unknown state ($state)"
       return 0
       ;;
   esac
 }
 
 # ---------------------------------------------------------------------------
-# _aif_handoff_degrade — the consented env-level fall-through (spec §4 A1).
+# _aif_handoff_degrade <reason> — the consented env-level fall-through (spec §4 A1).
 # This is a DESIGNED SUCCESS PATH (kickoff §6 T-BDU-B): the companion decline → env IS designed;
-# it is NOT the same as the one-button flow degrading to manual which IS a MISS.
+# it is NOT the same as the one-button flow degrading to manual which IS a MISS. The reason goes
+# to this helper's own NOT-wired summary (Q4.7) — a fact, never a «start / install / re-run» step.
 # ---------------------------------------------------------------------------
 _aif_handoff_degrade() {
-  printf '  aif-handoff not installed — factory profile degrades to env-level\n'
+  printf '  aif-handoff is not running here — factory profile degrades to env-level\n'
   printf '  (multi-model contour placeholders only, no aif runtime).\n'
-  printf '  Re-run with --profile factory after aif-handoff is up to enable the full contour.\n'
+  companion_not_wired "aif-handoff — $1"
+  companion_not_wired_summary
   _log "degrade: factory → env-level (designed success — spec §4 A1, T-BDU-B)"
   printf '[%s] AIF_HANDOFF: degrade env-level\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$AIF_INSTALL_LOG" 2>/dev/null || true
 }
