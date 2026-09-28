@@ -10777,7 +10777,7 @@ async function probeViaEslint(configPath, cwd, scope, opts = {}) {
         return { resolvedR2: r2SeverityIn(stdout) > 0 };
       } catch (e) {
         const err = e;
-        if (err.killed || err.signal) return { timedOut: true };
+        if (err.killed) return { timedOut: true };
         return { stderr: String(err.stderr ?? "") };
       }
     })

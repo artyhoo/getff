@@ -1030,8 +1030,11 @@ export async function probeViaEslint(
         });
         return { resolvedR2: r2SeverityIn(stdout) > 0 };
       } catch (e: unknown) {
-        const err = e as { stderr?: string; killed?: boolean; signal?: string | null };
-        if (err.killed || err.signal) return { timedOut: true };
+        // `killed` is set only when execFile itself killed the child, i.e. on the timeout; a child that
+        // dies of its own signal (SIGSEGV, a V8 heap-limit abort, the OOM killer) is an error, and its
+        // stderr is what the degrade message shows.
+        const err = e as { stderr?: string; killed?: boolean };
+        if (err.killed) return { timedOut: true };
         return { stderr: String(err.stderr ?? '') };
       }
     }),

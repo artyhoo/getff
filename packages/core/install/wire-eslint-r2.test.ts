@@ -474,6 +474,18 @@ describe('probeViaEslint — an ESLint that does not answer', () => {
     }
   }, 20_000);
 
+  it('reads an ESLint that crashes on its own signal as an error, not as a timeout', async () => {
+    const dir = hangingEslint();
+    writeFileSync(join(dir, 'node_modules', 'eslint', 'bin', 'eslint.js'), "process.kill(process.pid, 'SIGSEGV');\n", 'utf8');
+    try {
+      const v = await probeViaEslint(join(dir, 'eslint.config.mjs'), dir, undefined, { timeoutMs: 10_000 });
+      expect(v).not.toBe('timed-out');
+      expect(v).toBe('other-error');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
   it.skipIf(!TS_MORPH_AVAILABLE)('resolveAndWire degrades and leaves the config as it was', async () => {
     const dir = hangingEslint();
     try {
