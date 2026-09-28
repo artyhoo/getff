@@ -711,9 +711,9 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1373                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1377                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1362          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1392          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
@@ -722,7 +722,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:1854                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
