@@ -20,6 +20,7 @@ import {
   formatLikeConsumer,
   generateDegradedSnippet,
   probeViaEslint,
+  r2NotWiredLine,
   resolveAndWire,
   wireConfigSource,
   wireNRules,
@@ -1141,5 +1142,36 @@ describe('wireR2IntoOwnConfig — R2 in a per-package config the consumer owns (
       expect(readFileSync(cfg, 'utf8')).toBe(PKG);
       expect(out).toMatch(/^ {2}· not wired: R2 .* — .*rolled back/m);
     });
+  });
+});
+
+describe('r2NotWiredLine — the line the install copies into its NOT wired summary', () => {
+  it('keeps a multi-line reason on one line, so the summary carries all of it', () => {
+    // An own-config rollback reason embeds ESLint's multi-line output; the install reads the wirer's
+    // output line by line, so a raw newline would cut the summary entry at the reason's first line.
+    const line = r2NotWiredLine(
+      '/no/such/root/apps/api/eslint.config.mjs',
+      'ESLint could not load it (Oops! Something went wrong! :(\n\n  ESLint: 9.0.0\n), so it was rolled back; the config is as it was',
+      '/no/such/root',
+    );
+    expect(line).not.toContain('\n');
+    expect(line).toBe(
+      `  · not wired: R2 (${R2_RULE_ID}) in apps/api/eslint.config.mjs — ESLint could not load it (Oops! Something went wrong! :( ESLint: 9.0.0 ), so it was rolled back; the config is as it was`,
+    );
+  });
+
+  it('names a config that is itself a symlink by its own path in the project, not by its target', () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'r2-line-')));
+    try {
+      mkdirSync(join(root, 'shared'));
+      mkdirSync(join(root, 'apps', 'api'), { recursive: true });
+      writeFileSync(join(root, 'shared', 'eslint.config.mjs'), 'export default [];\n');
+      symlinkSync(join(root, 'shared', 'eslint.config.mjs'), join(root, 'apps', 'api', 'eslint.config.mjs'));
+      expect(r2NotWiredLine(join(root, 'apps', 'api', 'eslint.config.mjs'), 'why', root)).toBe(
+        `  · not wired: R2 (${R2_RULE_ID}) in apps/api/eslint.config.mjs — why`,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

@@ -750,21 +750,59 @@ export interface PrMergeState {
   body?: string | null;
 }
 
+/**
+ * Network failures a `gh` READ is worth repeating for: Go net/http as gh prints it. Measured
+ * 2026-09-28 on the operator's Mac: through the VPN tunnel the TLS handshake to api.github.com
+ * took 2-8 s and 4 of 6 consecutive `gh api graphql` calls timed out, so a sweep making one
+ * `gh` call per task almost never finished in one piece.
+ */
+const GH_TRANSIENT_RE =
+  /TLS handshake timeout|i\/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve host/i;
+
+/**
+ * `gh <args>` for a READ, repeated on a transient network failure (4 attempts, 3 s then 6 s then
+ * 12 s apart; `RUNTIME_BRIDGE_GH_RETRY_BASE_MS` overrides the 3 s). Only for idempotent reads —
+ * never a write such as `gh pr merge`. Any other failure is thrown at once.
+ *
+ * `maxBuffer` is raised from Node's 1 MiB default: the sweep's one merged-PR search returns every
+ * matching PR body at once (measured 1.4 MB for 160 PRs on 2026-09-28), and at 1 MiB the call died
+ * with `spawnSync gh ENOBUFS` on the first live tick after #1874.
+ */
+const GH_READ_MAX_BUFFER = 64 * 1024 * 1024;
+
+export function ghRead(args: string[]): string {
+  const base = Number(process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] ?? 3000);
+  const attempts = 4;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return execFileSync('gh', args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: GH_READ_MAX_BUFFER,
+      });
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      const text = `${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`;
+      if (attempt >= attempts || !GH_TRANSIENT_RE.test(text)) throw err;
+      Atomics.wait(
+        new Int32Array(new SharedArrayBuffer(4)),
+        0,
+        0,
+        base * 2 ** (attempt - 1),
+      );
+    }
+  }
+}
+
 /** The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`. */
 export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
-  const out = execFileSync(
-    'gh',
-    [
-      'pr',
-      'view',
-      prUrl,
-      '--json',
-      'state,mergedAt,mergeCommit,headRefName,body',
-    ],
-    {
-      encoding: 'utf8',
-    },
-  );
+  const out = ghRead([
+    'pr',
+    'view',
+    prUrl,
+    '--json',
+    'state,mergedAt,mergeCommit,headRefName,body',
+  ]);
   const parsed = JSON.parse(out) as {
     state?: string;
     mergedAt?: string | null;
@@ -1107,23 +1145,19 @@ export function ghMergedPrLookup(repo: string): PrLookup {
   return async (task) => {
     const list = (args: string[]): MergedPr[] =>
       JSON.parse(
-        execFileSync(
-          'gh',
-          [
-            'pr',
-            'list',
-            '--repo',
-            repo,
-            '--state',
-            'merged',
-            '--limit',
-            '100',
-            ...args,
-            '--json',
-            'url,body,headRefName',
-          ],
-          { encoding: 'utf8' },
-        ),
+        ghRead([
+          'pr',
+          'list',
+          '--repo',
+          repo,
+          '--state',
+          'merged',
+          '--limit',
+          '100',
+          ...args,
+          '--json',
+          'url,body,headRefName',
+        ]),
       ) as MergedPr[];
     const found = new Map<string, MergedPr>();
     for (const pr of list(['--search', `"${taskMarker(task.id)}" in:body`]))
@@ -1134,15 +1168,70 @@ export function ghMergedPrLookup(repo: string): PrLookup {
   };
 }
 
+/**
+ * The sweep's lookup: ONE `gh` search for every merged PR carrying an aif-task marker, fetched on
+ * the first task and matched in memory for the rest; a per-task `--head` search runs only for a
+ * task with a persisted `branchName`. {@link ghMergedPrLookup} costs one GitHub search per task,
+ * and a project sweep visits every done/review task — 241 of them on 2026-09-28, almost none with
+ * a marker, so a tick spent 10-30 min on searches that found nothing and hit the 600 s watchdog.
+ * `limit` caps the marker index (newest first); a PR older than that has long been swept.
+ */
+export function ghMergedPrIndexLookup(repo: string, limit = 1000): PrLookup {
+  const json = 'url,body,headRefName';
+  let index: MergedPr[] | undefined;
+  return async (task) => {
+    index ??= JSON.parse(
+      ghRead([
+        'pr',
+        'list',
+        '--repo',
+        repo,
+        '--state',
+        'merged',
+        '--limit',
+        String(limit),
+        '--search',
+        '"aif-task:" in:body',
+        '--json',
+        json,
+      ]),
+    ) as MergedPr[];
+    const found = new Map<string, MergedPr>();
+    for (const pr of index) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    if (task.branchName) {
+      const onBranch = JSON.parse(
+        ghRead([
+          'pr',
+          'list',
+          '--repo',
+          repo,
+          '--state',
+          'merged',
+          '--limit',
+          '100',
+          '--head',
+          task.branchName,
+          '--json',
+          json,
+        ]),
+      ) as MergedPr[];
+      for (const pr of onBranch)
+        if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    }
+    return [...found.values()];
+  };
+}
+
 /** The GitHub repo of the cwd's checkout (`gh repo view`), for a sweep given no `--repo`. */
 export function cwdRepo(): string {
-  return execFileSync(
-    'gh',
-    ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'],
-    {
-      encoding: 'utf8',
-    },
-  ).trim();
+  return ghRead([
+    'repo',
+    'view',
+    '--json',
+    'nameWithOwner',
+    '--jq',
+    '.nameWithOwner',
+  ]).trim();
 }
 
 /** One task's outcome in a {@link closeMergedTasks} sweep. */
@@ -1152,6 +1241,11 @@ export interface SweepEntry {
   prUrl?: string;
   report?: MergeReport;
   skippedReason?: string;
+  /**
+   * Set when closing THIS task threw (a refused aif transition, a failed read-back). It is
+   * recorded per task so one un-closable task cannot stop the sweep from closing the others.
+   */
+  error?: string;
 }
 
 /** The statuses a sweep looks at: a harvested task waits at one of these until closed. */
@@ -1164,7 +1258,8 @@ const SWEEP_STATUSES = new Set(['done', 'review']);
  * and every close still passes {@link reportMergeToAif}'s own merge proof. So it is safe to run
  * after any merge, however the PR was opened (harvest.ts, a host-side bundle harvest, pc-hub),
  * and a second run changes nothing. A task with zero or several matching PRs is reported,
- * never guessed at.
+ * never guessed at. A task whose close throws is recorded with its `error`, and the sweep
+ * goes on to the next task.
  */
 export async function closeMergedTasks(
   baseUrl: string,
@@ -1213,13 +1308,27 @@ export async function closeMergedTasks(
       });
       continue;
     }
-    const report = await reportMergeToAif(baseUrl, task.id, prs[0].url, probe);
-    out.push({
-      taskId: task.id,
-      status: task.status,
-      prUrl: prs[0].url,
-      report,
-    });
+    try {
+      const report = await reportMergeToAif(
+        baseUrl,
+        task.id,
+        prs[0].url,
+        probe,
+      );
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        report,
+      });
+    } catch (err) {
+      out.push({
+        taskId: task.id,
+        status: task.status,
+        prUrl: prs[0].url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
   return out;
 }
@@ -1259,7 +1368,7 @@ async function main(): Promise<void> {
       const entries = await closeMergedTasks(
         baseUrl,
         { projectId: parsed.project, taskId: parsed.taskId },
-        ghMergedPrLookup(repo),
+        ghMergedPrIndexLookup(repo),
       );
       process.stdout.write(
         JSON.stringify({ ok: true, repo, closeMerged: entries }) + '\n',
@@ -1342,7 +1451,7 @@ async function main(): Promise<void> {
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
     // Every body carries the aif-task marker line: it is how the return channel maps the
-    // merged PR back to this task (ghMergedPrLookup).
+    // merged PR back to this task (ghMergedPrIndexLookup / ghMergedPrLookup).
     const body = withTaskMarker(
       args.bodyFile
         ? readFileSync(args.bodyFile, 'utf8')

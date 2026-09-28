@@ -122,7 +122,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:1910 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1361 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1369 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -180,7 +180,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2394 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2402 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2443 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2451 (workflow-run:invocation-verb)",
           ".husky/pre-commit:166 (quoted-path-token)"
         ]
       },
@@ -239,7 +239,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2544 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2552 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -286,8 +286,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1267 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1272 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1275 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1280 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -328,7 +328,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:310 (quoted-path-token)"
+          ".husky/pre-commit:352 (quoted-path-token)"
         ]
       },
       "example": null
@@ -347,7 +347,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:289 (quoted-path-token)"
+          ".husky/pre-commit:331 (quoted-path-token)"
         ]
       },
       "example": null
@@ -493,6 +493,26 @@
       "example": null
     },
     {
+      "name": "render-invariants.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "renders the session digest's `INVARIANTS_LINE` from README.md.",
+      "source": {
+        "path": "scripts/render-invariants.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          "packages/core/hooks/pre-push.ts:2403 (spawn-argument)",
+          ".husky/pre-commit:290 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "render-presets.mjs",
       "kind": "script",
       "shipsTo": {
@@ -566,7 +586,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1295 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1303 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -630,6 +650,7 @@
   "unwired": [
     "aif-clone-hygiene.sh",
     "apply-doc-fixes.sh",
+    "close-merged-sweep.sh",
     "fire-routine.sh",
     "getff-glm-onebutton.sh",
     "host-verify-coverage.sh",

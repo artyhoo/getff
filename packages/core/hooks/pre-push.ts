@@ -2392,6 +2392,26 @@ function lycheeSection(ctx: SectionCtx): void {
   }
 }
 
+// ── 4b'. Invariants-line render drift (maintainer, 2026-09-28) ───────────────
+// The session digest's INVARIANTS_LINE (.claude/hooks/inject-session-bootstrap.sh,
+// injected into every prompt and subagent start) is a rendering of README.md «What
+// must not break (invariants)». A hand copy drifted once (four invariants vs README's
+// five); scripts/render-invariants.mjs exists in the maintainer repo only →
+// owner=maintainer. Plain node: the renderer imports node: builtins only.
+function invariantsRenderSection(): void {
+  if (existsSync(resolve(REPO_ROOT, 'scripts/render-invariants.mjs'))) {
+    const r = run('node', ['scripts/render-invariants.mjs', '--check']);
+    if (r.notFound) {
+      die('❌ node not found. Install Node.js to enable the invariants-line drift check.');
+    }
+    // Exit 1 = the rendered line differs (re-run --write); anything else = README or the
+    // hook's markers could not be parsed, which --write would not fix.
+    if (r.exitCode === 1) die('❌ invariants-line drift detected:', r);
+    if (r.exitCode !== 0) die('❌ invariants-line render failed (README invariants block or hook markers unparseable):', r);
+    emit(r);
+  }
+}
+
 /**
  * The ordered section registry — the SSOT for pre-push composition. Ordering is
  * preserved from the historical inline main() body (§1 actionlint before §2 zizmor;
@@ -2463,6 +2483,11 @@ const SECTIONS: readonly PrePushSection[] = [
     id: 'rule-index-render',
     owner: 'maintainer',
     run: () => ruleIndexRenderSection(),
+  },
+  {
+    id: 'invariants-render',
+    owner: 'maintainer',
+    run: () => invariantsRenderSection(),
   },
   {
     id: 'reference-render',
