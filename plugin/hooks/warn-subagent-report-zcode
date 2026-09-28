@@ -127,7 +127,7 @@ _have_key() {
 }
 
 # jq is required (every hook here depends on it). Graceful no-op without jq — matches
-# end-of-turn-reminder:14. (The CC source diverges here on purpose: its jq guard at
+# end-of-turn-reminder:16. (The CC source diverges here on purpose: its jq guard at
 # warn-subagent-report.sh:60-65 emits a loud SKIP note instead of a silent no-op.)
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -191,7 +191,7 @@ _arm_a_post() {
 # tool_result entry in the JSONL, applies the same grammar, dedups against Arm A's state.
 # Catches truncation (>120 KB) and Arm A skipped fires.
 #
-# Honors `.stop_hook_active=true` (matches end-of-turn-reminder:35-38) → exit 0 to avoid
+# Honors `.stop_hook_active=true` (matches end-of-turn-reminder:90-91) → exit 0 to avoid
 # second-fire after StopHook.
 _arm_b_stop() {
   local STOP_ACTIVE
@@ -207,7 +207,7 @@ _arm_b_stop() {
   fi
 
   # Candidate lines: assistant entries carrying Agent tool_use. Use the alternation pattern
-  # from end-of-turn-reminder:69 — handles both CC outer-"type":"assistant" and ZCode's
+  # from end-of-turn-reminder:675-680 — handles both CC outer-"type":"assistant" and ZCode's
   # role-arm transcripts. We then look INSIDE each assistant line for tool_use entries
   # whose name is Agent|Task — the tool_use entry's toolCallId anchors dedup.
   #

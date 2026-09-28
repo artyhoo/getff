@@ -146,7 +146,7 @@ PARITY_CROSS="warn-subagent-report-zcode:warn-subagent-report"
 # `env -i` keeps the operator's own AIF_HOOK_LANG / ZCODE_PROJECT_DIR out of the comparison.
 run_hook() {
   local f="$1" in="$2" raw; shift 2
-  raw=$({ printf '%s' "$in" | env -i PATH="$PATH" HOME="$HOME" "$@" bash "$f" 2>/dev/null; printf 'rc=%s' "$?"; })
+  raw=$({ printf '%s' "$in" | env -i PATH="$PATH" HOME="$HOME" "$@" "$BASH" "$f" 2>/dev/null; printf 'rc=%s' "$?"; })
   HRC="${raw##*rc=}"; HOUT="${raw%rc=*}"
 }
 # zcode_ctx <json> — the {additionalContext} string, trailing newlines kept (empty if no JSON).
@@ -215,10 +215,18 @@ parity_warn_subagent_report() {
   ptr=$(grep -oE 'line [0-9]+: REPORT_CUE_RE, lines [0-9]+/[0-9]+/[0-9]+: section regexes' "$twin" | head -1)
   [ -n "$ptr" ] || { echo "    twin header lost its grammar pointer (line N: REPORT_CUE_RE, lines a/b/c: section regexes)"; return 1; }
   read -r cue s1 s2 s3 <<<"$(printf '%s' "$ptr" | grep -oE '[0-9]+' | tr '\n' ' ')"
-  sed -n "${cue}p" "$src" | grep -q "^REPORT_CUE_RE='" || { echo "    pointer 'line $cue: REPORT_CUE_RE' is stale (source :$cue = $(sed -n "${cue}p" "$src"))"; return 1; }
-  for n in "$s1" "$s2" "$s3"; do
-    sed -n "${n}p" "$src" | grep -q "grep -qE '" || { echo "    pointer 'lines $s1/$s2/$s3' is stale (source :$n = $(sed -n "${n}p" "$src"))"; return 1; }
+  # Each pointer must land on the grammar item it names, in order: cue = item 1, sections =
+  # items 2/4/6 (items 3/5/7 are the labels on the following lines).
+  local i=1 n want
+  for n in "$cue" "$s1" "$s2" "$s3"; do
+    want=$(printf '%s\n' "$g" | sed -n "${i}p"); i=$((i == 1 ? 2 : i + 2))
+    sed -n "${n}p" "$src" | grep -qF -- "$want" || { echo "    pointer to source :$n is stale — expected «$want», found «$(sed -n "${n}p" "$src")»"; return 1; }
   done
+  # The «Mirrors …:A-B VERBATIM» range must span the whole grammar block.
+  local range a b
+  range=$(grep -oE 'warn-subagent-report\.sh:[0-9]+-[0-9]+ VERBATIM' "$twin" | head -1 | grep -oE '[0-9]+-[0-9]+')
+  a=${range%-*}; b=${range#*-}
+  { [ -n "$range" ] && [ "$a" -le "$cue" ] && [ "$b" -ge "$s3" ]; } || { echo "    «Mirrors …:$range VERBATIM» does not span the grammar block :$cue-$s3"; return 1; }
 }
 
 # check_twin <kind> <src> <twin> — dispatch to the right comparison.
@@ -242,7 +250,13 @@ unregistered_twins() {
     case "$known" in *" $nm "*) ;; *) echo "$nm" ;; esac
   done
   for t in "$2"/*; do
+    # A twin names its source either in prose («twin of .claude/hooks/<x>.sh») or by a
+    # `@dual-pair: <x>` anchor that happens to be a hook name; either form counts.
     base=$(grep -m1 -oE 'twin of \.claude/hooks/[A-Za-z0-9_-]+\.sh' "$t" 2>/dev/null | sed 's#.*/##; s#\.sh$##')
+    if [ -z "$base" ]; then
+      base=$(grep -m1 -oE '^# @dual-pair: [A-Za-z0-9_-]+' "$t" 2>/dev/null | sed 's/.*: //')
+      [ -n "$base" ] && [ -f "$1/$base.sh" ] || base=""
+    fi
     [ -n "$base" ] && [ "$base" != "$(basename "$t")" ] || continue
     case " $PARITY_CROSS " in *" $(basename "$t"):$base "*) ;; *) basename "$t" ;; esac
   done
@@ -285,15 +299,22 @@ else
   mutant_red "project-digest end marker" inject-project-digest "$SRC_DIR/inject-project-digest.sh" "$PLUGIN_DIR/inject-project-digest" 's/digest:end/digest:stop/g'
   mutant_red "project-digest SubagentStart event" inject-project-digest "$SRC_DIR/inject-project-digest.sh" "$PLUGIN_DIR/inject-project-digest" 's/hookEventName:"SubagentStart"/hookEventName:"SubagentStop"/'
   mutant_red "subagent-context stale citation" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/inject-project-digest\.sh:31,39/inject-project-digest.sh:31,38/'
+  mutant_red "subagent-context code above _is_zcode" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/^set -uo pipefail$/set -u/m'
   mutant_red "warn-report section regex" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" "s/grep -qE '\\^Confidence:'/grep -qE '^Confidence'/"
   mutant_red "warn-report stale pointer" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/line \d+: REPORT_CUE_RE/line 78: REPORT_CUE_RE/'
+  # shellcheck disable=SC2016  # perl back-references, not shell expansions
+  mutant_red "warn-report pointer onto the wrong regex" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's#lines (\d+)/(\d+)/(\d+): section#lines $2/$1/$3: section#'
+  mutant_red "warn-report mirrored range" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/warn-subagent-report\.sh:\d+-\d+ VERBATIM/warn-subagent-report.sh:74-97 VERBATIM/'
 
   printf '#!/usr/bin/env bash\n# @plugin-transform: manual — a brand-new hand-maintained twin nobody registered\n' > "$M/src/newhook.sh"
   printf '#!/usr/bin/env bash\necho twin\n' > "$M/tw/newhook"
   printf '#!/usr/bin/env bash\n# stray-zcode — ZCode twin of .claude/hooks/some-hook.sh\n' > "$M/tw/stray-zcode"
+  printf '#!/usr/bin/env bash\n' > "$M/src/paired-hook.sh"
+  printf '#!/usr/bin/env bash\n# @dual-pair: paired-hook\n' > "$M/tw/paired-hook-zcode"
+  printf '#!/usr/bin/env bash\n# @dual-pair: some-i18n-anchor\n' > "$M/tw/anchor-only"
   missing=$(unregistered_twins "$M/src" "$M/tw" | tr '\n' ' ')
-  if [ "$missing" = "newhook stray-zcode " ]; then ok "negative [completeness]: unregistered manual + cross-named twins are named"
-  else bad "negative [completeness]: expected 'newhook stray-zcode', got '$missing'"; fi
+  if [ "$missing" = "newhook paired-hook-zcode stray-zcode " ]; then ok "negative [completeness]: unregistered manual, prose-named and @dual-pair-named twins are named"
+  else bad "negative [completeness]: expected 'newhook paired-hook-zcode stray-zcode', got '$missing'"; fi
 fi
 
 echo "Pass: $PASS  Fail: $FAIL"
