@@ -252,6 +252,23 @@ describe('customRulesImportSpecifier (#644)', () => {
       './eslint-rules-local/index.mjs',
     );
   });
+  it('stays inside the project when --path runs through a symlink and the cwd is the physical directory', () => {
+    // process.cwd() is physical while the install passes --path through the project path as given
+    // (macOS /var → /private/var): ESLint loads the config from its physical directory, so a ../ walk
+    // out through the symlink resolves to a path that does not exist and the wiring is rolled back.
+    const real = mkdtempSync(join(realpathSync(tmpdir()), 'r2-spec-real-'));
+    const link = `${real}-link`;
+    try {
+      mkdirSync(join(real, 'apps/api'), { recursive: true });
+      symlinkSync(real, link);
+      expect(customRulesImportSpecifier(join(link, 'apps/api/eslint.config.mjs'), real)).toBe(
+        '../../eslint-rules-local/index.mjs',
+      );
+    } finally {
+      if (existsSync(link)) unlinkSync(link);
+      rmSync(real, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('resolveAndWire (#644)', () => {
@@ -821,6 +838,24 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     const root = await wireOwnConfig(src, { ignores: IGNORES, boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH, gateReadsRuleGlobs: true });
     expect(root.notes?.join(' ')).toMatch(/scripts\/check-rule-globs\.sh fails on this config/);
     for (const n of root.notes ?? []) expect(n.length).toBeLessThanOrEqual(300);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('a consumer RULE_GLOBS with a quoted boundary key or a wrapped object is read as the gate reads it', async () => {
+    // The gate reads `"boundary": [` and `({ boundary: [ … ] })`; a wirer that did not would say the
+    // config has no boundary array — and that the gate fails on it — while the gate passes (third cold review).
+    const OLD = '**/old/**/*.{ts,tsx}';
+    for (const src of [
+      `const RULE_GLOBS = { "boundary": ['${OLD}'] };\nexport default [{ files: RULE_GLOBS.boundary, rules: {} }];\n`,
+      `const RULE_GLOBS = /** @type {const} */ ({ boundary: ['${OLD}'] });\nexport default [{ files: RULE_GLOBS.boundary, rules: {} }];\n`,
+    ]) {
+      expect(gateBoundary(src)).toEqual([OLD]);
+      const r = await wireOwnConfig(src, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH, gateReadsRuleGlobs: true });
+      expect(r.notes?.join(' ') ?? '').not.toMatch(/no boundary array/);
+      expect(r.status).toBe('wired');
+      expect(onlyInserts(src, r.modified)).toBe(true);
+      expect(gateBoundary(r.modified)).toEqual([OLD, ...BOUNDARY]);
+      expect((r.modified.match(/const RULE_GLOBS/g) ?? []).length).toBe(1);
+    }
   });
 
   it.skipIf(!TS_MORPH_AVAILABLE)('a global rules-as-tests registration → the R2 element does not register the plugin again', async () => {

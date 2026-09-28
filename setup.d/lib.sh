@@ -2781,8 +2781,9 @@ eslint_flat_configs_under() {
 }
 
 # eslint_config_has_getff_rules <file> — true when the config names one of getff's rules
-# (rules-as-tests/…) or imports / re-exports, by a relative path, a config that does: a workspace config
-# spreading a sibling's getff preset has getff's rules (second cold review, after #1868). Followed up to
+# (rules-as-tests/…) or imports / re-exports / require()s, by a relative path, a config that does: a
+# workspace config spreading a sibling's getff preset has getff's rules (second cold review, after
+# #1868). Every relative import on a line counts (third cold review). Followed up to
 # four imports deep, each file read once, so an import cycle ends. A bare package import is not
 # followed — what it resolves to is not a file of this project to read.
 eslint_config_has_getff_rules() {
@@ -2798,7 +2799,8 @@ eslint_config_has_getff_rules() {
       dir=$(dirname "$f")
       while IFS= read -r spec; do
         [ -n "$spec" ] && next+=("$dir/$spec")
-      done < <(sed -nE "s/.*(from|import)[[:space:]]*[(]?[[:space:]]*['\"](\.\.?\/[^'\"]+)['\"].*/\2/p" "$f")
+      done < <(grep -oE "(from|import|require)[[:space:]]*[(]?[[:space:]]*['\"]\.\.?/[^'\"]+['\"]" "$f" \
+                 | sed -E "s/.*['\"](\.\.?\/[^'\"]+)['\"]$/\1/")
     done
     queue=(${next[@]+"${next[@]}"})
     depth=$((depth + 1))

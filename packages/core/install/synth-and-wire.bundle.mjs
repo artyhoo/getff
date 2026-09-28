@@ -10133,23 +10133,23 @@ function r2Element(variant, scope) {
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
   return variant === "self-contained" ? `{ ${filesPart}plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }` : `{ ${filesPart}rules: { '${R2_RULE_ID}': 'error' } }`;
 }
+function physicalDir(p) {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+}
 function customRulesImportSpecifier(configPath, cwd) {
-  const target = resolve5(cwd, "eslint-rules-local/index.mjs");
-  let rel = relative(dirname6(resolve5(configPath)), target);
+  const target = join2(physicalDir(resolve5(cwd)), "eslint-rules-local/index.mjs");
+  let rel = relative(physicalDir(dirname6(resolve5(configPath))), target);
   if (!rel.startsWith(".")) rel = `./${rel}`;
   return rel;
 }
 var R2_NO_ENGINE = "its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules";
 function r2NotWiredLine(configPath, why, cwd = process2.cwd()) {
-  const real = (p) => {
-    try {
-      return realpathSync(p);
-    } catch {
-      return p;
-    }
-  };
-  const file = join2(real(dirname6(configPath)), basename(configPath));
-  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} \u2014 ${why.replace(/\s*\n\s*/g, " ")}`;
+  const file = join2(physicalDir(dirname6(configPath)), basename(configPath));
+  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(physicalDir(cwd), file)} \u2014 ${why.replace(/\s*\n\s*/g, " ")}`;
 }
 function generateDegradedSnippet(configPath) {
   return [
@@ -10688,17 +10688,25 @@ async function wireOwnConfig(source, opts = {}) {
   let registerR2 = false;
   let missingGlobs = [];
   let ruleGlobsBlock;
+  let boundaryArr;
   if (boundary.length > 0) {
     const arrOf = () => {
-      const init = sf.getVariableDeclaration("RULE_GLOBS")?.getInitializer();
-      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperty("boundary") : void 0;
+      const wrappers = /* @__PURE__ */ new Set([
+        SyntaxKind.ParenthesizedExpression,
+        SyntaxKind.AsExpression,
+        SyntaxKind.SatisfiesExpression,
+        SyntaxKind.TypeAssertionExpression
+      ]);
+      let init = sf.getVariableDeclaration("RULE_GLOBS")?.getInitializer();
+      while (init && wrappers.has(init.getKind())) init = init.getExpression();
+      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperties().find((p) => normPropName(p.getName?.()) === "boundary") : void 0;
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : void 0;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : void 0;
     };
     const r2Mentions = [`'`, `"`, "`"].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
     const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration("RULE_GLOBS")) {
-      const arr = arrOf();
+      const arr = boundaryArr = arrOf();
       if (!arr) {
         notes.push(
           "R2 \u2014 the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh fails on this config without RULE_GLOBS.boundary" : "")
@@ -10736,9 +10744,7 @@ async function wireOwnConfig(source, opts = {}) {
   const current = sf.getFullText();
   const inserts = [];
   if (missingGlobs.length > 0) {
-    const init = sf.getVariableDeclarationOrThrow("RULE_GLOBS").getInitializerOrThrow();
-    const arr = init.getPropertyOrThrow("boundary").getInitializerOrThrow();
-    inserts.push(appendInsertion(current, elementList(arr, SyntaxKind), missingGlobs.map(singleQuoted)));
+    inserts.push(appendInsertion(current, elementList(boundaryArr, SyntaxKind), missingGlobs.map(singleQuoted)));
   }
   if (toAdd.length > 0) inserts.push(...exportAppendInsertions(current, exportOf().getExpression(), SyntaxKind, toAdd));
   if (needsImport) inserts.push(importInsertion(sf, current, SyntaxKind, opts.customRulesImportPath));

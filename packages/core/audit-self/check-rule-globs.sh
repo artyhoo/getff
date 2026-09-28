@@ -74,13 +74,30 @@ config_dirs() {
 # RULE_GLOBS is read the way JavaScript reads it, not only the way getff's template lays it out: the
 # key bare or quoted, anywhere on its line (a one-line RULE_GLOBS object too), globs in single or double
 # quotes (prettier's default is double), and the array read only up to its own `]` — on one line, the
-# next key's globs are not this key's (second cold review, after #1868). The quote characters come in
-# through -v; `[[]` is a literal `[` that needs no backslash.
-RG_AWK_OPENER='function opener(key) { return "(^|[^A-Za-z0-9_$.])[" sq dq "]?" key "[" sq dq "]?[[:space:]]*:[[:space:]]*[[]" }'
+# next key's globs are not this key's (second cold review, after #1868). A comment is not code: each line
+# is read with its // and /* */ comments cut out (uncomment; quoted text stays, a /* */ comment may span
+# lines), and a key is the whole key — `my-boundary` is not `boundary` (third cold review). The quote
+# characters come in through -v; `[[]` is a literal `[` that needs no backslash.
+RG_AWK_LIB='
+function opener(key) { return "(^|[^A-Za-z0-9_$." sq dq "-])(" sq key sq "|" dq key dq "|" key ")[[:space:]]*:[[:space:]]*[[]" }
+function uncomment(s,   out, c, q, i, n) {
+  out = ""; q = ""; n = length(s)
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (incmt) { if (c == "*" && substr(s, i + 1, 1) == "/") { incmt = 0; i++ }; continue }
+    if (q != "") { out = out c; if (c == "\\") { out = out substr(s, i + 1, 1); i++ } else if (c == q) q = ""; continue }
+    if (c == "/" && substr(s, i + 1, 1) == "/") break
+    if (c == "/" && substr(s, i + 1, 1) == "*") { incmt = 1; i++; continue }
+    if (c == sq || c == dq || c == "`") q = c
+    out = out c
+  }
+  return out
+}'
 
 # Does file $2 (default $CFG) open a `<key>: [` array?
 has_key() {
-  awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_OPENER"'
+  awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_LIB"'
+    { $0 = uncomment($0) }
     match($0, opener(key)) { found = 1; exit }
     END { exit !found }
   ' "${2:-$CFG}"
@@ -89,7 +106,7 @@ has_key() {
 # Extract the quoted globs for a RULE_GLOBS key (boundary|appCode|application) from file $2 (default
 # $CFG). Prints one glob per line.
 extract_key() {
-  awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_OPENER"'
+  awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_LIB"'
     function take(s,   c, rest, j) {
       while (length(s) > 0) {
         c = substr(s, 1, 1)
@@ -103,6 +120,7 @@ extract_key() {
       }
       return 0
     }
+    { $0 = uncomment($0) }
     !grab { if (!match($0, opener(key))) next; grab = 1; $0 = substr($0, RSTART + RLENGTH) }
     grab { if (take($0)) grab = 0 }
   ' "${2:-$CFG}"
@@ -156,7 +174,7 @@ if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; 
       [ -n "$_wd" ] || continue
       _wn="$(flat_config_in "$_wd")"
       # Only RN/Expo/bare-RN ship NO RULE_GLOBS.boundary → R2 N/A there; skip (do NOT fail — an empty
-      # boundary would make check_rule FAIL, globs.sh:208-210). react-spa AND react-next DO ship a
+      # boundary would make check_rule FAIL on «no globs found»). react-spa AND react-next DO ship a
       # populated boundary block → they fall through and recurse normally. (kickoff ⚑B2 / T-807-B)
       has_key boundary "$_wd/$_wn" \
         || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }

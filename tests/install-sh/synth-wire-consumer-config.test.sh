@@ -211,8 +211,12 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
   printf "import b from './cyc-b.mjs';\nexport default [...b];\n" > "$h/w/cyc-a.mjs"
   printf "import a from './cyc-a.mjs';\nexport default [...a];\n" > "$h/w/cyc-b.mjs"
   printf 'export default [];\n' > "$h/w/none.mjs"
+  # A CommonJS eslint.config.js reaches its base through require(); a line may import more than one config.
+  printf "const base = require('../shared/eslint.config.js');\nmodule.exports = [...base];\n" > "$h/w/cjs.js"
+  printf "import base from '../shared/eslint.config.js'; import none from './none.mjs';\nexport default [...base, ...none];\n" > "$h/w/oneline.mjs"
   eslint_config_has_getff_rules "$h/shared/eslint.config.js" && eslint_config_has_getff_rules "$h/w/dq.mjs" \
-    && eslint_config_has_getff_rules "$h/w/two.mjs" \
+    && eslint_config_has_getff_rules "$h/w/two.mjs" && eslint_config_has_getff_rules "$h/w/cjs.js" \
+    && eslint_config_has_getff_rules "$h/w/oneline.mjs" \
     && echo "OK eslint_config_has_getff_rules follows relative imports (and re-exports) to getff's rules" \
     || echo "BAD eslint_config_has_getff_rules missed getff's rules reached by a relative import"
   ! eslint_config_has_getff_rules "$h/w/bare.mjs" && ! eslint_config_has_getff_rules "$h/w/none.mjs" \

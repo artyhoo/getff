@@ -331,5 +331,70 @@ else
   bad "rule-globs reader: the block differs between the two gates, or is missing ($(diff <(reader_block "$GATE") <(reader_block "$GLOBS_GATE") | head -3 | tr '\n' '|'))"
 fi
 
+# The block reads RULE_GLOBS the way JavaScript reads it: a comment is not code, whatever quotes or keys
+# it holds, and a key that ends in «boundary» is not boundary (third cold review, after #1868).
+rg_read() { # $1 = key, $2 = config → the globs the block reads, each followed by |
+  ( eval "$(reader_block "$GLOBS_GATE")"; extract_key "$1" "$2" ) | tr '\n' '|'
+}
+RD=$(mktemp -d)
+cat > "$RD/apostrophe.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: [
+    // don't forget the api dir, it's where "handlers" live
+    '**/routes/**/*.{ts,tsx}',
+  ],
+};
+JS
+cat > "$RD/line-comment.mjs" <<'JS'
+// was: boundary: ['**/example/**/*.ts'],
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+cat > "$RD/block-comment.mjs" <<'JS'
+const RULE_GLOBS = {
+  /*
+   * boundary: ['src/old/handlers.ts'],
+   */
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+cat > "$RD/key-suffix.mjs" <<'JS'
+const RULE_GLOBS = {
+  'my-boundary': ['**/nope/**'],
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+for f in apostrophe line-comment block-comment key-suffix; do
+  got=$(rg_read boundary "$RD/$f.mjs")
+  [ "$got" = '**/routes/**/*.{ts,tsx}|' ] \
+    && ok "rule-globs reader ($f): RULE_GLOBS.boundary is read as JavaScript reads it" \
+    || bad "rule-globs reader ($f): read [$got], expected [**/routes/**/*.{ts,tsx}|]"
+done
+printf "// boundary: ['**/routes/**']\nexport default [];\n" > "$RD/only-comment.mjs"
+if ( eval "$(reader_block "$GLOBS_GATE")"; has_key boundary "$RD/only-comment.mjs" ); then
+  bad "rule-globs reader: has_key finds a boundary array that only a comment holds"
+else
+  ok "rule-globs reader: a boundary array in a comment is not a boundary key"
+fi
+# End to end: a comment's quoted glob matches a source file while the real one matches nothing — the gate
+# must fail, not pass on the comment.
+mkdir -p "$RD/e2e/src/lib"; printf 'export const x = 1;\n' > "$RD/e2e/src/lib/x.ts"
+cat > "$RD/e2e/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: [ // was "**/*.ts" before the move
+    '**/nowhere/**/*.{ts,tsx}',
+  ],
+};
+
+export default [{ files: RULE_GLOBS.boundary, rules: {} }];
+JS
+if ( cd "$RD/e2e" && bash "$GLOBS_GATE" ) >/dev/null 2>&1; then
+  bad "check-rule-globs: passed on a glob in a comment, while RULE_GLOBS.boundary matches no source file"
+else
+  ok "check-rule-globs: a glob in a comment does not make a dead RULE_GLOBS.boundary pass"
+fi
+rm -rf "$RD"
+
 rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -68,14 +68,21 @@ function r2Element(variant: TransformVariant, scope?: { files: string[] }): stri
     : `{ ${filesPart}rules: { '${R2_RULE_ID}': 'error' } }`;
 }
 
+/** A directory's physical path (symlinks resolved); the path as given when it does not exist. */
+function physicalDir(p: string): string {
+  try { return realpathSync(p); } catch { return p; }
+}
+
 /**
  * Relative import specifier from a per-package config to the consumer-root
  * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.mjs).
  * Computed per config depth — never hardcoded.
  */
 export function customRulesImportSpecifier(configPath: string, cwd: string): string {
-  const target = resolve(cwd, 'eslint-rules-local/index.mjs');
-  let rel = relative(dirname(resolve(configPath)), target);
+  // Both directories resolved physically (as in r2NotWiredLine): ESLint loads the config from its
+  // physical directory, and a ../ walk out through a symlink (macOS /var → /private/var) lands nowhere.
+  const target = join(physicalDir(resolve(cwd)), 'eslint-rules-local/index.mjs');
+  let rel = relative(physicalDir(dirname(resolve(configPath))), target);
   if (!rel.startsWith('.')) rel = `./${rel}`;
   return rel;
 }
@@ -112,11 +119,8 @@ export function r2NotWiredLine(configPath: string, why: string, cwd: string = pr
   // Directories resolved on both sides: process.cwd() is the physical directory while --path may run
   // through a symlink (macOS /var → /private/var), which `relative` renders as a ../ walk out of the
   // project. The file itself is not resolved: a config that is a symlink is named by its own path.
-  const real = (p: string): string => {
-    try { return realpathSync(p); } catch { return p; }
-  };
-  const file = join(real(dirname(configPath)), basename(configPath));
-  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
+  const file = join(physicalDir(dirname(configPath)), basename(configPath));
+  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(physicalDir(cwd), file)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
 }
 
 export function generateDegradedSnippet(configPath: string): string {
@@ -870,10 +874,18 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   let registerR2 = false;
   let missingGlobs: string[] = [];
   let ruleGlobsBlock: string | undefined;
+  let boundaryArr: any;
   if (boundary.length > 0) {
+    // RULE_GLOBS.boundary as check-rule-globs.sh reads it: the key quoted or not, the object inside
+    // parentheses or a type assertion (`/** @type {const} */ ({ … })`, `{ … } as const`).
     const arrOf = (): any => {
-      const init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
-      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperty('boundary') : undefined;
+      const wrappers = new Set([SyntaxKind.ParenthesizedExpression, SyntaxKind.AsExpression,
+        SyntaxKind.SatisfiesExpression, SyntaxKind.TypeAssertionExpression]);
+      let init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
+      while (init && wrappers.has(init.getKind())) init = init.getExpression();
+      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression)
+        ? init.getProperties().find((p: any) => normPropName(p.getName?.()) === 'boundary')
+        : undefined;
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : undefined;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : undefined;
     };
@@ -889,7 +901,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
       : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? 'differs'
         : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration('RULE_GLOBS')) {
-      const arr = arrOf();
+      const arr = (boundaryArr = arrOf());
       if (!arr) {
         notes.push(
           'R2 — the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it' +
@@ -935,9 +947,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   const current = sf.getFullText();
   const inserts: Insertion[] = [];
   if (missingGlobs.length > 0) {
-    const init = sf.getVariableDeclarationOrThrow('RULE_GLOBS').getInitializerOrThrow();
-    const arr = init.getPropertyOrThrow('boundary').getInitializerOrThrow();
-    inserts.push(appendInsertion(current, elementList(arr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
+    inserts.push(appendInsertion(current, elementList(boundaryArr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
   }
   if (toAdd.length > 0) inserts.push(...exportAppendInsertions(current, exportOf().getExpression(), SyntaxKind, toAdd));
   if (needsImport) inserts.push(importInsertion(sf, current, SyntaxKind, opts.customRulesImportPath!));
