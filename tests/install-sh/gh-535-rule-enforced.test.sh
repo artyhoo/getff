@@ -394,12 +394,40 @@ const RULE_GLOBS = Object.freeze({
   boundary: ['**/routes/**/*.{ts,tsx}'],
 });
 JS
-for f in apostrophe line-comment block-comment key-suffix nested-other second-object nested-inside computed-key frozen; do
+# Code above RULE_GLOBS is not RULE_GLOBS: a regex literal with a lone bracket or quote, a stray `)`, or a
+# template literal whose later line holds a URL must not hide the block. The wirer writes RULE_GLOBS right
+# above `export default`, after all of the consumer's own code (fourth cold review). A type assertion and a
+# declaration list are read, as the wirer reads them.
+cat > "$RD/regex-above.mjs" <<'JS'
+const isGen = (f) => /[(]/.test(f) || /\(/.test(f) || /['"`{]/.test(f);
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+cat > "$RD/template-url.mjs" <<'JS'
+const msg = `Lint config,
+see https://eslint.org/docs /* not a comment`;
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+cat > "$RD/type-assert.mjs" <<'JS'
+const RULE_GLOBS = <const>{ boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
+cat > "$RD/decl-list.mjs" <<'JS'
+const A = 1, RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
+for f in apostrophe line-comment block-comment key-suffix nested-other second-object nested-inside computed-key frozen regex-above template-url type-assert decl-list; do
   got=$(rg_read boundary "$RD/$f.mjs")
   [ "$got" = '**/routes/**/*.{ts,tsx}|' ] \
     && ok "rule-globs reader ($f): RULE_GLOBS.boundary is read as JavaScript reads it" \
     || bad "rule-globs reader ($f): read [$got], expected [**/routes/**/*.{ts,tsx}|]"
 done
+# A template literal spans lines: a `/*` on its later line opens no comment, so code after it stays code.
+printf 'const m = `a\nb /* c`;\nconst r = "rules-as-tests/no-unsafe-zod-parse";\n' > "$RD/template-cmt.mjs"
+( eval "$(reader_block "$GLOBS_GATE")"; code_of "$RD/template-cmt.mjs" ) | grep -q 'no-unsafe-zod-parse' \
+  && ok "rule-globs reader: code_of keeps code after a template literal that holds /*" \
+  || bad "rule-globs reader: code_of cut code after a template literal that holds /*"
 printf "// boundary: ['**/routes/**']\nexport default [];\n" > "$RD/only-comment.mjs"
 if ( eval "$(reader_block "$GLOBS_GATE")"; has_key boundary "$RD/only-comment.mjs" ); then
   bad "rule-globs reader: has_key finds a boundary array that only a comment holds"
@@ -499,17 +527,31 @@ cat > "$VC/eslint.config.mjs" <<'CFG'
 const RULE_GLOBS = {
   boundary: ['**/eslint-rules/**/*.{ts,tsx}'],
 };
-export default [{ files: RULE_GLOBS.boundary, rules: {} }];
+export default [{ files: RULE_GLOBS.boundary, rules: { 'no-console': 'error' } }];
 CFG
 printf '{"name":"vc","dependencies":{"zod":"3.0.0"}}\n' > "$VC/package.json"
 mkdir -p "$VC/packages/core/eslint-rules"; printf 'export const x = 1;\n' > "$VC/packages/core/eslint-rules/index.ts"
+mkdir -p "$VC/src/eslint-rules"; printf 'export const y = 1;\n' > "$VC/src/eslint-rules/own.ts"
 if ( cd "$VC" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535vc.$$ 2>&1 \
-   && ! grep -q 'packages/core' /tmp/g535vc.$$; then
+   && ! grep -q 'packages/core' /tmp/g535vc.$$ && ! grep -qi 'skipped' /tmp/g535vc.$$; then
   ok "check-rule-enforced: the vendored packages/core is not the consumer's boundary code"
 else
   bad "check-rule-enforced: checked a vendored packages/core file as boundary code ($(tr '\n' ';' </tmp/g535vc.$$))"
 fi
-rm -rf "$MT" "$VC"; rm -f /tmp/g535mt.$$ /tmp/g535vc.$$
+# A consumer workspace NAMED packages/core is the consumer's own code: only getff's vendored subtrees
+# (packages/core/hooks, eslint-rules, audit-self, principles) are pruned, not every */packages/core.
+PC=$(mktemp -d); write_root_cfg "$PC" no-console
+printf '{"name":"pc","dependencies":{"zod":"3.0.0"}}\n' > "$PC/package.json"
+mkdir -p "$PC/packages/core/src/routes"; printf 'export const x = 1;\n' > "$PC/packages/core/src/routes/a.ts"
+printf 'export default [];\n' > "$PC/packages/core/eslint.config.mjs"
+if ( cd "$PC" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535pc.$$ 2>&1; then
+  bad "check-rule-enforced: a consumer workspace named packages/core with the rule off passed ($(tr '\n' ';' </tmp/g535pc.$$))"
+else
+  grep -q 'packages/core' /tmp/g535pc.$$ \
+    && ok "check-rule-enforced: a consumer workspace named packages/core is checked (rule off there → FAIL)" \
+    || bad "check-rule-enforced: failed, but not on packages/core ($(tr '\n' ';' </tmp/g535pc.$$))"
+fi
+rm -rf "$MT" "$VC" "$PC"; rm -f /tmp/g535mt.$$ /tmp/g535vc.$$ /tmp/g535pc.$$
 
 rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
