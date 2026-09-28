@@ -1,28 +1,26 @@
 # getff one-button chain — design
 
-> **Status:** DRAFT r4. `/arch` phase 1 is complete. The §2 cold review ran round 1 of 2 on r3:
-> both seats said REVISE with 0 BLOCKERs, and both reports are folded in (§10). Not approved; no
-> code until the operator approves this spec.
-> - Rounds 1 and 2 were decided in separate discussion sessions, at the operator's request.
->   Round 2 includes its own cold re-review and the operator answer OP-18.
-> - Round 3 closed with no operator question (rows R3-*). After r3 the operator corrected the goal
->   (P13) and the stack scope (P14) and answered one escalation (R3-12). Rows R4-* hold the
->   author decisions the review forced.
+> **Status:** DRAFT r5. `/arch` phase 1 is complete. The §2 cold review ran both of its rounds
+> (round 1 on r3, round 2 on r4); both are folded in, and no third round runs. Per-finding
+> dispositions live in the [review log](2026-09-28-one-button-chain-review-log.md). Open for the
+> operator: forks R5-8 and R5-9, and the overturnable call R5-1. Not approved; no code until the
+> operator approves this spec.
+> - Rounds 1-2 were decided in separate discussion sessions; round 3 closed with no fork. P13, P14
+>   and R3-12 are operator corrections after r3. Rows R4-* and R5-* hold the author decisions the
+>   two review rounds forced.
 >
 > **Authoritative for:** the one-button chain: its ordered steps (the CONTENT of the step file) and
 > the chain record; the start round; the consumer passport the chain leaves; the complete-install
 > and green-project predicates and the final check's entry point; the lane contract; the
 > acceptance run and the closure rule.
 >
-> **NOT authoritative for:**
-> - Project goal: see [README.md#why-this-exists](../../../README.md#why-this-exists).
-> - The docs-truth contract and the step file's SHAPE (one fact, one source; generated regions
->   really generated; drift checks at pre-push; the step schema and its gates; goal governance):
->   the truth-pipeline contract spec. Until a landing session commits it under
->   `docs/superpowers/specs/`, its draft is `_design-2026-09-28-truth-pipeline.md` (r3) in the
->   operator's coordination directory. The boundary is drawn in §6.
-> - The «one beat» decision D1: the [any-stack closure spec](2026-07-23-getff-any-stack-closure-design.md).
-> - Stream 1 (the RED fresh install, prebuilt bundles): its own track, landed as #1860 and #1868.
+> **NOT authoritative for:** the project goal ([README.md#why-this-exists](../../../README.md#why-this-exists));
+> the docs-truth contract and the step file's SHAPE (the step schema and its gates, one source per
+> fact, drift checks at pre-push, goal governance), owned by the truth-pipeline contract spec, whose
+> draft until it lands under `docs/superpowers/specs/` is `_design-2026-09-28-truth-pipeline.md`
+> (r3) in the operator's coordination directory (boundary: §6); the «one beat» decision D1 (the
+> [any-stack closure spec](2026-07-23-getff-any-stack-closure-design.md)); stream 1, the RED fresh
+> install with prebuilt bundles (its own track, landed as #1860 and #1868).
 >
 > Anchors: `origin/staging` `33147ff9228` unless marked.
 
@@ -35,17 +33,14 @@ One button installs everything getff offers a project, completely, in one agent 
 4. live rule research;
 5. generated rules, each with its firing test.
 
-The target state is a **complete install** (P13). Every part above is in place and proven by the
-final check, or is listed as declined by the human or not built on the lane. A green project (the
+The target state is a **complete install** (P13): every part above is in place and proven by the
+final check, or the human declined it and the report lists it (§4.4). A green project (the
 project's own checks pass and every generated rule proves itself) is one condition of a complete
 install, not the goal by itself. The chain names no stack: each stack plugs in as a **lane**
 through one contract (P14, §4.5). «One button» means one agent session, not one shell command.
-Glossary: [One button](../../../CONTEXT.md), [Passport](../../../CONTEXT.md),
-[Complete install](../../../CONTEXT.md), [Green project](../../../CONTEXT.md),
-[Lane](../../../CONTEXT.md).
+Glossary ([CONTEXT.md](../../../CONTEXT.md)): One button, Passport, Complete install, Green project, Lane.
 
-The measured answer to «is it turnkey today?» (2026-09-27/28) is **no**: the parts exist, but the
-road between them is not built
+Measured 2026-09-27/28, it is not turnkey today: the parts exist, the road between them does not
 ([research patch N1-N15](../../meta-factory/research-patches/2026-09-27-ai-navigability-what-getff-installs.md); §3).
 
 ## 2. Operator premise register
@@ -72,13 +67,10 @@ from the round-2 session (2026-09-28); P13-P14 are the operator's corrections af
 
 ## 3. Starting point (measured)
 
-- **The generator** lives in
-  `packages/core/synthesizer/{rule-bootstrap,file-clients,research-to-node,research-to-clippy-node,generate}.ts`,
-  `agents/rule-researcher.md` and `.claude/skills/rule-research/SKILL.md`; it covers JS/TS, Python
-  and Rust (#805, #1005, #1006, #1010; IR unfreeze #1084). Its firing proof runs the ESLint Linter
-  API through tsx over committed fixture triples, because the ESLint CLI crashes on `.ts` flat
-  configs (`packages/core/audit-self/check-fences-fire.sh:6`, `:40`). Nothing proves that a rule
-  is wired into the project's own config.
+- **The generator** (`packages/core/synthesizer/`, `agents/rule-researcher.md`,
+  `.claude/skills/rule-research/SKILL.md`) covers JS/TS, Python and Rust (#805, #1005, #1006,
+  #1010; IR unfreeze #1084). Each rule carries a bad and a good example and a negative test, proven
+  by gates that already run (R5-12). Nothing proves that a rule is wired into the project's config.
 - **The road is cut in three places.**
   1. The pasted prompt still ends «8. Stop here» (`INSTALL-FOR-AI.md:107`) and says the passport
      must NOT be filled by the agent (`:101`). Research is gated by a stopping rule whose opt-out
@@ -95,34 +87,30 @@ from the round-2 session (2026-09-28); P13-P14 are the operator's corrections af
   `getff.first-steps/v1`) keeps one sequence per depth. `fill-passport` is a human step at every
   depth (`:45`, `:99`, `:141`); `research-your-stack` exists only at core depth (`:75`); its two
   claimed renders are not generated (truth-pipeline draft N-k).
-- **The passport is read by nobody on the chain path, and misread off it.**
-  - The generator skips it (`detectStack(root, { skipAif: true })`,
-    `packages/core/synthesizer/resolve-ctx.ts:59`), and the researcher never reads it.
-  - Every other detector path reads it FIRST (`packages/core/detector/index.ts:31-33`). `readAif`
-    maps any «React» or «Next.js» text to `react-next` (`read-aif.ts:18-19`). getff's own
-    DESCRIPTION template names Next.js in its Framework line
-    (`packages/core/templates/shared/DESCRIPTION.template.md:17`), and the python lane copies it
-    (`setup.d/45-python.sh:1352`). So a python project carrying it reads as `react-next`, and so
-    does a Vite React project.
-  - `agents/aif-init.md` is listed in `SHIPPED_DOCS` (`install.sh:232`) and delivered on npm lanes
-    by the agent loop. It reads manifests and the directory layout; nothing calls it.
-- **Claude Code loads CLAUDE.md OR AGENTS.md.** AGENTS.md is read only when no CLAUDE.md exists in
-  the working directory or above it; `.claude/CLAUDE.md` or `CLAUDE.local.md` also stop it. Reading
-  AGENTS.md directly needs Claude Code 2.1.277+; the operator's Mac runs 2.1.270 and the factory
-  2.1.220 (code.claude.com/docs/en/memory.md, re-verified by both round-1 seats). getff writes no
-  `@AGENTS.md` import today.
-- **The non-npm lanes (alpha, P14).**
-  - The python lane exits before the npm layer loop (`install.sh:383-389`), so stage 80 and the
-    `05-mcp` layer never run there: deepwiki is neither offered nor reported. The `setup` wrapper
-    still runs the machine-global companion steps afterwards (`setup:77`, `:113-118`) and, under
-    `-y` without `--global`, skips each with one line (`setup.d/engine.sh:69-70`).
-  - Python rules are ast-grep YAML (`agents/rule-researcher.md:164`). Shipped python CI installs
-    ast-grep pinned (`packages/core/templates/python/github-actions-ci.yml:45-46`); the python
-    pre-push hook fails open without it (`packages/core/templates/python/hooks/pre-push.sh:36`,
-    `:44-45`); setup's self-check plants a fixed violation set, not the generated rules
-    (`setup.d/45-python.sh:505-507`).
-  - Cargo and go write a lock (`setup.d/46-cargo.sh:24`, `setup.d/47-go.sh:19`) but deliver no
-    agent surface; research has a Rust pointer only (`agents/rule-researcher.md:262`).
+- **The passport is read by nobody on the chain path, and misread off it.** The generator skips it
+  (`packages/core/synthesizer/resolve-ctx.ts:59`) and the researcher never reads it. Every other
+  detector path reads it FIRST (`packages/core/detector/index.ts:31-33`), and `readAif` maps any
+  «React» or «Next.js» text to `react-next` (`read-aif.ts:18-19`). getff's own DESCRIPTION
+  template names Next.js (`packages/core/templates/shared/DESCRIPTION.template.md:17`) and the
+  python lane copies it (`setup.d/45-python.sh:1352`): a python or Vite React project reads as
+  `react-next`. `agents/aif-init.md` is shipped (`install.sh:232`) and reads manifests and the
+  layout; nothing calls it.
+- **Claude Code loads CLAUDE.md OR AGENTS.md:** AGENTS.md only when no CLAUDE.md,
+  `.claude/CLAUDE.md` or `CLAUDE.local.md` exists at or above the working directory, and directly
+  only from 2.1.277; the Mac runs 2.1.270, the factory 2.1.220 (code.claude.com/docs/en/memory.md,
+  re-verified by three seats). getff writes no `@AGENTS.md` import.
+- **The non-npm lanes (alpha, P14).** The python lane exits before the npm layer loop
+  (`install.sh:383-389`), so stage 80 and the `05-mcp` layer never run there; under `-y` without
+  `--global` the `setup` wrapper skips each machine-global step with one line (`setup:77`,
+  `:113-118`; `setup.d/engine.sh:69-70`). Python rules are ast-grep YAML
+  (`agents/rule-researcher.md:164`): python CI installs ast-grep pinned
+  (`packages/core/templates/python/github-actions-ci.yml:45-46`), the pre-push hook fails open
+  without it (`packages/core/templates/python/hooks/pre-push.sh:36`, `:44-45`), and setup's
+  self-check plants a fixed violation set (`setup.d/45-python.sh:505-507`). Cargo and go write a
+  lock (`setup.d/46-cargo.sh:24`, `47-go.sh:19`) but no agent surface; research has a Rust pointer
+  only (`agents/rule-researcher.md:262`).
+- **A fresh scaffold has no repository and no app tests** (R5-1, R5-2). The #1860 cell has both
+  (`tests/consumer-matrix/own-config-cell.sh:73`, `:130`), so it hides the gap.
 - **Acceptance has never run.** The 2026-07-23 program's acceptance was dropped twice (research
   patch N15), and `agents/getff-cold-run-prober.md` is still DORMANT.
 
@@ -131,49 +119,46 @@ from the round-2 session (2026-09-28); P13-P14 are the operator's corrections af
 ### 4.1 Steps
 
 These steps become a new **one-button sequence** in `first-steps.source.json`, next to the depth
-sequences (R2-Q7, R4-3). The pasted prompt runs it to the end. In every other sequence,
+sequences (R2-Q7, R4-3), and the pasted prompt runs it to the end. In every other sequence,
 `fill-passport` becomes the agent step «confirm the guess card» (R2-Steps). The step shape is the
-contract's step schema (§6); this spec supplies only the content. Every agent step's `run` is a
-file in the getff clone that the agent reads by path (R3-7).
+contract's step schema (§6). Every agent step's `run` is a file in the getff clone, read by path (R3-7).
 
 | # | Step | Actor | When | What happens | Done when |
 |---|---|---|---|---|---|
 | 1 | read-steps | agent | always | The pasted prompt clones getff and has the agent read this list by path. | `none`, reason: «the list is read before any artefact exists; the acceptance run proves it» → `unverifiable` |
-| 2 | start-round | agent (main session) | always | One question round before anything is installed (§4.2). The agent then runs the intent writer, which writes the confirmed intent and the chain record. | `.getff/intent.md` and `.getff/chain.json` exist |
-| 3 | install | setup | always | `./setup --full <stack>`, plus `--global` when the chain record says so. Setup renders the passport (§4.3) and records its self-verify result. | `.getff/setup.json` says pass and is newer than the chain stamp |
-| 4 | tools | agent | the chain record lists accepted tools | Installs them (`tool-bootstrapping`, Rule 3). | Every accepted tool is installed: its skill directory or MCP entry exists. (`.ai-factory/tool-decisions.md` is no probe: install seeds it, `setup.d/30-templates.sh:41`.) |
+| 2 | start-round | agent (main session) | always | One question round before anything is installed (§4.2). The agent then runs the intent writer, which writes the confirmed intent and the chain record, creates a repository when there is none (R5-1), and runs the baseline (R5-5). | `.getff/intent.md` and `.getff/chain.json` exist |
+| 3 | install | setup | always | `./setup --full <stack>` at the default profile (`env`), plus `--global` when the chain record says so. Setup renders the passport (§4.3) and appends this run's self-verify result to its record (R5-10). | The setup record's entry for this run says pass and is newer than the chain stamp |
+| 4 | tools | agent | the chain record lists accepted tools | Installs them through `tool-bootstrapping`, whose Rule 3 counts the recorded start-round answer as the explicit confirmation (R5-11). | Every accepted tool is present: its skill directory, or its MCP entry in project or user scope (`~/.claude.json`). This proves presence, not use. (`.ai-factory/tool-decisions.md` is no probe: install seeds it, `setup.d/30-templates.sh:41`.) |
 | 5 | research | agent | no research opt-out (R2-OP18) | Runs the rule-research protocol for the chain (R3-12). It reads the intent source, and must-never lines become rule candidates (R2-P2). | The lane's research files exist and are newer than the chain stamp; with the opt-out, `skipped-by-consent` |
-| 6 | generate | setup | no research opt-out | Re-runs step 3's command (R2-Q6). The generator writes the rules, each rule's fixture triple, the lock, the yield sidecar and the rule → check table fragment. | The yield sidecar's research hash equals the hash of the current research files |
-| 7 | check | agent | always | Runs the final check (§4.4) and follows each fix line it can. | The install is complete, or every part not done is listed with its fix line |
+| 6 | generate | setup | no research opt-out | Re-runs step 3's command (R2-Q6). The generator writes the rules with their examples and negative tests (R5-12), the lock, the yield sidecar and the rule → check table fragment. | The yield sidecar's research hash equals the hash of the current research files, and the setup record's entry for this run says pass |
+| 7 | check | agent | always | Runs the final check (§4.4) and follows each fix line it can. | The final check exits 0: the install is complete |
 | 8 | report | agent | always | The report to the human, built only from step 7's output, plus the FYI lines. | `none`, reason: «chat output built from step 7, which is the proof» → `unverifiable` |
 
-**The chain record (R4-3).** `.getff/chain.json` is written once, by the intent writer at the
-start round; setup never writes it. It holds:
-- the chain stamp, the time the start round ended. Every «newer than» probe compares with it, so
-  step 6's second setup run cannot hide step 5, and step 3's lock cannot prove step 6;
-- the sequence id. The final check walks the sequence it names; without a chain record the check
-  walks the installed profile's depth sequence, so a plain `./setup` never asks for chain steps;
-- the consent answers (blanket consent, companions, accepted and declined tools, the research
-  opt-out), so every `when` above is a predicate a pure-bash check can evaluate;
-- the baseline of the project's own gates (§4.2).
+**The chain record (R4-3, R5-7).** `.getff/chain.json` has one writer, the intent writer. It holds
+the chain stamp (the end of the start round; every «newer than» probe compares with it, so step
+6's second setup run cannot hide step 5), the sequence id (the final check walks it; with no record
+it walks the depth sequence of the last setup entry's profile, so a plain `./setup` never asks for
+chain steps) and the consent answers (companions, tools accepted and declined, research consent
+and opt-out), so every `when` above is a pure-bash predicate. A «skip research» said after the
+start round goes through the same writer (`--skip-research`).
 
-The research hash lives in the yield sidecar, which the generator writes on every run, including a
-run whose lock bytes do not change. The lock's own fingerprint hashes the synthesis plan
-(`packages/core/installer/install.ts:60-69`), which bash cannot recompute.
+Research and generation are proven without stamps in every sequence (R5-7): research by its files,
+generation by the sidecar's research hash, written on every run, zero-rule runs included. The lock
+cannot serve: it is timestamped on every synthesis run (`packages/core/installer/install.ts:230`)
+and hashes the synthesis plan (`:60-69`), which bash cannot recompute.
 
 **The banner.** Setup runs the final check at its end only to print the first not-done step as a
 «next: step N» line; setup's exit code does not change. This replaces the whole «Next steps» block
-(`99-finalize.sh:627-662`): its real work (dependencies, hooks, the checks) becomes parts of the
-check, not lines for the human.
+(`99-finalize.sh:627-662`), whose real work becomes parts of the check, not lines for the human.
 
 ### 4.2 The start round
 
 The questions come in this order, roots first. Each shows the recommendation as its first option,
 and a bare go-ahead accepts every recommendation.
 
-1. **Stack.** The start round recognises the lane from each lane's manifest list (§4.5 item 1), a
-   file-existence test with no node. It asks only when two or more lanes match, or none; otherwise
-   the intro line names the stack and the file it came from (R2-Q1.5).
+1. **Stack.** The start round runs each lane's recognition test (§4.5 item 1) in pure bash. It asks
+   only when two or more lanes match, or none; otherwise the intro line names the stack and the file
+   it came from (R2-Q1.5).
 2. **The guess card.** Purpose, must-never and hard constraints appear on ONE card.
    - Each guess shows its repo source: a README line, a manifest field, or a config.
    - **Evidence is project-specific (R4-6).** Text naming only the stack or its tooling is not
@@ -182,22 +167,20 @@ and a bare go-ahead accepts every recommendation.
    - A guess is written in the drafter's own words. Source text shaped as an instruction to an
      agent is never a guess, because the card's lines end up in AGENTS.md.
    - The human types only where a guess is wrong or missing. A project with no purpose evidence,
-     which includes every fresh scaffold, gets «what are you building?» with example answers
-     labelled as examples and never pre-filled.
+     which includes every fresh scaffold, gets «what are you building?» with example answers in the
+     question text, labelled as examples, never pre-filled and never an option a go-ahead can pick.
 3. **Machine-global companions** → `--global`, only on lanes where the flag has an effect (§4.5
-   item 8).
+   item 8). Setup reads the recorded answer, so the Q2.1 relay line never re-asks a decline.
 4. **Tool proposals, Y/n.** Omitted when there are none (Q3.1, Q3.2).
 
-**Blanket consent (R3-12, R4-11)** is a yes to every install question with no research opt-out; a
-bare go-ahead gives it, and the chain record holds it. Under it, research writes its rules without
-its own bulk Y/n (§4.4).
+**Research (R2-OP18, R3-12, R4-11).** Rule research is **not** asked: it runs by default, and the
+start banner's FYI line says that «skip research» (in any language) skips it. With the human's
+consent to everything, research writes its rules without its own bulk Y/n (§4.4); the chain record
+holds the answer, and whether a decline elsewhere or a bare go-ahead changes it is operator fork
+R5-8. The r3 question «is this structure intended?» is gone until a lane can use the answer (R4-7).
 
-Rule research is **not** asked. It runs by default, and the start banner carries one FYI line:
-research is running, and «skip research» (in any language) skips it (R2-OP18). The r3 question «is
-this structure intended?» is gone until a lane can turn the answer into a rule (R4-7).
-
-**Baseline (R4-9).** Before install, the start round runs the final check in baseline mode from the
-clone and records which of the lane's own gates pass, fail, or cannot run yet.
+**Baseline (R4-9, R5-5).** After the answers and before install, the intent writer runs the final
+check's baseline mode from the clone, which records each lane gate's result and its failures.
 
 **Carrier (R3-6).** AskUserQuestion takes at most 4 questions per call, and only the main session
 has it. The stack answer decides which lane questions apply, so when it is asked it goes first,
@@ -216,19 +199,21 @@ use exactly those paths.
   it. A line a check can express becomes that check. There is no line cap.
 - **One writer:** the intent writer, `scripts/getff-intent.sh` (pure bash). It runs from the getff
   clone before install and from the project after it; at the start round it also writes the chain
-  record. The re-ask step («the project changed direction») re-shows the card and runs it again.
+  record (R5-7). The re-ask step («the project changed direction») re-shows the card and runs it again.
 
-**The intent gate (R4-4).** A commit that removes or rewords a must-never or hard-constraint line
-fails the pre-push hook unless it carries an `Intent-change:` trailer with a reason of 20
-characters or more (the error-with-escape precedent, `ci-tool-pinning.md` §3). Adding a line never
-needs it. The gate reads git history, so the tool that changed the file does not matter and the
-writer is no way around it. This is the passport's one critical, narrow touchpoint: a silently
-reworded must-never is the project's own problem class. The re-ask step quotes the human's answer
-in the trailer. The final check reports the gate as armed or not (no git repository: not armed).
+**The intent gate (R4-4, R5-4).** A commit that removes or rewords a must-never or hard-constraint
+line fails the pre-push hook unless it carries an `Intent-change:` trailer with a reason of 20
+characters or more (`attention-is-not-a-mechanism.md` §1); adding a line never needs it. The gate
+reads git history, so the writer is no way around it. Its honest limit (whoever writes the commit
+writes the trailer; `--no-verify` skips the hook) and its two other channels are R5-4. The re-ask
+step quotes the human's answer in the trailer. The final check reports the gate as armed, naming the
+hook that runs it (the node hook, or the fallback below Node 20), or as not armed.
 
-**Renders.** One setup render function writes them on install AND on `--refresh`, which today exits
-before AGENTS.md and stage 80 (`install.sh:1415`, `:1421-1423`). A render with unchanged bytes
-writes nothing; the next button or refresh run heals a render with an FYI line.
+**Renders (R4-12, R5-13).** One setup render function writes them on install AND on `--refresh`;
+it replaces refresh's own passport copies, and refresh stops exiting before AGENTS.md and stage 80
+(`install.sh:1363-1370`, `:1421-1423`). A section only getff generates is replaced with no
+keep-copy, since its opt-out marker covers «keep my edit». A render with unchanged bytes writes
+nothing; the next button or refresh run heals a render with an FYI line.
 - **`.ai-factory/DESCRIPTION.md`:** a getff intent fence rendered from the source, for AIF readers,
   and one line pointing at the lane's manifest (R2-Stack), with no stack block: «стек не нужно
   дублировать, ссылки достаточно». A stack-neutral starter replaces the TS template; its heading is
@@ -247,85 +232,86 @@ writes nothing; the next button or refresh run heals a render with an FYI line.
   (`packages/core/hooks/pre-push.ts:2123`).
 - **The `AGENTS.md` fences.** Stage 30 writes the static `getff-framework` section
   (`setup.d/lib.sh:77`) with the intent lines. The «rule → what checks it» table has its own
-  section, so the static splice never wipes it: the generator writes it as a fragment next to the
-  lock, and the render function merges it in pure bash through `merge_fenced` (`:1004`). With no
-  fragment the section says «no generated rules yet». `AGENTS.md.template:9` («This file is a
-  POINTER DOC») is amended in the same change.
+  section (R5-13), so the static splice never wipes it: the generator writes it as a fragment next
+  to the lock, and the render function merges it in pure bash through `merge_fenced` (`:1004`).
+  With no fragment the section says «no generated rules yet». `AGENTS.md.template:9` («This file is
+  a POINTER DOC») is amended in the same change.
 - **Project-root `CLAUDE.md` (R2-Import).** Setup always ensures a getff-marked `@AGENTS.md` import.
-  When the file is absent, setup creates it from `CLAUDE.md.template`, reduced to that block and
-  with its false line corrected («Claude Code reads BOTH this file AND `AGENTS.md`»,
-  `packages/core/templates/shared/CLAUDE.md.template:8`). The docs guarantee that the import never
-  makes Claude Code read AGENTS.md twice. Known limit: the import loads all of AGENTS.md, including
-  AIF's «Project map».
+  It creates the file from `CLAUDE.md.template` only when git never tracked a root CLAUDE.md,
+  reduced to that block, with its false «reads BOTH» line fixed
+  (`packages/core/templates/shared/CLAUDE.md.template:8`); a file the human deleted stays deleted
+  and the check lists the import as declined. The docs guarantee the import never makes Claude Code
+  read AGENTS.md twice; known limit: it loads all of AGENTS.md, including AIF's «Project map».
 
 **Upkeep (R2-Upkeep).** Pre-push checks never write. The AGENTS.md fences get a consumer-side check
-with the contract's §6.7 step 7; until then nothing checks an edit inside them, and the next setup
-run heals it. The DESCRIPTION.md and ARCHITECTURE.md renders never fail a push, because getff reads
-neither; that exemption goes on the contract's R3 exempt list with its reason (§6). Every automatic
-write honours a per-section opt-out marker: the marker is the one-step revert, self-heal never
-re-adds a switched-off section, and the FYI line names the marker.
+with the contract's §6.7 step 7; until then the next setup run heals an edit inside them. The
+DESCRIPTION.md and ARCHITECTURE.md renders never fail a push, because getff reads neither (§6 asks
+for their CI-only entry). Every automatic write honours a per-section opt-out marker: it is the
+one-step revert, self-heal never re-adds a switched-off section, and the FYI line names it.
 
 **What reads what.** Rule research reads the intent source (R2-P2). Stack detection reads the
 manifest first on every path, and `readAif` is a fallback only when no manifest exists (R3-5).
-getff reads nothing that AIF writes: the generator skips `readAif` (`resolve-ctx.ts:59`); `readAif`
-stops reading ARCHITECTURE.md and skill-context (`read-aif.ts:113-138`) and stops throwing on a
-DESCRIPTION.md without a canonical heading (`:104-108`), which the new starter is; `merge_fenced`
-reads AGENTS.md only to splice getff's own fences. That, not a skill-context guard, protects
-against `/aif` rewrites (R2-Guard).
+getff reads nothing that AIF writes, except that fallback's DESCRIPTION.md on a project with no
+manifest: the generator skips `readAif` (`resolve-ctx.ts:59`); `readAif` stops reading
+ARCHITECTURE.md and skill-context (`read-aif.ts:113-138`) and stops throwing on a DESCRIPTION.md
+without a canonical heading (`:104-108`), which the new starter is; `merge_fenced` reads AGENTS.md
+only to splice getff's own fences. That, not a skill-context guard, protects against `/aif`
+rewrites (R2-Guard).
 
 ### 4.4 Complete install, green, and the final check
 
-**Complete install (P13, R4-1)** means every part below is done, or is recorded as declined by the
-human or not built on the lane. Declined and not-built parts are listed, never counted as done.
-1. getff: setup's self-verify passed (step 3).
+**Complete install (P13, R4-1, R5-3)** means every part below is `done`, `skipped-by-consent`
+(declined by the human), or `not-applicable-on-lane` because its lane item is optional (§4.5). A
+part whose required lane item is missing is `not-done`, «not built on this lane», so an alpha-lane
+install is never complete. Declined and not-applicable parts are listed, never counted as done.
+1. getff: the setup record's last entry says pass (steps 3 and 6).
 2. The passport: the intent source and its renders exist, and the intent gate is armed.
-3. Tools: every tool the chain record lists as accepted is installed (step 4).
+3. Tools: every tool the chain record lists as accepted is present (step 4).
 4. Research: it ran after the chain stamp, or was skipped by consent (step 5).
 5. The project is green.
 
 **Green** means all four of these hold (R2-Q2); the lane supplies each proof (§4.5).
-1. The project's own checks pass: the lane's gate list, all read-only. On an existing project, a
-   gate that ran and failed in the baseline is listed as pre-existing and not counted, and a gate
+1. The project's own checks pass: the lane's gate list, which writes nothing but the project's own
+   build output. A gate with nothing to run (no app tests) passes and is reported as «no app tests;
+   not getff's product (P1)» (R5-2). On an existing project a failure the baseline already held is
+   listed as pre-existing and not counted, a new failure on the same gate counts (R5-5), and a gate
    that could not run then must pass now. A failure a generated rule raises on code that predates
-   it is a finding: the report lists the rule and the places, and it does not block green,
-   because the rule did its job (R4-9).
-2. Every generated rule proves itself, in two parts.
-   - *Logic:* the generator drops a bad/good/manifest triple into `scripts/fences-fire-fixtures/`,
-     the consumer-extensible fixture dir (`packages/core/audit-self/check-fences-fire.sh:45-54`),
-     and the lane's logic proof runs it. The triple is the rule's lasting firing test (P1).
-   - *Wiring:* the lane runs the project's real lint or scan config over the bad and the good
-     example as if each sat at a path the practice applies to, writing nothing into the project
-     (R4-5). The bad one must fire and the good one must stay silent.
-   - The path comes from the research record, never from the wired glob: planting where the glob
-     points always fires, a tautology. N14 measured a rule that fired in
-     `src/app/actions/probe.tsx` and stayed silent in `src/app/layout.tsx`. No research record has
-     a path field today (`packages/core/research/types.ts:24-33`); research gains one (R4-13).
+   it is a finding: the report lists the rule and the places, and it does not block green, because
+   the rule did its job (R4-9).
+2. Every generated rule proves itself. *Logic:* the generator's existing proof (§3, R5-12); the
+   rule's manifest entry, with its examples and negative test, is its lasting firing test (P1).
+   *Wiring:* the lane runs the project's real lint or scan config over the bad and the good example
+   as if each sat at a path the practice applies to, writing nothing into the project (R4-5); the
+   bad one must fire and the good one stay silent. The path comes from the research record
+   (`packages/core/research/types.ts:24-33` has no path field; R4-13 adds one), never from the
+   wired glob, where planting always fires: N14 measured a rule that fired in
+   `src/app/actions/probe.tsx` and stayed silent in `src/app/layout.tsx`. With no path the rule is
+   «wiring unproven», never passed (R5-14).
 3. The lane's lock exists and matches the generated rules, and step 6 is proven (§4.1).
 4. The report is built from these checks, never from the installer's exit code.
 
 **Zero rules** is «done, with an explanation», reported as «0 new rules», with the counts
 (practices researched, expressible, and blocked by provenance), the reasons, and the next action.
 The counts live in the yield sidecar next to the lock, because the lock has no field for them
-(`packages/core/installer/types.ts:46-55`; truth-pipeline N-t; R3-9). **Under blanket consent**
-the report also lists every new rule with its source and a one-command removal, and every source
-blocked for want of a Tier-2 ack, with the command to add it later (R3-12).
+(`packages/core/installer/types.ts:46-55`; truth-pipeline N-t; R3-9). When research wrote without
+its bulk Y/n, the report also lists every new rule with its source and a one-command removal, and
+every source blocked for want of a Tier-2 ack, with the command to add it later (R3-12).
 
-**The final check** is `scripts/getff-check.sh` (R3-8).
-- It is pure bash and names no stack; it calls the lane for green's parts 1-3.
-- It reads the chain record for every `when` and walks the sequence the record names.
-- It lists every part not done, each with its fix line, headed by the first, and exits non-zero
-  unless the install is complete. Setup runs it only for the banner line; the agent runs it as
-  step 7. Its baseline mode runs green's part 1 only and writes the result into the chain record.
-- It is getff-owned, delivered on npm lanes and refreshed on `--refresh`. On an alpha lane, step 7
-  runs it from the clone.
+**The final check** is `scripts/getff-check.sh` (R3-8): pure bash, naming no stack. It calls the
+lane for green's parts 1-3, reads the chain record for every `when`, and walks the sequence the
+record names. It reports in the shape of the contract's «one final check» (§6.2), lists the intent
+lines changed since the chain stamp (R5-4), and exits 0 only on a complete install. Setup runs it
+only for the banner line; the agent runs it as step 7. Its baseline mode runs green's part 1 and
+writes `.getff/baseline.json`. It is getff-owned, delivered on npm lanes and refreshed on
+`--refresh`; on an alpha lane, step 7 runs it from the clone.
 
-### 4.5 Lanes (P14, R4-2)
+### 4.5 Lanes (P14, R4-2, R5-6)
 
 The chain, the start round and the final check name no stack. Each stack plugs in as a lane
 through one contract. A lane supplies:
-1. **Recognition:** the manifest file names that mark it.
-2. **Gates:** its read-only gate list, telling «failed» apart from «could not run».
-3. **Logic proof:** the runner for the fixture triples.
+1. **Recognition:** the manifest files that mark it, plus a dependency test where lanes share one.
+2. **Gates:** its gate list, each reporting pass, fail, could not run, or nothing to run.
+3. **Logic proof:** the runner that proves each generated rule on its own examples.
 4. **Wiring proof:** runs the project's real config over a given text at a given path and writes
    nothing into the project.
 5. **Research arm:** the rule format research produces, with each practice's path, and how setup
@@ -334,27 +320,27 @@ through one contract. A lane supplies:
 7. **Scaffold placeholders:** template texts that are not purpose evidence.
 8. **Question effects:** which start-round questions change anything on the lane.
 9. **Boundary derivation** (optional): boundary rules from an existing import graph. No lane has it.
+10. **Install arm:** how setup installs the lane and writes its setup record entry.
+11. **Hook arm:** how the lane wires the pre-push gates, the intent gate among them.
+12. **Dependency reader:** the project's dependencies, behind tool proposals (Q3.1).
 
-The final check reports «not built on this lane» for every part whose item a lane lacks, and such
-an install is never reported complete.
+A lane that lacks a required item (every item but 9) leaves each part that needs it `not-done`,
+«not built on this lane»; lacking item 9 is `not-applicable-on-lane` (R5-3).
 
-**The npm lanes are built first, and only they are this program's target.**
-- Gates: the fresh-install list of round-1 Q4.3 without «first commit», which writes.
-- Logic proof: `check-fences-fire.sh`.
-- Wiring proof: ESLint's `lintText(text, { filePath })`, the call behind `--stdin-filename` (ESLint
-  `lib/cli.js`, via context7, 2026-09-28), run through the ESLint API the way `check-fences-fire.sh`
-  runs ESLint, since the CLI crashes on `.ts` flat configs. Unverified, and measured by the slice:
-  that the ESLint class loads a consumer's `.ts` flat config this way, and that type-aware rules
-  resolve the path. An existing file at the practice's path is preferred, so the path sits inside
-  the TS project.
-- Research arm, lock and table: the existing generator (§3), plus the path field (R4-13).
-- Scaffold placeholders: the template README of `npm create vite` and the TS server scaffold's
-  equivalent text (§4.6). Question effects: `--global`.
+**The npm lanes are built first, and only they are this program's target.** Recognition:
+`_detect_stack_from_pkg` (`setup.d/lib.sh:2111-2120`). Install arm: the npm layer loop and
+self-verify. Hook arm: `.husky` (`setup.d/50-hooks.sh:72-81`). Dependency reader: `package.json`.
+Gates: the fresh-install list of round-1 Q4.3 without «first commit», which writes; the test gate
+first asks the runner for its matched files (R5-2). Logic proof: the existing generation and
+mutation gates (R5-12). Wiring proof: the project's own ESLint config through `eslint --stdin`
+(R5-14). Research arm, lock and table: the existing generator (§3), plus the path field (R4-13).
+Scaffold placeholders: the template README of `npm create vite` and the TS server scaffold's
+equivalent text (§4.6). Question effects: `--global`.
 
 **The python, cargo and go lanes stay alpha (P14).** There the final check reports «complete install
-is not built on this lane yet» and lists what did run. §3 records the facts for that later work;
-the F-A reading «the python install stays Node-free» (`agents/rule-researcher.md:212-213`) is not
-touched.
+is not built on this lane yet» and lists what did run; P2 there rests on the Q2.1 relay line. §3
+records the facts for that later work; the F-A reading «the python install stays Node-free»
+(`agents/rule-researcher.md:212-213`) is not touched.
 
 **Proof that the chain names no stack:** a stub lane fixture (a fake manifest and stub lane scripts)
 runs the start-round recognition and the final check end to end (§7).
@@ -362,16 +348,16 @@ runs the start-round recognition and the final check end to end (§7).
 ### 4.6 Acceptance and closure (R2-Q3, R2-Q4)
 
 **Setup of the run.**
-- A cold agent gets an official scaffold per stack plus the new pasted prompt, and nothing else.
-  The scaffolds are two different npm stacks, neither of them Next (P4, P7): React via
-  `npm create vite` react-ts, and a TypeScript server from an official generator chosen at landing.
-- It runs in a fresh container on the PC, after the contract's docs pass (contract T7).
-- A stand-in answers the real AskUserQuestion through the Agent SDK `canUseTool` callback, and the
-  report quotes every question verbatim. This replaces the DORMANT `getff-cold-run-prober`, a
-  subagent, which has no AskUserQuestion.
+- A cold agent gets an official scaffold per stack and the new pasted prompt, nothing else. The
+  scaffolds are two npm stacks, neither Next (P4, P7): React via `npm create vite` react-ts, and a
+  TypeScript server from an official generator chosen at landing, with no repository or app test
+  beyond what the generator makes (R5-1, R5-2). It runs in a fresh container on the PC (R5-16).
+- A stand-in answers the real AskUserQuestion through the Agent SDK `canUseTool` callback, never in
+  the SDK's `dontAsk` mode, which denies it; the report quotes every question verbatim. This
+  replaces the DORMANT `getff-cold-run-prober`, a subagent, which has no AskUserQuestion.
 - The stand-in accepts every recommendation. Where the card asks «what are you building?», it gives
   a scripted answer with a must-never line, so the renders and the must-never → rule path run on
-  every scaffold.
+  every scaffold. A second pass on one scaffold declines `--global` and behaves as R5-8 decides.
 
 **Pass requires all of these:**
 - the install is complete (§4.4), under blanket consent, with ≥1 proven generated rule per stack;
@@ -381,7 +367,8 @@ runs the start-round recognition and the final check end to end (§7).
   reference, not from `packages/core/research/allowlist.ts` (R4-8);
 - the questions came before setup, research asked nothing, and there was no second human message
   (start-round answers count as answers, not messages);
-- after `/aif` and `/aif-architecture` run on the result, every getff fence survives.
+- after `/aif` and `/aif-architecture` run on the result, every getff fence survives;
+- the report says whether an MCP server added at step 4 was live at step 5, as measured (R5-15).
 
 The closure spec's binding python Done line (`2026-07-23-getff-any-stack-closure-design.md:226-227`)
 is not discharged by this program; it stays open with the python lane (P14).
@@ -392,17 +379,17 @@ logged out. A logged-out CLI is reported as NOT-RUN, never as a pass.
 **Closure.** The acceptance report is a committed file with a machine-readable verdict line. This
 program's `done.md` must cite a PASS report; «PARKED» is not closed. A report goes stale when an
 agent step's `run` file changes after the run, by path or content; a stale report blocks promote
-(truth-pipeline T7.1).
+(truth-pipeline T7.1), so a run made before the contract's docs pass is repeated after it (R5-16).
 
 ## 5. Live decision register
 
-Status values: **answered** (the operator chose); **delegated** (handed to a discussion session,
-which decided); **on recommendation** (the brief let it stand and the operator did not object);
-**author** (decided by an authoring session with no operator fork, P8; round-2 author rows by the
-round-2 session, FYI'd to the operator). *Blanket* marks a row confirmed by round 1's «ок согласен
-с тобой полностью». Round-2 rows cite `_decisions-2026-09-28-one-button-round2.md` (coordination
-directory): its §4 amendment blocks win over its §1 rows, and its last block, «§2 cold re-review,
-round 2 of 2», wins over all above it. A superseded row keeps its text and names its successor.
+Status values: **answered** (the operator chose); **delegated** (a discussion session decided);
+**on recommendation** (the brief let it stand, unobjected); **author** (an authoring session
+decided with no operator fork, P8; FYI'd to the operator); **operator-fork** (open, with a
+recommendation). *Blanket* marks a row confirmed by round 1's «ок согласен с тобой полностью».
+Round-2 rows cite `_decisions-2026-09-28-one-button-round2.md` (coordination directory): its §4
+blocks win over its §1 rows, and its last block («§2 cold re-review, round 2 of 2») wins over all
+above it. A superseded row keeps its text and names its successor.
 
 ### Round 1 (separate session; «в отдельной сессии подумать и обсудить как сделать лучше»)
 
@@ -462,10 +449,10 @@ The rest, plus two round-2 review hand-backs (the detector order, the python ast
 | # | Decision | Status | Resolution | Falsifier («wrong if …») |
 |---|---|---|---|---|
 | R3-1 | The «one-page truth card» (P5; contract §6.7 step 6) | author | **Not a new file.** The truth-pipeline rejects a second step source and a new product-claim file. P5's intent (one source, one pass over README / INSTALL-FOR-AI / the banner / the site) is exactly what the structured sources and their renders do. The contract's step 6 then means a render, not a source. | A cold agent needs a single page to answer «what does getff install and generate» (#1856 N10's predicate) and no render gives it → add a rendered one-pager: a render, never a source. |
-| R3-2 | `agents/aif-init.md` | author | **Rewritten, not retired**, as the guess drafter. Round 2 handed it back as «`aif-init`'s role shrinks to the guess-first questions». It reads the repo evidence (manifests and layout) and returns the three guesses, each with its source or empty, and writes nothing. The main session shows the card, because AskUserQuestion is unavailable in subagents. It runs from the clone by path, as a general subagent whose `tools:` line does not bind it, so «writes nothing» holds by instruction; only the intent writer writes intent. Its DRAFT-file behaviour goes (R2-Q1). The rewrite keeps the roster and counts, but not the liveness entry: slice 2 rewrites `tests/fixtures/shipped-agent-liveness/aif-init.md`, the prober row (`agents/shipped-agent-liveness-prober.md:59`) and the DRAFT-writer descriptions (`agents/aif-init.md:3`, `docs/site/reference/C.json:19`, `README.md:23`, `AGENTS.md.template:99`). `packages/core/detector/passport.ts` (no production caller) is left as is. | The main session drafts better guesses without the subagent (acceptance transcripts) → fold the drafting into the step text and retire the agent. |
+| R3-2 | `agents/aif-init.md` | author | **Rewritten, not retired**, as the guess drafter. Round 2 handed it back as «`aif-init`'s role shrinks to the guess-first questions». It reads the repo evidence (manifests and layout) and returns the three guesses, each with its source or empty, and writes nothing. The main session shows the card, because AskUserQuestion is unavailable in subagents. It runs from the clone by path, as a general subagent whose `tools:` line does not bind it, so «writes nothing» holds by instruction; only the intent writer writes intent. Its DRAFT-file behaviour goes (R2-Q1). The rewrite keeps the roster and counts, but not the liveness entry: slice 2 rewrites `tests/fixtures/shipped-agent-liveness/aif-init.md`, the prober row (`agents/shipped-agent-liveness-prober.md:59`) and the role descriptions (`agents/aif-init.md:3`, `docs/site/reference/C.json:19`, `README.md:23`, `AGENTS.md.template:99`). `packages/core/detector/passport.ts` (no production caller) is left as is. | The main session drafts better guesses without the subagent (acceptance transcripts) → fold the drafting into the step text and retire the agent. |
 | R3-3 | Who writes the intent, and when | author | **The agent runs the intent writer right after the card, before install** (§4.3). Setup renders every fence on install and refresh. The agent never writes a getff fence or DESCRIPTION.md itself. | The acceptance run shows the agent writing `.getff/intent.md` by hand → no chain record exists, step 2 reads not done, and the prompt list names the writer call explicitly. |
 | R3-4 | The non-npm lanes, and the python ast-grep gap (review hand-back) | author; **DISSOLVED in r4 by P14** | Replaced by the lane contract (R4-2, §4.5). The r3 python route (ast-grep as a project dev dependency, then `uvx`, then `npx`) leaves this program; its stated reason was also false, since shipped python CI already installs ast-grep (§3). | The python lane leaves alpha → decide its tool route in that lane's contract work. |
-| R3-5 | Detector order (round-2 §3 item 4, re-opened by review amendment 2) | author | **Manifest first on every detector path.** `detector/index.ts:31-33` is reordered, and `readAif` runs only when no manifest exists; it also stops reading AIF-written files and stops throwing (§4.3). The chain's own path already skips it (`resolve-ctx.ts:59`). Slice 2 updates the tests and comment this reverses (`read-aif.test.ts:13-21`, `snapshot.test.ts:10`, `detector/index.ts:2-3`) without deleting the fixture's `package.json`. | A fixture carrying getff's own DESCRIPTION.md next to `pyproject.toml` does not read as `python`, or a Vite React fixture reads as `react-next`, after the change. |
+| R3-5 | Detector order (round-2 §3 item 4, re-opened by review amendment 2) | author | **Manifest first on every detector path.** `detector/index.ts:31-33` is reordered, and `readAif` runs only when no manifest exists; it also stops reading AIF-written files and stops throwing (§4.3). The chain's own path already skips it (`resolve-ctx.ts:59`). Slice 2 updates the tests and comment this reverses (`read-aif.test.ts:13-21`, `snapshot.test.ts:10`, `detector/index.ts:2-8`; slice 2 names the rest) without deleting the fixture's `package.json`. | A fixture carrying getff's own DESCRIPTION.md next to `pyproject.toml` does not read as `python`, or a Vite React fixture reads as `react-next`, after the change. |
 | R3-6 | Is the start round really one or two calls? | author | Yes: §4.2 «Carrier». | Acceptance transcripts show a third call, or a question outside §4.2. |
 | R3-7 | Skills installed mid-session | author | Every agent step's `run` is a path in the getff clone, read by path, never a slash command (the round-1 Q1 reason). This covers `rule-research`, `tool-bootstrapping`, the start round and `aif-init`. | The acceptance run shows the agent misreading or skipping a skill read by path → the step adds `/reload-skills` and invokes the skill. |
 | R3-8 | The final check's entry point (truth-pipeline §6.2 delegates the name here) | author | `scripts/getff-check.sh`: pure bash, getff-owned, delivered on npm lanes and refreshed on `--refresh`; run from the clone on alpha lanes (§4.4). Its first not-done step is the banner's «next» line. | The name collides with a consumer script, or pure bash cannot run a lane's check → keep the name, dispatch per lane inside it. |
@@ -476,125 +463,138 @@ The rest, plus two round-2 review hand-backs (the detector order, the python ast
 
 ### Round 4 (author decisions forced by the §2 cold review, round 1, and by P13-P14)
 
-No row here needs an operator answer: R4-1 and R4-2 carry the operator's P13 and P14, and the rest
-are author calls the review forced, each with the finding it answers.
+R4-1 and R4-2 carry the operator's P13 and P14; the rest are author calls, each naming its finding.
 
 | # | Decision | Status | Resolution | Falsifier («wrong if …») |
 |---|---|---|---|---|
-| R4-1 | The target state | answered (P13) | **Complete install** (§4.4): every part in place and proven, or recorded as declined or not built on the lane. Green is its part 5. | After a «complete» report, humans still hand-install a tool or hand-edit a file the button should have produced → the parts list misses a part. |
+| R4-1 | The target state | answered (P13); how «not built» counts is fixed by R5-3 | **Complete install** (§4.4): every part in place and proven, or recorded as declined or not built on the lane. Green is its part 5. | After a «complete» report, humans still hand-install a tool or hand-edit a file the button should have produced → the parts list misses a part. |
 | R4-2 | Stack scope and the lane contract | answered (P14); the contract items are author | One stack-agnostic chain plus the lane contract (§4.5). The npm lanes are built first and are this program's only acceptance target; python, cargo and go stay alpha and report «not built». | A second npm stack, or the stub lane, needs a change outside its lane → the contract lacks an item. |
-| R4-3 | Chain state a pure-bash check can read (review: top-down M1, M2, M10; bottom-up MAJOR-1, MAJOR-2, m8) | author | The chain record (§4.1): one chain stamp from the start round, the sequence id, the consent answers and the baseline. Step 3 is proven by setup's result record, step 4 by the installed tools, step 6 by the research hash in the yield sidecar. For this sequence the stamp is not the installer's (contract T1.5, §6). | A check verdict in the acceptance run depends on something the record does not hold → add it to the record. |
-| R4-4 | Guarding the intent (top-down M6) | author | The intent gate (§4.3): removing or rewording a must-never or hard-constraint line needs an `Intent-change:` trailer with a ≥20-char reason. It replaces R3-11's hash record, which its own writer could re-hash. | Agents add the trailer with no human answer to get past the gate → a Claude Code PreToolUse hook ties the trailer to a human answer in the transcript. |
+| R4-3 | Chain state a pure-bash check can read (review: top-down M1, M2, M10; bottom-up MAJOR-1, MAJOR-2, m8) | author; its stamp writer is a blocking request to the contract (§6) | The chain record (§4.1): one chain stamp from the start round, the sequence id, the consent answers and the baseline. Step 3 is proven by setup's result record, step 4 by the installed tools, step 6 by the research hash in the yield sidecar. For this sequence the stamp is not the installer's (contract T1.5, §6). | A check verdict in the acceptance run depends on something the record does not hold → add it to the record. |
+| R4-4 | Guarding the intent (top-down M6) | author; honest limit added by R5-4 | The intent gate (§4.3): removing or rewording a must-never or hard-constraint line needs an `Intent-change:` trailer with a ≥20-char reason. It replaces R3-11's hash record, which its own writer could re-hash. | Agents add the trailer with no human answer to get past the gate → a Claude Code PreToolUse hook ties the trailer to a human answer in the transcript. |
 | R4-5 | Wiring proof (top-down M11) | author | Through the project's real config, with nothing written into the project (§4.4, §4.5). This keeps the binding temp-dir STOP line (`setup.d/45-python.sh:482-483`, `agents/rule-researcher.md:238-245`) instead of weakening it silently (P9). | In-memory linting disagrees with on-disk linting for some rule class → put the trade-off against the STOP line to the operator; never relax it silently. |
 | R4-6 | What counts as purpose evidence (top-down M7, m20) | author | Project-specific text only (§4.2). Stack-only or tooling-only text and the lane's scaffold placeholders are not evidence; guesses are in the drafter's words; instruction-shaped source text is never a guess. | A fresh scaffold in acceptance gets a placeholder as purpose → the lane's placeholder list is incomplete; or real projects get empty cards where a human sees an obvious purpose → accept any README prose that is not a placeholder. |
 | R4-7 | The structure question (top-down M9) | author; reverses the delegated R2-Q1.3 | Dropped. No lane can turn «intended» into a rule (the npm boundary check is a generic template, `setup.d/40-configs.sh:449`), and a touchpoint with no effect breaks P8. It returns on a lane that gains boundary derivation (§4.5 item 9). | Users report boundaries getff missed that they would have confirmed → build boundary derivation on the npm lane. |
 | R4-8 | Framework reads in the research step (top-down M4) | author | The allowlist is rendered into the research step's reference; today the step reads `packages/core/research/allowlist.ts` (`agents/rule-researcher.md:138`). The step then reads no `packages/**` file, and the acceptance criterion stays. | The render drifts from `allowlist.ts` in a way no drift check catches → read the source and exempt that one file from the criterion, openly. |
-| R4-9 | Existing projects (top-down m16) | author | A baseline at the start round (§4.2); green counts only what the install broke, and a generated rule firing on older code is a finding (§4.4). | Real existing projects report «not complete» for failures getff did not cause → the baseline misses a failure class. |
-| R4-10 | MCP servers installed mid-chain (top-down m1) | author; known limit | New MCP servers are not live until a new session, so step 5 in the button session uses its web fallback (`agents/rule-researcher.md:105-108`), and the report says so. | Research on the fallback yields clearly fewer rules than with the MCP servers → run step 5 in a headless child session started after step 4. |
-| R4-11 | Blanket consent (the carrier of R3-12) | author | A yes to every install question with no research opt-out; a bare go-ahead gives it, and the chain record holds it (§4.2). | Humans who gave a bare go-ahead are surprised that research wrote rules without asking → make blanket consent an explicit option. |
-| R4-12 | Render delivery (bottom-up MAJOR-3, m5) | author | One render function on install and `--refresh`; the table in its own fence section; a new delivery mode for DESCRIPTION.md and ARCHITECTURE.md (§4.3). | A re-run still leaves `refresh-conflicts` keep-copies of AGENTS.md, or a plain `./setup` drops the table → the render function is not the only writer. |
-| R4-13 | Where the wiring path comes from (bottom-up MAJOR-7) | author | The research record gains each practice's path in the project, filled by research from the project tree, never from the generated glob. It lands with the research rewrite (slice 4), before the wiring proof (slice 3) is proven. | Research on a fresh scaffold cannot name a path for most practices → the wiring proof uses the lane's default source path, and the report marks those rules «wired at the default path». |
+| R4-9 | Existing projects (top-down m16) | author; compared by failure since R5-5 | A baseline at the start round (§4.2); green counts only what the install broke, and a generated rule firing on older code is a finding (§4.4). | Real existing projects report «not complete» for failures getff did not cause → the baseline misses a failure class. |
+| R4-10 | MCP servers installed mid-chain (top-down m1) | author; known limit; premise re-opened by R5-15 | New MCP servers are not live until a new session, so step 5 in the button session uses its web fallback (`agents/rule-researcher.md:105-108`), and the report says so. | Research on the fallback yields clearly fewer rules than with the MCP servers → run step 5 in a headless child session started after step 4. |
+| R4-11 | Blanket consent (the carrier of R3-12) | author; scope open as operator fork R5-8 | A yes to every install question with no research opt-out; a bare go-ahead gives it, and the chain record holds it (§4.2). | Humans who gave a bare go-ahead are surprised that research wrote rules without asking → make blanket consent an explicit option. |
+| R4-12 | Render delivery (bottom-up MAJOR-3, m5) | author; keep-copies closed by R5-13 | One render function on install and `--refresh`; the table in its own fence section; a new delivery mode for DESCRIPTION.md and ARCHITECTURE.md (§4.3). | A re-run still leaves `refresh-conflicts` keep-copies of AGENTS.md, or a plain `./setup` drops the table → the render function is not the only writer. |
+| R4-13 | Where the wiring path comes from (bottom-up MAJOR-7) | author; its fallback replaced by R5-14 | The research record gains each practice's path in the project, filled by research from the project tree, never from the generated glob. It lands with the research rewrite (slice 4), before the wiring proof (slice 3) is proven. | Research on a fresh scaffold cannot name a path for most practices → the wiring proof uses the lane's default source path, and the report marks those rules «wired at the default path». |
+
+### Round 5 (author decisions forced by the §2 cold review, round 2, and two operator forks)
+
+R5-8 and R5-9 are open for the operator; R5-1 is an author call the operator may overturn.
+
+| # | Decision | Status | Resolution | Falsifier («wrong if …») |
+|---|---|---|---|---|
+| R5-1 | A project with no repository (top-down B1, bottom-up MAJOR-2) | author (P8); the operator may overturn it | **The intent writer runs `git init`, with no commit,** when `git rev-parse` finds no repository, and says so in one FYI line with its revert (`rm -rf .git` while it holds no commit). A directory inside a parent repository has one. Without a repository the hook arm only prints a command for the human (`setup.d/50-hooks.sh:81`), shields-up checks nothing (`99-finalize.sh:532`), and the intent gate cannot arm. Whether a scaffold makes a repository does not matter to the design. | Humans report a repository they did not want → a narrow start-round question on no-repository projects only. |
+| R5-2 | A gate with nothing to run (top-down B1) | author (P1) | A lane gate reports pass, fail, could not run, or nothing to run; «nothing to run» passes and the report says «no app tests; not getff's product (P1)». The npm lane asks the runner for its matched files (`vitest list --filesOnly`), never reads a failure message: the installed `test` script is `vitest run` (`setup.d/70-deps.sh:85`) and the shipped config's include patterns decide (`packages/preset-react-spa/templates/vitest.config.ts:30`). | A project whose real tests the runner misses is reported «nothing to run» → the runner's file list is not the truth for that runner. |
+| R5-3 | Which part states count toward complete (top-down M1) | author | `done` and `skipped-by-consent` count; `not-applicable-on-lane` counts only for an optional lane item (item 9); a part whose required lane item is missing is `not-done`, «not built on this lane», and never counts (§1, §4.4, §4.5). | An alpha-lane install is ever reported complete → the mapping leaks. |
+| R5-4 | The intent gate's honest limit (top-down M2) | author | The trailer is an audit trail, not proof of the human's words, as the contract says of `Goal-change:`. Two more channels: the shipped consumer CI runs the same arm, and every final check report lists the intent lines changed since the chain stamp with their trailers (§4.3). | Laundered trailers pass both channels unnoticed in a real run → a Claude Code PreToolUse hook ties the trailer to a human answer (R4-4's falsifier). |
+| R5-5 | Baseline by failure, not by gate (top-down M3) | author | Each lane gate names its failures (item 2). On a gate red in the baseline, a failure the baseline did not hold counts; a gate that cannot name failures compares counts. The baseline mode writes `.getff/baseline.json`. Rejected: comparing gate results, which hides a new failure on an already-red gate. | getff adds failures on a baseline-red gate and the check says green → the lane's failure identity is too coarse. |
+| R5-6 | The lane contract covers the whole install (top-down M5) | author | Items 10-12 join (§4.5): the install arm with its setup record entry, the hook arm, and the dependency reader behind tool proposals. | The stub lane still needs a change outside its lane → another item is missing. |
+| R5-7 | Writers, files and stamp-free probes (top-down m2, m3, m5, N5; bottom-up m1, m7, N7) | author | One writer per file: the intent writer writes `.getff/intent.md` and `.getff/chain.json` (a late «skip research» through `--skip-research`) and runs the baseline; only the baseline mode writes `.getff/baseline.json`; only setup writes `.getff/setup.json`. `intent.md` is tracked, because the intent gate reads its history; the other three are machine-local and gitignored. The generator writes the yield sidecar before its research-only return (`packages/core/synthesizer/rule-bootstrap.ts:110-111`), so every sequence proves research and generation without stamps (§4.1). | A chain verdict needs a fact only another writer has → the record gains a field, not a writer. |
+| R5-8 | Research consent scope (top-down M4, E2) | **operator-fork** | Does a declined companion or tool withdraw blanket consent, and does a bare go-ahead give it? **A (recommended):** consent to research is its own answer: research writes unless the human said «skip research», and declines elsewhere do not touch it; the FYI line says a bare go-ahead lets research write, and the report lists every rule with a one-command removal. **B:** r4 as written: any decline brings the bulk Y/n back mid-chain, which stalls an unattended run. **C:** an explicit «complete install, consent to everything» option; every other answer keeps the Y/n. In every option an unacked Tier-2 source never becomes a rule. | (A) Humans remove many generated rules as unwanted → C. |
+| R5-9 | Project-specific architecture (top-down E1; the operator's «мне кажется нужен и паспорт и архитектура проекта», `_decisions-2026-09-28-one-button-round2.md:42`) | **operator-fork** | **A (recommended):** this program ships the generic boundary check and the ARCHITECTURE.md pointer, and the report says «no project-specific architecture rules yet»; boundary derivation (§4.5 item 9) is the next program, with its own prior-art consult. Fresh scaffolds, the acceptance target, have no import graph to derive from. **B:** build npm boundary derivation now, as a sixth complete-install part. | (A) Existing-project users report boundaries getff missed that a derivation would have caught → B opens the next program. |
+| R5-10 | The setup record (top-down m7, N4; bottom-up m2) | author | `.getff/setup.json` holds one entry per setup run: profile, flags, time and the self-verify result. «Pass» means no failure and only accepted skips: zero rules is accepted, «not a git repository» is not (`99-finalize.sh:532`; skipped checks «are NOT proven», `:569`). Step 3 and step 6 each read their own entry. | A step reads pass while its setup run failed → the entry misses a failure class. |
+| R5-11 | Rule 3 of `tool-bootstrapping` (bottom-up MAJOR-4) | author; an open amendment (P9) | Rule 3 («never install any MCP or skill without explicit user confirmation», `skills/tool-bootstrapping/SKILL.md:35`) is amended in slice 5: the recorded start-round answer is that confirmation, so the agent does not ask again. «No env/config bypass» still holds: only the human's answer fills the record. | The agent re-asks the tool Y/n after setup in acceptance → the amendment did not reach the step. |
+| R5-12 | The logic proof (bottom-up MAJOR-3, mismatch 5) | author | **Reuse the generator's own proof.** Each rule carries a bad and a good example and a negative test (`packages/core/synthesizer/generate-port.ts:34`, `:39`), gated at generation; declarative rules are mutation-checked at install and at pre-push (`packages/core/audit-self/check-generated-rule-mutation.sh:2-5`, `99-finalize.sh:544`, `packages/core/hooks/pre-push.ts:1198`). Rejected: r4's firing triple, which the ORPHAN check flags (`install.sh:1266`, `setup.d/lib.sh:1285`). §3 is corrected: `check-fences-fire.sh` proves the installed fences, not generated rules (`:2`). | A generated rule class has no lasting test a consumer can run → a triple under an attributed path. |
+| R5-13 | The table section and refresh (bottom-up MAJOR-1, m9, N1; top-down m8) | author | The table goes into a new generated-section mode with no keep-copy; today every change writes one (`setup.d/lib.sh:1083`, `:1137`). Its section id does not start with `getff-framework`, because the begin marker matches by prefix (`:1013`). Refresh's passport copies (`install.sh:1363`, `:1369-1370`) give way to the render function, and the «not touched» line (`:1415`) is reworded. | A re-run leaves a `refresh-conflicts/` keep-copy, or a plain `./setup` drops the table → the render function is not the only writer. |
+| R5-14 | The npm wiring proof (top-down m11; bottom-up m5, N8) | author | `eslint --stdin --stdin-filename <path>` loads the project's config the way its `lint` script does (`setup.d/70-deps.sh:80`). Rejected as precedent: `check-fences-fire.sh`'s synthetic config (`:264-269`), which proves logic only; the CLI crash it avoids is a harness fact (`tests/install-sh/f17-lint-rules-planted-violation.test.sh:32-36`). Unknowns measured in slice 3: an ignored path reads «not wired»; typed rules need a path the project's tsconfig covers; `_oxlintrc.json`. A rule without a path is «wiring unproven», never passed. | Stdin linting disagrees with on-disk linting for some rule class → R4-5's falsifier: the trade-off goes to the operator. |
+| R5-15 | MCP servers added mid-chain (bottom-up m6; top-down N6) | author; re-opens R4-10's premise | The vendor docs describe dynamic tool updates, against R4-10's «not live until a new session». Acceptance measures it, and the report says which held (§4.6). | Measured live → step 5 drops the web fallback in the button session; measured not live → R4-10 stands. |
+| R5-16 | Closure and outside dependencies (top-down m9; bottom-up m8) | author | Acceptance may run once slices 1-5 land. The docs pass waits on the contract's §6.7 steps 3-4 and the site umbrella (P6); a run made before the pass goes stale per T7.1 and is repeated. «PARKED» does not close. | The site umbrella stalls for weeks → the operator is asked whether to close on a pre-pass run with the pass as a named follow-up. |
 
 ## 6. Boundary with the truth-pipeline contract
 
-- **This spec owns** the step file's CONTENT and the one-button sequence (§4.1), the chain record,
-  the start round, the passport content and renders, the complete-install and green predicates,
-  the lane contract, the final check's name, the yield sidecar, the acceptance run and closure.
+- **This spec owns** the step file's CONTENT and the one-button sequence (§4.1), the chain and
+  setup records, the start round, the passport content and renders, the complete-install and green
+  predicates, the lane contract, the final check's name, the yield sidecar, acceptance and closure.
 - **The contract owns** the step schema and its gates (T1-T1.5), the one-source rules R1-R10 (R7's
   chain-telling surfaces gain this chain's), the site request rows, and goal governance (§6.8, R9).
 - **Where they meet:** the passport lands with the chain (contract §6.5, §6.7 step 2); the contract
   adds only the gating of its renders (§6.7 step 7). The banner render (§6.2) is §4.1's banner. The
   truth card (§6.7 step 6) is a render per R3-1.
-- **Notes to the contract owner** (drift the §2 review found; this spec does not edit the draft):
-  - T1.5 has the installer write the run stamp. In the one-button sequence the stamp is the chain
-    record's, written by the start round, and setup writes none (R4-3).
+- **Requests to the contract owner** (this spec does not edit the draft):
+  - **Blocking before slice 3:** T1.5 has the installer write the run stamp; in the one-button
+    sequence the stamp is the chain record's, and setup writes none (R4-3).
+  - §6.2's terminal `doneWhen` becomes the complete-install predicate, with R5-3's state mapping.
   - §6.5 builds the consumer mirror from «stack, rule lock, gate list», against R2-Stack.
-  - The passport fences' push exemption (§4.3 Upkeep) needs an entry on the R3 exempt list.
+  - R3's CI-only list gains the DESCRIPTION.md and ARCHITECTURE.md renders, with their reason.
   - T1.1 is «OPEN» in one place of the draft and «answered» in another.
-  - The site takes the one-button sequence through request row 5; until then
-    `scripts/render-face-facts.mjs` copies only the depth sequences. Asking the site seat needs
-    the operator's yes (P6).
+  - The site takes the one-button sequence through request row 5. Until then slice 1 filters it out
+    of `scripts/render-face-facts.mjs`, which copies every sequence (`:169`, `:174`). Asking the
+    site seat needs the operator's yes (P6).
 
 ## 7. Testing seams
 
 - **One seam carries most of it: the final check** (`scripts/getff-check.sh`). Every `doneWhen`,
   the complete-install predicate and green run through it. Its fixtures, all pure bash:
-  - each complete-install part as done, declined, not built on the lane, and not done;
+  - each part as done, declined, not built on the lane and not done; a late research opt-out;
   - the stub lane (§4.5), which must reach «complete» with no stack named in the chain;
-  - chain-record cases: absent (the depth sequence is walked), a second setup run that must not
-    prove step 5, the research opt-out reported as a skip;
-  - step 6 with unchanged lock bytes and a new research hash; a baseline-red gate left uncounted;
+  - chain-record cases: absent (the profile's depth sequence is walked), a second setup run that
+    must not prove step 5, a failed step-6 setup run read as step 6's;
+  - step 6 with unchanged lock bytes and a new research hash; a gate with nothing to run; a
+    baseline-red gate with an old failure (uncounted) and a new one (counted);
   - a wired glob that misses its target (the N14 regression) and a good example that fires.
-- **Passport fixtures:** the intent gate with and without the trailer; readAif on a python and a
-  Vite React fixture, never throwing; the table fragment merged by `merge_fenced`
-  (`setup.d/lib.sh:1004`) with no node; import idempotency; P3 placeholder replacement; a
-  `--refresh` that re-renders with no keep-copies.
-- **Existing seams, reused:** `packages/core/audit-self/first-steps-parity.test.ts` (regex widened
-  in slice 1) and the render `--check`s (contract §7); the `framework-fresh-install-validate` cells
-  (`.github/workflows/audit-self.yml:1490`, #1860); `packages/core/audit-self/check-fences-fire.sh`;
-  the `tests/install-sh/snapshot.sh` baselines. The python seams stay as they are.
+- **Passport fixtures:** the intent gate with and without the trailer (in `packages/core/hooks/`,
+  `pre-push.test.ts` and `pre-push.consumer-layout.test.ts`); readAif on python and Vite React
+  fixtures, never throwing; `merge_fenced` with no node; import idempotency; a deleted CLAUDE.md
+  not recreated; P3 placeholders; no `refresh-conflicts/` after step 6 or `--refresh`
+  (`tests/install-sh/refresh-covers-full-delivery.test.sh`, `refresh-divergence-guard.test.sh`).
+- **Existing seams, reused:** `packages/core/audit-self/first-steps-parity.test.ts` (widened in
+  slice 1) and the render `--check`s (contract §7); the `framework-fresh-install-validate` cells
+  (`.github/workflows/audit-self.yml:1490`, #1860) plus a variant with no repository and no app
+  tests (R5-1, R5-2); `check-fences-fire.sh`, `check-generated-rule-mutation.sh`,
+  `tests/fixtures/shipped-agent-liveness/aif-init.md`, `scripts/host-verify.sh` and the
+  `tests/install-sh/snapshot.sh` baselines. The python seams stay as they are.
 - **The one non-mechanical seam is the acceptance run** (§4.6), with the SDK stand-in for the human.
 
 ## 8. Rejected alternatives
 
-- The whole chain in the pasted prompt (it drifts); the plugin command as owner (Claude Code only,
-  no `--full`); a breaking `-y` backstop (reverses S1-4); level-2 researched tooling; the RED fix.
-- Overview documents, DRAFT files, a human-edited passport (R2-Q1); three intent questions
-  (R2-Q1.1); the intent source inside a DESCRIPTION.md fence (R2-P1); a stack block (R2-Stack);
-  ARCHITECTURE.md as a render target (R2-Arch); skill-context guards (R2-Guard); asking about
-  research (R2-OP18); a truth-card file or a second step file (R3-1); retiring `aif-init` (R3-2).
-- «Green» as the goal (P13). Per-stack chains, python acceptance, its ast-grep dev dependency and
-  the venv question (P14).
-- A hash record for the confirmed intent: its writer can re-hash a laundered edit (R4-4). A stamp
-  per setup run: step 6's setup run would prove step 5 (R4-3).
-- Planting the wiring example in the tracked tree: it breaks the temp-dir STOP line (R4-5). A
-  structure question with no mechanism behind the answer (R4-7).
+Each lives in the register row that rejected it: R2-Q1, R2-Q1.1, R2-P1, R2-Stack, R2-Arch,
+R2-Guard, R2-OP18, R3-1, R3-2, R4-3, R4-4, R4-5, R4-7, R5-5, R5-12 and R5-14. «Green» as the goal
+fell to P13; per-stack chains, python acceptance and its tool route fell to P14. With no row of
+their own: the whole chain in the pasted prompt (it drifts); the plugin command as owner (Claude
+Code only, no `--full`); a breaking `-y` backstop (reverses S1-4); level-2 researched tooling.
 
 ## 9. Implementation slices (for writing-plans, after approval)
 
 1. **Step file and start round.** The one-button sequence per contract T1.1 under a new sequence
-   key; the parity regex widened (`first-steps-parity.test.ts:50` admits no hyphen); face-facts
-   kept on the depth sequences (§6). The prompt render (no «Stop here»), the banner render, the
-   pointers from README, the plugin command and `skills/getff`; the start-round `run` file, the
-   Q2.1 relay, and the research opt-out (`INSTALL-FOR-AI.md:592-599`).
-2. **Passport.** The intent source and writer, the chain record, the intent gate; one render
-   function on install and `--refresh`, the delivery mode, the table's own fence section, the
-   `@AGENTS.md` import and CLAUDE.md from its template; readAif and the detector order (R3-5); the
-   `aif-init` rewrite with its liveness fixture, prober row and four descriptions (R3-2).
-3. **Final check.** `scripts/getff-check.sh`, the lane interface, the stub lane, the baseline
-   mode, the banner, the yield sidecar's research hash, and the npm lanes' gates and logic proof.
-   The npm wiring proof lands after slice 4's path field.
+   key; the parity test's rules (`first-steps-parity.test.ts:50` admits no hyphen; `:86` key
+   equality; `:107` treats `evidence` as a string) and the face-facts filter (§6). The prompt
+   render (no «Stop here»), the banner render, the pointers from README, the plugin command and
+   `skills/getff`; the start-round `run` file with lane recognition, the Q2.1 relay, and the
+   research opt-out (`INSTALL-FOR-AI.md:592-599`).
+2. **Passport.** The intent writer (`git init`, the late opt-out, the baseline call), the chain
+   record, the intent gate and its CI mirror; one render function on install and `--refresh`, the
+   delivery and generated-section modes, a per-section opt-out marker (new; the only escape today
+   is the whole-file override, `setup.d/lib.sh:1012`), the `@AGENTS.md` import and CLAUDE.md; readAif
+   and the detector order (R3-5) with `read-aif.test.ts:13-92`, `snapshot.test.ts:10-16`,
+   `detector/index.ts:2-8` and a regenerated `packages/core/install/rule-bootstrap-cli.bundle.mjs`;
+   the `aif-init` rewrite with its liveness fixture, prober row and four descriptions (R3-2).
+3. **Final check.** `scripts/getff-check.sh`, lane items 1-12 as an interface, the stub lane, the
+   baseline mode with failure identity, the setup record, the banner, the sidecar's research hash,
+   a hook check part replacing the `50-hooks.sh:81` instruction, and the npm lanes' gates and
+   logic proof. The npm wiring proof lands after slice 4's path field.
 4. **Research in the chain.** It reads the intent (R2-P2); the protocol's human checks rewritten
-   for blanket consent (`agents/rule-researcher.md:142-150`, R3-12); the allowlist render (R4-8);
-   the path field (R4-13).
-5. **Tools step.** The Q3.1 and Q3.2 scan, and the installed-tool check.
-6. **Acceptance run and report**, after contract T7; then `done.md`.
+   for blanket consent (`agents/rule-researcher.md:142-150`, R3-12, R5-8); the allowlist render
+   (R4-8); the path field (R4-13); the blocked-by-provenance count in the research files.
+5. **Tools step.** The Q3.1 and Q3.2 scan, the installed-tool check, the Rule 3 amendment (R5-11).
+6. **Acceptance run and report**, after slices 1-5 (R5-16); then `done.md`.
 
-Slices 2-5 run in parallel once slice 1's schema lands. Prior-art consults (CLAUDE.md
-build-vs-reuse gate) are owed for the step file (contract N-p), the intent gate, the final check,
-the chain record and the yield sidecar.
+Slices 2-5 run in parallel once slice 1's schema lands; only slice 3's wiring proof waits for
+slice 4. Prior-art consults (CLAUDE.md build-vs-reuse gate) are owed for the step file (contract
+N-p), the intent gate, the final check, the chain record, the yield sidecar and the
+generated-section mode.
 
 ## 10. Changelog
 
+Per-finding dispositions: the [review log](2026-09-28-one-button-chain-review-log.md).
 - **r1** (`e5fb19bde99`): round 1 (Q1-Q4). **r2** (`a8241c7e611`): round 2 with OP-15 to OP-17
-  and the `/aif` probe; premises P8-P12; every section written.
-- **r3** (`9f57c0efac0`, anchors `33147ff9228`): the round-2 cold re-review and OP-18; the intent
-  source moves to `.getff/intent.md`; the research question leaves the start round. Then P13 and
-  P14 (`93481336849`) and R3-12 (`c61055cade7`).
-- **r4:** the §2 cold review, round 1 of 2, on r3. Top-down: REVISE, 0 BLOCKER, 11 MAJOR,
-  2 ESCALATED, 20 MINOR, 8 notes. Bottom-up: REVISE, 0 BLOCKER, 8 MAJOR, 1 ESCALATED, 10 MINOR,
-  12 notes. The spec is restructured around the complete install (§4.4) and lanes (§4.5).
-  - **Top-down.** ACCEPTED: M1, M2, M10 → R4-3; M3 → R3-12 and slice 4; M4 → R4-8; M5 → R4-2;
-    M6 → R4-4; M7 → R4-6; M9 → R4-7; M11 → R4-5. DISSOLVED by P14: M8, E1. ESCALATED and answered:
-    E2 → R3-12. FIXED: m3, m4, m6, m17, m18, m19. ACCEPTED: m1 (R4-10), m2 (the table merge runs in
-    bash), m5 (slices), m7 (staleness by path or content), m8 and m10 (§6), m9 (after T7), m11
-    (§7), m12 (setup's exit code unchanged), m13 (readAif never throws), m14 (both examples in
-    wiring), m15 (flags from the chain record), m16 (R4-9), m20 (R4-6). Notes: N2 → §9 consults;
-    N4 DISSOLVED by P14; N1, N3, N5-N8 need no change.
-  - **Bottom-up.** ACCEPTED: MAJOR-1, MAJOR-2 → R4-3 (setup record, installed-tool check,
-    research hash); MAJOR-3 → R4-12; MAJOR-7 → R4-13; MAJOR-8 → R3-2 with the liveness fixture.
-    DISSOLVED by P14: MAJOR-4, MAJOR-6, E-1, and MAJOR-5, whose facts are corrected in §3. ACCEPTED:
-    m1, m2 (R3-5 tests; the falsifier asserts python), m3, m4 (readAif), m5 (R4-12), m6 (the
-    CLAUDE.md template's line 8), m7 (slice 1, §6), m8 (step 6 `when`), m9 (the whole «Next steps»
-    block), m10 (the fence check arrives with contract step 7, §4.3). Notes: FIXED N1-N5; N6 → §6;
-    N7 → R3-2; N10 → the delivery mode; N8, N9, N11, N12 need no change.
+  and the `/aif` probe; premises P8-P12. **r3** (`9f57c0efac0`, anchors `33147ff9228`): the
+  round-2 cold re-review and OP-18; then P13, P14 (`93481336849`) and R3-12 (`c61055cade7`).
+- **r4** (`66917ad162d`): §2 cold review round 1 of 2, on r3 (both seats REVISE); restructured
+  around the complete install and lanes; rows R4-1…R4-13.
+- **r5:** §2 cold review round 2 of 2, on r4. Top-down REVISE (1 BLOCKER, 5 MAJOR, 2 ESCALATED,
+  12 MINOR); bottom-up REVISE (4 MAJOR, 9 MINOR; 89 of 89 anchors resolve). Rows R5-1…R5-16; the
+  two ESCALATED findings are operator forks R5-8 and R5-9. No third round runs.

@@ -121,9 +121,10 @@ _Operator says_: «паспорт», «проекта паспорт».
 
 **Complete install**: the state the one button must reach. Every part it installs is in place and
 proven by the final check: getff, the passport, the accepted skills and MCP servers, rule research,
-and generated rules that each prove themselves with their test. A part the human declined, or one
-that does not apply to the stack, is named as such and never counted as done. The installer's exit
-code never counts. A green project is one condition of it. Owner: the
+and generated rules that each prove themselves with their test. A part the human declined, or an
+optional one that does not apply to the stack, is named as such and never counted as done, yet does
+not block completeness; a part the stack's lane has not built yet does. The installer's exit code
+never counts. A green project is one condition of it. Owner: the
 [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) §4.4.
 
 _Operator says_: «установка всего с одной кнопки».
@@ -132,8 +133,8 @@ _Operator says_: «установка всего с одной кнопки».
 
 **Green project**: one condition of a complete install, not the goal by itself — a project can be
 green while a tool it needs is missing. The project's own checks pass; every generated rule fires
-on its bad example and stays silent on its good one, in its fixture and wired into the project's
-real checks; and the rules lock exists and matches. Zero new rules can still be green when the
+on its bad example and stays silent on its good one, both in getff's own proof and through the
+project's real checks; and the rules lock exists and matches. Zero new rules can still be green when the
 report explains why. Owner: the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) §4.4.
 
 _Operator says_: «стать зеленым после установки».
@@ -141,8 +142,8 @@ _Operator says_: «стать зеленым после установки».
 ## Lane
 
 **Lane**: the part of getff that knows one stack, plugged into the one button through one contract:
-how the stack is recognised, how rules are rendered and proven on it, and which checks make it
-green. The one button itself names no stack. The npm lanes are the first ones built to the contract;
+how the stack is recognised, installed and hooked, which dependencies it reads, how rules are
+rendered and proven on it, and which checks make it green. The one button itself names no stack. The npm lanes are the first ones built to the contract;
 the python, rust and go lanes are alpha. Owner: the
 [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) §4.5.
 
