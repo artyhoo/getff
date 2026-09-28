@@ -2,7 +2,7 @@
 # setup.d/30-templates.sh — §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §3a (install.sh:802-814), §3b (install.sh:824-830), §3d (install.sh:848-859),
+# S0 rows: §3a (install.sh:810-822), §3b (install.sh:824-830), §3d (install.sh:848-859),
 #          §5b AGENTS.md (install.sh:949)
 # Depends on: SHIPPED_DOCS (set in dispatcher scope)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone

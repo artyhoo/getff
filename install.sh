@@ -347,6 +347,8 @@ do_toolchain_lane() {
   fi
   # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
   refresh_baseline_flush
+  # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
+  print_not_wired
 }
 
 # The python lane keeps its own body: its flow carries two python-specific steps the other lanes do
@@ -394,6 +396,8 @@ do_python_lane() {
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
   refresh_baseline_flush
+  # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
+  print_not_wired
   echo ""
   echo "✅ getff Python toolchain + agent surface ${REFRESH:+re-}delivery complete."
 }
@@ -604,7 +608,7 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:719 fail-loud instead of showing
+# else in this script (--full/-y at install.sh:723 fail-loud instead of showing
 # the stack menu; --full/--dry-run at :470 decline the python/cargo
 # toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:65
@@ -649,7 +653,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:866 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:874 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -908,7 +912,7 @@ do_refresh() {
     # Do NOT remove the legacy dir if the modern dir is absent — that would leave
     # the consumer with NO skill at all (T17: preserve future-value content).
     echo "  · $_LEGACY_SKILL_DIR kept ($_MODERN_SKILL_DIR/ not delivered — removal would leave no skill)"
-    echo "    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/"
+    echo "    this looks like a pre-rename install: the framework version that ran did not deliver $_MODERN_SKILL_DIR/, so the old skill stays until one that does runs"
   else
     echo "  · no legacy $_LEGACY_SKILL_DIR present (fresh install or already reclaimed)"
   fi
@@ -1167,7 +1171,7 @@ do_refresh() {
   # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
   # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:654-656), the presence
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:662-664), the presence
   # clause is what keeps an installed tier updated.
   # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1977-1980).
   #
@@ -1234,7 +1238,7 @@ do_refresh() {
   # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
   # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
-  # framework-namespace files a consumer never owns (setup.d/lib.sh:1955). A rule-logic fix must reach a
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:1960). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
   # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:222-251
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
@@ -1453,7 +1457,8 @@ if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   if [ ! -f "$PKG_ROOT/setup.d/aif-handoff-guided-install.sh" ]; then
     # Consumer install payload may not include this helper (e.g. core-only checkout refreshed
     # with --profile factory but the helper file was not in the original payload). Graceful skip.
-    echo "  ⊝ setup.d/aif-handoff-guided-install.sh not present in this checkout — see docs/runtime-bridge-setup.md"
+    # It runs after 99-finalize printed the NOT-wired summary, so the gap is printed in place (Q4.7).
+    echo "  ⚠ NOT wired: aif-handoff — not installed: setup.d/aif-handoff-guided-install.sh is not in this getff checkout, so the guided install did not run"
   elif [ "$DRY_RUN" = "--dry-run" ]; then
     # ledger A1-3: the helper clones a repo and starts containers on consent. 99-finalize has
     # already printed "Dry-run complete. Nothing was written." by now, so a --dry-run that
