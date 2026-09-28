@@ -191,7 +191,8 @@ else
 fi
 
 # ── Arm 5: drift detected then healed ────────────────────────────────────────────────────────
-sed -i 's/"count": 2/"count": 9/' "$FIX/docs/site/face-facts.json"
+# -i.bak + rm: bare `sed -i '<expr>'` is GNU-only (BSD sed eats the expr as a backup suffix).
+sed -i.bak 's/"count": 2/"count": 9/' "$FIX/docs/site/face-facts.json" && rm -f "$FIX/docs/site/face-facts.json.bak"
 out=$(npx tsx "$GEN" --check --root "$FIX" 2>&1); rc=$?
 if [ $rc -ne 0 ] && echo "$out" | grep -q "face-facts.json"; then
   ok "arm 5: --check detects drift, non-zero, naming the file"
