@@ -512,10 +512,11 @@ case "${_f11_check:-}:$_root_eslint" in
        && ! printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} | grep -F "($_root_eslint)" | grep -qF 'check-rule-globs.sh fails on this config'; then
       _f11_out=$( cd "$PROJECT_ROOT" && env -u ESLINT_CONFIG bash "$_f11_gate" 2>&1 ) && _f11_rc=0 || _f11_rc=$?
       if [ "$_f11_rc" -ne 0 ]; then
-        _f11_what=""
+        _f11_what="" _f11_r2=""
         # The gate reads RULE_GLOBS.appCode / .application too under AIF_STRICT_RUNTIME=1: only the boundary
         # array is named here, the other keys by the gate's own line below.
         if printf '%s\n' "$_f11_out" | grep -q 'no globs found under RULE_GLOBS\.boundary'; then
+          _f11_r2=1
           if grep -q 'RULE_GLOBS' "$_f11_cfg"; then
             _f11_what="its RULE_GLOBS has no boundary array of quoted globs"
           else
@@ -526,9 +527,12 @@ case "${_f11_check:-}:$_root_eslint" in
         elif printf '%s\n' "$_f11_out" | grep -q '(RULE_GLOBS\.[A-Za-z]*): matches ZERO source files'; then
           _f11_key=$(printf '%s\n' "$_f11_out" | sed -n 's/.*(\(RULE_GLOBS\.[A-Za-z]*\)): matches ZERO source files.*/\1/p' | head -1)
           _f11_what="its $_f11_key matches none of the project's source files"
+          case "$_f11_key" in RULE_GLOBS.boundary) _f11_r2=1 ;; esac
         fi
         if [ -n "$_f11_what" ]; then
-          if [ -n "${_r2_own_globs:-}" ]; then
+          # Why the install adds no boundary explains R2's array alone: a RULE_GLOBS.appCode or .application
+          # (R7/R8) that matches nothing has nothing to do with it (fourth cold review).
+          if [ -n "${_r2_own_globs:-}" ] || [ "$_f11_r2" != 1 ]; then
             _f11_why=""
           elif [ "${_r2_verdict:-}" = boundary-present ]; then
             _f11_why=", and the ${STACK:-ts-server} preset ships no R2, so the install has no RULE_GLOBS.boundary to add"
@@ -539,9 +543,10 @@ case "${_f11_check:-}:$_root_eslint" in
         else
           # Red for a reason that is not this config's RULE_GLOBS (a workspace config no pass could wire, a
           # recorded R2 N/A that no longer holds): the gate's first failure line says what — up to its
-          # advice, which is a step for a person to take, not one for the install to hand on.
+          # advice, which is a step for a person to take, not one for the install to hand on. A gate with no
+          # such line (a crash, a consumer's own script) leaves it empty, and the install goes on (fourth cold review).
           _f11_line=$(printf '%s\n' "$_f11_out" | grep -m1 -E '✗|no globs found under' \
-            | sed -e 's/^[[:space:]]*//' -e 's/^✗[[:space:]]*//' -e 's/^⚠[[:space:]]*//' -e 's/ — .*//' -e 's/ (check the config)$//')
+            | sed -e 's/^[[:space:]]*//' -e 's/^✗[[:space:]]*//' -e 's/^⚠[[:space:]]*//' -e 's/ — .*//' -e 's/ (check the config)$//') || true
           if [ -n "$_f11_line" ]; then
             note_not_wired "$_f11_line — scripts/check-rule-globs.sh, which runs on every push, fails on this project"
           else

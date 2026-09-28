@@ -86,20 +86,46 @@ config_dirs() {
 # quotes (prettier's default is double), and the array read only up to its own `]` — on one line, the
 # next key's globs are not this key's (second cold review, after #1868). A comment is not code: each line
 # is read with its // and /* */ comments cut out (uncomment; quoted text stays, a /* */ comment may span
-# lines), and a key is the whole key — `my-boundary` is not `boundary` (third cold review). The quote
-# characters come in through -v; `[[]` is a literal `[` that needs no backslash.
+# lines), and a key is the whole key — `my-boundary` is not `boundary` (third cold review). A regex
+# literal and a template string are not code either, and a `/*` or quote inside one opens nothing: a
+# `/` where a value starts is read as a regex up to its closing `/` on that line (a division when there
+# is none), and a template string runs across lines to its closing backtick, its text left out — no
+# glob is read from it (fourth cold review). The quote characters come in through -v; `[[]` is a
+# literal `[` that needs no backslash.
 RG_AWK_LIB='
 function opener(key) { return "(^|[^A-Za-z0-9_$." sq dq "-])(" sq key sq "|" dq key dq "|" key ")[[:space:]]*:[[:space:]]*[[]" }
-function uncomment(s,   out, c, q, i, n) {
+function regexctx(out,   w) {
+  if (last == "" || index("(,=:[!&|?{};+-*%<>~^}", last) > 0) return 1
+  if (last !~ /[A-Za-z]/) return 0
+  w = out; sub(/[[:space:]]+$/, "", w)
+  if (!match(w, /[A-Za-z_$][A-Za-z0-9_$]*$/)) return 0
+  return substr(w, RSTART) ~ /^(return|typeof|case|in|of|delete|void|throw|new|else|do|yield|await|instanceof)$/
+}
+function uncomment(s,   out, c, q, i, j, n, cls) {
   out = ""; q = ""; n = length(s)
   for (i = 1; i <= n; i++) {
     c = substr(s, i, 1)
     if (incmt) { if (c == "*" && substr(s, i + 1, 1) == "/") { incmt = 0; i++ }; continue }
-    if (q != "") { out = out c; if (c == "\\") { out = out substr(s, i + 1, 1); i++ } else if (c == q) q = ""; continue }
+    if (intpl) { if (c == "\\") i++; else if (c == "`") { intpl = 0; out = out c; last = c }; continue }
+    if (q != "") { out = out c; if (c == "\\") { out = out substr(s, i + 1, 1); i++ } else if (c == q) { q = ""; last = c }; continue }
     if (c == "/" && substr(s, i + 1, 1) == "/") break
     if (c == "/" && substr(s, i + 1, 1) == "*") { incmt = 1; i++; continue }
-    if (c == sq || c == dq || c == "`") q = c
+    if (c == "/" && regexctx(out)) {
+      cls = 0
+      for (j = i + 1; j <= n; j++) {
+        c = substr(s, j, 1)
+        if (c == "\\") j++
+        else if (cls) { if (c == "]") cls = 0 }
+        else if (c == "[") cls = 1
+        else if (c == "/") break
+      }
+      if (j <= n) { out = out "0"; last = "0"; i = j; continue }
+      c = "/"
+    }
+    if (c == "`") { intpl = 1; out = out c; last = c; continue }
+    if (c == sq || c == dq) q = c
     out = out c
+    if (c !~ /[[:space:]]/) last = c
   }
   return out
 }'

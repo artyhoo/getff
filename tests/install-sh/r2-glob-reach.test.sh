@@ -716,13 +716,47 @@ JS
     && bad "F11 strict: the summary says the config has no boundary array, though it has one: $(f11_not_wired "$T26.log" | grep 'no boundary array' | head -1)" \
     || ok "F11 strict: nothing about a missing boundary array the config has"
 
-  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
-    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" | grep -iE 'by hand|manually' | head -1)"
+  # A gate that fails with no failure line the install can read (a consumer's own scripts/check-rule-globs.sh,
+  # which copy_safe keeps; a crash): under install.sh's `set -euo pipefail` the empty grep in the fallback
+  # used to end the install there, silently, before the NOT wired summary (fourth cold review).
+  T27=$(f11_project error none); mkdir -p "$T27/scripts"
+  printf '#!/usr/bin/env bash\necho "check-rule-globs: something else went wrong"\nexit 2\n' > "$T27/scripts/check-rule-globs.sh"
+  f11_install "$T27" "$T27.log"
+  f11_not_wired "$T27.log" | grep 'check-rule-globs.sh' | grep -q 'exits 2' \
+    && ok "F11 no failure line: the install goes on and the summary says the gate exits 2" \
+    || bad "F11 no failure line: the install stopped in the F11 check, or its summary does not name the gate's exit (tail: $(tail -3 "$T27.log" | tr '\n' '|'))"
+
+  # With AIF_STRICT_RUNTIME=1, a RULE_GLOBS.appCode that matches nothing is named as such — without the
+  # clause about R2's boundary, which matches and is not what the gate fails on (fourth cold review).
+  T28=$(f11_project error none)
+  cat > "$T28/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ['**/lib/**/*.ts'],
+  appCode: ['**/nowhere/**/*.ts'],
+  application: ['**/lib/**/*.ts'],
+};
+
+export default [{ files: RULE_GLOBS.boundary, rules: { 'no-console': 'error' } }];
+JS
+  export AIF_STRICT_RUNTIME=1
+  f11_install "$T28" "$T28.log"
+  OUT28=$(f11_gate "$T28"); RC28=$?
+  unset AIF_STRICT_RUNTIME
+  [ "$RC28" = "1" ] || bad "F11 strict zero-match: check:globs exited $RC28 — the arm below assumes the gate is red on appCode"
+  f11_not_wired "$T28.log" | grep -q 'RULE_GLOBS\.appCode matches none' \
+    && ok "F11 strict zero-match: the summary names RULE_GLOBS.appCode matching no source file" \
+    || bad "F11 strict zero-match: the summary does not name RULE_GLOBS.appCode (summary: $(f11_not_wired "$T28.log" | tr '\n' '|'))"
+  f11_not_wired "$T28.log" | grep 'RULE_GLOBS\.appCode' | grep -q 'RULE_GLOBS\.boundary' \
+    && bad "F11 strict zero-match: the appCode line explains it by R2's boundary: $(f11_not_wired "$T28.log" | grep 'RULE_GLOBS\.appCode' | head -1)" \
+    || ok "F11 strict zero-match: the appCode line says nothing about R2's boundary"
+
+  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" "$T27.log" "$T28.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
+    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" "$T27.log" "$T28.log" | grep -iE 'by hand|manually' | head -1)"
   else
     ok "F11: no install output asks for a manual ESLint edit"
   fi
-  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T22" "$T23" "$T24" "$T25" "$T26" \
-    "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log"
+  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T22" "$T23" "$T24" "$T25" "$T26" "$T27" "$T28" \
+    "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" "$T24.log" "$T25.log" "$T26.log" "$T27.log" "$T28.log"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
