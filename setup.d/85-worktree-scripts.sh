@@ -88,5 +88,4 @@ echo "  ✓ scripts/create-worktree.sh (worktree entrypoint — REUSE per kickof
 echo "  ✓ scripts/worktree-node-modules.sh (node_modules provisioning)"
 echo "  ✓ scripts/link-coordination.sh (workspace link coordination)"
 echo "  ✓ scripts/getff-work.sh (workspace one-command entry-point — spec A9)"
-echo "    ↳ NEXT: invoke via \`getff work <name>\` (env+ profile) or directly"
-echo "      via \`bash scripts/create-worktree.sh <name>\`."
+echo "    ↳ entry points: \`getff work <name>\` (env+ profile) and \`bash scripts/create-worktree.sh <name>\`"

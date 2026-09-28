@@ -78,7 +78,7 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
     _own_kept=$(keep_original_settle "$PROJECT_ROOT/$_root_eslint" "$_own_snap") || _own_undone=1
     if [ -n "$_own_kept" ]; then
       echo "  · your original $_root_eslint is kept at ${_own_kept#"$PROJECT_ROOT"/}"
-      GETFF_ADDED_TO+=( "$_root_eslint" )
+      note_getff_added "$_root_eslint"
     fi
     if [ "$_own_undone" = 1 ]; then
       note_not_wired "getff's rules in $_root_eslint (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
@@ -183,7 +183,7 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
           _sw_kept=$(keep_original_settle "$_sw_cfg" "$_sw_snap") || _sw_undone=1
           if [ -n "$_sw_kept" ]; then
             echo "  · your original $_sw_rel is kept at ${_sw_kept#"$PROJECT_ROOT"/}"
-            GETFF_ADDED_TO+=( "$_sw_rel" )
+            note_getff_added "$_sw_rel"
           fi
           if [ "$_sw_undone" = 1 ]; then
             note_not_wired "live-research rules in $_sw_rel (your own config) — its original could not be kept at .ai-factory/before-getff/, so getff's change was undone and the file is as it was"
@@ -279,7 +279,7 @@ _r2_wire_cfg() {
   fi
   if [ -n "$kept" ]; then
     echo "  · your original $rel is kept at ${kept#"$PROJECT_ROOT"/}"
-    GETFF_ADDED_TO+=( "$rel" )
+    note_getff_added "$rel"
   fi
   case "$out" in
     *"✓ R2 wired"*|*"R2 already enforced"*) : ;;
@@ -392,7 +392,7 @@ elif [ -f "$PROJECT_ROOT/package.json" ] && \
      [ "${AIF_STRICT_RUNTIME:-}" != "1" ]; then
   echo ""
   echo "⚠  Detected @opentelemetry/* but AIF_STRICT_RUNTIME is unset — R8 (require-otel-span) will not fire."
-  echo "   Set AIF_STRICT_RUNTIME=1 to arm runtime-discipline rules (R7/R8)."
+  note_not_wired "R8 (require-otel-span) and R7 — not armed: @opentelemetry/* is in package.json but AIF_STRICT_RUNTIME is unset, and getff does not arm the runtime-discipline rules on its own"
 fi
 
 # GH #531 (reopen): ignore the framework configs we shipped FRESH (consumer-owned ones stay checked).
@@ -538,7 +538,7 @@ else
   if [ "$_ISV_FAIL" -gt 0 ]; then
     _isv_fail_tail=""
     [ "$_ISV_SKIP" -gt 0 ] && _isv_fail_tail=", $_ISV_SKIP skipped"
-    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — review output above before committing"
+    echo "⚠  self-verify: $_ISV_PASS/3 passed, $_ISV_FAIL FAILED$_isv_fail_tail — the failing check's output is above"
   elif [ "$_ISV_SKIP" -gt 0 ]; then
     # No failures, but ≥1 check never ran — DO NOT claim the three properties. Skipped checks
     # are unproven, not proven-good.
@@ -619,19 +619,27 @@ echo ""
 if [ "$DRY_RUN" != "--dry-run" ]; then
   echo "Checked by the install:"
   _hp_now=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
-  if [ "${HUSKY_HOOKSPATH_OWNED:-1}" = "1" ] && [ "${_hp_now#.husky}" != "$_hp_now" ]; then
+  # .husky (set by 50-hooks) and .husky/_ (husky v9, kept by 50-hooks) both run .husky/<hook>; a
+  # blocker (the consumer's own hooksPath, a subdirectory install) is the only «not active».
+  if [ -z "${HUSKY_HOOKS_BLOCKED:-}" ] && { [ "$_hp_now" = ".husky" ] || [ "$_hp_now" = ".husky/_" ]; }; then
     echo "  ✓ git hooks active — core.hooksPath=$_hp_now"
   else
     echo "  · git hooks — not active (NOT wired above)"
   fi
-  if [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ]; then
+  # Only the script getff placed: a scripts/audit-ai-docs.sh the project already had is its own
+  # code (copy_safe kept it), and the install does not run a project's code.
+  if [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ] && ! getff_delivered "$PROJECT_ROOT/scripts/audit-ai-docs.sh"; then
+    echo "  · scripts/audit-ai-docs.sh — not run: the file is the project's own (it existed before the install), and the install does not run a project's code"
+  elif [ -f "$PROJECT_ROOT/scripts/audit-ai-docs.sh" ]; then
     _aud_out=$( cd "$PROJECT_ROOT" && bash scripts/audit-ai-docs.sh 2>&1 ) && _aud_rc=0 || _aud_rc=$?
     _aud_sum=$(printf '%s\n' "$_aud_out" | sed -n 's/^Audit complete: //p' | tail -1)
     if [ "$_aud_rc" -eq 0 ] && [ -n "$_aud_sum" ]; then
       echo "  ✓ scripts/audit-ai-docs.sh — $_aud_sum"
     else
       echo "  ✗ scripts/audit-ai-docs.sh — ${_aud_sum:-exited $_aud_rc}:"
-      printf '%s\n' "$_aud_out" | grep -E 'FAIL' | grep -v '^Audit complete' | sed 's/^/      /'
+      # awk, not grep: a grep that selects nothing exits 1, and under set -euo pipefail that ended
+      # a finished install (cold review M1, 2026-09-28).
+      printf '%s\n' "$_aud_out" | awk '/FAIL/ && !/^Audit complete/ { print "      " $0 }'
     fi
   fi
   if [ "${DEPS_INSTALLED:-}" = "1" ]; then
@@ -639,8 +647,18 @@ if [ "$DRY_RUN" != "--dry-run" ]; then
   elif [ -f "$PROJECT_ROOT/package.json" ]; then
     echo "  · dependencies — not installed (NOT wired above)"
   fi
-  echo "  · .ai-factory/DESCRIPTION.md, .ai-factory/ARCHITECTURE.md and AGENTS.md — placed from getff's templates;"
-  echo "    their project-specific parts (domain, layers, conventions) are placeholders an install cannot know"
+  # Only the files placed in this run: one the project already had was kept, and it is not a template.
+  _placed_docs=""
+  for _pd in .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md AGENTS.md; do
+    [ -f "$PROJECT_ROOT/$_pd" ] || continue
+    _pd_kept=""
+    for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do [ "$_sk" = "$PROJECT_ROOT/$_pd" ] && _pd_kept=1; done
+    [ -n "$_pd_kept" ] || _placed_docs="${_placed_docs:+$_placed_docs, }$_pd"
+  done
+  if [ -n "$_placed_docs" ]; then
+    echo "  · $_placed_docs — placed from getff's templates; their project-specific parts"
+    echo "    (domain, layers, conventions) are placeholders an install cannot know"
+  fi
   echo "  · npm run validate — not run: it runs this project's own lint, typecheck and tests, whose result"
   echo "    is about the project's code, not about what the install placed"
   echo ""

@@ -216,6 +216,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       if [ -n "$_job" ] && [ "$_job" != "null" ]; then _wire_wf="$_wf"; _wire_job="$_job"; break; fi
     done
     if [ -n "$_wire_job" ]; then
+      _aif_yq_ran=1
       _wired=0
       # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
       # _cmd is one of the 4 hard-coded gate commands (no quotes/special chars) — keep it that way:
@@ -238,7 +239,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     fi
   }
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
-    _aif_wire="no"
+    _aif_wire="no"; _aif_yq_ran=""
     if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
     elif [ -z "${FULL:-}" ] && [ -t 0 ]; then
       printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
@@ -269,6 +270,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
                 else
                   echo "  ⚠ yq install did not succeed — the gates are not wired (NOT wired below)"
                 fi ;;
+              *) echo "  ⊝ yq not installed — the offer to install it was declined, so the gates are not wired (NOT wired below)" ;;
             esac
           else
             # --wire-ci with no TTY: do NOT silently install a binary on a non-interactive run.
@@ -302,7 +304,9 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     # (operator directive 2026-09-28, Q4.7). The workflow is the consumer's: getff edits it only on
     # --wire-ci or a yes at the prompt, because its only editor (yq) does not keep every comment
     # (research-patch 2026-06-14-s3-workflow-merge §4/§6, SSOT #117).
-    if [ "${_aif_wire:-no}" = "yes" ]; then
+    if [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
+      _aif_why="yq did not add it to the job it wired the other gates into"
+    elif [ "${_aif_wire:-no}" = "yes" ]; then
       _aif_why="the wiring through yq did not land (its reason is above)"
     else
       _aif_why="the workflow is your own, and getff edits it only on --wire-ci or a yes at the install prompt, which this run did not have"

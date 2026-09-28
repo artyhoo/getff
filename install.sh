@@ -653,7 +653,7 @@ if [ -z "$PROFILE" ]; then
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
-      echo "[profile] core (refresh keeps the depth already on disk; pass --profile env to deepen)"
+      echo "[profile] core (refresh keeps the depth already on disk; --profile env deepens it)"
     else
       PROFILE="env"
       echo "[profile] env (non-interactive default; --profile core for rules-only, --profile factory for the AIF suite)"
@@ -948,7 +948,7 @@ do_refresh() {
       #   (d) does NOT embed a recommended action (would tacitly pick A).
       echo "  ⚠ $_CONSUMER_LINTSTAGED differs from framework template"
       echo "    framework template: $_TEMPLATE_LINTSTAGED"
-      echo "    consumer-owned — never overwritten; review the diff and decide."
+      echo "    consumer-owned — never overwritten; getff's template differs from it."
     fi
   fi
   unset _CONSUMER_LINTSTAGED _TEMPLATE_LINTSTAGED
@@ -1236,7 +1236,7 @@ do_refresh() {
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
   # framework-namespace files a consumer never owns (setup.d/lib.sh:1955). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
-  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:221-250
+  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:222-251
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
   # source-dir parity (a core-only refresh silently stranded preset rules on react-next/react-spa
   # consumers before this — the exact #869 class, verified live).

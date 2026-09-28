@@ -714,14 +714,14 @@ _pre_overwrite_divergence_action() {
 #   install.sh:1373                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1362          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:475          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:501          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:522          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:550          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:465          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:490          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:510          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:541          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:551          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:466          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
@@ -1286,7 +1286,7 @@ _report_dir_residue() {
     echo "    Kept in place. If you added it, that is expected — a payload can be consumer-extensible (scripts/fences-fire-fixtures is; see its gate header and INSTALL.md) and getff never removes what it cannot attribute to its own delivery."
     echo "    If you did NOT add it, it is residue of a PRIOR getff version — and a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
   else
-    echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it; review whether it is still wanted."
+    echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it, so getff leaves it as the project's own."
   fi
   return 0
 }
@@ -1460,7 +1460,7 @@ deliver_getff_workflow() {
   else
     # PARK case (kickoff §5): loud stderr warning — Option A (recommended).
     echo "  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);" >&2
-    echo "    delivered workflow uses 'main' — edit $dst if your default differs" >&2
+    echo "    delivered workflow uses 'main' as the default branch — the install could not read the real one" >&2
   fi
 }
 
@@ -1788,7 +1788,7 @@ report_getff_orphans() {
   # delivered anything here, so it is not an orphan of ours; and clean-tree arms of
   # lane-orphan-residue grep ORPHAN: to zero. Fires identically under --dry-run (read-only).
   if [ -d "$PROJECT_ROOT/.getff/rules-research" ]; then
-    echo "  ⊝ .getff/rules-research/ is consumer-owned researched-rule storage — getff joins *.yml from it into .getff/astgrep-rules on every pass and never writes, sweeps, or prunes here; stale entries stay until you remove them."
+    echo "  ⊝ .getff/rules-research/ is consumer-owned researched-rule storage — getff joins *.yml from it into .getff/astgrep-rules on every pass and never writes, sweeps, or prunes here, so its entries stay as the project left them."
   fi
   return 0
 }
@@ -2508,7 +2508,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:252-257); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:253-258); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2678,9 +2678,11 @@ warn_preset_staleness() {
     echo ""
     echo "⚠  This preset is a frozen Next-15 snapshot (${snap:-unknown}) — your installed tool majors differ:"
     printf '%b' "$out"
-    echo "   Prefer live-research delivery for rules matching your current versions: run the rule-research"
-    echo "   protocol (agents/rule-researcher.md / the rule-research skill), then ./setup --full. Presets"
-    echo "   are the fallback baseline, not the source of truth."
+    # A fact, not a step (Q4.7): the preset is what got installed, and live research is not part of
+    # an install.
+    echo "   The rules installed are this preset's, pinned to the versions above; rules researched for your"
+    echo "   current versions come from the rule-research protocol (agents/rule-researcher.md), which an"
+    echo "   install does not run. Presets are the fallback baseline, not the source of truth."
   fi
 }
 
@@ -2722,6 +2724,15 @@ husky_hookspath_blocker() {
 # surface (printed in the 99-finalize summary). Tolerates NOT_WIRED being undeclared (lib-only use).
 note_not_wired() {
   NOT_WIRED+=("$1")
+}
+
+# note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
+# for 99-finalize's summary. Once per file: in a multi-stack monorepo the per-workspace synth-wire
+# and the R2 wirer can both add to the same consumer config (cold review, 2026-09-28).
+note_getff_added() {
+  local _a
+  for _a in ${GETFF_ADDED_TO[@]+"${GETFF_ADDED_TO[@]}"}; do [ "$_a" = "$1" ] && return 0; done
+  GETFF_ADDED_TO+=("$1")
 }
 
 # DEPCRUISE_CONFIG_NAMES — the config names dependency-cruiser loads by default, in its own lookup
@@ -2962,7 +2973,7 @@ reassert_husky_shields() {
   if [ "$reasserted" = "1" ]; then
     local mgr=""
     grep -q '"simple-git-hooks"' "$proj/package.json" 2>/dev/null && mgr="simple-git-hooks"
-    echo "⚠  re-asserted framework .husky/pre-push + pre-commit after dep-install${mgr:+ (a competing \"$mgr\" prepare hook had clobbered them)} — a future package-manager install may re-clobber them; keep core.hooksPath=.husky or remove the competing manager's hooks. (GH #975)"
+    echo "⚠  re-asserted framework .husky/pre-push + pre-commit after dep-install${mgr:+ (a competing \"$mgr\" prepare hook had clobbered them)} — a later package-manager install can clobber them again while that manager's hooks stay installed. (GH #975)"
   fi
   return 0
 }
@@ -2983,6 +2994,9 @@ json_edit_node() {
     const f = process.env.GETFF_JSON_FILE, tmp = f + ".tmp";
     try {
       const o = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+      // Only a JSON object is a settings/.mcp.json: `[]`, a string or a number would be written back
+      // unchanged while the caller printed «✓ registered» (cold review, 2026-09-28).
+      if (o === null || typeof o !== "object" || Array.isArray(o)) process.exit(1);
       const out = new Function("o", "args", process.env.GETFF_JSON_JS)(o, process.argv.slice(1));
       if (out === undefined) process.exit(3);
       fs.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
@@ -2998,7 +3012,7 @@ json_edit_node_why() {
   if ! command -v node >/dev/null 2>&1; then
     echo "neither jq nor node is on PATH, and getff edits JSON only through one of them"
   else
-    echo "${1#"${PROJECT_ROOT:-}"/} is not valid JSON or could not be written, so it was left as it was"
+    echo "${1#"${PROJECT_ROOT:-}"/} is not a valid JSON object or could not be written, so it was left as it was"
   fi
 }
 

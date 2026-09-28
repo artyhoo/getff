@@ -104,7 +104,8 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/.nvmrc" "$PROJECT_ROOT/.nvmr
 # .gitignore always wins (Layer-2) — warned below, never edited.
 copy_safe "$PKG_ROOT/packages/core/templates/shared/gitignore" "$PROJECT_ROOT/.gitignore"
 if _prettierignore_in_skipped "$PROJECT_ROOT/.gitignore" && ! grep -q 'node_modules' "$PROJECT_ROOT/.gitignore" 2>/dev/null; then
-  echo "  ⚠ .gitignore exists without a node_modules line — 'git add -A' will stage node_modules/. Consider adding node_modules/ to .gitignore (file left untouched)." >&2
+  echo "  ⚠ .gitignore exists without a node_modules line — 'git add -A' will stage node_modules/ (file left untouched)." >&2
+  note_not_wired "node_modules/ ignore — the project's own .gitignore has no node_modules line, so 'git add -A' stages it; getff does not edit a .gitignore the project already has"
 fi
 copy_unless_foreign lint-staged "$PKG_ROOT/packages/core/templates/shared/.lintstagedrc.json" "$PROJECT_ROOT/.lintstagedrc.json"
 # cih-s3 F14 (M3): in a workspace, a single root .lintstagedrc runs `eslint` from git-root; in
@@ -341,7 +342,7 @@ if [ -n "$_ws_lines" ]; then
           if [ "$DRY_RUN" = "--dry-run" ]; then
             echo "  [dry-run] would skip: stryker/$_ws_slug.json (exists)"
           else
-            echo "  ⊝ stryker/$_ws_slug.json (exists — skipping; use --force to overwrite)"
+            echo "  ⊝ stryker/$_ws_slug.json (exists — skipping)"
           fi
         elif [ "$DRY_RUN" = "--dry-run" ]; then
           echo "  [dry-run] would emit: stryker/$_ws_slug.json"

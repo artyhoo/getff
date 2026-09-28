@@ -21,6 +21,26 @@ companion_is_machine_global() {
   return 1
 }
 
+# companion_not_wired <line> — record a companion that is not wired, with its reason (Q4.7: a gap,
+# never a step). Inside install.sh (05-mcp sources this file) lib.sh's note_not_wired puts it in the
+# install's own summary. ./setup runs install.sh as its own process — that run has printed its
+# summary and exited — and then sources only this file, so here the gap is kept and printed by
+# companion_not_wired_summary after the companions.
+COMPANION_NOT_WIRED=()
+companion_not_wired() {
+  if command -v note_not_wired >/dev/null 2>&1; then
+    note_not_wired "$1"
+  else
+    COMPANION_NOT_WIRED+=( "$1" )
+  fi
+}
+companion_not_wired_summary() {
+  [ "${#COMPANION_NOT_WIRED[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "⚠  ${#COMPANION_NOT_WIRED[@]} companion(s) NOT wired — each line says why:"
+  printf '      - %s\n' "${COMPANION_NOT_WIRED[@]}"
+}
+
 companion_step() {
   local name="$1" detect_cmd="$2" install_cmd="$3" kind="$4" mode="$5"
 
@@ -67,10 +87,8 @@ companion_step() {
   if companion_is_machine_global "$install_cmd"; then _global=1; fi
   if [ "$mode" = "yes" ] && [ -n "$_global" ] && [ "${GETFF_GLOBAL:-}" != "1" ]; then
     printf '  ⊝ %s skipped — machine-global install (outside this project): %s\n' "$name" "$install_cmd"
-    printf '    -y installs into the project only; a machine-global install needs --global or a yes at the prompt\n'
-    if command -v note_not_wired >/dev/null 2>&1; then
-      note_not_wired "$name — not installed: its install is machine-global ($install_cmd), and -y alone installs into the project only"
-    fi
+    printf '    without --global, a non-interactive install writes into this project only\n'
+    companion_not_wired "$name — not installed: its install is machine-global ($install_cmd), and without --global a non-interactive install writes into this project only"
     return 0
   fi
 
@@ -97,15 +115,13 @@ companion_step() {
       if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: success\n' "$name"; fi
     else
       printf '  ⚠ %s install failed — %s exited non-zero (its output is above)\n' "$name" "$install_cmd"
-      if command -v note_not_wired >/dev/null 2>&1; then
-        note_not_wired "$name — not installed: $install_cmd failed (its output is above)"
-      fi
+      companion_not_wired "$name — not installed: $install_cmd failed (its output is above)"
       if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: failed\n' "$name"; fi
     fi
   else
     printf '  ⊝ %s skipped\n' "$name"
   fi
-  # Always 0: a companion is optional by contract (the ⚠ line already says «run manually»).
+  # Always 0: a companion is optional by contract (the ⚠ line and its NOT-wired entry say why).
   # The caller (`setup`, `set -e`) must never die on a companion — before this line the
   # trailing `[ "$kind" = "mcp" ] && printf` made every non-mcp companion return 1 on BOTH
   # branches, so a fresh machine (superpowers absent → install attempted) killed `setup -y`
