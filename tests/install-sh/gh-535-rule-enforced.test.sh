@@ -236,5 +236,35 @@ done
 run_sev '[0]' AIF_ENFORCED_ALLOW_WARN=1 && bad "Severity NEG: AIF_ENFORCED_ALLOW_WARN=1 admitted an OFF rule" || ok "Severity NEG: the warn escape does NOT admit an OFF rule"
 rm -f "$SEVFAKE" /tmp/g535s.$$
 
+# ── Own root config: the consumer's eslint.config.cjs, a workspace config with RULE_GLOBS ─────────
+# Reading ESLint's lookup order made the consumer's root .cjs «the root config», and its missing
+# boundary tokens ended the gate with «nothing to verify (skipped)» — the workspace configs under it,
+# which ESLint uses for their own files, went unchecked (cold-review F3). They are the rule layer, as
+# in the §807 layout with no root config: recurse into them.
+own_root_mono() { # $1 = the rule the workspace config wires
+  local d; d=$(mktemp -d)
+  printf '{"name":"mono","private":true}\n' > "$d/package.json"
+  printf 'module.exports = [];\n' > "$d/eslint.config.cjs"
+  write_ws_cfg "$d/apps/api" "$1"
+  printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$d/apps/api/package.json"
+  mkdir -p "$d/apps/api/src/routes"; printf 'export const x=1;\n' > "$d/apps/api/src/routes/p.ts"
+  printf '%s' "$d"
+}
+OR=$(own_root_mono no-debugger); : > "$OR.cwdlog"
+if ( cd "$OR" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG="$OR.cwdlog" bash "$GATE" ) >/tmp/g535or.$$ 2>&1; then
+  bad "own-root: the workspace config under the consumer's eslint.config.cjs leaves R2 off, yet the gate PASSED ($(tr '\n' ';' </tmp/g535or.$$))"
+else
+  ok "own-root: a workspace config under the consumer's eslint.config.cjs that leaves the rule off → gate FAILS"
+fi
+# Paired negative: the workspace config wires the rule → the gate passes, having verified it there.
+ORP=$(own_root_mono no-console); : > "$ORP.cwdlog"
+if ( cd "$ORP" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG="$ORP.cwdlog" bash "$GATE" ) >/tmp/g535orp.$$ 2>&1 \
+  && grep -q 'verifying R2' /tmp/g535orp.$$; then
+  ok "own-root neg: the workspace config wires the rule → gate PASSES, verified in the workspace"
+else
+  bad "own-root neg: gate failed, or passed without verifying the workspace ($(tr '\n' ';' </tmp/g535orp.$$))"
+fi
+rm -rf "$OR" "$ORP"; rm -f "$OR.cwdlog" "$ORP.cwdlog" /tmp/g535or.$$ /tmp/g535orp.$$
+
 rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -252,11 +252,12 @@ grep -Eq 'awk[[:space:]]+-v[[:space:]]+[A-Za-z_]+="\$SHADOWS"' "$SRC516" \
 # ══════════════════════════════════════════════════════════════════════════════
 # 2026-09-28 (Q4.5) — a root eslint.config.mjs the CONSUMER owns
 # ══════════════════════════════════════════════════════════════════════════════
-# A project that already had an eslint.config.mjs keeps it (copy_safe skip + report, operator
-# decision 2026-09-23), so getff's RULE_GLOBS block and its rules never land there. The gate used
-# to read that as «no globs found — check the config» and failed validate and the first push on
-# every such project. There is no getff glob in such a config to verify: skip it and say why, the
-# way check-rule-enforced.sh already does. A config that DOES carry getff's rules keeps the alarm.
+# A project that already had an eslint.config.mjs keeps it, and getff's RULE_GLOBS block lands there
+# only once the install finds an HTTP boundary (Q4.7, 2026-09-28: getff adds its block to the
+# consumer's config; before that it added nothing). The gate used to read a config without the
+# block as «no globs found — check the config» and failed validate and the first push on every such
+# project. There is no getff glob in such a config to verify: skip it and say why, the way
+# check-rule-enforced.sh already does. A config that wires one of R2/R7/R8 keeps the alarm.
 own_cfg_dir() { # $1 = eslint.config.mjs body → a project with one source file, gate run from the repo
   local d; d=$(mktemp -d)
   mkdir -p "$d/lib"; echo 'export const x = 1;' > "$d/lib/answer.ts"
@@ -294,6 +295,71 @@ OUT11=$(repo_gate "$T11"); RC11=$?
 [ "$RC11" = "1" ] \
   && ok "own-config NEG-b: a hand-wired getff rule without RULE_GLOBS still FAILS (not skipped)" \
   || bad "own-config NEG-b: gate exited $RC11 — a config that wires the rule was skipped as not wired"
+
+# Q4.7 (2026-09-28): the install now ADDS getff's block to a consumer's own config — the stack's
+# rules-as-tests rules always, RULE_GLOBS + R2 only once it finds an HTTP boundary. Such a config
+# carries getff's rules and no RULE_GLOBS block: still nothing of getff's to glob-check, so skip.
+T11b=$(own_cfg_dir "import eslint from '@eslint/js';
+import rulesAsTests from './eslint-rules-local/index.mjs';
+export default [
+  eslint.configs.recommended,
+  { plugins: { 'rules-as-tests': rulesAsTests }, rules: { 'rules-as-tests/no-bare-todo': 'error' } },
+  { ignores: ['eslint-rules-local/**'] },
+];")
+OUT11b=$(repo_gate "$T11b"); RC11b=$?
+[ "$RC11b" = "0" ] && printf '%s' "$OUT11b" | grep -q "not wired into eslint.config.mjs" \
+  && ok "own-config Q4.7: getff's block without RULE_GLOBS (no boundary found yet) → skipped, rc 0" \
+  || bad "own-config Q4.7: gate exited $RC11b on a consumer config getff wired without a boundary (saw: $(printf '%s' "$OUT11b" | tail -2 | tr '\n' '|'))"
+# The skip never hands the consumer a manual step.
+if printf '%s\n%s\n' "$OUT9" "$OUT11b" | grep -qiE 'by hand|manually'; then
+  bad "own-config Q4.7: the skip asks for a manual edit: $(printf '%s\n%s\n' "$OUT9" "$OUT11b" | grep -iE 'by hand|manually' | head -1)"
+else
+  ok "own-config Q4.7: the skip names what is not wired, with no manual step"
+fi
+# eslint.config.js: ESLint loads it before eslint.config.mjs, and the install wires a consumer's own
+# one. The gate must read it — not stop with «eslint.config.mjs not found».
+T11c=$(mktemp -d); mkdir -p "$T11c/lib"; echo 'export const x = 1;' > "$T11c/lib/answer.ts"
+printf 'export default [];\n' > "$T11c/eslint.config.js"
+OUT11c=$(repo_gate "$T11c"); RC11c=$?
+[ "$RC11c" = "0" ] && printf '%s' "$OUT11c" | grep -q "not wired into eslint.config.js" \
+  && ok "own-config Q4.7: a consumer's eslint.config.js is the config the gate reads" \
+  || bad "own-config Q4.7: gate exited $RC11c on an eslint.config.js project (saw: $(printf '%s' "$OUT11c" | tail -2 | tr '\n' '|'))"
+# eslint.config.cjs: getff adds nothing to it; the gate says so and passes (validate stays green).
+T11d=$(mktemp -d); mkdir -p "$T11d/lib"; echo 'export const x = 1;' > "$T11d/lib/answer.ts"
+printf 'module.exports = [];\n' > "$T11d/eslint.config.cjs"
+OUT11d=$(repo_gate "$T11d"); RC11d=$?
+[ "$RC11d" = "0" ] && printf '%s' "$OUT11d" | grep -q "eslint.config.cjs is left as it is" \
+  && ok "own-config Q4.7: an eslint.config.cjs project passes, the gate saying getff added nothing to it" \
+  || bad "own-config Q4.7: gate exited $RC11d on an eslint.config.cjs project (saw: $(printf '%s' "$OUT11d" | tail -2 | tr '\n' '|'))"
+rm -rf "$T11c" "$T11d"
+
+# A monorepo whose root config is the consumer's own eslint.config.cjs, with a workspace config that
+# carries getff's RULE_GLOBS. ESLint lints the workspace with its own config, so the workspace
+# configs are the rule layer — as in a monorepo with no root config at all (§807). Reading the
+# ESLint lookup order made that .cjs «the root config»; the gate must still check the workspace
+# configs under it, not stop at «skipped» (cold-review F3: before the lookup order it recursed).
+own_root_mono() { # $1 = yes → apps/api has a routes/ file its boundary glob matches
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/apps/api/src/lib"
+  printf 'module.exports = [];\n' > "$d/eslint.config.cjs"
+  printf "const RULE_GLOBS = {\n  boundary: ['**/routes/**/*.{ts,tsx}'],\n};\nexport default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" \
+    > "$d/apps/api/eslint.config.mjs"
+  echo 'export const x = 1;' > "$d/apps/api/src/lib/x.ts"
+  if [ "$1" = yes ]; then mkdir -p "$d/apps/api/src/routes"; echo 'export const u = 1;' > "$d/apps/api/src/routes/u.ts"; fi
+  printf '%s' "$d"
+}
+T11e=$(own_root_mono no)
+OUT11e=$(repo_gate "$T11e"); RC11e=$?
+[ "$RC11e" = "1" ] && printf '%s' "$OUT11e" | grep -q "SILENTLY INERT" \
+  && ok "own-root monorepo: under the consumer's eslint.config.cjs, a workspace boundary glob matching nothing FAILS" \
+  || bad "own-root monorepo: gate exited $RC11e — the workspace configs under a consumer's .cjs root were not checked (saw: $(printf '%s' "$OUT11e" | tail -2 | tr '\n' '|'))"
+# Paired negative: the same layout with a routes/ file passes, and the pass comes from the workspace check.
+T11f=$(own_root_mono yes)
+OUT11f=$(repo_gate "$T11f"); RC11f=$?
+[ "$RC11f" = "0" ] && printf '%s' "$OUT11f" | grep -q "check-rule-globs: OK" \
+  && ok "own-root monorepo neg: a workspace boundary glob that matches passes, checked in the workspace" \
+  || bad "own-root monorepo neg: gate exited $RC11f or never checked the workspace (saw: $(printf '%s' "$OUT11f" | tail -2 | tr '\n' '|'))"
+rm -rf "$T11e" "$T11f"
 
 # Provenance of the skip message. getff's own react-native config wires none of R2/R7/R8 (the RN
 # preset ships zero custom rules) and carries no RULE_GLOBS block, so it takes the same skip — but

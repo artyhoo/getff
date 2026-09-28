@@ -178,6 +178,16 @@ Every install writes the same base:
 - **[Gates](terms.md#gate).** Git hooks in `.husky/` and a CI workflow in `.github/workflows/`.
 - **Checks on getff itself.** Scripts in `scripts/` that prove the rules still [fire](terms.md#fire).
 
+If your project already has an ESLint config, getff keeps it. When that config is an
+`eslint.config.mjs`, or an `eslint.config.js` that uses `export default`, getff adds its
+block to your file. The block tells ESLint to skip getff's own code, such as its rule plugin
+and its hook bundle. It also turns on the rules that apply to your project, such as the
+rule for request handlers once the install finds HTTP handlers. getff changes and removes
+nothing you wrote, and keeps your original file at `.ai-factory/before-getff/<name>.<hash>`.
+Adding the block needs the `--full` install, which `setup -y` runs. getff leaves any other
+ESLint config as it is and lists it in the «NOT wired» summary at the end of the install. It
+never edits your `tsconfig.json`.
+
 The [depth](terms.md#depth) decides how much agent tooling comes on top:
 
 | Depth | Adds | Pick it when |
@@ -265,7 +275,8 @@ of the removal, and delete only what the install added there:
 
 Then, by hand: getff's check scripts under `scripts/`; the fenced `getff:` block in
 `AGENTS.md` — that file is co-owned, install preserves everything outside the fence, so
-remove only its block; the getff block in your ESLint config; the getff-registered hooks
+remove only its block; the getff block in your ESLint config (your file as it was before the
+install is under `.ai-factory/before-getff/`); the getff-registered hooks
 in `.claude/settings.json`; the two getff blocks in `.prettierignore`; `.github/workflows/ci.yml` and
 `workflow-integrity.yml`, if getff wrote them; and the scripts plus development dependencies getff merged into
 `package.json`. On a `--full` install — and always on the `python` lane, `--full` or not — it
@@ -274,8 +285,8 @@ also adds a `context7` entry under `mcpServers` in
 marks only its `.prettierignore` blocks; its other merges are unmarked, so it cannot list
 them for you later. The installer adds named entries
 under `.claude/{agents,hooks,skills}/` plus `session-bootstrap.md` and never touches your own files there. Salvage
-`*.override.md` and `.ai-factory/refresh-conflicts/` before removing `.ai-factory/` —
-they hold your own edits, kept on purpose.
+`*.override.md`, `.ai-factory/refresh-conflicts/` and `.ai-factory/before-getff/` before
+removing `.ai-factory/` — they hold your own edits, kept on purpose.
 
 The commands above are the npm stacks. The `python`, `cargo`, and `go` [lanes](terms.md#lane)
 deliver less of the npm surface (no `eslint-rules-local/`, `packages/core/`, or `.husky/`)

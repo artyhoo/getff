@@ -7,9 +7,12 @@
 # There getff's own eslint.config.mjs / tsconfig.json / .prettierignore always land, and they
 # ignore everything getff ships — so nothing getff puts in the consumer tree is ever linted or
 # type-checked by a config getff does not control. A real project is the opposite case: it
-# already HAS an eslint.config.mjs and a tsconfig.json, copy_safe keeps them (the 2026-09-23
-# decision: skip + report, never overwrite or merge a consumer's tool config), and from then on
-# the CONSUMER's tools check every file getff delivered. Measured 2026-09-28 on
+# already HAS an eslint.config.mjs and a tsconfig.json, copy_safe keeps them, and from then on
+# the CONSUMER's tools check every file getff delivered. getff never edits the tsconfig.json; it
+# adds its block to the eslint.config.mjs by insertions only — its rules, and an ignores entry for
+# the lintable files it delivered — keeping the original under .ai-factory/before-getff/ (operator
+# decision Q4.7, 2026-09-28; before it the install left the config alone and said «add it by
+# hand», so getff's rules never ran in such a project). Measured 2026-09-28 on
 # create-next-app 16.3.6 + `./setup -y react-next`: the install exited 0 while the consumer's own
 # lint, typecheck, test, build and validate all went RED on files getff shipped.
 #
@@ -136,16 +139,35 @@ describe('answer', () => {
 TS
 git add -A
 git commit -qm "consumer baseline"
-# The consumer's configs, byte for byte: every install below must leave them exactly so.
-OWN_CONFIGS="eslint.config.mjs tsconfig.json"
-for c in $OWN_CONFIGS; do cp "$c" "$WORK/own-$c.before"; done
-configs_changed() { # prints each consumer config an install changed, with its first diff lines
-  local c
-  for c in $OWN_CONFIGS; do
-    cmp -s "$c" "$WORK/own-$c.before" && continue
-    echo "the install changed the consumer's own $c:"
-    diff "$WORK/own-$c.before" "$c" | head -8 | sed 's/^/    /'
-  done
+# The consumer's configs as they were. tsconfig.json must stay byte for byte; eslint.config.mjs may
+# only GROW — every one of its lines still there, whole and in order (Q4.7: insertions only).
+cp tsconfig.json "$WORK/own-tsconfig.json.before"
+cp eslint.config.mjs "$WORK/own-eslint.config.mjs.before"
+configs_changed() { # prints each way an install broke the consumer's configs, with its first diff lines
+  if ! cmp -s tsconfig.json "$WORK/own-tsconfig.json.before"; then
+    echo "the install changed the consumer's own tsconfig.json:"
+    diff "$WORK/own-tsconfig.json.before" tsconfig.json | head -8 | sed 's/^/    /'
+  fi
+  if ! awk 'NR == FNR { want[++n] = $0; next } i < n && $0 == want[i + 1] { i++ } END { exit !(i == n) }' \
+      "$WORK/own-eslint.config.mjs.before" eslint.config.mjs; then
+    echo "the install changed or removed a line of the consumer's own eslint.config.mjs (only insertions are allowed):"
+    diff "$WORK/own-eslint.config.mjs.before" eslint.config.mjs | grep '^<' | head -8 | sed 's/^/    /'
+  fi
+  return 0
+}
+# getff's block is in the consumer's eslint.config.mjs, and the original is kept byte for byte.
+# The part of the block every npm stack gets is the ignores entry for getff's rule plugin
+# (setup.d/40-configs.sh delivers eslint-rules-local/ unconditionally). Which RULES it adds
+# depends on the stack and the project — ts-server's only unconditional rule is R2, added once an
+# HTTP boundary is found, and this fixture has none — so rules are not asserted here
+# (tests/install-sh/synth-wire-consumer-config.test.sh covers them).
+eslint_config_wired() {
+  local f kept=""
+  grep -qF "'eslint-rules-local/**'" eslint.config.mjs \
+    || { echo "the consumer's eslint.config.mjs has no ignores entry for getff's eslint-rules-local/"; return 1; }
+  for f in .ai-factory/before-getff/eslint.config.mjs.*; do [ -f "$f" ] && kept="$f"; done
+  [ -n "$kept" ] && cmp -s "$kept" "$WORK/own-eslint.config.mjs.before" \
+    || { echo "the consumer's original eslint.config.mjs is not kept under .ai-factory/before-getff/"; return 1; }
 }
 
 step "fixture installs its OWN deps (before getff, as a real project would have them)"
@@ -187,10 +209,11 @@ for bin in eslint tsc vitest; do
   test -x "node_modules/.bin/$bin" \
     || fail "$bin not installed after install.sh --full — the step-4 list below cannot run (false-green guard)"
 done
-# The premise of this cell: the consumer's configs survived the install — neither replaced nor
-# merged into (operator decision 2026-09-23: skip + report, never overwrite or merge).
+# The premise of this cell: the consumer's configs survived the install — tsconfig.json untouched,
+# eslint.config.mjs only added to, with getff's block in it and the original kept (Q4.7).
 CHANGED=$(configs_changed)
-[ -z "$CHANGED" ] || { echo "$CHANGED"; fail "install.sh changed a config the consumer owns — fixture premise broken"; }
+[ -z "$CHANGED" ] || { echo "$CHANGED"; fail "install.sh rewrote a config the consumer owns — fixture premise broken"; }
+WIRED=$(eslint_config_wired) || { echo "$WIRED"; fail "install.sh did not add getff's block to the consumer's eslint.config.mjs (Q4.7)"; }
 
 # ── KNOWN ROT: preset-template defects this cell SHOWS but does not fail on ──────────────────────
 # The entries, their signatures and why they are not patched: tests/consumer-matrix/known-rot.sh
@@ -328,7 +351,8 @@ if [ -n "$RESEARCH" ]; then
     fi
     ls .ai-factory/synthesizer-output/rules-lock.*.json >/dev/null 2>&1 \
       || { echo "no rules-lock.*.json written under .ai-factory/synthesizer-output/"; return 1; }
-    # The generated rules are the consumer's to wire; the second install must not merge them in.
+    # The second install adds the generated rules to the consumer's config the same way: insertions
+    # only, tsconfig.json untouched.
     local changed
     changed=$(configs_changed)
     [ -z "$changed" ] || { echo "$changed"; return 1; }
