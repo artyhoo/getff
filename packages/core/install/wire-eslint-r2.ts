@@ -334,14 +334,16 @@ function buildRuleConfigElement(
  * `plugins` entry applies only to the files its own block matches, and the shipped templates
  * register the plugin inside `files:`-scoped blocks; treating those as global left an appended
  * bare block unresolvable on every other file (critical-review S7-1).
+ *
+ * «No scope key» must be PROVEN, spreads included: `{ ...onlyJs, plugins: … }` with
+ * `const onlyJs = { files: ['**\/*.js'] }` is scoped although the literal shows no `files` key.
+ * A false «not global» costs nothing — the wirer registers the plugin in its own blocks, and ESLint
+ * accepts the same plugin object in several elements.
  */
 function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): boolean {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-    const propNames = (el.getProperties?.() ?? []).map((p: any) => {
-      try { return normPropName(p.getName?.()); } catch { return ''; }
-    });
-    if (propNames.includes('files') || propNames.includes('ignores')) continue;
+    if (!provablyUnscoped(el, SyntaxKind, new Set())) continue;
     for (const prop of el.getProperties?.() ?? []) {
       let propName: string;
       try { propName = normPropName(prop.getName?.()); } catch { continue; }
@@ -356,6 +358,64 @@ function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): bo
     }
   }
   return false;
+}
+
+/** Keys that limit which files a flat-config element applies to. */
+const SCOPE_KEYS = new Set(['files', 'ignores', 'basePath']);
+
+/**
+ * True only when neither `obj` nor anything it spreads carries a scope key. A computed key, or a
+ * spread whose object literal this file does not show, cannot be proven free of one → false.
+ */
+function provablyUnscoped(obj: any, SyntaxKind: any, seen: Set<any>): boolean {
+  if (seen.has(obj)) return false;
+  seen.add(obj);
+  for (const p of obj.getProperties?.() ?? []) {
+    if (p.isKind?.(SyntaxKind.SpreadAssignment)) {
+      const lit = spreadObjectLiteral(p.getExpression(), SyntaxKind);
+      if (!lit || !provablyUnscoped(lit, SyntaxKind, seen)) return false;
+      continue;
+    }
+    if (p.getNameNode?.()?.isKind?.(SyntaxKind.ComputedPropertyName)) return false;
+    let name: string;
+    try { name = normPropName(p.getName?.()); } catch { return false; }
+    if (SCOPE_KEYS.has(name)) return false;
+  }
+  return true;
+}
+
+/**
+ * The object literal a spread operand stands for, when this file proves it: an inline literal, or
+ * the one `const` in this file bound to a literal and used nowhere but as a spread operand (a
+ * property write or a call argument could add `files` to it). Anything else → undefined.
+ */
+function spreadObjectLiteral(expr: any, SyntaxKind: any): any {
+  const unwrap = (e: any): any => {
+    let cur = e;
+    while (cur && (cur.isKind(SyntaxKind.ParenthesizedExpression) || cur.isKind(SyntaxKind.AsExpression) || cur.isKind(SyntaxKind.SatisfiesExpression))) {
+      cur = cur.getExpression();
+    }
+    return cur;
+  };
+  const e = unwrap(expr);
+  if (e?.isKind(SyntaxKind.ObjectLiteralExpression)) return e;
+  if (!e?.isKind(SyntaxKind.Identifier)) return undefined;
+  const name = e.getText();
+  const sf = e.getSourceFile();
+  const decls = sf.getDescendantsOfKind(SyntaxKind.VariableDeclaration).filter((d: any) => d.getName() === name);
+  if (decls.length !== 1) return undefined;
+  const decl = decls[0];
+  if (decl.getVariableStatement?.()?.getDeclarationKind?.() !== 'const') return undefined;
+  const init = unwrap(decl.getInitializer?.());
+  if (!init?.isKind(SyntaxKind.ObjectLiteralExpression)) return undefined;
+  const nameNode = decl.getNameNode();
+  const onlySpread = sf.getDescendantsOfKind(SyntaxKind.Identifier)
+    .filter((id: any) => id.getText() === name && id !== nameNode)
+    .every((id: any) => {
+      const parent = id.getParent();
+      return parent?.isKind(SyntaxKind.SpreadAssignment) || parent?.isKind(SyntaxKind.SpreadElement);
+    });
+  return onlySpread ? init : undefined;
 }
 
 /** Quote-/whitespace-insensitive equality of two value expressions (idempotency guard for override). */

@@ -13,7 +13,8 @@
  * Prior-art: prior-art-evaluations.md#120, #131, #135 (reuse ts-morph engine; BUILD for N-rule)
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -744,4 +745,73 @@ describe('N-rule post-write lint probe + restore', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 60_000);
+});
+
+// ─── A plugin registration scoped by a spread is not global ─────────────────────
+//
+// ❌ tried (2026-09-28, ESLint 9.39.4): the consumer registers the plugin in
+//    `{ ...onlyJs, plugins: { 'rules-as-tests': customRules }, rules: {} }` with
+//    `const onlyJs = { files: ['**/*.js'] }`. The detector saw no `files` key on the literal, read the
+//    registration as global, and appended a plugin-less rule block; `eslint .` then exited 2 on
+//    every .mjs file («could not find plugin "rules-as-tests"»).
+// ✅ expected: the real CLI wires the rule with its own plugin registration, and `eslint .` exits 0.
+describe('synth-and-wire CLI: a spread-scoped plugin registration', () => {
+  const REPO_NODE_MODULES = resolve(HERE, '..', '..', '..', 'node_modules');
+  const CLI = join(HERE, 'synth-and-wire.ts');
+  const CAN_RUN = existsSync(join(REPO_NODE_MODULES, 'eslint', 'package.json'))
+    && existsSync(join(REPO_NODE_MODULES, 'ts-morph', 'package.json'))
+    && existsSync(join(REPO_NODE_MODULES, 'tsx', 'package.json'));
+
+  it.skipIf(!CAN_RUN)('wires the rule with its own registration and `eslint .` exits 0', () => {
+    const dir = mkdtempSync(join(realpathSync(tmpdir()), 'nrule-spread-'));
+    const link = join(dir, 'node_modules');
+    try {
+      symlinkSync(REPO_NODE_MODULES, link);
+      writeFileSync(join(dir, 'package.json'), '{ "name": "fx", "type": "module" }\n', 'utf8');
+      mkdirSync(join(dir, 'eslint-rules-local'));
+      writeFileSync(
+        join(dir, 'eslint-rules-local', 'index.mjs'),
+        `export default { rules: { 'no-foo': { meta: { type: 'problem', schema: [] }, create: () => ({}) } } };\n`,
+        'utf8',
+      );
+      mkdirSync(join(dir, '.ai-factory', 'synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory', 'synthesizer-output', 'eslint-rules-snippet.json'),
+        '{ "rules-as-tests/no-foo": "error" }\n',
+        'utf8',
+      );
+      writeFileSync(
+        join(dir, 'eslint.config.mjs'),
+        [
+          `import customRules from './eslint-rules-local/index.mjs';`,
+          `const onlyJs = { files: ['**/*.js'] };`,
+          `export default [{ ...onlyJs, plugins: { 'rules-as-tests': customRules }, rules: {} }];`,
+          ``,
+        ].join('\n'),
+        'utf8',
+      );
+      mkdirSync(join(dir, 'src'));
+      writeFileSync(join(dir, 'src', 'a.js'), 'export const a = 1;\n', 'utf8');
+      writeFileSync(join(dir, 'src', 'b.mjs'), 'export const b = 1;\n', 'utf8');
+
+      const wire = spawnSync(
+        process.execPath,
+        ['--import', 'tsx', CLI, '--stack', 'ts-server', '--path', './eslint.config.mjs'],
+        { cwd: dir, encoding: 'utf8', timeout: 90_000 },
+      );
+      const wireOut = `${wire.stdout}\n${wire.stderr}`;
+      expect(wire.status, wireOut).toBe(0);
+      expect(wireOut).toMatch(/synthesized rules wired into/);
+      const config = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
+      expect(config).toMatch(/plugins: \{ 'rules-as-tests': customRules \}, rules: \{ ["']rules-as-tests\/no-foo["']/);
+
+      const lint = spawnSync(process.execPath, [join(link, 'eslint', 'bin', 'eslint.js'), '.'], {
+        cwd: dir, encoding: 'utf8', timeout: 90_000,
+      });
+      expect(lint.status, `${lint.stdout}\n${lint.stderr}`).toBe(0);
+    } finally {
+      if (existsSync(link)) unlinkSync(link);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
 });
