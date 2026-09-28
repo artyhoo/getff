@@ -7,7 +7,7 @@
 > the NOT-wired summary mechanism — `setup.d/lib.sh` `note_not_wired`; the ESLint insertion —
 > PR #1868 (`packages/core/install/wire-eslint-r2.ts`).
 
-Status: DRAFT r4 (round-1 and round-2 findings absorbed; D12 decided — see §8) · Date: 2026-09-28 · Base: staging
+Status: APPROVED r4 — operator routed it to the factory on 2026-09-29 (round-1 and round-2 findings absorbed; D12 decided by the design session, operator may override — see §8) · Date: 2026-09-28 · Base: staging
 `b3a1981` + open PR #1890 (head `8c82c1a1e7b`). Line citations into `setup.d/99-finalize.sh` are to
 the #1890 branch.
 
