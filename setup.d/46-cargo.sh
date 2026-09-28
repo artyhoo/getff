@@ -95,7 +95,7 @@ _cargo_delivered_clippy_path() {
 }
 
 # _cargo_deliver_clippy — clippy.toml lane: fresh copy | idempotent-if-getff | REFUSE (consumer's own).
-# ALSO always ships the Cargo.lints.toml deny-projection reference + prints the [lints.clippy] merge note.
+# ALSO always ships the Cargo.lints.toml deny-projection reference + a NOT-wired line when Cargo.toml has no [lints.clippy].
 _cargo_deliver_clippy() {
   local tpl="$1"
   local dst="$PROJECT_ROOT/clippy.toml"
@@ -114,8 +114,10 @@ _cargo_deliver_clippy() {
     # clippy.toml). REFUSE: ship getff-clippy.toml (clippy does not auto-discover it) + merge note.
     _cargo_copy_or_refresh "$tpl/clippy.toml" "$getff_ref"
     _cargo_log "⚠ REFUSE clippy.toml (cell ii): a sibling clippy.toml would REPLACE your existing one entirely."
-    _cargo_log "  Shipped our rules as getff-clippy.toml (clippy does NOT auto-discover it — inert until you opt in)."
-    _cargo_log "  MANUAL: merge the getff disallowed-methods entries from getff-clippy.toml into your clippy.toml."
+    _cargo_log "  Shipped our rules as getff-clippy.toml (clippy does NOT auto-discover it)."
+    local _where="locally"
+    _lane_getff_ci_runs "$tpl" ".github/workflows/getff-cargo.yml" && _where="locally and in the getff CI workflow"
+    note_not_wired "clippy: getff's disallowed-methods bans are not in your clippy.toml — it configures clippy for this project, and getff does not change a project's own clippy config, so clippy, $_where, runs with your settings only"
   else
     # (i) fresh: no clippy.toml → copy ours whole.
     copy_safe "$tpl/clippy.toml" "$dst"
@@ -125,12 +127,13 @@ _cargo_deliver_clippy() {
   # (lints) the [lints.clippy] deny projection — ALWAYS delivered as a reference (never auto-merged into
   # the consumer's Cargo.toml). clippy.toml carries no severity, so a ban is warn-by-default (exit 0);
   # this projection makes it build-failing. The delivered getff-cargo.yml gate `-D`-promotes the lints
-  # anyway, so the crate gates in CI even without the manual Cargo.toml merge.
+  # anyway, so the crate gates in CI without a Cargo.toml edit (getff never edits the consumer's Cargo.toml).
   _cargo_copy_or_refresh "$tpl/Cargo.lints.toml" "$PROJECT_ROOT/.getff/Cargo.lints.toml"
   _cargo_log "clippy deny-projection reference → .getff/Cargo.lints.toml (getff-owned)"
   if [ -e "$PROJECT_ROOT/Cargo.toml" ] && ! grep -q '\[lints\.clippy\]' "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
-    _cargo_log "  NOTE: to make the bans build-FAILING locally, merge .getff/Cargo.lints.toml [lints.clippy] into your Cargo.toml"
-    _cargo_log "  (or rely on the delivered getff-cargo.yml CI gate, which -D-promotes the getff lint families)."
+    local _ci="; the getff CI workflow runs clippy with -D on the same lint families"
+    _lane_getff_ci_runs "$tpl" ".github/workflows/getff-cargo.yml" || _ci=""
+    note_not_wired "clippy bans as build errors on a local build: not wired — the [lints.clippy] table is in .getff/Cargo.lints.toml, and getff does not edit your Cargo.toml$_ci"
   fi
 }
 
@@ -150,7 +153,8 @@ _cargo_deliver_deny() {
   elif [ -e "$dst" ]; then
     _cargo_copy_or_refresh "$tpl/deny.toml" "$getff_ref"
     _cargo_log "⚠ REFUSE deny.toml (cell iii): a sibling deny.toml would REPLACE your existing cargo-deny config."
-    _cargo_log "  Shipped our starter as getff-deny.toml — merge its [bans] table into your deny.toml."
+    _cargo_log "  Shipped our starter as getff-deny.toml (cargo-deny does NOT auto-discover it)."
+    note_not_wired "cargo-deny: getff's [bans] starter is not in your deny.toml — it configures cargo-deny for this project, and getff does not change a project's own cargo-deny config"
   else
     copy_safe "$tpl/deny.toml" "$dst"
     _cargo_log "deny.toml → copied (fresh dir, cell i — cargo-deny dependency-ban surface)"
@@ -160,14 +164,12 @@ _cargo_deliver_deny() {
 # _cargo_deliver_ci — consumer CI workflow lane: ship the pinned clippy gate as a getff-NAMESPACED
 # .github/workflows/getff-cargo.yml. Fresh | idempotent-if-ours | REFUSE-LOUDLY if a non-getff file
 # occupies our path. NEVER writes to the consumer's ci.yml. Body = lib.sh _lane_deliver_ci (S-2);
-# the pins in the REFUSE hints MIRROR github-actions-ci.yml (the delivered template) — keep the two
-# in sync on any pin bump (ci-tool-pinning.md Rule A).
+# a REFUSE is a NOT-wired line (Q4.7).
 _cargo_deliver_ci() {
   _lane_deliver_ci "$1" ".github/workflows/getff-cargo.yml" \
     "CI workflow → .github/workflows/getff-cargo.yml (pinned clippy bans gate)" \
     "CI workflow → refreshed (.github/workflows/getff-cargo.yml, framework-owned)" \
-    "  NOT overwriting your workflow. To wire the getff clippy gate, add a job running:" \
-    "      rustup component add clippy && cargo clippy --all-targets -- -D clippy::disallowed_methods"
+    "the getff clippy gate is"
 }
 
 # _cargo_write_rules_lock — the cargo rules-lock variant (kickoff §1 W4). Writes
@@ -196,7 +198,7 @@ _cargo_write_rules_lock() {
 # crate as clippy.toml so clippy discovers it; the consumer's own config is never what we attest), and
 # asserts the ban FIRES (the expected diagnostic code appears — parity with backends/cargo/firing.test.ts
 # parseCodesFromStdout, which reads the code regardless of warn/deny level). Then removes the temp dir.
-# Tool-gated: an absent cargo → LOUD degrade printing the exact manual command (never silently green —
+# Tool-gated: an absent cargo → LOUD degrade plus a NOT-wired line (Q4.7; never silently green —
 # attention-is-not-a-mechanism.md §1). rc=0 on every branch — a self-check must not abort the install.
 _cargo_firing_self_check() {
   echo ""
@@ -242,16 +244,22 @@ _cargo_firing_self_check() {
     fi
     rm -rf "$_t"
   else
-    echo "  ⚠ cargo not on PATH (or the delivered clippy config missing) — firing NOT proven (degrade, NOT green). Verify manually from your crate root:"
-    echo "      cargo clippy --message-format=json | grep clippy::disallowed_methods   # must appear on bad Rust"
+    if command -v cargo >/dev/null 2>&1; then
+      echo "  ⚠ the delivered clippy config is missing — firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (clippy): not proven — the delivered clippy config is missing, so there was nothing to run against the planted violation"
+    else
+      echo "  ⚠ cargo not on PATH — firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (clippy): not proven — cargo is not on PATH, so the delivered clippy config was not run against a planted violation"
+    fi
     _degraded=$((_degraded+1))
   fi
 
   echo ""
   if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered clippy config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input); review above before relying on it."
+    echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered clippy config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input), so enforcement is NOT proven."
+    note_not_wired "firing self-check (clippy): not proven — $_silent SILENT and $_overbroad OVER-BROAD result(s) on the planted crate, so the delivered clippy config did not discriminate bad code from clean code"
   elif [ "$_degraded" -gt 0 ]; then
-    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green; run the manual command above to prove it."
+    echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why)."
   else
     echo "✓ getff self-check: the delivered clippy config fired RED on a planted violation and stayed GREEN on the clean control — enforcement is live."
   fi
