@@ -225,10 +225,10 @@ else
   ok "NW-h paired: the framework-delivered .husky/pre-push is not listed"
 fi
 
-# ─── NW-h2: following the printed advice keeps the hook the consumer's (cold-review F4) ─
-# The advice is pasted into the consumer's own hook. If it carried the framework's identity marker,
-# the next --full run would classify the hook as the framework's and reassert_husky_shields would
-# overwrite it — the exact loss the NOT wired line exists to prevent.
+# ─── NW-h2: the kept hook's line names what does not run, and hands back no step (Q4.7) ─
+# It used to end «to add them, call from it: <cmd>» — advice to paste into the consumer's hook (cold-
+# review F4 then kept that advice free of the framework's identity marker). Q4.7 (2026-09-28): the
+# install hands back no manual step, so the line now says which check does not run and why, only.
 TC2="$WORK/consumer-hooks-2"; mkdir -p "$TC2/.husky"
 ( cd "$TC2" && git init -q . && printf '{ "name":"c2","version":"0.0.0" }\n' > package.json )
 for _h in pre-commit pre-push; do
@@ -236,18 +236,18 @@ for _h in pre-commit pre-push; do
 done
 OUT_H2=$( cd "$TC2" && env -u CI bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
 for _h in pre-commit pre-push; do
-  _advice=$(printf '%s\n' "$OUT_H2" | sed -n "s|.*your own \.husky/$_h is kept.*call from it: ||p" | head -1)
-  if [ -z "$_advice" ]; then
-    bad "NW-h2 $_h: no «call from it:» advice printed for the kept hook"
-    continue
+  case "$_h" in pre-commit) _what='lint-staged' ;; *) _what='pre-push\.bundle\.mjs' ;; esac
+  _line=$(printf '%s\n' "$OUT_H2" | grep "your own \.husky/$_h is kept" | head -1)
+  if printf '%s\n' "$_line" | grep -qE "runs none of the framework checks \(.*$_what.*\)"; then
+    ok "NW-h2 $_h: the NOT-wired line names the framework check that does not run"
+  else
+    bad "NW-h2 $_h: the NOT-wired line does not name the missing check: $_line"
   fi
-  printf '%s\n' "$_advice" >> "$TC2/.husky/$_h"
-  _classified=$( HUSKY_CONSUMER_HOOKS=""; FORCE=""; source "$REPO_ROOT/setup.d/lib.sh" >/dev/null 2>&1
-    husky_note_consumer_hooks "$REPO_ROOT" "$TC2"; printf '%s' "$HUSKY_CONSUMER_HOOKS" )
-  case " $_classified " in
-    *" $_h "*) ok "NW-h2 $_h: a hook that follows the advice is still the consumer's (never re-asserted over)" ;;
-    *)         bad "NW-h2 $_h: pasting the advice ($_advice) made the hook read as the framework's — --full would overwrite it" ;;
-  esac
+  if printf '%s\n' "$_line" | grep -qE 'call from it|to add them'; then
+    bad "NW-h2 $_h: the line still hands back a step to paste into the hook: $_line"
+  else
+    ok "NW-h2 $_h: the line hands back no step"
+  fi
 done
 
 echo ""

@@ -36,7 +36,8 @@ _rc_probe() {  # $1 = install_cmd ; prints the caller-visible outcome under set 
 _rc_probe "true"  | grep -q CALLER_CONTINUES && ok "cc-plugin install OK → caller under set -e continues (rc 0)"   || bad "cc-plugin install OK → companion_step returned non-zero under set -e"
 _rc_probe "false" | grep -q CALLER_CONTINUES && ok "cc-plugin install FAILS → caller under set -e continues (⚠, rc 0)" || bad "cc-plugin install failure killed the set -e caller"
 out=$(companion_step "probe" "false" "false" "cc-plugin" "yes")
-echo "$out" | grep -q 'install failed — run manually' && ok "install failure still emits the ⚠ run-manually line" || bad "⚠ run-manually line missing on install failure"
+echo "$out" | grep -q 'install failed — .* exited non-zero' && ok "install failure still emits the ⚠ install-failed line" || bad "⚠ install-failed line missing on install failure"
+echo "$out" | grep -qiE 'manually|yourself' && bad "install failure hands back a manual step" || ok "install failure names no manual step"
 
 # === kind=mcp tests (S2 — engine.sh kind=mcp support) ===
 
@@ -84,5 +85,31 @@ out=$(GETFF_GLOBAL="" companion_step "p" "false" "echo PROJECT_RAN" "cli" "yes")
 echo "$out" | grep -qx PROJECT_RAN && ok "-y still runs a project-scoped companion install" || bad "-y no longer runs a project-scoped install"
 
 rm -rf "$_stub_bin"
+
+# === ./setup's companion gaps reach a NOT-wired summary (Q4.7) ===
+# ./setup runs install.sh as its own process — that run prints its summary and exits — and then
+# sources only engine.sh, so a note_not_wired() call from companion_step found no function and
+# its gap was lost. engine.sh now keeps the gaps itself and prints them after the companions.
+# shellcheck source=tests/install-sh/lib/manual-step.sh
+. "$REPO_ROOT/tests/install-sh/lib/manual-step.sh"
+_cs_out=$(bash -c 'set -euo pipefail; unset GETFF_GLOBAL; ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"
+  companion_step globaltool "false" "npm install -g globaltool" "cc-plugin" "yes"   # ci-tool-pin: allow test fixture, never executed (-y without --global skips it)
+  companion_step brokentool "false" "false" "cc-plugin" "yes"
+  companion_not_wired_summary' _ "$REPO_ROOT" 2>&1)
+_cs_log=$(mktemp); printf '%s\n' "$_cs_out" > "$_cs_log"
+_cs_sum=$(awk '/NOT wired/{on=1; next} on' "$_cs_log")
+printf '%s\n' "$_cs_sum" | grep -q 'globaltool — not installed: .*machine-global' \
+  && ok "companions: a machine-global skip under -y is a NOT-wired line with its reason" \
+  || bad "companions: no NOT-wired line for the machine-global skip: $(printf '%s' "$_cs_out" | tr '\n' '|')"
+printf '%s\n' "$_cs_sum" | grep -q 'brokentool — not installed: .*failed' \
+  && ok "companions: a failed install is a NOT-wired line with its reason" \
+  || bad "companions: no NOT-wired line for the failed install"
+asks_by_hand "$_cs_log" && bad "companions: the output hands back a step: $(manual_step_lines "$_cs_log" | head -2 | tr '\n' '|')" \
+  || ok "companions: the output hands back no step"
+_cs_none=$(bash -c 'ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"; companion_not_wired_summary' _ "$REPO_ROOT" 2>&1)
+[ -z "$_cs_none" ] && ok "companions: no gaps → no summary" || bad "companions: an empty summary printed: $_cs_none"
+grep -qE '^[[:space:]]*companion_not_wired_summary' "$REPO_ROOT/setup" \
+  && ok "setup prints the companion NOT-wired summary" || bad "setup never calls companion_not_wired_summary"
+rm -f "$_cs_log"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

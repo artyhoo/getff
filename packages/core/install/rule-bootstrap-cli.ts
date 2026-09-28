@@ -411,8 +411,8 @@ async function main(): Promise<void> {
     const why = err instanceof ResearchPlanError ? err.message : (err as Error).message;
     process.stderr.write(
       `[rule-bootstrap] live research artefact invalid or unreadable — ${why}\n` +
-        `[rule-bootstrap] run the rule-research protocol (agents/rule-researcher.md or the ` +
-        `rule-research skill) to (re)author the two files, then re-run ./setup --full.\n`,
+        `[rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the ` +
+        `rule-research protocol (agents/rule-researcher.md, the rule-research skill).\n`,
     );
     process.exit(args.strict ? 1 : 0); // rc=0: never abort install (the bash gate also || true's)
   }
