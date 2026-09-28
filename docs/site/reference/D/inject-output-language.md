@@ -13,10 +13,11 @@ sources:
   - docs/site/terms.md
   - plugin/hooks/hooks.json
   - plugin/hooks/inject-output-language
+  - plugin/hooks/run-hook.cmd
+  - tests/plugin/run-hook.test.sh
 executed:
-  - { example: output-language-unset-english-default, stack: repo, date: 2026-09-25, result: silent }
-  - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
+  - { example: output-language-unset-english-default, stack: repo, date: 2026-09-28, result: silent }
+  - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-28, result: printed }
 ---
 
 # inject-output-language hook
@@ -93,22 +94,25 @@ Where this hook fits in the family: it was extracted from the framework's own
 without the framework-internal goal-and-invariants text around it. The framework's own
 repository actually reaches itself the other way — its bootstrap digest embeds the same
 language line, and this standalone hook reaches consumers through the plugin
-distribution rather than the project settings file.
+distribution rather than the project settings file. The framework's repository can have
+the plugin installed too. Then the plugin's copy of this hook stays silent, and you still
+see the line once. The plugin's launcher finds `inject-session-bootstrap` registered by
+the project, and that digest carries the same line.
 
 ## Evidence
 
 - `.claude/hooks/inject-output-language.sh:2` is the header the card's description row
   quotes: `# inject-output-language.sh — UserPromptSubmit hook — injects the active output-language line into prompt context`.
-- Zero-setup default: line 21 opens `case "${AIF_HOOK_LANG:-en}" in` and line 22 is
+- Zero-setup default: line 26 opens `case "${AIF_HOOK_LANG:-en}" in` and line 27 is
   `en|'') : ;;  # English default — nothing to inject`. Header line 17 states it:
   «Unset / "en" → nothing is injected (English is the zero-setup default)».
-- The Russian line is the heredoc body at line 25; any other value falls to the printf
-  at line 29, `printf '[output-language] Address the operator in language "%s"; keep
+- The Russian line is the heredoc body at line 30; any other value falls to the printf
+  at line 34, `printf '[output-language] Address the operator in language "%s"; keep
   repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)\n' …`.
 - Setup guidance is header lines 15-16: «export AIF_HOOK_LANG in your shell, or add an
   `env` block to .claude/settings.json».
-- No input is ever read: the script (lines 18-31) contains no `cat` of stdin — the case
-  at line 21 is the whole logic.
+- No input is ever read: the script (lines 23-36) contains no `cat` of stdin — the case
+  at line 26 is the whole logic.
 - Instruction-not-translation: header line 12 — «this injects an instruction to the
   model, not a translation of anything. See .claude/rules/language-discipline.md §2».
 - Extraction lineage: header lines 5-7 — «the consumer-generic slice EXTRACTED from the
@@ -120,10 +124,16 @@ distribution rather than the project settings file.
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
   UserPromptSubmit, and no settings.json registration exists (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
-- The twin is hand-maintained: line 20 of the source reads `# @plugin-transform: manual`,
+- The twin is hand-maintained: line 25 of the source reads `# @plugin-transform: manual`,
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
-  .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 8-12)
+  .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 10-16)
   naming the extensionless filename and the inline zcode adapter as the two deltas.
-- No paired test exists for this hook — there is no `packages/core/hooks/` test named
-  for it, and this page states that rather than implying coverage. Its behaviour is
-  pinned by the demos above instead.
+- Silent beside the framework's digest: source line 19 declares
+  `# @plugin-yields-to: inject-session-bootstrap`, and the yield block in
+  `plugin/hooks/run-hook.cmd` exits before the plugin copy runs when the project's
+  `.claude/settings.json` registers a hook it names. `tests/plugin/run-hook.test.sh`
+  arm R1 asserts the silence, R2 counts one language line per prompt in this repo, and
+  R3 asserts the digest line equals this hook's line for `ru` and `de`.
+- No test under `packages/core/hooks/` carries this hook's name, and this page states
+  that rather than implying coverage. The demos above and the
+  `tests/plugin/run-hook.test.sh` arms in the previous bullet pin its output.
