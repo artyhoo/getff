@@ -708,6 +708,12 @@ jobs:
       # hermetic (mktemp mailbox) and runs anywhere.
       - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
         run: bash scripts/check-ask-files.test.sh
+      # The aif close-on-merge sweep's own channel is a launchd agent on the operator's Mac
+      # (the aif API is reachable only through the aif-tunnel, which CI never has). Its
+      # skip/fail/summary logic still needs a CI channel — the paired-negative below stubs
+      # tsx/curl/launchctl under mktemp, so it runs anywhere.
+      - name: Run aif close-merged sweep paired-negative (auto-merge close trigger)
+        run: bash scripts/close-merged-sweep.test.sh
       # The `path:line` citation gate's own channel is pre-push (§9) — it needs committed
       # state to blame against, which a shallow CI checkout does not reliably have. Its
       # detector still needs a CI channel, or the only proof either arm fires is that
