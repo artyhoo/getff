@@ -267,8 +267,52 @@ function jsString(s: string): string {
   return JSON.stringify(s); // always valid, handles all escaping → double-quoted
 }
 
+/**
+ * The no-ts-morph stand-in for ruleKeyNodes: a quoted mention anywhere. It misses an identifier key
+ * (`eqeqeq: 'off'`) and counts a comment, so it only decides already-wired vs degrade — never an edit.
+ */
 function simpleRulePresent(source: string, ruleName: string): boolean {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
+}
+
+/**
+ * The properties that set `ruleName` in this config: its key — quoted, or an identifier (`eqeqeq: 'off'`,
+ * prettier's default quoteProps output) — in a rules object. A rules object is the object literal under a
+ * `rules` property, or one that property reaches through a same-file variable (`rules: shared`,
+ * `rules: { ...shared }`, `{ rules }`). The same word in a comment, a string value or another object's key
+ * (`settings: { eqeqeq: true }`) sets nothing.
+ */
+function ruleKeyNodes(sf: any, SyntaxKind: any, ruleName: string): any[] {
+  const objects = new Set<any>();
+  const seen = new Set<any>();
+  const collect = (node: any): void => {
+    if (node?.isKind?.(SyntaxKind.Identifier)) {
+      const decl = sf.getVariableDeclaration(node.getText());
+      if (!decl || seen.has(decl)) return;
+      seen.add(decl);
+      collect(decl.getInitializer());
+      return;
+    }
+    if (!node?.isKind?.(SyntaxKind.ObjectLiteralExpression) || objects.has(node)) return;
+    objects.add(node);
+    for (const p of node.getProperties()) {
+      if (p.isKind(SyntaxKind.SpreadAssignment)) collect(p.getExpression());
+    }
+  };
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (normPropName(p.getName()) === 'rules') collect(p.getInitializer());
+  }
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment)) {
+    if (p.getName() === 'rules') collect(p.getNameNode());
+  }
+  const out: any[] = [];
+  for (const obj of objects) {
+    for (const p of obj.getProperties()) {
+      const keyed = p.isKind(SyntaxKind.PropertyAssignment) || p.isKind(SyntaxKind.ShorthandPropertyAssignment);
+      if (keyed && normPropName(p.getName()) === ruleName) out.push(p);
+    }
+  }
+  return out;
 }
 
 function wrapperSelectorsPresent(source: string, arrValue: unknown[]): boolean {
@@ -475,19 +519,40 @@ export async function wireNRules(
     return { status: 'already-wired', original: source, modified: source };
   }
 
-  // Idempotency check — string-search only, no ts-morph needed.
+  // Load ts-morph from consumer cwd (same GH #642 fix as wireConfigSource). Absent, the quoted-string
+  // search below still tells an already-wired config from one that needs an edit it cannot make.
+  let SyntaxKind: any;
+  let sf: any;
+  try {
+    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
+    const tsMorphPath = requireFromCwd.resolve('ts-morph');
+    const mod = await import(pathToFileURL(tsMorphPath).href);
+    SyntaxKind = mod.SyntaxKind;
+    const project = new mod.Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { allowJs: true, target: 99, module: 99 },
+      skipFileDependencyResolution: true,
+      skipLoadingLibFiles: true,
+    });
+    sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+  } catch {
+    sf = undefined;
+  }
+
   // `missing` = rules absent from the config (appended). `overrides` = simple rules PRESENT
   // in the config whose key is a live-wins override target (D2): they need an AST value
-  // comparison (present-but-different ⇒ replace) which string search cannot decide, so they
-  // are resolved below with ts-morph. A wrapper rule is never overridden — it augments by
-  // selector-union (mergeSelectorsIntoExistingWrapper), so it only appears in `missing`.
+  // comparison (present-but-different ⇒ replace), resolved below. A wrapper rule is never
+  // overridden — it augments by selector-union (mergeSelectorsIntoExistingWrapper), so it only
+  // appears in `missing`. A simple rule is present when a rules object has it as a key (ruleKeyNodes).
+  const rulePresent = (key: string): boolean =>
+    sf ? ruleKeyNodes(sf, SyntaxKind, key).length > 0 : simpleRulePresent(source, key);
   const overrideKeys = opts.overrideKeys;
   const missing: Array<{ key: string; value: unknown }> = [];
   const overrides: Array<{ key: string; value: unknown }> = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else if (!simpleRulePresent(source, key)) {
+    } else if (!rulePresent(key)) {
       missing.push({ key, value });
     } else if (overrideKeys?.has(key)) {
       overrides.push({ key, value });
@@ -497,31 +562,14 @@ export async function wireNRules(
     return { status: 'already-wired', original: source, modified: source };
   }
 
-  // Load ts-morph from consumer cwd (same GH #642 fix as wireConfigSource)
   console.debug(
     `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ` +
       `${[...missing, ...overrides].map((m) => m.key).join(', ')}`,
   );
-  let Project: any;
-  let SyntaxKind: any;
-  try {
-    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
-    const tsMorphPath = requireFromCwd.resolve('ts-morph');
-    const mod = await import(pathToFileURL(tsMorphPath).href);
-    Project = mod.Project;
-    SyntaxKind = mod.SyntaxKind;
-  } catch {
+  if (!sf) {
     console.debug('  [synth-wire] DEBUG: ts-morph unavailable → degrade');
     return { status: 'degrade', original: source, modified: source, degradeReason: 'ts-morph import failed' };
   }
-
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { allowJs: true, target: 99, module: 99 },
-    skipFileDependencyResolution: true,
-    skipLoadingLibFiles: true,
-  });
-  const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
 
   const exportAssignment = sf.getExportAssignment((ea: any) => !ea.isExportEquals());
   if (!exportAssignment) {
@@ -597,16 +645,23 @@ export async function wireNRules(
   // insertOnly (a config the consumer owns) changes no value the consumer set: the rule keeps it,
   // and the note names it (cold-review F2 — a deliberate 'off' used to become "error").
   const notes: string[] = [];
+  const keepsOwn = (key: string, desired: string): string =>
+    `${key} at ${desired} — your config already sets this rule, and getff does not change a setting of yours`;
   for (const { key, value } of overrides) {
     const desired = buildRuleValueExpr(value);
     const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired, !opts.insertOnly);
     if (outcome === 'differs') {
-      notes.push(`${key} at ${desired} — your config already sets this rule, and getff does not change a setting of yours`);
+      notes.push(keepsOwn(key, desired));
     } else if (outcome === 'changed') {
       console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
       changed = true;
+    } else if (outcome === 'not-found' && opts.insertOnly) {
+      // Set where the exported list reaches it only through a variable (`rules: { ...shared }`,
+      // `export default config`): an appended block would still override the consumer's value.
+      const values = ruleKeyNodes(sf, SyntaxKind, key).map((p) => p.getInitializer?.()?.getText());
+      if (!values.some((v) => v !== undefined && exprEqual(v, desired))) notes.push(keepsOwn(key, desired));
     } else if (outcome === 'not-found') {
-      // String-present but not locatable as a rules property (e.g. in a comment) — append fresh.
+      // Set outside the exported list's own elements — getff's own config lets the live value win by a later block.
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop — appending`);
       append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       changed = true;
@@ -829,8 +884,8 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(', ')}] }`);
 
-  // R2: a quoted rule-id is a rule entry; a mention in a comment is not (the RULE_GLOBS comment below).
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  // R2: a key in a rules object is a rule entry; a mention in a comment is not (the RULE_GLOBS comment below).
+  const r2Present = ruleKeyNodes(sf, SyntaxKind, R2_RULE_ID).length > 0;
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs: string[] = [];

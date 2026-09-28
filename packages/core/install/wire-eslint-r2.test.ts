@@ -887,6 +887,89 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
   });
 });
 
+// A rule the config already sets is present whatever form its key takes. `eqeqeq: 'off'` — an identifier
+// key, prettier's default quoteProps output — used to read as absent, and the appended
+// `{ rules: { "eqeqeq": "error" } }` overrode the consumer's own setting (measured 2026-09-28).
+describe('wireNRules — rule presence is a key in a rules object, quoted or not', () => {
+  const UNQUOTED = [
+    `import js from '@eslint/js';`,
+    ``,
+    `export default [`,
+    `  js.configs.recommended,`,
+    `  {`,
+    `    rules: {`,
+    `      eqeqeq: 'off', // consumer: legacy code`,
+    `      curly: 'error',`,
+    `    },`,
+    `  },`,
+    `];`,
+    ``,
+  ].join('\n');
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('insertOnly: an identifier-keyed rule keeps the consumer value, nothing appended for it', async () => {
+    const r = await wireNRules(UNQUOTED, { eqeqeq: 'error', 'no-var': 'error' }, { overrideKeys: new Set(['eqeqeq']), insertOnly: true });
+    expect(r.status).toBe('wired');
+    expect(onlyInserts(UNQUOTED, r.modified)).toBe(true);
+    expect(r.modified).toContain(`      eqeqeq: 'off', // consumer: legacy code\n`);
+    expect(r.modified).not.toMatch(/["']eqeqeq["']/);
+    expect(r.modified).toContain(`{ rules: { "no-var": "error" } }`);
+    expect(r.notes?.join(' ')).toMatch(/eqeqeq/);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('an identifier-keyed rule is already wired; getff\'s own config still lets a live value win', async () => {
+    const same = await wireNRules(UNQUOTED, { curly: 'error' });
+    expect(same.status).toBe('already-wired');
+    expect(same.modified).toBe(UNQUOTED);
+    const kept = await wireNRules(UNQUOTED, { eqeqeq: 'error' });
+    expect(kept.status).toBe('already-wired');
+    expect(kept.modified).toBe(UNQUOTED);
+    const live = await wireNRules(UNQUOTED, { eqeqeq: 'error' }, { overrideKeys: new Set(['eqeqeq']) });
+    expect(live.status).toBe('wired');
+    expect(live.modified).toContain(`      eqeqeq: "error", // consumer: legacy code\n`);
+    expect(live.modified).not.toContain(`{ rules: { "eqeqeq"`);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('a rule named only in a comment, a string value or another object\'s key is still appended', async () => {
+    const src = [
+      `// eqeqeq: 'off' was tried and reverted; 'eqeqeq' stays on`,
+      `export default [`,
+      `  { settings: { eqeqeq: true } },`,
+      `  { rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: "use 'eqeqeq'" }] } },`,
+      `];`,
+      ``,
+    ].join('\n');
+    const r = await wireNRules(src, { eqeqeq: 'error' }, { insertOnly: true });
+    expect(r.status).toBe('wired');
+    expect(onlyInserts(src, r.modified)).toBe(true);
+    expect(r.modified).toContain(`{ rules: { "eqeqeq": "error" } }`);
+  });
+
+  // The exported list reaches these settings only through a variable: a later appended block would still
+  // override them, so a config the consumer owns gets a note instead.
+  it.skipIf(!TS_MORPH_AVAILABLE)('insertOnly: a rule set through a same-file variable keeps its value, named in notes', async () => {
+    for (const src of [
+      `const legacy = { eqeqeq: 'off' };\nexport default [{ rules: { ...legacy, curly: 'error' } }];\n`,
+      `const rules = { eqeqeq: 'off' };\nexport default [{ rules }];\n`,
+      `const config = [{ rules: { eqeqeq: 'off' } }];\nexport default config;\n`,
+    ]) {
+      const r = await wireNRules(src, { eqeqeq: 'error' }, { overrideKeys: new Set(['eqeqeq']), insertOnly: true });
+      expect(r.modified).toBe(src);
+      expect(r.notes?.join(' ')).toMatch(/eqeqeq/);
+      const same = await wireNRules(src, { eqeqeq: 'off' }, { overrideKeys: new Set(['eqeqeq']), insertOnly: true });
+      expect(same.modified).toBe(src);
+      expect(same.notes ?? []).toEqual([]);
+    }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('wireOwnConfig: R2 named only in a comment is still wired', async () => {
+    const src = `// ${JSON.stringify(R2_RULE_ID)} comes later\nexport default [{ rules: {} }];\n`;
+    const r = await wireOwnConfig(src, { boundaryGlobs: ['src/api/**/*.ts'] });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toContain(`rules: { '${R2_RULE_ID}': 'error' }`);
+    expect((await wireOwnConfig(r.modified, { boundaryGlobs: ['src/api/**/*.ts'] })).status).toBe('already-wired');
+  });
+});
+
 describe('formatLikeConsumer — getff\'s insertions in the consumer\'s own prettier style (Q4.7)', () => {
   // format:check (`prettier --check .`) covers a consumer-owned eslint.config.mjs: an unformatted
   // insertion into a file prettier accepted would turn every push red.

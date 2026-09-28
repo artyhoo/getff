@@ -10258,6 +10258,38 @@ function jsString(s) {
 function simpleRulePresent(source, ruleName) {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
 }
+function ruleKeyNodes(sf, SyntaxKind, ruleName) {
+  const objects = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Set();
+  const collect = (node) => {
+    if (node?.isKind?.(SyntaxKind.Identifier)) {
+      const decl = sf.getVariableDeclaration(node.getText());
+      if (!decl || seen.has(decl)) return;
+      seen.add(decl);
+      collect(decl.getInitializer());
+      return;
+    }
+    if (!node?.isKind?.(SyntaxKind.ObjectLiteralExpression) || objects.has(node)) return;
+    objects.add(node);
+    for (const p of node.getProperties()) {
+      if (p.isKind(SyntaxKind.SpreadAssignment)) collect(p.getExpression());
+    }
+  };
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (normPropName(p.getName()) === "rules") collect(p.getInitializer());
+  }
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment)) {
+    if (p.getName() === "rules") collect(p.getNameNode());
+  }
+  const out = [];
+  for (const obj of objects) {
+    for (const p of obj.getProperties()) {
+      const keyed = p.isKind(SyntaxKind.PropertyAssignment) || p.isKind(SyntaxKind.ShorthandPropertyAssignment);
+      if (keyed && normPropName(p.getName()) === ruleName) out.push(p);
+    }
+  }
+  return out;
+}
 function wrapperSelectorsPresent(source, arrValue) {
   const entries = arrValue.slice(1);
   return entries.every((e) => {
@@ -10398,13 +10430,31 @@ async function wireNRules(source, synthRules, opts = {}) {
   if (ruleEntries.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
+  let SyntaxKind;
+  let sf;
+  try {
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
+    const tsMorphPath = requireFromCwd.resolve("ts-morph");
+    const mod = await import(pathToFileURL(tsMorphPath).href);
+    SyntaxKind = mod.SyntaxKind;
+    const project = new mod.Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { allowJs: true, target: 99, module: 99 },
+      skipFileDependencyResolution: true,
+      skipLoadingLibFiles: true
+    });
+    sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
+  } catch {
+    sf = void 0;
+  }
+  const rulePresent = (key) => sf ? ruleKeyNodes(sf, SyntaxKind, key).length > 0 : simpleRulePresent(source, key);
   const overrideKeys = opts.overrideKeys;
   const missing = [];
   const overrides = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else if (!simpleRulePresent(source, key)) {
+    } else if (!rulePresent(key)) {
       missing.push({ key, value });
     } else if (overrideKeys?.has(key)) {
       overrides.push({ key, value });
@@ -10416,25 +10466,10 @@ async function wireNRules(source, synthRules, opts = {}) {
   console.debug(
     `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ${[...missing, ...overrides].map((m) => m.key).join(", ")}`
   );
-  let Project;
-  let SyntaxKind;
-  try {
-    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
-    const tsMorphPath = requireFromCwd.resolve("ts-morph");
-    const mod = await import(pathToFileURL(tsMorphPath).href);
-    Project = mod.Project;
-    SyntaxKind = mod.SyntaxKind;
-  } catch {
+  if (!sf) {
     console.debug("  [synth-wire] DEBUG: ts-morph unavailable \u2192 degrade");
     return { status: "degrade", original: source, modified: source, degradeReason: "ts-morph import failed" };
   }
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { allowJs: true, target: 99, module: 99 },
-    skipFileDependencyResolution: true,
-    skipLoadingLibFiles: true
-  });
-  const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
   const exportAssignment = sf.getExportAssignment((ea) => !ea.isExportEquals());
   if (!exportAssignment) {
     return { status: "unrecognised", original: source, modified: source };
@@ -10482,14 +10517,18 @@ async function wireNRules(source, synthRules, opts = {}) {
     return yes;
   };
   const notes = [];
+  const keepsOwn = (key, desired) => `${key} at ${desired} \u2014 your config already sets this rule, and getff does not change a setting of yours`;
   for (const { key, value } of overrides) {
     const desired = buildRuleValueExpr(value);
     const outcome = replaceSimpleRuleValue(configElements, SyntaxKind, key, desired, !opts.insertOnly);
     if (outcome === "differs") {
-      notes.push(`${key} at ${desired} \u2014 your config already sets this rule, and getff does not change a setting of yours`);
+      notes.push(keepsOwn(key, desired));
     } else if (outcome === "changed") {
       console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
       changed = true;
+    } else if (outcome === "not-found" && opts.insertOnly) {
+      const values = ruleKeyNodes(sf, SyntaxKind, key).map((p) => p.getInitializer?.()?.getText());
+      if (!values.some((v) => v !== void 0 && exprEqual(v, desired))) notes.push(keepsOwn(key, desired));
     } else if (outcome === "not-found") {
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
       append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
@@ -10652,7 +10691,7 @@ async function wireOwnConfig(source, opts = {}) {
   const ignored = globallyIgnored(visible, SyntaxKind);
   const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(", ")}] }`);
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  const r2Present = ruleKeyNodes(sf, SyntaxKind, R2_RULE_ID).length > 0;
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs = [];
