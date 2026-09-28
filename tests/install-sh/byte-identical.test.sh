@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: the only full-install fingerprint pass on bash 3.2 + BSD userland across every stack; its shellcheck arm needs shellcheck, absent on the PC
 # tests/install-sh/byte-identical.test.sh — byte-identical gate for install.sh refactor.
 #
 # Runs SNAPSHOT_MODE=compare for the 4 npm stacks × {greenfield,brownfield} + the python toolchain

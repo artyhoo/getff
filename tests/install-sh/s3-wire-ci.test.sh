@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: its DECLINE arm names 'brew install yq' only where brew is installed — the Mac, not the PC or CI
 # universalization-fix-s3 Stage P — opt-in `--wire-ci` yq auto-wirer (GH #521).
 #
 # Context. The HYBRID verdict (research-patch 2026-06-14-s3-workflow-merge-adopt-vs-build.md, SSOT

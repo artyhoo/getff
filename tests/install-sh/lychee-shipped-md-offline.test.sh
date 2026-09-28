@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: skips itself without lychee, which the Mac has and the PC does not (measured 2026-09-29)
 # Consumer-side link integrity for shipped markdown (2026-07-10 flat-install smoke incident):
 # on a consumer's FIRST `git push`, pre-push §8 runs `lychee --offline` over every changed
 # *.md — i.e. every shipped file. Shipped .claude/skills/*/SKILL.md + .claude/agents/*.md
