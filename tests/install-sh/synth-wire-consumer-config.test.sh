@@ -499,7 +499,9 @@ only_insertions "$I.eslint.config.mjs.edited" "$I/eslint.config.mjs" \
 kept_original "$I" eslint.config.mjs "$I.eslint.config.mjs.edited" \
   && ok "I: the edited original is kept at .ai-factory/before-getff/eslint.config.mjs.<sha8>" \
   || bad "I: no single byte-equal kept original ($(ls "$I/.ai-factory/before-getff" 2>&1 | tr '\n' ' '))"
-not_wired "$I.2.log" | grep -q 'eslint.config' && bad "I: the not-wired summary lists the eslint config" \
+# Fixed-string match on the file name: the summary's dependencies line names eslint-config-prettier,
+# which an unescaped «eslint.config» pattern also matches.
+not_wired "$I.2.log" | grep -qF 'eslint.config.mjs' && bad "I: the not-wired summary lists the eslint config" \
   || ok "I: the not-wired summary has no eslint config line"
 asks_by_hand "$I.2.log" && bad "I: the install asks for a manual ESLint edit" || ok "I: nothing asks for a manual ESLint edit"
 
@@ -618,14 +620,14 @@ edited_plain_reinstall() { # $1 = project dir, $2 = live snippet for the re-inst
 }
 Q="$WORK/placed-edited-plain"; mkdir -p "$Q"
 edited_plain_reinstall "$Q" ""
-not_wired "$Q.2.log" | grep -q 'eslint.config' \
-  && bad "Q: the not-wired summary lists eslint.config.mjs although getff's rules are already in it: $(not_wired "$Q.2.log" | grep 'eslint.config' | head -1)" \
+not_wired "$Q.2.log" | grep -qF 'eslint.config.mjs' \
+  && bad "Q: the not-wired summary lists eslint.config.mjs although getff's rules are already in it: $(not_wired "$Q.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
   || ok "Q: with getff's rules already in the edited config, nothing about it is reported as not wired"
 cmp -s "$Q/eslint.config.mjs" "$Q.edited" && ok "Q: the edited config is left byte-identical" \
   || bad "Q: the edited config changed on an install that cannot run the AST editor"
 Qn="$WORK/placed-edited-plain-rule"; mkdir -p "$Qn"
 edited_plain_reinstall "$Qn" '{ "no-var": "error" }'
-not_wired "$Qn.2.log" | grep 'eslint.config.mjs' | grep -q -- '--full' \
+not_wired "$Qn.2.log" | grep -F 'eslint.config.mjs' | grep -q -- '--full' \
   && ok "Q neg: a live rule the edited config does not carry is named in the not-wired summary, with --full" \
   || bad "Q neg: the missing live rule is not reported: $(not_wired "$Qn.2.log" | head -3 | tr '\n' '|')"
 
