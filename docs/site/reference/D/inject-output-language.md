@@ -131,7 +131,7 @@ plugin's copy always runs.
   `.claude/hooks/inject-session-bootstrap.sh:120-128`.
 - Two registrations reach consumers: `plugin/hooks/hooks.json:16` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
-  UserPromptSubmit, and `setup.d/10-skills.sh:366` registers the project copy with
+  UserPromptSubmit, and `setup.d/10-skills.sh:376` registers the project copy with
   `register_cc_hook "$SETTINGS" "UserPromptSubmit" … "inject-output-language"`. The
   framework's own settings file has neither (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
