@@ -159,7 +159,14 @@ real; the partial ones are the round-2 findings they name.
   The review session walked all 102 rows in ten rounds; the inventory's revision 3 folds its verdicts
   (100 principles: 9 merged, 7 added, among them the advisor seat F9 and the pre-merge review B8). Its
   I4 verdict (no always-loaded exception for security) overrode the Q17 card's «security always-on»,
-  and R6-10 was corrected. Six glossary terms from the review joined CONTEXT.md.
+  and R6-10 was corrected. Six glossary terms from the review joined CONTEXT.md. Its round 11 answered
+  Q18: a trigger for every row, folded as the inventory's revision 4 (a Trigger column; primary check 46,
+  event 25, skill 13, file 11, always-on 5; 48 rows wait for a trigger to build and show «not delivered»).
+  R6-10 now names the three always-on invariants (G1, E2 + D9, I7). The round's four cards stay open in
+  the review session; a skipped card takes the recommendation. The review summary's «the 60 prose and
+  no rows each name a `build` or `corpus` trigger» does not hold by the status column: eleven of them
+  name only a `generated`, `live` or `always-on` one (B1, B6, D9, E12, H1, H3, H4, H7, H8, H10, H11), so
+  the inventory counts by trigger status, not by «Ships today».
 
 ## Rejected alternatives index
 
