@@ -17,6 +17,9 @@
 #       not — _r2_wire_cfg treats it as the consumer's own (getff_bytes_intact) and leaves it.
 #   L0  paired negative: no per-package config at all → no R2 line (the degrade used to run, and
 #       would have noted, before any config was enumerated).
+#   L5  your own configs naming R2 in quotes only inside a comment (a commented-out rule line, a
+#       block comment) are listed — the wirer reads a comment as no rule entry; paired: R2 set with
+#       a trailing comment on the same line is not.
 #   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the ts-server
 #       workspace's config is listed; the react-next workspace's is not (R2 is a server rule).
 #   W2  per-workspace pass, ts-morph present, the R2 wirer missing: listed with that reason.
@@ -24,6 +27,7 @@
 #       R2: one summary line with the reason — whether or not ts-morph is there.
 #   U0  paired negative: an unknown-stack workspace whose config already names R2 (40-configs placed
 #       the ts-server template through its root fallback) → no line.
+#   U4  an unknown-stack workspace whose quoted R2 rule line is commented out → one line.
 #
 # Pure bash: ts-morph «present» is a package.json under node_modules/ts-morph (the pass only checks
 # for it before running the wirer), and no arm runs the wirer.
@@ -178,7 +182,8 @@ else
 fi
 
 # L4: your own config mentions the rule id only in a comment — not a rule entry (the wirer's
-# own-config path reads a quoted id only: simpleRulePresent), so R2 would be added and it is listed.
+# own-config path reads a rules key or a string literal only: ruleSetInConfig), so R2 would be added
+# and it is listed.
 L4=$(make_project l4); put "$L4" eslint.config.mjs "$R2_CFG"
 put "$L4" apps/api/eslint.config.mjs "// TODO rules-as-tests/no-unsafe-zod-parse once the schemas land
 $PLAIN_CFG"
@@ -188,6 +193,37 @@ if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*ts-morph"; then
   ok "L4: your own config naming R2 only in a comment is a NOT wired line"
 else
   bad "L4: expected a NOT wired line for apps/api, whose config names R2 only in a comment (summary: $(sum_show))"
+fi
+
+# L5: the rule id in quotes, but inside a comment — a commented-out rule line (apps/api) or a block
+# comment (apps/blk). The wirer reads a comment as no rule entry at all (ruleSetInConfig), so R2
+# would be added to both, and both are listed. Paired: apps/kept sets R2 with a trailing comment on
+# the same line — R2 is there, no line.
+L5=$(make_project l5); put "$L5" eslint.config.mjs "$R2_CFG"
+put "$L5" apps/api/eslint.config.mjs "export default [{ rules: {
+  // 'rules-as-tests/no-unsafe-zod-parse': 'error',
+  'no-console': 'warn',
+} }];"
+boundary_code "$L5" apps/api
+put "$L5" apps/blk/eslint.config.mjs "/*
+ * \"rules-as-tests/no-unsafe-zod-parse\": \"error\" once the schemas land
+ */
+$PLAIN_CFG"
+boundary_code "$L5" apps/blk
+put "$L5" apps/kept/eslint.config.mjs "export default [{ files: ['src/**/*.ts'], rules: {
+  'rules-as-tests/no-unsafe-zod-parse': 'error', // see https://getff.ai/docs/r2
+} }];"
+boundary_code "$L5" apps/kept
+run_finalize "$L5" "$PKG_WIRED" "" "eslint.config.mjs"
+if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*ts-morph" && sum_has "${R2_LINE}apps/blk/eslint.config.mjs — .*ts-morph"; then
+  ok "L5: your own config naming R2 in quotes inside a comment is a NOT wired line"
+else
+  bad "L5: expected NOT wired lines for apps/api and apps/blk, whose configs name R2 in quotes only inside a comment (summary: $(sum_show))"
+fi
+if sum_has "${R2_LINE}apps/kept/"; then
+  bad "L5: apps/kept sets R2 (a trailing comment on its line), yet it is listed (summary: $(sum_show))"
+else
+  ok "L5: paired — a config setting R2 with a trailing comment on the same line is not listed"
 fi
 
 # L3: configs getff placed on an EARLIER install (a refresh-baseline entry, not staged this run).
@@ -282,6 +318,19 @@ if sum_has "${R2_LINE}apps/x — .*stack"; then
   ok "U3: an unknown-stack workspace whose config names R2 only in a comment is a NOT wired line"
 else
   bad "U3: expected a NOT wired line for apps/x, whose config names R2 only in a comment (summary: $(sum_show))"
+fi
+
+# U4: the same with the rule id in quotes — a commented-out rule line is still no rule entry.
+U4=$(make_project u4); boundary_code "$U4" apps/x
+put "$U4" apps/x/eslint.config.mjs "export default [{ rules: {
+  // 'rules-as-tests/no-unsafe-zod-parse': 'error',
+  'no-console': 'warn',
+} }];"
+run_finalize "$U4" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x — .*stack"; then
+  ok "U4: an unknown-stack workspace whose config comments out a quoted R2 rule line is a NOT wired line"
+else
+  bad "U4: expected a NOT wired line for apps/x, whose R2 rule line is commented out (summary: $(sum_show))"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"

@@ -334,7 +334,28 @@ _r2_note_outcome() {
 # is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
 # boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
 # reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
-# only a quoted rule id — a comment naming the rule is not a rule entry (simpleRulePresent).
+# only a quoted rule id outside a comment (_r2_named_in).
+# _r2_named_in <file> — exit 0 IFF the file names R2 as a quoted rule id outside a comment: the
+# wirer's reading of a config the consumer owns (ruleSetInConfig in wire-eslint-r2.ts — a rules key
+# or a string literal; a comment is neither, so a commented-out rule line is no rule entry).
+# Line-based, without a parser: a `//` comment to the end of its line, and a line that opens or
+# continues a block comment (`/*`, ` *`), are dropped before the match. A `//` inside a string
+# before the id on its line drops the id too — that errs toward listing the config, never toward
+# hiding one. grep reads to the end (no -q): an early exit would SIGPIPE sed under pipefail.
+_r2_named_in() {
+  # shellcheck disable=SC2016  # the backticks are the template-literal form of the id, not an expansion
+  sed -e 's#//.*$##' -e '/^[[:space:]]*\/\*/d' -e '/^[[:space:]]*\*/d' "$1" 2>/dev/null \
+    | grep -F -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+      -e '`rules-as-tests/no-unsafe-zod-parse`' >/dev/null
+}
+# _r2_named_under <dir> — exit 0 IFF some eslint.config.* under <dir> (node_modules skipped) names R2.
+_r2_named_under() {
+  local f
+  while IFS= read -r -d '' f; do
+    _r2_named_in "$f" && return 0
+  done < <(find "$1" -name node_modules -prune -o -name 'eslint.config.*' -type f -print0 2>/dev/null)
+  return 1
+}
 # _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
 _r2_boundary_under() {
   local out
@@ -346,7 +367,7 @@ _r2_would_wire() {
     ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
     return
   fi
-  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null && return 1
+  _r2_named_in "$1" && return 1
   _r2_boundary_under "$(dirname "$1")"
 }
 # _r2_pass_blocker <wirer> — why the pass cannot run, on stdout; empty when it can.
@@ -420,11 +441,8 @@ if [ "$DRY_RUN" != "--dry-run" ] \
         echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
         # Named in the summary only when there is HTTP boundary code under it and no config there
         # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
-        # its root fallback; a comment naming the rule is not a rule entry).
-        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
-           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
-                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
-                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
+        # its root fallback; a comment naming the rule is not a rule entry — _r2_named_in).
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
         ;;
