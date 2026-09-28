@@ -321,6 +321,10 @@ const ESLINT_INSTALLS = [join(REPO_ROOT, 'node_modules'), join(REPO_ROOT, 'packa
   .map((nm) => ({ nm, version: (JSON.parse(readFileSync(join(nm, 'eslint', 'package.json'), 'utf8')) as { version: string }).version }));
 const R2_BARREL = `export default { rules: { 'no-unsafe-zod-parse': { create: () => ({}) } } };\n`;
 
+it('the probe matrix below has an ESLint install to run against', () => {
+  expect(ESLINT_INSTALLS.length, `no eslint under ${REPO_ROOT}/node_modules or packages/core/node_modules`).toBeGreaterThan(0);
+});
+
 for (const { nm, version } of ESLINT_INSTALLS) {
   describe(`resolveAndWire + probeViaEslint (ESLint ${version}) — wired means ESLint can lint`, () => {
     /** A consumer dir on a physical path whose node_modules is this ESLint install; barrel + two files. */

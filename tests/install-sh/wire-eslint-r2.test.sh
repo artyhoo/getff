@@ -8,7 +8,7 @@
 #
 # Fixtures P1/P2/P3 (below) are the headline red→green loadability gate: they run the wirer over a
 # plugin-less / plugin-registering / `.ts`-only-registering base and assert ESLint LOADS the result
-# (P1: `--print-config` rc 0 + R2 applied; P2/P3: `eslint .` over the package is not rc 2).
+# (P1: `--print-config` rc 0 + R2 applied; P1-P3: `eslint .` over the package runs and exits 0/1).
 # (Earlier this header claimed a print-config integration "runs in CI via consumer-pipeline" — false:
 # consumer-pipeline.test.sh runs zero ESLint; the real gate is P1-P3 here. GH #644 §6.)
 # Fixture E (format-preserved blocking gate) and Fixtures B/C are vitest unit tests in
@@ -167,6 +167,17 @@ _mk_consumer() { # $1=dir
   printf 'export const y = 1;\n' > "$1/apps/api/src/h.js"
 }
 
+# _lint_pkg <label> <dir>: the consumer's own `eslint .` over apps/api must run and exit 0/1 (1 = findings).
+# rc 2 = ESLint cannot use the config; a missing bin (the fixture's `npm i` failed) is a failure too, never a pass.
+_lint_pkg() { # $1=label $2=dir
+  if [ ! -x "$2/node_modules/.bin/eslint" ]; then bad "$1: no eslint in the fixture (npm i failed?)"; return; fi
+  _rc=0; ( cd "$2/apps/api" && "$2/node_modules/.bin/eslint" . >/dev/null 2>"$2/lint.err" ) || _rc=$?
+  case "$_rc" in
+    0|1) ok "$1: package lints (rc $_rc)" ;;
+    *) bad "$1: lint rc $_rc: $(head -c 160 "$2/lint.err" | tr '\n' ' ')" ;;
+  esac
+}
+
 # ── Fixture P1: plugin-LESS base → wired output must LOAD (rc 0) + R2 applied ──
 echo "Fixture P1: plugin-less base → loadable after wire"
 if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P1: skipped (tsx/node absent)"; else
@@ -179,6 +190,7 @@ if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P1: sk
   if ( cd "$T_P1/apps/api" && "$T_P1/node_modules/.bin/eslint" --print-config src/h.ts >/tmp/p1.out 2>/tmp/p1.err ); then
     grep -q 'rules-as-tests/no-unsafe-zod-parse' /tmp/p1.out && ok "P1: LOADS (rc 0) + R2 applied" || bad "P1: loads but R2 absent"
   else bad "P1: FAILS to load: $(head -c 160 /tmp/p1.err | tr '\n' ' ')"; fi
+  _lint_pkg P1 "$T_P1"
 fi
 
 # ── Fixture P2: base registers the plugin for EVERY file → bare kept, loads, no redefine ──
@@ -189,8 +201,8 @@ if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P2: sk
   ( cd "$T_P2" && "$RUN_WIRER_TSX" "$WIRER" --path apps/api/eslint.config.mjs --yes >/dev/null 2>&1 ) || true
   _n2=$(grep -c "plugins: { 'rules-as-tests'" "$T_P2/apps/api/eslint.config.mjs")
   [ "$_n2" = "1" ] && ok "P2: plugin registered once (base only) — kept bare, no duplicate" || bad "P2: $_n2 'rules-as-tests' registrations (want 1) — wirer double-registered"
-  _rc2=0; ( cd "$T_P2/apps/api" && "$T_P2/node_modules/.bin/eslint" . >/dev/null 2>/tmp/p2.err ) || _rc2=$?
-  [ "$_rc2" -ne 2 ] && ok "P2: package lints (rc $_rc2, no Cannot redefine)" || bad "P2: lint rc 2: $(head -c 160 /tmp/p2.err | tr '\n' ' ')"
+  grep -q 'rules-as-tests/no-unsafe-zod-parse' "$T_P2/apps/api/eslint.config.mjs" && ok "P2: R2 wired" || bad "P2: R2 not wired"
+  _lint_pkg P2 "$T_P2"
 fi
 
 # ── Fixture P3: base registers the plugin for `.ts` only → the whole package must still lint ──
@@ -202,8 +214,7 @@ if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P3: sk
   printf "import customRules from '../../eslint-rules-local/index.mjs';\nconst base = [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\nexport default [...base];\n" > "$T_P3/apps/api/eslint.config.mjs"
   ( cd "$T_P3" && "$RUN_WIRER_TSX" "$WIRER" --path apps/api/eslint.config.mjs --yes >/dev/null 2>&1 ) || true
   grep -q 'rules-as-tests/no-unsafe-zod-parse' "$T_P3/apps/api/eslint.config.mjs" && ok "P3: R2 wired" || bad "P3: R2 not wired"
-  _rc3=0; ( cd "$T_P3/apps/api" && "$T_P3/node_modules/.bin/eslint" . >/dev/null 2>/tmp/p3.err ) || _rc3=$?
-  [ "$_rc3" -ne 2 ] && ok "P3: package lints (rc $_rc3)" || bad "P3: lint rc 2: $(head -c 160 /tmp/p3.err | tr '\n' ' ')"
+  _lint_pkg P3 "$T_P3"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────

@@ -929,6 +929,17 @@ const R2_PROBE_PATHS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts'].ma
 
 const execFileAsync = promisify(execFile);
 
+/** R2's severity in a `--print-config` result (ESLint prints it normalised: `[2]`); 0 when absent or `undefined`. */
+function r2SeverityIn(printed: string): number {
+  try {
+    const cfg = JSON.parse(printed) as { rules?: Record<string, unknown> } | null;
+    const entry = cfg?.rules?.[R2_RULE_ID];
+    return Array.isArray(entry) && typeof entry[0] === 'number' ? entry[0] : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Default probe: resolve the consumer's eslint and run `--print-config` on probe paths next to the config.
  * eslint's package `exports` does NOT expose `./bin/eslint.js` (resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED
@@ -978,7 +989,7 @@ export async function probeViaEslint(configPath: string, cwd: string, scope?: { 
           cwd: dir,
           maxBuffer: 16 * 1024 * 1024,
         });
-        return { resolvedR2: stdout.includes(`"${R2_RULE_ID}"`) };
+        return { resolvedR2: r2SeverityIn(stdout) > 0 };
       } catch (e: unknown) {
         return { stderr: String((e as { stderr?: string }).stderr ?? '') };
       }
@@ -1022,7 +1033,7 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
   const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === 'ok') return { ...bare, variant: 'bare' };
 
-  // 3. escalate: self-contained (only when the base registers the plugin nowhere)
+  // 3. escalate: self-contained — the bare element reaches a file the base registers no plugin for
   if (v1 === 'could-not-find-plugin') {
     const spec = customRulesImportSpecifier(configPath, cwd);
     const sc = await wireConfigSource(original, { variant: 'self-contained', customRulesImportPath: spec, scope });

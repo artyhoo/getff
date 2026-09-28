@@ -10723,6 +10723,15 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
 }
 var R2_PROBE_PATHS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"].map((ext) => `__aif_r2_probe__.${ext}`);
 var execFileAsync = promisify(execFile);
+function r2SeverityIn(printed) {
+  try {
+    const cfg = JSON.parse(printed);
+    const entry = cfg?.rules?.[R2_RULE_ID];
+    return Array.isArray(entry) && typeof entry[0] === "number" ? entry[0] : 0;
+  } catch {
+    return 0;
+  }
+}
 async function probeViaEslint(configPath, cwd, scope) {
   let eslintBin;
   try {
@@ -10749,7 +10758,7 @@ async function probeViaEslint(configPath, cwd, scope) {
           cwd: dir,
           maxBuffer: 16 * 1024 * 1024
         });
-        return { resolvedR2: stdout.includes(`"${R2_RULE_ID}"`) };
+        return { resolvedR2: r2SeverityIn(stdout) > 0 };
       } catch (e) {
         return { stderr: String(e.stderr ?? "") };
       }
