@@ -17,16 +17,22 @@
 #       not — _r2_wire_cfg treats it as the consumer's own (getff_bytes_intact) and leaves it.
 #   L0  paired negative: no per-package config at all → no R2 line (the degrade used to run, and
 #       would have noted, before any config was enumerated).
-#   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the ts-server
-#       workspace's config is listed; the react-next workspace's is not (R2 is a server rule).
+#   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the consumer's own
+#       config with boundary code under it is listed for a ts-server, a react-next and a react-spa
+#       workspace — the stacks whose getff preset carries R2 (60-ci.sh adds it to a flat repo's own
+#       config for the same three) — and not for a react-native one, whose preset ships no R2.
 #   W2  per-workspace pass, ts-morph present, the R2 wirer missing: listed with that reason.
+#   W3  per-workspace pass that can run: the R2 wirer is handed the ts-server, react-next and
+#       react-spa configs as the consumer's own, with the boundary globs found under each; the
+#       react-native config is not handed to it.
 #   U1  a workspace whose stack the install cannot tell, with HTTP boundary code and no config naming
 #       R2: one summary line with the reason — whether or not ts-morph is there.
 #   U0  paired negative: an unknown-stack workspace whose config already names R2 (40-configs placed
 #       the ts-server template through its root fallback) → no line.
 #
 # Pure bash: ts-morph «present» is a package.json under node_modules/ts-morph (the pass only checks
-# for it before running the wirer), and no arm runs the wirer.
+# for it before running the wirer), and no arm runs the wirer — W3 stands in for npx, recording what
+# the pass hands it.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -69,6 +75,11 @@ reassert_husky_shields() { :; }
 source "$REPO_ROOT/setup.d/lib.sh"
 # after lib.sh, which defines the real one: the workspace map this arm is about
 _detect_stacks_per_workspace() { [ -z "${WS_MAP:-}" ] || printf '%b\n' "$WS_MAP"; return 0; }
+# T_NPX_LOG set: npx records its arguments there and reports R2 as wired, so the pass runs through
+# without a real wirer (W3).
+if [ -n "${T_NPX_LOG:-}" ]; then
+  npx() { printf '%s\n' "$*" >> "$T_NPX_LOG"; echo "  ✓ R2 wired into the stand-in"; }
+fi
 REFRESH_BASELINE_STAGED=()
 for _d in ${DELIVERED:-}; do REFRESH_BASELINE_STAGED+=("$PROJECT_ROOT/$_d"); done
 source "$FINALIZE"
@@ -92,7 +103,7 @@ fake_ts_morph() { put "$1" node_modules/ts-morph/package.json '{"name":"ts-morph
 run_finalize() {
   F_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$1" PKG_ROOT="$2" FINALIZE="$FINALIZE" \
     WS_MAP="${3:-}" DELIVERED="${4:-}" T_FULL="${T_FULL:-}" PATH="${T_PATH:-$PATH}" \
-    bash "$DRIVER" < /dev/null 2>&1)
+    T_NPX_LOG="${T_NPX_LOG:-}" bash "$DRIVER" < /dev/null 2>&1)
   F_SUM=$(printf '%s\n' "$F_OUT" | grep -E '^      - ' || true)
 }
 sum_has() { printf '%s\n' "$F_SUM" | grep -qE "$1"; }
@@ -221,19 +232,32 @@ fi
 ran_through L0
 
 # ─── W1/W2: the per-workspace pass (multi-stack monorepo, no root config) ─────
+# ws_project <name> — one workspace per stack, each with the consumer's own config (no R2 in it) and
+# HTTP boundary code under it: apps/api ts-server, apps/web react-next, apps/spa react-spa,
+# apps/mobile react-native.
 ws_project() {
-  local p; p=$(make_project "$1")
-  put "$p" apps/api/eslint.config.mjs "$PLAIN_CFG"; boundary_code "$p" apps/api
-  put "$p" apps/web/eslint.config.mjs "$PLAIN_CFG"; boundary_code "$p" apps/web
+  local p w; p=$(make_project "$1")
+  for w in api web spa mobile; do
+    put "$p" "apps/$w/eslint.config.mjs" "$PLAIN_CFG"; boundary_code "$p" "apps/$w"
+  done
   echo "$p"
 }
-WS='apps/api\tts-server\napps/web\treact-next'
+WS='apps/api\tts-server\napps/web\treact-next\napps/spa\treact-spa\napps/mobile\treact-native'
 # ws_arm <arm> <reason regex>
 ws_arm() {
-  if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*$2" && ! sum_has "${R2_LINE}apps/web/"; then
-    ok "$1: the ts-server workspace's config is a NOT wired line with the reason; the react-next one is not listed"
+  local w missing=""
+  for w in api web spa; do
+    sum_has "${R2_LINE}apps/$w/eslint.config.mjs — .*$2" || missing="$missing apps/$w"
+  done
+  if [ -z "$missing" ]; then
+    ok "$1: the ts-server, react-next and react-spa workspaces' own configs are NOT wired lines with the reason"
   else
-    bad "$1: expected a NOT wired line for apps/api naming «$2» and none for apps/web (summary: $(sum_show))"
+    bad "$1: expected a NOT wired line naming «$2» for:$missing (summary: $(sum_show))"
+  fi
+  if sum_has "${R2_LINE}apps/mobile/"; then
+    bad "$1: the react-native workspace is listed, yet its preset ships no R2 (summary: $(sum_show))"
+  else
+    ok "$1: paired — the react-native workspace is not listed (its preset ships no R2)"
   fi
 }
 
@@ -244,6 +268,32 @@ ws_arm W1 'ts-morph.*--full'
 W2=$(ws_project w2); fake_ts_morph "$W2"
 run_finalize "$W2" "$PKG_NOWIRER" "$WS"
 ws_arm W2 'missing from this getff package'
+
+# W3: the pass can run (ts-morph and the wirer there); npx is the stand-in that records its calls.
+W3=$(ws_project w3); fake_ts_morph "$W3"
+W3_LOG="$WORK/w3-npx.log"; : > "$W3_LOG"
+T_NPX_LOG="$W3_LOG" run_finalize "$W3" "$PKG_WIRED" "$WS"
+w3_missing=""
+for w in api web spa; do
+  grep -F "wire-eslint-r2.ts --path $W3/apps/$w/eslint.config.mjs " "$W3_LOG" | grep -F -- '--own-config' \
+    | grep -qF -- '--boundary **/routes/**/*.{ts,tsx}' || w3_missing="$w3_missing apps/$w"
+done
+if [ -z "$w3_missing" ]; then
+  ok "W3: the ts-server, react-next and react-spa configs are handed to the R2 wirer as your own, with their boundary globs"
+else
+  bad "W3: not handed to the R2 wirer with --own-config and the routes/ boundary glob:$w3_missing (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
+fi
+if grep -qF "apps/mobile/eslint.config.mjs" "$W3_LOG"; then
+  bad "W3: the react-native config is handed to the R2 wirer (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
+else
+  ok "W3: paired — the react-native config is not handed to the R2 wirer"
+fi
+if sum_has "$R2_LINE"; then
+  bad "W3: every config R2 was added to is in the NOT wired summary all the same (summary: $(sum_show))"
+else
+  ok "W3: R2 landed everywhere it was added, so no R2 line in the summary"
+fi
+ran_through W3
 
 # ─── U1/U0: a workspace whose stack the install cannot tell ───────────────────
 for state in without with; do
