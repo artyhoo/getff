@@ -150,11 +150,16 @@ real; the partial ones are the round-2 findings they name.
   into the inventory. Q14 gave P19 and R6-10 (the base core loads on need, a hybrid; getff's
   token-economy machinery ships to consumers); its shape stays open. Q15 = yes gave R6-11 (the
   `getff` skill split). Q10 and Q12 stood on the recommendations: the `machinery` tag (R6-1, R6-6)
-  and the FYI line of R6-8.
+  and the FYI line of R6-8. The operator then added that no principle ships as text alone (P19).
+  Model round 4 (2026-09-29), after measuring what of the token-economy machinery ships today:
+  Q16 В and Q17 accepted on the recommendations («Остальные 2 ок»), so R6-10 records the shape
+  (a check or a timely signal per principle; a small always-on part; the budget check and the
+  `paths:` rule files ship) and slice 6 carries it. Q18 (principles with no trigger yet) moved to
+  the base-core review session: «мы в отдельной сессии это все рассматриваем как сделать лучше».
 
 ## Rejected alternatives index
 
 Each rejected alternative lives in its spec row: Q1 (the chain in the prompt; the plugin command
 as owner), Q2.1 (a breaking `-y` backstop, reversing S1-4), Q3 (level-2 tooling), R2-Q1, R2-Q1.1,
 R2-P1, R2-Stack, R2-Arch, R2-Guard, R2-OP18, R3-1, R3-2, R4-3, R4-4, R4-5, R4-7, R5-5, R5-12,
-R5-14, R6-2 (A), R6-3 (A), R6-6 (B), R6-10 (skills only).
+R5-14, R6-2 (A), R6-3 (A), R6-6 (B), R6-10 (skills only; an always-on laziness digest).
