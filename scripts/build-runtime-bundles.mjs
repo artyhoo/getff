@@ -1,51 +1,55 @@
 #!/usr/bin/env node
-// build-runtime-bundles.mjs — prebuild getff's consumer-executed TypeScript runtime into
-// zero-dependency .mjs bundles that run on plain `node`.
-//
-// WHY. Two pieces of getff's TypeScript run on the consumer's machine, and both used to run as
-// raw .ts through tsx:
-//   • the pre-push hook (packages/core/hooks/pre-push.ts + its import graph) was COPIED into the
-//     consumer's tree, where the consumer's own eslint and tsc checked it — a project that owns
-//     its eslint.config.mjs / tsconfig.json went RED on getff's files right after install
-//     (TS5097 `.ts` import extensions, prefer-const, a workspace import tsc cannot resolve);
-//   • the rule generator (packages/core/install/rule-bootstrap-cli.ts) ran from the getff clone
-//     via `npx --no-install tsx`, and a clone has no node_modules — it died on
-//     ERR_MODULE_NOT_FOUND 'ajv' before generating anything (N14 / critical-review S5-9).
-// One prebuilt .mjs per entry closes both: tsc does not read .mjs, the consumer's eslint is told
-// to skip the file by its first line, and neither tsx nor the clone's dependencies are needed.
-// Operator decision 2026-09-28 (Q4.1/Q4.2); precedent packages/core/install/synth-and-wire.bundle.mjs
-// (#763, built by scripts/build-synth-bundle.sh).
-//
-// WHAT EACH BUNDLE IS
-//   • Everything the entry imports is inlined, first-party and third-party alike (ajv, semver, …).
-//   • `external` names first-party modules left out on purpose: the pre-push hook's two
-//     maintainer-only sections load their gates with a dynamic import that never runs in a
-//     consumer (composeSections keeps them out of the consumer composition), and inlining them
-//     would drag the whole ESLint stack into the hook.
-//   • `fromProject` names third-party packages that are NOT inlined but loaded at run time from
-//     the project the process runs in (its cwd), falling back to the package that depends on them
-//     and then to getff's own tree. The generator's L4 gates need `eslint`,
-//     `@typescript-eslint/parser` and `@typescript-eslint/utils`; inlining eslint and the parser
-//     costs ~18 MB (typescript alone ~9 MB, measured 2026-09-28), while every project the
-//     generator targets has installed them — getff's installer puts eslint + typescript-eslint
-//     into its devDependencies before this step runs.
-//   • A first-party module that reads a sibling file through `import.meta.url` would see the
-//     BUNDLE's URL once inlined, so every such reference in a non-entry module is rewritten to the
-//     module's own source location (resolved relative to the bundle). The entry keeps the real
-//     URL, so its direct-run guard still recognises `node <bundle>`, while an inlined module's own
-//     direct-run guard (detector/index.ts, render-researched-astgrep.ts) correctly stays false.
-//   • The first lines are `/* eslint-disable */` and `// @ts-nocheck`: generated code is not the
-//     consumer's to lint or type-check, and getff never edits a consumer's eslint config or
-//     tsconfig (operator decision 2026-09-23, setup.d/lib.sh copy_unless_foreign).
-//
-// USAGE
-//   node scripts/build-runtime-bundles.mjs            # (re)generate the committed bundles
-//   node scripts/build-runtime-bundles.mjs --check    # drift gate: fail if committed ≠ fresh build
-//
-// Runnable from any working directory: the repo root is derived from this file's location and
-// handed to esbuild as its working directory, so the `// path` comments are repo-relative.
-// Importing this module has no side effects (principle 27 reads BUNDLES from it).
-// Deterministic and offline (no network, no paid LLM — .claude/rules/no-paid-llm-in-ci.md).
+/**
+ * build-runtime-bundles — prebuild the pre-push hook and the rule generator as .mjs bundles.
+ *
+ * getff's consumer-executed TypeScript becomes zero-dependency .mjs that runs on plain `node`.
+ *
+ * WHY. Two pieces of getff's TypeScript run on the consumer's machine, and both used to run as
+ * raw .ts through tsx:
+ *   • the pre-push hook (packages/core/hooks/pre-push.ts + its import graph) was COPIED into the
+ *     consumer's tree, where the consumer's own eslint and tsc checked it — a project that owns
+ *     its eslint.config.mjs / tsconfig.json went RED on getff's files right after install
+ *     (TS5097 `.ts` import extensions, prefer-const, a workspace import tsc cannot resolve);
+ *   • the rule generator (packages/core/install/rule-bootstrap-cli.ts) ran from the getff clone
+ *     via `npx --no-install tsx`, and a clone has no node_modules — it died on
+ *     ERR_MODULE_NOT_FOUND 'ajv' before generating anything (N14 / critical-review S5-9).
+ * One prebuilt .mjs per entry closes both: tsc does not read .mjs, the consumer's eslint is told
+ * to skip the file by its first line, and neither tsx nor the clone's dependencies are needed.
+ * Operator decision 2026-09-28 (Q4.1/Q4.2); precedent packages/core/install/synth-and-wire.bundle.mjs
+ * (#763, built by scripts/build-synth-bundle.sh).
+ *
+ * WHAT EACH BUNDLE IS
+ *   • Everything the entry imports is inlined, first-party and third-party alike (ajv, semver, …).
+ *   • `external` names first-party modules left out on purpose: the pre-push hook's two
+ *     maintainer-only sections load their gates with a dynamic import that never runs in a
+ *     consumer (composeSections keeps them out of the consumer composition), and inlining them
+ *     would drag the whole ESLint stack into the hook.
+ *   • `fromProject` names third-party packages that are NOT inlined but loaded at run time from
+ *     the project the process runs in (its cwd), falling back to the package that depends on them
+ *     and then to getff's own tree. The generator's L4 gates need `eslint`,
+ *     `@typescript-eslint/parser` and `@typescript-eslint/utils`; inlining eslint and the parser
+ *     costs ~18 MB (typescript alone ~9 MB, measured 2026-09-28), while every project the
+ *     generator targets has installed them — getff's installer puts eslint + typescript-eslint
+ *     into its devDependencies before this step runs.
+ *   • A first-party module that reads a sibling file through `import.meta.url` would see the
+ *     BUNDLE's URL once inlined, so every such reference in a non-entry module is rewritten to the
+ *     module's own source location (resolved relative to the bundle). The entry keeps the real
+ *     URL, so its direct-run guard still recognises `node <bundle>`, while an inlined module's own
+ *     direct-run guard (detector/index.ts, render-researched-astgrep.ts) correctly stays false.
+ *   • The first lines are an `eslint-disable` block comment and `// @ts-nocheck`: generated
+ *     code is not the consumer's to lint or type-check, and getff never edits a consumer's
+ *     eslint config or tsconfig (operator decision 2026-09-23, setup.d/lib.sh
+ *     copy_unless_foreign).
+ *
+ * USAGE
+ *   node scripts/build-runtime-bundles.mjs            # (re)generate the committed bundles
+ *   node scripts/build-runtime-bundles.mjs --check    # drift gate: fail if committed ≠ fresh build
+ *
+ * Runnable from any working directory: the repo root is derived from this file's location and
+ * handed to esbuild as its working directory, so the `// path` comments are repo-relative.
+ * Importing this module has no side effects (principle 27 reads BUNDLES from it).
+ * Deterministic and offline (no network, no paid LLM — .claude/rules/no-paid-llm-in-ci.md).
+ */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -64,7 +68,10 @@ export const BUNDLES = [
     // the file does not exist.
     external: [
       { path: './checks/guard-liveness.ts', section: 'guard-liveness' },
-      { path: './checks/cmd-script-liveness.ts', section: 'cmd-script-liveness' },
+      {
+        path: './checks/cmd-script-liveness.ts',
+        section: 'cmd-script-liveness',
+      },
     ],
     fromProject: [],
     // The hook runs on every consumer push: it must stay free of third-party code.
@@ -108,17 +115,28 @@ function ownMetaUrlPlugin(entryAbs, outfileAbs) {
     name: 'own-import-meta-url',
     setup(build) {
       build.onLoad({ filter: /\.[cm]?tsx?$/ }, (args) => {
-        if (args.path.includes(`${sep}node_modules${sep}`) || args.path === entryAbs) return undefined;
+        if (
+          args.path.includes(`${sep}node_modules${sep}`) ||
+          args.path === entryAbs
+        )
+          return undefined;
         const source = readFileSync(args.path, 'utf8');
         if (/import\.meta\.(dirname|filename)\b/.test(source)) {
           return {
-            errors: [{ text: `import.meta.dirname/filename is not rewritten for bundling — use import.meta.url (${relative(ROOT, args.path)})` }],
+            errors: [
+              {
+                text: `import.meta.dirname/filename is not rewritten for bundling — use import.meta.url (${relative(ROOT, args.path)})`,
+              },
+            ],
           };
         }
         if (!source.includes('import.meta.url')) return undefined;
         const rel = toPosix(relative(dirname(outfileAbs), args.path));
         const own = `new URL(${JSON.stringify(rel)}, import.meta.url).href`;
-        return { contents: source.replaceAll('import.meta.url', own), loader: 'ts' };
+        return {
+          contents: source.replaceAll('import.meta.url', own),
+          loader: 'ts',
+        };
       });
     },
   };
@@ -140,18 +158,25 @@ function keepExternalPlugin(external) {
 /** Load the named packages from the project at run time instead of inlining them. */
 function fromProjectPlugin(fromProject) {
   const byId = new Map(fromProject.map((d) => [d.id, d]));
-  const filter = new RegExp(`^(${fromProject.map((d) => d.id.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|')})$`);
+  const filter = new RegExp(
+    `^(${fromProject.map((d) => d.id.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|')})$`,
+  );
   return {
     name: 'from-project',
     setup(build) {
       if (byId.size === 0) return;
-      build.onResolve({ filter }, (args) => ({ path: args.path, namespace: 'getff-from-project' }));
-      build.onLoad({ filter: /.*/, namespace: 'getff-from-project' }, (args) => {
-        const { id, via } = byId.get(args.path);
-        return {
-          loader: 'js',
-          resolveDir: ROOT,
-          contents: `// '${id}' is loaded from the project at run time, not inlined (scripts/build-runtime-bundles.mjs).
+      build.onResolve({ filter }, (args) => ({
+        path: args.path,
+        namespace: 'getff-from-project',
+      }));
+      build.onLoad(
+        { filter: /.*/, namespace: 'getff-from-project' },
+        (args) => {
+          const { id, via } = byId.get(args.path);
+          return {
+            loader: 'js',
+            resolveDir: ROOT,
+            contents: `// '${id}' is loaded from the project at run time, not inlined (scripts/build-runtime-bundles.mjs).
 var { createRequire } = require('node:module');
 var { join } = require('node:path');
 var id = ${JSON.stringify(id)};
@@ -169,8 +194,9 @@ function load() {
 }
 module.exports = load();
 `,
-        };
-      });
+          };
+        },
+      );
     },
   };
 }
@@ -180,7 +206,10 @@ module.exports = load();
 // (`packages/core/node_modules/semver` vs `node_modules/semver`) — the same normalisation as
 // scripts/build-synth-bundle.sh.
 const normaliseNodeModules = (text) =>
-  text.replace(/(["(/\s]|^)([A-Za-z0-9_.@-]+\/)*node_modules\//gm, '$1node_modules/');
+  text.replace(
+    /(["(/\s]|^)([A-Za-z0-9_.@-]+\/)*node_modules\//gm,
+    '$1node_modules/',
+  );
 
 async function buildOne(esbuild, spec) {
   const entryAbs = resolve(ROOT, spec.entry);
@@ -205,9 +234,13 @@ async function buildOne(esbuild, spec) {
     ],
   });
   if (!spec.thirdParty) {
-    const inlined = Object.keys(result.metafile.inputs).filter((p) => p.includes('node_modules/'));
+    const inlined = Object.keys(result.metafile.inputs).filter((p) =>
+      p.includes('node_modules/'),
+    );
     if (inlined.length > 0) {
-      throw new Error(`${spec.name}: must inline no third-party code, but pulled in:\n  ${inlined.join('\n  ')}`);
+      throw new Error(
+        `${spec.name}: must inline no third-party code, but pulled in:\n  ${inlined.join('\n  ')}`,
+      );
     }
   }
   return normaliseNodeModules(result.outputFiles[0].text);
@@ -220,15 +253,21 @@ async function main() {
   try {
     esbuild = requireFromRoot('esbuild');
   } catch {
-    console.error(`ERROR: esbuild not found under ${ROOT}/node_modules — run 'NODE_ENV=development npm install --include=dev' at the repo root first.`);
+    console.error(
+      `ERROR: esbuild not found under ${ROOT}/node_modules — run 'NODE_ENV=development npm install --include=dev' at the repo root first.`,
+    );
     process.exit(2);
   }
 
   // Refuse to build or drift-check while an inlined dependency is ambiguous between the two
   // committed lockfiles (the phantom-drift guard shared with the synth bundle).
-  const parity = spawnSync('bash', [join(ROOT, 'scripts/check-bundle-dep-parity.sh'), ROOT], {
-    stdio: ['ignore', 'ignore', 'inherit'],
-  });
+  const parity = spawnSync(
+    'bash',
+    [join(ROOT, 'scripts/check-bundle-dep-parity.sh'), ROOT],
+    {
+      stdio: ['ignore', 'ignore', 'inherit'],
+    },
+  );
   if (parity.status !== 0) process.exit(1);
 
   let drift = 0;
@@ -236,12 +275,18 @@ async function main() {
     const fresh = await buildOne(esbuild, spec);
     if (check) {
       const outfileAbs = resolve(ROOT, spec.outfile);
-      const committed = existsSync(outfileAbs) ? readFileSync(outfileAbs, 'utf8') : null;
+      const committed = existsSync(outfileAbs)
+        ? readFileSync(outfileAbs, 'utf8')
+        : null;
       if (committed === null) {
-        console.error(`DRIFT: ${spec.outfile} is missing — run: node scripts/build-runtime-bundles.mjs`);
+        console.error(
+          `DRIFT: ${spec.outfile} is missing — run: node scripts/build-runtime-bundles.mjs`,
+        );
         drift = 1;
       } else if (committed !== fresh) {
-        console.error(`DRIFT: ${spec.outfile} differs from a fresh build of ${spec.entry}`);
+        console.error(
+          `DRIFT: ${spec.outfile} differs from a fresh build of ${spec.entry}`,
+        );
         console.error('       Re-run: node scripts/build-runtime-bundles.mjs');
         drift = 1;
       } else {
@@ -255,7 +300,10 @@ async function main() {
   process.exit(drift);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main().catch((err) => {
     console.error(`build-runtime-bundles: ${err.message}`);
     process.exit(1);

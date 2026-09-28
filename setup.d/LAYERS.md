@@ -138,7 +138,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `50-hooks.sh` | 50 | §5c .husky/ hooks cluster + core.hooksPath activation. | all stacks |
 | `55-runtime-bridge-vendor.sh` | 55 | §5d vendored runtime-bridge subset (factory-only). | all stacks |
 | `60-ci.sh` | 60 | §6b .nvmrc↔CI drift WARN + §6b-bis R2 auto-wire L1 + §6c CI-orphan WARN. | all stacks |
-| `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install (§8b retired 2026-09-28). | all stacks |
+| `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28). | all stacks |
 | `80-rule-bootstrap.sh` | 80 | rule-bootstrapping install-time step (LIVE-or-degrade). | all stacks |
 | `85-worktree-scripts.sh` | 85 | §5e worktree scripts cluster (env+ profile). | all stacks |
 | `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done. | all stacks |
