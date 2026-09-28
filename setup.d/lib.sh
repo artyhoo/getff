@@ -3246,7 +3246,7 @@ _skill_context_delivered_lines() {
     rm -f "$lf" "$probe"; echo "$n"; return 0
   fi
   while read -r _skill lines sha _bl _bh; do
-    [ -n "$sha" ] && [ "$lines" -le "$total" ] || continue
+    if [ -z "$sha" ] || [ "$lines" -gt "$total" ]; then continue; fi
     head -n "$lines" "$lf" > "$probe"
     if h=$(_hash256 "$probe") && [ "$h" = "$sha" ]; then
       rm -f "$lf" "$probe"; echo "$lines"; return 0
