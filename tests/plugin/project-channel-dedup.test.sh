@@ -64,14 +64,15 @@ mk_project() {
 }
 
 # fire <project> <event> [tool_name] — prints the merged stdout of every hook the harness would
-# run for this event. HARNESS=zcode (env) drops the project channel and sets ZCODE_PROJECT_DIR.
+# run for this event. PROJECT_CHANNEL=off (env) is the ZCode shape: the harness runs no project
+# settings hooks, and it identifies itself to hooks through ZCODE_PROJECT_DIR.
 fire() {
-  local proj="$1" ev="$2" tool="${3:-}" harness="${HARNESS:-cc}"
+  local proj="$1" ev="$2" tool="${3:-}" project_channel="${PROJECT_CHANNEL:-on}"
   local payload; payload=$(jq -cn --arg ev "$ev" --arg t "$tool" \
     '{session_id:"dedup-test",hook_event_name:$ev,prompt:"hi"} + (if $t == "" then {} else {tool_name:$t,tool_input:{file_path:"/x"}} end)')
   local sel='.hooks[$ev][]? | select((.matcher // "") as $m | $m == "" or $m == "*" or ($t != "" and ($t | test("^(" + $m + ")$")))) | .hooks[]?.command'
   local cmds=() c
-  if [ "$harness" = "cc" ]; then
+  if [ "$project_channel" = on ]; then
     for f in "$proj/.claude/settings.json" "$proj/.claude/settings.local.json"; do
       [ -f "$f" ] || continue
       while IFS= read -r c; do cmds+=("$c"); done < <(jq -r --arg ev "$ev" --arg t "$tool" "$sel" "$f" 2>/dev/null)
@@ -79,7 +80,7 @@ fire() {
   fi
   while IFS= read -r c; do cmds+=("$c"); done < <(jq -r --arg ev "$ev" --arg t "$tool" "$sel" "$PLUGIN/hooks/hooks.json")
   local i=0 envv=(CLAUDE_PROJECT_DIR="$proj" CLAUDE_PLUGIN_ROOT="$PLUGIN" AIF_HOOK_LANG=ru)
-  [ "$harness" = "zcode" ] && envv+=(ZCODE_PROJECT_DIR="$proj")
+  [ "$project_channel" = off ] && envv+=(ZCODE_PROJECT_DIR="$proj")
   for c in ${cmds[@]+"${cmds[@]}"}; do
     i=$((i+1))
     ( cd "$proj" && printf '%s' "$payload" | env -u ZCODE_PROJECT_DIR -u AIF_HOOK_CHANNEL "${envv[@]}" bash -c "$c" ) \
@@ -120,7 +121,7 @@ OUT=$(fire "$P3" SubagentStart)
 [ "$(count "$OUT" "$PMARK")" = 1 ] && ok "SubagentStart project digest once" || bad "SubagentStart project digest x$(count "$OUT" "$PMARK")"
 
 echo "S4 — ZCode: project settings are not a hook channel there, the plugin must not yield"
-OUT=$(HARNESS=zcode fire "$P1" UserPromptSubmit)
+OUT=$(PROJECT_CHANNEL=off fire "$P1" UserPromptSubmit)
 [ "$(count "$OUT" "$DIGEST")" = 1 ] && ok "bootstrap digest once (plugin copy kept)" || bad "bootstrap digest x$(count "$OUT" "$DIGEST")"
 [ "$(count "$OUT" "$LANGL")" = 1 ] && ok "[output-language] once" || bad "[output-language] x$(count "$OUT" "$LANGL")"
 
