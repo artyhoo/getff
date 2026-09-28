@@ -156,8 +156,30 @@ fi
 # Runs AFTER §8 dep-install so ts-morph is resolvable when --full is set.
 # Option A (migration-ast Stage 4): gated on --full; ensure-then-use; degrade
 # when engine absent. rc=0 on every branch (lesson GH #531/#544).
-# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 patches
-# CONSUMER per-package eslint.config.mjs files that re-export a base lacking R2.
+# Layer 1 (§6b-bis above) patches OUR eslint.config.mjs; this Layer 2 finds per-package
+# eslint.config.mjs files that re-export a base lacking R2, and wires only the ones getff placed.
+#
+# _r2_wire_cfg <abs-cfg> <wirer> — R2 wiring of one config, shared by Layer 2 and the per-workspace
+# block below. A config the consumer owns is never written (operator decision 2026-09-23: skip +
+# report, never overwrite or merge a consumer's tool config): the wirer runs with --diff, which
+# prints the change it would make and writes nothing, and the not-wired summary names the file.
+# rc=0 on every branch — install must not abort on wirer failure.
+_r2_wire_cfg() {
+  local cfg="$1" wirer="$2" rel out
+  rel="${cfg#"$PROJECT_ROOT"/}"
+  if getff_delivered "$cfg"; then
+    ( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" ${FULL:+--yes} 2>&1 ) || true
+    return 0
+  fi
+  echo "  · R2: $rel is your own config — not wired into it; the change R2 needs there:"
+  out=$( cd "$PROJECT_ROOT" && npx --no-install tsx "$wirer" --path "$cfg" --diff 2>&1 ) || true
+  printf '%s\n' "$out"
+  case "$out" in
+    *"R2 already enforced"*) : ;;
+    *) note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $rel — it is your own config, and the install never merges into a consumer's tool config; add the change printed above by hand" ;;
+  esac
+  return 0
+}
 if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] \
    && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _l2_degrade() {
@@ -189,9 +211,7 @@ if [ "${_r2_verdict:-}" = "boundary-present" ] && [ "$DRY_RUN" != "--dry-run" ] 
       else
         echo "▶ R2 Layer-2: wiring ${#_l2_configs[@]} per-package eslint config(s)"
         for _cfg in "${_l2_configs[@]}"; do
-          # rc=0 forced by || true — never abort install on wirer failure
-          ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer" \
-              --path "$_cfg" ${FULL:+--yes} 2>&1 ) || true
+          _r2_wire_cfg "$_cfg" "$_wirer"
         done
       fi
     fi
@@ -221,15 +241,15 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ ! -f "$PROJECT_ROOT/eslint.config.mjs" ]; 
           [ -n "$_ws_dir" ] || continue
           case "$_ws_stack" in
             ts-server)
-              # Wire R2 into every eslint.config.mjs within this workspace.
+              # Wire R2 into every eslint.config.mjs within this workspace that getff placed; one the
+              # consumer owns (40-configs.sh kept it) is reported, not written (_r2_wire_cfg).
               # No --scope: the config is workspace-local (placed by 40-configs.sh) so ESLint
               # scoping is already provided by config placement — a dir-prefixed files: glob
               # inside a workspace-local config would be relative to that config's own dir,
               # making 'apps/api/**' match 'apps/api/apps/api/**' (nothing). Omit files: here.
               while IFS= read -r -d '' _ws_cfg; do
-                echo "  · R2 wiring: $_ws_cfg"
-                ( cd "$PROJECT_ROOT" && npx --no-install tsx "$_wirer_ws" \
-                    --path "$_ws_cfg" ${FULL:+--yes} 2>&1 ) || true
+                if getff_delivered "$_ws_cfg"; then echo "  · R2 wiring: $_ws_cfg"; fi
+                _r2_wire_cfg "$_ws_cfg" "$_wirer_ws"
               done < <(find "$PROJECT_ROOT/$_ws_dir" \
                 -name 'eslint.config.mjs' \
                 ! -path '*/node_modules/*' \
