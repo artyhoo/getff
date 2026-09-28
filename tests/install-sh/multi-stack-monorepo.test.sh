@@ -257,7 +257,49 @@ grep -q 'apps/mobile/eslint.config.mjs' "$T/.prettierignore" 2>/dev/null \
 # PAIRED-NEGATIVE: all per-ws configs here are shipped-fresh (greenfield install) → they SHOULD
 # appear. A consumer-authored (SKIPPED) config would NOT be added — covered in f15-prettierignore.
 
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# §10 CI-orphan truth on a monorepo with NO workflow (defect seen 2026-09-28 on getff#1889):
+# the multi-stack branch places no ci.yml, yet 60-ci.sh claimed «a pre-existing CI workflow was
+# kept» and gave every gate the reason «the workflow is your own» — over an EMPTY workflows dir.
+# ══════════════════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "▶ §10 CI-orphan lines tell the truth when the monorepo has no workflow at all"
+. "$REPO_ROOT/tests/install-sh/lib/manual-step.sh"
+_wf_count=$(find "$T/.github/workflows" -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null | wc -l | tr -d ' ')
+[ "$_wf_count" = "0" ] \
+  && ok "§10 precondition: the multi-stack install left .github/workflows/ without a workflow file" \
+  || bad "§10 precondition: $_wf_count workflow file(s) present — the fixture no longer exercises the empty case"
+grep -q "pre-existing CI workflow was kept" "$T/.install.log" \
+  && bad "§10: install claims a pre-existing CI workflow was kept, but none exists" \
+  || ok "§10: no «pre-existing CI workflow was kept» claim over an empty workflows dir"
+grep -q "the workflow is your own" "$T/.install.log" \
+  && bad "§10: NOT-wired reason says «the workflow is your own», but there is no workflow" \
+  || ok "§10: no «the workflow is your own» reason over an empty workflows dir"
+grep -q "no workflow exists under .github/workflows/" "$T/.install.log" \
+  && ok "§10: the NOT-wired reason names the true fact — no workflow exists" \
+  || bad "§10: no line says that no workflow exists (saw: $(grep 'CI gate' "$T/.install.log" | head -1))"
+_ms=$(manual_step_lines "$T/.install.log")
+[ -z "$_ms" ] \
+  && ok "§10: no printed line asks for a manual step (Q4.7)" \
+  || bad "§10: a printed line asks for a manual step: $(printf '%s\n' "$_ms" | head -2 | tr '\n' '|')"
+
 rm -rf "$T"
+
+# §10 PAIRED-NEGATIVE: the same monorepo shape WITH its own workflow keeps the «your own» reason.
+T10=$(mktemp -d)
+printf '{ "name": "mono-own-ci", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$T10/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$T10/pnpm-workspace.yaml"
+mkdir -p "$T10/apps/api" "$T10/.github/workflows"
+printf '{ "name": "@m/api", "dependencies": { "hono": "4.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$T10/apps/api/package.json"
+printf 'name: CI\non: push\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n' > "$T10/.github/workflows/ci.yml"
+install_into "$T10" ts-server
+grep -q "the workflow is your own" "$T10/.install.log" \
+  && ok "§10 neg: a monorepo with its own workflow still gets «the workflow is your own»" \
+  || bad "§10 neg: own-workflow monorepo lost the «your own» reason (saw: $(grep 'CI gate' "$T10/.install.log" | head -1))"
+grep -q "no workflow exists under" "$T10/.install.log" \
+  && bad "§10 neg: own-workflow monorepo told «no workflow exists»" \
+  || ok "§10 neg: own-workflow monorepo is not told that no workflow exists"
+rm -rf "$T10"
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # §7 No-regression: flat single-stack ts-server repo unchanged vs I-1 baseline
