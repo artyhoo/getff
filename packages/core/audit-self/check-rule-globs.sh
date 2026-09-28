@@ -69,6 +69,19 @@ EOF
 fi
 [ -f "$CFG" ] || { echo "check-rule-globs: $CFG not found (run from the project root)" >&2; exit 2; }
 
+# A config the CONSUMER owns: the install kept a pre-existing eslint.config.mjs (copy_safe skip +
+# report — operator decision 2026-09-23, never overwrite or merge a consumer's tool config), so
+# getff's RULE_GLOBS block and its custom rules never landed in it. There is no getff glob to
+# verify, and «no globs found» would fail validate and every push of such a project on a config
+# getff does not own. Skip and say what is not wired — the same verdict check-rule-enforced.sh
+# gives a config with no boundary tokens. A config that mentions RULE_GLOBS or a getff rule is
+# getff-shaped and keeps the full alarm below.
+if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
+  echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config (no RULE_GLOBS block, no rules-as-tests rule), so there is no rule glob to verify (skipped)."
+  echo "  To enforce them, merge getff's RULE_GLOBS block and rules-as-tests plugin into $CFG by hand; the install kept your config and did not touch it."
+  exit 0
+fi
+
 # C4 (GH #547 Point 2): honor a recorded R2 N/A decision via the shared marker helper (sibling file),
 # re-verifying its precondition mechanically — so a recorded N/A is conditional, not a permanent off.
 # shellcheck source=/dev/null

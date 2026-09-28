@@ -249,4 +249,50 @@ grep -Eq 'awk[[:space:]]+-v[[:space:]]+[A-Za-z_]+="\$SHADOWS"' "$SRC516" \
   && bad "#516 §1 guard: \$SHADOWS passed via 'awk -v' (multi-line crashes BSD/macOS awk — use env/ENVIRON)" \
   || ok "#516 §1 guard: \$SHADOWS not passed via 'awk -v' (newline-free → BSD/macOS awk safe)"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 2026-09-28 (Q4.5) — a root eslint.config.mjs the CONSUMER owns
+# ══════════════════════════════════════════════════════════════════════════════
+# A project that already had an eslint.config.mjs keeps it (copy_safe skip + report, operator
+# decision 2026-09-23), so getff's RULE_GLOBS block and its rules never land there. The gate used
+# to read that as «no globs found — check the config» and failed validate and the first push on
+# every such project. There is no getff glob in such a config to verify: skip it and say why, the
+# way check-rule-enforced.sh already does. A config that DOES carry getff's rules keeps the alarm.
+own_cfg_dir() { # $1 = eslint.config.mjs body → a project with one source file, gate run from the repo
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/lib"; echo 'export const x = 1;' > "$d/lib/answer.ts"
+  printf '%s\n' "$1" > "$d/eslint.config.mjs"
+  printf '%s' "$d"
+}
+repo_gate() { ( cd "$1" && bash "$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh" ) 2>&1; }
+
+T9=$(own_cfg_dir "import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
+export default tseslint.config(eslint.configs.recommended, tseslint.configs.recommended);")
+OUT9=$(repo_gate "$T9"); RC9=$?
+[ "$RC9" = "0" ] \
+  && ok "own-config POS: a consumer-owned root config (no RULE_GLOBS, no getff rule) → gate exits 0" \
+  || bad "own-config POS: gate exited $RC9 on a consumer-owned root config (saw: $(printf '%s' "$OUT9" | tail -2 | tr '\n' '|'))"
+printf '%s' "$OUT9" | grep -q "not wired into eslint.config.mjs" \
+  && ok "own-config POS: the skip names what is not wired and where" \
+  || bad "own-config POS: no 'not wired into eslint.config.mjs' report line (a silent skip hides the gap)"
+
+# NEG-a: getff's own config shape with the boundary key gone is still the alarm.
+T10=$(own_cfg_dir "const RULE_GLOBS = {
+  appCode: ['**/*.{ts,tsx}'],
+};
+export default [];")
+OUT10=$(repo_gate "$T10"); RC10=$?
+[ "$RC10" = "1" ] && printf '%s' "$OUT10" | grep -q "no globs found under RULE_GLOBS.boundary" \
+  && ok "own-config NEG-a: a RULE_GLOBS block without its boundary key still FAILS" \
+  || bad "own-config NEG-a: gate exited $RC10 — a broken getff config was skipped as consumer-owned"
+
+# NEG-b: a consumer config that wires the getff rule by hand still FAILS — its globs are not ours
+# to read, so the gate cannot call the rule live.
+T11=$(own_cfg_dir "import r from './r.mjs';
+export default [{ plugins: { 'rules-as-tests': r }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];")
+OUT11=$(repo_gate "$T11"); RC11=$?
+[ "$RC11" = "1" ] \
+  && ok "own-config NEG-b: a hand-wired getff rule without RULE_GLOBS still FAILS (not skipped)" \
+  || bad "own-config NEG-b: gate exited $RC11 — a config that wires the rule was skipped as not wired"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
