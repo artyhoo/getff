@@ -73,7 +73,7 @@ HARVEST_REL="$BRIDGE_REL/src/cli/harvest.ts"
 BASE_REF="origin/staging"
 TIMEOUT_RC=142 # 128 + SIGALRM, what the perl watchdog's alarm leaves behind
 # Network failures worth one more attempt (Go net/http as printed by gh, plus curl/node wording).
-TRANSIENT_NET_RE='TLS handshake timeout|i/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve|ETIMEDOUT|ECONNRESET|EAI_AGAIN'
+TRANSIENT_NET_RE='TLS handshake timeout|i/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve host|ETIMEDOUT|ECONNRESET|EAI_AGAIN'
 
 ts() { date '+%Y-%m-%dT%H:%M:%S%z'; }
 
