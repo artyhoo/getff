@@ -210,7 +210,7 @@ aif_handoff_guided_install() {
 # to this helper's own NOT-wired summary (Q4.7) — a fact, never a «start / install / re-run» step.
 # ---------------------------------------------------------------------------
 _aif_handoff_degrade() {
-  printf '  aif-handoff not installed — factory profile degrades to env-level\n'
+  printf '  aif-handoff is not running here — factory profile degrades to env-level\n'
   printf '  (multi-model contour placeholders only, no aif runtime).\n'
   companion_not_wired "aif-handoff — $1"
   companion_not_wired_summary

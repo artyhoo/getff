@@ -912,7 +912,7 @@ do_refresh() {
     # Do NOT remove the legacy dir if the modern dir is absent — that would leave
     # the consumer with NO skill at all (T17: preserve future-value content).
     echo "  · $_LEGACY_SKILL_DIR kept ($_MODERN_SKILL_DIR/ not delivered — removal would leave no skill)"
-    echo "    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/"
+    echo "    this looks like a pre-rename install: the framework version that ran did not deliver $_MODERN_SKILL_DIR/, so the old skill stays until one that does runs"
   else
     echo "  · no legacy $_LEGACY_SKILL_DIR present (fresh install or already reclaimed)"
   fi

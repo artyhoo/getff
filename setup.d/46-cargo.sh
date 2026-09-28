@@ -257,6 +257,7 @@ _cargo_firing_self_check() {
   echo ""
   if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — the delivered clippy config failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input), so enforcement is NOT proven."
+    note_not_wired "firing self-check (clippy): not proven — $_silent SILENT and $_overbroad OVER-BROAD result(s) on the planted crate, so the delivered clippy config did not discriminate bad code from clean code"
   elif [ "$_degraded" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why)."
   else

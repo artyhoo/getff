@@ -125,6 +125,7 @@ for b in "$SB/bin-nodocker"/*; do ln -sf "$(readlink "$b" 2>/dev/null || echo "$
 printf '#!/bin/sh\nexit 0\n' > "$SB/bin-native/aif-handoff"; chmod +x "$SB/bin-native/aif-handoff"
 run native "$SB/bin-native" /dev/null
 nw_aif "native" "CLI is installed but does not answer"
+case "$OUT" in *"not installed"*) bad "native: an installed CLI is reported as not installed: $OUT" ;; *) ok "native: the degrade notice does not call the installed CLI «not installed»" ;; esac
 no_manual "native"
 
 # ── A1-3: --dry-run must not clone, compose, prompt or write the audit log ──────────

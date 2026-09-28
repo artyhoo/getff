@@ -34,6 +34,8 @@
 #      installed by the install (never over the consumer's own pre-push, never without pre-commit);
 #      Y3 outside git / Y4 a legacy git hook and [tool.ruff]; Y5 ast-grep fetched through uvx;
 #      Y6 a uvx that cannot fetch is a NOT-wired gap, never a «fired RED» / «OVER-BROAD» verdict;
+#      Y7 (and C2 / J2 for cargo / go) a delivered config that fails a direction (SILENT or
+#      OVER-BROAD) is a NOT-wired line of the lane's own summary;
 #   C  the cargo lane with the consumer's clippy.toml / deny.toml / CI workflow and no cargo;
 #   J  the go lane with the consumer's .golangci.yml / CI workflow and no go;
 #      in Y, C and J the getff workflow path is the consumer's own, so no NOT-wired line may
@@ -390,6 +392,38 @@ grep -qE 'OVER-BROAD|fired RED' "$WORK/y6.log" \
 nw_has Y6 "$WORK/y6.log" 'firing self-check \(ast-grep\): not proven.*uvx could not fetch' "the unfetched ast-grep"
 nw_has Y6 "$WORK/y6.log" 'firing self-check \(ruff\): not proven.*uvx could not fetch' "the unfetched ruff"
 
+# ── Y7 / C2 / J2: a delivered config that fails a direction is a NOT-wired gap too ─────────────
+# The lane's tools answer but never fire (stubs exit 0, print nothing), so every planted violation
+# comes back SILENT. The self-check summary already says «NOT proven»; the lane's own NOT-wired
+# summary, the list that closes the run, must say it as well.
+mkdir -p "$WORK/silent-py" "$WORK/silent-cargo" "$WORK/silent-go"
+cat > "$WORK/silent-py/uvx" <<'STUB'
+#!/bin/sh
+case "$*" in *--version*) case "$*" in *ast-grep*) echo "ast-grep 0.44.1" ;; *ruff*) echo "ruff 0.15.21" ;; esac ;; esac
+exit 0
+STUB
+printf '#!/bin/sh
+exit 0
+' > "$WORK/silent-cargo/cargo"
+printf '#!/bin/sh
+exit 0
+' > "$WORK/silent-go/go"
+printf '#!/bin/sh
+exit 0
+' > "$WORK/silent-go/golangci-lint"
+chmod +x "$WORK/silent-py/uvx" "$WORK/silent-cargo/cargo" "$WORK/silent-go/go" "$WORK/silent-go/golangci-lint"
+Y7="$WORK/py-silent"; mkdir -p "$Y7"; git -C "$Y7" init -q; printf '[project]\nname = "demo"\n' > "$Y7/pyproject.toml"
+lane_into "$Y7" "$WORK/y7.log" "$WORK/silent-py:$NOTOOLS" python
+grep -q 'SILENT' "$WORK/y7.log" && ok "Y7: the never-firing tools come back SILENT" || bad "Y7: no SILENT verdict: $(grep -i 'self-check' "$WORK/y7.log" | tr '\n' '|')"
+nw_has Y7 "$WORK/y7.log" 'firing self-check \(python\): not proven.*SILENT' "the SILENT python self-check"
+C2="$WORK/cargo-silent"; mkdir -p "$C2"; git -C "$C2" init -q
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$C2/Cargo.toml"
+lane_into "$C2" "$WORK/c2.log" "$WORK/silent-cargo:$NOTOOLS" cargo
+nw_has C2 "$WORK/c2.log" 'firing self-check \(clippy\): not proven.*SILENT' "the SILENT clippy self-check"
+J2="$WORK/go-silent"; mkdir -p "$J2"; git -C "$J2" init -q; printf 'module demo\n\ngo 1.22\n' > "$J2/go.mod"
+lane_into "$J2" "$WORK/j2.log" "$WORK/silent-go:$NOTOOLS" go
+nw_has J2 "$WORK/j2.log" 'firing self-check \(golangci-lint\): not proven.*SILENT' "the SILENT golangci-lint self-check"
+
 # ── C: cargo lane, the consumer's own clippy.toml / deny.toml / CI workflow, no cargo ──────────
 C="$WORK/cargo-owned"; mkdir -p "$C/.github/workflows"; git -C "$C" init -q
 printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$C/Cargo.toml"
@@ -462,6 +496,7 @@ done <<'LINES'
   aif-handoff not detected (no docker, no CLI). See docs/runtime-bridge-setup.md for install.
   setup-runtime-bridge.sh not present in this checkout (consumer install) — see docs/runtime-bridge-setup.md for manual setup.
   … and is not part of this install; docs/runtime-bridge-setup.md describes the wiring
+    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/
   MANUAL: add this line under your sgconfig.yml 'ruleDirs:' list:
   Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it — inert until you opt in).
   The rule files are already installed at .getff/astgrep-rules/ (ready once you add the entry).

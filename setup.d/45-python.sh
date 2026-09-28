@@ -102,10 +102,10 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:548, long before do_refresh at install.sh:1430).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1430).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:766 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -1149,7 +1149,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:766 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:762-763 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have

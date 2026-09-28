@@ -136,7 +136,7 @@ else
 fi
 
 # ── (4) A2-4 boundary: consumer-authored .ai-factory docs are NEVER refreshed ─────────────────────
-# do_refresh's own contract (install.sh:766) names RULES.md / DESCRIPTION.md / ARCHITECTURE.md
+# do_refresh's own contract (install.sh:762-763) names RULES.md / DESCRIPTION.md / ARCHITECTURE.md
 # consumer-authored. The python lane must not be more destructive than the npm lane.
 echo ""; echo "  ── (4) consumer-authored .ai-factory docs survive --refresh (npm-lane boundary parity) ──"
 for _f in .ai-factory/RULES.md .ai-factory/DESCRIPTION.md .ai-factory/ARCHITECTURE.md \
@@ -230,7 +230,7 @@ EOF
   if grep -qF 'MY-OWN-RULE' "$RULES"; then
     ok "(9) --refresh preserved the consumer's own RULES.md edits"
   else
-    bad "(9) --refresh overwrote RULES.md — it is consumer-authored (install.sh:766)"
+    bad "(9) --refresh overwrote RULES.md — it is consumer-authored (install.sh:762-763)"
   fi
 fi
 rm -rf "$PR"
