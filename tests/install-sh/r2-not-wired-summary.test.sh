@@ -4,8 +4,8 @@
 # wired» summary with its reason — not only echoed into the scroll-back, where nobody reads it. The
 # summary names a config only when the R2 pass would have added R2 there: the config does not name
 # the rule yet, and getff placed it or there is HTTP boundary code under it (a package without
-# boundary code gets no R2 even on --full — cold-review F15). getff's own ts-server template
-# already carries R2, so it is never listed.
+# boundary code gets no R2 even on --full — cold-review F15). getff's own ts-server, react-next and
+# react-spa templates already carry R2, so they are never listed.
 #
 #   L1  Layer-2 pass (flat repo, root config getff's), no ts-morph in node_modules — the default
 #       install without --full: each per-package config the pass would wire is one summary line
@@ -28,9 +28,17 @@
 #       the id with an escaped `\t`, a template breaking the id over two lines, the id followed by a
 #       NUL byte — each listed; paired: the id itself continued with `\`, R2 set after a regex
 #       holding a quote — none listed.
-#   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the ts-server
-#       workspace's config is listed; the react-next workspace's is not (R2 is a server rule).
+#   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the consumer's own
+#       config with boundary code under it is listed for a ts-server, a react-next and a react-spa
+#       workspace — the stacks whose getff preset carries R2 (60-ci.sh adds it to a flat repo's own
+#       config for the same three) — and not for a react-native one, whose preset ships no R2.
 #   W2  per-workspace pass, ts-morph present, the R2 wirer missing: listed with that reason.
+#   W3  per-workspace pass that can run: the R2 wirer is handed the ts-server, react-next and
+#       react-spa configs as the consumer's own, each with the boundary globs found under its own
+#       directory; neither the react-native config nor a react-spa one with no boundary code under
+#       it is handed to it.
+#   W4  getff's own react-next and react-spa templates, placed this run: they name R2 already, so
+#       neither is listed when the pass cannot run.
 #   U1  a workspace whose stack the install cannot tell, with HTTP boundary code and no config naming
 #       R2: one summary line with the reason — whether or not ts-morph is there.
 #   U0  paired negative: an unknown-stack workspace whose config already names R2 (40-configs placed
@@ -42,7 +50,8 @@
 #   U8  paired: the workspace's eslint.config.mjs is a symlink to a config setting R2 → no line.
 #
 # Pure bash: ts-morph «present» is a package.json under node_modules/ts-morph (the pass only checks
-# for it before running the wirer), and no arm runs the wirer.
+# for it before running the wirer), and no arm runs the wirer — W3 stands in for npx, recording what
+# the pass hands it.
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -85,6 +94,11 @@ reassert_husky_shields() { :; }
 source "$REPO_ROOT/setup.d/lib.sh"
 # after lib.sh, which defines the real one: the workspace map this arm is about
 _detect_stacks_per_workspace() { [ -z "${WS_MAP:-}" ] || printf '%b\n' "$WS_MAP"; return 0; }
+# T_NPX_LOG set: npx records its arguments there and reports R2 as wired, so the pass runs through
+# without a real wirer (W3).
+if [ -n "${T_NPX_LOG:-}" ]; then
+  npx() { printf '%s\n' "$*" >> "$T_NPX_LOG"; echo "  ✓ R2 wired into the stand-in"; }
+fi
 REFRESH_BASELINE_STAGED=()
 for _d in ${DELIVERED:-}; do REFRESH_BASELINE_STAGED+=("$PROJECT_ROOT/$_d"); done
 source "$FINALIZE"
@@ -108,7 +122,7 @@ fake_ts_morph() { put "$1" node_modules/ts-morph/package.json '{"name":"ts-morph
 run_finalize() {
   F_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$1" PKG_ROOT="$2" FINALIZE="$FINALIZE" \
     WS_MAP="${3:-}" DELIVERED="${4:-}" T_FULL="${T_FULL:-}" PATH="${T_PATH:-$PATH}" \
-    bash "$DRIVER" < /dev/null 2>&1)
+    T_NPX_LOG="${T_NPX_LOG:-}" bash "$DRIVER" < /dev/null 2>&1)
   F_SUM=$(printf '%s\n' "$F_OUT" | grep -E '^      - ' || true)
 }
 sum_has() { printf '%s\n' "$F_SUM" | grep -qE "$1"; }
@@ -349,19 +363,32 @@ fi
 ran_through L0
 
 # ─── W1/W2: the per-workspace pass (multi-stack monorepo, no root config) ─────
+# ws_project <name> — one workspace per stack, each with the consumer's own config (no R2 in it) and
+# HTTP boundary code under it: apps/api ts-server, apps/web react-next, apps/spa react-spa,
+# apps/mobile react-native.
 ws_project() {
-  local p; p=$(make_project "$1")
-  put "$p" apps/api/eslint.config.mjs "$PLAIN_CFG"; boundary_code "$p" apps/api
-  put "$p" apps/web/eslint.config.mjs "$PLAIN_CFG"; boundary_code "$p" apps/web
+  local p w; p=$(make_project "$1")
+  for w in api web spa mobile; do
+    put "$p" "apps/$w/eslint.config.mjs" "$PLAIN_CFG"; boundary_code "$p" "apps/$w"
+  done
   echo "$p"
 }
-WS='apps/api\tts-server\napps/web\treact-next'
+WS='apps/api\tts-server\napps/web\treact-next\napps/spa\treact-spa\napps/mobile\treact-native'
 # ws_arm <arm> <reason regex>
 ws_arm() {
-  if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*$2" && ! sum_has "${R2_LINE}apps/web/"; then
-    ok "$1: the ts-server workspace's config is a NOT wired line with the reason; the react-next one is not listed"
+  local w missing=""
+  for w in api web spa; do
+    sum_has "${R2_LINE}apps/$w/eslint.config.mjs — .*$2" || missing="$missing apps/$w"
+  done
+  if [ -z "$missing" ]; then
+    ok "$1: the ts-server, react-next and react-spa workspaces' own configs are NOT wired lines with the reason"
   else
-    bad "$1: expected a NOT wired line for apps/api naming «$2» and none for apps/web (summary: $(sum_show))"
+    bad "$1: expected a NOT wired line naming «$2» for:$missing (summary: $(sum_show))"
+  fi
+  if sum_has "${R2_LINE}apps/mobile/"; then
+    bad "$1: the react-native workspace is listed, yet its preset ships no R2 (summary: $(sum_show))"
+  else
+    ok "$1: paired — the react-native workspace is not listed (its preset ships no R2)"
   fi
 }
 
@@ -372,6 +399,61 @@ ws_arm W1 'ts-morph.*--full'
 W2=$(ws_project w2); fake_ts_morph "$W2"
 run_finalize "$W2" "$PKG_NOWIRER" "$WS"
 ws_arm W2 'missing from this getff package'
+
+# W3: the pass can run (ts-morph and the wirer there); npx is the stand-in that records its calls.
+# apps/spa also parses in src/api/ (a boundary outside the token folders, so detect adds an api/ glob
+# for it), and apps/site is a react-spa workspace with no boundary code: both tell a detect run in
+# each config's own directory from one at the repo root, which would find all of it everywhere.
+W3=$(ws_project w3); fake_ts_morph "$W3"
+put "$W3" apps/spa/src/api/client.ts "export const getUser = async () => schema.parse(await (await fetch('/api/user')).json());"
+put "$W3" apps/site/eslint.config.mjs "$PLAIN_CFG"; put "$W3" apps/site/src/index.ts "export const x = 1;"
+W3_LOG="$WORK/w3-npx.log"; : > "$W3_LOG"
+T_NPX_LOG="$W3_LOG" run_finalize "$W3" "$PKG_WIRED" "$WS\napps/site\treact-spa"
+w3_call() { grep -F "wire-eslint-r2.ts --path $W3/apps/$1/eslint.config.mjs " "$W3_LOG"; }
+w3_missing=""
+for w in api web spa; do
+  w3_call "$w" | grep -F -- '--own-config' \
+    | grep -qF -- '--boundary **/routes/**/*.{ts,tsx}' || w3_missing="$w3_missing apps/$w"
+done
+if [ -z "$w3_missing" ]; then
+  ok "W3: the ts-server, react-next and react-spa configs are handed to the R2 wirer as your own, with their boundary globs"
+else
+  bad "W3: not handed to the R2 wirer with --own-config and the routes/ boundary glob:$w3_missing (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
+fi
+if w3_call spa | grep -qF -- '--boundary **/api/**/*.{ts,tsx}' \
+   && ! w3_call web | grep -qF -- '**/api/**' && ! w3_call api | grep -qF -- '**/api/**'; then
+  ok "W3: each config gets the globs found under its own directory (the api/ glob on apps/spa's call only)"
+else
+  bad "W3: expected the api/ boundary glob on apps/spa's wirer call and on no other (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
+fi
+if grep -qF -e "apps/mobile/eslint.config.mjs" -e "apps/site/eslint.config.mjs" "$W3_LOG"; then
+  bad "W3: the react-native config, or a react-spa one with no boundary code under it, is handed to the R2 wirer (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
+else
+  ok "W3: paired — neither the react-native config nor the react-spa one with no boundary code is handed to the R2 wirer"
+fi
+if sum_has "$R2_LINE"; then
+  bad "W3: the stand-in reported R2 wired, yet the pass put an R2 line in the NOT wired summary (summary: $(sum_show))"
+else
+  ok "W3: the stand-in reported R2 wired for each config, and the pass adds no NOT wired line after it"
+fi
+ran_through W3
+
+# W4: getff placed its own react-next and react-spa templates (this run's deliveries), which name R2
+# already — the pass cannot run (no ts-morph), and neither is listed. apps/api is the consumer's own
+# config with boundary code: its line shows the pass did run and note.
+W4=$(make_project w4)
+put "$W4" apps/web/eslint.config.mjs "$(cat "$REPO_ROOT/packages/preset-next-15-canonical/templates/eslint.config.react.mjs")"
+put "$W4" apps/spa/eslint.config.mjs "$(cat "$REPO_ROOT/packages/preset-react-spa/templates/eslint.config.react.mjs")"
+put "$W4" apps/api/eslint.config.mjs "$PLAIN_CFG"
+for w in api web spa; do boundary_code "$W4" "apps/$w"; done
+run_finalize "$W4" "$PKG_WIRED" 'apps/api\tts-server\napps/web\treact-next\napps/spa\treact-spa' \
+  "apps/web/eslint.config.mjs apps/spa/eslint.config.mjs"
+if sum_has "${R2_LINE}apps/api/eslint.config.mjs — .*ts-morph" \
+   && ! sum_has "${R2_LINE}apps/web/" && ! sum_has "${R2_LINE}apps/spa/"; then
+  ok "W4: getff's react-next and react-spa templates name R2 already, so neither is listed (your own apps/api is)"
+else
+  bad "W4: expected an R2 line for apps/api only, not for getff's react templates in apps/web and apps/spa (summary: $(sum_show))"
+fi
 
 # ─── U1/U0: a workspace whose stack the install cannot tell ───────────────────
 for state in without with; do
