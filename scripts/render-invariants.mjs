@@ -33,7 +33,7 @@
  * parent directory). Plain node, no imports beyond node: builtins.
  * Precedent for the --write/--check pair: scripts/render-rule-index.mjs.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,25 +44,39 @@ export const BEGIN = '# <!-- getff:begin section=invariants-line plan=scripts/re
 export const END = '# <!-- getff:end section=invariants-line -->';
 
 const BULLET = /^- \*\*(.+?)\*\* — (.+)$/;
+const LIST_ITEM = /^\s*([-*+]|\d+[.)])\s/;
 
 /** Parse the README invariants block into `{ title, body }` entries. Throws on any shape
- *  it cannot read — a silent partial parse would render a short list and pass `--check`. */
+ *  it cannot read — a silent partial parse would render a short list and pass `--check`.
+ *  The list must be contiguous one-line `- **Title** — body` bullets: a wrapped continuation,
+ *  a nested or `*` bullet, or a second list further down the block would otherwise drop
+ *  invariants from the digest without a word. Prose after the list (after a blank line) is
+ *  allowed; a list item there is not, because it cannot be told apart from an invariant. */
 export function parseInvariants(readme) {
   const lines = readme.split('\n');
   const start = lines.findIndex((l) => l.trim() === HEADING);
   if (start === -1) throw new Error(`${README_PATH}: heading not found: ${HEADING}`);
   const out = [];
+  let listEnded = false;
   for (let i = start + 1; i < lines.length; i++) {
     const line = lines[i];
     if (line.startsWith('#')) break;
     if (line.trim() === '') {
-      if (out.length > 0) break;
+      if (out.length > 0) listEnded = true;
+      continue;
+    }
+    if (listEnded) {
+      if (LIST_ITEM.test(line)) {
+        throw new Error(`${README_PATH}:${i + 1}: list item after the invariant list, before the next heading: ${line}`);
+      }
       continue;
     }
     const m = line.match(BULLET);
     if (!m) {
-      if (out.length > 0 && !line.startsWith('-')) break;
-      throw new Error(`${README_PATH}:${i + 1}: invariant bullet is not «- **Title** — body»: ${line}`);
+      throw new Error(`${README_PATH}:${i + 1}: invariant line is not a one-line «- **Title** — body» bullet: ${line}`);
+    }
+    if ((line.match(/`/g) ?? []).length % 2 !== 0) {
+      throw new Error(`${README_PATH}:${i + 1}: unbalanced backticks in invariant bullet: ${line}`);
     }
     out.push({ title: m[1], body: m[2] });
   }
@@ -73,10 +87,16 @@ export function parseInvariants(readme) {
 /** Escape for a bash double-quoted string. */
 const esc = (s) => s.replace(/[\\"$`]/g, '\\$&');
 
-/** The body up to its first sentence or colon break, without a trailing period. */
+/** The body up to its first sentence or colon break outside a code span, without a
+ *  trailing period. */
 function firstClause(body) {
-  const cut = body.search(/[.:] /);
-  return (cut === -1 ? body : body.slice(0, cut)).replace(/\.$/, '');
+  let inCode = false;
+  for (let i = 0; i < body.length - 1; i++) {
+    const c = body[i];
+    if (c === '`') inCode = !inCode;
+    else if (!inCode && (c === '.' || c === ':') && body[i + 1] === ' ') return body.slice(0, i);
+  }
+  return body.replace(/\.$/, '');
 }
 
 /** Render prose with code spans: `make <target>` becomes a run-time `_make_ref` call, any
@@ -156,7 +176,9 @@ export function run(argv) {
 
 function isMainEntry() {
   try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
+    // realpath on both sides: a symlinked invocation path must still run the CLI, or a
+    // `--check` through a link would exit 0 without checking anything.
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1] ?? ''));
   } catch {
     return false;
   }

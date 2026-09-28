@@ -276,7 +276,8 @@ describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection',
 // not exist. The hook now existence-checks every path-shaped citation at render
 // time and degrades an absent target to its NAME (canonical forms asserted as
 // literals below) — never dropping the invariant text. The framework tree must
-// render byte-identically to the pre-R4 golden (dogfood unchanged, hard arm).
+// render byte-identically to FRAMEWORK_GOLDEN (dogfood hard arm; the golden's
+// Invariants line follows README since 2026-09-28 — see the render block below).
 // ---------------------------------------------------------------------------
 
 const RULE_NAMES = [
@@ -332,7 +333,7 @@ Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.
 `;
 
 describe('inject-session-bootstrap.sh — R4 consumer-aware digest (issue 1484)', () => {
-  it('R4(b) framework tree: digest is BYTE-IDENTICAL to the pre-R4 golden (dogfood unchanged)', () => {
+  it('R4(b) framework tree: digest is BYTE-IDENTICAL to FRAMEWORK_GOLDEN (dogfood)', () => {
     // CLAUDE_PROJECT_DIR/AIF_* are scrubbed by runHook; the hook falls back to
     // its own $0-relative root = this repo, where every cited target exists.
     const { stdout, status } = runHook('r4-golden');
@@ -515,15 +516,17 @@ const HOOK_SRC = (): string => readFileSync(HOOK, 'utf8');
 const PRE_RENDER_LINE =
   'INVARIANTS_LINE="Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline $BFR_REF; (2) recursive self-application green$SELF_AUDIT; (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort)."';
 
-/** README invariant titles, parsed here independently of the renderer. */
+/** README invariant titles, parsed here independently of the renderer: EVERY list-item
+ *  line between the heading and the next heading counts — nested, `*`-marked, or after
+ *  prose — so a bullet the renderer dropped shows up here as an extra title. */
 function readmeTitles(readme: string): string[] {
   const lines = readme.split('\n');
   const start = lines.indexOf('### What must not break (invariants)');
   const titles: string[] = [];
   for (const line of lines.slice(start + 1)) {
-    const m = line.match(/^- \*\*(.+?)\*\* — /);
-    if (m) titles.push(m[1]);
-    else if (titles.length > 0) break;
+    if (line.startsWith('#')) break;
+    if (!/^\s*([-*+]|\d+[.)])\s/.test(line)) continue;
+    titles.push(line.match(/\*\*(.+?)\*\*/)?.[1] ?? line.trim());
   }
   return titles;
 }
@@ -548,6 +551,7 @@ describe('inject-session-bootstrap.sh — Invariants line is rendered from READM
     const stale = withRegionLine(HOOK_SRC(), PRE_RENDER_LINE);
     expect(stale).toContain(PRE_RENDER_LINE); // sanity: the splice fired
     expect(renderHook(stale, README_SRC())).not.toBe(stale);
+    expect(renderHook(stale, README_SRC())).toBe(HOOK_SRC()); // and --write repairs it
   });
 
   it('RED: a README invariant added or removed without re-rendering is drift', async () => {
@@ -557,11 +561,12 @@ describe('inject-session-bootstrap.sh — Invariants line is rendered from READM
     const dropped = readme.replace(/^- \*\*No paid LLM in CI\*\* — .*\n/m, '');
     expect(dropped).not.toBe(readme); // sanity: the bullet existed
     expect(renderHook(hook, dropped)).not.toBe(hook);
+    expect(renderHook(hook, dropped)).not.toContain('No paid LLM in CI');
   });
 
   it('the emitted Invariants line carries every README invariant, in order, and no others', () => {
     const titles = readmeTitles(README_SRC());
-    expect(titles.length).toBeGreaterThanOrEqual(5); // README had five on 2026-09-28
+    expect(titles.length).toBeGreaterThan(0);
     const { stdout } = runHook('invariants-from-readme');
     const line = stdout.split('\n').find((l) => l.startsWith('Invariants: ')) ?? '';
     const numbered = [...line.matchAll(/\((\d+)\) ([^—]+?) — /g)];
@@ -574,8 +579,26 @@ describe('inject-session-bootstrap.sh — Invariants line is rendered from READM
     expect(() => parseInvariants('# no heading here\n')).toThrow(/heading not found/);
     expect(() =>
       parseInvariants('### What must not break (invariants)\n\n- plain bullet without a bold title\n'),
-    ).toThrow(/not «- \*\*Title\*\* — body»/);
+    ).toThrow(/not a one-line «- \*\*Title\*\* — body» bullet/);
     expect(() => parseInvariants('### What must not break (invariants)\n\nprose only\n')).toThrow();
+    // Shapes a stop-at-first-odd-line parser would truncate to a short list (cold review M1):
+    const H = '### What must not break (invariants)\n\n';
+    const truncating = {
+      wrapped: `${H}- **A** — first thing\n  continued here.\n- **B** — second.\n`,
+      nested: `${H}- **A** — first.\n  - sub point\n- **B** — second.\n`,
+      starMarker: `${H}- **A** — first.\n* **B** — second.\n`,
+      listAfterProse: `${H}- **A** — first.\n\nSome prose.\n- **B** — second.\n`,
+      unbalancedCode: `${H}- **A** — \`foo: bar is odd.\n`,
+    };
+    for (const [shape, readme] of Object.entries(truncating)) {
+      expect(() => parseInvariants(readme), shape).toThrow();
+    }
+    // Prose after the list is allowed, and a colon inside a code span does not cut the clause.
+    expect(
+      parseInvariants(`${H}- **A** — use \`x: y\` here. More.\n- **B** — second.\n\nClosing prose.\n`).map(
+        (i) => i.title,
+      ),
+    ).toEqual(['A', 'B']);
     expect(() => renderHook('#!/usr/bin/env bash\nINVARIANTS_LINE="x"\n', README_SRC())).toThrow(
       /markers missing/,
     );

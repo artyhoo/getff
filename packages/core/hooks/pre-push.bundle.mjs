@@ -1905,7 +1905,8 @@ function invariantsRenderSection() {
     if (r.notFound) {
       die("\u274C node not found. Install Node.js to enable the invariants-line drift check.");
     }
-    if (r.exitCode !== 0) die("\u274C invariants-line drift detected:", r);
+    if (r.exitCode === 1) die("\u274C invariants-line drift detected:", r);
+    if (r.exitCode !== 0) die("\u274C invariants-line render failed (README invariants block or hook markers unparseable):", r);
     emit(r);
   }
 }

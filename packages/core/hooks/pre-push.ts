@@ -2404,7 +2404,10 @@ function invariantsRenderSection(): void {
     if (r.notFound) {
       die('❌ node not found. Install Node.js to enable the invariants-line drift check.');
     }
-    if (r.exitCode !== 0) die('❌ invariants-line drift detected:', r);
+    // Exit 1 = the rendered line differs (re-run --write); anything else = README or the
+    // hook's markers could not be parsed, which --write would not fix.
+    if (r.exitCode === 1) die('❌ invariants-line drift detected:', r);
+    if (r.exitCode !== 0) die('❌ invariants-line render failed (README invariants block or hook markers unparseable):', r);
     emit(r);
   }
 }
