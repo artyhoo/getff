@@ -36,6 +36,8 @@
 #      Y6 a uvx that cannot fetch is a NOT-wired gap, never a «fired RED» / «OVER-BROAD» verdict;
 #   C  the cargo lane with the consumer's clippy.toml / deny.toml / CI workflow and no cargo;
 #   J  the go lane with the consumer's .golangci.yml / CI workflow and no go;
+#      in Y, C and J the getff workflow path is the consumer's own, so no NOT-wired line may
+#      claim the getff CI runs a ban;
 #   R  the predicate: a positive control, a negative control, and a sweep of the installer source;
 #   F  --full with a package manager that fails: the dependency line says the install failed,
 #      the degraded banner points at the NOT-wired list, not at a manual step.
@@ -272,6 +274,13 @@ nw_has() {
   not_wired "$2" | grep -qiE "$3" && ok "$1: NOT wired names $4" \
     || bad "$1: no NOT-wired line for $4: $(not_wired "$2" | tr '\n' '|' | cut -c1-300)"
 }
+# nw_lacks <arm> <log> <regex> <what> — no line of the lane's NOT-wired summary matches <regex>.
+nw_lacks() {
+  local _hit; _hit=$(not_wired "$2" | grep -iE "$3" | head -1)
+  [ -z "$_hit" ] && ok "$1: no NOT-wired line claims $4" || bad "$1: a NOT-wired line claims $4: $_hit"
+}
+# A getff CI claim — what the REFUSE cells may say only when the getff workflow is getff's.
+_ci_claim='getff CI workflow (reads|runs)|in the getff CI workflow'
 
 # ── Y: python lane, every surface already the consumer's own, no lint tools ──────────────────
 Y="$WORK/py-owned"; mkdir -p "$Y/.github/workflows" "$Y/.ai-factory"; git -C "$Y" init -q
@@ -291,6 +300,8 @@ nw_has Y "$WORK/y.log" 'sgconfig\.yml' "the sgconfig.yml ruleDirs entry"
 nw_has Y "$WORK/y.log" 'CI.*getff-python\.yml' "the CI gates and the kept workflow"
 nw_has Y "$WORK/y.log" 'ast-grep.*not on PATH' "the unproven ast-grep firing"
 nw_has Y "$WORK/y.log" 'ruff.*not on PATH' "the unproven ruff firing"
+nw_lacks Y "$WORK/y.log" "$_ci_claim" "the getff CI runs a ban while getff-python.yml is the consumer's own"
+nw_has Y "$WORK/y.log" 'ruff-bans\.toml, which no CI reads' "that nothing reads the ruff bans"
 grep -qx '# my rules' "$Y/.ai-factory/RULES.md" && ok "Y: the consumer's RULES.md is kept byte-for-byte" || bad "Y: RULES.md changed"
 
 # ── Y2: python lane, the pre-commit framework is the consumer's — getff installs its pre-push stage
@@ -393,6 +404,7 @@ nw_has C "$WORK/c.log" 'deny\.toml' "cargo-deny and the consumer's deny.toml"
 nw_has C "$WORK/c.log" 'Cargo\.toml' "the build-failing lint table and the consumer's Cargo.toml"
 nw_has C "$WORK/c.log" 'CI.*getff-cargo\.yml' "the CI gate and the kept workflow"
 nw_has C "$WORK/c.log" 'cargo.*not on PATH' "the unproven clippy firing"
+nw_lacks C "$WORK/c.log" "$_ci_claim" "the getff CI runs a ban while getff-cargo.yml is the consumer's own"
 
 # ── J: go lane, the consumer's own .golangci.yml / CI workflow, no go ───────────────────────────
 J="$WORK/go-owned"; mkdir -p "$J/.github/workflows"; git -C "$J" init -q
@@ -405,6 +417,8 @@ no_manual J "$WORK/j.log"
 nw_has J "$WORK/j.log" 'golangci.*\.golangci\.yml' "golangci-lint and the consumer's .golangci.yml"
 nw_has J "$WORK/j.log" 'CI.*getff-go\.yml' "the CI gate and the kept workflow"
 nw_has J "$WORK/j.log" 'golangci-lint.*not on PATH' "the unproven golangci firing"
+nw_lacks J "$WORK/j.log" "$_ci_claim" "the getff CI runs a ban while getff-go.yml is the consumer's own"
+nw_has J "$WORK/j.log" 'getff-golangci\.yml, which no CI reads' "that nothing reads the golangci bans"
 
 # ── R: the predicate itself — it fires on every wording the installer used, never on a fact ────
 # A positive control: each line below is a manual step the installer printed at some point; a
@@ -472,7 +486,7 @@ done <<'LINES'
   - runtime-bridge — not wired: aif-handoff answers at http://localhost:3009, but the wiring script (setup-runtime-bridge.sh) ships with the getff repository and is not part of this install; docs/runtime-bridge-setup.md describes the wiring
   - firing self-check (golangci-lint): not proven — go is not on PATH, so the delivered config was not run against a planted violation
   - clippy bans as build errors on a local build: not wired — the [lints.clippy] table is in .getff/Cargo.lints.toml, and getff does not edit your Cargo.toml; the getff CI workflow runs clippy with -D on the same lint families
-  - CI: the getff clippy gate is not in CI — .github/workflows/ci.yml is your own workflow, and getff does not change a workflow it did not write
+  - CI: the getff clippy gate is not in CI — .github/workflows/getff-cargo.yml is your own workflow, and getff does not change a workflow it did not write
   ✓ pre-commit pre-push stage installed (the getff entry runs on git push)
 LINES
 [ "$_miss" -eq 0 ] && ok "R: the predicate passes fact lines (negative control)"

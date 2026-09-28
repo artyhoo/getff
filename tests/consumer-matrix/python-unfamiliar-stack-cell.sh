@@ -25,7 +25,7 @@
 #   (6) the rule LANDS at <consumer>/.getff/rules-research/<entryId>.yml
 #   (7) RED arm: ast-grep fires non-zero on a planted violation matching the new rule
 #   (8) GREEN arm: ast-grep silent on conforming code (clean control — paired per
-#       adapter-jig E1, mirrors setup.d/45-python.sh:473 _py_firing_self_check)
+#       adapter-jig E1, mirrors setup.d/45-python.sh:491 _py_firing_self_check)
 #   (9) REJECT arm: a practice record citing a NON-direct-dep package (`requests`) is
 #       downgraded to research-only — provenance-rejected by Tier-1 (FF2007 — not a direct
 #       dependency). NO file written under rules-research/ for the rejected entryId.
@@ -65,7 +65,7 @@ step() { echo ""; echo "── $*"; }
 
 # Pin per ci-tool-pinning.md Rule A (bare run: installs require version pin).
 # ast-grep is the only on-CI tool we install for the firing arm — pinned to the same
-# version setup.d/45-python.sh:493 pins for its uvx fallback.
+# version setup.d/45-python.sh:511 pins for its uvx fallback.
 ASTGREP_VERSION='0.44.1'
 ASTGREP_PKG="@ast-grep/cli@${ASTGREP_VERSION}"
 
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:1264-1266.
+# per setup.d/45-python.sh:1282-1284.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -355,7 +355,7 @@ step "RED arm — planted violation, ast-grep fires non-zero"
 
 # Install ast-grep PINNED (ci-tool-pinning.md Rule A — bare `run:` install must pin).
 # `npm install -g` rather than `npx -p` so the cell's later ast-grep invocations are
-# straightforward; the version is the same setup.d/45-python.sh:493 pins.
+# straightforward; the version is the same setup.d/45-python.sh:511 pins.
 # The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :56).
 # The pre-push regex gate resolves no variables, so these three lines carry the §3 escape token.
 if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :56
@@ -376,7 +376,7 @@ export PATH
 
 # Confirm ast-grep is on PATH and is the pinned version. Belt-and-braces: also catch
 # the Linux `sg` collision — `command -v sg` matches the setgid(1) coreutil, so the
-# ast-grep binary is the only name we trust (mirrors setup.d/45-python.sh:480-486).
+# ast-grep binary is the only name we trust (mirrors setup.d/45-python.sh:498-504).
 ASTGREP_BIN="$(command -v ast-grep || true)"
 [ -n "$ASTGREP_BIN" ] || fail "ast-grep not on PATH after npm install -g (looked in: $NPM_GLOBAL_BIN)"  # ci-tool-pin: allow error message, not an install
 ast-grep --version || fail "ast-grep --version exited non-zero"
@@ -467,10 +467,10 @@ echo "  ✓ REJECT arm: research-only verdict LOUD + no rule file written (hones
 step "R1-input assertion — delivered workflow branches: [master]"
 
 # The python lane delivers .github/workflows/getff-python.yml via deliver_getff_workflow
-# (setup.d/45-python.sh:456 → setup.d/lib.sh:1584,1345), which sed-substitutes
+# (setup.d/45-python.sh:474 → setup.d/lib.sh:1594,1345), which sed-substitutes
 # `branches: [main]` → `branches: [master]` because the consumer's default branch
 # (git symbolic-ref origin/HEAD) is master. The `getff-python.yml` filename is
-# namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:443).
+# namespaced to never clobber the consumer's own workflow (setup.d/45-python.sh:461).
 DELIVERED_WF="$CONSUMER/.github/workflows/getff-python.yml"
 [ -f "$DELIVERED_WF" ] || fail "delivered workflow missing at $DELIVERED_WF"
 

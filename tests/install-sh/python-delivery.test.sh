@@ -277,6 +277,9 @@ echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'getff-ruff.toml' \
   && echo "$out" | grep -qF "ruff: getff's TID bans are not in your ruff.toml" \
   && ok "(iii) printed REFUSE + a NOT-wired line naming the consumer ruff.toml" \
   || bad "(iii) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
+echo "$out" | grep -qF "ruff-bans.toml, which the getff CI workflow reads" \
+  && ok "(iii) with no workflow of the consumer's in the way, the line names the getff CI as the bans' reader" \
+  || bad "(iii) the NOT-wired line does not name the getff CI workflow as the reader: $(echo "$out" | grep -F 'TID bans')"
 printf '%s\n' "$out" > "$P/.out"
 asks_by_hand "$P/.out" \
   && bad "(iii) hands a manual step back (Q4.7): $(manual_step_lines "$P/.out" | tr '\n' '|')" \

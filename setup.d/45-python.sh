@@ -354,7 +354,25 @@ _py_deliver_astgrep() {
   fi
   _py_log "⚠ REFUSE: existing sgconfig.yml is not a shape we can safely rewrite (not a single block-list"
   _py_log "  ruleDirs: key). NOT modifying it (a bad merge trips ast-grep exit 6/8)."
-  note_not_wired "ast-grep: .getff/astgrep-rules is not in the ruleDirs of your sgconfig.yml — its ruleDirs is not a block list getff can add a line to without risking a broken config, so \`ast-grep scan\`, locally and in the getff CI workflow, runs your rules only"
+  local _why _where="locally"
+  if grep -q '^ruleDirs:' "$dst" 2>/dev/null; then
+    _why="its ruleDirs is not a single block list getff can add a line to without risking a broken config"
+  else
+    _why="it has no top-level ruleDirs key for getff to add a line to"
+  fi
+  # The getff CI job runs a bare `ast-grep scan`, so it reads the same sgconfig.yml — when there is one.
+  _lane_getff_ci_runs "$tpl" ".github/workflows/getff-python.yml" && _where="locally and in the getff CI workflow"
+  note_not_wired "ast-grep: .getff/astgrep-rules is not in the ruleDirs of your sgconfig.yml — $_why, so \`ast-grep scan\`, $_where, runs your rules only"
+}
+
+# _py_ruff_bans_reader <tpl> — who reads .getff/ruff-bans.toml, for a REFUSE cell's NOT-wired line.
+# Only the getff CI workflow does; when getff-python.yml is the consumer's own file, nothing does.
+_py_ruff_bans_reader() {
+  if _lane_getff_ci_runs "$1" ".github/workflows/getff-python.yml"; then
+    printf '%s' "which the getff CI workflow reads"
+  else
+    printf '%s' "which no CI reads, because .github/workflows/getff-python.yml is your own workflow"
+  fi
 }
 
 # _py_deliver_ruff — ruff lane: fresh copy | refuse (ruff.toml present | pyproject [tool.ruff] present).
@@ -398,7 +416,7 @@ _py_deliver_ruff() {
     _py_copy_or_refresh "$tpl/ruff.toml" "$getff_ref"
     _py_log "⚠ REFUSE ruff.toml (cell iii): a sibling ruff.toml would override your $(basename "$existing") entirely."
     _py_log "  Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it)."
-    note_not_wired "ruff: getff's TID bans are not in your $(basename "$existing") — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, which the getff CI workflow reads"
+    note_not_wired "ruff: getff's TID bans are not in your $(basename "$existing") — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, $(_py_ruff_bans_reader "$tpl")"
     return 0
   fi
 
@@ -409,7 +427,7 @@ _py_deliver_ruff() {
     _py_log "⚠ REFUSE ruff.toml (cell iv): a sibling ruff.toml would SILENTLY override your pyproject.toml"
     _py_log "  [tool.ruff] (probe-proven — closest-config-wins, ruff.toml beats pyproject, no warning)."
     _py_log "  Shipped our rules as getff-ruff.toml for reference."
-    note_not_wired "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, which the getff CI workflow reads"
+    note_not_wired "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml — it configures ruff for this project, and getff does not change a project's own ruff config, so a local \`ruff check\` runs with your settings only; the bans are in .getff/ruff-bans.toml, $(_py_ruff_bans_reader "$tpl")"
     return 0
   fi
 
@@ -633,7 +651,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1695). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1705). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -697,7 +715,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1695), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1705), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.

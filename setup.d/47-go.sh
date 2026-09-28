@@ -112,7 +112,10 @@ _go_deliver_golangci() {
     _go_copy_or_refresh "$tpl/.golangci.yml" "$getff_ref"
     _go_log "⚠ REFUSE .golangci.yml (cell ii): a sibling .golangci.yml would REPLACE your existing one entirely."
     _go_log "  Shipped our rules as getff-golangci.yml (golangci-lint does NOT auto-discover it)."
-    note_not_wired "golangci-lint: getff's forbidigo bans are not in your .golangci.yml — it configures golangci-lint for this project, and getff does not change a project's own golangci-lint config, so a local \`golangci-lint run\` runs with your settings only; the getff CI workflow runs them from getff-golangci.yml"
+    local _ci="the getff CI workflow runs them from getff-golangci.yml"
+    _lane_getff_ci_runs "$tpl" ".github/workflows/getff-go.yml" \
+      || _ci="they are in getff-golangci.yml, which no CI reads, because .github/workflows/getff-go.yml is your own workflow"
+    note_not_wired "golangci-lint: getff's forbidigo bans are not in your .golangci.yml — it configures golangci-lint for this project, and getff does not change a project's own golangci-lint config, so a local \`golangci-lint run\` runs with your settings only; $_ci"
   else
     # (i) fresh: no .golangci.yml → copy ours whole.
     copy_safe "$tpl/.golangci.yml" "$dst"

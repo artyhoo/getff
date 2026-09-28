@@ -115,7 +115,9 @@ _cargo_deliver_clippy() {
     _cargo_copy_or_refresh "$tpl/clippy.toml" "$getff_ref"
     _cargo_log "⚠ REFUSE clippy.toml (cell ii): a sibling clippy.toml would REPLACE your existing one entirely."
     _cargo_log "  Shipped our rules as getff-clippy.toml (clippy does NOT auto-discover it)."
-    note_not_wired "clippy: getff's disallowed-methods bans are not in your clippy.toml — it configures clippy for this project, and getff does not change a project's own clippy config, so clippy, locally and in the getff CI workflow, runs with your settings only"
+    local _where="locally"
+    _lane_getff_ci_runs "$tpl" ".github/workflows/getff-cargo.yml" && _where="locally and in the getff CI workflow"
+    note_not_wired "clippy: getff's disallowed-methods bans are not in your clippy.toml — it configures clippy for this project, and getff does not change a project's own clippy config, so clippy, $_where, runs with your settings only"
   else
     # (i) fresh: no clippy.toml → copy ours whole.
     copy_safe "$tpl/clippy.toml" "$dst"
@@ -129,7 +131,9 @@ _cargo_deliver_clippy() {
   _cargo_copy_or_refresh "$tpl/Cargo.lints.toml" "$PROJECT_ROOT/.getff/Cargo.lints.toml"
   _cargo_log "clippy deny-projection reference → .getff/Cargo.lints.toml (getff-owned)"
   if [ -e "$PROJECT_ROOT/Cargo.toml" ] && ! grep -q '\[lints\.clippy\]' "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
-    note_not_wired "clippy bans as build errors on a local build: not wired — the [lints.clippy] table is in .getff/Cargo.lints.toml, and getff does not edit your Cargo.toml; the getff CI workflow runs clippy with -D on the same lint families"
+    local _ci="; the getff CI workflow runs clippy with -D on the same lint families"
+    _lane_getff_ci_runs "$tpl" ".github/workflows/getff-cargo.yml" || _ci=""
+    note_not_wired "clippy bans as build errors on a local build: not wired — the [lints.clippy] table is in .getff/Cargo.lints.toml, and getff does not edit your Cargo.toml$_ci"
   fi
 }
 

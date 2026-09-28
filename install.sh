@@ -1238,7 +1238,7 @@ do_refresh() {
   # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
   # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
-  # framework-namespace files a consumer never owns (setup.d/lib.sh:1950). A rule-logic fix must reach a
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:1960). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
   # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:222-251
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
