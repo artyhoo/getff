@@ -10844,12 +10844,6 @@ function witnessPath(expanded) {
   }
   return [...segs.map((seg) => seg === "*" ? "x" : seg), file].join("/");
 }
-function withoutIgnoredNotices(text) {
-  return text.split(/\n\s*\n/).filter((block) => {
-    const messages = block.split("\n").slice(1).filter((l) => l.trim() !== "");
-    return messages.length === 0 || !messages.every((l) => /File ignored because/.test(l));
-  }).join("\n\n");
-}
 function runEslint(nodeArgs, eslintBin, eslintArgs, dir, timeoutMs, input) {
   try {
     execFileSync(process2.execPath, [...nodeArgs, eslintBin, ...eslintArgs], {
@@ -10862,8 +10856,8 @@ function runEslint(nodeArgs, eslintBin, eslintArgs, dir, timeoutMs, input) {
     return { rc: 0, text: "" };
   } catch (e) {
     const err = e;
-    const text = withoutIgnoredNotices(`${String(err.stderr ?? "")}
-${String(err.stdout ?? "")}`).trim();
+    const text = `${String(err.stderr ?? "")}
+${String(err.stdout ?? "")}`.trim();
     if (err.signal) return { rc: "timeout", text };
     return { rc: typeof err.status === "number" ? err.status : "error", text };
   }

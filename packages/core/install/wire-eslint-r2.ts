@@ -1150,21 +1150,6 @@ function witnessPath(expanded: string): string | undefined {
 
 type EslintRun = { rc: number | 'timeout' | 'error'; text: string };
 
-/**
- * Drop the report blocks (a file's path line plus its message lines) whose only message is «File
- * ignored»: a probe file for an extension the config does not lint. Left in, they fill the detail the
- * not-wired line quotes ahead of the error that matters.
- */
-function withoutIgnoredNotices(text: string): string {
-  return text
-    .split(/\n\s*\n/)
-    .filter((block) => {
-      const messages = block.split('\n').slice(1).filter((l) => l.trim() !== '');
-      return messages.length === 0 || !messages.every((l) => /File ignored because/.test(l));
-    })
-    .join('\n\n');
-}
-
 function runEslint(nodeArgs: string[], eslintBin: string, eslintArgs: string[], dir: string, timeoutMs: number, input?: string): EslintRun {
   try {
     execFileSync(process.execPath, [...nodeArgs, eslintBin, ...eslintArgs], {
@@ -1173,7 +1158,7 @@ function runEslint(nodeArgs: string[], eslintBin: string, eslintArgs: string[], 
     return { rc: 0, text: '' };
   } catch (e: unknown) {
     const err = e as { status?: number | null; signal?: string | null; stderr?: Buffer; stdout?: Buffer };
-    const text = withoutIgnoredNotices(`${String(err.stderr ?? '')}\n${String(err.stdout ?? '')}`).trim();
+    const text = `${String(err.stderr ?? '')}\n${String(err.stdout ?? '')}`.trim();
     if (err.signal) return { rc: 'timeout', text };
     return { rc: typeof err.status === 'number' ? err.status : 'error', text };
   }
@@ -1262,6 +1247,7 @@ export async function probeLintViaEslint(configPath: string, cwd: string, opts: 
     if (pooled.verdict === 'unavailable') return pooled;
     // One run has one exit code. When it fails, each file is linted alone, so writeWithLintProbe can tell
     // a path the change broke from one the original already fails on (an extension the project lacks).
+    // A lone file's detail is also its own error, free of the «File ignored» notices a pooled run prints.
     for (const n of names) runs.set(n, pooled.verdict === 'ok' ? pooled : verdictOf(runEslint(nodeArgs, eslintBin, [n], dir, timeoutMs)));
   } finally {
     for (const t of targets) {

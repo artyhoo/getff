@@ -809,6 +809,24 @@ describe('N-rule post-write lint probe + restore', () => {
     }
   }, 60_000);
 
+  // One path exits 2, another has a parsing error. The verdict is the exit 2: it is what the «ESLint
+  // already fails on this config» note quotes, and an exit 2 stops `eslint .` where a parsing error does not.
+  it.skipIf(!ESLINT_RESOLVABLE)('probeLintViaEslint: an exit 2 on one path outranks a parsing error on another', async () => {
+    const dir = mkdtempSync(join(HERE, '.nrule-probe-'));
+    try {
+      const p = join(dir, 'eslint.config.mjs');
+      writeFileSync(p, `export default [{ files: ['**/*.ts'], rules: {} }, { files: ['**/*.mjs'], rules: { 'foo/x': 'error' } }];\n`, 'utf8');
+      const r = await probeLintViaEslint(p, dir);
+      expect(r.verdict).toBe('broken');
+      expect(r.failure).toBe('config');
+      expect(r.detail).toMatch(/plugin "foo"/);
+      expect(r.paths?.['__aif_nrule_probe__.ts']?.outcome).toBe('parse');
+      expect(readdirSync(dir).sort()).toEqual(['eslint.config.mjs']);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   // A type-aware config (typescript-eslint projectService or parserOptions.project — any stack) refuses
   // a probe file its tsconfig does not include, also as a «Parsing error». That says nothing about the
   // wiring, and the original config refuses it the same way: read as broken, every such install would
