@@ -123,9 +123,11 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
      invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
      of the config-change class — rev 4 moved P3d there; same handoff rule applies until
      verified otherwise).
-3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
+3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. End the body with the line `aif-task: <taskId>` — the PR → task mapping step 5 reads back (`harvest.ts` appends it itself; a host-side bundle harvest writes it here). Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
    **After the PR is open, any push that moves the head off `Audited-SHA` reds the gate** — most often a merge-forward commit taken to re-run acceptance against current staging. What to push instead (and the force-push one-way door that closes the cheap option): [git-conflict-merge-forward.md §9](../../rules/git-conflict-merge-forward.md). The body can be checked against a candidate head before pushing, with the gate's own `checkPrBodyFidelity` — command in that §9.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.
+5. **Close the aif task after the merge — never by hand in the UI.** Right after `gh pr merge` succeeds:
+   `tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged` (or `--close-merged` alone to sweep every task whose PR has merged). It re-checks the merge (`state: MERGED` + a merge commit) and fires the UI's Approve route (`approve_done`, `done → verified`, `commitOnApprove:false`); unmerged → no writes, already `verified` → no-op. Operator directive 2026-09-28: a task left open after its PR merged is a process defect.
 
 ---
 
