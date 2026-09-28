@@ -50,8 +50,8 @@ else
     fi
     printf '  [05-mcp] path: %s\n' "$_05mcp_json"
   else
-    printf '  ⚠ [05-mcp] jq not found — add context7 to .mcp.json manually:\n'
-    printf '    "mcpServers": { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }\n'
+    # No jq: the same merge through node (lib.sh add_context7_mcp) — a NOT-wired line if that fails too.
+    add_context7_mcp "$_05mcp_json"
   fi
 fi
 

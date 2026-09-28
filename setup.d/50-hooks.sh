@@ -61,14 +61,11 @@ elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     HUSKY_HOOKSPATH_OWNED=0
     HUSKY_HOOKS_BLOCKED="$_hp_block"
     echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
-    # A relative hooksPath resolves against the toplevel, so a subdirectory install must name
-    # its prefix — and git runs hooks from the toplevel, so the hooks then need a `cd` first.
+    # Reason only (operator directive 2026-09-28): the consumer's own hook setup stays in charge,
+    # and a subdirectory install would repoint the hooks of the whole repository — both are the
+    # consumer's to decide, so the line names what is not active and why, with no command.
     _hp_prefix=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix 2>/dev/null || true)
-    if [ -n "$_hp_prefix" ]; then
-      note_not_wired "framework git hooks (${_hp_prefix}.husky/) — $_hp_block; to use them run: git config core.hooksPath ${_hp_prefix}.husky (git runs hooks from the repo root: add 'cd ${_hp_prefix%/}' at the top of each hook)"
-    else
-      note_not_wired "framework git hooks (.husky/) — $_hp_block; to use them instead run: git config core.hooksPath .husky"
-    fi
+    note_not_wired "framework git hooks (${_hp_prefix}.husky/) — not active: $_hp_block, and getff does not repoint a hook setup the repository already has or one that covers more than this install"
   elif [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null)" = ".husky/_" ]; then
     HUSKY_HOOKSPATH_OWNED=0
     echo "▶ git hooks → core.hooksPath=.husky/_ kept (husky v9 runs .husky/pre-commit + pre-push)"
@@ -78,5 +75,6 @@ elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     echo "▶ Activated git hooks → core.hooksPath=.husky"
   fi
 else
-  echo "  ⚠  not a git repo — skipped core.hooksPath activation (run: git config core.hooksPath .husky)"
+  echo "  ⊝ git hooks NOT activated — not a git repository"
+  note_not_wired "framework git hooks (.husky/) — not active: $PROJECT_ROOT is not a git repository, so there is no core.hooksPath to set"
 fi

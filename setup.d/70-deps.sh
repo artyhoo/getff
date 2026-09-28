@@ -160,7 +160,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
     '
   else
-    echo "  ⚠  node not found — skipped scripts merge; add them manually per INSTALL.md §3"
+    echo "  ⚠  node not found — package.json scripts NOT merged"
+    note_not_wired "package.json scripts (validate, check:*, prepare) and the husky / lint-staged / sort-package-json devDependencies — not added: node is not on PATH, and getff edits package.json only through node"
   fi
 fi
 
@@ -338,13 +339,27 @@ elif [ -t 0 ]; then
   read -r _ans || _ans=""
   case "$_ans" in [yY]|[yY][eE][sS]) _do_dep_install="yes" ;; esac
 else
-  :   # non-interactive (no tty) without --full → default No; the manual command prints in Next steps
+  :   # non-interactive (no tty) without --full → default No; 99-finalize lists the deps as not wired
+fi
+
+# _deps_not_wired <reason> — the dependency install did not land: one NOT-wired line naming the
+# packages and the reason (operator directive 2026-09-28: no copy-paste install command instead).
+_deps_not_wired() {
+  note_not_wired "dependencies (${#DEVDEPS[@]} dev + ${#RUNTIME_DEPS[@]} runtime: ${DEVDEPS[*]-} ${RUNTIME_DEPS[*]-}) — not installed: $1"
+}
+if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/package.json" ] && [ "$_do_dep_install" != "yes" ]; then
+  if [ -t 0 ] && [ -z "$FULL" ]; then
+    _deps_not_wired "the install adds packages only on --full or a yes at its prompt, and the prompt was answered no"
+  else
+    _deps_not_wired "the install adds packages only on --full or a yes at its prompt, and this run had neither (no terminal to ask on)"
+  fi
 fi
 
 if [ "$_do_dep_install" = "yes" ]; then
   _pm=$(detect_pm)
   if ! command -v "$_pm" >/dev/null 2>&1; then
-    echo "  ⚠  $_pm not found on PATH — skipped dev-dep install (install manually, see Next steps)."
+    echo "  ⚠  $_pm not found on PATH — dependencies NOT installed"
+    _deps_not_wired "$_pm (the package manager this project uses) is not on PATH"
   else
     echo "▶ Installing ${#DEVDEPS[@]} dev-dependencies with $_pm (this may take a minute) …"
     # npm ONLY: bound the ONE wildcard peer that makes arborist crash.
@@ -410,7 +425,7 @@ if [ "$_do_dep_install" = "yes" ]; then
           # missing `workspace:` symlinks — so typecheck/lint/test falsely fail while Next-steps
           # claims "nothing to do". Follow with a full `pnpm install` to materialise the whole
           # workspace link graph; idempotent + cheap when the tree is already warm. The `&&` keeps
-          # honesty: if linking fails, _ok stays empty → the "install failed, run manually" path.
+          # honesty: if linking fails, _ok stays empty → the «install failed» not-wired path.
           if ( cd "$PROJECT_ROOT" && pnpm add -D -w "${DEVDEPS[@]}" && pnpm install ); then _ok="yes"; fi
         else
           if ( cd "$PROJECT_ROOT" && pnpm add -D "${DEVDEPS[@]}" ); then _ok="yes"; fi
@@ -448,7 +463,8 @@ if [ "$_do_dep_install" = "yes" ]; then
       DEPS_INSTALLED="1"
       echo "  ✓ dev + runtime dependencies installed → node_modules/ (wired hooks now have their tools)"
     else
-      echo "  ⚠  dep install incomplete — run the remainder manually (see Next steps)."
+      echo "  ⚠  dep install incomplete — $_pm failed (output above)"
+      _deps_not_wired "the $_pm install failed (its output is above)"
     fi
   fi
 fi

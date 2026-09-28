@@ -234,7 +234,7 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       echo "  ✓ auto-wired ${_wired} gate(s) into ${_wire_wf#"$PROJECT_ROOT"/} job '${_wire_job}' via yq (idempotent — re-running install adds nothing)."
       _aif_detect_gates   # re-check: wired gates are now referenced → drop them from the WARN below
     else
-      echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — see the paste-block below."
+      echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — the gates are not wired (NOT wired below)"
     fi
   }
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
@@ -267,15 +267,15 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
                 if command -v yq >/dev/null 2>&1; then
                   _aif_yq_wire
                 else
-                  echo "  ⚠ yq install did not succeed — see the paste-block below."
+                  echo "  ⚠ yq install did not succeed — the gates are not wired (NOT wired below)"
                 fi ;;
             esac
           else
             # --wire-ci with no TTY: do NOT silently install a binary on a non-interactive run.
-            echo "  ⚠ --wire-ci: 'yq' not installed; non-interactive — run '$_aif_yq_inst' then re-run, or see the paste-block below."
+            echo "  ⚠ --wire-ci: 'yq' is not installed, and a run with no terminal does not install a binary ($_aif_yq_inst) — the gates are not wired (NOT wired below)"
           fi
         else
-          echo "  ⚠ 'yq' is not installed and no supported auto-installer (brew/snap) was found — install it manually (https://github.com/mikefarah/yq#install), or see the paste-block below."
+          echo "  ⚠ 'yq' is not installed and neither brew nor snap is on PATH to install it — the gates are not wired (NOT wired below)"
         fi
       fi
     fi
@@ -287,8 +287,6 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
     echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
     for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
-    echo "   Add the missing step(s) to your lint/test job's \`steps:\` (only these):"
-    for _s in "${_aif_steps[@]}"; do echo "       $_s"; done
     # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
     # not cover it (per-package eslint configs win under nearest-config resolution). Surface that.
     for _m in "${_aif_missing[@]}"; do
@@ -300,9 +298,18 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
           break ;;
       esac
     done
-    echo "   (or re-run install with --wire-ci to auto-wire them via yq — edits your workflow in place, opt-in;"
-    echo "    or with --force to adopt the shipped ci.yml that wires them — but --force overwrites ALL kept files,"
-    echo "    e.g. vitest.config.ts / .prettierignore, not just the workflow)."
+    # One NOT-wired line per gate, with the reason — never a paste-block or a flag to re-run with
+    # (operator directive 2026-09-28, Q4.7). The workflow is the consumer's: getff edits it only on
+    # --wire-ci or a yes at the prompt, because its only editor (yq) does not keep every comment
+    # (research-patch 2026-06-14-s3-workflow-merge §4/§6, SSOT #117).
+    if [ "${_aif_wire:-no}" = "yes" ]; then
+      _aif_why="the wiring through yq did not land (its reason is above)"
+    else
+      _aif_why="the workflow is your own, and getff edits it only on --wire-ci or a yes at the install prompt, which this run did not have"
+    fi
+    for _i in "${!_aif_missing[@]}"; do
+      note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): $_aif_why"
+    done
   fi
   unset -f _aif_gate_check _aif_detect_gates _aif_yq_wire
 fi

@@ -36,7 +36,8 @@ _rc_probe() {  # $1 = install_cmd ; prints the caller-visible outcome under set 
 _rc_probe "true"  | grep -q CALLER_CONTINUES && ok "cc-plugin install OK → caller under set -e continues (rc 0)"   || bad "cc-plugin install OK → companion_step returned non-zero under set -e"
 _rc_probe "false" | grep -q CALLER_CONTINUES && ok "cc-plugin install FAILS → caller under set -e continues (⚠, rc 0)" || bad "cc-plugin install failure killed the set -e caller"
 out=$(companion_step "probe" "false" "false" "cc-plugin" "yes")
-echo "$out" | grep -q 'install failed — run manually' && ok "install failure still emits the ⚠ run-manually line" || bad "⚠ run-manually line missing on install failure"
+echo "$out" | grep -q 'install failed — .* exited non-zero' && ok "install failure still emits the ⚠ install-failed line" || bad "⚠ install-failed line missing on install failure"
+echo "$out" | grep -qiE 'manually|yourself' && bad "install failure hands back a manual step" || ok "install failure names no manual step"
 
 # === kind=mcp tests (S2 — engine.sh kind=mcp support) ===
 

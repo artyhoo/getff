@@ -67,7 +67,10 @@ companion_step() {
   if companion_is_machine_global "$install_cmd"; then _global=1; fi
   if [ "$mode" = "yes" ] && [ -n "$_global" ] && [ "${GETFF_GLOBAL:-}" != "1" ]; then
     printf '  ⊝ %s skipped — machine-global install (outside this project): %s\n' "$name" "$install_cmd"
-    printf '    -y installs into the project only; re-run with --global to allow it, or run the command yourself\n'
+    printf '    -y installs into the project only; a machine-global install needs --global or a yes at the prompt\n'
+    if command -v note_not_wired >/dev/null 2>&1; then
+      note_not_wired "$name — not installed: its install is machine-global ($install_cmd), and -y alone installs into the project only"
+    fi
     return 0
   fi
 
@@ -93,7 +96,10 @@ companion_step() {
       printf '  ✓ %s installed\n' "$name"
       if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: success\n' "$name"; fi
     else
-      printf '  ⚠ %s install failed — run manually: %s\n' "$name" "$install_cmd"
+      printf '  ⚠ %s install failed — %s exited non-zero (its output is above)\n' "$name" "$install_cmd"
+      if command -v note_not_wired >/dev/null 2>&1; then
+        note_not_wired "$name — not installed: $install_cmd failed (its output is above)"
+      fi
       if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: failed\n' "$name"; fi
     fi
   else

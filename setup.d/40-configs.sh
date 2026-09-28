@@ -2,7 +2,7 @@
 # setup.d/40-configs.sh — §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §4 (install.sh:866-914), §5a (install.sh:916-994),
+# S0 rows: §4 (install.sh:866-914), §5a (install.sh:920-998),
 #          §5b' eslint-rules (install.sh:996-1060), §6a config subset (install.sh:1062-1123)
 # Depends on: 30-templates (RULES.md etc. already at $PROJECT_ROOT/.ai-factory/)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
@@ -195,7 +195,8 @@ fc3_deliver_tests_setup() {
   if [ "$covered" -eq 1 ]; then
     copy_safe "$src" "$PROJECT_ROOT/tests/setup.ts"
   else
-    echo "  ⚠ tsconfig.json include does not cover tests/ — tests/setup.ts NOT delivered (staging it would fail the install commit). Add \"tests/**/*\" to tsconfig include and re-run install, or create tests/setup.ts yourself." >&2
+    echo "  ⚠ tsconfig.json include does not cover tests/ — tests/setup.ts NOT delivered" >&2
+    note_not_wired "tests/setup.ts — not delivered: your tsconfig.json include does not cover tests/, so typed ESLint (projectService) would reject the file as outside every tsconfig, and getff does not edit a project's tsconfig.json"
   fi
 }
 
@@ -294,7 +295,10 @@ if [ -n "$_ws_lines" ]; then
   mkdir_safe "$PROJECT_ROOT/stryker"
   _stryker_node_ok=0
   command -v node >/dev/null 2>&1 && _stryker_node_ok=1
-  [ "$_stryker_node_ok" -eq 1 ] || echo "  ⚠ node not found — skipping per-workspace Stryker config emit (wire stryker/<workspace>.json manually per INSTALL.md)" >&2
+  if [ "$_stryker_node_ok" -ne 1 ]; then
+    echo "  ⚠ node not found — per-workspace Stryker configs NOT emitted" >&2
+    note_not_wired "per-workspace Stryker configs (stryker/<workspace>.json) — not emitted: node is not on PATH, and getff writes them through node"
+  fi
   # M2 fix (dual-review): packageManager mirrors the flat branch's patch_stryker_package_manager
   # instead of the template's hardcoded "npm" — computed ONCE (repo-global signal, detect_pm SSOT),
   # reused for every per-workspace emit below.
