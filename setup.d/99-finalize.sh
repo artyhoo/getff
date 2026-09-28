@@ -334,26 +334,52 @@ _r2_note_outcome() {
 # is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
 # boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
 # reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
-# only a quoted rule id outside a comment (_r2_named_in).
-# _r2_named_in <file> — exit 0 IFF the file names R2 as a quoted rule id outside a comment: the
-# wirer's reading of a config the consumer owns (ruleSetInConfig in wire-eslint-r2.ts — a rules key
-# or a string literal; a comment is neither, so a commented-out rule line is no rule entry).
-# Line-based, without a parser: a `//` comment to the end of its line, and a line that opens or
-# continues a block comment (`/*`, ` *`), are dropped before the match. A `//` inside a string
-# before the id on its line drops the id too — that errs toward listing the config, never toward
-# hiding one. grep reads to the end (no -q): an early exit would SIGPIPE sed under pipefail.
+# only a string literal that is exactly the rule id (_r2_named_in).
+# _r2_named_in <file> — exit 0 IFF some string literal in the file, outside every comment, is exactly
+# the R2 id: the wirer's reading of a config the consumer owns (ruleSetInConfig in wire-eslint-r2.ts
+# — a rules key or a string literal; the id cannot be an identifier key, and a comment is neither,
+# so a commented-out rule line is no rule entry, nor is the id inside a longer string).
+# A single-pass lexer in awk, not a parser: it tracks `//` and `/* */` comments and '…' "…" `…`
+# strings across lines, prints each literal's value (an escape stands for the character after it;
+# a template with `${` or a line break is never the id), and grep keeps an exact match only. A quote
+# inside a regex literal (`/'/`) puts it out of step for the rest of the file. A `\x`/`\u` escape
+# reads as not the id — that errs toward listing the config, never toward hiding one. LC_ALL=C
+# reads bytes, so a Latin-1 comment cannot stop either tool. grep reads to the end (no -q): an
+# early exit would SIGPIPE awk under pipefail.
 _r2_named_in() {
-  # shellcheck disable=SC2016  # the backticks are the template-literal form of the id, not an expansion
-  sed -e 's#//.*$##' -e '/^[[:space:]]*\/\*/d' -e '/^[[:space:]]*\*/d' "$1" 2>/dev/null \
-    | grep -F -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
-      -e '`rules-as-tests/no-unsafe-zod-parse`' >/dev/null
+  # shellcheck disable=SC2016  # the $ and backticks belong to the awk program and to JavaScript, not to the shell
+  LC_ALL=C awk -v sq="'" '
+    BEGIN { st = "code" }
+    {
+      line = $0; n = length(line); i = 1
+      while (i <= n) {
+        c = substr(line, i, 1); c2 = substr(line, i, 2)
+        if (st == "block") { if (c2 == "*/") { st = "code"; i += 2 } else i++; continue }
+        if (st == "code") {
+          if (c2 == "//") break
+          if (c2 == "/*") { st = "block"; i += 2; continue }
+          if (c == sq || c == "\"" || c == "`") { q = c; buf = ""; skip = 0; st = "str" }
+          i++; continue
+        }
+        if (c == "\\") { buf = buf substr(line, i + 1, 1); i += 2; continue }
+        if (q == "`" && c2 == "${") skip = 1
+        if (c == q) { if (!skip) print buf; st = "code"; i++; continue }
+        buf = buf c; i++
+      }
+      if (st == "str" && q == "`") skip = 1
+      else if (st == "str") st = "code"
+    }' "$1" 2>/dev/null | LC_ALL=C grep -Fx 'rules-as-tests/no-unsafe-zod-parse' >/dev/null
 }
-# _r2_named_under <dir> — exit 0 IFF some eslint.config.* under <dir> (node_modules skipped) names R2.
+# _r2_named_under <dir> — exit 0 IFF some flat config ESLint loads under <dir> (eslint.config.js,
+# .mjs, .cjs, .ts, .mts or .cts — not a backup beside one; node_modules skipped) names R2.
 _r2_named_under() {
   local f
   while IFS= read -r -d '' f; do
     _r2_named_in "$f" && return 0
-  done < <(find "$1" -name node_modules -prune -o -name 'eslint.config.*' -type f -print0 2>/dev/null)
+  done < <(find "$1" -name node_modules -prune -o \
+    \( -name eslint.config.js -o -name eslint.config.mjs -o -name eslint.config.cjs \
+       -o -name eslint.config.ts -o -name eslint.config.mts -o -name eslint.config.cts \) \
+    \( -type f -o -type l \) -print0 2>/dev/null)
   return 1
 }
 # _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
