@@ -1013,6 +1013,10 @@ describe('wireNRules — rule presence is a key in a rules object, quoted or not
       expect(r.modified).toBe(src);
       expect(r.notes?.join(' ')).toMatch(/eqeqeq/);
     }
+    // Paired: getff's own config (no insertOnly) lets the live value win by a later block (D2).
+    const own = await wireNRules(src, { eqeqeq: 'error' }, { overrideKeys: new Set(['eqeqeq']) });
+    expect(own.status).toBe('wired');
+    expect(own.modified).toContain(`{ rules: { "eqeqeq": "error" } }`);
   });
 
   // Shapes the key search does not follow into: the old quoted-string search found the rule in each, and
