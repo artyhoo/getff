@@ -204,6 +204,8 @@ if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; 
       # populated boundary block → they fall through and recurse normally. (kickoff ⚑B2 / T-807-B)
       has_key boundary "$_wd/$_wn" \
         || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }
+      # Which config the lines below are about: the child names it only by its own file name.
+      echo "check-rule-globs: checking ${_wd#./}/$_wn"
       ( cd "$_wd" && ESLINT_CONFIG="$_wn" bash "$SELF" ) || _agg=1
     done <<EOF
 $_ws_dirs
