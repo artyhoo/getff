@@ -13,8 +13,8 @@
 //
 // The consumer surface is per-tool, not global: each lane delivers through its own files, so a
 // tool carries the list of surfaces its pin is mirrored on (`consumerSurfaces`). The go family
-// (J3) is the case that forced this — its mirror partners are the delivered CI template and the
-// lane's REFUSE-path hint, neither of which is the python lane's file.
+// (J3) is the case that forced this — its mirror partner is the delivered CI template, which is
+// not the python lane's file.
 //
 // Scope = getff-SHIPPED-and-pinned tools ONLY: ast-grep + ruff (J2 decisions log #11) + the go
 // toolchain and golangci-lint (J3). rustc/cargo (1.96.1) is pinned on the framework surface but is
@@ -54,11 +54,13 @@ interface TrackedTool {
 }
 
 const TRACKED_TOOLS: readonly TrackedTool[] = [
-  // npm global: `@ast-grep/cli@0.44.1` (framework CI step + consumer guidance/self-check lines).
+  // npm global: `@ast-grep/cli@0.44.1` (framework CI step + the delivered python CI template);
+  // uvx: `ast-grep-cli==0.44.1` (the PyPI name — the lane's self-check fetches it when ast-grep is
+  // not on PATH, since the python lane stays Node-free).
   {
     name: 'ast-grep',
-    versionReSource: '@ast-grep/cli@(\\d+\\.\\d+\\.\\d+)',
-    consumerSurfaces: ['setup.d/45-python.sh'],
+    versionReSource: '(?:@ast-grep/cli@|ast-grep-cli==)(\\d+\\.\\d+\\.\\d+)',
+    consumerSurfaces: ['packages/core/templates/python/github-actions-ci.yml', 'setup.d/45-python.sh'],
   },
   // pip: `ruff==0.15.21` (framework CI + consumer guidance); uvx: `ruff@0.15.21` (consumer self-check).
   {
@@ -74,12 +76,12 @@ const TRACKED_TOOLS: readonly TrackedTool[] = [
     versionReSource: "go-version:\\s*'?(\\d+\\.\\d+\\.\\d+)'?",
     consumerSurfaces: ['packages/core/templates/go/github-actions-ci.yml'],
   },
-  // `go install …/golangci-lint@v1.55.2` — framework arm, delivered CI template, and the lane's
-  // REFUSE-path hint, which restates the pin as text a consumer is told to run.
+  // `go install …/golangci-lint@v1.55.2` — framework arm and the delivered CI template. The lane
+  // script no longer restates it: its REFUSE path is a NOT-wired line, not a command to run (Q4.7).
   {
     name: 'golangci-lint',
     versionReSource: 'golangci-lint@v(\\d+\\.\\d+\\.\\d+)',
-    consumerSurfaces: ['packages/core/templates/go/github-actions-ci.yml', 'setup.d/47-go.sh'],
+    consumerSurfaces: ['packages/core/templates/go/github-actions-ci.yml'],
   },
 ];
 
