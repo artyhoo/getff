@@ -448,6 +448,61 @@ for (const { nm, version } of ESLINT_INSTALLS) {
   });
 }
 
+// A `--print-config` that never answers (a config whose import blocks on the network, a hung loader)
+// held the install forever: the probe had no time limit. It gives up after `timeoutMs`, and the wirer
+// degrades — the config is left as it was. The stand-in ESLint sleeps 5 s and then prints nothing, so
+// without the limit the probe returns `unconfirmed` after 5 s instead of `timed-out` in well under it.
+describe('probeViaEslint — an ESLint that does not answer', () => {
+  function hangingEslint(): string {
+    const dir = mkdtempSync(join(realpathSync(tmpdir()), 'r2-probe-hang-'));
+    mkdirSync(join(dir, 'node_modules', 'eslint', 'bin'), { recursive: true });
+    writeFileSync(join(dir, 'node_modules', 'eslint', 'package.json'), '{"name":"eslint","version":"0.0.0"}\n', 'utf8');
+    writeFileSync(join(dir, 'node_modules', 'eslint', 'bin', 'eslint.js'), 'setTimeout(() => {}, 5000);\n', 'utf8');
+    writeFileSync(join(dir, 'eslint.config.mjs'), 'export default [];\n', 'utf8');
+    return dir;
+  }
+
+  it('gives up after timeoutMs with a timed-out verdict', async () => {
+    const dir = hangingEslint();
+    try {
+      const started = Date.now();
+      const v = await probeViaEslint(join(dir, 'eslint.config.mjs'), dir, undefined, { timeoutMs: 300 });
+      expect(v).toBe('timed-out');
+      expect(Date.now() - started).toBeLessThan(3000);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('reads an ESLint that crashes on its own signal as an error, not as a timeout', async () => {
+    const dir = hangingEslint();
+    writeFileSync(join(dir, 'node_modules', 'eslint', 'bin', 'eslint.js'), "process.kill(process.pid, 'SIGSEGV');\n", 'utf8');
+    try {
+      const v = await probeViaEslint(join(dir, 'eslint.config.mjs'), dir, undefined, { timeoutMs: 10_000 });
+      expect(v).not.toBe('timed-out');
+      expect(v).toBe('other-error');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('resolveAndWire degrades and leaves the config as it was', async () => {
+    const dir = hangingEslint();
+    try {
+      const r = await resolveAndWire({
+        configPath: join(dir, 'eslint.config.mjs'),
+        cwd: dir,
+        runProbe: (p, c, s) => probeViaEslint(p, c, s, { timeoutMs: 300 }),
+      });
+      expect(r.status).toBe('degrade');
+      expect(r.degradeReason).toBe('probe verdict: timed-out');
+      expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toBe('export default [];\n');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 20_000);
+});
+
 describe('manual snippets are self-contained (#644)', () => {
   it('degraded snippet registers the plugin (import + plugins), not a bare rule', () => {
     const s = generateDegradedSnippet('apps/api/eslint.config.mjs');
