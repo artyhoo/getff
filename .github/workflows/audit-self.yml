@@ -2308,6 +2308,43 @@ jobs:
       # cleanly» is not the assertion (T-NPI-A); the first violation failing is.
       # The consumer install fetches the ts-server dev-deps from the registry
       # exactly as a real `npx getff init` would.
+      # The R2 wirer computes the customRules import between a --path under
+      # install.sh's logical `pwd` and node's physical cwd. On Windows the two
+      # can differ by a junction or an 8.3 short name (C:\Users\RUNNER~1); this
+      # runs the spelling cases here, the only Windows runner, and writes the
+      # TEMP spellings it measured to the step summary. JSON reporter, not a
+      # grep of the console: vitest colours its output on win32 and under CI.
+      - name: R2 import specifier across path spellings (junction, 8.3 short name)
+        if: matrix.cell == 'getff-dist' && runner.os == 'Windows'
+        shell: bash
+        run: |
+          npm ci --prefix packages/core --silent
+          cd packages/core
+          rc=0
+          NO_COLOR=1 npx --no-install vitest run install/wire-eslint-r2.test.ts \
+            -t 'two spellings|URL path|linked project root' --reporter=default \
+            --reporter=json --outputFile.json="$RUNNER_TEMP/r2-spec.json" > "$RUNNER_TEMP/r2-spec.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/r2-spec.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          # A skipped case (no ts-morph, no ESLint) passes vitest too: require each one by name, and
+          # require this runner's TEMP to have a second spelling, or the 8.3 arm was never exercised.
+          node - "$RUNNER_TEMP/r2-spec.json" "$RUNNER_TEMP/r2-spec.log" <<'JS'
+          const fs = require('node:fs');
+          const [json, log] = process.argv.slice(2);
+          const passed = JSON.parse(fs.readFileSync(json, 'utf8')).testResults
+            .flatMap((f) => f.assertionResults).filter((a) => a.status === 'passed').map((a) => a.fullName);
+          const want = ['config under the link, cwd physical', 'the temp dir as the OS spells it',
+            'another drive (no relative path exists)', 'own config wired through a linked project root'];
+          const missing = want.filter((w) => !passed.some((n) => n.includes(w)));
+          if (missing.length) { console.log(`::error::did not run: ${missing.join(' | ')}`); process.exit(1); }
+          const m = /\[r2-spec\] tmpdir=(.*) realpathSync=(.*) realpathSync\.native=(.*)/.exec(fs.readFileSync(log, 'utf8'));
+          if (!m) { console.log('::error::no [r2-spec] measurement line'); process.exit(1); }
+          const [, spelled, js, native] = m;
+          const line = `TEMP as spelled: ${spelled}\nrealpathSync:    ${js}\nrealpathSync.native: ${native}`;
+          if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\`\`\`\n${line}\n\`\`\`\n`);
+          console.log(line);
+          if (spelled.trim() === native.trim()) { console.log('::error::TEMP has one spelling on this runner: the short-name case was not exercised'); process.exit(1); }
+          JS
       - name: Run the consumer-matrix getff-dist cell
         if: matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh
