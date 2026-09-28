@@ -5,6 +5,7 @@ eb124d77f5093cf3e78536abd5aa7ea93e2d99b63e9f28c99d31026abf6cd470  .claude/hooks/
 8f6d73a5ba864bb87087b69bd3a3edcc54e32750ec8faf0788a389e7a038bd4e  .claude/hooks/check-hook-marker.sh
 2108c42356ebdea3631b4baaaf99d676b197dce95521740f8caffe73872aefca  .claude/hooks/check-kickoff-traps.sh
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
+811a4fa0a22a72b3d7ed955c7a663201942cf489651ca04f5fc70103c9a852c7  .claude/hooks/close-aif-task-on-merge.sh
 a25f9e1722b9e951d00173b5f534a1c8bb103c609d7553128a8bff74059a611f  .claude/hooks/deps-hash-check.sh
 b3478c6453bf2a9967ad85f8081ef56971a96719d77a691909231766067de1e2  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
@@ -457,6 +458,7 @@ a1ba0dd99f189f8f9200cd6f62229ea62fe03122a61f0df4e8839b3eac33f263  packages/core/
 ca448b7aff2a64d1047a3a104574317f12f920138f945ff0781c0645d231b74d  packages/core/hooks/checks/skill-core-edit-scope.ts
 f4c1f211d58ce63401d094b04ec9c9b1d6dcede4895df0143112aec4fb0201f7  packages/core/hooks/checks/unpinned-tool-install.ts
 9590356cdcb215bdfa724f360eba5aa0fa58f43634735232074fc6ade16524fc  packages/core/hooks/classify-work.test.ts
+e7b92b50faa823ea160a28487eb2fa42175741529f8d46536287101f91b80661  packages/core/hooks/close-aif-task-on-merge.test.ts
 2fc3c415dc0c4b4a936148194e61d07cc520db4cc460a6526107229f5175f3ae  packages/core/hooks/create-worktree.test.ts
 102d0f1d52db74e42ecb3763499328d7a7c5606e9393d8dd674b3094169dc85f  packages/core/hooks/delta-diff.test.ts
 190ffb849134f8346cd9b8671708d67e521169de0111fab066213820c3b1cfe9  packages/core/hooks/delta-write-from-state.test.ts
