@@ -472,7 +472,7 @@ ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
 97dd72e2d0259e1d92567fff67775d880b44f65c95d1c1c7241e048319f5a086  packages/core/hooks/glossary-counters.test.ts
-d41a62ac4b22ecc2e827100bc7aa7479827b899837b4668cdb4dcb63045b1c75  packages/core/hooks/harness-config-drift.test.ts
+4c6442dc4e6bd8a5215297ba12ccf2f04126533a41a62125fb5bcedac3a5e47a  packages/core/hooks/harness-config-drift.test.ts
 d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/hooks/hook-emit-prelude.test.ts
 7350acfe0ef00b35578d8ba305aaee1c3be428a1ac3ca4f6fb5b4d8d257cd433  packages/core/hooks/host-verify.test.ts
 53acc72a47a55e8a8266bb1a2aadac94c3149e2a29044d86fcabd3407828b978  packages/core/hooks/inject-handoff-on-compact.test.ts
