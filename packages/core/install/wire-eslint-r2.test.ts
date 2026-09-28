@@ -4,7 +4,7 @@
  *
  * Fixture E (format-preserved) is the BLOCKING GATE: unchanged lines must be
  * byte-identical after wiring. If ts-morph is absent in this environment,
- * tests skip gracefully (mirror audit-ai-docs.ts:199 degrade pattern).
+ * tests skip gracefully (mirror audit-ai-docs.ts:213 degrade pattern).
  */
 
 import { execFileSync } from 'node:child_process';

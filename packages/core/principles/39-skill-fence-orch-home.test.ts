@@ -34,8 +34,8 @@
  *
  * "A literal appears inside a ``` fence" is mechanically detectable → gate, not injection.
  * A principle test is the earliest channel that actually fires for this population: the suite
- * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1876) and in CI
- * (`principles-meta-tests`, audit-self.yml:264).
+ * runs at pre-push (`principlesMetaSection`, packages/core/hooks/pre-push.ts:1902) and in CI
+ * (`principles-meta-tests`, audit-self.yml:274).
  *
  * ## Honest ceiling — the fence slice only
  *
