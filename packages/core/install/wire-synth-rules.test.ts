@@ -14,7 +14,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -810,7 +810,8 @@ describe('synth-and-wire CLI: a spread-scoped plugin registration', () => {
       });
       expect(lint.status, `${lint.stdout}\n${lint.stderr}`).toBe(0);
     } finally {
-      if (existsSync(link)) unlinkSync(link);
+      // The link first: a recursive delete must never walk into the repo's node_modules.
+      if (lstatSync(link, { throwIfNoEntry: false })?.isSymbolicLink()) unlinkSync(link);
       rmSync(dir, { recursive: true, force: true });
     }
   }, 120_000);

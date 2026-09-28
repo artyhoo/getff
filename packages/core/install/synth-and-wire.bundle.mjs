@@ -10289,25 +10289,25 @@ function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
     if (!provablyUnscoped(el, SyntaxKind, /* @__PURE__ */ new Set())) continue;
-    for (const prop of el.getProperties?.() ?? []) {
-      let propName;
+    const props = el.getProperties?.() ?? [];
+    let last = -1;
+    props.forEach((p, i) => {
       try {
-        propName = normPropName(prop.getName?.());
+        if (normPropName(p.getName?.()) === "plugins") last = i;
+      } catch {
+      }
+    });
+    if (last < 0 || props.slice(last + 1).some((p) => p.isKind?.(SyntaxKind.SpreadAssignment))) continue;
+    const pluginsInit = props[last].getInitializer?.();
+    if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const pp of pluginsInit.getProperties?.() ?? []) {
+      let ppName;
+      try {
+        ppName = normPropName(pp.getName?.());
       } catch {
         continue;
       }
-      if (propName !== "plugins") continue;
-      const pluginsInit = prop.getInitializer?.();
-      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-      for (const pp of pluginsInit.getProperties?.() ?? []) {
-        let ppName;
-        try {
-          ppName = normPropName(pp.getName?.());
-        } catch {
-          continue;
-        }
-        if (ppName === "rules-as-tests") return true;
-      }
+      if (ppName === "rules-as-tests") return true;
     }
   }
   return false;
@@ -10322,7 +10322,9 @@ function provablyUnscoped(obj, SyntaxKind, seen) {
       if (!lit || !provablyUnscoped(lit, SyntaxKind, seen)) return false;
       continue;
     }
-    if (p.getNameNode?.()?.isKind?.(SyntaxKind.ComputedPropertyName)) return false;
+    if (p.isKind?.(SyntaxKind.GetAccessor) || p.isKind?.(SyntaxKind.SetAccessor) || p.isKind?.(SyntaxKind.MethodDeclaration)) return false;
+    const nameNode = p.getNameNode?.();
+    if (nameNode?.isKind?.(SyntaxKind.ComputedPropertyName) || nameNode?.getText?.().includes("\\")) return false;
     let name;
     try {
       name = normPropName(p.getName?.());

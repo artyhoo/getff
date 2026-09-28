@@ -741,6 +741,73 @@ describe('#829: wireNRules plugin self-registration', () => {
     expect(r.modified).toMatch(SELF_REGISTERED);
   });
 
+  // A const the file changes after binding it: its literal no longer tells what the spread carries.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a const that gains files: by a property write → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = {};\nonlyJs.files = ['**/*.js'];`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a const that gains files: by Object.assign → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = {};\nObject.assign(onlyJs, { files: ['**/*.js'] });`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a let reassigned to a scoped literal → self-registers', async () => {
+    const src = registeredVia(`let onlyJs = {};\nonlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element with a computed files key → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `['files']: ['src/**/*.ts']`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element whose files key is spelled with an escape → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `'fil\\x65s': ['src/**/*.ts']`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A spread after `plugins` replaces the whole `plugins` object when the spread carries one.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread after plugins: that may replace them → self-registers', async () => {
+    const src = [
+      `import customRules from './eslint-rules-local/index.mjs';`,
+      `const base = { plugins: {} };`,
+      `export default [{ plugins: { 'rules-as-tests': customRules }, ...base, rules: {} }];`,
+      ``,
+    ].join('\n');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a second plugins: key that drops the registration → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts'], `, '').replace(`rules: {`, `plugins: {}, rules: {`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A getter runs during the spread and can add `files` to the object it belongs to.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a literal with an accessor → self-registers', async () => {
+    const src = registeredVia(`const b = { get x() { return 1; } };`, '...b');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('❌ an inline spread literal and a nested spread with no scope key → still global, block stays bare', async () => {
+    for (const src of [
+      registeredVia('', `...{ name: 'shared' }`),
+      registeredVia(`const inner = { name: 'shared' };\nconst outer = { ...inner };`, '...outer'),
+    ]) {
+      const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toMatch(BARE);
+    }
+  });
+
   // Anti-tautology: «every spread self-registers» would pass the cases above. A spread whose
   // literal is right here and carries no scope key keeps the registration global → bare block.
   it.skipIf(!TS_MORPH_AVAILABLE)('❌ a spread of a same-file literal with no scope key → still global, block stays bare', async () => {
