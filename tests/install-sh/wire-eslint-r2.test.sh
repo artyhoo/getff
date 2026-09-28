@@ -6,10 +6,11 @@
 # Fixture F: node present, ts-morph absent → rc=0 + degrade message, no half-edit
 # Layer-2-arm: install.sh §6b-bis-L2 exits 0 on no per-package configs (degrade path)
 #
-# Fixtures P1/P2 (below) are the headline red→green loadability gate: they run the wirer over a
-# plugin-less / plugin-registering base and assert `eslint --print-config` LOADS (rc 0) + applies R2.
+# Fixtures P1/P2/P3 (below) are the headline red→green loadability gate: they run the wirer over a
+# plugin-less / plugin-registering / `.ts`-only-registering base and assert ESLint LOADS the result
+# (P1: `--print-config` rc 0 + R2 applied; P1-P3: `eslint .` over the package runs and exits 0/1).
 # (Earlier this header claimed a print-config integration "runs in CI via consumer-pipeline" — false:
-# consumer-pipeline.test.sh runs zero ESLint; the real gate is P1/P2 here. GH #644 §6.)
+# consumer-pipeline.test.sh runs zero ESLint; the real gate is P1-P3 here. GH #644 §6.)
 # Fixture E (format-preserved blocking gate) and Fixtures B/C are vitest unit tests in
 # packages/core/install/wire-eslint-r2.test.ts.
 set -uo pipefail
@@ -130,7 +131,7 @@ else
   _CWD_DIR="${TSM%/node_modules}"
   # Use --diff (side-effect-free, no eslint probe): it still runs wireConfigSource → resolves
   # ts-morph from cwd (the #642 concern), and prints the bare element in the diff. The apply-mode
-  # eslint probe (GH #644) is a SEPARATE concern covered by P1/P2 — it would degrade here because
+  # eslint probe (GH #644) is a SEPARATE concern covered by P1-P3 — it would degrade here because
   # this fixture's stub config ('import base from ./base.mjs') is not a loadable eslint config.
   _out_X=$( cd "$_CWD_DIR" && "$RUN_WIRER_TSX" "$_FW/wire-eslint-r2.ts" --path "$_CFG" --diff 2>&1 )
   printf '%s' "$_out_X" | grep -q 'rules-as-tests/no-unsafe-zod-parse' \
@@ -163,6 +164,18 @@ _mk_consumer() { # $1=dir
   mkdir -p "$1/eslint-rules-local" "$1/apps/api/src"
   printf "export default { rules: { 'no-unsafe-zod-parse': { create: () => ({}) } } };\n" > "$1/eslint-rules-local/index.mjs"
   printf 'export const x = 1;\n' > "$1/apps/api/src/h.ts"
+  printf 'export const y = 1;\n' > "$1/apps/api/src/h.js"
+}
+
+# _lint_pkg <label> <dir>: the consumer's own `eslint .` over apps/api must run and exit 0/1 (1 = findings).
+# rc 2 = ESLint cannot use the config; a missing bin (the fixture's `npm i` failed) is a failure too, never a pass.
+_lint_pkg() { # $1=label $2=dir
+  if [ ! -x "$2/node_modules/.bin/eslint" ]; then bad "$1: no eslint in the fixture (npm i failed?)"; return; fi
+  _rc=0; ( cd "$2/apps/api" && "$2/node_modules/.bin/eslint" . >/dev/null 2>"$2/lint.err" ) || _rc=$?
+  case "$_rc" in
+    0|1) ok "$1: package lints (rc $_rc)" ;;
+    *) bad "$1: lint rc $_rc: $(head -c 160 "$2/lint.err" | tr '\n' ' ')" ;;
+  esac
 }
 
 # ── Fixture P1: plugin-LESS base → wired output must LOAD (rc 0) + R2 applied ──
@@ -177,17 +190,31 @@ if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P1: sk
   if ( cd "$T_P1/apps/api" && "$T_P1/node_modules/.bin/eslint" --print-config src/h.ts >/tmp/p1.out 2>/tmp/p1.err ); then
     grep -q 'rules-as-tests/no-unsafe-zod-parse' /tmp/p1.out && ok "P1: LOADS (rc 0) + R2 applied" || bad "P1: loads but R2 absent"
   else bad "P1: FAILS to load: $(head -c 160 /tmp/p1.err | tr '\n' ' ')"; fi
+  _lint_pkg P1 "$T_P1"
 fi
 
-# ── Fixture P2: plugin-REGISTERING base → bare kept, loads, no redefine ──
+# ── Fixture P2: base registers the plugin for EVERY file → bare kept, loads, no redefine ──
 echo "Fixture P2: plugin-registering base → no double-registration crash"
 if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P2: skipped (tsx/node absent)"; else
   T_P2=$(mktemp -d); _mk_consumer "$T_P2"
-  printf "import customRules from '../../eslint-rules-local/index.mjs';\nconst base = [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\nexport default [...base];\n" > "$T_P2/apps/api/eslint.config.mjs"
+  printf "import customRules from '../../eslint-rules-local/index.mjs';\nconst base = [{ plugins: { 'rules-as-tests': customRules }, rules: {} }];\nexport default [...base];\n" > "$T_P2/apps/api/eslint.config.mjs"
   ( cd "$T_P2" && "$RUN_WIRER_TSX" "$WIRER" --path apps/api/eslint.config.mjs --yes >/dev/null 2>&1 ) || true
   _n2=$(grep -c "plugins: { 'rules-as-tests'" "$T_P2/apps/api/eslint.config.mjs")
   [ "$_n2" = "1" ] && ok "P2: plugin registered once (base only) — kept bare, no duplicate" || bad "P2: $_n2 'rules-as-tests' registrations (want 1) — wirer double-registered"
-  ( cd "$T_P2/apps/api" && "$T_P2/node_modules/.bin/eslint" --print-config src/h.ts >/dev/null 2>/tmp/p2.err ) && ok "P2: loads rc 0 (no Cannot redefine)" || bad "P2: failed: $(head -c 160 /tmp/p2.err | tr '\n' ' ')"
+  grep -q 'rules-as-tests/no-unsafe-zod-parse' "$T_P2/apps/api/eslint.config.mjs" && ok "P2: R2 wired" || bad "P2: R2 not wired"
+  _lint_pkg P2 "$T_P2"
+fi
+
+# ── Fixture P3: base registers the plugin for `.ts` only → the whole package must still lint ──
+# The bare element is global, so every `.js`/`.mjs` file resolves R2 without the plugin. A probe
+# that looked at a `.ts` file only kept it bare, and `eslint .` died with rc 2 (2026-09-28).
+echo "Fixture P3: plugin registered for .ts only → package lints after wire"
+if [ -z "$RUN_WIRER_TSX" ] || ! command -v node >/dev/null 2>&1; then ok "P3: skipped (tsx/node absent)"; else
+  T_P3=$(mktemp -d); _mk_consumer "$T_P3"
+  printf "import customRules from '../../eslint-rules-local/index.mjs';\nconst base = [{ files: ['**/*.ts'], plugins: { 'rules-as-tests': customRules }, rules: {} }];\nexport default [...base];\n" > "$T_P3/apps/api/eslint.config.mjs"
+  ( cd "$T_P3" && "$RUN_WIRER_TSX" "$WIRER" --path apps/api/eslint.config.mjs --yes >/dev/null 2>&1 ) || true
+  grep -q 'rules-as-tests/no-unsafe-zod-parse' "$T_P3/apps/api/eslint.config.mjs" && ok "P3: R2 wired" || bad "P3: R2 not wired"
+  _lint_pkg P3 "$T_P3"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
