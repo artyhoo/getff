@@ -27,8 +27,8 @@ export -f curl
 # must stay AFTER the 3 cases above.
 
 # Paired-negative (consumer: script absent): source a copy of the lib from a
-# temp root that has NO packages/ tree → state=up must NOT hard-fail; it must
-# name docs/runtime-bridge-setup.md (as the doc that describes the wiring) and return 0.
+# temp root that has NO packages/ tree → state=up must NOT hard-fail and return 0; its
+# NOT-wired line states the fact and names no doc to go and read (Q4.7).
 TMP_NEG=$(mktemp -d)
 mkdir -p "$TMP_NEG/setup.d"
 cp "$REPO_ROOT/setup.d/bridge-guided.sh" "$TMP_NEG/setup.d/"
@@ -37,13 +37,13 @@ curl() { case "$*" in *"/health"*) return 0 ;; *) return 1 ;; esac; }
 export -f curl
 out=$(bridge_guided_run); rc=$?
 [ "$rc" -eq 0 ] && ok "consumer (script absent): state=up returns 0, no hard fail" || bad "consumer (script absent): rc=$rc"
-case "$out" in *"docs/runtime-bridge-setup.md"*) ok "consumer (script absent): output points at docs/runtime-bridge-setup.md" ;; *) bad "consumer (script absent): docs/runtime-bridge-setup.md not named in output: $out" ;; esac
+case "$out" in *".md"*) bad "consumer (script absent): the output points at a doc: $out" ;; *) ok "consumer (script absent): no doc pointer in the output" ;; esac
 case "$out" in *"reachable at"*) ok "consumer (script absent): state=up branch taken (reachable line present)" ;; *) bad "consumer (script absent): state=up branch not taken: $out" ;; esac
 rm -rf "$TMP_NEG"
 
-# Positive (framework repo: script present): separate temp root WITH a stubbed
-# packages/runtime-bridge/scripts/setup-runtime-bridge.sh → must execute it by
-# absolute path (cwd-independent).
+# Positive (framework repo: script present, and the project being set up IS that repo): a
+# temp root WITH a stubbed packages/runtime-bridge/scripts/setup-runtime-bridge.sh → executes it
+# by absolute path. The wizard wires the repository it ships in, so it runs only there.
 TMP_POS=$(mktemp -d)
 mkdir -p "$TMP_POS/setup.d" "$TMP_POS/packages/runtime-bridge/scripts"
 cp "$REPO_ROOT/setup.d/bridge-guided.sh" "$TMP_POS/setup.d/"
@@ -51,10 +51,19 @@ echo 'echo "STUB-BRIDGE-SETUP-RAN"' > "$TMP_POS/packages/runtime-bridge/scripts/
 BRIDGE_LIB_ONLY=1 source "$TMP_POS/setup.d/bridge-guided.sh"
 curl() { case "$*" in *"/health"*) return 0 ;; *) return 1 ;; esac; }
 export -f curl
-out=$(cd /tmp && bridge_guided_run); rc=$?
+out=$(cd "$TMP_POS" && bridge_guided_run); rc=$?
 [ "$rc" -eq 0 ] && ok "framework (script present): state=up returns 0" || bad "framework (script present): rc=$rc"
-case "$out" in *"STUB-BRIDGE-SETUP-RAN"*) ok "framework (script present): setup-runtime-bridge.sh executed via absolute path (cwd=/tmp)" ;; *) bad "framework (script present): stub not executed: $out" ;; esac
-rm -rf "$TMP_POS"
+case "$out" in *"STUB-BRIDGE-SETUP-RAN"*) ok "framework (script present): setup-runtime-bridge.sh executed when the project is the getff repository" ;; *) bad "framework (script present): stub not executed: $out" ;; esac
+# Negative (the npm package, or a getff clone used as the installer): the script ships next to
+# the lib, but the project being set up is somewhere else. Run there, the wizard would write the
+# hook and settings.json into the package and print its paste-it-yourself steps, so it must not
+# run; the gap is a NOT-wired fact.
+TMP_CONS=$(mktemp -d)
+out=$(cd "$TMP_CONS" && bridge_guided_run); rc=$?
+[ "$rc" -eq 0 ] && ok "installed package (project elsewhere): state=up returns 0" || bad "installed package (project elsewhere): rc=$rc"
+case "$out" in *"STUB-BRIDGE-SETUP-RAN"*) bad "installed package (project elsewhere): the wizard ran against the package, not the project: $out" ;; *) ok "installed package (project elsewhere): the wizard does not run" ;; esac
+case "$out" in *"NOT wired"*"setup-runtime-bridge.sh"*"wires only the getff repository"*) ok "installed package (project elsewhere): a NOT-wired fact names why" ;; *) bad "installed package (project elsewhere): no NOT-wired fact: $out" ;; esac
+rm -rf "$TMP_POS" "$TMP_CONS"
 
 # --- Suite/runtime cross-layer warning (owner GO 2026-07-11) ---
 # Run against a temp-root COPY with a stubbed setup-runtime-bridge.sh (TMP_POS pattern above)
@@ -142,12 +151,14 @@ unset -f docker
 TMP_NATIVE=$(mktemp -d); printf '#!/bin/sh\nexit 0\n' > "$TMP_NATIVE/aif-handoff"; chmod +x "$TMP_NATIVE/aif-handoff"
 q47 native "CLI is installed but does not answer" "$TMP_NATIVE"
 q47 absent "no docker and no aif-handoff CLI" /nonexistent-getff-probe
+case "$(cat "$QLOG")" in *".md"*) bad "Q4.7 absent: the NOT-wired line points at a doc: $(grep -F '.md' "$QLOG" | head -1)" ;; *) ok "Q4.7 absent: no doc pointer" ;; esac
 rm -rf "$TMP_NATIVE"
 # consumer checkout, aif-handoff up, no setup-runtime-bridge.sh → a NOT-wired line, no «manual setup»
 TMP_Q=$(mktemp -d); mkdir -p "$TMP_Q/setup.d"; cp "$REPO_ROOT/setup.d/bridge-guided.sh" "$TMP_Q/setup.d/"
 BRIDGE_LIB_ONLY=1 source "$TMP_Q/setup.d/bridge-guided.sh"
 curl() { case "$*" in *"/health"*) return 0 ;; *) return 1 ;; esac; }; export -f curl
-q47 consumer-up "setup-runtime-bridge\.sh.*not part of this install"
+q47 consumer-up "setup-runtime-bridge\.sh.*wires only the getff repository"
+case "$(cat "$QLOG")" in *".md"*) bad "Q4.7 consumer-up: the NOT-wired line points at a doc: $(grep -F '.md' "$QLOG" | head -1)" ;; *) ok "Q4.7 consumer-up: no doc pointer" ;; esac
 # without the engine (the lib sourced alone) the same fact is printed in place
 out=$(bridge_guided_run); printf '%s\n' "$out" > "$QLOG"
 case "$out" in *"NOT wired"*"setup-runtime-bridge.sh"*) ok "Q4.7 consumer-up (no engine): the NOT-wired fact is printed in place" ;; *) bad "Q4.7 consumer-up (no engine): no in-place NOT-wired line: $out" ;; esac

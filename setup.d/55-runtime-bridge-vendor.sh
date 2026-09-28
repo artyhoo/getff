@@ -39,13 +39,13 @@
 #                        install.sh:602-603).
 #
 # Coordination with setup-runtime-bridge.sh (idempotent, not duplicate):
-#   - setup-runtime-bridge.sh is FRAMEWORK-ONLY (lives at
-#     packages/runtime-bridge/scripts/, which the consumer does NOT receive via
-#     install.sh). When the consumer's setup.d/bridge-guided.sh runs and
-#     aif-handoff is reachable, it looks for that script at
-#     $root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh; absent in a
-#     consumer install, it records a NOT-wired line naming the missing script
-#     (bridge-guided.sh:74-78).
+#   - setup-runtime-bridge.sh wires the repository it ships in (it lives at
+#     packages/runtime-bridge/scripts/, which install.sh does NOT copy into the
+#     consumer). When ./setup's bridge-guided step runs and aif-handoff is
+#     reachable, bridge-guided.sh runs that script only when its own root is the
+#     project being set up (the getff repository itself); from the npm package
+#     or a getff clone used as the installer it records a NOT-wired fact instead
+#     (bridge_guided_run's state=up arm).
 #   - This layer 55 runs at INSTALL time; setup-runtime-bridge.sh runs at
 #     RUNTIME (post-install, when the consumer invokes ./setup's bridge-guided
 #     step OR sources bridge-guided.sh and aif-handoff answers /health).
@@ -129,4 +129,4 @@ fi
 # (Q4.7, 2026-09-28); ./setup's runtime-bridge step is where a found instance gets wired.
 echo "  ✓ .claude/vendor/runtime-bridge/ (vendored COPY per spec A7; P1-P5 parked)"
 echo "  ✓ .claude/hooks/runtime-bridge-dispatch.sh (PostToolUse dispatch hook)"
-note_not_wired "runtime-bridge dispatch hook — delivered to .claude/hooks/ but not registered in .claude/settings.json: it reports to an aif-handoff instance (RUNTIME_BRIDGE_AIF_URL, RUNTIME_BRIDGE_AIF_PROJECT_ID) that this install does not know; .claude/vendor/runtime-bridge/README.md describes the wiring"
+note_not_wired "runtime-bridge dispatch hook — delivered to .claude/hooks/ but not registered in .claude/settings.json: it reports to an aif-handoff instance (RUNTIME_BRIDGE_AIF_URL, RUNTIME_BRIDGE_AIF_PROJECT_ID) that this install does not know"

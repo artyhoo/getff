@@ -38,20 +38,23 @@ _bridge_not_wired() {
 }
 
 # Flow: diagnose → wire when aif-handoff answers → otherwise report what is not wired and why.
-# (Calls setup-runtime-bridge.sh for the our-side env/hook/settings.json writes.)
+# The wiring (env, hook, settings.json) is setup-runtime-bridge.sh, an interactive wizard that
+# wires the repository it ships in. It runs only when that repository is the project being set
+# up (the getff repository setting itself up); an installed getff (the npm package, or a getff
+# clone used as the installer) records a NOT-wired fact instead, and its wizard never runs.
 bridge_guided_run() {
   local url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   local state; state=$(bridge_diagnose "$url")
   case "$state" in
     up)      printf '  ✓ aif-handoff reachable at %s\n' "$url" ;;
     docker)  printf '  aif-handoff not responding at %s; docker is available.\n' "$url"
-             _bridge_not_wired "not wired: aif-handoff does not answer at $url; docker is available, but getff does not start aif-handoff from a checkout it did not make" ;;
+             _bridge_not_wired "not wired: aif-handoff does not answer at $url; docker is available, but getff does not start aif-handoff" ;;
     native)  printf '  aif-handoff CLI present but not responding at %s.\n' "$url"
              _bridge_not_wired "not wired: the aif-handoff CLI is installed but does not answer at $url, and getff does not start a service it did not install" ;;
     docker-down) printf '  aif-handoff not responding at %s; the docker daemon is not running.\n' "$url"
              _bridge_not_wired "not wired: aif-handoff does not answer at $url, and the docker daemon is not running — getff does not start the docker daemon" ;;
     absent)  printf '  aif-handoff not detected (no docker, no CLI).\n'
-             _bridge_not_wired "not wired: this machine has no docker and no aif-handoff CLI, so there is no aif-handoff to wire to; docs/runtime-bridge-setup.md describes the runtime" ;;
+             _bridge_not_wired "not wired: this machine has no docker and no aif-handoff CLI, so there is no aif-handoff to wire to" ;;
   esac
   # Cross-layer warning (owner GO 2026-07-11): the AIF operator suite (--profile factory, or
   # the legacy --with-aif-suite/--all escape) presupposes this runtime — files landed but no
@@ -66,15 +69,19 @@ bridge_guided_run() {
   # our-side writes are delegated to the existing, tested script:
   if [ "$state" = "up" ]; then
     # Lib is sourced (from ./setup and from tests) → $0 is the caller, not this
-    # file. Resolve the framework/consumer root via BASH_SOURCE: this lib lives
-    # in setup.d/, so its parent dir is the root. Keeps the call cwd-independent.
-    local root; root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    if [ -f "$root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh" ]; then
+    # file. Resolve the root via BASH_SOURCE: this lib lives in setup.d/, so its
+    # parent dir is the root. The project being set up is the working directory
+    # (install.sh's PROJECT_ROOT is $(pwd)); -P on both so a symlinked path matches.
+    local root proj
+    root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+    proj="$(pwd -P)"
+    if [ "$root" = "$proj" ] && [ -f "$root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh" ]; then
       bash "$root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh"
     else
-      # Consumer install: the script ships with the framework repo, not with
-      # install.sh payload. A NOT-wired fact, not a failure (dual-impl §3, Q4.7).
-      _bridge_not_wired "not wired: aif-handoff answers at $url, but the wiring script (setup-runtime-bridge.sh) ships with the getff repository and is not part of this install; docs/runtime-bridge-setup.md describes the wiring"
+      # An installed getff: the wizard would write the hook and settings.json into the
+      # package, not this project, and print steps for the reader to paste. A NOT-wired
+      # fact, not a failure (dual-impl §3, Q4.7).
+      _bridge_not_wired "not wired: aif-handoff answers at $url, but getff's bridge setup (setup-runtime-bridge.sh) wires only the getff repository it ships in, and this project is not that repository"
       return 0
     fi
   fi

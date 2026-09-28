@@ -461,6 +461,7 @@ done <<'LINES'
   Install docker, then re-run with --profile factory for guided install.
   aif-handoff not detected (no docker, no CLI). See docs/runtime-bridge-setup.md for install.
   setup-runtime-bridge.sh not present in this checkout (consumer install) — see docs/runtime-bridge-setup.md for manual setup.
+  … and is not part of this install; docs/runtime-bridge-setup.md describes the wiring
   MANUAL: add this line under your sgconfig.yml 'ruleDirs:' list:
   Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it — inert until you opt in).
   The rule files are already installed at .getff/astgrep-rules/ (ready once you add the entry).
@@ -483,7 +484,7 @@ done <<'LINES'
   ⊝ .eslintrc.json (exists — skipping)
   - aif-handoff — not installed: the guided install runs it in docker, and this machine has no docker and no aif-handoff CLI, and getff installs neither
   - aif-handoff — not installed: the guided install runs it in docker, and the docker daemon is not running — getff does not start the docker daemon
-  - runtime-bridge — not wired: aif-handoff answers at http://localhost:3009, but the wiring script (setup-runtime-bridge.sh) ships with the getff repository and is not part of this install; docs/runtime-bridge-setup.md describes the wiring
+  - runtime-bridge — not wired: aif-handoff answers at http://localhost:3009, but getff's bridge setup (setup-runtime-bridge.sh) wires only the getff repository it ships in, and this project is not that repository
   - firing self-check (golangci-lint): not proven — go is not on PATH, so the delivered config was not run against a planted violation
   - clippy bans as build errors on a local build: not wired — the [lints.clippy] table is in .getff/Cargo.lints.toml, and getff does not edit your Cargo.toml; the getff CI workflow runs clippy with -D on the same lint families
   - CI: the getff clippy gate is not in CI — .github/workflows/getff-cargo.yml is your own workflow, and getff does not change a workflow it did not write
