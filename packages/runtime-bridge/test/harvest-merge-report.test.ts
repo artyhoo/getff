@@ -563,6 +563,13 @@ describe('ghRead — a gh READ survives a flaky tunnel', () => {
     expect(execMock).toHaveBeenCalledTimes(4);
   });
 
+  it('reads with a buffer far above the 1 MiB default (the merged-PR index is >1 MB)', () => {
+    execMock.mockReturnValueOnce('ok\n');
+    ghRead(['pr', 'list']);
+    const opts = execMock.mock.calls[0]?.[2] as { maxBuffer?: number } | undefined;
+    expect(opts?.maxBuffer ?? 0).toBeGreaterThanOrEqual(16 * 1024 * 1024);
+  });
+
   it('a non-network failure (bad auth, unknown PR) is thrown at once, never repeated', () => {
     process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] = '0';
     execMock.mockImplementation(() => {
