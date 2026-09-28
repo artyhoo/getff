@@ -115,7 +115,7 @@ distribution rather than the project settings file.
   maintainer-only inject-session-bootstrap.sh — it emits ONLY the language signal (never
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
-  `.claude/hooks/inject-session-bootstrap.sh:114-122`.
+  `.claude/hooks/inject-session-bootstrap.sh:120-128`.
 - Registration is plugin-channel only: `plugin/hooks/hooks.json:16` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
   UserPromptSubmit, and no settings.json registration exists (measured:

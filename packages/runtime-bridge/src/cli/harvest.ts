@@ -632,11 +632,38 @@ export interface PrMergeState {
   body?: string | null;
 }
 
+/**
+ * Network failures a `gh` READ is worth repeating for: Go net/http as gh prints it. Measured
+ * 2026-09-28 on the operator's Mac: through the VPN tunnel the TLS handshake to api.github.com
+ * took 2-8 s and 4 of 6 consecutive `gh api graphql` calls timed out, so a sweep making one
+ * `gh` call per task almost never finished in one piece.
+ */
+const GH_TRANSIENT_RE =
+  /TLS handshake timeout|i\/o timeout|unexpected EOF|connection reset|connection refused|no such host|Could not resolve host/i;
+
+/**
+ * `gh <args>` for a READ, repeated on a transient network failure (4 attempts, 3 s then 6 s then
+ * 12 s apart; `RUNTIME_BRIDGE_GH_RETRY_BASE_MS` overrides the 3 s). Only for idempotent reads —
+ * never a write such as `gh pr merge`. Any other failure is thrown at once.
+ */
+export function ghRead(args: string[]): string {
+  const base = Number(process.env['RUNTIME_BRIDGE_GH_RETRY_BASE_MS'] ?? 3000);
+  const attempts = 4;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      const text = `${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`;
+      if (attempt >= attempts || !GH_TRANSIENT_RE.test(text)) throw err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, base * 2 ** (attempt - 1));
+    }
+  }
+}
+
 /** The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`. */
 export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
-  const out = execFileSync('gh', ['pr', 'view', prUrl, '--json', 'state,mergedAt,mergeCommit,headRefName,body'], {
-    encoding: 'utf8',
-  });
+  const out = ghRead(['pr', 'view', prUrl, '--json', 'state,mergedAt,mergeCommit,headRefName,body']);
   const parsed = JSON.parse(out) as {
     state?: string;
     mergedAt?: string | null;
@@ -948,11 +975,7 @@ export function ghMergedPrLookup(repo: string): PrLookup {
   return async (task) => {
     const list = (args: string[]): MergedPr[] =>
       JSON.parse(
-        execFileSync(
-          'gh',
-          ['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', ...args, '--json', 'url,body,headRefName'],
-          { encoding: 'utf8' },
-        ),
+        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', ...args, '--json', 'url,body,headRefName']),
       ) as MergedPr[];
     const found = new Map<string, MergedPr>();
     for (const pr of list(['--search', `"${taskMarker(task.id)}" in:body`])) found.set(pr.url, pr);
@@ -961,11 +984,36 @@ export function ghMergedPrLookup(repo: string): PrLookup {
   };
 }
 
+/**
+ * The sweep's lookup: ONE `gh` search for every merged PR carrying an aif-task marker, fetched on
+ * the first task and matched in memory for the rest; a per-task `--head` search runs only for a
+ * task with a persisted `branchName`. {@link ghMergedPrLookup} costs one GitHub search per task,
+ * and a project sweep visits every done/review task — 241 of them on 2026-09-28, almost none with
+ * a marker, so a tick spent 10-30 min on searches that found nothing and hit the 600 s watchdog.
+ * `limit` caps the marker index (newest first); a PR older than that has long been swept.
+ */
+export function ghMergedPrIndexLookup(repo: string, limit = 1000): PrLookup {
+  const json = 'url,body,headRefName';
+  let index: MergedPr[] | undefined;
+  return async (task) => {
+    index ??= JSON.parse(
+      ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', String(limit), '--search', '"aif-task:" in:body', '--json', json]),
+    ) as MergedPr[];
+    const found = new Map<string, MergedPr>();
+    for (const pr of index) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    if (task.branchName) {
+      const onBranch = JSON.parse(
+        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', '--head', task.branchName, '--json', json]),
+      ) as MergedPr[];
+      for (const pr of onBranch) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
+    }
+    return [...found.values()];
+  };
+}
+
 /** The GitHub repo of the cwd's checkout (`gh repo view`), for a sweep given no `--repo`. */
 export function cwdRepo(): string {
-  return execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], {
-    encoding: 'utf8',
-  }).trim();
+  return ghRead(['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner']).trim();
 }
 
 /** One task's outcome in a {@link closeMergedTasks} sweep. */
@@ -1077,7 +1125,7 @@ async function main(): Promise<void> {
       const entries = await closeMergedTasks(
         baseUrl,
         { projectId: parsed.project, taskId: parsed.taskId },
-        ghMergedPrLookup(repo),
+        ghMergedPrIndexLookup(repo),
       );
       process.stdout.write(JSON.stringify({ ok: true, repo, closeMerged: entries }) + '\n');
       process.exit(0);
@@ -1152,7 +1200,7 @@ async function main(): Promise<void> {
     // Body: prefer an explicit --body-file (the §1.7-compliant text the orchestrator
     // prepared); else a minimal pointer body. Harvest does not invent §1.7 substance.
     // Every body carries the aif-task marker line: it is how the return channel maps the
-    // merged PR back to this task (ghMergedPrLookup).
+    // merged PR back to this task (ghMergedPrIndexLookup / ghMergedPrLookup).
     const body = withTaskMarker(args.bodyFile
       ? readFileSync(args.bodyFile, 'utf8')
       : `Harvested by runtime-bridge from aif task \`${args.taskId}\` (branch \`${task.branchName ?? '?'}\`).\n\n` +
