@@ -155,7 +155,7 @@ _Operator says_: «под любой стек».
 generate — every rule has an executable check and a firing test, no test is a tautology, documents
 lie, and rules come from researching the stack's current docs. Everything else, rules and tests
 alike, is generated from them by research on the project's stack. Only the core ships as fixed
-content; a shipped rule that is not core is a preset. Not the `packages/core/` directory and not
+content; no ready-made rule set ships beside it. Not the `packages/core/` directory and not
 the `--profile core` install depth. Owner: the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) R6-1.
 
 _Operator says_: «ядро», «едро», «ядром проекта», «основные принципы».
@@ -163,8 +163,9 @@ _Operator says_: «ядро», «едро», «ядром проекта», «о
 ## Recursive self-application
 
 **Recursive self-application**: getff uses on itself everything it installs for its consumers —
-the rules and tests for docs, for AI and for code, the architecture rules and the passport. Wider
-than the older sense, «the framework's own audits stay green». Owner: the
+the rules and tests for docs, for AI and for code, the architecture rules and the passport — and
+what works in getff works for its consumers too. Wider than the older sense, «the framework's own
+audits stay green». Owner: the
 [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) P16 and R6-6.
 
 _Operator says_: «рекурсивное самоприменение», «Рекурсивное самоприменения», «рекурсивных самоприменений», «рекурсивно на самом себе».
