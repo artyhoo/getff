@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# r2-auto-wire.test.sh — GH #547 Point 2 C2/C3 end-to-end. Fixtures A–E + self-probe. Each arm
+# r2-auto-wire.test.sh — GH #547 Point 2 C2/C3 end-to-end. Fixtures A–F + self-probe. Each arm
 # asserts install rc=0 (a mid-install crash must never false-green — lesson GH #531/#544).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -113,6 +113,14 @@ grep -q 'R2 auto-wire' "$F/.install.log" || bad "F: the R2 auto-wire never ran �
 ! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$F/.install.log" \
   && ok "F: a config with no boundary array → no «added N glob(s)» claim" \
   || bad "F: the install claimed it added globs to a config that has no RULE_GLOBS.boundary array"
+# The react-native preset ships no R2 and its config no RULE_GLOBS block, so there is nothing to
+# widen: a per-glob «could not add» warning and «widen RULE_GLOBS.boundary by hand» are wrong advice.
+! grep -qE 'could not add glob|widen RULE_GLOBS.boundary by hand' "$F/.install.log" \
+  && ok "F: no «could not add glob» / «widen RULE_GLOBS.boundary by hand» advice for a config with no RULE_GLOBS block" \
+  || bad "F: the install told the consumer to widen a RULE_GLOBS.boundary their stack's config does not have"
+grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
+  && ok "F: the install says why R2 is not wired (this stack's config has no RULE_GLOBS block)" \
+  || bad "F: no line saying the stack's config has no RULE_GLOBS block"
 
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )

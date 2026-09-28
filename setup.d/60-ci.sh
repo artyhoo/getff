@@ -55,9 +55,15 @@ elif [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
       # — operator decision 2026-09-23: skip + report, never overwrite or merge a consumer's tool
       # config — so the boundary is reported as not wired instead of written into their file.
       _r2_own_cfg=0
+      _r2_no_slot=0
       if ! getff_delivered "$PROJECT_ROOT/eslint.config.mjs"; then
         _r2_own_cfg=1
         _r2_out=""   # no glob lines → the patch loop below writes nothing
+      elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
+        # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
+        # ships no R2) — there is no boundary array to widen, so no per-glob warning either.
+        _r2_no_slot=1
+        _r2_out=""
       fi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
@@ -86,6 +92,8 @@ EOF
       if [ "$_r2_own_cfg" = "1" ]; then
         echo "  · HTTP boundary detected, but eslint.config.mjs is your own config (the install kept it) — R2 was NOT wired into it"
         note_not_wired "R2 (no-unsafe-zod-parse) on your HTTP boundary — eslint.config.mjs is your own config, and the install never merges into a consumer's tool config; add getff's RULE_GLOBS block and the rule by hand if you want it"
+      elif [ "$_r2_no_slot" = "1" ]; then
+        echo "  · HTTP boundary detected, but this stack's eslint.config.mjs has no RULE_GLOBS block — its preset ships no R2, so there is nothing to widen"
       elif [ "$_patched" -gt 0 ]; then
         echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
       elif [ "$_r2_glob_failed" -gt 0 ]; then
