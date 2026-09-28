@@ -236,7 +236,7 @@ tested). Its *execution* is a command the orchestrator runs, not yet a gate — 
   gate or its runner: e.g. `.github/workflows/guard-liveness-fullsweep.yml:31` («measured
   **locally**», enforced on a GitHub runner), `packages/core/hooks/done-md-completion-filter.test.ts:64`
   («observed 14-51s» justifying a 30s budget — the evidence exceeds the budget it supports),
-  `.husky/pre-push:25` and its shipped consumer twin `packages/core/templates/shared/husky-pre-push.sh:34`
+  `.husky/pre-push:25` and its shipped consumer twin `packages/core/templates/shared/husky-pre-push.sh:34` <!-- cite:historical the consumer twin lost its tsx probe and this ~130ms claim when it moved to the prebuilt hook bundle, 2026-09-28 -->
   («~130ms/push», no machine). Closing that population is a **separate** change, deliberately not
   bundled here (one concern per PR); the shape to enforce is already demonstrated by the reference
   instance at `packages/core/principles/11-build-first-reuse-default.test.ts:795-803`, which names
