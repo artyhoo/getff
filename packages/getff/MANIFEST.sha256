@@ -1089,7 +1089,7 @@ d6ad69e14127a47b7feac493b57a1b63c4484da66e63231495722ff7dc3a566f  setup.d/55-run
 6f86fd196747973d819b7c342c7317fe541a851fab869ab40fc8679e84b6d8f3  setup.d/70-deps.sh
 005ac47e087f7c825b81004801cc9cef98cd0db7426857bdc52ef138bec002cb  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
-42c128a4918ba3193f0b2bc7c6471fb51923e29b38b864ff45c72675be725b40  setup.d/99-finalize.sh
+cfbb894aaaeee6cd47c7bfafb549fe42b6d22146cca02a9ef67e22ca2bc05bab  setup.d/99-finalize.sh
 74655433d82a7a1774662e249eb9a046b890880d32421fe18190cc674be21ffc  setup.d/LAYERS.md
 32f6a7795e5fd4cce0df9491d2d5833125dba035e1f755f8fdf797c66d4c52a0  setup.d/aif-handoff-guided-install.sh
 4597b8afc2ab9b7a39a093c9ccc58f4f1f3c632f1b40f160cce3955cf6c6cd1c  setup.d/bridge-guided.sh
