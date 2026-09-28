@@ -26,7 +26,7 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import path, { basename, dirname, join, relative, resolve, win32, type PlatformPath } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
@@ -69,15 +69,44 @@ function r2Element(variant: TransformVariant, scope?: { files: string[] }): stri
 }
 
 /**
+ * One spelling per directory, so `relative` between a --path-derived dir and cwd never walks out of
+ * the project: process.cwd() is the physical directory while install.sh passes --path under its
+ * logical `pwd` (macOS /var → /private/var, a symlinked Linux workspace, a Windows junction or 8.3
+ * short name like C:\Users\RUNNER~1). `.native` because only it expands 8.3 names on Windows; the JS
+ * realpathSync resolves links but keeps a short name. A path that does not exist yet is its nearest
+ * existing ancestor, resolved, plus the rest, so both sides still share one spelling. (A `subst`
+ * drive is resolved to its target too, where Node's module URL keeps the drive: a specifier that
+ * climbs above such a drive's root would miss. Not a layout the install produces.)
+ */
+function canonicalDir(p: string): string {
+  const abs = resolve(p);
+  try {
+    return realpathSync.native(abs);
+  } catch {
+    const parent = dirname(abs);
+    return parent === abs ? abs : join(canonicalDir(parent), basename(abs));
+  }
+}
+
+/**
+ * The ESM specifier that imports `target` from a module in `fromDir`. A specifier is a URL path, so
+ * it is joined with `/`; with no relative path between them (another Windows drive) it is the file
+ * URL. `p` is the path flavour, so the Windows arm is testable on any platform.
+ */
+export function importSpecifierFrom(fromDir: string, target: string, p: PlatformPath = path): string {
+  const rel = p.relative(fromDir, target);
+  if (p.isAbsolute(rel)) return pathToFileURL(target, { windows: p === win32 }).href;
+  const spec = rel.split(p.sep).join('/');
+  return spec.startsWith('.') ? spec : `./${spec}`;
+}
+
+/**
  * Relative import specifier from a per-package config to the consumer-root
  * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.mjs).
- * Computed per config depth — never hardcoded.
+ * Computed per config depth — never hardcoded — between one spelling of each directory (canonicalDir).
  */
 export function customRulesImportSpecifier(configPath: string, cwd: string): string {
-  const target = resolve(cwd, 'eslint-rules-local/index.mjs');
-  let rel = relative(dirname(resolve(configPath)), target);
-  if (!rel.startsWith('.')) rel = `./${rel}`;
-  return rel;
+  return importSpecifierFrom(canonicalDir(dirname(configPath)), join(canonicalDir(cwd), 'eslint-rules-local', 'index.mjs'));
 }
 
 export interface WireOpts {
@@ -109,14 +138,15 @@ export const R2_NO_ENGINE = 'its AST editor (ts-morph) could not be loaded; a --
  * error text) is folded onto the one line.
  */
 export function r2NotWiredLine(configPath: string, why: string, cwd: string = process.cwd()): string {
-  // Directories resolved on both sides: process.cwd() is the physical directory while --path may run
-  // through a symlink (macOS /var → /private/var), which `relative` renders as a ../ walk out of the
-  // project. The file itself is not resolved: a config that is a symlink is named by its own path.
-  const real = (p: string): string => {
-    try { return realpathSync(p); } catch { return p; }
-  };
-  const file = join(real(dirname(configPath)), basename(configPath));
-  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
+  return `  · not wired: R2 (${R2_RULE_ID}) in ${projectRelative(configPath, cwd)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
+}
+
+/**
+ * `configPath` relative to `cwd` for a message, directories on both sides in one spelling (canonicalDir).
+ * The file itself is not resolved: a config that is a symlink is named by its own path.
+ */
+function projectRelative(configPath: string, cwd: string): string {
+  return relative(canonicalDir(cwd), join(canonicalDir(dirname(configPath)), basename(configPath)));
 }
 
 export function generateDegradedSnippet(configPath: string): string {
@@ -1374,7 +1404,7 @@ export async function wireR2IntoOwnConfig(a: {
   runProbe?: (configPath: string, cwd: string) => Promise<LintProbeResult>;
 }): Promise<string[]> {
   const { configPath, cwd } = a;
-  const rel = relative(cwd, configPath);
+  const rel = projectRelative(configPath, cwd);
   const notWired = (why: string): string => r2NotWiredLine(configPath, why, cwd);
   const boundaryGlobs = [...new Set(a.boundaryGlobs)];
   if (boundaryGlobs.length === 0) return [`· R2: no HTTP boundary found for ${rel} — nothing for R2 to guard, so it is left as it is`];

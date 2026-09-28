@@ -150,7 +150,7 @@ if [ -f "$T/node_modules/ts-morph/package.json" ]; then
     || bad "R2 scoped: files: ['apps/api/**'] block NOT found in apps/api/eslint.config.mjs"
   # NEG: apps/mobile must NOT have an R2 apps/api-scoped block
   ! grep -qF "files: ['apps/api/**']" "$T/apps/mobile/eslint.config.mjs" 2>/dev/null \
-    && ok "neg: apps/mobile does NOT have R2 apps/api-scoped block (R2 is server-only)" \
+    && ok "neg: apps/mobile does NOT have R2 apps/api-scoped block (the react-native preset ships no R2)" \
     || bad "neg: apps/mobile has R2 apps/api-scoped block — R2 incorrectly wired to react-native workspace"
 else
   # ts-morph absent → the pass cannot run. Operator decision Q4.7 (2026-09-28): what it would have
@@ -167,27 +167,38 @@ fi
 
 # §6c the positive half of the arm above, in a real install: a workspace config the consumer owns,
 # with HTTP boundary code under it, and no ts-morph → the NOT wired summary names it with the
-# ts-morph / --full reason. No --force, so 40-configs keeps the consumer's file.
+# ts-morph / --full reason — for a ts-server (apps/api), a react-next (apps/web) and a react-spa
+# (apps/spa) workspace, whose getff presets all carry R2 on boundary code; not for the react-native
+# one (apps/mobile), whose preset ships no R2. No --force, so 40-configs keeps the consumer's files.
 echo ""
 echo "▶ §6c R2 without ts-morph: the consumer's own workspace config with boundary code is a NOT wired line"
 O=$(mktemp -d)
 printf '{ "name": "own-mono", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/package.json"
 printf 'packages:\n  - "apps/*"\n' > "$O/pnpm-workspace.yaml"
-mkdir -p "$O/apps/api/src/routes" "$O/apps/mobile"
+mkdir -p "$O/apps/api/src/routes" "$O/apps/web/app/api/users" "$O/apps/spa/src/api" "$O/apps/mobile/src/routes"
 printf '{ "name": "@own/api", "dependencies": { "hono": "4.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/apps/api/package.json"
+printf '{ "name": "@own/web", "dependencies": { "next": "15.0.0", "react": "19.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/apps/web/package.json"
+printf '{ "name": "@own/spa", "dependencies": { "react": "19.0.0" }, "devDependencies": { "typescript": "5.6.0", "vite": "6.0.0" } }\n' > "$O/apps/spa/package.json"
 printf '{ "name": "@own/mobile", "dependencies": { "expo": "~52.0.0", "react-native": "0.76.0", "react": "18.3.0" } }\n' > "$O/apps/mobile/package.json"
-printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$O/apps/api/eslint.config.mjs"
+for _w in api web spa mobile; do
+  printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$O/apps/$_w/eslint.config.mjs"
+done
 printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$O/apps/api/src/routes/users.ts"
+printf 'export const POST = async (req: Request) => schema.parse(await req.json());\n' > "$O/apps/web/app/api/users/route.ts"
+printf 'export const getUser = async () => schema.parse(await (await fetch("/api/user")).json());\n' > "$O/apps/spa/src/api/client.ts"
+printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$O/apps/mobile/src/routes/users.ts"
 ( cd "$O" && git init -q && bash "$INSTALL_SH" ts-server </dev/null ) > "$O/.install.log" 2>&1 \
   || bad "§6c install rc non-zero (tail: $(tail -3 "$O/.install.log" | tr '\n' '|'))"
 if [ -f "$O/node_modules/ts-morph/package.json" ]; then
   echo "  · SKIP §6c — ts-morph is in the fixture's node_modules, so the pass runs instead"
 else
-  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api/eslint.config.mjs — .*ts-morph.*--full' "$O/.install.log" \
-    && ok "§6c: apps/api (your config, boundary code) is a NOT wired line naming ts-morph and --full" \
-    || bad "§6c: no NOT wired line for apps/api naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
+  for _w in api web spa; do
+    grep -qE "^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/$_w/eslint.config.mjs — .*ts-morph.*--full" "$O/.install.log" \
+      && ok "§6c: apps/$_w (your config, boundary code) is a NOT wired line naming ts-morph and --full" \
+      || bad "§6c: no NOT wired line for apps/$_w naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
+  done
   grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile' "$O/.install.log" \
-    && bad "neg §6c: apps/mobile (react-native) is listed for R2 — R2 is a server rule" \
+    && bad "neg §6c: apps/mobile (react-native) is listed for R2 — its preset ships no R2" \
     || ok "neg §6c: apps/mobile (react-native) is not listed for R2"
 fi
 rm -rf "$O"
