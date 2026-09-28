@@ -111,7 +111,7 @@ session start must never break the session start.
 
 - `.claude/hooks/inject-handoff-on-compact.sh:2` is the header the card's description row
   quotes: `# inject-handoff-on-compact.sh — SessionStart:compact hook — re-injects the model-authored handoff after compaction`.
-- Registration: `.claude/settings.json:218` opens the SessionStart block; line 228 reads
+- Registration: `.claude/settings.json:227` opens the SessionStart block; line 228 reads
   `"matcher": "compact"`; line 232 is the command
   `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh"`. It is the only
   hook registered under the compact matcher.

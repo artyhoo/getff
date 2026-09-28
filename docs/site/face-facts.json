@@ -305,7 +305,7 @@
       "D": {
         "familyName": "hooks",
         "path": "docs/site/reference/D.json",
-        "members": 25
+        "members": 26
       },
       "E": {
         "familyName": "templates",
@@ -353,7 +353,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 287
+      "count": 288
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
