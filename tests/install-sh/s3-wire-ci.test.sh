@@ -2,7 +2,7 @@
 # universalization-fix-s3 Stage P — opt-in `--wire-ci` yq auto-wirer (GH #521).
 #
 # Context. The HYBRID verdict (research-patch 2026-06-14-s3-workflow-merge-adopt-vs-build.md, SSOT
-# #117) has two halves: (BUILD) the broadened, non-destructive CI-orphan WARN + paste-block — already
+# #117) has two halves: (BUILD) the broadened, non-destructive CI-orphan WARN (its paste-block is now NOT-wired lines, Q4.7) — already
 # shipped and covered by r2-glob-reach.test.sh #1; and (REFERENCE) this opt-in `--wire-ci` path, which —
 # only on explicit consent and only if `yq` is present — idempotently appends the missing
 # rule-enforcement gates into the consumer's kept workflow. THIS test covers the REFERENCE half.
@@ -19,7 +19,7 @@
 # Option-B sub-branches only:
 #   • OPT-B DECLINE (load-bearing): yq absent + non-interactive (--wire-ci, stdin </dev/null). Whatever
 #     installer the host has, the SAFE-DEGRADE invariant must hold: nothing installed, workflow BYTE-
-#     IDENTICAL, a 'yq not installed' message + installer/manual guidance + the paste-block, exit 0.
+#     IDENTICAL, a 'yq not installed' message naming the installer not run + NOT-wired gate lines, exit 0.
 #     Self-SKIPs if the host happens to ship yq (the POS arm covers the present path).
 #   • OPT-B OFFER-REACHED (best-effort, fake-snap stub): on a host with no yq and no brew, a stubbed
 #     `snap` on PATH proves Option B ROUTES by name to 'sudo snap install yq' (the stub is only NAMED,
@@ -154,9 +154,10 @@ fi
 # PATH breaks coreutils install.sh needs (macOS `grep`/`sed` resolve through the system toolchain) and
 # would abort install before §6c ever runs, giving a false pass. With the real PATH, exactly one of the
 # three yq-absent sub-branches fires depending on the host (installer detected + non-interactive →
-# "run '<cmd>' then re-run"; OR no brew/snap → "no supported auto-installer"). Either way the SAFE-
+# names the installer it did not run; OR no brew/snap → says neither is on PATH). Either way the SAFE-
 # DEGRADE invariant must hold identically: nothing installed, workflow byte-identical, a yq message +
-# the paste-block surfaced, exit 0. We skip only if the host happens to ship yq (then this is the POS
+# the missing gates as NOT-wired lines with the reason, exit 0 — and, since the operator directive of
+# 2026-09-28 (Q4.7), no paste-block and no «install it manually / then re-run». We skip only if the host happens to ship yq (then this is the POS
 # arm's territory, already covered above).
 if command -v yq >/dev/null 2>&1; then
   echo "  ⊝ SKIP: host ships 'yq' — the yq-ABSENT Option-B branch can't be exercised here (POS arm covers the present path)"
@@ -172,16 +173,19 @@ else
     bad "OPT-B DECLINE: workflow mutated though yq was absent — Option B did not degrade safely"
   fi
   # The yq message is one of the two non-installing sub-branches (installer-found-non-interactive, or
-  # no-installer-found). Both name 'yq' and route the consumer to the paste-block — accept either.
+  # no-installer-found). Both name 'yq' and say why nothing was wired — accept either.
   grep -qiE "'yq' (is )?not installed|yq.*not installed" "$D/log" \
     && ok "OPT-B DECLINE: surfaced a 'yq not installed' message (no silent pass)" \
     || bad "OPT-B DECLINE: no yq-not-installed message emitted"
-  grep -qE "then re-run|no supported auto-installer|brew install yq|snap install yq|install it manually" "$D/log" \
-    && ok "OPT-B DECLINE: directs the consumer to an official installer OR manual install (companion-install-principle §1/§3)" \
-    || bad "OPT-B DECLINE: yq-absent branch gave no installer/manual guidance"
-  grep -q 'CI-orphan' "$D/log" \
-    && ok "OPT-B DECLINE: paste-block / CI-orphan WARN still fired (consumer keeps a manual path)" \
-    || bad "OPT-B DECLINE: paste-block dropped after the yq-absent branch"
+  grep -qE "brew install yq|snap install yq|neither brew nor snap" "$D/log" \
+    && ok "OPT-B DECLINE: names the official installer it did not run, or that none is on PATH (companion-install-principle §1/§3)" \
+    || bad "OPT-B DECLINE: yq-absent branch named neither an installer nor its absence"
+  grep -qiE "then re-run|install it manually|paste-block" "$D/log" \
+    && bad "OPT-B DECLINE: the yq-absent branch still hands back a manual step" \
+    || ok "OPT-B DECLINE: no manual step (Q4.7)"
+  grep -E '^[[:space:]]*- CI gate ' "$D/log" | grep -q 'did not land' \
+    && ok "OPT-B DECLINE: the missing gates are NOT-wired lines saying the yq wiring did not land" \
+    || bad "OPT-B DECLINE: no NOT-wired CI gate line after the yq-absent branch"
 fi
 
 # ── OPT-B OFFER-REACHED (best-effort, fake-installer stub; requires NO real yq install) ──

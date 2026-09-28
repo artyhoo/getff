@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:594-595), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:598-599), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"
@@ -231,8 +231,8 @@ elif command -v jq >/dev/null 2>&1; then
     echo "  ⊝ .claude/hooks/deps-hash-check.sh already registered in settings.json"
   fi
 else
-  echo "  ⚠ jq not found — add manually to .claude/settings.json:"
-  echo "    UserPromptSubmit: [{\"hooks\":[{\"type\":\"command\",\"command\":\"$HOOK_CMD\"}]}]"
+  # No jq: register_cc_hook appends through node, and names a NOT-wired line if it cannot.
+  register_cc_hook "$SETTINGS" "UserPromptSubmit" "$HOOK_CMD" "deps-hash-check"
 fi
 
 # ─── 1c. End-of-turn session-recap Stop hook + lang pack (GH #934) ────────────
@@ -279,8 +279,18 @@ if [ -f "$EOT_SRC" ]; then
       # no-op that prints nothing leaves the operator believing the gate is on when it is not.
       # Same shape as this file's deps-hash-check jq-less branch (:227).
       if ! command -v jq >/dev/null 2>&1; then
-        echo "  ⚠ jq not found — AIF_RECAP_GATE NOT armed; add manually to $SETTINGS:" >&2
-        echo '    "env": { "AIF_RECAP_GATE": "1" }' >&2
+        # No jq: the same env merge through node (lib.sh json_edit_node); rc 3 = already armed.
+        _rg_rc=0
+        json_edit_node "$SETTINGS" '
+          if ((o.env || {}).AIF_RECAP_GATE === "1") return;
+          o.env = Object.assign({}, o.env, { AIF_RECAP_GATE: "1" });
+          return o;' || _rg_rc=$?
+        case "$_rg_rc" in
+          0) echo "  ✓ AIF_RECAP_GATE armed in .claude/settings.json (through node: jq is not on PATH)" ;;
+          3) echo "  AIF_RECAP_GATE already armed" ;;
+          *) echo "  ⚠ AIF_RECAP_GATE NOT armed — $(json_edit_node_why "$SETTINGS")" >&2
+             note_not_wired "AIF_RECAP_GATE in .claude/settings.json — $(json_edit_node_why "$SETTINGS")" ;;
+        esac
       elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
         echo "  AIF_RECAP_GATE already armed"
       else
