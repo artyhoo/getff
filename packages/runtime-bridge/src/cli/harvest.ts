@@ -8,7 +8,7 @@
  *     [--repo-path <path>] [--work-dir <path>] [--host-repo <path>] \
  *     [--confirm-rework] [--confirm-unreported-files] [--confirm-dirty-residue]
  *   tsx <path-to>/harvest.ts <taskId> --report-merge <prUrl>        # close one task, PR given
- *   tsx <path-to>/harvest.ts [<taskId>] --close-merged [--project <id>]  # close every task whose PR merged
+ *   tsx <path-to>/harvest.ts [<taskId>] --close-merged [--project <id>] [--repo <o/r>]  # close every task whose PR merged
  *
  * aif-handoff ends a task at "committed on a local feature branch" — it has no
  * push and no PR-creation in its autonomous path (verified 2026-06-01). This
@@ -222,6 +222,8 @@ interface ParsedArgs {
   closeMerged: boolean;
   /** `--project <id>` (else RUNTIME_BRIDGE_AIF_PROJECT_ID): the aif project a sweep is limited to. */
   project?: string;
+  /** `--repo <owner/repo>`: the GitHub repo a sweep searches (default: the cwd's checkout). */
+  repo?: string;
 }
 
 /**
@@ -250,6 +252,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       'report-merge': { type: 'string' },
       'close-merged': { type: 'boolean' },
       project: { type: 'string' },
+      repo: { type: 'string' },
     },
     maxPositionals: 1,
   });
@@ -269,6 +272,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
     reportMerge: str('report-merge'),
     closeMerged: values['close-merged'] === true,
     project: str('project') ?? process.env['RUNTIME_BRIDGE_AIF_PROJECT_ID'],
+    repo: str('repo'),
   };
 }
 
@@ -622,20 +626,32 @@ export interface PrMergeState {
   merged: boolean;
   mergedAt?: string | null;
   mergeCommit?: string | null;
+  /** The PR's head branch — one of the two ways a PR maps to a task ({@link prMapsToTask}). */
+  headRefName?: string | null;
+  /** The PR body — carries the {@link taskMarker} line, the other mapping. */
+  body?: string | null;
 }
 
-/** The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit`. */
+/** The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`. */
 export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
-  const out = execFileSync('gh', ['pr', 'view', prUrl, '--json', 'state,mergedAt,mergeCommit'], {
+  const out = execFileSync('gh', ['pr', 'view', prUrl, '--json', 'state,mergedAt,mergeCommit,headRefName,body'], {
     encoding: 'utf8',
   });
   const parsed = JSON.parse(out) as {
     state?: string;
     mergedAt?: string | null;
     mergeCommit?: { oid?: string | null } | null;
+    headRefName?: string | null;
+    body?: string | null;
   };
   const mergeCommit = parsed.mergeCommit?.oid ?? null;
-  return { merged: parsed.state === 'MERGED' && !!mergeCommit, mergedAt: parsed.mergedAt ?? null, mergeCommit };
+  return {
+    merged: parsed.state === 'MERGED' && !!mergeCommit,
+    mergedAt: parsed.mergedAt ?? null,
+    mergeCommit,
+    headRefName: parsed.headRefName ?? null,
+    body: parsed.body ?? null,
+  };
 };
 
 /**
@@ -645,6 +661,41 @@ export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
  */
 export function taskMarker(taskId: string): string {
   return `aif-task: ${taskId}`;
+}
+
+/**
+ * True when the PR is this task's harvest: its body carries the exact {@link taskMarker} line, or
+ * its head branch IS the task's persisted `branchName`. A PR that merely mentions the id in prose
+ * (a follow-up, a retro) does not map.
+ */
+export function prMapsToTask(pr: { headRefName?: string | null; body?: string | null }, task: AifTaskFull): boolean {
+  if (task.branchName && pr.headRefName === task.branchName) return true;
+  const marker = taskMarker(task.id);
+  return (pr.body ?? '').split('\n').some((line) => line.trim() === marker);
+}
+
+/** A task as the return channel reads it: the REST shape plus the agent's activity log. */
+type TaskWithActivity = AifTaskFull & { agentActivityLog?: string | null };
+
+/**
+ * When the task's agent last did anything: the latest `[<ISO>]` stamp in `agentActivityLog`
+ * (aif writes one line per agent step). A rework round after a merge (request_changes →
+ * implementing → done on the same branch) writes new lines here, so a PR merged BEFORE this
+ * instant cannot carry the task's current work. Deliberately NOT `updatedAt`: this channel's own
+ * comment bumps it, so a retry after a half-finished run would refuse forever.
+ */
+export function lastAgentActivityAt(task: TaskWithActivity): string | null {
+  let latest: string | null = null;
+  for (const m of (task.agentActivityLog ?? '').matchAll(/^\[(\d{4}-\d{2}-\d{2}T[^\]]+)\]/gm)) {
+    if (latest === null || m[1] > latest) latest = m[1];
+  }
+  return latest;
+}
+
+/** True when `text` names `url` as a whole URL (so `.../pull/18` does not match `.../pull/185`). */
+function namesUrl(text: string, url: string): boolean {
+  const esc = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${esc}(?![\\w/])`).test(text);
 }
 
 /** Append the {@link taskMarker} line to a PR body unless it already carries it. */
@@ -681,6 +732,10 @@ const CLOSED_STATUS = 'verified';
  *   1. The PR must be MERGED with a recorded merge commit ({@link ghPrMergeProbe}). Anything
  *      else writes NOTHING — a close on an unmerged PR would claim work that never shipped.
  *   2. An already-`verified` task is a no-op: no comment, no event (idempotent re-runs).
+ *   2a. The PR must BE this task's harvest ({@link prMapsToTask}: head == task branch, or an exact
+ *      `aif-task: <id>` body line), and it must have merged after the task's last agent activity
+ *      ({@link lastAgentActivityAt}) — else a rework round on the same branch would be closed by
+ *      the earlier merge. Either refusal writes nothing.
  *   3. The comment lands BEFORE any event, so the task carries the evidence even if a
  *      transition is refused — and only once: a comment already naming the PR is not repeated.
  *   4. `review` → `complete_review` (only when participants mode can serve it — see below),
@@ -696,7 +751,8 @@ export async function reportMergeToAif(
   prUrl: string,
   probe: PrMergeProbe = ghPrMergeProbe,
 ): Promise<MergeReport> {
-  const { merged, mergedAt, mergeCommit } = await probe(prUrl);
+  const probed = await probe(prUrl);
+  const { merged, mergedAt, mergeCommit } = probed;
   if (!merged) {
     return {
       taskId,
@@ -710,7 +766,7 @@ export async function reportMergeToAif(
     };
   }
 
-  let task = await getTask(baseUrl, taskId);
+  let task = (await getTask(baseUrl, taskId)) as TaskWithActivity;
   const base = { taskId, prUrl, merged: true, mergeCommit: mergeCommit ?? null };
   if (task.status === CLOSED_STATUS) {
     return {
@@ -723,9 +779,38 @@ export async function reportMergeToAif(
     };
   }
 
-  const comments = (await getJson(baseUrl, `/tasks/${taskId}/comments`)) as AifTaskComment[] | unknown;
-  const alreadyCommented =
-    Array.isArray(comments) && comments.some((c: AifTaskComment) => (c?.message ?? '').includes(prUrl));
+  // Is this PR the task's harvest at all? A wrong-but-merged url (a neighbouring PR of the same
+  // batch) would otherwise close a task whose own work never shipped.
+  const refused = (skippedReason: string): MergeReport => ({
+    ...base,
+    commented: false,
+    closedReview: false,
+    approved: false,
+    finalStatus: task.status,
+    skippedReason,
+  });
+  if (!prMapsToTask(probed, task)) {
+    return refused(
+      `PR does not map to this task: its head is "${probed.headRefName ?? '?'}", not the task branch ` +
+        `"${task.branchName ?? '?'}", and its body has no "${taskMarker(taskId)}" line — nothing written`,
+    );
+  }
+  // Does the merge carry the task's CURRENT work? A rework round after an earlier merge leaves the
+  // same branch and marker behind, so mapping alone would close a rework that never shipped.
+  const lastActivity = lastAgentActivityAt(task);
+  if (!mergedAt || (lastActivity !== null && Date.parse(mergedAt) < Date.parse(lastActivity))) {
+    return refused(
+      `PR merged at ${mergedAt ?? 'unknown time'}, before the task's last agent activity at ` +
+        `${lastActivity ?? '?'} — the merge cannot carry the task's current work (unshipped rework?); nothing written`,
+    );
+  }
+
+  const comments = await getJson(baseUrl, `/tasks/${taskId}/comments`);
+  if (!Array.isArray(comments)) {
+    // An unexpected shape must not read as "no comments": every retry would post a duplicate.
+    throw new Error(`aif GET /tasks/${taskId}/comments did not return an array`);
+  }
+  const alreadyCommented = (comments as AifTaskComment[]).some((c) => namesUrl(c?.message ?? '', prUrl));
   if (!alreadyCommented) {
     await postComment(
       baseUrl,
@@ -756,7 +841,7 @@ export async function reportMergeToAif(
     }
     await postEvent(baseUrl, taskId, 'complete_review');
     closedReview = true;
-    task = await getTask(baseUrl, taskId);
+    task = (await getTask(baseUrl, taskId)) as TaskWithActivity;
   }
 
   if (task.status !== 'done') {
@@ -815,20 +900,29 @@ export type PrLookup = (task: AifTaskFull) => Promise<MergedPr[]>;
  * the exact {@link taskMarker} line or its head IS the task branch — a PR that merely
  * mentions the id in prose (a later follow-up, a retro) is not the task's harvest.
  */
-export const ghMergedPrLookup: PrLookup = async (task) => {
-  const fields = 'url,body,headRefName';
-  const list = (args: string[]): MergedPr[] =>
-    JSON.parse(execFileSync('gh', ['pr', 'list', '--state', 'merged', ...args, '--json', fields], { encoding: 'utf8' })) as MergedPr[];
-  const found = new Map<string, MergedPr>();
-  for (const pr of list(['--search', `${task.id} in:body`])) found.set(pr.url, pr);
-  if (task.branchName) for (const pr of list(['--head', task.branchName])) found.set(pr.url, pr);
-  const marker = taskMarker(task.id);
-  return [...found.values()].filter(
-    (pr) =>
-      (task.branchName && pr.headRefName === task.branchName) ||
-      (pr.body ?? '').split('\n').some((line) => line.trim() === marker),
-  );
-};
+export function ghMergedPrLookup(repo: string): PrLookup {
+  return async (task) => {
+    const list = (args: string[]): MergedPr[] =>
+      JSON.parse(
+        execFileSync(
+          'gh',
+          ['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', ...args, '--json', 'url,body,headRefName'],
+          { encoding: 'utf8' },
+        ),
+      ) as MergedPr[];
+    const found = new Map<string, MergedPr>();
+    for (const pr of list(['--search', `"${taskMarker(task.id)}" in:body`])) found.set(pr.url, pr);
+    if (task.branchName) for (const pr of list(['--head', task.branchName])) found.set(pr.url, pr);
+    return [...found.values()].filter((pr) => prMapsToTask(pr, task));
+  };
+}
+
+/** The GitHub repo of the cwd's checkout (`gh repo view`), for a sweep given no `--repo`. */
+export function cwdRepo(): string {
+  return execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner'], {
+    encoding: 'utf8',
+  }).trim();
+}
 
 /** One task's outcome in a {@link closeMergedTasks} sweep. */
 export interface SweepEntry {
@@ -854,15 +948,20 @@ const SWEEP_STATUSES = new Set(['done', 'review']);
 export async function closeMergedTasks(
   baseUrl: string,
   opts: { projectId?: string; taskId?: string },
-  lookup: PrLookup = ghMergedPrLookup,
+  lookup: PrLookup,
   probe: PrMergeProbe = ghPrMergeProbe,
 ): Promise<SweepEntry[]> {
   let tasks: AifTaskFull[];
   if (opts.taskId) {
     tasks = [await getTask(baseUrl, opts.taskId)];
   } else {
-    const path = opts.projectId ? `/tasks?projectId=${encodeURIComponent(opts.projectId)}` : '/tasks';
-    const res = await getJson(baseUrl, path);
+    // A sweep spans ONE aif project, whose tasks live in ONE GitHub repo. An unscoped sweep would
+    // match every project's tasks against the one repo `lookup` searches — a branch name shared
+    // across repos would then close another project's task.
+    if (!opts.projectId) {
+      throw new Error('--close-merged without a task id needs --project <id> (or RUNTIME_BRIDGE_AIF_PROJECT_ID)');
+    }
+    const res = await getJson(baseUrl, `/tasks?projectId=${encodeURIComponent(opts.projectId)}`);
     tasks = Array.isArray(res) ? (res as AifTaskFull[]) : [];
   }
   const out: SweepEntry[] = [];
@@ -915,8 +1014,13 @@ async function main(): Promise<void> {
   // read back from GitHub — so it runs after ANY merge, however the PR was opened.
   if (parsed.closeMerged) {
     try {
-      const entries = await closeMergedTasks(baseUrl, { projectId: parsed.project, taskId: parsed.taskId });
-      process.stdout.write(JSON.stringify({ ok: true, closeMerged: entries }) + '\n');
+      const repo = parsed.repo ?? cwdRepo();
+      const entries = await closeMergedTasks(
+        baseUrl,
+        { projectId: parsed.project, taskId: parsed.taskId },
+        ghMergedPrLookup(repo),
+      );
+      process.stdout.write(JSON.stringify({ ok: true, repo, closeMerged: entries }) + '\n');
       process.exit(0);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -929,7 +1033,7 @@ async function main(): Promise<void> {
     process.stderr.write(
       '[harvest] usage: harvest.ts <taskId> [--base staging] [--body-file P] [--no-auto-merge] [--host-repo P]\n' +
         '[harvest]        harvest.ts <taskId> --report-merge <prUrl>   (return channel only, no egress)\n' +
-        '[harvest]        harvest.ts [<taskId>] --close-merged [--project <id>]   (close tasks whose PR merged)\n' +
+        '[harvest]        harvest.ts [<taskId>] --close-merged [--project <id>] [--repo o/r]   (close tasks whose PR merged)\n' +
         '[harvest]   egress = Channel A: the container\'s commit is bundled to the HOST and pushed from there\n' +
         '[harvest]   (--host-repo / RUNTIME_BRIDGE_HOST_REPO, default: the cwd\'s checkout) so .husky/pre-push runs.\n',
     );

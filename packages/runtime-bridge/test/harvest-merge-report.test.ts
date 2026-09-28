@@ -21,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 import {
   closeMergedTasks,
   ghMergedPrLookup,
+  lastAgentActivityAt,
   ghPrMergeProbe,
   parseArgs,
   reportMergeToAif,
@@ -41,7 +42,11 @@ interface StubTask {
   status: string;
   branchName?: string;
   executionOwner?: 'ai' | 'human';
+  agentActivityLog?: string;
 }
+
+/** The head branch {@link MERGED} reports; stub tasks default to it so the PR maps to them. */
+const HEAD = 'feature/merged';
 
 interface Call {
   method: string;
@@ -57,9 +62,9 @@ interface Call {
  */
 function stubAif(
   tasks: StubTask[],
-  opts: { participantsMode?: boolean | 'missing' | 401; concurrentApprove?: boolean } = {},
+  opts: { participantsMode?: boolean | 'missing' | 401; concurrentApprove?: boolean; commentsShape?: unknown } = {},
 ) {
-  const store = new Map(tasks.map((t) => [t.id, { ...t }]));
+  const store = new Map(tasks.map((t) => [t.id, { branchName: HEAD, ...t }]));
   const comments = new Map<string, { message: string }[]>();
   const calls: Call[] = [];
   const json = (body: unknown, status = 200) =>
@@ -86,7 +91,7 @@ function stubAif(
     if (!m[2]) return json(task);
     if (m[2] === 'comments') {
       const list = comments.get(task.id) ?? [];
-      if (method === 'GET') return json(list);
+      if (method === 'GET') return json(opts.commentsShape ?? list);
       list.push({ message: String(body?.message) });
       comments.set(task.id, list);
       return json({ ok: true }, 201);
@@ -122,6 +127,8 @@ const MERGED: PrMergeProbe = async () => ({
   merged: true,
   mergedAt: '2026-09-27T23:40:00Z',
   mergeCommit: 'c7b912c232ad5cf276c31b67f9a376a84d3e008d',
+  headRefName: HEAD,
+  body: 'summary',
 });
 const NOT_MERGED: PrMergeProbe = async () => ({ merged: false, mergedAt: null, mergeCommit: null });
 
@@ -210,6 +217,90 @@ describe('reportMergeToAif — merged PR closes the task through the UI Approve 
   });
 });
 
+describe("reportMergeToAif — the PR must be THIS task's current work", () => {
+  it('a merged PR that does not map to the task (other head, no marker) → refuses, NO writes', async () => {
+    const aif = stubAif([{ id: 't-map', title: 'x', status: 'done', branchName: 'feature/t-map' }]);
+    const neighbour: PrMergeProbe = async () => ({
+      ...(await MERGED('u')),
+      headRefName: 'feature/other',
+      body: 'aif task t-map mentioned',
+    });
+
+    const report = await reportMergeToAif(BASE, 't-map', 'https://gh/x/y/pull/11', neighbour);
+
+    expect(aif.writes()).toEqual([]);
+    expect(aif.status('t-map')).toBe('done');
+    expect(report.skippedReason).toMatch(/does not map/);
+  });
+
+  it('the exact aif-task body line maps a PR from any head branch', async () => {
+    const aif = stubAif([{ id: 't-mk', title: 'x', status: 'done', branchName: 'feature/t-mk' }]);
+    const marked: PrMergeProbe = async () => ({
+      ...(await MERGED('u')),
+      headRefName: 'fix/renamed',
+      body: `s\n${taskMarker('t-mk')}\n`,
+    });
+
+    await reportMergeToAif(BASE, 't-mk', 'https://gh/x/y/pull/12', marked);
+
+    expect(aif.status('t-mk')).toBe('verified');
+  });
+
+  it("a merge older than the task's last agent activity (a rework round) → refuses, NO writes", async () => {
+    const aif = stubAif([
+      {
+        id: 't-rw',
+        title: 'x',
+        status: 'done',
+        agentActivityLog:
+          '[2026-09-27T20:00:00.000Z] Agent: implement\n[2026-09-28T01:00:00.000Z] Agent: rework accepted\n',
+      },
+    ]);
+
+    const report = await reportMergeToAif(BASE, 't-rw', 'https://gh/x/y/pull/13', MERGED);
+
+    expect(aif.writes()).toEqual([]);
+    expect(report.skippedReason).toMatch(/before the task's last agent activity at 2026-09-28T01:00:00.000Z/);
+  });
+
+  it('activity that ENDED before the merge does not block the close', async () => {
+    const aif = stubAif([
+      { id: 't-ok', title: 'x', status: 'done', agentActivityLog: '[2026-09-27T23:24:16.712Z] Agent: gate accepted\n' },
+    ]);
+
+    await reportMergeToAif(BASE, 't-ok', 'https://gh/x/y/pull/14', MERGED);
+
+    expect(aif.status('t-ok')).toBe('verified');
+  });
+
+  it('lastAgentActivityAt picks the latest stamp and ignores updatedAt', () => {
+    type T = Parameters<typeof lastAgentActivityAt>[0];
+    const log = '[2026-09-28T01:00:00Z] b\n[2026-09-27T01:00:00Z] a\nno stamp line';
+
+    expect(
+      lastAgentActivityAt({ id: 'x', title: 'x', status: 'done', updatedAt: '2030-01-01T00:00:00Z', agentActivityLog: log } as T),
+    ).toBe('2026-09-28T01:00:00Z');
+    expect(lastAgentActivityAt({ id: 'x', title: 'x', status: 'done' } as T)).toBeNull();
+  });
+
+  it('a comment naming pull/185 is not taken as naming pull/18', async () => {
+    const aif = stubAif([{ id: 't-url', title: 'x', status: 'implementing' }]);
+    await reportMergeToAif(BASE, 't-url', 'https://gh/x/y/pull/185', MERGED);
+    await reportMergeToAif(BASE, 't-url', 'https://gh/x/y/pull/18', MERGED);
+
+    expect(aif.comments('t-url')).toHaveLength(2);
+  });
+
+  it('a comments response that is not an array throws instead of posting a duplicate', async () => {
+    const aif = stubAif([{ id: 't-sh', title: 'x', status: 'done' }], { commentsShape: { items: [] } });
+
+    await expect(reportMergeToAif(BASE, 't-sh', 'https://gh/x/y/pull/15', MERGED)).rejects.toThrow(
+      /did not return an array/,
+    );
+    expect(aif.writes()).toEqual([]);
+  });
+});
+
 describe('reportMergeToAif — the review leg', () => {
   it('participants mode on: complete_review, then approve_done → verified', async () => {
     const aif = stubAif([{ id: 't-rv', title: 'x', status: 'review' }], { participantsMode: true });
@@ -251,7 +342,7 @@ describe('closeMergedTasks — the sweep needs no PR url', () => {
 
   it('closes each done task whose lookup finds exactly one merged PR; leaves the rest', async () => {
     const aif = stubAif([
-      { id: 'a', title: 'a', status: 'done', branchName: 'feature/a' },
+      { id: 'a', title: 'a', status: 'done', branchName: HEAD },
       { id: 'b', title: 'b', status: 'done', branchName: 'feature/b' },
       { id: 'c', title: 'c', status: 'verified', branchName: 'feature/c' },
       { id: 'd', title: 'd', status: 'implementing', branchName: 'feature/d' },
@@ -271,7 +362,7 @@ describe('closeMergedTasks — the sweep needs no PR url', () => {
     const aif = stubAif([{ id: 'amb', title: 'x', status: 'done' }]);
     const entries = await closeMergedTasks(
       BASE,
-      {},
+      { projectId: 'p1' },
       async () => [pr('https://gh/x/y/pull/1'), pr('https://gh/x/y/pull/2')],
       MERGED,
     );
@@ -282,10 +373,22 @@ describe('closeMergedTasks — the sweep needs no PR url', () => {
 
   it('the found PR still has to pass the merge proof', async () => {
     const aif = stubAif([{ id: 'np', title: 'x', status: 'done' }]);
-    const entries = await closeMergedTasks(BASE, {}, async () => [pr('https://gh/x/y/pull/5')], NOT_MERGED);
+    const entries = await closeMergedTasks(
+      BASE,
+      { projectId: 'p1' },
+      async () => [pr('https://gh/x/y/pull/5')],
+      NOT_MERGED,
+    );
 
     expect(aif.writes()).toEqual([]);
     expect(entries[0].report?.merged).toBe(false);
+  });
+
+  it('a whole-list sweep without a project scope is refused before any read', async () => {
+    const aif = stubAif([{ id: 'z', title: 'x', status: 'done' }]);
+
+    await expect(closeMergedTasks(BASE, {}, async () => [], MERGED)).rejects.toThrow(/--project/);
+    expect(aif.calls).toEqual([]);
   });
 
   it('with a task id, sweeps only that task', async () => {
@@ -307,7 +410,13 @@ describe('the gh-backed probe and lookup', () => {
       JSON.stringify({ state: 'MERGED', mergedAt: '2026-09-27T23:40:00Z', mergeCommit: { oid: 'c7b912c2' } }),
     );
     await expect(ghPrMergeProbe('u')).resolves.toMatchObject({ merged: true, mergeCommit: 'c7b912c2' });
-    expect(execMock.mock.calls[0][1]).toEqual(['pr', 'view', 'u', '--json', 'state,mergedAt,mergeCommit']);
+    expect(execMock.mock.calls[0][1]).toEqual([
+      'pr',
+      'view',
+      'u',
+      '--json',
+      'state,mergedAt,mergeCommit,headRefName,body',
+    ]);
   });
 
   it('ghPrMergeProbe: MERGED without a merge commit is NOT proof; OPEN is not merged', async () => {
@@ -328,11 +437,16 @@ describe('the gh-backed probe and lookup', () => {
       )
       .mockReturnValueOnce(JSON.stringify([{ url: 'u-branch', headRefName: 'feature/x-abc', body: '' }]));
 
-    const found = await ghMergedPrLookup(task);
+    const found = await ghMergedPrLookup('artyhoo/getff')(task);
 
     expect(found.map((p) => p.url).sort()).toEqual(['u-branch', 'u-marker']);
-    expect(execMock.mock.calls[0][1]).toContain('abc-123 in:body');
-    expect(execMock.mock.calls[1][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc', '--state', 'merged']));
+    expect(execMock.mock.calls[0][1]).toContain('"aif-task: abc-123" in:body');
+    for (const call of execMock.mock.calls) {
+      expect(call[1]).toEqual(
+        expect.arrayContaining(['--repo', 'artyhoo/getff', '--limit', '100', '--state', 'merged']),
+      );
+    }
+    expect(execMock.mock.calls[1][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc']));
   });
 });
 
@@ -352,7 +466,11 @@ describe('CLI flags', () => {
   });
 
   it('parses --close-merged with and without a task id', () => {
-    expect(parseArgs(['--close-merged', '--project', 'p1'])).toMatchObject({ closeMerged: true, project: 'p1' });
+    expect(parseArgs(['--close-merged', '--project', 'p1', '--repo', 'o/r'])).toMatchObject({
+      closeMerged: true,
+      project: 'p1',
+      repo: 'o/r',
+    });
     expect(parseArgs(['t-1', '--close-merged'])).toMatchObject({ closeMerged: true, taskId: 't-1' });
   });
 

@@ -277,7 +277,7 @@ aif's `/aif-commit` flow for work that is already on the base branch.
 
 ```bash
 # every done/review task whose harvested PR has merged (no url needed)
-tsx packages/runtime-bridge/src/cli/harvest.ts --close-merged [--project <id>]
+tsx packages/runtime-bridge/src/cli/harvest.ts --close-merged --project <id> [--repo <owner/repo>]
 # one task, PR resolved the same way
 tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --close-merged
 # one task, PR given
@@ -285,10 +285,14 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --report-merge <prUrl>
 ```
 
 The PR must read `state: MERGED` with a recorded `mergeCommit` (`gh pr view --json state,mergeCommit`),
-or nothing is written. An already-`verified` task is a no-op. The sweep maps a task to its PR by
-the `aif-task:` line or by the task's own `branchName` as the PR head; zero or several matches are
-reported, never guessed. A `review` task is first moved by `complete_review`, which exists only in
-participants mode.
+or nothing is written. An already-`verified` task is a no-op. The PR must also BE the task's harvest
+— an exact `aif-task: <taskId>` body line, or the task's own `branchName` as the PR head — and must
+have merged after the task's last agent activity (the newest `[<ISO>]` stamp in `agentActivityLog`),
+so an earlier merge never closes a rework round on the same branch; either refusal writes nothing.
+This holds for `--report-merge` too. A whole-list sweep needs `--project` (or
+`RUNTIME_BRIDGE_AIF_PROJECT_ID`) and searches one repo (`--repo`, default the cwd's checkout); zero
+or several matches are reported, never guessed. A `review` task is first moved by `complete_review`,
+which exists only in participants mode.
 
 ---
 
