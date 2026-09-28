@@ -164,6 +164,12 @@ DOWNSTREAM_DOCS=(
   # goal: …»). Vendored by #1420 and never enrolled; found by the first live D5 run
   # on this repo (2026-09-28).
   ".claude/skills/orchestrator/references/worker-template.md"
+  # The docs-site pages for the two prompt hooks print the digest they inject, goal
+  # line included. Their `sources:` frontmatter and the D26 refresh gate do not keep
+  # that line in step — a standing `docs-refresh: deferred` token satisfies the gate —
+  # so they are enrolled and D3 checks the phrase directly.
+  "docs/site/reference/D/inject-session-bootstrap.md"
+  "docs/site/reference/D/inject-subagent-digest.md"
 )
 
 # D3 obligation of a POINTER doc: link the goal's single source instead of restating
@@ -217,6 +223,8 @@ fi
 #   docs/meta-factory/EXECUTION-PLAN.md   — operational planning doc (Incident-3 drift source)
 #   AGENTS.md                             — portable rule index for off-CC harnesses
 #   .claude/skills/orchestrator/references/worker-template.md — goal line of every worker
+#   docs/site/reference/D/inject-session-bootstrap.md — prints the injected digest
+#   docs/site/reference/D/inject-subagent-digest.md    — prints the injected digest
 #
 # SSOT entry: prior-art-evaluations.md#16 (verdict BUILD — no production analog
 # for doc-vs-doc goal-phrase parity check; see 7.1.d context7 sweep).
@@ -295,53 +303,6 @@ fi
 # Incident-4 origin: research-patches/2026-05-11-d3-downstream-docs-completeness.md
 # ────────────────────────────────────────────────────────────────────────
 
-# The frontmatter `sources:` list of a Markdown page, one entry per line. The same
-# line grammar as parseRefreshFrontmatter() in scripts/check-docs-refresh.mjs (the
-# D26 gate the DOCS_SITE_CAPTURE exemption leans on must see the same list); mirrors
-# frontmatterSources() in the .ts implementation. Entries print only once the
-# closing `---` is seen — an unterminated frontmatter has no sources.
-d5_frontmatter_sources() {
-  awk -v q="'" '
-    NR == 1 { if (substr($0, 1, 3) != "---") exit; line = substr($0, 4) }
-    NR > 1  { if (substr($0, 1, 3) == "---") { printf "%s", out; exit }; line = $0 }
-    {
-      if (match(line, /^[ \t]*-[ \t]+/)) {
-        if (in_src) {
-          v = substr(line, RLENGTH + 1)
-          gsub(/^[ \t\r]+|[ \t\r]+$/, "", v)
-          f = substr(v, 1, 1)
-          if (length(v) >= 2 && (f == "\"" || f == q) && substr(v, length(v), 1) == f) {
-            v = substr(v, 2, length(v) - 2)
-          }
-          out = out v "\n"
-        }
-        next
-      }
-      if (match(line, /^[A-Za-z][A-Za-z0-9-]*:/)) {
-        in_src = (substr(line, 1, RLENGTH - 1) == "sources")
-        rest = substr(line, RLENGTH + 1)
-        gsub(/^[ \t\r]+|[ \t\r]+$/, "", rest)
-        if (in_src && rest != "") out = out rest "\n"
-      }
-    }
-  ' "$1" 2>/dev/null
-}
-
-# DOCS_SITE_CAPTURE — a docs-site page that lists an enrolled DOWNSTREAM_DOCS path
-# in its frontmatter `sources:` prints that source's output verbatim, and the D26
-# refresh gate (scripts/check-docs-refresh.mjs, pre-push + CI) fails when a cited
-# source moves and the page does not. Enrolling the page too would track one claim
-# in two places. Content-gated: a docs page that restates the goal without citing an
-# enrolled source stays a finding. Mirrors isDocsSiteCapture() in the .ts.
-d5_is_docs_site_capture() {
-  local src
-  printf '%s\n' "$1" | grep -qE '^docs/site/.+\.mdx?$' || return 1
-  while IFS= read -r src; do
-    if printf '%s\n' "${DOWNSTREAM_DOCS[@]}" | grep -qxF -- "$src"; then return 0; fi
-  done < <(d5_frontmatter_sources "$1")
-  return 1
-}
-
 if skip_unless D5; then : ; else
   RULE="D5 (drift, inverse): every file with canonical phrase is enrolled or exempt"
   if [ "$AUDIT_MODE" = "consumer" ]; then
@@ -362,7 +323,7 @@ if skip_unless D5; then : ; else
     # packages/core/audit-self/audit-ai-docs.ts. inject-session-bootstrap.test.ts
     # is the negative test for the phrase-injection hook — it asserts on the
     # canonical phrase and is test infra, not a downstream doc.
-    D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|packages/core/audit-self/template-render\.audit\.ts|packages/core/hooks/inject-session-bootstrap\.test\.ts)'
+    D5_TEST_INFRA_PATTERNS='(^packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages/core/audit-self/template-render\.audit\.ts|^packages/core/hooks/inject-session-bootstrap\.test\.ts)'
     # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
     # it is the upstream authority, not a downstream consumer requiring drift-tracking.
     D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
@@ -408,7 +369,7 @@ if skip_unless D5; then : ; else
         D5_TOP=$(git rev-parse --show-toplevel 2>/dev/null) || D5_TOP=""
         if [ -n "$D5_TOP" ] && [ "$(cd "$D5_TOP" && pwd -P)" = "$(pwd -P)" ]; then
           git ls-files -z --cached --others --exclude-standard \
-            | xargs -0 grep -lF -e "$CANON_PHRASE" -e "$CANON_ALT" /dev/null 2>/dev/null
+            | xargs -0 grep -lF -e "$CANON_PHRASE" -e "$CANON_ALT" -- /dev/null 2>/dev/null
           [ "${PIPESTATUS[0]}" -eq 0 ] || exit 2
         else
           grep -rlF -e "$CANON_PHRASE" -e "$CANON_ALT" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
@@ -434,8 +395,6 @@ if skip_unless D5; then : ; else
       # Generated plugin twin whose source is separately enrolled?
       if echo "$file" | grep -qE "$D5_GENERATED_TWIN_PATH_PATTERNS" \
         && grep -qF "$D5_GENERATED_TWIN_MARKER" "$file" 2>/dev/null; then continue; fi
-      # Docs-site page that captures an enrolled source?
-      if d5_is_docs_site_capture "$file"; then continue; fi
       # Orphan — coverage gap.
       D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
     done <<< "$D5_FOUND"

@@ -29,7 +29,7 @@
  */
 
 import { existsSync, readdirSync, statSync, readFileSync, realpathSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, relative } from 'node:path';
 import { execFileSync, execSync } from 'node:child_process';
 import { remark } from 'remark';
 import type { Node } from 'unist';
@@ -51,6 +51,12 @@ export const DOWNSTREAM_DOCS: readonly string[] = [
   // goal: …»). Vendored by #1420 and never enrolled; found by the first live D5 run
   // on this repo (2026-09-28).
   '.claude/skills/orchestrator/references/worker-template.md',
+  // The docs-site pages for the two prompt hooks print the digest they inject, goal line
+  // included. Their `sources:` frontmatter and the D26 refresh gate do not keep that line
+  // in step — a standing `docs-refresh: deferred` token satisfies the gate — so they are
+  // enrolled and D3 checks the phrase directly.
+  'docs/site/reference/D/inject-session-bootstrap.md',
+  'docs/site/reference/D/inject-subagent-digest.md',
 ];
 
 /**
@@ -413,57 +419,6 @@ function isGeneratedTwin(cwd: string, file: string): boolean {
   }
 }
 
-/**
- * DOCS_SITE_CAPTURE — a docs-site page (`docs/site/**.md|.mdx`) that lists an enrolled
- * DOWNSTREAM_DOCS path in its frontmatter `sources:`. Such a page prints that source's
- * output verbatim (docs/site/reference/D/inject-session-bootstrap.md runs the prompt hook
- * and shows its digest), and scripts/check-docs-refresh.mjs — the D26 refresh gate, at
- * pre-push and in CI — fails when a cited source moves and the page does not, so a change
- * to the enrolled source reaches the page through that gate. Enrolling the page as well
- * would track one claim in two places, the GENERATED_TWIN reasoning above.
- *
- * Content-gated, not path-gated: a docs page that restates the goal without citing an
- * enrolled source is its own claim and stays a finding. Path-gated to docs/site because
- * that tree is the refresh gate's whole population.
- */
-const D5_DOCS_SITE_PATH_RE = /^docs\/site\/.+\.mdx?$/;
-
-/**
- * The frontmatter `sources:` list of a Markdown page. The same line grammar as
- * parseRefreshFrontmatter() in scripts/check-docs-refresh.mjs — the gate this exemption
- * leans on must see the same list — re-implemented here because this module and its bash
- * twin cannot import a maintainer-only script.
- */
-export function frontmatterSources(markdown: string): string[] {
-  if (!markdown.startsWith('---')) return [];
-  const end = markdown.indexOf('\n---', 3);
-  if (end === -1) return [];
-  const sources: string[] = [];
-  let inSources = false;
-  for (const line of markdown.slice(3, end).split('\n')) {
-    const item = /^\s*-\s+(.*)$/.exec(line);
-    if (item) {
-      if (inSources) sources.push(item[1]!.trim().replace(/^(["'])(.*)\1$/, '$2'));
-      continue;
-    }
-    const key = /^([A-Za-z][A-Za-z0-9-]*):\s*(.*)$/.exec(line);
-    if (!key) continue;
-    inSources = key[1] === 'sources';
-    if (inSources && key[2]!.trim()) sources.push(key[2]!.trim());
-  }
-  return sources;
-}
-
-function isDocsSiteCapture(cwd: string, file: string): boolean {
-  if (!D5_DOCS_SITE_PATH_RE.test(file)) return false;
-  try {
-    return frontmatterSources(readFileSync(resolve(cwd, file), 'utf8'))
-      .some((s) => DOWNSTREAM_DOCS.includes(s));
-  } catch {
-    return false;
-  }
-}
-
 export function probeD5(cwd: string): D5Finding[] {
   // Build the enrollment set from DOWNSTREAM_DOCS
   const enrolled = new Set(DOWNSTREAM_DOCS);
@@ -478,7 +433,6 @@ export function probeD5(cwd: string): D5Finding[] {
     if (D5_ROOT_SOURCE_RE.test(file)) continue;
     if (D5_GITIGNORED_RE.test(file)) continue;
     if (isGeneratedTwin(cwd, file)) continue;
-    if (isDocsSiteCapture(cwd, file)) continue;
     findings.push({
       file,
       reason: `contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption`,
@@ -492,7 +446,7 @@ function filesContainingAny(cwd: string, phrases: readonly string[]): Set<string
   const found = new Set<string>();
   for (const rel of gitView(cwd) ?? walkFiles(cwd)) {
     let content: string;
-    try { content = readFileSync(join(cwd, rel), 'utf8'); } catch { continue; } // deleted, a directory, unreadable
+    try { content = readFileSync(resolve(cwd, rel), 'utf8'); } catch { continue; } // deleted, a directory, unreadable
     if (phrases.some((p) => content.includes(p))) found.add(rel);
   }
   return found;
@@ -569,8 +523,9 @@ function walkFiles(cwd: string): string[] {
       let st;
       try { st = statSync(full); } catch { continue; }
       if (st.isDirectory()) { walk(full); continue; }
-      // Return relative to cwd
-      results.push(full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full);
+      // Relative to cwd whatever its spelling (trailing slash, relative path): the
+      // exemption patterns are anchored at the repo root.
+      results.push(relative(cwd, full));
     }
   }
 
@@ -686,8 +641,18 @@ export function runAudit(cwd: string = process.cwd(), only: string = ''): AuditR
         details: [],
       });
     } else {
-      const d5Findings = probeD5(cwd);
-      if (d5Findings.length === 0) {
+      let d5Findings: D5Finding[] = [];
+      let gitError: string | null = null;
+      try {
+        d5Findings = probeD5(cwd);
+      } catch (err) {
+        // gitView() throws when git fails inside a confirmed work-tree root; report it as
+        // this probe's FAIL, the shape the bash twin prints, not as an uncaught stack.
+        gitError = err instanceof Error ? (err.message.split('\n')[0] ?? '') : String(err);
+      }
+      if (gitError !== null) {
+        results.push({ probe: 'D5', level: 'fail', message: RULE, details: [`git ls-files failed: ${gitError}`] });
+      } else if (d5Findings.length === 0) {
         results.push({ probe: 'D5', level: 'pass', message: RULE, details: [] });
       } else {
         results.push({

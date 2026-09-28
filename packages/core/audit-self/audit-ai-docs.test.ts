@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, utimesSync, statSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -1986,12 +1986,23 @@ describe('probeD5() — regex anchor ^ in exemption patterns (L328-331)', () => 
     // → must NOT be exempt → must appear in findings
     const orphan = findings.find((f) => f.file.includes('other/docs'));
     expect(orphan).toBeDefined();
+    if (!SH_PRESENT) return;
+    markAuthoring(dir);
+    const sh = runSh(dir, 'D5');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain('other/docs/meta-factory/research-patches/x.md: contains canonical phrase');
   });
 
   it('D5_FROZEN_RE: file properly starting with docs/meta-factory/research-patches/ IS exempt (L328 positive)', () => {
     writeFile(dir, 'docs/meta-factory/research-patches/patch.md', `${CANON_PHRASE}\n`);
     const findings = probeD5(dir);
     expect(findings.find((f) => f.file.includes('research-patches'))).toBeUndefined();
+    if (!SH_PRESENT) return;
+    markAuthoring(dir);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    const sh = runSh(dir, 'D5');
+    expect(sh.out).not.toContain('research-patches/patch.md');
+    expect(sh.code).toBe(0);
   });
 
   it('D5_TEST_INFRA_RE: file that does NOT start with packages/core/audit-self/ is NOT exempt (L329 first anchor)', () => {
@@ -2003,6 +2014,11 @@ describe('probeD5() — regex anchor ^ in exemption patterns (L328-331)', () => 
     // Must NOT be exempt (path doesn't start with packages/core/audit-self/)
     const orphan = findings.find((f) => f.file.includes('other/packages'));
     expect(orphan).toBeDefined();
+    if (!SH_PRESENT) return;
+    markAuthoring(dir);
+    const sh = runSh(dir, 'D5');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain('other/packages/core/audit-self/audit-ai-docs.ts: contains canonical phrase');
   });
 
   it('D5_ROOT_SOURCE_RE: file named docs/README.md is NOT exempt (L330 anchor prevents partial match)', () => {
@@ -2802,6 +2818,38 @@ describe("D5 — enumerates git's view of the repo, not the raw filesystem", () 
     expect(sh.out).toContain('git ls-files failed');
   });
 
+  it('FAIL: runAudit reports a git failure inside a confirmed root as a D5 FAIL line, not an uncaught throw', () => {
+    writeFile(dir, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    git(dir, 'add', 'docs/orphan.md');
+    writeFile(dir, '.git/index', 'not an index\n');
+    const report = runAudit(dir, 'D5');
+    expect(report.failCount).toBe(1);
+    expect(report.results[0].details.join('\n')).toContain('git ls-files failed');
+  });
+
+  it('FAIL: a root file whose name starts with a dash is not read as a grep option, so the orphan is still found (sh)', () => {
+    // xargs appends names after the pattern; without `--` a file named `-q` turns grep quiet.
+    writeFile(dir, '-q', 'no phrase here\n');
+    writeFile(dir, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    const both = d5Both(dir);
+    expect(both.ts).toEqual(['docs/orphan.md']);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(1);
+    expect(both.sh.out).toContain('docs/orphan.md: contains canonical phrase');
+  });
+
+  it('FAIL: the walk reports repo-relative paths for a trailing-slash or relative cwd too (ts)', () => {
+    // A nested non-root dir takes the walk path; `cwd + '/'` prefix-stripping left
+    // absolute paths behind, and absolute paths never match the anchored exemptions.
+    writeFile(dir, '.gitignore', '/nested/\n');
+    const nested = join(dir, 'nested');
+    markAuthoring(nested);
+    writeFile(nested, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    writeFile(nested, 'docs/meta-factory/research-patches/p.md', `${CANON_PHRASE}\n`);
+    expect(probeD5(`${nested}/`).map((f) => f.file)).toEqual(['docs/orphan.md']);
+    expect(probeD5(relative(process.cwd(), nested)).map((f) => f.file)).toEqual(['docs/orphan.md']);
+  });
+
   it('an inherited GIT_DIR naming another repository does not redirect the enumeration (ts + sh)', () => {
     // A git hook fired from a linked worktree exports GIT_DIR, and GIT_DIR beats cwd for
     // every git child. The foreign repo excludes `docs/` in its info/exclude: if the probe
@@ -2868,43 +2916,36 @@ describe('D5 — the four tracked findings on getff, each resolved at its cause'
   const capturePage = (sources: string[]): string =>
     ['---', 'title: inject-session-bootstrap hook', 'kind: reference-sheet', 'sources:',
       ...sources.map((s) => `  - ${s}`),
-      'executed:', '  - { example: default-digest, stack: repo, date: 2026-09-25, result: printed }',
+      'docs-refresh: deferred',
       '---', '', '```text', `Goal: ${CANON_PHRASE}. Every rule is an executable artifact.`, '```', ''].join('\n');
 
-  it('PASS (DOCS_SITE_CAPTURE): a docs/site page whose sources: cites an enrolled doc quotes that doc verbatim (ts + sh)', () => {
-    // The page prints the hook's output; scripts/check-docs-refresh.mjs ties it to every
-    // path in `sources:`, so a phrase change in the enrolled hook reaches the page through
-    // the refresh gate. Enrolling the page too would track one claim in two places.
-    writeFile(dir, 'docs/site/reference/D/inject-session-bootstrap.md',
-      capturePage(['.claude/settings.json', '.claude/hooks/inject-session-bootstrap.sh']));
-    writeFile(dir, 'docs/site/reference/D/quoted.mdx',
-      capturePage(['"AGENTS.md"']));
-    const both = d5Both(dir);
-    expect(both.ts).toEqual([]);
-    if (!both.sh) return;
-    expect(both.sh.code).toBe(0);
+  const SITE_PAGES = [
+    'docs/site/reference/D/inject-session-bootstrap.md',
+    'docs/site/reference/D/inject-subagent-digest.md',
+  ];
+
+  it('enrollment: the two docs/site pages that print the hook digest are enrolled, so D3 checks their phrase (ts + sh)', () => {
+    // They quote the enrolled hook's output. `sources:` + the refresh gate do NOT keep
+    // them in step: a standing `docs-refresh: deferred` token satisfies that gate, so a
+    // phrase change in the hook would leave the page stale with every gate green. D3 does not.
+    for (const page of SITE_PAGES) expect(DOWNSTREAM_DOCS).toContain(page);
+    writeGoalDocs(dir, { [SITE_PAGES[1]]: capturePage(['.claude/hooks/inject-subagent-digest.sh']).replace(CANON_PHRASE, 'an older goal wording') });
+    const viols = probeD3(dir);
+    expect(viols).toHaveLength(1);
+    expect(viols[0]).toContain(SITE_PAGES[1]);
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D3');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain(`${SITE_PAGES[1]}: missing canonical goal phrase`);
   });
 
-  it('FAIL (DOCS_SITE_CAPTURE negative): the same page citing no enrolled doc restates the goal on its own — a finding (ts + sh)', () => {
-    writeFile(dir, 'docs/site/guide/why.md', capturePage(['.claude/settings.json', 'docs/site/terms.md']));
+  it('FAIL: a NEW docs/site page quoting the goal is a finding even when its sources: cites an enrolled doc (ts + sh)', () => {
+    // No frontmatter exemption: a page that restates the goal is enrolled or it is drift.
+    writeFile(dir, 'docs/site/reference/D/new-capture.md', capturePage(['.claude/hooks/inject-session-bootstrap.sh']));
     const both = d5Both(dir);
-    expect(both.ts).toEqual(['docs/site/guide/why.md']);
+    expect(both.ts).toEqual(['docs/site/reference/D/new-capture.md']);
     if (!both.sh) return;
     expect(both.sh.code).toBe(1);
-    expect(both.sh.out).toContain('docs/site/guide/why.md: contains canonical phrase');
-  });
-
-  it('FAIL (DOCS_SITE_CAPTURE negative): an enrolled path OUTSIDE frontmatter or OUTSIDE docs/site does not exempt (ts + sh)', () => {
-    // body-only mention of the hook path — not a `sources:` entry
-    writeFile(dir, 'docs/site/guide/body-mention.md',
-      `---\ntitle: x\nsources:\n  - docs/site/terms.md\n---\n\nSee .claude/hooks/inject-session-bootstrap.sh: ${CANON_PHRASE}\n`);
-    // right frontmatter, wrong tree — the refresh gate only reads docs/site pages
-    writeFile(dir, 'docs/guides/capture.md', capturePage(['.claude/hooks/inject-session-bootstrap.sh']));
-    const both = d5Both(dir);
-    expect(both.ts).toEqual(['docs/guides/capture.md', 'docs/site/guide/body-mention.md']);
-    if (!both.sh) return;
-    expect(both.sh.code).toBe(1);
-    expect(both.sh.out).toContain('docs/guides/capture.md: contains canonical phrase');
-    expect(both.sh.out).toContain('docs/site/guide/body-mention.md: contains canonical phrase');
+    expect(both.sh.out).toContain('docs/site/reference/D/new-capture.md: contains canonical phrase');
   });
 });

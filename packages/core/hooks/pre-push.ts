@@ -1028,6 +1028,10 @@ function auditAiDocsSection(): void {
       ['audit-ai-docs.sh', 'bash', ['packages/core/audit-self/audit-ai-docs.sh']],
       ['audit-ai-docs.ts', 'npx', ['tsx', 'packages/core/audit-self/audit-ai-docs.ts']],
     ];
+    // Like the vitest arm above, this audits the WORKING TREE, not the pushed ref: an
+    // untracked, not-ignored file carrying the goal phrase (a merge's `*.orig`) blocks the
+    // push and is named in the output — ignore it or delete it. CI runs the same audit on
+    // the clean checkout of the pushed commit.
     for (const [label, cmd, args] of live) {
       const r = run(cmd, args);
       if (r.notFound) die(`❌ ${cmd} not found — cannot run ${label} live`);

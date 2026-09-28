@@ -1843,6 +1843,30 @@ describe(
       expect(out, out).toMatch(/audit-ai-docs\.sh FAILED on this repo/);
       expect(out, out).toContain('docs/new-goal-copy.md');
     });
+
+    it('audit-ai-docs live NEGATIVE — the .ts arm gates on its own: a bash twin that passes vacuously does not let the orphan through', () => {
+      const { dir, baseSha, hook } = makeConsumerSandbox();
+      plantLiveAuditLayout(dir);
+      // A twin that prints a clean summary and exits 0 whatever the tree holds.
+      writeFileSync(
+        join(dir, 'packages/core/audit-self/audit-ai-docs.sh'),
+        '#!/usr/bin/env bash\necho "Audit complete: 6 PASS, 0 FAIL, 0 WARN"\nexit 0\n',
+      );
+      addConsumerCommit(
+        dir,
+        'docs/new-goal-copy.md',
+        `We exist so ${CANON_PHRASE}.\n`,
+        'docs: restate the goal somewhere new',
+      );
+
+      const r = runSection(dir, hook, baseSha, 'audit-ai-docs');
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(r.status, out).toBe(1);
+      expect(out, out).toMatch(/audit-ai-docs\.sh live: Audit complete: 6 PASS, 0 FAIL/);
+      expect(out, out).toMatch(/audit-ai-docs\.ts FAILED on this repo/);
+      expect(out, out).toContain('docs/new-goal-copy.md');
+    });
   },
 );
 
