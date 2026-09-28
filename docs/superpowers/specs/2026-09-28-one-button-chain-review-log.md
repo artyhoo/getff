@@ -145,11 +145,16 @@ real; the partial ones are the round-2 findings they name.
   the full population (75 principles, every rule and principle test mapped); a cold seat returned
   REVISE (56 findings: security, rule lifecycle, reference integrity, portability, 15 statuses),
   folded in revision 2 (102 principles). Q11: the 600-line markdown gate is dropped; the sourced
-  limits of R6-9 replace it.
+  limits of R6-9 replace it. Round 3b (2026-09-29): Q13 (is the list right) moved to a separate
+  session that walks all 102 principles with the operator in plain words; its results fold back
+  into the inventory. Q14 gave P19 and R6-10 (the base core loads on need, a hybrid; getff's
+  token-economy machinery ships to consumers); its shape stays open. Q15 = yes gave R6-11 (the
+  `getff` skill split). Q10 and Q12 stood on the recommendations: the `machinery` tag (R6-1, R6-6)
+  and the FYI line of R6-8.
 
 ## Rejected alternatives index
 
 Each rejected alternative lives in its spec row: Q1 (the chain in the prompt; the plugin command
 as owner), Q2.1 (a breaking `-y` backstop, reversing S1-4), Q3 (level-2 tooling), R2-Q1, R2-Q1.1,
 R2-P1, R2-Stack, R2-Arch, R2-Guard, R2-OP18, R3-1, R3-2, R4-3, R4-4, R4-5, R4-7, R5-5, R5-12,
-R5-14, R6-2 (A), R6-3 (A), R6-6 (B).
+R5-14, R6-2 (A), R6-3 (A), R6-6 (B), R6-10 (skills only).

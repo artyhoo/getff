@@ -180,3 +180,13 @@ green». Owner: the
 [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) P16 and R6-6.
 
 _Operator says_: «рекурсивное самоприменение», «Рекурсивное самоприменения», «рекурсивных самоприменений», «рекурсивно на самом себе».
+
+## Progressive disclosure
+
+**Progressive disclosure**: an agent's context holds only what the task needs — a small part is
+always loaded, and the rest loads when its trigger fires: a rule when a matching file is read or
+edited, a skill's detail when its task comes up, a hook's text only when it applies. getff built it
+for itself in its token-economy work; for consumers, the base core reaches the agent this way. Owner:
+the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) P19 and R6-10.
+
+_Operator says_: «Прогрессив дискавери», «загружать динамически».
