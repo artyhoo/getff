@@ -159,6 +159,18 @@ not_wired "$WORK/l.log" | grep -q '\.eslintrc\.json' \
   && ok "L: the legacy eslintrc is a NOT-wired line" || bad "L: no NOT-wired line for .eslintrc.json"
 no_manual L "$WORK/l.log"
 
+# ── K: the consumer's own .husky hooks ───────────────────────────────────────────────────────
+K="$WORK/own-husky"; project "$K"; mkdir -p "$K/.husky"
+for _h in pre-commit pre-push; do printf '#!/bin/sh\necho own-%s\n' "$_h" > "$K/.husky/$_h"; done
+install_into "$K" "$WORK/k.log" ts-server
+for _h in pre-commit pre-push; do
+  grep -q "own-$_h" "$K/.husky/$_h" && ok "K: the consumer's .husky/$_h is kept" || bad "K: the consumer's .husky/$_h was overwritten"
+  not_wired "$WORK/k.log" | grep "\.husky/$_h" | grep -q 'runs none of the framework' \
+    && ok "K: the kept .husky/$_h is a NOT-wired line saying the framework checks do not run" \
+    || bad "K: no NOT-wired line for the kept .husky/$_h"
+done
+no_manual K "$WORK/k.log"
+
 # ── F: --full, the package manager fails ────────────────────────────────────────────────────
 STUB="$WORK/stub-fail"; mkdir -p "$STUB"
 printf '#!/bin/sh\nexit 1\n' > "$STUB/npm"; cp "$STUB/npm" "$STUB/pnpm"; cp "$STUB/npm" "$STUB/yarn"

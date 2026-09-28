@@ -1316,7 +1316,7 @@ do_refresh() {
   fi
 
   # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
-  # 50-hooks.sh:26-27 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # 50-hooks.sh:27-28 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
   # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
   # by install.sh". Its routing changes with the hook it starts (a tsx-ESM probe for pre-push.ts,
   # #636/#638; plain `node` for pre-push.bundle.mjs since 2026-09-28), and a brownfield consumer

@@ -14,14 +14,15 @@ husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
 # critical-review wave 2: a kept consumer hook runs none of the framework's checks — say so in the
 # NOT wired summary. 99-finalize's self-verify exempts only that hook: the rest of shields-up still
 # runs and its FAIL counts, but a pass is counted as SKIP, never as «shields wired».
+# The line names the check that does not run and why; it never tells the reader to paste a call into
+# their hook (Q4.7: the install hands back no manual step). Adding that call to a hook the consumer
+# owns is an operator decision, not made here.
 for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
   case "$_ch" in
-    # Never the template's `@aif-shield` marker: a hook that follows this advice would then read as
-    # the framework's, and the next --full run's reassert_husky_shields would overwrite it.
-    pre-commit) _ch_cmd="npx lint-staged" ;;
-    *)          _ch_cmd="node packages/core/hooks/pre-push.bundle.mjs  (no Node 20: bash packages/core/hooks/pre-push.fallback.sh)" ;;
+    pre-commit) _ch_what="lint-staged on the staged files" ;;
+    *)          _ch_what="getff's rule checks (packages/core/hooks/pre-push.bundle.mjs)" ;;
   esac
-  note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks; to add them, call from it: $_ch_cmd"
+  note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks ($_ch_what); getff does not change a git hook the project already has"
 done
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-commit.sh" "$PROJECT_ROOT/.husky/pre-commit"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/husky-pre-push.sh" "$PROJECT_ROOT/.husky/pre-push"
