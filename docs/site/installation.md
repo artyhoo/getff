@@ -79,8 +79,8 @@ The full output on a `ts-server` project with two files was 188 lines. Below are
 the lines that begin with `▶`, `[profile]`, or `✅`, in order, with none of those left
 out. One change: the long project path is cut to `…`. Under most headings the real
 output lists one `[dry-run] would …` line per file, folder, or hook. After
-`Dry-run complete` it also prints a `Next steps` list meant for a real install. Ignore
-that list in a preview: nothing was written.
+`Dry-run complete` comes only a pointer to `INSTALL.md`. A real install prints a
+`Checked by the install` block there. A preview skips it, because it wrote nothing to check.
 
 ```text
 ▶ Preflight
