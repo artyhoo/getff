@@ -115,11 +115,19 @@ l_skip()     { LOAD_SKIP=$((LOAD_SKIP+1));       skip "$1"; }
 # be present but is not first. Measured (tsx 4.22.4 / node 24): line 1 is BLANK, line 2 is the
 # frame header (`node:internal/modules/run_main:105`), and `Cannot find package '…'` is line 5 —
 # so the rendered parenthetical came out empty and the skip was misattributed for a full slice.
-# Prefer the line matching the error pattern; fall back to the first non-blank line.
+# Node 24.20 (measured 2026-09-29) also prints the SOURCE LINE that built the error above it —
+# `  throw new ERR_MODULE_NOT_FOUND(packageName, …);`, `  return new ERR_PACKAGE_PATH_NOT_EXPORTED(`
+# — so a bare ERR_ token matched that excerpt first. Any line constructing `new ERR_…(` is
+# source, never the message, and is dropped before every tier. Tiers: the `Cannot find` line,
+# then the `Error [ERR_…]:` line, then any line naming a resolution code, then the first
+# non-blank line.
 _first_err() {
-  local _line
-  _line=$(printf '%s\n' "$1" | grep -m1 -iE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT')
-  [ -z "$_line" ] && _line=$(printf '%s\n' "$1" | grep -m1 -vE '^[[:space:]]*$')
+  local _out _line
+  _out=$(printf '%s\n' "$1" | grep -vE 'new ERR_[A-Z0-9_]+\(')
+  _line=$(printf '%s\n' "$_out" | grep -m1 -iE 'cannot find (module|package)')
+  [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -E 'Error \[ERR_[A-Z0-9_]+\]:')
+  [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -iE 'ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT')
+  [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -vE '^[[:space:]]*$')
   printf '%s' "$_line" | tr -d '\n' | cut -c1-240
 }
 # skip_dep: a SKIP caused specifically by a MISSING DEPENDENCY (tsx/eslint binary absent, or

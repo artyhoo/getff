@@ -182,7 +182,9 @@ for (const [id, rule] of Object.entries(manifest)) {
 }
 process.stdout.write(JSON.stringify(rules));
 " 2>"$_rules_err"); then
-  bad "check-generated-rule-mutation: could not read the manifest $MANIFEST: $(grep -m1 -E 'Error' "$_rules_err" || head -n 1 "$_rules_err")"
+  # Node prints the throwing SOURCE LINE (`… throw new Error('…');`) above the message, so match
+  # the message line itself — `Error: …` / `SyntaxError: …` / `Error [ERR_…]: …` at column 0 (#1390).
+  bad "check-generated-rule-mutation: could not read the manifest $MANIFEST: $(grep -m1 -E '^[A-Za-z]*Error( \[[A-Z0-9_]+\])?: ' "$_rules_err" || head -n 1 "$_rules_err")"
   rm -f "$_rules_err"
   echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP RULES_TESTED=0"; exit 1
 fi

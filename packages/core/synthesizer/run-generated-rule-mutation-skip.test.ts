@@ -199,6 +199,19 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(out).toContain('could not read the manifest');
     });
 
+    // #1390 class: Node prints the throwing SOURCE LINE above `Error: …`, so a first match on the
+    // bare word `Error` quoted the extractor's own `throw new Error(…)` code instead of the message.
+    it('manifest that is not an object → the FAIL line names the error, not the throwing source line', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'mutrunner-skip-'));
+      tmpDirs.push(dir);
+      const manifest = join(dir, 'manifest.json');
+      writeFileSync(manifest, '[1, 2]\n', 'utf8');
+      const { code, out } = runRunner(manifest);
+
+      expect(code, `runner output:\n${out}`).toBe(1);
+      expect(out).toMatch(/could not read the manifest .*: Error: manifest is not a JSON object$/m);
+    });
+
     // critical-review S8-1: a declarative rule whose negative-test key is missing or misspelled was
     // filtered out before counting, so a manifest of such rules also read as «nothing to test».
     it('declarative rule with a misspelled negative-test key → counted and skipped, NOT green', () => {
