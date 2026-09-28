@@ -1322,7 +1322,9 @@ describe(
       const dir = mkdtempSync(join(tmpdir(), 'prepush-smoke-'));
       sandboxes.push(dir);
 
-      // Consumer copy-list only (install.sh:1196-1220 shape): hooks + eslint-rules.
+      // The source tree the bundle is built from (hooks + eslint-rules), run through tsx: this
+      // pins main()'s default-branch resolution. The shipped bundle on plain node, in the
+      // shipped layout, is the `pre-push.bundle.mjs` describe block further down.
       cpSync(
         resolve(REPO_ROOT, 'packages/core/hooks'),
         join(dir, 'packages/core/hooks'),

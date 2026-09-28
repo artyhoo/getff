@@ -1165,7 +1165,7 @@ do_refresh() {
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
   # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:650-652), the presence
   # clause is what keeps an installed tier updated.
-  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1905-1908).
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1929-1932).
   #
   # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
   # ask-file-schema section is maintainer-only (owner: 'maintainer' in
@@ -1230,9 +1230,9 @@ do_refresh() {
   # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
   # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
-  # framework-namespace files a consumer never owns (setup.d/lib.sh:1918). A rule-logic fix must reach a
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:1955). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
-  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:204-233
+  # SAME source dirs (core + per-stack presets) the _copy_rule delivery uses at 40-configs.sh:220-249
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
   # source-dir parity (a core-only refresh silently stranded preset rules on react-next/react-spa
   # consumers before this — the exact #869 class, verified live).

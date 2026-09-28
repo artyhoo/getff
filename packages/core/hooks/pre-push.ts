@@ -34,13 +34,16 @@ import { resolve, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-// NOTE: this file ships verbatim into consumer projects (install.sh:1195-1205), so a
-// static bare-package import of anything outside the consumer's tree crashes the hook
-// with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
+// NOTE: this file is the entry of pre-push.bundle.mjs, the single prebuilt file a consumer
+// project receives (install.sh:1201-1203, built by scripts/build-runtime-bundles.mjs). The
+// bundle inlines every import and must stay free of third-party code (`thirdParty: false`),
+// because a consumer has no getff dependency installed and a missing package crashes the
+// hook with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
 // imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
 // (its premise was disproven — see the removal commit), and with it the only reason this
-// hook referenced picomatch. Keep it that way: a new dependency here needs the ship-list
-// treatment or a lazy `await import()` + `die()`, the shape guard-liveness uses below.
+// hook referenced picomatch. Keep it that way: a new dependency here breaks the bundle
+// build, and a maintainer-only gate goes behind a lazy `await import()` + `die()`, the
+// shape guard-liveness uses below, and on the bundle's `external` list.
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import {
   runPriorArtCheck,
@@ -2064,7 +2067,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // actually excludes shipped content.
 //
 // SSOT for the shipped surface (predicate reuse, BFR):
-//   (1) scripts/format-shipped.sh:46-65 — PATHSPECS = framework-SOURCE shipped paths
+//   (1) scripts/format-shipped.sh:48-67 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
 //   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derives the
 //       consumer-DESTINATION shipped set from the setup.d copy_safe / copy_unless_foreign commands.
@@ -2199,7 +2202,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:779-837) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:815-873) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer

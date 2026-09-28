@@ -2508,7 +2508,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:235-240); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:251-256); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
