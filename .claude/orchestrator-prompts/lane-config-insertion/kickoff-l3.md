@@ -15,8 +15,17 @@
 > cells, the tests. **NOT authoritative for:** project goal — see
 > [README.md#why-this-exists](../../../README.md#why-this-exists); any design decision — the spec.
 
-**Measurement SHA:** `origin/staging` = `b3a19811be6` (2026-09-29); «#1890» = head `8c82c1a1e7b`.
-L1 and L2 rewrite parts of `setup.d/45-python.sh`; **re-locate every anchor by content**.
+**Measurement SHA:** `origin/staging` = `a9c457321e6` (2026-09-29; PR #1890 merged as
+`eb8e2306261`). L1 and L2 rewrite parts of `setup.d/45-python.sh`; **re-locate every anchor by
+content**.
+
+**Tool-absent rule (hard, umbrella §0.2).** `command -v <tool>` fails in your environment → you
+do not install toolchains into the container and never paste output you did not run; proofs
+that need the tool are CI-job tests (spec §9 shard placement) and the PR body says which CI job
+ran them; if a needed decision depends on a tool run you cannot perform, park
+`blocked_external`. The aif container has no ruff, ast-grep or uvx: the probe and insertion arms
+of §3e run in CI job `install-sh-c`, which installs ruff `0.15.21` and ast-grep `0.44.1`
+(`.github/workflows/audit-self.yml:995-998`).
 
 **Deviations (declared):**
 
@@ -37,59 +46,62 @@ L1 and L2 rewrite parts of `setup.d/45-python.sh`; **re-locate every anchor by c
    one place the plan names.» The one place is the getff CI template of each lane
    (`packages/core/templates/python/github-actions-ci.yml:45-46` ast-grep `0.44.1`, `:66` ruff
    `0.15.21`). The lane's one-shot runner literals are mirrors, gated by
-   `packages/core/hooks/pin-parity.test.ts` (`TRACKED_TOOLS`, `:57-67`). #1890's ast-grep uvx
-   route spells `ast-grep-cli==0.44.1` (#1890 `45-python.sh:510`), which the ast-grep
+   `packages/core/hooks/pin-parity.test.ts` (`TRACKED_TOOLS`, `:57-67`). The ast-grep uvx
+   route spells `ast-grep-cli==0.44.1` (`45-python.sh:510`), which the ast-grep
    `versionReSource` `@ast-grep/cli@(…)` (`:60`) does **not** match — widen the regex so that
    surface is gated. That pre-existing hole is closed here because L3 is the stage that makes the
    route load-bearing.
-4. **Reuse #1890's tool resolver.** #1890 already resolves ast-grep as «binary on PATH, else
-   `uvx --from ast-grep-cli==0.44.1 ast-grep`, else a `not proven` NOT-wired line» (#1890
-   `45-python.sh:484-551`), and ruff as `uvx ruff@0.15.21` (`:557` staging). The D12 ladder
+4. **Reuse the existing tool resolver.** The lane already resolves ast-grep as «binary on PATH,
+   else `uvx --from ast-grep-cli==0.44.1 ast-grep`, else a `not proven` NOT-wired line»
+   (`45-python.sh:484-551`), and ruff as `uvx ruff@0.15.21` (`:571`, run with `--no-cache` at
+   `:583-584`). The D12 ladder
    **generalises that code** into the helper and moves the self-checks onto it. It is not a
    second resolver beside it (`#sync-by-copy-paste`).
-5. **The `getff-ruff.toml` reference copy** that #1890's REFUSE cell ships (#1890 `45-python.sh:416`)
-   stays exactly as it is. The spec does not say whether a successful insertion retires it, so
-   retiring it would be a guess. Record it in `## Parked questions` for the operator.
+5. **The `getff-ruff.toml` reference copy** that the REFUSE cell ships (`45-python.sh:382`,
+   `:418`, `:429`) keeps shipping, exactly as it is — the stated default. Whether a successful
+   insertion should retire it is an open question: record it in the PR body under `## Parked
+   questions` as **informational**, then proceed with the default. This is NOT a park and does
+   not stop the task.
 
-**Dependencies:** #1890, L1, L2 merged (umbrella §3 gate L3). Read L1's `## Probe results` for the
-P-L1-2 branch (`gh pr view <L1 PR> --repo artyhoo/getff --json body`). If the fallback was taken,
-the ast-grep NOT-wired wording from spec §4.0 applies to every refused or deleted §4.2 entry.
+**Dependencies:** #1890 (merged, `eb8e2306261`), L1, L2 merged (umbrella §3 gate L3). L1 shipped
+on P-L1-2 «works» ([kickoff.probes.md](kickoff.probes.md)): the getff CI ast-grep gate reads
+`.getff/sgconfig.yml`, so a refused or deleted §4.2 entry leaves only the **local** run without
+getff's rules — the NOT-wired wording says exactly that (confirm against L1's merged template).
 
-## §1 Prerequisite probes — record in `## Probe results`
+## §1 Prerequisite probes — resolved on the host
 
-| Probe | Question |
-|---|---|
-| **P-L3-1** | Does `ruff check --show-settings <path>` need `<path>` to exist? If it does, the probe file is created inside the target's directory and removed on every exit path of the install run (spec §4.1). |
-| **P-L3-2** | ruff at equal specificity: `ignore = ["TID"]` plus `extend-select = ["TID251"]` in one table — is TID251 enabled? The design NOT-wires the overlap either way; the probe only confirms the differential probe catches the case the recogniser misses. |
-| **P-L3-3** | ast-grep 0.44.1: is an `sgconfig.yml` with no `ruleDirs:` key valid config? Yes → shape S3 (append a block list at EOF) ships, and the reason text at `setup.d/45-python.sh:355-359` (staging; the `_why` else-branch on #1890) is corrected. No → S3 stays NOT-wired with that reason (spec §4.2, D8). |
-| **P-L3-4** | D12 footprint: after `uvx ruff@0.15.21 …` and `uvx --from ast-grep-cli==0.44.1 ast-grep …` in a clean `HOME`, nothing changed outside uv's cache — `git status` of the fixture project is clean, and `PATH` and the project's lockfiles are unchanged (D12 falsifier). |
+All four ran before dispatch; commands and raw output are in
+[kickoff.probes.md](kickoff.probes.md). Do not re-run them; cite that file in `## Probe results`.
 
-## §2 Prior-art consult — REQUIRED before writing any code (T11, T12, T16)
+| Probe | Measured | Selected branch |
+|---|---|---|
+| **P-L3-1** | `ruff check --show-settings does_not_exist.py` → «ruff failed / Cause: No files found under the given path», exit 2. | **The path must exist:** the probe file is created inside the target's directory and removed on every exit path of the install run (spec §4.1). |
+| **P-L3-2** | `ignore=["TID"]` + `extend-select=["TID251"]` → TID251 fires; `select=["TID251"]` + `ignore=["TID"]` → fires; `extend-ignore=["TID2"]` + `extend-select=["TID251"]` → fires; `ignore=["TID251"]` + `extend-select=["TID251"]` → «All checks passed!». | A prefix ignore does not disable a more specific selected code; an equal ignore does. The design NOT-wires every getff code **or prefix** in `ignore` regardless; the equal-specificity case is a fixture row the differential probe must catch. |
+| **P-L3-3** | ast-grep 0.44.1: `sgconfig.yml` with only `utilDirs`, only a comment, or only `testConfigs` → `ast-grep scan` exit 0. | **Valid → shape S3 ships** (append a `ruleDirs:` block list at EOF). The reason text at `setup.d/45-python.sh:361` («it has no top-level ruleDirs key for getff to add a line to») is replaced by the S3 result. |
+| **P-L3-4** | Clean `HOME`: `uvx ruff@0.15.21 check a.py` leaves `!! .ruff_cache/` in the project; with `--no-cache` the project stays clean. uv writes `$HOME/.local/share/uv/tools/{.lock,.gitignore}` besides its cache; nothing on `PATH`. | **Every getff ruff probe run passes `--no-cache`** (as the self-check already does, `45-python.sh:583-584`). The PR body records uv's state directory as uv's own, next to its cache. |
 
-1. SSOT rows, read in full: `docs/meta-factory/prior-art-evaluations.md#216` (`:289`, BUILD the thin
-   bash writer for augment-first lane delivery), `#117` (`:190`, yq comment preservation is
-   best-effort; never a silent default), `#132` (`:205`, the toml_edit technique: touch the target
-   node only, keep every other byte, test byte preservation). Then PR #1868
-   (`gh pr view 1868 --repo artyhoo/getff`): the insertion-only write into an ESLint config, the
-   original kept in `.ai-factory/before-getff/`, rollback on a failed probe, and the `insertOnly` rule
-   (`packages/core/install/wire-eslint-r2.ts:627-632`).
-2. context7, **≥3 phrasings**, for example «format-preserving TOML edit library», «YAML round-trip
-   comment-preserving editor», «insert into TOML array without reformatting». Cite each query and
-   the candidates it surfaced.
-3. **One WebSearch** on the problem-domain term (e.g. «edit pyproject.toml preserve comments
-   programmatically shell»), cited.
-4. For each candidate write T16's line: «Upstream problem class: X. Our problem class: Y — a
-   Node-free, parser-free, bash-3.2 insertion into consumer-owned TOML and YAML inside an install
-   script. Match? evidence: …».
-5. **Trailer:** `Prior-art: prior-art-evaluations.md#216 (BUILD — thin bash writer; #132 technique, #117 rejects a yq default).`
-   Add a new SSOT row only if the consult surfaces a candidate the three rows do not cover. The
-   row is append-only (`prior-art-evaluations.md` §3) and goes in the same commit.
+## §2 Prior-art consult — done on the host; cite it
 
-D1's falsifier (spec §8) is **measured here, not deferred**: collect ≥20 real public `ruff.toml`
-/ `pyproject.toml [tool.ruff]` configs (`gh search code`; name every source) and ≥5 real
-`sgconfig.yml` files (T1 floor). Run the recognisers over them offline and report the fraction
-that falls outside the recognised shapes. More than 1/3 → STOP and park (D1 says re-weigh a
-format-preserving library via `uvx`).
+The consult ran before dispatch because the container cannot reach context7 or WebSearch
+reliably. It is recorded in [kickoff.probes.md](kickoff.probes.md) «L3 prior-art consult»: SSOT
+`#216` (`:289`, BUILD the thin bash writer), `#117` (`:190`, HYBRID — yq, no silent default),
+`#132` (`:205`, REFERENCE — the toml_edit technique), PR #1868 (merged `64a624b1355`, the
+insertion-only precedent; `insertOnly` in `packages/core/install/wire-eslint-r2.ts:627-632`),
+context7 ×3 (ruff, golangci-lint, clippy — none has an include/merge that layers a second
+config), WebSearch ×1 (no tool inserts its rules into a consumer's config), and a T16 line per
+candidate. No new SSOT row. Do **not** re-run it; read the three SSOT rows and PR #1868 before
+the first line of the helper.
+
+**Trailer:** `Prior-art: prior-art-evaluations.md#216 (BUILD — thin bash writer; #132 technique, #117 rejects a yq default; consult recorded in .claude/orchestrator-prompts/lane-config-insertion/kickoff.probes.md).`
+
+**D1's falsifier (spec §8) is measured here, not deferred.** The sample was collected on the
+host — [kickoff.probes.md](kickoff.probes.md) «D1 sample»: 22 `ruff.toml` / `.ruff.toml`, 15
+`pyproject`-family files with `[tool.ruff`, 10 `sgconfig.yml`, each named by repo, path and blob
+SHA. Fetch exactly those bytes with `gh api repos/<repo>/git/blobs/<sha> --jq .content | base64 -d`
+into a temp dir (never into the repo), run the recognisers over them offline, and report the
+fraction outside the recognised shapes. More than 1/3 → STOP and park (D1 says re-weigh a
+format-preserving library via `uvx`). `gh` cannot reach GitHub from your environment → park
+`blocked_external` for the D1 measurement only; never substitute a different sample.
 
 ## §3 Deliverables
 
@@ -111,8 +123,8 @@ Behaviour is spec §3, §5 and §6; this list is only the interface each later s
   a re-run is byte-identical.
 - **Refresh** (D10). Insert what the template added; remove only what a getff tag names; never
   touch a `kept-default` item; an untagged item is the consumer's.
-- **Write-through** (I3). `keep_original_snapshot` / `keep_original_settle` (`setup.d/lib.sh:2772`
-  / `:2786` staging) around every write; `cat tmp > dst`, never `mv`. If the original cannot be
+- **Write-through** (I3). `keep_original_snapshot` / `keep_original_settle` (`setup.d/lib.sh:2789`
+  / `:2803`) around every write; `cat tmp > dst`, never `mv`. If the original cannot be
   kept, the write is undone → `not-recognised`/NOT-wired with that reason. The original goes to
   `.ai-factory/before-getff/<path>.<sha8>` only when the write changed the file.
 - **Probe scaffolding** (I4). `before → insert → after → compare`. The lane passes a runner that
@@ -127,19 +139,19 @@ Behaviour is spec §3, §5 and §6; this list is only the interface each later s
 
 ### 3b One added-to printer for both paths
 
-Move the added-to block out of `setup.d/99-finalize.sh` (#1890 `:652-660`, the loop over
+Move the added-to block out of `setup.d/99-finalize.sh` (`:652-660`, the loop over
 `GETFF_ADDED_TO` plus its `✓ getff's block added to …` lines) into one `setup.d/lib.sh` function,
 and call it from 99-finalize and from both lane paths in `install.sh` next to `print_not_wired`
-(#1890 `install.sh:351` in `do_toolchain_lane`, `:400` in `do_python_lane`). Spec §5 «Summary on
+(`install.sh:351` in `do_toolchain_lane`, `:400` in `do_python_lane`). Spec §5 «Summary on
 the lane path». The npm-path output must stay byte-identical: the snapshot baselines prove it.
 
 ### 3c ruff (spec §4.1)
 
 - **Targets:** every ruff config ruff loads for some Python file (nested included; L2's lookup
-  list). Resolve each directory's target by ruff itself — the settings path `--show-settings`
-  reports — not by filename guess. Each target gets its own result line.
+  list, `RUFF_CONFIG_NAMES` in `setup.d/lib.sh`). Resolve each directory's target by ruff itself —
+  the settings path `--show-settings` reports — not by filename guess. Each target gets its own result line.
 - **Consumer `--config`:** a ruff `--config` in the consumer's tooling (at least
-  `.pre-commit-config.yaml` `args`; the lane already appends to that file, `45-python.sh:869-888` staging)
+  `.pre-commit-config.yaml` `args`; the lane already appends to that file, `45-python.sh:1031-1054`)
   → that path NOT-wired.
 - **Shapes:** exactly spec §4.1's table, `P` = `` or `tool.ruff.`. The `extend` chain walk is
   local files only. `ignore` / `extend-ignore` prefix matching covers `TID`, `TID2`, `DTZ`, `ALL`
@@ -147,20 +159,22 @@ the lane path». The npm-path output must stay byte-identical: the snapshot base
 - **Payload** from `packages/core/templates/python/ruff.toml` (I6): the `[lint] select` codes
   (`DTZ005`, `TID251`, `TID253`), `banned-module-level-imports` (`tensorflow`), and the
   `banned-api` map. Read from the file at run time; never a second hard-coded copy.
-- **Proof:** `ruff check --show-settings <path in target dir>` before and after (P-L3-1). The
+- **Proof:** `ruff check --no-cache --show-settings <path in target dir>` before and after
+  (P-L3-1, P-L3-4). The
   compared set is the effective enabled rule codes plus the tidy-imports ban entries. A ruff that
   cannot read the consumer's config before the edit → `not-proven` with ruff's message.
-- `.getff/ruff-bans.toml` stays delivered in every cell (I5, `45-python.sh:378` staging).
+- `.getff/ruff-bans.toml` stays delivered in every cell (I5, `45-python.sh:394`).
 
 ### 3d sgconfig (spec §4.2)
 
 - Replace `_py_sgconfig_merge` (`setup.d/45-python.sh:208`) with the writer. Shape S1 output must
   stay byte-identical to today's (spec §4.2: «existing merged files and the snapshot fingerprints
-  do not change»). S2 is new. S3 depends on P-L3-3. The NOT-wired rows follow spec §4.2.
+  do not change»). S2 is new. S3 ships (P-L3-3). The NOT-wired rows follow spec §4.2.
 - Value `.getff/astgrep-rules`, no comment tag: the path attests itself (spec §6).
 - **Proof:** `ast-grep scan -c <consumer sgconfig> --json` on a getff probe file, before and after;
   the after-set of rule ids equals the before-set plus getff's rule ids.
-- Fix the reason text at `45-python.sh:355-359` per P-L3-3.
+- Replace the reason text at `45-python.sh:361` (P-L3-3: a `ruleDirs`-less file is valid, so S3
+  inserts instead of refusing).
 
 ### 3e Tests
 
@@ -179,7 +193,7 @@ the lane path». The npm-path output must stay byte-identical: the snapshot base
   the pre-commit `--config` case; the lane-path added-to printer output.
 - Register both in `audit-self.yml` job `install-sh-c` (it already has pinned ruff and ast-grep,
   `:995-998`; principle 41). A probe arm whose tool is missing in CI **fails** (spec §9).
-- Update `tests/install-sh/install-no-manual-step.test.sh` arms Y / C / J (#1890) wherever a
+- Update `tests/install-sh/install-no-manual-step.test.sh` arms Y / C / J wherever a
   python NOT-wired line becomes an `added` line. Never weaken an arm to make it pass — each changed
   expectation cites the §4 row that changed it.
 
@@ -207,7 +221,9 @@ cargo/go baselines must **not** drift (3b) — if they do, STOP.
 
 Before implementation, commit the fixture tables with golden outputs and run
 `lane-config-insert-python.test.sh` against the pre-change lane. Every insertion row must fail
-(today's lane REFUSEs). Paste that output. Then implement.
+(today's lane REFUSEs). Rows that need ruff or ast-grep fail only in CI when your environment
+lacks them: paste the rows you ran, and name the CI job and run for the rest, or state that the
+RED-first evidence for those rows is owed to that CI run. Then implement.
 
 ## §6 Exit gates
 
@@ -223,9 +239,11 @@ bash tests/install-sh/refresh-covers-full-delivery.test.sh
 scripts/build-getff-dist.sh --check
 ```
 
-Plus `npx vitest run packages/core/hooks/pin-parity.test.ts packages/core/principles/33-adapter-jig-arm-registry.test.ts`,
-`SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh` (npm path unchanged),
-`bash scripts/run-local-ci-sweep.sh`, the merge lock, and CI green on the new head SHA.
+Arms that need ruff, ast-grep or uvx are CI-job tests where `command -v` fails (tool-absent rule
+above; job `install-sh-c`). Plus `npx vitest run packages/core/hooks/pin-parity.test.ts packages/core/principles/33-adapter-jig-arm-registry.test.ts`,
+`SNAPSHOT_MODE=compare bash tests/install-sh/snapshot.sh` (npm path unchanged) and
+`bash scripts/run-local-ci-sweep.sh`. The merge lock and CI-green-on-the-new-head are the harvest
+session's (umbrella §0.4).
 
 ## §7 Falsifiers to write into the PR body
 
@@ -247,11 +265,13 @@ implementations, an undecided design choice, a missing spec detail that changes 
 NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external`
 with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that
 task.** Proceed only on the unambiguous parts. Guessing a fork to "keep moving" is the failure
-this whole loop exists to prevent. Deviation 5 is a pre-declared park.
+this whole loop exists to prevent. Deviation 5 is **not** a park: it is an informational entry
+under `## Parked questions`, and the task proceeds with the stated default.
 
 ## §10 Report
 
-Umbrella §9 format. `DECISIONS` lists P-L3-1..4, the D1 fraction, and the context7 queries.
+Umbrella §9 format. `DECISIONS` cites P-L3-1..4 and the consult from
+[kickoff.probes.md](kickoff.probes.md), and gives the measured D1 fraction.
 
 ## §11 AI traps ([ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md))
 
@@ -260,7 +280,8 @@ Umbrella §9 format. `DECISIONS` lists P-L3-1..4, the D1 fraction, and the conte
 - **T1** — the D1 sample is ≥20 ruff configs (≥5 sgconfig), named, not «a few I tried».
 - **T7** — spec §4.1's table is a recogniser spec. A row that looks close to a fixture is still
   `not-recognised` if a key spelling is off.
-- **T11 / T12 / T16** — the consult of §2 runs before the first line of the helper.
+- **T11 / T12 / T16** — the consult of §2 is read (the record, the three SSOT rows, PR #1868)
+  before the first line of the helper; it is not re-run and not skipped.
 - **T15 (mandatory)** — self-application: run the writer over this repo's own TOML / YAML
   configs (read-only dry run into a temp copy) and report what it recognises. A writer that
   cannot read its own house's files is a finding.

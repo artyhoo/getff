@@ -5,24 +5,30 @@
 > **Rigor label (L0): `build-and-verify`** — five install-surface build stages, each gated by
 > RED-first tests, live tool probes and the lane suites.
 > **Design SSOT:** [docs/superpowers/specs/2026-09-28-lane-config-insertion-design.md](../../../docs/superpowers/specs/2026-09-28-lane-config-insertion-design.md)
-> (DRAFT r4, operator-approved; §2 premises P1-P7 binding, §8 decisions D1-D12 all answered or
-> decided). This file never restates the design; on any divergence between a kickoff and the
+> (DRAFT r4, approved by the operator for factory routing on 2026-09-29 — D12 decided by the
+> design session, operator may override; the spec's own Status line reads «APPROVED r4», spec
+> `:10`; §2 premises P1-P7 binding, §8 decisions D1-D12 all answered or decided). This file never restates the design; on any divergence between a kickoff and the
 > spec, **the spec wins** — the executor parks the divergence, never improvises past it.
 > **Authoritative for:** the stage split and its rationale, dependencies, the file-lock matrix,
 > stage-gate commands, stop conditions, the descope-ownership register, the binding execution
 > rules. **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > any design decision — the spec.
 > **Base branch:** `staging`. **Dispatch precondition:** this directory AND the spec are merged
-> to `staging` (kickoff-staging-placement §1) and PR #1890 is merged (§3 gate 0).
+> to `staging` (kickoff-staging-placement §1). PR #1890 is merged (§3 gate 0 — satisfied).
 > **Tier routing:** each plan-complete stage kickoff carries the executor-profile header marker;
 > value and evidence in §6 below.
 
 **Measurement SHA for every `path:line` below and in the stage kickoffs:** `origin/staging` =
-`b3a19811be6`, measured 2026-09-29. PR #1890 (OPEN, head `8c82c1a1e7b`,
-`fix/install-no-manual-steps-lanes`) rewrites the three lane files and `setup.d/99-finalize.sh`;
-anchors that exist only on that branch are marked «#1890» and MUST be re-located by content
-(`grep -n`) after #1890 merges — every stage starts after it, so every staging anchor in the
-lane files is stale by then too. Re-locate, never trust a number.
+`a9c457321e6`, measured 2026-09-29. PR #1890 (`fix/install-no-manual-steps-lanes`) is MERGED as
+`eb8e2306261`; the lane files, `setup.d/lib.sh`, `setup.d/99-finalize.sh`, `install.sh`, the
+templates, `tests/install-sh/**` and `.github/workflows/audit-self.yml` are byte-identical
+between `eb8e2306261` and `a9c457321e6` (`git diff --quiet`), so every anchor holds on staging.
+Earlier stages move later stages' anchors (L1 and L2 rewrite lane code L3-L5 read): each stage
+re-locates by content (`grep -n`) before editing.
+
+**Probe record:** all 13 prerequisite probes ran on the host before dispatch —
+[kickoff.probes.md](kickoff.probes.md) (commands, raw output, conclusions). Each stage kickoff
+states the branch its probes selected; no stage re-runs a resolved probe.
 
 ## §0 Binding execution rules (every stage)
 
@@ -34,17 +40,30 @@ lane files is stale by then too. Re-locate, never trust a number.
 2. **Run, never install (spec P7 / D12):** the install may *run* a pinned lint tool one-shot to
    prove an insertion; it never installs one (no PATH entry, no toolchain component, no consumer
    dependency). `rustup component add`, `go install`, `pip install` in install code = STOP.
+   **The executor's own environment follows the same rule.** The aif container has none of
+   cargo, rustup, go, golangci-lint, ast-grep, ruff, uvx. `command -v <tool>` fails → the
+   executor installs no toolchain into the container and never pastes output it did not run;
+   proofs that need the tool are CI-job tests (spec §9 shard placement, a missing tool FAILS the
+   arm), and the PR body names the CI job that ran them. A decision that depends on a tool run
+   the executor cannot perform → park `blocked_external`.
 3. **One PR per stage** off `staging`, branch and title per §1. Author in an own worktree
    (`.claude/rules/parallel-subwave-isolation.md`). Merge-forward, never rebase
    (`.claude/rules/git-conflict-merge-forward.md`); never `--no-verify`.
-4. **Merge lock.** Every stage touches `setup.d/**` and `tests/install-sh/**` (most also
-   `install.sh`), so every merge goes through the install-area lock:
-   `~/.claude-coordination/rules-as-tests-aif/merge-lock.sh take <PR> "<title>"` → `git fetch
-   origin && git merge origin/staging` → regenerate (rule 5) → push → CI green on the NEW head
-   SHA, checked by explicit SHA (`gh api repos/artyhoo/getff/commits/<sha>/check-runs`), and
-   `mergeable` not `CONFLICTING` → `gh pr merge --squash` → `merge-lock.sh release <PR>`.
-5. **Regeneration (every stage moves delivered bytes or setup.d):** `scripts/build-getff-dist.sh`
-   → `SNAPSHOT_MODE=capture bash tests/install-sh/snapshot.sh` → `scripts/build-getff-dist.sh --check`.
+4. **Who does what — executor vs harvest session.**
+   - **Executor (the aif task in the container):** implements, commits on its task branch,
+     regenerates (rule 5), runs the gates it can run, and writes the report (§9) and the PR body
+     text (rule 9). It never pushes, never opens or merges a PR, never runs the host merge lock,
+     and never runs `gh pr merge`.
+   - **Harvest session (on the host, `/harvest`):** takes the install-area lock —
+     `~/.claude-coordination/rules-as-tests-aif/merge-lock.sh take <PR> "<title>"` (every stage
+     touches `setup.d/**` and `tests/install-sh/**`) — then `git fetch origin && git merge
+     origin/staging` (merge-forward), re-runs rule 5 if the merge moved delivered bytes, pushes,
+     waits for CI green on the NEW head SHA by explicit SHA (`gh api
+     repos/artyhoo/getff/commits/<sha>/check-runs`) with `mergeable` not `CONFLICTING`, then
+     `gh pr merge --squash` and `merge-lock.sh release <PR>`.
+5. **Regeneration (executor; the harvest session repeats it only after a merge-forward that moved
+   delivered bytes):** `scripts/build-getff-dist.sh` → `SNAPSHOT_MODE=capture bash
+   tests/install-sh/snapshot.sh` → `scripts/build-getff-dist.sh --check`.
    Measure the drift before each capture; a changed path outside the stage's expected set (its
    stage kickoff names it) is a STOP. Lane baselines live at `tests/install-sh/baselines/{python,cargo,go}/`
    and each fingerprints `.ai-factory/refresh-baseline.json` (e.g. `baselines/cargo/greenfield.fingerprint:1`).
@@ -62,20 +81,20 @@ lane files is stale by then too. Re-locate, never trust a number.
 8. **Every insertion obeys spec §3 I1-I6** (insertions only, recognised shapes only, original
    kept with file identity, differential tool proof, CI independent of the insertion, payload
    from the template). The NOT-wired summary mechanism is `setup.d/lib.sh` `note_not_wired`
-   (`:2725` staging, `:2730` #1890) / `print_not_wired` (#1890 `lib.sh:2738`).
+   (`:2730`) / `print_not_wired` (`:2738`).
 9. **PR body:** the `.github/pull_request_template.md` sections — `## Fidelity verdict`, §1.7
    Forward-check / Backward-check, `## Parked questions`, `## Provenance` (this is a stage PR).
    Capability commits carry a `Prior-art:` trailer (CLAUDE.md syntax). Every stage PR carries a
-   `## Probe results` section: each prerequisite probe it ran, the command, the raw output, and
-   which spec branch the result selected — later stages read it from there
-   (`gh pr view <N> --json body`).
+   `## Probe results` section: it cites [kickoff.probes.md](kickoff.probes.md) for the branch its
+   stage kickoff pre-selected, and adds any tool result the stage produced itself (from a CI job —
+   named — never an unrun paste).
 10. **Language:** every repo artefact English (`.claude/rules/language-discipline.md`).
 
 ## §1 Stages, rationale, dependencies
 
 | Stage | Branch | PR title | Owns (spec) | Depends on (merged) |
 |---|---|---|---|---|
-| **L1** | `fix/lane-ci-gate-isolation` | `L1: getff CI gates read only getff-owned configs` | §4.0 cargo + ast-grep; refresh fact line; §9 isolation arms | #1890 |
+| **L1** | `fix/lane-ci-gate-isolation` | `L1: getff CI gates read only getff-owned configs` | §4.0 cargo + ast-grep; refresh fact line; §9 isolation arms | #1890 (merged `eb8e2306261`) |
 | **L2** | `fix/lane-config-lookup-names` | `L2: lanes detect every config name their tool loads (D11)` | D11 lookup lists + fresh-cell detection (all three lanes); §4.0 go `else` branch | L1 |
 | **L3** | `feat/lane-insert-python` | `L3: shared lane-config writer + differential probe; python lane inserts ruff + sgconfig` | §5 writer, probe scaffolding, D12 ladder, result contract, lane-path added-to printer; §6 markers + D10 refresh; §4.1; §4.2 | L1, L2 |
 | **L4** | `feat/lane-insert-cargo` | `L4: cargo lane inserts getff's clippy bans` | §4.3; §4.4 wording; §4.5 fact + template guard | L1, L2, L3 |
@@ -83,7 +102,7 @@ lane files is stale by then too. Re-locate, never trust a number.
 
 **Why this split (and where it deviates from the brief):**
 
-- It is spec §11 verbatim: #1890 → §4.0 → D11 → writer+probe, one PR per lane.
+- It is spec §11 verbatim: #1890 (merged) → §4.0 → D11 → writer+probe, one PR per lane.
 - **The go CI `else` branch sits in L2, not L1.** Spec §4.0 says that branch «learns D11's
   lookup names», and D11's own resolution lists it. L1 therefore touches only the cargo and
   python CI templates, L2 only the go one — no template is written by two stages. L2 also closes
@@ -93,8 +112,8 @@ lane files is stale by then too. Re-locate, never trust a number.
   existing insertion (`_py_sgconfig_merge`, `setup.d/45-python.sh:208`) that the writer replaces,
   so L3 proves the writer on a shape already in production.
 - **L4 before L5, strictly sequential.** Both extend the shared writer and `audit-self.yml`, and
-  both regenerate MANIFEST and baselines. L4 goes first because it consumes L1's cargo probe
-  result. If L4 parks, L5 may go first — the order is swappable, concurrency is not.
+  both regenerate MANIFEST and baselines. L4 goes first because its CI gate wording depends on
+  L1's shipped cargo gate (P-L1-1 «works», [kickoff.probes.md](kickoff.probes.md)). If L4 parks, L5 may go first — the order is swappable, concurrency is not.
 
 **Stage-kickoff names** (`kickoff-l1.md` … `kickoff-l5.md`) classify as `stage` under
 `classifyKickoffName` (`packages/core/principles/kickoff-population.ts:34`,
@@ -115,10 +134,10 @@ one file at once; the matrix is what the Backward-check and the merge lock are c
 | `setup.d/45-python.sh` | W | W | W | | |
 | `setup.d/46-cargo.sh` | W | W | | W | |
 | `setup.d/47-go.sh` | | W | | | W |
-| `setup.d/lib.sh` | W (if the delivered-path resolver changes) | W (shared lookup lists, if shared) | W (shared added-to printer) | | |
+| `setup.d/lib.sh` | W (if the delivered-path resolver changes) | W (the three D11 lookup-list arrays) | W (shared added-to printer) | | |
 | `setup.d/lane-config-insert.sh` (new sourced helper) | | | W | W | W |
 | `setup.d/99-finalize.sh` (added-to block → shared printer) | | | W | | |
-| `install.sh` (lane paths: printer next to `print_not_wired`, #1890 `:351`, `:400`) | | | W | | |
+| `install.sh` (lane paths: printer next to `print_not_wired`, `:351`, `:400`) | | | W | | |
 | `packages/core/hooks/pin-parity.test.ts` (one-shot pin surfaces) | | | W | | W |
 | `packages/core/principles/33-adapter-jig-arm-registry.ts` (arm locators, if moved) | W | | | | |
 | `.github/workflows/audit-self.yml` (register tests; tool placement) | W | W | W | W | W |
@@ -139,8 +158,8 @@ any consumer `Cargo.toml`.
 ## §3 Stage gates (run before dispatching each stage)
 
 ```bash
-# gate 0 — every stage: #1890 merged (it rewrites every cell this umbrella touches)
-gh pr view 1890 --repo artyhoo/getff --json state --jq .state          # must print MERGED
+# gate 0 — every stage: #1890 merged (SATISFIED: merged as eb8e2306261, 2026-09-29; kept as a fact)
+gh pr view 1890 --repo artyhoo/getff --json state --jq .state          # prints MERGED
 # gate L2 — L1 merged
 gh pr list --repo artyhoo/getff --state merged --search 'is:merged head:fix/lane-ci-gate-isolation base:staging' --json number,mergedAt
 # gate L3 — L1 and L2 merged
@@ -162,11 +181,11 @@ probe: `SLUG=lane-config-insertion bash .claude/skills/dispatcher/helpers/probe-
 | Stage | STOP when |
 |---|---|
 | all | a floor in §0.1 or §0.2 cannot be met; a regen drifts a path outside the stage's expected set; a registered adapter-jig arm (E2 `self-check-resolves-delivered-config`, `33-adapter-jig-arm-registry.ts:82`) would have to be reversed; CI shows a getff gate reading a consumer config the stage was meant to isolate |
-| L1 | the cargo `-A <group>` probe or the ast-grep `-c` probe returns something that is neither spec branch (neither «works» nor the recorded fallback); the isolated gate goes red on a fixture with no getff ban and the cause is not the recorded §12 source-level `#![deny]` limit |
-| L2 | a tool's real lookup order (probe) contradicts the spec's candidate list in a way that changes which cell a consumer lands in, and the spec does not say which wins |
-| L3 | the differential probe cannot separate getff-attributable results from consumer results for ruff or ast-grep; `ruff check --show-settings` does not expose enough to decide I4; a recognised shape's golden output is not byte-preserving outside the inserted lines |
-| L4 | the L1 probe forced the recorded fallback AND the §4.3 insertion cannot be proven (tool absent) — then CI enforces nothing for that consumer; surface it, do not paper over it |
-| L5 | the D4 before-probe cannot run the consumer's config «exactly as the consumer's own run would» (no linter-selection flags) and still yield per-issue linter names on the binary in use; or proceeding would need a golangci pin bump. **Not** a stop: `go run …/golangci-lint@v1.55.2` failing to build against the host's Go — D12 step 2 is then `not-proven` by construction, and the pin bump is its OWN task (spec §11). Record it; never bump the pin inside L5. |
+| L1 | a CI-job run of the isolation test contradicts the host probe record (P-L1-1 / P-L1-2 «works», [kickoff.probes.md](kickoff.probes.md)) — e.g. the isolated gate goes red on a fixture with no getff ban and the cause is not the recorded §12 source-level `#![deny]` limit |
+| L2 | a CI-job run contradicts the host-measured lookup order (P-L2-1..3) in a way that changes which cell a consumer lands in |
+| L3 | the differential probe, run in its CI job, cannot separate getff-attributable results from consumer results for ruff or ast-grep; a recognised shape's golden output is not byte-preserving outside the inserted lines; the D1 fraction exceeds 1/3 |
+| L4 | L1 shipped something other than the isolated cargo gate (read L1's merged PR), so a `not-proven` or NOT-wired clippy cell would leave CI enforcing none of getff's bans for that consumer. **Not** a stop: the executor's container lacking cargo/clippy — that is §0.2's CI-job route, and the install's own `not-proven` result is a designed outcome |
+| L5 | the D4 before-probe cannot run the consumer's config «exactly as the consumer's own run would» (no linter-selection flags) and still yield per-issue linter names (`Issues[].FromLinter`, P-L5-2) on the binary in use; or proceeding would need a golangci pin bump. **Not** a stop: `go run …/golangci-lint@v1.55.2` failing to build against a newer Go — measured on go1.25.0 (P-L5-1); D12 step 2 is then `not-proven` by construction, and the pin bump is its OWN task (spec §11). Never bump the pin inside L5. |
 
 ## §5 Descope register — which stage owns each spec descope
 
@@ -239,13 +258,14 @@ convention»).
   recogniser cannot tokenise is NOT-wired (I2), never «close enough».
 - **T10** — enumerate every config the tool loads (D11, nested configs) before claiming a lane
   is wired; the root file is not the population.
-- **T11 / T16** — L3 is the capability stage: prior-art consult before the writer
-  (kickoff-l3 §3). toml_edit (#132) edits TOML with a CST; our class is bash-only, no parser —
-  state the match per candidate.
+- **T11 / T16** — L3 is the capability stage. Its prior-art consult (SSOT #216/#117/#132, PR
+  #1868, context7 ×3, WebSearch ×1, the T16 line per candidate) ran on the host before dispatch
+  and is recorded in [kickoff.probes.md](kickoff.probes.md); L3 cites it and does not re-run it.
 - **T15 (self-application, mandatory)** — this umbrella applies its own rule to itself: every
-  anchor above was measured at `b3a19811be6` (or on #1890 head `8c82c1a1e7b`, marked), the
-  profile value against the live list, the required check against branch protection; the
-  stage names were checked against `STAGE_KICKOFF_RE`. What auditing this plan would look like:
+  anchor above was measured at `a9c457321e6`, the profile value against the live list, the
+  required check against branch protection, every tool claim by a host probe
+  ([kickoff.probes.md](kickoff.probes.md)); the stage names were checked against
+  `STAGE_KICKOFF_RE` and the sidecar name against `SIDECAR_DOTTED_RE`. What auditing this plan would look like:
   a cold reviewer given only the spec and these six files, checking that every §5 descope and
   every §8 decision lands in exactly one stage.
 - **T19** — each stage runs its own cold review of the diff before handoff; green CI is form.
@@ -260,8 +280,9 @@ convention»).
   The only acceptance for I5 is a run of the template's own command, extracted from the template
   file (never retyped), against a consumer fixture whose config lacks getff's bans — and the
   gate still fires.
-- **T-LCI-C (domain) — «fixed on staging's line numbers».** #1890 moves every lane anchor; a
-  stage that edits by staging line number edits the wrong code. Re-locate by content.
+- **T-LCI-C (domain) — «fixed on staging's line numbers».** Each stage rewrites lane code the
+  next stage reads; a stage that edits by a line number from this kickoff edits the wrong code
+  once an earlier stage has merged. Re-locate by content.
 
 ## §9 Report format (per stage, back to the dispatcher)
 

@@ -155,3 +155,5 @@ tests/agnosticism/conformance-record.tsv
 # Tracked so each stage kickoff reaches `staging` for the dispatch session and the aif
 # container base to read (.claude/rules/kickoff-staging-placement.md §1).
 !.claude/orchestrator-prompts/lane-config-insertion/kickoff-l*.md
+# The host-run probe record the stage kickoffs cite (dotted sidecar, SIDECAR_DOTTED_RE).
+!.claude/orchestrator-prompts/lane-config-insertion/kickoff.probes.md

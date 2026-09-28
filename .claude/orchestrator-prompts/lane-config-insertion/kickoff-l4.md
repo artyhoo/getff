@@ -15,32 +15,42 @@
 > [README.md#why-this-exists](../../../README.md#why-this-exists); any design decision — the spec;
 > the writer and the probe scaffolding — L3 owns them, and L4 only extends them.
 
-**Measurement SHA:** `origin/staging` = `b3a19811be6` (2026-09-29); «#1890» = head `8c82c1a1e7b`.
-#1890, L1 and L2 all rewrite `setup.d/46-cargo.sh`: **re-locate every anchor by content**.
+**Measurement SHA:** `origin/staging` = `a9c457321e6` (2026-09-29; PR #1890 merged as
+`eb8e2306261`). L1 and L2 both rewrite `setup.d/46-cargo.sh`: **re-locate every anchor by
+content**.
+
+**Tool-absent rule (hard, umbrella §0.2).** `command -v <tool>` fails in your environment → you
+do not install toolchains into the container and never paste output you did not run; proofs
+that need the tool are CI-job tests (spec §9 shard placement) and the PR body says which CI job
+ran them; if a needed decision depends on a tool run you cannot perform, park
+`blocked_external`. The aif container has no cargo or clippy: every clippy-running arm of §1e
+runs in CI job `principles-meta-tests` (§1d).
 
 **Deviations (declared):**
 
-1. **`getff-deny.toml` stays.** D6 turns the deny.toml NOT-wired line (#1890 `46-cargo.sh:157`)
-   into a log fact. The spec does not say whether the `getff-deny.toml` reference copy
-   (`:154`) keeps shipping. L4 leaves it as it is and lists it under `## Parked questions`.
+1. **`getff-deny.toml` stays.** D6 turns the deny.toml NOT-wired line (`46-cargo.sh:157`) into a
+   log fact. The `getff-deny.toml` reference copy (`:144`, `:156`) keeps shipping, exactly as it
+   is — the stated default. Whether it should stop shipping is an open question: record it in
+   the PR body under `## Parked questions` as **informational**, then proceed with the default.
+   This is NOT a park and does not stop the task.
 2. **No D12 step 2 for clippy** (spec §5): a missing `cargo clippy` is `not-proven`, never a
    `rustup component add`. The probe runs the consumer's `cargo clippy` only.
 
-**Dependencies:** #1890, L1, L2, L3 merged (umbrella §3 gate L4). **Read L1's P-L1-1 result**
-(`gh pr view <L1 PR> --repo artyhoo/getff --json body`, section `## Probe results`). It decides
-which wording §2c uses and what the CI gate enforces:
+**Dependencies:** #1890 (merged, `eb8e2306261`), L1, L2, L3 merged (umbrella §3 gate L4).
 
-| P-L1-1 branch | The getff CI gate enforces | §4.3 insertion is |
-|---|---|---|
-| «works» (isolated gate shipped) | getff's bans from `.getff/clippy/clippy.toml`, whatever the consumer's config says | the **local** gap only (I5) |
-| fallback (gate on the consumer's config) | whatever the consumer's config holds | what CI enforces — a `not-proven` or NOT-wired cell means CI enforces **nothing** of getff's for that config. Umbrella §4 L4 stop: surface it in `ATTN`; do not paper over it. |
+**P-L1-1 selected «works»** (host probe, clippy 0.1.96 and 0.1.98 —
+[kickoff.probes.md](kickoff.probes.md)), so L1 ships the isolated gate: the getff CI gate
+enforces getff's bans from `.getff/clippy/clippy.toml` whatever the consumer's config says, and
+the §4.3 insertion closes the **local** gap only (I5). Confirm on L1's merged cargo template
+(`packages/core/templates/cargo/github-actions-ci.yml`, the `CLIPPY_CONF_DIR` step) before
+writing §1b; if the merged template differs, that is the umbrella §4 L4 stop.
 
 ## §1 Deliverables
 
 ### 1a clippy insertion (spec §4.3)
 
-- **Targets:** every clippy config in the workspace, `target/` excluded, per L2's lookup list
-  (`clippy.toml`, `.clippy.toml`). Each is processed on its own and gets its own result line.
+- **Targets:** every clippy config in the workspace, `target/` excluded, per L2's
+  `CLIPPY_CONFIG_NAMES` (`.clippy.toml` wins over `clippy.toml`, P-L2-2). Each is processed on its own and gets its own result line.
 - **NOT-wired, before any write:** a directory holding both `clippy.toml` and `.clippy.toml`; a
   workspace whose `.cargo/config.toml` sets `CLIPPY_CONF_DIR` in `[env]` (clippy loads that
   directory, not the file walk getff edits). Every clippy config becomes NOT-wired with that
@@ -56,22 +66,22 @@ which wording §2c uses and what the CI gate enforces:
 - **Proof:** `cargo clippy` with an absolute `CLIPPY_CONF_DIR=<that config's dir>` on a getff
   probe crate **outside the project** (a `mktemp -d` crate removed on every exit path), before and
   after, each with its own fresh `--target-dir`. Match hits by lint code — the technique of the
-  cargo self-check, `grep -q '"clippy::disallowed_methods"'` (`46-cargo.sh:222` staging). The
+  cargo self-check, `grep -q '"clippy::disallowed_methods"'` (`46-cargo.sh:224`). The
   after-run gains exactly getff's paths, and nothing else changes. No `cargo clippy` →
   `not-proven clippy unavailable (<why>)`.
-- The firing self-check (`_cargo_firing_self_check`, `:201`) stays pinned to getff's delivered
+- The firing self-check (`_cargo_firing_self_check`, `:203`) stays pinned to getff's delivered
   config — adapter-jig E2 (`packages/core/principles/33-adapter-jig-arm-registry.ts:82`) is not
   reversed.
-- The REFUSE cell's NOT-wired line (#1890 `46-cargo.sh:120`) becomes, per result: `added` →
+- The REFUSE cell's NOT-wired line (`46-cargo.sh:120`, as L1 reworded it) becomes, per result: `added` →
   `note_getff_added`, or the reason from the result contract.
 
 ### 1b `Cargo.toml [lints.clippy]` — never inserted (spec §4.4, D3, P5)
 
-`Cargo.toml` is never opened for writing. The NOT-wired line at #1890 `46-cargo.sh:133-136` is
+`Cargo.toml` is never opened for writing. The NOT-wired line at `46-cargo.sh:133-136` is
 reworded from two facts the lane already has:
 
-1. the isolated gate is in place (P-L1-1 «works»), or else §1a wired the consumer's config;
-2. the getff CI workflow is getff's own (`_lane_getff_ci_runs`, #1890 `setup.d/lib.sh:1588`, the
+1. the isolated gate is in place (P-L1-1 «works», shipped by L1);
+2. the getff CI workflow is getff's own (`_lane_getff_ci_runs`, `setup.d/lib.sh:1588`, the
    `_ci` branch kept).
 
 Both hold → «the ban is a warning on a local build and an error in getff's CI; getff does not
@@ -81,7 +91,7 @@ unchanged.
 
 ### 1c cargo-deny — nothing to insert (spec §4.5, D6)
 
-- The NOT-wired line at #1890 `46-cargo.sh:157` becomes a log fact: «deny.toml — getff's starter
+- The NOT-wired line at `46-cargo.sh:157` becomes a log fact: «deny.toml — getff's starter
   matches cargo-deny's defaults, nothing to add». It is no longer counted in `NOT_WIRED`.
 - **Guard:** new `tests/install-sh/deny-template-defaults-guard.test.sh`. It asserts that
   `packages/core/templates/cargo/deny.toml` holds no key beyond cargo-deny's defaults: today
@@ -92,10 +102,11 @@ unchanged.
 
 ### 1d CI placement of clippy
 
-The lane suites run in install-sh shards with no clippy (spec §9 round-1 F6). Follow the choice L1
-made for its cargo arm (install the pinned rust `1.96.1` + clippy in that shard, or run the arm in
-`principles-meta-tests`, `.github/workflows/audit-self.yml:338-344`). Do not invent a third place.
-A clippy arm whose tool is missing **fails**.
+The lane suites run in install-sh shards with no clippy (spec §9 round-1 F6). Register
+`lane-config-insert-cargo.test.sh` in job `principles-meta-tests` (`.github/workflows/audit-self.yml:264`,
+rust `1.96.1` + clippy at `:341-342`) — the job L1 put its cargo arm in. Do not invent another
+place. A clippy arm whose tool is missing **fails**. The deny guard needs no tool and may sit in
+`install-sh-c`.
 
 ### 1e Tests
 
@@ -121,8 +132,10 @@ as a separate owner commit — so this allowlist deliberately names no park-reco
 
 ## §2 Prior-art consult
 
-L4 extends L3's capability to one more format. It adds no new mechanism. The commit trailer cites
-the same row: `Prior-art: prior-art-evaluations.md#216 (BUILD — L3's lane writer extended to clippy.toml; no new capability class).`
+L4 extends L3's capability to one more format. It adds no new mechanism; the consult is L3's,
+recorded in [kickoff.probes.md](kickoff.probes.md) (context7 on clippy: no include/extend between
+config files, `".."` extends defaults only). The commit trailer cites the same row:
+`Prior-art: prior-art-evaluations.md#216 (BUILD — L3's lane writer extended to clippy.toml; no new capability class).`
 Check `#132` for any clippy-specific TOML note before writing the inline-array inserter.
 
 ## §3 Regeneration and the docs-refresh gate
@@ -134,7 +147,9 @@ Umbrella §0.5 / §0.6. Expected drift: `tests/install-sh/baselines/cargo/*` and
 
 Commit the fixture table and golden outputs first. Run `lane-config-insert-cargo.test.sh` and the
 guard against the pre-change lane and paste the output: every insertion row fails, the deny fact
-row fails, the guard's paired negative passes (it is a guard, not a feature).
+row fails, the guard's paired negative passes (it is a guard, not a feature). The clippy rows
+need cargo: without it (tool-absent rule), paste the rows you ran and name the CI job and run
+for the rest, or state that their RED-first evidence is owed to that CI run.
 
 ## §5 Exit gates
 
@@ -150,8 +165,10 @@ bash tests/install-sh/refresh-covers-full-delivery.test.sh
 scripts/build-getff-dist.sh --check
 ```
 
-Plus `npx vitest run packages/core/principles/33-adapter-jig-arm-registry.test.ts`,
-`bash scripts/run-local-ci-sweep.sh`, the merge lock, and CI green on the new head SHA.
+Clippy-running arms are CI-job tests where `command -v cargo` fails (job `principles-meta-tests`).
+Plus `npx vitest run packages/core/principles/33-adapter-jig-arm-registry.test.ts` and
+`bash scripts/run-local-ci-sweep.sh`. The merge lock and CI-green-on-the-new-head are the harvest
+session's (umbrella §0.4).
 
 ## §6 Falsifiers to write into the PR body
 
@@ -175,19 +192,20 @@ implementations, an undecided design choice, a missing spec detail that changes 
 NOT pick.** Park it as a question (set the task to `manualReviewRequired` / `blocked_external`
 with the fork stated as «Option A → consequence X / Option B → consequence Y») and **stop that
 task.** Proceed only on the unambiguous parts. Guessing a fork to "keep moving" is the failure
-this whole loop exists to prevent. Deviation 1 is a pre-declared park.
+this whole loop exists to prevent. Deviation 1 is **not** a park: it is an informational entry
+under `## Parked questions`, and the task proceeds with the stated default.
 
 ## §9 Report
 
-Umbrella §9 format. `DECISIONS` names the P-L1-1 branch read, and the §1b sentence per
-combination.
+Umbrella §9 format. `DECISIONS` names the P-L1-1 branch («works», confirmed on L1's merged
+template), the §1b sentence per combination, and the CI job that ran the clippy arms.
 
 ## §10 AI traps ([ai-laziness-traps.md §2](../../rules/ai-laziness-traps.md))
 
 **Active traps: T3, T7, T14, T15, T19, T20, T21.**
 
 - **T3** — «clippy loads `.clippy.toml`» and «`CLIPPY_CONF_DIR` replaces the walk» are cited from
-  L2's and L1's probe output, not restated from memory.
+  [kickoff.probes.md](kickoff.probes.md) (P-L2-2, P-L1-1), not restated from memory.
 - **T14** — a green `not-proven` row on a CI runner that simply lacks clippy is not coverage of the
   insertion rows. Check that the insertion rows actually ran (§1d).
 - **T15 (mandatory)** — self-application: does this repo carry any `clippy.toml`? If it does, run
@@ -197,7 +215,8 @@ combination.
   shipped.
 - **T-LCI-A (domain)** — shape recognition authorises the attempt; only the clippy run authorises
   the result (umbrella §8).
-- **T-LCI-G (domain) — the cached second run.** Two `cargo clippy` runs sharing a target dir
-  return the first run's diagnostics, so the after-run «equals» the before-run and every
-  insertion rolls back — or, worse, a stale hit is read as proof. A fresh `--target-dir` per run
-  is the whole point.
+- **T-LCI-G (domain) — the cached second run.** On clippy 0.1.98 an edit of the loaded
+  `clippy.toml` does invalidate the cache ([kickoff.probes.md](kickoff.probes.md) «clippy
+  cache»); 0.1.96 was not measured. A stale cached run would make the after-run «equal» the
+  before-run (every insertion rolls back) or read a stale hit as proof, so each run keeps its own
+  fresh `--target-dir` — cheap, and independent of the toolchain version.
