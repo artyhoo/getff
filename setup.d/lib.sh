@@ -3116,6 +3116,82 @@ register_cc_hook() {
   fi
 }
 
+# rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's
+# own-config wirer reads it (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), for a caller
+# that must say what that wirer would do without running it. First line: `none` when the file
+# declares no top-level RULE_GLOBS; `no-array` when it declares one whose value is not an object
+# literal with a `boundary: [` array of its own (the wirer refuses R2 there); `array` otherwise,
+# followed by the array's string elements, one per line. Elements, not text: a glob in a comment, in
+# another key or in a nested object is none of them. A tokenizer, not a parser — a regex literal
+# holding a quote or `//` can throw it off. Exit 1 (nothing printed) when <file> is no file.
+rule_globs_boundary() {
+  [ -f "$1" ] || return 1
+  awk -v sq="'" '
+    function tok(type, val) { nt++; tt[nt] = type; tv[nt] = val }
+    function opens(k) { return tt[k] == "p" && (tv[k] == "{" || tv[k] == "[" || tv[k] == "(") }
+    function closes(k) { return tt[k] == "p" && (tv[k] == "}" || tv[k] == "]" || tv[k] == ")") }
+    { src = src $0 "\n" }
+    END {
+      n = length(src); i = 1; nt = 0
+      while (i <= n) {
+        c = substr(src, i, 1)
+        if (c == " " || c == "\t" || c == "\n" || c == "\r") { i++; continue }
+        if (c == "/" && substr(src, i + 1, 1) == "/") {
+          j = index(substr(src, i), "\n"); i = (j ? i + j : n + 1); continue
+        }
+        if (c == "/" && substr(src, i + 1, 1) == "*") {
+          j = index(substr(src, i + 2), "*/"); i = (j ? i + j + 3 : n + 1); continue
+        }
+        if (c == sq || c == "\"" || c == "`") {
+          # A template literal with a ${…} substitution is no string element for the wirer either.
+          q = c; v = ""; plain = 1; i++
+          while (i <= n) {
+            d = substr(src, i, 1)
+            if (d == "\\") { v = v substr(src, i + 1, 1); i += 2; continue }
+            if (d == q) break
+            if (q == "`" && d == "$" && substr(src, i + 1, 1) == "{") plain = 0
+            v = v d; i++
+          }
+          i++; tok(plain ? "str" : "tpl", v); continue
+        }
+        if (c ~ /[A-Za-z_$]/) {
+          v = c; i++
+          while (i <= n && substr(src, i, 1) ~ /[A-Za-z0-9_$]/) { v = v substr(src, i, 1); i++ }
+          tok("id", v); continue
+        }
+        tok("p", c); i++
+      }
+      # The declaration: `const|let|var RULE_GLOBS` outside every bracket, as the wirer takes only
+      # a top-level one.
+      depth = 0; decl = 0
+      for (k = 1; k <= nt; k++) {
+        if (depth == 0 && tt[k] == "id" && (tv[k] == "const" || tv[k] == "let" || tv[k] == "var") &&
+            tt[k + 1] == "id" && tv[k + 1] == "RULE_GLOBS") { decl = k + 1; break }
+        if (opens(k)) depth++; else if (closes(k)) depth--
+      }
+      if (!decl) { print "none"; exit }
+      if (!(tv[decl + 1] == "=" && tt[decl + 2] == "p" && tv[decl + 2] == "{")) { print "no-array"; exit }
+      # Its own `boundary:` key (depth 1 of the object literal), and that key holding an array.
+      rd = 1; arr = 0
+      for (k = decl + 3; k <= nt && rd > 0; k++) {
+        if (opens(k)) { rd++; continue }
+        if (closes(k)) { rd--; continue }
+        if (rd == 1 && tt[k] == "id" && tv[k] == "boundary" && tv[k + 1] == ":") {
+          if (tv[k + 2] == "[" && tt[k + 2] == "p") arr = k + 2
+          break
+        }
+      }
+      if (!arr) { print "no-array"; exit }
+      print "array"
+      ad = 1
+      for (k = arr + 1; k <= nt && ad > 0; k++) {
+        if (opens(k)) { ad++; continue }
+        if (closes(k)) { ad--; continue }
+        if (ad == 1 && tt[k] == "str") print tv[k]
+      }
+    }' "$1"
+}
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`

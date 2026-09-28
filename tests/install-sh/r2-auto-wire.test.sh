@@ -151,6 +151,72 @@ awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q '
   && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added" \
   || bad "G: the not-wired summary does not report the boundary globs that could not be added"
 
+# boundary_block <config> — the lines of RULE_GLOBS.boundary's array, `boundary: [` to its `]`.
+boundary_block() { awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1} on{print} on && /\]/{exit}' "$1"; }
+
+# ── Fixture H — a parse site in src/application/: its glob is one R8's `application:` key carries ──
+# «Already covered» used to be a file-wide substring match, so '**/application/**/*.{ts,tsx}' under
+# `application:` counted as covered and never went into `boundary: [` — R2 did not cover that code.
+H=$(mktemp -d)
+printf '{"name":"h","version":"0.0.0"}\n' > "$H/package.json"
+mkdir -p "$H/src/application"; echo 'export const h = (b) => schema.parse(b);' > "$H/src/application/x.ts"
+install_into "$H" ts-server
+grep -qF "'**/application/**/*.{ts,tsx}'" "$H/eslint.config.mjs" \
+  || bad "H: the config carries no '**/application/**/*.{ts,tsx}' anywhere — the arm below would be vacuous"
+boundary_block "$H/eslint.config.mjs" | grep -qF "'**/application/**/*.{ts,tsx}'" \
+  && ok "H: a parse site in src/application → its glob is inside RULE_GLOBS.boundary, not only under application:" \
+  || bad "H: '**/application/**/*.{ts,tsx}' is not in the boundary array ($(boundary_block "$H/eslint.config.mjs" | tr '\n' '|'))"
+# Paired negative: the glob now IS a boundary element, so a re-install must not add it again.
+( cd "$H" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H/.install2.log" 2>&1 \
+  || bad "H: the re-install exited non-zero (tail: $(tail -3 "$H/.install2.log" | tr '\n' '|'))"
+n_h=$(boundary_block "$H/eslint.config.mjs" | grep -cF "'**/application/**/*.{ts,tsx}'")
+[ "$n_h" = "1" ] \
+  && ok "H: a glob already in the boundary array → a re-install adds no duplicate" \
+  || bad "H: the boundary array holds '**/application/**/*.{ts,tsx}' $n_h times after a re-install (expected 1)"
+
+# ── Fixture I — a parse site in a directory whose name holds an apostrophe ──
+# The glob went into the config wrapped in single quotes unescaped: `'**/it's/**/*.{ts,tsx}',` —
+# a config ESLint cannot load. It must be a valid string element holding the glob.
+I=$(mktemp -d)
+printf '{"name":"i","version":"0.0.0"}\n' > "$I/package.json"
+mkdir -p "$I/src/it's"; echo 'export const h = (b) => schema.parse(b);' > "$I/src/it's/x.ts"
+install_into "$I" ts-server
+grep -qF "**/it" "$I/eslint.config.mjs" || bad "I: no glob for the apostrophe directory reached eslint.config.mjs — the arm below would be vacuous"
+node --check "$I/eslint.config.mjs" 2>"$I/.check.err" \
+  && ok "I: a glob with an apostrophe → eslint.config.mjs is still valid JavaScript" \
+  || bad "I: eslint.config.mjs no longer parses ($(head -3 "$I/.check.err" | tr '\n' '|'))"
+( cd "$I" && node --input-type=module -e "
+  const src = (await import('node:fs')).readFileSync('eslint.config.mjs', 'utf8');
+  const m = src.match(/const RULE_GLOBS = (\{[\s\S]*?\n\});/);
+  const g = m && new Function('return ' + m[1])();
+  process.exit(g && g.boundary.includes(\"**/it's/**/*.{ts,tsx}\") ? 0 : 1);
+" ) 2>/dev/null \
+  && ok "I: the boundary array holds the apostrophe glob as one string element" \
+  || bad "I: RULE_GLOBS.boundary does not hold \"**/it's/**/*.{ts,tsx}\" ($(boundary_block "$I/eslint.config.mjs" | tr '\n' '|'))"
+
+# ── Fixture J — RULE_GLOBS re-wrapped in a type cast: the boundary array is no longer its own key ──
+# The element read answers `no-array` there, so nothing counted as covered; the awk insert still
+# found the `boundary: [` line and added the same glob again on every re-install (cold review).
+J=$(mktemp -d)
+printf '{"name":"j","version":"0.0.0"}\n' > "$J/package.json"
+mkdir -p "$J/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$J/src/api/handler.ts"
+install_into "$J" ts-server
+sed -e 's|^const RULE_GLOBS = {$|const RULE_GLOBS = /** @type {any} */ ({|' "$J/eslint.config.mjs" \
+  | awk 'cast==0 && /^const RULE_GLOBS = \/\*\*/{cast=1} cast==1 && /^};$/{print "});"; cast=2; next} {print}' \
+  > "$J/eslint.config.mjs.edit" && mv "$J/eslint.config.mjs.edit" "$J/eslint.config.mjs"
+grep -q '^const RULE_GLOBS = /\*\* @type' "$J/eslint.config.mjs" && node --check "$J/eslint.config.mjs" 2>/dev/null \
+  || bad "J: the fixture edit did not leave a cast-wrapped, valid RULE_GLOBS — the arm below would be vacuous"
+n_j0=$(boundary_block "$J/eslint.config.mjs" | grep -cF "'**/api/**/*.{ts,tsx}'")
+( cd "$J" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$J/.install2.log" 2>&1 \
+  || bad "J: the re-install exited non-zero (tail: $(tail -3 "$J/.install2.log" | tr '\n' '|'))"
+n_j=$(boundary_block "$J/eslint.config.mjs" | grep -cF "'**/api/**/*.{ts,tsx}'")
+[ "$n_j0" = "1" ] && [ "$n_j" = "1" ] \
+  && ok "J: a boundary array the element read cannot see → a re-install adds no duplicate" \
+  || bad "J: '**/api/**/*.{ts,tsx}' in the boundary array: $n_j0 before the re-install, $n_j after (expected 1 and 1)"
+! grep -q 'could not add glob' "$J/.install2.log" \
+  && ok "J: a glob already in that array → no «could not add glob» false alarm" \
+  || bad "J: the re-install reported a glob it did not need to add: $(grep 'could not add glob' "$J/.install2.log" | head -1)"
+
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )
 [ "$SELF" != "no-boundary-confident" ] \
