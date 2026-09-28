@@ -121,7 +121,8 @@ echo "▶ Runtime-bridge"
 if [ "$MODE" = "dry-run" ]; then
   echo "  [dry-run] would run bridge guided-detect"
 elif { [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; } && [ "${GETFF_GLOBAL:-}" != "1" ]; then
-  echo "  ⊝ runtime-bridge skipped — it writes machine-global settings (your shell rc, Claude settings); -y installs into the project only, re-run with --global to allow it"
+  echo "  ⊝ runtime-bridge skipped — it writes machine-global settings (your shell rc, Claude settings)"
+  companion_not_wired "runtime-bridge — not set up: it writes machine-global settings (your shell rc, Claude settings), and without --global a non-interactive install writes into this project only"
 elif [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; then
   source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run
 else
@@ -130,5 +131,6 @@ else
   case "$ans" in [yY]|[yY][eE][sS]) source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run ;; *) echo "  ⊝ runtime-bridge skipped" ;; esac
 fi
 
+companion_not_wired_summary
 echo ""
 echo "✅ ./setup complete (${MODE})."

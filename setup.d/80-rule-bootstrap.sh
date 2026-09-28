@@ -41,18 +41,18 @@ fi
 
 _research_dir="$PROJECT_ROOT/.ai-factory/rules-research"
 # Stack-keyed research pair: the install's $STACK selects the artefacts (mirrors the
-# ${STACK:-ts-server} D3 notice in 99-finalize.sh:213-214). Multi-stack delivery (#827 B1):
+# ${STACK:-ts-server} D3 notice in 99-finalize.sh:223-224). Multi-stack delivery (#827 B1):
 # react-native / ts-server / react-spa each look up their own <stack>.{research,selection}.json,
 # instead of the former react-next-only hardcode that silently degraded every other stack.
 _plan="$_research_dir/${STACK:-ts-server}.research.json"
 _sel="$_research_dir/${STACK:-ts-server}.selection.json"
 
 if [ ! -f "$_plan" ] || [ ! -f "$_sel" ]; then
-  # Decision B: degrade + guidance — never ship the stub rule on the consumer path.
-  printf '  [80-rule-bootstrap] no rules-research artefacts at %s\n' "$_research_dir"
-  printf '  [80-rule-bootstrap] run the rule-research protocol (agents/rule-researcher.md or the\n'
-  printf '                      rule-research skill) to author <stack>.research.json + <stack>.selection.json,\n'
-  printf '                      then re-run ./setup --full. Shipping no synthesized rule this pass.\n'
+  # Decision B: degrade with the reason — never ship the stub rule on the consumer path, and never
+  # a manual step (operator directive 2026-09-28, Q4.7).
+  printf '  [80-rule-bootstrap] no rules-research artefacts at %s — shipping no synthesized rule this pass\n' "$_research_dir"
+  printf '                      (<stack>.research.json + <stack>.selection.json come from the rule-research\n'
+  printf '                      protocol, agents/rule-researcher.md, which an install does not run)\n'
   return 0 2>/dev/null || true
 fi
 
