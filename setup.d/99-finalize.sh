@@ -31,8 +31,36 @@
 # globs it reads. The config stays the consumer's: nothing records it in the refresh baseline. Any
 # part that does not land is named in the not-wired summary with its reason. Before Q4.7 the install
 # printed «add it by hand» here instead, and getff's rules stayed off in every such project.
+#
+# A config getff placed is getff's only while its bytes are still the ones getff left
+# (getff_bytes_intact). One the consumer has edited since takes the own-config branch too: its
+# content is theirs, and the AST writer of getff's branch re-prints the list it appends to — a
+# comment on the consumer's last entry swallowed the new blocks, so the rule never reached ESLint.
+# getff_bytes_intact <abs-cfg> — exit 0 IFF <abs-cfg> still holds the bytes getff left in it: this run
+# staged it (the delivery itself), or its sha256 equals the refresh-baseline entry an earlier install
+# recorded (hashed at that install's end, after this post-processing). A getff_delivered file the
+# consumer edited since fails it — those bytes are theirs now — and so does an unknown one (no entry,
+# no jq, no sha256 tool): the safe side.
+getff_bytes_intact() {
+  local dst="$1" p cur
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
+}
 _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
 _root_eslint=$(eslint_flat_config "$PROJECT_ROOT")
+# _root_edited=1: getff placed the root config, and the consumer has edited it since.
+_root_edited=""
+if [ -n "$_root_eslint" ] && getff_delivered "$PROJECT_ROOT/$_root_eslint" \
+   && ! getff_bytes_intact "$PROJECT_ROOT/$_root_eslint"; then
+  _root_edited=1
+fi
 # _own_eslint_ignores — the lintable files getff delivered that its own configs ignore (the
 # templates' machinery ignores), one per line: never a directory the consumer might own too.
 _own_eslint_ignores() {
@@ -45,8 +73,10 @@ _own_eslint_ignores() {
   return 0
 }
 if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
-   && ! getff_delivered "$PROJECT_ROOT/$_root_eslint"; then
+   && { [ -n "$_root_edited" ] || ! getff_delivered "$PROJECT_ROOT/$_root_eslint"; }; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
+  [ -z "$_root_edited" ] \
+    || echo "▶ synth-wire: getff placed $_root_eslint, and it has been edited since — it is treated as your own config"
   if [ "$_root_eslint" != eslint.config.js ] && [ "$_root_eslint" != eslint.config.mjs ]; then
     # copy_unless_foreign already listed it as not wired (no ES-module flat config to add to).
     echo "▶ synth-wire: $_root_eslint is your own config — getff adds its block only to an eslint.config.mjs or an ES-module eslint.config.js, so it is left as it is"
@@ -154,12 +184,21 @@ if command -v node >/dev/null 2>&1 && [ "$DRY_RUN" != "--dry-run" ] \
         # stack's live rule. Other-stack workspaces are delivered on their own ./setup <stack> run.
         [ "$_sw_stack" = "${STACK:-ts-server}" ] || continue
         while IFS= read -r -d '' _sw_cfg; do
-          # A workspace config the consumer owns gets the root block's treatment (Q4.7): getff's
-          # block is added by insertions only and the original kept if the write changes it.
+          # A workspace config the consumer owns — or getff placed and the consumer has edited since —
+          # gets the root block's treatment (Q4.7): getff's block is added by insertions only and the
+          # original kept if the write changes it.
           _sw_rel="${_sw_cfg#"$PROJECT_ROOT"/}"
           _sw_own=()
           _sw_snap=""
+          _sw_getff=""
           if getff_delivered "$_sw_cfg"; then
+            if getff_bytes_intact "$_sw_cfg"; then
+              _sw_getff=1
+            else
+              echo "  · synth-wire (live): getff placed $_sw_rel, and it has been edited since — it is treated as your own config"
+            fi
+          fi
+          if [ -n "$_sw_getff" ]; then
             echo "  · synth-wire (live): $_sw_cfg"
           else
             echo "  · synth-wire (live): $_sw_rel is your own config — adding getff's block to it (additions only)"
@@ -249,23 +288,7 @@ fi
 # getff left (getff_bytes_intact). One the consumer has edited since takes the own-config branch: its
 # content is theirs, and the AST writer re-prints the list it edits, dropping their comments. --install
 # makes the wirer report what did not land as a not-wired line, never as a snippet to add by hand (Q4.7).
-# getff_bytes_intact <abs-cfg> — exit 0 IFF <abs-cfg> still holds the bytes getff left in it: this run
-# staged it (the delivery itself), or its sha256 equals the refresh-baseline entry an earlier install
-# recorded (hashed at that install's end, after this post-processing). A getff_delivered file the
-# consumer edited since fails it — those bytes are theirs now — and so does an unknown one (no entry,
-# no jq, no sha256 tool): the safe side.
-getff_bytes_intact() {
-  local dst="$1" p cur
-  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
-    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
-    [ "$p" = "$dst" ] && return 0
-  done
-  [ -f "$dst" ] || return 1
-  _refresh_baseline_lookup "$dst"
-  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
-  cur=$(_hash256 "$dst") || return 1
-  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
-}
+# getff_bytes_intact is defined with the root synth-wire above, its first caller.
 _r2_wire_cfg() {
   local cfg="$1" wirer="$2" rel dir out snap kept l
   local args=()

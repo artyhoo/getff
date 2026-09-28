@@ -32,6 +32,15 @@
 #   H  a root eslint.config.cjs is left byte-identical and reported without a manual step, and
 #      check:globs no longer exits 2 on it;
 #   D  a monorepo workspace config the consumer owns: the live snippet lands in it, original kept;
+#   I  a root config getff placed on an EARLIER install (the refresh-baseline manifest holds its hash)
+#      that the consumer has edited since — a trailing comma and a same-line comment on its last
+#      entry: its bytes are the consumer's, so the next live rule goes in the own-config way —
+#      insertions only, the original kept — never the AST re-print, which printed the new blocks
+#      INSIDE that comment (the rule never reached ESLint) and repeated the comment after each;
+#   J  paired with I: the same config left as getff wrote it (the manifest's hash still matches the
+#      post-processed file) still goes through getff's branch, so I's route is the edit;
+#   K  both at once on the per-workspace synth-wire: of two getff-placed workspace configs, the
+#      edited one goes the own-config way and the untouched one through getff's branch;
 #   E  the R2 Layer-2 wirer (`--yes` under --full) on a per-package config the consumer owns: R2
 #      lands in it, the original is kept, and prettier still accepts the file;
 #   F  the R2 per-workspace wirer on a multi-stack monorepo: the consumer's workspace config gets R2
@@ -379,6 +388,108 @@ grep -qF 'swcLiveProbe' "$D/apps/mobile/eslint.config.mjs" && only_insertions "$
   || bad "D: the consumer's apps/mobile/eslint.config.mjs was not wired with its original kept"
 not_wired "$WORK/d.log" | grep -q 'apps/mobile/eslint.config.mjs' \
   && bad "D: the not-wired summary still lists apps/mobile/eslint.config.mjs" || ok "D: the workspace config is not reported as unwired"
+
+# ── I, J, K: a config getff placed on an earlier install, edited or not since ────────────────
+# The first install wires one live rule (eqeqeq) into getff's config, so the manifest records the
+# post-processed bytes, which no template matches: only the manifest's hash can say they are still
+# getff's. The second install brings a new live rule (no-var) to wire.
+NOTE='// consumer: keep this block last'
+live_snippet() { # $1 = project dir, $2 = JSON rules object
+  mkdir -p "$1/.ai-factory/synthesizer-output"
+  printf '%s\n' "$2" > "$1/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
+}
+# edit_last_entry <file> — the consumer's edit: a trailing comma and a comment on the last entry.
+edit_last_entry() {
+  NOTE="$NOTE" perl -0pi -e 's/,?\n(\)|\]);\n\z/, $ENV{NOTE}\n$1;\n/' "$1"
+}
+# lands_no_var <file> — no-var is on a line of <file> outside a // comment (a rule printed inside
+# the consumer's comment is text, not config).
+lands_no_var() { sed 's://.*$::' "$1" | grep -q 'no-var'; }
+# note_line_kept <file> <edited> — the consumer's annotated line is in <file> once, unchanged.
+note_line_kept() {
+  local line; line=$(grep -F "$NOTE" "$2")
+  [ -n "$line" ] && [ "$(grep -cxF -- "$line" "$1")" -eq 1 ]
+}
+# edited_then_reinstall <project> <stack> <config…> — install with the first live rule, let the
+# consumer edit each named config (relative path), then re-install with the second live rule.
+edited_then_reinstall() {
+  local p="$1" stack="$2" c; shift 2
+  live_snippet "$p" '{ "eqeqeq": "error" }'
+  borrow "$p"
+  ( cd "$p" && git init -q && bash "$REPO_ROOT/install.sh" "$stack" </dev/null ) >"$p.1.log" 2>&1 \
+    || bad "$(basename "$p"): first install.sh $stack failed (tail: $(tail -3 "$p.1.log" | tr '\n' '|'))"
+  for c in "$@"; do
+    edit_last_entry "$p/$c"
+    grep -qF "$NOTE" "$p/$c" || bad "$(basename "$p"): the fixture edit did not land in $c — the arm would be vacuous"
+    cp "$p/$c" "$p.$(printf '%s' "$c" | tr '/' '_').edited"
+  done
+  live_snippet "$p" '{ "eqeqeq": "error", "no-var": "error" }'
+  ( cd "$p" && bash "$REPO_ROOT/install.sh" "$stack" </dev/null ) >"$p.2.log" 2>&1 \
+    || bad "$(basename "$p"): re-install failed (tail: $(tail -3 "$p.2.log" | tr '\n' '|'))"
+  unborrow "$p"
+}
+
+I="$WORK/placed-edited"; mkdir -p "$I"
+printf '{ "name": "swi", "version": "0.0.0" }\n' > "$I/package.json"
+edited_then_reinstall "$I" react-next eslint.config.mjs
+in_baseline "$I" eslint.config.mjs \
+  || bad "I: the first install did not record getff's eslint.config.mjs in the manifest — the arm would be vacuous"
+grep -q 'getff placed eslint.config.mjs, and it has been edited since' "$I.2.log" \
+  && ok "I: the install says the edited getff config is treated as the consumer's" \
+  || bad "I: the re-install did not treat the edited config as the consumer's: $(grep 'synth-wire' "$I.2.log" | head -2 | tr '\n' '|')"
+note_line_kept "$I/eslint.config.mjs" "$I.eslint.config.mjs.edited" \
+  && ok "I: the consumer's annotated last line is there once, unchanged" \
+  || { bad "I: the consumer's annotated line was rewritten:"; grep -F "$NOTE" "$I/eslint.config.mjs" | sed 's/^/      /' | head -3; }
+lands_no_var "$I/eslint.config.mjs" \
+  && ok "I: the new live rule is config, not text inside the consumer's comment" \
+  || bad "I: no-var is not on any line outside a // comment"
+only_insertions "$I.eslint.config.mjs.edited" "$I/eslint.config.mjs" \
+  && ok "I: nothing of the edited config was changed or removed — getff only inserted" \
+  || bad "I: a character of the edited config was changed or removed"
+kept_original "$I" eslint.config.mjs "$I.eslint.config.mjs.edited" \
+  && ok "I: the edited original is kept at .ai-factory/before-getff/eslint.config.mjs.<sha8>" \
+  || bad "I: no single byte-equal kept original ($(ls "$I/.ai-factory/before-getff" 2>&1 | tr '\n' ' '))"
+not_wired "$I.2.log" | grep -q 'eslint.config' && bad "I: the not-wired summary lists the eslint config" \
+  || ok "I: the not-wired summary has no eslint config line"
+asks_by_hand "$I.2.log" && bad "I: the install asks for a manual ESLint edit" || ok "I: nothing asks for a manual ESLint edit"
+
+J="$WORK/placed-intact"; mkdir -p "$J"
+printf '{ "name": "swj", "version": "0.0.0" }\n' > "$J/package.json"
+edited_then_reinstall "$J" react-next
+grep -q '▶ synth-wire: confirming' "$J.2.log" && ! grep -qE 'edited since|is your own config' "$J.2.log" \
+  && ok "J neg: getff's config as the first install left it (manifest hash matches) goes through getff's branch" \
+  || bad "J neg: an unedited manifest-recorded config left getff's branch: $(grep 'synth-wire' "$J.2.log" | head -2 | tr '\n' '|')"
+lands_no_var "$J/eslint.config.mjs" && [ ! -d "$J/.ai-factory/before-getff" ] \
+  && ok "J neg: the new live rule lands, and getff's own config keeps no 'before getff' copy" \
+  || bad "J neg: no-var did not land, or a copy of getff's own config was kept"
+
+K="$WORK/placed-ws"; mkdir -p "$K/apps/mobile" "$K/apps/tablet"
+printf '{"name":"swk","version":"0.0.0","private":true}\n' > "$K/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$K/pnpm-workspace.yaml"
+for w in mobile tablet; do
+  printf '{"name":"%s","version":"0.0.0","dependencies":{"react-native":"0.74.0","expo":"~51.0.0","react":"18.2.0"}}\n' "$w" > "$K/apps/$w/package.json"
+done
+edited_then_reinstall "$K" react-native apps/mobile/eslint.config.mjs
+grep -q 'synth-wire per-workspace' "$K.2.log" \
+  || bad "K: the per-workspace synth-wire never ran on the re-install — the arm would be vacuous"
+in_baseline "$K" apps/mobile/eslint.config.mjs && in_baseline "$K" apps/tablet/eslint.config.mjs \
+  || bad "K: the first install did not record both workspace configs in the manifest — the arm would be vacuous"
+grep -q 'getff placed apps/mobile/eslint.config.mjs, and it has been edited since' "$K.2.log" \
+  && ok "K: the install says the edited workspace config is treated as the consumer's" \
+  || bad "K: the edited apps/mobile config was not treated as the consumer's: $(grep 'synth-wire (live)' "$K.2.log" | head -2 | tr '\n' '|')"
+note_line_kept "$K/apps/mobile/eslint.config.mjs" "$K.apps_mobile_eslint.config.mjs.edited" \
+  && lands_no_var "$K/apps/mobile/eslint.config.mjs" \
+  && only_insertions "$K.apps_mobile_eslint.config.mjs.edited" "$K/apps/mobile/eslint.config.mjs" \
+  && ok "K: the new live rule lands in the edited workspace config by insertions, its annotated line unchanged" \
+  || { bad "K: the edited apps/mobile config was rewritten, or no-var is not config:"; grep -nE 'consumer:|no-var' "$K/apps/mobile/eslint.config.mjs" | sed 's/^/      /' | head -4; }
+kept_original "$K" apps/mobile/eslint.config.mjs "$K.apps_mobile_eslint.config.mjs.edited" \
+  && ok "K: the edited original is kept at .ai-factory/before-getff/apps/mobile/eslint.config.mjs.<sha8>" \
+  || bad "K: no kept original of the edited apps/mobile config"
+grep -qE 'synth-wire \(live\): .*/apps/tablet/eslint\.config\.mjs$' "$K.2.log" \
+  && ! grep -q 'apps/tablet/eslint.config.mjs.*edited since' "$K.2.log" \
+  && lands_no_var "$K/apps/tablet/eslint.config.mjs" && [ ! -e "$K/.ai-factory/before-getff/apps/tablet" ] \
+  && ok "K neg: the untouched workspace config goes through getff's branch, the rule lands, no copy kept" \
+  || bad "K neg: the unedited apps/tablet config left getff's branch: $(grep 'apps/tablet' "$K.2.log" | head -2 | tr '\n' '|')"
 
 # ── E, F: the R2 wirer under --full ────────────────────────────────────────────────────────────
 if [ ! -x "$FW_NM/.bin/tsx" ]; then
