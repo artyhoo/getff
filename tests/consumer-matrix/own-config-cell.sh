@@ -180,19 +180,82 @@ done
 grep -q "tseslint.config" eslint.config.mjs || fail "the consumer's own eslint.config.mjs was replaced — fixture premise broken"
 grep -q '"\*\*/\*.ts"' tsconfig.json || fail "the consumer's own tsconfig.json was replaced — fixture premise broken"
 
+# ── KNOWN ROT: preset-template defects this cell SHOWS but does not fail on ──────────────────────
+# The entries, their signatures and why they are not patched: tests/consumer-matrix/known-rot.sh
+# (operator decision Q4.4). Its matchers are tested on their own:
+# tests/install-sh/own-config-known-rot.test.sh.
+# shellcheck source=tests/consumer-matrix/known-rot.sh
+. "$FRAMEWORK_ROOT/tests/consumer-matrix/known-rot.sh"
+ROT_HITS=""
+
 # ── INSTALL-FOR-AI.md step 4, every item, results collected ────────────────────────────────────
 RESULTS=()
 FAILED=0
+step_log() { echo "$WORK/step-${1//[^a-z0-9]/-}.log"; }
 run_step() { # $1 = label; rest = command
   local label="$1"; shift
-  local out="$WORK/step-${label//[^a-z0-9]/-}.log"
-  if "$@" >"$out" 2>&1; then
+  local out rc=0 rot
+  out=$(step_log "$label")
+  "$@" >"$out" 2>&1 || rc=$?
+  if [ "$rc" -eq 0 ]; then
     RESULTS+=("PASS  $label")
+    return 0
+  fi
+  rot=$(known_rot_for "$label" "$out")
+  if [ -n "$rot" ]; then
+    RESULTS+=("ROT   $label  (rc=$rc, known rot $rot — see KNOWN ROT above; not a new failure)")
+    ROT_HITS="$ROT_HITS $rot:$label"
+    echo "  ~ $label — known rot $rot:"
   else
-    RESULTS+=("FAIL  $label  (rc=$?)")
+    RESULTS+=("FAIL  $label  (rc=$rc)")
     FAILED=1
     echo "  ✗ $label — last lines:"
-    tail -25 "$out" | sed 's/^/      /'
+  fi
+  tail -25 "$out" | sed 's/^/      /'
+}
+
+# validate_by_lane — `npm run validate` is one npm-run-all2 --parallel call over many lanes, and it
+# aborts the others at the first failure, so its log cannot say which lanes are red. On failure
+# each lane is run on its own (the typecheck / lint / test steps above are reused), and validate
+# counts as known rot only when every red lane is. A validate script of any other shape stays FAIL.
+validate_by_lane() {
+  local lanes lane log red="" rot rc=0 explained=1
+  npm run validate >"$(step_log validate)" 2>&1 || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    RESULTS+=("PASS  validate")
+    return 0
+  fi
+  lanes=$(node -e 'const s=(require("./package.json").scripts||{}).validate||"";
+    const t=s.trim().split(/\s+/); if(!/^npm-run-all2?$|^run-p$/.test(t[0]||"")) process.exit(1);
+    console.log(t.slice(1).filter(x=>!x.startsWith("-")).join(" "))') || lanes=""
+  if [ -z "$lanes" ]; then
+    RESULTS+=("FAIL  validate  (rc=$rc; not an npm-run-all2 lane list, cannot attribute)")
+    FAILED=1
+    tail -25 "$(step_log validate)" | sed 's/^/      /'
+    return 0
+  fi
+  for lane in $lanes; do
+    case "$lane" in
+      typecheck | lint | test) log=$(step_log "$lane") ;;
+      *) log=$(step_log "validate-$lane"); npm run "$lane" >"$log" 2>&1 && continue ;;
+    esac
+    case "$lane" in
+      typecheck | lint | test)
+        case " ${RESULTS[*]} " in *"PASS  $lane "*) continue ;; esac ;;
+    esac
+    rot=$(known_rot_for "$lane" "$log")
+    red="$red $lane${rot:+[$rot]}"
+    [ -n "$rot" ] || { explained=0; echo "  ✗ validate lane $lane — last lines:"; tail -25 "$log" | sed 's/^/      /'; }
+  done
+  if [ -z "$red" ]; then
+    RESULTS+=("FAIL  validate  (rc=$rc; every lane passes on its own — the parallel run itself failed)")
+    FAILED=1
+    tail -25 "$(step_log validate)" | sed 's/^/      /'
+  elif [ "$explained" -eq 1 ]; then
+    RESULTS+=("ROT   validate  (rc=$rc; red lanes:$red — all known rot)")
+  else
+    RESULTS+=("FAIL  validate  (rc=$rc; red lanes:$red)")
+    FAILED=1
   fi
 }
 
@@ -201,7 +264,7 @@ run_step "typecheck" npm run typecheck
 run_step "lint" npm run lint
 run_step "test" npm test
 run_step "build" npm run build
-run_step "validate" npm run validate
+validate_by_lane
 
 step "first commit through the real shipped pre-commit"
 run_step "first-commit" bash -c 'git add -A && git commit -qm "install getff"'
@@ -260,11 +323,30 @@ else
   echo "── generator: no committed research pair for $STACK — arm not applicable to this cell"
 fi
 
+# Strict the other way: every known-rot entry naming this stack must still reproduce on EVERY step
+# it names. One that no longer does was fixed (or moved) — delete it, so the list stays true.
+for e in $ROT_ENTRIES; do
+  id=${e%%:*}; steps=${e#*:}; steps=${steps%%:*}; stacks=${e##*:}
+  case ",$stacks," in *",$STACK,"*) ;; *) continue ;; esac
+  for s in ${steps//,/ }; do
+    case " $ROT_HITS " in
+      *" $id:$s "*) ;;
+      *)
+        RESULTS+=("FAIL  known rot $id no longer reproduces on '$s' — delete or narrow its KNOWN ROT entry")
+        FAILED=1
+        ;;
+    esac
+  done
+done
+
 echo ""
 echo "══ own-config cell ($STACK) ══"
 printf '  %s\n' "${RESULTS[@]}"
+if [ -n "$ROT_HITS" ]; then
+  echo "  known rot shown, not failed (Q4.4 — handed to the one-button design session):$ROT_HITS"
+fi
 if [ "$FAILED" -ne 0 ]; then
   [ -n "${CELL_KEEP:-}" ] && echo "  (work dir kept: $WORK)"
   fail "own-config cell ($STACK): a step of the INSTALL-FOR-AI.md step-4 list is RED on a project that owns its configs"
 fi
-echo "✓ own-config cell ($STACK): every step green"
+echo "✓ own-config cell ($STACK): every step green${ROT_HITS:+, apart from the known rot listed above}"

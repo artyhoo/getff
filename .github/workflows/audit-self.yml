@@ -939,6 +939,8 @@ jobs:
         run: bash tests/install-sh/synth-wire-consumer-config.test.sh
       - name: "install-sh — vitest.config.ts test globs follow a project without src/ (Q4.5 layout class; consumer's own config untouched; vitest-layout parity)"
         run: bash tests/install-sh/vitest-layout-roots.test.sh
+      - name: "install-sh — own-config cell KNOWN ROT matchers name only the preset-template rot they were written for (Q4.4)"
+        run: bash tests/install-sh/own-config-known-rot.test.sh
       - name: install-sh — layer-units (per-layer sourcing + structural integrity checks)
         run: bash tests/install-sh/layer-units.test.sh
       - name: "install-sh — setup -y yes-path (S4: forward --full, fail-loud no-hang, 4-stack, no self/consumer branch)"
@@ -1478,7 +1480,7 @@ jobs:
   # react-spa/react-native are a follow-up (they ship preset RULES/ARCHITECTURE docs not yet in
   # the shipped .prettierignore — a separate latent fresh-install validate-RED, distinct from #779).
   framework-fresh-install-validate:
-    name: "Fresh-install validate smoke (${{ matrix.stack }}) — closes #779"
+    name: "Fresh-install validate smoke (${{ matrix.stack }}, ${{ matrix.fixture }}) — closes #779"
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1486,6 +1488,14 @@ jobs:
       fail-fast: false
       matrix:
         stack: [ts-server, react-next, react-spa, react-native]
+        # empty-manifest — install into an empty package.json: getff's own eslint/tsconfig land and
+        #   ignore everything getff ships (the #779 / first-commit-passable replays below).
+        # own-configs — install into a project that already OWNS its eslint.config.mjs + tsconfig,
+        #   so the consumer's tools check getff's delivery, then run the whole INSTALL-FOR-AI.md
+        #   step-4 list (operator decision Q4.3, 2026-09-28: the empty fixture never ran typecheck,
+        #   build or validate and planted its test under src/, which is how a red fresh install of
+        #   a real project shipped green). Stack-neutral: one fixture, STACK only picks the preset.
+        fixture: [empty-manifest, own-configs]
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -1498,6 +1508,7 @@ jobs:
             package-lock.json
             packages/core/package-lock.json
       - name: "Fresh ./setup -y install (install.sh --full) into a tmp consumer"
+        if: matrix.fixture == 'empty-manifest'
         # STACK via env (not inline ${{…}} in run:) to avoid template-injection (zizmor). The
         # value is a GitHub-controlled matrix token from the allowlist above.
         env:
@@ -1515,6 +1526,7 @@ jobs:
           bash "$GITHUB_WORKSPACE/install.sh" "$STACK" --full
           echo "CONSUMER=$CONSUMER" >> "$GITHUB_ENV"
       - name: Seed a minimal source module (so the validate arms have inputs)
+        if: matrix.fixture == 'empty-manifest'
         # Added AFTER install so the arch:check target stayed "." (above). A single prettier-clean
         # module gives tsconfig inputs — without it tsc/depcruise abort with TS18003 on an empty
         # tree — while target="." keeps the vendored packages/core/** in depcruise's scope. No
@@ -1528,6 +1540,7 @@ jobs:
           mkdir -p src
           printf 'export const answer = 42;\n' > src/index.ts
       - name: "Plant a test file matching THIS stack's vitest include glob (first-commit-passable)"
+        if: matrix.fixture == 'empty-manifest'
         # The name must match the stack's vitest.config.ts `include` or `npx vitest run` exits 1
         # with "No test files found" — a failure unrelated to the three issues under replay:
         #   ts-server    → src/tests/seed.unit.ts (matches src/**/*.unit.ts)
@@ -1548,6 +1561,7 @@ jobs:
           fi
           printf "import { describe, expect, it } from 'vitest';\n\ndescribe('seed', () => {\n  it('passes', () => {\n    expect(1).toBe(1);\n  });\n});\n" > "$SEED"
       - name: "Consumer: git commit through the REAL shipped pre-commit (issues 1528+1529 replay)"
+        if: matrix.fixture == 'empty-manifest'
         # No hand-added .gitignore here — the FC-2 seed is what keeps node_modules/ out of the
         # index on this gitignore-less consumer (issue 1528); and the delivered .lintstagedrc.json
         # with --no-warn-ignored is what lets the eslint tasks pass on the eslint-ignored
@@ -1558,12 +1572,14 @@ jobs:
           git add -A
           git commit -m "install"
       - name: "Consumer: npx vitest run (issue 1530 replay)"
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           test -x node_modules/.bin/vitest \
             || { echo "::error::vitest not installed — install.sh --full dep install failed; the vitest arm cannot run (false-green guard)"; exit 1; }
           npx vitest run
       - name: Assert the consumer toolchain installed (else the validate gate is vacuous)
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           for bin in prettier depcruise; do
@@ -1572,14 +1588,17 @@ jobs:
           done
           echo "✓ consumer toolchain present (prettier + dependency-cruiser)"
       - name: "Consumer: npm run format:check (the #779 prettier gate)"
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           npm run format:check
       - name: "Consumer: npm run arch:check (the #779 dependency-cruiser gate)"
+        if: matrix.fixture == 'empty-manifest'
         run: |
           cd "$CONSUMER"
           npm run arch:check
       - name: "Consumer: npm run lint (all stacks — GH #779 lint follow-up)"
+        if: matrix.fixture == 'empty-manifest'
         # All 4 stacks run the consumer's `npm run lint` (eslint . --max-warnings=0). A fresh
         # `install.sh <stack> --full` vendors the AIF framework namespace (eslint-rules-local/**,
         # packages/core/**, scripts/audit-r4.ts, the root .mjs/.cjs/.ts configs) into the consumer
@@ -1598,6 +1617,17 @@ jobs:
           test -x node_modules/.bin/eslint \
             || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"; exit 1; }
           npm run lint
+      - name: "Own-configs cell: a project that owns its eslint + tsconfig → the whole INSTALL-FOR-AI.md step-4 list (Q4.3)"
+        # tests/consumer-matrix/own-config-cell.sh: fixture → a clean-clone copy of this tree →
+        # install.sh $STACK --full → typecheck · lint · test · build · validate · first commit ·
+        # first push (through the real shipped hooks) · the rule generator on an empty npm cache.
+        # Known preset-template rot is printed as ROT, strictly (tests/consumer-matrix/known-rot.sh,
+        # decision Q4.4). Deterministic + API-free per .claude/rules/no-paid-llm-in-ci.md.
+        if: matrix.fixture == 'own-configs'
+        env:
+          FRAMEWORK_ROOT: ${{ github.workspace }}
+          STACK: ${{ matrix.stack }}
+        run: bash tests/consumer-matrix/own-config-cell.sh
 
   framework-fresh-install-validate-multistack:
     # GH #807: the deps-installed e2e companion to tests/install-sh/multi-stack-monorepo.test.sh §9.

@@ -84,7 +84,8 @@
 #                         and its peers); locally they also read gitignored files CI's clean
 #                         checkout never has → false red (see the NOTE below).
 #   zizmor                needs `pip install zizmor==1.26.1` (network + python env).
-#   framework-self-install-ts-server / -react-next, framework-fresh-install-validate (×4 stacks),
+#   framework-self-install-ts-server / -react-next, framework-fresh-install-validate (×4 stacks
+#   × 2 fixtures; the own-configs cell is tests/consumer-matrix/own-config-cell.sh),
 #   framework-fresh-install-validate-multistack, consumer-matrix-start-cell
 #   (tests/consumer-matrix/pnpm-monorepo-cell.sh), consumer-matrix-python-unfamiliar-stack-cell,
 #   consumer-matrix-npm-tarball-cell, consumer-matrix-getff-dist-cell
