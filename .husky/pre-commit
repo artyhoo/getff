@@ -275,6 +275,30 @@ if (bad.length) {
 fi
 
 
+# ── Invariants-line render (2026-09-28) ───────────────────────────────
+# The session digest's INVARIANTS_LINE is rendered from README.md «What must not break
+# (invariants)» by scripts/render-invariants.mjs. When README.md is staged, re-render the
+# hook and stage it, so the twin block below regenerates plugin/hooks/inject-session-bootstrap
+# in the same commit and nobody has to remember `--write`. A hook with unstaged edits is not
+# auto-staged (that would sweep them into this commit): check only, and fail on drift.
+INV_HOOK=".claude/hooks/inject-session-bootstrap.sh"
+if echo "$CHANGED" | grep -qx 'README.md' && [ -f "$REPO_ROOT/scripts/render-invariants.mjs" ]; then
+  if git diff --quiet -- "$INV_HOOK"; then
+    if node "$REPO_ROOT/scripts/render-invariants.mjs" --write >/dev/null; then
+      if ! git diff --quiet -- "$INV_HOOK"; then
+        git add "$INV_HOOK"
+        CHANGED=$(printf '%s\n%s' "$CHANGED" "$INV_HOOK")
+        echo "✓ invariants line re-rendered from README.md and staged ($INV_HOOK)"
+      fi
+    else
+      echo "❌ render-invariants.mjs --write failed (README invariants block unparseable?)"
+      fail=1
+    fi
+  elif ! node "$REPO_ROOT/scripts/render-invariants.mjs" --check; then
+    fail=1
+  fi
+fi
+
 # ── Plugin twin regeneration ──────────────────────────────────────────
 # When .claude/hooks/*.sh or agents/*.md changes, regenerate plugin twins and re-stage.
 # Spec: .ai-factory/plans/zcode-parity-s6-twin-generator.md (Stage 6).

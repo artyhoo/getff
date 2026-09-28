@@ -14,14 +14,9 @@ AI agents can't silently bypass undocumented conventions. Every rule is an execu
 
 Recursive self-application — framework validates itself via own logic. Quality signal (GCC bootstrap precedent, `rustc` compile-self analogy), not the project's goal.
 
-## Invariants snapshot
+## Invariants
 
-| # | Invariant | Enforcement | Source |
-|---|---|---|---|
-| 1 | Build-vs-reuse SSOT consult before capability commit + macro-level build-first-reuse-default discipline | `Prior-art:` trailer + pre-push hook | [docs/meta-factory/prior-art-evaluations.md](../docs/meta-factory/prior-art-evaluations.md), [.claude/rules/build-first-reuse-default.md](rules/build-first-reuse-default.md) |
-| 2 | Recursive self-application — framework's own audits green | `make self-audit` + principles meta-tests | [packages/core/principles/](../packages/core/principles/) |
-| 3 | Search-coverage discipline — 6-item checklist on negative-existence claims | rule consumed by phase research sessions | [.claude/rules/phase-research-coverage.md](rules/phase-research-coverage.md) |
-| 4 | Multi-channel enforcement — every rule fails at earliest reachable channel | edit-time → pre-commit → pre-push → CI → production audit; CI = last-resort gate | [README.md#why-this-exists](../README.md#why-this-exists) |
+The invariant list lives in one place: [README.md «What must not break (invariants)»](../README.md#what-must-not-break-invariants). This file does not restate it. The session digest's `Invariants:` line (injected on every prompt and subagent start by [`.claude/hooks/inject-session-bootstrap.sh`](hooks/inject-session-bootstrap.sh)) is rendered from that README block by [`scripts/render-invariants.mjs`](../scripts/render-invariants.mjs); `--check` fails at pre-push (`invariants-render` section) and in CI (the hook's vitest suite) whenever the two differ.
 
 ## Project anchor (digest block)
 
@@ -61,7 +56,7 @@ If you find yourself reasoning under a goal that contradicts README — stop. Th
 
 ## When this file needs updating
 
-- New invariant added to project — append row to invariants table
+- New invariant added to project — edit README.md only; the digest line is re-rendered from it (pre-commit re-renders it when README.md is staged; by hand: `node scripts/render-invariants.mjs --write`)
 - Reading order changes (e.g. new always-loaded doc adopted) — update list
 - Reviewer drift-prevention pattern evolves — update Mermaid
 

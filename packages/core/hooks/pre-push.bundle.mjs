@@ -1573,6 +1573,16 @@ function ruleIndexRenderSection() {
     emit(r);
   }
 }
+function invariantsRenderSection() {
+  if (existsSync2(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
+    const r = run("node", ["scripts/render-invariants.mjs", "--check"]);
+    if (r.notFound) {
+      die("\u274C node not found. Install Node.js to enable the invariants-line drift check.");
+    }
+    if (r.exitCode !== 0) die("\u274C invariants-line drift detected:", r);
+    emit(r);
+  }
+}
 function referenceRenderSection() {
   if (existsSync2(resolve(REPO_ROOT, "scripts/render-reference.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-reference.mjs", "--check"]);
@@ -1963,6 +1973,11 @@ var SECTIONS = [
     id: "rule-index-render",
     owner: "maintainer",
     run: () => ruleIndexRenderSection()
+  },
+  {
+    id: "invariants-render",
+    owner: "maintainer",
+    run: () => invariantsRenderSection()
   },
   {
     id: "reference-render",

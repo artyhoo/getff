@@ -7,7 +7,7 @@
 # @cc-only-rationale: UserPromptSubmit digest injection — CC+ZCode dual-harness via inline
 #   _emit_ctx branching on ZCODE_PROJECT_DIR. No separate portable counterpart artifact (one
 #   file serves both harnesses), so @dual-pair does not apply; the inline branch IS the
-#   portability. The digest content itself lives identically in .claude/session-bootstrap.md.
+#   portability. The invariant line is rendered from README.md (see the generated region).
 # Under CC, plain stdout is auto-injected; under ZCode, stdout must be strict-JSON
 # {additionalContext} (plain is discarded + run marked failed). _emit_ctx (inlined below)
 # branches on ZCODE_PROJECT_DIR so CC behaviour is unchanged.
@@ -55,19 +55,25 @@ _rule_name() { # bare ".claude/rules/<name>.md" -> "<name>.md" | "<name>" (no de
     printf '%s' "$1"
   fi
 }
+_make_ref() { # Makefile target -> "make <target>" | "<target>" (no dead command)
+  if _has Makefile && grep -q "^$1:" "$REPO_ROOT/Makefile" 2>/dev/null; then
+    printf 'make %s' "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
 
 # --- digest lines, each with its canonical degradation (missing target -> name, text kept) ---
 
 GOAL_LINE="Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate."
 if _has README.md; then GOAL_LINE="$GOAL_LINE"' (README.md#why-this-exists)'; fi
 
-BFR_REF=$(_rule_ref build-first-reuse-default)
-if _has Makefile && grep -q '^self-audit:' "$REPO_ROOT/Makefile" 2>/dev/null; then
-  SELF_AUDIT=' (make self-audit)'
-else
-  SELF_AUDIT=''
-fi
-INVARIANTS_LINE="Invariants: (1) build-vs-reuse SSOT consult before capability commit + build-first-reuse-default discipline $BFR_REF; (2) recursive self-application green$SELF_AUDIT; (3) search-coverage 6-item checklist on negative-existence claims; (4) multi-channel enforcement — every rule fails at earliest reachable channel (CI = last resort)."
+# The invariant line below is RENDERED from README.md «What must not break (invariants)» by
+# scripts/render-invariants.mjs (--write regenerates, --check gates at pre-push and in the
+# hook's vitest suite). Edit README, never this region.
+# <!-- getff:begin section=invariants-line plan=scripts/render-invariants.mjs -->
+INVARIANTS_LINE="Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit $(_rule_ref build-first-reuse-default); (2) Recursive self-application — $(_make_ref self-audit) green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing $(_rule_ref phase-research-coverage); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription $(_rule_ref no-paid-llm-in-ci); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel."
+# <!-- getff:end section=invariants-line -->
 
 # Step-0 reading order: only live targets stay in the arrow list.
 STEP0_LIST=''
