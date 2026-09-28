@@ -10124,7 +10124,7 @@ function synthesize(plan) {
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync as existsSync3, readFileSync as readFileSync6, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { basename, dirname as dirname6, join as join2, relative, resolve as resolve5 } from "node:path";
+import { basename, dirname as dirname6, isAbsolute, join as join2, relative, resolve as resolve5, sep } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -10133,23 +10133,26 @@ function r2Element(variant, scope) {
   const filesPart = scope ? `files: [${scope.files.map((f) => jsString(f)).join(", ")}], ` : "";
   return variant === "self-contained" ? `{ ${filesPart}plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }` : `{ ${filesPart}rules: { '${R2_RULE_ID}': 'error' } }`;
 }
+function canonicalDir(p) {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return resolve5(p);
+  }
+}
 function customRulesImportSpecifier(configPath, cwd) {
-  const target = resolve5(cwd, "eslint-rules-local/index.mjs");
-  let rel = relative(dirname6(resolve5(configPath)), target);
-  if (!rel.startsWith(".")) rel = `./${rel}`;
-  return rel;
+  const target = join2(canonicalDir(cwd), "eslint-rules-local", "index.mjs");
+  const rel = relative(canonicalDir(dirname6(resolve5(configPath))), target);
+  if (isAbsolute(rel)) return pathToFileURL(target).href;
+  const spec = rel.split(sep).join("/");
+  return spec.startsWith(".") ? spec : `./${spec}`;
 }
 var R2_NO_ENGINE = "its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules";
 function r2NotWiredLine(configPath, why, cwd = process2.cwd()) {
-  const real = (p) => {
-    try {
-      return realpathSync(p);
-    } catch {
-      return p;
-    }
-  };
-  const file = join2(real(dirname6(configPath)), basename(configPath));
-  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} \u2014 ${why.replace(/\s*\n\s*/g, " ")}`;
+  return `  \xB7 not wired: R2 (${R2_RULE_ID}) in ${projectRelative(configPath, cwd)} \u2014 ${why.replace(/\s*\n\s*/g, " ")}`;
+}
+function projectRelative(configPath, cwd) {
+  return relative(canonicalDir(cwd), join2(canonicalDir(dirname6(configPath)), basename(configPath)));
 }
 function generateDegradedSnippet(configPath) {
   return [
@@ -10939,7 +10942,7 @@ async function writeWithLintProbe(args) {
 }
 async function wireR2IntoOwnConfig(a) {
   const { configPath, cwd } = a;
-  const rel = relative(cwd, configPath);
+  const rel = projectRelative(configPath, cwd);
   const notWired = (why) => r2NotWiredLine(configPath, why, cwd);
   const boundaryGlobs = [...new Set(a.boundaryGlobs)];
   if (boundaryGlobs.length === 0) return [`\xB7 R2: no HTTP boundary found for ${rel} \u2014 nothing for R2 to guard, so it is left as it is`];

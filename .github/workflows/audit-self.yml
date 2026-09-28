@@ -2306,6 +2306,26 @@ jobs:
       # cleanly» is not the assertion (T-NPI-A); the first violation failing is.
       # The consumer install fetches the ts-server dev-deps from the registry
       # exactly as a real `npx getff init` would.
+      # The R2 wirer computes the customRules import between a --path under
+      # install.sh's logical `pwd` and node's physical cwd. On Windows the two
+      # can differ by a junction or an 8.3 short name (C:\Users\RUNNER~1); this
+      # runs the spelling cases here, the only Windows runner, and the case's
+      # console line records which spellings this runner has.
+      - name: R2 import specifier across path spellings (junction, 8.3 short name)
+        if: matrix.cell == 'getff-dist' && runner.os == 'Windows'
+        shell: bash
+        run: |
+          npm ci --prefix packages/core --silent
+          cd packages/core
+          rc=0
+          npx --no-install vitest run install/wire-eslint-r2.test.ts -t 'two spellings|linked project root' \
+            --reporter=verbose > "$RUNNER_TEMP/r2-spec.log" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/r2-spec.log"
+          [ "$rc" -eq 0 ] || exit "$rc"
+          # A skipped case (no ts-morph, no ESLint) passes vitest too: require each kind to have run.
+          for want in 'two spellings of its path > the temp dir' 'own config wired through a linked project root'; do
+            grep -q "✓ .*$want" "$RUNNER_TEMP/r2-spec.log" || { echo "::error::did not run: $want"; exit 1; }
+          done
       - name: Run the consumer-matrix getff-dist cell
         if: matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh

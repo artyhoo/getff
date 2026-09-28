@@ -26,7 +26,7 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
@@ -69,15 +69,28 @@ function r2Element(variant: TransformVariant, scope?: { files: string[] }): stri
 }
 
 /**
+ * One spelling per directory, so `relative` between a --path-derived dir and cwd never walks out of
+ * the project: process.cwd() is the physical directory while install.sh passes --path under its
+ * logical `pwd` (macOS /var → /private/var, a symlinked Linux workspace, a Windows junction or 8.3
+ * short name like C:\Users\RUNNER~1). `.native` because only it expands 8.3 names on Windows; the JS
+ * realpathSync resolves links but keeps a short name. The input stands when it cannot be resolved.
+ */
+function canonicalDir(p: string): string {
+  try { return realpathSync.native(p); } catch { return resolve(p); }
+}
+
+/**
  * Relative import specifier from a per-package config to the consumer-root
  * eslint-rules-local barrel (install.sh ships it at <root>/eslint-rules-local/index.mjs).
- * Computed per config depth — never hardcoded.
+ * Computed per config depth — never hardcoded. An import specifier is a URL path, so it is joined
+ * with `/`; a barrel on another Windows drive (no relative path exists) is imported by file URL.
  */
 export function customRulesImportSpecifier(configPath: string, cwd: string): string {
-  const target = resolve(cwd, 'eslint-rules-local/index.mjs');
-  let rel = relative(dirname(resolve(configPath)), target);
-  if (!rel.startsWith('.')) rel = `./${rel}`;
-  return rel;
+  const target = join(canonicalDir(cwd), 'eslint-rules-local', 'index.mjs');
+  const rel = relative(canonicalDir(dirname(resolve(configPath))), target);
+  if (isAbsolute(rel)) return pathToFileURL(target).href;
+  const spec = rel.split(sep).join('/');
+  return spec.startsWith('.') ? spec : `./${spec}`;
 }
 
 export interface WireOpts {
@@ -109,14 +122,15 @@ export const R2_NO_ENGINE = 'its AST editor (ts-morph) could not be loaded; a --
  * error text) is folded onto the one line.
  */
 export function r2NotWiredLine(configPath: string, why: string, cwd: string = process.cwd()): string {
-  // Directories resolved on both sides: process.cwd() is the physical directory while --path may run
-  // through a symlink (macOS /var → /private/var), which `relative` renders as a ../ walk out of the
-  // project. The file itself is not resolved: a config that is a symlink is named by its own path.
-  const real = (p: string): string => {
-    try { return realpathSync(p); } catch { return p; }
-  };
-  const file = join(real(dirname(configPath)), basename(configPath));
-  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
+  return `  · not wired: R2 (${R2_RULE_ID}) in ${projectRelative(configPath, cwd)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
+}
+
+/**
+ * `configPath` relative to `cwd` for a message, directories on both sides in one spelling (canonicalDir).
+ * The file itself is not resolved: a config that is a symlink is named by its own path.
+ */
+function projectRelative(configPath: string, cwd: string): string {
+  return relative(canonicalDir(cwd), join(canonicalDir(dirname(configPath)), basename(configPath)));
 }
 
 export function generateDegradedSnippet(configPath: string): string {
@@ -1284,7 +1298,7 @@ export async function wireR2IntoOwnConfig(a: {
   runProbe?: (configPath: string, cwd: string) => Promise<LintProbeResult>;
 }): Promise<string[]> {
   const { configPath, cwd } = a;
-  const rel = relative(cwd, configPath);
+  const rel = projectRelative(configPath, cwd);
   const notWired = (why: string): string => r2NotWiredLine(configPath, why, cwd);
   const boundaryGlobs = [...new Set(a.boundaryGlobs)];
   if (boundaryGlobs.length === 0) return [`· R2: no HTTP boundary found for ${rel} — nothing for R2 to guard, so it is left as it is`];
