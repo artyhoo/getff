@@ -2,7 +2,7 @@
 
 > **Authoritative for:** the per-finding dispositions of the `/arch` §2 cold reviews of
 > [2026-09-28-one-button-chain-design.md](2026-09-28-one-button-chain-design.md), and that spec's
-> revision history (r1-r6, with commits).
+> revision history (r1-r6, with commits), and the index of the rows that hold its rejected alternatives.
 > **NOT authoritative for:** the design itself — the spec; project goal —
 > [README.md#why-this-exists](../../../README.md#why-this-exists).
 
@@ -136,3 +136,14 @@ real; the partial ones are the round-2 findings they name.
   R6-3 = Б: `77d705ff809`. The operator then declined approval («я пока не вижу полностью
   сформированую идею»); a model round (Q1-Q4, in chat) followed. Its answers: P17 (Q1), R6-2 = B
   (Q2), R6-7 agreed (Q3); Q4 reopened R6-1 and R6-6 with a two-layer reading of «the core».
+  Model round 2 (Q5-Q8): P18 (two cores; docs first, as needed; skills under 500 lines, both
+  ways; no button over getff) and P17 narrowed (no stack choice; the tools step installs). Rows
+  R6-1, R6-4, R6-6 answered, R6-8 and R6-9 added; R6-3 corrected: `restricted-syntax-audit-exempt`
+  is the engine generated rules compile into, so it keeps shipping. Spec §8's row index moved here.
+
+## Rejected alternatives index
+
+Each rejected alternative lives in its spec row: Q1 (the chain in the prompt; the plugin command
+as owner), Q2.1 (a breaking `-y` backstop, reversing S1-4), Q3 (level-2 tooling), R2-Q1, R2-Q1.1,
+R2-P1, R2-Stack, R2-Arch, R2-Guard, R2-OP18, R3-1, R3-2, R4-3, R4-4, R4-5, R4-7, R5-5, R5-12,
+R5-14, R6-2 (A), R6-3 (A), R6-6 (B).

@@ -149,23 +149,34 @@ the python, rust and go lanes are alpha. Owner: the
 
 _Operator says_: «под любой стек».
 
-## Core
+## Base core
 
-**Core**: the few universal principles and rules that fit every project and that no research may
-generate — every rule has an executable check and a firing test, no test is a tautology, documents
-lie, and rules come from researching the stack's current docs. Everything else, rules and tests
-alike, is generated from them by research on the project's stack. Only the core ships as fixed
-content; no ready-made rule set ships beside it. Not the `packages/core/` directory and not
-the `--profile core` install depth. Owner: the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) R6-1.
+**Base core**: the general principles, rules and patterns getff ships to every project — every
+rule has an executable check and a firing test, no test is a tautology, documents lie, rules come
+from the current official docs — together with the checks that hold them. Everything else for a
+project is generated from it by research on that project's stack: the project's own principles,
+rules, patterns and anti-patterns, its architecture rules, and the tests for all of them. No
+ready-made rule set ships beside it. Not the `packages/core/` directory and not the `--profile
+core` install depth. Owner: the [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) R6-1.
 
-_Operator says_: «ядро», «едро», «ядром проекта», «основные принципы».
+_Operator says_: «ядро базовое», «ядро», «едро», «ядром проекта», «основные принципы».
+
+## Internal core
+
+**Internal core**: layer 1 — what getff itself runs on and its consumers do not need: getff's own
+principle tests and the rules about how getff is built and developed. It never ships; the
+[Base core](#base-core) is what ships. Owner: the
+[one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) R6-1.
+
+_Operator says_: «слой 1 внутренний», «ядро которое не поставляется».
 
 ## Recursive self-application
 
 **Recursive self-application**: getff uses on itself everything it installs for its consumers —
-the rules and tests for docs, for AI and for code, the architecture rules and the passport — and
-what works in getff works for its consumers too. Wider than the older sense, «the framework's own
-audits stay green». Owner: the
+the base core's rules and checks for docs, for AI and for code, and the passport — and what works
+in getff works for its consumers too. getff does not run the one button on itself: stack rules
+are generated for consumers. Wider than the older sense, «the framework's own audits stay
+green». Owner: the
 [one-button chain spec](docs/superpowers/specs/2026-09-28-one-button-chain-design.md) P16 and R6-6.
 
 _Operator says_: «рекурсивное самоприменение», «Рекурсивное самоприменения», «рекурсивных самоприменений», «рекурсивно на самом себе».
