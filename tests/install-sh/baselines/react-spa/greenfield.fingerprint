@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-b61badac6eb7d04f5ea746ebc389066fda332e2cfa76e85ff79d75ae00884628  .ai-factory/refresh-baseline.json
+df0f17c0b6c2c4707db5cbb27b484bcdf7fb967b92c019d5f826050b304e1024  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -154,7 +154,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  eslint-rules-l
 526b32ffb896fcba11e16378ef5b87f8bc261ddeb5d17dca69164c9409a8e814  eslint-rules-local/restricted-syntax-audit-exempt.ts
 1a2f70c5732ab8befe17706e7381f0a28a73e74a1db19893c1d7a1b282293b9e  eslint.config.mjs
 1446b83d1d0551b2471c57d74b948c3eaf6f2416f8201773198819d69cd8f470  package.json
-50b0b2810e46dbb66b1a86ad237bf06672853b494d914674448f06187584e59e  packages/core/hooks/pre-push.bundle.mjs
+a44c1fba49957db853072958ddb6b947962dcc5d71af8146f59dfa576c1d79f5  packages/core/hooks/pre-push.bundle.mjs
 77dce7bd339563d5b6e45ba8f38e05f89f00a4eb40e6332b7af5389657a27aa7  packages/core/hooks/pre-push.fallback.sh
 4fc444c5d3de5dec76c7f01b8ec85076735c9dafa7f48df91e5d04689f3cc43e  playwright.config.ts
 70bd13392e7f2d9950b2f15936b6239f770c4adc20bb8b09f7fe15a699cab9b0  scripts/audit-ai-docs.react-spa.sh
