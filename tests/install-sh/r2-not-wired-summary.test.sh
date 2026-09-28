@@ -20,7 +20,8 @@
 #   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the consumer's own
 #       config with boundary code under it is listed for a ts-server, a react-next and a react-spa
 #       workspace — the stacks whose getff preset carries R2 (60-ci.sh adds it to a flat repo's own
-#       config for the same three) — and not for a react-native one, whose preset ships no R2.
+#       config for the same three). The react-native workspace, whose preset ships no R2, is one
+#       line for the workspace with that reason, not a line per config.
 #   W2  per-workspace pass, ts-morph present, the R2 wirer missing: listed with that reason.
 #   W3  per-workspace pass that can run: the R2 wirer is handed the ts-server, react-next and
 #       react-spa configs as the consumer's own, each with the boundary globs found under its own
@@ -32,6 +33,12 @@
 #       R2: one summary line with the reason — whether or not ts-morph is there.
 #   U0  paired negative: an unknown-stack workspace whose config already names R2 (40-configs placed
 #       the ts-server template through its root fallback) → no line.
+#   RN1 a react-native workspace with HTTP boundary code and no config naming R2: one summary line
+#       — its preset ships no R2, so the install adds it nowhere — whether or not ts-morph is there.
+#   RN0/RN2 paired negatives: no boundary code under it; its own config already names R2 → no line.
+#
+#   The react-native lines follow Q4.7 and packages/preset-react-native/RULES.md:17, which lists R2
+#   for every stack: HTTP boundary code R2 does not check is a gap, so the summary names it.
 #
 # Pure bash: ts-morph «present» is a package.json under node_modules/ts-morph (the pass only checks
 # for it before running the wirer), and no arm runs the wirer — W3 stands in for npx, recording what
@@ -257,10 +264,11 @@ ws_arm() {
   else
     bad "$1: expected a NOT wired line naming «$2» for:$missing (summary: $(sum_show))"
   fi
-  if sum_has "${R2_LINE}apps/mobile/"; then
-    bad "$1: the react-native workspace is listed, yet its preset ships no R2 (summary: $(sum_show))"
+  if sum_has "${R2_LINE}apps/mobile — .*react-native preset ships no R2" \
+     && ! sum_has "${R2_LINE}apps/mobile/"; then
+    ok "$1: the react-native workspace is one NOT wired line naming its preset, not a line per config"
   else
-    ok "$1: paired — the react-native workspace is not listed (its preset ships no R2)"
+    bad "$1: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(sum_show))"
   fi
 }
 
@@ -303,7 +311,8 @@ if grep -qF -e "apps/mobile/eslint.config.mjs" -e "apps/site/eslint.config.mjs" 
 else
   ok "W3: paired — neither the react-native config nor the react-spa one with no boundary code is handed to the R2 wirer"
 fi
-if sum_has "$R2_LINE"; then
+# The react-native workspace keeps its one line (its preset ships no R2, W1); the wired ones get none.
+if sum_has "${R2_LINE}apps/(api|web|spa|site)[/ ]"; then
   bad "W3: the stand-in reported R2 wired, yet the pass put an R2 line in the NOT wired summary (summary: $(sum_show))"
 else
   ok "W3: the stand-in reported R2 wired for each config, and the pass adds no NOT wired line after it"
@@ -364,6 +373,37 @@ if sum_has "${R2_LINE}apps/x — .*stack"; then
   ok "U3: an unknown-stack workspace whose config names R2 only in a comment is a NOT wired line"
 else
   bad "U3: expected a NOT wired line for apps/x, whose config names R2 only in a comment (summary: $(sum_show))"
+fi
+
+# ─── RN1/RN0/RN2: a react-native workspace — its preset ships no R2 ───────────
+for state in without with; do
+  RN1=$(make_project "rn1-$state"); boundary_code "$RN1" apps/m
+  put "$RN1" apps/m/eslint.config.mjs "$PLAIN_CFG"
+  [ "$state" = without ] || fake_ts_morph "$RN1"
+  run_finalize "$RN1" "$PKG_WIRED" 'apps/m\treact-native'
+  if sum_has "${R2_LINE}apps/m — .*react-native preset ships no R2"; then
+    ok "RN1 ($state ts-morph): the react-native workspace with boundary code is a NOT wired line"
+  else
+    bad "RN1 ($state ts-morph): no NOT wired line for apps/m naming the react-native preset (summary: $(sum_show))"
+  fi
+done
+
+RN0=$(make_project rn0); put "$RN0" apps/m/src/index.ts "export const x = 1;"
+put "$RN0" apps/m/eslint.config.mjs "$PLAIN_CFG"
+run_finalize "$RN0" "$PKG_WIRED" 'apps/m\treact-native'
+if sum_has "${R2_LINE}apps/m"; then
+  bad "RN0: a react-native workspace with no HTTP boundary code is listed (summary: $(sum_show))"
+else
+  ok "RN0: paired — a react-native workspace with no HTTP boundary code is not listed"
+fi
+ran_through RN0
+
+RN2=$(make_project rn2); boundary_code "$RN2" apps/m; put "$RN2" apps/m/eslint.config.mjs "$R2_CFG"
+run_finalize "$RN2" "$PKG_WIRED" 'apps/m\treact-native'
+if sum_has "${R2_LINE}apps/m"; then
+  bad "RN2: a react-native workspace whose own config names R2 is listed (summary: $(sum_show))"
+else
+  ok "RN2: paired — a react-native workspace whose own config names R2 is not listed"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"

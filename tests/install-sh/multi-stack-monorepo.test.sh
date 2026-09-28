@@ -168,8 +168,9 @@ fi
 # §6c the positive half of the arm above, in a real install: a workspace config the consumer owns,
 # with HTTP boundary code under it, and no ts-morph → the NOT wired summary names it with the
 # ts-morph / --full reason — for a ts-server (apps/api), a react-next (apps/web) and a react-spa
-# (apps/spa) workspace, whose getff presets all carry R2 on boundary code; not for the react-native
-# one (apps/mobile), whose preset ships no R2. No --force, so 40-configs keeps the consumer's files.
+# (apps/spa) workspace, whose getff presets all carry R2 on boundary code. The react-native one
+# (apps/mobile), whose preset ships no R2, is one line for the workspace with that reason, not a line
+# for its config. No --force, so 40-configs keeps the consumer's files.
 echo ""
 echo "▶ §6c R2 without ts-morph: the consumer's own workspace config with boundary code is a NOT wired line"
 O=$(mktemp -d)
@@ -197,9 +198,10 @@ else
       && ok "§6c: apps/$_w (your config, boundary code) is a NOT wired line naming ts-morph and --full" \
       || bad "§6c: no NOT wired line for apps/$_w naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
   done
-  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile' "$O/.install.log" \
-    && bad "neg §6c: apps/mobile (react-native) is listed for R2 — its preset ships no R2" \
-    || ok "neg §6c: apps/mobile (react-native) is not listed for R2"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile — .*react-native preset ships no R2' "$O/.install.log" \
+    && ! grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile/' "$O/.install.log" \
+    && ok "§6c: apps/mobile (react-native, boundary code) is one NOT wired line naming its preset" \
+    || bad "§6c: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
 fi
 rm -rf "$O"
 

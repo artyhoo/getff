@@ -354,6 +354,12 @@ _r2_boundary_under() {
   out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
   [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
 }
+# _r2_named_under <abs dir> — exit 0 IFF an ESLint config under it names R2 as a quoted rule id (a
+# comment naming the rule is not a rule entry).
+_r2_named_under() {
+  grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
+    -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null
+}
 _r2_would_wire() {
   if _r2_getff_owned "$1"; then
     ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
@@ -411,7 +417,8 @@ fi
 # The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
 # monorepo there is NO root config; this block wires R2 into the configs of the workspaces whose
 # getff preset carries R2 — ts-server, react-next, react-spa, the three 60-ci.sh adds it to in a flat
-# repo's own config. The react-native preset ships no R2, so there is nothing to add to one.
+# repo's own config. The react-native preset ships no R2, so there is nothing to add to one; its HTTP
+# boundary code is a line in the NOT wired summary instead (Q4.7; its RULES.md lists R2 for every stack).
 # No --scope: workspace-local config placement already scopes ESLint to that workspace — a
 # dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
 # making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
@@ -436,15 +443,17 @@ if [ "$DRY_RUN" != "--dry-run" ] \
         # Named in the summary only when there is HTTP boundary code under it and no config there
         # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
         # its root fallback; a comment naming the rule is not a rule entry).
-        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
-           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
-                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
-                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
         ;;
-      *)
-        : # react-native: its preset ships no R2 — nothing to add (60-ci.sh leaves a flat repo's alike)
+      react-native)
+        # Its preset ships no R2, so nothing is added to any config here (60-ci.sh leaves a flat repo's
+        # alike). HTTP boundary code under the workspace that no config there checks with R2 is one line
+        # for the workspace — whether or not the pass above could run.
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
+          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — getff's react-native preset ships no R2, so the install adds it to no react-native config; the HTTP boundary code under $_ws_dir is not checked by R2"
+        fi
         ;;
     esac
   done <<< "$_ws_map_r2"

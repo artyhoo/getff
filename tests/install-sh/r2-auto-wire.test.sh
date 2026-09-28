@@ -127,6 +127,37 @@ grep -q 'R2 auto-wire' "$F/.install.log" || bad "F: the R2 auto-wire never ran �
 grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
   && ok "F: the install says why R2 is not wired (this stack's config has no RULE_GLOBS block)" \
   || bad "F: no line saying the stack's config has no RULE_GLOBS block"
+# Q4.7: HTTP boundary code R2 does not check is a gap — packages/preset-react-native/RULES.md:17
+# lists R2 for every stack — so the NOT wired summary names it with the reason, not only the scroll.
+RN_R2_LINE='R2 (rules-as-tests/no-unsafe-zod-parse) in eslint.config.mjs — .*react-native preset ships no R2'
+not_wired() { awk '/NOT wired, or wired only in part/{on=1} on' "$1"; }
+not_wired "$F/.install.log" | grep -q "$RN_R2_LINE" \
+  && ok "F: the NOT wired summary names the boundary code R2 does not check, with the react-native reason" \
+  || bad "F: no NOT wired line for R2 naming the react-native preset (summary: $(not_wired "$F/.install.log" | tr '\n' '|'))"
+
+# ── Fixture F2 — the consumer's own eslint.config.mjs in a react-native repo with boundary code ──
+# 60-ci.sh takes the own-config branch here (no --force, so 40-configs keeps the consumer's file).
+F2=$(mktemp -d)
+printf '{"name":"f2","version":"0.0.0","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$F2/package.json"
+mkdir -p "$F2/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$F2/src/api/handler.ts"
+printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$F2/eslint.config.mjs"
+( cd "$F2" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$F2/.install.log" 2>&1 \
+  || bad "F2: install rc non-zero (tail: $(tail -3 "$F2/.install.log" | tr '\n' '|'))"
+grep -q 'preset ships no R2 — nothing to add to your eslint.config.mjs' "$F2/.install.log" \
+  || bad "F2: the own-config branch of the R2 auto-wire never ran — the arm below would be vacuous"
+not_wired "$F2/.install.log" | grep -q "$RN_R2_LINE" \
+  && ok "F2: the consumer's own react-native config with boundary code → a NOT wired line with the reason" \
+  || bad "F2: no NOT wired line for R2 naming the react-native preset (summary: $(not_wired "$F2/.install.log" | tr '\n' '|'))"
+
+# ── Fixture F0 — paired: a react-native repo with no HTTP boundary code → no R2 line ──────────
+F0=$(mktemp -d)
+printf '{"name":"f0","version":"0.0.0","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$F0/package.json"
+mkdir -p "$F0/src"; echo 'export const x = 1;' > "$F0/src/index.ts"
+install_into "$F0" react-native
+grep -q 'R2 auto-wire' "$F0/.install.log" || bad "F0: the R2 auto-wire never ran — the arm below would be vacuous"
+! not_wired "$F0/.install.log" | grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' \
+  && ok "F0: paired — a react-native repo with no HTTP boundary code gets no R2 line" \
+  || bad "F0: an R2 line for a react-native repo with no HTTP boundary code (summary: $(not_wired "$F0/.install.log" | tr '\n' '|'))"
 
 # ── Fixture G — getff's own config whose `boundary: [` array was edited away, then a re-install ──
 # The boundary globs cannot be written. The install used to answer «widen RULE_GLOBS.boundary by
