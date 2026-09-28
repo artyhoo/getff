@@ -3,7 +3,7 @@
 #
 # @dual-pair: warn-subagent-report
 #   The CC source (.claude/hooks/warn-subagent-report.sh) is the portable-spec pair — it owns
-#   the REPORT-section grammar SSOT (line 78: REPORT_CUE_RE, lines 89/92/95: section regexes).
+#   the REPORT-section grammar SSOT (line 102: REPORT_CUE_RE, lines 113/116/119: section regexes).
 #   This twin mirrors that grammar VERBATIM (no shared include file — extensionless plugin
 #   hooks under plugin/hooks/ follow the standalone-script convention observed across
 #   check-doc-authority, end-of-turn-reminder, inject-session-bootstrap). A comment block
@@ -23,7 +23,7 @@
 #   R5 — env vars ZCODE_PROJECT_DIR + CLAUDE_PROJECT_DIR confirmed.
 #
 # WARN hook — exits 0 always. Maintainer chose WARN over block (exit 2): judgment target,
-# not mechanically gateable (#gate-where-judgment-needed, see .claude/hooks/warn-subagent-report.sh:4).
+# not mechanically gateable (#gate-where-judgment-needed, see .claude/hooks/warn-subagent-report.sh:6).
 set -uo pipefail
 
 # --- ZCode predicate (canonical form, verified across 7 plugin twins + end-of-turn-reminder) ---
@@ -46,7 +46,7 @@ _is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }
 # each harness's own shape, and stderr keeps a plain copy for terminal/CI readers.
 # WARN-not-block is preserved deliberately: exit 0, and NO `decision:"block"` — blocking a Stop
 # is a gate, and this is a judgment target (#gate-where-judgment-needed, see
-# .claude/hooks/warn-subagent-report.sh:4).
+# .claude/hooks/warn-subagent-report.sh:6).
 _warn() {
   local arm="$1" text="$2" msg
   msg="$(printf '⚠ %s: subagent REPORT %s' "$arm" "$text")"
@@ -56,7 +56,7 @@ _warn() {
     printf '%s' "$msg" | _ze_emit
   else
     # CC's model-visible exit-0 channel: stdout JSON hookSpecificOutput.additionalContext —
-    # the same shape .claude/hooks/warn-subagent-report.sh:56-58 emits for SubagentStop.
+    # the same shape .claude/hooks/warn-subagent-report.sh:54-58 emits for SubagentStop.
     # jq -Rs does the string escaping (embedded quotes/newlines/backslashes).
     printf '%s' "$msg" | jq -Rs --arg ev "${EVENT:-PostToolUse}" \
       '{hookSpecificOutput: {hookEventName: $ev, additionalContext: .}}'
@@ -64,7 +64,7 @@ _warn() {
 }
 
 # _required_sections_check <text>
-# Mirrors .claude/hooks/warn-subagent-report.sh:74-97 VERBATIM (grammar SSOT):
+# Mirrors .claude/hooks/warn-subagent-report.sh:98-121 VERBATIM (grammar SSOT):
 #   - noise guard: REPORT_CUE_RE — must contain a REPORT-cue label at line start
 #   - required sections: VERIFY, Confidence:, ATTN
 # Returns 0 if REPORT shape is recognized AND all sections present.
@@ -127,7 +127,8 @@ _have_key() {
 }
 
 # jq is required (every hook here depends on it). Graceful no-op without jq — matches
-# end-of-turn-reminder:14 and warn-subagent-report.sh:41 consumer-safe pattern.
+# end-of-turn-reminder:14. (The CC source diverges here on purpose: its jq guard at
+# warn-subagent-report.sh:60-65 emits a loud SKIP note instead of a silent no-op.)
 command -v jq >/dev/null 2>&1 || exit 0
 
 # =============================================================================
@@ -136,7 +137,7 @@ command -v jq >/dev/null 2>&1 || exit 0
 # Per R4: ZCode PostToolUse:Agent bundle ships up to 120 KB of Agent tool_result readable
 # directly from `.tool_input`. Schema-drift fallbacks: .tool_result, .tool_response (handles
 # ZCode version variance + CC PostToolUse shape). Reads payload, applies the REPORT grammar
-# from .claude/hooks/warn-subagent-report.sh:74-97, dedups against session state, emits a
+# from .claude/hooks/warn-subagent-report.sh:98-121, dedups against session state, emits a
 # warning per missing section.
 _arm_a_post() {
   # Extract the tool_result text. Try .tool_input first (R4: ZCode primary path).
