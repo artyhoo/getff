@@ -239,8 +239,9 @@ echo "$deg" | grep -qiE 'NOT proven|NOT green' \
 echo "$deg" | grep -qE 'firing self-check \(ast-grep\): not proven' && echo "$deg" | grep -qE 'firing self-check \(ruff\): not proven' \
   && ok "(9) each degrade is a NOT-wired line with its reason (Q4.7)" \
   || bad "(9) degrade NOT-wired lines missing: $(echo "$deg" | tr '\n' '|')"
-echo "$deg" | grep -qE 'npx|uvx ruff|pip install' \
-  && bad "(9) the degrade still prints a command to run by hand: $(echo "$deg" | grep -E 'npx|uvx ruff|pip install' | head -1)" \
+_hand_cmd='npx|uvx ruff|pip[[:space:]]install'  # a printed install command, not an install
+echo "$deg" | grep -qE "$_hand_cmd" \
+  && bad "(9) the degrade still prints a command to run by hand: $(echo "$deg" | grep -E "$_hand_cmd" | head -1)" \
   || ok "(9) the degrade prints no command to run by hand"
 [ ! -e "$P/.ruff_cache" ] \
   && ok "(9) degrade run wrote nothing under the consumer tree (temp-dir-only STOP line holds)" \

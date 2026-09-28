@@ -33,6 +33,7 @@
 #      the unproven firing); Y2 the consumer's pre-commit framework gets its pre-push stage
 #      installed by the install (never over the consumer's own pre-push, never without pre-commit);
 #      Y3 outside git / Y4 a legacy git hook and [tool.ruff]; Y5 ast-grep fetched through uvx;
+#      Y6 a uvx that cannot fetch is a NOT-wired gap, never a «fired RED» / «OVER-BROAD» verdict;
 #   C  the cargo lane with the consumer's clippy.toml / deny.toml / CI workflow and no cargo;
 #   J  the go lane with the consumer's .golangci.yml / CI workflow and no go;
 #   R  the predicate: a positive control, a negative control, and a sweep of the installer source;
@@ -348,7 +349,11 @@ cat > "$WORK/uvxbin/uvx" <<'STUB'
 #!/bin/sh
 echo "uvx $*" >> "$UVX_CALLS"
 for a in "$@"; do last=$a; done
-case "$last" in getff_selfcheck.py) exit 1 ;; *) exit 0 ;; esac
+case "$last" in
+  --version) case "$*" in *ast-grep*) echo "ast-grep 0.44.1" ;; *ruff*) echo "ruff 0.15.21" ;; esac; exit 0 ;;
+  getff_selfcheck.py) exit 1 ;;
+  *) exit 0 ;;
+esac
 STUB
 chmod +x "$WORK/uvxbin/uvx"
 Y5="$WORK/py-uvx"; mkdir -p "$Y5"; git -C "$Y5" init -q; printf '[project]\nname = "demo"\n' > "$Y5/pyproject.toml"
@@ -358,6 +363,21 @@ grep -q 'uvx --from ast-grep-cli==0.44.1 ast-grep scan' "$WORK/uvx.calls" 2>/dev
 grep -q 'ast-grep fired RED on the planted violation' "$WORK/y5.log" && ok "Y5: the ast-grep lane is proven through uvx" \
   || bad "Y5: ast-grep lane not proven: $(grep -i 'ast-grep' "$WORK/y5.log" | tr '\n' '|')"
 not_wired "$WORK/y5.log" | grep -qi 'ast-grep' && bad "Y5: ast-grep still listed as NOT wired" || ok "Y5: ast-grep is not in NOT wired"
+
+# ── Y6: uvx present but it cannot fetch (offline, index blocked) — a gap, never a verdict ──────
+# A failed fetch exits non-zero on the bad AND the clean file, which the self-check would read as
+# «fired RED» plus «OVER-BROAD» (a false delivery-bug report). The fetch is probed first.
+mkdir -p "$WORK/uvxdown"
+printf '#!/bin/sh\necho "error: Failed to fetch: network unreachable" >&2\nexit 2\n' > "$WORK/uvxdown/uvx"
+chmod +x "$WORK/uvxdown/uvx"
+Y6="$WORK/py-uvx-down"; mkdir -p "$Y6"; git -C "$Y6" init -q; printf '[project]\nname = "demo"\n' > "$Y6/pyproject.toml"
+lane_into "$Y6" "$WORK/y6.log" "$WORK/uvxdown:$NOTOOLS" python
+no_manual Y6 "$WORK/y6.log"
+grep -qE 'OVER-BROAD|fired RED' "$WORK/y6.log" \
+  && bad "Y6: a failed uvx fetch was read as a firing verdict: $(grep -E 'OVER-BROAD|fired RED' "$WORK/y6.log" | head -2 | tr '\n' '|')" \
+  || ok "Y6: a failed uvx fetch gives no firing verdict"
+nw_has Y6 "$WORK/y6.log" 'firing self-check \(ast-grep\): not proven.*uvx could not fetch' "the unfetched ast-grep"
+nw_has Y6 "$WORK/y6.log" 'firing self-check \(ruff\): not proven.*uvx could not fetch' "the unfetched ruff"
 
 # ── C: cargo lane, the consumer's own clippy.toml / deny.toml / CI workflow, no cargo ──────────
 C="$WORK/cargo-owned"; mkdir -p "$C/.github/workflows"; git -C "$C" init -q

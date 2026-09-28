@@ -482,11 +482,19 @@ _py_firing_self_check() {
   # so a host with the setgid `sg` but no ast-grep DEGRADES honestly instead of
   # running the wrong binary and mis-reporting the clean control as OVER-BROAD.
   # No binary but uvx → the pinned PyPI build of the same release (ast-grep-cli mirrors the
-  # @ast-grep/cli version the delivered CI workflow installs).
-  local _sg=""
+  # @ast-grep/cli version the delivered CI workflow installs). uvx is a fetcher: offline, or with the
+  # index unreachable, it exits non-zero on the bad AND the clean file, which the checks below would
+  # read as «fired RED» plus «OVER-BROAD». The same identity probe settles whether it fetched.
+  local _sg="" _sg_why=""
   if   command -v ast-grep >/dev/null 2>&1; then _sg="ast-grep"
   elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"
-  elif command -v uvx >/dev/null 2>&1; then _sg="uvx --from ast-grep-cli==0.44.1 ast-grep"; fi
+  elif command -v uvx >/dev/null 2>&1; then
+    if uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null | grep -qi 'ast-grep'; then
+      _sg="uvx --from ast-grep-cli==0.44.1 ast-grep"
+    else
+      _sg_why="uvx could not fetch ast-grep-cli==0.44.1 (offline, or the package index is unreachable)"
+    fi
+  fi
   if [ -n "$_sg" ] && [ -d "$PROJECT_ROOT/.getff/astgrep-rules" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import datetime\nx = eval("1+1")\nos.system("echo hi")\na = datetime.now()\nb = datetime.datetime.now()\n' > "$_t/getff_selfcheck.py"
@@ -517,6 +525,9 @@ _py_firing_self_check() {
     if [ -n "$_sg" ]; then
       echo "  ⚠ .getff/astgrep-rules missing — ast-grep firing NOT proven (degrade, NOT green)"
       note_not_wired "firing self-check (ast-grep): not proven — .getff/astgrep-rules is missing, so there were no delivered rules to run against the planted violation"
+    elif [ -n "$_sg_why" ]; then
+      echo "  ⚠ $_sg_why — ast-grep firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ast-grep): not proven — $_sg_why, so the delivered rules were not run against a planted violation"
     else
       echo "  ⚠ ast-grep not on PATH, and no uvx to fetch it — firing NOT proven (degrade, NOT green)"
       note_not_wired "firing self-check (ast-grep): not proven — ast-grep is not on PATH and neither is uvx, so the delivered rules were not run against a planted violation"
@@ -532,12 +543,16 @@ _py_firing_self_check() {
   # cargo finding-1 class): in the REFUSE cell the consumer's ruff.toml lacks our TID bans, so a
   # consumer-first fallback validates the WRONG config → false SILENT. Mirrors
   # _cargo_delivered_clippy_path (getff-owned before consumer-owned, 46-cargo.sh).
-  local _ruff_mode="" _ruffcfg=""
+  local _ruff_mode="" _ruffcfg="" _ruff_why=""
   [ -f "$PROJECT_ROOT/.getff/ruff-bans.toml" ] && _ruffcfg="$PROJECT_ROOT/.getff/ruff-bans.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/getff-ruff.toml" ] && _ruffcfg="$PROJECT_ROOT/getff-ruff.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
   if   command -v ruff >/dev/null 2>&1; then _ruff_mode="ruff"
-  elif command -v uvx  >/dev/null 2>&1; then _ruff_mode="uvx"; fi
+  elif command -v uvx  >/dev/null 2>&1; then
+    # Same fetch probe as the ast-grep lane: a uvx that cannot fetch is a gap, not a verdict.
+    if uvx ruff@0.15.21 --version 2>/dev/null | grep -qi 'ruff'; then _ruff_mode="uvx"
+    else _ruff_why="uvx could not fetch ruff 0.15.21 (offline, or the package index is unreachable)"; fi
+  fi
   if [ -n "$_ruff_mode" ] && [ -n "$_ruffcfg" ]; then
     local _t; _t=$(mktemp -d)
     printf 'import tensorflow\nimport datetime\nx = datetime.datetime.utcnow()\n' > "$_t/getff_selfcheck.py"
@@ -572,6 +587,9 @@ _py_firing_self_check() {
     if [ -n "$_ruff_mode" ]; then
       echo "  ⚠ no delivered ruff config — ruff firing NOT proven (degrade, NOT green)"
       note_not_wired "firing self-check (ruff): not proven — no delivered ruff config (.getff/ruff-bans.toml, getff-ruff.toml or ruff.toml) to run against the planted violation"
+    elif [ -n "$_ruff_why" ]; then
+      echo "  ⚠ $_ruff_why — ruff firing NOT proven (degrade, NOT green)"
+      note_not_wired "firing self-check (ruff): not proven — $_ruff_why, so the delivered bans were not run against a planted violation"
     else
       echo "  ⚠ ruff not on PATH, and no uvx to fetch it — firing NOT proven (degrade, NOT green)"
       note_not_wired "firing self-check (ruff): not proven — ruff is not on PATH and neither is uvx, so the delivered bans were not run against a planted violation"
@@ -582,6 +600,7 @@ _py_firing_self_check() {
   echo ""
   if [ "$_silent" -gt 0 ] || [ "$_overbroad" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass ok · $_silent SILENT · $_overbroad OVER-BROAD — a delivered rule failed a direction (SILENT = no fire on bad input; OVER-BROAD = fired on clean input), so enforcement is NOT proven."
+    note_not_wired "firing self-check (python): not proven — $_silent SILENT and $_overbroad OVER-BROAD result(s) on the planted files, so the delivered rules did not discriminate bad code from clean code"
   elif [ "$_degraded" -gt 0 ]; then
     echo "⚠  getff self-check: $_pass proven-firing · $_degraded NOT proven (tool absent) — a skipped check is NOT green (NOT wired below says why)."
   else

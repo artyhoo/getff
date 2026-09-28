@@ -65,7 +65,7 @@ step() { echo ""; echo "── $*"; }
 
 # Pin per ci-tool-pinning.md Rule A (bare run: installs require version pin).
 # ast-grep is the only on-CI tool we install for the firing arm — pinned to the same
-# version setup.d/45-python.sh:489 pins for its uvx fallback.
+# version setup.d/45-python.sh:493 pins for its uvx fallback.
 ASTGREP_VERSION='0.44.1'
 ASTGREP_PKG="@ast-grep/cli@${ASTGREP_VERSION}"
 
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:1245-1247.
+# per setup.d/45-python.sh:1264-1266.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -355,7 +355,7 @@ step "RED arm — planted violation, ast-grep fires non-zero"
 
 # Install ast-grep PINNED (ci-tool-pinning.md Rule A — bare `run:` install must pin).
 # `npm install -g` rather than `npx -p` so the cell's later ast-grep invocations are
-# straightforward; the version is the same setup.d/45-python.sh:489 pins.
+# straightforward; the version is the same setup.d/45-python.sh:493 pins.
 # The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :56).
 # The pre-push regex gate resolves no variables, so these three lines carry the §3 escape token.
 if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :56
