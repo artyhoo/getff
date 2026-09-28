@@ -35,16 +35,21 @@
 
 ## 1. Goal
 
-One agent session takes a fresh project from nothing to green:
-1. install getff;
-2. the project passport;
-3. tools (MCP servers and skills);
+One button installs everything getff offers a project, completely, in one agent session:
+1. getff itself;
+2. the passport;
+3. tools: skills and MCP servers, in the project and, with consent, machine-global;
 4. live rule research;
-5. generated rules, each with its firing test;
-6. a green project.
+5. generated rules, each with its firing test.
+
+The target state is a **complete install** (P13). Every part above is in place and proven by the
+final check, or is listed as declined by the human or not applicable on the lane. A green project
+(the project's own checks pass and every generated rule proves itself) is one condition of a
+complete install, not the goal by itself.
 
 «One button» means one agent session, not one shell command (glossary:
-[One button](../../../CONTEXT.md), [Passport](../../../CONTEXT.md), [Green project](../../../CONTEXT.md)).
+[One button](../../../CONTEXT.md), [Passport](../../../CONTEXT.md),
+[Complete install](../../../CONTEXT.md), [Green project](../../../CONTEXT.md)).
 
 The measured answer to «is it turnkey today?» (2026-09-27/28) is **no**. The parts exist, but the
 road between them is not built. Evidence:
@@ -54,7 +59,7 @@ road between them is not built. Evidence:
 ## 2. Operator premise register
 
 Faithful to meaning. P1-P7 were settled 2026-09-27/28 in this session and round 1; P8-P12 come
-from the round-2 session (2026-09-28).
+from the round-2 session (2026-09-28); P13-P14 are the operator's corrections after r3.
 
 | # | Premise | Source |
 |---|---|---|
@@ -70,6 +75,8 @@ from the round-2 session (2026-09-28).
 | P10 | The human writes nothing; the agent proposes, and never asks what the stack already tells. «человеку влом будет самому писать — надо предложить готовый вариант в виде вопроса»; «очевидные из стека вещи точно не нужно спрашивать у оператора». | operator, round-2 Q1 / Q1.5 |
 | P11 | Docs, the passport, architecture and the docs site are ONE process, installed by the one button and written by AI from one source. «и все это в одну кнопку должно ставиться … человек точно не пишет». The truth-pipeline contract realises the docs side; this spec realises the chain side. | operator, round-2 Q7 |
 | P12 | Recursive self-application: what getff ships as «one source per fact» also applies to the getff repo. «Да конечно должно рекурсивно на самом себе … это принцип нашего проекта!». Owned by truth-pipeline T13. It matters here because T13 step 4 gives the getff repo this spec's passport scheme. | operator OP-15, round-2 session |
+| P13 | The goal is a complete one-button install, not «green». «Green» is a formal target that can be reached many ways; what counts is that everything is installed and works. «Кажется это уже формализм цели … цель же установка всего с одной кнопки - генерация правил и тестов скилов и мсп и тд - полностью!» | operator, 2026-09-28, after r3 |
+| P14 | Design one universal, stack-scalable architecture now; the python, rust and go lanes stay alpha and are not this program's target. «на Rust и Go и питон пока пофиг они в альфа версии остаются -тут суть только в том чтобы делать сразу мастшабируемую под любой стек архитектуру разу проектировать унивеерсальный дизайн под все!» | operator, 2026-09-28, after r3 |
 
 ## 3. Starting point (measured)
 
