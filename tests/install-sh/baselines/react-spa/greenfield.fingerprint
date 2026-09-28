@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-35a4d558fb6a4add9488510ca6c950db65e05ff96c53497b0d54d625a75cd1c1  .ai-factory/refresh-baseline.json
+0152100b36fc5db30843aec0bcc573af5359dd83daa24935a932f2db2ce19a52  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -26,9 +26,9 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 9c46f2c267982f31742bc4d03cd150cce67770ebf5e04106b11f9a231460673b  .claude/hooks/ask-question-reminder.sh
 696081583609571cae2f52e61a45fddd4e0d2c208d064e279fbd28ff48c6ff3e  .claude/hooks/check-doc-authority-header.sh
-a25f9e1722b9e951d00173b5f534a1c8bb103c609d7553128a8bff74059a611f  .claude/hooks/deps-hash-check.sh
-b3478c6453bf2a9967ad85f8081ef56971a96719d77a691909231766067de1e2  .claude/hooks/end-of-turn-reminder.sh
-00310de71455d9de8d9a9ed118e98bb605d0bdde4d27eca825987d5376ac8531  .claude/hooks/inject-matching-rule.sh
+e8e8fff21e8352986ac05cd7898a16ab77acb3c407950e2d27965915013117a1  .claude/hooks/deps-hash-check.sh
+5cb9988fc8a34a92881a24bddd60656a66a993552036394fd088dc730ebabfeb  .claude/hooks/end-of-turn-reminder.sh
+933519c9784e0a670d0490d94a39c688da1ebcf27e0699936b8abf663ace1921  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
@@ -154,7 +154,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  eslint-rules-l
 526b32ffb896fcba11e16378ef5b87f8bc261ddeb5d17dca69164c9409a8e814  eslint-rules-local/restricted-syntax-audit-exempt.ts
 1a2f70c5732ab8befe17706e7381f0a28a73e74a1db19893c1d7a1b282293b9e  eslint.config.mjs
 1446b83d1d0551b2471c57d74b948c3eaf6f2416f8201773198819d69cd8f470  package.json
-89ed5b4452ab838c89c2b646cd863e4caaa13cfe4b555923bc09e4f89e475eef  packages/core/hooks/pre-push.bundle.mjs
+50b0b2810e46dbb66b1a86ad237bf06672853b494d914674448f06187584e59e  packages/core/hooks/pre-push.bundle.mjs
 77dce7bd339563d5b6e45ba8f38e05f89f00a4eb40e6332b7af5389657a27aa7  packages/core/hooks/pre-push.fallback.sh
 4fc444c5d3de5dec76c7f01b8ec85076735c9dafa7f48df91e5d04689f3cc43e  playwright.config.ts
 70bd13392e7f2d9950b2f15936b6239f770c4adc20bb8b09f7fe15a699cab9b0  scripts/audit-ai-docs.react-spa.sh

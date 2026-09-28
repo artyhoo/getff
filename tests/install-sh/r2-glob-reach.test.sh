@@ -92,7 +92,7 @@ BROWNFIELD_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: pnpm turbo r
 PARTIAL_CI=$'name: CI\njobs:\n  build:\n    steps:\n      - run: bash scripts/check-rule-globs.sh\n      - run: pnpm turbo run lint typecheck test'
 
 # ── POS-all: none wired → WARN names all 4 (colon forms are WARN-exclusive; install copy-echoes use
-#    hyphenated file names) + paste-block has the check:lintstaged step; rc=0; consumer ci.yml intact.
+#    hyphenated file names) + the check:lintstaged NOT-wired line names its step; rc=0; consumer ci.yml intact.
 P=$(mktemp -d); LOG=$(mktemp); seed_install "$P" "$BROWNFIELD_CI" "$LOG"; RCP=$?
 [ "$RCP" = "0" ] && ok "#1 POS-all: install exited 0 (CI-orphan warn never aborts)" || bad "#1 POS-all: install exited $RCP"
 grep -q "CI-orphan" "$LOG" \
@@ -103,9 +103,9 @@ for _g in "check:globs" "arch:check" "audit:docs" "check:lintstaged"; do
     && ok "#1 POS-all: WARN names $_g" \
     || bad "#1 POS-all: WARN omits $_g (under-reporting — the #521 bug)"
 done
-grep -q "run: bash scripts/check-lintstaged-resolves.sh" "$LOG" \
-  && ok "#1 POS-all: paste-block includes the check:lintstaged step" \
-  || bad "#1 POS-all: paste-block missing the check:lintstaged step"
+grep -E '^[[:space:]]*- CI gate check:lintstaged' "$LOG" | grep -q "run: bash scripts/check-lintstaged-resolves.sh" \
+  && ok "#1 POS-all: the check:lintstaged NOT-wired line names its step" \
+  || bad "#1 POS-all: no NOT-wired check:lintstaged line naming its step"
 # #521 follow-up: when check:globs is missing, the WARN must explain that a present `lint` step
 # does NOT enforce R2/R7/R8 on packages with their own eslint config (nearest-config shadow).
 grep -q "nearest-config resolution shadows the root AIF rules" "$LOG" \

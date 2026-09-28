@@ -711,17 +711,17 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1369                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1373                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1363          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:471          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:497          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:518          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:546          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:461          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:486          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:506          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:537          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/45-python.sh:1362          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:551          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:466          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
@@ -891,7 +891,7 @@ copy_safe() {
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip: $dst (exists)"
     else
-      echo "  ⊝ $dst (exists — skipping; use --force to overwrite)"
+      echo "  ⊝ $dst (exists — skipping)"
       # A1-2: this early return used to precede the staging call, so an install whose deliveries
       # were all skips staged NOTHING — and after any install that never reached its flush (the
       # 99-finalize `exit 1` on a deps-incomplete --full), no later re-run could ever rebuild the
@@ -1042,7 +1042,7 @@ merge_fenced() {
   if grep -qF "$begin" "$dst"; then
     if ! grep -qF "$end_tok" "$dst"; then
       echo "  ⚠ $dst: '$begin' present but no matching '$end_tok' — REFUSING to splice" >&2
-      echo "    (an unterminated fence would delete everything to EOF; fix the marker pair by hand)" >&2
+      echo "    (an unterminated fence would delete everything to EOF, so the file is left as it is and getff's section is not in it)" >&2
       SKIPPED+=("$dst")
       return 0
     fi
@@ -1284,9 +1284,9 @@ _report_dir_residue() {
   if [ "$class" = "unattributable" ]; then
     echo "  ⚠ ORPHAN: $rel sits inside the getff-delivered payload $reldst, is not in the current template set, and has no refresh-baseline entry."
     echo "    Kept in place. If you added it, that is expected — a payload can be consumer-extensible (scripts/fences-fire-fixtures is; see its gate header and INSTALL.md) and getff never removes what it cannot attribute to its own delivery."
-    echo "    If you did NOT add it, it is residue of a PRIOR getff version: remove it manually, because a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
+    echo "    If you did NOT add it, it is residue of a PRIOR getff version — and a stale file in a payload is LIVE configuration for the checks that read that directory, not inert residue."
   else
-    echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it; review whether it is still wanted."
+    echo "  · kept (locally modified): $rel — getff delivered it, you have since edited it, and the current template set no longer ships it, so getff leaves it as the project's own."
   fi
   return 0
 }
@@ -1460,7 +1460,7 @@ deliver_getff_workflow() {
   else
     # PARK case (kickoff §5): loud stderr warning — Option A (recommended).
     echo "  ⚠ getff: could not detect default branch (no origin remote or origin/HEAD unset);" >&2
-    echo "    delivered workflow uses 'main' — edit $dst if your default differs" >&2
+    echo "    delivered workflow uses 'main' as the default branch — the install could not read the real one" >&2
   fi
 }
 
@@ -1773,7 +1773,7 @@ report_getff_orphans() {
       *" $rel "*) ;;   # currently delivered — not an orphan
       *)
         echo "  ⚠ ORPHAN: $rel is getff-owned (header present) but the current $lane template set no longer delivers it."
-        echo "    Stale artefact from a PRIOR getff version — review and remove it manually (getff never deletes consumer-tree files)."
+        echo "    Stale artefact from a PRIOR getff version — left in place, because getff never deletes files in the project."
         ;;
     esac
   done
@@ -1788,7 +1788,7 @@ report_getff_orphans() {
   # delivered anything here, so it is not an orphan of ours; and clean-tree arms of
   # lane-orphan-residue grep ORPHAN: to zero. Fires identically under --dry-run (read-only).
   if [ -d "$PROJECT_ROOT/.getff/rules-research" ]; then
-    echo "  ⊝ .getff/rules-research/ is consumer-owned researched-rule storage — getff joins *.yml from it into .getff/astgrep-rules on every pass and never writes, sweeps, or prunes here; stale entries stay until you remove them."
+    echo "  ⊝ .getff/rules-research/ is consumer-owned researched-rule storage — getff joins *.yml from it into .getff/astgrep-rules on every pass and never writes, sweeps, or prunes here, so its entries stay as the project left them."
   fi
   return 0
 }
@@ -2508,7 +2508,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:251-256); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:253-258); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2678,9 +2678,11 @@ warn_preset_staleness() {
     echo ""
     echo "⚠  This preset is a frozen Next-15 snapshot (${snap:-unknown}) — your installed tool majors differ:"
     printf '%b' "$out"
-    echo "   Prefer live-research delivery for rules matching your current versions: run the rule-research"
-    echo "   protocol (agents/rule-researcher.md / the rule-research skill), then ./setup --full. Presets"
-    echo "   are the fallback baseline, not the source of truth."
+    # A fact, not a step (Q4.7): the preset is what got installed, and live research is not part of
+    # an install.
+    echo "   The rules installed are this preset's, pinned to the versions above; rules researched for your"
+    echo "   current versions come from the rule-research protocol (agents/rule-researcher.md), which an"
+    echo "   install does not run. Presets are the fallback baseline, not the source of truth."
   fi
 }
 
@@ -2722,6 +2724,15 @@ husky_hookspath_blocker() {
 # surface (printed in the 99-finalize summary). Tolerates NOT_WIRED being undeclared (lib-only use).
 note_not_wired() {
   NOT_WIRED+=("$1")
+}
+
+# note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
+# for 99-finalize's summary. Once per file: in a multi-stack monorepo the per-workspace synth-wire
+# and the R2 wirer can both add to the same consumer config (cold review, 2026-09-28).
+note_getff_added() {
+  local _a
+  for _a in ${GETFF_ADDED_TO[@]+"${GETFF_ADDED_TO[@]}"}; do [ "$_a" = "$1" ] && return 0; done
+  GETFF_ADDED_TO+=("$1")
 }
 
 # DEPCRUISE_CONFIG_NAMES — the config names dependency-cruiser loads by default, in its own lookup
@@ -2813,8 +2824,10 @@ eslint_config_has_getff_rules() {
 # Named once however many steps reach it — 40-configs places nothing beside it, and each 99-finalize
 # pass that would add to it finds it again.
 note_eslint_config_not_esm() {
-  local line n
-  line="eslint: getff's rules are not in the ESLint config of $1 — your $2 configures ESLint there, and getff adds its block only to an ES-module flat config (eslint.config.js or eslint.config.mjs)"
+  local line n where="$1"
+  # The directory as the summary names it: project-relative, never the absolute install path (#1878).
+  if [ "$where" = "${PROJECT_ROOT:-}" ]; then where="the project root"; else where="${where#"${PROJECT_ROOT:-}"/}"; fi
+  line="eslint: getff's rules are not in the ESLint config of $where — your $2 configures ESLint there, and getff adds its block only to an ES-module flat config (eslint.config.js or eslint.config.mjs)"
   for n in ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}; do [ "$n" = "$line" ] && return 0; done
   note_not_wired "$line"
 }
@@ -2936,9 +2949,12 @@ legacy_eslint_config() {
 # skip + report, never overwrite or merge a consumer's tool config). An eslint.config.js is not
 # recorded, at the root or in a workspace: 99-finalize adds getff's block to it (operator decision Q4.7).
 copy_unless_foreign() {
-  local kind="$1" src="$2" dst="$3" own
+  local kind="$1" src="$2" dst="$3" own where
   shift 3
   own=$(foreign_tool_config "$(dirname "$dst")" "$kind")
+  # The directory as the summary names it: project-relative, never the absolute install path.
+  where="${dst%/*}"
+  if [ "$where" = "${PROJECT_ROOT:-}" ]; then where="the project root"; else where="${where#"${PROJECT_ROOT:-}"/}"; fi
   if [ -n "$own" ]; then
     if [ "$DRY_RUN" = "--dry-run" ]; then
       echo "  [dry-run] would skip: $dst (your own $kind config $own is kept)"
@@ -2946,7 +2962,10 @@ copy_unless_foreign() {
       echo "  ⊝ $dst not placed — your own $kind config ($own) is kept"
     fi
     if [ "$kind" != "eslint" ]; then
-      note_not_wired "$kind: ${dst##*/} not placed in $(dirname "$dst") because your $own configures $kind there; to get the framework settings, merge $src into it"
+      # Reason only (operator directive 2026-09-28): getff adds its block to a consumer's own ESLint
+      # config (Q4.7) but not to a prettier / lint-staged / dependency-cruiser one (decision
+      # 2026-09-23 stands for those), so the line names what stays out and why — no merge step.
+      note_not_wired "$kind: getff's ${dst##*/} is not in $where — your $own configures $kind there, and getff does not change a project's own $kind config, so $kind runs with your settings only"
     elif [ "$own" = "eslint.config.js" ]; then
       # 99-finalize adds getff's block to an eslint.config.js — at the root and in a workspace — the
       # way it does to a consumer's own eslint.config.mjs (operator decision Q4.7), and reports the
@@ -2964,7 +2983,10 @@ copy_unless_foreign() {
   copy_safe "$src" "$dst" "$@"
   if [ "$kind" = "eslint" ] && [ "$DRY_RUN" != "--dry-run" ]; then
     own=$(legacy_eslint_config "$(dirname "$dst")")
-    [ -z "$own" ] || note_not_wired "eslint: your $own in $(dirname "$dst") is not read by ESLint 9 (flat config only) — ${dst##*/} now drives lint there; port your rules into it"
+    # Reason only: carrying the eslintrc rules over is a migration getff does not run — the
+    # official @eslint/migrate-config writes eslint.config.mjs (the file getff just placed), needs
+    # the network and new packages, and drops any logic in a JS eslintrc (prior-art-evaluations.md#289).
+    [ -z "$own" ] || note_not_wired "eslint: your $own in $where is not read by ESLint 9 (flat config only), so its rules are not in the lint — ${dst##*/} drives lint there, and getff does not migrate an eslintrc"
   fi
 }
 
@@ -3033,7 +3055,61 @@ reassert_husky_shields() {
   if [ "$reasserted" = "1" ]; then
     local mgr=""
     grep -q '"simple-git-hooks"' "$proj/package.json" 2>/dev/null && mgr="simple-git-hooks"
-    echo "⚠  re-asserted framework .husky/pre-push + pre-commit after dep-install${mgr:+ (a competing \"$mgr\" prepare hook had clobbered them)} — a future package-manager install may re-clobber them; keep core.hooksPath=.husky or remove the competing manager's hooks. (GH #975)"
+    echo "⚠  re-asserted framework .husky/pre-push + pre-commit after dep-install${mgr:+ (a competing \"$mgr\" prepare hook had clobbered them)} — a later package-manager install can clobber them again while that manager's hooks stay installed. (GH #975)"
+  fi
+  return 0
+}
+
+# json_edit_node FILE JS [ARG…] — the jq-less path for the installer's JSON writes (.claude/settings.json,
+# .mcp.json). Reads FILE as JSON (an absent file reads as {}), runs JS as the body of a function
+# (o, args) — o the parsed object, args the ARGs — and writes what it returns next to FILE, then renames
+# it into place. JS returning nothing means «already there»: nothing is written, rc 3. rc 1 = node is
+# not on PATH, FILE is not JSON, or the write failed; FILE is then left as it was and no .tmp remains.
+# Before this helper a missing jq printed «add manually to …» — a manual step (operator directive
+# 2026-09-28: the install never hands one back); node is present wherever the JS/TS install runs.
+json_edit_node() {
+  local file="$1" js="$2"
+  shift 2
+  command -v node >/dev/null 2>&1 || return 1
+  GETFF_JSON_FILE="$file" GETFF_JSON_JS="$js" node -e '
+    const fs = require("fs");
+    const f = process.env.GETFF_JSON_FILE, tmp = f + ".tmp";
+    try {
+      const o = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+      // Only a JSON object is a settings/.mcp.json: `[]`, a string or a number would be written back
+      // unchanged while the caller printed «✓ registered» (cold review, 2026-09-28).
+      if (o === null || typeof o !== "object" || Array.isArray(o)) process.exit(1);
+      const out = new Function("o", "args", process.env.GETFF_JSON_JS)(o, process.argv.slice(1));
+      if (out === undefined) process.exit(3);
+      fs.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
+      fs.renameSync(tmp, f);
+    } catch (e) {
+      try { fs.unlinkSync(tmp); } catch (_) { /* no tmp was written */ }
+      process.exit(1);
+    }' "$@" 2>/dev/null
+}
+
+# json_edit_node_why FILE — the reason a json_edit_node write did not happen, for a NOT-wired line.
+json_edit_node_why() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "neither jq nor node is on PATH, and getff edits JSON only through one of them"
+  else
+    echo "${1#"${PROJECT_ROOT:-}"/} is not a valid JSON object or could not be written, so it was left as it was"
+  fi
+}
+
+# add_context7_mcp FILE — the jq-less arm of the context7 entry in .mcp.json (05-mcp, the python lane):
+# sets .mcpServers.context7 through node and keeps every other server, as the jq merge does.
+add_context7_mcp() {
+  local file="$1"
+  if json_edit_node "$file" '
+      o.mcpServers = o.mcpServers || {};
+      o.mcpServers.context7 = { command: "npx", args: ["-y", "@upstash/context7-mcp@latest"] };
+      return o;'; then
+    echo "  ✓ context7 added to ${file##*/} (through node: jq is not on PATH)"
+  else
+    echo "  ⚠ context7 NOT added to ${file##*/} — $(json_edit_node_why "$file")"
+    note_not_wired "context7 MCP server in ${file#"${PROJECT_ROOT:-}"/} — $(json_edit_node_why "$file")"
   fi
   return 0
 }
@@ -3044,9 +3120,10 @@ reassert_husky_shields() {
 # existing hooks on that event (never clobbers a consumer-authored hook), and no-ops
 # when MARKER is already present (re-run adds nothing). Creates a minimal settings.json
 # if absent. SSOT for the settings hooks-merge so install (setup.d) + refresh (do_refresh)
-# share one implementation (dual-implementation-discipline §7). Requires jq for the
-# JSON-safe merge (the shipped commands carry embedded quotes for $CLAUDE_PROJECT_DIR);
-# degrades to explicit manual guidance when jq is absent — never a silent skip.
+# share one implementation (dual-implementation-discipline §7). The merge is JSON-safe (the
+# shipped commands carry embedded quotes for $CLAUDE_PROJECT_DIR): jq, or node through
+# json_edit_node when jq is absent; with neither, the hook is a NOT-wired line with that reason —
+# never a silent skip, and never a manual step.
 #
 # Optional 5th arg MATCHER: for tool-scoped events (PreToolUse / PostToolUse) pass the
 # tool-name matcher (e.g. "AskUserQuestion", "Edit|Write") so the entry gets a `matcher`
@@ -3054,9 +3131,24 @@ reassert_husky_shields() {
 # (Stop / UserPromptSubmit — no tool scope) the entry is written matcher-less, byte-for-byte
 # as before (the #1003 Stop path is unchanged).
 register_cc_hook() {
-  local settings="$1" event="$2" cmd="$3" marker="$4" matcher="${5:-}"
+  local settings="$1" event="$2" cmd="$3" marker="$4" matcher="${5:-}" rc=0
   if ! command -v jq >/dev/null 2>&1; then
-    echo "  ⚠ jq not found — add manually to .claude/settings.json under \"$event\" a command hook running: $cmd"
+    # No jq: the same append through node (json_edit_node), with the same per-event idempotence.
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [e, c, m, marker] = args;
+      o.hooks = o.hooks || {};
+      const list = o.hooks[e] || [];
+      if (list.some(g => (g.hooks || []).some(h => new RegExp(marker).test(h.command || "")))) return;
+      o.hooks[e] = list.concat([m ? { matcher: m, hooks: [{ type: "command", command: c }] }
+                                  : { hooks: [{ type: "command", command: c }] }]);
+      return o;' "$event" "$cmd" "$matcher" "$marker" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ $marker registered as a $event hook in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) echo "  ⊝ $marker already registered on $event in .claude/settings.json" ;;
+      *) echo "  ⚠ $marker NOT registered on $event — $(json_edit_node_why "$settings")"
+         note_not_wired "Claude Code hook $marker on $event in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
     return 0
   fi
   # Build the single hook-group object once (with or without a matcher field) so the
