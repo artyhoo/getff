@@ -24,7 +24,7 @@ if [ -f "$_05mcp_json" ] && grep -q '"context7"' "$_05mcp_json" 2>/dev/null && [
 fi
 
 if [ "$_05mcp_skip_context7" = "1" ]; then
-  printf '  [05-mcp] context7 already in .mcp.json — skipping (use --force to refresh)\n'
+  printf '  [05-mcp] context7 already in .mcp.json — kept as it is\n'
 elif [ -n "${DRY_RUN:-}" ]; then
   printf '  [dry-run] would: add context7 to .mcp.json (%s)\n' "$_05mcp_json"
 else
@@ -50,8 +50,8 @@ else
     fi
     printf '  [05-mcp] path: %s\n' "$_05mcp_json"
   else
-    printf '  ⚠ [05-mcp] jq not found — add context7 to .mcp.json manually:\n'
-    printf '    "mcpServers": { "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] } }\n'
+    # No jq: the same merge through node (lib.sh add_context7_mcp) — a NOT-wired line if that fails too.
+    add_context7_mcp "$_05mcp_json"
   fi
 fi
 

@@ -21,7 +21,7 @@
 #   - PROFILE=factory  → install.
 #   - PROFILE=core     → skip (core lacks the workspace surface).
 #   - WITH_AIF_SUITE   → install (legacy flag routes through factory per
-#                        install.sh:594-595).
+#                        install.sh:598-599).
 #
 # REUSE contract (kickoff §4 binding):
 #   The scripts are copied VERBATIM from $PKG_ROOT/scripts/ — no rewrite,
@@ -88,5 +88,4 @@ echo "  ✓ scripts/create-worktree.sh (worktree entrypoint — REUSE per kickof
 echo "  ✓ scripts/worktree-node-modules.sh (node_modules provisioning)"
 echo "  ✓ scripts/link-coordination.sh (workspace link coordination)"
 echo "  ✓ scripts/getff-work.sh (workspace one-command entry-point — spec A9)"
-echo "    ↳ NEXT: invoke via \`getff work <name>\` (env+ profile) or directly"
-echo "      via \`bash scripts/create-worktree.sh <name>\`."
+echo "    ↳ entry points: \`getff work <name>\` (env+ profile) and \`bash scripts/create-worktree.sh <name>\`"
