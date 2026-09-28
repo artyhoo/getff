@@ -21,7 +21,7 @@
  * Three independent legs, all verified on this tree at authoring time (2026-08-18):
  *   1. NO fragment checking anywhere. Neither lychee arm passes `--include-fragments`:
  *      pre-push runs `lychee --offline --no-progress <changed *.md>`
- *      (packages/core/hooks/pre-push.ts:2363), CI runs `--no-progress --config
+ *      (packages/core/hooks/pre-push.ts:2366), CI runs `--no-progress --config
  *      lychee.toml <globs>` (.github/workflows/link-checker.yml:55-61). Anchors are
  *      unchecked today — the half this test exists for.
  *   2. The CI arm's file scope excludes a repo-root CONTEXT.md outright: its globs are
