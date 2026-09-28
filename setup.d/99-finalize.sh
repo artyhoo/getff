@@ -330,7 +330,7 @@ _r2_note_outcome() {
 }
 # When an R2 pass cannot run at all (no Node, no ts-morph, no wirer), each config it would have
 # changed is named in the «NOT wired» summary with the reason (operator decision Q4.7) — only those:
-# a config that already names R2 (getff's ts-server template carries it) is not listed, and neither
+# a config that already names R2 (getff's ts-server and react templates carry it) is not listed, and neither
 # is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
 # boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
 # reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
