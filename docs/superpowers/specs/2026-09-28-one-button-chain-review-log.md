@@ -133,3 +133,6 @@ real; the partial ones are the round-2 findings they name.
   [2026-09-28-core-and-self-application.md](../../meta-factory/research-patches/2026-09-28-core-and-self-application.md).
   Rows R6-1…R6-6; R6-2 supersedes R5-9; forks R6-2, R6-3, R6-6; slice 6 «Core and
   self-application» added, acceptance became slice 7. Not a §2 round: no seat reviewed the design.
+  R6-3 = Б: `77d705ff809`. The operator then declined approval («я пока не вижу полностью
+  сформированую идею»); a model round (Q1-Q4, in chat) followed. Its answers: P17 (Q1), R6-2 = B
+  (Q2), R6-7 agreed (Q3); Q4 reopened R6-1 and R6-6 with a two-layer reading of «the core».
