@@ -10,11 +10,11 @@ bridge_health_ok() {
 # Returns: up | docker | docker-down | native | absent
 #
 # `docker-down` (binary installed, daemon not answering) is its own state, not a flavour of
-# `absent`: the two need opposite guidance ("start docker" vs "install docker"), and a caller
+# `absent`: the two have opposite reasons (a stopped daemon vs no docker at all), and a caller
 # cannot recover the difference afterwards — re-running `command -v docker && docker info` is
 # exactly the test that already failed to produce `docker` (ledger A1-7, PR #1597).
 # Ordering note: `native` still wins over `docker-down`, so a machine with the aif-handoff CLI
-# and a stopped docker daemon keeps the pre-existing `native` guidance.
+# and a stopped docker daemon keeps the pre-existing `native` report.
 bridge_diagnose() {
   local url="$1"
   if bridge_health_ok "$url"; then echo "up"; return 0; fi
@@ -26,17 +26,35 @@ bridge_diagnose() {
   echo "absent"
 }
 
-# Interactive flow: diagnose → offer matching bring-up → re-poll → report.
-# (Calls setup-runtime-bridge.sh for the our-side env/hook/settings.json writes.)
+# _bridge_not_wired <line> — a runtime-bridge gap with its reason (Q4.7: a gap, never a step).
+# Sourced from ./setup, the engine's companion_not_wired is in scope and the line joins ./setup's
+# companion summary; sourced alone (a test, a direct call), the fact is printed in place.
+_bridge_not_wired() {
+  if command -v companion_not_wired >/dev/null 2>&1; then
+    companion_not_wired "runtime-bridge — $1"
+  else
+    printf '  ⚠ NOT wired: runtime-bridge — %s\n' "$1"
+  fi
+}
+
+# Flow: diagnose → wire when aif-handoff answers → otherwise report what is not wired and why.
+# The wiring (env, hook, settings.json) is setup-runtime-bridge.sh, an interactive wizard that
+# wires the repository it ships in. It runs only when that repository is the project being set
+# up (the getff repository setting itself up); an installed getff (the npm package, or a getff
+# clone used as the installer) records a NOT-wired fact instead, and its wizard never runs.
 bridge_guided_run() {
   local url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   local state; state=$(bridge_diagnose "$url")
   case "$state" in
     up)      printf '  ✓ aif-handoff reachable at %s\n' "$url" ;;
-    docker)  printf '  aif-handoff not responding; docker is available. Start it with: docker compose up -d (in your aif-handoff checkout), then re-run.\n' ;;
-    native)  printf '  aif-handoff CLI present but not responding — start it, then re-run.\n' ;;
-    docker-down) printf '  aif-handoff not responding and the docker daemon is not running — start docker, then re-run.\n' ;;
-    absent)  printf '  aif-handoff not detected (no docker, no CLI). See docs/runtime-bridge-setup.md for install.\n' ;;
+    docker)  printf '  aif-handoff not responding at %s; docker is available.\n' "$url"
+             _bridge_not_wired "not wired: aif-handoff does not answer at $url; docker is available, but getff does not start aif-handoff" ;;
+    native)  printf '  aif-handoff CLI present but not responding at %s.\n' "$url"
+             _bridge_not_wired "not wired: the aif-handoff CLI is installed but does not answer at $url, and getff does not start a service it did not install" ;;
+    docker-down) printf '  aif-handoff not responding at %s; the docker daemon is not running.\n' "$url"
+             _bridge_not_wired "not wired: aif-handoff does not answer at $url, and the docker daemon is not running — getff does not start the docker daemon" ;;
+    absent)  printf '  aif-handoff not detected (no docker, no CLI).\n'
+             _bridge_not_wired "not wired: this machine has no docker and no aif-handoff CLI, so there is no aif-handoff to wire to" ;;
   esac
   # Cross-layer warning (owner GO 2026-07-11): the AIF operator suite (--profile factory, or
   # the legacy --with-aif-suite/--all escape) presupposes this runtime — files landed but no
@@ -51,15 +69,19 @@ bridge_guided_run() {
   # our-side writes are delegated to the existing, tested script:
   if [ "$state" = "up" ]; then
     # Lib is sourced (from ./setup and from tests) → $0 is the caller, not this
-    # file. Resolve the framework/consumer root via BASH_SOURCE: this lib lives
-    # in setup.d/, so its parent dir is the root. Keeps the call cwd-independent.
-    local root; root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    if [ -f "$root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh" ]; then
+    # file. Resolve the root via BASH_SOURCE: this lib lives in setup.d/, so its
+    # parent dir is the root. The project being set up is the working directory
+    # (install.sh's PROJECT_ROOT is $(pwd)); -P on both so a symlinked path matches.
+    local root proj
+    root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+    proj="$(pwd -P)"
+    if [ "$root" = "$proj" ] && [ -f "$root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh" ]; then
       bash "$root/packages/runtime-bridge/scripts/setup-runtime-bridge.sh"
     else
-      # Consumer install: the script ships with the framework repo, not with
-      # install.sh payload. Graceful pointer, not a failure (dual-impl §3).
-      printf '  setup-runtime-bridge.sh not present in this checkout (consumer install) — see docs/runtime-bridge-setup.md for manual setup.\n'
+      # An installed getff: the wizard would write the hook and settings.json into the
+      # package, not this project, and print steps for the reader to paste. A NOT-wired
+      # fact, not a failure (dual-impl §3, Q4.7).
+      _bridge_not_wired "not wired: aif-handoff answers at $url, but getff's bridge setup (setup-runtime-bridge.sh) wires only the getff repository it ships in, and this project is not that repository"
       return 0
     fi
   fi
