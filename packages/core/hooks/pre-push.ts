@@ -1880,8 +1880,9 @@ function lineCitationsSection(ctx: SectionCtx): void {
   // (2026-09-28, load average ~108). Still fail-closed — an unfinished check is not green.
   if (r.timedOut) {
     die(
-      `❌ path:line citation checker timed out after ${Math.round(timeoutMs / 1000)} s ` +
-        '— no citation was found stale; the check did not finish.\n' +
+      // runCheck also reports an outside SIGTERM as timedOut, hence «or was terminated».
+      `❌ path:line citation checker did not finish within ${timeoutMs / 1000} s ` +
+        '(timed out or was terminated) — no citation was found stale.\n' +
         '   Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on\n' +
         '   git blame/show per affected citation). Retry when load drops, or raise\n' +
         '   PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.',
@@ -1903,8 +1904,10 @@ function lineCitationsSection(ctx: SectionCtx): void {
  */
 const LINE_CITATIONS_TIMEOUT_MS = 600_000;
 
-function lineCitationsTimeoutMs(): number {
-  const raw = process.env['PREPUSH_LINE_CITATIONS_TIMEOUT_MS']?.trim() ?? '';
+export function lineCitationsTimeoutMs(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const raw = env['PREPUSH_LINE_CITATIONS_TIMEOUT_MS']?.trim() ?? '';
   if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
   return Number(raw);
 }

@@ -19,6 +19,7 @@ import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { lineCitationsTimeoutMs } from './pre-push.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOOK = resolve(HERE, 'pre-push.ts');
@@ -51,8 +52,9 @@ function hook(bin: string, env: Record<string, string> = {}) {
     env: {
       ...process.env,
       PREPUSH_ONLY: 'line-citations',
-      // HEAD~1..HEAD always has at least one changed file, so the checker is reached.
-      PREPUSH_UPSTREAM_REF: 'HEAD~1',
+      // The empty tree as base: every tracked file is «changed», so the checker is
+      // always reached — HEAD~1 is not enough when HEAD is an empty or deletion-only commit.
+      PREPUSH_UPSTREAM_REF: '4b825dc642cb6eb9a060e54bf8d69288fbee4904',
       PATH: `${bin}:${process.env['PATH'] ?? ''}`,
       ...env,
     },
@@ -65,7 +67,7 @@ describe('line-citations: checker timeout', () => {
     const bin = fakeNodeBin('slow', 'exec sleep 10');
     const r = hook(bin, { PREPUSH_LINE_CITATIONS_TIMEOUT_MS: '500' });
     expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/citation checker timed out/);
+    expect(r.stderr).toMatch(/citation checker did not finish within 0.5 s \(timed out or was terminated\)/);
     expect(r.stderr).toMatch(/PREPUSH_LINE_CITATIONS_TIMEOUT_MS/);
     expect(r.stderr).not.toMatch(/stale `path:line` citation/);
   });
@@ -74,14 +76,24 @@ describe('line-citations: checker timeout', () => {
     const bin = fakeNodeBin('failing', "echo 'docs/x.md:3 → gone' >&2; exit 1");
     const r = hook(bin, { PREPUSH_LINE_CITATIONS_TIMEOUT_MS: '30000' });
     expect(r.status).toBe(1);
+    expect(r.stderr).not.toMatch(/did not finish/);
     expect(r.stderr).toMatch(/stale `path:line` citation/);
-    expect(r.stderr).not.toMatch(/timed out/);
+  });
+});
+
+describe('lineCitationsTimeoutMs', () => {
+  it('defaults to 600 s when unset', () => {
+    expect(lineCitationsTimeoutMs({})).toBe(600_000);
   });
 
-  it('a malformed cap falls back to the default instead of disabling the gate', () => {
-    const bin = fakeNodeBin('failing-2', 'exit 1');
-    const r = hook(bin, { PREPUSH_LINE_CITATIONS_TIMEOUT_MS: 'soon' });
-    expect(r.status).toBe(1);
-    expect(r.stderr).toMatch(/stale `path:line` citation/);
+  it('honours a positive integer, surrounding whitespace allowed', () => {
+    expect(lineCitationsTimeoutMs({ PREPUSH_LINE_CITATIONS_TIMEOUT_MS: ' 500 ' })).toBe(500);
   });
+
+  // 0 would mean «no cap» to spawnSync — a typo must never disable the cap.
+  for (const bad of ['', 'soon', '0', '-5', '1.5', '1e3', '0500']) {
+    it(`falls back to the default for ${JSON.stringify(bad)}`, () => {
+      expect(lineCitationsTimeoutMs({ PREPUSH_LINE_CITATIONS_TIMEOUT_MS: bad })).toBe(600_000);
+    });
+  }
 });

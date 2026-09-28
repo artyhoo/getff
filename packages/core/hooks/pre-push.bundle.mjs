@@ -1654,7 +1654,8 @@ function lineCitationsSection(ctx) {
   if (r.notFound) return;
   if (r.timedOut) {
     die(
-      `\u274C path:line citation checker timed out after ${Math.round(timeoutMs / 1e3)} s \u2014 no citation was found stale; the check did not finish.
+      // runCheck also reports an outside SIGTERM as timedOut, hence «or was terminated».
+      `\u274C path:line citation checker did not finish within ${timeoutMs / 1e3} s (timed out or was terminated) \u2014 no citation was found stale.
    Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on
    git blame/show per affected citation). Retry when load drops, or raise
    PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.`
@@ -1664,8 +1665,8 @@ function lineCitationsSection(ctx) {
   emit(r);
 }
 var LINE_CITATIONS_TIMEOUT_MS = 6e5;
-function lineCitationsTimeoutMs() {
-  const raw = process.env["PREPUSH_LINE_CITATIONS_TIMEOUT_MS"]?.trim() ?? "";
+function lineCitationsTimeoutMs(env = process.env) {
+  const raw = env["PREPUSH_LINE_CITATIONS_TIMEOUT_MS"]?.trim() ?? "";
   if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
   return Number(raw);
 }
@@ -2167,5 +2168,6 @@ export {
   VALID_OWNERS,
   activeSections,
   composeSections,
-  isFrameworkShippedMarkdown
+  isFrameworkShippedMarkdown,
+  lineCitationsTimeoutMs
 };
