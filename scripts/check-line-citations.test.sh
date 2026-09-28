@@ -305,7 +305,7 @@ for needle in 'ambiguous-basename' 'a/install/wire.ts' 'b/install/wire.ts'; do
     echo "FAIL: ambiguous partial path did not report '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
 done
 
-# --- a suffix is matched on a path-segment boundary: `wire.ts` under `rewire/` is not a
+# --- a suffix is matched on a path-segment boundary: `wire.ts` under `reinstall/` is not a
 # tail of `install/wire.ts`, and a `./`-rooted token names a place, not a suffix
 new_repo partial-boundary
 mkdir -p "$REPO/pkg/reinstall" "$REPO/pkg/install"

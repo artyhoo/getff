@@ -87,7 +87,7 @@ fi
 #                      aif mention in SKILL.md, zero across references/*.md), so env is the
 #                      right depth: it wraps `superpowers:*` companions and degrades without
 #                      the aif runtime. Its `](../dispatcher/SKILL.md)` ref is factory-tier and
-#                      therefore dangles at env — same pre-existing shape as pipeline/SKILL.md:367
+#                      therefore dangles at env — same pre-existing shape as pipeline/SKILL.md:159
 #                      and arch/SKILL.md:27 (→ night-mode); tracked with D4, not fixed here.
 #   - pipeline       — the planner (/pipeline): umbrella triage, priority ranking, plan/state.md.
 #                      env+, not factory: the design SSOT defines the env depth as carrying

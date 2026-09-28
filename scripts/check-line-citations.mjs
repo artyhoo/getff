@@ -109,8 +109,8 @@
  * ending in `/<token>`; several matches are `ambiguous-basename` with candidates, none
  * is `path-missing`, and a match is weak exactly like a basename one. Before this, every
  * such token was `path-missing` at once and, in a code file, vanished into the skip
- * count: the corpus carried 29 stale partial-path citations that exit 0 had hidden. A
- * token starting with `/` or `.` is never suffix-matched — it names a place, not a tail.
+ * count: the corpus carried 31 stale citations that exit 0 had hidden. A
+ * token starting with `/`, `./` or `../` is never suffix-matched — it names a place, not a tail.
  *
  * `--strict` is deliberately NOT wired into pre-push §9: 32 citations on that corpus
  * remain unresolvable and most are out-of-repo by construction, so switching it on
@@ -481,9 +481,9 @@ function resolveCitedPath(srcFile, citedPath, linkTarget) {
     // `packages/core/install/wire-eslint-r2.ts`) resolves by UNIQUE tracked suffix, the
     // basename rule's analogue. Until 2026-09-29 it went straight to `path-missing`, so a
     // stale partial-path cite was folded into the code-file skip count and passed —
-    // measured that day: 29 stale citations in 19 corpus files (PR #1899 found the first).
-    // A token rooted at `/` or `.` names a location, not a suffix, and is left alone.
-    if (/^[/.]/.test(citedPath)) return { reason: 'path-missing', candidates: [] };
+    // measured that day: 31 stale citations in the corpus (PR #1899 found the first).
+    // A token rooted at `/`, `./` or `../` names a location, not a suffix, and is left alone.
+    if (/^(\/|\.\.?\/)/.test(citedPath)) return { reason: 'path-missing', candidates: [] };
     const suffix = '/' + normalize(citedPath);
     const base = citedPath.slice(citedPath.lastIndexOf('/') + 1);
     const hits = tracked(base).filter((t) => t.endsWith(suffix));
