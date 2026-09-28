@@ -299,14 +299,31 @@ OUT11=$(repo_gate "$T11"); RC11=$?
 # preset ships zero custom rules) and carries no RULE_GLOBS block, so it takes the same skip — but
 # calling it «your own config, the install kept it» is false on a fresh RN install. The baseline
 # manifest records what getff delivered; the message must follow it.
+sha_of() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | awk '{print $1}'; }
+manifest_for() { # $1 = dir, $2 = recorded hash for eslint.config.mjs
+  mkdir -p "$1/.ai-factory"
+  printf '{\n  "eslint.config.mjs": "%s"\n}\n' "$2" > "$1/.ai-factory/refresh-baseline.json"
+}
 T12=$(own_cfg_dir "export default [];")
-mkdir -p "$T12/.ai-factory"
-printf '{\n  "eslint.config.mjs": "0000000000000000000000000000000000000000000000000000000000000000"\n}\n' \
-  > "$T12/.ai-factory/refresh-baseline.json"
+manifest_for "$T12" "$(sha_of "$T12/eslint.config.mjs")"
 OUT12=$(repo_gate "$T12"); RC12=$?
 [ "$RC12" = "0" ] && ! printf '%s' "$OUT12" | grep -q "your own config" \
   && printf '%s' "$OUT12" | grep -q "getff placed eslint.config.mjs" \
   && ok "own-config provenance: getff's own marker-less config is skipped as getff's, not called the consumer's" \
   || bad "own-config provenance: rc=$RC12, message misattributes getff's config (saw: $(printf '%s' "$OUT12" | head -1))"
+
+# getff placed the config and it has been edited since (the manifest hash no longer matches). Still
+# a skip, not the full alarm: getff's react-native config never had a RULE_GLOBS block, and failing
+# every edit of it would turn check:globs RED on a one-line comment. The message must say the file
+# was edited, so a RULE_GLOBS block cut out of a config that had one is reported, not passed over.
+T13=$(own_cfg_dir "export default [];")
+manifest_for "$T13" "0000000000000000000000000000000000000000000000000000000000000000"
+OUT13=$(repo_gate "$T13"); RC13=$?
+[ "$RC13" = "0" ] && printf '%s' "$OUT13" | grep -q "getff placed eslint.config.mjs and it has been edited since" \
+  && ok "own-config provenance: an edited getff config is skipped and named as edited" \
+  || bad "own-config provenance: rc=$RC13, an edited getff config was not reported as edited (saw: $(printf '%s' "$OUT13" | head -1))"
+! printf '%s' "$OUT12" | grep -q "edited since" \
+  && ok "own-config provenance: the unedited getff config is not called edited (the hash is compared)" \
+  || bad "own-config provenance: the config as delivered was called edited"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

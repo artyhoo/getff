@@ -76,14 +76,29 @@ fi
 # getff does not own. Skip and say what is not wired — the same verdict check-rule-enforced.sh
 # gives a config with no boundary tokens. A config that mentions RULE_GLOBS or a getff rule is
 # getff-shaped and keeps the full alarm below. Whose config it is comes from the baseline manifest
-# (.ai-factory/refresh-baseline.json records every file getff delivered), not from its content:
-# getff's react-native config also has no RULE_GLOBS block — that preset ships no custom rules.
+# (.ai-factory/refresh-baseline.json records every file getff delivered, with its sha256), not from
+# its content: getff's react-native config also has no RULE_GLOBS block — that preset ships no
+# custom rules. The manifest's sha256 tells a config still as delivered from one edited since; both
+# are skipped, and the edited one is named as such. Failing it instead would turn every edit of
+# getff's react-native config RED — that config never had a RULE_GLOBS block to lose (measured
+# 2026-09-28: one appended comment line failed check:globs) — while an edit that cut getff's rules
+# out of a config that had them leaves the project where a consumer-owned config is: skip + report.
 if ! grep -q 'RULE_GLOBS' "$CFG" && ! grep -qE 'rules-as-tests|no-unsafe-zod-parse' "$CFG"; then
-  if grep -qF "\"$CFG\":" .ai-factory/refresh-baseline.json 2>/dev/null; then
-    echo "check-rule-globs: getff placed $CFG for this stack and it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
-  else
+  _bl=.ai-factory/refresh-baseline.json
+  _bl_key="${CFG#"$PWD"/}"
+  _bl_key="${_bl_key#./}"
+  if ! grep -qF "\"$_bl_key\":" "$_bl" 2>/dev/null; then
     echo "check-rule-globs: getff's custom rules (R2/R7/R8) are not wired into $CFG — it is your own config (no RULE_GLOBS block, no rules-as-tests rule), so there is no rule glob to verify (skipped)."
     echo "  To enforce them, merge getff's RULE_GLOBS block and rules-as-tests plugin into $CFG by hand; the install kept your config and did not touch it."
+    exit 0
+  fi
+  _bl_recorded=$(awk -v k="\"$_bl_key\":" 'index($0, k) { n = split($0, a, "\""); if (n >= 4) print a[4]; exit }' "$_bl" 2>/dev/null)
+  _bl_actual=$( { sha256sum "$CFG" 2>/dev/null || shasum -a 256 "$CFG" 2>/dev/null; } | awk '{print $1}')
+  if [ -n "$_bl_recorded" ] && [ "$_bl_recorded" = "$_bl_actual" ]; then
+    echo "check-rule-globs: getff placed $CFG for this stack and it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
+  else
+    echo "check-rule-globs: getff placed $CFG and it has been edited since; it wires none of getff's custom rules (R2/R7/R8) — no RULE_GLOBS block, no rules-as-tests rule — so there is no rule glob to verify (skipped)."
+    echo "  If getff's RULE_GLOBS block and rules were in it and were not removed on purpose, restore them from the stack's template."
   fi
   exit 0
 fi
