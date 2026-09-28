@@ -217,8 +217,8 @@ _copy_tree_with_transform() {
   _transform_md_tree "$dst"
   # R1 (W1-A, GH #1540): stage the freshly delivered tree so the NEXT refresh finds baseline
   # entries for it. Without this, skill trees stayed «unknown» forever and the no-entry arm was
-  # their only guard — the gap INSTALL-FOR-AI.md:482 used to (truthfully) document as "cannot
-  # distinguish a consumer-edited file from an unedited one" for skill dirs.
+  # their only guard — the gap INSTALL-FOR-AI.md:482 used to document for skill dirs — cite:historical — quoted wording rewritten in place by the W2-E per-path refresh truth
+  # (the gap itself was closed on the code side in critical-review wave 1 — see _preserve_unbaselined_copy).
   refresh_baseline_stage "$dst"
 }
 
