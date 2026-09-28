@@ -24,9 +24,9 @@
  */
 
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
@@ -96,6 +96,27 @@ export interface WireResult {
   probeNote?: string;
   /** Parts of the block that were NOT written, each with its reason (wireOwnConfig). */
   notes?: string[];
+}
+
+/** Why R2 did not land when its AST editor could not be loaded (the install's not-wired reason). */
+export const R2_NO_ENGINE = 'its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules';
+
+/**
+ * R2 not landing in `configPath`, as the install reports it (operator decision Q4.7, 2026-09-28): one
+ * «  · not wired: <what> — <why>» line, which 99-finalize.sh copies into its NOT wired summary. The
+ * install never gets a snippet to add by hand; that one (generateDegradedSnippet) is for a human who
+ * runs this CLI directly. The install reads that line by line, so a multi-line reason (an ESLint
+ * error text) is folded onto the one line.
+ */
+export function r2NotWiredLine(configPath: string, why: string, cwd: string = process.cwd()): string {
+  // Directories resolved on both sides: process.cwd() is the physical directory while --path may run
+  // through a symlink (macOS /var → /private/var), which `relative` renders as a ../ walk out of the
+  // project. The file itself is not resolved: a config that is a symlink is named by its own path.
+  const real = (p: string): string => {
+    try { return realpathSync(p); } catch { return p; }
+  };
+  const file = join(real(dirname(configPath)), basename(configPath));
+  return `  · not wired: R2 (${R2_RULE_ID}) in ${relative(real(cwd), file)} — ${why.replace(/\s*\n\s*/g, ' ')}`;
 }
 
 export function generateDegradedSnippet(configPath: string): string {
@@ -1237,7 +1258,7 @@ export async function wireR2IntoOwnConfig(a: {
 }): Promise<string[]> {
   const { configPath, cwd } = a;
   const rel = relative(cwd, configPath);
-  const notWired = (why: string): string => `  · not wired: R2 (${R2_RULE_ID}) in ${rel} — ${why}`;
+  const notWired = (why: string): string => r2NotWiredLine(configPath, why, cwd);
   const boundaryGlobs = [...new Set(a.boundaryGlobs)];
   if (boundaryGlobs.length === 0) return [`· R2: no HTTP boundary found for ${rel} — nothing for R2 to guard, so it is left as it is`];
   const source = readFileSync(configPath, 'utf8');
@@ -1249,7 +1270,7 @@ export async function wireR2IntoOwnConfig(a: {
     case 'unrecognised':
       return [...notes, notWired('its export is not a flat-config array getff can append to (`export default [...]`, `export default tseslint.config(...)`, `export default defineConfig(...)`), so it added nothing to it')];
     case 'degrade':
-      return [...notes, notWired('its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules')];
+      return [...notes, notWired(R2_NO_ENGINE)];
     default:
       break;
   }
@@ -1284,6 +1305,8 @@ async function main(): Promise<void> {
       '                  to --boundary, in its prettier style; anything not added is a «  · not wired:',
       '                  <what> — <why>» line, never a manual step',
       '  --boundary <glob>  (repeatable, with --own-config) HTTP boundary globs found under the config',
+      '  --install       The install is running this (Q4.7): never prompt, and report what did not land as',
+      '                  one «  · not wired: <what> — <why>» line instead of a snippet to add by hand',
     ].join('\n'));
     process.exit(0);
   }
@@ -1297,14 +1320,17 @@ async function main(): Promise<void> {
   const dryRun = argv.includes('--dry-run');
   const diffOnly = argv.includes('--diff');
   const ownConfig = argv.includes('--own-config');
+  const install = argv.includes('--install') || ownConfig;
   const boundaryGlobs = argv.flatMap((v, i) => (v === '--boundary' && i + 1 < argv.length ? [argv[i + 1]] : []));
+  // R2 did not land: the install gets one not-wired line with the reason; a human running this CLI
+  // directly gets `forHuman`, the snippet to act on. Two audiences, never mixed (Q4.7).
+  const notLanded = (why: string, forHuman: string): void => {
+    console.log(install ? r2NotWiredLine(configPath, why) : forHuman);
+  };
 
   // Belt-and-suspenders degrade: bash probe should have checked this already
   if (!existsSync('node_modules/ts-morph/package.json')) {
-    // A consumer's own config gets no «add it by hand» advice: what did not land is named, with why.
-    console.log(ownConfig
-      ? `  · not wired: R2 (${R2_RULE_ID}) in ${relative(process.cwd(), configPath)} — its AST editor (ts-morph) could not be loaded; a --full install puts it in node_modules`
-      : generateDegradedSnippet(configPath));
+    notLanded(R2_NO_ENGINE, generateDegradedSnippet(configPath));
     process.exit(0);
   }
 
@@ -1329,17 +1355,20 @@ async function main(): Promise<void> {
       break;
 
     case 'degrade':
-      console.log(generateDegradedSnippet(configPath));
+      notLanded(R2_NO_ENGINE, generateDegradedSnippet(configPath));
       process.exit(0);
       break;
 
     case 'unrecognised':
-      console.log([
-        `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
-        `  Add manually (adjust the relative path to your eslint-rules-local/):`,
-        `    import customRules from './eslint-rules-local/index.mjs';`,
-        `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
-      ].join('\n'));
+      notLanded(
+        'its export is not a shape getff can add R2 to (`export default [...]`, `export default <config>`, `export default defineConfig([...])`), so nothing was added',
+        [
+          `· R2 not auto-wired: ${configPath} uses an unrecognised export shape.`,
+          `  Add manually (adjust the relative path to your eslint-rules-local/):`,
+          `    import customRules from './eslint-rules-local/index.mjs';`,
+          `    export default [...yourConfig, { plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }];`,
+        ].join('\n'),
+      );
       process.exit(0);
       break;
 
@@ -1352,13 +1381,9 @@ async function main(): Promise<void> {
 
       console.log(`\nProposed change to ${configPath}:\n${diff}\n`);
 
+      // Only a human at a terminal is asked; the install never waits on a prompt.
       let apply = assumeYes;
-      if (!apply) {
-        if (!process.stdin.isTTY) {
-          // Non-interactive without --yes → degrade to manual snippet
-          console.log(generateDegradedSnippet(configPath));
-          process.exit(0);
-        }
+      if (!apply && !install && process.stdin.isTTY) {
         const { createInterface } = await import('node:readline');
         const rl = createInterface({ input: process.stdin, output: process.stdout });
         const answer = await new Promise<string>((done) => {
@@ -1369,7 +1394,7 @@ async function main(): Promise<void> {
       }
 
       if (!apply) {
-        console.log(generateDegradedSnippet(configPath));
+        notLanded('the wirer was run without --yes, so nothing was written', generateDegradedSnippet(configPath));
         process.exit(0);
       }
 
@@ -1380,7 +1405,10 @@ async function main(): Promise<void> {
       } else if (wired.status === 'already-wired') {
         console.log(`· R2 already enforced in ${configPath}`);
       } else {
-        console.log(generateDegradedSnippet(configPath));
+        notLanded(
+          `ESLint could not confirm the config loads with R2 added (${wired.degradeReason ?? 'no verdict'}), so the change was undone and the config is as it was`,
+          generateDegradedSnippet(configPath),
+        );
       }
       process.exit(0);
     }
