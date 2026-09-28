@@ -153,12 +153,44 @@ if [ -f "$T/node_modules/ts-morph/package.json" ]; then
     && ok "neg: apps/mobile does NOT have R2 apps/api-scoped block (R2 is server-only)" \
     || bad "neg: apps/mobile has R2 apps/api-scoped block — R2 incorrectly wired to react-native workspace"
 else
-  # ts-morph absent → degrade path is correct behavior (not a failure)
-  echo "  · ts-morph absent in fixture node_modules — R2 scoped wiring degrades (correct test-env behavior)"
-  grep -qi "r2.*per-workspace.*not available\|add R2 manually\|per-workspace.*ts-morph" "$T/.install.log" 2>/dev/null \
-    && ok "R2 degrade path: degrade message emitted (manual wiring instruction present)" \
-    || bad "R2 degrade path: no degrade message found (log: $(tail -8 "$T/.install.log" 2>/dev/null | tr '\n' '|'))"
+  # ts-morph absent → the pass cannot run. Operator decision Q4.7 (2026-09-28): what it would have
+  # changed is a «NOT wired» summary line with the reason, never a manual step. apps/api holds getff's
+  # ts-server template, which already names R2, so there is nothing to list for it.
+  echo "  · ts-morph absent in fixture node_modules — the R2 pass cannot run (correct test-env behavior)"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api' "$T/.install.log" 2>/dev/null \
+    && bad "R2 without ts-morph: apps/api is in the NOT wired summary, yet its template already names R2" \
+    || ok "R2 without ts-morph: no NOT wired line for apps/api (getff's template already names R2)"
+  grep -qiE 'R2.*(manually|by hand)|add R2 ' "$T/.install.log" 2>/dev/null \
+    && bad "R2 without ts-morph: the log hands the consumer a manual R2 step ($(grep -iE 'R2.*(manually|by hand)|add R2 ' "$T/.install.log" | head -1))" \
+    || ok "R2 without ts-morph: no manual R2 step in the log (Q4.7)"
 fi
+
+# §6c the positive half of the arm above, in a real install: a workspace config the consumer owns,
+# with HTTP boundary code under it, and no ts-morph → the NOT wired summary names it with the
+# ts-morph / --full reason. No --force, so 40-configs keeps the consumer's file.
+echo ""
+echo "▶ §6c R2 without ts-morph: the consumer's own workspace config with boundary code is a NOT wired line"
+O=$(mktemp -d)
+printf '{ "name": "own-mono", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$O/pnpm-workspace.yaml"
+mkdir -p "$O/apps/api/src/routes" "$O/apps/mobile"
+printf '{ "name": "@own/api", "dependencies": { "hono": "4.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/apps/api/package.json"
+printf '{ "name": "@own/mobile", "dependencies": { "expo": "~52.0.0", "react-native": "0.76.0", "react": "18.3.0" } }\n' > "$O/apps/mobile/package.json"
+printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$O/apps/api/eslint.config.mjs"
+printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$O/apps/api/src/routes/users.ts"
+( cd "$O" && git init -q && bash "$INSTALL_SH" ts-server </dev/null ) > "$O/.install.log" 2>&1 \
+  || bad "§6c install rc non-zero (tail: $(tail -3 "$O/.install.log" | tr '\n' '|'))"
+if [ -f "$O/node_modules/ts-morph/package.json" ]; then
+  echo "  · SKIP §6c — ts-morph is in the fixture's node_modules, so the pass runs instead"
+else
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api/eslint.config.mjs — .*ts-morph.*--full' "$O/.install.log" \
+    && ok "§6c: apps/api (your config, boundary code) is a NOT wired line naming ts-morph and --full" \
+    || bad "§6c: no NOT wired line for apps/api naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile' "$O/.install.log" \
+    && bad "neg §6c: apps/mobile (react-native) is listed for R2 — R2 is a server rule" \
+    || ok "neg §6c: apps/mobile (react-native) is not listed for R2"
+fi
+rm -rf "$O"
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # §9 #807: the 4 root-anchored validate gates must not exit-2/RED on a no-root-config monorepo.
