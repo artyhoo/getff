@@ -14,6 +14,7 @@ sources:
   - plugin/hooks/hooks.json
   - plugin/hooks/inject-output-language
   - plugin/hooks/run-hook.cmd
+  - setup.d/10-skills.sh
   - tests/plugin/run-hook.test.sh
 executed:
   - { example: output-language-unset-english-default, stack: repo, date: 2026-09-28, result: silent }
@@ -91,13 +92,18 @@ Two things it pointedly does not do:
 
 Where this hook fits in the family: it was extracted from the framework's own
 `inject-session-bootstrap` digest so consumer projects could get just the language line
-without the framework-internal goal-and-invariants text around it. The framework's own
-repository actually reaches itself the other way — its bootstrap digest embeds the same
-language line, and this standalone hook reaches consumers through the plugin
-distribution rather than the project settings file. The framework's repository can have
-the plugin installed too. Then the plugin's copy of this hook stays silent, and you still
-see the line once. The plugin's launcher finds `inject-session-bootstrap` registered by
-the project, and that digest carries the same line.
+without the framework-internal goal-and-invariants text around it. Consumers can get it
+two ways. The installer copies it into `.claude/hooks/` and registers it in the
+project's `.claude/settings.json`, and the plugin ships a copy of its own. The
+framework's own repository registers neither. Its bootstrap digest embeds the same line
+instead.
+
+With both in place, the plugin's copy stays silent and you see the line once. The
+plugin's launcher checks three things first. The session is Claude Code, `jq` is on the
+hook's `PATH`, and the project's `.claude/settings.json` registers its own copy on the
+same event. The framework's repository gets the same treatment: the launcher finds
+`inject-session-bootstrap` registered there, and that digest carries the same line. On
+ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
 
 ## Evidence
 
@@ -120,20 +126,25 @@ the project, and that digest carries the same line.
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
   `.claude/hooks/inject-session-bootstrap.sh:120-128`.
-- Registration is plugin-channel only: `plugin/hooks/hooks.json:16` runs
+- Two registrations reach consumers: `plugin/hooks/hooks.json:16` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
-  UserPromptSubmit, and no settings.json registration exists (measured:
+  UserPromptSubmit, and `setup.d/10-skills.sh:366` registers the project copy with
+  `register_cc_hook "$SETTINGS" "UserPromptSubmit" … "inject-output-language"`. The
+  framework's own settings file has neither (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
 - The twin is hand-maintained: line 25 of the source reads `# @plugin-transform: manual`,
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
   .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 10-16)
   naming the extensionless filename and the inline zcode adapter as the two deltas.
-- Silent beside the framework's digest: source line 19 declares
-  `# @plugin-yields-to: inject-session-bootstrap`, and the yield block in
-  `plugin/hooks/run-hook.cmd` exits before the plugin copy runs when the project's
-  `.claude/settings.json` registers a hook it names. `tests/plugin/run-hook.test.sh`
-  arm R1 asserts the silence, R2 counts one language line per prompt in this repo, and
-  R3 asserts the digest line equals this hook's line for `ru` and `de`.
+- Silent beside a project copy: the plugin file's line 2 names its source
+  (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 19
+  declares `# @plugin-yields-to: inject-session-bootstrap`. The yield block at
+  `plugin/hooks/run-hook.cmd:70` exits before the plugin copy runs. It does so only when
+  the project's `.claude/settings.json` runs getff's copy of a named hook on every event
+  and matcher the plugin registers. `tests/plugin/run-hook.test.sh` arms Y1-Y18 pin each
+  condition. R1 asserts the silence against this repo's settings, and R2 counts one
+  language line per prompt. R3 asserts the digest line equals this hook's line for `ru`
+  and `de`.
 - No test under `packages/core/hooks/` carries this hook's name, and this page states
   that rather than implying coverage. The demos above and the
   `tests/plugin/run-hook.test.sh` arms in the previous bullet pin its output.
