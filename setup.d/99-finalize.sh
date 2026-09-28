@@ -340,20 +340,25 @@ _r2_note_outcome() {
 # — a rules key or a string literal; the id cannot be an identifier key, and a comment is neither,
 # so a commented-out rule line is no rule entry, nor is the id inside a longer string).
 # A single-pass lexer in awk, not a parser: it tracks `//` and `/* */` comments and '…' "…" `…`
-# strings across lines, prints each literal's value (an escape stands for the character after it;
-# a template with `${` or a line break is never the id), and grep keeps an exact match only. A quote
-# inside a regex literal (`/'/`) puts it out of step for the rest of the file. A `\x`/`\u` escape
-# reads as not the id — that errs toward listing the config, never toward hiding one. LC_ALL=C
-# reads bytes, so a Latin-1 comment cannot stop either tool. grep reads to the end (no -q): an
-# early exit would SIGPIPE awk under pipefail.
+# strings across lines and prints each literal's value, for grep to keep an exact match only. In a
+# value, a `\` before a line break adds nothing; `\b \f \n \r \t \v \x \u` and `\0`-`\9` stand for a
+# character the id does not hold, so that literal is not the id; any other escaped character stands
+# for itself (`\/` is `/`); a template with a line break is not the id. Not lexed: regex literals,
+# the code inside `${…}`, JSX text and a `#!` line — a quote there (`/'/`) puts the lexer out of
+# step until the line ends (a backtick: until the next one), which can read a comment or code as a
+# literal and hide a config.
+# LC_ALL=C reads bytes, so a Latin-1 byte cannot stop either tool; tr first turns a NUL byte, which
+# awk and grep builds read differently, into \001. split(…, "") takes a line apart once (a substr
+# per character is quadratic in BWK awk). grep reads to the end (no -q): an early exit would SIGPIPE
+# awk under pipefail.
 _r2_named_in() {
   # shellcheck disable=SC2016  # the $ and backticks belong to the awk program and to JavaScript, not to the shell
-  LC_ALL=C awk -v sq="'" '
+  LC_ALL=C tr '\000' '\001' 2>/dev/null < "$1" | LC_ALL=C awk -v sq="'" '
     BEGIN { st = "code" }
     {
-      line = $0; n = length(line); i = 1
+      n = split($0, ch, ""); i = 1; cont = 0
       while (i <= n) {
-        c = substr(line, i, 1); c2 = substr(line, i, 2)
+        c = ch[i]; c2 = c ch[i + 1]
         if (st == "block") { if (c2 == "*/") { st = "code"; i += 2 } else i++; continue }
         if (st == "code") {
           if (c2 == "//") break
@@ -361,17 +366,20 @@ _r2_named_in() {
           if (c == sq || c == "\"" || c == "`") { q = c; buf = ""; skip = 0; st = "str" }
           i++; continue
         }
-        if (c == "\\") { buf = buf substr(line, i + 1, 1); i += 2; continue }
-        if (q == "`" && c2 == "${") skip = 1
+        if (c == "\\") {
+          if (i == n || (i == n - 1 && ch[n] == "\r")) { cont = 1; break }
+          d = ch[i + 1]; if (index("bfnrtvxu0123456789", d)) d = "\001"
+          buf = buf d; i += 2; continue
+        }
         if (c == q) { if (!skip) print buf; st = "code"; i++; continue }
         buf = buf c; i++
       }
-      if (st == "str" && q == "`") skip = 1
-      else if (st == "str") st = "code"
-    }' "$1" 2>/dev/null | LC_ALL=C grep -Fx 'rules-as-tests/no-unsafe-zod-parse' >/dev/null
+      if (st == "str" && !cont) { if (q == "`") skip = 1; else st = "code" }
+    }' 2>/dev/null | LC_ALL=C grep -Fx 'rules-as-tests/no-unsafe-zod-parse' >/dev/null
 }
-# _r2_named_under <dir> — exit 0 IFF some flat config ESLint loads under <dir> (eslint.config.js,
-# .mjs, .cjs, .ts, .mts or .cts — not a backup beside one; node_modules skipped) names R2.
+# _r2_named_under <dir> — exit 0 IFF some flat config under <dir>, at any depth, names R2 (the names
+# ESLint loads: eslint.config.js, .mjs, .cjs, .ts, .mts or .cts — not a backup beside one; a symlink
+# is read through; node_modules skipped).
 _r2_named_under() {
   local f
   while IFS= read -r -d '' f; do

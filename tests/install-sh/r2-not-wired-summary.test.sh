@@ -24,6 +24,10 @@
 #       an inline /* */, the id inside a longer string, a Latin-1 byte on a commented-out line — each
 #       listed; paired: R2 set after a leading comment, as a template-literal key, after an escaped
 #       quote, or with an escaped `\/` in the id — none listed.
+#   L7  string shapes the lexer reads by value: the id inside a string continued with a trailing `\`,
+#       the id with an escaped `\t`, a template breaking the id over two lines, the id followed by a
+#       NUL byte — each listed; paired: the id itself continued with `\`, R2 set after a regex
+#       holding a quote — none listed.
 #   W1  per-workspace pass (multi-stack monorepo, no root config), no ts-morph: the ts-server
 #       workspace's config is listed; the react-next workspace's is not (R2 is a server rule).
 #   W2  per-workspace pass, ts-morph present, the R2 wirer missing: listed with that reason.
@@ -35,6 +39,7 @@
 #   U5  the same with the R2 line inside a block comment without leading stars → one line.
 #   U6  paired: the workspace's only config is an eslint.config.cjs setting R2 → no line.
 #   U7  only a backup ESLint never loads (eslint.config.mjs.bak) names R2 → one line.
+#   U8  paired: the workspace's eslint.config.mjs is a symlink to a config setting R2 → no line.
 #
 # Pure bash: ts-morph «present» is a package.json under node_modules/ts-morph (the pass only checks
 # for it before running the wirer), and no arm runs the wirer.
@@ -276,6 +281,43 @@ for d in lead tpl esc slash; do
   fi
 done
 
+# L7: string-lexing shapes (cold review of the lexer). Listed — no literal's value is the id: the id
+# quoted inside a longer string continued with a trailing `\` (apps/cont), the id with an escaped `\t`
+# (apps/tesc — a tab, not a `t`), a template that breaks the id over two lines (apps/mltpl), the id
+# followed by a NUL byte inside the literal (apps/nul — measured: mawk or gawk with GNU grep read it
+# as the id, BWK awk with BSD grep did not, so this arm guards the Linux runners). Paired,
+# not listed: the id itself continued over two lines with a trailing `\` (apps/contsq — its value is
+# the id), R2 set on the line after a regex holding a quote (apps/rxq).
+L7=$(make_project l7); put "$L7" eslint.config.mjs "$R2_CFG"
+put "$L7" apps/cont/eslint.config.mjs "export default [{ rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: \"use safeParse; \\
+'rules-as-tests/no-unsafe-zod-parse' lands later\" }] } }];"
+put "$L7" apps/tesc/eslint.config.mjs "export default [{ rules: { 'rules-as-\\tests/no-unsafe-zod-parse': 'error' } }];"
+put "$L7" apps/mltpl/eslint.config.mjs "export default [{ rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: \`rules-as-tests/
+no-unsafe-zod-parse\` }] } }];"
+put "$L7" apps/contsq/eslint.config.mjs "export default [{ rules: { 'rules-as-tests/\\
+no-unsafe-zod-parse': 'error' } }];"
+put "$L7" apps/rxq/eslint.config.mjs "const quote = /'/;
+export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];"
+mkdir -p "$L7/apps/nul"
+printf "export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse\\000xyz': 'error' } }];\n" > "$L7/apps/nul/eslint.config.mjs"
+for d in cont tesc mltpl contsq rxq nul; do boundary_code "$L7" "apps/$d"; done
+run_finalize "$L7" "$PKG_WIRED" "" "eslint.config.mjs"
+for d in cont tesc mltpl nul; do
+  if sum_has "${R2_LINE}apps/$d/eslint.config.mjs — .*ts-morph"; then
+    ok "L7: apps/$d has no literal whose value is the R2 id — a NOT wired line"
+  else
+    bad "L7: expected a NOT wired line for apps/$d, which does not set R2 (summary: $(sum_show))"
+  fi
+done
+for d in contsq rxq; do
+  if sum_has "${R2_LINE}apps/$d/"; then
+    bad "L7: apps/$d sets R2, yet it is listed (summary: $(sum_show))"
+  else
+    ok "L7: paired — apps/$d sets R2 and is not listed"
+  fi
+done
+ran_through L7
+
 # L3: configs getff placed on an EARLIER install (a refresh-baseline entry, not staged this run).
 # apps/svc still holds getff's bytes → the pass would wire it → listed. apps/old was edited since:
 # _r2_wire_cfg treats it as the consumer's own (getff_bytes_intact), and with no boundary code under
@@ -407,6 +449,7 @@ if sum_has "${R2_LINE}apps/x"; then
 else
   ok "U6: paired — an unknown-stack workspace whose eslint.config.cjs sets R2 is not listed"
 fi
+ran_through U6
 
 # U7: a backup ESLint never loads (eslint.config.mjs.bak) names R2; the live config does not → one line.
 U7=$(make_project u7); boundary_code "$U7" apps/x
@@ -418,6 +461,18 @@ if sum_has "${R2_LINE}apps/x — .*stack"; then
 else
   bad "U7: expected a NOT wired line for apps/x — only its eslint.config.mjs.bak names R2 (summary: $(sum_show))"
 fi
+
+# U8: paired — the workspace's eslint.config.mjs is a symlink to a file that sets R2 → no line.
+U8=$(make_project u8); boundary_code "$U8" apps/x
+put "$U8" apps/x/real.mjs "$R2_CFG"
+ln -s real.mjs "$U8/apps/x/eslint.config.mjs"
+run_finalize "$U8" "$PKG_WIRED" 'apps/x\tunknown'
+if sum_has "${R2_LINE}apps/x"; then
+  bad "U8: apps/x's eslint.config.mjs links to a config setting R2, yet it is listed (summary: $(sum_show))"
+else
+  ok "U8: paired — a symlinked eslint.config.mjs that sets R2 is read, and the workspace is not listed"
+fi
+ran_through U8
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
