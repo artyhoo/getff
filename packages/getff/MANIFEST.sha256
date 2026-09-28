@@ -55,7 +55,7 @@ ab4ab7372692dd0c43cba9b03e0761dc5df0c4676d9b3181403df46da3094084  .claude/skills
 2315eea3c5ffb31b7d119c25a6dcd12ca43b6f6b48eaeb7287d46538ecfb352b  .claude/skills/docs-author/references/gold/understand.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
-def1e8756b038dd7700a297aa12935a7934d8bd06395f58645549c656b973a77  .claude/skills/harvest/SKILL.md
+f8f6f94033bbb896014a09ab5f62ce59d94955ce138c0062a85f67bd5423c292  .claude/skills/harvest/SKILL.md
 bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
 14d99a821b04c84a78195a09adbd461cfcfd2485a50ea9d5a1e9d9e332c0e33a  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
@@ -594,10 +594,10 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 b9f70aea495bdc476f6975ece96c5e7ed66d4d3aff605e94ca38df97aaf27eee  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 7f868d2e905abaf82d6fa42946e515d15aab92a929d24a2527923dec14c16783  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-f8e3f2b7779ecd51a032a281c0111768823d8a60b47bc74c1fd09e33d4973fee  packages/core/principles/36-ci-needs-completeness.test.ts
+a471647cd8e9fe1bc0dea172ad3ec9589edee6a1afa5e0d0506ef672e381601d  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 f16dee603792884519230c0f66c087964dc2f3e93f2a6c0858cdcd87af6f6c03  packages/core/principles/37-required-context-completeness.test.ts
-6c4516ef4bf2f3f018161316a87d856f526d8cd1e9bf9f1a2083c443228e452b  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+a983d3a20fef240f803f9dfa7974eb920d85dba9ba6088cc8a14588ecf49a996  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 59a4f92072a43d46a987df42c9f6c0ce08541cf44ecfb1230a1619e110fc41c8  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
