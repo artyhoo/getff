@@ -173,19 +173,52 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
     && echo "OK a file whose original this run already kept gets no second copy" \
     || echo "BAD second pass: snapshot='$snap' kept='$kept' copies=$n"
   # eslint_flat_configs_under: in each directory, the config ESLint loads there (eslint_flat_config),
-  # once per directory; node_modules, .git and the repo copies under .claude/worktrees left out — a
-  # workspace named packages/core kept (the gate prunes that path for getff's vendored copy only).
+  # once per directory; left out, as the push gates leave them out (CFG_PRUNE in check-rule-globs.sh):
+  # node_modules, build output (dist, coverage, .stryker-tmp, .next), .git and the repo copies under
+  # .claude/worktrees. Kept: a workspace named packages/core (the gates prune that path for getff's
+  # vendored copy only) and one named reports (the gates leave reports out of their source probes, not
+  # out of the config search — a find -name there would cut the workspace).
   mkdir -p "$u/tree/a" "$u/tree/b/c" "$u/tree/node_modules/x" "$u/tree/.git/x" "$u/tree/.claude/worktrees/w/apps/a" \
-    "$u/tree/packages/core"
+    "$u/tree/packages/core" "$u/tree/dist" "$u/tree/coverage/x" "$u/tree/.stryker-tmp/s" "$u/tree/apps/web/.next" \
+    "$u/tree/apps/reports"
   : > "$u/tree/eslint.config.mjs"; : > "$u/tree/a/eslint.config.mjs"; : > "$u/tree/a/eslint.config.js"
   : > "$u/tree/b/c/eslint.config.cjs"; : > "$u/tree/node_modules/x/eslint.config.mjs"
   : > "$u/tree/.git/x/eslint.config.mjs"; : > "$u/tree/.claude/worktrees/w/eslint.config.mjs"
   : > "$u/tree/.claude/worktrees/w/apps/a/eslint.config.mjs"; : > "$u/tree/packages/core/eslint.config.mjs"
+  : > "$u/tree/dist/eslint.config.js"; : > "$u/tree/coverage/x/eslint.config.mjs"
+  : > "$u/tree/.stryker-tmp/s/eslint.config.mjs"; : > "$u/tree/apps/web/.next/eslint.config.mjs"
+  : > "$u/tree/apps/reports/eslint.config.mjs"
   got=$(eslint_flat_configs_under "$u/tree" | tr '\0' '\n' | sed "s#^$u/tree/##" | sort | tr '\n' ' ')
-  [ "$got" = "a/eslint.config.js b/c/eslint.config.cjs eslint.config.mjs packages/core/eslint.config.mjs " ] \
+  [ "$got" = "a/eslint.config.js apps/reports/eslint.config.mjs b/c/eslint.config.cjs eslint.config.mjs packages/core/eslint.config.mjs " ] \
     && [ "$(eslint_flat_configs_under "$u/tree/packages/core" | tr '\0' '\n')" = "$u/tree/packages/core/eslint.config.mjs" ] \
-    && echo "OK eslint_flat_configs_under lists the config ESLint loads in each directory, once, node_modules/.git/worktree copies pruned" \
+    && echo "OK eslint_flat_configs_under lists the config ESLint loads in each directory, once, dependencies/build output/.git/worktree copies pruned" \
     || echo "BAD eslint_flat_configs_under: '$got'"
+  # The directory searched is never pruned itself: a workspace named dist is still read.
+  mkdir -p "$u/ws/dist"; : > "$u/ws/dist/eslint.config.js"
+  [ "$(eslint_flat_configs_under "$u/ws/dist" | tr '\0' '\n')" = "$u/ws/dist/eslint.config.js" ] \
+    && echo "OK eslint_flat_configs_under reads the directory it is given, whatever its name" \
+    || echo "BAD eslint_flat_configs_under pruned the directory it was given ($u/ws/dist)"
+  # eslint_config_has_getff_rules: a config carries getff's rules when it names one (rules-as-tests/…) or
+  # imports, by a relative path, a config that does — a workspace config spreading a sibling's getff
+  # preset is not «a config getff's rules are not in» (second cold review, after #1868). A bare package
+  # import is not followed; an import cycle ends.
+  h="$u/imp"; mkdir -p "$h/shared" "$h/w"
+  printf "export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" > "$h/shared/eslint.config.js"
+  printf "import base from \"../shared/eslint.config.js\";\nexport default [...base];\n" > "$h/w/dq.mjs"
+  printf "import mid from './mid.mjs';\nexport default [...mid];\n" > "$h/w/two.mjs"
+  printf "export { default } from '../shared/eslint.config.js';\n" > "$h/w/mid.mjs"
+  printf "import base from '@acme/eslint-config';\nexport default [...base];\n" > "$h/w/bare.mjs"
+  printf "import b from './cyc-b.mjs';\nexport default [...b];\n" > "$h/w/cyc-a.mjs"
+  printf "import a from './cyc-a.mjs';\nexport default [...a];\n" > "$h/w/cyc-b.mjs"
+  printf 'export default [];\n' > "$h/w/none.mjs"
+  eslint_config_has_getff_rules "$h/shared/eslint.config.js" && eslint_config_has_getff_rules "$h/w/dq.mjs" \
+    && eslint_config_has_getff_rules "$h/w/two.mjs" \
+    && echo "OK eslint_config_has_getff_rules follows relative imports (and re-exports) to getff's rules" \
+    || echo "BAD eslint_config_has_getff_rules missed getff's rules reached by a relative import"
+  ! eslint_config_has_getff_rules "$h/w/bare.mjs" && ! eslint_config_has_getff_rules "$h/w/none.mjs" \
+    && ! eslint_config_has_getff_rules "$h/w/cyc-a.mjs" \
+    && echo "OK eslint_config_has_getff_rules: no rule, a bare package import, or an import cycle is not getff's rules" \
+    || echo "BAD eslint_config_has_getff_rules claimed getff's rules for a config that does not reach them"
   # A config getff cannot add to is named once, however many steps reach it.
   NOT_WIRED=()
   note_eslint_config_not_esm "$u/tree/b/c" eslint.config.cjs
@@ -527,16 +560,18 @@ asks_by_hand "$WORK/e.log" && bad "E: the install asks for a manual ESLint edit"
 # F — multi-stack monorepo, no root config: two ts-server workspaces, the consumer owns the config
 # of apps/api, getff places the one in apps/svc.
 # apps/lib: a ts-server library workspace with no HTTP code (cold-review F15's scenario).
-F="$WORK/l2mono"; mkdir -p "$F/apps/api/src/routes" "$F/apps/svc/src" "$F/apps/lib/src"
+# apps/ui: a workspace whose own config spreads apps/svc's — the config getff places, with getff's rules.
+F="$WORK/l2mono"; mkdir -p "$F/apps/api/src/routes" "$F/apps/svc/src" "$F/apps/lib/src" "$F/apps/ui/src"
 printf '{"name":"swf","version":"0.0.0","private":true}\n' > "$F/package.json"
 printf 'packages:\n  - "apps/*"\n' > "$F/pnpm-workspace.yaml"
-for w in api svc lib; do
+for w in api svc lib ui; do
   printf '{"name":"%s","version":"0.0.0","dependencies":{"hono":"^4.0.0"},"devDependencies":{"typescript":"^5.4.0"}}\n' "$w" > "$F/apps/$w/package.json"
   printf 'export const x = 1;\n' > "$F/apps/$w/src/h.ts"
 done
 echo 'export const u = (b) => schema.parse(b);' > "$F/apps/api/src/routes/users.ts"
 cp "$WORK/pkg.before" "$F/apps/api/eslint.config.mjs"
 cp "$WORK/pkg.before" "$F/apps/lib/eslint.config.mjs"
+printf "import svc from '../svc/eslint.config.mjs';\n\nexport default [...svc];\n" > "$F/apps/ui/eslint.config.mjs"
 borrow "$F" tsx
 ( cd "$F" && git init -q && PATH="$STUB:$PATH" bash "$REPO_ROOT/install.sh" ts-server --full </dev/null ) >"$WORK/f.log" 2>&1
 unborrow "$F"
@@ -556,6 +591,11 @@ cmp -s "$WORK/pkg.before" "$F/apps/lib/eslint.config.mjs" && [ ! -e "$F/.ai-fact
 _n=$(not_wired "$WORK/f.log" | grep -c 'apps/lib.*eslint\.config\.mjs')
 [ "$_n" -eq 1 ] && ok "F: the not-wired summary names apps/lib/eslint.config.mjs once" \
   || bad "F: the not-wired summary names apps/lib/eslint.config.mjs $_n time(s), expected 1 (summary: $(not_wired "$WORK/f.log" | tr '\n' '|' | head -c 400))"
+grep -q "rules-as-tests/" "$F/apps/svc/eslint.config.mjs" \
+  || bad "F: getff's apps/svc config carries none of getff's rules — the apps/ui arm below would be vacuous"
+not_wired "$WORK/f.log" | grep -q 'apps/ui' \
+  && bad "F: the summary names apps/ui, whose config spreads apps/svc's with getff's rules: $(not_wired "$WORK/f.log" | grep 'apps/ui' | head -1)" \
+  || ok "F: apps/ui, whose config imports getff's apps/svc config, is not named as unwired"
 asks_by_hand "$WORK/f.log" && bad "F: the install asks for a manual ESLint edit" || ok "F: nothing asks for a manual ESLint edit"
 not_wired "$WORK/f.log" | grep -q 'apps/api/eslint.config.mjs' \
   && bad "F: the not-wired summary still lists apps/api/eslint.config.mjs" || ok "F: the workspace config is not reported as unwired"

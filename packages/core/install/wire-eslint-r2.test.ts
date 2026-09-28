@@ -36,17 +36,25 @@ function onlyInserts(original: string, modified: string): boolean {
   for (const ch of modified) if (i < original.length && ch === original[i]) i++;
   return i === original.length;
 }
-/** RULE_GLOBS.boundary as check-rule-globs.sh extract_key reads it: from a `boundary: [` line, every single-quoted string until a `]`. */
+/**
+ * RULE_GLOBS.boundary as the push gates read it: check-rule-globs.sh's own extract_key, run on the text.
+ * A TypeScript copy of that reader drifted from the gate once (second cold review, after #1868).
+ */
+const GATE_SH = join(dirname(fileURLToPath(import.meta.url)), '..', 'audit-self', 'check-rule-globs.sh');
 function gateBoundary(src: string): string[] {
-  const out: string[] = [];
-  let grab = false;
-  for (const line of src.split('\n')) {
-    if (/^\s*boundary:\s*\[/.test(line)) grab = true;
-    if (!grab) continue;
-    for (const m of line.matchAll(/'([^']*)'/g)) out.push(m[1]);
-    if (line.includes(']')) grab = false;
+  const dir = mkdtempSync(join(tmpdir(), 'gate-boundary-'));
+  try {
+    const cfg = join(dir, 'eslint.config.mjs');
+    writeFileSync(cfg, src);
+    const out = execFileSync(
+      'bash',
+      ['-c', 'eval "$(sed -n \'/^# >>> rule-globs reader/,/^# <<< rule-globs reader/p\' "$1")"; extract_key boundary "$2"', '_', GATE_SH, cfg],
+      { encoding: 'utf8' },
+    );
+    return out.split('\n').filter((l) => l !== '');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
-  return out;
 }
 
 // Helper: run wireConfigSource, return modified text or throw on unexpected status
@@ -924,7 +932,10 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     // 'error' for some files only: a RULE_GLOBS.boundary element at 'error' would reach the files the consumer left out.
     const scoped = R2_BY_HAND.replace(`{ plugins:`, `{ files: ['src/api/**'], plugins:`);
     const excepted = R2_BY_HAND.replace(`{ plugins:`, `{ ignores: ['src/routes/legacy/**'], plugins:`);
-    for (const src of [warn, hidden, twice, scoped, excepted]) {
+    // The same, spelled with quoted keys, and R2 set under a computed template-literal key (second cold review).
+    const quotedKeys = R2_BY_HAND.replace(`{ plugins:`, `{ 'files': ['src/api/**'], plugins:`).replace(`rules: {`, `'rules': {`);
+    const templateKey = R2_BY_HAND.replace(`'rules-as-tests/no-unsafe-zod-parse': 'error'`, "[`rules-as-tests/no-unsafe-zod-parse`]: 'off'");
+    for (const src of [warn, hidden, twice, scoped, excepted, quotedKeys, templateKey]) {
       const r = await wireOwnConfig(src, ROOT);
       expect(r.modified).toBe(src);
       expect(r.status).toBe('already-wired');

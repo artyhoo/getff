@@ -266,5 +266,70 @@ else
 fi
 rm -rf "$OR" "$ORP"; rm -f "$OR.cwdlog" "$ORP.cwdlog" /tmp/g535or.$$ /tmp/g535orp.$$
 
+# ── RULE_GLOBS as JavaScript reads it, and a workspace's eslint.config.js ─────────────────────────
+# The boundary tokens were read from single-quoted globs on a line that starts `boundary: [` only, so
+# prettier's double quotes or a one-line RULE_GLOBS object read as «no boundary tokens — nothing to
+# verify (skipped)»: exit 0 over a boundary file R2 never reaches. And with no root config the gate
+# recursed into eslint.config.mjs workspaces only — a workspace's own eslint.config.js, which the
+# install now writes R2 into, stopped it at «not found» (second cold review, after #1868).
+quoted_root() { # $1 = RULE_GLOBS source, $2 = rule the config wires
+  local d; d=$(mktemp -d)
+  printf '{"name":"q","dependencies":{"zod":"3.0.0"}}\n' > "$d/package.json"
+  mkdir -p "$d/src/routes"; printf 'export const x=1;\n' > "$d/src/routes/p.ts"
+  printf '%s\nexport default [{ files: RULE_GLOBS.boundary, rules: { "%s": "error" } }];\n' "$1" "$2" > "$d/eslint.config.mjs"
+  printf '%s' "$d"
+}
+for q in 'dq|const RULE_GLOBS = {
+  boundary: ["**/routes/**/*.{ts,tsx}"],
+};' "one-line|const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'], appCode: ['**/*.ts'] };"; do
+  QN=$(quoted_root "${q#*|}" no-debugger)
+  if ( cd "$QN" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535q.$$ 2>&1; then
+    bad "RULE_GLOBS ${q%%|*}: the boundary file's config leaves the rule off, yet the gate PASSED ($(tr '\n' ';' </tmp/g535q.$$))"
+  else
+    ok "RULE_GLOBS ${q%%|*}: boundary tokens read — a boundary file the rule does not reach FAILS"
+  fi
+  QP=$(quoted_root "${q#*|}" no-console)
+  if ( cd "$QP" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535q.$$ 2>&1 \
+     && grep -q 'applied to 1 boundary file\|verifying R2' /tmp/g535q.$$ && ! grep -q 'nothing to verify' /tmp/g535q.$$; then
+    ok "RULE_GLOBS ${q%%|*} neg: the rule wired → gate PASSES, having verified the boundary file"
+  else
+    bad "RULE_GLOBS ${q%%|*} neg: gate failed, or skipped instead of verifying ($(tr '\n' ';' </tmp/g535q.$$))"
+  fi
+  rm -rf "$QN" "$QP"
+done
+ws_js() { # $1 = the rule apps/api/eslint.config.js wires
+  local d; d=$(mktemp -d)
+  printf '{"name":"mono","private":true}\n' > "$d/package.json"
+  write_ws_cfg "$d/apps/api" "$1"; mv "$d/apps/api/eslint.config.mjs" "$d/apps/api/eslint.config.js"
+  printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$d/apps/api/package.json"
+  mkdir -p "$d/apps/api/src/routes"; printf 'export const x=1;\n' > "$d/apps/api/src/routes/p.ts"
+  printf '%s' "$d"
+}
+WJ=$(ws_js no-console)
+if ( cd "$WJ" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535wj.$$ 2>&1 \
+   && grep -q 'verifying R2' /tmp/g535wj.$$; then
+  ok "workspace .js: no root config, apps/api/eslint.config.js wires the rule → gate recurses + PASSES"
+else
+  bad "workspace .js: a workspace eslint.config.js was not checked ($(tr '\n' ';' </tmp/g535wj.$$))"
+fi
+WJN=$(ws_js no-debugger)
+if ( cd "$WJN" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535wj.$$ 2>&1; then
+  bad "workspace .js NEG: apps/api/eslint.config.js leaves the rule off, yet the gate PASSED"
+elif grep -q 'run from the project root' /tmp/g535wj.$$; then
+  bad "workspace .js NEG: the gate failed at the missing root config, not on the workspace"
+else
+  ok "workspace .js NEG: apps/api/eslint.config.js leaves the rule off → gate FAILS in the workspace"
+fi
+rm -rf "$WJ" "$WJN"; rm -f /tmp/g535q.$$ /tmp/g535wj.$$
+# The two gates read RULE_GLOBS and find workspace configs with one block of code, kept byte-identical:
+# a copy that drifts makes one gate red where the other is green.
+reader_block() { sed -n '/^# >>> rule-globs reader/,/^# <<< rule-globs reader/p' "$1"; }
+GLOBS_GATE="$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh"
+if [ -n "$(reader_block "$GATE")" ] && [ "$(reader_block "$GATE")" = "$(reader_block "$GLOBS_GATE")" ]; then
+  ok "rule-globs reader: check-rule-enforced.sh and check-rule-globs.sh carry the same block"
+else
+  bad "rule-globs reader: the block differs between the two gates, or is missing ($(diff <(reader_block "$GATE") <(reader_block "$GLOBS_GATE") | head -3 | tr '\n' '|'))"
+fi
+
 rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

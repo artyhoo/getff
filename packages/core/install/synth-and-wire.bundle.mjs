@@ -10318,7 +10318,14 @@ function ruleSetForSomeFilesOnly(elements, SyntaxKind, ruleName) {
       }
     });
     if (!names.some((n) => n === "files" || n === "ignores" || n === "basePath")) continue;
-    const rules = el.getProperty?.("rules")?.getInitializer?.();
+    const rulesProp = (el.getProperties?.() ?? []).find((p) => {
+      try {
+        return normPropName(p.getName?.()) === "rules";
+      } catch {
+        return false;
+      }
+    });
+    const rules = rulesProp?.getInitializer?.();
     if (!rules?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
     for (const rp of rules.getProperties?.() ?? []) {
       try {
@@ -10367,6 +10374,8 @@ function replaceSimpleRuleValue(elements, SyntaxKind, ruleName, desiredExpr, app
 }
 function normPropName(name) {
   if (typeof name !== "string") return "";
+  const computed = /^\[\s*(['"`])(.*)\1\s*\]$/s.exec(name);
+  if (computed) return computed[2];
   return name.replace(/^['"`]|['"`]$/g, "");
 }
 function mergeSelectorsIntoExistingWrapper(elements, SyntaxKind, missingSels) {
@@ -10662,7 +10671,7 @@ async function wireOwnConfig(source, opts = {}) {
   const ignored = globallyIgnored(visible, SyntaxKind);
   const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(", ")}] }`);
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  const r2Present = simpleRulePresent(source, R2_RULE_ID) || replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false) !== "not-found";
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs = [];
@@ -10674,7 +10683,7 @@ async function wireOwnConfig(source, opts = {}) {
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : void 0;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : void 0;
     };
-    const r2Mentions = source.split(`'${R2_RULE_ID}'`).length + source.split(`"${R2_RULE_ID}"`).length - 2;
+    const r2Mentions = [`'`, `"`, "`"].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
     const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration("RULE_GLOBS")) {
       const arr = arrOf();

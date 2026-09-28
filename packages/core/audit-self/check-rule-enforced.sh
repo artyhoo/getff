@@ -52,13 +52,82 @@ if [ -z "$CFG" ]; then
 fi
 RULE="${AIF_ENFORCED_RULE:-rules-as-tests/no-unsafe-zod-parse}"
 
+# >>> rule-globs reader — byte-identical in check-rule-globs.sh and check-rule-enforced.sh
+# (tests/install-sh/gh-535-rule-enforced.test.sh compares them): both gates must find the same
+# workspace configs and read the same RULE_GLOBS globs, or one goes red where the other is green.
+# CFG_PRUNE is where no config of the project's own lives: dependencies, build output, git, the repo
+# copies under .claude/worktrees, and the framework's vendored packages/core (a config there is
+# getff's, not a workspace's). setup.d/lib.sh eslint_flat_configs_under prunes the same list, less
+# */packages/core, so the install finds the same workspace configs as these gates.
+CFG_PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name .next -o -name .git -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
+
+# The config ESLint loads in directory $1: the first of its flat-config names there, in its lookup order.
+flat_config_in() {
+  local n
+  for n in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts; do
+    [ -f "$1/$n" ] && { printf '%s' "$n"; return 0; }
+  done
+  return 1
+}
+
+# Every directory below the root that holds a flat config, one per line.
+config_dirs() {
+  find . \( "${CFG_PRUNE[@]}" \) -prune -o -type f \
+    \( -name 'eslint.config.js' -o -name 'eslint.config.mjs' -o -name 'eslint.config.cjs' \
+       -o -name 'eslint.config.ts' -o -name 'eslint.config.mts' -o -name 'eslint.config.cts' \) -print 2>/dev/null \
+  | while IFS= read -r f; do
+      d=$(dirname "$f")
+      [ "$d" = "." ] || printf '%s\n' "$d"
+    done | sort -u
+}
+
+# RULE_GLOBS is read the way JavaScript reads it, not only the way getff's template lays it out: the
+# key bare or quoted, anywhere on its line (a one-line RULE_GLOBS object too), globs in single or double
+# quotes (prettier's default is double), and the array read only up to its own `]` — on one line, the
+# next key's globs are not this key's (second cold review, after #1868). The quote characters come in
+# through -v; `[[]` is a literal `[` that needs no backslash.
+RG_AWK_OPENER='function opener(key) { return "(^|[^A-Za-z0-9_$.])[" sq dq "]?" key "[" sq dq "]?[[:space:]]*:[[:space:]]*[[]" }'
+
+# Does file $2 (default $CFG) open a `<key>: [` array?
+has_key() {
+  awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_OPENER"'
+    match($0, opener(key)) { found = 1; exit }
+    END { exit !found }
+  ' "${2:-$CFG}"
+}
+
+# Extract the quoted globs for a RULE_GLOBS key (boundary|appCode|application) from file $2 (default
+# $CFG). Prints one glob per line.
+extract_key() {
+  awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_OPENER"'
+    function take(s,   c, rest, j) {
+      while (length(s) > 0) {
+        c = substr(s, 1, 1)
+        if (c == "]") return 1
+        if (c == sq || c == dq) {
+          rest = substr(s, 2); j = index(rest, c)
+          if (j == 0) return 0
+          print substr(rest, 1, j - 1); s = substr(rest, j + 1); continue
+        }
+        s = substr(s, 2)
+      }
+      return 0
+    }
+    !grab { if (!match($0, opener(key))) next; grab = 1; $0 = substr($0, RSTART + RLENGTH) }
+    grab { if (take($0)) grab = 0 }
+  ' "${2:-$CFG}"
+}
+# <<< rule-globs reader
+
 # §807 multi-stack: a #793/#796 monorepo ships per-workspace eslint.config.mjs files and NO root
 # config — the per-workspace configs ARE the rule layer. Without this, the exit-2 guard below fires
 # before any shadow logic and validate goes RED. So when there is no root config (and we are not
 # already a per-workspace sub-invocation — ESLINT_CONFIG unset is the recursion guard), find the
 # per-workspace configs and run THIS SAME script once per workspace, from that workspace's dir with
-# ESLINT_CONFIG=eslint.config.mjs. Each child then sees a valid $CFG; eslint absent → each child
-# SKIPs (exit 0), the correct deps-free degrade. Aggregate exit codes (any non-zero → non-zero).
+# ESLINT_CONFIG=<the config ESLint loads there> (config_dirs + flat_config_in above — a workspace's
+# own eslint.config.js too, which the install writes R2 into). Each child then sees a valid $CFG;
+# eslint absent → each child SKIPs (exit 0), the correct deps-free degrade. Aggregate exit codes
+# (any non-zero → non-zero).
 # Capture an ABSOLUTE self-path BEFORE any cd so the `bash "$SELF"` re-exec survives `cd "$_wd"`
 # (and the child's r2-na-marker source resolves via its own absolute $0). (kickoff ⚑M1 / T-807-A)
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
@@ -75,22 +144,21 @@ _own_root_without_globs() {
     && ! grep -qF "\"$k\":" .ai-factory/refresh-baseline.json 2>/dev/null
 }
 if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; }; then
-  _ws_cfgs="$(find . \( -name node_modules -o -path '*/packages/core' \) -prune -o \
-              -type f -name 'eslint.config.mjs' ! -path './eslint.config.mjs' -print 2>/dev/null)"
-  if [ -n "$_ws_cfgs" ]; then
+  _ws_dirs="$(config_dirs)"
+  if [ -n "$_ws_dirs" ]; then
     [ -f "$CFG" ] && echo "check-rule-enforced: $CFG is your own config with no RULE_GLOBS block — checking the workspace configs under it, which ESLint uses for their own files."
     _agg=0
-    while IFS= read -r _wc; do
-      [ -n "$_wc" ] || continue
-      _wd="$(dirname "$_wc")"
+    while IFS= read -r _wd; do
+      [ -n "$_wd" ] || continue
+      _wn="$(flat_config_in "$_wd")"
       # Only RN/Expo/bare-RN ship NO RULE_GLOBS.boundary → R2 N/A there; skip. The empty-btokens path
-      # below (enforced.sh:82-85) already self-skips, but keep the guard for parity with
-      # check-rule-globs.sh. react-spa/react-next ship a boundary → they recurse normally. (⚑B2)
-      grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' "$_wc" \
+      # below already self-skips, but keep the guard for parity with check-rule-globs.sh.
+      # react-spa/react-next ship a boundary → they recurse normally. (⚑B2)
+      has_key boundary "$_wd/$_wn" \
         || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }
-      ( cd "$_wd" && ESLINT_CONFIG=eslint.config.mjs bash "$SELF" ) || _agg=1
+      ( cd "$_wd" && ESLINT_CONFIG="$_wn" bash "$SELF" ) || _agg=1
     done <<EOF
-$_ws_cfgs
+$_ws_dirs
 EOF
     exit "$_agg"
   fi
@@ -134,12 +202,7 @@ while IFS= read -r glob; do
   t="${glob#'**/'}"; t="${t%%/'**'/*}"; t="${t%%/'*'.*}"
   case "$glob" in '**/*.'*) t="" ;; esac
   [ -n "$t" ] && btokens+=("$t")
-done < <(awk '
-  $0 ~ /^[[:space:]]*boundary:[[:space:]]*\[/ { grab=1 }
-  grab {
-    while (match($0, /'"'"'[^'"'"']*'"'"'/)) { g=substr($0, RSTART+1, RLENGTH-2); print g; $0=substr($0, RSTART+RLENGTH) }
-    if ($0 ~ /\]/) grab=0
-  }' "$CFG")
+done < <(extract_key boundary)
 
 if [ "${#btokens[@]}" -eq 0 ]; then
   echo "check-rule-enforced: no RULE_GLOBS.boundary tokens in $CFG — nothing to verify (skipped)."

@@ -2756,9 +2756,12 @@ eslint_flat_config() {
 }
 
 # eslint_flat_configs_under <dir> — the config ESLint loads in each directory at or under <dir> that
-# has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, .git, and
-# .claude/worktrees — Claude Code's checked-out copies of the repo, not packages of it (the prune list
-# of check-rule-globs.sh, less its */packages/core, which would cut a workspace of that name). The
+# has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, build output
+# (dist, coverage, .stryker-tmp, .next), .git, and .claude/worktrees — Claude Code's checked-out copies
+# of the repo, not packages of it. That is CFG_PRUNE of the push gates (check-rule-globs.sh,
+# check-rule-enforced.sh) less its */packages/core, which would cut a workspace of that name, so the
+# install writes to the workspace configs the gates then read. -mindepth 1: <dir> itself is never
+# pruned, whatever its name. The
 # per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
 # package's own eslint.config.js is found as the root one is (they used to look for
 # eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
@@ -2771,9 +2774,36 @@ eslint_flat_configs_under() {
     seen="$seen$d|"
     n=$(eslint_flat_config "$d")
     [ -z "$n" ] || printf '%s\0' "$d/$n"
-  done < <(find "$1" \( -name node_modules -o -name .git -o -path '*/.claude/worktrees' \) -prune \
+  done < <(find "$1" -mindepth 1 \( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp \
+               -o -name .next -o -name .git -o -path '*/.claude/worktrees' \) -prune \
              -o \( "${names[@]:1}" \) -print0 2>/dev/null)
   return 0
+}
+
+# eslint_config_has_getff_rules <file> — true when the config names one of getff's rules
+# (rules-as-tests/…) or imports / re-exports, by a relative path, a config that does: a workspace config
+# spreading a sibling's getff preset has getff's rules (second cold review, after #1868). Followed up to
+# four imports deep, each file read once, so an import cycle ends. A bare package import is not
+# followed — what it resolves to is not a file of this project to read.
+eslint_config_has_getff_rules() {
+  local seen="|" f dir spec depth=0
+  local queue=("$1") next
+  while [ "${#queue[@]}" -gt 0 ] && [ "$depth" -le 4 ]; do
+    next=()
+    for f in "${queue[@]}"; do
+      case "$seen" in *"|$f|"*) continue ;; esac
+      seen="$seen$f|"
+      [ -f "$f" ] || continue
+      grep -q 'rules-as-tests/' "$f" && return 0
+      dir=$(dirname "$f")
+      while IFS= read -r spec; do
+        [ -n "$spec" ] && next+=("$dir/$spec")
+      done < <(sed -nE "s/.*(from|import)[[:space:]]*[(]?[[:space:]]*['\"](\.\.?\/[^'\"]+)['\"].*/\2/p" "$f")
+    done
+    queue=(${next[@]+"${next[@]}"})
+    depth=$((depth + 1))
+  done
+  return 1
 }
 
 # note_eslint_config_not_esm <abs-dir> <config-name> — the not-wired line for a flat config getff does

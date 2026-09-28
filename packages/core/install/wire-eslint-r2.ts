@@ -348,7 +348,11 @@ function ruleSetForSomeFilesOnly(elements: any[], SyntaxKind: any, ruleName: str
       try { return normPropName(p.getName?.()); } catch { return ''; }
     });
     if (!names.some((n: string) => n === 'files' || n === 'ignores' || n === 'basePath')) continue;
-    const rules = el.getProperty?.('rules')?.getInitializer?.();
+    // `'rules':` as well as `rules:` — getProperty('rules') finds the unquoted key only.
+    const rulesProp = (el.getProperties?.() ?? []).find((p: any) => {
+      try { return normPropName(p.getName?.()) === 'rules'; } catch { return false; }
+    });
+    const rules = rulesProp?.getInitializer?.();
     if (!rules?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
     for (const rp of rules.getProperties?.() ?? []) {
       try { if (normPropName(rp.getName?.()) === ruleName) return true; } catch { /* next */ }
@@ -408,6 +412,9 @@ function replaceSimpleRuleValue(
  */
 function normPropName(name: unknown): string {
   if (typeof name !== 'string') return '';
+  // A computed key spelled as a literal — [`rules-as-tests/x`] or ['x'] — names the same property.
+  const computed = /^\[\s*(['"`])(.*)\1\s*\]$/s.exec(name);
+  if (computed) return computed[2];
   return name.replace(/^['"`]|['"`]$/g, '');
 }
 
@@ -665,7 +672,7 @@ export async function wireNRules(
 //    check getff's machinery (a ts-only config reported the bundles' `/* eslint-disable */` banner
 //    as an unused directive and failed `--max-warnings=0`);
 //  - R2, scoped by a `RULE_GLOBS.boundary` block in the form the shipped gates read
-//    (check-rule-globs.sh / check-rule-enforced.sh: a `boundary: [` line, single-quoted globs).
+//    (check-rule-globs.sh / check-rule-enforced.sh read its `boundary: [` array, in either quotes).
 // The caller keeps a copy of the original and lint-probes the result (writeWithLintProbe).
 
 export interface OwnConfigOpts {
@@ -683,7 +690,7 @@ export interface OwnConfigOpts {
   gateReadsRuleGlobs?: boolean;
 }
 
-/** A glob as a single-quoted string literal — the only form the bash gates extract. */
+/** A glob as a single-quoted string literal — the form getff's templates write RULE_GLOBS in. */
 function singleQuoted(s: string): string {
   return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
 }
@@ -835,7 +842,9 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(', ')}] }`);
 
   // R2: a quoted rule-id is a rule entry; a mention in a comment is not (the RULE_GLOBS comment below).
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  // A computed key — [`rules-as-tests/…`] — is a rule entry too, and has no quoted spelling to find.
+  const r2Present = simpleRulePresent(source, R2_RULE_ID)
+    || replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false) !== 'not-found';
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs: string[] = [];
@@ -854,7 +863,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
     // as the consumer set it, and the note says what that leaves. Set more than once, the last setting wins
     // in ESLint and getff's element would outrank it; set for some files only, getff's element would reach
     // the rest: both read as a setting getff cannot confirm.
-    const r2Mentions = source.split(`'${R2_RULE_ID}'`).length + source.split(`"${R2_RULE_ID}"`).length - 2;
+    const r2Mentions = [`'`, `"`, '`'].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
     const r2Setting = !r2Present ? 'not-found'
       : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? 'differs'
         : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);

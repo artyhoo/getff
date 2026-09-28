@@ -361,6 +361,61 @@ OUT11f=$(repo_gate "$T11f"); RC11f=$?
   || bad "own-root monorepo neg: gate exited $RC11f or never checked the workspace (saw: $(printf '%s' "$OUT11f" | tail -2 | tr '\n' '|'))"
 rm -rf "$T11e" "$T11f"
 
+# The gate reads RULE_GLOBS.boundary the way JavaScript reads it, not only the way getff's template
+# lays it out: double-quoted globs (prettier's default quotes) and a one-line object are the same
+# config. A consumer's own `boundary: ["…"]` read as «no globs found» and failed every push while the
+# install said nothing (second cold review, after #1868).
+with_route() { mkdir -p "$1/src/routes"; echo 'export const u = 1;' > "$1/src/routes/u.ts"; printf '%s' "$1"; }
+T11g=$(with_route "$(own_cfg_dir "const RULE_GLOBS = {
+  boundary: [\"**/routes/**/*.{ts,tsx}\"],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];")")
+OUT11g=$(repo_gate "$T11g"); RC11g=$?
+[ "$RC11g" = "0" ] && printf '%s' "$OUT11g" | grep -q "R2 no-unsafe-zod-parse (RULE_GLOBS.boundary): matches" \
+  && ok "RULE_GLOBS reader: double-quoted boundary globs are read" \
+  || bad "RULE_GLOBS reader: gate exited $RC11g on double-quoted boundary globs (saw: $(printf '%s' "$OUT11g" | grep -E '⚠|✗' | head -1))"
+T11h=$(with_route "$(own_cfg_dir "const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'], appCode: ['**/*.ts'] };
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];")")
+OUT11h=$(repo_gate "$T11h"); RC11h=$?
+[ "$RC11h" = "0" ] && printf '%s' "$OUT11h" | grep -q "R2 no-unsafe-zod-parse (RULE_GLOBS.boundary): matches" \
+  && ok "RULE_GLOBS reader: a one-line RULE_GLOBS object is read" \
+  || bad "RULE_GLOBS reader: gate exited $RC11h on a one-line RULE_GLOBS (saw: $(printf '%s' "$OUT11h" | grep -E '⚠|✗' | head -1))"
+# Paired negative: on one line, the boundary array ends at its own `]` — appCode's '**/*.ts' (which
+# matches every file) must not be read as a boundary glob.
+T11i=$(own_cfg_dir "const RULE_GLOBS = { boundary: ['**/nowhere/**/*.{ts,tsx}'], appCode: ['**/*.ts'] };
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];")
+OUT11i=$(repo_gate "$T11i"); RC11i=$?
+[ "$RC11i" = "1" ] && printf '%s' "$OUT11i" | grep -q "SILENTLY INERT" \
+  && ok "RULE_GLOBS reader neg: a one-line boundary array stops at its own ]" \
+  || bad "RULE_GLOBS reader neg: gate exited $RC11i — a glob of the next key was read as a boundary glob"
+rm -rf "$T11g" "$T11h" "$T11i"
+
+# A workspace's eslint.config.js is the config ESLint loads there (it comes before .mjs), and the
+# install writes R2 and RULE_GLOBS into a consumer's own one. With no root config the gate recursed
+# into eslint.config.mjs workspaces only, so a project whose workspace configs are .js stopped with
+# «eslint.config.mjs not found» on every push (second cold review, after #1868).
+ws_js_mono() { # $1 = yes → apps/api has a routes/ file its boundary glob matches
+  local d; d=$(mktemp -d)
+  mkdir -p "$d/apps/api/src/lib" "$d/apps/web"
+  printf "const RULE_GLOBS = {\n  boundary: ['**/routes/**/*.{ts,tsx}'],\n};\nexport default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" \
+    > "$d/apps/api/eslint.config.js"
+  printf 'export default [];\n' > "$d/apps/web/eslint.config.js"
+  echo 'export const x = 1;' > "$d/apps/api/src/lib/x.ts"
+  if [ "$1" = yes ]; then mkdir -p "$d/apps/api/src/routes"; echo 'export const u = 1;' > "$d/apps/api/src/routes/u.ts"; fi
+  printf '%s' "$d"
+}
+T11j=$(ws_js_mono no)
+OUT11j=$(repo_gate "$T11j"); RC11j=$?
+[ "$RC11j" = "1" ] && printf '%s' "$OUT11j" | grep -q "SILENTLY INERT" \
+  && ok "workspace .js: a boundary glob in apps/api/eslint.config.js matching nothing FAILS" \
+  || bad "workspace .js: gate exited $RC11j — a workspace eslint.config.js was not checked (saw: $(printf '%s' "$OUT11j" | tail -2 | tr '\n' '|'))"
+T11k=$(ws_js_mono yes)
+OUT11k=$(repo_gate "$T11k"); RC11k=$?
+[ "$RC11k" = "0" ] && printf '%s' "$OUT11k" | grep -q "check-rule-globs: OK" \
+  && ok "workspace .js neg: a matching boundary glob in apps/api/eslint.config.js passes, checked in the workspace" \
+  || bad "workspace .js neg: gate exited $RC11k (saw: $(printf '%s' "$OUT11k" | tail -2 | tr '\n' '|'))"
+rm -rf "$T11j" "$T11k"
+
 # Provenance of the skip message. getff's own react-native config wires none of R2/R7/R8 (the RN
 # preset ships zero custom rules) and carries no RULE_GLOBS block, so it takes the same skip — but
 # calling it «your own config, the install kept it» is false on a fresh RN install. The baseline
@@ -504,6 +559,10 @@ else
   f11_not_wired "$T16.log" | grep 'eslint.config.mjs' | grep -q 'RULE_GLOBS' \
     && ok "F11 warn: the not-wired summary names RULE_GLOBS for eslint.config.mjs" \
     || bad "F11 warn: the gate fails on this config while the install's not-wired summary says nothing about it"
+  # Once: the wirer's own note already says the gate fails on this config, and the install's gate run adds none.
+  [ "$(f11_not_wired "$T16.log" | grep -c 'RULE_GLOBS')" -eq 1 ] \
+    && ok "F11 warn: the summary names RULE_GLOBS once" \
+    || bad "F11 warn: the summary names RULE_GLOBS $(f11_not_wired "$T16.log" | grep -c 'RULE_GLOBS') times: $(f11_not_wired "$T16.log" | grep RULE_GLOBS | tr '\n' '|')"
 
   # error + no boundary (layout ambiguous) → nothing to scope R2 to: the gate stays red, the summary says why.
   T17=$(f11_project error none); f11_install "$T17" "$T17.log"
@@ -557,12 +616,50 @@ JS
     && ok "F11 no-boundary-array: the not-wired summary names RULE_GLOBS for eslint.config.mjs (the gate is red on it)" \
     || bad "F11 no-boundary-array: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T21.log" | tr '\n' '|'))"
 
-  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
-    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" | grep -iE 'by hand|manually' | head -1)"
+  # The consumer's own RULE_GLOBS.boundary, well formed, whose globs match no source file, and no
+  # boundary code for the install to add: the gate fails on it (matches ZERO). The install decides by
+  # running the gate, not by a copy of its greps — a boundary array present read as «fine» (second
+  # cold review, after #1868).
+  T22=$(f11_project error none)
+  cat > "$T22/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ['**/nowhere/**/*.{ts,tsx}'],
+};
+
+export default [{ files: RULE_GLOBS.boundary, rules: { 'no-console': 'error' } }];
+JS
+  f11_install "$T22" "$T22.log"
+  OUT22=$(f11_gate "$T22"); RC22=$?
+  [ "$RC22" = "1" ] || bad "F11 zero-match: check:globs exited $RC22 — the arm below assumes the gate is red here"
+  f11_not_wired "$T22.log" | grep 'eslint.config.mjs' | grep 'RULE_GLOBS' | grep -q 'matches' \
+    && ok "F11 zero-match: the not-wired summary names RULE_GLOBS.boundary matching no source file (the gate is red on it)" \
+    || bad "F11 zero-match: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T22.log" | tr '\n' '|'))"
+
+  # The same config with double-quoted globs that DO match: the gate reads them and passes, so the
+  # summary says nothing about RULE_GLOBS.
+  T23=$(f11_project error boundary)
+  cat > "$T23/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ["**/routes/**/*.{ts,tsx}"],
+};
+
+export default [{ files: RULE_GLOBS.boundary, rules: { "no-console": "error" } }];
+JS
+  f11_install "$T23" "$T23.log"
+  OUT23=$(f11_gate "$T23"); RC23=$?
+  [ "$RC23" = "0" ] && ok "F11 double-quoted: check:globs passes on the consumer's double-quoted RULE_GLOBS.boundary" \
+    || bad "F11 double-quoted: check:globs exited $RC23 (saw: $(printf '%s' "$OUT23" | grep -E '⚠|✗' | head -1))"
+  f11_not_wired "$T23.log" | grep -q 'RULE_GLOBS' \
+    && bad "F11 double-quoted: the summary names RULE_GLOBS though the gate passes: $(f11_not_wired "$T23.log" | grep RULE_GLOBS | head -1)" \
+    || ok "F11 double-quoted: nothing about RULE_GLOBS in the summary when the gate passes"
+
+  if cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" | grep -iE 'eslint|R2|RULE_GLOBS' | grep -qiE 'by hand|manually'; then
+    bad "F11: the install asks for a manual edit: $(cat "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log" | grep -iE 'by hand|manually' | head -1)"
   else
     ok "F11: no install output asks for a manual ESLint edit"
   fi
-  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log"
+  rm -rf "$T15" "$T16" "$T17" "$T18" "$T19" "$T20" "$T21" "$T22" "$T23" \
+    "$T15.log" "$T16.log" "$T17.log" "$T18.log" "$T19.log" "$T20.log" "$T21.log" "$T22.log" "$T23.log"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
