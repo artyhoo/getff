@@ -17,13 +17,13 @@
 #                                           rules dir BEFORE any scan, and REFUSE-LOUDLY otherwise.
 #   (iii) pre-existing ruff.toml          → REFUSE-LOUDLY. Do NOT write a sibling ruff.toml (ours
 #                                           would win entirely + silently disable theirs). Write a
-#                                           non-discovered getff-ruff.toml reference copy + print
-#                                           `extend` instructions (extend is a scalar — flagged if
-#                                           they already use it). The getff bans are ALSO always
-#                                           written to a stable .getff/ruff-bans.toml (see (bans)).
+#                                           non-discovered getff-ruff.toml reference copy + record a
+#                                           NOT-wired fact line (Q4.7 — no «add extend» step). The
+#                                           getff bans are ALSO always written to a stable
+#                                           .getff/ruff-bans.toml the CI gate reads (see (bans)).
 #   (iv)  pre-existing pyproject.toml      → REFUSE-LOUDLY. A sibling ruff.toml SILENTLY overrides
 #         [tool.ruff] (and no ruff.toml)     their [tool.ruff] (probe-proven). Write getff-ruff.toml
-#                                           + print merge-into-[tool.ruff.lint] instructions.
+#                                           + record a NOT-wired fact line (Q4.7).
 #   (bans) getff ruff bans                → ALWAYS written to .getff/ruff-bans.toml (fresh + every
 #         (python-delivery-v0 S2-T2 fix)    collision cell) — the single cell-independent target the
 #                                           shipped CI workflow points a `ruff check . --config
@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1440 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1444 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,10 +102,10 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:544, long before do_refresh at install.sh:1426).
+# (do_python_lane exits at install.sh:548, long before do_refresh at install.sh:1430).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
-# (install.sh:758 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
+# (install.sh:766 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
 # NEVER in this set"), so the two lanes cannot diverge on what --refresh may overwrite:
 #   refreshed  — skills, agents, hooks, skill-context overrides, AI-USAGE-GUIDE.md
 #   copy_safe  — RULES.md, DESCRIPTION*.md, ARCHITECTURE*.md, integration-rules.md, tool-decisions.md
@@ -115,7 +115,7 @@ _py_copy_or_refresh() {
 # _py_skill_copy_or_refresh <slug> — a skill shipping from $PKG_ROOT/.claude/skills/.
 # Install: copy_skill_with_transform (skip-if-exists). --refresh: refresh_skill_with_transform
 # (rm -rf + cp -r + transform, `.claude/skills/<slug>.override.md` honoured). Mirrors do_refresh's
-# orchestration-skills arm (install.sh:850).
+# orchestration-skills arm (install.sh:854).
 _py_skill_copy_or_refresh() {
   if [ "${GETFF_TOOLCHAIN_REFRESH:-}" = "1" ]; then
     refresh_skill_with_transform "$1"
@@ -176,7 +176,7 @@ _py_plain_skill_deliver() {
 # pass actually wrote: transforming a consumer-owned file that copy_safe skipped, or one kept by an
 # `.override.md`, would rewrite bytes we do not own (the 2026-07-10 flat-install smoke contract,
 # 20-agents.sh:41-46, and do_refresh's own `[ ! -e "${_dst%.md}.override.md" ]` guard at
-# install.sh:794). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
+# install.sh:798). Every branch is an explicit `if` — a trailing `A && B` under install.sh's
 # `set -euo pipefail` would return 1 and abort the lane (the A2-3 defect class).
 _py_agent_copy_or_refresh() {
   local src="$1" dst="$2"
@@ -204,7 +204,7 @@ _py_agent_copy_or_refresh() {
 # _py_sgconfig_merge <consumer-sgconfig.yml>
 # Structurally add `  - .getff/astgrep-rules` to an existing block-list `ruleDirs:` key, idempotently.
 # Returns 0 on a proven-safe merge (or idempotent no-op), 1 when the shape cannot be proven safe (the
-# caller then REFUSES-LOUDLY with manual instructions). NEVER a text-append of a second `ruleDirs:`.
+# caller then REFUSES-LOUDLY with a NOT-wired fact line). NEVER a text-append of a second `ruleDirs:`.
 _py_sgconfig_merge() {
   local dst="$1"
   local entry="- .getff/astgrep-rules"
@@ -392,7 +392,7 @@ _py_deliver_ruff() {
   fi
 
   # (iii) consumer ruff.toml / .ruff.toml present → a sibling ruff.toml of ours would win entirely
-  # and silently disable theirs (Probe 1). REFUSE: ship a non-discovered getff-ruff.toml + `extend`.
+  # and silently disable theirs (Probe 1). REFUSE: ship a non-discovered getff-ruff.toml + a NOT-wired line.
   if [ -e "$ruff_dst" ] || [ -e "$PROJECT_ROOT/.ruff.toml" ]; then
     local existing="$ruff_dst"; [ -e "$existing" ] || existing="$PROJECT_ROOT/.ruff.toml"
     _py_copy_or_refresh "$tpl/ruff.toml" "$getff_ref"
@@ -403,7 +403,7 @@ _py_deliver_ruff() {
   fi
 
   # (iv) pyproject.toml [tool.ruff] present, no ruff.toml → a sibling ruff.toml SILENTLY overrides
-  # [tool.ruff] (Probe 1). REFUSE: ship getff-ruff.toml + merge-into-[tool.ruff.lint] instructions.
+  # [tool.ruff] (Probe 1). REFUSE: ship getff-ruff.toml + a NOT-wired line.
   if [ -e "$PROJECT_ROOT/pyproject.toml" ] && grep -qE '^\[tool\.ruff' "$PROJECT_ROOT/pyproject.toml" 2>/dev/null; then
     _py_copy_or_refresh "$tpl/ruff.toml" "$getff_ref"
     _py_log "⚠ REFUSE ruff.toml (cell iv): a sibling ruff.toml would SILENTLY override your pyproject.toml"
@@ -614,7 +614,7 @@ EOF
 # delivered ast-grep rule id (DC-3: record.entryId === rendered.entryId, by construction).
 # The Node synthesize path (emit.ts:97-103) still writes `G${n}.json` to the PARENT
 # generation-context/ dir — a different lane with its own fragment set; the cargo/go readers
-# glob that parent dir non-recursively (shared lock writer, lib.sh:1700). When no fragment
+# glob that parent dir non-recursively (shared lock writer, lib.sh:1695). When no fragment
 # exists for a rule (template rule with no research provenance), the fallback
 # {id, provenance:[], tier:2} is the DERIVED value — explicit absence from the fragment dir,
 # not a literal. S1 §3 criterion 3: the per-rule shape REPLACES the v1 flat ruleIds array.
@@ -678,7 +678,7 @@ _py_write_rules_lock() {
   # Fragment-per-rule dir per §6 fork 2 — the synthesizer's generation-context/ per-lane subdir.
   # S1b (PARK-S1-7 unparked): the producer (rule-bootstrap-cli.ts runPracticeRender) writes here.
   # Closes kickoff criterion 4 by construction: the cargo/go glob is `*.json` NON-RECURSIVE on the
-  # parent generation-context/ dir (shared lock writer, lib.sh:1700), so python fragments in this
+  # parent generation-context/ dir (shared lock writer, lib.sh:1695), so python fragments in this
   # subdir are invisible to those lanes. Node synthesize (emit.ts) keeps writing `G${n}.json` to
   # the parent dir. Resolved HERE, at the top, because BOTH the sourceFingerprint (A2-7 below) and
   # the provenance read further down consume it — one path constant, never two.
@@ -1112,7 +1112,7 @@ _py_integrate_legacy_githook() {
 # "documents lie"). Reading the delivered artefacts makes the table true by construction.
 #
 # Ownership: copy_safe semantics — skip-if-exists, --force overwrites, --refresh does NOT. This is
-# the do_refresh contract for RULES.md (install.sh:758 names it consumer-authored), so the python
+# the do_refresh contract for RULES.md (install.sh:766 names it consumer-authored), so the python
 # lane cannot overwrite a consumer's edited rule list either. That is also why this helper carries no
 # literal "$tpl/…" token: the refresh-parity gate (Check 4, refresh-covers-full-delivery.test.sh)
 # demands a --refresh path for every $tpl-sourced delivery, and a consumer-owned doc must not have
@@ -1372,7 +1372,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1391). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1399). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
@@ -1407,7 +1407,7 @@ _py_deliver_agent_surface() {
           && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi
         mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc"
-        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1404).
+        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1408).
         _py_copy_or_refresh "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
     esac
   done
