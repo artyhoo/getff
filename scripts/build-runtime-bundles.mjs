@@ -37,9 +37,10 @@
  *     URL, so its direct-run guard still recognises `node <bundle>`, while an inlined module's own
  *     direct-run guard (detector/index.ts, render-researched-astgrep.ts) correctly stays false.
  *   • The first lines are an `eslint-disable` block comment and `// @ts-nocheck`: generated
- *     code is not the consumer's to lint or type-check, and getff never edits a consumer's
- *     eslint config or tsconfig (operator decision 2026-09-23, setup.d/lib.sh
- *     copy_unless_foreign).
+ *     code is not the consumer's to lint or type-check. getff never edits a consumer's tsconfig,
+ *     and adds an ignores entry for the bundle only to an ES-module eslint config it can wire
+ *     (operator decision Q4.7, 2026-09-28; setup.d/99-finalize.sh), so the banner is what keeps
+ *     the bundle quiet under every other consumer config.
  *
  * USAGE
  *   node scripts/build-runtime-bundles.mjs            # (re)generate the committed bundles

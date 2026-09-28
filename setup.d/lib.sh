@@ -397,9 +397,9 @@ refresh_baseline_stage_weak_matching() {
 
 # getff_delivered <abs-dst> — exit 0 IFF getff itself delivered <abs-dst>: this run staged it (a
 # copy_safe write, or a skip whose bytes ARE the incoming delivery) or the baseline manifest of an
-# earlier install holds an entry for it. Anything else is the consumer's own file — it pre-dated
-# the install and copy_safe kept it — and a post-processor must leave it alone (operator decision
-# 2026-09-23: skip + report, never overwrite or merge a consumer's tool config). Provenance, not
+# earlier install holds an entry for it. Anything else is the consumer's own file (copy_safe kept
+# it): a post-processor may only ADD getff's block to a consumer eslint config, keeping the original
+# (Q4.7, 2026-09-28; setup.d/99-finalize.sh), and leaves any other tool config alone. Provenance, not
 # content: getff's react-native eslint config carries no RULE_GLOBS block, a consumer's may carry
 # one. A pre-manifest re-install of an edited getff file reads as the consumer's — the safe side.
 getff_delivered() {
@@ -2740,6 +2740,58 @@ depcruise_config() {
   return 0
 }
 
+# ESLINT_FLAT_CONFIG_NAMES — the flat config names ESLint 9 looks for in a directory, in its own
+# lookup order (eslint lib/config/config-loader.js FLAT_CONFIG_FILENAMES): the first one present is
+# the config ESLint loads there. packages/core/audit-self/check-rule-globs.sh and
+# check-rule-enforced.sh ship to the consumer without lib.sh and repeat the list.
+ESLINT_FLAT_CONFIG_NAMES="eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts"
+
+# eslint_flat_config <dir> — echo the name of the flat config ESLint loads in <dir>, or nothing.
+eslint_flat_config() {
+  local dir="$1" f
+  for f in $ESLINT_FLAT_CONFIG_NAMES; do
+    if [ -e "$dir/$f" ]; then echo "$f"; return 0; fi
+  done
+  return 0
+}
+
+# keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
+# decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
+# the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
+keep_original_snapshot() {
+  local f="$1" snap
+  snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
+  if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
+  echo "$snap"
+}
+
+# keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
+# snapshot to .ai-factory/before-getff/<path from the project root>.<sha8> and echo where it went
+# (the same <name>.<sha8> shape as .ai-factory/refresh-conflicts/); when it did not, drop the
+# snapshot and echo nothing, so a re-install that adds nothing keeps no second copy.
+# When the changed file's original cannot be kept aside (mkdir/mv fails), the write is undone — the
+# original goes back in place, a warning names the file on stderr — and it returns 1: the caller
+# reports getff's block as not wired (cold-review F10: the snapshot used to be deleted silently).
+keep_original_settle() {
+  local f="$1" snap="$2" sum8 dest rel
+  [ -n "$snap" ] && [ -f "$snap" ] || return 0
+  if cmp -s "$snap" "$f"; then rm -f "$snap"; return 0; fi
+  sum8=$(_hash256 "$snap") || sum8=original
+  rel="${f#"${PROJECT_ROOT:-.}"/}"
+  dest="${PROJECT_ROOT:-.}/.ai-factory/before-getff/$rel.${sum8:0:8}"
+  if mkdir -p "$(dirname "$dest")" 2>/dev/null && mv "$snap" "$dest" 2>/dev/null; then
+    echo "$dest"
+    return 0
+  fi
+  if cp "$snap" "$f" 2>/dev/null; then
+    rm -f "$snap"
+    echo "  ⚠ could not keep your original $rel at ${dest#"${PROJECT_ROOT:-.}"/} — getff's changes to it are undone, it is as it was" >&2
+  else
+    echo "  ⚠ could not keep your original $rel at ${dest#"${PROJECT_ROOT:-.}"/}, nor put it back — it is at $snap" >&2
+  fi
+  return 1
+}
+
 # foreign_tool_config <dir> <eslint|lint-staged|prettier|dependency-cruiser> — echo the consumer's own config for that
 # tool in <dir> under any name OTHER than the one we ship (critical-review S4-2/S4-4/S4-5). copy_safe
 # only sees its exact destination name, so a consumer eslint.config.cjs, .prettierrc or
@@ -2802,7 +2854,8 @@ legacy_eslint_config() {
 # copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
-# skip + report, never overwrite or merge a consumer's tool config).
+# skip + report, never overwrite or merge a consumer's tool config). A root eslint.config.js is not
+# recorded: 99-finalize adds getff's block to it (operator decision Q4.7, 2026-09-28).
 copy_unless_foreign() {
   local kind="$1" src="$2" dst="$3" own
   shift 3
@@ -2813,10 +2866,18 @@ copy_unless_foreign() {
     else
       echo "  ⊝ $dst not placed — your own $kind config ($own) is kept"
     fi
-    note_not_wired "$kind: ${dst##*/} not placed in $(dirname "$dst") because your $own configures $kind there; to get the framework settings, merge $src into it"
-    # The root ESLint config is what the self-verify fences-fire claim is about (99-finalize).
-    if [ "$kind" = "eslint" ] && [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ]; then
-      ESLINT_ROOT_NOT_WIRED=1
+    if [ "$kind" != "eslint" ]; then
+      note_not_wired "$kind: ${dst##*/} not placed in $(dirname "$dst") because your $own configures $kind there; to get the framework settings, merge $src into it"
+    elif [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ] && [ "$own" = "eslint.config.js" ]; then
+      # 99-finalize adds getff's block to a root eslint.config.js the way it does to a consumer's
+      # own eslint.config.mjs (operator decision Q4.7) and reports the outcome there.
+      :
+    else
+      note_not_wired "eslint: getff's rules are not in the ESLint config of $(dirname "$dst") — your $own configures ESLint there, and getff adds its block only to an eslint.config.mjs, or to an ES-module eslint.config.js at the project root"
+      # The root ESLint config is what the self-verify fences-fire claim is about (99-finalize).
+      if [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ]; then
+        ESLINT_ROOT_NOT_WIRED=1
+      fi
     fi
     return 0
   fi

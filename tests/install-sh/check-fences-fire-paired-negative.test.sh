@@ -291,7 +291,7 @@ if [ "$VAC_OK_RC" -eq 0 ] && echo "$VAC_OK_OUT" | grep -qE 'proved=[1-9]'; then
   ok "(xii) paired-positive: working barrel → rc=0 and the summary reports the fixture axis (proved=N) separately from load-probes"
 elif echo "$VAC_OK_OUT" | grep -qE 'module load failed|dep missing'; then
   # Narrower than GATE_SKIP_PATTERN on purpose: that pattern also matches the load-probe's
-  # structural "— skipped" line, which is EXPECTED here (no placed eslint.config.mjs in a
+  # structural "— skipped" line, which is EXPECTED here (no eslint.config.mjs / eslint.config.js in a
   # scratch root) and would turn this arm permanently inconclusive — vacuity by another name.
   skip "(xii) gate SKIP'd in scratch env — paired-positive inconclusive: $(echo "$VAC_OK_OUT" | tail -3 | tr '\n' '|')"
 else
