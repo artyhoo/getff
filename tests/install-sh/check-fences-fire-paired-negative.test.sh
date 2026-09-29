@@ -254,7 +254,7 @@ elif grep -q 'module load failed ()' <<<"$VAC_OUT"; then
   bad "(ix) error-capture arm: parenthetical is EMPTY — head -1 read the blank first line, the real cause never reached the log (#1390)"
 else
   bad "(ix) error-capture arm: parenthetical does not name '$VAC_MISSING_PKG' (#1390)"
-  echo "    skip line: $(echo "$VAC_OUT" | grep -m1 'module load failed' | head -c 300)"
+  echo "    skip line: $(grep -m1 'module load failed' <<<"$VAC_OUT" | head -c 300)"
 fi
 
 # (x) the vacuity escape is its OWN token with a >=20-char rationale (precedent: ci-tool-pinning §3)
@@ -359,7 +359,7 @@ _replay_stub() {
 }
 _probe_cause() {
   # _probe_cause <gate-output> — the parenthetical of the gate's dep-skip line
-  echo "$1" | grep -m1 'module load failed (' | sed -e 's/.*module load failed (//' -e 's/) — dep missing.*//'
+  grep -m1 'module load failed (' <<<"$1" | sed -e 's/.*module load failed (//' -e 's/) — dep missing.*//'
 }
 
 N2420_NOT_FOUND="node:internal/modules/package_json_reader:301
@@ -376,7 +376,7 @@ Node.js v24.20.0"
 REPLAY_ROOT=$(mktemp -d)
 _stub_tsx_root "$REPLAY_ROOT" "$(_replay_stub "$N2420_NOT_FOUND")"
 REPLAY_CAUSE=$(_probe_cause "$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$REPLAY_ROOT" bash "$GATE_SCRIPT" 2>&1)")
-if echo "$REPLAY_CAUSE" | grep -q "^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find package '$VAC_MISSING_PKG'"; then
+if grep -q "^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find package '$VAC_MISSING_PKG'" <<<"$REPLAY_CAUSE"; then
   ok "(xv) Node 24.20 replay: the skip names the Cannot-find line, not the 'throw new ERR_…(' source excerpt above it (#1390)"
 else
   bad "(xv) Node 24.20 replay: skip parenthetical is '$REPLAY_CAUSE' — expected the 'Error [ERR_MODULE_NOT_FOUND]: Cannot find package …' line (#1390)"
@@ -395,7 +395,7 @@ Node.js v24.20.0"
 REPLAY_ROOT=$(mktemp -d)
 _stub_tsx_root "$REPLAY_ROOT" "$(_replay_stub "$N2420_NOT_EXPORTED")"
 REPLAY_CAUSE=$(_probe_cause "$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$REPLAY_ROOT" bash "$GATE_SCRIPT" 2>&1)")
-if echo "$REPLAY_CAUSE" | grep -q "^Error \[ERR_PACKAGE_PATH_NOT_EXPORTED\]: Package subpath './sub'"; then
+if grep -q "^Error \[ERR_PACKAGE_PATH_NOT_EXPORTED\]: Package subpath './sub'" <<<"$REPLAY_CAUSE"; then
   ok "(xvi) Node 24.20 replay: with no Cannot-find line the skip names the 'Error [ERR_…]:' line, not the 'return new ERR_…(' excerpt (#1390)"
 else
   bad "(xvi) Node 24.20 replay: skip parenthetical is '$REPLAY_CAUSE' — expected the 'Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: …' line (#1390)"

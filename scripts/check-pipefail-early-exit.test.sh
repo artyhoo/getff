@@ -3,8 +3,9 @@
 # scripts/check-pipefail-early-exit.mjs (the SIGPIPE-under-pipefail gate).
 #
 # Arms:
-#   P1-P8  the gate FIRES: printf/echo/command producers into grep -q, --quiet, -l, -m, a cluster
-#          (-Eq), a negated check, a line-continued pipe, a pipe inside $(…), a manifest detect_cmd
+#   P1-P10 the gate FIRES: printf/echo/command producers into grep -q, --quiet, -l, -m, a cluster
+#          (-Eq), a negated check, a line-continued pipe, a pipe inside $(…) (also within double
+#          quotes), a `<<TAG` inside a quoted string that must not hide the lines after it
 #   N1-N9  the gate stays QUIET: here-strings, `||` (not a pipe), a `|` inside the grep pattern,
 #          grep -c / plain grep, `-s` (no-messages, not silent), a script without pipefail, a heredoc
 #          body, a comment, an escape with a real rationale
@@ -45,6 +46,9 @@ fixture "P6 pipe at line end" fire 'claude plugin list 2>/dev/null |
   grep -q superpowers || echo missing'
 fixture "P7 env-prefixed grep" fire 'cat f | LC_ALL=C grep -qi z'
 fixture "P8 grep -l on stdin" fire 'find . | grep -l foo'
+fixture "P9 a pipe inside \"\$(…)\" within double quotes" fire 'echo "skip: $(echo "$v" | grep -m1 x | head -c 300)"'
+fixture "P10 a <<'TAG' inside a quoted string opens no heredoc" fire 'printf "cat <<'"'"'OUT'"'"'\n%s\nOUT" "$1"
+echo "$v" | grep -q x'
 
 echo "── quiet"
 fixture "N1 here-string" quiet 'grep -q x <<<"$v"; grep -q y <<<"$(git ls-files)"'
