@@ -32,9 +32,15 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import picomatch from 'picomatch';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+// picomatch ships no type declarations; typing the one call used here avoids a new @types dependency.
+const picomatch = createRequire(import.meta.url)('picomatch') as (
+  glob: string,
+  options?: { dot?: boolean },
+) => (path: string) => boolean;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
