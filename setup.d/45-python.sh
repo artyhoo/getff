@@ -1100,7 +1100,7 @@ _py_precommit_indent() {
 # other node that is not a block sequence.
 _py_precommit_insert() {
   local cfg="$1" block="$2" tmp="$1.getff.tmp" cr=""
-  if head -n 1 "$cfg" 2>/dev/null | grep -q "$(printf '\r')\$"; then cr=$(printf '\r'); fi
+  if grep -q "$(printf '\r')\$" <<<"$(head -n 1 "$cfg" 2>/dev/null)"; then cr=$(printf '\r'); fi
   if awk -v blk="$block" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v cr="$cr" '
       function emit(  l) { while ((getline l < blk) > 0) print l cr; close(blk) }
       function flush() { printf "%s", buf; buf = "" }
