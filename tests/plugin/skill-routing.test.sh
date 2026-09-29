@@ -140,4 +140,55 @@ out=$(printf '' | run install interactive 2>&1); rc=$?
 grep -q 'setup.d/skill-routing.sh" install "\$MODE"' "$REPO_ROOT/setup" \
   && ok "./setup runs the skill-routing step with its mode" || bad "./setup does not wire setup.d/skill-routing.sh install"
 
+# --- 11. parser edge cases: CRLF, BOM, trailing space / comment / quotes on name: ------------
+H="$TMP/h8"; base="$H/.claude/plugins/cache/mattpocock/mattpocock-skills/1.2.3/skills/engineering"
+mkdir -p "$base/crlf" "$base/bom" "$base/trail"
+printf -- '---\r\nname: tdd\r\ndescription: x\r\n---\r\nbody\r\n' > "$base/crlf/SKILL.md"
+printf -- '\357\273\277---\nname: "tdd"\ndescription: x\n---\nbody\n' > "$base/bom/SKILL.md"
+printf -- '---\nname: resolving-merge-conflicts   # trailing comment\ndescription: x\n---\nbody\n' > "$base/trail/SKILL.md"
+out=$(run apply 2>&1); rc=$?
+for k in crlf bom trail; do
+  LC_ALL=C sed $'1s/^\xEF\xBB\xBF//' "$base/$k/SKILL.md" | tr -d '\r' | fm /dev/stdin | grep -qx 'disable-model-invocation: true' \
+    && ok "edge case '$k' is recognised and stamped" || bad "edge case '$k' not stamped (rc=$rc): $(cat -v "$base/$k/SKILL.md")"
+done
+[ "$(grep -c $'\r' "$base/crlf/SKILL.md")" = 6 ] && ok "a CRLF file keeps CRLF on every line, including the added flag" \
+  || bad "CRLF line endings not preserved: $(cat -v "$base/crlf/SKILL.md")"
+run status >/dev/null 2>&1 && ok "status is green after stamping the edge cases" || bad "status still red after edge-case apply"
+
+# --- 12. unclosed frontmatter: never a false GREEN, never mangled ----------------------------
+H="$TMP/h9"; d="$H/.claude/plugins/cache/mattpocock/mattpocock-skills/1.2.3/skills/engineering/tdd"
+mkdir -p "$d"; printf -- '---\nname: tdd\ndescription: x\nbody without a closing fence\ndisable-model-invocation: false\n' > "$d/SKILL.md"
+b9=$(cat "$d/SKILL.md")
+run status >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] && ok "an unclosed frontmatter is reported unrouted, not stamped" || bad "unclosed frontmatter reads as stamped (status rc=$rc)"
+out=$(run apply 2>&1); rc=$?
+[ "$rc" -ne 0 ] && [ "$(cat "$d/SKILL.md")" = "$b9" ] && printf '%s' "$out" | grep -q 'could not stamp' \
+  && ok "apply refuses an unclosed frontmatter and leaves the file byte-identical" || bad "unclosed frontmatter: rc=$rc out=$out file=$(cat "$d/SKILL.md")"
+
+# --- 13. the write is replace-by-rename: no temp residue, mode kept ---------------------------
+H="$TMP/h10"; t10=$(mk_skill "$H" 1.2.3 engineering tdd); chmod 640 "$t10"
+run apply >/dev/null 2>&1
+[ -z "$(find "$(dirname "$t10")" -name '.SKILL.md.*')" ] && ok "no temp file left beside the stamped SKILL.md" || bad "temp residue left"
+[ "$(ls -l "$t10" | cut -c1-10)" = "-rw-r-----" ] && ok "the stamped file keeps its mode" || bad "mode changed: $(ls -l "$t10")"
+
+# --- 14. a failing re-apply is surfaced to the session, not swallowed -------------------------
+H="$TMP/h11"; t11=$(mk_skill "$H" 1.2.3 engineering tdd); chmod 444 "$t11"
+mkdir -p "$H/.config/getff" && echo on > "$H/.config/getff/skill-routing"
+out=$(env -u XDG_CONFIG_HOME -u CLAUDE_CONFIG_DIR HOME="$H" CLAUDE_PLUGIN_ROOT="$PLUGIN" bash "$PLUGIN/hooks/run-hook.cmd" session-start 2>/dev/null)
+fm "$t11" | grep -q 'disable-model-invocation' && bad "a read-only SKILL.md was rewritten" || ok "a read-only SKILL.md is not rewritten"
+printf '%s' "$out" | grep -q 'could not stamp mattpocock-skills:tdd' \
+  && ok "session-start names the skill it could not re-route" || bad "session-start swallowed the failure: $out"
+chmod 644 "$t11"
+
+# --- 15. ZCode branch: the routing note survives the JSON envelope ---------------------------
+H="$TMP/h12"; mk_skill "$H" 1.2.3 engineering tdd >/dev/null
+mkdir -p "$H/.config/getff" && echo on > "$H/.config/getff/skill-routing"
+if command -v jq >/dev/null 2>&1; then
+  out=$(env -u XDG_CONFIG_HOME -u CLAUDE_CONFIG_DIR HOME="$H" ZCODE_PROJECT_DIR="$TMP" CLAUDE_PLUGIN_ROOT="$PLUGIN" bash "$PLUGIN/hooks/run-hook.cmd" session-start 2>/dev/null)
+  printf '%s' "$out" | jq -e '.additionalContext | contains("mattpocock-skills:tdd")' >/dev/null \
+    && ok "ZCode JSON output is valid and carries the routing note" || bad "ZCode output: $out"
+else
+  bad "jq missing — cannot check the ZCode branch"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

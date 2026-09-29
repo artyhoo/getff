@@ -46,28 +46,56 @@ CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 MARKER="${XDG_CONFIG_HOME:-$HOME/.config}/getff/skill-routing"
 FLAG='disable-model-invocation: true'
 
+# The three parsers below run under LC_ALL=C (byte semantics for the BOM strip) and read each
+# line through norm(): a trailing CR is dropped and a UTF-8 BOM is skipped on line 1, so a CRLF
+# or BOM-prefixed SKILL.md parses the same as a plain one.
+BOM=$(printf '\357\273\277')
+NORM='function norm(s) { sub(/\r$/, "", s); if (NR == 1 && index(s, bom) == 1) s = substr(s, 4); return s }
+function val(s) { sub(/^[^:]*:[ \t]*/, "", s); sub(/[ \t]+#.*$/, "", s); gsub(/["\047]/, "", s); sub(/[ \t]+$/, "", s); return s }'
+
 # _fm_name <file> — the frontmatter `name:` value, or empty when the file has no frontmatter.
 _fm_name() {
-  awk 'NR==1 && $0!="---" {exit} NR==1 {next} $0=="---" {exit} /^name:/ {sub(/^name:[ \t]*/, ""); gsub(/["\047]/, ""); print; exit}' "$1"
+  LC_ALL=C awk -v bom="$BOM" "$NORM"'
+    { l = norm($0) }
+    NR == 1 && l != "---" { exit }
+    NR == 1 { next }
+    l == "---" { exit }
+    l ~ /^name:/ { print val(l); exit }
+  ' "$1"
 }
 
-# _is_stamped <file> — rc 0 when the frontmatter already carries the flag.
+# _is_stamped <file> — rc 0 only when a CLOSED frontmatter carries the flag set to true (the last
+# occurrence wins). An unclosed frontmatter is never "stamped": that would be a false GREEN.
 _is_stamped() {
-  awk -v flag="$FLAG" 'NR==1 && $0!="---" {exit 1} NR==1 {next} $0=="---" {exit 1} $0==flag {exit 0}' "$1"
+  LC_ALL=C awk -v bom="$BOM" "$NORM"'
+    { l = norm($0) }
+    NR == 1 && l != "---" { exit }
+    NR == 1 { next }
+    l == "---" { closed = 1; exit }
+    l ~ /^disable-model-invocation:/ { on = (val(l) == "true") }
+    END { exit (closed && on) ? 0 : 1 }
+  ' "$1"
 }
 
 # _stamp <file> — drop any disable-model-invocation line from the frontmatter, then add the flag
-# right before the closing ---. The body after the frontmatter is copied unchanged.
+# right before the closing --- (with that line's own line ending). The body after the frontmatter
+# is copied unchanged. Refuses a file with no closed frontmatter or one it cannot write. The new
+# content goes to a temp file in the same directory (mode copied) and replaces the original by
+# rename, so a concurrent reader or a second session start never sees a truncated SKILL.md.
 _stamp() {
-  local f="$1" tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/skill-routing.XXXXXX") || return 1
-  awk -v flag="$FLAG" '
-    NR==1 { print; fm=1; next }
-    fm && $0=="---" { print flag; print; fm=0; next }
-    fm && /^disable-model-invocation:/ { next }
+  local f="$1" tmp rc
+  [ -w "$f" ] || return 1
+  tmp=$(mktemp "$(dirname "$f")/.SKILL.md.XXXXXX") || return 1
+  cp -p "$f" "$tmp" && LC_ALL=C awk -v bom="$BOM" -v flag="$FLAG" "$NORM"'
+    { l = norm($0) }
+    NR == 1 && l != "---" { exit }
+    NR == 1 { print; fm = 1; next }
+    fm && l == "---" { print flag (($0 ~ /\r$/) ? "\r" : ""); print; fm = 0; closed = 1; next }
+    fm && l ~ /^disable-model-invocation:/ { next }
     { print }
-  ' "$f" > "$tmp" && cat "$tmp" > "$f"
-  local rc=$?
+    END { exit closed ? 0 : 1 }
+  ' "$f" > "$tmp" && mv -f "$tmp" "$f"
+  rc=$?
   rm -f "$tmp"
   return $rc
 }
@@ -82,7 +110,7 @@ _each_target() {
       [ -d "$dir" ] || continue
       while IFS= read -r f; do
         [ "$(_fm_name "$f")" = "$skill" ] && "$cb" "$plugin" "$skill" "$f"
-      done < <(find "$dir" -name SKILL.md -type f 2>/dev/null)
+      done < <(find "$dir" -name SKILL.md -type f -exec grep -lE "^name:[[:space:]]*[\"']?$skill([\"'[:space:]#]|\$)" {} + 2>/dev/null)
     done
   done <<EOF
 $TARGETS
