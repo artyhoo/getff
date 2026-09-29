@@ -99,14 +99,29 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
-        grep -qF "$_g" "$PROJECT_ROOT/eslint.config.mjs" && continue   # already covered → idempotent
+        # The glob goes in as a single-quoted JS string: escape `\` and `'` (a directory name may hold
+        # an apostrophe), and hand it to awk through ENVIRON — `-v` would undo the escapes.
+        _r2_ins="    '$(printf '%s' "$_g" | sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g")',"
+        # Already covered = an element of RULE_GLOBS.boundary, never a substring anywhere in the file:
+        # R8's `application:` key carries '**/application/**/*.{ts,tsx}', the very glob a parse site
+        # in src/application/ yields, and that match used to keep it out of the boundary array.
+        _r2_bnd=$(rule_globs_boundary "$PROJECT_ROOT/eslint.config.mjs")
+        if [ "$(printf '%s\n' "$_r2_bnd" | sed -n '1p')" = array ]; then
+          printf '%s\n' "$_r2_bnd" | sed -n '2,$p' | grep -qxF -- "$_g" && continue
+        else
+          # That read answers `none` / `no-array` (RULE_GLOBS re-wrapped in a cast, say) while the
+          # insert below still finds a `boundary: [` line: covered there = the very line it would
+          # write, inside that array — or every re-install adds the glob again.
+          awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1; next} on && /^[[:space:]]*\]/{exit} on{sub(/^[[:space:]]+/, ""); print}' \
+            "$PROJECT_ROOT/eslint.config.mjs" | grep -qxF -- "${_r2_ins#    }" && continue
+        fi
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
         # stale eslint.config.mjs.tmp.
         # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
         # NOT added, never a «✓ added».
-        if awk -v ins="    '$_g'," '
-          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
+        if _r2_ins="$_r2_ins" awk '
+          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ENVIRON["_r2_ins"]; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
           && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
@@ -132,7 +147,7 @@ EOF
         # Q4.7 (2026-09-28): what is not wired goes to the NOT-wired summary with its reason, never
         # as a manual step (cold-review F5b — this used to say «widen RULE_GLOBS.boundary by hand»).
         echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does not cover that code yet (see NOT wired below)" >&2
-        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no \`boundary: [\` array any more (edited since getff placed it), or the write failed; the file is left as it is"
+        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no RULE_GLOBS.boundary array getff can read any more (edited since getff placed it), or the write failed; the file is left as it is"
       else
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
