@@ -66,7 +66,7 @@ fi
 # the same; (14) is the paired negative (hook active → no such line), and so is install-no-manual-step
 # Y2 for Case 2 (stage installed → no such line).
 MIRROR_NOT_WIRED='ZCode skill-mirror check (scripts/check-zcode-mirror.sh, delivered): no hook runs it'
-[ -f "$P/scripts/check-zcode-mirror.sh" ] && echo "$out" | grep -qF "$MIRROR_NOT_WIRED" \
+[ -f "$P/scripts/check-zcode-mirror.sh" ] && grep -qF "$MIRROR_NOT_WIRED" <<<"$out" \
   && ok "(1) non-git tree: mirror check delivered AND its not-wired line printed" \
   || bad "(1) non-git tree: check delivered=$( [ -f "$P/scripts/check-zcode-mirror.sh" ] && echo y || echo n ), not-wired line=$(echo "$out" | grep -cF "$MIRROR_NOT_WIRED") — a delivered check no hook runs went unmentioned"
 
@@ -470,7 +470,7 @@ out14=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
 _s2b_fail=0
 # Paired negative of the not-wired arms in (1)/(16a)/(16c): the rung IS active here, so the install
 # must not claim the mirror check is unwired.
-echo "$out14" | grep -qF "$MIRROR_NOT_WIRED" \
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out14" \
   && bad "(14) not-wired line printed although core.hooksPath activates the rung that runs the check" \
   || ok "(14) rung active → no mirror-check not-wired line"
 # (a) hook file delivered
@@ -596,7 +596,7 @@ grep -qi 'NOT overwriting\|NOT activated' <<<"$out1" \
 [ -f "$P4/.getff/hooks/pre-push" ] \
   && ok "(16a) case 1: getff hook body still delivered to .getff/hooks/pre-push" \
   || bad "(16a) case 1: getff hook body NOT delivered (declined too hard)"
-echo "$out1" | grep -qF "$MIRROR_NOT_WIRED" \
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out1" \
   && ok "(16a) case 1: the mirror check's not-wired line printed (the rung that runs it is not active)" \
   || bad "(16a) case 1: no mirror-check not-wired line — the delivered check runs nowhere, silently"
 rm -rf "$P4"
@@ -610,7 +610,7 @@ grep -q 'getff-python-pre-push' "$P5/.pre-commit-config.yaml" \
   || bad "(16b) case 2 FAILED: getff entry NOT appended: $(echo "$out2" | grep -i 'pre-commit\|getff' | tr '\n' '|')"
 # The fixture is not a git repository yet, so the pre-commit pre-push stage that runs the getff
 # entry cannot be installed — the delivered mirror check runs nowhere and the install must say so.
-echo "$out2" | grep -qF "$MIRROR_NOT_WIRED" \
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out2" \
   && ok "(16b) case 2: stage not installed → the mirror check's not-wired line printed" \
   || bad "(16b) case 2: no mirror-check not-wired line although the pre-commit pre-push stage is not installed"
 # Idempotency: re-run install — no duplicate entry (Task 5: marker-grep prevents duplication).
@@ -645,7 +645,7 @@ _act5=$(git -C "$P6" config --get core.hooksPath 2>/dev/null || true)
 grep -qi 'existing git hook.*pre-push' <<<"$out3" \
   && ok "(16c) case 3: printed notice naming the existing pre-push (consumer informed)" \
   || bad "(16c) case 3: no notice printed (silently broken): $(echo "$out3" | grep -i hook | tr '\n' '|')"
-echo "$out3" | grep -qF "$MIRROR_NOT_WIRED" \
+grep -qF "$MIRROR_NOT_WIRED" <<<"$out3" \
   && ok "(16c) case 3: the mirror check's not-wired line printed (the rung that runs it is not active)" \
   || bad "(16c) case 3: no mirror-check not-wired line — the delivered check runs nowhere, silently"
 rm -rf "$P6"

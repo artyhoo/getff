@@ -166,7 +166,7 @@ fi
 mkdir -p "$T/.zcode/skills"
 mk_skill "$T" second   # 'second' has no mirror entry
 run_check "$T"
-if [ "$RC" -ne 0 ] && printf '%s\n' "$CHECK_ERR" | grep -q "missing mirror entry for skill 'second'"; then
+if [ "$RC" -ne 0 ] && grep -q "missing mirror entry for skill 'second'" <<<"$CHECK_ERR"; then
   ok "(iii) NEGATIVE control: same CC-only tree once a mirror exists with a gap → rc non-zero, gap named"
 else
   bad "(iii) NEGATIVE control: a real mirror gap read rc=$RC — (ii)'s exit 0 would prove nothing"
@@ -187,7 +187,7 @@ rm "$T/.zcode/skills"
 ln -s ../nowhere "$T/.zcode/skills"
 run_check "$T"
 # A bare `rc -ne 0` passes when the check does not exist at all (sh exits 127) — the line is the proof.
-if [ "$RC" -ne 0 ] && printf '%s\n' "$CHECK_ERR" | grep -q "^check-zcode-mirror: broken mirror link 'skills'"; then
+if [ "$RC" -ne 0 ] && grep -q "^check-zcode-mirror: broken mirror link 'skills'" <<<"$CHECK_ERR"; then
   ok "(v) NEGATIVE: dangling top-level .zcode/skills link → rc non-zero, «broken mirror link 'skills'» named"
 else
   bad "(v) NEGATIVE: dangling top-level mirror link read rc=$RC without the broken-link line — a broken mirror reads complete, or the check never ran"
@@ -290,12 +290,12 @@ run_check "$T"
 if [ "$RC" -ne 0 ] \
    && [ "$(dangling_names)" = "arch" ] \
    && [ -z "$(missing_names)" ] \
-   && printf '%s\n' "$CHECK_ERR" | grep -q "dangling mirror link 'arch'"; then
+   && grep -q "dangling mirror link 'arch'" <<<"$CHECK_ERR"; then
   ok "(xi) NEGATIVE: dangling link named like an existing skill → rc non-zero, ONE dangling line, no double missing-report"
 else
   bad "(xi) NEGATIVE: rc=$RC, dangling=[$(dangling_names | tr '\n' ' ')], missing=[$(missing_names | tr '\n' ' ')] — dangling arm misfires"
 fi
-if printf '%s\n' "$CHECK_ERR" | grep -q "\.zcode/skills/arch -> ../../\.claude/skills/arhc"; then
+if grep -q "\.zcode/skills/arch -> ../../\.claude/skills/arhc" <<<"$CHECK_ERR"; then
   ok "(xi.b) the dangling line carries the link name AND its raw target (row (e))"
 else
   bad "(xi.b) the dangling line does not carry the link name + target — a consumer cannot fix what is not named"
@@ -324,7 +324,7 @@ ln -s ../../.claude/skills/alpha "$T/.zcode/skills/alpha"
 printf '# zcode mirror exemptions\nghost-skill removed from the framework in v9, mirror entry deleted too\n' \
   > "$T/.ai-factory/zcode-mirror-exemptions.txt"
 run_check "$T"
-if [ "$RC" -ne 0 ] && printf '%s\n' "$CHECK_ERR" | grep -q "stale exemption 'ghost-skill'"; then
+if [ "$RC" -ne 0 ] && grep -q "stale exemption 'ghost-skill'" <<<"$CHECK_ERR"; then
   ok "(xiii) NEGATIVE: stale exemption (skill gone) → rc non-zero, entry named"
 else
   bad "(xiii) NEGATIVE: stale exemption read rc=$RC — the escape hatch is unguarded"
@@ -346,8 +346,8 @@ ln -s ../../.claude/skills/alpha "$T/.zcode/skills/alpha"
 printf 'beta too lazy\ngamma\n' > "$T/.ai-factory/zcode-mirror-exemptions.txt"
 run_check "$T"
 if [ "$RC" -ne 0 ] \
-   && printf '%s\n' "$CHECK_ERR" | grep -q "exemption 'beta' (line 1): reason under 20 characters" \
-   && printf '%s\n' "$CHECK_ERR" | grep -q "exemption 'gamma' (line 2): no reason given"; then
+   && grep -q "exemption 'beta' (line 1): reason under 20 characters" <<<"$CHECK_ERR" \
+   && grep -q "exemption 'gamma' (line 2): no reason given" <<<"$CHECK_ERR"; then
   ok "(xv)+(xvi) NEGATIVE: short reason AND missing reason both caught, line numbers cited"
 else
   bad "(xv)+(xvi) NEGATIVE: rc=$RC — a reasonless exemption slipped through: $(printf '%s\n' "$CHECK_ERR" | grep 'exemption' | tr '\n' '|')"
@@ -438,7 +438,7 @@ mkdir -p "$T/.zcode/skills" "$T/.ai-factory"
 ln -s ../../.claude/skills/alpha "$T/.zcode/skills/alpha"
 printf 'beta excluded from ZCode\r\n' > "$T/.ai-factory/zcode-mirror-exemptions.txt"
 run_check "$T"
-if [ "$RC" -ne 0 ] && printf '%s\n' "$CHECK_ERR" | grep -q "exemption 'beta' (line 1): reason under 20 characters"; then
+if [ "$RC" -ne 0 ] && grep -q "exemption 'beta' (line 1): reason under 20 characters" <<<"$CHECK_ERR"; then
   ok "(xxii) NEGATIVE: a CRLF reason is length-checked WITHOUT its CR → 19 real chars caught"
 else
   bad "(xxii) NEGATIVE: rc=$RC — a CR-padded short reason slipped past the gate: $(printf '%s\n' "$CHECK_ERR" | grep exemption | tr '\n' '|')"
@@ -465,7 +465,7 @@ printf -- '-x deliberately excluded from ZCode: mirrored by the team sync script
   > "$T/.ai-factory/zcode-mirror-exemptions.txt"
 run_check "$T"
 if [ "$RC" -eq 0 ] && [ "$(offender_lines)" -eq 1 ] \
-   && printf '%s\n' "$CHECK_ERR" | grep -q '^check-zcode-mirror: OK'; then
+   && grep -q '^check-zcode-mirror: OK' <<<"$CHECK_ERR"; then
   ok "(xxiv) POSITIVE: a valid exemption for a skill named «-x» opens the escape hatch → rc 0, OK line"
 else
   bad "(xxiv) POSITIVE: exemption for «-x» → rc=$RC — the name reached grep as an option: $(printf '%s\n' "$CHECK_ERR" | head -2 | tr '\n' '|')"
@@ -521,7 +521,7 @@ hook_arms() {
   fi
   blocked_gap() { # the (a)-(c) verdict: blocked, the gap named, nothing downstream ran
     [ "$HOOK_RC" -ne 0 ] && [ -z "$HOOK_CALLS" ] \
-      && printf '%s\n' "$HOOK_ERR" | grep -q "missing mirror entry for skill 'beta'"
+      && grep -q "missing mirror entry for skill 'beta'" <<<"$HOOK_ERR"
   }
   new_hook_tree H
 
@@ -552,8 +552,8 @@ hook_arms() {
 
   ln -s ../../.claude/skills/beta "$H/.zcode/skills/beta"
   run_hook "$H" "$interp" "$hook"
-  if [ "$HOOK_RC" -eq 0 ] && printf '%s\n' "$HOOK_CALLS" | grep -qx "$tool" \
-     && printf '%s\n' "$HOOK_ERR" | grep -q '^check-zcode-mirror: OK'; then
+  if [ "$HOOK_RC" -eq 0 ] && grep -qx "$tool" <<<"$HOOK_CALLS" \
+     && grep -q '^check-zcode-mirror: OK' <<<"$HOOK_ERR"; then
     ok "($label d) mirror completed → rc 0, the check's OK line, $tool run"
   else
     bad "($label d) completed mirror → rc=$HOOK_RC, calls=[$(printf '%s' "$HOOK_CALLS" | tr '\n' ' ')], OK line $(printf '%s\n' "$HOOK_ERR" | grep -c '^check-zcode-mirror: OK')"
@@ -563,9 +563,9 @@ hook_arms() {
   rm -f "$H/scripts/check-zcode-mirror.sh"
   run_hook "$H" "$interp" "$hook"
   if [ "$blocked" -eq 1 ] && [ "$HOOK_RC" -eq 0 ] \
-     && printf '%s\n' "$HOOK_CALLS" | grep -qx "$tool" \
-     && printf '%s\n' "$HOOK_ERR" | grep -q 'check-zcode-mirror.sh not found' \
-     && printf '%s\n' "$HOOK_ERR" | grep -q -- '--refresh'; then
+     && grep -qx "$tool" <<<"$HOOK_CALLS" \
+     && grep -q 'check-zcode-mirror.sh not found' <<<"$HOOK_ERR" \
+     && grep -q -- '--refresh' <<<"$HOOK_ERR"; then
     ok "($label e) check removed from the (a) tree → loud WARN naming --refresh, rc 0, $tool run (the flip is the removal alone)"
   else
     bad "($label e) check removed → rc=$HOOK_RC, (a) blocked=$blocked, calls=[$(printf '%s' "$HOOK_CALLS" | tr '\n' ' ')], stderr: $(printf '%s\n' "$HOOK_ERR" | head -2 | tr '\n' '|')"
