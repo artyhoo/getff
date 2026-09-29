@@ -466,7 +466,8 @@ fi
 # The block above gates on root eslint.config.mjs — intentional for flat repos. In a multi-stack
 # monorepo there is NO root config; this block wires R2 into the configs of the workspaces whose
 # getff preset carries R2 — ts-server, react-next, react-spa, the three 60-ci.sh adds it to in a flat
-# repo's own config. The react-native preset ships no R2, so there is nothing to add to one.
+# repo's own config. The react-native preset ships no R2, so there is nothing to add to one; its HTTP
+# boundary code is a line in the NOT wired summary instead (Q4.7; its RULES.md lists R2 for every stack).
 # No --scope: workspace-local config placement already scopes ESLint to that workspace — a
 # dir-prefixed files: glob inside a workspace-local config is relative to that config's dir,
 # making 'ws/**' resolve to 'ws/ws/**' (nothing). Scoping is by config placement, not files:.
@@ -495,8 +496,13 @@ if [ "$DRY_RUN" != "--dry-run" ] \
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
         ;;
-      *)
-        : # react-native: its preset ships no R2 — nothing to add (60-ci.sh leaves a flat repo's alike)
+      react-native)
+        # Its preset ships no R2, so nothing is added to any config here (60-ci.sh leaves a flat repo's
+        # alike). HTTP boundary code under the workspace that no config there checks with R2 is one line
+        # for the workspace — whether or not the pass below could run.
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
+          note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — getff's react-native preset ships no R2, so the install adds it to no react-native config; the HTTP boundary code under $_ws_dir is not checked by R2"
+        fi
         ;;
     esac
   done <<< "$_ws_map_r2"

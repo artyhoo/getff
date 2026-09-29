@@ -92,7 +92,8 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
         _r2_out=""   # no glob lines → the patch loop below writes nothing
       elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
         # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
-        # ships no R2) — there is no boundary array to widen, so no per-glob warning either.
+        # ships no R2; any other stack: the block was edited away) — there is no boundary array to
+        # widen, so no per-glob warning either; the summary line below says which.
         _r2_no_slot=1
         _r2_out=""
       fi
@@ -137,10 +138,24 @@ $_r2_out
 EOF
       if [ "$_r2_own_cfg" = "1" ] && [ -n "$_r2_own_globs" ]; then
         echo "  · HTTP boundary detected — $_r2_root_cfg is your own config; getff adds RULE_GLOBS and R2 to it at the end of the install"
-      elif [ "$_r2_own_cfg" = "1" ]; then
-        echo "  · HTTP boundary detected, but the ${STACK:-ts-server} preset ships no R2 — nothing to add to your $_r2_root_cfg"
+      elif [ "$_r2_own_cfg" = "1" ] || { [ "$_r2_no_slot" = "1" ] && [ "${STACK:-ts-server}" = react-native ]; }; then
+        # react-native only: a boundary-present verdict always carries glob lines, which an own config
+        # keeps for every other stack (above), so an own config left with none is react-native's.
+        if [ "$_r2_own_cfg" = "1" ]; then
+          echo "  · HTTP boundary detected, but the ${STACK:-ts-server} preset ships no R2 — nothing to add to your $_r2_root_cfg"
+        else
+          echo "  · HTTP boundary detected, but this stack's eslint.config.mjs has no RULE_GLOBS block — its preset ships no R2, so there is nothing to widen"
+        fi
+        # Q4.7: boundary code R2 does not check is a gap (the preset's RULES.md lists R2 for every
+        # stack), so the NOT wired summary names it — unless the config already names R2 itself.
+        grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+             "$PROJECT_ROOT/$_r2_root_cfg" 2>/dev/null \
+          || note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_r2_root_cfg — getff's ${STACK:-ts-server} preset ships no R2, so the install adds it to no config; R2 does not check the HTTP boundary code it found through $_r2_root_cfg"
       elif [ "$_r2_no_slot" = "1" ]; then
-        echo "  · HTTP boundary detected, but this stack's eslint.config.mjs has no RULE_GLOBS block — its preset ships no R2, so there is nothing to widen"
+        # getff's config for a stack whose preset ships R2, with its RULE_GLOBS block edited away:
+        # there is no boundary array to add the globs to, and the reason is that edit, not the preset.
+        echo "  ⚠ HTTP boundary detected, but getff's eslint.config.mjs has no RULE_GLOBS block any more — R2 does not cover that code yet (see NOT wired below)" >&2
+        note_not_wired "R2 boundary globs in eslint.config.mjs — the globs for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no RULE_GLOBS block any more (edited since getff placed it); the file is left as it is"
       elif [ "$_patched" -gt 0 ]; then
         echo "  ✓ HTTP boundary detected → added $_patched glob(s) to RULE_GLOBS.boundary in eslint.config.mjs so R2 covers it"
       elif [ "$_r2_glob_failed" -gt 0 ]; then

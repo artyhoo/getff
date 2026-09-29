@@ -127,6 +127,51 @@ grep -q 'R2 auto-wire' "$F/.install.log" || bad "F: the R2 auto-wire never ran �
 grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
   && ok "F: the install says why R2 is not wired (this stack's config has no RULE_GLOBS block)" \
   || bad "F: no line saying the stack's config has no RULE_GLOBS block"
+# Q4.7: HTTP boundary code R2 does not check is a gap — packages/preset-react-native/RULES.md:17
+# lists R2 for every stack — so the NOT wired summary names it with the reason, not only the scroll.
+RN_R2_LINE='R2 (rules-as-tests/no-unsafe-zod-parse) in eslint.config.mjs — .*react-native preset ships no R2'
+not_wired() { awk '/NOT wired, or wired only in part/{on=1} on' "$1"; }
+not_wired "$F/.install.log" | grep -q "$RN_R2_LINE" \
+  && ok "F: the NOT wired summary names the boundary code R2 does not check, with the react-native reason" \
+  || bad "F: no NOT wired line for R2 naming the react-native preset (summary: $(not_wired "$F/.install.log" | tr '\n' '|'))"
+
+# ── Fixture F2 — the consumer's own eslint.config.mjs in a react-native repo with boundary code ──
+# 60-ci.sh takes the own-config branch here (no --force, so 40-configs keeps the consumer's file).
+F2=$(mktemp -d)
+printf '{"name":"f2","version":"0.0.0","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$F2/package.json"
+mkdir -p "$F2/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$F2/src/api/handler.ts"
+printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$F2/eslint.config.mjs"
+( cd "$F2" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$F2/.install.log" 2>&1 \
+  || bad "F2: install rc non-zero (tail: $(tail -3 "$F2/.install.log" | tr '\n' '|'))"
+grep -q 'preset ships no R2 — nothing to add to your eslint.config.mjs' "$F2/.install.log" \
+  || bad "F2: the own-config branch of the R2 auto-wire never ran — the arm below would be vacuous"
+not_wired "$F2/.install.log" | grep -q "$RN_R2_LINE" \
+  && ok "F2: the consumer's own react-native config with boundary code → a NOT wired line with the reason" \
+  || bad "F2: no NOT wired line for R2 naming the react-native preset (summary: $(not_wired "$F2/.install.log" | tr '\n' '|'))"
+
+# ── Fixture F0 — paired: a react-native repo with no HTTP boundary code → no R2 line ──────────
+F0=$(mktemp -d)
+printf '{"name":"f0","version":"0.0.0","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$F0/package.json"
+mkdir -p "$F0/src"; echo 'export const x = 1;' > "$F0/src/index.ts"
+install_into "$F0" react-native
+grep -q 'R2 auto-wire' "$F0/.install.log" || bad "F0: the R2 auto-wire never ran — the arm below would be vacuous"
+! not_wired "$F0/.install.log" | grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' \
+  && ok "F0: paired — a react-native repo with no HTTP boundary code gets no R2 line" \
+  || bad "F0: an R2 line for a react-native repo with no HTTP boundary code (summary: $(not_wired "$F0/.install.log" | tr '\n' '|'))"
+
+# ── Fixture F3 — paired: the consumer's own react-native config already names R2 → no R2 line ──
+# eslint.config.js, not .mjs: the check must read the config the install found, whatever its name.
+F3=$(mktemp -d)
+printf '{"name":"f3","version":"0.0.0","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$F3/package.json"
+mkdir -p "$F3/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$F3/src/api/handler.ts"
+printf "export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" > "$F3/eslint.config.js"
+( cd "$F3" && git init -q && bash "$REPO_ROOT/install.sh" react-native </dev/null ) >"$F3/.install.log" 2>&1 \
+  || bad "F3: install rc non-zero (tail: $(tail -3 "$F3/.install.log" | tr '\n' '|'))"
+grep -q 'preset ships no R2 — nothing to add to your eslint.config.js' "$F3/.install.log" \
+  || bad "F3: the own-config branch never ran on eslint.config.js — the arm below would be vacuous"
+! not_wired "$F3/.install.log" | grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' \
+  && ok "F3: paired — a react-native config of the consumer's that already names R2 gets no R2 line" \
+  || bad "F3: an R2 line for a config that already names R2 (summary: $(not_wired "$F3/.install.log" | tr '\n' '|'))"
 
 # ── Fixture G — getff's own config whose `boundary: [` array was edited away, then a re-install ──
 # The boundary globs cannot be written. The install used to answer «widen RULE_GLOBS.boundary by
@@ -153,6 +198,28 @@ grep -q 'could not add glob' "$G/.install2.log" \
 grep -q 'RULE_GLOBS.boundary.*eslint.config.mjs' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log")" \
   && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added" \
   || bad "G: the not-wired summary does not report the boundary globs that could not be added"
+
+# ── Fixture G2 — getff's ts-server config with its whole RULE_GLOBS block edited away, re-install ──
+# The «no RULE_GLOBS block» branch is chosen by the config's shape, not the stack. For a stack whose
+# preset ships R2 the reason is the edit, never «the preset ships no R2» (that is react-native's).
+G2=$(mktemp -d)
+printf '{"name":"g2","version":"0.0.0"}\n' > "$G2/package.json"
+mkdir -p "$G2/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$G2/src/api/handler.ts"
+install_into "$G2" ts-server
+sed 's/RULE_GLOBS/BOUNDARY_GLOBS/g' "$G2/eslint.config.mjs" > "$G2/eslint.config.mjs.edit" \
+  && mv "$G2/eslint.config.mjs.edit" "$G2/eslint.config.mjs"
+! grep -q 'RULE_GLOBS' "$G2/eslint.config.mjs" \
+  || bad "G2: the fixture edit left a RULE_GLOBS block — the arms below would be vacuous"
+( cd "$G2" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$G2/.install2.log" 2>&1 \
+  || bad "G2: the re-install exited non-zero (tail: $(tail -3 "$G2/.install2.log" | tr '\n' '|'))"
+grep -q 'R2 auto-wire (reading the repo)' "$G2/.install2.log" \
+  || bad "G2: the R2 auto-wire never ran on the re-install — the arms below would be vacuous"
+! grep -q 'preset ships no R2' "$G2/.install2.log" \
+  && ok "G2: a ts-server config without RULE_GLOBS → no «preset ships no R2» claim" \
+  || bad "G2: the install says the ts-server preset ships no R2: $(grep 'preset ships no R2' "$G2/.install2.log" | head -1)"
+not_wired "$G2/.install2.log" | grep -q 'R2 boundary globs in eslint.config.mjs — .*no RULE_GLOBS block' \
+  && ok "G2: the NOT wired summary names the boundary globs not added and why (no RULE_GLOBS block)" \
+  || bad "G2: no NOT wired line for the boundary globs of a config without RULE_GLOBS (summary: $(not_wired "$G2/.install2.log" | tr '\n' '|'))"
 
 # ── Fixture H — N/A recorded, a boundary appears, the install is re-run ──────────────────────
 # The no-boundary-confident branch replaces an older N/A block; the boundary branches never removed
