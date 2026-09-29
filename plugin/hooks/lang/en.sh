@@ -36,17 +36,56 @@ AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
 AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
 AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
-# Decision floors (operator directive 2026-09-28): actions the «do by hand» arm leaves with
-# the human — a merge/push/promote INTO main (a verb near main/мейн, never a bare «main»), the
-# promote PR, npm publish/login, OTP/2FA, credentials in credential context (never a bare
-# «token»), money, settings.json (agent-uncommittable by the classifier guard), and
-# operator-only harness actions (/compact, a session restart, a permission prompt). A LOWERCASE
-# ERE: the hook lowercases the whole action itself (ASCII + Cyrillic, locale-independent) and
-# matches it with LC_ALL=C grep -E, parenthesis included. Identical value in BOTH packs (same
-# reason as AIF_EOT_FOR_YOU_BANNED: an operator on either pack writes in either language).
-# Word-bounded where a bare substring over-matches (pay ⊂ repay, otp ⊂ lotpath); «плат» only
-# before a vowel (never «платформа»); no bare Russian «ключ» (it sits inside «включить»).
-AIF_EOT_HANDS_FLOOR='((^|[^[:alnum:]_])(merge[a-z]*|push[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_]|$)|влить|влей|вмерж|смерж|замерж|мерж|залить|залей|запуш|пушн|промоут)(([^.;]*[^[:alnum:]_])?(main|master)([^[:alnum:]_]|$)|[^.;]*(мейн|мастер))|staging *(->|→|=>|to) *(main|master)|promote[- ]pr|промоут[- ]?pr|npm publish|publish.*npm|опубликова.*npm|npm (login|adduser|token)|(^|[^[:alnum:]_])otp([^[:alnum:]_]|$)|2fa|one-time|одноразов|passw|парол|credential|api[ -]?(key|token)|(access|auth|personal access|github|npm|bearer|deploy) token|token value|(^|[^[:alnum:]_])pat([^[:alnum:]_]|$)|secret (key|value|token)|(set|add|rotate|paste|enter|update)[^.;]* secrets?([^[:alnum:]_-]|$)|токен (доступа|api|npm|github)|api[ -]?(ключ|токен)|ключ (api|доступа)|секрет|(^|[^[:alnum:]_])(pay|buy)([^[:alnum:]_]|$)|payment|purchas|invoice|billing|money|деньг|оплат|плат(и|ё|е|а|у|ы|я)|купи|покуп|settings\.json|/compact|restart[^.;]*(session|claude)|перезапуст[^.;]*(сесси|claude)|permission prompt|approve[^.;]*permission|разрешени[^.;]*(запрос|промпт)|(подтверди|одобри)[^.;]*разрешени'
+# Manual-step arm (Stop hook, operator directive 2026-09-28). All five keys below are
+# LOWERCASE C-locale EREs (the hook lowercases ASCII + Cyrillic itself and matches with
+# LC_ALL=C grep/awk -E) with ONE bilingual value, identical in BOTH packs: an operator on either
+# pack writes in either language, so the arm reads the hand-off line in both.
+# PREFIX_RE — the hand-off line; TOKEN_RE — the explicit «do by hand» form at the start of its
+# value (`:`, em/en dash or hyphen after it); KEYWORD_RE — a manual keyword anywhere in the value
+# before its first `(`; SKIP_RE — the other D-B values (nothing / waiting / decide), which never
+# take the keyword path.
+# AIF_EOT_HANDS_FLOOR — decision floors the arm leaves with the human, ONE ERE PER LINE (the hook
+# matches the action against every line; never add a blank line — an empty ERE matches
+# everything): a merge/promote verb anywhere + main anywhere (never a bare «main», never a push
+# of a feature branch or a PR opened against main), a push straight to main, npm release,
+# one-time codes, credentials in credential context (never a bare «token»), money, settings.json,
+# /compact, a session restart, a permission prompt, and a choice at a fork. Word-bounded where a
+# bare substring over-matches (pay ⊂ repay, секрет ⊂ секретарский, плату ⊂ оплату).
+AIF_EOT_HANDS_PREFIX_RE='(from you|от тебя):'
+AIF_EOT_HANDS_TOKEN_RE='^(do by hand|сделать руками)[[:space:]]*(:|—|–|-)'
+AIF_EOT_HANDS_KEYWORD_RE='(^|[^[:alnum:]_])(by hand|manually)([^[:alnum:]_]|$)|руками|вручную'
+AIF_EOT_HANDS_SKIP_RE='^(nothing|ничего|waiting|ждём|ждем|жду|decide|решить)'
+AIF_EOT_HANDS_FLOOR='(^|[^[:alnum:]_])(merge[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_].*)?((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер)
+(влить|влей|влива|вмерж|см(е|ё)рж|зам(е|ё)рж|м(е|ё)рж|слить|слей|слива|залить|залей|промоут).*((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер)
+((^|[^[:alnum:]_])(main|master)[^[:alnum:]_]|мейн|мастер)(.*[^[:alnum:]_])?(merge[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_]|$)
+((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер).*(влить|влей|влива|вмерж|см(е|ё)рж|зам(е|ё)рж|м(е|ё)рж|слить|слей|слива|залить|залей|промоут)
+staging *(->|→|=>|to|into|в) *(main|master|мейн)
+promote[- ]pr|промоут[- ]?pr
+(^|[^[:alnum:]_])push[a-z]*( [^ .;]+){0,2} (to|into) (origin[ /])?(main|master)([^[:alnum:]_]|$)
+(запуш|пушн)[^ ]*( [^ .;]+){0,2} (в|на) (origin[ /])?(main|master|мейн)
+npm publish|(publish|release)[a-z]*.*npm|(опубликова|выпуст|релизн|выкат).*npm|npm (login|adduser|token)
+(^|[^[:alnum:]_])(otp|totp|2fa|mfa)([^[:alnum:]_]|$)|one-time (code|password|passcode|pass|token|pin|key|link)|одноразов
+verification code|security code|auth(entication)? code|authenticator|аутентификатор|код (подтверждения|из (sms|смс|приложения))
+passw|passphrase|парол|credential
+api[ -]?(key|token)|(access|auth|personal access|github|gh|npm|bearer|deploy|api|pypi|oauth) token|token value|(^|[^[:alnum:]_])pat([^[:alnum:]_]|$)
+[[:alnum:]]_(token|secret|password|passwd|pat)([^[:alnum:]_]|$)
+(paste|enter|insert|rotate|type|copy|provide|regenerat|revok|generat|issue|put)[a-z]*[^.;]*[^[:alnum:]_]token([^[:alnum:]_]|$)
+secret (key|value|token)|(set|add|rotate|paste|enter|update|put|insert)[^.;]* secrets?([^[:alnum:]_-]|$)
+токен (доступа|api|npm|github|gh)|(github|gh|npm|api|deploy|personal)[- ]?токен|(встав|введ|ввест|скопир|смен|ротир|перевыпуст|сгенер|выда|выпуст)[^.;]*токен
+api[ -]?(ключ|токен)|ключ (api|доступа)|секрет(ы|а|ов|у|ом|е|ами|ах|ам|ный|ного|ные|ную)?([[:space:][:punct:]]|»|$)
+(^|[^[:alnum:]_])(pay|buy)([^[:alnum:]_]|$)|payment|purchas|invoice|money|refund
+billing (details|info|information|address|method|account|plan|settings)
+(^|[^[:alnum:]_])top[- ]?up([^[:alnum:]_]|$)|(buy|add|purchase|refill)[a-z]*[^.;]*credits
+(renew|extend)[a-z]*[^.;]*(domain|subscription|licen[cs]e|plan)|(upgrade|downgrade)[a-z]*[^.;]*(plan|tier|subscription|seat)
+[0-9] ?(usd|eur|€|₽|руб)|(usd|eur|€) ?[0-9]
+деньг|(^|[[:space:][:punct:]]|«)(за|о|у|вы)?плат(и|ить|ите|им|ишь|ит)([[:space:][:punct:]]|»|$)|купи|покуп|инвойс|тариф
+пополн[^.;]*(баланс|счёт|счет|кредит|карт)|продл[^.;]*(подписк|домен|лиценз|тариф)|(оформ|купи|оплат)[^.;]*подписк
+settings\.json|/compact
+(restart|relaunch|reload|reopen)[a-z]*[^.;]*(session|claude|harness)|(перезапуст|рестарт|перезагруз|переоткр)[^.;]*(сесси|claude|харнес)
+permission (prompt|dialog|request|popup|pop-up)|(approve|accept|allow|grant|click|confirm)[a-z]*[^.;]*permission
+разрешени[^.;]*(запрос|промпт|диалог)|запрос[^.;]*разрешени|(подтверд|одобр|приня|прими)[^.;]*разрешени|(нажа|нажм|кликн)[^.;]*(разрешить|allow)
+(^|[^[:alnum:]_])(pick|choose|select|decide)[a-z]*([^[:alnum:]_].*)?[^[:alnum:]_](or|between|vs)([^[:alnum:]_]|$)
+(^|[[:space:][:punct:]]|«)(выбра|выбер|выбор|реши|решить)[^.;]*(или|между)|развилк'
 # Defect labels. Each one is a SELF-DESCRIBING phrase, never a bare token and never a raw
 # regex: the gate joins them into one `; `-separated list under a neutral verb, so a label
 # that only names a thing (a section, an alternation) reads to the model as "add this".

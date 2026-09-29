@@ -39,18 +39,55 @@ AIF_EOT_FOR_YOU_HANDS='сделать руками: <одно действие>'
 # reads English answers, so a ru-only list left "review the diff and make sure it is fine"
 # undetected in the very pack this operator runs (final review M-4).
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
-# Ручной шаг (Stop-хук, директива оператора 28.09.2026): ПОЛЫ решений, которые остаются за
-# человеком даже в строке «сделать руками» — мерж/пуш/промоут В main (глагол рядом с main/мейн,
-# никогда не голое «main»), промоут-PR, npm publish/login, OTP/2FA, учётные данные в их контексте
-# (никогда не голое «token»), деньги, settings.json (агенту не закоммитить из-за классификатора)
-# и действия только для оператора в харнессе (/compact, перезапуск сессии, запрос разрешения).
-# ERE в НИЖНЕМ регистре: хук сам приводит всё действие к нижнему регистру (ASCII + кириллица,
-# без зависимости от локали) и сверяет через LC_ALL=C grep -E, скобки включительно. Значение
-# ОДИНАКОВОЕ в обоих паках (та же причина, что у AIF_EOT_FOR_YOU_BANNED: оператор на любом паке
-# пишет на любом языке). Границы слов там, где голая подстрока ловит лишнее (pay ⊂ repay,
-# otp ⊂ lotpath); «плат» только перед гласной (никогда «платформа»); голого «ключ» нет — он
-# сидит внутри «включить».
-AIF_EOT_HANDS_FLOOR='((^|[^[:alnum:]_])(merge[a-z]*|push[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_]|$)|влить|влей|вмерж|смерж|замерж|мерж|залить|залей|запуш|пушн|промоут)(([^.;]*[^[:alnum:]_])?(main|master)([^[:alnum:]_]|$)|[^.;]*(мейн|мастер))|staging *(->|→|=>|to) *(main|master)|promote[- ]pr|промоут[- ]?pr|npm publish|publish.*npm|опубликова.*npm|npm (login|adduser|token)|(^|[^[:alnum:]_])otp([^[:alnum:]_]|$)|2fa|one-time|одноразов|passw|парол|credential|api[ -]?(key|token)|(access|auth|personal access|github|npm|bearer|deploy) token|token value|(^|[^[:alnum:]_])pat([^[:alnum:]_]|$)|secret (key|value|token)|(set|add|rotate|paste|enter|update)[^.;]* secrets?([^[:alnum:]_-]|$)|токен (доступа|api|npm|github)|api[ -]?(ключ|токен)|ключ (api|доступа)|секрет|(^|[^[:alnum:]_])(pay|buy)([^[:alnum:]_]|$)|payment|purchas|invoice|billing|money|деньг|оплат|плат(и|ё|е|а|у|ы|я)|купи|покуп|settings\.json|/compact|restart[^.;]*(session|claude)|перезапуст[^.;]*(сесси|claude)|permission prompt|approve[^.;]*permission|разрешени[^.;]*(запрос|промпт)|(подтверди|одобри)[^.;]*разрешени'
+# Ручной шаг (Stop-хук, директива оператора 28.09.2026). Все пять ключей ниже — ERE в НИЖНЕМ
+# регистре под локалью C (хук сам приводит ASCII + кириллицу к нижнему регистру и сверяет через
+# LC_ALL=C grep/awk -E), значение ОДНО двуязычное и ОДИНАКОВОЕ в обоих паках: оператор на любом
+# паке пишет на любом языке, поэтому строку передачи хук читает на обоих.
+# PREFIX_RE — строка передачи; TOKEN_RE — явная форма «сделать руками» в начале значения (после
+# неё `:`, тире или дефис); KEYWORD_RE — слово ручного шага где угодно в значении до первой `(`;
+# SKIP_RE — остальные значения D-B (ничего / ждём / решить), они по слову не срабатывают.
+# AIF_EOT_HANDS_FLOOR — ПОЛЫ решений, которые остаются за человеком, ОДИН ERE НА СТРОКУ (хук
+# сверяет действие с каждой строкой; пустую строку не добавлять — пустой ERE совпадает со
+# всем): глагол мержа/промоута где угодно + main где угодно (никогда не голое «main», никогда
+# пуш фича-ветки или PR в сторону main), пуш прямо в main, релиз в npm, одноразовые коды,
+# учётные данные в их контексте (никогда не голое «token»), деньги, settings.json, /compact,
+# перезапуск сессии, запрос разрешения и выбор на развилке. Границы слов там, где голая
+# подстрока ловит лишнее (pay ⊂ repay, секрет ⊂ секретарский, плату ⊂ оплату).
+AIF_EOT_HANDS_PREFIX_RE='(from you|от тебя):'
+AIF_EOT_HANDS_TOKEN_RE='^(do by hand|сделать руками)[[:space:]]*(:|—|–|-)'
+AIF_EOT_HANDS_KEYWORD_RE='(^|[^[:alnum:]_])(by hand|manually)([^[:alnum:]_]|$)|руками|вручную'
+AIF_EOT_HANDS_SKIP_RE='^(nothing|ничего|waiting|ждём|ждем|жду|decide|решить)'
+AIF_EOT_HANDS_FLOOR='(^|[^[:alnum:]_])(merge[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_].*)?((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер)
+(влить|влей|влива|вмерж|см(е|ё)рж|зам(е|ё)рж|м(е|ё)рж|слить|слей|слива|залить|залей|промоут).*((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер)
+((^|[^[:alnum:]_])(main|master)[^[:alnum:]_]|мейн|мастер)(.*[^[:alnum:]_])?(merge[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_]|$)
+((^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)|мейн|мастер).*(влить|влей|влива|вмерж|см(е|ё)рж|зам(е|ё)рж|м(е|ё)рж|слить|слей|слива|залить|залей|промоут)
+staging *(->|→|=>|to|into|в) *(main|master|мейн)
+promote[- ]pr|промоут[- ]?pr
+(^|[^[:alnum:]_])push[a-z]*( [^ .;]+){0,2} (to|into) (origin[ /])?(main|master)([^[:alnum:]_]|$)
+(запуш|пушн)[^ ]*( [^ .;]+){0,2} (в|на) (origin[ /])?(main|master|мейн)
+npm publish|(publish|release)[a-z]*.*npm|(опубликова|выпуст|релизн|выкат).*npm|npm (login|adduser|token)
+(^|[^[:alnum:]_])(otp|totp|2fa|mfa)([^[:alnum:]_]|$)|one-time (code|password|passcode|pass|token|pin|key|link)|одноразов
+verification code|security code|auth(entication)? code|authenticator|аутентификатор|код (подтверждения|из (sms|смс|приложения))
+passw|passphrase|парол|credential
+api[ -]?(key|token)|(access|auth|personal access|github|gh|npm|bearer|deploy|api|pypi|oauth) token|token value|(^|[^[:alnum:]_])pat([^[:alnum:]_]|$)
+[[:alnum:]]_(token|secret|password|passwd|pat)([^[:alnum:]_]|$)
+(paste|enter|insert|rotate|type|copy|provide|regenerat|revok|generat|issue|put)[a-z]*[^.;]*[^[:alnum:]_]token([^[:alnum:]_]|$)
+secret (key|value|token)|(set|add|rotate|paste|enter|update|put|insert)[^.;]* secrets?([^[:alnum:]_-]|$)
+токен (доступа|api|npm|github|gh)|(github|gh|npm|api|deploy|personal)[- ]?токен|(встав|введ|ввест|скопир|смен|ротир|перевыпуст|сгенер|выда|выпуст)[^.;]*токен
+api[ -]?(ключ|токен)|ключ (api|доступа)|секрет(ы|а|ов|у|ом|е|ами|ах|ам|ный|ного|ные|ную)?([[:space:][:punct:]]|»|$)
+(^|[^[:alnum:]_])(pay|buy)([^[:alnum:]_]|$)|payment|purchas|invoice|money|refund
+billing (details|info|information|address|method|account|plan|settings)
+(^|[^[:alnum:]_])top[- ]?up([^[:alnum:]_]|$)|(buy|add|purchase|refill)[a-z]*[^.;]*credits
+(renew|extend)[a-z]*[^.;]*(domain|subscription|licen[cs]e|plan)|(upgrade|downgrade)[a-z]*[^.;]*(plan|tier|subscription|seat)
+[0-9] ?(usd|eur|€|₽|руб)|(usd|eur|€) ?[0-9]
+деньг|(^|[[:space:][:punct:]]|«)(за|о|у|вы)?плат(и|ить|ите|им|ишь|ит)([[:space:][:punct:]]|»|$)|купи|покуп|инвойс|тариф
+пополн[^.;]*(баланс|счёт|счет|кредит|карт)|продл[^.;]*(подписк|домен|лиценз|тариф)|(оформ|купи|оплат)[^.;]*подписк
+settings\.json|/compact
+(restart|relaunch|reload|reopen)[a-z]*[^.;]*(session|claude|harness)|(перезапуст|рестарт|перезагруз|переоткр)[^.;]*(сесси|claude|харнес)
+permission (prompt|dialog|request|popup|pop-up)|(approve|accept|allow|grant|click|confirm)[a-z]*[^.;]*permission
+разрешени[^.;]*(запрос|промпт|диалог)|запрос[^.;]*разрешени|(подтверд|одобр|приня|прими)[^.;]*разрешени|(нажа|нажм|кликн)[^.;]*(разрешить|allow)
+(^|[^[:alnum:]_])(pick|choose|select|decide)[a-z]*([^[:alnum:]_].*)?[^[:alnum:]_](or|between|vs)([^[:alnum:]_]|$)
+(^|[[:space:][:punct:]]|«)(выбра|выбер|выбор|реши|решить)[^.;]*(или|между)|развилк'
 # Ярлыки дефектов. Каждый — САМОописательная фраза, никогда не голый токен и не сырой
 # regex: ворота склеивают их в один список через «; » под нейтральным глаголом, поэтому
 # ярлык, который просто называет вещь, читается моделью как «допиши это».

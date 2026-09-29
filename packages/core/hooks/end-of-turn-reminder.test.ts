@@ -3400,6 +3400,7 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
       tmp?: string;
       env?: Record<string, string>;
       hook?: string;
+      shell?: string;
       askTool?: boolean;
     } = {},
   ): { status: number; stdout: string; stderr: string } {
@@ -3409,8 +3410,8 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     const tr = writeTranscript([aiTitle('Hands'), userTurn('go'), last]);
     const stdin = { transcript_path: tr, stop_hook_active: false, session_id: opts.session ?? 'hands' };
     const env = { AIF_HOOK_LANG: opts.lang ?? 'en', AIF_RECAP_GATE: '', TMPDIR: tmp, ...opts.env };
-    if (opts.hook) {
-      const r = spawnSync('bash', [opts.hook], {
+    if (opts.hook || opts.shell) {
+      const r = spawnSync(opts.shell ?? 'bash', [opts.hook ?? HOOK], {
         input: JSON.stringify(stdin),
         encoding: 'utf8',
         env: { ...process.env, CLAUDE_CODE_ENTRYPOINT: 'cli', ...env },
@@ -3478,7 +3479,9 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     'silent for the non-manual value %s',
     (value) => {
       if (!JQ) return;
-      expect(handsRun(`Done.\nFrom you: ${value}`).stdout).toBe('');
+      const r = handsRun(`Done.\nFrom you: ${value}`);
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout).toBe('');
     },
   );
 
@@ -3501,12 +3504,17 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     ['run the jq command on .claude/settings.json'],
   ])('silent for the decision floor %s', (value) => {
     if (!JQ) return;
-    expect(handsRun(`Done.\nFrom you: do by hand: ${value}`).stdout).toBe('');
+    const r = handsRun(`Done.\nFrom you: do by hand: ${value}`);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
   });
 
   it.skipIf(!JQ)('ru floors: пароль / оплата never fire', () => {
-    expect(handsRun('Готово.\nОт тебя: сделать руками: ввести пароль от реестра', { lang: 'ru' }).stdout).toBe('');
-    expect(handsRun('Готово.\nОт тебя: сделать руками: оплатить счёт', { lang: 'ru' }).stdout).toBe('');
+    for (const value of ['ввести пароль от реестра', 'оплатить счёт']) {
+      const r = handsRun(`Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru' });
+      expect(r.status, r.stderr).toBe(0);
+      expect(r.stdout).toBe('');
+    }
   });
 
   it.skipIf(!JQ)('a floor named only inside the parenthesis still floors the action (whole action is matched)', () => {
@@ -3571,7 +3579,9 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
   // be deleted unnoticed (mutation check, this PR).
   it.each([
     ['no message function', /^aif_msg_eot_hands_step\(\) \{[\s\S]*?^\}$/m, /aif_msg_eot_hands_step\(\)/],
-    ['no floor key', /^AIF_EOT_HANDS_FLOOR=.*$/m, /AIF_EOT_HANDS_FLOOR=/],
+    // The floor value spans many lines (one ERE per line): strip the WHOLE quoted assignment.
+    ['no floor key', /^AIF_EOT_HANDS_FLOOR='[^']*'$/m, /AIF_EOT_HANDS_FLOOR=/],
+    ['no hand-off line key', /^AIF_EOT_HANDS_PREFIX_RE=.*$/m, /AIF_EOT_HANDS_PREFIX_RE=/],
   ] as const)('a consumer on an OLDER pack (%s) degrades to silent, rc 0', (_label, strip, gone) => {
     if (!JQ) return;
     const box = mkdtempSync(join(tmpdir(), 'eot-hands-oldpack-'));
@@ -3733,6 +3743,151 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     expect(handsRun('Done.\nFrom you: do by hand: rerun the flaky job', o).stdout).toContain(HANDS_TAG);
     expect(handsRun('Done.\nFrom you: do by hand: re-run the flaky CI job', o).stdout).toContain(HANDS_TAG);
     expect(handsRun('Done.\nFrom you: do by hand: kick the flaky job again', o).stdout).toBe('');
+  });
+
+  // ── Cold-review rework, round 2 (2026-09-29) ─────────────────────────────────────────
+  // BLOCKER 1 / MAJOR 5: the arm ran a per-letter `${s//X/Y}` loop over the WHOLE turn — under
+  // bash 3.2 in the C locale 16 KB of Cyrillic took 44 s and 64 KB over 6 min. The operator's
+  // Mac runs /bin/bash 3.2 with no LANG/LC_*, so the bound is measured on exactly that shell.
+  const MAC_BASH = existsSync('/bin/bash') ? '/bin/bash' : 'bash';
+  const bigCyrillic = (): string => {
+    const line = 'Проверил Сборку И Тесты, Всё Зелёное. Ещё Одна Строка Про Изменения В Хуке.\n';
+    return line.repeat(Math.ceil((21 * 1024) / Buffer.byteLength(line)));
+  };
+  it.each([
+    ['no hand-off line', '', false],
+    ['a hand-off line at the end', '\nОт тебя: сделать руками: Закрыть задачу в aif', true],
+  ] as const)('a ≥20 KB Cyrillic turn under LC_ALL=C /bin/bash finishes in < 5 s (%s)', (_label, tail, fires) => {
+    if (!JQ) return;
+    const text = bigCyrillic() + tail;
+    expect(Buffer.byteLength(text)).toBeGreaterThanOrEqual(20 * 1024);
+    const t0 = Date.now();
+    const r = handsRun(text, { lang: 'ru', shell: MAC_BASH, env: { LC_ALL: 'C', LANG: '' } });
+    const ms = Date.now() - t0;
+    expect(r.status, r.stderr).toBe(0);
+    expect(ms).toBeLessThan(5000);
+    if (fires) {
+      const reason = reasonOf(r.stdout);
+      expect(reason).toContain(HANDS_TAG);
+      expect(reason).toContain('Закрыть задачу в aif');
+    } else {
+      expect(r.stdout).not.toContain(HANDS_TAG);
+    }
+  });
+
+  // MAJOR 2: a merge verb ANYWHERE + main ANYWHERE is the merge-to-main floor — across `;` and
+  // `.`, with ё spellings and the «слить» family. The block text says «do it yourself now», so a
+  // leak here invites the model to merge into main itself.
+  it.each([
+    ['ru', 'смёржить PR в main'],
+    ['ru', 'смёржить #1900 в main'],
+    ['ru', 'мёрж в main'],
+    ['ru', 'слить staging в main'],
+    ['ru', 'слей staging в main'],
+    ['ru', 'смержить #1900 (это промоут; база — main).'],
+    ['en', 'merge #1900; it targets main'],
+    ['en', 'merge #1900. Base is main'],
+  ] as const)('merge-to-main floor (%s) %s stays silent', (lang, value) => {
+    if (!JQ) return;
+    const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
+    const r = handsRun(pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  // MAJOR 3: one case per floor class the first rework still leaked.
+  it.each([
+    ['money', 'en', 'top up the Anthropic credits'],
+    ['money', 'en', 'renew the domain ($12)'],
+    ['money', 'en', 'upgrade the plan to Pro'],
+    ['money', 'ru', 'пополнить баланс'],
+    ['money', 'ru', 'продлить подписку'],
+    ['permission prompt', 'en', 'accept the permission dialog'],
+    ['permission prompt', 'en', 'click Allow on the permission request'],
+    ['permission prompt', 'ru', 'нажать «Разрешить» в запросе'],
+    ['restart', 'en', 'relaunch the session'],
+    ['restart', 'ru', 'рестартнуть сессию'],
+    ['credentials', 'en', 'paste your token into .env'],
+    ['credentials', 'ru', 'вставить токен в .env'],
+    ['credentials', 'ru', 'вставить GitHub-токен'],
+    ['credentials', 'en', 'rotate the GH_TOKEN'],
+    ['one-time code', 'en', 'type the verification code from the authenticator'],
+    ['npm release', 'en', 'release 0.4.0 to the npm registry'],
+    ['fork choice', 'en', 'pick A or B'],
+    ['fork choice', 'ru', 'выбрать вариант A или B'],
+  ] as const)('floor class %s (%s) %s stays silent', (_cls, lang, value) => {
+    if (!JQ) return;
+    const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
+    const r = handsRun(pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  // MAJOR 4: the hand-off line is read in BOTH languages whatever the pack; the explicit form
+  // takes `:`, a dash or a hyphen; a manual keyword anywhere in the value fires too.
+  it.each([
+    ['ru', 'Готово.\nОт тебя: закрыть задачу в aif руками', 'закрыть задачу в aif руками'],
+    ['ru', 'Готово.\nОт тебя: руками закрыть задачу в aif', 'руками закрыть задачу в aif'],
+    ['ru', 'Готово.\n**От тебя:** сделать руками — закрыть задачу в aif', 'закрыть задачу в aif'],
+    ['ru', 'Готово.\nFrom you: do by hand: close the aif task', 'close the aif task'],
+    ['en', 'Done.\nОт тебя: сделать руками: закрыть задачу', 'закрыть задачу'],
+    ['en', 'Done.\nFrom you: close the tracker task manually', 'close the tracker task manually'],
+  ] as const)('(%s pack) fires: %j', (lang, text, action) => {
+    if (!JQ) return;
+    const r = handsRun(text, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    expect(r.status, r.stderr).toBe(0);
+    const reason = reasonOf(r.stdout);
+    expect(reason).toContain(HANDS_TAG);
+    expect(reason).toContain(action);
+  });
+
+  it.each([
+    ['en', 'Done.\nFrom you: close the task in the tracker'],
+    ['ru', 'Готово.\nОт тебя: закрыть задачу в aif'],
+    ['en', 'Done.\nFrom you: nothing (checked it manually, CI green)'],
+    ['ru', 'Готово.\nОт тебя: ничего (проверил руками)'],
+    ['en', 'Done.\nFrom you: decide: do it by hand or automate it'],
+  ] as const)('(%s pack) a hand-off line without a manual form stays silent: %j', (lang, text) => {
+    if (!JQ) return;
+    const r = handsRun(text, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).not.toContain(HANDS_TAG);
+  });
+
+  // MINOR 9: only a fence at column 0-3 toggles, and a fence still open at EOF is not a block.
+  it.each([
+    ['an indented (code-block) fence', 'Done.\nFrom you: nothing (CI green)\n\n    ```\nFrom you: do by hand: rerun the flaky job'],
+    ['an unclosed fence', 'Done.\nFrom you: nothing (CI green)\n\n```\nFrom you: do by hand: rerun the flaky job'],
+  ])('a hand-off line after %s still fires', (_label, text) => {
+    if (!JQ) return;
+    expect(reasonOf(handsRun(text).stdout)).toContain(HANDS_TAG);
+  });
+
+  // MINOR 10: the value may start on the line after an empty «From you:».
+  it.skipIf(!JQ)('a value on the line after an empty «From you:» fires', () => {
+    const reason = reasonOf(handsRun('Done.\nFrom you:\ndo by hand: close the task in the tracker').stdout);
+    expect(reason).toContain(HANDS_TAG);
+    expect(reason).toContain('close the task in the tracker');
+  });
+
+  // MINOR 11: over-broad floor words silenced real manual steps.
+  it.each([
+    ['en', 'run the one-time cleanup script'],
+    ['en', 'update the billing page copy'],
+    ['ru', 'поправить опечатку в разделе про оплату'],
+    ['ru', 'удалить секретарский шаблон'],
+    ['en', 'push the fix branch and open a PR against main'],
+  ] as const)('(%s) real manual step %s fires', (lang, value) => {
+    if (!JQ) return;
+    const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
+    const r = handsRun(pre + value, { lang, env: { LC_ALL: 'C', LANG: '' } });
+    expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
+  });
+
+  // MINOR 12: only markdown emphasis is stripped — an identifier keeps its underscores.
+  it.skipIf(!JQ)('the quoted action keeps underscores inside identifiers', () => {
+    const reason = reasonOf(handsRun('Done.\nFrom you: do by hand: rename **my_var_name** in the config').stdout);
+    expect(reason).toContain('rename my_var_name in the config');
   });
 
   it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', () => {

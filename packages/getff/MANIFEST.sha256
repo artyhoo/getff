@@ -7,7 +7,7 @@ eb124d77f5093cf3e78536abd5aa7ea93e2d99b63e9f28c99d31026abf6cd470  .claude/hooks/
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
 eb02bc137301120499702afda868b7fe033b395b615783b285cf521452dc2c84  .claude/hooks/close-aif-task-on-merge.sh
 6cc4f623d4e277b75ea7f1f47abe975cb03b9e58cecd2dd9c390b8d0dad160b8  .claude/hooks/deps-hash-check.sh
-d9090ae200a914d5089bcf32d001c4b1e67246f81173f7160c2f4c88508eeb93  .claude/hooks/end-of-turn-reminder.sh
+88c701da4886ab1f44fe8a64dbba3ffcfd9d6f724e732508c768c91323d1acfd  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
 6a53a97e5daa2ef2bd9a703cd5fbdc0516ab6ed339af46850bfd761b93faeeb3  .claude/hooks/inject-handoff-on-compact.sh
 030e76a0cacab56fdcd491e9a3e2280db1d5d901f2936b20f2ed1ded89d8fe05  .claude/hooks/inject-matching-rule.sh
@@ -18,8 +18,8 @@ b0e1d6129328ae37b273e2b6f0c1e6483f6998cc36e60d220bc84ba47981571a  .claude/hooks/
 662cec213c70fe0c77d932ff58612de7c63072068ed6e15055f009329e9381ee  .claude/hooks/inject-subagent-context.sh
 cde32f185b4a770570803a9d9a7ac864f475bbac875576daf04df0db0965bf17  .claude/hooks/inject-subagent-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
-517cfb7229e7f32d5c534bc29720e00c797e36e0e6f59634ee1fe115ed2ebcba  .claude/hooks/lang/en.sh
-3f966884f7cf38fd0a36859c6fba18183ff486261980136791d3259f919e61fa  .claude/hooks/lang/ru.sh
+770c45c28f62048d7cd640721715ee313b31ba3d134bdb104e224544f5cf599e  .claude/hooks/lang/en.sh
+dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
 6b16f80d978939dcc84987c7fd29ce7e303c8ab4b57e8972441d1c29fcb5bee8  .claude/hooks/precompact-residue.sh
@@ -467,7 +467,7 @@ c7fc99171a5c2ec6fd8912cf5bd671f5fb685865bb51631294928920e1adc19f  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-d3fa3f4c5a66eae6e74c97c6797067126740776d7ea0fde5f19b6699058497cc  packages/core/hooks/end-of-turn-reminder.test.ts
+1c9f87032830ab83e63fffdc81b04511e6fc82989db8534c9f11babfacc4ef84  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 3339c8a729b6faf284fb38e5b36544c102547c9801fe1334633b4375943aab9c  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
