@@ -438,6 +438,8 @@ cff85d30ae62cf8a7e30e6f9d25c1084135cb5797b7c456ac8c710a41858017b  packages/core/
 53d0553901d65f9ac1a685d1da27dcb7821385c4b96d04d8fd025c6383746db7  packages/core/hooks/checks/guard-liveness-fullsweep.ts
 3200f762806ac49f1c615339f2aa70a5c169686f761300eb40a4acfafb2b99cc  packages/core/hooks/checks/guard-liveness.test.ts
 5c37e5f230f0fed95f6b95bb58247ff6ccb2c56b81e7b8d7f3e6fd252bd4b395  packages/core/hooks/checks/guard-liveness.ts
+f49fce0be37115a17d877a51685b0ad5f904f395303d76ec8ec77287417d63fc  packages/core/hooks/checks/harness-config-local.test.ts
+21da3f6b1d19b9722dfb07be47872c9255800f904fec77942143ae0f16f6881f  packages/core/hooks/checks/harness-config-local.ts
 5cd34075b76e975b064acd03a8824b114a90e754f4d7f2d939fd35d690b722b8  packages/core/hooks/checks/pr-body-fidelity-bin.test.ts
 70629451b86cb9594b5f55ee15a377c6a9ee800b6b868f68dcb3257ae02a8ff7  packages/core/hooks/checks/pr-body-fidelity-bin.ts
 7f6357956564c118ecc8aef3f36df380d4f2047919d2616df6754c8a88fd4d61  packages/core/hooks/checks/pr-body-fidelity.test.ts
@@ -489,14 +491,14 @@ d6e580db7d344e3adf72603ded31fe821e84613b6e1bc54933a6b784c1acdd60  packages/core/
 7d978b420b2045de62324d0b15e0856819b4d4eee0cfbe7543d069258b7d97d4  packages/core/hooks/parse-override-flags.test.ts
 d637a9d9344e8db5d773c54dff8f950a3468e99f0fdc38d2661ccd620b7aa4ce  packages/core/hooks/parse-preset.test.ts
 c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/hooks/pin-parity.test.ts
-5d7d349c366b74d0ec408999be0d28eb33721ffcb039980d3d581805760ae3cb  packages/core/hooks/pre-push.bundle.mjs
+75a5173e8823d86361504fef906269dd64b65f33370d0e881c114548bab214c4  packages/core/hooks/pre-push.bundle.mjs
 b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/hooks/pre-push.consumer-layout.test.ts
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
 f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 4becabbe2b02b982301a260f3d9c7b81cb7510a80229e4df0deb0540472844a0  packages/core/hooks/pre-push.test.ts
-f07d256eea89d16f739e5a0800bc29d0ba62d69e408da5d8e257602ef96e4d89  packages/core/hooks/pre-push.ts
+aea60ab35bcd932995561321948144410e8c4f6913892593310a283ab837cb7f  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts
