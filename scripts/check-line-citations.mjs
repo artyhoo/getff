@@ -158,7 +158,7 @@
  * edit breaks the render gate, and `cite:historical` would assert a past state that
  * never existed). ARM 2 deliberately still applies inside regions.
  */
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { isMainEntry } from './lib/is-main-entry.mjs';
@@ -612,7 +612,9 @@ export function scanFile(srcFile) {
   const skips = [];
   let resolvedCount = 0;
   // Rows the generator-region defer exempted from ARM 1. Counted separately so the
-  // `resolved N / skipped M` summary keeps meaning «ARM-verified»: a deferred row is
+  // `resolved N / skipped M` summary keeps meaning «ARM-verified» (one declared
+  // exception: `--affected-by` narrows ARM 1 on purpose, and its unscoped citations stay
+  // in `resolved` — the CI full sweep is their check): a deferred row is
   // neither — its freshness currency is the generator's own byte-identity gate (header,
   // «Generator-owned regions»). Cold-review NIT 1, 2026-09-21.
   let deferredCount = 0;
@@ -1090,10 +1092,18 @@ export function run(argv) {
   // (.claude/rules/memory-codification.md §1). The full check refuses such a file by name
   // rather than printing a green it cannot back; `--blank-only` is the mode that can run
   // there, and it says in its output that ARM 1 did not (2026-09-30).
-  const outside = files.filter((f) => {
-    const r = relative(REPO_ROOT, resolve(REPO_ROOT, f));
-    return r === '..' || r.startsWith(`..${sep}`) || isAbsolute(r);
+  // Canonicalise first: REPO_ROOT is a realpath (`git rev-parse --show-toplevel`), so an
+  // in-repo file named through a symlinked directory — `/tmp/...` for `/private/tmp/...`
+  // on macOS — would otherwise read as outside and be refused (cold-review MINOR 1,
+  // 2026-09-30). An in-repo file is handed on repo-relative, so blame reaches it too.
+  const isOutside = (r) => r === '..' || r.startsWith(`..${sep}`) || isAbsolute(r);
+  files = files.map((f) => {
+    const abs = resolve(REPO_ROOT, f);
+    if (!existsSync(abs)) return f;
+    const r = relative(REPO_ROOT, realpathSync(abs));
+    return isOutside(r) ? f : r;
   });
+  const outside = files.filter((f) => isOutside(relative(REPO_ROOT, resolve(REPO_ROOT, f))));
   if (outside.length > 0 && !blankOnly && !write) {
     console.error(
       `❌ ${outside.length} file(s) lie outside the repository, so ARM 1 (drift since\n` +

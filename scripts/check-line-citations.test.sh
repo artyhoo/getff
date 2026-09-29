@@ -164,6 +164,32 @@ if (cd "$REPO" && node "$CHECK" --check --strict cite.md) >"$TMP/out" 2>"$TMP/er
   echo "FAIL: --strict passed a run whose only citation was never drift-checked"; fails=$((fails + 1))
 fi
 
+# --- the other two reasons: an uncommitted edit of the citing line, and a baseline commit
+# in which the cited line did not exist yet (target grown later). Each is named by reason
+# and in the per-file line, so a mutation of either branch goes RED here.
+new_repo no-baseline-reasons
+printf 'alpha\n' >"$REPO/target.md"
+printf 'The cap is `target.md:1`.\nThe tail is `target.md:3`.\n' >"$REPO/cite.md"
+commit_all "line 3 cited before the target has it"
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target grows to three lines"
+printf 'The cap, reworded, is `target.md:1`.\nThe tail is `target.md:3`.\n' >"$REPO/cite.md"
+expect_pass "unbaselined citations do not fail the default gate" cite.md
+for needle in '1 uncommitted' '1 target-absent-at-baseline' 'resolved 0 / skipped 0' \
+  'cite.md:1  — 1 citation(s) not drift-checked (uncommitted)' \
+  'cite.md:2  — 1 citation(s) not drift-checked (target-absent-at-baseline)'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: unbaselined reasons not reported as '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+
+# --- an in-repo file named through a symlinked directory is still in the repo: it must be
+# blamed, not refused as outside (cold-review MINOR 1 — `/tmp` is `/private/tmp` on macOS).
+ln -s "$REPO" "$TMP/repo-link"
+git -C "$REPO" checkout -q -- cite.md
+expect_pass "a symlinked path to an in-repo file is checked, not refused" "$TMP/repo-link/cite.md"
+grep -qF 'outside the repository' "$TMP/err" && {
+  echo "FAIL: an in-repo file reached through a symlink was refused as outside"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+
 # --- a file OUTSIDE the repository can never have a blame baseline, so the full check
 # refuses it by name (exit 2) instead of reporting a green it cannot back, and points at
 # the mode that can run there: --blank-only (ARM 2 only), which says so in its output.
