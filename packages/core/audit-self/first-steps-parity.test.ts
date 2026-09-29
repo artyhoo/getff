@@ -399,6 +399,16 @@ describe('The road ↔ install prompt parity', () => {
     expect(prompt.match(/\bask once\b/gi), 'the prompt must ask exactly once').toHaveLength(1);
   });
 
+  it('a part the answer leaves out has one stated default, the same in the data and the prompt', () => {
+    // Tools for the project's own dependencies default to yes (operator decision 2026-09-30): the
+    // installer's source check is the filter. The road carries that default, not the installer.
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const defaults = /\(a\) 1, \(b\) no, \(c\) yes, \(d\) yes/;
+    expect(ask?.action.replace(/\s+/g, ' ')).toMatch(defaults);
+    expect(prompt.replace(/\s+/g, ' ')).toMatch(defaults);
+    expect(prompt).toMatch(/unless I say no/);
+  });
+
   it('the research step takes the one answer as its confirmation', () => {
     const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
     expect(research?.action).toMatch(/without asking/);

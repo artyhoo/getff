@@ -66,9 +66,9 @@ Install getff into this project. Walk the steps below in order, in this one sess
    2 — also the machine-wide tools listed: `bash /tmp/getff/setup -y --global <detected-stack>`
    3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`. Offer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
    (b) «Session settings?» yes/no → `GETFF_SESSION_SETTINGS=1`. Name the groups the dry run printed; they go into my own uncommitted `.claude/settings.local.json`, my values are kept, the install prints one undo command.
-   (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`: vendor MCP servers of my direct dependencies into `.mcp.json`. (d) «Research rules for my stack?» yes/no.
-   Also say: a wrong stack can be corrected in the same answer. A full answer reads «1, settings yes, tools no, research yes»;
-   a part I leave out means (a) 1, (b) no, (c) no, (d) yes. Ask nothing else during the run.
+   (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`, passed unless I say no: vendor MCP servers of my direct dependencies into `.mcp.json`, filtered by the installer's own source check. (d) «Research rules for my stack?» yes/no.
+   Also say: a wrong stack can be corrected in the same answer. A full answer reads «1, settings yes, tools yes, research yes»;
+   a part I leave out means (a) 1, (b) no, (c) yes, (d) yes. Ask nothing else during the run.
 4. [install] Run the installer with the chosen flag
    Run the command my answer picked, the chosen variables before it on the same line (adjust the path if Step 0 cloned elsewhere). Keep the
    «Checked by the install» block and every «NOT wired» line for the report. It installs:
