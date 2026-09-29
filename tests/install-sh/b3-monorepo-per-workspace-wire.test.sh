@@ -22,6 +22,15 @@
 #         stack-matched, not blanket — proves the wire is conditional on stack, not unconditional).
 #   CTL — apps/mobile/eslint.config.mjs exists at all (40-configs per-workspace placement) — guards
 #         against a vacuous POS where the file is simply absent.
+#   JS  — apps/native (react-native) owns an ES-module eslint.config.js, the name ESLint loads first:
+#         the selector lands in THAT file by insertions, its original is kept, no eslint.config.mjs is
+#         placed beside it, and it is not in the not-wired summary (the pass used to look for
+#         eslint.config.mjs only, and the .js got nothing — cold-review, after #1868).
+#   OWN — apps/worker, a ts-server workspace with its own ES-module eslint.config.js and no HTTP
+#         boundary code, gets nothing from a react-native install: it is named once in the not-wired
+#         summary and left byte-identical (40-configs named it before the per-workspace passes took
+#         the .js over, and it went silent when they did not apply — cold-review). A same-name own
+#         eslint.config.mjs is synth-wire-consumer-config's arm F: --force here replaces it by design.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -40,11 +49,18 @@ echo ""
 
 # ── Build a multi-stack monorepo: apps/mobile (expo/RN) + apps/api (ts-server), NO root config ──
 E=$(mktemp -d)
-mkdir -p "$E/apps/mobile" "$E/apps/api" "$E/.ai-factory/synthesizer-output"
+mkdir -p "$E/apps/mobile" "$E/apps/api" "$E/apps/native" "$E/apps/worker/src" "$E/.ai-factory/synthesizer-output"
 printf '{"name":"b3-monorepo","version":"0.0.0","private":true}\n' > "$E/package.json"
 printf 'packages:\n  - "apps/*"\n' > "$E/pnpm-workspace.yaml"
 printf '{"name":"mobile","version":"0.0.0","dependencies":{"react-native":"0.74.0","expo":"~51.0.0","react":"18.2.0"}}\n' > "$E/apps/mobile/package.json"
 printf '{"name":"api","version":"0.0.0","dependencies":{"hono":"^4.0.0"},"devDependencies":{"typescript":"^5.4.0"}}\n' > "$E/apps/api/package.json"
+printf '{"name":"native","version":"0.0.0","type":"module","dependencies":{"react-native":"0.74.0","react":"18.2.0"}}\n' > "$E/apps/native/package.json"
+NATIVE_BEFORE="$E/.native.before"
+printf "// The consumer's own lint config for this workspace.\nexport default [{ rules: { 'no-console': 'error' } }];\n" > "$NATIVE_BEFORE"
+cp "$NATIVE_BEFORE" "$E/apps/native/eslint.config.js"
+printf '{"name":"worker","version":"0.0.0","type":"module","dependencies":{"hono":"^4.0.0"},"devDependencies":{"typescript":"^5.4.0"}}\n' > "$E/apps/worker/package.json"
+echo 'export const x = 1;' > "$E/apps/worker/src/index.ts"
+cp "$NATIVE_BEFORE" "$E/apps/worker/eslint.config.js"
 
 # Pre-seed the EMITTED live-research snippet (factory output — B1/B2 concern, decoupled here).
 cat > "$E/.ai-factory/synthesizer-output/eslint-rules-snippet.json" <<JSON
@@ -93,5 +109,42 @@ if [ -f "$E/apps/api/eslint.config.mjs" ] && grep -q "$RN_SEL" "$E/apps/api/esli
 else
   ok "NEG: RN selector absent from apps/api/eslint.config.mjs (ts-server) — routing is stack-matched, not unconditional"
 fi
+
+# ── JS — a workspace's own ES-module eslint.config.js gets the selector ──────
+if [ -z "$NM_SRC" ]; then
+  skip "JS SKIP — ts-morph unavailable in this env"
+else
+  [ ! -e "$E/apps/native/eslint.config.mjs" ] \
+    && ok "JS: no eslint.config.mjs placed beside apps/native's own eslint.config.js" \
+    || bad "JS: eslint.config.mjs placed in apps/native — ESLint still loads the .js, getff's file would be dead"
+  if grep -q "$RN_SEL" "$E/apps/native/eslint.config.js" \
+     && node -e 'const fs = require("fs");
+       const a = fs.readFileSync(process.argv[1], "utf8"), b = fs.readFileSync(process.argv[2], "utf8");
+       let i = 0; for (const c of b) if (i < a.length && c === a[i]) i++;
+       process.exit(i === a.length ? 0 : 1);' "$NATIVE_BEFORE" "$E/apps/native/eslint.config.js"; then
+    ok "JS: RN live selector wired into apps/native/eslint.config.js by insertions only"
+  else
+    bad "JS: RN selector NOT in apps/native/eslint.config.js (or a character of it changed) — the per-workspace pass skips an eslint.config.js"
+  fi
+  _kept=0; _k=""
+  for _f in "$E/.ai-factory/before-getff/apps/native/eslint.config.js".*; do [ -f "$_f" ] && { _kept=$((_kept+1)); _k="$_f"; }; done
+  [ "$_kept" -eq 1 ] && cmp -s "$_k" "$NATIVE_BEFORE" \
+    && ok "JS: one kept original of apps/native/eslint.config.js" \
+    || bad "JS: $_kept kept original(s) of apps/native/eslint.config.js, expected one byte-equal copy"
+  awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$E/.install.log" | grep -q 'apps/native' \
+    && bad "JS: the not-wired summary still lists apps/native: $(grep -n 'apps/native' "$E/.install.log" | head -2 | tr '\n' '|')" \
+    || ok "JS: apps/native is not reported as unwired"
+fi
+
+# ── OWN — a workspace's own config this install adds nothing to is named, not skipped in silence ──
+_nw=$(awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$E/.install.log")
+cmp -s "$NATIVE_BEFORE" "$E/apps/worker/eslint.config.js" && ok "OWN: apps/worker/eslint.config.js is byte-identical" \
+  || bad "OWN: apps/worker/eslint.config.js was changed"
+_n=$(printf '%s\n' "$_nw" | grep -c 'apps/worker.*eslint\.config\.js')
+[ "$_n" -eq 1 ] && ok "OWN: the not-wired summary names apps/worker/eslint.config.js once" \
+  || bad "OWN: the not-wired summary names apps/worker/eslint.config.js $_n time(s), expected 1 (summary: $(printf '%s' "$_nw" | tr '\n' '|' | head -c 400))"
+printf '%s\n' "$_nw" | grep 'apps/worker' | grep -qiE 'by hand|manually|merge .* into' \
+  && bad "OWN: the line asks for a manual step: $(printf '%s\n' "$_nw" | grep 'apps/worker' | head -1)" \
+  || ok "OWN: no manual step in the line for apps/worker"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

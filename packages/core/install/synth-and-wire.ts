@@ -27,7 +27,7 @@
  *   99-finalize.sh is the primary gatekeeper.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import process from 'node:process';
 import { loadEntries } from '../research/load.ts';
@@ -449,7 +449,10 @@ async function wireIntoOwnConfig(a: {
     else if (r.status !== 'already-wired') notWired.push(`the stack's rules-as-tests rules — ${reasonOf(r)}`);
     notWired.push(...(r.notes ?? [])); // rules the consumer already sets keep the consumer's value
   }
-  const own = await wireOwnConfig(text, { ignores: a.ignores, boundaryGlobs: a.boundaryGlobs, customRulesImportPath });
+  // The install runs from the project root; check-rule-globs.sh reads RULE_GLOBS from the config there only.
+  // Real paths: on macOS the cwd reads /private/var/… where the --path given reads /var/….
+  const gateReadsRuleGlobs = realpathSync(dirname(resolve(configPath))) === realpathSync(process.cwd());
+  const own = await wireOwnConfig(text, { ignores: a.ignores, boundaryGlobs: a.boundaryGlobs, customRulesImportPath, gateReadsRuleGlobs });
   if (own.status === 'wired') text = own.modified;
   else if (own.status !== 'already-wired') notWired.push(`getff's ignores and R2 — ${reasonOf(own)}`);
   notWired.push(...(own.notes ?? []));

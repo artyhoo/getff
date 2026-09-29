@@ -469,6 +469,28 @@ function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): bo
   return false;
 }
 
+/**
+ * True when an element that sets `ruleName` under `rules:` is not provably unscoped (a `files`, `ignores`
+ * or `basePath` key of its own or through a spread) — the rule may apply to some files only, and an
+ * element that sets it for more files would widen it.
+ */
+function ruleSetForSomeFilesOnly(elements: any[], SyntaxKind: any, ruleName: string): boolean {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    if (provablyUnscoped(el, SyntaxKind, new Set())) continue;
+    // `'rules':` as well as `rules:` — getProperty('rules') finds the unquoted key only.
+    const rulesProp = (el.getProperties?.() ?? []).find((p: any) => {
+      try { return normPropName(p.getName?.()) === 'rules'; } catch { return false; }
+    });
+    const rules = rulesProp?.getInitializer?.();
+    if (!rules?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const rp of rules.getProperties?.() ?? []) {
+      try { if (normPropName(rp.getName?.()) === ruleName) return true; } catch { /* next */ }
+    }
+  }
+  return false;
+}
+
 /** Keys that limit which files a flat-config element applies to. */
 const SCOPE_KEYS = new Set(['files', 'ignores', 'basePath']);
 
@@ -581,6 +603,9 @@ function replaceSimpleRuleValue(
  */
 function normPropName(name: unknown): string {
   if (typeof name !== 'string') return '';
+  // A computed key spelled as a literal — [`rules-as-tests/x`] or ['x'] — names the same property.
+  const computed = /^\[\s*(['"`])(.*)\1\s*\]$/s.exec(name);
+  if (computed) return computed[2];
   return name.replace(/^['"`]|['"`]$/g, '');
 }
 
@@ -847,7 +872,7 @@ export async function wireNRules(
 //    check getff's machinery (a ts-only config reported the bundles' `/* eslint-disable */` banner
 //    as an unused directive and failed `--max-warnings=0`);
 //  - R2, scoped by a `RULE_GLOBS.boundary` block in the form the shipped gates read
-//    (check-rule-globs.sh / check-rule-enforced.sh: a `boundary: [` line, single-quoted globs).
+//    (check-rule-globs.sh / check-rule-enforced.sh read its `boundary: [` array, in either quotes).
 // The caller keeps a copy of the original and lint-probes the result (writeWithLintProbe).
 
 export interface OwnConfigOpts {
@@ -857,9 +882,15 @@ export interface OwnConfigOpts {
   boundaryGlobs?: string[];
   /** eslint-rules-local specifier, for the R2 element's plugin registration. */
   customRulesImportPath?: string;
+  /**
+   * The root config: check-rule-globs.sh reads R2's globs from its RULE_GLOBS.boundary and fails when it
+   * sets R2 without one. The gate reads no package config's RULE_GLOBS (a package config that names R2
+   * counts as wired), so a package config that sets R2 to 'error' for every file needs nothing added.
+   */
+  gateReadsRuleGlobs?: boolean;
 }
 
-/** A glob as a single-quoted string literal — the only form the bash gates extract. */
+/** A glob as a single-quoted string literal — the form getff's templates write RULE_GLOBS in. */
 function singleQuoted(s: string): string {
   return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
 }
@@ -1016,23 +1047,53 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   let registerR2 = false;
   let missingGlobs: string[] = [];
   let ruleGlobsBlock: string | undefined;
+  let boundaryArr: any;
   if (boundary.length > 0) {
+    // RULE_GLOBS.boundary as check-rule-globs.sh reads it: the key quoted or not, the object inside
+    // parentheses or a type assertion (`/** @type {const} */ ({ … })`, `{ … } as const`).
     const arrOf = (): any => {
-      const init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
-      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperty('boundary') : undefined;
+      const wrappers = new Set([SyntaxKind.ParenthesizedExpression, SyntaxKind.AsExpression,
+        SyntaxKind.SatisfiesExpression, SyntaxKind.TypeAssertionExpression]);
+      let init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
+      while (init && wrappers.has(init.getKind())) init = init.getExpression();
+      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression)
+        ? init.getProperties().find((p: any) => normPropName(p.getName?.()) === 'boundary')
+        : undefined;
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : undefined;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : undefined;
     };
+    // No RULE_GLOBS block, but the config sets R2 itself (a hand merge of the snippet the install
+    // printed before Q4.7). In the root config check-rule-globs.sh reads R2's globs from RULE_GLOBS.boundary
+    // and fails without one (cold-review F11): at 'error' for every file, where getff can read it, the block
+    // and the scoped element that uses it add nothing the consumer did not ask for. Any other setting stays
+    // as the consumer set it, and the note says what that leaves. Set more than once, the last setting wins
+    // in ESLint and getff's element would outrank it; set for some files only, getff's element would reach
+    // the rest: both read as a setting getff cannot confirm.
+    const r2Mentions = [`'`, `"`, '`'].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
+    const r2Setting = !r2Present ? 'not-found'
+      : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? 'differs'
+        : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration('RULE_GLOBS')) {
-      const arr = arrOf();
+      const arr = (boundaryArr = arrOf());
       if (!arr) {
-        notes.push('R2 not wired: the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it');
+        notes.push(
+          'R2 — the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it' +
+            (opts.gateReadsRuleGlobs ? '; scripts/check-rule-globs.sh fails on this config without RULE_GLOBS.boundary' : ''),
+        );
       } else {
         const have = new Set(stringElements(arr, SyntaxKind));
         missingGlobs = boundary.filter((g) => !have.has(g));
         registerR2 = !r2Present;
       }
-    } else if (!r2Present) {
+    } else if (r2Present && r2Setting !== 'same') {
+      notes.push(
+        opts.gateReadsRuleGlobs
+          ? `RULE_GLOBS for R2 — the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
+              'getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them'
+          : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
+              'getff does not change a setting of yours, so it adds nothing for R2',
+      );
+    } else if (!r2Present || opts.gateReadsRuleGlobs) {
       ruleGlobsBlock = [
         '// Added by getff: where its R2 rule looks for an unguarded zod .parse() — the HTTP boundary code the',
         '// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.',
@@ -1059,9 +1120,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   const current = sf.getFullText();
   const inserts: Insertion[] = [];
   if (missingGlobs.length > 0) {
-    const init = sf.getVariableDeclarationOrThrow('RULE_GLOBS').getInitializerOrThrow();
-    const arr = init.getPropertyOrThrow('boundary').getInitializerOrThrow();
-    inserts.push(appendInsertion(current, elementList(arr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
+    inserts.push(appendInsertion(current, elementList(boundaryArr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
   }
   if (toAdd.length > 0) inserts.push(...exportAppendInsertions(current, exportOf().getExpression(), SyntaxKind, toAdd));
   if (needsImport) inserts.push(importInsertion(sf, current, SyntaxKind, opts.customRulesImportPath!));
