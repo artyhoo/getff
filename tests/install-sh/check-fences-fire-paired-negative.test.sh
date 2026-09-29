@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# stays-local: TEMPORARY — arm (ix) fails on the PC's Node 24.20, where check-fences-fire.sh _first_err picks Node's source-excerpt line; remove this line with that fix
 # check-fences-fire-paired-negative.test.sh — T15 self-application: the check-fences-fire.sh probe
 # MUST fail (exit non-zero) when a fence is deliberately broken — falsifiability proof.
 #
