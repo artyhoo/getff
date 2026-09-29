@@ -1516,8 +1516,6 @@
         "tier": "framework",
         "stacks": [
           "react-native",
-          "react-next",
-          "react-spa",
           "ts-server"
         ]
       },
@@ -1534,26 +1532,6 @@
         },
         {
           "stack": "react-native",
-          "lane": "greenfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "brownfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-next",
-          "lane": "greenfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-spa",
-          "lane": "brownfield",
-          "path": "tsconfig.json"
-        },
-        {
-          "stack": "react-spa",
           "lane": "greenfield",
           "path": "tsconfig.json"
         },

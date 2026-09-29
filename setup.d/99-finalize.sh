@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.
+# setup.d/99-finalize.sh — synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + arm-if-green record + Done.
 #
 # Sources: lib.sh (already in dispatcher scope)
 # S0 rows: R2-L2 (install.sh:1597-1641), otel (install.sh:1643-1657), cite:historical pre-split install.sh lines, code moved into this file by #719

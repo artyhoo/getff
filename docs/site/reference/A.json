@@ -250,7 +250,7 @@
       "shipsTo": {
         "tier": "all"
       },
-      "description": "synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done.",
+      "description": "synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + arm-if-green record + Done.",
       "source": {
         "path": "setup.d/99-finalize.sh",
         "line": 2
