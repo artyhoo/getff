@@ -14,7 +14,7 @@ eb02bc137301120499702afda868b7fe033b395b615783b285cf521452dc2c84  .claude/hooks/
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 f3fa06c20b5a52b27d4b989caef74062f33b6c386f804d2e5e818ab3db188f8f  .claude/hooks/inject-output-language.sh
 2355680b66d1e9f5ecaa12b0b35fd430a5d6f31c0ffec9e7defd54761bb66c16  .claude/hooks/inject-project-digest.sh
-b0e1d6129328ae37b273e2b6f0c1e6483f6998cc36e60d220bc84ba47981571a  .claude/hooks/inject-session-bootstrap.sh
+8b7f6f0e32358ab6dbef0281eb7c83f1ac92255e7616ac04381da4c35c67f1f1  .claude/hooks/inject-session-bootstrap.sh
 662cec213c70fe0c77d932ff58612de7c63072068ed6e15055f009329e9381ee  .claude/hooks/inject-subagent-context.sh
 cde32f185b4a770570803a9d9a7ac864f475bbac875576daf04df0db0965bf17  .claude/hooks/inject-subagent-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
@@ -479,7 +479,7 @@ d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/
 e1100ec9ee1891c724d5954e7f03f015f96ed4a1dcfb93bcd55208398585c1ca  packages/core/hooks/inject-matching-rule.test.ts
 634c5c10bab343b7df3b401e8c297ba608eea434fb47ef8b623ff6c118221435  packages/core/hooks/inject-memory-codification.test.ts
 c1273e6e91a3dcc27c72d79c70e04e8be167f6c53efa9c41dd862edd032e282a  packages/core/hooks/inject-project-digest.test.ts
-a036ec70e3d321828cf50872ebb72dea12edba7dde0bf426e3047e152599aa40  packages/core/hooks/inject-session-bootstrap.test.ts
+97e019af6d31f85fcc802755ff274c0c1e26871d4086a81e06b252c2f845cb96  packages/core/hooks/inject-session-bootstrap.test.ts
 8edeaf5bdafd4d81e4a72c204ca9f37174c29659222c572bbe0586e5c2caaca2  packages/core/hooks/inject-subagent-context.test.ts
 e833229faa1ed9720d7a04ddf17f588ec3d211f629d26771a851710fe192274a  packages/core/hooks/inject-subagent-digest.test.ts
 5c5fb841f3565dce3d2e9c9778393bbc56c49d761a51037bbc14d3cbadc1ac39  packages/core/hooks/lang-parity.test.ts
