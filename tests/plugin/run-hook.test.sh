@@ -773,6 +773,44 @@ done
 [ "$fired" -eq "$expected" ] && ok "CR2 project copies never ran → all $fired plugin copies fire" \
   || bad "CR2 only $fired of $expected plugin copies fired"
 
+# CR3 (spec §Tests, real tree): one UserPromptSubmit carries the output-language line exactly once
+# — in the CR1 consumer (installed copies run first and mark, then every plugin UserPromptSubmit
+# hook runs through the SHIPPED run-hook.cmd), in a plugin-only project under Claude Code, and in a
+# plugin-only project under ZCode. The per-part arms (C/D arms, arm (j), L-D5) cannot see a
+# composition that drops the line or doubles it; this count can. deps-hash-check is skipped as in
+# R2 (it writes a cache file and never emits the line).
+# Counts occurrences, not line starts: on ZCode the adapter wraps the text in JSON additionalContext.
+lang_lines() { grep -o '\[output-language\]' | wc -l | tr -d ' '; }
+plugin_ups() { jq -r '.hooks.UserPromptSubmit[].hooks[].command | capture("run-hook\\.cmd\" (?<n>[^ ]+)").n' \
+  "$REPO_ROOT/plugin/hooks/hooks.json" | grep -vx deps-hash-check; }
+cons_ups() { jq -r '.hooks.UserPromptSubmit[].hooks[].command | capture("\\.claude/hooks/(?<n>[a-z-]+)\\.sh").n' \
+  "$CONS/.claude/settings.json" | grep -vx deps-hash-check; }
+[ "$(plugin_ups | grep -c .)" -ge 2 ] && [ "$(cons_ups | grep -c .)" -ge 1 ] \
+  && ok "CR3 sweep floor: $(plugin_ups | grep -c .) plugin and $(cons_ups | grep -c .) consumer UserPromptSubmit hooks" \
+  || bad "CR3 vacuous sweep: plugin=$(plugin_ups | grep -c .) consumer=$(cons_ups | grep -c .)"
+rm -rf "$LIVE"
+N=$( {
+  for nm in $(cons_ups); do
+    payload "$CONS" | env -u ZCODE_PROJECT_DIR -u AIF_HOOK_CHANNEL AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
+      TMPDIR="$HOOKTMP" CLAUDE_CONFIG_DIR="$EMPTY_CFG" bash "$CONS/.claude/hooks/$nm.sh"
+  done
+  for n in $(plugin_ups); do
+    payload "$CONS" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
+      XDG_CONFIG_HOME="$EMPTY_XDG" TMPDIR="$HOOKTMP" CLAUDE_CONFIG_DIR="$EMPTY_CFG" bash "$RH" "$n"
+  done; } 2>/dev/null | lang_lines )
+expect "CR3 consumer with installer + plugin: output-language line once" 1 "$N"
+PONLY="$TMPD/plugin-only"; mkdir -p "$PONLY"; rm -rf "$LIVE"
+N=$(for n in $(plugin_ups); do
+  payload "$PONLY" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$PONLY" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" TMPDIR="$HOOKTMP" CLAUDE_CONFIG_DIR="$EMPTY_CFG" bash "$RH" "$n"
+  done 2>/dev/null | lang_lines)
+expect "CR3 plugin-only project (Claude Code): output-language line once" 1 "$N"
+N=$(for n in $(plugin_ups); do
+  payload "$PONLY" | env -u CLAUDE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru ZCODE_PROJECT_DIR="$PONLY" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" TMPDIR="$HOOKTMP" CLAUDE_CONFIG_DIR="$EMPTY_CFG" bash "$RH" "$n"
+  done 2>/dev/null | lang_lines)
+expect "CR3 plugin-only project (ZCode): output-language line once" 1 "$N"
+
 # R2 (end to end, real hooks): one UserPromptSubmit in the framework repo — the repo's own
 # injector plus every plugin UserPromptSubmit hook through the shipped run-hook.cmd — carries the
 # digest once, the language line once, the project digest once, and exactly one invariants line.
@@ -797,7 +835,7 @@ expect "R2 exactly one invariants line reaches the prompt" 1 "$c_inv"
 # R3 (the premise of inject-output-language's @plugin-yields-to): the digest carries the SAME
 # language line the yielding hook would have emitted — otherwise the yield changes the prompt.
 for L in ru de; do
-  own=$(AIF_HOOK_LANG=$L bash "$REPO_ROOT/.claude/hooks/inject-output-language.sh" 2>/dev/null)
+  own=$(AIF_HOOK_LANG=$L bash "$REPO_ROOT/.claude/hooks/inject-output-language.sh" </dev/null 2>/dev/null)   # the D12 prelude reads stdin
   twin=$(env -u ZCODE_PROJECT_DIR AIF_HOOK_LANG=$L bash "$REPO_ROOT/plugin/hooks/inject-output-language" 2>/dev/null)
   in_digest=$(CLAUDE_PROJECT_DIR="$REPO_ROOT" AIF_HOOK_LANG=$L bash "$REPO_ROOT/.claude/hooks/inject-session-bootstrap.sh" 2>/dev/null \
     | grep '^\[output-language\]')
