@@ -150,6 +150,23 @@ merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" 
 # copy_safe (skip-if-exists) never clobbers a consumer's own prettier config.
 copy_unless_foreign prettier "$PKG_ROOT/.prettierrc.json" "$PROJECT_ROOT/.prettierrc.json"
 copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROOT/tsconfig.json"
+# P2 G4 — per-stack arm of that copy: the shared template (NodeNext, lib ES2022, no jsx) cannot
+# compile a React file (P1 run 2026-09-29: TS17004 «Cannot use JSX», TS2584 «Cannot find name
+# 'document'»). For react-spa / react-next, ONLY when getff just wrote tsconfig.json (a project's
+# own is never edited), set the four options create-vite's react-ts template uses: jsx react-jsx,
+# DOM libs, ESNext + Bundler resolution (NodeNext would demand .js extensions on relative imports
+# in a "type": "module" project). The template's other options stay.
+if { [ "$STACK" = "react-spa" ] || [ "$STACK" = "react-next" ]; } && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ -f "$PROJECT_ROOT/tsconfig.json" ] && ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json" \
+   && command -v node >/dev/null 2>&1; then
+  AIF_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
+    const fs = require("fs"); const p = process.env.AIF_TSCONFIG;
+    const c = JSON.parse(fs.readFileSync(p, "utf8"));
+    Object.assign(c.compilerOptions, { module: "ESNext", moduleResolution: "Bundler",
+      lib: ["ES2022", "DOM", "DOM.Iterable"], jsx: "react-jsx" });
+    fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+  ' && echo "  ✓ tsconfig.json: React options (jsx react-jsx, DOM libs, Bundler resolution) for $STACK"
+fi
 
 # ─── 5a. tests/setup.ts delivery gate (first-commit-passable, issue 1530) ───
 # vitest.config.ts declares setupFiles: ['./tests/setup.ts'] on ts-server / react-spa /

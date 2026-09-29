@@ -221,7 +221,12 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # 40-configs.sh placed nothing beside it (copy_unless_foreign), so naming ours would crash.
     AIF_DEPCRUISE_CFG=$(depcruise_config "$PROJECT_ROOT")
     AIF_DEPCRUISE_CFG="${AIF_DEPCRUISE_CFG:-.dependency-cruiser.mjs}"
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" node -e '
+    # P2 G4: a solution tsconfig (`"files": []` + `"references"`, create-vite's shape) makes
+    # `tsc --noEmit` check NO file (measured: a planted TS2322 → `tsc --noEmit` exit 0, `tsc -b`
+    # exit 2); `tsc -b` builds the references, as the project's own `build` script already does.
+    AIF_TYPECHECK="tsc --noEmit"
+    grep -Eq '^[[:space:]]*"references"[[:space:]]*:' "$PROJECT_ROOT/tsconfig.json" 2>/dev/null && AIF_TYPECHECK="tsc -b"
+    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -235,7 +240,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "lint:fix": "eslint . --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "typecheck": "tsc --noEmit",
+        "typecheck": process.env.AIF_TYPECHECK || "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",

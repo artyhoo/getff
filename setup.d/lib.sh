@@ -1408,11 +1408,20 @@ _refresh_dir_payload() {
 # escaped for BRE), not regexes — the three sites are stable across template bumps.
 deliver_getff_workflow() {
   local tpl_src="$1" dst="$2"
-  local detected_branch=""
+  local detected_branch="" branch_source="origin/HEAD"
 
   # Detect default branch — pure read; safe under --dry-run and offline.
   if command -v git >/dev/null 2>&1 && [ -d "${PROJECT_ROOT:-.}" ]; then
     detected_branch=$(git -C "$PROJECT_ROOT" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || detected_branch=""
+    # P2 G4: a repo with NO remote at all works on the one branch it has — read the checked-out
+    # branch (P1 run 2026-09-29: a `master` repo got a workflow on `main`). Only when HEAD has a
+    # commit: an unborn HEAD's name is the machine's init.defaultBranch, not the project's. An
+    # origin whose HEAD is unset keeps the warning — its checked-out branch may be a feature branch.
+    if [ -z "$detected_branch" ] && [ -z "$(git -C "$PROJECT_ROOT" remote 2>/dev/null)" ] \
+       && git -C "$PROJECT_ROOT" rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+      detected_branch=$(git -C "$PROJECT_ROOT" symbolic-ref --quiet --short HEAD 2>/dev/null) || detected_branch=""
+      branch_source="the checked-out branch (no origin remote)"
+    fi
   fi
 
   # Prepare the source for the underlying delegate. Substitution needed ONLY when
@@ -1455,6 +1464,7 @@ deliver_getff_workflow() {
   # Emit a branch-context log line (complements the delegate's ✓/⊝/dry-run line).
   if [ -n "$detected_branch" ] && [ "$detected_branch" != "main" ]; then
     echo "    (getff: default branch '$detected_branch' substituted from template 'main')"
+    [ "$branch_source" = "origin/HEAD" ] || echo "    (getff: branch '$detected_branch' read from $branch_source)"
   elif [ -n "$detected_branch" ]; then
     echo "    (getff: default branch 'main', byte-identical to template)"
   else

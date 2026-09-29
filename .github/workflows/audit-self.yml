@@ -856,6 +856,8 @@ jobs:
         run: bash tests/install-sh/generic-stack.test.sh
       - name: "install-sh — the project's package versions win: declared packages are not re-installed, an ERESOLVE drops our package and retries strict (P2 G2)"
         run: bash tests/install-sh/deps-keep-project-versions.test.sh
+      - name: "install-sh — typecheck checks something: tsc -b on a solution tsconfig, React options in the tsconfig getff writes (P2 G4)"
+        run: bash tests/install-sh/typecheck-matches-tsconfig.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
