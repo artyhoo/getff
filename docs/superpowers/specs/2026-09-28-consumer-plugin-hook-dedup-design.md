@@ -28,7 +28,7 @@
 
 A consumer that ran the installer AND installed the getff plugin runs every shared hook twice per
 event: once from `.claude/settings.json` (registered by `register_cc_hook`, e.g.
-`setup.d/10-skills.sh:376` for `inject-output-language`), once from the plugin's
+`setup.d/10-skills.sh:341` for `inject-output-language`), once from the plugin's
 `plugin/hooks/hooks.json`. Shared set today: `deps-hash-check`, `end-of-turn-reminder`,
 `ask-question-reminder`, `inject-matching-rule`, `inject-output-language`,
 `check-doc-authority-header`, `inject-project-digest`, `inject-memory-codification`.
@@ -152,7 +152,7 @@ Outcome table:
 
 ### D4 — Relative `deps-hash-check` registration never counts (operator decision 2026-09-28)
 
-`setup.d/10-skills.sh:211` and `setup.d/45-python.sh:1333` register
+`setup.d/10-skills.sh:211` and `setup.d/45-python.sh:1525` register
 `bash .claude/hooks/deps-hash-check.sh`, cwd-relative. It fails D3.1's exact-form check, so
 `deps-hash-check` stays doubled for consumers. Counting a path that may not resolve would risk the
 lost-gate case. The hook's `$TMPDIR` memo (`.claude/hooks/deps-hash-check.sh:433-439`) caches the
@@ -280,7 +280,7 @@ text in the twin behind a runtime guard, so "contains no string" was replaced).
 ### D11 — Dual-source hooks
 
 `deps-hash-check` is delivered from `packages/core/hooks/deps-hash-check.sh`
-(`setup.d/10-skills.sh:205`, `setup.d/45-python.sh:1328`) while its twin is generated from
+(`setup.d/10-skills.sh:205`, `setup.d/45-python.sh:1520`) while its twin is generated from
 `.claude/hooks/deps-hash-check.sh`. The two are byte-identical today (`cmp`, 2026-09-28). The arm
 asserts that identity for every twinned hook that also exists under `packages/core/hooks/`, so the
 manifest can never describe bytes the installer does not deliver.

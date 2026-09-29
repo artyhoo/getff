@@ -239,7 +239,7 @@ if [ -f "$_getff_live_lib" ] && . "$_getff_live_lib" 2>/dev/null; then getff_hoo
 
 Then `bash scripts/generate-plugin-twins.sh` and `bash scripts/plugin-source-hashes.sh --write` (base Task 1 writer; use its real flag).
 
-- [ ] **Step 6: Installer delivery.** Enumerate every site that delivers one of the seven hooks: `grep -nE 'end-of-turn-reminder|ask-question-reminder|inject-matching-rule|inject-output-language|check-doc-authority-header|inject-project-digest|inject-memory-codification' setup.d/*.sh install.sh plugin/install/*.sh`. Beside each, deliver the lib exactly as `lib/residue-dir.sh` is delivered (`setup.d/10-skills.sh:254-260` copy_safe form; `install.sh:985-991` refresh_safe form), once per file. Extend the installer test that covers `residue-dir.sh` delivery (`grep -rln residue-dir tests/`) with the same assertion for `hook-live.sh`.
+- [ ] **Step 6: Installer delivery.** Enumerate every site that delivers one of the seven hooks: `grep -nE 'end-of-turn-reminder|ask-question-reminder|inject-matching-rule|inject-output-language|check-doc-authority-header|inject-project-digest|inject-memory-codification' setup.d/*.sh install.sh plugin/install/*.sh`. Beside each, deliver the lib exactly as `lib/residue-dir.sh` is delivered (`setup.d/10-skills.sh:254-260` copy_safe form; `install.sh:991-997` refresh_safe form), once per file. Extend the installer test that covers `residue-dir.sh` delivery (`grep -rln residue-dir tests/`) with the same assertion for `hook-live.sh`.
 
 - [ ] **Step 7: D arms in `tests/plugin/run-hook.test.sh`** (after the C arms; reuse `plant`, `run_rp`, the C fixture with C1 inputs):
 
