@@ -5,8 +5,8 @@
 #   (B) oxlint: lint-staged's lint step runs oxlint (through the record), never eslint
 #   (C) oxlint: the record says `linter: oxlint`; the gates that read an ESLint config are not-armed
 #       with that reason; the project's own `lint` script is kept
-#   (D) oxlint: getff's rules are named under NOT wired while no oxlint plugin registration exists
-#       (P4's oxlint_register_jsplugin — absent on this branch)
+#   (D) oxlint: getff's plugin is registered in the project's oxlint config (P4's oxlint_register_jsplugin),
+#       and NOT wired says why no getff rule is switched on (P5 place_lint_rules: the lint cannot run here)
 #   (E) Biome: no getff ESLint config, no .prettierrc.json, lint-staged runs `biome lint` under lint
 #       and `biome format --write` under format:check (never `biome check`), no prettier step; the record says `linter: biome`, `formatter: biome`
 #   (F) paired negative: a project with no linter still gets getff's eslint.config.mjs and the
@@ -63,8 +63,13 @@ for g in check-rule-globs check-rule-enforced check-fences-fire; do
     && ok "(C) $g not-armed: reads getff's ESLint config" \
     || bad "(C) $g line: $(section "$O" not-armed | grep "$g" || echo none; section "$O" armed | grep "$g")"
 done
-not_wired "$O" | grep -q "getff lint plugin in oxlint" \
-  && ok "(D) NOT wired names getff's rules for oxlint (no plugin registration on this branch)" \
+# With P4's registration merged, the plugin goes into the project's oxlint config; no rule is switched on
+# while the project's own lint cannot run (P5, place_lint_rules: dependencies not installed here).
+grep -q '"name": "rules-as-tests"' "$O/.oxlintrc.json" \
+  && ok "(D) getff's lint plugin is registered in the project's oxlint config" \
+  || bad "(D) no jsPlugins entry: $(tr '\n' ' ' < "$O/.oxlintrc.json")"
+not_wired "$O" | grep -q "getff's lint rules in your oxlint config — not switched on: dependencies are not installed" \
+  && ok "(D) NOT wired names why no getff rule is switched on" \
   || bad "(D) summary: $(not_wired "$O" | tr '\n' '|')"
 
 # ── (E) Biome ───────────────────────────────────────────────────────────────────────────────────

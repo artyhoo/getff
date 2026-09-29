@@ -75,6 +75,9 @@ chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
 # the pre-push probe all go through it, so a check red at install blocks nothing until it is green.
 copy_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+# P5: getff's lint rules in the project's own linter — placed by 99-finalize (lib.sh place_lint_rules), proven
+# through the project's own lint command (`node scripts/prove-rules.mjs --prove`), removed with `--remove`.
+copy_safe "$PKG_ROOT/packages/core/audit-self/prove-rules.mjs" "$PROJECT_ROOT/scripts/prove-rules.mjs"
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"

@@ -2744,6 +2744,76 @@ oxlint_register_jsplugin() {
   return 0
 }
 
+# place_lint_rules — switch getff's lint rules on in the project's OWN linter config, green first (one-button
+# chain, part P5; operator log entry 28, fork 1 = A: what was green stays green). Called by 99-finalize.sh after
+# the oxlint registration above and before the arm pass, with PROJECT_ROOT, STACK and LINTER_SLOT set.
+#   oxlint  the project's `npm run lint` runs once as it stands. Red → no rule is switched on, and the NOT-wired
+#           list says why. Green → P4's oxlint_register_jsplugin gets the top-level rules with
+#           GETFF_ENABLE_PLUGIN_RULES=1 for that one call, then scripts/prove-rules.mjs --place adds the stack's
+#           rules and the H8 built-ins in getff-marked overrides entries and exempts, per file, what they find in
+#           today's code (a new violation still fails).
+#   eslint  only a config of the project's own (getff's own config is P2's arm pass: ESLint bulk suppressions).
+#           Red only from getff's rules → a marked per-file getff block in that config; red from a rule of the
+#           project's → nothing exempted, named NOT wired.
+# Results: PLACE_LINT_OK=1 when `npm run lint` exits 0 at the end (the arm pass arms it); PLACE_EXTRA holds the
+# lines for the project-checks record. Never aborts the install.
+place_lint_rules() {
+  PLACE_LINT_OK=""; PLACE_EXTRA=()
+  local prove="$PROJECT_ROOT/scripts/prove-rules.mjs" cfg rel rc top res line
+  case "${LINTER_SLOT:-}" in
+    oxlint)
+      cfg="$PROJECT_ROOT/.oxlintrc.json"
+      # A missing, code or non-plain config was named NOT wired by oxlint_register_jsplugin already.
+      [ -f "$cfg" ] && node -e 'const o=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.exit(o&&typeof o==="object"&&!Array.isArray(o)?0:1)' "$cfg" 2>/dev/null || return 0 ;;
+    eslint)
+      cfg=""
+      for line in eslint.config.mjs eslint.config.js eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts; do
+        [ -f "$PROJECT_ROOT/$line" ] && { cfg="$PROJECT_ROOT/$line"; break; }
+      done
+      [ -n "$cfg" ] || return 0
+      ! getff_delivered "$cfg" || return 0 ;;
+    *) return 0 ;;
+  esac
+  rel="${cfg#"$PROJECT_ROOT"/}"
+  if [ ! -f "$prove" ] || ! command -v node >/dev/null 2>&1; then
+    note_not_wired "getff's lint rules in $rel — not switched on: scripts/prove-rules.mjs or node is missing"
+    return 0
+  fi
+  if ! node -e 'process.exit(typeof require(process.argv[1]).scripts?.lint==="string"?0:1)' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+    note_not_wired "getff's lint rules in $rel — not switched on: package.json has no lint script, and getff switches a rule on only through the project's own lint command"
+    return 0
+  fi
+  ( cd "$PROJECT_ROOT" && npm run --silent lint ) >/dev/null 2>&1 && rc=0 || rc=$?
+  if [ "$LINTER_SLOT" = oxlint ]; then
+    if [ "$rc" -ne 0 ]; then
+      echo "  ⊝ getff's lint rules not switched on in $rel — your lint exits $rc as it stands"
+      note_not_wired "getff's lint rules in $rel — not switched on: your lint exits $rc before getff switches any rule on"
+      return 0
+    fi
+    top=$( cd "$PROJECT_ROOT" && node "$prove" --wanted-top --stack "${STACK:-}" 2>/dev/null ) || top='{}'
+    GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$cfg" "$PROJECT_ROOT/eslint-rules-local/index.mjs" "$top"
+  elif [ "$rc" -eq 0 ]; then
+    PLACE_LINT_OK=1
+    return 0
+  fi
+  res=$(mktemp)
+  ( cd "$PROJECT_ROOT" && node "$prove" --place --linter "$LINTER_SLOT" --stack "${STACK:-}" --result "$res" ) || true
+  while IFS=$'\t' read -r line top; do
+    [ -n "$line" ] || continue
+    if [ "$line" = '*' ]; then
+      note_not_wired "getff's lint rules in $rel — $top"
+    else
+      note_not_wired "getff's lint rule $line in $rel — $top"
+      PLACE_EXTRA+=("rule-not-placed: $line — $top")
+    fi
+  done < <(node -e 'for (const n of (JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).notPlaced||[])) console.log(n.rule+"\t"+n.reason)' "$res" 2>/dev/null)
+  line=$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(r.exemptViolations)console.log(r.exemptViolations+" existing violations in "+r.exemptFiles+" files")' "$res" 2>/dev/null)
+  [ -z "$line" ] || PLACE_EXTRA+=("lint-baseline: $rel — getff's rules are off per file for $line (entries marked getff), new ones still block")
+  rm -f "$res"
+  ( cd "$PROJECT_ROOT" && npm run --silent lint ) >/dev/null 2>&1 && PLACE_LINT_OK=1
+  return 0
+}
+
 # ── #811 preset staleness guard (live-research-default-delivery, D4) ───────────
 # Deps-free, no-network major-version drift WARN: a shipped preset is a frozen snapshot
 # (preset.meta.json pins) that goes stale as the ecosystem moves. When the consumer's

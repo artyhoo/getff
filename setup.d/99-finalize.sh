@@ -1048,6 +1048,22 @@ elif [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = biome ]; then
   note_not_wired "getff's lint rules — this project lints with Biome, which does not load ESLint-format rules, so they do not run here; Biome stays the project's only linter"
 fi
 
+# P5: getff's lint rules switched on in the project's OWN linter config — only after the project's lint exits 0
+# as it stands, with today's violations exempted per file (place_lint_rules, lib.sh). Before the arm pass, so the
+# record sees the final config; its lines join the record, and a lint that ended green is armed below.
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  case "${LINTER_SLOT:-}" in
+    oxlint|eslint) echo "  [dry-run] would run your lint once and, if it exits 0, switch getff's lint rules on in your own linter config with today's violations exempted per file" ;;
+  esac
+elif declare -F place_lint_rules >/dev/null; then
+  if [ -d "$PROJECT_ROOT/node_modules" ]; then
+    place_lint_rules
+    _pc_extra+=(${PLACE_EXTRA[@]+"${PLACE_EXTRA[@]}"})
+  elif [ "${LINTER_SLOT:-}" = oxlint ]; then
+    note_not_wired "getff's lint rules in your oxlint config — not switched on: dependencies are not installed, so your lint could not run first"
+  fi
+fi
+
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would run each check getff adds once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
 else
@@ -1064,6 +1080,10 @@ else
       oxlint:check:globs|oxlint:check:enforced|oxlint:check:fences-fire|biome:check:globs|biome:check:enforced|biome:check:fences-fire)
         _pc_not+=("$_pc_c # not wired: reads getff's ESLint config, and this project lints with $LINTER_SLOT"); continue ;;
     esac
+    # P5: the placement pass above ran the project's own lint and it exited 0 with getff's rules on.
+    if [ "$_pc_n" = lint ] && [ -n "${PLACE_LINT_OK:-}" ]; then
+      _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c — it exits 0 with getff's rules switched on"; continue
+    fi
     case " ${DEPS_GETFF_SCRIPTS:-} " in
       *" $_pc_n "*) ;;
       *) _pc_not+=("$_pc_c # your own script: the install does not run it; the first validate or push arms it once it exits 0"); continue ;;
