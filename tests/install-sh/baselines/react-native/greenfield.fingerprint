@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-33f747ecc3bc289be7ffe345904c28e2786850e6827a254e7f00d7bace5eb309  .ai-factory/refresh-baseline.json
+42b3b46cd16c32307aae1373505626caf30931957d721b55723d2bd3d1a6c385  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -89,7 +89,7 @@ f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills
 00d60661046a1111ad93ebcce72e82c41729958de4aa47e970e5cc56a0b97fa7  .claude/skills/pipeline/helpers/print-orch-home.sh
 56a08403ffffe491fb20b8dd2a687cbb6f4583a114578e6ab89f0c7668de0b72  .claude/skills/pipeline/helpers/print-plan-path.sh
 77b05d99968b5e5ab8748e530f5b4434caa7148d1fa60b5cc546ac5487cf43db  .claude/skills/pipeline/helpers/priority-score-synthetic.sh
-fe1ad340fa525941f32a484986cb4328843a14cbcc0cde2be8cf22d00ccaee6f  .claude/skills/pipeline/helpers/priority-score.sh
+120670abb91c3e6b8e7ec8c5d291ba1dd20e8e42e719c7b3169b93da3d44d8da  .claude/skills/pipeline/helpers/priority-score.sh
 0e4d579cbf69690b0282d8da90bd217bb8c23e74564fa4481e2c8a8a6caccc63  .claude/skills/pipeline/helpers/render-status.sh
 be510a048baa21239916d54bf4dca0cf5891262933f2ac48898060ca71341e6d  .claude/skills/pipeline/helpers/resolve-preset.sh
 2c2a0920175c2693db7d879b1dfaa4d4c5e7d74fbf9505876cb8af9592bf6528  .claude/skills/pipeline/helpers/run-helper.sh
