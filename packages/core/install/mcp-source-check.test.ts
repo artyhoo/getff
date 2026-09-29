@@ -64,6 +64,13 @@ const check = async (dir = FIXTURES, root = consumer()): Promise<CheckResult> =>
   expect(r).not.toBeNull();
   return r!;
 };
+/** Search-answer edit: redis-mcp's npm package declares no variable (so it needs nothing). */
+const noVars = (b: Record<string, unknown>) => {
+  const body = b as { servers: { server: { name: string; packages?: { environmentVariables?: unknown[] }[] } }[] };
+  for (const x of body.servers)
+    if (x.server.name === 'io.github.upstash/redis-mcp') for (const p of x.server.packages ?? []) delete p.environmentVariables;
+  return body;
+};
 const byServer = (r: CheckResult) => Object.fromEntries(r.decisions.map((x) => [x.server, x]));
 
 describe('checkStackTools on the recorded registry', () => {
@@ -88,10 +95,11 @@ describe('checkStackTools on the recorded registry', () => {
     expect(s['com.supabase/mcp']).toMatchObject({ signals: 1 });
     expect(s['com.supabase/mcp']!.entry).toBeUndefined();
     expect(s['com.supabase/mcp']!.owner).toContain('scope @supabase');
-    // a local-only server is checked but only proposed: writing it would pin a version (fork F1)
-    expect(s['io.github.upstash/redis-mcp']!.needs).toBe(
-      'your yes to run it locally: npx -y @upstash/redis-mcp@0.1.1 (checked: its mcpName names this server)',
-    );
+    // two signals, but its npm package declares variables without a default (one transport is
+    // needed): proposed with them, never written to fail at every session start
+    expect(s['io.github.upstash/redis-mcp']).toMatchObject({ signals: 2 });
+    expect(s['io.github.upstash/redis-mcp']!.entry).toBeUndefined();
+    expect(s['io.github.upstash/redis-mcp']!.needs).toBe('UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, UPSTASH_REDIS_TCP_URL');
     expect(s['io.github.upstash/mcp-server']!.needs).toBe('UPSTASH_EMAIL, UPSTASH_API_KEY');
   });
 
@@ -133,11 +141,34 @@ describe('checkStackTools on the recorded registry', () => {
     expect(sentry.needs).toContain('header Authorization');
   });
 
-  it('an npm package whose mcpName does not name the server is not offered as a command', async () => {
-    const dir = fixturesWith({ [npmUrl('@upstash/redis-mcp', '0.1.1')]: (b) => ({ ...b, mcpName: 'io.github.evil/redis' }) });
+  it('a two-signal npm server that needs nothing is written unpinned, with the version npm served', async () => {
+    const dir = fixturesWith({ [searchUrl('io.github.upstash')]: noVars, [searchUrl('upstash')]: noVars });
     const redis = byServer(await check(dir))['io.github.upstash/redis-mcp']!;
-    expect(redis.needs).toContain('names io.github.evil/redis in mcpName');
-    expect(redis.needs).not.toContain('npx -y');
+    expect(redis).toMatchObject({ signals: 2, served: '0.1.1', entry: { type: 'stdio', command: 'npx', args: ['-y', '@upstash/redis-mcp'] } });
+    const root = consumer();
+    const lines = applyDecisions(root, (await check(dir, root)).decisions, { date: '2026-09-29' });
+    expect(lines).toContain(
+      `✓ .mcp.json: ${redis.key} (npx -y @upstash/redis-mcp, not pinned: npm served 0.1.1) — io.github.upstash/redis-mcp ${redis.version} — owner: ${redis.owner}; matched dependency ${redis.dep}`,
+    );
+    const written = JSON.parse(readFileSync(join(root, '.mcp.json'), 'utf8')).mcpServers[redis.key];
+    expect(written).toEqual({ type: 'stdio', command: 'npx', args: ['-y', '@upstash/redis-mcp'] });
+    expect(JSON.stringify(written)).not.toMatch(/@\d/); // no version pin in the consumer's config
+    // an entry the person already runs for that package, under any name, is kept
+    const own = consumer({ mcpServers: { myredis: { command: 'npx', args: ['@upstash/redis-mcp@0.0.9'] } } });
+    expect(applyDecisions(own, (await check(dir, own)).decisions, { date: '2026-09-29' })).toContain(
+      '⊝ io.github.upstash/redis-mcp: already in .mcp.json as «myredis» — kept as it is',
+    );
+  });
+
+  it('an npm package whose CURRENT mcpName does not name the server is not written', async () => {
+    const dir = fixturesWith({
+      [searchUrl('io.github.upstash')]: noVars,
+      [searchUrl('upstash')]: noVars,
+      [npmUrl('@upstash/redis-mcp', 'latest')]: (b) => ({ ...b, mcpName: 'io.github.evil/redis' }),
+    });
+    const redis = byServer(await check(dir))['io.github.upstash/redis-mcp']!;
+    expect(redis.entry).toBeUndefined();
+    expect(redis.needs).toContain('the latest npm @upstash/redis-mcp names io.github.evil/redis in mcpName');
   });
 
   it('npm answered but the MCP registry did not: null, never «nothing found»', async () => {

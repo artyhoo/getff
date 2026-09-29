@@ -7567,9 +7567,11 @@ function serverKey(server) {
   const suffix = tokens(server.split("/").slice(1).join("-")).join("-");
   return suffix || ownerLabel(namespaceOf(server));
 }
+async function npmManifest(id, version, fetchJson) {
+  return await fetchJson(`${NPM_REGISTRY}/${id.replace("/", "%2f")}/${encodeURIComponent(version)}`);
+}
 async function npmMcpName(id, version, fetchJson) {
-  const m = await fetchJson(`${NPM_REGISTRY}/${id.replace("/", "%2f")}/${encodeURIComponent(version)}`);
-  return m?.mcpName ?? null;
+  return (await npmManifest(id, version, fetchJson))?.mcpName ?? null;
 }
 async function installForm(s, fetchJson) {
   const needs = [];
@@ -7580,22 +7582,24 @@ async function installForm(s, fetchJson) {
     needs.push(...req.map((h) => `header ${h}`));
   }
   for (const p of s.packages ?? []) {
-    if (p.registryType !== "npm" || !p.identifier || !p.version || p.version === "latest") continue;
+    if (p.registryType !== "npm" || !p.identifier) continue;
     if ((p.transport?.type ?? "stdio") !== "stdio") continue;
+    const unset = (p.environmentVariables ?? []).filter((e) => e.default === void 0);
+    const vars = unset.some((e) => e.isRequired) ? unset.filter((e) => e.isRequired) : unset;
     const req = [
-      ...(p.environmentVariables ?? []).filter((e) => e.isRequired && e.default === void 0).map((e) => e.name),
+      ...vars.map((e) => e.name),
       ...[...p.packageArguments ?? [], ...p.runtimeArguments ?? []].filter((a) => a.isRequired && a.value === void 0).map((a) => `argument ${a.name ?? "?"}`)
     ];
     if (req.length) {
       needs.push(...req);
       continue;
     }
-    const mcpName = await npmMcpName(p.identifier, p.version, fetchJson);
-    if (mcpName !== s.name) {
-      needs.push(`a checked package (npm ${p.identifier}@${p.version} names ${mcpName ?? "no server"} in mcpName)`);
+    const latest = await npmManifest(p.identifier, "latest", fetchJson);
+    if (!latest?.version || latest.mcpName !== s.name) {
+      needs.push(`a checked package (the latest npm ${p.identifier} names ${latest?.mcpName ?? "no server"} in mcpName)`);
       continue;
     }
-    needs.push(`your yes to run it locally: npx -y ${p.identifier}@${p.version} (checked: its mcpName names this server)`);
+    return { entry: { type: "stdio", command: "npx", args: ["-y", p.identifier] }, served: latest.version };
   }
   return { needs: needs.length ? [...new Set(needs)].join(", ") : "a remote or an npm package getff can run" };
 }
@@ -7671,6 +7675,7 @@ async function checkStackTools(root, fetchJson) {
     };
     if (decision.entry && best.signals.length < 2) {
       delete decision.entry;
+      delete decision.served;
       decision.needs = "a second ownership signal \u2014 getff writes a server only when two of GitHub org, homepage domain and npm scope agree";
     }
     decisions.push(decision);
@@ -7681,7 +7686,11 @@ function isDecided(dec, d) {
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   return new RegExp(`(^|[^A-Za-z0-9._/-])${esc(d.server)}($|[^A-Za-z0-9._/-])`, "m").test(dec) || new RegExp(`^\\|\\s*${esc(d.key)}\\s*\\|`, "m").test(dec);
 }
-var describe = (e) => `http ${e.url}`;
+var describe = (d) => !d.entry ? "" : d.entry.type === "http" ? `http ${d.entry.url}` : `npx -y ${d.entry.args[1]}, not pinned: npm served ${d.served ?? "?"}`;
+var runs = (v, e) => {
+  const s = JSON.stringify(v);
+  return e.type === "http" ? s.includes(`"${e.url}"`) : s.includes(`"${e.args[1]}"`) || s.includes(`"${e.args[1]}@`);
+};
 function applyDecisions(root, decisions, opts) {
   const lines = [];
   const mcpPath = join3(root, ".mcp.json");
@@ -7694,10 +7703,7 @@ function applyDecisions(root, decisions, opts) {
   let mcpChanged = false;
   for (const d of decisions) {
     const c4 = `${d.server} ${d.version} \u2014 owner: ${d.owner}; matched dependency ${d.dep}`;
-    const configured = Object.entries(servers).find(([, v]) => {
-      const s = JSON.stringify(v);
-      return d.entry && s.includes(`"${d.entry.url}"`);
-    });
+    const configured = d.entry ? Object.entries(servers).find(([, v]) => runs(v, d.entry)) : void 0;
     if (configured) {
       lines.push(`\u229D ${d.server}: already in .mcp.json as \xAB${configured[0]}\xBB \u2014 kept as it is`);
       if (!isDecided(dec, d)) accepted.push(`| ${configured[0]} | MCP | ${opts.date} | already in .mcp.json: ${c4} |`);
@@ -7710,8 +7716,8 @@ function applyDecisions(root, decisions, opts) {
     if (d.entry && !(d.key in servers)) {
       servers[d.key] = d.entry;
       mcpChanged = true;
-      accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d.entry)}): ${c4} |`);
-      lines.push(`\u2713 .mcp.json: ${d.key} (${describe(d.entry)}) \u2014 ${c4}`);
+      accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d)}): ${c4} |`);
+      lines.push(`\u2713 .mcp.json: ${d.key} (${describe(d)}) \u2014 ${c4}`);
     } else {
       const why = d.entry ? `the name \xAB${d.key}\xBB is already taken in .mcp.json` : `needs ${d.needs}`;
       pending.push(`- ${d.server}: proposed, not installed \u2014 ${why}; ${c4}`);

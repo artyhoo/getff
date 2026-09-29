@@ -23,14 +23,13 @@
  * on `typescript` does not pull every server under io.github.microsoft.
  *
  * What is installed, into .mcp.json, without a further question (the pre-launch yes IS the
- * confirmation tool-bootstrapping Rule 3 requires): a server with two ownership signals whose
- * streamable-http remote needs no header → {type:"http", url}. Nothing runs locally and there is no
- * version to pin.
- * A server that only runs locally is proposed with the exact command, checked but not written: an
- * npm stdio package that needs no variable, at the registry version whose published mcpName names
- * this server (`npx -y pkg@ver`). Writing it would add a version pin to the consumer's config, and
- * whether getff pins anything is an open operator decision (one-button P3, fork F1;
- * .claude/rules/companion-install-principle.md §1 says no pin) — so it stays a proposal until then.
+ * confirmation tool-bootstrapping Rule 3 requires), for a server with two ownership signals:
+ *   - its streamable-http remote that needs no header → {type:"http", url}; nothing runs locally;
+ *   - else its npm stdio package that declares no variable without a default and no required
+ *     argument, and whose CURRENT (`latest`) manifest names this server in mcpName →
+ *     {type:"stdio", command:"npx", args:["-y", pkg]}. Not pinned (one-button fork on pins = B,
+ *     operator log entry 28; .claude/rules/companion-install-principle.md §1): npm serves its latest,
+ *     and the version it served at install time is recorded on the decision line.
  * Anything else is «proposed, not installed» with what it needs. Every decision is one line in
  * .ai-factory/tool-decisions.md carrying server, namespace owner, version and matched dependency.
  * Skills are never installed here (no registry that verifies a skill's publisher exists).
@@ -120,7 +119,9 @@ export interface Decision {
   dep: string;
   key: string;
   /** Present when the server can be installed without anything from the person. */
-  entry?: { type: 'http'; url: string };
+  entry?: { type: 'http'; url: string } | { type: 'stdio'; command: 'npx'; args: ['-y', string] };
+  /** For a stdio entry: the version npm served when the install checked it (recorded, not pinned). */
+  served?: string;
   /** Why it is only proposed. */
   needs?: string;
 }
@@ -225,13 +226,15 @@ function serverKey(server: string): string {
 }
 
 /** The mcpName an npm package declares at VERSION (a version or a dist-tag such as `latest`). */
+async function npmManifest(id: string, version: string, fetchJson: FetchJson): Promise<{ mcpName?: string; version?: string } | null> {
+  return (await fetchJson(`${NPM_REGISTRY}/${id.replace('/', '%2f')}/${encodeURIComponent(version)}`)) as { mcpName?: string; version?: string } | null;
+}
 async function npmMcpName(id: string, version: string, fetchJson: FetchJson): Promise<string | null> {
-  const m = (await fetchJson(`${NPM_REGISTRY}/${id.replace('/', '%2f')}/${encodeURIComponent(version)}`)) as { mcpName?: string } | null;
-  return m?.mcpName ?? null;
+  return (await npmManifest(id, version, fetchJson))?.mcpName ?? null;
 }
 
 /** Install form for a verified server, or what it needs. */
-async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pick<Decision, 'entry' | 'needs'>> {
+async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pick<Decision, 'entry' | 'needs' | 'served'>> {
   const needs: string[] = [];
   for (const r of s.remotes ?? []) {
     const req = (r.headers ?? []).filter((h) => h.isRequired).map((h) => h.name);
@@ -240,10 +243,16 @@ async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pic
     needs.push(...req.map((h) => `header ${h}`));
   }
   for (const p of s.packages ?? []) {
-    if (p.registryType !== 'npm' || !p.identifier || !p.version || p.version === 'latest') continue;
+    if (p.registryType !== 'npm' || !p.identifier) continue;
     if ((p.transport?.type ?? 'stdio') !== 'stdio') continue;
+    // A variable declared without a default is one the person sets (a URL, a token), even when the
+    // registry does not mark it required: redis-mcp declares three, of which one transport is needed.
+    // Written without it, the server would fail at every session start. The required ones are named
+    // when there are any; otherwise every variable without a default.
+    const unset = (p.environmentVariables ?? []).filter((e) => e.default === undefined);
+    const vars = unset.some((e) => e.isRequired) ? unset.filter((e) => e.isRequired) : unset;
     const req = [
-      ...(p.environmentVariables ?? []).filter((e) => e.isRequired && e.default === undefined).map((e) => e.name),
+      ...vars.map((e) => e.name),
       ...[...(p.packageArguments ?? []), ...(p.runtimeArguments ?? [])]
         .filter((a) => a.isRequired && a.value === undefined)
         .map((a) => `argument ${a.name ?? '?'}`),
@@ -252,12 +261,13 @@ async function installForm(s: RegistryServer, fetchJson: FetchJson): Promise<Pic
       needs.push(...req);
       continue;
     }
-    const mcpName = await npmMcpName(p.identifier, p.version, fetchJson);
-    if (mcpName !== s.name) {
-      needs.push(`a checked package (npm ${p.identifier}@${p.version} names ${mcpName ?? 'no server'} in mcpName)`);
+    // npx -y <pkg> runs npm's latest, so the latest is the manifest that must name this server.
+    const latest = await npmManifest(p.identifier, 'latest', fetchJson);
+    if (!latest?.version || latest.mcpName !== s.name) {
+      needs.push(`a checked package (the latest npm ${p.identifier} names ${latest?.mcpName ?? 'no server'} in mcpName)`);
       continue;
     }
-    needs.push(`your yes to run it locally: npx -y ${p.identifier}@${p.version} (checked: its mcpName names this server)`);
+    return { entry: { type: 'stdio', command: 'npx', args: ['-y', p.identifier] }, served: latest.version };
   }
   return { needs: needs.length ? [...new Set(needs)].join(', ') : 'a remote or an npm package getff can run' };
 }
@@ -347,6 +357,7 @@ export async function checkStackTools(root: string, fetchJson: FetchJson): Promi
     };
     if (decision.entry && best.signals.length < 2) {
       delete decision.entry;
+      delete decision.served;
       decision.needs = 'a second ownership signal — getff writes a server only when two of GitHub org, homepage domain and npm scope agree';
     }
     decisions.push(decision);
@@ -364,7 +375,13 @@ export function isDecided(dec: string, d: Pick<Decision, 'server' | 'key'>): boo
   );
 }
 
-const describe = (e: NonNullable<Decision['entry']>): string => `http ${e.url}`;
+const describe = (d: Decision): string =>
+  !d.entry ? '' : d.entry.type === 'http' ? `http ${d.entry.url}` : `npx -y ${d.entry.args[1]}, not pinned: npm served ${d.served ?? '?'}`;
+/** True when an existing .mcp.json entry already runs this server (http: its url; stdio: its package). */
+const runs = (v: unknown, e: NonNullable<Decision['entry']>): boolean => {
+  const s = JSON.stringify(v);
+  return e.type === 'http' ? s.includes(`"${e.url}"`) : s.includes(`"${e.args[1]}"`) || s.includes(`"${e.args[1]}@`);
+};
 
 /** Writes the decisions into .mcp.json and .ai-factory/tool-decisions.md; returns the report lines. */
 export function applyDecisions(root: string, decisions: Decision[], opts: { dryRun?: boolean; date: string }): string[] {
@@ -380,10 +397,7 @@ export function applyDecisions(root: string, decisions: Decision[], opts: { dryR
 
   for (const d of decisions) {
     const c4 = `${d.server} ${d.version} — owner: ${d.owner}; matched dependency ${d.dep}`;
-    const configured = Object.entries(servers).find(([, v]) => {
-      const s = JSON.stringify(v);
-      return d.entry && s.includes(`"${d.entry.url}"`);
-    });
+    const configured = d.entry ? Object.entries(servers).find(([, v]) => runs(v, d.entry!)) : undefined;
     if (configured) {
       lines.push(`⊝ ${d.server}: already in .mcp.json as «${configured[0]}» — kept as it is`);
       // A re-seeded tool-decisions.md (install --force) must still say why the entry is there.
@@ -397,8 +411,8 @@ export function applyDecisions(root: string, decisions: Decision[], opts: { dryR
     if (d.entry && !(d.key in servers)) {
       servers[d.key] = d.entry;
       mcpChanged = true;
-      accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d.entry)}): ${c4} |`);
-      lines.push(`✓ .mcp.json: ${d.key} (${describe(d.entry)}) — ${c4}`);
+      accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d)}): ${c4} |`);
+      lines.push(`✓ .mcp.json: ${d.key} (${describe(d)}) — ${c4}`);
     } else {
       const why = d.entry ? `the name «${d.key}» is already taken in .mcp.json` : `needs ${d.needs}`;
       pending.push(`- ${d.server}: proposed, not installed — ${why}; ${c4}`);
