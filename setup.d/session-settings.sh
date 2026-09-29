@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # setup.d/session-settings.sh — the session-settings group (one-button point 13, plan §3).
 #
-# Settings that change how a person's sessions run (the auto-compact window, agent teams, getff's
-# generic safety permissions) are OFFERED in the pre-launch list and written only on that «yes»,
+# Settings that change how a person's sessions run (the auto-compact window, agent teams, the handoff
+# gate, getff's generic safety permissions) are OFFERED in the pre-launch list and written only on that «yes»,
 # which reaches the installer as GETFF_SESSION_SETTINGS=1. They go into the per-person
 # .claude/settings.local.json — never the team's committed settings.json — and the install prints
 # ONE command that undoes them.
@@ -81,7 +81,7 @@ apply_session_settings() {
   f="$root/$rel"
   GETFF_SESSION_REVERT=""
   if [ "${GETFF_SESSION_SETTINGS:-}" != "1" ]; then
-    echo "  · session settings not applied (not chosen in the pre-launch list): auto-compact window, agent teams, getff's generic safety permissions"
+    echo "  · session settings not applied (not chosen in the pre-launch list): auto-compact window, agent teams, the handoff gate, getff's generic safety permissions"
     return 0
   fi
   if [ "${DRY_RUN:-}" = "--dry-run" ]; then

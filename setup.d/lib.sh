@@ -2752,6 +2752,25 @@ note_getff_added() {
   GETFF_ADDED_TO+=("$1")
 }
 
+# handoff_ignore_local <root> — keep the handoff group's per-session files (_handoff-<id>.md,
+# _residue-<id>.md under an orchestrator-prompts dir, setup.d/10-skills.sh §1k) out of git through
+# <root>/.git/info/exclude: the clone's own list, so the project's .gitignore is left alone.
+# Outside a git work tree there is nothing to commit them to, and nothing is done. Idempotent.
+handoff_ignore_local() {
+  local ex p added=""
+  command -v git >/dev/null 2>&1 || return 0
+  git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  ex="$(git -C "$1" rev-parse --git-path info/exclude 2>/dev/null)" || return 0
+  case "$ex" in /*) ;; *) ex="$1/$ex" ;; esac
+  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 0
+  for p in '**/orchestrator-prompts/_handoff-*.md' '**/orchestrator-prompts/_residue-*.md'; do
+    grep -qxF -- "$p" "$ex" 2>/dev/null && continue
+    printf '%s\n' "$p" >> "$ex" 2>/dev/null && added=1
+  done
+  [ -n "$added" ] && echo "  ✓ the handoff group's per-session files are git-ignored through .git/info/exclude (the project .gitignore is unchanged)"
+  return 0
+}
+
 # DEPCRUISE_CONFIG_NAMES — the config names dependency-cruiser loads by default, in its own lookup
 # order (doc/cli.md `--config`: .js, .cjs, .mjs, .ts, .cts, .mts, .json). Shared by
 # foreign_tool_config and depcruise_config; packages/core/audit-self/check-arch-boundaries.sh ships

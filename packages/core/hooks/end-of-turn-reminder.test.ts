@@ -3067,6 +3067,37 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     expect(d.stderr).toBe('');
   });
 
+  it('fixture 16: floor derivation — the project settings.local.json autoCompactWindow outranks settings.json (Claude Code precedence); junk there falls through', () => {
+    // WHY: getff's session-settings group (setup.d/session-settings.sh) writes autoCompactWindow
+    // into the per-person .claude/settings.local.json, which Claude Code reads BEFORE the
+    // committed settings.json. A gate that skipped it would place its floor from a value the
+    // session does not run with.
+    const localCase = (local: string, projectAutoCompact: number) => {
+      const b = buildCase(goldenCase('f10c-floor-none'), true);
+      const proj = join(b.dir, 'proj');
+      mkdirSync(join(proj, '.claude'), { recursive: true });
+      writeFileSync(join(proj, '.claude', 'settings.local.json'), local, 'utf8');
+      writeFileSync(
+        join(proj, '.claude', 'settings.json'),
+        JSON.stringify({ autoCompactWindow: projectAutoCompact }, null, 2) + '\n',
+        'utf8',
+      );
+      b.env.CLAUDE_PROJECT_DIR = proj;
+      return spawnCase(b);
+    };
+    // (a) local 300000 over project 600000 → floor 201000 → 250k is in the band → block.
+    const a = localCase(JSON.stringify({ autoCompactWindow: 300000 }), 600000);
+    expect(a.stderr).toBe('');
+    const pa = JSON.parse(a.stdout) as { decision: string; reason: string };
+    expect(pa.decision).toBe('block');
+    expect(pa.reason, 'the floor derived from settings.local.json is in the reason').toContain('201000');
+    // (b) PAIRED NEGATIVE — a junk local value is ignored, the project 600000 applies →
+    // floor 300000 → 250k is below it → silent.
+    const b = localCase(JSON.stringify({ autoCompactWindow: 'lots' }), 600000);
+    expect(b.stdout, 'junk in settings.local.json falls through to settings.json').toBe('');
+    expect(b.stderr).toBe('');
+  });
+
   it('fixture 11 (D30 iii regression guard): long_text=true in the band, stale handoff → the emitted reason carries BOTH the recap body AND the gate text', () => {
     // Fixtures 1-8 are short/tool-only turns and never reach the bottom emit site (:694).
     // Without THIS case, appending gate_line at only _autonomy_exit ships green — the exact

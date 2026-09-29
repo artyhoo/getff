@@ -66,7 +66,7 @@ for engine in jq node; do
   GETFF_SESSION_SETTINGS=1 run_apply "$d" "$P" > "$WORK/b.out" 2>&1
   f="$d/.claude/settings.local.json"
   if [ -f "$f" ]; then
-    has "$f" '.autoCompactWindow == 400000' && has "$f" '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' \
+    has "$f" '.autoCompactWindow == 400000' && has "$f" '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' && has "$f" '.env.AIF_HANDOFF_GATE == "1"' \
       && has "$f" '(.permissions.deny | index("Bash(rm -rf *)")) != null' && has "$f" '(.permissions.allow | index("Task")) != null' \
       && ok "${tag}B the group is written" || bad "${tag}B wrong content: $(tr '\n' ' ' < "$f")"
     has "$f" '.env | has("AIF_CTX_WINDOW") | not' && has "$f" '(.permissions.deny | index("Bash(git push origin main*)")) == null' \

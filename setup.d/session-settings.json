@@ -1,7 +1,8 @@
 {
   "autoCompactWindow": 400000,
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "AIF_HANDOFF_GATE": "1"
   },
   "permissions": {
     "allow": [

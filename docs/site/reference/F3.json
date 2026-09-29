@@ -279,7 +279,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2656 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2658 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
