@@ -1140,11 +1140,15 @@ for (const { nm, version, tsParser } of ESLINT_INSTALLS) {
     // The original already exits 2 on `.mts` (a block naming a plugin registered for other extensions),
     // a file the project does not have: its `eslint .` is clean. A write that makes ESLint exit 2 on
     // `.ts` must still be rolled back — one pooled run over every probe file reads «fails either way».
+    // The plugin is registered as its own object (`{ ...customRules }`), not the imported binding: the
+    // wirer registers `customRules` itself for the scope it adds (#1882), and ESLint exits 2 on a file
+    // where two different objects share the name «rules-as-tests» («Cannot redefine plugin»). With the
+    // shared binding the write is sound and nothing is rolled back, so the case would test nothing.
     it.skipIf(!TS_MORPH_AVAILABLE)('an original that exits 2 on an extension the project lacks does not hide an exit 2 the wiring caused', async () => {
       const config =
         `${IMPORT_BARREL}const foo = { rules: { x: { create: () => ({}) } } };\n${ONLY_JS}` +
         `export default [{ files: ['**/*.{js,mjs,cjs,ts}'], plugins: { foo } }, { files: ['**/*.mts'], rules: { 'foo/x': 'error' } },` +
-        ` { ...onlyJs, plugins: { 'rules-as-tests': customRules }, rules: {} }];\n`;
+        ` { ...onlyJs, plugins: { 'rules-as-tests': { ...customRules } }, rules: {} }];\n`;
       const dir = consumer(config, SRC);
       try {
         expect(lintRc(dir).rc).toBe(0);
