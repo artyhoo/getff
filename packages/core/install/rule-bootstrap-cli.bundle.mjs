@@ -9861,13 +9861,14 @@ var require_eslint = __commonJS({
       return NOT_FOUND;
     }
     function load() {
-      var m = fromRoot(process.cwd());
-      if (m !== NOT_FOUND) return m;
       var tools = process.env.GETFF_TOOLS_ROOT;
+      var m;
       if (tools) {
         m = fromRoot(tools);
         if (m !== NOT_FOUND) return m;
       }
+      m = fromRoot(process.cwd());
+      if (m !== NOT_FOUND) return m;
       try {
         return __require(id);
       } catch (e) {
@@ -9907,13 +9908,14 @@ var require_parser = __commonJS({
       return NOT_FOUND;
     }
     function load() {
-      var m = fromRoot(process.cwd());
-      if (m !== NOT_FOUND) return m;
       var tools = process.env.GETFF_TOOLS_ROOT;
+      var m;
       if (tools) {
         m = fromRoot(tools);
         if (m !== NOT_FOUND) return m;
       }
+      m = fromRoot(process.cwd());
+      if (m !== NOT_FOUND) return m;
       try {
         return __require(id);
       } catch (e) {

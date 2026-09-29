@@ -192,14 +192,17 @@ function fromRoot(root) {
   }
   return NOT_FOUND;
 }
-// 1. the project (its own ESLint); 2. getff's generator toolchain outside the project
-// (GETFF_TOOLS_ROOT, provisioned by setup.d/80-rule-bootstrap.sh when the project has no ESLint —
-// an oxlint or Biome project); 3. whatever resolves next to this bundle.
+// 1. getff's generator toolchain outside the project (GETFF_TOOLS_ROOT) when it is set —
+// setup.d/80-rule-bootstrap.sh sets it only when the project's own set cannot run the generator (a
+// module missing, or another ESLint major), so the whole set then comes from one place and a
+// project ESLint is never mixed with the toolchain's parser (P6 F1); 2. the project (its own
+// ESLint); 3. whatever resolves next to this bundle.
 function load() {
-  var m = fromRoot(process.cwd());
-  if (m !== NOT_FOUND) return m;
   var tools = process.env.GETFF_TOOLS_ROOT;
+  var m;
   if (tools) { m = fromRoot(tools); if (m !== NOT_FOUND) return m; }
+  m = fromRoot(process.cwd());
+  if (m !== NOT_FOUND) return m;
   try { return require(id); } catch (e) { if (!missing(e)) throw e; }
   throw new Error("getff: '" + id + "' was not found in the project (" + process.cwd() +
     ") nor in getff's rule-generator toolchain (GETFF_TOOLS_ROOT=" + (tools || 'unset') +

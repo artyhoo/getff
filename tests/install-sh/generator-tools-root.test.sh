@@ -19,9 +19,15 @@
 #   (D) with GETFF_GLOBAL=1 the toolchain goes to ${XDG_CACHE_HOME}/getff/generator-tools and stays
 #   (E) npm fails → one NOT wired line naming the toolchain and npm's first line; the generator
 #       is not run
-#   (F) paired negative: the project HAS ESLint → no toolchain install, no GETFF_TOOLS_ROOT
+#   (F) paired negative: the project has every module the generator loads, with ESLint 9 → no
+#       toolchain install, no GETFF_TOOLS_ROOT
 #   (G) --dry-run lists the toolchain install as one «would:» line (the tool list the one
 #       pre-launch question quotes)
+#   (H) the project has eslint but no @typescript-eslint/parser (P6 F1) → the toolchain is installed
+#   (I) every module resolves but ESLint is 10 → the toolchain is installed (wrong major ≠ present)
+#   (J) bundle: with GETFF_TOOLS_ROOT set, a project module the generator cannot run with is not
+#       mixed into the toolchain
+#   (K) parity: the step's probe names every module the bundle loads from the project
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -64,7 +70,21 @@ else
 fi
 
 # ── the setup step, with stub npm/node ───────────────────────────────────────────────────────
-run_step() {  # $1 = npm exit code, $2 = "has-eslint" to plant ESLint in the project, $3 = DRY_RUN value; extra env via caller
+# plant_mod <root> <name> <version>: a resolvable stand-in package under <root>/node_modules.
+plant_mod() {
+  local d="$1/node_modules/$2"
+  mkdir -p "$d"
+  printf '{"name":"%s","version":"%s","main":"index.js"}\n' "$2" "$3" > "$d/package.json"
+  echo 'module.exports={}' > "$d/index.js"
+  [ "$2" != eslint ] || echo 'module.exports={}' > "$d/use-at-your-own-risk.js"
+}
+# plant_toolchain <root> <eslint version>: every module the generator bundle loads from a project.
+plant_toolchain() {
+  plant_mod "$1" eslint "$2"; plant_mod "$1" typescript-eslint 8.71.0
+  plant_mod "$1" @typescript-eslint/parser 8.71.0; plant_mod "$1" @typescript-eslint/utils 8.71.0
+  plant_mod "$1" typescript 5.9.3
+}
+run_step() {  # $1 = npm exit code, $2 = what the project has (""|has-eslint|full9|full10), $3 = DRY_RUN value; extra env via caller
   local nrc="$1" has="${2:-}" dry="${3:-}" P
   P=$(mktemp -d "$W/step.XXXX")
   mkdir -p "$P/pkg/packages/core/install" "$P/proj/.ai-factory/rules-research" "$P/bin"
@@ -72,7 +92,11 @@ run_step() {  # $1 = npm exit code, $2 = "has-eslint" to plant ESLint in the pro
   echo '{}' > "$P/proj/package.json"
   echo '{}' > "$P/proj/.ai-factory/rules-research/react-spa.research.json"
   echo '{}' > "$P/proj/.ai-factory/rules-research/react-spa.selection.json"
-  [ "$has" = has-eslint ] && mkdir -p "$P/proj/node_modules/eslint" && echo '{"name":"eslint","version":"9.0.0"}' > "$P/proj/node_modules/eslint/package.json" && echo 'module.exports={}' > "$P/proj/node_modules/eslint/index.js"
+  case "$has" in
+    has-eslint) plant_mod "$P/proj" eslint 9.0.0 ;;               # eslint alone (P6 F1: pulled in by @typescript-eslint/utils)
+    full9) plant_toolchain "$P/proj" 9.39.9 ;;                   # everything the generator loads, the major getff installs
+    full10) plant_toolchain "$P/proj" 10.11.0 ;;                 # everything, but an ESLint major getff does not install
+  esac
   # npm stub: records its args, creates <prefix>/node_modules/eslint on success.
   cat > "$P/bin/npm" <<EOF
 #!/bin/sh
@@ -126,10 +150,42 @@ grep -q "NOT_WIRED: generated rules — the generator's ESLint toolchain could n
 grep -q 'stub generator' <<<"$_out" && bad "(E) the generator ran without its toolchain" || ok "(E) the generator is not run"
 grep -q 'LAYER_RC=0' <<<"$_out" && ok "(E) the layer still returns 0" || bad "(E) layer rc ≠ 0"
 
-echo "▶ (F) paired negative: the project has ESLint"
-_out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg3"; run_step 0 has-eslint)
-grep -q 'stub npm' <<<"$_out" && bad "(F) a toolchain was installed although the project has ESLint" || ok "(F) no toolchain install"
+echo "▶ (F) paired negative: the project has every module the generator loads, ESLint 9"
+_out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg3"; run_step 0 full9)
+grep -q 'stub npm' <<<"$_out" && bad "(F) a toolchain was installed although the project has the generator's toolchain" || ok "(F) no toolchain install"
 grep -q 'stub generator: GETFF_TOOLS_ROOT=unset' <<<"$_out" && ok "(F) the generator runs on the project's own ESLint" || bad "(F) GETFF_TOOLS_ROOT set (got: $(grep 'stub generator' <<<"$_out"))"
+
+# P6 F1 (2026-09-30, create-vite react-ts): getff's own @typescript-eslint/utils pulled eslint 10 into
+# the project with no parser; a probe that asked only for `eslint` skipped the toolchain and the
+# generator died on the missing '@typescript-eslint/parser' — 0 of 6 researched rules.
+echo "▶ (H) the project has eslint but not the parser → the toolchain is installed"
+_out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg5"; run_step 0 has-eslint)
+grep -Eq 'stub npm: install --prefix [^ ]+ .*eslint@\^9' <<<"$_out" && ok "(H) npm installs the toolchain" || bad "(H) no toolchain install (got: $(grep -E 'stub npm|80-rule-bootstrap' <<<"$_out" | head -3))"
+grep -q 'stub generator: tools present' <<<"$_out" && ok "(H) the generator runs on the toolchain" || bad "(H) generator not pointed at the toolchain (got: $(grep 'stub generator' <<<"$_out"))"
+grep -q "'@typescript-eslint/parser' does not resolve" <<<"$_out" && ok "(H) the install line names the missing module" || bad "(H) the reason does not name the parser (got: $(grep '80-rule-bootstrap' <<<"$_out" | head -2))"
+
+echo "▶ (I) every module resolves, but ESLint 10 → the toolchain is installed (wrong major is not «present»)"
+_out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg6"; run_step 0 full10)
+grep -Eq 'stub npm: install --prefix [^ ]+ .*eslint@\^9' <<<"$_out" && ok "(I) npm installs the toolchain" || bad "(I) no toolchain install (got: $(grep -E 'stub npm|80-rule-bootstrap' <<<"$_out" | head -3))"
+grep -q 'eslint 10.11.0 is not 9.x' <<<"$_out" && ok "(I) the install line names the version and the major it needs" || bad "(I) the reason does not name the version (got: $(grep '80-rule-bootstrap' <<<"$_out" | head -2))"
+
+echo "▶ (J) bundle: GETFF_TOOLS_ROOT wins over a project ESLint the generator cannot run with"
+if [ -z "$TOOLS" ]; then
+  bad "(J) no ESLint toolchain in the repo's node_modules — run the repo's npm ci first (never skipped)"
+else
+  rm -rf "$W/proj/node_modules"; plant_mod "$W/proj" eslint 10.11.0   # resolves, but is no ESLint the generator can load
+  _out=$(export GETFF_TOOLS_ROOT="$TOOLS" NODE_PATH=; gen 2>&1); _rc=$?
+  [ "$_rc" -eq 0 ] && grep -q '"mode": "synthesis"' <<<"$_out" && ok "(J) the whole toolchain comes from GETFF_TOOLS_ROOT (exit 0, synthesis)" \
+    || bad "(J) exit $_rc — the project's module was mixed in (got: $(tail -3 <<<"$_out"))"
+  rm -rf "$W/proj/node_modules"
+fi
+
+echo "▶ (K) the step's probe asks for every module the bundle loads from the project"
+_ids=$(node -e 'const s=require("fs").readFileSync(process.argv[1],"utf8");const b=s.slice(s.indexOf("name: '"'"'rule generator'"'"'"));const i=b.indexOf("fromProject:");const f=b.slice(i,b.indexOf("],",i));console.log([...f.matchAll(/id: '"'"'([^'"'"']+)'"'"'/g)].map(m=>m[1]).join(" "))' "$REPO_ROOT/scripts/build-runtime-bundles.mjs")
+[ -n "$_ids" ] || bad "(K) no fromProject ids read from scripts/build-runtime-bundles.mjs"
+for _id in $_ids; do
+  grep -q "\['$_id'" "$REPO_ROOT/setup.d/80-rule-bootstrap.sh" && ok "(K) probe asks for $_id" || bad "(K) the probe in setup.d/80-rule-bootstrap.sh does not ask for $_id"
+done
 
 echo "▶ (G) --dry-run"
 _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg4"; run_step 0 "" --dry-run)

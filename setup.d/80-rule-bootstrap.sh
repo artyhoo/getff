@@ -111,7 +111,41 @@ fi
 _rb_tool_pkgs=(eslint@^9 typescript-eslint typescript)
 _rb_tools=""
 _rb_tools_tmp=""
-if ! ( cd "$PROJECT_ROOT" && node -e "require.resolve('eslint')" >/dev/null 2>&1 ); then
+# P6 F1 (2026-09-30): asking only for `eslint` let an ESLint that getff's own @typescript-eslint/utils
+# pulled into an oxlint project count as the generator's toolchain — no parser, 0 rules generated.
+# The project's set counts only when EVERY module the bundle loads from the project resolves the way
+# the bundle resolves it (scripts/build-runtime-bundles.mjs «rule generator» fromProject — kept equal
+# by tests/install-sh/generator-tools-root.test.sh arm K), TypeScript resolves from the parser, and its
+# ESLint major is the one getff installs itself (_rb_tool_pkgs[0]). Anything else — a partial set, or
+# another major — gets getff's toolchain, and the bundle then loads the whole set from it.
+_rb_eslint_major="${_rb_tool_pkgs[0]#eslint@^}"
+_rb_why_tools="$(cd "$PROJECT_ROOT" && node - "$_rb_eslint_major" 2>&1 <<'JS'
+const { createRequire } = require('node:module');
+const { join, dirname } = require('node:path');
+const { existsSync, readFileSync } = require('node:fs');
+const r = createRequire(join(process.cwd(), 'package.json'));
+const res = (id, via) => {
+  try { return r.resolve(id); } catch {}
+  if (via) { try { return createRequire(r.resolve(via + '/package.json')).resolve(id); } catch {} }
+  return '';
+};
+const need = [['eslint'], ['eslint/use-at-your-own-risk'], ['@typescript-eslint/parser', 'typescript-eslint'], ['@typescript-eslint/utils', 'typescript-eslint']];
+const found = {};
+for (const [id, via] of need) {
+  found[id] = res(id, via);
+  if (!found[id]) { console.log(`'${id}' does not resolve from the project`); process.exit(0); }
+}
+try { createRequire(found['@typescript-eslint/parser']).resolve('typescript'); }
+catch { console.log("'typescript' does not resolve from the project's @typescript-eslint/parser"); process.exit(0); }
+let d = dirname(found.eslint), v = '';
+for (; d !== dirname(d); d = dirname(d)) {
+  const p = join(d, 'package.json');
+  if (existsSync(p)) { const j = JSON.parse(readFileSync(p, 'utf8')); if (j.name === 'eslint') { v = j.version; break; } }
+}
+if (String(v).split('.')[0] !== process.argv[2]) console.log(`eslint ${v || '(version not read)'} is not ${process.argv[2]}.x, the major the generator runs with`);
+JS
+)" || _rb_why_tools="the toolchain probe failed: ${_rb_why_tools:-node exited non-zero}"
+if [ -n "$_rb_why_tools" ]; then
   if [ "${GETFF_GLOBAL:-}" = "1" ]; then
     _rb_tools="${XDG_CACHE_HOME:-$HOME/.cache}/getff/generator-tools"
   fi
@@ -121,8 +155,8 @@ if ! ( cd "$PROJECT_ROOT" && node -e "require.resolve('eslint')" >/dev/null 2>&1
   else
     [ -n "$_rb_tools" ] || { _rb_tools="$(mktemp -d)"; _rb_tools_tmp="$_rb_tools"; }
     mkdir -p "$_rb_tools"
-    printf "  [80-rule-bootstrap] the project has no ESLint — installing getff's rule-generator toolchain (%s) into %s\n" \
-      "${_rb_tool_pkgs[*]}" "$_rb_tools"
+    printf "  [80-rule-bootstrap] the project's ESLint cannot run the generator (%s) — installing getff's rule-generator toolchain (%s) into %s\n" \
+      "$_rb_why_tools" "${_rb_tool_pkgs[*]}" "$_rb_tools"
     _rb_npm_rc=0
     _rb_npm_out="$(npm install --prefix "$_rb_tools" --no-audit --no-fund --loglevel=error "${_rb_tool_pkgs[@]}" 2>&1)" || _rb_npm_rc=$?
     if [ "$_rb_npm_rc" -ne 0 ]; then
