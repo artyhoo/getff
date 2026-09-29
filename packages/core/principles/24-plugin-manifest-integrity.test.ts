@@ -394,6 +394,62 @@ export function collectPluginSkillDrift(repoRoot: string, pluginSkillsDir: strin
 
 const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 
+// ── (j) source-hash manifest — the ground truth of the consumer yield (spec 2026-09-28 D8/D10/D11) ──
+// plugin/hooks/run-hook.cmd silences a plugin hook in a consumer only when the installed copy hashes
+// to plugin/hooks/lib/source-sha256.txt. A stale line would let an OLDER installed copy silence a
+// newer plugin copy; a missing entry silently keeps the duplicate; a diverged packages/core/hooks
+// copy means the installer delivers bytes the manifest does not describe.
+//
+// D5 ruling (supersedes an earlier draft of this check): the bootstrap twin
+// (plugin/hooks/inject-session-bootstrap) is ALLOWED to still contain the literal
+// `[output-language]` text, provided it is behind the `AIF_HOOK_CHANNEL` runtime guard with a
+// `plugin:*)` arm whose body is `:` (no emission) — see the case statement a few lines above this
+// comment in that file. The companion half of the same contract is plugin/hooks/run-hook.cmd,
+// which must export `AIF_HOOK_CHANNEL=plugin` so the guard actually fires on the plugin channel.
+const HASH_WRITER = join(REPO_ROOT, 'scripts/plugin-source-hashes.sh');
+
+export function sourceHashManifestViolations(root: string): string[] {
+  const out: string[] = [];
+  const rel = 'plugin/hooks/lib/source-sha256.txt';
+  const read = (p: string) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : '');
+  let want = '';
+  try {
+    want = execFileSync('bash', [HASH_WRITER, root], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) {
+    out.push(`${rel}: the writer failed — ${String((e as { stderr?: string }).stderr ?? e).trim()}`);
+  }
+  const have = read(rel);
+  if (want && want !== have) out.push(`${rel} is stale — run: bash scripts/generate-plugin-twins.sh`);
+  const bootstrapTwin = read('plugin/hooks/inject-session-bootstrap');
+  if (bootstrapTwin.includes('[output-language]')) {
+    const guarded =
+      /case\s+"\$\{AIF_HOOK_CHANNEL:-\}[^"]*"\s+in/.test(bootstrapTwin) &&
+      /plugin:\*\)\s*:\s*;;/.test(bootstrapTwin);
+    if (!guarded)
+      out.push('plugin/hooks/inject-session-bootstrap emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone');
+  }
+  if (!read('plugin/hooks/inject-output-language').includes('[output-language]'))
+    out.push('plugin/hooks/inject-output-language no longer emits [output-language] — the line would reach nobody');
+  if (!read('plugin/hooks/run-hook.cmd').includes('AIF_HOOK_CHANNEL=plugin'))
+    out.push('plugin/hooks/run-hook.cmd no longer exports AIF_HOOK_CHANNEL=plugin — the bootstrap twin guard above cannot fire');
+  const twinDir = join(root, 'plugin/hooks');
+  const twins = existsSync(twinDir) ? readdirSync(twinDir) : [];
+  for (const n of twins) {
+    const a = read(`.claude/hooks/${n}.sh`);
+    const b = read(`packages/core/hooks/${n}.sh`);
+    if (a && b && a !== b)
+      out.push(`packages/core/hooks/${n}.sh differs from .claude/hooks/${n}.sh — the installer delivers bytes the manifest does not describe`);
+  }
+  const installer = ['setup.d/10-skills.sh', 'setup.d/45-python.sh', 'install.sh'].map(read).join('\n');
+  const delivered = new Set([...installer.matchAll(/\.claude\/hooks\/([a-z0-9-]+)\.sh/g)].map((m) => m[1]));
+  for (const n of delivered) {
+    if (!twins.includes(n)) continue;
+    if (!have.split('\n').some((l) => l.endsWith(`  ${n}.sh`)))
+      out.push(`${n}: the installer delivers it and the plugin twins it, but ${rel} has no entry — declare the files it reads on # @plugin-yield-deps`);
+  }
+  return out;
+}
+
 
 // ── (i) version-bump gate — a payload change ships under a NEW version ────────────────────────
 // Claude Code caches an installed plugin under `~/.claude/plugins/cache/<mkt>/<plugin>/<version>/`
@@ -1015,5 +1071,63 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
   it('(f) self-application: the integrity check is a pure function, exercised both green and red', () => {
     // checkPluginIntegrity is exported + run on the real tree (a) AND the broken fixture (b).
     expect(typeof checkPluginIntegrity).toBe('function');
+  });
+
+  // ── (j) source-hash manifest (spec 2026-09-28 D8/D10/D11, D5 ruling) ─────────
+  it('(j) real-tree: the source-hash manifest is fresh and complete, and the language line has one owner', () => {
+    expect(sourceHashManifestViolations(REPO_ROOT)).toEqual([]);
+  });
+
+  it('(j) paired-negative: each way the manifest can lie is RED', () => {
+    const root = mkdtempSync(join(tmpdir(), 'p24j-'));
+    const w = (p: string, s: string) => {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), s);
+    };
+    const pin = () => w('plugin/hooks/lib/source-sha256.txt', execFileSync('bash', [HASH_WRITER, root], { encoding: 'utf8' }));
+    try {
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho a\n');
+      w('plugin/hooks/a', '#!/usr/bin/env bash\n# AUTO-GENERATED from .claude/hooks/a.sh\necho a\n');
+      w('plugin/hooks/inject-output-language', 'echo "[output-language] x"\n');
+      // Green baseline for the D5 pair: the bootstrap twin carries the literal text ONLY behind
+      // the AIF_HOOK_CHANNEL guard, and run-hook.cmd exports the channel that guard reads.
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'echo "digest"\ncase "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\n',
+      );
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\nAIF_HOOK_CHANNEL=plugin\nexport AIF_HOOK_CHANNEL\n');
+      w('setup.d/10-skills.sh', `register_cc_hook "$SETTINGS" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/a.sh"' "a"\n`);
+      pin();
+      expect(sourceHashManifestViolations(root)).toEqual([]);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho CHANGED\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/is stale/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\n. "$(dirname "$0")/x.sh"\n');
+      pin();
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/a: the installer delivers it .* no entry/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\n# @plugin-yield-deps: gone.sh\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/writer failed/);
+      w('.claude/hooks/a.sh', '#!/usr/bin/env bash\n# a.sh — t\necho a\n');
+      pin();
+      // D5 ruling: an unguarded [output-language] line in the bootstrap twin is RED.
+      w('plugin/hooks/inject-session-bootstrap', 'echo "[output-language] x"\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits \[output-language\] on the plugin channel/);
+      // Re-guard it, then break the OTHER half of the D5 pair: run-hook.cmd without the export.
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'echo "digest"\ncase "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\n',
+      );
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\necho "no channel export"\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/run-hook\.cmd no longer exports AIF_HOOK_CHANNEL=plugin/);
+      w('plugin/hooks/run-hook.cmd', '#!/usr/bin/env bash\nAIF_HOOK_CHANNEL=plugin\nexport AIF_HOOK_CHANNEL\n');
+      rmSync(join(root, 'plugin/hooks/inject-output-language'));
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/no longer emits \[output-language\]/);
+      w('plugin/hooks/inject-output-language', 'echo "[output-language] x"\n');
+      w('packages/core/hooks/a.sh', '#!/usr/bin/env bash\necho other\n');
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/packages\/core\/hooks\/a\.sh differs/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
