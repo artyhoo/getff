@@ -183,15 +183,27 @@ var { join } = require('node:path');
 var id = ${JSON.stringify(id)};
 var via = ${JSON.stringify(via ?? null)};
 function missing(e) { return e && e.code === 'MODULE_NOT_FOUND'; }
-function load() {
-  var fromProject = createRequire(join(process.cwd(), 'package.json'));
-  try { return fromProject(id); } catch (e) { if (!missing(e)) throw e; }
+var NOT_FOUND = {};
+function fromRoot(root) {
+  var r = createRequire(join(root, 'package.json'));
+  try { return r(id); } catch (e) { if (!missing(e)) throw e; }
   if (via) {
-    try { return createRequire(fromProject.resolve(via + '/package.json'))(id); } catch (e) { if (!missing(e)) throw e; }
+    try { return createRequire(r.resolve(via + '/package.json'))(id); } catch (e) { if (!missing(e)) throw e; }
   }
+  return NOT_FOUND;
+}
+// 1. the project (its own ESLint); 2. getff's generator toolchain outside the project
+// (GETFF_TOOLS_ROOT, provisioned by setup.d/80-rule-bootstrap.sh when the project has no ESLint —
+// an oxlint or Biome project); 3. whatever resolves next to this bundle.
+function load() {
+  var m = fromRoot(process.cwd());
+  if (m !== NOT_FOUND) return m;
+  var tools = process.env.GETFF_TOOLS_ROOT;
+  if (tools) { m = fromRoot(tools); if (m !== NOT_FOUND) return m; }
   try { return require(id); } catch (e) { if (!missing(e)) throw e; }
-  throw new Error("getff: '" + id + "' is not installed in " + process.cwd() +
-    " — getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
+  throw new Error("getff: '" + id + "' was not found in the project (" + process.cwd() +
+    ") nor in getff's rule-generator toolchain (GETFF_TOOLS_ROOT=" + (tools || 'unset') +
+    "). setup.d/80-rule-bootstrap.sh provides that toolchain outside the project when the project has no ESLint; this run had none.");
 }
 module.exports = load();
 `,

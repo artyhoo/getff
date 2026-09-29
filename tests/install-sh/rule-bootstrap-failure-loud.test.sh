@@ -32,7 +32,10 @@ run_layer() {  # $1 = exit code of the stub generator, $2 = optional stderr line
   echo '{}' > "$W/proj/.ai-factory/rules-research/ts-server.research.json"
   echo '{}' > "$W/proj/.ai-factory/rules-research/ts-server.selection.json"
   # Stub `node` and `npx`: each reports how it was started, the generator stand-in exits $rc.
-  printf '#!/bin/sh\necho "stub generator: node cwd=$PWD args=$*"\n[ -n "%s" ] && echo "%s" >&2\nexit %s\n' "$msg" "$msg" "$rc" > "$W/bin/node"; chmod +x "$W/bin/node"
+  # The project has ESLint (P5 A3 installs a toolchain only when it does not); the node stub is the
+  # generator only for the bundle, real node for anything else (the step's require.resolve probe).
+  mkdir -p "$W/proj/node_modules/eslint"; echo 'module.exports={}' > "$W/proj/node_modules/eslint/index.js"
+  printf '#!/bin/sh\ncase "$1" in *rule-bootstrap-cli.bundle.mjs) ;; *) exec "%s" "$@" ;; esac\necho "stub generator: node cwd=$PWD args=$*"\n[ -n "%s" ] && echo "%s" >&2\nexit %s\n' "$(command -v node)" "$msg" "$msg" "$rc" > "$W/bin/node"; chmod +x "$W/bin/node"
   printf '#!/bin/sh\necho "stub generator: npx cwd=$PWD args=$*"\nexit %s\n' "$rc" > "$W/bin/npx"; chmod +x "$W/bin/npx"
   (
     PATH="$W/bin:$PATH"; FULL=--full; DRY_RUN=""; STACK=ts-server

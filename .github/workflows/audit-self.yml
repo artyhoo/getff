@@ -1045,6 +1045,8 @@ jobs:
         run: bash tests/install-sh/engine.test.sh
       - name: "install-sh — critical-review S5 rule-bootstrap failure is loud (not swallowed)"
         run: bash tests/install-sh/rule-bootstrap-failure-loud.test.sh
+      - name: "install-sh — P5 A3 rule generator runs on a project with no ESLint (getff toolchain outside the project)"
+        run: bash tests/install-sh/generator-tools-root.test.sh
       - name: "install-sh — critical-review S8-1 generated-rule mutation gate fails closed on an unreadable manifest"
         run: bash tests/install-sh/generated-rule-mutation-manifest-fail-closed.test.sh
       - name: Run install-sh preset-staleness test (live-research-default-delivery #811 D4)

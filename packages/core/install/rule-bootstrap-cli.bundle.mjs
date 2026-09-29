@@ -9843,26 +9843,37 @@ var require_eslint = __commonJS({
     function missing(e) {
       return e && e.code === "MODULE_NOT_FOUND";
     }
-    function load() {
-      var fromProject = createRequire2(join10(process.cwd(), "package.json"));
+    var NOT_FOUND = {};
+    function fromRoot(root) {
+      var r = createRequire2(join10(root, "package.json"));
       try {
-        return fromProject(id);
+        return r(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
       if (via) {
         try {
-          return createRequire2(fromProject.resolve(via + "/package.json"))(id);
+          return createRequire2(r.resolve(via + "/package.json"))(id);
         } catch (e) {
           if (!missing(e)) throw e;
         }
+      }
+      return NOT_FOUND;
+    }
+    function load() {
+      var m = fromRoot(process.cwd());
+      if (m !== NOT_FOUND) return m;
+      var tools = process.env.GETFF_TOOLS_ROOT;
+      if (tools) {
+        m = fromRoot(tools);
+        if (m !== NOT_FOUND) return m;
       }
       try {
         return __require(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
-      throw new Error("getff: '" + id + "' is not installed in " + process.cwd() + " \u2014 getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
+      throw new Error("getff: '" + id + "' was not found in the project (" + process.cwd() + ") nor in getff's rule-generator toolchain (GETFF_TOOLS_ROOT=" + (tools || "unset") + "). setup.d/80-rule-bootstrap.sh provides that toolchain outside the project when the project has no ESLint; this run had none.");
     }
     module.exports = load();
   }
@@ -9878,26 +9889,37 @@ var require_parser = __commonJS({
     function missing(e) {
       return e && e.code === "MODULE_NOT_FOUND";
     }
-    function load() {
-      var fromProject = createRequire2(join10(process.cwd(), "package.json"));
+    var NOT_FOUND = {};
+    function fromRoot(root) {
+      var r = createRequire2(join10(root, "package.json"));
       try {
-        return fromProject(id);
+        return r(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
       if (via) {
         try {
-          return createRequire2(fromProject.resolve(via + "/package.json"))(id);
+          return createRequire2(r.resolve(via + "/package.json"))(id);
         } catch (e) {
           if (!missing(e)) throw e;
         }
+      }
+      return NOT_FOUND;
+    }
+    function load() {
+      var m = fromRoot(process.cwd());
+      if (m !== NOT_FOUND) return m;
+      var tools = process.env.GETFF_TOOLS_ROOT;
+      if (tools) {
+        m = fromRoot(tools);
+        if (m !== NOT_FOUND) return m;
       }
       try {
         return __require(id);
       } catch (e) {
         if (!missing(e)) throw e;
       }
-      throw new Error("getff: '" + id + "' is not installed in " + process.cwd() + " \u2014 getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
+      throw new Error("getff: '" + id + "' was not found in the project (" + process.cwd() + ") nor in getff's rule-generator toolchain (GETFF_TOOLS_ROOT=" + (tools || "unset") + "). setup.d/80-rule-bootstrap.sh provides that toolchain outside the project when the project has no ESLint; this run had none.");
     }
     module.exports = load();
   }

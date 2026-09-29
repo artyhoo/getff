@@ -63,6 +63,47 @@ if [ ! -f "$_plan" ] || [ ! -f "$_sel" ]; then
   return 0 2>/dev/null || true
 fi
 
+# P5 A3: the generator writes ESLint rules and loads ESLint at run time. An oxlint or Biome project
+# has none (P2 K4, 70-deps.sh), so getff brings its own toolchain OUTSIDE the project and points
+# the bundle at it (GETFF_TOOLS_ROOT, scripts/build-runtime-bundles.mjs) — the project's package.json
+# and node_modules are not touched (fork 1 = A). Ranges, never pins (fork 2 = B). With --global
+# (GETFF_GLOBAL=1) it lives in the user cache and is reused; otherwise it is a temp directory removed
+# at the end of this step (removed explicitly: this file is sourced, so it must not own an EXIT trap).
+_rb_tool_pkgs=(eslint@^9 typescript-eslint typescript)
+_rb_tools=""
+_rb_tools_tmp=""
+if ! ( cd "$PROJECT_ROOT" && node -e "require.resolve('eslint')" >/dev/null 2>&1 ); then
+  if [ "${GETFF_GLOBAL:-}" = "1" ]; then
+    _rb_tools="${XDG_CACHE_HOME:-$HOME/.cache}/getff/generator-tools"
+  fi
+  if [ -n "${DRY_RUN:-}" ]; then
+    printf "  [dry-run] would: install getff's rule-generator toolchain (%s) outside the project into %s\n" \
+      "${_rb_tool_pkgs[*]}" "${_rb_tools:-a temp directory removed after the run}"
+  else
+    [ -n "$_rb_tools" ] || { _rb_tools="$(mktemp -d)"; _rb_tools_tmp="$_rb_tools"; }
+    mkdir -p "$_rb_tools"
+    printf "  [80-rule-bootstrap] the project has no ESLint — installing getff's rule-generator toolchain (%s) into %s\n" \
+      "${_rb_tool_pkgs[*]}" "$_rb_tools"
+    _rb_npm_rc=0
+    _rb_npm_out="$(npm install --prefix "$_rb_tools" --no-audit --no-fund --loglevel=error "${_rb_tool_pkgs[@]}" 2>&1)" || _rb_npm_rc=$?
+    if [ "$_rb_npm_rc" -ne 0 ]; then
+      _rb_npm_why="$(grep -m1 -E 'npm (error|ERR!)' <<<"$_rb_npm_out" || true)"
+      [ -n "$_rb_npm_why" ] || _rb_npm_why="$(head -n 1 <<<"$_rb_npm_out")"
+      printf '  ⚠ [80-rule-bootstrap] toolchain install failed (npm exit %s) — no rule was generated from your research this pass\n' "$_rb_npm_rc"
+      note_not_wired "generated rules — the generator's ESLint toolchain could not be installed: ${_rb_npm_why:-npm exited $_rb_npm_rc}"
+      [ -z "$_rb_tools_tmp" ] || rm -rf "$_rb_tools_tmp"
+      return 0 2>/dev/null || true
+    fi
+    # Versions go to the report through P3's record helper when this tree has it.
+    if command -v companion_record_version >/dev/null 2>&1; then
+      for _rb_p in eslint typescript-eslint typescript; do
+        _rb_v="$(node -p "require('$_rb_tools/node_modules/$_rb_p/package.json').version" 2>/dev/null || true)"
+        companion_record_version "$_rb_p" generator-tool "${_rb_v:-not read}" "$_rb_tools/node_modules/$_rb_p/package.json"
+      done
+    fi
+  fi
+fi
+
 if [ -n "${DRY_RUN:-}" ]; then
   printf '  [dry-run] would: run rule-bootstrap LIVE (from-research/from-selection → generate → buildLock) on %s\n' "$PROJECT_ROOT"
   return 0 2>/dev/null || true
@@ -78,10 +119,11 @@ printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock
 # NOT wired summary.
 _rb_rc=0
 _rb_log="$(mktemp)"
-( cd "$PROJECT_ROOT" && node "$_rb_cli" \
+( cd "$PROJECT_ROOT" && { [ -z "$_rb_tools" ] || export GETFF_TOOLS_ROOT="$_rb_tools"; } && node "$_rb_cli" \
     --consumer-root "$PROJECT_ROOT" \
     --from-research "$_plan" \
     --from-selection "$_sel" 2>&1 ) > "$_rb_log" || _rb_rc=$?
+[ -z "$_rb_tools_tmp" ] || rm -rf "$_rb_tools_tmp"
 cat "$_rb_log"
 # P5 A2: the generator drops a research entry the plan gate refuses and keeps the rest; it names
 # each drop on one line («[rule-bootstrap] dropped research entry <id> — <reason>»,
