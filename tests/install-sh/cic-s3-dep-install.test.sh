@@ -212,10 +212,10 @@ printf '{ "name":"f","version":"0.0.0" }\n' > "$F/package.json"
 ( cd "$F" && git init -q )
 F_OUT=$( cd "$F" && bash "$REPO_ROOT/install.sh" react-native --force < /dev/null 2>&1 )
 
-printf '%s\n' "$F_OUT" | grep -qE '^ *(npm install|pnpm add|yarn add)' \
+grep -qE '^ *(npm install|pnpm add|yarn add)' <<<"$F_OUT" \
   && bad "F: no --full → the install still prints a dependency command to copy" \
   || ok "F: no --full → no dependency command to copy"
-printf '%s\n' "$F_OUT" | grep -E '^[[:space:]]*- dependencies' | grep -q 'not installed' \
+grep -q 'not installed' <<<"$(printf '%s\n' "$F_OUT" | grep -E '^[[:space:]]*- dependencies')" \
   && ok "F: no --full → the dependencies are a NOT-wired line with the reason" \
   || bad "F: no NOT-wired dependencies line in the react-native install output"
 
@@ -225,10 +225,10 @@ printf '{ "name":"g","version":"0.0.0" }\n' > "$G/package.json"
 ( cd "$G" && git init -q )
 G_OUT=$( cd "$G" && bash "$REPO_ROOT/install.sh" ts-server --force < /dev/null 2>&1 )
 
-printf '%s\n' "$G_OUT" | grep -qE '^ *(npm install|pnpm add|yarn add)' \
+grep -qE '^ *(npm install|pnpm add|yarn add)' <<<"$G_OUT" \
   && bad "G: ts-server no --full → the install still prints a dependency command to copy" \
   || ok "G: ts-server no --full → no dependency command to copy"
-printf '%s\n' "$G_OUT" | grep -E '^[[:space:]]*- dependencies' | grep -q 'not installed' \
+grep -q 'not installed' <<<"$(printf '%s\n' "$G_OUT" | grep -E '^[[:space:]]*- dependencies')" \
   && ok "G: ts-server no --full → the dependencies are a NOT-wired line with the reason" \
   || bad "G: no NOT-wired dependencies line in the ts-server install output"
 
@@ -280,7 +280,7 @@ $(extract_array "$_a")"; done
   _bins=$(grep -oE 'npx +(--?[a-zA-Z-]+ +)*[@a-zA-Z][@a-zA-Z0-9/_.-]*' "$_tpl" | awk '{print $NF}' | sort -u)
   for _bin in $_bins; do
     _pkg=$(map_bin_to_pkg "$_bin")
-    printf '%s\n' "$_allowed" | grep -qE "(^|[[:space:](])${_pkg}(@|[[:space:])]|$)" \
+    grep -qE "(^|[[:space:](])${_pkg}(@|[[:space:])]|$)" <<<"$_allowed" \
       || _missing="$_missing $_pkg"
   done
   echo "$_missing"

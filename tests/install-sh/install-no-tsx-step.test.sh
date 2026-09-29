@@ -76,7 +76,7 @@ run_install()  { local d="$1"; shift; OUT=$( cd "$d" && bash "$INSTALL_ROOT/inst
 # ran_to_end — the install reached its final banner. Under --full the stub package managers install
 # nothing, so the post-install self-verify honestly FAILs and install.sh exits 1 (critical-review
 # S4-8); that banner is printed at the very end of 99-finalize, so it still proves no mid-install crash.
-ran_to_end()   { [ "$RC" -eq 0 ] || { [ "$RC" -eq 1 ] && printf '%s\n' "$OUT" | grep -q 'Installation finished, but self-verify FAILED'; }; }
+ran_to_end()   { [ "$RC" -eq 0 ] || { [ "$RC" -eq 1 ] && grep -q 'Installation finished, but self-verify FAILED' <<<"$OUT"; }; }
 targeted_tsx() { grep -Eqx '(add|i|install) -D( -w)? tsx' "$1"; }
 
 # ════ Arm A — --full: bulk §8 install yes, targeted tsx add no, no REDUCED warn ════
@@ -89,7 +89,7 @@ grep -q 'tsx' "$AIF_PM_LOG" \
 targeted_tsx "$AIF_PM_LOG" \
   && bad "A: a TARGETED tsx add ran — the retired §8b step is back ($(tr '\n' ';' < "$AIF_PM_LOG"))" \
   || ok "A: no targeted tsx add (§8b retired)"
-printf '%s' "$OUT" | grep -q 'REDUCED' \
+grep -q 'REDUCED' <<<"$OUT" \
   && bad "A: printed the «REDUCED mode» tsx warning" \
   || ok "A: no «REDUCED mode» tsx warning"
 
@@ -100,7 +100,7 @@ if [ "$RC" -eq 0 ]; then ok "B: install.sh rc=0"; else bad "B: install.sh rc=$RC
 [ ! -s "$AIF_PM_LOG" ] \
   && ok "B: no package manager invoked without consent" \
   || bad "B: package manager invoked without consent ($(tr '\n' ';' < "$AIF_PM_LOG"))"
-printf '%s' "$OUT" | grep -Eq 'REDUCED|add -D -w tsx|i -D tsx' \
+grep -Eq 'REDUCED|add -D -w tsx|i -D tsx' <<<"$OUT" \
   && bad "B: printed a tsx warning / enabling command for the pre-push hook" \
   || ok "B: no tsx warning or enabling command"
 
@@ -109,7 +109,7 @@ if command -v python3 >/dev/null 2>&1; then
   D=$(mk_consumer); export AIF_PM_LOG="$D.log"; : > "$AIF_PM_LOG"
   OUT=$(python3 "$PTY" n -- bash -c "cd '$D' && bash '$INSTALL_ROOT/install.sh' ts-server --force" 2>&1 | tr -d '\r'); RC=$?
   if [ "$RC" -eq 0 ]; then ok "D: install.sh rc=0 under pty (the profile menu did not eat the §8 answer)"; else bad "D: install.sh rc=$RC under pty"; fi
-  printf '%s' "$OUT" | grep -q 'What install depth do you want' \
+  grep -q 'What install depth do you want' <<<"$OUT" \
     && bad "D: the profile menu fired despite a positional stack" \
     || ok "D: no profile menu with a positional stack"
   [ ! -s "$AIF_PM_LOG" ] \

@@ -68,7 +68,7 @@ CFG
     bad "B: the shipped .dependency-cruiser.mjs is not lint-clean under the consumer's config (rc=$rc_mjs):"
     printf '%s\n' "$out_mjs" | tail -5 | sed 's/^/      /'
   fi
-  if [ "$rc_cjs" -ne 0 ] && printf '%s\n' "$out_cjs" | grep -q "'module' is not defined"; then
+  if [ "$rc_cjs" -ne 0 ] && grep -q "'module' is not defined" <<<"$out_cjs"; then
     ok "B neg: the old CommonJS shape fails the same config with no-undef on 'module' (the lint arm can fail)"
   else
     bad "B neg: the CommonJS shape did not fail with no-undef (rc=$rc_cjs) — arm B proves nothing"
@@ -118,7 +118,7 @@ for name in .dependency-cruiser.mjs .dependency-cruiser.js .dependency-cruiser.j
   # A monorepo config WITHOUT a packages→apps rule: the gate must find it and fail (not skip).
   printf "export default { forbidden: [{ name: 'x', from: { path: '^src' }, to: { path: '^lib' } }] };\n" > "$E/$name"
   out=$(cd "$E" && env -u DEPCRUISE_CONFIG bash "$GATE" 2>&1); rc=$?
-  if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "$name has NO packages"; then
+  if [ "$rc" -eq 1 ] && grep -q "$name has NO packages" <<<"$out"; then
     ok "E: check-arch-boundaries.sh found $name without DEPCRUISE_CONFIG (and alarmed on the missing boundary)"
   else
     bad "E: check-arch-boundaries.sh did not find $name (rc=$rc): $(printf '%s' "$out" | head -1)"

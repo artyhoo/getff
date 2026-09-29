@@ -169,7 +169,7 @@ out=$(run_delivery "$P" 2>&1)
 grep -qxF 'name: consumer-authored getff-python' "$P/.github/workflows/getff-python.yml" \
   && ok "(ci-c) a non-getff getff-python.yml is NOT clobbered (consumer file preserved)" \
   || bad "(ci-c) non-getff getff-python.yml was overwritten — STOP-line breach"
-echo "$out" | grep -qi 'REFUSE CI' \
+grep -qi 'REFUSE CI' <<<"$out" \
   && ok "(ci-c) printed a loud REFUSE CI with manual wiring instructions" \
   || bad "(ci-c) no loud REFUSE on a pre-existing non-getff workflow at our path"
 
@@ -251,7 +251,7 @@ after=$(cat "$P/sgconfig.yml")
 [ "$before" = "$after" ] \
   && ok "(ii-refuse) flow-list sgconfig.yml left UNTOUCHED (unproven shape → no clever merge; STOP-line)" \
   || bad "(ii-refuse) flow-list sgconfig.yml was modified — STOP-line violation"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF '.getff/astgrep-rules' \
+grep -qi 'REFUSE' <<<"$out" && grep -qF '.getff/astgrep-rules' <<<"$out" \
   && ok "(ii-refuse) printed a loud REFUSE + manual instruction to add the ruleDirs entry" \
   || bad "(ii-refuse) refusal/instructions not printed: $(echo "$out" | tr '\n' '|')"
 [ -f "$P/.getff/astgrep-rules/getff-no-eval.yml" ] \
@@ -273,11 +273,11 @@ out=$(run_delivery_nw "$P" 2>&1)
 cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
   && ok "(iii) shipped getff-ruff.toml reference copy (== template bytes; ruff does not auto-discover it)" \
   || bad "(iii) getff-ruff.toml missing or differs from template"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'getff-ruff.toml' \
-  && echo "$out" | grep -qF "ruff: getff's TID bans are not in your ruff.toml" \
+grep -qi 'REFUSE' <<<"$out" && grep -qF 'getff-ruff.toml' <<<"$out" \
+  && grep -qF "ruff: getff's TID bans are not in your ruff.toml" <<<"$out" \
   && ok "(iii) printed REFUSE + a NOT-wired line naming the consumer ruff.toml" \
   || bad "(iii) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
-echo "$out" | grep -qF "ruff-bans.toml, which the getff CI workflow reads" \
+grep -qF "ruff-bans.toml, which the getff CI workflow reads" <<<"$out" \
   && ok "(iii) with no workflow of the consumer's in the way, the line names the getff CI as the bans' reader" \
   || bad "(iii) the NOT-wired line does not name the getff CI workflow as the reader: $(echo "$out" | grep -F 'TID bans')"
 printf '%s\n' "$out" > "$P/.out"
@@ -310,8 +310,8 @@ out=$(run_delivery_nw "$P" 2>&1)
 cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
   && ok "(iii-dotfile) shipped getff-ruff.toml reference copy (== template bytes)" \
   || bad "(iii-dotfile) getff-ruff.toml missing or differs from template"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF 'getff-ruff.toml' \
-  && echo "$out" | grep -qF "ruff: getff's TID bans are not in your .ruff.toml" \
+grep -qi 'REFUSE' <<<"$out" && grep -qF 'getff-ruff.toml' <<<"$out" \
+  && grep -qF "ruff: getff's TID bans are not in your .ruff.toml" <<<"$out" \
   && ok "(iii-dotfile) printed REFUSE + a NOT-wired line naming the consumer .ruff.toml" \
   || bad "(iii-dotfile) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
 grep -qi 'REFUSE' "$P/$LOG_NAME" \
@@ -333,7 +333,7 @@ out=$(run_delivery_nw "$P" 2>&1)
 cmp -s "$TPL/ruff.toml" "$P/getff-ruff.toml" \
   && ok "(iv) shipped getff-ruff.toml reference copy" \
   || bad "(iv) getff-ruff.toml missing or differs"
-echo "$out" | grep -qi 'REFUSE' && echo "$out" | grep -qF "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml" \
+grep -qi 'REFUSE' <<<"$out" && grep -qF "ruff: getff's TID bans are not in the [tool.ruff] of your pyproject.toml" <<<"$out" \
   && ok "(iv) printed REFUSE + a NOT-wired line naming [tool.ruff] of pyproject.toml" \
   || bad "(iv) refusal/NOT-wired line not printed: $(echo "$out" | tr '\n' '|')"
 printf '%s\n' "$out" > "$P/.out"
@@ -408,7 +408,7 @@ out=$(run_delivery "$P" 2>&1)
 [ ! -e "$P/.prettierignore" ] \
   && ok "(pi) no .prettierignore created when the consumer has none (no unrequested opinion)" \
   || bad "(pi) .prettierignore was created out of nothing"
-echo "$out" | grep -qi 'prettierignore' \
+grep -qi 'prettierignore' <<<"$out" \
   && ok "(pi) prettierignore decision logged either way" \
   || bad "(pi) prettierignore decision not logged"
 
@@ -430,7 +430,7 @@ b = datetime.now()
 PY
   sg_out=$(cd "$P" && npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan . 2>&1)
   for rid in getff-no-eval getff-no-os-system getff-no-datetime-now getff-no-datetime-datetime-now; do
-    echo "$sg_out" | grep -qF "$rid" \
+    grep -qF "$rid" <<<"$sg_out" \
       && ok "live-fire: ast-grep rule $rid fired RED on planted violation" \
       || bad "live-fire: ast-grep rule $rid did NOT fire (out: $(echo "$sg_out" | tr '\n' '|' | cut -c1-200))"
   done
@@ -450,7 +450,7 @@ b = datetime.datetime.now(timezone.utc)
 PY
   sg_green_out=$(cd "$P" && npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan . 2>&1)
   sg_green_rc=$?
-  if [ "$sg_green_rc" -eq 0 ] && ! echo "$sg_green_out" | grep -qE 'getff-no-datetime-(datetime-)?now'; then
+  if [ "$sg_green_rc" -eq 0 ] && ! grep -qE 'getff-no-datetime-(datetime-)?now' <<<"$sg_green_out"; then
     ok "live-fire: narrowed datetime rules stay GREEN on tz-aware recommended form (rc=$sg_green_rc; ruff remedy unblocked)"
   else
     bad "live-fire: GREEN arm FAILED — narrowed rules fired on tz-aware form or scan crashed (rc=$sg_green_rc; out: $(echo "$sg_green_out" | tr '\n' '|' | cut -c1-200))"
@@ -479,10 +479,10 @@ import datetime
 x = datetime.datetime.utcnow()
 PY
   ruff_out=$(cd "$P" && $RUFF_RUN check --config ruff.toml . 2>&1)
-  echo "$ruff_out" | grep -qF 'TID253' \
+  grep -qF 'TID253' <<<"$ruff_out" \
     && ok "live-fire: ruff TID253 (banned module-level import tensorflow) fired RED" \
     || bad "live-fire: ruff TID253 did NOT fire (out: $(echo "$ruff_out" | tr '\n' '|' | cut -c1-200))"
-  echo "$ruff_out" | grep -qF 'TID251' \
+  grep -qF 'TID251' <<<"$ruff_out" \
     && ok "live-fire: ruff TID251 (banned-api datetime.datetime.utcnow) fired RED" \
     || bad "live-fire: ruff TID251 did NOT fire (out: $(echo "$ruff_out" | tr '\n' '|' | cut -c1-200))"
 else
@@ -503,14 +503,14 @@ if [ -n "$RUFF_RUN" ]; then
   printf 'import tensorflow\n' > "$P/plant.py"
   # (theatre) bare `ruff check .` discovers the consumer ruff.toml → TID NOT reported.
   bare_out=$(cd "$P" && $RUFF_RUN check --no-cache . 2>&1); bare_rc=$?
-  if ! echo "$bare_out" | grep -qF 'TID253'; then
+  if ! grep -qF 'TID253' <<<"$bare_out"; then
     ok "(bans/live) bare 'ruff check .' (consumer config) is BLIND to the getff tensorflow ban — the theatre this fixes (rc=$bare_rc)"
   else
     bad "(bans/live) bare 'ruff check .' unexpectedly reported TID253 — fixture does not reproduce the collision-cell theatre"
   fi
   # (fix) the isolated getff gate fires RED on the SAME planted violation, DESPITE the consumer ruff.toml.
   gate_out=$(cd "$P" && $RUFF_RUN check --no-cache --config .getff/ruff-bans.toml . 2>&1); gate_rc=$?
-  if echo "$gate_out" | grep -qF 'TID253' && [ "$gate_rc" -ne 0 ]; then
+  if grep -qF 'TID253' <<<"$gate_out" && [ "$gate_rc" -ne 0 ]; then
     ok "(bans/live) 'ruff check . --config .getff/ruff-bans.toml' fires RED (TID253) in the collision cell — getff bans enforced regardless of consumer config"
   else
     bad "(bans/live) getff-bans gate did NOT fire on the planted violation (rc=$gate_rc, out: $(echo "$gate_out" | tr '\n' '|' | cut -c1-200))"

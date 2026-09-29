@@ -184,7 +184,7 @@ else
   grep -qiE "then re-run|install it manually|paste-block" "$D/log" \
     && bad "OPT-B DECLINE: the yq-absent branch still hands back a manual step" \
     || ok "OPT-B DECLINE: no manual step (Q4.7)"
-  grep -E '^[[:space:]]*- CI gate ' "$D/log" | grep -q 'did not land' \
+  grep -q 'did not land' <<<"$(grep -E '^[[:space:]]*- CI gate ' "$D/log")" \
     && ok "OPT-B DECLINE: the missing gates are NOT-wired lines saying the yq wiring did not land" \
     || bad "OPT-B DECLINE: no NOT-wired CI gate line after the yq-absent branch"
 fi

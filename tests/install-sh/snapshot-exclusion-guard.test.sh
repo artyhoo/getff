@@ -35,7 +35,7 @@ echo ""
 
 # ── Extract the REAL compute_fingerprint (anchored function block; refuses an empty extraction) ────
 FN_SRC=$(sed -n '/^compute_fingerprint()/,/^}/p' "$SNAPSHOT")
-if [ -z "$FN_SRC" ] || ! printf '%s' "$FN_SRC" | grep -q 'find "\$dir" -type f'; then
+if [ -z "$FN_SRC" ] || ! grep -q 'find "\$dir" -type f' <<<"$FN_SRC"; then
   bad "could not extract compute_fingerprint from snapshot.sh (anchor moved?) — fix the extraction, do not skip"
   echo "PASS=$PASS FAIL=$FAIL"; exit 1
 fi

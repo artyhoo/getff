@@ -205,13 +205,13 @@ cmp -s "$TPL_GO" "$P/.github/workflows/getff-go.yml" \
   && ok "(3) go delivered byte-identical to template (Option A — preserves snapshot fingerprint invariant)" \
   || bad "(3) go delivered differs from template on no-remote consumer (Option A requires byte-identical)"
 # Warning text assertion (wording-secondary per T-HS-A but a useful honest-signal check).
-echo "$py_out" | grep -qiE 'could not detect default branch|no origin remote' \
+grep -qiE 'could not detect default branch|no origin remote' <<<"$py_out" \
   && ok "(3) python lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) python lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
-echo "$cargo_out" | grep -qiE 'could not detect default branch|no origin remote' \
+grep -qiE 'could not detect default branch|no origin remote' <<<"$cargo_out" \
   && ok "(3) cargo lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) cargo lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
-echo "$go_out" | grep -qiE 'could not detect default branch|no origin remote' \
+grep -qiE 'could not detect default branch|no origin remote' <<<"$go_out" \
   && ok "(3) go lane emitted a LOUD stderr warning naming the no-remote case (NOT silent fallback)" \
   || bad "(3) go lane did NOT warn on no-remote (silent fallback = the S4 defect itself)"
 rm -rf "$P"
@@ -236,7 +236,7 @@ py_out=$(run_python_delivery "$P" 2>&1 1>/dev/null)
 cmp -s "$TPL_PY" "$P/.github/workflows/getff-python.yml" \
   && ok "(4) python delivered byte-identical when origin/HEAD unset (PARK Option A held)" \
   || bad "(4) python delivered differs when origin/HEAD unset (PARK Option A broke)"
-echo "$py_out" | grep -qiE 'could not detect default branch|origin/HEAD unset' \
+grep -qiE 'could not detect default branch|origin/HEAD unset' <<<"$py_out" \
   && ok "(4) python lane warned about origin/HEAD being unset (honest signal)" \
   || bad "(4) python lane did NOT warn about origin/HEAD unset"
 rm -rf "$P"

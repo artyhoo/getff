@@ -138,7 +138,7 @@ q47() {  # q47 <state-label> <regex> [PATH] — run with the engine sourced, as 
   # send the consumer-up case down the wiring path instead of the no-hook fact.
   out=$(cd "$QDIR" && ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; [ -n "${3:-}" ] && PATH="$3"; bridge_guided_run; companion_not_wired_summary)
   printf '%s\n' "$out" > "$QLOG"
-  if printf '%s\n' "$out" | grep -E '^ +- runtime-bridge — ' | grep -qE "$2"; then ok "Q4.7 $1: NOT-wired line says why ($2)"
+  if grep -qE "$2" <<<"$(printf '%s\n' "$out" | grep -E '^ +- runtime-bridge — ')"; then ok "Q4.7 $1: NOT-wired line says why ($2)"
   else bad "Q4.7 $1: no runtime-bridge NOT-wired line matching /$2/: $out"; fi
   if asks_by_hand "$QLOG"; then bad "Q4.7 $1: hands back a manual step: $(manual_step_lines "$QLOG" | head -2 | tr '\n' '|')"
   else ok "Q4.7 $1: no manual step"; fi

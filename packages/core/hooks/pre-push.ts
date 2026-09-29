@@ -997,6 +997,13 @@ function trackedShippedWorkflowTemplates(): string[] | null {
 // ── 3. Self-test pipeline: audit-ai-docs (maintainer) ────────────────────────
 // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh).
 // The existsSync remains a within-layout presence guard (the fixture may plant it back).
+//
+// Then the auditor itself, LIVE on this repo, in both implementations. The test file
+// proves the probes on fixtures; only a live run fails when the repo drifts — a new file
+// restating the goal left unenrolled (D5), a goal-bearing doc losing the phrase (D3).
+// Until 2026-09-28 nothing ran it here, and its first live run found D3 + D5 failures
+// that had sat unread since #1228 / #1420. Both twins run because each is a shipped
+// artefact the other's tests do not execute (dual-implementation-discipline.md).
 function auditAiDocsSection(): void {
   if (
     existsSync(
@@ -1013,6 +1020,29 @@ function auditAiDocsSection(): void {
       die('❌ npx not found — install Node.js to run audit-ai-docs tests');
     if (r.exitCode !== 0) die('❌ audit-ai-docs.test.ts failed:', r);
     emit(r);
+  }
+  if (
+    existsSync(resolve(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh'))
+  ) {
+    const live: ReadonlyArray<readonly [string, string, readonly string[]]> = [
+      ['audit-ai-docs.sh', 'bash', ['packages/core/audit-self/audit-ai-docs.sh']],
+      ['audit-ai-docs.ts', 'npx', ['tsx', 'packages/core/audit-self/audit-ai-docs.ts']],
+    ];
+    // Like the vitest arm above, this audits the WORKING TREE, not the pushed ref: an
+    // untracked, not-ignored file carrying the goal phrase (a merge's `*.orig`) blocks the
+    // push and is named in the output — ignore it or delete it. CI runs the same audit on
+    // the clean checkout of the pushed commit.
+    for (const [label, cmd, args] of live) {
+      const r = run(cmd, args);
+      if (r.notFound) die(`❌ ${cmd} not found — cannot run ${label} live`);
+      if (r.exitCode !== 0) die(`❌ ${label} FAILED on this repo:`, r);
+      // Quiet on success: the standing WARNs (R4 skipped, D4) are printed by every run
+      // and are not gates; the summary line is the evidence the live arm ran.
+      const summary =
+        r.stdout.split('\n').find((l) => l.startsWith('Audit complete:')) ??
+        '(no summary line)';
+      process.stdout.write(`✓ ${label} live: ${summary}\n`);
+    }
   }
 }
 
@@ -1863,15 +1893,53 @@ function lineCitationsSection(ctx: SectionCtx): void {
   // the hole one level down.
   const changed = getChangedFiles(rb.base, 'ACMR', rb.head);
   if (changed.length === 0) return;
-  const r = run('node', [
-    'scripts/check-line-citations.mjs',
-    '--check',
-    '--corpus',
-    ...changed.map((f) => `--affected-by=${f}`),
-  ]);
+  const timeoutMs = lineCitationsTimeoutMs();
+  const r = runCheck(
+    'node',
+    [
+      'scripts/check-line-citations.mjs',
+      '--check',
+      '--corpus',
+      ...changed.map((f) => `--affected-by=${f}`),
+    ],
+    { cwd: REPO_ROOT, timeoutMs },
+  );
   if (r.notFound) return; // no node — the other node-dependent sections already die loudly
+  // Checked before exitCode: a timeout synthesises exit 124, and routing it to the
+  // «stale» message sent the operator hunting for citations that did not exist
+  // (2026-09-28, load average ~108). Still fail-closed — an unfinished check is not green.
+  if (r.timedOut) {
+    die(
+      // runCheck also reports an outside SIGTERM as timedOut, hence «or was terminated».
+      `❌ path:line citation checker did not finish within ${timeoutMs / 1000} s ` +
+        '(timed out or was terminated) — no citation was found stale.\n' +
+        '   Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on\n' +
+        '   git blame/show per affected citation). Retry when load drops, or raise\n' +
+        '   PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.',
+    );
+  }
   if (r.exitCode !== 0) die('❌ stale `path:line` citation(s):', r);
   emit(r);
+}
+
+/**
+ * Wall-clock cap for the citation checker. 600 s, not runCheck's 120 s default: the
+ * checker's work is ~1.5 s of CPU and its wall time is scheduler wait on per-citation
+ * git subprocesses — measured 12.4 s / 14.6 s at load average ~63, over 120 s twice at
+ * ~108 (2026-09-28). A 120 s cap turned load into a blocked push without adding any
+ * protection a longer cap lacks; the cap exists to stop a hang, and 600 s matches
+ * HEAVY_RUNNER_TIMEOUT_MS. PREPUSH_LINE_CITATIONS_TIMEOUT_MS overrides it; anything
+ * that is not a positive integer falls back to the default, so a typo can never
+ * disable the cap.
+ */
+const LINE_CITATIONS_TIMEOUT_MS = 600_000;
+
+export function lineCitationsTimeoutMs(
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  const raw = env['PREPUSH_LINE_CITATIONS_TIMEOUT_MS']?.trim() ?? '';
+  if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
+  return Number(raw);
 }
 
 // ── Heavy suite runner (opt-in, machine-local) ─────────────────────────────────
@@ -2114,8 +2182,8 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
 // SSOT for the shipped surface (predicate reuse, BFR):
 //   (1) scripts/format-shipped.sh:48-67 — PATHSPECS = framework-SOURCE shipped paths
 //       (the files install.sh copies into consumer projects).
-//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:164-167 — derives the
-//       consumer-DESTINATION shipped set from the setup.d copy_safe / copy_unless_foreign commands.
+//   (4) tests/install-sh/refresh-covers-full-delivery.test.sh:168-171 — derives the
+//       consumer-DESTINATION shipped set from the setup.d delivery calls (copy_safe et al.).
 // SHIPPED_MD_DESTINATIONS below is predicate (1)'s PATHSPECS translated to
 // consumer-destination paths — derived from, and gated against, the snapshot fingerprint
 // corpus (predicate (4)'s question answered by a real install rather than a shell scan).
@@ -2189,10 +2257,10 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
 /**
  * The one shipped markdown namespace an exact enumeration cannot cover: skill-context
  * overrides are delivered as `.ai-factory/skill-context/$_sc/SKILL.md` for every entry of
- * SHIPPED_DOCS (20-agents.sh:77), and WHICH entries land is profile-gated — a factory
- * consumer also gets aif-orchestrator-discipline (20-agents.sh:73-75). The whole subtree
- * is framework territory by construction: every path under it is an override of a
- * framework-vendored sub-agent's context, so there is no consumer-authored file to swallow.
+ * SHIPPED_DOCS (20-agents.sh:77, via install_skill_context), and WHICH entries land is
+ * profile-gated — a factory consumer also gets aif-orchestrator-discipline (20-agents.sh:73-75).
+ * No consumer-authored FILE lives under it, but each file is co-owned with AI Factory's
+ * /aif-evolve: the rules it adds outside getff's fenced block are excluded along with the file.
  *
  * Same gate as SHIPPED_MD_DESTINATIONS: pre-push.test.ts requires every row here to prefix
  * at least one delivered *.md in the fingerprint corpus, and to stay scoped below a

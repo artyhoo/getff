@@ -62,18 +62,18 @@ NODE18=$(mk_nodebin 18)
 
 # ── POSITIVE: Node ≥20 + bundle → plain `node <bundle>`, no loader ──
 OUT=$(run_dispatcher "$(mk_repo bundle fallback)" "$NODE22"); RC=$?
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "ROUTE=BUNDLE"; then
+if [ "$RC" -eq 0 ] && grep -q "ROUTE=BUNDLE" <<<"$OUT"; then
   ok "pos: Node 22 + bundle present → exec plain node on pre-push.bundle.mjs"
 else
   bad "pos: Node 22 + bundle did not run the bundle — rc=$RC out=[$OUT]"
 fi
-printf '%s' "$OUT" | grep -q "ROUTE=LOADER" \
+grep -q "ROUTE=LOADER" <<<"$OUT" \
   && bad "pos: the dispatcher still passes an --import loader (tsx) — out=[$OUT]" \
   || ok "pos: no --import loader on the exec (the bundle needs no tsx)"
 
 # ── NEG: bundle absent → fallback ──
 OUT=$(run_dispatcher "$(mk_repo no-bundle fallback)" "$NODE22"); RC=$?
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "ROUTE=FALLBACK"; then
+if [ "$RC" -eq 0 ] && grep -q "ROUTE=FALLBACK" <<<"$OUT"; then
   ok "neg: Node 22 + bundle absent → bash fallback (the bundle arm is gated on the file)"
 else
   bad "neg: bundle absent did not degrade to the fallback — rc=$RC out=[$OUT]"
@@ -81,7 +81,7 @@ fi
 
 # ── NEG: Node 18 → fallback ──
 OUT=$(run_dispatcher "$(mk_repo bundle fallback)" "$NODE18"); RC=$?
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "ROUTE=FALLBACK"; then
+if [ "$RC" -eq 0 ] && grep -q "ROUTE=FALLBACK" <<<"$OUT"; then
   ok "neg: Node 18 + bundle present → bash fallback (the Node ≥20 gate is live)"
 else
   bad "neg: Node 18 did not degrade to the fallback — rc=$RC out=[$OUT]"
@@ -89,7 +89,7 @@ fi
 
 # ── DEGRADE: nothing runnable → warn + exit 0, never a blocked push ──
 OUT=$(run_dispatcher "$(mk_repo no-bundle no-fallback)" "$NODE18"); RC=$?
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "skipping checks"; then
+if [ "$RC" -eq 0 ] && grep -q "skipping checks" <<<"$OUT"; then
   ok "degrade: no runnable hook → warning + exit 0 (push not blocked)"
 else
   bad "degrade: expected a warning and exit 0 — rc=$RC out=[$OUT]"

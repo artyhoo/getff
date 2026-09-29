@@ -176,7 +176,7 @@ else
   bad "(ix) control: a consumer pre-commit without the exemption → gate exited 0 — (x) would prove nothing"
 fi
 run_gate_consumer ".husky"; RC=$(cat "$SCRATCH/.rc")
-if [ "$RC" -eq 0 ] && printf '%s\n' "$GATE_OUT" | grep -q 'pre-commit: your own hook'; then
+if [ "$RC" -eq 0 ] && grep -q 'pre-commit: your own hook' <<<"$GATE_OUT"; then
   ok "(x) POSITIVE: AIF_SHIELDS_CONSUMER_HOOKS=pre-commit → the kept hook is skipped by name, gate exits 0"
 else
   bad "(x) POSITIVE: AIF_SHIELDS_CONSUMER_HOOKS=pre-commit → rc=$RC or no «your own hook» line"
