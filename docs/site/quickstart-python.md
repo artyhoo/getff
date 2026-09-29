@@ -5,6 +5,7 @@ kind: face-page
 sources:
   - docs/site/face-facts.json
   - docs/site/installation.md
+  - docs/site/learn/stop-a-bad-commit.md
   - docs/site/quickstart-go.md
   - docs/site/quickstart-rust.md
   - docs/site/quickstart-ts.md
@@ -17,7 +18,7 @@ executed:
   - { step: install, stack: python, date: 2026-09-21, result: exit-0, versions: "ruff 0.15.21, ast-grep 0.44.1" }
   - { step: fire-on-your-code, stack: python, date: 2026-09-21, result: RED }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the python lane now also delivers scripts/check-zcode-mirror.sh and its pre-push hook runs it, probed live on a fresh python install in this range, one sentence added here; clears at the next gold refresh of this page
 ---
 
 # Quick start for Python
@@ -49,7 +50,10 @@ cd /your/project
 bash /tmp/rt/setup -y python
 ```
 
-The installer copies the rule files, a CI workflow, and a pre-push hook. Then it tests
+The installer copies the rule files, a CI workflow, and a pre-push hook, plus
+`scripts/check-zcode-mirror.sh`, which that hook runs on every push to guard an
+optional `.zcode/` skill mirror
+([what it checks](learn/stop-a-bad-commit.md#the-mirror-check-on-every-commit)). Then it tests
 itself. It plants a bad file in a temporary folder and checks both tools:
 
 ```text

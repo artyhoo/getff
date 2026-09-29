@@ -209,7 +209,8 @@ expect_pass "a backref in the next sentence is not bound to the anchor" cite.md
 
 # ------------------------------------------------ bare backreference in a code comment
 # Code comments write the sibling WITHOUT backticks and wrap it onto the next comment
-# line: «45-python.sh:1398-1400 … \n# … — and :1346 extends the contract». Three such
+# line, e.g. «45-python.sh:1398-1400 … — and :1346 extends» cite:historical line numbers of the PR #1931 audit, quoted as an example
+# Three such
 # siblings had gone stale unseen in refresh-covers-full-delivery.test.sh / 45-python.sh
 # (fidelity audit on PR #1931, 2026-09-29).
 new_repo code-backref

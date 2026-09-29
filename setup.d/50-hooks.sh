@@ -19,7 +19,7 @@ husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
 # owns is an operator decision, not made here.
 for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
   case "$_ch" in
-    pre-commit) _ch_what="lint-staged on the staged files" ;;
+    pre-commit) _ch_what="the ZCode skill-mirror check and lint-staged on the staged files" ;;
     *)          _ch_what="getff's rule checks (packages/core/hooks/pre-push.bundle.mjs)" ;;
   esac
   note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks ($_ch_what); getff does not change a git hook the project already has"

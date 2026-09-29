@@ -711,17 +711,17 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1385                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1386                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1429          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:551          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:466          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/45-python.sh:1517          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:479          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:505          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:526          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:554          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:469          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:494          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:514          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:545          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1864                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
@@ -2513,7 +2513,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:253-258); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:256-261); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just

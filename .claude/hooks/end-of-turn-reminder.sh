@@ -719,7 +719,7 @@ text=$(echo "$last_line" | jq -r '.message.content[]? | select(.type=="text") | 
 # that returned before this point (no last assistant line at :405, tool-only turn at :426)
 # the token is unreadable and a stale handoff BLOCKS — the deliberate fail-closed side.
 # Here-string, never `printf | grep -q`: under pipefail an early grep exit SIGPIPEs the
-# producer and the guard silently reads false (this hook's own A3-5 lesson at :398-402).
+# producer and the guard silently reads false (this hook's own A3-5 lesson at :697-702).
 # Per-turn, never sticky (D17): every turn in the band either moves the handoff or
 # re-states the token.
 if [ -n "$gate_line" ] && grep -qE 'mechanical-tail:[[:space:]]*.{20,}' <<<"$text"; then
@@ -751,7 +751,7 @@ fi
 # `-z "$gate_line"` guard keeps it that way from the other side.
 # Line-anchored: the ready-to-paste form is a line of its own inside a fenced block, while a
 # session DISCUSSING the gate mentions /compact inline — anchoring keeps the discussion out.
-# Here-string, never `printf | grep -q` (this file's own A3-5 SIGPIPE lesson at :398-402).
+# Here-string, never `printf | grep -q` (this file's own A3-5 SIGPIPE lesson at :697-702).
 # Per-turn, never sticky, and not an unpassable gate: the next Stop carries stop_hook_active
 # and exits at :35-38, so a deliberate re-emit costs one turn and then stands.
 if [ "${AIF_HANDOFF_GATE:-0}" = "1" ] && [ -z "$gate_line" ] &&

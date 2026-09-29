@@ -177,7 +177,7 @@ Every install writes the same base:
 - **Rules.** For the npm stacks, ESLint rules in `eslint-rules-local/` and a config that
   loads them. For `python`, `cargo`, and `go`, a config for the linter you already use.
 - **[Gates](terms.md#gate).** Git hooks in `.husky/` and a CI workflow in `.github/workflows/`.
-- **Checks on getff itself.** Scripts in `scripts/` that prove the rules still [fire](terms.md#fire).
+- **Checks on getff itself.** Scripts in `scripts/` that prove the rules still [fire](terms.md#fire) — and, if you mirror skills into a `.zcode/` folder, that the mirror is complete.
 
 If your project already has an ESLint config, getff keeps it. When that config is an
 `eslint.config.mjs`, or an `eslint.config.js` that uses `export default`, getff adds its

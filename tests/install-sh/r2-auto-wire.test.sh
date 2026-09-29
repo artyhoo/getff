@@ -122,9 +122,11 @@ grep -q 'R2.*your own config.*--full' <<<"$(awk '/NOT wired, or wired only in pa
 rm -f "$E.before" "$E.log"
 
 # ── Fixture E2 — the consumer's own config registers R2 itself, with no RULE_GLOBS block ───────
-# The own-config wirer adds RULE_GLOBS and R2 only to a config that has neither; R2 registered by the
-# consumer, scoped their own way, gets nothing from it — not with --full either. So the not-wired
-# summary must not promise R2's boundary globs for this config.
+# R2 registered by the consumer, scoped their own way, stays as it is; the own-config wirer adds a
+# RULE_GLOBS declaration alone for the boundary code 60-ci found, so check-rule-globs.sh has globs to read
+# and check-rule-enforced.sh boundary files to ask ESLint about (operator decision 2026-09-29). This
+# install has no ts-morph, so the wirer does not run: the not-wired summary says that a --full install
+# adds RULE_GLOBS — and must not promise R2, which is the consumer's setting.
 E2=$(mktemp -d)
 printf '{"name":"e2","version":"0.0.0"}\n' > "$E2/package.json"
 mkdir -p "$E2/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$E2/src/api/handler.ts"
@@ -139,17 +141,14 @@ JS
   || bad "E2: install exited non-zero (tail: $(tail -3 "$E2.log" | tr '\n' '|'))"
 grep -q 'eslint.config.mjs is your own config' "$E2.log" \
   || bad "E2: 60-ci did not route the consumer's config as their own — the arm below would be vacuous"
-# The lines about R2 and its RULE_GLOBS in this config. Naming RULE_GLOBS is required, not forbidden:
-# scripts/check-rule-globs.sh is red on this config, and r2-glob-reach.test.sh T17/T19/T20 hold the
-# install to saying so. What E2 forbids is a promise that getff, or a --full install, adds the globs.
-# The «getff's rules in eslint.config.mjs … adding them needs ts-morph» line is left out: it is about
-# getff's synthesized rules, which a --full install does add — a true promise, and arm E relies on it.
-_e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | grep -E 'RULE_GLOBS|no-unsafe-zod-parse' \
-  | grep -vF "getff's rules in eslint.config.mjs")
-[ -n "$_e2_line" ] || bad "E2: no not-wired line names RULE_GLOBS or R2 for eslint.config.mjs — the arm below would be vacuous"
-! grep -qiE 'boundary glob|--full' <<<"$_e2_line" \
-  && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary promises no boundary globs getff would not add" \
-  || bad "E2: the not-wired summary promises R2 boundary globs for a config the wirer leaves R2 alone in: $(printf '%s' "$_e2_line" | tr '\n' '|')"
+# The line that says what a --full install adds to this config: RULE_GLOBS, with ts-morph as the reason.
+_e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | grep -F 'ts-morph')
+grep -q 'RULE_GLOBS' <<<"$_e2_line" && grep -q -- '--full' <<<"$_e2_line" \
+  && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary says a --full install adds RULE_GLOBS" \
+  || bad "E2: the not-wired summary does not say a --full install adds RULE_GLOBS to this config: $(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | tr '\n' '|')"
+! grep -qE 'RULE_GLOBS and R2|R2 and its|R2 \(scoped' <<<"$_e2_line" \
+  && ok "E2: the summary promises no R2 — where R2 runs stays the consumer's setting" \
+  || bad "E2: the not-wired summary promises R2 for a config whose R2 the wirer leaves as it is: $(printf '%s' "$_e2_line" | tr '\n' '|')"
 rm -f "$E2.log"
 
 # ── Fixture F — getff's own config with no `boundary: [` array (react-native ships none) ──────

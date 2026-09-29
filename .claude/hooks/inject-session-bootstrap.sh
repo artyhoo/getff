@@ -115,7 +115,7 @@ $FOOTER_LINE
 [/session-bootstrap digest]"
 
 # B1 (language-discipline): when the operator pins a non-English human-facing language,
-# tell the model — every turn, all skills. Precisely scoped so repo artifacts stay English.
+# tell the model — at every context start (incl. compaction), all skills; repo artifacts stay English.
 # See .claude/rules/language-discipline.md §2. (No path-shaped citations in this block.)
 case "${AIF_HOOK_LANG:-en}" in
   en|'') : ;;  # English default — nothing to inject
@@ -141,7 +141,7 @@ esac
 # already said out loud at least once. The problem is not that they were never said — it is
 # that a spoken authorization lives in one turn and does not survive compaction, so the next
 # stretch of the same session re-derives the constraint from scratch. An injection is re-fed
-# every turn by construction, which is the only property that matters here.
+# at every context start, compaction included, by construction — the only property that matters here.
 #
 # HONEST CLASSIFICATION (attention-is-not-a-mechanism.md §1): this is PROSE delivered
 # reliably, NOT a gate. It can be decision authority; it is not a detection layer. The first
