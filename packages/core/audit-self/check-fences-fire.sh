@@ -279,8 +279,10 @@ const cfg = [{
 const badCode  = readFileSync(badFile, 'utf8');
 const goodCode = readFileSync(goodFile, 'utf8');
 
-const badMsgs  = linter.verify(badCode,  cfg, { filename: 'bad.ts' });
-const goodMsgs = linter.verify(goodCode, cfg, { filename: 'good.ts' });
+// The parser reads JSX only from a `.tsx` filename, so a `.tsx` / `.tsx.txt` fixture is verified as `.tsx`.
+const probeExt = (f: string) => (/\.tsx(\.txt)?$/.test(f) ? 'tsx' : 'ts');
+const badMsgs  = linter.verify(badCode,  cfg, { filename: 'bad.'  + probeExt(badFile) });
+const goodMsgs = linter.verify(goodCode, cfg, { filename: 'good.' + probeExt(goodFile) });
 
 const badFired  = badMsgs.some(m => m.ruleId === ruleId);
 const goodFired = goodMsgs.some(m => m.ruleId === ruleId);
@@ -308,9 +310,9 @@ _run_fixture() {
   local FIXTURE_BASE
   FIXTURE_BASE="$(dirname "$MANIFEST")/$BASE"
 
-  # Find bad and good files (support .ts and .tsx)
+  # Find bad and good files (support .ts and .tsx; `.tsx.txt` = a JSX fixture kept out of the repo's own tsc)
   local BAD_FILE="" GOOD_FILE=""
-  for _ext in .ts .tsx .js .jsx .txt; do
+  for _ext in .ts .tsx .js .jsx .tsx.txt .txt; do
     [ -z "$BAD_FILE"  ] && [ -f "${FIXTURE_BASE}.bad${_ext}"  ] && BAD_FILE="${FIXTURE_BASE}.bad${_ext}"
     [ -z "$GOOD_FILE" ] && [ -f "${FIXTURE_BASE}.good${_ext}" ] && GOOD_FILE="${FIXTURE_BASE}.good${_ext}"
   done

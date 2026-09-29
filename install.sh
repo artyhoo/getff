@@ -1252,7 +1252,6 @@ do_refresh() {
   echo "▶ Custom ESLint rules → eslint-rules-local/"
   _rule_dirs="packages/core/eslint-rules"
   if [ "$STACK" = "react-next" ]; then _rule_dirs="$_rule_dirs packages/preset-next-15-canonical/eslint-rules"; fi
-  if [ "$STACK" = "react-spa" ];  then _rule_dirs="$_rule_dirs packages/preset-react-spa/eslint-rules"; fi
   for _rdir in $_rule_dirs; do
     for _rl in "$PKG_ROOT/$_rdir"/*.ts; do
       case "$_rl" in

@@ -1,0 +1,4 @@
+{
+  "rule-id": "rules-as-tests/require-otel-span",
+  "description": "H9 — an exported async handler without a trace span must be rejected (Class 1 standalone rule)"
+}
