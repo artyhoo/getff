@@ -115,10 +115,12 @@ write_shim() {
   mkdir -p "$dir"
   cat >"$dir/bash" <<'SHIM'
 #!/bin/sh
-# Tracing stand-in for bash (tests/live/consumer-hook-dedup.sh). Records one line per hook copy
-# that runs, then runs it unchanged. Anything that is not a hook script passes straight through.
+# Tracing stand-in for bash (tests/live/consumer-hook-dedup.sh). Writes one record file per hook
+# copy that runs, then runs it unchanged. Anything that is not a hook script passes straight
+# through. One file per copy, not appends to a shared log: copies for one event run in parallel
+# and a record carries the full output, so a shared append could interleave two records.
 _chan=''
-if [ -z "${GETFF_TRACE_ACTIVE:-}" ] && [ -n "${GETFF_TRACE_LOG:-}" ] && [ $# -ge 1 ]; then
+if [ -z "${GETFF_TRACE_ACTIVE:-}" ] && [ -d "${GETFF_TRACE_DIR:-}" ] && [ $# -ge 1 ]; then
   case "$1" in
     *.claude/hooks/*.sh) _chan=project ;;
     */hooks/*) [ -f "$(dirname "$1")/run-hook.cmd" ] && _chan=plugin ;;
@@ -126,22 +128,33 @@ if [ -z "${GETFF_TRACE_ACTIVE:-}" ] && [ -n "${GETFF_TRACE_LOG:-}" ] && [ $# -ge
 fi
 [ -n "$_chan" ] || exec "$GETFF_TRACE_REAL_BASH" "$@"
 _t="$(mktemp -d "${TMPDIR:-/tmp}/getff-trace.XXXXXX")" || exec "$GETFF_TRACE_REAL_BASH" "$@"
+_rec="$(mktemp "$GETFF_TRACE_DIR/rec.XXXXXX")" || exec "$GETFF_TRACE_REAL_BASH" "$@"
 cat >"$_t/in"
-GETFF_TRACE_ACTIVE=1 "$GETFF_TRACE_REAL_BASH" "$@" <"$_t/in" >"$_t/out" 2>"$_t/err"
-_rc=$?
 _name="$(basename "$1")"; _name="${_name%.sh}"
 _key="$(shasum -a 256 <"$_t/in" | cut -c1-16)"
-_ekey="$(jq -c '{s: .session_id, e: .hook_event_name, p: .prompt, t: .tool_use_id, a: .stop_hook_active}' \
-  <"$_t/in" 2>/dev/null | shasum -a 256 | cut -c1-16)"
+# Event identity, not payload bytes: two copies of one event count together even when a host
+# hands each copy a slightly different payload. Unparseable stdin falls back to the byte hash.
+_ekey="$(jq -ce '{s: .session_id, e: .hook_event_name, p: .prompt, t: .tool_use_id,
+  a: .stop_hook_active, g: .agent_id, f: .tool_input.file_path, o: .source}' <"$_t/in" 2>/dev/null \
+  | shasum -a 256 | cut -c1-16)"
+jq -e . <"$_t/in" >/dev/null 2>&1 || _ekey="raw-$_key"
 _event="$(jq -r '.hook_event_name // "?"' <"$_t/in" 2>/dev/null)"
 _file="$(jq -r '.tool_input.file_path // .tool_input.path // ""' <"$_t/in" 2>/dev/null)"
-jq -nc --arg hook "$_name" --arg channel "$_chan" --arg event "${_event:-?}" --arg file "$_file" \
-  --arg key "$_key" --arg ekey "$_ekey" --argjson rc "$_rc" --arg path "$1" \
-  --rawfile out "$_t/out" --rawfile err "$_t/err" \
-  '{hook: $hook, channel: $channel, event: $event, file: $file, key: $key, ekey: $ekey, rc: $rc,
-    path: $path, out: $out, err: $err,
-    emitted: (($out | length) > 0 or ($rc != 0 and ($err | length) > 0))}' \
-  >>"$GETFF_TRACE_LOG" 2>/dev/null
+_record() { # <rc> <finished: true|false>
+  jq -nc --arg hook "$_name" --arg channel "$_chan" --arg event "${_event:-?}" --arg file "$_file" \
+    --arg key "$_key" --arg ekey "$_ekey" --argjson rc "$1" --argjson finished "$2" --arg path "$3" \
+    --rawfile out "$_t/out" --rawfile err "$_t/err" \
+    '{hook: $hook, channel: $channel, event: $event, file: $file, key: $key, ekey: $ekey, rc: $rc,
+      finished: $finished, path: $path, out: $out, err: $err,
+      emitted: (($out | length) > 0 or ($rc != 0 and ($err | length) > 0))}'
+}
+# A start record first: a copy the host kills mid-run stays visible as unfinished instead of
+# looking like a plugin copy that yielded.
+: >"$_t/out"; : >"$_t/err"
+_record -1 false "$1" >"$_rec" 2>/dev/null
+GETFF_TRACE_ACTIVE=1 "$GETFF_TRACE_REAL_BASH" "$@" <"$_t/in" >"$_t/out" 2>"$_t/err"
+_rc=$?
+_record "$_rc" true "$1" >"$_rec.tmp" 2>/dev/null && mv -f "$_rec.tmp" "$_rec"
 cat "$_t/out"
 cat "$_t/err" >&2
 rm -f "$_t/in" "$_t/out" "$_t/err"; rmdir "$_t" 2>/dev/null
@@ -198,12 +211,17 @@ analyze() {
     echo "[$harness] INCONCLUSIVE: no hook copy was traced — the bash shim was not reached (host rewrote PATH for hooks?) or no hook fired"
     return 3
   fi
+  local unfinished
+  unfinished="$(jq -rs 'map(select(.finished != true) | "\(.hook)/\(.channel) on \(.event)") | join(", ")' "$trace")"
+  if [ -n "$unfinished" ]; then
+    echo "[$harness] INCONCLUSIVE instrument: hook copies started but never finished (killed?): $unfinished"
+  fi
   local fired
   fired="$( { jq -r '.event' "$trace"; if [ -n "$extra_events" ]; then cat "$extra_events"; fi; } | sort -u)"
 
   echo "[$harness] per hook and event — events seen, copies run and copies that emitted (max per event), total emissions, emitting channels:"
   jq -rs '
-    group_by([.hook, .event, .key])
+    group_by([.hook, .event, .ekey])
     | map({hook: .[0].hook, event: .[0].event, runs: length,
            emits: (map(select(.emitted)) | length),
            channels: (map(select(.emitted) | .channel) | unique)})
@@ -216,6 +234,7 @@ analyze() {
   ' "$trace"
 
   local rc=0 line
+  [ -n "$unfinished" ] && rc=3
 
   # 1. Double emission for one event.
   while IFS= read -r line; do
@@ -223,7 +242,7 @@ analyze() {
     echo "[$harness] FAIL double emission: $line"
     rc=1
   done < <(jq -rs --arg ok "$DOUBLE_OK" '
-    group_by([.hook, .event, .key])
+    group_by([.hook, .event, .ekey])
     | map(select(.[0].hook != $ok) | select((map(select(.emitted)) | length) > 1))[]
     | "\(.[0].hook) on \(.[0].event)\(if .[0].file != "" then " (" + .[0].file + ")" else "" end): \(map(select(.emitted)) | length) copies emitted (\(map(select(.emitted) | .channel) | join(", ")))"
   ' "$trace")
@@ -247,6 +266,9 @@ analyze() {
     fi
     total="$(jq -rs --arg h "$hook" --arg e "$event" --arg s "$suffix" \
       'map(select(.hook == $h and .event == $e and .emitted and ($s == "" or (.file | endswith($s))))) | length' "$trace")"
+    case "$total" in
+      ''|*[!0-9]*) echo "[$harness] INCONCLUSIVE instrument: could not count $hook on $event"; [ "$rc" -eq 0 ] && rc=3; continue ;;
+    esac
     if [ "$total" -eq 0 ]; then
       echo "[$harness] FAIL lost hook: $hook emitted nothing on $event${suffix:+ ($suffix)} although the event fired"
       rc=1
@@ -277,6 +299,10 @@ analyze() {
 # as emitting under the shim's predicate (stdout, or stderr on a non-zero exit).
 cross_check_cc() {
   local stream="$1" trace="$2" events="$3" mismatch=0 ev a b
+  if [ ! -s "$events" ]; then
+    echo "[cc] INCONCLUSIVE instrument: the stream carries no hook_started events to cross-check against"
+    return 1
+  fi
   while IFS= read -r ev; do
     [ -n "$ev" ] || continue
     a="$(jq -r --arg e "$ev" 'select(.type == "system" and .subtype == "hook_response" and .hook_event == $e)
@@ -291,17 +317,40 @@ cross_check_cc() {
   return "$mismatch"
 }
 
+# collect_trace <harness> <record dir> <trace.jsonl> — joins the per-copy records; a record
+# that does not parse is an instrument error (INCONCLUSIVE), never silently dropped.
+collect_trace() {
+  local harness="$1" dir="$2" out="$3" f bad=0
+  : >"$out"
+  for f in "$dir"/rec.*; do
+    [ -f "$f" ] || continue
+    case "$f" in *.tmp) continue ;; esac
+    if jq -ce . "$f" >>"$out" 2>/dev/null; then :; else
+      echo "[$harness] INCONCLUSIVE instrument: unreadable trace record $f"
+      bad=1
+    fi
+  done
+  return "$bad"
+}
+
 run_with_timeout() {
   if command -v timeout >/dev/null 2>&1; then timeout "$LIVE_TIMEOUT" "$@"
   elif command -v gtimeout >/dev/null 2>&1; then gtimeout "$LIVE_TIMEOUT" "$@"
-  else "$@"; fi
+  else
+    # Stock macOS has neither: a watchdog kills the run after LIVE_TIMEOUT seconds.
+    "$@" & local pid=$!
+    ( sleep "$LIVE_TIMEOUT"; kill -TERM "$pid" 2>/dev/null ) & local dog=$!
+    wait "$pid"; local rc=$?
+    kill "$dog" 2>/dev/null; wait "$dog" 2>/dev/null
+    return "$rc"
+  fi
 }
 
 # Environment every harness run shares. Hook-affecting variables inherited from the calling
 # session are cleared so the run sees what a fresh consumer terminal would.
 trace_env() {
   local shim="$1" trace="$2"
-  printf '%s\n' "PATH=$shim:$PATH" "GETFF_TRACE_LOG=$trace" "GETFF_TRACE_REAL_BASH=$REAL_BASH" \
+  printf '%s\n' "PATH=$shim:$PATH" "GETFF_TRACE_DIR=$trace" "GETFF_TRACE_REAL_BASH=$REAL_BASH" \
     "AIF_HOOK_LANG=ru" "AIF_EOT_SDK_RECAP=1"
 }
 UNSET_ARGS=(-u CLAUDE_PROJECT_DIR -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD -u GETFF_TRACE_ACTIVE
@@ -326,10 +375,10 @@ run_cc() {
   make_consumer "$d/consumer" "$d/install.log" \
     || { echo "[cc] setup error: consumer install failed, see $d/install.log"; return 2; }
   write_shim "$d/shim"
-  : >"$d/trace.jsonl"
+  mkdir -p "$d/trace.d"
   local model_args=() envs=()
   [ -n "${LIVE_CC_MODEL:-}" ] && model_args=(--model "$LIVE_CC_MODEL")
-  while IFS= read -r l; do envs+=("$l"); done < <(trace_env "$d/shim" "$d/trace.jsonl")
+  while IFS= read -r l; do envs+=("$l"); done < <(trace_env "$d/shim" "$d/trace.d")
   (cd "$d/consumer" && run_with_timeout env "${UNSET_ARGS[@]}" "${envs[@]}" \
     "$claude_bin" -p "$PROMPT" --output-format stream-json --verbose --include-hook-events \
     --setting-sources project,local --plugin-dir "$PLUGIN_DIR" \
@@ -337,6 +386,7 @@ run_cc() {
     ${model_args[@]+"${model_args[@]}"} </dev/null) >"$d/stream.jsonl" 2>"$d/stderr.log"
   local run_rc=$?
   echo "[cc] run exit=$run_rc · stream $d/stream.jsonl · trace $d/trace.jsonl"
+  collect_trace cc "$d/trace.d" "$d/trace.jsonl" || return 3
   if ! jq -e 'select(.type == "result")' "$d/stream.jsonl" >/dev/null 2>&1; then
     echo "[cc] INCONCLUSIVE: the run produced no result event (network or timeout) — see $d/stderr.log"
     return 3
@@ -398,13 +448,14 @@ run_zcode() {
   # ZCode hands plugin hooks no env block; the language pin also rides the file fallback.
   printf 'ru\n' >"$d/xdg/getff/hook-lang"
   write_shim "$d/shim"
-  : >"$d/trace.jsonl"
+  mkdir -p "$d/trace.d"
   local envs=()
-  while IFS= read -r l; do envs+=("$l"); done < <(trace_env "$d/shim" "$d/trace.jsonl")
+  while IFS= read -r l; do envs+=("$l"); done < <(trace_env "$d/shim" "$d/trace.d")
   run_with_timeout env "${UNSET_ARGS[@]}" "${envs[@]}" ZCODE_STORAGE_DIR="$d/storage" XDG_CONFIG_HOME="$d/xdg" \
     "${ZC[@]}" -p "$PROMPT" --cwd "$d/consumer" --mode yolo --json >"$d/output.json" 2>"$d/stderr.log"
   local run_rc=$?
   echo "[zcode] run exit=$run_rc · output $d/output.json · trace $d/trace.jsonl"
+  collect_trace zcode "$d/trace.d" "$d/trace.jsonl" || return 3
   if [ "$run_rc" -ne 0 ] && [ ! -s "$d/trace.jsonl" ]; then
     # Measured 2026-09-29 (CLI 0.16.9, app 3.14.3): outside the app the model request dies at
     # "Client signing credential must contain one separator" — the provider key the app itself
