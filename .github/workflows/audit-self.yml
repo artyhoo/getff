@@ -868,6 +868,8 @@ jobs:
         run: bash tests/install-sh/linter-slot.test.sh
       - name: "install-sh — getff's ESLint lint script passes on unpruned suppressions, so fixing a baselined finding keeps lint green (P2 M2)"
         run: bash tests/install-sh/lint-baseline-pass-unpruned.test.sh
+      - name: "install-sh — every check the install records has a run-armed step in the CI workflow it delivers, on every stack (P2 rework)"
+        run: bash tests/install-sh/ci-runs-every-recorded-check.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 

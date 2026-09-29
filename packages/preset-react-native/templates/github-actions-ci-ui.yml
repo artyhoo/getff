@@ -30,6 +30,20 @@ jobs:
           cache: 'npm'
       - run: npm ci --prefer-offline
       - run: bash scripts/run-armed.sh npm run lint
+      - run: bash scripts/run-armed.sh npm run format:check
+      - name: Rule-glob liveness (custom ESLint rules must not be silently inert)
+        run: bash scripts/run-armed.sh bash scripts/check-rule-globs.sh
+      - name: Rule actually applied (R2 binds to boundary files, not just glob-matched)
+        run: bash scripts/run-armed.sh bash scripts/check-rule-enforced.sh
+      - name: lint-staged config resolves (binaries reachable before first commit)
+        run: bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh
+      # The fences getff ships must fire on known-bad input (not only be configured). Through the record:
+      # recorded not-armed where it was red at install or where the project does not lint with ESLint.
+      - name: getff's ESLint fences fire on known-bad input
+        run: bash scripts/run-armed.sh bash scripts/check-fences-fire.sh
+      - run: bash scripts/run-armed.sh npm run arch:check
+      - name: Architecture boundary liveness (monorepo packages↛apps rule must not be silently absent)
+        run: bash scripts/run-armed.sh bash scripts/check-arch-boundaries.sh
 
   typecheck:
     name: TypeScript
@@ -97,6 +111,9 @@ jobs:
           persist-credentials: false
       - name: Run audit-ai-docs.react-native.sh
         run: |
+          if [ -x "scripts/audit-ai-docs.sh" ]; then
+            bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh
+          fi
           if [ -x "audit-self/audit-ai-docs.react-native.sh" ]; then
             bash audit-self/audit-ai-docs.react-native.sh
           fi

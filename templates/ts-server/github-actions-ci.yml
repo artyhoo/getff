@@ -50,6 +50,10 @@ jobs:
       # exits 0 (skips) when node_modules is absent, runs for real after `npm ci`.
       - name: lint-staged config resolves (binaries reachable before first commit)
         run: bash scripts/run-armed.sh bash scripts/check-lintstaged-resolves.sh
+      # The fences getff ships must fire on known-bad input (not only be configured). Through the record:
+      # recorded not-armed where it was red at install or where the project does not lint with ESLint.
+      - name: getff's ESLint fences fire on known-bad input
+        run: bash scripts/run-armed.sh bash scripts/check-fences-fire.sh
 
   typecheck:
     name: TypeScript
@@ -207,7 +211,7 @@ jobs:
       - name: Run audit-ai-docs.sh
         run: |
           if [ -x "scripts/audit-ai-docs.sh" ]; then
-            ./scripts/audit-ai-docs.sh
+            bash scripts/run-armed.sh bash scripts/audit-ai-docs.sh
           else
             echo "::warning::scripts/audit-ai-docs.sh not found — skipping"
           fi
