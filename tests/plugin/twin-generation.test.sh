@@ -323,7 +323,9 @@ else
   mutant_red "subagent-context code above _is_zcode" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/^set -uo pipefail$/set -u/m'
   # The run-hook.cmd yield marker (#1879) is not drift; code smuggled in after it still is.
   YIELD_MARKER=$'\n# Plugin twin of .claude/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep\n# the plugin copy silent where the project runs its own copy (kept last so line citations hold).\n'
-  { cat "$PLUGIN_DIR/inject-subagent-context"; printf '%s' "$YIELD_MARKER"; } > "$M/marked"
+  # Built from the twin with any marker it already carries stripped, so the fixture holds exactly one
+  # marker whether or not the shipped twin has #1879's marker yet (on staging it does).
+  { strip_yield_marker "$PLUGIN_DIR/inject-subagent-context" inject-subagent-context; printf '%s' "$YIELD_MARKER"; } > "$M/marked"
   if check_twin inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$M/marked" >/dev/null; then ok "subagent-context: trailing run-hook.cmd yield marker is not reported as drift"
   else bad "subagent-context: trailing run-hook.cmd yield marker reported as drift"; fi
   { cat "$M/marked"; printf 'echo smuggled\n'; } > "$M/smuggled"
