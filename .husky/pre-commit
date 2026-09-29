@@ -201,7 +201,7 @@ fi
 SHIPS_HIT=0
 while IFS= read -r f; do
   case "$f" in
-    skills/*|.claude/skills/*|plugin/skills/*|plugin/agents/*|plugin/hooks/hooks.json|.claude/hooks/*|.claude/rules/*|agents/*|setup.d/ships.manifest|setup.d/lib.sh|.claude/settings.json|.mcp.json) SHIPS_HIT=1 ;;
+    skills/*|.claude/skills/*|plugin/skills/*|plugin/agents/*|plugin/hooks/hooks.json|.claude/hooks/*|.claude/rules/*|agents/*|setup.d/ships.manifest|setup.d/companions.manifest|setup.d/lib.sh|.claude/settings.json|.mcp.json) SHIPS_HIT=1 ;;
   esac
 done <<<"$CHANGED"
 if [ "$SHIPS_HIT" -eq 1 ] && command -v node &>/dev/null; then

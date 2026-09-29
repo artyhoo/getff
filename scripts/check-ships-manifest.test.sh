@@ -19,6 +19,8 @@
 #   A1-A5   `ask` settings vs setup.d/session-settings.json: a row the file lacks, a value that
 #           drifted from getff's own settings.json, a file key with no `ask` row, an array entry
 #           getff does not have, and `ask` on a non-setting all fail; an array subset passes (C0)
+#   V0-V2   setup.d/companions.manifest: an unpinned row passes; an npm `@1.2.3` pin and a
+#           marketplace `@v2.0` ref each fail (one-button fork on pins = B)
 #   R1      the real repo's manifest passes (the live population is fully marked)
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -134,6 +136,12 @@ arm "A2 value drifted from settings.json" fail 'printf "{\"autoCompactWindow\":1
 arm "A3 file key with no ask row"        fail 'printf "{\"autoCompactWindow\":400000,\"env\":{\"K1\":\"1\"},\"permissions\":{\"deny\":[\"a\"]}}\n" > setup.d/session-settings.json' 'env.K1'
 arm "A4 array entry getff does not have" fail 'printf "{\"autoCompactWindow\":400000,\"permissions\":{\"deny\":[\"a\",\"z\"]}}\n" > setup.d/session-settings.json' 'setting permissions.deny'
 arm "A5 ask on a non-setting"            fail 'row_sub "rule\tr1\tships\tno" "rule\tr1\tships\task"' 'rule r1'
+
+echo "── no version pin in setup.d/companions.manifest"
+CM='printf "# c\nsp\ttrue\tclaude plugin install sp@official --scope user\tcc-plugin\t*\n" > setup.d/companions.manifest'
+arm "V0 an unpinned companion row passes" pass "$CM"
+arm "V1 an npm pin fails"                 fail "$CM"' && printf "cli1\ttrue\tnpm install -g @x/cli@1.2.3\tcli\t*\n" >> setup.d/companions.manifest' 'cli1 — install_cmd pins a version'
+arm "V2 a marketplace ref pin fails"      fail "$CM"' && printf "mk\ttrue\tclaude plugin marketplace add a/b@v2.0\tcc-plugin\t*\n" >> setup.d/companions.manifest' 'mk — install_cmd pins a version'
 
 echo "── the real repo"
 out=$(node "$CHECK" --root "$REPO_ROOT" 2>&1) && rc=0 || rc=$?

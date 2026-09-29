@@ -42,7 +42,7 @@ mkdir -p "$SB/bin" "$SB/bin-nodocker" "$SB/home"
 # Real tools the helper + bridge-guided.sh reach for. `env -i` below means PATH is
 # exactly one of these dirs, so anything not linked here is genuinely absent — that is
 # what makes the "no docker binary at all" arm honest.
-for b in bash sh sed date dirname cat rm mkdir grep touch; do
+for b in bash sh sed date dirname cat rm mkdir grep touch awk mv; do
   p=$(command -v "$b" 2>/dev/null) && ln -sf "$p" "$SB/bin/$b" && ln -sf "$p" "$SB/bin-nodocker/$b"
 done
 
@@ -55,7 +55,8 @@ cat > "$SB/bin/git" <<'EOF'
 #!/bin/sh
 echo "git $*" >> "$STUB_STATE/git.calls"
 if [ "${STUB_GIT_RC:-0}" != "0" ]; then echo "stub: fatal: clone failed" >&2; exit "${STUB_GIT_RC}"; fi
-case "$1" in clone) mkdir -p "$3" ;; esac
+case "$1" in clone) mkdir -p "$3/.git" ;; esac
+[ "$1 $3" = "-C describe" ] && echo "${STUB_GIT_DESCRIBE:-v1.4.0-2-gabc1234}"
 exit 0
 EOF
 cat > "$SB/bin/docker" <<'EOF'
@@ -223,5 +224,13 @@ BLOCK=$(sed -n '/aif-handoff guided install (beta-delivery-ux S4/,/^# ─── 
 case "$BLOCK" in *'DRY_RUN'*) ok "wiring: install.sh's guided-install block consults DRY_RUN" ;; *) bad "wiring: the block never mentions DRY_RUN" ;; esac
 case "$BLOCK" in *'export GETFF_DRY_RUN'*) ok "wiring: GETFF_DRY_RUN is exported to the child process" ;; *) bad "wiring: GETFF_DRY_RUN not exported — the child cannot self-gate" ;; esac
 case "$BLOCK" in *'GETFF_NONINTERACTIVE'*) ok "wiring: GETFF_NONINTERACTIVE is passed to the child process" ;; *) bad "wiring: GETFF_NONINTERACTIVE not passed — -y still prompts" ;; esac
+
+echo "── VERSION: what the unpinned clone serves is recorded (one-button fork on pins = B)"
+mkdir -p "$SB/proj/.ai-factory"; printf '## Accepted\n' > "$SB/proj/.ai-factory/tool-decisions.md"
+run ver-up "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1 PROJECT_ROOT="$SB/proj" GETFF_TODAY=2026-09-29
+if grep -qF "| aif-handoff | external-service | v1.4.0-2-gabc1234 | 2026-09-29 | git describe in $ST/checkout |" "$SB/proj/.ai-factory/tool-decisions.md"; then
+  ok "VERSION: after the guided install the checkout's git describe is recorded in tool-decisions.md"
+else bad "VERSION: no aif-handoff row: $(tr '\n' '|' < "$SB/proj/.ai-factory/tool-decisions.md") / $OUT"; fi
+grep -q 'aif-handoff version v1.4.0-2-gabc1234 recorded' <<<"$OUT" && ok "VERSION: the report names it" || bad "VERSION: no report line"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

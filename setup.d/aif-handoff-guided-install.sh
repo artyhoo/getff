@@ -54,6 +54,19 @@ AIF_GUIDED_INSTALL="${AIF_GUIDED_INSTALL:-}"
 
 _log() { printf '[aif-handoff-guided-install] %s\n' "$*" >&2; }
 
+# _aif_handoff_record_version — the aif-handoff version this machine runs, read from its checkout
+# (`git describe`: the tag, or tag+commits+sha) and recorded in the project's
+# .ai-factory/tool-decisions.md (engine.sh companion_record_version). The clone is not pinned (one-button
+# fork on pins = B, operator log entry 28): it tracks upstream, and the record says what was there.
+# A running aif-handoff with no checkout at AIF_HANDOFF_CHECKOUT is recorded as «not read».
+_aif_handoff_record_version() {
+  local v=""
+  if [ -d "$AIF_HANDOFF_CHECKOUT/.git" ]; then
+    v=$(git -C "$AIF_HANDOFF_CHECKOUT" describe --tags --always 2>/dev/null || true)
+  fi
+  companion_record_version aif-handoff external-service "${v:-not read}" "git describe in $AIF_HANDOFF_CHECKOUT"
+}
+
 # _aif_handoff_record_failure <reason> — one audit-log line per failed bring-up step.
 # Every failure branch routes through here so no step can fail without leaving a trace
 # (the A1-4 class: a `set -e` abort past the logging is indistinguishable from success).
@@ -120,6 +133,7 @@ aif_handoff_guided_install() {
       # Detect-first per companion-install-principle.md §1: running aif → no re-install prompt.
       printf '  ✓ aif-handoff already running at %s\n' "$AIF_URL"
       _log "state=up: no-op (detect-first — companion-install-principle.md §1)"
+      _aif_handoff_record_version
       return 0
       ;;
     docker)
@@ -160,6 +174,7 @@ aif_handoff_guided_install() {
         if bridge_health_ok "$AIF_URL"; then
           printf '  ✓ aif-handoff up at %s\n' "$AIF_URL"
           _log "state=up after docker compose; re-probe green"
+          _aif_handoff_record_version
           printf '[%s] AIF_HANDOFF: up\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$AIF_INSTALL_LOG" 2>/dev/null || true
           return 0
         fi

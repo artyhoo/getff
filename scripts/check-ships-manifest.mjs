@@ -19,7 +19,8 @@
  *     tier reader scripts/lib/skill-tiers.mjs (never a second parser);
  *   - `ask` settings (the session-settings group, written only on the pre-launch «yes») against
  *     setup.d/session-settings.json: every `ask` row is in that file with getff's own value (an
- *     array may be a subset), and every key of that file is an `ask` row.
+ *     array may be a subset), and every key of that file is an `ask` row;
+ *   - setup.d/companions.manifest carries no version pin in any install_cmd (`@1.2`, `@v2`, `==1`).
  * Whether the installer really delivers each row at its declared depth is Arm B, a real install:
  * tests/install-sh/ships-manifest.test.sh.
  *
@@ -196,6 +197,18 @@ function main() {
   for (const name of settingNames(session))
     if (!askRows.has(name))
       findings.push(`setup.d/session-settings.json: ${name} — written on the pre-launch «yes» but not an \`ask\` row of setup.d/ships.manifest`);
+
+  // No version pin in the companion manifest (one-button fork on pins = B, operator log entry 28;
+  // companion-install-principle.md §1/§4): each companion's own installer serves its latest, and
+  // setup.d/engine.sh records what it installed in .ai-factory/tool-decisions.md instead.
+  const companions = join(root, 'setup.d/companions.manifest');
+  if (existsSync(companions))
+    readFileSync(companions, 'utf8').split('\n').forEach((l, i) => {
+      if (!l || l.startsWith('#')) return;
+      const [name, , install = ''] = l.split('\t');
+      if (/@v?\d|==\d/.test(install))
+        findings.push(`setup.d/companions.manifest:${i + 1}: ${name} — install_cmd pins a version (${install}); companions install unpinned and the installed version is recorded`);
+    });
 
   for (const kind of KINDS)
     for (const name of [...pop[kind]].sort())
