@@ -192,7 +192,7 @@ echo "  ── live-fire: ast-grep scan (pinned @ast-grep/cli@0.44.1; SKIP if un
 if command -v npx >/dev/null 2>&1 && npx --yes -p @ast-grep/cli@0.44.1 ast-grep --version >/dev/null 2>&1; then
   printf 'x = 1\n' > "$P/clean_module.py"
   sg_out=$(cd "$P" && npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan . 2>&1); sg_rc=$?
-  if echo "$sg_out" | grep -qi 'Duplicate rule id'; then
+  if grep -qi 'Duplicate rule id' <<<"$sg_out"; then
     bad "live-fire: ast-grep aborted with a duplicate-rule-id error (rc=$sg_rc): $(echo "$sg_out" | tr '\n' '|' | cut -c1-200)"
   else
     ok "live-fire: ast-grep scan ran without a duplicate-rule-id abort after install --force"

@@ -144,7 +144,7 @@ while IFS=$'\t' read -r F_IDX F_ITEM F_TYPE F_DISPATCH F_ASSIGNED F_SCOPE F_NOTE
       IFS="${OLD_IFS}"
       [[ -z "${tok}" ]] && continue
       # Check if token appears in SEEN_FILES (space-bounded match)
-      if echo " ${SEEN_FILES} " | grep -qF " ${tok} "; then
+      if grep -qF " ${tok} " <<<" ${SEEN_FILES} "; then
         OVERLAP=1
         break
       fi

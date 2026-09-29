@@ -41,7 +41,7 @@ for dir in "$PROMPTS_DIR"/*/; do
   [ -f "${dir}kickoff.md" ] || continue   # on-disk kickoff only
   [ -f "${dir}done.md" ] && continue       # closed umbrella — never trips
   rel=".claude/orchestrator-prompts/${name}/kickoff.md"
-  if ! printf '%s\n' "$tracked" | grep -qxF "$rel"; then
+  if ! grep -qxF "$rel" <<<"$tracked"; then
     unportable="${unportable}${name}"$'\n'
   fi
 done

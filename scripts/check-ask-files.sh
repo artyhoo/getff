@@ -253,7 +253,7 @@ has_section() {
 
 # A key: value line inside a section body, non-empty value.
 body_has_key() {
-  printf '%s\n' "$1" | grep -qE "^$2:[[:space:]]*[^[:space:]]"
+  grep -qE "^$2:[[:space:]]*[^[:space:]]" <<<"$1"
 }
 
 body_key_value() {
@@ -272,7 +272,7 @@ for f in "$ASKS_DIR"/*.md; do
   base="$(basename "$f")"
   before=$findings
 
-  if ! printf '%s' "$base" | grep -qE "$FILENAME_RE"; then
+  if ! grep -qE "$FILENAME_RE" <<<"$base"; then
     fail "$base: filename must be <YYYY-MM-DD>-<role>-<slug>.md (lowercase role and slug)"
   fi
 
@@ -340,7 +340,7 @@ for f in "$ASKS_DIR"/*.md; do
         # pointer, and everything after the first space is free-form prose the advisor may add.
         entry_path="${entry%% *}"
         entry_path="${entry_path%%#*}"
-        if ! printf '%s' "$entry_path" | grep -qE "$DECISIONS_ENTRY_RE"; then
+        if ! grep -qE "$DECISIONS_ENTRY_RE" <<<"$entry_path"; then
           fail "$base: decisions-entry must LEAD with a path ending in .decisions.md (got '$entry_path' from '$entry') — prose that merely mentions decisions.md is not a pointer"
         fi
       fi

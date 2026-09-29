@@ -58,7 +58,7 @@ fi
 # ── HEURISTIC 1: R-phase keyword detection (highest priority) ─────────────────
 # Matches "R-phase", "research patch", "prior art", "prior-art", "survey" (case-insensitive).
 # Fires before LOC/SURFACES sizing — research items are always R-phase regardless of size.
-if echo "${BODY}" | grep -qiE 'R-phase|research[- ]patch|prior[- ]art|survey'; then
+if grep -qiE 'R-phase|research[- ]patch|prior[- ]art|survey' <<<"${BODY}"; then
   TYPE="R-phase"
   DISPATCH="R-phase-session"
   RATIONALE="R-phase keyword matched: research/prior-art/survey trigger"

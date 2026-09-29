@@ -1146,6 +1146,20 @@ function auditAiDocsSection() {
     if (r.exitCode !== 0) die("\u274C audit-ai-docs.test.ts failed:", r);
     emit(r);
   }
+  if (existsSync2(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
+    const live = [
+      ["audit-ai-docs.sh", "bash", ["packages/core/audit-self/audit-ai-docs.sh"]],
+      ["audit-ai-docs.ts", "npx", ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]]
+    ];
+    for (const [label, cmd, args] of live) {
+      const r = run(cmd, args);
+      if (r.notFound) die(`\u274C ${cmd} not found \u2014 cannot run ${label} live`);
+      if (r.exitCode !== 0) die(`\u274C ${label} FAILED on this repo:`, r);
+      const summary = r.stdout.split("\n").find((l) => l.startsWith("Audit complete:")) ?? "(no summary line)";
+      process.stdout.write(`\u2713 ${label} live: ${summary}
+`);
+    }
+  }
 }
 function skillDriftSection() {
   if (existsSync2(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
@@ -1640,15 +1654,35 @@ function lineCitationsSection(ctx) {
     return;
   const changed = getChangedFiles(rb.base, "ACMR", rb.head);
   if (changed.length === 0) return;
-  const r = run("node", [
-    "scripts/check-line-citations.mjs",
-    "--check",
-    "--corpus",
-    ...changed.map((f) => `--affected-by=${f}`)
-  ]);
+  const timeoutMs = lineCitationsTimeoutMs();
+  const r = runCheck(
+    "node",
+    [
+      "scripts/check-line-citations.mjs",
+      "--check",
+      "--corpus",
+      ...changed.map((f) => `--affected-by=${f}`)
+    ],
+    { cwd: REPO_ROOT, timeoutMs }
+  );
   if (r.notFound) return;
+  if (r.timedOut) {
+    die(
+      // runCheck also reports an outside SIGTERM as timedOut, hence «or was terminated».
+      `\u274C path:line citation checker did not finish within ${timeoutMs / 1e3} s (timed out or was terminated) \u2014 no citation was found stale.
+   Usually machine load (the checker is ~1.5 s of CPU; the rest is waiting on
+   git blame/show per affected citation). Retry when load drops, or raise
+   PREPUSH_LINE_CITATIONS_TIMEOUT_MS (milliseconds) for this push.`
+    );
+  }
   if (r.exitCode !== 0) die("\u274C stale `path:line` citation(s):", r);
   emit(r);
+}
+var LINE_CITATIONS_TIMEOUT_MS = 6e5;
+function lineCitationsTimeoutMs(env = process.env) {
+  const raw = env["PREPUSH_LINE_CITATIONS_TIMEOUT_MS"]?.trim() ?? "";
+  if (!/^[1-9]\d*$/.test(raw)) return LINE_CITATIONS_TIMEOUT_MS;
+  return Number(raw);
 }
 var HEAVY_RUNNER_TIMEOUT_MS = 6e5;
 function runCoreSuite(script) {
@@ -2148,5 +2182,6 @@ export {
   VALID_OWNERS,
   activeSections,
   composeSections,
-  isFrameworkShippedMarkdown
+  isFrameworkShippedMarkdown,
+  lineCitationsTimeoutMs
 };

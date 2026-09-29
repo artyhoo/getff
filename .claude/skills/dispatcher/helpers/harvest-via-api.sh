@@ -108,7 +108,7 @@ echo "[via-api] new commit $new_commit"
 if branch_tip=$(gh api "/repos/$REPO/git/ref/heads/$BRANCH" --jq '.object.sha' 2>/dev/null); then
   if ! patch_err=$(jq -n --arg s "$new_commit" '{sha:$s, force:false}' \
       | gh api -X PATCH "/repos/$REPO/git/refs/heads/$BRANCH" --input - 2>&1 >/dev/null); then
-    if printf '%s' "$patch_err" | grep -qi 'fast forward'; then
+    if grep -qi 'fast forward' <<<"$patch_err"; then
       {
         echo "[via-api] ERROR: ref update rejected — not a fast-forward (force:false)."
         echo "[via-api]   refs/heads/$BRANCH is at $branch_tip, but the new commit $new_commit is parented on $BASE@$base_sha."

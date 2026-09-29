@@ -43,10 +43,10 @@ _lp_ok=1; for _l in en.sh ru.sh check-parity.sh; do [ -f "$H/lang/$_l" ] || _lp_
 S="$T/.claude/settings.json"
 _stop=$(jq -r '(.hooks.Stop // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 _ups=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
-echo "$_stop" | grep -q 'end-of-turn-reminder' && echo "$_stop" | grep -q 'CLAUDE_PROJECT_DIR' \
+grep -q 'end-of-turn-reminder' <<<"$_stop" && grep -q 'CLAUDE_PROJECT_DIR' <<<"$_stop" \
   && ok "(B) Stop hook = end-of-turn-reminder, \$CLAUDE_PROJECT_DIR-relative (worktree-safe)" \
   || bad "(B) Stop hook missing / not CLAUDE_PROJECT_DIR-relative (got: $_stop)"
-echo "$_ups" | grep -q 'deps-hash-check' \
+grep -q 'deps-hash-check' <<<"$_ups" \
   && ok "(B) pre-existing UserPromptSubmit=deps-hash SURVIVED the merge (non-destructive)" \
   || bad "(B) deps-hash UserPromptSubmit hook lost — merge clobbered a sibling (got: $_ups)"
 
@@ -84,7 +84,7 @@ fi
 # ── ARM (E): firing RU (recap path) ──────────────────────────────────────────
 OUT_RU=$(_run_hook ru)
 if [ "$(printf '%s' "$OUT_RU" | jq -r '.decision' 2>/dev/null)" = "block" ] \
-   && printf '%s' "$OUT_RU" | jq -r '.reason' 2>/dev/null | grep -q 'Простыми словами'; then
+   && _reason=$(printf '%s' "$OUT_RU" | jq -r '.reason' 2>/dev/null) && grep -q 'Простыми словами' <<<"$_reason"; then
   ok "(E) firing (RU): AIF_HOOK_LANG=ru → block + the RU recap marker in the reason (lang pack live)"
 else
   bad "(E) firing (RU): no RU-marked block reason ($(printf '%s' "$OUT_RU" | head -c 120))"
@@ -108,7 +108,7 @@ SID_STORY="g934-story-$$"
 OUT_STORY=$(_run_hook ru "$TR_STORY" "$SID_STORY")
 rm -f "${TMPDIR:-/tmp}/aif-story-$SID_STORY"
 if [ "$(printf '%s' "$OUT_STORY" | jq -r '.decision' 2>/dev/null)" = "block" ] \
-   && printf '%s' "$OUT_STORY" | jq -r '.reason' 2>/dev/null | grep -qF 'Что изменилось за сессию'; then
+   && _reason=$(printf '%s' "$OUT_STORY" | jq -r '.reason' 2>/dev/null) && grep -qF 'Что изменилось за сессию' <<<"$_reason"; then
   ok "(E2) firing (RU) story branch: gh pr create → block + the RU story marker (story literal pinned)"
 else
   bad "(E2) firing (RU) story branch: no story-marked block reason ($(printf '%s' "$OUT_STORY" | head -c 120))"

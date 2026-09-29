@@ -15,10 +15,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, utimesSync, statSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, relative } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 // Resolve the repo root from this test file's location (works in vitest + stryker)
 const THIS_FILE = fileURLToPath(import.meta.url);
@@ -1986,12 +1986,23 @@ describe('probeD5() — regex anchor ^ in exemption patterns (L328-331)', () => 
     // → must NOT be exempt → must appear in findings
     const orphan = findings.find((f) => f.file.includes('other/docs'));
     expect(orphan).toBeDefined();
+    if (!SH_PRESENT) return;
+    markAuthoring(dir);
+    const sh = runSh(dir, 'D5');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain('other/docs/meta-factory/research-patches/x.md: contains canonical phrase');
   });
 
   it('D5_FROZEN_RE: file properly starting with docs/meta-factory/research-patches/ IS exempt (L328 positive)', () => {
     writeFile(dir, 'docs/meta-factory/research-patches/patch.md', `${CANON_PHRASE}\n`);
     const findings = probeD5(dir);
     expect(findings.find((f) => f.file.includes('research-patches'))).toBeUndefined();
+    if (!SH_PRESENT) return;
+    markAuthoring(dir);
+    for (const doc of DOWNSTREAM_DOCS) { writeFile(dir, doc, `${CANON_PHRASE}\n`); }
+    const sh = runSh(dir, 'D5');
+    expect(sh.out).not.toContain('research-patches/patch.md');
+    expect(sh.code).toBe(0);
   });
 
   it('D5_TEST_INFRA_RE: file that does NOT start with packages/core/audit-self/ is NOT exempt (L329 first anchor)', () => {
@@ -2003,6 +2014,11 @@ describe('probeD5() — regex anchor ^ in exemption patterns (L328-331)', () => 
     // Must NOT be exempt (path doesn't start with packages/core/audit-self/)
     const orphan = findings.find((f) => f.file.includes('other/packages'));
     expect(orphan).toBeDefined();
+    if (!SH_PRESENT) return;
+    markAuthoring(dir);
+    const sh = runSh(dir, 'D5');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain('other/packages/core/audit-self/audit-ai-docs.ts: contains canonical phrase');
   });
 
   it('D5_ROOT_SOURCE_RE: file named docs/README.md is NOT exempt (L330 anchor prevents partial match)', () => {
@@ -2648,5 +2664,288 @@ describe('consumer mode — D3/D5 skip outside the authoring repo', () => {
     const d5 = report.results.find((r) => r.probe === 'D5');
     expect(d5!.level).toBe('fail');
     expect(d5!.details.some((d) => d.includes('docs/consumer-orphan.md'))).toBe(true);
+  });
+});
+
+// ─── self-application on getff (2026-09-28) ───────────────────────────────────
+// No gate ran this auditor on the framework repo itself — pre-push and CI ran only
+// this test file on fixtures — so the live run on getff sat at `2 FAIL`: D3 on
+// CLAUDE.md and D5 on four tracked files plus every gitignored checkout it walked
+// into. Each describe below is a paired positive/negative for one fix, and every
+// arm runs BOTH implementations on the same fixture: the canonical .ts and the .sh
+// twin install.sh ships to consumers (install.sh:1113), so neither can drift alone.
+
+const CORE_SH = join(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh');
+// Stryker-sandbox guard, as in the R4/R17 bash tests: the twin is absent there.
+const SH_PRESENT = existsSync(CORE_SH);
+
+/** Run the shipped bash twin's single probe in `dir`; exit code + stdout. */
+function runSh(dir: string, only: string): { code: number; out: string } {
+  const r = spawnSync('bash', [CORE_SH, `--only=${only}`], { cwd: dir, encoding: 'utf8' });
+  return { code: r.status ?? -1, out: r.stdout };
+}
+
+/** git in a fixture repo. vitest.setup.ts has already scrubbed GIT_DIR and its family. */
+function git(dir: string, ...args: string[]): void {
+  execFileSync(
+    'git',
+    ['-c', 'user.email=fixture@example.invalid', '-c', 'user.name=fixture', '-c', 'commit.gpgsign=false', ...args],
+    { cwd: dir, stdio: 'ignore' },
+  );
+}
+
+/** D5 finding paths from both implementations, for a fixture already marked authoring. */
+function d5Both(dir: string): { ts: string[]; sh: { code: number; out: string } | null } {
+  return {
+    ts: probeD5(dir).map((f) => f.file),
+    sh: SH_PRESENT ? runSh(dir, 'D5') : null,
+  };
+}
+
+// Goal-bearing docs written with the phrase, except the pointer doc, which gets
+// only the pointer — the post-#1228 shape of this repo.
+function writeGoalDocs(dir: string, overrides: Record<string, string> = {}): void {
+  for (const doc of DOWNSTREAM_DOCS) {
+    const body = overrides[doc] ?? (doc === 'CLAUDE.md'
+      ? '# Conventions\n\n[goal](README.md#why-this-exists)\n'
+      : `# Doc\n\n${CANON_PHRASE}\n`);
+    writeFile(dir, doc, body);
+  }
+}
+
+describe('D3 — CLAUDE.md is a goal POINTER since #1228, not a restatement', () => {
+  // docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md FORK A collapsed
+  // CLAUDE.md's goal section into a link to README.md#why-this-exists; the phrase itself
+  // is still delivered by the enrolled session-bootstrap.md and the prompt hook. The probe
+  // kept demanding the phrase, so the decided shape read as drift.
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('PASS: CLAUDE.md that links README.md#why-this-exists without restating the goal (ts + sh)', () => {
+    writeGoalDocs(dir);
+    expect(probeD3(dir)).toEqual([]);
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D3');
+    expect(sh.code).toBe(0);
+    expect(sh.out).toMatch(/PASS: D3/);
+  });
+
+  it('FAIL: CLAUDE.md with neither the pointer nor the phrase is named, and asked for the pointer (ts + sh)', () => {
+    writeGoalDocs(dir, { 'CLAUDE.md': '# Conventions\n\nNo goal here.\n' });
+    const viols = probeD3(dir);
+    expect(viols).toHaveLength(1);
+    expect(viols[0]).toContain('CLAUDE.md');
+    expect(viols[0]).toContain('README.md#why-this-exists');
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D3');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toMatch(/CLAUDE\.md: .*README\.md#why-this-exists/);
+  });
+
+  it('FAIL: the pointer is accepted only from pointer docs — a phrase doc carrying just the link still fails (ts + sh)', () => {
+    writeGoalDocs(dir, { '.claude/session-bootstrap.md': '# Bootstrap\n\n[goal](../README.md#why-this-exists)\n' });
+    const viols = probeD3(dir);
+    expect(viols).toHaveLength(1);
+    expect(viols[0]).toContain('.claude/session-bootstrap.md');
+    expect(viols[0]).toContain('missing canonical goal phrase');
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D3');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain('.claude/session-bootstrap.md: missing canonical goal phrase');
+  });
+});
+
+describe("D5 — enumerates git's view of the repo, not the raw filesystem", () => {
+  // Measured 2026-09-28: walked from the main clone, the probe descended into every
+  // gitignored `.claude/worktrees/<name>/` checkout (.gitignore `/.claude/worktrees/`) and
+  // did not finish in 120 s; walked from a built tree it flagged the getff package's own
+  // build output (packages/getff/.gitignore `/.claude/`). A hand-kept regex of ignored paths
+  // (D5_GITIGNORED) cannot follow every .gitignore — git can.
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); git(dir, 'init', '-q'); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('PASS: phrase-carrying files ignored by a root or a NESTED .gitignore are not findings (ts + sh)', () => {
+    writeFile(dir, '.gitignore', '/.claude/worktrees/\n');
+    writeFile(dir, '.claude/worktrees/other-session/AGENTS.md', `${CANON_PHRASE}\n`);
+    writeFile(dir, 'packages/getff/.gitignore', '/.claude/\n');
+    writeFile(dir, 'packages/getff/.claude/skills/x/SKILL.md', `${CANON_PHRASE}\n`);
+    const both = d5Both(dir);
+    expect(both.ts).toEqual([]);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(0);
+    expect(both.sh.out).toMatch(/PASS: D5/);
+  });
+
+  it('FAIL (paired negative): a tracked orphan and an untracked-but-not-ignored orphan are both still findings (ts + sh)', () => {
+    writeFile(dir, '.gitignore', '/build/\n');
+    writeFile(dir, 'docs/tracked-orphan.md', `${CANON_PHRASE}\n`);
+    git(dir, 'add', 'docs/tracked-orphan.md');
+    writeFile(dir, 'docs/untracked-orphan.md', `${CANON_ALT}\n`);
+    const both = d5Both(dir);
+    expect(both.ts).toEqual(['docs/tracked-orphan.md', 'docs/untracked-orphan.md']);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(1);
+    expect(both.sh.out).toContain('docs/tracked-orphan.md: contains canonical phrase');
+    expect(both.sh.out).toContain('docs/untracked-orphan.md: contains canonical phrase');
+  });
+
+  it('FAIL (paired negative): a directory that is not its own work-tree root is walked, so a parent repo cannot hide it (ts + sh)', () => {
+    // The audit runs from a project root. A fixture nested under an ignored path of some
+    // OTHER repo must not inherit that repo's ignore rules and come back vacuously clean.
+    writeFile(dir, '.gitignore', '/nested/\n');
+    const nested = join(dir, 'nested');
+    markAuthoring(nested);
+    writeFile(nested, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    const both = d5Both(nested);
+    expect(both.ts).toEqual(['docs/orphan.md']);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(1);
+    expect(both.sh.out).toContain('docs/orphan.md: contains canonical phrase');
+  });
+
+  it('FAIL: git failing INSIDE a confirmed work-tree root fails the probe — never a silent fallback to the walk (ts + sh)', () => {
+    // A corrupt index: `rev-parse --show-toplevel` still answers, `ls-files` does not.
+    // Falling back to the walk here would reintroduce everything the git view replaced.
+    writeFile(dir, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    git(dir, 'add', 'docs/orphan.md');
+    writeFile(dir, '.git/index', 'not an index\n');
+    expect(() => probeD5(dir)).toThrow();
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D5');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain('git ls-files failed');
+  });
+
+  it('FAIL: runAudit reports a git failure inside a confirmed root as a D5 FAIL line, not an uncaught throw', () => {
+    writeFile(dir, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    git(dir, 'add', 'docs/orphan.md');
+    writeFile(dir, '.git/index', 'not an index\n');
+    const report = runAudit(dir, 'D5');
+    expect(report.failCount).toBe(1);
+    expect(report.results[0].details.join('\n')).toContain('git ls-files failed');
+  });
+
+  it('FAIL: a root file whose name starts with a dash is not read as a grep option, so the orphan is still found (sh)', () => {
+    // xargs appends names after the pattern; without `--` a file named `-q` turns grep quiet.
+    writeFile(dir, '-q', 'no phrase here\n');
+    writeFile(dir, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    const both = d5Both(dir);
+    expect(both.ts).toEqual(['docs/orphan.md']);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(1);
+    expect(both.sh.out).toContain('docs/orphan.md: contains canonical phrase');
+  });
+
+  it('FAIL: the walk reports repo-relative paths for a trailing-slash or relative cwd too (ts)', () => {
+    // A nested non-root dir takes the walk path; `cwd + '/'` prefix-stripping left
+    // absolute paths behind, and absolute paths never match the anchored exemptions.
+    writeFile(dir, '.gitignore', '/nested/\n');
+    const nested = join(dir, 'nested');
+    markAuthoring(nested);
+    writeFile(nested, 'docs/orphan.md', `${CANON_PHRASE}\n`);
+    writeFile(nested, 'docs/meta-factory/research-patches/p.md', `${CANON_PHRASE}\n`);
+    expect(probeD5(`${nested}/`).map((f) => f.file)).toEqual(['docs/orphan.md']);
+    expect(probeD5(relative(process.cwd(), nested)).map((f) => f.file)).toEqual(['docs/orphan.md']);
+  });
+
+  it('an inherited GIT_DIR naming another repository does not redirect the enumeration (ts + sh)', () => {
+    // A git hook fired from a linked worktree exports GIT_DIR, and GIT_DIR beats cwd for
+    // every git child. The foreign repo excludes `docs/` in its info/exclude: if the probe
+    // asked THAT repository, the local orphan would silently drop out.
+    const foreign = makeTmpDir();
+    try {
+      git(foreign, 'init', '-q');
+      writeFile(foreign, '.git/info/exclude', 'docs/\n');
+      writeFile(dir, 'docs/local-orphan.md', `${CANON_PHRASE}\n`);
+      const saved = process.env.GIT_DIR;
+      process.env.GIT_DIR = join(foreign, '.git');
+      let both: ReturnType<typeof d5Both>;
+      try {
+        both = d5Both(dir);
+      } finally {
+        if (saved === undefined) delete process.env.GIT_DIR;
+        else process.env.GIT_DIR = saved;
+      }
+      expect(both.ts).toEqual(['docs/local-orphan.md']);
+      if (!both.sh) return;
+      expect(both.sh.code).toBe(1);
+      expect(both.sh.out).toContain('docs/local-orphan.md: contains canonical phrase');
+    } finally {
+      rmSync(foreign, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('D5 — the four tracked findings on getff, each resolved at its cause', () => {
+  let dir: string;
+  beforeEach(() => { dir = makeTmpDir(); markAuthoring(dir); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('enrollment: every DOWNSTREAM_DOCS entry is enrolled in the bash twin too — incl. the orchestrator worker template', () => {
+    // The worker template restates the goal to every dispatched worker
+    // (.claude/skills/orchestrator/references/worker-template.md «Project goal: …»), which is
+    // exactly the live goal-bearing doc D5 exists to catch (Incident-4: a list curated from
+    // recall). Enrolled, not exempted.
+    expect(DOWNSTREAM_DOCS).toContain('.claude/skills/orchestrator/references/worker-template.md');
+    for (const doc of DOWNSTREAM_DOCS) writeFile(dir, doc, `${CANON_PHRASE}\n`);
+    expect(probeD5(dir)).toEqual([]);
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D5');
+    expect(sh.out).not.toContain('contains canonical phrase');
+    expect(sh.code).toBe(0);
+  });
+
+  it('PASS (FROZEN): raw rater output under docs/meta-factory/triage-corpus/ is a committed record, not a live claim (ts + sh)', () => {
+    writeFile(dir, 'docs/meta-factory/triage-corpus/s9-c1-sonnet.json', `{"raw": "the goal is ${CANON_PHRASE}"}\n`);
+    const both = d5Both(dir);
+    expect(both.ts).toEqual([]);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(0);
+  });
+
+  it('FAIL (FROZEN boundary): a sibling of triage-corpus/ in docs/meta-factory/ is still a finding (ts + sh)', () => {
+    writeFile(dir, 'docs/meta-factory/triage-corpus-notes.md', `${CANON_PHRASE}\n`);
+    const both = d5Both(dir);
+    expect(both.ts).toEqual(['docs/meta-factory/triage-corpus-notes.md']);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(1);
+  });
+
+  const capturePage = (sources: string[]): string =>
+    ['---', 'title: inject-session-bootstrap hook', 'kind: reference-sheet', 'sources:',
+      ...sources.map((s) => `  - ${s}`),
+      'docs-refresh: deferred',
+      '---', '', '```text', `Goal: ${CANON_PHRASE}. Every rule is an executable artifact.`, '```', ''].join('\n');
+
+  const SITE_PAGES = [
+    'docs/site/reference/D/inject-session-bootstrap.md',
+    'docs/site/reference/D/inject-subagent-digest.md',
+  ];
+
+  it('enrollment: the two docs/site pages that print the hook digest are enrolled, so D3 checks their phrase (ts + sh)', () => {
+    // They quote the enrolled hook's output. `sources:` + the refresh gate do NOT keep
+    // them in step: a standing `docs-refresh: deferred` token satisfies that gate, so a
+    // phrase change in the hook would leave the page stale with every gate green. D3 does not.
+    for (const page of SITE_PAGES) expect(DOWNSTREAM_DOCS).toContain(page);
+    writeGoalDocs(dir, { [SITE_PAGES[1]]: capturePage(['.claude/hooks/inject-subagent-digest.sh']).replace(CANON_PHRASE, 'an older goal wording') });
+    const viols = probeD3(dir);
+    expect(viols).toHaveLength(1);
+    expect(viols[0]).toContain(SITE_PAGES[1]);
+    if (!SH_PRESENT) return;
+    const sh = runSh(dir, 'D3');
+    expect(sh.code).toBe(1);
+    expect(sh.out).toContain(`${SITE_PAGES[1]}: missing canonical goal phrase`);
+  });
+
+  it('FAIL: a NEW docs/site page quoting the goal is a finding even when its sources: cites an enrolled doc (ts + sh)', () => {
+    // No frontmatter exemption: a page that restates the goal is enrolled or it is drift.
+    writeFile(dir, 'docs/site/reference/D/new-capture.md', capturePage(['.claude/hooks/inject-session-bootstrap.sh']));
+    const both = d5Both(dir);
+    expect(both.ts).toEqual(['docs/site/reference/D/new-capture.md']);
+    if (!both.sh) return;
+    expect(both.sh.code).toBe(1);
+    expect(both.sh.out).toContain('docs/site/reference/D/new-capture.md: contains canonical phrase');
   });
 });

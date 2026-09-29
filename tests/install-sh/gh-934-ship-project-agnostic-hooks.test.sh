@@ -59,11 +59,11 @@ _ups=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|"
 _sas=$(jq -r '(.hooks.SubagentStart // []) | map(.hooks[].command) | join("|")' "$S")
 _mcf_m=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-memory-codification"))) | .[0].matcher // ""' "$S")
 _post=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S")
-echo "$_ups" | grep -q 'inject-project-digest' && echo "$_sas" | grep -q 'inject-project-digest' \
+grep -q 'inject-project-digest' <<<"$_ups" && grep -q 'inject-project-digest' <<<"$_sas" \
   && ok "(C) inject-project-digest registered on BOTH UserPromptSubmit + SubagentStart" \
   || bad "(C) project-digest not on both events (ups=$_ups sas=$_sas)"
 [ "$_mcf_m" = "Write" ] && ok "(C) inject-memory-codification registered PostToolUse matcher=Write" || bad "(C) memory-codification matcher wrong ('$_mcf_m')"
-{ echo "$_ups" | grep -q 'deps-hash-check' && echo "$_post" | grep -q 'check-doc-authority-header'; } \
+{ grep -q 'deps-hash-check' <<<"$_ups" && grep -q 'check-doc-authority-header' <<<"$_post"; } \
   && ok "(C) pre-existing deps-hash (UPS) + check-doc-authority (PostToolUse) SURVIVED the merge" \
   || bad "(C) a sibling hook was clobbered (ups=$_ups post=$_post)"
 
@@ -76,14 +76,14 @@ _n=$(jq '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | map(select(te
 printf '# x\n<!-- digest:start -->\n[project] G934D demo app.\n<!-- digest:end -->\n' > "$BF"
 
 # ── ARM (E): firing project-digest UserPromptSubmit ──────────────────────────
-printf '{"hook_event_name":"UserPromptSubmit"}' | bash "$PDG" 2>/dev/null | grep -q 'G934D demo app' \
+_e_out=$(printf '{"hook_event_name":"UserPromptSubmit"}' | bash "$PDG" 2>/dev/null) && grep -q 'G934D demo app' <<<"$_e_out" \
   && ok "(E) firing (UserPromptSubmit): the consumer's filled anchor is injected as plain stdout" \
   || bad "(E) UserPromptSubmit did not inject the anchor"
 
 # ── ARM (F): firing project-digest SubagentStart ─────────────────────────────
 _sub=$(printf '{"hook_event_name":"SubagentStart"}' | bash "$PDG" 2>/dev/null)
 { [ "$(printf '%s' "$_sub" | jq -r '.hookSpecificOutput.hookEventName' 2>/dev/null)" = "SubagentStart" ] \
-  && printf '%s' "$_sub" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null | grep -q 'G934D demo app'; } \
+  && _ctx=$(printf '%s' "$_sub" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null) && grep -q 'G934D demo app' <<<"$_ctx"; } \
   && ok "(F) firing (SubagentStart): the anchor is delivered as JSON additionalContext to subagents" \
   || bad "(F) SubagentStart did not emit the anchor JSON ($(printf '%s' "$_sub" | head -c 80))"
 
@@ -93,7 +93,7 @@ _sub=$(printf '{"hook_event_name":"SubagentStart"}' | bash "$PDG" 2>/dev/null)
 _mcsid="g934d-mc-$$-${RANDOM}"
 _mc=$(printf '{"tool_name":"Write","tool_input":{"file_path":"/home/u/.claude/projects/p/memory/x.md"},"session_id":"%s"}' "$_mcsid" | bash "$H/inject-memory-codification.sh" 2>/dev/null)
 _mctxt=$(printf '%s' "$_mc" | jq -r '.hookSpecificOutput.additionalContext' 2>/dev/null || true)
-if printf '%s' "$_mctxt" | grep -q 'Memory-codification reminder' && ! printf '%s' "$_mctxt" | grep -q 'memory-codification.md'; then
+if grep -q 'Memory-codification reminder' <<<"$_mctxt" && ! grep -q 'memory-codification.md' <<<"$_mctxt"; then
   ok "(G) firing (memory-codification): Write to */memory/* → generic reminder (no framework doc ref)"
 else
   bad "(G) memory-codification wrong ($(printf '%s' "$_mctxt" | head -c 80))"
@@ -117,7 +117,7 @@ jq '.hooks.UserPromptSubmit |= (map(select((.hooks[].command | test("inject-proj
 _ups2=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S")
 _sas2=$(jq -r '(.hooks.SubagentStart // []) | map(.hooks[].command) | join("|")' "$S")
 if [ -x "$PDG" ] && [ -x "$H/inject-memory-codification.sh" ] \
-   && echo "$_ups2" | grep -q 'inject-project-digest' && echo "$_sas2" | grep -q 'inject-project-digest' \
+   && grep -q 'inject-project-digest' <<<"$_ups2" && grep -q 'inject-project-digest' <<<"$_sas2" \
    && grep -q 'G934D demo app' "$BF"; then
   ok "(I) --refresh restores both hooks + both registrations AND preserves the consumer-filled anchor"
 else

@@ -278,6 +278,12 @@ gate_table() {
   # merge-base..HEAD range — the range the audit-self `docs-refresh` job evaluates on a
   # pull_request — and is git plumbing only (no install), so the unconditional run is cheap.
   #
+  # `audit-ai-docs-live` is ALWAYS for the same reason again: its D5 probe fails on ANY file that
+  # restates the goal without being enrolled, so no path list can say which diff might trip it.
+  # ~2s for both implementations over git's view of the repo (measured 2026-09-28). A layout
+  # without the auditor source (a consumer, which receives it as scripts/audit-ai-docs.sh) gets a
+  # WARN-skip, never a crash.
+  #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
   # (setup.d/10-skills.sh:179, install.sh:1197) and the runner is NOT, which is deliberate: a
@@ -328,7 +334,9 @@ gate_table() {
     "2${TAB}docs-quality-strict${TAB}docs/site/,docs/site-quality/,.claude/skills/docs-author/,agents/docs-form-auditor.md,scripts/docs-check.mjs,tests/docs-check/${TAB}if command -v vale >/dev/null 2>&1 && command -v lychee >/dev/null 2>&1; then node scripts/docs-check.mjs --strict && node scripts/docs-check.mjs --strict --profile prose; else echo '[sweep] WARN-skip docs-quality-strict: vale/lychee absent on host (CI installs them version+sha256-pinned)'; fi" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
+    "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
     "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \
+    "3${TAB}audit-ai-docs-live${TAB}ALWAYS${TAB}if [ -f packages/core/audit-self/audit-ai-docs.sh ]; then bash packages/core/audit-self/audit-ai-docs.sh && npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts; else echo '[sweep] WARN-skip audit-ai-docs-live: no packages/core/audit-self/ (not the authoring repo)'; fi" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
     "3${TAB}getff-dist-manifest${TAB}$(getff_payload_trigger)${TAB}bash scripts/build-getff-dist.sh --check" \

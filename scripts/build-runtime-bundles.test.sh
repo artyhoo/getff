@@ -79,7 +79,7 @@ for b in "${BUNDLES[@]}"; do
   printf '\n// hand edit\n' >>"$ROOT/$b"
   out_neg="$(cd "$ROOT" && node "$SCRIPT" --check 2>&1)"; rc_neg=$?
   cp "$BACKUP/$(basename "$b")" "$ROOT/$b"
-  if [ "$rc_neg" -ne 0 ] && printf '%s\n' "$out_neg" | grep -q "DRIFT: $b"; then
+  if [ "$rc_neg" -ne 0 ] && grep -q "DRIFT: $b" <<<"$out_neg"; then
     echo "ok: a hand-edited $b turns --check RED (exit $rc_neg)"
   else
     echo "FAIL: a hand-edited $b did not turn --check RED (exit $rc_neg):"

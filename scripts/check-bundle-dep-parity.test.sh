@@ -63,7 +63,7 @@ expect() {
     FAILED=1
     return
   fi
-  if [ -n "$needle" ] && ! printf '%s' "$out" | grep -q -- "$needle"; then
+  if [ -n "$needle" ] && ! grep -q -- "$needle" <<<"$out"; then
     echo "FAIL: $label — exit $want as expected, but output never mentions '$needle'"
     # shellcheck disable=SC2001  # sed substitutes on EVERY line of a multi-line string ('^' per line); ${var//} has no line anchor
     echo "$out" | sed 's/^/      /'
@@ -99,7 +99,7 @@ expect 'nearest layer wins' 0 "$TMP/c4" 'semver@7.8.5'
 #     is `--external` (no esbuild file comment), so it cannot change a bundled byte → ignored.
 fixture "$TMP/c5" 7.8.5 7.8.5 7.8.5
 expect 'external package is out of scope' 0 "$TMP/c5" 'semver@7.8.5'
-"$CHECK" "$TMP/c5" 2>&1 | grep -q 'ts-morph' && { echo 'FAIL: ts-morph must not be checked'; FAILED=1; }
+grep -q 'ts-morph' <<<"$("$CHECK" "$TMP/c5" 2>&1)" && { echo 'FAIL: ts-morph must not be checked'; FAILED=1; }
 
 # 6 — USAGE: a missing repo file is a usage error, never a silent pass.
 mkdir -p "$TMP/c6"
