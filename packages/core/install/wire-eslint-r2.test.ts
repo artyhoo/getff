@@ -1360,6 +1360,64 @@ describe('wireNRules — rule presence is a key in a rules object, quoted or not
   });
 });
 
+describe('wireConfigSource / resolveAndWire — R2 is present only when the config names it as code', () => {
+  const base = `import base from './base.mjs';\n`;
+  const tail = `export default [...base];\n`;
+  // Each mention sets no rule: the wirer must still wire R2.
+  const MENTIONS: Array<[string, string]> = [
+    ['a // comment', `// TODO: turn on '${R2_RULE_ID}'\n`],
+    ['a /* */ comment', `/* { rules: { '${R2_RULE_ID}': 'error' } } */\n`],
+    ['a longer string', `const note = 'turn on ${R2_RULE_ID} later';\n`],
+    ['template-literal text', 'const note = `see ${base.length} ' + R2_RULE_ID + '`;\n'],
+    ['a regex literal', `const re = /${R2_RULE_ID.replace('/', '\\/')}/;\n`],
+  ];
+
+  for (const [label, mention] of MENTIONS) {
+    it.skipIf(!TS_MORPH_AVAILABLE)(`wireConfigSource: R2 named only in ${label} is still wired`, async () => {
+      const src = base + mention + tail;
+      const r = await wireConfigSource(src);
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`rules: { '${R2_RULE_ID}': 'error' }`);
+      expect((await wireConfigSource(r.modified)).status).toBe('already-wired');
+    });
+  }
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('wireConfigSource: R2 as a real quoted rule key is already wired (paired)', async () => {
+    const src = base + `// TODO: tighten '${R2_RULE_ID}'\nexport default [...base, { rules: { "${R2_RULE_ID}": 'warn' } }];\n`;
+    const r = await wireConfigSource(src);
+    expect(r.status).toBe('already-wired');
+    expect(r.modified).toBe(src);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('resolveAndWire: R2 named only in a comment is written into the config', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'r2wire-comment-'));
+    const p = join(dir, 'eslint.config.mjs');
+    const src = base + `// TODO: turn on '${R2_RULE_ID}'\n` + tail;
+    writeFileSync(p, src, 'utf8');
+    try {
+      const r = await resolveAndWire({ configPath: p, cwd: dir, runProbe: async () => 'ok' });
+      expect(r.status).toBe('wired');
+      expect(readFileSync(p, 'utf8')).toContain(`rules: { '${R2_RULE_ID}': 'error' }`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('resolveAndWire: R2 as a real quoted rule key is left byte-identical (paired)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'r2wire-comment-'));
+    const p = join(dir, 'eslint.config.mjs');
+    const src = base + `export default [...base, { rules: { '${R2_RULE_ID}': 'error' } }];\n`;
+    writeFileSync(p, src, 'utf8');
+    try {
+      const r = await resolveAndWire({ configPath: p, cwd: dir, runProbe: async () => 'unavailable' });
+      expect(r.status).toBe('already-wired');
+      expect(readFileSync(p, 'utf8')).toBe(src);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('formatLikeConsumer — getff\'s insertions in the consumer\'s own prettier style (Q4.7)', () => {
   // format:check (`prettier --check .`) covers a consumer-owned eslint.config.mjs: an unformatted
   // insertion into a file prettier accepted would turn every push red.

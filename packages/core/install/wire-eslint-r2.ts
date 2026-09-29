@@ -183,11 +183,6 @@ function buildLineDiff(original: string, modified: string): string {
  * ts-morph is absent (degrade path).
  */
 export async function wireConfigSource(source: string, opts: TransformOpts = {}): Promise<WireResult> {
-  // Idempotency: if R2 already referenced, bail early (byte-identical)
-  if (source.includes(R2_RULE_ID)) {
-    return { status: 'already-wired', original: source, modified: source };
-  }
-
   // Dynamic import resolved from process.cwd(), NOT this file's directory.
   // install.sh runs the wirer from the framework checkout (PKG_ROOT/packages/core/
   // install/wire-eslint-r2.ts) with cwd=consumer-root. A bare `import('ts-morph')`
@@ -203,6 +198,8 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
+    // Without the parser only the quoted search can answer; it decides already-wired vs degrade, never an edit.
+    if (simpleRulePresent(source, R2_RULE_ID)) return { status: 'already-wired', original: source, modified: source };
     return {
       status: 'degrade',
       original: source,
@@ -223,6 +220,11 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
   });
 
   const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+
+  // Idempotency: R2 set as code (a comment or a longer string naming it sets nothing) → byte-identical
+  if (ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID)) {
+    return { status: 'already-wired', original: source, modified: source };
+  }
 
   // Find: export default <expr>
   const exportAssignment = sf.getExportAssignment((ea: any) => !ea.isExportEquals());
@@ -1243,17 +1245,14 @@ export async function probeViaEslint(
 export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult> {
   const { configPath, cwd, runProbe, scope } = args;
   const original = readFileSync(configPath, 'utf8');
-  if (original.includes(R2_RULE_ID)) {
-    return { status: 'already-wired', original, modified: original };
-  }
-
-  if (scope) {
-    console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(', ')}`);
-  }
+  // Whether R2 is already set is wireConfigSource's call (step 1), read from the code, not the text.
 
   // 1. bare
   const bare = await wireConfigSource(original, { variant: 'bare', scope });
-  if (bare.status !== 'wired') return bare; // unrecognised / degrade — nothing written
+  if (bare.status !== 'wired') return bare; // already-wired / unrecognised / degrade — nothing written
+  if (scope) {
+    console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(', ')}`);
+  }
   writeFileSync(configPath, bare.modified, 'utf8');
 
   // 2. probe

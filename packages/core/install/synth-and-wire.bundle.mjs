@@ -10185,9 +10185,6 @@ function buildLineDiff(original, modified) {
   return out.join("\n");
 }
 async function wireConfigSource(source, opts = {}) {
-  if (source.includes(R2_RULE_ID)) {
-    return { status: "already-wired", original: source, modified: source };
-  }
   let Project;
   let SyntaxKind;
   try {
@@ -10197,6 +10194,7 @@ async function wireConfigSource(source, opts = {}) {
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
+    if (simpleRulePresent(source, R2_RULE_ID)) return { status: "already-wired", original: source, modified: source };
     return {
       status: "degrade",
       original: source,
@@ -10215,6 +10213,9 @@ async function wireConfigSource(source, opts = {}) {
     skipLoadingLibFiles: true
   });
   const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
+  if (ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID)) {
+    return { status: "already-wired", original: source, modified: source };
+  }
   const exportAssignment = sf.getExportAssignment((ea) => !ea.isExportEquals());
   if (!exportAssignment) {
     return { status: "unrecognised", original: source, modified: source };
@@ -10908,14 +10909,11 @@ ${(failures[0] ?? "").slice(0, 400)}`);
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
   const original = readFileSync6(configPath, "utf8");
-  if (original.includes(R2_RULE_ID)) {
-    return { status: "already-wired", original, modified: original };
-  }
+  const bare = await wireConfigSource(original, { variant: "bare", scope });
+  if (bare.status !== "wired") return bare;
   if (scope) {
     console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(", ")}`);
   }
-  const bare = await wireConfigSource(original, { variant: "bare", scope });
-  if (bare.status !== "wired") return bare;
   writeFileSync(configPath, bare.modified, "utf8");
   const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === "ok") return { ...bare, variant: "bare" };
