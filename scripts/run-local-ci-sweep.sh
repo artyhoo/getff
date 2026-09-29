@@ -118,9 +118,65 @@
 #                         runs the host Node, and the lychee test self-SKIPs without it.
 # ------------------------------------------------------------------------------------------
 #
+# --- OFFLOAD (opt-in, machine-local): SWEEP_HEAVY_RUNNER ----------------------------------
+# The operator's Mac runs this sweep for every PR and every train, often from several sessions
+# at once. Measured 2026-09-29 (load average 13-20): only the install-sh battery left the Mac,
+# through INSTALL_SH_HEAVY_RUNNER in scripts/run-install-sh-suite.sh (PR #1913); tsc, prettier,
+# every vitest suite and the tsx checks all ran here, because the operator's shadow functions
+# for npm/npx live in the interactive shell and a `bash scripts/...` child never sees them.
+#
+# SWEEP_HEAVY_RUNNER names an executable that takes a command line, runs it elsewhere against a
+# mirror of this repo and exits with its code — the contract of PREPUSH_HEAVY_RUNNER (PR #1886)
+# and INSTALL_SH_HEAVY_RUNNER (PR #1913). Unset or empty, nothing changes: CI and every other
+# checkout never see a difference. PC_LOCAL=1 keeps every row here, as the one runner in use
+# (the operator's ~/bin/pc-run) already defines.
+#
+# Set, each ROUTABLE row (the SWEEP_ROUTABLE list below) runs as
+#   <runner> bash scripts/run-local-ci-sweep.sh --run-row <name> --receipt <nonce> …
+# in its usual place in the rank order. Everything else runs here. Deny-by-default on purpose:
+# a row missing from the list costs Mac CPU, never a Mac-only signal, so a new row can only fail
+# in the cheap direction. What stays here and why is written next to the list.
+#
+# A routed row counts only with its RECEIPT: a line carrying this call's nonce, printed by the
+# far end after the row finished, with the row's exit code. The runner's exit code alone is not
+# evidence (a runner that runs nothing can exit 0). No receipt means nothing was measured there
+# — runner NOT RUN, crash, or a far end whose gate table no longer holds the same command (the
+# --cmd-sum check: a stale mirror) — and the row runs HERE instead. A red receipt is a verdict
+# and is never retried here — with one exception, below. That split is Bazel's
+# --remote_local_fallback rule: fall back on an execution failure, not on a failing action
+# (prior-art-evaluations.md#294).
+#
+# The exception is a red whose output carries a vitest TIMEOUT (`Test timed out in` / `Hook timed
+# out in`): the row runs here and the local run is the verdict. Bazel's rule assumes a remote
+# executor with reserved capacity; this runner is a shared desktop that also runs games, whose
+# load its Linux side cannot see (measured 2026-09-29: WSL load 3.8 while principles/20's 30 s
+# hook and principles/43's 120 s test timed out on four pushes in a row, green on the Mac). A
+# timeout there says the runner was slow, not that the code is wrong — and a real hang still
+# fails here.
+#
+# Two more cases run here: a row that DEGRADED on the far end (printed `[sweep] WARN`, e.g. a
+# toolchain the runner lacks) — the Mac may be able to run it for real — and the far end
+# noticing, through --origin, that the runner fell back to this host on its own (it runs the row,
+# and the label says where it ran).
+#
+# ONE STRIKE. The first routed row that comes back without a receipt, runs on this host after all,
+# or times out on the runner stops routing for the rest of the sweep: every later routable row
+# runs here, labelled with that first reason. An unreachable or busy runner costs one call, not
+# one per row.
+#
+# BASH 3.2 ARMS. A vitest file that spawns '/bin/bash' by absolute path pins the stock macOS
+# interpreter on purpose (close-aif-task-on-merge.test.ts: «a PATH lookup would pick Homebrew's
+# bash 5 and never exercise that promise»). CI runs on ubuntu only, so the Mac is the one place
+# those arms test what they claim. When a vitest row is routed, the files of its suite that
+# carry that literal ALSO run here, and the row passes only if both halves pass — the same keep-
+# local split `# stays-local:` gives the install-sh battery. `--route-plan` prints, per row,
+# where it goes and which arms stay.
+# ------------------------------------------------------------------------------------------
+#
 # Test seams (used by run-local-ci-sweep.test.sh, never in real runs):
 #   SWEEP_GATES_FILE   path to a gate table overriding the built-in one
 #   SWEEP_DIFF_OVERRIDE  space/newline list of changed paths overriding `git diff`
+#   SWEEP_ROUTABLE     space list of row names the runner may take, overriding the built-in one
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
@@ -137,14 +193,26 @@ LIST_GATES=0
 # `SWEEP_LOG_DIR` pins the location; unset, each run gets a fresh `mktemp -d`.
 SWEEP_LOG_DIR="${SWEEP_LOG_DIR:-}"
 LOG_DIR_READY=0
+ROUTE_PLAN=0
+# The far end of OFFLOAD (see the header): run ONE named row and print its receipt.
+RUN_ROW=""
+RUN_ROW_RECEIPT=""
+RUN_ROW_SUM=""
+RUN_ROW_ORIGIN=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --full) MODE="full" ;;
     --base) shift; BASE_REF="${1:-}" ;;
     --list-gates) LIST_GATES=1 ;;
+    --route-plan) ROUTE_PLAN=1 ;;
+    --run-row) shift; RUN_ROW="${1:-}" ;;
+    --receipt) shift; RUN_ROW_RECEIPT="${1:-}" ;;
+    --cmd-sum) shift; RUN_ROW_SUM="${1:-}" ;;
+    --origin) shift; RUN_ROW_ORIGIN="${1:-}" ;;
     -h | --help)
-      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates]"
+      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates] [--route-plan]"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
+      echo "       SWEEP_HEAVY_RUNNER=<cmd>   run the routable rows through <cmd> (PC_LOCAL=1: none)"
       echo "exit:  0 gates passed (or nothing to do on a clean tree) · 1 a gate failed"
       echo "       2 bad usage · 3 refused: dirty tree, committed diff selected no gates"
       exit 0 ;;
@@ -412,6 +480,136 @@ toolchain_pins_ok() {
   return "$rc"
 }
 
+# --- OFFLOAD: which rows the runner may take (see the header block) ---
+# Routable = the row's runner is node tooling (tsc, prettier, vitest, tsx/node scripts), whose
+# result does not depend on the host's shell or userland, AND the row costs the Mac more than
+# the ~1.4 CPU-s one `pc-run` call does (measured 2026-09-29: 0.63 user + 0.80 sys per call).
+# Everything else stays here, for one of these reasons:
+#   - it RUNS BASH: meta-all-wired, sweep-ci-coverage, alwayson-budget, script-selftests,
+#     shipped-rules-drift, getff-dist-manifest, synth-bundle-drift, byte-identical, agnosticism,
+#     premerge-carrier-selftest, mutation-runner-selftest, hook-tests, dispatcher-tests,
+#     measure-scripts, plugin-aifdoctor-selftests, audit-ai-docs-live. `bash` here is /bin/bash
+#     3.2 and the userland is BSD; CI is ubuntu-only, so this is the one place those scripts meet
+#     the shell the operator's Mac and consumer Macs run them with.
+#   - install-sh-suite routes its own battery (INSTALL_SH_HEAVY_RUNNER), keeping its
+#     `# stays-local:` tests here; routing the row would take those along.
+#   - it reads a host tool the runner does not pin to this host: actionlint, shellcheck,
+#     docs-quality-strict (vale + lychee), vitest-spec-validation (an authenticated `gh`),
+#     vitest-skills (skills/pipeline-english-canonical.test.ts:18 pins LC_ALL=en_US.UTF-8; a
+#     runner without that locale generated falls back to C and the Cyrillic range matches
+#     `×` and `—` — a false red there, measured 2026-09-29).
+#   - it is cheaper than the call: render-check, rule-index-check, install-roster-check,
+#     presets-check, terms-style-check, pipefail-early-exit, docs-refresh, and the two echo rows.
+SWEEP_ROUTABLE="${SWEEP_ROUTABLE-typecheck format-check reference-check face-facts-check citation-fullsweep runtime-bundles-drift vitest-principles vitest-hooks vitest-render vitest-ir vitest-composition vitest-backends vitest-synthesizer vitest-units vitest-install-wire audit-ai-docs canonical-regen first-steps-parity template-render}"
+row_routable() { case " $SWEEP_ROUTABLE " in *" $1 "*) return 0 ;; esac; return 1; }
+
+# cmd_sum <command> — a fingerprint of a row's command text. The far end recomputes it from its own
+# gate table and refuses to run on a mismatch, so a stale mirror can never answer for this tree.
+# POSIX cksum: the same algorithm and output on BSD and GNU.
+cmd_sum() { printf '%s' "$1" | cksum | awk '{ print $1 "-" $2 }'; }
+
+# vitest_scope <command> — the vitest path filters a row's run applies, relative to packages/core:
+# empty when the row runs no vitest, UNKNOWN when it runs vitest in a shape this parser does not
+# read. Three shapes are read: `npm --prefix packages/core run test:<suite>` (the suite's filters
+# come from packages/core/package.json, never restated here), `npm --prefix packages/core test …
+# -- <filter>…`, and `vitest run packages/core/<file>…`. A routable row that answers UNKNOWN is
+# kept here (see the main loop), and the coverage test REDs on it, because its bash 3.2 arms
+# could not be found.
+# Always called inside $( ): the `set -f` that keeps the word lists from globbing ends with it.
+vitest_scope() {
+  local cmd="$1" suite script tok out=""
+  set -f
+  case "$cmd" in *vitest* | *"run test:"* | *"packages/core test"*) ;; *) return 0 ;; esac
+  suite="$(printf '%s\n' "$cmd" | grep -oE 'run test:[a-z0-9-]+' | head -1)"
+  if [ -n "$suite" ]; then
+    script="$(node -e 'const s = require("./packages/core/package.json").scripts || {}; process.stdout.write(s[process.argv[1]] || "")' "${suite#run }" 2>/dev/null)"
+    case "$script" in "vitest run "*) ;; *) printf 'UNKNOWN'; return 0 ;; esac
+    for tok in ${script#vitest run }; do
+      case "$tok" in -*) ;; *) out="$out $tok" ;; esac
+    done
+  else
+    case "$cmd" in
+      *"--prefix packages/core test"*" -- "*)
+        for tok in ${cmd##*" -- "}; do
+          case "$tok" in -*) ;; *) out="$out $tok" ;; esac
+        done ;;
+      *)
+        for tok in $cmd; do
+          case "$tok" in packages/core/*.test.ts | packages/core/*.audit.ts) out="$out ${tok#packages/core/}" ;; esac
+        done ;;
+    esac
+  fi
+  if [ -z "$out" ]; then printf 'UNKNOWN'; return 0; fi
+  printf '%s' "${out# }"
+}
+
+# bash32_arms <command> — the files in the row's vitest scope that spawn '/bin/bash' by absolute
+# path (see BASH 3.2 ARMS in the header), relative to packages/core, space-separated. A file is in
+# scope when one of the row's filters is a substring of its path — vitest's own rule for a CLI
+# filter, so `hooks/` here selects exactly what `vitest run hooks/` runs.
+bash32_arms() {
+  local scope f tok out=""
+  set -f
+  scope="$(vitest_scope "$1")"
+  case "$scope" in '' | UNKNOWN) return 0 ;; esac
+  for f in $(cd packages/core 2>/dev/null && grep -rlE "['\"\`]/bin/bash['\"\`]" . --include='*.test.ts' --include='*.audit.ts' --exclude-dir=node_modules 2>/dev/null | sed 's|^\./||' | LC_ALL=C sort); do
+    for tok in $scope; do
+      case "$f" in *"$tok"*) out="$out $f"; break ;; esac
+    done
+  done
+  printf '%s' "${out# }"
+}
+
+# --- the far end: `--run-row <name>` runs exactly one row of THIS checkout's table ---
+# It never selects, never refuses on a dirty tree and never routes again. The receipt is written
+# only after the row finished and is the whole verdict, so the exit code is 0 once it is written:
+# a runner reads a non-zero exit as its own business (pc-run re-runs a 127 locally).
+if [ -n "$RUN_ROW" ]; then
+  exec 3>&2
+  row_cmd=""
+  found=0
+  while IFS="$TAB" read -r _ n _ c; do
+    [ "${n:-}" = "$RUN_ROW" ] || continue
+    row_cmd="$c"; found=1; break
+  done <<EOF
+$(gate_table)
+EOF
+  if [ "$found" -eq 0 ]; then
+    echo "[sweep:run-row] NOT RUN: no row named '$RUN_ROW' in this checkout's gate table"
+    exit 2
+  fi
+  if [ -n "$RUN_ROW_SUM" ] && [ "$(cmd_sum "$row_cmd")" != "$RUN_ROW_SUM" ]; then
+    echo "[sweep:run-row] NOT RUN: row '$RUN_ROW' here differs from the caller's (command checksum) — stale mirror?"
+    exit 2
+  fi
+  host="runner"
+  if [ -n "$RUN_ROW_ORIGIN" ] && [ -e "$RUN_ROW_ORIGIN" ]; then host="origin"; fi
+  (eval "$row_cmd") </dev/null
+  rrc=$?
+  printf '[sweep:receipt %s] row=%s rc=%s host=%s\n' "$RUN_ROW_RECEIPT" "$RUN_ROW" "$rrc" "$host"
+  exit 0
+fi
+
+# --- `--route-plan`: where each row would go, and which bash 3.2 arms stay here ---
+# One line per row: name<TAB>route|local<TAB>arms-or-reason. A listed name with no row prints
+# `missing`. Read by run-local-ci-sweep-coverage.test.sh through the real parser, like --list-gates.
+if [ "$ROUTE_PLAN" -eq 1 ]; then
+  PLAN_TABLE="$(gate_table)"
+  while IFS="$TAB" read -r _ n _ c; do
+    [ -z "${n:-}" ] && continue
+    if ! row_routable "$n"; then printf '%s\tlocal\t\n' "$n"
+    elif [ "$(vitest_scope "$c")" = UNKNOWN ]; then printf '%s\tlocal\tunparsed-vitest-shape\n' "$n"
+    else printf '%s\troute\t%s\n' "$n" "$(bash32_arms "$c")"
+    fi
+  done <<EOF
+$PLAN_TABLE
+EOF
+  for n in $SWEEP_ROUTABLE; do
+    case "$PLAN_TABLE" in *"$TAB$n$TAB"*) ;; *) printf '%s\tmissing\t\n' "$n" ;; esac
+  done
+  exit 0
+fi
+
 # --- changed paths (vs merge-base) ---
 changed_paths() {
   # shellcheck disable=SC2086  # SWEEP_DIFF_OVERRIDE is a deliberate word-split list of paths
@@ -553,6 +751,113 @@ ensure_log_dir() {
 # `progress()`. Nothing is FORCED onto fd 3: a gate that ignores it behaves exactly as before.
 exec 3>&2
 
+# --- OFFLOAD: routing is on only with a runner, without PC_LOCAL (see the header block) ---
+RUNNER="${SWEEP_HEAVY_RUNNER:-}"
+ROUTING=0
+RUNNER_NAME=""
+ORIGIN_MARK=""
+ROUTED_N=0
+FELLBACK_N=0
+# ONE STRIKE (see the header): set to the first routed row's failure reason; routing stops there.
+RUNNER_TRIPPED=""
+if [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; then
+  if ! command -v "$RUNNER" >/dev/null 2>&1; then
+    echo "[sweep] SWEEP_HEAVY_RUNNER='$RUNNER' is not an executable command."
+    echo "        Fix the path, or unset SWEEP_HEAVY_RUNNER to run every gate here."
+    exit 2
+  fi
+  # The origin mark: a file that exists only on THIS host. The far end finds it only when the
+  # runner ran it here (its own fallback), which is how a PASS can say where it actually ran.
+  if ORIGIN_MARK="$(mktemp "${TMPDIR:-/tmp}/sweep-origin.XXXXXX" 2>/dev/null)"; then
+    ROUTING=1
+    RUNNER_NAME="$(basename "$RUNNER")"
+    trap 'rm -f "$ORIGIN_MARK"' EXIT
+  else
+    ORIGIN_MARK=""
+    echo "[sweep] WARN-ROUTE: cannot create an origin mark under ${TMPDIR:-/tmp} — every row runs here" >&3
+  fi
+fi
+
+# run_routed <name> <command> — run one routable row through the runner. Sets `out` (the output
+# of the run whose exit code is the verdict), `rc`, `where` (a label for the PASS/FAIL line) and
+# `route_log` (what the runner said when its result was not used — kept in the log file).
+run_routed() {
+  local name="$1" cmd="$2" nonce raw rrc receipt r_rc r_host arms aout arc
+  route_log=""
+  nonce="$$.$ran.$RANDOM$RANDOM"
+  printf '[sweep] %s → %s\n' "$name" "$RUNNER_NAME" >&3
+  raw="$( (cd "$REPO_ROOT" && exec "$RUNNER" bash scripts/run-local-ci-sweep.sh --run-row "$name" \
+    --receipt "$nonce" --cmd-sum "$(cmd_sum "$cmd")" --origin "$ORIGIN_MARK") 2>&1 </dev/null )"
+  rrc=$?
+  # tr: a runner that crosses a Windows hop may hand lines back with a CR on the end.
+  receipt="$(printf '%s\n' "$raw" | grep -F "[sweep:receipt $nonce] " | tail -1 | tr -d '\r')"
+  r_rc="${receipt##* rc=}"; r_rc="${r_rc%% *}"
+  r_host="${receipt##* host=}"
+  case "$r_rc" in '' | *[!0-9]*) receipt="" ;; esac
+
+  if [ -z "$receipt" ]; then
+    # Nothing was measured on the runner. Run it here; the runner's own words go to the log.
+    route_log="$raw
+[sweep] $name: $RUNNER_NAME returned no result (exit $rrc) — ran here instead
+"
+    out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+    where="here — no result from $RUNNER_NAME"
+    RUNNER_TRIPPED="no result for $name"
+    FELLBACK_N=$((FELLBACK_N + 1))
+    return
+  fi
+  if [ "$r_host" = "origin" ]; then
+    out="$raw"; rc="$r_rc"
+    where="here — $RUNNER_NAME fell back to this host"
+    RUNNER_TRIPPED="it fell back to this host on $name"
+    FELLBACK_N=$((FELLBACK_N + 1))
+    return
+  fi
+  out="$raw"; rc="$r_rc"; where="on $RUNNER_NAME"
+  if [ "$rc" -ne 0 ]; then
+    case "$raw" in
+      *'Test timed out in '* | *'Hook timed out in '*)
+        # The runner was too slow for the suite's own budget (see the header): not a verdict on
+        # the code. The local run is.
+        route_log="$raw
+[sweep] $name: timed out on $RUNNER_NAME — ran here instead
+"
+        out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+        where="here — timed out on $RUNNER_NAME"
+        RUNNER_TRIPPED="a timeout in $name"
+        FELLBACK_N=$((FELLBACK_N + 1))
+        return ;;
+    esac
+  fi
+  if [ "$rc" -eq 0 ]; then
+    case "$out" in
+      *'[sweep] WARN'*)
+        # Degraded there (a tool the runner lacks or holds at another version). Here it may run
+        # for real — and if it degrades here too, the verdict is exactly what it would have been.
+        route_log="$raw
+[sweep] $name: degraded on $RUNNER_NAME — ran here instead
+"
+        out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+        where="here — degraded on $RUNNER_NAME"
+        FELLBACK_N=$((FELLBACK_N + 1))
+        return ;;
+    esac
+    arms="$(bash32_arms "$cmd")"
+    if [ -n "$arms" ]; then
+      printf '[sweep] %s: %s /bin/bash arm file(s) here\n' "$name" "$(printf '%s\n' "$arms" | wc -w | tr -d ' ')" >&3
+      # shellcheck disable=SC2086  # arms is a word list of paths, split on purpose
+      aout="$(cd "$REPO_ROOT/packages/core" && npx vitest run --reporter=default $arms 2>&1 </dev/null)"
+      arc=$?
+      out="$out
+----- $name: /bin/bash arms, run here (bash 3.2): $arms -----
+$aout"
+      [ "$arc" -eq 0 ] || rc="$arc"
+      where="on $RUNNER_NAME + /bin/bash arms here"
+    fi
+  fi
+  ROUTED_N=$((ROUTED_N + 1))
+}
+
 ran=0
 diff_selected=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
@@ -571,28 +876,41 @@ while IFS="$TAB" read -r _ name trigger cmd; do
   # classification and then dropped on the floor — so a FAIL printed a bare gate name and the
   # evidence was gone, which is the same `#warning-nobody-reads` shape one branch lower: the
   # only consumer of a failing gate's output was a variable nobody could read.
-  out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+  where=""
+  route_log=""
+  if [ "$ROUTING" -eq 1 ] && row_routable "$name" && [ "$(vitest_scope "$cmd")" != UNKNOWN ]; then
+    if [ -n "$RUNNER_TRIPPED" ]; then
+      out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+      where="here — $RUNNER_NAME skipped after $RUNNER_TRIPPED"
+      FELLBACK_N=$((FELLBACK_N + 1))
+    else
+      run_routed "$name" "$cmd"
+    fi
+  else
+    out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+  fi
+  at="${where:+ · $where}"
   log_path=""
   if ensure_log_dir; then
     # Gate names come from gate_table()/$SWEEP_GATES_FILE, not from user input, but sanitise
     # anyway: one `/` in a name would otherwise write outside the log dir (or just fail).
     safe_name="${name//[^A-Za-z0-9._-]/_}"
     log_path="$SWEEP_LOG_DIR/$(printf '%02d' "$ran")-${safe_name}.log"
-    printf '%s\n' "$out" >"$log_path" 2>/dev/null || log_path=""
+    printf '%s%s\n' "$route_log" "$out" >"$log_path" 2>/dev/null || log_path=""
   fi
   if [ "$rc" -eq 0 ]; then
     case "$out" in
       # `[sweep] WARN`-prefixed only: every degrade row in the table emits that exact prefix,
       # while several install-sh tests legitimately print bare "WARN" during a real run
       # (nvmrc-ci-drift, r2-glob-reach) — matching those would mislabel a genuine pass.
-      *'[sweep] WARN'*) echo "[sweep] WARN-SKIP $name — degraded, NOT a real run" ;;
-      *) echo "[sweep] PASS $name" ;;
+      *'[sweep] WARN'*) echo "[sweep] WARN-SKIP $name$at — degraded, NOT a real run" ;;
+      *) echo "[sweep] PASS $name$at" ;;
     esac
   else
     if [ -n "$log_path" ]; then
-      echo "[sweep] FAIL $name — output: $log_path"
+      echo "[sweep] FAIL $name$at — output: $log_path"
     else
-      echo "[sweep] FAIL $name — output: (log dir unavailable, tail below only)"
+      echo "[sweep] FAIL $name$at — output: (log dir unavailable, tail below only)"
     fi
     # The path alone would still make the operator run a second command to see anything, and in
     # a remote/agent session the file may not be reachable at all. Print a bounded tail so the
@@ -640,6 +958,10 @@ if [ "$ran" -eq 0 ]; then
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
   echo "SWEEP: $ran gate(s) passed (mode=$MODE)"
+  if [ "$ROUTING" -eq 1 ]; then
+    echo "SWEEP: offload — $ROUTED_N row(s) ran on $RUNNER_NAME, $FELLBACK_N routed row(s) ran here instead, $((ran - ROUTED_N - FELLBACK_N)) not routable"
+    [ -n "$RUNNER_TRIPPED" ] && echo "SWEEP: offload stopped after $RUNNER_TRIPPED"
+  fi
   [ "$LOG_DIR_READY" -eq 1 ] && echo "SWEEP: gate logs in $SWEEP_LOG_DIR"
 fi
 exit 0

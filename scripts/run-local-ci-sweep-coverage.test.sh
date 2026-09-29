@@ -670,4 +670,59 @@ done
   && ok "neg: paths the install cannot read are NOT selected by byte-identical (the trigger discriminates)" \
   || bad "byte-identical selects path(s) outside the payload and the harness →$bi_overreach — the row has become an unconditional 69s tax"
 
+# ── 12. OFFLOAD: the routing plan over the REAL table keeps every Mac-only signal on the Mac ──────
+# With SWEEP_HEAVY_RUNNER set, the SWEEP_ROUTABLE rows run elsewhere (on the operator's Mac: a
+# Linux PC). The list is deny-by-default, so a forgotten row only costs Mac CPU; what CAN go wrong
+# is the opposite — a row that exercises the Mac's bash 3.2 / BSD userland being listed, or a
+# routed vitest suite whose /bin/bash arms silently stop being found. Read through the real
+# parser (`--route-plan`), the same way arms 8-11 read `--list-gates`.
+PLAN="$("$SWEEP" --route-plan 2>/dev/null)"
+PLAN_ROUTE_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"' | grep -c .)
+[ "$PLAN_ROUTE_N" -ge 10 ] \
+  || bad "only $PLAN_ROUTE_N rows plan to route (floor 10) — --route-plan broke; arms 12a-12d would be vacuous"
+
+# 12a. every name in SWEEP_ROUTABLE is a row (a renamed row would silently stop being routed).
+missing="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="missing"{print $1}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$missing" ] && ok "every SWEEP_ROUTABLE name is a gate-table row" \
+  || bad "SWEEP_ROUTABLE names rows the table does not have: $missing"
+
+# 12b. every routable vitest row has a shape whose bash 3.2 arms can be found.
+unparsed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$3=="unparsed-vitest-shape"{print $1}' | tr '\n' ' ')"
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$unparsed" ] && ok "every routable vitest row has a parsed shape (its /bin/bash arms are findable)" \
+  || bad "routable row(s) with a vitest shape vitest_scope cannot read: $unparsed — they run here, and their arms are unknown"
+
+# 12c. no routed row runs bash itself: `bash` here is /bin/bash 3.2, CI is ubuntu-only.
+runs_bash() { grep -Eq '(^|[;&|(]|then|do)[[:space:]]*bash[[:space:]]|\.sh([[:space:]"'"'"']|$)' <<<"$1"; }
+# NEG (LOAD-BEARING): the classifier fires on the two shapes the table uses and not on node tooling.
+if runs_bash 'bash tests/install-sh/x.test.sh' && runs_bash 'for t in tests/hooks/*.test.sh; do bash "$t" || exit 1; done' \
+  && ! runs_bash 'npm --prefix packages/core run test:hooks' && ! runs_bash 'npx tsx scripts/render-reference.mjs --check'; then
+  ok "neg: runs_bash tells a bash row from a node-tooling row"
+else
+  bad "runs_bash cannot tell a bash row from a node-tooling row — 12c below is vacuous"
+fi
+bash_routed=""
+while IFS="$TAB" read -r _ n _ c; do
+  [ -z "${n:-}" ] && continue
+  printf '%s\n' "$PLAN" | awk -F"$TAB" -v n="$n" '$1==n && $2=="route"{f=1} END{exit !f}' || continue
+  runs_bash "$c" && bash_routed="$bash_routed $n"
+done <<EOF
+$("$SWEEP" --list-gates 2>/dev/null)
+EOF
+# shellcheck disable=SC2015  # B is a print-only helper that cannot fail; this reads as if-then-else by construction
+[ -z "$bash_routed" ] && ok "no routed row runs bash (the Mac keeps its bash 3.2 signal)" \
+  || bad "routed row(s) that run bash:$bash_routed — take them out of SWEEP_ROUTABLE"
+
+# 12d. the /bin/bash arms derivation is live: vitest-hooks keeps close-aif-task-on-merge.test.ts
+# (its header states the bash 3.2 promise) and the arms floor holds.
+hooks_arms="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$1=="vitest-hooks"{print $3}')"
+ARMS_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"{print $3}' | tr ' ' '\n' | grep -c .)
+case " $hooks_arms " in
+  *" hooks/close-aif-task-on-merge.test.ts "*)
+    if [ "$ARMS_N" -ge 10 ]; then ok "the /bin/bash arms are found ($ARMS_N files, incl. hooks/close-aif-task-on-merge.test.ts)"
+    else bad "only $ARMS_N /bin/bash arm files found (floor 10) — the derivation lost files"; fi ;;
+  *) bad "vitest-hooks lost hooks/close-aif-task-on-merge.test.ts from its /bin/bash arms — routing would move bash 3.2 arms to Linux" ;;
+esac
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

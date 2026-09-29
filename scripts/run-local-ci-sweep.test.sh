@@ -9,7 +9,9 @@ fails=0
 # Hermetic: this test spawns the sweep many times, and an inherited SWEEP_LOG_DIR would make
 # every nested run write into the CALLER's log directory (the `script-selftests` row runs this
 # file from inside a real sweep). Arms that care about logging pass the var explicitly.
-unset SWEEP_LOG_DIR
+# The same for the offload knobs: an operator's shell exports SWEEP_HEAVY_RUNNER, and a nested
+# run would route stub rows through the real runner; PC_LOCAL=1 would switch the offload arms off.
+unset SWEEP_LOG_DIR SWEEP_HEAVY_RUNNER SWEEP_ROUTABLE PC_LOCAL
 
 check() { # check <desc> <expected-rc> <actual-rc>
   if [ "$2" = "$3" ]; then echo "  ✓ $1"; else echo "  ✗ $1 (want rc=$2 got rc=$3)"; fails=$((fails + 1)); fi
@@ -303,6 +305,188 @@ else echo "  ✓ fd 3 output did not leak into the captured stdout"; fi
 if grep -qF "captured-body" "$TMP/e22"; then
   echo "  ✗ ordinary gate stdout escaped the capture onto stderr"; fails=$((fails + 1))
 else echo "  ✓ ordinary gate stdout is still captured, not echoed live"; fi
+
+# --- (offload) SWEEP_HEAVY_RUNNER routes the routable rows and never reports what did not run ---
+# The runner stubs stand in for ~/bin/pc-run. `runner-remote` plays another host: it hides the
+# origin mark (a path that exists only on the routing host) and marks the environment, so a row
+# can record WHERE it ran. `runner-origin` plays pc-run's own fallback to the routing host.
+# `runner-nothing` runs nothing, exits 0 and even prints a receipt — with the wrong nonce.
+RUNLOG="$TMP/runner.log"
+cat >"$TMP/runner-remote" <<EOF
+#!/usr/bin/env bash
+echo "remote: \$*" >>"$RUNLOG"
+args=(); while [ \$# -gt 0 ]; do
+  if [ "\$1" = --origin ]; then args+=(--origin /nonexistent/origin-mark); shift 2; continue; fi
+  args+=("\$1"); shift
+done
+STUB_REMOTE=1 exec "\${args[@]}"
+EOF
+cat >"$TMP/runner-origin" <<EOF
+#!/usr/bin/env bash
+echo "origin: \$*" >>"$RUNLOG"
+exec "\$@"
+EOF
+cat >"$TMP/runner-nothing" <<EOF
+#!/usr/bin/env bash
+echo "nothing: \$*" >>"$RUNLOG"
+echo '[sweep:receipt forged] row=routed rc=0 host=runner'
+exit 0
+EOF
+chmod +x "$TMP/runner-remote" "$TMP/runner-origin" "$TMP/runner-nothing"
+# where_cmd <tag> [exit] — a gate command that appends <tag> to remote-ran or local-ran, then exits.
+where_cmd() { printf 'if [ -n "${STUB_REMOTE:-}" ]; then echo %s >>%s/remote-ran; else echo %s >>%s/local-ran; fi; exit %s' "$1" "$TMP" "$1" "$TMP" "${2:-0}"; }
+offload() { # offload <runner> <gates-file> <out> [routable] — a routed sweep over stub rows
+  rm -f "$TMP/remote-ran" "$TMP/local-ran" "$RUNLOG"
+  SWEEP_HEAVY_RUNNER="$1" SWEEP_ROUTABLE="${4:-routed}" SWEEP_GATES_FILE="$2" SWEEP_DIFF_OVERRIDE="x.txt" \
+    bash "$SWEEP" --full >"$3" 2>&1
+}
+count() { [ -f "$1" ] && grep -c . "$1" || echo 0; }
+printf '1\trouted\tALWAYS\t%s\n2\tkept\tALWAYS\t%s\n' "$(where_cmd routed)" "$(where_cmd kept)" >"$TMP/g-off.tsv"
+
+# (a) the routable row runs on the runner exactly once, the other row here; labels say so.
+offload "$TMP/runner-remote" "$TMP/g-off.tsv" "$TMP/o30"
+check "offload: all green exits 0" 0 $?
+grep_out "offload: routed row ran on the runner" "routed" "$TMP/remote-ran"
+grep_out "offload: non-routable row ran here" "kept" "$TMP/local-ran"
+if [ "$(count "$TMP/remote-ran")" = 1 ] && [ "$(count "$TMP/local-ran")" = 1 ]; then echo "  ✓ offload: each row ran exactly once"
+else echo "  ✗ offload: rows ran remote=$(count "$TMP/remote-ran") local=$(count "$TMP/local-ran") (want 1/1)"; fails=$((fails + 1)); fi
+grep_out "offload: PASS line names the runner" "[sweep] PASS routed · on runner-remote" "$TMP/o30"
+grep_out "offload: the kept row's PASS line is unlabelled" "[sweep] PASS kept" "$TMP/o30"
+grep_out "offload: summary counts the routed row" "SWEEP: offload — 1 row(s) ran on runner-remote, 0 routed row(s) ran here instead, 1 not routable" "$TMP/o30"
+
+# (b) a red on the runner is a verdict: FAIL, and never re-run here.
+printf '1\trouted\tALWAYS\t%s\n' "$(where_cmd routed 1)" >"$TMP/g-off-red.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-red.tsv" "$TMP/o31"
+check "offload: a red receipt fails the sweep" 1 $?
+grep_out "offload: red routed row reported FAIL with its label" "[sweep] FAIL routed · on runner-remote" "$TMP/o31"
+no_file "offload: a red receipt is not retried here" "$TMP/local-ran"
+
+# (c) no receipt (runner ran nothing, printed a forged one) → the row runs HERE; its red counts.
+offload "$TMP/runner-nothing" "$TMP/g-off-red.tsv" "$TMP/o32"
+check "offload: a runner that ran nothing cannot turn a red row green" 1 $?
+grep_out "offload: the row ran here after the empty runner" "routed" "$TMP/local-ran"
+grep_out "offload: the fallback is labelled" "no result from runner-nothing" "$TMP/o32"
+offload "$TMP/runner-nothing" "$TMP/g-off.tsv" "$TMP/o33"
+check "offload: empty runner + green row still exits 0 (ran here)" 0 $?
+grep_out "offload: green fallback says where it ran" "[sweep] PASS routed · here — no result from runner-nothing" "$TMP/o33"
+grep_out "offload: summary counts the fallback" "0 row(s) ran on runner-nothing, 1 routed row(s) ran here instead" "$TMP/o33"
+
+# (d) the runner fell back to this host on its own: ran once, labelled as here.
+offload "$TMP/runner-origin" "$TMP/g-off.tsv" "$TMP/o34"
+check "offload: runner fallback to the origin exits 0" 0 $?
+if [ "$(count "$TMP/local-ran")" = 2 ] && [ ! -f "$TMP/remote-ran" ]; then echo "  ✓ offload: origin fallback ran the routed row once, here"
+else echo "  ✗ offload: origin fallback local=$(count "$TMP/local-ran") remote=$(count "$TMP/remote-ran") (want 2/0)"; fails=$((fails + 1)); fi
+grep_out "offload: origin fallback is labelled" "[sweep] PASS routed · here — runner-origin fell back to this host" "$TMP/o34"
+
+# (e) PC_LOCAL=1 keeps everything here without calling the runner at all.
+rm -f "$RUNLOG" "$TMP/remote-ran" "$TMP/local-ran"
+PC_LOCAL=1 SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE="routed" SWEEP_GATES_FILE="$TMP/g-off.tsv" \
+  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o35" 2>&1
+check "offload: PC_LOCAL=1 still exits 0" 0 $?
+no_file "offload: PC_LOCAL=1 never calls the runner" "$RUNLOG"
+if grep -qF "SWEEP: offload" "$TMP/o35"; then echo "  ✗ offload: PC_LOCAL=1 printed an offload summary"; fails=$((fails + 1))
+else echo "  ✓ offload: PC_LOCAL=1 prints no offload summary"; fi
+
+# (f) a runner that is not a command is a loud usage error, not a silent local run.
+offload "$TMP/no-such-runner" "$TMP/g-off.tsv" "$TMP/o36"
+check "offload: a missing runner exits 2" 2 $?
+grep_out "offload: the missing runner is named" "SWEEP_HEAVY_RUNNER='$TMP/no-such-runner' is not an executable command" "$TMP/o36"
+no_file "offload: a missing runner runs no gate" "$TMP/local-ran"
+
+# (g) degraded on the runner → run here, where it may be real; the verdict is the local run's.
+printf '1\trouted\tALWAYS\tif [ -n "${STUB_REMOTE:-}" ]; then echo "[sweep] WARN-skip tool absent there"; else echo real >>%s/local-ran; fi\n' "$TMP" >"$TMP/g-off-deg.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-deg.tsv" "$TMP/o37"
+check "offload: a remote degrade exits 0" 0 $?
+grep_out "offload: a remote degrade re-ran here" "real" "$TMP/local-ran"
+grep_out "offload: the real local run is a PASS, not a WARN-SKIP" "[sweep] PASS routed · here — degraded on runner-remote" "$TMP/o37"
+
+# (h) a far end whose table holds a DIFFERENT command (stale mirror) runs nothing; the row runs here.
+printf '1\trouted\tALWAYS\techo stale-mirror-command-ran >>%s/remote-ran\n' "$TMP" >"$TMP/g-off-stale.tsv"
+cat >"$TMP/runner-stale" <<EOF
+#!/usr/bin/env bash
+SWEEP_GATES_FILE="$TMP/g-off-stale.tsv" exec "$TMP/runner-remote" "\$@"
+EOF
+chmod +x "$TMP/runner-stale"
+offload "$TMP/runner-stale" "$TMP/g-off.tsv" "$TMP/o38"
+check "offload: a stale far end still exits 0 (ran here)" 0 $?
+no_file "offload: the stale far end ran nothing" "$TMP/remote-ran"
+grep_out "offload: the routed row ran here instead" "routed" "$TMP/local-ran"
+
+# (j) a vitest TIMEOUT on the runner is the runner being slow, not a verdict: the row runs here,
+# and the local run decides — green here passes, a timeout here too (a real hang) still fails.
+slow_there() { printf 'if [ -n "${STUB_REMOTE:-}" ]; then echo "Error: %s timed out in 5000ms."; exit 1; fi; echo real >>%s/local-ran; %s' "$1" "$TMP" "$2"; }
+printf '1\trouted\tALWAYS\t%s\n' "$(slow_there Test 'exit 0')" >"$TMP/g-off-slow.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-slow.tsv" "$TMP/o39"
+check "offload: a remote timeout that is green here exits 0" 0 $?
+grep_out "offload: a remote timeout re-ran here" "real" "$TMP/local-ran"
+grep_out "offload: the timeout fallback is labelled" "[sweep] PASS routed · here — timed out on runner-remote" "$TMP/o39"
+printf '1\trouted\tALWAYS\t%s\n' "$(slow_there Hook 'echo "Error: Hook timed out in 5000ms."; exit 1')" >"$TMP/g-off-hang.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-hang.tsv" "$TMP/o40"
+check "offload: a hang that times out here too still fails" 1 $?
+grep_out "offload: the local hang is the FAIL" "[sweep] FAIL routed · here — timed out on runner-remote" "$TMP/o40"
+
+# (k) ONE STRIKE: after the first routed row the runner failed (no receipt, or a timeout), later
+# routable rows run here without calling the runner again, labelled with that first reason.
+printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(where_cmd r1)" "$(where_cmd r2)" >"$TMP/g-off-two.tsv"
+offload "$TMP/runner-nothing" "$TMP/g-off-two.tsv" "$TMP/o41" "r1 r2"
+check "offload: one strike still exits 0 (both ran here)" 0 $?
+if [ "$(count "$RUNLOG")" = 1 ]; then echo "  ✓ offload: the runner was called once, then skipped"
+else echo "  ✗ offload: the runner was called $(count "$RUNLOG") time(s) after a no-result (want 1)"; fails=$((fails + 1)); fi
+grep_out "offload: the skipped row says why" "[sweep] PASS r2 · here — runner-nothing skipped after no result for r1" "$TMP/o41"
+grep_out "offload: the summary names the strike" "SWEEP: offload stopped after no result for r1" "$TMP/o41"
+printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(slow_there Test 'exit 0')" "$(where_cmd r2)" >"$TMP/g-off-two-slow.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-two-slow.tsv" "$TMP/o42" "r1 r2"
+if [ "$(count "$RUNLOG")" = 1 ] && [ ! -f "$TMP/remote-ran" ]; then echo "  ✓ offload: a timeout stops routing for the rest of the sweep"
+else echo "  ✗ offload: after a timeout the runner was called $(count "$RUNLOG") time(s) (want 1)"; fails=$((fails + 1)); fi
+grep_out "offload: the timeout strike is named" "[sweep] PASS r2 · here — runner-remote skipped after a timeout in r1" "$TMP/o42"
+# (k-neg) a row that only DEGRADED there (one tool the runner lacks) is NOT a strike: the runner
+# answered, so the next row still goes to it. (A plain red cannot be the paired negative — the
+# sweep stops at its first FAIL, so no later row exists to observe.)
+printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(cut -f4 "$TMP/g-off-deg.tsv")" "$(where_cmd r2)" >"$TMP/g-off-two-deg.tsv"
+offload "$TMP/runner-remote" "$TMP/g-off-two-deg.tsv" "$TMP/o43" "r1 r2"
+check "offload: degrade then green exits 0" 0 $?
+if [ "$(count "$RUNLOG")" = 2 ] && grep -qx r2 "$TMP/remote-ran" 2>/dev/null; then echo "  ✓ offload: a degrade does not stop routing"
+else echo "  ✗ offload: after a degrade the runner was called $(count "$RUNLOG") time(s), remote=$(count "$TMP/remote-ran") (want 2 calls, r2 remote)"; fails=$((fails + 1)); fi
+if grep -qF "offload stopped" "$TMP/o43"; then echo "  ✗ offload: a degrade was reported as a strike"; fails=$((fails + 1))
+else echo "  ✓ offload: a degrade is not reported as a strike"; fi
+
+# (i) bash 3.2 arms: a routed vitest row also runs, HERE, its suite's files that spawn /bin/bash.
+# A throwaway repo carries a fake packages/core suite; npm/npx are stubs that log their argv.
+R5="$TMP/repo-arms"; mk_repo "$R5"
+mkdir -p "$R5/packages/core/fake" "$TMP/bin"
+printf '{ "scripts": { "test:fake": "vitest run fake/" } }\n' >"$R5/packages/core/package.json"
+printf "spawnSync('/bin/bash', [hook]);\n" >"$R5/packages/core/fake/pinned.test.ts"
+printf "spawnSync('bash', [hook]);\n" >"$R5/packages/core/fake/plain.test.ts"
+printf "spawnSync('/bin/bash', [x]);\n" >"$R5/packages/core/other.test.ts"
+cat >"$TMP/bin/npm" <<EOF
+#!/usr/bin/env bash
+echo "npm \${STUB_REMOTE:+remote }\$*" >>"$TMP/tools.log"
+EOF
+cat >"$TMP/bin/npx" <<EOF
+#!/usr/bin/env bash
+echo "npx \${STUB_REMOTE:+remote }\$*" >>"$TMP/tools.log"
+exit "\${STUB_NPX_RC:-0}"
+EOF
+chmod +x "$TMP/bin/npm" "$TMP/bin/npx"
+printf '6\tvitest-fake\tALWAYS\tnpm --prefix packages/core run test:fake\n' >"$TMP/g-arms.tsv"
+arms_sweep() { # arms_sweep <out> [npx-rc]
+  rm -f "$TMP/tools.log"
+  PATH="$TMP/bin:$PATH" STUB_NPX_RC="${2:-0}" SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE="vitest-fake" \
+    SWEEP_GATES_FILE="$TMP/g-arms.tsv" SWEEP_DIFF_OVERRIDE="x.txt" run_sweep "$R5" --full >"$1" 2>&1
+}
+SWEEP_ROUTABLE="vitest-fake" SWEEP_GATES_FILE="$TMP/g-arms.tsv" run_sweep "$R5" --route-plan >"$TMP/o39" 2>&1
+grep_out "arms: --route-plan names exactly the in-scope /bin/bash file" "$(printf 'vitest-fake\troute\tfake/pinned.test.ts')" "$TMP/o39"
+arms_sweep "$TMP/o40"
+check "arms: routed suite + green arms exits 0" 0 $?
+grep_out "arms: the suite itself ran on the runner" "npm remote --prefix packages/core run test:fake" "$TMP/tools.log"
+grep_out "arms: the /bin/bash file ran here" "npx vitest run --reporter=default fake/pinned.test.ts" "$TMP/tools.log"
+if grep -qE 'plain\.test\.ts|other\.test\.ts|npx remote' "$TMP/tools.log"; then
+  echo "  ✗ arms: ran a file outside the arms set, or ran the arms on the runner"; fails=$((fails + 1))
+else echo "  ✓ arms: only the in-scope /bin/bash file ran here"; fi
+grep_out "arms: PASS line says the arms ran here" "[sweep] PASS vitest-fake · on runner-remote + /bin/bash arms here" "$TMP/o40"
+arms_sweep "$TMP/o41" 1
+check "arms: a red /bin/bash arm fails the row even though the runner passed" 1 $?
+grep_out "arms: the red arm is reported as the row's FAIL" "[sweep] FAIL vitest-fake · on runner-remote + /bin/bash arms here" "$TMP/o41"
 
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }
