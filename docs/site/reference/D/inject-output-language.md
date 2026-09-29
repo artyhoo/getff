@@ -24,6 +24,7 @@ sources:
 executed:
   - { example: output-language-unset-english-default, stack: repo, date: 2026-09-29, result: silent }
   - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-29, result: printed }
+docs-refresh: deferred — re-verified 2026-09-29 on merge train C5; inject-session-bootstrap.sh only gained the compact-only skill-index block after its autonomy block, leaving the output-language case block the page cites unchanged, and plugin.json moved to a version the page never names; clears at the next refresh of this page
 ---
 
 # inject-output-language hook
