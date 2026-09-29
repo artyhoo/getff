@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { checkResearchPlan } from './validate-plan.ts';
 import { npmAdapter } from './ecosystem-npm.ts';
+import { ALLOWED_SOURCES } from './allowlist.ts';
 
 const REPO = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
 const DOC = join(REPO, 'agents/rule-researcher.md');
@@ -41,6 +42,19 @@ function consumerWith(pkg: string, homepage: string): string {
 function planOf(entry: Record<string, unknown>): unknown {
   return { framework: null, version: null, patterns: [entry], missing: [], drift: null };
 }
+
+// P6 F5 (2026-09-30): the doc sent the researcher to allowlist.ts for the key list («do not trust this
+// snapshot»), so a cold agent read framework source to write one JSON file. The doc now lists every key with
+// its hosts, and this keeps the list equal to the gate's.
+describe('agents/rule-researcher.md Tier-0 key list ↔ ALLOWED_SOURCES', () => {
+  const doc = readFileSync(DOC, 'utf8');
+  it('lists every key with exactly its hosts, and never sends the reader to the source for them', () => {
+    for (const [key, hosts] of Object.entries(ALLOWED_SOURCES)) {
+      expect(doc, `key ${key}`).toContain(`\`${key}\` (${hosts.map((h) => `\`${h}\``).join(', ')})`);
+    }
+    expect(doc).not.toContain('do not trust this snapshot');
+  });
+});
 
 describe('agents/rule-researcher.md Tier-1 example ↔ the plan gate', () => {
   const entry = docTier1Example();

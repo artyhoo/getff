@@ -767,6 +767,19 @@ if [ -n "$RESEARCH" ]; then
     fi
     ls .ai-factory/synthesizer-output/rules-lock.*.json >/dev/null 2>&1 \
       || { echo "no rules-lock.*.json written under .ai-factory/synthesizer-output/"; return 1; }
+    # Every selected rule is generated and proven through the project's own lint (P6 F1, 2026-09-30: on
+    # create-vite's shape the generator made 0 of 6; then 3 JSX rules were written as .ts samples and
+    # read not_wired). The rule table's getff:G<n> rows are the generated rules.
+    local want got table prc=0
+    want=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rules.length)' "$SELECTION")
+    table=$(node scripts/prove-rules.mjs --prove 2>&1) || prc=$?
+    got=$(grep -c '^| getff:G' <<<"$table" || true)
+    [ "$got" -eq "$want" ] || { echo "$table"; echo "generated rules in the table: $got, selected: $want"; return 1; }
+    if grep '^| getff:G' <<<"$table" | grep -q 'no diagnostic'; then
+      echo "$table"; echo "a generated rule is silent on its own bad example"; return 1
+    fi
+    grep -q 'good batch → exit 0 ' <<<"$table" || { echo "$table"; echo "the good batch did not pass the project's lint"; return 1; }
+    [ "$prc" -eq 0 ] || { echo "$table"; echo "prove-rules --prove exited $prc"; return 1; }
     # The second install adds the generated rules to the consumer's config the same way: insertions
     # only, tsconfig.json untouched.
     local changed
@@ -777,6 +790,28 @@ if [ -n "$RESEARCH" ]; then
 else
   echo ""
   echo "── generator: no committed research pair for $STACK — arm not applicable to this cell"
+fi
+
+# ── getff's writes stay in the project's prettier style (P6 F8, 2026-09-30) ─────────────────────
+# Every file the installs added or changed, except one whose fixture version was already out of style (the
+# project's own debt), passes the project's own prettier — the files getff WRITES (.oxlintrc.json edits, the
+# research pair, the generator's output), not only the ones it copies. Measured on create-vite's shape before
+# the fix: .oxlintrc.json, the two research files and 7 generator outputs failed, so format:check could never arm.
+if [ -x node_modules/.bin/prettier ]; then
+  getff_writes_formatted() {
+    local f dirty="" base
+    while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      if git cat-file -e "$FIXTURE_SHA:$f" 2>/dev/null; then
+        base=$(git show "$FIXTURE_SHA:$f" | node_modules/.bin/prettier --stdin-filepath "$f" 2>/dev/null) || continue
+        [ "$base" = "$(git show "$FIXTURE_SHA:$f")" ] || continue   # out of style before the install
+      fi
+      node_modules/.bin/prettier --check -- "$f" >/dev/null 2>&1 || dirty="$dirty $f"
+    done < <( { git diff --name-only "$FIXTURE_SHA"; git ls-files --others --exclude-standard; } | sort -u \
+                | grep -E '\.(json|[cm]?[jt]sx?|ya?ml|css|md)$' )
+    [ -z "$dirty" ] || { echo "files getff wrote that fail the project's prettier:$dirty"; return 1; }
+  }
+  run_step "getff's writes pass the project's prettier" getff_writes_formatted
 fi
 
 # Strict the other way: every known-rot entry naming this stack must still reproduce on EVERY step
