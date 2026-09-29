@@ -59,6 +59,26 @@ mkdir -p "$TMPD/xdg/getff"; printf 'ru\n' > "$TMPD/xdg/getff/hook-lang"
 OUT=$(env -u AIF_HOOK_LANG HOME="$TMPD/home" XDG_CONFIG_HOME="$TMPD/xdg" bash "$TMPD/run-hook.cmd" __lang_probe__ 2>/dev/null)
 [ "$OUT" = "LANG=ru" ] && ok "XDG_CONFIG_HOME path honored" || bad "XDG ignored: '$OUT'"
 
+# ── H: plugin/hooks/lib/source-hash.sh (spec 2026-09-28 D1-D2) ──────────────────
+HD="$TMPROOT/hash"; mkdir -p "$HD/lang"
+printf 'a\n' > "$HD/h.sh"; printf 'en\n' > "$HD/lang/en.sh"; printf 'ru\n' > "$HD/lang/ru.sh"
+for SH in bash sh $(command -v dash >/dev/null 2>&1 && echo dash); do
+  hash_of() { "$SH" -c '. "$1"; getff_path_hash "$2" "$3"' _ "$REPO_ROOT/plugin/hooks/lib/source-hash.sh" "$HD" "$1"; }
+  f1=$(hash_of h.sh); d1=$(hash_of lang/)
+  [ "${#f1}" -eq 64 ] && ok "[$SH] H1 file hash is 64 hex chars" || bad "[$SH] H1 got '$f1'"
+  printf 'de\n' > "$HD/lang/de.sh"; d2=$(hash_of lang/); rm "$HD/lang/de.sh"
+  [ -n "$d1" ] && [ "$d1" != "$d2" ] && ok "[$SH] H2 an added file changes the directory hash" || bad "[$SH] H2 '$d1' '$d2'"
+  [ "$(hash_of lang/)" = "$d1" ] && ok "[$SH] H3 directory hash is stable" || bad "[$SH] H3 unstable"
+  hash_of ../x >/dev/null 2>&1 && bad "[$SH] H4 '..' accepted" || ok "[$SH] H4 '..' refused"
+  hash_of missing.sh >/dev/null 2>&1 && bad "[$SH] H5 missing file hashed" || ok "[$SH] H5 missing file refused"
+  printf '%s  h.sh\n%s  h.sh:lang/\n' "$f1" "$d1" > "$HD/m.txt"
+  match() { "$SH" -c '. "$1"; getff_closure_matches "$2" "$3" "$4"' _ "$REPO_ROOT/plugin/hooks/lib/source-hash.sh" "$HD/m.txt" "$HD" "$1"; }
+  match h && ok "[$SH] H6 identical closure matches" || bad "[$SH] H6 no match"
+  printf 'b\n' > "$HD/h.sh"; match h && bad "[$SH] H7 changed file matched" || ok "[$SH] H7 changed file refused"
+  printf 'a\n' > "$HD/h.sh"; match other && bad "[$SH] H8 absent name matched" || ok "[$SH] H8 absent name refused"
+  printf '%s  h.sh:lang/\n' "$d1" > "$HD/m.txt"; match h && bad "[$SH] H9 no main line matched" || ok "[$SH] H9 main line required"
+done
+
 # ── Yield to the project's own registration (incident 2026-09-28) ──────────────
 # In the framework repo every plugin hook that .claude/settings.json also registers ran twice per
 # event: the session-bootstrap digest reached each prompt twice (a 4-item and a 5-item invariants

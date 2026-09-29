@@ -8,6 +8,7 @@
 #   fork-challenge nudge — session UX, not framework-bound. Consumer-safe: no framework-internal
 #   artefact dependency, reuses the already-shipped lang pack (aif_msg_question_challenge), and
 #   degrades to exit 0 when jq is absent.
+# @plugin-yield-deps: lang/
 #
 # Companion to .claude/hooks/end-of-turn-reminder.sh (Stop hook). Division of labour:
 #   • end-of-turn-reminder.sh (Stop)      → END-OF-TURN recap + goal-drift verdict.

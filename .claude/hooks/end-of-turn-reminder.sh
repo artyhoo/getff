@@ -7,6 +7,7 @@
 #   aif_msg_eot_branch_story branch"), delivered by install.sh + do_refresh. Consumer-safe: no
 #   framework-internal artefact dependency (the only path refs are comment-citations); degrades
 #   to exit 0 when jq or a transcript is absent.
+# @plugin-yield-deps: lang/ lib/residue-dir.sh
 set -euo pipefail
 
 # Consumer-skip guard (GH #934): the hook parses the transcript with jq. Absent jq → no work
