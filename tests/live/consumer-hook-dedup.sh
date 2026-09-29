@@ -9,7 +9,7 @@
 #     deps-hash-check doubled on purpose);
 #   - a hook in the MUST_EMIT table below emitted nothing although its event fired
 #     (the lost-gate case a yield must never cause);
-#   - a UserPromptSubmit event carried the `[output-language]` line other than exactly once (D5).
+#   - a SessionStart event carried the `[output-language]` line other than exactly once (D5).
 # Spec: docs/superpowers/specs/2026-09-28-consumer-plugin-hook-dedup-design.md
 #   («Live verification before merge»; D3, D5, D6, D12).
 #
@@ -87,27 +87,30 @@ LIVE_TIMEOUT="${LIVE_TIMEOUT:-900}"
 # A path suffix narrows the row to a PostToolUse on that file (the hook is path-scoped). Why the
 # scenario makes each one speak:
 #   session-start               SessionStart      plugin-only bootstrap banner
-#   inject-output-language      UserPromptSubmit  AIF_HOOK_LANG=ru is set for the run
-#   inject-project-digest       UserPromptSubmit  the consumer's digest block is filled below
+#   inject-output-language      SessionStart      AIF_HOOK_LANG=ru is set for the run
+#   inject-project-digest       SessionStart      the consumer's digest block is filled below
 #   inject-project-digest       SubagentStart     same digest; CC only (ZCode has no SubagentStart)
 #   inject-subagent-context     PreToolUse        ZCode's SubagentStart fallback (silent on CC)
 #   deps-hash-check             UserPromptSubmit  a fresh consumer has no tool-decision baseline
 #   inject-matching-rule        PostToolUse       the turn writes src/probe.ts
 #   check-doc-authority-header  PostToolUse       the turn writes .claude/rules/probe-rule.md
-#                                                 without an authority header (exit 2)
+#                                                 without an authority header (exit 2); ZCode only:
+#                                                 Claude Code refuses a headless Write under .claude/
+#                                                 even with an allow rule (measured 2026-09-29, 2.1.270),
+#                                                 so there the step fails and the row cannot be measured
 #   end-of-turn-reminder        Stop              AIF_EOT_SDK_RECAP=1 lifts its sdk-* guard, and the
 #                                                 final reply is long structured markdown, the shape
 #                                                 that makes it demand a recap (a short reply is silent)
 MUST_EMIT_COMMON='session-start SessionStart
-inject-output-language UserPromptSubmit
-inject-project-digest UserPromptSubmit
+inject-output-language SessionStart
+inject-project-digest SessionStart
 deps-hash-check UserPromptSubmit
 inject-matching-rule PostToolUse src/probe.ts
-check-doc-authority-header PostToolUse .claude/rules/probe-rule.md
 end-of-turn-reminder Stop'
 MUST_EMIT_CC="$MUST_EMIT_COMMON
 inject-project-digest SubagentStart"
 MUST_EMIT_ZCODE="$MUST_EMIT_COMMON
+check-doc-authority-header PostToolUse .claude/rules/probe-rule.md
 inject-subagent-context PreToolUse"
 # The one hook allowed to emit from both copies (spec D4: its relative registration never counts).
 DOUBLE_OK='deps-hash-check'
@@ -118,7 +121,8 @@ PROMPT='This is an automated hook test. Do exactly these steps, in order, then s
 3. Use the Agent tool (called Task on some hosts) to start ONE subagent with the prompt: Reply with the single word OK. Do not use any tools.
 4. Finish with a markdown report: a first line "## Report", then one "- " bullet per step above saying what you did, at least 600 characters in total. If a hook then asks for a recap, give it once.'
 
-REAL_BASH="$(command -v bash)"
+REAL_BASH="$(type -P bash)"   # an absolute path: a bare name would resolve to the shim itself
+[ "${REAL_BASH#/}" != "$REAL_BASH" ] || { echo "cannot resolve an absolute bash" >&2; exit 2; }
 
 # ── shim ────────────────────────────────────────────────────────────────────────────────────
 write_shim() {
@@ -138,10 +142,22 @@ if [ -z "${GETFF_TRACE_ACTIVE:-}" ] && [ -d "${GETFF_TRACE_DIR:-}" ] && [ $# -ge
   esac
 fi
 [ -n "$_chan" ] || exec "$GETFF_TRACE_REAL_BASH" "$@"
+# Nothing slow may run before the hook starts. The project copy's liveness prelude
+# (.claude/hooks/lib/hook-live.sh) must mark the event before the plugin copy's ~300 ms claim
+# window closes (plugin/hooks/lib/live-claim.sh); jq and shasum here pushed it past that window
+# at SessionStart, where every hook starts at once, and the plugin copy ran as well (measured
+# 2026-09-29: both copies emitted under the shim, one without it, 3/3 runs). So before the run
+# only the payload is saved and a jq-free start record is written; everything else comes after.
 _t="$(mktemp -d "${TMPDIR:-/tmp}/getff-trace.XXXXXX")" || exec "$GETFF_TRACE_REAL_BASH" "$@"
 _rec="$(mktemp "$GETFF_TRACE_DIR/rec.XXXXXX")" || exec "$GETFF_TRACE_REAL_BASH" "$@"
 cat >"$_t/in"
 _name="$(basename "$1")"; _name="${_name%.sh}"
+case "$_name" in ''|*[!A-Za-z0-9_-]*) _name=unknown ;; esac
+# A start record first: a copy the host kills mid-run stays visible as unfinished instead of
+# looking like a plugin copy that yielded.
+printf '{"hook":"%s","channel":"%s","event":"?","rc":-1,"finished":false}\n' "$_name" "$_chan" >"$_rec"
+GETFF_TRACE_ACTIVE=1 "$GETFF_TRACE_REAL_BASH" "$@" <"$_t/in" >"$_t/out" 2>"$_t/err"
+_rc=$?
 _key="$(shasum -a 256 <"$_t/in" | cut -c1-16)"
 # Event identity, not payload bytes: two copies of one event count together even when a host
 # hands each copy a slightly different payload. Unparseable stdin falls back to the byte hash.
@@ -151,27 +167,27 @@ _ekey="$(jq -ce '{s: .session_id, e: .hook_event_name, p: .prompt, t: .tool_use_
 jq -e . <"$_t/in" >/dev/null 2>&1 || _ekey="raw-$_key"
 _event="$(jq -r '.hook_event_name // "?"' <"$_t/in" 2>/dev/null)"
 _file="$(jq -r '.tool_input.file_path // .tool_input.path // ""' <"$_t/in" 2>/dev/null)"
-_record() { # <rc> <finished: true|false>
-  jq -nc --arg hook "$_name" --arg channel "$_chan" --arg event "${_event:-?}" --arg file "$_file" \
-    --arg key "$_key" --arg ekey "$_ekey" --argjson rc "$1" --argjson finished "$2" --arg path "$3" \
-    --rawfile out "$_t/out" --rawfile err "$_t/err" \
-    '{hook: $hook, channel: $channel, event: $event, file: $file, key: $key, ekey: $ekey, rc: $rc,
-      finished: $finished, path: $path, out: $out, err: $err,
-      emitted: (($out | length) > 0 or ($rc != 0 and ($err | length) > 0))}'
-}
-# A start record first: a copy the host kills mid-run stays visible as unfinished instead of
-# looking like a plugin copy that yielded.
-: >"$_t/out"; : >"$_t/err"
-_record -1 false "$1" >"$_rec" 2>/dev/null
-GETFF_TRACE_ACTIVE=1 "$GETFF_TRACE_REAL_BASH" "$@" <"$_t/in" >"$_t/out" 2>"$_t/err"
-_rc=$?
-_record "$_rc" true "$1" >"$_rec.tmp" 2>/dev/null && mv -f "$_rec.tmp" "$_rec"
+jq -nc --arg hook "$_name" --arg channel "$_chan" --arg event "${_event:-?}" --arg file "$_file" \
+  --arg key "$_key" --arg ekey "$_ekey" --argjson rc "$_rc" --arg path "$1" \
+  --rawfile out "$_t/out" --rawfile err "$_t/err" \
+  '{hook: $hook, channel: $channel, event: $event, file: $file, key: $key, ekey: $ekey, rc: $rc,
+    finished: true, path: $path, out: $out, err: $err,
+    emitted: (($out | length) > 0 or ($rc != 0 and ($err | length) > 0))}' \
+  >"$_rec.tmp" 2>/dev/null && mv -f "$_rec.tmp" "$_rec"
 cat "$_t/out"
 cat "$_t/err" >&2
+# The payload stays beside its record, so a failed yield can be replayed by hand.
+mv -f "$_t/in" "$_rec.in" 2>/dev/null
 rm -f "$_t/in" "$_t/out" "$_t/err"; rmdir "$_t" 2>/dev/null
 exit "$_rc"
 SHIM
   chmod +x "$dir/bash"
+  # Pay the first-exec cost now. macOS checks a freshly written executable on its first run
+  # (measured 2026-09-29: every hook process stalled ~740 ms at once), and only the project copy
+  # passes through the shim at that moment: it marked its event after the plugin copy's claim
+  # window had closed, so both copies ran. A shim reused from an earlier run showed no double.
+  # The shim passes straight through here, since GETFF_TRACE_DIR is unset.
+  env -u GETFF_TRACE_DIR GETFF_TRACE_REAL_BASH="$REAL_BASH" "$dir/bash" -c : || return 1
 }
 
 # ── consumer ────────────────────────────────────────────────────────────────────────────────
@@ -286,11 +302,12 @@ analyze() {
     fi
   done <<<"$must"
 
-  # 3. The language line, exactly once per UserPromptSubmit (grouped by event identity, not by
+  # 3. The language line, exactly once per SessionStart (grouped by event identity, not by
   #    payload bytes, so a host that sends each hook a slightly different payload cannot split
-  #    a doubled line into two single ones).
-  if ! jq -e -s 'any(.[]; .event == "UserPromptSubmit")' "$trace" >/dev/null; then
-    echo "[$harness] INCONCLUSIVE: no UserPromptSubmit was traced, the language line was not measured"
+  #    a doubled line into two single ones). The line moved from UserPromptSubmit to SessionStart
+  #    with the per-prompt injection diet (8a00bbc2e0b).
+  if ! jq -e -s 'any(.[]; .event == "SessionStart")' "$trace" >/dev/null; then
+    echo "[$harness] INCONCLUSIVE: no SessionStart was traced, the language line was not measured"
     [ "$rc" -eq 0 ] && rc=3
   fi
   while IFS= read -r line; do
@@ -298,10 +315,10 @@ analyze() {
     echo "[$harness] FAIL output-language: $line"
     rc=1
   done < <(jq -rs '
-    map(select(.event == "UserPromptSubmit")) | group_by(.ekey)[]
+    map(select(.event == "SessionStart")) | group_by(.ekey)[]
     | ([.[] | select(.emitted) | .out | [scan("\\[output-language\\]")] | length] | add // 0) as $n
     | select($n != 1)
-    | "one UserPromptSubmit carried the [output-language] line \($n) times (from: \([.[] | select(.emitted and (.out | test("\\[output-language\\]"))) | "\(.hook)/\(.channel)"] | join(", ")))"
+    | "one SessionStart carried the [output-language] line \($n) times (from: \([.[] | select(.emitted and (.out | test("\\[output-language\\]"))) | "\(.hook)/\(.channel)"] | join(", ")))"
   ' "$trace")
   return "$rc"
 }
@@ -335,7 +352,7 @@ collect_trace() {
   : >"$out"
   for f in "$dir"/rec.*; do
     [ -f "$f" ] || continue
-    case "$f" in *.tmp) continue ;; esac
+    case "$f" in *.tmp|*.in) continue ;; esac
     if jq -ce . "$f" >>"$out" 2>/dev/null; then :; else
       echo "[$harness] INCONCLUSIVE instrument: unreadable trace record $f"
       bad=1
@@ -385,7 +402,7 @@ run_cc() {
   mkdir -p "$d"
   make_consumer "$d/consumer" "$d/install.log" \
     || { echo "[cc] setup error: consumer install failed, see $d/install.log"; return 2; }
-  write_shim "$d/shim"
+  write_shim "$d/shim" || { echo "[${d##*/}] setup error: the tracing shim does not run"; return 2; }
   mkdir -p "$d/trace.d"
   local model_args=() envs=()
   [ -n "${LIVE_CC_MODEL:-}" ] && model_args=(--model "$LIVE_CC_MODEL")
@@ -467,7 +484,7 @@ run_zcode() {
   echo "[zcode] $(grep -m1 'Installed plugin' "$d/plugin-install.log")"
   # ZCode hands plugin hooks no env block; the language pin also rides the file fallback.
   printf 'ru\n' >"$d/xdg/getff/hook-lang"
-  write_shim "$d/shim"
+  write_shim "$d/shim" || { echo "[${d##*/}] setup error: the tracing shim does not run"; return 2; }
   mkdir -p "$d/trace.d"
   local envs=()
   while IFS= read -r l; do envs+=("$l"); done < <(trace_env "$d/shim" "$d/trace.d")
