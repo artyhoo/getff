@@ -2,15 +2,19 @@
 # imr-registration.test.sh — register_imr_hooks (setup.d/lib.sh) wires inject-matching-rule's
 # three arms and WIDENS an install made before them (trigger build, slice 1).
 #
-# Before slice 1 an install registered the hook once, PostToolUse "Edit|Write|MultiEdit".
-# register_cc_hook is add-only and idempotent per event, so a re-install alone would keep that
-# matcher and the Read arm would never fire. Contract pinned here (jq back-end):
-#   W1 legacy install: our PostToolUse entry is replaced by one with "…|Read"; exactly one of ours
-#      remains on PostToolUse; the consumer's own PostToolUse handlers stay
+# Before slice 1 an install registered the hook once on PostToolUse, with the matcher "Edit|Write"
+# (2752282c083, 2026-07-13) or later "Edit|Write|MultiEdit". register_cc_hook is add-only and
+# idempotent per event, so a re-install alone would keep that matcher and the Read arm would never
+# fire. Contract pinned here, on BOTH back-ends (jq, then node with jq hidden from PATH):
+#   W1 either legacy matcher is widened IN PLACE to "…|Read": one entry of ours stays, its other
+#      fields (a handler `timeout`) are kept, the consumer's own PostToolUse handlers stay
 #   W2 PreToolUse "Bash" and SessionStart "compact" are registered
 #   W3 a second run is byte-identical (idempotent)
 #   W4 a fresh project (no settings file) gets all three
-#   W5 a matcher of ours that already names Read (here with a consumer's extra tool) is left as is
+#   W5 a matcher of ours that is not a legacy one getff wrote — one naming Read, a catch-all
+#      (`*`, `""`, `.*`) or none at all — is the consumer's choice and is left exactly as it was
+#   W6 a consumer handler sharing our legacy group keeps the legacy matcher; ours moves to its
+#      own group with the widened matcher
 # shellcheck disable=SC2015,SC2016  # ok/bad pairs never fail; the $CLAUDE_PROJECT_DIR commands are literal by design
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -22,46 +26,83 @@ PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$REPO_ROOT"; FORCE=""; DRY_RUN=""; UPSTREAM
 SKIPPED=()
 INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
 
-command -v jq >/dev/null 2>&1 || { echo "SKIP: jq not on PATH (the widening is jq-only by design)"; exit 0; }
+# jq builds the fixtures and reads the results on both passes; only the call under test hides it.
+command -v jq >/dev/null 2>&1 || { echo "SKIP: jq not on PATH (fixtures and assertions use it)"; exit 0; }
 
 IMR='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"'
+NEW='Edit|Write|MultiEdit|Read'
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+mkdir "$T/bin"
+for t in node mv rm cat; do command -v "$t" >/dev/null && ln -s "$(command -v "$t")" "$T/bin/$t"; done
 
 ours() { # settings event → the matchers of our entries on that event, one JSON array
   jq -c --arg e "$2" '[(.hooks[$e] // [])[] | select(any(.hooks[]?; .command | test("inject-matching-rule\\.sh"))) | .matcher]' "$1"
 }
+one_group() { # file matcher-json → settings with one PostToolUse group of ours (timeout 7)
+  jq -n --arg c "$IMR" --argjson m "$2" '{hooks: {PostToolUse: [
+    ({hooks: [{type: "command", command: $c, timeout: 7}]} + (if $m == null then {} else {matcher: $m} end))
+  ]}}' > "$1"
+}
 
-echo "── W1-W3: legacy install is widened, idempotently ──"
-jq -n --arg c "$IMR" '{hooks: {PostToolUse: [
-  {matcher: "Edit|Write", hooks: [{type: "command", command: "consumer-own.sh"}]},
-  {matcher: "Edit|Write|MultiEdit", hooks: [{type: "command", command: $c}]}
-]}}' > "$T/legacy.json"
-register_imr_hooks "$T/legacy.json" >/dev/null
-[ "$(ours "$T/legacy.json" PostToolUse)" = '["Edit|Write|MultiEdit|Read"]' ] \
-  && ok "W1: one PostToolUse entry of ours, matcher Edit|Write|MultiEdit|Read" \
-  || bad "W1: ours on PostToolUse = $(ours "$T/legacy.json" PostToolUse)"
-[ "$(jq -c '[.hooks.PostToolUse[].hooks[].command | select(. == "consumer-own.sh")] | length' "$T/legacy.json")" = 1 ] \
-  && ok "W1: the consumer's own PostToolUse handler stays" || bad "W1: consumer handler lost"
-[ "$(ours "$T/legacy.json" PreToolUse)" = '["Bash"]' ] && [ "$(ours "$T/legacy.json" SessionStart)" = '["compact"]' ] \
-  && ok "W2: PreToolUse:Bash + SessionStart:compact registered" \
-  || bad "W2: PreToolUse $(ours "$T/legacy.json" PreToolUse), SessionStart $(ours "$T/legacy.json" SessionStart)"
-cp "$T/legacy.json" "$T/once.json"
-register_imr_hooks "$T/legacy.json" >/dev/null
-cmp -s "$T/once.json" "$T/legacy.json" && ok "W3: second run byte-identical" || bad "W3: second run changed the file"
+suite() { # backend
+  local be="$1" f m
+  if [ "$be" = node ]; then run() { ( PATH="$T/bin"; register_imr_hooks "$1" ); }
+  else run() { register_imr_hooks "$1"; }; fi
+  echo "── $be back-end ──"
 
-echo "── W4: fresh project ──"
-register_imr_hooks "$T/fresh.json" >/dev/null
-[ "$(ours "$T/fresh.json" PostToolUse)" = '["Edit|Write|MultiEdit|Read"]' ] \
-  && [ "$(ours "$T/fresh.json" PreToolUse)" = '["Bash"]' ] && [ "$(ours "$T/fresh.json" SessionStart)" = '["compact"]' ] \
-  && ok "W4: all three registered" || bad "W4: $(jq -c .hooks "$T/fresh.json")"
+  for m in 'Edit|Write|MultiEdit' 'Edit|Write'; do
+    f="$T/$be-legacy-${#m}.json"
+    jq -n --arg c "$IMR" --arg m "$m" '{hooks: {PostToolUse: [
+      {matcher: "Edit|Write", hooks: [{type: "command", command: "consumer-own.sh"}]},
+      {matcher: $m, hooks: [{type: "command", command: $c, timeout: 7}]}
+    ]}}' > "$f"
+    run "$f" > "$T/out" 2>&1
+    [ "$(ours "$f" PostToolUse)" = "[\"$NEW\"]" ] \
+      && ok "$be W1 ($m): one PostToolUse entry of ours, matcher $NEW" \
+      || bad "$be W1 ($m): ours on PostToolUse = $(ours "$f" PostToolUse); $(cat "$T/out")"
+    [ "$(jq '[.hooks.PostToolUse[].hooks[] | select(.command | test("inject-matching-rule")) | .timeout] == [7]' "$f")" = true ] \
+      && ok "$be W1 ($m): the handler's timeout is kept" || bad "$be W1 ($m): $(jq -c .hooks.PostToolUse "$f")"
+    [ "$(jq -c '[.hooks.PostToolUse[] | select(.hooks[0].command == "consumer-own.sh") | .matcher]' "$f")" = '["Edit|Write"]' ] \
+      && ok "$be W1 ($m): the consumer's own PostToolUse group stays as it was" || bad "$be W1 ($m): consumer group changed"
+    [ "$(ours "$f" PreToolUse)" = '["Bash"]' ] && [ "$(ours "$f" SessionStart)" = '["compact"]' ] \
+      && ok "$be W2 ($m): PreToolUse:Bash + SessionStart:compact registered" \
+      || bad "$be W2 ($m): PreToolUse $(ours "$f" PreToolUse), SessionStart $(ours "$f" SessionStart)"
+    cp "$f" "$T/once.json"
+    run "$f" >/dev/null 2>&1
+    cmp -s "$T/once.json" "$f" && ok "$be W3 ($m): second run byte-identical" || bad "$be W3 ($m): second run changed the file"
+  done
+  if [ "$be" = node ]; then
+    grep -qF 'through node' "$T/out" && ok "node: the node back-end really ran" || bad "node: jq-less path not taken: $(cat "$T/out")"
+  fi
 
-echo "── W5: a matcher of ours that already names Read is kept ──"
-jq -n --arg c "$IMR" '{hooks: {PostToolUse: [
-  {matcher: "Edit|Write|MultiEdit|Read|NotebookEdit", hooks: [{type: "command", command: $c}]}
-]}}' > "$T/wide.json"
-register_imr_hooks "$T/wide.json" >/dev/null
-[ "$(ours "$T/wide.json" PostToolUse)" = '["Edit|Write|MultiEdit|Read|NotebookEdit"]' ] \
-  && ok "W5: consumer-widened matcher untouched" || bad "W5: ours on PostToolUse = $(ours "$T/wide.json" PostToolUse)"
+  f="$T/$be-fresh.json"
+  run "$f" >/dev/null 2>&1
+  [ "$(ours "$f" PostToolUse)" = "[\"$NEW\"]" ] && [ "$(ours "$f" PreToolUse)" = '["Bash"]' ] \
+    && [ "$(ours "$f" SessionStart)" = '["compact"]' ] \
+    && ok "$be W4: all three registered" || bad "$be W4: $(jq -c .hooks "$f" 2>&1)"
+
+  for m in '"Edit|Write|MultiEdit|Read|NotebookEdit"' '"*"' '""' '".*"' 'null'; do
+    f="$T/$be-keep.json"
+    one_group "$f" "$m"
+    run "$f" >/dev/null 2>&1
+    [ "$(jq -c '.hooks.PostToolUse' "$f")" = "$(one_group "$T/expect.json" "$m"; jq -c '.hooks.PostToolUse' "$T/expect.json")" ] \
+      && ok "$be W5: matcher $m left exactly as it was" || bad "$be W5 ($m): $(jq -c .hooks.PostToolUse "$f")"
+  done
+
+  f="$T/$be-shared.json"
+  jq -n --arg c "$IMR" '{hooks: {PostToolUse: [
+    {matcher: "Edit|Write|MultiEdit", hooks: [{type: "command", command: "consumer-own.sh"},
+                                              {type: "command", command: $c, timeout: 7}]}
+  ]}}' > "$f"
+  run "$f" >/dev/null 2>&1
+  [ "$(jq -c '[.hooks.PostToolUse[] | {m: .matcher, c: [.hooks[] | .command | sub(".*/"; "")]}]' "$f")" \
+      = '[{"m":"Edit|Write|MultiEdit","c":["consumer-own.sh"]},{"m":"'"$NEW"'","c":["inject-matching-rule.sh\""]}]' ] \
+    && ok "$be W6: consumer keeps the legacy group, ours moves to its own widened group" \
+    || bad "$be W6: $(jq -c .hooks.PostToolUse "$f")"
+}
+
+suite jq
+if [ -e "$T/bin/node" ]; then suite node; else echo "SKIP: node not on PATH — the jq-less back-end is not exercised"; fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

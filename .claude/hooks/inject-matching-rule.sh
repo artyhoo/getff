@@ -35,10 +35,19 @@
 #   code.claude.com/docs/en/agent-sdk/typescript, read 2026-09-29); no permissionDecision is set.
 #
 # Glob → extended regex (S-1, deterministic, no glob engine): `**/` = any number of
-# directories, `**` = anything, `*` = anything but `/`, `?` = one char but `/`, `{a,b}` =
-# alternation; every other regex metacharacter is literal. A glob with no `/` matches at any
-# depth (`*.sh` matches `setup.d/lib.sh` — the pre-slice-1 behaviour, kept). Not supported:
-# `[...]` classes (literal) and nested braces.
+# directories, a trailing `**` = anything; `**` inside a segment (`a**b`) is a plain `*`, as in
+# picomatch. `*` = anything but `/`, `?` = one char but `/`, `{a,b}` = alternation, and an
+# empty alternative makes the group optional (`*.ts{,x}`; macOS regcomp rejects `(|x)`). Every
+# other regex metacharacter is literal, `|` included (picomatch reads a bare `|` as
+# alternation). A glob with no `/` matches at any depth (`*.sh` matches `setup.d/lib.sh` — the
+# pre-slice-1 behaviour, kept; native Claude Code agrees, live probe 2026-09-29). Not
+# supported: `[...]` classes (literal) and nested braces.
+#
+# Frontmatter (a YAML subset): `key: value`, `key: [a, b]`, or a `- item` block list under
+# `key:`, indented or not. Comment lines and a ` #` trailing comment are dropped; a quoted
+# value keeps everything inside its quotes, with no escape processing (quote with '...').
+# `events:` values are POSIX extended regexes run by bash `=~` — portable ones only: macOS
+# has no `\b`, `\s`, `\d`, and rejects an empty alternative such as `(|x)`.
 #
 # Honest no-op (kickoff S6 §1/§2): when the consumer has NO rules corpus (RULES_DIR missing
 # OR contains zero .md files), the hook reports ONCE per session loudly, then stays quiet
@@ -78,12 +87,15 @@ CARD_LIMIT=1000   # bytes of card body (S-8)
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
-# One jq pass over the payload; @sh quotes every value for eval. Unparsable input leaves the
-# defaults below, and the arm dispatch then exits 0.
+# One jq pass over the payload; @sh quotes every value for eval. `s` first turns every field
+# into ONE string: @sh renders an array as several quoted words, which eval would run as a
+# command. Unparsable input leaves the defaults below, and the arm dispatch then exits 0.
 EVENT=""; TOOL=""; SESSION="nosession"; AGENT=""; SOURCE=""; ABS_PATH=""; COMMAND=""
-eval "$(jq -r '@sh "EVENT=\(.hook_event_name // "PostToolUse") TOOL=\(.tool_name // "")
-  SESSION=\(.session_id // "nosession") AGENT=\(.agent_id // "") SOURCE=\(.source // "")
-  ABS_PATH=\(.tool_input.file_path // "") COMMAND=\(.tool_input.command // "")"' 2>/dev/null)"
+eval "$(jq -r 'def s: if type == "string" then . else tostring end;
+  @sh "EVENT=\(.hook_event_name // "PostToolUse" | s) TOOL=\(.tool_name // "" | s)
+  SESSION=\(.session_id // "nosession" | s) AGENT=\(.agent_id // "" | s)
+  SOURCE=\(.source // "" | s) ABS_PATH=\(.tool_input.file_path // "" | s)
+  COMMAND=\(.tool_input.command // "" | s)"' 2>/dev/null)"
 SESSION_KEY="${SESSION//[^A-Za-z0-9_-]/_}"
 CACHE_KEY="$SESSION_KEY"
 [[ -n "$AGENT" ]] && CACHE_KEY="${SESSION_KEY}@${AGENT//[^A-Za-z0-9_-]/_}"
@@ -128,9 +140,13 @@ if [[ "$MODE" != event ]]; then
 fi
 
 # Once-cache (S-14): one directory per card under $CACHE_ROOT; `mkdir` is atomic, so of
-# several parallel runs exactly one wins the card. No writable TMPDIR → inject every time.
-mkdir -p "$CACHE_ROOT" 2>/dev/null || CACHE_ROOT=""
-first_time() { [[ -z "$CACHE_ROOT" ]] || mkdir "$CACHE_ROOT/$1" 2>/dev/null; }
+# several parallel runs exactly one wins the card. The root is made only when a card matches
+# (the Read and event arms run on every call). No writable TMPDIR → inject every time.
+first_time() {
+  [[ -z "$CACHE_ROOT" ]] && return 0
+  mkdir -p "$CACHE_ROOT" 2>/dev/null || { CACHE_ROOT=""; return 0; }
+  mkdir "$CACHE_ROOT/$1" 2>/dev/null
+}
 
 trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; printf '%s' "${v%"${v##*[![:space:]]}"}"; }
 unquote() {
@@ -151,34 +167,70 @@ split_list() {
 
 # Glob → anchored extended regex (S-1; the grammar is in the header).
 glob_to_ere() {
-  local g="$1" out="" i=0 n=${#1} c brace=0
+  local g="$1" out="" i=0 n=${#1} c t prev next brace=0 alts="" cur="" empty=0
   while ((i < n)); do
     c="${g:i:1}"
+    t=""
     case "$c" in
       '*')
         if [[ "${g:i:2}" == '**' ]]; then
-          if [[ "${g:i+2:1}" == / ]]; then out+='(.*/)?'; i=$((i + 3)); continue; fi
-          out+='.*'; i=$((i + 2)); continue
+          prev=""; ((i > 0)) && prev="${g:i-1:1}"
+          next="${g:i+2:1}"
+          i=$((i + 2))
+          if [[ -n "$prev" && "$prev" != / ]]; then t='[^/]*'   # `a**`: not a whole segment
+          elif [[ "$next" == / ]]; then t='(.*/)?'; i=$((i + 1))
+          elif [[ -z "$next" ]]; then t='.*'
+          else t='[^/]*'; fi                                  # `**b`: not a whole segment
+        else
+          t='[^/]*'; i=$((i + 1))
+        fi ;;
+      '{')
+        if ((brace == 0)) && [[ "${g:i+1}" == *'}'* ]]; then
+          brace=1; alts=""; cur=""; empty=0; i=$((i + 1)); continue
         fi
-        out+='[^/]*' ;;
-      '?') out+='[^/]' ;;
-      '{') if ((brace == 0)) && [[ "${g:i+1}" == *'}'* ]]; then brace=1; out+='('; else out+='[{]'; fi ;;
-      '}') if ((brace)); then brace=0; out+=')'; else out+='[}]'; fi ;;
-      ',') if ((brace)); then out+='|'; else out+=','; fi ;;
-      '^') out+='\^' ;;
-      '.' | '+' | '(' | ')' | '[' | ']' | '$' | '|' | '\') out+="[$c]" ;;
-      *) out+="$c" ;;
+        t='[{]'; i=$((i + 1)) ;;
+      ',' | '}')
+        if ((brace)); then
+          # Close one alternative. An empty one is dropped and makes the group optional.
+          if [[ -z "$cur" ]]; then empty=1; else alts+="${alts:+|}$cur"; fi
+          cur=""; i=$((i + 1))
+          [[ "$c" == ',' ]] && continue
+          brace=0
+          if [[ -n "$alts" ]]; then
+            out+="($alts)"; ((empty)) && out+='?'
+          fi
+          continue
+        fi
+        if [[ "$c" == ',' ]]; then t=','; else t='[}]'; fi
+        i=$((i + 1)) ;;
+      '?') t='[^/]'; i=$((i + 1)) ;;
+      '^') t='\^'; i=$((i + 1)) ;;
+      '.' | '+' | '(' | ')' | '[' | ']' | '$' | '|' | '\') t="[$c]"; i=$((i + 1)) ;;
+      *) t="$c"; i=$((i + 1)) ;;
     esac
-    i=$((i + 1))
+    if ((brace)); then cur+="$t"; else out+="$t"; fi
   done
   [[ "$g" != */* ]] && out="(.*/)?$out"
   printf '^%s$' "$out"
 }
 
+# Drop a trailing YAML comment. A quoted value ends at its closing quote; an inline list at
+# its `]`; any other value at the first ` #`.
+strip_comment() {
+  local v q rest re='^(\[.*\])[[:space:]]*(#.*)?$'
+  v="$(trim "$1")"; q="${v:0:1}"
+  if [[ "$q" == \" || "$q" == \' ]]; then
+    rest="${v:1}"
+    if [[ "$rest" == *"$q"* ]]; then printf '%s' "$q${rest%%"$q"*}$q"; return; fi
+  fi
+  if [[ "$v" =~ $re ]]; then printf '%s' "${BASH_REMATCH[1]}"; return; fi
+  trim "${v%%[[:space:]]#*}"
+}
+
 # Read a card's frontmatter into C_GLOBS / C_EVENTS / C_DEPTH (newline lists) + C_ONREAD.
-# A YAML subset: `key: value`, `key: [a, b]`, or a `  - item` block list under `key:`.
+# The YAML subset is in the header.
 parse_frontmatter() {
-  local f="$1" line key="" k v first=1
+  local f="$1" line key="" k v first=1 blank_re='^[[:space:]]*(#.*)?$'
   C_GLOBS=""; C_EVENTS=""; C_DEPTH=""; C_ONREAD=0
   _add() {
     case "$1" in
@@ -194,12 +246,13 @@ parse_frontmatter() {
       continue
     fi
     [[ "$line" =~ ^---[[:space:]]*$ ]] && return 0
-    if [[ -n "$key" && "$line" =~ ^[[:space:]]+-[[:space:]]*(.*)$ ]]; then
-      _add "$key" "$(unquote "${BASH_REMATCH[1]}")"; continue
+    [[ "$line" =~ $blank_re ]] && continue   # a comment or blank line keeps the key
+    if [[ -n "$key" && "$line" =~ ^[[:space:]]*-[[:space:]]+(.*)$ ]]; then
+      _add "$key" "$(unquote "$(strip_comment "${BASH_REMATCH[1]}")")"; continue
     fi
     key=""
     [[ "$line" =~ ^(paths|events|depth|on):[[:space:]]*(.*)$ ]] || continue
-    k="${BASH_REMATCH[1]}"; v="$(trim "${BASH_REMATCH[2]}")"
+    k="${BASH_REMATCH[1]}"; v="$(strip_comment "${BASH_REMATCH[2]}")"
     if [[ "$k" == on ]]; then [[ "$(unquote "$v")" == read ]] && C_ONREAD=1; continue; fi
     if [[ -z "$v" ]]; then key="$k"; continue; fi
     if [[ "$v" == \[*\] ]]; then

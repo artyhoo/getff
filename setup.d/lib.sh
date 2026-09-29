@@ -3652,23 +3652,65 @@ unregister_cc_hook() {
 # slice 1): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm), PreToolUse
 # "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset). One function for both
 # callers (setup.d/10-skills.sh §1e and the install.sh --refresh arm) so the two cannot drift.
-# The PostToolUse matcher WIDENED from "Edit|Write|MultiEdit": register_cc_hook is add-only and
-# idempotent per event, so an install from before the widening would keep its old matcher and the
-# Read arm would never fire — that entry is dropped first (unregister_cc_hook) when no matcher of
-# ours names Read, then registered afresh. Without jq nothing is widened; the hook needs jq to run
-# at all (it exits 0 without it), so no arm is lost.
+# The PostToolUse matcher WIDENED: register_cc_hook is add-only and idempotent per event, so an
+# install from before slice 1 would keep its old matcher and the Read arm would never fire. A group
+# of ours whose matcher is one getff itself wrote — "Edit|Write" (2752282c083, 2026-07-13) or
+# "Edit|Write|MultiEdit" — is widened IN PLACE, so every other field of it stays (a `timeout` the
+# consumer set, say); when a consumer handler shares that group, it keeps the old matcher and ours
+# moves to a group of its own. Any other matcher (a catch-all, one naming Read, one the consumer
+# narrowed) is the consumer's choice and is left as it is. Both back-ends: jq, else node.
 register_imr_hooks() {
-  local settings="$1"
+  local settings="$1" rc=0 new="Edit|Write|MultiEdit|Read"
   # shellcheck disable=SC2016  # $CLAUDE_PROJECT_DIR is expanded by Claude Code, not here
   local cmd='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"'
-  if [ -f "$settings" ] && command -v jq >/dev/null 2>&1 && jq -e '
-      [(.hooks.PostToolUse // [])[]
-        | select(any(.hooks[]?; (.command // "") | test("\\.claude/hooks/inject-matching-rule\\.sh")))
-        | (.matcher // "")]
-      | length > 0 and (any(.[]; test("(^|[|])Read($|[|])")) | not)' "$settings" >/dev/null 2>&1; then
-    unregister_cc_hook "$settings" "PostToolUse" "inject-matching-rule"
+  local re="\\.claude/hooks/inject-matching-rule\\.sh([\"' ]|\$)"
+  if [ -f "$settings" ] && command -v jq >/dev/null 2>&1; then
+    if jq -e --arg re "$re" '
+        any((.hooks.PostToolUse // [])[];
+            (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+            and (.hooks | type) == "array" and any(.hooks[]; (.command // "") | test($re)))' \
+        "$settings" >/dev/null 2>&1; then
+      if jq --arg re "$re" --arg new "$new" '
+          def ours: (.command // "") | test($re);
+          .hooks.PostToolUse = [ .hooks.PostToolUse[]
+            | if (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+                 and (.hooks | type) == "array" and any(.hooks[]; ours)
+              then if all(.hooks[]; ours) then .matcher = $new
+                   else (.hooks |= map(select(ours | not))),
+                        (. + {matcher: $new, hooks: [.hooks[] | select(ours)]})
+                   end
+              else . end ]' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+        echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json"
+      else
+        rm -f "$settings.tmp" 2>/dev/null || true
+        echo "  ⚠ jq rewrite of $settings failed — the inject-matching-rule Read arm NOT wired" >&2
+        note_not_wired "the Read arm of inject-matching-rule (PostToolUse matcher $new) in .claude/settings.json — jq rewrite failed"
+      fi
+    fi
+  elif [ -f "$settings" ]; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [src, nm] = args;
+      const re = new RegExp(src);
+      const list = (o.hooks || {}).PostToolUse;
+      if (!Array.isArray(list)) return;
+      const ours = h => re.test((h && h.command) || "");
+      const legacy = g => (g.matcher === "Edit|Write" || g.matcher === "Edit|Write|MultiEdit")
+        && Array.isArray(g.hooks) && g.hooks.some(ours);
+      if (!list.some(legacy)) return;
+      o.hooks.PostToolUse = list.flatMap(g => !legacy(g) ? [g]
+        : g.hooks.every(ours) ? [Object.assign({}, g, { matcher: nm })]
+        : [Object.assign({}, g, { hooks: g.hooks.filter(h => !ours(h)) }),
+           Object.assign({}, g, { matcher: nm, hooks: g.hooks.filter(ours) })]);
+      return o;' "$re" "$new" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) : ;;
+      *) echo "  ⚠ inject-matching-rule Read arm NOT wired — $(json_edit_node_why "$settings")"
+         note_not_wired "the Read arm of inject-matching-rule (PostToolUse matcher $new) in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
   fi
-  register_cc_hook "$settings" "PostToolUse" "$cmd" "inject-matching-rule" "Edit|Write|MultiEdit|Read"
+  register_cc_hook "$settings" "PostToolUse" "$cmd" "inject-matching-rule" "$new"
   register_cc_hook "$settings" "PreToolUse" "$cmd" "inject-matching-rule" "Bash"
   register_cc_hook "$settings" "SessionStart" "$cmd" "inject-matching-rule" "compact"
 }
