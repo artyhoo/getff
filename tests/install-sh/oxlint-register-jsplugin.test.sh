@@ -21,7 +21,9 @@
 #   R  switch on: getff's rules are added, and a rule the project already set keeps its value — at the
 #      top level or inside an `overrides` entry; switching on after an earlier registration still adds them;
 #   N  a jsPlugins key that is not a list: left as it was, and the NOT-wired line names that cause;
-#   C  an oxlint config written as CommonJS (.cjs): code, left as it was.
+#   C  an oxlint config written as CommonJS (.cjs): code, left as it was;
+#   L  create-vite's layout (a one-line array): registering, and switching rules on, only insert lines —
+#      every line of the project's file is still there, whole and in order (Q4.7: insertions only).
 set -uo pipefail
 
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -34,6 +36,7 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 # shellcheck source=/dev/null
+PKG_ROOT="$REPO_ROOT"
 INSTALL_SH_LIB_ONLY=1 source "${OXLINT_LIB_UNDER_TEST:-$REPO_ROOT/setup.d/lib.sh}"
 NOT_WIRED=()
 PROJECT_ROOT="$WORK/proj"
@@ -70,8 +73,8 @@ grep -q 'already registered' <<<"$out" && ok "I2: the output says already regist
 echo "P: the project's own jsPlugins entries are kept"
 printf '{ "jsPlugins": ["eslint-plugin-foo", { "name": "bar", "specifier": "./bar.mjs" }] }\n' > "$CFG"
 oxlint_register_jsplugin "$CFG" "$BARREL" >/dev/null
-[ "$(jq_or_node "$CFG" 'o=>o.jsPlugins')" = '["eslint-plugin-foo",{"name":"bar","specifier":"./bar.mjs"},{"name":"rules-as-tests","specifier":"./eslint-rules-local/index.mjs"}]' ] \
-  && ok "P1: both project entries kept, getff's appended" || bad "P1: jsPlugins = $(jq_or_node "$CFG" 'o=>o.jsPlugins')"
+[ "$(jq_or_node "$CFG" 'o=>o.jsPlugins')" = '[{"name":"rules-as-tests","specifier":"./eslint-rules-local/index.mjs"},"eslint-plugin-foo",{"name":"bar","specifier":"./bar.mjs"}]' ] \
+  && ok "P1: both project entries kept, getff's put first (the list only grows at its start)" || bad "P1: jsPlugins = $(jq_or_node "$CFG" 'o=>o.jsPlugins')"
 
 echo "A: no config file"
 NOT_WIRED=()
@@ -110,8 +113,8 @@ oxlint_register_jsplugin "$WCFG" "$BARREL" >/dev/null
 echo "R: switch on"
 printf '{ "rules": { "no-empty": "off" } }\n' > "$CFG"
 GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$CFG" "$BARREL" "$RULES" >/dev/null
-[ "$(jq_or_node "$CFG" 'o=>o.rules')" = '{"no-empty":"off","rules-as-tests/no-unsafe-zod-parse":"error"}' ] \
-  && ok "R1: getff's rule added, the project's no-empty kept off" || bad "R1: rules = $(jq_or_node "$CFG" 'o=>o.rules')"
+[ "$(jq_or_node "$CFG" 'o=>o.rules')" = '{"rules-as-tests/no-unsafe-zod-parse":"error","no-empty":"off"}' ] \
+  && ok "R1: getff's rule added (first: an insertion), the project's no-empty kept off" || bad "R1: rules = $(jq_or_node "$CFG" 'o=>o.rules')"
 
 echo "R: a rule set only inside overrides keeps the project's setting"
 printf '{ "overrides": [ { "files": ["*.ts"], "rules": { "rules-as-tests/no-unsafe-zod-parse": "off" } } ] }\n' > "$CFG"
@@ -124,14 +127,15 @@ printf '{}\n' > "$CFG"
 oxlint_register_jsplugin "$CFG" "$BARREL" "$RULES" >/dev/null
 out=$(GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$CFG" "$BARREL" "$RULES")
 [ "$(jq_or_node "$CFG" 'o=>[o.jsPlugins.length,o.rules]')" = '[1,{"rules-as-tests/no-unsafe-zod-parse":"error","no-empty":"error"}]' ] \
-  && grep -q '✓' <<<"$out" && ok "R3: rules added, the entry not duplicated, reported as a change" \
+  && ok "R3: rules added, the entry not duplicated" \
   || bad "R3: $(jq_or_node "$CFG" 'o=>[o.jsPlugins,o.rules]') / $out"
-# The first run already said «registered»: this one names what it changed, the rules (P5 R1 printed
-# «already registered» and then «registered» for the same file).
-if grep -q "getff's lint rules switched on in" <<<"$out" && ! grep -q 'plugin registered' <<<"$out"; then
-  ok "R3: the output names the rules it switched on, not a second registration"
+# The first run already said «registered»; with the switch on the placement that follows lists the rules it
+# kept on (P5 R1 printed «already registered» and then «registered» for the same file; the cold review found
+# «switched on» printed before a placement that took every rule back).
+if [ -z "$out" ]; then
+  ok "R3: switching on prints nothing — the placement after it names the rules"
 else
-  bad "R3: the output does not name the rules switched on: $out"
+  bad "R3: switching on says: $out"
 fi
 out=$(GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$CFG" "$BARREL" "$RULES")
 if [ -z "$out" ]; then
@@ -157,6 +161,26 @@ before=$(cat "$CJS")
 oxlint_register_jsplugin "$CJS" "$BARREL" >/dev/null
 [ "$(cat "$CJS")" = "$before" ] && [ "${#NOT_WIRED[@]}" -eq 1 ] && grep -q 'config is code' <<<"${NOT_WIRED[0]}" \
   && ok "C1: left as it was, the NOT-wired line says the config is code" || bad "C1: $(cat "$CJS") / ${NOT_WIRED[*]-}"
+
+echo "L: create-vite's layout only grows"
+only_inserted() { awk 'NR == FNR { want[++n] = $0; next } i < n && $0 == want[i + 1] { i++ } END { exit !(i == n) }' "$1" "$2"; }
+cat > "$CFG" <<'EOF'
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "rules": {
+    "react/rules-of-hooks": "error"
+  }
+}
+EOF
+cp "$CFG" "$WORK/vite.before"
+oxlint_register_jsplugin "$CFG" "$BARREL" >/dev/null
+if only_inserted "$WORK/vite.before" "$CFG"; then ok "L1: registering only inserts lines"
+else bad "L1: a line of the project's changed: $(diff "$WORK/vite.before" "$CFG" | grep '^<' | head -3)"; fi
+GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$CFG" "$BARREL" "$RULES" >/dev/null
+if only_inserted "$WORK/vite.before" "$CFG" && [ "$(jq_or_node "$CFG" 'o=>o.rules["no-empty"]')" = '"error"' ]; then
+  ok "L2: switching rules on only inserts lines"
+else bad "L2: $(diff "$WORK/vite.before" "$CFG" | grep '^<' | head -3)"; fi
 
 echo ""
 echo "oxlint-register-jsplugin: $PASS passed, $FAIL failed"

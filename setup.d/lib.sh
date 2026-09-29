@@ -2716,13 +2716,17 @@ oxlint_register_jsplugin() {
     note_not_wired "getff lint plugin in $rel — $(json_edit_node_why "$config")"
     return 0
   fi
+  # The project's own file keeps its layout: prove-rules.mjs's keepLayout writes only what changed.
+  local keep="${PKG_ROOT:-}/packages/core/audit-self/prove-rules.mjs"
+  [ -f "$keep" ] || keep=""
   # shellcheck disable=SC2016  # JavaScript, not shell expansions
-  json_edit_node "$config" '
+  GETFF_JSON_KEEP="$keep" json_edit_node "$config" '
     const [spec, rulesJson, enable] = args;
     let changed = false;
     const plugins = o.jsPlugins || [];
+    // First in the list: the project'"'"'s file only grows at the start of it (Q4.7: insertions only).
     if (!plugins.some(p => p && typeof p === "object" && p.name === "rules-as-tests")) {
-      o.jsPlugins = plugins.concat([{ name: "rules-as-tests", specifier: spec }]);
+      o.jsPlugins = [{ name: "rules-as-tests", specifier: spec }].concat(plugins);
       changed = true;
     }
     if (enable === "1" && rulesJson) {
@@ -2735,11 +2739,10 @@ oxlint_register_jsplugin() {
         if (!own(k)) { o.rules[k] = v; changed = true; }
     }
     return changed ? o : undefined;' "$spec" "$rules" "${GETFF_ENABLE_PLUGIN_RULES:-0}" || rc=$?
-  # With the rules switch on, the pass is the one after registration (place_lint_rules): it names the rules
-  # it added, and says nothing when there were none — the placement lists every rule it placed.
+  # With the rules switch on, the pass is the one after registration (place_lint_rules): it says nothing — the
+  # placement that follows checks the rules against the project's lint and lists every rule it kept on.
   case "$rc:${GETFF_ENABLE_PLUGIN_RULES:-0}" in
-    0:1) echo "  ✓ getff's lint rules switched on in $rel (jsPlugins → $spec)" ;;
-    3:1) ;;
+    0:1|3:1) ;;
     0:*) echo "  ✓ getff lint plugin registered in $rel (jsPlugins → $spec)" ;;
     3:*) echo "  ⊝ getff lint plugin already registered in $rel" ;;
     *) echo "  ⚠ getff lint plugin NOT registered in $rel — $(json_edit_node_why "$config")"
@@ -2791,9 +2794,16 @@ place_lint_rules() {
   ( cd "$PROJECT_ROOT" && npm run --silent lint ) >/dev/null 2>&1 && rc=0 || rc=$?
   if [ "$LINTER_SLOT" = oxlint ]; then
     if [ "$rc" -ne 0 ]; then
-      echo "  ⊝ getff's lint rules not switched on in $rel — your lint exits $rc as it stands"
-      note_not_wired "getff's lint rules in $rel — not switched on: your lint exits $rc before getff switches any rule on"
-      PLACE_EXTRA+=("rule-not-placed: * — not switched on: your lint exits $rc before getff switches any rule on")
+      # An earlier pass's rules (getff-marked entries, tagged carriers) are left as they were, and said to be on.
+      if grep -qF -e '__getff_proof__' -e '[getff:' "$cfg"; then
+        echo "  ⊝ getff's lint rules not placed again in $rel — your lint exits $rc as it stands; the earlier ones stay on"
+        note_not_wired "getff's lint rules in $rel — not placed again: your lint exits $rc as it stands; the rules an earlier install placed stay on, as they were"
+        PLACE_EXTRA+=("rule-not-placed: * — not placed again: your lint exits $rc as it stands; the rules an earlier install placed stay on, as they were")
+      else
+        echo "  ⊝ getff's lint rules not switched on in $rel — your lint exits $rc as it stands"
+        note_not_wired "getff's lint rules in $rel — not switched on: your lint exits $rc before getff switches any rule on"
+        PLACE_EXTRA+=("rule-not-placed: * — not switched on: your lint exits $rc before getff switches any rule on")
+      fi
       return 0
     fi
     top=$( cd "$PROJECT_ROOT" && node "$prove" --wanted-top --stack "${STACK:-}" 2>/dev/null ) || top='{}'
@@ -2815,7 +2825,13 @@ place_lint_rules() {
     fi
   done < <(node -e 'for (const n of (JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).notPlaced||[])) console.log(n.rule+"\t"+n.reason)' "$res" 2>/dev/null)
   line=$(node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(r.exemptViolations)console.log(r.exemptViolations+" existing violations in "+r.exemptFiles+" files")' "$res" 2>/dev/null)
-  [ -z "$line" ] || PLACE_EXTRA+=("lint-baseline: $rel — getff's rules are off per file for $line (entries marked getff), new ones still block")
+  [ -z "$line" ] || PLACE_EXTRA+=("lint-baseline: $rel — getff's rules are off per file for $line (entries marked getff); new ones block in every other file")
+  # «armed with getff's rules switched on» needs a rule still on: a placement that took every rule back leaves
+  # the oxlint config as the project had it, and the arm pass treats its lint like any other script.
+  if [ "$LINTER_SLOT" = oxlint ] && ! node -e 'process.exit((JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).placed||[]).length?0:1)' "$res" 2>/dev/null; then
+    rm -f "$res"
+    return 0
+  fi
   rm -f "$res"
   ( cd "$PROJECT_ROOT" && npm run --silent lint ) >/dev/null 2>&1 && PLACE_LINT_OK=1
   return 0
@@ -3471,19 +3487,25 @@ json_edit_node() {
   command -v node >/dev/null 2>&1 || return 1
   GETFF_JSON_FILE="$file" GETFF_JSON_JS="$js" node -e '
     const fs = require("fs");
-    const f = process.env.GETFF_JSON_FILE, tmp = f + ".tmp";
+    const f = process.env.GETFF_JSON_FILE, tmp = f + ".tmp", keep = process.env.GETFF_JSON_KEEP;
+    const fail = () => {
+      try { fs.unlinkSync(tmp); } catch (_) { /* no tmp was written */ }
+      process.exit(1);
+    };
     try {
-      const o = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+      const before = fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "{}";
+      const o = JSON.parse(before);
       // Only a JSON object is a settings/.mcp.json: `[]`, a string or a number would be written back
       // unchanged while the caller printed «✓ registered» (cold review, 2026-09-28).
       if (o === null || typeof o !== "object" || Array.isArray(o)) process.exit(1);
       const out = new Function("o", "args", process.env.GETFF_JSON_JS)(o, process.argv.slice(1));
       if (out === undefined) process.exit(3);
-      fs.writeFileSync(tmp, JSON.stringify(out, null, 2) + "\n");
-      fs.renameSync(tmp, f);
+      const put = (text) => { fs.writeFileSync(tmp, text); fs.renameSync(tmp, f); };
+      // GETFF_JSON_KEEP names prove-rules.mjs: its keepLayout writes only the parts that changed (a project'"'"'s file).
+      if (keep) import(require("url").pathToFileURL(keep).href).then((m) => put(m.keepLayout(before, out))).catch(fail);
+      else put(JSON.stringify(out, null, 2) + "\n");
     } catch (e) {
-      try { fs.unlinkSync(tmp); } catch (_) { /* no tmp was written */ }
-      process.exit(1);
+      fail();
     }' "$@" 2>/dev/null
 }
 

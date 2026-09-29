@@ -531,7 +531,14 @@ sed 's/users/orders/g; s/User/Order/g' "$R/src/routes/users.ts" > "$R/src/routes
 ( cd "$R" && node node_modules/eslint/bin/eslint.js src/routes/orders.ts ) >"$WORK/r.lint" 2>&1
 ( cd "$R" && AIF_ESLINT_CMD="node $R/node_modules/eslint/bin/eslint.js" bash scripts/check-rule-enforced.sh ) >"$WORK/r.enforced" 2>&1
 rc_enf=$?
+# A second pass: the lint is green now (the exemption makes it so), and the baseline must stay recorded —
+# the shrink finds it only through that line (prove-rules.mjs --shrink).
+rm -f "$R/src/routes/orders.ts"
+( cd "$R" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/r2.log" 2>&1
 unborrow "$R"
+grep -q '^lint-baseline: eslint.config.mjs — ' "$R/.ai-factory/tool-decisions.md" \
+  && ok "R: a second install keeps the lint-baseline line while getff's block is in the config" \
+  || bad "R: the second install dropped the lint-baseline line: $(grep -E '^(lint-baseline|rule-not-placed)' "$R/.ai-factory/tool-decisions.md" | tr '\n' '|')"
 [ "$rc_r" -eq 0 ] || bad "R: install.sh ts-server rc=$rc_r (tail: $(tail -3 "$WORK/r.log" | tr '\n' '|'))"
 grep -q 'const RULE_GLOBS' "$R/eslint.config.mjs" && grep -qF "'rules-as-tests/no-unsafe-zod-parse': 'error'" "$R/eslint.config.mjs" \
   && ok "R: RULE_GLOBS and R2 are in the consumer's config" \

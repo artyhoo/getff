@@ -62,6 +62,8 @@
 # `npm run lint` is armed. Asserts each of those by name, a new finding still failing the lint and the
 # commit, a fixed old finding keeping the lint green, the baseline shrinking through the probe and the
 # commit's fold (M2), and the rule table's proof through `npm run lint` (R2). Network: registry ESLint.
+# Not here: per-file exemptions in a config the PROJECT owns (lib.sh place_lint_rules returns early on getff's
+# own config) — tests/install-sh/synth-wire-consumer-config.test.sh arm R and prove-rules.test.ts cover those.
 #
 # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free
 # (.claude/rules/no-paid-llm-in-ci.md); the npm registry is the only network it touches, exactly

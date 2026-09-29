@@ -262,6 +262,30 @@ describe('placement on an oxlint project whose lint is green (T-C1)', () => {
     expect(out).toContain('LINT_OK=1');
   });
 
+  it('a placement that takes every rule back never claims the lint runs with them switched on', () => {
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP });
+    // The project's oxlint gives up (exit 2, no report) on any config holding getff's marked entries.
+    rmSync(join(dir, 'node_modules/.bin/oxlint'));
+    write(dir, 'node_modules/.bin/oxlint', `#!/bin/sh\nif grep -q __getff_proof__ .oxlintrc.json; then echo boom >&2; exit 2; fi\nexec "${OXLINT}" "$@"\n`);
+    spawnSync('chmod', ['+x', join(dir, 'node_modules/.bin/oxlint')]);
+    const { out } = place(dir, 'oxlint');
+    expect(out).toContain("EX:rule-not-placed: * — your lint exits 2 once getff's rules are on, with no report getff can read: boom");
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).not.toContain('__getff_proof__');
+    expect(out).toContain('LINT_OK=\n');
+    expect(out).not.toContain('switched on in');
+  });
+
+  it('a later pass on a red lint says the rules an earlier pass placed stay on, and leaves them as they were', () => {
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP });
+    place(dir, 'oxlint');
+    const placed = readFileSync(join(dir, '.oxlintrc.json'), 'utf8');
+    write(dir, 'src/new.ts', "export function h() {\n  throw 'new';\n}\n");
+    const { out } = place(dir, 'oxlint');
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(placed);
+    expect(out).toContain("EX:rule-not-placed: * — not placed again: your lint exits 1 as it stands; the rules an earlier install placed stay on, as they were");
+    expect(out).toContain('LINT_OK=\n');
+  });
+
   it('a lint that is red before anything is switched on gets no rule written (paired negative)', () => {
     const cfg = { ...OX_CFG, rules: { ...(OX_CFG.rules as Json), 'no-debugger': 'error' } };
     const dir = oxProject({ 'src/App.tsx': GOOD_APP, 'src/x.ts': 'export function f() {\n  debugger;\n}\n' }, { cfg });
@@ -296,13 +320,18 @@ describe('existing violations become per-file exemptions (T-C2)', () => {
     const legacy = ex.find((o) => o.files.includes('src/legacy.ts'))!;
     const carrier = legacy.rules[CARRIER] as [string, ...Array<{ message: string }>];
     expect(carrier.slice(1).map((e) => e.message.slice(0, 11))).toEqual(['[getff:G2] ']); // G1 exempt, G2 still on
-    expect(c.overrides!.at(-1)!.files).toContain(EXEMPT); // the exemptions come last, so they win
+    expect(c.overrides!.at(-1)!.files).toContain(EXEMPT); // after getff's own entries, so they win
     expect(npmLint(dir).status).toBe(0);
   });
 
   it('a NEW violation still fails the lint, also of a carrier still on in an exempted file (paired negative)', () => {
     const dir = oxProject(files);
-    place(dir, 'oxlint');
+    const { out } = place(dir, 'oxlint');
+    // The record says what an exemption does: a per-file `off` takes new hits of that rule in that file too.
+    expect(out).toContain("EX:lint-baseline: .oxlintrc.json — getff's rules are off per file for 4 existing violations in 4 files (entries marked getff); new ones block in every other file");
+    expect(out).toContain('existing violations in 4 files exempted per file — new ones fail in every other file');
+    write(dir, 'src/old.ts', "export function f() {\n  throw 'old';\n}\nexport function f2() {\n  throw 'again';\n}\n");
+    expect(npmLint(dir).status).toBe(0); // the same rule in the same file: exempted, as the record says
     write(dir, 'src/new.ts', "export function h() {\n  throw 'new';\n}\n");
     expect(npmLint(dir).status).not.toBe(0);
     const dir2 = oxProject(files);
@@ -335,6 +364,14 @@ describe('the batch proof through the project command (T-C4)', () => {
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--prove'], { cwd: dir, encoding: 'utf8' });
     expect(rowOf(r.stdout, 'no-empty')).toMatchObject({ status: 'not_wired', reason: 'switched off in the config', proof: '—' });
     expect(r.status).not.toBe(0);
+  });
+
+  it('an oxlint config with comments (oxlint allows them) gives a table that says why, never a stack trace', () => {
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP }, { cfgText: '{\n  // the project\'s own note\n  "plugins": ["react"]\n}\n' });
+    record(dir);
+    const r = table(dir);
+    expect(r.stderr).not.toContain('SyntaxError');
+    expect(rowOf(r.stdout, 'no-throw-literal')?.reason, r.stdout).toBe('.oxlintrc.json is not plain JSON (oxlint allows comments; getff reads and edits only plain JSON), so getff placed no rule in it');
   });
 
   it('a rule that stays silent on its bad example is not_wired, never proven (paired negative)', () => {
@@ -371,12 +408,46 @@ describe('placement is additive and removable in one command (T-C6)', () => {
     expect(c.jsPlugins).toEqual(projectCfg.jsPlugins);
     const { [CARRIER]: _carrier, ...projectRules } = c.rules as Json;
     expect(projectRules).toEqual(projectCfg.rules);
-    expect(c.overrides![0]).toEqual(projectCfg.overrides[0]);
+    expect(c.overrides!.at(-1)).toEqual(projectCfg.overrides[0]); // getff's entries go before it: insertions only
     const builtins = owned(c).find((o) => o.files[0] === '**/*')!;
     expect(builtins.rules).toEqual({ 'no-throw-literal': 'error' }); // no-empty is the project's: not set
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--remove'], { cwd: dir, encoding: 'utf8' });
     expect(r.status).toBe(0);
     expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(before);
+  });
+
+  // create-vite's layout: a one-line array, and a rule of getff's plugin the project set itself.
+  const VITE_TEXT = [
+    '{',
+    '  "$schema": "./node_modules/oxlint/configuration_schema.json",',
+    '  "plugins": ["react", "typescript", "oxc"],',
+    '  "jsPlugins": [{ "name": "rules-as-tests", "specifier": "./eslint-rules-local/index.mjs" }],',
+    '  "rules": {',
+    '    "react/rules-of-hooks": "error",',
+    '    "rules-as-tests/no-unsafe-zod-parse": "warn"',
+    '  }',
+    '}',
+    '',
+  ].join('\n');
+  /** Every line of `before` is still in `after`, whole and in order — the own-config cell's «insertions only». */
+  const onlyInserted = (before: string, after: string) => {
+    const want = before.split('\n');
+    let i = 0;
+    for (const l of after.split('\n')) if (i < want.length && l === want[i]) i++;
+    return i === want.length;
+  };
+
+  it("only inserts lines into the project's layout, and --remove gives the bytes back with the project's own getff-plugin setting", () => {
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP, 'src/old.ts': "export function f() {\n  throw 'old';\n}\n" }, { cfgText: VITE_TEXT });
+    const { out } = place(dir, 'oxlint');
+    const placed = readFileSync(join(dir, '.oxlintrc.json'), 'utf8');
+    expect(out).toContain('LINT_OK=1');
+    expect(exempt(cfgOf(dir)).length, placed).toBeGreaterThan(0);
+    expect(onlyInserted(VITE_TEXT, placed), placed).toBe(true);
+    expect((cfgOf(dir).rules as Json)['rules-as-tests/no-unsafe-zod-parse']).toBe('warn');
+    const r = spawnSync('node', ['scripts/prove-rules.mjs', '--remove'], { cwd: dir, encoding: 'utf8' });
+    expect(r.stdout).not.toContain('rule rules-as-tests/no-unsafe-zod-parse');
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(VITE_TEXT);
   });
 
   it('--remove on a project that never had getff entries leaves the file byte-identical (paired negative)', () => {
@@ -529,6 +600,17 @@ describe("ESLint, the project's own config (T-C5)", () => {
     expect(readFileSync(join(apart, 'eslint.config.mjs'), 'utf8')).toBe(kept);
   });
 
+  it('a last element with a trailing `//` comment takes its comma before the comment', () => {
+    const dir = eslintProject({ 'src/api/old.ts': UNSAFE });
+    const cfg = join(dir, 'eslint.config.mjs');
+    writeFileSync(cfg, readFileSync(cfg, 'utf8').replace(/('error' \} \}),\n\];/, "$1 // the boundary rule, no trailing comma\n];"));
+    expect(readFileSync(cfg, 'utf8')).toContain("} } // the boundary rule, no trailing comma\n];");
+    const { out } = place(dir, 'eslint');
+    expect(out).toContain('LINT_OK=1');
+    expect(readFileSync(cfg, 'utf8')).toContain("} }, // the boundary rule, no trailing comma\n");
+    expect(npmLint(dir).status).toBe(0);
+  });
+
   it('a built-in the config switches on for every .ts file is found and proven (R2: a `**/*` glob once gave a `.*` sample)', () => {
     const dir = eslintProject({ 'src/api/ok.ts': SAFE }, { 'no-empty': 'error', 'no-throw-literal': 'error' });
     record(dir, { linter: 'eslint' });
@@ -540,6 +622,26 @@ describe("ESLint, the project's own config (T-C5)", () => {
     const off = eslintProject({ 'src/api/ok.ts': SAFE });
     record(off, { linter: 'eslint' });
     expect(rowOf(table(off).stdout, 'no-empty')).toMatchObject({ status: 'not_wired', reason: 'not in the eslint config' });
+  });
+
+  it('an exempted generated rule switches every generated rule off in that file, and the table says so for each', () => {
+    // ESLint reports every generated rule under the one carrier setting, so the per-file `off` covers them all.
+    const entries = Object.values(MANIFEST).map((m) => ({ selector: m.check.selector, message: m.check.message }));
+    const dir = eslintProject({ 'src/api/legacy.ts': 'declare const ReactDOM: any, app: any, el: any;\nReactDOM.render(app, el);\n' }, { [CARRIER]: ['error', ...entries] });
+    write(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json', JSON.stringify(MANIFEST, null, 2) + '\n');
+    const { out } = place(dir, 'eslint');
+    expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toContain(`{ files: ['src/api/legacy.ts'], rules: { '${CARRIER}': 'off' } },`);
+    record(dir, { linter: 'eslint', extra: out.split('\n').filter((l) => l.startsWith('EX:') && l.length > 3).map((l) => l.slice(3)) });
+    preCommit(dir);
+    const t = table(dir).stdout;
+    for (const id of ['getff:G1', 'getff:G2']) {
+      expect(rowOf(t, id)?.status, t).toBe('partial');
+      expect(rowOf(t, id)?.reason, t).toContain('in 1 file an exempted generated rule switches every generated rule off');
+    }
+    expect(t).toContain(`existing violation: ${CARRIER} in src/api/legacy.ts — every generated rule is off in this file`);
+    // Paired negative: a generated rule there still fails in any other file.
+    write(dir, 'src/api/new.ts', 'declare const Button: any;\nButton.defaultProps = {};\n');
+    expect(npmLint(dir).status).not.toBe(0);
   });
 
   it("red from a rule of the project's own → nothing is exempted (paired negative)", () => {
@@ -782,13 +884,14 @@ describe('the lint baseline shrinks as old findings are fixed, never grows (T-D2
     const dir = exemptedOxProject();
     expect(exemptFiles(cfgOf(dir))).toEqual(['src/App.tsx', 'src/old.ts', 'src/older.ts']);
     write(dir, 'src/old.ts', THROW_FIXED);
+    git(dir, 'add', 'src/old.ts'); // the commit carries the fix
     const p = armedRun(dir, '--probe');
     expect(p.stdout, p.stderr).toContain("lint baseline .oxlintrc.json: getff's per-file exemptions 3 → 2 files (fixed: no-throw-literal in src/old.ts)");
     expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(committed(dir, '.oxlintrc.json'));
     expect(armedRun(dir, '--fold').status).toBe(0);
     expect(exemptFiles(cfgOf(dir))).toEqual(['src/App.tsx', 'src/older.ts']);
     expect(indexed(dir, '.oxlintrc.json')).toBe(readFileSync(join(dir, '.oxlintrc.json'), 'utf8'));
-    const line = "lint-baseline: .oxlintrc.json — getff's rules are off per file for 2 existing violations in 2 files (entries marked getff), new ones still block";
+    const line = "lint-baseline: .oxlintrc.json — getff's rules are off per file for 2 existing violations in 2 files (entries marked getff); new ones block in every other file";
     expect(baselineLine(readFileSync(join(dir, REC), 'utf8'))).toBe(line);
     expect(baselineLine(indexed(dir, REC))).toBe(line);
     expect(npmLint(dir).status).toBe(0);
@@ -813,6 +916,7 @@ describe('the lint baseline shrinks as old findings are fixed, never grows (T-D2
     recordFromPlace(dir, out, 'eslint');
     commitAll(dir);
     write(dir, 'src/api/a.ts', SAFE);
+    git(dir, 'add', 'src/api/a.ts');
     expect(armedRun(dir, '--probe').stdout).toContain("lint baseline eslint.config.mjs: getff's per-file exemptions 2 → 1 files");
     expect(armedRun(dir, '--fold').status).toBe(0);
     const text = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
@@ -824,6 +928,50 @@ describe('the lint baseline shrinks as old findings are fixed, never grows (T-D2
     armedRun(dir, '--probe');
     armedRun(dir, '--fold');
     expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toBe(before);
+    expect(npmLint(dir).status).toBe(0);
+  });
+
+  it("ESLint's own config: a route path with `[id]` stays exempted when another file's exemption is folded away", () => {
+    const dir = eslintProject({ 'src/api/[id]/save.ts': UNSAFE, 'src/api/b.ts': UNSAFE });
+    const { out } = place(dir, 'eslint');
+    recordFromPlace(dir, out, 'eslint');
+    commitAll(dir);
+    expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toContain("'src/api/\\\\[id\\\\]/save.ts'");
+    const t = table(dir).stdout;
+    expect(t).toContain('existing violation: rules-as-tests/no-unsafe-zod-parse in src/api/[id]/save.ts');
+    write(dir, 'src/api/b.ts', SAFE);
+    git(dir, 'add', 'src/api/b.ts');
+    expect(armedRun(dir, '--probe').stdout).toContain("lint baseline eslint.config.mjs: getff's per-file exemptions 2 → 1 files");
+    expect(armedRun(dir, '--fold').status).toBe(0);
+    const text = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
+    expect(text).toContain("'src/api/\\\\[id\\\\]/save.ts'");
+    expect(text).not.toContain("'src/api/b.ts'");
+    expect(indexed(dir, 'eslint.config.mjs')).toBe(text);
+    expect(npmLint(dir).status).toBe(0);
+  });
+
+  it('a fix the commit does not carry is never folded into the commit: unstaged, the index keeps the exemption', () => {
+    const dir = exemptedOxProject();
+    write(dir, 'src/old.ts', THROW_FIXED); // fixed on disk, not staged
+    expect(armedRun(dir, '--probe').stdout).toContain('fixed: no-throw-literal in src/old.ts');
+    expect(armedRun(dir, '--fold').status).toBe(0);
+    const staged = JSON.parse(indexed(dir, '.oxlintrc.json')) as { overrides?: Override[] };
+    expect(exemptFiles(staged)).toEqual(['src/App.tsx', 'src/old.ts', 'src/older.ts']); // the commit's old.ts is still red
+    expect(baselineLine(indexed(dir, REC))).toBe(baselineLine(committed(dir, REC)));
+    expect(exemptFiles(cfgOf(dir))).toEqual(['src/App.tsx', 'src/older.ts']); // the working tree's old.ts is fixed
+    expect(npmLint(dir).status).toBe(0);
+  });
+
+  it('a fix reverted after the probe is folded nowhere (paired negative)', () => {
+    const dir = exemptedOxProject();
+    write(dir, 'src/old.ts', THROW_FIXED);
+    git(dir, 'add', 'src/old.ts');
+    expect(armedRun(dir, '--probe').stdout).toContain('fixed: no-throw-literal in src/old.ts');
+    write(dir, 'src/old.ts', THROW_OLD);
+    git(dir, 'add', 'src/old.ts');
+    armedRun(dir, '--fold');
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(committed(dir, '.oxlintrc.json'));
+    expect(indexed(dir, '.oxlintrc.json')).toBe(committed(dir, '.oxlintrc.json'));
     expect(npmLint(dir).status).toBe(0);
   });
 });

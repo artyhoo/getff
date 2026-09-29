@@ -1015,6 +1015,27 @@ _pc_null_rules_off() {
   echo "  ✓ eslint.config.mjs: $rules off — they need strictNullChecks, which your tsconfig does not set"
   note_not_wired "typed ESLint rules $rules — off: they need the strictNullChecks compiler option and your tsconfig does not set it; getff does not edit a project's tsconfig"
 }
+# _pc_keep_baselines — a baseline an earlier pass recorded stays recorded while it is still in the tree. A later
+# pass whose lint is already green (the exemptions are what make it green), or red on the project's own code, writes
+# no new line, and the shrink finds a baseline only through this line (prove-rules.mjs --shrink).
+_pc_keep_baselines() {
+  local rec="$PROJECT_ROOT/.ai-factory/tool-decisions.md" l rel f have
+  [ -f "$rec" ] || return 0
+  while IFS= read -r l; do
+    rel="${l#lint-baseline: }"; rel="${rel%% — *}"; have=""
+    for f in ${_pc_extra[@]+"${_pc_extra[@]}"}; do
+      case "$f" in "lint-baseline: $rel — "*) have=1 ;; esac
+    done
+    [ -z "$have" ] || continue
+    case "$rel" in
+      eslint-suppressions.json) [ -f "$PROJECT_ROOT/$rel" ] || continue ;;
+      .oxlintrc.json) grep -qF '__getff_exempt__' "$PROJECT_ROOT/$rel" 2>/dev/null || continue ;;
+      eslint.config.*) grep -qF '// getff:exempt:begin' "$PROJECT_ROOT/$rel" 2>/dev/null || continue ;;
+      *) continue ;;
+    esac
+    _pc_extra+=("$l")
+  done < <(awk '/<!-- aif:project-checks:end -->/{f=0} f && /^lint-baseline: /; /<!-- aif:project-checks:begin -->/{f=1}' "$rec")
+}
 # _pc_suppress — ESLint's bulk suppressions: record the existing findings in eslint-suppressions.json
 # (shrink-only: run-armed.sh's probe prunes what was fixed), so `npm run lint` blocks new findings only; lint-staged's eslint
 # steps get --pass-on-unpruned-suppressions so fixing an old finding does not block the commit.
@@ -1111,6 +1132,7 @@ else
   if [ "$_pc_fmt" = prettier ] && [ -f "$PROJECT_ROOT/.prettierrc.json" ] && getff_delivered "$PROJECT_ROOT/.prettierrc.json"; then
     _pc_fmt="prettier (.prettierrc.json placed by getff)"
   fi
+  _pc_keep_baselines
   _pc_body="### How this project checks itself (recorded by install.sh)
 stack: ${STACK:-unknown}
 linter: $(project_linter "$PROJECT_ROOT")

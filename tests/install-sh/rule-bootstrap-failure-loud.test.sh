@@ -93,6 +93,13 @@ grep -q 'NOT_WIRED: generated rule for research entry vite-env-via-import-meta �
   && ok "(E) the line names the entry and the gate's reason" \
   || bad "(E) expected 'generated rule for research entry <id> — dropped: <reason>' (got: $_out)"
 grep -Eq 'FAILED|REJECTED' <<<"$_out" && bad "(E) a partial drop printed FAILED/REJECTED" || ok "(E) a partial drop is not reported as a failed or rejected plan"
+_out=$(run_layer 1 '[rule-bootstrap] dropped research entry vite-env-via-import-meta — FF2005: unknown allowlistKey: vite')
+if grep -q 'NOT_WIRED: generated rule for research entry vite-env-via-import-meta — dropped: FF2005: unknown allowlistKey: vite$' <<<"$_out" \
+    && ! grep -q 'the other entries were generated' <<<"$_out"; then
+  ok "(E) a drop beside a failed generator never says the other entries were generated"
+else
+  bad "(E) a drop beside a failed generator: $(grep 'NOT_WIRED' <<<"$_out" | tr '\n' '|')"
+fi
 
 _check='{"kept":["react-keys-stable"],"dropped":[{"id":"vite-env-via-import-meta","reason":"FF2005: unknown allowlistKey: vite"}],"researchOnly":["react-keys-stable"]}'
 _out=$(CHECK_JSON="$_check" run_layer 0 '[rule-bootstrap] dropped research entry vite-env-via-import-meta — FF2005: unknown allowlistKey: vite')
