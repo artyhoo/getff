@@ -326,3 +326,31 @@ In `.claude/hooks/inject-session-bootstrap.sh` replace the `case "${AIF_HOOK_LAN
 - [ ] **V2.** Live check, recorded in the PR body: in a scratch consumer (installer run + plugin from this branch), one `claude -p` prompt with `AIF_HOOK_LANG=ru`. Count `[output-language]` lines and bootstrap digests in the transcript (want 1 and 1). List `${TMPDIR}/getff-hook-live/<session>/`: want only `claimed.*` files for the seven hooks. Also record whether every payload carried `session_id`; a missing one is a finding (both copies run there — safe, but say so).
 - [ ] **V3.** Same run with `--setting-sources user`: want every plugin hook to run once (no markers, no loss).
 - [ ] **V4.** Prior-art trailers: `prior-art-evaluations.md#150` plus the preserved #290 row, appended as a new SSOT row (re-derive its number) in the commit that adds `live-claim.sh`.
+
+### D12 hardening (adopted 2026-09-29 from the stopped runtime-claim design)
+
+A parallel design (branch `claude/infallible-wright-e796ee`, `.claude/hooks/lib/hook-claim.sh`, SSOT #291 draft) was compared against this one. The operator asked for the better one to be kept. This design stays because:
+- it covers the hand-maintained twins: 7 hooks against 4;
+- only the plugin waits (≤300 ms), whereas in hook-claim the vendored copy waits for the plugin's exit status, up to 15 s on every firing.
+
+Its author named three lost-gate paths in D12. Each one becomes a requirement of Task D12, with a firing arm:
+
+- **H1 — custom timeout.** A marker proves the project copy started, not that it delivered. If a consumer sets `"timeout"` on the project entry, Claude Code can kill that copy after the plugin yielded.
+  - `getff_live_claim` returns non-zero (so the plugin runs) when any settings file that names `.claude/hooks/<name>.sh` also contains `"timeout"`.
+  - Files to scan: `$CLAUDE_PROJECT_DIR/.claude/settings.json`, `.claude/settings.local.json`, `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json`, `/Library/Application Support/ClaudeCode/managed-settings.json` and `/etc/claude-code/managed-settings.json`.
+  - A file that exists but cannot be read counts as "timeout set".
+  - Reference: `_hc_custom_timeout`, `hook-claim.sh:104` on that branch.
+  - Arm D-timeout: a planted marker plus a settings entry with `"timeout": 5` for that hook means the plugin copy runs.
+- **H2 — the prelude fails open.** Every step of `getff_hook_live` must be unable to abort a hook under `set -euo pipefail`. Those steps are:
+  - the stdin buffer;
+  - `exec 0<`;
+  - the marker `mkdir` and write;
+  - the prune.
+  On any failure it returns 0 with stdin intact and writes no marker.
+  - Arm L-ro: run a real source hook under `set -euo pipefail` with an unwritable `TMPDIR`. Assert its normal output is unchanged and that no marker exists.
+- **H3 — trust in the marker directory.** The base becomes `${TMPDIR:-/tmp}/getff-hook-live.${UID:-0}`. Each level is created with `mkdir -m 700`.
+  - `getff_live_claim` trusts markers only when the base and `<sid>` directories are not symlinks and pass `[ -O dir ]`. Otherwise it runs.
+  - Arm D-foreign: a symlinked base directory means the plugin copy runs.
+  - This supersedes the base path given in Task D12 above.
+- **H4 — bounds on the wall clock.** Freshness (≤5 s) is measured as `date +%s` against the epoch in the marker name, never by counting sleep ticks.
+  - The ≤300 ms wait also stops once `date +%s` has moved more than 1 s past its start.
