@@ -17,7 +17,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: list-tool-bootstrapping-tree, stack: ts-server, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the mirror-check delivery and its not-wired notices add seven lines above it in setup.d/45-python.sh, so the python-lane copy line cited here re-anchored from 1229 to 1236; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against this range, the page was refreshed in it — lines inserted above it in setup.d/45-python.sh keep moving the python-lane copy line cited here, and it is re-anchored by content at each move; clears at the next gold refresh of this page
 ---
 
 # tool-bootstrapping skill

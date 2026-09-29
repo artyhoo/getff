@@ -18,7 +18,7 @@ sources:
   - packages/core/principles/15-skill-paired-negative.test.ts
 executed:
   - { example: list-rule-tests-and-its-runner, stack: ts-server, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the mirror-check pair added to the cited install.sh refresh list moved the firing-script copy citation from line 1115 to 1116, and the seven lines the mirror-check delivery and its not-wired notices add in setup.d/45-python.sh moved the python-lane copy citation from 1233 to 1240, both re-anchored here; the method-file anchor, already off on staging at line 235, now names line 239 of install.sh, where agents/rule-test-author.md sits; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against this range, the page was refreshed in it — lines inserted above them in install.sh and setup.d/45-python.sh keep moving the firing-script copy line and the python-lane copy line cited here, and both are re-anchored by content at each move; the method-file anchor names the install.sh line where agents/rule-test-author.md sits; clears at the next gold refresh of this page
 ---
 
 # rule-tests skill
@@ -105,7 +105,8 @@ cannot tell you that the docs behind a rule have aged.
   are lines 35 to 46, the reason for firing one rule alone is line 50, coverage per lane
   is lines 67 to 70, and the staleness steps are lines 78 to 89.
 - The firing script is copied from `packages/core/synthesizer/run-rule-tests-firing.sh`
-  by line 1128 of `install.sh`. The method file is on the installer's list at line 235.
+  by line 1128 of `install.sh`. The method file is on the installer's list at
+  line 239 of `install.sh`.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
   to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1393 of
   `setup.d/45-python.sh`.

@@ -18,7 +18,7 @@ sources:
   - tests/install-sh/baselines/python/greenfield.fingerprint
 executed:
   - { example: list-template-audit-and-packages-core, stack: ts-server, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the mirror-check delivery and its not-wired notices add seven lines above it in setup.d/45-python.sh, so the four-skill python-lane range cited here re-anchored from 1229 to 1235 to 1236 to 1242; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against this range, the page was refreshed in it — lines inserted above it in setup.d/45-python.sh keep moving the four-skill python-lane range cited here, and it is re-anchored by content at each move; clears at the next gold refresh of this page
 ---
 
 # template-audit skill
