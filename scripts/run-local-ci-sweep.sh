@@ -101,6 +101,10 @@
 #                         `build-getff-dist.sh --check`, is hermetic and ~12s — it is the
 #                         `getff-dist-manifest` row below, so manifest drift is now a LOCAL red.
 #                         The cell's remaining steps stay CI-only.
+#   path-scope            scripts/ci-path-scope.sh decides from the pull_request MERGE commit
+#                         and the event name — no PR merge ref locally, no decision to run. Its
+#                         logic is covered locally by scripts/ci-path-scope.test.sh (real merge
+#                         commits in a tmp repo), which the scripts/*.test.sh row runs.
 #   pr-commit-trailers    needs the PR base ref + the real PR commit range; the local channel
 #                         for it is the pre-push hook, not this sweep.
 #   fidelity-verdict-in-pr-body, stale-revert-in-pr-diff
