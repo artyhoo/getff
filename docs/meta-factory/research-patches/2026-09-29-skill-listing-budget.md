@@ -119,7 +119,8 @@ presence is not the same as trigger survival (caught by the cold review of this 
 share» below.
 
 **Compaction — a name-only index, once per compaction.** On `SessionStart(source=compact)` the
-bootstrap hook appends the names of the session's own last listing, grouped by namespace.
+bootstrap hook appends the names the session's own transcript records — the last full listing
+plus the deltas after it — grouped by namespace.
 Measured on the 123-skill host: 2,398 B per compaction, 0 B on every other source, 0 B per
 prompt. The hook's whole output is held under the harness's 10,000-character cap on hook output.
 It rides on the already-registered bootstrap hook, so nothing has to be registered by hand.
@@ -167,4 +168,9 @@ replaces the index built here.
   - `.claude/hooks/inject-session-bootstrap.sh` now reads stdin. Every earlier behaviour is pinned by its existing suite, which passes unchanged (29 cases).
   - Not swept here, owned by maintainers: `zcode-parity-doctrine.md` §2 row 14 and `rule-enforcement-channel-selection.md` §4 describe the bootstrap hook as a digest injector only; both stay true, neither mentions the index yet.
 - **Self-application (T15):** the gate was run against the tree that motivated it and failed there; the index was run against a real 81 MB transcript, not only against fixtures.
+- **First live compaction (2026-09-29, the authoring session itself):** the block arrived, and it
+  held one name instead of 123. Cause: after a SKILL.md is edited mid-session the harness records
+  a delta listing (`isInitial: false`) naming only that skill, and the first version took the last
+  record alone. Fixed to «last full listing plus later deltas»; the test that pins it fails on the
+  pre-fix lib. Neither the fixtures nor the cold review had this record shape — only the live run.
 - **Own cold review (T19):** a reviewer that never saw the authoring session returned REVISE — 2 MAJOR (the hook blocked forever on a closed or writer-less stdin; the frontmatter reader under-counted wrapped, quoted and indicator-carrying scalars, and an unreadable file measured 0 B and passed), 5 MINOR. All fixed before the PR, each with a test that fails on the pre-fix code.

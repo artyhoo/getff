@@ -11,8 +11,9 @@
  *
  * Contract pinned here:
  *   - fires on `source=compact` only — every other source pays zero bytes;
- *   - names come from the LAST `skill_listing` attachment of the session transcript, i.e.
- *     exactly what the harness itself had offered (stamped / disabled skills stay absent);
+ *   - names come from the session transcript — the LAST full `skill_listing` attachment plus
+ *     the deltas after it — i.e. what the harness itself had offered (stamped / disabled
+ *     skills stay absent);
  *   - with no usable transcript it falls back to the project's own model-invocable skills;
  *   - it is bounded in bytes and can never break the digest it rides on.
  */
@@ -64,11 +65,13 @@ function sandbox(
   return root;
 }
 
-function listing(names: string[]): string {
+/** `full` = the harness's `isInitial`: a full listing, as opposed to a mid-session delta. */
+function listing(names: string[], full = true): string {
   return JSON.stringify({
     type: 'attachment',
     attachment: {
       type: 'skill_listing',
+      isInitial: full,
       skillCount: names.length,
       names,
       content: names.map((n) => `- ${n}: some description`).join('\n'),
@@ -162,6 +165,27 @@ describe('skill index after compaction', () => {
       expect(r.stdout).not.toContain(OPEN);
     },
   );
+
+  it('adds a mid-session delta to the full listing instead of replacing it', () => {
+    // Measured live 2026-09-29: editing one SKILL.md made the harness record a delta naming
+    // that one skill; last-record-wins then shrank a 123-name index to a single name.
+    const root = sandbox();
+    const t = transcript(root, [
+      listing(['stale-skill']),
+      listing(['orchestrator', 'reviewer', 'superpowers:brainstorming']),
+      listing(['orchestrator'], false),
+      listing(['mbp:handoff'], false),
+    ]);
+
+    const r = run(root, { source: 'compact', transcript_path: t });
+
+    const b = block(r.stdout);
+    expect(b).toContain('orchestrator, reviewer');
+    expect(b).toContain('superpowers: brainstorming');
+    expect(b).toContain('mbp: handoff');
+    expect(b).not.toContain('stale-skill');
+    expect(b.match(/orchestrator/g)).toHaveLength(1);
+  });
 
   it('is not fooled by a transcript line that merely quotes a listing', () => {
     const root = sandbox();

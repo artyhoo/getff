@@ -15,8 +15,8 @@
 # `startup|resume|clear|compact`, so the index rides on it and needs no registration.
 #
 # WHAT IT EMITS — on `source=compact` only, one block of skill NAMES grouped by namespace.
-# The names are read from the last `skill_listing` attachment in the session transcript,
-# i.e. exactly what the harness itself had offered: skills hidden by
+# The names are read from the session transcript — the last full `skill_listing` attachment
+# plus the deltas after it — i.e. exactly what the harness itself had offered: skills hidden by
 # `disable-model-invocation`, `skillOverrides` or a disabled plugin were never in that
 # listing and so never reappear here. No usable transcript → the project's own
 # model-invocable skills. Nothing to list → nothing emitted.
@@ -27,7 +27,7 @@
 # NON-BLOCKING BY SHAPE: every failure path returns 0 with no output — this runs inside a
 # SessionStart hook, and a SessionStart failure must never break a session start.
 
-# Names of the last skill listing the harness recorded in the transcript, one per line.
+# Names the harness currently offers, as recorded in the transcript, one per line.
 _skill_index_names_from_transcript() {
   local tpath="$1"
   [ -n "$tpath" ] && [ -r "$tpath" ] || return 0
@@ -36,15 +36,22 @@ _skill_index_names_from_transcript() {
   # merely QUOTES a listing is some other record type and fails the select.
   # `-R` + `fromjson?` parses line by line: one malformed or half-written record must not
   # stop the stream, or the last listing BEFORE it would be reported as the current one.
+  # A listing is either FULL (`isInitial: true`) or a DELTA (`isInitial: false`) that names
+  # only the skills whose entry changed mid-session. The current offer is therefore the last
+  # full listing plus every delta after it — taking the last record alone reduces the index
+  # to the one skill that was edited (measured live, 2026-09-29: 123 names became 1).
   grep -F 'skill_listing' "$tpath" 2>/dev/null \
     | jq -R -c 'fromjson?
              | select(type == "object")
              | select((.attachment | type) == "object")
              | select(.attachment.type == "skill_listing")
-             | .attachment.names
-             | select(type == "array")' 2>/dev/null \
-    | tail -n 1 \
-    | jq -r '.[] | select(type == "string")' 2>/dev/null \
+             | select((.attachment.names | type) == "array")
+             | {full: (.attachment.isInitial == true), names: .attachment.names}' 2>/dev/null \
+    | jq -s -r '(map(.full) | rindex(true)) as $start
+             | .[($start // 0):]
+             | map(.names[])
+             | .[]
+             | select(type == "string")' 2>/dev/null \
     | tr -d '\r' \
     | grep -E '^([A-Za-z0-9._-]+:)?[A-Za-z0-9._-]+$' || true
 }
