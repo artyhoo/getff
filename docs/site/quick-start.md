@@ -12,7 +12,7 @@ sources:
   - docs/site/terms.md
   - packages/core/manifest/maturity.json
 next: quickstart-ts.md
-docs-refresh: deferred — re-verified 2026-09-28, quickstart-ts.md changed one sentence about the output that ends an install (a checked block replaces a next-steps list); this page only links to it and makes no claim about that output; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-28, the two cited quickstart pages gained a sentence about the new scripts/check-zcode-mirror.sh delivery and its hook rung, and quickstart-ts.md changed one sentence about the output that ends an install (a checked block replaces a next-steps list); this overview names no delivered files and no hook steps and makes no claim about that output, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start

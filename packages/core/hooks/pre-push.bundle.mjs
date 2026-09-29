@@ -1884,11 +1884,11 @@ async function cmdScriptLivenessEntry(ctx) {
 }
 var SHIPPED_MD_DESTINATIONS = [
   "AGENTS.md",
-  // 30-templates.sh:99 / 45-python.sh:1386 (install_agents_md)
+  // 30-templates.sh:99 / 45-python.sh:1399 (install_agents_md)
   ".ai-factory/AI-USAGE-GUIDE.md",
   ".ai-factory/ARCHITECTURE.md",
   ".ai-factory/ARCHITECTURE.python.md",
-  // 45-python.sh:1401 (ledger A2-10)
+  // 45-python.sh:1414 (ledger A2-10)
   ".ai-factory/ARCHITECTURE.react-native.md",
   ".ai-factory/ARCHITECTURE.react-next.md",
   ".ai-factory/ARCHITECTURE.react-spa.md",

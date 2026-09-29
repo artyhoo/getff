@@ -6,6 +6,7 @@ sources:
   - docs/site/quickstart-ts.md
   - docs/site/terms.md
   - docs/site/understand/why-a-rule-must-prove-it-fires.md
+  - packages/core/audit-self/check-zcode-mirror.sh
   - packages/core/eslint-rules/no-unsafe-zod-parse.ts
   - packages/core/templates/shared/.lintstagedrc.json
   - packages/core/templates/shared/husky-pre-commit.sh
@@ -13,9 +14,11 @@ sources:
   - setup.d/lib.sh
   - templates/ts-server/github-actions-ci.yml
 executed:
-  - { example: commit-refused, stack: ts-server, date: 2026-09-21, result: exit-1 }
-  - { example: commit-accepted, stack: ts-server, date: 2026-09-21, result: exit-0 }
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+  - { example: commit-refused, stack: ts-server, date: 2026-09-28, result: exit-1 }
+  - { example: commit-accepted, stack: ts-server, date: 2026-09-28, result: exit-0 }
+  - { example: mirror-refused, stack: ts-server, date: 2026-09-28, result: exit-1 }
+  - { example: mirror-accepted, stack: ts-server, date: 2026-09-28, result: exit-0 }
+docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the husky-pre-commit template gained a mirror check ahead of lint-staged, so both commit transcripts were re-executed on a fresh ts-server install; the refusal quote gained only the husky exit line at its bottom, the check's own line runs before the quoted tail and is named in the step-2 prose instead, and the hashes and branch name were re-quoted; a mirror section written from two more runs now sits between the steps and What you built, its exemption paragraph limited to the skill-by-skill shape, and the check script joined the sources; clears at the next gold refresh of this page
 ---
 
 # Stop a bad commit
@@ -61,9 +64,12 @@ do not have one, do the [quick start](../quickstart-ts.md) first.
    git commit -m "feat: create user"
    ```
 
-   Git does not create the commit. First you see a list of progress lines, one of them
-   marked `[FAILED]`. Then the output ends like this. These are the last lines exactly
-   as printed, with one change: the long path to the file is cut to `…`.
+   Git does not create the commit. First a line from the skill-mirror check — your
+   project has no `.zcode/` directory, so it steps aside ([why it is
+   there](#the-mirror-check-on-every-commit) comes right after the steps). Then a list of
+   progress lines, one of them marked `[FAILED]`. Then the output ends like this. These
+   are the last lines exactly as printed, with one change: the long path to the file is
+   cut to `…`.
 
    ```text
    [STARTED] Reverting to original state because of errors...
@@ -77,6 +83,7 @@ do not have one, do the [quick start](../quickstart-ts.md) first.
      6:16  error  Use `.safeParse()` instead of `.parse()` in HTTP boundaries — `.parse()` throws and bypasses structured error handling (R2)  rules-as-tests/no-unsafe-zod-parse
 
    ✖ 1 problem (1 error, 0 warnings)
+   husky - pre-commit script failed (code 1)
    ```
 
    Read the error line. It names the file, the line, and the column. It says what to do
@@ -91,7 +98,7 @@ do not have one, do the [quick start](../quickstart-ts.md) first.
    ```
 
    ```text
-   ad44471 chore: install getff
+   d5fd743 chore: install getff
    ```
 
    Your last commit is still the install, and your hash will differ. The change is
@@ -124,13 +131,64 @@ do not have one, do the [quick start](../quickstart-ts.md) first.
    [COMPLETED] Applying modifications from tasks...
    [STARTED] Cleaning up temporary files...
    [COMPLETED] Cleaning up temporary files...
-   [replay3 425bf41] feat: create user
+   [master ecd83b1] feat: create user
     1 file changed, 11 insertions(+)
     create mode 100644 src/routes/create-user.ts
    ```
 
    The gate ran again, found nothing, and let the commit through. Your branch name and
    commit hash will differ.
+
+## The mirror check on every commit
+
+The refusal above opened with a line you have not met yet. The pre-commit hook does
+more than run the linter: its first check compares two [skill](../terms.md#skill)
+folders. Teams that use
+getff with more than one AI coding tool keep a mirror — a `.zcode/skills/` folder
+holding one entry per skill in `.claude/skills/`, so the other tool sees the same
+skills. The check, `scripts/check-zcode-mirror.sh`, verifies that mirror by name on
+every commit. Your project has no `.zcode/` directory, so the check reports once and
+steps aside:
+
+```text
+check-zcode-mirror: no .zcode/ directory at … — Claude-Code-only consumer, nothing to check
+```
+
+If you do keep a mirror, an incomplete one blocks the commit and names the fix. Here a
+link is missing, then the same commit after the link is created:
+
+```text
+check-zcode-mirror: missing mirror entry for skill 'arch' — fix: ln -s ../../.claude/skills/arch .zcode/skills/arch (or add 'arch <reason >= 20 chars>' to .ai-factory/zcode-mirror-exemptions.txt)
+husky - pre-commit script failed (code 1)
+```
+
+```text
+check-zcode-mirror: OK — every .claude/skills entry has a .zcode/skills counterpart (mirror complete)
+```
+
+The check never creates, repairs, or deletes anything — mirroring stays your call. For
+each skill in `.claude/skills/` it accepts a link or a real folder in `.zcode/skills/`,
+and it accepts the shortcut shape of one link `.zcode/skills → ../.claude/skills` for
+the whole set. It reads the file system, not git, so a gitignored `.zcode/` is still
+checked. A dangling link fails by name.
+
+A skill you deliberately do not mirror gets an exemption instead of a link. The file
+`.ai-factory/zcode-mirror-exemptions.txt` does not exist until you create it; give it
+one line per skill — the name, a space, and a reason of at least twenty characters.
+`#` comments and blank lines are fine:
+
+```text
+# skills that intentionally have no ZCode counterpart
+orchestrator runs Claude Code sessions only, there is no ZCode equivalent to link
+```
+
+A reason under twenty characters is refused — a nudge to say why, not to wave the
+check through. If a skill later disappears from `.claude/skills/`, its leftover
+exemption line blocks the commit too.
+
+The check reads this file only when it compares the mirror skill by skill. With the
+one-link shape, or with no `.zcode/` at all, it finishes before it opens the file. An
+exemption changes nothing there, and a leftover line does not block.
 
 ## What you built
 

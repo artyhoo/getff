@@ -56,6 +56,9 @@ copy_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_RO
 # Checks core.hooksPath=.husky, pre-commit/pre-push present+executable+referencing gate commands.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-shields-up.sh" "$PROJECT_ROOT/scripts/check-shields-up.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
+# W2-G (#1502): consumer ZCode skill-mirror check — .zcode/skills completeness, read-only.
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
