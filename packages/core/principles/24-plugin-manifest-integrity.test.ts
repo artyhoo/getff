@@ -408,6 +408,37 @@ const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 // which must export `AIF_HOOK_CHANNEL=plugin` so the guard actually fires on the plugin channel.
 const HASH_WRITER = join(REPO_ROOT, 'scripts/plugin-source-hashes.sh');
 
+// Positional, not presence-only: every code line (comments dropped) that carries
+// `[output-language]` must sit between a `case "${AIF_HOOK_CHANNEL:-}…" in` opener and its
+// `esac`, and that block must hold the silent `plugin:*) : ;;` arm. Guard text that exists only
+// in a comment, or an extra unconditional echo outside the block, is RED. The silent arm must
+// also come BEFORE any emitting line, because case takes the first matching arm. The runtime
+// L-D5 arm in tests/plugin/run-hook.test.sh still owns the behaviour end to end.
+export function bootstrapLanguageLineGuarded(src: string): boolean {
+  const lines = src.split('\n').map((l) => l.replace(/^\s*#.*$/, ''));
+  let open = -1;
+  let guardedBlock = false;
+  for (const line of lines) {
+    if (open < 0 && /^\s*case\s+"\$\{AIF_HOOK_CHANNEL:-\}[^"]*"\s+in\b/.test(line)) {
+      open = 1;
+      guardedBlock = false;
+      continue;
+    }
+    if (open > 0) {
+      if (/^\s*case\b/.test(line)) open++;
+      if (/^\s*esac\b/.test(line) && --open === 0) {
+        open = -1;
+        continue;
+      }
+      if (/^\s*plugin:\*\)\s*:\s*;;/.test(line)) guardedBlock = true;
+      if (line.includes('[output-language]') && !guardedBlock) return false;
+      continue;
+    }
+    if (line.includes('[output-language]')) return false;
+  }
+  return true;
+}
+
 export function sourceHashManifestViolations(root: string): string[] {
   const out: string[] = [];
   const rel = 'plugin/hooks/lib/source-sha256.txt';
@@ -420,14 +451,8 @@ export function sourceHashManifestViolations(root: string): string[] {
   }
   const have = read(rel);
   if (want && want !== have) out.push(`${rel} is stale — run: bash scripts/generate-plugin-twins.sh`);
-  const bootstrapTwin = read('plugin/hooks/inject-session-bootstrap');
-  if (bootstrapTwin.includes('[output-language]')) {
-    const guarded =
-      /case\s+"\$\{AIF_HOOK_CHANNEL:-\}[^"]*"\s+in/.test(bootstrapTwin) &&
-      /plugin:\*\)\s*:\s*;;/.test(bootstrapTwin);
-    if (!guarded)
-      out.push('plugin/hooks/inject-session-bootstrap emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone');
-  }
+  if (!bootstrapLanguageLineGuarded(read('plugin/hooks/inject-session-bootstrap')))
+    out.push('plugin/hooks/inject-session-bootstrap emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone');
   if (!read('plugin/hooks/inject-output-language').includes('[output-language]'))
     out.push('plugin/hooks/inject-output-language no longer emits [output-language] — the line would reach nobody');
   if (!read('plugin/hooks/run-hook.cmd').includes('AIF_HOOK_CHANNEL=plugin'))
@@ -1112,6 +1137,26 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
       // D5 ruling: an unguarded [output-language] line in the bootstrap twin is RED.
       w('plugin/hooks/inject-session-bootstrap', 'echo "[output-language] x"\n');
       expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits \[output-language\] on the plugin channel/);
+      // Presence is not enough (task-4 review): guard text only in a comment is RED ...
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        '# case "${AIF_HOOK_CHANNEL:-}:x" in\n#  plugin:*) : ;;\necho "[output-language] x"\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // ... a real guard plus one stray unconditional echo outside it is RED ...
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  plugin:*) : ;;\n  *:ru) echo "[output-language] x" ;;\nesac\necho "[output-language] y"\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
+      // ... and an emitting arm placed BEFORE the silent plugin arm is RED (first match wins).
+      w(
+        'plugin/hooks/inject-session-bootstrap',
+        'case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in\n' +
+          '  *:ru) echo "[output-language] x" ;;\n  plugin:*) : ;;\nesac\n',
+      );
+      expect(sourceHashManifestViolations(root).join('\n')).toMatch(/inject-session-bootstrap emits/);
       // Re-guard it, then break the OTHER half of the D5 pair: run-hook.cmd without the export.
       w(
         'plugin/hooks/inject-session-bootstrap',
