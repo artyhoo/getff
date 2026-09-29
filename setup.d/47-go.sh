@@ -208,7 +208,7 @@ _go_firing_self_check() {
     printf 'package selfcheck\n\nimport "os"\n\nfunc Args() []string {\n\treturn os.Args\n}\n' > "$_t/selfcheck/clean.go"
     local _out _rc=0
     _out=$( cd "$_t" && golangci-lint run --enable forbidigo ./... 2>&1 ) || _rc=$?
-    if [ "$_rc" -ne 0 ] && printf '%s' "$_out" | grep -qi 'forbidigo\|os\.Getenv'; then
+    if [ "$_rc" -ne 0 ] && grep -qi 'forbidigo\|os\.Getenv' <<<"$_out"; then
       echo "  ✓ golangci-lint fired RED on the planted violation (forbidigo os.Getenv ban live)"
       _pass=$((_pass+1))
     else

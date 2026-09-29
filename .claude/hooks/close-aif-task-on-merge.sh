@@ -162,17 +162,17 @@ while IFS= read -r seg; do
       esac
       continue ;;
   esac
-  if printf '%s' "$seg" | grep -Eq '^gh[[:space:]]+api([[:space:]]|$)'; then
-    printf '%s' "$seg" | grep -Eq '/pulls/[^/[:space:]]+/merge' || continue
+  if grep -Eq '^gh[[:space:]]+api([[:space:]]|$)' <<<"$seg"; then
+    grep -Eq '/pulls/[^/[:space:]]+/merge' <<<"$seg" || continue
     # Only a PUT merges; a bare GET on the same path is the "is it merged?" probe.
-    printf '%s' "$seg" | grep -Eq '(-X|--method)[[:space:]=]*PUT([[:space:]]|$)' || continue
+    grep -Eq '(-X|--method)[[:space:]=]*PUT([[:space:]]|$)' <<<"$seg" || continue
     rest_api="$(printf '%s' "$seg" | sed -nE 's#.*repos/([^/[:space:]"'"'"']+/[^/[:space:]"'"'"']+)/pulls/([0-9]+)/merge.*#\2	\1#p')"
     if [ -z "$rest_api" ]; then UNRESOLVED=1; continue; fi
     case "${rest_api#*	}" in *'{'*|*'$'*) rest_api="${rest_api%%	*}	" ;; esac
     SELECTORS+=("${rest_api}	${SEG_CWD}")
     continue
   fi
-  printf '%s' "$seg" | grep -Eq '^gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$)' || continue
+  grep -Eq '^gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$)' <<<"$seg" || continue
   rest="$(printf '%s' "$seg" | sed -E 's/^gh[[:space:]]+pr[[:space:]]+merge//')"
   if ! tokens="$(printf '%s' "$rest" | xargs -n1 printf '%s\n' 2>/dev/null)"; then
     UNRESOLVED=1

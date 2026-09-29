@@ -247,7 +247,7 @@ fi
 
 # --help must resolve the mailbox for THIS machine, not restate the expression — that is the
 # half a prose doc cannot deliver, and the reason fork C beat a template file.
-if ! CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" --help 2>/dev/null | grep -qF "$ASKS"; then
+if ! grep -qF "$ASKS" <<<"$(CLAUDE_COORDINATION_DIR="$TMP" bash "$CHECK" --help 2>/dev/null)"; then
   echo "FAIL: --help did not print the resolved mailbox path ($ASKS)"; fails=$((fails + 1))
 fi
 
@@ -265,7 +265,7 @@ check_enum_documented() {
     fails=$((fails + 1)); return
   fi
   for value in $(printf '%s' "$list" | tr ',' ' '); do
-    printf '%s' "$HELP" | grep -qF "$value" ||
+    grep -qF "$value" <<<"$HELP" ||
       { echo "FAIL: --help does not document legal $label value '$value'"; fails=$((fails + 1)); }
   done
 }

@@ -213,7 +213,7 @@ fi
 # ── Arm 2 — ai-laziness-traps T-enumeration floor ─────────────────────────────
 # Engagement guard: only enforce the floor once the author engages the rule. A
 # kickoff that never mentions ai-laziness-traps is principle-12 / review territory.
-if printf '%s' "$CONTENT" | grep -q 'ai-laziness-traps'; then
+if grep -q 'ai-laziness-traps' <<<"$CONTENT"; then
   # Count DISTINCT canonical T-numbers (T1, T12, …). Domain labels (T-Wave9-A) are a
   # separate §3 #3 obligation and excluded from this count.
   DISTINCT="$(printf '%s' "$CONTENT" | grep -oE '\bT[0-9]+\b' | sort -u | grep -c .)"

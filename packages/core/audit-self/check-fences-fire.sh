@@ -124,10 +124,10 @@ l_skip()     { LOAD_SKIP=$((LOAD_SKIP+1));       skip "$1"; }
 # `Error [ERR_…]:` line: in a cause chain that is the WRAPPER, and the cause is what went missing.
 _first_err() {
   local _out _line
-  _out=$(printf '%s\n' "$1" | grep -vE 'new ERR_[A-Z0-9_]+\(')
-  _line=$(printf '%s\n' "$_out" | grep -m1 -iE 'cannot find (module|package)')
-  [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -iE 'ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT')
-  [ -z "$_line" ] && _line=$(printf '%s\n' "$_out" | grep -m1 -vE '^[[:space:]]*$')
+  _out=$(grep -vE 'new ERR_[A-Z0-9_]+\(' <<<"$1")
+  _line=$(grep -m1 -iE 'cannot find (module|package)' <<<"$_out")
+  [ -z "$_line" ] && _line=$(grep -m1 -iE 'ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|ERR_UNSUPPORTED_DIR_IMPORT' <<<"$_out")
+  [ -z "$_line" ] && _line=$(grep -m1 -vE '^[[:space:]]*$' <<<"$_out")
   printf '%s' "$_line" | tr -d '\n' | cut -c1-240
 }
 # skip_dep: a SKIP caused specifically by a MISSING DEPENDENCY (tsx/eslint binary absent, or
@@ -350,7 +350,7 @@ _run_fixture() {
     "$TSX_BIN" fence-probe.mts 2>&1)
   RC=$?
 
-  if echo "$OUT" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package'; then
+  if grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package' <<<"$OUT"; then
     FIXTURE_SKIP=$((FIXTURE_SKIP+1))
     skip_dep "[$BASE] tsx module load failed ($(_first_err "$OUT")) — dep missing; barrel present"
     return
@@ -364,7 +364,7 @@ _run_fixture() {
   # gate has. A verdict now requires the sentinel the probe prints just before exiting; its
   # absence is a dep-class skip (never a PASS), and if it is the only outcome the non-vacuity
   # assertion in finish() turns the run red in every mode.
-  if [ "$RC" -eq 0 ] && ! echo "$OUT" | grep -q 'FENCE_PROBE_DONE'; then
+  if [ "$RC" -eq 0 ] && ! grep -q 'FENCE_PROBE_DONE' <<<"$OUT"; then
     FIXTURE_SKIP=$((FIXTURE_SKIP+1))
     skip_dep "[$BASE] probe exited 0 without the FENCE_PROBE_DONE sentinel — the probe never executed, so nothing was proved${OUT:+ (output: $(_first_err "$OUT"))}"
     return
@@ -372,9 +372,9 @@ _run_fixture() {
 
   if [ "$RC" -eq 0 ]; then
     f_ok "[$BASE] fence fires on bad input; good input passes — $RULE_ID ACTIVE"
-  elif echo "$OUT" | grep -q 'FENCE_SILENT'; then
+  elif grep -q 'FENCE_SILENT' <<<"$OUT"; then
     f_bad "[$BASE] FENCE SILENT: $RULE_ID did NOT flag the bad fixture (rule deleted/broken/misconfigured)"
-  elif echo "$OUT" | grep -q 'FALSE_POSITIVE'; then
+  elif grep -q 'FALSE_POSITIVE' <<<"$OUT"; then
     f_bad "[$BASE] FALSE POSITIVE: $RULE_ID flagged the good fixture (selector too broad)"
   else
     f_bad "[$BASE] probe failed (rc=$RC): $(echo "$OUT" | head -3 | tr '\n' '|')"
@@ -454,7 +454,7 @@ else
     _lp_rc=$?
     if [ "$_lp_rc" -eq 0 ]; then
       l_ok "load-probe: placed $_rel loads (imports resolve — real \`eslint .\` channel wired)"
-    elif echo "$_lp_out" | grep -qiE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package'; then
+    elif grep -qiE 'cannot find (module|package)|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH|Cannot find package' <<<"$_lp_out"; then
       if [ "${FENCES_FIRE_LOAD_PROBE:-}" = "1" ]; then
         l_bad "load-probe: placed $_rel NON-LOADABLE ($(_first_err "$_lp_out")) — a --full install claimed success but a plugin dep is absent; the consumer's \`eslint .\` is dead (#976)"
       else

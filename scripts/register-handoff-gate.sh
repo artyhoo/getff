@@ -205,8 +205,8 @@ fi
 #     consumers receive no residue writer, and the plugin SessionStart slot is the
 #     bootstrap's). Guards a silent parity claim — same shape as the D8 script's verify d.
 if [[ -f "$ROOT/plugin/hooks/hooks.json" ]]; then
-  if jq -r '[.hooks.SessionStart[]? | select(.matcher == "compact") | .hooks[]?.command] | join(" ")' \
-       "$ROOT/plugin/hooks/hooks.json" | grep -q 'inject-handoff-on-compact'; then
+  if grep -q 'inject-handoff-on-compact' <<<"$(jq -r '[.hooks.SessionStart[]? | select(.matcher == "compact") | .hooks[]?.command] | join(" ")' \
+       "$ROOT/plugin/hooks/hooks.json")"; then
     echo "verify d: plugin/hooks.json wrongly carries the injector          FAIL"; rc=1
   else
     echo "verify d: plugin/hooks.json correctly omits the injector          OK"
