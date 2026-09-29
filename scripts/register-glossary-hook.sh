@@ -270,7 +270,7 @@ if [[ -z "$_smoke_word" ]]; then
 elif _smoke_out="$(printf '%s' "{\"prompt\":\"explain the term $_smoke_word please\",\"session_id\":\"register-glossary-smoke\"}" \
     | CLAUDE_PROJECT_DIR="$ROOT" AIF_RESIDUE_DIR="$_smoke_dir" TMPDIR="$_smoke_dir" \
       bash "$ROOT/$HOOK_REL" 2>/dev/null)" \
-   && printf '%s' "$_smoke_out" | grep -qF "\"$_smoke_word\" = "; then
+   && grep -qF "\"$_smoke_word\" = " <<<"$_smoke_out"; then
   echo "verify c:  LIVE smoke fired: injected line for \"$_smoke_word\" produced            OK"
 else
   echo "verify c:  LIVE smoke produced no injected line for \"$_smoke_word\"              FAIL"; rc=1

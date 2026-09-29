@@ -122,7 +122,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2023 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1438 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1447 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -180,7 +180,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2537 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2546 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,8 +199,28 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2586 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2595 (workflow-run:invocation-verb)",
           ".husky/pre-commit:166 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
+      "name": "check-pipefail-early-exit.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "refuse a pipe into an early-exiting `grep` in a shell script that",
+      "source": {
+        "path": "scripts/check-pipefail-early-exit.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:789 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:188 (quoted-path-token)"
         ]
       },
       "example": null
@@ -258,7 +278,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2697 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2706 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -305,8 +325,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1344 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1349 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1353 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1358 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -325,7 +345,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:183 (quoted-path-token)",
+          ".husky/pre-commit:204 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "scripts/run-local-ci-sweep.sh:238 (quoted-path-token, closure)"
@@ -347,7 +367,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:352 (quoted-path-token)"
+          ".husky/pre-commit:373 (quoted-path-token)"
         ]
       },
       "example": null
@@ -366,7 +386,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:331 (quoted-path-token)"
+          ".husky/pre-commit:352 (quoted-path-token)"
         ]
       },
       "example": null
@@ -526,7 +546,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2516 (spawn-argument)",
-          ".husky/pre-commit:290 (quoted-path-token)"
+          ".husky/pre-commit:311 (quoted-path-token)"
         ]
       },
       "example": null
@@ -605,7 +625,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1372 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1381 (workflow-run:invocation-verb)"
         ]
       },
       "example": null

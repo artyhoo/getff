@@ -47,7 +47,7 @@ while IFS= read -r f; do
   # through to the size check below (oversized → error).
   case "$f" in
     "${ROOT}/.claude/orchestrator-prompts/"*/kickoff.md)
-      if head -20 "$f" | grep -qi "transient artifact"; then
+      if grep -qi "transient artifact" <<<"$(head -20 "$f")"; then
         echo "::notice file=$f::skipped overweight check (declared transient kickoff)"
         continue
       fi
@@ -55,7 +55,7 @@ while IFS= read -r f; do
   esac
   for ex in "${EXEMPT[@]}"; do
     if [ "$f" = "$ex" ]; then
-      if head -20 "$f" | grep -qi "transient artifact"; then
+      if grep -qi "transient artifact" <<<"$(head -20 "$f")"; then
         echo "::notice file=$f::skipped overweight check (declared transient)"
         continue 2
       else

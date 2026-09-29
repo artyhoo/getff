@@ -121,7 +121,7 @@ unreachable_allowlist() {
 # ── Extraction ─────────────────────────────────────────────────────────────────────────────────
 # Single-line `run:` steps only (see CEILING). Leading `VAR=value` assignments are stripped so
 # `PREPUSH_ONLY=s17 npx tsx …` classifies by its real interpreter — without that, two live gate
-# commands (audit-self.yml:1256, :1256) would sit outside the population unseen.
+# commands (audit-self.yml:1265 `PREPUSH_ONLY=s17`, :1277 `PREPUSH_ONLY=prior-art`) would sit outside the population unseen.
 # `- run: cmd` (step written without a `name:`) is legal YAML and unused in this workflow today —
 # which is exactly why the leading `- ` must be optional here rather than assumed away: the first
 # nameless step to land would otherwise drop out of the population silently.
@@ -155,9 +155,9 @@ ci_commands() {
   leader_re="^($(echo "$GATE_LEADERS" | tr ' ' '|')) "
   raw_run_lines | while IFS= read -r line; do
     stripped="$(printf '%s\n' "$line" | strip_env_prefix)"
-    printf '%s\n' "$stripped" | grep -qE "$leader_re" || continue
-    printf '%s\n' "$stripped" | grep -qE "$SETUP_RE" && continue
-    printf '%s\n' "$line" | grep -qE "$BATTERY_RE" && continue
+    grep -qE "$leader_re" <<<"$stripped" || continue
+    grep -qE "$SETUP_RE" <<<"$stripped" && continue
+    grep -qE "$BATTERY_RE" <<<"$line" && continue
     printf '%s\n' "$line"
   done | sort -u
 }
@@ -365,7 +365,7 @@ rm -f "$tmpwf"
 # Arm 6 proves the workflow side is live; this proves the gate-table side is too. Without it, a
 # gate table that silently emptied would still pass arm 6 (the fake is uncovered either way).
 VICTIM_CMD="npm run typecheck"
-if ! printf '%s\n' "$GATES" | grep -qF "$VICTIM_CMD"; then
+if ! grep -qF "$VICTIM_CMD" <<<"$GATES"; then
   bad "neg: probe row '$VICTIM_CMD' is no longer in the gate table — pick a live row for this arm"
 else
   SEEDED_GATES="$(printf '%s\n' "$GATES" | grep -vF "$VICTIM_CMD")"
@@ -392,7 +392,7 @@ fi
 # through `--list-gates` instead of scraping the printf block.
 BUILD_DIST="$REPO_ROOT/scripts/build-getff-dist.sh"
 eval "$(sed -n '/^trigger_matches() {/,/^}/p' "$SWEEP")"
-if ! type trigger_matches 2>/dev/null | grep -q 'function'; then
+if ! grep -q 'function' <<<"$(type trigger_matches 2>/dev/null)"; then
   bad "trigger_matches could not be extracted from $SWEEP — arms 8 and 9 would be vacuous"
 else
   ok "trigger_matches extracted from the sweep under test (no second copy of the grammar)"

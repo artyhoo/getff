@@ -77,7 +77,7 @@ const AGGREGATE = 'ci-success';
  *
  * A genuinely push-only job (one whose `if:` can never be true on a `pull_request` event)
  * would be the other legitimate shape, and this map is where it would be declared. There is
- * none today. The `if:`-guarded jobs are `pr-commit-trailers` (audit-self.yml:1211,
+ * none today. The `if:`-guarded jobs are `pr-commit-trailers` (audit-self.yml:1220,
  * `github.event_name == 'pull_request'`), whose `skipped` result the aggregate accepts as OK
  * by design (scripts/ci-success-gate.sh:26-27), and the install-area jobs gated on the
  * `path-scope` output, whose `skipped` is OK only when that output said `false`

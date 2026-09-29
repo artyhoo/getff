@@ -122,7 +122,7 @@ while IFS= read -r sha; do
   fi
 
   # prior-art-presence: §7 Prior-art trailer PRESENCE
-  if ! echo "${body}" | grep -q "^Prior-art:"; then
+  if ! grep -q "^Prior-art:" <<<"${body}"; then
     echo "❌ ${sha}  §7 Prior-art: trailer MISSING — ${subject}"
     echo "   Fix: add 'Prior-art: ...' to commit body (≥20 chars). See CONTRIBUTING.md."
     fail=1
@@ -133,7 +133,7 @@ while IFS= read -r sha; do
   # s17-presence: §1.7 discipline trailer PRESENCE (only on discipline-touching commits)
   if [[ "${subject}" =~ $S17_ALLOWLIST_RE ]]; then
     : # allow-listed subject — §1.7 not required (parity with s17.ts:67 isDisciplineIntroducing)
-  elif echo "${body}" | grep -qE "^§1\.7(:| Bootstrap:)"; then
+  elif grep -qE "^§1\.7(:| Bootstrap:)" <<<"${body}"; then
     echo "✅ ${sha}  §1.7: present"
   else
     discipline="$(git diff-tree --no-commit-id --name-only -r "${sha}" 2>/dev/null \

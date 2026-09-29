@@ -780,6 +780,13 @@ jobs:
       # mktemp, so it runs anywhere and proves BOTH arms red-on-drift.
       - name: Run path:line citation paired-negative (both detection arms)
         run: bash scripts/check-line-citations.test.sh
+      # The SIGPIPE-under-pipefail gate's own channel is pre-commit (staged files only).
+      # This step scans the WHOLE population, the backstop for `git commit --no-verify` and
+      # aif-container commits (no husky); the paired-negative proves every arm fires.
+      - name: Run pipefail early-exit gate paired-negative
+        run: bash scripts/check-pipefail-early-exit.test.sh
+      - name: pipefail early-exit gate (no pipe into grep -q under pipefail)
+        run: node scripts/check-pipefail-early-exit.mjs
       # The D29 reference generator's acceptance arms (principle 41 channel): live-fire
       # census/--write/--check against the real repo + throwaway mktemp fixture repos.
       # Hermetic — no network, no LLM; paired with the reference render & diff step above.
@@ -978,6 +985,8 @@ jobs:
         run: bash tests/install-sh/wire-eslint-r2.test.sh
       - name: "install-sh — R2 passes that cannot run name each config they would have changed in the NOT wired summary, with the reason (Q4.7; no ts-morph / no wirer / unknown-stack workspace)"
         run: bash tests/install-sh/r2-not-wired-summary.test.sh
+      - name: "install-sh — _r2_boundary_under survives a SIGPIPE race (no pipe into grep -q under pipefail; forced large detector output)"
+        run: bash tests/install-sh/r2-boundary-under-sigpipe.test.sh
       - name: "install-sh — install-self-verification structural + degrade test (D6: gates shipped, graceful-degrade, wired)"
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"

@@ -225,7 +225,7 @@ container_only=""
 if [[ "$container_status" == "ok" && "$container_count" -gt 0 ]]; then
   while IFS= read -r cb; do
     [[ -z "$cb" ]] && continue
-    if ! printf '%s\n' "$origin_branches" | grep -qF -- "$cb"; then
+    if ! grep -qF -- "$cb" <<<"$origin_branches"; then
       container_only="${container_only}${cb}"$'\n'
     fi
   done <<< "$container_branches"

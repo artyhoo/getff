@@ -221,7 +221,7 @@ _cargo_firing_self_check() {
     # `|| _rc=$?` form (47-go.sh); rc=0 on every branch, verdict lines always print.
     local _out _rc=0
     _out=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null ) || _rc=$?
-    if printf '%s' "$_out" | grep -q '"clippy::disallowed_methods"'; then
+    if grep -q '"clippy::disallowed_methods"' <<<"$_out"; then
       echo "  ✓ cargo clippy fired RED on the planted violation (std::env::var disallowed-methods ban live)"
       _pass=$((_pass+1))
     else
@@ -235,7 +235,7 @@ _cargo_firing_self_check() {
     # A2-3: same guard as the planted-violation capture above (rc=0 on every branch).
     local _out_clean _rc_clean=0
     _out_clean=$( cd "$_t" && cargo clippy --message-format=json 2>/dev/null ) || _rc_clean=$?
-    if printf '%s' "$_out_clean" | grep -q '"clippy::disallowed_methods"'; then
+    if grep -q '"clippy::disallowed_methods"' <<<"$_out_clean"; then
       echo "  ✗ cargo clippy FIRED on the clean control — the delivered clippy config is OVER-BROAD (an always-red config is not enforcement; clean-control exit=$_rc_clean)"
       _overbroad=$((_overbroad+1))
     else
