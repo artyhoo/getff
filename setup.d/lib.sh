@@ -711,9 +711,9 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1411                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1412                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1500          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1506          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
@@ -2819,6 +2819,14 @@ merge_canonical_scripts() {
           want["build-storybook"] = "storybook build";
           want["test-storybook"] = "test-storybook";
         }
+        // Refresh sweep G5 (review finding): `prepare: husky` runs on every `npm install`, so with no
+        // husky devDependency behind it (a consumer who moved to another hook manager) it would fail
+        // that install with exit 127. A refresh writes no devDependency, so it withholds prepare too.
+        if (process.env.AIF_MERGE_MODE === "refresh" && !("prepare" in pkg.scripts)
+            && !("husky" in (pkg.devDependencies || {})) && !("husky" in (pkg.dependencies || {}))) {
+          delete want["prepare"];
+          process.stdout.write("WITHHELD_PREPARE\n");
+        }
         // Snapshot BEFORE the merge: which canonical keys the consumer already had (for the
         // kept-names log line below, #1531 observability).
         const preExisting = new Set(Object.keys(pkg.scripts));
@@ -2880,8 +2888,17 @@ merge_canonical_scripts() {
           process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
         }
         process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
-      ')
+      ') || {
+        # An unparseable package.json (a BOM, comments, a conflict marker): the install stops here as
+        # it always has; a refresh names it and goes on, so the delivery baseline is still flushed.
+        [ "$AIF_MERGE_MODE" = refresh ] || return 1
+        note_not_wired "package.json scripts — not merged: package.json does not parse as JSON, and getff edits it only through a JSON parser"
+        return 0
+      }
       while IFS=' ' read -r _mcs_tag _mcs_dev _mcs_ver; do
+        if [ "$_mcs_tag" = WITHHELD_PREPARE ]; then
+          note_not_wired "script \"prepare\" in package.json — not added: it runs husky, which is not among your dependencies, and --refresh installs none (npm would then fail on \`npm install\`)"
+        fi
         [ "$_mcs_tag" = MISSING_DEV ] || continue
         note_not_wired "devDependency $_mcs_dev ($_mcs_ver) in package.json — not added: --refresh installs no dependencies, and a devDependency written without an install puts package.json out of step with the lockfile (\`npm ci\` would then fail)"
       done <<< "$_mcs_out"
@@ -2892,13 +2909,27 @@ merge_canonical_scripts() {
   fi
 }
 
-# arm_recap_gate <settings> — write env.AIF_RECAP_GATE=1 into .claude/settings.json (R-15: the
+# arm_recap_gate <settings> [install|refresh] — write env.AIF_RECAP_GATE=1 into .claude/settings.json (R-15: the
 # recap-gate REJECTION ships dormant; `--full` arms it). The caller gates on --full. Temp file next
 # to the target, `jq -e .` validate, atomic mv, skip when already set; no jq → the same merge through
 # node. Shared by setup.d/10-skills.sh §1c and install.sh do_refresh under `--refresh --full`
 # (refresh sweep 2026-09-29 G8, operator decision: --full on refresh arms what --full on install arms).
 arm_recap_gate() {
-  local settings="$1" _rg_rc _rg_tmp
+  local settings="$1" _rg_mode="${2:-install}" _rg_rc _rg_tmp _rg_cur=""
+  # On refresh a value the consumer set is theirs: an explicit "0" is an opt-out, kept and named.
+  # (At install time no such value can exist yet, so the install path is unchanged.)
+  if [ "$_rg_mode" = refresh ]; then
+    if command -v jq >/dev/null 2>&1; then
+      _rg_cur=$(jq -r '.env.AIF_RECAP_GATE // empty | tostring' "$settings" 2>/dev/null || true)
+    elif command -v node >/dev/null 2>&1; then
+      _rg_cur=$(AIF_S="$settings" node -e 'try { const v = ((JSON.parse(require("fs").readFileSync(process.env.AIF_S, "utf8")).env) || {}).AIF_RECAP_GATE; if (v !== undefined && v !== null) process.stdout.write(String(v)); } catch (e) {}' 2>/dev/null || true)
+    fi
+    if [ -n "$_rg_cur" ] && [ "$_rg_cur" != 1 ]; then
+      echo "  ⊝ AIF_RECAP_GATE=$_rg_cur kept — a value set in .claude/settings.json is yours"
+      note_not_wired "AIF_RECAP_GATE in .claude/settings.json — not armed: it is set to \"$_rg_cur\", a value you set, and --refresh does not overwrite it"
+      return 0
+    fi
+  fi
   # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
   # no-op that prints nothing leaves the operator believing the gate is on when it is not.
   # Same shape as the deps-hash-check jq-less branch of setup.d/10-skills.sh §1b.
@@ -3017,6 +3048,16 @@ note_not_wired() {
 # 99-finalize and the toolchain lanes, which exit before 99-finalize runs and so print their own.
 # Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
 # tells the reader what to do.
+# print_getff_added — the consumer-owned files getff inserted its block into this run (Q4.7,
+# note_getff_added), each original kept in .ai-factory/before-getff/. Shared by setup.d/99-finalize.sh
+# and install.sh do_refresh, whose eslint wiring can insert into the consumer's own configs too.
+print_getff_added() {
+  [ "${#GETFF_ADDED_TO[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
+  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
+}
+
 print_not_wired() {
   [ "${#NOT_WIRED[@]}" -gt 0 ] || return 0
   echo ""

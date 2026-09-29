@@ -1000,8 +1000,9 @@ do_refresh() {
     if [ "$DRY_RUN" != "--dry-run" ]; then
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
       # Refresh sweep G8 (operator decision 2026-09-29): `--refresh --full` arms the recap gate the
-      # way `--full` on the install does (setup.d/10-skills.sh §1c); a bare --refresh leaves it.
-      if [ "${FULL:-}" = "--full" ]; then arm_recap_gate "$PROJECT_ROOT/.claude/settings.json"; fi
+      # way `--full` on the install does (setup.d/10-skills.sh §1c); a bare --refresh leaves it, and
+      # a value the consumer set (an explicit "0") is kept and named.
+      if [ "${FULL:-}" = "--full" ]; then arm_recap_gate "$PROJECT_ROOT/.claude/settings.json" refresh; fi
     fi
   fi
 
@@ -1505,7 +1506,9 @@ do_refresh() {
 if [ -n "$REFRESH" ]; then
   do_refresh
   # do_refresh exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7): the
-  # runtime-bridge wiring on the vendor arm records its gaps with note_not_wired.
+  # runtime-bridge wiring on the vendor arm records its gaps with note_not_wired. Its eslint wiring
+  # can insert getff's block into the consumer's own configs, so that list is printed here too.
+  print_getff_added
   print_not_wired
   exit 0
 fi

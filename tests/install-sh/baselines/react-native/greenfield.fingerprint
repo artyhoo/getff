@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-9d636af466dedd1bb3d7bbd53ce640f500cf783792b20c3b05f2d87b383526f1  .ai-factory/refresh-baseline.json
+fff2d0cbc74d9b81b42f5ad351e7618a3079dbc710711db0876bcabc60abc6b7  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -28,7 +28,7 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 327511af811642a9f03fe3d1d380799023c84432d5c037c42808fda088d7c68b  .claude/hooks/check-doc-authority-header.sh
 6cc4f623d4e277b75ea7f1f47abe975cb03b9e58cecd2dd9c390b8d0dad160b8  .claude/hooks/deps-hash-check.sh
 8bdd13b64b965ce3056611bcf23b7c007e2f49ee64c0f21334c2db88c637cc35  .claude/hooks/end-of-turn-reminder.sh
-b68bb5f38347910ca54528274e0b8ba6fdc84b67e112e861a479b5fb192393e5  .claude/hooks/inject-matching-rule.sh
+ba649c83b6c5e5fed01da0da4a608b180642402c75746fec0af79e34f48b644f  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 df5b6733c508e863e3c9d7c5af5f3205bb02108d5e9a3af62577793b8bd83d4a  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
@@ -152,7 +152,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  eslint-rules-l
 fb9aa49f64642bd62823e8f76be90936721e2b9eb87ff2f4a9dfd6d137364797  eslint.config.mjs
 9d4a9222172168e2185552c1567df1d4e60efeee3e2bacd2654b179246d4bf61  eslint.config.rn-common.mjs
 1446b83d1d0551b2471c57d74b948c3eaf6f2416f8201773198819d69cd8f470  package.json
-e82c18f2ab3bab6df34860c4f23c2508ca66f00c5e52f890b1ac255f523a258a  packages/core/hooks/pre-push.bundle.mjs
+f0a4ff6434a6af9392a5e2f959f8ef2c09891b3fb112d2cab8fd4cf14da29fd3  packages/core/hooks/pre-push.bundle.mjs
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  scripts/audit-ai-docs.sh

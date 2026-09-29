@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1523 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1526 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1506).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1507).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -1040,7 +1040,7 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  if grep -qxF "$frag_marker" "$cfg" 2>/dev/null; then
+  if [ -f "$cfg" ] && awk -v m="$frag_marker" "$_PY_PRECOMMIT_KEY"'k == m {f = 1; exit} END {exit !f}' "$cfg"; then
     _py_precommit_reconcile "$cfg" "$frag_marker" "$frag_end" "$frag_src"
     _py_precommit_prepush_stage
     return 0
@@ -1064,11 +1064,15 @@ _py_integrate_precommit_consumer() {
 # tests/install-sh/refresh-rewires.test.sh fails while the current fragment is missing from this list.
 _PY_PRECOMMIT_SHIPPED="3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f5a97ca7:14 10eb8028d29f094b05ad8fe71536c54a76b6c87a1257a1044ba4c412db15401c:14"
 
+# awk prelude: k = the line without a CR (a CRLF file, Windows/autocrlf) and without surrounding
+# blanks, so the begin/end lines match whatever the line endings; $0 itself loses its CR too.
+_PY_PRECOMMIT_KEY='{ sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) } '
+
 # _py_precommit_body <cfg> <begin> <end> [n] — the entry body after <begin>: up to <end>, or n lines.
 _py_precommit_body() {
-  awk -v m="$2" -v e="$3" -v n="${4:-0}" '
-    !on && $0 == m { on = 1; c = 0; next }
-    on && n == 0 && $0 == e { exit }
+  awk -v m="$2" -v e="$3" -v n="${4:-0}" "$_PY_PRECOMMIT_KEY"'
+    !on && k == m { on = 1; c = 0; next }
+    on && n == 0 && k == e { exit }
     on { if (n > 0 && c >= n) exit; print; c++ }' "$1"
 }
 
@@ -1077,7 +1081,7 @@ _py_precommit_body() {
 # it is not (an edit is the consumer's). Idempotent: a current, fenced entry is left byte-identical.
 _py_precommit_reconcile() {
   local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0
-  if awk -v m="$m" -v e="$e" '!on && $0 == m {on = 1; next} on && $0 == e {f = 1; exit} END {exit !f}' "$cfg"; then
+  if awk -v m="$m" -v e="$e" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; next} on && k == e {f = 1; exit} END {exit !f}' "$cfg"; then
     has_end=1
   fi
   if [ "$has_end" = 1 ] && [ "$(_py_precommit_body "$cfg" "$m" "$e")" = "$(cat "$src")" ]; then
@@ -1097,7 +1101,7 @@ _py_precommit_reconcile() {
       # No end line: the body is getff's only if the next line does not continue it. The fragment's
       # entry starts in column 0, so an indented next line (an `args:` the consumer added under the
       # hook, say) is part of the entry — an edit, kept like any other.
-      if [ "$has_end" = 0 ] && awk -v m="$m" -v n="$n" '!on && $0 == m {on = 1; c = 0; next}
+      if [ "$has_end" = 0 ] && awk -v m="$m" -v n="$n" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; c = 0; next}
             on { if (c < n) { c++; next } found = ($0 ~ /^[ \t]+[^ \t]/); exit }
             END {exit !found}' "$cfg"; then continue; fi
       rm -f "$tmp"
@@ -1106,11 +1110,14 @@ _py_precommit_reconcile() {
         return 0
       fi
       tmp="$cfg.getff.tmp"
+      # A CRLF file stays CRLF: every line written, the kept ones included, gets its CR back.
       if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" '
-          !on && $0 == m { print; while ((getline l < src) > 0) print l; print e; on = 1; c = 0; next }
-          on == 1 && n == 0 { if ($0 == e) on = 2; next }
+          NR == 1 { cr = ($0 ~ /\r$/) ? "\r" : "" }
+          { sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) }
+          !on && k == m { print $0 cr; while ((getline l < src) > 0) print l cr; print e cr; on = 1; c = 0; next }
+          on == 1 && n == 0 { if (k == e) on = 2; next }
           on == 1 { if (c < n) { c++; next } on = 2 }
-          { print }' "$cfg" > "$tmp" && cat "$tmp" > "$cfg"; then   # cat, not mv: keeps a symlink and the mode
+          { print $0 cr }' "$cfg" > "$tmp" && cat "$tmp" > "$cfg"; then   # cat, not mv: keeps a symlink and the mode
         rm -f "$tmp"
         echo "  ✓ updated the getff entry in .pre-commit-config.yaml to the current fragment"
       else
@@ -1479,7 +1486,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1433). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1434). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the

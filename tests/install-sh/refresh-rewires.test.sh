@@ -112,6 +112,15 @@ grep -qF "[05-mcp] processed $_mcp_rows kind=mcp manifest row(s)" <<<"$out" \
   || bad "G9: --refresh --full did not run the kind=mcp companion rows"
 grep -q 'mcp add' "$CLAUDE_LOG" && bad "G9: a machine-global MCP server was added without --global: $(cat "$CLAUDE_LOG" | tr '\n' '|')" \
   || ok "G9: no machine-global install without --global (the install's consent rule holds)"
+# A value the consumer set is theirs: an explicit "0" is an opt-out, not a gate to arm.
+jq '.env.AIF_RECAP_GATE = "0"' "$S" > "$S.t" && mv "$S.t" "$S"
+out=$(refresh "$T" --full)
+[ "$(jq -r '.env.AIF_RECAP_GATE' "$S")" = 0 ] \
+  && ok "G8: --refresh --full keeps a consumer's AIF_RECAP_GATE=\"0\"" \
+  || bad "G8: --refresh --full overwrote the consumer's AIF_RECAP_GATE=\"0\""
+grep -qF 'AIF_RECAP_GATE in .claude/settings.json — not armed' <<<"$(not_wired <<<"$out")" \
+  && ok "G8: the kept opt-out is named in the NOT wired summary" || bad "G8: no NOT wired line for the kept opt-out"
+jq 'del(.env.AIF_RECAP_GATE)' "$S" > "$S.t" && mv "$S.t" "$S"
 
 # ══ G5 — package.json scripts / devDependencies ═══════════════════════════════════════════════
 echo "▶ G5 package.json scripts"
@@ -123,12 +132,32 @@ out=$(refresh "$T")
 [ -z "$(jq -r '.devDependencies.husky // empty' "$P")" ] \
   && ok "G5: --refresh did not write a devDependency (the lockfile would go out of step)" \
   || bad "G5: --refresh wrote husky into devDependencies without installing it"
-grep -q 'husky' <<<"$(not_wired <<<"$out")" \
+grep -qF 'devDependency husky (' <<<"$(not_wired <<<"$out")" \
   && ok "G5: the missing husky devDependency is named in the NOT wired summary" \
   || bad "G5: no NOT wired line for the missing husky devDependency"
 cp "$P" "$P.before"; refresh "$T" >/dev/null
 cmp -s "$P" "$P.before" && ok "G5: a --refresh with nothing to add leaves package.json byte-identical" \
   || bad "G5: --refresh rewrote package.json with nothing to add"
+# `prepare: husky` with no husky behind it fails the consumer's next `npm install` (exit 127): a
+# consumer without the husky devDependency (moved to lefthook, say) gets no `prepare` from a refresh.
+jq 'del(.scripts.prepare)' "$P" > "$P.t" && mv "$P.t" "$P"
+out=$(refresh "$T")
+[ -z "$(jq -r '.scripts.prepare // empty' "$P")" ] \
+  && ok "G5: no husky devDependency → --refresh adds no \`prepare: husky\`" \
+  || bad "G5: --refresh added prepare=husky to a package.json without husky (npm install would exit 127)"
+grep -qF 'script "prepare" in package.json' <<<"$(not_wired <<<"$out")" \
+  && ok "G5: the withheld prepare script is named in the NOT wired summary" \
+  || bad "G5: no NOT wired line for the withheld prepare script"
+# A package.json that does not parse fails the merge, not the refresh: the baseline flush still runs.
+cp "$P" "$P.good"; printf '{ "name": "consumer",\n<<<<<<< HEAD\n' > "$P"
+out=$(refresh "$T"); rc=$?
+[ "$rc" = 0 ] && grep -qF 'Framework artefacts refreshed' <<<"$out" \
+  && ok "G5: an unparseable package.json does not abort the refresh" \
+  || bad "G5: --refresh aborted on an unparseable package.json (rc=$rc)"
+grep -qF 'package.json scripts — not merged: package.json does not parse as JSON' <<<"$(not_wired <<<"$out")" \
+  && ok "G5: the unparseable package.json is named in the NOT wired summary" \
+  || bad "G5: no NOT wired line for the unparseable package.json"
+mv "$P.good" "$P"
 
 # ══ G6 — CI gates missing from a consumer workflow ════════════════════════════════════════════
 echo "▶ G6 CI gates"
@@ -250,6 +279,39 @@ cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"
 ( cd "$Y4" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
 cmp -s "$Y4/.pre-commit-config.yaml" "$Y4/pc.before" && ok "G7: an edited entry with its end line is kept as it is" \
   || bad "G7: --refresh overwrote an edited entry that has its end line"
+
+# A CRLF file (Windows, autocrlf) is the same entry: matched, never appended a second time.
+Y5=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
+sed 's/$/\r/' "$Y5/.pre-commit-config.yaml" > "$Y5/crlf" && mv "$Y5/crlf" "$Y5/.pre-commit-config.yaml"
+cp "$Y5/.pre-commit-config.yaml" "$Y5/pc.before"
+( cd "$Y5" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+[ "$(grep -c '^# getff-python-pre-push entry — delivered' "$Y5/.pre-commit-config.yaml")" = 1 ] \
+  && ok "G7: a CRLF .pre-commit-config.yaml keeps exactly one getff entry" \
+  || bad "G7: $(grep -c '^# getff-python-pre-push entry — delivered' "$Y5/.pre-commit-config.yaml") getff entries in a CRLF file after --refresh"
+cmp -s "$Y5/.pre-commit-config.yaml" "$Y5/pc.before" && ok "G7: a current entry in a CRLF file is left byte-identical" \
+  || bad "G7: --refresh changed a CRLF file whose getff entry is current"
+# A CRLF file with a shipped earlier entry is updated, and stays CRLF throughout.
+Y6=$(py_consumer "$V1_BODY")
+sed 's/$/\r/' "$Y6/.pre-commit-config.yaml" > "$Y6/crlf" && mv "$Y6/crlf" "$Y6/.pre-commit-config.yaml"
+( cd "$Y6" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+_got=$(tr -d '\r' < "$Y6/.pre-commit-config.yaml" | awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on')
+[ "$_got" = "$(cat "$FRAG")" ] && ! grep -qv $'\r$' "$Y6/.pre-commit-config.yaml" \
+  && ok "G7: a CRLF file's shipped earlier entry is updated, every line still CRLF" \
+  || bad "G7: the CRLF update is wrong (body current: $([ "$_got" = "$(cat "$FRAG")" ] && echo y || echo n); LF-only lines: $(grep -cv $'\r$' "$Y6/.pre-commit-config.yaml"))"
+
+# ══ G4 — the R2 N/A record a declarative layout gets does not grow on each refresh ═════════════
+echo "▶ G4 R2 N/A record"
+H=$(mktemp -d); CLEANUP+=("$H")
+printf '{"name":"h","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H/package.json"
+mkdir -p "$H/src"; echo 'export const app = 1;' > "$H/src/app.ts"
+( cd "$H" && git init -q && bash "$INSTALL" ts-server < /dev/null ) >/dev/null 2>&1
+grep -qF '<!-- aif:r2-na:begin -->' "$H/.ai-factory/tool-decisions.md" \
+  && ok "G4 precondition: a declarative Hono layout has the R2 N/A record" || bad "G4 precondition: no R2 N/A record"
+refresh "$H" >/dev/null; cp "$H/.ai-factory/tool-decisions.md" "$H/td.before"
+refresh "$H" >/dev/null; refresh "$H" >/dev/null
+cmp -s "$H/.ai-factory/tool-decisions.md" "$H/td.before" \
+  && ok "G4: repeated --refresh leaves tool-decisions.md byte-identical (no blank line per run)" \
+  || bad "G4: tool-decisions.md changed across refreshes ($(wc -l < "$H/td.before") → $(wc -l < "$H/.ai-factory/tool-decisions.md") lines)"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

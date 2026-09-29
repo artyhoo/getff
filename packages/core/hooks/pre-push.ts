@@ -35,7 +35,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 // NOTE: this file is the entry of pre-push.bundle.mjs (scripts/build-runtime-bundles.mjs), the
-// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:42; --refresh: install.sh:1224).
+// single prebuilt hook file a consumer receives (setup.d/50-hooks.sh:42; --refresh: install.sh:1225).
 // The bundle inlines every import and must stay free of third-party code (`thirdParty: false`),
 // because a consumer has no getff dependency installed and a missing package crashes the
 // hook with ERR_MODULE_NOT_FOUND *before any gate runs* (#735/#636). `picomatch` used to be
@@ -2234,10 +2234,10 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1457 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1463 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1472 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1479 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2251,7 +2251,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:380 / install.sh:1063 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:380 / install.sh:1064 (conditional starter)
 ];
 
 /**

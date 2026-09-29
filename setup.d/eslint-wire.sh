@@ -55,12 +55,20 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
   _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
   _r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"
   _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
-  # _r2_na_strip — drop the aif:r2-na block from tool-decisions.md, keeping every other line.
+  # _r2_na_strip — drop the aif:r2-na block (and the blank line before it) from tool-decisions.md,
+  # keeping every other line.
   # rc 1 on an awk/write failure, or on a begin line with no end line after it — the skip would run
   # to the end of the file and cut the consumer's own lines (the file is left as it was).
   _r2_na_strip() {
     awk '/<!-- aif:r2-na:begin -->/{open=1} open&&/<!-- aif:r2-na:end -->/{open=0} END{exit open}' "$_dec" || return 1
-    if awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"; then
+    # The blank line the append writes before the block goes with it — else each re-record (every
+    # --refresh of a declarative layout) leaves one more blank line behind.
+    if awk 'skip { if (/<!-- aif:r2-na:end -->/) skip = 0; next }
+            /<!-- aif:r2-na:begin -->/ { hb = 0; skip = 1; next }
+            { if (hb) print ""; hb = 0 }
+            /^$/ { hb = 1; next }
+            { print }
+            END { if (hb) print "" }' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"; then
       return 0
     fi
     rm -f "$_dec.tmp" 2>/dev/null || true

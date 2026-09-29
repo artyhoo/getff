@@ -363,11 +363,7 @@ for _sk in ${SKIPPED[@]+"${SKIPPED[@]}"}; do
   done
   [ -n "$_sk_added" ] || _skipped_left+=( "$_sk" )
 done
-if [ "${#GETFF_ADDED_TO[@]}" -gt 0 ]; then
-  echo ""
-  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
-  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
-fi
+print_getff_added   # setup.d/lib.sh — do_refresh prints it too
 if [ "${#_skipped_left[@]}" -gt 0 ]; then
   echo ""
   echo "·  ${#_skipped_left[@]} file(s) already existed and were left as they are — getff does not overwrite a project's files:"
