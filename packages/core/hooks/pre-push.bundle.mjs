@@ -1148,8 +1148,16 @@ function auditAiDocsSection() {
   }
   if (existsSync2(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
     const live = [
-      ["audit-ai-docs.sh", "bash", ["packages/core/audit-self/audit-ai-docs.sh"]],
-      ["audit-ai-docs.ts", "npx", ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]]
+      [
+        "audit-ai-docs.sh",
+        "bash",
+        ["packages/core/audit-self/audit-ai-docs.sh"]
+      ],
+      [
+        "audit-ai-docs.ts",
+        "npx",
+        ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]
+      ]
     ];
     for (const [label, cmd, args] of live) {
       const r = run(cmd, args);
@@ -1168,9 +1176,20 @@ function skillDriftSection() {
     emit(r);
   }
 }
+var RUN_ARMED = "scripts/run-armed.sh";
+function consumerGate(script) {
+  return existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
+}
+function armedProbeSection() {
+  if (!existsSync2(resolve(REPO_ROOT, RUN_ARMED))) return;
+  const r = run("bash", [RUN_ARMED, "--probe"]);
+  if (r.exitCode !== 0)
+    die("\u274C the project-checks record could not be read", r);
+  emit(r);
+}
 function ruleGlobsSection() {
   if (existsSync2(resolve(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
-    const r = run("bash", ["scripts/check-rule-globs.sh"]);
+    const r = consumerGate("scripts/check-rule-globs.sh");
     if (r.exitCode !== 0) die("\u274C rule-glob liveness check failed", r);
     emit(r);
   }
@@ -1193,7 +1212,7 @@ function worktreeProvisioningSection() {
 }
 function lintStagedResolvesSection() {
   if (existsSync2(resolve(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
-    const r = run("bash", ["scripts/check-lintstaged-resolves.sh"]);
+    const r = consumerGate("scripts/check-lintstaged-resolves.sh");
     if (r.exitCode !== 0) die("\u274C lint-staged resolution check failed", r);
     emit(r);
   }
@@ -1996,6 +2015,7 @@ var SECTIONS = [
     run: (c) => lineCitationsSection(c)
   },
   { id: "skill-drift", owner: "maintainer", run: () => skillDriftSection() },
+  { id: "armed-probe", owner: "consumer", run: () => armedProbeSection() },
   { id: "rule-globs", owner: "consumer", run: () => ruleGlobsSection() },
   {
     id: "lint-staged-resolves",

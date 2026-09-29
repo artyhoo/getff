@@ -31,7 +31,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 | 55 | `55-runtime-bridge-vendor.sh` | §5d vendored runtime-bridge subset (dispatch CLI + PostToolUse hook) — **factory-only** per spec A7 | 10-skills (`.claude/` exists), 50-hooks (hook dir exists) | Done (S5 A7) — vendor COPY + hook idempotent with `setup-runtime-bridge.sh` (install-time vs runtime split) |
 | 60 | `60-ci.sh` | §6b `.nvmrc`↔CI drift WARN + §6b-bis R2 auto-wire L1 (sets `_r2_verdict`) + §6c CI-orphan WARN + yq auto-wire | 40-configs (`eslint.config.mjs` + `.github/workflows/` written) | Done |
 | 70 | `70-deps.sh` | §7 `package.json` scripts merge + §8 dev-dep install (sets `DEPS_INSTALLED`, `DEVDEPS`); §8b tsx-at-root retired 2026-09-28 | 60-ci (`eslint.config.mjs`, `detect-r2-boundary` etc. written) | Done |
-| 99 | `99-finalize.sh` | **synth-wire** (synthesizer → root `eslint.config.mjs`; idempotent) + §6b-bis-L2 R2 AST-wire (ts-morph, per-package) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
+| 99 | `99-finalize.sh` | **synth-wire** (synthesizer → root `eslint.config.mjs`; idempotent) + §6b-bis-L2 R2 AST-wire (ts-morph, per-package) + V2 otel-arming WARN + `ignore_shipped_configs` CALL + arm-if-green pass → the `aif:project-checks` record in `.ai-factory/tool-decisions.md` (P2) + Done banner | 70-deps (ts-morph installed; `DEPS_INSTALLED`/`DEVDEPS` set), 60-ci (`_r2_verdict` set), **ALL prior** (`SKIPPED` fully accumulated) | Done |
 
 ### `kind=mcp` manifest contract (S2)
 
@@ -64,6 +64,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `_r2_verdict` | 60-ci | 99-finalize (R2 L2 AST-wire) |
 | `DEPS_INSTALLED` | 70-deps | 99-finalize (Next-steps) |
 | `DEVDEPS` | 70-deps | 99-finalize (Next-steps) |
+| `DEPS_GETFF_SCRIPTS` | 70-deps (the `package.json` scripts whose command is getff's own) | 99-finalize (arm-if-green: only these run at install; the project's own scripts never do) |
 | `UPSTREAM_BLOB_URL` | lib.sh | lib helpers (`transform_internal_refs`) |
 
 ---
@@ -141,5 +142,5 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `70-deps.sh` | 70 | §7 package.json scripts merge + §8 dev-dep install (§8b tsx-at-root retired 2026-09-28). | all stacks |
 | `80-rule-bootstrap.sh` | 80 | rule-bootstrapping install-time step (LIVE-or-degrade). | all stacks |
 | `85-worktree-scripts.sh` | 85 | §5e worktree scripts cluster (env+ profile). | all stacks |
-| `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + Done. | all stacks |
+| `99-finalize.sh` | 99 | synth-wire + R2 AST-wire + V2 otel WARN + ignore_shipped_configs + arm-if-green record + Done. | all stacks |
 <!-- getff:end section=A-table -->

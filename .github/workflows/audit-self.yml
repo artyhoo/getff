@@ -858,6 +858,12 @@ jobs:
         run: bash tests/install-sh/deps-keep-project-versions.test.sh
       - name: "install-sh — typecheck checks something: tsc -b on a solution tsconfig, React options in the tsconfig getff writes (P2 G4)"
         run: bash tests/install-sh/typecheck-matches-tsconfig.test.sh
+      - name: "install-sh — scripts/run-armed.sh runs what the project's record arms; no record fails loudly (P2 C2/C3)"
+        run: bash tests/install-sh/run-armed.test.sh
+      - name: "install-sh — the install arms only what it ran green and records it; validate, CI and lint-staged read the record (P2 §3)"
+        run: bash tests/install-sh/project-checks-record.test.sh
+      - name: "install-sh — the consumer pre-push reads the record and arms a check once it is green (P2 C2)"
+        run: bash tests/install-sh/prepush-follows-record.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 

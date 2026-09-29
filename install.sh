@@ -353,6 +353,8 @@ do_toolchain_lane() {
   else
     echo "  [dry-run] would run the getff firing self-check (plant a violation in an OS temp dir → assert the delivered config fires RED)"
   fi
+  # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
+  record_lane_checks "$lane"
   # consumer-refresh-integrity R1: persist the delivery baseline (fail-open; setup.d/lib.sh).
   refresh_baseline_flush
   # The lane exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7).
@@ -401,6 +403,8 @@ do_python_lane() {
   # run against. _py_deliver_agent_surface (defined in setup.d/45-python.sh, sourced above)
   # replicates the curated subset of the layer list — see its docstring for the per-layer mapping.
   _py_deliver_agent_surface
+  # The lane exits before 99-finalize, so it writes its own (empty) project-checks record (P2 C7).
+  record_lane_checks python
   # consumer-refresh-integrity R1: persist the delivery baseline now that every lane delivery
   # (and its post-copy mutations) has run. Fail-open — never fails the lane (setup.d/lib.sh).
   refresh_baseline_flush
@@ -1155,6 +1159,7 @@ do_refresh() {
     "packages/core/audit-self/check-lintstaged-resolves.sh:scripts/check-lintstaged-resolves.sh" \
     "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
     "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
+    "packages/core/audit-self/run-armed.sh:scripts/run-armed.sh" \
     "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh" \
     "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh" \
     "packages/core/audit-self/pre-merge-local.sh:scripts/pre-merge-local.sh" \
@@ -1166,6 +1171,8 @@ do_refresh() {
               chmod_safe +x "$PROJECT_ROOT/$_d" 2>/dev/null || true; fi ;;
     esac
   done
+  # P2 C2: the refreshed pre-push hook reads the record through scripts/run-armed.sh (just delivered).
+  record_unrun_checks
   # #931: scripts/run-mutation.sh is monorepo-conditional — setup.d/40-configs.sh only copy_safe's
   # it inside the per-workspace (multi-stack) branch, never on the flat/single-stack branch. Guard
   # the refresh with the SAME signal 40-configs.sh uses to decide whether to enter that branch

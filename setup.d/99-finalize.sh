@@ -958,6 +958,130 @@ else
   fi
 fi
 
+# ─── P2 §1 step 3 + §3: arm only what is green; record how this project checks itself ─────────
+# Operator log entry 28, fork 1 = A: what was green before stays green. Each check getff adds to a
+# blocking channel (validate, CI, lint-staged, pre-push) is run ONCE here on the untouched tree:
+# green → `armed`, red → `not-armed` with the reason, in the aif:project-checks block of
+# .ai-factory/tool-decisions.md. Every channel reads that block through scripts/run-armed.sh, and
+# `validate` / the pre-push probe move a not-armed check to armed the first time it exits 0 — no
+# human step. The install runs only getff's own scripts (DEPS_GETFF_SCRIPTS, 70-deps): a script the
+# project wrote is its own code, recorded not-armed until the first validate or push runs it green.
+# Before recording lint red: typed rules that need strictNullChecks are turned off in getff's own
+# ESLint config (the project's tsconfig is never edited), then ESLint's own bulk suppressions
+# (eslint --suppress-all, ESLint >= 9.24) record the existing findings so only new ones block.
+_pc_armed=(); _pc_not=(); _pc_extra=()
+_pc_reason() {  # <name> <rc> <log> → why a red check is not armed
+  local n
+  case "$1" in
+    test) grep -q 'No test files found' "$3" && { echo "no test files yet"; return; } ;;
+    typecheck) n=$(grep -c 'error TS[0-9]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n type errors at install"; return; } ;;
+    format:check) n=$(grep -c '^\[warn\] [^C]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n files not in prettier style at install"; return; } ;;
+    lint) n=$(sed -n 's/^✖ \([0-9][0-9]*\) problem.*/\1/p' "$3" | tail -1); [ -n "$n" ] && { echo "$n lint problems at install"; return; } ;;
+  esac
+  echo "exits $2 at install"
+}
+_pc_run() {  # <command> <log> → the command's exit code, run from the project root
+  ( cd "$PROJECT_ROOT" && bash -c "$1" ) > "$2" 2>&1
+}
+# _pc_null_rules_off — turn off, in getff's own root eslint.config.mjs, the typed rules whose lint
+# message says they need strictNullChecks (the rules are read from ESLint's own output, not listed).
+_pc_null_rules_off() {
+  local cfg="$PROJECT_ROOT/eslint.config.mjs" bin="$PROJECT_ROOT/node_modules/.bin/eslint" rules
+  [ -f "$cfg" ] && [ -x "$bin" ] && getff_delivered "$cfg" || return 1
+  rules=$( cd "$PROJECT_ROOT" && "$bin" . -f json 2>/dev/null | node -e '
+    let t = ""; process.stdin.on("data", (d) => (t += d)).on("end", () => {
+      const ids = new Set();
+      try { for (const f of JSON.parse(t)) for (const m of f.messages || [])
+        if (m.ruleId && /strictNullChecks/.test(m.message || "")) ids.add(m.ruleId); } catch {}
+      console.log([...ids].sort().join(" "));
+    });' )
+  [ -n "$rules" ] || return 1
+  GETFF_CFG="$cfg" GETFF_RULES="$rules" node -e '
+    const fs = require("fs"), p = process.env.GETFF_CFG, rules = process.env.GETFF_RULES.split(" ");
+    const lines = fs.readFileSync(p, "utf8").split("\n");
+    let i = lines.length - 1; while (i >= 0 && !/^[)\]];\s*$/.test(lines[i])) i--;
+    if (i < 0) process.exit(1);
+    lines.splice(i, 0, "  // getff (install): these typed rules need the strictNullChecks compiler option, which this",
+      "  // project does not set — off here, because getff does not edit a project tsconfig.",
+      "  { rules: { " + rules.map((r) => JSON.stringify(r) + ": \"off\"").join(", ") + " } },");
+    fs.writeFileSync(p, lines.join("\n"));' || return 1
+  echo "  ✓ eslint.config.mjs: $rules off — they need strictNullChecks, which your tsconfig does not set"
+  note_not_wired "typed ESLint rules $rules — off: they need the strictNullChecks compiler option and your tsconfig does not set it; getff does not edit a project's tsconfig"
+}
+# _pc_suppress — ESLint's bulk suppressions: record the existing findings in eslint-suppressions.json
+# (a shrink-only file ESLint reads), so `npm run lint` blocks new findings only; lint-staged's eslint
+# steps get --pass-on-unpruned-suppressions so fixing an old finding does not block the commit.
+_pc_suppress() {
+  local bin="$PROJECT_ROOT/node_modules/.bin/eslint" n f
+  [ -x "$bin" ] && "$bin" --help 2>/dev/null | grep -q -- '--suppress-all' || return 1
+  ( cd "$PROJECT_ROOT" && npm run lint -- --suppress-all ) >/dev/null 2>&1
+  [ -f "$PROJECT_ROOT/eslint-suppressions.json" ] || return 1
+  n=$(node -e 'let n = 0; const j = require(process.argv[1]); for (const f of Object.values(j)) for (const r of Object.values(f)) n += r.count || 0; console.log(n)' "$PROJECT_ROOT/eslint-suppressions.json" 2>/dev/null)
+  while IFS= read -r f; do
+    grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$f" || continue
+    sed -i.getff-bak "s#--no-warn-ignored\"#--no-warn-ignored --pass-on-unpruned-suppressions\"#" "$f" && rm -f "$f.getff-bak"
+  done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
+  _pc_extra+=("lint-baseline: eslint-suppressions.json — ${n:-?} findings in existing code recorded; new ones still block")
+  echo "  ✓ eslint-suppressions.json: ${n:-?} findings in existing code recorded (ESLint bulk suppressions) — new ones still block"
+}
+
+if [ "$DRY_RUN" = "--dry-run" ]; then
+  echo "  [dry-run] would run each check getff adds once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
+else
+  _pc_scripts=""
+  [ "${STACK:-}" = "generic" ] || _pc_scripts=$(project_check_scripts)
+  _pc_log=$(mktemp)
+  [ -z "$_pc_scripts" ] || echo "▶ arming getff's checks: each runs once on your code; only a green one blocks"
+  while IFS=$'\t' read -r _pc_n _pc_v; do
+    [ -n "$_pc_n" ] || continue
+    _pc_c=$(project_check_cmd "$_pc_n" "$_pc_v")
+    case " ${DEPS_GETFF_SCRIPTS:-} " in
+      *" $_pc_n "*) ;;
+      *) _pc_not+=("$_pc_c # your own script: the install does not run it; the first validate or push arms it once it exits 0"); continue ;;
+    esac
+    if [ ! -d "$PROJECT_ROOT/node_modules" ]; then
+      _pc_not+=("$_pc_c # not run at install: dependencies are not installed"); continue
+    fi
+    _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?
+    if [ "$_pc_rc" -ne 0 ] && [ "$_pc_n" = lint ]; then
+      if _pc_null_rules_off; then _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?; fi
+      if [ "$_pc_rc" -ne 0 ] && _pc_suppress; then _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?; fi
+    fi
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+    else
+      _pc_why=$(_pc_reason "$_pc_n" "$_pc_rc" "$_pc_log")
+      _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"
+    fi
+  done <<< "$_pc_scripts"
+  rm -f "$_pc_log"
+  _pc_fmt=$(project_formatter "$PROJECT_ROOT")
+  if [ "$_pc_fmt" = prettier ] && [ -f "$PROJECT_ROOT/.prettierrc.json" ] && getff_delivered "$PROJECT_ROOT/.prettierrc.json"; then
+    _pc_fmt="prettier (.prettierrc.json placed by getff)"
+  fi
+  _pc_body="### How this project checks itself (recorded by install.sh $(date +%Y-%m-%d))
+stack: ${STACK:-unknown}
+linter: $(project_linter "$PROJECT_ROOT")
+formatter: $_pc_fmt"
+  for _pc_l in ${_pc_extra[@]+"${_pc_extra[@]}"}; do _pc_body="$_pc_body
+$_pc_l"; done
+  _pc_body="$_pc_body
+armed:"
+  for _pc_l in ${_pc_armed[@]+"${_pc_armed[@]}"}; do _pc_body="$_pc_body
+- $_pc_l"; done
+  _pc_body="$_pc_body
+not-armed:"
+  for _pc_l in ${_pc_not[@]+"${_pc_not[@]}"}; do _pc_body="$_pc_body
+- $_pc_l"; done
+  if record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "$_pc_body"; then
+    echo ""
+    echo "How this project checks itself (.ai-factory/tool-decisions.md, aif:project-checks):"
+    printf '%s\n' "$_pc_body" | sed -n '2,$p' | sed 's/^/    /'
+  else
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, so scripts/run-armed.sh (validate, CI, lint-staged) stops with «no readable record»"
+  fi
+fi
+
 # ─── Done ───────────────────────────────────────────────
 # Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
 # step. Each NOT-wired line names what was left undone and why (lib.sh print_not_wired).

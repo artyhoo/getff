@@ -45,7 +45,11 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/integration-rules.md" "$PROJ
 # identical to the seeds above) — no npm/package.json dependency at install time.
 # CONCERN: S3 tool-bootstrap — this seeds the tool-decisions.md template, which is a file-deploy.
 # The actual tool-bootstrapping workflow (picking tools, recording decisions) is a separate S3 concern.
-copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+if [ "$FORCE" = "--force" ] && _tool_decisions_pristine "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"; then
+  copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md" suppress-no-entry
+else
+  copy_safe "$PKG_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template" "$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+fi
 
 # ─── AI Usage Guide (EVERY depth; beta-ai-docs-agnosticism S1 / spec C1) ─────
 # The AI-facing lifecycle doc past install: First Steps -> daily cycle -> degradations. Installed

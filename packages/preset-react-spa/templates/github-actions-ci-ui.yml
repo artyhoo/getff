@@ -29,8 +29,8 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run lint
-      - run: npm run format:check
+      - run: bash scripts/run-armed.sh npm run lint
+      - run: bash scripts/run-armed.sh npm run format:check
 
   typecheck:
     name: TypeScript
@@ -44,7 +44,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run typecheck
+      - run: bash scripts/run-armed.sh npm run typecheck
 
   architecture:
     name: Architecture rules
@@ -58,7 +58,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run arch:check
+      - run: bash scripts/run-armed.sh npm run arch:check
 
   # ─────────────────────────────────────────────
   # UNIT + COMPONENT TESTS
@@ -76,7 +76,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run test:coverage
+      - run: bash scripts/run-armed.sh --if-armed 'npm test' npm run test:coverage
         env:
           CI: 'true'
       - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5

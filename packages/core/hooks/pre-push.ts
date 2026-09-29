@@ -1025,8 +1025,16 @@ function auditAiDocsSection(): void {
     existsSync(resolve(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh'))
   ) {
     const live: ReadonlyArray<readonly [string, string, readonly string[]]> = [
-      ['audit-ai-docs.sh', 'bash', ['packages/core/audit-self/audit-ai-docs.sh']],
-      ['audit-ai-docs.ts', 'npx', ['tsx', 'packages/core/audit-self/audit-ai-docs.ts']],
+      [
+        'audit-ai-docs.sh',
+        'bash',
+        ['packages/core/audit-self/audit-ai-docs.sh'],
+      ],
+      [
+        'audit-ai-docs.ts',
+        'npx',
+        ['tsx', 'packages/core/audit-self/audit-ai-docs.ts'],
+      ],
     ];
     // Like the vitest arm above, this audits the WORKING TREE, not the pushed ref: an
     // untracked, not-ignored file carrying the goal phrase (a merge's `*.orig`) blocks the
@@ -1057,6 +1065,32 @@ function skillDriftSection(): void {
   }
 }
 
+// ── 3b-bis. The project's record (consumer, P2 C2) ───────────────────────────
+// getff's install records which of its checks it ran green (`armed`) and which not (`not-armed`,
+// with the reason) in the aif:project-checks block of .ai-factory/tool-decisions.md, and ships
+// scripts/run-armed.sh to read it. Consumer gates go through that script, so a check red on the
+// project's existing code at install never blocks a push; this probe runs each not-armed check
+// without blocking and arms the ones that now exit 0 — from the next push on they block. The flip
+// edits tool-decisions.md in the working tree; the change rides the project's next commit.
+// A project installed before the record has no run-armed.sh: its gates run as they always did.
+const RUN_ARMED = 'scripts/run-armed.sh';
+
+/** Run a consumer gate script through the project's record when the project has one. */
+function consumerGate(script: string): CheckResult {
+  return existsSync(resolve(REPO_ROOT, RUN_ARMED))
+    ? run('bash', [RUN_ARMED, 'bash', script])
+    : run('bash', [script]);
+}
+
+function armedProbeSection(): void {
+  if (!existsSync(resolve(REPO_ROOT, RUN_ARMED))) return;
+  const r = run('bash', [RUN_ARMED, '--probe']);
+  // Exit 2 = no readable record: every channel that reads it is blind — block, loudly.
+  if (r.exitCode !== 0)
+    die('❌ the project-checks record could not be read', r);
+  emit(r);
+}
+
 // ── 3c. Rule-glob liveness (consumer, universalization-fix-s2) ───────────────
 // Shipped consumer gate (install.sh → scripts/check-rule-globs.sh): FAILS if an
 // ACTIVE custom ESLint rule's globs match zero source files (silently-inert rule —
@@ -1065,7 +1099,7 @@ function skillDriftSection(): void {
 // packages/core/audit-self/), hence owner=consumer.
 function ruleGlobsSection(): void {
   if (existsSync(resolve(REPO_ROOT, 'scripts/check-rule-globs.sh'))) {
-    const r = run('bash', ['scripts/check-rule-globs.sh']);
+    const r = consumerGate('scripts/check-rule-globs.sh');
     if (r.exitCode !== 0) die('❌ rule-glob liveness check failed', r);
     emit(r);
   }
@@ -1116,7 +1150,7 @@ function worktreeProvisioningSection(): void {
 // first blocked commit. Consumer-only script → owner=consumer.
 function lintStagedResolvesSection(): void {
   if (existsSync(resolve(REPO_ROOT, 'scripts/check-lintstaged-resolves.sh'))) {
-    const r = run('bash', ['scripts/check-lintstaged-resolves.sh']);
+    const r = consumerGate('scripts/check-lintstaged-resolves.sh');
     if (r.exitCode !== 0) die('❌ lint-staged resolution check failed', r);
     emit(r);
   }
@@ -2561,6 +2595,7 @@ const SECTIONS: readonly PrePushSection[] = [
     run: (c) => lineCitationsSection(c),
   },
   { id: 'skill-drift', owner: 'maintainer', run: () => skillDriftSection() },
+  { id: 'armed-probe', owner: 'consumer', run: () => armedProbeSection() },
   { id: 'rule-globs', owner: 'consumer', run: () => ruleGlobsSection() },
   {
     id: 'lint-staged-resolves',

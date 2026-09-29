@@ -29,7 +29,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run lint
+      - run: bash scripts/run-armed.sh npm run lint
 
   typecheck:
     name: TypeScript
@@ -43,7 +43,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm run typecheck
+      - run: bash scripts/run-armed.sh npm run typecheck
 
   # ─────────────────────────────────────────────
   # UNIT TESTS
@@ -61,7 +61,7 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'npm'
       - run: npm ci --prefer-offline
-      - run: npm test
+      - run: bash scripts/run-armed.sh npm test
         env:
           CI: 'true'
 

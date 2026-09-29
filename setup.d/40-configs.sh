@@ -63,6 +63,11 @@ copy_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_RO
 # Checks core.hooksPath=.husky, pre-commit/pre-push present+executable+referencing gate commands.
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-shields-up.sh" "$PROJECT_ROOT/scripts/check-shields-up.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
+# P2 C2/C3: runs what the project's record (.ai-factory/tool-decisions.md, aif:project-checks —
+# written by 99-finalize) arms: `npm run validate`, the delivered CI steps, lint-staged's steps and
+# the pre-push probe all go through it, so a check red at install blocks nothing until it is green.
+copy_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"
@@ -133,7 +138,12 @@ if [ "$DRY_RUN" != "--dry-run" ] \
     # …and never next to the package's OWN lint-staged config (any name, or package.json key):
     # lint-staged uses the closest config, so the stub would silently replace theirs.
     if [ ! -f "$_pkgdir/.lintstagedrc.json" ] && [ -z "$(foreign_tool_config "$_pkgdir" lint-staged)" ]; then
-      cp "$PROJECT_ROOT/.lintstagedrc.json" "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
+      # lint-staged runs a stub's commands with cwd = the package: its steps reach the root's
+      # scripts/run-armed.sh by a relative path (P2 C2).
+      _pkgrel=${_pkgdir#"$PROJECT_ROOT"/}
+      _uprel=$(printf '%s' "$_pkgrel" | sed 's#[^/][^/]*#..#g')
+      sed "s#bash scripts/run-armed.sh#bash $_uprel/scripts/run-armed.sh#g" "$PROJECT_ROOT/.lintstagedrc.json" \
+        > "$_pkgdir/.lintstagedrc.json" && _ndrop=$((_ndrop + 1))
     fi
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
   echo "  ✓ workspace detected → dropped $_ndrop per-package .lintstagedrc.json stub(s) (F14 lint-staged cwd fix)"

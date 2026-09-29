@@ -612,6 +612,22 @@ _prettierignore_pristine() {
   return 1
 }
 
+# _tool_decisions_pristine <src> <dst> — rc 0 when .ai-factory/tool-decisions.md is the shipped
+# template plus only the blocks the install itself writes after the copy (aif:r2-na from 60-ci,
+# aif:project-checks from 99-finalize, getff's versions block) and the blank lines around them.
+# Each install writes those blocks again, so overwriting such a file loses nothing: the --force
+# delivery (30-templates, 45-python) then skips the no-entry preserve (same proof as
+# _prettierignore_pristine).
+_tool_decisions_pristine() {
+  local norm='
+    /^<!-- (aif:(r2-na|project-checks):begin|GETFF_VERSIONS_BEGIN) -->$/ {skip=1}
+    !skip {print}
+    /^<!-- (aif:(r2-na|project-checks):end|GETFF_VERSIONS_END) -->$/ {skip=0}'
+  local squeeze='NF{for(;blank>0;blank--)print ""; print; next} {blank++}'
+  [ -f "$1" ] && [ -f "$2" ] || return 1
+  [ "$(awk "$norm" "$2" | awk "$squeeze" | cat -s)" = "$(awk "$squeeze" "$1" | cat -s)" ]
+}
+
 # _pre_overwrite_divergence_action <dst-file> <expected-file-or-empty> [suppress-no-entry]
 # ONE per-file decision for the destructive-overwrite paths. <expected> is the file whose bytes
 # this delivery is about to write at <dst> ("" when the incoming payload no longer ships that
@@ -710,19 +726,21 @@ _pre_overwrite_divergence_action() {
 # construction (fidelity round 1 caught exactly that here: all 8 numbers were pre-edit and one
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
-#   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1382                    rewrite_arch_sot_header      → arch-header
+#   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
+#   install.sh:1424                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1429          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:551          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:466          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1864                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1433          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:550          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:576          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:597          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:625          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:540          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:565          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:585          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:616          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1409          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -3020,6 +3038,127 @@ legacy_eslint_config() {
     echo "package.json#eslintConfig"
   fi
   return 0
+}
+
+# project_linter <dir> — the linter the project in <dir> runs: eslint | oxlint | biome | none (P2 §1,
+# the linter slot). `scripts.lint` names it first (its first word: eslint / next → eslint, oxlint,
+# biome); otherwise the tool's own config file names (oxlint: .oxlintrc.json(c), oxlint.config.(m)ts;
+# Biome: biome.json(c), .biome.json(c); ESLint: a flat or eslintrc config). Never guessed past that.
+project_linter() {
+  local dir="$1" first="" f
+  if [ -f "$dir/package.json" ] && command -v node >/dev/null 2>&1; then
+    first=$(GETFF_PKG="$dir/package.json" node -e '
+      try { const s = (JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {}).lint;
+        if (typeof s === "string") console.log(s.trim().split(/\s+/)[0]); } catch {}' 2>/dev/null)
+  fi
+  case "$first" in
+    eslint|next) echo eslint; return 0 ;;
+    oxlint|biome) echo "$first"; return 0 ;;
+  esac
+  for f in .oxlintrc.json .oxlintrc.jsonc oxlint.config.ts oxlint.config.mts; do
+    [ -e "$dir/$f" ] && { echo oxlint; return 0; }
+  done
+  for f in biome.json biome.jsonc .biome.json .biome.jsonc; do
+    [ -e "$dir/$f" ] && { echo biome; return 0; }
+  done
+  if [ -e "$dir/eslint.config.mjs" ] || [ -n "$(foreign_tool_config "$dir" eslint)" ] \
+    || [ -n "$(legacy_eslint_config "$dir")" ]; then
+    echo eslint; return 0
+  fi
+  echo none
+}
+
+# project_formatter <dir> — the formatter the project in <dir> has: prettier | biome | dprint | none.
+project_formatter() {
+  local dir="$1" f
+  if [ -e "$dir/.prettierrc.json" ] || [ -n "$(foreign_tool_config "$dir" prettier)" ]; then echo prettier; return 0; fi
+  for f in biome.json biome.jsonc .biome.json .biome.jsonc; do
+    [ -e "$dir/$f" ] && { echo biome; return 0; }
+  done
+  for f in dprint.json .dprint.json dprint.jsonc .dprint.jsonc; do
+    [ -e "$dir/$f" ] && { echo dprint; return 0; }
+  done
+  echo none
+}
+
+# record_project_checks <file> <body> — write <body> as the <!-- aif:project-checks:begin/end -->
+# block of <file> (.ai-factory/tool-decisions.md): the block is replaced in place when present, else
+# appended. Every other line of the file — another tool's block before or after it included — is
+# left byte-for-byte. The record's readers: scripts/run-armed.sh (validate, CI, lint-staged, the
+# pre-push probe) and the agent report (P1, P5).
+record_project_checks() {
+  local file="$1" body="$2" tmp
+  local b='<!-- aif:project-checks:begin -->' e='<!-- aif:project-checks:end -->'
+  mkdir -p "$(dirname "$file")" || return 1
+  [ -f "$file" ] || printf '# Tool decisions\n' > "$file"
+  tmp=$(mktemp) || return 1
+  if grep -qxF "$b" "$file" && grep -qxF "$e" "$file"; then
+    GETFF_BODY="$body" awk -v b="$b" -v e="$e" '
+      $0==b { print; print ENVIRON["GETFF_BODY"]; skip=1; next }
+      $0==e { skip=0 }
+      !skip' "$file" > "$tmp"
+  else
+    { cat "$file"; [ -z "$(tail -c1 "$file")" ] || echo; echo; echo "$b"; printf '%s\n' "$body"; echo "$e"; } > "$tmp"
+  fi
+  cat "$tmp" > "$file"; rm -f "$tmp"
+}
+
+# The package.json scripts the record governs: each check getff adds to a blocking channel
+# (validate, CI, lint-staged, pre-push). 99-finalize's arm pass and --refresh's record read them.
+PROJECT_CHECKS=(typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test)
+
+# project_check_scripts — `<name>\t<script value>` for each PROJECT_CHECKS script in the project's
+# package.json (nothing without a package.json or node).
+project_check_scripts() {
+  [ -f "$PROJECT_ROOT/package.json" ] && command -v node >/dev/null 2>&1 || return 0
+  GETFF_PKG="$PROJECT_ROOT/package.json" GETFF_NAMES="${PROJECT_CHECKS[*]}" node -e '
+    const s = JSON.parse(require("fs").readFileSync(process.env.GETFF_PKG, "utf8")).scripts || {};
+    for (const n of process.env.GETFF_NAMES.split(" "))
+      if (typeof s[n] === "string") console.log(n + "\t" + s[n].replace(/[\t\n]/g, " "));' 2>/dev/null || true
+}
+
+# project_check_cmd <name> <script value> — the check as the project would type it (a record line).
+project_check_cmd() {
+  if [[ "$2" =~ ^(bash\ )?(\./)?scripts/([A-Za-z0-9._-]+\.sh)$ ]]; then echo "bash scripts/${BASH_REMATCH[3]}"
+  elif [ "$1" = test ]; then echo "npm test"
+  else echo "npm run $1"; fi
+}
+
+# record_unrun_checks — --refresh on a project installed before the record: it now gets
+# scripts/run-armed.sh, which the refreshed pre-push hook reads, so it needs a record. Every check is
+# recorded not-armed, not run: the first validate or push probes each one and arms it once it exits 0.
+# A record already there is left as it is (it carries what the project has armed since).
+record_unrun_checks() {
+  local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v
+  [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
+  grep -qxF '<!-- aif:project-checks:begin -->' "$f" 2>/dev/null && return 0
+  body="### How this project checks itself (recorded by install.sh --refresh $(date +%Y-%m-%d))
+stack: ${STACK:-unknown}
+linter: $(project_linter "$PROJECT_ROOT")
+formatter: $(project_formatter "$PROJECT_ROOT")
+armed:
+not-armed:"
+  while IFS=$'\t' read -r n v; do
+    [ -n "$n" ] || continue
+    body="$body
+- $(project_check_cmd "$n" "$v") # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0"
+  done <<< "$(project_check_scripts)"
+  if record_project_checks "$f" "$body"; then
+    echo "  ✓ .ai-factory/tool-decisions.md: recorded how this project checks itself — nothing armed yet; the first validate or push arms each check once it exits 0"
+  else
+    note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written, so scripts/run-armed.sh (the pre-push hook) stops with «no readable record»"
+  fi
+}
+
+# record_lane_checks <lane> — the record of an alpha toolchain lane (python / cargo / go): the lane
+# places no getff check in a blocking channel the record governs, so both lists are empty — present,
+# because an empty list is valid only when the record says so (P2 C7). --dry-run writes nothing.
+record_lane_checks() {
+  [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
+  record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "### How this project checks itself (recorded by install.sh $(date +%Y-%m-%d))
+stack: $1
+armed:
+not-armed:" || note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written"
 }
 
 # copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless

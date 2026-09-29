@@ -226,7 +226,10 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # exit 2); `tsc -b` builds the references, as the project's own `build` script already does.
     AIF_TYPECHECK="tsc --noEmit"
     grep -Eq '^[[:space:]]*"references"[[:space:]]*:' "$PROJECT_ROOT/tsconfig.json" 2>/dev/null && AIF_TYPECHECK="tsc -b"
-    AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" node -e '
+    # P2 C3: DEPS_GETFF_SCRIPTS = the scripts whose command is getff's own after the merge (added now,
+    # or by an earlier install) — 99-finalize runs only those at install to arm them; a script the
+    # project wrote itself is never run by the install.
+    DEPS_GETFF_SCRIPTS=$(AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -256,7 +259,9 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         "check:fences-fire": "bash scripts/check-fences-fire.sh",
         "check:shields-up": "bash scripts/check-shields-up.sh",
         "test:mutation:generated": "bash scripts/run-generated-rule-mutation.sh",
-        "validate": "npm-run-all2 --parallel typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test",
+        // P2 C3: validate runs what the record arms (.ai-factory/tool-decisions.md, written by
+        // 99-finalize) — every armed check, labelled, not stopping at a failure — and probes the rest.
+        "validate": "bash scripts/run-armed.sh validate",
         "prepare": "husky"
       };
       // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
@@ -317,7 +322,8 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
         process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
       }
       process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
-    '
+      process.stdout.write(Object.keys(want).filter(k => pkg.scripts[k] === want[k]).join(" ") + "\n");
+    ')
   else
     echo "  ⚠  node not found — package.json scripts NOT merged"
     note_not_wired "package.json scripts (validate, check:*, prepare) and the husky / lint-staged / sort-package-json devDependencies — not added: node is not on PATH, and getff edits package.json only through node"

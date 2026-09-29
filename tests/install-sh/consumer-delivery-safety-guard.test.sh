@@ -173,6 +173,20 @@ else
     || bad "arm 3: preserved skill copy missing its edit marker"
 fi
 
+# ── Arm 3b (unit): tool-decisions.md is pristine modulo the blocks the install writes after the copy
+# (P2 C2): the arm-3 consumer's file carries the aif:project-checks record, and arm 3 saw it NOT
+# preserved. Paired negative: a line the consumer wrote outside the blocks is still a real edit.
+echo ""; echo "▶ Arm 3b: _tool_decisions_pristine — install-written blocks only vs a consumer line"
+TD_SRC="$REPO_ROOT/skills/tool-bootstrapping/templates/tool-decisions.md.template"
+TD=$(mktemp)
+{ cat "$TD_SRC"; printf '\n<!-- aif:r2-na:begin -->\nx\n<!-- aif:r2-na:end -->\n\n<!-- GETFF_VERSIONS_BEGIN -->\n| eslint | 9 |\n<!-- GETFF_VERSIONS_END -->\n\n<!-- aif:project-checks:begin -->\narmed:\nnot-armed:\n<!-- aif:project-checks:end -->\n'; } > "$TD"
+_tool_decisions_pristine "$TD_SRC" "$TD" && ok "arm 3b: template + the three install-written blocks → pristine" \
+  || bad "arm 3b: template + install-written blocks read as a consumer edit"
+printf '\nOur own decision: keep jest.\n' >> "$TD"
+_tool_decisions_pristine "$TD_SRC" "$TD" && bad "arm 3b: a consumer line outside the blocks read as pristine" \
+  || ok "arm 3b: a consumer line outside the blocks → not pristine (preserved as before)"
+rm -f "$TD"
+
 # ══════════════════════════════════════════════════════════════════════════════
 # ARM 4 (live) — MAJOR 2 preview: plain-skills dry-run shows would-flag, writes nothing
 # ══════════════════════════════════════════════════════════════════════════════
