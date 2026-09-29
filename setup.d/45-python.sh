@@ -1347,37 +1347,11 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # ── .mcp.json (context7 only) ────────────────────────────────────────────────
-  # Replicates setup.d/05-mcp.sh:17-46 — context7-specific with an idempotency guard. The python
-  # lane does NOT source 05-mcp.sh (that file is FULL-gated which python never sets, AND the
-  # layer loop never runs), so this is the only delivery channel for context7 on this lane.
-  local _py_mcp="$PROJECT_ROOT/.mcp.json"
-  local _py_mcp_skip=0
-  if [ -f "$_py_mcp" ] && grep -q '"context7"' "$_py_mcp" 2>/dev/null && [ -z "${FORCE:-}" ]; then
-    _py_mcp_skip=1
-  fi
-  if [ "$_py_mcp_skip" = "1" ]; then
-    echo "  ⊝ context7 already in .mcp.json — kept as it is"
-  elif [ -n "${DRY_RUN:-}" ]; then
-    echo "  [dry-run] would: add context7 to .mcp.json ($_py_mcp)"
-  elif command -v jq >/dev/null 2>&1; then
-    if [ -f "$_py_mcp" ]; then
-      # ledger A1-9 (the A1-8 class): same shape as setup.d/05-mcp.sh, which this block replicates.
-      if jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
-        "$_py_mcp" > "$_py_mcp.tmp" && mv "$_py_mcp.tmp" "$_py_mcp"; then
-        echo "  ✓ context7 added/updated in existing .mcp.json"
-      else
-        rm -f "$_py_mcp.tmp" 2>/dev/null || true
-        echo "  ⚠ jq rewrite of $_py_mcp failed — file left unchanged, context7 NOT added" >&2
-      fi
-    else
-      printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' \
-        > "$_py_mcp"
-      echo "  ✓ .mcp.json created with context7"
-    fi
-  else
-    add_context7_mcp "$_py_mcp"
-  fi
+  # ── .mcp.json (context7 + deepwiki) ─────────────────────────────────────────
+  # The same writer as setup.d/05-mcp.sh (lib.sh add_getff_mcp_servers). The python lane does NOT
+  # source 05-mcp.sh (that file is FULL-gated which python never sets, AND the layer loop never
+  # runs), so this is the only delivery channel for the project MCP servers on this lane.
+  add_getff_mcp_servers "$PROJECT_ROOT/.mcp.json"
 
   # ── AGENTS.md ─────────────────────────────────────────────────────────────────
   # Replicates setup.d/30-templates.sh — starter AGENTS.md at project root, delivered as a

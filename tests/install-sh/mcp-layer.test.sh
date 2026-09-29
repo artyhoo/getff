@@ -14,6 +14,10 @@
 #   (c) --full --dry-run → no .mcp.json written
 #   (d) byte-identical guard (D2): --force WITHOUT --full → no .mcp.json (gate proven)
 #   (e) brownfield: pre-seeded .mcp.json with non-context7 entry preserved (additive merge)
+#   (f) deepwiki absent machine-wide (stub `claude mcp get` → not found) → deepwiki http entry
+#       in the project .mcp.json (one-button P3, point 8)
+#   (g) paired negative: deepwiki at user scope (stub reports «Scope: User config») → no project
+#       entry; and under --global the user-scope row owns it, so the project file carries none
 
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -33,12 +37,22 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 # ── Shared stub setup ─────────────────────────────────────────────────────────
-# Create a claude stub that records calls and exits 0, so claude mcp add is testable.
+# Create a claude stub that records calls, so claude mcp add is testable. `claude mcp get deepwiki`
+# answers like Claude Code 2.1.270: «Scope: User config …» when STUB_DEEPWIKI_USER=1, else the
+# not-found error (exit 1) — the probe getff_deepwiki_machine_wide (lib.sh) reads.
 _stub_bin=$(mktemp -d)
 _claude_log=$(mktemp)
 cat > "$_stub_bin/claude" <<'EOF'
 #!/bin/sh
 printf 'claude-stub %s\n' "$*" >> "$CLAUDE_LOG"
+if [ "$1 $2 $3" = "mcp get deepwiki" ]; then
+  if [ "${STUB_DEEPWIKI_USER:-0}" = 1 ]; then
+    printf 'deepwiki:\n  Scope: User config (available in all your projects)\n  Type: http\n'
+    exit 0
+  fi
+  echo 'No MCP server found with name: deepwiki' >&2
+  exit 1
+fi
 exit 0
 EOF
 chmod +x "$_stub_bin/claude"
@@ -67,15 +81,20 @@ if [ -f "$_mcp_a" ]; then
   jq -e '.mcpServers.context7' "$_mcp_a" >/dev/null 2>&1 \
     && ok "(a) context7 key present in .mcp.json" \
     || bad "(a) context7 key missing from .mcp.json"
-  jq -e '.mcpServers.context7.command == "npx"' "$_mcp_a" >/dev/null 2>&1 \
-    && ok "(a) context7.command = npx" \
-    || bad "(a) context7.command != npx"
-  jq -e '.mcpServers.context7.args[0] == "-y"' "$_mcp_a" >/dev/null 2>&1 \
-    && ok "(a) context7.args[0] = -y" \
-    || bad "(a) context7.args[0] != -y"
-  jq -e '.mcpServers.context7.args[1] == "@upstash/context7-mcp@latest"' "$_mcp_a" >/dev/null 2>&1 \
-    && ok "(a) context7.args[1] = @upstash/context7-mcp@latest" \
-    || bad "(a) context7.args[1] mismatch"
+  # http remote, like getff's own .mcp.json — nothing runs locally, no client version to pin
+  jq -e '.mcpServers.context7.type == "http"' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) context7.type = http" \
+    || bad "(a) context7.type != http"
+  jq -e '.mcpServers.context7.url == "https://mcp.context7.com/mcp"' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) context7.url = https://mcp.context7.com/mcp" \
+    || bad "(a) context7.url mismatch"
+  jq -e '.mcpServers.context7 | has("command") | not' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) context7 has no local command (no npx @latest)" \
+    || bad "(a) context7 still carries a local command"
+  # --global: the user-scope manifest row owns deepwiki, so the project file carries none
+  jq -e '.mcpServers | has("deepwiki") | not' "$_mcp_a" >/dev/null 2>&1 \
+    && ok "(a) --global: no project deepwiki entry (user-scope row owns it)" \
+    || bad "(a) --global: a project deepwiki entry was written as well"
 fi
 
 # claude mcp add (deepwiki row, --scope user) must have been invoked — --global allowed it
@@ -96,7 +115,7 @@ _mcp_b="$_proj_b/.mcp.json"
 if [ -f "$_mcp_b" ]; then
   _ctx7_count=$(jq '[.mcpServers | keys[] | select(. == "context7")] | length' "$_mcp_b" 2>/dev/null || echo 0)
   [ "$_ctx7_count" -le 1 ] \
-    && ok "(b) context7 not duplicated ($_ ctx7_count entry)" \
+    && ok "(b) context7 not duplicated ($_ctx7_count entry)" \
     || bad "(b) context7 duplicated ($_ctx7_count entries)"
 fi
 # deepwiki detect-first: second run should show skip (already present stub logic returns 0)
@@ -154,6 +173,48 @@ if [ -f "$_mcp_e" ]; then
     || bad "(e) brownfield: context7 not added"
 fi
 rm -rf "$_proj_e"
+
+# ── (f) deepwiki absent machine-wide → project http entry ────────────────────
+echo "  ── (f) deepwiki not configured machine-wide → added to the project .mcp.json ──"
+_proj_f=$(mktemp -d)
+echo '{}' > "$_proj_f/package.json"
+STUB_DEEPWIKI_USER=0 _run_install "$_proj_f" --full --force >/dev/null 2>&1 || true
+_mcp_f="$_proj_f/.mcp.json"
+if [ -f "$_mcp_f" ]; then
+  jq -e '.mcpServers.deepwiki.type == "http" and .mcpServers.deepwiki.url == "https://mcp.deepwiki.com/mcp"' \
+    "$_mcp_f" >/dev/null 2>&1 \
+    && ok "(f) deepwiki http entry in the project .mcp.json" \
+    || bad "(f) deepwiki http entry missing from the project .mcp.json"
+  jq -e '.mcpServers.context7.type == "http"' "$_mcp_f" >/dev/null 2>&1 \
+    && ok "(f) context7 written alongside deepwiki" \
+    || bad "(f) context7 missing when deepwiki was added"
+else
+  bad "(f) .mcp.json not created"
+fi
+grep -q 'claude-stub mcp get deepwiki' "$_claude_log" \
+  && ok "(f) the probe asked \`claude mcp get deepwiki\` (not the removed \`mcp list --scope\`)" \
+  || bad "(f) the machine-wide probe never asked \`claude mcp get deepwiki\`"
+rm -f "$_claude_log"; > "$_claude_log"
+rm -rf "$_proj_f"
+
+# ── (g) paired negative: deepwiki at user scope → no project entry ───────────
+echo "  ── (g) deepwiki configured machine-wide → no project entry ──"
+_proj_g=$(mktemp -d)
+echo '{}' > "$_proj_g/package.json"
+STUB_DEEPWIKI_USER=1 _run_install "$_proj_g" --full --force >/dev/null 2>&1 || true
+_mcp_g="$_proj_g/.mcp.json"
+if [ -f "$_mcp_g" ]; then
+  jq -e '.mcpServers | has("deepwiki") | not' "$_mcp_g" >/dev/null 2>&1 \
+    && ok "(g) user-scope deepwiki → the project .mcp.json carries none" \
+    || bad "(g) user-scope deepwiki → a duplicate project entry was written"
+  jq -e '.mcpServers.context7.type == "http"' "$_mcp_g" >/dev/null 2>&1 \
+    && ok "(g) context7 still written" \
+    || bad "(g) context7 missing"
+else
+  bad "(g) .mcp.json not created"
+fi
+rm -f "$_claude_log"; > "$_claude_log"
+rm -rf "$_proj_g"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$_stub_bin" "$_claude_log"

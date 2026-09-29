@@ -39,7 +39,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 
 **contract:**
 
-- `detect_cmd`: a shell expression that exits 0 when the MCP is already configured (e.g. `claude mcp list --scope user 2>/dev/null | grep -q <name>`).
+- `detect_cmd`: a shell expression that exits 0 when the MCP is already configured (e.g. `grep -q 'Scope: User' <<<"$(claude mcp get <name> 2>/dev/null)"` — a here-string, not a pipe into `grep -q` (the pipefail early-exit gate) — `claude mcp list` has no `--scope` option, so a `mcp list --scope user` probe always fails and re-installs).
 - `install_cmd`: the official `claude mcp add` command with no version pin. For user-scope MCPs, include `--scope user`; the engine emits a machine-scope notice automatically.
 - Rows are processed only when `FULL` is set (i.e., `install.sh --full`). Non-full / `--dry-run` paths are no-ops or print a preview respectively.
 - Requires `claude` CLI present; graceful skip (`⊝ claude CLI absent — skipping MCP <name>`) when absent.

@@ -3033,18 +3033,89 @@ json_edit_node_why() {
   fi
 }
 
-# add_context7_mcp FILE — the jq-less arm of the context7 entry in .mcp.json (05-mcp, the python lane):
-# sets .mcpServers.context7 through node and keeps every other server, as the jq merge does.
-add_context7_mcp() {
-  local file="$1"
-  if json_edit_node "$file" '
+# ── Project MCP servers (05-mcp, the python lane) — ONE writer for both lanes ────────────────
+# getff's own .mcp.json runs context7 and deepwiki as http remotes (.mcp.json at the repo root), so a
+# consumer gets the same form: nothing is executed locally and there is no client-side version to
+# pin (one-button P3 F2; the former `npx -y @upstash/context7-mcp@latest` stdio entry had no recorded
+# reason). deepwiki goes into the project only when it is NOT configured machine-wide (operator,
+# one-button log entry 18: «deepwiki в проект если нет глобально»); under --global the user-scope
+# manifest row (companions.manifest, kind=mcp) installs it instead.
+GETFF_MCP_CONTEXT7_URL="https://mcp.context7.com/mcp"
+GETFF_MCP_DEEPWIKI_URL="https://mcp.deepwiki.com/mcp"
+
+# getff_deepwiki_machine_wide — 0 when deepwiki is configured at USER scope on this machine.
+# `claude mcp list` has no --scope option (Claude Code 2.1.270: «unknown option '--scope'»), so the
+# probe is `claude mcp get`, whose output names the scope. GETFF_DEEPWIKI_MACHINE_WIDE=1|0 overrides
+# the probe (deterministic install baselines; a machine without the claude CLI reads «not found»).
+getff_deepwiki_machine_wide() {
+  case "${GETFF_DEEPWIKI_MACHINE_WIDE:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
+  command -v claude >/dev/null 2>&1 || return 1
+  local _out
+  _out=$(claude mcp get deepwiki 2>/dev/null || true)
+  case "$_out" in
+    *"Scope: User"*) return 0 ;;
+  esac
+  return 1
+}
+
+# add_getff_mcp_servers FILE — additive merge of getff's project MCP servers into FILE:
+#   context7 — always, unless the key exists and --force is not set (a consumer's own entry is kept);
+#   deepwiki — only when it is absent machine-wide and --global is not set, and never over an entry.
+# jq when present, else node (json_edit_node); a failed write is a NOT-wired line, never a silent skip.
+add_getff_mcp_servers() {
+  local file="$1" want_c7=1 want_dw=1
+  if [ -f "$file" ] && grep -q '"context7"' "$file" 2>/dev/null && [ -z "${FORCE:-}" ]; then
+    want_c7=0
+    echo "  ⊝ context7 already in ${file##*/} — kept as it is"
+  fi
+  if [ "${GETFF_GLOBAL:-}" = "1" ]; then
+    want_dw=0
+  elif getff_deepwiki_machine_wide; then
+    want_dw=0
+    echo "  ⊝ deepwiki is configured machine-wide (user scope) — not added to ${file##*/}"
+  elif [ -f "$file" ] && grep -q '"deepwiki"' "$file" 2>/dev/null; then
+    want_dw=0
+    echo "  ⊝ deepwiki already in ${file##*/} — kept as it is"
+  fi
+  [ "$want_c7" = 0 ] && [ "$want_dw" = 0 ] && return 0
+  if [ -n "${DRY_RUN:-}" ]; then
+    [ "$want_c7" = 1 ] && echo "  [dry-run] would: add context7 (http) to ${file##*/}"
+    [ "$want_dw" = 1 ] && echo "  [dry-run] would: add deepwiki (http) to ${file##*/}"
+    return 0
+  fi
+  local _names=""
+  [ "$want_c7" = 1 ] && _names="context7"
+  [ "$want_dw" = 1 ] && _names="${_names:+$_names + }deepwiki"
+  if command -v jq >/dev/null 2>&1; then
+    local _src="$file" _tmp="$file.tmp"
+    [ -f "$file" ] || _src=/dev/null
+    # ledger A1-9 (the A1-8 class): an unconditional ✓ over a failed rewrite is the defect —
+    # report honestly and leave no half-written .tmp behind.
+    if { [ "$_src" = /dev/null ] && echo '{}' || cat "$_src"; } \
+        | jq --arg c7 "$GETFF_MCP_CONTEXT7_URL" --arg dw "$GETFF_MCP_DEEPWIKI_URL" \
+             --argjson wc "$want_c7" --argjson wd "$want_dw" '
+          .mcpServers = (.mcpServers // {})
+          | if $wc == 1 then .mcpServers.context7 = {type: "http", url: $c7} else . end
+          | if $wd == 1 then .mcpServers.deepwiki = {type: "http", url: $dw} else . end' \
+        > "$_tmp" && jq -e . "$_tmp" >/dev/null 2>&1 && mv "$_tmp" "$file"; then
+      echo "  ✓ ${file##*/}: $_names (http)"
+    else
+      rm -f "$_tmp" 2>/dev/null || true
+      echo "  ⚠ ${file##*/}: $_names NOT added — the jq rewrite failed, file left unchanged" >&2
+      note_not_wired "$_names MCP server(s) in ${file#"${PROJECT_ROOT:-}"/} — the jq rewrite failed"
+    fi
+  elif GETFF_WC="$want_c7" GETFF_WD="$want_dw" json_edit_node "$file" '
       o.mcpServers = o.mcpServers || {};
-      o.mcpServers.context7 = { command: "npx", args: ["-y", "@upstash/context7-mcp@latest"] };
+      if (process.env.GETFF_WC === "1") o.mcpServers.context7 = { type: "http", url: "'"$GETFF_MCP_CONTEXT7_URL"'" };
+      if (process.env.GETFF_WD === "1") o.mcpServers.deepwiki = { type: "http", url: "'"$GETFF_MCP_DEEPWIKI_URL"'" };
       return o;'; then
-    echo "  ✓ context7 added to ${file##*/} (through node: jq is not on PATH)"
+    echo "  ✓ ${file##*/}: $_names (http, through node: jq is not on PATH)"
   else
-    echo "  ⚠ context7 NOT added to ${file##*/} — $(json_edit_node_why "$file")"
-    note_not_wired "context7 MCP server in ${file#"${PROJECT_ROOT:-}"/} — $(json_edit_node_why "$file")"
+    echo "  ⚠ ${file##*/}: $_names NOT added — $(json_edit_node_why "$file")"
+    note_not_wired "$_names MCP server(s) in ${file#"${PROJECT_ROOT:-}"/} — $(json_edit_node_why "$file")"
   fi
   return 0
 }

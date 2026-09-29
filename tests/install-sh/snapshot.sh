@@ -25,6 +25,10 @@ set -euo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 BASELINE_DIR="${BASELINE_DIR:-$REPO_ROOT/tests/install-sh/baselines}"
 MODE="${SNAPSHOT_MODE:-}"
+# The python lane writes .mcp.json, and deepwiki lands there only when this machine lacks it at user
+# scope (lib.sh getff_deepwiki_machine_wide asks `claude mcp get deepwiki`). Pin the probe so a
+# baseline captured on a machine that has deepwiki compares equal on CI, which has no claude CLI.
+export GETFF_DEEPWIKI_MACHINE_WIDE=0
 
 if [ -z "$MODE" ]; then
   echo "ERROR: SNAPSHOT_MODE must be set to 'capture' or 'compare'" >&2
