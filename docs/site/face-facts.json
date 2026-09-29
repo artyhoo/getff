@@ -84,14 +84,15 @@
   "installCommands": {
     "source": {
       "positionals": "setup:72",
-      "laneTable": "install.sh:292",
+      "laneTable": "install.sh:300",
       "flags": "README.md:147"
     },
     "stacks": [
       "ts-server",
       "react-next",
       "react-spa",
-      "react-native"
+      "react-native",
+      "generic"
     ],
     "lanes": [
       {
@@ -353,7 +354,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 291
+      "count": 292
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
