@@ -84,7 +84,7 @@ for tag in aaa bbb ccc ddd; do
   last=$(grep -n "^$tag-60$" "$TMP/o5" | head -1 | cut -d: -f1)
   if [ -z "$first" ] || [ -z "$last" ]; then weave_bad=1; continue; fi
   # every line strictly inside the block must belong to this fixture
-  if [ -n "$(sed -n "${first},${last}p" "$TMP/o5" | grep -vE "^$tag-[0-9]+$")" ]; then weave_bad=1; fi
+  if grep -qvE "^$tag-[0-9]+$" <<<"$(sed -n "${first},${last}p" "$TMP/o5")"; then weave_bad=1; fi
 done
 if [ "$weave_bad" -eq 0 ]; then echo "  ✓ concurrent output blocks are contiguous (no interleave)"
 else echo "  ✗ concurrent output interleaved"; fails=$((fails + 1)); fi

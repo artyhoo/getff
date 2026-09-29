@@ -77,23 +77,23 @@ printf 'a\tclaude plugin list 2>/dev/null | grep -q a\tinstall a\tcc-plugin\t*\n
 printf 'b\tgrep -q b <<<"$(claude plugin list 2>/dev/null)"\tinstall b\tcc-plugin\t*\n' > "$TMP/repo/setup.d/ok.manifest"
 git -C "$TMP/repo" init -q
 out=$(cd "$TMP/repo" && node "$CHECK" setup.d/99-x.sh setup.d/98-y.sh setup.d/companions.manifest 2>&1) && rc=0 || rc=$?
-grep -q '^setup.d/99-x.sh:2:' <<<"$out" && ok "S1 setup.d/*.sh is scanned as sourced under pipefail" \
-  || bad "S1 setup.d/99-x.sh not flagged: $(tr '\n' '|' <<<"$out")"
-grep -q '^setup.d/companions.manifest:1:' <<<"$out" && ok "S2 a manifest detect_cmd pipe is flagged at its row" \
-  || bad "S2 manifest row not flagged: $(tr '\n' '|' <<<"$out")"
-grep -q '98-y' <<<"$out" && bad "S3 a clean setup.d file was flagged" || ok "S3 a clean setup.d file is not flagged"
-[ "$rc" -eq 1 ] && ok "R1 findings → exit 1" || bad "R1 findings exit $rc, want 1"
+if grep -q '^setup.d/99-x.sh:2:' <<<"$out"; then ok "S1 setup.d/*.sh is scanned as sourced under pipefail"
+else bad "S1 setup.d/99-x.sh not flagged: $(tr '\n' '|' <<<"$out")"; fi
+if grep -q '^setup.d/companions.manifest:1:' <<<"$out"; then ok "S2 a manifest detect_cmd pipe is flagged at its row"
+else bad "S2 manifest row not flagged: $(tr '\n' '|' <<<"$out")"; fi
+if grep -q '98-y' <<<"$out"; then bad "S3 a clean setup.d file was flagged"; else ok "S3 a clean setup.d file is not flagged"; fi
+if [ "$rc" -eq 1 ]; then ok "R1 findings → exit 1"; else bad "R1 findings exit $rc, want 1"; fi
 out=$(cd "$TMP/repo" && node "$CHECK" setup.d/98-y.sh 2>&1) && rc=0 || rc=$?
-[ "$rc" -eq 0 ] && ok "R2 clean → exit 0" || bad "R2 clean exit $rc: $out"
+if [ "$rc" -eq 0 ]; then ok "R2 clean → exit 0"; else bad "R2 clean exit $rc: $out"; fi
 out=$(cd "$TMP/repo" && node "$CHECK" setup.d/ok.manifest 2>&1) && rc=0 || rc=$?
-[ "$rc" -eq 0 ] && grep -q '0 file' <<<"$out" && ok "R3 a file outside the population is skipped without --any" \
-  || bad "R3 out-of-population file: rc=$rc $out"
+if [ "$rc" -eq 0 ] && grep -q '0 file' <<<"$out"; then ok "R3 a file outside the population is skipped without --any"
+else bad "R3 out-of-population file: rc=$rc $out"; fi
 # R4: invoked through a symlinked directory the checker must still run (the entry-point
 # check once compared import.meta.url, resolved through symlinks, to the unresolved argv[1],
 # so every run from a symlinked checkout exited 0 with no output — a silent pass).
 ln -s "$REPO_ROOT/scripts" "$TMP/linked-scripts"
 out=$(cd "$TMP/repo" && node "$TMP/linked-scripts/check-pipefail-early-exit.mjs" setup.d/99-x.sh 2>&1) && rc=0 || rc=$?
-[ "$rc" -eq 1 ] && grep -q '^setup.d/99-x.sh:2:' <<<"$out" && ok "R4 run through a symlinked path still scans" \
-  || bad "R4 symlinked invocation: rc=$rc $(tr '\n' '|' <<<"$out")"
+if [ "$rc" -eq 1 ] && grep -q '^setup.d/99-x.sh:2:' <<<"$out"; then ok "R4 run through a symlinked path still scans"
+else bad "R4 symlinked invocation: rc=$rc $(tr '\n' '|' <<<"$out")"; fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
