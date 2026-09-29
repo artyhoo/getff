@@ -1058,20 +1058,25 @@ _py_integrate_precommit_consumer() {
   # indent of the file's own `repos:` items — the fragment is written in column 0, and a column-0
   # item after an indented sequence is a YAML error that stops pre-commit loading the config at all.
   # The marker stays in column 0: a comment line does not take part in YAML block structure.
+  # An entry that was not added gets no pre-push stage: no getff entry would run in it, and the stage's
+  # «the getff entry runs on git push» would claim one. The mirror-check line records the gap instead.
   local block
   if ! block=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX"); then
     note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: mktemp failed"
+    _py_mirror_check_not_wired "the getff entry that runs it was not added to .pre-commit-config.yaml"
     return 0
   fi
   { printf '\n%s\n' "$frag_marker"
     _py_precommit_indent "$(_py_precommit_repos_indent "$cfg")" < "$frag_src"
   } > "$block"
-  if _py_precommit_insert "$cfg" "$block"; then
-    echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
-  else
+  if ! _py_precommit_insert "$cfg" "$block"; then
+    rm -f "$block"
     note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: its repos: is written in a form getff does not edit (a flow sequence such as [...], or an anchor), so the file is left as it was"
+    _py_mirror_check_not_wired "the getff entry that runs it was not added to .pre-commit-config.yaml"
+    return 0
   fi
   rm -f "$block"
+  echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
   _py_precommit_prepush_stage
 }
 
@@ -1548,8 +1553,9 @@ _py_deliver_agent_surface() {
 # _py_mirror_check_not_wired <why> — the one wording for «scripts/check-zcode-mirror.sh is delivered,
 # but no active hook runs it» (W2-G, #1502). Recorded on every path where getff's pre-push is NOT
 # active at the end of the install: the non-git tree, Case 1 (the project's own core.hooksPath),
-# Case 3 (live hooks in $GIT_DIR/hooks) and Case 2 when its pre-commit pre-push stage is not
-# installed, each next to that path's own pre-push line. An installed Case 2 stage records nothing:
+# Case 3 (live hooks in $GIT_DIR/hooks), Case 2 when its getff entry could not be added to
+# .pre-commit-config.yaml, and Case 2 when its pre-commit pre-push stage is not installed, each next
+# to that path's own pre-push or entry line. An installed Case 2 stage records nothing:
 # the pre-commit fragment runs the same hook body at the pre-commit framework's pre-push stage. Q4.7: it names the check and why it does not run — never a command to run. It goes
 # through note_not_wired, so the lane's own NOT-wired summary (print_not_wired, which do_python_lane
 # calls before it exits) prints it with the rest. Defined ABOVE the test seam, so a
