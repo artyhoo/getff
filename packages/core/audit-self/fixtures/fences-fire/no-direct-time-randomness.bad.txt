@@ -1,0 +1,2 @@
+// BAD: reads the clock and the random source directly — H5 (no-direct-time-randomness) must flag this.
+export const stamp = (): number => Date.now() + Math.random();

@@ -727,17 +727,17 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1424                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1423                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1433          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:583          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:609          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:630          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:658          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:573          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:598          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:618          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:649          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:579          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:605          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:654          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:569          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:594          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:614          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:645          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1409          install-written blocks       → suppress-no-entry (proved)
@@ -2488,7 +2488,6 @@ generate_eslint_barrel() {
     # shellcheck disable=SC2153
     case "$STACK" in
       react-next) _valid_dirs="$_valid_dirs packages/preset-next-15-canonical/eslint-rules" ;;
-      react-spa)  _valid_dirs="$_valid_dirs packages/preset-react-spa/eslint-rules" ;;
     esac
     _valid_basenames=" "
     for _vd in $_valid_dirs; do
@@ -2541,7 +2540,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:253-258); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:244-249); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2665,6 +2664,84 @@ generate_eslint_barrel() {
       done
     fi
   fi
+}
+
+# oxlint_register_jsplugin CONFIG BARREL [RULES_JSON] — register getff's lint plugin in a project's own
+# oxlint config (one-button chain, part P4). oxlint loads ESLint-format plugins through `jsPlugins`
+# (oxc.rs, writing-js-plugins); the same `eslint-rules-local/index.mjs` barrel that eslint.config.mjs
+# imports is added as `{ name: "rules-as-tests", specifier: <barrel relative to CONFIG's directory> }`.
+# The CALLER says which file is the project's oxlint config — detecting the linter is not done here.
+# Every other key of the file is kept; an entry of the same name means «already registered», rc 0.
+#
+# RULES_JSON (an object of rule → setting) is written ONLY when GETFF_ENABLE_PLUGIN_RULES=1, and a rule
+# the project already sets keeps its own value. Switching rules on is an open operator fork («whose
+# setup wins» when a rule turns the project's own commands red), so the default writes no rule.
+#
+# Never a manual step: an absent config, a config written as code (.ts/.js and their module variants), a
+# file that is not a plain JSON object (oxlint accepts comments; json_edit_node does not), or a jsPlugins /
+# rules key of the wrong shape is left as it was and becomes a NOT-wired line naming that cause.
+oxlint_register_jsplugin() {
+  local config="$1" barrel="$2" rules="${3:-}" rel spec why rc=0
+  rel="${config#"${PROJECT_ROOT:-}"/}"
+  case "$config" in
+    *.ts|*.mts|*.cts|*.js|*.mjs|*.cjs)
+      echo "  ⊝ getff lint plugin not registered in $rel — the config is code"
+      note_not_wired "getff lint plugin in $rel — the oxlint config is code, and getff edits only a JSON config"
+      return 0 ;;
+  esac
+  if [ ! -f "$config" ]; then
+    echo "  ⊝ getff lint plugin not registered — no oxlint config at $rel"
+    note_not_wired "getff lint plugin in oxlint — no oxlint config at $rel, and getff does not create one"
+    return 0
+  fi
+  # Name the real cause before editing: json_edit_node reports every failure as «not a valid JSON object».
+  # shellcheck disable=SC2016  # JavaScript, not shell expansions
+  why=$(node -e '
+    const fs = require("fs"); const [cfg, rules] = process.argv.slice(1);
+    let o; try { o = JSON.parse(fs.readFileSync(cfg, "utf8")); } catch { o = null; }
+    const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+    if (!plain(o)) console.log("it is not a plain JSON object (oxlint allows comments; getff edits only plain JSON)");
+    else if ("jsPlugins" in o && !Array.isArray(o.jsPlugins)) console.log("its jsPlugins is not a list");
+    else if ("rules" in o && !plain(o.rules)) console.log("its rules is not an object");
+    else if (rules) { try { if (!plain(JSON.parse(rules))) throw 0; } catch { console.log("getff passed a rule list that is not a JSON object (a getff bug)"); } }
+  ' "$config" "$rules" 2>/dev/null) || why="node could not read it"
+  if [ -n "$why" ]; then
+    echo "  ⚠ getff lint plugin NOT registered in $rel — $why"
+    note_not_wired "getff lint plugin in $rel — $why, so it was left as it was"
+    return 0
+  fi
+  spec=$(node -e 'const p=require("path");let r=p.relative(p.dirname(p.resolve(process.argv[1])),p.resolve(process.argv[2])).split(p.sep).join("/");console.log(r.startsWith(".")?r:"./"+r)' "$config" "$barrel" 2>/dev/null) || spec=""
+  if [ -z "$spec" ]; then
+    echo "  ⚠ getff lint plugin NOT registered in $rel — $(json_edit_node_why "$config")"
+    note_not_wired "getff lint plugin in $rel — $(json_edit_node_why "$config")"
+    return 0
+  fi
+  # shellcheck disable=SC2016  # JavaScript, not shell expansions
+  json_edit_node "$config" '
+    const [spec, rulesJson, enable] = args;
+    let changed = false;
+    const plugins = o.jsPlugins || [];
+    if (!plugins.some(p => p && typeof p === "object" && p.name === "rules-as-tests")) {
+      o.jsPlugins = plugins.concat([{ name: "rules-as-tests", specifier: spec }]);
+      changed = true;
+    }
+    if (enable === "1" && rulesJson) {
+      const wanted = JSON.parse(rulesJson);
+      o.rules = o.rules || {};
+      // A rule the project sets anywhere (top level or in an override) keeps its own setting.
+      const own = (k) => k in o.rules ||
+        (Array.isArray(o.overrides) && o.overrides.some(ov => ov && ov.rules && k in ov.rules));
+      for (const [k, v] of Object.entries(wanted))
+        if (!own(k)) { o.rules[k] = v; changed = true; }
+    }
+    return changed ? o : undefined;' "$spec" "$rules" "${GETFF_ENABLE_PLUGIN_RULES:-0}" || rc=$?
+  case "$rc" in
+    0) echo "  ✓ getff lint plugin registered in $rel (jsPlugins → $spec)" ;;
+    3) echo "  ⊝ getff lint plugin already registered in $rel" ;;
+    *) echo "  ⚠ getff lint plugin NOT registered in $rel — $(json_edit_node_why "$config")"
+       note_not_wired "getff lint plugin in $rel — $(json_edit_node_why "$config")" ;;
+  esac
+  return 0
 }
 
 # ── #811 preset staleness guard (live-research-default-delivery, D4) ───────────

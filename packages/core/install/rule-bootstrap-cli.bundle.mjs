@@ -9895,41 +9895,6 @@ var require_parser = __commonJS({
   }
 });
 
-// getff-from-project:@typescript-eslint/utils
-var require_utils2 = __commonJS({
-  "getff-from-project:@typescript-eslint/utils"(exports, module) {
-    var { createRequire: createRequire2 } = __require("node:module");
-    var { join: join10 } = __require("node:path");
-    var id = "@typescript-eslint/utils";
-    var via = "typescript-eslint";
-    function missing(e) {
-      return e && e.code === "MODULE_NOT_FOUND";
-    }
-    function load() {
-      var fromProject = createRequire2(join10(process.cwd(), "package.json"));
-      try {
-        return fromProject(id);
-      } catch (e) {
-        if (!missing(e)) throw e;
-      }
-      if (via) {
-        try {
-          return createRequire2(fromProject.resolve(via + "/package.json"))(id);
-        } catch (e) {
-          if (!missing(e)) throw e;
-        }
-      }
-      try {
-        return __require(id);
-      } catch (e) {
-        if (!missing(e)) throw e;
-      }
-      throw new Error("getff: '" + id + "' is not installed in " + process.cwd() + " \u2014 getff's rule generator uses the project's own ESLint. Install it (npm install --save-dev eslint typescript-eslint) and re-run.");
-    }
-    module.exports = load();
-  }
-});
-
 // packages/core/eslint-rules/no-unsafe-zod-parse.ts
 function isZodChain(node) {
   if (node.type === "CallExpression") return isZodChain(node.callee);
@@ -9987,19 +9952,15 @@ function isStaticLiteral(node) {
       return false;
   }
 }
-var import_utils, createRule, noUnsafeZodParse;
+var noUnsafeZodParse;
 var init_no_unsafe_zod_parse = __esm({
   "packages/core/eslint-rules/no-unsafe-zod-parse.ts"() {
     "use strict";
-    import_utils = __toESM(require_utils2(), 1);
-    createRule = import_utils.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`
-    );
-    noUnsafeZodParse = createRule({
-      name: "no-unsafe-zod-parse",
+    noUnsafeZodParse = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r2--validation-at-boundaries`,
           description: "Forbid Zod schema `.parse()` in HTTP boundary files; require `.safeParse()`. Stdlib `.parse()` (JSON, Date, path) and fully-static literal arguments (fail-fast config parses) are not flagged."
         },
         messages: {
@@ -10025,7 +9986,7 @@ var init_no_unsafe_zod_parse = __esm({
           }
         };
       }
-    });
+    };
   }
 });
 
@@ -10033,14 +9994,10 @@ var init_no_unsafe_zod_parse = __esm({
 function isExempt(line) {
   return line.includes("// audit:exempt");
 }
-var import_utils2, createRule2, FORBIDDEN_MODULES, noDirectTimeRandomness;
+var FORBIDDEN_MODULES, noDirectTimeRandomness;
 var init_no_direct_time_randomness = __esm({
   "packages/core/eslint-rules/no-direct-time-randomness.ts"() {
     "use strict";
-    import_utils2 = __toESM(require_utils2(), 1);
-    createRule2 = import_utils2.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`
-    );
     FORBIDDEN_MODULES = /* @__PURE__ */ new Set([
       "fs",
       "http",
@@ -10049,11 +10006,11 @@ var init_no_direct_time_randomness = __esm({
       "node:http",
       "node:https"
     ]);
-    noDirectTimeRandomness = createRule2({
-      name: "no-direct-time-randomness",
+    noDirectTimeRandomness = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r7--time-randomness-io`,
           description: "Forbid Date.now(), new Date(), Math.random(), and direct fs/http/https imports outside infrastructure (R7)."
         },
         messages: {
@@ -10094,7 +10051,7 @@ var init_no_direct_time_randomness = __esm({
           }
         };
       }
-    });
+    };
   }
 });
 
@@ -10104,10 +10061,10 @@ function functionHasSpan(body) {
   const stack = [body];
   while (stack.length > 0) {
     const node = stack.pop();
-    if (node.type === import_utils4.AST_NODE_TYPES.CallExpression && node.callee.type === import_utils4.AST_NODE_TYPES.MemberExpression && node.callee.property.type === import_utils4.AST_NODE_TYPES.Identifier && node.callee.property.name === "startActiveSpan") {
+    if (node.type === "CallExpression" && node.callee.type === "MemberExpression" && node.callee.property.type === "Identifier" && node.callee.property.name === "startActiveSpan") {
       return true;
     }
-    if (node.type === import_utils4.AST_NODE_TYPES.CallExpression && node.callee.type === import_utils4.AST_NODE_TYPES.Identifier && node.callee.name === "withSpan") {
+    if (node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "withSpan") {
       return true;
     }
     for (const key of Object.keys(node)) {
@@ -10127,21 +10084,16 @@ function functionHasSpan(body) {
   }
   return false;
 }
-var import_utils3, import_utils4, createRule3, SKIP_KEYS, requireOtelSpan;
+var SKIP_KEYS, requireOtelSpan;
 var init_require_otel_span = __esm({
   "packages/core/eslint-rules/require-otel-span.ts"() {
     "use strict";
-    import_utils3 = __toESM(require_utils2(), 1);
-    import_utils4 = __toESM(require_utils2(), 1);
-    createRule3 = import_utils3.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`
-    );
     SKIP_KEYS = /* @__PURE__ */ new Set(["parent", "loc", "range", "tokens", "comments"]);
-    requireOtelSpan = createRule3({
-      name: "require-otel-span",
+    requireOtelSpan = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.md#r8--observability`,
           description: "Exported async functions must open an OTel span (tracer.startActiveSpan or withSpan) \u2014 R8."
         },
         messages: {
@@ -10153,7 +10105,7 @@ var init_require_otel_span = __esm({
       create(context) {
         function checkFn(node, name) {
           if (!node.async) return;
-          const body = node.body.type === import_utils4.AST_NODE_TYPES.BlockStatement ? node.body : void 0;
+          const body = node.body.type === "BlockStatement" ? node.body : void 0;
           if (functionHasSpan(body)) return;
           context.report({
             node,
@@ -10169,32 +10121,28 @@ var init_require_otel_span = __esm({
           },
           // export const foo = async () => {} / async function() {}
           "ExportNamedDeclaration > VariableDeclaration > VariableDeclarator"(node) {
-            if (node.id.type !== import_utils4.AST_NODE_TYPES.Identifier || !node.init) return;
-            if (node.init.type === import_utils4.AST_NODE_TYPES.ArrowFunctionExpression || node.init.type === import_utils4.AST_NODE_TYPES.FunctionExpression) {
+            if (node.id.type !== "Identifier" || !node.init) return;
+            if (node.init.type === "ArrowFunctionExpression" || node.init.type === "FunctionExpression") {
               checkFn(node.init, node.id.name);
             }
           }
         };
       }
-    });
+    };
   }
 });
 
 // packages/core/eslint-rules/restricted-syntax-audit-exempt.ts
-var import_utils5, createRule4, EXEMPT_TOKEN, restrictedSyntaxAuditExempt;
+var EXEMPT_TOKEN, restrictedSyntaxAuditExempt;
 var init_restricted_syntax_audit_exempt = __esm({
   "packages/core/eslint-rules/restricted-syntax-audit-exempt.ts"() {
     "use strict";
-    import_utils5 = __toESM(require_utils2(), 1);
-    createRule4 = import_utils5.ESLintUtils.RuleCreator(
-      () => `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`
-    );
     EXEMPT_TOKEN = "audit:exempt";
-    restrictedSyntaxAuditExempt = createRule4({
-      name: "restricted-syntax-audit-exempt",
+    restrictedSyntaxAuditExempt = {
       meta: {
         type: "problem",
         docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/core/eslint-rules/restricted-syntax-audit-exempt.ts`,
           description: "Disallow syntax matching the given selector(s), honouring per-line `audit:exempt` suppression (exempt-aware no-restricted-syntax)."
         },
         messages: {
@@ -10237,7 +10185,72 @@ var init_restricted_syntax_audit_exempt = __esm({
         }
         return listeners;
       }
-    });
+    };
+  }
+});
+
+// packages/core/eslint-rules/require-error-boundary.ts
+function isErrorBoundaryLike(name) {
+  return name.includes("ErrorBoundary") || name.includes("error-boundary");
+}
+function extractJSXElementName(nameNode) {
+  if (nameNode.type === "JSXIdentifier") {
+    return nameNode.name;
+  }
+  if (nameNode.type === "JSXMemberExpression") {
+    if (isErrorBoundaryLike(nameNode.property.name)) {
+      return nameNode.property.name;
+    }
+    const obj = nameNode.object;
+    if (obj.type === "JSXIdentifier") return obj.name;
+  }
+  return null;
+}
+var requireErrorBoundary;
+var init_require_error_boundary = __esm({
+  "packages/core/eslint-rules/require-error-boundary.ts"() {
+    "use strict";
+    requireErrorBoundary = {
+      meta: {
+        type: "problem",
+        docs: {
+          url: `https://github.com/artyhoo/getff/blob/main/packages/preset-react-spa/RULES.react-spa.md#r-spa-eb-error-boundary-presence`,
+          description: "App-root files must render content wrapped in an ErrorBoundary JSX element (R-SPA-EB). Enable via glob scoping to entry-point files such as App.tsx. Scope CONSTRAINT v1: narrow in-file check only \u2014 no cross-file boundary-tree walk (per SSOT #115 brittleness precedent)."
+        },
+        messages: {
+          missingErrorBoundary: "App-root component must render its content inside an ErrorBoundary JSX element (R-SPA-EB). Add <ErrorBoundary> as an ancestor in the JSX tree. To opt out intentionally, add // audit:exempt on the same line as the first JSX element."
+        },
+        schema: []
+      },
+      defaultOptions: [],
+      create(context) {
+        const sourceCode = context.sourceCode;
+        const lines = sourceCode.lines;
+        let hasJSX = false;
+        let hasErrorBoundaryInJSX = false;
+        let firstJSXNode = null;
+        return {
+          JSXOpeningElement(node) {
+            hasJSX = true;
+            if (firstJSXNode === null) firstJSXNode = node;
+            const name = extractJSXElementName(node.name);
+            if (name !== null && isErrorBoundaryLike(name)) {
+              hasErrorBoundaryInJSX = true;
+            }
+          },
+          "Program:exit"(program) {
+            if (!hasJSX || hasErrorBoundaryInJSX) return;
+            const reportNode = firstJSXNode ?? program;
+            const line = lines[reportNode.loc.start.line - 1] ?? "";
+            if (line.includes("// audit:exempt")) return;
+            context.report({
+              node: reportNode,
+              messageId: "missingErrorBoundary"
+            });
+          }
+        };
+      }
+    };
   }
 });
 
@@ -10250,6 +10263,7 @@ var init_eslint_rules = __esm({
     init_no_direct_time_randomness();
     init_require_otel_span();
     init_restricted_syntax_audit_exempt();
+    init_require_error_boundary();
     plugin = {
       meta: {
         name: "@rules-as-tests/core-eslint-rules",
@@ -10259,7 +10273,8 @@ var init_eslint_rules = __esm({
         "no-unsafe-zod-parse": noUnsafeZodParse,
         "no-direct-time-randomness": noDirectTimeRandomness,
         "require-otel-span": requireOtelSpan,
-        "restricted-syntax-audit-exempt": restrictedSyntaxAuditExempt
+        "restricted-syntax-audit-exempt": restrictedSyntaxAuditExempt,
+        "require-error-boundary": requireErrorBoundary
       }
     };
     eslint_rules_default = plugin;

@@ -39,7 +39,7 @@ MANIFEST="$PKG/MANIFEST.sha256"
 # requires the same root in packages/getff/package.json `files` (checked below) and in
 # packages/getff/.gitignore (or the copy would be committed).
 # scripts/: the SHIPPED SUBSET only — six files, five of which install.sh / setup.d read from PKG_ROOT
-# (install.sh:1196 + the worktree cluster install.sh:1299-1304 / setup.d/85-worktree-scripts.sh:50-55;
+# (install.sh:1196 + the worktree cluster install.sh:1298-1303 / setup.d/85-worktree-scripts.sh:50-55;
 # check-ask-files.sh is no longer read from PKG_ROOT — install.sh:1190 only reports a stale consumer copy).
 # Not the whole tree: factory-only scripts (measure-*, render-*, *.test.sh, this assembler) would
 # couple every framework PR to the drift gate and ship operator tooling to consumers.

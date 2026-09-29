@@ -330,7 +330,9 @@ _copy_rule() {  # $1 = source .ts path
   [ -f "$stem.mjs" ]  && copy_safe "$stem.mjs"  "$PROJECT_ROOT/eslint-rules-local/$bn.mjs"
   [ -f "$stem.d.ts" ] && copy_safe "$stem.d.ts" "$PROJECT_ROOT/eslint-rules-local/$bn.d.ts"
 }
-# Generic rules (core): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span, restricted-syntax-audit-exempt
+# Generic rules (core, every stack): no-direct-time-randomness, no-unsafe-zod-parse, require-otel-span,
+# restricted-syntax-audit-exempt, require-error-boundary (moved from the react-spa preset — one plugin for
+# every stack; a project switches a rule on in its own lint config)
 for f in "$PKG_ROOT"/packages/core/eslint-rules/*.ts; do
   case "$f" in
     *.test.ts) continue ;;
@@ -342,17 +344,6 @@ done
 if [ "$STACK" = "react-next" ]; then
   # Stack-specific rules (preset): no-server-imports-in-client, require-form-safe-parse, require-use-server-directive
   for f in "$PKG_ROOT"/packages/preset-next-15-canonical/eslint-rules/*.ts; do
-    case "$f" in
-      *.test.ts) continue ;;
-      *.d.ts) continue ;;
-      */index.ts) continue ;;
-    esac
-    _copy_rule "$f"
-  done
-fi
-if [ "$STACK" = "react-spa" ]; then
-  # Stack-specific rules (preset): require-error-boundary
-  for f in "$PKG_ROOT"/packages/preset-react-spa/eslint-rules/*.ts; do
     case "$f" in
       *.test.ts) continue ;;
       *.d.ts) continue ;;
