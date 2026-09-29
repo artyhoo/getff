@@ -55,7 +55,7 @@ import {
   measurePopulation,
   type BudgetRules,
   type SkillListingCost,
-} from './48-skill-description-budget';
+} from './48-skill-description-budget.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
