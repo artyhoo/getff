@@ -704,17 +704,12 @@ jobs:
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
-      # The install-sh battery runner the sweep delegates to. CI keeps its own per-file steps
-      # (three shards, isolated runners — tests/install-sh/meta-all-wired.test.sh enforces that);
-      # this paired-negative covers the LOCAL runner's own semantics: non-zero on a failing test,
-      # no false green when a worker dies, quarantine isolation, and non-interleaved output.
-      # Run twice: fd 3 is closed in CI but OPEN under the local sweep (`exec 3>&2`), and the
-      # runner's progress() writes there when it can. The second run is the sweep's fd state, so an
-      # arm that only passes with fd 3 closed goes RED here instead of only on the operator's Mac.
+      # The LOCAL battery runner the sweep delegates to (CI's own per-file steps: meta-all-wired.test.sh):
+      # non-zero on a failing test, no false green on a dead worker, quarantine, non-interleaved output.
+      # Run twice: fd 3 is closed here but OPEN under the local sweep (`exec 3>&2`), where progress()
+      # writes; the `3>/dev/null` run turns an arm that passes only with fd 3 closed RED in CI too.
       - name: Run install-sh suite-runner paired-negative (local battery fan-out)
-        run: |
-          bash scripts/run-install-sh-suite.test.sh
-          bash scripts/run-install-sh-suite.test.sh 3>/dev/null
+        run: bash scripts/run-install-sh-suite.test.sh && bash scripts/run-install-sh-suite.test.sh 3>/dev/null
       # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
       # workflow runs must be reachable from the sweep's gate table, or carry an explicit
       # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
