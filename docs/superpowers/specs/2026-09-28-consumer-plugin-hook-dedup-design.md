@@ -16,8 +16,9 @@
 > **Depends on:** PR artyhoo/getff#1879 merged first — this design extends its `run-hook.cmd`
 > block and reuses its registration check verbatim. PR artyhoo/getff#1911 (open) edits the same
 > block with a broader yield and a runtime language-line fix. Whichever lands, the implementing
-> session re-reads `run-hook.cmd` on staging first. If #1911's `AIF_HOOK_CHANNEL` fix lands, D5 is
-> already met and its twin transform is dropped.
+> session re-reads `run-hook.cmd` on staging first. #1911 stays narrow (a `cwd` guard only); its
+> `AIF_HOOK_CHANNEL` language fix moves into THIS work as D5, and its SSOT row #290 is preserved for
+> this work's capability commit.
 
 ## Problem
 
@@ -157,10 +158,13 @@ computation, not the fact of output, so both copies do print. Migrating the regi
 The plugin twin of `inject-session-bootstrap` no longer carries the `[output-language]` line;
 the plugin's `inject-output-language` is its only emitter. The source keeps the line (the framework
 repo registers `inject-session-bootstrap` and not `inject-output-language` in its own
-`.claude/settings.json`). Mechanism: the existing generator `sed` mode
-(`scripts/generate-plugin-twins.sh`, `@plugin-transform: sed <expr>`), deleting a block the source
-brackets with `# >>> plugin-drop: output-language` / `# <<< plugin-drop: output-language`. The
-twin becomes a sed-mode twin; no new mechanism.
+`.claude/settings.json`). Mechanism (revision 3, taken from #1911 commit fd2b1ec38f3, which the
+#1911 session handed over): `run-hook.cmd` exports `AIF_HOOK_CHANNEL=plugin` above its yield block,
+so both the exec path and any guarded path carry it. The language `case` in
+`.claude/hooks/inject-session-bootstrap.sh` then keys on `${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}`
+and emits nothing on the plugin channel. The twin stays an identity twin; pre-commit re-renders
+it. The revision-2 sed transform is dropped: one runtime check instead of a build-time cut. The
+old plugin-only test arm lives in the #1911 bundle (`tests/plugin/project-channel-dedup.test.sh`).
 
 Every case then carries the line once:
 
