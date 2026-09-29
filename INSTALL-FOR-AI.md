@@ -55,22 +55,22 @@ Install getff into this project. Walk the steps below in order, in this one sess
    Node.js 22.23+ and npm: the installer needs them, my project does not have to.
 2. [preview] Preview the stack and the tool list
    From THIS project's directory (never the getff checkout) run `bash /tmp/getff/setup --dry-run`.
-   It writes nothing. Read the detected stack and the «Companions» section from its output.
-   Detection takes the FIRST matching package.json dep key: `react-native`, `next`→react-next,
-   `react`→**react-spa**, `typescript`→ts-server, else unknown; `next.config.*` is never read.
+   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list».
+   The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
+   lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
 3. [ask-once] Ask the ONE question
-   Show me the detected stack, what goes into this project and what would go machine-wide, then
-   ask once: «Where may I install?» My answer picks the command of step 4:
+   Show me the stack, what goes into this project and what would go machine-wide, then ask once, as ONE list of
+   four parts. (a) «Where may I install?» — 1, 2 or 3; it picks the command of step 4:
    1 — this project only:
    `bash /tmp/getff/setup -y <detected-stack>`
    2 — also the machine-wide tools listed: `bash /tmp/getff/setup -y --global <detected-stack>`
-   3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff
-   itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`
-   Offer answer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
-   Also say: a wrong stack can be corrected in the same answer; rules for my stack are researched
-   after the install, and «without research» skips that. Ask nothing else during the run.
+   3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`. Offer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
+   (b) «Session settings?» yes/no → `GETFF_SESSION_SETTINGS=1`, passed unless I say no. Before asking, name the groups the dry run printed and say in plain words: they go into my own uncommitted `.claude/settings.local.json`; my values are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command.
+   (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`, passed unless I say no: vendor MCP servers of my direct dependencies into `.mcp.json`, filtered by the installer's own source check. (d) «Research rules for my stack?» yes/no.
+   Also say: a wrong stack can be corrected in the same answer. A full answer reads «1, settings yes, tools yes, research yes»;
+   a part I leave out means (a) 1, (b) yes, (c) yes, (d) yes — so «1» alone means everything on, this project only. Ask nothing else during the run.
 4. [install] Run the installer with the chosen flag
-   Run the command my answer picked (adjust the path if Step 0 cloned elsewhere). Keep the
+   Run the command my answer picked with the variables before it on the same line — with no «no» in my answer: `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash /tmp/getff/setup -y <detected-stack>`; a «no» drops its variable (adjust the path if Step 0 cloned elsewhere). Keep the
    «Checked by the install» block and every «NOT wired» line for the report. It installs:
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
    - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
@@ -92,18 +92,18 @@ Install getff into this project. Walk the steps below in order, in this one sess
    from this project's own files by following `.claude/agents/aif-init.md`; mark every guess
    `[GUESSED — verify]`. A passport the project already had is kept as it is. Do not wait for me.
 7. [tools-parity] Check that everything getff uses for itself is installed or marked
-   Not built yet: report «not done: not built yet».
+   Names: the «✓ <name>» lines of «Stack-aware companion selection» from step 2, without the external services runtime-bridge and aif-handoff, plus context7. Per tool quote its one trace: a row `| <name> |` of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`, or a line `- <name> — <reason>` of the installer's NOT-wired or kept-values summary. No trace → the finding «MISSING <name>». Run no probe of your own. Block absent → «not done».
 8. [base-core-status] Read the base-core list with a status per principle
-   Not built yet: report «not done: not built yet».
+   Read `.claude/skills/getff/references/base-core.md`, change nothing: each row not `fires`, or whose «not on stack» names my stack, is one line of PRINCIPLES NOT WIRED YET. File absent → «not done: list absent in this older install» plus one yes/no for me: refresh getff's own files?
 9. [research] Research rules for the stack
-   Unless I said «without research»: follow `/tmp/getff/agents/rule-researcher.md`; report where it ended.
+   Unless I said no to research: follow `/tmp/getff/agents/rule-researcher.md`; my one answer is the confirmation it asks for, so write without asking; report where it ended.
 10. [place-rules] Write one rule table and place each rule in its home
    After step 9: `bash /tmp/getff/setup --full <detected-stack>`, then `node scripts/prove-rules.mjs --prove` once; quote its table.
 11. [prove-rules] Prove the placed rules in one batch run
    From that same output quote the proof line (bad → exit ≠0, good → exit 0). Script absent → both steps «not done».
 12. [project-checks] Run the project's own check commands as the installer wired them
-   On the four npm stacks: `npm run validate` and `npm run audit:docs`; quote exit codes and failing lines.
-   A failure on my existing code is a finding, not a stop. No command known for the stack → «not done».
+   Run each command under `armed:` in the `aif:project-checks` block of `.ai-factory/tool-decisions.md`; quote exit codes, failing lines, and the `not-armed:` lines with their reasons.
+   A failure on my existing code is a finding, not a stop. Block absent → «not done: no check record»; nothing armed → «not done: no check armed».
 13. [report] Print the final report
    Use the format under «What the AI will produce»: one line per step above, in order, none omitted.
 
@@ -212,7 +212,7 @@ the run, never from this doc. Three rules keep it readable:
 
 ```text
 getff install report — <project> — <date>
-Answer to the pre-launch question: <answer> → flag <flag>
+Answer to the pre-launch question: <answer> → flag <flag>, variables <the variables actually passed, or «none»>, research <yes|no>
 
 STEPS
 <n>. [<id>] <title> — done
@@ -220,7 +220,7 @@ STEPS
 <n>. [<id>] <title> — not done: <reason>
 
 NOT WIRED BY THE INSTALL      (the installer's own «NOT wired» lines, verbatim)
-PRINCIPLES NOT WIRED YET      (one line per principle with its reason, or why the list is unavailable)
+PRINCIPLES NOT WIRED YET      (one line per principle that does not fire: <id> <principle> — <status>: <reason>; or why the list is unavailable)
 PASSPORT DRAFT                (full text of .ai-factory/DESCRIPTION.md; «also drafted: <path>»; count of
                                guessed lines; «to correct it, tell me in words what is wrong»)
 WHAT I NEED FROM YOU          («nothing», or real decisions only — never a list of manual edits)

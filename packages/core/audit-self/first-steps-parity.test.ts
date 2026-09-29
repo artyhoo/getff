@@ -246,6 +246,26 @@ interface Road {
 
 const PROMPT_PATH = 'INSTALL-FOR-AI.md';
 const README_PATH = 'README.md';
+const MANIFEST_PATH = 'setup.d/companions.manifest';
+
+/** Names of the `external-service` rows of a companions manifest (TAB-delimited, kind = field 4). */
+function externalServices(manifest: string): string[] {
+  return manifest
+    .split('\n')
+    .filter((line) => line.trim() !== '' && !line.startsWith('#'))
+    .map((line) => line.split('\t'))
+    .filter((fields) => fields[3] === 'external-service')
+    .map((fields) => fields[0] ?? '')
+    .sort();
+}
+
+/** Names a text leaves out as «external services <a> and <b>» / «<a>, <b> and <c>». */
+function excludedByRoad(text: string): string[] {
+  // A name is never a joining word: «…aif-handoff, and add context7» ends the list at the comma.
+  const name = '(?!(?:and|plus|add)\\b)[a-z0-9-]+';
+  const m = new RegExp(`external services (${name}(?:(?:, | and )${name})*)`).exec(text);
+  return m?.[1] ? m[1].split(/, | and /).sort() : [];
+}
 
 /** The first ```text fence after the «Quick install» heading — the prompt a human pastes. */
 function promptBlock(md: string): string {
@@ -367,6 +387,117 @@ describe('The road ↔ install prompt parity', () => {
     expect(runs.map((s) => s.id)).toEqual(['place-rules']);
     expect(prompt).toMatch(/setup --full <detected-stack>/);
     expect(prompt.match(/node scripts\/prove-rules\.mjs --prove/g)).toHaveLength(1);
+  });
+
+  it('no road step is a placeholder: each one names what it reads', () => {
+    // Found by the cold run (2026-09-30): steps 7 and 8 still read «not built yet» after the things
+    // they read had shipped, so the report stated a false reason and the agent improvised the list.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    expect(JSON.stringify(steps)).not.toMatch(/not built yet/i);
+    expect(prompt).not.toMatch(/not built yet/i);
+    const reads: Record<string, RegExp> = {
+      'tools-parity': /getff:installed-versions/,
+      'base-core-status': /\.claude\/skills\/getff\/references\/base-core\.md/,
+      'project-checks': /aif:project-checks/,
+    };
+    for (const [id, what] of Object.entries(reads)) {
+      const step = steps.find((s) => s.id === id);
+      expect(step?.action, `road step \`${id}\` does not name what it reads`).toMatch(what);
+      expect(step?.action, `road step \`${id}\` has no fallback`).toMatch(/«not done/);
+      expect(prompt, `the prompt does not name what \`${id}\` reads`).toMatch(what);
+    }
+  });
+
+  it('the one question carries every pre-launch choice the installer waits for', () => {
+    // The installer writes two groups only on a pre-launch «yes» that reaches it as a variable;
+    // a choice the question never offers cannot be made through the road.
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const name of ['GETFF_SESSION_SETTINGS=1', 'GETFF_STACK_TOOLS=1']) {
+      expect(ask?.action, `the question does not offer ${name}`).toContain(name);
+      expect(prompt, `the prompt does not pass ${name}`).toContain(name);
+    }
+    expect(prompt.match(/\bask once\b/gi), 'the prompt must ask exactly once').toHaveLength(1);
+  });
+
+  it('a part the answer leaves out has one stated default, the same in the data and the prompt', () => {
+    // Both opt-in groups default to yes (operator decisions 2026-09-30). The road carries the
+    // defaults, not the installer: a bare `setup -y` run by hand behaves as before.
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    const defaults = /\(a\) 1, \(b\) yes, \(c\) yes, \(d\) yes/;
+    expect(ask?.action.replace(/\s+/g, ' ')).toMatch(defaults);
+    expect(prompt.replace(/\s+/g, ' ')).toMatch(defaults);
+    expect(prompt).toMatch(/unless I say no/);
+  });
+
+  it('a choice that defaults to yes says in plain words what the person gets', () => {
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/handoff gate holds a turn/);
+      expect(flat).toMatch(/deny list makes the agent refuse/);
+      expect(flat).toMatch(/one undo command/);
+    }
+  });
+
+  it('the tools step checks two sources and probes nothing itself', () => {
+    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    for (const text of [tools?.action ?? '', prompt]) {
+      expect(text).toMatch(/getff:installed-versions/);
+      expect(text).toMatch(/NOT[- ]wired/);
+      expect(text).not.toMatch(/claude mcp get/);
+    }
+  });
+
+  it('the tools step takes its names from the selection the installer printed', () => {
+    // The dry run's «Companions» section skips MCP servers (deepwiki), so a name list read from it
+    // never checks them. The «Stack-aware companion selection» lines name every selected tool.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const tools = steps.find((s) => s.id === 'tools-parity');
+    const preview = steps.find((s) => s.id === 'preview');
+    for (const text of [tools?.action ?? '', preview?.action ?? '', prompt]) {
+      expect(text).toMatch(/Stack-aware companion selection/);
+    }
+    for (const text of [tools?.action ?? '', prompt]) {
+      expect(text).toMatch(/context7/);
+      expect(text).toMatch(/runtime-bridge/);
+      expect(text).toMatch(/aif-handoff/);
+    }
+    expect(tools?.action).not.toMatch(/«Companions» section/);
+  });
+
+  it('the tools step leaves out exactly the external services the manifest holds', () => {
+    // The road names the external services in words. A name list kept true by attention is
+    // `#hope-as-gate`: a third external service in the manifest would read as a false «MISSING».
+    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
+    const leftOut = excludedByRoad(tools?.action ?? '');
+    expect(leftOut.length, 'the road row names no external service').toBeGreaterThan(0);
+    expect(leftOut).toEqual(externalServices(manifest));
+    expect(excludedByRoad(prompt)).toEqual(leftOut);
+  });
+
+  it('a third external service in the manifest is detected (the comparison is not vacuous)', () => {
+    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
+    const third = `${manifest}\nnew-service\t-\t-\texternal-service\t*\n`;
+    expect(externalServices(third)).toContain('new-service');
+    expect(excludedByRoad(tools?.action ?? '')).not.toEqual(externalServices(third));
+    // A row of another kind changes nothing: only `external-service` rows are left out.
+    const other = `${manifest}\nnew-tool\t-\t-\tcli\t*\n`;
+    expect(externalServices(other)).toEqual(externalServices(manifest));
+  });
+
+  it('the research step takes the one answer as its confirmation', () => {
+    const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
+    expect(research?.action).toMatch(/without asking/);
+    expect(prompt).toMatch(/without asking/);
+  });
+
+  it('the preview shows the stack word as the installer prints it', () => {
+    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    expect(preview?.action).toMatch(/`generic`/);
+    expect(prompt).toMatch(/`generic`/);
+    expect(prompt).not.toMatch(/else unknown/);
   });
 
   it('the shipped road names no internal program part', () => {

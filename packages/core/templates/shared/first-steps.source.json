@@ -194,19 +194,19 @@
       {
         "id": "preview",
         "title": "Preview the stack and the tool list",
-        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read the detected stack and the «Companions» section from its output.",
-        "doneTest": "the command exits 0, its output names the detected stack, and `git status --short` of the project is unchanged"
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for.",
+        "doneTest": "the command exits 0, its output names the stack, and `git status --short` of the project is unchanged"
       },
       {
         "id": "ask-once",
         "title": "Ask the ONE question",
-        "action": "Show the detected stack, what goes into the project and what would go machine-wide, then ask once where to install. The answer picks the installer flag. Nothing else is asked during the run.",
-        "doneTest": "exactly one question was asked before the installer ran, and the report quotes the answer with the flag it chose"
+        "action": "Show the stack, what goes into the project and what would go machine-wide, then ask once, as one list of four parts: (a) where to install — 1, 2 or 3, it picks the installer flag; (b) session settings, yes or no — `GETFF_SESSION_SETTINGS=1` goes before the installer command unless the answer says no; before asking, name the groups the dry run printed and say in plain words: they go into the person's own uncommitted `.claude/settings.local.json`; values the person already set are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command; (c) tools for the project's own dependencies, yes or no — `GETFF_STACK_TOOLS=1` goes before the installer command unless the answer says no; the installer's own source check decides which servers are taken; (d) research, yes or no. A part the answer leaves out reads: (a) 1, (b) yes, (c) yes, (d) yes — so the answer «1» means everything on, this project only. Nothing else is asked during the run.",
+        "doneTest": "exactly one question was asked before the installer ran, and the report quotes the answer with the flag and the variables it chose"
       },
       {
         "id": "install",
         "title": "Run the installer with the chosen flag",
-        "action": "Answer 1: `bash <getff>/setup -y <stack>`. Answer 2: `bash <getff>/setup -y --global <stack>`. Answer 3: `bash <getff>/setup --all <stack>`. Keep the «Checked by the install» block and every «NOT wired» line for the report.",
+        "action": "Answer 1: `bash <getff>/setup -y <stack>`. Answer 2: `bash <getff>/setup -y --global <stack>`. Answer 3: `bash <getff>/setup --all <stack>`. Put the variables before the command, on the same line: with no «no» in the answer it reads `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash <getff>/setup -y <stack>`; a «no» drops its variable. Keep the «Checked by the install» block and every «NOT wired» line for the report.",
         "doneTest": "the installer exits 0 and prints its «Checked by the install» block"
       },
       {
@@ -224,19 +224,19 @@
       {
         "id": "tools-parity",
         "title": "Check that everything getff uses for itself is installed or marked",
-        "action": "Not built yet. Report this step as «not done: not built yet» and go on.",
-        "doneTest": "not built yet"
+        "action": "Take the tool names from the «✓ <name>» lines the preview printed under «Stack-aware companion selection», leave out the external services runtime-bridge and aif-handoff, and add context7. For each of these tools find the one trace the install left, in two sources only: a row `| <name> |` in the `<!-- getff:installed-versions:begin -->` block of `.ai-factory/tool-decisions.md`; or a line `- <name> — <reason>` in the installer's NOT-wired summary or in its kept-values summary. Quote that row or line per tool. A row whose version starts «not read:» is a trace: quote its reason. A tool with no trace is a finding under this step, named «MISSING <name>». Run no probe of your own. When the block is absent, report this step as «not done: no installed-versions record in tool-decisions.md» and go on.",
+        "doneTest": "the block exists and every selected tool has its row or its summary line; each tool without one is named MISSING"
       },
       {
         "id": "base-core-status",
         "title": "Read the base-core list with a status per principle",
-        "action": "Not built yet. Report this step as «not done: not built yet» and go on.",
-        "doneTest": "not built yet"
+        "action": "Read the table in `.claude/skills/getff/references/base-core.md`; change nothing. Every row whose status is not `fires`, and every row whose «not on stack» column names this project's stack, goes into the report section «PRINCIPLES NOT WIRED YET» as one line: id, principle, status, reason. When the file is absent, report this step as «not done: list absent in this older install» and put one yes-or-no decision into «WHAT I NEED FROM YOU»: refresh getff's own files in this project.",
+        "doneTest": "the count of lines in «PRINCIPLES NOT WIRED YET» equals the count of such rows in the file"
       },
       {
         "id": "research",
         "title": "Research rules for the stack",
-        "action": "Unless the answer to the one question said «without research», follow `<getff>/agents/rule-researcher.md`; it has an arm per toolchain. Report where it ended.",
+        "action": "Unless the answer to the one question said no to research, follow `<getff>/agents/rule-researcher.md`; it has an arm per toolchain. The answer to the one question is the confirmation that protocol asks for: write its files without asking, and list what was written in the report. Report where it ended.",
         "doneTest": "the rule-research sequence reached its own completion output, or the report names the point where it stopped"
       },
       {
@@ -254,8 +254,8 @@
       {
         "id": "project-checks",
         "title": "Run the project's own check commands as the installer wired them",
-        "action": "On the four npm stacks: `npm run validate` and `npm run audit:docs`. Quote exit codes and failing lines; failures on the project's existing code are a finding, not a reason to stop. When no check command is known for the stack, report «not done» with that reason.",
-        "doneTest": "each command ran and its exit code is in the report"
+        "action": "Run each command listed under `armed:` in the block `<!-- aif:project-checks:begin -->` of `.ai-factory/tool-decisions.md`. Quote exit codes and failing lines, then the lines under `not-armed:` with their reasons; failures on the project's existing code are a finding, not a reason to stop. When the block is absent, report «not done: no check record in tool-decisions.md»; when nothing is listed under `armed:`, report «not done: no check armed».",
+        "doneTest": "each armed command ran and its exit code is in the report"
       },
       {
         "id": "report",
