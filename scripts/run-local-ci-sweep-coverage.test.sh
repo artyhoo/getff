@@ -698,9 +698,9 @@ unparsed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$3=="unparsed-vitest-shape"{pr
 # (row_shell_reason — the command, an npm script it reaches, a node script it runs, or a vitest
 # scope where every file starts a shell), and this arm makes the list say so.
 # NEG (LOAD-BEARING): through the same plan, three real rows that start a shell one hop away and
-# a synthetic row running the real pre-push hook (it spawns bash through its imports) are kept
-# here, and a node row that only READS .sh files (a SHELL_READERS entry) routes — else 12c below
-# is vacuous.
+# a synthetic row running the real pre-push hook through `npx tsx` behind an env assignment (the
+# hook names bash itself) are kept here, and a node row that only READS .sh files (a
+# SHELL_READERS entry that starts only git and node) routes — else 12c below is vacuous.
 NEG_GATES="$(mktemp "${TMPDIR:-/tmp}/sweep-cov-gates.XXXXXX")"
 { "$SWEEP" --list-gates 2>/dev/null; printf '99\tprepush-skill-drift\tALWAYS\tPREPUSH_ONLY=skill-drift npx tsx packages/core/hooks/pre-push.ts\n'; } >"$NEG_GATES"
 NEGPLAN="$(SWEEP_GATES_FILE="$NEG_GATES" SWEEP_ROUTABLE="format-check runtime-bundles-drift template-render reference-check prepush-skill-drift" "$SWEEP" --route-plan 2>/dev/null)"
@@ -711,7 +711,7 @@ if [ "$(neg_row format-check)" = "local runs-a-shell" ] \
   && [ "$(neg_row template-render)" = "local every-file-starts-a-shell" ] \
   && [ "$(neg_row prepush-skill-drift)" = "local starts-a-shell:packages/core/hooks/pre-push.ts" ] \
   && [ "$(neg_row reference-check)" = "route " ]; then
-  ok "neg: row_shell_reason catches an npm hop, a node script's spawn, an import's spawn and an all-shell suite, and not a listed reader of .sh"
+  ok "neg: row_shell_reason catches an npm hop, a node script's spawn, a tsx-run hook and an all-shell suite, and not a listed reader of .sh"
 else
   bad "row_shell_reason misjudged a row (format-check='$(neg_row format-check)' runtime-bundles-drift='$(neg_row runtime-bundles-drift)' template-render='$(neg_row template-render)' prepush-skill-drift='$(neg_row prepush-skill-drift)' reference-check='$(neg_row reference-check)') — 12c below is vacuous"
 fi
@@ -721,9 +721,10 @@ shell_listed="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="local" && $3!="" && $
   || bad "SWEEP_ROUTABLE lists row(s) that start a shell: $shell_listed — take them off the list"
 
 # 12d. the shell arms derivation is live on real files: vitest-principles keeps a file that pins
-# '/bin/bash', one that spawns PATH `bash` (the same binary on a stock Mac), and one that names no
-# shell itself and reaches one only through an import (31-rule-channel-declaration.test.ts →
-# 31-rule-channel-declaration.ts) — and the arms floor holds.
+# '/bin/bash', one that spawns PATH `bash` (the same binary on a stock Mac), and one marked only
+# through its import (31-rule-channel-declaration.test.ts names no shell; the
+# 31-rule-channel-declaration.ts it imports names a .sh file in a comment — so this anchor guards
+# import-following, and rewording that comment would need a new anchor) — and the arms floor holds.
 pr_arms=" $(printf '%s\n' "$PLAN" | awk -F"$TAB" '$1=="vitest-principles"{print $3}') "
 ARMS_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"{print $3}' | tr ' ' '\n' | grep -c .)
 arms_lost=""
@@ -736,7 +737,7 @@ if [ -n "$arms_lost" ]; then
 elif [ "$ARMS_N" -lt 20 ]; then
   bad "only $ARMS_N shell arm files found (floor 20) — the derivation lost files"
 else
-  ok "the shell arms are found ($ARMS_N files: pinned /bin/bash, PATH bash, and through an import)"
+  ok "the shell arms are found ($ARMS_N files: pinned /bin/bash, PATH bash, and one marked through an import)"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

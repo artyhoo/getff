@@ -184,8 +184,11 @@
 # counts), which costs Mac CPU, never the signal. A row runs a shell when its command, an npm
 # script it reaches at any depth, or a node script it runs does; such a row is kept here whole
 # (row_shell_reason), and the coverage test REDs on the list naming it. A node script that only
-# READS .sh files routes when SHELL_READERS names it with a reason. Not seen: a shell reached
-# only through an exec string, `shell: true`, or a script path built at run time.
+# READS .sh files routes when SHELL_READERS names it with a reason and it starts only git and
+# node. Every `exec` string and npm script line goes through /bin/sh -c: what is judged is the
+# command inside, not the sh that carries it. Not seen: a shell named inside an exec string
+# built at run time or a `node -e` body elsewhere than the row's command, a script path built at
+# run time, and code reached through a bare package import (workspace packages included).
 # `--route-plan` prints, per row, where it goes and which arms stay.
 # ------------------------------------------------------------------------------------------
 #
@@ -540,10 +543,10 @@ cmd_sum() { { printf '%s\n' "$1"; git ls-files -z 2>/dev/null; } | cksum | awk '
 
 # SHELL_READERS — node scripts that name `.sh` files or `bash` only as text they read, one
 # `<path><TAB><reason>` line each. Such a file is not a shell seed of its own (see shell_scan),
-# so a row that runs it can route; the files it imports are still followed, so a new import that
-# does start a shell marks it again. An entry whose reason is shorter than 20 characters counts
-# for nothing. Each was checked 2026-09-29: the file and its import closure start git and node,
-# never a shell.
+# so a row that runs it can route. An entry counts only while its reason is 20+ characters AND
+# the file and its import closure start nothing but git and node (shell_scan checks every
+# child_process call on each scan); an entry that stops passing marks its rows
+# `reader-starts-more-than-git:<path>`, and the coverage test REDs on the list.
 SHELL_READERS="${SWEEP_SHELL_READERS-scripts/render-reference.mjs${TAB}lists setup.d/*.sh and scripts/*.sh headers as text; spawns only git and node --check
 scripts/render-install-roster.mjs${TAB}reads setup.d/20-agents.sh and 10-skills.sh as text; spawns nothing
 scripts/lib/skill-tiers.mjs${TAB}reads setup.d/lib.sh as text to find the skill tiers; spawns nothing
@@ -557,11 +560,19 @@ scripts/check-line-citations.mjs${TAB}resolves citations into .sh files as text;
 #                              that names bash or sh as a program or names a .sh file (not a
 #                              SHELL_READERS entry), or imports such a file at any depth.
 #   row<TAB><name><TAB><why>   a routable row that starts a shell: `runs-a-shell` (its command,
-#                              or an npm script it reaches, names one), `starts-a-shell:<path>`
-#                              (it runs a marked node script), or a fail-closed answer —
-#                              `unparsed-npm-call`, `unknown-workspace:<w>`, `npm-nested-too-deep`,
-#                              `unscanned-script:<path>` (outside the two walked trees),
-#                              `scan-error`.
+#                              or an npm script it reaches, names one or runs a shell script
+#                              without an extension), `starts-a-shell:<path>` (it runs a marked
+#                              node script), `setup-starts-a-shell:<path>` (a vitest row whose
+#                              globalSetup/setupFiles start more than git and node),
+#                              `reader-starts-more-than-git:<path>`, or a fail-closed answer —
+#                              `unparsed-npm-call` (also npm behind another command),
+#                              `unknown-workspace:<w>`, `unparsed-workspace-glob:<g>`,
+#                              `npm-nested-too-deep`, `unscanned-script:<path>` (outside the two
+#                              walked trees), `unresolved-script:<word>`, `node-eval`,
+#                              `unparsed-vitest-setup:<config>`, `scan-error`.
+# A file is marked when it names a shell or a .sh file, writes a shell shebang into a string, names
+# a tracked shell script without an extension, spawns node/npm/npx/tsx (a script this pass does not
+# follow), relatively imports a script outside the two trees, or imports a marked file.
 # npm calls are followed as npm runs them: `--prefix`/`-C`, `--workspaces`/`-w`, `run`/`test`
 # with their pre/post scripts, to depth 4. A vitest segment's file arguments are tests, not
 # scripts: their shells are arms (shell_arms), not a reason. Node, not grep: depth needs relative
@@ -577,10 +588,21 @@ shell_scan() {
 $(gate_table)
 EOF
   SWEEP_SCAN_READERS="$SHELL_READERS" SWEEP_SCAN_ROWS="$rows" node - <<'JS'
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), cp = require('child_process');
 const exts = ['.ts', '.mts', '.mjs', '.js', '.cjs'];
-const seedRe = /['"`]((\/[\w.-]+)*\/)?(ba)?sh['"` ]|\.sh['"`]/;
-const wordRe = /(^|[\s;|&("'`=])(\S*\/)?(ba)?sh([\s;|&)"'`]|$)|\.sh(\W|$)/;
+// A shell named as a program or a .sh file, a shell shebang written into a string (a stub the
+// code writes and runs), or node/npm/npx/tsx spawned from code (it runs a script this pass does
+// not follow, so it may start a shell).
+const seedRe = /['"`]((\/[\w.-]+)*\/)?(ba)?sh['"` ]|\.sh['"`]|#!\s*\/\S*\/(env\s+)?(ba)?sh\b|\b(spawn|spawnSync|execFile|execFileSync|execa|execaSync|fork)\s*\(\s*(['"`](npm|npx|node|tsx)['"`]|process\.execPath)/;
+const shebangSh = /^#!\s*\/\S*\/(env\s+)?(ba)?sh\b/;
+const firstLine = (p) => { try { return fs.readFileSync(p, 'utf8').split('\n', 1)[0]; } catch { return ''; } };
+const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
+// Tracked shell scripts without an extension (setup, git hooks, plugin hook wrappers): code that
+// names one starts a shell as surely as code that names a .sh file.
+const extless = [...new Set(cp.execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 1 << 26 }).split('\0')
+  .filter((f) => f && !path.extname(f) && isFile(f) && shebangSh.test(firstLine(f))).map((f) => path.basename(f)))];
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const extlessRe = extless.length ? new RegExp('[\'"`](?:[^\'"`\\s]*\\/)?(' + extless.map(esc).join('|') + ')[\'"`]') : null;
 const readers = new Map();
 for (const l of (process.env.SWEEP_SCAN_READERS || '').split('\n')) {
   const [p, ...r] = l.split('\t');
@@ -597,49 +619,90 @@ const walk = (d) => {
   }
 };
 ['packages/core', 'scripts'].forEach((r) => fs.existsSync(r) && walk(r));
-const known = new Set(files), importers = new Map(), marked = new Set();
+const known = new Set(files), importers = new Map(), imports = new Map(), src = new Map(), outside = new Set();
+const candidates = (b) => [b, b.replace(/\.(m?)js$/, '.$1ts'), ...exts.map((e) => b + e), ...exts.map((e) => path.join(b, 'index' + e))];
 const resolve = (from, spec) => {
-  const b = path.join(path.dirname(from), spec);
-  for (const c of [b, b.replace(/\.(m?)js$/, '.$1ts'), ...exts.map((e) => b + e), ...exts.map((e) => path.join(b, 'index' + e))])
-    if (known.has(c)) return c;
+  const cs = candidates(path.join(path.dirname(from), spec));
+  for (const c of cs) if (known.has(c)) return c;
+  // A relative import of a script outside the two walked trees is not followed: mark the importer.
+  if (cs.some((c) => exts.includes(path.extname(c)) && isFile(c))) outside.add(from);
   return null;
 };
 for (const f of files) {
-  const src = fs.readFileSync(f, 'utf8');
-  if (seedRe.test(src) && !readers.has(f)) marked.add(f);
-  for (const m of src.matchAll(/(?:from|import|require)\s*\(?\s*['"`](\.{1,2}\/[^'"`]+)['"`]/g)) {
+  const s = fs.readFileSync(f, 'utf8');
+  src.set(f, s);
+  imports.set(f, []);
+  for (const m of s.matchAll(/(?:from|import|require)\s*\(?\s*['"`](\.{1,2}\/[^'"`]+)['"`]/g)) {
     const t = resolve(f, m[1]);
-    if (t) { if (!importers.has(t)) importers.set(t, []); importers.get(t).push(f); }
+    if (t) { imports.get(f).push(t); if (!importers.has(t)) importers.set(t, []); importers.get(t).push(f); }
   }
 }
+// startsOnlyGitAndNode: every child_process call in the file and its import closure is `git` or
+// `process.execPath` by execFile/spawn, or an exec string that is one plain `git …` command. The
+// check behind a SHELL_READERS entry and behind vitest's setup files; anything it cannot read —
+// a namespace, default or require import of child_process, execa/zx/shelljs, `shell: true`, a
+// computed first argument — fails it.
+const gitOrNode = (src) => {
+  if (/shell\s*:\s*true/.test(src)) return false;
+  if (/import\s+(\*\s+as\s+)?\w+\s+from\s+['"](node:)?child_process['"]|require\s*\(\s*['"](node:)?child_process['"]\s*\)|from\s+['"](execa|zx|shelljs|cross-spawn)['"]/.test(src)) return false;
+  const names = [];
+  for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"](node:)?child_process['"]/g))
+    for (const part of m[1].split(',')) {
+      const [orig, local] = part.trim().split(/\s+as\s+/);
+      if (orig) names.push([orig, local || orig]);
+    }
+  for (const [orig, n] of names)
+    for (const m of src.matchAll(new RegExp('(?<![\\w.])' + esc(n) + '\\s*\\(\\s*([^,)]*)', 'g'))) {
+      const a = m[1].trim();
+      if (a === "'git'" || a === '"git"' || a === 'process.execPath') continue;
+      if (/^exec(Sync)?$/.test(orig) && /^(['"`])git [^'"`;&|$<>(){}\\]*\1$/.test(a)) continue;
+      return false;
+    }
+  return true;
+};
+const closureOk = (f, seen = new Set()) => {
+  if (seen.has(f)) return true;
+  seen.add(f);
+  const s = src.has(f) ? src.get(f) : (isFile(f) ? fs.readFileSync(f, 'utf8') : null);
+  if (s === null || outside.has(f) || !gitOrNode(s)) return false;
+  return (imports.get(f) || []).every((t) => closureOk(t, seen));
+};
+const rejected = new Set();
+for (const f of readers.keys()) if (known.has(f) && !closureOk(f)) rejected.add(f);
+const exempt = (f) => readers.has(f) && !rejected.has(f);
+const seedText = (s) => seedRe.test(s) || (extlessRe !== null && extlessRe.test(s));
+const marked = new Set([...outside]);
+for (const f of files) if (!exempt(f) && seedText(src.get(f))) marked.add(f);
 const q = [...marked];
 while (q.length) for (const i of importers.get(q.pop()) || []) if (!marked.has(i)) { marked.add(i); q.push(i); }
 
-const unq = (t) => t.replace(/^['"]+|['"]+$/g, '');
-const words = (seg) => seg.trim().split(/\s+/).filter(Boolean).map(unq);
-const segs = (text) => text.split(/&&|\|\||[;|\n]/);
+const unq = (t) => t.replace(/^[('"{]+|[)'"};]+$/g, '');
+const words = (seg) => seg.trim().split(/\s+/).filter(Boolean).map(unq).filter(Boolean);
+const segs = (text) => text.split(/&&|\|\||[;|&\n]/);
 const pkg = (dir) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')); } catch { return {}; } };
 const valued = ['--prefix', '-C', '-p', '--package', '-w', '--workspace', '-c', '--call'];
 const program = (w) => {
   let i = 0;
-  while (i < w.length && (/^[A-Za-z_]\w*=/.test(w[i]) || ['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', '('].includes(w[i]))) i++;
+  while (i < w.length && (/^[A-Za-z_]\w*=/.test(w[i]) || ['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!'].includes(w[i]))) i++;
   if (w[i] === 'npx' || w[i] === 'exec')
     for (i++; i < w.length && w[i].startsWith('-'); i++) if (valued.includes(w[i])) i++;
   return i;
 };
-const workspaces = (dir) => {
+const workspaces = (dir, why) => {
   const out = [];
   for (const g of [].concat(pkg(dir).workspaces || [])) {
-    if (g.endsWith('/*')) {
+    if (typeof g !== 'string') { why.push('unparsed-workspaces'); continue; }
+    if (g.endsWith('/*') && !g.slice(0, -2).includes('*')) {
       const base = path.join(dir, g.slice(0, -2));
       if (fs.existsSync(base)) for (const e of fs.readdirSync(base, { withFileTypes: true })) if (e.isDirectory()) out.push(path.join(base, e.name));
-    } else out.push(path.join(dir, g));
+    } else if (g.includes('*')) why.push('unparsed-workspace-glob:' + g);
+    else out.push(path.join(dir, g));
   }
   return out;
 };
-const workspace = (dir, v) => {
+const workspace = (dir, v, why) => {
   if (v && fs.existsSync(path.join(dir, v, 'package.json'))) return path.join(dir, v);
-  return workspaces(dir).find((d) => pkg(d).name === v) || null;
+  return workspaces(dir, why).find((d) => pkg(d).name === v) || null;
 };
 // expand: the command text plus every npm script it reaches, each with the directory npm runs it in.
 const expand = (text, dir, depth, out, why) => {
@@ -647,7 +710,10 @@ const expand = (text, dir, depth, out, why) => {
   for (const seg of segs(text)) {
     const w = words(seg);
     let i = program(w);
-    if (w[i] !== 'npm') continue;
+    if (w[i] !== 'npm') {
+      if (w.includes('npm')) why.push('unparsed-npm-call');
+      continue;
+    }
     if (depth >= 4) { why.push('npm-nested-too-deep'); continue; }
     let d = dir, ws = false, named = [], sub = null, name = null, extra = [];
     for (i++; i < w.length; i++) {
@@ -669,8 +735,8 @@ const expand = (text, dir, depth, out, why) => {
     if (!script) { why.push('unparsed-npm-call'); continue; }
     let dirs = [d];
     if (ws || named.length) {
-      dirs = ws ? workspaces(d) : [];
-      for (const v of named) { const x = workspace(d, v); if (!x) { why.push('unknown-workspace:' + v); continue; } dirs.push(x); }
+      dirs = ws ? workspaces(d, why) : [];
+      for (const v of named) { const x = workspace(d, v, why); if (!x) { why.push('unknown-workspace:' + v); continue; } dirs.push(x); }
     }
     for (const pd of dirs) {
       const s = pkg(pd).scripts || {};
@@ -679,6 +745,25 @@ const expand = (text, dir, depth, out, why) => {
     }
   }
 };
+// setupReason: vitest's globalSetup/setupFiles run in every vitest row, so a routed row takes them
+// along whole — they must start only git and node (gitOrNode, over their import closure).
+const setupReason = (dir) => {
+  const cfg = ['vitest.config.ts', 'vitest.config.mts', 'vitest.config.js', 'vitest.config.mjs'].map((c) => path.join(dir, c)).find(isFile);
+  if (!cfg) return '';
+  const s = fs.readFileSync(cfg, 'utf8');
+  for (const m of s.matchAll(/\b(globalSetup|setupFiles)\s*:\s*/g)) {
+    const rest = s.slice(m.index + m[0].length);
+    const v = rest.match(/^\[([^\]]*)\]|^(['"`][^'"`]*['"`])/);
+    if (!v) return 'unparsed-vitest-setup:' + path.normalize(cfg);
+    for (const lit of (v[1] !== undefined ? v[1] : v[2]).split(',').map((x) => x.trim()).filter(Boolean)) {
+      if (!/^(['"`])[^'"`]*\1$/.test(lit)) return 'unparsed-vitest-setup:' + path.normalize(cfg);
+      const f = path.normalize(path.join(dir, lit.slice(1, -1)));
+      if (!closureOk(f)) return 'setup-starts-a-shell:' + f;
+    }
+  }
+  return '';
+};
+const nodeValued = ['--import', '--require', '-r', '--loader', '--experimental-loader', '--conditions', '-C'];
 const rel = (p) => path.normalize(p);
 for (const line of (process.env.SWEEP_SCAN_ROWS || '').split('\n')) {
   const tab = line.indexOf('\t');
@@ -689,18 +774,40 @@ for (const line of (process.env.SWEEP_SCAN_ROWS || '').split('\n')) {
     const texts = [], why = [];
     expand(cmd, '.', 0, texts, why);
     if (why.length) reason = why[0];
-    else if (texts.some((x) => wordRe.test(x.text))) reason = 'runs-a-shell';
+    else if (texts.some((x) => /(^|[\s;|&("'`=])(\S*\/)?(ba)?sh([\s;|&)"'`]|$)|\.sh(\W|$)/.test(x.text))) reason = 'runs-a-shell';
     else {
       outer: for (const x of texts) for (const seg of segs(x.text)) {
         const w = words(seg), i = program(w);
-        if (w[i] === 'vitest') continue;
-        for (let t of w.slice(i)) {
-          if (t.startsWith('-')) t = t.replace(/^[^=]*=?/, '');
+        if (w[i] === 'vitest') {
+          const r = setupReason(x.dir);
+          if (r) { reason = r; break outer; }
+          continue;
+        }
+        const runner = ['node', 'tsx', 'ts-node'].includes(w[i]);
+        let entry = runner;
+        for (let j = i; j < w.length; j++) {
+          let t = w[j];
+          if (runner && j > i && /^(-e|--eval|-p|--print)$/.test(t)) { reason = 'node-eval'; break outer; }
+          if (t.startsWith('-')) {
+            if (runner && nodeValued.includes(t)) j++;
+            t = t.replace(/^[^=]*=?/, '');
+          }
           t = t.replace(/^\.\//, '');
-          if (!exts.includes(path.extname(t))) continue;
-          const p = rel(path.join(x.dir, t));
-          if (marked.has(p)) { reason = 'starts-a-shell:' + p; break outer; }
-          if (!known.has(p) && fs.existsSync(p)) { reason = 'unscanned-script:' + p; break outer; }
+          if (!t || j === i && runner) continue;
+          let p = rel(path.join(x.dir, t));
+          if (entry && !w[j].startsWith('-')) {
+            entry = false;
+            if (!exts.includes(path.extname(t))) {
+              const hit = candidates(p).find((c) => exts.includes(path.extname(c)) && isFile(c));
+              if (!hit) { reason = 'unresolved-script:' + t; break outer; }
+              p = rel(hit);
+            }
+          } else if (!exts.includes(path.extname(t))) {
+            if (isFile(p) && shebangSh.test(firstLine(p))) { reason = 'runs-a-shell'; break outer; }
+            continue;
+          }
+          if (marked.has(p)) { reason = (rejected.has(p) ? 'reader-starts-more-than-git:' : 'starts-a-shell:') + p; break outer; }
+          if (!known.has(p)) { reason = (isFile(p) ? 'unscanned-script:' : 'unresolved-script:') + p; break outer; }
         }
       }
     }

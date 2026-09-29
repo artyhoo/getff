@@ -508,6 +508,14 @@ check "offload: a non-zero runner exit after a green receipt still passes" 0 $?
 grep_out "offload: that PASS is the runner's" "[sweep] PASS routed · on runner-exit1" "$TMP/o60"
 if grep -qF "runner-exit1 exited 1 after the receipt" "$TMP"/logs-exit1/*routed.log 2>/dev/null; then echo "  ✓ offload: the runner's exit is in the row's log"
 else echo "  ✗ offload: the runner's non-zero exit left no trace in the row's log"; fails=$((fails + 1)); fi
+# …and when that green run was degraded there and re-ran here, the log keeps both notes.
+SWEEP_LOG_DIR="$TMP/logs-exit1-deg" SWEEP_HEAVY_RUNNER="$TMP/runner-exit1" SWEEP_ROUTABLE=routed SWEEP_GATES_FILE="$TMP/g-off-skip.tsv" \
+  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o63" 2>&1
+check "offload: a degraded green receipt with a non-zero runner exit still passes" 0 $?
+if grep -qF "runner-exit1 exited 1 after the receipt" "$TMP"/logs-exit1-deg/*routed.log 2>/dev/null \
+  && grep -qF "degraded on runner-exit1 — ran here instead" "$TMP"/logs-exit1-deg/*routed.log 2>/dev/null; then
+  echo "  ✓ offload: the row's log keeps the runner's exit and the degrade"
+else echo "  ✗ offload: the degrade note replaced the runner's exit note in the row's log"; fails=$((fails + 1)); fi
 
 # (i) shell arms: a routed vitest row also runs, HERE, its suite's files that start a shell —
 # by absolute path, through PATH, by naming a .sh file, or through an imported helper that does.
@@ -555,22 +563,41 @@ check "arms: a red shell arm fails the row even though the runner passed" 1 $?
 grep_out "arms: the red arm is reported as the row's FAIL" "[sweep] FAIL vitest-fake · on runner-remote + shell arms here" "$TMP/o41"
 
 # (q) which rows start a shell, read the way npm and node run them. A throwaway repo carries npm
-# scripts two levels deep, workspaces, a node script that starts bash through its own wrapper,
-# readers of .sh files (named in SWEEP_SHELL_READERS with a reason, a too-short reason, and one
-# whose import starts a shell), and a script outside the scanned trees. --route-plan only reads.
+# scripts two levels deep, pre scripts, a cycle, workspaces (a glob it cannot read, a name that is
+# not there), a node script that starts bash through its own wrapper, one that writes and runs a
+# shebang stub, one that spawns npm, one that names an extensionless shell script, one importing
+# outside the scanned trees, readers of .sh files (named in SWEEP_SHELL_READERS with a reason, a
+# too-short reason, one whose import starts a shell, one that spawns bash itself), vitest setup
+# files (one spawning a program it computes, one git only), and scripts it cannot find.
+# --route-plan only reads.
 R6="$TMP/repo-reasons"; mk_repo "$R6"
 mkdir -p "$R6/packages/a" "$R6/packages/b" "$R6/packages/core" "$R6/scripts/lib" "$R6/tools"
 cat >"$R6/package.json" <<'EOF'
 { "workspaces": ["packages/*"],
-  "scripts": { "lint:sh": "bash scripts/x.sh", "deep": "npm run lint:sh", "typecheck": "npm run typecheck --workspaces --if-present" } }
+  "scripts": { "lint:sh": "bash scripts/x.sh", "deep": "npm run lint:sh", "typecheck": "npm run typecheck --workspaces --if-present",
+    "prelint": "bash scripts/x.sh", "lint": "tsc", "ping": "npm run pong", "pong": "npm run ping" } }
 EOF
+mkdir -p "$R6/sub"
+printf '{ "workspaces": ["apps/**"], "scripts": { "t": "npm run t --workspaces" } }\n' >"$R6/sub/package.json"
+printf '{ "scripts": { "test:x": "vitest run x/" } }\n' >"$R6/packages/core/package.json"
+printf "export default { test: { setupFiles: ['./setup-computed.ts'] } };\n" >"$R6/packages/core/vitest.config.ts"
+printf "import { spawnSync } from 'node:child_process';\nspawnSync(process.env.SHELL_BIN || 'x', []);\n" >"$R6/packages/core/setup-computed.ts"
+printf "export default { test: { setupFiles: ['./setup-git.ts'] } };\n" >"$R6/vitest.config.ts"
+printf "import { execSync } from 'node:child_process';\nexecSync('git status --porcelain');\n" >"$R6/setup-git.ts"
+printf '#!/bin/sh\necho doctor\n' >"$R6/tools/doctor"
+chmod +x "$R6/tools/doctor"
 printf '{ "name": "a", "scripts": { "typecheck": "sh ./check.sh" } }\n' >"$R6/packages/a/package.json"
 printf '{ "name": "b", "scripts": { "typecheck": "tsc -p ." } }\n' >"$R6/packages/b/package.json"
 printf "export const run = (p, a) => spawnSync(p, a);\n" >"$R6/scripts/lib/run.mjs"
 printf "import { run } from './lib/run.mjs';\nrun('bash', ['x']);\n" >"$R6/scripts/wrapper.mjs"
 printf "console.log('no shell');\n" >"$R6/scripts/clean.mjs"
-printf "readFileSync('install.sh');\n" >"$R6/scripts/reader.mjs"
-printf "readFileSync('install.sh');\n" >"$R6/scripts/reader-short.mjs"
+printf "import { execFileSync } from 'node:child_process';\nexecFileSync('git', ['ls-files']);\nreadFileSync('install.sh');\n" >"$R6/scripts/reader.mjs"
+cp "$R6/scripts/reader.mjs" "$R6/scripts/reader-short.mjs"
+printf "import { spawnSync } from 'node:child_process';\nreadFileSync('install.sh');\nspawnSync('bash', ['-n', 'install.sh']);\n" >"$R6/scripts/reader-spawns.mjs"
+printf "writeFileSync(p, '#!/usr/bin/env bash\\\\necho hi\\\\n');\nexecFileSync(p);\n" >"$R6/scripts/stubber.mjs"
+printf "spawnSync('npm', ['run', 'x']);\n" >"$R6/scripts/npm-spawner.mjs"
+printf "execFileSync(join(root, 'tools', 'doctor'));\n" >"$R6/scripts/runs-doctor.mjs"
+printf "import '../tools/elsewhere.mjs';\n" >"$R6/scripts/imports-outside.mjs"
 printf "import './wrapper.mjs';\nreadFileSync('install.sh');\n" >"$R6/scripts/reader-imports.mjs"
 printf "console.log(1);\n" >"$R6/tools/elsewhere.mjs"
 {
@@ -588,9 +615,26 @@ printf "console.log(1);\n" >"$R6/tools/elsewhere.mjs"
   printf '12\telsewhere\tALWAYS\tnode tools/elsewhere.mjs\n'
   printf '13\tnpm-exec\tALWAYS\tnpm exec foo\n'
   printf '14\tnpm-b\tALWAYS\tnpm -w b run typecheck\n'
+  printf '15\tnpm-pre\tALWAYS\tnpm run lint\n'
+  printf '16\tnpm-nosuch-ws\tALWAYS\tnpm -w nosuch run typecheck\n'
+  printf '17\tnpm-cycle\tALWAYS\tnpm run ping\n'
+  printf '18\tnpm-behind-timeout\tALWAYS\ttimeout 600 node scripts/clean.mjs && timeout 600 npm run lint\n'
+  printf '19\tbg-then-npm\tALWAYS\tnode scripts/clean.mjs & npm run lint:sh; wait\n'
+  printf '20\tws-glob\tALWAYS\tnpm --prefix sub run t\n'
+  printf '21\tnode-eval\tALWAYS\tnode -e "require(1)"\n'
+  printf '22\tnode-noext\tALWAYS\tnode scripts/wrapper\n'
+  printf '23\tnode-after-cd\tALWAYS\tcd scripts && node clean.mjs\n'
+  printf '24\textless-shell\tALWAYS\t./tools/doctor --check\n'
+  printf '25\tstub-writer\tALWAYS\tnode scripts/stubber.mjs\n'
+  printf '26\tspawns-npm\tALWAYS\tnode scripts/npm-spawner.mjs\n'
+  printf '27\tnames-extless\tALWAYS\tnode scripts/runs-doctor.mjs\n'
+  printf '28\timports-outside\tALWAYS\tnode scripts/imports-outside.mjs\n'
+  printf '29\treader-spawns\tALWAYS\tnode scripts/reader-spawns.mjs\n'
+  printf '30\tsetup-computed\tALWAYS\tnpm --prefix packages/core run test:x\n'
+  printf '31\tsetup-git\tALWAYS\tnpx vitest run packages/core/x.test.ts\n'
 } >"$TMP/g-reasons.tsv"
 ( cd "$R6" && git add -A && git commit -qm fixtures ) >/dev/null 2>&1
-READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else')"
+READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else\nscripts/reader-spawns.mjs\treads install.sh as text and nothing else')"
 SWEEP_SHELL_READERS="$READERS_FIX" SWEEP_GATES_FILE="$TMP/g-reasons.tsv" SWEEP_ROUTABLE="$(cut -f2 "$TMP/g-reasons.tsv" | tr '\n' ' ')" \
   run_sweep "$R6" --route-plan >"$TMP/o61" 2>&1
 check "reasons: --route-plan exits 0" 0 $?
@@ -613,6 +657,23 @@ reader-imports|local starts-a-shell:scripts/reader-imports.mjs
 elsewhere|local unscanned-script:tools/elsewhere.mjs
 npm-exec|local unparsed-npm-call
 npm-b|route 
+npm-pre|local runs-a-shell
+npm-nosuch-ws|local unknown-workspace:nosuch
+npm-cycle|local npm-nested-too-deep
+npm-behind-timeout|local unparsed-npm-call
+bg-then-npm|local runs-a-shell
+ws-glob|local unparsed-workspace-glob:apps/**
+node-eval|local node-eval
+node-noext|local starts-a-shell:scripts/wrapper.mjs
+node-after-cd|local unresolved-script:clean.mjs
+extless-shell|local runs-a-shell
+stub-writer|local starts-a-shell:scripts/stubber.mjs
+spawns-npm|local starts-a-shell:scripts/npm-spawner.mjs
+names-extless|local starts-a-shell:scripts/runs-doctor.mjs
+imports-outside|local starts-a-shell:scripts/imports-outside.mjs
+reader-spawns|local reader-starts-more-than-git:scripts/reader-spawns.mjs
+setup-computed|local setup-starts-a-shell:packages/core/setup-computed.ts
+setup-git|route 
 EOF
 
 # (r) the scan itself failing (node broken on this host) stops routing for the whole sweep: the
