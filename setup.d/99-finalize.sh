@@ -1034,7 +1034,7 @@ _pc_keep_baselines() {
       *) continue ;;
     esac
     _pc_extra+=("$l")
-  done < <(awk '/<!-- aif:project-checks:end -->/{f=0} f && /^lint-baseline: /; /<!-- aif:project-checks:begin -->/{f=1}' "$rec")
+  done < <(awk '{sub(/\r$/, "")} /<!-- aif:project-checks:end -->/{f=0} f && /^lint-baseline: /; /<!-- aif:project-checks:begin -->/{f=1}' "$rec")
 }
 # _pc_suppress — ESLint's bulk suppressions: record the existing findings in eslint-suppressions.json
 # (shrink-only: run-armed.sh's probe prunes what was fixed), so `npm run lint` blocks new findings only; lint-staged's eslint

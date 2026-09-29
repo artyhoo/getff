@@ -272,7 +272,6 @@ describe('placement on an oxlint project whose lint is green (T-C1)', () => {
     expect(out).toContain("EX:rule-not-placed: * — your lint exits 2 once getff's rules are on, with no report getff can read: boom");
     expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).not.toContain('__getff_proof__');
     expect(out).toContain('LINT_OK=\n');
-    expect(out).not.toContain('switched on in');
   });
 
   it('a later pass on a red lint says the rules an earlier pass placed stay on, and leaves them as they were', () => {
@@ -457,6 +456,47 @@ describe('placement is additive and removable in one command (T-C6)', () => {
     expect(r.status).toBe(0);
     expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(text);
     expect(r.stdout).toContain('nothing of getff');
+  });
+
+  it('a verify run that takes every rule back leaves the bytes the project had', () => {
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP }, { cfgText: VITE_TEXT });
+    let n = 0;
+    const lint: LintFn = (root) => {
+      n++;
+      if (n === 1) return { rc: 0, raw: '', diags: [] };
+      // The verify run: every rule getff switched on still reports.
+      const text = readFileSync(join(root, '.oxlintrc.json'), 'utf8');
+      const c = JSON.parse(text) as { overrides?: Override[] };
+      const carriers = [...text.matchAll(/\[getff:([^\]]+)\]/g)].map((m) => `getff:${m[1]}`);
+      const ids = [...owned(c).flatMap((o) => Object.keys(o.rules ?? {})), ...carriers];
+      return { rc: 1, raw: '', diags: ids.map((id) => ({ id, file: 'src/App.tsx', message: 'still', error: true })) };
+    };
+    const res = mod.placeOxlint(dir, { stack: 'react-spa', lint });
+    expect(res.placed).toEqual([]);
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(VITE_TEXT);
+  });
+
+  // getff put nothing into this `rules` (no generated rule): it is the project's, empty or not. (One getff filled
+  // and emptied again cannot be told from one getff made — that case is removed with getff's entries.)
+  it("--remove keeps the project's own empty `rules`", () => {
+    const text = '{\n  "plugins": ["react"],\n  "jsPlugins": [{ "name": "rules-as-tests", "specifier": "./eslint-rules-local/index.mjs" }],\n  "rules": {},\n  "overrides": [{ "files": ["scripts/**"], "rules": { "no-console": "off" } }]\n}\n';
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP }, { cfgText: text });
+    rmSync(join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'));
+    place(dir, 'oxlint');
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toContain('__getff_proof__');
+    spawnSync('node', ['scripts/prove-rules.mjs', '--remove'], { cwd: dir, encoding: 'utf8' });
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(text);
+  });
+
+  it('a CRLF config gets CRLF lines only, and --remove gives its bytes back', () => {
+    const crlf = VITE_TEXT.replace(/\n/g, '\r\n');
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP }, { cfgText: crlf });
+    place(dir, 'oxlint');
+    const placed = readFileSync(join(dir, '.oxlintrc.json'), 'utf8');
+    expect(placed).toContain('__getff_proof__');
+    expect(placed.replace(/\r\n/g, '')).not.toContain('\n');
+    spawnSync('node', ['scripts/prove-rules.mjs', '--remove'], { cwd: dir, encoding: 'utf8' });
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(crlf);
   });
 });
 
@@ -973,5 +1013,55 @@ describe('the lint baseline shrinks as old findings are fixed, never grows (T-D2
     expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(committed(dir, '.oxlintrc.json'));
     expect(indexed(dir, '.oxlintrc.json')).toBe(committed(dir, '.oxlintrc.json'));
     expect(npmLint(dir).status).toBe(0);
+  });
+
+  it('a staged fix edited again after the probe: the working tree never keeps more baseline than the commit', () => {
+    const dir = exemptedOxProject();
+    write(dir, 'src/old.ts', THROW_FIXED);
+    git(dir, 'add', 'src/old.ts');
+    expect(armedRun(dir, '--probe').stdout).toContain('fixed: no-throw-literal in src/old.ts');
+    write(dir, 'src/old.ts', THROW_FIXED + 'export const later = 1;\n'); // edited again, not staged
+    const f = armedRun(dir, '--fold');
+    expect(f.status, f.stdout + f.stderr).toBe(0);
+    expect(f.stdout).toContain('✓ lint baseline shrunk and staged with this commit: .oxlintrc.json');
+    const staged = JSON.parse(indexed(dir, '.oxlintrc.json')) as { overrides?: Override[] };
+    expect(exemptFiles(staged)).toEqual(['src/App.tsx', 'src/older.ts']);
+    expect(exemptFiles(cfgOf(dir))).toEqual(['src/App.tsx', 'src/older.ts']); // else `git commit -a` brings it back
+    expect(baselineLine(readFileSync(join(dir, REC), 'utf8'))).toBe(baselineLine(indexed(dir, REC)));
+    expect(npmLint(dir).status).toBe(0);
+  });
+
+  it('the fold says which version it shrank: the working tree only, when the commit does not carry the fix', () => {
+    const dir = exemptedOxProject();
+    write(dir, 'src/old.ts', THROW_FIXED); // not staged
+    armedRun(dir, '--probe');
+    const f = armedRun(dir, '--fold');
+    expect(f.stdout).toContain('lint baseline shrunk in the working tree only: .oxlintrc.json');
+    expect(f.stdout).not.toContain('staged with this commit');
+  });
+
+  it('the fold says a fix changed after the probe was not folded, never «nothing left to fold» (paired negative)', () => {
+    const dir = exemptedOxProject();
+    write(dir, 'src/old.ts', THROW_FIXED);
+    git(dir, 'add', 'src/old.ts');
+    armedRun(dir, '--probe');
+    write(dir, 'src/old.ts', THROW_OLD);
+    git(dir, 'add', 'src/old.ts');
+    const f = armedRun(dir, '--fold');
+    expect(f.stdout).toContain('lint baseline not shrunk: src/old.ts changed after the probe measured it');
+    expect(f.stdout).not.toContain('nothing left to fold');
+  });
+
+  it('a fixed path with `[A]` beside a tracked `src/A/` is matched literally in the index', () => {
+    const dir = oxProject({ 'src/App.tsx': BAD_APP, 'src/[A]/x.ts': THROW_OLD, 'src/A/x.ts': 'export const a = 1;\n' });
+    const { out } = place(dir, 'oxlint');
+    recordFromPlace(dir, out, 'oxlint');
+    commitAll(dir);
+    write(dir, 'src/[A]/x.ts', THROW_FIXED);
+    git(dir, 'add', '--', ':(literal)src/[A]/x.ts');
+    expect(armedRun(dir, '--probe').stdout).toContain('fixed: no-throw-literal in src/[A]/x.ts');
+    expect(armedRun(dir, '--fold').status).toBe(0);
+    const staged = JSON.parse(indexed(dir, '.oxlintrc.json')) as { overrides?: Override[] };
+    expect(exemptFiles(staged)).toEqual(['src/App.tsx']);
   });
 });

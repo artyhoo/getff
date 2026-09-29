@@ -198,25 +198,41 @@ function emitKeeping(v, node, src, indent, unit) {
     }
   }
   if (!pieces.length) return kind === '{' ? '{}' : '[]';
-  // Many lines: each kept item keeps its own lead. One line: the lead goes by position (`["a", "b"]`).
-  const leadAt = (p, k) => (multi ? p.lead ?? node.items[0].lead : k === 0 ? node.items[0].lead : (node.items[1] ?? node.items[0]).lead || ' ');
+  // The first item takes the first lead (`[{` stays `[{` when getff's first entry goes). After it, many lines: each
+  // kept item keeps its own lead; one line: the lead goes by position (`["a", "b"]`).
+  const leadAt = (p, k) => (k === 0 ? node.items[0].lead : multi ? p.lead ?? node.items[0].lead : (node.items[1] ?? node.items[0]).lead || ' ');
   return `${kind}${pieces.map((p, k) => `${leadAt(p, k)}${p.head}${p.text}`).join(',')}${node.tail}${kind === '{' ? '}' : ']'}`;
 }
 /** `obj` written over `before` (a plain JSON text), keeping every part it does not change; see above. */
 export function keepLayout(before, obj) {
+  // A CRLF file gets CRLF lines (JSON text holds no raw line break inside a string, so every \n is a line end).
+  const eol = (t) => (before.includes('\r\n') ? t.replace(/\r?\n/g, '\r\n') : t);
   let root;
   try {
     root = jsonSpans(before);
   } catch {
-    return JSON.stringify(obj, null, indentOf(before)) + (before.endsWith('\n') ? '\n' : '');
+    return eol(JSON.stringify(obj, null, indentOf(before)) + (before.endsWith('\n') ? '\n' : ''));
   }
   if (root.kind === '{' && !root.items.length && plain(obj) && Object.keys(obj).length) {
-    return before.slice(0, root.start) + JSON.stringify(obj, null, indentOf(before)) + before.slice(root.end);
+    return eol(before.slice(0, root.start) + JSON.stringify(obj, null, indentOf(before)) + before.slice(root.end));
   }
-  return before.slice(0, root.start) + emitKeeping(obj, root, before, '', indentOf(before)) + before.slice(root.end);
+  return eol(before.slice(0, root.start) + emitKeeping(obj, root, before, '', indentOf(before)) + before.slice(root.end));
 }
+/** `obj` written over `before`; an empty `rules` / `overrides` the file did not have is never added. */
 function writeLike(file, obj, before) {
-  writeFileSync(file, keepLayout(before, obj));
+  let had;
+  try {
+    had = JSON.parse(before);
+  } catch {
+    had = {};
+  }
+  const out = plain(obj) ? { ...obj } : obj;
+  for (const k of plain(out) ? ['rules', 'overrides'] : []) {
+    const v = out[k];
+    const empty = Array.isArray(v) ? !v.length : plain(v) && !Object.keys(v).length;
+    if (empty && !(plain(had) && k in had)) delete out[k];
+  }
+  writeFileSync(file, keepLayout(before, out));
 }
 function sh(cmd, args, cwd) {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8', maxBuffer: 1 << 28 });
@@ -673,9 +689,10 @@ function dropAllGetff(file) {
     const n = cfg.overrides.length;
     cfg.overrides = cfg.overrides.filter((o) => !isGetffEntry(o));
     if (cfg.overrides.length < n) removed.push(`${n - cfg.overrides.length} overrides entries marked ${OWNED_GLOB} / ${EXEMPT_GLOB}`);
-    if (!cfg.overrides.length) delete cfg.overrides;
+    if (n && !cfg.overrides.length) delete cfg.overrides; // emptied by this removal; the project's own `[]` stays
   }
   if (plain(cfg.rules)) {
+    let emptied = false;
     for (const k of Object.keys(cfg.rules)) {
       if (k === CARRIER && Array.isArray(cfg.rules[k])) {
         const rest = cfg.rules[k].slice(1).filter((e) => !tagOf(e));
@@ -683,11 +700,14 @@ function dropAllGetff(file) {
         if (!tagged) continue;
         removed.push(`${tagged} generated carrier entries [getff:<id>]`);
         if (rest.length) cfg.rules[k] = [cfg.rules[k][0], ...rest];
-        else delete cfg.rules[k];
+        else {
+          delete cfg.rules[k];
+          emptied = true;
+        }
       }
       // Any other `rules-as-tests/*` key at the top level is the project's: getff places its rules in marked entries.
     }
-    if (!Object.keys(cfg.rules).length) delete cfg.rules;
+    if (emptied && !Object.keys(cfg.rules).length) delete cfg.rules; // the project's own `{}` stays
   }
   if (removed.length) writeLike(file, cfg, before);
   return removed;
@@ -1453,7 +1473,8 @@ function blobsOf(root, files) {
   return Object.fromEntries(files.map((f) => [f, existsSync(join(root, f)) ? gitRun(root, ['hash-object', '--', f]).stdout.trim() || null : null]));
 }
 function indexBlob(root, rel) {
-  return /^\d+ ([0-9a-f]+) \d\t/m.exec(gitRun(root, ['ls-files', '-s', '--', rel]).stdout)?.[1] ?? null;
+  // `:(literal)`: a route path such as `src/[id]/x.ts` is a glob to git and would match a sibling `src/i/x.ts`.
+  return /^\d+ ([0-9a-f]+) \d\t/m.exec(gitRun(root, ['ls-files', '-s', '--', `:(literal)${rel}`]).stdout)?.[1] ?? null;
 }
 
 /** `--fold-shrink`: the sidecar applied to the working tree and the index. Returns [lines, ok]. */
@@ -1461,40 +1482,48 @@ export function foldShrink(root, sidecar) {
   const { parts } = readJson(sidecar);
   const lines = [];
   let ok = true;
+  const probed = (part, f) => part.blobs !== undefined && f in part.blobs;
+  const inIndex = (part, f) => probed(part, f) && indexBlob(root, f) === part.blobs[f];
+  const inWt = (part, f) => probed(part, f) && blobsOf(root, [f])[f] === part.blobs[f];
   const versions = [
     {
       name: 'wt',
       read: (rel) => (existsSync(join(root, rel)) ? readFileSync(join(root, rel), 'utf8') : null),
       write: (rel, t) => (writeFileSync(join(root, rel), t), true),
-      blob: (f) => blobsOf(root, [f])[f],
+      // The working tree never keeps more baseline than the commit: a fix the commit carries folds here too,
+      // or the next `git commit -a` brings the exemption back.
+      same: (part, f) => inWt(part, f) || inIndex(part, f),
     },
     {
       name: 'index',
       read: (rel) => (indexEntry(root, rel) ? gitRun(root, ['show', `:./${rel}`]).stdout : null),
       write: (rel, t) => stage(root, indexEntry(root, rel), t),
-      blob: (f) => indexBlob(root, f),
+      same: inIndex,
     },
   ];
+  const folded = { wt: [], index: [] };
   for (const v of versions) {
     let rec = v.read(RECORD);
-    const folded = [];
     for (const [rel, part] of Object.entries(parts)) {
       const text = v.read(rel);
       if (text === null) continue;
-      const next = applyShrink(part, text, (f) => part.blobs !== undefined && f in part.blobs && v.blob(f) === part.blobs[f]);
+      const next = applyShrink(part, text, (f) => v.same(part, f));
       if (next === null) continue;
       if (!v.write(rel, next)) {
         ok = false;
         continue;
       }
-      folded.push(rel);
+      folded[v.name].push(rel);
       if (rec !== null) rec = applyRecordLine(rec, rel, part, next);
     }
-    if (folded.length && rec !== null && rec !== v.read(RECORD) && !v.write(RECORD, rec)) ok = false;
-    if (v.name === 'wt') {
-      lines.push(folded.length ? `✓ lint baseline shrunk and staged with this commit: ${folded.join(', ')}` : '· lint baseline: nothing left to fold — the files already hold what the probe measured');
-    }
+    if (folded[v.name].length && rec !== null && rec !== v.read(RECORD) && !v.write(RECORD, rec)) ok = false;
   }
+  const changed = [...new Set(Object.values(parts).flatMap((part) => Object.keys(part.blobs ?? {}).filter((f) => !inWt(part, f) && !inIndex(part, f))))];
+  const wtOnly = folded.wt.filter((rel) => !folded.index.includes(rel));
+  if (folded.index.length) lines.push(`✓ lint baseline shrunk and staged with this commit: ${folded.index.join(', ')}`);
+  if (wtOnly.length) lines.push(`✓ lint baseline shrunk in the working tree only: ${wtOnly.join(', ')} — this commit does not carry the fixed files as the probe measured them, so it keeps the old baseline`);
+  if (changed.length) lines.push(`· lint baseline not shrunk: ${changed.join(', ')} changed after the probe measured ${changed.length === 1 ? 'it' : 'them'}`);
+  if (!lines.length) lines.push('· lint baseline: nothing left to fold — the files already hold what the probe measured');
   return [lines, ok];
 }
 

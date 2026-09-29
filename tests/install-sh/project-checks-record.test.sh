@@ -151,6 +151,27 @@ cp "$(REC "$A")" "$A/.rec-before"
 cmp -s "$(REC "$A")" "$A/.rec-before" && ok "(J) --refresh keeps a record already there byte-for-byte" \
   || bad "(J) --refresh changed the record: $(diff "$A/.rec-before" "$(REC "$A")" | head -5 | tr '\n' '|')"
 
+# ── (K) a later pass carries an earlier lint-baseline line only while its baseline is in the tree ──
+# 99-finalize.sh _pc_keep_baselines, run alone on a record an earlier pass wrote (CRLF, as an editor may save it).
+K=$(mktemp -d); TMPS+=("$K")
+mkdir -p "$K/.ai-factory"
+printf '{ "overrides": [{ "files": ["src/a.ts", "**/__getff_exempt__/**"], "rules": { "no-empty": "off" } }] }\n' > "$K/.oxlintrc.json"
+printf 'export default [];\n' > "$K/eslint.config.mjs"   # getff's block is gone: that baseline is gone
+printf '%s\r\n' '<!-- aif:project-checks:begin -->' \
+  'lint-baseline: .oxlintrc.json — kept' \
+  'lint-baseline: eslint.config.mjs — gone' \
+  'lint-baseline: eslint-suppressions.json — gone' \
+  '<!-- aif:project-checks:end -->' > "$(REC "$K")"
+kept=$(
+  PROJECT_ROOT="$K"; _pc_extra=()
+  eval "$(sed -n '/^_pc_keep_baselines() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  _pc_keep_baselines
+  printf '%s\n' ${_pc_extra[@]+"${_pc_extra[@]}"}
+)
+[ "$kept" = 'lint-baseline: .oxlintrc.json — kept' ] \
+  && ok "(K) the baseline still in the tree is carried (no CR from a CRLF record); the gone ones are not" \
+  || bad "(K) carried: $(printf '%s' "$kept" | od -c | head -3 | tr '\n' '|')"
+
 # ── (G) --dry-run writes nothing ────────────────────────────────────────────────────────────────
 G=$(proj "$SPA")
 ( cd "$G" && bash "$INSTALL" react-spa --dry-run < /dev/null >/dev/null 2>&1 )
