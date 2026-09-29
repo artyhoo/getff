@@ -103,7 +103,7 @@ template carries one field per stack.
   lines 25 to 47, the hard rule is line 35, the note about the outside `/aif` detector is line 51, and the context7
   fallback is line 55.
 - The installer copies the skill from the repository root: `setup.d/10-skills.sh`, lines
-  34 to 50. The `python` [lane](../../terms.md#lane) copies it on line 1488 of
+  34 to 50. The `python` [lane](../../terms.md#lane) copies it on line 1492 of
   `setup.d/45-python.sh`.
 - The decisions file is seeded on line 41 of `setup.d/30-templates.sh` from
   `skills/tool-bootstrapping/templates/tool-decisions.md.template`. Its per-stack hash
