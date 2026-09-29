@@ -45,7 +45,7 @@
 # way: an edited one gets its boundary globs here, in _r2_own_globs, after its original is kept — or,
 # on an install where the wirer cannot run, a not-wired line naming what R2 lacks there.
 _synth_live_snippet="$PROJECT_ROOT/.ai-factory/synthesizer-output/eslint-rules-snippet.json"
-# _ts_morph_why <it|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
+# _ts_morph_why <it|this|them> — the not-wired reason when ts-morph is not in node_modules. On a --full
 # install its dev-dependency step was to put it there, so re-running with --full is no remedy; the
 # step's output above says why it did not.
 _ts_morph_why() {
@@ -80,15 +80,21 @@ _r2_own_refused() {
 }
 # _r2_own_gap <rel-cfg> — what the wirer would add to <rel-cfg> for R2, worded for a not-wired line;
 # nothing when it would add nothing: every glob is an element of RULE_GLOBS.boundary and R2 is
-# registered, R2 is registered with no RULE_GLOBS (the wirer leaves it alone), or it refuses.
+# registered, or it refuses. R2 registered with no RULE_GLOBS gets RULE_GLOBS alone (the wirer leaves
+# R2 as the config sets it: operator decision 2026-09-29).
 _r2_own_gap() {
-  local cfg="$PROJECT_ROOT/$1" have g missing="" r2=""
+  local cfg="$PROJECT_ROOT/$1" have g missing="" r2="" code
   [ -n "${_r2_own_globs:-}" ] || return 0
   have=$(rule_globs_boundary "$cfg")
-  # A quoted rule id anywhere is R2 registered — the wirer's own test (simpleRulePresent).
-  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$cfg" 2>/dev/null && r2=1
+  # The rule id as a string or template literal outside a comment is R2 registered — what the wirer reads
+  # as set (ruleSetInConfig), so the summary promises what --full would add. The config is read as
+  # eslint_config_code reads it, which cuts a template literal's text: the template-literal form is made a
+  # quoted string first, so a comment is cut with it in it (second cold review 2026-09-29).
+  code=$(sed "s/\`rules-as-tests\/no-unsafe-zod-parse\`/'rules-as-tests\/no-unsafe-zod-parse'/g" "$cfg" 2>/dev/null \
+    | awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'{ print uncomment($0) }' 2>/dev/null) || code=""
+  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' <<<"$code" && r2=1
   case "$(printf '%s\n' "$have" | sed -n 1p)" in
-    none) [ -n "$r2" ] || echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ;;
+    none) if [ -n "$r2" ]; then echo "RULE_GLOBS (60-ci found an HTTP boundary)"; else echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)"; fi ;;
     array)
       while IFS= read -r g; do
         [ -n "$g" ] && ! grep -qxF -- "$g" <<<"$(sed -n '2,$p' <<<"$have")" && missing="${missing:+$missing, }'$g'"
@@ -142,7 +148,7 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
       echo "▶ synth-wire: getff's rules are already in $_root_eslint — nothing to add"
     else
       echo "▶ synth-wire: getff's rules are already in $_root_eslint — adding what R2 lacks there needs ts-morph, which this install did not put in node_modules"
-      note_not_wired "$_own_gap in $_root_eslint (your own config) — $(_ts_morph_why them)"
+      note_not_wired "$_own_gap in $_root_eslint (your own config) — $(_ts_morph_why this)"
     fi
     if _r2_own_refused "$_root_eslint"; then note_not_wired "$_R2_OWN_REFUSAL ($_root_eslint)"; fi
   elif [ ! -f "$PROJECT_ROOT/node_modules/ts-morph/package.json" ]; then
@@ -203,7 +209,7 @@ elif ! command -v node >/dev/null 2>&1 \
   echo "▶ synth-wire: nothing is added to $_root_eslint — that needs Node, which this install did not find on PATH"
   _own_gap=$(_r2_own_gap "$_root_eslint")
   [ -z "$_own_gap" ] \
-    || note_not_wired "$_own_gap in $_root_eslint (your own config) — adding them needs Node, which this install did not find on PATH"
+    || note_not_wired "$_own_gap in $_root_eslint (your own config) — adding this needs Node, which this install did not find on PATH"
   if _r2_own_refused "$_root_eslint"; then note_not_wired "$_R2_OWN_REFUSAL ($_root_eslint)"; fi
 elif command -v node >/dev/null 2>&1 && [ -f "$PROJECT_ROOT/eslint.config.mjs" ]; then
   _synth_wirer="$PKG_ROOT/packages/core/install/synth-and-wire.bundle.mjs"
@@ -780,6 +786,122 @@ if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11_gat
     done <<< "$_f11_out"
     [ "$_f11_any" = 1 ] \
       || _f11_note "scripts/check-rule-globs.sh, which runs on every push, exits $_f11_rc on this project, with no failure line the install can name"
+  fi
+fi
+
+# ─── F11e: what scripts/check-rule-enforced.sh fails on, under the consumer's own root config ───
+# check-rule-globs.sh asks whether RULE_GLOBS.boundary matches source files; check-rule-enforced.sh asks
+# ESLint whether R2 is on at 'error' for them. Where the consumer sets R2 its own way — for some files
+# only, at 'warn', more than once — the wirer declares RULE_GLOBS alone and leaves R2 as it is
+# (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), so the first gate passes and only the second
+# can say that R2 misses the boundary code the install found; `npm run validate` and CI then fail on it.
+# Where R2 runs is the consumer's decision, not one getff takes, so the install asks that gate as F11 asks
+# the other and names each failure line up to its advice (operator decision 2026-09-29, «A + name the
+# miss»). Asked only when the project's own node_modules/.bin/eslint is there: the gate resolves eslint
+# there first, and one found on PATH would read a config whose imports this install may not have put in
+# place. Its verdict line is printed either way, so a quiet summary is one the gate was asked about. The
+# gate runs `eslint --print-config` on the consumer's config, so it runs under a time limit: a config
+# whose load never finishes must not hold the install (the wirer's probe has the same guard,
+# PRINT_CONFIG_TIMEOUT_MS). Named each failure once: one an R2 pass or F11 already named is not named
+# again (cold review 2026-09-29).
+_f11e_gate="$PROJECT_ROOT/scripts/check-rule-enforced.sh"
+# _f11e_named <dir> — exit 0 when the summary already names R2 in the package at <dir>: an R2 pass
+# («R2 (…) in <dir>/eslint.config.… — », «R2 (…) in <dir> — ») or F11 («<dir>: has boundary files but its
+# own ESLint config does NOT wire R2 …»).
+_f11e_named() {
+  grep -qF -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $1/eslint.config." \
+           -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $1 — " \
+           -e "$1: has boundary files but its own ESLint config does NOT wire R2" \
+    <<<"$(printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"})"
+}
+# _f11e_describe <workspace config the gate recursed into, empty for its root run> <gate ✗ line> — its NOT
+# wired line. The gate labels a line with the config it asked: «root config», or the dir of a package
+# whose own config shadows it. Inside a workspace config it recursed into (the root config is the
+# consumer's own with no RULE_GLOBS), both, and the file, are relative to that workspace.
+_f11e_describe() {
+  local ws="$1" s scope rest wsd="" dir
+  s=$(printf '%s\n' "$2" | sed -e 's/^[[:space:]]*//' -e 's/^✗[[:space:]]*//' -e 's/ — .*//')
+  scope="${s%%: *}" rest="${s#*: }"
+  [ "$scope" != "$s" ] || scope=""
+  if [ -n "$ws" ]; then wsd=$(dirname "$ws"); rest="${rest/ for / for $wsd/}"; fi
+  if [ "$scope" = "root config" ] && [ -z "$ws" ]; then
+    # R2 in the root config is the consumer's own setting.
+    case "$rest" in
+      *"in the resolved ESLint config for "*)
+        _f11_note "$_root_eslint (your own config): $rest — where R2 runs is your own setting, which getff does not change; scripts/check-rule-enforced.sh fails on this project" ;;
+      *) _f11_note "$_root_eslint (your own config): $rest — scripts/check-rule-enforced.sh fails on this project" ;;
+    esac
+    return 0
+  fi
+  if [ "$scope" = "root config" ]; then
+    dir="$wsd"
+  elif [ -n "$scope" ] && [ -d "$PROJECT_ROOT/${wsd:+$wsd/}$scope" ]; then
+    dir="${wsd:+$wsd/}$scope"
+  else
+    # A line about no config (a recorded R2 N/A that no longer holds), named as the gate words it.
+    _f11_note "$s${ws:+ ($ws)} — scripts/check-rule-enforced.sh fails on this project"
+    return 0
+  fi
+  _f11e_named "$dir" || _f11_note "$dir: $rest — scripts/check-rule-enforced.sh fails on this project"
+}
+# _f11e_name_failures <gate output> — each ✗ line named (the gate's «checking <config>» line says which
+# workspace config the lines after it are about); exit 1 when there is no ✗ line to name.
+_f11e_name_failures() {
+  local ws="" l any=1
+  while IFS= read -r l; do
+    l="${l#"${l%%[![:space:]]*}"}"
+    case "$l" in
+      "check-rule-enforced: checking "*) ws="${l#check-rule-enforced: checking }" ;;
+      ✗*) any=0; _f11e_describe "$ws" "$l" ;;
+    esac
+  done <<< "$1"
+  return "$any"
+}
+# _f11e_limit <AIF_F11E_TIMEOUT_S> — the limit in whole seconds, leading zeros read away: anything else, 0
+# among it, is the default 120, and a value past what a JavaScript timer holds (~24.8 days) is capped at
+# 99999, as either would fire the timer at once.
+_f11e_limit() {
+  local n="${1#"${1%%[!0]*}"}"
+  case "$1" in ''|*[!0-9]*) echo 120; return 0 ;; esac
+  if [ -z "$n" ]; then echo 120; elif [ "${#n}" -le 5 ]; then echo "$n"; else echo 99999; fi
+}
+# _f11e_run <gate script> <limit s> — runs the gate. The gate and every eslint it starts share one process
+# group (node is there wherever node_modules/.bin/eslint runs), killed whole whatever ends the ask: the limit
+# (exit 124), a signal to the install (Ctrl-C, Ctrl-\, SIGTERM, SIGHUP; passed on, so the install stops as it
+# would have — the handlers are in place before the gate starts), or the gate's own
+# end — a gate ended by a signal exits 128 + that signal. Nothing it started outlives it: the install reads
+# the ask's output to its end, which a process left running would hold open (second cold review).
+_f11e_run() {
+  AIF_F11E_GATE="$1" AIF_F11E_LIMIT="$2" node -e '
+    const { spawn } = require("child_process");
+    const { signals } = require("os").constants;
+    let gate;
+    const stopAll = () => { if (!gate) return; try { process.kill(-gate.pid, "SIGKILL"); } catch { try { gate.kill("SIGKILL"); } catch {} } };
+    for (const sig of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"]) process.once(sig, () => { stopAll(); process.kill(process.pid, sig); });
+    gate = spawn("bash", [process.env.AIF_F11E_GATE], { detached: true, windowsHide: true, stdio: ["ignore", "inherit", "inherit"] });
+    const limit = setTimeout(() => { stopAll(); process.exit(124); }, Number(process.env.AIF_F11E_LIMIT) * 1000);
+    gate.on("exit", (code, sig) => { clearTimeout(limit); stopAll(); process.exit(code ?? 128 + (signals[sig] || 0)); });
+  '
+}
+# _f11e_verdict <gate output> <exit> — the gate's verdict: its last line when it passed, its last FAILED
+# line when it failed (asked about workspace configs, the last line is the last workspace's own verdict).
+_f11e_verdict() {
+  local v
+  if [ "$2" -eq 0 ]; then printf '%s\n' "$1" | tail -1; return 0; fi
+  v=$(printf '%s\n' "$1" | grep '^check-rule-enforced: FAILED' | tail -1)
+  printf '%s\n' "${v:-check-rule-enforced.sh exits $2}"
+}
+if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11e_gate" ] \
+   && [ -x "$PROJECT_ROOT/node_modules/.bin/eslint" ] && command -v node >/dev/null 2>&1; then
+  _f11e_limit=$(_f11e_limit "${AIF_F11E_TIMEOUT_S:-}")
+  _f11e_out=$( cd "$PROJECT_ROOT" && unset ESLINT_CONFIG && _f11e_run "$_f11e_gate" "$_f11e_limit" 2>&1 ) && _f11e_rc=0 || _f11e_rc=$?
+  if [ "$_f11e_rc" = 124 ]; then
+    echo "  · asked scripts/check-rule-enforced.sh — no answer within ${_f11e_limit} s, and the install did not wait longer"
+    _f11_note "scripts/check-rule-enforced.sh did not finish within ${_f11e_limit} s on this project (it runs eslint --print-config on your own config), so the install could not say whether R2 reaches the HTTP boundary code"
+  else
+    echo "  · asked scripts/check-rule-enforced.sh — $(_f11e_verdict "$_f11e_out" "$_f11e_rc")"
+    [ "$_f11e_rc" -eq 0 ] || _f11e_name_failures "$_f11e_out" \
+      || _f11_note "scripts/check-rule-enforced.sh exits $_f11e_rc on this project, with no failure line the install can name"
   fi
 fi
 

@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import {
   R2_RULE_ID,
@@ -1308,7 +1309,7 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     expect(again.status).toBe('already-wired');
   });
 
-  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to another value, or where getff cannot read it, no RULE_GLOBS → nothing added for R2, the note names it (F11)', async () => {
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to another value, or where getff cannot read it, no RULE_GLOBS → RULE_GLOBS alone is added, the consumer\'s R2 untouched (F11)', async () => {
     const warn = R2_BY_HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
     const hidden = `const base = [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'off' } }];\nexport default [...base];\n`;
     // 'error', then 'off' further down: ESLint's last setting wins, and getff's element would outrank it.
@@ -1319,19 +1320,75 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     // The same, spelled with quoted keys, and R2 set under a computed template-literal key (second cold review).
     const quotedKeys = R2_BY_HAND.replace(`{ plugins:`, `{ 'files': ['src/api/**'], plugins:`).replace(`rules: {`, `'rules': {`);
     const templateKey = R2_BY_HAND.replace(`'rules-as-tests/no-unsafe-zod-parse': 'error'`, "[`rules-as-tests/no-unsafe-zod-parse`]: 'off'");
+    // The gates need RULE_GLOBS.boundary: check-rule-globs.sh fails without it, and check-rule-enforced.sh
+    // takes its boundary files from it to ask ESLint whether R2 is on there. A declaration alone gives them
+    // the boundary code the install found; where R2 runs stays the consumer's setting (operator decision
+    // 2026-09-29, «A + name the miss»).
+    const r2Mentions = (s: string): number => s.split(R2_RULE_ID).length - 1;
     for (const src of [warn, hidden, twice, scoped, excepted, quotedKeys, templateKey]) {
       const r = await wireOwnConfig(src, ROOT);
-      expect(r.modified).toBe(src);
-      expect(r.status).toBe('already-wired');
-      const note = (r.notes ?? []).join('\n');
-      expect(note).toMatch(/RULE_GLOBS/);
-      expect(note).toMatch(/does not change a setting of yours/);
-      // The hyphen form: the colon form «check:globs» is the CI-orphan WARN's (r2-glob-reach per-gate accuracy).
-      expect(note).toMatch(/check-rule-globs\.sh/);
-      expect(note).not.toMatch(/by hand|manually/i);
-      // printNotWired keeps 300 characters of a root note.
-      for (const n of r.notes ?? []) expect(n.length).toBeLessThanOrEqual(300);
+      expect(r.status).toBe('wired');
+      expect(onlyInserts(src, r.modified)).toBe(true);
+      expect(gateBoundary(r.modified)).toEqual(BOUNDARY);
+      // No R2 element of getff's: one would reach the files the consumer's own setting leaves out.
+      expect(r.modified).not.toMatch(/files: RULE_GLOBS\.boundary/);
+      expect(r2Mentions(r.modified)).toBe(r2Mentions(src));
+      // Nothing in the config reads RULE_GLOBS, so it is exported: a bare const fails no-unused-vars in the
+      // consumer's own lint of the config (measured 2026-09-29 with typescript-eslint's recommended set).
+      const lint = new Linter({ configType: 'flat' })
+        .verify(r.modified, [{ languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }, rules: { 'no-unused-vars': 'error' } }], 'eslint.config.mjs');
+      // A parse error reports no rule at all, so it is ruled out first.
+      expect(lint.filter((m) => m.fatal)).toEqual([]);
+      expect(lint.filter((m) => m.message.includes('RULE_GLOBS'))).toEqual([]);
+      expect(r.notes ?? []).toEqual([]);
+      const again = await wireOwnConfig(r.modified, ROOT);
+      expect(again.status).toBe('already-wired');
     }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('RULE_GLOBS bound from elsewhere (an import, a destructuring) → no second declaration, a note instead (cold review)', async () => {
+    // A second `RULE_GLOBS` in the same scope is a SyntaxError: the lint probe would fail and roll back
+    // every getff edit to the config, the ignores element included.
+    const scopedByGlobs = R2_BY_HAND.replace(`{ plugins:`, `{ files: RULE_GLOBS.boundary, plugins:`);
+    const imported = `import { RULE_GLOBS } from './globs.mjs';\n${scopedByGlobs}`;
+    const destructured = scopedByGlobs.replace(`export default [`, `const { RULE_GLOBS } = await import('./globs.mjs');\n\nexport default [`);
+    const importedR2Everywhere = `import { RULE_GLOBS } from './globs.mjs';\n${R2_BY_HAND}`;
+    for (const src of [imported, destructured, importedR2Everywhere]) {
+      const r = await wireOwnConfig(src, ROOT);
+      expect(r.modified).not.toMatch(/^(export )?const RULE_GLOBS\b/m);
+      expect(r.modified).not.toMatch(/files: RULE_GLOBS\.boundary, rules/);
+      expect((r.notes ?? []).join('\n')).toMatch(/RULE_GLOBS.*from elsewhere/);
+    }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('RULE_GLOBS re-exported under that name → a note, no declaration; a RULE_GLOBS bound inside a function → declared as usual (second cold review)', async () => {
+    const warn = R2_BY_HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
+    // `export const RULE_GLOBS` beside any of these is a duplicate export: a SyntaxError.
+    const reExported = `export { RULE_GLOBS } from './globs.mjs';\n${warn}`;
+    const reExportedAs = `export { BOUNDARY_GLOBS as RULE_GLOBS } from './globs.mjs';\n${warn}`;
+    const namespace = `export * as RULE_GLOBS from './globs.mjs';\n${warn}`;
+    const localAs = `const globs = { boundary: ['src/api/**'] };\nexport { globs as RULE_GLOBS };\n${warn}`;
+    // A function or class of that name at the top level is a binding too (third cold review).
+    const fn = `function RULE_GLOBS() { return {}; }\nvoid RULE_GLOBS;\n${warn}`;
+    const cls = `class RULE_GLOBS {}\nvoid RULE_GLOBS;\n${warn}`;
+    for (const src of [reExported, reExportedAs, namespace, localAs, fn, cls]) {
+      const r = await wireOwnConfig(src, ROOT);
+      expect(r.modified).not.toMatch(/^(export )?const RULE_GLOBS\b/m);
+      // The note names every way the name can be bound, not only an import or a destructuring.
+      expect((r.notes ?? []).join('\n')).toMatch(/RULE_GLOBS.*from elsewhere \(an import, a destructuring, a function or class, or an export under that name\)/);
+    }
+    // A plain `RULE_GLOBS = …` it also exports is the config's own declaration: getff adds the missing globs to it.
+    const declaredAndExported = warn.replace(`export default [`, `const RULE_GLOBS = { boundary: [] };\nexport { RULE_GLOBS };\n\nexport default [`);
+    const own = await wireOwnConfig(declaredAndExported, ROOT);
+    expect(gateBoundary(own.modified)).toEqual(BOUNDARY);
+    expect((own.notes ?? []).join('\n')).not.toMatch(/from elsewhere/);
+    // A parameter or a destructuring inside a function binds its own RULE_GLOBS, not the module's.
+    const inFunction = warn.replace(`export default [`, `const pick = ({ RULE_GLOBS }) => RULE_GLOBS;\nvoid pick;\n\nexport default [`);
+    const r = await wireOwnConfig(inFunction, ROOT);
+    expect(r.status).toBe('wired');
+    expect(gateBoundary(r.modified)).toEqual(BOUNDARY);
+    expect(r.modified).toMatch(/^export const RULE_GLOBS = \{/m);
+    expect(r.notes ?? []).toEqual([]);
   });
 
   it.skipIf(!TS_MORPH_AVAILABLE)('a per-package config (the gate reads no RULE_GLOBS of it) with R2 at error for every file → nothing added, no note', async () => {
