@@ -20,6 +20,13 @@ if [ "$STACK" = "generic" ]; then
   note_not_wired "lint, typecheck and test configs (ESLint, tsconfig, vitest, prettier, lint-staged, dependency-cruiser) — not placed: stack «generic» has no getff preset; your own tools are left as they are"
   return 0 2>/dev/null || true
 fi
+# P2 G5 / K4 (operator log entry 28, fork 1 = A: getff adapts to the project's linter): the linter and
+# formatter the project already runs, read BEFORE getff places anything. An oxlint or Biome project
+# keeps its linter as the only one — no getff ESLint config (copy_unless_foreign), no ESLint packages
+# (70-deps), lint-staged runs its linter; a Biome or dprint project keeps its formatter (no prettier).
+# Read by 70-deps and 99-finalize too.
+LINTER_SLOT=$(project_linter "$PROJECT_ROOT")
+FORMATTER_SLOT=$(project_formatter "$PROJECT_ROOT")
 # R4 probe (ts-morph) invoked by audit-ai-docs.sh via `npx tsx scripts/audit-r4.ts`.
 copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/audit-r4.ts"
 # cih-s3 F3 "+V": glob-liveness gate — fails if a custom rule matches zero source files
@@ -147,6 +154,27 @@ if [ "$DRY_RUN" != "--dry-run" ] \
     fi
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name package.json -print 2>/dev/null)
   echo "  ✓ workspace detected → dropped $_ndrop per-package .lintstagedrc.json stub(s) (F14 lint-staged cwd fix)"
+fi
+# P2 G5: lint-staged follows the project's linter and formatter slots — in every lint-staged config
+# getff placed above (root and stubs, recognised by the record wrapper on their eslint step).
+if [ "$DRY_RUN" != "--dry-run" ] && { [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_SLOT" = biome ] \
+     || [ "$FORMATTER_SLOT" = biome ] || [ "$FORMATTER_SLOT" = dprint ]; }; then
+  while IFS= read -r _lsf; do
+    grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$_lsf" || continue
+    GETFF_LINTER="$LINTER_SLOT" GETFF_FORMATTER="$FORMATTER_SLOT" node -e '
+      const fs = require("fs"), f = process.argv[1], j = JSON.parse(fs.readFileSync(f, "utf8"));
+      const lint = { oxlint: "oxlint", biome: "biome check --no-errors-on-unmatched" }[process.env.GETFF_LINTER];
+      const ownFmt = ["biome", "dprint"].includes(process.env.GETFF_FORMATTER);
+      for (const [g, v] of Object.entries(j)) {
+        const steps = (Array.isArray(v) ? v : [v])
+          .filter((c) => !(ownFmt && /run-armed\.sh --if-armed .npm run format:check. prettier /.test(c)))
+          .map((c) => (lint ? c.replace(/^(bash \S*run-armed\.sh --if-armed .npm run lint.) eslint .*$/, "$1 " + lint) : c));
+        if (steps.length) j[g] = steps; else delete j[g];
+      }
+      fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");' "$_lsf" \
+      || note_not_wired "lint-staged steps in ${_lsf#"$PROJECT_ROOT"/} — not changed to your linter ($LINTER_SLOT) / formatter ($FORMATTER_SLOT): the rewrite failed, so the file runs getff's eslint / prettier steps"
+  done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
+  echo "  ✓ lint-staged runs your linter ($LINTER_SLOT) and formatter ($FORMATTER_SLOT) — no getff ESLint / prettier step beside them"
 fi
 # cih-s3 F15: keep prettier off the generated RULES.md table region (rendered SSOT, not
 # format-stable) so a `*.md → prettier --write` lint-staged step can't reflow it.

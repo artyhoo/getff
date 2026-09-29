@@ -730,14 +730,14 @@ _pre_overwrite_divergence_action() {
 #   install.sh:1424                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1433          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:550          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:576          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:597          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:578          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:604          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:625          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:540          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:565          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:585          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:616          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:653          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:568          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:593          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:613          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:644          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1409          install-written blocks       → suppress-no-entry (proved)
@@ -3169,6 +3169,19 @@ not-armed:" || note_not_wired "the project-checks record in .ai-factory/tool-dec
 copy_unless_foreign() {
   local kind="$1" src="$2" dst="$3" own where
   shift 3
+  # P2 G5 / K4: a project that lints with oxlint or Biome, or formats with Biome or dprint (the slots
+  # 40-configs read before anything was placed), keeps that tool as its only one: getff places no
+  # ESLint / prettier config beside it. Not a gap — the project's own tool runs.
+  if { [ "$kind" = eslint ] && { [ "${LINTER_SLOT:-}" = oxlint ] || [ "${LINTER_SLOT:-}" = biome ]; }; } \
+     || { [ "$kind" = prettier ] && { [ "${FORMATTER_SLOT:-}" = biome ] || [ "${FORMATTER_SLOT:-}" = dprint ]; }; }; then
+    own=$FORMATTER_SLOT; [ "$kind" = eslint ] && own=$LINTER_SLOT
+    if [ "$DRY_RUN" = "--dry-run" ]; then
+      echo "  [dry-run] would skip: $dst (your project runs $own instead)"
+    else
+      echo "  ⊝ ${dst#"${PROJECT_ROOT:-}"/} not placed — your project runs $own instead"
+    fi
+    return 0
+  fi
   own=$(foreign_tool_config "$(dirname "$dst")" "$kind")
   # The directory as the summary names it: project-relative, never the absolute install path.
   where="${dst%/*}"

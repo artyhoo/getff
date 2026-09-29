@@ -1025,6 +1025,23 @@ _pc_suppress() {
   echo "  ✓ eslint-suppressions.json: ${n:-?} findings in existing code recorded (ESLint bulk suppressions) — new ones still block"
 }
 
+# P2 G5 / K4: getff's lint rules in an oxlint project go in through oxlint's jsPlugins (getff's lint
+# plugin registered in the project's own oxlint config — the one-button chain's part P4), when this
+# getff has that registration; otherwise they are named NOT wired. Biome loads no ESLint-format rules.
+if [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = oxlint ]; then
+  if declare -F oxlint_register_jsplugin >/dev/null; then
+    _ox_cfg="$PROJECT_ROOT/.oxlintrc.json"
+    for _ox_f in .oxlintrc.json .oxlintrc.jsonc oxlint.config.ts oxlint.config.mts; do
+      [ -e "$PROJECT_ROOT/$_ox_f" ] && { _ox_cfg="$PROJECT_ROOT/$_ox_f"; break; }
+    done
+    oxlint_register_jsplugin "$_ox_cfg" "$PROJECT_ROOT/eslint-rules-local/index.mjs"
+  else
+    note_not_wired "getff lint plugin in oxlint — this getff cannot register its lint rules in an oxlint config yet, so they do not run here; oxlint stays the project's only linter"
+  fi
+elif [ "$DRY_RUN" != "--dry-run" ] && [ "${LINTER_SLOT:-}" = biome ]; then
+  note_not_wired "getff's lint rules — this project lints with Biome, which does not load ESLint-format rules, so they do not run here; Biome stays the project's only linter"
+fi
+
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would run each check getff adds once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
 else
@@ -1035,6 +1052,11 @@ else
   while IFS=$'\t' read -r _pc_n _pc_v; do
     [ -n "$_pc_n" ] || continue
     _pc_c=$(project_check_cmd "$_pc_n" "$_pc_v")
+    # P2 G5: these gates read getff's ESLint config, which an oxlint / Biome project does not get.
+    case "${LINTER_SLOT:-}:$_pc_n" in
+      oxlint:check:globs|oxlint:check:enforced|oxlint:check:fences-fire|biome:check:globs|biome:check:enforced|biome:check:fences-fire)
+        _pc_not+=("$_pc_c # reads getff's ESLint config, and this project lints with $LINTER_SLOT"); continue ;;
+    esac
     case " ${DEPS_GETFF_SCRIPTS:-} " in
       *" $_pc_n "*) ;;
       *) _pc_not+=("$_pc_c # your own script: the install does not run it; the first validate or push arms it once it exits 0"); continue ;;

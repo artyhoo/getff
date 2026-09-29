@@ -229,7 +229,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     # P2 C3: DEPS_GETFF_SCRIPTS = the scripts whose command is getff's own after the merge (added now,
     # or by an earlier install) — 99-finalize runs only those at install to arm them; a script the
     # project wrote itself is never run by the install.
-    DEPS_GETFF_SCRIPTS=$(AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" node -e '
+    DEPS_GETFF_SCRIPTS=$(AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" AIF_LINTER="${LINTER_SLOT:-}" AIF_FORMATTER="${FORMATTER_SLOT:-}" node -e '
       const fs = require("fs");
       const p = process.env.AIF_PKG;
       const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
@@ -238,11 +238,17 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
       // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
       // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
       const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
+      // P2 G5: the lint / format scripts follow the linter and formatter slots of the project (40-configs).
+      const linter = process.env.AIF_LINTER, formatter = process.env.AIF_FORMATTER;
+      const lintCmd = { oxlint: "oxlint", biome: "biome lint ." }[linter] || "eslint . --max-warnings=0";
+      const lintFix = { oxlint: "oxlint --fix", biome: "biome lint --write ." }[linter] || "eslint . --fix";
+      const fmt = { biome: ["biome format --write .", "biome format ."], dprint: ["dprint fmt", "dprint check"] }[formatter]
+        || ["prettier --write .", "prettier --check ."];
       const want = {
-        "lint": "eslint . --max-warnings=0",
-        "lint:fix": "eslint . --fix",
-        "format": "prettier --write .",
-        "format:check": "prettier --check .",
+        "lint": lintCmd,
+        "lint:fix": lintFix,
+        "format": fmt[0],
+        "format:check": fmt[1],
         "typecheck": process.env.AIF_TYPECHECK || "tsc --noEmit",
         "test": "vitest run",
         "test:watch": "vitest",
@@ -438,6 +444,22 @@ DEVDEPS=( "${CORE_DEVDEPS[@]}" )
 [ "$STACK" = "react-next" ] && DEVDEPS+=( "${REACT_DEVDEPS[@]}" )
 [ "$STACK" = "react-spa" ] && DEVDEPS+=( "${REACT_SPA_DEVDEPS[@]}" )
 [ "$STACK" = "react-native" ] && DEVDEPS+=( "${REACT_NATIVE_DEVDEPS[@]}" )
+# P2 G5 / K4: an oxlint or Biome project gets no ESLint toolchain (40-configs placed no ESLint config),
+# a Biome or dprint project no prettier. @typescript-eslint/utils stays: getff's rule plugin imports
+# it, and an oxlint config can load that plugin (jsPlugins).
+_slot_kept=()
+for _s in "${DEVDEPS[@]}"; do
+  _n=$(deps_spec_name "$_s")
+  case "${LINTER_SLOT:-}:$_n" in
+    oxlint:eslint|oxlint:typescript-eslint|oxlint:globals|oxlint:@eslint/*|oxlint:eslint-plugin-*|oxlint:eslint-config-*|oxlint:@*/eslint-plugin*|oxlint:@*/eslint-config*) continue ;;
+    biome:eslint|biome:typescript-eslint|biome:globals|biome:@eslint/*|biome:eslint-plugin-*|biome:eslint-config-*|biome:@*/eslint-plugin*|biome:@*/eslint-config*) continue ;;
+  esac
+  case "${FORMATTER_SLOT:-}:$_n" in
+    biome:prettier|dprint:prettier|biome:eslint-config-prettier|dprint:eslint-config-prettier) continue ;;
+  esac
+  _slot_kept+=("$_s")
+done
+DEVDEPS=( ${_slot_kept[@]+"${_slot_kept[@]}"} )
 
 # P0.2: runtime deps — installed as regular `dependencies`, NEVER as -D/--save-dev. zod is the
 # boundary-parsing library INSTALL.md §4 documents as "the runtime dep that's used everywhere" and
