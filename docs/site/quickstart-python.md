@@ -17,8 +17,8 @@ sources:
 executed:
   - { step: install, stack: python, date: 2026-09-21, result: exit-0, versions: "ruff 0.15.21, ast-grep 0.44.1" }
   - { step: fire-on-your-code, stack: python, date: 2026-09-21, result: RED }
+  - { step: refresh-unloadable-pre-commit-config, stack: python, date: 2026-09-30, result: "exit-0, file left as it was" }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the python lane now also delivers scripts/check-zcode-mirror.sh and its pre-push hook runs it, probed live on a fresh python install in this range, one sentence added here; clears at the next gold refresh of this page
 ---
 
 # Quick start for Python
@@ -68,6 +68,13 @@ itself. It plants a bad file in a temporary folder and checks both tools:
 
 Each tool is checked twice on purpose. Red on bad code shows the rule works. Green on
 clean code shows it does not fail on everything.
+
+If your project already uses [pre-commit](https://pre-commit.com), the installer leaves
+your hooks alone. It adds a `getff-python-pre-push` entry to your `.pre-commit-config.yaml`,
+at the indent of your own items. Then it installs pre-commit's pre-push stage with
+`pre-commit install --hook-type pre-push`, so the entry runs on every push. When it cannot,
+for example because `pre-commit` is not on your PATH, it names the reason at the end of the
+run.
 
 ## 2. Check what landed
 
@@ -148,6 +155,18 @@ request with this line in it fails.
 - **The CI workflow assumes a branch name.** With no git remote, the installer cannot
   see your default branch. It writes `main` into the workflow and prints a warning.
   Check the file if your branch has another name.
+- **getff does not repair your `.pre-commit-config.yaml`.** A later
+  [`--refresh`](installation.md#updating) keeps getff's entry up to date, as long as you
+  have not edited it. But if one of your own `repos:` items sits in column 0 while
+  the others are indented, the file does not load as YAML, wherever getff's entry goes.
+  getff never re-indents your items, so the refresh leaves the file as it was and says why:
+
+  ```text
+    ⊝ the getff entry in .pre-commit-config.yaml was not updated — the file does not load as YAML (line 23)
+  ```
+
+  It installs no pre-push stage for that file. The list of pieces not wired at the end
+  of the run names the same line.
 
 Next: [Installation](installation.md) covers every install path and what each one
 writes.
