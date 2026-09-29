@@ -31,18 +31,27 @@ getff_live_key() {
   getff_live_key_of "$1" < "$2"
 }
 
-# _getff_live_trusted <dir> — a directory this user owns that is not a symlink. `-O` is outside
+# _getff_live_trusted <dir> — a directory this user owns, that is not a symlink, and that neither
+# group nor others can write (a loose mode lets another user plant a marker). `-O` is outside
 # POSIX but dash, bash and busybox ash implement it; a shell without it fails the test, and a
-# failed test means the plugin copy runs.
+# failed test means the plugin copy runs. The mode comes from `ls -ld` (POSIX output format:
+# group-write is character 6, other-write character 9); no output also fails the test.
 _getff_live_trusted() {
   # shellcheck disable=SC3067
-  [ ! -L "$1" ] && [ -d "$1" ] && [ -O "$1" ]
+  [ ! -L "$1" ] && [ -d "$1" ] && [ -O "$1" ] || return 1
+  _lt_m=$(ls -ld "$1" 2>/dev/null) || return 1
+  case "$_lt_m" in ?????w*|????????w*|'') return 1 ;; esac
+  return 0
 }
 
-# getff_live_custom_timeout <hook-name> — 0 when a settings file that names the project copy
-# `.claude/hooks/<hook-name>.sh` also carries a "timeout" key (Claude Code may kill that copy
-# after this one yielded), or exists but cannot be read. Coarse on purpose: a timeout anywhere
-# in such a file counts. Mirrors _hc_custom_timeout (hook-claim.sh on the stopped parallel design).
+# getff_live_custom_timeout <hook-name> — 0 when a settings file carries a "timeout" on a hook
+# handler whose command names the project copy `.claude/hooks/<hook-name>.sh` (Claude Code may
+# kill that copy after this one yielded), or when a settings file exists but cannot be read.
+# With jq and a file that parses, only handler objects under `.hooks` count — a permissions
+# string such as "Bash(bash .claude/hooks/<name>.sh)" next to an unrelated "timeout" does not.
+# Without jq, or for a file jq cannot parse, the coarse test applies: the file names the hook
+# and contains "timeout" anywhere. Either way a doubt means timeout-set, so the copy runs.
+# Mirrors _hc_custom_timeout (hook-claim.sh on the stopped parallel design), narrowed by jq.
 getff_live_custom_timeout() {
   for _lt_f in "${CLAUDE_PROJECT_DIR:-/nonexistent}/.claude/settings.json" \
     "${CLAUDE_PROJECT_DIR:-/nonexistent}/.claude/settings.local.json" \
@@ -52,6 +61,16 @@ getff_live_custom_timeout() {
     [ -e "$_lt_f" ] || continue
     [ -r "$_lt_f" ] || return 0
     grep -qF ".claude/hooks/$1.sh" "$_lt_f" 2>/dev/null || continue
+    if command -v jq >/dev/null 2>&1; then
+      _lt_r=$(jq -r --arg p ".claude/hooks/$1.sh" '
+        [(.hooks // {}) | .. | objects
+          | select((.command | type) == "string" and (.command | contains($p)) and has("timeout"))]
+        | length > 0' "$_lt_f" 2>/dev/null) || _lt_r=''
+      case "$_lt_r" in
+        true) return 0 ;;
+        false) continue ;;
+      esac
+    fi
     grep -qF '"timeout"' "$_lt_f" 2>/dev/null && return 0
   done
   return 1

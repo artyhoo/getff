@@ -26,7 +26,7 @@ set -uo pipefail
 # lib is absent (the plugin twin, an install from before D12). Never fails the hook.
 _getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
 if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
-  && . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-output-language || true; fi
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-output-language || true; fi
 
 # @plugin-transform: manual — plugin twin carries inline _is_zcode/_emit_ctx adapter trio + TWIN DIVERGENCE comment block. Source-side trio migration is follow-up Stage 6.5.
 case "${AIF_HOOK_LANG:-en}" in

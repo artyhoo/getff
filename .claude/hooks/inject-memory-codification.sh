@@ -24,7 +24,7 @@ set -uo pipefail
 # lib is absent (the plugin twin, an install from before D12). Never fails the hook.
 _getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
 if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
-  && . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-memory-codification || true; fi
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-memory-codification || true; fi
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 

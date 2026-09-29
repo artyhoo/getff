@@ -9,8 +9,8 @@
 #   pre-F1; reframed 2026-06-01 — the rule's `paths:` is the native sibling channel, SSOT #101.)
 # spec: .claude/rules/rule-enforcement-channel-selection.md §4 (the dual-pair note + ADAPT mechanism)
 # @plugin-yield-deps: lib/hook-live.sh
-#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
-#   not a sibling beside this hook — every subsequent read is a $REPO_ROOT/-prefixed project path.
+#   Only lib/hook-live.sh (the D12 liveness prelude): dirname "$0" below only re-derives REPO_ROOT
+#   (this repo's project root) — every other read is a $REPO_ROOT/-prefixed project path.
 #
 # Mechanism: on Edit|Write, for each .claude/rules/*.md carrying a `<!-- globs: ... -->`
 # marker whose pattern matches the edited path, inject that rule's `<!-- inject: ... -->`
@@ -47,7 +47,7 @@ set -uo pipefail
 # lib is absent (the plugin twin, an install from before D12). Never fails the hook.
 _getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
 if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
-  && . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-matching-rule || true; fi
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-matching-rule || true; fi
 
 # @plugin-transform: manual — plugin twin carries T-PLUG-A relocation comment block (~30 lines of prose documenting plugin-channel path resolution). Not mechanically transformable; semantic prose divergence stays hand-maintained.
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

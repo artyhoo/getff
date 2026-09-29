@@ -9,7 +9,8 @@
 # (plugin/hooks/lib/live-claim.sh), so a host that never loads project settings loses no hook.
 #
 # Contract (both sides must agree byte for byte):
-#   base   ${TMPDIR:-/tmp}/getff-hook-live.<uid>   mode 700, owned by us, not a symlink
+#   base   ${TMPDIR:-/tmp}/getff-hook-live.<uid>   mode 700 (no group/other write), owned by us,
+#                                                  not a symlink
 #   dir    <base>/<session_id>                     same trust
 #   marker <dir>/<key>.<epoch-seconds>.<pid>       empty file
 #   key    sha256 of "<hook-name>\n" followed by the payload bytes exactly as received
@@ -29,9 +30,15 @@ _getff_live_sha() {
   else return 1; fi
 }
 
-# _getff_live_trusted <dir> — a directory we own that is not a symlink.
+# _getff_live_trusted <dir> — a directory we own, that is not a symlink, and that neither group
+# nor others can write. Same test as the plugin side (plugin/hooks/lib/live-claim.sh), so a
+# directory one side refuses the other refuses too.
 _getff_live_trusted() {
-  [ ! -L "$1" ] && [ -d "$1" ] && [ -O "$1" ]
+  local m
+  [ ! -L "$1" ] && [ -d "$1" ] && [ -O "$1" ] || return 1
+  m="$(ls -ld "$1" 2>/dev/null)" || return 1
+  case "$m" in ?????w*|????????w*|'') return 1 ;; esac
+  return 0
 }
 
 # _getff_live_mark <hook-name> <payload> — write the marker; any failure writes nothing.
