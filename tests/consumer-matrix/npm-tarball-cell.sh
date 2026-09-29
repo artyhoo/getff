@@ -148,7 +148,7 @@ console.log('  ✓ ' + ok + ' exports target(s) all present in installed package
 
 step "(5) assert the shipped install-wiring bundle is INTACT (syntax + entry guard + tail)"
 # What this step is NOT: it is not the install flow. The real install flow is exercised by the
-# sibling cell — setup.d/99-finalize.sh:226 invokes this same bundle during install.sh, and
+# sibling cell — setup.d/99-finalize.sh:227 invokes this same bundle during install.sh, and
 # tests/consumer-matrix/pnpm-monorepo-cell.sh runs that end to end.
 #
 # What it IS: proof the bundle arrived WHOLE in the tarball. Three asserts, because the obvious
