@@ -14,7 +14,8 @@
 #   G4  R2 wiring: boundary globs into getff's root config; the per-workspace pass on a consumer config
 #   G5  package.json scripts merged add-if-missing; a missing devDependency is named, never written
 #   G6  CI gates a consumer workflow lacks are named; the workflow is not edited
-#   G7  python lane: the .pre-commit-config.yaml getff entry is reconciled, a consumer edit is kept
+#   G7  python lane: the .pre-commit-config.yaml getff entry is reconciled (at the indent it was
+#       written at), a consumer edit is kept
 #   G8  AIF_RECAP_GATE=1 under --refresh --full (operator decision 2026-09-29); bare --refresh leaves it
 #   G9  the kind=mcp companion rows run under --refresh --full with the install's consent rules
 #
@@ -298,6 +299,46 @@ _got=$(tr -d '\r' < "$Y6/.pre-commit-config.yaml" | awk -v m="$MARK" '$0==m{on=1
 [ "$_got" = "$(cat "$FRAG")" ] && ! grep -qv $'\r$' "$Y6/.pre-commit-config.yaml" \
   && ok "G7: a CRLF file's shipped earlier entry is updated, every line still CRLF" \
   || bad "G7: the CRLF update is wrong (body current: $([ "$_got" = "$(cat "$FRAG")" ] && echo y || echo n); LF-only lines: $(grep -cv $'\r$' "$Y6/.pre-commit-config.yaml"))"
+
+# An entry at the indent of the file's `repos:` items — how the install writes it since C3 (#1935) — is
+# the same entry: a current one is left alone, an earlier shipped one is updated at that indent.
+_ind() { sed 's/^./  &/'; }
+_nw_edit='getff-python-pre-push entry in .pre-commit-config.yaml — not updated'
+Y7=$(mktemp -d); CLEANUP+=("$Y7")
+printf '[project]\nname = "demo"\n' > "$Y7/pyproject.toml"
+printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n' > "$Y7/.pre-commit-config.yaml"
+( cd "$Y7" && git init -q && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+grep -q '^  - repo: local$' "$Y7/.pre-commit-config.yaml" \
+  && ok "G7 precondition: the install wrote the entry at the indent of the file's repos: items" \
+  || bad "G7 precondition: the install did not indent the entry to the repos: items"
+cp "$Y7/.pre-commit-config.yaml" "$Y7/pc.before"
+out=$( cd "$Y7" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+cmp -s "$Y7/.pre-commit-config.yaml" "$Y7/pc.before" && ok "G7: --refresh leaves a current indented entry byte-identical" \
+  || bad "G7: --refresh changed a file whose indented getff entry is current"
+grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
+  && bad "G7: --refresh names a current indented entry as an edit in the NOT wired summary" \
+  || ok "G7: a current indented entry is not named as an edit"
+# An indented earlier entry with no end line (C3 wrote the first fragment that way) is updated in place.
+Y8=$(py_consumer "$(_ind <<<"$V1_BODY")")
+out=$( cd "$Y8" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+_got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y8/.pre-commit-config.yaml")
+[ "$_got" = "$(_ind < "$FRAG")" ] && ok "G7: an indented earlier entry is updated to the current fragment, at its indent" \
+  || bad "G7: the indented earlier entry is not the current fragment at its indent after --refresh"
+grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
+  && bad "G7: an indented earlier entry is named as an edit instead of being updated" \
+  || ok "G7: an indented earlier entry is not named as an edit"
+cp "$Y8/.pre-commit-config.yaml" "$Y8/pc.before"
+( cd "$Y8" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+cmp -s "$Y8/.pre-commit-config.yaml" "$Y8/pc.before" && ok "G7: a second --refresh leaves the updated indented entry byte-identical" \
+  || bad "G7: a second --refresh changed the updated indented entry"
+# The next item of the same sequence, at the entry's indent, does not make the entry an edit.
+Y9=$(py_consumer "$(printf '%s\n  - repo: https://example.invalid/after\n    rev: v1' "$(_ind <<<"$V1_BODY")")")
+( cd "$Y9" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+_got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y9/.pre-commit-config.yaml")
+awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1} END{exit !f}' "$Y9/.pre-commit-config.yaml" \
+  && [ "$_got" = "$(_ind < "$FRAG")" ] \
+  && ok "G7: an indented earlier entry followed by a consumer item is updated, the item kept after it" \
+  || bad "G7: an indented earlier entry followed by a consumer item was kept as an edit, or lost the item"
 
 # ══ G4 — the R2 N/A record a declarative layout gets does not grow on each refresh ═════════════
 echo "▶ G4 R2 N/A record"

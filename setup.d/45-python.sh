@@ -1147,9 +1147,10 @@ _py_precommit_insert() {
 }
 
 # Every entry body getff has shipped, as "<sha256>:<line count>" — an installed entry that hashes to
-# one of them is getff's own, unedited, and is replaced by the current fragment; any other body is an
-# edit and is kept. The line count finds the body of an entry appended before the end line existed
-# (a66c0cb9aa4, #1233). When the fragment changes, ADD its new hash here and keep the old ones:
+# one of them (with the indent it was written at taken off) is getff's own, unedited, and is replaced
+# by the current fragment; any other body is an edit and is kept. The line count finds the body of an
+# entry appended before the end line existed (a66c0cb9aa4, #1233). When the fragment changes, ADD its
+# new hash here and keep the old ones:
 # tests/install-sh/refresh-rewires.test.sh fails while the current fragment is missing from this list.
 _PY_PRECOMMIT_SHIPPED="3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f5a97ca7:14 10eb8028d29f094b05ad8fe71536c54a76b6c87a1257a1044ba4c412db15401c:14"
 
@@ -1157,23 +1158,38 @@ _PY_PRECOMMIT_SHIPPED="3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f
 # blanks, so the begin/end lines match whatever the line endings; $0 itself loses its CR too.
 _PY_PRECOMMIT_KEY='{ sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) } '
 
-# _py_precommit_body <cfg> <begin> <end> [n] — the entry body after <begin>: up to <end>, or n lines.
+# _py_precommit_entry_indent <cfg> <begin> — the leading blanks of the first non-empty line after
+# <begin>: the indent the entry was written at. The insert above writes it at the indent of the file's
+# `repos:` items (C3, #1935); an entry from before that is in column 0 and gets "".
+_py_precommit_entry_indent() {
+  awk -v m="$2" "$_PY_PRECOMMIT_KEY"'
+    !on && k == m { on = 1; next }
+    on && k != "" { match($0, /^[ \t]*/); printf "%s", substr($0, 1, RLENGTH); exit }' "$1"
+}
+
+# _py_precommit_body <cfg> <begin> <end> [n] [indent] — the entry body after <begin>: up to <end>, or
+# n lines; <indent> is taken off the front of every line that starts with it, so an entry written at
+# an indent compares and hashes like the column-0 fragment it came from.
 _py_precommit_body() {
-  awk -v m="$2" -v e="$3" -v n="${4:-0}" "$_PY_PRECOMMIT_KEY"'
+  awk -v m="$2" -v e="$3" -v n="${4:-0}" -v ind="${5:-}" "$_PY_PRECOMMIT_KEY"'
     !on && k == m { on = 1; c = 0; next }
     on && n == 0 && k == e { exit }
-    on { if (n > 0 && c >= n) exit; print; c++ }' "$1"
+    on { if (n > 0 && c >= n) exit
+         if (ind != "" && index($0, ind) == 1) $0 = substr($0, length(ind) + 1)
+         print; c++ }' "$1"
 }
 
 # _py_precommit_reconcile <cfg> <begin> <end> <fragment> — bring an installed getff entry to the
 # current fragment when its body is one getff shipped; keep it, named in the NOT wired summary, when
 # it is not (an edit is the consumer's). Idempotent: a current, fenced entry is left byte-identical.
+# The entry is compared, and rewritten, at the indent it was written at (_py_precommit_entry_indent).
 _py_precommit_reconcile() {
-  local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0
+  local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0 ind
   if awk -v m="$m" -v e="$e" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; next} on && k == e {f = 1; exit} END {exit !f}' "$cfg"; then
     has_end=1
   fi
-  if [ "$has_end" = 1 ] && [ "$(_py_precommit_body "$cfg" "$m" "$e")" = "$(cat "$src")" ]; then
+  ind=$(_py_precommit_entry_indent "$cfg" "$m")
+  if [ "$has_end" = 1 ] && [ "$(_py_precommit_body "$cfg" "$m" "$e" 0 "$ind")" = "$(cat "$src")" ]; then
     echo "  ⊝ .pre-commit-config.yaml already has the current getff entry — no-op (idempotent)"
     return 0
   fi
@@ -1181,17 +1197,19 @@ _py_precommit_reconcile() {
   # With an end line the body is everything up to it; without one, try each shipped length.
   if [ "$has_end" = 1 ]; then rows="0"; else rows=$(printf '%s' "$_PY_PRECOMMIT_SHIPPED" | tr ' ' '\n' | sed 's/.*://' | sort -u); fi
   for n in $rows; do
-    _py_precommit_body "$cfg" "$m" "$e" "$n" > "$tmp"
+    _py_precommit_body "$cfg" "$m" "$e" "$n" "$ind" > "$tmp"
     body=$(_hash256 "$tmp") || body=""   # no hash tool → nothing matches → the entry is kept, named
     for row in $_PY_PRECOMMIT_SHIPPED; do
       sha="${row%%:*}"
       [ "$body" = "$sha" ] || continue
       if [ "$has_end" = 0 ] && [ "${row##*:}" != "$n" ]; then continue; fi
-      # No end line: the body is getff's only if the next line does not continue it. The fragment's
-      # entry starts in column 0, so an indented next line (an `args:` the consumer added under the
-      # hook, say) is part of the entry — an edit, kept like any other.
-      if [ "$has_end" = 0 ] && awk -v m="$m" -v n="$n" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; c = 0; next}
-            on { if (c < n) { c++; next } found = ($0 ~ /^[ \t]+[^ \t]/); exit }
+      # No end line: the body is getff's only if the next line does not continue it. The entry starts
+      # at its indent, so a next line indented deeper (an `args:` the consumer added under the hook,
+      # say) is part of the entry — an edit, kept like any other. The next item of the same sequence,
+      # at the entry's own indent, is not.
+      if [ "$has_end" = 0 ] && awk -v m="$m" -v n="$n" -v ind="$ind" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; c = 0; next}
+            on { if (c < n) { c++; next } found = ($0 ~ /[^ \t]/)
+                 if (found) { match($0, /^[ \t]*/); found = (RLENGTH > length(ind)) }; exit }
             END {exit !found}' "$cfg"; then continue; fi
       rm -f "$tmp"
       if [ "$DRY_RUN" = "--dry-run" ]; then
@@ -1199,11 +1217,12 @@ _py_precommit_reconcile() {
         return 0
       fi
       tmp="$cfg.getff.tmp"
-      # A CRLF file stays CRLF: every line written, the kept ones included, gets its CR back.
-      if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" '
+      # A CRLF file stays CRLF: every line written, the kept ones included, gets its CR back. The
+      # fragment goes back at the entry's indent; the end line, like the begin line, in column 0.
+      if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" -v ind="$ind" '
           NR == 1 { cr = ($0 ~ /\r$/) ? "\r" : "" }
           { sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) }
-          !on && k == m { print $0 cr; while ((getline l < src) > 0) print l cr; print e cr; on = 1; c = 0; next }
+          !on && k == m { print $0 cr; while ((getline l < src) > 0) print (length(l) ? ind l : l) cr; print e cr; on = 1; c = 0; next }
           on == 1 && n == 0 { if (k == e) on = 2; next }
           on == 1 { if (c < n) { c++; next } on = 2 }
           { print $0 cr }' "$cfg" > "$tmp" && cat "$tmp" > "$cfg"; then   # cat, not mv: keeps a symlink and the mode
