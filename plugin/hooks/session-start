@@ -58,4 +58,17 @@ Skills live under: ${PLUGIN_ROOT}/skills/
 [/getff plugin]
 BOOTSTRAP
 
+# Skill routing: a plugin update rewrites the plugin cache and drops the
+# `disable-model-invocation` stamp the installer put on colliding satellite skills. Re-apply it
+# here — only when the user consented at install (lib/skill-routing.sh reapply is a silent no-op
+# otherwise). When it stamps, say so: this session's skill list may have been read before the
+# stamp landed, so the note is what keeps the model off the routed skill until the next session.
+ROUTED=$(bash "$SCRIPT_DIR/lib/skill-routing.sh" reapply 2>/dev/null | grep 'routed ' || true)
+if [ -n "$ROUTED" ]; then
+  BOOTSTRAP="$BOOTSTRAP
+[getff skill routing] A plugin update had re-exposed these skills; they are user-invoked only again.
+Do not invoke them yourself this session, even if they still appear in your skill list:
+$ROUTED"
+fi
+
 _emit_bootstrap "$BOOTSTRAP"
