@@ -12,7 +12,7 @@ sources:
   - docs/site/terms.md
   - packages/core/manifest/maturity.json
 next: quickstart-ts.md
-docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves an unloadable .pre-commit-config.yaml as it was; this chooser links that page and renders its maturity row, which did not change, so no line here changed meaning; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves a .pre-commit-config.yaml which does not load as YAML as it was; this chooser links that page and renders its maturity row, which did not change, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start

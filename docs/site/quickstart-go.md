@@ -18,7 +18,7 @@ executed:
   - { step: fire-on-your-code, stack: go, date: 2026-09-21, result: "exit-1; forbidigo named the os.Getenv line" }
   - { step: install-without-go-tools, stack: go, date: 2026-09-28, result: "exit-0; self-check reported NOT proven, NOT-wired line printed" }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves an unloadable .pre-commit-config.yaml as it was; this page cites it only in its stack-switcher link, so no line here changed meaning; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves a .pre-commit-config.yaml which does not load as YAML as it was; this page cites it only in its stack-switcher link, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for Go
