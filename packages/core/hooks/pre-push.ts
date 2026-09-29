@@ -1071,9 +1071,17 @@ function skillDriftSection(): void {
 // scripts/run-armed.sh to read it. Consumer gates go through that script, so a check red on the
 // project's existing code at install never blocks a push; this probe runs each not-armed check
 // without blocking and arms the ones that now exit 0 — from the next push on they block. The flip
-// edits tool-decisions.md in the working tree; the change rides the project's next commit.
+// goes to a per-clone sidecar in the git dir (no dirty tree); the shipped pre-commit folds it into
+// the record and stages it, so it rides the next commit. run-armed.sh bounds each probed command
+// (GETFF_PROBE_TIMEOUT_S, 120 s); the whole probe is bounded here as well, and running over the
+// bound is said and never blocks the push — only an unreadable record (exit 2) does.
 // A project installed before the record has no run-armed.sh: its gates run as they always did.
 const RUN_ARMED = 'scripts/run-armed.sh';
+// PREPUSH_ARMED_PROBE_TIMEOUT_MS overrides the 600 s; anything but a positive integer keeps it.
+function armedProbeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env['PREPUSH_ARMED_PROBE_TIMEOUT_MS']?.trim() ?? '';
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 600_000;
+}
 
 /** Run a consumer gate script through the project's record when the project has one. */
 function consumerGate(script: string): CheckResult {
@@ -1084,7 +1092,14 @@ function consumerGate(script: string): CheckResult {
 
 function armedProbeSection(): void {
   if (!existsSync(resolve(REPO_ROOT, RUN_ARMED))) return;
-  const r = run('bash', [RUN_ARMED, '--probe']);
+  const timeoutMs = armedProbeTimeoutMs();
+  const r = runCheck('bash', [RUN_ARMED, '--probe'], { cwd: REPO_ROOT, timeoutMs });
+  if (r.timedOut) {
+    process.stdout.write(
+      `· armed-probe: skipped — over ${timeoutMs / 1000} s; the not-armed checks stay as they are (not blocking)\n`,
+    );
+    return;
+  }
   // Exit 2 = no readable record: every channel that reads it is blind — block, loudly.
   if (r.exitCode !== 0)
     die('❌ the project-checks record could not be read', r);

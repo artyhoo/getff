@@ -8,4 +8,9 @@
 #
 # Install: place at .husky/pre-commit and run `chmod +x .husky/pre-commit`
 
-npx lint-staged
+npx lint-staged || exit $?
+# A check the pre-push probe (or `npm run validate`) found green waits in a per-clone sidecar; fold it
+# into the tracked record (.ai-factory/tool-decisions.md) and stage it, so the flip rides this commit.
+# After lint-staged, so its stash-and-restore never sees the index change. A failed fold never blocks
+# the commit: the sidecar stays and scripts/run-armed.sh keeps reading it.
+if [ -f scripts/run-armed.sh ]; then bash scripts/run-armed.sh --fold || true; fi

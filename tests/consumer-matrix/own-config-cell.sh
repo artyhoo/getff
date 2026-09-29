@@ -465,9 +465,26 @@ for s in $BEFORE_SCRIPTS; do
   case "$s" in typecheck | lint | test | build | validate) continue ;; esac
   run_step "script:$s" npm run "$s"
 done
+# validate's probe arms green checks in a per-clone sidecar in the git dir, never in the tracked record.
+SIDECAR="$(git rev-parse --absolute-git-dir)/getff-armed.local"
+SIDE_AT_VALIDATE=$(cat "$SIDECAR" 2>/dev/null || true)
 
 step "first commit through the real shipped pre-commit, then a new one-line .ts file"
 run_step "first-commit" bash -c 'git add -A && git commit -qm "install getff"'
+# The shipped pre-commit runs lint-staged, then folds the sidecar into the record and stages it: the
+# flips validate made ride this very commit, and the tree is clean after it (advisor M4). vite-shape's
+# own `lint` is recorded not-armed at install and arms at the first validate, so the fold is exercised.
+fold_rode_the_commit() {
+  local c miss=""
+  [ -n "$SIDE_AT_VALIDATE" ] || { [ "$FIXTURE" = own-config ] && return 0; echo "validate armed nothing — the fold is not exercised"; return 1; }
+  while IFS= read -r c; do
+    git show HEAD:.ai-factory/tool-decisions.md | awk '/^armed:$/{f=1;next} /^[a-z-]+:$/{f=0} f' | grep -qxF -- "- $c" || miss="$miss '$c'"
+  done <<< "$SIDE_AT_VALIDATE"
+  [ ! -s "$SIDECAR" ] || miss="$miss (sidecar not emptied)"
+  git diff --quiet -- .ai-factory/tool-decisions.md || miss="$miss (record left dirty)"
+  [ -z "$miss" ] && return 0; echo "not in the committed record:$miss"; return 1
+}
+run_step "fold: validate's flips ride the install commit" fold_rode_the_commit
 run_step "new-ts-commit" bash -c "printf 'export const answer = 42;\n' > '$SRC/answer42.ts' && git add '$SRC/answer42.ts' && git commit -qm 'add answer42'"
 
 step "first push: git runs the shipped pre-push, which must reach the full hook, not the bash fallback"
@@ -501,15 +518,19 @@ for s in $BEFORE_GREEN; do
 done
 
 # ── The record: which checks block, by name (C1: arming nothing cannot pass) ───────────────────
-# Read after the first validate and push, which arm the project's own scripts once they exit 0.
+# Read after the first validate and push, which arm the project's own scripts once they exit 0 — as
+# run-armed.sh reads it: the tracked record plus the per-clone sidecar the push's probe wrote.
 record_section() { # $1 = armed | not-armed → its entries, one per line
   awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' .ai-factory/tool-decisions.md \
     | awk -v h="$1:" '/^[a-z-]+:$/{f=($0==h);next} f'
+  [ "$1" = armed ] && [ -r "$SIDECAR" ] && sed 's/^/- /' "$SIDECAR"; true
 }
 record_matches_expected() {
   local c miss="" IFS='|'
   for c in $EXPECT_ARMED; do record_section armed | grep -qxF -- "- $c" || miss="$miss armed:'$c'"; done
-  for c in $EXPECT_NOT; do record_section not-armed | grep -qF -- "- $c # " || miss="$miss not-armed:'$c'"; done
+  for c in $EXPECT_NOT; do
+    record_section not-armed | grep -qF -- "- $c # " && ! record_section armed | grep -qxF -- "- $c" || miss="$miss not-armed:'$c'"
+  done
   [ "$FIXTURE" = own-config ] || grep -qx 'linter: oxlint' .ai-factory/tool-decisions.md || miss="$miss linter:oxlint"
   [ -z "$miss" ] && return 0
   echo "the record is not the expected one — missing:$miss"

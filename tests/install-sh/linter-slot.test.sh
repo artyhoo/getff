@@ -54,7 +54,7 @@ block "$O" | grep -qx 'linter: oxlint' && ok "(C) record: linter: oxlint" || bad
 node -e 'process.exit(require(process.argv[1]).scripts.lint==="oxlint"?0:1)' "$O/package.json" \
   && ok "(C) the project's own lint script is kept" || bad "(C) lint script changed"
 for g in check-rule-globs check-rule-enforced check-fences-fire; do
-  section "$O" not-armed | grep -qx -- "- bash scripts/$g.sh # reads getff's ESLint config, and this project lints with oxlint" \
+  section "$O" not-armed | grep -qx -- "- bash scripts/$g.sh # not wired: reads getff's ESLint config, and this project lints with oxlint" \
     && ok "(C) $g not-armed: reads getff's ESLint config" \
     || bad "(C) $g line: $(section "$O" not-armed | grep "$g" || echo none; section "$O" armed | grep "$g")"
 done

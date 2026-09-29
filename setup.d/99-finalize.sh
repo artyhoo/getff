@@ -1058,10 +1058,11 @@ else
   while IFS=$'\t' read -r _pc_n _pc_v; do
     [ -n "$_pc_n" ] || continue
     _pc_c=$(project_check_cmd "$_pc_n" "$_pc_v")
-    # P2 G5: these gates read getff's ESLint config, which an oxlint / Biome project does not get.
+    # P2 G5: these gates read getff's ESLint config, which an oxlint / Biome project does not get. The
+    # «not wired:» prefix marks the reason structural: run-armed --probe never re-runs such a line.
     case "${LINTER_SLOT:-}:$_pc_n" in
       oxlint:check:globs|oxlint:check:enforced|oxlint:check:fences-fire|biome:check:globs|biome:check:enforced|biome:check:fences-fire)
-        _pc_not+=("$_pc_c # reads getff's ESLint config, and this project lints with $LINTER_SLOT"); continue ;;
+        _pc_not+=("$_pc_c # not wired: reads getff's ESLint config, and this project lints with $LINTER_SLOT"); continue ;;
     esac
     case " ${DEPS_GETFF_SCRIPTS:-} " in
       *" $_pc_n "*) ;;

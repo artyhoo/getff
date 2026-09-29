@@ -5,8 +5,10 @@
 #   (A) rule-globs gate red but recorded not-armed → the push is not blocked
 #   (B) the same gate armed → the push is blocked (paired negative of A)
 #   (C) no scripts/run-armed.sh (a project installed before the record) → the gate runs as before
-#   (D) armed-probe: a not-armed check that now exits 0 moves to armed; a red one stays
+#   (D) armed-probe: a not-armed check that now exits 0 is armed (per-clone sidecar, the tracked record
+#       untouched — no dirty tree after the push); a red one stays
 #   (E) armed-probe with run-armed.sh but no record → the push is blocked, loudly
+#   (F) armed-probe over its bound (PREPUSH_ARMED_PROBE_TIMEOUT_MS) → said, and the push is not blocked
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 BUNDLE="$REPO_ROOT/packages/core/hooks/pre-push.bundle.mjs"
@@ -54,14 +56,22 @@ push_only "$C" rule-globs; rc=$?
   && ok "(C) no run-armed.sh → the gate runs as before (blocks, on the gate itself)" || bad "(C) rc=$rc: $(tail -3 "$C/.out")"
 
 D=$(consumer "" $'true # was red at install\nexit 3 # 3 type errors at install')
+before=$(cat "$D/.ai-factory/tool-decisions.md")
 push_only "$D" armed-probe; rc=$?
 [ "$rc" -eq 0 ] && ok "(D) armed-probe never blocks on a red not-armed check" || bad "(D) rc=$rc: $(cat "$D/.out")"
-awk '/^armed:/{f=1;next} /^not-armed:/{f=0} f' "$D/.ai-factory/tool-decisions.md" | grep -qx -- '- true' \
-  && ok "(D) the green one moved to armed" || bad "(D) not armed: $(cat "$D/.ai-factory/tool-decisions.md")"
+( cd "$D" && bash scripts/run-armed.sh true ) | grep -q '^· not armed' \
+  && bad "(D) the green one is still not armed" || ok "(D) the green one is armed"
+[ "$(cat "$D/.ai-factory/tool-decisions.md")" = "$before" ] && ok "(D) the tracked record is untouched (the flip is in the sidecar)" \
+  || bad "(D) the probe edited the tracked record"
 grep -qx -- '- exit 3 # 3 type errors at install' "$D/.ai-factory/tool-decisions.md" && ok "(D) the red one stays" || bad "(D) red one changed"
 
 E=$(consumer "" ""); rm -f "$E/.ai-factory/tool-decisions.md"
 push_only "$E" armed-probe; rc=$?
 [ "$rc" -ne 0 ] && grep -q 'record' "$E/.out" && ok "(E) no record → the push is blocked, loudly" || bad "(E) rc=$rc: $(cat "$E/.out")"
+
+F=$(consumer "" 'sleep 5 # red at install')
+t0=$(date +%s); ( cd "$F" && PREPUSH_ARMED_PROBE_TIMEOUT_MS=1000 PREPUSH_ONLY=armed-probe node packages/core/hooks/pre-push.bundle.mjs < /dev/null ) > "$F/.out" 2>&1; rc=$?; t1=$(date +%s)
+[ "$rc" -eq 0 ] && grep -q 'armed-probe: skipped — over 1 s' "$F/.out" && [ $((t1 - t0)) -lt 5 ] \
+  && ok "(F) a probe over its bound is said and does not block the push ($((t1 - t0)) s)" || bad "(F) rc=$rc $((t1 - t0)) s: $(cat "$F/.out")"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

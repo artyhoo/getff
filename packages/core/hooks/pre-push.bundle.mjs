@@ -1177,12 +1177,24 @@ function skillDriftSection() {
   }
 }
 var RUN_ARMED = "scripts/run-armed.sh";
+function armedProbeTimeoutMs(env = process.env) {
+  const raw = env["PREPUSH_ARMED_PROBE_TIMEOUT_MS"]?.trim() ?? "";
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 6e5;
+}
 function consumerGate(script) {
   return existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
 }
 function armedProbeSection() {
   if (!existsSync2(resolve(REPO_ROOT, RUN_ARMED))) return;
-  const r = run("bash", [RUN_ARMED, "--probe"]);
+  const timeoutMs = armedProbeTimeoutMs();
+  const r = runCheck("bash", [RUN_ARMED, "--probe"], { cwd: REPO_ROOT, timeoutMs });
+  if (r.timedOut) {
+    process.stdout.write(
+      `\xB7 armed-probe: skipped \u2014 over ${timeoutMs / 1e3} s; the not-armed checks stay as they are (not blocking)
+`
+    );
+    return;
+  }
   if (r.exitCode !== 0)
     die("\u274C the project-checks record could not be read", r);
   emit(r);
