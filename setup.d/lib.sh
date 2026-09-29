@@ -3132,7 +3132,7 @@ record_unrun_checks() {
   local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v
   [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
   grep -qxF '<!-- aif:project-checks:begin -->' "$f" 2>/dev/null && return 0
-  body="### How this project checks itself (recorded by install.sh --refresh $(date +%Y-%m-%d))
+  body="### How this project checks itself (recorded by install.sh --refresh)
 stack: ${STACK:-unknown}
 linter: $(project_linter "$PROJECT_ROOT")
 formatter: $(project_formatter "$PROJECT_ROOT")
@@ -3155,7 +3155,7 @@ not-armed:"
 # because an empty list is valid only when the record says so (P2 C7). --dry-run writes nothing.
 record_lane_checks() {
   [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
-  record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "### How this project checks itself (recorded by install.sh $(date +%Y-%m-%d))
+  record_project_checks "$PROJECT_ROOT/.ai-factory/tool-decisions.md" "### How this project checks itself (recorded by install.sh)
 stack: $1
 armed:
 not-armed:" || note_not_wired "the project-checks record in .ai-factory/tool-decisions.md — not written"

@@ -26,8 +26,9 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
-install_into() { # $1 = dir, $2 = stack
-  printf '{ "name":"t","version":"0.0.0" }\n' > "$1/package.json"
+install_into() { # $1 = dir, $2 = stack, [$3 = package.json body]
+  local body='{ "name":"t","version":"0.0.0" }'
+  printf '%s\n' "${3:-$body}" > "$1/package.json"
   ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" "$2" --force ) >/dev/null 2>&1
 }
 
@@ -54,17 +55,22 @@ CHK="$T/scripts/check-rule-globs.sh"
 [ -x "$CHK" ] || bad "V: scripts/check-rule-globs.sh not shipped/executable"
 
 # ── #507: the V-gate is WIRED, not merely shipped (was advisory-only → silence still shipped) ──
-node -e 'const s=require(process.argv[1]).scripts||{}; process.exit((s["check:globs"]&&/check:globs/.test(s.validate||""))?0:1)' "$T/package.json" \
-  && ok "#507: check:globs script present AND in the validate chain (gate runs on npm run validate)" \
+# P2 C3: validate runs the project's record (scripts/run-armed.sh validate): an armed check runs,
+# a not-armed one is probed and arms itself once it exits 0 — so «wired» = listed in the record.
+in_record() { awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' "$1" | grep -Eq -- '^- bash scripts/check-rule-globs\.sh( #|$)'; }
+node -e 'const s=require(process.argv[1]).scripts||{}; process.exit((s["check:globs"]&&s.validate==="bash scripts/run-armed.sh validate")?0:1)' "$T/package.json" \
+  && in_record "$T/.ai-factory/tool-decisions.md" \
+  && ok "#507: check:globs script present AND in the record validate runs (gate runs on npm run validate)" \
   || bad "#507: check-rule-globs not wired into validate (silent inertness can still ship)"
 grep -q "check-rule-globs.sh" "$T/.github/workflows/ci.yml" \
   && ok "#507: shipped CI runs check-rule-globs.sh (loud at the CI channel)" \
   || bad "#507: shipped CI does NOT run check-rule-globs.sh (gate unwired in CI)"
 # NEG (load-bearing): the wiring predicate discriminates — a validate lacking check:globs fails it.
-if node -e 'process.exit(/check:globs/.test("npm-run-all2 --parallel typecheck lint test")?0:1)'; then
-  bad "#507-neg: predicate matched a validate WITHOUT check:globs → vacuous"
+_neg=$(mktemp); printf '<!-- aif:project-checks:begin -->\narmed:\n- npm run lint\nnot-armed:\n- npm test # x\n<!-- aif:project-checks:end -->\n' > "$_neg"
+if in_record "$_neg"; then
+  bad "#507-neg: predicate matched a record WITHOUT check-rule-globs → vacuous"
 else
-  ok "#507-neg: predicate rejects a validate lacking check:globs (non-vacuous)"
+  ok "#507-neg: predicate rejects a record lacking check-rule-globs (non-vacuous)"
 fi
 
 # ── F3 behavioral: globs REACH a flat-Hono handler (was zero before the fix) ──
@@ -81,10 +87,12 @@ mkdir -p "$T2/apps/api/src/handlers"; echo 'export const x = 1;' > "$T2/apps/api
   || bad "F3 behavioral (monorepo): R2 globs do NOT reach a monorepo handler"
 
 # ── F3 NEG (load-bearing): source present but no boundary dir → V-gate alarms ──
+# P2 K2: zod is declared here, so the layout is ambiguous and no N/A is recorded — a project with no
+# zod and no boundary records «N/A until an HTTP boundary appears» instead (r2-auto-wire fixture D).
 # (GH #777) check-rule-globs.sh now PRUNES the vendored framework packages/core/ from the
 # user-coverage scan, so the shipped eslint-rules/ no longer masks this arm: a consumer with
 # src/index.ts but no handlers/routes/... boundary dir → R2 matches zero USER source → alarms.
-T3=$(mktemp -d); install_into "$T3" ts-server
+T3=$(mktemp -d); install_into "$T3" ts-server '{ "name":"t","version":"0.0.0","dependencies":{"zod":"^3.23.0"} }'
 mkdir -p "$T3/src"; echo 'export const x = 1;' > "$T3/src/index.ts"
 if ( cd "$T3" && ESLINT_CONFIG="$T3/eslint.config.mjs" bash "$T3/scripts/check-rule-globs.sh" ) >/dev/null 2>&1; then
   bad "F3 NEG: code present but no boundary dir, yet V-gate stayed green → VACUOUS"

@@ -34,7 +34,7 @@ chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-globs.sh" 2>/dev/null || true
 copy_safe "$PKG_ROOT/packages/core/audit-self/check-rule-enforced.sh" "$PROJECT_ROOT/scripts/check-rule-enforced.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/check-rule-enforced.sh" 2>/dev/null || true
 # GH #547 Point 2: R2 boundary probe (C1) + the shared N/A-marker reader (C4). detect-r2-boundary.sh
-# classifies the repo (boundary-present | no-boundary-confident | ambiguous) by READING it; the
+# classifies the repo (boundary-present | no-boundary-confident | no-boundary-yet | ambiguous) by READING it; the
 # installer (§6b-bis below) and BOTH inertness gates consume it. r2-na-marker.sh is sourced by
 # check-rule-globs.sh + check-rule-enforced.sh so they never diverge on honoring a recorded R2 N/A.
 copy_safe "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" "$PROJECT_ROOT/scripts/detect-r2-boundary.sh"

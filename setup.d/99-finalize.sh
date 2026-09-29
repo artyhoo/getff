@@ -1059,7 +1059,7 @@ else
   if [ "$_pc_fmt" = prettier ] && [ -f "$PROJECT_ROOT/.prettierrc.json" ] && getff_delivered "$PROJECT_ROOT/.prettierrc.json"; then
     _pc_fmt="prettier (.prettierrc.json placed by getff)"
   fi
-  _pc_body="### How this project checks itself (recorded by install.sh $(date +%Y-%m-%d))
+  _pc_body="### How this project checks itself (recorded by install.sh)
 stack: ${STACK:-unknown}
 linter: $(project_linter "$PROJECT_ROOT")
 formatter: $_pc_fmt"

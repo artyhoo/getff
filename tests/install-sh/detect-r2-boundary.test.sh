@@ -71,22 +71,49 @@ echo 'export const h=(b)=>schema.parse(b);' > "$T/src/route-handler.ts"
   && ok "NEG: allowlisted framework but a parse boundary appears → flips to boundary-present (no false N/A)" \
   || bad "NEG: parse boundary did not flip declarative repo (got '$(verdict "$T")')"
 
-# ── ambiguous: JSON.parse only, framework unknown ─────────────────────────────
+# ── no-boundary-yet: no boundary signal, no declarative framework, no zod declared (P2 K2) ─────
+# A project with no HTTP boundary yet and no zod to write one with: R2 has nothing to guard until a
+# boundary appears. The gates re-check the same precondition, so the first boundary turns them red.
 T=$(mkrepo); mkdir -p "$T/src"; echo 'export const c = JSON.parse(raw);' > "$T/src/cfg.ts"
-[ "$(verdict "$T")" = "ambiguous" ] \
-  && ok "JSON.parse only + unknown framework → ambiguous (stdlib parse is not a boundary)" \
+[ "$(verdict "$T")" = "no-boundary-yet" ] \
+  && ok "JSON.parse only + no framework + no zod → no-boundary-yet (stdlib parse is not a boundary)" \
   || bad "JSON.parse only → got '$(verdict "$T")'"
 
-# NEG (load-bearing): unknown framework + NO parse at all → still ambiguous, NOT no-boundary-confident
+# NEG (load-bearing): zod declared → ambiguous, never no-boundary-yet (a zod project may parse
+# through a shape the probe cannot see).
+for where in dependencies devDependencies peerDependencies; do
+  T=$(mktemp -d); printf '{"name":"x","version":"0.0.0","%s":{"zod":"^3.23.0"}}\n' "$where" > "$T/package.json"
+  mkdir -p "$T/src"; echo 'export const c = JSON.parse(raw);' > "$T/src/cfg.ts"
+  [ "$(verdict "$T")" = "ambiguous" ] \
+    && ok "NEG: zod in $where + no signal → ambiguous (stays red)" \
+    || bad "NEG: zod in $where → got '$(verdict "$T")'"
+done
+
+# NEG: zod declared by a workspace package only → ambiguous (every package.json counts).
+T=$(mkrepo); mkdir -p "$T/packages/api/src"
+printf '{"name":"api","version":"0.0.0","dependencies":{"zod":"^3.23.0"}}\n' > "$T/packages/api/package.json"
+echo 'export const x = 1;' > "$T/packages/api/src/x.ts"
+[ "$(verdict "$T")" = "ambiguous" ] \
+  && ok "NEG: zod in a workspace package.json → ambiguous" \
+  || bad "NEG: workspace zod → got '$(verdict "$T")'"
+
+# NEG: a package whose name only CONTAINS zod is not zod → still no-boundary-yet.
+T=$(mktemp -d); printf '{"name":"x","version":"0.0.0","dependencies":{"zod-to-json-schema":"^3.0.0"}}\n' > "$T/package.json"
+mkdir -p "$T/src"; echo 'export const x = 1;' > "$T/src/x.ts"
+[ "$(verdict "$T")" = "no-boundary-yet" ] \
+  && ok "a dependency named zod-to-json-schema is not zod → no-boundary-yet" \
+  || bad "zod-to-json-schema → got '$(verdict "$T")'"
+
+# Zero signals is never CONFIDENCE: an unknown framework stays out of no-boundary-confident
 # (confidence requires a POSITIVE allowlist match — absence of signals is not confidence).
 T=$(mkrepo); mkdir -p "$T/src"; echo 'export const x = 1;' > "$T/src/x.ts"
-[ "$(verdict "$T")" = "ambiguous" ] \
-  && ok "NEG: unknown framework + zero signals → ambiguous, never a confident N/A" \
-  || bad "NEG: bare repo → got '$(verdict "$T")' (must be ambiguous, not no-boundary-confident)"
+[ "$(verdict "$T")" = "no-boundary-yet" ] \
+  && ok "NEG: unknown framework + zero signals → no-boundary-yet, never a confident N/A" \
+  || bad "NEG: bare repo → got '$(verdict "$T")' (must be no-boundary-yet, not no-boundary-confident)"
 
 # ── test files do not count as boundary ───────────────────────────────────────
 T=$(mkrepo); mkdir -p "$T/src/routes"; echo 'it("x",()=>schema.parse(1));' > "$T/src/routes/u.test.ts"
-[ "$(verdict "$T")" = "ambiguous" ] \
+[ "$(verdict "$T")" = "no-boundary-yet" ] \
   && ok "a parse inside a *.test.ts under routes/ does NOT count as a boundary" \
   || bad "test-file parse counted as boundary (got '$(verdict "$T")')"
 
