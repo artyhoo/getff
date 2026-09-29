@@ -239,10 +239,15 @@ fi
 # to [] once files is set); a solution tsconfig (`"files": []` + `"references"`) covers what its
 # referenced configs cover (a reference path is a tsconfig file or a directory holding one).
 # A config that is not even JSONC → fail-OPEN: treat covered, no note, never abort the layer.
+# P2 K4 (2026-09-29): on an oxlint / Biome project the gate does not apply at all — the withholding
+# reason is typed ESLint's, and getff's ESLint is not installed there; withheld, the project's first
+# test died «Cannot find module tests/setup.ts» (vite-shape cell, measured).
 fc3_deliver_tests_setup() {
   local src="$1"
   local covered=0
-  if ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+  if [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_SLOT" = biome ]; then
+    covered=1   # P2 K4: no typed ESLint lints the file, so the reason to withhold it is gone
+  elif ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
     covered=1   # greenfield (or --force refresh): installer wrote tsconfig.json
   elif [ ! -f "$PROJECT_ROOT/tsconfig.json" ]; then
     covered=1   # no tsconfig on disk → tsc default (whole tree)

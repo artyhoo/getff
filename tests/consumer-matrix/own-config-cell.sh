@@ -180,6 +180,11 @@ OWN_KEPT="tsconfig.json tsconfig.app.json"; OWN_GROWS=".oxlintrc.json"; OWN_BINS
 # no-semicolon style under getff's prettier; `npm test` has no tests to run yet (C3).
 EXPECT_ARMED="npm run lint|npm run typecheck|npm run arch:check|bash scripts/audit-ai-docs.sh|bash scripts/check-lintstaged-resolves.sh"
 EXPECT_NOT="bash scripts/check-rule-globs.sh|npm run format:check|npm test"
+# The fold scenario (advisor M4): after validate the developer adds the first test, so `npm test` —
+# recorded not-armed «no test files yet» — turns green; the probe arms it in the sidecar and the
+# install commit must carry it. From then on it is armed, not not-armed (FOLD_ARMS).
+FOLD_FIX_FILE="$SRC/answer.test.ts"; FOLD_ARMS="npm test"
+FOLD_FIX_BODY="import { expect, test } from 'vitest';\n\ntest('adds', () => {\n  expect(1 + 1).toBe(2);\n});\n"
 cat > package.json <<'JSON'
 {
   "name": "vite-shape-consumer",
@@ -467,16 +472,21 @@ for s in $BEFORE_SCRIPTS; do
 done
 # validate's probe arms green checks in a per-clone sidecar in the git dir, never in the tracked record.
 SIDECAR="$(git rev-parse --absolute-git-dir)/getff-armed.local"
+if [ -n "${FOLD_FIX_FILE:-}" ]; then
+  printf '%b' "$FOLD_FIX_BODY" > "$FOLD_FIX_FILE"
+  bash scripts/run-armed.sh --probe > "$(step_log fold-probe)" 2>&1
+fi
 SIDE_AT_VALIDATE=$(cat "$SIDECAR" 2>/dev/null || true)
 
 step "first commit through the real shipped pre-commit, then a new one-line .ts file"
 run_step "first-commit" bash -c 'git add -A && git commit -qm "install getff"'
 # The shipped pre-commit runs lint-staged, then folds the sidecar into the record and stages it: the
-# flips validate made ride this very commit, and the tree is clean after it (advisor M4). vite-shape's
-# own `lint` is recorded not-armed at install and arms at the first validate, so the fold is exercised.
+# flips the probe made ride this very commit, and the tree is clean after it (advisor M4). A fixture
+# with a fold scenario sets FOLD_ARMS: a check its developer turns green after validate.
 fold_rode_the_commit() {
   local c miss=""
-  [ -n "$SIDE_AT_VALIDATE" ] || { [ "$FIXTURE" = own-config ] && return 0; echo "validate armed nothing — the fold is not exercised"; return 1; }
+  if [ -z "${FOLD_ARMS:-}" ]; then echo "this fixture has no fold scenario (nothing it can turn green)"; return 0; fi
+  grep -qxF -- "$FOLD_ARMS" <<<"$SIDE_AT_VALIDATE" || { echo "the probe did not arm '$FOLD_ARMS' — the fold is not exercised: $(tail -5 "$(step_log fold-probe)")"; return 1; }
   while IFS= read -r c; do
     git show HEAD:.ai-factory/tool-decisions.md | awk '/^armed:$/{f=1;next} /^[a-z-]+:$/{f=0} f' | grep -qxF -- "- $c" || miss="$miss '$c'"
   done <<< "$SIDE_AT_VALIDATE"
@@ -484,7 +494,7 @@ fold_rode_the_commit() {
   git diff --quiet -- .ai-factory/tool-decisions.md || miss="$miss (record left dirty)"
   [ -z "$miss" ] && return 0; echo "not in the committed record:$miss"; return 1
 }
-run_step "fold: validate's flips ride the install commit" fold_rode_the_commit
+run_step "fold: the probe's flips ride the install commit" fold_rode_the_commit
 run_step "new-ts-commit" bash -c "printf 'export const answer = 42;\n' > '$SRC/answer42.ts' && git add '$SRC/answer42.ts' && git commit -qm 'add answer42'"
 
 step "first push: git runs the shipped pre-push, which must reach the full hook, not the bash fallback"
@@ -527,8 +537,9 @@ record_section() { # $1 = armed | not-armed → its entries, one per line
 }
 record_matches_expected() {
   local c miss="" IFS='|'
-  for c in $EXPECT_ARMED; do record_section armed | grep -qxF -- "- $c" || miss="$miss armed:'$c'"; done
+  for c in $EXPECT_ARMED ${FOLD_ARMS:-}; do record_section armed | grep -qxF -- "- $c" || miss="$miss armed:'$c'"; done
   for c in $EXPECT_NOT; do
+    [ "$c" = "${FOLD_ARMS:-}" ] && continue
     record_section not-armed | grep -qF -- "- $c # " && ! record_section armed | grep -qxF -- "- $c" || miss="$miss not-armed:'$c'"
   done
   [ "$FIXTURE" = own-config ] || grep -qx 'linter: oxlint' .ai-factory/tool-decisions.md || miss="$miss linter:oxlint"

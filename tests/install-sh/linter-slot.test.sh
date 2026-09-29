@@ -11,6 +11,11 @@
 #       and `biome format --write` under format:check (never `biome check`), no prettier step; the record says `linter: biome`, `formatter: biome`
 #   (F) paired negative: a project with no linter still gets getff's eslint.config.mjs and the
 #       eslint step in lint-staged
+#   (G) oxlint project whose own tsconfig does not include tests/: tests/setup.ts is delivered all the
+#       same — the reason to withhold it (typed ESLint rejects a file outside every tsconfig) is
+#       ESLint's, and vitest.config.ts's setupFiles points at it (without it the project's first test
+#       dies «Cannot find module tests/setup.ts», measured in the vite-shape cell 2026-09-29);
+#       paired negative: the same tsconfig under getff's ESLint still withholds it
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -88,5 +93,19 @@ install_into "$F"
 [ -f "$F/eslint.config.mjs" ] && steps "$F" | grep -q "run-armed.sh --if-armed 'npm run lint' eslint --fix" \
   && ok "(F) no linter: getff's eslint.config.mjs placed, eslint step in lint-staged" \
   || bad "(F) empty slot not filled: $(ls "$F" | tr '\n' ' ')"
+
+# ── (G) tests/setup.ts: withheld for ESLint's sake only ─────────────────────────────────────────
+own_ts() { printf '{\n  "compilerOptions": { "strict": true },\n  "include": ["src"]\n}\n' > "$1/tsconfig.json"
+  git -C "$1" add -A; git -C "$1" commit -qm tsconfig; }
+GO=$(proj '{"name":"go","version":"0.0.0","type":"module","scripts":{"lint":"oxlint"},"dependencies":{"react":"^19.0.0"},"devDependencies":{"oxlint":"^1.20.0"}}')
+own_ts "$GO"; install_into "$GO"
+[ -f "$GO/tests/setup.ts" ] && ! grep -q 'tests/setup.ts NOT delivered' "$GO/.log" \
+  && ok "(G) oxlint, tsconfig without tests/: tests/setup.ts delivered (vitest's setupFiles resolves)" \
+  || bad "(G) oxlint project left without tests/setup.ts: $(grep 'tests/setup.ts' "$GO/.log" | head -2 | tr '\n' '|')"
+GE=$(proj '{"name":"ge","version":"0.0.0","type":"module","dependencies":{"react":"^19.0.0"}}')
+own_ts "$GE"; install_into "$GE"
+[ ! -e "$GE/tests/setup.ts" ] && grep -q 'tests/setup.ts NOT delivered' "$GE/.log" \
+  && ok "(G) paired negative: under getff's ESLint the same tsconfig still withholds it" \
+  || bad "(G) ESLint project: tests/setup.ts $( [ -e "$GE/tests/setup.ts" ] && echo delivered || echo 'withheld without the note')"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
