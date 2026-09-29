@@ -169,7 +169,7 @@ out=$(refresh "$T")
 grep -qF 'CI gate check:globs' <<<"$(not_wired <<<"$out")" \
   && ok "G6: --refresh names the CI gate the consumer's workflow lacks" || bad "G6: no NOT wired line for the missing CI gates"
 cmp -s "$W" "$W.before" && ok "G6: the consumer's workflow is not edited" || bad "G6: --refresh edited the consumer's workflow"
-grep -F 'CI gate check:globs' <<<"$out" | grep -qF -- '--refresh does not edit it' \
+grep -qF -- '--refresh does not edit it' <<<"$(grep -F 'CI gate check:globs' <<<"$out")" \
   && ok "G6: the line's reason is --refresh's own (it never edits the workflow)" \
   || bad "G6: the NOT wired line does not say why --refresh left the workflow alone"
 
