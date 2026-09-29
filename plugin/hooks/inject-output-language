@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Plugin twin of .claude/hooks/inject-output-language.sh.
-# @cc-only-rationale: CC-specific UserPromptSubmit hook — its stdout is auto-injected into the
-#   Claude Code prompt context by the harness, a CC-native fire-point with no portable counterpart.
+# @cc-only-rationale: CC-specific SessionStart hook — its stdout is auto-injected into the
+#   Claude Code session context by the harness, a CC-native fire-point with no portable counterpart.
 #   The plugin twin exists ONLY to serve the plugin distribution channel (ZCode-aware via inline
 #   _emit_ctx); the .claude/hooks/ original stays the SSOT and remains shipped to consumer CC
 #   projects via install.sh. The two files are dual-channel (plugin + repo) but ONE logic — see
@@ -9,14 +9,14 @@
 #
 # TWIN DIVERGENCE from .claude/hooks/inject-output-language.sh:
 #   1. Extensionless filename (plugin/hooks/ convention — hook-paths.test.sh (a)).
-#   2. Inline `_is_zcode` + `_emit_ctx` adapter (per inject-session-bootstrap:15-18 convention —
+#   2. Inline `_is_zcode` + `_emit_ctx` adapter (the same pair plugin/hooks/lib/hook-emit.sh carries —
 #      Stage-2 harness-portable refactor). On ZCode, stdout must be strict-JSON
 #      {additionalContext:<text>} (plain is discarded + run marked failed); on CC, plain stdout
 #      is auto-injected unchanged. The .claude/hooks/ source does NOT carry this adapter because
 #      it only fires on CC.
 #
 # Purpose: when the operator pins a non-English human-facing language via AIF_HOOK_LANG, tell the
-# model — every turn, all skills — so chat/recaps/narration follow that language while ALL repo
+# model — once per context, all skills — so chat/recaps/narration follow that language while ALL repo
 # artefacts + machinery stay English. Precisely scoped: this injects an instruction to the model,
 # not a translation of anything. See .claude/rules/language-discipline.md §2 (category 2, human-facing).
 #
@@ -53,5 +53,5 @@ esac
 
 # Empty OUT (en/default) → exit 0 with no stdout (matches .claude/hooks/ source: plain `case`
 # branch with no echo). Non-empty → emit harness-portably.
-[ -z "$OUT" ] || _emit_ctx "UserPromptSubmit" "$OUT"
+[ -z "$OUT" ] || _emit_ctx "SessionStart" "$OUT"
 exit 0

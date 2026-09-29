@@ -71,9 +71,8 @@ fi
 
 # ── Plugin-channel marker ─────────────────────────────────────────────────────
 # Tells the dispatched hook it runs as the plugin twin, not as the project's own copy.
-# inject-session-bootstrap reads it: this channel also ships inject-output-language, so the
-# twin leaves the [output-language] line to that hook instead of injecting it a second time.
-# lib/hook-live.sh reads it too: the twin must not mark itself live (spec D12).
+# lib/hook-live.sh reads it: the twin must not mark itself live (spec D12). (Spec D5's second
+# reader, the inject-session-bootstrap twin, stopped shipping with the SessionStart move, #1925.)
 AIF_HOOK_CHANNEL=plugin
 export AIF_HOOK_CHANNEL
 

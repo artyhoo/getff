@@ -400,12 +400,14 @@ const KNOWN_PAYLOAD_LINK_DEBT: string[] = [];
 // newer plugin copy; a missing entry silently keeps the duplicate; a diverged packages/core/hooks
 // copy means the installer delivers bytes the manifest does not describe.
 //
-// D5 ruling (supersedes an earlier draft of this check): the bootstrap twin
-// (plugin/hooks/inject-session-bootstrap) is ALLOWED to still contain the literal
-// `[output-language]` text, provided it is behind the `AIF_HOOK_CHANNEL` runtime guard with a
-// `plugin:*)` arm whose body is `:` (no emission) — see the case statement a few lines above this
-// comment in that file. The companion half of the same contract is plugin/hooks/run-hook.cmd,
-// which must export `AIF_HOOK_CHANNEL=plugin` so the guard actually fires on the plugin channel.
+// D5 ruling (supersedes an earlier draft of this check): on the plugin channel the
+// `[output-language]` line has ONE owner, plugin/hooks/inject-output-language. Any other plugin
+// hook may carry the literal text only behind the `AIF_HOOK_CHANNEL` runtime guard, with a
+// `plugin:*)` arm whose body is `:` (no emission). The bootstrap twin that first needed the guard
+// stopped shipping with the SessionStart move (#1925); the check now sweeps every plugin hook, so
+// a future twin cannot bring the second line back. The companion half is plugin/hooks/run-hook.cmd,
+// which must export `AIF_HOOK_CHANNEL=plugin` so such a guard, and the D12 prelude's
+// never-mark-the-twin rule (.claude/hooks/lib/hook-live.sh), actually fire on the plugin channel.
 const HASH_WRITER = join(REPO_ROOT, 'scripts/plugin-source-hashes.sh');
 
 // Positional, not presence-only: every code line (comments dropped) that carries
@@ -413,7 +415,7 @@ const HASH_WRITER = join(REPO_ROOT, 'scripts/plugin-source-hashes.sh');
 // `esac`, and that block must hold the silent `plugin:*) : ;;` arm. Guard text that exists only
 // in a comment, or an extra unconditional echo outside the block, is RED. The silent arm must
 // also come BEFORE any emitting line, because case takes the first matching arm. The runtime
-// L-D5 arm in tests/plugin/run-hook.test.sh still owns the behaviour end to end.
+// CR3 arm in tests/plugin/run-hook.test.sh still owns the one-line count end to end.
 export function bootstrapLanguageLineGuarded(src: string): boolean {
   const lines = src.split('\n').map((l) => l.replace(/^\s*#.*$/, ''));
   let open = -1;
@@ -451,12 +453,16 @@ export function sourceHashManifestViolations(root: string): string[] {
   }
   const have = read(rel);
   if (want && want !== have) out.push(`${rel} is stale — run: bash scripts/generate-plugin-twins.sh`);
-  if (!bootstrapLanguageLineGuarded(read('plugin/hooks/inject-session-bootstrap')))
-    out.push('plugin/hooks/inject-session-bootstrap emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone');
+  const hookDir = join(root, 'plugin/hooks');
+  for (const n of existsSync(hookDir) ? readdirSync(hookDir, { withFileTypes: true }) : []) {
+    if (!n.isFile() || ['inject-output-language', 'run-hook.cmd', 'hooks.json'].includes(n.name)) continue;
+    if (!bootstrapLanguageLineGuarded(read(`plugin/hooks/${n.name}`)))
+      out.push(`plugin/hooks/${n.name} emits [output-language] on the plugin channel — D5 gives it to inject-output-language alone`);
+  }
   if (!read('plugin/hooks/inject-output-language').includes('[output-language]'))
     out.push('plugin/hooks/inject-output-language no longer emits [output-language] — the line would reach nobody');
   if (!read('plugin/hooks/run-hook.cmd').includes('AIF_HOOK_CHANNEL=plugin'))
-    out.push('plugin/hooks/run-hook.cmd no longer exports AIF_HOOK_CHANNEL=plugin — the bootstrap twin guard above cannot fire');
+    out.push('plugin/hooks/run-hook.cmd no longer exports AIF_HOOK_CHANNEL=plugin — the channel guard above cannot fire');
   const twinDir = join(root, 'plugin/hooks');
   const twins = existsSync(twinDir) ? readdirSync(twinDir) : [];
   for (const n of twins) {

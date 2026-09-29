@@ -288,8 +288,8 @@ for dir in "${PROMPTS_DIR}"/*/; do
       _c2_basis="${_c2_basis#basis=}"
       _c2_completion_line=""
       if [[ -n "${done_pr}" && -x "${MO_FRONTIER_BIN}" ]]; then
-        _c2_frontier="$(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
-          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null | grep -m1 '^FRONTIER: ' || true)"
+        _c2_frontier="$(grep -m1 '^FRONTIER: ' <<<"$(REPO_ROOT="${REPO_ROOT}" MO_KICKOFF_DIR="${PROMPTS_DIR}" \
+          bash "${MO_FRONTIER_BIN}" "${name}" 2>/dev/null)" || true)"
         _c2_frontier="${_c2_frontier#FRONTIER: }"
         if [[ -n "${_c2_frontier}" && "${_c2_frontier}" != "(none)" ]]; then
           _c2_completion_line="$(grep -m1 -E \

@@ -168,6 +168,11 @@ hook_run() {   # hook_run <dir> <hook> <payload> — stdout+stderr; rc in $hrc
 }
 bash -n "$(head -c 3000 "$LIB" > "$TMPD/cut.sh"; echo "$TMPD/cut.sh")" 2>/dev/null \
   && bad "L-corrupt fixture: the truncated lib still parses — the arm would prove nothing"
+# The control needs a bash where a bare `.` of a syntax error aborts a `set -e` hook. bash 3.2 (the
+# macOS /bin/bash) does, with rc 2; the bash 5 on the Linux CI runner reports the error and returns
+# non-zero from `.`, so the old form is harmless there and the control has nothing to tell apart.
+old_form_fatal=0
+bash -c 'set -euo pipefail; if true && . "$1"; then :; fi; exit 0' _ "$TMPD/cut.sh" >/dev/null 2>&1 || old_form_fatal=1
 for pair in "end-of-turn-reminder|{\"session_id\":\"s-c\",\"hook_event_name\":\"Stop\",\"stop_hook_active\":false}" \
   "ask-question-reminder|{\"session_id\":\"s-c\",\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"AskUserQuestion\",\"tool_input\":{}}"; do
   h=${pair%%|*}; pl=${pair#*|}
@@ -180,7 +185,11 @@ for pair in "end-of-turn-reminder|{\"session_id\":\"s-c\",\"hook_event_name\":\"
   [ "$crc" = 0 ] && [ "$nrc" = 0 ] && [ "$C" = "$N" ] && [ -z "$(find "$TMPD/cc/tmp" -path '*getff-hook-live*' -type f)" ] \
     && ok "L-corrupt $h: truncated lib → rc 0, same output as without the lib, no marker" \
     || bad "L-corrupt $h: rc=$crc (no-lib rc=$nrc) out='$C' vs '$N'"
-  if grep -q '&& \. "\$_getff_live_dir/lib/hook-live.sh"' "$TMPD/co/.claude/hooks/$h.sh" && [ "$orc" != 0 ]; then
+  if ! grep -q '&& \. "\$_getff_live_dir/lib/hook-live.sh"' "$TMPD/co/.claude/hooks/$h.sh"; then
+    bad "L-corrupt $h control: the sed did not produce the old bare-\`.\` prelude"
+  elif [ "$old_form_fatal" = 0 ]; then
+    ok "L-corrupt $h control: n/a on $(bash -c 'echo "$BASH_VERSION"') — a sourced syntax error is not fatal here (rc $orc)"
+  elif [ "$orc" != 0 ]; then
     ok "L-corrupt $h control: the old bare-\`.\` prelude dies on the same lib (rc $orc)"
   else bad "L-corrupt $h control: old-form fixture did not fail (rc $orc) — the arm does not discriminate"; fi
 done

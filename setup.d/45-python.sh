@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1459 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1462 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1442).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1445).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -1347,16 +1347,6 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # lib/hook-live.sh — the liveness lib inject-matching-rule's prelude sources (spec 2026-09-28
-  # D12), delivered as setup.d/10-skills.sh §1i′ does on the npm lanes. Without it the hook runs
-  # unchanged, but its source-hash closure never matches the plugin manifest, so getff's plugin
-  # copy runs too and the rule is injected twice. Refresh-aware like the hooks above.
-  local _py_hl_src="$PKG_ROOT/.claude/hooks/lib/hook-live.sh"
-  if [ -f "$_py_hl_src" ]; then
-    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
-    _py_copy_or_refresh "$_py_hl_src" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
-  fi
-
   # ── .mcp.json (context7 only) ────────────────────────────────────────────────
   # Replicates setup.d/05-mcp.sh:17-46 — context7-specific with an idempotency guard. The python
   # lane does NOT source 05-mcp.sh (that file is FULL-gated which python never sets, AND the
@@ -1419,7 +1409,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1411). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1414). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the

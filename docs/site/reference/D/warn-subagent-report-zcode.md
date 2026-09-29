@@ -168,7 +168,7 @@ same discipline on two fire-points.
   measurement (12.99 s, 2004 jq spawns, 60 s timeout kills) at lines 221-226.
 - jq guard: line 131 — silent exit 0 without jq, the consumer-safe pattern shared
   with the CC source's reminders.
-- Registration: `plugin/hooks/hooks.json:63` (PostToolUse, matcher `Agent|Task`)
+- Registration: `plugin/hooks/hooks.json:39` (PostToolUse, matcher `Agent|Task`)
   and `:165` (Stop, no matcher) — the two arms are two registrations of one
   script.
 - Decision record: `docs/meta-factory/zcode-parity-mega.decisions.md` §Fork 2

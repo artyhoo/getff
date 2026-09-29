@@ -18,9 +18,12 @@ printf '' | getff_sha256 >/dev/null || { echo "plugin-source-hashes: no sha256su
 # should carry an EMPTY declaration instead — see below), and a `.`/`source` preceded by `(`
 # as in `$(. file)`. A false positive here just costs a hook its manifest entry (safe fallback,
 # per the file header above); it never lets an undeclared read slip through with a hash.
+# The code lines go through a variable, not a pipe: under pipefail an early-exiting `grep -q`
+# can SIGPIPE the producer and turn a match into a miss — the unsafe direction here.
 reaches_beside() {
-  grep -vE '^[[:space:]]*#' "$1" \
-    | grep -qE '(^|[;&|([:space:]])(\.|source)[[:space:]]|BASH_SOURCE|_HOOK_DIR|dirname[[:space:]]+"?\$\{?0\}?"?'
+  local code
+  code=$(grep -vE '^[[:space:]]*#' "$1") || return 1
+  grep -qE '(^|[;&|([:space:]])(\.|source)[[:space:]]|BASH_SOURCE|_HOOK_DIR|dirname[[:space:]]+"?\$\{?0\}?"?' <<<"$code"
 }
 
 for twin in "$ROOT"/plugin/hooks/*; do

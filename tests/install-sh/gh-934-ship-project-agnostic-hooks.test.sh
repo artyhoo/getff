@@ -2,7 +2,7 @@
 # gh-934 (batch D) — install.sh must ship the PROJECT-AGNOSTIC adaptations of the maintainer-only
 # context hooks, and the lang-pack A fix must land:
 #   • inject-project-digest.sh — injects the CONSUMER's OWN anchor (the digest block of THEIR
-#     .claude/session-bootstrap.md) into BOTH UserPromptSubmit (plain stdout) and SubagentStart
+#     .claude/session-bootstrap.md) into BOTH SessionStart (plain stdout) and SubagentStart
 #     (JSON additionalContext). Ships a starter template that is EMPTY → zero-setup no-op by default.
 #   • inject-memory-codification.sh — generic write-time "codify durable rules into the repo" nudge
 #     (message carries NO framework-internal doc ref).
@@ -12,14 +12,17 @@
 # ARMS:
 #   (A) delivery — both hooks + the .claude/session-bootstrap.md template present + hooks executable
 #   (B) template ships EMPTY (digest block whitespace-only) → the injector is a zero-setup no-op
-#   (C) settings-merge — project-digest on UserPromptSubmit AND SubagentStart; memory-codification on
+#   (C) settings-merge — project-digest on SessionStart (startup|resume|clear|compact) AND SubagentStart,
+#       none on UserPromptSubmit; memory-codification on
 #       PostToolUse matcher Write; pre-existing deps-hash (UPS) + check-doc-authority-header (PostToolUse) survive
-#   (D) idempotent — a second install adds no duplicate entry
-#   (E) firing project-digest (UserPromptSubmit) — a filled anchor → plain stdout carries it
+#   (D) idempotent + migration — a re-install over a legacy UserPromptSubmit registration leaves one
+#       SessionStart entry and none per prompt
+#   (E) firing project-digest (SessionStart) — a filled anchor → plain stdout carries it
 #   (F) firing project-digest (SubagentStart) — → JSON additionalContext carries it
 #   (G) firing memory-codification — Write to */memory/* → additionalContext + GENERIC message (no framework doc ref)
 #   (H) lang-pack A fix delivered — shipped en.sh has "if available", lacks "#fork-decided-by-silent-action"
-#   (I) --refresh restores both hooks AND does NOT clobber a consumer-filled session-bootstrap.md
+#   (I) --refresh restores both hooks, migrates a legacy per-prompt registration, AND does NOT clobber
+#       a consumer-filled session-bootstrap.md
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -55,30 +58,38 @@ else
 fi
 
 # ── ARM (C): settings-merge with both events + non-destructive ────────────────
+MATCH='startup|resume|clear|compact'
+LEGACY='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"'
+_seed_legacy() { jq --arg c "$LEGACY" '.hooks.UserPromptSubmit += [{hooks:[{type:"command",command:$c}]}]' "$S" > "$S.tmp" && mv "$S.tmp" "$S"; }
 _ups=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S")
+_ss=$(jq -r --arg m "$MATCH" '(.hooks.SessionStart // []) | map(select(.matcher == $m) | .hooks[].command) | join("|")' "$S")
 _sas=$(jq -r '(.hooks.SubagentStart // []) | map(.hooks[].command) | join("|")' "$S")
 _mcf_m=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-memory-codification"))) | .[0].matcher // ""' "$S")
 _post=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S")
-grep -q 'inject-project-digest' <<<"$_ups" && grep -q 'inject-project-digest' <<<"$_sas" \
-  && ok "(C) inject-project-digest registered on BOTH UserPromptSubmit + SubagentStart" \
-  || bad "(C) project-digest not on both events (ups=$_ups sas=$_sas)"
+grep -q 'inject-project-digest' <<<"$_ss" && grep -q 'inject-project-digest' <<<"$_sas" \
+  && ! grep -q 'inject-project-digest' <<<"$_ups" \
+  && ok "(C) inject-project-digest registered on SessionStart ($MATCH) + SubagentStart, not per prompt" \
+  || bad "(C) project-digest events wrong (ss=$_ss sas=$_sas ups=$_ups)"
 [ "$_mcf_m" = "Write" ] && ok "(C) inject-memory-codification registered PostToolUse matcher=Write" || bad "(C) memory-codification matcher wrong ('$_mcf_m')"
 { grep -q 'deps-hash-check' <<<"$_ups" && grep -q 'check-doc-authority-header' <<<"$_post"; } \
   && ok "(C) pre-existing deps-hash (UPS) + check-doc-authority (PostToolUse) SURVIVED the merge" \
   || bad "(C) a sibling hook was clobbered (ups=$_ups post=$_post)"
 
-# ── ARM (D): idempotency ──────────────────────────────────────────────────────
+# ── ARM (D): idempotency + migration of a legacy per-prompt registration ──────
+_seed_legacy
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --force ) >"$T/.log2" 2>&1
-_n=$(jq '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | map(select(test("inject-project-digest"))) | length' "$S")
-[ "$_n" = 1 ] && ok "(D) idempotent — one project-digest UserPromptSubmit entry after re-install" || bad "(D) non-idempotent ($_n entries)"
+_n=$(jq '(.hooks.SessionStart // []) | map(.hooks[].command) | map(select(test("inject-project-digest"))) | length' "$S")
+_nu=$(jq '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | map(select(test("inject-project-digest"))) | length' "$S")
+{ [ "$_n" = 1 ] && [ "$_nu" = 0 ]; } && ok "(D) re-install over a legacy per-prompt registration → one SessionStart entry, none on UserPromptSubmit" \
+  || bad "(D) re-install left SessionStart=$_n UserPromptSubmit=$_nu project-digest entries"
 
 # ── Fill the anchor for firing arms ───────────────────────────────────────────
 printf '# x\n<!-- digest:start -->\n[project] G934D demo app.\n<!-- digest:end -->\n' > "$BF"
 
-# ── ARM (E): firing project-digest UserPromptSubmit ──────────────────────────
-_e_out=$(printf '{"hook_event_name":"UserPromptSubmit"}' | bash "$PDG" 2>/dev/null) && grep -q 'G934D demo app' <<<"$_e_out" \
-  && ok "(E) firing (UserPromptSubmit): the consumer's filled anchor is injected as plain stdout" \
-  || bad "(E) UserPromptSubmit did not inject the anchor"
+# ── ARM (E): firing project-digest SessionStart ──────────────────────────────
+_e_out=$(printf '{"hook_event_name":"SessionStart","source":"startup"}' | bash "$PDG" 2>/dev/null) && grep -q 'G934D demo app' <<<"$_e_out" \
+  && ok "(E) firing (SessionStart): the consumer's filled anchor is injected as plain stdout" \
+  || bad "(E) SessionStart did not inject the anchor"
 
 # ── ARM (F): firing project-digest SubagentStart ─────────────────────────────
 _sub=$(printf '{"hook_event_name":"SubagentStart"}' | bash "$PDG" 2>/dev/null)
@@ -107,21 +118,24 @@ else
   bad "(H) lang-pack A fix not in the shipped en.sh"
 fi
 
-# ── ARM (I): --refresh restores hooks AND preserves a filled anchor ──────────
+# ── ARM (I): --refresh restores hooks, migrates legacy, preserves a filled anchor ─
 rm -f "$PDG" "$H/inject-memory-codification.sh"
-jq '.hooks.UserPromptSubmit |= (map(select((.hooks[].command | test("inject-project-digest")) | not)))
+jq '.hooks.SessionStart |= (map(select((.hooks[].command | test("inject-project-digest")) | not)))
     | .hooks.SubagentStart |= (map(select((.hooks[].command | test("inject-project-digest")) | not)))' \
   "$S" > "$S.tmp" && mv "$S.tmp" "$S"
+_seed_legacy
 # BF is already filled (arm E) — refresh must NOT clobber it.
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
 _ups2=$(jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S")
+_ss2=$(jq -r --arg m "$MATCH" '(.hooks.SessionStart // []) | map(select(.matcher == $m) | .hooks[].command) | join("|")' "$S")
 _sas2=$(jq -r '(.hooks.SubagentStart // []) | map(.hooks[].command) | join("|")' "$S")
 if [ -x "$PDG" ] && [ -x "$H/inject-memory-codification.sh" ] \
-   && grep -q 'inject-project-digest' <<<"$_ups2" && grep -q 'inject-project-digest' <<<"$_sas2" \
+   && grep -q 'inject-project-digest' <<<"$_ss2" && grep -q 'inject-project-digest' <<<"$_sas2" \
+   && ! grep -q 'inject-project-digest' <<<"$_ups2" \
    && grep -q 'G934D demo app' "$BF"; then
-  ok "(I) --refresh restores both hooks + both registrations AND preserves the consumer-filled anchor"
+  ok "(I) --refresh restores both hooks + both registrations, drops the legacy per-prompt one, AND preserves the anchor"
 else
-  bad "(I) refresh failed / clobbered anchor (pdg=$([ -x "$PDG" ]&&echo y||echo n) anchor-kept=$(grep -q 'G934D demo app' "$BF" && echo y||echo n))"
+  bad "(I) refresh failed (pdg=$([ -x "$PDG" ]&&echo y||echo n) ss=$_ss2 ups=$_ups2 anchor-kept=$(grep -q 'G934D demo app' "$BF" && echo y||echo n))"
 fi
 
 rm -rf "$T"

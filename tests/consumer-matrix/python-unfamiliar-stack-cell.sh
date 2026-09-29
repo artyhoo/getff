@@ -37,9 +37,9 @@
 # bare run: installs). Deterministic + API-free.
 #
 # CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
-# (.github/workflows/audit-self.yml:2210, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
+# (.github/workflows/audit-self.yml:2265, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
-# host state OUTSIDE its tmpdir. Line 346 runs `npm install -g "$ASTGREP_PKG"`, which lands
+# host state OUTSIDE its tmpdir. Line 361 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
 # where `ast-grep` is already a brew-owned symlink into Cellar. The install there either
 # fails on the collision or replaces a brew-managed binary — a local-verify target must not
@@ -356,9 +356,9 @@ step "RED arm — planted violation, ast-grep fires non-zero"
 # Install ast-grep PINNED (ci-tool-pinning.md Rule A — bare `run:` install must pin).
 # `npm install -g` rather than `npx -p` so the cell's later ast-grep invocations are
 # straightforward; the version is the same setup.d/45-python.sh:511 pins.
-# The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :56).
+# The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :69).
 # The pre-push regex gate resolves no variables, so these three lines carry the §3 escape token.
-if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :56
+if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :69
   echo "----- npm-install.log"
   cat "$WORK/npm-install.log"
   fail "npm install -g $ASTGREP_PKG failed"  # ci-tool-pin: allow error message, not an install

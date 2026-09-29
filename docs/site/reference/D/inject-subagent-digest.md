@@ -63,7 +63,7 @@ printf '%s' '{"session_id":"docs-demo-sd-1"}' \
 ```
 
 ```text
-[session-bootstrap digest — auto-injected at prompt submit]
+[session-bootstrap digest — auto-injected at session start]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
 Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
 Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.
@@ -73,7 +73,7 @@ Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.
 ```
 
 That is the text the sub-agent receives — the same digest that arrives in the main
-session on every prompt, delivered by
+session at every session start, delivered by
 [inject-session-bootstrap](inject-session-bootstrap.md) and shown in full on that page.
 One logic, two channels, one source of truth: change the digest in one place and both
 audiences move together.
@@ -116,7 +116,7 @@ parity doctrine rather than smoothed over.
   without jq`. Empty digest: line 24 — `[[ -z "$DIGEST" ]] && exit 0`.
 - The output: lines 26-27 wrap the digest in
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`.
-- Registration: `.claude/settings.json:207` opens the SubagentStart block with the
+- Registration: `.claude/settings.json:199` opens the SubagentStart block with the
   command at line 203.
 - No plugin twin: the card's delivery row carries only the CC-only marker, and
   `ls plugin/hooks | grep inject-subagent-digest` finds nothing — the SubagentStart

@@ -1,6 +1,6 @@
 ---
 title: inject-output-language hook
-description: Pin the language you want to be addressed in, and this tiny hook reminds the agent of it on every single turn — while your repo's artifacts stay English whatever you pick.
+description: Pin the language you want to be addressed in, and this tiny hook reminds the agent of it once per session — while your repo's artifacts stay English whatever you pick.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -41,10 +41,10 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 | name | `inject-output-language` |
 | kind | hook |
 | ships-to | framework: react-native, react-next, react-spa, ts-server |
-| description | UserPromptSubmit hook — injects the active output-language line into prompt context |
+| description | SessionStart hook — injects the active output-language line into session context |
 | source | `.claude/hooks/inject-output-language.sh:2` |
-| event | `["UserPromptSubmit"]` |
-| matcher | `[]` |
+| event | `["SessionStart"]` |
+| matcher | `["startup|resume|clear|compact"]` |
 | delivery | `["@cc-only-rationale","plugin"]` |
 <!-- getff:end section=D-card-inject-output-language -->
 
@@ -54,8 +54,10 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 
 You want to talk to your agent in your language. You do not want your repository
 translated — comments, commit messages, and specs in a mixed language rot quickly. This
-hook holds that line. On every prompt you submit, it reminds the agent which language to
-address you in and which language everything written into the repo must stay in.
+hook holds that line. When a session starts — and again after `/clear`, a resume, or a
+compaction — it reminds the agent which language to address you in and which language
+everything written into the repo must stay in. Once per context is enough: the line
+stays in context, and repeating it on every prompt only cost tokens.
 
 You control it with one environment variable, `AIF_HOOK_LANG`. With nothing set — or set
 to `en` — the hook does nothing at all. English is the zero-setup default, and a no-op
@@ -69,7 +71,7 @@ printf '%s' '{"prompt":"hi"}' | bash .claude/hooks/inject-output-language.sh
 (nothing — exit 0)
 ```
 
-Set it to `ru` and every turn carries the same one-line instruction:
+Set it to `ru` and the session carries the same one-line instruction:
 
 ```bash
 printf '%s' '{"prompt":"hi"}' | AIF_HOOK_LANG=ru bash .claude/hooks/inject-output-language.sh
@@ -86,9 +88,9 @@ the hook's own header suggests.
 
 Two things it pointedly does not do:
 
-- **It never reads your prompt.** The hook ignores its standard input entirely; the only
-  thing it looks at is the environment variable. Same reminder every turn, no parsing,
-  nothing to go wrong.
+- **It never reads your prompt.** The language logic looks only at the environment
+  variable. The one read of standard input takes the session id, to mark that this copy
+  ran. Same reminder every time, no parsing, nothing to go wrong.
 - **It is an instruction, not a [gate](../../terms.md#gate).** The reminder travels to
   the model on the ordinary injected-context [channel](../../terms.md#channel); whether
   the reply comes out in your language is still the model's to deliver. That is the
@@ -130,8 +132,8 @@ set, the plugin's copy always runs.
 
 ## Evidence
 
-- `.claude/hooks/inject-output-language.sh:2` is the header the card's description row
-  quotes: `# inject-output-language.sh — UserPromptSubmit hook — injects the active output-language line into prompt context`.
+- `.claude/hooks/inject-output-language.sh:2` is the header line the card's description row
+  quotes: `# inject-output-language.sh — SessionStart hook — injects the active output-language line into session context`.
 - Zero-setup default: line 32 opens `case "${AIF_HOOK_LANG:-en}" in` and line 33 is
   `en|'') : ;;  # English default — nothing to inject`. Header line 17 states it:
   «Unset / "en" → nothing is injected (English is the zero-setup default)».
@@ -150,12 +152,13 @@ set, the plugin's copy always runs.
   maintainer-only inject-session-bootstrap.sh — it emits ONLY the language signal (never
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
-  `.claude/hooks/inject-session-bootstrap.sh:129-138`.
-- Two registrations reach consumers: `plugin/hooks/hooks.json:16` runs
+  `.claude/hooks/inject-session-bootstrap.sh:120-128`.
+- Registration: `plugin/hooks/hooks.json:179` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
-  UserPromptSubmit, and `setup.d/10-skills.sh:376` registers the project copy with
-  `register_cc_hook "$SETTINGS" "UserPromptSubmit" … "inject-output-language"`. The
-  framework's own settings file has neither (measured:
+  SessionStart with the matcher `startup|resume|clear|compact`; an install registers the
+  same in the consumer's settings (`setup.d/10-skills.sh:378-379`), first removing the
+  per-prompt registration an older install left behind. The framework's own settings file
+  has neither (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
 - The twin is hand-maintained: line 31 of the source reads `# @plugin-transform: manual`,
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
@@ -164,13 +167,13 @@ set, the plugin's copy always runs.
 - Silent in two modes, not one: the plugin file's line 2 names its source
   (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 19
   declares `# @plugin-yields-to: inject-session-bootstrap`. **Source mode**
-  (`plugin/hooks/run-hook.cmd:219`, `[ "$_yield_mode" = source ] && exit 0`): the project is
+  (`plugin/hooks/run-hook.cmd:218`, `[ "$_yield_mode" = source ] && exit 0`): the project is
   the plugin's own source checkout — it ships `plugin/.claude-plugin/plugin.json` under the
   same plugin name as `plugin/hooks/inject-output-language`, and its `.claude/settings.json`
   runs getff's copy of the named hook in the installer's exact form, on every event and
-  matcher the plugin registers. **Consumer mode** (`plugin/hooks/run-hook.cmd:227`, inside
+  matcher the plugin registers. **Consumer mode** (`plugin/hooks/run-hook.cmd:226`, inside
   `if [ -r ".../lib/live-claim.sh" ] … && getff_live_claim …; then exit 0; fi`) covers any
-  other project. `run-hook.cmd:163` sets `_yield_mode=consumer` when the installed
+  other project. `run-hook.cmd:162` sets `_yield_mode=consumer` when the installed
   `.claude/hooks/inject-output-language.sh` and every file its `@plugin-yield-deps` marker
   names pass `getff_closure_matches` (`plugin/hooks/lib/source-hash.sh`). That check hashes
   them against `plugin/hooks/lib/source-sha256.txt`, which `scripts/plugin-source-hashes.sh`
@@ -180,7 +183,7 @@ set, the plugin's copy always runs.
   plugin copy keeps running if no marker appears within roughly 300 ms or the marker is over
   5 seconds old. A different session, an `untrusted` directory or a lost race does the same.
   Both modes share one more gate: the `cwd` in the hook's input must resolve to the project
-  root itself (`run-hook.cmd:212-219`). After EnterWorktree or `/cd`, Claude Code takes
+  root itself (`run-hook.cmd:211-218`). After EnterWorktree or `/cd`, Claude Code takes
   project settings from the new directory, while `CLAUDE_PROJECT_DIR` stays at the start
   root. A `cd` in Bash moves `cwd` too, so a subdirectory `cwd` cannot tell the two apart.
   Either way the plugin copy runs.
@@ -189,10 +192,11 @@ set, the plugin's copy always runs.
   session that left the project root. Y27 and Y28 check that a running copy gets its whole
   input and keeps its exit code. The `C` arms (`C1`-`C11`) pin the consumer hash path:
   C1 is the byte-identical yield, and the others flip one input, such as an edited file or a
-  corrupt hash lib, back to "runs". The `D` arms pin the liveness claim: a missing, stale or
+  corrupt hash lib, back to "runs". The `D` arms pin the proof that the installed copy ran: a missing, stale or
   foreign marker, a custom timeout or any extra registration field, and a lost race all
   leave the plugin copy running. R1 asserts the silence against this repo's settings, and R2
-  counts one language line per prompt. R3 asserts the digest line equals this hook's line
+  counts one language line per
+  session start. R3 asserts the digest line equals this hook's line
   for `ru` and `de`.
 - No test under `packages/core/hooks/` carries this hook's name, and this page states
   that rather than implying coverage. The demos above and the
