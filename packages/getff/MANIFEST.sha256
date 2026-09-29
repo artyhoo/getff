@@ -7,8 +7,8 @@
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
 10b6d422e95b051d6fd697f16b77453f81a8ba1870e2dbf18fc88a0bb047170d  .claude/hooks/close-aif-task-on-merge.sh
 178b62f7449dd92f734b3e5560a943567a235cbcf3698fa8982b13bffd1f8760  .claude/hooks/deps-hash-check.sh
-3ab6e44c53f1bc4a356f4a4866cb74a81dc6b323932a6d062bf6eaa5b91ee6d9  .claude/hooks/end-of-turn-reminder.sh
-2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
+b3f62cbe1b42dd59e5a89c4e99b1479d7c79b0a8256dcbffb4bcf3abf2eff799  .claude/hooks/end-of-turn-reminder.sh
+34c1bd413780f8f2fb8c810896792443955cf5447451db8c5384aed74dadfc54  .claude/hooks/glossary-inject.sh
 6717f091e4fdf731029cfa0d423a3f5ed1cd1eeddf3d88a7da852698158f319d  .claude/hooks/inject-handoff-on-compact.sh
 298fa3fdcbc2fbe07f201ebd1aee8bccfa0eda901c547ebaeaa3c79b92b4cb86  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
@@ -210,7 +210,7 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
-ddd72712fe9453be1a90dd1252dd45df333e5aba5db01c2339b54e8a1bea83eb  packages/core/audit-self/pre-merge-local.sh
+d27dbb62c86029638f0eb306c268efdb93051245ceb3634a3b53cc5d17f5e42f  packages/core/audit-self/pre-merge-local.sh
 35328bfb258f5ae620bdeea93427f2af6602e590300a114b0d8173e336a7898e  packages/core/audit-self/pre-merge-local.test.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  packages/core/audit-self/r2-na-marker.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
@@ -500,7 +500,7 @@ b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
 f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
-8ee8b9d29206f0b1de1addb68d1f74dfcf4040ac8e9fac3a45fd1fb01dbb8fbb  packages/core/hooks/pre-push.test.ts
+2a88c9847e7f436068d610d0cad26395b6d054b9d7a2ee9102057a58e755d4aa  packages/core/hooks/pre-push.test.ts
 9047ddcb411f299941562b0844d07f7ccfce7f49462fa99cbc7a7a1d88e7ff7d  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
@@ -536,7 +536,7 @@ dcc514ea7a4016d41e2cef5482b122ee4440414cd30667a0da66925bfe9f260f  packages/core/
 bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
 629c469f57b6e2d3f7e34303875e7d5eb1f599bb9c9f316327339d783278028e  packages/core/install/wire-eslint-r2.test.ts
 a8054df97c5f37902e5fded2bb56b426ff2efa5eaf8776d4f6cd094c1cab5e9a  packages/core/install/wire-eslint-r2.ts
-f9e63a7e971684756793cbf872e59d4dc56b5217407392f9aeb309709640cd4c  packages/core/install/wire-live-snippet.test.ts
+765be64dcd882ce0d90334a58aeb163e3619b0c5e4886bd6c0feb299f182591f  packages/core/install/wire-live-snippet.test.ts
 f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
 90f3aed2bf8876cb2eacfa7d445bd98bcd5fcf61048a0693b283534b309c7bbc  packages/core/installer/expected-self-install.json
@@ -1107,7 +1107,7 @@ f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-wor
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh
 77b7349455712355e36c2265913040761093c26d87f798284d14ff5f5dc87091  setup.d/companions.manifest
 19aa0f42473100106c528fc96ea3191fddcc2955f6adfe1a75c8a4083f70eb99  setup.d/engine.sh
-b876c6d617c0508335050b50a22b99ca85db765ad7a21d7cd382776a17c18302  setup.d/eslint-wire.sh
+8bc760cb0e42c27b6b6859b44dec410470c824f6d6af58ea3a6ad5be4810782d  setup.d/eslint-wire.sh
 56a70d13e88e84316d1fa16dc245512c8349b6508203148362878792238e3dd0  setup.d/lib.sh
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 6e9c9caca5bc02824da852b238f1c86077b64a3843f20657f059e701421d4c2c  skills/getff/SKILL.md
