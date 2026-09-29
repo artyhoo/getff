@@ -189,7 +189,8 @@ if command -v node >/dev/null 2>&1 && [ -n "$_root_eslint" ] \
   # D1 below claims «fences fire» for this root config: when getff's rules did not land in it, that is
   # not this install's to claim (cold-review F8; a .cjs/.ts root sets the same in copy_unless_foreign).
   # An edited getff config still holds getff's fences, as on getff's branch before, so D1 checks it.
-  [ -n "$_root_edited" ] || grep -q 'rules-as-tests/' "$PROJECT_ROOT/$_root_eslint" 2>/dev/null || ESLINT_ROOT_NOT_WIRED=1
+  # Read as code: a comment naming a rule is not the rule.
+  [ -n "$_root_edited" ] || grep -q 'rules-as-tests/' <<<"$(eslint_config_code "$PROJECT_ROOT/$_root_eslint")" || ESLINT_ROOT_NOT_WIRED=1
 elif ! command -v node >/dev/null 2>&1 \
      && { [ "$_root_eslint" = eslint.config.mjs ] || [ "$_root_eslint" = eslint.config.js ]; } \
      && { [ -n "$_root_edited" ] || ! getff_delivered "$PROJECT_ROOT/$_root_eslint"; }; then
@@ -518,8 +519,10 @@ _r2_boundary_under() {
   [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
 }
 _r2_would_wire() {
+  local code
+  code=$(eslint_config_code "$1")
   if _r2_getff_owned "$1"; then
-    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
+    ! grep -q 'rules-as-tests/no-unsafe-zod-parse' <<<"$code"
     return
   fi
   _r2_named_in "$1" && return 1
@@ -711,16 +714,17 @@ _f11_describe() {
   esac
   if [ -z "$ws" ] && [ -n "$key" ] \
      && { [ "$_root_eslint" = eslint.config.js ] || [ "$_root_eslint" = eslint.config.mjs ]; }; then
-    local cfg="$PROJECT_ROOT/$_root_eslint" label=RULE_GLOBS
+    local cfg="$PROJECT_ROOT/$_root_eslint" label=RULE_GLOBS code
     [ -z "$strict" ] || label="RULE_GLOBS.$key"
+    code=$(eslint_config_code "$cfg")   # the config's code: a comment naming a rule or RULE_GLOBS sets none
     case "$s" in
       *"matches ZERO source files"*) what="its RULE_GLOBS.$key matches none of the project's source files" ;;
-      *) if grep -q 'RULE_GLOBS' "$cfg"; then
+      *) if grep -q 'RULE_GLOBS' <<<"$code"; then
            what="its RULE_GLOBS has no $key array of quoted globs"
          elif [ -n "$strict" ]; then
            what="it has no RULE_GLOBS block"
          else
-           ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$cfg" \
+           ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$code" \
              | sort -u | sed 's|^|rules-as-tests/|' | tr '\n' ' ' | sed 's/ $//; s/ /, /g') || ids=""
            what="it sets $ids itself with no RULE_GLOBS block"
          fi ;;
