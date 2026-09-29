@@ -84,6 +84,18 @@ have been wrong.
 
   It also fails a `NEVER_SKIP` entry that sits in no skip region, which catches a stale entry.
 
+A second, non-strace pass covers the class strace cannot see: a question put to git's index or
+object store (`git ls-files`, `git log --`, `git show HEAD:`) reads `.git/`, not the skip-region
+path. A grep of the gated jobs' scripts, one call level deep, for `git … ls-files|ls-tree|log|show|cat-file|grep --cached`
+found five readers:
+- `scripts/host-verify-coverage.sh:104`: its fixtures resolve two tracked docs paths, and the cold
+  review traced that deleting either one leaves the asserted candidate counts unchanged.
+- `scripts/build-getff-dist.sh:65` and `scripts/format-shipped.sh:78`: their pathspecs name no
+  skip region.
+- `tests/consumer-matrix/own-config-cell.sh:189`: copies the tree; its readers are traced.
+- `scripts/lib/claude-md-excludes.test.sh:118`: whole-repo `git ls-files`, but it runs in the
+  ungated `alwayson-budget` job.
+
 Limits: strace sees only the paths this commit's code reads on the traced branch paths. A reader added
 later, or a branch not taken at `b1fbe4eaaaa` (e.g. one keyed on changed files), is not in the trace.
 Coverage: 100% of gated steps traced. Calibration: first run of this method.

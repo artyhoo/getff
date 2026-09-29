@@ -77,10 +77,12 @@ const AGGREGATE = 'ci-success';
  *
  * A genuinely push-only job (one whose `if:` can never be true on a `pull_request` event)
  * would be the other legitimate shape, and this map is where it would be declared. There is
- * none today: the only `if:`-guarded job is `pr-commit-trailers` (audit-self.yml:1199,
- * `github.event_name == 'pull_request'`), which is wired in and whose `skipped` result the
- * aggregate accepts as OK by design (scripts/ci-success-gate.sh:41). So an `if:` guard is NOT
- * a reason to leave a job out — `skipped` already counts as passing.
+ * none today. The `if:`-guarded jobs are `pr-commit-trailers` (audit-self.yml:1199,
+ * `github.event_name == 'pull_request'`), whose `skipped` result the aggregate accepts as OK
+ * by design (scripts/ci-success-gate.sh:26-27), and the install-area jobs gated on the
+ * `path-scope` output, whose `skipped` is OK only when that output said `false`
+ * (scripts/ci-success-gate.sh:30-39). Both kinds are wired in. So an `if:` guard is NOT a
+ * reason to leave a job out — the aggregate judges the skip.
  */
 const NEEDS_ALLOWLIST = new Map<string, string>([
   [

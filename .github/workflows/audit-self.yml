@@ -7,7 +7,7 @@ on:
   merge_group:
 
 # A newer push to the same PR supersedes the older run: its jobs are cancelled instead of
-# holding runner slots (20 concurrent jobs for this account, 44 jobs per run). Only
+# holding runner slots (20 concurrent jobs for this account, 45 jobs per run). Only
 # pull_request runs share a group — push (staging/main/chore/**) and merge_group runs each get
 # their own run_id group, so they are never cancelled. The superseded run's `ci-success` still
 # runs (`if: always()`) and reports RED on the superseded SHA, which is no longer the PR head;
@@ -2273,6 +2273,21 @@ jobs:
             scoped: true  # 8.5 of this job's ~12 runner-minutes; path-scoped via RUN_CELL
             label: "getff-dist cell on Windows — the npx getff init path consumers actually run"
     steps:
+      # Unconditional guard for RUN_CELL, which ci-success cannot see (a cell whose steps all
+      # skip still concludes `success`): whenever the path-scope decision is `true`, every
+      # cell MUST run, so a broken RUN_CELL expression fails here instead of going silently
+      # green on every event, the staging push backstop included. A cell skipped by decision
+      # says so in its log instead of looking like a pass.
+      - name: Path-scope guard (a scoped cell runs whenever install=true)
+        shell: bash
+        env:
+          INSTALL: ${{ needs.path-scope.outputs.install }}
+        run: |
+          if [ "$RUN_CELL" != true ] && [ "$INSTALL" = true ]; then
+            echo "::error::RUN_CELL='$RUN_CELL' while path-scope decided install=true — this cell would skip its checks"
+            exit 1
+          fi
+          [ "$RUN_CELL" = true ] || echo "::notice::cell skipped by path-scope (install=$INSTALL); nothing below runs"
       # Reproduce the checkout a Windows consumer gets: Git for Windows defaults
       # to core.autocrlf=true, which is what lands CRLF shebangs in the 336
       # tracked *.sh. With the repo's .gitattributes (`* text=auto eol=lf`) the

@@ -47,6 +47,7 @@ expect_scope 0 "scope true, scoped jobs ran"            true  "success success" 
 expect_scope 0 "scope false, scoped jobs skipped"       false "skipped skipped" success skipped skipped
 expect_scope 1 "scope true but a scoped job skipped"    true  "success skipped" success success skipped
 expect_scope 1 "scope decision missing (job failed)"    ""    "skipped skipped" failure skipped skipped
+expect_scope 1 "scope decision empty, every job green"  ""    "success success" success success success
 expect_scope 1 "scope decision garbage"                 maybe "skipped"         success skipped
 expect_scope 1 "scope true, scoped results unwired"     true  ""                success success
 expect_scope 1 "scope false does not mask a failure"    false "skipped"         success failure skipped

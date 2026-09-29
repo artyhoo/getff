@@ -9,6 +9,10 @@
 set -uo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
+# The scratch repos below must never resolve to this repo: a GIT_DIR exported by a hook in a
+# linked worktree would make `git init`/`checkout`/`merge` act on the real repository.
+# shellcheck disable=SC2046  # the word split IS the variable list
+unset $(git rev-parse --local-env-vars 2>/dev/null) 2>/dev/null || true
 SCOPE="$HERE/ci-path-scope.sh"
 PASS=0
 FAIL=0
@@ -16,6 +20,8 @@ ok()  { PASS=$((PASS+1)); printf 'PASS: %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf 'FAIL: %s\n' "$1"; }
 
 TMP=$(mktemp -d)
+# "no git repository" below must hold even when TMPDIR sits inside a work tree.
+export GIT_CEILING_DIRECTORIES="$TMP"
 trap 'rm -rf "$TMP"' EXIT
 
 # A path inside the first two measured skip patterns (a `*` pattern becomes a file under it).
