@@ -120,7 +120,7 @@ masquerades as a clean file.
   quotes: `# validate-prompt.sh — PostToolUse gate — validates the batch-spec section on orchestrator-prompts kickoff edits`.
 - Registration: `.claude/settings.json:104` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 109; the plugin registry registers it too
-  (`plugin/hooks/hooks.json:81`).
+  (`plugin/hooks/hooks.json:57`).
 - Scope: lines 117-119 pass only paths containing `.claude/orchestrator-prompts/` and
   ending `.md`; the dependency-skip notices are scoped the same way (lines 101-108)
   so a jq-less machine is not warned on every edit.

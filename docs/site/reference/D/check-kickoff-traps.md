@@ -135,7 +135,7 @@ that to review, on purpose.
   quotes: `# check-kickoff-traps.sh — PostToolUse gate — kickoff T-enumeration floor (ai-laziness-traps §3)`.
 - Registration: `.claude/settings.json:132` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 136; the plugin registry registers it too
-  (`plugin/hooks/hooks.json:108`).
+  (`plugin/hooks/hooks.json:84`).
 - Engagement guard: line 216 greps for `ai-laziness-traps` in the file content — the
   comment (lines 214-215) says a kickoff that never engages is «principle-12 /
   review territory».

@@ -116,7 +116,7 @@ short for a regenerated question card and denied the same retry four times.
 Delivery, per the card: your install copies the hook and registers it
 (`setup.d/10-skills.sh:328-336`), which is why the ships-to row names real stacks;
 the framework registers it too (`.claude/settings.json:85` matcher, command at line
-89) as does the plugin registry (`plugin/hooks/hooks.json:43`). The challenge text
+89) as does the plugin registry (`plugin/hooks/hooks.json:19`). The challenge text
 speaks your language when the operator sets `AIF_HOOK_LANG=ru` — the `@dual-pair`
 marker on this hook anchors the English/Russian language-pack pair, not a
 portability twin (lines 3-5). And if `jq` is missing on a minimal consumer box, the
@@ -145,7 +145,7 @@ consumer's agent ever asks would be worse than a missing nudge.
 - jq-absent posture: lines 40-43 — silent exit 0, «never error-spam a consumer's
   every AskUserQuestion».
 - Registration: `.claude/settings.json:85` reads `"matcher": "AskUserQuestion"`
-  with the command at line 89; plugin registration at `plugin/hooks/hooks.json:43`;
+  with the command at line 89; plugin registration at `plugin/hooks/hooks.json:19`;
   consumer install copies the file and registers it at `setup.d/10-skills.sh:328-336`.
 - ZCode: the parity census row 2 (`.claude/rules/zcode-parity-doctrine.md` §2)
   classifies this hook `parity` — the PreToolUse event and the AskUserQuestion

@@ -126,7 +126,7 @@ loud and scoped — «a SKIP, not a pass».
   quotes: `# check-hook-marker.sh — PostToolUse gate — delivery-channel marker + strict header grammar on touched hook files`.
 - Registration: `.claude/settings.json:141` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 145; the plugin registry registers it too
-  (`plugin/hooks/hooks.json:117`).
+  (`plugin/hooks/hooks.json:93`).
 - Arm 1: line 134 greps `^# @(dual-pair|cc-only-rationale):` — anchored to a comment
   line so prose documenting the syntax is not mis-counted (comment at lines 132-133);
   the violation text is lines 135-139.

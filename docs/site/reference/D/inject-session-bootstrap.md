@@ -15,6 +15,7 @@ sources:
   - docs/site/reference/D.md
   - docs/site/terms.md
   - plugin/hooks/hooks.json
+  - scripts/render-harness-config.mjs
   - packages/core/hooks/inject-session-bootstrap.test.ts
 executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-25, result: printed }
@@ -41,7 +42,7 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 | source | `.claude/hooks/inject-session-bootstrap.sh:2` |
 | event | `["UserPromptSubmit"]` |
 | matcher | `[]` |
-| delivery | `["@cc-only-rationale","plugin"]` |
+| delivery | `["@cc-only-rationale"]` |
 <!-- getff:end section=D-card-inject-session-bootstrap -->
 
 <!-- vale on -->
@@ -56,8 +57,10 @@ prompt context. Not a file the agent should read — text that arrives whether o
 anything reads it.
 
 This is the framework's own digest, about the framework's own rules — that is why it is
-in this family but not shipped to consumer projects as-is (consumers get
+in this family but not shipped to consumer projects (consumers get
 [inject-project-digest](inject-project-digest.md), which injects their digest instead).
+Until 2026-09-29 the plugin also carried it, so every repository with the plugin got
+getff's internal digest on each prompt; the plugin no longer ships it.
 Here it is running in the getff repository, verbatim:
 
 ```bash
@@ -112,8 +115,10 @@ mark those anchor points so the rendered rule index reports the full delivery su
 
 - `.claude/hooks/inject-session-bootstrap.sh:2` is the header the card's description row
   quotes: `# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context`.
-- Registration: `.claude/settings.json:70` (UserPromptSubmit) and
-  `plugin/hooks/hooks.json:24` both wire it; no matcher is set.
+- Registration: `.claude/settings.json:70` (UserPromptSubmit) wires it; no matcher is
+  set. The plugin does not: `scripts/render-harness-config.mjs` lists it in
+  `PLUGIN_INCOMPATIBLE` as operator-axis only, so `plugin/hooks/hooks.json` has no entry
+  for it (measured: `grep -c inject-session-bootstrap plugin/hooks/hooks.json` prints `0`).
 - The harness-portable output helpers are inline, lines 25-28 — `_is_zcode` branching on
   `ZCODE_PROJECT_DIR` and `_emit_ctx` choosing plain stdout or strict-JSON
   `additionalContext`; header lines 10-12 explain why (under ZCode, plain stdout is

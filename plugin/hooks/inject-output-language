@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Plugin twin of .claude/hooks/inject-output-language.sh.
-# @cc-only-rationale: CC-specific UserPromptSubmit hook — its stdout is auto-injected into the
-#   Claude Code prompt context by the harness, a CC-native fire-point with no portable counterpart.
+# @cc-only-rationale: CC-specific SessionStart hook — its stdout is auto-injected into the
+#   Claude Code session context by the harness, a CC-native fire-point with no portable counterpart.
 #   The plugin twin exists ONLY to serve the plugin distribution channel (ZCode-aware via inline
 #   _emit_ctx); the .claude/hooks/ original stays the SSOT and remains shipped to consumer CC
 #   projects via install.sh. The two files are dual-channel (plugin + repo) but ONE logic — see
@@ -16,7 +16,7 @@
 #      it only fires on CC.
 #
 # Purpose: when the operator pins a non-English human-facing language via AIF_HOOK_LANG, tell the
-# model — every turn, all skills — so chat/recaps/narration follow that language while ALL repo
+# model — once per context, all skills — so chat/recaps/narration follow that language while ALL repo
 # artefacts + machinery stay English. Precisely scoped: this injects an instruction to the model,
 # not a translation of anything. See .claude/rules/language-discipline.md §2 (category 2, human-facing).
 #

@@ -126,7 +126,7 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
   (`docs/meta-factory/research-patches/2026-06-27-meta-orch-channel-discipline-mechanism.md`).
 - Registration: `.claude/settings.json:159` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 163; the plugin registry registers it too
-  (`plugin/hooks/hooks.json:135`).
+  (`plugin/hooks/hooks.json:111`).
 - Single shared matcher: lines 5-8 — «Both this hook and principle 29's CI test call
   that one matcher — never two divergent copies (anti-pattern `#two-prompts-drift`)».
   The matcher module is `packages/core/principles/29-worker-dispatch-channel.ts`:

@@ -153,7 +153,7 @@ harnesses.
 - Registration: `.claude/settings.json:150` (PostToolUse, matcher
   `Write|Edit|MultiEdit`, command line 154) and `:179` (PostToolUseFailure, same
   matcher, command line 183); the plugin registers both arms too
-  (`plugin/hooks/hooks.json:126`, `:155`).
+  (`plugin/hooks/hooks.json:102`, `:131`).
 - Census row 17 (`.claude/rules/zcode-parity-doctrine.md` §2): `zcode-gap` —
   «degraded (`MultiEdit` matcher inert; Write+Edit fire); failure arm fires too».
 - Paired test: `packages/core/hooks/runtime-bridge-dispatch.test.ts` — the guard

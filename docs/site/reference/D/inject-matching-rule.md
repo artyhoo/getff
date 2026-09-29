@@ -111,7 +111,7 @@ always exits 0.
   quotes: `# inject-matching-rule.sh — PostToolUse hook — path-scoped just-in-time delivery of .claude/rules/*.md summaries`.
 - Registration: `.claude/settings.json:123` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 127; the plugin registry registers it too
-  (`plugin/hooks/hooks.json:99`). The tool is re-checked defensively at line 57:
+  (`plugin/hooks/hooks.json:75`). The tool is re-checked defensively at line 57:
   `case "$TOOL" in Edit|Write|MultiEdit) ;; *) exit 0 ;; esac`.
 - The dual-pair marker is line 4, `# @dual-pair: rule-path-scoping`, and lines 5-9
   explain the pair: native `paths:` frontmatter delivers the whole rule at read-time,

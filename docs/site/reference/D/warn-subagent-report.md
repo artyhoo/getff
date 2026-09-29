@@ -147,7 +147,7 @@ reading as a clean one.
 - Registration: `.claude/settings.json:222` (SubagentStop section, no matcher);
   the plugin registry deliberately does not carry this hook — its slot is held by
   the zcode twin (`plugin/hooks/warn-subagent-report-zcode`, registered twice at
-  `plugin/hooks/hooks.json:63` and `:165`).
+  `plugin/hooks/hooks.json:39` and `:141`).
 - Pair grammar: the twin's header (lines 4-10) names this file as the SSOT for the
   REPORT grammar — `REPORT_CUE_RE` at line 102 here, section regexes at
   lines 113-121.

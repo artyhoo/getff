@@ -359,21 +359,24 @@ if [ -f "$IMR_SRC" ]; then
   fi
 fi
 
-# ─── 1f. Output-language UserPromptSubmit hook (GH #934 batch B) ──────────────
+# ─── 1f. Output-language SessionStart hook (GH #934 batch B) ──────────────────
 # The consumer-generic slice EXTRACTED from the maintainer-only inject-session-bootstrap.sh: when the
 # operator pins AIF_HOOK_LANG, tell the model to address them in that language (repo artefacts stay
 # English). The framework-self-referential goal/invariants digest is NOT shipped — it stays INTERNAL.
 # Consumer-safe: pure bash, no jq, no framework-internal dependency; en/unset → no-op (zero-setup).
-# Registered as UserPromptSubmit (no matcher — not a tool-scoped event), non-destructive/idempotent.
+# Registered on SessionStart (startup|resume|clear|compact) — once per context, not per prompt
+# (2026-09-29; an install from before that date had it on UserPromptSubmit, which is removed here so a
+# re-install moves it instead of doubling it). Non-destructive/idempotent.
 OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
 OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
 if [ -f "$OLH_SRC" ]; then
   copy_safe "$OLH_SRC" "$OLH_DST"
   chmod_safe +x "$OLH_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-output-language as a UserPromptSubmit hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-output-language as a SessionStart:startup|resume|clear|compact hook in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+    unregister_cc_hook "$SETTINGS" "UserPromptSubmit" "inject-output-language"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language" "startup|resume|clear|compact"
   fi
 fi
 
@@ -403,7 +406,9 @@ fi
 # Project-agnostic adaptation of the maintainer-only inject-session-bootstrap + inject-subagent-digest
 # pair (which hard-code the FRAMEWORK's own goal/invariants digest). This ONE hook injects the
 # CONSUMER's own anchor — the digest block of THEIR .claude/session-bootstrap.md — into BOTH the main
-# session (UserPromptSubmit) and every subagent (SubagentStart). We also ship a starter template
+# session (SessionStart — once per context: startup|resume|clear|compact, since 2026-09-29; it was
+# UserPromptSubmit before, which re-injected an unchanged block on every prompt) and every subagent
+# (SubagentStart). We also ship a starter template
 # (copy_safe → .claude/session-bootstrap.md, non-destructive) that ships EMPTY, so nothing is injected
 # until the consumer fills it (zero-setup, zero token cost by default).
 PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
@@ -414,9 +419,10 @@ if [ -f "$PDG_SRC" ]; then
   # Starter template → consumer's .claude/session-bootstrap.md (never overwrite a filled one).
   [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-project-digest as UserPromptSubmit + SubagentStart hooks"
+    echo "  [dry-run] would: register inject-project-digest as SessionStart:startup|resume|clear|compact + SubagentStart hooks"
   else
-    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+    unregister_cc_hook "$SETTINGS" "UserPromptSubmit" "inject-project-digest"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest" "startup|resume|clear|compact"
     register_cc_hook "$SETTINGS" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
   fi
 fi

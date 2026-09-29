@@ -1,6 +1,6 @@
 ---
 title: inject-output-language hook
-description: Pin the language you want to be addressed in, and this tiny hook reminds the agent of it on every single turn — while your repo's artifacts stay English whatever you pick.
+description: Pin the language you want to be addressed in, and this tiny hook reminds the agent of it once per session — while your repo's artifacts stay English whatever you pick.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -34,10 +34,10 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 | name | `inject-output-language` |
 | kind | hook |
 | ships-to | framework: react-native, react-next, react-spa, ts-server |
-| description | UserPromptSubmit hook — injects the active output-language line into prompt context |
+| description | SessionStart hook — injects the active output-language line into session context |
 | source | `.claude/hooks/inject-output-language.sh:2` |
-| event | `["UserPromptSubmit"]` |
-| matcher | `[]` |
+| event | `["SessionStart"]` |
+| matcher | `["startup|resume|clear|compact"]` |
 | delivery | `["@cc-only-rationale","plugin"]` |
 <!-- getff:end section=D-card-inject-output-language -->
 
@@ -47,8 +47,10 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 
 You want to talk to your agent in your language. You do not want your repository
 translated — comments, commit messages, and specs in a mixed language rot quickly. This
-hook holds that line. On every prompt you submit, it reminds the agent which language to
-address you in and which language everything written into the repo must stay in.
+hook holds that line. When a session starts — and again after `/clear`, a resume, or a
+compaction — it reminds the agent which language to address you in and which language
+everything written into the repo must stay in. Once per context is enough: the line
+stays in context, and repeating it on every prompt only cost tokens.
 
 You control it with one environment variable, `AIF_HOOK_LANG`. With nothing set — or set
 to `en` — the hook does nothing at all. English is the zero-setup default, and a no-op
@@ -62,7 +64,7 @@ printf '%s' '{"prompt":"hi"}' | bash .claude/hooks/inject-output-language.sh
 (nothing — exit 0)
 ```
 
-Set it to `ru` and every turn carries the same one-line instruction:
+Set it to `ru` and the session carries the same one-line instruction:
 
 ```bash
 printf '%s' '{"prompt":"hi"}' | AIF_HOOK_LANG=ru bash .claude/hooks/inject-output-language.sh
@@ -80,7 +82,7 @@ the hook's own header suggests.
 Two things it pointedly does not do:
 
 - **It never reads your prompt.** The hook ignores its standard input entirely; the only
-  thing it looks at is the environment variable. Same reminder every turn, no parsing,
+  thing it looks at is the environment variable. Same reminder every time, no parsing,
   nothing to go wrong.
 - **It is an instruction, not a [gate](../../terms.md#gate).** The reminder travels to
   the model on the ordinary injected-context [channel](../../terms.md#channel); whether
@@ -92,13 +94,13 @@ Where this hook fits in the family: it was extracted from the framework's own
 `inject-session-bootstrap` digest so consumer projects could get just the language line
 without the framework-internal goal-and-invariants text around it. The framework's own
 repository actually reaches itself the other way — its bootstrap digest embeds the same
-language line, and this standalone hook reaches consumers through the plugin
-distribution rather than the project settings file.
+language line — while consumers get this standalone hook from the plugin and, after an
+install, from their own settings file.
 
 ## Evidence
 
 - `.claude/hooks/inject-output-language.sh:2` is the header the card's description row
-  quotes: `# inject-output-language.sh — UserPromptSubmit hook — injects the active output-language line into prompt context`.
+  quotes: `# inject-output-language.sh — SessionStart hook — injects the active output-language line into session context`.
 - Zero-setup default: line 21 opens `case "${AIF_HOOK_LANG:-en}" in` and line 22 is
   `en|'') : ;;  # English default — nothing to inject`. Header line 17 states it:
   «Unset / "en" → nothing is injected (English is the zero-setup default)».
@@ -116,9 +118,12 @@ distribution rather than the project settings file.
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
   `.claude/hooks/inject-session-bootstrap.sh:120-128`.
-- Registration is plugin-channel only: `plugin/hooks/hooks.json:16` runs
+- Registration: `plugin/hooks/hooks.json:179` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
-  UserPromptSubmit, and no settings.json registration exists (measured:
+  SessionStart with the matcher `startup|resume|clear|compact`; an install registers the
+  same in the consumer's settings (`setup.d/10-skills.sh:378-379`), first removing the
+  per-prompt registration an older install left behind. This repository's own
+  `.claude/settings.json` has none (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
 - The twin is hand-maintained: line 20 of the source reads `# @plugin-transform: manual`,
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of

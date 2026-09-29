@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Plugin twin of .claude/hooks/inject-project-digest.sh.
 # @cc-only-rationale: CC-specific context-injection hook — its output is consumed by CC-native
-#   fire-points (UserPromptSubmit stdout auto-injection + SubagentStart additionalContext), with
+#   fire-points (SessionStart stdout auto-injection + SubagentStart additionalContext), with
 #   no portable counterpart. The plugin twin exists ONLY to serve the plugin distribution channel
 #   (ZCode-aware via inline _emit_ctx); the .claude/hooks/ original stays the SSOT and remains
 #   shipped to consumer CC projects that install via install.sh (.claude/hooks/depth-2 form).
@@ -17,7 +17,7 @@
 #      it only fires on CC.
 #   3. SubagentStart branch keeps its JSON hookSpecificOutput shape on BOTH harnesses (the
 #      additionalContext key is the CC contract; ZCode's stricter {additionalContext:<text>} is
-#      the UserPromptSubmit-only adaptation). CC's SubagentStart reader accepts either shape.
+#      the SessionStart / UserPromptSubmit adaptation). CC's SubagentStart reader accepts either shape.
 #
 # Source-of-truth: .claude/hooks/inject-project-digest.sh (B1 latent fix merged via PR #1031 —
 # env-first REPO_ROOT resolution is present at the source AND mirrored here).

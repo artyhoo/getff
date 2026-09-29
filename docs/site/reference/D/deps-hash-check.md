@@ -124,7 +124,7 @@ portable [twin](../../terms.md#twin) discipline — the hook ships in two
 byte-identical copies (`packages/` source and the `.claude/` dogfood copy)
 with a test that fails if they drift (header lines 3-7). The `plugin` entry is
 separate: the getff plugin registers the same script on its channel too
-(`plugin/hooks/hooks.json:32`). In the parity census this is row 8 — `parity`,
+(`plugin/hooks/hooks.json:8`). In the parity census this is row 8 — `parity`,
 the quiet good case: the event exists on both harnesses and nothing is lost.
 
 ## Evidence
@@ -133,7 +133,7 @@ the quiet good case: the event exists on both harnesses and nothing is lost.
   quotes: `# deps-hash-check.sh — UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)`.
 - Registration: `.claude/settings.json:65` opens the `UserPromptSubmit` array whose
   second command (line 78) is this hook; the plugin registers it at
-  `plugin/hooks/hooks.json:32`.
+  `plugin/hooks/hooks.json:8`.
 - Baselines: line 122 — `DECISIONS=".ai-factory/tool-decisions.md"`; storage format at
   lines 34-36 («one line per stack — deps-hash-npm / deps-hash-python / deps-hash-cargo»);
   the three per-stack compares at lines 515-521, npm's workspace-aware key at line 515.

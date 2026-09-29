@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-1df959cf55038b2219295437acc3aa23bc085d78714c62b53a35051ece319dac  .ai-factory/refresh-baseline.json
+f2c9bae64c29cef457773b9a97d6528df4436b9e8ced679eb3c022e2cf4f094e  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
@@ -31,8 +31,8 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 2bbcb21c7e8e62b82daaf52a6331641d829eb35689e50de156c33a061fb8f73b  .claude/hooks/end-of-turn-reminder.sh
 030e76a0cacab56fdcd491e9a3e2280db1d5d901f2936b20f2ed1ded89d8fe05  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
-2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
-c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
+f3fa06c20b5a52b27d4b989caef74062f33b6c386f804d2e5e818ab3db188f8f  .claude/hooks/inject-output-language.sh
+846949bcf18b4ffde2ab115550fc7049e84448251c2dc4535129172b69370e04  .claude/hooks/inject-project-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 bf15241e237df9d4b63e203d3fc0fc68e205ebe6622f555a7149b15db00f56c8  .claude/hooks/lang/en.sh
 35981c11bcbe09b5685342ca042f132bc88ea724f755e565a8bca812945d031c  .claude/hooks/lang/ru.sh

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# inject-output-language.sh — UserPromptSubmit hook — injects the active output-language line into prompt context
-# @cc-only-rationale: CC-specific UserPromptSubmit hook — its stdout is auto-injected into the
-#   Claude Code prompt context by the harness, a CC-native fire-point with no portable counterpart.
+# inject-output-language.sh — SessionStart hook — injects the active output-language line into session context
+# @cc-only-rationale: CC-specific SessionStart hook — its stdout is auto-injected into the
+#   Claude Code session context by the harness, a CC-native fire-point with no portable counterpart.
 #   SHIPPED to consumer CC projects (GH #934, per-hook audit batch B): the consumer-generic slice
 #   EXTRACTED from the maintainer-only inject-session-bootstrap.sh — it emits ONLY the language
 #   signal (never the framework-self-referential goal/invariants digest, which stays INTERNAL).
 #   Consumer-safe: pure bash (no jq, no framework-internal artefact), zero-setup default (en → no-op).
 #
 # Purpose: when the operator pins a non-English human-facing language via AIF_HOOK_LANG, tell the
-# model — every turn, all skills — so chat/recaps/narration follow that language while ALL repo
+# model — once per context, all skills — so chat/recaps/narration follow that language while ALL repo
 # artefacts + machinery stay English. Precisely scoped: this injects an instruction to the model,
 # not a translation of anything. See .claude/rules/language-discipline.md §2 (category 2, human-facing).
 #
