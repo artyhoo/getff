@@ -609,7 +609,7 @@ fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
 # else in this script (--full/-y at install.sh:723 fail-loud instead of showing
-# the stack menu; --full/--dry-run at :470 decline the python/cargo
+# the stack menu; --full/--dry-run at :485 decline the python/cargo
 # toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:65
 # tells an AI to run — hangs on `read -rp` here, regressing kickoff §4 item 3
