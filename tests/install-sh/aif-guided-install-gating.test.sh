@@ -102,7 +102,7 @@ no_manual() {
 # nw_aif <arm> <regex> — the output carries a NOT-wired summary whose aif-handoff line matches.
 nw_aif() {
   case "$OUT" in *"NOT wired"*) ;; *) bad "$1: no NOT-wired summary: $OUT"; return ;; esac
-  if printf '%s\n' "$OUT" | grep -E '^ +- aif-handoff — ' | grep -qE "$2"; then ok "$1: NOT wired says why ($2)"
+  if grep -qE "$2" <<<"$(printf '%s\n' "$OUT" | grep -E '^ +- aif-handoff — ')"; then ok "$1: NOT wired says why ($2)"
   else bad "$1: no aif-handoff NOT-wired line matching /$2/: $OUT"; fi
 }
 

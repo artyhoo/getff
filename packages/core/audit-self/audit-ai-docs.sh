@@ -160,6 +160,28 @@ DOWNSTREAM_DOCS=(
   ".claude/hooks/inject-session-bootstrap.sh"
   "docs/meta-factory/EXECUTION-PLAN.md"
   "AGENTS.md"
+  # Restates the goal to every worker the orchestrator skill dispatches («Project
+  # goal: …»). Vendored by #1420 and never enrolled; found by the first live D5 run
+  # on this repo (2026-09-28).
+  ".claude/skills/orchestrator/references/worker-template.md"
+  # The docs-site pages for the two prompt hooks print the digest they inject, goal
+  # line included. Their `sources:` frontmatter and the D26 refresh gate do not keep
+  # that line in step — a standing `docs-refresh: deferred` token satisfies the gate —
+  # so they are enrolled and D3 checks the phrase directly.
+  "docs/site/reference/D/inject-session-bootstrap.md"
+  "docs/site/reference/D/inject-subagent-digest.md"
+)
+
+# D3 obligation of a POINTER doc: link the goal's single source instead of restating
+# it. CLAUDE.md has been one since #1228 — the pipeline-token-economy spec
+# (docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md FORK A)
+# collapsed its goal section into `[goal](README.md#why-this-exists)`, because the
+# phrase already reaches every session through the enrolled session-bootstrap.md and
+# the prompt hook. Every other enrolled doc still has to carry the phrase itself.
+# Mirrors GOAL_POINTER / GOAL_POINTER_DOCS in the .ts implementation.
+GOAL_POINTER="README.md#why-this-exists"
+GOAL_POINTER_DOCS=(
+  "CLAUDE.md"
 )
 
 # Mode detection (D3/D5 only): authoring repo vs consumer install.
@@ -195,9 +217,14 @@ fi
 #
 # Checked downstream docs (enumerated explicitly — not regex-matched globally):
 #   .claude/session-bootstrap.md          — operational restatement (must carry goal)
-#   CLAUDE.md                             — AI-tooling conventions (must carry goal pointer)
+#   CLAUDE.md                             — AI-tooling conventions (a POINTER doc: the
+#                                           phrase OR the GOAL_POINTER link satisfies it)
 #   .claude/hooks/inject-session-bootstrap.sh — injects phrase into every session
 #   docs/meta-factory/EXECUTION-PLAN.md   — operational planning doc (Incident-3 drift source)
+#   AGENTS.md                             — portable rule index for off-CC harnesses
+#   .claude/skills/orchestrator/references/worker-template.md — goal line of every worker
+#   docs/site/reference/D/inject-session-bootstrap.md — prints the injected digest
+#   docs/site/reference/D/inject-subagent-digest.md    — prints the injected digest
 #
 # SSOT entry: prior-art-evaluations.md#16 (verdict BUILD — no production analog
 # for doc-vs-doc goal-phrase parity check; see 7.1.d context7 sweep).
@@ -213,9 +240,14 @@ if skip_unless D3; then : ; else
         D3_VIOL="$D3_VIOL"$'\n'"  $doc: file not found"
         continue
       fi
-      if ! grep -qF "$CANON_PHRASE" "$doc" && ! grep -qF "$CANON_ALT" "$doc"; then
-        D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing canonical goal phrase or synonym"
+      if grep -qF "$CANON_PHRASE" "$doc" || grep -qF "$CANON_ALT" "$doc"; then continue; fi
+      if grep -qxF "$doc" <<<"$(printf '%s\n' "${GOAL_POINTER_DOCS[@]}")"; then
+        if ! grep -qF "$GOAL_POINTER" "$doc"; then
+          D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing goal pointer ($GOAL_POINTER) or canonical goal phrase"
+        fi
+        continue
       fi
+      D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing canonical goal phrase or synonym"
     done
 
     if [ -z "$D3_VIOL" ]; then
@@ -270,6 +302,7 @@ fi
 # extension of D3, not a new capability area).
 # Incident-4 origin: research-patches/2026-05-11-d3-downstream-docs-completeness.md
 # ────────────────────────────────────────────────────────────────────────
+
 if skip_unless D5; then : ; else
   RULE="D5 (drift, inverse): every file with canonical phrase is enrolled or exempt"
   if [ "$AUDIT_MODE" = "consumer" ]; then
@@ -277,7 +310,10 @@ if skip_unless D5; then : ; else
   else
     # FROZEN — historical artefacts; phrase appears in research/audit prose, not
     # as live downstream goal-bearing claim.
-    D5_FROZEN_PATTERNS='(docs/meta-factory/research-patches/|docs/audits/)'
+    # triage-corpus/ holds raw rater output committed verbatim «for reproducibility»
+    # (its README); a model that quoted the goal inside a recorded answer is data,
+    # and editing it would falsify the record.
+    D5_FROZEN_PATTERNS='(^docs/meta-factory/research-patches/|^docs/audits/|^docs/meta-factory/triage-corpus/)'
     # TEST_INFRASTRUCTURE — files that define the canon or test it. The audit
     # tool's own source + tests (both the .ts implementation and the .sh probe,
     # plus their .test.* siblings) carry the phrase as fixtures/assertions, not
@@ -287,7 +323,7 @@ if skip_unless D5; then : ; else
     # packages/core/audit-self/audit-ai-docs.ts. inject-session-bootstrap.test.ts
     # is the negative test for the phrase-injection hook — it asserts on the
     # canonical phrase and is test infra, not a downstream doc.
-    D5_TEST_INFRA_PATTERNS='(packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|packages/core/audit-self/template-render\.audit\.ts|packages/core/hooks/inject-session-bootstrap\.test\.ts)'
+    D5_TEST_INFRA_PATTERNS='(^packages/core/audit-self/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages/core/audit-self/template-render\.audit\.ts|^packages/core/hooks/inject-session-bootstrap\.test\.ts)'
     # ROOT_SOURCE — README.md defines CANON_ALT as the project's own goal statement;
     # it is the upstream authority, not a downstream consumer requiring drift-tracking.
     D5_ROOT_SOURCE_PATTERNS='(^README\.md$)'
@@ -312,13 +348,36 @@ if skip_unless D5; then : ; else
     # Enrollment set
     D5_ENROLLED=$(printf '%s\n' "${DOWNSTREAM_DOCS[@]}")
 
-    # Find set: grep -lF for both canon phrases, excluding node_modules + .git
+    # Find set: files containing either canon phrase, over GIT'S VIEW of the repo
+    # (tracked + untracked-not-ignored) when cwd is the root of its own work tree, so
+    # every .gitignore — root and nested — decides what is outside the repo instead
+    # of a hand-kept copy of it. The raw walk this replaces descended into the
+    # gitignored `.claude/worktrees/<name>/` checkouts of the main clone and flagged
+    # the getff package's build output (packages/getff/.gitignore `/.claude/`) —
+    # measured 2026-09-28. A directory that is NOT its own work-tree root is walked:
+    # it would otherwise inherit an enclosing repository's ignore rules and enumerate
+    # as empty (a vacuous PASS).
+    # The scrub: a git hook fired from a linked worktree exports GIT_DIR, which beats
+    # cwd for every git child; githooks(5) prescribes exactly this unset before git
+    # touches another repository. Mirrors gitView() in the .ts implementation.
+    # Exit 2 = git failed inside a confirmed work-tree root — a real error, never a
+    # reason to fall back to the walk.
     D5_FOUND=$(
-      {
-        grep -rlF "$CANON_PHRASE" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
-        grep -rlF "$CANON_ALT" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
-      } | sed 's|^\./||' | sort -u
+      (
+        # shellcheck disable=SC2046  # word-splitting the variable-name list is the point
+        unset $(git rev-parse --local-env-vars 2>/dev/null) 2>/dev/null
+        D5_TOP=$(git rev-parse --show-toplevel 2>/dev/null) || D5_TOP=""
+        if [ -n "$D5_TOP" ] && [ "$(cd "$D5_TOP" && pwd -P)" = "$(pwd -P)" ]; then
+          git ls-files -z --cached --others --exclude-standard \
+            | xargs -0 grep -lF -e "$CANON_PHRASE" -e "$CANON_ALT" -- /dev/null 2>/dev/null
+          [ "${PIPESTATUS[0]}" -eq 0 ] || exit 2
+        else
+          grep -rlF -e "$CANON_PHRASE" -e "$CANON_ALT" --exclude-dir=node_modules --exclude-dir=.git . 2>/dev/null
+        fi
+        exit 0
+      ) | sed 's|^\./||' | sort -u
     )
+    D5_FOUND_STATUS=$?
 
     D5_ORPHANS=""
     while IFS= read -r file; do
@@ -340,13 +399,17 @@ if skip_unless D5; then : ; else
       D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"
     done <<< "$D5_FOUND"
 
-    if [ -z "$D5_ORPHANS" ]; then
+    if [ "$D5_FOUND_STATUS" -ne 0 ]; then
+      fail "$RULE"
+      echo "  git ls-files failed in $(pwd -P) — the repository could not be enumerated"
+    elif [ -z "$D5_ORPHANS" ]; then
       pass "$RULE"
     else
       fail "$RULE"
       echo "$D5_ORPHANS"
       echo ""
-      echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh,"
+      echo "  Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.sh AND audit-ai-docs.ts,"
+      echo "       OR gitignore it if it is build output,"
       echo "       OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED."
     fi
   fi

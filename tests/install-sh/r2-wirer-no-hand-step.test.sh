@@ -131,7 +131,7 @@ run_finalize() {
 }
 h256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"; else shasum -a 256 "$1"; fi | awk '{print $1}'; }
 # summary_has <extended regex after the «      - » prefix> — the NOT wired summary holds that entry
-summary_has() { printf '%s\n' "$F_OUT" | grep -qE "^      - $1"; }
+summary_has() { grep -qE "^      - $1" <<<"$F_OUT"; }
 
 F1=$(make_project f1 "$TS_CONFIG")
 run_finalize "$F1"
@@ -140,7 +140,7 @@ printf 'export const x = 1;\n' > "$F1/apps/api/probe.ts"
 if [ -z "$F_ARGS" ]; then
   bad "F1: the Layer-2 pass never ran the R2 wirer, so F1 proves nothing (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
 elif grep -q 'rules-as-tests/no-unsafe-zod-parse' "$F1/apps/api/eslint.config.mjs" && [ "$lint_rc" -ne 2 ] \
-     && ! printf '%s\n' "$F_OUT" | grep -qiE "$MANUAL" && ! summary_has 'R2 '; then
+     && ! grep -qiE "$MANUAL" <<<"$F_OUT" && ! summary_has 'R2 '; then
   ok "F1: getff's own per-package config is wired on an install without --full (ESLint loads it, rc=$lint_rc), no manual step, nothing in NOT wired"
 else
   bad "F1: expected R2 in apps/api/eslint.config.mjs, ESLint loading it, no manual step and no NOT wired entry (eslint rc=$lint_rc; wirer args: $(printf '%s' "$F_ARGS" | tr '\n' '|'); manual: $(manual_lines "$F_OUT"); summary: $(printf '%s\n' "$F_OUT" | grep -E '^      - ' | tr '\n' '|'))"
@@ -150,8 +150,8 @@ F2=$(make_project f2 "$UNRECOGNISED")
 run_finalize "$F2"
 if [ -z "$F_ARGS" ]; then
   bad "F2: the Layer-2 pass never ran the R2 wirer, so F2 proves nothing"
-elif printf '%s\n' "$F_OUT" | grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api/eslint.config.mjs — .+' \
-     && ! printf '%s\n' "$F_OUT" | grep -qiE "$MANUAL" \
+elif grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api/eslint.config.mjs — .+' <<<"$F_OUT" \
+     && ! grep -qiE "$MANUAL" <<<"$F_OUT" \
      && [ "$(cat "$F2/apps/api/eslint.config.mjs")" = "$UNRECOGNISED" ]; then
   ok "F2: an export the wirer cannot append to → NOT wired names the config with its reason, no manual step"
 else
@@ -173,10 +173,11 @@ run_finalize "$F3" API_FROM_MANIFEST=1
 f3_cfg=$(cat "$F3/apps/api/eslint.config.mjs")
 if [ -z "$F_ARGS" ]; then
   bad "F3: the Layer-2 pass never ran the R2 wirer, so F3 proves nothing (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
-elif printf '%s\n' "$f3_cfg" | grep -q 'team note: the parser entry stays first' \
-     && printf '%s\n' "$f3_cfg" | tr -d '\n' | grep -qE "\{ ?files: RULE_GLOBS\.boundary, plugins: \{[^}]*\}, rules: \{ ?'rules-as-tests/no-unsafe-zod-parse'" \
+elif grep -q 'team note: the parser entry stays first' <<<"$f3_cfg" \
+     && grep -qE "\{ ?files: RULE_GLOBS\.boundary, plugins: \{[^}]*\}, rules: \{ ?'rules-as-tests/no-unsafe-zod-parse'" \
+          <<<"$(printf '%s\n' "$f3_cfg" | tr -d '\n')" \
      && grep -rqF 'team note: the parser entry stays first' "$F3/.ai-factory/before-getff" 2>/dev/null \
-     && ! printf '%s\n' "$F_OUT" | grep -qiE "$MANUAL"; then
+     && ! grep -qiE "$MANUAL" <<<"$F_OUT"; then
   ok "F3: a getff-placed config the consumer edited since gets R2 by insertions, scoped to the boundary, its original kept"
 else
   bad "F3: expected the consumer's comment kept, R2 scoped to RULE_GLOBS.boundary and the original under .ai-factory/before-getff/ (wirer args: $(printf '%s' "$F_ARGS" | tr '\n' '|'); config: $(printf '%s' "$f3_cfg" | tr '\n' ' '))"
@@ -186,7 +187,7 @@ F6=$(make_project f6 "$TS_CONFIG")
 mkdir -p "$F6/.ai-factory"
 printf '{"apps/api/eslint.config.mjs":"%s"}\n' "$(h256 "$F6/apps/api/eslint.config.mjs")" > "$F6/.ai-factory/refresh-baseline.json"
 run_finalize "$F6" API_FROM_MANIFEST=1
-if printf '%s\n' "$F_ARGS" | grep -q -- '--yes --install' && ! printf '%s\n' "$F_ARGS" | grep -q -- '--own-config' \
+if grep -q -- '--yes --install' <<<"$F_ARGS" && ! grep -q -- '--own-config' <<<"$F_ARGS" \
    && grep -q 'rules-as-tests/no-unsafe-zod-parse' "$F6/apps/api/eslint.config.mjs"; then
   ok "F6: paired — a manifest-recorded config with its bytes unchanged is still getff's own and gets R2"
 else
@@ -214,8 +215,8 @@ run_wirer() {
 }
 # not_wired_only <arm> <what the reason must mention>
 not_wired_only() {
-  if [ "$W_RC" -eq 0 ] && printf '%s\n' "$W_OUT" | grep -qE "^  · not wired: R2 .* — .*$2" \
-     && ! printf '%s\n' "$W_OUT" | grep -qiE "$MANUAL"; then
+  if [ "$W_RC" -eq 0 ] && grep -qE "^  · not wired: R2 .* — .*$2" <<<"$W_OUT" \
+     && ! grep -qiE "$MANUAL" <<<"$W_OUT"; then
     ok "$1: one «not wired» line naming $2, no manual step"
   else
     bad "$1: expected rc 0 + a «  · not wired: R2 … — …$2» line + no manual step, got rc=$W_RC (manual: $(manual_lines "$W_OUT"); out: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
@@ -247,14 +248,14 @@ not_wired_only W3 '--yes'
 printf '%s\n' "$UNRECOGNISED" > "$W2/eslint.config.mjs"
 ln -s "$W2" "$WORK/w2-alias"
 run_wirer "$W2" --path "$WORK/w2-alias/eslint.config.mjs" --yes --install
-if printf '%s\n' "$W_OUT" | grep -qE '^  · not wired: R2 \(rules-as-tests/no-unsafe-zod-parse\) in eslint.config.mjs — '; then
+if grep -qE '^  · not wired: R2 \(rules-as-tests/no-unsafe-zod-parse\) in eslint.config.mjs — ' <<<"$W_OUT"; then
   ok "W4: a config reached through a symlink is named by its path in the project, not by a ../ walk"
 else
   bad "W4: the not-wired line names the config by a path the consumer cannot read (out: $(printf '%s\n' "$W_OUT" | grep 'not wired' | head -1))"
 fi
 
 run_wirer "$W2" --path eslint.config.mjs --yes
-if printf '%s\n' "$W_OUT" | grep -q 'Add manually' && ! printf '%s\n' "$W_OUT" | grep -q '· not wired: '; then
+if grep -q 'Add manually' <<<"$W_OUT" && ! grep -q '· not wired: ' <<<"$W_OUT"; then
   ok "H1: paired — a human running the CLI without --install still gets the snippet to act on"
 else
   bad "H1: the standalone CLI lost its human snippet (out: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"

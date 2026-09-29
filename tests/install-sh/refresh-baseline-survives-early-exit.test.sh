@@ -62,7 +62,7 @@ if [ "$RC_1" -ne 0 ]; then
 else
   bad "arm 1 precondition: --full exited 0 — the deps-incomplete path was not reached, arm 1 is vacuous"
 fi
-if printf '%s\n' "$OUT_1" | grep -qF 'dependencies did NOT fully install'; then
+if grep -qF 'dependencies did NOT fully install' <<<"$OUT_1"; then
   ok "arm 1 precondition: the degraded banner fired (this IS the 99-finalize exit-1 path)"
 else
   bad "arm 1 precondition: the degraded banner did not fire — arm 1 is testing some other exit"
@@ -94,7 +94,7 @@ if [ ! -f "$TC2/$PROBE_REL" ]; then
 else
   printf 'CONSUMER_EDIT_AFTER_ABORTED_FULL\n' > "$TC2/$PROBE_REL"
   OUT_2=$( cd "$TC2" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-  if printf '%s\n' "$OUT_2" | grep -F 'overwriting locally-modified file:' | grep -qF 'deps-hash-check.sh'; then
+  if grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_2" | grep -F 'overwriting locally-modified file:')"; then
     ok "arm 2: the first --refresh after an aborted --full WARNS about the consumer edit"
   else
     bad "arm 2: the consumer edit was overwritten silently — the guard is dead after an aborted install"
@@ -120,7 +120,7 @@ TC3=$(make_bare)
 ( cd "$TC3" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
 rm -f "$TC3/$MANIFEST_REL"                       # simulate the run that never flushed
 OUT_3=$( cd "$TC3" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_3" | grep -qF 'exists — skipping'; then
+if grep -qF 'exists — skipping' <<<"$OUT_3"; then
   ok "arm 3 precondition: the second install did take the skip-if-exists path"
 else
   bad "arm 3 precondition: nothing was skipped — arm 3 does not exercise the skip path"
@@ -149,7 +149,7 @@ TC4=$(make_bare)
 printf 'CONSUMER_EDIT_BEFORE_REINSTALL\n' > "$TC4/$PROBE_REL"
 ( cd "$TC4" && bash "$REPO_ROOT/install.sh" ts-server < /dev/null ) >/dev/null 2>&1
 OUT_4=$( cd "$TC4" && bash "$REPO_ROOT/install.sh" --refresh < /dev/null 2>&1 )
-if printf '%s\n' "$OUT_4" | grep -F 'overwriting locally-modified file:' | grep -qF 'deps-hash-check.sh'; then
+if grep -qF 'deps-hash-check.sh' <<<"$(printf '%s\n' "$OUT_4" | grep -F 'overwriting locally-modified file:')"; then
   ok "arm 4 neg: a re-install did NOT relabel the consumer's edit as the baseline (weak staging)"
 else
   bad "arm 4 neg: the re-install overwrote the baseline entry with the consumer's own bytes — the guard is now blind to that edit"
@@ -204,7 +204,7 @@ if [ -n "$PRES_5B" ]; then
 else
   bad "arm 5b: --refresh overwrote the consumer's unbaselined file with no preserved copy"
 fi
-if printf '%s\n' "$OUT_5B" | grep -q 'preserved [0-9]* unbaselined diverged file'; then
+if grep -q 'preserved [0-9]* unbaselined diverged file' <<<"$OUT_5B"; then
   ok "arm 5b: --refresh reported the preserve in the one aggregate line"
 else
   bad "arm 5b: no aggregate preserve line on --refresh"

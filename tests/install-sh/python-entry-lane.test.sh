@@ -93,13 +93,13 @@ out=$( cd "$P" && bash "$INSTALL" < /dev/null 2>&1 ); rc=$?
 [ ! -e "$P/sgconfig.yml" ] \
   && ok "(4) OFFER declined on EOF (default No) → python bundle NOT delivered (npm lane, then no-package.json abort)" \
   || bad "(4) python bundle delivered despite a declined OFFER"
-echo "$out" | grep -qi 'Detected a Python project' \
+grep -qi 'Detected a Python project' <<<"$out" \
   && ok "(4) the OFFER prompt was shown (auto-detect fired on pyproject + no package.json)" \
   || bad "(4) OFFER prompt not shown: $(echo "$out" | tr '\n' '|' | cut -c1-160)"
 [ "$rc" -eq 1 ] \
   && ok "(4) exit code 1 (clean abort at the npm no-package.json precondition, not an arbitrary crash)" \
   || bad "(4) unexpected exit code $rc (expected 1): $(echo "$out" | tr '\n' '|' | cut -c1-160)"
-echo "$out" | grep -qF 'No package.json found' \
+grep -qF 'No package.json found' <<<"$out" \
   && ok "(4) EOF-safe read fell through to the clean 'No package.json found' message (fix 1: bare EOF read no longer set-e-aborts message-less)" \
   || bad "(4) 'No package.json found' message MISSING — a bare \`read\` at EOF likely set-e-aborted the script silently before reaching the npm lane: $(echo "$out" | tr '\n' '|' | cut -c1-200)"
 
@@ -152,10 +152,10 @@ out=$( cd "$P" && bash "$INSTALL" ts-server --refresh < /dev/null 2>&1 ); rc=$?
 [ "$rc" -eq 0 ] \
   && ok "(7b) exit 0 — npm refresh completed" \
   || bad "(7b) unexpected exit $rc: $(echo "$out" | tail -5 | tr '\n' '|')"
-echo "$out" | grep -qF 'Refreshing rules-as-tests-aif framework artefacts' \
+grep -qF 'Refreshing rules-as-tests-aif framework artefacts' <<<"$out" \
   && ok "(7b) npm refresh banner shown (explicit ts-server arg took precedence over the python marker)" \
   || bad "(7b) npm refresh banner MISSING: $(echo "$out" | head -5 | tr '\n' '|')"
-echo "$out" | grep -qF 'Refreshing getff Python toolchain' \
+grep -qF 'Refreshing getff Python toolchain' <<<"$out" \
   && bad "(7b) WRONGLY routed to the python-only refresh despite an explicit npm stack arg (marker auto-detect beat the explicit arg)" \
   || ok "(7b) did NOT reroute to the python-only refresh (explicit stack arg precedence holds)"
 [ -f "$P/.claude/agents/aif-init.md" ] \
@@ -171,33 +171,33 @@ out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
 # the setgid(1) coreutil, so a bare `command -v sg` would take the "present" branch on a
 # host that has NO ast-grep (CI install-sh shards), diverging from the self-check's own
 # guarded detection (45-python.sh). Both must agree or the assertions below false-fire.
-if command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; then
-  echo "$out" | grep -qF 'ast-grep fired RED' \
+if command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && grep -qi 'ast-grep' <<<"$(sg --version 2>/dev/null)"; }; then
+  grep -qF 'ast-grep fired RED' <<<"$out" \
     && ok "(8) ast-grep present → self-check FIRED RED on the planted violation" \
     || bad "(8) ast-grep present but self-check did not report a RED fire: $(echo "$out" | grep -i ast-grep | tr '\n' '|')"
   # Paired GREEN direction (adapter-jig E1): the self-check must ALSO prove the rules stay quiet on
   # conforming code — a RED-only harness passes identically under an always-firing rule set.
-  echo "$out" | grep -qF 'ast-grep clean control GREEN' \
+  grep -qF 'ast-grep clean control GREEN' <<<"$out" \
     && ok "(8) ast-grep clean control GREEN reported (rules discriminate, not always-red)" \
     || bad "(8) no ast-grep clean-control GREEN line — self-check is RED-only (vacuous vs an over-broad rule set)"
 else
-  echo "$out" | grep -qF 'ast-grep not on PATH' \
+  grep -qF 'ast-grep not on PATH' <<<"$out" \
     && ok "(8) ast-grep absent → self-check DEGRADED loudly (not silently green)" \
     || bad "(8) ast-grep absent but no loud degrade line"
 fi
 if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
-  echo "$out" | grep -qF 'ruff fired RED' \
+  grep -qF 'ruff fired RED' <<<"$out" \
     && ok "(8) ruff present → self-check FIRED RED on the planted violation" \
     || bad "(8) ruff present but self-check did not report a RED fire: $(echo "$out" | grep -i ruff | tr '\n' '|')"
-  echo "$out" | grep -qF 'ruff clean control GREEN' \
+  grep -qF 'ruff clean control GREEN' <<<"$out" \
     && ok "(8) ruff clean control GREEN reported (bans discriminate, not always-red)" \
     || bad "(8) no ruff clean-control GREEN line — self-check is RED-only (vacuous vs an over-broad config)"
 else
-  echo "$out" | grep -qF 'ruff not on PATH' \
+  grep -qF 'ruff not on PATH' <<<"$out" \
     && ok "(8) ruff absent → self-check DEGRADED loudly (not silently green)" \
     || bad "(8) ruff absent but no loud degrade line"
 fi
-echo "$out" | grep -qF 'OVER-BROAD' \
+grep -qF 'OVER-BROAD' <<<"$out" \
   && bad "(8) self-check reported OVER-BROAD on a healthy install (false alarm)" \
   || ok "(8) no OVER-BROAD verdict on the healthy delivered rule set"
 
@@ -229,18 +229,18 @@ deg=$(
     print_not_wired
   ' 2>&1
 )
-echo "$deg" | grep -qF 'ast-grep not on PATH' && echo "$deg" | grep -qF 'ruff not on PATH' \
+grep -qF 'ast-grep not on PATH' <<<"$deg" && grep -qF 'ruff not on PATH' <<<"$deg" \
   && ok "(9) both lanes print a loud tool-absent degrade" \
   || bad "(9) degrade lines missing: $(echo "$deg" | tr '\n' '|')"
-echo "$deg" | grep -qiE 'NOT proven|NOT green' \
+grep -qiE 'NOT proven|NOT green' <<<"$deg" \
   && ok "(9) degrade summary refuses to claim green (attention-is-not-a-mechanism honesty)" \
   || bad "(9) degrade summary did not withhold the green claim"
 # Q4.7: the degrade hands back no manual command — its reason is a NOT-wired line instead.
-echo "$deg" | grep -qE 'firing self-check \(ast-grep\): not proven' && echo "$deg" | grep -qE 'firing self-check \(ruff\): not proven' \
+grep -qE 'firing self-check \(ast-grep\): not proven' <<<"$deg" && grep -qE 'firing self-check \(ruff\): not proven' <<<"$deg" \
   && ok "(9) each degrade is a NOT-wired line with its reason (Q4.7)" \
   || bad "(9) degrade NOT-wired lines missing: $(echo "$deg" | tr '\n' '|')"
 _hand_cmd='npx|uvx ruff|pip[[:space:]]install'  # a printed install command, not an install
-echo "$deg" | grep -qE "$_hand_cmd" \
+grep -qE "$_hand_cmd" <<<"$deg" \
   && bad "(9) the degrade still prints a command to run by hand: $(echo "$deg" | grep -E "$_hand_cmd" | head -1)" \
   || ok "(9) the degrade prints no command to run by hand"
 [ ! -e "$P/.ruff_cache" ] \
@@ -277,10 +277,10 @@ out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 ) || true
   && ok "(10) REFUSE cell held: consumer ruff.toml untouched + getff-ruff.toml reference shipped" \
   || bad "(10) REFUSE cell wrong: consumer ruff.toml modified or getff-ruff.toml missing"
 if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
-  echo "$out" | grep -qF 'ruff fired RED' \
+  grep -qF 'ruff fired RED' <<<"$out" \
     && ok "(10) self-check FIRED via the DELIVERED .getff/ruff-bans.toml (not the consumer's bans-less config)" \
     || bad "(10) self-check did not fire in the REFUSE cell — delivered-config resolution bug: $(echo "$out" | grep -i ruff | tr '\n' '|')"
-  echo "$out" | grep -qF 'ruff did NOT fire' \
+  grep -qF 'ruff did NOT fire' <<<"$out" \
     && bad "(10) FALSE SILENT verdict — the self-check validated the consumer's config (W4 finding-1 class)" \
     || ok "(10) no false SILENT verdict in the REFUSE cell"
 fi
@@ -315,10 +315,10 @@ if command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; then
       _py_firing_self_check
     ' 2>&1
   )
-  echo "$ordr" | grep -qF 'ruff fired RED' \
+  grep -qF 'ruff fired RED' <<<"$ordr" \
     && ok "(11) self-check resolved the GETFF-owned getff-ruff.toml — planted violation fired" \
     || bad "(11) FALSE SILENT — fallback resolved the consumer's bans-less ruff.toml (consumer-first ordering bug): $(echo "$ordr" | grep -i ruff | tr '\n' '|')"
-  echo "$ordr" | grep -qF 'ruff did NOT fire' \
+  grep -qF 'ruff did NOT fire' <<<"$ordr" \
     && bad "(11) explicit false-SILENT verdict printed (delivered-config resolution bug)" \
     || ok "(11) no false-SILENT verdict (getff-owned-first ordering holds)"
 elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
@@ -336,7 +336,7 @@ fi
 # controls (pre-fix the RED-only self-check printed «enforcement is live» identically): an ast-grep
 # rule matching EVERY expression + a bans config banning the clean control's own import (json).
 # @arm:E1:neg scratch-consumer-red-green-pair (over-broad rules → clean controls RED the self-check)
-if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; } \
+if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && grep -qi 'ast-grep' <<<"$(sg --version 2>/dev/null)"; }; } \
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   echo ""; echo "  ── (12) over-broad delivered rules → clean controls catch them (E1 negative) ──"
   P=$(py_fixture)
@@ -362,16 +362,16 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
       _py_firing_self_check
     ' 2>&1
   )
-  echo "$ovb" | grep -qF 'ast-grep FIRED on the clean control' \
+  grep -qF 'ast-grep FIRED on the clean control' <<<"$ovb" \
     && ok "(12) ast-grep clean control FIRED under the over-broad rule → detected" \
     || bad "(12) over-broad ast-grep rule NOT detected: $(echo "$ovb" | grep -i 'ast-grep' | tr '\n' '|')"
-  echo "$ovb" | grep -qF 'ruff FIRED on the clean control' \
+  grep -qF 'ruff FIRED on the clean control' <<<"$ovb" \
     && ok "(12) ruff clean control FIRED under the json-banning config → detected" \
     || bad "(12) over-broad ruff config NOT detected: $(echo "$ovb" | grep -i 'ruff' | tr '\n' '|')"
-  echo "$ovb" | grep -qF 'OVER-BROAD' \
+  grep -qF 'OVER-BROAD' <<<"$ovb" \
     && ok "(12) summary refuses the green verdict (OVER-BROAD reported)" \
     || bad "(12) summary still claimed green under always-red rules (the pre-arm false-green)"
-  echo "$ovb" | grep -qF 'enforcement is live' \
+  grep -qF 'enforcement is live' <<<"$ovb" \
     && bad "(12) «enforcement is live» printed for over-broad rules (false green)" \
     || ok "(12) no false «enforcement is live» claim"
 elif [ "${GETFF_REQUIRE_RESEARCH_TOOLS:-}" = "1" ]; then
@@ -502,7 +502,7 @@ rm -rf "$P" "$P2"
 # of ast-grep/ruff. Tool-gated — when ast-grep + ruff are both absent the arm is SKIP (the rung
 # would fail-OPEN; the RED/GREEN assertion is vacuous without the tools).
 echo ""; echo "  ── (15) D-S2b RED/GREEN firing through actual git push (T-S2B-C) ──"
-if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; }; } \
+if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && grep -qi 'ast-grep' <<<"$(sg --version 2>/dev/null)"; }; } \
    && { command -v ruff >/dev/null 2>&1 || command -v uvx >/dev/null 2>&1; }; then
   # Build a fixture WITH a bare remote so git push has a destination (pre-push needs a real push).
   P3=$(py_fixture)
@@ -542,7 +542,7 @@ if { command -v ast-grep >/dev/null 2>&1 || { command -v sg >/dev/null 2>&1 && s
     # arm can never go green in the RED case it exists to prove. Caught on the host 2026-08-07;
     # invisible in the container, where the arm SKIPs for want of ast-grep/ruff (T14).
     _red_out=$( { cat push_red; git -C "$P3" push origin "$BR" 2>&1; } || true )
-    if printf '%s\n' "$_red_out" | grep -qi 'getff pre-push'; then
+    if grep -qi 'getff pre-push' <<<"$_red_out"; then
       ok "(15) RED run: planted violation blocked the push via the getff rung (hook fired through git)"
     else
       bad "(15) RED run: push blocked but getff hook output not found: $(cat push_red | tr '\n' '|')"
@@ -576,7 +576,7 @@ _act3=$(git -C "$P4" config --get core.hooksPath 2>/dev/null || true)
 [ "$_act3" = ".my-hooks" ] \
   && ok "(16a) case 1: existing core.hooksPath='.my-hooks' preserved (NOT overwritten)" \
   || bad "(16a) case 1 FAILED: core.hooksPath='$_act3' (expected '.my-hooks')"
-echo "$out1" | grep -qi 'NOT overwriting\|NOT activated' \
+grep -qi 'NOT overwriting\|NOT activated' <<<"$out1" \
   && ok "(16a) case 1: printed notice (consumer informed)" \
   || bad "(16a) case 1: no notice printed (silently broken): $(echo "$out1" | grep -i hook | tr '\n' '|')"
 [ -f "$P4/.getff/hooks/pre-push" ] \
@@ -620,7 +620,7 @@ _act5=$(git -C "$P6" config --get core.hooksPath 2>/dev/null || true)
 [ -f "$P6/.git/hooks/pre-push" ] \
   && ok "(16c) case 3: legacy .git/hooks/pre-push preserved (NOT overwritten)" \
   || bad "(16c) case 3 FAILED: legacy .git/hooks/pre-push REMOVED (T-S2B-B violation)"
-echo "$out3" | grep -qi 'existing git hook.*pre-push' \
+grep -qi 'existing git hook.*pre-push' <<<"$out3" \
   && ok "(16c) case 3: printed notice naming the existing pre-push (consumer informed)" \
   || bad "(16c) case 3: no notice printed (silently broken): $(echo "$out3" | grep -i hook | tr '\n' '|')"
 rm -rf "$P6"
@@ -648,7 +648,7 @@ _act6=$(git -C "$P7" config --get core.hooksPath 2>/dev/null || true)
 [ -f "$P7/.pre-commit-fired" ] \
   && ok "(16d) existing pre-commit FIRED through git after install (never-clobber contract held)" \
   || bad "(16d) FAILED: pre-commit did NOT fire after install (commit rc=$_c_rc) — silently disabled"
-echo "$out4" | grep -qi 'existing git hook' \
+grep -qi 'existing git hook' <<<"$out4" \
   && ok "(16d) printed notice naming the existing hook(s) (consumer informed)" \
   || bad "(16d) no notice printed (silently declined): $(echo "$out4" | grep -i hook | tr '\n' '|')"
 [ -f "$P7/.getff/hooks/pre-push" ] \
@@ -711,7 +711,7 @@ if [ ! -f "$_a210_arch" ]; then
   _a210_fail=1
 else
   # (a) POSITIVE — the materialized SoT names this lane's language.
-  head -1 "$_a210_arch" | grep -q 'Python' \
+  grep -q 'Python' <<<"$(head -1 "$_a210_arch")" \
     && ok "(17a) ARCHITECTURE.md H1 names Python: $(head -1 "$_a210_arch")" \
     || { bad "(17a) ARCHITECTURE.md H1 is not a Python doc: $(head -1 "$_a210_arch")"; _a210_fail=1; }
   # (b) PAIRED NEGATIVE — the ts-server PRESCRIPTIONS must be gone. Matched on strings verbatim
@@ -777,7 +777,7 @@ out=$( cd "$P18" && bash "$INSTALL" python --profile bogus < /dev/null 2>&1 ); r
 [ "$rc" -ne 0 ] \
   && ok "(18a) an unknown --profile value fails loud on this lane (exit $rc)" \
   || bad "(18a) --profile bogus exited 0 — the flag is a no-op on this lane"
-printf '%s' "$out" | grep -q -- '--profile' \
+grep -q -- '--profile' <<<"$out" \
   && ok "(18a) the rejection names the flag" \
   || bad "(18a) exited without naming --profile: $(printf '%s' "$out" | tail -2 | tr '\n' '|')"
 rm -rf "$P18"

@@ -102,14 +102,14 @@ fi
 
 # Offer-text assertion (LOOSE until P-2 resolves): a stdout line mentioning "lintstaged"
 # in the offer context. Tightened when P-2 wording lands.
-if printf '%s\n' "$out1" | grep -qiE 'differs from framework template|consumer-owned.*never overwritten'; then
+if grep -qiE 'differs from framework template|consumer-owned.*never overwritten' <<<"$out1"; then
   ok "arm1: migration-offer marker present in stdout (loose marker — PARK-P-2 will tighten)"
 else
   bad "arm1: no migration-offer marker in stdout (PARK-P-2 placeholder missing?)"
 fi
 
 # Teeth: confirm the offer actually fired by checking the diff label specifically.
-if printf '%s\n' "$out1" | grep -qF '.lintstagedrc.json differs from framework template'; then
+if grep -qF '.lintstagedrc.json differs from framework template' <<<"$out1"; then
   ok "arm1 (teeth): offer line names the file + the diff (non-vacuous)"
 else
   bad "arm1 (teeth): offer line missing the literal 'differs from framework template' marker"
@@ -134,7 +134,7 @@ else
   bad "arm2: template-equal consumer file CHANGED — before=$before_md5_2 after=$after_md5_2"
 fi
 
-if printf '%s\n' "$out2" | grep -qF 'matches framework template — no offer needed'; then
+if grep -qF 'matches framework template — no offer needed' <<<"$out2"; then
   ok "arm2: stdout reports 'matches template — no offer needed' (no spurious offer on equal file)"
 else
   bad "arm2: stdout missing 'matches template — no offer needed' marker"

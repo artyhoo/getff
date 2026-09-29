@@ -25,7 +25,7 @@ T=$(mkrepo); mkdir -p "$T/src/api"; echo 'export const h=(b)=>schema.parse(b);' 
 [ "$(verdict "$T")" = "boundary-present" ] \
   && ok "schema.parse( in src/api → boundary-present" \
   || bad "schema.parse( → got '$(verdict "$T")'"
-full "$T" | grep -qF "glob:**/api/**/*.{ts,tsx}" \
+_full=$(full "$T") && grep -qF "glob:**/api/**/*.{ts,tsx}" <<<"$_full" \
   && ok "parse-site outside a token folder → emits a covering parent-dir glob (**/api/**)" \
   || bad "parse-site → no covering glob emitted (got: $(full "$T" | tr '\n' '|'))"
 
