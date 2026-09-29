@@ -20,6 +20,7 @@ sources:
 executed:
   - { example: output-language-unset-english-default, stack: repo, date: 2026-09-28, result: silent }
   - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-28, result: printed }
+docs-refresh: deferred — only autoCompactWindow changed in .claude/settings.json; this page never cites that key, so its facts still hold
 ---
 
 # inject-output-language hook
