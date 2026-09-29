@@ -7,7 +7,7 @@
 #   ./setup ts-server               # interactive install; explicit stack; companions optional
 #   ./setup -y ts-server            # non-interactive full install (all layers + dev-deps auto)
 #   ./setup --yes ts-server         # alias for -y
-#   ./setup -y --global ts-server   # -y + machine-global companions (user-scope plugins/MCP, npm -g, bridge)
+#   ./setup -y --global ts-server   # -y + machine-global companions (user-scope plugins/MCP, npm -g, getff-repo bridge rc)
 #   ./setup --all ts-server         # EVERYTHING: -y --global + the AIF operator suite (operator machines)
 #   ./setup --full ts-server        # alias for -y (wrapper alias; forwards --full to install.sh)
 #   ./setup --dry-run ts-server     # preview without writing
@@ -55,8 +55,8 @@ for a in "$@"; do
     # 2026-07-11). Consumer defaults (-y/--full) stay curated; --all is the operator switch.
     --all)             MODE="all"; FULL="--full"; WITH_AIF_SUITE="--with-aif-suite"; export GETFF_GLOBAL=1 ;;
     # critical-review S1-4 (operator decision 2026-09-23): -y installs into the project only;
-    # machine-global companions (user-scope plugins/MCP, npm -g) and the runtime-bridge (it
-    # writes your shell rc) need this explicit flag. Exported: install.sh's 05-mcp reads it too.
+    # machine-global companions (user-scope plugins/MCP, npm -g) and the getff repository's own
+    # runtime-bridge wizard (it writes your shell rc) need this explicit flag. Exported: install.sh's 05-mcp reads it too.
     --global)          export GETFF_GLOBAL=1 ;;
     --full)            MODE="yes"; FULL="--full" ;;
     --dry-run)         DRY="--dry-run"; MODE="dry-run" ;;
@@ -120,10 +120,11 @@ done < "$HERE/setup.d/companions.manifest"
 echo "▶ Runtime-bridge"
 if [ "$MODE" = "dry-run" ]; then
   echo "  [dry-run] would run bridge guided-detect"
-elif { [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; } && [ "${GETFF_GLOBAL:-}" != "1" ]; then
-  echo "  ⊝ runtime-bridge skipped — it writes machine-global settings (your shell rc, Claude settings)"
-  companion_not_wired "runtime-bridge — not set up: it writes machine-global settings (your shell rc, Claude settings), and without --global a non-interactive install writes into this project only"
 elif [ "$MODE" = "yes" ] || [ "$MODE" = "all" ]; then
+  # No --global gate here: for a project getff installs into, the bridge step writes only that
+  # project's .claude/settings.json (hook registration) and .claude/settings.local.json (env). The one machine-global write — the getff repository's own
+  # wizard keeping RUNTIME_BRIDGE_* in the shell rc — is gated on --global inside
+  # bridge_guided_run, which reads MODE and GETFF_GLOBAL from this scope.
   source "$HERE/setup.d/bridge-guided.sh"; bridge_guided_run
 else
   printf '  Set up runtime-bridge (aif-handoff)? [y/N]: '
