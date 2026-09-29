@@ -61,7 +61,7 @@ appears only where the owner's wording is itself the decision (English gloss aft
 | Entry docs are thin: render or pointer | a typed copy in an entry doc drifts | R2 = A | OP-37 |
 | Consumers get the rule as a file, the gates, and getff's docs at the installed version | the consumer's docs must follow the same rule without getff's content | F4 = Б; the rule file's home handed to the trigger-build design | OP-38 |
 | History is a named class, exempt from currency, and must not mislead an agent | old records are needed but must not be read as current | H-Q2 = A (+ OP-39 requirement) | OP-38, OP-39 |
-| Done = three zeros (tokens, stale citations, unclassified docs) «если достижимо и не геморно» (if reachable and not a burden) | a measurable end state, bounded by effort | ACC = A with a condition | OP-38 |
+| Done = three zeros (tokens, stale citations, unclassified docs), on the condition that each zero is reachable and not a burden | a measurable end state, bounded by effort | ACC = A with a condition | OP-38 |
 | Statements that cannot come from code have one home; all else points or renders | decided statements are facts with no code source | T-Q2 = Б | OP-39 |
 | A generated, checked fact layer between sources and both outputs: «да слой фактов!» (yes, a fact layer) | the site already has one; both outputs read it | S-Q0 = yes | OP-40 |
 | Nobody types the goal; always-loaded places render it, others point | seven hand-typed copies had three wordings | F5 = A | OP-40 |
