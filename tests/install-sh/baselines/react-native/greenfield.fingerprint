@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-57f3aa9656ec04a88f207d9b81c4efdc97e0abfafa8e51bc3069c437ef721183  .ai-factory/refresh-baseline.json
+c40930d34692fe5173b24974d4513d3f95750d2fac7e648b9b6f0699d8e11503  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -26,9 +26,9 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 126f04b5c4c8cff807ea0ff5efc3b2208535da443c65be81fdf56492016fd63f  .claude/agents/rule-test-author.md
 9c46f2c267982f31742bc4d03cd150cce67770ebf5e04106b11f9a231460673b  .claude/hooks/ask-question-reminder.sh
 327511af811642a9f03fe3d1d380799023c84432d5c037c42808fda088d7c68b  .claude/hooks/check-doc-authority-header.sh
-6cc4f623d4e277b75ea7f1f47abe975cb03b9e58cecd2dd9c390b8d0dad160b8  .claude/hooks/deps-hash-check.sh
-2bbcb21c7e8e62b82daaf52a6331641d829eb35689e50de156c33a061fb8f73b  .claude/hooks/end-of-turn-reminder.sh
-030e76a0cacab56fdcd491e9a3e2280db1d5d901f2936b20f2ed1ded89d8fe05  .claude/hooks/inject-matching-rule.sh
+40de7de0879a23c73349fa106b28bc97f810ba760b840d14e0407e4d7dee704e  .claude/hooks/deps-hash-check.sh
+51d1033a9866f00088a20715dc74813a8606ebe024cd637ba08fcf5eed7d37ce  .claude/hooks/end-of-turn-reminder.sh
+2da2b14de1d8e35f975588e587f8d3cacce8ba1940fee625447b2103da02cb73  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 df5b6733c508e863e3c9d7c5af5f3205bb02108d5e9a3af62577793b8bd83d4a  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
@@ -152,7 +152,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  eslint-rules-l
 fb9aa49f64642bd62823e8f76be90936721e2b9eb87ff2f4a9dfd6d137364797  eslint.config.mjs
 9d4a9222172168e2185552c1567df1d4e60efeee3e2bacd2654b179246d4bf61  eslint.config.rn-common.mjs
 881d44cfc8d332820bbf368149e0337ef647b0aa7a5b7590711a8bb6d02ca126  package.json
-cc09b11f04c4ac4460c89f6aa6936e92dc325ed00a7dccd09b51b677f5298e35  packages/core/hooks/pre-push.bundle.mjs
+acb68178502545dab2e3c41c23a96410239e9a9270e5dc2beb1b665092215493  packages/core/hooks/pre-push.bundle.mjs
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  scripts/audit-ai-docs.sh

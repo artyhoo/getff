@@ -286,15 +286,18 @@ describe('inject-matching-rule.sh — rules-delivery claim retraction (GH #1520)
     // The delivery lanes stay truthfully described (hook ships + registers).
     expect(src).toMatch(/setup\.d\/10-skills\.sh §1e/);
     expect(src).toMatch(/install\.sh --refresh/);
-    // …and the cited install.sh range really holds this hook's refresh_safe arm.
-    const arm = src.match(/refresh_safe arm at install\.sh:(\d+)-(\d+)/);
+    // …and the cited install.sh arm really is this hook's refresh_safe arm. The arm is cited
+    // by its call, not by a line range: install.sh grows (the P2 installer branch moved it
+    // from :1015 to :1054) and a line range silently stops pointing at it.
+    expect(src).not.toMatch(/install\.sh:\d+/);
+    const arm = src.match(/the `(refresh_safe "\$_IMR_SRC" "\$_IMR_DST")` arm in install\.sh/);
     expect(arm).not.toBeNull();
-    const armText = readFileSync(resolve(REPO_ROOT, 'install.sh'), 'utf8')
-      .split('\n')
-      .slice(Number(arm![1]) - 1, Number(arm![2]))
-      .join('\n');
-    expect(armText).toMatch(/refresh_safe "\$_IMR_SRC" "\$_IMR_DST"/);
-    expect(armText).toMatch(/"inject-matching-rule" "Edit\|Write\|MultiEdit"/);
+    const install = readFileSync(resolve(REPO_ROOT, 'install.sh'), 'utf8').split('\n');
+    const at = install.findIndex((l) => l.trim() === arm![1]);
+    expect(at).toBeGreaterThan(-1);
+    expect(install.slice(at, at + 5).join('\n')).toMatch(
+      /"inject-matching-rule" "Edit\|Write\|MultiEdit"/,
+    );
     // The @dual-pair marker survived the retraction edit untouched.
     expect(src).toMatch(/^# @dual-pair: rule-path-scoping$/m);
   });
