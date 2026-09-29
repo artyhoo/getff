@@ -100,15 +100,24 @@ REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "none")
 if [ "$REMOTE_URL" != "none" ]; then
   if ! git fetch origin >/dev/null 2>&1; then
     echo "WARN: git fetch origin failed (offline?) — base freshness not verified; using local '$BASE_REF' at $BASE_SHA"
-  elif ! BASE_SHA=$(git rev-parse --verify "${BASE_REF}^{commit}" 2>/dev/null); then
-    # The fetch can PRUNE a ref as well as advance it; a base that vanished is a
-    # config error, not a verdict.
-    echo "error: base ref '$BASE_REF' no longer resolves after 'git fetch origin'" >&2
-    die_usage
+  else
+    # BASE_SHA is re-resolved AFTER the fetch: gating the pre-fetch sha silently
+    # verifies a stale base — on a behind clone the containment probe then reports
+    # "base already contained" and gates the head tree alone (#1466 shape, W-1).
+    # FETCH_HEAD is exempt: this fetch rewrites it, so re-reading would swap the
+    # sha the user fetched for whatever branch head the carrier's fetch wrote.
+    case "$BASE_REF" in
+      FETCH_HEAD*) ;;
+      *)
+        if ! BASE_SHA=$(git rev-parse --verify "${BASE_REF}^{commit}" 2>/dev/null); then
+          # The fetch can PRUNE a ref as well as advance it; a base that vanished
+          # is a config error, not a verdict.
+          echo "error: base ref '$BASE_REF' no longer resolves after 'git fetch origin'" >&2
+          die_usage
+        fi
+        ;;
+    esac
   fi
-  # BASE_SHA is re-resolved AFTER the fetch: gating the pre-fetch sha silently
-  # verifies a stale base — on a behind clone the containment probe then reports
-  # "base already contained" and gates the head tree alone (#1466 shape, W-1).
 else
   echo "WARN: no 'origin' remote — base freshness not verifiable; using local '$BASE_REF' at $BASE_SHA"
 fi

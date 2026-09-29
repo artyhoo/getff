@@ -42,7 +42,9 @@
 #   29 go absent on a bare PATH -> exit 3, named (rework r1)
 #   30 stale remote-tracking base: origin advances AFTER clone -> the verdict
 #      gates the POST-fetch base, never the pre-fetch sha (#1466/W-1; B1 cold
-#      review finding B-1); 30b base ref pruned by the carrier's own fetch -> 64
+#      review finding B-1); 30b base ref pruned by the carrier's own fetch -> 64;
+#      30c a FETCH_HEAD base keeps the user's fetched sha (the carrier's fetch
+#      rewrites FETCH_HEAD)
 #
 # Environment notes:
 # - Fixtures are throwaway git repos (mktemp -d); npm-run-all2 is not
@@ -371,6 +373,30 @@ run_carrier "$C" origin/doomed
 [ "$RC" -eq 64 ] && ok "arm30b: base pruned by the fetch -> exit 64 (usage class)" || bad "arm30b: expected 64, got $RC"
 assert_contains "arm30b: the vanished base ref named" "$C/.last-out" "base ref 'origin/doomed' no longer resolves after 'git fetch origin'"
 [ -f "$C/.git/getff/pre-merge-runs.ndjson" ] && bad "arm30b: usage error must not ledger" || ok "arm30b: no ledger line for usage error"
+export PATH=$PATH_SAVE
+
+# ── arm 30c: FETCH_HEAD base keeps the sha the user fetched ──
+# The carrier's own `git fetch origin` rewrites .git/FETCH_HEAD. Re-resolving a
+# FETCH_HEAD base after it would silently swap the user's chosen base for
+# whatever branch head the carrier's fetch wrote first.
+U=$(make_fixture "echo lint-ok")
+git -C "$U" checkout -qb pr-base main
+echo pr-base > "$U/pr-base.txt"; git -C "$U" add -A; git -C "$U" commit -qm pr-basework
+PR_BASE=$(git -C "$U" rev-parse pr-base)
+git -C "$U" checkout -q feature/x
+C="$SCRATCH/arm30c-clone"
+git clone -q "$U" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name T
+git -C "$C" checkout -qb feature/fh origin/feature/x
+git -C "$C" fetch -q origin pr-base                # FETCH_HEAD == pr-base
+PATH_SAVE=$PATH; export PATH="$C/.shim-bin:$PATH"
+run_carrier "$C" FETCH_HEAD
+[ "$RC" -eq 0 ] && ok "arm30c: FETCH_HEAD-base run passes" || bad "arm30c: expected 0, got $RC"
+if grep -q "^base:   $PR_BASE" "$C/.last-out"; then
+  ok "arm30c: verdict base is the sha the user fetched into FETCH_HEAD"
+else
+  bad "arm30c: FETCH_HEAD base re-pointed by the carrier's own fetch (want $PR_BASE; got: $(grep '^base:' "$C/.last-out"))"
+fi
 export PATH=$PATH_SAVE
 
 echo "== B2 lane arms =="
