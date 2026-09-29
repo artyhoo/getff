@@ -328,7 +328,7 @@ run_npm_lane() {
   # Declared gates = the script names named in the wired validate after the
   # npm-run-all2 token (flags skipped). If the consumer rewired validate away
   # from npm-run-all2, the vacuity control falls back to the aggregate itself.
-  _agg=$(printf '%s\n' "$_validate" | awk '{for(i=1;i<=NF;i++) if($i ~ /npm-run-all/) {print $i; exit}}')
+  _agg=$(awk '{for(i=1;i<=NF;i++) if($i ~ /npm-run-all/) {print $i; exit}}' <<<"$_validate")
   if [ -n "$_agg" ]; then
     while IFS= read -r _tok; do
       [ -n "$_tok" ] && _declared+=("$_tok")
