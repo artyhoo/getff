@@ -104,11 +104,11 @@ cold-reviewed before dispatch (round 1 REVISE, 1 BLOCKER + 5 MAJOR, all folded i
 ## §4 Exit gates
 
 ```bash host-verify
-PC_LOCAL=1 npx vitest run packages/core/skills/pipeline
+npx vitest run packages/core/skills/pipeline
 node scripts/check-docs-refresh.mjs "$(git merge-base origin/staging HEAD)..HEAD"
 bash scripts/check-skill-drift.sh
 scripts/build-getff-dist.sh --check
-PC_LOCAL=1 make self-audit
+make self-audit
 bash scripts/run-local-ci-sweep.sh
 ```
 

@@ -157,8 +157,8 @@ asserting the outcome it could not invoke is worse than an honest UNVERIFIED.
 Umbrella §7 host-verify contract, plus:
 
 ```bash host-verify
-PC_LOCAL=1 npx vitest run packages/core/principles/42-context-md-pointer-rule.test.ts
-PC_LOCAL=1 npx vitest run packages/core/hooks/glossary-counters.test.ts
+npx vitest run packages/core/principles/42-context-md-pointer-rule.test.ts
+npx vitest run packages/core/hooks/glossary-counters.test.ts
 bash .claude/hooks/lang/check-parity.sh                 # must now report the AIF_GLOSSARY_ keys
 bash scripts/register-root-resolution.test.sh           # must now be a 4-script matrix
 bash scripts/register-glossary-hook.sh --print-target    # read-only mode ONLY
