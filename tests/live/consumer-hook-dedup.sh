@@ -16,6 +16,7 @@
 # NOT RUN IN CI — each harness run is a real model turn on the operator's own subscription
 # (.claude/rules/no-paid-llm-in-ci.md). Run by hand, from any checkout of this repo:
 #   bash tests/live/consumer-hook-dedup.sh [--harness cc|zcode|all] [--work-dir DIR]
+#   bash tests/live/consumer-hook-dedup.sh --zcode-login [--no-browser]  # once, before a ZCode run
 #
 # HOW A COPY IS TRACED: a `bash` shim goes first on PATH. Both channels reach a hook through
 # `bash`: the plugin dispatcher ends in `bash <plugin>/hooks/<name>` (plugin/hooks/run-hook.cmd),
@@ -35,15 +36,22 @@
 #   ZCODE_BIN        a `zcode` CLI; default `zcode` on PATH, else the CLI bundled in ZCODE_APP
 #   ZCODE_APP        default /Applications/ZCode.app (CLI = Contents/Resources/glm/zcode.cjs,
 #                    run by the app's own Electron binary with ELECTRON_RUN_AS_NODE=1)
+#   ZCODE_LIVE_HOME  the ZCode CLI's own data home (passed as ZCODE_DATA_BASE_DIR; default
+#                    ${XDG_STATE_HOME:-~/.local/state}/getff/zcode-live). Its sign-in lives here,
+#                    apart from the app's ~/.zcode. ZCODE_LIVE_HOME=$HOME reuses a CLI sign-in
+#                    already made in the shared store.
 #   LIVE_TIMEOUT     seconds per harness run (default 900)
 # ZCode runs against an isolated plugin store (ZCODE_STORAGE_DIR inside the work dir): the
 # working-tree plugin is installed there and the operator's own ZCode plugin set is untouched.
-# Credentials are still read from ~/.zcode/v2 (ZCODE_DATA_BASE_DIR is left alone).
-# Known limit (measured 2026-09-29, ZCode CLI 0.16.9 / app 3.14.3): the bundled CLI started from
-# a shell fires SessionStart and UserPromptSubmit, then its model request fails with «Client
-# signing credential must contain one separator» — the app supplies that key to its own runs
-# only. Those two events are measured; the rest report INCONCLUSIVE until a CLI login works.
-# A signed-out Claude Code run behaves the same way (hooks before the model call still fire).
+# ZCODE SIGN-IN (measured 2026-09-29, CLI 0.16.9 / app 3.14.3): the app provisions its Coding Plan
+# key into the runtimes it starts itself; a CLI started from a shell has none and its model
+# request dies at «Client signing credential must contain one separator» after SessionStart and
+# UserPromptSubmit fired. The CLI's own supported path is `zcode login`: Z.AI OAuth in a browser,
+# after which the CLI fetches the account's Coding Plan key and stores it as its standalone
+# provider under ZCODE_DATA_BASE_DIR. `--zcode-login` runs exactly that against ZCODE_LIVE_HOME;
+# it is the operator's one-time step (a browser sign-in). Without it the ZCode run is
+# INCONCLUSIVE and names the command. (A signed-out Claude Code run stops the same way: hooks
+# before the model call still fire, the rest do not.)
 #
 # EXIT: 0 PASS · 1 FAIL · 2 usage/setup error · 3 INCONCLUSIVE (no harness could run, a run did
 # not exercise an event it needed, or the tracer was not reached).
@@ -54,15 +62,18 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PLUGIN_DIR="$REPO_ROOT/plugin"
 HARNESS=all
 WORK=''
+LOGIN_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --harness) HARNESS="${2:-}"; shift 2 ;;
     --work-dir) WORK="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
+    --zcode-login) HARNESS=zcode-login; shift ;;
+    --no-browser) LOGIN_ARGS+=(--no-browser); shift ;;
+    -h|--help) sed -n '2,57p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
-case "$HARNESS" in cc|zcode|all) ;; *) echo "--harness must be cc, zcode or all" >&2; exit 2 ;; esac
+case "$HARNESS" in cc|zcode|all|zcode-login) ;; *) echo "--harness must be cc, zcode or all" >&2; exit 2 ;; esac
 for tool in jq git shasum awk; do
   command -v "$tool" >/dev/null 2>&1 || { echo "missing required tool: $tool" >&2; exit 2; }
 done
@@ -405,6 +416,8 @@ run_cc() {
 # ── ZCode ───────────────────────────────────────────────────────────────────────────────────
 ZC=()
 ZCODE_APP="${ZCODE_APP:-/Applications/ZCode.app}"
+ZCODE_LIVE_HOME="${ZCODE_LIVE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/getff/zcode-live}"
+ZCODE_LOGIN_CMD="bash $REPO_ROOT/tests/live/consumer-hook-dedup.sh --zcode-login"
 # resolve_zcode <layout dir>
 resolve_zcode() {
   local layout="$1" res="$ZCODE_APP/Contents/Resources"
@@ -416,11 +429,11 @@ resolve_zcode() {
     # it at Resources/config/provider/. A symlinked entrypoint beside a provider/ dir supplies it
     # without touching the app bundle.
     mkdir -p "$layout/provider"
-    ln -sf "$res/glm/zcode.cjs" "$layout/zcode.cjs"
-    ln -sf "$res/glm/packages" "$layout/packages"
-    ln -sf "$res/glm/.node-bundle-meta.json" "$layout/.node-bundle-meta.json"
+    ln -sfn "$res/glm/zcode.cjs" "$layout/zcode.cjs"
+    ln -sfn "$res/glm/packages" "$layout/packages"
+    ln -sfn "$res/glm/.node-bundle-meta.json" "$layout/.node-bundle-meta.json"
     [ -f "$res/config/provider/zcode-builtin.json" ] \
-      && ln -sf "$res/config/provider/zcode-builtin.json" "$layout/provider/zcode-builtin.json"
+      && ln -sfn "$res/config/provider/zcode-builtin.json" "$layout/provider/zcode-builtin.json"
     ZC=(env ELECTRON_RUN_AS_NODE=1 "$ZCODE_APP/Contents/MacOS/ZCode" "$layout/zcode.cjs")
     return 0
   fi
@@ -432,6 +445,13 @@ run_zcode() {
   if ! resolve_zcode "$d/cli"; then
     echo "[zcode] SKIP: no zcode CLI (set ZCODE_BIN, put \`zcode\` on PATH, or install ZCode.app)"; return 4
   fi
+  # The CLI keeps its sign-in in <data home>/.zcode/v2/credentials.json (resolveSharedZCodeCredentialsPath).
+  if [ ! -s "$ZCODE_LIVE_HOME/.zcode/v2/credentials.json" ]; then
+    echo "[zcode] INCONCLUSIVE: the ZCode CLI is not signed in under $ZCODE_LIVE_HOME"
+    echo "[zcode]   one-time browser sign-in (operator step): $ZCODE_LOGIN_CMD"
+    return 3
+  fi
+  export ZCODE_DATA_BASE_DIR="$ZCODE_LIVE_HOME"
   mkdir -p "$d/storage" "$d/xdg/getff"
   ver="$(ZCODE_STORAGE_DIR="$d/storage" "${ZC[@]}" version 2>/dev/null | head -n 1)"
   if [ -f "$ZCODE_APP/Contents/Info.plist" ] && command -v plutil >/dev/null 2>&1; then
@@ -457,20 +477,28 @@ run_zcode() {
   echo "[zcode] run exit=$run_rc · output $d/output.json · trace $d/trace.jsonl"
   collect_trace zcode "$d/trace.d" "$d/trace.jsonl" || return 3
   if [ "$run_rc" -ne 0 ] && [ ! -s "$d/trace.jsonl" ]; then
-    # Measured 2026-09-29 (CLI 0.16.9, app 3.14.3): outside the app the model request dies at
-    # "Client signing credential must contain one separator" — the provider key the app itself
-    # supplies never reaches a CLI started from a shell.
     echo "[zcode] INCONCLUSIVE: the run failed before any hook fired — $(grep -m1 -E 'Error|无法|missing' "$d/stderr.log" 2>/dev/null | cut -c1-160)"
     echo "[zcode]   full log: $d/stderr.log"
     return 3
   fi
   if [ "$run_rc" -ne 0 ]; then
     echo "[zcode] the model turn failed: $(grep -m1 -E 'Error|无法|missing' "$d/stderr.log" 2>/dev/null | cut -c1-160)"
+    grep -q 'signing credential' "$d/stderr.log" 2>/dev/null \
+      && echo "[zcode]   the CLI has no Coding Plan key — sign in again (operator step): $ZCODE_LOGIN_CMD"
   fi
   analyze zcode "$d/trace.jsonl" "$MUST_EMIT_ZCODE" ''
 }
 
 # ── main ────────────────────────────────────────────────────────────────────────────────────
+if [ "$HARNESS" = zcode-login ]; then
+  # The CLI's own sign-in, into ZCODE_LIVE_HOME: prints the authorize URL, opens the browser, and
+  # waits for the operator to approve. Nothing is read from or written to the app's ~/.zcode.
+  resolve_zcode "$ZCODE_LIVE_HOME/cli" || { echo "no zcode CLI (set ZCODE_BIN or install ZCode.app)" >&2; exit 2; }
+  mkdir -p "$ZCODE_LIVE_HOME"
+  echo "ZCode CLI sign-in into $ZCODE_LIVE_HOME"
+  ZCODE_DATA_BASE_DIR="$ZCODE_LIVE_HOME" "${ZC[@]}" login ${LOGIN_ARGS[@]+"${LOGIN_ARGS[@]}"}
+  exit $?
+fi
 echo "consumer-hook-dedup live check — work dir $WORK"
 report_versions
 overall=''
