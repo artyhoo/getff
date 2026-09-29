@@ -134,8 +134,8 @@ no_grep_out "the counter did NOT leak into the captured gate output" "3/3 done" 
 grep_out "the gate output itself is still captured" "body-2" "$TMP/o8"
 # Fallback: with fd 3 closed (a direct CI invocation) the counter must still appear, on stderr.
 # The file-wide `exec 3>&-` at the top already closes an inherited fd 3; the per-call `3>&-` stays
-# so this arm states its own precondition and does not depend on the top of the file.
-# (Measured 2026-09-14: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`.)
+# so this arm states its own precondition and does not depend on the top of the file (it is the
+# 2026-09-14 arm named there: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`).
 bash "$RUNNER" "$S" >"$TMP/o9" 2>"$TMP/e9" 3>&-
 check "fd3-closed arm exits 0" 0 $?
 grep_out "with fd 3 closed the counter falls back to stderr" "3/3 done" "$TMP/e9"

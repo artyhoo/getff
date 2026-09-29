@@ -706,8 +706,8 @@ jobs:
         run: bash scripts/run-local-ci-sweep.test.sh
       # The LOCAL battery runner the sweep delegates to (CI's own per-file steps: meta-all-wired.test.sh):
       # non-zero on a failing test, no false green on a dead worker, quarantine, non-interleaved output.
-      # Run twice: fd 3 is closed here but OPEN under the local sweep (`exec 3>&2`), where progress()
-      # writes; the `3>/dev/null` run turns an arm that passes only with fd 3 closed RED in CI too.
+      # Run twice: fd 3 is closed here but OPEN under the local sweep (`exec 3>&2`). The `3>/dev/null`
+      # run is the sweep's fd state: dropping the test's file-wide `exec 3>&-` goes RED in CI too.
       - name: Run install-sh suite-runner paired-negative (local battery fan-out)
         run: bash scripts/run-install-sh-suite.test.sh && bash scripts/run-install-sh-suite.test.sh 3>/dev/null
       # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
