@@ -2837,6 +2837,31 @@ place_lint_rules() {
   return 0
 }
 
+# format_getff_writes — a project file the install changed goes back through the PROJECT's own prettier when its
+# committed version passes that prettier (P6 F8, 2026-09-30: create-vite's .oxlintrc.json passed prettier before
+# the install and failed it after — getff's JSON writer lays a new short array out one element per line — so
+# format:check was recorded not armed on a file getff broke). prettier is idempotent on the parts that were
+# already in its style, so only getff's lines change. A file out of style in the commit is the project's own
+# debt and is left as it is; a file the install did not change is never touched. No prettier, no commit → no-op.
+# Limit: the committed version stands in for the file before the install, so an edit the project had not
+# committed is formatted with getff's lines when the committed version was clean.
+format_getff_writes() {
+  local pb="$PROJECT_ROOT/node_modules/.bin/prettier" rel before after
+  [ -x "$pb" ] || return 0
+  git -C "$PROJECT_ROOT" rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
+  before=$(mktemp); after=$(mktemp)
+  while IFS= read -r -d '' rel; do
+    [ -f "$PROJECT_ROOT/$rel" ] || continue
+    git -C "$PROJECT_ROOT" show "HEAD:$rel" > "$before" 2>/dev/null || continue
+    # prettier prints an ignored or unsupported file unchanged, so it counts as clean and --write leaves it.
+    ( cd "$PROJECT_ROOT" && "$pb" --stdin-filepath "$rel" < "$before" > "$after" 2>/dev/null ) || continue
+    cmp -s "$before" "$after" || continue
+    ( cd "$PROJECT_ROOT" && "$pb" --write --log-level=silent -- "$rel" ) >/dev/null 2>&1 || true
+  done < <(git -C "$PROJECT_ROOT" diff --name-only -z HEAD -- 2>/dev/null)
+  rm -f "$before" "$after"
+  return 0
+}
+
 # ── #811 preset staleness guard (live-research-default-delivery, D4) ───────────
 # Deps-free, no-network major-version drift WARN: a shipped preset is a frozen snapshot
 # (preset.meta.json pins) that goes stale as the ecosystem moves. When the consumer's

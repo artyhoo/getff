@@ -1087,6 +1087,9 @@ elif declare -F place_lint_rules >/dev/null; then
     _pc_extra+=("rule-not-placed: * — not switched on: dependencies are not installed, so your lint could not run first")
   fi
 fi
+# P6 F8: every file getff edited above goes back to the project's prettier style when its commit had it, before
+# the arm pass runs format:check (format_getff_writes, lib.sh).
+[ "$DRY_RUN" = "--dry-run" ] || ! declare -F format_getff_writes >/dev/null || format_getff_writes
 
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "  [dry-run] would run each check getff adds once, arm the green ones, and record them in .ai-factory/tool-decisions.md"
