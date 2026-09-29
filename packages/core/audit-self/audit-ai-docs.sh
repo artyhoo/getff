@@ -241,7 +241,7 @@ if skip_unless D3; then : ; else
         continue
       fi
       if grep -qF "$CANON_PHRASE" "$doc" || grep -qF "$CANON_ALT" "$doc"; then continue; fi
-      if printf '%s\n' "${GOAL_POINTER_DOCS[@]}" | grep -qxF "$doc"; then
+      if grep -qxF "$doc" <<<"$(printf '%s\n' "${GOAL_POINTER_DOCS[@]}")"; then
         if ! grep -qF "$GOAL_POINTER" "$doc"; then
           D3_VIOL="$D3_VIOL"$'\n'"  $doc: missing goal pointer ($GOAL_POINTER) or canonical goal phrase"
         fi
@@ -383,17 +383,17 @@ if skip_unless D5; then : ; else
     while IFS= read -r file; do
       [ -z "$file" ] && continue
       # Enrolled?
-      if printf '%s\n' "$D5_ENROLLED" | grep -qxF "$file"; then continue; fi
+      if grep -qxF "$file" <<<"$D5_ENROLLED"; then continue; fi
       # Frozen?
-      if echo "$file" | grep -qE "$D5_FROZEN_PATTERNS"; then continue; fi
+      if grep -qE "$D5_FROZEN_PATTERNS" <<<"$file"; then continue; fi
       # Test infra?
-      if echo "$file" | grep -qE "$D5_TEST_INFRA_PATTERNS"; then continue; fi
+      if grep -qE "$D5_TEST_INFRA_PATTERNS" <<<"$file"; then continue; fi
       # Root source?
-      if echo "$file" | grep -qE "$D5_ROOT_SOURCE_PATTERNS"; then continue; fi
+      if grep -qE "$D5_ROOT_SOURCE_PATTERNS" <<<"$file"; then continue; fi
       # Gitignored transient prompts?
-      if echo "$file" | grep -qE "$D5_GITIGNORED_PATTERNS"; then continue; fi
+      if grep -qE "$D5_GITIGNORED_PATTERNS" <<<"$file"; then continue; fi
       # Generated plugin twin whose source is separately enrolled?
-      if echo "$file" | grep -qE "$D5_GENERATED_TWIN_PATH_PATTERNS" \
+      if grep -qE "$D5_GENERATED_TWIN_PATH_PATTERNS" <<<"$file" \
         && grep -qF "$D5_GENERATED_TWIN_MARKER" "$file" 2>/dev/null; then continue; fi
       # Orphan — coverage gap.
       D5_ORPHANS="$D5_ORPHANS"$'\n'"  $file: contains canonical phrase but not in DOWNSTREAM_DOCS or any exemption"

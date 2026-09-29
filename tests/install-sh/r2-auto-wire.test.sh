@@ -77,7 +77,7 @@ OUT=$(globs "$D"); RC=$?
 printf '\n// edited by the consumer\n' >> "$D/eslint.config.mjs"
 ( cd "$D" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$D/.install2.log" 2>&1 \
   || bad "D2: the re-install exited non-zero (tail: $(tail -3 "$D/.install2.log" | tr '\n' '|'))"
-grep 'R2 boundary layout ambiguous' "$D/.install2.log" | grep -q 'edited since' \
+grep -q 'edited since' <<<"$(grep 'R2 boundary layout ambiguous' "$D/.install2.log")" \
   && ! grep -q 'keeps its default globs' "$D/.install2.log" \
   && ok "D2: an ambiguous layout with getff's config edited since → the message says so, not «keeps its default globs»" \
   || bad "D2: the ambiguous-layout message still reads the edited config as getff's: $(grep 'R2 boundary layout ambiguous' "$D/.install2.log" | tr '\n' '|')"
@@ -346,7 +346,7 @@ OUT=$(globs "$H"); RC=$?
   && ok "H: check:globs GREEN after the re-install (no «marked N/A» red)" \
   || bad "H: check:globs exited $RC after the re-install. out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
 OUT=$( cd "$H" && AIF_ESLINT_CMD=true bash scripts/check-rule-enforced.sh 2>&1 )
-! printf '%s' "$OUT" | grep -q 'stale R2 N/A marker' \
+! grep -q 'stale R2 N/A marker' <<<"$OUT" \
   && ok "H: check:enforced no longer fails on a stale R2 N/A marker" \
   || bad "H: check:enforced still fails on the stale marker. out: $(printf '%s' "$OUT" | tail -2 | tr '\n' '|')"
 
@@ -367,7 +367,7 @@ printf '{"name":"h2","version":"0.0.0"}\n' > "$H2/package.json"
 ! grep -qF 'aif:r2-na' "$H2/.ai-factory/tool-decisions.md" \
   && ok "H2: a layout turned ambiguous on re-install → the stale R2 N/A block is removed" \
   || bad "H2: the stale R2 N/A block survived an ambiguous re-install"
-! globs "$H2" | grep -q 'marked N/A' \
+! grep -q 'marked N/A' <<<"$(globs "$H2")" \
   && ok "H2: check:globs no longer reports «marked N/A» (it judges the default globs again)" \
   || bad "H2: check:globs still reports the stale «marked N/A»"
 
@@ -387,7 +387,7 @@ mkdir -p "$H3/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$H3/s
 cmp -s "$H3/.ai-factory/tool-decisions.md" "$H3.before" \
   && ok "H3: a block with no end line → tool-decisions.md left byte-identical (nothing cut)" \
   || bad "H3: the strip changed a file whose block has no end line ($(diff "$H3.before" "$H3/.ai-factory/tool-decisions.md" | head -4 | tr '\n' '|'))"
-awk '/NOT wired, or wired only in part/{on=1} on' "$H3/.install2.log" | grep -q 'R2 N/A record' \
+grep -q 'R2 N/A record' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$H3/.install2.log")" \
   && ok "H3: the not-wired summary names the R2 N/A record the install could not remove" \
   || bad "H3: the not-wired summary does not report the R2 N/A record left in place"
 ! grep -qiE 'by hand|manually' "$H3/.install2.log" \
@@ -407,7 +407,7 @@ mkdir -p "$K/src/application"; echo 'export const h = (b) => schema.parse(b);' >
 install_into "$K" ts-server
 grep -qF "'**/application/**/*.{ts,tsx}'" "$K/eslint.config.mjs" \
   || bad "K: the config carries no '**/application/**/*.{ts,tsx}' anywhere — the arm below would be vacuous"
-boundary_block "$K/eslint.config.mjs" | grep -qF "'**/application/**/*.{ts,tsx}'" \
+grep -qF "'**/application/**/*.{ts,tsx}'" <<<"$(boundary_block "$K/eslint.config.mjs")" \
   && ok "K: a parse site in src/application → its glob is inside RULE_GLOBS.boundary, not only under application:" \
   || bad "K: '**/application/**/*.{ts,tsx}' is not in the boundary array ($(boundary_block "$K/eslint.config.mjs" | tr '\n' '|'))"
 # Paired negative: the glob now IS a boundary element, so a re-install must not add it again.

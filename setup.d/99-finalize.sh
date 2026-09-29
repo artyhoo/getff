@@ -91,7 +91,7 @@ _r2_own_gap() {
     none) [ -n "$r2" ] || echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ;;
     array)
       while IFS= read -r g; do
-        [ -n "$g" ] && ! printf '%s\n' "$have" | sed -n '2,$p' | grep -qxF -- "$g" && missing="${missing:+$missing, }'$g'"
+        [ -n "$g" ] && ! grep -qxF -- "$g" <<<"$(sed -n '2,$p' <<<"$have")" && missing="${missing:+$missing, }'$g'"
       done <<< "$_r2_own_globs"
       if [ -z "$r2" ] && [ -n "$missing" ]; then
         echo "R2 and its boundary globs $missing (RULE_GLOBS.boundary, for the HTTP boundary code 60-ci found)"
@@ -516,7 +516,10 @@ _r2_named_under() {
 _r2_boundary_under() {
   local out
   out=$(R2_DETECT_ROOT="$1" bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null) || out=""
-  [ "$(printf '%s\n' "$out" | head -1)" = boundary-present ] && printf '%s\n' "$out" | grep -q '^glob:'
+  # Parameter expansion and a here-string, not `printf | head -1` / `printf | grep -q`: under
+  # install.sh's pipefail an early-exiting reader can leave printf a pending write, printf dies of
+  # SIGPIPE (141), and a real boundary reads as none (measured 1/400 under load, 2026-09-29).
+  [ "${out%%$'\n'*}" = boundary-present ] && grep -q '^glob:' <<<"$out"
 }
 _r2_would_wire() {
   local code

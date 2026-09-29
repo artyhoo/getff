@@ -213,7 +213,7 @@ make_tree own-edited 'exit 1' 'exit 0' 'exit 0'
 printf '%s\n' "export default [];" > "$WORK/own-edited-proj/eslint.config.mjs"
 CAP_OUT=$(env -u CI PROJECT_ROOT="$WORK/own-edited-proj" PKG_ROOT="$WORK/own-edited-pkg" FINALIZE="$FINALIZE" \
   DEPS_INSTALLED=1 bash "$EDITED_DRIVER" 2>&1); CAP_RC=$?
-printf '%s\n' "$CAP_OUT" | grep -q 'getff placed eslint.config.mjs, and it has been edited since' \
+grep -q 'getff placed eslint.config.mjs, and it has been edited since' <<<"$CAP_OUT" \
   || bad "F8 edited: the root config was not routed as an edited getff config — the arm would be vacuous"
 if [ -e "$WORK/own-edited.ff.ran" ] && [ "$CAP_RC" -ne 0 ]; then
   ok "F8 edited getff root config without a rules-as-tests/ rule: fences-fire runs and its FAIL counts"

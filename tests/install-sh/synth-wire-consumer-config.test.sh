@@ -617,7 +617,7 @@ edit_last_entry() {
 }
 # lands_no_var <file> — no-var is on a line of <file> outside a // comment (a rule printed inside
 # the consumer's comment is text, not config).
-lands_no_var() { sed 's://.*$::' "$1" | grep -q 'no-var'; }
+lands_no_var() { grep -q 'no-var' <<<"$(sed 's://.*$::' "$1")"; }
 # note_line_kept <file> <edited> — the consumer's annotated line is in <file> once, unchanged.
 note_line_kept() {
   local line; line=$(grep -F "$NOTE" "$2")
@@ -664,7 +664,7 @@ kept_original "$I" eslint.config.mjs "$I.eslint.config.mjs.edited" \
   || bad "I: no single byte-equal kept original ($(ls "$I/.ai-factory/before-getff" 2>&1 | tr '\n' ' '))"
 # Fixed-string match on the file name: the summary's dependencies line names eslint-config-prettier,
 # which an unescaped «eslint.config» pattern also matches.
-not_wired "$I.2.log" | grep -qF 'eslint.config.mjs' && bad "I: the not-wired summary lists the eslint config" \
+grep -qF 'eslint.config.mjs' <<<"$(not_wired "$I.2.log")" && bad "I: the not-wired summary lists the eslint config" \
   || ok "I: the not-wired summary has no eslint config line"
 asks_by_hand "$I.2.log" && bad "I: the install asks for a manual ESLint edit" || ok "I: nothing asks for a manual ESLint edit"
 
@@ -720,7 +720,7 @@ unborrow "$L"
 grep -q '▶ synth-wire: confirming' "$L.3.log" && ! grep -qE 'edited since|is your own config' "$L.3.log" \
   && ok "L neg: after getff's own write on the second install, the third still reads the config as getff's" \
   || bad "L neg: getff's own write on the second install read as a consumer edit: $(grep 'synth-wire' "$L.3.log" | head -2 | tr '\n' '|')"
-sed 's://.*$::' "$L/eslint.config.mjs" | grep -q 'no-caller' && [ ! -d "$L/.ai-factory/before-getff" ] \
+grep -q 'no-caller' <<<"$(sed 's://.*$::' "$L/eslint.config.mjs")" && [ ! -d "$L/.ai-factory/before-getff" ] \
   && ok "L neg: the third live rule lands through getff's branch, and no 'before getff' copy is kept" \
   || bad "L neg: no-caller did not land, or a copy of getff's own config was kept"
 # The same on the per-workspace pass: K's second install wrote no-var into apps/tablet through
@@ -732,7 +732,7 @@ borrow "$K"
 unborrow "$K"
 grep -qE 'synth-wire \(live\): .*/apps/tablet/eslint\.config\.mjs$' "$K.3.log" \
   && ! grep -q 'apps/tablet/eslint.config.mjs.*edited since' "$K.3.log" \
-  && sed 's://.*$::' "$K/apps/tablet/eslint.config.mjs" | grep -q 'no-caller' \
+  && grep -q 'no-caller' <<<"$(sed 's://.*$::' "$K/apps/tablet/eslint.config.mjs")" \
   && [ ! -e "$K/.ai-factory/before-getff/apps/tablet" ] \
   && ok "L neg: after getff's own write on the second install, a third reads the workspace config apps/tablet as getff's" \
   || bad "L neg: getff's own write into apps/tablet read as a consumer edit: $(grep 'synth-wire.*apps/tablet' "$K.3.log" | head -2 | tr '\n' '|')"
@@ -786,14 +786,14 @@ edited_plain_reinstall() { # $1 = project dir, $2 = live snippet for the re-inst
 }
 Q="$WORK/placed-edited-plain"; mkdir -p "$Q"
 edited_plain_reinstall "$Q" ""
-not_wired "$Q.2.log" | grep -qF 'eslint.config.mjs' \
+grep -qF 'eslint.config.mjs' <<<"$(not_wired "$Q.2.log")" \
   && bad "Q: the not-wired summary lists eslint.config.mjs although getff's rules are already in it: $(not_wired "$Q.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
   || ok "Q: with getff's rules already in the edited config, nothing about it is reported as not wired"
 cmp -s "$Q/eslint.config.mjs" "$Q.edited" && ok "Q: the edited config is left byte-identical" \
   || bad "Q: the edited config changed on an install that cannot run the AST editor"
 Qn="$WORK/placed-edited-plain-rule"; mkdir -p "$Qn"
 edited_plain_reinstall "$Qn" '{ "no-var": "error" }'
-not_wired "$Qn.2.log" | grep -F 'eslint.config.mjs' | grep -q -- '--full' \
+grep -q -- '--full' <<<"$(not_wired "$Qn.2.log" | grep -F 'eslint.config.mjs')" \
   && ok "Q neg: a live rule the edited config does not carry is named in the not-wired summary, with --full" \
   || bad "Q neg: the missing live rule is not reported: $(not_wired "$Qn.2.log" | head -3 | tr '\n' '|')"
 
@@ -826,7 +826,7 @@ grep -q 'getff placed eslint.config.mjs, and it has been edited since' "$N.2.log
   || bad "N: the re-install did not route the edited config as the consumer's — the arm would be vacuous"
 # boundary_block <cfg> — the lines of RULE_GLOBS.boundary, from `boundary: [` to its closing `]`.
 boundary_block() { awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1} on{print} on && /\]/{exit}' "$1"; }
-boundary_block "$N/eslint.config.mjs" | grep -qF "$HANDLERS_GLOB" \
+grep -qF "$HANDLERS_GLOB" <<<"$(boundary_block "$N/eslint.config.mjs")" \
   && ok "N: the boundary glob for the new HTTP boundary code is in the edited config's RULE_GLOBS.boundary" \
   || bad "N: the handlers glob did not land in the edited config: $(grep -nE 'R2 auto-wire|HTTP boundary|synth-wire' "$N.2.log" | head -3 | tr '\n' '|')"
 grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$N.2.log" \
@@ -835,13 +835,13 @@ grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$N.2.log" \
 kept_original "$N" eslint.config.mjs "$N.edited" \
   && ok "N: the edited original is kept at .ai-factory/before-getff/, byte-equal to the consumer's edit" \
   || bad "N: no single byte-equal kept original of the edited config ($(ls "$N/.ai-factory/before-getff" 2>&1 | tr '\n' ' '))"
-cat "$N/.ai-factory/before-getff/eslint.config.mjs".* 2>/dev/null | grep -qF "$HANDLERS_GLOB" \
+grep -qF "$HANDLERS_GLOB" <<<"$(cat "$N/.ai-factory/before-getff/eslint.config.mjs".* 2>/dev/null)" \
   && bad "N: a kept 'original' already carries getff's boundary glob" \
   || ok "N: no kept original carries getff's boundary glob"
 only_insertions "$N.edited" "$N/eslint.config.mjs" \
   && ok "N: nothing of the edited config was changed or removed — getff only inserted" \
   || bad "N: a character of the edited config was changed or removed"
-not_wired "$N.2.log" | grep -qF 'eslint.config.mjs' \
+grep -qF 'eslint.config.mjs' <<<"$(not_wired "$N.2.log")" \
   && bad "N: the not-wired summary lists the eslint config: $(not_wired "$N.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
   || ok "N: the not-wired summary has no eslint config line"
 
@@ -852,10 +852,10 @@ edited_plain_reinstall "$O" "" add_handler
 cmp -s "$O/eslint.config.mjs" "$O.edited" && ok "O: the edited config is left byte-identical" \
   || bad "O: the edited config changed on an install that cannot run the AST editor: $(diff "$O.edited" "$O/eslint.config.mjs" | head -4 | tr '\n' '|')"
 _o_line=$(not_wired "$O.2.log" | grep -F 'eslint.config.mjs')
-printf '%s\n' "$_o_line" | grep -qF "$HANDLERS_GLOB" && printf '%s\n' "$_o_line" | grep -q -- '--full' \
+grep -qF "$HANDLERS_GLOB" <<<"$_o_line" && grep -q -- '--full' <<<"$_o_line" \
   && ok "O: the not-wired summary names the missing boundary glob, with --full" \
   || bad "O: the missing boundary glob is not reported: $(not_wired "$O.2.log" | head -3 | tr '\n' '|')"
-printf '%s\n' "$_o_line" | grep -qF "getff's rules" \
+grep -qF "getff's rules" <<<"$_o_line" \
   && bad "O: the not-wired line says getff's rules are missing, but they are in the edited config: $_o_line" \
   || ok "O: the not-wired line does not claim getff's rules are missing"
 # O neg: the boundary code was there on the first install, whose 60-ci added every glob while the
@@ -865,7 +865,7 @@ add_handler "$On"
 edited_plain_reinstall "$On" ""
 grep -qF "$HANDLERS_GLOB" "$On.edited" \
   || bad "O neg: the first install did not add the handlers glob — the arm would be vacuous"
-not_wired "$On.2.log" | grep -qF 'eslint.config.mjs' \
+grep -qF 'eslint.config.mjs' <<<"$(not_wired "$On.2.log")" \
   && bad "O neg: the not-wired summary lists eslint.config.mjs although every boundary glob is in it: $(not_wired "$On.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
   || ok "O neg: with every boundary glob already in the edited config, nothing about it is reported"
 cmp -s "$On/eslint.config.mjs" "$On.edited" && ok "O neg: the edited config is left byte-identical" \
@@ -888,8 +888,8 @@ grep -q 'RULE_GLOBS' "$Sx.edited" && ! grep -qE '^[[:space:]]*boundary:' "$Sx.ed
 cmp -s "$Sx/eslint.config.mjs" "$Sx.edited" && ok "S: the edited config is left byte-identical" \
   || bad "S: the edited config changed: $(diff "$Sx.edited" "$Sx/eslint.config.mjs" | head -4 | tr '\n' '|')"
 _s_line=$(not_wired "$Sx.2.log" | grep -F "$R2_REFUSAL")
-[ -n "$_s_line" ] && ! printf '%s\n' "$_s_line" | grep -q -- '--full' \
-  && ! not_wired "$Sx.2.log" | grep -F 'eslint.config.mjs' | grep -qiE 'boundary glob' \
+[ -n "$_s_line" ] && ! grep -q -- '--full' <<<"$_s_line" \
+  && ! grep -qiE 'boundary glob' <<<"$(not_wired "$Sx.2.log" | grep -F 'eslint.config.mjs')" \
   && ok "S: the summary gives the wirer's reason R2 is refused, with no --full and no boundary globs to add" \
   || bad "S: the summary does not give the wirer's refusal: $(not_wired "$Sx.2.log" | grep -F 'eslint.config.mjs' | head -3 | tr '\n' '|')"
 S2="$WORK/placed-edited-no-boundary"; mkdir -p "$S2"
@@ -916,9 +916,9 @@ add_app_parse() { # $1 = project dir — a hand-rolled parse boundary under appl
 }
 T="$WORK/placed-edited-application"; mkdir -p "$T"
 edited_plain_reinstall "$T" "" add_app_parse
-grep -qF "$APP_GLOB" "$T.edited" && ! boundary_block "$T.edited" | grep -qF "$APP_GLOB" \
+grep -qF "$APP_GLOB" "$T.edited" && ! grep -qF "$APP_GLOB" <<<"$(boundary_block "$T.edited")" \
   || bad "T: the edited config does not carry the glob outside its boundary array — the arm would be vacuous"
-not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | grep -F "$APP_GLOB" | grep -q -- '--full' \
+grep -q -- '--full' <<<"$(not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | grep -F "$APP_GLOB")" \
   && ok "T: a glob found only in another RULE_GLOBS key is named as one R2 lacks, with --full" \
   || bad "T: the glob the boundary array lacks is not reported: $(not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | head -2 | tr '\n' '|')"
 # V: the same edited config on a re-install without Node. Every writer of the own-config pass runs
@@ -943,8 +943,8 @@ else
   cmp -s "$V/eslint.config.mjs" "$V.edited" && ok "V: without Node the edited config is left byte-identical" \
     || bad "V: the edited config changed on an install without Node: $(diff "$V.edited" "$V/eslint.config.mjs" | head -4 | tr '\n' '|')"
   _v_line=$(not_wired "$V.2.log" | grep -F 'eslint.config.mjs')
-  printf '%s\n' "$_v_line" | grep -qF "$HANDLERS_GLOB" && printf '%s\n' "$_v_line" | grep -q 'needs Node' \
-    && ! printf '%s\n' "$_v_line" | grep -q -- '--full' \
+  grep -qF "$HANDLERS_GLOB" <<<"$_v_line" && grep -q 'needs Node' <<<"$_v_line" \
+    && ! grep -q -- '--full' <<<"$_v_line" \
     && ok "V: without Node the summary names the boundary globs R2 lacks, and that adding them needs Node" \
     || bad "V: the globs R2 lacks are not reported without Node: $(not_wired "$V.2.log" | head -4 | tr '\n' '|')"
   asks_by_hand "$V.2.log" && bad "V: the install without Node asks for a manual edit: $(manual_step_lines "$V.2.log" | head -1)" \

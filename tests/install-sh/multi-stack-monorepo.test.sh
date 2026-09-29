@@ -392,7 +392,7 @@ printf '{ "name": "@m/api", "dependencies": { "hono": "4.0.0" } }\n' > "$T11/app
 printf '{ "name": "@m/worker", "dependencies": { "hono": "4.0.0" } }\n' > "$T11/apps/worker/package.json"
 ( cd "$T11" && git init -q && bash "$INSTALL_SH" ts-server --force --wire-ci </dev/null ) >"$T11/.install.log" 2>&1 \
   || bad "§10b: install rc=$? (tail: $(tail -3 "$T11/.install.log" | tr '\n' '|'))"
-grep "CI gate" "$T11/.install.log" | grep -qi "multi-stack" \
+grep -qi "multi-stack" <<<"$(grep "CI gate" "$T11/.install.log")" \
   && bad "§10b: a single-stack monorepo's NOT-wired reason calls it multi-stack" \
   || ok "§10b: the NOT-wired reason does not call a single-stack monorepo multi-stack"
 grep -qE '^ +- CI gate .* runs in no CI job .*this repo has workspace packages there' "$T11/.install.log" \
