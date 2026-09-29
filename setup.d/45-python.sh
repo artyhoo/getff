@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1455 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1456 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1438).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1439).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -946,6 +946,10 @@ _py_deliver_local_hook_rung() {
   # wraps copy_safe/refresh_safe so --refresh overwrites a brownfield copy with the current
   # template (refresh_safe honours pre-push.override.md for Layer-3 consumer ownership).
   mkdir_safe "$hook_dst_dir"
+  # W2-G (#1502): deliver the ZCode skill-mirror check BESIDE the hook that calls it — the
+  # pre-push template (and the pre-commit fragment, which invokes the same body) both run it.
+  _py_copy_or_refresh "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
+  chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
   _py_copy_or_refresh "$hook_src" "$hook_dst"
   chmod_safe +x "$hook_dst" 2>/dev/null || true
 
@@ -976,6 +980,7 @@ _py_deliver_local_hook_rung() {
   if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "  ⊝ not a git repo — hook body delivered to .getff/hooks/pre-push but NOT activated"
     note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — $PROJECT_ROOT is not a git repository, and getff does not create one"
+    _py_mirror_check_not_wired "the local pre-push rung that calls it is not active, because this is not a git repository"
     return 0
   fi
 
@@ -1018,6 +1023,7 @@ _py_integrate_existing_hookspath() {
   echo "  ⚠ consumer core.hooksPath='$existing' — NOT overwriting (T-S2B-B / augment-first)" >&2
   echo "    getff hook body delivered to .getff/hooks/pre-push but NOT activated." >&2
   note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — core.hooksPath=$existing, and getff does not repoint a hook setup the repository already has"
+  _py_mirror_check_not_wired "the local pre-push rung that calls it is not active, because core.hooksPath=$existing is the repository's own"
 }
 
 # _py_integrate_precommit_consumer — Case 2: consumer has .pre-commit-config.yaml.
@@ -1048,11 +1054,86 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body.
-  printf '\n%s\n' "$frag_marker" >> "$cfg"
-  cat "$frag_src" >> "$cfg"
-  echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body at the
+  # indent of the file's own `repos:` items — the fragment is written in column 0, and a column-0
+  # item after an indented sequence is a YAML error that stops pre-commit loading the config at all.
+  # The marker stays in column 0: a comment line does not take part in YAML block structure.
+  local block
+  if ! block=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX"); then
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: mktemp failed"
+    return 0
+  fi
+  { printf '\n%s\n' "$frag_marker"
+    _py_precommit_indent "$(_py_precommit_repos_indent "$cfg")" < "$frag_src"
+  } > "$block"
+  if _py_precommit_insert "$cfg" "$block"; then
+    echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  else
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: its repos: is written in a form getff does not edit (a flow sequence such as [...], or an anchor), so the file is left as it was"
+  fi
+  rm -f "$block"
   _py_precommit_prepush_stage
+}
+
+# The top-level `repos` key in every spelling a YAML loader reads as that key — bare, "repos" or
+# 'repos', spaces before the colon allowed. Matching only `repos:` sent a quoted key down the
+# «no repos: key» path, which appended a SECOND `repos:`; PyYAML (what pre-commit loads with) keeps
+# the last duplicate, so every hook the consumer had silently vanished.
+_PY_PRECOMMIT_REPOS_KEY='^(repos|"repos"|'"'"'repos'"'"')[ \t]*:'
+
+# _py_precommit_repos_indent <cfg> — the leading spaces of the first item of the top-level block
+# `repos:` sequence; empty (column 0) when the list is empty, flow-style (`repos: []`) or absent.
+# A CRLF file is matched with its CR removed.
+_py_precommit_repos_indent() {
+  awk -v kre="$_PY_PRECOMMIT_REPOS_KEY" '
+    { sub(/\r$/, "") }
+    !on && match($0, kre) { on = 1; next }
+    on && /^ *-([ \t]|$)/ { match($0, /^ */); printf "%s", substr($0, 1, RLENGTH); exit }
+    on && /^[^ \t#]/ { exit }' "$1"
+}
+
+# _py_precommit_indent <indent> — stdin with <indent> prepended to every non-empty line.
+_py_precommit_indent() {
+  awk -v p="$1" '{ print (length($0) ? p $0 : $0) }'
+}
+
+# _py_precommit_insert <cfg> <block-file> — put <block-file> at the END OF THE `repos:` SEQUENCE,
+# not the end of the file: a top-level key after it (`ci:`, say) would otherwise swallow the item.
+# `repos: []` / `repos: ~` become a block `repos:` so it can take the item; a file without the key
+# gets one. Blank and comment lines after the last item stay with the key that follows them. A CRLF
+# file gets CRLF lines. The file is rewritten in place (a symlink or its mode survives). Returns
+# non-zero, file untouched, when `repos:` holds a flow sequence (on its line or the next) or any
+# other node that is not a block sequence.
+_py_precommit_insert() {
+  local cfg="$1" block="$2" tmp="$1.getff.tmp" cr=""
+  if grep -q "$(printf '\r')\$" <<<"$(head -n 1 "$cfg" 2>/dev/null)"; then cr=$(printf '\r'); fi
+  if awk -v blk="$block" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v cr="$cr" '
+      function emit(  l) { while ((getline l < blk) > 0) print l cr; close(blk) }
+      function flush() { printf "%s", buf; buf = "" }
+      { raw = $0; l = $0; sub(/\r$/, "", l) }
+      !seen && match(l, kre) {
+        key = substr(l, 1, RLENGTH); rest = substr(l, RLENGTH + 1)
+        sub(/^[ \t]+/, "", rest); sub(/(^|[ \t]+)#.*$/, "", rest)
+        if (rest == "") print raw
+        else if (rest ~ /^(\[[ \t]*\]|~|null|Null|NULL)$/) print key cr
+        else { bad = 1; exit }
+        seen = on = first = 1; next
+      }
+      on && (l ~ /^[ \t]*$/ || l ~ /^#/) { buf = buf raw "\n"; next }
+      on && first && l !~ /^[ \t]*-([ \t]|$)/ && l !~ /^[^ \t\[{]/ { bad = 1; exit }
+      on && (l ~ /^[^ \t-]/ || l ~ /^(---|\.\.\.)([ \t]|$)/) { emit(); on = 0; flush(); print raw; next }
+      on { first = 0; flush(); print raw; next }
+      { print raw }
+      END {
+        if (bad) exit 1
+        if (on) { flush(); emit() } else if (!seen) { print "repos:" cr; emit() }
+      }' "$cfg" > "$tmp"; then
+    cat "$tmp" > "$cfg"
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # _py_precommit_prepush_stage — install the consumer's pre-commit pre-push stage with pre-commit's
@@ -1060,32 +1141,38 @@ _py_integrate_precommit_consumer() {
 # `pre-commit install` moves an existing pre-push aside (its migration mode), and it refuses to run
 # while core.hooksPath is set — both cases, a non-git project and a missing pre-commit binary are
 # NOT-wired lines instead (Q4.7). A pre-push that pre-commit generated is already the stage.
+# Whenever the stage is not installed, the getff entry — and so the ZCode skill-mirror check it
+# runs — never fires, so that gap gets its own NOT-wired line too (W2-G, #1502).
 _py_precommit_prepush_stage() {
   local _nw="pre-commit pre-push stage (runs the getff entry in .pre-commit-config.yaml): not installed"
+  local _why=""
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "  [dry-run] would: pre-commit install --hook-type pre-push"
     return 0
   fi
   if ! git -C "$PROJECT_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    note_not_wired "$_nw — $PROJECT_ROOT is not a git repository, and getff does not create one"
-    return 0
-  fi
-  local _hp _pp
-  _hp=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
-  _pp="$(_py_git_hooks_dir)/pre-push"
-  if [ -f "$_pp" ] && grep -q 'generated by pre-commit' "$_pp" 2>/dev/null; then
-    echo "  ⊝ pre-commit pre-push stage already installed"
-  elif [ -n "$_hp" ]; then
-    note_not_wired "$_nw — core.hooksPath=$_hp is set, and pre-commit does not install hooks while it is"
-  elif [ -e "$_pp" ]; then
-    note_not_wired "$_nw — the repository has its own pre-push hook, and getff does not replace a hook it did not write"
-  elif ! command -v pre-commit >/dev/null 2>&1; then
-    note_not_wired "$_nw — pre-commit is not on PATH"
-  elif ( cd "$PROJECT_ROOT" && pre-commit install --hook-type pre-push ) >/dev/null 2>&1; then
-    echo "  ✓ pre-commit pre-push stage installed (the getff entry runs on git push)"
+    _why="$PROJECT_ROOT is not a git repository, and getff does not create one"
   else
-    note_not_wired "$_nw — pre-commit exited non-zero installing it"
+    local _hp _pp
+    _hp=$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null || true)
+    _pp="$(_py_git_hooks_dir)/pre-push"
+    if [ -f "$_pp" ] && grep -q 'generated by pre-commit' "$_pp" 2>/dev/null; then
+      echo "  ⊝ pre-commit pre-push stage already installed"
+    elif [ -n "$_hp" ]; then
+      _why="core.hooksPath=$_hp is set, and pre-commit does not install hooks while it is"
+    elif [ -e "$_pp" ]; then
+      _why="the repository has its own pre-push hook, and getff does not replace a hook it did not write"
+    elif ! command -v pre-commit >/dev/null 2>&1; then
+      _why="pre-commit is not on PATH"
+    elif ( cd "$PROJECT_ROOT" && pre-commit install --hook-type pre-push ) >/dev/null 2>&1; then
+      echo "  ✓ pre-commit pre-push stage installed (the getff entry runs on git push)"
+    else
+      _why="pre-commit exited non-zero installing it"
+    fi
   fi
+  [ -n "$_why" ] || return 0
+  note_not_wired "$_nw — $_why"
+  _py_mirror_check_not_wired "the pre-commit pre-push stage that runs the getff entry is not installed"
 }
 
 # _py_git_hooks_dir — absolute path of the repository's REAL hook directory.
@@ -1132,6 +1219,7 @@ _py_integrate_legacy_githook() {
   echo "  ⚠ existing git hook(s) in $hooks_dir: ${list% } — NOT setting core.hooksPath (T-S2B-B / augment-first)" >&2
   echo "    core.hooksPath would make git look ONLY in .getff/hooks, silently disabling them." >&2
   note_not_wired "local pre-push rung (.getff/hooks/pre-push): not active — the repository has its own git hook(s) (${list% }), and core.hooksPath=.getff/hooks would switch them off"
+  _py_mirror_check_not_wired "the local pre-push rung that calls it is not active, because getff does not set core.hooksPath over the repository's own hooks in $hooks_dir"
 }
 
 # ── Python-lane RULES.md (A2-5) ──────────────────────────────────────────────────────────────────
@@ -1409,7 +1497,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1407). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1404). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
@@ -1455,6 +1543,19 @@ _py_deliver_agent_surface() {
   _py_deliver_local_hook_rung
 
   echo "  ✓ Agent surface delivery complete"
+}
+
+# _py_mirror_check_not_wired <why> — the one wording for «scripts/check-zcode-mirror.sh is delivered,
+# but no active hook runs it» (W2-G, #1502). Recorded on every path where getff's pre-push is NOT
+# active at the end of the install: the non-git tree, Case 1 (the project's own core.hooksPath),
+# Case 3 (live hooks in $GIT_DIR/hooks) and Case 2 when its pre-commit pre-push stage is not
+# installed, each next to that path's own pre-push line. An installed Case 2 stage records nothing:
+# the pre-commit fragment runs the same hook body at the pre-commit framework's pre-push stage. Q4.7: it names the check and why it does not run — never a command to run. It goes
+# through note_not_wired, so the lane's own NOT-wired summary (print_not_wired, which do_python_lane
+# calls before it exits) prints it with the rest. Defined ABOVE the test seam, so a
+# PY_LAYER_LIB_ONLY=1 caller of deliver_python_toolchain reaches it too.
+_py_mirror_check_not_wired() {
+  note_not_wired "ZCode skill-mirror check (scripts/check-zcode-mirror.sh, delivered): no hook runs it — $1"
 }
 
 # ── Test seam: define the functions above but skip the auto-delivery (tests drive per-fixture) ──

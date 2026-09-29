@@ -2,7 +2,7 @@
 /**
  * render-invariants — renders the session digest's `INVARIANTS_LINE` from README.md.
  *
- * WHY: the invariant list is loaded into EVERY agent session (UserPromptSubmit digest, and
+ * WHY: the invariant list is loaded into EVERY agent session (SessionStart digest, and
  * SubagentStart via inject-subagent-digest.sh which re-runs the same hook). It used to be a
  * hand-typed copy of README.md «What must not break (invariants)», and the copy drifted: README
  * gained «No paid LLM in CI» while the digest kept four items (found 2026-09-28). README is the

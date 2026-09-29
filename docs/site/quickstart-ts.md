@@ -28,7 +28,7 @@ executed:
   - { step: run-the-gate, stack: ts-server, date: 2026-09-21, result: exit-0 }
   - { step: strict-runtime-second-red, stack: ts-server, date: 2026-09-21, result: RED }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the delivered-files listing was re-captured from a fresh ts-server install and now names the new check-zcode-mirror.sh, along with tier-home.md and the worktree-script cluster that earlier staging ranges deliver but this listing had not yet picked up; clears at the next gold refresh of this page
 ---
 
 # Quick start for TypeScript and React
@@ -125,6 +125,7 @@ orchestrator-prompts
 refresh-baseline.json
 rules
 skill-context
+tier-home.md
 tool-decisions.md
 
 scripts/:
@@ -136,13 +137,18 @@ check-lintstaged-resolves.sh
 check-rule-enforced.sh
 check-rule-globs.sh
 check-shields-up.sh
+check-zcode-mirror.sh
 ci-available-probe.sh
+create-worktree.sh
 detect-r2-boundary.sh
 fences-fire-fixtures
+getff-work.sh
+link-coordination.sh
 pre-merge-local.sh
 r2-na-marker.sh
 run-generated-rule-mutation.sh
 run-rule-tests-firing.sh
+worktree-node-modules.sh
 ```
 
 `AGENTS.md` is what your agent reads first. `.ai-factory/RULES.md` lists the rules in

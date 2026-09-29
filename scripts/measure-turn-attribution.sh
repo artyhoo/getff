@@ -436,7 +436,7 @@ echo "-- which rules fire (rule-line occurrences, all populations, top 12) --"
 # §9 BOOTSTRAP-INJECTOR COST LINE (spec 2026-08-06 §1.6 FORK E)  [extension beyond the seed]
 #
 # Two DISTINCT hooks, two seat classes:
-#   UserPromptSubmit -> .claude/hooks/inject-session-bootstrap.sh   (fires per PROMPT)
+#   SessionStart     -> .claude/hooks/inject-session-bootstrap.sh   (fires per context start: startup/resume/clear/compact)
 #   SubagentStart    -> .claude/hooks/inject-subagent-digest.sh     (fires per SUBAGENT spawn)
 # Per-invocation size is MEASURED LIVE here (not carried from a prior doc), then multiplied by
 # the firing count observed in the corpus. There is no session cache in either hook, so every
@@ -451,13 +451,13 @@ probe_hook() { # $1 hook path, $2 event name -> bytes emitted (0 if unrunnable)
   { printf '{"session_id":"probe","transcript_path":"/dev/null","cwd":"%s","hook_event_name":"%s","prompt":"probe","agent_type":"general-purpose"}' \
       "$REPO_ROOT" "$2" | bash "$1" 2>/dev/null || true; } | wc -c | tr -d ' '
 }
-BOOT_B="$(probe_hook "$BOOT_HOOK" UserPromptSubmit)"
+BOOT_B="$(probe_hook "$BOOT_HOOK" SessionStart)"
 SUBA_B="$(probe_hook "$SUBA_HOOK" SubagentStart)"
 # est-token BAND from a byte count: dividing by the LOW B/tok gives the HIGH token estimate.
 tok_band() { awk -v b="$1" -v lo="$BYTES_PER_TOKEN_LO" -v hi="$BYTES_PER_TOKEN_HI" \
   'BEGIN{ printf "%d-%d", b/hi, b/lo }'; }
 echo "per-invocation size, MEASURED LIVE this run:"
-echo "  inject-session-bootstrap.sh (UserPromptSubmit): ${BOOT_B} B  (~$(tok_band "$BOOT_B") est-tokens @ ${BYTES_PER_TOKEN_LO}-${BYTES_PER_TOKEN_HI} B/t)"
+echo "  inject-session-bootstrap.sh (SessionStart):     ${BOOT_B} B  (~$(tok_band "$BOOT_B") est-tokens @ ${BYTES_PER_TOKEN_LO}-${BYTES_PER_TOKEN_HI} B/t)"
 echo "  inject-subagent-digest.sh   (SubagentStart):    ${SUBA_B} B  (~$(tok_band "$SUBA_B") est-tokens @ ${BYTES_PER_TOKEN_LO}-${BYTES_PER_TOKEN_HI} B/t)"
 echo "  NOTE: est-tokens is a BAND, not a point. Both hook payloads are ASCII-dominant, so the"
 echo "        TRUE value sits near the LOW end of the band (high B/tok = few tokens applies to"

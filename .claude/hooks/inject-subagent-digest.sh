@@ -18,7 +18,7 @@ set -uo pipefail
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 
-# Single source of truth for the digest text: reuse the UserPromptSubmit digest
+# Single source of truth for the digest text: reuse the SessionStart digest
 # verbatim (one logic, two channels — dual-implementation-discipline §7).
 DIGEST="$(bash "$HOOK_DIR/inject-session-bootstrap.sh" 2>/dev/null || true)"
 [[ -z "$DIGEST" ]] && exit 0
