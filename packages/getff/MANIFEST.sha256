@@ -500,7 +500,7 @@ b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
 f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
-8ee8b9d29206f0b1de1addb68d1f74dfcf4040ac8e9fac3a45fd1fb01dbb8fbb  packages/core/hooks/pre-push.test.ts
+2a88c9847e7f436068d610d0cad26395b6d054b9d7a2ee9102057a58e755d4aa  packages/core/hooks/pre-push.test.ts
 9047ddcb411f299941562b0844d07f7ccfce7f49462fa99cbc7a7a1d88e7ff7d  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
@@ -536,7 +536,7 @@ dcc514ea7a4016d41e2cef5482b122ee4440414cd30667a0da66925bfe9f260f  packages/core/
 bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
 629c469f57b6e2d3f7e34303875e7d5eb1f599bb9c9f316327339d783278028e  packages/core/install/wire-eslint-r2.test.ts
 a8054df97c5f37902e5fded2bb56b426ff2efa5eaf8776d4f6cd094c1cab5e9a  packages/core/install/wire-eslint-r2.ts
-f9e63a7e971684756793cbf872e59d4dc56b5217407392f9aeb309709640cd4c  packages/core/install/wire-live-snippet.test.ts
+765be64dcd882ce0d90334a58aeb163e3619b0c5e4886bd6c0feb299f182591f  packages/core/install/wire-live-snippet.test.ts
 f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
 90f3aed2bf8876cb2eacfa7d445bd98bcd5fcf61048a0693b283534b309c7bbc  packages/core/installer/expected-self-install.json
