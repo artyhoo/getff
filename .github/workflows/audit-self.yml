@@ -671,6 +671,10 @@ jobs:
         run: bash tests/plugin/run-hook.test.sh
       - name: Run plugin twin-emit test
         run: bash tests/plugin/twin-emit.test.sh
+      # setup.d/skill-routing.sh + its plugin twin + the session-start re-apply arm. Hermetic
+      # (throwaway HOME per case), so it never reads or writes the runner's ~/.claude.
+      - name: Run plugin skill-routing test
+        run: bash tests/plugin/skill-routing.test.sh
       - name: Run plugin warn-subagent-report ZCode arm test
         run: bash tests/plugin/warn-subagent-report-zcode.test.sh
       # Wired 2026-08-17 alongside the S9C rollout-arm restore. This is the acceptance test that

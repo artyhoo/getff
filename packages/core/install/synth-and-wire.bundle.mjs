@@ -10185,9 +10185,6 @@ function buildLineDiff(original, modified) {
   return out.join("\n");
 }
 async function wireConfigSource(source, opts = {}) {
-  if (source.includes(R2_RULE_ID)) {
-    return { status: "already-wired", original: source, modified: source };
-  }
   let Project;
   let SyntaxKind;
   try {
@@ -10197,6 +10194,7 @@ async function wireConfigSource(source, opts = {}) {
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
+    if (simpleRulePresent(source, R2_RULE_ID)) return { status: "already-wired", original: source, modified: source };
     return {
       status: "degrade",
       original: source,
@@ -10215,6 +10213,9 @@ async function wireConfigSource(source, opts = {}) {
     skipLoadingLibFiles: true
   });
   const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
+  if (ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID)) {
+    return { status: "already-wired", original: source, modified: source };
+  }
   const exportAssignment = sf.getExportAssignment((ea) => !ea.isExportEquals());
   if (!exportAssignment) {
     return { status: "unrecognised", original: source, modified: source };
@@ -10265,6 +10266,62 @@ function jsString(s) {
 function simpleRulePresent(source, ruleName) {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
 }
+function ruleKeyNodes(sf, SyntaxKind, ruleName) {
+  const objects = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Set();
+  const LOGICAL = [SyntaxKind.AmpersandAmpersandToken, SyntaxKind.BarBarToken, SyntaxKind.QuestionQuestionToken];
+  const WRAPPERS = [
+    SyntaxKind.ParenthesizedExpression,
+    // also a JSDoc cast: /** @type {any} */ ({ … })
+    SyntaxKind.AsExpression,
+    SyntaxKind.SatisfiesExpression,
+    SyntaxKind.TypeAssertionExpression,
+    SyntaxKind.NonNullExpression
+  ];
+  const collect = (node) => {
+    if (!node?.isKind) return;
+    if (node.isKind(SyntaxKind.Identifier)) {
+      const decl = sf.getVariableDeclaration(node.getText());
+      if (!decl || seen.has(decl)) return;
+      seen.add(decl);
+      collect(decl.getInitializer());
+    } else if (WRAPPERS.some((k) => node.isKind(k))) {
+      collect(node.getExpression());
+    } else if (node.isKind(SyntaxKind.ConditionalExpression)) {
+      collect(node.getWhenTrue());
+      collect(node.getWhenFalse());
+    } else if (node.isKind(SyntaxKind.BinaryExpression) && LOGICAL.includes(node.getOperatorToken().getKind())) {
+      collect(node.getLeft());
+      collect(node.getRight());
+    } else if (node.isKind(SyntaxKind.CallExpression)) {
+      for (const arg of node.getArguments()) collect(arg);
+    } else if (node.isKind(SyntaxKind.ObjectLiteralExpression) && !objects.has(node)) {
+      objects.add(node);
+      for (const p of node.getProperties()) {
+        if (p.isKind(SyntaxKind.SpreadAssignment)) collect(p.getExpression());
+      }
+    }
+  };
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (normPropName(p.getName()) === "rules") collect(p.getInitializer());
+  }
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment)) {
+    if (p.getName() === "rules") collect(p.getNameNode());
+  }
+  const out = [];
+  for (const obj of objects) {
+    for (const p of obj.getProperties()) {
+      const keyed = p.isKind(SyntaxKind.PropertyAssignment) || p.isKind(SyntaxKind.ShorthandPropertyAssignment);
+      if (keyed && normPropName(p.getName()) === ruleName) out.push(p);
+    }
+  }
+  return out;
+}
+function ruleSetInConfig(sf, SyntaxKind, ruleName) {
+  if (ruleKeyNodes(sf, SyntaxKind, ruleName).length > 0) return true;
+  const literal = (kind) => sf.getDescendantsOfKind(kind).some((n) => n.getLiteralValue() === ruleName);
+  return literal(SyntaxKind.StringLiteral) || literal(SyntaxKind.NoSubstitutionTemplateLiteral);
+}
 function wrapperSelectorsPresent(source, arrValue) {
   const entries = arrValue.slice(1);
   return entries.every((e) => {
@@ -10295,36 +10352,78 @@ function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) 
 function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-    const propNames = (el.getProperties?.() ?? []).map((p) => {
+    if (!provablyUnscoped(el, SyntaxKind, /* @__PURE__ */ new Set())) continue;
+    const props = el.getProperties?.() ?? [];
+    let last = -1;
+    props.forEach((p, i) => {
       try {
-        return normPropName(p.getName?.());
+        if (normPropName(p.getName?.()) === "plugins") last = i;
       } catch {
-        return "";
       }
     });
-    if (propNames.includes("files") || propNames.includes("ignores")) continue;
-    for (const prop of el.getProperties?.() ?? []) {
-      let propName;
+    if (last < 0 || props.slice(last + 1).some((p) => p.isKind?.(SyntaxKind.SpreadAssignment))) continue;
+    const pluginsInit = props[last].getInitializer?.();
+    if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const pp of pluginsInit.getProperties?.() ?? []) {
+      let ppName;
       try {
-        propName = normPropName(prop.getName?.());
+        ppName = normPropName(pp.getName?.());
       } catch {
         continue;
       }
-      if (propName !== "plugins") continue;
-      const pluginsInit = prop.getInitializer?.();
-      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-      for (const pp of pluginsInit.getProperties?.() ?? []) {
-        let ppName;
-        try {
-          ppName = normPropName(pp.getName?.());
-        } catch {
-          continue;
-        }
-        if (ppName === "rules-as-tests") return true;
-      }
+      if (ppName === "rules-as-tests") return true;
     }
   }
   return false;
+}
+var SCOPE_KEYS = /* @__PURE__ */ new Set(["files", "ignores", "basePath"]);
+function provablyUnscoped(obj, SyntaxKind, seen) {
+  if (seen.has(obj)) return false;
+  seen.add(obj);
+  for (const p of obj.getProperties?.() ?? []) {
+    if (p.isKind?.(SyntaxKind.SpreadAssignment)) {
+      const lit = spreadObjectLiteral(p.getExpression(), SyntaxKind);
+      if (!lit || !provablyUnscoped(lit, SyntaxKind, seen)) return false;
+      continue;
+    }
+    if (p.isKind?.(SyntaxKind.GetAccessor) || p.isKind?.(SyntaxKind.SetAccessor) || p.isKind?.(SyntaxKind.MethodDeclaration)) return false;
+    const nameNode = p.getNameNode?.();
+    if (nameNode?.isKind?.(SyntaxKind.ComputedPropertyName) || nameNode?.getText?.().includes("\\")) return false;
+    let name;
+    try {
+      name = normPropName(p.getName?.());
+    } catch {
+      return false;
+    }
+    if (SCOPE_KEYS.has(name)) return false;
+  }
+  return true;
+}
+function spreadObjectLiteral(expr, SyntaxKind) {
+  const unwrap = (e2) => {
+    let cur = e2;
+    while (cur && (cur.isKind(SyntaxKind.ParenthesizedExpression) || cur.isKind(SyntaxKind.AsExpression) || cur.isKind(SyntaxKind.SatisfiesExpression))) {
+      cur = cur.getExpression();
+    }
+    return cur;
+  };
+  const e = unwrap(expr);
+  if (e?.isKind(SyntaxKind.ObjectLiteralExpression)) return e;
+  if (!e?.isKind(SyntaxKind.Identifier)) return void 0;
+  const name = e.getText();
+  const sf = e.getSourceFile();
+  const decls = sf.getDescendantsOfKind(SyntaxKind.VariableDeclaration).filter((d) => d.getName() === name);
+  if (decls.length !== 1) return void 0;
+  const decl = decls[0];
+  if (decl.getVariableStatement?.()?.getDeclarationKind?.() !== "const") return void 0;
+  const init = unwrap(decl.getInitializer?.());
+  if (!init?.isKind(SyntaxKind.ObjectLiteralExpression)) return void 0;
+  const nameNode = decl.getNameNode();
+  const onlySpread = sf.getDescendantsOfKind(SyntaxKind.Identifier).filter((id) => id.getText() === name && id !== nameNode).every((id) => {
+    const parent = id.getParent();
+    return parent?.isKind(SyntaxKind.SpreadAssignment) || parent?.isKind(SyntaxKind.SpreadElement);
+  });
+  return onlySpread ? init : void 0;
 }
 function exprEqual(a, b) {
   const norm = (s) => s.replace(/['"`]/g, '"').replace(/\s+/g, "");
@@ -10405,13 +10504,29 @@ async function wireNRules(source, synthRules, opts = {}) {
   if (ruleEntries.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
+  let mod;
+  try {
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
+    const tsMorphPath = requireFromCwd.resolve("ts-morph");
+    mod = await import(pathToFileURL(tsMorphPath).href);
+  } catch {
+    mod = void 0;
+  }
+  const SyntaxKind = mod?.SyntaxKind;
+  const sf = mod ? new mod.Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { allowJs: true, target: 99, module: 99 },
+    skipFileDependencyResolution: true,
+    skipLoadingLibFiles: true
+  }).createSourceFile("eslint.config.mjs", source, { overwrite: true }) : void 0;
+  const rulePresent = (key) => sf ? ruleSetInConfig(sf, SyntaxKind, key) : simpleRulePresent(source, key);
   const overrideKeys = opts.overrideKeys;
   const missing = [];
   const overrides = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else if (!simpleRulePresent(source, key)) {
+    } else if (!rulePresent(key)) {
       missing.push({ key, value });
     } else if (overrideKeys?.has(key)) {
       overrides.push({ key, value });
@@ -10423,25 +10538,10 @@ async function wireNRules(source, synthRules, opts = {}) {
   console.debug(
     `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ${[...missing, ...overrides].map((m) => m.key).join(", ")}`
   );
-  let Project;
-  let SyntaxKind;
-  try {
-    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
-    const tsMorphPath = requireFromCwd.resolve("ts-morph");
-    const mod = await import(pathToFileURL(tsMorphPath).href);
-    Project = mod.Project;
-    SyntaxKind = mod.SyntaxKind;
-  } catch {
+  if (!sf) {
     console.debug("  [synth-wire] DEBUG: ts-morph unavailable \u2192 degrade");
     return { status: "degrade", original: source, modified: source, degradeReason: "ts-morph import failed" };
   }
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { allowJs: true, target: 99, module: 99 },
-    skipFileDependencyResolution: true,
-    skipLoadingLibFiles: true
-  });
-  const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
   const exportAssignment = sf.getExportAssignment((ea) => !ea.isExportEquals());
   if (!exportAssignment) {
     return { status: "unrecognised", original: source, modified: source };
@@ -10497,6 +10597,8 @@ async function wireNRules(source, synthRules, opts = {}) {
     } else if (outcome === "changed") {
       console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
       changed = true;
+    } else if (outcome === "not-found" && opts.insertOnly) {
+      notes.push(`${key} at ${desired} \u2014 your config sets this rule outside the list getff edits, and getff leaves it as it is`);
     } else if (outcome === "not-found") {
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
       append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
@@ -10659,7 +10761,7 @@ async function wireOwnConfig(source, opts = {}) {
   const ignored = globallyIgnored(visible, SyntaxKind);
   const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(", ")}] }`);
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  const r2Present = ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID);
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs = [];
@@ -10807,14 +10909,11 @@ ${(failures[0] ?? "").slice(0, 400)}`);
 async function resolveAndWire(args) {
   const { configPath, cwd, runProbe, scope } = args;
   const original = readFileSync6(configPath, "utf8");
-  if (original.includes(R2_RULE_ID)) {
-    return { status: "already-wired", original, modified: original };
-  }
+  const bare = await wireConfigSource(original, { variant: "bare", scope });
+  if (bare.status !== "wired") return bare;
   if (scope) {
     console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(", ")}`);
   }
-  const bare = await wireConfigSource(original, { variant: "bare", scope });
-  if (bare.status !== "wired") return bare;
   writeFileSync(configPath, bare.modified, "utf8");
   const v1 = await runProbe(configPath, cwd, scope);
   if (v1 === "ok") return { ...bare, variant: "bare" };
