@@ -289,33 +289,6 @@ export function emitZcode(model) {
  *
  *  Shape matches toCCHooks/emitClaude output: { Event: [{matcher?, hooks:[{type,command,async?}]}] }. */
 const PLUGIN_INTERNAL_HOOKS = {
-  // UserPromptSubmit consumer twins: inject-project-digest (the consumer's OWN
-  // session-bootstrap anchor) + inject-output-language. Both are consumer-facing hooks NOT in the
-  // framework model (the framework dogfoods inject-session-bootstrap directly, and neither twin
-  // appears in .claude/settings.json), so they are not model-derived; on ZCode they reach
-  // consumers ONLY via this plugin channel (on CC they also ship via install.sh). Each has a real
-  // plugin sibling under plugin/hooks/. Registered here so emitPlugin is their SSOT — #1036
-  // shipped them into plugin/hooks/hooks.json but omitted this registration, which drifted the gate.
-  UserPromptSubmit: [
-    {
-      hooks: [
-        {
-          type: 'command',
-          command:
-            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-project-digest',
-        },
-      ],
-    },
-    {
-      hooks: [
-        {
-          type: 'command',
-          command:
-            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language',
-        },
-      ],
-    },
-  ],
   // SubagentStart is NOT in ZCODE_EVENTS (so model-derived Subagent* mappings are filtered), but
   // the plugin channel on CC does deliver a SubagentStart plugin hook; inject-project-digest's
   // SubagentStart arm is the consumer-side subagent anchor (#1036). Plugin-internal so it survives
@@ -393,6 +366,35 @@ const PLUGIN_INTERNAL_HOOKS = {
         },
       ],
     },
+    // Consumer anchors: inject-project-digest (the consumer's OWN session-bootstrap digest block)
+    // + inject-output-language. ONCE PER CONTEXT, not per prompt (one-button spec P19 / Q7,
+    // measured 2026-09-29: the per-prompt registration cost ~1.3 KB on EVERY operator message).
+    // SessionStart context is added once and restored by the compact/clear/resume re-fires; a
+    // per-prompt repeat of an unchanged block buys nothing. Neither hook is in the framework
+    // model (the framework dogfoods inject-session-bootstrap; neither appears in
+    // .claude/settings.json), so they are registered here — on ZCode they reach consumers ONLY
+    // via this plugin channel (on CC they also ship via install.sh). #1036 shipped them but
+    // omitted this registration, which drifted the gate.
+    {
+      matcher: 'startup|resume|clear|compact',
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-project-digest',
+        },
+      ],
+    },
+    {
+      matcher: 'startup|resume|clear|compact',
+      hooks: [
+        {
+          type: 'command',
+          command:
+            '"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language',
+        },
+      ],
+    },
   ],
 };
 
@@ -419,6 +421,14 @@ const PLUGIN_INCOMPATIBLE = {
   // packages/runtime-bridge/src/cli/harvest.ts; a marketplace consumer has neither, and the hook
   // has no plugin/hooks/ twin. Listed here so registering it in the SSOT cannot leak a
   // run-hook.cmd entry pointing at a script the plugin payload does not carry.
+  // inject-session-bootstrap (one-button spec R6-10, operator 2026-09-29: «the plugin stops
+  // injecting getff's internal digest»): its text is the FRAMEWORK's own goal + invariants +
+  // H1 line — getff's internal discipline, not the consumer's. Through the plugin it reached
+  // EVERY repo on every prompt (measured 2026-09-29: 1,947 B per prompt in an empty consumer
+  // repo) and doubled the project copy in this repo. The consumer's own anchor ships as
+  // inject-project-digest instead (PLUGIN_INTERNAL_HOOKS, SessionStart).
+  'inject-session-bootstrap':
+    "operator-axis only — the framework's own goal/invariants digest; a consumer's anchor ships as inject-project-digest (one-button spec R6-10)",
   'close-aif-task-on-merge':
     'operator-axis only — closes tasks in the operator\'s own aif-handoff stack through the framework\'s harvest.ts; a plugin consumer has neither, and the hook has no plugin twin',
 };

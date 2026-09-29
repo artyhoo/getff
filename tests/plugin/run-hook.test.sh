@@ -397,15 +397,16 @@ done
 [ "$still" -ge 3 ] && ok "R1 $still plugin hooks the repo does not run all still fire" \
   || bad "R1 only $still plugin-only hooks checked (vacuous sweep)"
 
-# R2 (end to end, real hooks): one UserPromptSubmit in the framework repo — the repo's own
-# injector plus every plugin UserPromptSubmit hook through the shipped run-hook.cmd — carries the
-# digest once, the language line once, the project digest once, and exactly one invariants line.
+# R2 (end to end, real hooks): one session start in the framework repo — the repo's own
+# injector plus every plugin SessionStart hook whose matcher covers `startup`, through the shipped
+# run-hook.cmd — carries the digest once, the language line once, the project digest once, and
+# exactly one invariants line. All three injectors fire on SessionStart, none per prompt.
 PROMPT=$( {
   CLAUDE_PROJECT_DIR="$REPO_ROOT" AIF_HOOK_LANG=ru bash "$REPO_ROOT/.claude/hooks/inject-session-bootstrap.sh"
-  for n in $(jq -r '.hooks.UserPromptSubmit[].hooks[].command | capture("run-hook\\.cmd\" (?<n>[^ ]+)").n' \
-      "$REPO_ROOT/plugin/hooks/hooks.json"); do
-    [ "$n" = deps-hash-check ] && continue   # writes a cache file; its yield is covered by R1
-    payload "$REPO_ROOT" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD \
+  for n in $(jq -r '.hooks.SessionStart[] | select((.matcher // "startup") | split("|") | index("startup"))
+      | .hooks[].command | capture("run-hook\\.cmd\" (?<n>[^ ]+)").n' "$REPO_ROOT/plugin/hooks/hooks.json"); do
+    payload "$REPO_ROOT" | jq -c '.hook_event_name = "SessionStart" | .source = "startup"' \
+      | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD \
       CLAUDE_PROJECT_DIR="$REPO_ROOT" AIF_HOOK_LANG=ru XDG_CONFIG_HOME="$EMPTY_XDG" bash "$RH" "$n"
   done
 } 2>/dev/null )

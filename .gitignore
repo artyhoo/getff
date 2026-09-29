@@ -111,7 +111,10 @@ packages/*/reports/
 # operator-env shims rendered by scripts/render-harness-config.mjs --write from the
 # .ai-factory/harness-model.json SSOT — maintainer-env only, never shipped (a
 # consumer-facing per-harness emitter is a parked fork, #894 §7). Drift-gated by
-# packages/core/hooks/harness-config-drift.test.ts. Root-anchored.
+# packages/core/hooks/harness-config-drift.test.ts (CI; tracked branch only — these
+# files never exist on a runner) and by the `harness-config-local` pre-push section
+# (packages/core/hooks/checks/harness-config-local.ts), which runs the same --check
+# on the checkout that actually holds .zcode/. Root-anchored.
 /zcode.json
 /.zcode/
 /.codex/
