@@ -8,7 +8,8 @@
 # Depends on: 40-configs (eslint.config.mjs + .nvmrc + .github/workflows/ already written)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 # O8: sources detect-r2-boundary from $PKG_ROOT (not PROJECT_ROOT)
-# O2: sets _r2_verdict global (read by 99-finalize for L2)
+# O2: sets _r2_verdict global (read by 99-finalize for L2), and _r2_own_globs — the boundary globs of
+#     a root config treated as the consumer's, for 99-finalize's own-config pass
 
 # ─── 6b. #509: .nvmrc ↔ pre-existing CI Node-version drift WARN ──────────
 # Install ships .nvmrc but copy_safe does NOT overwrite an existing CI workflow. A consumer
@@ -38,14 +39,25 @@ fi
 # ─── 6b-bis. GH #547 Point 2: auto-wire R2 by reading the repo ───────────────
 # Classify the consumer's layout (C1) and configure R2 enforcement so the shipped check:globs gate
 # is green-because-understood, never red-because-unconfigured. Here we only patch the ROOT
-# eslint.config.mjs getff placed (whose own comment invites editing RULE_GLOBS), additively +
-# idempotently. A root config the consumer owns (an eslint.config.mjs copy_safe kept, or an
-# eslint.config.js — the name ESLint loads first) is not patched here: the boundary globs go to
-# 99-finalize in _r2_own_globs, which adds RULE_GLOBS and R2 to it with the rest of getff's block
-# in one write, keeping the original (operator decision Q4.7, 2026-09-28). rc=0 on every branch (a
-# crash here must never abort install — lesson GH #531/#544).
+# eslint.config.mjs getff placed and nobody has edited since (whose own comment invites editing
+# RULE_GLOBS), additively + idempotently. A root config the consumer owns (an eslint.config.mjs
+# copy_safe kept, or an eslint.config.js — the name ESLint loads first), or one getff placed that
+# the consumer has edited since, is not patched here: the boundary globs go to 99-finalize in
+# _r2_own_globs, whose own-config pass adds what R2 lacks there in the same write as the rest of
+# getff's block, keeping the original, or names in the NOT wired summary what it could not add and
+# why (operator decision Q4.7, 2026-09-28).
+# rc=0 on every branch (a crash here must never abort install — lesson GH #531/#544).
 _r2_root_cfg=$(eslint_flat_config "$PROJECT_ROOT")
 _r2_own_globs=""
+# _r2_glob_fail_why — why a glob did not go into getff's own eslint.config.mjs: the insert below needs
+# a `boundary: [` line, so with that line there it was the write that failed.
+_r2_glob_fail_why() {
+  if grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' "$PROJECT_ROOT/eslint.config.mjs" 2>/dev/null; then
+    echo "the write failed"
+  else
+    echo "getff's eslint.config.mjs has no \`boundary: [\` array"
+  fi
+}
 if [ "$DRY_RUN" = "--dry-run" ]; then
   echo "▶ R2 auto-wire → [dry-run] would classify the repo and patch RULE_GLOBS / record R2 N/A as warranted"
 elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.config.js ]; then
@@ -88,7 +100,14 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
       # below, so the next install does not read getff's own write as the consumer's edit.
       _r2_root_intact=""
       if getff_bytes_intact "$PROJECT_ROOT/eslint.config.mjs"; then _r2_root_intact=1; fi
-      if ! getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
+      # A config getff placed is getff's only while its bytes are still the ones getff left — the
+      # test 99-finalize's synth-wire uses. One the consumer has edited since is theirs: its globs go
+      # to the own-config pass too, which keeps the edited original before it inserts them.
+      _r2_root_edited=""
+      if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg" && ! getff_bytes_intact "$PROJECT_ROOT/$_r2_root_cfg"; then
+        _r2_root_edited=1
+      fi
+      if ! getff_delivered "$PROJECT_ROOT/$_r2_root_cfg" || [ -n "$_r2_root_edited" ]; then
         _r2_own_cfg=1
         case "${STACK:-ts-server}" in
           ts-server|react-next|react-spa) _r2_own_globs=$(printf '%s\n' "$_r2_out" | sed -n 's/^glob://p') ;;
@@ -135,7 +154,7 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
         else
           rm -f "$PROJECT_ROOT/eslint.config.mjs.tmp" 2>/dev/null || true
           _r2_glob_failed=$((_r2_glob_failed + 1))
-          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary (no \`boundary: [\` array, or a write failure) — eslint.config.mjs left unchanged" >&2
+          echo "  ⚠ could not add glob $_g to RULE_GLOBS.boundary ($(_r2_glob_fail_why)) — eslint.config.mjs left unchanged" >&2
         fi
       done <<EOF
 $_r2_out
@@ -143,8 +162,10 @@ EOF
       if [ "$_patched" -gt 0 ] && [ -n "$_r2_root_intact" ]; then
         refresh_baseline_stage "$PROJECT_ROOT/eslint.config.mjs"
       fi
-      if [ "$_r2_own_cfg" = "1" ] && [ -n "$_r2_own_globs" ]; then
-        echo "  · HTTP boundary detected — $_r2_root_cfg is your own config; getff adds RULE_GLOBS and R2 to it at the end of the install"
+      if [ -n "$_r2_root_edited" ] && [ -n "$_r2_own_globs" ]; then
+        echo "  · HTTP boundary detected — getff placed $_r2_root_cfg, and it has been edited since, so it is treated as your own config; what R2 lacks there is added with the rest of getff's block at the end of the install, or listed under NOT wired with the reason"
+      elif [ "$_r2_own_cfg" = "1" ] && [ -n "$_r2_own_globs" ]; then
+        echo "  · HTTP boundary detected — $_r2_root_cfg is your own config; getff adds RULE_GLOBS and R2 to it at the end of the install, or lists them under NOT wired with the reason"
       elif [ "$_r2_own_cfg" = "1" ] || { [ "$_r2_no_slot" = "1" ] && [ "${STACK:-ts-server}" = react-native ]; }; then
         # react-native only: a boundary-present verdict always carries glob lines, which an own config
         # keeps for every other stack (above), so an own config left with none is react-native's.
@@ -169,7 +190,7 @@ EOF
         # Q4.7 (2026-09-28): what is not wired goes to the NOT-wired summary with its reason, never
         # as a manual step (cold-review F5b — this used to say «widen RULE_GLOBS.boundary by hand»).
         echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does not cover that code yet (see NOT wired below)" >&2
-        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no RULE_GLOBS.boundary array getff can read any more (edited since getff placed it), or the write failed; the file is left as it is"
+        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: $(_r2_glob_fail_why); the file is left as it is"
       else
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
@@ -204,8 +225,11 @@ EOF
     *)
       # NB: say "scripts/check-rule-globs.sh" (hyphen), NOT the colon-form "check:globs" — the colon
       # form is reserved for the CI-orphan WARN's missing-gate list (r2-glob-reach asserts per-gate accuracy).
-      if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
+      # Whose config it is: the test of the boundary-present branch above.
+      if getff_delivered "$PROJECT_ROOT/$_r2_root_cfg" && getff_bytes_intact "$PROJECT_ROOT/$_r2_root_cfg"; then
         echo "  · R2 boundary layout ambiguous → RULE_GLOBS.boundary in eslint.config.mjs keeps its default globs; scripts/check-rule-globs.sh fails, naming them, if they match no source file"
+      elif getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
+        echo "  · R2 boundary layout ambiguous → getff placed $_r2_root_cfg, and it has been edited since, so it is left as it is; once the install finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call) it adds what R2 lacks there, or lists it under NOT wired"
       else
         echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
       fi ;;

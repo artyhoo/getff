@@ -19,6 +19,8 @@
 #   U  lib.sh helpers: eslint_flat_config follows ESLint's own lookup order; keep_original_snapshot
 #      + keep_original_settle keep a copy only when the file changed; the R2 wirer's write into a
 #      config getff placed is recorded as getff's bytes (_r2_wire_cfg with a stand-in wirer);
+#      rule_globs_boundary reads RULE_GLOBS.boundary's elements as the own-config wirer does, and
+#      99-finalize's _r2_own_gap / _r2_own_refused say what that wirer would add or refuse;
 #   A  consumer-owned eslint.config.mjs (react-next, ambiguous layout): getff's rules and ignores
 #      land in it by insertions only, the original is kept, the config is not claimed in
 #      the baseline, check:globs passes, nothing asks for a manual edit; a re-install changes nothing;
@@ -49,6 +51,19 @@
 #      on that install and the next;
 #   Q  an edited getff config on an install without ts-morph: nothing is reported as not wired while
 #      getff's rules are already in it; Q neg: a live rule it does not carry is reported, with --full;
+#   N  HTTP boundary code appears after the consumer edited getff's config: the boundary globs reach
+#      it through the own-config pass — insertions only, the edited original kept without them —
+#      never 60-ci's in-place insert, which M (its paired negative) keeps for getff's untouched config;
+#   O  the same on an install without ts-morph: the config is left as it is and the not-wired summary
+#      names the boundary globs it lacks, with --full — not getff's rules, which are in it; O neg:
+#      when it lacks none (the first install added them), nothing is reported;
+#   S  the edit removes RULE_GLOBS.boundary: the own-config wirer refuses R2 there with or without
+#      ts-morph, so the summary gives its reason and no --full; S2 is the same with ts-morph, and its
+#      summary line is S's word for word;
+#   T  a glob the edited config carries in another RULE_GLOBS key (application:) is still one R2
+#      lacks: only the elements of RULE_GLOBS.boundary count, as they do for the wirer;
+#   V  the same boundary code on a re-install without Node: nothing is written, and the summary names
+#      the globs R2 lacks with that reason (60-ci stopped writing them into the edited config itself);
 #   E  the R2 Layer-2 wirer (`--yes` under --full) on a per-package config the consumer owns: R2
 #      lands in it, the original is kept, and prettier still accepts the file;
 #   F  the R2 per-workspace wirer on a multi-stack monorepo: the consumer's workspace config gets R2
@@ -231,6 +246,80 @@ while IFS= read -r l; do
   case "$l" in OK\ *) ok "U: ${l#OK }" ;; BAD\ *) bad "U: ${l#BAD }" ;; esac
 done < "$WORK/u-r2.log"
 grep -qE '^(OK|BAD) ' "$WORK/u-r2.log" || bad "U: the R2 re-stage arm printed nothing ($(tail -2 "$WORK/u-r2.log" | tr '\n' '|'))"
+# What the own-config wirer does with R2 (wireOwnConfig, packages/core/install/wire-eslint-r2.ts) is
+# what the not-wired summary names when that wirer cannot run: it reads the ELEMENTS of
+# RULE_GLOBS.boundary — a glob in a comment, in another key or in a nested object is not one of them
+# — refuses a RULE_GLOBS with no boundary array, and leaves alone an R2 the config registers without
+# RULE_GLOBS.
+(
+  # shellcheck disable=SC1090
+  INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+  eval "$(sed -n -e '/^_R2_OWN_REFUSAL=/p' -e '/^_r2_own_refused() {/,/^}/p' -e '/^_r2_own_gap() {/,/^}/p' \
+    "$REPO_ROOT/setup.d/99-finalize.sh")"
+  PROJECT_ROOT="$WORK/u-rg"; mkdir -p "$PROJECT_ROOT"; c="$PROJECT_ROOT/eslint.config.mjs"
+  cat > "$c" <<'JS'
+// const RULE_GLOBS = { boundary: ['**/commented/**'] };
+// prettier-ignore
+const RULE_GLOBS = {
+  // R2 — '**/in-a-comment/**' is no element
+  boundary: [
+    '**/api/**/*.{ts,tsx}',
+    // '**/handlers/**/*.{ts,tsx}',
+    "**/routes/**/*.{ts,tsx}",
+    `**/actions/**/*.{ts,tsx}`,
+    `**/${dir}/**`,
+  ],
+  application: ['**/application/**/*.{ts,tsx}'],
+  nested: { boundary: ['**/nested/**'] },
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];
+JS
+  want=$(printf 'array\n%s\n%s\n%s' '**/api/**/*.{ts,tsx}' '**/routes/**/*.{ts,tsx}' '**/actions/**/*.{ts,tsx}')
+  [ "$(rule_globs_boundary "$c")" = "$want" ] \
+    && echo "OK rule_globs_boundary lists the string elements of RULE_GLOBS.boundary and nothing else in the file" \
+    || echo "BAD rule_globs_boundary: $(rule_globs_boundary "$c" 2>&1 | tr '\n' '|')"
+  _r2_own_globs=$(printf '%s\n' '**/api/**/*.{ts,tsx}' '**/routes/**/*.{ts,tsx}')
+  [ -z "$(_r2_own_gap eslint.config.mjs)" ] && ! _r2_own_refused eslint.config.mjs \
+    && echo "OK _r2_own_gap: nothing is missing when every glob is an element of the array" \
+    || echo "BAD _r2_own_gap with every glob in: '$(_r2_own_gap eslint.config.mjs)'"
+  _r2_own_globs=$(printf '%s\n' '**/api/**/*.{ts,tsx}' '**/application/**/*.{ts,tsx}' '**/handlers/**/*.{ts,tsx}')
+  gap=$(_r2_own_gap eslint.config.mjs)
+  case "$gap" in
+    *"'**/application/**/*.{ts,tsx}'"*"'**/handlers/**/*.{ts,tsx}'"*)
+      case "$gap" in *"'**/api/"*) echo "BAD _r2_own_gap names a glob the array has: $gap" ;;
+        *) echo "OK _r2_own_gap names a glob found only in another key or a comment, and not one the array has" ;; esac ;;
+    *) echo "BAD _r2_own_gap missed a glob that is no element of the array: '$gap'" ;;
+  esac
+  printf 'const RULE_GLOBS = { application: [], nested: { boundary: ["**/n/**"] } };\n' > "$c"
+  [ "$(rule_globs_boundary "$c")" = no-array ] && _r2_own_refused eslint.config.mjs \
+    && [ -z "$(_r2_own_gap eslint.config.mjs)" ] \
+    && echo "OK a RULE_GLOBS with no boundary array of its own: the wirer's refusal, and no gap --full would fill" \
+    || echo "BAD RULE_GLOBS without a boundary array: shape '$(rule_globs_boundary "$c" | head -1)' gap '$(_r2_own_gap eslint.config.mjs)'"
+  printf 'export const RULE_GLOBS = makeGlobs();\n' > "$c"
+  [ "$(rule_globs_boundary "$c")" = no-array ] && echo "OK a RULE_GLOBS that is no object literal reads as having no boundary array" \
+    || echo "BAD RULE_GLOBS = makeGlobs(): '$(rule_globs_boundary "$c" | tr '\n' '|')'"
+  printf 'function f() { const RULE_GLOBS = { boundary: ["x"] }; return RULE_GLOBS; }\nexport default [];\n' > "$c"
+  [ "$(rule_globs_boundary "$c")" = none ] && [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ] \
+    && ! _r2_own_refused eslint.config.mjs \
+    && echo "OK no top-level RULE_GLOBS and no R2: the gap is RULE_GLOBS and R2" \
+    || echo "BAD no top-level RULE_GLOBS: shape '$(rule_globs_boundary "$c" | head -1)' gap '$(_r2_own_gap eslint.config.mjs)'"
+  printf "export default [{ files: ['src/**'], rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" > "$c"
+  [ -z "$(_r2_own_gap eslint.config.mjs)" ] && ! _r2_own_refused eslint.config.mjs \
+    && echo "OK R2 registered without RULE_GLOBS: no gap — the wirer adds nothing there" \
+    || echo "BAD R2 without RULE_GLOBS: gap '$(_r2_own_gap eslint.config.mjs)'"
+  printf 'export const RULE_GLOBS = { boundary: [] };\nexport default [];\n' > "$c"
+  gap=$(_r2_own_gap eslint.config.mjs)
+  [ "$(rule_globs_boundary "$c")" = array ] && case "$gap" in "R2 and "*"'**/handlers/**/*.{ts,tsx}'"*) true ;; *) false ;; esac \
+    && echo "OK an empty boundary array and no R2: the gap is R2 and every glob" \
+    || echo "BAD empty boundary array: shape '$(rule_globs_boundary "$c" | tr '\n' '|')' gap '$gap'"
+  _r2_own_globs=""
+  [ -z "$(_r2_own_gap eslint.config.mjs)" ] && ! _r2_own_refused eslint.config.mjs \
+    && echo "OK no boundary found by 60-ci: no gap and no refusal" || echo "BAD no boundary globs: gap or refusal reported"
+) > "$WORK/u-rg.log" 2>&1
+while IFS= read -r l; do
+  case "$l" in OK\ *) ok "U: ${l#OK }" ;; BAD\ *) bad "U: ${l#BAD }" ;; esac
+done < "$WORK/u-rg.log"
+grep -qE '^(OK|BAD) ' "$WORK/u-rg.log" || bad "U: the RULE_GLOBS reader arm printed nothing ($(tail -2 "$WORK/u-rg.log" | tr '\n' '|'))"
 
 # ── A: consumer-owned config, react-next, ambiguous layout ─────────────────────────────────────
 A="$WORK/own"; mkdir -p "$A/lib"
@@ -604,14 +693,17 @@ done
 # template, so an edited config that still carries them has nothing to report (Q); one live rule it
 # does not carry is a real gap, and the summary names it (Q neg).
 edited_plain_reinstall() { # $1 = project dir, $2 = live snippet for the re-install ("" = none)
+  # $3 = a command run on the project dir after the edit, before the re-install ("" = none); what it
+  # does to the config is part of the consumer's edit. $REINSTALL_PATH, when set, is the re-install's PATH.
   printf '{ "name": "swq", "version": "0.0.0" }\n' > "$1/package.json"
   ( cd "$1" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.1.log" 2>&1 \
     || bad "$(basename "$1"): the first plain install failed (tail: $(tail -3 "$1.1.log" | tr '\n' '|'))"
   edit_last_entry "$1/eslint.config.mjs"
   grep -qF "$NOTE" "$1/eslint.config.mjs" || bad "$(basename "$1"): the fixture edit did not land — the arm would be vacuous"
+  [ -z "${3:-}" ] || "$3" "$1"
   cp "$1/eslint.config.mjs" "$1.edited"
   [ -z "$2" ] || live_snippet "$1" "$2"
-  ( cd "$1" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.2.log" 2>&1 \
+  ( cd "$1" && PATH="${REINSTALL_PATH:-$PATH}" bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$1.2.log" 2>&1 \
     || bad "$(basename "$1"): the plain re-install failed (tail: $(tail -3 "$1.2.log" | tr '\n' '|'))"
   [ ! -e "$1/node_modules/ts-morph/package.json" ] \
     || bad "$(basename "$1"): ts-morph is in node_modules — the arm would be vacuous"
@@ -630,6 +722,160 @@ edited_plain_reinstall "$Qn" '{ "no-var": "error" }'
 not_wired "$Qn.2.log" | grep -F 'eslint.config.mjs' | grep -q -- '--full' \
   && ok "Q neg: a live rule the edited config does not carry is named in the not-wired summary, with --full" \
   || bad "Q neg: the missing live rule is not reported: $(not_wired "$Qn.2.log" | head -3 | tr '\n' '|')"
+
+# ── N, O: HTTP boundary code appears in a project whose getff config the consumer has edited ───
+# 60-ci widens RULE_GLOBS.boundary in place only in a config that is getff's: delivered AND still
+# holding getff's bytes (M). An edited one is the consumer's, as for the synth-wire (I): its boundary
+# globs go to 99-finalize's own-config pass (_r2_own_globs → --r2-boundary), which keeps the edited
+# original before it inserts them. 60-ci's own insert bypassed that keep — no copy recorded the
+# change, and a copy kept later already carried getff's globs.
+HANDLERS_GLOB="'**/handlers/**/*.{ts,tsx}'"   # a detector glob the react-next template does not carry
+add_handler() { # $1 = project dir — HTTP boundary code under handlers/, which only HANDLERS_GLOB covers
+  mkdir -p "$1/lib/handlers"
+  printf "import { z } from 'zod';\nexport const create = (body: unknown) => z.object({ a: z.string() }).parse(body);\n" \
+    > "$1/lib/handlers/create.ts"
+}
+N="$WORK/placed-edited-boundary"; mkdir -p "$N"
+printf '{ "name": "swn", "version": "0.0.0" }\n' > "$N/package.json"
+borrow "$N"
+( cd "$N" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.1.log" 2>&1 \
+  || bad "N: the first install.sh react-next failed (tail: $(tail -3 "$N.1.log" | tr '\n' '|'))"
+edit_last_entry "$N/eslint.config.mjs"
+cp "$N/eslint.config.mjs" "$N.edited"
+grep -qF "$NOTE" "$N.edited" && ! grep -qF "$HANDLERS_GLOB" "$N.edited" \
+  || bad "N: the edited config lacks the edit or already carries the handlers glob — the arm would be vacuous"
+add_handler "$N"
+( cd "$N" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$N.2.log" 2>&1 \
+  || bad "N: the re-install failed (tail: $(tail -3 "$N.2.log" | tr '\n' '|'))"
+unborrow "$N"
+grep -q 'getff placed eslint.config.mjs, and it has been edited since' "$N.2.log" \
+  || bad "N: the re-install did not route the edited config as the consumer's — the arm would be vacuous"
+# boundary_block <cfg> — the lines of RULE_GLOBS.boundary, from `boundary: [` to its closing `]`.
+boundary_block() { awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1} on{print} on && /\]/{exit}' "$1"; }
+boundary_block "$N/eslint.config.mjs" | grep -qF "$HANDLERS_GLOB" \
+  && ok "N: the boundary glob for the new HTTP boundary code is in the edited config's RULE_GLOBS.boundary" \
+  || bad "N: the handlers glob did not land in the edited config: $(grep -nE 'R2 auto-wire|HTTP boundary|synth-wire' "$N.2.log" | head -3 | tr '\n' '|')"
+grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$N.2.log" \
+  && bad "N: 60-ci wrote the boundary globs into the consumer's edited config itself" \
+  || ok "N: 60-ci leaves the edited config to the own-config pass"
+kept_original "$N" eslint.config.mjs "$N.edited" \
+  && ok "N: the edited original is kept at .ai-factory/before-getff/, byte-equal to the consumer's edit" \
+  || bad "N: no single byte-equal kept original of the edited config ($(ls "$N/.ai-factory/before-getff" 2>&1 | tr '\n' ' '))"
+cat "$N/.ai-factory/before-getff/eslint.config.mjs".* 2>/dev/null | grep -qF "$HANDLERS_GLOB" \
+  && bad "N: a kept 'original' already carries getff's boundary glob" \
+  || ok "N: no kept original carries getff's boundary glob"
+only_insertions "$N.edited" "$N/eslint.config.mjs" \
+  && ok "N: nothing of the edited config was changed or removed — getff only inserted" \
+  || bad "N: a character of the edited config was changed or removed"
+not_wired "$N.2.log" | grep -qF 'eslint.config.mjs' \
+  && bad "N: the not-wired summary lists the eslint config: $(not_wired "$N.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
+  || ok "N: the not-wired summary has no eslint config line"
+
+# Without ts-morph nothing can be inserted into the consumer's config. Only the globs it does not
+# carry are a gap — never getff's rules, which came with its template and are still in it.
+O="$WORK/placed-edited-boundary-plain"; mkdir -p "$O"
+edited_plain_reinstall "$O" "" add_handler
+cmp -s "$O/eslint.config.mjs" "$O.edited" && ok "O: the edited config is left byte-identical" \
+  || bad "O: the edited config changed on an install that cannot run the AST editor: $(diff "$O.edited" "$O/eslint.config.mjs" | head -4 | tr '\n' '|')"
+_o_line=$(not_wired "$O.2.log" | grep -F 'eslint.config.mjs')
+printf '%s\n' "$_o_line" | grep -qF "$HANDLERS_GLOB" && printf '%s\n' "$_o_line" | grep -q -- '--full' \
+  && ok "O: the not-wired summary names the missing boundary glob, with --full" \
+  || bad "O: the missing boundary glob is not reported: $(not_wired "$O.2.log" | head -3 | tr '\n' '|')"
+printf '%s\n' "$_o_line" | grep -qF "getff's rules" \
+  && bad "O: the not-wired line says getff's rules are missing, but they are in the edited config: $_o_line" \
+  || ok "O: the not-wired line does not claim getff's rules are missing"
+# O neg: the boundary code was there on the first install, whose 60-ci added every glob while the
+# config was getff's; after the consumer's edit there is nothing left to add, so nothing to report.
+On="$WORK/placed-edited-boundary-covered"; mkdir -p "$On"
+add_handler "$On"
+edited_plain_reinstall "$On" ""
+grep -qF "$HANDLERS_GLOB" "$On.edited" \
+  || bad "O neg: the first install did not add the handlers glob — the arm would be vacuous"
+not_wired "$On.2.log" | grep -qF 'eslint.config.mjs' \
+  && bad "O neg: the not-wired summary lists eslint.config.mjs although every boundary glob is in it: $(not_wired "$On.2.log" | grep -F 'eslint.config.mjs' | head -1)" \
+  || ok "O neg: with every boundary glob already in the edited config, nothing about it is reported"
+cmp -s "$On/eslint.config.mjs" "$On.edited" && ok "O neg: the edited config is left byte-identical" \
+  || bad "O neg: the edited config changed"
+
+# ── S, T, V: what R2 lacks is what the own-config wirer would add, read as that wirer reads it ──
+# S: the consumer's edit removes RULE_GLOBS.boundary. The wirer does not redefine a RULE_GLOBS the
+# config declares, so it refuses R2 there with or without ts-morph: the summary gives its reason, and
+# no --full (S2 runs the wirer itself, with ts-morph, and must print the same line).
+drop_boundary() { # $1 = project dir — the edit drops the boundary array; then HTTP boundary code appears
+  awk '/^[[:space:]]*boundary:[[:space:]]*\[/{skip=1} skip{ if ($0 ~ /\]/) skip=0; next } { print }' \
+    "$1/eslint.config.mjs" > "$1/eslint.config.mjs.edit" && mv "$1/eslint.config.mjs.edit" "$1/eslint.config.mjs"
+  add_handler "$1"
+}
+R2_REFUSAL='declares its own RULE_GLOBS with no boundary array, and getff does not redefine it'
+Sx="$WORK/placed-edited-no-boundary-plain"; mkdir -p "$Sx"
+edited_plain_reinstall "$Sx" "" drop_boundary
+grep -q 'RULE_GLOBS' "$Sx.edited" && ! grep -qE '^[[:space:]]*boundary:' "$Sx.edited" \
+  || bad "S: the edit did not leave RULE_GLOBS without its boundary array — the arm would be vacuous"
+cmp -s "$Sx/eslint.config.mjs" "$Sx.edited" && ok "S: the edited config is left byte-identical" \
+  || bad "S: the edited config changed: $(diff "$Sx.edited" "$Sx/eslint.config.mjs" | head -4 | tr '\n' '|')"
+_s_line=$(not_wired "$Sx.2.log" | grep -F "$R2_REFUSAL")
+[ -n "$_s_line" ] && ! printf '%s\n' "$_s_line" | grep -q -- '--full' \
+  && ! not_wired "$Sx.2.log" | grep -F 'eslint.config.mjs' | grep -qiE 'boundary glob' \
+  && ok "S: the summary gives the wirer's reason R2 is refused, with no --full and no boundary globs to add" \
+  || bad "S: the summary does not give the wirer's refusal: $(not_wired "$Sx.2.log" | grep -F 'eslint.config.mjs' | head -3 | tr '\n' '|')"
+S2="$WORK/placed-edited-no-boundary"; mkdir -p "$S2"
+printf '{ "name": "sws", "version": "0.0.0" }\n' > "$S2/package.json"
+borrow "$S2"
+( cd "$S2" && git init -q && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$S2.1.log" 2>&1 \
+  || bad "S2: the first install.sh react-next failed (tail: $(tail -3 "$S2.1.log" | tr '\n' '|'))"
+edit_last_entry "$S2/eslint.config.mjs"; drop_boundary "$S2"
+( cd "$S2" && bash "$REPO_ROOT/install.sh" react-next </dev/null ) >"$S2.2.log" 2>&1 \
+  || bad "S2: the re-install failed (tail: $(tail -3 "$S2.2.log" | tr '\n' '|'))"
+unborrow "$S2"
+_s2_line=$(not_wired "$S2.2.log" | grep -F "$R2_REFUSAL")
+[ -n "$_s2_line" ] && [ "$_s2_line" = "$_s_line" ] \
+  && ok "S2: with ts-morph the wirer refuses R2 in the same words the install without it uses" \
+  || bad "S2: the two routes disagree — with ts-morph: '$_s2_line'; without: '$_s_line'"
+# T: the react-next template carries '**/application/**/*.{ts,tsx}' under application:, and a parse
+# site under application/ makes 60-ci ask for that glob in boundary:. It is not an element of the
+# array, so R2 lacks it, and the wirer would add it; a match anywhere in the file is not coverage.
+APP_GLOB="'**/application/**/*.{ts,tsx}'"
+add_app_parse() { # $1 = project dir — a hand-rolled parse boundary under application/
+  mkdir -p "$1/lib/application"
+  printf "import { z } from 'zod';\nexport const run = (input: unknown) => z.object({ a: z.string() }).parse(input);\n" \
+    > "$1/lib/application/run.ts"
+}
+T="$WORK/placed-edited-application"; mkdir -p "$T"
+edited_plain_reinstall "$T" "" add_app_parse
+grep -qF "$APP_GLOB" "$T.edited" && ! boundary_block "$T.edited" | grep -qF "$APP_GLOB" \
+  || bad "T: the edited config does not carry the glob outside its boundary array — the arm would be vacuous"
+not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | grep -F "$APP_GLOB" | grep -q -- '--full' \
+  && ok "T: a glob found only in another RULE_GLOBS key is named as one R2 lacks, with --full" \
+  || bad "T: the glob the boundary array lacks is not reported: $(not_wired "$T.2.log" | grep -F 'eslint.config.mjs' | head -2 | tr '\n' '|')"
+# V: the same edited config on a re-install without Node. Every writer of the own-config pass runs
+# on Node, so nothing lands — and 60-ci no longer writes the globs into the edited config itself.
+# What R2 lacks can still be read without Node, and the summary names it with that reason.
+NONODE="$WORK/nonode-bin"; mkdir -p "$NONODE"
+IFS=: read -ra _path_dirs <<< "$PATH"
+for _d in "${_path_dirs[@]}"; do
+  [ -d "$_d" ] || continue
+  for _f in "$_d"/*; do
+    case "${_f##*/}" in node|nodejs|npm|npx|pnpm|yarn|corepack) continue ;; esac
+    [ -x "$_f" ] && [ ! -d "$_f" ] && [ ! -e "$NONODE/${_f##*/}" ] && ln -s "$_f" "$NONODE/${_f##*/}"
+  done
+done
+V="$WORK/placed-edited-boundary-nonode"; mkdir -p "$V"
+# Asked in a new shell, like the install runs: this one has run node already, and bash answers
+# `command -v` from its hash table even under a changed PATH.
+if PATH="$NONODE" "$BASH" -c 'command -v node' >/dev/null 2>&1; then
+  bad "V: node is still on the PATH without Node — the arm would be vacuous"
+else
+  REINSTALL_PATH="$NONODE" edited_plain_reinstall "$V" "" add_handler
+  cmp -s "$V/eslint.config.mjs" "$V.edited" && ok "V: without Node the edited config is left byte-identical" \
+    || bad "V: the edited config changed on an install without Node: $(diff "$V.edited" "$V/eslint.config.mjs" | head -4 | tr '\n' '|')"
+  _v_line=$(not_wired "$V.2.log" | grep -F 'eslint.config.mjs')
+  printf '%s\n' "$_v_line" | grep -qF "$HANDLERS_GLOB" && printf '%s\n' "$_v_line" | grep -q 'needs Node' \
+    && ! printf '%s\n' "$_v_line" | grep -q -- '--full' \
+    && ok "V: without Node the summary names the boundary globs R2 lacks, and that adding them needs Node" \
+    || bad "V: the globs R2 lacks are not reported without Node: $(not_wired "$V.2.log" | head -4 | tr '\n' '|')"
+  asks_by_hand "$V.2.log" && bad "V: the install without Node asks for a manual edit: $(manual_step_lines "$V.2.log" | head -1)" \
+    || ok "V: the install without Node asks for no manual edit"
+fi
 
 # ── E, F: the R2 wirer under --full ────────────────────────────────────────────────────────────
 if [ ! -x "$FW_NM/.bin/tsx" ]; then
