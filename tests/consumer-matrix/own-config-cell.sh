@@ -39,11 +39,27 @@
 # machine» the generator must start on (a warm npx cache hid the missing tsx on the 2026-09-28
 # probe). Asserts the generator wrote its lock and did not report failure.
 #
+# GREEN STAYS GREEN (P2 §5, operator log entry 28 fork 1 = A: the project's own setup wins). Before
+# the install the cell runs every script the fixture's package.json has and pushes to a local bare
+# remote, recording each exit code. After the install every step that was 0 before must be 0 again
+# — known rot does not excuse it. Two more steps must be 0: the commit of the install's own files
+# and the commit of a new one-line .ts file.
+#
+# FIXTURE=vite-shape (P2 §5.4) reproduces create-vite's shape without the scaffolder: oxlint with its
+# own .oxlintrc.json, a solution tsconfig.json (`files: []` + references) whose app config has no
+# `strict`, no prettier, `lint: oxlint`, `build: tsc -b`, no tests, branch `master`, no origin. It
+# asserts the record's EXPECTED armed set by name after the first validate and push (C1: arming
+# nothing cannot pass), and one paired negative per blocking channel: a planted non-fixable oxlint
+# finding blocks the commit, an unresolvable lint-staged binary blocks the push (check:lintstaged —
+# check:globs reads getff's ESLint config, which an oxlint project does not get, so it is not armed
+# there), a planted TS2322 fails typecheck.
+#
 # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free
 # (.claude/rules/no-paid-llm-in-ci.md); the npm registry is the only network it touches, exactly
 # like the sibling fresh-install cells.
 #
-# Usage: STACK=<ts-server|react-next|react-spa|react-native> bash tests/consumer-matrix/own-config-cell.sh
+# Usage: STACK=<ts-server|react-next|react-spa|react-native> [FIXTURE=own-config|vite-shape] \
+#          bash tests/consumer-matrix/own-config-cell.sh
 #        (FRAMEWORK_ROOT defaults to this checkout; CELL_KEEP=1 keeps the work dir for debugging.)
 set -euo pipefail
 
@@ -53,6 +69,15 @@ case "$STACK" in
   ts-server | react-next | react-spa | react-native) ;;
   *)
     echo "✗ own-config-cell: STACK must be one of ts-server|react-next|react-spa|react-native (got '${STACK}')" >&2
+    exit 2
+    ;;
+esac
+FIXTURE="${FIXTURE:-own-config}"
+case "$FIXTURE" in
+  own-config) BRANCH=main; SRC=lib ;;
+  vite-shape) BRANCH=master; SRC=src ;;
+  *)
+    echo "✗ own-config-cell: FIXTURE must be own-config|vite-shape (got '${FIXTURE}')" >&2
     exit 2
     ;;
 esac
@@ -68,11 +93,20 @@ step() { echo ""; echo "── $*"; }
 command -v npm >/dev/null 2>&1 || fail "npm unavailable — the cell cannot run; RED never SKIP"
 command -v node >/dev/null 2>&1 || fail "node unavailable — the cell cannot run; RED never SKIP"
 
-step "fixture ($STACK): a TypeScript project that owns its eslint + tsconfig (scaffolder-default shape)"
-mkdir -p "$CONSUMER/lib" && cd "$CONSUMER"
-git init -q -b main
+mkdir -p "$CONSUMER/$SRC" && cd "$CONSUMER"
+git init -q -b "$BRANCH"
 git config user.email ci@example.com
 git config user.name CI
+if [ "$FIXTURE" = own-config ]; then
+step "fixture ($STACK): a TypeScript project that owns its eslint + tsconfig (scaffolder-default shape)"
+# The consumer's configs, kept byte for byte (OWN_KEPT) or only added to (OWN_GROWS, Q4.7).
+OWN_KEPT="tsconfig.json"; OWN_GROWS="eslint.config.mjs"; OWN_BINS="eslint tsc vitest"
+# The record's expected entries after the first validate and push (C1), `|`-separated.
+# typecheck is red on known rot K2 (getff's vitest.config.ts in the whole-tree include), so the
+# install records it not-armed; once K2 is fixed and its entry deleted, this line fails until
+# typecheck moves to EXPECT_ARMED.
+EXPECT_ARMED="npm run lint|npm test|npm run format:check|npm run arch:check|bash scripts/check-lintstaged-resolves.sh"
+EXPECT_NOT="npm run typecheck"
 # The consumer's OWN toolchain, pinned inside the ranges getff itself installs (setup.d/70-deps.sh
 # CORE_DEVDEPS) so the two installs agree and a failure below is about delivered files, never
 # about a version fight between the fixture and the installer.
@@ -137,22 +171,103 @@ describe('answer', () => {
   });
 });
 TS
+# A new finding no autofix removes: tseslint's recommended no-unused-vars (pre-commit negative).
+PLANT_LINT='const plantedUnused = 1;\n'; PLANT_LINT_ID='no-unused-vars'
+else
+step "fixture ($STACK): create-vite's shape — oxlint, a solution tsconfig, no strict, no prettier, no tests, master"
+OWN_KEPT="tsconfig.json tsconfig.app.json"; OWN_GROWS=".oxlintrc.json"; OWN_BINS="oxlint tsc vitest"
+# check:globs reads getff's ESLint config (none here, K4); format:check is red on create-vite's
+# no-semicolon style under getff's prettier; `npm test` has no tests to run yet (C3).
+EXPECT_ARMED="npm run lint|npm run typecheck|npm run arch:check|bash scripts/audit-ai-docs.sh|bash scripts/check-lintstaged-resolves.sh"
+EXPECT_NOT="bash scripts/check-rule-globs.sh|npm run format:check|npm test"
+cat > package.json <<'JSON'
+{
+  "name": "vite-shape-consumer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "oxlint": "^1.20.0",
+    "typescript": "^5.8.0"
+  }
+}
+JSON
+printf 'node_modules/\ndist/\n.husky/_/\n' > .gitignore
+printf '# vite-shape\n' > README.md
+cat > .oxlintrc.json <<'JSON'
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "rules": {
+    "react/rules-of-hooks": "error"
+  }
+}
+JSON
+cat > tsconfig.json <<'JSON'
+{
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }]
+}
+JSON
+# create-vite's app config: bundler mode and its lint flags, and no `strict`.
+cat > tsconfig.app.json <<'JSON'
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+JSON
+# create-vite's code style: single quotes, no semicolons, .ts extensions in imports.
+printf "export function greet(name: string): string {\n  return \`hello \${name}\`\n}\n" > src/greet.ts
+printf "import { greet } from './greet.ts'\n\ndocument.title = greet('vite')\n" > src/main.ts
+# A new finding no autofix removes: a hook called conditionally (the project's own oxlint rule).
+PLANT_LINT='export function usePlanted(on: boolean) {\n  if (on) {\n    usePlantedInner()\n  }\n}\nfunction usePlantedInner() {}\n'
+PLANT_LINT_ID='rules-of-hooks'
+fi
 git add -A
 git commit -qm "consumer baseline"
-# The consumer's configs as they were. tsconfig.json must stay byte for byte; eslint.config.mjs may
-# only GROW — every one of its lines still there, whole and in order (Q4.7: insertions only).
-cp tsconfig.json "$WORK/own-tsconfig.json.before"
-cp eslint.config.mjs "$WORK/own-eslint.config.mjs.before"
+# The consumer's configs as they were: OWN_KEPT must stay byte for byte; OWN_GROWS may only GROW —
+# every one of its lines still there, whole and in order (Q4.7: insertions only).
+for f in $OWN_KEPT $OWN_GROWS; do cp "$f" "$WORK/own-$f.before"; done
 configs_changed() { # prints each way an install broke the consumer's configs, with its first diff lines
-  if ! cmp -s tsconfig.json "$WORK/own-tsconfig.json.before"; then
-    echo "the install changed the consumer's own tsconfig.json:"
-    diff "$WORK/own-tsconfig.json.before" tsconfig.json | head -8 | sed 's/^/    /'
-  fi
-  if ! awk 'NR == FNR { want[++n] = $0; next } i < n && $0 == want[i + 1] { i++ } END { exit !(i == n) }' \
-      "$WORK/own-eslint.config.mjs.before" eslint.config.mjs; then
-    echo "the install changed or removed a line of the consumer's own eslint.config.mjs (only insertions are allowed):"
-    diff "$WORK/own-eslint.config.mjs.before" eslint.config.mjs | grep '^<' | head -8 | sed 's/^/    /'
-  fi
+  local f
+  for f in $OWN_KEPT; do
+    if ! cmp -s "$f" "$WORK/own-$f.before"; then
+      echo "the install changed the consumer's own $f:"
+      diff "$WORK/own-$f.before" "$f" | head -8 | sed 's/^/    /'
+    fi
+  done
+  for f in $OWN_GROWS; do
+    if ! awk 'NR == FNR { want[++n] = $0; next } i < n && $0 == want[i + 1] { i++ } END { exit !(i == n) }' \
+        "$WORK/own-$f.before" "$f"; then
+      echo "the install changed or removed a line of the consumer's own $f (only insertions are allowed):"
+      diff "$WORK/own-$f.before" "$f" | grep '^<' | head -8 | sed 's/^/    /'
+    fi
+  done
   return 0
 }
 # getff's block is in the consumer's eslint.config.mjs, and the original is kept byte for byte.
@@ -161,8 +276,15 @@ configs_changed() { # prints each way an install broke the consumer's configs, w
 # depends on the stack and the project — ts-server's only unconditional rule is R2, added once an
 # HTTP boundary is found, and this fixture has none — so rules are not asserted here
 # (tests/install-sh/synth-wire-consumer-config.test.sh covers them).
+# An oxlint project gets no getff ESLint config at all: one linter (P2 G5/K4).
 eslint_config_wired() {
   local f kept=""
+  if [ "$FIXTURE" = vite-shape ]; then
+    for f in eslint.config.*; do
+      [ -e "$f" ] && { echo "getff placed $f beside the project's oxlint — two linters (K4)"; return 1; }
+    done
+    return 0
+  fi
   grep -qF "'eslint-rules-local/**'" eslint.config.mjs \
     || { echo "the consumer's eslint.config.mjs has no ignores entry for getff's eslint-rules-local/"; return 1; }
   for f in .ai-factory/before-getff/eslint.config.mjs.*; do [ -f "$f" ] && kept="$f"; done
@@ -173,7 +295,28 @@ eslint_config_wired() {
 step "fixture installs its OWN deps (before getff, as a real project would have them)"
 npm install --silent --no-audit --no-fund >"$WORK/own-install.log" 2>&1 \
   || { tail -20 "$WORK/own-install.log"; fail "fixture's own npm install failed"; }
-test -x node_modules/.bin/eslint || fail "fixture's own eslint did not land"
+for bin in $OWN_BINS; do
+  case "$bin" in vitest) continue ;; esac # getff's, not the fixture's
+  test -x "node_modules/.bin/$bin" || fail "fixture's own $bin did not land"
+done
+
+step "before the install: every script the fixture has, then a push to a local bare remote"
+# Each exit code 0 here must still be 0 after the install (P2 §5: green stays green).
+BEFORE_SCRIPTS=$(node -e 'console.log(Object.keys(require("./package.json").scripts || {}).join(" "))')
+BEFORE_GREEN=""
+for s in $BEFORE_SCRIPTS; do
+  if npm run "$s" >"$WORK/before-${s//[^a-z0-9]/-}.log" 2>&1; then
+    BEFORE_GREEN="$BEFORE_GREEN $s"; echo "  0   npm run $s"
+  else
+    echo "  ≠0  npm run $s — red before getff, so not held to green after it"
+  fi
+done
+git init -q --bare "$WORK/before.git"
+if git push -q "$WORK/before.git" "HEAD:refs/heads/$BRANCH" >"$WORK/before-push.log" 2>&1; then
+  BEFORE_GREEN="$BEFORE_GREEN push"; echo "  0   git push"
+else
+  echo "  ≠0  git push — red before getff"
+fi
 
 step "getff clone: a copy of the framework tree WITHOUT its node_modules (what \`git clone\` gives a user)"
 # INSTALL-FOR-AI.md step 3 runs the installer from a fresh clone, whose dependencies were never
@@ -205,7 +348,7 @@ INSTALL_RC=$?
 set -e
 tail -25 "$LOG"
 [ "$INSTALL_RC" -eq 0 ] || fail "install.sh rc=$INSTALL_RC (log tail above)"
-for bin in eslint tsc vitest; do
+for bin in $OWN_BINS; do
   test -x "node_modules/.bin/$bin" \
     || fail "$bin not installed after install.sh --full — the step-4 list below cannot run (false-green guard)"
 done
@@ -226,6 +369,16 @@ ROT_HITS=""
 # ── INSTALL-FOR-AI.md step 4, every item, results collected ────────────────────────────────────
 RESULTS=()
 FAILED=0
+expected_not_armed() { # $1 = step label → 0 when EXPECT_NOT lists that step's record command
+  local c
+  case "$1" in
+    test) c="npm test" ;;
+    typecheck | lint) c="npm run $1" ;;
+    *) return 1 ;;
+  esac
+  case "|$EXPECT_NOT|" in *"|$c|"*) return 0 ;; esac
+  return 1
+}
 step_log() { echo "$WORK/step-${1//[^a-z0-9]/-}.log"; }
 run_step() { # $1 = label; rest = command
   local label="$1"; shift
@@ -237,6 +390,13 @@ run_step() { # $1 = label; rest = command
     return 0
   fi
   rot=$(known_rot_for "$label" "$out")
+  # A check the fixture expects the install to record not-armed (EXPECT_NOT) blocks nothing, so
+  # its red run is the honest state; the record assert below proves it is recorded that way. Known
+  # rot is matched first, so the strict «rot still reproduces» count below stays whole.
+  if [ -z "$rot" ] && expected_not_armed "$label"; then
+    RESULTS+=("NOT-ARMED  $label  (rc=$rc; expected — the record lists it not-armed)")
+    return 0
+  fi
   if [ -n "$rot" ]; then
     RESULTS+=("ROT   $label  (rc=$rc, known rot $rot — see KNOWN ROT above; not a new failure)")
     ROT_HITS="$ROT_HITS $rot:$label"
@@ -300,9 +460,15 @@ run_step "lint" npm run lint
 run_step "test" npm test
 run_step "build" npm run build
 validate_by_lane
+# The fixture's other scripts, each held to its before-install exit code below.
+for s in $BEFORE_SCRIPTS; do
+  case "$s" in typecheck | lint | test | build | validate) continue ;; esac
+  run_step "script:$s" npm run "$s"
+done
 
-step "first commit through the real shipped pre-commit"
+step "first commit through the real shipped pre-commit, then a new one-line .ts file"
 run_step "first-commit" bash -c 'git add -A && git commit -qm "install getff"'
+run_step "new-ts-commit" bash -c "printf 'export const answer = 42;\n' > '$SRC/answer42.ts' && git add '$SRC/answer42.ts' && git commit -qm 'add answer42'"
 
 step "first push: git runs the shipped pre-push, which must reach the full hook, not the bash fallback"
 # A real `git push` to a local bare remote, so git itself invokes the hook with the ref lines on
@@ -311,7 +477,7 @@ git init -q --bare "$WORK/remote.git"
 git remote add origin "$WORK/remote.git"
 first_push_runs_full_hook() {
   local out rc=0
-  out=$(git push -u origin main 2>&1) || rc=$?
+  out=$(git push -u origin "$BRANCH" 2>&1) || rc=$?
   printf '%s\n' "$out"
   [ "$rc" -eq 0 ] || return 1
   # The fallback labels every line it prints with «fallback»; the full hook never does.
@@ -321,6 +487,75 @@ first_push_runs_full_hook() {
   fi
 }
 run_step "first-push" first_push_runs_full_hook
+
+step "green stays green: every step that was 0 before the install is 0 after it"
+for s in $BEFORE_GREEN; do
+  case "$s" in
+    push) label=first-push ;;
+    typecheck | lint | test | build | validate) label=$s ;;
+    *) label="script:$s" ;;
+  esac
+  printf '%s\n' "${RESULTS[@]}" | grep -qxF "PASS  $label" && continue
+  RESULTS+=("FAIL  green stays green: '$s' exited 0 before the install and does not after it (log: $(step_log "$label"))")
+  FAILED=1
+done
+
+# ── The record: which checks block, by name (C1: arming nothing cannot pass) ───────────────────
+# Read after the first validate and push, which arm the project's own scripts once they exit 0.
+record_section() { # $1 = armed | not-armed → its entries, one per line
+  awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' .ai-factory/tool-decisions.md \
+    | awk -v h="$1:" '/^[a-z-]+:$/{f=($0==h);next} f'
+}
+record_matches_expected() {
+  local c miss="" IFS='|'
+  for c in $EXPECT_ARMED; do record_section armed | grep -qxF -- "- $c" || miss="$miss armed:'$c'"; done
+  for c in $EXPECT_NOT; do record_section not-armed | grep -qF -- "- $c # " || miss="$miss not-armed:'$c'"; done
+  [ "$FIXTURE" = own-config ] || grep -qx 'linter: oxlint' .ai-factory/tool-decisions.md || miss="$miss linter:oxlint"
+  [ -z "$miss" ] && return 0
+  echo "the record is not the expected one — missing:$miss"
+  awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' .ai-factory/tool-decisions.md
+  return 1
+}
+run_step "record: expected armed set" record_matches_expected
+
+# ── Paired negatives: each blocking channel stops a planted defect ─────────────────────────────
+# The positive halves are the steps above: new-ts-commit, first-push, typecheck.
+negative() { # $1 = label; $2 = what the log must name; rest = the command that must exit non-zero
+  local label="$1" want="$2" out rc=0
+  shift 2
+  out=$(step_log "$label")
+  "$@" >"$out" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ] && grep -q -- "$want" "$out"; then
+    RESULTS+=("PASS  $label  (blocked, rc=$rc, names $want)")
+  else
+    RESULTS+=("FAIL  $label  (rc=$rc; a planted defect must be stopped, and the log must name $want)")
+    FAILED=1
+    tail -25 "$out" | sed 's/^/      /'
+  fi
+}
+undo_planted() { # drops a planted commit and every planted file
+  if git log -1 --format=%s | grep -q '^planted:'; then git reset -q --hard HEAD~1; fi
+  git reset -q
+  rm -f "$SRC"/planted*.ts
+  git checkout -q -- .lintstagedrc.json 2>/dev/null || true
+}
+step "paired negatives: pre-commit, pre-push, typecheck"
+plant_commit() { printf '%b' "$PLANT_LINT" > "$SRC/planted.ts" && git add "$SRC/planted.ts" && git commit -qm 'planted: new lint finding'; }
+negative "negative: pre-commit" "$PLANT_LINT_ID" plant_commit
+undo_planted
+# A lint-staged step whose binary does not resolve: check:lintstaged blocks the push.
+plant_push() {
+  node -e 'const fs = require("fs"); const f = ".lintstagedrc.json"; const j = JSON.parse(fs.readFileSync(f, "utf8"));
+    const k = Object.keys(j).find((k) => k.includes("ts")); j[k] = [].concat(j[k], "getff-planted-no-such-bin");
+    fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n")' \
+    && git add .lintstagedrc.json && git commit -q --no-verify -m 'planted: unresolvable lint-staged binary' \
+    && git push origin "$BRANCH"
+}
+negative "negative: pre-push" "getff-planted-no-such-bin" plant_push
+undo_planted
+plant_type() { printf "export const planted: number = 'x';\n" > "$SRC/planted-type.ts" && npm run typecheck; }
+negative "negative: typecheck" "TS2322" plant_type
+undo_planted
 
 # ── Generator arm (N14 / S5-9), data-driven on the committed research pairs ────────────────────
 RESEARCH=""
@@ -364,7 +599,10 @@ else
 fi
 
 # Strict the other way: every known-rot entry naming this stack must still reproduce on EVERY step
-# it names. One that no longer does was fixed (or moved) — delete it, so the list stays true.
+# it names. One that no longer does was fixed (or moved) — delete it, so the list stays true. The
+# entries were measured on the own-config fixture (its whole-tree tsconfig type-checks getff's
+# vitest.config.ts; vite-shape's `include: ["src"]` does not), so only that fixture holds them.
+[ "$FIXTURE" = own-config ] || ROT_ENTRIES=""
 for e in $ROT_ENTRIES; do
   id=${e%%:*}; steps=${e#*:}; steps=${steps%%:*}; stacks=${e##*:}
   case ",$stacks," in *",$STACK,"*) ;; *) continue ;; esac

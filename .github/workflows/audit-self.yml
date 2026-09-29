@@ -1547,6 +1547,13 @@ jobs:
         #   build or validate and planted its test under src/, which is how a red fresh install of
         #   a real project shipped green). Stack-neutral: one fixture, STACK only picks the preset.
         fixture: [empty-manifest, own-configs]
+        # vite-shape — create-vite's shape without the scaffolder (oxlint, a solution tsconfig, no
+        #   strict, no prettier, no tests, master): green stays green, the record's expected armed set
+        #   and a paired negative per blocking channel (P2 §5). One stack: the preset is not the
+        #   subject, the project's own linter is.
+        include:
+          - stack: react-spa
+            fixture: vite-shape
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -1674,10 +1681,11 @@ jobs:
         # first push (through the real shipped hooks) · the rule generator on an empty npm cache.
         # Known preset-template rot is printed as ROT, strictly (tests/consumer-matrix/known-rot.sh,
         # decision Q4.4). Deterministic + API-free per .claude/rules/no-paid-llm-in-ci.md.
-        if: matrix.fixture == 'own-configs'
+        if: matrix.fixture == 'own-configs' || matrix.fixture == 'vite-shape'
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
           STACK: ${{ matrix.stack }}
+          FIXTURE: ${{ matrix.fixture == 'vite-shape' && 'vite-shape' || 'own-config' }}
         run: bash tests/consumer-matrix/own-config-cell.sh
 
   framework-fresh-install-validate-multistack:

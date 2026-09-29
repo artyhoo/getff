@@ -863,6 +863,11 @@ else
     # claim — and not a failure either.
     echo "  · fences-fire: skipped — getff's rules are not in your own root ESLint config (see NOT wired below)"
     _isv_skip "fences-fire (not wired)"
+  elif [ "${LINTER_SLOT:-}" = oxlint ] || [ "${LINTER_SLOT:-}" = biome ]; then
+    # P2 G5/K4: the project lints with its own oxlint / Biome and gets no getff ESLint config, so
+    # there is no ESLint fence to probe — a run would only report «VACUOUS».
+    echo "  · fences-fire: skipped — it probes getff's ESLint rules, and this project lints with $LINTER_SLOT (see NOT wired below)"
+    _isv_skip "fences-fire (not wired)"
   elif [ -x "$_FF_SCRIPT" ]; then
     # GH #976: this is a --full install self-verify (the capstone only runs on FULL), so a
     # PLACED eslint.config.mjs that cannot `import()` is a real delivery gap even when the
