@@ -354,6 +354,31 @@ describe('the batch proof through the project command (T-C4)', () => {
     expect(spawnSync('find', [dir, '-name', '__getff_proof__', '-not', '-path', '*/node_modules/*'], { encoding: 'utf8' }).stdout).toBe('');
   });
 
+  // P6 cell rerun 2026-09-30: a researched JSX rule's samples were written as `.ts`, oxlint failed to parse them
+  // («Expected `>` but found `Identifier`»), the row read not_wired and the good batch exited 1.
+  it('a generated rule on JSX gets .tsx samples: proven, and the good batch still exits 0', () => {
+    const dir = oxProject({ 'src/App.tsx': GOOD_APP });
+    const g3 = {
+      title: 'Do not use the array index as a list key',
+      stack: ['react-spa'],
+      check: {
+        type: 'declarative',
+        presence: 'forbid',
+        selector: "JSXAttribute[name.name='key'] > JSXExpressionContainer > Identifier[name='index']",
+        message: 'Use a stable id from the data as key, not the array index.',
+        engine: 'eslint-restricted',
+      },
+      examples: { bad: '<li key={index} />', good: '<li key={id} />' },
+      research: { entryId: 'react-no-index-as-key' },
+    };
+    write(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json', JSON.stringify({ ...MANIFEST, G3: g3 }, null, 2) + '\n');
+    place(dir, 'oxlint');
+    const r = spawnSync('node', ['scripts/prove-rules.mjs', '--prove'], { cwd: dir, encoding: 'utf8' });
+    expect(rowOf(r.stdout, 'getff:G3')?.proof, r.stdout).toMatch(PROVED);
+    expect(r.stdout).toMatch(/good batch → exit 0 /);
+    expect(r.status).toBe(0);
+  });
+
   it('a rule switched off in the config is never reported as proven (paired negative)', () => {
     const dir = oxProject({ 'src/App.tsx': GOOD_APP });
     place(dir, 'oxlint');

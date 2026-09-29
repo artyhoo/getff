@@ -43,6 +43,8 @@ export const PROOF_DIR = '__getff_proof__';
 /** Marks an overrides entry getff owns. It is also where the proof samples go, so every rule getff places
  *  reaches its sample whatever its own globs are (a real directory of that name does not exist). */
 export const OWNED_GLOB = `**/${PROOF_DIR}/**`;
+/** The proof samples of the generated rules: `getff:G1` → `getff_G1.bad.ts` (safeName). */
+const GENERATED_SAMPLES = `**/${PROOF_DIR}/getff_*`;
 /** Marks getff's per-file exemptions for existing violations; matches nothing real. oxlint rejects any key
  *  of its own in an overrides entry, so a glob is the only mark it keeps (measured, oxlint 1.86.0). */
 export const EXEMPT_GLOB = '**/__getff_exempt__/**';
@@ -684,10 +686,13 @@ export function placeOxlint(
       continue;
     }
     const key = JSON.stringify([r.files, r.excludeFiles ?? []]);
+    // OWNED_GLOB puts every sample in the proof dir under this entry, but in the project the rule runs only on
+    // its own globs: a generated rule's samples stay out of it, or a JSX good example is rejected by
+    // require-error-boundary, a rule of App.tsx only (P6 cell rerun 2026-09-30).
     if (!groups.has(key))
       groups.set(key, {
         files: [...r.files, OWNED_GLOB],
-        ...(r.excludeFiles ? { excludeFiles: r.excludeFiles } : {}),
+        excludeFiles: [...(r.excludeFiles ?? []), GENERATED_SAMPLES],
         rules: {},
       });
     groups.get(key).rules[r.rule] = 'error';
@@ -1113,11 +1118,14 @@ function pluginSamples(root, name) {
 }
 function samplesFor(root, id, carriers) {
   if (id.startsWith('getff:')) {
-    const ex = carriers.find((c) => c.id === id.slice(6))?.examples;
+    const c = carriers.find((x) => x.id === id.slice(6));
+    const ex = c?.examples;
+    // A selector on JSX nodes matches only in a file the linter parses as JSX: its samples are `.tsx`.
+    const ext = /\bJSX/.test(c?.entry.selector ?? '') ? 'tsx' : 'ts';
     return ex?.bad && ex?.good
       ? {
-          bad: { text: ex.bad + '\n', ext: 'ts' },
-          good: { text: ex.good + '\n', ext: 'ts' },
+          bad: { text: ex.bad + '\n', ext },
+          good: { text: ex.good + '\n', ext },
         }
       : undefined;
   }
@@ -1258,7 +1266,10 @@ function placedEslint(root, sampleDir, carriers) {
         out.push({
           id: `getff:${c.id}`,
           home: `eslint ${CARRIER} (message of ${c.id})`,
-          rel: rel.replace(/x\.bad\.ts$/, `${c.id}.bad.ts`),
+          rel: rel.replace(
+            /x\.bad\.ts$/,
+            `${c.id}.bad.${samplesFor(root, `getff:${c.id}`, carriers)?.bad.ext ?? 'ts'}`,
+          ),
           warnOnly: warnOnly(v),
         });
         break;
