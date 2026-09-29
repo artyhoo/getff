@@ -16,6 +16,13 @@
 # whose own CI hardcodes a different `node-version: NN` then gets local `nvm use` (.nvmrc) ≠ CI.
 # It is the consumer's own CI — nothing is broken — so this is a non-destructive WARN only, never
 # a failure. (A workflow using `node-version-file: '.nvmrc'` reads .nvmrc directly → can't drift.)
+# P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
+# npm-bound, so it is skipped and named in the NOT wired summary.
+if [ "${STACK:-}" = "generic" ]; then
+  note_not_wired "CI workflow — not delivered: its steps run npm scripts, and stack «generic» has none getff placed"
+  return 0 2>/dev/null || true
+fi
+
 if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.nvmrc" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
   # `|| true`: parity with the _ci_ver line below — under set -euo pipefail a SIGPIPE from
   # head closing a multi-line read (rc=141) would otherwise abort the whole install.

@@ -58,7 +58,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 | `FORCE` | dispatcher (flag parse) | lib helpers |
 | `DRY_RUN` | dispatcher (flag parse) | lib helpers |
 | `SKIPPED` | dispatcher (`SKIPPED=()`) | 10, 20, 30, 40, 50, 60, 70, 99-finalize (`SKIPPED` fully accumulated at finalize time) |
-| `STACK` | dispatcher (stack pick) | 30, 40, 60, 70, 99 |
+| `STACK` | dispatcher (stack pick; `generic` when no stack is known — P2 G1) | 30, 40, 50, 60, 70, 80, 99 (`generic`: 30/40 keep their stack-free part, 50/60/70/80 return early with one NOT wired line each, 99 skips the self-verify and the deps-incomplete verdict) |
 | `PROFILE` | dispatcher (flag resolution; `core` default for non-TTY) | 10 (F7 split), 20 (agents F7) — beta-delivery-ux S1 |
 | `SHIPPED_DOCS` | dispatcher (SHIPPED_DOCS array set before loop) | 20, 30, 40 |
 | `_r2_verdict` | 60-ci | 99-finalize (R2 L2 AST-wire) |

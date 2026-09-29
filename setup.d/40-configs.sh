@@ -13,6 +13,13 @@ echo "▶ Scripts → scripts/"
 mkdir_safe "$PROJECT_ROOT/scripts"
 copy_safe "$PKG_ROOT/packages/core/audit-self/audit-ai-docs.sh" "$PROJECT_ROOT/scripts/audit-ai-docs.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/audit-ai-docs.sh" 2>/dev/null || true
+# P2 G1: stack «generic» gets the stack-free scripts only (the docs audit above and the CI-state
+# probe); every script below it and every config in this layer is ESLint/TypeScript/npm-bound.
+if [ "$STACK" = "generic" ]; then
+  copy_safe "$PKG_ROOT/packages/core/audit-self/ci-available-probe.sh" "$PROJECT_ROOT/scripts/ci-available-probe.sh"
+  note_not_wired "lint, typecheck and test configs (ESLint, tsconfig, vitest, prettier, lint-staged, dependency-cruiser) — not placed: stack «generic» has no getff preset; your own tools are left as they are"
+  return 0 2>/dev/null || true
+fi
 # R4 probe (ts-morph) invoked by audit-ai-docs.sh via `npx tsx scripts/audit-r4.ts`.
 copy_safe "$PKG_ROOT/packages/core/probes/audit-r4.ts" "$PROJECT_ROOT/scripts/audit-r4.ts"
 # cih-s3 F3 "+V": glob-liveness gate — fails if a custom rule matches zero source files

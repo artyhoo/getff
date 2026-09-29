@@ -39,7 +39,8 @@ Usage:
 
   init     Install the enforcement layer into the current project (runs the shipped
            setup/install.sh from this package). <stack> = ts-server | react-next |
-           react-spa | react-native | python; omitted = auto-detected from package.json.
+           react-spa | react-native | generic | python | cargo | go; omitted =
+           auto-detected (no stack signal → generic: the stack-free part only).
            Run it from the project root. -y installs into the project only; add
            --global to also install machine-wide companions (user-scope Claude
            plugins and MCP servers, npm -g tools, the runtime-bridge).

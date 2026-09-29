@@ -17,6 +17,13 @@
 # stryker, npm-run-all2, vitest, prettier, husky) are NOT installed here — that is the consumer's
 # `npm install` + residual R-2 (devDeps manifest). Scripts present ≠ runnable until deps land,
 # but "Missing script" → "tool not installed" is the intended, INSTALL.md-documented path.
+# P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
+# npm-bound, so it is skipped and named in the NOT wired summary.
+if [ "${STACK:-}" = "generic" ]; then
+  note_not_wired "dependencies — not installed: getff has no dependency set for stack «generic»; your package files are left as they are"
+  return 0 2>/dev/null || true
+fi
+
 if [ -f "$PROJECT_ROOT/package.json" ]; then
   if [ -n "$DRY_RUN" ]; then
     echo "▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)"

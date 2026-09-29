@@ -24,6 +24,13 @@
 #   orchestration in consumer context after --full dep-install.
 
 # Gate: rule-bootstrapping only runs on the --full / yes pass.
+# P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
+# npm-bound, so it is skipped and named in the NOT wired summary.
+if [ "${STACK:-}" = "generic" ]; then
+  note_not_wired "generated rules — not run: the rule generator writes ESLint rules, and stack «generic» has no ESLint getff placed"
+  return 0 2>/dev/null || true
+fi
+
 if [ -z "${FULL:-}" ]; then
   return 0 2>/dev/null || true
 fi

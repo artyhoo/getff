@@ -160,6 +160,10 @@ while [ "$#" -gt 0 ]; do
     # factory = env + AIF suite per inventory §2.1 (the AIF suite IS the factory-only payload).
     --all)                  FULL="--full"; WITH_AIF_SUITE="--with-aif-suite"; export GETFF_GLOBAL=1 ;;
     ts-server|react-next|react-spa|react-native)   STACK="$arg"; STACK_EXPLICIT="1" ;;
+    # generic = no stack getff knows (P2 G1, operator log entry 26 point 2): the same layer loop
+    # with every npm-bound layer gated off, each named in NOT wired. Also what an undetectable
+    # stack lands on under --full / --dry-run, instead of exiting.
+    generic)                STACK="generic"; STACK_EXPLICIT="1" ;;
     # python = a TOOLCHAIN lane, not a fifth npm stack. Explicit positional → always wins over
     # auto-detect (python-delivery-v0 S2 §1). Routed to do_python_lane below, before the npm
     # package.json precondition + stack pick, then early-exits (never touches the npm layer loop).
@@ -170,7 +174,11 @@ while [ "$#" -gt 0 ]; do
     # go = the Go TOOLCHAIN lane (adapter-jig J3), same shape as python/cargo: explicit
     # positional wins over auto-detect, routed to do_go_lane below, early-exits.
     go)                     TOOLCHAIN="go" ;;
-    *)                      ;;
+    # An unknown FLAG stays a no-op (forward-compat). An unknown POSITIONAL is a misspelt stack:
+    # before `generic` it fell through to auto-detect and exited there; now auto-detect would
+    # land a typo on `generic`, so a wrong name is an error, not a stack.
+    -*|"")                  ;;
+    *)                      echo "❌ Unknown stack: $arg (use ts-server, react-next, react-spa, react-native, generic, python, cargo, or go)"; exit 1 ;;
   esac
   shift
 done
@@ -483,7 +491,13 @@ _lane_detect() {
     [ -f "$PROJECT_ROOT/$exf" ] && return 1
   done
   if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
-    return 1 # non-interactive / dry-run → decline (npm lane). Explicit `<lane>` arg is the opt-in.
+    # K5 (P2, advisor verdict 2026-09-29): non-interactive / dry-run CLAIMS the detected lane. It used
+    # to decline, which left a pyproject/Cargo/go.mod project with no package.json at the npm
+    # lane's «No package.json» exit — the one pre-launch question was already the consent. The
+    # lanes are alpha; the line says so.
+    echo "▶ Detected $detect (no package.json) — claiming the getff ${display} toolchain lane (alpha)."
+    TOOLCHAIN="$lane"
+    return 0
   fi
   # Banner + the OFFER's per-lane "(…)" fragment. The fragments name the delivered surface (prompt
   # text, not routing facts), so they live in this case rather than as more table columns.
@@ -684,8 +698,16 @@ if [ "$TOOLCHAIN" = "go" ]; then
 fi
 
 
-# Must be a project (has package.json) — but in dry-run we just warn so the user can preview.
-if [ ! -f "$PROJECT_ROOT/package.json" ]; then
+# No package.json and no stack named → `generic` (P2 G1): the stack-free part, never an exit.
+# The one exception keeps today's exit: an interactive run whose toolchain-lane offer the consumer
+# just DECLINED (python-entry-lane.test.sh arm 4) — they said «not that», and nothing else was asked.
+if [ ! -f "$PROJECT_ROOT/package.json" ] && [ -z "$STACK" ] \
+   && { [ -z "${_LANE_DECLINED:-}" ] || [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; }; then
+  STACK="generic"
+fi
+
+# An npm stack needs a project (has package.json) — but in dry-run we just warn so the user can preview.
+if [ ! -f "$PROJECT_ROOT/package.json" ] && [ "$STACK" != "generic" ]; then
   if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "⚠  No package.json found in $PROJECT_ROOT — proceeding with dry-run preview anyway."
   else
@@ -707,6 +729,11 @@ if [ -n "$REFRESH" ] && [ -z "$STACK" ]; then
   elif [ -f "$PROJECT_ROOT/.ai-factory/RULES.react-spa.md" ] || \
        [ -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.react-spa.md" ]; then
     STACK="react-spa"
+  elif [ ! -f "$PROJECT_ROOT/.ai-factory/RULES.md" ] && \
+       [ ! -f "$PROJECT_ROOT/.ai-factory/ARCHITECTURE.ts-server.md" ]; then
+    # Every npm stack places RULES.md and ARCHITECTURE.ts-server.md (30-templates); a generic
+    # install places neither (P2 G1). Defaulting it to ts-server would deliver ESLint files.
+    STACK="generic"
   else
     STACK="ts-server"
   fi
@@ -720,35 +747,42 @@ fi
 if [ -z "$STACK" ]; then
   STACK="$(_detect_stack_from_pkg)"
   if [ "$STACK" = "unknown" ]; then
-    STACK=""   # reset so the interactive menu / --full fail-loud below handles it
-    if [ -n "$FULL" ]; then
-      echo "❌ --yes / --full: could not auto-detect a stack from package.json"
-      echo "   (no react-native / next / react / typescript dependency signal)."
-      echo "   Specify one explicitly: ts-server | react-next | react-spa | react-native"
-      echo "   Example: ./setup -y ts-server"
-      exit 1
+    STACK=""   # reset so the --full / --dry-run arm or the interactive menu below handles it
+    if [ -n "$FULL" ] || [ "$DRY_RUN" = "--dry-run" ]; then
+      # P2 G1: an undetectable stack is `generic` (the stack-free part), never an exit. It used to
+      # exit 1 here, so `./setup -y` on a plain-JS / unknown project delivered nothing.
+      echo "  ▶ No stack signal in package.json (no react-native / next / react / typescript dependency) → generic"
+      STACK="generic"
+    else
+      echo "What stack does this project use?"
+      echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
+      echo "  2) react-next   — React 19 + Next.js 15 App Router"
+      echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
+      echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
+      echo "  5) generic      — none of these: the stack-free part only (skills, agents, docs)"
+      read -rp "Choose [1/2/3/4/5]: " choice || choice=""
+      case "$choice" in
+        1) STACK="ts-server" ;;
+        2) STACK="react-next" ;;
+        3) STACK="react-spa" ;;
+        4) STACK="react-native" ;;
+        5) STACK="generic" ;;
+        *) echo "❌ Invalid choice"; exit 1 ;;
+      esac
     fi
-    echo "What stack does this project use?"
-    echo "  1) ts-server    — Node.js + Fastify/Hono/Express (server only)"
-    echo "  2) react-next   — React 19 + Next.js 15 App Router"
-    echo "  3) react-spa    — React 19 + Vite SPA (Feature-Sliced Design)"
-    echo "  4) react-native — React Native / Expo (Expo or bare-RN baseline)"
-    read -rp "Choose [1/2/3/4]: " choice
-    case "$choice" in
-      1) STACK="ts-server" ;;
-      2) STACK="react-next" ;;
-      3) STACK="react-spa" ;;
-      4) STACK="react-native" ;;
-      *) echo "❌ Invalid choice"; exit 1 ;;
-    esac
   else
     echo "  ▶ Auto-detected stack from package.json: $STACK"
   fi
 fi
 
-if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ] && [ "$STACK" != "react-spa" ] && [ "$STACK" != "react-native" ]; then
-  echo "❌ Unknown stack: $STACK (use ts-server, react-next, react-spa, or react-native)"
+if [ "$STACK" != "ts-server" ] && [ "$STACK" != "react-next" ] && [ "$STACK" != "react-spa" ] && [ "$STACK" != "react-native" ] && [ "$STACK" != "generic" ]; then
+  echo "❌ Unknown stack: $STACK (use ts-server, react-next, react-spa, react-native, or generic)"
   exit 1
+fi
+if [ "$STACK" = "generic" ]; then
+  # The one line --dry-run shows (and P1's pre-launch question quotes) for a project getff has no
+  # stack for: what lands and what is left to the agent.
+  echo "  stack: generic — stack-free part only; stack-bound part: not done (the agent researches it)"
 fi
 
 if [ -n "$REFRESH" ]; then
@@ -1432,6 +1466,12 @@ do_refresh() {
 }
 
 # ─── --refresh early-exit: run refresh then stop (skip the full install flow) ──
+# A generic install has no do_refresh arm (every arm there re-delivers npm-bound files): it is
+# refreshed by the install path below, whose copy_safe keeps files already on disk.
+if [ -n "$REFRESH" ] && [ "$STACK" = "generic" ]; then
+  note_not_wired "--refresh on stack «generic» — re-ran the install path: missing pieces are added, getff files already in the project are kept as they are (not updated)"
+  REFRESH=""
+fi
 if [ -n "$REFRESH" ]; then
   do_refresh
   # do_refresh exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7): the

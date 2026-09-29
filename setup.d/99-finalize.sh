@@ -661,6 +661,8 @@ fi
 # eslint/deps are absent. Mirrors 80-rule-bootstrap.sh FULL guard (lines 25-27).
 if [ -z "${FULL:-}" ]; then
   : # not a --full install — skip self-verification
+elif [ "${STACK:-}" = "generic" ]; then
+  : # P2 G1: generic placed no fence, hook or generated rule to prove (each is a NOT wired line)
 elif [ "${DRY_RUN:-}" = "--dry-run" ]; then
   echo "· install-self-verify: [dry-run] would run fences-fire + shields-up + mutation gates"
 else
@@ -830,7 +832,9 @@ fi
 # landed (70-deps.sh). So FULL-set + DEPS_INSTALLED≠1 = an honestly-degraded install → downgrade
 # the banner AND exit non-zero so automation/CI sees the failure, not a green install.
 _deps_incomplete=""
-if [ -n "${FULL:-}" ] && [ "${DEPS_INSTALLED:-}" != "1" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+# A generic install promises no dependencies (70-deps is skipped and says so), so it is not «incomplete».
+if [ -n "${FULL:-}" ] && [ "${DEPS_INSTALLED:-}" != "1" ] && [ "$DRY_RUN" != "--dry-run" ] \
+   && [ "${STACK:-}" != "generic" ]; then
   _deps_incomplete=1
 fi
 

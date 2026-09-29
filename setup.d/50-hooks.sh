@@ -7,6 +7,13 @@
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 
 # ─── §5c: .husky/ hooks ─────────────────────────────────
+# P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
+# npm-bound, so it is skipped and named in the NOT wired summary.
+if [ "${STACK:-}" = "generic" ]; then
+  note_not_wired "git hooks (husky pre-commit / pre-push) — not installed: stack «generic» has no npm toolchain for them to run"
+  return 0 2>/dev/null || true
+fi
+
 mkdir_safe "$PROJECT_ROOT/.husky"
 # critical-review S3-1: note consumer-owned hooks BEFORE copy_safe keeps them, so the post-deps
 # re-assert in 99-finalize (reassert_husky_shields) keeps them too.

@@ -77,6 +77,12 @@ for a in "$@"; do
     # The companion steps below still run (the python lane's own linter is offered there); the
     # runtime-bridge step stays opt-in [y/N] as usual.
     python|cargo|go) STACK="$a" ;;
+    # generic = a project whose stack getff does not know: the stack-free part only (P2 G1).
+    generic) STACK="$a" ;;
+    # A misspelt stack used to vanish here and the install auto-detected instead; with `generic`
+    # that would install the stack-free part on a typo. Unknown flags stay ignored.
+    -*|"") ;;
+    *) echo "❌ Unknown stack: $a (use ts-server, react-next, react-spa, react-native, generic, python, cargo, or go)" >&2; exit 1 ;;
   esac
 done
 # Cold-QA MINOR fix parity with install.sh:150 (end-of-args guard): if --profile was the LAST

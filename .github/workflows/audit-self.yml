@@ -852,6 +852,8 @@ jobs:
         run: bash tests/install-sh/tool-decisions-seed-integration.test.sh
       - name: "install-sh — per-workspace stack detect (§13.5 multi-stack monorepo I-2 Layer 1: {dir→stack} map, neither stack dropped)"
         run: bash tests/install-sh/workspace-stack-detect.test.sh
+      - name: "install-sh — generic stack: an unknown-stack project gets the stack-free part, -y claims a toolchain lane, no prompt under --full (P2 G1)"
+        run: bash tests/install-sh/generic-stack.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
