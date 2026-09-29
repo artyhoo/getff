@@ -1465,7 +1465,7 @@ $msgs"
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:315-325  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
+#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
 #   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
@@ -1530,7 +1530,7 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:315-323 (kickoff §2 item 1 binding).
+  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:318-326 (kickoff §2 item 1 binding).
   local _py_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
