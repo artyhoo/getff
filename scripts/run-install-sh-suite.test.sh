@@ -7,6 +7,14 @@ set -uo pipefail
 # The OFFLOAD arms set these per call. An inherited value — the sweep run under PC_LOCAL=1, or a
 # session that exports the runner — must not reach the arms that do not set them.
 unset PC_LOCAL INSTALL_SH_HEAVY_RUNNER INSTALL_SH_QUARANTINE
+# The same holds for an inherited fd 3. The sweep does `exec 3>&2` before it runs this file, so fd 3
+# arrives OPEN there and CLOSED in CI; the runner's progress() writes to fd 3 when it is open, and
+# every arm that captures only stdout+stderr and greps for progress text then passes in CI and fails
+# in the sweep. Two such arms went RED under the sweep only (2026-09-14: the fd3-closed arm;
+# 2026-09-29: the offload fallback arm's «ran the routed half on this host»). Closing fd 3 once here
+# makes every arm see what CI sees; the progress arm below opens it explicitly for its own call.
+# The CI step runs this file a second time with fd 3 open to keep that property from regressing.
+exec 3>&-
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$HERE/run-install-sh-suite.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -125,9 +133,8 @@ printf '%s\n' "$captured" >"$TMP/o8"
 no_grep_out "the counter did NOT leak into the captured gate output" "3/3 done" "$TMP/o8"
 grep_out "the gate output itself is still captured" "body-2" "$TMP/o8"
 # Fallback: with fd 3 closed (a direct CI invocation) the counter must still appear, on stderr.
-# `3>&-` is load-bearing and must stay: when this file runs as a sweep gate the sweep has already
-# done `exec 3>&2`, so fd 3 is OPEN and inherited here — without the explicit close the arm would
-# assert the fallback while the fast path was actually taken, and pass for the wrong reason.
+# The file-wide `exec 3>&-` at the top already closes an inherited fd 3; the per-call `3>&-` stays
+# so this arm states its own precondition and does not depend on the top of the file.
 # (Measured 2026-09-14: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`.)
 bash "$RUNNER" "$S" >"$TMP/o9" 2>"$TMP/e9" 3>&-
 check "fd3-closed arm exits 0" 0 $?
