@@ -669,8 +669,8 @@ describe('train landing — a CLOSED member PR whose content landed in a merged 
     trainState?: string;
     trainMergeCommit?: string | null;
     trainBody?: string;
-    squashResolves?: string;
-    inTrain?: string;
+    squashResolves?: string | Error;
+    trainCommits?: string[];
     onBase?: string;
   }
 
@@ -699,8 +699,13 @@ describe('train landing — a CLOSED member PR whose content landed in a merged 
           body: w.trainBody ?? TRAIN_BODY,
         });
       }
-      if (a === `api repos/${REPO}/commits/a235830d7f9 --jq .sha`) return `${w.squashResolves ?? SQUASH}\n`;
-      if (a === `api repos/${REPO}/compare/${TRAIN_MERGE}...${SQUASH} --jq .status`) return `${w.inTrain ?? 'behind'}\n`;
+      if (a === `api repos/${REPO}/commits/a235830d7f9 --jq .sha`) {
+        if (w.squashResolves instanceof Error) throw w.squashResolves;
+        return `${w.squashResolves ?? SQUASH}\n`;
+      }
+      if (a === `api --paginate repos/${REPO}/pulls/1940/commits --jq .[].sha`) {
+        return `${(w.trainCommits ?? ['4d266d9b788' + '0'.repeat(29), SQUASH]).join('\n')}\n`;
+      }
       if (a === `api repos/${REPO}/compare/staging...${SQUASH} --jq .status`) return `${w.onBase ?? 'behind'}\n`;
       throw new Error(`unexpected gh call: ${a}`);
     }) as unknown as typeof execFileSync);
@@ -748,11 +753,25 @@ describe('train landing — a CLOSED member PR whose content landed in a merged 
   const negatives: [string, World, RegExp][] = [
     ['no train claim at all (closed and abandoned)', { comments: ['Superseded by #1999, closing.'] }, /no comment claims a train landing/],
     ['the train PR is not merged', { trainState: 'CLOSED', trainMergeCommit: null }, /not MERGED/],
-    ["the train body does not name this PR's squash", { trainBody: '| #1932 | x | MERGED |\n| #1934 | dropped from the train |\n' }, /no line naming both #1934/],
-    ['the squash is not in the train', { inTrain: 'diverged' }, /not an ancestor of the train's merge commit/],
+    ["the train body does not name this PR's squash", { trainBody: '| #1932 | x | MERGED |\n| #1934 | dropped from the train |\n' }, /no `\| #1934 \|` row/],
+    [
+      "the squash sha sits in the member's row only as its HEAD sha, not after «into»",
+      { trainBody: '| #1934 | W2-G | `a235830d7f9` | dropped, conflicts |\n' },
+      /no `\| #1934 \|` row/,
+    ],
+    [
+      'a prose or cross-repo mention of #1934 next to the sha is not the train record',
+      { trainBody: 'Supersedes other/repo#1934; the regression came in with a235830d7f9.\n| #19340 | x | SQUASHED into `a235830d7f9` |\n' },
+      /no `\| #1934 \|` row/,
+    ],
+    [
+      'the squash was already on the base before the train (not one of the train PR commits)',
+      { trainCommits: ['4d266d9b788' + '0'.repeat(29)] },
+      /not one of the train PR's own commits/,
+    ],
+    ['an unknown short sha (gh 422) is a failed proof, not a crash', { squashResolves: new Error('gh: No commit found for SHA: a235830d7f9 (HTTP 422)') }, /does not resolve/],
     ['the squash is not on the base branch', { onBase: 'ahead' }, /not an ancestor of staging/],
     ['the squash sha resolves to a different commit', { squashResolves: 'b'.repeat(40) }, /does not resolve/],
-    ['the PR is still OPEN (a claim on an open PR is ignored)', { memberState: 'OPEN' }, /not merged/],
   ];
   for (const [name, world, why] of negatives) {
     it(`${name} → stays skipped, NO writes`, async () => {
@@ -765,6 +784,42 @@ describe('train landing — a CLOSED member PR whose content landed in a merged 
       expect(report.skippedReason).toMatch(why);
     });
   }
+
+  it('an OPEN PR with a claim comment → not merged, and its comments are never even read', async () => {
+    ghWorld({ memberState: 'OPEN' });
+    const aif = stubAif([{ id: 't-train', title: 'x', status: 'done' }]);
+    const report = await reportMergeToAif(BASE, 't-train', MEMBER_URL);
+    expect(aif.calls).toEqual([]);
+    expect(report).toMatchObject({ merged: false, approved: false });
+    expect(execMock.mock.calls.map((c) => (c[1] as string[]).join(' '))).toEqual([
+      `pr view ${MEMBER_URL} --json state,mergedAt,mergeCommit,headRefName,body`,
+    ]);
+  });
+
+  it('several claims: the first fails, the second proves → merged via the second', async () => {
+    ghWorld({ comments: ['Landed via merge train C9 (#1941, …) as the squash commit `a235830d7f9`.', CLAIM] });
+    const inner = execMock.getMockImplementation()!;
+    execMock.mockImplementation(((cmd: string, args: readonly string[]) => {
+      if (args.join(' ').startsWith(`pr view 1941 --repo ${REPO}`)) return JSON.stringify({ state: 'OPEN', mergeCommit: null });
+      return (inner as (c: string, a: readonly string[]) => string)(cmd, args);
+    }) as unknown as typeof execFileSync);
+    await expect(ghPrMergeProbe(MEMBER_URL)).resolves.toMatchObject({ merged: true, landedVia: { trainPr: 1940 } });
+  });
+
+  it('a sweep with one MERGED PR and one train-landed CLOSED PR takes the MERGED one', async () => {
+    const aif = stubAif([{ id: 't-both', title: 'x', status: 'done' }]);
+    const entries = await closeMergedTasks(
+      BASE,
+      { taskId: 't-both' },
+      async () => [
+        { url: 'https://gh/x/y/pull/1', state: 'CLOSED' },
+        { url: 'https://gh/x/y/pull/2', state: 'MERGED' },
+      ],
+      MERGED,
+    );
+    expect(entries[0].prUrl).toBe('https://gh/x/y/pull/2');
+    expect(aif.status('t-both')).toBe('verified');
+  });
 
   it('the sweep index keeps a CLOSED PR only with a train claim; a claim-less closed PR never maps', async () => {
     execMock

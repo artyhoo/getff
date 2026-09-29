@@ -692,17 +692,23 @@ function isAncestorStatus(status: string): boolean {
 }
 
 /**
- * Prove a train-landing claim for member PR `memberNumber` of `repo`, or say why it fails. Four
- * checks, all read from GitHub, so a mistyped or invented claim can never close a task:
+ * Prove a train-landing claim for member PR `memberNumber` of `repo`, or say why it fails. Every
+ * check reads GitHub, and the claim comment is never trusted (anyone can comment on a public PR):
  *   1. the train PR is MERGED with a recorded merge commit;
- *   2. the train PR's body has ONE line naming both `#<member>` and the claimed squash sha — the
- *      train's own record agrees with the member's closing comment (the seat's train body carries
- *      a `| #1934 | … | **SQUASHED** into `a235830d7f9` |` row);
- *   3. the squash sha resolves to a commit that is an ancestor of the train's merge commit — it
- *      rode in on THIS train;
- *   4. and an ancestor of the train's base branch head — the content is on the base branch now
- *      (`git merge-base --is-ancestor <squash> origin/<base>`, asked of GitHub so a stale local
- *      fetch cannot answer it).
+ *   2. the claimed squash sha resolves to exactly one commit;
+ *   3. the train PR's OWN record says so: a body table row whose first cell is `#<member>` and
+ *      which names the squash after «into» — the seat's grammar, e.g.
+ *      `| #1934 | … | `1279cae72324` | **SQUASHED** into `a235830d7f9` |`. The member's head sha in
+ *      the same row, a prose mention, or a cross-repo `owner/repo#<member>` never qualifies;
+ *   4. the squash is one of the train PR's own commits (`GET pulls/<train>/commits`: the commits
+ *      the train added over its base) — a commit already on the base before the train merged is
+ *      an ancestor of the train merge commit too, so ancestry of that commit proves nothing.
+ *      The endpoint lists at most 250 commits; a larger train fails this check (safe side);
+ *   5. the squash is an ancestor of the train's base branch head — the content is on the base
+ *      branch now (`git merge-base --is-ancestor <squash> origin/<base>`, asked of GitHub's
+ *      compare API so a stale local fetch cannot answer it).
+ * A `gh` error on any read of the claim's own data (an unknown or ambiguous short sha) is a
+ * failed proof, not a crash; a network failure still throws, after {@link ghRead}'s retries.
  */
 export function verifyTrainLanding(
   repo: string,
@@ -711,9 +717,18 @@ export function verifyTrainLanding(
   gh: (args: string[]) => string = ghRead,
 ): { ok: true; landing: TrainLanding; mergedAt: string | null } | { ok: false; reason: string } {
   const fail = (why: string) => ({ ok: false as const, reason: `train #${claim.trainPr} claim not proven: ${why}` });
-  const train = JSON.parse(
-    gh(['pr', 'view', String(claim.trainPr), '--repo', repo, '--json', 'state,mergedAt,mergeCommit,baseRefName,body']),
-  ) as {
+  const read = (args: string[]): string | null => {
+    try {
+      return gh(args);
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      if (GH_TRANSIENT_RE.test(`${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`)) throw err;
+      return null;
+    }
+  };
+  const trainOut = read(['pr', 'view', String(claim.trainPr), '--repo', repo, '--json', 'state,mergedAt,mergeCommit,baseRefName,body']);
+  if (trainOut === null) return fail('the train PR could not be read');
+  const train = JSON.parse(trainOut) as {
     state?: string;
     mergedAt?: string | null;
     mergeCommit?: { oid?: string | null } | null;
@@ -724,21 +739,28 @@ export function verifyTrainLanding(
   if (train.state !== 'MERGED' || !trainMergeCommit) return fail(`the train PR is ${train.state ?? '?'}, not MERGED with a merge commit`);
   if (!train.baseRefName) return fail('the train PR has no base branch');
 
-  const squashCommit = gh(['api', `repos/${repo}/commits/${claim.squash}`, '--jq', '.sha']).trim().toLowerCase();
+  const squashCommit = (read(['api', `repos/${repo}/commits/${claim.squash}`, '--jq', '.sha']) ?? '').trim().toLowerCase();
   if (!/^[0-9a-f]{40}$/.test(squashCommit) || !squashCommit.startsWith(claim.squash)) {
     return fail(`the squash sha ${claim.squash} does not resolve to one commit`);
   }
-  const memberRe = new RegExp(`#${memberNumber}(?!\\d)`);
-  const namesBoth = (train.body ?? '').split('\n').some(
-    (line) => memberRe.test(line) && [...line.matchAll(/\b[0-9a-f]{7,40}\b/gi)].some((h) => squashCommit.startsWith(h[0].toLowerCase())),
-  );
-  if (!namesBoth) return fail(`the train PR's body has no line naming both #${memberNumber} and ${claim.squash}`);
 
-  const compare = (base: string) => gh(['api', `repos/${repo}/compare/${base}...${squashCommit}`, '--jq', '.status']).trim();
-  const inTrain = compare(trainMergeCommit);
-  if (!isAncestorStatus(inTrain)) return fail(`${claim.squash} is not an ancestor of the train's merge commit (compare: ${inTrain})`);
-  const onBase = compare(train.baseRefName);
-  if (!isAncestorStatus(onBase)) return fail(`${claim.squash} is not an ancestor of ${train.baseRefName} (compare: ${onBase})`);
+  const rowRe = new RegExp(`^\\s*\\|\\s*#${memberNumber}\\s*\\|`);
+  const recorded = (train.body ?? '').split('\n').some(
+    (line) =>
+      rowRe.test(line) &&
+      [...line.matchAll(/\binto\s+[*_`\s]*([0-9a-f]{7,40})\b/gi)].some((m) => squashCommit.startsWith(m[1].toLowerCase())),
+  );
+  if (!recorded) {
+    return fail(`the train PR's body has no \`| #${memberNumber} |\` row naming ${claim.squash} after «into»`);
+  }
+
+  const trainCommits = read(['api', '--paginate', `repos/${repo}/pulls/${claim.trainPr}/commits`, '--jq', '.[].sha']);
+  if (trainCommits === null || !trainCommits.split('\n').some((sha) => sha.trim().toLowerCase() === squashCommit)) {
+    return fail(`${claim.squash} is not one of the train PR's own commits`);
+  }
+
+  const onBase = (read(['api', `repos/${repo}/compare/${train.baseRefName}...${squashCommit}`, '--jq', '.status']) ?? '').trim();
+  if (!isAncestorStatus(onBase)) return fail(`${claim.squash} is not an ancestor of ${train.baseRefName} (compare: ${onBase || 'unreadable'})`);
 
   return {
     ok: true,
@@ -1271,7 +1293,12 @@ export async function closeMergedTasks(
       if (opts.taskId) out.push({ taskId: task.id, status: task.status, skippedReason: `status "${task.status}" is not swept` });
       continue;
     }
-    const prs = await lookup(task);
+    let prs = await lookup(task);
+    // A train-landed CLOSED PR next to exactly one MERGED PR (a rework harvested and merged the
+    // ordinary way after the train) is not ambiguous: the merged one is the task's latest landing,
+    // exactly as before train landings were looked up at all.
+    const plainMerged = prs.filter((p) => p.state !== 'CLOSED');
+    if (prs.length > 1 && plainMerged.length === 1) prs = plainMerged;
     if (prs.length !== 1) {
       out.push({
         taskId: task.id,
