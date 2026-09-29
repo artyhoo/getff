@@ -36,10 +36,10 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 | name | `inject-project-digest` |
 | kind | hook |
 | ships-to | framework: react-native, react-next, react-spa, ts-server |
-| description | UserPromptSubmit + SubagentStart hook — injects the project digest at both fire-points |
+| description | SessionStart + SubagentStart hook — injects the project digest at both fire-points |
 | source | `.claude/hooks/inject-project-digest.sh:2` |
-| event | `["SubagentStart","UserPromptSubmit"]` |
-| matcher | `[]` |
+| event | `["SessionStart","SubagentStart"]` |
+| matcher | `["startup|resume|clear|compact"]` |
 | delivery | `["@cc-only-rationale","plugin"]` |
 <!-- getff:end section=D-card-inject-project-digest -->
 
@@ -51,12 +51,14 @@ Every session starts ignorant. The usual fix is a README nobody re-reads and a s
 prompt nobody owns. This hook offers a third shape: you keep one block — the digest — in
 your project's `.claude/session-bootstrap.md`, between two marker lines, and this hook
 delivers exactly that block as context at the two moments attention is cheapest: when
-you submit a prompt, and when a sub-agent is spawned. One file, one edit, both
-audiences.
+a session starts (and again after `/clear`, a resume, or a compaction), and when a
+sub-agent is spawned. One file, one edit, both audiences. It is sent once per context,
+not on every prompt — an unchanged block repeated on each message only costs tokens.
 
 The digest is yours to write. In the getff repository it is three lines — what the
 project is, how the repository maps together, and which pointers are hard commitments.
-Here is the hook delivering it on a prompt submit, verbatim:
+Here is the hook delivering it, verbatim (the plain arm answers every event other than a
+sub-agent spawn the same way):
 
 ```bash
 printf '%s' '{"prompt":"hi","session_id":"docs-demo-pd-1"}' \
@@ -87,7 +89,7 @@ printf '%s' '{"hook_event_name":"SubagentStart","session_id":"docs-demo-pd-2"}' 
 ```
 
 One hook, two events, two output shapes — that asymmetry belongs to the harness, not to
-you: on prompt submit, plain output is injected automatically; at sub-agent start,
+you: at session start, plain output is injected automatically; at sub-agent start,
 context must arrive wrapped as JSON. The hook detects which event fired and answers in
 the right shape. Without the JSON tool installed it cannot wrap, so it simply answers in
 the plain shape — the case that still works.
@@ -97,7 +99,7 @@ digest block, and the hook is silent — nothing injected, no error, no nag. If 
 nothing, the block between the two markers is where to look.
 
 This is the consumer twin of two framework-internal hooks: the framework's own
-repository injects a fixed, framework-shaped digest on prompt submit
+repository injects a fixed, framework-shaped digest at session start
 (`inject-session-bootstrap`) and a fixed digest to sub-agents (`inject-subagent-digest`);
 this hook injects whatever YOUR project wrote, at both fire-points. On a harness without
 a sub-agent-start event, the second fire-point is covered by the fallback hook
@@ -105,8 +107,8 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
 
 ## Evidence
 
-- `.claude/hooks/inject-project-digest.sh:2` is the header the card's description row
-  quotes: `# inject-project-digest.sh — UserPromptSubmit + SubagentStart hook — injects the project digest at both fire-points`.
+- `.claude/hooks/inject-project-digest.sh:2` is the hook header the card's description row
+  quotes: `# inject-project-digest.sh — SessionStart + SubagentStart hook — injects the project digest at both fire-points`.
 - The one-source design is header lines 15-16: «The shared digest source is the block
   between the markers in .claude/session-bootstrap.md, so the main session AND every
 <!-- vale off -->
@@ -124,15 +126,18 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
 - The two shapes: line 50 emits
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`; line 53
   `printf '%s\n' "$BLOCK"` is the plain arm, reached also when jq is absent (comment at
-  line 52: «UserPromptSubmit (or jq-absent fallback): plain stdout is auto-injected»).
+  line 52: «SessionStart (or jq-absent fallback): plain stdout is auto-injected»).
 - The env-first root resolution at line 29,
   `REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)"}`, exists for
   the plugin twin: the header block (lines 20-28) explains the subshell/$0 bug it fixed,
   matching the pattern of `inject-session-bootstrap.sh` (issue 1484).
-- Registration is plugin-channel only: `plugin/hooks/hooks.json:8` registers the
-  UserPromptSubmit arm and `plugin/hooks/hooks.json:195` the SubagentStart arm; the
-  project `.claude/settings.json` registers neither (measured:
-  `grep -c inject-project-digest .claude/settings.json` prints `0`).
+- Registration: `plugin/hooks/hooks.json:170` registers the SessionStart arm (matcher
+  `startup|resume|clear|compact`) and `plugin/hooks/hooks.json:189` the SubagentStart
+  arm; an install registers the same two in the consumer's settings
+  (`setup.d/10-skills.sh:424-426`), first removing the per-prompt registration an
+  install before 2026-09-29 left behind. This repository's own `.claude/settings.json`
+  registers neither (measured: `grep -c inject-project-digest .claude/settings.json`
+  prints `0`).
 - Family relationships are stated in the hook's own header, lines 5-7: «the
   PROJECT-AGNOSTIC adaptation of the maintainer-only inject-session-bootstrap.sh /
   `inject-subagent-digest.sh` pair (which hard-code the goal/invariants the FRAMEWORK itself owns

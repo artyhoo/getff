@@ -121,8 +121,8 @@ delivers the project block — an accepted divergence, both arms verified live e
 
 - `.claude/hooks/inject-subagent-context.sh:2` is the header the card's description row
   quotes: `# inject-subagent-context.sh — SubagentStart fallback — digest injection for harnesses without the SubagentStart event (zcode)`.
-- Registration: `.claude/settings.json:94` reads `"matcher": "Agent|Task"` with the
-  command at line 98; the plugin registry registers it at `plugin/hooks/hooks.json:52`.
+- Registration: `.claude/settings.json:86` reads `"matcher": "Agent|Task"` with the
+  command at line 98; the plugin registry registers it at `plugin/hooks/hooks.json:28`.
 - The CC-silence gate: line 33 defines `_is_zcode() { [ -n "${ZCODE_PROJECT_DIR:-}" ]; }`
   and line 34 is `_is_zcode || exit 0   # CC: the SubagentStart primary handles digest
   injection; stay silent here`.

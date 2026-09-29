@@ -6,7 +6,43 @@ on:
   pull_request:
   merge_group:
 
+# A newer push to the same PR supersedes the older run: its jobs are cancelled instead of
+# holding runner slots (20 concurrent jobs for this account, 45 jobs per run). Only
+# pull_request runs share a group — push (staging/main/chore/**) and merge_group runs each get
+# their own run_id group, so they are never cancelled. The superseded run's `ci-success` still
+# runs (`if: always()`) and reports RED on the superseded SHA, which is no longer the PR head;
+# `!cancelled()` would instead report `skipped`, which branch protection counts as passing.
+concurrency:
+  group: audit-self-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Path scope for the install-area jobs (install-sh shards, fresh-install validate matrix +
+  # multi-stack, the Windows consumer-matrix cell). They `needs:` this job and run only when
+  # its `install` output is 'true'. The decision is fail-closed: `false` only on a
+  # pull_request whose every changed path is in the measured skip set; every other event runs
+  # everything (scripts/ci-path-scope.sh header). `ci-success` re-checks the decision against
+  # the gated jobs' results, so a missing decision or a skip that contradicts it is RED.
+  # fetch-depth: 2 is load-bearing: the pull_request checkout is the merge commit, and the
+  # decision diffs it against parent 1 (the base tip) — both parents must be present.
+  path-scope:
+    name: Path scope — install-area jobs needed for this change?
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      install: ${{ steps.scope.outputs.install }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Decide the install-area path scope
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: bash scripts/ci-path-scope.sh
+
   mechanical:
     name: Mechanical checks (bash, json, dead links)
     runs-on: ubuntu-latest
@@ -270,6 +306,13 @@ jobs:
       # the §7 fact families. Same tsx runner pattern as the steps above.
       - name: Face-facts render & diff (getff-ai-site S0a)
         run: npx tsx scripts/render-face-facts.mjs --check
+      # The D42 face-facts generator's acceptance arms: live-fire --write/--check against
+      # the real repo + throwaway mktemp fixture repos. Hermetic — no network, no LLM.
+      # Lives here, not in the path-scoped install-sh battery: it reads every file under
+      # docs/meta-factory + docs/superpowers (research-patch/spec counts, DOI scan), so it
+      # must run on the PRs that battery skips (scripts/ci-path-scope.sh SKIP_PATTERNS).
+      - name: Run face-facts generator arms test (getff-ai-site S0a)
+        run: bash scripts/render-face-facts.test.sh
 
   principles-meta-tests:
     name: Principles as meta-tests (Phase 2)
@@ -667,6 +710,8 @@ jobs:
 
   install-sh-a:
     name: install-sh battery (shard A)
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -696,6 +741,8 @@ jobs:
         run: bash tests/install-sh/merge-fenced-splice-failure.test.sh
       - name: Run install-sh stale-tmp / unconditional-success test (ledger #1597 A1-9)
         run: bash tests/install-sh/stale-tmp-unconditional-success.test.sh
+      - name: Run install-sh hook-event-move test (per-prompt injections moved to SessionStart)
+        run: bash tests/install-sh/hook-event-move.test.sh
       - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
@@ -704,12 +751,12 @@ jobs:
         run: npx --prefix packages/core vitest run --reporter=default packages/core/install/wire-live-snippet.test.ts packages/core/install/wire-synth-rules.test.ts
       - name: Run local-ci-sweep paired-negative (harvest sweep aggregator)
         run: bash scripts/run-local-ci-sweep.test.sh
-      # The install-sh battery runner the sweep delegates to. CI keeps its own per-file steps
-      # (three shards, isolated runners — tests/install-sh/meta-all-wired.test.sh enforces that);
-      # this paired-negative covers the LOCAL runner's own semantics: non-zero on a failing test,
-      # no false green when a worker dies, quarantine isolation, and non-interleaved output.
+      # The LOCAL battery runner the sweep delegates to (CI's own per-file steps: meta-all-wired.test.sh):
+      # non-zero on a failing test, no false green on a dead worker, quarantine, non-interleaved output.
+      # Run twice: fd 3 is closed here but OPEN under the local sweep (`exec 3>&2`). The `3>/dev/null`
+      # run is the sweep's fd state: dropping the test's file-wide `exec 3>&-` goes RED in CI too.
       - name: Run install-sh suite-runner paired-negative (local battery fan-out)
-        run: bash scripts/run-install-sh-suite.test.sh
+        run: bash scripts/run-install-sh-suite.test.sh && bash scripts/run-install-sh-suite.test.sh 3>/dev/null
       # Reverse direction of tests/install-sh/meta-all-wired.test.sh: every atomic command THIS
       # workflow runs must be reachable from the sweep's gate table, or carry an explicit
       # UNREACHABLE rationale. Without it the sweep's "green locally ⇒ green in CI" promise rests
@@ -747,11 +794,9 @@ jobs:
       # Hermetic — no network, no LLM; paired with the reference render & diff step above.
       - name: Run reference-render generator arms test (getff-ai-site S0a)
         run: bash scripts/render-reference.test.sh
-      # The D42 face-facts generator's acceptance arms: live-fire --write/--check against
-      # the real repo + throwaway mktemp fixture repos. Hermetic — no network, no LLM;
-      # paired with the face-facts render & diff step above.
-      - name: Run face-facts generator arms test (getff-ai-site S0a)
-        run: bash scripts/render-face-facts.test.sh
+      # The D42 face-facts generator arms test moved to manifest-render-check (next to its
+      # --check): it reads ALL of docs/meta-factory + docs/superpowers, which this job is
+      # path-scoped to skip (scripts/ci-path-scope.sh).
       # The G12 tier-read module's own test (ref-gen G12) shipped in 46e7bccf5d wired to no
       # channel — principle 41 flagged it on this branch; this step is the repair.
       - name: Run skill-tiers module test (G12 extraction)
@@ -857,6 +902,8 @@ jobs:
 
   install-sh-b:
     name: install-sh battery (shard B)
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -886,6 +933,8 @@ jobs:
         run: bash tests/install-sh/monorepo-stack-fallback.test.sh
       - name: Run ci-success aggregate-gate paired-negative
         run: bash scripts/ci-success-gate.test.sh
+      - name: Run path-scope decision paired-negative (install-area jobs skip only on a measured-skip-only PR)
+        run: bash scripts/ci-path-scope.test.sh
       - name: Run install.sh internal-refs transform test (Item 12 mirror-sync, SSOT)
         run: bash tests/install-sh/transform-internal-refs.test.sh
       - name: Run install-sh pre-push TS-arm closure test (consumer-install-hardening F1)
@@ -956,11 +1005,11 @@ jobs:
         run: bash tests/install-sh/gh-934-ship-eot-hook.test.sh
       - name: "install-sh — gh-934 ship session-UX hooks (ask-question PreToolUse + inject-matching PostToolUse: delivery + non-destructive matcher-merge + firing + jq-guard)"
         run: bash tests/install-sh/gh-934-ship-session-ux-hooks.test.sh
-      - name: "install-sh — gh-934 ship output-language hook (UserPromptSubmit: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
+      - name: "install-sh — gh-934 ship output-language hook (SessionStart, legacy per-prompt registration migrated: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
         run: bash tests/install-sh/gh-934-ship-output-language-hook.test.sh
       - name: "install-sh — gh-934 ship doc-authority-header gate (PostToolUse: zero-dep reimpl, non-destructive same-event merge, firing miss/pass, escape valves, jq-degrade, refresh)"
         run: bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh
-      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest UPS+SubagentStart + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
+      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest SessionStart+SubagentStart, legacy per-prompt registration migrated + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
         run: bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
@@ -989,6 +1038,8 @@ jobs:
 
   install-sh-c:
     name: install-sh battery (shard C)
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1520,6 +1571,8 @@ jobs:
   # the shipped .prettierignore — a separate latent fresh-install validate-RED, distinct from #779).
   framework-fresh-install-validate:
     name: "Fresh-install validate smoke (${{ matrix.stack }}, ${{ matrix.fixture }}) — closes #779"
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1682,6 +1735,8 @@ jobs:
     # no-paid-llm-in-ci.md — NOT the full `npm run validate` (typecheck/test/lint arms depend on
     # per-workspace toolchain surfaces tracked under #808/#810, out of #807 scope).
     name: "Fresh-install validate smoke — multi-stack monorepo (closes #807)"
+    needs: path-scope
+    if: needs.path-scope.outputs.install == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2204,9 +2259,16 @@ jobs:
   # untouched, so the coverage reconciliation above still sees all four scripts.
   consumer-matrix:
     name: "Consumer-matrix — ${{ matrix.label }}"
+    needs: path-scope
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    env:
+      # 'false' only for a path-scoped cell (`scoped: true` below) on a pull_request the
+      # path-scope job ruled out. A matrix cell cannot be dropped by a job-level `if:` (it
+      # cannot read `matrix`), so the scoped cell's steps are gated on this instead; the
+      # runner still boots, but nothing is checked out or run.
+      RUN_CELL: ${{ !matrix.scoped || needs.path-scope.outputs.install == 'true' }}
     strategy:
       # One red cell must not cancel the others: each cell is an independent
       # acceptance claim, and a partial matrix hides which claims still hold.
@@ -2233,8 +2295,24 @@ jobs:
           # in this directory were ubuntu. This cell is that watcher.
           - cell: getff-dist
             os: windows-latest
+            scoped: true  # 8.5 of this job's ~12 runner-minutes; path-scoped via RUN_CELL
             label: "getff-dist cell on Windows — the npx getff init path consumers actually run"
     steps:
+      # Unconditional guard for RUN_CELL, which ci-success cannot see (a cell whose steps all
+      # skip still concludes `success`): whenever the path-scope decision is `true`, every
+      # cell MUST run, so a broken RUN_CELL expression fails here instead of going silently
+      # green on every event, the staging push backstop included. A cell skipped by decision
+      # says so in its log instead of looking like a pass.
+      - name: Path-scope guard (a scoped cell runs whenever install=true)
+        shell: bash
+        env:
+          INSTALL: ${{ needs.path-scope.outputs.install }}
+        run: |
+          if [ "$RUN_CELL" != true ] && [ "$INSTALL" = true ]; then
+            echo "::error::RUN_CELL='$RUN_CELL' while path-scope decided install=true — this cell would skip its checks"
+            exit 1
+          fi
+          [ "$RUN_CELL" = true ] || echo "::notice::cell skipped by path-scope (install=$INSTALL); nothing below runs"
       # Reproduce the checkout a Windows consumer gets: Git for Windows defaults
       # to core.autocrlf=true, which is what lands CRLF shebangs in the 336
       # tracked *.sh. With the repo's .gitattributes (`* text=auto eol=lf`) the
@@ -2243,12 +2321,14 @@ jobs:
       # test of the runner image's git defaults. Prior art: lint-staged
       # (`pull-requests.yml:123-124`) does exactly this.
       - name: Force the Windows-consumer checkout defaults
-        if: runner.os == 'Windows'
+        if: env.RUN_CELL == 'true' && runner.os == 'Windows'
         run: git config --global core.autocrlf true
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        if: env.RUN_CELL == 'true'
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        if: env.RUN_CELL == 'true'
         with:
           node-version: '22'
           cache: npm
@@ -2342,7 +2422,7 @@ jobs:
       # TEMP spellings it measured to the step summary. JSON reporter, not a
       # grep of the console: vitest colours its output on win32 and under CI.
       - name: R2 import specifier across path spellings (junction, 8.3 short name)
-        if: matrix.cell == 'getff-dist' && runner.os == 'Windows'
+        if: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist' && runner.os == 'Windows'
         shell: bash
         run: |
           npm ci --prefix packages/core --silent
@@ -2373,7 +2453,7 @@ jobs:
           if (spelled.trim() === native.trim()) { console.log('::error::TEMP has one spelling on this runner: the short-name case was not exercised'); process.exit(1); }
           JS
       - name: Run the consumer-matrix getff-dist cell
-        if: matrix.cell == 'getff-dist'
+        if: env.RUN_CELL == 'true' && matrix.cell == 'getff-dist'
         run: bash tests/consumer-matrix/getff-dist-cell.sh
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
@@ -2602,6 +2682,10 @@ jobs:
       # .claude/rules/attention-is-not-a-mechanism.md §2). Caught by the round-1
       # cold fidelity audit of the S-E stage.
       - alwayson-budget
+      # The install-area path scope. Its decision is re-checked below (PATH_SCOPE_INSTALL):
+      # a failed/cancelled path-scope job reports '' here and fails the gate even though the
+      # jobs gated on it then show only as `skipped`.
+      - path-scope
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -2615,6 +2699,12 @@ jobs:
         # cancelled); word-split intentionally into one arg per needed job.
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
+          # A `skipped` gated job is legitimate only when path-scope decided 'false'.
+          PATH_SCOPE_INSTALL: ${{ needs.path-scope.outputs.install }}
+          PATH_SCOPED_RESULTS: >-
+            ${{ needs.install-sh-a.result }} ${{ needs.install-sh-b.result }}
+            ${{ needs.install-sh-c.result }} ${{ needs.framework-fresh-install-validate.result }}
+            ${{ needs.framework-fresh-install-validate-multistack.result }}
         run: |
           # shellcheck disable=SC2086  # intentional word-split: one arg per job result
           bash scripts/ci-success-gate.sh $RESULTS

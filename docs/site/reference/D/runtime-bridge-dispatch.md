@@ -150,10 +150,10 @@ harnesses.
   context must be JSON additionalContext»; «exits 0 always — injection, never a
   gate»), citing the verified CC hooks doc; the NC-3 no-settings-writes note at
   lines 44-49.
-- Registration: `.claude/settings.json:150` (PostToolUse, matcher
+- Registration: `.claude/settings.json:142` (PostToolUse, matcher
   `Write|Edit|MultiEdit`, command line 154) and `:179` (PostToolUseFailure, same
   matcher, command line 183); the plugin registers both arms too
-  (`plugin/hooks/hooks.json:126`, `:155`).
+  (`plugin/hooks/hooks.json:102`, `:131`).
 - Census row 17 (`.claude/rules/zcode-parity-doctrine.md` §2): `zcode-gap` —
   «degraded (`MultiEdit` matcher inert; Write+Edit fire); failure arm fires too».
 - Paired test: `packages/core/hooks/runtime-bridge-dispatch.test.ts` — the guard

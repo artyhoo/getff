@@ -111,7 +111,7 @@ session start must never break the session start.
 
 - `.claude/hooks/inject-handoff-on-compact.sh:2` is the header the card's description row
   quotes: `# inject-handoff-on-compact.sh — SessionStart:compact hook — re-injects the model-authored handoff after compaction`.
-- Registration: `.claude/settings.json:227` opens the SessionStart block; line 228 reads
+- Registration: `.claude/settings.json:219` opens the SessionStart block; line 228 reads
   `"matcher": "compact"`; line 232 is the command
   `bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh"`. It is the only
   hook registered under the compact matcher.
@@ -121,7 +121,7 @@ session start must never break the session start.
   `session_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)`.
   The writer applies the identical expression at `.claude/hooks/precompact-residue.sh:123`
   (its comment above the line explains why: a hostile id «cannot escape the directory»),
-  and the Stop-side gate at `.claude/hooks/end-of-turn-reminder.sh:404` applies it a third
+  and the Stop-side gate at `.claude/hooks/end-of-turn-reminder.sh:417` applies it a third
   time.
 - jq guard: line 28 — `command -v jq >/dev/null 2>&1 || exit 0` (the payload is JSON and
   every extraction is jq; without jq there is no work possible).

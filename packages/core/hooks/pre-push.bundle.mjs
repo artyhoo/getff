@@ -1,6 +1,64 @@
 /* eslint-disable */
 // @ts-nocheck
 import{createRequire as ___cr}from'node:module';const require=___cr(import.meta.url);
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res, err) => function __init() {
+  if (err) throw err[0];
+  try {
+    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+  } catch (e) {
+    throw err = [e], e;
+  }
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// packages/core/hooks/checks/harness-config-local.ts
+var harness_config_local_exports = {};
+__export(harness_config_local_exports, {
+  RENDERER_REL: () => RENDERER_REL,
+  ZCODE_CONFIG: () => ZCODE_CONFIG,
+  ZCODE_DIR: () => ZCODE_DIR,
+  ZCODE_SKILLS: () => ZCODE_SKILLS,
+  checkLocalHarnessConfig: () => checkLocalHarnessConfig
+});
+import { lstatSync } from "node:fs";
+import { join } from "node:path";
+function present(path) {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function checkLocalHarnessConfig(root, runRenderer) {
+  if (!present(join(root, ZCODE_DIR))) return { kind: "skip" };
+  if (!present(join(root, RENDERER_REL))) return { kind: "skip" };
+  if (!present(join(root, ZCODE_CONFIG))) {
+    if (present(join(root, ZCODE_SKILLS))) return { kind: "partial" };
+    return {
+      kind: "skip",
+      note: `${ZCODE_CONFIG} absent \u2014 no rendered zcode shim in this checkout, nothing checked`
+    };
+  }
+  const result = runRenderer(root, [RENDERER_REL, "--check", "--root", root]);
+  if (result.timedOut || result.notFound) return { kind: "error", result };
+  return result.exitCode === 0 ? { kind: "ok", result } : { kind: "drift", result };
+}
+var ZCODE_DIR, RENDERER_REL, ZCODE_CONFIG, ZCODE_SKILLS;
+var init_harness_config_local = __esm({
+  "packages/core/hooks/checks/harness-config-local.ts"() {
+    "use strict";
+    ZCODE_DIR = ".zcode";
+    RENDERER_REL = "scripts/render-harness-config.mjs";
+    ZCODE_CONFIG = `${ZCODE_DIR}/config.json`;
+    ZCODE_SKILLS = `${ZCODE_DIR}/skills`;
+  }
+});
 
 // packages/core/hooks/pre-push.ts
 import {
@@ -1845,7 +1903,7 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
   ".claude/session-bootstrap.md"
-  // 10-skills.sh:415 / install.sh:1054 (conditional starter)
+  // 10-skills.sh:420 / install.sh:1056 (conditional starter)
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/"
@@ -1973,6 +2031,38 @@ function invariantsRenderSection() {
     emit(r);
   }
 }
+async function harnessConfigLocalSection() {
+  const { checkLocalHarnessConfig: checkLocalHarnessConfig2 } = await Promise.resolve().then(() => (init_harness_config_local(), harness_config_local_exports));
+  const v = checkLocalHarnessConfig2(
+    REPO_ROOT,
+    (root, args) => runCheck(process.execPath, args, { cwd: root })
+  );
+  if (v.kind === "skip") {
+    if (v.note) process.stdout.write(`\u24D8 harness-config-local: ${v.note}
+`);
+    return;
+  }
+  if (v.kind === "partial") {
+    die(
+      "\u274C .zcode/skills exists but .zcode/config.json does not \u2014 a half-rendered zcode shim the renderer would skip entirely.\n   Fix: node scripts/render-harness-config.mjs --write"
+    );
+  }
+  if (v.kind === "error") {
+    die(
+      "\u274C render-harness-config --check could not run (timed out or node not found) \u2014 this is not a drift verdict.",
+      v.result
+    );
+  }
+  if (v.kind === "drift") {
+    die(
+      "\u274C local harness config drifted from .ai-factory/harness-model.json (the renderer lists the files below).\n   Fix: node scripts/render-harness-config.mjs --write",
+      v.result
+    );
+  }
+  process.stdout.write(
+    "\u2713 local harness config (.zcode/ shim) matches the model\n"
+  );
+}
 var SECTIONS = [
   // FIRST by design: must land the symlinks before any section shells out to vitest, which
   // would otherwise plant node_modules/.vite and freeze this worktree out of provisioning
@@ -2052,6 +2142,11 @@ var SECTIONS = [
     id: "face-facts-render",
     owner: "maintainer",
     run: () => faceFactsRenderSection()
+  },
+  {
+    id: "harness-config-local",
+    owner: "maintainer",
+    run: () => harnessConfigLocalSection()
   },
   {
     id: "docs-refresh",

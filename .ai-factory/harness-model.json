@@ -2,9 +2,6 @@
   "hooks": {
     "UserPromptSubmit": [
       {
-        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
-      },
-      {
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/deps-hash-check.sh\""
       }
     ],
@@ -84,6 +81,10 @@
       {
         "matcher": "compact",
         "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh\""
+      },
+      {
+        "matcher": "startup|resume|clear|compact",
+        "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-session-bootstrap.sh\""
       }
     ],
     "PreCompact": [

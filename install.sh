@@ -1018,7 +1018,8 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
     fi
   fi
-  # GH #934 batch B: refresh coverage for the output-language UserPromptSubmit hook (setup.d/10-skills.sh
+  # GH #934 batch B: refresh coverage for the output-language SessionStart hook (UserPromptSubmit before
+  # 2026-09-29 — the stale registration is removed so a refresh moves it, never doubles it) (setup.d/10-skills.sh
   # §1f parity). A brownfield consumer installed before batch B gets it + the registration via --refresh.
   _OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
   _OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
@@ -1026,7 +1027,8 @@ do_refresh() {
     refresh_safe "$_OLH_SRC" "$_OLH_DST"
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_OLH_DST" ]; then chmod_safe +x "$_OLH_DST" 2>/dev/null || true; fi
     if [ "$DRY_RUN" != "--dry-run" ]; then
-      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+      unregister_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" "inject-output-language"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language" "startup|resume|clear|compact"
     fi
   fi
 
@@ -1053,7 +1055,8 @@ do_refresh() {
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_PDG_DST" ]; then chmod_safe +x "$_PDG_DST" 2>/dev/null || true; fi
     [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
     if [ "$DRY_RUN" != "--dry-run" ]; then
-      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+      unregister_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" "inject-project-digest"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest" "startup|resume|clear|compact"
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
     fi
   fi
