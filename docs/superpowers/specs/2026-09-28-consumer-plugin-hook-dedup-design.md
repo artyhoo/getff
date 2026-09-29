@@ -237,6 +237,17 @@ Consumers installed before this ship have no prelude, so their copies never mark
 ≤300 ms wait is paid only where conditions 1-4 hold. The per-session directory keeps concurrent
 sessions in one project apart.
 
+Two refinements of the protocol above, recorded after the implementation audit:
+
+- `deps-hash-check` gets no prelude and no `hook-live.sh` closure line. Under D4 its relative
+  registration never counts, so its plugin copy always runs and a marker would never be claimed.
+  The prelude joins it together with the D4 migration.
+- The claim also refuses a registration with any handler field beyond `type`, `command` and
+  `statusMessage` (for example `timeout`, `async`, `if` or `shell`). It checks every settings
+  layer Claude Code merges: `.claude/settings.json`, `.claude/settings.local.json`, the user
+  settings and the managed settings. Such a field can make the project copy behave differently
+  from the plugin copy, so it only adds reasons to run.
+
 ## Gates
 
 ### D8 — Manifest freshness (principle 24, new arm)
