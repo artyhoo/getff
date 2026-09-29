@@ -162,6 +162,15 @@ if grep -q '"validate": "bash scripts/run-armed.sh validate"' "$DEPS" 2>/dev/nul
 else
   bad "(viii) validate does not run the record, or check:fences-fire/check:shields-up is missing from PROJECT_CHECKS"
 fi
+# Paired with the line above: validate stopped calling npm-run-all2, so the dependency went with it
+# (advisor, P2 rework) — no shipped script runs it, and CORE_DEVDEPS no longer installs it.
+_nra_devdep=$(sed -n '/^CORE_DEVDEPS=(/,/^)/p' "$DEPS" | grep -c 'npm-run-all')
+_nra_calls=$(grep -c '": "npm-run-all' "$DEPS")
+if [ "$_nra_calls" -eq 0 ] && [ "$_nra_devdep" -eq 0 ]; then
+  ok "(viii) npm-run-all2: no shipped script runs it, and CORE_DEVDEPS does not install it"
+else
+  bad "(viii) npm-run-all2: $_nra_calls shipped script(s) run it, CORE_DEVDEPS lists it $_nra_devdep time(s) — an orphaned dependency"
+fi
 if grep -q '"test:mutation:generated"' "$DEPS" 2>/dev/null; then
   ok "(viii) 70-deps.sh: test:mutation:generated script declared (on-demand; NOT in validate)"
 else

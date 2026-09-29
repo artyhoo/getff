@@ -1089,7 +1089,7 @@ fd3e8a012e8111e8b73fb4cd77c0bebcb43cc2a1980877cb978024b53aea12d2  setup.d/40-con
 8a7421dbd52656fe0ade2ec97fdb3d08d9915f0fbca2dc944ba1b6bead403020  setup.d/50-hooks.sh
 e25136f9cf9844a8560ff7fa7db0f7427abf1bfb1b62ca949c0d9e9f5951cc3f  setup.d/55-runtime-bridge-vendor.sh
 0b12924a094779889358b18521ad635dd4acacfeb7d27c5a73e3d652db871013  setup.d/60-ci.sh
-4627e6e8e6fc2d341d21f09a1477c0ae25e8cb4f28e1a6695e4cf7d1d3a381d1  setup.d/70-deps.sh
+5fcc9f400c5592c92b808dc2f6fc234b38fd76ffcdce35ad5e174126c507c799  setup.d/70-deps.sh
 f4c3367e137fae3df37049ac964e18275943fb15faa97d670f208f66459e46a7  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
 9de53aa8aa79d842808fe951be4c3ee4b6bb4fba7a06329a8e8a40a7eceea1d8  setup.d/99-finalize.sh

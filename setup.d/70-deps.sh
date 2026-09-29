@@ -14,7 +14,7 @@
 # `scripts: {}` while AGENTS.md + the shipped ci.yml call `npm run lint/typecheck/arch:check/
 # test:*` → every gate failed "Missing script". Inject the canonical block (non-destructive:
 # only adds keys the consumer lacks). The referenced devDependencies (eslint, dependency-cruiser,
-# stryker, npm-run-all2, vitest, prettier, husky) are NOT installed here — that is the consumer's
+# stryker, vitest, prettier, husky) are NOT installed here — that is the consumer's
 # `npm install` + residual R-2 (devDeps manifest). Scripts present ≠ runnable until deps land,
 # but "Missing script" → "tool not installed" is the intended, INSTALL.md-documented path.
 # ─── P2 G2 helpers: the project's own package versions win (operator log entry 28, fork 1 = A) ───
@@ -373,7 +373,7 @@ CORE_DEVDEPS=(
   @stryker-mutator/core@^9.6.1 @stryker-mutator/vitest-runner@^9.6.1 @stryker-mutator/typescript-checker@^9.6.1
   dependency-cruiser@~17.4.3 fast-check@^4.8.0 glob@^13.0.6 ts-morph@^28.0.0 tsx@^4.22.4
   husky@^9.1.7 lint-staged@~16.4.0 sort-package-json@~3.7.1
-  npm-run-all2@~8.0.4 @types/node@^22.10.0
+  @types/node@^22.10.0
 )
 # npx-float (2026-07-10): concurrently/http-server/wait-on are invoked via bare `npx` by the
 # shipped react-next CI template (packages/preset-next-15-canonical/templates/
