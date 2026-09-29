@@ -65,12 +65,12 @@ Install getff into this project. Walk the steps below in order, in this one sess
    `bash /tmp/getff/setup -y <detected-stack>`
    2 — also the machine-wide tools listed: `bash /tmp/getff/setup -y --global <detected-stack>`
    3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`. Offer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
-   (b) «Session settings?» yes/no → `GETFF_SESSION_SETTINGS=1`. Name the groups the dry run printed; they go into my own uncommitted `.claude/settings.local.json`, my values are kept, the install prints one undo command.
+   (b) «Session settings?» yes/no → `GETFF_SESSION_SETTINGS=1`, passed unless I say no. Before asking, name the groups the dry run printed and say in plain words: they go into my own uncommitted `.claude/settings.local.json`; my values are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command.
    (c) «Tools for my dependencies?» yes/no → `GETFF_STACK_TOOLS=1`, passed unless I say no: vendor MCP servers of my direct dependencies into `.mcp.json`, filtered by the installer's own source check. (d) «Research rules for my stack?» yes/no.
    Also say: a wrong stack can be corrected in the same answer. A full answer reads «1, settings yes, tools yes, research yes»;
-   a part I leave out means (a) 1, (b) no, (c) yes, (d) yes. Ask nothing else during the run.
+   a part I leave out means (a) 1, (b) yes, (c) yes, (d) yes — so «1» alone means everything on, this project only. Ask nothing else during the run.
 4. [install] Run the installer with the chosen flag
-   Run the command my answer picked, the chosen variables before it on the same line (adjust the path if Step 0 cloned elsewhere). Keep the
+   Run the command my answer picked with the variables before it on the same line — with no «no» in my answer: `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash /tmp/getff/setup -y <detected-stack>`; a «no» drops its variable (adjust the path if Step 0 cloned elsewhere). Keep the
    «Checked by the install» block and every «NOT wired» line for the report. It installs:
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
    - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
@@ -92,7 +92,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    from this project's own files by following `.claude/agents/aif-init.md`; mark every guess
    `[GUESSED — verify]`. A passport the project already had is kept as it is. Do not wait for me.
 7. [tools-parity] Check that everything getff uses for itself is installed or marked
-   Per tool of «Companions», quote where it is: a row of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`; a «⊝» or «NOT wired» line of the install; for an MCP server `claude mcp get <name>` or `.mcp.json`. Found nowhere → a finding. Block absent → «not done».
+   Per tool of «Companions», and for context7, quote its one trace: a row `| <name> |` of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`, or a line `- <name> — <reason>` of the installer's NOT-wired or kept-values summary. No trace → the finding «MISSING <name>». Run no probe of your own. Block absent → «not done».
 8. [base-core-status] Read the base-core list with a status per principle
    Read `.claude/skills/getff/references/base-core.md`, change nothing: each row not `fires`, or whose «not on stack» names my stack, is one line of PRINCIPLES NOT WIRED YET. File absent → «not done: list absent in this older install» plus one yes/no for me: refresh getff's own files?
 9. [research] Research rules for the stack
@@ -212,7 +212,7 @@ the run, never from this doc. Three rules keep it readable:
 
 ```text
 getff install report — <project> — <date>
-Answer to the pre-launch question: <answer> → flag <flag>, variables <chosen variables or «none»>, research <yes|no>
+Answer to the pre-launch question: <answer> → flag <flag>, variables <the variables actually passed, or «none»>, research <yes|no>
 
 STEPS
 <n>. [<id>] <title> — done

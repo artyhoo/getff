@@ -200,13 +200,13 @@
       {
         "id": "ask-once",
         "title": "Ask the ONE question",
-        "action": "Show the stack, what goes into the project and what would go machine-wide, then ask once, as one list of four parts: (a) where to install — 1, 2 or 3, it picks the installer flag; (b) session settings, yes or no — a yes becomes `GETFF_SESSION_SETTINGS=1` before the installer command; show the groups the dry run named, say they go into the person's own uncommitted `.claude/settings.local.json`, that values the person already set are kept and that the install prints one undo command; (c) tools for the project's own dependencies, yes or no — `GETFF_STACK_TOOLS=1` goes before the installer command unless the answer says no; the installer's own source check decides which servers are taken; (d) research, yes or no. A part the answer leaves out reads: (a) 1, (b) no, (c) yes, (d) yes. Nothing else is asked during the run.",
+        "action": "Show the stack, what goes into the project and what would go machine-wide, then ask once, as one list of four parts: (a) where to install — 1, 2 or 3, it picks the installer flag; (b) session settings, yes or no — `GETFF_SESSION_SETTINGS=1` goes before the installer command unless the answer says no; before asking, name the groups the dry run printed and say in plain words: they go into the person's own uncommitted `.claude/settings.local.json`; values the person already set are kept; the handoff gate holds a turn shortly before the conversation is compacted until the session's handoff note is current; the deny list makes the agent refuse commands such as `git reset --hard`, `rm -rf` and `sudo`; the install prints one undo command; (c) tools for the project's own dependencies, yes or no — `GETFF_STACK_TOOLS=1` goes before the installer command unless the answer says no; the installer's own source check decides which servers are taken; (d) research, yes or no. A part the answer leaves out reads: (a) 1, (b) yes, (c) yes, (d) yes — so the answer «1» means everything on, this project only. Nothing else is asked during the run.",
         "doneTest": "exactly one question was asked before the installer ran, and the report quotes the answer with the flag and the variables it chose"
       },
       {
         "id": "install",
         "title": "Run the installer with the chosen flag",
-        "action": "Answer 1: `bash <getff>/setup -y <stack>`. Answer 2: `bash <getff>/setup -y --global <stack>`. Answer 3: `bash <getff>/setup --all <stack>`. Put the variables the answer chose before the command, on the same line. Keep the «Checked by the install» block and every «NOT wired» line for the report.",
+        "action": "Answer 1: `bash <getff>/setup -y <stack>`. Answer 2: `bash <getff>/setup -y --global <stack>`. Answer 3: `bash <getff>/setup --all <stack>`. Put the variables before the command, on the same line: with no «no» in the answer it reads `GETFF_SESSION_SETTINGS=1 GETFF_STACK_TOOLS=1 bash <getff>/setup -y <stack>`; a «no» drops its variable. Keep the «Checked by the install» block and every «NOT wired» line for the report.",
         "doneTest": "the installer exits 0 and prints its «Checked by the install» block"
       },
       {
@@ -224,8 +224,8 @@
       {
         "id": "tools-parity",
         "title": "Check that everything getff uses for itself is installed or marked",
-        "action": "For each tool the «Companions» section of the preview named, find where the install accounted for it: a row in the `<!-- getff:installed-versions:begin -->` block of `.ai-factory/tool-decisions.md`; or a «⊝» line or a «NOT wired» line of the installer's output; or, for an MCP server, `claude mcp get <name>` answers or `.mcp.json` holds its entry. Quote one line per tool. A tool found in none of them is a finding under this step. When the block is absent, report this step as «not done: no installed-versions record in tool-decisions.md» and go on.",
-        "doneTest": "every tool of the preview has one line in the report saying where it was found, or is named as found nowhere"
+        "action": "For each tool the «Companions» section of the preview named, and for context7, find the one trace the install left, in two sources only: a row `| <name> |` in the `<!-- getff:installed-versions:begin -->` block of `.ai-factory/tool-decisions.md`; or a line `- <name> — <reason>` in the installer's NOT-wired summary or in its kept-values summary. Quote that row or line per tool. A row whose version starts «not read:» is a trace: quote its reason. A tool with no trace is a finding under this step, named «MISSING <name>». Run no probe of your own. When the block is absent, report this step as «not done: no installed-versions record in tool-decisions.md» and go on.",
+        "doneTest": "the block exists and every tool of the preview has its row or its summary line; each tool without one is named MISSING"
       },
       {
         "id": "base-core-status",

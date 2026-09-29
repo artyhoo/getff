@@ -400,13 +400,32 @@ describe('The road ↔ install prompt parity', () => {
   });
 
   it('a part the answer leaves out has one stated default, the same in the data and the prompt', () => {
-    // Tools for the project's own dependencies default to yes (operator decision 2026-09-30): the
-    // installer's source check is the filter. The road carries that default, not the installer.
+    // Both opt-in groups default to yes (operator decisions 2026-09-30). The road carries the
+    // defaults, not the installer: a bare `setup -y` run by hand behaves as before.
     const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
-    const defaults = /\(a\) 1, \(b\) no, \(c\) yes, \(d\) yes/;
+    const defaults = /\(a\) 1, \(b\) yes, \(c\) yes, \(d\) yes/;
     expect(ask?.action.replace(/\s+/g, ' ')).toMatch(defaults);
     expect(prompt.replace(/\s+/g, ' ')).toMatch(defaults);
     expect(prompt).toMatch(/unless I say no/);
+  });
+
+  it('a choice that defaults to yes says in plain words what the person gets', () => {
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/handoff gate holds a turn/);
+      expect(flat).toMatch(/deny list makes the agent refuse/);
+      expect(flat).toMatch(/one undo command/);
+    }
+  });
+
+  it('the tools step checks two sources and probes nothing itself', () => {
+    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    for (const text of [tools?.action ?? '', prompt]) {
+      expect(text).toMatch(/getff:installed-versions/);
+      expect(text).toMatch(/NOT[- ]wired/);
+      expect(text).not.toMatch(/claude mcp get/);
+    }
   });
 
   it('the research step takes the one answer as its confirmation', () => {
