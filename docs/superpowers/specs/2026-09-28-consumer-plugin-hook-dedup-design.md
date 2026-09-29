@@ -31,7 +31,7 @@ event: once from `.claude/settings.json` (registered by `register_cc_hook`, e.g.
 
 PR #1879 deliberately stopped at the source checkout. A consumer's installed copy is written with
 `copy_safe` (skip-if-exists, `setup.d/lib.sh:875`) and refreshed only by `--refresh`
-(`refresh_safe`, e.g. `install.sh:1022`), so it can be older, equal, or newer than the plugin
+(`refresh_safe`, e.g. `install.sh:965`), so it can be older, equal, or newer than the plugin
 copy, and a consumer may have edited it. Yielding to an older copy replaces a newer gate with an
 older one.
 
@@ -146,7 +146,7 @@ Outcome table:
 
 ### D4 — Relative `deps-hash-check` registration never counts (operator decision 2026-09-28)
 
-`setup.d/10-skills.sh:211` and `setup.d/45-python.sh:1266` register
+`setup.d/10-skills.sh:211` and `setup.d/45-python.sh:1333` register
 `bash .claude/hooks/deps-hash-check.sh`, cwd-relative. It fails D3.1's exact-form check, so
 `deps-hash-check` stays doubled for consumers. Counting a path that may not resolve would risk the
 lost-gate case. The hook's `$TMPDIR` memo (`.claude/hooks/deps-hash-check.sh:430-436`) caches the
@@ -259,7 +259,7 @@ contains no `[output-language]` string, and the plugin `inject-output-language` 
 ### D11 — Dual-source hooks
 
 `deps-hash-check` is delivered from `packages/core/hooks/deps-hash-check.sh`
-(`setup.d/10-skills.sh:205`, `setup.d/45-python.sh:1258`) while its twin is generated from
+(`setup.d/10-skills.sh:205`, `setup.d/45-python.sh:1328`) while its twin is generated from
 `.claude/hooks/deps-hash-check.sh`. The two are byte-identical today (`cmp`, 2026-09-28). The arm
 asserts that identity for every twinned hook that also exists under `packages/core/hooks/`, so the
 manifest can never describe bytes the installer does not deliver.

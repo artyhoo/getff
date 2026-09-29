@@ -8,7 +8,7 @@
 
 **Tech Stack:** POSIX sh (dash-safe) for `run-hook.cmd` and the lib; bash 3.2 for scripts and shell tests; jq; vitest (TypeScript) for principle 24. **Spec:** [docs/superpowers/specs/2026-09-28-consumer-plugin-hook-dedup-design.md](../specs/2026-09-28-consumer-plugin-hook-dedup-design.md) (D1-D11).
 
-> **Re-cut required before execution (2026-09-29):** spec revision 3 adds D12 (liveness marker). This plan predates it. Once merge train A lands (#1879, #1911), re-read `plugin/hooks/run-hook.cmd` on staging and re-cut Tasks 2, 3 and 6: add the D12 lib, prelude and tests, rewrite Task 3 as the fd2b1ec38f3 hunks (spec D5 r3), bump to 0.3.9+.
+> **Re-cut 2026-09-29:** execute together with [2026-09-29-consumer-plugin-hook-dedup-d12.md](2026-09-29-consumer-plugin-hook-dedup-d12.md) — it amends Tasks 2 and 6, adds Task D12 (liveness marker) and replaces Task 3 with Task 3′ (runtime `AIF_HOOK_CHANNEL`, spec D5 r3). Its execution order wins.
 
 ## Global Constraints
 
@@ -417,7 +417,7 @@ git add plugin/hooks/run-hook.cmd tests/plugin/run-hook.test.sh
 git commit -m "feat(plugin): a plugin hook yields to a consumer's byte-identical installed copy"
 ```
 
-### Task 3: One emitter for the output-language line (D5)
+### Task 3: One emitter for the output-language line (D5) — SUPERSEDED by Task 3′ in the D12 plan; do not execute
 
 **Files:**
 - Modify: `.claude/hooks/inject-session-bootstrap.sh` (marker near the top; brackets around the `# B1 (language-discipline)` block, currently lines 116-129)
