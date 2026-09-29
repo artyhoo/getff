@@ -104,9 +104,11 @@ installed one, because the installed copy was frozen at install time and can be 
 the plugin's. The plugin's copy goes silent in one place only: getff's own source
 repository, whose hooks are the source the plugin is built from. There the plugin's
 launcher finds `inject-session-bootstrap` registered in `.claude/settings.json`, and that
-digest carries the same line. The full list of conditions is the comment above the yield
-in `plugin/hooks/run-hook.cmd`. On ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the
-plugin's copy always runs.
+digest carries the same line. It stays silent only while your session's working directory
+is the repository root itself. Once the session moves into a subdirectory, a worktree, or
+another directory, the plugin's copy runs again, so you may see the line twice. The full
+list of conditions is the comment above the yield in `plugin/hooks/run-hook.cmd`. On
+ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
 
 ## Evidence
 
@@ -146,11 +148,16 @@ plugin's copy always runs.
   the project is the plugin's source checkout: it ships `plugin/.claude-plugin/plugin.json`
   under the same plugin name, and `plugin/hooks/inject-output-language`. Its
   `.claude/settings.json` must also run getff's copy of the named hook, in the installer's
-  exact form, on every event and matcher the plugin registers.
-  `tests/plugin/run-hook.test.sh` pins these conditions with arms Y1-Y25. Y19 is the
-  consumer case, where both copies run. R1 asserts the silence against this repo's
-  settings, and R2 counts one language line per prompt. R3 asserts the digest line equals
-  this hook's line for `ru` and `de`.
+  exact form, on every event and matcher the plugin registers. The `cwd` in the hook's
+  input must be the project root itself. After EnterWorktree or `/cd`, Claude Code takes
+  project settings from the new directory, but `CLAUDE_PROJECT_DIR` stays at the start
+  root. A `cd` in Bash moves `cwd` too, and a `cwd` in a subdirectory cannot show which of
+  the two happened.
+  `tests/plugin/run-hook.test.sh` pins these conditions with arms Y1-Y28. Y19 is the
+  consumer case, where both copies run. Y26 covers a session that left the project root.
+  Y27 and Y28 check that the running copy gets its whole input and keeps its exit code.
+  R1 asserts the silence against this repo's settings, and R2 counts one language line per
+  prompt. R3 asserts the digest line equals this hook's line for `ru` and `de`.
 - No test under `packages/core/hooks/` carries this hook's name, and this page states
   that rather than implying coverage. The demos above and the
   `tests/plugin/run-hook.test.sh` arms in the previous bullet pin its output.
