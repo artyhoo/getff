@@ -2787,9 +2787,9 @@ eslint_flat_config() {
 # has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, build output
 # (dist, coverage, .stryker-tmp, .next), .git, and .claude/worktrees — Claude Code's checked-out copies
 # of the repo, not packages of it. That is CFG_PRUNE of the push gates (check-rule-globs.sh,
-# check-rule-enforced.sh) less its */packages/core, which would cut a workspace of that name, so the
-# install writes to the workspace configs the gates then read. -mindepth 1: <dir> itself is never
-# pruned, whatever its name. The
+# check-rule-enforced.sh) less its ./packages/core/{hooks,audit-self,principles,eslint-rules}: the
+# subtrees the install vendors hold no config, so both find the same workspace configs and the install
+# writes to the ones the gates then read. -mindepth 1: <dir> itself is never pruned, whatever its name. The
 # per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
 # package's own eslint.config.js is found as the root one is (they used to look for
 # eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
