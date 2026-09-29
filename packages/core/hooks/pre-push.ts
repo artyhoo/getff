@@ -2251,7 +2251,7 @@ export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
   '.ai-factory/rules/integration-rules.md',
   '.ai-factory/tier-home.md',
   '.ai-factory/tool-decisions.md',
-  '.claude/session-bootstrap.md', // 10-skills.sh:385 / install.sh:1066 (conditional starter)
+  '.claude/session-bootstrap.md', // 10-skills.sh:388 / install.sh:1066 (conditional starter)
 ];
 
 /**

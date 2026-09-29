@@ -1903,7 +1903,7 @@ var SHIPPED_MD_DESTINATIONS = [
   ".ai-factory/tier-home.md",
   ".ai-factory/tool-decisions.md",
   ".claude/session-bootstrap.md"
-  // 10-skills.sh:385 / install.sh:1066 (conditional starter)
+  // 10-skills.sh:388 / install.sh:1066 (conditional starter)
 ];
 var SHIPPED_MD_PREFIXES = [
   ".ai-factory/skill-context/"
