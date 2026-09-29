@@ -40,15 +40,21 @@ prefix `6b4b25d17f00a4d7`); the spec is that text with re-resolved citations.
 
 | Entry | What was checked | Verdict (abridged) |
 |---|---|---|
-| E5 | round-1 dispositions | the lead's «none reverses an operator-decided row» holds except top-down MAJOR-10 (bare path = whole-file binding reversed OP-40 option A) → a card; answered OP-47 |
-| E6 | round-2 dispositions | three rows hold with conditions (only a goal scope line is an EXTENDS; PENDING never green); top-down MAJOR-C is a fork → a card; answered OP-50 |
+| E5 | round-1 dispositions | every disposition holds except top-down MAJOR-10 (the proposed whole-file binding for bare paths would turn 354 silent page-changes into alarms) → a card; decided A+ (OP-47) |
+| E6 | round-2 dispositions | three rows hold with conditions (only a goal scope line is an EXTENDS; PENDING never green); top-down MAJOR-C → a card; decided: the PR-boundary check covers typed values (OP-50) |
 | E7 | row check of snapshot r8 | OK for the approval round after one must-fix and three wording fixes |
 | E8 | hand-over note HO-1 … HO-13 | OK to send after three fixes (ids renamed H-n → HO-n to avoid register-row collisions) |
-| E9 | the operator's word on landing (OP-53) | the landing is the lead's work |
+| E9 | landing (OP-53) | the landing is the lead's work |
+| E10-E12 | row check of this landing | rows OK; the verbatim dialogue replaced by a decision record (OP-54); the spec gains «Revising a decided row» (OP-55) |
 
 Note on round 2's «Round result» paragraph below: it was written before E6 and calls MAJOR-C the
 lead's pick; after E6 it became a fork, asked and answered as OP-50 (the table row and the E6
 section say so).
+
+Note on framing: the copied tables below say «operator-decided row» and «operator chose» as they
+were written during the rounds. Read those as provenance. The reason each row holds is its own
+reason column and the decision record
+([2026-09-30-docs-single-source-decision-record.md](2026-09-30-docs-single-source-decision-record.md)).
 
 ### Round 1 — snapshot r6
 
@@ -227,10 +233,13 @@ to the advisor for a row check.
 
 ## Prevention
 
-- The rule the lead applies, stated in round 1: a fix that REVERSES an operator-decided row is a
-  fork and goes to the operator; a fix that adds a mechanism UNDER a decided row is the lead's,
-  checked by the advisor. Both slips of this design (MAJOR-10, MAJOR-C) were caught by the
-  advisor's row check, not by the lead.
+- Round 1 stated the rule «a fix that REVERSES an operator-decided row is a fork and goes to the
+  operator». It is superseded (OP-54, OP-55): a row stands on its reason and its falsifier, and
+  a better option shown on evidence changes the row, recorded with old text, new text, evidence
+  and reason (spec, «Revising a decided row»); consent is needed only at the floors the spec
+  names. The two findings that rule routed to the owner (MAJOR-10, MAJOR-C) were each judged on
+  evidence as well: the replay numbers for MAJOR-10, the firing rate and the goal-narrowing
+  alternative for MAJOR-C (rows above).
 - Implementation slices are verified against the spec, not against these reports.
 
 ## Tags

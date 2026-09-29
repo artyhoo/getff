@@ -1,12 +1,12 @@
 # Docs single source — one source of truth for all documentation (top-level design)
 
 > **Authoritative for:** the top level of the docs single-source design: the five statements, the
-> decision register (rows F1 … ACC, SCOPE-U), the hand-over requirements to other designs, and the
+> decision register (rows F1 … ACC, SCOPE-U) and how a row is revised, the hand-over requirements to other designs, and the
 > named items the owner accepted with the approval.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../../README.md#why-this-exists);
 > the evidence behind the numbers — [2026-09-30-docs-single-source-evidence.md](../../meta-factory/research-patches/2026-09-30-docs-single-source-evidence.md);
 > the review rounds and their dispositions — [2026-09-30-docs-single-source-review-rounds.md](../../meta-factory/research-patches/2026-09-30-docs-single-source-review-rounds.md);
-> the operator's words behind each decision — [2026-09-30-docs-single-source-operator-log.md](../../meta-factory/research-patches/2026-09-30-docs-single-source-operator-log.md);
+> the decision record (each decision, its reason, its register effect) — [2026-09-30-docs-single-source-decision-record.md](../../meta-factory/research-patches/2026-09-30-docs-single-source-decision-record.md);
 > the mechanics of each hand-over row — the receiving designs (one-button chain parts P1-P4, the
 > trigger-build design).
 
@@ -90,6 +90,21 @@ consumers (projects that install the framework). A manual human step in the desi
 | H-Q2 + H-Q4 | Classes are given by a directory list kept in one file. A kickoff is live until its umbrella carries `done.md`, or until the umbrella has had no commit for N days (then history mechanically); the idle clock counts only commits that touch this umbrella alone, and the classifier writes the class file, not the umbrella directory. A spec is live until its design is built, then history. Live docs may not cite history as the source of a FACT; a pointer to a spec for rationale is navigation | umbrella or spec closure cannot be determined mechanically (measured: 327 of 355 tracked umbrellas carry `done.md`) |
 | SCOPE-U | Agent memory is in scope narrowly: it keeps why, incidents and the operator's words, and points at repo facts, never restating a value. Its channel is write-time, the only one `memory-codification.md:18` allows: the memory-codification hook plus the named auditor, which runs the citation tool over memory. Coordination drafts are out; a decision counts as landed only when it has its home in the repo (OP-48) | a cold sweep finds a memory file restating a repo value that the check missed |
 | ACC | Done = three zeros: deferral tokens, stale citations, unclassified docs; on the owner's condition «if reachable and not a burden» | any zero needs recurring hand work to hold |
+
+## Revising a decided row
+
+A register row stands on its reason and its falsifier. Who chose it (an OP id) is provenance,
+never an argument for keeping it.
+
+1. When a falsifier fires, or evidence shows a better option, the session that sees it says so,
+   changes the row, records the old text, the new text, the evidence and the reason, and reports
+   the change as done.
+2. Consent is needed only at the floors this design already names: the goal core, «never»
+   lines, invariants and non-goals under F3 (T12.5 / T12.6), and the merge to main. Even there
+   the session argues for the better option; it does not hold a worse one because it was
+   chosen earlier.
+3. No silent change: every revision is visible in the record (the decision-record patch or its
+   successor).
 
 ## Hand-over requirements (owned by other designs, not designed here)
 
@@ -205,7 +220,9 @@ Numbers at the base `26ccdc6b160` unless marked. Method, commands and the replay
   floor is the second look at promote.
 - A red with no agent present (round-2 MAJOR-B): PENDING until the next agent session; reds
   outside a session reach an agent through a hand-over requirement, not a human.
-- Uncited typed values (round-2 MAJOR-C): DECIDED by the operator, OP-50 (A): the B-Q2 PR-boundary check covers them too.
+- Uncited typed values (round-2 MAJOR-C): the B-Q2 PR-boundary check covers them too, because
+  the alternatives either narrow the goal to cited values only or add a scheduled sweep whose
+  red has no consumer (decided OP-50).
 - cargo and go (round-2 bottom-up MAJOR-1): they get the passport and agent surface; until P2
   delivers, they are named as not yet delivering the design.
 

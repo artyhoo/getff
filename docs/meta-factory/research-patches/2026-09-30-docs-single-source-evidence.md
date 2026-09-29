@@ -10,7 +10,7 @@
 ## Problem
 
 The owner asked for one source of truth for ALL documentation, for the AI and for the human,
-current by mechanism, not by attention (OP-19, see the operator-log patch). The design has to
+current by mechanism, not by attention (OP-19, see the decision-record patch). The design has to
 stand on measured facts about today's docs, gates and installs, not on impressions. Every number
 in the spec's «Measured facts» section is reproduced below with its method.
 
@@ -243,7 +243,7 @@ region as the one home of decided statements. The other measured facts it stands
 
 ## F7 — which skill is reused for human docs
 
-Decided A (OP-46). Upstream: `addyosmani/agent-skills` `skills/documentation-and-adrs/SKILL.md`,
+Decided A (OP-46; reason in F7.3). Upstream: `addyosmani/agent-skills` `skills/documentation-and-adrs/SKILL.md`,
 last commit `cda4542ade0f` (2026-09-07), 288 lines, MIT, release 0.6.11; PR #514 «Documentation
 Drift» open, not merged (re-checked live 2026-09-29). Line counts are non-blank lines.
 
@@ -310,12 +310,11 @@ way.
   differs from the one recorded at `cda4542ade0f`, name the file to re-read. The re-read is agent
   work. Who picks up a red scheduled run is a known open detail (same gap as `pin-freshness.yml`).
 
-### F7.3. Options for the operator
+### F7.3. Options considered
 
-Operator's earlier word, OP-25 (draft `:1016-1021`), a leaning with question marks, not a
-choice: «addyosmani может тогда сразу им заменить полностью diataxis везде? Я за!  а там где
-нужно типы страниц: учебник, инструкция, справка, объяснение - пишим свой на основе diataxis».
-The operator chose A (OP-46).
+Starting point, OP-25: use addyosmani wherever it fits, and keep our own page kinds (tutorial,
+how-to, reference, explanation) on a Diátaxis base. Decided: **A** (OP-46), the lead's
+recommendation, accepted; the reason is the «Strongest reason» below.
 
 - **A. Own core + narrow part of addyosmani.**
   - The shipped human-docs skill is the site-free core of `docs-author` (89 lines, plus 16
@@ -327,11 +326,10 @@ The operator chose A (OP-46).
     our own Diátaxis-based core, the rest from addyosmani where it does not contradict the
     register.
 - **B. A + README template + changelog** (about 111 lines of upstream text: A's 73, the README template 23, the changelog 13, and the two README list lines `:273`, `:284`). This goes further
-  toward OP-25's «заменить полностью».
+  toward OP-25's «replace fully».
 - **C. Own core only.** addyosmani is a link, nothing adapted. This departs from OP-25's
   leaning.
-- Not offered: the whole upstream skill. Its ADR chapter reopens R3; «Other» on the card lets
-  the operator reopen R3 by name.
+- Not offered: the whole upstream skill. Its ADR chapter contradicts row R3.
 
 **Lead's recommendation: A.**
 - **Strongest reason:** the two sections B adds type by hand exactly what this design renders
