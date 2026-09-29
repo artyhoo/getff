@@ -78,17 +78,18 @@ detect_integration() {
 detect_integration '{ "dependencies": { "next": "15.0.0", "react": "19.0.0" } }' react-next "A next repo"
 detect_integration '{ "dependencies": { "react-native": "0.76.0" } }'            react-native "B react-native repo"
 
-# ── (b) undetectable repo + --full → precise fail-loud, NO silent install ─────
-# --full makes the unknown path exit 1 BEFORE the interactive `read`, so no hang guard (timeout)
-# is needed — and `timeout` is GNU-only (absent on macOS), so depending on it would break locally.
+# ── (b) undetectable repo + --full → stack `generic`, said out loud, no prompt ─
+# P2 G1 (operator journal entry 26, points 2-3): an unknown stack no longer exits 1 — it installs
+# the stack-free part as stack `generic` and names it; --full asks nothing. `< /dev/null` makes a
+# stray prompt fail fast instead of hanging (`timeout` is GNU-only, absent on macOS).
 U=$(mktemp -d); printf '{}\n' > "$U/package.json"
-u_out=$( cd "$U" && git init -q && bash "$INSTALL_SH" --full --dry-run 2>&1 ); u_rc=$?
-[ "$u_rc" -ne 0 ] \
-  && ok "C unknown + --full: exits non-zero (no silent wrong install)" \
-  || bad "C unknown + --full: exited 0 (silent install on ambiguity)"
-grep -qiE 'could not auto-detect|specify one explicitly' <<<"$u_out" \
-  && ok "C unknown + --full: fail-loud message guides user to specify a stack" \
-  || bad "C unknown + --full: missing precise fail-loud guidance"
+u_out=$( cd "$U" && git init -q && bash "$INSTALL_SH" --full --dry-run < /dev/null 2>&1 ); u_rc=$?
+[ "$u_rc" -eq 0 ] \
+  && ok "C unknown + --full: exits 0 (the stack-free part, not an exit)" \
+  || bad "C unknown + --full: exited $u_rc"
+grep -q 'stack: generic — stack-free part only' <<<"$u_out" \
+  && ok "C unknown + --full: names stack generic and what it leaves undone" \
+  || bad "C unknown + --full: no 'stack: generic' line (silent choice on ambiguity)"
 # paired-negative — the unknown repo must NOT have emitted an auto-detect line
 if grep -qi 'Auto-detected stack' <<<"$u_out"; then
   bad "C-neg: emitted 'Auto-detected' for an unknown repo (VACUOUS / false detect)"

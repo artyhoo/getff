@@ -10,7 +10,7 @@
 #   (v)   check-generated-rule-mutation.sh degrades cleanly (rc=0) when manifest is absent
 #   (vi)  99-finalize.sh capstone block is present and has the correct FULL guard pattern
 #   (vii) 40-configs.sh ships all 3 new scripts via copy_safe
-#   (viii) 70-deps.sh wires check:fences-fire + check:shields-up into validate aggregate
+#   (viii) validate runs the project-checks record; check:fences-fire + check:shields-up are in its list
 #
 # No network, no npm install, no TSX required — all structural checks.
 # @dual-pair: install-self-verification-d6
@@ -153,11 +153,14 @@ if grep -q '"check:shields-up"' "$DEPS" 2>/dev/null; then
 else
   bad "(viii) 70-deps.sh: check:shields-up script MISSING"
 fi
-if grep -q 'check:fences-fire.*check:shields-up\|check:shields-up.*check:fences-fire' "$DEPS" 2>/dev/null || \
-   grep -q '"validate".*check:fences-fire' "$DEPS" 2>/dev/null; then
-  ok "(viii) 70-deps.sh: both gates wired into validate aggregate"
+# P2 C3: validate runs what the project-checks record arms (scripts/run-armed.sh); both gates
+# reach that record through PROJECT_CHECKS (setup.d/lib.sh), the list the arm pass walks.
+_pc_list=$(grep -E '^PROJECT_CHECKS=\(' "$REPO_ROOT/setup.d/lib.sh" 2>/dev/null)
+if grep -q '"validate": "bash scripts/run-armed.sh validate"' "$DEPS" 2>/dev/null \
+   && grep -q ' check:fences-fire ' <<<"$_pc_list" && grep -q ' check:shields-up ' <<<"$_pc_list"; then
+  ok "(viii) validate runs the record, and both gates are in PROJECT_CHECKS (the record's list)"
 else
-  bad "(viii) 70-deps.sh: validate aggregate does NOT reference check:fences-fire/check:shields-up"
+  bad "(viii) validate does not run the record, or check:fences-fire/check:shields-up is missing from PROJECT_CHECKS"
 fi
 if grep -q '"test:mutation:generated"' "$DEPS" 2>/dev/null; then
   ok "(viii) 70-deps.sh: test:mutation:generated script declared (on-demand; NOT in validate)"
