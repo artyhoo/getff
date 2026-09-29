@@ -17,6 +17,9 @@
 #   G  a real install: `install.sh react-spa` with GETFF_SESSION_SETTINGS=1 writes the group and
 #      prints the undo line; without it, no settings.local.json
 #   H  the python lane (`install.sh python`, which exits before the layer loop) does the same
+#   I  the team's .claude/settings.json already sets autoCompactWindow and AIF_HANDOFF_GATE → getff
+#      writes neither into settings.local.json (which Claude Code reads over it), adds the rest, and
+#      the summary names each kept value with getff's (one-button fork 1 = A); both engines
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -32,7 +35,7 @@ DATA="$REPO_ROOT/setup.d/session-settings.json"
 : > "$WORK/gitconfig"; export GIT_CONFIG_GLOBAL="$WORK/gitconfig" XDG_CONFIG_HOME="$WORK/xdg"
 # A PATH with node but without jq, for the F arms.
 NOJQ="$WORK/nojq-bin"; mkdir -p "$NOJQ"
-for t in node git cat mkdir mv rm cp cmp dirname basename sed tr head printf date mktemp sh bash grep awk sort; do
+for t in node git cat mkdir mv rm cp cmp dirname basename sed tr head printf date mktemp sh bash grep awk sort cut; do
   p=$(command -v "$t" 2>/dev/null) && ln -sf "$p" "$NOJQ/$t"
 done
 
@@ -41,10 +44,11 @@ run_apply() {
   local d="$1" path="${2:-$PATH}"
   ( export PATH="$path"
     INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
-    PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$d"; NOT_WIRED=(); GETFF_ADDED_TO=()
+    PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$d"; NOT_WIRED=(); GETFF_ADDED_TO=(); GETFF_KEPT_VALUES=()
     # shellcheck source=setup.d/session-settings.sh
     source "$REPO_ROOT/setup.d/session-settings.sh"
     apply_session_settings "$d"
+    print_not_wired
     echo "REVERT=${GETFF_SESSION_REVERT:-}" )
 }
 revert_of() { sed -n 's/^REVERT=//p' "$1"; }
@@ -86,6 +90,8 @@ for engine in jq node; do
   cp "$f" "$WORK/c.before"
   GETFF_SESSION_SETTINGS=1 run_apply "$d" "$P" > "$WORK/c.out" 2>&1
   has "$f" '.autoCompactWindow == 250000' && ok "${tag}C their autoCompactWindow wins" || bad "${tag}C their autoCompactWindow was replaced"
+  grep -qF -- '- .claude/settings.local.json: autoCompactWindow = 250000 kept (getff'"'"'s: 400000)' "$WORK/c.out" \
+    && ok "${tag}C the summary names their kept value and getff's" || bad "${tag}C kept value not reported: $(tr '\n' '|' < "$WORK/c.out")"
   has "$f" '.env.MINE == "x" and .env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1"' && ok "${tag}C env merged, theirs kept" || bad "${tag}C env: $(jq -c .env "$f")"
   has "$f" '(.permissions.allow | index("Bash(ls)")) != null and (.permissions.allow | index("Agent")) != null' \
     && has "$f" '[.permissions.deny[] | select(. == "Bash(rm -rf *)")] | length == 1' \
@@ -101,6 +107,23 @@ for engine in jq node; do
     ( cd "$d" && eval "$cmd" )
     cmp -s "$f" "$WORK/c.before" && ok "${tag}C the undo command («$cmd») restores their file byte-for-byte" || bad "${tag}C undo did not restore the file"
   else bad "${tag}C no undo command printed"; fi
+
+  echo "── ${tag}I: the team's settings.json sets a value getff also sets"
+  # Claude Code reads settings.local.json over settings.json: writing getff's value locally would
+  # override the team's own (one-button fork 1 = A, operator log entry 28).
+  d="$WORK/$engine-i"; new_repo "$d"; mkdir -p "$d/.claude"; f="$d/.claude/settings.local.json"
+  printf '{"autoCompactWindow": 200000, "env": {"AIF_HANDOFF_GATE": "0"}, "permissions": {"deny": ["Bash(ls)"]}}\n' > "$d/.claude/settings.json"
+  cp "$d/.claude/settings.json" "$WORK/i.team"
+  GETFF_SESSION_SETTINGS=1 run_apply "$d" "$P" > "$WORK/i.out" 2>&1
+  has "$f" 'has("autoCompactWindow") | not' && has "$f" '.env | has("AIF_HANDOFF_GATE") | not' \
+    && ok "${tag}I the team's autoCompactWindow and AIF_HANDOFF_GATE are not overridden locally" || bad "${tag}I local file overrides the team: $(tr '\n' ' ' < "$f")"
+  has "$f" '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS == "1" and (.permissions.deny | index("Bash(rm -rf *)")) != null' \
+    && ok "${tag}I the values the team does not set are still added" || bad "${tag}I nothing else was added: $(tr '\n' ' ' < "$f")"
+  cmp -s "$d/.claude/settings.json" "$WORK/i.team" && ok "${tag}I the team's settings.json is untouched" || bad "${tag}I the team's settings.json changed"
+  grep -qF -- '- .claude/settings.json: autoCompactWindow = 200000 kept (getff'"'"'s: 400000)' "$WORK/i.out" \
+    && grep -qF -- '- .claude/settings.json: env.AIF_HANDOFF_GATE = "0" kept (getff'"'"'s: "1")' "$WORK/i.out" \
+    && ok "${tag}I the summary names both kept team values" || bad "${tag}I kept team values not reported: $(tr '\n' '|' < "$WORK/i.out")"
+  grep -q 'Bash(ls)' "$WORK/i.out" && bad "${tag}I an array entry was reported as a conflict" || ok "${tag}I array entries are not reported as conflicts"
 done
 
 echo "── E: dry-run"

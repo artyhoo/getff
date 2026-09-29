@@ -61,6 +61,63 @@ _session_settings_merge() {
   return "$rc"
 }
 
+# _session_settings_theirs ROOT DATA OUT — the project's own setup wins (one-button fork 1 = A,
+# operator log entry 28). Claude Code reads settings.local.json OVER the team's settings.json, so a
+# getff value written into the local file would override a value the project set for everyone.
+# Writes to OUT the group minus every single value (a leaf that is not an array element) the
+# project's .claude/settings.json already sets, and prints one TAB line per value the project
+# already has in either file where getff's differs: <file> TAB <key.path> TAB <theirs> TAB <getff's>.
+# Array entries (permissions) stay additive: Claude Code merges them across the two files anyway.
+# rc 1 when neither jq nor node can read the files (the caller then writes nothing).
+_session_settings_theirs() {
+  local root="$1" data="$2" out="$3" proj="$1/.claude/settings.json" loc="$1/.claude/settings.local.json"
+  if command -v jq >/dev/null 2>&1; then
+    printf '{}' > "$out.empty"
+    [ -f "$proj" ] || proj="$out.empty"
+    [ -f "$loc" ] || loc="$out.empty"
+    # shellcheck disable=SC2016  # jq program, not shell expansions
+    jq -n -r --slurpfile g "$data" --slurpfile p "$proj" --slurpfile l "$loc" '
+      def at($o; $path): try ($o | getpath($path)) catch null;
+      def leaves: [paths(scalars) | select(all(.[]; type == "string"))];
+      ($p[0] // {}) as $P | ($l[0] // {}) as $L | $g[0] as $G
+      | ($G | leaves) as $ks
+      | (reduce $ks[] as $k ($G; if at($P; $k) != null then delpaths([$k]) else . end)) as $W
+      | ($W | tojson | "WRITE\t\(.)"),
+        ($ks[] | . as $k | at($G; $k) as $gv
+          | (if at($P; $k) != null and at($P; $k) != $gv then ".claude/settings.json\t\(join("."))\t\(at($P; $k) | tojson)\t\($gv | tojson)" else empty end),
+            (if at($P; $k) == null and at($L; $k) != null and at($L; $k) != $gv then ".claude/settings.local.json\t\(join("."))\t\(at($L; $k) | tojson)\t\($gv | tojson)" else empty end))' \
+      2>/dev/null > "$out.lines" || { rm -f "$out.lines" "$out.empty"; return 1; }
+    rm -f "$out.empty"
+  elif command -v node >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    GETFF_P="$proj" GETFF_L="$loc" GETFF_G="$data" node -e '
+      const fs = require("fs");
+      const read = (f) => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {}) || {};
+      const P = read(process.env.GETFF_P), L = read(process.env.GETFF_L), G = read(process.env.GETFF_G);
+      const at = (o, path) => path.reduce((v, k) => (v !== null && typeof v === "object" && !Array.isArray(v) && k in v ? v[k] : null), o);
+      const leaves = (o, pre = []) => Object.entries(o).flatMap(([k, v]) =>
+        v !== null && typeof v === "object" && !Array.isArray(v) ? leaves(v, [...pre, k]) : Array.isArray(v) ? [] : [[...pre, k]]);
+      const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      const W = JSON.parse(JSON.stringify(G)), lines = [];
+      for (const k of leaves(G)) {
+        const gv = at(G, k), pv = at(P, k), lv = at(L, k);
+        if (pv !== null) {
+          delete at(W, k.slice(0, -1))[k[k.length - 1]];
+          if (!same(pv, gv)) lines.push([".claude/settings.json", k.join("."), JSON.stringify(pv), JSON.stringify(gv)].join("\t"));
+        } else if (lv !== null && !same(lv, gv)) {
+          lines.push([".claude/settings.local.json", k.join("."), JSON.stringify(lv), JSON.stringify(gv)].join("\t"));
+        }
+      }
+      console.log("WRITE\t" + JSON.stringify(W));
+      for (const l of lines) console.log(l);' 2>/dev/null > "$out.lines" || { rm -f "$out.lines"; return 1; }
+  else
+    return 1
+  fi
+  grep '^WRITE' "$out.lines" | cut -f2- > "$out"
+  grep -v '^WRITE' "$out.lines" || true
+  rm -f "$out.lines"
+}
+
 # _session_settings_undo ROOT — the undo command for what an earlier run left in
 # .ai-factory/before-getff/ (the newest kept original, or the `.absent` marker); empty when none.
 _session_settings_undo() {
@@ -92,17 +149,32 @@ apply_session_settings() {
     note_not_wired "session settings in $rel — .claude/ could not be created"
     return 0
   fi
+  local own="" lines _file _key _theirs _ours
+  own=$(mktemp "${TMPDIR:-/tmp}/getff-session.XXXXXX") || own=""
+  if [ -z "$own" ] || ! lines=$(_session_settings_theirs "$root" "$data" "$own"); then
+    [ -n "$own" ] && rm -f "$own"
+    note_not_wired "session settings in $rel — the project's .claude/settings.json or $rel is not valid JSON (or neither jq nor node is on PATH), so getff could not tell which values the project already sets and wrote none"
+    return 0
+  fi
+  while IFS=$'\t' read -r _file _key _theirs _ours; do
+    [ -n "$_key" ] || continue
+    echo "  ⊝ $_key: the project's own value $_theirs in $_file is kept (getff's: $_ours)"
+    note_kept_value "$_file: $_key = $_theirs kept (getff's: $_ours)"
+  done <<<"$lines"
   if [ -f "$f" ]; then
     if ! snap=$(keep_original_snapshot "$f"); then
+      rm -f "$own"
       note_not_wired "session settings in $rel — its original could not be copied aside, so it was left as it was"
       return 0
     fi
   fi
-  if ! _session_settings_merge "$f" "$data"; then
+  if ! _session_settings_merge "$f" "$own"; then
+    rm -f "$own"
     [ -n "$snap" ] && rm -f "$snap"
     note_not_wired "session settings in $rel — it is not a valid JSON object or could not be written, so it was left as it was"
     return 0
   fi
+  rm -f "$own"
   if [ -n "$snap" ]; then
     # keep_original_settle echoes where the original went only when the write changed the file;
     # rc 1 means the change was undone because the original could not be kept.

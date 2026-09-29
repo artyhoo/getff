@@ -2734,13 +2734,16 @@ note_not_wired() {
 # print_not_wired — print the NOT-wired summary: a header, then one «- …» line per piece. Shared by
 # 99-finalize and the toolchain lanes, which exit before 99-finalize runs and so print their own.
 # Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
-# tells the reader what to do.
+# tells the reader what to do. The kept-values summary (print_kept_values) follows it, so every
+# place that reports the install's gaps also reports what of the project's own it left in place.
 print_not_wired() {
-  [ "${#NOT_WIRED[@]}" -gt 0 ] || return 0
-  echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
-  printf '      - %s\n' "${NOT_WIRED[@]}"
-  echo ""
+  if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
+    echo ""
+    echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
+    printf '      - %s\n' "${NOT_WIRED[@]}"
+    echo ""
+  fi
+  print_kept_values
 }
 
 # note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
@@ -2750,6 +2753,23 @@ note_getff_added() {
   local _a
   for _a in ${GETFF_ADDED_TO[@]+"${GETFF_ADDED_TO[@]}"}; do [ "$_a" = "$1" ] && return 0; done
   GETFF_ADDED_TO+=("$1")
+}
+
+# note_kept_value <line> — record a value the project already had where getff would have written
+# another (one-button fork 1 = A, operator log entry 28: the project's own setup wins). getff never
+# replaces it; the line names where it is, the project's value and getff's. GETFF_KEPT_VALUES is
+# created on the first call (install.sh does not declare it, so its cited line numbers stay put).
+note_kept_value() {
+  GETFF_KEPT_VALUES+=("$1")
+}
+
+# print_kept_values — the summary of note_kept_value lines; print_not_wired calls it.
+print_kept_values() {
+  [ -n "${GETFF_KEPT_VALUES+x}" ] || return 0
+  [ "${#GETFF_KEPT_VALUES[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "·  ${#GETFF_KEPT_VALUES[@]} of the project's own value(s) kept where getff uses another — getff does not replace them:"
+  printf '      - %s\n' "${GETFF_KEPT_VALUES[@]}"
 }
 
 # handoff_ignore_local <root> — keep the handoff group's per-session files (_handoff-<id>.md,
@@ -3080,24 +3100,69 @@ getff_deepwiki_machine_wide() {
   return 1
 }
 
+# _getff_mcp_entry FILE KEY URL — what FILE's .mcpServers.KEY is, as one word:
+#   absent — no entry (or no file, or a file jq/node cannot read: the write then reports the failure);
+#   ours   — exactly getff's http entry {type:"http", url: URL};
+#   former — getff's earlier stdio form of context7 (`npx -y @upstash/context7-mcp@latest`): getff's
+#            own write, so it is moved to the http form, --force or not;
+#   theirs — anything else: the project's own entry.
+_getff_mcp_entry() {
+  local file="$1" key="$2" url="$3"
+  [ -f "$file" ] || { echo absent; return 0; }
+  if command -v jq >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # jq program, not shell expansions
+    jq -r --arg k "$key" --arg u "$url" '
+      (.mcpServers // {})[$k] as $e
+      | if $e == null then "absent"
+        elif $e == {type: "http", url: $u} then "ours"
+        elif $k == "context7" and $e == {command: "npx", args: ["-y", "@upstash/context7-mcp@latest"]} then "former"
+        else "theirs" end' "$file" 2>/dev/null || echo absent
+  elif command -v node >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    GETFF_F="$file" GETFF_K="$key" GETFF_U="$url" node -e '
+      const e = ((JSON.parse(require("fs").readFileSync(process.env.GETFF_F, "utf8")) || {}).mcpServers || {})[process.env.GETFF_K];
+      const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+      console.log(e == null ? "absent"
+        : same(e, { type: "http", url: process.env.GETFF_U }) ? "ours"
+        : process.env.GETFF_K === "context7" && same(e, { command: "npx", args: ["-y", "@upstash/context7-mcp@latest"] }) ? "former"
+        : "theirs");' 2>/dev/null || echo absent
+  else
+    echo absent
+  fi
+}
+
 # add_getff_mcp_servers FILE — additive merge of getff's project MCP servers into FILE:
-#   context7 — always, unless the key exists and --force is not set (a consumer's own entry is kept);
+#   context7 — unless FILE already has a context7 entry;
 #   deepwiki — only when it is absent machine-wide and --global is not set, and never over an entry.
+# The project's own entry always wins, --force or not (one-button fork 1 = A, operator log entry 28):
+# it is kept and reported (note_kept_value), never replaced. The one exception is getff's own
+# earlier stdio context7 entry, which getff moves to the http form.
 # jq when present, else node (json_edit_node); a failed write is a NOT-wired line, never a silent skip.
 add_getff_mcp_servers() {
-  local file="$1" want_c7=1 want_dw=1
-  if [ -f "$file" ] && grep -q '"context7"' "$file" 2>/dev/null && [ -z "${FORCE:-}" ]; then
-    want_c7=0
-    echo "  ⊝ context7 already in ${file##*/} — kept as it is"
-  fi
+  local file="$1" want_c7=1 want_dw=1 _state
+  _state=$(_getff_mcp_entry "$file" context7 "$GETFF_MCP_CONTEXT7_URL")
+  case "$_state" in
+    ours) want_c7=0; echo "  ⊝ context7 already in ${file##*/} (http) — nothing to change" ;;
+    theirs)
+      want_c7=0
+      echo "  ⊝ context7 already in ${file##*/} as the project's own entry — kept as it is"
+      note_kept_value "${file##*/}: context7 — the project's own entry kept (getff's: http $GETFF_MCP_CONTEXT7_URL)" ;;
+    former) echo "  · context7 in ${file##*/} is getff's earlier local form (npx @latest) — moved to http" ;;
+  esac
   if [ "${GETFF_GLOBAL:-}" = "1" ]; then
     want_dw=0
   elif getff_deepwiki_machine_wide; then
     want_dw=0
     echo "  ⊝ deepwiki is configured machine-wide (user scope) — not added to ${file##*/}"
-  elif [ -f "$file" ] && grep -q '"deepwiki"' "$file" 2>/dev/null; then
-    want_dw=0
-    echo "  ⊝ deepwiki already in ${file##*/} — kept as it is"
+  else
+    _state=$(_getff_mcp_entry "$file" deepwiki "$GETFF_MCP_DEEPWIKI_URL")
+    case "$_state" in
+      ours) want_dw=0; echo "  ⊝ deepwiki already in ${file##*/} (http) — nothing to change" ;;
+      theirs)
+        want_dw=0
+        echo "  ⊝ deepwiki already in ${file##*/} as the project's own entry — kept as it is"
+        note_kept_value "${file##*/}: deepwiki — the project's own entry kept (getff's: http $GETFF_MCP_DEEPWIKI_URL)" ;;
+    esac
   fi
   [ "$want_c7" = 0 ] && [ "$want_dw" = 0 ] && return 0
   if [ -n "${DRY_RUN:-}" ]; then

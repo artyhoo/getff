@@ -18,6 +18,10 @@
 #       in the project .mcp.json (one-button P3, point 8)
 #   (g) paired negative: deepwiki at user scope (stub reports «Scope: User config») → no project
 #       entry; and under --global the user-scope row owns it, so the project file carries none
+#   (h) the project's own context7 / deepwiki entries survive --force and are named in the summary,
+#       without their values (one-button fork 1 = A: the project's own setup wins)
+#   (i) getff's own earlier stdio context7 entry (npx @latest) moves to http without --force, and is
+#       not reported as the project's value
 
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -215,6 +219,41 @@ else
 fi
 rm -f "$_claude_log"; > "$_claude_log"
 rm -rf "$_proj_g"
+
+# ── (h) the project's own entries win, --force or not (one-button fork 1 = A) ──
+echo "  ── (h) a project's own context7 and deepwiki entries are kept under --force, and reported ──"
+_proj_h=$(mktemp -d)
+echo '{}' > "$_proj_h/package.json"
+cat > "$_proj_h/.mcp.json" <<'EOF'
+{"mcpServers":{"context7":{"type":"http","url":"https://example.test/c7","headers":{"X-Team":"a"}},"deepwiki":{"command":"own-deepwiki"}}}
+EOF
+cp "$_proj_h/.mcp.json" "$_proj_h/own.json"
+STUB_DEEPWIKI_USER=0 _run_install "$_proj_h" --full --force > "$_proj_h.log" 2>&1 || true
+if jq -e --slurpfile own "$_proj_h/own.json" '.mcpServers.context7 == $own[0].mcpServers.context7 and .mcpServers.deepwiki == $own[0].mcpServers.deepwiki' \
+    "$_proj_h/.mcp.json" >/dev/null 2>&1; then
+  ok "(h) --force left the project's own context7 and deepwiki entries as they were"
+else bad "(h) --force replaced a project's own entry: $(jq -c .mcpServers "$_proj_h/.mcp.json" 2>/dev/null)"; fi
+if grep -q 'of the project.s own value(s) kept' "$_proj_h.log" \
+    && grep -q -- '- .mcp.json: context7 — the project.s own entry kept (getff.s: http https://mcp.context7.com/mcp)' "$_proj_h.log" \
+    && grep -q -- '- .mcp.json: deepwiki — the project.s own entry kept' "$_proj_h.log"; then
+  ok "(h) the summary names both kept entries and getff's value"
+else bad "(h) the kept entries are not in the summary"; fi
+if grep -q 'example.test' "$_proj_h.log"; then bad "(h) the summary printed the project's own entry (it may carry secrets)"
+else ok "(h) the summary does not print the project's own entry"; fi
+rm -rf "$_proj_h" "$_proj_h.log"
+
+# ── (i) getff's own earlier stdio context7 entry moves to http, without --force ──
+echo "  ── (i) getff's earlier npx @latest context7 entry is moved to http ──"
+_proj_i=$(mktemp -d)
+echo '{}' > "$_proj_i/package.json"
+printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' > "$_proj_i/.mcp.json"
+STUB_DEEPWIKI_USER=1 _run_install "$_proj_i" --full > "$_proj_i.log" 2>&1 || true
+if jq -e '.mcpServers.context7 == {"type":"http","url":"https://mcp.context7.com/mcp"}' "$_proj_i/.mcp.json" >/dev/null 2>&1; then
+  ok "(i) getff's former entry is now the http remote"
+else bad "(i) getff's former entry was not moved: $(jq -c .mcpServers.context7 "$_proj_i/.mcp.json" 2>/dev/null)"; fi
+if grep -q 'own value(s) kept' "$_proj_i.log"; then bad "(i) getff's own former entry was reported as the project's"
+else ok "(i) getff's own former entry is not reported as a kept project value"; fi
+rm -rf "$_proj_i" "$_proj_i.log"
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$_stub_bin" "$_claude_log"
