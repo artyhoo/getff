@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1484-1515 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1534-1565 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -1520,7 +1520,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1215 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1265 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
@@ -3486,7 +3486,11 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     // `decide: … or …` trips the pre-existing Branch B question heuristic, so stdout is not
     // empty here; the claim is only that THIS arm stays out of it.
     const r = handsRun('Done.\nFrom you: decide: ship now or wait for the review');
+    expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
+    // positive control: the same turn with the HANDS value fires
+    const ctl = handsRun('Done.\nFrom you: do by hand: ship now or wait for the review');
+    expect(ctl.stdout).toContain(HANDS_TAG);
   });
 
   it.each([
@@ -3505,19 +3509,32 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     expect(handsRun('Готово.\nОт тебя: сделать руками: оплатить счёт', { lang: 'ru' }).stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('floor words inside the parenthesis do not exempt the action', () => {
+  it.skipIf(!JQ)('a floor named only inside the parenthesis still floors the action (whole action is matched)', () => {
+    const r = handsRun('Done.\nFrom you: do by hand: approve and merge PR #1900 (the staging→main promote)');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it.skipIf(!JQ)('a bare «main» in the parenthesis, with no merge verb, is not a floor', () => {
     const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job (unrelated to main)');
     expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
   });
 
   it.skipIf(!JQ)('silent when the turn carries a fork card', () => {
     const r = handsRun('**Fork.** A or B?\nRecommend A.\n\nFrom you: do by hand: rerun the flaky job');
+    expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
+    // positive control: the same turn without the fork card fires
+    const ctl = handsRun('A or B.\nRecommend A.\n\nFrom you: do by hand: rerun the flaky job');
+    expect(ctl.stdout).toContain(HANDS_TAG);
   });
 
   it.skipIf(!JQ)('silent when the turn carries an AskUserQuestion', () => {
     const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { askTool: true });
+    expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).not.toContain(HANDS_TAG);
+    // positive control: the same text without the AskUserQuestion fires
+    expect(handsRun('Done.\nFrom you: do by hand: rerun the flaky job').stdout).toContain(HANDS_TAG);
   });
 
   it.skipIf(!JQ)('AIF_EOT_HANDS_GATE=0 disables the arm', () => {
@@ -3525,7 +3542,9 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     expect(r.stdout).toBe('');
   });
 
-  it.skipIf(!JQ)('stop_hook_active=true never fires', () => {
+  // Regression pin, not a claim about this arm: the stop_hook_active guard sits upstream
+  // (line ~90) and silences every arm; this case only pins that it still covers this one.
+  it.skipIf(!JQ)('regression pin: stop_hook_active=true is silent (upstream guard)', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'eot-hands-active-'));
     tmpDirs.push(tmp);
     const tr = writeTranscript([assistantText('Done.\nFrom you: do by hand: rerun the flaky job')]);
@@ -3566,6 +3585,154 @@ describe('end-of-turn-reminder — manual-step arm («do by hand» is a process 
     const r = handsRun('Done.\nFrom you: do by hand: rerun the flaky job', { hook: hookCopy });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe('');
+  });
+
+  // ── Cold-review rework (2026-09-29) ──────────────────────────────────────────────────
+  // MAJOR 1: the operator runs with no LANG/LC_*, so grep -i does not fold Cyrillic under C.
+  it.each([
+    ['Оплатить счёт за хостинг'],
+    ['Ввести Пароль от реестра'],
+    ['Вставить Токен доступа в CI'],
+    ['Задать Секрет в настройках репо'],
+  ])('ru floor under LC_ALL=C, capitalised: %s stays silent', (value) => {
+    if (!JQ) return;
+    const r = handsRun(`Готово.\nОт тебя: сделать руками: ${value}`, { lang: 'ru', env: { LC_ALL: 'C', LANG: '' } });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it.skipIf(!JQ)('ru under LC_ALL=C: a capitalised non-floor action still fires (control)', () => {
+    const r = handsRun('Готово.\nОт тебя: сделать руками: Закрыть задачу в aif', {
+      lang: 'ru',
+      env: { LC_ALL: 'C', LANG: '' },
+    });
+    expect(reasonOf(r.stdout)).toContain(HANDS_TAG);
+  });
+
+  // MAJOR 2: floor phrasings the first pattern missed — one case per class.
+  it.each([
+    ['en', 'publish 0.4.0 to npm'],
+    ['ru', 'опубликовать 0.4.0 в npm'],
+    ['ru', 'влить промоут-PR в мейн'],
+    ['ru', 'заплатить за домен'],
+    ['ru', 'купить домен getff.ai'],
+    ['ru', 'выполнить npm login'],
+    ['en', 'enter the OTP from the authenticator'],
+    ['ru', 'ввести одноразовый код из приложения'],
+  ] as const)('floor class (%s) %s stays silent', (lang, value) => {
+    if (!JQ) return;
+    const pre = lang === 'ru' ? 'Готово.\nОт тебя: сделать руками: ' : 'Done.\nFrom you: do by hand: ';
+    const r = handsRun(pre + value, { lang });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  // MAJOR 4: operator-only harness actions are floors (the handoff gate itself asks for /compact).
+  it.each([
+    ['paste the /compact command above'],
+    ['restart the session so the new hook loads'],
+    ['approve the permission prompt for gh'],
+  ])('operator-only harness action %s stays silent', (value) => {
+    if (!JQ) return;
+    const r = handsRun(`Done.\nFrom you: do by hand: ${value}`);
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it.skipIf(!JQ)('silent while the handoff gate (D36) blocks the same turn; fires unarmed (control)', () => {
+    const run = (armed: boolean) => {
+      const dir = mkdtempSync(join(tmpdir(), 'eot-hands-d36-'));
+      tmpDirs.push(dir);
+      const residue = join(dir, 'residue');
+      const home = join(dir, 'home');
+      const proj = join(dir, 'proj');
+      mkdirSync(residue, { recursive: true });
+      mkdirSync(join(home, '.claude'), { recursive: true });
+      mkdirSync(join(proj, '.claude'), { recursive: true });
+      const transcript = join(dir, 'transcript.jsonl');
+      writeFileSync(
+        transcript,
+        [
+          JSON.stringify({ type: 'ai-title', aiTitle: 'D36' }),
+          JSON.stringify({ type: 'user', message: { content: 'go' } }),
+          JSON.stringify({
+            type: 'assistant',
+            isSidechain: false,
+            message: {
+              model: 'claude-opus-5',
+              usage: { input_tokens: 900000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+              content: [{ type: 'text', text: 'Done.\nFrom you: do by hand: rerun the flaky job' }],
+            },
+          }),
+        ].join('\n') + '\n',
+        'utf8',
+      );
+      const env: Record<string, string> = {
+        ...process.env,
+        CLAUDE_CODE_ENTRYPOINT: 'cli',
+        AIF_HOOK_LANG: 'en',
+        AIF_RECAP_GATE: '',
+        AIF_RESIDUE_DIR: residue,
+        CLAUDE_PROJECT_DIR: proj,
+        HOME: home,
+        TMPDIR: dir,
+      } as Record<string, string>;
+      delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+      delete env.AIF_HANDOFF_GATE;
+      if (armed) env.AIF_HANDOFF_GATE = '1';
+      const r = spawnSync('bash', [HOOK], {
+        input: JSON.stringify({ transcript_path: transcript, session_id: 'hands-d36', stop_hook_active: false }),
+        encoding: 'utf8',
+        env,
+      });
+      return r.stdout ?? '';
+    };
+    const armed = run(true);
+    expect(reasonOf(armed)).toContain('[handoff-gate]');
+    expect(armed).not.toContain(HANDS_TAG);
+    expect(reasonOf(run(false))).toContain(HANDS_TAG);
+  });
+
+  // MAJOR 5: bare main / token / promote / secret must not exempt real manual steps.
+  it.each([
+    ['rerun the flaky job on the main branch'],
+    ['promote the card to done in aif UI'],
+    ['update the token budget in the config'],
+    ['rename the secret-santa channel'],
+    ['update the landing page on the main site'],
+  ])('real manual step %s fires', (value) => {
+    if (!JQ) return;
+    expect(reasonOf(handsRun(`Done.\nFrom you: do by hand: ${value}`).stdout)).toContain(HANDS_TAG);
+  });
+
+  // MINOR 6: markdown emphasis and capitalisation do not hide the line.
+  it.each([
+    ['en', 'Done.\nFrom you: Do by hand: close the task in the tracker', 'close the task in the tracker'],
+    ['en', 'Done.\n**From you:** do by hand: close the task in the tracker', 'close the task in the tracker'],
+    ['ru', 'Готово.\nОт тебя: **сделать руками:** закрыть задачу в aif', 'закрыть задачу в aif'],
+    ['en', 'Done.\nFrom you: do by hand:\n\nclose the task in the tracker', 'close the task in the tracker'],
+  ] as const)('(%s) emphasis / case / next-line action still fires: %j', (lang, text, action) => {
+    if (!JQ) return;
+    const reason = reasonOf(handsRun(text, { lang }).stdout);
+    expect(reason).toContain(HANDS_TAG);
+    expect(reason).toContain(action);
+  });
+
+  // MINOR 7: a «From you:» line inside a fenced code block is an example, not the hand-off.
+  it.skipIf(!JQ)('ignores «From you:» lines inside a fenced code block', () => {
+    const r = handsRun('Done.\nFrom you: nothing (CI 12/12 green)\n\nExample:\n```\nFrom you: do by hand: rerun the flaky job\n```');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  // MINOR 8: paraphrases defeat the per-action sha, so a session cap bounds the total.
+  it.skipIf(!JQ)('per-session cap: at most 2 manual-step blocks per session, whatever the wording', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'eot-hands-cap-'));
+    tmpDirs.push(tmp);
+    const o = { tmp, session: 'hands-cap' };
+    expect(handsRun('Done.\nFrom you: do by hand: rerun the flaky job', o).stdout).toContain(HANDS_TAG);
+    expect(handsRun('Done.\nFrom you: do by hand: re-run the flaky CI job', o).stdout).toContain(HANDS_TAG);
+    expect(handsRun('Done.\nFrom you: do by hand: kick the flaky job again', o).stdout).toBe('');
   });
 
   it.skipIf(!JQ)('the SHIPPED plugin twin carries the arm', () => {

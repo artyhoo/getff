@@ -36,14 +36,17 @@ AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
 AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
 AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
-# Manual-step arm (Stop hook, operator directive 2026-09-28): the decision FLOORS that stay with
-# the human even on a «do by hand» line — merge/promote into main, npm publish, credentials,
-# money, and settings.json (agent-uncommittable by the classifier guard). Case-insensitive ERE,
-# matched only on the action text before the first «(». Identical value in BOTH packs (same
+# Decision floors (operator directive 2026-09-28): actions the «do by hand» arm leaves with
+# the human — a merge/push/promote INTO main (a verb near main/мейн, never a bare «main»), the
+# promote PR, npm publish/login, OTP/2FA, credentials in credential context (never a bare
+# «token»), money, settings.json (agent-uncommittable by the classifier guard), and
+# operator-only harness actions (/compact, a session restart, a permission prompt). A LOWERCASE
+# ERE: the hook lowercases the whole action itself (ASCII + Cyrillic, locale-independent) and
+# matches it with LC_ALL=C grep -E, parenthesis included. Identical value in BOTH packs (same
 # reason as AIF_EOT_FOR_YOU_BANNED: an operator on either pack writes in either language).
-# Word-bounded where a bare substring would over-match (main ⊂ domain, pay ⊂ repay). No bare
-# Russian «ключ» — it sits inside «включить», so only its credential collocations count.
-AIF_EOT_HANDS_FLOOR='(^|[^[:alnum:]_])(main|pay|buy)([^[:alnum:]_]|$)|promot|npm publish|publish[a-z ]* (to )?npm|passw|credential|secret|token|api[ -]?key|2fa|one-time code|payment|purchas|invoice|billing|money|settings\.json|парол|секрет|токен|api[ -]?ключ|ключ (api|доступа)|деньг|оплат|платеж|платёж|покуп'
+# Word-bounded where a bare substring over-matches (pay ⊂ repay, otp ⊂ lotpath); «плат» only
+# before a vowel (never «платформа»); no bare Russian «ключ» (it sits inside «включить»).
+AIF_EOT_HANDS_FLOOR='((^|[^[:alnum:]_])(merge[a-z]*|push[a-z]*|promot[a-z]*|land|landed|approve[a-z]*)([^[:alnum:]_]|$)|влить|влей|вмерж|смерж|замерж|мерж|залить|залей|запуш|пушн|промоут)(([^.;]*[^[:alnum:]_])?(main|master)([^[:alnum:]_]|$)|[^.;]*(мейн|мастер))|staging *(->|→|=>|to) *(main|master)|promote[- ]pr|промоут[- ]?pr|npm publish|publish.*npm|опубликова.*npm|npm (login|adduser|token)|(^|[^[:alnum:]_])otp([^[:alnum:]_]|$)|2fa|one-time|одноразов|passw|парол|credential|api[ -]?(key|token)|(access|auth|personal access|github|npm|bearer|deploy) token|token value|(^|[^[:alnum:]_])pat([^[:alnum:]_]|$)|secret (key|value|token)|(set|add|rotate|paste|enter|update)[^.;]* secrets?([^[:alnum:]_-]|$)|токен (доступа|api|npm|github)|api[ -]?(ключ|токен)|ключ (api|доступа)|секрет|(^|[^[:alnum:]_])(pay|buy)([^[:alnum:]_]|$)|payment|purchas|invoice|billing|money|деньг|оплат|плат(и|ё|е|а|у|ы|я)|купи|покуп|settings\.json|/compact|restart[^.;]*(session|claude)|перезапуст[^.;]*(сесси|claude)|permission prompt|approve[^.;]*permission|разрешени[^.;]*(запрос|промпт)|(подтверди|одобри)[^.;]*разрешени'
 # Defect labels. Each one is a SELF-DESCRIBING phrase, never a bare token and never a raw
 # regex: the gate joins them into one `; `-separated list under a neutral verb, so a label
 # that only names a thing (a section, an alternation) reads to the model as "add this".
@@ -271,7 +274,7 @@ aif_msg_eot_hands_step() {
   cat <<EOF
 [manual-step] Your "${AIF_EOT_FOR_YOU_PREFIX}" line hands the human a manual step: "$1". A manual step is a process defect, not a normal ending.
 Do it yourself now if you are allowed to. If it needs a mechanism that does not exist yet, or a permission you lack, spawn a follow-up task that builds the automation (spawn_task, where the harness has it) and name that task in your answer.
-Only decision floors stay with the human: a merge to main, npm publish, a fork choice, passwords, money. If this step is one of them, say which floor it is.
+Only decision floors stay with the human: a merge to main, npm publish, a fork choice, passwords, money, and operator-only harness actions (/compact, a session restart, a permission prompt). If this step is one of them, say which floor it is.
 EOF
 }
 

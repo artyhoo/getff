@@ -56,7 +56,7 @@ plain-words recap of where things stand — or did it just stop? A long structur
 answer with no recap is *blocked*: the hook returns `decision: "block"` with the
 recap instruction as the reason, and the model gets one more turn in which to write
 it. On a Stop hook, the `reason` field is what reaches the model; the
-`systemMessage` line is for your UI only (lines 1484-1489 — verified against the
+`systemMessage` line is for your UI only (lines 1534-1539 — verified against the
 hooks docs, with the failed alternative recorded).
 
 The four live runs below tell the whole story. First, a stop the hook itself
@@ -113,13 +113,13 @@ spec, sentence-length discipline, the glossary rules. It comes from the English
 language pack's `aif_msg_eot_branch_a`; there is nothing hidden in it, it is just
 long.) Fourth, the same shape of turn that *already begins with* the recap marker
 (`## 🟢 In plain words`) stays silent — re-injecting the instruction over an
-existing recap would be noise (lines 1191-1258). That guard's placement is one of
+existing recap would be noise (lines 1241-1308). That guard's placement is one of
 the most-documented lines in the file: an earlier version sat behind other
 early-exits and went silent in precisely its motivating case, which the header's
 2026-07-24 cold-audit note (lines 122-132) records as the reason several guards now
 route every exit through one function.
 
-Which branch fires depends on the turn's shape (lines 1454-1482): a long answer
+Which branch fires depends on the turn's shape (lines 1504-1532): a long answer
 *and* a trailing question gets the whole-session recap plus the fork-challenge
 (Branch C); a long answer alone gets the lighter per-turn recap (Branch A, the demo
 above); a bare question with no body gets the fork-challenge only (Branch B); a
@@ -127,7 +127,7 @@ turn that created a pull request gets the story recap; short chatter gets silenc
 
 The recap is the default, but it is not the only thing this hook can say — several
 optional riders append to the *same* block, never a second one (lines 212-257,
-1490-1512): with `AIF_AUTONOMOUS=1`, an in-flight-work probe blocks turn-ends that
+1540-1562): with `AIF_AUTONOMOUS=1`, an in-flight-work probe blocks turn-ends that
 would abandon dispatched tasks (the F10 arm); the context arm estimates session
 token usage from the transcript and, past a soft floor (300,000 of an assumed
 1M-token window — both tunable), suggests a handoff to a fresh session; an optional
@@ -138,17 +138,24 @@ arm can demand the «term (explanation)» form once for a term your prompt just 
 Those riders are off by default; the unarmed hook's output is byte-identical to the
 plain recap gate on every turn that does not end on a manual step.
 
-One rider is ON by default: the manual-step arm (lines 1103-1174). When the final
+One rider is ON by default: the manual-step arm (lines 1103-1224). When the final
 answer's last `From you:` line is `do by hand: <action>`, the hook treats that as a
 process defect and hands the turn back: do the step yourself if you are allowed to;
 if it needs a mechanism or a permission, spawn a task that builds the automation and
 name it in the answer. It never fires on the other three values (`nothing (…)`,
 `waiting on:`, `decide:` — a fork is yours to decide), on a turn that carries a fork
-card or an AskUserQuestion, or on a decision floor — merge or promote into `main`,
-`npm publish`, passwords and other credentials, money, `settings.json` — matched by
-the language pack's `AIF_EOT_HANDS_FLOOR` pattern on the action text before its first
-`(`. The same action blocks at most once per session; `AIF_EOT_HANDS_GATE=0` turns
-the arm off. A consumer whose language pack predates the arm gets a silent exit 0.
+card or an AskUserQuestion, on a stop the handoff gate already blocks with its
+`/compact` hand-off, or on a decision floor — a merge, push or promote into `main`,
+`npm publish` or `npm login`, a one-time code, passwords and other credentials, money,
+`settings.json`, and the actions only you can take in the harness (`/compact`, a
+session restart, a permission prompt). The floors are the language pack's
+`AIF_EOT_HANDS_FLOOR` pattern, matched on the whole action, parenthesis included,
+after the hook lowercases it itself — so a capitalised Russian word counts even when
+your shell sets no locale. Bold markers, a capitalised `Do by hand:`, and an action on
+the next line are read the same way; a `From you:` line inside a fenced code block is
+an example and is skipped. The same action blocks at most once per session, and the
+arm blocks at most twice per session in total; `AIF_EOT_HANDS_GATE=0` turns it off. A
+consumer whose language pack predates the arm gets a silent exit 0.
 
 Delivery per the card: consumer installs copy and register it
 (`setup.d/10-skills.sh:244-267`), the framework registers it at
@@ -167,15 +174,15 @@ consumer-safe posture as its question-time companion
   row quotes: `# end-of-turn-reminder.sh — Stop hook — end-of-turn recap + goal-drift verdict reminder`.
   Lines 3-9 carry the `@cc-only-rationale` marker and the consumer-delivery note
   (GH #934).
-- Block emit: lines 1514-1518 — `{decision: "block", reason: $msg, systemMessage:
+- Block emit: lines 1564-1568 — `{decision: "block", reason: $msg, systemMessage:
   $gl}`; the reason-reaches-model vs systemMessage-UI-only verification is recorded
-  at lines 1484-1489.
+  at lines 1534-1539.
 - Branch selection: the shape function at lines 933-987 (long-text predicate at
   933-938: >500 chars plus a markdown-structure pattern; orchestration mode lowers
-  the threshold to 200), the three branches at lines 1473-1482, the story signal at
+  the threshold to 200), the three branches at lines 1523-1532, the story signal at
   lines 763-770.
-- Already-recapped guard: line 1196 greps for `$AIF_RECAP_MARKER`; the 2026-07-24
-  cold-audit postmortem on its placement is lines 122-132 and 1176-1189.
+- Already-recapped guard: line 1246 greps for `$AIF_RECAP_MARKER`; the 2026-07-24
+  cold-audit postmortem on its placement is lines 122-132 and 1226-1239.
 - SDK guard: lines 94-109 — `CLAUDE_CODE_ENTRYPOINT` prefix-match `sdk-*`, opt-in
   restore via `AIF_EOT_SDK_RECAP=1`; the measured incident (503 of 503 review-gate
   runs parsing null) is lines 95-104.
@@ -192,21 +199,23 @@ consumer-safe posture as its question-time companion
 - Glossary arm: pending-file contract with the `glossary-inject` UserPromptSubmit
   twin at lines 777-810, thresholds `AIF_GLOSSARY_USES`/`AIF_GLOSSARY_EXPLAINS`
   (defaults 3/5) at lines 851-855.
-- Manual-step arm (default on): lines 1103-1174 — the last `From you:` line, the
-  `do by hand:` token derived from the pack, the fork-card / AskUserQuestion
-  exemptions, the floor match before the first `(`, and the per-session sha bound
-  (`aif-eot-hands-<session>`); the opt-out is `AIF_EOT_HANDS_GATE=0`. The floor
-  pattern `AIF_EOT_HANDS_FLOOR` is `.claude/hooks/lang/en.sh` line 46 (identical in
-  `ru.sh`) and the message `aif_msg_eot_hands_step` is line 270.
+- Manual-step arm (default on): lines 1103-1224 — the last `From you:` line, the
+  `do by hand:` token derived from the pack, the fork-card / AskUserQuestion /
+  handoff-gate exemptions, the locale-independent lowercasing (`_hs_lower`), the
+  floor match on the whole action, and the per-session bound
+  (`aif-eot-hands-<session>`: one block per action sha, two in total); the opt-out is
+  `AIF_EOT_HANDS_GATE=0`. The floor
+  pattern `AIF_EOT_HANDS_FLOOR` is `.claude/hooks/lang/en.sh` line 49 (identical in
+  `ru.sh`) and the message `aif_msg_eot_hands_step` is line 273.
 - Language pack: lines 23-45; the marker and branch messages live in
   `.claude/hooks/lang/en.sh` (`AIF_RECAP_MARKER` at line 16, `aif_msg_eot_branch_a`
-  at line 163).
+  at line 166).
 - Registration: `.claude/settings.json:202` (Stop section, no matcher);
   `plugin/hooks/hooks.json:173`; consumer install at `setup.d/10-skills.sh:244-267`
   (copy at 244-245, `register_cc_hook` Stop at 267).
 - ZCode: census row 9 (`.claude/rules/zcode-parity-doctrine.md` §2) — degraded;
   the thin-recap branch and its inert context arm are documented at lines
-  1272-1305 of the hook.
+  1322-1355 of the hook.
 - Paired test: the header comment at lines 693-696 names
   `end-of-turn-reminder.test.ts` and its two fixture tests
   (`zcode_synthetic_transcript_last_line_extracted_via_role`,
