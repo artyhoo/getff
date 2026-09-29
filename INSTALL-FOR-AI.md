@@ -55,7 +55,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    Node.js 22.23+ and npm: the installer needs them, my project does not have to.
 2. [preview] Preview the stack and the tool list
    From THIS project's directory (never the getff checkout) run `bash /tmp/getff/setup --dry-run`.
-   It writes nothing. Read the stack, the «Companions» section and the lines ending «not chosen in the pre-launch list».
+   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list».
    The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
    lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
 3. [ask-once] Ask the ONE question
@@ -92,7 +92,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    from this project's own files by following `.claude/agents/aif-init.md`; mark every guess
    `[GUESSED — verify]`. A passport the project already had is kept as it is. Do not wait for me.
 7. [tools-parity] Check that everything getff uses for itself is installed or marked
-   Per tool of «Companions», and for context7, quote its one trace: a row `| <name> |` of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`, or a line `- <name> — <reason>` of the installer's NOT-wired or kept-values summary. No trace → the finding «MISSING <name>». Run no probe of your own. Block absent → «not done».
+   Names: the «✓ <name>» lines of «Stack-aware companion selection» from step 2, without the external services runtime-bridge and aif-handoff, plus context7. Per tool quote its one trace: a row `| <name> |` of the `getff:installed-versions` block in `.ai-factory/tool-decisions.md`, or a line `- <name> — <reason>` of the installer's NOT-wired or kept-values summary. No trace → the finding «MISSING <name>». Run no probe of your own. Block absent → «not done».
 8. [base-core-status] Read the base-core list with a status per principle
    Read `.claude/skills/getff/references/base-core.md`, change nothing: each row not `fires`, or whose «not on stack» names my stack, is one line of PRINCIPLES NOT WIRED YET. File absent → «not done: list absent in this older install» plus one yes/no for me: refresh getff's own files?
 9. [research] Research rules for the stack

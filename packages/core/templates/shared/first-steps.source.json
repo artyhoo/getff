@@ -194,7 +194,7 @@
       {
         "id": "preview",
         "title": "Preview the stack and the tool list",
-        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for.",
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for.",
         "doneTest": "the command exits 0, its output names the stack, and `git status --short` of the project is unchanged"
       },
       {
@@ -224,8 +224,8 @@
       {
         "id": "tools-parity",
         "title": "Check that everything getff uses for itself is installed or marked",
-        "action": "For each tool the «Companions» section of the preview named, and for context7, find the one trace the install left, in two sources only: a row `| <name> |` in the `<!-- getff:installed-versions:begin -->` block of `.ai-factory/tool-decisions.md`; or a line `- <name> — <reason>` in the installer's NOT-wired summary or in its kept-values summary. Quote that row or line per tool. A row whose version starts «not read:» is a trace: quote its reason. A tool with no trace is a finding under this step, named «MISSING <name>». Run no probe of your own. When the block is absent, report this step as «not done: no installed-versions record in tool-decisions.md» and go on.",
-        "doneTest": "the block exists and every tool of the preview has its row or its summary line; each tool without one is named MISSING"
+        "action": "Take the tool names from the «✓ <name>» lines the preview printed under «Stack-aware companion selection», leave out the external services runtime-bridge and aif-handoff, and add context7. For each of these tools find the one trace the install left, in two sources only: a row `| <name> |` in the `<!-- getff:installed-versions:begin -->` block of `.ai-factory/tool-decisions.md`; or a line `- <name> — <reason>` in the installer's NOT-wired summary or in its kept-values summary. Quote that row or line per tool. A row whose version starts «not read:» is a trace: quote its reason. A tool with no trace is a finding under this step, named «MISSING <name>». Run no probe of your own. When the block is absent, report this step as «not done: no installed-versions record in tool-decisions.md» and go on.",
+        "doneTest": "the block exists and every selected tool has its row or its summary line; each tool without one is named MISSING"
       },
       {
         "id": "base-core-status",

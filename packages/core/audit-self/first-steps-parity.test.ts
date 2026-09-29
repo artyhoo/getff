@@ -428,6 +428,23 @@ describe('The road ↔ install prompt parity', () => {
     }
   });
 
+  it('the tools step takes its names from the selection the installer printed', () => {
+    // The dry run's «Companions» section skips MCP servers (deepwiki), so a name list read from it
+    // never checks them. The «Stack-aware companion selection» lines name every selected tool.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const tools = steps.find((s) => s.id === 'tools-parity');
+    const preview = steps.find((s) => s.id === 'preview');
+    for (const text of [tools?.action ?? '', preview?.action ?? '', prompt]) {
+      expect(text).toMatch(/Stack-aware companion selection/);
+    }
+    for (const text of [tools?.action ?? '', prompt]) {
+      expect(text).toMatch(/context7/);
+      expect(text).toMatch(/runtime-bridge/);
+      expect(text).toMatch(/aif-handoff/);
+    }
+    expect(tools?.action).not.toMatch(/«Companions» section/);
+  });
+
   it('the research step takes the one answer as its confirmation', () => {
     const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
     expect(research?.action).toMatch(/without asking/);
