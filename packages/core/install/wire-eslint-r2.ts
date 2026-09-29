@@ -448,6 +448,16 @@ function buildRuleConfigElement(
  * accepts the same plugin object in several elements. The `plugins` that counts is the element's
  * LAST one, with no spread after it: a later key or spread replaces the whole object.
  */
+/** Whether the file binds RULE_GLOBS other than as a plain declaration: an import of it, or a destructuring. */
+function ruleGlobsBoundElsewhere(sf: any, SyntaxKind: any): boolean {
+  const named = (n: any): boolean => n?.getText?.() === 'RULE_GLOBS';
+  for (const d of sf.getImportDeclarations?.() ?? []) {
+    if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
+    if ((d.getNamedImports?.() ?? []).some((s: any) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  return sf.getDescendantsOfKind(SyntaxKind.BindingElement).some((b: any) => named(b.getNameNode?.()));
+}
+
 function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): boolean {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
@@ -1095,7 +1105,18 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
     const r2Setting = !r2Present ? 'not-found'
       : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? 'differs'
         : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
-    if (sf.getVariableDeclaration('RULE_GLOBS')) {
+    // ts-morph finds `const { RULE_GLOBS } = …` by that name too; only `RULE_GLOBS = …` is a declaration of it.
+    const plainDecl = !!sf.getVariableDeclaration('RULE_GLOBS')?.getNameNode?.().isKind?.(SyntaxKind.Identifier);
+    if (!plainDecl && ruleGlobsBoundElsewhere(sf, SyntaxKind)) {
+      // A declaration of getff's would bind the name a second time, a SyntaxError: the lint probe would
+      // fail and roll back every getff edit to the config (cold review 2026-09-29).
+      notes.push(
+        'R2 — the config binds RULE_GLOBS from elsewhere (an import or a destructuring), and getff does not redefine it' +
+          (opts.gateReadsRuleGlobs
+            ? '; scripts/check-rule-globs.sh reads only a `RULE_GLOBS = …` declared in this file, so it fails on this config'
+            : ''),
+      );
+    } else if (sf.getVariableDeclaration('RULE_GLOBS')) {
       const arr = (boundaryArr = arrOf());
       if (!arr) {
         notes.push(
@@ -1112,7 +1133,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
         // Nothing in the config reads it, so it is exported: a bare const fails no-unused-vars in the
         // consumer's own lint of this file.
         ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
-          '// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting below;',
+          '// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting in this file;',
           "// check:globs fails when none of these matches a source file, check:enforced when R2 is not 'error' there.",
         ], 'export const');
       } else {

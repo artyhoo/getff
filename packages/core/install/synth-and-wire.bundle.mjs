@@ -10349,6 +10349,14 @@ function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) 
   const pluginsPart = registerPlugin ? `plugins: { 'rules-as-tests': customRules }, ` : "";
   return `{ ${filesPart}${pluginsPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
 }
+function ruleGlobsBoundElsewhere(sf, SyntaxKind) {
+  const named = (n) => n?.getText?.() === "RULE_GLOBS";
+  for (const d of sf.getImportDeclarations?.() ?? []) {
+    if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
+    if ((d.getNamedImports?.() ?? []).some((s) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  return sf.getDescendantsOfKind(SyntaxKind.BindingElement).some((b) => named(b.getNameNode?.()));
+}
 function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
@@ -10821,7 +10829,12 @@ async function wireOwnConfig(source, opts = {}) {
     };
     const r2Mentions = [`'`, `"`, "`"].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
     const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
-    if (sf.getVariableDeclaration("RULE_GLOBS")) {
+    const plainDecl = !!sf.getVariableDeclaration("RULE_GLOBS")?.getNameNode?.().isKind?.(SyntaxKind.Identifier);
+    if (!plainDecl && ruleGlobsBoundElsewhere(sf, SyntaxKind)) {
+      notes.push(
+        "R2 \u2014 the config binds RULE_GLOBS from elsewhere (an import or a destructuring), and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh reads only a `RULE_GLOBS = \u2026` declared in this file, so it fails on this config" : "")
+      );
+    } else if (sf.getVariableDeclaration("RULE_GLOBS")) {
       const arr = boundaryArr = arrOf();
       if (!arr) {
         notes.push(
@@ -10835,7 +10848,7 @@ async function wireOwnConfig(source, opts = {}) {
     } else if (r2Present && r2Setting !== "same") {
       if (opts.gateReadsRuleGlobs) {
         ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
-          "// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting below;",
+          "// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting in this file;",
           "// check:globs fails when none of these matches a source file, check:enforced when R2 is not 'error' there."
         ], "export const");
       } else {

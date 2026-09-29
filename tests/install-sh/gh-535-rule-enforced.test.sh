@@ -104,6 +104,40 @@ else
   echo "  · Arm2 skipped — could not install eslint@9 (offline); Arm1 (cwd-aware fake) still proves the fix."
 fi
 
+# ── Arm 2b (cold review 2026-09-29): the root config is asked about one file per boundary token ──
+# A consumer's own R2 scoped by its own `files:` can reach one boundary token's code and miss another's;
+# the first boundary file alone read green. A PATH-AWARE fake: the rule is on for a file iff its path
+# matches $AIF_FAKE_COVERED (a case pattern) — as ESLint resolves a `files:` scope.
+PFAKE=$(mktemp)
+cat > "$PFAKE" <<'ES'
+#!/bin/sh
+[ "$1" = "--print-config" ] || exit 0
+case "${2#./}" in $AIF_FAKE_COVERED) printf '{ "rules": { "%s": [2] } }\n' "$AIF_FAKE_RULE" ;; *) printf '{ "rules": {} }\n' ;; esac
+ES
+chmod +x "$PFAKE"
+PT=$(mktemp -d); mkdir -p "$PT/src/routes" "$PT/src/handlers"
+cat > "$PT/eslint.config.mjs" <<'CFG'
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}', '**/handlers/**/*.{ts,tsx}'],
+};
+export default [];
+CFG
+printf '{"name":"pt","dependencies":{"zod":"3.0.0"}}\n' > "$PT/package.json"
+printf 'export const r = 1;\n' > "$PT/src/routes/users.ts"
+printf 'export const h = 1;\n' > "$PT/src/handlers/pay.ts"
+( cd "$PT" && AIF_ESLINT_CMD="$PFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_COVERED='src/routes/*' bash "$GATE" ) >/tmp/g535pt.$$ 2>&1
+rc=$?
+[ "$rc" -ne 0 ] && grep -q 'NOT in the resolved ESLint config for src/handlers/pay\.ts' /tmp/g535pt.$$ \
+  && ok "Arm2b: R2 reaches the routes token only → gate FAILS naming the handlers file it misses" \
+  || bad "Arm2b: R2 missing the handlers token's code read green, or the file went unnamed (rc=$rc: $(tr '\n' ';' </tmp/g535pt.$$))"
+# Paired negative: R2 reaches both tokens → PASS, and each token's file was asked about.
+( cd "$PT" && AIF_ESLINT_CMD="$PFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_COVERED='src/*' bash "$GATE" ) >/tmp/g535pt2.$$ 2>&1
+rc=$?
+[ "$rc" -eq 0 ] && grep -q 'R2 applied to src/routes/users\.ts' /tmp/g535pt2.$$ && grep -q 'R2 applied to src/handlers/pay\.ts' /tmp/g535pt2.$$ \
+  && ok "Arm2b neg: R2 reaches both tokens → gate PASSES, having asked about one file of each" \
+  || bad "Arm2b neg: rc=$rc or a token's file was not asked about ($(tr '\n' ';' </tmp/g535pt2.$$))"
+rm -f /tmp/g535pt.$$ /tmp/g535pt2.$$
+
 # ── Arm 3: no boundary files → graceful skip ──
 C=$(mktemp -d); write_root_cfg "$C" no-console; mkdir -p "$C/src/lib"; printf 'export const y = 2;\n' > "$C/src/lib/u.ts"
 if ( cd "$C" && AIF_ESLINT_CMD="$FAKE" AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535c.$$ 2>&1 && grep -qi 'nothing for R2 to govern\|nothing to verify' /tmp/g535c.$$; then
@@ -174,6 +208,11 @@ if ( cd "$MSN" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_R
 else
   ok "#807 NEG: ws does NOT wire rule + zod boundary → gate FAILS through recursion (non-vacuous)"
 fi
+# The child labels its lines «root config»: the line before them names the workspace config they are
+# about, which is how the install tells them from the root config's own (cold review 2026-09-29).
+grep -qx 'check-rule-enforced: checking apps/api/eslint.config.mjs' /tmp/g535msn.$$ \
+  && ok "#807 NEG: the recursion names the workspace config it asks next" \
+  || bad "#807 NEG: no «checking apps/api/eslint.config.mjs» line before the workspace's own lines ($(tr '\n' ';' </tmp/g535msn.$$))"
 
 # (deps-free degrade) no root config + eslint ABSENT → each child SKIPs → exit 0 (the unit-test env).
 # Faithful deps-free env: keep the real PATH (the recursion + r2-na source legitimately need

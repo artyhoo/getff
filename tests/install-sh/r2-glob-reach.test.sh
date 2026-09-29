@@ -556,6 +556,53 @@ f11_zod() { printf '{ "name": "f11", "version": "0.0.0", "dependencies": { "zod"
 # f11_enforced <log> — the not-wired lines about scripts/check-rule-enforced.sh.
 f11_enforced() { f11_not_wired "$1" | grep -F 'check-rule-enforced.sh'; }
 
+# F11e naming, on canned gate output (cold review 2026-09-29). With the root config the consumer's own and
+# no RULE_GLOBS in it, check-rule-enforced.sh asks each workspace config, labelling its lines «root config»
+# and its files from that workspace: they are named by the workspace, not as the consumer's root config.
+# A package an R2 pass or F11 already named is not named twice. A failed run's verdict line is a FAILED
+# line even when a later workspace passed.
+# (read -d '', not $(cat <<…): bash 3.2 misparses an apostrophe in a heredoc inside $(…).)
+IFS= read -r -d '' F11E_OUT <<'OUT' || true
+check-rule-enforced: eslint.config.mjs is your own config with no RULE_GLOBS block — checking the workspace configs under it, which ESLint uses for their own files.
+check-rule-enforced: checking apps/api/eslint.config.mjs
+▶ check-rule-enforced: verifying R2 (rules-as-tests/no-unsafe-zod-parse) is actually APPLIED to boundary files (via eslint --print-config)
+  ✗ root config: R2 (rules-as-tests/no-unsafe-zod-parse) is NOT in the resolved ESLint config for src/routes/a.ts — SILENTLY INERT here (verified from the package's own cwd, as `turbo run lint` resolves it).
+     Wire 'rules-as-tests/no-unsafe-zod-parse' into the eslint config governing root config (or re-export the root config that wires it).
+check-rule-enforced: FAILED — R2 is not applied to ≥1 boundary file (silent inertness).
+check-rule-enforced: checking apps/web/eslint.config.mjs
+  ✗ root config: R2 (rules-as-tests/no-unsafe-zod-parse) is only 'warn' in the resolved ESLint config for src/routes/b.ts — a warning fails no build unless every lint run passes --max-warnings=0.
+check-rule-enforced: FAILED — R2 is not applied to ≥1 boundary file (silent inertness).
+check-rule-enforced: checking apps/ok/eslint.config.mjs
+  ✓ root config: R2 applied to src/routes/c.ts (severity: error)
+check-rule-enforced: OK
+OUT
+F11E_NOTES=$(
+  # shellcheck disable=SC1090
+  INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+  eval "$(sed -n -e '/^_f11_note() {/,/^}/p' -e '/^_f11e_named() {/,/^}/p' -e '/^_f11e_describe() {/,/^}/p' \
+    -e '/^_f11e_name_failures() {/,/^}/p' -e '/^_f11e_verdict() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  PROJECT_ROOT=$(mktemp -d); mkdir -p "$PROJECT_ROOT/apps/api" "$PROJECT_ROOT/apps/web" "$PROJECT_ROOT/apps/ok"
+  _root_eslint=eslint.config.mjs
+  NOT_WIRED=("R2 (rules-as-tests/no-unsafe-zod-parse) in apps/web/eslint.config.mjs — the config sets it itself; getff does not change a setting of yours")
+  _f11e_name_failures "$F11E_OUT" && echo "NAMED" || echo "NONE"
+  echo "VERDICT $(_f11e_verdict "$F11E_OUT" 1)"
+  printf 'NOTE %s\n' "${NOT_WIRED[@]}"
+  rm -rf "$PROJECT_ROOT"
+)
+grep -qx 'NAMED' <<<"$F11E_NOTES" || bad "F11e naming: the ✗ lines were not read (saw: $(tr '\n' '|' <<<"$F11E_NOTES"))"
+[ "$(grep -c '^NOTE apps/api: R2 (rules-as-tests/no-unsafe-zod-parse) is NOT in the resolved ESLint config for apps/api/src/routes/a\.ts — scripts/check-rule-enforced\.sh fails on this project$' <<<"$F11E_NOTES")" -eq 1 ] \
+  && ok "F11e naming: a workspace config the gate recursed into is named by its dir, its file from the project root" \
+  || bad "F11e naming: apps/api's miss not named once by its workspace (notes: $(grep '^NOTE' <<<"$F11E_NOTES" | tr '\n' '|'))"
+grep -q '^NOTE .*your own config' <<<"$F11E_NOTES" \
+  && bad "F11e naming: a workspace config's line was blamed on the consumer's root config: $(grep '^NOTE .*your own config' <<<"$F11E_NOTES" | head -1)" \
+  || ok "F11e naming: no workspace line is blamed on the consumer's root config"
+[ "$(grep -c '^NOTE .*apps/web' <<<"$F11E_NOTES")" -eq 1 ] \
+  && ok "F11e naming: apps/web, which an R2 pass already named, is not named again" \
+  || bad "F11e naming: apps/web named $(grep -c '^NOTE .*apps/web' <<<"$F11E_NOTES") times (notes: $(grep '^NOTE' <<<"$F11E_NOTES" | tr '\n' '|'))"
+grep -q '^VERDICT check-rule-enforced: FAILED' <<<"$F11E_NOTES" \
+  && ok "F11e naming: the verdict of a failed run is its FAILED line, though the last workspace passed" \
+  || bad "F11e naming: verdict of a failed run: $(grep '^VERDICT' <<<"$F11E_NOTES")"
+
 if [ ! -f "$FW_NM/ts-morph/package.json" ]; then
   bad "F11: ts-morph is not installed in the framework (run npm install first) — the F11 arms would be vacuous"
 else
@@ -661,6 +708,42 @@ else
   grep -qE 'RULE_GLOBS|check-rule-enforced' <<<"$(f11_push "$T30.log")" \
     && bad "F11 scoped-reach: the summary names a gate that passes: $(f11_push "$T30.log" | grep -E 'RULE_GLOBS|check-rule-enforced' | head -1)" \
     || ok "F11 scoped-reach: nothing about RULE_GLOBS or check-rule-enforced.sh in the summary"
+  # The gate also prints OK when it skips (no zod, no boundary file), so its verdict alone does not show
+  # that ESLint was asked about the boundary file: ask the gate again and read its per-file line.
+  f11_borrow "$T30"
+  OUT30E=$( cd "$T30" && bash scripts/check-rule-enforced.sh 2>&1 ); RC30E=$?
+  f11_unborrow "$T30"
+  [ "$RC30E" = "0" ] && grep -q 'R2 applied to src/routes/users\.ts (severity: error)' <<<"$OUT30E" \
+    && ok "F11 scoped-reach: check-rule-enforced.sh asked ESLint about src/routes/users.ts and found R2 at 'error'" \
+    || bad "F11 scoped-reach: the gate exited $RC30E without asking about src/routes/users.ts ($(printf '%s' "$OUT30E" | tr '\n' '|'))"
+
+  # R2 scoped the consumer's way to one boundary token's code, the first the gate reads (handlers), and
+  # missing another's (routes): the first boundary file alone read green here (cold review 2026-09-29).
+  # The install names the file R2 misses.
+  T31=$(f11_project error boundary); f11_zod "$T31"
+  perl -0pi -e "s/\{\n  plugins:/{\n  files: ['src\/handlers\/**'],\n  plugins:/" "$T31/eslint.config.mjs"
+  mkdir -p "$T31/src/handlers"
+  printf "import { z } from 'zod';\n\nconst Pay = z.object({ sum: z.number() });\n\nexport const pay = (body: unknown) => Pay.parse(body);\n" > "$T31/src/handlers/pay.ts"
+  f11_install "$T31" "$T31.log"
+  [ "$(f11_enforced "$T31.log" | grep -c 'NOT in the resolved ESLint config for src/routes/users\.ts')" -eq 1 ] \
+    && ! f11_enforced "$T31.log" | grep -q 'src/handlers/pay\.ts' \
+    && ok "F11 partial reach: the summary names src/routes/users.ts, which R2 misses, and not the handlers file it reaches" \
+    || bad "F11 partial reach: R2 reaching only the handlers code went unnamed, or named the wrong file (summary: $(f11_not_wired "$T31.log" | tr '\n' '|'))"
+
+  # The ask runs eslint --print-config on the consumer's config, whose load can outlast any wait: it runs
+  # under a limit, and the install goes on and says so (cold review 2026-09-29). The config below loads
+  # slowly only for that ask (the install sets AIF_F11E_LIMIT for it), not for the wirer's own probe.
+  T32=$(f11_project error boundary); f11_zod "$T32"
+  { printf '%s\n' "if (process.env.AIF_F11E_LIMIT) await new Promise((r) => setTimeout(r, 20000));"
+    cat "$T32/eslint.config.mjs"; } > "$T32/cfg.tmp" && mv "$T32/cfg.tmp" "$T32/eslint.config.mjs"
+  ( export AIF_F11E_TIMEOUT_S=3; f11_install "$T32" "$T32.log" )
+  grep -q 'asked scripts/check-rule-enforced.sh — no answer within 3 s, and the install did not wait longer' "$T32.log" \
+    && grep -q 'scripts/check-rule-enforced.sh did not finish within 3 s on this project' <<<"$(f11_not_wired "$T32.log")" \
+    && ok "F11 limit: a gate run that outlasts the limit is stopped, and the summary says the install could not ask" \
+    || bad "F11 limit: no limit on the ask, or it went unnamed (log: $(grep -F 'check-rule-enforced' "$T32.log" | tr '\n' '|'))"
+  pgrep -f "$T32/scripts/check-rule-enforced.sh" >/dev/null \
+    && bad "F11 limit: the gate stopped at the limit is still running" \
+    || ok "F11 limit: nothing of the stopped gate run is left running"
 
   # A RULE_GLOBS of the consumer's with no boundary array, no custom rule, no boundary code: the gate reads
   # RULE_GLOBS.boundary wherever RULE_GLOBS appears and fails — the summary names it (cold-review, after #1868).

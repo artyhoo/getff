@@ -275,6 +275,9 @@ if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; 
       # react-spa/react-next ship a boundary → they recurse normally. (⚑B2)
       has_key boundary "$_wd/$_wn" \
         || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }
+      # The run below labels its lines «root config» and its files from ${_wd#./}: this line says which
+      # workspace config they are about (as check-rule-globs.sh's «checking <config>» does).
+      echo "check-rule-enforced: checking ${_wd#./}/$_wn"
       ( cd "$_wd" && ESLINT_CONFIG="$_wn" bash "$SELF" ) || _agg=1
     done <<EOF
 $_ws_dirs
@@ -458,22 +461,25 @@ verify_file() { # $1=file
   fi
 }
 
-# Root scope — the first boundary file NOT under any shadowed package (governed by the root config).
-root_bf=""
-while IFS= read -r f; do
-  if ! under_shadow "$f"; then root_bf="$f"; break; fi
-done < <(
-  for t in "${btokens[@]}"; do
-    find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null
-  done
-)
-if [ -n "$root_bf" ]; then
+# Root scope — for each boundary token, its first file NOT under any shadowed package (governed by the
+# root config). One file per token, not one in all: a consumer's own R2 scoped by its own `files:` can
+# reach one token's code and miss another's, and the first boundary file alone read green on it (cold
+# review 2026-09-29, after the install began declaring RULE_GLOBS alone in such a config).
+root_seen="|"
+for t in "${btokens[@]}"; do
+  root_bf=""
+  while IFS= read -r f; do
+    if ! under_shadow "$f"; then root_bf="$f"; break; fi
+  done < <(find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null)
+  [ -n "$root_bf" ] || continue
+  case "$root_seen" in *"|$root_bf|"*) continue ;; esac   # a file two tokens match is asked about once
+  root_seen="$root_seen$root_bf|"
   if package_has_zod "$root_bf"; then
     verify_file "$root_bf"
   else
-    echo "  · root config: no zod boundary — R2 N/A (skipped)"
+    echo "  · root config: no zod boundary at ${root_bf#./} — R2 N/A (skipped)"
   fi
-fi
+done
 
 # Each shadowed package that OWNS boundary files — governed by its own config, not the root one.
 if [ "${#shadows[@]}" -gt 0 ]; then

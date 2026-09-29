@@ -1335,13 +1335,29 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
       expect(r2Mentions(r.modified)).toBe(r2Mentions(src));
       // Nothing in the config reads RULE_GLOBS, so it is exported: a bare const fails no-unused-vars in the
       // consumer's own lint of the config (measured 2026-09-29 with typescript-eslint's recommended set).
-      const unused = new Linter({ configType: 'flat' })
-        .verify(r.modified, [{ languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }, rules: { 'no-unused-vars': 'error' } }], 'eslint.config.mjs')
-        .filter((m) => m.message.includes('RULE_GLOBS'));
-      expect(unused).toEqual([]);
+      const lint = new Linter({ configType: 'flat' })
+        .verify(r.modified, [{ languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }, rules: { 'no-unused-vars': 'error' } }], 'eslint.config.mjs');
+      // A parse error reports no rule at all, so it is ruled out first.
+      expect(lint.filter((m) => m.fatal)).toEqual([]);
+      expect(lint.filter((m) => m.message.includes('RULE_GLOBS'))).toEqual([]);
       expect(r.notes ?? []).toEqual([]);
       const again = await wireOwnConfig(r.modified, ROOT);
       expect(again.status).toBe('already-wired');
+    }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('RULE_GLOBS bound from elsewhere (an import, a destructuring) → no second declaration, a note instead (cold review)', async () => {
+    // A second `RULE_GLOBS` in the same scope is a SyntaxError: the lint probe would fail and roll back
+    // every getff edit to the config, the ignores element included.
+    const scopedByGlobs = R2_BY_HAND.replace(`{ plugins:`, `{ files: RULE_GLOBS.boundary, plugins:`);
+    const imported = `import { RULE_GLOBS } from './globs.mjs';\n${scopedByGlobs}`;
+    const destructured = scopedByGlobs.replace(`export default [`, `const { RULE_GLOBS } = await import('./globs.mjs');\n\nexport default [`);
+    const importedR2Everywhere = `import { RULE_GLOBS } from './globs.mjs';\n${R2_BY_HAND}`;
+    for (const src of [imported, destructured, importedR2Everywhere]) {
+      const r = await wireOwnConfig(src, ROOT);
+      expect(r.modified).not.toMatch(/^(export )?const RULE_GLOBS\b/m);
+      expect(r.modified).not.toMatch(/files: RULE_GLOBS\.boundary, rules/);
+      expect((r.notes ?? []).join('\n')).toMatch(/RULE_GLOBS.*from elsewhere/);
     }
   });
 

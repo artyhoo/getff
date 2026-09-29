@@ -381,6 +381,15 @@ JS
   [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS (60-ci found an HTTP boundary)" ] && ! _r2_own_refused eslint.config.mjs \
     && echo "OK R2 registered without RULE_GLOBS: the gap is RULE_GLOBS alone — the wirer leaves R2 as the config sets it" \
     || echo "BAD R2 without RULE_GLOBS: gap '$(_r2_own_gap eslint.config.mjs)'"
+  # R2 read as the wirer reads it (ruleSetInConfig): a template-literal key sets it, a comment does not.
+  printf "export default [{ rules: { [\`rules-as-tests/no-unsafe-zod-parse\`]: 'off' } }];\n" > "$c"
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS (60-ci found an HTTP boundary)" ] \
+    && echo "OK R2 set under a template-literal key: the gap is RULE_GLOBS alone" \
+    || echo "BAD template-literal R2 key: gap '$(_r2_own_gap eslint.config.mjs)'"
+  printf "// TODO: turn on 'rules-as-tests/no-unsafe-zod-parse'\nexport default [];\n" > "$c"
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ] \
+    && echo "OK R2 named only in a comment: the gap is RULE_GLOBS and R2" \
+    || echo "BAD R2 in a comment only: gap '$(_r2_own_gap eslint.config.mjs)'"
   printf 'export const RULE_GLOBS = { boundary: [] };\nexport default [];\n' > "$c"
   gap=$(_r2_own_gap eslint.config.mjs)
   [ "$(rule_globs_boundary "$c")" = array ] && case "$gap" in "R2 and "*"'**/handlers/**/*.{ts,tsx}'"*) true ;; *) false ;; esac \
