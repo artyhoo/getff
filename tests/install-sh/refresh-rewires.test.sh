@@ -354,6 +354,31 @@ out=$( cd "$Y15" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
 _stray_item_left "$Y15" "a file C5-F2's refresh left with a column-0 consumer item"
 out=$( cd "$Y15" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
 _stray_item_left "$Y15" "a second --refresh of that file"
+# pre-commit's own sample style: EVERY repos: item in column 0, which is valid YAML, with a column-0 earlier
+# getff entry and a consumer item after it (train C6 cold review, M3). Column 0 is the items' indent here,
+# so no item is stray: the entry is updated in column 0, the file loads, the consumer item stays, and the
+# pre-push stage runs; the next --refresh is the no-op. This pins the `[ -z "$want" ] ||` guards in
+# _py_precommit_reconcile — without them every item of this file reads as a stray one.
+Y13=$(py_consumer "$V1_BODY")
+printf 'repos:\n-   repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n    -   id: trailing-whitespace\n\n%s\n%s\n-   repo: https://example.invalid/after\n    rev: v1\n' "$MARK" "$V1_BODY" > "$Y13/.pre-commit-config.yaml"
+out=$( cd "$Y13" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+_got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y13/.pre-commit-config.yaml")
+grep -qF 'updated the getff entry in .pre-commit-config.yaml' <<<"$out" && [ "$_got" = "$(cat "$FRAG")" ] \
+  && ok "G7: column-0 repos: items (pre-commit's sample style) — the earlier entry is updated, in column 0" \
+  || bad "G7: column-0 repos: items — the earlier entry was not updated to the current fragment in column 0: $(grep -F 'getff entry' <<<"$out" | tr '\n' '|')"
+_pc_parses "$Y13" "G7: column-0 repos: items — the file after --refresh"
+grep -q '^-   repo: https://example.invalid/after$' "$Y13/.pre-commit-config.yaml" \
+  && ok "G7: column-0 repos: items — the consumer item after the entry is kept" \
+  || bad "G7: column-0 repos: items — the consumer item after the entry is gone"
+grep -qF 'not updated' <<<"$out" && bad "G7: column-0 repos: items — a «not updated» line: $(grep -F 'not updated' <<<"$out" | head -1)" \
+  || ok "G7: column-0 repos: items — no «not updated» line"
+grep -qF 'pre-commit pre-push stage' <<<"$out" && ok "G7: column-0 repos: items — the pre-push stage runs" \
+  || bad "G7: column-0 repos: items — no pre-push stage for a file that loads"
+cp "$Y13/.pre-commit-config.yaml" "$Y13/pc.before"
+out=$( cd "$Y13" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+cmp -s "$Y13/.pre-commit-config.yaml" "$Y13/pc.before" && grep -qF 'already has the current getff entry' <<<"$out" \
+  && ok "G7: column-0 repos: items — a second --refresh is the no-op, byte-identical" \
+  || bad "G7: column-0 repos: items — a second --refresh is not the no-op: $(grep -F 'getff entry' <<<"$out" | tr '\n' '|')"
 # An edited entry that already has its end line is kept too.
 Y4=$(py_consumer "$(printf '%s\n        args: [--consumer]\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
 cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"
