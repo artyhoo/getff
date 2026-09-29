@@ -202,7 +202,13 @@ The installer NEVER reads the key value — only the env-var name `ANTHROPIC_AUT
 ## What the AI will produce
 
 After the last step the AI prints this report and writes no file for it. Counts and lines come from
-the run, never from this doc.
+the run, never from this doc. Three rules keep it readable:
+
+- A step reads «done» or «not done: reason» — there is no third status. A step that ran and found
+  problems is «done», and what it found goes on the lines under it.
+- The passport is printed as its full text, never a summary: the human corrects what they can read.
+- «What I need from you» holds decisions only the human can make about their own project. A defect
+  of getff itself is a finding under the step that met it, not a question.
 
 ```text
 getff install report — <project> — <date>

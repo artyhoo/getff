@@ -337,6 +337,22 @@ describe('The road ↔ install prompt parity', () => {
     expect(prompt).toMatch(/setup --all <detected-stack>/);
   });
 
+  it('the report format gives a step exactly two statuses and keeps findings out of the asks', () => {
+    // Found by the first agent run (2026-09-29): a third status «done, with findings», a passport
+    // summary in place of its text, and getff's own defects listed as questions to the human.
+    const doc = readFileSync(join(REPO_ROOT, PROMPT_PATH), 'utf8');
+    const head = doc.indexOf('## What the AI will produce');
+    expect(head).toBeGreaterThan(-1);
+    const section = doc.slice(head, doc.indexOf('\n---', head));
+    const statuses = [...section.matchAll(/^<n>\. \[<id>\] <title> — (.+)$/gm)].map((m) => m[1]);
+    expect(statuses).toEqual(['done', 'not done: <reason>']);
+    // Prose wraps, so the three rules are matched on whitespace-normalised text.
+    const prose = section.replace(/\s+/g, ' ');
+    expect(prose).toMatch(/no third status/);
+    expect(prose).toMatch(/never a summary/);
+    expect(prose).toMatch(/A defect of getff itself is a finding/);
+  });
+
   it('the shipped road names no internal program part', () => {
     // The SSOT is part of the shipped package payload; «P1»…«P6» are this repo's planning names.
     expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
