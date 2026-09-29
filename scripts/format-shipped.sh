@@ -62,6 +62,9 @@ PATHSPECS=(
   # shipped/non-shipped boundary is exactly where formatting starts, and a future hand re-copy
   # from src now lands dirty and goes RED here instead of silently reaching consumers.
   packages/runtime-bridge/vendor
+  # The one prettier-handled script setup.d/40-configs.sh copies out of audit-self (to scripts/prove-rules.mjs);
+  # the rest of audit-self is shell, framework tests, or fixtures that never ship.
+  packages/core/audit-self/prove-rules.mjs
 )
 
 FILES=()

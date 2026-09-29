@@ -33,7 +33,7 @@ grep -qE '^\.claude/skills/?\*?\*?$|^\.claude/\*\*?$' "$IGN" \
 # config (printWidth 80, singleQuote, no plugins); a consumer with its OWN .prettierrc rejects the
 # same bytes (config mismatch, NOT version skew). Framework CONFIG files are handled CONDITIONALLY
 # (Arm 1c), not here — they might be consumer-authored. ──
-for p in 'eslint-rules-local/*.ts' 'eslint-rules-local/*.mjs' 'packages/core/hooks/**' 'scripts/audit-r4.ts'; do
+for p in 'eslint-rules-local/*.ts' 'eslint-rules-local/*.mjs' 'packages/core/hooks/**' 'scripts/audit-r4.ts' 'scripts/prove-rules.mjs'; do
   grep -qxF "$p" "$IGN" \
     && ok "shipped .prettierignore excludes vendored source '$p'" \
     || bad "shipped .prettierignore missing vendored source '$p' (consumer prettier --check would fail on it)"

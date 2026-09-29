@@ -46,7 +46,7 @@ eslint-rules-local/*.mjs
 
 # Vendored framework SOURCE — install.sh always ships these framework-namespace files fresh; a
 # consumer never authors `eslint-rules-local/`, `packages/core/hooks/` (the prebuilt pre-push
-# bundle — raw esbuild output — and its bash fallback), or `scripts/audit-r4.ts`.
+# bundle — raw esbuild output — and its bash fallback), `scripts/audit-r4.ts`, or `scripts/prove-rules.mjs`.
 # `packages/core/eslint-rules/` no longer ships (2026-09-28) and stays listed so a copy left by a
 # prior installer version does not turn the consumer's `prettier --check .` RED.
 # They ship formatted to THIS framework's Prettier config (printWidth 80, singleQuote, no plugins);
@@ -63,6 +63,7 @@ eslint-rules-local/*.ts
 packages/core/hooks/**
 packages/core/eslint-rules/**
 scripts/audit-r4.ts
+scripts/prove-rules.mjs
 # The factory-profile runtime-bridge vendor drop (setup.d/55-runtime-bridge-vendor.sh copies
 # packages/runtime-bridge/vendor/ here wholesale). Same #531 class as the siblings above: a
 # consumer never authors `.claude/vendor/`, and the drop ships formatted to THIS framework's

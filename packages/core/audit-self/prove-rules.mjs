@@ -26,7 +26,16 @@
 // writes is findable: an overrides entry whose `files` carry a sentinel glob, a carrier entry whose message
 // starts `[getff:<id>] `, a `// getff:exempt:begin/end` block in an ESLint config. Node's standard library only.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+  appendFileSync,
+} from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,11 +57,25 @@ const ESLINT_END = '// getff:exempt:end';
 // template and fails when this drifts. `strict` = only with AIF_STRICT_RUNTIME=1, as in the templates.
 const APP_CODE = ['**/*.{ts,tsx}'];
 const APP_CODE_IGNORE = ['**/infrastructure/**/*.{ts,tsx}'];
-const APPLICATION = ['**/application/**/*.{ts,tsx}', '**/use-cases/**/*.{ts,tsx}', '**/usecases/**/*.{ts,tsx}'];
+const APPLICATION = [
+  '**/application/**/*.{ts,tsx}',
+  '**/use-cases/**/*.{ts,tsx}',
+  '**/usecases/**/*.{ts,tsx}',
+];
 const APPLICATION_IGNORE = ['**/application/**/ports/**'];
 const RUNTIME = [
-  { rule: 'rules-as-tests/no-direct-time-randomness', files: APP_CODE, excludeFiles: APP_CODE_IGNORE, strict: true },
-  { rule: 'rules-as-tests/require-otel-span', files: APPLICATION, excludeFiles: APPLICATION_IGNORE, strict: true },
+  {
+    rule: 'rules-as-tests/no-direct-time-randomness',
+    files: APP_CODE,
+    excludeFiles: APP_CODE_IGNORE,
+    strict: true,
+  },
+  {
+    rule: 'rules-as-tests/require-otel-span',
+    files: APPLICATION,
+    excludeFiles: APPLICATION_IGNORE,
+    strict: true,
+  },
 ];
 const NEXT_BOUNDARY = [
   '**/app/**/actions/**/*.{ts,tsx}',
@@ -62,27 +85,52 @@ const NEXT_BOUNDARY = [
 ];
 export const STACK_RULES = {
   'react-spa': [
-    { rule: 'rules-as-tests/no-unsafe-zod-parse', files: ['**/features/*/api/**/*.{ts,tsx}', '**/api/**/*.{ts,tsx}', '**/services/**/*.{ts,tsx}'] },
+    {
+      rule: 'rules-as-tests/no-unsafe-zod-parse',
+      files: [
+        '**/features/*/api/**/*.{ts,tsx}',
+        '**/api/**/*.{ts,tsx}',
+        '**/services/**/*.{ts,tsx}',
+      ],
+    },
     {
       rule: 'rules-as-tests/require-error-boundary',
-      files: ['src/App.{tsx,jsx}', 'src/app.{tsx,jsx}', 'src/Root.{tsx,jsx}', 'src/main.{tsx,jsx}', 'src/index.{tsx,jsx}', 'app/App.{tsx,jsx}', 'app/Root.{tsx,jsx}'],
+      files: [
+        'src/App.{tsx,jsx}',
+        'src/app.{tsx,jsx}',
+        'src/Root.{tsx,jsx}',
+        'src/main.{tsx,jsx}',
+        'src/index.{tsx,jsx}',
+        'app/App.{tsx,jsx}',
+        'app/Root.{tsx,jsx}',
+      ],
     },
     ...RUNTIME,
   ],
   'ts-server': [
     {
       rule: 'rules-as-tests/no-unsafe-zod-parse',
-      files: ['**/handlers/**/*.{ts,tsx}', '**/routes/**/*.{ts,tsx}', '**/controllers/**/*.{ts,tsx}', '**/app/api/**/*.{ts,tsx}', '**/actions/**/*.{ts,tsx}'],
+      files: [
+        '**/handlers/**/*.{ts,tsx}',
+        '**/routes/**/*.{ts,tsx}',
+        '**/controllers/**/*.{ts,tsx}',
+        '**/app/api/**/*.{ts,tsx}',
+        '**/actions/**/*.{ts,tsx}',
+      ],
     },
     ...RUNTIME,
   ],
   'react-next': [
     { rule: 'rules-as-tests/no-unsafe-zod-parse', files: NEXT_BOUNDARY },
-    { rule: 'rules-as-tests/no-server-imports-in-client', files: ['**/*.{ts,tsx}'] },
+    {
+      rule: 'rules-as-tests/no-server-imports-in-client',
+      files: ['**/*.{ts,tsx}'],
+    },
     {
       rule: CARRIER,
       files: NEXT_BOUNDARY,
-      notPlaced: "the react-next config's R14/R20 selectors share one setting with the generated rules; getff places them in ESLint only",
+      notPlaced:
+        "the react-next config's R14/R20 selectors share one setting with the generated rules; getff places them in ESLint only",
     },
     ...RUNTIME,
   ],
@@ -110,8 +158,14 @@ const isOn = (v) => {
 };
 /** A path as a literal glob: oxlint and minimatch read `[id]` as a character class (measured). */
 export const escapeGlob = (p) => p.replace(/[\\*?[\]{}]/g, '\\$&');
-const tagOf = (e) => (plain(e) && typeof e.message === 'string' ? TAG_RE.exec(e.message)?.[1] : undefined);
-const isGetffEntry = (o) => plain(o) && Array.isArray(o.files) && (o.files.includes(OWNED_GLOB) || o.files.includes(EXEMPT_GLOB));
+const tagOf = (e) =>
+  plain(e) && typeof e.message === 'string'
+    ? TAG_RE.exec(e.message)?.[1]
+    : undefined;
+const isGetffEntry = (o) =>
+  plain(o) &&
+  Array.isArray(o.files) &&
+  (o.files.includes(OWNED_GLOB) || o.files.includes(EXEMPT_GLOB));
 
 function indentOf(text) {
   return /\n([ \t]+)\S/.exec(text)?.[1] ?? '  ';
@@ -149,9 +203,17 @@ function jsonSpans(text) {
         for (;;) {
           ws();
           const at = i;
-          const key = open === '{' ? JSON.parse(token(/"(?:[^"\\]|\\.)*"\s*:/y).replace(/\s*:$/, '')) : undefined;
+          const key =
+            open === '{'
+              ? JSON.parse(token(/"(?:[^"\\]|\\.)*"\s*:/y).replace(/\s*:$/, ''))
+              : undefined;
           const v = value();
-          items.push({ key, lead: text.slice(from, at), head: text.slice(at, v.start), node: v });
+          items.push({
+            key,
+            lead: text.slice(from, at),
+            head: text.slice(at, v.start),
+            node: v,
+          });
           ws();
           if (text[i] === ',') from = ++i;
           else if (text[i] === close) break;
@@ -159,11 +221,19 @@ function jsonSpans(text) {
         }
         const tail = items.at(-1).node.end;
         i++;
-        return { kind: open, start, end: i, items, tail: text.slice(tail, i - 1) };
+        return {
+          kind: open,
+          start,
+          end: i,
+          items,
+          tail: text.slice(tail, i - 1),
+        };
       }
       return { kind: open, start, end: i, items, tail: '' };
     }
-    token(/"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/y);
+    token(
+      /"(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/y,
+    );
     return { kind: 'leaf', start, end: i };
   };
   const root = value();
@@ -174,7 +244,11 @@ function jsonSpans(text) {
 /** `v` as JSON text where `node` (its old version in `src`) was; `indent` is the indent of the line it starts on. */
 function emitKeeping(v, node, src, indent, unit) {
   const old = node ? src.slice(node.start, node.end) : undefined;
-  if (old !== undefined && JSON.stringify(JSON.parse(old)) === JSON.stringify(v)) return old;
+  if (
+    old !== undefined &&
+    JSON.stringify(JSON.parse(old)) === JSON.stringify(v)
+  )
+    return old;
   const kind = Array.isArray(v) ? '[' : plain(v) ? '{' : 'leaf';
   if (!node || kind === 'leaf' || node.kind !== kind || !node.items.length) {
     return JSON.stringify(v, null, unit).replace(/\n/g, `\n${indent}`);
@@ -184,15 +258,39 @@ function emitKeeping(v, node, src, indent, unit) {
   const pieces = [];
   if (kind === '{') {
     const had = new Map(node.items.map((it) => [it.key, it]));
-    for (const [k, x] of Object.entries(v)) if (!had.has(k)) pieces.push({ head: `${JSON.stringify(k)}: `, text: emitKeeping(x, undefined, src, inner, unit) });
-    for (const it of node.items) if (it.key in v) pieces.push({ lead: it.lead, head: it.head, text: emitKeeping(v[it.key], it.node, src, inner, unit) });
+    for (const [k, x] of Object.entries(v))
+      if (!had.has(k))
+        pieces.push({
+          head: `${JSON.stringify(k)}: `,
+          text: emitKeeping(x, undefined, src, inner, unit),
+        });
+    for (const it of node.items)
+      if (it.key in v)
+        pieces.push({
+          lead: it.lead,
+          head: it.head,
+          text: emitKeeping(v[it.key], it.node, src, inner, unit),
+        });
   } else {
     let n = 0;
     for (const x of v) {
-      const j = node.items.findIndex((it, k) => k >= n && JSON.stringify(JSON.parse(src.slice(it.node.start, it.node.end))) === JSON.stringify(x));
-      if (j < 0) pieces.push({ head: '', text: emitKeeping(x, undefined, src, inner, unit) });
+      const j = node.items.findIndex(
+        (it, k) =>
+          k >= n &&
+          JSON.stringify(JSON.parse(src.slice(it.node.start, it.node.end))) ===
+            JSON.stringify(x),
+      );
+      if (j < 0)
+        pieces.push({
+          head: '',
+          text: emitKeeping(x, undefined, src, inner, unit),
+        });
       else {
-        pieces.push({ lead: node.items[j].lead, head: '', text: src.slice(node.items[j].node.start, node.items[j].node.end) });
+        pieces.push({
+          lead: node.items[j].lead,
+          head: '',
+          text: src.slice(node.items[j].node.start, node.items[j].node.end),
+        });
         n = j + 1;
       }
     }
@@ -200,23 +298,45 @@ function emitKeeping(v, node, src, indent, unit) {
   if (!pieces.length) return kind === '{' ? '{}' : '[]';
   // The first item takes the first lead (`[{` stays `[{` when getff's first entry goes). After it, many lines: each
   // kept item keeps its own lead; one line: the lead goes by position (`["a", "b"]`).
-  const leadAt = (p, k) => (k === 0 ? node.items[0].lead : multi ? p.lead ?? node.items[0].lead : (node.items[1] ?? node.items[0]).lead || ' ');
+  const leadAt = (p, k) =>
+    k === 0
+      ? node.items[0].lead
+      : multi
+        ? (p.lead ?? node.items[0].lead)
+        : (node.items[1] ?? node.items[0]).lead || ' ';
   return `${kind}${pieces.map((p, k) => `${leadAt(p, k)}${p.head}${p.text}`).join(',')}${node.tail}${kind === '{' ? '}' : ']'}`;
 }
 /** `obj` written over `before` (a plain JSON text), keeping every part it does not change; see above. */
 export function keepLayout(before, obj) {
   // A CRLF file gets CRLF lines (JSON text holds no raw line break inside a string, so every \n is a line end).
-  const eol = (t) => (before.includes('\r\n') ? t.replace(/\r?\n/g, '\r\n') : t);
+  const eol = (t) =>
+    before.includes('\r\n') ? t.replace(/\r?\n/g, '\r\n') : t;
   let root;
   try {
     root = jsonSpans(before);
   } catch {
-    return eol(JSON.stringify(obj, null, indentOf(before)) + (before.endsWith('\n') ? '\n' : ''));
+    return eol(
+      JSON.stringify(obj, null, indentOf(before)) +
+        (before.endsWith('\n') ? '\n' : ''),
+    );
   }
-  if (root.kind === '{' && !root.items.length && plain(obj) && Object.keys(obj).length) {
-    return eol(before.slice(0, root.start) + JSON.stringify(obj, null, indentOf(before)) + before.slice(root.end));
+  if (
+    root.kind === '{' &&
+    !root.items.length &&
+    plain(obj) &&
+    Object.keys(obj).length
+  ) {
+    return eol(
+      before.slice(0, root.start) +
+        JSON.stringify(obj, null, indentOf(before)) +
+        before.slice(root.end),
+    );
   }
-  return eol(before.slice(0, root.start) + emitKeeping(obj, root, before, '', indentOf(before)) + before.slice(root.end));
+  return eol(
+    before.slice(0, root.start) +
+      emitKeeping(obj, root, before, '', indentOf(before)) +
+      before.slice(root.end),
+  );
 }
 /** `obj` written over `before`; an empty `rules` / `overrides` the file did not have is never added. */
 function writeLike(file, obj, before) {
@@ -229,7 +349,9 @@ function writeLike(file, obj, before) {
   const out = plain(obj) ? { ...obj } : obj;
   for (const k of plain(out) ? ['rules', 'overrides'] : []) {
     const v = out[k];
-    const empty = Array.isArray(v) ? !v.length : plain(v) && !Object.keys(v).length;
+    const empty = Array.isArray(v)
+      ? !v.length
+      : plain(v) && !Object.keys(v).length;
     if (empty && !(plain(had) && k in had)) delete out[k];
   }
   writeFileSync(file, keepLayout(before, out));
@@ -245,7 +367,14 @@ export function oxlintConfig(root) {
   return existsSync(p) ? p : null;
 }
 export function eslintConfig(root) {
-  for (const f of ['eslint.config.mjs', 'eslint.config.js', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts']) {
+  for (const f of [
+    'eslint.config.mjs',
+    'eslint.config.js',
+    'eslint.config.cjs',
+    'eslint.config.ts',
+    'eslint.config.mts',
+    'eslint.config.cts',
+  ]) {
     if (existsSync(join(root, f))) return join(root, f);
   }
   return null;
@@ -266,11 +395,18 @@ export function lintShape(root) {
     script = undefined;
   }
   if (typeof script !== 'string' || !script.trim()) return { kind: 'none' };
-  const linter = /\boxlint\b/.test(script) ? 'oxlint' : /\beslint\b/.test(script) ? 'eslint' : undefined;
+  const linter = /\boxlint\b/.test(script)
+    ? 'oxlint'
+    : /\beslint\b/.test(script)
+      ? 'eslint'
+      : undefined;
   const config = /(?:^|\s)(?:-c|--config)[ =](\S+)/.exec(script)?.[1];
-  const single = /^\s*(?:npx\s+(?:--no-install\s+)?)?(oxlint|eslint)(\s|$)/.test(script) && !/&&|\|\||;|\||`|\$\(/.test(script);
+  const single =
+    /^\s*(?:npx\s+(?:--no-install\s+)?)?(oxlint|eslint)(\s|$)/.test(script) &&
+    !/&&|\|\||;|\||`|\$\(/.test(script);
   if (!single) return { kind: 'chain', script, linter, config };
-  if (/(?:^|\s)(?:-f|--format)(?:\s|=)/.test(script)) return { kind: 'single-format', script, linter, config };
+  if (/(?:^|\s)(?:-f|--format)(?:\s|=)/.test(script))
+    return { kind: 'single-format', script, linter, config };
   return { kind: 'single', script, linter, config };
 }
 
@@ -282,14 +418,22 @@ function relFile(root, file) {
   } catch {
     /* keep root */
   }
-  return posix(file.startsWith(real + sep) ? relative(real, file) : relative(root, file));
+  return posix(
+    file.startsWith(real + sep) ? relative(real, file) : relative(root, file),
+  );
 }
 
 /** oxlint `rules-as-tests(x)` / `eslint(x)` → the id a config uses; a tagged carrier → `getff:<tag>`. */
 function idOf(code, message) {
   let id = code ?? '';
   const m = /^([a-z0-9@/_-]+)\(([^)]+)\)$/i.exec(id);
-  if (m) id = m[1] === 'eslint' ? m[2] : m[1] === 'typescript-eslint' ? `@typescript-eslint/${m[2]}` : `${m[1]}/${m[2]}`;
+  if (m)
+    id =
+      m[1] === 'eslint'
+        ? m[2]
+        : m[1] === 'typescript-eslint'
+          ? `@typescript-eslint/${m[2]}`
+          : `${m[1]}/${m[2]}`;
   if (id === CARRIER) {
     const t = TAG_RE.exec(message ?? '')?.[1];
     if (t) return `getff:${t}`;
@@ -308,15 +452,22 @@ export function parseReport(stdout, root) {
     return null;
   }
   if (plain(j) && Array.isArray(j.diagnostics)) {
-    return j.diagnostics.map((d) => ({ id: idOf(d.code, d.message), file: relFile(root, d.filename ?? ''), message: d.message ?? '', error: d.severity === 'error' }));
+    return j.diagnostics.map((d) => ({
+      id: idOf(d.code, d.message),
+      file: relFile(root, d.filename ?? ''),
+      message: d.message ?? '',
+      error: d.severity === 'error',
+    }));
   }
   if (Array.isArray(j)) {
-    return j.flatMap((f) => (f.messages ?? []).map((m) => ({
-      id: idOf(m.ruleId ?? (m.fatal ? 'parse-error' : ''), m.message),
-      file: relFile(root, f.filePath ?? ''),
-      message: m.message ?? '',
-      error: m.severity === 2,
-    })));
+    return j.flatMap((f) =>
+      (f.messages ?? []).map((m) => ({
+        id: idOf(m.ruleId ?? (m.fatal ? 'parse-error' : ''), m.message),
+        file: relFile(root, f.filePath ?? ''),
+        message: m.message ?? '',
+        error: m.severity === 2,
+      })),
+    );
   }
   return null;
 }
@@ -334,19 +485,37 @@ export function realLint(root, opts = {}) {
   } else {
     const linter = shape.linter ?? (oxlintConfig(root) ? 'oxlint' : 'eslint');
     cmd = join(root, 'node_modules/.bin', linter);
-    args = ['-f', 'json', ...(shape.config ? ['-c', shape.config] : []), ...(paths.length ? paths : linter === 'eslint' ? ['.'] : [])];
+    args = [
+      '-f',
+      'json',
+      ...(shape.config ? ['-c', shape.config] : []),
+      ...(paths.length ? paths : linter === 'eslint' ? ['.'] : []),
+    ];
     how = `node_modules/.bin/${linter} ${args.join(' ')}`;
   }
   const r = sh(cmd, args, root);
   const report = parseReport(r.stdout, root);
-  return { rc: r.rc, raw: r.stdout + r.stderr, diags: report ?? [], parsed: report !== null, how };
+  return {
+    rc: r.rc,
+    raw: r.stdout + r.stderr,
+    diags: report ?? [],
+    parsed: report !== null,
+    how,
+  };
 }
-const firstLine = (raw) => raw.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('>')) ?? '';
+const firstLine = (raw) =>
+  raw
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l && !l.startsWith('>')) ?? '';
 
 // ─── Generated carriers ─────────────────────────────────────────────────────────────────────────────
 /** The generated declarative rules (80-rule-bootstrap.sh) as carrier entries tagged with their id. */
 export function generatedCarriers(root) {
-  const p = join(root, '.ai-factory/synthesizer-output/rules-manifest-additions.json');
+  const p = join(
+    root,
+    '.ai-factory/synthesizer-output/rules-manifest-additions.json',
+  );
   if (!existsSync(p)) return [];
   let m;
   try {
@@ -355,24 +524,37 @@ export function generatedCarriers(root) {
     return [];
   }
   return Object.entries(m)
-    .filter(([, r]) => r?.check?.type === 'declarative' && (r.check.engine ?? 'eslint-restricted') === 'eslint-restricted' && r.check.selector)
+    .filter(
+      ([, r]) =>
+        r?.check?.type === 'declarative' &&
+        (r.check.engine ?? 'eslint-restricted') === 'eslint-restricted' &&
+        r.check.selector,
+    )
     .map(([id, r]) => ({
       id,
-      entry: { selector: r.check.selector, message: `[getff:${id}] ${r.check.message ?? 'forbidden construct'}` },
+      entry: {
+        selector: r.check.selector,
+        message: `[getff:${id}] ${r.check.message ?? 'forbidden construct'}`,
+      },
       examples: r.examples,
     }));
 }
 
 export function wantedTop(root) {
   const carriers = generatedCarriers(root);
-  return carriers.length ? { [CARRIER]: ['error', ...carriers.map((c) => c.entry)] } : {};
+  return carriers.length
+    ? { [CARRIER]: ['error', ...carriers.map((c) => c.entry)] }
+    : {};
 }
 
 // ─── Placement: oxlint ──────────────────────────────────────────────────────────────────────────────
 /** Remove getff's rule `id` from every getff-owned place of `cfg` (owned entries, exemptions, carriers). */
 function dropRule(cfg, id) {
   const tag = id.startsWith('getff:') ? id.slice(6) : undefined;
-  const dropCarrier = (v) => (Array.isArray(v) ? [v[0], ...v.slice(1).filter((e) => tagOf(e) !== tag)] : v);
+  const dropCarrier = (v) =>
+    Array.isArray(v)
+      ? [v[0], ...v.slice(1).filter((e) => tagOf(e) !== tag)]
+      : v;
   if (tag) {
     if (Array.isArray(cfg.rules?.[CARRIER])) {
       cfg.rules[CARRIER] = dropCarrier(cfg.rules[CARRIER]);
@@ -385,10 +567,13 @@ function dropRule(cfg, id) {
       }
     }
   } else {
-    for (const o of (cfg.overrides ?? []).filter(isGetffEntry)) if (o.rules) delete o.rules[id];
+    for (const o of (cfg.overrides ?? []).filter(isGetffEntry))
+      if (o.rules) delete o.rules[id];
   }
   // An exemption left holding only `off` for rules no longer placed has nothing to do.
-  cfg.overrides = (cfg.overrides ?? []).filter((o) => !isGetffEntry(o) || Object.keys(o.rules ?? {}).length > 0);
+  cfg.overrides = (cfg.overrides ?? []).filter(
+    (o) => !isGetffEntry(o) || Object.keys(o.rules ?? {}).length > 0,
+  );
 }
 
 /** file → Set of rule ids (a generated rule as `getff:<id>`) → getff's exemption entries, one per rule set. */
@@ -396,37 +581,59 @@ function oxlintExemptEntries(cfg, perFile) {
   const byRules = new Map();
   for (const [f, ids] of perFile) {
     const rules = {};
-    const offCarriers = [...ids].filter((i) => i.startsWith('getff:')).map((i) => i.slice(6));
+    const offCarriers = [...ids]
+      .filter((i) => i.startsWith('getff:'))
+      .map((i) => i.slice(6));
     for (const i of ids) if (!i.startsWith('getff:')) rules[i] = 'off';
     if (offCarriers.length) {
-      const rest = (cfg.rules?.[CARRIER] ?? ['error']).slice(1).filter((e) => !offCarriers.includes(tagOf(e)));
+      const rest = (cfg.rules?.[CARRIER] ?? ['error'])
+        .slice(1)
+        .filter((e) => !offCarriers.includes(tagOf(e)));
       rules[CARRIER] = rest.length ? [cfg.rules[CARRIER][0], ...rest] : 'off';
     }
     const k = JSON.stringify(rules);
     if (!byRules.has(k)) byRules.set(k, { files: [], rules });
     byRules.get(k).files.push(escapeGlob(f));
   }
-  return [...byRules.values()].map((e) => ({ files: [...e.files.sort(), EXEMPT_GLOB], rules: e.rules }));
+  return [...byRules.values()].map((e) => ({
+    files: [...e.files.sort(), EXEMPT_GLOB],
+    rules: e.rules,
+  }));
 }
 /** The other way round: getff's exemption entries of an oxlint config → file → Set of rule ids. */
 function oxlintExemptPairs(cfg) {
   const out = new Map();
-  const tags = Array.isArray(cfg.rules?.[CARRIER]) ? cfg.rules[CARRIER].slice(1).map(tagOf).filter(Boolean) : [];
-  for (const o of (cfg.overrides ?? []).filter((x) => x?.files?.includes(EXEMPT_GLOB))) {
-    for (const f of o.files.filter((x) => x !== EXEMPT_GLOB).map(unescapeGlob)) {
+  const tags = Array.isArray(cfg.rules?.[CARRIER])
+    ? cfg.rules[CARRIER].slice(1).map(tagOf).filter(Boolean)
+    : [];
+  for (const o of (cfg.overrides ?? []).filter((x) =>
+    x?.files?.includes(EXEMPT_GLOB),
+  )) {
+    for (const f of o.files
+      .filter((x) => x !== EXEMPT_GLOB)
+      .map(unescapeGlob)) {
       if (!out.has(f)) out.set(f, new Set());
       for (const [k, v] of Object.entries(o.rules ?? {})) {
         if (k === CARRIER) {
           const left = Array.isArray(v) ? v.slice(1).map(tagOf) : [];
-          for (const t of tags.filter((x) => !left.includes(x))) out.get(f).add(`getff:${t}`);
-        } else if (severity(v) === 'off' || severity(v) === 0) out.get(f).add(k);
+          for (const t of tags.filter((x) => !left.includes(x)))
+            out.get(f).add(`getff:${t}`);
+        } else if (severity(v) === 'off' || severity(v) === 0)
+          out.get(f).add(k);
       }
     }
   }
   return out;
 }
 
-export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTIME === '1', lint = realLint } = {}) {
+export function placeOxlint(
+  root,
+  {
+    stack,
+    strict = process.env.AIF_STRICT_RUNTIME === '1',
+    lint = realLint,
+  } = {},
+) {
   const file = oxlintConfig(root);
   const before = readFileSync(file, 'utf8');
   const cfg = JSON.parse(before);
@@ -435,9 +642,13 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
   const kept = [];
   cfg.rules = plain(cfg.rules) ? cfg.rules : {};
   // A re-run recomputes getff's entries: they are getff's own, never the project's.
-  cfg.overrides = (Array.isArray(cfg.overrides) ? cfg.overrides : []).filter((o) => !isGetffEntry(o));
+  cfg.overrides = (Array.isArray(cfg.overrides) ? cfg.overrides : []).filter(
+    (o) => !isGetffEntry(o),
+  );
   const projectOverrides = cfg.overrides.slice();
-  const projectSets = (rule) => rule in cfg.rules || projectOverrides.some((o) => plain(o?.rules) && rule in o.rules);
+  const projectSets = (rule) =>
+    rule in cfg.rules ||
+    projectOverrides.some((o) => plain(o?.rules) && rule in o.rules);
 
   // 1. Generated carriers — P4's helper wrote the setting on the first pass; this merges the entries a later
   //    research pass adds, by tag, and never touches a carrier setting of the project's own.
@@ -447,11 +658,16 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
     const ours = Array.isArray(cur) && cur.slice(1).some((e) => tagOf(e));
     if (cur === undefined || ours) {
       const list = Array.isArray(cur) ? cur.slice() : ['error'];
-      for (const c of carriers) if (!list.slice(1).some((e) => tagOf(e) === c.id)) list.push(c.entry);
+      for (const c of carriers)
+        if (!list.slice(1).some((e) => tagOf(e) === c.id)) list.push(c.entry);
       cfg.rules[CARRIER] = list;
       placed.push(...carriers.map((c) => `getff:${c.id}`));
     } else {
-      for (const c of carriers) notPlaced.push({ rule: `getff:${c.id}`, reason: `your config sets ${CARRIER} itself, and getff does not change a setting of yours` });
+      for (const c of carriers)
+        notPlaced.push({
+          rule: `getff:${c.id}`,
+          reason: `your config sets ${CARRIER} itself, and getff does not change a setting of yours`,
+        });
     }
   }
 
@@ -468,7 +684,12 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
       continue;
     }
     const key = JSON.stringify([r.files, r.excludeFiles ?? []]);
-    if (!groups.has(key)) groups.set(key, { files: [...r.files, OWNED_GLOB], ...(r.excludeFiles ? { excludeFiles: r.excludeFiles } : {}), rules: {} });
+    if (!groups.has(key))
+      groups.set(key, {
+        files: [...r.files, OWNED_GLOB],
+        ...(r.excludeFiles ? { excludeFiles: r.excludeFiles } : {}),
+        rules: {},
+      });
     groups.get(key).rules[r.rule] = 'error';
     placed.push(r.rule);
   }
@@ -482,7 +703,8 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
     }
   }
   const ownedEntries = [...groups.values()];
-  if (Object.keys(builtins).length) ownedEntries.push({ files: ['**/*', OWNED_GLOB], rules: builtins });
+  if (Object.keys(builtins).length)
+    ownedEntries.push({ files: ['**/*', OWNED_GLOB], rules: builtins });
   // getff's entries go before the project's: the array only grows at its start (no line of the project's changes),
   // and they set only rules the project does not set, so the order between the two never matters.
   cfg.overrides.unshift(...ownedEntries);
@@ -495,7 +717,12 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
     dropAllGetff(file);
     return {
       placed: [],
-      notPlaced: [{ rule: '*', reason: `your lint exits ${base.rc} once getff's rules are on, with no report getff can read: ${firstLine(base.raw)}` }],
+      notPlaced: [
+        {
+          rule: '*',
+          reason: `your lint exits ${base.rc} once getff's rules are on, with no report getff can read: ${firstLine(base.raw)}`,
+        },
+      ],
       kept,
       exemptFiles: 0,
       exemptViolations: 0,
@@ -509,7 +736,11 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
     if (!perFile.has(h.file)) perFile.set(h.file, new Set());
     perFile.get(h.file).add(h.id);
   }
-  cfg.overrides.splice(ownedEntries.length, 0, ...oxlintExemptEntries(cfg, perFile)); // after getff's own: they win
+  cfg.overrides.splice(
+    ownedEntries.length,
+    0,
+    ...oxlintExemptEntries(cfg, perFile),
+  ); // after getff's own: they win
   writeLike(file, cfg, before);
 
   // 5. One verify run. A rule still reporting is removed alone, with its reason — no second pass.
@@ -517,13 +748,19 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
   let lintRc = ver.rc === 0 ? 0 : null;
   if (ver.rc !== 0) {
     const still = new Map();
-    for (const d of ver.diags) if (d.error && ours.has(d.id) && !still.has(d.id)) still.set(d.id, d);
+    for (const d of ver.diags)
+      if (d.error && ours.has(d.id) && !still.has(d.id)) still.set(d.id, d);
     if (!still.size) {
       writeFileSync(file, before);
       dropAllGetff(file);
       return {
         placed: [],
-        notPlaced: [{ rule: '*', reason: `your lint exits ${ver.rc} after getff's rules and exemptions are in place, with no getff diagnostic: ${firstLine(ver.raw)}` }],
+        notPlaced: [
+          {
+            rule: '*',
+            reason: `your lint exits ${ver.rc} after getff's rules and exemptions are in place, with no getff diagnostic: ${firstLine(ver.raw)}`,
+          },
+        ],
         kept,
         exemptFiles: 0,
         exemptViolations: 0,
@@ -533,11 +770,16 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
     for (const [id, d] of still) {
       dropRule(cfg, id);
       placed.splice(placed.indexOf(id), 1);
-      notPlaced.push({ rule: id, reason: `still red after the baseline: ${d.file}: ${d.message}` });
+      notPlaced.push({
+        rule: id,
+        reason: `still red after the baseline: ${d.file}: ${d.message}`,
+      });
     }
     writeLike(file, cfg, before);
   }
-  const left = (cfg.overrides ?? []).filter((o) => o.files?.includes(EXEMPT_GLOB));
+  const left = (cfg.overrides ?? []).filter((o) =>
+    o.files?.includes(EXEMPT_GLOB),
+  );
   return {
     placed,
     notPlaced,
@@ -555,8 +797,14 @@ function eslintBlockLines(entries) {
     `  ${ESLINT_BEGIN} — existing violations of getff's rules, recorded at install; \`node scripts/prove-rules.mjs --remove\` takes this block out`,
     ...entries.map((e) =>
       e.files
-        ? `  { files: [${e.files.map(q).join(', ')}], rules: { ${Object.keys(e.rules).map((r) => `${q(r)}: 'off'`).join(', ')} } },`
-        : `  { rules: { ${Object.keys(e.rules).map((r) => `${q(r)}: 'off'`).join(', ')} } },`,
+        ? `  { files: [${e.files.map(q).join(', ')}], rules: { ${Object.keys(
+            e.rules,
+          )
+            .map((r) => `${q(r)}: 'off'`)
+            .join(', ')} } },`
+        : `  { rules: { ${Object.keys(e.rules)
+            .map((r) => `${q(r)}: 'off'`)
+            .join(', ')} } },`,
     ),
     `  ${ESLINT_END}`,
   ];
@@ -578,7 +826,10 @@ function withEslintBlock(text, block) {
     // in such a config: its closer moves to a line of its own (line breaks added, nothing removed).
     let d = lines.length - 1;
     while (d >= 0 && !lines[d].trim()) d--;
-    const m = d >= 0 ? /^(export default .*[^\s([])(\s*[\])]+\s*;?\s*)$/.exec(lines[d]) : null;
+    const m =
+      d >= 0
+        ? /^(export default .*[^\s([])(\s*[\])]+\s*;?\s*)$/.exec(lines[d])
+        : null;
     if (!m) return null;
     lines.splice(d, 1, m[1], m[2].trimStart());
     i = d + 1;
@@ -587,7 +838,10 @@ function withEslintBlock(text, block) {
   while (p >= 0 && !lines[p].trim()) p--;
   if (p >= 0 && !lines[p].trim().startsWith('//')) {
     // A trailing `// comment` stays last: the comma goes after the code, before it (outside any string).
-    const m = /^((?:[^'"`/]|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`|\/(?!\/))*?)(\s*\/\/.*)?$/.exec(lines[p]);
+    const m =
+      /^((?:[^'"`/]|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`|\/(?!\/))*?)(\s*\/\/.*)?$/.exec(
+        lines[p],
+      );
     const code = m ? m[1] : lines[p];
     const rest = m?.[2] ?? '';
     if (!/[,[(]\s*$/.test(code)) lines[p] = code.replace(/\s*$/, ',') + rest;
@@ -601,10 +855,17 @@ function eslintExemptEntries(perFile) {
   const byRules = new Map();
   for (const [f, ids] of perFile) {
     const k = JSON.stringify([...ids].sort());
-    if (!byRules.has(k)) byRules.set(k, { files: [], rules: Object.fromEntries([...ids].sort().map((i) => [i, 'off'])) });
+    if (!byRules.has(k))
+      byRules.set(k, {
+        files: [],
+        rules: Object.fromEntries([...ids].sort().map((i) => [i, 'off'])),
+      });
     byRules.get(k).files.push(escapeGlob(f));
   }
-  return [...byRules.values()].map((e) => ({ files: e.files.sort(), rules: e.rules }));
+  return [...byRules.values()].map((e) => ({
+    files: e.files.sort(),
+    rules: e.rules,
+  }));
 }
 /** getff's block in an ESLint config → its per-file pairs (file → Set of rule ids) and its file-less entries
  *  (a rule still red after the baseline, off everywhere); null when there is no block. */
@@ -613,19 +874,33 @@ function eslintExemptBlock(text) {
   const e = text.indexOf(ESLINT_END, b);
   if (b < 0 || e < 0) return null;
   const body = text.slice(b, e);
-  const strings = (s) => [...s.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((x) => x[1].replace(/\\(.)/g, '$1'));
+  const strings = (s) =>
+    [...s.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((x) =>
+      x[1].replace(/\\(.)/g, '$1'),
+    );
   const perFile = new Map();
   // The file list is read string by string: an escaped route path (`src/app/\\[id\\]/…`) holds a `]`.
-  for (const m of body.matchAll(/\{ files: \[((?:'(?:[^'\\]|\\.)*'(?:, )?)*)\], rules: \{([^}]*)\} \}/g)) {
-    const ids = [...m[2].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)].map((r) => r[1].replace(/\\(.)/g, '$1'));
+  for (const m of body.matchAll(
+    /\{ files: \[((?:'(?:[^'\\]|\\.)*'(?:, )?)*)\], rules: \{([^}]*)\} \}/g,
+  )) {
+    const ids = [...m[2].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)].map((r) =>
+      r[1].replace(/\\(.)/g, '$1'),
+    );
     for (const f of strings(m[1]).map(unescapeGlob)) {
       if (!perFile.has(f)) perFile.set(f, new Set());
       for (const id of ids) perFile.get(f).add(id);
     }
   }
-  const globals = [...body.matchAll(/^\s*\{ rules: \{([^}]*)\} \},$/gm)].map((m) => ({
-    rules: Object.fromEntries([...m[1].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)].map((r) => [r[1].replace(/\\(.)/g, '$1'), 'off'])),
-  }));
+  const globals = [...body.matchAll(/^\s*\{ rules: \{([^}]*)\} \},$/gm)].map(
+    (m) => ({
+      rules: Object.fromEntries(
+        [...m[1].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)].map((r) => [
+          r[1].replace(/\\(.)/g, '$1'),
+          'off',
+        ]),
+      ),
+    }),
+  );
   return { perFile, globals };
 }
 
@@ -633,14 +908,48 @@ export function placeEslintOwn(root, { lint = realLint } = {}) {
   const file = eslintConfig(root);
   const before = readFileSync(file, 'utf8');
   const base = lint(root, {});
-  if (base.rc === 0) return { placed: [], notPlaced: [], kept: [], exemptFiles: 0, exemptViolations: 0, lintRc: 0 };
+  if (base.rc === 0)
+    return {
+      placed: [],
+      notPlaced: [],
+      kept: [],
+      exemptFiles: 0,
+      exemptViolations: 0,
+      lintRc: 0,
+    };
   const errors = base.diags.filter((d) => d.error);
   if (!errors.length) {
-    return { placed: [], notPlaced: [{ rule: '*', reason: `existing violations not exempted: your lint exits ${base.rc} with no report getff can read: ${firstLine(base.raw)}` }], kept: [], exemptFiles: 0, exemptViolations: 0, lintRc: null };
+    return {
+      placed: [],
+      notPlaced: [
+        {
+          rule: '*',
+          reason: `existing violations not exempted: your lint exits ${base.rc} with no report getff can read: ${firstLine(base.raw)}`,
+        },
+      ],
+      kept: [],
+      exemptFiles: 0,
+      exemptViolations: 0,
+      lintRc: null,
+    };
   }
-  const own = [...new Set(errors.filter((d) => !isGetffRule(d.id)).map((d) => d.id))];
+  const own = [
+    ...new Set(errors.filter((d) => !isGetffRule(d.id)).map((d) => d.id)),
+  ];
   if (own.length) {
-    return { placed: [], notPlaced: [{ rule: '*', reason: `existing violations not exempted: your lint exits ${base.rc} on its own rules (${own.sort().join(', ')})` }], kept: [], exemptFiles: 0, exemptViolations: 0, lintRc: null };
+    return {
+      placed: [],
+      notPlaced: [
+        {
+          rule: '*',
+          reason: `existing violations not exempted: your lint exits ${base.rc} on its own rules (${own.sort().join(', ')})`,
+        },
+      ],
+      kept: [],
+      exemptFiles: 0,
+      exemptViolations: 0,
+      lintRc: null,
+    };
   }
   const perFile = new Map();
   for (const d of errors) {
@@ -650,22 +959,60 @@ export function placeEslintOwn(root, { lint = realLint } = {}) {
   const entries = eslintExemptEntries(perFile);
   const next = withEslintBlock(before, eslintBlockLines(entries));
   if (next === null) {
-    return { placed: [], notPlaced: [{ rule: '*', reason: `existing violations not exempted: getff found no closing \`];\` / \`);\` line in ${relative(root, file)} to put its block before` }], kept: [], exemptFiles: 0, exemptViolations: 0, lintRc: null };
+    return {
+      placed: [],
+      notPlaced: [
+        {
+          rule: '*',
+          reason: `existing violations not exempted: getff found no closing \`];\` / \`);\` line in ${relative(root, file)} to put its block before`,
+        },
+      ],
+      kept: [],
+      exemptFiles: 0,
+      exemptViolations: 0,
+      lintRc: null,
+    };
   }
   writeFileSync(file, next);
   const ver = lint(root, {});
-  if (ver.rc === 0) return { placed: [], notPlaced: [], kept: [], exemptFiles: perFile.size, exemptViolations: errors.length, lintRc: 0 };
+  if (ver.rc === 0)
+    return {
+      placed: [],
+      notPlaced: [],
+      kept: [],
+      exemptFiles: perFile.size,
+      exemptViolations: errors.length,
+      lintRc: 0,
+    };
   const still = new Map();
-  for (const d of ver.diags) if (d.error && isGetffRule(d.id) && !still.has(d.id)) still.set(d.id, d);
+  for (const d of ver.diags)
+    if (d.error && isGetffRule(d.id) && !still.has(d.id)) still.set(d.id, d);
   if (!still.size) {
     writeFileSync(file, before);
-    return { placed: [], notPlaced: [{ rule: '*', reason: `existing violations not exempted: your lint exits ${ver.rc} with getff's block in place and no getff diagnostic: ${firstLine(ver.raw)}` }], kept: [], exemptFiles: 0, exemptViolations: 0, lintRc: null };
+    return {
+      placed: [],
+      notPlaced: [
+        {
+          rule: '*',
+          reason: `existing violations not exempted: your lint exits ${ver.rc} with getff's block in place and no getff diagnostic: ${firstLine(ver.raw)}`,
+        },
+      ],
+      kept: [],
+      exemptFiles: 0,
+      exemptViolations: 0,
+      lintRc: null,
+    };
   }
-  entries.push({ rules: Object.fromEntries([...still.keys()].map((i) => [i, 'off'])) });
+  entries.push({
+    rules: Object.fromEntries([...still.keys()].map((i) => [i, 'off'])),
+  });
   writeFileSync(file, withEslintBlock(before, eslintBlockLines(entries)));
   return {
     placed: [],
-    notPlaced: [...still].map(([id, d]) => ({ rule: id, reason: `switched off by getff's block: still red after the baseline: ${d.file}: ${d.message}` })),
+    notPlaced: [...still].map(([id, d]) => ({
+      rule: id,
+      reason: `switched off by getff's block: still red after the baseline: ${d.file}: ${d.message}`,
+    })),
     kept: [],
     exemptFiles: perFile.size,
     exemptViolations: errors.length,
@@ -688,7 +1035,10 @@ function dropAllGetff(file) {
   if (Array.isArray(cfg.overrides)) {
     const n = cfg.overrides.length;
     cfg.overrides = cfg.overrides.filter((o) => !isGetffEntry(o));
-    if (cfg.overrides.length < n) removed.push(`${n - cfg.overrides.length} overrides entries marked ${OWNED_GLOB} / ${EXEMPT_GLOB}`);
+    if (cfg.overrides.length < n)
+      removed.push(
+        `${n - cfg.overrides.length} overrides entries marked ${OWNED_GLOB} / ${EXEMPT_GLOB}`,
+      );
     if (n && !cfg.overrides.length) delete cfg.overrides; // emptied by this removal; the project's own `[]` stays
   }
   if (plain(cfg.rules)) {
@@ -718,7 +1068,11 @@ export function removeGetff(root) {
   const ox = oxlintConfig(root);
   if (ox) {
     const removed = dropAllGetff(ox);
-    lines.push(removed.length ? `removed from .oxlintrc.json: ${removed.join('; ')}` : 'nothing of getff in .oxlintrc.json — left as it was');
+    lines.push(
+      removed.length
+        ? `removed from .oxlintrc.json: ${removed.join('; ')}`
+        : 'nothing of getff in .oxlintrc.json — left as it was',
+    );
   }
   const es = eslintConfig(root);
   if (es) {
@@ -727,10 +1081,16 @@ export function removeGetff(root) {
     const rel = posix(relative(root, es));
     if (next !== text) {
       writeFileSync(es, next);
-      lines.push(`removed from ${rel}: getff's exemption block (${ESLINT_BEGIN} … ${ESLINT_END})`);
-    } else lines.push(`nothing of getff's exemptions in ${rel} — left as it was`);
+      lines.push(
+        `removed from ${rel}: getff's exemption block (${ESLINT_BEGIN} … ${ESLINT_END})`,
+      );
+    } else
+      lines.push(`nothing of getff's exemptions in ${rel} — left as it was`);
   }
-  if (!lines.length) lines.push('nothing of getff to remove: no .oxlintrc.json and no eslint.config.* here');
+  if (!lines.length)
+    lines.push(
+      'nothing of getff to remove: no .oxlintrc.json and no eslint.config.* here',
+    );
   return lines;
 }
 
@@ -740,7 +1100,12 @@ function pluginSamples(root, name) {
   if (!existsSync(dir)) return undefined;
   const pick = (kind) => {
     const f = readdirSync(dir).find((x) => x.startsWith(`${name}.${kind}.`));
-    return f ? { text: readFileSync(join(dir, f), 'utf8'), ext: f.endsWith('.tsx.txt') || f.endsWith('.tsx') ? 'tsx' : 'ts' } : undefined;
+    return f
+      ? {
+          text: readFileSync(join(dir, f), 'utf8'),
+          ext: f.endsWith('.tsx.txt') || f.endsWith('.tsx') ? 'tsx' : 'ts',
+        }
+      : undefined;
   };
   const bad = pick('bad');
   const good = pick('good');
@@ -749,11 +1114,19 @@ function pluginSamples(root, name) {
 function samplesFor(root, id, carriers) {
   if (id.startsWith('getff:')) {
     const ex = carriers.find((c) => c.id === id.slice(6))?.examples;
-    return ex?.bad && ex?.good ? { bad: { text: ex.bad + '\n', ext: 'ts' }, good: { text: ex.good + '\n', ext: 'ts' } } : undefined;
+    return ex?.bad && ex?.good
+      ? {
+          bad: { text: ex.bad + '\n', ext: 'ts' },
+          good: { text: ex.good + '\n', ext: 'ts' },
+        }
+      : undefined;
   }
-  if (id.startsWith('rules-as-tests/')) return pluginSamples(root, id.slice('rules-as-tests/'.length));
+  if (id.startsWith('rules-as-tests/'))
+    return pluginSamples(root, id.slice('rules-as-tests/'.length));
   const b = BUILTIN_SAMPLES[id];
-  return b ? { bad: { text: b.bad, ext: 'ts' }, good: { text: b.good, ext: 'ts' } } : undefined;
+  return b
+    ? { bad: { text: b.bad, ext: 'ts' }, good: { text: b.good, ext: 'ts' } }
+    : undefined;
 }
 
 /** The rules getff placed and the project's command runs, with where each one lives. */
@@ -762,20 +1135,42 @@ const warnOnly = (v) => severity(v) === 'warn' || severity(v) === 1;
 function placedOxlint(root) {
   const cfg = readJson(oxlintConfig(root));
   const out = new Map();
-  const home = (k, own) => (k.startsWith('rules-as-tests/') ? `oxlint jsPlugin ${k}` : `oxlint built-in ${k}${own ? ' (your setting)' : ''}`);
-  for (const o of (cfg.overrides ?? []).filter((x) => x?.files?.includes(OWNED_GLOB))) {
+  const home = (k, own) =>
+    k.startsWith('rules-as-tests/')
+      ? `oxlint jsPlugin ${k}`
+      : `oxlint built-in ${k}${own ? ' (your setting)' : ''}`;
+  for (const o of (cfg.overrides ?? []).filter((x) =>
+    x?.files?.includes(OWNED_GLOB),
+  )) {
     for (const [k, v] of Object.entries(o.rules ?? {})) {
-      const globs = { files: o.files.filter((f) => f !== OWNED_GLOB), excludeFiles: o.excludeFiles ?? [] };
-      out.set(k, isOn(v) ? { id: k, home: home(k), warnOnly: warnOnly(v), globs } : { id: k, home: home(k), off: true });
+      const globs = {
+        files: o.files.filter((f) => f !== OWNED_GLOB),
+        excludeFiles: o.excludeFiles ?? [],
+      };
+      out.set(
+        k,
+        isOn(v)
+          ? { id: k, home: home(k), warnOnly: warnOnly(v), globs }
+          : { id: k, home: home(k), off: true },
+      );
     }
   }
   for (const [k, v] of Object.entries(cfg.rules ?? {})) {
     if (k === CARRIER && Array.isArray(v)) {
       for (const e of v.slice(1)) {
         const t = tagOf(e);
-        if (t) out.set(`getff:${t}`, { id: `getff:${t}`, home: `oxlint jsPlugin ${CARRIER} [getff:${t}]`, warnOnly: warnOnly(v) });
+        if (t)
+          out.set(`getff:${t}`, {
+            id: `getff:${t}`,
+            home: `oxlint jsPlugin ${CARRIER} [getff:${t}]`,
+            warnOnly: warnOnly(v),
+          });
       }
-    } else if ((k.startsWith('rules-as-tests/') || BUILTINS.includes(k)) && isOn(v) && !out.has(k)) {
+    } else if (
+      (k.startsWith('rules-as-tests/') || BUILTINS.includes(k)) &&
+      isOn(v) &&
+      !out.has(k)
+    ) {
       out.set(k, { id: k, home: home(k, true), warnOnly: warnOnly(v) });
     }
   }
@@ -786,13 +1181,25 @@ const carrierMessage = (c) => c.entry.message.replace(TAG_RE, '');
 function placedEslint(root, sampleDir, carriers) {
   const stack = recordField(root, 'stack');
   const bin = join(root, 'node_modules/.bin/eslint');
-  const stackRules = (STACK_RULES[stack] ?? []).filter((r) => !r.notPlaced && r.rule !== CARRIER);
-  const cands = [...stackRules.map((r) => ({ id: r.rule, files: r.files, excludeFiles: r.excludeFiles ?? [] })), ...BUILTINS.map((b) => ({ id: b, files: ['**/*'] }))];
+  const stackRules = (STACK_RULES[stack] ?? []).filter(
+    (r) => !r.notPlaced && r.rule !== CARRIER,
+  );
+  const cands = [
+    ...stackRules.map((r) => ({
+      id: r.rule,
+      files: r.files,
+      excludeFiles: r.excludeFiles ?? [],
+    })),
+    ...BUILTINS.map((b) => ({ id: b, files: ['**/*'] })),
+  ];
   const configs = new Map();
   const configFor = (rel) => {
     if (!configs.has(rel)) {
       try {
-        configs.set(rel, JSON.parse(sh(bin, ['--print-config', rel], root).stdout).rules ?? {});
+        configs.set(
+          rel,
+          JSON.parse(sh(bin, ['--print-config', rel], root).stdout).rules ?? {},
+        );
       } catch {
         configs.set(rel, {});
       }
@@ -801,22 +1208,59 @@ function placedEslint(root, sampleDir, carriers) {
   };
   const out = [];
   for (const c of cands) {
-    const rel = sampleRelFor(c.files, c.id, samplesFor(root, c.id, carriers)?.bad.ext ?? 'ts', sampleDir);
+    const rel = sampleRelFor(
+      c.files,
+      c.id,
+      samplesFor(root, c.id, carriers)?.bad.ext ?? 'ts',
+      sampleDir,
+    );
     if (!rel) {
-      out.push({ id: c.id, home: `eslint ${c.id}`, unreachable: `its files globs (${c.files.join(', ')}) name no path the proof writes into` });
+      out.push({
+        id: c.id,
+        home: `eslint ${c.id}`,
+        unreachable: `its files globs (${c.files.join(', ')}) name no path the proof writes into`,
+      });
       continue;
     }
     const setting = configFor(rel)[c.id];
-    if (isOn(setting)) out.push({ id: c.id, home: `eslint ${c.id}`, rel, warnOnly: warnOnly(setting), globs: { files: c.files, excludeFiles: c.excludeFiles ?? [] } });
+    if (isOn(setting))
+      out.push({
+        id: c.id,
+        home: `eslint ${c.id}`,
+        rel,
+        warnOnly: warnOnly(setting),
+        globs: { files: c.files, excludeFiles: c.excludeFiles ?? [] },
+      });
   }
   // A generated rule is on where the carrier's options hold its message: the plain sample path first, then
   // one path under each stack rule's globs (getff's own config switches the carrier on boundary globs).
-  const paths = [posix(join(sampleDir, 'x.bad.ts')), ...stackRules.map((r) => sampleRelFor(r.files, 'x', 'ts', sampleDir)).filter(Boolean)];
+  const paths = [
+    posix(join(sampleDir, 'x.bad.ts')),
+    ...stackRules
+      .map((r) => sampleRelFor(r.files, 'x', 'ts', sampleDir))
+      .filter(Boolean),
+  ];
   for (const c of carriers) {
     for (const rel of paths) {
       const v = configFor(rel)[CARRIER];
-      if (isOn(v) && Array.isArray(v) && v.slice(1).some((e) => plain(e) && (e.message === c.entry.message || e.message === carrierMessage(c)))) {
-        out.push({ id: `getff:${c.id}`, home: `eslint ${CARRIER} (message of ${c.id})`, rel: rel.replace(/x\.bad\.ts$/, `${c.id}.bad.ts`), warnOnly: warnOnly(v) });
+      if (
+        isOn(v) &&
+        Array.isArray(v) &&
+        v
+          .slice(1)
+          .some(
+            (e) =>
+              plain(e) &&
+              (e.message === c.entry.message ||
+                e.message === carrierMessage(c)),
+          )
+      ) {
+        out.push({
+          id: `getff:${c.id}`,
+          home: `eslint ${CARRIER} (message of ${c.id})`,
+          rel: rel.replace(/x\.bad\.ts$/, `${c.id}.bad.ts`),
+          warnOnly: warnOnly(v),
+        });
         break;
       }
     }
@@ -830,14 +1274,20 @@ function sampleRelFor(globs, id, ext, sampleDir) {
     const parts = g.slice(3).split('/');
     const last = parts.pop();
     // `**/*` names no extension: the sample keeps its own (a `.*` path matches no config entry).
-    const alts = last === '*' ? [ext] : (/\{([^}]*)\}/.exec(last)?.[1]?.split(',') ?? [last.replace(/^\*\./, '')]);
+    const alts =
+      last === '*'
+        ? [ext]
+        : (/\{([^}]*)\}/.exec(last)?.[1]?.split(',') ?? [
+            last.replace(/^\*\./, ''),
+          ]);
     const e = alts.includes(ext) ? ext : alts[0].replace(/^\*\./, '');
     const dirs = parts.map((p) => (p === '**' || p === '*' ? 'x' : p));
     return posix(join(sampleDir, ...dirs, `${safeName(id)}.bad.${e}`));
   }
   return undefined;
 }
-const safeName = (id) => id.replace(/^rules-as-tests\//, '').replace(/[^A-Za-z0-9_.-]/g, '_');
+const safeName = (id) =>
+  id.replace(/^rules-as-tests\//, '').replace(/[^A-Za-z0-9_.-]/g, '_');
 
 function sampleBase(root) {
   return existsSync(join(root, 'src')) ? 'src' : '.';
@@ -848,7 +1298,8 @@ function excludeOnce(root, name = `${PROOF_DIR}/`) {
   const p = resolve(root, r.stdout.trim());
   mkdirSync(dirname(p), { recursive: true });
   const text = existsSync(p) ? readFileSync(p, 'utf8') : '';
-  if (!text.split('\n').includes(name)) appendFileSync(p, `${text && !text.endsWith('\n') ? '\n' : ''}${name}\n`);
+  if (!text.split('\n').includes(name))
+    appendFileSync(p, `${text && !text.endsWith('\n') ? '\n' : ''}${name}\n`);
 }
 
 /** Every placed rule's bad and good example through the project's own lint command.
@@ -856,17 +1307,32 @@ function excludeOnce(root, name = `${PROOF_DIR}/`) {
  *  An outcome: { kind: off | unreachable | no-samples | silent | good-rejected | proved | by-exit | by-exit-failed,
  *  detail, proof }. */
 export function runProof(root, { lint = realLint } = {}) {
-  const linter = oxlintConfig(root) ? 'oxlint' : eslintConfig(root) ? 'eslint' : undefined;
-  if (!linter) return { early: 'no .oxlintrc.json and no eslint.config.* in this project' };
+  const linter = oxlintConfig(root)
+    ? 'oxlint'
+    : eslintConfig(root)
+      ? 'eslint'
+      : undefined;
+  if (!linter)
+    return {
+      early: 'no .oxlintrc.json and no eslint.config.* in this project',
+    };
   if (linter === 'oxlint') {
     try {
-      if (!plain(readJson(oxlintConfig(root)))) throw new SyntaxError('not an object');
+      if (!plain(readJson(oxlintConfig(root))))
+        throw new SyntaxError('not an object');
     } catch {
-      return { early: '.oxlintrc.json is not plain JSON (oxlint allows comments; getff reads and edits only plain JSON), so getff placed no rule in it' };
+      return {
+        early:
+          '.oxlintrc.json is not plain JSON (oxlint allows comments; getff reads and edits only plain JSON), so getff placed no rule in it',
+      };
     }
   }
   const shape = lintShape(root);
-  if (shape.kind === 'none') return { early: "package.json has no lint script, and getff proves a rule only through the project's own lint command" };
+  if (shape.kind === 'none')
+    return {
+      early:
+        "package.json has no lint script, and getff proves a rule only through the project's own lint command",
+    };
   const base = sampleBase(root);
   const dirRel = posix(join(base, PROOF_DIR));
   const dirAbs = join(root, dirRel);
@@ -882,18 +1348,42 @@ export function runProof(root, { lint = realLint } = {}) {
   process.once('SIGTERM', onSignal);
   try {
     const carriers = generatedCarriers(root);
-    const rules = linter === 'oxlint' ? placedOxlint(root) : placedEslint(root, dirRel, carriers);
+    const rules =
+      linter === 'oxlint'
+        ? placedOxlint(root)
+        : placedEslint(root, dirRel, carriers);
     const outcomes = new Map();
     const todo = [];
     for (const r of rules) {
-      if (r.off) outcomes.set(r.id, { kind: 'off', detail: 'switched off in the config', proof: '—' });
-      else if (r.unreachable) outcomes.set(r.id, { kind: 'unreachable', detail: `not proved: ${r.unreachable}`, proof: '—' });
+      if (r.off)
+        outcomes.set(r.id, {
+          kind: 'off',
+          detail: 'switched off in the config',
+          proof: '—',
+        });
+      else if (r.unreachable)
+        outcomes.set(r.id, {
+          kind: 'unreachable',
+          detail: `not proved: ${r.unreachable}`,
+          proof: '—',
+        });
       else {
         const s = samplesFor(root, r.id, carriers);
-        if (!s) outcomes.set(r.id, { kind: 'no-samples', detail: 'getff has no bad/good example for it', proof: '—' });
+        if (!s)
+          outcomes.set(r.id, {
+            kind: 'no-samples',
+            detail: 'getff has no bad/good example for it',
+            proof: '—',
+          });
         else {
-          const bad = r.rel ?? posix(join(dirRel, `${safeName(r.id)}.bad.${s.bad.ext}`));
-          todo.push({ ...r, s, bad, good: bad.replace(/\.bad\.([a-z]+)$/, `.good.${s.good.ext}`) });
+          const bad =
+            r.rel ?? posix(join(dirRel, `${safeName(r.id)}.bad.${s.bad.ext}`));
+          todo.push({
+            ...r,
+            s,
+            bad,
+            good: bad.replace(/\.bad\.([a-z]+)$/, `.good.${s.good.ext}`),
+          });
         }
       }
     }
@@ -902,15 +1392,20 @@ export function runProof(root, { lint = realLint } = {}) {
       writeFileSync(join(root, rel), text);
     };
     // An untagged carrier diagnostic (getff's ESLint config) belongs to the generated rule with that message.
-    const attribute = (diags) => diags.map((d) => {
-      if (d.id !== CARRIER) return d;
-      const c = carriers.find((x) => d.message === x.entry.message || d.message === carrierMessage(x));
-      return c ? { ...d, id: `getff:${c.id}` } : d;
-    });
+    const attribute = (diags) =>
+      diags.map((d) => {
+        if (d.id !== CARRIER) return d;
+        const c = carriers.find(
+          (x) =>
+            d.message === x.entry.message || d.message === carrierMessage(x),
+        );
+        return c ? { ...d, id: `getff:${c.id}` } : d;
+      });
     let summary = '';
     if (todo.length && shape.kind === 'single-format') {
       // One linter call that sets its own output format: no JSON, so one run per rule, by exit code.
-      const script = (paths) => sh('npm', ['run', '--silent', 'lint', '--', ...paths], root).rc;
+      const script = (paths) =>
+        sh('npm', ['run', '--silent', 'lint', '--', ...paths], root).rc;
       const perRule = new Map();
       for (const t of todo) {
         clean();
@@ -923,7 +1418,16 @@ export function runProof(root, { lint = realLint } = {}) {
       for (const t of todo) {
         const b = perRule.get(t.id);
         const proof = `bad→exit ${b} · good→exit ${goodRc}, by exit code (the lint script sets its own output format)`;
-        outcomes.set(t.id, b !== 0 && goodRc === 0 ? { kind: 'by-exit', detail: '', proof } : { kind: 'by-exit-failed', detail: `bad → exit ${b} · good → exit ${goodRc}`, proof });
+        outcomes.set(
+          t.id,
+          b !== 0 && goodRc === 0
+            ? { kind: 'by-exit', detail: '', proof }
+            : {
+                kind: 'by-exit-failed',
+                detail: `bad → exit ${b} · good → exit ${goodRc}`,
+                proof,
+              },
+        );
       }
       summary = `bad samples → exit per rule · good batch → exit ${goodRc} (npm run lint -- <sample> in ${dirRel}, once per rule: the lint script sets its own output format)`;
     } else if (todo.length) {
@@ -936,18 +1440,39 @@ export function runProof(root, { lint = realLint } = {}) {
       const g = lint(root, { paths: todo.map((t) => t.good) });
       const bd = attribute(b.diags);
       const gd = attribute(g.diags);
-      const how = (b.how ?? '').replace(/ \S*__getff_proof__\S*(?: \S*__getff_proof__\S*)*$/, ` <${todo.length} samples in ${dirRel}>`);
+      const how = (b.how ?? '').replace(
+        / \S*__getff_proof__\S*(?: \S*__getff_proof__\S*)*$/,
+        ` <${todo.length} samples in ${dirRel}>`,
+      );
       summary = `bad batch → exit ${b.rc} · good batch → exit ${g.rc} (${how})`;
       for (const t of todo) {
         const fired = bd.some((d) => d.id === t.id && d.file === t.bad);
-        const onGood = [...new Set(gd.filter((d) => d.file === t.good && d.error).map((d) => d.id))];
+        const onGood = [
+          ...new Set(
+            gd.filter((d) => d.file === t.good && d.error).map((d) => d.id),
+          ),
+        ];
         if (!fired) {
-          const said = bd.filter((d) => d.file === t.bad).map((d) => d.message)[0];
-          outcomes.set(t.id, { kind: 'silent', detail: `no diagnostic on the bad example${said ? ` (the linter said: ${said})` : ''}`, proof: `bad→exit ${b.rc}, no diagnostic of this rule · good→exit ${g.rc}` });
+          const said = bd
+            .filter((d) => d.file === t.bad)
+            .map((d) => d.message)[0];
+          outcomes.set(t.id, {
+            kind: 'silent',
+            detail: `no diagnostic on the bad example${said ? ` (the linter said: ${said})` : ''}`,
+            proof: `bad→exit ${b.rc}, no diagnostic of this rule · good→exit ${g.rc}`,
+          });
         } else if (onGood.length) {
-          outcomes.set(t.id, { kind: 'good-rejected', detail: `good example rejected by ${onGood.join(', ')}`, proof: `bad→exit ${b.rc}, its own diagnostic · good→exit ${g.rc}, rejected by ${onGood.join(', ')}` });
+          outcomes.set(t.id, {
+            kind: 'good-rejected',
+            detail: `good example rejected by ${onGood.join(', ')}`,
+            proof: `bad→exit ${b.rc}, its own diagnostic · good→exit ${g.rc}, rejected by ${onGood.join(', ')}`,
+          });
         } else {
-          outcomes.set(t.id, { kind: 'proved', detail: '', proof: `bad→exit ${b.rc}, its own diagnostic · good→exit ${g.rc}, clean` });
+          outcomes.set(t.id, {
+            kind: 'proved',
+            detail: '',
+            proof: `bad→exit ${b.rc}, its own diagnostic · good→exit ${g.rc}, clean`,
+          });
         }
       }
     }
@@ -977,16 +1502,32 @@ export function readBaseCore(root) {
   if (!existsSync(p)) return null;
   const lines = readFileSync(p, 'utf8').split('\n');
   const h = lines.findIndex((l) => /^\| id \| principle \|/.test(l));
-  if (h < 0) throw new Error(`base-core.md: no table with an «id | principle» header in ${BASE_CORE}`);
-  const cells = (l) => l.slice(1, l.lastIndexOf('|')).split('|').map((s) => s.trim().replace(/^`(.*)`$/, '$1'));
+  if (h < 0)
+    throw new Error(
+      `base-core.md: no table with an «id | principle» header in ${BASE_CORE}`,
+    );
+  const cells = (l) =>
+    l
+      .slice(1, l.lastIndexOf('|'))
+      .split('|')
+      .map((s) => s.trim().replace(/^`(.*)`$/, '$1'));
   const head = cells(lines[h]);
   const col = (name) => head.indexOf(name);
   const out = [];
   for (let i = h + 2; i < lines.length && lines[i].startsWith('|'); i++) {
     const c = cells(lines[i]);
     const status = c[col('status')];
-    if (!STATUSES.includes(status)) throw new Error(`base-core.md row ${c[0]}: status «${status}» is not one of ${STATUSES.join(' | ')}`);
-    out.push({ id: c[0], status, reason: c[col('reason')], plugin: c[col('plugin rule')], notOnStack: c[col('not on stack')].split(',').map((s) => s.trim()) });
+    if (!STATUSES.includes(status))
+      throw new Error(
+        `base-core.md row ${c[0]}: status «${status}» is not one of ${STATUSES.join(' | ')}`,
+      );
+    out.push({
+      id: c[0],
+      status,
+      reason: c[col('reason')],
+      plugin: c[col('plugin rule')],
+      notOnStack: c[col('not on stack')].split(',').map((s) => s.trim()),
+    });
   }
   return out;
 }
@@ -996,13 +1537,18 @@ function readRecord(root) {
   const p = join(root, '.ai-factory/tool-decisions.md');
   if (!existsSync(p)) return null;
   const text = readFileSync(p, 'utf8').replace(/\r/g, '');
-  const m = /<!-- aif:project-checks:begin -->\n([\s\S]*?)<!-- aif:project-checks:end -->/.exec(text);
+  const m =
+    /<!-- aif:project-checks:begin -->\n([\s\S]*?)<!-- aif:project-checks:end -->/.exec(
+      text,
+    );
   if (!m) return null;
   const rec = { fields: {}, lines: [], armed: [], notArmed: [] };
   let section = null;
   for (const l of m[1].split('\n')) {
-    if (l === 'armed:' || l === 'not-armed:') section = l === 'armed:' ? rec.armed : rec.notArmed;
-    else if (section && l.startsWith('- ')) section.push(l.slice(2).replace(/ # .*$/, ''));
+    if (l === 'armed:' || l === 'not-armed:')
+      section = l === 'armed:' ? rec.armed : rec.notArmed;
+    else if (section && l.startsWith('- '))
+      section.push(l.slice(2).replace(/ # .*$/, ''));
     else if (!section && /^[a-z-]+: /.test(l)) {
       rec.lines.push(l);
       const [k, ...v] = l.split(': ');
@@ -1013,34 +1559,57 @@ function readRecord(root) {
 }
 function sidecar(root) {
   const r = sh('git', ['rev-parse', '--absolute-git-dir'], root);
-  const p = r.rc === 0 ? join(r.stdout.trim(), 'getff-armed.local') : join(root, '.ai-factory/project-checks.local');
+  const p =
+    r.rc === 0
+      ? join(r.stdout.trim(), 'getff-armed.local')
+      : join(root, '.ai-factory/project-checks.local');
   let rel = posix(relative(root, p));
   try {
-    rel = posix(relative(realpathSync(root), realpathSync(dirname(p)))) + '/' + 'getff-armed.local';
+    rel =
+      posix(relative(realpathSync(root), realpathSync(dirname(p)))) +
+      '/' +
+      'getff-armed.local';
   } catch {
     /* keep rel */
   }
-  return { rel: rel.replace(/^\.\//, ''), lines: existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(Boolean) : [] };
+  return {
+    rel: rel.replace(/^\.\//, ''),
+    lines: existsSync(p)
+      ? readFileSync(p, 'utf8').split('\n').filter(Boolean)
+      : [],
+  };
 }
 
 /** The steps that run the project's lint: husky's pre-commit (directly or through lint-staged), pre-push, CI. */
 function lintChannels(root) {
-  const read = (rel) => (existsSync(join(root, rel)) ? readFileSync(join(root, rel), 'utf8') : '');
-  const runsLint = (t) => t.includes(LINT_CMD) || /run-armed\.sh validate\b/.test(t);
+  const read = (rel) =>
+    existsSync(join(root, rel)) ? readFileSync(join(root, rel), 'utf8') : '';
+  const runsLint = (t) =>
+    t.includes(LINT_CMD) || /run-armed\.sh validate\b/.test(t);
   const out = [];
   const pre = read('.husky/pre-commit');
   let staged = read('.lintstagedrc.json') + read('.lintstagedrc');
   try {
-    staged += JSON.stringify(readJson(join(root, 'package.json'))['lint-staged'] ?? '');
+    staged += JSON.stringify(
+      readJson(join(root, 'package.json'))['lint-staged'] ?? '',
+    );
   } catch {
     /* no package.json */
   }
-  if (/\blint-staged\b/.test(pre) && (staged.includes(`'${LINT_CMD}'`) || /\b(oxlint|eslint)\b/.test(staged))) out.push('pre-commit (lint-staged)');
+  if (
+    /\blint-staged\b/.test(pre) &&
+    (staged.includes(`'${LINT_CMD}'`) || /\b(oxlint|eslint)\b/.test(staged))
+  )
+    out.push('pre-commit (lint-staged)');
   if (runsLint(pre)) out.push('pre-commit');
   if (runsLint(read('.husky/pre-push'))) out.push('pre-push');
   const wf = join(root, '.github/workflows');
   if (existsSync(wf)) {
-    for (const f of readdirSync(wf).filter((x) => /\.ya?ml$/.test(x)).sort()) if (runsLint(read(`.github/workflows/${f}`))) out.push(`CI (.github/workflows/${f})`);
+    for (const f of readdirSync(wf)
+      .filter((x) => /\.ya?ml$/.test(x))
+      .sort())
+      if (runsLint(read(`.github/workflows/${f}`)))
+        out.push(`CI (.github/workflows/${f})`);
   }
   return out;
 }
@@ -1070,7 +1639,11 @@ function globRe(g) {
       i++;
     } else if (c === '{' && g.indexOf('}', i) > i) {
       const j = g.indexOf('}', i);
-      re += `(?:${g.slice(i + 1, j).split(',').map(reEscape).join('|')})`;
+      re += `(?:${g
+        .slice(i + 1, j)
+        .split(',')
+        .map(reEscape)
+        .join('|')})`;
       i = j + 1;
     } else {
       re += reEscape(c);
@@ -1083,9 +1656,15 @@ const unescapeGlob = (p) => p.replace(/\\(.)/g, '$1');
 /** The project's source files as git lists them (tracked and untracked, ignores applied). oxlint exposes no
  *  file listing, so «M files the rule's globs match» counts these, not the linter's own list. */
 function sourceFiles(root) {
-  const r = sh('git', ['ls-files', '--cached', '--others', '--exclude-standard'], root);
+  const r = sh(
+    'git',
+    ['ls-files', '--cached', '--others', '--exclude-standard'],
+    root,
+  );
   if (r.rc !== 0) return null;
-  return r.stdout.split('\n').filter((f) => /\.[cm]?[jt]sx?$/.test(f) && !f.includes(`${PROOF_DIR}/`));
+  return r.stdout
+    .split('\n')
+    .filter((f) => /\.[cm]?[jt]sx?$/.test(f) && !f.includes(`${PROOF_DIR}/`));
 }
 
 /** The existing violations getff exempted, per rule id → sorted file list. */
@@ -1096,14 +1675,17 @@ function exemptions(root, linter) {
     out.get(id).add(f);
   };
   if (linter === 'oxlint') {
-    for (const [f, ids] of oxlintExemptPairs(readJson(oxlintConfig(root)))) for (const id of ids) add(id, f);
+    for (const [f, ids] of oxlintExemptPairs(readJson(oxlintConfig(root))))
+      for (const id of ids) add(id, f);
   } else if (linter === 'eslint') {
     const block = eslintExemptBlock(readFileSync(eslintConfig(root), 'utf8'));
-    for (const [f, ids] of block?.perFile ?? []) for (const id of ids) add(id, f);
+    for (const [f, ids] of block?.perFile ?? [])
+      for (const id of ids) add(id, f);
     const sup = join(root, 'eslint-suppressions.json');
     if (existsSync(sup)) {
       try {
-        for (const [f, rules] of Object.entries(readJson(sup))) for (const id of Object.keys(rules ?? {})) add(id, f);
+        for (const [f, rules] of Object.entries(readJson(sup)))
+          for (const id of Object.keys(rules ?? {})) add(id, f);
       } catch {
         /* unreadable suppressions: nothing listed */
       }
@@ -1115,34 +1697,92 @@ function exemptions(root, linter) {
 /** The research side: dropped, research-only and not-generated entries, from the record and the plan. */
 function researchRows(root, stack, rec, manifest) {
   const planRel = `.ai-factory/rules-research/${stack}.research.json`;
-  const row = (rule, principle, reason) => ({ rule, principle, home: '—', status: 'not_wired', reason, proof: '—', reached: '—' });
+  const row = (rule, principle, reason) => ({
+    rule,
+    principle,
+    home: '—',
+    status: 'not_wired',
+    reason,
+    proof: '—',
+    reached: '—',
+  });
   const lines = rec?.lines ?? [];
   const rejected = lines.find((l) => l.startsWith('research-rejected: '));
-  if (!existsSync(join(root, planRel))) return { rows: [row('research', '—', `not done: no ${planRel}`)], principleOf: () => undefined };
+  if (!existsSync(join(root, planRel)))
+    return {
+      rows: [row('research', '—', `not done: no ${planRel}`)],
+      principleOf: () => undefined,
+    };
   let entries = [];
   try {
     entries = readJson(join(root, planRel)).patterns ?? [];
   } catch (e) {
-    return { rows: [row('research', '—', `${planRel} is not valid JSON: ${e.message}`)], principleOf: () => undefined };
+    return {
+      rows: [
+        row('research', '—', `${planRel} is not valid JSON: ${e.message}`),
+      ],
+      principleOf: () => undefined,
+    };
   }
-  const principleOf = (id) => entries.find((x) => x?.id === id)?.extras?.principle;
+  const principleOf = (id) =>
+    entries.find((x) => x?.id === id)?.extras?.principle;
   const pr = (id) => principleOf(id) || 'stack docs';
-  if (rejected) return { rows: [row('research', '—', `research plan rejected: ${rejected.slice('research-rejected: '.length)}`)], principleOf };
-  const kv = (prefix) => new Map(lines.filter((l) => l.startsWith(prefix)).map((l) => {
-    const [id, ...why] = l.slice(prefix.length).split(' — ');
-    return [id, why.join(' — ')];
-  }));
+  if (rejected)
+    return {
+      rows: [
+        row(
+          'research',
+          '—',
+          `research plan rejected: ${rejected.slice('research-rejected: '.length)}`,
+        ),
+      ],
+      principleOf,
+    };
+  const kv = (prefix) =>
+    new Map(
+      lines
+        .filter((l) => l.startsWith(prefix))
+        .map((l) => {
+          const [id, ...why] = l.slice(prefix.length).split(' — ');
+          return [id, why.join(' — ')];
+        }),
+    );
   const dropped = kv('research-dropped: ');
   const only = kv('research-only: ');
-  const generated = new Set(Object.values(manifest).map((r) => r?.research?.entryId));
+  const generated = new Set(
+    Object.values(manifest).map((r) => r?.research?.entryId),
+  );
   const ran = dropped.size || only.size || Object.keys(manifest).length;
   const out = [];
-  const ids = [...new Set([...entries.map((x) => x?.id).filter(Boolean), ...dropped.keys(), ...only.keys()])];
+  const ids = [
+    ...new Set([
+      ...entries.map((x) => x?.id).filter(Boolean),
+      ...dropped.keys(),
+      ...only.keys(),
+    ]),
+  ];
   for (const id of ids) {
     if (generated.has(id)) continue; // its generated rule has the row
-    if (dropped.has(id)) out.push(row(id, pr(id), `research entry dropped: ${dropped.get(id)}`));
-    else if (only.has(id)) out.push(row(id, pr(id), `research only: ${only.get(id) || 'no selection rule generates it, or the selection routes it to manual'}`));
-    else out.push(row(id, pr(id), ran ? 'selected, but the generator made no rule from it' : "not generated yet: the rule generator runs in the install's --full pass"));
+    if (dropped.has(id))
+      out.push(row(id, pr(id), `research entry dropped: ${dropped.get(id)}`));
+    else if (only.has(id))
+      out.push(
+        row(
+          id,
+          pr(id),
+          `research only: ${only.get(id) || 'no selection rule generates it, or the selection routes it to manual'}`,
+        ),
+      );
+    else
+      out.push(
+        row(
+          id,
+          pr(id),
+          ran
+            ? 'selected, but the generator made no rule from it'
+            : "not generated yet: the rule generator runs in the install's --full pass",
+        ),
+      );
   }
   return { rows: out, principleOf };
 }
@@ -1161,13 +1801,22 @@ export function table(root, { lint = realLint } = {}) {
   const recLinter = rec?.fields.linter;
   let manifest = {};
   try {
-    const p = join(root, '.ai-factory/synthesizer-output/rules-manifest-additions.json');
+    const p = join(
+      root,
+      '.ai-factory/synthesizer-output/rules-manifest-additions.json',
+    );
     if (existsSync(p)) manifest = readJson(p);
   } catch {
     manifest = {};
   }
   const research = researchRows(root, stack, rec, manifest);
-  const proof = recLinter === 'biome' ? { early: 'this project lints with Biome, which does not load ESLint-format rules' } : runProof(root, { lint });
+  const proof =
+    recLinter === 'biome'
+      ? {
+          early:
+            'this project lints with Biome, which does not load ESLint-format rules',
+        }
+      : runProof(root, { lint });
   const placed = new Map((proof.rules ?? []).map((r) => [r.id, r]));
   const exempt = proof.early ? new Map() : exemptions(root, proof.linter);
   const files = proof.early ? null : sourceFiles(root);
@@ -1180,12 +1829,20 @@ export function table(root, { lint = realLint } = {}) {
       : rec.notArmed.includes(LINT_CMD) && side.lines.includes(LINT_CMD)
         ? `${LINT_CMD} is armed in this clone only (${side.rel}) until the next commit folds it into the record`
         : `${LINT_CMD} is not armed in the project-checks record`;
-  const cloneOnly = rec && !rec.armed.includes(LINT_CMD) && side.lines.includes(LINT_CMD);
-  const reached = channels.length ? channels.join(', ') + (cloneOnly ? ' — this clone only until the next commit' : '') : '—';
-  const notPlaced = new Map((rec?.lines ?? []).filter((l) => l.startsWith('rule-not-placed: ')).map((l) => {
-    const [id, ...why] = l.slice('rule-not-placed: '.length).split(' — ');
-    return [id, why.join(' — ')];
-  }));
+  const cloneOnly =
+    rec && !rec.armed.includes(LINT_CMD) && side.lines.includes(LINT_CMD);
+  const reached = channels.length
+    ? channels.join(', ') +
+      (cloneOnly ? ' — this clone only until the next commit' : '')
+    : '—';
+  const notPlaced = new Map(
+    (rec?.lines ?? [])
+      .filter((l) => l.startsWith('rule-not-placed: '))
+      .map((l) => {
+        const [id, ...why] = l.slice('rule-not-placed: '.length).split(' — ');
+        return [id, why.join(' — ')];
+      }),
+  );
 
   // The population: base-core's plugin rules, the stack's rule set, the built-ins, the generated rules, and any
   // other getff rule the config switches on.
@@ -1205,9 +1862,16 @@ export function table(root, { lint = realLint } = {}) {
     ...placed.keys(),
   ];
   const principleOf = (id) => {
-    if (id.startsWith('getff:')) return research.principleOf(manifest[id.slice(6)]?.research?.entryId) || 'stack docs';
+    if (id.startsWith('getff:'))
+      return (
+        research.principleOf(manifest[id.slice(6)]?.research?.entryId) ||
+        'stack docs'
+      );
     if (BUILTIN_PRINCIPLE[id]) return BUILTIN_PRINCIPLE[id];
-    return (pluginPrinciples.get(id) ?? []).map((r) => r.id).join(', ') || 'stack docs';
+    return (
+      (pluginPrinciples.get(id) ?? []).map((r) => r.id).join(', ') ||
+      'stack docs'
+    );
   };
   const whyNotPlaced = (id) => {
     if (proof.early) return proof.early;
@@ -1216,18 +1880,28 @@ export function table(root, { lint = realLint } = {}) {
     const sr = stackRules.find((r) => r.rule === id);
     if (id.startsWith('getff:')) {
       const m = manifest[id.slice(6)];
-      if (!(m?.check?.type === 'declarative' && (m.check.engine ?? 'eslint-restricted') === 'eslint-restricted')) {
+      if (
+        !(
+          m?.check?.type === 'declarative' &&
+          (m.check.engine ?? 'eslint-restricted') === 'eslint-restricted'
+        )
+      ) {
         return "not a selector rule: getff places only eslint-restricted selector rules in the project's linter";
       }
       return `not in the ${proof.linter} config`;
     }
     if (sr?.notPlaced) return sr.notPlaced;
     if (sr?.strict) return `opt-in: switched on only with AIF_STRICT_RUNTIME=1`;
-    if ((pluginPrinciples.get(id) ?? []).some((r) => r.notOnStack.includes(stack))) return `not on stack ${stack}`;
-    if (id.startsWith('rules-as-tests/') && !sr) return `the ${stack} rule set does not switch it on`;
+    if (
+      (pluginPrinciples.get(id) ?? []).some((r) => r.notOnStack.includes(stack))
+    )
+      return `not on stack ${stack}`;
+    if (id.startsWith('rules-as-tests/') && !sr)
+      return `the ${stack} rule set does not switch it on`;
     if (proof.linter === 'oxlint') {
       const v = readJson(oxlintConfig(root)).rules?.[id];
-      if (v !== undefined) return `your config sets it to ${JSON.stringify(v)} — getff keeps your setting`;
+      if (v !== undefined)
+        return `your config sets it to ${JSON.stringify(v)} — getff keeps your setting`;
     }
     return `not in the ${proof.linter} config`;
   };
@@ -1235,7 +1909,9 @@ export function table(root, { lint = realLint } = {}) {
     if (!files || !globs) return '?';
     const inc = globs.files.map(globRe);
     const exc = (globs.excludeFiles ?? []).map(globRe);
-    return files.filter((f) => inc.some((r) => r.test(f)) && !exc.some((r) => r.test(f))).length;
+    return files.filter(
+      (f) => inc.some((r) => r.test(f)) && !exc.some((r) => r.test(f)),
+    ).length;
   };
   let failed = false;
   const out = [];
@@ -1243,37 +1919,83 @@ export function table(root, { lint = realLint } = {}) {
     const p = placed.get(id);
     const principle = principleOf(id);
     if (!p) {
-      out.push({ rule: id, principle, home: '—', status: 'not_wired', reason: whyNotPlaced(id), proof: '—', reached: '—' });
+      out.push({
+        rule: id,
+        principle,
+        home: '—',
+        status: 'not_wired',
+        reason: whyNotPlaced(id),
+        proof: '—',
+        reached: '—',
+      });
       continue;
     }
     const o = proof.outcomes.get(id);
-    const row = { rule: id, principle, home: p.home, status: 'not_wired', reason: o.detail, proof: o.proof, reached };
-    if (['off', 'no-samples', 'silent', 'by-exit-failed'].includes(o.kind)) failed = true;
+    const row = {
+      rule: id,
+      principle,
+      home: p.home,
+      status: 'not_wired',
+      reason: o.detail,
+      proof: o.proof,
+      reached,
+    };
+    if (['off', 'no-samples', 'silent', 'by-exit-failed'].includes(o.kind))
+      failed = true;
     else if (o.kind === 'good-rejected') {
       failed = true;
       row.status = 'partial';
     } else if (o.kind === 'unreachable') row.status = 'partial';
     else {
       const gaps = [];
-      if (proof.shape.kind === 'chain') gaps.push(`proved through the linter binary, the lint script is a chain: ${proof.shape.script}`);
+      if (proof.shape.kind === 'chain')
+        gaps.push(
+          `proved through the linter binary, the lint script is a chain: ${proof.shape.script}`,
+        );
       if (p.warnOnly) gaps.push('warns only: the lint exits 0 on a warning');
       const ex = exempt.get(id) ?? [];
-      if (ex.length) gaps.push(`exempt ${ex.length} of ${count(p.globs ?? { files: ['**/*'] })} files the rule's globs match`);
+      if (ex.length)
+        gaps.push(
+          `exempt ${ex.length} of ${count(p.globs ?? { files: ['**/*'] })} files the rule's globs match`,
+        );
       // ESLint holds every generated rule in one carrier setting: a file exempted for one has them all off.
-      const allOff = id.startsWith('getff:') ? (exempt.get(CARRIER) ?? []).length : 0;
-      if (allOff) gaps.push(`in ${allOff} file${allOff === 1 ? '' : 's'} an exempted generated rule switches every generated rule off (ESLint holds them in one setting)`);
+      const allOff = id.startsWith('getff:')
+        ? (exempt.get(CARRIER) ?? []).length
+        : 0;
+      if (allOff)
+        gaps.push(
+          `in ${allOff} file${allOff === 1 ? '' : 's'} an exempted generated rule switches every generated rule off (ESLint holds them in one setting)`,
+        );
       if (armState) gaps.push(armState);
-      if (!channels.length) gaps.push(`no pre-commit, pre-push or CI step runs ${LINT_CMD}`);
+      if (!channels.length)
+        gaps.push(`no pre-commit, pre-push or CI step runs ${LINT_CMD}`);
       row.status = gaps.length ? 'partial' : 'fires';
       row.reason = gaps.join('; ') || '—';
     }
     out.push(row);
   }
   // A principle base-core leaves to a generated rule, with no generated rule serving it here.
-  const served = new Set(out.filter((r) => r.rule.startsWith('getff:')).flatMap((r) => r.principle.split(', ')));
+  const served = new Set(
+    out
+      .filter((r) => r.rule.startsWith('getff:'))
+      .flatMap((r) => r.principle.split(', ')),
+  );
   for (const r of core ?? []) {
-    if (r.plugin === CARRIER_NAME && r.status === 'not_wired' && r.reason === 'generated-pending' && !served.has(r.id)) {
-      out.push({ rule: '(none yet)', principle: r.id, home: '—', status: 'not_wired', reason: `generated-pending: no generated rule serves ${r.id} in this project`, proof: '—', reached: '—' });
+    if (
+      r.plugin === CARRIER_NAME &&
+      r.status === 'not_wired' &&
+      r.reason === 'generated-pending' &&
+      !served.has(r.id)
+    ) {
+      out.push({
+        rule: '(none yet)',
+        principle: r.id,
+        home: '—',
+        status: 'not_wired',
+        reason: `generated-pending: no generated rule serves ${r.id} in this project`,
+        proof: '—',
+        reached: '—',
+      });
     }
   }
   out.push(...research.rows);
@@ -1283,11 +2005,22 @@ export function table(root, { lint = realLint } = {}) {
     `getff's rules in this project (stack ${stack}) — one row per rule`,
     '| rule | principle | home | status | reason | proof | reached by |',
     '|---|---|---|---|---|---|---|',
-    ...out.map((r) => `| ${[r.rule, r.principle, r.home, r.status, r.reason, r.proof, r.reached].map(cell).join(' | ')} |`),
+    ...out.map(
+      (r) =>
+        `| ${[r.rule, r.principle, r.home, r.status, r.reason, r.proof, r.reached].map(cell).join(' | ')} |`,
+    ),
   ];
-  if (!core) lines.push(`principles: ${BASE_CORE} is not in this project, so the principle column names none of the base core`);
-  for (const r of out) for (const f of exempt.get(r.rule) ?? []) lines.push(`existing violation: ${r.rule} in ${f}`);
-  for (const f of exempt.get(CARRIER) ?? []) lines.push(`existing violation: ${CARRIER} in ${f} — every generated rule is off in this file`);
+  if (!core)
+    lines.push(
+      `principles: ${BASE_CORE} is not in this project, so the principle column names none of the base core`,
+    );
+  for (const r of out)
+    for (const f of exempt.get(r.rule) ?? [])
+      lines.push(`existing violation: ${r.rule} in ${f}`);
+  for (const f of exempt.get(CARRIER) ?? [])
+    lines.push(
+      `existing violation: ${CARRIER} in ${f} — every generated rule is off in this file`,
+    );
   if (proof.summary) lines.push(proof.summary);
   return { rc: failed ? 1 : 0, lines, errors: [] };
 }
@@ -1303,9 +2036,24 @@ export const prove = table;
 // the probe measured, never rises, and an entry the probe did not measure is kept as it is.
 const SUPPRESSIONS = 'eslint-suppressions.json';
 const RECORD = '.ai-factory/tool-decisions.md';
-const SHRINK_CONFIGS = ['.oxlintrc.getff-shrink.json', ...['mjs', 'js', 'cjs', 'ts', 'mts', 'cts'].map((e) => `eslint.config.getff-shrink.${e}`)];
-const countOf = (sup) => Object.values(sup ?? {}).reduce((n, rules) => n + Object.values(rules ?? {}).reduce((m, r) => m + (r?.count ?? 0), 0), 0);
-const exemptKind = (rel) => (rel === '.oxlintrc.json' ? 'oxlint' : /^eslint\.config\.[cm]?[jt]s$/.test(rel) ? 'eslint' : undefined);
+const SHRINK_CONFIGS = [
+  '.oxlintrc.getff-shrink.json',
+  ...['mjs', 'js', 'cjs', 'ts', 'mts', 'cts'].map(
+    (e) => `eslint.config.getff-shrink.${e}`,
+  ),
+];
+const countOf = (sup) =>
+  Object.values(sup ?? {}).reduce(
+    (n, rules) =>
+      n + Object.values(rules ?? {}).reduce((m, r) => m + (r?.count ?? 0), 0),
+    0,
+  );
+const exemptKind = (rel) =>
+  rel === '.oxlintrc.json'
+    ? 'oxlint'
+    : /^eslint\.config\.[cm]?[jt]s$/.test(rel)
+      ? 'eslint'
+      : undefined;
 function exemptPairsOf(kind, text) {
   if (kind === 'oxlint') return oxlintExemptPairs(JSON.parse(text));
   return eslintExemptBlock(text)?.perFile ?? new Map();
@@ -1313,26 +2061,65 @@ function exemptPairsOf(kind, text) {
 
 function shrinkSuppressions(root, dir) {
   const shape = lintShape(root);
-  if (!existsSync(join(root, SUPPRESSIONS))) return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: the file is not in this project`] };
+  if (!existsSync(join(root, SUPPRESSIONS)))
+    return {
+      lines: [
+        `· lint baseline ${SUPPRESSIONS} not shrunk: the file is not in this project`,
+      ],
+    };
   if (shape.linter !== 'eslint' || shape.kind === 'chain') {
-    return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: the lint script is not one eslint call (${shape.script ?? 'no lint script'})`] };
+    return {
+      lines: [
+        `· lint baseline ${SUPPRESSIONS} not shrunk: the lint script is not one eslint call (${shape.script ?? 'no lint script'})`,
+      ],
+    };
   }
   const copy = join(dir, 'getff-eslint-suppressions.tmp');
   try {
     const base = readJson(join(root, SUPPRESSIONS));
     writeFileSync(copy, JSON.stringify(base));
-    const r = sh('npm', ['run', '--silent', 'lint', '--', '--prune-suppressions', '--suppressions-location', copy], root);
-    if (r.rc !== 0) return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: npm run lint exits ${r.rc}`] };
+    const r = sh(
+      'npm',
+      [
+        'run',
+        '--silent',
+        'lint',
+        '--',
+        '--prune-suppressions',
+        '--suppressions-location',
+        copy,
+      ],
+      root,
+    );
+    if (r.rc !== 0)
+      return {
+        lines: [
+          `· lint baseline ${SUPPRESSIONS} not shrunk: npm run lint exits ${r.rc}`,
+        ],
+      };
     const next = readJson(copy);
     const [n, m] = [countOf(base), countOf(next)];
-    if (m >= n) return { lines: [`· lint baseline ${SUPPRESSIONS}: ${n} findings, none fixed yet`] };
-    const fixed = Object.keys(base).filter((f) => Object.entries(base[f] ?? {}).some(([r, v]) => (next[f]?.[r]?.count ?? 0) < (v?.count ?? 0)));
+    if (m >= n)
+      return {
+        lines: [
+          `· lint baseline ${SUPPRESSIONS}: ${n} findings, none fixed yet`,
+        ],
+      };
+    const fixed = Object.keys(base).filter((f) =>
+      Object.entries(base[f] ?? {}).some(
+        ([r, v]) => (next[f]?.[r]?.count ?? 0) < (v?.count ?? 0),
+      ),
+    );
     return {
-      lines: [`✓ lint baseline ${SUPPRESSIONS}: ${n} → ${m} findings — the next commit folds it in`],
+      lines: [
+        `✓ lint baseline ${SUPPRESSIONS}: ${n} → ${m} findings — the next commit folds it in`,
+      ],
       part: { kind: 'suppressions', base, next, blobs: blobsOf(root, fixed) },
     };
   } catch (e) {
-    return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: ${e.message}`] };
+    return {
+      lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: ${e.message}`],
+    };
   } finally {
     rmSync(copy, { force: true });
   }
@@ -1341,40 +2128,82 @@ function shrinkSuppressions(root, dir) {
 /** Each exempted rule, per file, linted with getff's exemptions taken out: a pair with no diagnostic is fixed. */
 function shrinkExempt(root, rel) {
   const kind = exemptKind(rel);
-  if (!kind || !existsSync(join(root, rel))) return { lines: [`· lint baseline ${rel} not shrunk: getff keeps per-file exemptions only in .oxlintrc.json or eslint.config.*`] };
+  if (!kind || !existsSync(join(root, rel)))
+    return {
+      lines: [
+        `· lint baseline ${rel} not shrunk: getff keeps per-file exemptions only in .oxlintrc.json or eslint.config.*`,
+      ],
+    };
   const text = readFileSync(join(root, rel), 'utf8');
   const perFile = exemptPairsOf(kind, text);
   if (!perFile.size) return { lines: [] };
   const lint = sh('npm', ['run', '--silent', 'lint'], root);
-  if (lint.rc !== 0) return { lines: [`· lint baseline ${rel} not shrunk: npm run lint exits ${lint.rc}`] };
+  if (lint.rc !== 0)
+    return {
+      lines: [
+        `· lint baseline ${rel} not shrunk: npm run lint exits ${lint.rc}`,
+      ],
+    };
   const files = [...perFile.keys()].filter((f) => existsSync(join(root, f)));
   let diags = [];
   if (files.length) {
-    const tmp = join(root, kind === 'oxlint' ? SHRINK_CONFIGS[0] : rel.replace(/^eslint\.config\./, 'eslint.config.getff-shrink.'));
+    const tmp = join(
+      root,
+      kind === 'oxlint'
+        ? SHRINK_CONFIGS[0]
+        : rel.replace(/^eslint\.config\./, 'eslint.config.getff-shrink.'),
+    );
     excludeOnce(root, relative(root, tmp));
     try {
       if (kind === 'oxlint') {
         const cfg = JSON.parse(text);
-        cfg.overrides = (cfg.overrides ?? []).filter((o) => !o?.files?.includes(EXEMPT_GLOB));
+        cfg.overrides = (cfg.overrides ?? []).filter(
+          (o) => !o?.files?.includes(EXEMPT_GLOB),
+        );
         writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n');
       } else writeFileSync(tmp, withoutEslintBlock(text));
-      const r = sh(join(root, 'node_modules/.bin', kind), ['-c', tmp, '-f', 'json', ...files], root);
+      const r = sh(
+        join(root, 'node_modules/.bin', kind),
+        ['-c', tmp, '-f', 'json', ...files],
+        root,
+      );
       const report = parseReport(r.stdout, root);
-      if (report === null) return { lines: [`· lint baseline ${rel} not shrunk: ${kind} gave no report getff can read: ${firstLine(r.stdout + r.stderr)}`] };
+      if (report === null)
+        return {
+          lines: [
+            `· lint baseline ${rel} not shrunk: ${kind} gave no report getff can read: ${firstLine(r.stdout + r.stderr)}`,
+          ],
+        };
       diags = report.filter((d) => perFile.get(d.file)?.has(d.id));
     } finally {
       rmSync(tmp, { force: true });
     }
   }
   const dirty = new Set(diags.map((d) => `${d.id}\0${d.file}`));
-  const clean = [...perFile].flatMap(([f, ids]) => [...ids].filter((id) => !dirty.has(`${id}\0${f}`)).map((id) => [id, f]));
+  const clean = [...perFile].flatMap(([f, ids]) =>
+    [...ids].filter((id) => !dirty.has(`${id}\0${f}`)).map((id) => [id, f]),
+  );
   const before = perFile.size;
-  if (!clean.length) return { lines: [`· lint baseline ${rel}: getff's per-file exemptions for ${before} files, none fixed yet`] };
-  const after = [...perFile].filter(([f, ids]) => [...ids].some((id) => dirty.has(`${id}\0${f}`))).length;
+  if (!clean.length)
+    return {
+      lines: [
+        `· lint baseline ${rel}: getff's per-file exemptions for ${before} files, none fixed yet`,
+      ],
+    };
+  const after = [...perFile].filter(([f, ids]) =>
+    [...ids].some((id) => dirty.has(`${id}\0${f}`)),
+  ).length;
   const fixed = clean.map(([id, f]) => `${id} in ${f}`).join(', ');
   return {
-    lines: [`✓ lint baseline ${rel}: getff's per-file exemptions ${before} → ${after} files (fixed: ${fixed}) — the next commit folds it in`],
-    part: { kind, clean, violations: diags.length, blobs: blobsOf(root, [...new Set(clean.map(([, f]) => f))]) },
+    lines: [
+      `✓ lint baseline ${rel}: getff's per-file exemptions ${before} → ${after} files (fixed: ${fixed}) — the next commit folds it in`,
+    ],
+    part: {
+      kind,
+      clean,
+      violations: diags.length,
+      blobs: blobsOf(root, [...new Set(clean.map(([, f]) => f))]),
+    },
   };
 }
 
@@ -1383,16 +2212,23 @@ export function shrinkProbe(root, out) {
   for (const f of SHRINK_CONFIGS) rmSync(join(root, f), { force: true }); // a run killed at its bound
   const rec = join(root, RECORD);
   const rels = existsSync(rec)
-    ? readFileSync(rec, 'utf8').split('\n').filter((l) => l.startsWith('lint-baseline: ')).map((l) => l.slice('lint-baseline: '.length).split(' — ')[0])
+    ? readFileSync(rec, 'utf8')
+        .split('\n')
+        .filter((l) => l.startsWith('lint-baseline: '))
+        .map((l) => l.slice('lint-baseline: '.length).split(' — ')[0])
     : [];
   const lines = [];
   const parts = {};
   for (const rel of rels) {
-    const r = rel === SUPPRESSIONS ? shrinkSuppressions(root, dirname(out)) : shrinkExempt(root, rel);
+    const r =
+      rel === SUPPRESSIONS
+        ? shrinkSuppressions(root, dirname(out))
+        : shrinkExempt(root, rel);
     lines.push(...r.lines);
     if (r.part) parts[rel] = r.part;
   }
-  if (Object.keys(parts).length) writeFileSync(out, JSON.stringify({ parts }) + '\n');
+  if (Object.keys(parts).length)
+    writeFileSync(out, JSON.stringify({ parts }) + '\n');
   else rmSync(out, { force: true });
   return lines;
 }
@@ -1414,7 +2250,9 @@ function applyShrink(part, text, same) {
       }
       if (!Object.keys(cur[f] ?? {}).length) delete cur[f];
     }
-    return changed ? JSON.stringify(cur, null, 2) + (text.endsWith('\n') ? '\n' : '') : null;
+    return changed
+      ? JSON.stringify(cur, null, 2) + (text.endsWith('\n') ? '\n' : '')
+      : null;
   }
   const perFile = exemptPairsOf(part.kind, text);
   let changed = false;
@@ -1430,13 +2268,22 @@ function applyShrink(part, text, same) {
     const all = cfg.overrides ?? [];
     const at = all.findIndex((o) => o?.files?.includes(EXEMPT_GLOB));
     const rest = all.filter((o) => !o?.files?.includes(EXEMPT_GLOB));
-    rest.splice(at < 0 ? rest.length : at, 0, ...oxlintExemptEntries(cfg, perFile));
+    rest.splice(
+      at < 0 ? rest.length : at,
+      0,
+      ...oxlintExemptEntries(cfg, perFile),
+    );
     cfg.overrides = rest;
     if (!cfg.overrides.length) delete cfg.overrides;
     return keepLayout(text, cfg);
   }
-  const entries = [...eslintExemptEntries(perFile), ...eslintExemptBlock(text).globals];
-  return entries.length ? withEslintBlock(text, eslintBlockLines(entries)) : withoutEslintBlock(text);
+  const entries = [
+    ...eslintExemptEntries(perFile),
+    ...eslintExemptBlock(text).globals,
+  ];
+  return entries.length
+    ? withEslintBlock(text, eslintBlockLines(entries))
+    : withoutEslintBlock(text);
 }
 
 /** The record's lint-baseline line for `rel`, with the counts of that version of the baseline file. */
@@ -1445,10 +2292,16 @@ function applyRecordLine(text, rel, part, fileText) {
   const i = lines.findIndex((l) => l.startsWith(`lint-baseline: ${rel} — `));
   if (i < 0) return text;
   if (part.kind === 'suppressions') {
-    lines[i] = lines[i].replace(/— \S+ findings in existing code recorded/, `— ${countOf(JSON.parse(fileText))} findings in existing code recorded`);
+    lines[i] = lines[i].replace(
+      /— \S+ findings in existing code recorded/,
+      `— ${countOf(JSON.parse(fileText))} findings in existing code recorded`,
+    );
   } else {
     const files = exemptPairsOf(part.kind, fileText).size;
-    lines[i] = lines[i].replace(/for \d+ existing violations in \d+ files/, `for ${part.violations} existing violations in ${files} files`);
+    lines[i] = lines[i].replace(
+      /for \d+ existing violations in \d+ files/,
+      `for ${part.violations} existing violations in ${files} files`,
+    );
   }
   return lines.join('\n');
 }
@@ -1465,16 +2318,34 @@ function indexEntry(root, rel) {
 }
 function stage(root, entry, text) {
   const h = gitRun(root, ['hash-object', '-w', '--stdin'], text);
-  return h.rc === 0 && gitRun(root, ['update-index', '--cacheinfo', `${entry.mode},${h.stdout.trim()},${entry.path}`]).rc === 0;
+  return (
+    h.rc === 0 &&
+    gitRun(root, [
+      'update-index',
+      '--cacheinfo',
+      `${entry.mode},${h.stdout.trim()},${entry.path}`,
+    ]).rc === 0
+  );
 }
 
 /** Each file's git blob as the probe measured it (null: no such file), so the fold can tell the fix is there. */
 function blobsOf(root, files) {
-  return Object.fromEntries(files.map((f) => [f, existsSync(join(root, f)) ? gitRun(root, ['hash-object', '--', f]).stdout.trim() || null : null]));
+  return Object.fromEntries(
+    files.map((f) => [
+      f,
+      existsSync(join(root, f))
+        ? gitRun(root, ['hash-object', '--', f]).stdout.trim() || null
+        : null,
+    ]),
+  );
 }
 function indexBlob(root, rel) {
   // `:(literal)`: a route path such as `src/[id]/x.ts` is a glob to git and would match a sibling `src/i/x.ts`.
-  return /^\d+ ([0-9a-f]+) \d\t/m.exec(gitRun(root, ['ls-files', '-s', '--', `:(literal)${rel}`]).stdout)?.[1] ?? null;
+  return (
+    /^\d+ ([0-9a-f]+) \d\t/m.exec(
+      gitRun(root, ['ls-files', '-s', '--', `:(literal)${rel}`]).stdout,
+    )?.[1] ?? null
+  );
 }
 
 /** `--fold-shrink`: the sidecar applied to the working tree and the index. Returns [lines, ok]. */
@@ -1483,12 +2354,17 @@ export function foldShrink(root, sidecar) {
   const lines = [];
   let ok = true;
   const probed = (part, f) => part.blobs !== undefined && f in part.blobs;
-  const inIndex = (part, f) => probed(part, f) && indexBlob(root, f) === part.blobs[f];
-  const inWt = (part, f) => probed(part, f) && blobsOf(root, [f])[f] === part.blobs[f];
+  const inIndex = (part, f) =>
+    probed(part, f) && indexBlob(root, f) === part.blobs[f];
+  const inWt = (part, f) =>
+    probed(part, f) && blobsOf(root, [f])[f] === part.blobs[f];
   const versions = [
     {
       name: 'wt',
-      read: (rel) => (existsSync(join(root, rel)) ? readFileSync(join(root, rel), 'utf8') : null),
+      read: (rel) =>
+        existsSync(join(root, rel))
+          ? readFileSync(join(root, rel), 'utf8')
+          : null,
       write: (rel, t) => (writeFileSync(join(root, rel), t), true),
       // The working tree never keeps more baseline than the commit: a fix the commit carries folds here too,
       // or the next `git commit -a` brings the exemption back.
@@ -1496,7 +2372,10 @@ export function foldShrink(root, sidecar) {
     },
     {
       name: 'index',
-      read: (rel) => (indexEntry(root, rel) ? gitRun(root, ['show', `:./${rel}`]).stdout : null),
+      read: (rel) =>
+        indexEntry(root, rel)
+          ? gitRun(root, ['show', `:./${rel}`]).stdout
+          : null,
       write: (rel, t) => stage(root, indexEntry(root, rel), t),
       same: inIndex,
     },
@@ -1516,14 +2395,40 @@ export function foldShrink(root, sidecar) {
       folded[v.name].push(rel);
       if (rec !== null) rec = applyRecordLine(rec, rel, part, next);
     }
-    if (folded[v.name].length && rec !== null && rec !== v.read(RECORD) && !v.write(RECORD, rec)) ok = false;
+    if (
+      folded[v.name].length &&
+      rec !== null &&
+      rec !== v.read(RECORD) &&
+      !v.write(RECORD, rec)
+    )
+      ok = false;
   }
-  const changed = [...new Set(Object.values(parts).flatMap((part) => Object.keys(part.blobs ?? {}).filter((f) => !inWt(part, f) && !inIndex(part, f))))];
+  const changed = [
+    ...new Set(
+      Object.values(parts).flatMap((part) =>
+        Object.keys(part.blobs ?? {}).filter(
+          (f) => !inWt(part, f) && !inIndex(part, f),
+        ),
+      ),
+    ),
+  ];
   const wtOnly = folded.wt.filter((rel) => !folded.index.includes(rel));
-  if (folded.index.length) lines.push(`✓ lint baseline shrunk and staged with this commit: ${folded.index.join(', ')}`);
-  if (wtOnly.length) lines.push(`✓ lint baseline shrunk in the working tree only: ${wtOnly.join(', ')} — this commit does not carry the fixed files as the probe measured them, so it keeps the old baseline`);
-  if (changed.length) lines.push(`· lint baseline not shrunk: ${changed.join(', ')} changed after the probe measured ${changed.length === 1 ? 'it' : 'them'}`);
-  if (!lines.length) lines.push('· lint baseline: nothing left to fold — the files already hold what the probe measured');
+  if (folded.index.length)
+    lines.push(
+      `✓ lint baseline shrunk and staged with this commit: ${folded.index.join(', ')}`,
+    );
+  if (wtOnly.length)
+    lines.push(
+      `✓ lint baseline shrunk in the working tree only: ${wtOnly.join(', ')} — this commit does not carry the fixed files as the probe measured them, so it keeps the old baseline`,
+    );
+  if (changed.length)
+    lines.push(
+      `· lint baseline not shrunk: ${changed.join(', ')} changed after the probe measured ${changed.length === 1 ? 'it' : 'them'}`,
+    );
+  if (!lines.length)
+    lines.push(
+      '· lint baseline: nothing left to fold — the files already hold what the probe measured',
+    );
   return [lines, ok];
 }
 
@@ -1540,11 +2445,19 @@ function main(argv) {
   }
   if (argv.includes('--place')) {
     const linter = arg(argv, '--linter');
-    const res = linter === 'oxlint' ? placeOxlint(root, { stack: arg(argv, '--stack') }) : placeEslintOwn(root);
+    const res =
+      linter === 'oxlint'
+        ? placeOxlint(root, { stack: arg(argv, '--stack') })
+        : placeEslintOwn(root);
     for (const p of res.placed) console.log(`  ✓ placed: ${p}`);
-    for (const k of res.kept) console.log(`  ⊝ ${k}: your config sets it — getff keeps your setting`);
-    if (res.exemptViolations) console.log(`  ✓ ${res.exemptViolations} existing violations in ${res.exemptFiles} files exempted per file — new ones fail in every other file`);
-    for (const n of res.notPlaced) console.log(`  · not placed: ${n.rule} — ${n.reason}`);
+    for (const k of res.kept)
+      console.log(`  ⊝ ${k}: your config sets it — getff keeps your setting`);
+    if (res.exemptViolations)
+      console.log(
+        `  ✓ ${res.exemptViolations} existing violations in ${res.exemptFiles} files exempted per file — new ones fail in every other file`,
+      );
+    for (const n of res.notPlaced)
+      console.log(`  · not placed: ${n.rule} — ${n.reason}`);
     const out = arg(argv, '--result');
     if (out) writeFileSync(out, JSON.stringify(res) + '\n');
     return 0;
@@ -1554,7 +2467,8 @@ function main(argv) {
     return 0;
   }
   if (argv[0] === '--shrink' && arg(argv, '--out')) {
-    for (const l of shrinkProbe(root, resolve(arg(argv, '--out')))) console.log(l);
+    for (const l of shrinkProbe(root, resolve(arg(argv, '--out'))))
+      console.log(l);
     return 0;
   }
   if (argv[0] === '--fold-shrink' && argv[1]) {
@@ -1568,7 +2482,9 @@ function main(argv) {
     for (const l of lines) console.log(l);
     return rc;
   }
-  console.error('usage: node scripts/prove-rules.mjs [--prove] | --remove | --shrink --out <file> | --fold-shrink <file>');
+  console.error(
+    'usage: node scripts/prove-rules.mjs [--prove] | --remove | --shrink --out <file> | --fold-shrink <file>',
+  );
   return 2;
 }
 
@@ -1579,4 +2495,8 @@ const real = (p) => {
     return resolve(p);
   }
 };
-if (process.argv[1] && real(process.argv[1]) === real(fileURLToPath(import.meta.url))) process.exitCode = main(process.argv.slice(2));
+if (
+  process.argv[1] &&
+  real(process.argv[1]) === real(fileURLToPath(import.meta.url))
+)
+  process.exitCode = main(process.argv.slice(2));
