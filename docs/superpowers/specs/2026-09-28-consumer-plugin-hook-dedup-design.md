@@ -209,9 +209,10 @@ yields there and the hook runs nowhere — the lost-gate case.
 
 Protocol (asymmetric; the project copy never yields):
 
-- **Project copy** marks itself live. A prelude from `.claude/hooks/lib/hook-live.sh` buffers
-  stdin into a temp file, re-opens it as stdin (`exec <`), and creates
-  `${TMPDIR:-/tmp}/getff-hook-live/<session_id>/<key>.<pid>`. `<key>` is the sha256 of the hook
+- **Project copy** marks itself live. A prelude from `.claude/hooks/lib/hook-live.sh` reads
+  stdin into memory, re-opens it as stdin from a pipe, and creates
+  `${TMPDIR:-/tmp}/getff-hook-live.<uid>/<session_id>/<key>.<epoch-seconds>.<pid>`
+  (implementation r4: no temp file, a per-user base, an epoch field for the 5 s age check). `<key>` is the sha256 of the hook
   name plus the whole payload. It then runs as before. It also deletes its session's markers older
   than 60 s.
 - **Plugin copy** checks D3 conditions 1-4 first. Only if they hold does it look for a marker with
@@ -255,8 +256,11 @@ did not change.
 
 ### D10 — Language-line ownership
 
-The same new arm checks D5 holds on the shipped payload: the plugin `inject-session-bootstrap`
-contains no `[output-language]` string, and the plugin `inject-output-language` does.
+The same new arm checks D5 holds on the shipped payload: every `[output-language]` code line in
+the plugin `inject-session-bootstrap` sits inside the `AIF_HOOK_CHANNEL` case block, after its
+silent `plugin:*) : ;;` arm; `plugin/hooks/run-hook.cmd` exports `AIF_HOOK_CHANNEL=plugin`; and
+the plugin `inject-output-language` still emits the line (implementation r4: Task 3′ keeps the
+text in the twin behind a runtime guard, so "contains no string" was replaced).
 
 ### D11 — Dual-source hooks
 
@@ -313,4 +317,5 @@ each RED.
 
 - Migrating relative `deps-hash-check` registrations (D4).
 - Windows yield (D7).
-- Any change to how the installer delivers or refreshes hooks.
+- Any change to how the installer delivers or refreshes hooks, beyond delivering
+  `.claude/hooks/lib/hook-live.sh` next to the hooks that load it (D12).
