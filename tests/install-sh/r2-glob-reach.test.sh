@@ -835,7 +835,9 @@ JS
     && bad "F11 N/A dropped, two packages left: the summary names a «marked N/A» the install removed (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))" \
     || ok "F11 N/A dropped, two packages left: the summary names no «marked N/A»"
   for _p in apps/web apps/api; do
-    _n=$(f11_push "$T30.log" | grep -c "$_p/")
+    # Both forms count: the earlier pass's «in <pkg>/eslint.config.…» AND F11's own «<pkg>: has boundary
+    # files» line — a skip that stopped firing (setup.d/99-finalize.sh:714-716) names the package twice.
+    _n=$(f11_push "$T30.log" | grep -cE "$_p(/|: )")
     [ "$_n" -eq 1 ] \
       && ok "F11 N/A dropped, two packages left: $_p is named once" \
       || bad "F11 N/A dropped, two packages left: $_p is named $_n times (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
