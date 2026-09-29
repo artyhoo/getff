@@ -1202,6 +1202,15 @@ _py_precommit_stray_item() {
     /^[^ \t#]/ { exit }' "$1"
 }
 
+# _py_precommit_noload <line> — the outcome for a file _py_precommit_stray_item found <line> in: nothing
+# is written, the entry is named with that line and why, and _PY_PRECOMMIT_NOLOAD is set to it, so the
+# caller installs no pre-push stage for an entry pre-commit cannot read.
+_py_precommit_noload() {
+  _PY_PRECOMMIT_NOLOAD=$1
+  echo "  ⊝ the getff entry in .pre-commit-config.yaml was not updated — the file does not load as YAML (line $1)"
+  note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: line $1 is a repos: item in column 0 while the file's other repos: items are indented, so the file does not load as YAML and pre-commit cannot read it wherever getff puts its entry; getff does not re-indent the project's own items, so the file is left as it was"
+}
+
 # _py_precommit_reconcile <cfg> <begin> <end> <fragment> — bring an installed getff entry to the
 # current fragment when its body is one getff shipped; keep it, named in the NOT wired summary, when
 # it is not (an edit is the consumer's). Idempotent: a current, fenced entry is left byte-identical.
@@ -1209,7 +1218,8 @@ _py_precommit_stray_item() {
 # that indent — except an entry in column 0 under indented `repos:` items (written before C3, #1935),
 # which is a YAML error pre-commit cannot load: getff's own is rewritten at the items' indent instead.
 # A `repos:` item of the project's own in column 0 under indented items breaks the file wherever the
-# entry goes: the file is left as it was, named with that line, and _PY_PRECOMMIT_NOLOAD is set to it.
+# entry goes: the file is left as it was, named with that line, and _PY_PRECOMMIT_NOLOAD is set to it
+# (_py_precommit_noload) — next to a current entry too, which is otherwise the no-op.
 _py_precommit_reconcile() {
   local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0 ind want stray
   if awk -v m="$m" -v e="$e" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; next} on && k == e {f = 1; exit} END {exit !f}' "$cfg"; then
@@ -1219,6 +1229,11 @@ _py_precommit_reconcile() {
   want=$ind
   [ -n "$ind" ] || want=$(_py_precommit_repos_indent "$cfg")
   if [ "$has_end" = 1 ] && [ "$want" = "$ind" ] && [ "$(_py_precommit_body "$cfg" "$m" "$e" 0 "$ind")" = "$(cat "$src")" ]; then
+    # A current entry is no proof the file loads: C5-F2's --refresh moved getff's entry to the items'
+    # indent and left a consumer item beside it in column 0, and that file ends up here.
+    stray=""
+    [ -z "$want" ] || stray=$(_py_precommit_stray_item "$cfg" "$m" "$e" 0)
+    if [ -n "$stray" ]; then _py_precommit_noload "$stray"; return 0; fi
     echo "  ⊝ .pre-commit-config.yaml already has the current getff entry — no-op (idempotent)"
     return 0
   fi
@@ -1243,12 +1258,7 @@ _py_precommit_reconcile() {
       rm -f "$tmp"
       stray=""
       [ -z "$want" ] || stray=$(_py_precommit_stray_item "$cfg" "$m" "$e" "$n")
-      if [ -n "$stray" ]; then
-        _PY_PRECOMMIT_NOLOAD=$stray
-        echo "  ⊝ the getff entry in .pre-commit-config.yaml was not updated — the file does not load as YAML (line $stray)"
-        note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: line $stray is a repos: item in column 0 while the file's other repos: items are indented, so the file does not load as YAML and pre-commit cannot read it wherever getff puts its entry; getff does not re-indent the project's own items, so the file is left as it was"
-        return 0
-      fi
+      if [ -n "$stray" ]; then _py_precommit_noload "$stray"; return 0; fi
       if [ "$DRY_RUN" = "--dry-run" ]; then
         echo "  [dry-run] would: update the getff entry in .pre-commit-config.yaml to the current fragment"
         return 0
