@@ -21,7 +21,7 @@
           "packages/core/hooks/pre-push.ts:1560 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:209 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:293 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -348,7 +348,7 @@
           ".husky/pre-commit:204 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
-          "scripts/run-local-ci-sweep.sh:238 (quoted-path-token, closure)"
+          "scripts/run-local-ci-sweep.sh:322 (quoted-path-token, closure)"
         ]
       },
       "example": null
@@ -670,7 +670,8 @@
           "install.sh:1217 (quoted-path-token)",
           "install.sh:1218 (quoted-path-token)",
           "install.sh:1219 (quoted-path-token)",
-          "install.sh:1220 (quoted-path-token)"
+          "install.sh:1220 (quoted-path-token)",
+          "scripts/run-local-ci-sweep.sh:1159 (command-substitution, closure)"
         ]
       },
       "example": null

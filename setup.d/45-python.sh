@@ -1182,14 +1182,18 @@ _py_precommit_body() {
 # _py_precommit_reconcile <cfg> <begin> <end> <fragment> — bring an installed getff entry to the
 # current fragment when its body is one getff shipped; keep it, named in the NOT wired summary, when
 # it is not (an edit is the consumer's). Idempotent: a current, fenced entry is left byte-identical.
-# The entry is compared, and rewritten, at the indent it was written at (_py_precommit_entry_indent).
+# The entry is compared at the indent it was written at (_py_precommit_entry_indent) and rewritten at
+# that indent — except an entry in column 0 under indented `repos:` items (written before C3, #1935),
+# which is a YAML error pre-commit cannot load: getff's own is rewritten at the items' indent instead.
 _py_precommit_reconcile() {
-  local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0 ind
+  local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0 ind want
   if awk -v m="$m" -v e="$e" "$_PY_PRECOMMIT_KEY"'!on && k == m {on = 1; next} on && k == e {f = 1; exit} END {exit !f}' "$cfg"; then
     has_end=1
   fi
   ind=$(_py_precommit_entry_indent "$cfg" "$m")
-  if [ "$has_end" = 1 ] && [ "$(_py_precommit_body "$cfg" "$m" "$e" 0 "$ind")" = "$(cat "$src")" ]; then
+  want=$ind
+  [ -n "$ind" ] || want=$(_py_precommit_repos_indent "$cfg")
+  if [ "$has_end" = 1 ] && [ "$want" = "$ind" ] && [ "$(_py_precommit_body "$cfg" "$m" "$e" 0 "$ind")" = "$(cat "$src")" ]; then
     echo "  ⊝ .pre-commit-config.yaml already has the current getff entry — no-op (idempotent)"
     return 0
   fi
@@ -1218,8 +1222,8 @@ _py_precommit_reconcile() {
       fi
       tmp="$cfg.getff.tmp"
       # A CRLF file stays CRLF: every line written, the kept ones included, gets its CR back. The
-      # fragment goes back at the entry's indent; the end line, like the begin line, in column 0.
-      if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" -v ind="$ind" '
+      # fragment goes back at <want>; the end line, like the begin line, in column 0.
+      if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" -v ind="$want" '
           NR == 1 { cr = ($0 ~ /\r$/) ? "\r" : "" }
           { sub(/\r$/, ""); k = $0; sub(/^[ \t]+/, "", k); sub(/[ \t]+$/, "", k) }
           !on && k == m { print $0 cr; while ((getline l < src) > 0) print (length(l) ? ind l : l) cr; print e cr; on = 1; c = 0; next }

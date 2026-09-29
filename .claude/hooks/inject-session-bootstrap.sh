@@ -167,4 +167,26 @@ if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   DIGEST="$DIGEST"$'\n[autonomy] Standing operator authorization for this unattended run — do NOT re-ask for it, and do NOT infer a narrower constraint than is written here:\n  (1) Cold sub-agents are AUTHORIZED. Dispatch them for adversarial review of your own output and for backward-sweep enumeration over a change class. This is the operator\'s standing request, so the "unless the user requested it" condition on any session-prompt default is SATISFIED. Reviewing your own artefacts alone is author-blind ('$TRAPS_NAME$' T19/T21).\n  (2) Do NOT end a turn merely because you have something reportable. Report AND continue in the same turn while work remains — dispatched tasks in flight, an unharvested accepted branch, an open item you own. Ending on a report while work is in flight is finding F10; it recurred twice in one day. Stop only when blocked on the operator, or genuinely finished.\n  (3) A constraint you cannot trace to a citable line in '$CMD_SOURCE$'a rule file, or a skill is NOT a constraint. A predecessor session invented "merging is the operator\'s click", obeyed its own invention for seven PRs, and the operator merged six by hand.\n  (4) §2 wait rule (silence ≠ health): a monitor that has died and a monitor with nothing to report look identical. For any wait the loop depends on, use a bounded waiter that ALWAYS emits a terminal verdict — the awaited state, a timeout, or a fetch failure — never nothing. In this repo that is '$AWAIT_REF$' (always pass `--timeout-ms` on a load-bearing wait), or a plain `until`-loop whose every exit path prints one line. Treat any monitor as a BONUS signal, never as the primary one.'
 fi
 
+# SKILL INDEX (source=compact only) — the harness re-injects everything it loaded at startup
+# after a compaction EXCEPT its skill listing, so the model stops knowing which skills exist.
+# lib/skill-index.sh rebuilds a name-only index from the session's own last listing. It rides
+# on this hook because this hook is already registered on the `compact` matcher: a separate
+# hook would need a `.claude/settings.json` registration no agent can write.
+# Guarded source: this file is also copied standalone (test sandboxes, consumer installs)
+# with no lib/ sibling — then the block is simply absent. stdin is read only when it is not
+# a terminal, and the payload is used for nothing else.
+# BOUNDED read, never `cat`: a caller that hands over a closed stdin, or a pipe nobody
+# writes to, must still get the digest. `cat` blocks forever on both (measured: exit 137
+# under a 5 s kill); `read -t` gives up after one second and the index is simply skipped.
+_hook_input=""
+if ! [ -t 0 ]; then IFS= read -r -d '' -t 1 _hook_input 2>/dev/null || true; fi
+_skill_lib="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/lib/skill-index.sh"
+if [ -f "$_skill_lib" ] && . "$_skill_lib" 2>/dev/null; then
+  # The harness caps one hook's output at 10,000 characters and replaces anything longer
+  # with a 2,000-character preview (code.claude.com/docs/en/hooks, fetched 2026-09-29), so
+  # the index only gets the room the digest left — it must never cost the digest itself.
+  _skill_room=$((9500 - $(printf '%s' "$DIGEST" | LC_ALL=C wc -c)))
+  _skill_block=$(_skill_index_block "$_hook_input" "$REPO_ROOT" "$_skill_room" 2>/dev/null || true)
+  if [ -n "$_skill_block" ]; then DIGEST="$DIGEST"$'\n'"$_skill_block"; fi
+fi
 _emit_ctx "SessionStart" "$DIGEST"

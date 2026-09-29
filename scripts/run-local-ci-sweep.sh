@@ -122,9 +122,81 @@
 #                         runs the host Node, and the lychee test self-SKIPs without it.
 # ------------------------------------------------------------------------------------------
 #
+# --- OFFLOAD (opt-in, machine-local): SWEEP_HEAVY_RUNNER ----------------------------------
+# The operator's Mac runs this sweep for every PR and every train, often from several sessions
+# at once. Measured 2026-09-29 (load average 13-20): only the install-sh battery left the Mac,
+# through INSTALL_SH_HEAVY_RUNNER in scripts/run-install-sh-suite.sh (PR #1913); tsc, prettier,
+# every vitest suite and the tsx checks all ran here, because the operator's shadow functions
+# for npm/npx live in the interactive shell and a `bash scripts/...` child never sees them.
+#
+# SWEEP_HEAVY_RUNNER names an executable that takes a command line, runs it elsewhere against a
+# mirror of this repo and exits with its code — the contract of PREPUSH_HEAVY_RUNNER (PR #1886)
+# and INSTALL_SH_HEAVY_RUNNER (PR #1913). Unset or empty, nothing changes: CI and every other
+# checkout never see a difference. PC_LOCAL=1 keeps every row here, as the one runner in use
+# (the operator's ~/bin/pc-run) already defines.
+#
+# Set, each ROUTABLE row (the SWEEP_ROUTABLE list below) runs as
+#   <runner> bash scripts/run-local-ci-sweep.sh --run-row <name> --receipt <nonce> …
+# in its usual place in the rank order. Everything else runs here. Deny-by-default on purpose:
+# a row missing from the list costs Mac CPU, never a Mac-only signal, so a new row can only fail
+# in the cheap direction. What stays here and why is written next to the list.
+#
+# A routed row counts only with its RECEIPT: a line carrying this call's nonce, printed by the
+# far end after the row finished, with the row's exit code. The runner's exit code alone is not
+# evidence (a runner that runs nothing can exit 0). No receipt means nothing was measured there
+# — runner NOT RUN, crash, or a far end whose gate table holds another command or whose index
+# tracks another file list (the --cmd-sum check: a stale mirror, or a file staged here and not
+# yet committed) — and the row runs HERE instead. A red receipt is a verdict
+# and is never retried here — with one exception, below. That split is Bazel's
+# --remote_local_fallback rule: fall back on an execution failure, not on a failing action
+# (prior-art-evaluations.md#294).
+#
+# The exception is a red whose output carries a vitest TIMEOUT (`Test timed out in` / `Hook timed
+# out in`): the row runs here and the local run is the verdict. Bazel's rule assumes a remote
+# executor with reserved capacity; this runner is a shared desktop that also runs games, whose
+# load its Linux side cannot see (measured 2026-09-29: WSL load 3.8 while principles/20's 30 s
+# hook and principles/43's 120 s test timed out on four pushes in a row, green on the Mac). A
+# timeout there says the runner was slow, not that the code is wrong — and a real hang still
+# fails here.
+#
+# Two more cases run here. A row that DEGRADED on the far end: it printed `[sweep] WARN` (a
+# toolchain held at another version), or a green run printed a loud skip (`⚠ live ruff firing
+# SKIPPED`) naming a tool this host has on PATH — toolchain_pins_ok passes a tool that is simply
+# absent, so a runner without ruff would otherwise hand back a PASS in which ruff never ran. The
+# Mac may be able to run it for real. And the far end noticing, through --origin, that the runner
+# fell back to this host on its own (it runs the row, and the label says where it ran).
+#
+# ONE STRIKE. The first routed row that comes back without a receipt, runs on this host after all,
+# or times out on the runner stops routing for the rest of the sweep: every later routable row
+# runs here, labelled with that first reason. An unreachable or busy runner costs one call, not
+# one per row.
+#
+# SHELL ARMS. On a stock Mac every shell a test starts is /bin/bash 3.2 (or /bin/sh, the same
+# binary) with BSD userland: `spawnSync('bash', …)` finds nothing else on PATH (checked
+# 2026-09-29: `which -a bash` → /bin/bash only), and a `.sh` run by path resolves its
+# `env bash` shebang the same way. CI runs on ubuntu only, so the Mac is the one place those
+# tests meet the shell consumer Macs run the shipped scripts with. A routed vitest row's files
+# that start a shell therefore ALSO run here, and the row passes only if both halves pass — the
+# same keep-local split `# stays-local:` gives the install-sh battery. A file starts a shell when
+# it names bash or sh as a program ('bash', '/bin/sh', `bash …`) or names a `.sh` file, or
+# imports — at any depth, relative specifiers resolved to files — a file under packages/core/ or
+# scripts/ that does (shell_scan). The match over-selects (a `.sh` path that is only read
+# counts), which costs Mac CPU, never the signal. A row runs a shell when its command, an npm
+# script it reaches at any depth, or a node script it runs does; such a row is kept here whole
+# (row_shell_reason), and the coverage test REDs on the list naming it. A node script that only
+# READS .sh files routes when SHELL_READERS names it with a reason and it starts only git and
+# node. Every `exec` string and npm script line goes through /bin/sh -c: what is judged is the
+# command inside, not the sh that carries it. Not seen: a shell named inside an exec string
+# built at run time or a `node -e` body elsewhere than the row's command, a script path built at
+# run time, and code reached through a bare package import (workspace packages included).
+# `--route-plan` prints, per row, where it goes and which arms stay.
+# ------------------------------------------------------------------------------------------
+#
 # Test seams (used by run-local-ci-sweep.test.sh, never in real runs):
 #   SWEEP_GATES_FILE   path to a gate table overriding the built-in one
 #   SWEEP_DIFF_OVERRIDE  space/newline list of changed paths overriding `git diff`
+#   SWEEP_ROUTABLE     space list of row names the runner may take, overriding the built-in one
+#   SWEEP_SHELL_READERS  `<path><TAB><reason>` lines overriding SHELL_READERS
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
@@ -141,14 +213,26 @@ LIST_GATES=0
 # `SWEEP_LOG_DIR` pins the location; unset, each run gets a fresh `mktemp -d`.
 SWEEP_LOG_DIR="${SWEEP_LOG_DIR:-}"
 LOG_DIR_READY=0
+ROUTE_PLAN=0
+# The far end of OFFLOAD (see the header): run ONE named row and print its receipt.
+RUN_ROW=""
+RUN_ROW_RECEIPT=""
+RUN_ROW_SUM=""
+RUN_ROW_ORIGIN=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --full) MODE="full" ;;
     --base) shift; BASE_REF="${1:-}" ;;
     --list-gates) LIST_GATES=1 ;;
+    --route-plan) ROUTE_PLAN=1 ;;
+    --run-row) shift; RUN_ROW="${1:-}" ;;
+    --receipt) shift; RUN_ROW_RECEIPT="${1:-}" ;;
+    --cmd-sum) shift; RUN_ROW_SUM="${1:-}" ;;
+    --origin) shift; RUN_ROW_ORIGIN="${1:-}" ;;
     -h | --help)
-      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates]"
+      echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates] [--route-plan]"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
+      echo "       SWEEP_HEAVY_RUNNER=<cmd>   run the routable rows through <cmd> (PC_LOCAL=1: none)"
       echo "exit:  0 gates passed (or nothing to do on a clean tree) · 1 a gate failed"
       echo "       2 bad usage · 3 refused: dirty tree, committed diff selected no gates"
       exit 0 ;;
@@ -416,6 +500,481 @@ toolchain_pins_ok() {
   return "$rc"
 }
 
+# --- OFFLOAD: which rows the runner may take (see the header block) ---
+# Routable = the row's runner is node tooling (tsc, vitest, tsx/node scripts) that starts no shell
+# of its own — not in the command, not in an npm script it reaches, not in a node script it runs
+# (row_shell_reason keeps such a row here anyway, and the coverage test REDs on the list) — AND
+# the row costs the Mac more run here than routed. A one-row sweep that routes its row costs this
+# Mac 1.8-2.9 CPU-s (sweep start, the one shell scan, the `pc-run` call; measured 2026-09-29, each
+# side twice and alone, user+sys from /usr/bin/time -l), plus its shell arms: a vitest row's
+# files that start a shell run here as well (SHELL ARMS in the header), so a suite where nearly
+# every file does is not worth the call.
+# Everything else stays here, for one of these reasons:
+#   - it RUNS A SHELL: meta-all-wired, sweep-ci-coverage, alwayson-budget, script-selftests,
+#     shipped-rules-drift, getff-dist-manifest, synth-bundle-drift, byte-identical, agnosticism,
+#     premerge-carrier-selftest, mutation-runner-selftest, hook-tests, dispatcher-tests,
+#     measure-scripts, plugin-aifdoctor-selftests, audit-ai-docs-live — and, one hop away,
+#     format-check (npm run format:check is bash scripts/format-shipped.sh, which sources
+#     setup.d/lib.sh), runtime-bundles-drift (build-runtime-bundles.mjs spawns
+#     check-bundle-dep-parity.sh) and template-render (spawns install.sh). `bash` here is
+#     /bin/bash 3.2 and the userland is BSD; CI is ubuntu-only, so this is the one place those
+#     scripts meet the shell the operator's Mac and consumer Macs run them with.
+#   - nearly every file of its suite starts a shell, so its arms would run it here anyway:
+#     vitest-hooks (79 of 82 files, 2026-09-29), vitest-install-wire, audit-ai-docs and
+#     first-steps-parity (every file).
+#   - install-sh-suite routes its own battery (INSTALL_SH_HEAVY_RUNNER), keeping its
+#     `# stays-local:` tests here; routing the row would take those along.
+#   - it reads a host tool the runner does not pin to this host: actionlint, shellcheck,
+#     docs-quality-strict (vale + lychee), vitest-spec-validation (an authenticated `gh`).
+#   - vitest-skills stays here unmeasured. It pinned LC_ALL=en_US.UTF-8, and a runner without
+#     that locale generated fell back to C, where the Cyrillic range matched `×` and `—` — a
+#     false red there, measured 2026-09-29. #1941 then made skills/pipeline-english-canonical.test.ts
+#     match Cyrillic by code point, so that reason is gone; routing the row waits for its cost to
+#     be measured like the rows below.
+#   - it is cheaper than the call: render-check, rule-index-check, install-roster-check,
+#     presets-check, terms-style-check, pipefail-early-exit, docs-refresh, and the two echo rows;
+#     measured the same way (CPU-s here → routed): face-facts-check 0.9 → 2.1, canonical-regen
+#     1.2 → 2.0, vitest-composition 1.9 → 2.4, vitest-ir 1.1 → 2.1.
+SWEEP_ROUTABLE="${SWEEP_ROUTABLE-typecheck reference-check citation-fullsweep vitest-principles vitest-render vitest-backends vitest-synthesizer vitest-units}"
+row_routable() { case " $SWEEP_ROUTABLE " in *" $1 "*) return 0 ;; esac; return 1; }
+
+# cmd_sum <command> — a fingerprint of a row's command text AND of the file list this checkout's
+# index tracks. The far end recomputes it from its own gate table and its own index and refuses
+# to run on a mismatch: a stale mirror, or a file staged here and not yet committed (a runner
+# that syncs the committed tree plus the working-tree diff sees it as untracked, and a row that
+# enumerates with `git ls-files` would skip it there). Syncing the files' content is the
+# runner's job. `-z`: names unquoted, so a host with another core.quotePath lists the same
+# bytes. POSIX cksum: the same algorithm and output on BSD and GNU.
+cmd_sum() { { printf '%s\n' "$1"; git ls-files -z 2>/dev/null; } | cksum | awk '{ print $1 "-" $2 }'; }
+
+# SHELL_READERS — node scripts that name `.sh` files or `bash` only as text they read, one
+# `<path><TAB><reason>` line each. Such a file is not a shell seed of its own (see shell_scan),
+# so a row that runs it can route. An entry counts only while its reason is 20+ characters AND
+# the file and its import closure start nothing but git and node (shell_scan checks every
+# child_process call on each scan); an entry that stops passing marks its rows
+# `reader-starts-more-than-git:<path>`, and the coverage test REDs on the list.
+SHELL_READERS="${SWEEP_SHELL_READERS-scripts/render-reference.mjs${TAB}lists setup.d/*.sh and scripts/*.sh headers as text; spawns only git and node --check
+scripts/render-install-roster.mjs${TAB}reads setup.d/20-agents.sh and 10-skills.sh as text; spawns nothing
+scripts/lib/skill-tiers.mjs${TAB}reads setup.d/lib.sh as text to find the skill tiers; spawns nothing
+scripts/census.mjs${TAB}parses scripts as text and keeps 'bash' in its verb set; spawns nothing
+scripts/render-face-facts.mjs${TAB}reads install.sh as text to count its stack alternations; spawns nothing
+scripts/check-line-citations.mjs${TAB}resolves citations into .sh files as text; spawns only git}"
+
+# shell_scan — which files start a shell and which routable rows do (SHELL ARMS in the header).
+# Prints, repo-relative:
+#   mark<TAB><path>            a .ts/.mts/.mjs/.js/.cjs file under packages/core/ or scripts/
+#                              that names bash or sh as a program or names a .sh file (not a
+#                              SHELL_READERS entry), or imports such a file at any depth.
+#   row<TAB><name><TAB><why>   a routable row that starts a shell: `runs-a-shell` (its command,
+#                              or an npm script it reaches, names one or runs a shell script
+#                              without an extension), `starts-a-shell:<path>` (it runs a marked
+#                              node script), `setup-starts-a-shell:<path>` (a vitest row whose
+#                              globalSetup/setupFiles start more than git and node),
+#                              `reader-starts-more-than-git:<path>`, or a fail-closed answer —
+#                              `unparsed-npm-call` (also npm behind another command),
+#                              `unknown-workspace:<w>`, `unparsed-workspace-glob:<g>`,
+#                              `npm-nested-too-deep`, `unscanned-script:<path>` (outside the two
+#                              walked trees), `unresolved-script:<word>`, `node-eval`,
+#                              `unparsed-vitest-setup:<config>`, `scan-error`.
+# A file is marked when it names a shell or a .sh file, writes a shell shebang into a string, names
+# a tracked shell script without an extension, spawns node/npm/npx/tsx (a script this pass does not
+# follow), relatively imports a script outside the two trees, or imports a marked file.
+# npm calls are followed as npm runs them: `--prefix`/`-C`, `--workspaces`/`-w`, `run`/`test`
+# with their pre/post scripts, to depth 4. A vitest segment's file arguments are tests, not
+# scripts: their shells are arms (shell_arms), not a reason. Node, not grep: depth needs relative
+# import specifiers resolved to files. A basename match marks half the tree through `index` and
+# `types` (measured 2026-09-29: 314 files in 31 s, against 193 in 0.1 s resolved). The caller
+# runs it once and stops routing if it fails, since an empty answer would route every shell test.
+shell_scan() {
+  local rows="" n c
+  while IFS="$TAB" read -r _ n _ c; do
+    if [ -n "${n:-}" ] && row_routable "$n"; then rows="$rows$n$TAB$c
+"; fi
+  done <<EOF
+$(gate_table)
+EOF
+  SWEEP_SCAN_READERS="$SHELL_READERS" SWEEP_SCAN_ROWS="$rows" node - <<'JS'
+const fs = require('fs'), path = require('path'), cp = require('child_process');
+const exts = ['.ts', '.mts', '.mjs', '.js', '.cjs'];
+// A shell named as a program or a .sh file, a shell shebang written into a string (a stub the
+// code writes and runs), or node/npm/npx/tsx spawned from code (it runs a script this pass does
+// not follow, so it may start a shell).
+const seedRe = /['"`]((\/[\w.-]+)*\/)?(ba)?sh['"` ]|\.sh['"`]|#!\s*\/\S*\/(env\s+)?(ba)?sh\b|\b(spawn|spawnSync|execFile|execFileSync|execa|execaSync|fork)\s*\(\s*(['"`](npm|npx|node|tsx)['"`]|process\.execPath)/;
+const shebangSh = /^#!\s*\/\S*\/(env\s+)?(ba)?sh\b/;
+const firstLine = (p) => { try { return fs.readFileSync(p, 'utf8').split('\n', 1)[0]; } catch { return ''; } };
+const isFile = (p) => { try { return fs.statSync(p).isFile(); } catch { return false; } };
+// Tracked shell scripts without an extension (setup, git hooks, plugin hook wrappers): code that
+// names one starts a shell as surely as code that names a .sh file.
+const extless = [...new Set(cp.execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 1 << 26 }).split('\0')
+  .filter((f) => f && !path.extname(f) && isFile(f) && shebangSh.test(firstLine(f))).map((f) => path.basename(f)))];
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const extlessRe = extless.length ? new RegExp('[\'"`](?:[^\'"`\\s]*\\/)?(' + extless.map(esc).join('|') + ')[\'"`]') : null;
+const readers = new Map();
+for (const l of (process.env.SWEEP_SCAN_READERS || '').split('\n')) {
+  const [p, ...r] = l.split('\t');
+  const why = r.join(' ').trim();
+  if (p && p.trim() && why.length >= 20) readers.set(path.normalize(p.trim()), why);
+}
+const files = [];
+const walk = (d) => {
+  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist') continue;
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (exts.includes(path.extname(e.name))) files.push(p);
+  }
+};
+['packages/core', 'scripts'].forEach((r) => fs.existsSync(r) && walk(r));
+const known = new Set(files), importers = new Map(), imports = new Map(), src = new Map(), outside = new Set();
+const candidates = (b) => [b, b.replace(/\.(m?)js$/, '.$1ts'), ...exts.map((e) => b + e), ...exts.map((e) => path.join(b, 'index' + e))];
+const resolve = (from, spec) => {
+  const cs = candidates(path.join(path.dirname(from), spec));
+  for (const c of cs) if (known.has(c)) return c;
+  // A relative import of a script outside the two walked trees is not followed: mark the importer.
+  if (cs.some((c) => exts.includes(path.extname(c)) && isFile(c))) outside.add(from);
+  return null;
+};
+for (const f of files) {
+  const s = fs.readFileSync(f, 'utf8');
+  src.set(f, s);
+  imports.set(f, []);
+  for (const m of s.matchAll(/(?:from|import|require)\s*\(?\s*['"`](\.{1,2}\/[^'"`]+)['"`]/g)) {
+    const t = resolve(f, m[1]);
+    if (t) { imports.get(f).push(t); if (!importers.has(t)) importers.set(t, []); importers.get(t).push(f); }
+  }
+}
+// startsOnlyGitAndNode: every child_process call in the file and its import closure is `git` or
+// `process.execPath` by execFile/spawn, or an exec string that is one plain `git …` command. The
+// check behind a SHELL_READERS entry and behind vitest's setup files; anything it cannot read —
+// a namespace, default or require import of child_process, execa/zx/shelljs, `shell: true`, a
+// computed first argument — fails it.
+const gitOrNode = (src) => {
+  if (/shell\s*:\s*true/.test(src)) return false;
+  if (/import\s+(\*\s+as\s+)?\w+\s+from\s+['"](node:)?child_process['"]|require\s*\(\s*['"](node:)?child_process['"]\s*\)|from\s+['"](execa|zx|shelljs|cross-spawn)['"]/.test(src)) return false;
+  const names = [];
+  for (const m of src.matchAll(/import\s*\{([^}]*)\}\s*from\s*['"](node:)?child_process['"]/g))
+    for (const part of m[1].split(',')) {
+      const [orig, local] = part.trim().split(/\s+as\s+/);
+      if (orig) names.push([orig, local || orig]);
+    }
+  for (const [orig, n] of names)
+    for (const m of src.matchAll(new RegExp('(?<![\\w.])' + esc(n) + '\\s*\\(\\s*([^,)]*)', 'g'))) {
+      const a = m[1].trim();
+      if (a === "'git'" || a === '"git"' || a === 'process.execPath') continue;
+      if (/^exec(Sync)?$/.test(orig) && /^(['"`])git [^'"`;&|$<>(){}\\]*\1$/.test(a)) continue;
+      return false;
+    }
+  return true;
+};
+const closureOk = (f, seen = new Set()) => {
+  if (seen.has(f)) return true;
+  seen.add(f);
+  const s = src.has(f) ? src.get(f) : (isFile(f) ? fs.readFileSync(f, 'utf8') : null);
+  if (s === null || outside.has(f) || !gitOrNode(s)) return false;
+  return (imports.get(f) || []).every((t) => closureOk(t, seen));
+};
+const rejected = new Set();
+for (const f of readers.keys()) if (known.has(f) && !closureOk(f)) rejected.add(f);
+const exempt = (f) => readers.has(f) && !rejected.has(f);
+const seedText = (s) => seedRe.test(s) || (extlessRe !== null && extlessRe.test(s));
+const marked = new Set([...outside]);
+for (const f of files) if (!exempt(f) && seedText(src.get(f))) marked.add(f);
+const q = [...marked];
+while (q.length) for (const i of importers.get(q.pop()) || []) if (!marked.has(i)) { marked.add(i); q.push(i); }
+
+const unq = (t) => t.replace(/^[('"{]+|[)'"};]+$/g, '');
+const words = (seg) => seg.trim().split(/\s+/).filter(Boolean).map(unq).filter(Boolean);
+const segs = (text) => text.split(/&&|\|\||[;|&\n]/);
+const pkg = (dir) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')); } catch { return {}; } };
+const valued = ['--prefix', '-C', '-p', '--package', '-w', '--workspace', '-c', '--call'];
+const program = (w) => {
+  let i = 0;
+  while (i < w.length && (/^[A-Za-z_]\w*=/.test(w[i]) || ['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!'].includes(w[i]))) i++;
+  if (w[i] === 'npx' || w[i] === 'exec')
+    for (i++; i < w.length && w[i].startsWith('-'); i++) if (valued.includes(w[i])) i++;
+  return i;
+};
+const workspaces = (dir, why) => {
+  const out = [];
+  for (const g of [].concat(pkg(dir).workspaces || [])) {
+    if (typeof g !== 'string') { why.push('unparsed-workspaces'); continue; }
+    if (g.endsWith('/*') && !g.slice(0, -2).includes('*')) {
+      const base = path.join(dir, g.slice(0, -2));
+      if (fs.existsSync(base)) for (const e of fs.readdirSync(base, { withFileTypes: true })) if (e.isDirectory()) out.push(path.join(base, e.name));
+    } else if (g.includes('*')) why.push('unparsed-workspace-glob:' + g);
+    else out.push(path.join(dir, g));
+  }
+  return out;
+};
+const workspace = (dir, v, why) => {
+  if (v && fs.existsSync(path.join(dir, v, 'package.json'))) return path.join(dir, v);
+  return workspaces(dir, why).find((d) => pkg(d).name === v) || null;
+};
+// expand: the command text plus every npm script it reaches, each with the directory npm runs it in.
+const expand = (text, dir, depth, out, why) => {
+  out.push({ text, dir });
+  for (const seg of segs(text)) {
+    const w = words(seg);
+    let i = program(w);
+    if (w[i] !== 'npm') {
+      if (w.includes('npm')) why.push('unparsed-npm-call');
+      continue;
+    }
+    if (depth >= 4) { why.push('npm-nested-too-deep'); continue; }
+    let d = dir, ws = false, named = [], sub = null, name = null, extra = [];
+    for (i++; i < w.length; i++) {
+      const t = w[i];
+      if (t === '--') { extra = extra.concat(w.slice(i + 1)); break; }
+      if (t === '--prefix' || t === '-C') d = path.join(dir, w[++i] || '');
+      else if (t.startsWith('--prefix=')) d = path.join(dir, t.slice(9));
+      else if (t === '--workspaces' || t === '-ws') ws = true;
+      else if (t === '-w' || t === '--workspace') named.push(w[++i]);
+      else if (t.startsWith('--workspace=')) named.push(t.slice(12));
+      else if (t.startsWith('-')) continue;
+      else if (!sub) sub = t;
+      else if (!name) name = t;
+      else extra.push(t);
+    }
+    let script = null;
+    if (['run', 'run-script', 'rum', 'urn'].includes(sub)) script = name;
+    else if (['test', 't', 'tst'].includes(sub)) { script = 'test'; if (name) extra.unshift(name); }
+    if (!script) { why.push('unparsed-npm-call'); continue; }
+    let dirs = [d];
+    if (ws || named.length) {
+      dirs = ws ? workspaces(d, why) : [];
+      for (const v of named) { const x = workspace(d, v, why); if (!x) { why.push('unknown-workspace:' + v); continue; } dirs.push(x); }
+    }
+    for (const pd of dirs) {
+      const s = pkg(pd).scripts || {};
+      for (const k of ['pre' + script, script, 'post' + script])
+        if (typeof s[k] === 'string') expand(s[k] + (k === script && extra.length ? ' ' + extra.join(' ') : ''), pd, depth + 1, out, why);
+    }
+  }
+};
+// setupReason: vitest's globalSetup/setupFiles run in every vitest row, so a routed row takes them
+// along whole — they must start only git and node (gitOrNode, over their import closure).
+const setupReason = (dir) => {
+  const cfg = ['vitest.config.ts', 'vitest.config.mts', 'vitest.config.js', 'vitest.config.mjs'].map((c) => path.join(dir, c)).find(isFile);
+  if (!cfg) return '';
+  const s = fs.readFileSync(cfg, 'utf8');
+  for (const m of s.matchAll(/\b(globalSetup|setupFiles)\s*:\s*/g)) {
+    const rest = s.slice(m.index + m[0].length);
+    const v = rest.match(/^\[([^\]]*)\]|^(['"`][^'"`]*['"`])/);
+    if (!v) return 'unparsed-vitest-setup:' + path.normalize(cfg);
+    for (const lit of (v[1] !== undefined ? v[1] : v[2]).split(',').map((x) => x.trim()).filter(Boolean)) {
+      if (!/^(['"`])[^'"`]*\1$/.test(lit)) return 'unparsed-vitest-setup:' + path.normalize(cfg);
+      const f = path.normalize(path.join(dir, lit.slice(1, -1)));
+      if (!closureOk(f)) return 'setup-starts-a-shell:' + f;
+    }
+  }
+  return '';
+};
+const nodeValued = ['--import', '--require', '-r', '--loader', '--experimental-loader', '--conditions', '-C'];
+const rel = (p) => path.normalize(p);
+for (const line of (process.env.SWEEP_SCAN_ROWS || '').split('\n')) {
+  const tab = line.indexOf('\t');
+  if (tab < 1) continue;
+  const name = line.slice(0, tab), cmd = line.slice(tab + 1);
+  let reason = '';
+  try {
+    const texts = [], why = [];
+    expand(cmd, '.', 0, texts, why);
+    if (why.length) reason = why[0];
+    else if (texts.some((x) => /(^|[\s;|&("'`=])(\S*\/)?(ba)?sh([\s;|&)"'`]|$)|\.sh(\W|$)/.test(x.text))) reason = 'runs-a-shell';
+    else {
+      outer: for (const x of texts) for (const seg of segs(x.text)) {
+        const w = words(seg), i = program(w);
+        if (w[i] === 'vitest') {
+          const r = setupReason(x.dir);
+          if (r) { reason = r; break outer; }
+          continue;
+        }
+        const runner = ['node', 'tsx', 'ts-node'].includes(w[i]);
+        let entry = runner;
+        for (let j = i; j < w.length; j++) {
+          let t = w[j];
+          if (runner && j > i && /^(-e|--eval|-p|--print)$/.test(t)) { reason = 'node-eval'; break outer; }
+          if (t.startsWith('-')) {
+            if (runner && nodeValued.includes(t)) j++;
+            t = t.replace(/^[^=]*=?/, '');
+          }
+          t = t.replace(/^\.\//, '');
+          if (!t || j === i && runner) continue;
+          let p = rel(path.join(x.dir, t));
+          if (entry && !w[j].startsWith('-')) {
+            entry = false;
+            if (!exts.includes(path.extname(t))) {
+              const hit = candidates(p).find((c) => exts.includes(path.extname(c)) && isFile(c));
+              if (!hit) { reason = 'unresolved-script:' + t; break outer; }
+              p = rel(hit);
+            }
+          } else if (!exts.includes(path.extname(t))) {
+            if (isFile(p) && shebangSh.test(firstLine(p))) { reason = 'runs-a-shell'; break outer; }
+            continue;
+          }
+          if (marked.has(p)) { reason = (rejected.has(p) ? 'reader-starts-more-than-git:' : 'starts-a-shell:') + p; break outer; }
+          if (!known.has(p)) { reason = (isFile(p) ? 'unscanned-script:' : 'unresolved-script:') + p; break outer; }
+        }
+      }
+    }
+  } catch (e) {
+    reason = 'scan-error';
+  }
+  if (reason) process.stdout.write('row\t' + name + '\t' + reason + '\n');
+}
+for (const f of [...marked].sort()) process.stdout.write('mark\t' + f + '\n');
+JS
+}
+SHELL_SCAN=""
+
+# vitest_scope <command> — the vitest path filters a row's run applies, relative to packages/core:
+# empty when the row runs no vitest, UNKNOWN when it runs vitest in a shape this parser does not
+# read. Three shapes are read: `npm --prefix packages/core run test:<suite>` (the suite's filters
+# come from packages/core/package.json, never restated here), `npm --prefix packages/core test …
+# -- <filter>…`, and `vitest run packages/core/<file>…`. A routable row that answers UNKNOWN is
+# kept here (see the main loop), and the coverage test REDs on it, because its shell arms could
+# not be found.
+# Always called inside $( ): the `set -f` that keeps the word lists from globbing ends with it.
+vitest_scope() {
+  local cmd="$1" suite script tok out=""
+  set -f
+  case "$cmd" in *vitest* | *"run test:"* | *"packages/core test"*) ;; *) return 0 ;; esac
+  suite="$(printf '%s\n' "$cmd" | grep -oE 'run test:[a-z0-9-]+' | head -1)"
+  if [ -n "$suite" ]; then
+    script="$(node -e 'const s = require("./packages/core/package.json").scripts || {}; process.stdout.write(s[process.argv[1]] || "")' "${suite#run }" 2>/dev/null)"
+    case "$script" in "vitest run "*) ;; *) printf 'UNKNOWN'; return 0 ;; esac
+    for tok in ${script#vitest run }; do
+      case "$tok" in -*) ;; *) out="$out $tok" ;; esac
+    done
+  else
+    case "$cmd" in
+      *"--prefix packages/core test"*" -- "*)
+        for tok in ${cmd##*" -- "}; do
+          case "$tok" in -*) ;; *) out="$out $tok" ;; esac
+        done ;;
+      *)
+        for tok in $cmd; do
+          case "$tok" in packages/core/*.test.ts | packages/core/*.audit.ts) out="$out ${tok#packages/core/}" ;; esac
+        done ;;
+    esac
+  fi
+  if [ -z "$out" ]; then printf 'UNKNOWN'; return 0; fi
+  printf '%s' "${out# }"
+}
+
+# shell_arms <command> — the files in the row's vitest scope that start a shell (the `mark` lines
+# of $SHELL_SCAN; see SHELL ARMS in the header), relative to packages/core, space-separated. A file
+# is in scope when one of the row's filters is a substring of its path — vitest's own rule for a
+# CLI filter, so `hooks/` here selects exactly what `vitest run hooks/` runs.
+shell_arms() {
+  local scope f tok out=""
+  set -f
+  scope="$(vitest_scope "$1")"
+  case "$scope" in '' | UNKNOWN) return 0 ;; esac
+  while IFS= read -r f; do
+    for tok in $scope; do
+      case "$f" in *"$tok"*) out="$out $f"; break ;; esac
+    done
+  done <<EOF
+$(awk -F'\t' '$1 == "mark" { print $2 }' <<<"$SHELL_SCAN" | sed -n 's|^packages/core/||p' | grep -E '\.(test|audit)\.ts$')
+EOF
+  printf '%s' "${out# }"
+}
+
+# scope_count <command> — how many test files the row's vitest scope holds (shell_arms' rule).
+scope_count() {
+  local scope f tok n=0
+  set -f
+  scope="$(vitest_scope "$1")"
+  for f in $(cd packages/core 2>/dev/null && find . -name node_modules -prune -o \( -name '*.test.ts' -o -name '*.audit.ts' \) -print | sed 's|^\./||'); do
+    for tok in $scope; do
+      case "$f" in *"$tok"*) n=$((n + 1)); break ;; esac
+    done
+  done
+  printf '%s' "$n"
+}
+
+# row_shell_reason <name> <command> — why a routable row stays here after all, or nothing: the
+# row's `row` line of $SHELL_SCAN (it starts a shell, or could not be read), else — for a vitest
+# row — `every-file-starts-a-shell` when every file of its scope does (its arms would be the whole
+# row).
+row_shell_reason() {
+  local why arms
+  set -f
+  why="$(awk -F'\t' -v n="$1" '$1 == "row" && $2 == n { print $3; exit }' <<<"$SHELL_SCAN")"
+  if [ -n "$why" ]; then printf '%s' "$why"; return 0; fi
+  case "$(vitest_scope "$2")" in '' | UNKNOWN) return 0 ;; esac
+  arms="$(shell_arms "$2")"
+  [ -n "$arms" ] && [ "$(wc -w <<<"$arms" | tr -d ' ')" -ge "$(scope_count "$2")" ] && printf 'every-file-starts-a-shell'
+  return 0
+}
+
+# loud_skip_here <output> — succeeds when a green run's output carries a loud skip (`⚠ … SKIPPED`,
+# the backends' convention) naming a program this host has on PATH: the runner lacked the tool,
+# and this host can run the test for real. `tr` leaves word characters only, so nothing globs.
+loud_skip_here() {
+  local w
+  for w in $(LC_ALL=C sed -n 's/.*⚠\(.*\)SKIPPED.*/\1/p' <<<"$1" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' ' '); do
+    type -P "$w" >/dev/null 2>&1 && return 0
+  done
+  return 1
+}
+
+# --- the far end: `--run-row <name>` runs exactly one row of THIS checkout's table ---
+# It never selects, never refuses on a dirty tree and never routes again. The receipt is written
+# only after the row finished and is the whole verdict, so the exit code is 0 once it is written:
+# a runner reads a non-zero exit as its own business (pc-run re-runs a 127 locally).
+if [ -n "$RUN_ROW" ]; then
+  exec 3>&2
+  row_cmd=""
+  found=0
+  while IFS="$TAB" read -r _ n _ c; do
+    [ "${n:-}" = "$RUN_ROW" ] || continue
+    row_cmd="$c"; found=1; break
+  done <<EOF
+$(gate_table)
+EOF
+  if [ "$found" -eq 0 ]; then
+    echo "[sweep:run-row] NOT RUN: no row named '$RUN_ROW' in this checkout's gate table"
+    exit 2
+  fi
+  if [ -n "$RUN_ROW_SUM" ] && [ "$(cmd_sum "$row_cmd")" != "$RUN_ROW_SUM" ]; then
+    echo "[sweep:run-row] NOT RUN: row '$RUN_ROW' or the tracked file list here differs from the caller's (checksum) — stale mirror, or a file staged there and not committed?"
+    exit 2
+  fi
+  host="runner"
+  if [ -n "$RUN_ROW_ORIGIN" ] && [ -e "$RUN_ROW_ORIGIN" ]; then host="origin"; fi
+  (eval "$row_cmd") </dev/null
+  rrc=$?
+  printf '[sweep:receipt %s] row=%s rc=%s host=%s\n' "$RUN_ROW_RECEIPT" "$RUN_ROW" "$rrc" "$host"
+  exit 0
+fi
+
+# --- `--route-plan`: where each row would go, and which shell arms stay here ---
+# One line per row: name<TAB>route|local<TAB>arms-or-reason. A listed name with no row prints
+# `missing`. Read by run-local-ci-sweep-coverage.test.sh through the real parser, like --list-gates.
+if [ "$ROUTE_PLAN" -eq 1 ]; then
+  if ! SHELL_SCAN="$(shell_scan)"; then
+    echo "[sweep] --route-plan: cannot find the files that start a shell (node failed)" >&2
+    exit 2
+  fi
+  PLAN_TABLE="$(gate_table)"
+  while IFS="$TAB" read -r _ n _ c; do
+    [ -z "${n:-}" ] && continue
+    if ! row_routable "$n"; then printf '%s\tlocal\t\n' "$n"
+    elif [ "$(vitest_scope "$c")" = UNKNOWN ]; then printf '%s\tlocal\tunparsed-vitest-shape\n' "$n"
+    elif reason="$(row_shell_reason "$n" "$c")" && [ -n "$reason" ]; then printf '%s\tlocal\t%s\n' "$n" "$reason"
+    else printf '%s\troute\t%s\n' "$n" "$(shell_arms "$c")"
+    fi
+  done <<EOF
+$PLAN_TABLE
+EOF
+  for n in $SWEEP_ROUTABLE; do
+    case "$PLAN_TABLE" in *"$TAB$n$TAB"*) ;; *) printf '%s\tmissing\t\n' "$n" ;; esac
+  done
+  exit 0
+fi
+
 # --- changed paths (vs merge-base) ---
 changed_paths() {
   # shellcheck disable=SC2086  # SWEEP_DIFF_OVERRIDE is a deliberate word-split list of paths
@@ -557,6 +1116,122 @@ ensure_log_dir() {
 # `progress()`. Nothing is FORCED onto fd 3: a gate that ignores it behaves exactly as before.
 exec 3>&2
 
+# --- OFFLOAD: routing is on only with a runner, without PC_LOCAL (see the header block) ---
+RUNNER="${SWEEP_HEAVY_RUNNER:-}"
+ROUTING=0
+RUNNER_NAME=""
+ORIGIN_MARK=""
+ROUTED_N=0
+FELLBACK_N=0
+# ONE STRIKE (see the header): set to the first routed row's failure reason; routing stops there.
+RUNNER_TRIPPED=""
+if [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; then
+  if ! command -v "$RUNNER" >/dev/null 2>&1; then
+    echo "[sweep] SWEEP_HEAVY_RUNNER='$RUNNER' is not an executable command."
+    echo "        Fix the path, or unset SWEEP_HEAVY_RUNNER to run every gate here."
+    exit 2
+  fi
+  # The origin mark: a file that exists only on THIS host. The far end finds it only when the
+  # runner ran it here (its own fallback), which is how a PASS can say where it actually ran.
+  if ORIGIN_MARK="$(mktemp "${TMPDIR:-/tmp}/sweep-origin.XXXXXX" 2>/dev/null)"; then
+    ROUTING=1
+    RUNNER_NAME="$(basename "$RUNNER")"
+    trap 'rm -f "$ORIGIN_MARK"' EXIT
+  else
+    ORIGIN_MARK=""
+    echo "[sweep] WARN-ROUTE: cannot create an origin mark under ${TMPDIR:-/tmp} — every row runs here" >&3
+  fi
+  # Which test files start a shell decides what stays here; without that answer nothing routes.
+  if [ "$ROUTING" -eq 1 ] && ! SHELL_SCAN="$(shell_scan 2>/dev/null)"; then
+    ROUTING=0
+    echo "[sweep] WARN-ROUTE: cannot find the files that start a shell (node failed) — every row runs here" >&3
+  fi
+fi
+
+# run_routed <name> <command> — run one routable row through the runner. Sets `out` (the output
+# of the run whose exit code is the verdict), `rc`, `where` (a label for the PASS/FAIL line) and
+# `route_log` (what the runner said when its result was not used — kept in the log file).
+run_routed() {
+  local name="$1" cmd="$2" nonce raw rrc receipt r_rc r_host arms aout arc degraded
+  route_log=""
+  nonce="$$.$ran.$RANDOM$RANDOM"
+  printf '[sweep] %s → %s\n' "$name" "$RUNNER_NAME" >&3
+  raw="$( (cd "$REPO_ROOT" && exec "$RUNNER" bash scripts/run-local-ci-sweep.sh --run-row "$name" \
+    --receipt "$nonce" --cmd-sum "$(cmd_sum "$cmd")" --origin "$ORIGIN_MARK") 2>&1 </dev/null )"
+  rrc=$?
+  # tr: a runner that crosses a Windows hop may hand lines back with a CR on the end.
+  receipt="$(printf '%s\n' "$raw" | grep -F "[sweep:receipt $nonce] " | tail -1 | tr -d '\r')"
+  r_rc="${receipt##* rc=}"; r_rc="${r_rc%% *}"
+  r_host="${receipt##* host=}"
+  case "$r_rc" in '' | *[!0-9]*) receipt="" ;; esac
+
+  if [ -z "$receipt" ]; then
+    # Nothing was measured on the runner. Run it here; the runner's own words go to the log.
+    route_log="$raw
+[sweep] $name: $RUNNER_NAME returned no result (exit $rrc) — ran here instead
+"
+    out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+    where="here — no result from $RUNNER_NAME"
+    RUNNER_TRIPPED="no result for $name"
+    FELLBACK_N=$((FELLBACK_N + 1))
+    return
+  fi
+  if [ "$r_host" = "origin" ]; then
+    out="$raw"; rc="$r_rc"
+    where="here — $RUNNER_NAME fell back to this host"
+    RUNNER_TRIPPED="it fell back to this host on $name"
+    FELLBACK_N=$((FELLBACK_N + 1))
+    return
+  fi
+  out="$raw"; rc="$r_rc"; where="on $RUNNER_NAME"
+  # The receipt is the verdict; a runner that still exits non-zero (its own cleanup) is noted.
+  [ "$rrc" -eq 0 ] || route_log="[sweep] $name: $RUNNER_NAME exited $rrc after the receipt (rc=$r_rc)
+"
+  if [ "$rc" -ne 0 ]; then
+    case "$raw" in
+      *'Test timed out in '* | *'Hook timed out in '*)
+        # The runner was too slow for the suite's own budget (see the header): not a verdict on
+        # the code. The local run is.
+        route_log="$route_log$raw
+[sweep] $name: timed out on $RUNNER_NAME — ran here instead
+"
+        out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+        where="here — timed out on $RUNNER_NAME"
+        RUNNER_TRIPPED="a timeout in $name"
+        FELLBACK_N=$((FELLBACK_N + 1))
+        return ;;
+    esac
+  fi
+  if [ "$rc" -eq 0 ]; then
+    case "$out" in *'[sweep] WARN'*) degraded=1 ;; *) degraded=0 ;; esac
+    [ "$degraded" -eq 1 ] || ! loud_skip_here "$out" || degraded=1
+    if [ "$degraded" -eq 1 ]; then
+      # Degraded there (a tool the runner lacks or holds at another version). Here it may run
+      # for real — and if it degrades here too, the verdict is exactly what it would have been.
+      route_log="$route_log$raw
+[sweep] $name: degraded on $RUNNER_NAME — ran here instead
+"
+      out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+      where="here — degraded on $RUNNER_NAME"
+      FELLBACK_N=$((FELLBACK_N + 1))
+      return
+    fi
+    arms="$(shell_arms "$cmd")"
+    if [ -n "$arms" ]; then
+      printf '[sweep] %s: %s shell arm file(s) here\n' "$name" "$(printf '%s\n' "$arms" | wc -w | tr -d ' ')" >&3
+      # shellcheck disable=SC2086  # arms is a word list of paths, split on purpose (set -f: no globbing)
+      aout="$(cd "$REPO_ROOT/packages/core" && set -f && npx vitest run --reporter=default $arms 2>&1 </dev/null)"
+      arc=$?
+      out="$out
+----- $name: shell arms, run here (bash 3.2): $arms -----
+$aout"
+      [ "$arc" -eq 0 ] || rc="$arc"
+      where="on $RUNNER_NAME + shell arms here"
+    fi
+  fi
+  ROUTED_N=$((ROUTED_N + 1))
+}
+
 ran=0
 diff_selected=0
 SORTED="$(gate_table | sort -t"$TAB" -k1,1n)"
@@ -575,28 +1250,44 @@ while IFS="$TAB" read -r _ name trigger cmd; do
   # classification and then dropped on the floor — so a FAIL printed a bare gate name and the
   # evidence was gone, which is the same `#warning-nobody-reads` shape one branch lower: the
   # only consumer of a failing gate's output was a variable nobody could read.
-  out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+  where=""
+  route_log=""
+  # A listed row whose vitest shape is unreadable, or that starts a shell itself, runs here (the
+  # coverage test REDs on either, so the list gets fixed rather than the row silently moving).
+  if [ "$ROUTING" -eq 1 ] && row_routable "$name" && [ "$(vitest_scope "$cmd")" != UNKNOWN ] \
+    && [ -z "$(row_shell_reason "$name" "$cmd")" ]; then
+    if [ -n "$RUNNER_TRIPPED" ]; then
+      out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+      where="here — $RUNNER_NAME skipped after $RUNNER_TRIPPED"
+      FELLBACK_N=$((FELLBACK_N + 1))
+    else
+      run_routed "$name" "$cmd"
+    fi
+  else
+    out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+  fi
+  at="${where:+ · $where}"
   log_path=""
   if ensure_log_dir; then
     # Gate names come from gate_table()/$SWEEP_GATES_FILE, not from user input, but sanitise
     # anyway: one `/` in a name would otherwise write outside the log dir (or just fail).
     safe_name="${name//[^A-Za-z0-9._-]/_}"
     log_path="$SWEEP_LOG_DIR/$(printf '%02d' "$ran")-${safe_name}.log"
-    printf '%s\n' "$out" >"$log_path" 2>/dev/null || log_path=""
+    printf '%s%s\n' "$route_log" "$out" >"$log_path" 2>/dev/null || log_path=""
   fi
   if [ "$rc" -eq 0 ]; then
     case "$out" in
       # `[sweep] WARN`-prefixed only: every degrade row in the table emits that exact prefix,
       # while several install-sh tests legitimately print bare "WARN" during a real run
       # (nvmrc-ci-drift, r2-glob-reach) — matching those would mislabel a genuine pass.
-      *'[sweep] WARN'*) echo "[sweep] WARN-SKIP $name — degraded, NOT a real run" ;;
-      *) echo "[sweep] PASS $name" ;;
+      *'[sweep] WARN'*) echo "[sweep] WARN-SKIP $name$at — degraded, NOT a real run" ;;
+      *) echo "[sweep] PASS $name$at" ;;
     esac
   else
     if [ -n "$log_path" ]; then
-      echo "[sweep] FAIL $name — output: $log_path"
+      echo "[sweep] FAIL $name$at — output: $log_path"
     else
-      echo "[sweep] FAIL $name — output: (log dir unavailable, tail below only)"
+      echo "[sweep] FAIL $name$at — output: (log dir unavailable, tail below only)"
     fi
     # The path alone would still make the operator run a second command to see anything, and in
     # a remote/agent session the file may not be reachable at all. Print a bounded tail so the
@@ -644,6 +1335,10 @@ if [ "$ran" -eq 0 ]; then
   echo "SWEEP: no gates selected for this diff (mode=$MODE)"
 else
   echo "SWEEP: $ran gate(s) passed (mode=$MODE)"
+  if [ "$ROUTING" -eq 1 ]; then
+    echo "SWEEP: offload — $ROUTED_N row(s) ran on $RUNNER_NAME, $FELLBACK_N routed row(s) ran here instead, $((ran - ROUTED_N - FELLBACK_N)) not routable"
+    [ -n "$RUNNER_TRIPPED" ] && echo "SWEEP: offload stopped after $RUNNER_TRIPPED"
+  fi
   [ "$LOG_DIR_READY" -eq 1 ] && echo "SWEEP: gate logs in $SWEEP_LOG_DIR"
 fi
 exit 0

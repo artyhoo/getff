@@ -234,6 +234,23 @@ _frag_sha=$( (sha256sum "$FRAG" 2>/dev/null || shasum -a 256 "$FRAG") | awk '{pr
 grep -qF "$_frag_sha:$(wc -l < "$FRAG" | tr -d ' ')" "$REPO_ROOT/setup.d/45-python.sh" \
   && ok "G7: the current fragment is in 45-python.sh's shipped-entry list (a changed fragment cannot orphan installed entries)" \
   || bad "G7: the current fragment's sha256:lines ($_frag_sha) is missing from _PY_PRECOMMIT_SHIPPED — installed entries of it would read as edits"
+# The fixture's repos: items sit at two spaces; an entry at that indent is what the install writes since
+# C3 (#1935).
+_ind() { sed 's/^./  &/'; }
+# _pc_parses <dir> <label> — the dir's .pre-commit-config.yaml loads as YAML (js-yaml, a packages/core
+# dependency, as python-entry-lane (16f) loads it) and its repos: hold the consumer's hook and getff's.
+# A getff entry left in column 0 under indented repos: items is «expected <block end>, but found '-'»:
+# pre-commit cannot load the file, so no hook of the project runs.
+_pc_parses() {
+  local got
+  got=$(node -e '
+    const r = require("module").createRequire(process.argv[1] + "/packages/core/package.json");
+    const doc = r("js-yaml").load(require("fs").readFileSync(process.argv[2], "utf8"));
+    console.log(doc.repos.flatMap((x) => (x.hooks || []).map((h) => h.id)).sort().join(","));
+  ' "$REPO_ROOT" "$1/.pre-commit-config.yaml" 2>&1)
+  [ "$got" = "getff-python-pre-push,trailing-whitespace" ] && ok "$2 parses as YAML, hooks = $got" \
+    || bad "$2 does not parse as YAML with both hooks: $(tail -3 <<<"$got" | tr '\n' '|')"
+}
 py_consumer() {  # $1 = entry body to leave after the marker (pre-fix shape: no end line)
   local Y; Y=$(mktemp -d); CLEANUP+=("$Y")
   printf '[project]\nname = "demo"\n' > "$Y/pyproject.toml"
@@ -242,12 +259,15 @@ py_consumer() {  # $1 = entry body to leave after the marker (pre-fix shape: no 
   printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n\n%s\n%s\n' "$MARK" "$1" > "$Y/.pre-commit-config.yaml"
   echo "$Y"
 }
+# The entry sits in column 0 (written before C3, #1935) under the fixture's indented repos: items, so
+# the file is invalid YAML until the entry moves to the items' indent.
 Y=$(py_consumer "$V1_BODY")
 ( cd "$Y" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
 _got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y/.pre-commit-config.yaml")
-[ "$_got" = "$(cat "$FRAG")" ] \
-  && ok "G7: --refresh replaced a shipped earlier entry with the current fragment" \
-  || bad "G7: the getff entry is not the current fragment after --refresh"
+[ "$_got" = "$(_ind < "$FRAG")" ] \
+  && ok "G7: --refresh replaced a shipped earlier column-0 entry with the current fragment, at the indent of the repos: items" \
+  || bad "G7: the getff entry is not the current fragment at the repos: items' indent after --refresh"
+_pc_parses "$Y" "G7: the file after --refresh of a column-0 earlier entry"
 grep -q '^# getff-python-pre-push entry end' "$Y/.pre-commit-config.yaml" \
   && ok "G7: the entry now ends with an end line (the next reconcile knows where it stops)" \
   || bad "G7: no end line after the reconciled entry"
@@ -271,7 +291,7 @@ grep -qF 'getff-python-pre-push entry in .pre-commit-config.yaml — not updated
 Y3=$(py_consumer "$(printf '%s\n- repo: https://example.invalid/after\n  rev: v1' "$V1_BODY")")
 ( cd "$Y3" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
 awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1} END{exit !f}' "$Y3/.pre-commit-config.yaml" \
-  && [ "$(_py_body() { awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$1"; }; _py_body "$Y3/.pre-commit-config.yaml")" = "$(cat "$FRAG")" ] \
+  && [ "$(_py_body() { awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$1"; }; _py_body "$Y3/.pre-commit-config.yaml")" = "$(_ind < "$FRAG")" ] \
   && ok "G7: a consumer entry after the old getff entry is kept, after the reconciled entry" \
   || bad "G7: the replace lost or swallowed the consumer entry that followed the getff entry"
 # An edited entry that already has its end line is kept too.
@@ -281,8 +301,9 @@ cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"
 cmp -s "$Y4/.pre-commit-config.yaml" "$Y4/pc.before" && ok "G7: an edited entry with its end line is kept as it is" \
   || bad "G7: --refresh overwrote an edited entry that has its end line"
 
-# A CRLF file (Windows, autocrlf) is the same entry: matched, never appended a second time.
-Y5=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
+# A CRLF file (Windows, autocrlf) is the same entry: matched, never appended a second time. The entry is
+# current and at the items' indent, as the install writes it.
+Y5=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end' "$(_ind < "$FRAG")")")
 sed 's/$/\r/' "$Y5/.pre-commit-config.yaml" > "$Y5/crlf" && mv "$Y5/crlf" "$Y5/.pre-commit-config.yaml"
 cp "$Y5/.pre-commit-config.yaml" "$Y5/pc.before"
 ( cd "$Y5" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
@@ -296,13 +317,13 @@ Y6=$(py_consumer "$V1_BODY")
 sed 's/$/\r/' "$Y6/.pre-commit-config.yaml" > "$Y6/crlf" && mv "$Y6/crlf" "$Y6/.pre-commit-config.yaml"
 ( cd "$Y6" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
 _got=$(tr -d '\r' < "$Y6/.pre-commit-config.yaml" | awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on')
-[ "$_got" = "$(cat "$FRAG")" ] && ! grep -qv $'\r$' "$Y6/.pre-commit-config.yaml" \
-  && ok "G7: a CRLF file's shipped earlier entry is updated, every line still CRLF" \
-  || bad "G7: the CRLF update is wrong (body current: $([ "$_got" = "$(cat "$FRAG")" ] && echo y || echo n); LF-only lines: $(grep -cv $'\r$' "$Y6/.pre-commit-config.yaml"))"
+[ "$_got" = "$(_ind < "$FRAG")" ] && ! grep -qv $'\r$' "$Y6/.pre-commit-config.yaml" \
+  && ok "G7: a CRLF file's shipped earlier entry is updated at the items' indent, every line still CRLF" \
+  || bad "G7: the CRLF update is wrong (body current at the items' indent: $([ "$_got" = "$(_ind < "$FRAG")" ] && echo y || echo n); LF-only lines: $(grep -cv $'\r$' "$Y6/.pre-commit-config.yaml"))"
+_pc_parses "$Y6" "G7: the CRLF file after --refresh of a column-0 earlier entry"
 
 # An entry at the indent of the file's `repos:` items — how the install writes it since C3 (#1935) — is
 # the same entry: a current one is left alone, an earlier shipped one is updated at that indent.
-_ind() { sed 's/^./  &/'; }
 _nw_edit='getff-python-pre-push entry in .pre-commit-config.yaml — not updated'
 Y7=$(mktemp -d); CLEANUP+=("$Y7")
 printf '[project]\nname = "demo"\n' > "$Y7/pyproject.toml"
@@ -339,6 +360,20 @@ awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1
   && [ "$_got" = "$(_ind < "$FRAG")" ] \
   && ok "G7: an indented earlier entry followed by a consumer item is updated, the item kept after it" \
   || bad "G7: an indented earlier entry followed by a consumer item was kept as an edit, or lost the item"
+# A current entry in column 0 with its end line, under indented items — what --refresh wrote for a
+# pre-#1935 entry before C5-F2 — is moved to the items' indent too, and is then left alone.
+Y10=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
+out=$( cd "$Y10" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+_got=$(awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$Y10/.pre-commit-config.yaml")
+[ "$_got" = "$(_ind < "$FRAG")" ] && ok "G7: a current column-0 entry under indented repos: items is rewritten at their indent" \
+  || bad "G7: a current column-0 entry under indented repos: items was left in column 0"
+_pc_parses "$Y10" "G7: the file after --refresh of a current column-0 entry"
+grep -qF "$_nw_edit" <<<"$(not_wired <<<"$out")" \
+  && bad "G7: a current column-0 entry is named as an edit" || ok "G7: a current column-0 entry is not named as an edit"
+cp "$Y10/.pre-commit-config.yaml" "$Y10/pc.before"
+( cd "$Y10" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+cmp -s "$Y10/.pre-commit-config.yaml" "$Y10/pc.before" && ok "G7: a second --refresh leaves the re-indented entry byte-identical" \
+  || bad "G7: a second --refresh changed the re-indented entry"
 
 # ══ G4 — the R2 N/A record a declarative layout gets does not grow on each refresh ═════════════
 echo "▶ G4 R2 N/A record"
