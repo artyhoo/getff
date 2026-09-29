@@ -726,7 +726,9 @@ _f11_describe() {
          else
            ids=$(grep -oE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$code" \
              | sort -u | sed 's|^|rules-as-tests/|' | tr '\n' ' ' | sed 's/ $//; s/ /, /g') || ids=""
-           what="it sets $ids itself with no RULE_GLOBS block"
+           # The gate is asked about every root config (#1906), one that sets none of these rules too:
+           # an empty list is no «it sets  itself».
+           if [ -n "$ids" ]; then what="it sets $ids itself with no RULE_GLOBS block"; else what="it has no RULE_GLOBS block"; fi
          fi ;;
     esac
     # Why the install adds no boundary explains R2's array alone: a RULE_GLOBS.appCode or .application

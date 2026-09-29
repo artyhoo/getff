@@ -13,7 +13,9 @@
 #   S2  99-finalize _r2_would_wire, the consumer's config: a quoted R2 id in a comment is no rule entry.
 #   S3  99-finalize _r2_would_wire, getff's own config: a comment naming R2 is not R2.
 #   S4  99-finalize unknown-stack workspace: a quoted R2 id in a comment does not hide the workspace.
-#   S5  99-finalize F11: a config naming RULE_GLOBS / the rules only in comments is not handed to the gate.
+#   S5  99-finalize F11: a config naming RULE_GLOBS / the rules only in comments may be handed to the
+#       gate (#1906: it is always asked), but its line names no rule id from the comment and no empty
+#       «it sets  itself» — it says «it has no RULE_GLOBS block».
 #   S6  99-finalize F11: RULE_GLOBS in a comment does not make the summary say «its RULE_GLOBS has no
 #       boundary array».
 #   S7  99-finalize F11: a rule id in a comment is not listed among the rules the config sets itself.
@@ -183,18 +185,23 @@ F11_LINE='^      - RULE_GLOBS in eslint\.config\.mjs \(your own config\) — '
 
 S5=$(f11_project s5 "// RULE_GLOBS and '$R2_ID' come with the next install
 $PLAIN_CFG")
+# The gate is asked about every root config (#1906, r2-glob-reach T29), so S5 holds the line it prints to
+# the code: a comment naming R2 and RULE_GLOBS sets neither, so the config «has no RULE_GLOBS block» —
+# never «it sets  itself» with an empty rule list, and never R2 named as set.
 run_finalize "$S5"; ran_through S5
-if [ -e "$S5/.gate-asked" ]; then
-  bad "S5: the gate was asked about a config naming RULE_GLOBS and R2 only in a comment (summary: $(sum_show))"
+_s5_line=$(printf '%s\n' "$F_SUM" | grep -E "$F11_LINE" || true)
+if [ -z "$_s5_line" ] || { grep -qE "${F11_LINE}it has no RULE_GLOBS block[,;]" <<<"$_s5_line" \
+     && ! grep -qF -e 'it sets  itself' -e "$R2_ID" <<<"$_s5_line"; }; then
+  ok "S5: a config naming RULE_GLOBS and R2 only in a comment — its line says «it has no RULE_GLOBS block»"
 else
-  ok "S5: a config naming RULE_GLOBS and R2 only in a comment is not handed to the gate"
+  bad "S5: the F11 line reads the comment (summary: $(sum_show))"
 fi
 S5P=$(f11_project s5p "$R2_CFG")
 run_finalize "$S5P"
-if [ -e "$S5P/.gate-asked" ]; then
-  ok "S5 paired: a config setting R2 in code is handed to the gate"
+if [ -e "$S5P/.gate-asked" ] && sum_has "${F11_LINE}it sets $R2_ID itself with no RULE_GLOBS block"; then
+  ok "S5 paired: a config setting R2 in code is handed to the gate, and its line names R2 as set"
 else
-  bad "S5 paired: the gate was not asked about a config setting R2 in code — S5 would be vacuous"
+  bad "S5 paired: expected the gate asked and «it sets $R2_ID itself» — S5 would be vacuous (summary: $(sum_show))"
 fi
 
 S6=$(f11_project s6 "// no RULE_GLOBS here: the boundary is the whole repo
