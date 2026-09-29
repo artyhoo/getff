@@ -17,7 +17,7 @@ executed:
   - { step: install, stack: cargo, date: 2026-09-21, result: exit-0, versions: "clippy 0.1.98" }
   - { step: fire-on-your-code, stack: cargo, date: 2026-09-21, result: "warning exit-0 with plain clippy; RED exit-101 with the gate command" }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves an unloadable .pre-commit-config.yaml as it was; this page cites it only in its stack-switcher link, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for Rust

@@ -28,7 +28,7 @@ executed:
   - { step: run-the-gate, stack: ts-server, date: 2026-09-21, result: exit-0 }
   - { step: strict-runtime-second-red, stack: ts-server, date: 2026-09-21, result: RED }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the delivered-files listing was re-captured from a fresh ts-server install and now names the new check-zcode-mirror.sh, along with tier-home.md and the worktree-script cluster that earlier staging ranges deliver but this listing had not yet picked up; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the only cited source changed in this range is docs/site/quickstart-python.md, which gained a paragraph on the pre-commit entry the python lane adds and a limit bullet on a --refresh that leaves an unloadable .pre-commit-config.yaml as it was; this page cites it only in its stack-switcher link, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for TypeScript and React
