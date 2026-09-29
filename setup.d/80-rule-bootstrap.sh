@@ -83,6 +83,12 @@ _rb_log="$(mktemp)"
     --from-research "$_plan" \
     --from-selection "$_sel" 2>&1 ) > "$_rb_log" || _rb_rc=$?
 cat "$_rb_log"
+# P5 A2: the generator drops a research entry the plan gate refuses and keeps the rest; it names
+# each drop on one line («[rule-bootstrap] dropped research entry <id> — <reason>»,
+# packages/core/synthesizer/file-clients.ts FileResearchClient). Each becomes its own NOT wired line.
+while IFS= read -r _rb_drop; do
+  note_not_wired "generated rule for research entry ${_rb_drop%% — *} — dropped: ${_rb_drop#* — }; the other entries were generated"
+done < <(sed -n 's/.*\[rule-bootstrap\] dropped research entry //p' "$_rb_log")
 if [ "$_rb_rc" -eq 3 ]; then
   # rc=3 = the generator REJECTED the research artefact (rule-bootstrap-cli.ts live-arm catch); its
   # reason follows «invalid or unreadable — » on the first matching line.

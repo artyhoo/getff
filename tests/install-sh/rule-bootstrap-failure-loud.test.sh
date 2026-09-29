@@ -15,6 +15,9 @@
 #   (D) P2 G6: the generator REJECTED the research plan (exit 3, reason on stderr) → the NOT wired
 #       line says «research plan rejected» and carries the generator's first reason line, so the
 #       report names why no rule was generated instead of only an exit code.
+#   (E) P5 A2: the generator KEPT some entries and DROPPED others (exit 0, one «dropped research
+#       entry <id> — <reason>» stderr line each) → one NOT wired line per dropped entry, naming the
+#       entry and its reason; no FAILED / REJECTED line (the other entries were generated).
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -64,5 +67,14 @@ grep -q 'LAYER_RC=0' <<<"$_out" && ok "(D) a rejected plan still returns 0 from 
 grep -q 'NOT_WIRED: .*research plan rejected: Invalid ResearchPlan: data must have required property framework' <<<"$_out" \
   && ok "(D) the NOT wired line names the rejection and its reason" \
   || bad "(D) expected 'research plan rejected: <reason>' in NOT wired (got: $_out)"
+
+_drops='[rule-bootstrap] dropped research entry vite-env-via-import-meta — FF2005: unknown allowlistKey: vite
+[rule-bootstrap] dropped research entry broken-summary — FF1001: must be string (at /patterns/2/summary)'
+_out=$(run_layer 0 "$_drops")
+grep -q 'NOT_WIRED_COUNT=2' <<<"$_out" && ok "(E) one NOT wired line per dropped entry" || bad "(E) expected 2 NOT wired lines (got: $_out)"
+grep -q 'NOT_WIRED: generated rule for research entry vite-env-via-import-meta — dropped: FF2005: unknown allowlistKey: vite; the other entries were generated' <<<"$_out" \
+  && ok "(E) the line names the entry and the gate's reason" \
+  || bad "(E) expected 'generated rule for research entry <id> — dropped: <reason>' (got: $_out)"
+grep -Eq 'FAILED|REJECTED' <<<"$_out" && bad "(E) a partial drop printed FAILED/REJECTED" || ok "(E) a partial drop is not reported as a failed or rejected plan"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

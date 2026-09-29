@@ -10299,7 +10299,7 @@ function rulesOf(mod) {
   if (!rules2 || typeof rules2 !== "object") return null;
   return rules2;
 }
-function reasonOf(err) {
+function reasonOf2(err) {
   const e = err;
   const code = e?.code ? `${e.code}: ` : "";
   return `${code}${(e?.message ?? String(err)).split("\n")[0]}`;
@@ -10325,7 +10325,7 @@ function resolvePluginRegistry(opts = {}) {
       presetsResolved: true
     };
   } catch (err) {
-    skipped.push({ specifier: barrelLabel, reason: reasonOf(err) });
+    skipped.push({ specifier: barrelLabel, reason: reasonOf2(err) });
   }
   const requireFromHere = createRequire(new URL("../validator/preset-plugin-resolver.ts", import.meta.url).href);
   const resolvedFrom = [];
@@ -10337,7 +10337,7 @@ function resolvePluginRegistry(opts = {}) {
       presetRules = { ...presetRules, ...rules2 };
       resolvedFrom.push(specifier);
     } catch (err) {
-      skipped.push({ specifier, reason: reasonOf(err) });
+      skipped.push({ specifier, reason: reasonOf2(err) });
     }
   }
   if (resolvedFrom.length > 0) {
@@ -11685,7 +11685,8 @@ var init_to_node = __esm({
 });
 
 // packages/core/synthesizer/generate.ts
-async function synthesizeGenerate(plan, client) {
+import process3 from "node:process";
+async function synthesizeGenerate(plan, client, log = (m) => process3.stderr.write(m + "\n")) {
   const candidates = plan.patterns.map((entry) => ({
     id: entry.id,
     summary: entry.summary,
@@ -11705,7 +11706,12 @@ async function synthesizeGenerate(plan, client) {
   let nextId = 1;
   for (const candidate of selection.rules) {
     const entry = plan.patterns.find((p) => p.id === candidate.entryId);
-    if (!entry) continue;
+    if (!entry) {
+      log(
+        `[rule-bootstrap] selection rule ${candidate.ruleId} dropped \u2014 its research entry ${candidate.entryId} is not in the plan (dropped above or never written)`
+      );
+      continue;
+    }
     const id = `G${nextId++}`;
     const hasEslintConfig = candidate.eslintConfig !== void 0 && Object.keys(candidate.eslintConfig).length > 0;
     let check;
@@ -11907,7 +11913,7 @@ var init_rule_bootstrap = __esm({
 });
 
 // packages/core/install/rule-bootstrap-cli.ts
-import process3 from "node:process";
+import process4 from "node:process";
 import {
   existsSync as existsSync14,
   mkdirSync as mkdirSync4,
@@ -12994,16 +13000,65 @@ function resolveCtxForRoot(root) {
 }
 
 // packages/core/synthesizer/file-clients.ts
+var ENTRY_PATH_RE = /^\/patterns\/(\d+)(?:\/|$)/;
+var idOf = (e) => e?.id;
+function reasonOf(d) {
+  const where = d.path ? ` (at ${d.path})` : "";
+  return `${d.code}: ${d.message}${where}`;
+}
+function partitionResearchPlan(parsed, ctx) {
+  const dropped = [];
+  let current = parsed;
+  for (; ; ) {
+    const entryIds = /* @__PURE__ */ new WeakMap();
+    const result = checkResearchPlan(current, ctx, entryIds);
+    if (result.ok) return { plan: result.plan, dropped };
+    const rejectWholePlan = () => {
+      validateResearchPlan(current, ctx);
+      throw new ResearchPlanError("unknown validation failure", result.diagnostics);
+    };
+    const patterns = current.patterns;
+    if (!Array.isArray(patterns)) return rejectWholePlan();
+    const dropIdx = /* @__PURE__ */ new Map();
+    const topLevel = [];
+    for (const d of result.diagnostics) {
+      const byPath = d.path ? ENTRY_PATH_RE.exec(d.path) : null;
+      const byId = entryIds.get(d);
+      let idx = [];
+      if (byPath) idx = [Number(byPath[1])];
+      else if (byId !== void 0) {
+        const matches2 = (e) => byId === "<unknown>" ? typeof idOf(e) !== "string" : idOf(e) === byId;
+        idx = patterns.flatMap((e, i) => matches2(e) ? [i] : []);
+      }
+      if (idx.length === 0) topLevel.push(d);
+      for (const i of idx) dropIdx.set(i, [...dropIdx.get(i) ?? [], reasonOf(d)]);
+    }
+    if (topLevel.length > 0 || dropIdx.size === 0) return rejectWholePlan();
+    for (const [i, reasons] of [...dropIdx.entries()].sort((a, b) => a[0] - b[0])) {
+      const id = idOf(patterns[i]);
+      dropped.push({ id: typeof id === "string" ? id : `#${i}`, reason: reasons.join("; ") });
+    }
+    current = { ...current, patterns: patterns.filter((_, i) => !dropIdx.has(i)) };
+  }
+}
 var FileResearchClient = class {
-  constructor(planPath) {
+  constructor(planPath, opts = {}) {
     this.planPath = planPath;
+    this.opts = opts;
   }
   planPath;
+  opts;
+  /** Entries the last `research()` call dropped, in plan order. */
+  dropped = [];
   async research(_detection) {
     const raw = readFileSync10(this.planPath, "utf8");
     const parsed = JSON.parse(raw);
-    validateResearchPlan(parsed, resolveCtxForRoot(process2.cwd()));
-    return parsed;
+    const ctx = resolveCtxForRoot(this.opts.root ?? process2.cwd());
+    const { plan, dropped } = partitionResearchPlan(parsed, ctx);
+    const log = this.opts.log ?? ((m) => process2.stderr.write(m + "\n"));
+    for (const d of dropped) log(`[rule-bootstrap] dropped research entry ${d.id} \u2014 ${d.reason}`);
+    this.dropped = dropped;
+    return plan;
   }
 };
 var FileGenerateClient = class {
@@ -13386,7 +13441,7 @@ if (isMain) main();
 // packages/core/install/rule-bootstrap-cli.ts
 init_tier();
 function parseArgs(argv) {
-  const args = { consumerRoot: process3.cwd(), force: true, strict: false };
+  const args = { consumerRoot: process4.cwd(), force: true, strict: false };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--consumer-root") args.consumerRoot = argv[++i] ?? args.consumerRoot;
@@ -13395,11 +13450,12 @@ function parseArgs(argv) {
     else if (a === "--from-research") args.fromResearch = argv[++i];
     else if (a === "--from-selection") args.fromSelection = argv[++i];
     else if (a === "--from-practice") args.fromPractice = argv[++i];
+    else if (a === "--check-plan") args.checkPlan = argv[++i];
     else if (a === "-h" || a === "--help") {
-      process3.stdout.write(
-        "Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--no-force] [--strict]\n"
+      process4.stdout.write(
+        "Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--check-plan <plan.json> [--from-selection <sel.json>]] [--no-force] [--strict]\n"
       );
-      process3.exit(0);
+      process4.exit(0);
     } else if (!a.startsWith("-")) args.consumerRoot = a;
   }
   return args;
@@ -13455,7 +13511,7 @@ function loadPracticeRecords(src) {
   return [JSON.parse(readFileSync16(src, "utf8"))];
 }
 function runPracticeRender(opts) {
-  const log = opts.log ?? ((m) => process3.stderr.write(m + "\n"));
+  const log = opts.log ?? ((m) => process4.stderr.write(m + "\n"));
   const records = loadPracticeRecords(opts.fromPractice);
   const ctx = resolveCtxForRoot(opts.consumerRoot);
   const plan = planResearchedAstgrep(records, ctx);
@@ -13495,20 +13551,46 @@ function runPracticeRender(opts) {
   }
   return { mode: "practice-render", rendered, researchOnly: plan.researchOnly };
 }
+function checkPlanFile(opts) {
+  const parsed = JSON.parse(readFileSync16(opts.planPath, "utf8"));
+  const { plan, dropped } = partitionResearchPlan(parsed, resolveCtxForRoot(opts.root));
+  const kept = plan.patterns.map((e) => e.id);
+  const generated = /* @__PURE__ */ new Set();
+  if (opts.selectionPath) {
+    const sel = JSON.parse(readFileSync16(opts.selectionPath, "utf8"));
+    for (const c of sel.rules ?? []) if (!routesToManual(c)) generated.add(c.entryId);
+  }
+  return { kept, dropped, researchOnly: kept.filter((id) => !generated.has(id)) };
+}
 async function main2() {
-  const args = parseArgs(process3.argv.slice(2));
+  const args = parseArgs(process4.argv.slice(2));
+  if (args.checkPlan) {
+    try {
+      const r = checkPlanFile({
+        planPath: args.checkPlan,
+        selectionPath: args.fromSelection,
+        root: args.consumerRoot
+      });
+      process4.stdout.write(JSON.stringify(r, null, 2) + "\n");
+      return;
+    } catch (err) {
+      process4.stderr.write(`[rule-bootstrap] research plan rejected \u2014 ${err.message}
+`);
+      process4.exit(3);
+    }
+  }
   if (args.fromPractice && (args.fromResearch || args.fromSelection)) {
-    process3.stderr.write(
+    process4.stderr.write(
       "rule-bootstrap-cli: --from-practice cannot be combined with --from-research/--from-selection\n"
     );
-    process3.exit(args.strict ? 1 : 0);
+    process4.exit(args.strict ? 1 : 0);
   }
   const oneOnly = Boolean(args.fromResearch) !== Boolean(args.fromSelection);
   if (oneOnly) {
-    process3.stderr.write(
+    process4.stderr.write(
       "rule-bootstrap-cli: --from-research and --from-selection must be passed together\n"
     );
-    process3.exit(args.strict ? 1 : 0);
+    process4.exit(args.strict ? 1 : 0);
   }
   if (args.fromPractice) {
     try {
@@ -13516,31 +13598,32 @@ async function main2() {
         consumerRoot: args.consumerRoot,
         fromPractice: args.fromPractice
       });
-      process3.stdout.write(JSON.stringify(result, null, 2) + "\n");
-      if (args.strict && result.rendered.length === 0) process3.exit(1);
+      process4.stdout.write(JSON.stringify(result, null, 2) + "\n");
+      if (args.strict && result.rendered.length === 0) process4.exit(1);
       return;
     } catch (err) {
       if (err instanceof PracticeEntryIdError) {
-        process3.stderr.write(`[rule-bootstrap] REFUSED \u2014 ${err.message}
+        process4.stderr.write(`[rule-bootstrap] REFUSED \u2014 ${err.message}
 `);
-        process3.exit(1);
+        process4.exit(1);
       }
       if (err instanceof PracticeJoinError) {
-        process3.stderr.write(`[rule-bootstrap] ${err.message}
+        process4.stderr.write(`[rule-bootstrap] ${err.message}
 `);
-        process3.exit(1);
+        process4.exit(1);
       }
-      process3.stderr.write(
+      process4.stderr.write(
         `[rule-bootstrap] practice record invalid or unreadable \u2014 ${err.message}
 [rule-bootstrap] a valid input is an AstgrepResearchedPractice JSON record (schema: packages/core/synthesizer/research-to-node.ts; committed example: packages/core/synthesizer/fixtures/live-generation/getff-researched-no-yaml-load.practice.json) \u2014 fix or re-author it, then re-run --from-practice.
 `
       );
-      process3.exit(args.strict ? 1 : 0);
+      process4.exit(args.strict ? 1 : 0);
     }
   }
   const live = Boolean(args.fromResearch && args.fromSelection);
-  const clients = live ? {
-    researchClient: new FileResearchClient(args.fromResearch),
+  const researchClient = live ? new FileResearchClient(args.fromResearch, { root: args.consumerRoot }) : void 0;
+  const clients = researchClient ? {
+    researchClient,
     generateClient: withManualDrop(new FileGenerateClient(args.fromSelection))
   } : {};
   const { runRuleBootstrap: runRuleBootstrap2 } = await Promise.resolve().then(() => (init_rule_bootstrap(), rule_bootstrap_exports));
@@ -13550,19 +13633,20 @@ async function main2() {
       force: args.force,
       ...clients
     });
-    process3.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    const out = researchClient ? { ...result, dropped: researchClient.dropped } : result;
+    process4.stdout.write(JSON.stringify(out, null, 2) + "\n");
     if (args.strict) {
       const ok = result.mode === "synthesis" && result.install.ok;
-      if (!ok) process3.exit(1);
+      if (!ok) process4.exit(1);
     }
   } catch (err) {
     const why = err instanceof ResearchPlanError ? err.message : err.message;
-    process3.stderr.write(
+    process4.stderr.write(
       `[rule-bootstrap] live research artefact invalid or unreadable \u2014 ${why}
 [rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the rule-research protocol (agents/rule-researcher.md, the rule-research skill).
 `
     );
-    process3.exit(args.strict ? 1 : 3);
+    process4.exit(args.strict ? 1 : 3);
   }
 }
 function isDirectRun(argv1, metaUrl) {
@@ -13574,16 +13658,17 @@ function isDirectRun(argv1, metaUrl) {
     return metaPath === argv1;
   }
 }
-if (isDirectRun(process3.argv[1], import.meta.url)) {
+if (isDirectRun(process4.argv[1], import.meta.url)) {
   main2().catch((err) => {
-    process3.stderr.write(`rule-bootstrap-cli failed: ${err.message}
+    process4.stderr.write(`rule-bootstrap-cli failed: ${err.message}
 `);
-    process3.exit(1);
+    process4.exit(1);
   });
 }
 export {
   PracticeEntryIdError,
   PracticeJoinError,
+  checkPlanFile,
   isDirectRun,
   rulesResearchDirOf,
   runPracticeRender,

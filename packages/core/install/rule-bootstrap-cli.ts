@@ -54,8 +54,12 @@ import { fileURLToPath } from 'node:url';
 import {
   FileResearchClient,
   FileGenerateClient,
+  partitionResearchPlan,
+  routesToManual,
   withManualDrop,
+  type DroppedEntry,
 } from '../synthesizer/file-clients.ts';
+import type { GenerateSelection } from '../synthesizer/generate-port.ts';
 import { ResearchPlanError } from '../research/validate-plan.ts';
 import {
   planResearchedAstgrep,
@@ -72,6 +76,7 @@ interface Args {
   fromResearch?: string;
   fromSelection?: string;
   fromPractice?: string;
+  checkPlan?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -84,9 +89,10 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--from-research') args.fromResearch = argv[++i];
     else if (a === '--from-selection') args.fromSelection = argv[++i];
     else if (a === '--from-practice') args.fromPractice = argv[++i];
+    else if (a === '--check-plan') args.checkPlan = argv[++i];
     else if (a === '-h' || a === '--help') {
       process.stdout.write(
-        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--no-force] [--strict]\n',
+        'Usage: rule-bootstrap-cli [--consumer-root <path>] [--from-research <plan.json>] [--from-selection <sel.json>] [--from-practice <rec.practice.json|dir>] [--check-plan <plan.json> [--from-selection <sel.json>]] [--no-force] [--strict]\n',
       );
       process.exit(0);
     } else if (!a.startsWith('-')) args.consumerRoot = a;
@@ -322,8 +328,54 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   return { mode: 'practice-render', rendered, researchOnly: plan.researchOnly };
 }
 
+// ── --check-plan arm — read-only, for the rule table (P5 A2) ──────────────────────────────────
+//
+// Answers which research entries the generator would keep, which it drops (with the gate's
+// reason) and which kept entries get no generated rule — without generating or writing anything,
+// so `scripts/prove-rules.mjs` can list dropped and research-only entries with no new record file.
+// Research-only = a kept entry no selection rule points at, or whose rule routes to manual (the
+// same test withManualDrop applies on the live path).
+
+export interface PlanCheck {
+  kept: string[];
+  dropped: DroppedEntry[];
+  researchOnly: string[];
+}
+
+export function checkPlanFile(opts: {
+  planPath: string;
+  selectionPath?: string;
+  root: string;
+}): PlanCheck {
+  const parsed: unknown = JSON.parse(readFileSync(opts.planPath, 'utf8'));
+  const { plan, dropped } = partitionResearchPlan(parsed, resolveCtxForRoot(opts.root));
+  const kept = plan.patterns.map((e) => e.id);
+  const generated = new Set<string>();
+  if (opts.selectionPath) {
+    const sel = JSON.parse(readFileSync(opts.selectionPath, 'utf8')) as GenerateSelection;
+    for (const c of sel.rules ?? []) if (!routesToManual(c)) generated.add(c.entryId);
+  }
+  return { kept, dropped, researchOnly: kept.filter((id) => !generated.has(id)) };
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
+
+  if (args.checkPlan) {
+    try {
+      const r = checkPlanFile({
+        planPath: args.checkPlan,
+        selectionPath: args.fromSelection,
+        root: args.consumerRoot,
+      });
+      process.stdout.write(JSON.stringify(r, null, 2) + '\n');
+      return;
+    } catch (err) {
+      // Same exit as the live arm's whole-plan rejection, so a caller reads one contract.
+      process.stderr.write(`[rule-bootstrap] research plan rejected — ${(err as Error).message}\n`);
+      process.exit(3);
+    }
+  }
 
   // The practice arm is a DIFFERENT lane (Model A′ ast-grep render, no generate.ts/L4/install run);
   // combining it with the JS live pair is an authoring error — refuse before touching anything.
@@ -381,9 +433,12 @@ async function main(): Promise<void> {
   }
 
   const live = Boolean(args.fromResearch && args.fromSelection);
-  const clients = live
+  const researchClient = live
+    ? new FileResearchClient(args.fromResearch as string, { root: args.consumerRoot })
+    : undefined;
+  const clients = researchClient
     ? {
-        researchClient: new FileResearchClient(args.fromResearch as string),
+        researchClient,
         generateClient: withManualDrop(new FileGenerateClient(args.fromSelection as string)),
       }
     : {};
@@ -401,7 +456,10 @@ async function main(): Promise<void> {
       force: args.force,
       ...clients,
     });
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+    // `dropped`: research entries the gate refused this pass (each also logged on stderr as
+    // «[rule-bootstrap] dropped research entry <id> — <reason>», read by 80-rule-bootstrap.sh).
+    const out = researchClient ? { ...result, dropped: researchClient.dropped } : result;
+    process.stdout.write(JSON.stringify(out, null, 2) + '\n');
     if (args.strict) {
       const ok = result.mode === 'synthesis' && result.install.ok;
       if (!ok) process.exit(1);
