@@ -711,7 +711,7 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1382                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1385                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1429          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
@@ -2787,9 +2787,9 @@ eslint_flat_config() {
 # has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, build output
 # (dist, coverage, .stryker-tmp, .next), .git, and .claude/worktrees — Claude Code's checked-out copies
 # of the repo, not packages of it. That is CFG_PRUNE of the push gates (check-rule-globs.sh,
-# check-rule-enforced.sh) less its */packages/core, which would cut a workspace of that name, so the
-# install writes to the workspace configs the gates then read. -mindepth 1: <dir> itself is never
-# pruned, whatever its name. The
+# check-rule-enforced.sh) less its ./packages/core/{hooks,audit-self,principles,eslint-rules}: the
+# subtrees the install vendors hold no config, so both find the same workspace configs and the install
+# writes to the ones the gates then read. -mindepth 1: <dir> itself is never pruned, whatever its name. The
 # per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
 # package's own eslint.config.js is found as the root one is (they used to look for
 # eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
@@ -3267,6 +3267,63 @@ register_cc_hook() {
   fi
 }
 
+# unregister_cc_hook SETTINGS EVENT MARKER — the inverse of register_cc_hook, for a hook getff MOVES
+# to another event. Drops every handler on EVENT whose command runs getff's own script
+# `.claude/hooks/<MARKER>.sh` (anchored — a consumer's `my-<MARKER>-v2.sh` is not ours), then a
+# group that held such a handler and is left empty, then the EVENT key if it is left empty. Every
+# other handler, group (malformed ones included) and event is kept as it was.
+# Silent when nothing matches (the common re-install case); absent settings file → no-op.
+# Why it exists (2026-09-29): inject-project-digest + inject-output-language moved from
+# UserPromptSubmit (fired on EVERY prompt) to SessionStart (once per context). register_cc_hook is
+# add-only, so without this a consumer installed before the move kept the per-prompt registration
+# next to the new one after a re-install — the injection would have grown, not shrunk.
+unregister_cc_hook() {
+  local settings="$1" event="$2" marker="$3" rc=0 re
+  [ -f "$settings" ] || return 0
+  re="\\.claude/hooks/${marker}\\.sh([\"' ]|\$)"
+  if ! command -v jq >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [e, src] = args;
+      const re = new RegExp(src);
+      const list = (o.hooks || {})[e];
+      if (!Array.isArray(list)) return;
+      const ours = g => Array.isArray(g.hooks) && g.hooks.some(h => re.test(h.command || ""));
+      if (!list.some(ours)) return;
+      const kept = [];
+      for (const g of list) {
+        if (!ours(g)) { kept.push(g); continue; }
+        const hooks = g.hooks.filter(h => !re.test(h.command || ""));
+        if (hooks.length) kept.push(Object.assign({}, g, { hooks }));
+      }
+      if (kept.length) o.hooks[e] = kept; else delete o.hooks[e];
+      return o;' "$event" "$re" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ $marker removed from $event in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) : ;;
+      *) echo "  ⚠ $marker NOT removed from $event — $(json_edit_node_why "$settings")"
+         note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
+    return 0
+  fi
+  jq -e --arg e "$event" --arg m "$re" \
+    '((.hooks[$e] // []) | map(.hooks[]?.command // "") | any(test($m)))' "$settings" >/dev/null 2>&1 || return 0
+  if jq --arg e "$event" --arg m "$re" '
+      def ours: (.hooks | type) == "array" and any(.hooks[]; (.command // "") | test($m));
+      .hooks[$e] = [ .hooks[$e][]
+                     | if ours then (.hooks = [ .hooks[] | select(((.command // "") | test($m)) | not) ]
+                                     | select((.hooks | length) > 0))
+                       else . end ]
+      | if (.hooks[$e] | length) == 0 then del(.hooks[$e]) else . end' \
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+    echo "  ✓ $marker removed from $event in .claude/settings.json (moved to another event)"
+  else
+    rm -f "$settings.tmp" 2>/dev/null || true
+    echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker still registered on $event" >&2
+    note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — jq rewrite failed"
+  fi
+}
+
 # rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's
 # own-config wirer reads it (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), for a caller
 # that must say what that wirer would do without running it. First line: `none` when the file
@@ -3498,7 +3555,7 @@ install_skill_context() {
         return 0
       fi
     elif [ "$DRY_RUN" != "--dry-run" ] && h1=$(_skill_context_h1 "$src") && [ -n "$h1" ] \
-      && tr -d '\r' < "$dst" | grep -qxF "$h1"; then
+      && grep -qxF "$h1" <<<"$(tr -d '\r' < "$dst")"; then
       echo "  · $dst: holds an older getff copy that cannot be told apart from project rules — kept as-is; the current version is appended in its own block"
     fi
   elif [ -f "$dst" ] && [ -z "$MERGE_FENCED_PROBLEM" ] && _skill_context_block_is_shipped "$dst"; then

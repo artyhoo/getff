@@ -15,7 +15,7 @@
 #   S4  99-finalize unknown-stack workspace: a quoted R2 id in a comment does not hide the workspace.
 #   S5  99-finalize F11: a config naming RULE_GLOBS / the rules only in comments may be handed to the
 #       gate (#1906: it is always asked), but its line names no rule id from the comment and no empty
-#       «it sets  itself» — it says «it has no RULE_GLOBS block».
+#       «it sets  itself» — it says «it has no RULE_GLOBS block». No F11 line at all fails the arm.
 #   S6  99-finalize F11: RULE_GLOBS in a comment does not make the summary say «its RULE_GLOBS has no
 #       boundary array».
 #   S7  99-finalize F11: a rule id in a comment is not listed among the rules the config sets itself.
@@ -190,8 +190,9 @@ $PLAIN_CFG")
 # never «it sets  itself» with an empty rule list, and never R2 named as set.
 run_finalize "$S5"; ran_through S5
 _s5_line=$(printf '%s\n' "$F_SUM" | grep -E "$F11_LINE" || true)
-if [ -z "$_s5_line" ] || { grep -qE "${F11_LINE}it has no RULE_GLOBS block[,;]" <<<"$_s5_line" \
-     && ! grep -qF -e 'it sets  itself' -e "$R2_ID" <<<"$_s5_line"; }; then
+if [ -z "$_s5_line" ]; then bad "S5 vacuous: no F11 line (summary: $(sum_show))"
+elif grep -qE "${F11_LINE}it has no RULE_GLOBS block[,;]" <<<"$_s5_line" \
+     && ! grep -qF -e 'it sets  itself' -e "$R2_ID" <<<"$_s5_line"; then
   ok "S5: a config naming RULE_GLOBS and R2 only in a comment — its line says «it has no RULE_GLOBS block»"
 else
   bad "S5: the F11 line reads the comment (summary: $(sum_show))"
