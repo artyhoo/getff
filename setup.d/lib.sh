@@ -2783,14 +2783,147 @@ eslint_flat_config() {
   return 0
 }
 
+# eslint_flat_configs_under <dir> — the config ESLint loads in each directory at or under <dir> that
+# has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, build output
+# (dist, coverage, .stryker-tmp, .next), .git, and .claude/worktrees — Claude Code's checked-out copies
+# of the repo, not packages of it. That is CFG_PRUNE of the push gates (check-rule-globs.sh,
+# check-rule-enforced.sh) less its */packages/core, which would cut a workspace of that name, so the
+# install writes to the workspace configs the gates then read. -mindepth 1: <dir> itself is never
+# pruned, whatever its name. The
+# per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
+# package's own eslint.config.js is found as the root one is (they used to look for
+# eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
+eslint_flat_configs_under() {
+  local n f d seen="|" names=()
+  for n in $ESLINT_FLAT_CONFIG_NAMES; do names+=( -o -name "$n" ); done
+  while IFS= read -r -d '' f; do
+    d=$(dirname "$f")
+    case "$seen" in *"|$d|"*) continue ;; esac
+    seen="$seen$d|"
+    n=$(eslint_flat_config "$d")
+    [ -z "$n" ] || printf '%s\0' "$d/$n"
+  done < <(find "$1" -mindepth 1 \( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp \
+               -o -name .next -o -name .git -o -path '*/.claude/worktrees' \) -prune \
+             -o \( "${names[@]:1}" \) -print0 2>/dev/null)
+  return 0
+}
+
+# eslint_config_code <file> — <file> with its // and /* */ comments cut out, as the ESLint config's
+# code: quoted strings stay, a /* */ comment may span lines, and a template literal's text and a regex
+# literal are cut too (neither is a rule id). The install's greps for a rule id, RULE_GLOBS or a boundary
+# glob read this, not the raw file — `// TODO: turn on 'rules-as-tests/no-unsafe-zod-parse'` is not R2
+# wired (#1889 observation 7). uncomment() and the regexctx() it calls are the push gates' own (the
+# rule-globs reader in packages/core/audit-self/check-rule-globs.sh and check-rule-enforced.sh, which
+# ship without lib.sh), byte for byte: tests/install-sh/installer-greps-read-code.test.sh compares them.
+# Prints nothing for a missing file, so a grep over the result is false as a grep of that file would be.
+ESLINT_UNCOMMENT_AWK='
+function regexctx(out,   w) {
+  if (last == "" || index("(,=:[!&|?{};+-*%<>~^}", last) > 0) return 1
+  if (last !~ /[A-Za-z]/) return 0
+  w = out; sub(/[[:space:]]+$/, "", w)
+  if (!match(w, /[A-Za-z_$][A-Za-z0-9_$]*$/)) return 0
+  return substr(w, RSTART) ~ /^(return|typeof|case|in|of|delete|void|throw|new|else|do|yield|await|instanceof)$/
+}
+function uncomment(s,   out, c, q, i, j, n, cls) {
+  out = ""; q = ""; n = length(s)
+  for (i = 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (incmt) { if (c == "*" && substr(s, i + 1, 1) == "/") { incmt = 0; i++ }; continue }
+    if (intpl) { if (c == "\\") i++; else if (c == "`") { intpl = 0; out = out c; last = c }; continue }
+    if (q != "") { out = out c; if (c == "\\") { out = out substr(s, i + 1, 1); i++ } else if (c == q) { q = ""; last = c }; continue }
+    if (c == "/" && substr(s, i + 1, 1) == "/") break
+    if (c == "/" && substr(s, i + 1, 1) == "*") { incmt = 1; i++; continue }
+    if (c == "/" && regexctx(out)) {
+      cls = 0
+      for (j = i + 1; j <= n; j++) {
+        c = substr(s, j, 1)
+        if (c == "\\") j++
+        else if (cls) { if (c == "]") cls = 0 }
+        else if (c == "[") cls = 1
+        else if (c == "/") break
+      }
+      if (j <= n) { out = out "0"; last = "0"; i = j; continue }
+      c = "/"
+    }
+    if (c == "`") { intpl = 1; out = out c; last = c; continue }
+    if (c == sq || c == dq) q = c
+    out = out c
+    if (c !~ /[[:space:]]/) last = c
+  }
+  return out
+}
+'
+eslint_config_code() {
+  [ -f "$1" ] && [ -r "$1" ] || return 0
+  awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'{ print uncomment($0) }' "$1" 2>/dev/null || return 0
+}
+
+# eslint_config_has_getff_rules <file> — true when the config names one of getff's rules
+# (rules-as-tests/…) or imports / re-exports / require()s, by a relative path, a config that does: a
+# workspace config spreading a sibling's getff preset has getff's rules (second cold review, after
+# #1868). Every relative import on a line counts (third cold review). Followed up to
+# four imports deep, each file read once, so an import cycle ends. A bare package import is not
+# followed — what it resolves to is not a file of this project to read. Each file is read as code
+# (eslint_config_code): a rule id or an import in a comment does not count.
+eslint_config_has_getff_rules() {
+  local seen="|" f dir spec code depth=0
+  local queue=("$1") next
+  while [ "${#queue[@]}" -gt 0 ] && [ "$depth" -le 4 ]; do
+    next=()
+    for f in "${queue[@]}"; do
+      case "$seen" in *"|$f|"*) continue ;; esac
+      seen="$seen$f|"
+      [ -f "$f" ] || continue
+      code=$(eslint_config_code "$f")   # a rule or an import in a comment is not in the config
+      grep -q 'rules-as-tests/' <<<"$code" && return 0
+      dir=$(dirname "$f")
+      while IFS= read -r spec; do
+        [ -n "$spec" ] && next+=("$dir/$spec")
+      done < <(grep -oE "(from|import|require)[[:space:]]*[(]?[[:space:]]*['\"]\.\.?/[^'\"]+['\"]" <<<"$code" \
+                 | sed -E "s/.*['\"](\.\.?\/[^'\"]+)['\"]$/\1/")
+    done
+    queue=(${next[@]+"${next[@]}"})
+    depth=$((depth + 1))
+  done
+  return 1
+}
+
+# note_eslint_config_not_esm <abs-dir> <config-name> — the not-wired line for a flat config getff does
+# not add its block to: an eslint.config.cjs/.ts/.mts/.cts has no ES-module export to append to.
+# Named once however many steps reach it — 40-configs places nothing beside it, and each 99-finalize
+# pass that would add to it finds it again.
+note_eslint_config_not_esm() {
+  local line n where="$1"
+  # The directory as the summary names it: project-relative, never the absolute install path (#1878).
+  if [ "$where" = "${PROJECT_ROOT:-}" ]; then where="the project root"; else where="${where#"${PROJECT_ROOT:-}"/}"; fi
+  line="eslint: getff's rules are not in the ESLint config of $where — your $2 configures ESLint there, and getff adds its block only to an ES-module flat config (eslint.config.js or eslint.config.mjs)"
+  for n in ${NOT_WIRED[@]+"${NOT_WIRED[@]}"}; do [ "$n" = "$line" ] && return 0; done
+  note_not_wired "$line"
+}
+
+# KEPT_ORIGINALS — the files whose original this install run has kept (keep_original_mark). A file
+# two passes write — the live snippet, then R2, into one workspace config — is snapshotted by the
+# first only: the second pass's copy would already carry the first pass's block, and be announced
+# as a second «original» (cold-review F9).
+KEPT_ORIGINALS=()
+
 # keep_original_snapshot <abs-file> — before getff writes into a file the consumer owns (operator
 # decision Q4.7, 2026-09-28: getff adds its block to the consumer's ESLint config itself, keeping
 # the original), copy the file aside and echo the copy's path. Pair it with keep_original_settle.
+# Echoes nothing for a file whose original this run already kept (KEPT_ORIGINALS).
 keep_original_snapshot() {
-  local f="$1" snap
+  local f="$1" snap k
+  for k in ${KEPT_ORIGINALS[@]+"${KEPT_ORIGINALS[@]}"}; do [ "$k" = "$f" ] && return 0; done
   snap=$(mktemp "${TMPDIR:-/tmp}/getff-before.XXXXXX") || return 1
   if ! cp "$f" "$snap" 2>/dev/null; then rm -f "$snap"; return 1; fi
   echo "$snap"
+}
+
+# keep_original_mark <abs-file> — record that this run kept <abs-file>'s original (keep_original_settle
+# echoed where), so a later keep_original_snapshot of it keeps nothing more. Call it in the install's
+# own shell: settle runs inside $(…), where a global it set would be lost.
+keep_original_mark() {
+  KEPT_ORIGINALS+=("$1")
 }
 
 # keep_original_settle <abs-file> <snapshot> — after the write: when it changed the file, move the
@@ -2882,8 +3015,8 @@ legacy_eslint_config() {
 # copy_unless_foreign <eslint|lint-staged|prettier|dependency-cruiser> <src> <dst> [copy_safe args…] — copy_safe, unless
 # the consumer already configures that tool under another name in dst's directory: then place
 # nothing, keep theirs, and record it for the not-wired summary (operator decision 2026-09-23:
-# skip + report, never overwrite or merge a consumer's tool config). A root eslint.config.js is not
-# recorded: 99-finalize adds getff's block to it (operator decision Q4.7, 2026-09-28).
+# skip + report, never overwrite or merge a consumer's tool config). An eslint.config.js is not
+# recorded, at the root or in a workspace: 99-finalize adds getff's block to it (operator decision Q4.7).
 copy_unless_foreign() {
   local kind="$1" src="$2" dst="$3" own where
   shift 3
@@ -2902,12 +3035,13 @@ copy_unless_foreign() {
       # config (Q4.7) but not to a prettier / lint-staged / dependency-cruiser one (decision
       # 2026-09-23 stands for those), so the line names what stays out and why — no merge step.
       note_not_wired "$kind: getff's ${dst##*/} is not in $where — your $own configures $kind there, and getff does not change a project's own $kind config, so $kind runs with your settings only"
-    elif [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ] && [ "$own" = "eslint.config.js" ]; then
-      # 99-finalize adds getff's block to a root eslint.config.js the way it does to a consumer's
-      # own eslint.config.mjs (operator decision Q4.7) and reports the outcome there.
+    elif [ "$own" = "eslint.config.js" ]; then
+      # 99-finalize adds getff's block to an eslint.config.js — at the root and in a workspace — the
+      # way it does to a consumer's own eslint.config.mjs (operator decision Q4.7), and reports the
+      # outcome there.
       :
     else
-      note_not_wired "eslint: getff's rules are not in the ESLint config of $where — your $own configures ESLint there, and getff adds its block only to an eslint.config.mjs, or to an ES-module eslint.config.js at the project root"
+      note_eslint_config_not_esm "$(dirname "$dst")" "$own"
       # The root ESLint config is what the self-verify fences-fire claim is about (99-finalize).
       if [ "$(dirname "$dst")" = "${PROJECT_ROOT:-}" ]; then
         ESLINT_ROOT_NOT_WIRED=1

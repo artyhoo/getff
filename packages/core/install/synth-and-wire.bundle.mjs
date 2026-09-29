@@ -8873,7 +8873,7 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/synth-and-wire.ts
-import { existsSync as existsSync4, readFileSync as readFileSync7 } from "node:fs";
+import { existsSync as existsSync4, readFileSync as readFileSync7, realpathSync as realpathSync2 } from "node:fs";
 import { dirname as dirname7, resolve as resolve6 } from "node:path";
 import process3 from "node:process";
 
@@ -10376,6 +10376,28 @@ function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   }
   return false;
 }
+function ruleSetForSomeFilesOnly(elements, SyntaxKind, ruleName) {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    if (provablyUnscoped(el, SyntaxKind, /* @__PURE__ */ new Set())) continue;
+    const rulesProp = (el.getProperties?.() ?? []).find((p) => {
+      try {
+        return normPropName(p.getName?.()) === "rules";
+      } catch {
+        return false;
+      }
+    });
+    const rules = rulesProp?.getInitializer?.();
+    if (!rules?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const rp of rules.getProperties?.() ?? []) {
+      try {
+        if (normPropName(rp.getName?.()) === ruleName) return true;
+      } catch {
+      }
+    }
+  }
+  return false;
+}
 var SCOPE_KEYS = /* @__PURE__ */ new Set(["files", "ignores", "basePath"]);
 function provablyUnscoped(obj, SyntaxKind, seen) {
   if (seen.has(obj)) return false;
@@ -10463,6 +10485,8 @@ function replaceSimpleRuleValue(elements, SyntaxKind, ruleName, desiredExpr, app
 }
 function normPropName(name) {
   if (typeof name !== "string") return "";
+  const computed = /^\[\s*(['"`])(.*)\1\s*\]$/s.exec(name);
+  if (computed) return computed[2];
   return name.replace(/^['"`]|['"`]$/g, "");
 }
 function mergeSelectorsIntoExistingWrapper(elements, SyntaxKind, missingSels) {
@@ -10766,23 +10790,42 @@ async function wireOwnConfig(source, opts = {}) {
   let registerR2 = false;
   let missingGlobs = [];
   let ruleGlobsBlock;
+  let boundaryArr;
   if (boundary.length > 0) {
     const arrOf = () => {
-      const init = sf.getVariableDeclaration("RULE_GLOBS")?.getInitializer();
-      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperty("boundary") : void 0;
+      const wrappers = /* @__PURE__ */ new Set([
+        SyntaxKind.ParenthesizedExpression,
+        SyntaxKind.AsExpression,
+        SyntaxKind.SatisfiesExpression,
+        SyntaxKind.TypeAssertionExpression
+      ]);
+      const frozen = (n) => n.isKind(SyntaxKind.CallExpression) && n.getExpression().getText().replace(/\s/g, "") === "Object.freeze" && n.getArguments().length === 1;
+      let init = sf.getVariableDeclaration("RULE_GLOBS")?.getInitializer();
+      while (init && (wrappers.has(init.getKind()) || frozen(init))) {
+        init = frozen(init) ? init.getArguments()[0] : init.getExpression();
+      }
+      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperties().find((p) => normPropName(p.getName?.()) === "boundary") : void 0;
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : void 0;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : void 0;
     };
+    const r2Mentions = [`'`, `"`, "`"].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
+    const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration("RULE_GLOBS")) {
-      const arr = arrOf();
+      const arr = boundaryArr = arrOf();
       if (!arr) {
-        notes.push("R2 not wired: the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it");
+        notes.push(
+          "R2 \u2014 the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh fails on this config without RULE_GLOBS.boundary" : "")
+        );
       } else {
         const have = new Set(stringElements(arr, SyntaxKind));
         missingGlobs = boundary.filter((g) => !have.has(g));
         registerR2 = !r2Present;
       }
-    } else if (!r2Present) {
+    } else if (r2Present && r2Setting !== "same") {
+      notes.push(
+        opts.gateReadsRuleGlobs ? `RULE_GLOBS for R2 \u2014 the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them` : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds nothing for R2`
+      );
+    } else if (!r2Present || opts.gateReadsRuleGlobs) {
       ruleGlobsBlock = [
         "// Added by getff: where its R2 rule looks for an unguarded zod .parse() \u2014 the HTTP boundary code the",
         "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.",
@@ -10806,9 +10849,7 @@ async function wireOwnConfig(source, opts = {}) {
   const current = sf.getFullText();
   const inserts = [];
   if (missingGlobs.length > 0) {
-    const init = sf.getVariableDeclarationOrThrow("RULE_GLOBS").getInitializerOrThrow();
-    const arr = init.getPropertyOrThrow("boundary").getInitializerOrThrow();
-    inserts.push(appendInsertion(current, elementList(arr, SyntaxKind), missingGlobs.map(singleQuoted)));
+    inserts.push(appendInsertion(current, elementList(boundaryArr, SyntaxKind), missingGlobs.map(singleQuoted)));
   }
   if (toAdd.length > 0) inserts.push(...exportAppendInsertions(current, exportOf().getExpression(), SyntaxKind, toAdd));
   if (needsImport) inserts.push(importInsertion(sf, current, SyntaxKind, opts.customRulesImportPath));
@@ -10842,7 +10883,8 @@ async function formatLikeConsumer(configPath, cwd, original, modified) {
     return modified;
   }
 }
-var R2_PROBE_PATHS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"].map((ext) => `__aif_r2_probe__.${ext}`);
+var LINTABLE_EXTENSIONS = ["js", "mjs", "cjs", "jsx", "ts", "tsx", "mts", "cts"];
+var R2_PROBE_PATHS = LINTABLE_EXTENSIONS.map((ext) => `__aif_r2_probe__.${ext}`);
 var execFileAsync = promisify(execFile);
 var PRINT_CONFIG_TIMEOUT_MS = 6e4;
 function r2SeverityIn(printed) {
@@ -10934,7 +10976,20 @@ var PROBE_TIMEOUT_MS = 12e4;
 var MISSING_PACKAGE = /Cannot find package '/;
 function probeScopePath(glob) {
   if (glob.startsWith("!") || /[[\]?]/.test(glob)) return void 0;
-  const expanded = glob.replace(/\{([^{}]*)\}/g, (_m, alts) => alts.split(",")[0] ?? "");
+  return witnessPath(glob.replace(/\{([^{}]*)\}/g, (_m, alts) => alts.split(",")[0] ?? ""));
+}
+function probeScopePaths(glob) {
+  if (glob.startsWith("!") || /[[\]?]/.test(glob)) return [];
+  return [...new Set(braceAlternatives(glob).map(witnessPath).filter((p) => p !== void 0))];
+}
+function braceAlternatives(glob) {
+  const m = /\{([^{}]*)\}/.exec(glob);
+  if (!m) return [glob];
+  const head = glob.slice(0, m.index);
+  const tail = glob.slice(m.index + m[0].length);
+  return (m[1] ?? "").split(",").flatMap((alt) => braceAlternatives(`${head}${alt}${tail}`));
+}
+function witnessPath(expanded) {
   const segs = expanded.split("/").filter((seg) => seg !== "**" && seg !== "");
   const last = segs[segs.length - 1];
   let file = `${PROBE_BASENAME}.js`;
@@ -10967,14 +11022,19 @@ ${String(err.stdout ?? "")}`.trim();
 var TYPED_LINT_REFUSAL = /not found by the project service|parserOptions\.project|allowDefaultProject|default project/;
 function verdictOf(run) {
   const syntaxError = run.text.split("\n").some((l) => l.includes("Parsing error") && !TYPED_LINT_REFUSAL.test(l));
-  if (run.rc === 1 && syntaxError) return { verdict: "broken", detail: run.text.slice(0, 400) };
+  if (run.rc === 1 && syntaxError) return { verdict: "broken", detail: run.text.slice(0, 400), failure: "parse" };
   if (run.rc === 0 || run.rc === 1) return { verdict: "ok" };
   if (run.rc === 2) {
     if (MISSING_PACKAGE.test(run.text)) return { verdict: "unavailable", detail: run.text.slice(0, 400) };
-    return { verdict: "broken", detail: run.text.slice(0, 400) };
+    return { verdict: "broken", detail: run.text.slice(0, 400), failure: "config" };
   }
   return { verdict: "unavailable", detail: run.rc === "timeout" ? "ESLint did not finish in time" : run.text.slice(0, 400) };
 }
+function outcomeOf(r) {
+  if (r.verdict === "ok" || r.verdict === "unavailable") return r.verdict;
+  return r.failure ?? "config";
+}
+var OUTCOME_SEVERITY = { ok: 0, unavailable: 1, parse: 2, config: 3 };
 async function probeLintViaEslint(configPath, cwd, opts = {}) {
   const dir = dirname6(resolve5(configPath));
   const resolveFrom = (id) => {
@@ -10992,13 +11052,15 @@ async function probeLintViaEslint(configPath, cwd, opts = {}) {
   if (!existsSync3(eslintBin)) return { verdict: "unavailable" };
   const nodeArgs = resolveFrom("tsx") !== void 0 ? ["--import", "tsx"] : [];
   const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
-  const bodyFor = (name) => /\.tsx?$/.test(name) ? "export const __aif_probe: number = 1;\n" : "export const __aif_probe = 1;\n";
-  const names = [`${PROBE_BASENAME}.js`, `${PROBE_BASENAME}.ts`];
+  const bodyFor = (rel) => /\.ts$/.test(rel) ? "export const __aif_probe: number = 1;\n" : /\.js$/.test(rel) ? "export const __aif_probe = 1;\n" : "var __aif_probe = 1;\n";
+  const names = LINTABLE_EXTENSIONS.map((ext) => `${PROBE_BASENAME}.${ext}`);
   const targets = names.map((n) => resolve5(dir, n));
-  let root;
-  targets.forEach((t, i) => writeFileSync(t, bodyFor(names[i]), "utf8"));
+  const runs = /* @__PURE__ */ new Map();
+  names.forEach((n, i) => writeFileSync(targets[i], bodyFor(n), "utf8"));
   try {
-    root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    const pooled = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    if (pooled.verdict === "unavailable") return pooled;
+    for (const n of names) runs.set(n, pooled.verdict === "ok" ? pooled : verdictOf(runEslint(nodeArgs, eslintBin, [n], dir, timeoutMs)));
   } finally {
     for (const t of targets) {
       try {
@@ -11007,14 +11069,28 @@ async function probeLintViaEslint(configPath, cwd, opts = {}) {
       }
     }
   }
-  if (root.verdict !== "ok") return root;
-  const scoped = [...new Set((opts.scopeGlobs ?? []).map(probeScopePath).filter((x) => x !== void 0))];
-  for (const rel of scoped) {
-    if (rel === `${PROBE_BASENAME}.js` || rel === `${PROBE_BASENAME}.ts`) continue;
-    const r = verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, bodyFor(rel)));
-    if (r.verdict !== "ok") return r;
+  for (const rel of new Set((opts.scopeGlobs ?? []).flatMap(probeScopePaths))) {
+    if (runs.has(rel)) continue;
+    runs.set(rel, verdictOf(runEslint(nodeArgs, eslintBin, ["--stdin", "--stdin-filename", rel], dir, timeoutMs, bodyFor(rel))));
   }
-  return { verdict: "ok" };
+  const paths = {};
+  let worst = { verdict: "ok" };
+  for (const [rel, r] of runs) {
+    paths[rel] = { outcome: outcomeOf(r), ...r.detail !== void 0 ? { detail: r.detail } : {} };
+    if (OUTCOME_SEVERITY[outcomeOf(r)] > OUTCOME_SEVERITY[outcomeOf(worst)]) worst = r;
+  }
+  return worst.verdict === "ok" ? worst : { ...worst, paths };
+}
+function worsenedPath(after, before) {
+  const rank = (o) => ({ ok: 0, parse: 1, config: 2, unavailable: -1 })[o];
+  if (after.paths === void 0 || before.paths === void 0) {
+    return after.failure === "config" && before.failure === "parse" ? { outcome: "config", detail: after.detail } : void 0;
+  }
+  for (const [rel, a] of Object.entries(after.paths)) {
+    const b = before.paths[rel];
+    if (b !== void 0 && rank(a.outcome) >= 0 && rank(b.outcome) >= 0 && rank(a.outcome) > rank(b.outcome)) return a;
+  }
+  return void 0;
 }
 async function writeWithLintProbe(args) {
   const { configPath, cwd, original, modified, runProbe } = args;
@@ -11026,13 +11102,14 @@ async function writeWithLintProbe(args) {
   }
   writeFileSync(configPath, original, "utf8");
   const before = await runProbe(configPath, cwd);
-  const originalFails = before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? "");
+  const worse = worsenedPath(after, before);
+  const originalFails = worse === void 0 && (before.verdict === "broken" || MISSING_PACKAGE.test(before.detail ?? ""));
   if (!originalFails) {
     return {
       status: "degrade",
       original,
       modified: original,
-      degradeReason: `the wiring broke ESLint, so it was rolled back (${after.detail ?? "exit 2"})`
+      degradeReason: `the wiring broke ESLint, so it was rolled back (${worse?.detail ?? after.detail ?? "exit 2"})`
     };
   }
   writeFileSync(configPath, modified, "utf8");
@@ -11473,7 +11550,8 @@ async function wireIntoOwnConfig(a) {
     else if (r.status !== "already-wired") notWired.push(`the stack's rules-as-tests rules \u2014 ${reasonOf(r)}`);
     notWired.push(...r.notes ?? []);
   }
-  const own = await wireOwnConfig(text, { ignores: a.ignores, boundaryGlobs: a.boundaryGlobs, customRulesImportPath });
+  const gateReadsRuleGlobs = realpathSync2(dirname7(resolve6(configPath))) === realpathSync2(process3.cwd());
+  const own = await wireOwnConfig(text, { ignores: a.ignores, boundaryGlobs: a.boundaryGlobs, customRulesImportPath, gateReadsRuleGlobs });
   if (own.status === "wired") text = own.modified;
   else if (own.status !== "already-wired") notWired.push(`getff's ignores and R2 \u2014 ${reasonOf(own)}`);
   notWired.push(...own.notes ?? []);
