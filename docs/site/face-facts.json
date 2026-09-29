@@ -348,12 +348,12 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 52
+      "count": 53
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 290
+      "count": 291
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",

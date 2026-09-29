@@ -615,6 +615,8 @@ aef7938e1fa305acc0ea4b0ac16f6889bfb9b9cfa78b683d061b79c14eec67a5  packages/core/
 a3c3a7e859fcfd9be9c207b5cba8211a05f9c9401c23721606ef4da9e65ac157  packages/core/principles/46-git-env-inheritance-safety.test.ts
 8e8ae324045e5e5433e98cde44a0e5a7be898f18e29277d601f6a7b9503c0338  packages/core/principles/46-git-env-inheritance-safety.ts
 a47d7b4e6237600483dd79a789c4937265aca184de9e765a0a462699430a1eb3  packages/core/principles/46-reference-generator-arms.test.ts
+048e38aeb44ff1ee13e4d0ca35d6d174976e377334135b3707f871fe6c62e454  packages/core/principles/47-pipefail-grep-early-exit.test.ts
+35ce677e9b71948251dd22f4d756912d7ecaaad7c417c00d29cc08090e7ac8e6  packages/core/principles/47-pipefail-grep-early-exit.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
