@@ -278,7 +278,7 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
   # The ignores entry names the files getff delivered, never a directory the consumer may own too:
   # getff places .storybook/main.ts and .storybook/preview.ts, and the consumer's own stories config
   # beside them keeps its lint (cold-review F13 — the entry was .storybook/**).
-  eval "$(sed -n '/^_own_eslint_ignores() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  eval "$(sed -n '/^_own_eslint_ignores() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")"
   PROJECT_ROOT="$u/proj3"; mkdir -p "$PROJECT_ROOT/.storybook"
   getff_delivered() { case "${1#"$PROJECT_ROOT"/}" in .storybook/main.ts|.storybook/preview.ts) return 0 ;; esac; return 1; }
   ign=$(_own_eslint_ignores)
@@ -293,13 +293,13 @@ done < "$WORK/u.log"
 grep -qE '^(OK|BAD) ' "$WORK/u.log" || bad "U: the lib.sh helper arm printed nothing ($(tail -2 "$WORK/u.log" | tr '\n' '|'))"
 # The R2 wirer's write into a config getff placed and nobody edited since is getff's too: the
 # manifest the install records afterwards holds the new bytes, so the next install still reads the
-# config as getff's. _r2_wire_cfg runs as 99-finalize defines it, the flush as lib.sh does; only the
+# config as getff's. _r2_wire_cfg runs as eslint-wire.sh defines it, the flush as lib.sh does; only the
 # wirer is a stand-in (npx) that adds R2 to the config it is given, as the real one does on getff's
 # branch for a config whose template carries no R2.
 (
   # shellcheck disable=SC1090
   INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
-  eval "$(sed -n -e '/^_r2_note_outcome() {/,/^}/p' -e '/^_r2_wire_cfg() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  eval "$(sed -n -e '/^_r2_note_outcome() {/,/^}/p' -e '/^_r2_wire_cfg() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")"
   PROJECT_ROOT="$WORK/u-r2"; PKG_ROOT="$REPO_ROOT"; DRY_RUN=""; NOT_WIRED=()
   f="$PROJECT_ROOT/apps/svc/eslint.config.mjs"; mkdir -p "${f%/*}"
   printf 'export default [];\n' > "$f"
@@ -329,7 +329,7 @@ grep -qE '^(OK|BAD) ' "$WORK/u-r2.log" || bad "U: the R2 re-stage arm printed no
   # shellcheck disable=SC1090
   INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
   eval "$(sed -n -e '/^_R2_OWN_REFUSAL=/p' -e '/^_r2_own_refused() {/,/^}/p' -e '/^_r2_own_gap() {/,/^}/p' \
-    "$REPO_ROOT/setup.d/99-finalize.sh")"
+    "$REPO_ROOT/setup.d/eslint-wire.sh")"
   PROJECT_ROOT="$WORK/u-rg"; mkdir -p "$PROJECT_ROOT"; c="$PROJECT_ROOT/eslint.config.mjs"
   cat > "$c" <<'JS'
 // const RULE_GLOBS = { boundary: ['**/commented/**'] };

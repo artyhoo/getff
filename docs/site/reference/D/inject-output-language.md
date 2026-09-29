@@ -156,7 +156,7 @@ set, the plugin's copy always runs.
 - Registration: `plugin/hooks/hooks.json:179` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
   SessionStart with the matcher `startup|resume|clear|compact`; an install registers the
-  same in the consumer's settings (`setup.d/10-skills.sh:378-379`), first removing the
+  same in the consumer's settings (`setup.d/10-skills.sh:343-344`), first removing the
   per-prompt registration an older install left behind. The framework's own settings file
   has neither (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).

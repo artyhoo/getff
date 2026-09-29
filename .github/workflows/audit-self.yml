@@ -968,6 +968,8 @@ jobs:
         run: bash tests/install-sh/r2-auto-wire.test.sh
       - name: "install-sh — refresh-covers-full-delivery (#869 do_refresh ⊇ --full scripts/*.{sh,ts} delivery)"
         run: bash tests/install-sh/refresh-covers-full-delivery.test.sh
+      - name: "install-sh — refresh-rewires (refresh wiring-parity G1-G9: hooks, husky, MCP, R2, scripts, CI report, python entry, recap gate)"
+        run: bash tests/install-sh/refresh-rewires.test.sh
       - name: "install-sh — first-commit-passable (issues 1528/1529/1530: .gitignore seed + --no-warn-ignored + tests/setup.ts gate, paired Layer-2 negatives, pnpm stub propagation)"
         run: bash tests/install-sh/first-commit-passable.test.sh
       - name: "install-sh — refresh-divergence-guard (#1481 R1: baseline manifest + warn/preserve guard, arms a-e incl. pre-manifest + override + dry-run)"
@@ -1770,7 +1772,7 @@ jobs:
           # apps/*/package.json dir-walk, NOT a pnpm manifest, so the multi-stack branch still fires;
           # meanwhile detect_pm falls to npm (the runner has npm, not pnpm) so `--full` actually
           # installs the toolchain. No workspace marker + no root src → AIF_ARCH_TARGET resolves to "."
-          # (setup.d/70-deps.sh:41-50) — the same safe target the green flat job uses.
+          # (setup.d/lib.sh:2751-2760, merge_canonical_scripts) — the same safe target the green flat job uses.
           # Root carries NO deps (exactly like the flat job): install.sh adds its 22 DEVDEPS and npm
           # auto-installs the typescript-eslint peer typescript. A root `typescript` pin here caused an
           # ERESOLVE/ETARGET on the first run (a non-existent 5.6.0 exact). Per-workspace `typescript`
