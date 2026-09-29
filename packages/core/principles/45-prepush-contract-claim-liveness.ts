@@ -675,8 +675,8 @@ export interface QuarantineRow {
  * twin, held for a reason the gate cannot decide. `checks-map.md` declares itself
  * authoritative for the GENERIC eight-level enforcement model (`:8`), not for getff's
  * delivery: its levels 5-8 name Stryker, Pact Broker, Datadog and Argo Rollouts, none of
- * which getff installs. Both of the row's claim sites live in that register — `:43` is
- * row 3 of the model table and `:143` is the «minimum pipeline for a new project» — so
+ * which getff installs. Both of the row's claim sites live in that register — `:52` is
+ * row 3 of the model table and `:152` is the «minimum pipeline for a new project» — so
  * they say where a check BELONGS, not what getff wires. Rewriting the model is a product
  * decision for the maintainer. The consumer-confusion half is closed instead: the
  * docs-truth-prepush PR adds a note above the table stating outright that the installed
@@ -704,12 +704,12 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'npm run typecheck',
       'npm run arch:check',
       'dependency-cruiser',
-      'tsc --noemit всего проекта',
+      'tsc --noemit for the whole project',
       'vitest related $changed',
-      'vitest related на изменённых файлах',
+      'vitest related on changed files',
     ],
     owner:
-      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :43 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :143 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
+      'maintainer fork — BOTH sites are the generic 8-level model, not a description of getff: :52 is row 3 of the model table (whose levels 5-8 name Stryker/Pact/Datadog, which getff never installs) and :152 is the «minimum pipeline for a new project». Rewriting the model is a product decision; the consumer-confusion half is closed by the note this PR adds above the table',
   },
   {
     file: 'plugin/skills/getff/references/checks-map.md',
@@ -717,9 +717,9 @@ export const KNOWN_UNBACKED_CLAIMS: readonly QuarantineRow[] = [
       'npm run typecheck',
       'npm run arch:check',
       'dependency-cruiser',
-      'tsc --noemit всего проекта',
+      'tsc --noemit for the whole project',
       'vitest related $changed',
-      'vitest related на изменённых файлах',
+      'vitest related on changed files',
     ],
     owner: 'maintainer fork — plugin twin of the row above; regenerated, not hand-edited',
   },

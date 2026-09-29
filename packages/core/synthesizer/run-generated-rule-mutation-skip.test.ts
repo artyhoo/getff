@@ -163,7 +163,7 @@ describe.skipIf(!PROBES_AVAILABLE)(
       // matches js/mjs/cjs by default, so a `.ts` filename matches NO config object —
       // verify returns "No matching configuration found for probe.ts", _probe exits
       // non-zero, and EVERY rule takes the `:182` selector-not-firing path. Same trap
-      // already documented and fixed in audit-self/check-fences-fire.sh:177-182.
+      // already documented and fixed in audit-self/check-fences-fire.sh:268-273.
       const manifest = writeManifest({
         'rule-live': {
           check: {
@@ -197,6 +197,19 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(code, `runner output:\n${out}`).toBe(1);
       expect(out).not.toContain('nothing to test');
       expect(out).toContain('could not read the manifest');
+    });
+
+    // #1390 class: Node prints the throwing SOURCE LINE above `Error: …`, so a first match on the
+    // bare word `Error` quoted the extractor's own `throw new Error(…)` code instead of the message.
+    it('manifest that is not an object → the FAIL line names the error, not the throwing source line', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'mutrunner-skip-'));
+      tmpDirs.push(dir);
+      const manifest = join(dir, 'manifest.json');
+      writeFileSync(manifest, '[1, 2]\n', 'utf8');
+      const { code, out } = runRunner(manifest);
+
+      expect(code, `runner output:\n${out}`).toBe(1);
+      expect(out).toMatch(/could not read the manifest .*: Error: manifest is not a JSON object$/m);
     });
 
     // critical-review S8-1: a declarative rule whose negative-test key is missing or misspelled was

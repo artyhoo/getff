@@ -29,6 +29,7 @@
 # USAGE
 #   bash scripts/run-install-sh-suite.sh [tests/install-sh/]
 #   INSTALL_SH_JOBS=4 bash scripts/run-install-sh-suite.sh    # override the concurrency bound
+#   INSTALL_SH_HEAVY_RUNNER=<cmd> bash scripts/run-install-sh-suite.sh   # offload — see OFFLOAD below
 #
 # PROGRESS OUTPUT — see progress() below for why it goes to fd 3.
 set -uo pipefail
@@ -94,6 +95,44 @@ if { true >&3; } 2>/dev/null; then PROGRESS_FD=3; else PROGRESS_FD=2; fi
 # was probed open above, or 2, which always is.
 progress() { printf '%s\n' "$*" >&"$PROGRESS_FD"; }
 
+# ── OFFLOAD (opt-in, machine-local) ────────────────────────────────────────────────────────────
+# The battery is the heaviest thing the operator's Mac runs: ~20 parallel sessions each fanning out
+# 12 full installs put 62 `*.test.sh` processes and 34 eslint children on it at once (load 49-61,
+# measured 2026-09-28). INSTALL_SH_HEAVY_RUNNER names an executable that takes a command line and
+# runs it elsewhere against a mirror of this repo, exiting with the command's real code — the same
+# contract as PREPUSH_HEAVY_RUNNER in packages/core/hooks/pre-push.ts (PR #1886). Unset or empty →
+# nothing changes, so CI and every other checkout never see a difference.
+#
+# Set → the battery splits in two:
+#   - tests carrying a `# stays-local: <reason>` line run HERE, in the pool below. The header marks
+#     the macOS signal a Linux host cannot give: CI runs this battery on ubuntu only, so the Mac is
+#     the one place install.sh meets bash 3.2 and BSD userland, and a test that exists to catch a
+#     bash-3.2 or BSD-awk defect (or needs a Mac-only tool such as brew) is worthless on the PC.
+#     Same idea as Bazel's per-target `no-remote-exec` tag (prior-art-evaluations.md#290).
+#   - everything else goes through ONE runner call, `bash scripts/run-install-sh-suite.sh --routed
+#     <suite>`, started in the background once the quarantine has finished, so both halves overlap.
+#     argv is relative to the repo root: a runner that re-roots the cwd onto a mirror cannot
+#     translate an absolute path.
+#
+# The routed half only counts when its own output says it ran exactly the tests routed from
+# here — a runner that exits 0 without running anything, or ran a different set, is a failure,
+# never a green (see collect_routed below).
+#
+# PC_LOCAL=1 is the escape the only runner in use (the operator's ~/bin/pc-run) already defines.
+# The runner honours it by running the routed half locally, which would open a SECOND local pool
+# next to this one; honouring it here as well keeps an escaped run identical to an unrouted one.
+# A runner can also fall back to running here on its own (host unreachable, lock timeout). The
+# far end detects that through `--origin <path>`: a file in this run's work directory, which exists
+# only on this host. Found → it runs nothing and says so, and this pool takes the routed tests
+# after its own — never two full pools on one machine.
+RUNNER="${INSTALL_SH_HEAVY_RUNNER:-}"
+# The marker is read from the header only (it sits on line 2), so a test that merely mentions it
+# stays routable. ~/bin/pc-run-bash on the operator's Mac reads it with this same awk.
+stays_local() { awk 'NR > 5 { exit } /^# stays-local:/ { f = 1; exit } END { exit !f }' "$1"; }
+# The quarantined test is kept here whatever its header says: it must finish before the routed
+# half starts (see the quarantine below), and a runner's host must never run it next to others.
+quarantined() { case " $QUARANTINE_SERIAL " in *" $(basename "$1") "*) return 0 ;; esac; return 1; }
+
 # ── Worker mode ────────────────────────────────────────────────────────────────────────────────
 # Re-entrant: `xargs -P` invokes this script with `--one` per test file. Each worker writes its
 # whole output to its OWN file and never to stdout, so concurrent tests cannot interleave into
@@ -104,7 +143,7 @@ progress() { printf '%s\n' "$*" >&"$PROGRESS_FD"; }
 # the suite would report a green it never earned. `xargs`'s own exit status is not trusted for
 # this (BSD and GNU xargs disagree on the code, and neither says WHICH child failed).
 if [ "${1:-}" = "--one" ]; then
-  _t="$2"; _work="$3"; _total="$4"
+  _t="$2"; _work="$3"; _total="$4"; _label="${5:-install-sh}"
   _safe=$(basename "$_t")
   /bin/bash "$_t" > "$_work/out/$_safe" 2>&1 </dev/null
   _rc=$?
@@ -119,11 +158,26 @@ if [ "${1:-}" = "--one" ]; then
   _n=1
   while ! mkdir "$_work/seq/$_n" 2>/dev/null; do _n=$((_n + 1)); done
   if [ "$_rc" -eq 0 ]; then _mark="ok"; else _mark="FAIL"; fi
-  progress "[install-sh] ${_n}/${_total} done · ${_safe} (${_mark})"
+  progress "[${_label}] ${_n}/${_total} done · ${_safe} (${_mark})"
   exit 0   # the receipt carries the verdict; a non-zero here would only abort the pool early
 fi
 
 # ── Main ───────────────────────────────────────────────────────────────────────────────────────
+# `--routed` is the far end of OFFLOAD: run only the tests WITHOUT a `# stays-local:` line, and
+# never route again (a runner that simply execs its argv inherits INSTALL_SH_HEAVY_RUNNER).
+ROUTED_MODE=0
+ORIGIN=""
+if [ "${1:-}" = "--routed" ]; then ROUTED_MODE=1; shift; fi
+if [ "$ROUTED_MODE" -eq 1 ] && [ "${1:-}" = "--origin" ]; then ORIGIN="${2:-}"; shift 2; fi
+LABEL="install-sh"
+[ "$ROUTED_MODE" -eq 1 ] && LABEL="install-sh:routed"
+if [ -n "$ORIGIN" ] && [ -e "$ORIGIN" ]; then
+  # The runner ran us on the host that routed us (its own local fallback). Running the list here
+  # would put a second full pool next to the origin's; the origin runs it in its own pool instead.
+  echo "[install-sh:routed] ON-ORIGIN: the runner ran the routed half on the routing host; nothing run"
+  exit 97
+fi
+
 # The optional positional argument is the suite directory. It exists so the sweep's gate-table row
 # can name `tests/install-sh/` literally: scripts/run-local-ci-sweep-coverage.test.sh requires the
 # covering row for the `tests/install-sh/*.test.sh` battery family to contain that substring
@@ -143,42 +197,114 @@ if [ -z "$ALL" ]; then
   exit 1
 fi
 TOTAL=$(printf '%s\n' "$ALL" | wc -l | tr -d ' ')
+
+# ── Split for OFFLOAD ──────────────────────────────────────────────────────────────────────────
+# LOCAL = what runs in this process's pool; ROUTE_LIST = what the runner gets. Unrouted, LOCAL is ALL.
+LOCAL="$ALL"
+ROUTE_LIST=""
+ROUTE_N=0
+SUITE_REL=""
+if [ "$ROUTED_MODE" -eq 1 ] || { [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; }; then
+  KEEP=""
+  while IFS= read -r t; do
+    [ -z "$t" ] && continue
+    if stays_local "$t" || quarantined "$t"; then KEEP="$KEEP$t
+"; else ROUTE_LIST="$ROUTE_LIST$t
+"; fi
+  done <<EOF2
+$ALL
+EOF2
+  if [ "$ROUTED_MODE" -eq 1 ]; then
+    LOCAL="$ROUTE_LIST"; ROUTE_LIST=""
+    if [ -z "$LOCAL" ]; then
+      echo "run-install-sh-suite --routed: every test under $SUITE_DIR stays local — nothing to run, refusing to report a green" >&2
+      exit 1
+    fi
+    TOTAL=$(printf '%s' "$LOCAL" | grep -c .)
+  else
+    case "$SUITE_DIR/" in "$REPO_ROOT"/*) SUITE_REL="${SUITE_DIR#"$REPO_ROOT"/}" ;; esac
+    if ! command -v "$RUNNER" >/dev/null 2>&1; then
+      echo "run-install-sh-suite: INSTALL_SH_HEAVY_RUNNER='$RUNNER' is not an executable command." >&2
+      echo "   Fix the path, or unset INSTALL_SH_HEAVY_RUNNER to run the whole battery here." >&2
+      exit 1
+    elif [ -z "$SUITE_REL" ]; then
+      # The runner re-roots the repo, so it can only reach a suite inside it.
+      progress "[install-sh] suite $SUITE_DIR is outside $REPO_ROOT — not routed, running it all here"
+      ROUTE_LIST=""
+    elif [ -n "$ROUTE_LIST" ]; then
+      LOCAL="$KEEP"
+      ROUTE_N=$(printf '%s' "$ROUTE_LIST" | grep -c .)
+    fi
+  fi
+fi
+LOCAL_N=$(printf '%s' "$LOCAL" | grep -c .)
 JOBS=$(detect_jobs)
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/install-sh-suite.XXXXXX") || {
   echo "run-install-sh-suite: cannot create a work directory" >&2; exit 1; }
 mkdir -p "$WORK/out" "$WORK/rc" "$WORK/seq"
-trap 'rm -rf "$WORK"' EXIT INT TERM
+ROUTED_PID=""
+trap '[ -n "$ROUTED_PID" ] && kill "$ROUTED_PID" 2>/dev/null; rm -rf "$WORK"' EXIT INT TERM
 
 START=$(date +%s)
 
 # Quarantine first, alone. First (not last) so that if it leaves the tree dirty after a crash, the
-# pool's repo reads fail loudly in the same run rather than in the next one.
+# pool's repo reads fail loudly in the same run rather than in the next one. It also runs before
+# the routed half starts: a runner that pushes the working tree to a mirror must not copy it
+# while the quarantined test has drift planted in it.
 SERIAL_LIST=""
 POOL_LIST=""
 while IFS= read -r t; do
   [ -z "$t" ] && continue
-  case " $QUARANTINE_SERIAL " in
-    *" $(basename "$t") "*) SERIAL_LIST="$SERIAL_LIST$t
-" ;;
-    *) POOL_LIST="$POOL_LIST$t
-" ;;
-  esac
-done <<EOF
-$ALL
-EOF
+  if quarantined "$t"; then SERIAL_LIST="$SERIAL_LIST$t
+"; else POOL_LIST="$POOL_LIST$t
+"; fi
+done <<EOF2
+$LOCAL
+EOF2
 
 SERIAL_N=$(printf '%s' "$SERIAL_LIST" | grep -c . | tr -d ' ')
-progress "[install-sh] ${TOTAL} test files · ${JOBS} parallel · ${SERIAL_N} quarantined-serial"
+if [ "$ROUTE_N" -gt 0 ]; then
+  progress "[install-sh] ${TOTAL} test files · ${LOCAL_N} here (${JOBS} parallel · ${SERIAL_N} quarantined-serial) · ${ROUTE_N} routed via ${RUNNER}"
+else
+  progress "[${LABEL}] ${TOTAL} test files · ${JOBS} parallel · ${SERIAL_N} quarantined-serial"
+fi
 
 while IFS= read -r t; do
   [ -z "$t" ] && continue
-  bash "$SELF" --one "$t" "$WORK" "$TOTAL"
-done <<EOF
+  bash "$SELF" --one "$t" "$WORK" "$LOCAL_N" "$LABEL"
+done <<EOF2
 $SERIAL_LIST
-EOF
+EOF2
 
-printf '%s' "$POOL_LIST" | grep -v '^$' | xargs -P "$JOBS" -I{} bash "$SELF" --one {} "$WORK" "$TOTAL"
+if [ "$ROUTE_N" -gt 0 ]; then
+  # Its progress (and the runner's own status lines) go to the progress channel and to a file
+  # replayed if the half fails — a runner's «why nothing ran» must reach the report even when the
+  # progress channel is a capture nobody reads. Its stdout — the per-test blocks and the summary
+  # collect_routed reads — goes to a file replayed at collection. The one absolute path in argv is
+  # the origin mark, which exists to NOT resolve on the runner's host.
+  : >"$WORK/origin"
+  ( cd "$REPO_ROOT" && exec "$RUNNER" bash scripts/run-install-sh-suite.sh --routed --origin "$WORK/origin" "$SUITE_REL" ) \
+    >"$WORK/routed.out" 2> >(tee "$WORK/routed.err" >&"$PROGRESS_FD") </dev/null &
+  ROUTED_PID=$!
+fi
+
+printf '%s' "$POOL_LIST" | grep -v '^$' | xargs -P "$JOBS" -I{} bash "$SELF" --one {} "$WORK" "$LOCAL_N" "$LABEL"
+
+ROUTED_RC=0
+if [ -n "$ROUTED_PID" ]; then
+  wait "$ROUTED_PID"; ROUTED_RC=$?
+  ROUTED_PID=""
+fi
+
+# The runner fell back to this host: take the routed tests into this pool, after its own tests.
+if [ "$ROUTE_N" -gt 0 ] && grep -q '^\[install-sh:routed\] ON-ORIGIN:' "$WORK/routed.out"; then
+  progress "[install-sh] ${RUNNER} ran the routed half on this host (its own fallback) — running those ${ROUTE_N} tests in this pool instead"
+  printf '%s' "$ROUTE_LIST" | grep -v '^$' | xargs -P "$JOBS" -I{} bash "$SELF" --one {} "$WORK" "$TOTAL" "$LABEL"
+  LOCAL="$LOCAL$ROUTE_LIST"
+  LOCAL_N=$((LOCAL_N + ROUTE_N))
+  ROUTE_N=0
+fi
 
 END=$(date +%s)
 
@@ -206,21 +332,73 @@ while IFS= read -r t; do
     MISSING="$MISSING $b"
     echo "───── $b: NO RESULT RECORDED (worker died before writing its receipt) ─────"
   fi
-done <<EOF
-$ALL
-EOF
+done <<EOF2
+$LOCAL
+EOF2
+
+# collect_routed — fold the routed half into the tally. Its summary line is the only evidence that
+# the tests ran; the runner's exit code alone is not (a runner that runs nothing can exit 0).
+collect_routed() {
+  local summary rp rt line named=""
+  echo "───── routed half: ${ROUTE_N} tests via ${RUNNER} (exit ${ROUTED_RC}) ─────"
+  cat "$WORK/routed.out"
+  summary=$(grep -E '^\[install-sh:routed\] [0-9]+/[0-9]+ passed in ' "$WORK/routed.out" | tail -1)
+  rp=""; rt=""
+  if [ -n "$summary" ]; then
+    rp=${summary#\[install-sh:routed\] }; rp=${rp%%/*}
+    rt=${summary#*/}; rt=${rt%% *}
+  fi
+  if [ -z "$summary" ] || [ "$rt" != "$ROUTE_N" ]; then
+    MISSING="$MISSING routed-half(${ROUTE_N}-tests,runner-exit=${ROUTED_RC},reported=${rt:-none})"
+    echo "───── routed half: NO VALID RESULT — expected a summary for ${ROUTE_N} tests, got ${rt:-none} ─────"
+    replay_routed_err
+    return
+  fi
+  # The right count is not enough: the per-test headers must name exactly the tests routed from here.
+  printf '%s' "$ROUTE_LIST" | grep -v '^$' | sed 's|.*/||' | LC_ALL=C sort >"$WORK/routed.want"
+  LC_ALL=C sed -n 's/^───── \([^ ]*\.test\.sh\) ─────$/\1/p' "$WORK/routed.out" | LC_ALL=C sort >"$WORK/routed.got"
+  if ! cmp -s "$WORK/routed.want" "$WORK/routed.got"; then
+    MISSING="$MISSING routed-half(ran-a-different-set)"
+    echo "───── routed half: NO VALID RESULT — its ${rt} tests are not the ${ROUTE_N} routed from here ─────"
+    LC_ALL=C comm -23 "$WORK/routed.want" "$WORK/routed.got" | sed 's/^/  routed but not reported: /'
+    LC_ALL=C comm -13 "$WORK/routed.want" "$WORK/routed.got" | sed 's/^/  reported but not routed: /'
+    return
+  fi
+  PASSED=$((PASSED + rp))
+  line=$(grep -E '^\[install-sh:routed\] FAILED:' "$WORK/routed.out" | tail -1)
+  [ -n "$line" ] && { FAILED="$FAILED ${line#\[install-sh:routed\] FAILED: }"; named=1; }
+  line=$(grep -E '^\[install-sh:routed\] NO RESULT:' "$WORK/routed.out" | tail -1)
+  [ -n "$line" ] && { MISSING="$MISSING ${line#\[install-sh:routed\] NO RESULT: }"; named=1; }
+  # A short tally or a non-zero exit with no named culprit is still a failure.
+  if { [ "$rp" != "$rt" ] || [ "$ROUTED_RC" -ne 0 ]; } && [ -z "$named" ]; then
+    FAILED="$FAILED routed-half(runner-exit=${ROUTED_RC},passed=${rp}/${rt})"
+    replay_routed_err
+  fi
+}
+# replay_routed_err — the runner's own lines (why it could not run, where it fell back), minus the
+# far end's per-test progress, which the per-test blocks above already carry.
+replay_routed_err() {
+  [ -s "$WORK/routed.err" ] || return 0
+  echo "───── routed half: the runner's own output ─────"
+  grep -vE '^\[install-sh:routed\] [0-9]+/[0-9]+ done · ' "$WORK/routed.err" | tail -n 20
+}
+[ "$ROUTE_N" -gt 0 ] && collect_routed
 
 echo ""
-echo "[install-sh] ${PASSED}/${TOTAL} passed in $((END - START))s (${JOBS} parallel, ${SERIAL_N} quarantined-serial)"
+if [ "$ROUTE_N" -gt 0 ]; then
+  echo "[${LABEL}] ${PASSED}/${TOTAL} passed in $((END - START))s (${LOCAL_N} here: ${JOBS} parallel, ${SERIAL_N} quarantined-serial; ${ROUTE_N} routed)"
+else
+  echo "[${LABEL}] ${PASSED}/${TOTAL} passed in $((END - START))s (${JOBS} parallel, ${SERIAL_N} quarantined-serial)"
+fi
 if [ -n "$MISSING" ]; then
-  echo "[install-sh] NO RESULT:$MISSING"
+  echo "[${LABEL}] NO RESULT:$MISSING"
 fi
 if [ -n "$FAILED" ]; then
-  echo "[install-sh] FAILED:$FAILED"
+  echo "[${LABEL}] FAILED:$FAILED"
 fi
 if [ -n "$FAILED" ] || [ -n "$MISSING" ]; then
-  progress "[install-sh] FAILED —$FAILED$MISSING"
+  progress "[${LABEL}] FAILED —$FAILED$MISSING"
   exit 1
 fi
-progress "[install-sh] all ${TOTAL} passed in $((END - START))s"
+progress "[${LABEL}] all ${TOTAL} passed in $((END - START))s"
 exit 0

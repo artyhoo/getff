@@ -92,7 +92,7 @@ const linter = new Linter();
 // below returns "No matching configuration found for probe.ts" and the rule never
 // runs — _probe then exits non-zero for EVERY selector, so every rule takes the
 // selector-not-firing skip path and no mutation is ever measured. Same trap as #832
-// in audit-self/check-fences-fire.sh:177-182; the paired-negative arm that pins this
+// in audit-self/check-fences-fire.sh:268-273; the paired-negative arm that pins this
 // is `POSITIVE (probe liveness)` in run-generated-rule-mutation-skip.test.ts.
 // Generated negative inputs are TypeScript and may hold JSX, so parse them as the consumer's lint
 // does: typescript-eslint's parser when installed, JSX on (critical-review cold pass, M3 sibling).
@@ -162,7 +162,9 @@ if ! RULES_JSON=$(GETFF_MUTATION_MANIFEST="$MANIFEST" node --input-type=module -
   }
   process.stdout.write(JSON.stringify(rules));
 " 2>"$_rules_err"); then
-  echo "FAIL — could not read the manifest $MANIFEST: $(grep -m1 -E 'Error' "$_rules_err" || head -n 1 "$_rules_err")"
+  # Node prints the throwing SOURCE LINE (`… throw new Error('…');`) above the message, so match
+  # the message line itself — `Error: …` / `SyntaxError: …` / `Error [ERR_…]: …` at column 0 (#1390).
+  echo "FAIL — could not read the manifest $MANIFEST: $(grep -m1 -E '^[A-Za-z]*Error( \[[A-Z0-9_]+\])?: ' "$_rules_err" || head -n 1 "$_rules_err")"
   echo "NOT green: the generated-rule material was not tested (regenerate it: ./setup --full)"
   rm -f "$_rules_err"
   exit 1

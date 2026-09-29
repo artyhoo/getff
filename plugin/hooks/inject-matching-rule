@@ -23,6 +23,9 @@
 # for the rest of the session. Never a permanent silent no-op; never per-invocation spam.
 # Precedent for the once-per-session shape: this hook's own session-cache at $CACHE below +
 # deps-hash-check.sh — same ${TMPDIR:-/tmp}/cc-…-${SESSION}.txt convention.
+#
+# Plugin twin of .claude/hooks/inject-matching-rule.sh — plugin/hooks/run-hook.cmd reads this
+# line to keep the plugin copy silent where the project runs its own copy.
 set -uo pipefail
 
 REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)}"

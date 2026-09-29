@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: skips itself without lychee, which the Mac has and the PC does not (measured 2026-09-29)
 # Consumer-side link integrity for shipped markdown (2026-07-10 flat-install smoke incident):
 # on a consumer's FIRST `git push`, pre-push §8 runs `lychee --offline` over every changed
 # *.md — i.e. every shipped file. Shipped .claude/skills/*/SKILL.md + .claude/agents/*.md
@@ -45,7 +46,7 @@ printf '{"name":"lychee-fixture","version":"0.0.0"}\n' > "$T/package.json"
 ( cd "$T" && git init -q && bash "$REPO_ROOT/install.sh" ts-server --full --force --profile factory ) >/dev/null 2>&1 \
   || { bad "install.sh exited non-zero — fixture install failed"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; }
 
-# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:260):
+# Non-vacuity guard on the widening (mirrors tests/install-sh/gh-531-shipped-prettier.test.sh:261):
 # every factory-depth assertion below is silently VACUOUS if the profile gate regresses and the
 # deep surface never lands. Assert the two markers of factory depth — the vendor drop (the
 # factory-only layer) and an env-tier skill — before trusting a green lychee run.

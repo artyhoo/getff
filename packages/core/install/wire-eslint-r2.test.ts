@@ -29,8 +29,33 @@ import {
   wireR2IntoOwnConfig,
 } from './wire-eslint-r2.ts';
 
-const TS_MORPH_AVAILABLE = existsSync('./node_modules/ts-morph/package.json')
-  || existsSync('node_modules/ts-morph/package.json');
+// Resolved exactly the way wireConfigSource / wireNRules load ts-morph (wire-eslint-r2.ts):
+// node resolution anchored at the cwd, walking up. The `<cwd>/node_modules/ts-morph` probe this
+// replaces missed the workspace-hoisted copy in the repo-root node_modules, so every run from
+// packages/core (`npm --prefix packages/core run test:units`, the CI step) skipped the ts-morph
+// cases green while the wirer itself found ts-morph (CI run 36471375667, 2026-09-28: 70/81 of
+// wire-eslint-r2.test.ts and 18/39 of wire-synth-rules.test.ts skipped). Kept in sync with the
+// twin in wire-synth-rules.test.ts.
+function tsMorphResolvable(): boolean {
+  try {
+    createRequire(resolve(process.cwd(), 'package.json')).resolve('ts-morph');
+    return true;
+  } catch {
+    return false;
+  }
+}
+const TS_MORPH_AVAILABLE = tsMorphResolvable();
+// Where the cases are load-bearing, an absent ts-morph fails instead of skipping: CI always, and
+// any run that sets REQUIRE_TS_MORPH=1 (a GETFF_* name would be scrubbed by vitest.setup.ts).
+const TS_MORPH_REQUIRED = process.env.CI === 'true' || process.env.REQUIRE_TS_MORPH === '1';
+function itRequiresTsMorph(): void {
+  it.runIf(TS_MORPH_REQUIRED)('ts-morph resolves from the cwd, so no ts-morph case here is skipped', () => {
+    expect(
+      TS_MORPH_AVAILABLE,
+      `ts-morph does not resolve from ${process.cwd()} — every skipIf(!TS_MORPH_AVAILABLE) case would pass by skipping`,
+    ).toBe(true);
+  });
+}
 
 /** `modified` is `original` plus insertions only: every character of the consumer's config is still there, in order. */
 function onlyInserts(original: string, modified: string): boolean {
@@ -64,6 +89,8 @@ async function wire(source: string): Promise<string> {
 }
 
 describe('wire-eslint-r2', () => {
+  itRequiresTsMorph();
+
   it.skipIf(!TS_MORPH_AVAILABLE)(
     'Fixture A: simple base re-export → wrapped with spread',
     async () => {
@@ -813,6 +840,144 @@ describe('#829: wireNRules plugin self-registration', () => {
     },
   );
 
+  // A spread carries its keys into the element: `{ ...onlyJs, plugins: … }` with
+  // `const onlyJs = { files: ['**/*.js'] }` is scoped to .js even though the literal shows no
+  // `files` key. Read as global, the appended block went bare and `eslint .` exited 2 on every
+  // .mjs/.ts file (measured 2026-09-28, ESLint 9.39.4). Only a spread whose object literal is
+  // resolvable in the same file and carries no scope key counts as global.
+  const registeredVia = (decl: string, spread: string): string =>
+    [
+      `import customRules from './eslint-rules-local/index.mjs';`,
+      decl,
+      `export default [{ ${spread}, plugins: { 'rules-as-tests': customRules }, rules: {} }];`,
+      ``,
+    ].join('\n');
+  const SELF_REGISTERED = /\{\s*plugins: \{ 'rules-as-tests': customRules \}, rules: \{ ['"]rules-as-tests\/no-direct-time-randomness['"]/;
+  const BARE = /\{\s*rules: \{ ['"]rules-as-tests\/no-direct-time-randomness['"]/;
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration scoped by a spread carrying files: → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toMatch(SELF_REGISTERED);
+    expect((r.modified.match(/import customRules from/g) ?? []).length).toBe(1);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration scoped by a spread carrying ignores: → self-registers', async () => {
+    const src = registeredVia(`const skipDist = { ignores: ['dist/**'] };`, '...skipDist');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration scoped by a spread carrying basePath: → self-registers', async () => {
+    const src = registeredVia(`const web = { basePath: 'apps/web' };`, '...web');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registration with a spread of an identifier this file does not define → self-registers', async () => {
+    const src = registeredVia(`import shared from './shared.mjs';`, '...shared');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread that carries files: through a nested spread → self-registers', async () => {
+    const src = registeredVia(`const inner = { files: ['**/*.js'] };\nconst outer = { ...inner };`, '...outer');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element that sets basePath: itself → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `basePath: 'apps/web'`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A const the file changes after binding it: its literal no longer tells what the spread carries.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a const that gains files: by a property write → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = {};\nonlyJs.files = ['**/*.js'];`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a const that gains files: by Object.assign → self-registers', async () => {
+    const src = registeredVia(`const onlyJs = {};\nObject.assign(onlyJs, { files: ['**/*.js'] });`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a let reassigned to a scoped literal → self-registers', async () => {
+    const src = registeredVia(`let onlyJs = {};\nonlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element with a computed files key → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `['files']: ['src/**/*.ts']`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a registering element whose files key is spelled with an escape → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts']`, `'fil\\x65s': ['src/**/*.ts']`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A spread after `plugins` replaces the whole `plugins` object when the spread carries one.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread after plugins: that may replace them → self-registers', async () => {
+    const src = [
+      `import customRules from './eslint-rules-local/index.mjs';`,
+      `const base = { plugins: {} };`,
+      `export default [{ plugins: { 'rules-as-tests': customRules }, ...base, rules: {} }];`,
+      ``,
+    ].join('\n');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a second plugins: key that drops the registration → self-registers', async () => {
+    const src = SCOPED_ONLY.replace(`files: ['src/**/*.ts'], `, '').replace(`rules: {`, `plugins: {}, rules: {`);
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  // A getter runs during the spread and can add `files` to the object it belongs to.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ a spread of a literal with an accessor → self-registers', async () => {
+    const src = registeredVia(`const b = { get x() { return 1; } };`, '...b');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.modified).toMatch(SELF_REGISTERED);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('❌ an inline spread literal and a nested spread with no scope key → still global, block stays bare', async () => {
+    for (const src of [
+      registeredVia('', `...{ name: 'shared' }`),
+      registeredVia(`const inner = { name: 'shared' };\nconst outer = { ...inner };`, '...outer'),
+    ]) {
+      const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+      expect(r.status).toBe('wired');
+      expect(r.modified).toMatch(BARE);
+    }
+  });
+
+  // Anti-tautology: «every spread self-registers» would pass the cases above. A spread whose
+  // literal is right here and carries no scope key keeps the registration global → bare block.
+  it.skipIf(!TS_MORPH_AVAILABLE)('❌ a spread of a same-file literal with no scope key → still global, block stays bare', async () => {
+    const src = registeredVia(`const shared = { linterOptions: { reportUnusedDisableDirectives: 'error' } };`, '...shared');
+    const r = await wireNRules(src, NEW_RULE, { customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toMatch(BARE);
+    expect(r.modified).not.toMatch(SELF_REGISTERED);
+  });
+
+  // The own-config path (Q4.7) asks the same question before its R2 block.
+  it.skipIf(!TS_MORPH_AVAILABLE)('✅ wireOwnConfig: a registration scoped by a spread → the R2 block registers the plugin', async () => {
+    const src = registeredVia(`const onlyJs = { files: ['**/*.js'] };`, '...onlyJs');
+    const r = await wireOwnConfig(src, { boundaryGlobs: ['src/routes/**/*.ts'], customRulesImportPath: IMPORT_PATH });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toContain(`{ files: RULE_GLOBS.boundary, plugins: { 'rules-as-tests': customRules }, rules: { '${R2_RULE_ID}': 'error' } }`);
+  });
+
   it.skipIf(!TS_MORPH_AVAILABLE)(
     'absent customRulesImportPath → degrades to bare (no throw, backward-compatible)',
     async () => {
@@ -1064,6 +1229,192 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     expect(r.status).toBe('wired');
     expect(onlyInserts(src, r.modified)).toBe(true);
     expect(r.modified).toMatch(/selector: ['"]B['"]/);
+  });
+});
+
+// A rule the config already sets is present whatever form its key takes. `eqeqeq: 'off'` — an identifier
+// key, prettier's default quoteProps output — used to read as absent, and the appended
+// `{ rules: { "eqeqeq": "error" } }` overrode the consumer's own setting (measured 2026-09-28).
+describe('wireNRules — rule presence is a key in a rules object, quoted or not', () => {
+  const UNQUOTED = [
+    `import js from '@eslint/js';`,
+    ``,
+    `export default [`,
+    `  js.configs.recommended,`,
+    `  {`,
+    `    rules: {`,
+    `      eqeqeq: 'off', // consumer: legacy code`,
+    `      curly: 'error',`,
+    `    },`,
+    `  },`,
+    `];`,
+    ``,
+  ].join('\n');
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('insertOnly: an identifier-keyed rule keeps the consumer value, nothing appended for it', async () => {
+    const r = await wireNRules(UNQUOTED, { eqeqeq: 'error', 'no-var': 'error' }, { overrideKeys: new Set(['eqeqeq']), insertOnly: true });
+    expect(r.status).toBe('wired');
+    expect(onlyInserts(UNQUOTED, r.modified)).toBe(true);
+    expect(r.modified).toContain(`      eqeqeq: 'off', // consumer: legacy code\n`);
+    expect(r.modified).not.toMatch(/["']eqeqeq["']/);
+    expect(r.modified).toContain(`{ rules: { "no-var": "error" } }`);
+    expect(r.notes?.join(' ')).toMatch(/eqeqeq/);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('an identifier-keyed rule is already wired; getff\'s own config still lets a live value win', async () => {
+    const same = await wireNRules(UNQUOTED, { curly: 'error' });
+    expect(same.status).toBe('already-wired');
+    expect(same.modified).toBe(UNQUOTED);
+    const kept = await wireNRules(UNQUOTED, { eqeqeq: 'error' });
+    expect(kept.status).toBe('already-wired');
+    expect(kept.modified).toBe(UNQUOTED);
+    const live = await wireNRules(UNQUOTED, { eqeqeq: 'error' }, { overrideKeys: new Set(['eqeqeq']) });
+    expect(live.status).toBe('wired');
+    expect(live.modified).toContain(`      eqeqeq: "error", // consumer: legacy code\n`);
+    expect(live.modified).not.toContain(`{ rules: { "eqeqeq"`);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('a rule named only in a comment, a string value or another object\'s key is still appended', async () => {
+    const src = [
+      `// eqeqeq: 'off' was tried and reverted; 'eqeqeq' stays on`,
+      `export default [`,
+      `  { settings: { eqeqeq: true } },`,
+      `  { rules: { 'no-restricted-syntax': ['error', { selector: 'X', message: "use 'eqeqeq'" }] } },`,
+      `];`,
+      ``,
+    ].join('\n');
+    const r = await wireNRules(src, { eqeqeq: 'error' }, { insertOnly: true });
+    expect(r.status).toBe('wired');
+    expect(onlyInserts(src, r.modified)).toBe(true);
+    expect(r.modified).toContain(`{ rules: { "eqeqeq": "error" } }`);
+  });
+
+  // The exported list reaches these settings only through a variable, which it may not reach at all
+  // (`STRICT ? [...base, strict] : base`). A later appended block would override them, and a silent skip
+  // could leave the rule enforced nowhere — so a config the consumer owns keeps them and names the rule.
+  it.skipIf(!TS_MORPH_AVAILABLE).each([
+    [`spread`, `const legacy = { eqeqeq: 'off' };\nexport default [{ rules: { ...legacy, curly: 'error' } }];\n`],
+    [`shorthand`, `const rules = { eqeqeq: 'off' };\nexport default [{ rules }];\n`],
+    [`exported identifier`, `const config = [{ rules: { eqeqeq: 'off' } }];\nexport default config;\n`],
+    [`variant export`, `const base = [{ files: ['a/**'] }];\nconst strict = { eqeqeq: 'off' };\nconst config = process.env.STRICT ? [...base, { rules: strict }] : base;\nexport default config;\n`],
+  ])('insertOnly: a rule set through a variable (%s) keeps its value, named in notes', async (_shape, src) => {
+    for (const live of ['error', 'off']) {
+      const r = await wireNRules(src, { eqeqeq: live }, { overrideKeys: new Set(['eqeqeq']), insertOnly: true });
+      expect(r.modified).toBe(src);
+      expect(r.notes?.join(' ')).toMatch(/eqeqeq/);
+    }
+    // Paired: getff's own config (no insertOnly) lets the live value win by a later block (D2).
+    const own = await wireNRules(src, { eqeqeq: 'error' }, { overrideKeys: new Set(['eqeqeq']) });
+    expect(own.status).toBe('wired');
+    expect(own.modified).toContain(`{ rules: { "eqeqeq": "error" } }`);
+  });
+
+  // Shapes the key search does not follow into: the old quoted-string search found the rule in each, and
+  // must not lose it — an appended block would override the consumer's own value (cold review, MAJOR).
+  it.skipIf(!TS_MORPH_AVAILABLE).each([
+    [`conditional spread`, `export default [{ rules: { ...(process.env.CI ? { curly: 'off' } : {}) } }];\n`],
+    [`&& spread`, `const ci = !!process.env.CI;\nexport default [{ rules: { ...(ci && { curly: 'off' }) } }];\n`],
+    [`?? spread`, `export default [{ rules: { ...(globalThis.x ?? { curly: 'off' }) } }];\n`],
+    [`JSDoc cast`, `export default [{ rules: /** @type {any} */ ({ curly: 'off' }) }];\n`],
+    [`Object.assign`, `export default [{ rules: Object.assign({}, { curly: 'off' }) }];\n`],
+    [`function-built`, `function mk() { return { 'no-console': 'off' }; }\nexport default [{ rules: mk() }];\n`],
+    [`computed key`, `export default [{ rules: { ['no-console']: 'off' } }];\n`],
+    [`assigned after declaration`, `const rules = {};\nrules['no-console'] = 'off';\nexport default [{ rules }];\n`],
+  ])('insertOnly: a rule set in a %s is present, nothing appended', async (_shape, src) => {
+    const rule = src.includes('curly') ? 'curly' : 'no-console';
+    const r = await wireNRules(src, { [rule]: 'error' }, { insertOnly: true });
+    expect(r.status).toBe('already-wired');
+    expect(r.modified).toBe(src);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('wireOwnConfig: R2 set behind a cast is present, no second R2 block', async () => {
+    const src = `export default [{ rules: /** @type {any} */ ({ '${R2_RULE_ID}': 'off' }) }];\n`;
+    const r = await wireOwnConfig(src, { boundaryGlobs: ['src/api/**/*.ts'] });
+    expect(r.modified).toBe(src);
+  });
+
+  // Without ts-morph the quoted-string search decides already-wired vs degrade, and never edits.
+  it('without ts-morph: a quoted rule is already wired, an identifier-keyed one degrades untouched', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'no-ts-morph-'));
+    const cwd = process.cwd();
+    process.chdir(dir);
+    try {
+      const quoted = `export default [{ rules: { 'eqeqeq': 'off' } }];\n`;
+      expect((await wireNRules(quoted, { eqeqeq: 'error' }, { insertOnly: true })).status).toBe('already-wired');
+      const ident = `export default [{ rules: { eqeqeq: 'off' } }];\n`;
+      const d = await wireNRules(ident, { eqeqeq: 'error' }, { insertOnly: true });
+      expect(d.status).toBe('degrade');
+      expect(d.modified).toBe(ident);
+    } finally {
+      process.chdir(cwd);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('wireOwnConfig: R2 named only in a comment is still wired', async () => {
+    const src = `// ${JSON.stringify(R2_RULE_ID)} comes later\nexport default [{ rules: {} }];\n`;
+    const r = await wireOwnConfig(src, { boundaryGlobs: ['src/api/**/*.ts'] });
+    expect(r.status).toBe('wired');
+    expect(r.modified).toContain(`rules: { '${R2_RULE_ID}': 'error' }`);
+    expect((await wireOwnConfig(r.modified, { boundaryGlobs: ['src/api/**/*.ts'] })).status).toBe('already-wired');
+  });
+});
+
+describe('wireConfigSource / resolveAndWire — R2 is present only when the config names it as code', () => {
+  const base = `import base from './base.mjs';\n`;
+  const tail = `export default [...base];\n`;
+  // Each mention sets no rule: the wirer must still wire R2.
+  const MENTIONS: Array<[string, string]> = [
+    ['a // comment', `// TODO: turn on '${R2_RULE_ID}'\n`],
+    ['a /* */ comment', `/* { rules: { '${R2_RULE_ID}': 'error' } } */\n`],
+    ['a longer string', `const note = 'turn on ${R2_RULE_ID} later';\n`],
+    ['template-literal text', 'const note = `see ${base.length} ' + R2_RULE_ID + '`;\n'],
+    ['a regex literal', `const re = /${R2_RULE_ID.replace('/', '\\/')}/;\n`],
+  ];
+
+  for (const [label, mention] of MENTIONS) {
+    it.skipIf(!TS_MORPH_AVAILABLE)(`wireConfigSource: R2 named only in ${label} is still wired`, async () => {
+      const src = base + mention + tail;
+      const r = await wireConfigSource(src);
+      expect(r.status).toBe('wired');
+      expect(r.modified).toContain(`rules: { '${R2_RULE_ID}': 'error' }`);
+      expect((await wireConfigSource(r.modified)).status).toBe('already-wired');
+    });
+  }
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('wireConfigSource: R2 as a real quoted rule key is already wired (paired)', async () => {
+    const src = base + `// TODO: tighten '${R2_RULE_ID}'\nexport default [...base, { rules: { "${R2_RULE_ID}": 'warn' } }];\n`;
+    const r = await wireConfigSource(src);
+    expect(r.status).toBe('already-wired');
+    expect(r.modified).toBe(src);
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('resolveAndWire: R2 named only in a comment is written into the config', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'r2wire-comment-'));
+    const p = join(dir, 'eslint.config.mjs');
+    const src = base + `// TODO: turn on '${R2_RULE_ID}'\n` + tail;
+    writeFileSync(p, src, 'utf8');
+    try {
+      const r = await resolveAndWire({ configPath: p, cwd: dir, runProbe: async () => 'ok' });
+      expect(r.status).toBe('wired');
+      expect(readFileSync(p, 'utf8')).toContain(`rules: { '${R2_RULE_ID}': 'error' }`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(!TS_MORPH_AVAILABLE)('resolveAndWire: R2 as a real quoted rule key is left byte-identical (paired)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'r2wire-comment-'));
+    const p = join(dir, 'eslint.config.mjs');
+    const src = base + `export default [...base, { rules: { '${R2_RULE_ID}': 'error' } }];\n`;
+    writeFileSync(p, src, 'utf8');
+    try {
+      const r = await resolveAndWire({ configPath: p, cwd: dir, runProbe: async () => 'unavailable' });
+      expect(r.status).toBe('already-wired');
+      expect(readFileSync(p, 'utf8')).toBe(src);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

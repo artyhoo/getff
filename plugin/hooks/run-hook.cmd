@@ -17,8 +17,6 @@ if "%~1"=="" (
 )
 
 set "HOOK_DIR=%~dp0"
-REM Plugin-channel marker for the dispatched hook (see the Unix block below).
-set "AIF_HOOK_CHANNEL=plugin"
 
 REM Try Git for Windows bash in standard locations
 if exist "C:\Program Files\Git\bin\bash.exe" (
@@ -56,6 +54,7 @@ shift
 # Russian explanations broken in ZCode while CC was Russian). Fallback: one
 # line (e.g. `ru`, LF-terminated) in ${XDG_CONFIG_HOME:-$HOME/.config}/getff/hook-lang.
 # The env var always wins when present; malformed content is ignored.
+_lang_from_file=''
 if [ -z "${AIF_HOOK_LANG:-}" ]; then
   _lang_cfg="${XDG_CONFIG_HOME:-$HOME/.config}/getff/hook-lang"
   if [ -f "$_lang_cfg" ]; then
@@ -68,106 +67,94 @@ if [ -z "${AIF_HOOK_LANG:-}" ]; then
   fi
 fi
 
-# ── Plugin-channel marker ─────────────────────────────────────────────────────
-# Tells the dispatched hook it runs as the plugin twin, not as the project's own copy.
-# inject-session-bootstrap reads it: this channel also ships inject-output-language, so the
-# twin leaves the [output-language] line to that hook instead of injecting it a second time.
-AIF_HOOK_CHANNEL=plugin
-export AIF_HOOK_CHANNEL
-
-# ── Project-channel dedup — opt-in, Claude Code only ──────────────────────────
-# Claude Code merges plugin hooks with the project's own hooks and runs every matching
-# entry concurrently; it does not deduplicate across the two sources
-# (anthropics/claude-code#76297, closed not-planned). Measured 2026-09-29 in the framework
-# repo, which registers its own hook sources AND has the plugin enabled: 14 registrations
-# fired twice (the bootstrap digest 2x and [output-language] 3x per prompt, the Stop gate
-# blocked twice).
+# ── Yield to the plugin's own source checkout ─────────────────────────────────
+# plugin/hooks/hooks.json is rendered from the same harness model as the framework's own
+# .claude/settings.json (scripts/render-harness-config.mjs emitPlugin), so in the framework's
+# source checkout every twinned hook ran twice per event, and the plugin copy is the STALE one
+# there: an installed cache refreshes only on a version bump. Incident 2026-09-28: every prompt
+# carried the session-bootstrap digest twice, a 4-item and a 5-item invariants list side by side,
+# and the output-language line three times. There the project copy wins; this copy exits 0
+# without output.
 #
-# The dedup runs only when the project DECLARES it owns these hooks: AIF_HOOK_DEDUP=project in
-# the `env` block of its own .claude/settings.json. The declaration lives in the same file as
-# the project's hook registrations, so a session that did not load that file (--setting-sources
-# without `project`, an Agent SDK host without settingSources "project") has no declaration
-# either, and every plugin copy runs. Inferring "the project copy will run" from files on disk
-# is unsound — those same sessions skip the project hooks while the files are still there — so
-# there is no undeclared mode.
-#
-# Rule: this plugin copy exits silently when the project's settings register THIS hook —
-# .claude/hooks/<name>.sh exists, and a command entry with no `if` and no `async` runs it — for
-# the same event with the same matcher as EVERY plugin entry that dispatches this hook.
-# Kept running in every other case (fail-open, the worst case is the old duplicate):
-#   - ZCode (ZCODE_PROJECT_DIR set): it runs no project hooks, this entry is the only one;
-#   - AIF_HOOK_LANG came from the hook-lang file above: only this wrapper reads that file, so
-#     the project copy would run without the language and the two copies are not equivalent;
-#   - no jq, stdin is a terminal, no event in the payload, unparseable settings, a different
-#     matcher, or a covering script that does not exist.
-# Residual, accepted with the declaration: a managed strictPluginOnlyCustomization policy blocks
-# a project's settings hooks but not its settings env; a project declaring the dedup under such
-# a policy loses these hooks. Consumers whose .claude/hooks copies are vendored by install.sh
-# should not declare it — the vendored copy only changes on --refresh, the plugin copy is newer.
-# POSIX sh only in this block (no arrays): a non-bash caller must still dispatch.
-# Windows: the batch block above calls the script directly and never reaches this block.
-_dd_proj="${CLAUDE_PROJECT_DIR:-}"
-if [ "${AIF_HOOK_DEDUP:-}" = project ] && [ -n "$_dd_proj" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] \
-   && [ -z "${_lang_from_file:-}" ] && [ ! -t 0 ] && [ -f "${SCRIPT_DIR}/hooks.json" ] \
-   && command -v jq >/dev/null 2>&1; then
-  # inject-session-bootstrap carries the [output-language] line when it runs on the project
-  # channel, so a project that registers it already covers inject-output-language.
+# A yield must never drop a hook that then runs nowhere, and must never hand an event to an
+# older copy, so every condition below leans to running. A duplicate costs context; a lost gate
+# costs the gate.
+#   - Source checkout only: the project ships this plugin (plugin/.claude-plugin/plugin.json
+#     names the same plugin as ../.claude-plugin/plugin.json) and this hook (plugin/hooks/<name>).
+#     Only there is .claude/hooks/<name>.sh the source this copy was generated from. A consumer's
+#     copy was frozen at install (setup.d/10-skills.sh copy_safe) and may be older than this one,
+#     so a consumer keeps both copies running.
+#   - Claude Code only: ZCode never reads .claude/settings.json
+#     (docs/meta-factory/research-patches/2026-07-04-zcode-harness-visibility.md).
+#   - Same inputs: the language fallback above reaches plugin hooks only; when it supplied the
+#     pin, the project copy is blind to it and the two copies differ.
+#   - This file cannot see which setting sources the host loaded (an SDK `settingSources` list,
+#     `--setting-sources`) or a managed policy that blocks project hooks (`allowManagedHooksOnly`).
+#     GETFF_PLUGIN_NO_YIELD=1 forces this copy to run on such a host.
+#   - Only .claude/settings.json counts. settings.local.json is a separate setting source that a
+#     host can leave out, so a registration there may never fire.
+#   - Registration means a `.hooks` handler read with jq (settings.json also names hook scripts
+#     inside `permissions` strings), so no jq means run. The handler must be exactly
+#     {"type":"command","command":"bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.sh\""}, the
+#     installer's form, optionally with a statusMessage. Any other command form or field (`if`,
+#     `async`, `timeout`, `shell`) can change when the project copy runs, whether it starts at
+#     all, or where its output goes.
+#   - Every (event, matcher) pair the plugin registers this hook on must be registered by the
+#     project with the identical matcher ("" and "*" are equal). A narrower or missing pair
+#     leaves an event only this copy would catch, e.g. a worktree on a branch from before the
+#     plugin widened a matcher or added an event. Needs hooks.json beside this file; a plugin
+#     registration that passes extra arguments never counts as covered.
+#   - The hook must be getff's: this file declares itself the plugin copy of
+#     `.claude/hooks/<name>.sh` (the generator's AUTO-GENERATED line or a manual twin's
+#     `Plugin twin of` line), and the project script carries getff's `# <name>.sh — ` header
+#     on line 2 plus a delivery marker. A plugin-only hook never silences this copy.
+# A hook whose output a project hook of another name already carries declares that on one line;
+# the same checks then run against the named hook:
+#   # @plugin-yields-to: <hook-name> [<hook-name> ...]
+# Settings are read on every event. Claude Code's file watcher normally reloads hook
+# registrations when settings.json changes; right after a branch switch the two can briefly
+# disagree. The Windows batch branch above calls bash on the hook directly and does not yield.
+if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] && [ -z "${_lang_from_file:-}" ] \
+  && [ -z "${GETFF_PLUGIN_NO_YIELD:-}" ] && [ -f "${SCRIPT_DIR}/hooks.json" ] \
+  && [ -f "${SCRIPT_DIR}/../.claude-plugin/plugin.json" ] \
+  && [ -f "$CLAUDE_PROJECT_DIR/plugin/.claude-plugin/plugin.json" ] \
+  && [ -f "$CLAUDE_PROJECT_DIR/.claude/settings.json" ] && command -v jq >/dev/null 2>&1; then
+  _yield_names=''
   case "$SCRIPT_NAME" in
-    inject-output-language) _dd_cands="inject-output-language inject-session-bootstrap" ;;
-    *) _dd_cands="$SCRIPT_NAME" ;;
+    ''|*[!A-Za-z0-9_-]*) : ;;
+    *)
+      if [ -f "$CLAUDE_PROJECT_DIR/plugin/hooks/$SCRIPT_NAME" ]; then
+        grep -qE "^# (AUTO-GENERATED from|Plugin twin of) \.claude/hooks/${SCRIPT_NAME}\.sh" \
+          "${SCRIPT_DIR}/${SCRIPT_NAME}" 2>/dev/null && _yield_names="$SCRIPT_NAME"
+        _yield_names="$_yield_names $(sed -n 's/^# @plugin-yields-to:[[:space:]]*//p' \
+          "${SCRIPT_DIR}/${SCRIPT_NAME}" 2>/dev/null | head -n 1)"
+      fi
+      ;;
   esac
-  # Only names whose script exists can cover this hook; jq below matches against these alone.
-  _dd_names=""
-  for _dd_n in $_dd_cands; do
-    [ -f "$_dd_proj/.claude/hooks/$_dd_n.sh" ] && _dd_names="${_dd_names:+$_dd_names }$_dd_n"
-  done
-  # Cheap prefilter (no stdin read, no jq): a settings file names one of those scripts.
-  _dd_hit=""; _dd_f1=""; _dd_f2=""
-  [ -f "$_dd_proj/.claude/settings.json" ] && _dd_f1="$_dd_proj/.claude/settings.json"
-  [ -f "$_dd_proj/.claude/settings.local.json" ] && _dd_f2="$_dd_proj/.claude/settings.local.json"
-  for _dd_n in $_dd_names; do
-    for _dd_s in "$_dd_f1" "$_dd_f2"; do
-      [ -n "$_dd_s" ] && grep -qF ".claude/hooks/$_dd_n.sh" "$_dd_s" 2>/dev/null && _dd_hit=1
-    done
-  done
-  if [ -n "$_dd_hit" ] && _dd_in="$(mktemp "${TMPDIR:-/tmp}/getff-hook-in.XXXXXX" 2>/dev/null)"; then
-    # The buffered payload can hold a prompt or Write contents: never leave it behind.
-    trap 'rm -f "$_dd_in"' EXIT
-    trap 'exit 129' HUP; trap 'exit 130' INT; trap 'exit 143' TERM
-    # The event name is only in the payload: buffer stdin so the script still receives it whole.
-    # If the write fails, stdin is already consumed and the buffer is all that is left — hand it
-    # on, but decide nothing from a possibly truncated payload.
-    _dd_ev=""
-    if cat > "$_dd_in"; then
-      _dd_ev="$(jq -r '.hook_event_name // empty' "$_dd_in" 2>/dev/null || true)"
+  set -f
+  for _name in $_yield_names; do
+    case "$_name" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
+    _proj_hook="$CLAUDE_PROJECT_DIR/.claude/hooks/$_name.sh"
+    [ -f "$_proj_hook" ] || continue
+    sed -n 2p "$_proj_hook" | grep -qF "# $_name.sh — " || continue
+    grep -qE '^# @(cc-only-rationale|dual-pair)' "$_proj_hook" || continue
+    if jq -e -n --arg n "$SCRIPT_NAME" --arg t "$_name" \
+      --slurpfile p "${SCRIPT_DIR}/hooks.json" --slurpfile s "$CLAUDE_PROJECT_DIR/.claude/settings.json" \
+      --slurpfile pm "${SCRIPT_DIR}/../.claude-plugin/plugin.json" \
+      --slurpfile sm "$CLAUDE_PROJECT_DIR/plugin/.claude-plugin/plugin.json" '
+        def pairs(f): [(.hooks // {}) | to_entries[] | .key as $e | (.value | arrays)[] | objects
+          | select(any((.hooks | arrays)[]; type == "object" and f))
+          | [$e, (if (.matcher // "") == "*" then "" else (.matcher // "") end)]] | unique;
+        ([$p, $s, $pm, $sm] | all(length == 1))
+        and ($pm[0].name | type == "string" and length > 0) and $pm[0].name == $sm[0].name
+        and (($p[0] | pairs((.command // "") | tostring | test("run-hook\\.cmd\"? +" + $n + "$"))) as $need
+          | ($s[0] | pairs(.type == "command" and ((keys - ["type", "command", "statusMessage"]) | length) == 0
+              and .command == ("bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/" + $t + ".sh\""))) as $have
+          | ($need | length) > 0 and all($need[]; . as $x | any($have[]; . == $x)))' >/dev/null 2>&1; then
+      exit 0
     fi
-    _dd_skip=""
-    # Commands are compared after spelling the project directory one way ($CLAUDE_PROJECT_DIR);
-    # a covering path is then relative or under it, bounded by a quote, a space, or the end.
-    if [ -n "$_dd_ev" ] && jq -n -e --arg ev "$_dd_ev" --arg self "$SCRIPT_NAME" --arg names "$_dd_names" \
-         --arg proj "$_dd_proj" --slurpfile plugin "${SCRIPT_DIR}/hooks.json" '
-        def matcher: (.matcher // "") | if . == "*" then "" else . end;
-        def norm: split($proj) | join("$CLAUDE_PROJECT_DIR")
-          | split("${CLAUDE_PROJECT_DIR}") | join("$CLAUDE_PROJECT_DIR");
-        def covering: ((.type // "command") == "command") and (has("if") | not) and ((.async // false) | not);
-        [ $plugin[0].hooks[$ev][]?
-          | select(any(.hooks[]?; (.command // "") | test("run-hook\\.cmd\"? +" + $self + "( |$)")))
-          | matcher ] as $mine
-        | [ inputs as $doc | ($names | split(" ")[]) as $n
-            | ("(^|[\\s\"\u0027])(\\$CLAUDE_PROJECT_DIR/)?\\.claude/hooks/" + $n + "\\.sh($|[\\s\"\u0027])") as $re
-            | $doc.hooks[$ev][]?
-            | select(any(.hooks[]?; covering and ((.command // "") | norm | test($re))))
-            | matcher ] as $theirs
-        | ($mine | length) > 0 and all($mine[]; . as $m | any($theirs[]; . == $m))
-      ' ${_dd_f1:+"$_dd_f1"} ${_dd_f2:+"$_dd_f2"} >/dev/null 2>&1; then
-      _dd_skip=1
-    fi
-    exec 3<"$_dd_in"
-    rm -f "$_dd_in"
-    trap - EXIT HUP INT TERM
-    [ -n "$_dd_skip" ] && exit 0
-    exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@" <&3 3<&-
-  fi
+  done
+  set +f
 fi
 
 exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"

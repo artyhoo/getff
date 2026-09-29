@@ -24,7 +24,7 @@ cd /tmp/getff
 
 **ALWAYS — proceed without asking the user:**
 
-- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; **ask first** before adding `--global`, which also installs user-scope Claude plugins and MCP servers, `npm -g` tools and the runtime-bridge on this machine.
+- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; **ask first** before adding `--global`, which also installs user-scope Claude plugins and MCP servers and `npm -g` tools on this machine. The runtime-bridge step needs no `--global` for your project: it writes only that project's `.claude/settings.json` (the hook) and `.claude/settings.local.json` (the machine-local aif-handoff URL and project id).
 - Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
 - Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
 
