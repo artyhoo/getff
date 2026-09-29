@@ -9,6 +9,10 @@
 #       every recorded command has `run-armed.sh <command>` or `run-armed.sh --if-armed '<command>'`
 #       in .github/workflows/ci.yml
 #   (2) paired negative: the same predicate on a copy of one workflow with one step deleted names it
+#   (3) the reverse: every run-armed caller getff delivers (ci.yml, .lintstagedrc.json) names a command
+#       the record lists. run-armed.sh skips a check only on an exact-string match under not-armed and
+#       runs any other string, so a caller one character off the record would run a not-armed check.
+#   (4) paired negative: a one-character mistype in a copy of the workflow is named
 # EXEMPT (the reason is printed): a check that has no meaning on a CI runner.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -31,6 +35,18 @@ missing_steps() {
       done
 }
 
+# off_record <record file> <caller file…> → run-armed callers whose command the record does not list
+off_record() {
+  local rec="$1" c; shift
+  grep -hoE "run-armed\.sh (--if-armed '[^']*'|[^\"]*)" "$@" 2>/dev/null \
+    | sed -E "s/^run-armed\.sh --if-armed '([^']*)'$/\1/; s/^run-armed\.sh //; s/[[:space:]]+$//" \
+    | while IFS= read -r c; do
+        case "$c" in validate|--*) continue ;; esac
+        awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$rec" | sed -n 's/^- //p' \
+          | sed 's/ # .*$//' | grep -qxF -- "$c" || echo "$c"
+      done
+}
+
 echo "▶ exempt: $EXEMPT — $EXEMPT_WHY"
 for st in ts-server react-next react-spa react-native; do
   d=$(mktemp -d); TMPS+=("$d")
@@ -45,6 +61,9 @@ for st in ts-server react-next react-spa react-native; do
   miss=$(missing_steps "$rec" "$wf")
   [ -z "$miss" ] && ok "(1) $st: all $n recorded checks have a run-armed CI step" \
     || bad "(1) $st: recorded but never run in CI: $(tr '\n' ';' <<<"$miss")"
+  off=$(off_record "$rec" "$wf" "$d/.lintstagedrc.json")
+  [ -z "$off" ] && ok "(3) $st: every run-armed caller in ci.yml and .lintstagedrc.json is a recorded command" \
+    || bad "(3) $st: a caller the record does not list (runs even when not armed): $(tr '\n' ';' <<<"$off")"
   [ "$st" = react-spa ] && SPA="$d"
 done
 
@@ -53,8 +72,11 @@ if [ -n "${SPA:-}" ]; then
   grep -v 'run-armed.sh bash scripts/check-lintstaged-resolves.sh' "$SPA/.github/workflows/ci.yml" > "$SPA/ci-minus.yml"
   missing_steps "$SPA/.ai-factory/tool-decisions.md" "$SPA/ci-minus.yml" | grep -qx 'bash scripts/check-lintstaged-resolves.sh' \
     && ok "(2) paired negative: a deleted step is named" || bad "(2) a deleted step went unnoticed (vacuous predicate)"
+  sed 's/run-armed.sh npm run typecheck/run-armed.sh npm run typecheck:x/' "$SPA/.github/workflows/ci.yml" > "$SPA/ci-typo.yml"
+  off_record "$SPA/.ai-factory/tool-decisions.md" "$SPA/ci-typo.yml" | grep -qx 'npm run typecheck:x' \
+    && ok "(4) paired negative: a mistyped caller is named" || bad "(4) a mistyped caller went unnoticed (vacuous predicate)"
 else
-  bad "(2) no react-spa install to run the negative on"
+  bad "(2)(4) no react-spa install to run the negatives on"
 fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
