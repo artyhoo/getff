@@ -230,7 +230,7 @@ After the framework deploy (`./setup` step 2 — or `bash install.sh <stack>` di
 |---|---|---|
 | `.claude/skills/getff/` | skill + 5 references, on-demand | No — auto-activates in Claude Code |
 | `.claude/agents/` — 11 files (`review-sidecar`, `living-docs-auditor`, `compliance-verifier`, `memory-codification-auditor`, `aif-init`, `rule-researcher`, `capability-reuse-auditor`, `docplan-auditor`, `claims-conformance-auditor`, `fidelity-auditor`, `rule-test-author`) | sub-agents for `/aif-verify` (R1–R20 validation is earlier-channel: ESLint + pre-push + AIF `rules-sidecar`) | No |
-| `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue) | No |
+| `.ai-factory/skill-context/aif-review/SKILL.md`, `aif-rules-check/SKILL.md` | overrides injected into AIF's own sidecars (anti-tautology review + R10/test-existence residue); getff owns only its fenced block, so rules `/aif-evolve` writes into the same file survive install and `--refresh` | No |
 | `.ai-factory/RULES.md` | R1-R11 (or +R12-R20 for react-next) | **Yes — review and trim per project** |
 | `.ai-factory/DESCRIPTION.template.md` + `.ai-factory/DESCRIPTION.md` | template with `<PLACEHOLDERS>`; the installer already materializes `DESCRIPTION.md` from it (`setup.d/30-templates.sh:77`, never clobbering an edited one) | **Yes — fill in `DESCRIPTION.md`** (no rename needed) |
 | `.ai-factory/ARCHITECTURE.ts-server.md` | drop-in for canonical hexagonal layout | Maybe — rename to `ARCHITECTURE.md` if your layout matches |

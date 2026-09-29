@@ -133,6 +133,10 @@ EXC
 # AGENTS.md stays EXCLUDED from do_refresh: refresh_safe rewrites a WHOLE file, which is precisely
 # wrong for a co-owned one. Re-injecting only the fence on refresh is now mechanically possible and
 # is a deliberate follow-up, not a silent behaviour change here.
+# The .ai-factory/skill-context/<skill>/SKILL.md overrides moved from copy_safe (and do_refresh's
+# refresh_safe) onto install_skill_context for the same co-ownership reason — AI Factory's
+# /aif-evolve writes its project rules into the same file — so that verb is in the alternation
+# too. Unlike AGENTS.md it IS in do_refresh: it re-injects only getff's fenced block.
 #
 # VARIABLE-INDIRECTED DESTINATIONS (a false-GREEN hole this scan carried from its first version). A delivery
 # written as `copy_safe "$HOOK_SRC" "$HOOK_DST"` carries NO literal $PROJECT_ROOT token, so the
@@ -161,7 +165,7 @@ resolve_layer() {  # $1 = layer file → its non-comment text with $VAR dsts sub
   if [ -n "$sedexpr" ]; then printf '%s\n' "$body" | sed -E "$sedexpr"; else printf '%s\n' "$body"; fi
 }
 LAYER_TEXT=$(for _lyr in "${NPM_LANE_LAYERS[@]}"; do resolve_layer "$_lyr"; done)
-DELIVER_LINES=$(printf '%s\n' "$LAYER_TEXT" | grep -E 'copy_safe|copy_unless_foreign|deliver_getff_workflow|install_agents_md')
+DELIVER_LINES=$(printf '%s\n' "$LAYER_TEXT" | grep -E 'copy_safe|copy_unless_foreign|deliver_getff_workflow|install_agents_md|install_skill_context')
 [ -n "$DELIVER_LINES" ] || { echo "FATAL: no delivery lines found across the npm-lane layers — resolve_layer broke"; exit 1; }
 # shellcheck disable=SC2016  # single-quoted regex matches the literal '$PROJECT_ROOT' in source; no expansion intended
 FULL=$(printf '%s\n' "$DELIVER_LINES" | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##' | sort -u)
@@ -308,6 +312,8 @@ fi
 # ruff.toml → ruff.toml + getff-ruff.toml; cargo's clippy.toml → clippy.toml + getff-clippy.toml) —
 # the source is the unambiguous key. `_<lane>_copy_or_refresh` call sites deliver on BOTH paths, so
 # they count for copy AND refresh; explicit copy_safe / refresh_safe lines count for their own side only.
+# install_skill_context (the co-owned skill-context verb, setup.d/lib.sh) is the same both-sides
+# shape: one call site that re-delivers getff's fenced block on install AND on --refresh.
 #
 # A2-11 (ledger addendum): the population is the union of BOTH source forms — the literal `$tpl/…`
 # tokens AND the `$PKG_ROOT/…` ones. PR #1623's refresh-aware python agent surface delivers from
@@ -359,10 +365,10 @@ lane_refresh_parity() {  # $1 = layer basename, $2 = the lane's copy-or-refresh 
   grep -qE "^[[:space:]]*$wrap\(\)" "$layer" \
     || { echo "FATAL: $base does not define $wrap() — wrapper renamed, update TOOLCHAIN_LANES"; exit 1; }
   # shellcheck disable=SC2016  # single-quoted regex matches the literal '$tpl'/'$PKG_ROOT' in source; no expansion intended
-  copy_src=$(grep -hE "copy_safe|$wrap|deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
+  copy_src=$(grep -hE "copy_safe|$wrap|deliver_getff_workflow|install_skill_context" "$layer" | grep -vE '^[[:space:]]*#' \
     | grep -oE '\$(tpl|PKG_ROOT)/[A-Za-z0-9._/-]*' | sort -u)
   # shellcheck disable=SC2016
-  refresh_src=$(grep -hE "refresh_safe|$wrap|GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
+  refresh_src=$(grep -hE "refresh_safe|$wrap|install_skill_context|GETFF_TOOLCHAIN_REFRESH=1 deliver_getff_workflow" "$layer" | grep -vE '^[[:space:]]*#' \
     | grep -oE '\$(tpl|PKG_ROOT)/[A-Za-z0-9._/-]*' | sort -u)
   [ -n "$copy_src" ] || { echo "FATAL: copy set empty for $base — \$(tpl|\$PKG_ROOT) delivery extraction broke"; exit 1; }
   # A2-11 lane-scoped escape hatch: this lane's consumer-owned $PKG_ROOT sources (LANE_EXCLUDED,
