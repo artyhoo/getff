@@ -553,6 +553,17 @@ for SH in $SHELLS; do
     && mv "$TMPD/s.tmp" "$PROJ/.claude/settings.local.json"
   plant __target__
   expect "[$SH] D-timeout settings.local.json entry with \"timeout\": 5 → runs" RH_OK "$(run_rh "$SH" __target__)"
+  # Final-review M-2: any field beyond type/command/statusMessage (async, if, shell, ...) on a
+  # handler naming the project copy changes how that copy runs, exactly as run-hook.cmd's own
+  # registration check treats settings.json → runs.
+  for _fld in '.async = true' '.if = "Bash(git *)"' '.shell = "powershell"'; do
+    jq "del(.hooks.UserPromptSubmit[0].hooks[0].timeout) | .hooks.UserPromptSubmit[0].hooks[0] |= ($_fld)" \
+      "$PROJ/.claude/settings.local.json" > "$TMPD/s.tmp" && mv "$TMPD/s.tmp" "$PROJ/.claude/settings.local.json"
+    rm -rf "$LIVE"; plant __target__
+    expect "[$SH] D-extra-field settings.local.json entry with ${_fld%% =*} → runs" RH_OK "$(run_rh "$SH" __target__)"
+    jq "del(.hooks.UserPromptSubmit[0].hooks[0]${_fld%% =*})" "$PROJ/.claude/settings.local.json" > "$TMPD/s.tmp" \
+      && mv "$TMPD/s.tmp" "$PROJ/.claude/settings.local.json"
+  done
   # With jq, only a handler under .hooks that names the hook AND carries the timeout counts.
   printf '{"permissions":{"allow":["Bash(bash .claude/hooks/__target__.sh)"]},"statusLine":{"timeout":5},"hooks":{}}\n' \
     > "$PROJ/.claude/settings.local.json"; rm -rf "$LIVE"; plant __target__

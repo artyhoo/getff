@@ -44,13 +44,15 @@ _getff_live_trusted() {
   return 0
 }
 
-# getff_live_custom_timeout <hook-name> — 0 when a settings file carries a "timeout" on a hook
-# handler whose command names the project copy `.claude/hooks/<hook-name>.sh` (Claude Code may
-# kill that copy after this one yielded), or when a settings file exists but cannot be read.
+# getff_live_custom_timeout <hook-name> — 0 when a settings file carries any field beyond
+# type/command/statusMessage (timeout, async, if, shell, ...) on a hook handler whose command
+# names the project copy `.claude/hooks/<hook-name>.sh` — the same rule run-hook.cmd applies to
+# .claude/settings.json: such a field can kill, background or skip that copy after this one
+# yielded. Also 0 when a settings file exists but cannot be read.
 # With jq and a file that parses, only handler objects under `.hooks` count — a permissions
 # string such as "Bash(bash .claude/hooks/<name>.sh)" next to an unrelated "timeout" does not.
 # Without jq, or for a file jq cannot parse, the coarse test applies: the file names the hook
-# and contains "timeout" anywhere. Either way a doubt means timeout-set, so the copy runs.
+# and contains one of those field names anywhere. Either way a doubt means run.
 # Mirrors _hc_custom_timeout (hook-claim.sh on the stopped parallel design), narrowed by jq.
 getff_live_custom_timeout() {
   for _lt_f in "${CLAUDE_PROJECT_DIR:-/nonexistent}/.claude/settings.json" \
@@ -64,14 +66,15 @@ getff_live_custom_timeout() {
     if command -v jq >/dev/null 2>&1; then
       _lt_r=$(jq -r --arg p ".claude/hooks/$1.sh" '
         [(.hooks // {}) | .. | objects
-          | select((.command | type) == "string" and (.command | contains($p)) and has("timeout"))]
+          | select((.command | type) == "string" and (.command | contains($p))
+              and ((keys - ["type", "command", "statusMessage"]) | length) > 0)]
         | length > 0' "$_lt_f" 2>/dev/null) || _lt_r=''
       case "$_lt_r" in
         true) return 0 ;;
         false) continue ;;
       esac
     fi
-    grep -qF '"timeout"' "$_lt_f" 2>/dev/null && return 0
+    grep -qE '"(timeout|async|asyncRewake|if|shell)"' "$_lt_f" 2>/dev/null && return 0
   done
   return 1
 }
