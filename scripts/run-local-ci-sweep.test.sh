@@ -635,6 +635,7 @@ printf "console.log(1);\n" >"$R6/tools/elsewhere.mjs"
   printf '30\tsetup-computed\tALWAYS\tnpm --prefix packages/core run test:x\n'
   printf '31\tsetup-git\tALWAYS\tnpx vitest run packages/core/x.test.ts\n'
   printf '32\treader-exec\tALWAYS\tnode scripts/reader-exec.mjs\n'
+  printf '33\tnode-noext-missing\tALWAYS\tnode scripts/nosuch --check\n'
 } >"$TMP/g-reasons.tsv"
 ( cd "$R6" && git add -A && git commit -qm fixtures ) >/dev/null 2>&1
 READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else\nscripts/reader-spawns.mjs\treads install.sh as text and nothing else\nscripts/reader-exec.mjs\treads install.sh as text and nothing else')"
@@ -678,6 +679,7 @@ reader-spawns|local reader-starts-more-than-git:scripts/reader-spawns.mjs
 setup-computed|local setup-starts-a-shell:packages/core/setup-computed.ts
 setup-git|route 
 reader-exec|local reader-starts-more-than-git:scripts/reader-exec.mjs
+node-noext-missing|local unresolved-script:scripts/nosuch
 EOF
 
 # (r) the scan itself failing (node broken on this host) stops routing for the whole sweep: the
