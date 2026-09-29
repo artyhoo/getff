@@ -30,7 +30,7 @@ test -d "$C/.ai-factory/orchestrator-prompts" \
 mkdir -p "$C/.ai-factory/orchestrator-prompts/demo"
 printf 'Type: fix\n\n## §1 Sub-wave\n| A | do x |\n' > "$C/.ai-factory/orchestrator-prompts/demo/kickoff.md"
 DISC=$( REPO_ROOT="$C" bash "$C/.claude/skills/pipeline/helpers/priority-score.sh" 2>&1 || true )
-echo "$DISC" | grep -q 'demo' \
+grep -q 'demo' <<<"$DISC" \
   && ok "discovery finds the consumer kickoff via the agnostic .ai-factory home" \
   || bad "discovery did NOT find the consumer kickoff. out: $(printf '%s' "$DISC" | tail -3 | tr '\n' '|')"
 
@@ -74,7 +74,7 @@ if [ -z "$CACHE_FENCE" ]; then
   bad "could not locate the §1 plan-cache fence in the shipped SKILL.md"
 else
   CACHE_OUT=$( cd "$C" && REPO_ROOT="$C" CLAUDE_SKILL_DIR="$SKILL_DIR" bash -c "$CACHE_FENCE" 2>&1 )
-  printf '%s' "$CACHE_OUT" | grep -q 'consumer-cache-sentinel' \
+  grep -q 'consumer-cache-sentinel' <<<"$CACHE_OUT" \
     && ok "§1 cache fence (shipped, verbatim) reads the consumer plan cache" \
     || bad "§1 cache fence did not see the consumer cache. out: $(printf '%s' "$CACHE_OUT" | tail -2 | tr '\n' '|')"
 fi
@@ -85,7 +85,7 @@ mkdir -p "$CONSUMER_HOME/7"
 GUARD_OUT=$( cd "$C" && REPO_ROOT="$C" bash "$SKILL_DIR/helpers/integer-name-guard.sh" --auto 2>&1 )
 GUARD_RC=$?
 rmdir "$CONSUMER_HOME/7"
-{ [ "$GUARD_RC" = "2" ] && printf '%s' "$GUARD_OUT" | grep -q "integer ('7')"; } \
+{ [ "$GUARD_RC" = "2" ] && grep -q "integer ('7')" <<<"$GUARD_OUT"; } \
   && ok "§0 integer-name guard fires on an integer umbrella under the consumer home" \
   || bad "§0 guard did not fire in the consumer layout (rc=$GUARD_RC out: $GUARD_OUT)"
 

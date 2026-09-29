@@ -242,6 +242,16 @@ jobs:
             echo "::error::packages/core/audit-self/audit-ai-docs.test.ts missing"
             exit 1
           fi
+      # The auditor LIVE on this repo, both implementations. The step above proves the probes
+      # on fixtures; these fail when the repo itself drifts (a file restating the goal left
+      # unenrolled — D5; a goal-bearing doc losing the phrase — D3). Nothing ran them here until
+      # 2026-09-28, when the first live run found D3 + D5 failures unread since #1228 / #1420.
+      # Single-line on purpose: a vanished script fails the step instead of skipping it, and
+      # scripts/run-local-ci-sweep-coverage.test.sh can match them to the sweep row.
+      - name: Run audit-ai-docs.sh live on this repo
+        run: bash packages/core/audit-self/audit-ai-docs.sh
+      - name: Run audit-ai-docs.ts live on this repo
+        run: npx --prefix packages/core tsx packages/core/audit-self/audit-ai-docs.ts
       # First-Steps SSOT ↔ AI Usage Guide parity (beta-ai-docs-agnosticism S1). Registered by
       # NAME, not via an `audit-self/` directory scope: a directory sweep would also pull in
       # currently-unregistered neighbours, which is scope this umbrella did not ask for.
@@ -1113,6 +1123,8 @@ jobs:
           GETFF_REQUIRE_RESEARCH_TOOLS: '1'
       - name: "install-sh — Python agent surface: --refresh parity (A2-4) + python-lane RULES.md (A2-5)"
         run: bash tests/install-sh/python-agent-surface-refresh.test.sh
+      - name: "install-sh — skill-context co-owned with /aif-evolve: install keeps evolved rules + delivers getff's fenced block, --refresh re-injects only that block (npm + python lanes)"
+        run: bash tests/install-sh/skill-context-evolve-coownership.test.sh
       - name: "install-sh — Python rules-lock variant: schema + non-vacuity + determinism + teeth (ecosystem-wiring W3)"
         run: bash tests/install-sh/python-rules-lock.test.sh
       - name: "install-sh — Cargo entry lane: install.sh cargo detection + no-package.json bypass + --refresh + REFUSE cell + firing self-check (ecosystem-wiring W4)"
