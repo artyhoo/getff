@@ -443,7 +443,7 @@ export function resolveItem(token: string): string | null {
  * The gate must not need a curated list of "tools we do not run": that list is the
  * half that goes stale, and its staleness is invisible (a new false claim naming a
  * tool nobody listed is simply missed). So the vocabulary is DERIVED from the
- * installer's own delivery — `setup.d/70-deps.sh`, which writes the consumer's
+ * installer's own delivery — `setup.d/70-deps.sh` + `merge_canonical_scripts` in setup.d/lib.sh, which write the consumer's
  * `package.json` scripts and devDependencies. Everything a consumer-facing doc could
  * plausibly call a check is in there by construction, because the installer is what
  * put it in their project.
@@ -499,7 +499,7 @@ export function deriveToolchainTokens(depsSh: string): Set<string> {
     )
       tokens.add(base);
   };
-  const wantBlock = /const want = \{([\s\S]*?)\n {6}\};/.exec(depsSh);
+  const wantBlock = /const want = \{([\s\S]*?)\n *\};/.exec(depsSh);
   if (wantBlock) {
     for (const m of wantBlock[1].matchAll(
       /"([a-z][a-z0-9:._-]*)"\s*:\s*([^\n]+)/g,
@@ -636,10 +636,21 @@ export function loadCorpus(): { file: string; content: string }[] {
   }));
 }
 
-/** The installer's delivery, read from disk. */
+/**
+ * The installer's delivery, read from disk: `merge_canonical_scripts` in setup.d/lib.sh
+ * (the scripts both the install and `--refresh` merge) plus the rest of setup.d/70-deps.sh.
+ * Only that function's body is read, not all of lib.sh, whose other dotfile names
+ * (`.prettierrc`, `.lintstagedrc`) are no checks.
+ */
 export function toolchainTokens(): Set<string> {
+  const lib = readFileSync(resolve(REPO_ROOT, 'setup.d/lib.sh'), 'utf8');
+  const from = lib.indexOf('\nmerge_canonical_scripts() {');
+  const fn = from < 0 ? '' : lib.slice(from);
+  const end = fn.search(/\n\}\n/);
   return deriveToolchainTokens(
-    readFileSync(resolve(REPO_ROOT, 'setup.d/70-deps.sh'), 'utf8'),
+    (end < 0 ? fn : fn.slice(0, end)) +
+      '\n' +
+      readFileSync(resolve(REPO_ROOT, 'setup.d/70-deps.sh'), 'utf8'),
   );
 }
 

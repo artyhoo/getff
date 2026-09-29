@@ -112,7 +112,7 @@ actually in scope, so a dead gate stops reading as a live one. Delete the demo f
 when you are done.
 
 Two facts about delivery, both on the card: the hook ships to consumer projects —
-your install copies it and registers it (`setup.d/10-skills.sh:390-399`), which is why
+your install copies it and registers it (`setup.d/10-skills.sh:355-364`), which is why
 its ships-to row names real stacks — and it reaches the plugin [channel](../../terms.md#channel)
 too, where the framework itself deliberately does not run it: the framework dogfoods
 the delegate-based original, and running the reimplementation on its own repo would be
@@ -140,7 +140,7 @@ a second [twin](../../terms.md#twin) enforcing the same line twice.
   schema-bound harness the same diagnostic goes out as JSON `additionalContext` and
   exit 0 (lines 100-107, 111-114) — post-mutation gates cannot block there, so advisory
   is the best available mechanism.
-- Consumer install: `setup.d/10-skills.sh:390-399` copies the hook into the project and
+- Consumer install: `setup.d/10-skills.sh:355-364` copies the hook into the project and
   calls `register_cc_hook` with the `Edit|Write|MultiEdit` matcher.
 - Plugin registration only: `plugin/hooks/hooks.json:72` registers the twin; the
   framework's own `.claude/settings.json` does not —

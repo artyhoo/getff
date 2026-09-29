@@ -114,7 +114,7 @@ guard is count-based rather than time-based — a measured 45-second window was 
 short for a regenerated question card and denied the same retry four times.
 
 Delivery, per the card: your install copies the hook and registers it
-(`setup.d/10-skills.sh:328-336`), which is why the ships-to row names real stacks;
+(`setup.d/10-skills.sh:293-301`), which is why the ships-to row names real stacks;
 the framework registers it too (`.claude/settings.json:85` matcher, command at line
 89) as does the plugin registry (`plugin/hooks/hooks.json:43`). The challenge text
 speaks your language when the operator sets `AIF_HOOK_LANG=ru` — the `@dual-pair`
@@ -146,7 +146,7 @@ consumer's agent ever asks would be worse than a missing nudge.
   every AskUserQuestion».
 - Registration: `.claude/settings.json:85` reads `"matcher": "AskUserQuestion"`
   with the command at line 89; plugin registration at `plugin/hooks/hooks.json:43`;
-  consumer install copies the file and registers it at `setup.d/10-skills.sh:328-336`.
+  consumer install copies the file and registers it at `setup.d/10-skills.sh:293-301`.
 - ZCode: the parity census row 2 (`.claude/rules/zcode-parity-doctrine.md` §2)
   classifies this hook `parity` — the PreToolUse event and the AskUserQuestion
   matcher both exist there.

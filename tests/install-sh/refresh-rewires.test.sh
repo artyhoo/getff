@@ -200,6 +200,10 @@ V1
 )
 [ "$(cat "$FRAG")" != "$V1_BODY" ] && ok "G7 precondition: the shipped fragment differs from its first version (reconcile is observable)" \
   || bad "G7 precondition: the fragment still equals its first version — the replace arm below proves nothing"
+_frag_sha=$( (sha256sum "$FRAG" 2>/dev/null || shasum -a 256 "$FRAG") | awk '{print $1}')
+grep -qF "$_frag_sha:$(wc -l < "$FRAG" | tr -d ' ')" "$REPO_ROOT/setup.d/45-python.sh" \
+  && ok "G7: the current fragment is in 45-python.sh's shipped-entry list (a changed fragment cannot orphan installed entries)" \
+  || bad "G7: the current fragment's sha256:lines ($_frag_sha) is missing from _PY_PRECOMMIT_SHIPPED — installed entries of it would read as edits"
 py_consumer() {  # $1 = entry body to leave after the marker (pre-fix shape: no end line)
   local Y; Y=$(mktemp -d); CLEANUP+=("$Y")
   printf '[project]\nname = "demo"\n' > "$Y/pyproject.toml"
@@ -229,9 +233,23 @@ cp "$Y2/.pre-commit-config.yaml" "$Y2/pc.before"
 out=$( cd "$Y2" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
 cmp -s "$Y2/.pre-commit-config.yaml" "$Y2/pc.before" && ok "G7: an edited getff entry is kept as it is" \
   || bad "G7: --refresh overwrote an edited getff entry"
-grep -qF '.pre-commit-config.yaml' <<<"$(not_wired <<<"$out")" \
+grep -qF 'getff-python-pre-push entry in .pre-commit-config.yaml — not updated' <<<"$(not_wired <<<"$out")" \
   && ok "G7: the kept edited entry is named in the NOT wired summary" \
   || bad "G7: no NOT wired line for the kept edited entry"
+
+# A consumer repo entry right after a pre-end-line getff entry survives the replace, after the end line.
+Y3=$(py_consumer "$(printf '%s\n- repo: https://example.invalid/after\n  rev: v1' "$V1_BODY")")
+( cd "$Y3" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1} END{exit !f}' "$Y3/.pre-commit-config.yaml" \
+  && [ "$(_py_body() { awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$1"; }; _py_body "$Y3/.pre-commit-config.yaml")" = "$(cat "$FRAG")" ] \
+  && ok "G7: a consumer entry after the old getff entry is kept, after the reconciled entry" \
+  || bad "G7: the replace lost or swallowed the consumer entry that followed the getff entry"
+# An edited entry that already has its end line is kept too.
+Y4=$(py_consumer "$(printf '%s\n        args: [--consumer]\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
+cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"
+( cd "$Y4" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
+cmp -s "$Y4/.pre-commit-config.yaml" "$Y4/pc.before" && ok "G7: an edited entry with its end line is kept as it is" \
+  || bad "G7: --refresh overwrote an edited entry that has its end line"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

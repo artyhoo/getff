@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1452 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1523 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1435).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1506).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -1021,15 +1021,18 @@ _py_integrate_existing_hookspath() {
 }
 
 # _py_integrate_precommit_consumer — Case 2: consumer has .pre-commit-config.yaml.
-# Append the getff entry as a local-hook fragment into their .pre-commit-config.yaml (idempotent —
-# marker-grep before append). We do NOT set core.hooksPath — pre-commit manages it. The fragment
-# references .getff/hooks/pre-push (delivered above), so the hook body is single-source. The entry
-# runs at pre-push, a stage pre-commit installs only on request: _py_precommit_prepush_stage does
-# that with pre-commit's own command (Q4.7 — never left to the reader).
+# Append the getff entry as a local-hook fragment into their .pre-commit-config.yaml, between a begin
+# line and an end line. We do NOT set core.hooksPath — pre-commit manages it. The fragment references
+# .getff/hooks/pre-push (delivered above), so the hook body is single-source. The entry runs at
+# pre-push, a stage pre-commit installs only on request: _py_precommit_prepush_stage does that with
+# pre-commit's own command (Q4.7 — never left to the reader). An entry already there is reconciled
+# (_py_precommit_reconcile) rather than skipped: before refresh sweep G7 (2026-09-29) the begin line
+# alone made every later run a no-op, so a changed fragment never reached an installed project.
 _py_integrate_precommit_consumer() {
   local tpl="$1"
   local cfg="$PROJECT_ROOT/.pre-commit-config.yaml"
   local frag_marker="# getff-python-pre-push entry — delivered by setup.d/45-python.sh"
+  local frag_end="# getff-python-pre-push entry end"
   local frag_src="$tpl/hooks/getff.pre-commit-config.yaml.fragment"
 
   if [ ! -f "$frag_src" ]; then
@@ -1037,8 +1040,8 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  if grep -qF "$frag_marker" "$cfg" 2>/dev/null; then
-    echo "  ⊝ .pre-commit-config.yaml already has the getff entry — no-op (idempotent)"
+  if grep -qxF "$frag_marker" "$cfg" 2>/dev/null; then
+    _py_precommit_reconcile "$cfg" "$frag_marker" "$frag_end" "$frag_src"
     _py_precommit_prepush_stage
     return 0
   fi
@@ -1048,11 +1051,78 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body.
-  printf '\n%s\n' "$frag_marker" >> "$cfg"
-  cat "$frag_src" >> "$cfg"
+  # Begin line first (so the grep above finds it on re-run), then the fragment body, then the end line.
+  { printf '\n%s\n' "$frag_marker"; cat "$frag_src"; printf '%s\n' "$frag_end"; } >> "$cfg"
   echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
   _py_precommit_prepush_stage
+}
+
+# Every entry body getff has shipped, as "<sha256>:<line count>" — an installed entry that hashes to
+# one of them is getff's own, unedited, and is replaced by the current fragment; any other body is an
+# edit and is kept. The line count finds the body of an entry appended before the end line existed
+# (a66c0cb9aa4, #1233). When the fragment changes, ADD its new hash here and keep the old ones:
+# tests/install-sh/refresh-rewires.test.sh fails while the current fragment is missing from this list.
+_PY_PRECOMMIT_SHIPPED="3867dcb2e110d07727a97c14bef9401f2619917bd83b28668f667145f5a97ca7:14 10eb8028d29f094b05ad8fe71536c54a76b6c87a1257a1044ba4c412db15401c:14"
+
+# _py_precommit_body <cfg> <begin> <end> [n] — the entry body after <begin>: up to <end>, or n lines.
+_py_precommit_body() {
+  awk -v m="$2" -v e="$3" -v n="${4:-0}" '
+    !on && $0 == m { on = 1; c = 0; next }
+    on && n == 0 && $0 == e { exit }
+    on { if (n > 0 && c >= n) exit; print; c++ }' "$1"
+}
+
+# _py_precommit_reconcile <cfg> <begin> <end> <fragment> — bring an installed getff entry to the
+# current fragment when its body is one getff shipped; keep it, named in the NOT wired summary, when
+# it is not (an edit is the consumer's). Idempotent: a current, fenced entry is left byte-identical.
+_py_precommit_reconcile() {
+  local cfg="$1" m="$2" e="$3" src="$4" tmp body n=0 row sha rows has_end=0
+  if awk -v m="$m" -v e="$e" '!on && $0 == m {on = 1; next} on && $0 == e {f = 1; exit} END {exit !f}' "$cfg"; then
+    has_end=1
+  fi
+  if [ "$has_end" = 1 ] && [ "$(_py_precommit_body "$cfg" "$m" "$e")" = "$(cat "$src")" ]; then
+    echo "  ⊝ .pre-commit-config.yaml already has the current getff entry — no-op (idempotent)"
+    return 0
+  fi
+  tmp=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX") || return 0
+  # With an end line the body is everything up to it; without one, try each shipped length.
+  if [ "$has_end" = 1 ]; then rows="0"; else rows=$(printf '%s' "$_PY_PRECOMMIT_SHIPPED" | tr ' ' '\n' | sed 's/.*://' | sort -u); fi
+  for n in $rows; do
+    _py_precommit_body "$cfg" "$m" "$e" "$n" > "$tmp"
+    body=$(_hash256 "$tmp") || body=""   # no hash tool → nothing matches → the entry is kept, named
+    for row in $_PY_PRECOMMIT_SHIPPED; do
+      sha="${row%%:*}"
+      [ "$body" = "$sha" ] || continue
+      if [ "$has_end" = 0 ] && [ "${row##*:}" != "$n" ]; then continue; fi
+      # No end line: the body is getff's only if the next line does not continue it. The fragment's
+      # entry starts in column 0, so an indented next line (an `args:` the consumer added under the
+      # hook, say) is part of the entry — an edit, kept like any other.
+      if [ "$has_end" = 0 ] && awk -v m="$m" -v n="$n" '!on && $0 == m {on = 1; c = 0; next}
+            on { if (c < n) { c++; next } found = ($0 ~ /^[ \t]+[^ \t]/); exit }
+            END {exit !found}' "$cfg"; then continue; fi
+      rm -f "$tmp"
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would: update the getff entry in .pre-commit-config.yaml to the current fragment"
+        return 0
+      fi
+      tmp="$cfg.getff.tmp"
+      if awk -v m="$m" -v e="$e" -v n="$n" -v src="$src" '
+          !on && $0 == m { print; while ((getline l < src) > 0) print l; print e; on = 1; c = 0; next }
+          on == 1 && n == 0 { if ($0 == e) on = 2; next }
+          on == 1 { if (c < n) { c++; next } on = 2 }
+          { print }' "$cfg" > "$tmp" && cat "$tmp" > "$cfg"; then   # cat, not mv: keeps a symlink and the mode
+        rm -f "$tmp"
+        echo "  ✓ updated the getff entry in .pre-commit-config.yaml to the current fragment"
+      else
+        rm -f "$tmp" 2>/dev/null || true
+        note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: the rewrite of the file failed, so it is left as it was"
+      fi
+      return 0
+    done
+  done
+  rm -f "$tmp"
+  echo "  ⊝ the getff entry in .pre-commit-config.yaml was edited — kept as it is"
+  note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not updated: its text differs from every entry getff shipped, so it was edited, and getff does not overwrite an edit"
 }
 
 # _py_precommit_prepush_stage — install the consumer's pre-commit pre-push stage with pre-commit's
@@ -1269,7 +1339,7 @@ $msgs"
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:350-360  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
+#   - setup.d/10-skills.sh:315-325  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
 #   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
@@ -1334,7 +1404,7 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:350-358 (kickoff §2 item 1 binding).
+  # inject-matching-rule — DELIVERED EXACTLY AS setup.d/10-skills.sh:315-323 (kickoff §2 item 1 binding).
   local _py_imr_src="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
   local _py_imr_dst="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
   if [ -f "$_py_imr_src" ]; then
@@ -1409,7 +1479,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1404). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1433). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
