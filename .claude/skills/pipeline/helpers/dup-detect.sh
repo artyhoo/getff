@@ -119,7 +119,7 @@ check_umbrella() {
     num="${PR_NUMS[$_j]}"; title="${PR_TITLES[$_j]}"; ptok="${PR_TTOKS[$_j]}"
     _j=$((_j + 1))
     # Signal 1: cross-reference fast path
-    if printf '%s\n' "${xrefs}" | grep -qxF "${num}" 2>/dev/null; then
+    if grep -qxF "${num}" 2>/dev/null <<<"${xrefs}"; then
       echo "POTENTIAL_DUPE: ${name} may overlap with merged #${num} \"${title:0:60}\" (basis=xref score=100%)"
       flagged=1; continue
     fi

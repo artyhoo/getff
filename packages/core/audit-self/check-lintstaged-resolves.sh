@@ -28,7 +28,7 @@ set -uo pipefail
 # Must NOT be widened to .stryker-tmp / .claude/worktrees: that would suppress the skip on
 # repos that have foreign dirs but no installed deps. The paired-negative assertion in
 # fixtures/foreign-scan-triage/repro.sh pins this behaviour.
-if ! find . -name node_modules -type d -prune -print 2>/dev/null | head -1 | grep -q .; then
+if [ -z "$(find . -name node_modules -type d -prune -print 2>/dev/null | head -1)" ]; then
   echo "check-lintstaged-resolves: no node_modules yet — run after install (skipped)."
   exit 0
 fi

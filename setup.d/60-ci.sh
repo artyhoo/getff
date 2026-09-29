@@ -107,13 +107,13 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
         # in src/application/ yields, and that match used to keep it out of the boundary array.
         _r2_bnd=$(rule_globs_boundary "$PROJECT_ROOT/eslint.config.mjs")
         if [ "$(printf '%s\n' "$_r2_bnd" | sed -n '1p')" = array ]; then
-          printf '%s\n' "$_r2_bnd" | sed -n '2,$p' | grep -qxF -- "$_g" && continue
+          grep -qxF -- "$_g" <<<"$(sed -n '2,$p' <<<"$_r2_bnd")" && continue
         else
           # That read answers `none` / `no-array` (RULE_GLOBS re-wrapped in a cast, say) while the
           # insert below still finds a `boundary: [` line: covered there = the very line it would
           # write, inside that array — or every re-install adds the glob again.
-          awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1; next} on && /^[[:space:]]*\]/{exit} on{sub(/^[[:space:]]+/, ""); print}' \
-            "$PROJECT_ROOT/eslint.config.mjs" | grep -qxF -- "${_r2_ins#    }" && continue
+          grep -qxF -- "${_r2_ins#    }" <<<"$(awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1; next} on && /^[[:space:]]*\]/{exit} on{sub(/^[[:space:]]+/, ""); print}' \
+            "$PROJECT_ROOT/eslint.config.mjs")" && continue
         fi
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
