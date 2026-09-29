@@ -3498,7 +3498,7 @@ install_skill_context() {
         return 0
       fi
     elif [ "$DRY_RUN" != "--dry-run" ] && h1=$(_skill_context_h1 "$src") && [ -n "$h1" ] \
-      && tr -d '\r' < "$dst" | grep -qxF "$h1"; then
+      && grep -qxF "$h1" <<<"$(tr -d '\r' < "$dst")"; then
       echo "  · $dst: holds an older getff copy that cannot be told apart from project rules — kept as-is; the current version is appended in its own block"
     fi
   elif [ -f "$dst" ] && [ -z "$MERGE_FENCED_PROBLEM" ] && _skill_context_block_is_shipped "$dst"; then
