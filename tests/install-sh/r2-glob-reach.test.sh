@@ -699,16 +699,22 @@ JS
     || ok "F11 monorepo: the install asks the gate after every R2 pass — nothing about a gate that passes"
 
   # A recorded R2 N/A that no longer holds (an earlier install wrote it; the project now has boundary
-  # code): the gate fails on it, and the summary names the marker — not the gate's own advice to
-  # change the decision (third cold review, after #1868).
+  # code): the re-install drops the block (#1895, 60-ci.sh _r2_na_strip), so the gate judges the wired
+  # globs and passes, and the summary names no «marked N/A» — nor hands on the gate's own advice to
+  # change the decision (third cold review, after #1868). Without the drop the gate fails «marked N/A».
   T25=$(f11_project error boundary); mkdir -p "$T25/.ai-factory"
   printf '# Tool decisions\n\n<!-- aif:r2-na:begin -->\n### R2 N/A (recorded by an earlier install)\n<!-- aif:r2-na:end -->\n' > "$T25/.ai-factory/tool-decisions.md"
   f11_install "$T25" "$T25.log"
   OUT25=$(f11_gate "$T25"); RC25=$?
-  [ "$RC25" = "1" ] || bad "F11 stale N/A: check:globs exited $RC25 — the arm below assumes the gate is red here"
-  f11_not_wired "$T25.log" | grep 'check-rule-globs.sh' | grep -q 'marked N/A' \
-    && ok "F11 stale N/A: the summary names the recorded R2 N/A the gate fails on" \
-    || bad "F11 stale N/A: check:globs fails every push while the summary does not name why (summary: $(f11_not_wired "$T25.log" | tr '\n' '|'))"
+  grep -qF '<!-- aif:r2-na:begin -->' "$T25/.ai-factory/tool-decisions.md" \
+    && bad "F11 stale N/A: the re-install left the R2 N/A block that no longer holds" \
+    || ok "F11 stale N/A: the re-install removed the R2 N/A block that no longer holds"
+  [ "$RC25" = "0" ] && ! grep -q 'marked N/A' <<<"$OUT25" \
+    && ok "F11 stale N/A: check:globs passes once the stale N/A is gone" \
+    || bad "F11 stale N/A: check:globs exited $RC25 after the install (saw: $(grep -E '⚠|✗' <<<"$OUT25" | tr '\n' '|'))"
+  f11_not_wired "$T25.log" | grep -q 'marked N/A' \
+    && bad "F11 stale N/A: the summary names a «marked N/A» the install removed: $(f11_not_wired "$T25.log" | grep 'marked N/A' | head -1)" \
+    || ok "F11 stale N/A: the summary names no «marked N/A»"
   f11_not_wired "$T25.log" | grep -qiE 'update the decision|widen' \
     && bad "F11 stale N/A: the summary hands on the gate's advice as a step: $(f11_not_wired "$T25.log" | grep -iE 'update the decision|widen' | head -1)" \
     || ok "F11 stale N/A: no step handed on from the gate's output"
@@ -805,27 +811,29 @@ JS
     && bad "F11 workspace green: the summary says the gate fails, though it passes: $(f11_not_wired "$T29N.log" | grep 'check-rule-globs.sh' | head -1)" \
     || ok "F11 workspace green: nothing about a gate that passes"
 
-  # Two distinct failures at once — a recorded R2 N/A that no longer holds AND a package whose own config
-  # does not wire R2 over its boundary files: each is named, once. The gate's first line alone named only
-  # the package (F5, fourth cold review).
+  # A recorded R2 N/A that no longer holds AND a package whose own config does not wire R2 over its
+  # boundary files: the re-install drops the N/A (#1895, 60-ci.sh _r2_na_strip), so the gate fails on the
+  # package alone, and the summary names it once and no «marked N/A» (F5, fourth cold review: the gate's
+  # first line alone was named). Without the drop the gate fails «marked N/A» here too.
   T30=$(f11_project error boundary); mkdir -p "$T30/.ai-factory" "$T30/apps/web/src/routes"
   printf '# Tool decisions\n\n<!-- aif:r2-na:begin -->\n### R2 N/A (recorded by an earlier install)\n<!-- aif:r2-na:end -->\n' > "$T30/.ai-factory/tool-decisions.md"
   printf 'export default [];\n' > "$T30/apps/web/eslint.config.mjs"
   echo 'export const page = 1;' > "$T30/apps/web/src/routes/page.ts"
   f11_install "$T30" "$T30.log"
   OUT30=$(f11_gate "$T30"); RC30=$?
-  [ "$RC30" = "1" ] || bad "F11 two failures: check:globs exited $RC30 — the arm below assumes it is red"
-  printf '%s' "$OUT30" | grep -q 'apps/web: has boundary files' && printf '%s' "$OUT30" | grep -q 'marked N/A' \
-    || bad "F11 two failures: the fixture does not make the gate fail on both apps/web and the N/A (saw: $(printf '%s' "$OUT30" | grep -E '⚠|✗' | tr '\n' '|'))"
-  [ "$(f11_push "$T30.log" | grep 'check-rule-globs.sh' | grep -c 'marked N/A')" -eq 1 ] \
-    && ok "F11 two failures: the recorded R2 N/A is named once" \
-    || bad "F11 two failures: the recorded R2 N/A is not named exactly once (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
+  [ "$RC30" = "1" ] || bad "F11 N/A dropped, apps/web left: check:globs exited $RC30 — the arm below assumes it is red"
+  grep -q 'apps/web: has boundary files' <<<"$OUT30" && ! grep -q 'marked N/A' <<<"$OUT30" \
+    && ok "F11 N/A dropped, apps/web left: the gate fails on apps/web alone" \
+    || bad "F11 N/A dropped, apps/web left: expected the gate to fail on apps/web and not on the N/A the install removed (saw: $(grep -E '⚠|✗' <<<"$OUT30" | tr '\n' '|'))"
+  f11_push "$T30.log" | grep 'check-rule-globs.sh' | grep -q 'marked N/A' \
+    && bad "F11 N/A dropped, apps/web left: the summary names a «marked N/A» the install removed (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))" \
+    || ok "F11 N/A dropped, apps/web left: the summary names no «marked N/A»"
   [ "$(f11_push "$T30.log" | grep -c 'apps/web')" -eq 1 ] \
-    && ok "F11 two failures: apps/web is named once" \
-    || bad "F11 two failures: apps/web is named $(f11_push "$T30.log" | grep -c 'apps/web') times (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
+    && ok "F11 N/A dropped, apps/web left: apps/web is named once" \
+    || bad "F11 N/A dropped, apps/web left: apps/web is named $(f11_push "$T30.log" | grep -c 'apps/web') times (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
   f11_not_wired "$T30.log" | grep -iqE 'Add the rules-as-tests plugin|re-export the root|update the decision' \
-    && bad "F11 two failures: the summary hands on the gate's advice as a step: $(f11_not_wired "$T30.log" | grep -iE 'Add the|re-export|update the decision' | head -1)" \
-    || ok "F11 two failures: no step handed on from the gate's output"
+    && bad "F11 N/A dropped, apps/web left: the summary hands on the gate's advice as a step: $(f11_not_wired "$T30.log" | grep -iE 'Add the|re-export|update the decision' | head -1)" \
+    || ok "F11 N/A dropped, apps/web left: no step handed on from the gate's output"
   # Every summary line F11 can now copy from the gate (strict, workspace, each failure line) against the
   # shared manual-step predicate — not a wording list of this file's own.
   for _l in "$T15" "$T16" "$T24" "$T25" "$T29" "$T30"; do f11_not_wired "$_l.log"; done > "$T30.summary"
