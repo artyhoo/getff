@@ -179,18 +179,21 @@
 # that start a shell therefore ALSO run here, and the row passes only if both halves pass — the
 # same keep-local split `# stays-local:` gives the install-sh battery. A file starts a shell when
 # it names bash or sh as a program ('bash', '/bin/sh', `bash …`) or names a `.sh` file, or
-# imports — at any depth, matched by module basename — a file under packages/core/ or scripts/
-# that does (shell_marked). The match over-selects (a `.sh` path that is only read counts), which
-# costs Mac CPU, never the signal. Not seen: a shell reached only through an exec string or
-# `shell: true`. `--route-plan` prints, per row, where it goes and which arms stay. A row that is
-# not vitest and runs a shell itself, or through its npm script or its node script, is kept here
-# whole (row_shell_reason), and the coverage test REDs on the list naming it.
+# imports — at any depth, relative specifiers resolved to files — a file under packages/core/ or
+# scripts/ that does (shell_scan). The match over-selects (a `.sh` path that is only read
+# counts), which costs Mac CPU, never the signal. A row runs a shell when its command, an npm
+# script it reaches at any depth, or a node script it runs does; such a row is kept here whole
+# (row_shell_reason), and the coverage test REDs on the list naming it. A node script that only
+# READS .sh files routes when SHELL_READERS names it with a reason. Not seen: a shell reached
+# only through an exec string, `shell: true`, or a script path built at run time.
+# `--route-plan` prints, per row, where it goes and which arms stay.
 # ------------------------------------------------------------------------------------------
 #
 # Test seams (used by run-local-ci-sweep.test.sh, never in real runs):
 #   SWEEP_GATES_FILE   path to a gate table overriding the built-in one
 #   SWEEP_DIFF_OVERRIDE  space/newline list of changed paths overriding `git diff`
 #   SWEEP_ROUTABLE     space list of row names the runner may take, overriding the built-in one
+#   SWEEP_SHELL_READERS  `<path><TAB><reason>` lines overriding SHELL_READERS
 set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT" || exit 1
@@ -496,7 +499,7 @@ toolchain_pins_ok() {
 
 # --- OFFLOAD: which rows the runner may take (see the header block) ---
 # Routable = the row's runner is node tooling (tsc, vitest, tsx/node scripts) that starts no shell
-# of its own — not in the command, not in the npm script it names, not in the node script it runs
+# of its own — not in the command, not in an npm script it reaches, not in a node script it runs
 # (row_shell_reason keeps such a row here anyway, and the coverage test REDs on the list) — AND
 # the row costs the Mac more than the ~1.4 CPU-s one `pc-run` call does (measured 2026-09-29:
 # 0.63 user + 0.80 sys per call). A vitest row's files that start a shell run here as well (SHELL
@@ -531,26 +534,59 @@ row_routable() { case " $SWEEP_ROUTABLE " in *" $1 "*) return 0 ;; esac; return 
 # to run on a mismatch: a stale mirror, or a file staged here and not yet committed (a runner
 # that syncs the committed tree plus the working-tree diff sees it as untracked, and a row that
 # enumerates with `git ls-files` would skip it there). Syncing the files' content is the
-# runner's job. POSIX cksum: the same algorithm and output on BSD and GNU.
-cmd_sum() { { printf '%s\n' "$1"; git ls-files 2>/dev/null; } | cksum | awk '{ print $1 "-" $2 }'; }
+# runner's job. `-z`: names unquoted, so a host with another core.quotePath lists the same
+# bytes. POSIX cksum: the same algorithm and output on BSD and GNU.
+cmd_sum() { { printf '%s\n' "$1"; git ls-files -z 2>/dev/null; } | cksum | awk '{ print $1 "-" $2 }'; }
 
-# shell_marked — every .ts/.mts/.mjs/.js/.cjs file under packages/core/ and scripts/ that starts a
-# shell (SHELL ARMS in the header), one `<tier><TAB><path>` line each, repo-relative:
-#   any    it names bash or sh as a program, or a .sh file, anywhere — or imports, at any depth, a
-#          file that does. The arms test: over-selecting only costs Mac CPU.
-#   spawn  the same, but the name sits on a spawn/exec call's line or the three after it. The
-#          whole-row test for a node script, where over-selecting would keep a row here that only
-#          reads .sh files (render-reference.mjs lists them; census.mjs keeps 'bash' in a verb set).
-# Node, not grep: depth needs relative import specifiers resolved to files. A basename match
-# marks half the tree through `index` and `types` (measured 2026-09-29: 314 files in 31 s,
-# against 193 in 0.1 s resolved). The caller runs it once and stops routing if it fails, since
-# an empty answer would route every shell test.
-shell_marked() {
-  node - <<'JS'
+# SHELL_READERS — node scripts that name `.sh` files or `bash` only as text they read, one
+# `<path><TAB><reason>` line each. Such a file is not a shell seed of its own (see shell_scan),
+# so a row that runs it can route; the files it imports are still followed, so a new import that
+# does start a shell marks it again. An entry whose reason is shorter than 20 characters counts
+# for nothing. Each was checked 2026-09-29: the file and its import closure start git and node,
+# never a shell.
+SHELL_READERS="${SWEEP_SHELL_READERS-scripts/render-reference.mjs${TAB}lists setup.d/*.sh and scripts/*.sh headers as text; spawns only git and node --check
+scripts/render-install-roster.mjs${TAB}reads setup.d/20-agents.sh and 10-skills.sh as text; spawns nothing
+scripts/lib/skill-tiers.mjs${TAB}reads setup.d/lib.sh as text to find the skill tiers; spawns nothing
+scripts/census.mjs${TAB}parses scripts as text and keeps 'bash' in its verb set; spawns nothing
+scripts/render-face-facts.mjs${TAB}reads install.sh as text to count its stack alternations; spawns nothing
+scripts/check-line-citations.mjs${TAB}resolves citations into .sh files as text; spawns only git}"
+
+# shell_scan — which files start a shell and which routable rows do (SHELL ARMS in the header).
+# Prints, repo-relative:
+#   mark<TAB><path>            a .ts/.mts/.mjs/.js/.cjs file under packages/core/ or scripts/
+#                              that names bash or sh as a program or names a .sh file (not a
+#                              SHELL_READERS entry), or imports such a file at any depth.
+#   row<TAB><name><TAB><why>   a routable row that starts a shell: `runs-a-shell` (its command,
+#                              or an npm script it reaches, names one), `starts-a-shell:<path>`
+#                              (it runs a marked node script), or a fail-closed answer —
+#                              `unparsed-npm-call`, `unknown-workspace:<w>`, `npm-nested-too-deep`,
+#                              `unscanned-script:<path>` (outside the two walked trees),
+#                              `scan-error`.
+# npm calls are followed as npm runs them: `--prefix`/`-C`, `--workspaces`/`-w`, `run`/`test`
+# with their pre/post scripts, to depth 4. A vitest segment's file arguments are tests, not
+# scripts: their shells are arms (shell_arms), not a reason. Node, not grep: depth needs relative
+# import specifiers resolved to files. A basename match marks half the tree through `index` and
+# `types` (measured 2026-09-29: 314 files in 31 s, against 193 in 0.1 s resolved). The caller
+# runs it once and stops routing if it fails, since an empty answer would route every shell test.
+shell_scan() {
+  local rows="" n c
+  while IFS="$TAB" read -r _ n _ c; do
+    if [ -n "${n:-}" ] && row_routable "$n"; then rows="$rows$n$TAB$c
+"; fi
+  done <<EOF
+$(gate_table)
+EOF
+  SWEEP_SCAN_READERS="$SHELL_READERS" SWEEP_SCAN_ROWS="$rows" node - <<'JS'
 const fs = require('fs'), path = require('path');
 const exts = ['.ts', '.mts', '.mjs', '.js', '.cjs'];
-const shell = /['"`](\/bin\/)?(ba)?sh['"` ]|\.sh['"`]/;
-const call = /\b(spawn|spawnSync|exec|execSync|execFile|execFileSync|execa|execaSync)\s*\(/;
+const seedRe = /['"`]((\/[\w.-]+)*\/)?(ba)?sh['"` ]|\.sh['"`]/;
+const wordRe = /(^|[\s;|&("'`=])(\S*\/)?(ba)?sh([\s;|&)"'`]|$)|\.sh(\W|$)/;
+const readers = new Map();
+for (const l of (process.env.SWEEP_SCAN_READERS || '').split('\n')) {
+  const [p, ...r] = l.split('\t');
+  const why = r.join(' ').trim();
+  if (p && p.trim() && why.length >= 20) readers.set(path.normalize(p.trim()), why);
+}
 const files = [];
 const walk = (d) => {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
@@ -561,7 +597,7 @@ const walk = (d) => {
   }
 };
 ['packages/core', 'scripts'].forEach((r) => fs.existsSync(r) && walk(r));
-const known = new Set(files), importers = new Map(), any = new Set(), spawn = new Set();
+const known = new Set(files), importers = new Map(), marked = new Set();
 const resolve = (from, spec) => {
   const b = path.join(path.dirname(from), spec);
   for (const c of [b, b.replace(/\.(m?)js$/, '.$1ts'), ...exts.map((e) => b + e), ...exts.map((e) => path.join(b, 'index' + e))])
@@ -570,24 +606,113 @@ const resolve = (from, spec) => {
 };
 for (const f of files) {
   const src = fs.readFileSync(f, 'utf8');
-  if (shell.test(src)) {
-    any.add(f);
-    const ls = src.split('\n');
-    if (ls.some((l, i) => call.test(l) && shell.test(ls.slice(i, i + 4).join('\n')))) spawn.add(f);
-  }
+  if (seedRe.test(src) && !readers.has(f)) marked.add(f);
   for (const m of src.matchAll(/(?:from|import|require)\s*\(?\s*['"`](\.{1,2}\/[^'"`]+)['"`]/g)) {
     const t = resolve(f, m[1]);
     if (t) { if (!importers.has(t)) importers.set(t, []); importers.get(t).push(f); }
   }
 }
-for (const set of [any, spawn]) {
-  const q = [...set];
-  while (q.length) for (const i of importers.get(q.pop()) || []) if (!set.has(i)) { set.add(i); q.push(i); }
+const q = [...marked];
+while (q.length) for (const i of importers.get(q.pop()) || []) if (!marked.has(i)) { marked.add(i); q.push(i); }
+
+const unq = (t) => t.replace(/^['"]+|['"]+$/g, '');
+const words = (seg) => seg.trim().split(/\s+/).filter(Boolean).map(unq);
+const segs = (text) => text.split(/&&|\|\||[;|\n]/);
+const pkg = (dir) => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')); } catch { return {}; } };
+const valued = ['--prefix', '-C', '-p', '--package', '-w', '--workspace', '-c', '--call'];
+const program = (w) => {
+  let i = 0;
+  while (i < w.length && (/^[A-Za-z_]\w*=/.test(w[i]) || ['if', 'then', 'else', 'elif', 'do', 'while', 'until', '!', '{', '('].includes(w[i]))) i++;
+  if (w[i] === 'npx' || w[i] === 'exec')
+    for (i++; i < w.length && w[i].startsWith('-'); i++) if (valued.includes(w[i])) i++;
+  return i;
+};
+const workspaces = (dir) => {
+  const out = [];
+  for (const g of [].concat(pkg(dir).workspaces || [])) {
+    if (g.endsWith('/*')) {
+      const base = path.join(dir, g.slice(0, -2));
+      if (fs.existsSync(base)) for (const e of fs.readdirSync(base, { withFileTypes: true })) if (e.isDirectory()) out.push(path.join(base, e.name));
+    } else out.push(path.join(dir, g));
+  }
+  return out;
+};
+const workspace = (dir, v) => {
+  if (v && fs.existsSync(path.join(dir, v, 'package.json'))) return path.join(dir, v);
+  return workspaces(dir).find((d) => pkg(d).name === v) || null;
+};
+// expand: the command text plus every npm script it reaches, each with the directory npm runs it in.
+const expand = (text, dir, depth, out, why) => {
+  out.push({ text, dir });
+  for (const seg of segs(text)) {
+    const w = words(seg);
+    let i = program(w);
+    if (w[i] !== 'npm') continue;
+    if (depth >= 4) { why.push('npm-nested-too-deep'); continue; }
+    let d = dir, ws = false, named = [], sub = null, name = null, extra = [];
+    for (i++; i < w.length; i++) {
+      const t = w[i];
+      if (t === '--') { extra = extra.concat(w.slice(i + 1)); break; }
+      if (t === '--prefix' || t === '-C') d = path.join(dir, w[++i] || '');
+      else if (t.startsWith('--prefix=')) d = path.join(dir, t.slice(9));
+      else if (t === '--workspaces' || t === '-ws') ws = true;
+      else if (t === '-w' || t === '--workspace') named.push(w[++i]);
+      else if (t.startsWith('--workspace=')) named.push(t.slice(12));
+      else if (t.startsWith('-')) continue;
+      else if (!sub) sub = t;
+      else if (!name) name = t;
+      else extra.push(t);
+    }
+    let script = null;
+    if (['run', 'run-script', 'rum', 'urn'].includes(sub)) script = name;
+    else if (['test', 't', 'tst'].includes(sub)) { script = 'test'; if (name) extra.unshift(name); }
+    if (!script) { why.push('unparsed-npm-call'); continue; }
+    let dirs = [d];
+    if (ws || named.length) {
+      dirs = ws ? workspaces(d) : [];
+      for (const v of named) { const x = workspace(d, v); if (!x) { why.push('unknown-workspace:' + v); continue; } dirs.push(x); }
+    }
+    for (const pd of dirs) {
+      const s = pkg(pd).scripts || {};
+      for (const k of ['pre' + script, script, 'post' + script])
+        if (typeof s[k] === 'string') expand(s[k] + (k === script && extra.length ? ' ' + extra.join(' ') : ''), pd, depth + 1, out, why);
+    }
+  }
+};
+const rel = (p) => path.normalize(p);
+for (const line of (process.env.SWEEP_SCAN_ROWS || '').split('\n')) {
+  const tab = line.indexOf('\t');
+  if (tab < 1) continue;
+  const name = line.slice(0, tab), cmd = line.slice(tab + 1);
+  let reason = '';
+  try {
+    const texts = [], why = [];
+    expand(cmd, '.', 0, texts, why);
+    if (why.length) reason = why[0];
+    else if (texts.some((x) => wordRe.test(x.text))) reason = 'runs-a-shell';
+    else {
+      outer: for (const x of texts) for (const seg of segs(x.text)) {
+        const w = words(seg), i = program(w);
+        if (w[i] === 'vitest') continue;
+        for (let t of w.slice(i)) {
+          if (t.startsWith('-')) t = t.replace(/^[^=]*=?/, '');
+          t = t.replace(/^\.\//, '');
+          if (!exts.includes(path.extname(t))) continue;
+          const p = rel(path.join(x.dir, t));
+          if (marked.has(p)) { reason = 'starts-a-shell:' + p; break outer; }
+          if (!known.has(p) && fs.existsSync(p)) { reason = 'unscanned-script:' + p; break outer; }
+        }
+      }
+    }
+  } catch (e) {
+    reason = 'scan-error';
+  }
+  if (reason) process.stdout.write('row\t' + name + '\t' + reason + '\n');
 }
-for (const f of [...any].sort()) process.stdout.write((spawn.has(f) ? 'spawn\t' : 'any\t') + f + '\n');
+for (const f of [...marked].sort()) process.stdout.write('mark\t' + f + '\n');
 JS
 }
-SHELL_MARKED=""
+SHELL_SCAN=""
 
 # vitest_scope <command> — the vitest path filters a row's run applies, relative to packages/core:
 # empty when the row runs no vitest, UNKNOWN when it runs vitest in a shape this parser does not
@@ -624,8 +749,8 @@ vitest_scope() {
   printf '%s' "${out# }"
 }
 
-# shell_arms <command> — the files in the row's vitest scope that start a shell (either tier of
-# $SHELL_MARKED; see SHELL ARMS in the header), relative to packages/core, space-separated. A file
+# shell_arms <command> — the files in the row's vitest scope that start a shell (the `mark` lines
+# of $SHELL_SCAN; see SHELL ARMS in the header), relative to packages/core, space-separated. A file
 # is in scope when one of the row's filters is a substring of its path — vitest's own rule for a
 # CLI filter, so `hooks/` here selects exactly what `vitest run hooks/` runs.
 shell_arms() {
@@ -638,7 +763,7 @@ shell_arms() {
       case "$f" in *"$tok"*) out="$out $f"; break ;; esac
     done
   done <<EOF
-$(awk -F'\t' '{ print $2 }' <<<"$SHELL_MARKED" | sed -n 's|^packages/core/||p' | grep -E '\.(test|audit)\.ts$')
+$(awk -F'\t' '$1 == "mark" { print $2 }' <<<"$SHELL_SCAN" | sed -n 's|^packages/core/||p' | grep -E '\.(test|audit)\.ts$')
 EOF
   printf '%s' "${out# }"
 }
@@ -656,34 +781,19 @@ scope_count() {
   printf '%s' "$n"
 }
 
-# row_shell_reason <command> — why a routable row stays here after all, or nothing. A vitest row
-# stays when every file of its scope starts a shell (its arms would be the whole row). Any other
-# row stays when it starts a shell: read are the command, the npm script it names one hop away
-# (`npm run X` from package.json, `npm --prefix packages/core run X` from packages/core/
-# package.json), and each node script it runs (the spawn tier of $SHELL_MARKED).
-SHELL_WORD_RE='(^|[^[:alnum:]_./-])(ba)?sh([[:space:]]|$)|\.sh([^[:alnum:]_]|$)'
+# row_shell_reason <name> <command> — why a routable row stays here after all, or nothing: the
+# row's `row` line of $SHELL_SCAN (it starts a shell, or could not be read), else — for a vitest
+# row — `every-file-starts-a-shell` when every file of its scope does (its arms would be the whole
+# row).
 row_shell_reason() {
-  local text="$1" s pkg tok arms
+  local why arms
   set -f
-  case "$(vitest_scope "$1")" in
-    UNKNOWN) return 0 ;;
-    ?*)
-      arms="$(shell_arms "$1")"
-      [ -n "$arms" ] && [ "$(wc -w <<<"$arms" | tr -d ' ')" -ge "$(scope_count "$1")" ] && printf 'every-file-starts-a-shell'
-      return 0 ;;
-  esac
-  s="$(grep -oE 'run [a-z0-9:_-]+' <<<"$1" | head -1)"
-  if [ -n "$s" ]; then
-    case "$1" in *"--prefix packages/core "*) pkg=./packages/core/package.json ;; *) pkg=./package.json ;; esac
-    text="$text $(node -e 'const s = require(process.argv[1]).scripts || {}; process.stdout.write(s[process.argv[2]] || "")' "$pkg" "${s#run }" 2>/dev/null)"
-  fi
-  if grep -qE "$SHELL_WORD_RE" <<<"$text"; then printf 'runs-a-shell'; return 0; fi
-  for tok in $text; do
-    case "$tok" in
-      *.mjs | *.js | *.cjs | *.ts | *.mts)
-        if grep -qxF "spawn$TAB$tok" <<<"$SHELL_MARKED"; then printf 'starts-a-shell:%s' "$tok"; return 0; fi ;;
-    esac
-  done
+  why="$(awk -F'\t' -v n="$1" '$1 == "row" && $2 == n { print $3; exit }' <<<"$SHELL_SCAN")"
+  if [ -n "$why" ]; then printf '%s' "$why"; return 0; fi
+  case "$(vitest_scope "$2")" in '' | UNKNOWN) return 0 ;; esac
+  arms="$(shell_arms "$2")"
+  [ -n "$arms" ] && [ "$(wc -w <<<"$arms" | tr -d ' ')" -ge "$(scope_count "$2")" ] && printf 'every-file-starts-a-shell'
+  return 0
 }
 
 # loud_skip_here <output> — succeeds when a green run's output carries a loud skip (`⚠ … SKIPPED`,
@@ -731,7 +841,7 @@ fi
 # One line per row: name<TAB>route|local<TAB>arms-or-reason. A listed name with no row prints
 # `missing`. Read by run-local-ci-sweep-coverage.test.sh through the real parser, like --list-gates.
 if [ "$ROUTE_PLAN" -eq 1 ]; then
-  if ! SHELL_MARKED="$(shell_marked)"; then
+  if ! SHELL_SCAN="$(shell_scan)"; then
     echo "[sweep] --route-plan: cannot find the files that start a shell (node failed)" >&2
     exit 2
   fi
@@ -740,7 +850,7 @@ if [ "$ROUTE_PLAN" -eq 1 ]; then
     [ -z "${n:-}" ] && continue
     if ! row_routable "$n"; then printf '%s\tlocal\t\n' "$n"
     elif [ "$(vitest_scope "$c")" = UNKNOWN ]; then printf '%s\tlocal\tunparsed-vitest-shape\n' "$n"
-    elif reason="$(row_shell_reason "$c")" && [ -n "$reason" ]; then printf '%s\tlocal\t%s\n' "$n" "$reason"
+    elif reason="$(row_shell_reason "$n" "$c")" && [ -n "$reason" ]; then printf '%s\tlocal\t%s\n' "$n" "$reason"
     else printf '%s\troute\t%s\n' "$n" "$(shell_arms "$c")"
     fi
   done <<EOF
@@ -919,7 +1029,7 @@ if [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; then
     echo "[sweep] WARN-ROUTE: cannot create an origin mark under ${TMPDIR:-/tmp} — every row runs here" >&3
   fi
   # Which test files start a shell decides what stays here; without that answer nothing routes.
-  if [ "$ROUTING" -eq 1 ] && ! SHELL_MARKED="$(shell_marked 2>/dev/null)"; then
+  if [ "$ROUTING" -eq 1 ] && ! SHELL_SCAN="$(shell_scan 2>/dev/null)"; then
     ROUTING=0
     echo "[sweep] WARN-ROUTE: cannot find the files that start a shell (node failed) — every row runs here" >&3
   fi
@@ -969,7 +1079,7 @@ run_routed() {
       *'Test timed out in '* | *'Hook timed out in '*)
         # The runner was too slow for the suite's own budget (see the header): not a verdict on
         # the code. The local run is.
-        route_log="$raw
+        route_log="$route_log$raw
 [sweep] $name: timed out on $RUNNER_NAME — ran here instead
 "
         out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
@@ -985,7 +1095,7 @@ run_routed() {
     if [ "$degraded" -eq 1 ]; then
       # Degraded there (a tool the runner lacks or holds at another version). Here it may run
       # for real — and if it degrades here too, the verdict is exactly what it would have been.
-      route_log="$raw
+      route_log="$route_log$raw
 [sweep] $name: degraded on $RUNNER_NAME — ran here instead
 "
       out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
@@ -1032,7 +1142,7 @@ while IFS="$TAB" read -r _ name trigger cmd; do
   # A listed row whose vitest shape is unreadable, or that starts a shell itself, runs here (the
   # coverage test REDs on either, so the list gets fixed rather than the row silently moving).
   if [ "$ROUTING" -eq 1 ] && row_routable "$name" && [ "$(vitest_scope "$cmd")" != UNKNOWN ] \
-    && [ -z "$(row_shell_reason "$cmd")" ]; then
+    && [ -z "$(row_shell_reason "$name" "$cmd")" ]; then
     if [ -n "$RUNNER_TRIPPED" ]; then
       out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
       where="here — $RUNNER_NAME skipped after $RUNNER_TRIPPED"

@@ -554,5 +554,80 @@ arms_sweep "$TMP/o41" 1
 check "arms: a red shell arm fails the row even though the runner passed" 1 $?
 grep_out "arms: the red arm is reported as the row's FAIL" "[sweep] FAIL vitest-fake · on runner-remote + shell arms here" "$TMP/o41"
 
+# (q) which rows start a shell, read the way npm and node run them. A throwaway repo carries npm
+# scripts two levels deep, workspaces, a node script that starts bash through its own wrapper,
+# readers of .sh files (named in SWEEP_SHELL_READERS with a reason, a too-short reason, and one
+# whose import starts a shell), and a script outside the scanned trees. --route-plan only reads.
+R6="$TMP/repo-reasons"; mk_repo "$R6"
+mkdir -p "$R6/packages/a" "$R6/packages/b" "$R6/packages/core" "$R6/scripts/lib" "$R6/tools"
+cat >"$R6/package.json" <<'EOF'
+{ "workspaces": ["packages/*"],
+  "scripts": { "lint:sh": "bash scripts/x.sh", "deep": "npm run lint:sh", "typecheck": "npm run typecheck --workspaces --if-present" } }
+EOF
+printf '{ "name": "a", "scripts": { "typecheck": "sh ./check.sh" } }\n' >"$R6/packages/a/package.json"
+printf '{ "name": "b", "scripts": { "typecheck": "tsc -p ." } }\n' >"$R6/packages/b/package.json"
+printf "export const run = (p, a) => spawnSync(p, a);\n" >"$R6/scripts/lib/run.mjs"
+printf "import { run } from './lib/run.mjs';\nrun('bash', ['x']);\n" >"$R6/scripts/wrapper.mjs"
+printf "console.log('no shell');\n" >"$R6/scripts/clean.mjs"
+printf "readFileSync('install.sh');\n" >"$R6/scripts/reader.mjs"
+printf "readFileSync('install.sh');\n" >"$R6/scripts/reader-short.mjs"
+printf "import './wrapper.mjs';\nreadFileSync('install.sh');\n" >"$R6/scripts/reader-imports.mjs"
+printf "console.log(1);\n" >"$R6/tools/elsewhere.mjs"
+{
+  printf '1\tnpm-hop\tALWAYS\tnpm run --silent lint:sh\n'
+  printf '2\tnpm-deep\tALWAYS\tnpm run deep\n'
+  printf '3\tnpm-ws\tALWAYS\tnpm run typecheck\n'
+  printf '4\tnpm-prefix-eq\tALWAYS\tnpm --prefix=packages/a run typecheck\n'
+  printf '5\tnode-wrapper\tALWAYS\tNODE_ENV=x node ./scripts/wrapper.mjs --check\n'
+  printf '6\tbin-sh\tALWAYS\t/bin/sh -c "echo hi"\n'
+  printf '7\tvitest-then-bash\tALWAYS\tnpx vitest run packages/core/x.test.ts && bash x.sh\n'
+  printf '8\tclean\tALWAYS\tnode scripts/clean.mjs\n'
+  printf '9\treader\tALWAYS\tnode scripts/reader.mjs\n'
+  printf '10\treader-short\tALWAYS\tnode scripts/reader-short.mjs\n'
+  printf '11\treader-imports\tALWAYS\tnode scripts/reader-imports.mjs\n'
+  printf '12\telsewhere\tALWAYS\tnode tools/elsewhere.mjs\n'
+  printf '13\tnpm-exec\tALWAYS\tnpm exec foo\n'
+  printf '14\tnpm-b\tALWAYS\tnpm -w b run typecheck\n'
+} >"$TMP/g-reasons.tsv"
+( cd "$R6" && git add -A && git commit -qm fixtures ) >/dev/null 2>&1
+READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else')"
+SWEEP_SHELL_READERS="$READERS_FIX" SWEEP_GATES_FILE="$TMP/g-reasons.tsv" SWEEP_ROUTABLE="$(cut -f2 "$TMP/g-reasons.tsv" | tr '\n' ' ')" \
+  run_sweep "$R6" --route-plan >"$TMP/o61" 2>&1
+check "reasons: --route-plan exits 0" 0 $?
+while IFS='|' read -r row want; do
+  got="$(awk -F'\t' -v n="$row" '$1 == n { print $2 " " $3 }' "$TMP/o61")"
+  if [ "$got" = "$want" ]; then echo "  ✓ reasons: $row → $want"
+  else echo "  ✗ reasons: $row → '$got' (want '$want')"; fails=$((fails + 1)); fi
+done <<'EOF'
+npm-hop|local runs-a-shell
+npm-deep|local runs-a-shell
+npm-ws|local runs-a-shell
+npm-prefix-eq|local runs-a-shell
+node-wrapper|local starts-a-shell:scripts/wrapper.mjs
+bin-sh|local runs-a-shell
+vitest-then-bash|local runs-a-shell
+clean|route 
+reader|route 
+reader-short|local starts-a-shell:scripts/reader-short.mjs
+reader-imports|local starts-a-shell:scripts/reader-imports.mjs
+elsewhere|local unscanned-script:tools/elsewhere.mjs
+npm-exec|local unparsed-npm-call
+npm-b|route 
+EOF
+
+# (r) the scan itself failing (node broken on this host) stops routing for the whole sweep: the
+# rows run here, unlabelled, the runner is never called, and the sweep says why.
+mkdir -p "$TMP/badnode"
+printf '#!/usr/bin/env bash\nexit 1\n' >"$TMP/badnode/node"
+chmod +x "$TMP/badnode/node"
+rm -f "$TMP/remote-ran" "$TMP/local-ran" "$RUNLOG"
+PATH="$TMP/badnode:$PATH" SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE=routed SWEEP_GATES_FILE="$TMP/g-off.tsv" \
+  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o62" 2>&1
+check "scan failure: the sweep still exits 0" 0 $?
+grep_out "scan failure: the sweep says routing stopped" "[sweep] WARN-ROUTE: cannot find the files that start a shell (node failed) — every row runs here" "$TMP/o62"
+no_file "scan failure: the runner was never called" "$RUNLOG"
+if grep -qx '\[sweep\] PASS routed' "$TMP/o62"; then echo "  ✓ scan failure: the row passed here, unlabelled"
+else echo "  ✗ scan failure: no unlabelled '[sweep] PASS routed' line"; fails=$((fails + 1)); fi
+
 # shellcheck disable=SC2015  # both branches exit; the "C runs when A is true" path cannot occur
 [ "$fails" -eq 0 ] && { echo "run-local-ci-sweep: ALL PASS"; exit 0; } || { echo "run-local-ci-sweep: $fails FAIL"; exit 1; }
