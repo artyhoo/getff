@@ -350,7 +350,7 @@ project/
 ├── .lintstagedrc.json                 ← pre-commit formatter
 ├── playwright.config.ts               ← only for react-next
 ├── .husky/
-│   ├── pre-commit                     ← runs lint-staged
+│   ├── pre-commit                     ← runs the ZCode mirror check + lint-staged (full text, docs/site/learn/stop-a-bad-commit.md)
 │   └── pre-push                       ← getff rule checks (rule-globs, lint-staged, generated rules, links)
 ├── .github/workflows/ci.yml           ← full CI pipeline
 ├── .ai-factory/

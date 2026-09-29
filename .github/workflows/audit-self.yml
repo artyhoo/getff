@@ -946,6 +946,8 @@ jobs:
         run: bash tests/install-sh/install-self-verification.test.sh
       - name: "install-sh — check-shields-up paired-negative (#831: husky v9 .husky/_ accepted; positive + negative arms)"
         run: bash tests/install-sh/check-shields-up-paired-negative.test.sh
+      - name: "install-sh — check-zcode-mirror behaviour table (#1502: timeliner seven-offender fixture, repo single-link shape, CC-only, exemption arms)"
+        run: bash tests/install-sh/check-zcode-mirror.test.sh
       - name: "install-sh — gh-975 husky re-assert after deps (prepare-driven manager clobber; @aif-shield marker gate)"
         run: bash tests/install-sh/gh-975-husky-reassert.test.sh
       - name: "install-sh — critical-review S4-3 consumer-owned core.hooksPath kept (not wired + manual command)"

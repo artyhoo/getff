@@ -33,7 +33,7 @@ sources:
   - setup.d/lib.sh
   - setup.d/10-skills.sh
   - skills/getff/SKILL.md
-docs-refresh: deferred — re-verified 2026-09-24, three cited changes in this range and none touches this page's prose; the register gained dated notes on rows 253 and 255 (the vendored domain-modeling copy, decision records in /arch idea sessions), which no line here names; the aif-doctor page gained failure mode 3.9 and refreshed evidence line numbers, and the story page's Evidence list renumbered hook citations, both pages linked here by name only with none of their numbers quoted; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-28, this range adds row 292 to the cited prior-art register (the consumer ZCode skill-mirror check, verdict BUILD) and one refresh-list pair to the cited install.sh; neither is named in this page's prose, which carries no register counts and no install.sh line anchors; clears at the next gold refresh of this page
 ---
 
 # Skills
