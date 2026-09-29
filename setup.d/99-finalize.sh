@@ -71,7 +71,7 @@ _getff_rules_in() {
 # (rule_globs_boundary, setup.d/lib.sh) — for the not-wired line of an install where that wirer
 # cannot run. _getff_rules_in does not look at R2 at all. The refusal is the wirer's own note, word
 # for word, so both routes print the same line.
-_R2_OWN_REFUSAL="R2 not wired: the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it"
+_R2_OWN_REFUSAL="R2 — the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it; scripts/check-rule-globs.sh fails on this config without RULE_GLOBS.boundary"
 # _r2_own_refused <rel-cfg> — exit 0 IFF the wirer refuses R2 in <rel-cfg>: it declares RULE_GLOBS
 # with no boundary array. ts-morph or Node would change nothing there.
 _r2_own_refused() {

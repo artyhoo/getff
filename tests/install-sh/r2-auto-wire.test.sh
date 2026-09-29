@@ -139,8 +139,14 @@ JS
   || bad "E2: install exited non-zero (tail: $(tail -3 "$E2.log" | tr '\n' '|'))"
 grep -q 'eslint.config.mjs is your own config' "$E2.log" \
   || bad "E2: 60-ci did not route the consumer's config as their own — the arm below would be vacuous"
-_e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs')
-! printf '%s\n' "$_e2_line" | grep -qiE 'boundary glob|RULE_GLOBS' \
+# The lines about R2 and its RULE_GLOBS in this config. Naming RULE_GLOBS is required, not forbidden:
+# scripts/check-rule-globs.sh is red on this config, and r2-glob-reach.test.sh T17/T19/T20 hold the
+# install to saying so. What E2 forbids is a promise that getff, or a --full install, adds the globs.
+# The «getff's rules in eslint.config.mjs … adding them needs ts-morph» line is left out: it is about
+# getff's synthesized rules, which a --full install does add — a true promise, and arm E relies on it.
+_e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs' | grep -E 'RULE_GLOBS|no-unsafe-zod-parse' \
+  | grep -vF "getff's rules in eslint.config.mjs")
+! grep -qiE 'boundary glob|--full' <<<"$_e2_line" \
   && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary promises no boundary globs getff would not add" \
   || bad "E2: the not-wired summary promises R2 boundary globs for a config the wirer leaves R2 alone in: $(printf '%s' "$_e2_line" | tr '\n' '|')"
 rm -f "$E2.log"
