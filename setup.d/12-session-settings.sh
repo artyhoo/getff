@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# setup.d/12-session-settings.sh — the session-settings group into .claude/settings.local.json,
-# only on the pre-launch «yes» (GETFF_SESSION_SETTINGS=1). Logic + rationale: setup.d/session-settings.sh.
+# setup.d/12-session-settings.sh — session settings into .claude/settings.local.json on the pre-launch yes.
+# Written only when GETFF_SESSION_SETTINGS=1. Logic + rationale: setup.d/session-settings.sh.
 #
 # Sources: lib.sh (already in dispatcher scope)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone

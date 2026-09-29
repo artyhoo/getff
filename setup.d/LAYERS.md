@@ -129,6 +129,7 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 |---|---|---|---|
 | `05-mcp.sh` | 5 | MCP companion install layer (S2). | all stacks |
 | `10-skills.sh` | 10 | §1 Skills + §1b Hooks (deps-hash-check CC hook). | all stacks |
+| `12-session-settings.sh` | 12 | session settings into .claude/settings.local.json on the pre-launch yes. | all stacks |
 | `15-companions-stack.sh` | 15 | Stack-specific companion selection layer (S3). | all stacks |
 | `20-agents.sh` | 20 | §2 Sub-agents + §3c skill-context overrides. | all stacks |
 | `30-templates.sh` | 30 | §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md. | all stacks |

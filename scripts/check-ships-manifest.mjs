@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * check-ships-manifest — Arm A of the ships manifest (one-button point 13): every skill, hook,
- * rule, agent, setting and MCP server getff has carries ONE row in setup.d/ships.manifest that
- * says whether it ships (and through which channel) or is internal, and why.
+ * check-ships-manifest — fails when a getff skill, hook, rule, agent, setting or MCP server is unmarked.
+ * Arm A of the ships manifest (one-button point 13): every such item carries ONE row in
+ * setup.d/ships.manifest that says whether it ships (and through which channel) or is internal, and why.
  *
  * WHY: membership lived in seven hand-kept places and two of them went stale without any check
  * failing — `docs-author` landed in no tier and nothing noticed (plan F4). An unmarked new item

@@ -226,6 +226,26 @@
       "example": null
     },
     {
+      "name": "check-ships-manifest.mjs",
+      "kind": "script",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "fails when a getff skill, hook, rule, agent, setting or MCP server is unmarked.",
+      "source": {
+        "path": "scripts/check-ships-manifest.mjs",
+        "line": 3
+      },
+      "extras": {
+        "wired-from": [
+          ".github/workflows/audit-self.yml:2550 (workflow-run:invocation-verb)",
+          ".husky/pre-commit:208 (quoted-path-token)"
+        ]
+      },
+      "example": null
+    },
+    {
       "name": "check-skill-drift.sh",
       "kind": "script",
       "shipsTo": {
@@ -259,7 +279,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2618 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2656 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -326,7 +346,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:204 (quoted-path-token)",
+          ".husky/pre-commit:222 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "scripts/run-local-ci-sweep.sh:234 (quoted-path-token, closure)"
@@ -348,7 +368,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:373 (quoted-path-token)"
+          ".husky/pre-commit:391 (quoted-path-token)"
         ]
       },
       "example": null
@@ -367,7 +387,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:352 (quoted-path-token)"
+          ".husky/pre-commit:370 (quoted-path-token)"
         ]
       },
       "example": null
@@ -527,7 +547,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2516 (spawn-argument)",
-          ".husky/pre-commit:311 (quoted-path-token)"
+          ".husky/pre-commit:329 (quoted-path-token)"
         ]
       },
       "example": null
