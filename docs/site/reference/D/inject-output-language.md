@@ -14,13 +14,16 @@ sources:
   - plugin/.claude-plugin/plugin.json
   - plugin/hooks/hooks.json
   - plugin/hooks/inject-output-language
+  - plugin/hooks/lib/live-claim.sh
+  - plugin/hooks/lib/source-hash.sh
+  - plugin/hooks/lib/source-sha256.txt
   - plugin/hooks/run-hook.cmd
+  - scripts/plugin-source-hashes.sh
   - setup.d/10-skills.sh
   - tests/plugin/run-hook.test.sh
 executed:
-  - { example: output-language-unset-english-default, stack: repo, date: 2026-09-28, result: silent }
-  - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-28, result: printed }
-docs-refresh: deferred — only autoCompactWindow changed in .claude/settings.json; this page never cites that key, so its facts still hold
+  - { example: output-language-unset-english-default, stack: repo, date: 2026-09-29, result: silent }
+  - { example: output-language-pinned-to-russian, stack: repo, date: 2026-09-29, result: printed }
 ---
 
 # inject-output-language hook
@@ -100,15 +103,22 @@ project's `.claude/settings.json`, and the plugin ships a copy of its own. The
 framework's own repository registers neither. Its bootstrap digest embeds the same line
 instead.
 
-With both in place you see the line twice. The plugin's copy keeps running next to the
-installed one, because the installed copy was frozen at install time and can be older than
-the plugin's. The plugin's copy goes silent in one place only: getff's own source
-repository, whose hooks are the source the plugin is built from. There the plugin's
-launcher finds `inject-session-bootstrap` registered in `.claude/settings.json`, and that
-digest carries the same line. It stays silent only while your session's working directory
-is the repository root itself. Once the session moves into a subdirectory, a worktree, or
-another directory, the plugin's copy runs again, so you may see the line twice. The full
-list of conditions is the comment above the yield in `plugin/hooks/run-hook.cmd`. On
+With both in place you usually see the line once, not twice — the plugin's copy has two
+ways to go silent. In getff's own source repository, whose hooks are the source the plugin
+is built from, the plugin's launcher finds `inject-session-bootstrap` registered in
+`.claude/settings.json`, and that digest carries the same line; the plugin's copy exits
+without output. In any other project — a consumer install — the plugin's copy also goes
+silent, but only when it can prove the installed copy is both the same bytes and actually
+running: the installed `.claude/hooks/inject-output-language.sh`, and every file it declares
+on its `@plugin-yield-deps` marker, must hash to the exact manifest the plugin ships
+(`plugin/hooks/lib/source-sha256.txt`, written by `scripts/plugin-source-hashes.sh`), and the
+installed copy's own prelude must have left a fresh `live` marker for this same event
+(`.claude/hooks/lib/hook-live.sh` writes it, `plugin/hooks/lib/live-claim.sh` claims it —
+within roughly 300 ms, no older than 5 seconds, same session, same trusted directory, no
+custom timeout on the project's registration). Any doubt on either check — an edited file, a
+missing marker, a session that moved into a subdirectory or worktree, a stale or foreign
+marker — and the plugin's copy runs, so you see the line twice rather than risk losing it.
+The full list of conditions is the comment above the yield in `plugin/hooks/run-hook.cmd`. On
 ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
 
 ## Evidence
@@ -142,23 +152,37 @@ ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
   .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 10-16)
   naming the extensionless filename and the inline zcode adapter as the two deltas.
-- Silent only in getff's own repository: the plugin file's line 2 names its source
-  (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 19
-  declares `# @plugin-yields-to: inject-session-bootstrap`. The yield block at
-  `plugin/hooks/run-hook.cmd:70` exits before the plugin copy runs. It does so only when
-  the project is the plugin's source checkout: it ships `plugin/.claude-plugin/plugin.json`
-  under the same plugin name, and `plugin/hooks/inject-output-language`. Its
-  `.claude/settings.json` must also run getff's copy of the named hook, in the installer's
-  exact form, on every event and matcher the plugin registers. The `cwd` in the hook's
-  input must be the project root itself. After EnterWorktree or `/cd`, Claude Code takes
-  project settings from the new directory, but `CLAUDE_PROJECT_DIR` stays at the start
-  root. A `cd` in Bash moves `cwd` too, and a `cwd` in a subdirectory cannot show which of
-  the two happened.
-  `tests/plugin/run-hook.test.sh` pins these conditions with arms Y1-Y28. Y19 is the
-  consumer case, where both copies run. Y26 covers a session that left the project root.
-  Y27 and Y28 check that the running copy gets its whole input and keeps its exit code.
-  R1 asserts the silence against this repo's settings, and R2 counts one language line per
-  prompt. R3 asserts the digest line equals this hook's line for `ru` and `de`.
+- Silent in two modes, not one: the plugin file's line 2 names its source
+  (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 27
+  declares `# @plugin-yields-to: inject-session-bootstrap`. **Source mode**
+  (`plugin/hooks/run-hook.cmd:219`, `[ "$_yield_mode" = source ] && exit 0`): the project is
+  the plugin's own source checkout — it ships `plugin/.claude-plugin/plugin.json` under the
+  same plugin name as `plugin/hooks/inject-output-language`, and its `.claude/settings.json`
+  runs getff's copy of the named hook in the installer's exact form, on every event and
+  matcher the plugin registers. **Consumer mode** (`plugin/hooks/run-hook.cmd:227`, inside
+  `if [ -r ".../lib/live-claim.sh" ] … && getff_live_claim …; then exit 0; fi`): any other
+  project — the mode `_yield_mode=consumer` is set at `run-hook.cmd:163` when the installed
+  `.claude/hooks/inject-output-language.sh` and every file its `@plugin-yield-deps` marker
+  names hash, via `getff_closure_matches` (`plugin/hooks/lib/source-hash.sh`), to the exact
+  manifest `plugin/hooks/lib/source-sha256.txt` (written by
+  `scripts/plugin-source-hashes.sh`). Hash equality alone still runs the plugin copy — the
+  yield fires only after `getff_live_claim` (`plugin/hooks/lib/live-claim.sh`) claims a fresh
+  marker the installed copy's own prelude (`.claude/hooks/lib/hook-live.sh`) wrote for this
+  same event: no marker within roughly 300 ms, one older than 5 seconds, a different session,
+  an `untrusted` directory, or a lost race, and the plugin copy runs instead. Both modes share
+  one more gate: the `cwd` in the hook's input must resolve to the project root itself
+  (`run-hook.cmd:212-219`). After EnterWorktree or `/cd`, Claude Code takes project settings
+  from the new directory, but `CLAUDE_PROJECT_DIR` stays at the start root; a `cd` in Bash
+  moves `cwd` too, so a `cwd` in a subdirectory cannot show which of the two happened, and
+  either way the plugin copy runs.
+  `tests/plugin/run-hook.test.sh` pins these conditions: arms Y1-Y28 cover the registration
+  and `cwd` checks common to both modes (Y19 is the source-checkout case; Y26 covers a session
+  that left the project root; Y27 and Y28 check that a running copy gets its whole input and
+  keeps its exit code), and the `C` arms (`C1`-`C9`) pin the consumer path specifically — C1
+  is the byte-identical-and-live yield, and C2-C9 each flip one input (an edited file, a
+  missing marker, a different `cwd`, a corrupt hash lib) back to "runs". R1 asserts the silence
+  against this repo's settings, and R2 counts one language line per prompt. R3 asserts the
+  digest line equals this hook's line for `ru` and `de`.
 - No test under `packages/core/hooks/` carries this hook's name, and this page states
   that rather than implying coverage. The demos above and the
   `tests/plugin/run-hook.test.sh` arms in the previous bullet pin its output.
