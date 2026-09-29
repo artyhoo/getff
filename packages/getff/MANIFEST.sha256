@@ -7,8 +7,8 @@
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
 10b6d422e95b051d6fd697f16b77453f81a8ba1870e2dbf18fc88a0bb047170d  .claude/hooks/close-aif-task-on-merge.sh
 178b62f7449dd92f734b3e5560a943567a235cbcf3698fa8982b13bffd1f8760  .claude/hooks/deps-hash-check.sh
-3ab6e44c53f1bc4a356f4a4866cb74a81dc6b323932a6d062bf6eaa5b91ee6d9  .claude/hooks/end-of-turn-reminder.sh
-2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
+b3f62cbe1b42dd59e5a89c4e99b1479d7c79b0a8256dcbffb4bcf3abf2eff799  .claude/hooks/end-of-turn-reminder.sh
+34c1bd413780f8f2fb8c810896792443955cf5447451db8c5384aed74dadfc54  .claude/hooks/glossary-inject.sh
 6717f091e4fdf731029cfa0d423a3f5ed1cd1eeddf3d88a7da852698158f319d  .claude/hooks/inject-handoff-on-compact.sh
 298fa3fdcbc2fbe07f201ebd1aee8bccfa0eda901c547ebaeaa3c79b92b4cb86  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
@@ -210,7 +210,7 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
-c1fcc191736e9c1cbcdbc2c65bf8f413d944f48ef4fccdd5f268035370f89ae8  packages/core/audit-self/pre-merge-local.sh
+0532cc08ac68340422d6b2ed6b004ce1fe3823c18bbdfc176d8849cd41789faa  packages/core/audit-self/pre-merge-local.sh
 2f8de594ebcab49ad35a33ba78d9f76d1f27835ee992e2e1883a6a00278826c1  packages/core/audit-self/pre-merge-local.test.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  packages/core/audit-self/r2-na-marker.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
@@ -1107,7 +1107,7 @@ f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-wor
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh
 77b7349455712355e36c2265913040761093c26d87f798284d14ff5f5dc87091  setup.d/companions.manifest
 19aa0f42473100106c528fc96ea3191fddcc2955f6adfe1a75c8a4083f70eb99  setup.d/engine.sh
-b876c6d617c0508335050b50a22b99ca85db765ad7a21d7cd382776a17c18302  setup.d/eslint-wire.sh
+8bc760cb0e42c27b6b6859b44dec410470c824f6d6af58ea3a6ad5be4810782d  setup.d/eslint-wire.sh
 56a70d13e88e84316d1fa16dc245512c8349b6508203148362878792238e3dd0  setup.d/lib.sh
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 6e9c9caca5bc02824da852b238f1c86077b64a3843f20657f059e701421d4c2c  skills/getff/SKILL.md
