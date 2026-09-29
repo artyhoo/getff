@@ -51,6 +51,10 @@
  * DECLARED LIMIT. An external producer into an early reader (`grep P file | head -1`, `find | head
  * -1`) is not gated: it writes through stdio, one write for output below a pipe buffer, so it loses
  * the race only on large output — a judgement about the input this line-level scan cannot make.
+ * Also unread by this line scan (misses): backticks, a `( … )` subshell, an array `a=($(…))`, a
+ * `while … done | head` loop producer, an awk program spread over several lines, and a later
+ * `set +e`. Over-read (fires; use the escape): `exit` / ` q ` inside an awk string or a sed `s///`,
+ * and a `$(` whose body starts on the next line (that line is scanned as its own statement).
  * Build-vs-reuse: prior-art-evaluations.md#291 (ShellCheck has no rule for this; measured).
  *
  * Usage:
@@ -328,7 +332,15 @@ export function earlyReaderAfter(code, pos) {
   if (rest.startsWith('&')) rest = rest.slice(1);
   const w = commandCore(commandWords(rest));
   if (!w.length) return null;
-  if (w[0] === 'head') return 'head';
+  // `head -n -N` / `-c -N` (GNU: all but the last N) reads to the end, so it is no early reader.
+  if (w[0] === 'head')
+    return w.some(
+      (a, i) =>
+        /^(-[nc]-|--(lines|bytes)=-)/.test(a) ||
+        (/^-[nc]$/.test(a) && /^-/.test(w[i + 1] ?? '')),
+    )
+      ? null
+      : 'head';
   const scripts = [];
   let first = null;
   for (let i = 1; i < w.length; i++) {
@@ -372,7 +384,12 @@ export function earlyReaderHits(code, errexit) {
       skip = i + 1;
       if (topLevel) bounds.push({ at: i, len: 2, op: two });
       segStart.set(f, i + 2);
-    } else if (c === ';' || c === '&' || c === '\n') {
+    } else if (
+      c === ';' ||
+      c === '\n' ||
+      // `2>&1`, `>&2`, `&>f` and the `&` of `|&` are redirections, not a boundary
+      (c === '&' && !/[<>|]/.test(code[i - 1] ?? '') && code[i + 1] !== '>')
+    ) {
       if (topLevel) bounds.push({ at: i, len: 1, op: ';' });
       segStart.set(f, i + 1);
     } else if (c === '|') {
@@ -408,7 +425,14 @@ export function earlyReaderHits(code, errexit) {
       before ? before.at + before.len : 0,
       next ? next.at : code.length,
     );
-    const words = commandWords(stmt.replace(/\$\([^]*$/, ''));
+    const words = commandWords(
+      stmt
+        .replace(/\$\([^]*$/, '')
+        // a `case … in` head, a case pattern `a|b)`, a function header `f()` precede the command
+        .replace(/^\s*case\s+\S+\s+in\s+/, '')
+        .replace(/^\s*\(?[^\s()|]+(\s*\|\s*[^\s()|]+)*\)\s*/, '')
+        .replace(/^\s*(function\s+)?[A-Za-z_][\w:.-]*\s*\(\)\s*/, ''),
+    );
     let k = 0;
     const cond = [];
     while (k < words.length && KEYWORDS.has(words[k])) cond.push(words[k++]);
@@ -422,7 +446,7 @@ export function earlyReaderHits(code, errexit) {
         continue;
       const tail = code.slice(p.frame.end + 1, next ? next.at : code.length);
       if (
-        !/^["'}]*(\s+[A-Za-z_][A-Za-z0-9_]*\+?=\S*)*\s*(then|do)?\s*$/.test(
+        !/^["'}]*(\s+[A-Za-z_][A-Za-z0-9_]*\+?=\S*|\s*\d*(>>?|<|&>)&?\s*[^\s;&|]+)*\s*(then|do)?\s*$/.test(
           tail,
         )
       )
@@ -443,11 +467,18 @@ export function earlyReaderHits(code, errexit) {
   return hits;
 }
 
+/** Does the file turn errexit on? Code only: a `set -e` named in a comment does not count. */
 export function underErrexit(rel, text) {
   if (SOURCED_UNDER_PIPEFAIL.some((re) => re.test(rel))) return true;
-  return /(^|[\s;&|(])set\s+(?:[-+][A-Za-z]+\s+)*(-[A-Za-z]*e[A-Za-z]*\b|-o\s*errexit\b)/m.test(
-    text,
-  );
+  const code = logicalLines(text)
+    .map((l) => l.code)
+    .join('\n');
+  for (const m of code.matchAll(
+    /(?:^|[\s;&|(])set((?:\s+(?:[-+]o\s+[A-Za-z]+|[-+][A-Za-z]+))+)/g,
+  )) {
+    if (/(^|\s)-[A-Za-z]*e|-o\s+errexit\b/.test(m[1])) return true;
+  }
+  return false;
 }
 
 /** Logical lines of a script: continuations joined, heredoc bodies dropped, comments kept apart. */

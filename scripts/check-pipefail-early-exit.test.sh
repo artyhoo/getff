@@ -6,14 +6,16 @@
 #   P1-P10 the gate FIRES: printf/echo/command producers into grep -q, --quiet, -l, -m, a cluster
 #          (-Eq), a negated check, a line-continued pipe, a pipe inside $(…) (also within double
 #          quotes), a `<<TAG` inside a quoted string that must not hide the lines after it
-#   P11-P16 the gate FIRES: printf/echo into head / sed q / awk exit where the pipeline status is
-#          read — a bare assignment or a statement under errexit, an if condition
+#   P11-P21 the gate FIRES: printf/echo into head / sed q / awk exit where the pipeline status is
+#          read — a bare assignment or a statement under errexit, an if condition, a case arm, a
+#          one-line function body, around redirections, under `set -o pipefail -o errexit`
 #   N1-N9  the gate stays QUIET: here-strings, `||` (not a pipe), a `|` inside the grep pattern,
 #          grep -c / plain grep, `-s` (no-messages, not silent), a script without pipefail, a heredoc
 #          body, a comment, an escape with a real rationale
-#   N10-N17 the gate stays QUIET on the early-reader shape where the status is not read (local,
+#   N10-N19 the gate stays QUIET on the early-reader shape where the status is not read (local,
 #          export, || true, a test or argument), without errexit, with an external producer, or
-#          with a reader that drains its input (sed without q, awk without exit)
+#          with a reader that drains its input (sed without q, awk without exit, head -n -N), or
+#          when `set -e` appears only in a comment
 #   E1     an escape whose rationale is under 20 characters is itself a finding
 #   S1     the sourced-under-pipefail population (setup.d/*.sh) is scanned without its own `set`
 #   R1-R3  the checker's exit code is 1 on findings and 0 when clean (CLI contract)
@@ -63,6 +65,12 @@ fixture "P14 a statement-level printf | head -5 under set -e" fire 'printf '"'"'
 fixture "P15 if v=\$(echo | head -n 1) — the status is the condition" fire 'if v=$(echo "$x" | head -n 1); then :; fi' '#!/usr/bin/env bash
 set -uo pipefail'
 fixture "P16 the early reader mid-pipeline" fire 'v=$(printf '"'"'%s\n'"'"' "$x" | head -3 | tr "\n" " ")'
+fixture "P17 a case arm holding the assignment" fire 'case "$1" in a) v=$(printf '"'"'%s\n'"'"' "$x" | head -1) ;; esac'
+fixture "P18 a one-line function body holding the assignment" fire 'f() { v=$(printf '"'"'%s\n'"'"' "$x" | head -1); }'
+fixture "P19 2>&1 on the producer is a redirection, not a boundary" fire 'v=$(printf '"'"'%s\n'"'"' "$x" 2>&1 | head -1)'
+fixture "P20 a redirection after the substitution" fire 'v=$(echo "$x" | head -1) 2>/dev/null'
+fixture "P21 set -o pipefail -o errexit is errexit" fire 'v=$(echo "$x" | head -1)' '#!/usr/bin/env bash
+set -o pipefail -o errexit'
 
 echo "── quiet"
 fixture "N1 here-string" quiet 'grep -q x <<<"$v"; grep -q y <<<"$(git ls-files)"'
@@ -93,6 +101,10 @@ fixture "N15 a bare assignment without errexit ignores the status" quiet 'v=$(pr
 set -uo pipefail'
 fixture "N16 sed without q / awk without exit read all input" quiet 'v=$(printf '"'"'%s\n'"'"' "$x" | sed -n 1p); w=$(echo "$x" | awk "{print \$1}")'
 fixture "N17 a head reading a file, not a pipe" quiet 'v=$(head -1 "$f")'
+fixture "N18 head -n -1 drains its input (GNU: all but the last line)" quiet 'v=$(printf '"'"'%s\n'"'"' "$x" | head -n -1)'
+fixture "N19 set -e named only in a comment is not errexit" quiet '# never add set -e here: the caller reads rc
+v=$(printf '"'"'%s\n'"'"' "$x" | head -1)' '#!/usr/bin/env bash
+set -uo pipefail'
 
 echo "── escape rationale"
 fixture "E1 a short rationale is a finding" fire 'echo "$v" | grep -q x # sigpipe-safe: fine'
