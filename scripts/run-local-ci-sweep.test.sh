@@ -416,38 +416,38 @@ grep_out "offload: the routed row ran here instead" "routed" "$TMP/local-ran"
 # and the local run decides — green here passes, a timeout here too (a real hang) still fails.
 slow_there() { printf 'if [ -n "${STUB_REMOTE:-}" ]; then echo "Error: %s timed out in 5000ms."; exit 1; fi; echo real >>%s/local-ran; %s' "$1" "$TMP" "$2"; }
 printf '1\trouted\tALWAYS\t%s\n' "$(slow_there Test 'exit 0')" >"$TMP/g-off-slow.tsv"
-offload "$TMP/runner-remote" "$TMP/g-off-slow.tsv" "$TMP/o39"
+offload "$TMP/runner-remote" "$TMP/g-off-slow.tsv" "$TMP/o50"
 check "offload: a remote timeout that is green here exits 0" 0 $?
 grep_out "offload: a remote timeout re-ran here" "real" "$TMP/local-ran"
-grep_out "offload: the timeout fallback is labelled" "[sweep] PASS routed · here — timed out on runner-remote" "$TMP/o39"
+grep_out "offload: the timeout fallback is labelled" "[sweep] PASS routed · here — timed out on runner-remote" "$TMP/o50"
 printf '1\trouted\tALWAYS\t%s\n' "$(slow_there Hook 'echo "Error: Hook timed out in 5000ms."; exit 1')" >"$TMP/g-off-hang.tsv"
-offload "$TMP/runner-remote" "$TMP/g-off-hang.tsv" "$TMP/o40"
+offload "$TMP/runner-remote" "$TMP/g-off-hang.tsv" "$TMP/o51"
 check "offload: a hang that times out here too still fails" 1 $?
-grep_out "offload: the local hang is the FAIL" "[sweep] FAIL routed · here — timed out on runner-remote" "$TMP/o40"
+grep_out "offload: the local hang is the FAIL" "[sweep] FAIL routed · here — timed out on runner-remote" "$TMP/o51"
 
 # (k) ONE STRIKE: after the first routed row the runner failed (no receipt, or a timeout), later
 # routable rows run here without calling the runner again, labelled with that first reason.
 printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(where_cmd r1)" "$(where_cmd r2)" >"$TMP/g-off-two.tsv"
-offload "$TMP/runner-nothing" "$TMP/g-off-two.tsv" "$TMP/o41" "r1 r2"
+offload "$TMP/runner-nothing" "$TMP/g-off-two.tsv" "$TMP/o52" "r1 r2"
 check "offload: one strike still exits 0 (both ran here)" 0 $?
 if [ "$(count "$RUNLOG")" = 1 ]; then echo "  ✓ offload: the runner was called once, then skipped"
 else echo "  ✗ offload: the runner was called $(count "$RUNLOG") time(s) after a no-result (want 1)"; fails=$((fails + 1)); fi
-grep_out "offload: the skipped row says why" "[sweep] PASS r2 · here — runner-nothing skipped after no result for r1" "$TMP/o41"
-grep_out "offload: the summary names the strike" "SWEEP: offload stopped after no result for r1" "$TMP/o41"
+grep_out "offload: the skipped row says why" "[sweep] PASS r2 · here — runner-nothing skipped after no result for r1" "$TMP/o52"
+grep_out "offload: the summary names the strike" "SWEEP: offload stopped after no result for r1" "$TMP/o52"
 printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(slow_there Test 'exit 0')" "$(where_cmd r2)" >"$TMP/g-off-two-slow.tsv"
-offload "$TMP/runner-remote" "$TMP/g-off-two-slow.tsv" "$TMP/o42" "r1 r2"
+offload "$TMP/runner-remote" "$TMP/g-off-two-slow.tsv" "$TMP/o53" "r1 r2"
 if [ "$(count "$RUNLOG")" = 1 ] && [ ! -f "$TMP/remote-ran" ]; then echo "  ✓ offload: a timeout stops routing for the rest of the sweep"
 else echo "  ✗ offload: after a timeout the runner was called $(count "$RUNLOG") time(s) (want 1)"; fails=$((fails + 1)); fi
-grep_out "offload: the timeout strike is named" "[sweep] PASS r2 · here — runner-remote skipped after a timeout in r1" "$TMP/o42"
+grep_out "offload: the timeout strike is named" "[sweep] PASS r2 · here — runner-remote skipped after a timeout in r1" "$TMP/o53"
 # (k-neg) a row that only DEGRADED there (one tool the runner lacks) is NOT a strike: the runner
 # answered, so the next row still goes to it. (A plain red cannot be the paired negative — the
 # sweep stops at its first FAIL, so no later row exists to observe.)
 printf '1\tr1\tALWAYS\t%s\n2\tr2\tALWAYS\t%s\n' "$(cut -f4 "$TMP/g-off-deg.tsv")" "$(where_cmd r2)" >"$TMP/g-off-two-deg.tsv"
-offload "$TMP/runner-remote" "$TMP/g-off-two-deg.tsv" "$TMP/o43" "r1 r2"
+offload "$TMP/runner-remote" "$TMP/g-off-two-deg.tsv" "$TMP/o54" "r1 r2"
 check "offload: degrade then green exits 0" 0 $?
 if [ "$(count "$RUNLOG")" = 2 ] && grep -qx r2 "$TMP/remote-ran" 2>/dev/null; then echo "  ✓ offload: a degrade does not stop routing"
 else echo "  ✗ offload: after a degrade the runner was called $(count "$RUNLOG") time(s), remote=$(count "$TMP/remote-ran") (want 2 calls, r2 remote)"; fails=$((fails + 1)); fi
-if grep -qF "offload stopped" "$TMP/o43"; then echo "  ✗ offload: a degrade was reported as a strike"; fails=$((fails + 1))
+if grep -qF "offload stopped" "$TMP/o54"; then echo "  ✗ offload: a degrade was reported as a strike"; fails=$((fails + 1))
 else echo "  ✓ offload: a degrade is not reported as a strike"; fi
 
 # (i) bash 3.2 arms: a routed vitest row also runs, HERE, its suite's files that spawn /bin/bash.
