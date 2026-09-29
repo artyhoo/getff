@@ -17,6 +17,8 @@ if "%~1"=="" (
 )
 
 set "HOOK_DIR=%~dp0"
+REM Plugin-channel marker for the dispatched hook (see the Unix block below).
+set "AIF_HOOK_CHANNEL=plugin"
 
 REM Try Git for Windows bash in standard locations
 if exist "C:\Program Files\Git\bin\bash.exe" (
@@ -67,6 +69,13 @@ if [ -z "${AIF_HOOK_LANG:-}" ]; then
   fi
 fi
 
+# ── Plugin-channel marker ─────────────────────────────────────────────────────
+# Tells the dispatched hook it runs as the plugin twin, not as the project's own copy.
+# lib/hook-live.sh reads it: the twin must not mark itself live (spec D12). (Spec D5's second
+# reader, the inject-session-bootstrap twin, stopped shipping with the SessionStart move, #1925.)
+AIF_HOOK_CHANNEL=plugin
+export AIF_HOOK_CHANNEL
+
 # ── Yield to the plugin's own source checkout ─────────────────────────────────
 # plugin/hooks/hooks.json is rendered from the same harness model as the framework's own
 # .claude/settings.json (scripts/render-harness-config.mjs emitPlugin), so in the framework's
@@ -79,11 +88,20 @@ fi
 # A yield must never drop a hook that then runs nowhere, and must never hand an event to an
 # older copy, so every condition below leans to running. A duplicate costs context; a lost gate
 # costs the gate.
-#   - Source checkout only: the project ships this plugin (plugin/.claude-plugin/plugin.json
-#     names the same plugin as ../.claude-plugin/plugin.json) and this hook (plugin/hooks/<name>).
-#     Only there is .claude/hooks/<name>.sh the source this copy was generated from. A consumer's
-#     copy was frozen at install (setup.d/10-skills.sh copy_safe) and may be older than this one,
-#     so a consumer keeps both copies running.
+#   - Two modes. SOURCE: the project ships this plugin (plugin/.claude-plugin/plugin.json names the
+#     same plugin as ../.claude-plugin/plugin.json) and this hook (plugin/hooks/<name>); there
+#     .claude/hooks/<name>.sh is the source this copy was generated from. CONSUMER: anywhere else,
+#     the installed copy was frozen at install (setup.d/10-skills.sh copy_safe) and may be older,
+#     newer or edited, so it counts only when it and every file it declares on
+#     `# @plugin-yield-deps:` hash to lib/source-sha256.txt — the bytes this plugin was built from
+#     (lib/source-hash.sh; spec docs/superpowers/specs/2026-09-28-consumer-plugin-hook-dedup-design.md).
+#     No manifest, no entry, no hashing tool or any mismatch → run. Identical files still do not
+#     prove the project copy fires (settings sources, managed policy, a timeout that kills it), so
+#     a consumer yield also needs proof of life: the project copy's prelude
+#     (.claude/hooks/lib/hook-live.sh) marks each event it starts, and this copy yields only after
+#     claiming a fresh marker for the same payload (lib/live-claim.sh; spec D12). No marker within
+#     ~300 ms, no session_id, a stale, foreign or untrusted marker, a lost race, or a "timeout" in
+#     any settings file naming the project copy → run.
 #   - Claude Code only: ZCode never reads .claude/settings.json
 #     (docs/meta-factory/research-patches/2026-07-04-zcode-harness-visibility.md).
 #   - Same inputs: the language fallback above reaches plugin hooks only; when it supplied the
@@ -122,16 +140,34 @@ fi
 # Settings are read on every event. Claude Code's file watcher normally reloads hook
 # registrations when settings.json changes; right after a branch switch the two can briefly
 # disagree. The Windows batch branch above calls bash on the hook directly and does not yield.
+_yield_mode=''
 if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] && [ -z "${_lang_from_file:-}" ] \
   && [ -z "${GETFF_PLUGIN_NO_YIELD:-}" ] && [ -f "${SCRIPT_DIR}/hooks.json" ] \
   && [ -f "${SCRIPT_DIR}/../.claude-plugin/plugin.json" ] \
-  && [ -f "$CLAUDE_PROJECT_DIR/plugin/.claude-plugin/plugin.json" ] \
   && [ -f "$CLAUDE_PROJECT_DIR/.claude/settings.json" ] && command -v jq >/dev/null 2>&1; then
+  if [ -f "$CLAUDE_PROJECT_DIR/plugin/.claude-plugin/plugin.json" ] \
+    && jq -e -n --slurpfile pm "${SCRIPT_DIR}/../.claude-plugin/plugin.json" \
+      --slurpfile sm "$CLAUDE_PROJECT_DIR/plugin/.claude-plugin/plugin.json" \
+      '([$pm, $sm] | all(length == 1)) and ($pm[0].name | type == "string" and length > 0)
+        and $pm[0].name == $sm[0].name' >/dev/null 2>&1; then
+    _yield_mode=source
+  elif [ -f "${SCRIPT_DIR}/lib/source-sha256.txt" ] && [ -r "${SCRIPT_DIR}/lib/source-hash.sh" ] \
+    && command . "${SCRIPT_DIR}/lib/source-hash.sh"; then
+    # `-r` (not `-f`) keeps an unreadable lib out of the `.` attempt: macOS's native /bin/sh kills
+    # the whole invocation on `.`'s "Permission denied" even wrapped in `command`, unlike
+    # bash/dash. `command` strips `.`'s special-builtin status for the remaining case — a syntax
+    # error in an otherwise-readable lib, which under plain `.` kills dash with rc=2 — turning it
+    # into an ordinary non-zero return here instead. Either way a corrupt or unreadable lib falls
+    # through to the plain `exec bash` path below.
+    _yield_mode=consumer
+  fi
+fi
+if [ -n "$_yield_mode" ]; then
   _yield_names=''
   case "$SCRIPT_NAME" in
     ''|*[!A-Za-z0-9_-]*) : ;;
     *)
-      if [ -f "$CLAUDE_PROJECT_DIR/plugin/hooks/$SCRIPT_NAME" ]; then
+      if [ "$_yield_mode" = consumer ] || [ -f "$CLAUDE_PROJECT_DIR/plugin/hooks/$SCRIPT_NAME" ]; then
         grep -qE "^# (AUTO-GENERATED from|Plugin twin of) \.claude/hooks/${SCRIPT_NAME}\.sh" \
           "${SCRIPT_DIR}/${SCRIPT_NAME}" 2>/dev/null && _yield_names="$SCRIPT_NAME"
         _yield_names="$_yield_names $(sed -n 's/^# @plugin-yields-to:[[:space:]]*//p' \
@@ -139,28 +175,34 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] && [ -z "
       fi
       ;;
   esac
-  _yield_hit=''
+  # noglob covers only the list expansion below (an unquoted `$_yield_names` word-splits into
+  # names that must not also undergo pathname expansion); the loop body turns it back off right
+  # away, because a declared directory is later hashed through a glob (getff_path_hash) that
+  # `set -f` would turn into a literal. lib/live-claim.sh's marker scan below globs too.
+  _yield_hit=''; _yield_target=''
   set -f
   for _name in $_yield_names; do
+    set +f
     case "$_name" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
     _proj_hook="$CLAUDE_PROJECT_DIR/.claude/hooks/$_name.sh"
     [ -f "$_proj_hook" ] || continue
     sed -n 2p "$_proj_hook" | grep -qF "# $_name.sh — " || continue
     grep -qE '^# @(cc-only-rationale|dual-pair)' "$_proj_hook" || continue
+    if [ "$_yield_mode" = consumer ]; then
+      getff_closure_matches "${SCRIPT_DIR}/lib/source-sha256.txt" "$CLAUDE_PROJECT_DIR/.claude/hooks" "$_name" \
+        || continue
+    fi
     if jq -e -n --arg n "$SCRIPT_NAME" --arg t "$_name" \
-      --slurpfile p "${SCRIPT_DIR}/hooks.json" --slurpfile s "$CLAUDE_PROJECT_DIR/.claude/settings.json" \
-      --slurpfile pm "${SCRIPT_DIR}/../.claude-plugin/plugin.json" \
-      --slurpfile sm "$CLAUDE_PROJECT_DIR/plugin/.claude-plugin/plugin.json" '
+      --slurpfile p "${SCRIPT_DIR}/hooks.json" --slurpfile s "$CLAUDE_PROJECT_DIR/.claude/settings.json" '
         def pairs(f): [(.hooks // {}) | to_entries[] | .key as $e | (.value | arrays)[] | objects
           | select(any((.hooks | arrays)[]; type == "object" and f))
           | [$e, (if (.matcher // "") == "*" then "" else (.matcher // "") end)]] | unique;
-        ([$p, $s, $pm, $sm] | all(length == 1))
-        and ($pm[0].name | type == "string" and length > 0) and $pm[0].name == $sm[0].name
+        ([$p, $s] | all(length == 1))
         and (($p[0] | pairs((.command // "") | tostring | test("run-hook\\.cmd\"? +" + $n + "$"))) as $need
           | ($s[0] | pairs(.type == "command" and ((keys - ["type", "command", "statusMessage"]) | length) == 0
               and .command == ("bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/" + $t + ".sh\""))) as $have
           | ($need | length) > 0 and all($need[]; . as $x | any($have[]; . == $x)))' >/dev/null 2>&1; then
-      _yield_hit=1; break
+      _yield_hit=1; _yield_target="$_name"; break
     fi
   done
   set +f
@@ -171,7 +213,19 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] && [ -z "
     # A cwd or project root that cannot be entered resolves to "" and keeps this copy running.
     [ -n "$_rh_d" ] && _rh_d="$(cd "$_rh_d" 2>/dev/null && pwd -P)"
     _rh_root="$(cd "$CLAUDE_PROJECT_DIR" 2>/dev/null && pwd -P)"
-    [ -n "$_rh_d" ] && [ "$_rh_d" = "$_rh_root" ] && exit 0
+    if [ -n "$_rh_d" ] && [ "$_rh_d" = "$_rh_root" ]; then
+      # Source mode: the project copy IS the source this copy was generated from — yield (#1879).
+      [ "$_yield_mode" = source ] && exit 0
+      # Consumer mode (spec D12): files cannot show that Claude Code loaded the project's settings
+      # (`--setting-sources`, an SDK host without "project", a managed policy), so yield only after
+      # claiming the liveness marker the project copy's prelude (.claude/hooks/lib/hook-live.sh)
+      # wrote for THIS event. A `@plugin-yields-to` hit claims the target's marker. The lib is
+      # sourced fail-open, exactly like lib/source-hash.sh above; missing or corrupt → run.
+      if [ -r "${SCRIPT_DIR}/lib/live-claim.sh" ] && command . "${SCRIPT_DIR}/lib/live-claim.sh" \
+        && getff_live_claim "$_yield_target" "$_rh_in"; then
+        exit 0
+      fi
+    fi
     printf '%s' "$_rh_in" | bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
     exit $?
   fi

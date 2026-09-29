@@ -677,10 +677,15 @@ jobs:
         run: bash tests/plugin/manifest-valid.test.sh
       - name: Run plugin opencode-adapter test
         run: bash tests/plugin/opencode-adapter.test.sh
-      - name: Run plugin run-hook test
-        run: bash tests/plugin/run-hook.test.sh
+      - name: Run plugin run-hook + hook-live tests (hook-live = D12 liveness marker)
+        run: bash tests/plugin/run-hook.test.sh && bash tests/plugin/hook-live.test.sh
       - name: Run plugin twin-emit test
         run: bash tests/plugin/twin-emit.test.sh
+      # Sandbox-tree acceptance for the source-hash manifest writer (fix round 1, item 4):
+      # undeclared reach-beside → no entry, empty declaration → main-line-only, a declaration
+      # naming a missing path → exit 2, output is LC_ALL=C sorted.
+      - name: Run plugin source-hashes writer test
+        run: bash tests/plugin/plugin-source-hashes.test.sh
       # setup.d/skill-routing.sh + its plugin twin + the session-start re-apply arm. Hermetic
       # (throwaway HOME per case), so it never reads or writes the runner's ~/.claude.
       - name: Run plugin skill-routing test

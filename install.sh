@@ -1069,6 +1069,13 @@ do_refresh() {
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
     fi
   fi
+  # Spec 2026-09-28 D12: the shared hooks refreshed above source lib/hook-live.sh (the liveness
+  # mark the plugin copy claims before it stays silent) — refreshed BY NAME like residue-dir.sh,
+  # parity with setup.d/10-skills.sh §1i′.
+  if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    refresh_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+  fi
 
   # ── Vendored runtime-bridge subset (factory depth; spec A7) — #869 refresh parity ──
   # setup.d/55-runtime-bridge-vendor.sh delivers BOTH halves at install time, and neither could

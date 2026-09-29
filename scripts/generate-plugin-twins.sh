@@ -48,7 +48,10 @@ LOG_LEVEL="${LOG_LEVEL:-INFO}"
 log_info() { printf '[INFO] generate-plugin-twins: %s\n' "$*" >&2; }
 log_debug() { if [ "$LOG_LEVEL" = "DEBUG" ]; then printf '[DEBUG] generate-plugin-twins: %s\n' "$*" >&2 || true; fi; }
 
-REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+# SELF_DIR is this script's OWN directory — always the real repo's scripts/, unlike REPO_ROOT
+# below, which CLAUDE_PROJECT_DIR can point at a sandbox tree for testing the generator itself.
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$SELF_DIR/.." && pwd)}"
 SRC_DIR="$REPO_ROOT/.claude/hooks"
 TWIN_DIR="$REPO_ROOT/plugin/hooks"
 AGENT_SRC_DIR="$REPO_ROOT/agents"
@@ -180,6 +183,23 @@ for src in "$SRC_DIR"/*.sh; do
 done
 
 log_info "generated $((identical + sed_transformed)) twins, skipped $manual manual, $sed_transformed sed-transformed"
+
+# ── Source-hash manifest (consumer yield — spec 2026-09-28 D1) ─────────────────
+# plugin/hooks/run-hook.cmd lets a consumer's installed copy silence the plugin copy only when the
+# installed bytes hash to these lines. Rewritten only on change, so a clean tree stays a no-op.
+MANIFEST="$TWIN_DIR/lib/source-sha256.txt"
+tmp_manifest=$(mktemp)
+# No pre-existing trap in this script (checked: fix round 1, item 3) — scoped to this section
+# only, and cleared right after, so it can't shadow a trap a later section might add.
+trap 'rm -f "$tmp_manifest"' EXIT
+bash "$SELF_DIR/plugin-source-hashes.sh" "$REPO_ROOT" > "$tmp_manifest"
+if cmp -s "$tmp_manifest" "$MANIFEST" 2>/dev/null; then
+  rm -f "$tmp_manifest"
+else
+  mkdir -p "$TWIN_DIR/lib"; mv "$tmp_manifest" "$MANIFEST"
+  log_info "source-hash manifest rewritten: plugin/hooks/lib/source-sha256.txt"
+fi
+trap - EXIT
 
 # ── Population (2): plugin/agents/*.md ← agents/*.md, byte-identical ──────────
 # No header, no marker, no transform — see the header block for why each is absent.
