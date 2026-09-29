@@ -73,7 +73,7 @@ types it.
 | `inject-memory-codification` | PostToolUse | PostToolUse hook — path-scoped codify-then-pointer discipline reminder | @dual-pair:memory-codification-writemoment + plugin | framework: react-native, react-next, react-spa, ts-server |
 | `inject-output-language` | SessionStart | SessionStart hook — injects the active output-language line into session context | @cc-only-rationale + plugin | framework: react-native, react-next, react-spa, ts-server |
 | `inject-project-digest` | SessionStart, SubagentStart | SessionStart + SubagentStart hook — injects the project digest at both fire-points | @cc-only-rationale + plugin | framework: react-native, react-next, react-spa, ts-server |
-| `inject-session-bootstrap` | UserPromptSubmit | UserPromptSubmit hook — injects the session-bootstrap digest into prompt context | @cc-only-rationale | not installed on any lane (no-lane) |
+| `inject-session-bootstrap` | SessionStart | SessionStart hook — injects the session-bootstrap digest into session context | @cc-only-rationale | not installed on any lane (no-lane) |
 | `inject-subagent-context` | PreToolUse | SubagentStart fallback — digest injection for harnesses without the SubagentStart event (zcode) | @cc-only-rationale + plugin | not installed on any lane (no-lane) |
 | `inject-subagent-digest` | SubagentStart | SubagentStart hook — injects the session-bootstrap digest into juniors at spawn | @cc-only-rationale | not installed on any lane (no-lane) |
 | `precompact-residue` | PreCompact | PreCompact hook — writes the session-residue note before compaction | @dual-pair:hook-lang-i18n (spec: docs/superpowers/specs/2026-06-01-hook-lang-i18n-design.md) + @cc-only-rationale | not installed on any lane (no-lane) |

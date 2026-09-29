@@ -116,7 +116,7 @@ documented escape, a recorded choice rather than a silent one.
 
 - `.claude/hooks/check-doc-authority.sh:2` is the header the card's description row
   quotes: `# check-doc-authority.sh — PostToolUse gate — principle-09 doc-authority header quick-check (delegates to the 09 bin)`.
-- Registration: `.claude/settings.json:113` reads `"matcher": "Edit|Write|MultiEdit"`
+- Registration: `.claude/settings.json:105` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 118; the plugin registry registers it too
   (`plugin/hooks/hooks.json:66`).
 - Scope patterns live in the delegated module:

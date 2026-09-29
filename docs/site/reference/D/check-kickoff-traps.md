@@ -133,7 +133,7 @@ that to review, on purpose.
 
 - `.claude/hooks/check-kickoff-traps.sh:2` is the header the card's description row
   quotes: `# check-kickoff-traps.sh — PostToolUse gate — kickoff T-enumeration floor (ai-laziness-traps §3)`.
-- Registration: `.claude/settings.json:132` reads `"matcher": "Edit|Write|MultiEdit"`
+- Registration: `.claude/settings.json:124` reads `"matcher": "Edit|Write|MultiEdit"`
   with the command at line 136; the plugin registry registers it too
   (`plugin/hooks/hooks.json:84`).
 - Engagement guard: line 216 greps for `ai-laziness-traps` in the file content — the

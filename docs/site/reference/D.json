@@ -466,16 +466,18 @@
         "tier": "framework",
         "absent": "no-lane"
       },
-      "description": "UserPromptSubmit hook — injects the session-bootstrap digest into prompt context",
+      "description": "SessionStart hook — injects the session-bootstrap digest into session context",
       "source": {
         "path": ".claude/hooks/inject-session-bootstrap.sh",
         "line": 2
       },
       "extras": {
         "event": [
-          "UserPromptSubmit"
+          "SessionStart"
         ],
-        "matcher": [],
+        "matcher": [
+          "startup|resume|clear|compact"
+        ],
         "delivery": [
           "@cc-only-rationale"
         ]

@@ -57,8 +57,8 @@ not on every prompt — an unchanged block repeated on each message only costs t
 
 The digest is yours to write. In the getff repository it is three lines — what the
 project is, how the repository maps together, and which pointers are hard commitments.
-Here is the hook delivering it, verbatim (the plain arm answers a session start and a
-prompt submit the same way):
+Here is the hook delivering it, verbatim (the plain arm answers every event other than a
+sub-agent spawn the same way):
 
 ```bash
 printf '%s' '{"prompt":"hi","session_id":"docs-demo-pd-1"}' \
@@ -99,7 +99,7 @@ digest block, and the hook is silent — nothing injected, no error, no nag. If 
 nothing, the block between the two markers is where to look.
 
 This is the consumer twin of two framework-internal hooks: the framework's own
-repository injects a fixed, framework-shaped digest on prompt submit
+repository injects a fixed, framework-shaped digest at session start
 (`inject-session-bootstrap`) and a fixed digest to sub-agents (`inject-subagent-digest`);
 this hook injects whatever YOUR project wrote, at both fire-points. On a harness without
 a sub-agent-start event, the second fire-point is covered by the fallback hook
@@ -126,8 +126,7 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
 - The two shapes: line 50 emits
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`; line 53
   `printf '%s\n' "$BLOCK"` is the plain arm, reached also when jq is absent (comment at
-  line 52: «SessionStart / UserPromptSubmit (or jq-absent fallback): plain stdout is
-  auto-injected»).
+  line 52: «SessionStart (or jq-absent fallback): plain stdout is auto-injected»).
 - The env-first root resolution at line 29,
   `REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)"}`, exists for
   the plugin twin: the header block (lines 20-28) explains the subshell/$0 bug it fixed,
