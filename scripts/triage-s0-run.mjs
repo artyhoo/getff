@@ -11,6 +11,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { parseCsv } from './triage-corpus-probe.mjs';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const RUBRIC = `You are triaging ONE review finding. Decide three axes from the text alone.
 
@@ -41,8 +42,8 @@ export function buildPayload(row, rubric) {
 }
 
 // Main execution guard — without this, importing buildPayload would trigger the runner's
-// argv parsing, file reads, and judge loop. Same pattern as triage-corpus-probe.mjs:122.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// argv parsing, file reads, and judge loop. Shared guard: scripts/lib/is-main-entry.mjs.
+if (isMainEntry(import.meta.url)) {
   const args = process.argv.slice(2);
   const [csv, out] = args;
   const flag = (name, dflt) => (args.indexOf(name) > 0 ? args[args.indexOf(name) + 1] : dflt);

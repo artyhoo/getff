@@ -7236,7 +7236,7 @@ var init_ajv = __esm({
 // packages/core/research/internal-validators.ts
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 function errorsText2(errors) {
   return errorsText(errors);
 }
@@ -7245,7 +7245,7 @@ var init_internal_validators = __esm({
   "packages/core/research/internal-validators.ts"() {
     "use strict";
     init_ajv();
-    HERE = dirname(fileURLToPath(new URL("../research/internal-validators.ts", import.meta.url).href));
+    HERE = dirname(fileURLToPath2(new URL("../research/internal-validators.ts", import.meta.url).href));
     _pkgCore = process.env["AIF_SYNTH_PKG_ROOT"];
     SCHEMA_PATH = _pkgCore ? resolve(_pkgCore, "research", "research-plan.schema.json") : resolve(HERE, "research-plan.schema.json");
     schemaDoc = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
@@ -7328,7 +7328,7 @@ var init_ecosystem_name = __esm({
 // packages/core/research/allowlist-resolver.ts
 import { readFileSync as readFileSync2 } from "node:fs";
 import { dirname as dirname2, join, resolve as resolvePath } from "node:path";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
 function canonicalizeHost(host) {
   const lower = host.toLowerCase();
   return lower.endsWith(".") ? lower.slice(0, -1) : lower;
@@ -7567,7 +7567,7 @@ var init_allowlist_resolver = __esm({
         this.diagnostics = [diag("FF2014", { ackFileReason: message })];
       }
     };
-    _here = dirname2(fileURLToPath2(new URL("../research/allowlist-resolver.ts", import.meta.url).href));
+    _here = dirname2(fileURLToPath3(new URL("../research/allowlist-resolver.ts", import.meta.url).href));
     _pkgCoreForData = process.env["AIF_SYNTH_PKG_ROOT"];
     MULTI_TENANT_HOSTS_PATH = _pkgCoreForData ? resolvePath(_pkgCoreForData, "research", "multi-tenant-hosts.json") : resolvePath(_here, "multi-tenant-hosts.json");
     MULTI_TENANT_HOSTS = JSON.parse(readFileSync2(MULTI_TENANT_HOSTS_PATH, "utf8")).hosts;
@@ -9592,7 +9592,7 @@ var init_render_outcome = __esm({
 // packages/core/ir/gates/grammar.ts
 import { readFileSync as readFileSync11 } from "node:fs";
 import { dirname as dirname3, resolve as resolve8 } from "node:path";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
 function isNodeShape(value) {
   if (typeof value !== "object" || value === null) return false;
   const v = value;
@@ -9686,7 +9686,7 @@ var init_grammar = __esm({
     init_ajv();
     init_registry();
     init_registry();
-    HERE2 = dirname3(fileURLToPath3(new URL("../ir/gates/grammar.ts", import.meta.url).href));
+    HERE2 = dirname3(fileURLToPath4(new URL("../ir/gates/grammar.ts", import.meta.url).href));
     _pkgCore2 = process.env["AIF_SYNTH_PKG_ROOT"];
     SCHEMA_PATH2 = _pkgCore2 ? resolve8(_pkgCore2, "ir", "convention-node.schema.json") : resolve8(HERE2, "..", "convention-node.schema.json");
     schemaDoc2 = JSON.parse(readFileSync11(SCHEMA_PATH2, "utf8"));
@@ -10868,7 +10868,7 @@ var init_gate_rule_tester = __esm({
 // packages/core/validator/internal-validators.ts
 import { readFileSync as readFileSync13 } from "node:fs";
 import { dirname as dirname5, resolve as resolve12 } from "node:path";
-import { fileURLToPath as fileURLToPath5 } from "node:url";
+import { fileURLToPath as fileURLToPath6 } from "node:url";
 function errorsText3(errors) {
   return errorsText(errors);
 }
@@ -10877,7 +10877,7 @@ var init_internal_validators2 = __esm({
   "packages/core/validator/internal-validators.ts"() {
     "use strict";
     init_ajv();
-    HERE4 = dirname5(fileURLToPath5(new URL("../validator/internal-validators.ts", import.meta.url).href));
+    HERE4 = dirname5(fileURLToPath6(new URL("../validator/internal-validators.ts", import.meta.url).href));
     SCHEMA_PATH3 = resolve12(
       HERE4,
       "..",
@@ -10994,7 +10994,7 @@ var init_gate_single_token_diff = __esm({
 // packages/core/validator/gate-tautology.ts
 import { readFileSync as readFileSync14 } from "node:fs";
 import { dirname as dirname6, resolve as resolve13 } from "node:path";
-import { fileURLToPath as fileURLToPath6 } from "node:url";
+import { fileURLToPath as fileURLToPath7 } from "node:url";
 function buildConfig(rule, parsedSnippet, registry) {
   if (rule.check.type !== "eslint") return null;
   const ruleName = rule.check.rule;
@@ -11059,7 +11059,7 @@ var init_gate_tautology = __esm({
     import_eslint4 = __toESM(require_eslint(), 1);
     import_parser = __toESM(require_parser(), 1);
     init_preset_plugin_resolver();
-    HERE5 = dirname6(fileURLToPath6(new URL("../validator/gate-tautology.ts", import.meta.url).href));
+    HERE5 = dirname6(fileURLToPath7(new URL("../validator/gate-tautology.ts", import.meta.url).href));
     CORPUS_DIR = resolve13(HERE5, "fixtures", "negative-corpus");
     CORPUS_FILES = ["empty.ts", "comment-only.ts", "unrelated.tsx"];
   }
@@ -11890,12 +11890,23 @@ import {
   mkdirSync as mkdirSync4,
   readdirSync as readdirSync4,
   readFileSync as readFileSync16,
-  realpathSync as realpathSync2,
   statSync as statSync3,
   writeFileSync as writeFileSync4
 } from "node:fs";
 import { join as join9, relative as relative2, resolve as resolve15, sep as sep2 } from "node:path";
-import { fileURLToPath as fileURLToPath7 } from "node:url";
+
+// packages/core/install/is-direct-run.ts
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+function isDirectRun(argv1, metaUrl) {
+  if (!argv1) return false;
+  const metaPath = fileURLToPath(metaUrl);
+  try {
+    return realpathSync(argv1) === realpathSync(metaPath);
+  } catch {
+    return metaPath === argv1;
+  }
+}
 
 // packages/core/synthesizer/file-clients.ts
 import { readFileSync as readFileSync10 } from "node:fs";
@@ -12221,7 +12232,7 @@ import { existsSync as existsSync4, readFileSync as readFileSync5, readdirSync a
 import { join as join3 } from "node:path";
 
 // packages/core/research/research-path-guards.ts
-import { existsSync as existsSync3, realpathSync } from "node:fs";
+import { existsSync as existsSync3, realpathSync as realpathSync2 } from "node:fs";
 import { resolve as resolve4, sep } from "node:path";
 function isUnsafeDepName(name, mode = "strictest") {
   if (name.includes("..")) return true;
@@ -12239,8 +12250,8 @@ function resolvedWithinRoot(root, ...segments) {
   let real;
   let realRoot;
   try {
-    real = realpathSync(candidate);
-    realRoot = realpathSync(root);
+    real = realpathSync2(candidate);
+    realRoot = realpathSync2(root);
   } catch {
     return null;
   }
@@ -12660,8 +12671,7 @@ function detectStack(projectRoot, opts = {}) {
     missing: partial.missing ?? computeMissing(readAllDepsSet(root))
   };
 }
-var moduleUrl = new URL(new URL("../detector/index.ts", import.meta.url).href).pathname;
-if (process.argv[1] && resolve7(process.argv[1]) === resolve7(moduleUrl)) {
+if (isDirectRun(process.argv[1], new URL("../detector/index.ts", import.meta.url).href)) {
   const root = process.argv[2] ?? process.cwd();
   const result = detectStack(root);
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
@@ -13025,7 +13035,7 @@ import {
   writeFileSync
 } from "node:fs";
 import { dirname as dirname4, join as join8, relative, resolve as resolve9 } from "node:path";
-import { fileURLToPath as fileURLToPath4, pathToFileURL } from "node:url";
+import { fileURLToPath as fileURLToPath5 } from "node:url";
 
 // packages/core/backends/astgrep/render-astgrep.ts
 init_registry();
@@ -13238,7 +13248,7 @@ function firstProvenanceRejection(provenance, resolved) {
 }
 
 // packages/core/synthesizer/render-researched-astgrep.ts
-var HERE3 = dirname4(fileURLToPath4(new URL("../synthesizer/render-researched-astgrep.ts", import.meta.url).href));
+var HERE3 = dirname4(fileURLToPath5(new URL("../synthesizer/render-researched-astgrep.ts", import.meta.url).href));
 var LIVE_GEN_DIR = resolve9(HERE3, "fixtures/live-generation");
 var PRACTICE_RECORDS = [
   "getff-researched-no-yaml-load.practice.json"
@@ -13357,8 +13367,7 @@ function main() {
 `).join("")
   });
 }
-var isMain = Boolean(process.argv[1]) && new URL("../synthesizer/render-researched-astgrep.ts", import.meta.url).href === pathToFileURL(process.argv[1]).href;
-if (isMain) main();
+if (isDirectRun(process.argv[1], new URL("../synthesizer/render-researched-astgrep.ts", import.meta.url).href)) main();
 
 // packages/core/install/rule-bootstrap-cli.ts
 init_tier();
@@ -13540,15 +13549,6 @@ async function main2() {
 `
     );
     process3.exit(args.strict ? 1 : 0);
-  }
-}
-function isDirectRun(argv1, metaUrl) {
-  if (!argv1) return false;
-  const metaPath = fileURLToPath7(metaUrl);
-  try {
-    return realpathSync2(argv1) === realpathSync2(metaPath);
-  } catch {
-    return metaPath === argv1;
   }
 }
 if (isDirectRun(process3.argv[1], import.meta.url)) {

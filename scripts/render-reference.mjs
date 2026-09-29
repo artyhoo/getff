@@ -47,13 +47,13 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, extname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { beginMarker, endMarker, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import { buildRows } from './render-rule-index.mjs';
 import { shippedAgents } from './render-install-roster.mjs';
 import { readSkillTiers } from './lib/skill-tiers.mjs';
 import { extractHeaderField, extractFrontmatterScalar } from '../packages/core/principles/rule-channel-glob.ts';
 import { listScripts, computeWiredSet } from './census.mjs';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const GENERATOR = 'scripts/render-reference.mjs';
 const REFERENCE_DIR = 'docs/site/reference';
@@ -1051,11 +1051,4 @@ export async function run(argv) {
   return 2;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) run(process.argv.slice(2)).then((code) => process.exit(code), (e) => { console.error(`✗ ${e.message}`); process.exit(1); });
+if (isMainEntry(import.meta.url)) run(process.argv.slice(2)).then((code) => process.exit(code), (e) => { console.error(`✗ ${e.message}`); process.exit(1); });

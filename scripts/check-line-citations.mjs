@@ -138,6 +138,7 @@
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 /**
  * `path:NN`, `path:NN-MM`, and `path:NN,MM,PP-QQ` — the comma list is group 4, parsed by
@@ -1032,11 +1033,6 @@ function report(f) {
   }
 }
 
-const isMainEntry = () => {
-  try {
-    return new URL(import.meta.url).pathname === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-};
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+// Entry guard: scripts/lib/is-main-entry.mjs realpaths both sides (SSOT #269) — a checkout
+// reached through a symlinked directory otherwise exits 0 without running a single check.
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));

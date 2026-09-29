@@ -348,7 +348,7 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 52
+      "count": 53
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
