@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-b8e0d9dacbdc3d73d63ed3588fe5f2c6572b898117015b17636bc36365d54ccf  .ai-factory/refresh-baseline.json
+20827bd6bb12f413d427840b42b4cd875f59da61d7fe5109207ce16f3c567594  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -123,8 +123,8 @@ e0b25a4e2e09595e28a22e0db5e8687854a8e2f6cc5b196ea82318e63d2c0948  .claude/skills
 d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md
 3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .claude/skills/rule-tests/SKILL.md
 a523988ad4fdb1e4b12adcac36926ef79aa252ac56a6abea753285cb8d742938  .claude/skills/template-audit/SKILL.md
-ac5b9394a3c98b485b8b1ca15377559abb4068e588f28be5532f618970ceddf2  .claude/skills/tool-bootstrapping/SKILL.md
-18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
+8c99bd36e3f4950335faebef255d7e992a7c7d0296f624581a18a52a1901c271  .claude/skills/tool-bootstrapping/SKILL.md
+1914179163d2c12fc67733cb2f84236272ac80225f667f0f7c66374e587e9437  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 e6cd6caa96d4325ffa2d10e62b320fe62ed4724f6d41ba74ee9ba7c66210d56d  .dependency-cruiser.mjs
 873f93a9dd5a1bf50db314ceead64b29e950e38dce268169925d77e1a7829ad0  .github/workflows/ci.yml

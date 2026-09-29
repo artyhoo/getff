@@ -17,7 +17,7 @@ In your project, after running `install.sh`, this skill auto-triggers when:
 - Starting work on a new project for the first time (onboarding moment)
 - User asks which MCPs or skills to install
 - `package.json` dependencies change since last tool-bootstrap
-- `.ai-factory/tool-decisions.md` is missing or stale
+- `.ai-factory/tool-decisions.md` is missing or stale (stale: edit it in place, never regenerate it from the template — Rule 6)
 - A consumer who separately runs AIF invokes `/aif` and wants the decisions persisted (AIF is optional — see §2)
 
 ## The 6 rules
@@ -45,6 +45,8 @@ At each session start, a UserPromptSubmit hook — registered in `.claude/settin
 ### Rule 6 — Persistence
 
 Accepted and rejected decisions are recorded in `.ai-factory/tool-decisions.md` (committed, team-shared). Schema → see [references/decision-format.md](references/decision-format.md). Never re-propose a rejected tool unless the rejection entry carries an explicit re-evaluation trigger that has since fired. A starter template is provided in [templates/tool-decisions.md.template](templates/tool-decisions.md.template).
+
+The installer writes into the same file. Its blocks sit between `<!-- <ns>:<name>:begin -->` and `<!-- <ns>:<name>:end -->` lines: `<!-- aif:project-checks:begin -->` (how the project checks itself — the record `scripts/run-armed.sh` reads, which its pre-commit `--fold` also rewrites), `<!-- aif:r2-na:begin -->` (the recorded R2 not-applicable verdict and its precondition) and `<!-- getff:installed-versions:begin -->` (the tool versions the install recorded, where your getff writes it). Edit the file in place; never regenerate it from the template; keep each installer block byte-for-byte — the installer replaces a block by its markers, so an edit inside one is lost on the next install, and a block that disappears takes its record with it.
 
 ## §2 Build-vs-reuse note
 
