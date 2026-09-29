@@ -285,7 +285,12 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --report-merge <prUrl>
 ```
 
 The PR must read `state: MERGED` with a recorded `mergeCommit` (`gh pr view --json state,mergeCommit`),
-or nothing is written. An already-`verified` task is a no-op. The PR must also BE the task's harvest
+or nothing is written. One exception: a PR the merge-train seat squashed into a train and closed with
+a «Landed via merge train … (#<train>, …) as the squash commit `<sha>`» comment. The comment is only a
+pointer; the PR counts as merged when GitHub confirms all four: the train PR is MERGED, one line of its
+body names both `#<pr>` and the squash sha, and the squash is an ancestor of the train's merge commit
+and of the train's base branch (`gh api repos/<r>/compare/<base>...<squash>` reads `behind` or
+`identical`). The merge time is then the train's. An already-`verified` task is a no-op. The PR must also BE the task's harvest
 — an exact `aif-task: <taskId>` body line, or the task's own `branchName` as the PR head — and must
 have merged after the task's last agent activity (the newest `[<ISO>]` stamp in `agentActivityLog`),
 so an earlier merge never closes a rework round on the same branch; either refusal writes nothing.

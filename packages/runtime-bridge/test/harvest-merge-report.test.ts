@@ -28,6 +28,7 @@ import {
   ghPrMergeProbe,
   ghRead,
   parseArgs,
+  parseTrainLandingClaims,
   reportMergeToAif,
   taskMarker,
   withTaskMarker,
@@ -517,18 +518,26 @@ describe('the gh-backed probe and lookup', () => {
           { url: 'u-mention', headRefName: 'retro', body: 'follow-up to aif task abc-123' },
         ]),
       )
-      .mockReturnValueOnce(JSON.stringify([{ url: 'u-branch', headRefName: 'feature/x-abc', body: '' }]));
+      .mockReturnValueOnce(JSON.stringify([]))
+      .mockReturnValueOnce(
+        JSON.stringify([
+          { url: 'u-branch', state: 'MERGED', headRefName: 'feature/x-abc', body: '' },
+          { url: 'u-branch-abandoned', state: 'CLOSED', headRefName: 'feature/x-abc', body: '', comments: [] },
+        ]),
+      );
 
     const found = await ghMergedPrLookup('artyhoo/getff')(task);
 
     expect(found.map((p) => p.url).sort()).toEqual(['u-branch', 'u-marker']);
     expect(execMock.mock.calls[0][1]).toContain('"aif-task: abc-123" in:body');
+    expect(execMock.mock.calls[0][1]).toEqual(expect.arrayContaining(['--state', 'merged']));
+    expect(execMock.mock.calls[1][1]).toEqual(
+      expect.arrayContaining(['--state', 'closed', '--search', '"aif-task: abc-123" in:body is:unmerged']),
+    );
     for (const call of execMock.mock.calls) {
-      expect(call[1]).toEqual(
-        expect.arrayContaining(['--repo', 'artyhoo/getff', '--limit', '100', '--state', 'merged']),
-      );
+      expect(call[1]).toEqual(expect.arrayContaining(['--repo', 'artyhoo/getff', '--limit', '100']));
     }
-    expect(execMock.mock.calls[1][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc']));
+    expect(execMock.mock.calls[2][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc', '--state', 'closed']));
   });
 });
 
@@ -587,7 +596,8 @@ describe('ghRead — a gh READ survives a flaky tunnel', () => {
       .mockImplementationOnce(() => {
         throw netErr('net/http: TLS handshake timeout');
       })
-      .mockReturnValueOnce(JSON.stringify([{ url: 'u-marker', headRefName: 'x', body: taskMarker('abc-123') }]));
+      .mockReturnValueOnce(JSON.stringify([{ url: 'u-marker', headRefName: 'x', body: taskMarker('abc-123') }]))
+      .mockReturnValueOnce(JSON.stringify([]));
 
     await expect(ghMergedPrLookup('artyhoo/getff')(task)).resolves.toHaveLength(1);
   });
@@ -600,7 +610,8 @@ describe('ghMergedPrIndexLookup — one search per sweep, not per task', () => {
         { url: 'u-a', headRefName: 'x', body: `done\n${taskMarker('task-a')}\n` },
         { url: 'u-mention', headRefName: 'y', body: 'retro about aif-task: task-b in prose' },
       ]),
-    );
+    )
+      .mockReturnValueOnce(JSON.stringify([]));
     const lookup = ghMergedPrIndexLookup('artyhoo/getff');
 
     const a = await lookup({ id: 'task-a', title: 't', status: 'done' });
@@ -610,7 +621,7 @@ describe('ghMergedPrIndexLookup — one search per sweep, not per task', () => {
     expect(a.map((p) => p.url)).toEqual(['u-a']);
     expect(b).toEqual([]);
     expect(c).toEqual([]);
-    expect(execMock).toHaveBeenCalledTimes(1);
+    expect(execMock).toHaveBeenCalledTimes(2);
     expect(execMock.mock.calls[0][1]).toEqual(
       expect.arrayContaining(['--repo', 'artyhoo/getff', '--state', 'merged', '--search', '"aif-task:" in:body']),
     );
@@ -619,7 +630,8 @@ describe('ghMergedPrIndexLookup — one search per sweep, not per task', () => {
   it('a task with a persisted branch adds one --head search of its own', async () => {
     execMock
       .mockReturnValueOnce(JSON.stringify([]))
-      .mockReturnValueOnce(JSON.stringify([{ url: 'u-branch', headRefName: 'feature/x-abc', body: '' }]));
+      .mockReturnValueOnce(JSON.stringify([]))
+      .mockReturnValueOnce(JSON.stringify([{ url: 'u-branch', state: 'MERGED', headRefName: 'feature/x-abc', body: '' }]));
 
     const found = await ghMergedPrIndexLookup('artyhoo/getff')({
       id: 'abc',
@@ -629,7 +641,147 @@ describe('ghMergedPrIndexLookup — one search per sweep, not per task', () => {
     });
 
     expect(found.map((p) => p.url)).toEqual(['u-branch']);
-    expect(execMock.mock.calls[1][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc']));
+    expect(execMock.mock.calls[2][1]).toEqual(expect.arrayContaining(['--head', 'feature/x-abc']));
+  });
+});
+
+/**
+ * The train landing (incident 2026-09-29): harvest PR #1934 landed inside merge train #1940 as the
+ * squash `a235830d7f9`; the seat closed #1934 «landed via train», so GitHub reads it CLOSED with no
+ * merge commit and the plain merge proof skipped the task. The fixtures below are the live values.
+ */
+describe('train landing — a CLOSED member PR whose content landed in a merged train', () => {
+  const REPO = 'artyhoo/getff';
+  const MEMBER_URL = `https://github.com/${REPO}/pull/1934`;
+  const SQUASH = 'a235830d7f910580bcaf1fb89d90955da2c6ae81';
+  const TRAIN_MERGE = '9f69fa2097c01ccdef3429773019d4379862da1e';
+  const CLAIM =
+    'Landed via merge train C3 (#1940, merge commit `9f69fa2097c` on staging, 2026-09-29T14:16:03Z) as the ' +
+    'squash commit `a235830d7f9`, not as a merge of this branch.';
+  const TRAIN_BODY =
+    '| PR | Title | Head SHA | How it landed |\n|---|---|---|---|\n' +
+    '| #1934 | W2-G: consumer ZCode skill-mirror check | `1279cae72324` | **SQUASHED** into `a235830d7f9` |\n' +
+    '| #1932 | fix(install) | `47993d5f5ba3` | MERGED |\n';
+
+  interface World {
+    memberState?: string;
+    comments?: string[];
+    trainState?: string;
+    trainMergeCommit?: string | null;
+    trainBody?: string;
+    squashResolves?: string;
+    inTrain?: string;
+    onBase?: string;
+  }
+
+  /** Route every `gh` call the probe makes to the world's answer; record what was asked. */
+  function ghWorld(w: World = {}) {
+    execMock.mockImplementation(((_cmd: string, args: readonly string[]) => {
+      const a = args.join(' ');
+      if (a === `pr view ${MEMBER_URL} --json state,mergedAt,mergeCommit,headRefName,body`) {
+        return JSON.stringify({
+          state: w.memberState ?? 'CLOSED',
+          mergedAt: null,
+          mergeCommit: null,
+          headRefName: HEAD,
+          body: `summary\n${taskMarker('t-train')}\n`,
+        });
+      }
+      if (a === `pr view ${MEMBER_URL} --json comments`) {
+        return JSON.stringify({ comments: (w.comments ?? [CLAIM]).map((body) => ({ body })) });
+      }
+      if (a.startsWith(`pr view 1940 --repo ${REPO}`)) {
+        return JSON.stringify({
+          state: w.trainState ?? 'MERGED',
+          mergedAt: '2026-09-29T14:16:03Z',
+          mergeCommit: w.trainMergeCommit === null ? null : { oid: w.trainMergeCommit ?? TRAIN_MERGE },
+          baseRefName: 'staging',
+          body: w.trainBody ?? TRAIN_BODY,
+        });
+      }
+      if (a === `api repos/${REPO}/commits/a235830d7f9 --jq .sha`) return `${w.squashResolves ?? SQUASH}\n`;
+      if (a === `api repos/${REPO}/compare/${TRAIN_MERGE}...${SQUASH} --jq .status`) return `${w.inTrain ?? 'behind'}\n`;
+      if (a === `api repos/${REPO}/compare/staging...${SQUASH} --jq .status`) return `${w.onBase ?? 'behind'}\n`;
+      throw new Error(`unexpected gh call: ${a}`);
+    }) as unknown as typeof execFileSync);
+  }
+
+  it('parses the seat comment; ignores a comment without both the train number and the squash', () => {
+    expect(parseTrainLandingClaims([{ body: CLAIM }])).toEqual([{ trainPr: 1940, squash: 'a235830d7f9' }]);
+    expect(parseTrainLandingClaims([{ body: 'landed via train, see the train PR' }, { body: null }])).toEqual([]);
+  });
+
+  it('a proven landing counts as merged at the TRAIN merge time, with the squash as the merge commit', async () => {
+    ghWorld();
+    const probed = await ghPrMergeProbe(MEMBER_URL);
+    expect(probed).toMatchObject({
+      merged: true,
+      mergedAt: '2026-09-29T14:16:03Z',
+      mergeCommit: SQUASH,
+      landedVia: { trainPr: 1940, trainMergeCommit: TRAIN_MERGE, squashCommit: SQUASH, baseRefName: 'staging' },
+    });
+  });
+
+  it('end to end: the task closes to verified, and the comment names the train and the squash', async () => {
+    ghWorld();
+    const aif = stubAif([
+      { id: 't-train', title: 'x', status: 'done', agentActivityLog: '[2026-09-29T11:00:00.000Z] Agent: done\n' },
+    ]);
+    const report = await reportMergeToAif(BASE, 't-train', MEMBER_URL);
+    expect(report).toMatchObject({ merged: true, approved: true, finalStatus: 'verified', landedVia: { trainPr: 1940 } });
+    const msg = aif.comments('t-train')[0].message;
+    expect(msg.startsWith(`Harvested and merged: ${MEMBER_URL} (landed via merge train #1940`)).toBe(true);
+    expect(msg).toContain(SQUASH);
+  });
+
+  it('the rework guard uses the train merge time: activity after the train merged → refused, NO writes', async () => {
+    ghWorld();
+    const aif = stubAif([
+      { id: 't-train', title: 'x', status: 'done', agentActivityLog: '[2026-09-29T15:00:00.000Z] Agent: rework\n' },
+    ]);
+    const report = await reportMergeToAif(BASE, 't-train', MEMBER_URL);
+    expect(aif.writes()).toEqual([]);
+    expect(report.skippedReason).toMatch(/before the task's last agent activity/);
+  });
+
+  // Paired negatives: each breaks exactly ONE link of the proof; every one must leave the task open.
+  const negatives: [string, World, RegExp][] = [
+    ['no train claim at all (closed and abandoned)', { comments: ['Superseded by #1999, closing.'] }, /no comment claims a train landing/],
+    ['the train PR is not merged', { trainState: 'CLOSED', trainMergeCommit: null }, /not MERGED/],
+    ["the train body does not name this PR's squash", { trainBody: '| #1932 | x | MERGED |\n| #1934 | dropped from the train |\n' }, /no line naming both #1934/],
+    ['the squash is not in the train', { inTrain: 'diverged' }, /not an ancestor of the train's merge commit/],
+    ['the squash is not on the base branch', { onBase: 'ahead' }, /not an ancestor of staging/],
+    ['the squash sha resolves to a different commit', { squashResolves: 'b'.repeat(40) }, /does not resolve/],
+    ['the PR is still OPEN (a claim on an open PR is ignored)', { memberState: 'OPEN' }, /not merged/],
+  ];
+  for (const [name, world, why] of negatives) {
+    it(`${name} → stays skipped, NO writes`, async () => {
+      ghWorld(world);
+      const aif = stubAif([{ id: 't-train', title: 'x', status: 'done' }]);
+      const report = await reportMergeToAif(BASE, 't-train', MEMBER_URL);
+      expect(aif.calls).toEqual([]);
+      expect(aif.status('t-train')).toBe('done');
+      expect(report).toMatchObject({ merged: false, approved: false });
+      expect(report.skippedReason).toMatch(why);
+    });
+  }
+
+  it('the sweep index keeps a CLOSED PR only with a train claim; a claim-less closed PR never maps', async () => {
+    execMock
+      .mockReturnValueOnce(JSON.stringify([]))
+      .mockReturnValueOnce(
+        JSON.stringify([
+          { url: 'u-train', state: 'CLOSED', headRefName: 'a', body: taskMarker('t-a'), comments: [{ body: CLAIM }] },
+          { url: 'u-abandoned', state: 'CLOSED', headRefName: 'b', body: taskMarker('t-b'), comments: [{ body: 'closing' }] },
+        ]),
+      );
+    const lookup = ghMergedPrIndexLookup(REPO);
+    expect((await lookup({ id: 't-a', title: 't', status: 'done' })).map((p) => p.url)).toEqual(['u-train']);
+    expect(await lookup({ id: 't-b', title: 't', status: 'done' })).toEqual([]);
+    expect(execMock).toHaveBeenCalledTimes(2);
+    expect(execMock.mock.calls[1][1]).toEqual(
+      expect.arrayContaining(['--state', 'closed', '--search', '"aif-task:" in:body is:unmerged']),
+    );
   });
 });
 
