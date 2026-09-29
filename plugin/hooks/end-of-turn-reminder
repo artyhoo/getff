@@ -149,6 +149,10 @@ gate_line=""
 # (:405 / :426 / :625) precede the arm. Empty unless the glossary arm has something to
 # demand, so every pre-existing golden path is byte-identical.
 glossary_line=""
+# Manual-step line (operator directive 2026-09-28), computed by the arm just above the marker
+# guards; initialised HERE for the same reason as glossary_line — _autonomy_exit reads it and
+# every early exit above that arm must find it set under `set -u`.
+hands_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -236,6 +240,15 @@ _autonomy_exit() {
       _extra="${_extra}"$'\n\n'"${glossary_line}"
     else
       _extra="${glossary_line}"
+    fi
+  fi
+  # Manual-step arm: same single block, and — like the glossary slot — the ONLY way the line
+  # survives a recap-marked turn, which is where the final «From you:» line usually lives.
+  if [ -n "${hands_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${hands_line}"
+    else
+      _extra="${hands_line}"
     fi
   fi
   if [ -n "$_extra" ]; then
@@ -1088,6 +1101,79 @@ _eot_recap_defects() {
   printf '%s' "${d#; }"
 }
 
+# ── Manual-step arm (operator directive 2026-09-28) ──────────────────────────
+# «Everything the operator does by hand must be automated»: a final «From you: do by hand:
+# <action>» line is a PROCESS DEFECT, not a normal ending. The arm reads the LAST line of the
+# final assistant text that carries $AIF_EOT_FOR_YOU_PREFIX and, when its value is the HANDS
+# form (the token derived from the pack by _eot_for_you_token, like the D-B gate) and the
+# action is not a decision floor, asks the model to do the step itself or to spawn a task that
+# builds its automation. The three other D-B values never fire: `decide:` IS the fork floor.
+#
+# Default ON — deliberately NOT inside the recap gate (_eot_recap_defects), which is dormant
+# unless AIF_RECAP_GATE=1. AIF_EOT_HANDS_GATE=0 turns it off; the default lives HERE (`:-1`),
+# never in the packs, which are sourced after the env and would clobber an override (the
+# AIF_EOT_RECAP_MAX_LINES precedent).
+#
+# Exemptions: a fork card ($AIF_EOT_SEC_FORK) or an AskUserQuestion anywhere in the turn — the
+# human is being asked to decide, which is a floor. Floors (AIF_EOT_HANDS_FLOOR, a pack ERE
+# with one bilingual value) are matched on the action text BEFORE the first «(», so a trace in
+# the parenthesis can neither exempt nor convict the action.
+#
+# POSITION IS LOAD-BEARING: after the tool-only guard (a turn with no text has no line) and
+# after _eot_for_you_token is defined, BEFORE the marker guards — the «From you:» line lives in
+# the recap block, so a recap-marked turn is exactly where the arm must fire; it rides every
+# exit through _autonomy_exit, the ZCode dense block and the bottom block (one block per stop).
+#
+# Loop bound: ZCode re-stops carry stop_hook_active=false, so a per-session OWN-prefix flag
+# (aif-eot-hands-, never shared with another arm's bound — #1644->#1651) records the sha of
+# every action already blocked; the same action again is silent, a different one fires. An
+# empty sha (no hashing tool) skips the bound and the arm fires, as the sibling bounds do.
+#
+# Consumer on an OLDER pack: no floor key or no message function ⇒ the arm is inert. The
+# `command -v` guard is load-bearing: an undefined function in a cmdsubst aborts the whole hook
+# under set -e (the glossary arm's rc-127 lesson). The floor-key check states the intent
+# explicitly; an empty ERE would match every action anyway (BSD and GNU grep alike), so its
+# removal is an equivalent mutant — kept so the inert-on-lag contract does not rest on that.
+if [ "${AIF_EOT_HANDS_GATE:-1}" != "0" ] && [ -n "$text" ] \
+   && [ "$has_askuserquestion" != "true" ] \
+   && [ -n "${AIF_EOT_HANDS_FLOOR:-}" ] && [ -n "${AIF_EOT_FOR_YOU_PREFIX:-}" ] \
+   && [ -n "${AIF_EOT_FOR_YOU_HANDS:-}" ] && [ -n "${AIF_EOT_SEC_FORK:-}" ] \
+   && command -v aif_msg_eot_hands_step >/dev/null 2>&1 \
+   && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$text"; then
+  _hs_line="$(grep -F -- "$AIF_EOT_FOR_YOU_PREFIX" <<<"$text" | tail -n 1 || true)"
+  _hs_value="${_hs_line#*"$AIF_EOT_FOR_YOU_PREFIX"}"
+  while [ "${_hs_value# }" != "$_hs_value" ]; do _hs_value="${_hs_value# }"; done
+  _hs_tok="$(_eot_for_you_token "$AIF_EOT_FOR_YOU_HANDS")"
+  if [ -n "$_hs_line" ] && [ -n "$_hs_tok" ]; then
+    case "$_hs_value" in
+      "$_hs_tok"*)
+        _hs_action="${_hs_value#"$_hs_tok"}"
+        while [ "${_hs_action# }" != "$_hs_action" ]; do _hs_action="${_hs_action# }"; done
+        while [ "${_hs_action% }" != "$_hs_action" ]; do _hs_action="${_hs_action% }"; done
+        _hs_head="${_hs_action%%(*}"
+        if [ -n "$(printf '%s' "$_hs_head" | tr -d '[:space:]')" ] \
+           && ! grep -qiE -- "$AIF_EOT_HANDS_FLOOR" <<<"$_hs_head"; then
+          _hs_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+          _hs_flag="${TMPDIR:-/tmp}/aif-eot-hands-${_hs_key}"
+          _hs_tmp="${TMPDIR:-/tmp}/aif-eot-handst-${_hs_key}-$$"
+          _hs_sha=""
+          if printf '%s' "$_hs_head" > "$_hs_tmp" 2>/dev/null; then
+            _hs_sha="$(_residue_sha256 "$_hs_tmp")"
+            rm -f "$_hs_tmp" 2>/dev/null || true
+          fi
+          if [ -z "$_hs_sha" ] || ! { [ -f "$_hs_flag" ] && grep -qxF -- "$_hs_sha" "$_hs_flag" 2>/dev/null; }; then
+            if [ -n "$_hs_sha" ]; then
+              { printf '%s\n' "$_hs_sha" >> "$_hs_flag"; } 2>/dev/null || true
+            fi
+            hands_line="$(aif_msg_eot_hands_step "$_hs_action")"
+          fi
+        fi
+        ;;
+    esac
+  fi
+  unset _hs_line _hs_value _hs_tok _hs_action _hs_head _hs_key _hs_flag _hs_tmp _hs_sha 2>/dev/null || true
+fi
+
 # ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
 # POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
 # class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
@@ -1269,6 +1355,10 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$glossary_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${glossary_line}"
     fi
+    # Manual-step arm — same parity append (one block per stop).
+    if [ -n "$hands_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${hands_line}"
+    fi
     _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
@@ -1416,6 +1506,10 @@ fi
 # The glossary demand (D-F) rides the same block — one block per turn (:185-187).
 if [ -n "$glossary_line" ]; then
   reminder="${reminder}"$'\n\n'"${glossary_line}"
+fi
+# The manual-step line rides the same block too.
+if [ -n "$hands_line" ]; then
+  reminder="${reminder}"$'\n\n'"${hands_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{

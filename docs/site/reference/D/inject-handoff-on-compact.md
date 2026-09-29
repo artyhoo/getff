@@ -121,7 +121,7 @@ session start must never break the session start.
   `session_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)`.
   The writer applies the identical expression at `.claude/hooks/precompact-residue.sh:123`
   (its comment above the line explains why: a hostile id «cannot escape the directory»),
-  and the Stop-side gate at `.claude/hooks/end-of-turn-reminder.sh:404` applies it a third
+  and the Stop-side gate at `.claude/hooks/end-of-turn-reminder.sh:417` applies it a third
   time.
 - jq guard: line 28 — `command -v jq >/dev/null 2>&1 || exit 0` (the payload is JSON and
   every extraction is jq; without jq there is no work possible).

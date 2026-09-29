@@ -36,6 +36,14 @@ AIF_EOT_FOR_YOU_WAITING='waiting on: <what, from whom>'
 AIF_EOT_FOR_YOU_DECIDE='decide: <A> or <B>'
 AIF_EOT_FOR_YOU_HANDS='do by hand: <one action>'
 AIF_EOT_FOR_YOU_BANNED='проверь|ознакомься|убедись|посмотри|check that|review the|make sure|take a look'
+# Manual-step arm (Stop hook, operator directive 2026-09-28): the decision FLOORS that stay with
+# the human even on a «do by hand» line — merge/promote into main, npm publish, credentials,
+# money, and settings.json (agent-uncommittable by the classifier guard). Case-insensitive ERE,
+# matched only on the action text before the first «(». Identical value in BOTH packs (same
+# reason as AIF_EOT_FOR_YOU_BANNED: an operator on either pack writes in either language).
+# Word-bounded where a bare substring would over-match (main ⊂ domain, pay ⊂ repay). No bare
+# Russian «ключ» — it sits inside «включить», so only its credential collocations count.
+AIF_EOT_HANDS_FLOOR='(^|[^[:alnum:]_])(main|pay|buy)([^[:alnum:]_]|$)|promot|npm publish|publish[a-z ]* (to )?npm|passw|credential|secret|token|api[ -]?key|2fa|one-time code|payment|purchas|invoice|billing|money|settings\.json|парол|секрет|токен|api[ -]?ключ|ключ (api|доступа)|деньг|оплат|платеж|платёж|покуп'
 # Defect labels. Each one is a SELF-DESCRIBING phrase, never a bare token and never a raw
 # regex: the gate joins them into one `; `-separated list under a neutral verb, so a label
 # that only names a thing (a section, an alternation) reads to the model as "add this".
@@ -254,6 +262,16 @@ AIF_GLOSSARY_WORD_CLASS='АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩ�
 aif_msg_glossary_demand() {
   cat <<EOF
 [glossary] The operator used "$2" (= $1) — a term still being learned. Somewhere in this answer, explain it inline once in the fixed form: $1 (<one-line explanation>). The parentheses are the point: that exact form is what stops the explanation from scrolling away.
+EOF
+}
+
+# Stop hook — manual-step arm (operator directive 2026-09-28): the turn's final «From you:»
+# line hands the human a manual step that is not a decision floor. $1 = the action text.
+aif_msg_eot_hands_step() {
+  cat <<EOF
+[manual-step] Your "${AIF_EOT_FOR_YOU_PREFIX}" line hands the human a manual step: "$1". A manual step is a process defect, not a normal ending.
+Do it yourself now if you are allowed to. If it needs a mechanism that does not exist yet, or a permission you lack, spawn a follow-up task that builds the automation (spawn_task, where the harness has it) and name that task in your answer.
+Only decision floors stay with the human: a merge to main, npm publish, a fork choice, passwords, money. If this step is one of them, say which floor it is.
 EOF
 }
 
