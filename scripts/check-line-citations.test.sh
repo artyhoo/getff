@@ -60,6 +60,36 @@ expect_fail() {
   fi
 }
 
+# ------------------------------------------------ preflight: the checker runs at all
+# The entry-point guard once compared `import.meta.url` (resolved through symlinks) with
+# the unresolved `argv[1]`, so a checkout reached through a symlinked directory never
+# called run() and exited 0 with no output. Measured 2026-09-29 on the PC mirror, where
+# /home/etot/mirror is a symlink to /mnt/wsl/spill/mirror: 61 arms failed as «expected
+# exit 1, got 0» without one line naming why. Both probes below fail by name instead.
+new_repo preflight
+printf 'alpha\n' >"$REPO/target.md"
+printf 'See `target.md:9`.\n' >"$REPO/cite.md"
+commit_all
+preflight_probe() {
+  local via="$1" script="$2" rc
+  (cd "$REPO" && node "$script" --check cite.md) >"$TMP/out" 2>"$TMP/err"; rc=$?
+  [ "$rc" -eq 1 ] && grep -qF 'cite.md:1' "$TMP/err" && return 0
+  echo "FAIL: preflight ($via) — checker exited $rc on a past-EOF citation"
+  if [ "$rc" -eq 0 ] && [ ! -s "$TMP/err" ] && [ ! -s "$TMP/out" ]; then
+    echo "    cause: exit 0 with no output = the module never ran run(); its entry-point"
+    echo "    guard (isMainEntry) did not recognise argv[1] '$script'"
+    echo "    against realpath '$(cd "$(dirname "$script")" && pwd -P)/$(basename "$script")'"
+  fi
+  sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); return 1
+}
+if ! preflight_probe "as invoked, $CHECK" "$CHECK"; then
+  echo "check-line-citations paired-negative: preflight failed — every arm below would"
+  echo "report the same silence as its own failure; stopping here."
+  exit 1
+fi
+ln -s "$DIR" "$TMP/linked-scripts"
+preflight_probe "through a symlinked directory" "$TMP/linked-scripts/$(basename "$CHECK")"
+
 # ---------------------------------------------------------------- arm 1: drift by blame
 new_repo drift
 printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
@@ -737,8 +767,10 @@ HOOK="$REAL_ROOT/.husky/pre-commit"
 
 new_hook_repo() {
   new_repo "$1"
-  mkdir -p "$REPO/scripts" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
+  mkdir -p "$REPO/scripts/lib" "$REPO/.husky" "$REPO/_stub_bin" "$REPO/.claude/rules" "$REPO/docs"
   cp "$CHECK" "$REPO/scripts/check-line-citations.mjs"
+  # The checker imports its entry guard from scripts/lib/ — copy the helper with it.
+  cp "$DIR/lib/is-main-entry.mjs" "$REPO/scripts/lib/is-main-entry.mjs"
   cp "$DIR/check-pipefail-early-exit.mjs" "$REPO/scripts/check-pipefail-early-exit.mjs"
   cp "$HOOK" "$REPO/.husky/pre-commit"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$REPO/_stub_bin/npx"

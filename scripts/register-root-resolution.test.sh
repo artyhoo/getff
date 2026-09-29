@@ -20,7 +20,10 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$DIR/.." && pwd)"
+# Physical path: the scripts under test resolve their own root with `cd -P`, so a
+# checkout reached through a symlinked directory (the PC mirror /home/etot/mirror ->
+# /mnt/wsl/spill/mirror) must be compared by its real path, not the logical one.
+ROOT="$(cd -P "$DIR/.." && pwd)"
 SCRIPTS=("$DIR/register-precompact-hook.sh" "$DIR/register-handoff-gate.sh" "$DIR/register-recap-gate.sh" "$DIR/register-glossary-hook.sh")
 FAILED=0
 TMP="$(mktemp -d)"

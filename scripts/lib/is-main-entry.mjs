@@ -9,10 +9,11 @@
  * pass. Measured 2026-09-29: `render-rule-index.mjs --check` on a drifted index exits 1 by its
  * real path and 0, silently, through `ln -s <repo>/scripts <tmp>/linked`.
  *
- * Thirteen scripts carried their own copy of the naive compare and now import this module
+ * Fourteen scripts carried their own copy of the naive compare and now import this module
  * (#sync-by-copy-paste counter, dual-implementation-discipline.md §8). Scripts that already had a
  * correct inline realpath-both-sides copy (render-invariants, render-rule-channels,
- * render-harness-config, check-pipefail-early-exit, check-line-citations) keep it for now.
+ * render-harness-config, check-pipefail-early-exit) keep it for now. A test that copies one of
+ * these scripts into a fixture must copy this file beside it (check-line-citations.test.sh).
  * Principle 47 (packages/core/principles/47-symlink-safe-entry-point.test.ts) rejects the naive
  * form in any new file. packages/core has its own lock and cannot import this file — its twin
  * is packages/core/hooks/utils/is-direct-run.ts.

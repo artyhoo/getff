@@ -135,10 +135,10 @@
  * edit breaks the render gate, and `cite:historical` would assert a past state that
  * never existed). ARM 2 deliberately still applies inside regions.
  */
-import { readFileSync, writeFileSync, existsSync, statSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { dirname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 /**
  * `path:NN`, `path:NN-MM`, and `path:NN,MM,PP-QQ` — the comma list is group 4, parsed by
@@ -1033,18 +1033,6 @@ function report(f) {
   }
 }
 
-// Real paths on BOTH sides: `import.meta.url` is resolved through symlinks, `argv[1]` is
-// not, so a checkout reached through a symlinked directory (the PC mirror
-// /home/etot/mirror -> /mnt/wsl/spill/mirror, a symlinked /tmp) never called run() and
-// exited 0 with no output — a silent pass of every check (SSOT #269 defect class).
-const isMainEntry = () => {
-  try {
-    return (
-      realpathSync(fileURLToPath(import.meta.url)) ===
-      realpathSync(process.argv[1] ?? '')
-    );
-  } catch {
-    return false;
-  }
-};
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+// Entry guard: scripts/lib/is-main-entry.mjs realpaths both sides (SSOT #269) — a checkout
+// reached through a symlinked directory otherwise exits 0 without running a single check.
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
