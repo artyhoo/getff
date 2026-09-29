@@ -148,7 +148,7 @@ cp "$_vdec" "$_vp/before"
 out=$(_vrun superpowers "true" "$_sp" cc-plugin dry-run)
 cmp -s "$_vdec" "$_vp/before" && ok "versions: dry-run records nothing" || bad "versions: dry-run wrote tool-decisions.md"
 out=$(_vrun other "true" "claude plugin install nope@nowhere --scope user" cc-plugin yes)
-grep -q '^| other | cc-plugin | not read |' "$_vdec" && ok "versions: an unreadable version is recorded as «not read», never guessed" || bad "versions: no «not read» row"
+grep -q '^| other | cc-plugin | not read' "$_vdec" && ok "versions: an unreadable version is recorded as «not read», never guessed" || bad "versions: no «not read» row"
 # P2 writes its own marked block into the same file (one-button P2, `aif:project-checks`); either
 # order, its lines — even a row that starts like one of ours — stay byte-identical.
 _p2='<!-- aif:project-checks:begin -->
@@ -172,5 +172,109 @@ out=$(_vrun superpowers "true" "$_sp" cc-plugin yes)
 [ ! -e "$_vdec" ] && grep -q 'not recorded: .ai-factory/tool-decisions.md is not in this project' <<<"$out" \
   && ok "versions: no tool-decisions.md → the report says so, no file is created" || bad "versions: absent file: $out"
 rm -rf "$_vb" "$_vp"
+
+# === road step 7: every fixed-list tool is a versions row or a NOT-wired line (one-button P3) ===
+# Log entry 26 (point 13 — nothing unmarked) + entry 28 (pins = B — versions RECORDED). Four outcomes
+# used to leave no trace: an MCP server (no versions row), an MCP skipped for a missing claude CLI,
+# an interactive «N», and a plugin installed but disabled (counted present). P6 cold run F6 adds two
+# versions recorded «not read» though readable: a plugin from another marketplace, a Homebrew CLI.
+_sb=$(mktemp -d); _sp7=$(mktemp -d); mkdir -p "$_sp7/.ai-factory"
+cat > "$_sb/claude" <<'EOF'
+#!/bin/sh
+if [ "$1 $2 $3" = "plugin list --json" ]; then printf '%s\n' "${STUB_PLUGINS_JSON:-[]}"; exit 0; fi
+if [ "$1 $2" = "mcp get" ]; then [ -n "${STUB_MCP_GET:-}" ] && { printf '%s\n' "$STUB_MCP_GET"; exit 0; }; exit 1; fi
+exit 0
+EOF
+cat > "$_sb/curl" <<'EOF'
+#!/bin/sh
+for a in "$@"; do u="$a"; done
+case "$u" in
+  *context7*) [ -n "${STUB_C7_OUT:-}" ] && { printf '%s\n' "$STUB_C7_OUT"; exit 0; } ;;
+  *deepwiki*) [ -n "${STUB_DW_OUT:-}" ] && { printf '%s\n' "$STUB_DW_OUT"; exit 0; } ;;
+esac
+exit 7
+EOF
+printf '#!/bin/sh\n[ "$1" = --version ] && echo "ast-grep 0.44.1"\n' > "$_sb/ast-grep"
+printf '#!/bin/sh\nexit 0\n' > "$_sb/npm"   # npm ls -g knows nothing: the CLI came from Homebrew
+chmod +x "$_sb/claude" "$_sb/curl" "$_sb/ast-grep" "$_sb/npm"
+_dec7="$_sp7/.ai-factory/tool-decisions.md"
+_s7() { ( cd "$_sp7" && PROJECT_ROOT="$_sp7" GETFF_TODAY=2026-09-30 GETFF_GLOBAL=1 PATH="$_sb:$PATH" "$@" ); }
+_sum7() { bash -c 'set -euo pipefail; ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"; shift; "$@"; companion_not_wired_summary' _ "$REPO_ROOT" "$@" 2>&1; }
+
+# (b) an MCP server skipped because the claude CLI is absent → a NOT-wired line with that reason
+_eb=$(mktemp -d)
+out=$(PATH="$_eb:/usr/bin:/bin" _sum7 companion_step deepwiki "false" "claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp" mcp yes)
+awk '/NOT wired/{on=1; next} on' <<<"$out" | grep -q 'deepwiki — not added: the claude CLI is not on PATH' \
+  && ok "step 7 (b): MCP skipped for a missing claude CLI is a NOT-wired line" || bad "step 7 (b): no NOT-wired line: $(tr '\n' '|' <<<"$out")"
+rm -rf "$_eb"
+
+# (c) an interactive «N» → a NOT-wired line «declined by the person»
+out=$(_sum7 companion_step sometool "false" "echo SHOULD_NOT_RUN" cli interactive <<<"n")
+awk '/NOT wired/{on=1; next} on' <<<"$out" | grep -q 'sometool — not installed: declined by the person' \
+  && ok "step 7 (c): an interactive «N» is a NOT-wired line" || bad "step 7 (c): no NOT-wired line: $(tr '\n' '|' <<<"$out")"
+grep -qx SHOULD_NOT_RUN <<<"$out" && bad "step 7 (c): a declined install ran" || ok "step 7 (c): a declined install does not run"
+
+# (a) MCP servers get a versions row: the version the remote reports in its MCP initialize answer
+_sse() { printf 'event: message\ndata: {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","serverInfo":{"name":"%s","version":"%s"}}}\n' "$1" "$2"; }
+printf '## Accepted\n' > "$_dec7"
+printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp"}}}\n' > "$_sp7/.mcp.json"
+out=$(STUB_C7_OUT="$(_sse Context7 4.1.1)" STUB_DW_OUT="$(_sse DeepWiki 2.14.3)" \
+  STUB_MCP_GET="$(printf 'deepwiki:\n  Scope: User config (available in all your projects)\n  Type: http\n  URL: https://mcp.deepwiki.com/mcp')" \
+  _s7 companion_record_mcp_versions)
+grep -qxF '| context7 | mcp | 4.1.1 | 2026-09-30 | MCP initialize (https://mcp.context7.com/mcp) |' "$_dec7" \
+  && ok "step 7 (a): context7 in .mcp.json gets the version its remote reports" || bad "step 7 (a): no context7 row: $(tr '\n' '|' < "$_dec7") / $out"
+grep -qxF '| deepwiki | mcp | 2.14.3 | 2026-09-30 | MCP initialize (https://mcp.deepwiki.com/mcp) |' "$_dec7" \
+  && ok "step 7 (a): deepwiki at user scope gets the version its remote reports" || bad "step 7 (a): no deepwiki row: $(tr '\n' '|' < "$_dec7")"
+# paired negatives: the project's own entry is not getff's (kept, reported elsewhere) → no row;
+# a remote that does not answer → «not read: <reason>», never a guess
+printf '## Accepted\n' > "$_dec7"
+printf '{"mcpServers":{"context7":{"command":"my-own-context7"}}}\n' > "$_sp7/.mcp.json"
+out=$(STUB_C7_OUT="$(_sse Context7 4.1.1)" _s7 companion_record_mcp_versions)
+grep -q '^| context7 |' "$_dec7" && bad "step 7 (a): the project's own context7 entry got a getff versions row" || ok "step 7 (a): the project's own context7 entry gets no getff row"
+printf '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp"}}}\n' > "$_sp7/.mcp.json"
+out=$(_s7 companion_record_mcp_versions)
+grep -q '^| context7 | mcp | not read: https://mcp.context7.com/mcp did not answer the MCP initialize request |' "$_dec7" \
+  && ok "step 7 (a): a remote that does not answer is recorded «not read» with the reason" || bad "step 7 (a): no «not read» reason row: $(tr '\n' '|' < "$_dec7")"
+# no curl: a PATH of only the tools the recorder needs (macOS keeps curl in /usr/bin, so strip the dir)
+_nocurl=$(mktemp -d)
+for _t in bash sh awk sed grep cat date mv rm tr head cut jq node printf dirname basename env; do
+  _w=$(command -v "$_t" 2>/dev/null) && [ -x "$_w" ] && ln -s "$_w" "$_nocurl/$_t"
+done
+ln -s "$_sb/claude" "$_nocurl/claude"
+out=$( cd "$_sp7" && PROJECT_ROOT="$_sp7" GETFF_TODAY=2026-09-30 PATH="$_nocurl" "$_nocurl/bash" -c '
+  ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"; command -v curl >/dev/null && echo CURL_FOUND; companion_record_mcp_versions' _ "$REPO_ROOT" 2>&1)
+grep -q '^| context7 | mcp | not read: curl is not on PATH |' "$_dec7" && ! grep -q CURL_FOUND <<<"$out" \
+  && ok "step 7 (a): no curl → «not read: curl is not on PATH»" || bad "step 7 (a): no-curl row missing: $out / $(grep '^| context7' "$_dec7")"
+rm -rf "$_nocurl"
+. /dev/stdin <<<"$(grep -E '^GETFF_MCP_(CONTEXT7|DEEPWIKI)_URL=' "$REPO_ROOT/setup.d/lib.sh")"
+[ "$GETFF_MCP_CONTEXT7_URL" = "$(bash -c 'ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"; echo "$COMPANION_MCP_CONTEXT7_URL"' _ "$REPO_ROOT")" ] \
+  && [ "$GETFF_MCP_DEEPWIKI_URL" = "$(bash -c 'ENGINE_LIB_ONLY=1 source "$1/setup.d/engine.sh"; echo "$COMPANION_MCP_DEEPWIKI_URL"' _ "$REPO_ROOT")" ] \
+  && ok "step 7 (a): engine.sh reads the same MCP URLs lib.sh writes" || bad "step 7 (a): engine.sh MCP URLs drifted from lib.sh"
+grep -qE '^[^#]*companion_record_mcp_versions' "$REPO_ROOT/setup" \
+  && ok "step 7 (a): setup records the MCP versions after the companions" || bad "step 7 (a): setup never calls companion_record_mcp_versions"
+
+# F6: a plugin installed from another marketplace — read by its name, the id it was read from named
+printf '## Accepted\n' > "$_dec7"
+out=$(STUB_PLUGINS_JSON='[{"id":"superpowers@superpowers-dev","version":"6.4.2","enabled":true}]' \
+  _s7 companion_step superpowers "true" "claude plugin install superpowers@claude-plugins-official --scope user" cc-plugin yes)
+grep -qxF '| superpowers | cc-plugin | 6.4.2 | 2026-09-30 | claude plugin list --json (superpowers@superpowers-dev) |' "$_dec7" \
+  && ok "F6: a plugin from another marketplace records its version" || bad "F6: superpowers row: $(grep '^| superpowers' "$_dec7")"
+# F6: a CLI installed by Homebrew — npm ls -g knows nothing, `<bin> --version` does
+out=$(_s7 companion_step ast-grep-cli "command -v ast-grep" "npm install -g @ast-grep/cli" cli yes)  # ci-tool-pin: allow test fixture, never executed (detect answers present)
+grep -qxF '| ast-grep-cli | cli | 0.44.1 | 2026-09-30 | ast-grep --version |' "$_dec7" \
+  && ok "F6: a CLI not installed by npm records its version from --version" || bad "F6: ast-grep-cli row: $(grep '^| ast-grep-cli' "$_dec7")"
+# F6: a plugin installed but disabled is not «present»: a NOT-wired line, never re-enabled by getff
+_ag='[{"id":"ast-grep@ast-grep-marketplace","version":"1.0.0","enabled":false}]'
+out=$(STUB_PLUGINS_JSON="$_ag" _s7 _sum7 companion_step ast-grep "true" "claude plugin marketplace add ast-grep/agent-skill && claude plugin install ast-grep@ast-grep-marketplace --scope user" cc-plugin yes)
+awk '/NOT wired/{on=1; next} on' <<<"$out" | grep -q 'ast-grep — installed but disabled in Claude Code' \
+  && ok "F6: a disabled plugin is a NOT-wired line" || bad "F6: no NOT-wired line for the disabled plugin: $(tr '\n' '|' <<<"$out")"
+grep -q 'already present' <<<"$out" && bad "F6: a disabled plugin is reported «already present»" || ok "F6: a disabled plugin is not reported «already present»"
+out=$(STUB_PLUGINS_JSON="${_ag/false/true}" _s7 _sum7 companion_step ast-grep "true" "claude plugin install ast-grep@ast-grep-marketplace --scope user" cc-plugin yes)
+grep -q 'NOT wired' <<<"$out" && bad "F6: an enabled plugin got a NOT-wired line" || ok "F6: an enabled plugin stays «already present», no NOT-wired line"
+# an unreadable version carries its reason
+out=$(_s7 companion_step other "true" "claude plugin install nope@nowhere --scope user" cc-plugin yes)
+grep -q '^| other | cc-plugin | not read: nope@nowhere is not in claude plugin list --json |' "$_dec7" \
+  && ok "versions: «not read» names why" || bad "versions: no reason on «not read»: $(grep '^| other' "$_dec7")"
+rm -rf "$_sb" "$_sp7"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

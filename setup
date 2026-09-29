@@ -116,6 +116,9 @@ while IFS=$'\t' read -r name detect install kind stacks; do
   [ "$kind" = "mcp" ] && continue                # D5/I1: processed by 05-mcp layer inside install.sh (before 70-deps), never post-install
   companion_step "$name" "$detect" "$install" "$kind" "$emode"
 done < "$HERE/setup.d/companions.manifest"
+# The MCP servers install.sh wrote (05-mcp) get their versions row here: tool-decisions.md is seeded
+# later in that run (30-templates), so only now can the row land (road step 7, one-button P3).
+[ "$MODE" = "dry-run" ] || companion_record_mcp_versions
 
 # Skill routing: stamp colliding satellite skills (mattpocock-skills:tdd, :resolving-merge-conflicts)
 # with disable-model-invocation — see setup.d/skill-routing.sh. The plugin cache is user-scope, so
