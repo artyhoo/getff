@@ -17,7 +17,7 @@ sources:
 executed:
   - { example: matching-rule-on-a-matching-path, stack: repo, date: 2026-09-25, result: printed }
   - { example: matching-rule-on-a-relative-path, stack: repo, date: 2026-09-25, result: silent }
-docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
+docs-refresh: deferred — 2026-09-29, trigger build slice 1 NOT yet reflected: the loader gained the Read, Bash and compaction arms, a card directory beside the hook, paths:/events:/on: frontmatter triggers and a card-body fallback, so this page's prose, examples and hook line numbers describe the edit arm alone. The fact card is rendered from .claude/settings.json, which only the operator re-renders; this page is refreshed in the same PR once that lands; clears at that refresh
 ---
 
 # inject-matching-rule hook
