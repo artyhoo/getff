@@ -107,7 +107,7 @@ A hook that sources files from its own directory declares them on one line:
 
 A directory entry (trailing `/`) hashes the sorted `<sha256>  <file>` listing of every regular
 file directly in it, so an added file (a new `lang/de.sh`) is a mismatch too. Live cases:
-`end-of-turn-reminder.sh:38-42` picks `lang/<AIF_HOOK_LANG>.sh`, and `:54-55` falls back to an
+`end-of-turn-reminder.sh:44-48` picks `lang/<AIF_HOOK_LANG>.sh`, and `:60-61` falls back to an
 inline copy when `lib/residue-dir.sh` is missing — a different file set is different behaviour,
 so the installed copy's closure must match, not just the script.
 
@@ -151,7 +151,7 @@ Outcome table:
 `setup.d/10-skills.sh:211` and `setup.d/45-python.sh:1333` register
 `bash .claude/hooks/deps-hash-check.sh`, cwd-relative. It fails D3.1's exact-form check, so
 `deps-hash-check` stays doubled for consumers. Counting a path that may not resolve would risk the
-lost-gate case. The hook's `$TMPDIR` memo (`.claude/hooks/deps-hash-check.sh:430-436`) caches the
+lost-gate case. The hook's `$TMPDIR` memo (`.claude/hooks/deps-hash-check.sh:433-439`) caches the
 computation, not the fact of output, so both copies do print. Migrating the registration to the
 `$CLAUDE_PROJECT_DIR` form is separate installer work, out of scope here.
 
@@ -249,7 +249,7 @@ consumer.
 ### D9 — Version bump rides on arm (i)
 
 The manifest lives under `plugin/**`, so any source-hook change changes the payload and existing
-arm (i) (version-bump gate, `24-plugin-manifest-integrity.test.ts:398`) demands a bump. That is
+arm (i) (version-bump gate, `24-plugin-manifest-integrity.test.ts:479`) demands a bump. That is
 the point: a consumer's cached plugin must refresh to carry the new hashes. Consequence accepted:
 editing a twinned source now always implies a plugin release, even when the manual twin's bytes
 did not change.
