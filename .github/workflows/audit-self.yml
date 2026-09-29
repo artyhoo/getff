@@ -864,6 +864,10 @@ jobs:
         run: bash tests/install-sh/project-checks-record.test.sh
       - name: "install-sh — the consumer pre-push reads the record and arms a check once it is green (P2 C2)"
         run: bash tests/install-sh/prepush-follows-record.test.sh
+      - name: "install-sh — a project that lints with oxlint or Biome keeps its linter as the only one (P2 G5/K4)"
+        run: bash tests/install-sh/linter-slot.test.sh
+      - name: "install-sh — getff's ESLint lint script passes on unpruned suppressions, so fixing a baselined finding keeps lint green (P2 M2)"
+        run: bash tests/install-sh/lint-baseline-pass-unpruned.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
