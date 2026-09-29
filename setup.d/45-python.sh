@@ -1054,11 +1054,86 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body.
-  printf '\n%s\n' "$frag_marker" >> "$cfg"
-  cat "$frag_src" >> "$cfg"
-  echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body at the
+  # indent of the file's own `repos:` items — the fragment is written in column 0, and a column-0
+  # item after an indented sequence is a YAML error that stops pre-commit loading the config at all.
+  # The marker stays in column 0: a comment line does not take part in YAML block structure.
+  local block
+  if ! block=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX"); then
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: mktemp failed"
+    return 0
+  fi
+  { printf '\n%s\n' "$frag_marker"
+    _py_precommit_indent "$(_py_precommit_repos_indent "$cfg")" < "$frag_src"
+  } > "$block"
+  if _py_precommit_insert "$cfg" "$block"; then
+    echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  else
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: its repos: is written in a form getff does not edit (a flow sequence such as [...], or an anchor), so the file is left as it was"
+  fi
+  rm -f "$block"
   _py_precommit_prepush_stage
+}
+
+# The top-level `repos` key in every spelling a YAML loader reads as that key — bare, "repos" or
+# 'repos', spaces before the colon allowed. Matching only `repos:` sent a quoted key down the
+# «no repos: key» path, which appended a SECOND `repos:`; PyYAML (what pre-commit loads with) keeps
+# the last duplicate, so every hook the consumer had silently vanished.
+_PY_PRECOMMIT_REPOS_KEY='^(repos|"repos"|'"'"'repos'"'"')[ \t]*:'
+
+# _py_precommit_repos_indent <cfg> — the leading spaces of the first item of the top-level block
+# `repos:` sequence; empty (column 0) when the list is empty, flow-style (`repos: []`) or absent.
+# A CRLF file is matched with its CR removed.
+_py_precommit_repos_indent() {
+  awk -v kre="$_PY_PRECOMMIT_REPOS_KEY" '
+    { sub(/\r$/, "") }
+    !on && match($0, kre) { on = 1; next }
+    on && /^ *-([ \t]|$)/ { match($0, /^ */); printf "%s", substr($0, 1, RLENGTH); exit }
+    on && /^[^ \t#]/ { exit }' "$1"
+}
+
+# _py_precommit_indent <indent> — stdin with <indent> prepended to every non-empty line.
+_py_precommit_indent() {
+  awk -v p="$1" '{ print (length($0) ? p $0 : $0) }'
+}
+
+# _py_precommit_insert <cfg> <block-file> — put <block-file> at the END OF THE `repos:` SEQUENCE,
+# not the end of the file: a top-level key after it (`ci:`, say) would otherwise swallow the item.
+# `repos: []` / `repos: ~` become a block `repos:` so it can take the item; a file without the key
+# gets one. Blank and comment lines after the last item stay with the key that follows them. A CRLF
+# file gets CRLF lines. The file is rewritten in place (a symlink or its mode survives). Returns
+# non-zero, file untouched, when `repos:` holds a flow sequence (on its line or the next) or any
+# other node that is not a block sequence.
+_py_precommit_insert() {
+  local cfg="$1" block="$2" tmp="$1.getff.tmp" cr=""
+  if grep -q "$(printf '\r')\$" <<<"$(head -n 1 "$cfg" 2>/dev/null)"; then cr=$(printf '\r'); fi
+  if awk -v blk="$block" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v cr="$cr" '
+      function emit(  l) { while ((getline l < blk) > 0) print l cr; close(blk) }
+      function flush() { printf "%s", buf; buf = "" }
+      { raw = $0; l = $0; sub(/\r$/, "", l) }
+      !seen && match(l, kre) {
+        key = substr(l, 1, RLENGTH); rest = substr(l, RLENGTH + 1)
+        sub(/^[ \t]+/, "", rest); sub(/(^|[ \t]+)#.*$/, "", rest)
+        if (rest == "") print raw
+        else if (rest ~ /^(\[[ \t]*\]|~|null|Null|NULL)$/) print key cr
+        else { bad = 1; exit }
+        seen = on = first = 1; next
+      }
+      on && (l ~ /^[ \t]*$/ || l ~ /^#/) { buf = buf raw "\n"; next }
+      on && first && l !~ /^[ \t]*-([ \t]|$)/ && l !~ /^[^ \t\[{]/ { bad = 1; exit }
+      on && (l ~ /^[^ \t-]/ || l ~ /^(---|\.\.\.)([ \t]|$)/) { emit(); on = 0; flush(); print raw; next }
+      on { first = 0; flush(); print raw; next }
+      { print raw }
+      END {
+        if (bad) exit 1
+        if (on) { flush(); emit() } else if (!seen) { print "repos:" cr; emit() }
+      }' "$cfg" > "$tmp"; then
+    cat "$tmp" > "$cfg"
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # _py_precommit_prepush_stage — install the consumer's pre-commit pre-push stage with pre-commit's
