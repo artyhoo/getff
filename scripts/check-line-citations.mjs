@@ -242,6 +242,11 @@ const BACKREF_RE = /`:(\d+)(?:-(\d+))?`/g;
  */
 const CODE_BACKREF_RE = /(?<=^|[\s(/,]):(\d+)(?:-(\d+))?(?![\w:`])/dg;
 const CODE_COMMENT_LINE_RE = /^\s*(?:#|\/\/|\*|\/\*)/;
+// A comment line that is only its marker (a paragraph break) or that opens a list item
+// starts a new sentence even with no period before it — headings and bullets rarely end
+// in one, and «# Sources: t.sh:2 / # / # Ports: base (:3009)» otherwise bound the port
+// (cold review of this arm, 2026-09-29).
+const CODE_COMMENT_BREAK_RE = /^\s*(?:#|\/\/|\*|\/\*)\s*(?:$|[-*+]\s|\d+[.)]\s)/;
 const SENTENCE_BREAK_RE = /[.!?]\s/;
 /**
  * Prose form — the docs/site reference pages cite in sentences, not `path:NN`:
@@ -734,7 +739,7 @@ export function scanFile(srcFile) {
     const srcLine = idx + 1;
     const escape = escapeOf(text);
     const commentLine = code && CODE_COMMENT_LINE_RE.test(text);
-    if (!commentLine) carry = null;
+    if (!commentLine || CODE_COMMENT_BREAK_RE.test(text)) carry = null;
     const links = [...text.matchAll(MD_LINK_RE)].map((m) => [
       m.index,
       m.index + m[0].length,
@@ -797,6 +802,7 @@ export function scanFile(srcFile) {
       const { m, token } = c;
       let target;
       let weak = false;
+      let spans;
       if (c.codeBare) {
         const same = lineAnchors.filter((a) => a.at < m.index).pop();
         const between = same
@@ -807,6 +813,9 @@ export function scanFile(srcFile) {
         if (anchor.target === null) continue; // the nearer citation is itself a skip
         target = anchor.target;
         weak = anchor.weak;
+        // Blame every line from the anchor down, as the prose pass does: re-pointing the
+        // anchor to another file must move the sibling's baseline with it.
+        if (!same) spans = Array.from({ length: srcLine - carry.line + 1 }, (_, i) => carry.line + i);
       } else if (c.bare) {
         const anchor = anchors.filter((a) => a.at < m.index).pop();
         if (!anchor) continue; // no antecedent on this line — not a citation
@@ -852,12 +861,13 @@ export function scanFile(srcFile) {
           end: mem.end,
           escape,
           pos: mem.pos,
+          ...(spans ? { spans } : {}),
         });
       }
     }
     if (commentLine) {
       const last = lineAnchors[lineAnchors.length - 1];
-      if (last) carry = { target: last.target, weak: last.weak, tail: text.slice(last.at) };
+      if (last) carry = { target: last.target, weak: last.weak, tail: text.slice(last.at), line: srcLine };
       else if (carry) carry.tail += ` ${text}`;
     }
   });
