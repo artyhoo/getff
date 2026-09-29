@@ -652,3 +652,133 @@ describe('stack generic: its research is listed, never silenced (T-A5)', () => {
     expect(research).toEqual([{ rule: 'research', principle: '—', home: '—', status: 'not_wired', reason: 'not done: no .ai-factory/rules-research/generic.research.json', proof: '—', reached: '—' }]);
   });
 });
+
+// ── T-D2 ────────────────────────────────────────────────────────────────────────────────────────────
+// M2: a baseline of existing violations only ever shrinks. The probe (scripts/run-armed.sh, run by pre-push and
+// `validate`) finds the findings fixed since, only while the armed `npm run lint` exits 0, and writes the result
+// to a sidecar in the git dir — the tree stays clean. The shipped pre-commit's `--fold` applies it to the tracked
+// baseline, in the working tree and the index, with the record's count line — the path P2's arm flip rides.
+describe('the lint baseline shrinks as old findings are fixed, never grows (T-D2)', () => {
+  const armedRun = (dir: string, ...args: string[]) =>
+    spawnSync('bash', ['scripts/run-armed.sh', ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, GETFF_PROBE_TIMEOUT_S: '120' } });
+  const indexed = (dir: string, rel: string) => git(dir, 'show', `:${rel}`).stdout;
+  const committed = (dir: string, rel: string) => git(dir, 'show', `HEAD:${rel}`).stdout;
+  const REC = '.ai-factory/tool-decisions.md';
+  const baselineLine = (text: string) => text.split('\n').find((l) => l.startsWith('lint-baseline: '));
+  const shrinkSidecar = (dir: string) => join(dir, '.git/getff-shrink.local');
+  /** The record with the lines the placement pass printed as `EX:` (its lint-baseline line among them). */
+  function recordFromPlace(dir: string, out: string, linter: string) {
+    const extra = out.split('\n').filter((l) => l.startsWith('EX:') && l.length > 3).map((l) => l.slice(3));
+    expect(extra.some((l) => l.startsWith('lint-baseline: ')), out).toBe(true);
+    record(dir, { linter, extra });
+  }
+  function commitAll(dir: string) {
+    write(dir, 'scripts/run-armed.sh', readFileSync(join(HERE, 'run-armed.sh'), 'utf8'));
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '-qm', 'baseline');
+  }
+  const THROW_OLD = "export function f() {\n  throw 'old';\n}\n";
+  const THROW_FIXED = "export function f() {\n  throw new Error('old');\n}\n";
+
+  // ESLint's own bulk suppressions (99-finalize.sh _pc_suppress): `--suppress-all`, the lint script gains
+  // --pass-on-unpruned-suppressions, the record a `lint-baseline: eslint-suppressions.json` line.
+  function suppressedProject() {
+    const dir = eslintProject({ 'src/api/a.ts': UNSAFE, 'src/api/b.ts': UNSAFE });
+    write(dir, 'package.json', JSON.stringify({ name: 'fx', private: true, type: 'module', scripts: { lint: 'eslint . --pass-on-unpruned-suppressions' } }, null, 2) + '\n');
+    expect(spawnSync('npm', ['run', '--silent', 'lint', '--', '--suppress-all'], { cwd: dir, encoding: 'utf8' }).status).toBe(0);
+    record(dir, { linter: 'eslint', extra: ['lint-baseline: eslint-suppressions.json — 2 findings in existing code recorded; new ones still block'] });
+    commitAll(dir);
+    return dir;
+  }
+
+  it('ESLint suppressions: one old finding fixed → the probe says 2 → 1, the tree stays clean; the fold shrinks file, index and record', () => {
+    const dir = suppressedProject();
+    write(dir, 'src/api/a.ts', SAFE);
+    git(dir, 'add', 'src/api/a.ts');
+    const p = armedRun(dir, '--probe');
+    expect(p.stdout, p.stderr).toContain('lint baseline eslint-suppressions.json: 2 → 1 findings');
+    expect(readFileSync(join(dir, 'eslint-suppressions.json'), 'utf8')).toBe(committed(dir, 'eslint-suppressions.json'));
+    expect(existsSync(shrinkSidecar(dir))).toBe(true);
+    const f = armedRun(dir, '--fold');
+    expect(f.status, f.stdout + f.stderr).toBe(0);
+    const sup = JSON.parse(readFileSync(join(dir, 'eslint-suppressions.json'), 'utf8')) as Json;
+    expect(Object.keys(sup)).toEqual(['src/api/b.ts']);
+    expect(indexed(dir, 'eslint-suppressions.json')).toBe(readFileSync(join(dir, 'eslint-suppressions.json'), 'utf8'));
+    const line = 'lint-baseline: eslint-suppressions.json — 1 findings in existing code recorded; new ones still block';
+    expect(baselineLine(readFileSync(join(dir, REC), 'utf8'))).toBe(line);
+    expect(baselineLine(indexed(dir, REC))).toBe(line);
+    expect(existsSync(shrinkSidecar(dir))).toBe(false);
+    expect(npmLint(dir).status).toBe(0);
+  });
+
+  it('ESLint suppressions: a new violation beside the fix → no shrink, the probe names the lint exit, validate fails (paired negative)', () => {
+    const dir = suppressedProject();
+    write(dir, 'src/api/a.ts', SAFE);
+    write(dir, 'src/api/c.ts', UNSAFE);
+    const p = armedRun(dir, '--probe');
+    expect(p.stdout).toContain('lint baseline eslint-suppressions.json not shrunk: npm run lint exits 1');
+    expect(existsSync(shrinkSidecar(dir))).toBe(false);
+    expect(armedRun(dir, 'validate').status).toBe(1);
+    armedRun(dir, '--fold');
+    expect(readFileSync(join(dir, 'eslint-suppressions.json'), 'utf8')).toBe(committed(dir, 'eslint-suppressions.json'));
+    expect(readFileSync(join(dir, REC), 'utf8')).toBe(committed(dir, REC));
+  });
+
+  function exemptedOxProject() {
+    const dir = oxProject({ 'src/App.tsx': BAD_APP, 'src/old.ts': THROW_OLD, 'src/older.ts': THROW_OLD });
+    const { out } = place(dir, 'oxlint');
+    recordFromPlace(dir, out, 'oxlint');
+    commitAll(dir);
+    return dir;
+  }
+  const exemptFiles = (c: { overrides?: Override[] }) => exempt(c).flatMap((o) => o.files.filter((f) => f !== EXEMPT)).sort();
+
+  it('oxlint per-file exemptions: a fixed file leaves them; a new violation there fails again', () => {
+    const dir = exemptedOxProject();
+    expect(exemptFiles(cfgOf(dir))).toEqual(['src/App.tsx', 'src/old.ts', 'src/older.ts']);
+    write(dir, 'src/old.ts', THROW_FIXED);
+    const p = armedRun(dir, '--probe');
+    expect(p.stdout, p.stderr).toContain("lint baseline .oxlintrc.json: getff's per-file exemptions 3 → 2 files (fixed: no-throw-literal in src/old.ts)");
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(committed(dir, '.oxlintrc.json'));
+    expect(armedRun(dir, '--fold').status).toBe(0);
+    expect(exemptFiles(cfgOf(dir))).toEqual(['src/App.tsx', 'src/older.ts']);
+    expect(indexed(dir, '.oxlintrc.json')).toBe(readFileSync(join(dir, '.oxlintrc.json'), 'utf8'));
+    const line = "lint-baseline: .oxlintrc.json — getff's rules are off per file for 2 existing violations in 2 files (entries marked getff), new ones still block";
+    expect(baselineLine(readFileSync(join(dir, REC), 'utf8'))).toBe(line);
+    expect(baselineLine(indexed(dir, REC))).toBe(line);
+    expect(npmLint(dir).status).toBe(0);
+    write(dir, 'src/old.ts', THROW_OLD); // the exemption is really gone
+    expect(npmLint(dir).status).not.toBe(0);
+  });
+
+  it('oxlint per-file exemptions: a new violation elsewhere → nothing shrinks (paired negative)', () => {
+    const dir = exemptedOxProject();
+    write(dir, 'src/old.ts', THROW_FIXED);
+    write(dir, 'src/new.ts', THROW_OLD);
+    const p = armedRun(dir, '--probe');
+    expect(p.stdout).toContain('lint baseline .oxlintrc.json not shrunk: npm run lint exits 1');
+    armedRun(dir, '--fold');
+    expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(committed(dir, '.oxlintrc.json'));
+  });
+
+  it("ESLint's own config: the getff block shrinks per fixed file, and goes when the last one is fixed", () => {
+    const dir = eslintProject({ 'src/api/a.ts': UNSAFE, 'src/api/b.ts': UNSAFE });
+    const before = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
+    const { out } = place(dir, 'eslint');
+    recordFromPlace(dir, out, 'eslint');
+    commitAll(dir);
+    write(dir, 'src/api/a.ts', SAFE);
+    expect(armedRun(dir, '--probe').stdout).toContain("lint baseline eslint.config.mjs: getff's per-file exemptions 2 → 1 files");
+    expect(armedRun(dir, '--fold').status).toBe(0);
+    const text = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
+    expect(text).toMatch(/\{ files: \['src\/api\/b\.ts'\], rules: \{ 'rules-as-tests\/no-unsafe-zod-parse': 'off' \} \},/);
+    expect(text).not.toContain("'src/api/a.ts'");
+    expect(indexed(dir, 'eslint.config.mjs')).toBe(text);
+    expect(npmLint(dir).status).toBe(0);
+    write(dir, 'src/api/b.ts', SAFE);
+    armedRun(dir, '--probe');
+    armedRun(dir, '--fold');
+    expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toBe(before);
+    expect(npmLint(dir).status).toBe(0);
+  });
+});

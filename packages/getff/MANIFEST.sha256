@@ -220,10 +220,10 @@ cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/
 b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/audit-self/pre-merge-local.sh
 973385c162aab0d10f7bb8707b838c15f36facc77362c4af6ebf03edf3b2d358  packages/core/audit-self/pre-merge-local.test.sh
 2ecb7c63d661594c7eadbdfa874adabca47205679bb5deef6119dd7faa7e91cc  packages/core/audit-self/prove-rules-parity.test.ts
-1047676699337d10db7616b6303ae8f11b51461fce97fd7fa46c93e1581b5bf3  packages/core/audit-self/prove-rules.mjs
-de0be8664c51a2c4889d6710ee22cc8859a73f97562d8d114362f49bb2070d44  packages/core/audit-self/prove-rules.test.ts
+67a5d0cc5b830e297d3c6863271e3ca72b4433c83fb4c7651a06e1ff46e97738  packages/core/audit-self/prove-rules.mjs
+835ff9697c551fadb5244cd0b6ffafa8ef360f6450f371329b821559188ca013  packages/core/audit-self/prove-rules.test.ts
 4946d771cb55e82ce8d447b5ef317ea0e564bbe77726c7509262ff8107cdb89a  packages/core/audit-self/r2-na-marker.sh
-befb56d3ff7e2381505c251a5a8e7cd98cf0606a2ad24a67db896c6e34fe4b26  packages/core/audit-self/run-armed.sh
+6cf590f9e052e3ba42dfc28a796eb2cb5be24309082fee67a5f7c565753b095a  packages/core/audit-self/run-armed.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts
 bbffc483cb46e4b49ddca4101a9f18498f93d661e64dd3a1ef16efad372598cb  packages/core/audit-self/template-render.audit.ts
@@ -547,6 +547,7 @@ b86e17b4e5dde46b94fcd858afe66f1dff13c1aeaa1a3e258f457dd386fec0d2  packages/core/
 ce16d7bd773db89bd5ac04d1b8c9d1a274c8fedeaa711b9c1db1a00601fa44c0  packages/core/install/rule-bootstrap-practice.test.ts
 e30bf3866cf589b2110f28cb93e4a0f2abbd05a512540d9e6bed9f6e0c757411  packages/core/install/synth-and-wire.bundle.mjs
 bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
+84de48927364b9522356fdabc73df364750b3a741bf9fc002da592879b945b44  packages/core/install/tool-decisions-blocks-named.test.ts
 1f00d21e9c0724b41bff3d498089b3f2899922dbe8da043139e45b1def1676e9  packages/core/install/wire-eslint-r2.test.ts
 59dcfa3324c2344b0beebb27c416e2b716af9a09cf99e477c334b82f7834d67c  packages/core/install/wire-eslint-r2.ts
 78aa0d24db5f177c1559773bfe24f191323a1a9047c789fa3a80428ff87d93ec  packages/core/install/wire-live-snippet.test.ts
@@ -1110,7 +1111,7 @@ e25136f9cf9844a8560ff7fa7db0f7427abf1bfb1b62ca949c0d9e9f5951cc3f  setup.d/55-run
 5fcc9f400c5592c92b808dc2f6fc234b38fd76ffcdce35ad5e174126c507c799  setup.d/70-deps.sh
 a07a875b56662ae94373e254928e593743c9f004da117a29879c5516ea107733  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
-ed86f04aadabf91c9a63e1996284aba2cb249c432027970a3a68e3ae77d0e182  setup.d/99-finalize.sh
+f971331a4f7088660dea5075d1dfeca4e54dd0f3bd3e8a75263a74badc39a2ed  setup.d/99-finalize.sh
 5384fdc3b68ddb0fa206dc90fe913fc85fb9f8d936801cbc2957dbd23fee6dff  setup.d/LAYERS.md
 516f195e8321a73ad33cddd863e3073ebadb50f561cef7daeb8f537193ddbc48  setup.d/aif-handoff-guided-install.sh
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh

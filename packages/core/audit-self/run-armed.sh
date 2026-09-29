@@ -6,8 +6,10 @@
 # (the shipped pre-commit) moves it into the record and stages it, so the flip rides the next commit.
 #   validate   every armed command, all run, exit 1 if any failed; then --probe
 #   --probe    each not-armed command, never blocking, GETFF_PROBE_TIMEOUT_S (120) s each; exit 0 arms
-#              it. A reason starting «not wired:» is structural: never run.
-#   --fold     the sidecar into the record, in the working tree and the index
+#              it. A reason starting «not wired:» is structural: never run. Then the shrink: while `npm run
+#              lint` is armed and exits 0, the record's lint-baseline findings fixed since are measured by
+#              prove-rules.mjs --shrink into a second sidecar (a baseline only ever shrinks)
+#   --fold     both sidecars into the tracked files (record, baseline), in the working tree and the index
 #   <command…> one check: skipped while not-armed, else run;  --if-armed '<command>' <cmd…>: lint-staged
 # A missing or unreadable record exits 2: an empty armed list is valid only when the record says so.
 set -uo pipefail
@@ -17,6 +19,7 @@ ROOT=$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)
 REC="$ROOT/.ai-factory/tool-decisions.md" RREL=.ai-factory/tool-decisions.md
 B='<!-- aif:project-checks:begin -->' E='<!-- aif:project-checks:end -->'
 G=$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null) && SIDE="$G/getff-armed.local" || SIDE="$ROOT/.ai-factory/project-checks.local"
+SHRINK="${G:+$G/getff-shrink.local}" PR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/prove-rules.mjs"
 block() { awk -v b="$B" -v e="$E" '{sub(/\r$/,"")} $0==e{f=0} f; $0==b{f=1}' "$REC"; }  # CRLF read as LF
 if [ ! -r "$REC" ] || [ "$(block | grep -cxE 'armed:|not-armed:')" != 2 ]; then
   echo "❌ run-armed: no readable project-checks record (the aif:project-checks block with armed: and not-armed: in $REC) — re-run the getff install to write it" >&2
@@ -33,7 +36,7 @@ move() {  # stdin record → stdout with the commands in $1 (one per line) moved
     f && r ~ /^[a-z-]+:$/ {print; if (r=="armed:") for (k in m) print "- " k; next}
     f && r ~ /^- / {l=r; sub(/^- /,"",l); sub(/ # .*$/,"",l); if (l in m) next} {print}'
 }
-fold() {
+fold_armed() {
   local L t F; L=$(flipped); [ -n "$L" ] || { rm -f "$SIDE"; return 0; }; t=$(mktemp) || return 1
   { move "$L" < "$REC" > "$t" && cat "$t" > "$REC"; } || { rm -f "$t"; return 1; }
   if F=$(git -C "$ROOT" ls-files --full-name --error-unmatch "$RREL" 2>/dev/null) && git -C "$ROOT" show ":./$RREL" | move "$L" > "$t"; then
@@ -41,6 +44,12 @@ fold() {
   fi
   rm -f "$t" "$SIDE"; echo "✓ armed in the record and staged with this commit: $(paste -sd, - <<< "$L")"
 }
+fold_shrink() {  # the shrink sidecar applied by prove-rules.mjs (it rewrites the lint-baseline line too)
+  [ -n "$SHRINK" ] && [ -f "$SHRINK" ] || return 0
+  [ -f "$PR" ] || { echo "✗ lint baseline not shrunk: $PR is missing — $SHRINK stays for the next commit" >&2; return 1; }
+  ( cd "$ROOT" && node "$PR" --fold-shrink "$SHRINK" ) && rm -f "$SHRINK"
+}
+fold() { local rc=0; fold_armed || rc=1; fold_shrink || rc=1; return "$rc"; }
 bounded() {  # $1 s, $2 command → its exit code; 124 = over the bound (its process group is killed)
   local p w rc; set -m
   ( cd "$ROOT" && exec bash -c "$2" ) </dev/null >/dev/null 2>&1 & p=$!
@@ -58,6 +67,15 @@ probe() {
       *) echo "· not armed: $c — $r" ;;
     esac
   done <<< "$(na)"
+  shrink
+}
+shrink() {  # the record's lint-baseline, measured while `npm run lint` is armed — prove-rules.mjs --shrink
+  # Read through $(…) as the other callers do: under pipefail these pipelines' own status is not the answer.
+  [ -n "$SHRINK" ] && [ -f "$PR" ] && grep -q '^lint-baseline: ' <<< "$(block)" && grep -qxF 'npm run lint' <<< "$(armed)" || return 0
+  local t="${GETFF_PROBE_TIMEOUT_S:-120}" o rc; o=$(mktemp) || return 0
+  GETFF_PR="$PR" GETFF_SHRINK="$SHRINK" GETFF_OUT="$o" bounded "$t" 'node "$GETFF_PR" --shrink --out "$GETFF_SHRINK" > "$GETFF_OUT" 2>&1'; rc=$?
+  cat "$o"; rm -f "$o"
+  [ "$rc" -ne 124 ] || echo "· lint baseline not shrunk: over $t s (the next probe measures it again)"
 }
 validate() {
   local c failed=()

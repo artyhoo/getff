@@ -1016,7 +1016,7 @@ _pc_null_rules_off() {
   note_not_wired "typed ESLint rules $rules — off: they need the strictNullChecks compiler option and your tsconfig does not set it; getff does not edit a project's tsconfig"
 }
 # _pc_suppress — ESLint's bulk suppressions: record the existing findings in eslint-suppressions.json
-# (a shrink-only file ESLint reads), so `npm run lint` blocks new findings only; lint-staged's eslint
+# (shrink-only: run-armed.sh's probe prunes what was fixed), so `npm run lint` blocks new findings only; lint-staged's eslint
 # steps get --pass-on-unpruned-suppressions so fixing an old finding does not block the commit.
 _pc_suppress() {
   local bin="$PROJECT_ROOT/node_modules/.bin/eslint" n f

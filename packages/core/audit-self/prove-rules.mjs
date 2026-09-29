@@ -12,6 +12,10 @@
 //                                           Exit 1 when a placed rule fails its proof, 2 when base-core.md has a
 //                                           status outside fires | partial | not_wired.
 //   node scripts/prove-rules.mjs --remove   take out everything getff placed in the lint config
+//   --shrink --out <file>                   scripts/run-armed.sh's probe: the baseline findings fixed since, into
+//                                           <file> (a sidecar in the git dir) — only while the lint exits 0
+//   --fold-shrink <file>                    the shipped pre-commit's fold: <file> applied to the baseline and the
+//                                           record's lint-baseline line, in the working tree and the index
 //   --place --linter oxlint|eslint --stack <stack> [--result <file>]   the install's placement pass
 //   --wanted-top --stack <stack>            the rules getff sets at the top of an oxlint config (JSON), for
 //                                           P4's oxlint_register_jsplugin
@@ -273,6 +277,41 @@ function dropRule(cfg, id) {
   cfg.overrides = (cfg.overrides ?? []).filter((o) => !isGetffEntry(o) || Object.keys(o.rules ?? {}).length > 0);
 }
 
+/** file → Set of rule ids (a generated rule as `getff:<id>`) → getff's exemption entries, one per rule set. */
+function oxlintExemptEntries(cfg, perFile) {
+  const byRules = new Map();
+  for (const [f, ids] of perFile) {
+    const rules = {};
+    const offCarriers = [...ids].filter((i) => i.startsWith('getff:')).map((i) => i.slice(6));
+    for (const i of ids) if (!i.startsWith('getff:')) rules[i] = 'off';
+    if (offCarriers.length) {
+      const rest = (cfg.rules?.[CARRIER] ?? ['error']).slice(1).filter((e) => !offCarriers.includes(tagOf(e)));
+      rules[CARRIER] = rest.length ? [cfg.rules[CARRIER][0], ...rest] : 'off';
+    }
+    const k = JSON.stringify(rules);
+    if (!byRules.has(k)) byRules.set(k, { files: [], rules });
+    byRules.get(k).files.push(escapeGlob(f));
+  }
+  return [...byRules.values()].map((e) => ({ files: [...e.files.sort(), EXEMPT_GLOB], rules: e.rules }));
+}
+/** The other way round: getff's exemption entries of an oxlint config → file → Set of rule ids. */
+function oxlintExemptPairs(cfg) {
+  const out = new Map();
+  const tags = Array.isArray(cfg.rules?.[CARRIER]) ? cfg.rules[CARRIER].slice(1).map(tagOf).filter(Boolean) : [];
+  for (const o of (cfg.overrides ?? []).filter((x) => x?.files?.includes(EXEMPT_GLOB))) {
+    for (const f of o.files.filter((x) => x !== EXEMPT_GLOB).map(unescapeGlob)) {
+      if (!out.has(f)) out.set(f, new Set());
+      for (const [k, v] of Object.entries(o.rules ?? {})) {
+        if (k === CARRIER) {
+          const left = Array.isArray(v) ? v.slice(1).map(tagOf) : [];
+          for (const t of tags.filter((x) => !left.includes(x))) out.get(f).add(`getff:${t}`);
+        } else if (severity(v) === 'off' || severity(v) === 0) out.get(f).add(k);
+      }
+    }
+  }
+  return out;
+}
+
 export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTIME === '1', lint = realLint } = {}) {
   const file = oxlintConfig(root);
   const before = readFileSync(file, 'utf8');
@@ -354,21 +393,7 @@ export function placeOxlint(root, { stack, strict = process.env.AIF_STRICT_RUNTI
     if (!perFile.has(h.file)) perFile.set(h.file, new Set());
     perFile.get(h.file).add(h.id);
   }
-  const byRules = new Map();
-  for (const [f, ids] of perFile) {
-    const rules = {};
-    const offCarriers = [...ids].filter((i) => i.startsWith('getff:')).map((i) => i.slice(6));
-    for (const i of ids) if (!i.startsWith('getff:')) rules[i] = 'off';
-    if (offCarriers.length) {
-      const rest = (cfg.rules[CARRIER] ?? ['error']).slice(1).filter((e) => !offCarriers.includes(tagOf(e)));
-      rules[CARRIER] = rest.length ? [cfg.rules[CARRIER][0], ...rest] : 'off';
-    }
-    const k = JSON.stringify(rules);
-    if (!byRules.has(k)) byRules.set(k, { files: [], rules });
-    byRules.get(k).files.push(escapeGlob(f));
-  }
-  const exemptions = [...byRules.values()].map((e) => ({ files: [...e.files.sort(), EXEMPT_GLOB], rules: e.rules }));
-  cfg.overrides.push(...exemptions); // last, so they win over getff's own entries
+  cfg.overrides.push(...oxlintExemptEntries(cfg, perFile)); // last, so they win over getff's own entries
   writeLike(file, cfg, before);
 
   // 5. One verify run. A rule still reporting is removed alone, with its reason — no second pass.
@@ -440,6 +465,37 @@ function withEslintBlock(text, block) {
   return lines.join('\n');
 }
 const isGetffRule = (id) => id.startsWith('rules-as-tests/');
+/** file → Set of rule ids → the block's per-file entries, one per rule set. */
+function eslintExemptEntries(perFile) {
+  const byRules = new Map();
+  for (const [f, ids] of perFile) {
+    const k = JSON.stringify([...ids].sort());
+    if (!byRules.has(k)) byRules.set(k, { files: [], rules: Object.fromEntries([...ids].sort().map((i) => [i, 'off'])) });
+    byRules.get(k).files.push(escapeGlob(f));
+  }
+  return [...byRules.values()].map((e) => ({ files: e.files.sort(), rules: e.rules }));
+}
+/** getff's block in an ESLint config → its per-file pairs (file → Set of rule ids) and its file-less entries
+ *  (a rule still red after the baseline, off everywhere); null when there is no block. */
+function eslintExemptBlock(text) {
+  const b = text.indexOf(ESLINT_BEGIN);
+  const e = text.indexOf(ESLINT_END, b);
+  if (b < 0 || e < 0) return null;
+  const body = text.slice(b, e);
+  const strings = (s) => [...s.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((x) => x[1].replace(/\\(.)/g, '$1'));
+  const perFile = new Map();
+  for (const m of body.matchAll(/\{ files: \[([^\]]*)\], rules: \{([^}]*)\} \}/g)) {
+    const ids = [...m[2].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)].map((r) => r[1].replace(/\\(.)/g, '$1'));
+    for (const f of strings(m[1]).map(unescapeGlob)) {
+      if (!perFile.has(f)) perFile.set(f, new Set());
+      for (const id of ids) perFile.get(f).add(id);
+    }
+  }
+  const globals = [...body.matchAll(/^\s*\{ rules: \{([^}]*)\} \},$/gm)].map((m) => ({
+    rules: Object.fromEntries([...m[1].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)].map((r) => [r[1].replace(/\\(.)/g, '$1'), 'off'])),
+  }));
+  return { perFile, globals };
+}
 
 export function placeEslintOwn(root, { lint = realLint } = {}) {
   const file = eslintConfig(root);
@@ -459,13 +515,7 @@ export function placeEslintOwn(root, { lint = realLint } = {}) {
     if (!perFile.has(d.file)) perFile.set(d.file, new Set());
     perFile.get(d.file).add(d.id);
   }
-  const byRules = new Map();
-  for (const [f, ids] of perFile) {
-    const k = JSON.stringify([...ids].sort());
-    if (!byRules.has(k)) byRules.set(k, { files: [], rules: Object.fromEntries([...ids].sort().map((i) => [i, 'off'])) });
-    byRules.get(k).files.push(escapeGlob(f));
-  }
-  const entries = [...byRules.values()].map((e) => ({ files: e.files.sort(), rules: e.rules }));
+  const entries = eslintExemptEntries(perFile);
   const next = withEslintBlock(before, eslintBlockLines(entries));
   if (next === null) {
     return { placed: [], notPlaced: [{ rule: '*', reason: `existing violations not exempted: getff found no closing \`];\` / \`);\` line in ${relative(root, file)} to put its block before` }], kept: [], exemptFiles: 0, exemptViolations: 0, lintRc: null };
@@ -657,13 +707,13 @@ const safeName = (id) => id.replace(/^rules-as-tests\//, '').replace(/[^A-Za-z0-
 function sampleBase(root) {
   return existsSync(join(root, 'src')) ? 'src' : '.';
 }
-function excludeOnce(root) {
+function excludeOnce(root, name = `${PROOF_DIR}/`) {
   const r = sh('git', ['rev-parse', '--git-path', 'info/exclude'], root);
   if (r.rc !== 0) return;
   const p = resolve(root, r.stdout.trim());
   mkdirSync(dirname(p), { recursive: true });
   const text = existsSync(p) ? readFileSync(p, 'utf8') : '';
-  if (!text.split('\n').includes(`${PROOF_DIR}/`)) appendFileSync(p, `${text && !text.endsWith('\n') ? '\n' : ''}${PROOF_DIR}/\n`);
+  if (!text.split('\n').includes(name)) appendFileSync(p, `${text && !text.endsWith('\n') ? '\n' : ''}${name}\n`);
 }
 
 /** Every placed rule's bad and good example through the project's own lint command.
@@ -904,27 +954,10 @@ function exemptions(root, linter) {
     out.get(id).add(f);
   };
   if (linter === 'oxlint') {
-    const cfg = readJson(oxlintConfig(root));
-    const tags = Array.isArray(cfg.rules?.[CARRIER]) ? cfg.rules[CARRIER].slice(1).map(tagOf).filter(Boolean) : [];
-    for (const o of (cfg.overrides ?? []).filter((x) => x?.files?.includes(EXEMPT_GLOB))) {
-      const files = o.files.filter((f) => f !== EXEMPT_GLOB).map(unescapeGlob);
-      for (const [k, v] of Object.entries(o.rules ?? {})) {
-        if (k === CARRIER) {
-          const left = Array.isArray(v) ? v.slice(1).map(tagOf) : [];
-          for (const t of tags.filter((x) => !left.includes(x))) for (const f of files) add(`getff:${t}`, f);
-        } else if (severity(v) === 'off' || severity(v) === 0) for (const f of files) add(k, f);
-      }
-    }
+    for (const [f, ids] of oxlintExemptPairs(readJson(oxlintConfig(root)))) for (const id of ids) add(id, f);
   } else if (linter === 'eslint') {
-    const text = readFileSync(eslintConfig(root), 'utf8');
-    const b = text.indexOf(ESLINT_BEGIN);
-    const e = text.indexOf(ESLINT_END, b);
-    if (b >= 0 && e > b) {
-      for (const m of text.slice(b, e).matchAll(/\{ files: \[([^\]]*)\], rules: \{([^}]*)\} \}/g)) {
-        const files = [...m[1].matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((x) => x[1].replace(/\\(.)/g, '$1'));
-        for (const r of m[2].matchAll(/'((?:[^'\\]|\\.)*)': 'off'/g)) for (const f of files) add(r[1], f);
-      }
-    }
+    const block = eslintExemptBlock(readFileSync(eslintConfig(root), 'utf8'));
+    for (const [f, ids] of block?.perFile ?? []) for (const id of ids) add(id, f);
     const sup = join(root, 'eslint-suppressions.json');
     if (existsSync(sup)) {
       try {
@@ -1116,6 +1149,205 @@ export function table(root, { lint = realLint } = {}) {
 /** Kept for the callers of scope C: the proof is the table. */
 export const prove = table;
 
+// ─── The shrink ─────────────────────────────────────────────────────────────────────────────────────
+// A baseline of existing violations only ever shrinks (operator log entry 28, fork 1 = A). scripts/run-armed.sh
+// runs `--shrink` after its probe while `npm run lint` is armed: it measures what was fixed since, only when the
+// lint exits 0, and writes that to a sidecar in the git dir — the tree is untouched. The shipped pre-commit's
+// `run-armed.sh --fold` runs `--fold-shrink`: the tracked baseline and the record's lint-baseline line change in
+// the working tree and in the index — the path P2's arm flip takes. Applying only removes: a count drops to what
+// the probe measured, never rises, and an entry the probe did not measure is kept as it is.
+const SUPPRESSIONS = 'eslint-suppressions.json';
+const RECORD = '.ai-factory/tool-decisions.md';
+const SHRINK_CONFIGS = ['.oxlintrc.getff-shrink.json', ...['mjs', 'js', 'cjs', 'ts', 'mts', 'cts'].map((e) => `eslint.config.getff-shrink.${e}`)];
+const countOf = (sup) => Object.values(sup ?? {}).reduce((n, rules) => n + Object.values(rules ?? {}).reduce((m, r) => m + (r?.count ?? 0), 0), 0);
+const exemptKind = (rel) => (rel === '.oxlintrc.json' ? 'oxlint' : /^eslint\.config\.[cm]?[jt]s$/.test(rel) ? 'eslint' : undefined);
+function exemptPairsOf(kind, text) {
+  if (kind === 'oxlint') return oxlintExemptPairs(JSON.parse(text));
+  return eslintExemptBlock(text)?.perFile ?? new Map();
+}
+
+function shrinkSuppressions(root, dir) {
+  const shape = lintShape(root);
+  if (!existsSync(join(root, SUPPRESSIONS))) return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: the file is not in this project`] };
+  if (shape.linter !== 'eslint' || shape.kind === 'chain') {
+    return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: the lint script is not one eslint call (${shape.script ?? 'no lint script'})`] };
+  }
+  const copy = join(dir, 'getff-eslint-suppressions.tmp');
+  try {
+    const base = readJson(join(root, SUPPRESSIONS));
+    writeFileSync(copy, JSON.stringify(base));
+    const r = sh('npm', ['run', '--silent', 'lint', '--', '--prune-suppressions', '--suppressions-location', copy], root);
+    if (r.rc !== 0) return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: npm run lint exits ${r.rc}`] };
+    const next = readJson(copy);
+    const [n, m] = [countOf(base), countOf(next)];
+    if (m >= n) return { lines: [`· lint baseline ${SUPPRESSIONS}: ${n} findings, none fixed yet`] };
+    return { lines: [`✓ lint baseline ${SUPPRESSIONS}: ${n} → ${m} findings — the next commit folds it in`], part: { kind: 'suppressions', base, next } };
+  } catch (e) {
+    return { lines: [`· lint baseline ${SUPPRESSIONS} not shrunk: ${e.message}`] };
+  } finally {
+    rmSync(copy, { force: true });
+  }
+}
+
+/** Each exempted rule, per file, linted with getff's exemptions taken out: a pair with no diagnostic is fixed. */
+function shrinkExempt(root, rel) {
+  const kind = exemptKind(rel);
+  if (!kind || !existsSync(join(root, rel))) return { lines: [`· lint baseline ${rel} not shrunk: getff keeps per-file exemptions only in .oxlintrc.json or eslint.config.*`] };
+  const text = readFileSync(join(root, rel), 'utf8');
+  const perFile = exemptPairsOf(kind, text);
+  if (!perFile.size) return { lines: [] };
+  const lint = sh('npm', ['run', '--silent', 'lint'], root);
+  if (lint.rc !== 0) return { lines: [`· lint baseline ${rel} not shrunk: npm run lint exits ${lint.rc}`] };
+  const files = [...perFile.keys()].filter((f) => existsSync(join(root, f)));
+  let diags = [];
+  if (files.length) {
+    const tmp = join(root, kind === 'oxlint' ? SHRINK_CONFIGS[0] : rel.replace(/^eslint\.config\./, 'eslint.config.getff-shrink.'));
+    excludeOnce(root, relative(root, tmp));
+    try {
+      if (kind === 'oxlint') {
+        const cfg = JSON.parse(text);
+        cfg.overrides = (cfg.overrides ?? []).filter((o) => !o?.files?.includes(EXEMPT_GLOB));
+        writeFileSync(tmp, JSON.stringify(cfg, null, 2) + '\n');
+      } else writeFileSync(tmp, withoutEslintBlock(text));
+      const r = sh(join(root, 'node_modules/.bin', kind), ['-c', tmp, '-f', 'json', ...files], root);
+      const report = parseReport(r.stdout, root);
+      if (report === null) return { lines: [`· lint baseline ${rel} not shrunk: ${kind} gave no report getff can read: ${firstLine(r.stdout + r.stderr)}`] };
+      diags = report.filter((d) => perFile.get(d.file)?.has(d.id));
+    } finally {
+      rmSync(tmp, { force: true });
+    }
+  }
+  const dirty = new Set(diags.map((d) => `${d.id}\0${d.file}`));
+  const clean = [...perFile].flatMap(([f, ids]) => [...ids].filter((id) => !dirty.has(`${id}\0${f}`)).map((id) => [id, f]));
+  const before = perFile.size;
+  if (!clean.length) return { lines: [`· lint baseline ${rel}: getff's per-file exemptions for ${before} files, none fixed yet`] };
+  const after = [...perFile].filter(([f, ids]) => [...ids].some((id) => dirty.has(`${id}\0${f}`))).length;
+  const fixed = clean.map(([id, f]) => `${id} in ${f}`).join(', ');
+  return {
+    lines: [`✓ lint baseline ${rel}: getff's per-file exemptions ${before} → ${after} files (fixed: ${fixed}) — the next commit folds it in`],
+    part: { kind, clean, violations: diags.length },
+  };
+}
+
+/** `--shrink`: every lint-baseline line of the record, measured; the fixed part goes to `out`, else `out` goes. */
+export function shrinkProbe(root, out) {
+  for (const f of SHRINK_CONFIGS) rmSync(join(root, f), { force: true }); // a run killed at its bound
+  const rec = join(root, RECORD);
+  const rels = existsSync(rec)
+    ? readFileSync(rec, 'utf8').split('\n').filter((l) => l.startsWith('lint-baseline: ')).map((l) => l.slice('lint-baseline: '.length).split(' — ')[0])
+    : [];
+  const lines = [];
+  const parts = {};
+  for (const rel of rels) {
+    const r = rel === SUPPRESSIONS ? shrinkSuppressions(root, dirname(out)) : shrinkExempt(root, rel);
+    lines.push(...r.lines);
+    if (r.part) parts[rel] = r.part;
+  }
+  if (Object.keys(parts).length) writeFileSync(out, JSON.stringify({ parts }) + '\n');
+  else rmSync(out, { force: true });
+  return lines;
+}
+
+/** One version (working tree or index) of a baseline file with the probe's result applied; null = no change. */
+function applyShrink(part, text) {
+  if (part.kind === 'suppressions') {
+    const cur = JSON.parse(text);
+    let changed = false;
+    for (const [f, rules] of Object.entries(cur)) {
+      for (const [r, v] of Object.entries(rules ?? {})) {
+        if (part.base[f]?.[r] === undefined) continue; // not measured by the probe: kept
+        const n = part.next[f]?.[r]?.count ?? 0;
+        if (n >= (v?.count ?? 0)) continue;
+        changed = true;
+        if (n > 0) rules[r] = { ...v, count: n };
+        else delete rules[r];
+      }
+      if (!Object.keys(cur[f] ?? {}).length) delete cur[f];
+    }
+    return changed ? JSON.stringify(cur, null, 2) + (text.endsWith('\n') ? '\n' : '') : null;
+  }
+  const perFile = exemptPairsOf(part.kind, text);
+  let changed = false;
+  for (const [id, f] of part.clean) {
+    if (perFile.get(f)?.delete(id)) changed = true;
+    if (perFile.get(f)?.size === 0) perFile.delete(f);
+  }
+  if (!changed) return null;
+  if (part.kind === 'oxlint') {
+    const cfg = JSON.parse(text);
+    cfg.overrides = [...(cfg.overrides ?? []).filter((o) => !o?.files?.includes(EXEMPT_GLOB)), ...oxlintExemptEntries(cfg, perFile)];
+    if (!cfg.overrides.length) delete cfg.overrides;
+    return JSON.stringify(cfg, null, indentOf(text)) + (text.endsWith('\n') ? '\n' : '');
+  }
+  const entries = [...eslintExemptEntries(perFile), ...eslintExemptBlock(text).globals];
+  return entries.length ? withEslintBlock(text, eslintBlockLines(entries)) : withoutEslintBlock(text);
+}
+
+/** The record's lint-baseline line for `rel`, with the counts of that version of the baseline file. */
+function applyRecordLine(text, rel, part, fileText) {
+  const lines = text.split('\n');
+  const i = lines.findIndex((l) => l.startsWith(`lint-baseline: ${rel} — `));
+  if (i < 0) return text;
+  if (part.kind === 'suppressions') {
+    lines[i] = lines[i].replace(/— \S+ findings in existing code recorded/, `— ${countOf(JSON.parse(fileText))} findings in existing code recorded`);
+  } else {
+    const files = exemptPairsOf(part.kind, fileText).size;
+    lines[i] = lines[i].replace(/for \d+ existing violations in \d+ files/, `for ${part.violations} existing violations in ${files} files`);
+  }
+  return lines.join('\n');
+}
+
+function gitRun(root, args, input) {
+  const r = spawnSync('git', args, { cwd: root, encoding: 'utf8', input });
+  return { rc: r.status ?? 1, stdout: r.stdout ?? '' };
+}
+/** `rel` in the index: its mode and path from the top, or null when git does not track it. */
+function indexEntry(root, rel) {
+  const r = gitRun(root, ['ls-files', '-s', '--full-name', '--', rel]);
+  const m = /^(\d+) [0-9a-f]+ \d\t(.+)$/m.exec(r.stdout);
+  return r.rc === 0 && m ? { mode: m[1], path: m[2] } : null;
+}
+function stage(root, entry, text) {
+  const h = gitRun(root, ['hash-object', '-w', '--stdin'], text);
+  return h.rc === 0 && gitRun(root, ['update-index', '--cacheinfo', `${entry.mode},${h.stdout.trim()},${entry.path}`]).rc === 0;
+}
+
+/** `--fold-shrink`: the sidecar applied to the working tree and the index. Returns [lines, ok]. */
+export function foldShrink(root, sidecar) {
+  const { parts } = readJson(sidecar);
+  const lines = [];
+  let ok = true;
+  const versions = [
+    { name: 'wt', read: (rel) => (existsSync(join(root, rel)) ? readFileSync(join(root, rel), 'utf8') : null), write: (rel, t) => (writeFileSync(join(root, rel), t), true) },
+    {
+      name: 'index',
+      read: (rel) => (indexEntry(root, rel) ? gitRun(root, ['show', `:./${rel}`]).stdout : null),
+      write: (rel, t) => stage(root, indexEntry(root, rel), t),
+    },
+  ];
+  for (const v of versions) {
+    let rec = v.read(RECORD);
+    const folded = [];
+    for (const [rel, part] of Object.entries(parts)) {
+      const text = v.read(rel);
+      if (text === null) continue;
+      const next = applyShrink(part, text);
+      if (next === null) continue;
+      if (!v.write(rel, next)) {
+        ok = false;
+        continue;
+      }
+      folded.push(rel);
+      if (rec !== null) rec = applyRecordLine(rec, rel, part, next);
+    }
+    if (folded.length && rec !== null && rec !== v.read(RECORD) && !v.write(RECORD, rec)) ok = false;
+    if (v.name === 'wt') {
+      lines.push(folded.length ? `✓ lint baseline shrunk and staged with this commit: ${folded.join(', ')}` : '· lint baseline: nothing left to fold — the files already hold what the probe measured');
+    }
+  }
+  return [lines, ok];
+}
+
 // ─── CLI ────────────────────────────────────────────────────────────────────────────────────────────
 function arg(argv, name) {
   const i = argv.indexOf(name);
@@ -1142,13 +1374,22 @@ function main(argv) {
     for (const l of removeGetff(root)) console.log(l);
     return 0;
   }
+  if (argv[0] === '--shrink' && arg(argv, '--out')) {
+    for (const l of shrinkProbe(root, resolve(arg(argv, '--out')))) console.log(l);
+    return 0;
+  }
+  if (argv[0] === '--fold-shrink' && argv[1]) {
+    const [lines, ok] = foldShrink(root, resolve(argv[1]));
+    for (const l of lines) console.log(l);
+    return ok ? 0 : 1;
+  }
   if (argv.length === 0 || (argv.length === 1 && argv[0] === '--prove')) {
     const { rc, lines, errors } = table(root);
     for (const e of errors) console.error(`✗ ${e}`);
     for (const l of lines) console.log(l);
     return rc;
   }
-  console.error('usage: node scripts/prove-rules.mjs [--prove] | --remove');
+  console.error('usage: node scripts/prove-rules.mjs [--prove] | --remove | --shrink --out <file> | --fold-shrink <file>');
   return 2;
 }
 
