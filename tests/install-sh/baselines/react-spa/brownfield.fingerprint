@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-d634c8dbcc141f44db059b42ddeee35ed2fdaa10e90b8ca7937b6ada49764fbc  .ai-factory/refresh-baseline.json
+3a70b5e9952cc856c096ad8ddaa5bd45a632e2d8436a6eb7fba50f25ece1d464  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
@@ -125,7 +125,7 @@ e0b25a4e2e09595e28a22e0db5e8687854a8e2f6cc5b196ea82318e63d2c0948  .claude/skills
 d9526ef96352567035afbd1332f1e1f264548d6353939b17a666a567cb42bcd8  .claude/skills/rule-research/SKILL.md
 3f777456f91ae175a943426c39ae7d7138fce6392d695d902b85394d49420b93  .claude/skills/rule-tests/SKILL.md
 a523988ad4fdb1e4b12adcac36926ef79aa252ac56a6abea753285cb8d742938  .claude/skills/template-audit/SKILL.md
-ac5b9394a3c98b485b8b1ca15377559abb4068e588f28be5532f618970ceddf2  .claude/skills/tool-bootstrapping/SKILL.md
+b014d2de4cf78ed966f4690ec4fcf2e0ab239e9213f13f28465eb8e88d6d2a84  .claude/skills/tool-bootstrapping/SKILL.md
 18971ed38cd6a928cd9965ea202cb8fd0981d753aad6e57092603b33308d57bc  .claude/skills/tool-bootstrapping/references/decision-format.md
 f93f4a4bd693a0b1920f4e030b5f0d72f2d695fef9d501b3aeb8d02e790a7e24  .claude/skills/tool-bootstrapping/templates/tool-decisions.md.template
 e6cd6caa96d4325ffa2d10e62b320fe62ed4724f6d41ba74ee9ba7c66210d56d  .dependency-cruiser.mjs

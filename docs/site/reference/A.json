@@ -101,6 +101,22 @@
       "example": null
     },
     {
+      "name": "35-stack-tools.sh",
+      "kind": "installer-layer",
+      "shipsTo": {
+        "tier": "all"
+      },
+      "description": "vendor MCP servers for the project's own dependencies, on the pre-launch yes.",
+      "source": {
+        "path": "setup.d/35-stack-tools.sh",
+        "line": 2
+      },
+      "extras": {
+        "order": 35
+      },
+      "example": null
+    },
+    {
       "name": "40-configs.sh",
       "kind": "installer-layer",
       "shipsTo": {

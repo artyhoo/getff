@@ -1,0 +1,10 @@
+{
+  "name": "@supabase/supabase-js",
+  "version": "2.117.2",
+  "homepage": "https://github.com/supabase/supabase-js/tree/master/packages/core/supabase-js",
+  "repository": {
+    "url": "https://github.com/supabase/supabase-js.git",
+    "type": "git",
+    "directory": "packages/core/supabase-js"
+  }
+}
