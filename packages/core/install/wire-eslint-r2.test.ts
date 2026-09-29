@@ -1137,6 +1137,9 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     for (const src of [
       `const RULE_GLOBS = { "boundary": ['${OLD}'] };\nexport default [{ files: RULE_GLOBS.boundary, rules: {} }];\n`,
       `const RULE_GLOBS = /** @type {const} */ ({ boundary: ['${OLD}'] });\nexport default [{ files: RULE_GLOBS.boundary, rules: {} }];\n`,
+      // A computed literal key and an Object.freeze wrapper: both sides read them (#1889 review F2/F7).
+      `const RULE_GLOBS = { ["boundary"]: ['${OLD}'] };\nexport default [{ files: RULE_GLOBS.boundary, rules: {} }];\n`,
+      `const RULE_GLOBS = Object.freeze({ boundary: ['${OLD}'] });\nexport default [{ files: RULE_GLOBS.boundary, rules: {} }];\n`,
     ]) {
       expect(gateBoundary(src)).toEqual([OLD]);
       const r = await wireOwnConfig(src, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH, gateReadsRuleGlobs: true });

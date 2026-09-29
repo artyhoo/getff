@@ -10799,8 +10799,11 @@ async function wireOwnConfig(source, opts = {}) {
         SyntaxKind.SatisfiesExpression,
         SyntaxKind.TypeAssertionExpression
       ]);
+      const frozen = (n) => n.isKind(SyntaxKind.CallExpression) && n.getExpression().getText().replace(/\s/g, "") === "Object.freeze" && n.getArguments().length === 1;
       let init = sf.getVariableDeclaration("RULE_GLOBS")?.getInitializer();
-      while (init && wrappers.has(init.getKind())) init = init.getExpression();
+      while (init && (wrappers.has(init.getKind()) || frozen(init))) {
+        init = frozen(init) ? init.getArguments()[0] : init.getExpression();
+      }
       const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperties().find((p) => normPropName(p.getName?.()) === "boundary") : void 0;
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : void 0;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : void 0;

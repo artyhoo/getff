@@ -55,11 +55,13 @@ RULE="${AIF_ENFORCED_RULE:-rules-as-tests/no-unsafe-zod-parse}"
 # >>> rule-globs reader — byte-identical in check-rule-globs.sh and check-rule-enforced.sh
 # (tests/install-sh/gh-535-rule-enforced.test.sh compares them): both gates must find the same
 # workspace configs and read the same RULE_GLOBS globs, or one goes red where the other is green.
-# CFG_PRUNE is where no config of the project's own lives: dependencies, build output, git, the repo
-# copies under .claude/worktrees, and the framework's vendored packages/core (a config there is
-# getff's, not a workspace's). setup.d/lib.sh eslint_flat_configs_under prunes the same list, less
-# */packages/core, so the install finds the same workspace configs as these gates.
-CFG_PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name .next -o -name .git -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
+# CFG_PRUNE is where no config or code of the project's own lives: dependencies, build output, git,
+# the repo copies under .claude/worktrees, and the subtrees the install vendors into the root's
+# packages/core (hooks/, audit-self/, principles/; eslint-rules/ from older installs). Only those
+# subtrees: a consumer workspace NAMED packages/core is the consumer's own code, and pruning every
+# */packages/core left it unchecked by both gates (fourth cold review). setup.d/lib.sh
+# eslint_flat_configs_under prunes the same list, less the vendored subtrees, which hold no config.
+CFG_PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name .next -o -name .git -o -path './packages/core/hooks' -o -path './packages/core/audit-self' -o -path './packages/core/principles' -o -path './packages/core/eslint-rules' -o -path '*/.claude/worktrees' )
 
 # The config ESLint loads in directory $1: the first of its flat-config names there, in its lookup order.
 flat_config_in() {
@@ -82,18 +84,24 @@ config_dirs() {
 }
 
 # RULE_GLOBS is read the way JavaScript reads it, not only the way getff's template lays it out: the
-# key bare or quoted, anywhere on its line (a one-line RULE_GLOBS object too), globs in single or double
-# quotes (prettier's default is double), and the array read only up to its own `]` — on one line, the
-# next key's globs are not this key's (second cold review, after #1868). A comment is not code: each line
-# is read with its // and /* */ comments cut out (uncomment; quoted text stays, a /* */ comment may span
-# lines), and a key is the whole key — `my-boundary` is not `boundary` (third cold review). A regex
-# literal and a template string are not code either, and a `/*` or quote inside one opens nothing: a
-# `/` where a value starts is read as a regex up to its closing `/` on that line (a division when there
-# is none), and a template string runs across lines to its closing backtick, its text left out — no
-# glob is read from it (fourth cold review). The quote characters come in through -v; `[[]` is a
-# literal `[` that needs no backslash.
+# key bare, quoted or a computed literal (`["boundary"]`), anywhere on its line (a one-line RULE_GLOBS
+# object too), globs in single or double quotes (prettier's default is double), and the array read only
+# up to its own `]` — on one line, the next key's globs are not this key's (second cold review, after
+# #1868). A comment is not code: the file is read with its // and /* */ comments cut out (uncomment;
+# quoted text stays, a /* */ comment may span lines), and a key is the whole key — `my-boundary` is not
+# `boundary` (third cold review). A regex literal and a template string are not code either, and a `/*`
+# or quote inside one opens nothing: a `/` where a value starts is read as a regex up to its closing `/`
+# on that line (a division when there is none), and a template string runs across lines to its closing
+# backtick, its text left out — no glob is read from it (fourth cold review, #1889). Only a key of the `RULE_GLOBS = { … }`
+# object counts — the object wireOwnConfig in packages/core/install/wire-eslint-r2.ts reads, inside
+# parentheses, Object.freeze( … ) or a <type> assertion if it is wrapped. Another object's `boundary`,
+# or one nested inside RULE_GLOBS, is not RULE_GLOBS.boundary: added to the list, a nested
+# `boundary: ['**/*.ts']` made a dead list pass (#1889). The declaration is found line by line (a
+# const/let/var line that assigns RULE_GLOBS) and only the text from there is walked: whatever the
+# consumer's code above it holds — a stray `)` too — must not hide the block, and the wirer writes the
+# block after all of that code (fourth cold review). The quote characters come in through -v; `[[]` is
+# a literal `[` that needs no backslash.
 RG_AWK_LIB='
-function opener(key) { return "(^|[^A-Za-z0-9_$." sq dq "-])(" sq key sq "|" dq key dq "|" key ")[[:space:]]*:[[:space:]]*[[]" }
 function regexctx(out,   w) {
   if (last == "" || index("(,=:[!&|?{};+-*%<>~^}", last) > 0) return 1
   if (last !~ /[A-Za-z]/) return 0
@@ -128,14 +136,93 @@ function uncomment(s,   out, c, q, i, j, n, cls) {
     if (c !~ /[[:space:]]/) last = c
   }
   return out
+}
+function blank(c) { return c == " " || c == "\t" || c == "\r" || c == "\n" }
+# Where line l (comments cut) declares RULE_GLOBS: the position of the name, or 0.
+function decl_at(l,   p) {
+  if (l !~ /^[ \t]*(export[ \t]+)?(const|let|var)[ \t]/) return 0
+  if (!match(l, /(^|[^A-Za-z0-9_$.])RULE_GLOBS[ \t]*(:[^=]*)?=([^=>]|$)/)) return 0
+  p = RSTART; if (substr(l, p, 10) != "RULE_GLOBS") p++
+  return p
+}
+# Collect the comment-cut source in src and the offset st of its first RULE_GLOBS declaration. A line
+# that starts inside a template literal declares nothing.
+function take(line,   t0, l, p) {
+  t0 = intpl; l = uncomment(line)
+  if (!st && !t0 && (p = decl_at(l))) st = length(src) + p
+  src = src l "\n"
+}
+# The globs of RULE_GLOBS.<key> in s, which starts at the name RULE_GLOBS: printed one per line unless
+# quiet; returns 1 when the array is there. Counts ( [ { outside strings: a key counts only at the depth
+# of the RULE_GLOBS object, right after its { or a ,. Keys are matched in a short window, so the walk
+# stays linear in the object it reads.
+function rule_globs(s, key, quiet,   n, i, c, q, d, ph, od, last, name, rest, j, a) {
+  if (!match(s, /^RULE_GLOBS[ \t\r\n]*(:[^=]*)?=/)) return 0
+  n = length(s); d = 0; ph = 1; q = ""; last = ""
+  for (i = RLENGTH + 1; i <= n; i++) {
+    c = substr(s, i, 1)
+    if (q != "") { if (c == "\\") i++; else if (c == q) q = ""; continue }
+    if (blank(c)) continue
+    if (ph == 1) {
+      if (c == "(") { d++; continue }
+      if (substr(s, i, 13) == "Object.freeze") { i += 12; continue }
+      if (c == "<") {
+        for (a = 1; a > 0 && i < n; ) { i++; c = substr(s, i, 1); if (c == "<") a++; else if (c == ">") a-- }
+        continue
+      }
+      if (c != "{") return 0
+      d++; od = d; ph = 2; last = c; continue
+    }
+    if (d == od && (last == "{" || last == ",")) {
+      rest = substr(s, i, 256); name = ""
+      if (match(rest, /^[A-Za-z_$][A-Za-z0-9_$]*/)) name = substr(rest, 1, RLENGTH)
+      else if (match(rest, "^[[]?[ \t\r\n]*(" sq "[^" sq "]*" sq "|" dq "[^" dq "]*" dq ")[ \t\r\n]*[]]?")) {
+        name = substr(rest, 1, RLENGTH)
+        if ((substr(name, 1, 1) == "[") != (substr(name, RLENGTH, 1) == "]")) name = ""
+        gsub(/^[[]?[ \t\r\n]*/, "", name); gsub(/[ \t\r\n]*[]]?$/, "", name)
+        name = substr(name, 2, length(name) - 2)
+      }
+      if (name == key) {
+        j = i + RLENGTH
+        while (j <= n && blank(substr(s, j, 1))) j++
+        if (substr(s, j, 1) == ":") {
+          j++
+          while (j <= n && blank(substr(s, j, 1))) j++
+          if (substr(s, j, 1) == "[") {
+            for (j++; j <= n; j++) {
+              c = substr(s, j, 1)
+              if (c == "]") return 1
+              if (c == sq || c == dq) {
+                rest = substr(s, j + 1); a = index(rest, c)
+                if (a == 0) return 1
+                if (!quiet) print substr(rest, 1, a - 1)
+                j += a
+              }
+            }
+            return 1
+          }
+        }
+      }
+    }
+    if (c == sq || c == dq || c == "`") { q = c; last = c; continue }
+    if (c == "{" || c == "(" || c == "[") d++
+    else if (c == "}" || c == ")" || c == "]") { d--; if (d < od) return 0 }
+    last = c
+  }
+  return 0
 }'
 
-# Does file $2 (default $CFG) open a `<key>: [` array?
+# File $1 with its comments cut out, as the reader sees it. A rule id or RULE_GLOBS that only a comment
+# names is not in the config (#1889 observation 7: `// TODO: turn on <R2>` read as R2 wired).
+code_of() {
+  awk -v sq="'" -v dq='"' "$RG_AWK_LIB"'{ print uncomment($0) }' "$1"
+}
+
+# Does file $2 (default $CFG) hold a RULE_GLOBS.<key> array?
 has_key() {
   awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_LIB"'
-    { $0 = uncomment($0) }
-    match($0, opener(key)) { found = 1; exit }
-    END { exit !found }
+    { take($0) }
+    END { exit !(st && rule_globs(substr(src, st), key, 1)) }
   ' "${2:-$CFG}"
 }
 
@@ -143,22 +230,8 @@ has_key() {
 # $CFG). Prints one glob per line.
 extract_key() {
   awk -v key="$1" -v sq="'" -v dq='"' "$RG_AWK_LIB"'
-    function take(s,   c, rest, j) {
-      while (length(s) > 0) {
-        c = substr(s, 1, 1)
-        if (c == "]") return 1
-        if (c == sq || c == dq) {
-          rest = substr(s, 2); j = index(rest, c)
-          if (j == 0) return 0
-          print substr(rest, 1, j - 1); s = substr(rest, j + 1); continue
-        }
-        s = substr(s, 2)
-      }
-      return 0
-    }
-    { $0 = uncomment($0) }
-    !grab { if (!match($0, opener(key))) next; grab = 1; $0 = substr($0, RSTART + RLENGTH) }
-    grab { if (take($0)) grab = 0 }
+    { take($0) }
+    END { if (st) rule_globs(substr(src, st), key, 0) }
   ' "${2:-$CFG}"
 }
 # <<< rule-globs reader
@@ -182,9 +255,11 @@ SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 # the lookup order made a consumer's root .cjs «the root config», where before this gate found no
 # root config and recursed).
 _own_root_without_globs() {
-  local k="${CFG#./}"
-  [ -f "$CFG" ] && ! grep -q 'RULE_GLOBS' "$CFG" \
-    && ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' "$CFG" \
+  local k="${CFG#./}" code
+  [ -f "$CFG" ] || return 1
+  code=$(code_of "$CFG")   # a comment that names RULE_GLOBS or a rule is not the config holding it
+  ! grep -q 'RULE_GLOBS' <<<"$code" \
+    && ! grep -qE 'no-unsafe-zod-parse|no-direct-time-randomness|require-otel-span' <<<"$code" \
     && ! grep -qF "\"$k\":" .ai-factory/refresh-baseline.json 2>/dev/null
 }
 if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; }; then
@@ -211,7 +286,11 @@ EOF
 fi
 [ -f "$CFG" ] || { echo "check-rule-enforced: $CFG not found (run from the project root)" >&2; exit 2; }
 
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -path '*/.claude/worktrees' )
+# The source-file probes prune what check-rule-globs.sh's do: CFG_PRUNE (the subtrees vendored into
+# packages/core included — the eslint-rules/ copy matches the `**/eslint-rules/**` boundary glob and is
+# getff's code, not the consumer's boundary) plus `reports`, which CFG_PRUNE leaves out so a workspace
+# named reports is kept.
+PRUNE=( "${CFG_PRUNE[@]}" -o -name reports )
 
 # C4 (GH #547 Point 2): honor a recorded R2 N/A decision through the SAME shared helper as
 # check-rule-globs.sh (two gates, one marker). The recheck is pure-bash (no eslint), so it short-
@@ -253,14 +332,10 @@ if [ "${#btokens[@]}" -eq 0 ]; then
   exit 0
 fi
 
-# Packages shipping their OWN flat eslint config shadow the root config (nearest-config resolution).
+# Packages shipping their OWN flat eslint config shadow the root config (nearest-config resolution) —
+# found by config_dirs, under all six flat-config names, as check-rule-globs.sh finds them.
 shadows=()
-while IFS= read -r d; do [ -n "$d" ] && shadows+=("$d"); done < <(
-  find . \( "${PRUNE[@]}" \) -prune -o -type f \
-    \( -name 'eslint.config.js' -o -name 'eslint.config.mjs' \
-       -o -name 'eslint.config.cjs' -o -name 'eslint.config.ts' \) -print 2>/dev/null \
-  | while IFS= read -r f; do d=$(dirname "$f"); [ "$d" = "." ] && continue; printf '%s\n' "$d"; done | sort -u
-)
+while IFS= read -r d; do [ -n "$d" ] && shadows+=("$d"); done < <(config_dirs)
 
 under_shadow() { # $1=path → 0 if it lives under a shadowed package dir
   [ "${#shadows[@]}" -eq 0 ] && return 1
@@ -298,9 +373,7 @@ governing_dir() { # $1=file → nearest ancestor dir (incl the file's own dir) w
   local d
   d=$(dirname "$1")
   while [ -n "$d" ]; do
-    for c in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts; do
-      [ -f "$d/$c" ] && { printf '%s\n' "$d"; return 0; }
-    done
+    flat_config_in "$d" >/dev/null && { printf '%s\n' "$d"; return 0; }   # .mts / .cts too, as ESLint loads them
     [ "$d" = "." ] && break
     d=$(dirname "$d")
   done

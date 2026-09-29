@@ -41,7 +41,7 @@ echo "$PWD" >> "$AIF_FAKE_CWD_LOG"
 [ "$1" = "--print-config" ] || exit 0
 d=$PWD
 while [ -n "$d" ] && [ "$d" != "/" ]; do
-  for c in eslint.config.mjs eslint.config.js eslint.config.cjs eslint.config.ts; do
+  for c in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts eslint.config.mts eslint.config.cts; do
     if [ -f "$d/$c" ]; then
       if grep -q "$AIF_FAKE_RULE" "$d/$c"; then printf '{ "rules": { "%s": [2] } }\n' "$AIF_FAKE_RULE"; else printf '{ "rules": {} }\n'; fi
       exit 0
@@ -365,6 +365,45 @@ const RULE_GLOBS = {
   boundary: ['**/routes/**/*.{ts,tsx}'],
 };
 JS
+# Only the boundary of the top-level `const RULE_GLOBS = { … }` object is RULE_GLOBS.boundary — the one
+# wireOwnConfig reads. Another object's boundary key, or one nested inside RULE_GLOBS, adds nothing (a
+# nested `boundary: ['**/*.ts']` matched every file: a false green). A computed literal key and an
+# Object.freeze wrapper are read, as JavaScript and the wirer read them (#1889 review F2/F7).
+cat > "$RD/nested-other.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+const opts = { layers: { boundary: ['**/*.ts'] } };
+JS
+cat > "$RD/second-object.mjs" <<'JS'
+const OTHER = { boundary: ['**/*.ts'] };
+const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
+cat > "$RD/nested-inside.mjs" <<'JS'
+const RULE_GLOBS = {
+  layers: { boundary: ['**/*.ts'] },
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+  extra: [{ boundary: ['**/*.tsx'] }],
+};
+JS
+cat > "$RD/computed-key.mjs" <<'JS'
+const RULE_GLOBS = { ["boundary"]: ['**/routes/**/*.{ts,tsx}'] };
+JS
+cat > "$RD/frozen.mjs" <<'JS'
+const RULE_GLOBS = Object.freeze({
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+});
+JS
+# Code above RULE_GLOBS is not RULE_GLOBS: a regex literal with a lone bracket or quote, a stray `)`, or a
+# template literal whose later line holds a URL must not hide the block. The wirer writes RULE_GLOBS right
+# above `export default`, after all of the consumer's own code (fourth cold review). A type assertion and a
+# declaration list are read, as the wirer reads them.
+cat > "$RD/regex-above.mjs" <<'JS'
+const isGen = (f) => /[(]/.test(f) || /\(/.test(f) || /['"`{]/.test(f);
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
 # A `/*`, `//` or quote inside a regex literal or a template string is not a comment or a string opener
 # (fourth cold review: the comment cut read `/\/*$/` as the start of a block comment and dropped the
 # rest of the file, and a template string's second line as code).
@@ -388,21 +427,93 @@ const RULE_GLOBS = {
   boundary: ['**/routes/**/*.{ts,tsx}'],
 };
 JS
+cat > "$RD/template-url.mjs" <<'JS'
+const msg = `Lint config,
+see https://eslint.org/docs /* not a comment`;
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+JS
+cat > "$RD/type-assert.mjs" <<'JS'
+const RULE_GLOBS = <const>{ boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
+cat > "$RD/decl-list.mjs" <<'JS'
+const A = 1, RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
+JS
 cat > "$RD/division.mjs" <<'JS'
 const half = 10 /*two*/ / 2, third = (9) / 3; const RULE_GLOBS = { boundary: ['**/routes/**/*.{ts,tsx}'] };
 JS
-for f in apostrophe line-comment block-comment key-suffix regex regex-class regex-quote template-lines division; do
+for f in apostrophe line-comment block-comment key-suffix nested-other second-object nested-inside computed-key frozen regex-above template-url type-assert decl-list regex regex-class regex-quote template-lines division; do
   got=$(rg_read boundary "$RD/$f.mjs")
   [ "$got" = '**/routes/**/*.{ts,tsx}|' ] \
     && ok "rule-globs reader ($f): RULE_GLOBS.boundary is read as JavaScript reads it" \
     || bad "rule-globs reader ($f): read [$got], expected [**/routes/**/*.{ts,tsx}|]"
 done
+# A template literal spans lines: a `/*` on its later line opens no comment, so code after it stays code.
+printf 'const m = `a\nb /* c`;\nconst r = "rules-as-tests/no-unsafe-zod-parse";\n' > "$RD/template-cmt.mjs"
+( eval "$(reader_block "$GLOBS_GATE")"; code_of "$RD/template-cmt.mjs" ) | grep -q 'no-unsafe-zod-parse' \
+  && ok "rule-globs reader: code_of keeps code after a template literal that holds /*" \
+  || bad "rule-globs reader: code_of cut code after a template literal that holds /*"
 printf "// boundary: ['**/routes/**']\nexport default [];\n" > "$RD/only-comment.mjs"
 if ( eval "$(reader_block "$GLOBS_GATE")"; has_key boundary "$RD/only-comment.mjs" ); then
   bad "rule-globs reader: has_key finds a boundary array that only a comment holds"
 else
   ok "rule-globs reader: a boundary array in a comment is not a boundary key"
 fi
+printf "const OWN = { boundary: ['**/routes/**'] };\nexport default [];\n" > "$RD/not-rule-globs.mjs"
+if ( eval "$(reader_block "$GLOBS_GATE")"; has_key boundary "$RD/not-rule-globs.mjs" ); then
+  bad "rule-globs reader: has_key finds a boundary array outside RULE_GLOBS"
+else
+  ok "rule-globs reader: a boundary array outside RULE_GLOBS is not RULE_GLOBS.boundary"
+fi
+# End to end: RULE_GLOBS.boundary matches nothing, a nested boundary key matches every file — fail.
+mkdir -p "$RD/nest/src/lib"; printf 'export const x = 1;\n' > "$RD/nest/src/lib/x.ts"
+cat > "$RD/nest/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ['**/nowhere/**/*.{ts,tsx}'],
+};
+const opts = { layers: { boundary: ['**/*.ts'] } };
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];
+JS
+if ( cd "$RD/nest" && bash "$GLOBS_GATE" ) >/dev/null 2>&1; then
+  bad "check-rule-globs: passed on a nested boundary key, while RULE_GLOBS.boundary matches no source file"
+else
+  ok "check-rule-globs: a nested boundary key does not make a dead RULE_GLOBS.boundary pass"
+fi
+# A package config whose only mention of R2 is a comment does not wire R2 (#1889 observation 7).
+cmt_pkg() { # $1 = apps/api/eslint.config.mjs source → dir
+  local d; d=$(mktemp -d)
+  cat > "$d/eslint.config.mjs" <<'JS'
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];
+JS
+  mkdir -p "$d/apps/api/src/routes"; printf 'export const x = 1;\n' > "$d/apps/api/src/routes/p.ts"
+  printf '%s\n' "$1" > "$d/apps/api/eslint.config.mjs"
+  printf '%s' "$d"
+}
+CM=$(cmt_pkg "// TODO: turn on rules-as-tests/no-unsafe-zod-parse
+export default [];")
+if ( cd "$CM" && bash "$GLOBS_GATE" ) >/tmp/g535cm.$$ 2>&1; then
+  bad "check-rule-globs: a package config that names R2 only in a comment passed as wired ($(tr '\n' ';' </tmp/g535cm.$$))"
+else
+  grep -q 'does NOT wire R2' /tmp/g535cm.$$ \
+    && ok "check-rule-globs: R2 named only in a comment → the package does NOT wire R2" \
+    || bad "check-rule-globs: failed, but not on the package config ($(tr '\n' ';' </tmp/g535cm.$$))"
+fi
+CMP=$(cmt_pkg "// R2 below
+export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];")
+( cd "$CMP" && bash "$GLOBS_GATE" ) >/tmp/g535cm.$$ 2>&1 \
+  && ok "check-rule-globs neg: a package config that wires R2 in code passes" \
+  || bad "check-rule-globs neg: a package config that wires R2 in code failed ($(tr '\n' ';' </tmp/g535cm.$$))"
+# A package config under any of ESLint's six flat-config names is that package's config (.mts/.cts too).
+CMM=$(cmt_pkg "export default [];"); mv "$CMM/apps/api/eslint.config.mjs" "$CMM/apps/api/eslint.config.mts"
+( cd "$CMM" && bash "$GLOBS_GATE" ) >/tmp/g535cm.$$ 2>&1
+grep -q 'does NOT wire R2' /tmp/g535cm.$$ \
+  && ok "check-rule-globs: a package eslint.config.mts without R2 is read as that package's config" \
+  || bad "check-rule-globs: a package eslint.config.mts was not read as its config ($(tr '\n' ';' </tmp/g535cm.$$))"
+rm -rf "$CM" "$CMP" "$CMM"; rm -f /tmp/g535cm.$$
 # End to end: a comment's quoted glob matches a source file while the real one matches nothing — the gate
 # must fail, not pass on the comment.
 mkdir -p "$RD/e2e/src/lib"; printf 'export const x = 1;\n' > "$RD/e2e/src/lib/x.ts"
@@ -437,6 +548,52 @@ else
   ok "check-rule-globs: a regex literal above a dead workspace RULE_GLOBS.boundary does not make it pass"
 fi
 rm -rf "$RD"
+
+# check-rule-enforced.sh finds a package's config under all six flat-config names, as ESLint does: a
+# package whose own eslint.config.mts leaves R2 off governs its boundary file, not the root config.
+MT=$(mktemp -d); write_root_cfg "$MT" no-console
+printf '{"name":"mt","dependencies":{"zod":"3.0.0"}}\n' > "$MT/package.json"
+mkdir -p "$MT/apps/api/src/routes"; printf 'export const x = 1;\n' > "$MT/apps/api/src/routes/p.ts"
+printf 'export default [];\n' > "$MT/apps/api/eslint.config.mts"
+if ( cd "$MT" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535mt.$$ 2>&1; then
+  bad "check-rule-enforced: a package eslint.config.mts that leaves the rule off passed — verified against the root config ($(tr '\n' ';' </tmp/g535mt.$$))"
+else
+  grep -q 'apps/api' /tmp/g535mt.$$ \
+    && ok "check-rule-enforced: a package eslint.config.mts governs its boundary file (rule off there → FAIL)" \
+    || bad "check-rule-enforced: failed, but not on apps/api ($(tr '\n' ';' </tmp/g535mt.$$))"
+fi
+# check-rule-enforced.sh prunes the framework's vendored packages/core as check-rule-globs.sh does: a
+# vendored eslint-rules file there is not the consumer's boundary code.
+VC=$(mktemp -d)
+cat > "$VC/eslint.config.mjs" <<'CFG'
+const RULE_GLOBS = {
+  boundary: ['**/eslint-rules/**/*.{ts,tsx}'],
+};
+export default [{ files: RULE_GLOBS.boundary, rules: { 'no-console': 'error' } }];
+CFG
+printf '{"name":"vc","dependencies":{"zod":"3.0.0"}}\n' > "$VC/package.json"
+mkdir -p "$VC/packages/core/eslint-rules"; printf 'export const x = 1;\n' > "$VC/packages/core/eslint-rules/index.ts"
+mkdir -p "$VC/src/eslint-rules"; printf 'export const y = 1;\n' > "$VC/src/eslint-rules/own.ts"
+if ( cd "$VC" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535vc.$$ 2>&1 \
+   && ! grep -q 'packages/core' /tmp/g535vc.$$ && ! grep -qi 'skipped' /tmp/g535vc.$$; then
+  ok "check-rule-enforced: the vendored packages/core is not the consumer's boundary code"
+else
+  bad "check-rule-enforced: checked a vendored packages/core file as boundary code ($(tr '\n' ';' </tmp/g535vc.$$))"
+fi
+# A consumer workspace NAMED packages/core is the consumer's own code: only getff's vendored subtrees
+# (packages/core/hooks, eslint-rules, audit-self, principles) are pruned, not every */packages/core.
+PC=$(mktemp -d); write_root_cfg "$PC" no-console
+printf '{"name":"pc","dependencies":{"zod":"3.0.0"}}\n' > "$PC/package.json"
+mkdir -p "$PC/packages/core/src/routes"; printf 'export const x = 1;\n' > "$PC/packages/core/src/routes/a.ts"
+printf 'export default [];\n' > "$PC/packages/core/eslint.config.mjs"
+if ( cd "$PC" && AIF_ESLINT_CMD="$FAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535pc.$$ 2>&1; then
+  bad "check-rule-enforced: a consumer workspace named packages/core with the rule off passed ($(tr '\n' ';' </tmp/g535pc.$$))"
+else
+  grep -q 'packages/core' /tmp/g535pc.$$ \
+    && ok "check-rule-enforced: a consumer workspace named packages/core is checked (rule off there → FAIL)" \
+    || bad "check-rule-enforced: failed, but not on packages/core ($(tr '\n' ';' </tmp/g535pc.$$))"
+fi
+rm -rf "$MT" "$VC" "$PC"; rm -f /tmp/g535mt.$$ /tmp/g535vc.$$ /tmp/g535pc.$$
 
 rm -f "$FAKE" /tmp/g535a.$$ /tmp/g535b.$$ /tmp/g535r.$$ /tmp/g535r2.$$ /tmp/g535c.$$ /tmp/g535d.$$ /tmp/g535ms.$$ /tmp/g535msn.$$ /tmp/g535msd.$$ 2>/dev/null
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
