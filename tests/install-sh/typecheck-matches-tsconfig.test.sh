@@ -6,7 +6,7 @@
 #   (B) paired: a flat tsconfig keeps `tsc --noEmit`.
 #   (C) a project's own `typecheck` script is kept.
 #   (D) react-spa / react-next with no tsconfig: the tsconfig getff writes can compile a React
-#       file — jsx react-jsx, DOM libs, Bundler resolution (P1 run 2026-09-29: TS17004 «Cannot use
+#       file — jsx react-jsx, DOM libs, Bundler resolution, .tsx imports (P1 run 2026-09-29: TS17004 «Cannot use
 #       JSX» and TS2584 «Cannot find name 'document'» on src/main.tsx). Paired: ts-server's is
 #       the shared template, unchanged; a project's own tsconfig is never edited.
 set -uo pipefail
@@ -62,6 +62,11 @@ for st in react-spa react-next; do
   [ "$(tsopt "$D" moduleResolution)" = "Bundler" ] && [ "$(tsopt "$D" module)" = "ESNext" ] \
     && ok "(D) $st: Bundler resolution (no .js extension demanded on relative imports)" \
     || bad "(D) $st: module=$(tsopt "$D" module) moduleResolution=$(tsopt "$D" moduleResolution)"
+  # Vite's own `import App from './App.tsx'` needs allowImportingTsExtensions (TS5097), which
+  # TypeScript allows only with noEmit (P3 measured on Vite 6 + React 19 / TS 5.9.3, 2026-09-29).
+  [ "$(tsopt "$D" allowImportingTsExtensions)" = "true" ] && [ "$(tsopt "$D" noEmit)" = "true" ] \
+    && ok "(D) $st: .tsx imports allowed (allowImportingTsExtensions + noEmit)" \
+    || bad "(D) $st: allowImportingTsExtensions=$(tsopt "$D" allowImportingTsExtensions) noEmit=$(tsopt "$D" noEmit)"
   [ "$(tsopt "$D" strict)" = "true" ] && ok "(D) $st: the rest of getff's template is kept (strict)" || bad "(D) $st: strict=$(tsopt "$D" strict)"
 done
 T=$(proj '{"name":"t","version":"0.0.0","devDependencies":{"typescript":"~5.9.0"}}')

@@ -153,19 +153,28 @@ copy_safe "$PKG_ROOT/packages/core/templates/shared/tsconfig.json" "$PROJECT_ROO
 # P2 G4 — per-stack arm of that copy: the shared template (NodeNext, lib ES2022, no jsx) cannot
 # compile a React file (P1 run 2026-09-29: TS17004 «Cannot use JSX», TS2584 «Cannot find name
 # 'document'»). For react-spa / react-next, ONLY when getff just wrote tsconfig.json (a project's
-# own is never edited), set the four options create-vite's react-ts template uses: jsx react-jsx,
-# DOM libs, ESNext + Bundler resolution (NodeNext would demand .js extensions on relative imports
-# in a "type": "module" project). The template's other options stay.
+# own is never edited): P3's React template (tsconfig.react.json) replaces it when this getff
+# ships one; until then the copy gets the options create-vite's react-ts template uses — jsx
+# react-jsx, DOM libs, ESNext + Bundler resolution (NodeNext would demand .js extensions on relative
+# imports in a "type": "module" project), and allowImportingTsExtensions with noEmit (Vite's own
+# `import App from './App.tsx'` is TS5097 without it; P3 measured, 2026-09-29). The template's other
+# options stay.
+_react_tsconfig="$PKG_ROOT/packages/core/templates/shared/tsconfig.react.json"
 if { [ "$STACK" = "react-spa" ] || [ "$STACK" = "react-next" ]; } && [ "$DRY_RUN" != "--dry-run" ] \
-   && [ -f "$PROJECT_ROOT/tsconfig.json" ] && ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json" \
-   && command -v node >/dev/null 2>&1; then
-  AIF_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
-    const fs = require("fs"); const p = process.env.AIF_TSCONFIG;
-    const c = JSON.parse(fs.readFileSync(p, "utf8"));
-    Object.assign(c.compilerOptions, { module: "ESNext", moduleResolution: "Bundler",
-      lib: ["ES2022", "DOM", "DOM.Iterable"], jsx: "react-jsx" });
-    fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
-  ' && echo "  ✓ tsconfig.json: React options (jsx react-jsx, DOM libs, Bundler resolution) for $STACK"
+   && [ -f "$PROJECT_ROOT/tsconfig.json" ] && ! _prettierignore_in_skipped "$PROJECT_ROOT/tsconfig.json"; then
+  if [ -f "$_react_tsconfig" ]; then
+    cp "$_react_tsconfig" "$PROJECT_ROOT/tsconfig.json" \
+      && echo "  ✓ tsconfig.json: getff's React template (tsconfig.react.json) for $STACK"
+  elif command -v node >/dev/null 2>&1; then
+    AIF_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
+      const fs = require("fs"); const p = process.env.AIF_TSCONFIG;
+      const c = JSON.parse(fs.readFileSync(p, "utf8"));
+      Object.assign(c.compilerOptions, { module: "ESNext", moduleResolution: "Bundler",
+        lib: ["ES2022", "DOM", "DOM.Iterable"], jsx: "react-jsx",
+        allowImportingTsExtensions: true, noEmit: true });
+      fs.writeFileSync(p, JSON.stringify(c, null, 2) + "\n");
+    ' && echo "  ✓ tsconfig.json: React options (jsx react-jsx, DOM libs, Bundler resolution, .tsx imports) for $STACK"
+  fi
 fi
 
 # ─── 5a. tests/setup.ts delivery gate (first-commit-passable, issue 1530) ───
