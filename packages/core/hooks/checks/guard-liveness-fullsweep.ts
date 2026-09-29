@@ -41,7 +41,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { runCheck } from '../utils/run-check.ts';
 import {
   runGuardLivenessCheck,
@@ -53,6 +53,7 @@ import {
   type CmdScriptLivenessReport,
   type CmdScriptRule,
 } from './cmd-script-liveness.ts';
+import { isDirectRun } from '../utils/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = resolve(HERE, '../../../..');
@@ -249,6 +250,6 @@ function main(): void {
 }
 
 // Run only when invoked directly (not when imported by the test or another module).
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectRun(process.argv[1], import.meta.url)) {
   main();
 }

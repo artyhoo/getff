@@ -43,11 +43,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import type { ConventionNode } from '../ir/types.ts';
 import { renderAstgrep } from '../backends/astgrep/render-astgrep.ts';
 import { renderRuff } from '../backends/ruff/render-ruff.ts';
 import { PYTHON_STARTER_NODES } from './starter-nodes.ts';
+import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -284,7 +285,4 @@ function main(): void {
 
 // Run only when invoked directly (`tsx render-python-templates.ts`), never on import — the drift
 // gate imports planPythonTemplates() and must not trigger fs writes.
-const isMain =
-  Boolean(process.argv[1]) &&
-  import.meta.url === pathToFileURL(process.argv[1] as string).href;
-if (isMain) main();
+if (isDirectRun(process.argv[1], import.meta.url)) main();

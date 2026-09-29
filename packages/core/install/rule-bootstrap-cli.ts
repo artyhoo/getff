@@ -33,12 +33,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
 // NOTE: `runRuleBootstrap` is imported DYNAMICALLY inside main() (the live/synthesis arm), NOT
 // statically here. It transitively reaches `validator/validate.ts` → the L4 gates, which pull in
 // `eslint` + `@typescript-eslint/parser`. The lightweight `--from-practice` arm
@@ -418,28 +417,9 @@ async function main(): Promise<void> {
   }
 }
 
-/**
- * True when this module is the process entry point (executed directly, not imported).
- *
- * Realpath-normalizes BOTH sides before comparing. `argv1` is the path as-passed to the
- * runtime (logical — `install.sh` derives PKG_ROOT via `pwd`, which preserves symlinks),
- * while `metaUrl` is the path as tsx/node resolve it (realpath). A single symlink component
- * anywhere in the framework checkout path — macOS `/tmp`→`/private/tmp`, `mktemp` under
- * `/var/folders`, a symlinked `$HOME` or CI checkout dir — desyncs the two strings, so a
- * literal `import.meta.url === \`file://${argv1}\`` compare silently returns false and
- * `main()` never runs: `--full` exits 0 with zero synthesized rules. Normalizing both to
- * their realpaths closes that gap regardless of the caller's path (issue #910). Falls back
- * to a decoded literal compare if realpath fails (e.g. the entry no longer exists on disk).
- */
-export function isDirectRun(argv1: string | undefined, metaUrl: string): boolean {
-  if (!argv1) return false;
-  const metaPath = fileURLToPath(metaUrl);
-  try {
-    return realpathSync(argv1) === realpathSync(metaPath);
-  } catch {
-    return metaPath === argv1;
-  }
-}
+// isDirectRun lives in hooks/utils/is-direct-run.ts (shared by every packages/core CLI);
+// re-exported here for the existing importers and tests.
+export { isDirectRun };
 
 // Run only when executed directly (not when imported by a test).
 if (isDirectRun(process.argv[1], import.meta.url)) {

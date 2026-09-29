@@ -28,7 +28,6 @@
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { findRegions, injectRegion, regionsMatch } from '../packages/core/composition/fence.ts';
 import {
   checkPathsGlobsParity as sharedCheckPathsGlobsParity,
@@ -38,6 +37,7 @@ import {
   extractChannelMarkers as sharedExtractChannelMarkers,
   extractLivenessExemptions as sharedExtractLivenessExemptions,
 } from '../packages/core/principles/rule-channel-glob.ts';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const RULE_INDEX_SECTION_ID = 'rule-index';
 // This renderer is its own "plan" — there is no DocPlan JSON backing the rule index; the fence
@@ -233,13 +233,6 @@ function run(argv) {
   return 0;
 }
 
-function isMainEntry() {
-  try {
-    return fileURLToPath(import.meta.url) === resolve(process.argv[1] ?? '');
-  } catch {
-    return false;
-  }
-}
-if (isMainEntry()) process.exit(run(process.argv.slice(2)));
+if (isMainEntry(import.meta.url)) process.exit(run(process.argv.slice(2)));
 
 export { buildRows, renderIndexBlock, renderIndexFileContent, RULE_INDEX_SECTION_ID, RULE_INDEX_PLAN_PATH };

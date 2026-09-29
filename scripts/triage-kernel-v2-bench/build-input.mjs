@@ -14,10 +14,11 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parseCsv } from '../triage-corpus-probe.mjs';
 import { buildPayload } from '../triage-s0-run.mjs';
+import { isMainEntry } from '../lib/is-main-entry.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = join(HERE, '..', '..');
@@ -68,7 +69,7 @@ export function buildBenchInput() {
   return { rowsIn, excludedAuthorCell, rubricBytes, rows, projected, sha256, generatedFrom };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainEntry(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (name, dflt) => (args.indexOf(name) >= 0 ? args[args.indexOf(name) + 1] : dflt);
   const out = flag('--out', join(HERE, 'bench-input.json'));
