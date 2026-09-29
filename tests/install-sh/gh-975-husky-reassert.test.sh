@@ -61,7 +61,7 @@ else
   bad "(A) pre-commit still the competing hook (no @aif-shield marker)"
 fi
 [ "$(git -C "$T" config core.hooksPath)" = ".husky" ] && ok "(A) core.hooksPath re-pinned to .husky" || bad "(A) core.hooksPath not .husky"
-echo "$_out" | grep -q 'simple-git-hooks' && ok "(A) WARN names the competing manager (simple-git-hooks)" || bad "(A) WARN did not name the competing manager"
+grep -q 'simple-git-hooks' <<<"$_out" && ok "(A) WARN names the competing manager (simple-git-hooks)" || bad "(A) WARN did not name the competing manager"
 
 # ── ARM (B-post): shields-up PASSES after re-assert ──────────────────────────
 if AIF_PROJECT_ROOT="$T" bash "$SHIELDS" >/dev/null 2>&1; then
@@ -72,7 +72,7 @@ fi
 
 # ── ARM (C): idempotency — a second call re-asserts nothing (no WARN) ─────────
 _out2=$(reassert_husky_shields "$REPO_ROOT" "$T" 2>&1)
-if echo "$_out2" | grep -q 're-asserted'; then
+if grep -q 're-asserted' <<<"$_out2"; then
   bad "(C) second re-assert WARNed despite hooks already matching templates — not idempotent"
 else
   ok "(C) idempotent: hooks already match templates → no re-assert, no WARN"
@@ -98,7 +98,7 @@ else
   _out3=$(reassert_husky_shields "$REPO_ROOT" "$T2" 2>&1)
   grep -q 'npm run typecheck' "$T2/.husky/pre-commit" && ok "(D) consumer pre-commit kept" || bad "(D) consumer pre-commit overwritten by re-assert"
   grep -q 'npm run e2e' "$T2/.husky/pre-push" && ok "(D) consumer pre-push kept" || bad "(D) consumer pre-push overwritten by re-assert"
-  echo "$_out3" | grep -q 're-asserted' && bad "(D) re-assert WARNed about consumer-owned hooks" || ok "(D) no re-assert WARN for consumer-owned hooks"
+  grep -q 're-asserted' <<<"$_out3" && bad "(D) re-assert WARNed about consumer-owned hooks" || ok "(D) no re-assert WARN for consumer-owned hooks"
   # A pristine framework hook on disk is NOT consumer-owned: noting must leave it re-assertable.
   cp "$PC_TPL" "$T2/.husky/pre-commit"
   HUSKY_CONSUMER_HOOKS=""

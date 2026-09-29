@@ -109,7 +109,7 @@ out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
 { [ "$(cat "$C/clippy.toml")" = "$CONSUMER_BEFORE" ] && [ -f "$C/getff-clippy.toml" ]; } \
   && ok "(5) consumer clippy.toml untouched + our rules shipped as getff-clippy.toml (cell ii REFUSE)" \
   || bad "(5) REFUSE cell wrong: consumer clippy.toml modified or getff-clippy.toml missing"
-echo "$out" | grep -q "REFUSE clippy.toml" \
+grep -q "REFUSE clippy.toml" <<<"$out" \
   && ok "(5) delivery log announced the REFUSE loudly (attention-is-not-a-mechanism)" \
   || bad "(5) no loud REFUSE announcement in the delivery log"
 # ── Finding-1 regression arms (W4 rework): in the REFUSE cell, the self-check and the rules-lock
@@ -118,14 +118,14 @@ echo "$out" | grep -q "REFUSE clippy.toml" \
 # the delivered set). Tool-gated like arm (6): with cargo present the self-check must FIRE.
 # @arm:E2:pos self-check-resolves-delivered-config (cargo lane — 5a fire + no-false-SILENT, 5b lock fp)
 if command -v cargo >/dev/null 2>&1; then
-  echo "$out" | grep -q "fired RED on the planted violation" \
+  grep -q "fired RED on the planted violation" <<<"$out" \
     && ok "(5a) REFUSE cell: self-check FIRED — it proved the DELIVERED getff-clippy.toml, not the consumer's config" \
     || bad "(5a) REFUSE cell: self-check did not fire (ran against the consumer's clippy.toml — delivered-config resolution bug)"
-  echo "$out" | grep -q "SILENT (delivery bug)" \
+  grep -q "SILENT (delivery bug)" <<<"$out" \
     && bad "(5a) REFUSE cell: false SILENT verdict — self-check proved the WRONG (consumer) config" \
     || ok "(5a) REFUSE cell: no false SILENT verdict"
 else
-  echo "$out" | grep -q "firing NOT proven (degrade, NOT green)" \
+  grep -q "firing NOT proven (degrade, NOT green)" <<<"$out" \
     && ok "(5a) REFUSE cell: cargo absent → loud degrade (arm not vacuous)" \
     || bad "(5a) REFUSE cell: cargo absent but no loud degrade printed"
 fi
@@ -148,19 +148,19 @@ echo "  ── (6) firing self-check (tool-gated) ──"
 C=$(cargo_fixture)
 out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
 if command -v cargo >/dev/null 2>&1; then
-  echo "$out" | grep -q "fired RED on the planted violation" \
+  grep -q "fired RED on the planted violation" <<<"$out" \
     && ok "(6) cargo present → self-check FIRED RED on the planted std::env::var violation" \
     || bad "(6) cargo present but self-check did not report a RED firing: $(echo "$out" | tail -3 | tr '\n' '|')"
   # Paired GREEN direction (adapter-jig E1): the self-check must ALSO run a conforming clean control
   # and report it green — a RED-only harness passes identically under an always-firing broken config.
-  echo "$out" | grep -q "clean control GREEN" \
+  grep -q "clean control GREEN" <<<"$out" \
     && ok "(6) self-check ran the paired CLEAN CONTROL and it stayed GREEN (config discriminates)" \
     || bad "(6) no clean-control GREEN line — the self-check is RED-only (vacuous vs an always-red config): $(echo "$out" | grep -i 'self-check\|clean' | tr '\n' '|')"
-  echo "$out" | grep -q "OVER-BROAD" \
+  grep -q "OVER-BROAD" <<<"$out" \
     && bad "(6) self-check reported the delivered config OVER-BROAD on a healthy install (false alarm)" \
     || ok "(6) no OVER-BROAD verdict on the healthy delivered config"
 else
-  echo "$out" | grep -q "firing NOT proven (degrade, NOT green)" \
+  grep -q "firing NOT proven (degrade, NOT green)" <<<"$out" \
     && ok "(6) cargo absent → loud tool-absent degrade (never silently green)" \
     || bad "(6) cargo absent but no loud degrade printed"
 fi
@@ -177,10 +177,10 @@ deg=$(
     _cargo_firing_self_check
   ' 2>&1
 )
-echo "$deg" | grep -q "cargo not on PATH" \
+grep -q "cargo not on PATH" <<<"$deg" \
   && ok "(7) stripped-PATH self-check prints the loud tool-absent degrade" \
   || bad "(7) degrade arm did not fire on a stripped PATH"
-echo "$deg" | grep -q "a skipped check is NOT green" \
+grep -q "a skipped check is NOT green" <<<"$deg" \
   && ok "(7) degrade summary refuses to claim green (attention-is-not-a-mechanism honesty)" \
   || bad "(7) degrade summary missing the not-green honesty line"
 [ ! -e "$C/target" ] \
@@ -213,7 +213,7 @@ warn8a=$(
     "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8a=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
-printf '%s' "$warn8a" | grep -q "non-authoritative" \
+grep -q "non-authoritative" <<<"$warn8a" \
   && ok "(8a) no-hash-tool degrade prints the loud stderr warning (RED before fix — was silent)" \
   || bad "(8a) NO loud warning on the no-hash-tool degrade path (silent fake fingerprint)"
 [ "$fp8a" = "sha256:unknown" ] \
@@ -226,7 +226,7 @@ warn8b=$(
     "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8b=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
-printf '%s' "$warn8b" | grep -q "non-authoritative" \
+grep -q "non-authoritative" <<<"$warn8b" \
   && ok "(8b) delivered-clippy-absent degrade prints the loud stderr warning (RED before fix — was silent)" \
   || bad "(8b) NO loud warning on the clippy-absent degrade path (silent fake fingerprint)"
 [ "$fp8b" = "sha256:unknown" ] \
@@ -240,10 +240,10 @@ warn8c=$(
     "$BASHBIN" -c 'source "$1"; source "$2"; _cargo_write_rules_lock >/dev/null' _ "$LAYER" "$REPO_ROOT/setup.d/lib.sh" 2>&1
 )
 fp8c=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$C/.ai-factory/synthesizer-output/rules-lock.cargo.json" 2>/dev/null)
-printf '%s' "$fp8c" | grep -qE '^sha256:[0-9a-f]{64}$' \
+grep -qE '^sha256:[0-9a-f]{64}$' <<<"$fp8c" \
   && ok "(8c) hash tool present → authoritative sha256:<64hex> fingerprint" \
   || bad "(8c) expected sha256:<64hex> with hash tools present, got: '$fp8c'"
-printf '%s' "$warn8c" | grep -q "non-authoritative" \
+grep -q "non-authoritative" <<<"$warn8c" \
   && bad "(8c) degrade warning fired on the healthy path (false-positive noise)" \
   || ok "(8c) no degrade warning on the healthy path (warning is discriminating, not noise)"
 rm -rf "$C" "$BIN8"
@@ -271,13 +271,13 @@ if command -v cargo >/dev/null 2>&1; then
       _cargo_firing_self_check
     ' 2>&1
   )
-  echo "$over" | grep -q "FIRED on the clean control" \
+  grep -q "FIRED on the clean control" <<<"$over" \
     && ok "(9) clean control FIRED under the over-broad config → detected (the E1 pairing discriminates)" \
     || bad "(9) over-broad config NOT detected — clean control missing or silent: $(echo "$over" | tr '\n' '|' | cut -c1-300)"
-  echo "$over" | grep -q "OVER-BROAD" \
+  grep -q "OVER-BROAD" <<<"$over" \
     && ok "(9) summary refuses the green verdict (OVER-BROAD reported, not «enforcement is live»)" \
     || bad "(9) summary still claimed green under an always-red config (the pre-arm false-green)"
-  echo "$over" | grep -q "enforcement is live" \
+  grep -q "enforcement is live" <<<"$over" \
     && bad "(9) «enforcement is live» printed for an over-broad config (false green)" \
     || ok "(9) no false «enforcement is live» claim"
   rm -rf "$C"
@@ -318,7 +318,7 @@ out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
 cmp -s "$TPL/deny.toml" "$C/getff-deny.toml" \
   && ok "(10) our starter shipped as getff-deny.toml (byte-identical to template)" \
   || bad "(10) getff-deny.toml missing or differs from template"
-echo "$out" | grep -q "REFUSE deny.toml" \
+grep -q "REFUSE deny.toml" <<<"$out" \
   && ok "(10) delivery log announced the deny REFUSE loudly (cell iii)" \
   || bad "(10) no loud REFUSE deny.toml announcement"
 rm -rf "$C"
@@ -333,10 +333,10 @@ out=$( cd "$C" && bash "$INSTALL" cargo < /dev/null 2>&1 ) || true
 grep -qxF 'name: consumer-authored cargo wf' "$C/.github/workflows/getff-cargo.yml" \
   && ok "(11) non-getff getff-cargo.yml NOT clobbered (consumer workflow preserved)" \
   || bad "(11) non-getff getff-cargo.yml was overwritten — STOP-line breach"
-echo "$out" | grep -q "REFUSE CI" \
+grep -q "REFUSE CI" <<<"$out" \
   && ok "(11) printed a loud REFUSE CI with manual wiring instructions" \
   || bad "(11) no loud REFUSE CI on a pre-existing non-getff workflow at our path"
-echo "$out" | grep -q "cargo clippy" \
+grep -q "cargo clippy" <<<"$out" \
   && ok "(11) REFUSE CI includes the manual clippy-gate command (consumer can self-wire)" \
   || bad "(11) REFUSE CI missing the manual wiring command"
 rm -rf "$C"
@@ -467,16 +467,16 @@ out=$( cd "$C" && PATH="$SHIM16:$PATH" bash "$INSTALL" cargo < /dev/null 2>&1 );
 [ "$rc16" -eq 0 ] \
   && ok "(16) install.sh survived the 101 exit (rc=0 — set -e did not abort mid-self-check)" \
   || bad "(16) install.sh ABORTED on the non-zero cargo exit (rc=$rc16 — the set -e trap, A2-3): $(echo "$out" | tail -3 | tr '\n' '|')"
-echo "$out" | grep -q "getff Rust/cargo toolchain delivery complete" \
+grep -q "getff Rust/cargo toolchain delivery complete" <<<"$out" \
   && ok "(16) completion line printed (self-check + refresh_baseline_flush + capstone all reached)" \
   || bad "(16) completion line never printed — install died before the end of do_cargo_lane"
-echo "$out" | grep -q "did NOT fire on a planted violation" \
+grep -q "did NOT fire on a planted violation" <<<"$out" \
   && ok "(16) SILENT verdict line printed (the self-check reported instead of dying)" \
   || bad "(16) SILENT verdict line missing — the self-check never reported"
-echo "$out" | grep "self-check" | grep -q "SILENT" \
+grep -q "SILENT" <<<"$(echo "$out" | grep "self-check")" \
   && ok "(16) self-check summary line printed with the SILENT count (not swallowed)" \
   || bad "(16) self-check summary missing (or carries no SILENT count)"
-echo "$out" | grep -q "cargo exit=101" \
+grep -q "cargo exit=101" <<<"$out" \
   && ok "(16) ✗ verdict carries the captured cargo exit code (exit context in the log)" \
   || bad "(16) ✗ verdict missing the captured cargo exit context"
 rm -rf "$C" "$SHIM16"

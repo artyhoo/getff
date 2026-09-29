@@ -134,9 +134,9 @@ mkdir -p "$E/app/actions"
 printf 'export async function action() {}\n' > "$E/app/actions/t6-probe.ts"
 cfg_out=$(cd "$E" && "$ESLINT_BIN" --print-config app/actions/t6-probe.ts 2>&1)
 cfg_rc=$?
-if [ "$cfg_rc" -eq 0 ] && echo "$cfg_out" | grep -q 'restricted-syntax-audit-exempt'; then
+if [ "$cfg_rc" -eq 0 ] && grep -q 'restricted-syntax-audit-exempt' <<<"$cfg_out"; then
   ok "t6 C-cfg: eslint --print-config confirms rules-as-tests/restricted-syntax-audit-exempt in resolved config for boundary file (app/actions/*.ts)"
-elif echo "$cfg_out" | grep -qiE 'ERR_MODULE_NOT_FOUND|Cannot find package'; then
+elif grep -qiE 'ERR_MODULE_NOT_FOUND|Cannot find package' <<<"$cfg_out"; then
   skip "t6 C-cfg SKIP — eslint --print-config could not load full config (missing plugin packages in test env; C0 config-level grep confirms rule IS in eslint.config.mjs)"
 else
   skip "t6 C-cfg SKIP — eslint --print-config rc=$cfg_rc (out=$(echo "$cfg_out" | head -1 | tr -d '\n'))"
@@ -254,7 +254,7 @@ SCRIPT
 # Run C1 positive
 c1p_out=$(cd "$E" && "$TSX_BIN" t6-c1-pos.mts 2>&1)
 c1p_rc=$?
-if echo "$c1p_out" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+if grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$c1p_out"; then
   # Drop the `throw new ERR_…(` / `return new ERR_…(` source excerpt Node 24.20 prints above the error (#1390;
   # same excerpt filter as check-fences-fire.sh _first_err).
   skip "t6 C1 pos SKIP — module load failed ($(echo "$c1p_out" | grep -vE 'new ERR_[A-Z0-9_]+\(' | grep -m1 -iE 'cannot find|ERR_' | tr -d '\n'))"
@@ -269,7 +269,7 @@ fi
 # Run C1 negative
 c1n_out=$(cd "$E" && "$TSX_BIN" t6-c1-neg.mts 2>&1)
 c1n_rc=$?
-if echo "$c1n_out" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+if grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$c1n_out"; then
   skip "t6 C1 neg SKIP — module load failed (same infrastructure issue)"
 elif [ "$c1n_rc" -eq 3 ]; then
   bad "t6 C1 neg: config-missing error (detail=$(echo "$c1n_out" | head -1 | tr -d '\n'))"
@@ -282,7 +282,7 @@ fi
 # Run C2 positive
 c2p_out=$(cd "$E" && "$TSX_BIN" t6-c2-pos.mts 2>&1)
 c2p_rc=$?
-if echo "$c2p_out" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+if grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$c2p_out"; then
   skip "t6 C2 pos SKIP — module load failed"
 elif [ "$c2p_rc" -eq 3 ]; then
   bad "t6 C2 pos: config-missing — no-server-imports-in-client not found in installed eslint.config.mjs (detail=$(echo "$c2p_out" | head -1 | tr -d '\n'))"
@@ -295,7 +295,7 @@ fi
 # Run C2 negative
 c2n_out=$(cd "$E" && "$TSX_BIN" t6-c2-neg.mts 2>&1)
 c2n_rc=$?
-if echo "$c2n_out" | grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
+if grep -qiE 'cannot find module|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH' <<<"$c2n_out"; then
   skip "t6 C2 neg SKIP — module load failed"
 elif [ "$c2n_rc" -eq 3 ]; then
   bad "t6 C2 neg: config-missing error"

@@ -42,17 +42,17 @@ run_layer() {  # $1 = exit code of the stub generator; prints layer output, then
 }
 
 _out=$(run_layer 1)
-echo "$_out" | grep -q 'LAYER_RC=0' && ok "(A) the layer still returns 0 (never aborts the install)" || bad "(A) the layer did not return 0 (got: $_out)"
-echo "$_out" | grep -q 'FAILED' && ok "(A) a loud FAILED line names the failed generation" || bad "(A) no FAILED line (got: $_out)"
-echo "$_out" | grep -q 'NOT_WIRED_COUNT=1' && ok "(A) the failure is listed under NOT wired" || bad "(A) NOT_WIRED not recorded (got: $_out)"
-echo "$_out" | grep -q 'NOT_WIRED: .*rules-research' && ok "(A) the NOT wired line names the research the rules came from" || bad "(A) NOT wired line lacks the research path"
+grep -q 'LAYER_RC=0' <<<"$_out" && ok "(A) the layer still returns 0 (never aborts the install)" || bad "(A) the layer did not return 0 (got: $_out)"
+grep -q 'FAILED' <<<"$_out" && ok "(A) a loud FAILED line names the failed generation" || bad "(A) no FAILED line (got: $_out)"
+grep -q 'NOT_WIRED_COUNT=1' <<<"$_out" && ok "(A) the failure is listed under NOT wired" || bad "(A) NOT_WIRED not recorded (got: $_out)"
+grep -q 'NOT_WIRED: .*rules-research' <<<"$_out" && ok "(A) the NOT wired line names the research the rules came from" || bad "(A) NOT wired line lacks the research path"
 
 _out=$(run_layer 0)
-echo "$_out" | grep -q 'FAILED' && bad "(B) FAILED printed for a successful generation" || ok "(B) a successful generation prints no FAILED line"
-echo "$_out" | grep -q 'NOT_WIRED_COUNT=0' && ok "(B) a successful generation records nothing as not wired" || bad "(B) NOT_WIRED recorded on success (got: $_out)"
+grep -q 'FAILED' <<<"$_out" && bad "(B) FAILED printed for a successful generation" || ok "(B) a successful generation prints no FAILED line"
+grep -q 'NOT_WIRED_COUNT=0' <<<"$_out" && ok "(B) a successful generation records nothing as not wired" || bad "(B) NOT_WIRED recorded on success (got: $_out)"
 
-echo "$_out" | grep -q 'stub generator: npx' && bad "(C) the generator was started through npx (needs the clone's node_modules)" || ok "(C) the generator is not started through npx/tsx"
-echo "$_out" | grep -Eq 'stub generator: node cwd=[^ ]*/proj args=[^ ]*/pkg/packages/core/install/rule-bootstrap-cli\.bundle\.mjs --consumer-root [^ ]*/proj ' \
+grep -q 'stub generator: npx' <<<"$_out" && bad "(C) the generator was started through npx (needs the clone's node_modules)" || ok "(C) the generator is not started through npx/tsx"
+grep -Eq 'stub generator: node cwd=[^ ]*/proj args=[^ ]*/pkg/packages/core/install/rule-bootstrap-cli\.bundle\.mjs --consumer-root [^ ]*/proj ' <<<"$_out" \
   && ok "(C) plain node runs the prebuilt bundle from the project root" \
   || bad "(C) expected 'node <pkg>/…/rule-bootstrap-cli.bundle.mjs --consumer-root <proj>' from cwd <proj> (got: $_out)"
 

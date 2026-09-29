@@ -104,7 +104,7 @@ fi
 
 # ── Arm 2: NEG (LOAD-BEARING) — the seeded in-cell ref must turn the gate RED ────────────────────
 seeded_out=$(run_gate); seeded_rc=$?
-if [ "$seeded_rc" -ne 0 ] && printf '%s' "$seeded_out" | grep -qF '.claude/agents/seeded.md'; then
+if [ "$seeded_rc" -ne 0 ] && grep -qF '.claude/agents/seeded.md' <<<"$seeded_out"; then
   ok "neg: a ref seeded INSIDE a table cell turns the gate RED and names .claude/agents/seeded.md"
 else
   bad "neg: seeded in-cell ref did NOT fail the gate (rc=$seeded_rc) → delivered phase is VACUOUS"

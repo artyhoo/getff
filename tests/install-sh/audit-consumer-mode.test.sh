@@ -34,9 +34,9 @@ mkdir -p "$TMP/scripts"
 cp "$SCRIPT" "$TMP/scripts/audit-ai-docs.sh"
 out=$(cd "$TMP" && bash scripts/audit-ai-docs.sh 2>&1); rc=$?
 [ "$rc" -eq 0 ] && ok "consumer install → exit 0" || bad "consumer install → exit $rc (expected 0)"
-echo "$out" | grep -q '^FAIL' && bad "consumer install emitted FAIL lines" || ok "consumer install: no FAIL lines"
-echo "$out" | grep -q 'D3.*skipped: consumer install' && ok "D3 skip message present" || bad "D3 skip message missing"
-echo "$out" | grep -q 'D5.*skipped: consumer install' && ok "D5 skip message present" || bad "D5 skip message missing"
+grep -q '^FAIL' <<<"$out" && bad "consumer install emitted FAIL lines" || ok "consumer install: no FAIL lines"
+grep -q 'D3.*skipped: consumer install' <<<"$out" && ok "D3 skip message present" || bad "D3 skip message missing"
+grep -q 'D5.*skipped: consumer install' <<<"$out" && ok "D5 skip message present" || bad "D5 skip message missing"
 rm -rf "$TMP"
 
 # ── 2. paired negative: consumer mode does NOT neuter the audit (D1 still fails) ──
@@ -46,7 +46,7 @@ cp "$SCRIPT" "$TMP/scripts/audit-ai-docs.sh"
 printf '# Agents\n\nUse skill `phantom-skill` for X.\n' > "$TMP/AGENTS.md"
 out=$(cd "$TMP" && bash scripts/audit-ai-docs.sh 2>&1); rc=$?
 [ "$rc" -eq 1 ] && ok "consumer + phantom skill → exit 1 (D1 still live)" || bad "consumer + phantom skill → exit $rc (expected 1)"
-echo "$out" | grep -q 'phantom-skill' && ok "D1 violation names the phantom skill" || bad "D1 violation missing"
+grep -q 'phantom-skill' <<<"$out" && ok "D1 violation names the phantom skill" || bad "D1 violation missing"
 rm -rf "$TMP"
 
 # ── 3. paired negative: authoring-shaped tree keeps failing on missing docs ──
@@ -55,14 +55,14 @@ mkdir -p "$TMP/packages/core/audit-self"
 cp "$SCRIPT" "$TMP/packages/core/audit-self/audit-ai-docs.sh"
 out=$(cd "$TMP" && bash packages/core/audit-self/audit-ai-docs.sh --only=D3 2>&1); rc=$?
 [ "$rc" -eq 1 ] && ok "authoring shape, missing docs → D3 exit 1" || bad "authoring shape, missing docs → exit $rc (expected 1)"
-echo "$out" | grep -q 'file not found' && ok "D3 reports file not found" || bad "D3 file-not-found detail missing"
+grep -q 'file not found' <<<"$out" && ok "D3 reports file not found" || bad "D3 file-not-found detail missing"
 
 # ── 4. paired negative: authoring-shaped tree keeps failing on D5 orphan ──
 mkdir -p "$TMP/docs"
 printf '%s\n' "$CANON_PHRASE" > "$TMP/docs/orphan.md"
 out=$(cd "$TMP" && bash packages/core/audit-self/audit-ai-docs.sh --only=D5 2>&1); rc=$?
 [ "$rc" -eq 1 ] && ok "authoring shape, orphan file → D5 exit 1" || bad "authoring shape, orphan file → exit $rc (expected 1)"
-echo "$out" | grep -q 'docs/orphan.md' && ok "D5 names the orphan file" || bad "D5 orphan detail missing"
+grep -q 'docs/orphan.md' <<<"$out" && ok "D5 names the orphan file" || bad "D5 orphan detail missing"
 rm -rf "$TMP"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -29,7 +29,7 @@ grep -qi 'superpowers' "$TMP/out.txt" && ok "manifest row parsed through engine 
 # --dry-run keeps every arm write-free (copy_safe/refresh_safe no-op under DRY_RUN, lib.sh:891 / :1229).
 for lane in python cargo go; do
   LANE_OUT=$( cd "$TMP" && bash "$SETUP" "$lane" --dry-run 2>&1 )
-  echo "$LANE_OUT" | grep -q 'toolchain' \
+  grep -q 'toolchain' <<<"$LANE_OUT" \
     && ok "setup $lane routes to the toolchain lane" \
     || bad "setup $lane never reached the toolchain lane (fell through to npm auto-detect)"
 done
