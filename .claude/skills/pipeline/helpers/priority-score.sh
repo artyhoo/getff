@@ -149,7 +149,7 @@ for _d in "${PROMPTS_DIR}"/*/; do
   [[ -f "${_d}kickoff.md" ]] || continue             # no kickoff → not a real candidate
   [[ -f "${_d}done.md" ]] && continue                # C3 cheap-closed → skip expensive C2
   if [[ -n "${_merged_branch_names}" ]] \
-      && printf '%s\n' "${_merged_branch_names}" | grep -qxF "${_n}" 2>/dev/null; then
+      && grep -qxF "${_n}" 2>/dev/null <<<"${_merged_branch_names}"; then
     continue                                          # C1 cheap-closed → skip expensive C2
   fi
   _open_survivors+="${_n}"$'\n'
@@ -203,11 +203,11 @@ for dir in "${PROMPTS_DIR}"/*/; do
 
   # Extract Type from kickoff header (line 2-5 typically)
   type_line="$(grep -m1 '^\*\*Type:\*\*\|^> \*\*Type:\*\*' "${kickoff}" 2>/dev/null || echo '')"
-  if echo "${type_line}" | grep -qi 'R-phase\|research'; then
+  if grep -qi 'R-phase\|research' <<<"${type_line}"; then
     wave_type="R-phase"
-  elif echo "${type_line}" | grep -qi 'I-phase\|execution\|build'; then
+  elif grep -qi 'I-phase\|execution\|build' <<<"${type_line}"; then
     wave_type="I-phase"
-  elif echo "${type_line}" | grep -qi 'wiring\|config\|ci'; then
+  elif grep -qi 'wiring\|config\|ci' <<<"${type_line}"; then
     wave_type="wiring"
   else
     wave_type="unknown"

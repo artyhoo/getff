@@ -146,9 +146,9 @@ assert_contains "arm5: weaker-evidence sentence (§e.1)" "$T/.last-out" "weaker 
 assert_contains "arm7: PR-body citation block (§e.4)" "$T/.last-out" "Local pre-merge run: PASS"
 assert_contains "arm5: NOT COVERED list present (§e.2)" "$T/.last-out" "NOT COVERED (CI legs not reproduced locally)"
 LEDGER="$T/.git/getff/pre-merge-runs.ndjson"
-if [ -f "$LEDGER" ] && tail -n 1 "$LEDGER" | grep -q '"verdict":"PASS"' \
-   && tail -n 1 "$LEDGER" | grep -q '"failed_gates":\[\]' \
-   && tail -n 1 "$LEDGER" | grep -qE '"(ts|remote|head|base|merge|duration_s)":'; then
+if [ -f "$LEDGER" ] && _last=$(tail -n 1 "$LEDGER") && grep -q '"verdict":"PASS"' <<<"$_last" \
+   && grep -q '"failed_gates":\[\]' <<<"$_last" \
+   && grep -qE '"(ts|remote|head|base|merge|duration_s)":' <<<"$_last"; then
   ok "arm7: NDJSON ledger line with §f.1 fields"
 else
   bad "arm7: ledger line missing/malformed at $LEDGER"
@@ -180,7 +180,7 @@ run_carrier "$T" main
 [ "$RC" -eq 1 ] && ok "arm2: failing gate -> exit 1" || bad "arm2: expected 1, got $RC"
 assert_three_shas "arm1(FAIL)" "$T/.last-out"
 assert_contains "arm2: FAIL verdict names the merge result" "$T/.last-out" "gate(s) red on the merge result"
-tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"FAIL"' \
+grep -q '"verdict":"FAIL"' <<<"$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson")" \
   && ok "arm2: FAIL ledgered" || bad "arm2: FAIL not ledgered"
 export PATH=$PATH_SAVE
 
@@ -201,9 +201,9 @@ assert_contains "arm2b: names the missing lockfile, not a red gate" "$T/.last-ou
 # discriminating field is the VERDICT plus what the reason names: a precondition
 # (`npm:no-lockfile`) rather than a gate that ran and went red (`npm:npm ci`).
 _l2b=$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" 2>/dev/null)
-if printf '%s' "$_l2b" | grep -q '"verdict":"CANNOT-RUN"' \
-   && printf '%s' "$_l2b" | grep -q 'npm:no-lockfile' \
-   && ! printf '%s' "$_l2b" | grep -q 'npm ci'; then
+if grep -q '"verdict":"CANNOT-RUN"' <<<"$_l2b" \
+   && grep -q 'npm:no-lockfile' <<<"$_l2b" \
+   && ! grep -q 'npm ci' <<<"$_l2b"; then
   ok "arm2b: ledger records CANNOT-RUN naming the precondition, not a red npm ci gate"
 else
   bad "arm2b: ledger line does not distinguish precondition from failed gate: $_l2b"
@@ -452,7 +452,7 @@ grep -qF 'ruff check . --no-cache' "$T/py-gates.log" \
   || bad "arm11: plain ruff gate missing --no-cache (log: $(cat "$T/py-gates.log" 2>/dev/null))"
 grep -qF 'ruff check . --config .getff/ruff-bans.toml --no-cache' "$T/py-gates.log" \
   && ok "arm11: bans gate ran against the present config" || bad "arm11: bans gate not run"
-tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"PASS"' \
+grep -q '"verdict":"PASS"' <<<"$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson")" \
   && ok "arm11: python-lane PASS ledgered" || bad "arm11: ledger missing/malformed"
 export PATH=$PATH_SAVE
 
@@ -479,7 +479,7 @@ PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
 run_carrier "$T" main
 [ "$RC" -eq 1 ] && ok "arm13: seeded python gate red -> exit 1" || bad "arm13: expected 1, got $RC"
 assert_contains "arm13: FAIL verdict names the merge result" "$T/.last-out" "gate(s) red on the merge result"
-tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -qF '"python:' \
+grep -qF '"python:' <<<"$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson")" \
   && ok "arm13: lane-qualified failed_gates ledgered" || bad "arm13: failed_gates not lane-qualified in ledger"
 assert_three_shas "arm13(python-FAIL)" "$T/.last-out"
 export PATH=$PATH_SAVE
@@ -492,7 +492,7 @@ run_carrier "$T" main
 [ "$RC" -eq 90 ] && ok "arm14: declared bans gate missing its --config input -> exit 90" || bad "arm14: expected 90, got $RC"
 assert_contains "arm14: never-reported gate named with lane prefix" "$T/.last-out" "never reported: python:ruff check"
 assert_three_shas "arm14(python-VACUITY)" "$T/.last-out"
-tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -q '"verdict":"VACUITY"' \
+grep -q '"verdict":"VACUITY"' <<<"$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson")" \
   && ok "arm14: VACUITY ledgered" || bad "arm14: VACUITY not ledgered"
 export PATH=$PATH_SAVE
 
@@ -893,7 +893,7 @@ PATH_SAVE=$PATH; export PATH="$T/.stub-bin:$PATH"
 run_carrier "$T" main
 [ "$RC" -eq 1 ] && ok "arm28: seeded go gate red -> exit 1" || bad "arm28: expected 1, got $RC"
 assert_contains "arm28: go lane FAIL names the merge result" "$T/.last-out" "FAIL (go lane): golangci-lint exited 1"
-tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson" | grep -qF '"go:golangci-lint run' \
+grep -qF '"go:golangci-lint run' <<<"$(tail -n 1 "$T/.git/getff/pre-merge-runs.ndjson")" \
   && ok "arm28: lane-qualified failed_gates ledgered" || bad "arm28: failed_gates not lane-qualified in ledger"
 assert_three_shas "arm28(go-FAIL)" "$T/.last-out"
 export PATH=$PATH_SAVE

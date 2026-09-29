@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 30
+        "members": 31
       },
       "G": {
         "familyName": "packages",
@@ -348,7 +348,7 @@
     "principles": {
       "source": "packages/core/principles/",
       "predicate": "files matching /\\.test\\.ts$/",
-      "count": 53
+      "count": 52
     },
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
