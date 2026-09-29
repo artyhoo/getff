@@ -1,6 +1,8 @@
 # Consumer-side plugin hook dedup — design
 
-> **Status:** APPROVED (2026-09-28), revision 2 — design only; no code ships with this spec.
+> **Status:** APPROVED (2026-09-28), revision 3 — design only; no code ships with this spec.
+> Revision 3 (2026-09-29) adds D12: a file-based yield can lose a hook on a host that does not
+> load project settings, so the plugin copy now also needs runtime evidence that the project copy runs.
 > Approved in dialogue section by section. Revision 2 (same day, during planning) replaces the
 > approved sibling yield with a twin transform (D5): the sibling yield left the language line
 > doubled for a consumer that also ran the installer.
@@ -12,7 +14,10 @@
 > source checkout» (PR artyhoo/getff#1879) owns it; installer delivery modes — `setup.d/lib.sh`
 > (`copy_safe`, `refresh_safe`).
 > **Depends on:** PR artyhoo/getff#1879 merged first — this design extends its `run-hook.cmd`
-> block and reuses its registration check verbatim.
+> block and reuses its registration check verbatim. PR artyhoo/getff#1911 (open) edits the same
+> block with a broader yield and a runtime language-line fix. Whichever lands, the implementing
+> session re-reads `run-hook.cmd` on staging first. If #1911's `AIF_HOOK_CHANNEL` fix lands, D5 is
+> already met and its twin transform is dropped.
 
 ## Problem
 
@@ -125,6 +130,7 @@ A second branch beside #1879's source-checkout yield, taken when the project doe
 3. sha256 of `$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.sh` and of every declared dependency
    equals its manifest line. A missing file is a mismatch ⇒ run.
 4. `sha256sum` or `shasum -a 256` is available. Neither ⇒ run.
+5. The project copy is live for THIS event (D12). No evidence ⇒ run.
 
 The #1879 `@plugin-yields-to` targets go through the same checks against the target's own
 manifest lines.
@@ -186,6 +192,44 @@ language fallback. It keeps running every copy. No Windows stand exists to live-
 (V4 is blocked on a Windows/WSL stand). **Trigger to revisit:** a Windows stand exists — then
 extract the yield decision into `plugin/hooks/lib/should-yield` and call it from both branches.
 
+### D12 — Liveness: yield only on evidence that the project copy runs this event (revision 3)
+
+Conditions 1-4 read files. Files do not show whether Claude Code loaded the project's settings.
+`--setting-sources` without `project`, and an Agent SDK host without `settingSources:
+["project"]`, skip project hooks while `.claude/settings.json` and the installed copies sit on
+disk. A hook cannot tell which sources are active: the payload has no source field and no env
+var names them (code.claude.com/docs/en/hooks, checked 2026-09-29). Without D12 the plugin copy
+yields there and the hook runs nowhere — the lost-gate case.
+
+Protocol (asymmetric; the project copy never yields):
+
+- **Project copy** marks itself live. A prelude from `.claude/hooks/lib/hook-live.sh` buffers
+  stdin into a temp file, re-opens it as stdin (`exec <`), and creates
+  `${TMPDIR:-/tmp}/getff-hook-live/<session_id>/<key>.<pid>`. `<key>` is the sha256 of the hook
+  name plus the whole payload. It then runs as before. It also deletes its session's markers older
+  than 60 s.
+- **Plugin copy** checks D3 conditions 1-4 first. Only if they hold does it look for a marker with
+  the same key, younger than 5 s. It waits at most 300 ms for one. It claims one marker atomically
+  (`mv` to a claimed name; only one `mv` succeeds) and exits 0. No marker, a failed claim, no
+  `session_id`, or any error ⇒ it runs.
+- One claim per marker keeps repeats paired. A second identical event in one session (a Stop that
+  blocks twice) writes a second marker, so the plugin yields once per project run and never more.
+- Hash identity (condition 3) means the copy that runs is the same code. D12 decides only
+  *whether* it runs.
+
+| Host | Outcome |
+|---|---|
+| project settings loaded, copies identical | project runs; plugin claims the marker and yields — once |
+| project settings NOT loaded | no marker; plugin runs after ≤300 ms — once |
+| plugin reads before the marker lands and the wait expires | both run (duplicate, safe) |
+| ZCode | D6: plugin never yields |
+
+Costs, stated: the prelude joins every shared source hook, and `hook-live.sh` joins each one's
+`@plugin-yield-deps` closure. The installer must deliver `.claude/hooks/lib/hook-live.sh`.
+Consumers installed before this ship have no prelude, so their copies never mark ⇒ both run. The
+≤300 ms wait is paid only where conditions 1-4 hold. The per-session directory keeps concurrent
+sessions in one project apart.
+
 ## Gates
 
 ### D8 — Manifest freshness (principle 24, new arm)
@@ -228,6 +272,9 @@ run twin that differs by one input):
 - no `sha256sum` and no `shasum` ⇒ runs;
 - relative `deps-hash-check` registration ⇒ runs;
 - ZCode: identical project copy ⇒ runs (D6);
+- D12: identical copy, registration present, but no marker (project settings not loaded) ⇒ runs;
+  fresh marker ⇒ silent and the marker is consumed; two markers, two plugin runs ⇒ two yields;
+  stale marker (>5 s), other session's marker, no `session_id` ⇒ runs;
 - real tree: a simulated consumer (installed copies + installer registration forms) with every
   plugin `UserPromptSubmit` hook dispatched carries the language line once; a plugin-only project
   likewise;
@@ -250,7 +297,8 @@ each RED.
 
 1. Wait for artyhoo/getff#1879 to merge; branch from staging.
 2. Hashing lib + generator: `@plugin-yield-deps` parsing + `plugin/hooks/lib/source-sha256.txt`.
-3. `run-hook.cmd`: consumer branch (D3), sharing #1879's jq registration check.
+3. `run-hook.cmd`: consumer branch (D3), sharing #1879's jq registration check; liveness (D12):
+   `hook-live.sh`, the prelude in each shared source hook, installer delivery of the lib.
 4. D5 twin transform for `inject-session-bootstrap`.
 5. Principle 24 arm (D8, D10, D11) + run-hook test arms.
 6. Plugin version bump (arm (i)), live runs, PR with §1.7 sections and a `Prior-art:` trailer.

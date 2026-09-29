@@ -8,6 +8,8 @@
 
 **Tech Stack:** POSIX sh (dash-safe) for `run-hook.cmd` and the lib; bash 3.2 for scripts and shell tests; jq; vitest (TypeScript) for principle 24. **Spec:** [docs/superpowers/specs/2026-09-28-consumer-plugin-hook-dedup-design.md](../specs/2026-09-28-consumer-plugin-hook-dedup-design.md) (D1-D11).
 
+> **Re-cut required before execution (2026-09-29):** spec revision 3 adds D12 (liveness marker). This plan predates it. Once merge train A lands (#1879, #1911), re-read `plugin/hooks/run-hook.cmd` on staging and re-cut Tasks 2, 3 and 6: add the D12 lib, prelude and tests, drop Task 3 if #1911's `AIF_HOOK_CHANNEL` fix is in, bump to 0.3.9.
+
 ## Global Constraints
 
 - **Precondition:** artyhoo/getff#1879 is merged to staging. Branch from fresh `origin/staging`. Every `run-hook.cmd` / `run-hook.test.sh` reference below is to the #1879 versions.
