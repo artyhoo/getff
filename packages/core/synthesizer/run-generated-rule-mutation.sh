@@ -162,7 +162,9 @@ if ! RULES_JSON=$(GETFF_MUTATION_MANIFEST="$MANIFEST" node --input-type=module -
   }
   process.stdout.write(JSON.stringify(rules));
 " 2>"$_rules_err"); then
-  echo "FAIL — could not read the manifest $MANIFEST: $(grep -m1 -E 'Error' "$_rules_err" || head -n 1 "$_rules_err")"
+  # Node prints the throwing SOURCE LINE (`… throw new Error('…');`) above the message, so match
+  # the message line itself — `Error: …` / `SyntaxError: …` / `Error [ERR_…]: …` at column 0 (#1390).
+  echo "FAIL — could not read the manifest $MANIFEST: $(grep -m1 -E '^[A-Za-z]*Error( \[[A-Z0-9_]+\])?: ' "$_rules_err" || head -n 1 "$_rules_err")"
   echo "NOT green: the generated-rule material was not tested (regenerate it: ./setup --full)"
   rm -f "$_rules_err"
   exit 1

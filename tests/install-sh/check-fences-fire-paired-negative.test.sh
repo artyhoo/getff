@@ -28,6 +28,8 @@
 #         the fixture axis separately — the vacuity gate must not over-fire
 #   (xiii/xiv) a probe exiting 0 with NO output is not a fired fence (positive-evidence
 #         sentinel); the same stub emitting the sentinel IS counted
+#   (xv/xvi) the skip line names the error, not the `throw new ERR_…(` / `return new ERR_…(`
+#         source excerpt Node 24.20 prints above it (GH #1390) — verbatim output replayed by a stub
 #
 # SKIP condition: tsx or eslint not available (same graceful-degrade as the gate itself).
 # rc=0 on SKIP, rc=1 on any arm FAIL.
@@ -345,6 +347,61 @@ else
   echo "    gate output: $(echo "$SENTINEL_OUT" | tail -6 | tr '\n' '|')"
 fi
 rm -rf "$SENTINEL_ROOT"
+
+# (xv)/(xvi) #1390 on Node 24.20 (measured on the PC 2026-09-29): Node prints the SOURCE LINE
+# that built the error ABOVE the error itself — `  throw new ERR_MODULE_NOT_FOUND(packageName, …);`
+# or `  return new ERR_PACKAGE_PATH_NOT_EXPORTED(` — so a first match on a bare ERR_ token
+# rendered that excerpt as the cause. Arm (ix) went red there while staying green on the Mac's
+# 24.3 and CI's 22, because only a real tsx run exercised it. These arms replay the verbatim
+# 24.20 output through a STUB tsx, so the regression is caught on every Node version.
+_replay_stub() {
+  # _replay_stub <captured-output> — stub body that prints <captured-output> on stderr, rc=1
+  printf "cat >&2 <<'NODE_OUT'\n%s\nNODE_OUT\nexit 1" "$1"
+}
+_probe_cause() {
+  # _probe_cause <gate-output> — the parenthetical of the gate's dep-skip line
+  echo "$1" | grep -m1 'module load failed (' | sed -e 's/.*module load failed (//' -e 's/) — dep missing.*//'
+}
+
+N2420_NOT_FOUND="node:internal/modules/package_json_reader:301
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '$VAC_MISSING_PKG' imported from /tmp/consumer/fence-probe.mts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:784:25) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v24.20.0"
+REPLAY_ROOT=$(mktemp -d)
+_stub_tsx_root "$REPLAY_ROOT" "$(_replay_stub "$N2420_NOT_FOUND")"
+REPLAY_CAUSE=$(_probe_cause "$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$REPLAY_ROOT" bash "$GATE_SCRIPT" 2>&1)")
+if echo "$REPLAY_CAUSE" | grep -q "^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find package '$VAC_MISSING_PKG'"; then
+  ok "(xv) Node 24.20 replay: the skip names the Cannot-find line, not the 'throw new ERR_…(' source excerpt above it (#1390)"
+else
+  bad "(xv) Node 24.20 replay: skip parenthetical is '$REPLAY_CAUSE' — expected the 'Error [ERR_MODULE_NOT_FOUND]: Cannot find package …' line (#1390)"
+fi
+rm -rf "$REPLAY_ROOT"
+
+N2420_NOT_EXPORTED="node:internal/modules/esm/resolve:315
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+         ^
+
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './sub' is not defined by \"exports\" in /tmp/consumer/node_modules/fakepkg/package.json imported from /tmp/consumer/fence-probe.mts
+    at exportsNotFound (node:internal/modules/esm/resolve:315:10)
+    at packageExportsResolve (node:internal/modules/esm/resolve:663:9)
+
+Node.js v24.20.0"
+REPLAY_ROOT=$(mktemp -d)
+_stub_tsx_root "$REPLAY_ROOT" "$(_replay_stub "$N2420_NOT_EXPORTED")"
+REPLAY_CAUSE=$(_probe_cause "$(env -u CI -u FENCES_FIRE_STRICT AIF_PROJECT_ROOT="$REPLAY_ROOT" bash "$GATE_SCRIPT" 2>&1)")
+if echo "$REPLAY_CAUSE" | grep -q "^Error \[ERR_PACKAGE_PATH_NOT_EXPORTED\]: Package subpath './sub'"; then
+  ok "(xvi) Node 24.20 replay: with no Cannot-find line the skip names the 'Error [ERR_…]:' line, not the 'return new ERR_…(' excerpt (#1390)"
+else
+  bad "(xvi) Node 24.20 replay: skip parenthetical is '$REPLAY_CAUSE' — expected the 'Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: …' line (#1390)"
+fi
+rm -rf "$REPLAY_ROOT"
 # ─── Scratch: isolated fixture environment ────────────────────────────────────
 SCRATCH=$(mktemp -d)
 
