@@ -607,6 +607,74 @@ _act4=$(git -C "$P5" config --get core.hooksPath 2>/dev/null || true)
   || bad "(16b) case 2: core.hooksPath='$_act4' set anyway (would compete with pre-commit)"
 rm -rf "$P5"
 
+# ── (16f) case 2 output is VALID YAML whatever the consumer's `repos:` style ──────────────────────
+# (16b) greps for the entry, so it passed while the column-0 fragment appended under an INDENTED
+# `repos:` sequence broke the file («expected <block end>, but found '-'») — pre-commit then cannot
+# load the config and every hook in the project stops. Parse the result (js-yaml, a packages/core
+# dependency — resolvable in the CI shard) and require every original hook plus the getff one, on
+# the first install and again after a re-install.
+echo ""; echo "  ── (16f) case 2: the appended entry keeps .pre-commit-config.yaml parseable (4 repos: styles) ──"
+_yaml_hook_ids() {  # print the hook ids of a pre-commit config, one per line; non-zero on a parse error
+  node -e '
+    const r = require("module").createRequire(process.argv[1] + "/packages/core/package.json");
+    const doc = r("js-yaml").load(require("fs").readFileSync(process.argv[2], "utf8"));
+    for (const repo of doc.repos) for (const h of repo.hooks) console.log(h.id);
+  ' "$REPO_ROOT" "$1" 2>&1
+}
+_pc_style() {  # <label> <config text> <comma-joined expected ids besides getff's>
+  local label="$1" body="$2" want="$3" P ids run
+  P=$(py_fixture); git -C "$P" init -q
+  printf '%s' "$body" > "$P/.pre-commit-config.yaml"
+  for run in install re-install; do
+    ( cd "$P" && bash "$INSTALL" python < /dev/null ) >/dev/null 2>&1
+    if ids=$(_yaml_hook_ids "$P/.pre-commit-config.yaml") \
+       && [ "$(printf '%s\n' "$ids" | sort | paste -sd, -)" = "$(printf '%s\n' ${want//,/ } getff-python-pre-push | sort | paste -sd, -)" ]; then
+      ok "(16f) $label, $run: parses, hooks = $(printf '%s' "$ids" | paste -sd, -)"
+    else
+      bad "(16f) $label, $run: $(printf '%s' "$ids" | tail -3 | tr '\n' '|') — file: $(tr '\n' '|' < "$P/.pre-commit-config.yaml")"
+    fi
+  done
+  rm -rf "$P"
+}
+_pc_style "indented repos:" 'repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+' trailing-whitespace
+_pc_style "column-0 repos:" 'repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: trailing-whitespace
+' trailing-whitespace
+_pc_style "empty flow repos: []" 'repos: []
+' ""
+_pc_style "indented repos: followed by a ci: key" 'default_stages: [pre-commit]
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.6.0
+      hooks:
+          - id: trailing-whitespace
+          - id: end-of-file-fixer
+
+# pre-commit.ci settings
+ci:
+  autofix_prs: false
+' trailing-whitespace,end-of-file-fixer
+# A non-empty flow `repos: [...]` cannot take a block item: the file is left byte-identical and the
+# summary names the entry as not added (never a silently broken or silently skipped config).
+P=$(py_fixture); git -C "$P" init -q
+printf 'repos: [{repo: local, hooks: [{id: x, name: x, entry: x, language: system}]}]\n' > "$P/.pre-commit-config.yaml"
+cp "$P/.pre-commit-config.yaml" "$P/.orig"
+out=$( cd "$P" && bash "$INSTALL" python < /dev/null 2>&1 )
+if cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && grep -q 'entry in .pre-commit-config.yaml — not added' <<<"$out"; then
+  ok "(16f) non-empty flow repos: [...]: file untouched, named in the NOT wired summary"
+else
+  bad "(16f) non-empty flow repos: [...]: file $(cmp -s "$P/.orig" "$P/.pre-commit-config.yaml" && echo untouched || echo CHANGED), notice $(grep -c 'not added' <<<"$out")"
+fi
+rm -rf "$P"
+
 # Case 3: existing .git/hooks/pre-push file (no core.hooksPath) → declined with notice.
 P6=$(py_fixture); git -C "$P6" init -q
 mkdir -p "$P6/.git/hooks"

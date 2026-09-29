@@ -1048,11 +1048,64 @@ _py_integrate_precommit_consumer() {
     return 0
   fi
 
-  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body.
-  printf '\n%s\n' "$frag_marker" >> "$cfg"
-  cat "$frag_src" >> "$cfg"
-  echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  # Marker first (so the idempotency grep above finds it on re-run), then the fragment body at the
+  # indent of the file's own `repos:` items — the fragment is written in column 0, and a column-0
+  # item after an indented sequence is a YAML error that stops pre-commit loading the config at all.
+  # The marker stays in column 0: a comment line does not take part in YAML block structure.
+  local block
+  block=$(mktemp "${TMPDIR:-/tmp}/getff-precommit.XXXXXX") || return 0
+  { printf '\n%s\n' "$frag_marker"
+    _py_precommit_indent "$(_py_precommit_repos_indent "$cfg")" < "$frag_src"
+  } > "$block"
+  if _py_precommit_insert "$cfg" "$block"; then
+    echo "  ✓ appended getff-python-pre-push entry to .pre-commit-config.yaml"
+  else
+    note_not_wired "getff-python-pre-push entry in .pre-commit-config.yaml — not added: its repos: is a non-empty flow sequence ([...]), and getff does not rewrite a list written that way"
+  fi
+  rm -f "$block"
   _py_precommit_prepush_stage
+}
+
+# _py_precommit_repos_indent <cfg> — the leading spaces of the first item of the top-level block
+# `repos:` sequence; empty (column 0) when the list is empty, flow-style (`repos: []`) or absent.
+_py_precommit_repos_indent() {
+  awk '
+    !on && /^repos:[ \t]*(#.*)?$/ { on = 1; next }
+    on && /^ *-([ \t]|$)/ { match($0, /^ */); printf "%s", substr($0, 1, RLENGTH); exit }
+    on && /^[^ \t#]/ { exit }' "$1"
+}
+
+# _py_precommit_indent <indent> — stdin with <indent> prepended to every non-empty line.
+_py_precommit_indent() {
+  awk -v p="$1" '{ print (length($0) ? p $0 : $0) }'
+}
+
+# _py_precommit_insert <cfg> <block-file> — put <block-file> at the END OF THE `repos:` SEQUENCE,
+# not the end of the file: a top-level key after it (`ci:`, say) would otherwise swallow the item.
+# `repos: []` becomes a block `repos:` so it can take the item; a file without `repos:` gets one.
+# Blank and comment lines after the last item stay with the key that follows them. Returns
+# non-zero, file untouched, when `repos:` is a non-empty flow sequence.
+_py_precommit_insert() {
+  local cfg="$1" block="$2" tmp="$1.getff.tmp"
+  if awk -v blk="$block" '
+      function emit(  l) { while ((getline l < blk) > 0) print l; close(blk) }
+      function flush() { printf "%s", buf; buf = "" }
+      !seen && /^repos:[ \t]*\[[ \t]*\][ \t]*(#.*)?$/ { print "repos:"; seen = on = 1; next }
+      !seen && /^repos:[ \t]*[^ \t#]/ { flow = 1; exit }
+      !seen && /^repos:/ { print; seen = on = 1; next }
+      on && (/^[ \t]*$/ || /^#/) { buf = buf $0 "\n"; next }
+      on && /^[^ \t-]/ { emit(); on = 0; flush(); print; next }
+      on { flush(); print; next }
+      { print }
+      END {
+        if (flow) exit 1
+        if (on) { flush(); emit() } else if (!seen) { print "repos:"; emit() }
+      }' "$cfg" > "$tmp"; then
+    mv "$tmp" "$cfg"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # _py_precommit_prepush_stage — install the consumer's pre-commit pre-push stage with pre-commit's
