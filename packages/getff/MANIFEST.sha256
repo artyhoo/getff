@@ -165,7 +165,7 @@ d577c0fdcd8761e25ed6d4547fae928e316c82460fa57d090a0825aec98582f5  agents/reviewe
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  packages/core/audit-self/audit-ai-docs.sh
 80f32370eb5cac042c1ab855c408b2cbb729b1ae515432f71f69b5b4d0ee3b45  packages/core/audit-self/audit-ai-docs.test.ts
 add172472764efbc546f420561bb4a0beb81673a35e1ee11bb63348f193b5dee  packages/core/audit-self/audit-ai-docs.ts
-832ba124abd21b3c1fa3a8ce12c5ceebdb6a2e363a10b5c4478599ae853b593d  packages/core/audit-self/base-core-list.test.ts
+f81c641cb6ed252ba027097a1e063532f91e0cf8ce79df21cd7bb00a94974f35  packages/core/audit-self/base-core-list.test.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
 a8f9b35aa8db3a8857945a62e2c89c83b5c3daf883a111415f0f4200aa153c09  packages/core/audit-self/check-fences-fire.sh
@@ -615,10 +615,10 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 39405835e483d18e8e025e875b39226da0d210ca8bb4684439dec92d438d1dce  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 d4fdba5eb0954792c779636cb02742bc8f80195cf6ac4e0bc40f670eea24e2ad  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-9c81b374fb9c2514e652233720a3b020486920600eeab7ee03c892546faad460  packages/core/principles/36-ci-needs-completeness.test.ts
+fa22f1f9920d0f8e7809858c0e374681e7c52a5b8bc3faf4d1c73426528ca7cb  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 f8631bf011425895b8f14dcb2a3c8aec92edba62dbd484ae7f88df895ee9b6b3  packages/core/principles/37-required-context-completeness.test.ts
-ef9db5a0bd1cd96b285333f29ed8d1c4335bfcae042e1542916d7c5b7f993505  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+eb80ca624db5d25a01c6298ba6f31480ca983d77a7b0796512eb5b9f1f80ff50  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 43a2724d45bbccfe3c317567b86a99e361b116d3e3b5a268e597ff073c8dad90  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
