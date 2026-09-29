@@ -17,6 +17,8 @@ if "%~1"=="" (
 )
 
 set "HOOK_DIR=%~dp0"
+REM Plugin-channel marker for the dispatched hook (see the Unix block below).
+set "AIF_HOOK_CHANNEL=plugin"
 
 REM Try Git for Windows bash in standard locations
 if exist "C:\Program Files\Git\bin\bash.exe" (
@@ -66,6 +68,14 @@ if [ -z "${AIF_HOOK_LANG:-}" ]; then
     fi
   fi
 fi
+
+# ── Plugin-channel marker ─────────────────────────────────────────────────────
+# Tells the dispatched hook it runs as the plugin twin, not as the project's own copy.
+# inject-session-bootstrap reads it: this channel also ships inject-output-language, so the
+# twin leaves the [output-language] line to that hook instead of injecting it a second time.
+# lib/hook-live.sh reads it too: the twin must not mark itself live (spec D12).
+AIF_HOOK_CHANNEL=plugin
+export AIF_HOOK_CHANNEL
 
 # ── Yield to the plugin's own source checkout ─────────────────────────────────
 # plugin/hooks/hooks.json is rendered from the same harness model as the framework's own

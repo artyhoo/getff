@@ -609,4 +609,18 @@ for L in ru de; do
     || bad "R3 [$L] language lines differ: hook='$own' twin='$twin' digest='$in_digest'"
 done
 
+# L-D5 (spec D5 r3): the bootstrap twin leaves [output-language] to inject-output-language on the
+# plugin channel; the project copy keeps it.
+for SH in $SHELLS; do
+  OUT=$(printf '%s' '{"session_id":"s","hook_event_name":"UserPromptSubmit","prompt":"x"}' \
+    | env -u ZCODE_PROJECT_DIR AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$TMPD/none" XDG_CONFIG_HOME="$EMPTY_XDG" \
+      "$SH" "$REPO_ROOT/plugin/hooks/run-hook.cmd" inject-session-bootstrap 2>/dev/null)
+  case "$OUT" in *'[output-language]'*) bad "[$SH] L-D5 plugin bootstrap twin still emits the language line" ;;
+    *) ok "[$SH] L-D5 plugin bootstrap twin: no language line" ;; esac
+done
+OUT=$(printf '%s' '{"session_id":"s","hook_event_name":"UserPromptSubmit","prompt":"x"}' \
+  | env -u AIF_HOOK_CHANNEL AIF_HOOK_LANG=ru bash "$REPO_ROOT/.claude/hooks/inject-session-bootstrap.sh" 2>/dev/null)
+case "$OUT" in *'[output-language]'*) ok "L-D5 project copy keeps the language line" ;;
+  *) bad "L-D5 project copy lost the language line" ;; esac
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -122,12 +122,18 @@ $FOOTER_LINE
 # B1 (language-discipline): when the operator pins a non-English human-facing language,
 # tell the model — every turn, all skills. Precisely scoped so repo artifacts stay English.
 # See .claude/rules/language-discipline.md §2. (No path-shaped citations in this block.)
-case "${AIF_HOOK_LANG:-en}" in
-  en|'') : ;;  # English default — nothing to inject
-  ru)
+# One line per prompt, one owner per channel: on the plugin channel (AIF_HOOK_CHANNEL=plugin,
+# exported by plugin/hooks/run-hook.cmd) the plugin also ships inject-output-language, which
+# carries this same line — so the twin leaves it to that hook. The project copy keeps it: the
+# framework repo registers no inject-output-language of its own, and run-hook.cmd drops the
+# plugin's copy whenever this project copy is registered (measured 2026-09-29: 3 lines/prompt).
+case "${AIF_HOOK_CHANNEL:-}:${AIF_HOOK_LANG:-en}" in
+  plugin:*) : ;;  # plugin channel — inject-output-language owns the line
+  *:en|*:) : ;;  # English default — nothing to inject
+  *:ru)
     DIGEST="$DIGEST"$'\n[output-language] Address the operator in Russian — chat explanations, recaps, narration, questions. Keep ALL repo artifacts and machinery in English: code, comments, commit/PR/issue bodies, kickoffs, specs, tool arguments, file contents. (AIF_HOOK_LANG=ru)'
     ;;
-  *)
+  *:*)
     DIGEST="$DIGEST"$'\n'"$(printf '[output-language] Address the operator in language "%s"; keep repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)' "$AIF_HOOK_LANG" "$AIF_HOOK_LANG")"
     ;;
 esac
