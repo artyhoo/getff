@@ -99,7 +99,24 @@ REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "none")
 # named warning, never a hard network dependency (shipped-axis agnosticism).
 if [ "$REMOTE_URL" != "none" ]; then
   if ! git fetch origin >/dev/null 2>&1; then
-    echo "WARN: git fetch origin failed (offline?) — base freshness not verified; using local '$BASE_REF' at $BASE_SHA"
+    # A non-zero exit is not "nothing fetched": git exits 1 when ANY ref is
+    # rejected (e.g. a moved tag, "would clobber existing tag") yet still
+    # updates the others, the base included. Keeping the pre-fetch sha then
+    # gates a stale base — the #1466/W-1 shape the success branch below closes.
+    # So re-resolve whenever the ref still resolves (FETCH_HEAD exempt, as below).
+    PRE_FETCH_SHA=$BASE_SHA
+    BASE_GONE=0
+    case "$BASE_REF" in
+      FETCH_HEAD*) ;;
+      *) BASE_SHA=$(git rev-parse --verify "${BASE_REF}^{commit}" 2>/dev/null) || { BASE_SHA=$PRE_FETCH_SHA; BASE_GONE=1; } ;;
+    esac
+    if [ "$BASE_GONE" -eq 1 ]; then
+      echo "WARN: git fetch origin failed and '$BASE_REF' no longer resolves — base freshness not verified; using the pre-fetch sha $BASE_SHA"
+    elif [ "$BASE_SHA" != "$PRE_FETCH_SHA" ]; then
+      echo "WARN: git fetch origin exited non-zero but updated '$BASE_REF' ($PRE_FETCH_SHA -> $BASE_SHA) — partial fetch failure; gating the updated base"
+    else
+      echo "WARN: git fetch origin failed (offline, or a partial fetch failure that left '$BASE_REF' unchanged) — base freshness not verified; using local '$BASE_REF' at $BASE_SHA"
+    fi
   else
     # BASE_SHA is re-resolved AFTER the fetch: gating the pre-fetch sha silently
     # verifies a stale base — on a behind clone the containment probe then reports
