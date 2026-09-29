@@ -512,14 +512,15 @@ record() { # fold one harness result into the overall verdict: FAIL > SETUP > IN
   esac
   return 0
 }
-if [ "$HARNESS" = cc ] || [ "$HARNESS" = all ]; then
+# `case` on the --harness value: it selects a user-requested run, it does not detect a host.
+case "$HARNESS" in cc|all)
   run_cc; r=$?; record "$r"
-  [ "$r" -eq 0 ] && echo "[cc] PASS"
-fi
-if [ "$HARNESS" = zcode ] || [ "$HARNESS" = all ]; then
+  [ "$r" -eq 0 ] && echo "[cc] PASS" ;;
+esac
+case "$HARNESS" in zcode|all)
   run_zcode; r=$?; record "$r"
-  [ "$r" -eq 0 ] && echo "[zcode] PASS"
-fi
+  [ "$r" -eq 0 ] && echo "[zcode] PASS" ;;
+esac
 case "${overall:-3}" in
   0) echo "RESULT: PASS"; exit 0 ;;
   1) echo "RESULT: FAIL"; exit 1 ;;
