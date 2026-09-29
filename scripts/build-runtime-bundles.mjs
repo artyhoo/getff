@@ -98,6 +98,17 @@ export const BUNDLES = [
     ],
     thirdParty: true,
   },
+  {
+    // Circle 2 of the install (setup.d/35-stack-tools.sh): runs from the getff checkout on plain
+    // node, before the project has node_modules — so nothing may come from the project. ajv is
+    // inlined: allowlist-resolver.ts validates the Tier-2 ack file's shape with it.
+    name: 'vendor MCP check',
+    entry: 'packages/core/install/mcp-source-check.ts',
+    outfile: 'packages/core/install/mcp-source-check.bundle.mjs',
+    external: [],
+    fromProject: [],
+    thirdParty: true,
+  },
 ];
 
 // Line 1-2 keep generated code out of the consumer's lint and type-check. Line 3 defines a real

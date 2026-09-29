@@ -38,7 +38,7 @@
 #                                           if a non-getff file occupies our path. See _py_deliver_ci.
 #
 # INERT-ON-NPM CONTRACT (critical): install.sh sources ALL setup.d/[0-9]*.sh unconditionally
-# (install.sh:1451 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
+# (install.sh:1516 `for f in "$PKG_ROOT"/setup.d/[0-9]*.sh; do source "$f"; done`). This layer must
 # therefore NO-OP on the default npm flow. It runs ONLY when the Python lane is explicitly activated
 # via the env-var contract GETFF_TOOLCHAIN=python. S2 wires the `./setup python` entry that sets it;
 # until then nothing sets it, so every current npm `./setup`/`install.sh` sources this file to a
@@ -102,7 +102,7 @@ _py_copy_or_refresh() {
 # `install.sh python --refresh` printed "re-delivery complete" while .claude/skills, .claude/agents
 # and .claude/hooks stayed at the version the consumer first installed (ledger finding A2-4) — the
 # #869 refresh-drift class again, on the surface install.sh's own do_refresh() can never reach
-# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1434).
+# (do_python_lane exits at install.sh:671-672, long before do_refresh at install.sh:1499).
 #
 # The framework-owned / consumer-owned BOUNDARY is copied from do_refresh's own contract
 # (install.sh:762-763 "Consumer-authored files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs …) are
@@ -1265,7 +1265,7 @@ $msgs"
 # §2 item 1). The layer files have no activation guards against the python lane, but install.sh
 # EXITS at do_python_lane BEFORE the setup.d layer loop, so they never run on this lane; sourcing
 # them would deliver nothing. The replication is line-for-line from:
-#   - setup.d/05-mcp.sh:17-46       (context7 → .mcp.json, idempotency-guarded)
+#   - setup.d/05-mcp.sh T1          (project MCP servers → .mcp.json: the shared lib.sh writer)
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
@@ -1347,37 +1347,11 @@ _py_deliver_agent_surface() {
     fi
   fi
 
-  # ── .mcp.json (context7 only) ────────────────────────────────────────────────
-  # Replicates setup.d/05-mcp.sh:17-46 — context7-specific with an idempotency guard. The python
-  # lane does NOT source 05-mcp.sh (that file is FULL-gated which python never sets, AND the
-  # layer loop never runs), so this is the only delivery channel for context7 on this lane.
-  local _py_mcp="$PROJECT_ROOT/.mcp.json"
-  local _py_mcp_skip=0
-  if [ -f "$_py_mcp" ] && grep -q '"context7"' "$_py_mcp" 2>/dev/null && [ -z "${FORCE:-}" ]; then
-    _py_mcp_skip=1
-  fi
-  if [ "$_py_mcp_skip" = "1" ]; then
-    echo "  ⊝ context7 already in .mcp.json — kept as it is"
-  elif [ -n "${DRY_RUN:-}" ]; then
-    echo "  [dry-run] would: add context7 to .mcp.json ($_py_mcp)"
-  elif command -v jq >/dev/null 2>&1; then
-    if [ -f "$_py_mcp" ]; then
-      # ledger A1-9 (the A1-8 class): same shape as setup.d/05-mcp.sh, which this block replicates.
-      if jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
-        "$_py_mcp" > "$_py_mcp.tmp" && mv "$_py_mcp.tmp" "$_py_mcp"; then
-        echo "  ✓ context7 added/updated in existing .mcp.json"
-      else
-        rm -f "$_py_mcp.tmp" 2>/dev/null || true
-        echo "  ⚠ jq rewrite of $_py_mcp failed — file left unchanged, context7 NOT added" >&2
-      fi
-    else
-      printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' \
-        > "$_py_mcp"
-      echo "  ✓ .mcp.json created with context7"
-    fi
-  else
-    add_context7_mcp "$_py_mcp"
-  fi
+  # ── .mcp.json (context7 + deepwiki) ─────────────────────────────────────────
+  # The same writer as setup.d/05-mcp.sh (lib.sh add_getff_mcp_servers). The python lane does NOT
+  # source 05-mcp.sh (that file is FULL-gated which python never sets, AND the layer loop never
+  # runs), so this is the only delivery channel for the project MCP servers on this lane.
+  add_getff_mcp_servers "$PROJECT_ROOT/.mcp.json"
 
   # ── AGENTS.md ─────────────────────────────────────────────────────────────────
   # Replicates setup.d/30-templates.sh — starter AGENTS.md at project root, delivered as a
@@ -1413,7 +1387,7 @@ _py_deliver_agent_surface() {
   # AI Usage Guide — same every-depth delivery as the npm lane (30-templates.sh). Lane parity:
   # a python consumer that lands AGENTS.md's pointer but not its target gets a dangling reference.
   # A2-4: refresh-aware — the ONE .ai-factory/ content doc do_refresh also refreshes
-  # (install.sh:1403). Its siblings below stay copy_safe: they are consumer-editable by contract.
+  # (install.sh:1462). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
   # Materialize the AGENTS.md-referenced SoT (30-templates.sh:87-98). AGENTS.md.template sends the
@@ -1457,6 +1431,16 @@ _py_deliver_agent_surface() {
   # Closes the python lane's empty git-hook rung (kickoff §1). Verdict = BUILD bare
   # core.hooksPath-style delivery with integration arm (SSOT #237). See helper docstring above.
   _py_deliver_local_hook_rung
+
+  # ── Session settings (only on the pre-launch «yes») ─────────────────────────
+  # The same helper as setup.d/12-session-settings.sh, for the same reason as the .mcp.json block:
+  # the layer loop never runs on this lane. It prints its own one-command undo.
+  # Not followed by shellcheck here: install.sh sources this file before its own bridge-guided.sh
+  # line, and following the chain makes every lib.sh global look «modified in a subshell» there
+  # (SC2031). session-settings.sh is checked on its own as a setup.d/*.sh file.
+  # shellcheck source=/dev/null
+  . "$PKG_ROOT/setup.d/session-settings.sh"
+  apply_session_settings "$PROJECT_ROOT"
 
   echo "  ✓ Agent surface delivery complete"
 }

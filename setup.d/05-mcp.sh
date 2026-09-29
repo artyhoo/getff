@@ -14,46 +14,11 @@ if [ -z "${FULL:-}" ]; then
   return 0 2>/dev/null || true
 fi
 
-# ── T1: context7 → .mcp.json (regression L1 restore from setup.sh:289-303) ──────────────────
-# Ported shape from orphaned setup.sh:289-303. Additive jq merge — never clobbers existing
-# .mcpServers entries (brownfield safety, D3 + park-don't-guess contract).
-_05mcp_json="${PROJECT_ROOT}/.mcp.json"
-_05mcp_skip_context7=0
-if [ -f "$_05mcp_json" ] && grep -q '"context7"' "$_05mcp_json" 2>/dev/null && [ -z "${FORCE:-}" ]; then
-  _05mcp_skip_context7=1
-fi
-
-if [ "$_05mcp_skip_context7" = "1" ]; then
-  printf '  [05-mcp] context7 already in .mcp.json — kept as it is\n'
-elif [ -n "${DRY_RUN:-}" ]; then
-  printf '  [dry-run] would: add context7 to .mcp.json (%s)\n' "$_05mcp_json"
-else
-  if command -v jq >/dev/null 2>&1; then
-    if [ -f "$_05mcp_json" ]; then
-      # Brownfield: additive merge — only sets the context7 key; all other .mcpServers entries preserved.
-      # ledger A1-9 (the A1-8 class): `jq … > tmp && mv` under an UNCONDITIONAL ✓ reported success
-      # over a failed rewrite — the consumer kept the old .mcp.json, a half-written .mcp.json.tmp was
-      # left in their tree, and rc stayed 0. `set -e` does not catch it (a failing left-hand side of an
-      # && list is exempt), so the honest report needs an explicit if/else.
-      if jq '.mcpServers["context7"] = {"command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"]}' \
-        "$_05mcp_json" > "$_05mcp_json.tmp" && mv "$_05mcp_json.tmp" "$_05mcp_json"; then
-        printf '  ✓ [05-mcp] context7 added/updated in existing .mcp.json\n'
-      else
-        rm -f "$_05mcp_json.tmp" 2>/dev/null || true
-        printf '  ⚠ [05-mcp] jq rewrite of %s failed — file left unchanged, context7 NOT added\n' "$_05mcp_json" >&2
-      fi
-    else
-      # Greenfield: create minimal .mcp.json with exact shape from setup.sh:289-303.
-      printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' \
-        > "$_05mcp_json"
-      printf '  ✓ [05-mcp] .mcp.json created with context7\n'
-    fi
-    printf '  [05-mcp] path: %s\n' "$_05mcp_json"
-  else
-    # No jq: the same merge through node (lib.sh add_context7_mcp) — a NOT-wired line if that fails too.
-    add_context7_mcp "$_05mcp_json"
-  fi
-fi
+# ── T1: project MCP servers → .mcp.json (regression L1 restore from setup.sh:289-303) ─────────
+# One writer shared with the python lane (lib.sh add_getff_mcp_servers): context7 as an http remote,
+# deepwiki as an http remote only when it is not configured machine-wide. Additive merge — never
+# clobbers existing .mcpServers entries (brownfield safety, D3 + park-don't-guess contract).
+add_getff_mcp_servers "${PROJECT_ROOT}/.mcp.json"
 
 # ── T2: kind=mcp manifest rows — detect-first claude mcp add (I1: before 70-deps) ────────────
 # Source engine.sh (full, not ENGINE_LIB_ONLY) to get companion_step in scope.

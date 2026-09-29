@@ -394,14 +394,14 @@ CORE_DEVDEPS=(
 # vite is @storybook/nextjs-vite's declared peer (^5||^6||^7||^8) and NOT its direct dep; a
 # Next.js consumer has no vite of its own, so without this pin build-storybook resolves vite
 # only via vitest's transitive hoist — declare it explicitly (cold-review MAJOR, PR #953).
-# ^8 not ^7: the unpinned @vitejs/plugin-react above resolves to 6.x which peers vite@^8 —
-# vite@^7 ERESOLVEs against it (PR #956 CI smoke); ^8 satisfies plugin-react 6.x, vitest 4.x
-# (^6||^7||^8), nextjs-vite, and node 20+ (engines ^20.19.0||>=22.12.0 — covers the shipped .nvmrc 22.23.1 and brownfield 20.19+ pins).
+# ^8 satisfies vitest 4.x (^6||^7||^8), nextjs-vite and node 20+ (engines ^20.19.0||>=22.12.0). No @vitejs/plugin-react
+# (P3 2026-09-29): its vite ^8 peer broke configs on vite 6/7; the React vitest configs set esbuild
+# jsx 'automatic' instead (a JSX test measured green on vite 6.4.3, 7.3.6, 8.3.1 — react-tsconfig.test.sh).
 # @testing-library/user-event: INSTALL.md §4 declares it for React stacks but no array delivered
 # it (same INSTALL.md↔installer parity class as P0.2; loud-fail — consumer interaction tests die
 # at import). Unpinned like its @testing-library siblings; also in REACT_SPA_DEVDEPS below.
 REACT_DEVDEPS=(
-  @vitejs/plugin-react jsdom @testing-library/react
+  jsdom @testing-library/react
   @testing-library/jest-dom @testing-library/user-event @next/eslint-plugin-next
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test
@@ -412,7 +412,7 @@ REACT_DEVDEPS=(
 # react-spa (Vite SPA): de-Next-ified — drop @next/eslint-plugin-next, add eslint-plugin-boundaries
 # (Feature-Sliced Design layering the shipped SPA eslint.config enforces). Mirrors REACT_DEVDEPS otherwise.
 REACT_SPA_DEVDEPS=(
-  @vitejs/plugin-react jsdom @testing-library/react
+  jsdom @testing-library/react
   @testing-library/jest-dom @testing-library/user-event eslint-plugin-boundaries
   eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-jsx-a11y
   eslint-plugin-testing-library @playwright/test

@@ -21,9 +21,11 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 |---|------|---------|-----------|--------|
 | 05 | `05-mcp.sh` | MCP companion install: (a) context7 → `.mcp.json` (regression L1 restore from `setup.sh:289-303`); (b) detect-first `claude mcp add` for each `kind=mcp` manifest row | lib.sh (in scope), engine.sh (sourced here) | **Done** (S2) — gated on `FULL`; non-full / snapshot path no-ops (D2) |
 | 10 | `10-skills.sh` | §1 Skills (`skills/` → `.claude/skills/`) + §1b deps-hash-check CC hook | (none — first content layer) | Done — F7 split now gated on `PROFILE=factory` OR legacy `WITH_AIF_SUITE` (kickoff §2 re-triage) |
+| 12 | `12-session-settings.sh` | Session-settings group (auto-compact window, agent teams, getff's generic safety permissions) → `.claude/settings.local.json`, **only on the pre-launch «yes»** (`GETFF_SESSION_SETTINGS=1`); person's values win, original kept in `.ai-factory/before-getff/`, one-command undo printed here and in 99-finalize. Logic in `session-settings.sh` (also sourced by 45-python); values in `session-settings.json`, each an `ask` row of `ships.manifest` | lib.sh (JSON writers, `keep_original_*`), bridge-guided.sh (`_bridge_ignore_local`) | Done (one-button point 13) |
 | 15 | `15-companions-stack.sh` | Stack-specific companion installs | lib.sh (in scope) | **Stub** — content deferred to S3 |
 | 20 | `20-agents.sh` | §2 Sub-agents (`agents/` → `.claude/agents/`) + §3c skill-context overrides | `SHIPPED_DOCS` global (set in dispatcher) | Done — orchestrator-worker + reviewer-discipline + aif-orchestrator-discipline skill-context gated on `PROFILE=factory` OR legacy `WITH_AIF_SUITE` |
 | 30 | `30-templates.sh` | §3a AI Factory templates + §3b `tool-decisions.md` seed + §3d stack-specific templates + §5b `AGENTS.md` | `SHIPPED_DOCS` global | Done |
+| 35 | `35-stack-tools.sh` | Circle 2: vendor MCP servers for the project's own direct dependencies → `.mcp.json`, **only on the pre-launch «yes»** (`GETFF_STACK_TOOLS=1`); a server is taken only from the namespace its dependency's owner holds in the official MCP registry, written only when two ownership signals agree (GitHub org, homepage domain, npm scope + current `mcpName`) and it needs nothing from the person and runs nothing locally (an http remote — no version pin); one signal, a local npm server (proposed with its exact command) or a needed secret make it a proposal; each decision one line in `tool-decisions.md`. Logic in `packages/core/install/mcp-source-check.ts` (prebuilt bundle) | 30-templates (`tool-decisions.md` seeded), 05-mcp (`.mcp.json`) | Done (one-button point 7) |
 | 40 | `40-configs.sh` | §4 enforcement scripts + §5a shared templates + §5b' ESLint rules + barrel-gen + §6a stack configs | 30-templates (`.ai-factory/` exists) | Done |
 | 45 | `45-python.sh` | Python toolchain delivery (ast-grep rules + `sgconfig.yml` + ruff config) with augment-first collision policy; **INERT on the npm flow** — runs only when `GETFF_TOOLCHAIN=python` (env-var contract; S2 wires the `./setup python` entry) | lib.sh (`copy_safe`/`mkdir_safe` in scope), `packages/core/templates/python/**` (S1 Task 4) | **Done (S1 Task 5)** — inert until S2 sets `GETFF_TOOLCHAIN`; npm byte-identical unaffected (guarded no-op) |
 | 46 | `46-cargo.sh` | Rust/cargo toolchain delivery (`clippy.toml` bans + `[lints.clippy]` deny reference + `deny.toml` cargo-deny surface + `getff-cargo.yml` CI gate + cargo rules-lock) with augment-first collision policy; **INERT on the npm flow** — runs only when `GETFF_TOOLCHAIN=cargo` (`install.sh cargo` sets it) | lib.sh (`copy_safe`/`refresh_safe` in scope), `packages/core/templates/cargo/**` | **Done (ecosystem-wiring W4)** — inert until `GETFF_TOOLCHAIN=cargo`; npm/python byte-identical unaffected (guarded no-op) |
@@ -39,7 +41,7 @@ All layers are **sourced** (not exec'd) into the dispatcher shell so mutations t
 
 **contract:**
 
-- `detect_cmd`: a shell expression that exits 0 when the MCP is already configured (e.g. `grep -q <name> <<<"$(claude mcp list --scope user 2>/dev/null)"` — a here-string, not a pipe: `engine.sh` runs it with `eval` under pipefail, where a pipe into `grep -q` can lose a SIGPIPE race and read an installed companion as missing; `scripts/check-pipefail-early-exit.mjs` refuses the pipe form).
+- `detect_cmd`: a shell expression that exits 0 when the MCP is already configured (e.g. `grep -q 'Scope: User' <<<"$(claude mcp get <name> 2>/dev/null)"` — `claude mcp list` has no `--scope` option, so a `mcp list --scope user` probe always fails and re-installs; and a here-string, not a pipe: `engine.sh` runs it with `eval` under pipefail, where a pipe into `grep -q` can lose a SIGPIPE race and read an installed companion as missing; `scripts/check-pipefail-early-exit.mjs` refuses the pipe form).
 - `install_cmd`: the official `claude mcp add` command with no version pin. For user-scope MCPs, include `--scope user`; the engine emits a machine-scope notice automatically.
 - Rows are processed only when `FULL` is set (i.e., `install.sh --full`). Non-full / `--dry-run` paths are no-ops or print a preview respectively.
 - Requires `claude` CLI present; graceful skip (`⊝ claude CLI absent — skipping MCP <name>`) when absent.
@@ -129,9 +131,11 @@ All layers share the dispatcher shell scope. These globals are initialised in `i
 |---|---|---|---|
 | `05-mcp.sh` | 5 | MCP companion install layer (S2). | all stacks |
 | `10-skills.sh` | 10 | §1 Skills + §1b Hooks (deps-hash-check CC hook). | all stacks |
+| `12-session-settings.sh` | 12 | session settings into .claude/settings.local.json on the pre-launch yes. | all stacks |
 | `15-companions-stack.sh` | 15 | Stack-specific companion selection layer (S3). | all stacks |
 | `20-agents.sh` | 20 | §2 Sub-agents + §3c skill-context overrides. | all stacks |
 | `30-templates.sh` | 30 | §3a AI Factory templates + §3b tool-decisions + §3d stack-specific + §5b AGENTS.md. | all stacks |
+| `35-stack-tools.sh` | 35 | vendor MCP servers for the project's own dependencies, on the pre-launch yes. | all stacks |
 | `40-configs.sh` | 40 | §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs. | all stacks |
 | `45-python.sh` | 45 | Python toolchain delivery layer (python-delivery-v0 S1, Task 5). | all stacks |
 | `46-cargo.sh` | 46 | Rust/cargo toolchain delivery layer (ecosystem-wiring W4). | all stacks |

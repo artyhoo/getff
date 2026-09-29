@@ -112,4 +112,65 @@ grep -qE '^[[:space:]]*companion_not_wired_summary' "$REPO_ROOT/setup" \
   && ok "setup prints the companion NOT-wired summary" || bad "setup never calls companion_not_wired_summary"
 rm -f "$_cs_log"
 
+# === installed versions: read after install, recorded in tool-decisions.md, never pinned ===
+# One-button fork on pins = B (operator log entry 28). Stubs: `claude plugin list --json` answers
+# with STUB_SP_VERSION for superpowers; `npm ls -g` answers like npm 10 for @ast-grep/cli.
+_vb=$(mktemp -d); _vp=$(mktemp -d); mkdir -p "$_vp/.ai-factory"
+cat > "$_vb/claude" <<'EOF'
+#!/bin/sh
+if [ "$1 $2 $3" = "plugin list --json" ]; then
+  printf '[{"id":"other@x","version":"9.9.9"},{"id":"superpowers@claude-plugins-official","version":"%s"}]\n' "${STUB_SP_VERSION:-5.0.7}"
+fi
+exit 0
+EOF
+cat > "$_vb/npm" <<'EOF'
+#!/bin/sh
+[ "$1 $2" = "ls -g" ] && printf '/usr/local/lib\n`-- @ast-grep/cli@0.44.1\n'
+exit 0
+EOF
+chmod +x "$_vb/claude" "$_vb/npm"
+_vdec="$_vp/.ai-factory/tool-decisions.md"
+printf '## Accepted\n\n| Tool | Type | Accepted | Rationale |\n| mine | MCP | 2026-01-01 | the project'"'"'s own row |\n' > "$_vdec"
+_sp="claude plugin install superpowers@claude-plugins-official --scope user"
+_vrun() { ( cd "$_vp" && PROJECT_ROOT="$_vp" GETFF_TODAY=2026-09-29 GETFF_GLOBAL=1 PATH="$_vb:$PATH" companion_step "$@" ); }
+out=$(_vrun superpowers "true" "$_sp" cc-plugin yes)
+grep -qxF '| superpowers | cc-plugin | 5.0.7 | 2026-09-29 | claude plugin list --json |' "$_vdec" \
+  && ok "versions: a present plugin's installed version is recorded" || bad "versions: no superpowers row: $(tr '\n' '|' < "$_vdec")"
+grep -q 'superpowers version 5.0.7 recorded' <<<"$out" && ok "versions: the report names the version" || bad "versions: no report line: $out"
+out=$(STUB_SP_VERSION=5.1.0 _vrun superpowers "false" "$_sp" cc-plugin yes)
+[ "$(grep -c '^| superpowers |' "$_vdec")" = 1 ] && grep -q '^| superpowers | cc-plugin | 5.1.0 |' "$_vdec" \
+  && ok "versions: after an install the row is replaced, not duplicated" || bad "versions: rows after a second run: $(grep '^| superpowers' "$_vdec" | tr '\n' '|')"
+grep -qxF "| mine | MCP | 2026-01-01 | the project's own row |" "$_vdec" && ok "versions: the project's own lines are kept" || bad "versions: the project's own row was lost"
+out=$(_vrun ast-grep-cli "true" "npm install -g @ast-grep/cli" cli yes)  # ci-tool-pin: allow test fixture, never executed (detect answers present)
+grep -q '^| ast-grep-cli | cli | 0.44.1 | 2026-09-29 | npm ls -g |' "$_vdec" && ok "versions: a global npm CLI's version is recorded" || bad "versions: no ast-grep-cli row"
+[ "$(grep -c 'getff:installed-versions:begin' "$_vdec")" = 1 ] && ok "versions: one block for all tools" || bad "versions: the block was added twice"
+cp "$_vdec" "$_vp/before"
+out=$(_vrun superpowers "true" "$_sp" cc-plugin dry-run)
+cmp -s "$_vdec" "$_vp/before" && ok "versions: dry-run records nothing" || bad "versions: dry-run wrote tool-decisions.md"
+out=$(_vrun other "true" "claude plugin install nope@nowhere --scope user" cc-plugin yes)
+grep -q '^| other | cc-plugin | not read |' "$_vdec" && ok "versions: an unreadable version is recorded as «not read», never guessed" || bad "versions: no «not read» row"
+# P2 writes its own marked block into the same file (one-button P2, `aif:project-checks`); either
+# order, its lines — even a row that starts like one of ours — stay byte-identical.
+_p2='<!-- aif:project-checks:begin -->
+## Project checks
+
+| superpowers | a P2 row that only looks like a versions row |
+<!-- aif:project-checks:end -->'
+for _order in before after; do
+  # the first run adds our block; the measured second run goes through the rewrite path over P2's lines
+  if [ "$_order" = before ]; then printf '## Accepted\n\n%s\n' "$_p2" > "$_vdec"; _vrun superpowers "true" "$_sp" cc-plugin yes >/dev/null
+  else printf '## Accepted\n' > "$_vdec"; _vrun superpowers "true" "$_sp" cc-plugin yes >/dev/null; printf '\n%s\n' "$_p2" >> "$_vdec"; fi
+  out=$(STUB_SP_VERSION=5.2.0 _vrun superpowers "true" "$_sp" cc-plugin yes)
+  _p2now=$(sed -n '/aif:project-checks:begin/,/aif:project-checks:end/p' "$_vdec")
+  [ "$_p2now" = "$_p2" ] && [ "$(grep -c 'getff:installed-versions:begin' "$_vdec")" = 1 ] \
+    && sed -n '/getff:installed-versions:begin/,/getff:installed-versions:end/p' "$_vdec" | grep -q '^| superpowers | cc-plugin | 5.2.0 |' \
+    && ok "versions: P2's project-checks block $_order ours is kept byte-identical and ours still records" \
+    || bad "versions: P2 block $_order ours: $(tr '\n' '|' < "$_vdec")"
+done
+rm -f "$_vdec"
+out=$(_vrun superpowers "true" "$_sp" cc-plugin yes)
+[ ! -e "$_vdec" ] && grep -q 'not recorded: .ai-factory/tool-decisions.md is not in this project' <<<"$out" \
+  && ok "versions: no tool-decisions.md → the report says so, no file is created" || bad "versions: absent file: $out"
+rm -rf "$_vb" "$_vp"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

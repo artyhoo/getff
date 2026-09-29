@@ -41,6 +41,90 @@ companion_not_wired_summary() {
   printf '      - %s\n' "${COMPANION_NOT_WIRED[@]}"
 }
 
+# ── Installed versions: read after install, recorded, never pinned ─────────────────────────────
+# One-button fork on pins = B (operator log entry 28): no install_cmd carries a version; each tool's
+# own installer serves its latest. What it served is READ after the install (or on a present
+# tool) and recorded in .ai-factory/tool-decisions.md, so a project knows which version it runs.
+
+# companion_version <install_cmd> <kind> — the installed version on stdout, empty when it cannot be
+# read. cc-plugin: `claude plugin list --json` (the plugin id is the word after «plugin install»);
+# cli from npm: `npm ls -g <pkg>`. Other kinds have no local version to read (http remotes, services).
+companion_version() {
+  local cmd="$1" kind="$2" id pkg out
+  case "$kind" in
+    cc-plugin)
+      case "$cmd" in *"plugin install "*) ;; *) return 0 ;; esac
+      id=${cmd##*plugin install }; id=${id%% *}
+      command -v claude >/dev/null 2>&1 || return 0
+      out=$(claude plugin list --json 2>/dev/null) || return 0
+      if command -v jq >/dev/null 2>&1; then
+        # shellcheck disable=SC2016  # jq program, not shell expansions
+        jq -r --arg id "$id" '[.[]? | select(.id == $id)][0].version // empty' <<<"$out" 2>/dev/null || true
+      elif command -v node >/dev/null 2>&1; then
+        GETFF_ID="$id" node -e '
+          let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+            try { const p = JSON.parse(s).find((x) => x && x.id === process.env.GETFF_ID); if (p && p.version) console.log(p.version); } catch (_) {}
+          });' <<<"$out" 2>/dev/null || true
+      fi
+      ;;
+    cli)
+      case "$cmd" in "npm install -g "*) ;; *) return 0 ;; esac  # ci-tool-pin: allow a case pattern that reads a manifest command, not an install
+      pkg=${cmd#npm install -g }; pkg=${pkg%% *}  # ci-tool-pin: allow parameter expansion over a manifest command, not an install
+      command -v npm >/dev/null 2>&1 || return 0
+      out=$(npm ls -g --depth=0 "$pkg" 2>/dev/null || true)
+      awk -v p="$pkg@" '{ i = index($0, p); if (i) { v = substr($0, i + length(p)); sub(/[ ].*/, "", v); print v; exit } }' <<<"$out"
+      ;;
+  esac
+  return 0
+}
+
+# companion_record_version <name> <kind> <version> <read-from> — one row per tool in the marked
+# block of .ai-factory/tool-decisions.md (added at the end when absent; a tool's earlier row is
+# replaced, every other line kept). Prints the report line. The file is seeded by install.sh
+# (30-templates); when it is absent the version stays in the report only, said so.
+GETFF_VERSIONS_BEGIN='<!-- getff:installed-versions:begin -->'
+GETFF_VERSIONS_END='<!-- getff:installed-versions:end -->'
+companion_record_version() {
+  local name="$1" kind="$2" ver="${3:-not read}" from="$4" f row today
+  f="${PROJECT_ROOT:-$PWD}/.ai-factory/tool-decisions.md"
+  today="${GETFF_TODAY:-$(date +%Y-%m-%d)}"
+  row="| $name | $kind | $ver | $today | $from |"
+  if [ ! -f "$f" ]; then
+    printf '  · %s version %s (not pinned) — not recorded: .ai-factory/tool-decisions.md is not in this project\n' "$name" "$ver"
+    return 0
+  fi
+  if awk -v row="$row" -v key="| $name |" -v b="$GETFF_VERSIONS_BEGIN" -v e="$GETFF_VERSIONS_END" '
+      $0 == b { inb = 1; print; next }
+      inb && index($0, key) == 1 { next }
+      inb && $0 == e { print row; print; inb = 0; done = 1; next }
+      { print }
+      END { exit done ? 0 : 3 }' "$f" > "$f.tmp" 2>/dev/null; then
+    mv "$f.tmp" "$f"
+  else
+    rm -f "$f.tmp" 2>/dev/null
+    grep -qF "$GETFF_VERSIONS_BEGIN" "$f" && { printf '  ⚠ %s version %s — not recorded: the installed-versions block in tool-decisions.md has no end line\n' "$name" "$ver"; return 0; }
+    {
+      printf '\n%s\n\n## Installed versions (the fixed list)\n\n' "$GETFF_VERSIONS_BEGIN"
+      printf 'Not pinned: each tool is installed by its own installer, which serves its latest; getff reads\n'
+      printf 'what was installed and records it here on every install run.\n\n'
+      printf '| Tool | Kind | Version | Read on | Read from |\n| ---- | ---- | ------- | ------- | --------- |\n%s\n%s\n' "$row" "$GETFF_VERSIONS_END"
+    } >> "$f" || { printf '  ⚠ %s version %s — not recorded: tool-decisions.md could not be written\n' "$name" "$ver"; return 0; }
+  fi
+  printf '  ✓ %s version %s recorded in .ai-factory/tool-decisions.md (not pinned)\n' "$name" "$ver"
+}
+
+# companion_note_version <name> <install_cmd> <kind> — read + record, for the kinds with a version.
+companion_note_version() {
+  local ver from
+  case "$3" in
+    cc-plugin) case "$2" in *"plugin install "*) from="claude plugin list --json" ;; *) return 0 ;; esac ;;
+    cli) case "$2" in "npm install -g "*) from="npm ls -g" ;; *) return 0 ;; esac ;;  # ci-tool-pin: allow a case pattern that reads a manifest command, not an install
+    *) return 0 ;;
+  esac
+  ver=$(companion_version "$2" "$3")
+  companion_record_version "$1" "$3" "${ver:-not read}" "$from"
+}
+
 companion_step() {
   local name="$1" detect_cmd="$2" install_cmd="$3" kind="$4" mode="$5"
 
@@ -69,6 +153,7 @@ companion_step() {
   if eval "$detect_cmd" >/dev/null 2>&1; then
     if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] detect: present (%s) — skip\n' "$name" "$_scope_label"; fi
     printf '  ⊝ %s already present — skipping\n' "$name"
+    [ "$mode" = "dry-run" ] || companion_note_version "$name" "$install_cmd" "$kind"
     return 0
   fi
   if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] detect: absent (%s)\n' "$name" "$_scope_label"; fi
@@ -113,6 +198,7 @@ companion_step() {
     if eval "$install_cmd"; then
       printf '  ✓ %s installed\n' "$name"
       if [ "$kind" = "mcp" ]; then printf '  [mcp:%s] install: success\n' "$name"; fi
+      companion_note_version "$name" "$install_cmd" "$kind"
     else
       printf '  ⚠ %s install failed — %s exited non-zero (its output is above)\n' "$name" "$install_cmd"
       companion_not_wired "$name — not installed: $install_cmd failed (its output is above)"

@@ -12,6 +12,9 @@
 #   A1-7  the `absent` arm re-ran bridge_diagnose's own docker test, so its
 #         "daemon down → Start docker" branch was unreachable and a consumer with Docker
 #         Desktop stopped was told to "Install docker".
+#   OFFER one-button point 8: `--offer` is the pre-launch probe — it offers the heavy aif line
+#         only when docker runs and aif-handoff does not answer, names the variable a «yes»
+#         becomes, and has no side effect in any state.
 #   Q4.7  (operator directive 2026-09-28) the helper never hands back a manual step: every
 #         degrade path says what is not wired and why, in a «NOT wired» summary of its own
 #         (the helper runs after 99-finalize printed the install's), and no «start docker»,
@@ -39,7 +42,7 @@ mkdir -p "$SB/bin" "$SB/bin-nodocker" "$SB/home"
 # Real tools the helper + bridge-guided.sh reach for. `env -i` below means PATH is
 # exactly one of these dirs, so anything not linked here is genuinely absent — that is
 # what makes the "no docker binary at all" arm honest.
-for b in bash sh sed date dirname cat rm mkdir grep touch; do
+for b in bash sh sed date dirname cat rm mkdir grep touch awk mv; do
   p=$(command -v "$b" 2>/dev/null) && ln -sf "$p" "$SB/bin/$b" && ln -sf "$p" "$SB/bin-nodocker/$b"
 done
 
@@ -52,7 +55,8 @@ cat > "$SB/bin/git" <<'EOF'
 #!/bin/sh
 echo "git $*" >> "$STUB_STATE/git.calls"
 if [ "${STUB_GIT_RC:-0}" != "0" ]; then echo "stub: fatal: clone failed" >&2; exit "${STUB_GIT_RC}"; fi
-case "$1" in clone) mkdir -p "$3" ;; esac
+case "$1" in clone) mkdir -p "$3/.git" ;; esac
+[ "$1 $3" = "-C describe" ] && echo "${STUB_GIT_DESCRIBE:-v1.4.0-2-gabc1234}"
 exit 0
 EOF
 cat > "$SB/bin/docker" <<'EOF'
@@ -182,11 +186,51 @@ grep -q 'failed docker-compose-up' "$ST/install.log" 2>/dev/null && ok "A1-4: fa
 nw_aif "A1-4 compose" "docker compose up -d failed"
 no_manual "A1-4 compose"
 
+# ── OFFER: `--offer` is the read-only pre-launch probe (one-button point 8) ─────────
+# offer_arm <label> <bin-dir> <want-verdict> <want-text-regex> [VAR=VAL …]
+offer_arm() {
+  local label="$1" bindir="$2" want="$3" rx="$4"; shift 4
+  ST="$SB/state-offer-$label"; rm -rf "$ST"; mkdir -p "$ST"
+  OUT=$(env -i PATH="$bindir" HOME="$SB/home" STUB_STATE="$ST" \
+    RUNTIME_BRIDGE_AIF_URL="http://127.0.0.1:59099" AIF_HANDOFF_REPO_URL="https://example.invalid/aif-handoff.git" \
+    AIF_HANDOFF_CHECKOUT="$ST/checkout" AIF_INSTALL_LOG="$ST/install.log" "$@" \
+    bash "$HELPER" --offer < "$SB/stdin-yes" 2>/dev/null); RC=$?
+  local verdict text var
+  IFS=$'\t' read -r verdict text var <<<"$OUT"
+  if [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 1 ] && [ "$verdict" = "$want" ] && grep -qE "$rx" <<<"$text"; then
+    ok "OFFER $label: $verdict — $text"
+  else bad "OFFER $label: want $want /$rx/, got rc=$RC «$OUT»"; fi
+  if [ "$want" = offer ]; then
+    [ "$var" = "AIF_GUIDED_INSTALL=1" ] && ok "OFFER $label: names the variable a yes becomes" || bad "OFFER $label: third field «$var»"
+  else
+    [ "$var" = "-" ] && ok "OFFER $label: nothing to set on a skip" || bad "OFFER $label: third field «$var» on a skip"
+  fi
+  if cloned || composed || [ -e "$ST/install.log" ] || [ -e "$ST/checkout" ]; then bad "OFFER $label: the probe had a side effect"
+  else ok "OFFER $label: no clone, no compose, no audit-log line"; fi
+}
+offer_arm docker      "$SB/bin"        offer 'heavy: clones a repository, starts docker containers'
+offer_arm docker-down "$SB/bin"        skip  '^not installed: docker is not running$' STUB_DOCKER_INFO_RC=1
+offer_arm absent      "$SB/bin-nodocker" skip 'no docker'
+offer_arm native      "$SB/bin-native" skip  'CLI is installed but does not answer'
+mkdir -p "$SB/state-offer-up"; : > "$SB/state-offer-up/health-up"
+_up_state="$SB/state-offer-up"
+OUT=$(env -i PATH="$SB/bin" HOME="$SB/home" STUB_STATE="$_up_state" RUNTIME_BRIDGE_AIF_URL="http://127.0.0.1:59099" \
+  bash "$HELPER" --offer 2>/dev/null)
+case "$OUT" in skip$'\t'already\ running*) ok "OFFER up: a running aif-handoff is not offered again" ;; *) bad "OFFER up: «$OUT»" ;; esac
+
 # ── A1-3 wiring: install.sh must gate the spawn and export what the child reads ─────
 BLOCK=$(sed -n '/aif-handoff guided install (beta-delivery-ux S4/,/^# ─── consumer-refresh-integrity R1/p' "$REPO_ROOT/install.sh")
 [ -n "$BLOCK" ] || bad "wiring: could not locate the guided-install block in install.sh"
 case "$BLOCK" in *'DRY_RUN'*) ok "wiring: install.sh's guided-install block consults DRY_RUN" ;; *) bad "wiring: the block never mentions DRY_RUN" ;; esac
 case "$BLOCK" in *'export GETFF_DRY_RUN'*) ok "wiring: GETFF_DRY_RUN is exported to the child process" ;; *) bad "wiring: GETFF_DRY_RUN not exported — the child cannot self-gate" ;; esac
 case "$BLOCK" in *'GETFF_NONINTERACTIVE'*) ok "wiring: GETFF_NONINTERACTIVE is passed to the child process" ;; *) bad "wiring: GETFF_NONINTERACTIVE not passed — -y still prompts" ;; esac
+
+echo "── VERSION: what the unpinned clone serves is recorded (one-button fork on pins = B)"
+mkdir -p "$SB/proj/.ai-factory"; printf '## Accepted\n' > "$SB/proj/.ai-factory/tool-decisions.md"
+run ver-up "$SB/bin" "$SB/stdin-yes" GETFF_NONINTERACTIVE=1 AIF_GUIDED_INSTALL=1 PROJECT_ROOT="$SB/proj" GETFF_TODAY=2026-09-29
+if grep -qF "| aif-handoff | external-service | v1.4.0-2-gabc1234 | 2026-09-29 | git describe in $ST/checkout |" "$SB/proj/.ai-factory/tool-decisions.md"; then
+  ok "VERSION: after the guided install the checkout's git describe is recorded in tool-decisions.md"
+else bad "VERSION: no aif-handoff row: $(tr '\n' '|' < "$SB/proj/.ai-factory/tool-decisions.md") / $OUT"; fi
+grep -q 'aif-handoff version v1.4.0-2-gabc1234 recorded' <<<"$OUT" && ok "VERSION: the report names it" || bad "VERSION: no report line"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

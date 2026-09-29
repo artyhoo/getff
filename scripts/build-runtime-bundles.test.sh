@@ -2,8 +2,9 @@
 # build-runtime-bundles.test.sh — the runtime-bundle build is cwd-independent, machine-independent,
 # and its drift gate really fires.
 #
-# scripts/build-runtime-bundles.mjs commits two prebuilt bundles a consumer runs on plain node:
-# packages/core/hooks/pre-push.bundle.mjs and packages/core/install/rule-bootstrap-cli.bundle.mjs.
+# scripts/build-runtime-bundles.mjs commits three prebuilt bundles a consumer runs on plain node:
+# packages/core/hooks/pre-push.bundle.mjs, packages/core/install/rule-bootstrap-cli.bundle.mjs and
+# packages/core/install/mcp-source-check.bundle.mjs.
 # Three properties keep that honest, one arm each:
 #   (1) `--check` answers the same from the repo root and from a directory outside any git repo —
 #       esbuild writes `// path` comments relative to its working directory, so a cwd leak shows
@@ -22,6 +23,7 @@ SCRIPT="$DIR/build-runtime-bundles.mjs"
 BUNDLES=(
   packages/core/hooks/pre-push.bundle.mjs
   packages/core/install/rule-bootstrap-cli.bundle.mjs
+  packages/core/install/mcp-source-check.bundle.mjs
 )
 FAILED=0
 

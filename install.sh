@@ -1440,6 +1440,23 @@ do_refresh() {
   # that moves, so a brownfield consumer stuck on an old copy would follow stale steps.
   refresh_safe "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
+  # ── Handoff group (env depth; setup.d/10-skills.sh §1k) — #869 refresh parity ──
+  # Same uniform gate as the other depth-gated arms: the delivery site's own profile predicate
+  # (env | factory | WITH_AIF_SUITE) OR presence on disk (an earlier env install).
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+     || [ -f "$PROJECT_ROOT/.claude/hooks/precompact-residue.sh" ]; then
+    for _hg in precompact-residue inject-handoff-on-compact; do
+      [ -f "$PKG_ROOT/.claude/hooks/$_hg.sh" ] || continue
+      refresh_safe "$PKG_ROOT/.claude/hooks/$_hg.sh" "$PROJECT_ROOT/.claude/hooks/$_hg.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/.claude/hooks/$_hg.sh" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/$_hg.sh" 2>/dev/null || true; fi
+    done
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PreCompact" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/precompact-residue.sh"' "precompact-residue"
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-handoff-on-compact.sh"' "inject-handoff-on-compact" "compact"
+      handoff_ignore_local "$PROJECT_ROOT"
+    fi
+  fi
+
   # ── Skill-context overrides (derived from SHIPPED_DOCS — cannot drift) ──
   echo "▶ Skill-context → .ai-factory/skill-context/"
   for _doc in "${SHIPPED_DOCS[@]}"; do

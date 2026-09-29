@@ -295,9 +295,9 @@ echo "  ✓ .claude/settings.json wires PostToolUse (inject-matching-rule)"
 
 # .mcp.json with context7
 [ -f "$CONSUMER/.mcp.json" ]                                  || fail "missing .mcp.json"
-jq -e '.mcpServers.context7' "$CONSUMER/.mcp.json" >/dev/null 2>&1 \
-  || fail ".mcp.json missing context7"
-echo "  ✓ .mcp.json has context7"
+jq -e '.mcpServers.context7.type == "http"' "$CONSUMER/.mcp.json" >/dev/null 2>&1 \
+  || fail ".mcp.json missing context7 as an http remote"
+echo "  ✓ .mcp.json has context7 (http)"
 
 # Starter AGENTS.md
 [ -f "$CONSUMER/AGENTS.md" ]                                  || fail "missing starter AGENTS.md"

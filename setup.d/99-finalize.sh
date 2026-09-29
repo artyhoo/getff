@@ -1175,6 +1175,12 @@ if [ "${#GETFF_ADDED_TO[@]}" -gt 0 ]; then
   echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
   printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
 fi
+# The session-settings group (setup.d/session-settings.sh) is written only on the pre-launch «yes»;
+# its one-command undo is repeated here, where the person reads the result.
+if [ -n "${GETFF_SESSION_REVERT:-}" ]; then
+  echo ""
+  echo "✓  session settings are in .claude/settings.local.json (your own values kept) — undo with: $GETFF_SESSION_REVERT"
+fi
 if [ "${#_skipped_left[@]}" -gt 0 ]; then
   echo ""
   echo "·  ${#_skipped_left[@]} file(s) already existed and were left as they are — getff does not overwrite a project's files:"
