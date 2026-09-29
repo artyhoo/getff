@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: its greenfield arm catches the bash 3.2 abort on an empty "${SKIPPED[@]}" under set -u; bash >= 4.4 never aborts
 # gh-531-shipped-prettier.test.sh — the shipped surface must be Prettier-clean out-of-box.
 #
 # Deterministic core (no network): (1) the shipped .prettierignore excludes the GENERATED install
