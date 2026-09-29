@@ -103,23 +103,30 @@ project's `.claude/settings.json`, and the plugin ships a copy of its own. The
 framework's own repository registers neither. Its bootstrap digest embeds the same line
 instead.
 
-With both in place you usually see the line once, not twice — the plugin's copy has two
-ways to go silent. In getff's own source repository, whose hooks are the source the plugin
-is built from, the plugin's launcher finds `inject-session-bootstrap` registered in
-`.claude/settings.json`, and that digest carries the same line; the plugin's copy exits
-without output. In any other project — a consumer install — the plugin's copy also goes
-silent, but only when it can prove the installed copy is both the same bytes and actually
-running: the installed `.claude/hooks/inject-output-language.sh`, and every file it declares
-on its `@plugin-yield-deps` marker, must hash to the exact manifest the plugin ships
-(`plugin/hooks/lib/source-sha256.txt`, written by `scripts/plugin-source-hashes.sh`), and the
-installed copy's own prelude must have left a fresh `live` marker for this same event
-(`.claude/hooks/lib/hook-live.sh` writes it, `plugin/hooks/lib/live-claim.sh` claims it —
-within roughly 300 ms, no older than 5 seconds, same session, same trusted directory, no
-custom timeout on the project's registration). Any doubt on either check — an edited file, a
-missing marker, a session that moved into a subdirectory or worktree, a stale or foreign
-marker — and the plugin's copy runs, so you see the line twice rather than risk losing it.
-The full list of conditions is the comment above the yield in `plugin/hooks/run-hook.cmd`. On
-ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
+With both in place you usually see the line once, not twice. The plugin's copy has two ways
+to go silent.
+
+In getff's own source repository, the plugin's launcher finds `inject-session-bootstrap`
+registered in `.claude/settings.json`. That digest already carries the same line, so the
+plugin's copy exits without output.
+
+In any other project — a consumer install — the plugin's copy goes silent only when it can
+prove two things about the installed copy:
+
+- **Same bytes.** The installed `.claude/hooks/inject-output-language.sh`, and every file it
+  names on its `@plugin-yield-deps` marker, hash to the manifest the plugin ships
+  (`plugin/hooks/lib/source-sha256.txt`, written by `scripts/plugin-source-hashes.sh`).
+- **Actually running.** The installed copy's prelude left a fresh `live` marker for this same
+  event. `.claude/hooks/lib/hook-live.sh` writes it and `plugin/hooks/lib/live-claim.sh`
+  claims it. The marker must appear within about 300 ms, be under 5 seconds old, and come
+  from the same session and a trusted directory. The project's registration must also be the
+  installer's plain form, with no extra field such as a custom timeout.
+
+Any doubt, and the plugin's copy runs. An edited file, a missing marker, a session that moved
+into a subdirectory or worktree, or a stale or foreign marker all count as doubt. You then see
+the line twice, which is better than losing it. The full list of conditions is the comment
+above the yield in `plugin/hooks/run-hook.cmd`. On ZCode, or with `GETFF_PLUGIN_NO_YIELD=1`
+set, the plugin's copy always runs.
 
 ## Evidence
 
@@ -162,29 +169,31 @@ ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
   same plugin name as `plugin/hooks/inject-output-language`, and its `.claude/settings.json`
   runs getff's copy of the named hook in the installer's exact form, on every event and
   matcher the plugin registers. **Consumer mode** (`plugin/hooks/run-hook.cmd:227`, inside
-  `if [ -r ".../lib/live-claim.sh" ] … && getff_live_claim …; then exit 0; fi`): any other
-  project — the mode `_yield_mode=consumer` is set at `run-hook.cmd:163` when the installed
+  `if [ -r ".../lib/live-claim.sh" ] … && getff_live_claim …; then exit 0; fi`) covers any
+  other project. `run-hook.cmd:163` sets `_yield_mode=consumer` when the installed
   `.claude/hooks/inject-output-language.sh` and every file its `@plugin-yield-deps` marker
-  names hash, via `getff_closure_matches` (`plugin/hooks/lib/source-hash.sh`), to the exact
-  manifest `plugin/hooks/lib/source-sha256.txt` (written by
-  `scripts/plugin-source-hashes.sh`). Hash equality alone still runs the plugin copy — the
-  yield fires only after `getff_live_claim` (`plugin/hooks/lib/live-claim.sh`) claims a fresh
-  marker the installed copy's own prelude (`.claude/hooks/lib/hook-live.sh`) wrote for this
-  same event: no marker within roughly 300 ms, one older than 5 seconds, a different session,
-  an `untrusted` directory, or a lost race, and the plugin copy runs instead. Both modes share
-  one more gate: the `cwd` in the hook's input must resolve to the project root itself
-  (`run-hook.cmd:212-219`). After EnterWorktree or `/cd`, Claude Code takes project settings
-  from the new directory, but `CLAUDE_PROJECT_DIR` stays at the start root; a `cd` in Bash
-  moves `cwd` too, so a `cwd` in a subdirectory cannot show which of the two happened, and
-  either way the plugin copy runs.
-  `tests/plugin/run-hook.test.sh` pins these conditions: arms Y1-Y28 cover the registration
-  and `cwd` checks common to both modes (Y19 is the source-checkout case; Y26 covers a session
-  that left the project root; Y27 and Y28 check that a running copy gets its whole input and
-  keeps its exit code), and the `C` arms (`C1`-`C9`) pin the consumer path specifically — C1
-  is the byte-identical-and-live yield, and C2-C9 each flip one input (an edited file, a
-  missing marker, a different `cwd`, a corrupt hash lib) back to "runs". R1 asserts the silence
-  against this repo's settings, and R2 counts one language line per prompt. R3 asserts the
-  digest line equals this hook's line for `ru` and `de`.
+  names pass `getff_closure_matches` (`plugin/hooks/lib/source-hash.sh`). That check hashes
+  them against `plugin/hooks/lib/source-sha256.txt`, which `scripts/plugin-source-hashes.sh`
+  writes. Hash equality alone still runs the plugin copy. The installed copy's prelude
+  (`.claude/hooks/lib/hook-live.sh`) writes a marker for this same event. The yield fires only
+  after `getff_live_claim` (`plugin/hooks/lib/live-claim.sh`) claims that marker fresh. The
+  plugin copy keeps running if no marker appears within roughly 300 ms or the marker is over
+  5 seconds old. A different session, an `untrusted` directory or a lost race does the same.
+  Both modes share one more gate: the `cwd` in the hook's input must resolve to the project
+  root itself (`run-hook.cmd:212-219`). After EnterWorktree or `/cd`, Claude Code takes
+  project settings from the new directory, while `CLAUDE_PROJECT_DIR` stays at the start
+  root. A `cd` in Bash moves `cwd` too, so a subdirectory `cwd` cannot tell the two apart.
+  Either way the plugin copy runs.
+  `tests/plugin/run-hook.test.sh` pins these conditions. Arms Y1-Y28 cover the registration
+  and `cwd` checks common to both modes. Y19 is the source-checkout case, and Y26 covers a
+  session that left the project root. Y27 and Y28 check that a running copy gets its whole
+  input and keeps its exit code. The `C` arms (`C1`-`C11`) pin the consumer hash path:
+  C1 is the byte-identical yield, and the others flip one input, such as an edited file or a
+  corrupt hash lib, back to "runs". The `D` arms pin the liveness claim: a missing, stale or
+  foreign marker, a custom timeout or any extra registration field, and a lost race all
+  leave the plugin copy running. R1 asserts the silence against this repo's settings, and R2
+  counts one language line per prompt. R3 asserts the digest line equals this hook's line
+  for `ru` and `de`.
 - No test under `packages/core/hooks/` carries this hook's name, and this page states
   that rather than implying coverage. The demos above and the
   `tests/plugin/run-hook.test.sh` arms in the previous bullet pin its output.
