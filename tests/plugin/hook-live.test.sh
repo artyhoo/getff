@@ -31,8 +31,8 @@ markers() { find "$LIVE" -type f 2>/dev/null | wc -l | tr -d ' '; }
 OUT=$(run "$P"); rc=$?
 [ "$OUT" = "$P" ] && [ "$rc" -eq 0 ] && ok "L1 the hook still reads the whole payload (rc 0)" || bad "L1 payload lost — got '$OUT' rc=$rc"
 [ "$(markers)" = 1 ] && ok "L1 one marker per run" || bad "L1 expected 1 marker, got $(markers)"
-mode=$(stat -f %Lp "$LIVE" 2>/dev/null || stat -c %a "$LIVE" 2>/dev/null)
-smode=$(stat -f %Lp "$LIVE/s-1" 2>/dev/null || stat -c %a "$LIVE/s-1" 2>/dev/null)
+mode=$(stat -c %a "$LIVE" 2>/dev/null || stat -f %Lp "$LIVE" 2>/dev/null)  # GNU first: GNU `stat -f` is filesystem status and prints to stdout
+smode=$(stat -c %a "$LIVE/s-1" 2>/dev/null || stat -f %Lp "$LIVE/s-1" 2>/dev/null)
 [ "$mode" = 700 ] && [ "$smode" = 700 ] && ok "L1 base and session directories are mode 700 (H3)" \
   || bad "L1 directory modes base=$mode session=$smode"
 
@@ -106,6 +106,15 @@ OUT=$(run "$P")
 [ "$OUT" = "$P" ] && [ -z "$(ls -A "$TMPD/elsewhere")" ] && ok "L9 symlinked base directory → no marker, payload intact" \
   || bad "L9 wrote through a symlinked base"
 rm -f "$LIVE"
+# L11. A base directory group or others can write (another user could plant or swap markers)
+# → the project copy writes nothing into it; the plugin side refuses it too (run-hook D-loose).
+for m in 770 707; do
+  rm -rf "$LIVE"; mkdir -p "$LIVE"; chmod "$m" "$LIVE"
+  OUT=$(run "$P")
+  [ "$OUT" = "$P" ] && [ "$(markers)" = 0 ] && ok "L11 base directory mode $m → no marker, payload intact" \
+    || bad "L11 mode $m: out='$OUT' markers=$(markers)"
+done
+rm -rf "$LIVE"
 
 # L-ro (H2). Every step of the prelude fails open under `set -euo pipefail`.
 # (a) An unwritable TMPDIR: the prelude, copied verbatim from a real hook, cannot create the base.
@@ -142,6 +151,39 @@ W=$(printf '%s' "$AQ" | env -u AIF_HOOK_CHANNEL -u ZCODE_PROJECT_DIR -u AIF_HOOK
   bash "$TMPD/with/.claude/hooks/ask-question-reminder.sh" 2>&1)
 n=$(find "$TMPD/with/tmp/getff-hook-live.$(id -u)" -type f | wc -l | tr -d ' ')
 [ "$W" = "$N" ] && [ "$n" = 1 ] && ok "L-ro(c) real hook, writable base → same output, one marker" || bad "L-ro(c) n=$n out='$W'"
+
+# L-corrupt (review IMPORTANT-1). A truncated lib (a half-written copy, a torn install) is a
+# syntax error. A bare `.` of it exits a `set -euo pipefail` hook with rc 2 — a BLOCKING code —
+# even inside the prelude's `if`; `command .` turns that into a failed condition, so the hook body
+# runs with rc 0 and its normal output. Real hooks, both prelude forms: the old form must go red.
+hook_tree() {   # hook_tree <dir> <hook> <lib-mode: none|cut>
+  mkdir -p "$1/.claude/hooks/lib" "$1/tmp"; cp "$REPO_ROOT/.claude/hooks/$2.sh" "$1/.claude/hooks/"
+  cp -R "$REPO_ROOT/.claude/hooks/lang" "$1/.claude/hooks/"
+  cp "$REPO_ROOT/.claude/hooks/lib/residue-dir.sh" "$1/.claude/hooks/lib/" 2>/dev/null || true
+  [ "$3" = cut ] && head -c 3000 "$LIB" > "$1/.claude/hooks/lib/hook-live.sh"; return 0
+}
+hook_run() {   # hook_run <dir> <hook> <payload> — stdout+stderr; rc in $hrc
+  HO=$(printf '%s' "$3" | env -u AIF_HOOK_CHANNEL -u ZCODE_PROJECT_DIR -u AIF_HOOK_LANG TMPDIR="$1/tmp" \
+    CLAUDE_PROJECT_DIR="$1" bash "$1/.claude/hooks/$2.sh" 2>&1); hrc=$?
+}
+bash -n "$(head -c 3000 "$LIB" > "$TMPD/cut.sh"; echo "$TMPD/cut.sh")" 2>/dev/null \
+  && bad "L-corrupt fixture: the truncated lib still parses — the arm would prove nothing"
+for pair in "end-of-turn-reminder|{\"session_id\":\"s-c\",\"hook_event_name\":\"Stop\",\"stop_hook_active\":false}" \
+  "ask-question-reminder|{\"session_id\":\"s-c\",\"hook_event_name\":\"PreToolUse\",\"tool_name\":\"AskUserQuestion\",\"tool_input\":{}}"; do
+  h=${pair%%|*}; pl=${pair#*|}
+  rm -rf "$TMPD/cn" "$TMPD/cc" "$TMPD/co"
+  hook_tree "$TMPD/cn" "$h" none; hook_tree "$TMPD/cc" "$h" cut; hook_tree "$TMPD/co" "$h" cut
+  sed -i.bak 's|&& command \. "\$_getff_live_dir/lib/hook-live.sh"|\&\& . "$_getff_live_dir/lib/hook-live.sh"|' "$TMPD/co/.claude/hooks/$h.sh"
+  hook_run "$TMPD/cn" "$h" "$pl"; N=$HO; nrc=$hrc
+  hook_run "$TMPD/cc" "$h" "$pl"; C=$HO; crc=$hrc
+  hook_run "$TMPD/co" "$h" "$pl"; orc=$hrc
+  [ "$crc" = 0 ] && [ "$nrc" = 0 ] && [ "$C" = "$N" ] && [ -z "$(find "$TMPD/cc/tmp" -path '*getff-hook-live*' -type f)" ] \
+    && ok "L-corrupt $h: truncated lib → rc 0, same output as without the lib, no marker" \
+    || bad "L-corrupt $h: rc=$crc (no-lib rc=$nrc) out='$C' vs '$N'"
+  if grep -q '&& \. "\$_getff_live_dir/lib/hook-live.sh"' "$TMPD/co/.claude/hooks/$h.sh" && [ "$orc" != 0 ]; then
+    ok "L-corrupt $h control: the old bare-\`.\` prelude dies on the same lib (rc $orc)"
+  else bad "L-corrupt $h control: old-form fixture did not fail (rc $orc) — the arm does not discriminate"; fi
+done
 
 # S1. The project lib never ships in the plugin: a plugin copy that found it could mark itself.
 [ ! -e "$REPO_ROOT/plugin/hooks/lib/hook-live.sh" ] && ok "S1 plugin/hooks/lib/hook-live.sh does not exist" \

@@ -528,10 +528,19 @@ for SH in $SHELLS; do
   expect "[$SH] D5 two markers → a third dispatch runs" RH_OK "$(run_rh "$SH" __target__)"
   rm -rf "$LIVE"; plant __target__ 0 "$(payload_sid s-other)"
   expect "[$SH] D6 marker from another session → runs" RH_OK "$(run_rh "$SH" __target__)"
-  rm -rf "$LIVE"; plant __target__
-  expect "[$SH] D7 payload without session_id → runs" RH_OK \
-    "$(RH_IN=$(jq -nc --arg cwd "$PROJ" '{hook_event_name: "UserPromptSubmit", cwd: $cwd}') run_rh "$SH" __target__)"
-  expect "[$SH] D7 unsafe session_id → runs" RH_OK "$(RH_IN=$(payload_sid '../s1') run_rh "$SH" __target__)"
+  # D7. Each marker sits exactly where an unchecked session_id would resolve — the base itself for
+  # a missing id, $HOOKTMP/s1 for "../s1" — keyed on the dispatched payload, so only the session-id
+  # check stands between the arm and a yield (mutation-checked: deleting it turns both arms red).
+  rm -rf "$LIVE"; mkdir -m 700 "$LIVE"; rm -rf "$HOOKTMP/s1"; mkdir -m 700 "$HOOKTMP/s1"
+  p7=$(jq -nc --arg cwd "$PROJ" '{hook_event_name: "UserPromptSubmit", cwd: $cwd}')
+  k=$(printf '%s' "$p7" | bash -c '. "$1"; getff_live_key_of __target__' _ "$REPO_ROOT/plugin/hooks/lib/live-claim.sh")
+  : > "$LIVE/$k.$(date +%s).7$$"
+  expect "[$SH] D7 payload without session_id (marker in the base dir) → runs" RH_OK "$(RH_IN=$p7 run_rh "$SH" __target__)"
+  p7=$(payload_sid '../s1')
+  k=$(printf '%s' "$p7" | bash -c '. "$1"; getff_live_key_of __target__' _ "$REPO_ROOT/plugin/hooks/lib/live-claim.sh")
+  : > "$HOOKTMP/s1/$k.$(date +%s).7$$"
+  expect "[$SH] D7 unsafe session_id ../s1 (marker at base/../s1) → runs" RH_OK "$(RH_IN=$p7 run_rh "$SH" __target__)"
+  rm -rf "$HOOKTMP/s1" "$LIVE"
 
   # H1. A "timeout" in any settings file that names the project copy → the project copy may be
   # killed after this copy yielded → run. Paired: the same file without a timeout → yields.
@@ -544,6 +553,15 @@ for SH in $SHELLS; do
     && mv "$TMPD/s.tmp" "$PROJ/.claude/settings.local.json"
   plant __target__
   expect "[$SH] D-timeout settings.local.json entry with \"timeout\": 5 → runs" RH_OK "$(run_rh "$SH" __target__)"
+  # With jq, only a handler under .hooks that names the hook AND carries the timeout counts.
+  printf '{"permissions":{"allow":["Bash(bash .claude/hooks/__target__.sh)"]},"statusLine":{"timeout":5},"hooks":{}}\n' \
+    > "$PROJ/.claude/settings.local.json"; rm -rf "$LIVE"; plant __target__
+  expect "[$SH] D-timeout hook named outside .hooks, \"timeout\" in another field → yields" "" "$(run_rh "$SH" __target__)"
+  printf '{"hooks": ".claude/hooks/__target__.sh", "timeout": 5, \n' > "$PROJ/.claude/settings.local.json"
+  rm -rf "$LIVE"; plant __target__
+  expect "[$SH] D-timeout unparseable file naming the hook with a \"timeout\" → runs (coarse test)" RH_OK "$(run_rh "$SH" __target__)"
+  jq -n '{hooks:{UserPromptSubmit:[{hooks:[{type:"command",command:"bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/__target__.sh\"",timeout:5}]}]}}' \
+    > "$PROJ/.claude/settings.local.json"
   chmod 000 "$PROJ/.claude/settings.local.json"; rm -rf "$LIVE"; plant __target__
   expect "[$SH] D-timeout unreadable settings.local.json → runs" RH_OK "$(run_rh "$SH" __target__)"
   chmod 644 "$PROJ/.claude/settings.local.json"; mkdir -p "$TMPD/ucfg"; mv "$PROJ/.claude/settings.local.json" "$TMPD/ucfg/settings.json"
@@ -563,6 +581,14 @@ for SH in $SHELLS; do
   : > "$TMPD/foreign-s1/$k.$(date +%s).1"
   expect "[$SH] D-foreign symlinked session directory holding a fresh marker → runs" RH_OK "$(run_rh "$SH" __target__)"
   rm -rf "$LIVE" "$TMPD/foreign-s1"
+  # A base or session dir that group or others can write lets another user plant a marker.
+  for m in 770 707; do
+    plant __target__; chmod "$m" "$LIVE"
+    expect "[$SH] D-loose base directory mode $m holding a fresh marker → runs" RH_OK "$(run_rh "$SH" __target__)"
+    rm -rf "$LIVE"; plant __target__; chmod "$m" "$LIVE/s1"
+    expect "[$SH] D-loose session directory mode $m holding a fresh marker → runs" RH_OK "$(run_rh "$SH" __target__)"
+    rm -rf "$LIVE"
+  done
 
   # R6. lib/live-claim.sh is sourced fail-open: missing, corrupt or unreadable → runs, rc 0.
   cp "$TMPD/lib/live-claim.sh" "$TMPD/live-claim.keep"
@@ -583,21 +609,23 @@ run_rh bash __target__ > "$TMPD/ra" & run_rh bash __target__ > "$TMPD/rb" & wait
 [ "$(cat "$TMPD/ra" "$TMPD/rb" | grep -c RH_OK)" = 1 ] && ok "D-race two plugin copies, one marker → exactly one yields" \
   || bad "D-race got A='$(cat "$TMPD/ra")' B='$(cat "$TMPD/rb")'"
 rm -rf "$LIVE"
-# D-wait. No marker costs at most the bounded wait (≤1 s by the wall clock).
+# D-wait. No marker costs at most the bounded wait. Worst case by the code: the claim loop stops
+# once `date +%s` reads two past its start second (<2 s), plus the dispatcher work before the wait
+# and the hook itself, plus one second of integer rounding on t0/t1 — so ≤4 s, the D-clock bound.
 t0=$(date +%s); run_rh bash __target__ >/dev/null; t1=$(date +%s)
-[ $((t1 - t0)) -le 1 ] && ok "D-wait no marker costs ≤1 s" || bad "D-wait took $((t1 - t0)) s"
+[ $((t1 - t0)) -le 4 ] && ok "D-wait no marker costs ≤4 s ($((t1 - t0)) s)" || bad "D-wait took $((t1 - t0)) s"
 # D-late. A marker that lands while the plugin copy waits is still claimed.
 ( sleep 0.1; plant __target__ ) & OUT=$(run_rh bash __target__); wait
 expect "D-late marker written 100 ms into the wait → yields" "" "$OUT"
 rm -rf "$LIVE"
 # D-clock (H4). The wait is bounded by the wall clock, not by counting sleeps: with every sleep
-# stretched to 1 s, a missing marker still costs ~2 s, not the 7 s that 7 sleeps would take.
+# stretched to 1 s, a missing marker costs ≤3 s of wait (+ startup + rounding, bound 6), not 7+.
 SHIM="$TMPD/slow-sleep"; mkdir -p "$SHIM"; printf '#!/bin/sh\nexec %s 1\n' "$(command -v sleep)" > "$SHIM/sleep"; chmod +x "$SHIM/sleep"
 t0=$(date +%s)
 OUT=$(printf '%s' "$(payload)" | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD PATH="$SHIM:$PATH" \
   CLAUDE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$EMPTY_XDG" TMPDIR="$HOOKTMP" CLAUDE_CONFIG_DIR="$EMPTY_CFG" \
   bash "$TMPD/run-hook.cmd" __target__ 2>/dev/null); t1=$(date +%s)
-[ "$OUT" = RH_OK ] && [ $((t1 - t0)) -le 4 ] && ok "D-clock slow sleep: wait ends by wall clock ($((t1 - t0)) s) → runs" \
+[ "$OUT" = RH_OK ] && [ $((t1 - t0)) -le 6 ] && ok "D-clock slow sleep: wait ends by wall clock ($((t1 - t0)) s) → runs" \
   || bad "D-clock took $((t1 - t0)) s, out='$OUT'"
 
 # C8. No hashing tool → runs; each tool alone (macOS/Git Bash shapes) → yields. The PATH holds
@@ -607,7 +635,7 @@ OUT=$(printf '%s' "$(payload)" | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GE
 ran_shapes=0
 for have in none sha256sum shasum; do
   B="$TMPD/bin-$have"; mkdir -p "$B"
-  for t in bash sh dirname head tr grep sed cat env jq cut sort date mv id rm sleep; do
+  for t in bash sh dirname head tr grep sed cat env jq cut sort date mv id rm sleep ls; do
     p=$(command -v "$t") && ln -sf "$p" "$B/$t"
   done
   if [ "$have" != none ]; then
