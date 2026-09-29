@@ -846,6 +846,9 @@ elif [ "${_ISV_FAIL:-0}" -gt 0 ]; then
   # `npx getff init -y` in CI or from an agent read green while a shipped rule stayed silent.
   echo "⚠  Installation finished, but self-verify FAILED ($_ISV_FAIL check(s), output above) — this"
   echo "    is NOT a full success. Exiting non-zero so this is not mistaken for a green install."
+elif [ "${#NOT_WIRED[@]}" -gt 0 ]; then
+  # P2 G6: the NOT wired list sits right above; a bare «complete» under it read as «nothing left».
+  echo "✅ Installation complete — ${#NOT_WIRED[@]} item(s) NOT wired (listed above)."
 else
   echo "✅ Installation complete."
 fi

@@ -70,12 +70,21 @@ printf '  [80-rule-bootstrap] LIVE research+selection → generate → buildLock
 # Still rc=0 on failure (never abort the install), but the failure is loud and lands in the final
 # NOT wired summary.
 _rb_rc=0
+_rb_log="$(mktemp)"
 ( cd "$PROJECT_ROOT" && node "$_rb_cli" \
     --consumer-root "$PROJECT_ROOT" \
     --from-research "$_plan" \
-    --from-selection "$_sel" 2>&1 ) || _rb_rc=$?
-if [ "$_rb_rc" -ne 0 ]; then
+    --from-selection "$_sel" 2>&1 ) > "$_rb_log" || _rb_rc=$?
+cat "$_rb_log"
+if [ "$_rb_rc" -eq 3 ]; then
+  # rc=3 = the generator REJECTED the research artefact (rule-bootstrap-cli.ts live-arm catch); its
+  # reason follows «invalid or unreadable — » on the first matching line.
+  _rb_why="$(sed -n 's/.*invalid or unreadable — //p' "$_rb_log" | head -n 1)"
+  printf '  ⚠ [80-rule-bootstrap] research plan REJECTED — no rule was generated from your research this pass\n'
+  note_not_wired "generated rules from .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json — research plan rejected: ${_rb_why:-reason not printed (output above, [80-rule-bootstrap])}; the preset rules still apply"
+elif [ "$_rb_rc" -ne 0 ]; then
   printf '  ⚠ [80-rule-bootstrap] rule generation FAILED (exit %s) — no rule was generated from your research this pass
 ' "$_rb_rc"
   note_not_wired "generated rules from .ai-factory/rules-research/${STACK:-ts-server}.{research,selection}.json — the generator exited $_rb_rc (output above, [80-rule-bootstrap]); the preset rules still apply"
 fi
+rm -f "$_rb_log"

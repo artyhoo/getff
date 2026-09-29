@@ -13539,7 +13539,7 @@ async function main2() {
 [rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the rule-research protocol (agents/rule-researcher.md, the rule-research skill).
 `
     );
-    process3.exit(args.strict ? 1 : 0);
+    process3.exit(args.strict ? 1 : 3);
   }
 }
 function isDirectRun(argv1, metaUrl) {

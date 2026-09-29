@@ -12,21 +12,24 @@
 #       packages/core/install/rule-bootstrap-cli.bundle.mjs, from the PROJECT root — never npx/tsx,
 #       which needed the getff clone's own node_modules (a clone has none). The project root is
 #       the cwd so the bundle loads the project's own eslint + parser and eslint-rules-local/.
+#   (D) P2 G6: the generator REJECTED the research plan (exit 3, reason on stderr) → the NOT wired
+#       line says «research plan rejected» and carries the generator's first reason line, so the
+#       report names why no rule was generated instead of only an exit code.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 
-run_layer() {  # $1 = exit code of the stub generator; prints layer output, then NOT_WIRED count
-  local rc="$1" W
+run_layer() {  # $1 = exit code of the stub generator, $2 = optional stderr line; prints layer output, then NOT_WIRED count
+  local rc="$1" msg="${2:-}" W
   W=$(mktemp -d)
   mkdir -p "$W/pkg/packages/core/install" "$W/proj/.ai-factory/rules-research" "$W/bin"
   : > "$W/pkg/packages/core/install/rule-bootstrap-cli.bundle.mjs"
   echo '{}' > "$W/proj/.ai-factory/rules-research/ts-server.research.json"
   echo '{}' > "$W/proj/.ai-factory/rules-research/ts-server.selection.json"
   # Stub `node` and `npx`: each reports how it was started, the generator stand-in exits $rc.
-  printf '#!/bin/sh\necho "stub generator: node cwd=$PWD args=$*"\nexit %s\n' "$rc" > "$W/bin/node"; chmod +x "$W/bin/node"
+  printf '#!/bin/sh\necho "stub generator: node cwd=$PWD args=$*"\n[ -n "%s" ] && echo "%s" >&2\nexit %s\n' "$msg" "$msg" "$rc" > "$W/bin/node"; chmod +x "$W/bin/node"
   printf '#!/bin/sh\necho "stub generator: npx cwd=$PWD args=$*"\nexit %s\n' "$rc" > "$W/bin/npx"; chmod +x "$W/bin/npx"
   (
     PATH="$W/bin:$PATH"; FULL=--full; DRY_RUN=""; STACK=ts-server
@@ -55,5 +58,11 @@ grep -q 'stub generator: npx' <<<"$_out" && bad "(C) the generator was started t
 grep -Eq 'stub generator: node cwd=[^ ]*/proj args=[^ ]*/pkg/packages/core/install/rule-bootstrap-cli\.bundle\.mjs --consumer-root [^ ]*/proj ' <<<"$_out" \
   && ok "(C) plain node runs the prebuilt bundle from the project root" \
   || bad "(C) expected 'node <pkg>/…/rule-bootstrap-cli.bundle.mjs --consumer-root <proj>' from cwd <proj> (got: $_out)"
+
+_out=$(run_layer 3 '[rule-bootstrap] live research artefact invalid or unreadable — Invalid ResearchPlan: data must have required property framework')
+grep -q 'LAYER_RC=0' <<<"$_out" && ok "(D) a rejected plan still returns 0 from the layer" || bad "(D) the layer did not return 0 (got: $_out)"
+grep -q 'NOT_WIRED: .*research plan rejected: Invalid ResearchPlan: data must have required property framework' <<<"$_out" \
+  && ok "(D) the NOT wired line names the rejection and its reason" \
+  || bad "(D) expected 'research plan rejected: <reason>' in NOT wired (got: $_out)"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

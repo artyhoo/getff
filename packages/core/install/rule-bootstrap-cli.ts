@@ -414,7 +414,10 @@ async function main(): Promise<void> {
         `[rule-bootstrap] no synthesized rule is shipped this pass; these two files come from the ` +
         `rule-research protocol (agents/rule-researcher.md, the rule-research skill).\n`,
     );
-    process.exit(args.strict ? 1 : 0); // rc=0: never abort install (the bash gate also || true's)
+    // rc=3 «artefact rejected»: the install still never aborts (setup.d/80-rule-bootstrap.sh keeps
+    // going on any rc), but a rejected plan is no longer a silent rc=0 — the layer lists it, with
+    // the reason above, under NOT wired.
+    process.exit(args.strict ? 1 : 3);
   }
 }
 

@@ -611,10 +611,11 @@ fi
 # else in this script (--full/-y at install.sh:723 fail-loud instead of showing
 # the stack menu; --full/--dry-run at :470 decline the python/cargo
 # toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
-# -y <stack>` attached to a terminal — the exact invocation INSTALL-FOR-AI.md:65
-# tells an AI to run — hangs on `read -rp` here, regressing kickoff §4 item 3
-# (existing flag back-compat) and breaking the diff's own claim at
-# INSTALL-FOR-AI.md:181 ("Every flag that worked before still works"). The flag
+# -y <stack>` attached to a terminal — the exact invocation the INSTALL-FOR-AI.md
+# prompt tells an AI to run (its `setup -y <detected-stack>` line) — hangs on
+# `read -rp` here, regressing kickoff §4 item 3 (existing flag back-compat) and
+# breaking the INSTALL-FOR-AI.md profiles note "Every flag that worked before
+# still works". The flag
 # LAYERS OVER the menu; it does not replace it.
 #
 # Round-3 gate (rework MAJOR): the menu MUST also skip when a positional stack

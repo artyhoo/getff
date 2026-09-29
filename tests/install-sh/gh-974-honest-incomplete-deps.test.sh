@@ -48,6 +48,17 @@ else
   bad "(A) --force expected ✅ + rc=0, got rc=$rc (tail: $(tail -2 "$log" | tr '\n' '|'))"
 fi
 
+# ── ARM (D): P2 G6 — a complete install that left pieces NOT wired says so in its banner ──
+# The NOT wired list prints above the banner; a bare «✅ Installation complete.» under it read as
+# «nothing left», so the banner now carries the count. Paired: the count in the banner equals the
+# count in the list header, and the list is non-empty on this --force install (no deps, no CI).
+_nw=$(sed -n 's/^⚠  \([0-9][0-9]*\) framework piece(s) NOT wired.*/\1/p' "$log" | head -n 1)
+if [ -n "$_nw" ] && [ "$_nw" -gt 0 ] && grep -q "^✅ Installation complete — $_nw item(s) NOT wired (listed above)\.\$" "$log"; then
+  ok "(D) --force with $_nw NOT wired item(s) → the banner names the count"
+else
+  bad "(D) expected '✅ Installation complete — ${_nw:-?} item(s) NOT wired (listed above).' (list header count: ${_nw:-none}; banner: $(grep '✅ Installation' "$log"))"
+fi
+
 # ── ARM (B): --full + failing deps → degraded banner, rc=1 (the fix) ──────────
 res=$(run_install 1 ts-server --full); rc="${res%%|*}"; log="${res##*|}"
 if [ "$rc" -ne 0 ] && grep -q 'dependencies did NOT fully install' "$log" && ! grep -q '✅ Installation complete' "$log"; then
