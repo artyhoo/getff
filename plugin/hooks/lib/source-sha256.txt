@@ -8,7 +8,7 @@ b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  check-doc-auth
 21dd8155e19e9bdc8fa92070fc9025f08baa9eac55a50f4400c8afb845bd8479  end-of-turn-reminder.sh:lang/
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  end-of-turn-reminder.sh:lib/residue-dir.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  end-of-turn-reminder.sh:lib/hook-live.sh
-852830d9dd6dee6fdde759f2b3dbca0940d0f27e7f77ee758e80b77208fbc9d2  inject-matching-rule.sh
+334879307f2336af6029afe084ad4188c6010fbf053c57c0117c80bc474b6cfa  inject-matching-rule.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  inject-matching-rule.sh:lib/hook-live.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  inject-memory-codification.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  inject-memory-codification.sh:lib/hook-live.sh

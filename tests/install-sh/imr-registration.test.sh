@@ -15,6 +15,8 @@
 #      (`*`, `""`, `.*`) or none at all — is the consumer's choice and is left exactly as it was
 #   W6 a consumer handler sharing our legacy group keeps the legacy matcher; ours moves to its
 #      own group with the widened matcher
+#   W7 a null group, a non-string command, or a prompt-type handler (no command) neither breaks
+#      the widening nor the per-event idempotence, and jq and node write the same JSON
 # shellcheck disable=SC2015,SC2016  # ok/bad pairs never fail; the $CLAUDE_PROJECT_DIR commands are literal by design
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -36,7 +38,8 @@ mkdir "$T/bin"
 for t in node mv rm cat; do command -v "$t" >/dev/null && ln -s "$(command -v "$t")" "$T/bin/$t"; done
 
 ours() { # settings event → the matchers of our entries on that event, one JSON array
-  jq -c --arg e "$2" '[(.hooks[$e] // [])[] | select(any(.hooks[]?; .command | test("inject-matching-rule\\.sh"))) | .matcher]' "$1"
+  jq -c --arg e "$2" '[(.hooks[$e] // [])[] | objects
+    | select(any(.hooks[]? | objects; .command | strings | test("inject-matching-rule\\.sh"))) | .matcher]' "$1"
 }
 one_group() { # file matcher-json → settings with one PostToolUse group of ours (timeout 7)
   jq -n --arg c "$IMR" --argjson m "$2" '{hooks: {PostToolUse: [
@@ -99,10 +102,35 @@ suite() { # backend
       = '[{"m":"Edit|Write|MultiEdit","c":["consumer-own.sh"]},{"m":"'"$NEW"'","c":["inject-matching-rule.sh\""]}]' ] \
     && ok "$be W6: consumer keeps the legacy group, ours moves to its own widened group" \
     || bad "$be W6: $(jq -c .hooks.PostToolUse "$f")"
+
+  # W7 (cold review round 2): shapes Claude Code accepts or tolerates — a null group, a handler
+  # whose command is not a string, a prompt-type handler with no command at all.
+  local n=0 k
+  for k in null '{"matcher": "Write", "hooks": [{"type": "prompt", "prompt": "x"}]}' \
+           '{"matcher": "Edit|Write", "hooks": [{"type": "command", "command": 5}]}'; do
+    n=$((n + 1)); f="$T/$be-odd-$n.json"
+    jq -n --arg c "$IMR" --argjson k "$k" '{hooks: {PostToolUse: [$k,
+      {matcher: "Edit|Write", hooks: [{type: "command", command: $c}]}], PreToolUse: [$k]}}' > "$f"
+    run "$f" > "$T/out" 2>&1
+    [ "$(ours "$f" PostToolUse)" = "[\"$NEW\"]" ] && [ "$(ours "$f" PreToolUse)" = '["Bash"]' ] \
+      && ! grep -q 'NOT' "$T/out" \
+      && ok "$be W7.$n: widened once, registered once, no false warning" \
+      || bad "$be W7.$n: PostToolUse $(ours "$f" PostToolUse), PreToolUse $(ours "$f" PreToolUse); $(cat "$T/out")"
+    cp "$f" "$T/once.json"; run "$f" >/dev/null 2>&1
+    cmp -s "$T/once.json" "$f" && ok "$be W7.$n: second run byte-identical" || bad "$be W7.$n: second run changed the file"
+  done
 }
 
 suite jq
-if [ -e "$T/bin/node" ]; then suite node; else echo "SKIP: node not on PATH — the jq-less back-end is not exercised"; fi
+if [ -e "$T/bin/node" ]; then
+  suite node
+  for n in 1 2 3; do
+    cmp -s "$T/jq-odd-$n.json" "$T/node-odd-$n.json" && ok "W7.$n: jq and node write the same JSON" \
+      || bad "W7.$n: jq $(jq -c . "$T/jq-odd-$n.json") vs node $(jq -c . "$T/node-odd-$n.json")"
+  done
+else
+  echo "SKIP: node not on PATH — the jq-less back-end is not exercised"
+fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

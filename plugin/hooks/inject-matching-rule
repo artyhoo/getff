@@ -36,7 +36,8 @@
 #
 # Glob → extended regex (S-1, deterministic, no glob engine): `**/` = any number of
 # directories, a trailing `**` = anything; `**` inside a segment (`a**b`) is a plain `*`, as in
-# picomatch. `*` = anything but `/`, `?` = one char but `/`, `{a,b}` = alternation, and an
+# picomatch — a `/`, the glob's ends and an alternative's ends bound a segment (`{src/**,x}`).
+# `*` = anything but `/`, `?` = one char but `/`, `{a,b}` = alternation, and an
 # empty alternative makes the group optional (`*.ts{,x}`; macOS regcomp rejects `(|x)`). Every
 # other regex metacharacter is literal, `|` included (picomatch reads a bare `|` as
 # alternation). A glob with no `/` matches at any depth (`*.sh` matches `setup.d/lib.sh` — the
@@ -44,8 +45,9 @@
 # supported: `[...]` classes (literal) and nested braces.
 #
 # Frontmatter (a YAML subset): `key: value`, `key: [a, b]`, or a `- item` block list under
-# `key:`, indented or not. Comment lines and a ` #` trailing comment are dropped; a quoted
-# value keeps everything inside its quotes, with no escape processing (quote with '...').
+# `key:`, indented or not. Comment lines and a ` #` trailing comment are dropped (a value that
+# is only a comment is empty, so a list can follow); a quoted value or flow-list item keeps
+# everything inside its quotes, commas included, with no escape processing (quote with '...').
 # `events:` values are POSIX extended regexes run by bash `=~` — portable ones only: macOS
 # has no `\b`, `\s`, `\d`, and rejects an empty alternative such as `(|x)`.
 #
@@ -93,7 +95,7 @@ case "$EVENT" in
     [[ "$TOOL" == Bash && -n "$COMMAND" ]] || exit 0
     MODE=event ;;
   PostToolUse)
-    case "$TOOL" in Edit|Write|MultiEdit) MODE=edit ;; Read) MODE=read ;; *) exit 0 ;; esac
+    case "$TOOL" in Edit|Write|MultiEdit) MODE="edit" ;; Read) MODE="read" ;; *) exit 0 ;; esac
     [[ -z "$ABS_PATH" ]] && exit 0 ;;
   *) exit 0 ;;
 esac
@@ -136,12 +138,21 @@ unquote() {
   if [[ ${#v} -ge 2 && ( "$v" == \'*\' || "$v" == \"*\" ) ]]; then v="${v:1:${#v}-2}"; fi
   printf '%s' "$v"
 }
-# Split a comma list, but not inside `{a,b}`; one trimmed, unquoted item per line.
+# Split a comma list, but not inside `{a,b}` or inside a quoted item; one trimmed, unquoted
+# item per line.
 split_list() {
-  local s="$1" cur="" depth=0 i c
+  local s="$1" cur="" depth=0 q="" i c
   for ((i = 0; i < ${#s}; i++)); do
     c="${s:i:1}"
-    case "$c" in '{') depth=$((depth + 1)) ;; '}') ((depth > 0)) && depth=$((depth - 1)) ;; esac
+    if [[ -n "$q" ]]; then
+      [[ "$c" == "$q" ]] && q=""
+      cur+="$c"; continue
+    fi
+    case "$c" in
+      \" | \') [[ -z "$(trim "$cur")" ]] && q="$c" ;;   # a quote opens only at an item's start
+      '{') depth=$((depth + 1)) ;;
+      '}') ((depth > 0)) && depth=$((depth - 1)) ;;
+    esac
     if [[ "$c" == ',' && $depth -eq 0 ]]; then unquote "$cur"; echo; cur=""; else cur+="$c"; fi
   done
   unquote "$cur"; echo
@@ -149,7 +160,7 @@ split_list() {
 
 # Glob → anchored extended regex (S-1; the grammar is in the header).
 glob_to_ere() {
-  local g="$1" out="" i=0 n=${#1} c t prev next brace=0 alts="" cur="" empty=0
+  local g="$1" out="" i=0 n=${#1} c t prev next gp="" brace=0 alts="" cur="" empty=0
   while ((i < n)); do
     c="${g:i:1}"
     t=""
@@ -158,6 +169,12 @@ glob_to_ere() {
         if [[ "${g:i:2}" == '**' ]]; then
           prev=""; ((i > 0)) && prev="${g:i-1:1}"
           next="${g:i+2:1}"
+          # An alternative's edges bound a segment as well: at its start the character before
+          # the `{` counts; at its end (`,` or `}`) the glob ends there.
+          if ((brace)); then
+            [[ -z "$cur" ]] && prev="$gp"
+            [[ "$next" == ',' || "$next" == '}' ]] && next=""
+          fi
           i=$((i + 2))
           if [[ -n "$prev" && "$prev" != / ]]; then t='[^/]*'   # `a**`: not a whole segment
           elif [[ "$next" == / ]]; then t='(.*/)?'; i=$((i + 1))
@@ -168,6 +185,7 @@ glob_to_ere() {
         fi ;;
       '{')
         if ((brace == 0)) && [[ "${g:i+1}" == *'}'* ]]; then
+          gp=""; ((i > 0)) && gp="${g:i-1:1}"
           brace=1; alts=""; cur=""; empty=0; i=$((i + 1)); continue
         fi
         t='[{]'; i=$((i + 1)) ;;
@@ -187,7 +205,7 @@ glob_to_ere() {
         i=$((i + 1)) ;;
       '?') t='[^/]'; i=$((i + 1)) ;;
       '^') t='\^'; i=$((i + 1)) ;;
-      '.' | '+' | '(' | ')' | '[' | ']' | '$' | '|' | '\') t="[$c]"; i=$((i + 1)) ;;
+      '.' | '+' | '(' | ')' | '[' | ']' | '$' | '|' | \\) t="[$c]"; i=$((i + 1)) ;;
       *) t="$c"; i=$((i + 1)) ;;
     esac
     if ((brace)); then cur+="$t"; else out+="$t"; fi
@@ -201,6 +219,7 @@ glob_to_ere() {
 strip_comment() {
   local v q rest re='^(\[.*\])[[:space:]]*(#.*)?$'
   v="$(trim "$1")"; q="${v:0:1}"
+  [[ "$q" == '#' ]] && return 0   # the whole value is a comment
   if [[ "$q" == \" || "$q" == \' ]]; then
     rest="${v:1}"
     if [[ "$rest" == *"$q"* ]]; then printf '%s' "$q${rest%%"$q"*}$q"; return; fi

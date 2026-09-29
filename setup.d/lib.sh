@@ -3531,7 +3531,9 @@ register_cc_hook() {
       const [e, c, m, marker] = args;
       o.hooks = o.hooks || {};
       const list = o.hooks[e] || [];
-      if (list.some(g => (g.hooks || []).some(h => new RegExp(marker).test(h.command || "")))) return;
+      // A null group or a handler with no string command (a prompt hook) is never a match.
+      if (list.some(g => g && Array.isArray(g.hooks) && g.hooks.some(h =>
+        h && typeof h.command === "string" && new RegExp(marker).test(h.command)))) return;
       o.hooks[e] = list.concat([m ? { matcher: m, hooks: [{ type: "command", command: c }] }
                                   : { hooks: [{ type: "command", command: c }] }]);
       return o;' "$event" "$cmd" "$matcher" "$marker" || rc=$?
@@ -3569,10 +3571,13 @@ register_cc_hook() {
       echo "  ⚠ jq could not create $settings — no settings file written, $marker NOT registered on $event" >&2
     fi
   elif jq -e --arg e "$event" --arg m "$marker" \
-      '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
+      '[(.hooks[$e] // [])[] | objects | .hooks[]? | objects | .command | strings] | any(test($m))' \
+      "$settings" >/dev/null 2>&1; then
     # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
     # (e.g. inject-project-digest on UserPromptSubmit AND SubagentStart) — a whole-file grep
     # would false-match the first event's entry and skip the second. GH #934 batch D.
+    # Only string commands are compared: a prompt hook has no `command`, and on one of those the
+    # old `.hooks[].command | test` threw, read as «absent», and appended a duplicate per run.
     echo "  ⊝ $marker already registered on $event in .claude/settings.json"
   else
     # ledger A1-9 (the A1-8 class, fixed for merge_fenced in #1632): the unconditional ✓ below used
@@ -3600,7 +3605,6 @@ register_cc_hook() {
 # UserPromptSubmit (fired on EVERY prompt) to SessionStart (once per context). register_cc_hook is
 # add-only, so without this a consumer installed before the move kept the per-prompt registration
 # next to the new one after a re-install — the injection would have grown, not shrunk.
-# register_imr_hooks (below) reuses it to WIDEN a matcher (trigger build, slice 1).
 unregister_cc_hook() {
   local settings="$1" event="$2" marker="$3" rc=0 re
   [ -f "$settings" ] || return 0
@@ -3664,16 +3668,19 @@ register_imr_hooks() {
   # shellcheck disable=SC2016  # $CLAUDE_PROJECT_DIR is expanded by Claude Code, not here
   local cmd='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"'
   local re="\\.claude/hooks/inject-matching-rule\\.sh([\"' ]|\$)"
+  # A group or handler of an odd shape (null, a non-string command, a prompt handler with none)
+  # is never ours and never crashes the check; both back-ends read it the same way.
   if [ -f "$settings" ] && command -v jq >/dev/null 2>&1; then
     if jq -e --arg re "$re" '
-        any((.hooks.PostToolUse // [])[];
+        def ours: type == "object" and (.command | type) == "string" and (.command | test($re));
+        any((.hooks.PostToolUse // [])[] | objects;
             (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
-            and (.hooks | type) == "array" and any(.hooks[]; (.command // "") | test($re)))' \
+            and (.hooks | type) == "array" and any(.hooks[]; ours))' \
         "$settings" >/dev/null 2>&1; then
       if jq --arg re "$re" --arg new "$new" '
-          def ours: (.command // "") | test($re);
+          def ours: type == "object" and (.command | type) == "string" and (.command | test($re));
           .hooks.PostToolUse = [ .hooks.PostToolUse[]
-            | if (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+            | if type == "object" and (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
                  and (.hooks | type) == "array" and any(.hooks[]; ours)
               then if all(.hooks[]; ours) then .matcher = $new
                    else (.hooks |= map(select(ours | not))),
@@ -3694,8 +3701,8 @@ register_imr_hooks() {
       const re = new RegExp(src);
       const list = (o.hooks || {}).PostToolUse;
       if (!Array.isArray(list)) return;
-      const ours = h => re.test((h && h.command) || "");
-      const legacy = g => (g.matcher === "Edit|Write" || g.matcher === "Edit|Write|MultiEdit")
+      const ours = h => !!h && typeof h.command === "string" && re.test(h.command);
+      const legacy = g => !!g && (g.matcher === "Edit|Write" || g.matcher === "Edit|Write|MultiEdit")
         && Array.isArray(g.hooks) && g.hooks.some(ours);
       if (!list.some(legacy)) return;
       o.hooks.PostToolUse = list.flatMap(g => !legacy(g) ? [g]
@@ -3705,9 +3712,9 @@ register_imr_hooks() {
       return o;' "$re" "$new" || rc=$?
     case "$rc" in
       0) echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json (through node: jq is not on PATH)" ;;
-      3) : ;;
-      *) echo "  ⚠ inject-matching-rule Read arm NOT wired — $(json_edit_node_why "$settings")"
-         note_not_wired "the Read arm of inject-matching-rule (PostToolUse matcher $new) in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+      # 1 = no node, or a file that is not a JSON object: register_cc_hook, next, reports that
+      # same cause once, as the jq arm leaves it to.
+      *) : ;;
     esac
   fi
   register_cc_hook "$settings" "PostToolUse" "$cmd" "inject-matching-rule" "$new"

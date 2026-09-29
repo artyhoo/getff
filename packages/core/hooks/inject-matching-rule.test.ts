@@ -385,6 +385,13 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
     ['a**b/c', 'a/x/b/c', false],
     ['lib/^a/**', 'lib/^a/c', true],
     ['lib/^a/**', 'lib/a/c', false],
+    // Cold review round 2, finding 1: a brace edge (`{`, `,`, `}`) bounds a segment too, so
+    // `**` right beside one is still a globstar.
+    ['{src/**,lib/**}', 'src/a/b.ts', true],
+    ['{src/**,lib/**}', 'x/a.ts', false],
+    ['src/{**/,}*.ts', 'src/a/b/c.ts', true],
+    ['src/{**/,}*.ts', 'src/c.ts', true],
+    ['{**/,}x.ts', 'a/b/x.ts', true],
   ];
 
   it.each(GLOB_TABLE)('glob %s vs %s → %s (hook agrees with picomatch)', (glob, path, match) => {
@@ -701,6 +708,23 @@ describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () =
       expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('YAML-CARD');
       expect(ctx(runHook(edit('tools/a.sh', uniq()), c.env))).toContain('YAML-CARD');
       expect(ctx(runHook(edit('lib/a.ts', uniq()), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // Cold review round 2, findings 4 + 5: a key whose value is only a comment still opens a
+  // block list, and a comma or ` #` inside a quoted flow-list item stays in the item.
+  it('YAML: a comment-only value opens its list; quoted flow items keep , and #', () => {
+    const c = corpus({
+      'a.md': '---\npaths: # the globs\n  - "docs/**"\n---\n<!-- inject: COMMENTED-KEY -->\n# A\n',
+      'b.md': "---\npaths: [lib/**, \"x # y/**\", 'p,q/**']\n---\n<!-- inject: FLOW-QUOTED -->\n# B\n",
+    });
+    try {
+      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('COMMENTED-KEY');
+      expect(ctx(runHook(edit('x # y/a', uniq()), c.env))).toContain('FLOW-QUOTED');
+      expect(ctx(runHook(edit('p,q/a', uniq()), c.env))).toContain('FLOW-QUOTED');
+      expect(ctx(runHook(edit("'p/a", uniq()), c.env))).toBe('');
     } finally {
       c.cleanup();
     }
