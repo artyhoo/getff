@@ -15,7 +15,9 @@
 
 ## Test plan
 
-- [ ] §1.7-свод lands in squash-body (`gh pr merge --squash --body "$(gh pr view <N> --json body -q .body)"`)
+<!-- The squash commit body IS this PR description: repo setting squash_merge_commit_message=PR_BODY
+(set 2026-09-28) applies to `gh pr merge --squash`, auto-merge and the harvest path alike. Do not pass
+`--body` (and never `--body` with `--auto` — it freezes the body at arm time). -->
 - [ ] `npm test --workspace=@rules-as-tests/core --run` green
 - [ ] `make self-audit` green
 - [ ] `npm run --prefix packages/core test:principles` green (principle 08 enforces SSOT citations on phase research files)
