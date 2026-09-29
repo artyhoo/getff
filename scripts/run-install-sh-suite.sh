@@ -121,6 +121,9 @@ progress() { printf '%s\n' "$*" >&"$PROGRESS_FD"; }
 # PC_LOCAL=1 is the escape the only runner in use (the operator's ~/bin/pc-run) already defines.
 # The runner honours it by running the routed half locally, which would open a SECOND local pool
 # next to this one; honouring it here as well keeps an escaped run identical to an unrouted one.
+# Since 2026-09-29 the runner honours it only together with PC_LOCAL_WHY of 20+ characters (a bare
+# flag is logged there and ignored: one day of sessions forced 912 runs onto the Mac by habit), so
+# pc_local_escape applies the same predicate — a bare flag here would skip the runner and its log.
 # A runner can also fall back to running here on its own (host unreachable, lock timeout). The
 # far end detects that through `--origin <path>`: a file in this run's work directory, which exists
 # only on this host. Found → it runs nothing and says so, and this pool takes the routed tests
@@ -132,6 +135,14 @@ stays_local() { awk 'NR > 5 { exit } /^# stays-local:/ { f = 1; exit } END { exi
 # The quarantined test is kept here whatever its header says: it must finish before the routed
 # half starts (see the quarantine below), and a runner's host must never run it next to others.
 quarantined() { case " $QUARANTINE_SERIAL " in *" $(basename "$1") "*) return 0 ;; esac; return 1; }
+# The runner's escape predicate (see PC_LOCAL above): the flag plus a reason of 20+ characters once
+# whitespace is squeezed and trimmed — the same normalisation ~/bin/pc-run applies before it counts.
+pc_local_escape() {
+  [ -n "${PC_LOCAL:-}" ] || return 1
+  local why
+  why=$(printf '%s' "${PC_LOCAL_WHY:-}" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  [ "${#why}" -ge 20 ]
+}
 
 # ── Worker mode ────────────────────────────────────────────────────────────────────────────────
 # Re-entrant: `xargs -P` invokes this script with `--one` per test file. Each worker writes its
@@ -204,7 +215,7 @@ LOCAL="$ALL"
 ROUTE_LIST=""
 ROUTE_N=0
 SUITE_REL=""
-if [ "$ROUTED_MODE" -eq 1 ] || { [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; }; then
+if [ "$ROUTED_MODE" -eq 1 ] || { [ -n "$RUNNER" ] && ! pc_local_escape; }; then
   KEEP=""
   while IFS= read -r t; do
     [ -z "$t" ] && continue
