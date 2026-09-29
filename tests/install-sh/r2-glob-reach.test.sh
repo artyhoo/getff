@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# stays-local: its #516 arm catches BSD awk's "newline in string" crash on a multi-line awk -v, which gawk on Linux never shows
 # GH #507 (reopen) — R2 actually REACHES a brownfield / monorepo consumer.
 #
 # #511 wired the check-rule-globs.sh gate, but a live re-verify (timeliner, flat pnpm-monorepo)

@@ -123,19 +123,19 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     only matches the bare `](../../orchestrator-prompts/` shape, so a ref written as
 #     `](../../../.claude/orchestrator-prompts/…)` slipped past it untouched (vendor README:4).
 #   - `.github/` — never shipped except `.github/workflows/` (verified: the factory fixture has
-#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:366.
+#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:367.
 # The last three are DELIBERATELY per-file, not blanket arms, because their parent directories
 # are PARTIALLY shipped — a blanket arm would rewrite genuinely consumer-resolvable refs into
 # blob URLs and lose in-repo navigability:
 #   - `scripts/run-local-ci-sweep.sh` — this is the "shipped-scripts allowlist" the §park note
 #     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
 #     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
-#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:18,20.
+#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
+# arch/SKILL.md:110 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
 # ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
@@ -711,9 +711,9 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1373                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1382                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1362          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1429          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
@@ -722,7 +722,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/40-configs.sh:491          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:511          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/40-configs.sh:542          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/lib.sh:1859                appended marker blocks       → suppress-no-entry (proved)
+#   setup.d/lib.sh:1864                appended marker blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -1568,7 +1568,7 @@ _lane_delivered_config_path() {
   fi
 }
 
-# _lane_deliver_ci <tpl> <wf-rel> <fresh-msg> <refreshed-msg> <refuse-intro> [hint …] — the
+# _lane_deliver_ci <tpl> <wf-rel> <fresh-msg> <refreshed-msg> <gates> — the
 # consumer CI-workflow cell shared by all toolchain lanes: ship the pinned gate template as a
 # getff-NAMESPACED <wf-rel> (never the consumer's ci.yml). Collision policy (same class as the
 # config cells): no file at our path → deliver via deliver_getff_workflow (getff-honest-signals
@@ -1576,16 +1576,24 @@ _lane_delivered_config_path() {
 # our own getff-generated file → idempotent no-op on install, re-deliver on --refresh (updated
 # pins + re-detected branch reach a brownfield consumer; the getff-<lane>.yml.override.md
 # Layer-3 escape hatch is preserved — the helper delegates to refresh_safe internally); a
-# NON-getff file at our path → REFUSE-LOUDLY, never overwrite: print <refuse-intro> + the
-# <hint> lines (the lane's manual-wiring commands; the pins in them MIRROR the template — keep
-# the two in sync on any pin bump, ci-tool-pinning.md Rule A). Every message string is a
-# caller argument so the per-lane log output stays byte-identical to the pre-S-2 bodies. Was
+# NON-getff file at our path → REFUSE-LOUDLY, never overwrite: the workflow is kept as it is and
+# a NOT-wired line names <gates> (what the lane's CI runs) and why it is not in CI (Q4.7, operator
+# directive 2026-09-28: a gap, never the commands to wire it by hand). Every message string is a
+# caller argument so the per-lane log output stays lane-specific. Was
 # _py_deliver_ci/_cargo_deliver_ci/_go_deliver_ci.
+# _lane_getff_ci_runs <tpl-dir> <wf_rel> — 0 when the getff CI workflow at <wf_rel> is, or is about to
+# be, getff's: the lane ships a CI template and the path is either absent (_lane_deliver_ci writes it)
+# or carries the generated-by-getff marker. A consumer-owned file there is kept as it is (the REFUSE
+# arm below), so a REFUSE cell's NOT-wired line must not claim the getff CI runs the bans (Q4.7).
+_lane_getff_ci_runs() {
+  local wf="$PROJECT_ROOT/$2"
+  [ -f "$1/github-actions-ci.yml" ] || return 1
+  [ ! -e "$wf" ] || grep -q 'generated by getff' "$wf" 2>/dev/null
+}
+
 _lane_deliver_ci() {
-  local tpl="$1" wf_rel="$2" fresh_msg="$3" refreshed_msg="$4" refuse_intro="$5"
-  shift 5
+  local tpl="$1" wf_rel="$2" fresh_msg="$3" refreshed_msg="$4" gates="$5"
   local wf_dst="$PROJECT_ROOT/$wf_rel"
-  local hint
 
   if [ ! -f "$tpl/github-actions-ci.yml" ]; then
     _lane_log "⊝ no CI template at $tpl/github-actions-ci.yml — skipping CI delivery (rules still enforced locally)"
@@ -1605,11 +1613,8 @@ _lane_deliver_ci() {
       fi
       return 0
     fi
-    _lane_log "⚠ REFUSE CI: $wf_rel exists and is NOT getff-generated."
-    _lane_log "$refuse_intro"
-    for hint in "$@"; do
-      _lane_log "$hint"
-    done
+    _lane_log "⚠ REFUSE CI: $wf_rel exists and is NOT getff-generated — kept as it is"
+    note_not_wired "CI: $gates not in CI — $wf_rel is your own workflow, and getff does not change a workflow it did not write"
     return 0
   fi
 
@@ -2726,6 +2731,18 @@ note_not_wired() {
   NOT_WIRED+=("$1")
 }
 
+# print_not_wired — print the NOT-wired summary: a header, then one «- …» line per piece. Shared by
+# 99-finalize and the toolchain lanes, which exit before 99-finalize runs and so print their own.
+# Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
+# tells the reader what to do.
+print_not_wired() {
+  [ "${#NOT_WIRED[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
+  printf '      - %s\n' "${NOT_WIRED[@]}"
+  echo ""
+}
+
 # note_getff_added <rel> — record a consumer file getff added its block to by insertions only (Q4.7),
 # for 99-finalize's summary. Once per file: in a multi-stack monorepo the per-workspace synth-wire
 # and the R2 wirer can both add to the same consumer config (cold review, 2026-09-28).
@@ -3114,6 +3131,82 @@ register_cc_hook() {
       echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker NOT registered on $event" >&2
     fi
   fi
+}
+
+# rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's
+# own-config wirer reads it (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), for a caller
+# that must say what that wirer would do without running it. First line: `none` when the file
+# declares no top-level RULE_GLOBS; `no-array` when it declares one whose value is not an object
+# literal with a `boundary: [` array of its own (the wirer refuses R2 there); `array` otherwise,
+# followed by the array's string elements, one per line. Elements, not text: a glob in a comment, in
+# another key or in a nested object is none of them. A tokenizer, not a parser — a regex literal
+# holding a quote or `//` can throw it off. Exit 1 (nothing printed) when <file> is no file.
+rule_globs_boundary() {
+  [ -f "$1" ] || return 1
+  awk -v sq="'" '
+    function tok(type, val) { nt++; tt[nt] = type; tv[nt] = val }
+    function opens(k) { return tt[k] == "p" && (tv[k] == "{" || tv[k] == "[" || tv[k] == "(") }
+    function closes(k) { return tt[k] == "p" && (tv[k] == "}" || tv[k] == "]" || tv[k] == ")") }
+    { src = src $0 "\n" }
+    END {
+      n = length(src); i = 1; nt = 0
+      while (i <= n) {
+        c = substr(src, i, 1)
+        if (c == " " || c == "\t" || c == "\n" || c == "\r") { i++; continue }
+        if (c == "/" && substr(src, i + 1, 1) == "/") {
+          j = index(substr(src, i), "\n"); i = (j ? i + j : n + 1); continue
+        }
+        if (c == "/" && substr(src, i + 1, 1) == "*") {
+          j = index(substr(src, i + 2), "*/"); i = (j ? i + j + 3 : n + 1); continue
+        }
+        if (c == sq || c == "\"" || c == "`") {
+          # A template literal with a ${…} substitution is no string element for the wirer either.
+          q = c; v = ""; plain = 1; i++
+          while (i <= n) {
+            d = substr(src, i, 1)
+            if (d == "\\") { v = v substr(src, i + 1, 1); i += 2; continue }
+            if (d == q) break
+            if (q == "`" && d == "$" && substr(src, i + 1, 1) == "{") plain = 0
+            v = v d; i++
+          }
+          i++; tok(plain ? "str" : "tpl", v); continue
+        }
+        if (c ~ /[A-Za-z_$]/) {
+          v = c; i++
+          while (i <= n && substr(src, i, 1) ~ /[A-Za-z0-9_$]/) { v = v substr(src, i, 1); i++ }
+          tok("id", v); continue
+        }
+        tok("p", c); i++
+      }
+      # The declaration: `const|let|var RULE_GLOBS` outside every bracket, as the wirer takes only
+      # a top-level one.
+      depth = 0; decl = 0
+      for (k = 1; k <= nt; k++) {
+        if (depth == 0 && tt[k] == "id" && (tv[k] == "const" || tv[k] == "let" || tv[k] == "var") &&
+            tt[k + 1] == "id" && tv[k + 1] == "RULE_GLOBS") { decl = k + 1; break }
+        if (opens(k)) depth++; else if (closes(k)) depth--
+      }
+      if (!decl) { print "none"; exit }
+      if (!(tv[decl + 1] == "=" && tt[decl + 2] == "p" && tv[decl + 2] == "{")) { print "no-array"; exit }
+      # Its own `boundary:` key (depth 1 of the object literal), and that key holding an array.
+      rd = 1; arr = 0
+      for (k = decl + 3; k <= nt && rd > 0; k++) {
+        if (opens(k)) { rd++; continue }
+        if (closes(k)) { rd--; continue }
+        if (rd == 1 && tt[k] == "id" && tv[k] == "boundary" && tv[k + 1] == ":") {
+          if (tv[k + 2] == "[" && tt[k + 2] == "p") arr = k + 2
+          break
+        }
+      }
+      if (!arr) { print "no-array"; exit }
+      print "array"
+      ad = 1
+      for (k = arr + 1; k <= nt && ad > 0; k++) {
+        if (opens(k)) { ad++; continue }
+        if (closes(k)) { ad--; continue }
+        if (ad == 1 && tt[k] == "str") print tv[k]
+      }
+    }' "$1"
 }
 
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──

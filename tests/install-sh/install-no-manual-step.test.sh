@@ -3,11 +3,14 @@
 # (operator directive 2026-09-28, decision Q4.7). What the install cannot do goes to the «NOT wired»
 # summary with what is missing and why — never with «do X yourself».
 #
-# #1868 applied this to the ESLint config path. This file covers the rest of the JS/TS install
-# output: the git-hooks activation, the non-ESLint tool configs kept by copy_unless_foreign, a
-# legacy eslintrc next to the flat config, the summary header and the kept-files list, the closing
-# «Next steps» block (replaced by what the install itself checked), the dependency install, and the
-# jq-less JSON writes (a node fallback). The predicate is tests/install-sh/lib/manual-step.sh.
+# #1868 applied this to the ESLint config path. This file covers the rest of the install output:
+# the git-hooks activation, the non-ESLint tool configs kept by copy_unless_foreign, a legacy
+# eslintrc next to the flat config, the summary header and the kept-files list, the closing «Next
+# steps» block (replaced by what the install itself checked), the dependency install, the jq-less
+# JSON writes (a node fallback), and the toolchain lanes (python, cargo, go), which exit before
+# 99-finalize and print a NOT-wired summary of their own. The aif-handoff / runtime-bridge guided
+# flows have their own arms (aif-guided-install-gating.test.sh, bridge-guided.test.sh); the source
+# sweep in arm R covers them here. The predicate is tests/install-sh/lib/manual-step.sh.
 #
 # Arms:
 #   U  lib.sh: json_edit_node writes JSON without jq (register_cc_hook + context7 in .mcp.json),
@@ -25,6 +28,21 @@
 #   A  the project's own scripts/audit-ai-docs.sh: not executed, and the install still finishes;
 #   V  husky v9 (core.hooksPath=.husky/_): kept and reported active, never «not active»;
 #   O  @opentelemetry/* with AIF_STRICT_RUNTIME unset: R8 unarmed is a NOT-wired line;
+#   Y  the python lane with every surface the consumer's own and no lint tools on PATH: no manual
+#      step, and its own NOT-wired summary names each piece (pre-push rung, ruff, sgconfig, CI,
+#      the unproven firing); Y2 the consumer's pre-commit framework gets its pre-push stage
+#      installed by the install (never over the consumer's own pre-push, never without pre-commit);
+#      Y3 outside git / Y4 a legacy git hook and [tool.ruff]; Y5 ast-grep fetched through uvx;
+#      Y6 a uvx that cannot fetch is a NOT-wired gap, never a «fired RED» / «OVER-BROAD» verdict;
+#      Y7 (and C2 / J2 for cargo / go) a delivered config that fails a direction (SILENT or
+#      OVER-BROAD) is a NOT-wired line of the lane's own summary;
+#   C  the cargo lane with the consumer's clippy.toml / deny.toml / CI workflow and no cargo;
+#   J  the go lane with the consumer's .golangci.yml / CI workflow and no go;
+#      in Y, C and J the getff workflow path is the consumer's own, so no NOT-wired line may
+#      claim the getff CI runs a ban;
+#   B  --profile factory: the runtime-bridge dispatch hook is registered on PostToolUse and
+#      PostToolUseFailure, and the aif-handoff project whose rootPath is this project is written to
+#      .claude/settings.json env; B2 aif-handoff down: registered, the project id a NOT-wired line;
 #   R  the predicate: a positive control, a negative control, and a sweep of the installer source;
 #   F  --full with a package manager that fails: the dependency line says the install failed,
 #      the degraded banner points at the NOT-wired list, not at a manual step.
@@ -236,6 +254,255 @@ grep -qE 'Set AIF_STRICT_RUNTIME=1 to' "$WORK/o.log" && bad "O: the install stil
   || ok "O: no «Set AIF_STRICT_RUNTIME=1» instruction"
 no_manual O "$WORK/o.log"
 
+# ── The toolchain lanes (python / cargo / go) ─────────────────────────────────────────────────
+# A lane exits before 99-finalize, so it prints its own NOT-wired summary. Each fixture owns every
+# surface a lane can collide with, and PATH carries none of the lint tools, so every «cannot» the
+# lane has is reached in one run. NOTOOLS is the host PATH with those tools taken out.
+NOTOOLS="$WORK/notools"; mkdir -p "$NOTOOLS"
+_IFS_SAVE=$IFS; IFS=:
+for _d in $PATH; do
+  [ -d "$_d" ] || continue
+  for _f in "$_d"/*; do
+    [ -x "$_f" ] || continue
+    _b=${_f##*/}
+    case "$_b" in ast-grep|sg|ruff|uvx|uv|pre-commit|cargo|rustc|rustup|clippy-driver|go|gofmt|golangci-lint) continue ;; esac
+    [ -e "$NOTOOLS/$_b" ] || ln -s "$_f" "$NOTOOLS/$_b" 2>/dev/null || true
+  done
+done
+IFS=$_IFS_SAVE
+lane_into() { # <dir> <log> <PATH> <args…>
+  local d="$1" log="$2" p="$3"; shift 3
+  ( cd "$d" && PATH="$p" bash "$REPO_ROOT/install.sh" "$@" </dev/null ) >"$log" 2>&1
+}
+# nw_has <arm> <log> <regex> <what> — the lane's NOT-wired summary carries a line matching <regex>.
+nw_has() {
+  not_wired "$2" | grep -qiE "$3" && ok "$1: NOT wired names $4" \
+    || bad "$1: no NOT-wired line for $4: $(not_wired "$2" | tr '\n' '|' | cut -c1-300)"
+}
+# nw_lacks <arm> <log> <regex> <what> — no line of the lane's NOT-wired summary matches <regex>.
+nw_lacks() {
+  local _hit; _hit=$(not_wired "$2" | grep -iE "$3" | head -1)
+  [ -z "$_hit" ] && ok "$1: no NOT-wired line claims $4" || bad "$1: a NOT-wired line claims $4: $_hit"
+}
+# A getff CI claim — what the REFUSE cells may say only when the getff workflow is getff's.
+_ci_claim='getff CI workflow (reads|runs)|in the getff CI workflow'
+
+# ── Y: python lane, every surface already the consumer's own, no lint tools ──────────────────
+Y="$WORK/py-owned"; mkdir -p "$Y/.github/workflows" "$Y/.ai-factory"; git -C "$Y" init -q
+printf '[project]\nname = "demo"\n' > "$Y/pyproject.toml"
+git -C "$Y" config core.hooksPath .my-hooks
+printf 'line-length = 100\n' > "$Y/ruff.toml"
+printf 'ruleDirs: [rules]\n' > "$Y/sgconfig.yml"
+printf 'name: my python ci\n' > "$Y/.github/workflows/getff-python.yml"
+printf '# my rules\n' > "$Y/.ai-factory/RULES.md"
+printf '{"mcpServers":{"context7":{"command":"npx","args":["-y","@upstash/context7-mcp@latest"]}}}\n' > "$Y/.mcp.json"
+lane_into "$Y" "$WORK/y.log" "$NOTOOLS" python; rc=$?
+[ "$rc" -eq 0 ] && ok "Y: the python lane exits 0 with every surface owned" || bad "Y: rc $rc"
+no_manual Y "$WORK/y.log"
+nw_has Y "$WORK/y.log" 'pre-push.*core\.hooksPath=\.my-hooks' "the pre-push rung and the hooksPath that kept it off"
+nw_has Y "$WORK/y.log" 'ruff.*ruff\.toml' "ruff and the consumer's ruff.toml"
+nw_has Y "$WORK/y.log" 'sgconfig\.yml' "the sgconfig.yml ruleDirs entry"
+nw_has Y "$WORK/y.log" 'CI.*getff-python\.yml' "the CI gates and the kept workflow"
+nw_has Y "$WORK/y.log" 'ast-grep.*not on PATH' "the unproven ast-grep firing"
+nw_has Y "$WORK/y.log" 'ruff.*not on PATH' "the unproven ruff firing"
+nw_lacks Y "$WORK/y.log" "$_ci_claim" "the getff CI runs a ban while getff-python.yml is the consumer's own"
+nw_has Y "$WORK/y.log" 'ruff-bans\.toml, which no CI reads' "that nothing reads the ruff bans"
+grep -qx '# my rules' "$Y/.ai-factory/RULES.md" && ok "Y: the consumer's RULES.md is kept byte-for-byte" || bad "Y: RULES.md changed"
+
+# ── Y2: python lane, the pre-commit framework is the consumer's — getff installs its pre-push stage
+Y2="$WORK/py-precommit"; mkdir -p "$Y2" "$WORK/pcbin"; git -C "$Y2" init -q
+printf '[project]\nname = "demo"\n' > "$Y2/pyproject.toml"
+printf 'repos: []\n' > "$Y2/.pre-commit-config.yaml"
+cat > "$WORK/pcbin/pre-commit" <<'STUB'
+#!/bin/sh
+echo "pre-commit $*" >> "$PC_CALLS"
+[ "$1 $2 $3" = "install --hook-type pre-push" ] || exit 2
+d=$(git rev-parse --git-path hooks); mkdir -p "$d"
+printf '#!/bin/sh\n# File generated by pre-commit: https://pre-commit.com\n' > "$d/pre-push"; chmod +x "$d/pre-push"
+STUB
+chmod +x "$WORK/pcbin/pre-commit"
+export PC_CALLS="$WORK/pc.calls"
+lane_into "$Y2" "$WORK/y2.log" "$WORK/pcbin:$NOTOOLS" python
+grep -qx 'pre-commit install --hook-type pre-push' "$WORK/pc.calls" 2>/dev/null \
+  && ok "Y2: the install ran pre-commit's own pre-push stage install" || bad "Y2: pre-commit install --hook-type pre-push was not run"
+grep -q 'pre-push stage installed' "$WORK/y2.log" && ok "Y2: the log says the pre-push stage is installed" \
+  || bad "Y2: no «pre-push stage installed» line: $(grep -i pre-commit "$WORK/y2.log" | tr '\n' '|')"
+not_wired "$WORK/y2.log" | grep -qi 'pre-commit' && bad "Y2: pre-commit still listed as NOT wired" || ok "Y2: pre-commit is not in NOT wired"
+no_manual Y2 "$WORK/y2.log"
+# Y2b: the consumer's own .git/hooks/pre-push is never handed to pre-commit (it would move it aside).
+Y2B="$WORK/py-precommit-own"; mkdir -p "$Y2B"; git -C "$Y2B" init -q
+printf '[project]\nname = "demo"\n' > "$Y2B/pyproject.toml"; printf 'repos: []\n' > "$Y2B/.pre-commit-config.yaml"
+printf '#!/bin/sh\nexit 0\n' > "$Y2B/.git/hooks/pre-push"; chmod +x "$Y2B/.git/hooks/pre-push"
+rm -f "$WORK/pc.calls"
+lane_into "$Y2B" "$WORK/y2b.log" "$WORK/pcbin:$NOTOOLS" python
+[ ! -e "$WORK/pc.calls" ] && ok "Y2b: pre-commit install not run over the consumer's own pre-push" || bad "Y2b: pre-commit ran: $(cat "$WORK/pc.calls")"
+[ "$(cat "$Y2B/.git/hooks/pre-push")" = "$(printf '#!/bin/sh\nexit 0')" ] && ok "Y2b: the consumer's pre-push is untouched" || bad "Y2b: pre-push changed"
+nw_has Y2b "$WORK/y2b.log" 'pre-push' "the pre-commit pre-push stage kept off by the consumer's own hook"
+no_manual Y2b "$WORK/y2b.log"
+# Y2c: pre-commit not on PATH — a NOT-wired line, no command.
+Y2C="$WORK/py-precommit-absent"; mkdir -p "$Y2C"; git -C "$Y2C" init -q
+printf '[project]\nname = "demo"\n' > "$Y2C/pyproject.toml"; printf 'repos: []\n' > "$Y2C/.pre-commit-config.yaml"
+lane_into "$Y2C" "$WORK/y2c.log" "$NOTOOLS" python
+nw_has Y2c "$WORK/y2c.log" 'pre-commit.*not on PATH' "pre-commit missing from PATH"
+no_manual Y2c "$WORK/y2c.log"
+
+# ── Y3: python lane outside a git repository, and with the consumer's own legacy git hook ──────
+Y3="$WORK/py-nogit"; mkdir -p "$Y3"; printf '[project]\nname = "demo"\n' > "$Y3/pyproject.toml"
+lane_into "$Y3" "$WORK/y3.log" "$NOTOOLS" python
+nw_has Y3 "$WORK/y3.log" 'pre-push.*not a git repository' "the rung and the missing repository"
+no_manual Y3 "$WORK/y3.log"
+Y4="$WORK/py-legacy"; mkdir -p "$Y4"; git -C "$Y4" init -q; printf '[project]\nname = "demo"\n' > "$Y4/pyproject.toml"
+printf '#!/bin/sh\nexit 0\n' > "$Y4/.git/hooks/pre-commit"; chmod +x "$Y4/.git/hooks/pre-commit"
+printf '[tool.ruff]\nline-length = 100\n' >> "$Y4/pyproject.toml"
+lane_into "$Y4" "$WORK/y4.log" "$NOTOOLS" python
+nw_has Y4 "$WORK/y4.log" 'pre-push.*pre-commit' "the rung and the consumer's own hook that kept it off"
+nw_has Y4 "$WORK/y4.log" 'ruff.*pyproject\.toml' "ruff and the consumer's [tool.ruff]"
+no_manual Y4 "$WORK/y4.log"
+
+# ── Y5: no ast-grep binary, but uvx — the install fetches the pinned ast-grep itself ─────────
+mkdir -p "$WORK/uvxbin"
+cat > "$WORK/uvxbin/uvx" <<'STUB'
+#!/bin/sh
+echo "uvx $*" >> "$UVX_CALLS"
+for a in "$@"; do last=$a; done
+case "$last" in
+  --version) case "$*" in *ast-grep*) echo "ast-grep 0.44.1" ;; *ruff*) echo "ruff 0.15.21" ;; esac; exit 0 ;;
+  getff_selfcheck.py) exit 1 ;;
+  *) exit 0 ;;
+esac
+STUB
+chmod +x "$WORK/uvxbin/uvx"
+Y5="$WORK/py-uvx"; mkdir -p "$Y5"; git -C "$Y5" init -q; printf '[project]\nname = "demo"\n' > "$Y5/pyproject.toml"
+( export UVX_CALLS="$WORK/uvx.calls"; lane_into "$Y5" "$WORK/y5.log" "$WORK/uvxbin:$NOTOOLS" python )
+grep -q 'uvx --from ast-grep-cli==0.44.1 ast-grep scan' "$WORK/uvx.calls" 2>/dev/null \
+  && ok "Y5: ast-grep ran through uvx at the pinned 0.44.1" || bad "Y5: no pinned uvx ast-grep run: $(cat "$WORK/uvx.calls" 2>/dev/null | tr '\n' '|')"
+grep -q 'ast-grep fired RED on the planted violation' "$WORK/y5.log" && ok "Y5: the ast-grep lane is proven through uvx" \
+  || bad "Y5: ast-grep lane not proven: $(grep -i 'ast-grep' "$WORK/y5.log" | tr '\n' '|')"
+not_wired "$WORK/y5.log" | grep -qi 'ast-grep' && bad "Y5: ast-grep still listed as NOT wired" || ok "Y5: ast-grep is not in NOT wired"
+
+# ── Y6: uvx present but it cannot fetch (offline, index blocked) — a gap, never a verdict ──────
+# A failed fetch exits non-zero on the bad AND the clean file, which the self-check would read as
+# «fired RED» plus «OVER-BROAD» (a false delivery-bug report). The fetch is probed first.
+mkdir -p "$WORK/uvxdown"
+printf '#!/bin/sh\necho "error: Failed to fetch: network unreachable" >&2\nexit 2\n' > "$WORK/uvxdown/uvx"
+chmod +x "$WORK/uvxdown/uvx"
+Y6="$WORK/py-uvx-down"; mkdir -p "$Y6"; git -C "$Y6" init -q; printf '[project]\nname = "demo"\n' > "$Y6/pyproject.toml"
+lane_into "$Y6" "$WORK/y6.log" "$WORK/uvxdown:$NOTOOLS" python
+no_manual Y6 "$WORK/y6.log"
+grep -qE 'OVER-BROAD|fired RED' "$WORK/y6.log" \
+  && bad "Y6: a failed uvx fetch was read as a firing verdict: $(grep -E 'OVER-BROAD|fired RED' "$WORK/y6.log" | head -2 | tr '\n' '|')" \
+  || ok "Y6: a failed uvx fetch gives no firing verdict"
+nw_has Y6 "$WORK/y6.log" 'firing self-check \(ast-grep\): not proven.*uvx could not fetch' "the unfetched ast-grep"
+nw_has Y6 "$WORK/y6.log" 'firing self-check \(ruff\): not proven.*uvx could not fetch' "the unfetched ruff"
+
+# ── Y7 / C2 / J2: a delivered config that fails a direction is a NOT-wired gap too ─────────────
+# The lane's tools answer but never fire (stubs exit 0, print nothing), so every planted violation
+# comes back SILENT. The self-check summary already says «NOT proven»; the lane's own NOT-wired
+# summary, the list that closes the run, must say it as well.
+mkdir -p "$WORK/silent-py" "$WORK/silent-cargo" "$WORK/silent-go"
+cat > "$WORK/silent-py/uvx" <<'STUB'
+#!/bin/sh
+case "$*" in *--version*) case "$*" in *ast-grep*) echo "ast-grep 0.44.1" ;; *ruff*) echo "ruff 0.15.21" ;; esac ;; esac
+exit 0
+STUB
+printf '#!/bin/sh
+exit 0
+' > "$WORK/silent-cargo/cargo"
+printf '#!/bin/sh
+exit 0
+' > "$WORK/silent-go/go"
+printf '#!/bin/sh
+exit 0
+' > "$WORK/silent-go/golangci-lint"
+chmod +x "$WORK/silent-py/uvx" "$WORK/silent-cargo/cargo" "$WORK/silent-go/go" "$WORK/silent-go/golangci-lint"
+Y7="$WORK/py-silent"; mkdir -p "$Y7"; git -C "$Y7" init -q; printf '[project]\nname = "demo"\n' > "$Y7/pyproject.toml"
+lane_into "$Y7" "$WORK/y7.log" "$WORK/silent-py:$NOTOOLS" python
+grep -q 'SILENT' "$WORK/y7.log" && ok "Y7: the never-firing tools come back SILENT" || bad "Y7: no SILENT verdict: $(grep -i 'self-check' "$WORK/y7.log" | tr '\n' '|')"
+nw_has Y7 "$WORK/y7.log" 'firing self-check \(python\): not proven.*SILENT' "the SILENT python self-check"
+C2="$WORK/cargo-silent"; mkdir -p "$C2"; git -C "$C2" init -q
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$C2/Cargo.toml"
+lane_into "$C2" "$WORK/c2.log" "$WORK/silent-cargo:$NOTOOLS" cargo
+nw_has C2 "$WORK/c2.log" 'firing self-check \(clippy\): not proven.*SILENT' "the SILENT clippy self-check"
+J2="$WORK/go-silent"; mkdir -p "$J2"; git -C "$J2" init -q; printf 'module demo\n\ngo 1.22\n' > "$J2/go.mod"
+lane_into "$J2" "$WORK/j2.log" "$WORK/silent-go:$NOTOOLS" go
+nw_has J2 "$WORK/j2.log" 'firing self-check \(golangci-lint\): not proven.*SILENT' "the SILENT golangci-lint self-check"
+
+# ── C: cargo lane, the consumer's own clippy.toml / deny.toml / CI workflow, no cargo ──────────
+C="$WORK/cargo-owned"; mkdir -p "$C/.github/workflows"; git -C "$C" init -q
+printf '[package]\nname = "demo"\nversion = "0.0.1"\nedition = "2021"\n' > "$C/Cargo.toml"
+printf 'too-many-arguments-threshold = 9\n' > "$C/clippy.toml"
+printf '[bans]\nmultiple-versions = "warn"\n' > "$C/deny.toml"
+printf 'name: my cargo ci\n' > "$C/.github/workflows/getff-cargo.yml"
+lane_into "$C" "$WORK/c.log" "$NOTOOLS" cargo; rc=$?
+[ "$rc" -eq 0 ] && ok "C: the cargo lane exits 0 with every surface owned" || bad "C: rc $rc"
+no_manual C "$WORK/c.log"
+nw_has C "$WORK/c.log" 'clippy.*clippy\.toml' "clippy and the consumer's clippy.toml"
+nw_has C "$WORK/c.log" 'deny\.toml' "cargo-deny and the consumer's deny.toml"
+nw_has C "$WORK/c.log" 'Cargo\.toml' "the build-failing lint table and the consumer's Cargo.toml"
+nw_has C "$WORK/c.log" 'CI.*getff-cargo\.yml' "the CI gate and the kept workflow"
+nw_has C "$WORK/c.log" 'cargo.*not on PATH' "the unproven clippy firing"
+nw_lacks C "$WORK/c.log" "$_ci_claim" "the getff CI runs a ban while getff-cargo.yml is the consumer's own"
+
+# ── J: go lane, the consumer's own .golangci.yml / CI workflow, no go ───────────────────────────
+J="$WORK/go-owned"; mkdir -p "$J/.github/workflows"; git -C "$J" init -q
+printf 'module demo\n\ngo 1.22\n' > "$J/go.mod"
+printf 'linters:\n  enable: [govet]\n' > "$J/.golangci.yml"
+printf 'name: my go ci\n' > "$J/.github/workflows/getff-go.yml"
+lane_into "$J" "$WORK/j.log" "$NOTOOLS" go; rc=$?
+[ "$rc" -eq 0 ] && ok "J: the go lane exits 0 with every surface owned" || bad "J: rc $rc"
+no_manual J "$WORK/j.log"
+nw_has J "$WORK/j.log" 'golangci.*\.golangci\.yml' "golangci-lint and the consumer's .golangci.yml"
+nw_has J "$WORK/j.log" 'CI.*getff-go\.yml' "the CI gate and the kept workflow"
+nw_has J "$WORK/j.log" 'golangci-lint.*not on PATH' "the unproven golangci firing"
+nw_lacks J "$WORK/j.log" "$_ci_claim" "the getff CI runs a ban while getff-go.yml is the consumer's own"
+nw_has J "$WORK/j.log" 'getff-golangci\.yml, which no CI reads' "that nothing reads the golangci bans"
+
+# ── B: --profile factory — the runtime-bridge dispatch hook is registered and pointed at aif ───
+# Layer 55 delivers .claude/hooks/runtime-bridge-dispatch.sh; the install registers it on
+# PostToolUse + PostToolUseFailure (the hook reads both) and writes the aif-handoff project whose
+# rootPath is this project into .claude/settings.local.json env (machine-local, never the shared
+# settings.json). A stub curl answers for aif.test only.
+AIFSTUB="$WORK/aif-stub"; mkdir -p "$AIFSTUB"
+_real_curl=$(command -v curl)
+cat > "$AIFSTUB/curl" <<STUB
+#!/bin/sh
+case "\$*" in
+  *aif.test*/health*) [ -f "\$AIF_STUB_DOWN" ] && exit 7; exit 0 ;;
+  *aif.test*/projects*) [ -f "\$AIF_STUB_DOWN" ] && exit 7; cat "\$AIF_STUB_JSON"; exit 0 ;;
+esac
+exec "$_real_curl" "\$@"
+STUB
+chmod +x "$AIFSTUB/curl"
+bridge_hook_on() { # <settings> <event> — the dispatch hook is registered on <event>
+  jq -e --arg e "$2" '(.hooks[$e] // []) | map(.hooks[].command) | any(test("runtime-bridge-dispatch"))' "$1" >/dev/null 2>&1
+}
+B="$WORK/factory"; project "$B"; B=$(cd "$B" && pwd -P)
+printf '[{"id":"p-b","name":"factory","rootPath":"%s"},{"id":"p-x","name":"x","rootPath":"/home/www/x"}]' "$B" > "$WORK/b.json"
+( cd "$B" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/none" \
+  RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >"$WORK/b.log" 2>&1
+_bs="$B/.claude/settings.json"
+bridge_hook_on "$_bs" PostToolUse && ok "B: the dispatch hook is registered on PostToolUse" || bad "B: no PostToolUse registration: $(grep -i 'runtime-bridge' "$WORK/b.log" | head -3 | tr '\n' '|')"
+bridge_hook_on "$_bs" PostToolUseFailure && ok "B: the dispatch hook is registered on PostToolUseFailure" || bad "B: no PostToolUseFailure registration"
+_bl="$B/.claude/settings.local.json"
+[ "$(jq -r '.env.RUNTIME_BRIDGE_AIF_PROJECT_ID // empty' "$_bl" 2>/dev/null)" = "p-b" ] && ok "B: the aif project whose rootPath is this project is written to the machine-local settings env" \
+  || bad "B: RUNTIME_BRIDGE_AIF_PROJECT_ID=$(jq -r '.env.RUNTIME_BRIDGE_AIF_PROJECT_ID // empty' "$_bl" 2>/dev/null): $(grep -i 'runtime-bridge' "$WORK/b.log" | tr '\n' '|' | cut -c1-300)"
+[ -z "$(jq -r '.env.RUNTIME_BRIDGE_AIF_PROJECT_ID // empty' "$_bs")" ] && ok "B: the shared settings.json carries no machine-local id" || bad "B: the aif project id leaked into the shared settings.json"
+nw_lacks B "$WORK/b.log" 'runtime-bridge' "the runtime-bridge is not wired"
+no_manual B "$WORK/b.log"
+# B2: aif-handoff down — the hook is still registered, the project id is a NOT-wired line.
+B2="$WORK/factory-down"; project "$B2"; : > "$WORK/down"
+( cd "$B2" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/down" \
+  RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >"$WORK/b2.log" 2>&1
+bridge_hook_on "$B2/.claude/settings.json" PostToolUse && ok "B2: aif down, the dispatch hook is still registered" || bad "B2: no registration with aif down"
+nw_has B2 "$WORK/b2.log" 'runtime-bridge.*does not answer at http://aif\.test:3009' "that aif-handoff does not answer"
+no_manual B2 "$WORK/b2.log"
+# B3: --refresh with aif-handoff down — the refresh arm registers and tries to wire too, and its
+# NOT-wired line is printed (do_refresh exits before 99-finalize, which prints the summary).
+( cd "$B2" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/down" \
+  RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" --refresh --profile factory </dev/null ) >"$WORK/b3.log" 2>&1
+nw_has B3 "$WORK/b3.log" 'runtime-bridge.*does not answer at http://aif\.test:3009' "that aif-handoff does not answer (printed on --refresh)"
+no_manual B3 "$WORK/b3.log"
+
 # ── R: the predicate itself — it fires on every wording the installer used, never on a fact ────
 # A positive control: each line below is a manual step the installer printed at some point; a
 # predicate that stops matching one of them would let an arm above pass on a real step.
@@ -262,6 +529,38 @@ done <<'LINES'
     -y installs into the project only; a machine-global install needs --global or a yes at the prompt
   ⊝ runtime-bridge skipped — -y installs into the project only, re-run with --global to allow it
   - framework pre-commit shield — your own .husky/pre-commit is kept; to add them, call from it: npx lint-staged
+⚠  getff self-check: 0 proven-firing · 2 NOT proven (tool absent) — a skipped check is NOT green; run the manual command(s) above to prove it.
+⚠  getff self-check: 1 ok · 1 SILENT · 0 OVER-BROAD — a delivered rule failed a direction; review above before relying on it.
+      npx --yes -p @ast-grep/cli@0.44.1 ast-grep scan .    # must exit non-zero on bad Python
+  NOT overwriting your workflow. To wire the getff Python gates, add jobs running:
+  NOT overwriting your workflow. To wire the getff clippy gate, add a job running:
+    run 'git init' then 'git config core.hooksPath .getff/hooks' to activate
+    To activate, EITHER:
+      (a) source it from your existing hook:  . .getff/hooks/pre-push
+      (b) move your hooks into .getff/hooks/ and run: git config core.hooksPath .getff/hooks
+    ⚠ run 'pre-commit install --hook-type pre-push' to activate the pre-push stage
+  Start it manually (e.g. `aif-handoff serve`), then re-run with --profile factory.
+  aif-handoff not responding and the docker daemon is not running — start docker, then re-run.
+  Install docker, then re-run with --profile factory for guided install.
+  aif-handoff not detected (no docker, no CLI). See docs/runtime-bridge-setup.md for install.
+  setup-runtime-bridge.sh not present in this checkout (consumer install) — see docs/runtime-bridge-setup.md for manual setup.
+  … and is not part of this install; docs/runtime-bridge-setup.md describes the wiring
+    migration hint: this looks like a pre-rename install that has not yet received getff/; refresh after upgrading the framework to also receive getff/
+  MANUAL: add this line under your sgconfig.yml 'ruleDirs:' list:
+  Shipped our rules as getff-ruff.toml (ruff does NOT auto-discover it — inert until you opt in).
+  The rule files are already installed at .getff/astgrep-rules/ (ready once you add the entry).
+  config). You cannot add a second 'extend'; instead merge our getff-ruff.toml [lint] TID251/
+  Shipped our starter as getff-deny.toml — merge its [bans] table into your deny.toml.
+  NOTE: to make the bans build-FAILING locally, merge .getff/Cargo.lints.toml [lints.clippy] into your Cargo.toml
+  MANUAL: merge the getff forbidigo entries from getff-golangci.yml into your .golangci.yml, OR run:
+Enabling aif-handoff bridge. aif-handoff itself is NOT installed by this script — bring it up yourself (DETECT + INSTRUCT only):
+  • confirm the coordinator answers on http://localhost:3009/health
+      verify with: aif-handoff config show   (look for the Claude profile)
+[runtime-bridge] RUNTIME_BRIDGE_* env already present in /Users/x/.zshrc — leaving it; edit by hand to change values.
+Manual settings.json step (auto-write skipped — paste this yourself):
+auto-dispatches to aif-handoff. Everything else stays manual — run
+To force manual mode session-wide: export RUNTIME_BRIDGE_MODE=manual
+[runtime-bridge] Wrote RUNTIME_BRIDGE_* env to /Users/x/.zshrc (re-source it or open a new shell).
 LINES
 [ "$_miss" -eq 0 ] && ok "R: the predicate fires on every known manual-step wording (positive control)"
 # A negative control: fact lines the install prints must not read as steps.
@@ -275,16 +574,23 @@ done <<'LINES'
   ✓ git hooks active — core.hooksPath=.husky
   · npm run validate — not run: it runs this project's own lint, typecheck and tests
   ⊝ .eslintrc.json (exists — skipping)
+  - aif-handoff — not installed: the guided install runs it in docker, and this machine has no docker and no aif-handoff CLI, and getff installs neither
+  - aif-handoff — not installed: the guided install runs it in docker, and the docker daemon is not running — getff does not start the docker daemon
+  - runtime-bridge — not wired: aif-handoff answers at http://localhost:3009, but getff's bridge setup (setup-runtime-bridge.sh) wires only the getff repository it ships in, and this project is not that repository
+  - firing self-check (golangci-lint): not proven — go is not on PATH, so the delivered config was not run against a planted violation
+  - clippy bans as build errors on a local build: not wired — the [lints.clippy] table is in .getff/Cargo.lints.toml, and getff does not edit your Cargo.toml; the getff CI workflow runs clippy with -D on the same lint families
+  - CI: the getff clippy gate is not in CI — .github/workflows/getff-cargo.yml is your own workflow, and getff does not change a workflow it did not write
+  ✓ pre-commit pre-push stage installed (the getff entry runs on git push)
 LINES
 [ "$_miss" -eq 0 ] && ok "R: the predicate passes fact lines (negative control)"
 # A source sweep: every printed line in the JS/TS install path, not only the lines the arms above
-# reach. Comment lines are not output. The toolchain lanes and the aif-handoff / runtime-bridge
-# guided flows still carry steps and are outside this sweep until their own Q4.7 pass lands.
-_sweep=$(cd "$REPO_ROOT" && for f in install.sh setup setup.d/*.sh; do
-  case "$f" in (setup.d/45-python.sh|setup.d/46-cargo.sh|setup.d/47-go.sh|setup.d/aif-handoff-guided-install.sh|setup.d/bridge-guided.sh) continue ;; esac
+# reach. Comment lines are not output. No file is excluded: the toolchain lanes (python, cargo, go)
+# and the aif-handoff / runtime-bridge guided flows are held to the same directive, and so is the
+# bridge wizard ./setup runs for the getff repository itself (packages/runtime-bridge/scripts/).
+_sweep=$(cd "$REPO_ROOT" && for f in install.sh setup setup.d/*.sh packages/runtime-bridge/scripts/setup-runtime-bridge.sh; do
   manual_step_lines "$f" | grep -vE '^[[:space:]]*#' | sed "s|^|$f: |"
 done)
-[ -z "$_sweep" ] && ok "R: no line in install.sh, setup or setup.d (JS/TS path) hands back a manual step" \
+[ -z "$_sweep" ] && ok "R: no line in install.sh, setup, setup.d or the bridge wizard hands back a manual step" \
   || bad "R: installer source still prints a manual step: $(printf '%s\n' "$_sweep" | head -5 | cut -c1-160 | tr '\n' '|')"
 
 # ── F: --full, the package manager fails ────────────────────────────────────────────────────

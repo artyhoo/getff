@@ -183,11 +183,6 @@ function buildLineDiff(original: string, modified: string): string {
  * ts-morph is absent (degrade path).
  */
 export async function wireConfigSource(source: string, opts: TransformOpts = {}): Promise<WireResult> {
-  // Idempotency: if R2 already referenced, bail early (byte-identical)
-  if (source.includes(R2_RULE_ID)) {
-    return { status: 'already-wired', original: source, modified: source };
-  }
-
   // Dynamic import resolved from process.cwd(), NOT this file's directory.
   // install.sh runs the wirer from the framework checkout (PKG_ROOT/packages/core/
   // install/wire-eslint-r2.ts) with cwd=consumer-root. A bare `import('ts-morph')`
@@ -203,6 +198,8 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
     Project = mod.Project;
     SyntaxKind = mod.SyntaxKind;
   } catch {
+    // Without the parser only the quoted search can answer; it decides already-wired vs degrade, never an edit.
+    if (simpleRulePresent(source, R2_RULE_ID)) return { status: 'already-wired', original: source, modified: source };
     return {
       status: 'degrade',
       original: source,
@@ -223,6 +220,11 @@ export async function wireConfigSource(source: string, opts: TransformOpts = {})
   });
 
   const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
+
+  // Idempotency: R2 set as code (a comment or a longer string naming it sets nothing) → byte-identical
+  if (ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID)) {
+    return { status: 'already-wired', original: source, modified: source };
+  }
 
   // Find: export default <expr>
   const exportAssignment = sf.getExportAssignment((ea: any) => !ea.isExportEquals());
@@ -297,8 +299,83 @@ function jsString(s: string): string {
   return JSON.stringify(s); // always valid, handles all escaping → double-quoted
 }
 
+/**
+ * The no-ts-morph stand-in for ruleKeyNodes: a quoted mention anywhere. It misses an identifier key
+ * (`eqeqeq: 'off'`) and counts a comment, so it only decides already-wired vs degrade — never an edit.
+ */
 function simpleRulePresent(source: string, ruleName: string): boolean {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
+}
+
+/**
+ * The properties that set `ruleName` in this config: its key — quoted, or an identifier (`eqeqeq: 'off'`,
+ * prettier's default quoteProps output) — in a rules object. A rules object is the object literal under a
+ * `rules` property, or one that property reaches through a same-file variable (`rules: shared`,
+ * `rules: { ...shared }`, `{ rules }`), parentheses or a cast, either branch of `?:` / `&&` / `||` / `??`,
+ * or a call's arguments (`Object.assign({}, …)`). The same word in a comment, a string value or another
+ * object's key (`settings: { eqeqeq: true }`) sets nothing.
+ */
+function ruleKeyNodes(sf: any, SyntaxKind: any, ruleName: string): any[] {
+  const objects = new Set<any>();
+  const seen = new Set<any>();
+  const LOGICAL = [SyntaxKind.AmpersandAmpersandToken, SyntaxKind.BarBarToken, SyntaxKind.QuestionQuestionToken];
+  const WRAPPERS = [
+    SyntaxKind.ParenthesizedExpression, // also a JSDoc cast: /** @type {any} */ ({ … })
+    SyntaxKind.AsExpression,
+    SyntaxKind.SatisfiesExpression,
+    SyntaxKind.TypeAssertionExpression,
+    SyntaxKind.NonNullExpression,
+  ];
+  const collect = (node: any): void => {
+    if (!node?.isKind) return;
+    if (node.isKind(SyntaxKind.Identifier)) {
+      const decl = sf.getVariableDeclaration(node.getText());
+      if (!decl || seen.has(decl)) return;
+      seen.add(decl);
+      collect(decl.getInitializer());
+    } else if (WRAPPERS.some((k) => node.isKind(k))) {
+      collect(node.getExpression());
+    } else if (node.isKind(SyntaxKind.ConditionalExpression)) {
+      collect(node.getWhenTrue());
+      collect(node.getWhenFalse());
+    } else if (node.isKind(SyntaxKind.BinaryExpression) && LOGICAL.includes(node.getOperatorToken().getKind())) {
+      collect(node.getLeft());
+      collect(node.getRight());
+    } else if (node.isKind(SyntaxKind.CallExpression)) {
+      for (const arg of node.getArguments()) collect(arg);
+    } else if (node.isKind(SyntaxKind.ObjectLiteralExpression) && !objects.has(node)) {
+      objects.add(node);
+      for (const p of node.getProperties()) {
+        if (p.isKind(SyntaxKind.SpreadAssignment)) collect(p.getExpression());
+      }
+    }
+  };
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (normPropName(p.getName()) === 'rules') collect(p.getInitializer());
+  }
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment)) {
+    if (p.getName() === 'rules') collect(p.getNameNode());
+  }
+  const out: any[] = [];
+  for (const obj of objects) {
+    for (const p of obj.getProperties()) {
+      const keyed = p.isKind(SyntaxKind.PropertyAssignment) || p.isKind(SyntaxKind.ShorthandPropertyAssignment);
+      if (keyed && normPropName(p.getName()) === ruleName) out.push(p);
+    }
+  }
+  return out;
+}
+
+/**
+ * Whether this config sets `ruleName`: a key ruleKeyNodes finds, or — in a shape it does not follow
+ * (`rules: mk()`, `rules['x'] = …`, a computed key) — the exact rule-id as a string literal, which the
+ * quoted-string search counted too; unlike it, a comment or a longer string (`"use 'eqeqeq'"`) does not
+ * count. Leaning to «set» is what keeps an appended block from overriding a value the consumer chose.
+ */
+function ruleSetInConfig(sf: any, SyntaxKind: any, ruleName: string): boolean {
+  if (ruleKeyNodes(sf, SyntaxKind, ruleName).length > 0) return true;
+  const literal = (kind: any): boolean => sf.getDescendantsOfKind(kind).some((n: any) => n.getLiteralValue() === ruleName);
+  return literal(SyntaxKind.StringLiteral) || literal(SyntaxKind.NoSubstitutionTemplateLiteral);
 }
 
 function wrapperSelectorsPresent(source: string, arrValue: unknown[]): boolean {
@@ -364,28 +441,93 @@ function buildRuleConfigElement(
  * `plugins` entry applies only to the files its own block matches, and the shipped templates
  * register the plugin inside `files:`-scoped blocks; treating those as global left an appended
  * bare block unresolvable on every other file (critical-review S7-1).
+ *
+ * «No scope key» must be PROVEN, spreads included: `{ ...onlyJs, plugins: … }` with
+ * `const onlyJs = { files: ['**\/*.js'] }` is scoped although the literal shows no `files` key.
+ * A false «not global» costs nothing — the wirer registers the plugin in its own blocks, and ESLint
+ * accepts the same plugin object in several elements. The `plugins` that counts is the element's
+ * LAST one, with no spread after it: a later key or spread replaces the whole object.
  */
 function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): boolean {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-    const propNames = (el.getProperties?.() ?? []).map((p: any) => {
-      try { return normPropName(p.getName?.()); } catch { return ''; }
+    if (!provablyUnscoped(el, SyntaxKind, new Set())) continue;
+    const props: any[] = el.getProperties?.() ?? [];
+    let last = -1;
+    props.forEach((p, i) => {
+      try { if (normPropName(p.getName?.()) === 'plugins') last = i; } catch { /* spread: no name */ }
     });
-    if (propNames.includes('files') || propNames.includes('ignores')) continue;
-    for (const prop of el.getProperties?.() ?? []) {
-      let propName: string;
-      try { propName = normPropName(prop.getName?.()); } catch { continue; }
-      if (propName !== 'plugins') continue;
-      const pluginsInit = prop.getInitializer?.();
-      if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
-      for (const pp of pluginsInit.getProperties?.() ?? []) {
-        let ppName: string;
-        try { ppName = normPropName(pp.getName?.()); } catch { continue; }
-        if (ppName === 'rules-as-tests') return true;
-      }
+    if (last < 0 || props.slice(last + 1).some((p) => p.isKind?.(SyntaxKind.SpreadAssignment))) continue;
+    const pluginsInit = props[last].getInitializer?.();
+    if (!pluginsInit?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const pp of pluginsInit.getProperties?.() ?? []) {
+      let ppName: string;
+      try { ppName = normPropName(pp.getName?.()); } catch { continue; }
+      if (ppName === 'rules-as-tests') return true;
     }
   }
   return false;
+}
+
+/** Keys that limit which files a flat-config element applies to. */
+const SCOPE_KEYS = new Set(['files', 'ignores', 'basePath']);
+
+/**
+ * True only when neither `obj` nor anything it spreads carries a scope key. A computed or escaped
+ * key, an accessor or method (it runs during a spread and can add keys to its object), or a spread
+ * whose object literal this file does not show, cannot be proven free of one → false.
+ */
+function provablyUnscoped(obj: any, SyntaxKind: any, seen: Set<any>): boolean {
+  if (seen.has(obj)) return false;
+  seen.add(obj);
+  for (const p of obj.getProperties?.() ?? []) {
+    if (p.isKind?.(SyntaxKind.SpreadAssignment)) {
+      const lit = spreadObjectLiteral(p.getExpression(), SyntaxKind);
+      if (!lit || !provablyUnscoped(lit, SyntaxKind, seen)) return false;
+      continue;
+    }
+    if (p.isKind?.(SyntaxKind.GetAccessor) || p.isKind?.(SyntaxKind.SetAccessor) || p.isKind?.(SyntaxKind.MethodDeclaration)) return false;
+    const nameNode = p.getNameNode?.();
+    if (nameNode?.isKind?.(SyntaxKind.ComputedPropertyName) || nameNode?.getText?.().includes('\\')) return false;
+    let name: string;
+    try { name = normPropName(p.getName?.()); } catch { return false; }
+    if (SCOPE_KEYS.has(name)) return false;
+  }
+  return true;
+}
+
+/**
+ * The object literal a spread operand stands for, when this file proves it: an inline literal, or
+ * the one `const` in this file bound to a literal and used nowhere but as a spread operand (a
+ * property write or a call argument could add `files` to it). Anything else → undefined.
+ */
+function spreadObjectLiteral(expr: any, SyntaxKind: any): any {
+  const unwrap = (e: any): any => {
+    let cur = e;
+    while (cur && (cur.isKind(SyntaxKind.ParenthesizedExpression) || cur.isKind(SyntaxKind.AsExpression) || cur.isKind(SyntaxKind.SatisfiesExpression))) {
+      cur = cur.getExpression();
+    }
+    return cur;
+  };
+  const e = unwrap(expr);
+  if (e?.isKind(SyntaxKind.ObjectLiteralExpression)) return e;
+  if (!e?.isKind(SyntaxKind.Identifier)) return undefined;
+  const name = e.getText();
+  const sf = e.getSourceFile();
+  const decls = sf.getDescendantsOfKind(SyntaxKind.VariableDeclaration).filter((d: any) => d.getName() === name);
+  if (decls.length !== 1) return undefined;
+  const decl = decls[0];
+  if (decl.getVariableStatement?.()?.getDeclarationKind?.() !== 'const') return undefined;
+  const init = unwrap(decl.getInitializer?.());
+  if (!init?.isKind(SyntaxKind.ObjectLiteralExpression)) return undefined;
+  const nameNode = decl.getNameNode();
+  const onlySpread = sf.getDescendantsOfKind(SyntaxKind.Identifier)
+    .filter((id: any) => id.getText() === name && id !== nameNode)
+    .every((id: any) => {
+      const parent = id.getParent();
+      return parent?.isKind(SyntaxKind.SpreadAssignment) || parent?.isKind(SyntaxKind.SpreadElement);
+    });
+  return onlySpread ? init : undefined;
 }
 
 /** Quote-/whitespace-insensitive equality of two value expressions (idempotency guard for override). */
@@ -505,19 +647,40 @@ export async function wireNRules(
     return { status: 'already-wired', original: source, modified: source };
   }
 
-  // Idempotency check — string-search only, no ts-morph needed.
+  // Load ts-morph from consumer cwd (same GH #642 fix as wireConfigSource). Absent, the quoted-string
+  // search below still tells an already-wired config from one that needs an edit it cannot make.
+  let mod: any;
+  try {
+    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
+    const tsMorphPath = requireFromCwd.resolve('ts-morph');
+    mod = await import(pathToFileURL(tsMorphPath).href);
+  } catch {
+    mod = undefined;
+  }
+  const SyntaxKind: any = mod?.SyntaxKind;
+  const sf: any = mod
+    ? new mod.Project({
+        useInMemoryFileSystem: true,
+        compilerOptions: { allowJs: true, target: 99, module: 99 },
+        skipFileDependencyResolution: true,
+        skipLoadingLibFiles: true,
+      }).createSourceFile('eslint.config.mjs', source, { overwrite: true })
+    : undefined;
+
   // `missing` = rules absent from the config (appended). `overrides` = simple rules PRESENT
   // in the config whose key is a live-wins override target (D2): they need an AST value
-  // comparison (present-but-different ⇒ replace) which string search cannot decide, so they
-  // are resolved below with ts-morph. A wrapper rule is never overridden — it augments by
-  // selector-union (mergeSelectorsIntoExistingWrapper), so it only appears in `missing`.
+  // comparison (present-but-different ⇒ replace), resolved below. A wrapper rule is never
+  // overridden — it augments by selector-union (mergeSelectorsIntoExistingWrapper), so it only
+  // appears in `missing`. Whether a simple rule is present is ruleSetInConfig's call.
+  const rulePresent = (key: string): boolean =>
+    sf ? ruleSetInConfig(sf, SyntaxKind, key) : simpleRulePresent(source, key);
   const overrideKeys = opts.overrideKeys;
   const missing: Array<{ key: string; value: unknown }> = [];
   const overrides: Array<{ key: string; value: unknown }> = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else if (!simpleRulePresent(source, key)) {
+    } else if (!rulePresent(key)) {
       missing.push({ key, value });
     } else if (overrideKeys?.has(key)) {
       overrides.push({ key, value });
@@ -527,31 +690,14 @@ export async function wireNRules(
     return { status: 'already-wired', original: source, modified: source };
   }
 
-  // Load ts-morph from consumer cwd (same GH #642 fix as wireConfigSource)
   console.debug(
     `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ` +
       `${[...missing, ...overrides].map((m) => m.key).join(', ')}`,
   );
-  let Project: any;
-  let SyntaxKind: any;
-  try {
-    const requireFromCwd = createRequire(resolve(process.cwd(), 'package.json'));
-    const tsMorphPath = requireFromCwd.resolve('ts-morph');
-    const mod = await import(pathToFileURL(tsMorphPath).href);
-    Project = mod.Project;
-    SyntaxKind = mod.SyntaxKind;
-  } catch {
+  if (!sf) {
     console.debug('  [synth-wire] DEBUG: ts-morph unavailable → degrade');
     return { status: 'degrade', original: source, modified: source, degradeReason: 'ts-morph import failed' };
   }
-
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { allowJs: true, target: 99, module: 99 },
-    skipFileDependencyResolution: true,
-    skipLoadingLibFiles: true,
-  });
-  const sf = project.createSourceFile('eslint.config.mjs', source, { overwrite: true });
 
   const exportAssignment = sf.getExportAssignment((ea: any) => !ea.isExportEquals());
   if (!exportAssignment) {
@@ -635,8 +781,13 @@ export async function wireNRules(
     } else if (outcome === 'changed') {
       console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
       changed = true;
+    } else if (outcome === 'not-found' && opts.insertOnly) {
+      // Set where the exported list reaches it only indirectly (`rules: { ...shared }`, `export default config`,
+      // `STRICT ? [...base, strict] : base`): an appended block would override the consumer's value, and whether
+      // their setting applies at all is not visible here — so it stays, and the note names the rule.
+      notes.push(`${key} at ${desired} — your config sets this rule outside the list getff edits, and getff leaves it as it is`);
     } else if (outcome === 'not-found') {
-      // String-present but not locatable as a rules property (e.g. in a comment) — append fresh.
+      // Set outside the exported list's own elements — getff's own config lets the live value win by a later block.
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop — appending`);
       append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
       changed = true;
@@ -859,8 +1010,8 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(', ')}] }`);
 
-  // R2: a quoted rule-id is a rule entry; a mention in a comment is not (the RULE_GLOBS comment below).
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  // R2: a key in a rules object is a rule entry; a mention in a comment is not (the RULE_GLOBS comment below).
+  const r2Present = ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID);
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs: string[] = [];
@@ -1094,17 +1245,14 @@ export async function probeViaEslint(
 export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult> {
   const { configPath, cwd, runProbe, scope } = args;
   const original = readFileSync(configPath, 'utf8');
-  if (original.includes(R2_RULE_ID)) {
-    return { status: 'already-wired', original, modified: original };
-  }
-
-  if (scope) {
-    console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(', ')}`);
-  }
+  // Whether R2 is already set is wireConfigSource's call (step 1), read from the code, not the text.
 
   // 1. bare
   const bare = await wireConfigSource(original, { variant: 'bare', scope });
-  if (bare.status !== 'wired') return bare; // unrecognised / degrade — nothing written
+  if (bare.status !== 'wired') return bare; // already-wired / unrecognised / degrade — nothing written
+  if (scope) {
+    console.log(`  [wire:R2] scoped probe target=${configPath} glob=${scope.files.join(', ')}`);
+  }
   writeFileSync(configPath, bare.modified, 'utf8');
 
   // 2. probe

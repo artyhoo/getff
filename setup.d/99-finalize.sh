@@ -347,7 +347,62 @@ _r2_note_outcome() {
 # is one the consumer owns — or one getff placed and the consumer has edited since — with no HTTP
 # boundary code under it, which _r2_wire_cfg leaves as it is. «Names R2» is read the way the wirer
 # reads it on each branch: getff's own config counts any mention (resolveAndWire), the consumer's
-# only a quoted rule id — a comment naming the rule is not a rule entry (simpleRulePresent).
+# only a string literal that is exactly the rule id (_r2_named_in).
+# _r2_named_in <file> — exit 0 IFF some string literal in the file, outside every comment, is exactly
+# the R2 id: the wirer's reading of a config the consumer owns (ruleSetInConfig in wire-eslint-r2.ts
+# — a rules key or a string literal; the id cannot be an identifier key, and a comment is neither,
+# so a commented-out rule line is no rule entry, nor is the id inside a longer string).
+# A single-pass lexer in awk, not a parser: it tracks `//` and `/* */` comments and '…' "…" `…`
+# strings across lines and prints each literal's value, for grep to keep an exact match only. In a
+# value, a `\` before a line break adds nothing; `\b \f \n \r \t \v \x \u` and `\0`-`\9` stand for a
+# character the id does not hold, so that literal is not the id; any other escaped character stands
+# for itself (`\/` is `/`); a template with a line break is not the id. Not lexed: regex literals,
+# the code inside `${…}`, JSX text and a `#!` line — a quote there (`/'/`) puts the lexer out of
+# step until the line ends (a backtick: until the next one), which can read a comment or code as a
+# literal and hide a config.
+# LC_ALL=C reads bytes, so a Latin-1 byte cannot stop either tool; tr first turns a NUL byte, which
+# awk and grep builds read differently, into \001. split(…, "") takes a line apart once (a substr
+# per character is quadratic in BWK awk). grep reads to the end (no -q): an early exit would SIGPIPE
+# awk under pipefail.
+_r2_named_in() {
+  # shellcheck disable=SC2016  # the $ and backticks belong to the awk program and to JavaScript, not to the shell
+  LC_ALL=C tr '\000' '\001' 2>/dev/null < "$1" | LC_ALL=C awk -v sq="'" '
+    BEGIN { st = "code" }
+    {
+      n = split($0, ch, ""); i = 1; cont = 0
+      while (i <= n) {
+        c = ch[i]; c2 = c ch[i + 1]
+        if (st == "block") { if (c2 == "*/") { st = "code"; i += 2 } else i++; continue }
+        if (st == "code") {
+          if (c2 == "//") break
+          if (c2 == "/*") { st = "block"; i += 2; continue }
+          if (c == sq || c == "\"" || c == "`") { q = c; buf = ""; skip = 0; st = "str" }
+          i++; continue
+        }
+        if (c == "\\") {
+          if (i == n || (i == n - 1 && ch[n] == "\r")) { cont = 1; break }
+          d = ch[i + 1]; if (index("bfnrtvxu0123456789", d)) d = "\001"
+          buf = buf d; i += 2; continue
+        }
+        if (c == q) { if (!skip) print buf; st = "code"; i++; continue }
+        buf = buf c; i++
+      }
+      if (st == "str" && !cont) { if (q == "`") skip = 1; else st = "code" }
+    }' 2>/dev/null | LC_ALL=C grep -Fx 'rules-as-tests/no-unsafe-zod-parse' >/dev/null
+}
+# _r2_named_under <dir> — exit 0 IFF some flat config under <dir>, at any depth, names R2 (the names
+# ESLint loads: eslint.config.js, .mjs, .cjs, .ts, .mts or .cts — not a backup beside one; a symlink
+# is read through; node_modules skipped).
+_r2_named_under() {
+  local f
+  while IFS= read -r -d '' f; do
+    _r2_named_in "$f" && return 0
+  done < <(find "$1" -name node_modules -prune -o \
+    \( -name eslint.config.js -o -name eslint.config.mjs -o -name eslint.config.cjs \
+       -o -name eslint.config.ts -o -name eslint.config.mts -o -name eslint.config.cts \) \
+    \( -type f -o -type l \) -print0 2>/dev/null)
+  return 1
+}
 # _r2_boundary_under <abs dir> — exit 0 IFF detect-r2-boundary.sh finds HTTP boundary code under it.
 _r2_boundary_under() {
   local out
@@ -359,7 +414,7 @@ _r2_would_wire() {
     ! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$1" 2>/dev/null
     return
   fi
-  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$1" 2>/dev/null && return 1
+  _r2_named_in "$1" && return 1
   _r2_boundary_under "$(dirname "$1")"
 }
 # _r2_pass_blocker <wirer> — why the pass cannot run, on stdout; empty when it can.
@@ -435,11 +490,8 @@ if [ "$DRY_RUN" != "--dry-run" ] \
         echo "  ⚠ $_ws_dir: unknown stack — R2 not wired (re-checkable marker; not exit 1)"
         # Named in the summary only when there is HTTP boundary code under it and no config there
         # names R2 as a quoted rule id (40-configs.sh may have placed the ts-server template through
-        # its root fallback; a comment naming the rule is not a rule entry).
-        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" \
-           && ! grep -rlqF --include='eslint.config.*' --exclude-dir=node_modules \
-                -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
-                "$PROJECT_ROOT/$_ws_dir" 2>/dev/null; then
+        # its root fallback; a comment naming the rule is not a rule entry — _r2_named_in).
+        if _r2_boundary_under "$PROJECT_ROOT/$_ws_dir" && ! _r2_named_under "$PROJECT_ROOT/$_ws_dir"; then
           note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_ws_dir — its package.json names none of the dependencies the install reads a stack from (typescript, react, next, react-native), so the install cannot tell this workspace's stack and adds R2 only to a ts-server, react-next or react-spa one; the HTTP boundary code under $_ws_dir is not checked by R2"
         fi
         ;;
@@ -642,13 +694,8 @@ fi
 
 # ─── Done ───────────────────────────────────────────────
 # Operator directive 2026-09-28 (Q4.7): the install never hands the person running it a manual
-# step. Each NOT-wired line names what was left undone and why; nothing here tells them what to do.
-if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
-  echo ""
-  echo "⚠  ${#NOT_WIRED[@]} framework piece(s) NOT wired, or wired only in part — each line says why:"
-  printf '      - %s\n' "${NOT_WIRED[@]}"
-  echo ""
-fi
+# step. Each NOT-wired line names what was left undone and why (lib.sh print_not_wired).
+print_not_wired
 # A consumer-owned config that got getff's block (Q4.7) was copy_safe-skipped earlier, so it sits in
 # SKIPPED too — but it was not left as it was. List it apart, never under «skipped».
 _skipped_left=()
