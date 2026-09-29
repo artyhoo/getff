@@ -132,8 +132,9 @@
 # SWEEP_HEAVY_RUNNER names an executable that takes a command line, runs it elsewhere against a
 # mirror of this repo and exits with its code — the contract of PREPUSH_HEAVY_RUNNER (PR #1886)
 # and INSTALL_SH_HEAVY_RUNNER (PR #1913). Unset or empty, nothing changes: CI and every other
-# checkout never see a difference. PC_LOCAL=1 keeps every row here, as the one runner in use
-# (the operator's ~/bin/pc-run) already defines.
+# checkout never see a difference. PC_LOCAL=1 with a PC_LOCAL_WHY of 20+ characters keeps every
+# row here and says why — the escape the one runner in use (the operator's ~/bin/pc-run) honours
+# since 2026-09-29, pc_local_escape below. A bare flag or a shorter reason still routes.
 #
 # Set, each ROUTABLE row (the SWEEP_ROUTABLE list below) runs as
 #   <runner> bash scripts/run-local-ci-sweep.sh --run-row <name> --receipt <nonce> …
@@ -232,7 +233,8 @@ while [ $# -gt 0 ]; do
     -h | --help)
       echo "usage: run-local-ci-sweep.sh [--full] [--base <ref>] [--list-gates] [--route-plan]"
       echo "env:   SWEEP_LOG_DIR=<dir>   per-gate output logs land here (default: a fresh mktemp -d)"
-      echo "       SWEEP_HEAVY_RUNNER=<cmd>   run the routable rows through <cmd> (PC_LOCAL=1: none)"
+      echo "       SWEEP_HEAVY_RUNNER=<cmd>   run the routable rows through <cmd>"
+      echo "       PC_LOCAL=1 PC_LOCAL_WHY=<20+ chars>   route none, and say why"
       echo "exit:  0 gates passed (or nothing to do on a clean tree) · 1 a gate failed"
       echo "       2 bad usage · 3 refused: dirty tree, committed diff selected no gates"
       exit 0 ;;
@@ -1116,7 +1118,18 @@ ensure_log_dir() {
 # `progress()`. Nothing is FORCED onto fd 3: a gate that ignores it behaves exactly as before.
 exec 3>&2
 
-# --- OFFLOAD: routing is on only with a runner, without PC_LOCAL (see the header block) ---
+# --- OFFLOAD: routing is on only with a runner, without the PC_LOCAL escape (see the header block) ---
+# pc_local_escape is a copy of the one in scripts/run-install-sh-suite.sh, not a sourced helper: this
+# script ships to consumers as a single file (scripts/build-getff-dist.sh PAYLOAD, copied alone by
+# setup.d/10-skills.sh), where no helper file would exist. scripts/run-local-ci-sweep.test.sh fails
+# when the two copies differ.
+# The runner's escape predicate (see PC_LOCAL above): the flag plus a reason of 20+ characters once
+# whitespace is squeezed and trimmed — the same normalisation ~/bin/pc-run applies before it counts.
+pc_local_escape() {
+  [ -n "${PC_LOCAL:-}" ] || return 1
+  PC_LOCAL_REASON=$(printf '%s' "${PC_LOCAL_WHY:-}" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  [ "${#PC_LOCAL_REASON}" -ge 20 ]
+}
 RUNNER="${SWEEP_HEAVY_RUNNER:-}"
 ROUTING=0
 RUNNER_NAME=""
@@ -1125,7 +1138,7 @@ ROUTED_N=0
 FELLBACK_N=0
 # ONE STRIKE (see the header): set to the first routed row's failure reason; routing stops there.
 RUNNER_TRIPPED=""
-if [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; then
+if [ -n "$RUNNER" ] && ! pc_local_escape; then
   if ! command -v "$RUNNER" >/dev/null 2>&1; then
     echo "[sweep] SWEEP_HEAVY_RUNNER='$RUNNER' is not an executable command."
     echo "        Fix the path, or unset SWEEP_HEAVY_RUNNER to run every gate here."
@@ -1146,6 +1159,9 @@ if [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; then
     ROUTING=0
     echo "[sweep] WARN-ROUTE: cannot find the files that start a shell (node failed) — every row runs here" >&3
   fi
+elif [ -n "$RUNNER" ]; then
+  # Skipping the runner skips its log too, so the escape and its reason are said here.
+  echo "[sweep] PC_LOCAL=1: runner skipped (why: $PC_LOCAL_REASON), every row runs here" >&3
 fi
 
 # run_routed <name> <command> — run one routable row through the runner. Sets `out` (the output
