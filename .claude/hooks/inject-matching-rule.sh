@@ -40,8 +40,8 @@
 # `*` = anything but `/`, `?` = one char but `/`, `{a,b}` = alternation, and an
 # empty alternative makes the group optional (`*.ts{,x}`; macOS regcomp rejects `(|x)`). Every
 # other regex metacharacter is literal, `|` included (picomatch reads a bare `|` as
-# alternation). A glob with no `/` matches at any depth (`*.sh` matches `setup.d/lib.sh` — the
-# pre-slice-1 behaviour, kept; native Claude Code agrees, live probe 2026-09-29). Not
+# alternation). A glob with no `/` matches at any depth, exact names too (`package.json` matches
+# `sub/package.json`; before slice 1 only `*.ext` did); native Claude Code agrees, probes 2026-09-29. Not
 # supported: `[...]` classes (literal) and nested braces.
 #
 # Frontmatter (a YAML subset): `key: value`, `key: [a, b]`, or a `- item` block list under
