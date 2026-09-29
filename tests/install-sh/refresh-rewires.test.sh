@@ -287,13 +287,46 @@ grep -qF 'getff-python-pre-push entry in .pre-commit-config.yaml — not updated
   && ok "G7: the kept edited entry is named in the NOT wired summary" \
   || bad "G7: no NOT wired line for the kept edited entry"
 
-# A consumer repo entry right after a pre-end-line getff entry survives the replace, after the end line.
+# A consumer item in column 0 next to a column-0 getff entry, under indented repos: items. The file does
+# not load as YAML before the refresh, and no placement of getff's entry makes it load: the stray item is
+# the project's own, and getff does not re-indent it. So the file is left as it was, the entry is named
+# with the line that breaks it, nothing claims «updated», and no pre-push stage is installed for an entry
+# pre-commit cannot read (the mirror-check line records that gap instead, as for an entry not added).
+# _stray_item_left <dir> <label> — those five facts for the fixture in <dir> (pc.before = before the run,
+# out = the run's output, the stray item's text = its only line containing example.invalid).
+_nw_noload='getff-python-pre-push entry in .pre-commit-config.yaml — not updated: line'
+_stray_item_left() {
+  local d="$1" label="$2" ln nw
+  ln=$(grep -n 'example.invalid' "$d/pc.before" | cut -d: -f1)
+  nw=$(not_wired <<<"$out")
+  cmp -s "$d/.pre-commit-config.yaml" "$d/pc.before" && ok "G7: $label — the file is left as it was" \
+    || bad "G7: $label — --refresh changed the file"
+  grep -qF 'updated the getff entry' <<<"$out" && bad "G7: $label — --refresh claims it updated the entry" \
+    || ok "G7: $label — no «updated» claim"
+  grep -qF "$_nw_noload $ln is a repos: item in column 0" <<<"$nw" \
+    && ok "G7: $label — the NOT wired summary names the entry and line $ln as the reason" \
+    || bad "G7: $label — no NOT wired line naming line $ln: $(grep -F 'getff-python-pre-push entry' <<<"$nw" | tr '\n' '|')"
+  grep -qF 'pre-commit pre-push stage' <<<"$out" && bad "G7: $label — a pre-push stage was attempted for an entry pre-commit cannot read" \
+    || ok "G7: $label — no pre-push stage for an entry pre-commit cannot read"
+  grep -qF 'no hook runs it — the getff entry in .pre-commit-config.yaml cannot run' <<<"$nw" \
+    && ok "G7: $label — the mirror-check gap is named" || bad "G7: $label — no mirror-check NOT wired line"
+}
+# After a pre-end-line entry (the shape --refresh read as getff's own and rewrote before C6-F3).
 Y3=$(py_consumer "$(printf '%s\n- repo: https://example.invalid/after\n  rev: v1' "$V1_BODY")")
-( cd "$Y3" && bash "$INSTALL" python --refresh < /dev/null ) >/dev/null 2>&1
-awk '/^# getff-python-pre-push entry end/{e=1} e && /example.invalid\/after/{f=1} END{exit !f}' "$Y3/.pre-commit-config.yaml" \
-  && [ "$(_py_body() { awk -v m="$MARK" '$0==m{on=1; next} on&&/^# getff-python-pre-push entry end/{exit} on' "$1"; }; _py_body "$Y3/.pre-commit-config.yaml")" = "$(_ind < "$FRAG")" ] \
-  && ok "G7: a consumer entry after the old getff entry is kept, after the reconciled entry" \
-  || bad "G7: the replace lost or swallowed the consumer entry that followed the getff entry"
+cp "$Y3/.pre-commit-config.yaml" "$Y3/pc.before"
+out=$( cd "$Y3" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+_stray_item_left "$Y3" "a column-0 consumer item after a column-0 earlier entry"
+# After a current column-0 entry with its end line.
+Y11=$(py_consumer "$(printf '%s\n# getff-python-pre-push entry end\n- repo: https://example.invalid/after\n  rev: v1' "$(cat "$FRAG")")")
+cp "$Y11/.pre-commit-config.yaml" "$Y11/pc.before"
+out=$( cd "$Y11" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+_stray_item_left "$Y11" "a column-0 consumer item after a current column-0 entry with its end line"
+# Before the entry: the same break, found ahead of getff's entry.
+Y12=$(py_consumer "$V1_BODY")
+printf 'repos:\n  - repo: https://github.com/pre-commit/pre-commit-hooks\n    rev: v4.6.0\n    hooks:\n      - id: trailing-whitespace\n- repo: https://example.invalid/before\n  rev: v1\n\n%s\n%s\n' "$MARK" "$V1_BODY" > "$Y12/.pre-commit-config.yaml"
+cp "$Y12/.pre-commit-config.yaml" "$Y12/pc.before"
+out=$( cd "$Y12" && bash "$INSTALL" python --refresh < /dev/null 2>&1 )
+_stray_item_left "$Y12" "a column-0 consumer item before a column-0 earlier entry"
 # An edited entry that already has its end line is kept too.
 Y4=$(py_consumer "$(printf '%s\n        args: [--consumer]\n# getff-python-pre-push entry end' "$(cat "$FRAG")")")
 cp "$Y4/.pre-commit-config.yaml" "$Y4/pc.before"

@@ -155,7 +155,7 @@ node scripts/check-docs-refresh.mjs "$(git merge-base origin/staging HEAD)..HEAD
 node scripts/check-line-citations.mjs --check --corpus
 npx markdownlint-cli2 INSTALL-FOR-AI.md INSTALL.md README.md setup.d/LAYERS.md packages/core/templates/shared/AI-USAGE-GUIDE.md packages/core/templates/shared/tier-home.md
 scripts/build-getff-dist.sh --check
-PC_LOCAL=1 make self-audit
+make self-audit
 bash scripts/run-local-ci-sweep.sh
 ```
 
