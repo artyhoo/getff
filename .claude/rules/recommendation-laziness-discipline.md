@@ -38,7 +38,7 @@ Parent rule [`phase-research-coverage.md §1.12`](phase-research-coverage.md) st
 
 Two layers ship per Option D = A+C benchmark verdict:
 
-**(A) H1 wording in `.claude/hooks/inject-session-bootstrap.sh:96`** (Sub-wave A of this I-phase) — always-on UserPromptSubmit injection; deterministic; fires every turn. Channel per [`rule-enforcement-channel-selection.md §4`](rule-enforcement-channel-selection.md): UserPromptSubmit digest, always-on.
+**(A) H1 wording in `.claude/hooks/inject-session-bootstrap.sh:96`** (Sub-wave A of this I-phase) — always-on SessionStart injection (`.claude/settings.json:238-242`; UserPromptSubmit until 2026-09-29); deterministic; fires once per context (start, resume, clear, compact). Channel per [`rule-enforcement-channel-selection.md §4`](rule-enforcement-channel-selection.md): SessionStart digest, always-on.
 
 **(C) T-trap in [`.claude/rules/ai-laziness-traps.md §2 T20`](ai-laziness-traps.md)** (Sub-wave C of this I-phase) — **T20** per maintainer override of R-phase §1.4 (b) pre-resolution (Sub-wave C shipped 2026-05-24 via [PR #212](https://github.com/Yhooi2/rules-as-tests-aif/pull/212), merge commit `eac9dce`). Auto-loaded session-start via `.claude/rules/*.md` CC convention; path-scoped reinforcement via `inject-matching-rule.sh` when touching `.claude/rules/**`.
 
@@ -70,4 +70,4 @@ Not shipped. Re-introduction requires a new R-phase + benchmark (per benchmark �
 - [`docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md`](../../docs/meta-factory/research-patches/2026-05-24-recommendation-laziness-discipline.md) — R-phase design (merged PR #206/#207)
 - [`docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md`](../../docs/meta-factory/research-patches/2026-05-25-narrow-b-benchmark.md) — benchmark patch (merged PR #210; B-drop verdict)
 - [`doc-authority-hierarchy.md §3`](doc-authority-hierarchy.md) — header format spec this file follows
-- [`rule-enforcement-channel-selection.md §3-§4`](rule-enforcement-channel-selection.md) — channel-selection rationale (A = always-on UserPromptSubmit; C = path-scoped rule injection)
+- [`rule-enforcement-channel-selection.md §3-§4`](rule-enforcement-channel-selection.md) — channel-selection rationale (A = always-on SessionStart digest; C = path-scoped rule injection)
