@@ -11,7 +11,7 @@
  *   dependency-cruiser from `packages/core/templates/shared/husky-pre-push.sh`. Its
  *   own body says «Zero edits to pre-push.ts». Eight-plus shipped surfaces went on
  *   asserting those four checks for four months, and one of them —
- *   `skill-context/aif-rules-check/SKILL.md:18` — instructs the consumer's agent NOT
+ *   `skill-context/aif-rules-check/SKILL.md:18` — instructed the consumer's agent NOT
  *   to re-run the checks BECAUSE pre-push allegedly already did.
  *
  * That is the difference in kind this gate exists for: a false claim in a shipped

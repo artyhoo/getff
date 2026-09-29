@@ -40,6 +40,9 @@
 #   J  the go lane with the consumer's .golangci.yml / CI workflow and no go;
 #      in Y, C and J the getff workflow path is the consumer's own, so no NOT-wired line may
 #      claim the getff CI runs a ban;
+#   B  --profile factory: the runtime-bridge dispatch hook is registered on PostToolUse and
+#      PostToolUseFailure, and the aif-handoff project whose rootPath is this project is written to
+#      .claude/settings.json env; B2 aif-handoff down: registered, the project id a NOT-wired line;
 #   R  the predicate: a positive control, a negative control, and a sweep of the installer source;
 #   F  --full with a package manager that fails: the dependency line says the install failed,
 #      the degraded banner points at the NOT-wired list, not at a manual step.
@@ -454,6 +457,52 @@ nw_has J "$WORK/j.log" 'golangci-lint.*not on PATH' "the unproven golangci firin
 nw_lacks J "$WORK/j.log" "$_ci_claim" "the getff CI runs a ban while getff-go.yml is the consumer's own"
 nw_has J "$WORK/j.log" 'getff-golangci\.yml, which no CI reads' "that nothing reads the golangci bans"
 
+# ── B: --profile factory — the runtime-bridge dispatch hook is registered and pointed at aif ───
+# Layer 55 delivers .claude/hooks/runtime-bridge-dispatch.sh; the install registers it on
+# PostToolUse + PostToolUseFailure (the hook reads both) and writes the aif-handoff project whose
+# rootPath is this project into .claude/settings.local.json env (machine-local, never the shared
+# settings.json). A stub curl answers for aif.test only.
+AIFSTUB="$WORK/aif-stub"; mkdir -p "$AIFSTUB"
+_real_curl=$(command -v curl)
+cat > "$AIFSTUB/curl" <<STUB
+#!/bin/sh
+case "\$*" in
+  *aif.test*/health*) [ -f "\$AIF_STUB_DOWN" ] && exit 7; exit 0 ;;
+  *aif.test*/projects*) [ -f "\$AIF_STUB_DOWN" ] && exit 7; cat "\$AIF_STUB_JSON"; exit 0 ;;
+esac
+exec "$_real_curl" "\$@"
+STUB
+chmod +x "$AIFSTUB/curl"
+bridge_hook_on() { # <settings> <event> — the dispatch hook is registered on <event>
+  jq -e --arg e "$2" '(.hooks[$e] // []) | map(.hooks[].command) | any(test("runtime-bridge-dispatch"))' "$1" >/dev/null 2>&1
+}
+B="$WORK/factory"; project "$B"; B=$(cd "$B" && pwd -P)
+printf '[{"id":"p-b","name":"factory","rootPath":"%s"},{"id":"p-x","name":"x","rootPath":"/home/www/x"}]' "$B" > "$WORK/b.json"
+( cd "$B" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/none" \
+  RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >"$WORK/b.log" 2>&1
+_bs="$B/.claude/settings.json"
+bridge_hook_on "$_bs" PostToolUse && ok "B: the dispatch hook is registered on PostToolUse" || bad "B: no PostToolUse registration: $(grep -i 'runtime-bridge' "$WORK/b.log" | head -3 | tr '\n' '|')"
+bridge_hook_on "$_bs" PostToolUseFailure && ok "B: the dispatch hook is registered on PostToolUseFailure" || bad "B: no PostToolUseFailure registration"
+_bl="$B/.claude/settings.local.json"
+[ "$(jq -r '.env.RUNTIME_BRIDGE_AIF_PROJECT_ID // empty' "$_bl" 2>/dev/null)" = "p-b" ] && ok "B: the aif project whose rootPath is this project is written to the machine-local settings env" \
+  || bad "B: RUNTIME_BRIDGE_AIF_PROJECT_ID=$(jq -r '.env.RUNTIME_BRIDGE_AIF_PROJECT_ID // empty' "$_bl" 2>/dev/null): $(grep -i 'runtime-bridge' "$WORK/b.log" | tr '\n' '|' | cut -c1-300)"
+[ -z "$(jq -r '.env.RUNTIME_BRIDGE_AIF_PROJECT_ID // empty' "$_bs")" ] && ok "B: the shared settings.json carries no machine-local id" || bad "B: the aif project id leaked into the shared settings.json"
+nw_lacks B "$WORK/b.log" 'runtime-bridge' "the runtime-bridge is not wired"
+no_manual B "$WORK/b.log"
+# B2: aif-handoff down — the hook is still registered, the project id is a NOT-wired line.
+B2="$WORK/factory-down"; project "$B2"; : > "$WORK/down"
+( cd "$B2" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/down" \
+  RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" ts-server --profile factory </dev/null ) >"$WORK/b2.log" 2>&1
+bridge_hook_on "$B2/.claude/settings.json" PostToolUse && ok "B2: aif down, the dispatch hook is still registered" || bad "B2: no registration with aif down"
+nw_has B2 "$WORK/b2.log" 'runtime-bridge.*does not answer at http://aif\.test:3009' "that aif-handoff does not answer"
+no_manual B2 "$WORK/b2.log"
+# B3: --refresh with aif-handoff down — the refresh arm registers and tries to wire too, and its
+# NOT-wired line is printed (do_refresh exits before 99-finalize, which prints the summary).
+( cd "$B2" && PATH="$AIFSTUB:$PATH" AIF_STUB_JSON="$WORK/b.json" AIF_STUB_DOWN="$WORK/down" \
+  RUNTIME_BRIDGE_AIF_URL=http://aif.test:3009 bash "$REPO_ROOT/install.sh" --refresh --profile factory </dev/null ) >"$WORK/b3.log" 2>&1
+nw_has B3 "$WORK/b3.log" 'runtime-bridge.*does not answer at http://aif\.test:3009' "that aif-handoff does not answer (printed on --refresh)"
+no_manual B3 "$WORK/b3.log"
+
 # ── R: the predicate itself — it fires on every wording the installer used, never on a fact ────
 # A positive control: each line below is a manual step the installer printed at some point; a
 # predicate that stops matching one of them would let an arm above pass on a real step.
@@ -504,6 +553,14 @@ done <<'LINES'
   Shipped our starter as getff-deny.toml — merge its [bans] table into your deny.toml.
   NOTE: to make the bans build-FAILING locally, merge .getff/Cargo.lints.toml [lints.clippy] into your Cargo.toml
   MANUAL: merge the getff forbidigo entries from getff-golangci.yml into your .golangci.yml, OR run:
+Enabling aif-handoff bridge. aif-handoff itself is NOT installed by this script — bring it up yourself (DETECT + INSTRUCT only):
+  • confirm the coordinator answers on http://localhost:3009/health
+      verify with: aif-handoff config show   (look for the Claude profile)
+[runtime-bridge] RUNTIME_BRIDGE_* env already present in /Users/x/.zshrc — leaving it; edit by hand to change values.
+Manual settings.json step (auto-write skipped — paste this yourself):
+auto-dispatches to aif-handoff. Everything else stays manual — run
+To force manual mode session-wide: export RUNTIME_BRIDGE_MODE=manual
+[runtime-bridge] Wrote RUNTIME_BRIDGE_* env to /Users/x/.zshrc (re-source it or open a new shell).
 LINES
 [ "$_miss" -eq 0 ] && ok "R: the predicate fires on every known manual-step wording (positive control)"
 # A negative control: fact lines the install prints must not read as steps.
@@ -528,11 +585,12 @@ LINES
 [ "$_miss" -eq 0 ] && ok "R: the predicate passes fact lines (negative control)"
 # A source sweep: every printed line in the JS/TS install path, not only the lines the arms above
 # reach. Comment lines are not output. No file is excluded: the toolchain lanes (python, cargo, go)
-# and the aif-handoff / runtime-bridge guided flows are held to the same directive.
-_sweep=$(cd "$REPO_ROOT" && for f in install.sh setup setup.d/*.sh; do
+# and the aif-handoff / runtime-bridge guided flows are held to the same directive, and so is the
+# bridge wizard ./setup runs for the getff repository itself (packages/runtime-bridge/scripts/).
+_sweep=$(cd "$REPO_ROOT" && for f in install.sh setup setup.d/*.sh packages/runtime-bridge/scripts/setup-runtime-bridge.sh; do
   manual_step_lines "$f" | grep -vE '^[[:space:]]*#' | sed "s|^|$f: |"
 done)
-[ -z "$_sweep" ] && ok "R: no line in install.sh, setup or setup.d hands back a manual step" \
+[ -z "$_sweep" ] && ok "R: no line in install.sh, setup, setup.d or the bridge wizard hands back a manual step" \
   || bad "R: installer source still prints a manual step: $(printf '%s\n' "$_sweep" | head -5 | cut -c1-160 | tr '\n' '|')"
 
 # ── F: --full, the package manager fails ────────────────────────────────────────────────────

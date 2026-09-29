@@ -99,14 +99,29 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
       while IFS= read -r _line; do
         case "$_line" in glob:*) ;; *) continue ;; esac
         _g="${_line#glob:}"
-        grep -qF "$_g" "$PROJECT_ROOT/eslint.config.mjs" && continue   # already covered → idempotent
+        # The glob goes in as a single-quoted JS string: escape `\` and `'` (a directory name may hold
+        # an apostrophe), and hand it to awk through ENVIRON — `-v` would undo the escapes.
+        _r2_ins="    '$(printf '%s' "$_g" | sed -e 's/\\/\\\\/g' -e "s/'/\\\\'/g")',"
+        # Already covered = an element of RULE_GLOBS.boundary, never a substring anywhere in the file:
+        # R8's `application:` key carries '**/application/**/*.{ts,tsx}', the very glob a parse site
+        # in src/application/ yields, and that match used to keep it out of the boundary array.
+        _r2_bnd=$(rule_globs_boundary "$PROJECT_ROOT/eslint.config.mjs")
+        if [ "$(printf '%s\n' "$_r2_bnd" | sed -n '1p')" = array ]; then
+          printf '%s\n' "$_r2_bnd" | sed -n '2,$p' | grep -qxF -- "$_g" && continue
+        else
+          # That read answers `none` / `no-array` (RULE_GLOBS re-wrapped in a cast, say) while the
+          # insert below still finds a `boundary: [` line: covered there = the very line it would
+          # write, inside that array — or every re-install adds the glob again.
+          awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1; next} on && /^[[:space:]]*\]/{exit} on{sub(/^[[:space:]]+/, ""); print}' \
+            "$PROJECT_ROOT/eslint.config.mjs" | grep -qxF -- "${_r2_ins#    }" && continue
+        fi
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
         # failed awk/redirect still produced "✓ added N glob(s)" over an untouched config plus a
         # stale eslint.config.mjs.tmp.
         # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
         # NOT added, never a «✓ added».
-        if awk -v ins="    '$_g'," '
-          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ins; done2=1; next }
+        if _r2_ins="$_r2_ins" awk '
+          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ENVIRON["_r2_ins"]; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
           && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
@@ -132,7 +147,7 @@ EOF
         # Q4.7 (2026-09-28): what is not wired goes to the NOT-wired summary with its reason, never
         # as a manual step (cold-review F5b — this used to say «widen RULE_GLOBS.boundary by hand»).
         echo "  ⚠ HTTP boundary detected but $_r2_glob_failed glob(s) could not be written — R2 does not cover that code yet (see NOT wired below)" >&2
-        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no \`boundary: [\` array any more (edited since getff placed it), or the write failed; the file is left as it is"
+        note_not_wired "R2 boundary globs in RULE_GLOBS.boundary of eslint.config.mjs — $_r2_glob_failed glob(s) for the HTTP boundary code the install found were not added: getff's eslint.config.mjs has no RULE_GLOBS.boundary array getff can read any more (edited since getff placed it), or the write failed; the file is left as it is"
       else
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
@@ -211,6 +226,15 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
   }
   _aif_detect_gates
 
+  # A monorepo with workspace packages gets NO getff ci.yml: 40-configs.sh delivers it only in the
+  # flat / single-root branch (since #796 wrapped the per-stack block), but still creates the directory. With no
+  # workflow file there is nothing of the consumer's to keep or to wire into, so the WARN below must
+  # not claim a kept workflow and the yq offer must not fire (defect seen 2026-09-28, getff#1889).
+  _aif_has_wf=""
+  for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+    [ -f "$_wf" ] && { _aif_has_wf=1; break; }
+  done
+
   # ─── #521 Stage P: opt-in auto-wire (REFERENCE mikefarah/yq, detect-first) ───
   # The WARN below is the non-destructive default (writes nothing). This OPT-IN path mutates the
   # consumer's kept workflow in place, so it fires ONLY on explicit consent: --wire-ci, or an
@@ -256,8 +280,8 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       echo "  ⚠ --wire-ci: found no job with a 'steps:' list to wire into — the gates are not wired (NOT wired below)"
     fi
   }
-  if [ "${#_aif_missing[@]}" -gt 0 ]; then
-    _aif_wire="no"; _aif_yq_ran=""
+  _aif_wire="no"; _aif_yq_ran=""
+  if [ "${#_aif_missing[@]}" -gt 0 ] && [ -n "$_aif_has_wf" ]; then
     if [ -n "$WIRE_CI" ]; then _aif_wire="yes"
     elif [ -z "${FULL:-}" ] && [ -t 0 ]; then
       printf "▶ Auto-wire %s missing CI gate(s) into your workflow via yq (edits the file in place)? [y/N] " "${#_aif_missing[@]}"
@@ -303,9 +327,14 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
 
   if [ "${#_aif_missing[@]}" -gt 0 ]; then
     echo ""
-    echo "⚠ CI-orphan: some rule-enforcement gates run in 'npm run validate' but are NOT in any kept workflow under .github/workflows/."
-    echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
-    echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
+    if [ -n "$_aif_has_wf" ]; then
+      echo "⚠ CI-orphan: some rule-enforcement gates run in 'npm run validate' but are NOT in any kept workflow under .github/workflows/."
+      echo "   A pre-existing CI workflow was kept (install never overwrites it), so these gates fire only on a local"
+      echo "   'npm run validate' — CI can stay green while a rule is violated. Gates missing from your CI:"
+    else
+      echo "⚠ CI-orphan: no workflow exists under .github/workflows/, so every rule-enforcement gate fires only on a"
+      echo "   local 'npm run validate' — no CI job checks a pushed commit. Gates with no CI job:"
+    fi
     for _m in "${_aif_missing[@]}"; do echo "     • $_m"; done
     # check:globs is the ONLY shield for R2/R7/R8 on shadowed packages — a present `lint` step does
     # not cover it (per-package eslint configs win under nearest-config resolution). Surface that.
@@ -322,7 +351,14 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
     # (operator directive 2026-09-28, Q4.7). The workflow is the consumer's: getff edits it only on
     # --wire-ci or a yes at the prompt, because its only editor (yq) does not keep every comment
     # (research-patch 2026-06-14-s3-workflow-merge §4/§6, SSOT #117).
-    if [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
+    # _ws_lines is 40-configs.sh's workspace map (setup.d layers are sourced into one shell): it is
+    # non-empty exactly when that layer took its workspace (monorepo) branch — one stack or several —
+    # which is the branch that places no ci.yml.
+    if [ -z "$_aif_has_wf" ] && [ -n "${_ws_lines:-}" ]; then
+      _aif_why="no workflow exists under .github/workflows/ — getff places its ci.yml only in a repo with no workspace packages under apps/, packages/, services/, libs/ or modules/ (each shipped ci.yml runs one stack's jobs at the repo root), and this repo has workspace packages there"
+    elif [ -z "$_aif_has_wf" ]; then
+      _aif_why="no workflow exists under .github/workflows/, and this install placed none"
+    elif [ "${_aif_wire:-no}" = "yes" ] && [ -n "${_aif_yq_ran:-}" ]; then
       _aif_why="yq did not add it to the job it wired the other gates into"
     elif [ "${_aif_wire:-no}" = "yes" ]; then
       _aif_why="the wiring through yq did not land (its reason is above)"
@@ -330,7 +366,11 @@ if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; th
       _aif_why="the workflow is your own, and getff edits it only on --wire-ci or a yes at the install prompt, which this run did not have"
     fi
     for _i in "${!_aif_missing[@]}"; do
-      note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): $_aif_why"
+      if [ -n "$_aif_has_wf" ]; then
+        note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): $_aif_why"
+      else
+        note_not_wired "CI gate ${_aif_missing[$_i]} — runs in no CI job (step: ${_aif_steps[$_i]#- }): $_aif_why"
+      fi
     done
   fi
   unset -f _aif_gate_check _aif_detect_gates _aif_yq_wire
