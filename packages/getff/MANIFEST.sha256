@@ -172,7 +172,7 @@ f1fd99c2e91995164518644569338e0d1726c66eafd10e9d1a111e3e14c03c96  packages/core/
 71b8f1b150f4b70010d50beffba8cc7ecd51da441e6a434a026fb0b8f39ca101  packages/core/audit-self/check-kickoff-portability.sh
 a69a0c4335a6225bc9c0edd80974ba201af2d3af188f7963ecb8ff75bec448ec  packages/core/audit-self/check-lintstaged-resolves.sh
 0d602a027cf890f399e9998e573e2c4276ea4e5b631858356b2bc8b9d5dfff73  packages/core/audit-self/check-rule-enforced.sh
-24879bb9d8cf87267b55778f2b832025121e40643163d6ea86af2fda0e444af8  packages/core/audit-self/check-rule-globs.sh
+48e61117067183224aae3249120505762807b0e7db72c610d42dc215ae78b076  packages/core/audit-self/check-rule-globs.sh
 f9bd865af4cc488cfed16193631f19c7102034f65cf7dc7f61a9922dd8ff4cc2  packages/core/audit-self/check-shields-up.sh
 d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  packages/core/audit-self/ci-available-probe.sh
 eb952eab69b9133b30b80f97a40f721222c8549efb17c6cfadb25645e6a28954  packages/core/audit-self/detect-r2-boundary.sh
@@ -1091,7 +1091,7 @@ e25136f9cf9844a8560ff7fa7db0f7427abf1bfb1b62ca949c0d9e9f5951cc3f  setup.d/55-run
 6f86fd196747973d819b7c342c7317fe541a851fab869ab40fc8679e84b6d8f3  setup.d/70-deps.sh
 cdf0db1ba76db21018bf29bfd640b17e05c315794fb277ccbc5108fbda9c0d5f  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
-c52fb5f6446b9cc76e95d56b6935464475a615f2584e8b8443df882c9c291fcf  setup.d/99-finalize.sh
+c7b213ca01baf299c76cfcae65b0194b4edfbb8646934c21f5c4ffd0b717c235  setup.d/99-finalize.sh
 74655433d82a7a1774662e249eb9a046b890880d32421fe18190cc674be21ffc  setup.d/LAYERS.md
 516f195e8321a73ad33cddd863e3073ebadb50f561cef7daeb8f537193ddbc48  setup.d/aif-handoff-guided-install.sh
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh
