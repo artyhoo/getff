@@ -175,5 +175,94 @@
         }
       ]
     }
+  },
+  "road": {
+    "goal": "one agent session walks one ordered list from install to its own final report",
+    "render": "INSTALL-FOR-AI.md",
+    "_note": [
+      "The install prompt in INSTALL-FOR-AI.md renders this list as lines `N. [id] title`; the parity",
+      "fixture compares ids and titles in order. A step that is not built yet stays in the list and",
+      "is reported «not done» with a reason, so the report never hides it."
+    ],
+    "steps": [
+      {
+        "id": "preflight",
+        "title": "Check the installer's prerequisites",
+        "action": "Confirm git is initialized in this project and the getff checkout from Step 0 exists. On an npm project also confirm Node.js 22.23+ and npm: the installer needs them, the project itself does not have to.",
+        "doneTest": "`git rev-parse --git-dir` exits 0 and `<getff>/setup` exists; on an npm project `node --version` prints 22.23 or newer"
+      },
+      {
+        "id": "preview",
+        "title": "Preview the stack and the tool list",
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read the detected stack and the «Companions» section from its output.",
+        "doneTest": "the command exits 0, its output names the detected stack, and `git status --short` of the project is unchanged"
+      },
+      {
+        "id": "ask-once",
+        "title": "Ask the ONE question",
+        "action": "Show the detected stack, what goes into the project and what would go machine-wide, then ask once where to install. The answer picks the installer flag. Nothing else is asked during the run.",
+        "doneTest": "exactly one question was asked before the installer ran, and the report quotes the answer with the flag it chose"
+      },
+      {
+        "id": "install",
+        "title": "Run the installer with the chosen flag",
+        "action": "Answer 1: `bash <getff>/setup -y <stack>`. Answer 2: `bash <getff>/setup -y --global <stack>`. Answer 3: `bash <getff>/setup --all <stack>`. Keep the «Checked by the install» block and every «NOT wired» line for the report.",
+        "doneTest": "the installer exits 0 and prints its «Checked by the install» block"
+      },
+      {
+        "id": "verify-payload",
+        "title": "Verify the payload landed",
+        "action": "`ls AGENTS.md .ai-factory/ scripts/ .claude/agents/ .claude/skills/` — a missing entry means the install did not finish.",
+        "doneTest": "every listed path exists"
+      },
+      {
+        "id": "draft-passport",
+        "title": "Draft the project passport",
+        "action": "When `.ai-factory/DESCRIPTION.md` is byte-identical to `.ai-factory/DESCRIPTION.template.md`, draft it from the project's own files by following `.claude/agents/aif-init.md`, marking every guess `[GUESSED — verify]`. A passport the project already had is kept as it is. The run never waits for a human here.",
+        "doneTest": "`.ai-factory/DESCRIPTION.md` differs from the template and holds none of the template's `<…>` placeholder tokens"
+      },
+      {
+        "id": "tools-parity",
+        "title": "Check that everything getff uses for itself is installed or marked",
+        "action": "Not built yet. Report this step as «not done: not built yet» and go on.",
+        "doneTest": "not built yet"
+      },
+      {
+        "id": "base-core-status",
+        "title": "Read the base-core list with a status per principle",
+        "action": "Not built yet. Report this step as «not done: not built yet» and go on.",
+        "doneTest": "not built yet"
+      },
+      {
+        "id": "research",
+        "title": "Research rules for the stack",
+        "action": "Unless the answer to the one question said «without research», follow `<getff>/agents/rule-researcher.md`; it has an arm per toolchain. Report where it ended.",
+        "doneTest": "the rule-research sequence reached its own completion output, or the report names the point where it stopped"
+      },
+      {
+        "id": "place-rules",
+        "title": "Write one rule table and place each rule in its home",
+        "action": "After the research step, run `bash <getff>/setup --full <stack>`: the installer places each rule in the project's own linter. Then run `node scripts/prove-rules.mjs --prove` once and quote its table; the same output serves the next step. When `scripts/prove-rules.mjs` is absent after the installer ran, report this step as «not done: scripts/prove-rules.mjs absent in this install» and go on.",
+        "doneTest": "the table prints one row per rule"
+      },
+      {
+        "id": "prove-rules",
+        "title": "Prove the placed rules in one batch run",
+        "action": "Read the proof from the output the previous step already produced; do not run it again. Quote the proof line and the exit code. A rule that fails its proof is a finding under this step and stays in place. When the previous step is «not done», report this step as «not done» with the same reason.",
+        "doneTest": "the proof line shows bad→exit ≠0, good→exit 0"
+      },
+      {
+        "id": "project-checks",
+        "title": "Run the project's own check commands as the installer wired them",
+        "action": "On the four npm stacks: `npm run validate` and `npm run audit:docs`. Quote exit codes and failing lines; failures on the project's existing code are a finding, not a reason to stop. When no check command is known for the stack, report «not done» with that reason.",
+        "doneTest": "each command ran and its exit code is in the report"
+      },
+      {
+        "id": "report",
+        "title": "Print the final report",
+        "action": "Print the report in the format given with the prompt: one line per step of this list, in order, none omitted.",
+        "doneTest": "the report carries exactly one line per step id, each reading «done» with a check command or «not done» with a reason"
+      }
+    ]
   }
 }

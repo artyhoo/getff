@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Consumer-matrix OWN-CONFIG CELL: install getff into a project that already owns its toolchain
-# configs, then run the whole INSTALL-FOR-AI.md step-4 list (operator decision Q4.3, 2026-09-28).
+# configs, then run the whole INSTALL-FOR-AI.md check list (the `project-checks` step) (operator decision Q4.3, 2026-09-28).
 #
 # WHY THIS CELL EXISTS. The sibling fresh-install job (audit-self.yml
 # `framework-fresh-install-validate`, fixture `empty-manifest`) installs into an EMPTY package.json.
@@ -25,7 +25,7 @@
 # inside a consumer's own tool scope», not one scaffolder's defaults (operator, 2026-09-28: Next
 # is only the test subject; getff is a generator for any stack).
 #
-# WHAT RUNS (INSTALL-FOR-AI.md step 4 + the verify command it hands the user):
+# WHAT RUNS (INSTALL-FOR-AI.md `project-checks` step + the commands behind `npm run validate`):
 #   typecheck · lint · test · build · validate · first commit (through the real shipped
 #   pre-commit) · first push to a local bare remote (git runs the real shipped pre-push, which
 #   must reach the full hook, not the bash fallback).
@@ -393,7 +393,7 @@ else
 fi
 
 step "getff clone: a copy of the framework tree WITHOUT its node_modules (what \`git clone\` gives a user)"
-# INSTALL-FOR-AI.md step 3 runs the installer from a fresh clone, whose dependencies were never
+# INSTALL-FOR-AI.md `install` step runs the installer from a fresh clone, whose dependencies were never
 # installed. The framework checkout this cell runs from HAS them (CI installs them, so does every
 # dev worktree), and anything getff runs out of its own tree — tsx, ajv — would silently resolve
 # there (N14: the 2026-09-28 probe died on ERR_MODULE_NOT_FOUND 'ajv' from a real clone). Copy the
@@ -424,7 +424,7 @@ tail -25 "$LOG"
 [ "$INSTALL_RC" -eq 0 ] || fail "install.sh rc=$INSTALL_RC (log tail above)"
 for bin in $OWN_BINS; do
   test -x "node_modules/.bin/$bin" \
-    || fail "$bin not installed after install.sh --full — the step-4 list below cannot run (false-green guard)"
+    || fail "$bin not installed after install.sh --full — the check list below cannot run (false-green guard)"
 done
 # The premise of this cell: the consumer's configs survived the install — tsconfig.json untouched,
 # eslint.config.mjs only added to, with getff's block in it and the original kept (Q4.7).
@@ -440,7 +440,7 @@ WIRED=$(eslint_config_wired) || { echo "$WIRED"; fail "install.sh did not add ge
 . "$FRAMEWORK_ROOT/tests/consumer-matrix/known-rot.sh"
 ROT_HITS=""
 
-# ── INSTALL-FOR-AI.md step 4, every item, results collected ────────────────────────────────────
+# ── INSTALL-FOR-AI.md check list, every item, results collected ────────────────────────────────────
 RESULTS=()
 FAILED=0
 expected_not_armed() { # $1 = step label → 0 when EXPECT_NOT lists that step's record command
@@ -528,7 +528,7 @@ validate_by_lane() {
   fi
 }
 
-step "step 4: typecheck · lint · test · build · validate"
+step "check list: typecheck · lint · test · build · validate"
 run_step "typecheck" npm run typecheck
 run_step "lint" npm run lint
 run_step "test" npm test
@@ -806,6 +806,6 @@ if [ -n "$ROT_HITS" ]; then
 fi
 if [ "$FAILED" -ne 0 ]; then
   [ -n "${CELL_KEEP:-}" ] && echo "  (work dir kept: $WORK)"
-  fail "own-config cell ($STACK): a step of the INSTALL-FOR-AI.md step-4 list is RED on a project that owns its configs"
+  fail "own-config cell ($STACK): a command of the INSTALL-FOR-AI.md check list is RED on a project that owns its configs"
 fi
 echo "✓ own-config cell ($STACK): every step green${ROT_HITS:+, apart from the known rot listed above}"
