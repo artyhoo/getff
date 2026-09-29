@@ -246,6 +246,26 @@ interface Road {
 
 const PROMPT_PATH = 'INSTALL-FOR-AI.md';
 const README_PATH = 'README.md';
+const MANIFEST_PATH = 'setup.d/companions.manifest';
+
+/** Names of the `external-service` rows of a companions manifest (TAB-delimited, kind = field 4). */
+function externalServices(manifest: string): string[] {
+  return manifest
+    .split('\n')
+    .filter((line) => line.trim() !== '' && !line.startsWith('#'))
+    .map((line) => line.split('\t'))
+    .filter((fields) => fields[3] === 'external-service')
+    .map((fields) => fields[0] ?? '')
+    .sort();
+}
+
+/** Names a text leaves out as «external services <a> and <b>» / «<a>, <b> and <c>». */
+function excludedByRoad(text: string): string[] {
+  // A name is never a joining word: «…aif-handoff, and add context7» ends the list at the comma.
+  const name = '(?!(?:and|plus|add)\\b)[a-z0-9-]+';
+  const m = new RegExp(`external services (${name}(?:(?:, | and )${name})*)`).exec(text);
+  return m?.[1] ? m[1].split(/, | and /).sort() : [];
+}
 
 /** The first ```text fence after the «Quick install» heading — the prompt a human pastes. */
 function promptBlock(md: string): string {
@@ -443,6 +463,28 @@ describe('The road ↔ install prompt parity', () => {
       expect(text).toMatch(/aif-handoff/);
     }
     expect(tools?.action).not.toMatch(/«Companions» section/);
+  });
+
+  it('the tools step leaves out exactly the external services the manifest holds', () => {
+    // The road names the external services in words. A name list kept true by attention is
+    // `#hope-as-gate`: a third external service in the manifest would read as a false «MISSING».
+    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
+    const leftOut = excludedByRoad(tools?.action ?? '');
+    expect(leftOut.length, 'the road row names no external service').toBeGreaterThan(0);
+    expect(leftOut).toEqual(externalServices(manifest));
+    expect(excludedByRoad(prompt)).toEqual(leftOut);
+  });
+
+  it('a third external service in the manifest is detected (the comparison is not vacuous)', () => {
+    const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
+    const manifest = readFileSync(join(REPO_ROOT, MANIFEST_PATH), 'utf8');
+    const third = `${manifest}\nnew-service\t-\t-\texternal-service\t*\n`;
+    expect(externalServices(third)).toContain('new-service');
+    expect(excludedByRoad(tools?.action ?? '')).not.toEqual(externalServices(third));
+    // A row of another kind changes nothing: only `external-service` rows are left out.
+    const other = `${manifest}\nnew-tool\t-\t-\tcli\t*\n`;
+    expect(externalServices(other)).toEqual(externalServices(manifest));
   });
 
   it('the research step takes the one answer as its confirmation', () => {
