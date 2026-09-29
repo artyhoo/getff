@@ -149,6 +149,24 @@ out=$(_vrun superpowers "true" "$_sp" cc-plugin dry-run)
 cmp -s "$_vdec" "$_vp/before" && ok "versions: dry-run records nothing" || bad "versions: dry-run wrote tool-decisions.md"
 out=$(_vrun other "true" "claude plugin install nope@nowhere --scope user" cc-plugin yes)
 grep -q '^| other | cc-plugin | not read |' "$_vdec" && ok "versions: an unreadable version is recorded as «not read», never guessed" || bad "versions: no «not read» row"
+# P2 writes its own marked block into the same file (one-button P2, `aif:project-checks`); either
+# order, its lines — even a row that starts like one of ours — stay byte-identical.
+_p2='<!-- aif:project-checks:begin -->
+## Project checks
+
+| superpowers | a P2 row that only looks like a versions row |
+<!-- aif:project-checks:end -->'
+for _order in before after; do
+  # the first run adds our block; the measured second run goes through the rewrite path over P2's lines
+  if [ "$_order" = before ]; then printf '## Accepted\n\n%s\n' "$_p2" > "$_vdec"; _vrun superpowers "true" "$_sp" cc-plugin yes >/dev/null
+  else printf '## Accepted\n' > "$_vdec"; _vrun superpowers "true" "$_sp" cc-plugin yes >/dev/null; printf '\n%s\n' "$_p2" >> "$_vdec"; fi
+  out=$(STUB_SP_VERSION=5.2.0 _vrun superpowers "true" "$_sp" cc-plugin yes)
+  _p2now=$(sed -n '/aif:project-checks:begin/,/aif:project-checks:end/p' "$_vdec")
+  [ "$_p2now" = "$_p2" ] && [ "$(grep -c 'getff:installed-versions:begin' "$_vdec")" = 1 ] \
+    && sed -n '/getff:installed-versions:begin/,/getff:installed-versions:end/p' "$_vdec" | grep -q '^| superpowers | cc-plugin | 5.2.0 |' \
+    && ok "versions: P2's project-checks block $_order ours is kept byte-identical and ours still records" \
+    || bad "versions: P2 block $_order ours: $(tr '\n' '|' < "$_vdec")"
+done
 rm -f "$_vdec"
 out=$(_vrun superpowers "true" "$_sp" cc-plugin yes)
 [ ! -e "$_vdec" ] && grep -q 'not recorded: .ai-factory/tool-decisions.md is not in this project' <<<"$out" \

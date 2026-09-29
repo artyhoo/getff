@@ -26,7 +26,12 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ✓ $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 TSC="$REPO_ROOT/node_modules/.bin/tsc"
-[ -x "$TSC" ] || { echo "  ⊝ typescript is not installed in this checkout — skipped"; echo "PASS=0 FAIL=0"; exit 0; }
+# A skip is a pass that checked nothing: in CI (audit-self.yml installs node_modules first) a missing
+# tsc fails; only a local checkout without node_modules may skip.
+if [ ! -x "$TSC" ]; then
+  [ -n "${CI:-}" ] && { echo "  ✗ typescript is not installed ($TSC) — CI must run these arms, not skip them"; echo "PASS=0 FAIL=1"; exit 1; }
+  echo "  ⊝ typescript is not installed in this checkout — skipped (would fail under CI)"; echo "PASS=0 FAIL=0"; exit 0
+fi
 
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/src" "$WORK/node_modules/react"
