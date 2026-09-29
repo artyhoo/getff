@@ -2550,6 +2550,8 @@ jobs:
         run: node scripts/check-ships-manifest.mjs
       - name: Run install-sh ships-manifest real-install test (Arm B)
         run: bash tests/install-sh/ships-manifest.test.sh
+      - name: Run install-sh session-settings test (the pre-launch «yes» group + its one-command undo)
+        run: bash tests/install-sh/session-settings.test.sh
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just

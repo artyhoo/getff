@@ -16,7 +16,10 @@
  *   - the plugin column against the plugin tree (plugin/skills, plugin/agents, the names
  *     plugin/hooks/hooks.json registers; the plugin ships no settings, rules or MCP servers);
  *   - a skill's installer column against its tier in setup.d/lib.sh, read through the ONE
- *     tier reader scripts/lib/skill-tiers.mjs (never a second parser).
+ *     tier reader scripts/lib/skill-tiers.mjs (never a second parser);
+ *   - `ask` settings (the session-settings group, written only on the pre-launch «yes») against
+ *     setup.d/session-settings.json: every `ask` row is in that file with getff's own value (an
+ *     array may be a subset), and every key of that file is an `ask` row.
  * Whether the installer really delivers each row at its declared depth is Arm B, a real install:
  * tests/install-sh/ships-manifest.test.sh.
  *
@@ -30,7 +33,7 @@ import { readTierSets } from './lib/skill-tiers.mjs';
 
 const KINDS = ['skill', 'hook', 'rule', 'agent', 'setting', 'mcp'];
 const VERDICTS = ['ships', 'internal'];
-const INSTALLERS = ['core', 'env', 'factory', 'full', 'no'];
+const INSTALLERS = ['core', 'env', 'factory', 'full', 'ask', 'no'];
 const PLUGIN = ['yes', 'no'];
 const MIN_REASON = 20;
 
@@ -70,6 +73,20 @@ function pluginHookNames(root) {
   return names;
 }
 
+/** Row names of a settings object: top keys, object values expanded one level except `hooks`. */
+function settingNames(s) {
+  const names = [];
+  for (const [k, v] of Object.entries(s || {})) {
+    if (k === '$schema') continue;
+    if (k !== 'hooks' && v && typeof v === 'object' && !Array.isArray(v))
+      for (const sub of Object.keys(v)) names.push(`${k}.${sub}`);
+    else names.push(k);
+  }
+  return names;
+}
+
+const getPath = (o, name) => name.split('.').reduce((v, k) => (v && typeof v === 'object' ? v[k] : undefined), o);
+
 /** kind -> Set(name) of what getff has, plus the plugin-side facts. */
 function population(root) {
   const files = tracked(root);
@@ -85,15 +102,8 @@ function population(root) {
     else if ((m = /^plugin\/agents\/([^/]+)\.md$/.exec(f))) (pop.agent.add(m[1]), plugin.agent.add(m[1]));
   }
   for (const h of plugin.hook) pop.hook.add(h);
-  if (files.includes('.claude/settings.json')) {
-    const s = readJson(root, '.claude/settings.json') || {};
-    for (const [k, v] of Object.entries(s)) {
-      if (k === '$schema') continue;
-      if (k !== 'hooks' && v && typeof v === 'object' && !Array.isArray(v))
-        for (const sub of Object.keys(v)) pop.setting.add(`${k}.${sub}`);
-      else pop.setting.add(k);
-    }
-  }
+  if (files.includes('.claude/settings.json'))
+    for (const n of settingNames(readJson(root, '.claude/settings.json'))) pop.setting.add(n);
   if (files.includes('.mcp.json'))
     for (const k of Object.keys((readJson(root, '.mcp.json') || {}).mcpServers || {})) pop.mcp.add(k);
   return { pop, plugin };
@@ -120,6 +130,9 @@ function main() {
   const { pop, plugin } = population(root);
   const tierOf = skillTier(root);
   const rows = new Map(); // "kind name" -> line
+  const settings = readJson(root, '.claude/settings.json') || {};
+  const session = readJson(root, 'setup.d/session-settings.json');
+  const askRows = new Set();
 
   readFileSync(manifestPath, 'utf8').split('\n').forEach((raw, i) => {
     const line = i + 1;
@@ -155,6 +168,21 @@ function main() {
     }
     if ((installer === 'factory' || installer === 'full') && !long(text))
       bad(line, kind, name, `installer=${installer}: say why the default run (env) does not install it (>= ${MIN_REASON} chars)`);
+    if (installer === 'ask') {
+      askRows.add(name);
+      if (kind !== 'setting') bad(line, kind, name, 'installer=ask is only for settings (the session-settings group)');
+      else if (!long(text)) bad(line, kind, name, `installer=ask: say what the setting changes for the person (>= ${MIN_REASON} chars)`);
+      const want = getPath(settings, name);
+      const got = session ? getPath(session, name) : undefined;
+      if (kind !== 'setting') {
+        /* reported above */
+      } else if (got === undefined) bad(line, kind, name, 'installer=ask but setup.d/session-settings.json does not carry it');
+      else if (Array.isArray(got)) {
+        const extra = Array.isArray(want) ? got.filter((x) => !want.some((y) => JSON.stringify(y) === JSON.stringify(x))) : got;
+        if (extra.length) bad(line, kind, name, `setup.d/session-settings.json has entries getff's own .claude/settings.json does not: ${JSON.stringify(extra)}`);
+      } else if (JSON.stringify(got) !== JSON.stringify(want))
+        bad(line, kind, name, `setup.d/session-settings.json says ${JSON.stringify(got)}, getff's own .claude/settings.json says ${JSON.stringify(want)}`);
+    }
 
     const pluginHas = plugin[kind] ? plugin[kind].has(name) : false;
     if (plug === 'yes' && !pluginHas)
@@ -164,6 +192,10 @@ function main() {
     if (kind === 'skill' && tierOf.has(name) && installer !== tierOf.get(name))
       bad(line, kind, name, `installer=${installer} but setup.d/lib.sh puts it in the ${tierOf.get(name)} tier`);
   });
+
+  for (const name of settingNames(session))
+    if (!askRows.has(name))
+      findings.push(`setup.d/session-settings.json: ${name} — written on the pre-launch «yes» but not an \`ask\` row of setup.d/ships.manifest`);
 
   for (const kind of KINDS)
     for (const name of [...pop[kind]].sort())

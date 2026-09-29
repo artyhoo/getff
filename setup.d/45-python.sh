@@ -1428,6 +1428,16 @@ _py_deliver_agent_surface() {
   # core.hooksPath-style delivery with integration arm (SSOT #237). See helper docstring above.
   _py_deliver_local_hook_rung
 
+  # ── Session settings (only on the pre-launch «yes») ─────────────────────────
+  # The same helper as setup.d/12-session-settings.sh, for the same reason as the .mcp.json block:
+  # the layer loop never runs on this lane. It prints its own one-command undo.
+  # Not followed by shellcheck here: install.sh sources this file before its own bridge-guided.sh
+  # line, and following the chain makes every lib.sh global look «modified in a subshell» there
+  # (SC2031). session-settings.sh is checked on its own as a setup.d/*.sh file.
+  # shellcheck source=/dev/null
+  . "$PKG_ROOT/setup.d/session-settings.sh"
+  apply_session_settings "$PROJECT_ROOT"
+
   echo "  ✓ Agent surface delivery complete"
 }
 

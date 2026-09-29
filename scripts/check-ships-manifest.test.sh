@@ -16,6 +16,9 @@
 #   L1-L2   plugin column disagrees with the plugin tree (claims yes / claims no)
 #   T1      a skill's installer disagrees with its setup.d/lib.sh tier
 #   N1      a setting row may not claim plugin=yes (the plugin ships no settings file)
+#   A1-A5   `ask` settings vs setup.d/session-settings.json: a row the file lacks, a value that
+#           drifted from getff's own settings.json, a file key with no `ask` row, an array entry
+#           getff does not have, and `ask` on a non-setting all fail; an array subset passes (C0)
 #   R1      the real repo's manifest passes (the live population is fully marked)
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -41,7 +44,8 @@ make_repo() {
   printf '# a\n' | tee "$d/agents/ag1.md" "$d/plugin/agents/ag1.md" >/dev/null
   printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"\\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\\" h-ship"}]}]}}\n' \
     > "$d/plugin/hooks/hooks.json"
-  printf '{"hooks":{},"autoCompactWindow":400000,"env":{"K1":"1"}}\n' > "$d/.claude/settings.json"
+  printf '{"hooks":{},"autoCompactWindow":400000,"env":{"K1":"1"},"permissions":{"deny":["a","b"]}}\n' > "$d/.claude/settings.json"
+  printf '{"autoCompactWindow":400000,"permissions":{"deny":["a"]}}\n' > "$d/setup.d/session-settings.json"
   printf '{"mcpServers":{"m1":{"type":"http","url":"https://example.invalid/mcp"}}}\n' > "$d/.mcp.json"
   cat > "$d/setup.d/ships.manifest" <<EOF
 # fixture
@@ -53,7 +57,8 @@ hook${TAB}h-int${TAB}internal${TAB}no${TAB}no${TAB}internal, because it only mea
 rule${TAB}r1${TAB}ships${TAB}no${TAB}no${TAB}pending: ships with the trigger-build corpus later on
 agent${TAB}ag1${TAB}ships${TAB}core${TAB}yes${TAB}-
 setting${TAB}hooks${TAB}ships${TAB}core${TAB}no${TAB}-
-setting${TAB}autoCompactWindow${TAB}ships${TAB}no${TAB}no${TAB}pending: the session-settings group writes it later
+setting${TAB}autoCompactWindow${TAB}ships${TAB}ask${TAB}no${TAB}changes when sessions auto-compact, offered first
+setting${TAB}permissions.deny${TAB}ships${TAB}ask${TAB}no${TAB}a subset of getff's own denies, offered first
 setting${TAB}env.K1${TAB}internal${TAB}no${TAB}no${TAB}internal, because it names a getff-only knob for tests
 mcp${TAB}m1${TAB}ships${TAB}full${TAB}no${TAB}written only under --full, the default run skips it
 EOF
@@ -123,10 +128,17 @@ arm "L2 plugin=no but the plugin carries it" fail 'row_sub "agent\tag1\tships\tc
 arm "T1 skill tier disagrees with lib.sh"   fail 'row_sub "skill\tenv-sk\tships\tenv" "skill\tenv-sk\tships\tcore"' 'skill env-sk'
 arm "N1 setting claims plugin=yes"          fail 'row_sub "setting\thooks\tships\tcore\tno" "setting\thooks\tships\tcore\tyes"' 'setting hooks'
 
+echo "── ask settings vs setup.d/session-settings.json"
+arm "A1 ask row the file lacks"          fail 'printf "{\"permissions\":{\"deny\":[\"a\"]}}\n" > setup.d/session-settings.json' 'setting autoCompactWindow'
+arm "A2 value drifted from settings.json" fail 'printf "{\"autoCompactWindow\":1,\"permissions\":{\"deny\":[\"a\"]}}\n" > setup.d/session-settings.json' 'setting autoCompactWindow'
+arm "A3 file key with no ask row"        fail 'printf "{\"autoCompactWindow\":400000,\"env\":{\"K1\":\"1\"},\"permissions\":{\"deny\":[\"a\"]}}\n" > setup.d/session-settings.json' 'env.K1'
+arm "A4 array entry getff does not have" fail 'printf "{\"autoCompactWindow\":400000,\"permissions\":{\"deny\":[\"a\",\"z\"]}}\n" > setup.d/session-settings.json' 'setting permissions.deny'
+arm "A5 ask on a non-setting"            fail 'row_sub "rule\tr1\tships\tno" "rule\tr1\tships\task"' 'rule r1'
+
 echo "── the real repo"
 out=$(node "$CHECK" --root "$REPO_ROOT" 2>&1) && rc=0 || rc=$?
-[ "$rc" -eq 0 ] && ok "R1 getff's own manifest marks its whole population" \
-  || bad "R1 getff's own manifest fails: $(tr '\n' '|' <<<"$out")"
+if [ "$rc" -eq 0 ]; then ok "R1 getff's own manifest marks its whole population"
+else bad "R1 getff's own manifest fails: $(tr '\n' '|' <<<"$out")"; fi
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

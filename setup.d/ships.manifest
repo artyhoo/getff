@@ -11,8 +11,11 @@
 #                       env.<KEY>, permissions.<KEY>); `hooks` is one row — each hook has its own
 #             mcp     = getff's .mcp.json mcpServers
 # verdict   ships | internal
-# installer core | env | factory | full | no — the LOWEST install depth that delivers the item
-#           (core ⊂ env ⊂ factory; full = only under -y / --full). Checked by a real install:
+# installer core | env | factory | full | ask | no — the LOWEST install depth that delivers the item
+#           (core ⊂ env ⊂ factory; full = only under -y / --full; ask = a setting that changes how
+#           sessions run, written only on the pre-launch «yes» into .claude/settings.local.json with
+#           a one-command undo — its value lives in setup.d/session-settings.json, and every key
+#           there must be an `ask` row). Checked by a real install:
 #           tests/install-sh/ships-manifest.test.sh.
 # plugin    yes | no — the Claude Code plugin under plugin/ carries it (checked from the plugin tree).
 # reason    `-` or free text (no TAB). Required, >= 20 chars after its prefix, when:
@@ -22,6 +25,7 @@
 #                                  contradiction, named, not silent.
 #           ships, installer=no, plugin=no → must start «pending: » (who delivers it, and when).
 #           installer=factory|full → why the default run (env) does not install it (C1).
+#           installer=ask       → what the setting changes for the person.
 #           ships, installer=no, plugin=yes → why only the plugin carries it.
 # A population item with no row, or a row with no item, fails the check (pre-commit + CI).
 skill	getff	ships	core	yes	-
@@ -122,11 +126,11 @@ agent	adapter-jig-reviewer	internal	no	no	internal, because it reviews getff's f
 agent	dispatch-input-checker	internal	no	no	internal, because it is getff's authoring-only dispatch-input reality check station (arch-v2 S-B)
 agent	getff-cold-run-prober	internal	no	no	internal, because getff runs it against a consumer; it is not run inside one (spec §9.3)
 setting	hooks	ships	core	no	-
-setting	autoCompactWindow	ships	no	no	pending: session-settings group written to .claude/settings.local.json from the pre-launch answer, with a one-command revert (plan §3)
-setting	env.AIF_CTX_WINDOW	ships	no	no	pending: session-settings group written to .claude/settings.local.json from the pre-launch answer, with a one-command revert (plan §3)
-setting	env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS	ships	no	no	pending: session-settings group written to .claude/settings.local.json from the pre-launch answer, with a one-command revert (plan §3)
-setting	permissions.allow	ships	no	no	pending: session-settings group written to .claude/settings.local.json from the pre-launch answer, with a one-command revert (plan §3)
-setting	permissions.deny	ships	no	no	pending: session-settings group written to .claude/settings.local.json from the pre-launch answer, with a one-command revert (plan §3)
+setting	autoCompactWindow	ships	ask	no	auto-compacts at 400k tokens instead of the harness default; offered in the pre-launch list, written to .claude/settings.local.json with a one-command undo (setup.d/session-settings.sh)
+setting	env.AIF_CTX_WINDOW	internal	no	no	internal, because 1000000 is already the shipped end-of-turn hook's default (.claude/hooks/end-of-turn-reminder.sh:299), and a declared value overrides the window the hook observes (:394-412), which would hide a smaller real window from a consumer
+setting	env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS	ships	ask	no	turns on the experimental agent-teams feature, which changes how sessions run; offered in the pre-launch list, written to .claude/settings.local.json with a one-command undo
+setting	permissions.allow	ships	ask	no	a subset: Task and Agent only; the two hook-path allows are getff operator conveniences for its own hook scripts; offered in the pre-launch list
+setting	permissions.deny	ships	ask	no	a subset: the generic destructive-command denies; the four main/master push denies stay out because they encode getff's staging-first flow, not a consumer's; offered in the pre-launch list
 setting	env.AIF_HANDOFF_GATE	internal	no	no	internal, because the handoff group (inject-handoff-on-compact + precompact-residue + env AIF_HANDOFF_GATE) ships as ONE env group only once measured working in a bare consumer (advisor verdict 10), not measured yet
 setting	claudeMdExcludes	internal	no	no	internal, because every entry is a path of one of getff's own rule files
 mcp	context7	ships	full	no	written to the project .mcp.json only under -y / --full (setup.d/05-mcp.sh); the python lane writes it on every run
