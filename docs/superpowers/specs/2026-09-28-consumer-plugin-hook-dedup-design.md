@@ -1,6 +1,10 @@
 # Consumer-side plugin hook dedup — design
 
-> **Status:** APPROVED (2026-09-28), revision 3 — design only; no code ships with this spec.
+> **Status:** APPROVED (2026-09-28), revision 4 — design only; no code ships with this spec.
+> Revision 4 (2026-09-29, merge of staging with #1925): the plugin twin of `inject-session-bootstrap`
+> stopped shipping when #1925 moved the injections to SessionStart, so D5's guard, D10's case-block
+> check and implementation step 4 are moot. D5 still holds: principle 24 arm (j) now checks that no
+> plugin hook other than `inject-output-language` emits the line. Sections below keep revision 3 text.
 > Revision 3 (2026-09-29) adds D12: a file-based yield can lose a hook on a host that does not
 > load project settings, so the plugin copy now also needs runtime evidence that the project copy runs.
 > Approved in dialogue section by section. Revision 2 (same day, during planning) replaces the

@@ -1347,6 +1347,16 @@ _py_deliver_agent_surface() {
     fi
   fi
 
+  # lib/hook-live.sh — the liveness lib inject-matching-rule's prelude sources (spec 2026-09-28
+  # D12), delivered as setup.d/10-skills.sh §1i′ does on the npm lanes. Without it the hook runs
+  # unchanged, but its source-hash closure never matches the plugin manifest, so getff's plugin
+  # copy runs too and the rule is injected twice. Refresh-aware like the hooks above.
+  local _py_hl_src="$PKG_ROOT/.claude/hooks/lib/hook-live.sh"
+  if [ -f "$_py_hl_src" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    _py_copy_or_refresh "$_py_hl_src" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+  fi
+
   # ── .mcp.json (context7 only) ────────────────────────────────────────────────
   # Replicates setup.d/05-mcp.sh:17-46 — context7-specific with an idempotency guard. The python
   # lane does NOT source 05-mcp.sh (that file is FULL-gated which python never sets, AND the
