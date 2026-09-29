@@ -117,6 +117,18 @@ while IFS=$'\t' read -r name detect install kind stacks; do
   companion_step "$name" "$detect" "$install" "$kind" "$emode"
 done < "$HERE/setup.d/companions.manifest"
 
+# Skill routing: stamp colliding satellite skills (mattpocock-skills:tdd, :resolving-merge-conflicts)
+# with disable-model-invocation — see setup.d/skill-routing.sh. The plugin cache is user-scope, so
+# this is machine-global and follows the companion consent rule: -y needs --global.
+echo "▶ Skill routing"
+sr_rc=0
+bash "$HERE/setup.d/skill-routing.sh" install "$MODE" || sr_rc=$?
+case "$sr_rc" in
+  0) ;;
+  3) companion_not_wired "skill routing — not applied: it edits user-scope plugin files, and without --global a non-interactive install writes into this project only" ;;
+  *) companion_not_wired "skill routing — a stamp failed (its output is above)" ;;
+esac
+
 echo "▶ Runtime-bridge"
 if [ "$MODE" = "dry-run" ]; then
   echo "  [dry-run] would run bridge guided-detect"
