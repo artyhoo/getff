@@ -23,7 +23,7 @@ PATTERNS=()
 while IFS= read -r line; do PATTERNS+=("$line"); done < <(bash "$SCOPE" --list)   # no mapfile: bash 3.2
 [ "${#PATTERNS[@]}" -ge 2 ] || { echo "FATAL: ci-path-scope.sh --list printed fewer than 2 patterns"; exit 1; }
 SKIP_A="${PATTERNS[0]//\*/probe-a.md}"
-SKIP_B="${PATTERNS[1]//\*/sub dir/проба b.md}"   # a space and non-ASCII: the -z read must hold
+SKIP_B="${PATTERNS[1]//\*/sub dir/probe-é b.md}"   # a space and non-ASCII: the -z read must hold
 RUN_PATH="setup.d/probe.sh"                          # an install-area path: never skippable
 
 # repo_with_change <dir> <path>... — base commit, a branch changing <path>s, a --no-ff merge of
