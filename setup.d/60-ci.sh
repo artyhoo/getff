@@ -52,6 +52,30 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
   echo "▶ R2 auto-wire (reading the repo)"
   _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
   _r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"
+  _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
+  # _r2_na_strip — drop the aif:r2-na block from tool-decisions.md, keeping every other line.
+  # rc 1 on an awk/write failure, or on a begin line with no end line after it — the skip would run
+  # to the end of the file and cut the consumer's own lines (the file is left as it was).
+  _r2_na_strip() {
+    awk '/<!-- aif:r2-na:begin -->/{open=1} open&&/<!-- aif:r2-na:end -->/{open=0} END{exit open}' "$_dec" || return 1
+    if awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"; then
+      return 0
+    fi
+    rm -f "$_dec.tmp" 2>/dev/null || true
+    return 1
+  }
+  # A recorded N/A holds only while the layout stays no-boundary-confident — the gates read any
+  # other verdict as a broken precondition (r2-na-marker.sh r2_na_recheck) and fail «marked N/A» on
+  # every push. A re-install that finds a boundary (or a layout it cannot call) drops the block it
+  # recorded, so the gates judge the wired globs instead of a decision that no longer holds.
+  if [ "$_r2_verdict" != "no-boundary-confident" ] && [ -f "$_dec" ] && grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then
+    if _r2_na_strip; then
+      echo "  ✓ the layout no longer qualifies for the R2 N/A recorded earlier → removed the R2 N/A block from .ai-factory/tool-decisions.md"
+    else
+      echo "  ⚠ could not remove the stale R2 N/A block from $_dec (no end line, or a write failure) — left unchanged; scripts/check-rule-globs.sh fails «marked N/A» until it is gone (see NOT wired below)" >&2
+      note_not_wired "R2 N/A record in .ai-factory/tool-decisions.md — the layout now has an HTTP boundary (or one the install cannot rule out), but the recorded N/A block could not be removed (it has no end line, or the write failed), so the file is left as it is; scripts/check-rule-globs.sh and scripts/check-rule-enforced.sh fail on it"
+    fi
+  fi
   case "$_r2_verdict" in
     boundary-present)
       _patched=0
@@ -113,22 +137,16 @@ EOF
         echo "  ✓ HTTP boundary detected → already covered by the default RULE_GLOBS.boundary (no change)"
       fi ;;
     no-boundary-confident)
-      _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
       if [ -f "$_dec" ]; then
         # ledger A1-9 (the A1-8 class): a failed awk/redirect skipped the mv, so the OLD R2 N/A block
         # survived — and the append below then wrote a SECOND one, leaving the consumer with a
         # duplicated fenced block under a ✓. Refusing the whole record is the only honest outcome.
         _r2_strip_ok=1
         if grep -qF '<!-- aif:r2-na:begin -->' "$_dec"; then   # replace existing block (idempotent re-install)
-          if awk '/<!-- aif:r2-na:begin -->/{skip=1} skip&&/<!-- aif:r2-na:end -->/{skip=0;next} !skip' "$_dec" > "$_dec.tmp" && mv "$_dec.tmp" "$_dec"; then
-            :
-          else
-            rm -f "$_dec.tmp" 2>/dev/null || true
-            _r2_strip_ok=0
-          fi
+          _r2_na_strip || _r2_strip_ok=0
         fi
         if [ "$_r2_strip_ok" = "0" ]; then
-          echo "  ⚠ could not replace the previous R2 N/A block in $_dec (awk or write failure) — left unchanged, no record appended (appending would duplicate the block)" >&2
+          echo "  ⚠ could not replace the previous R2 N/A block in $_dec (no end line, or a write failure) — left unchanged, no record appended (appending would duplicate the block)" >&2
         else
         {
           echo ""

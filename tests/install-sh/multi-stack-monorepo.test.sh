@@ -11,8 +11,10 @@
 # §7 No-regression: flat single-stack ts-server repo unchanged vs I-1 baseline
 # §8 No-regression: flat react-native repo unchanged
 #
-# R2 scoped wiring (files: ['apps/api/**']) is gated on ts-morph availability in the
-# fixture's node_modules — absent in CI/test env → degrade path is asserted instead.
+# §6a R2 without ts-morph (the default install): no manual step, no line for getff's own template
+# §6b R2 with ts-morph: the real wirer adds R2 to the consumer's workspace config, scoped by the
+#     boundary globs under that workspace — no dir-prefixed files: glob (scoping is by placement)
+# §6c R2 without ts-morph: the consumer's own workspace config with boundary code is a NOT wired line
 # PAIRED-NEGATIVE on every load-bearing assertion (per arch-target-monorepo.test.sh pattern).
 
 set -uo pipefail
@@ -141,29 +143,41 @@ grep -qF 'packages/config → ts-server preset (explicit stack arg)' "$T/.instal
   && ok "neg: packages/config no longer stranded config-less (explicit arg honored, not skipped)" \
   || bad "neg: packages/config still stranded 'no eslint config placed' despite explicit arg (P0.3 unfixed)"
 
-# R2 scoped wiring: ts-morph availability gates the stronger assertion
-if [ -f "$T/node_modules/ts-morph/package.json" ]; then
-  echo ""
-  echo "▶ §6b R2 scoped wiring (ts-morph available) — files: ['apps/api/**'] in config"
-  grep -qF "files: ['apps/api/**']" "$T/apps/api/eslint.config.mjs" 2>/dev/null \
-    && ok "R2 scoped: apps/api eslint.config.mjs has { files: ['apps/api/**'], rules: { R2 } } block" \
-    || bad "R2 scoped: files: ['apps/api/**'] block NOT found in apps/api/eslint.config.mjs"
-  # NEG: apps/mobile must NOT have an R2 apps/api-scoped block
-  ! grep -qF "files: ['apps/api/**']" "$T/apps/mobile/eslint.config.mjs" 2>/dev/null \
-    && ok "neg: apps/mobile does NOT have R2 apps/api-scoped block (the react-native preset ships no R2)" \
-    || bad "neg: apps/mobile has R2 apps/api-scoped block — R2 incorrectly wired to react-native workspace"
-else
-  # ts-morph absent → the pass cannot run. Operator decision Q4.7 (2026-09-28): what it would have
-  # changed is a «NOT wired» summary line with the reason, never a manual step. apps/api holds getff's
-  # ts-server template, which already names R2, so there is nothing to list for it.
-  echo "  · ts-morph absent in fixture node_modules — the R2 pass cannot run (correct test-env behavior)"
-  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api' "$T/.install.log" 2>/dev/null \
-    && bad "R2 without ts-morph: apps/api is in the NOT wired summary, yet its template already names R2" \
-    || ok "R2 without ts-morph: no NOT wired line for apps/api (getff's template already names R2)"
-  grep -qiE 'R2.*(manually|by hand)|add R2 ' "$T/.install.log" 2>/dev/null \
-    && bad "R2 without ts-morph: the log hands the consumer a manual R2 step ($(grep -iE 'R2.*(manually|by hand)|add R2 ' "$T/.install.log" | head -1))" \
-    || ok "R2 without ts-morph: no manual R2 step in the log (Q4.7)"
-fi
+# R2 without ts-morph (the fixture's node_modules never holds it: install_into declines the dev-dep
+# step) → the pass cannot run. Operator decision Q4.7 (2026-09-28): what it would have changed is a
+# «NOT wired» summary line with the reason, never a manual step. apps/api holds getff's ts-server
+# template, which already names R2, so there is nothing to list for it. The pass running for real is §6b.
+echo ""
+echo "▶ §6a R2 without ts-morph — no manual step, no NOT wired line for getff's own template"
+[ ! -e "$T/node_modules/ts-morph/package.json" ] \
+  && ok "§6a premise: no ts-morph in the fixture's node_modules (the R2 pass cannot run)" \
+  || bad "§6a premise: ts-morph is in the fixture's node_modules — §6a no longer tests the no-ts-morph path"
+grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/api' "$T/.install.log" 2>/dev/null \
+  && bad "R2 without ts-morph: apps/api is in the NOT wired summary, yet its template already names R2" \
+  || ok "R2 without ts-morph: no NOT wired line for apps/api (getff's template already names R2)"
+grep -qiE 'R2.*(manually|by hand)|add R2 ' "$T/.install.log" 2>/dev/null \
+  && bad "R2 without ts-morph: the log hands the consumer a manual R2 step ($(grep -iE 'R2.*(manually|by hand)|add R2 ' "$T/.install.log" | head -1))" \
+  || ok "R2 without ts-morph: no manual R2 step in the log (Q4.7)"
+
+# own_mono <dir> — a pnpm monorepo whose four workspaces each hold the consumer's own eslint config
+# (no R2 in it) and HTTP boundary code: apps/api ts-server, apps/web react-next, apps/spa react-spa,
+# apps/mobile react-native (its preset ships no R2).
+own_mono() {
+  printf '{ "name": "own-mono", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$1/package.json"
+  printf 'packages:\n  - "apps/*"\n' > "$1/pnpm-workspace.yaml"
+  mkdir -p "$1/apps/api/src/routes" "$1/apps/web/app/api/users" "$1/apps/spa/src/api" "$1/apps/mobile/src/routes"
+  printf '{ "name": "@own/api", "dependencies": { "hono": "4.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$1/apps/api/package.json"
+  printf '{ "name": "@own/web", "dependencies": { "next": "15.0.0", "react": "19.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$1/apps/web/package.json"
+  printf '{ "name": "@own/spa", "dependencies": { "react": "19.0.0" }, "devDependencies": { "typescript": "5.6.0", "vite": "6.0.0" } }\n' > "$1/apps/spa/package.json"
+  printf '{ "name": "@own/mobile", "dependencies": { "expo": "~52.0.0", "react-native": "0.76.0", "react": "18.3.0" } }\n' > "$1/apps/mobile/package.json"
+  for _w in api web spa mobile; do
+    printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$1/apps/$_w/eslint.config.mjs"
+  done
+  printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$1/apps/api/src/routes/users.ts"
+  printf 'export const POST = async (req: Request) => schema.parse(await req.json());\n' > "$1/apps/web/app/api/users/route.ts"
+  printf 'export const getUser = async () => schema.parse(await (await fetch("/api/user")).json());\n' > "$1/apps/spa/src/api/client.ts"
+  printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$1/apps/mobile/src/routes/users.ts"
+}
 
 # §6c the positive half of the arm above, in a real install: a workspace config the consumer owns,
 # with HTTP boundary code under it, and no ts-morph → the NOT wired summary names it with the
@@ -172,21 +186,7 @@ fi
 # one (apps/mobile), whose preset ships no R2. No --force, so 40-configs keeps the consumer's files.
 echo ""
 echo "▶ §6c R2 without ts-morph: the consumer's own workspace config with boundary code is a NOT wired line"
-O=$(mktemp -d)
-printf '{ "name": "own-mono", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/package.json"
-printf 'packages:\n  - "apps/*"\n' > "$O/pnpm-workspace.yaml"
-mkdir -p "$O/apps/api/src/routes" "$O/apps/web/app/api/users" "$O/apps/spa/src/api" "$O/apps/mobile/src/routes"
-printf '{ "name": "@own/api", "dependencies": { "hono": "4.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/apps/api/package.json"
-printf '{ "name": "@own/web", "dependencies": { "next": "15.0.0", "react": "19.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$O/apps/web/package.json"
-printf '{ "name": "@own/spa", "dependencies": { "react": "19.0.0" }, "devDependencies": { "typescript": "5.6.0", "vite": "6.0.0" } }\n' > "$O/apps/spa/package.json"
-printf '{ "name": "@own/mobile", "dependencies": { "expo": "~52.0.0", "react-native": "0.76.0", "react": "18.3.0" } }\n' > "$O/apps/mobile/package.json"
-for _w in api web spa mobile; do
-  printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$O/apps/$_w/eslint.config.mjs"
-done
-printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$O/apps/api/src/routes/users.ts"
-printf 'export const POST = async (req: Request) => schema.parse(await req.json());\n' > "$O/apps/web/app/api/users/route.ts"
-printf 'export const getUser = async () => schema.parse(await (await fetch("/api/user")).json());\n' > "$O/apps/spa/src/api/client.ts"
-printf 'export const users = (req: { body: unknown }) => schema.parse(req.body);\n' > "$O/apps/mobile/src/routes/users.ts"
+O=$(mktemp -d); own_mono "$O"
 ( cd "$O" && git init -q && bash "$INSTALL_SH" ts-server </dev/null ) > "$O/.install.log" 2>&1 \
   || bad "§6c install rc non-zero (tail: $(tail -3 "$O/.install.log" | tr '\n' '|'))"
 if [ -f "$O/node_modules/ts-morph/package.json" ]; then
@@ -202,6 +202,79 @@ else
     || ok "neg §6c: apps/mobile (react-native) is not listed for R2"
 fi
 rm -rf "$O"
+
+# §6b the pass running for real (it replaces an arm that asserted a files: ['apps/api/**'] block the
+# install stopped emitting with --scope, and that ran only when the fixture's node_modules held
+# ts-morph — never in CI). The pass checks for ts-morph by its package.json in the project and then
+# runs `npx --no-install tsx <wirer>`, which loads ts-morph from the project's node_modules
+# (wire-eslint-r2.ts resolves it from cwd). So the fixture's node_modules/ts-morph is a symlink to
+# the framework's (installed in the install-sh-c job), and a stand-in npx on PATH routes that one
+# call to the framework's tsx: the real wirer edits the consumer's configs. Stand-in npm/pnpm/yarn
+# refuse any install, so none can run through the symlink. Expected: R2 in each ts-server,
+# react-next and react-spa workspace config, scoped by the boundary globs found under that workspace
+# — never by a dir-prefixed files: glob, which inside a workspace-local config resolves against that
+# config's own directory ('apps/api/**' → apps/api/apps/api/**, nothing; 99-finalize.sh R2
+# per-workspace block). The react-native config stays as it was.
+echo ""
+echo "▶ §6b R2 with ts-morph: the real wirer adds R2 to the consumer's workspace configs, scoped by boundary globs"
+# The framework's install: packages/core's own node_modules, or the root one, where the job's
+# workspace `npm install` hoists tsx and ts-morph (audit-self.yml, install-sh-c) — both from one dir.
+NM_SRC=""
+for _nm in "$REPO_ROOT/packages/core/node_modules" "$REPO_ROOT/node_modules"; do
+  [ -f "$_nm/ts-morph/package.json" ] && [ -x "$_nm/.bin/tsx" ] && NM_SRC="$_nm" && break
+done
+if [ -z "$NM_SRC" ]; then
+  if [ -n "${CI:-}" ]; then
+    bad "§6b: tsx + ts-morph are not installed under packages/core or the repo root — the arm cannot run in CI"
+  else
+    echo "  · SKIP §6b — tsx + ts-morph not installed (npm ci --prefix packages/core)"
+  fi
+else
+  CORE_TSX="$NM_SRC/.bin/tsx"
+  P=$(mktemp -d); own_mono "$P"
+  mkdir -p "$P/node_modules"
+  ln -s "$NM_SRC/ts-morph" "$P/node_modules/ts-morph"
+  cp "$P/apps/mobile/eslint.config.mjs" "$P/.mobile-before.mjs"
+  SHIM=$(mktemp -d)
+  cat > "$SHIM/npx" << EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = --no-install ] && [ "\${2:-}" = tsx ]; then shift 2; exec "$CORE_TSX" "\$@"; fi
+echo "stand-in npx: not routed: \$*" >&2; exit 127
+EOF
+  for _pm in npm pnpm yarn; do
+    _real=$(command -v "$_pm" 2>/dev/null || true)
+    cat > "$SHIM/$_pm" << EOF
+#!/usr/bin/env bash
+all="\$*"
+refuse() { echo "stand-in $_pm: refusing '\$all' — the fixture's node_modules/ts-morph is a symlink" >&2; exit 127; }
+[ "$_pm" = yarn ] && [ "\$#" -eq 0 ] && refuse
+for a in "\$@"; do case "\$a" in
+  i|install|ci|add|prune|remove|rm|uninstall|update|up|upgrade|dedupe|rebuild|link) refuse ;; esac; done
+[ -n "$_real" ] && exec "$_real" "\$@"; exit 127
+EOF
+  done
+  chmod +x "$SHIM/npx" "$SHIM/npm" "$SHIM/pnpm" "$SHIM/yarn"
+  ( cd "$P" && git init -q && PATH="$SHIM:$PATH" bash "$INSTALL_SH" ts-server </dev/null ) > "$P/.install.log" 2>&1 \
+    || bad "§6b install rc non-zero (tail: $(tail -3 "$P/.install.log" | tr '\n' '|'))"
+  # <workspace>:<a boundary glob detect finds under it>
+  for _wg in "api:**/routes/**" "web:**/app/api/**" "spa:**/api/**"; do
+    _w="${_wg%%:*}"; _g="${_wg#*:}"; _c="$P/apps/$_w/eslint.config.mjs"
+    grep -qF "files: RULE_GLOBS.boundary" "$_c" && grep -qF "'rules-as-tests/no-unsafe-zod-parse': 'error'" "$_c" \
+      && grep -qF "'$_g/*.{ts,tsx}'" "$_c" \
+      && ok "§6b: apps/$_w (your config) gets R2 on files: RULE_GLOBS.boundary, which lists '$_g'" \
+      || bad "§6b: apps/$_w lacks R2 on RULE_GLOBS.boundary listing '$_g' (config: $(tr '\n' '|' < "$_c"); log: $(grep -E 'R2' "$P/.install.log" | tr '\n' '|'))"
+    grep -qE "['\"](\./)?apps/" "$_c" \
+      && bad "neg §6b: apps/$_w has a dir-prefixed glob — it resolves against apps/$_w itself and matches nothing ($(grep -E "['\"](\./)?apps/" "$_c" | tr '\n' '|'))" \
+      || ok "neg §6b: apps/$_w has no dir-prefixed glob (scoping is by config placement)"
+  done
+  cmp -s "$P/.mobile-before.mjs" "$P/apps/mobile/eslint.config.mjs" \
+    && ok "neg §6b: apps/mobile (react-native) config is left as it was (its preset ships no R2)" \
+    || bad "neg §6b: apps/mobile (react-native) config was changed ($(tr '\n' '|' < "$P/apps/mobile/eslint.config.mjs"))"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/' "$P/.install.log" \
+    && bad "§6b: R2 landed, yet the NOT wired summary lists an apps/ config ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))" \
+    || ok "§6b: no R2 line in the NOT wired summary once the pass ran"
+  rm -rf "$P" "$SHIM"
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # §9 #807: the 4 root-anchored validate gates must not exit-2/RED on a no-root-config monorepo.
