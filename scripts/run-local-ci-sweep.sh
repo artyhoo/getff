@@ -140,8 +140,9 @@
 # A routed row counts only with its RECEIPT: a line carrying this call's nonce, printed by the
 # far end after the row finished, with the row's exit code. The runner's exit code alone is not
 # evidence (a runner that runs nothing can exit 0). No receipt means nothing was measured there
-# — runner NOT RUN, crash, or a far end whose gate table no longer holds the same command (the
-# --cmd-sum check: a stale mirror) — and the row runs HERE instead. A red receipt is a verdict
+# — runner NOT RUN, crash, or a far end whose gate table holds another command or whose index
+# tracks another file list (the --cmd-sum check: a stale mirror, or a file staged here and not
+# yet committed) — and the row runs HERE instead. A red receipt is a verdict
 # and is never retried here — with one exception, below. That split is Bazel's
 # --remote_local_fallback rule: fall back on an execution failure, not on a failing action
 # (prior-art-evaluations.md#294).
@@ -154,23 +155,32 @@
 # timeout there says the runner was slow, not that the code is wrong — and a real hang still
 # fails here.
 #
-# Two more cases run here: a row that DEGRADED on the far end (printed `[sweep] WARN`, e.g. a
-# toolchain the runner lacks) — the Mac may be able to run it for real — and the far end
-# noticing, through --origin, that the runner fell back to this host on its own (it runs the row,
-# and the label says where it ran).
+# Two more cases run here. A row that DEGRADED on the far end: it printed `[sweep] WARN` (a
+# toolchain held at another version), or a green run printed a loud skip (`⚠ live ruff firing
+# SKIPPED`) naming a tool this host has on PATH — toolchain_pins_ok passes a tool that is simply
+# absent, so a runner without ruff would otherwise hand back a PASS in which ruff never ran. The
+# Mac may be able to run it for real. And the far end noticing, through --origin, that the runner
+# fell back to this host on its own (it runs the row, and the label says where it ran).
 #
 # ONE STRIKE. The first routed row that comes back without a receipt, runs on this host after all,
 # or times out on the runner stops routing for the rest of the sweep: every later routable row
 # runs here, labelled with that first reason. An unreachable or busy runner costs one call, not
 # one per row.
 #
-# BASH 3.2 ARMS. A vitest file that spawns '/bin/bash' by absolute path pins the stock macOS
-# interpreter on purpose (close-aif-task-on-merge.test.ts: «a PATH lookup would pick Homebrew's
-# bash 5 and never exercise that promise»). CI runs on ubuntu only, so the Mac is the one place
-# those arms test what they claim. When a vitest row is routed, the files of its suite that
-# carry that literal ALSO run here, and the row passes only if both halves pass — the same keep-
-# local split `# stays-local:` gives the install-sh battery. `--route-plan` prints, per row,
-# where it goes and which arms stay.
+# SHELL ARMS. On a stock Mac every shell a test starts is /bin/bash 3.2 (or /bin/sh, the same
+# binary) with BSD userland: `spawnSync('bash', …)` finds nothing else on PATH (checked
+# 2026-09-29: `which -a bash` → /bin/bash only), and a `.sh` run by path resolves its
+# `env bash` shebang the same way. CI runs on ubuntu only, so the Mac is the one place those
+# tests meet the shell consumer Macs run the shipped scripts with. A routed vitest row's files
+# that start a shell therefore ALSO run here, and the row passes only if both halves pass — the
+# same keep-local split `# stays-local:` gives the install-sh battery. A file starts a shell when
+# it names bash or sh as a program ('bash', '/bin/sh', `bash …`) or names a `.sh` file, or
+# imports — at any depth, matched by module basename — a file under packages/core/ or scripts/
+# that does (shell_marked). The match over-selects (a `.sh` path that is only read counts), which
+# costs Mac CPU, never the signal. Not seen: a shell reached only through an exec string or
+# `shell: true`. `--route-plan` prints, per row, where it goes and which arms stay. A row that is
+# not vitest and runs a shell itself, or through its npm script or its node script, is kept here
+# whole (row_shell_reason), and the coverage test REDs on the list naming it.
 # ------------------------------------------------------------------------------------------
 #
 # Test seams (used by run-local-ci-sweep.test.sh, never in real runs):
@@ -481,16 +491,25 @@ toolchain_pins_ok() {
 }
 
 # --- OFFLOAD: which rows the runner may take (see the header block) ---
-# Routable = the row's runner is node tooling (tsc, prettier, vitest, tsx/node scripts), whose
-# result does not depend on the host's shell or userland, AND the row costs the Mac more than
-# the ~1.4 CPU-s one `pc-run` call does (measured 2026-09-29: 0.63 user + 0.80 sys per call).
+# Routable = the row's runner is node tooling (tsc, vitest, tsx/node scripts) that starts no shell
+# of its own — not in the command, not in the npm script it names, not in the node script it runs
+# (row_shell_reason keeps such a row here anyway, and the coverage test REDs on the list) — AND
+# the row costs the Mac more than the ~1.4 CPU-s one `pc-run` call does (measured 2026-09-29:
+# 0.63 user + 0.80 sys per call). A vitest row's files that start a shell run here as well (SHELL
+# ARMS in the header), so a suite where nearly every file does is not worth the call.
 # Everything else stays here, for one of these reasons:
-#   - it RUNS BASH: meta-all-wired, sweep-ci-coverage, alwayson-budget, script-selftests,
+#   - it RUNS A SHELL: meta-all-wired, sweep-ci-coverage, alwayson-budget, script-selftests,
 #     shipped-rules-drift, getff-dist-manifest, synth-bundle-drift, byte-identical, agnosticism,
 #     premerge-carrier-selftest, mutation-runner-selftest, hook-tests, dispatcher-tests,
-#     measure-scripts, plugin-aifdoctor-selftests, audit-ai-docs-live. `bash` here is /bin/bash
-#     3.2 and the userland is BSD; CI is ubuntu-only, so this is the one place those scripts meet
-#     the shell the operator's Mac and consumer Macs run them with.
+#     measure-scripts, plugin-aifdoctor-selftests, audit-ai-docs-live — and, one hop away,
+#     format-check (npm run format:check is bash scripts/format-shipped.sh, which sources
+#     setup.d/lib.sh), runtime-bundles-drift (build-runtime-bundles.mjs spawns
+#     check-bundle-dep-parity.sh) and template-render (spawns install.sh). `bash` here is
+#     /bin/bash 3.2 and the userland is BSD; CI is ubuntu-only, so this is the one place those
+#     scripts meet the shell the operator's Mac and consumer Macs run them with.
+#   - nearly every file of its suite starts a shell, so its arms would run it here anyway:
+#     vitest-hooks (79 of 82 files, 2026-09-29), vitest-install-wire, audit-ai-docs and
+#     first-steps-parity (every file).
 #   - install-sh-suite routes its own battery (INSTALL_SH_HEAVY_RUNNER), keeping its
 #     `# stays-local:` tests here; routing the row would take those along.
 #   - it reads a host tool the runner does not pin to this host: actionlint, shellcheck,
@@ -500,21 +519,79 @@ toolchain_pins_ok() {
 #     `×` and `—` — a false red there, measured 2026-09-29).
 #   - it is cheaper than the call: render-check, rule-index-check, install-roster-check,
 #     presets-check, terms-style-check, pipefail-early-exit, docs-refresh, and the two echo rows.
-SWEEP_ROUTABLE="${SWEEP_ROUTABLE-typecheck format-check reference-check face-facts-check citation-fullsweep runtime-bundles-drift vitest-principles vitest-hooks vitest-render vitest-ir vitest-composition vitest-backends vitest-synthesizer vitest-units vitest-install-wire audit-ai-docs canonical-regen first-steps-parity template-render}"
+SWEEP_ROUTABLE="${SWEEP_ROUTABLE-typecheck reference-check face-facts-check citation-fullsweep vitest-principles vitest-render vitest-ir vitest-composition vitest-backends vitest-synthesizer vitest-units canonical-regen}"
 row_routable() { case " $SWEEP_ROUTABLE " in *" $1 "*) return 0 ;; esac; return 1; }
 
-# cmd_sum <command> — a fingerprint of a row's command text. The far end recomputes it from its own
-# gate table and refuses to run on a mismatch, so a stale mirror can never answer for this tree.
-# POSIX cksum: the same algorithm and output on BSD and GNU.
-cmd_sum() { printf '%s' "$1" | cksum | awk '{ print $1 "-" $2 }'; }
+# cmd_sum <command> — a fingerprint of a row's command text AND of the file list this checkout's
+# index tracks. The far end recomputes it from its own gate table and its own index and refuses
+# to run on a mismatch: a stale mirror, or a file staged here and not yet committed (a runner
+# that syncs the committed tree plus the working-tree diff sees it as untracked, and a row that
+# enumerates with `git ls-files` would skip it there). Syncing the files' content is the
+# runner's job. POSIX cksum: the same algorithm and output on BSD and GNU.
+cmd_sum() { { printf '%s\n' "$1"; git ls-files 2>/dev/null; } | cksum | awk '{ print $1 "-" $2 }'; }
+
+# shell_marked — every .ts/.mts/.mjs/.js/.cjs file under packages/core/ and scripts/ that starts a
+# shell (SHELL ARMS in the header), one `<tier><TAB><path>` line each, repo-relative:
+#   any    it names bash or sh as a program, or a .sh file, anywhere — or imports, at any depth, a
+#          file that does. The arms test: over-selecting only costs Mac CPU.
+#   spawn  the same, but the name sits on a spawn/exec call's line or the three after it. The
+#          whole-row test for a node script, where over-selecting would keep a row here that only
+#          reads .sh files (render-reference.mjs lists them; census.mjs keeps 'bash' in a verb set).
+# Node, not grep: depth needs relative import specifiers resolved to files. A basename match
+# marks half the tree through `index` and `types` (measured 2026-09-29: 314 files in 31 s,
+# against 193 in 0.1 s resolved). The caller runs it once and stops routing if it fails, since
+# an empty answer would route every shell test.
+shell_marked() {
+  node - <<'JS'
+const fs = require('fs'), path = require('path');
+const exts = ['.ts', '.mts', '.mjs', '.js', '.cjs'];
+const shell = /['"`](\/bin\/)?(ba)?sh['"` ]|\.sh['"`]/;
+const call = /\b(spawn|spawnSync|exec|execSync|execFile|execFileSync|execa|execaSync)\s*\(/;
+const files = [];
+const walk = (d) => {
+  for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    if (e.name === 'node_modules' || e.name === 'dist') continue;
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (exts.includes(path.extname(e.name))) files.push(p);
+  }
+};
+['packages/core', 'scripts'].forEach((r) => fs.existsSync(r) && walk(r));
+const known = new Set(files), importers = new Map(), any = new Set(), spawn = new Set();
+const resolve = (from, spec) => {
+  const b = path.join(path.dirname(from), spec);
+  for (const c of [b, b.replace(/\.(m?)js$/, '.$1ts'), ...exts.map((e) => b + e), ...exts.map((e) => path.join(b, 'index' + e))])
+    if (known.has(c)) return c;
+  return null;
+};
+for (const f of files) {
+  const src = fs.readFileSync(f, 'utf8');
+  if (shell.test(src)) {
+    any.add(f);
+    const ls = src.split('\n');
+    if (ls.some((l, i) => call.test(l) && shell.test(ls.slice(i, i + 4).join('\n')))) spawn.add(f);
+  }
+  for (const m of src.matchAll(/(?:from|import|require)\s*\(?\s*['"`](\.{1,2}\/[^'"`]+)['"`]/g)) {
+    const t = resolve(f, m[1]);
+    if (t) { if (!importers.has(t)) importers.set(t, []); importers.get(t).push(f); }
+  }
+}
+for (const set of [any, spawn]) {
+  const q = [...set];
+  while (q.length) for (const i of importers.get(q.pop()) || []) if (!set.has(i)) { set.add(i); q.push(i); }
+}
+for (const f of [...any].sort()) process.stdout.write((spawn.has(f) ? 'spawn\t' : 'any\t') + f + '\n');
+JS
+}
+SHELL_MARKED=""
 
 # vitest_scope <command> — the vitest path filters a row's run applies, relative to packages/core:
 # empty when the row runs no vitest, UNKNOWN when it runs vitest in a shape this parser does not
 # read. Three shapes are read: `npm --prefix packages/core run test:<suite>` (the suite's filters
 # come from packages/core/package.json, never restated here), `npm --prefix packages/core test …
 # -- <filter>…`, and `vitest run packages/core/<file>…`. A routable row that answers UNKNOWN is
-# kept here (see the main loop), and the coverage test REDs on it, because its bash 3.2 arms
-# could not be found.
+# kept here (see the main loop), and the coverage test REDs on it, because its shell arms could
+# not be found.
 # Always called inside $( ): the `set -f` that keeps the word lists from globbing ends with it.
 vitest_scope() {
   local cmd="$1" suite script tok out=""
@@ -543,21 +620,77 @@ vitest_scope() {
   printf '%s' "${out# }"
 }
 
-# bash32_arms <command> — the files in the row's vitest scope that spawn '/bin/bash' by absolute
-# path (see BASH 3.2 ARMS in the header), relative to packages/core, space-separated. A file is in
-# scope when one of the row's filters is a substring of its path — vitest's own rule for a CLI
-# filter, so `hooks/` here selects exactly what `vitest run hooks/` runs.
-bash32_arms() {
+# shell_arms <command> — the files in the row's vitest scope that start a shell (either tier of
+# $SHELL_MARKED; see SHELL ARMS in the header), relative to packages/core, space-separated. A file
+# is in scope when one of the row's filters is a substring of its path — vitest's own rule for a
+# CLI filter, so `hooks/` here selects exactly what `vitest run hooks/` runs.
+shell_arms() {
   local scope f tok out=""
   set -f
   scope="$(vitest_scope "$1")"
   case "$scope" in '' | UNKNOWN) return 0 ;; esac
-  for f in $(cd packages/core 2>/dev/null && grep -rlE "['\"\`]/bin/bash['\"\`]" . --include='*.test.ts' --include='*.audit.ts' --exclude-dir=node_modules 2>/dev/null | sed 's|^\./||' | LC_ALL=C sort); do
+  while IFS= read -r f; do
     for tok in $scope; do
       case "$f" in *"$tok"*) out="$out $f"; break ;; esac
     done
-  done
+  done <<EOF
+$(awk -F'\t' '{ print $2 }' <<<"$SHELL_MARKED" | sed -n 's|^packages/core/||p' | grep -E '\.(test|audit)\.ts$')
+EOF
   printf '%s' "${out# }"
+}
+
+# scope_count <command> — how many test files the row's vitest scope holds (shell_arms' rule).
+scope_count() {
+  local scope f tok n=0
+  set -f
+  scope="$(vitest_scope "$1")"
+  for f in $(cd packages/core 2>/dev/null && find . -name node_modules -prune -o \( -name '*.test.ts' -o -name '*.audit.ts' \) -print | sed 's|^\./||'); do
+    for tok in $scope; do
+      case "$f" in *"$tok"*) n=$((n + 1)); break ;; esac
+    done
+  done
+  printf '%s' "$n"
+}
+
+# row_shell_reason <command> — why a routable row stays here after all, or nothing. A vitest row
+# stays when every file of its scope starts a shell (its arms would be the whole row). Any other
+# row stays when it starts a shell: read are the command, the npm script it names one hop away
+# (`npm run X` from package.json, `npm --prefix packages/core run X` from packages/core/
+# package.json), and each node script it runs (the spawn tier of $SHELL_MARKED).
+SHELL_WORD_RE='(^|[^[:alnum:]_./-])(ba)?sh([[:space:]]|$)|\.sh([^[:alnum:]_]|$)'
+row_shell_reason() {
+  local text="$1" s pkg tok arms
+  set -f
+  case "$(vitest_scope "$1")" in
+    UNKNOWN) return 0 ;;
+    ?*)
+      arms="$(shell_arms "$1")"
+      [ -n "$arms" ] && [ "$(wc -w <<<"$arms" | tr -d ' ')" -ge "$(scope_count "$1")" ] && printf 'every-file-starts-a-shell'
+      return 0 ;;
+  esac
+  s="$(grep -oE 'run [a-z0-9:_-]+' <<<"$1" | head -1)"
+  if [ -n "$s" ]; then
+    case "$1" in *"--prefix packages/core "*) pkg=./packages/core/package.json ;; *) pkg=./package.json ;; esac
+    text="$text $(node -e 'const s = require(process.argv[1]).scripts || {}; process.stdout.write(s[process.argv[2]] || "")' "$pkg" "${s#run }" 2>/dev/null)"
+  fi
+  if grep -qE "$SHELL_WORD_RE" <<<"$text"; then printf 'runs-a-shell'; return 0; fi
+  for tok in $text; do
+    case "$tok" in
+      *.mjs | *.js | *.cjs | *.ts | *.mts)
+        if grep -qxF "spawn$TAB$tok" <<<"$SHELL_MARKED"; then printf 'starts-a-shell:%s' "$tok"; return 0; fi ;;
+    esac
+  done
+}
+
+# loud_skip_here <output> — succeeds when a green run's output carries a loud skip (`⚠ … SKIPPED`,
+# the backends' convention) naming a program this host has on PATH: the runner lacked the tool,
+# and this host can run the test for real. `tr` leaves word characters only, so nothing globs.
+loud_skip_here() {
+  local w
+  for w in $(LC_ALL=C sed -n 's/.*⚠\(.*\)SKIPPED.*/\1/p' <<<"$1" | LC_ALL=C tr -c 'A-Za-z0-9._\n-' ' '); do
+    type -P "$w" >/dev/null 2>&1 && return 0
+  done
+  return 1
 }
 
 # --- the far end: `--run-row <name>` runs exactly one row of THIS checkout's table ---
@@ -579,7 +712,7 @@ EOF
     exit 2
   fi
   if [ -n "$RUN_ROW_SUM" ] && [ "$(cmd_sum "$row_cmd")" != "$RUN_ROW_SUM" ]; then
-    echo "[sweep:run-row] NOT RUN: row '$RUN_ROW' here differs from the caller's (command checksum) — stale mirror?"
+    echo "[sweep:run-row] NOT RUN: row '$RUN_ROW' or the tracked file list here differs from the caller's (checksum) — stale mirror, or a file staged there and not committed?"
     exit 2
   fi
   host="runner"
@@ -590,16 +723,21 @@ EOF
   exit 0
 fi
 
-# --- `--route-plan`: where each row would go, and which bash 3.2 arms stay here ---
+# --- `--route-plan`: where each row would go, and which shell arms stay here ---
 # One line per row: name<TAB>route|local<TAB>arms-or-reason. A listed name with no row prints
 # `missing`. Read by run-local-ci-sweep-coverage.test.sh through the real parser, like --list-gates.
 if [ "$ROUTE_PLAN" -eq 1 ]; then
+  if ! SHELL_MARKED="$(shell_marked)"; then
+    echo "[sweep] --route-plan: cannot find the files that start a shell (node failed)" >&2
+    exit 2
+  fi
   PLAN_TABLE="$(gate_table)"
   while IFS="$TAB" read -r _ n _ c; do
     [ -z "${n:-}" ] && continue
     if ! row_routable "$n"; then printf '%s\tlocal\t\n' "$n"
     elif [ "$(vitest_scope "$c")" = UNKNOWN ]; then printf '%s\tlocal\tunparsed-vitest-shape\n' "$n"
-    else printf '%s\troute\t%s\n' "$n" "$(bash32_arms "$c")"
+    elif reason="$(row_shell_reason "$c")" && [ -n "$reason" ]; then printf '%s\tlocal\t%s\n' "$n" "$reason"
+    else printf '%s\troute\t%s\n' "$n" "$(shell_arms "$c")"
     fi
   done <<EOF
 $PLAN_TABLE
@@ -776,13 +914,18 @@ if [ -n "$RUNNER" ] && [ -z "${PC_LOCAL:-}" ]; then
     ORIGIN_MARK=""
     echo "[sweep] WARN-ROUTE: cannot create an origin mark under ${TMPDIR:-/tmp} — every row runs here" >&3
   fi
+  # Which test files start a shell decides what stays here; without that answer nothing routes.
+  if [ "$ROUTING" -eq 1 ] && ! SHELL_MARKED="$(shell_marked 2>/dev/null)"; then
+    ROUTING=0
+    echo "[sweep] WARN-ROUTE: cannot find the files that start a shell (node failed) — every row runs here" >&3
+  fi
 fi
 
 # run_routed <name> <command> — run one routable row through the runner. Sets `out` (the output
 # of the run whose exit code is the verdict), `rc`, `where` (a label for the PASS/FAIL line) and
 # `route_log` (what the runner said when its result was not used — kept in the log file).
 run_routed() {
-  local name="$1" cmd="$2" nonce raw rrc receipt r_rc r_host arms aout arc
+  local name="$1" cmd="$2" nonce raw rrc receipt r_rc r_host arms aout arc degraded
   route_log=""
   nonce="$$.$ran.$RANDOM$RANDOM"
   printf '[sweep] %s → %s\n' "$name" "$RUNNER_NAME" >&3
@@ -814,6 +957,9 @@ run_routed() {
     return
   fi
   out="$raw"; rc="$r_rc"; where="on $RUNNER_NAME"
+  # The receipt is the verdict; a runner that still exits non-zero (its own cleanup) is noted.
+  [ "$rrc" -eq 0 ] || route_log="[sweep] $name: $RUNNER_NAME exited $rrc after the receipt (rc=$r_rc)
+"
   if [ "$rc" -ne 0 ]; then
     case "$raw" in
       *'Test timed out in '* | *'Hook timed out in '*)
@@ -830,29 +976,30 @@ run_routed() {
     esac
   fi
   if [ "$rc" -eq 0 ]; then
-    case "$out" in
-      *'[sweep] WARN'*)
-        # Degraded there (a tool the runner lacks or holds at another version). Here it may run
-        # for real — and if it degrades here too, the verdict is exactly what it would have been.
-        route_log="$raw
+    case "$out" in *'[sweep] WARN'*) degraded=1 ;; *) degraded=0 ;; esac
+    [ "$degraded" -eq 1 ] || ! loud_skip_here "$out" || degraded=1
+    if [ "$degraded" -eq 1 ]; then
+      # Degraded there (a tool the runner lacks or holds at another version). Here it may run
+      # for real — and if it degrades here too, the verdict is exactly what it would have been.
+      route_log="$raw
 [sweep] $name: degraded on $RUNNER_NAME — ran here instead
 "
-        out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
-        where="here — degraded on $RUNNER_NAME"
-        FELLBACK_N=$((FELLBACK_N + 1))
-        return ;;
-    esac
-    arms="$(bash32_arms "$cmd")"
+      out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
+      where="here — degraded on $RUNNER_NAME"
+      FELLBACK_N=$((FELLBACK_N + 1))
+      return
+    fi
+    arms="$(shell_arms "$cmd")"
     if [ -n "$arms" ]; then
-      printf '[sweep] %s: %s /bin/bash arm file(s) here\n' "$name" "$(printf '%s\n' "$arms" | wc -w | tr -d ' ')" >&3
-      # shellcheck disable=SC2086  # arms is a word list of paths, split on purpose
-      aout="$(cd "$REPO_ROOT/packages/core" && npx vitest run --reporter=default $arms 2>&1 </dev/null)"
+      printf '[sweep] %s: %s shell arm file(s) here\n' "$name" "$(printf '%s\n' "$arms" | wc -w | tr -d ' ')" >&3
+      # shellcheck disable=SC2086  # arms is a word list of paths, split on purpose (set -f: no globbing)
+      aout="$(cd "$REPO_ROOT/packages/core" && set -f && npx vitest run --reporter=default $arms 2>&1 </dev/null)"
       arc=$?
       out="$out
------ $name: /bin/bash arms, run here (bash 3.2): $arms -----
+----- $name: shell arms, run here (bash 3.2): $arms -----
 $aout"
       [ "$arc" -eq 0 ] || rc="$arc"
-      where="on $RUNNER_NAME + /bin/bash arms here"
+      where="on $RUNNER_NAME + shell arms here"
     fi
   fi
   ROUTED_N=$((ROUTED_N + 1))
@@ -878,7 +1025,10 @@ while IFS="$TAB" read -r _ name trigger cmd; do
   # only consumer of a failing gate's output was a variable nobody could read.
   where=""
   route_log=""
-  if [ "$ROUTING" -eq 1 ] && row_routable "$name" && [ "$(vitest_scope "$cmd")" != UNKNOWN ]; then
+  # A listed row whose vitest shape is unreadable, or that starts a shell itself, runs here (the
+  # coverage test REDs on either, so the list gets fixed rather than the row silently moving).
+  if [ "$ROUTING" -eq 1 ] && row_routable "$name" && [ "$(vitest_scope "$cmd")" != UNKNOWN ] \
+    && [ -z "$(row_shell_reason "$cmd")" ]; then
     if [ -n "$RUNNER_TRIPPED" ]; then
       out="$( (eval "$cmd") 2>&1 </dev/null )"; rc=$?
       where="here — $RUNNER_NAME skipped after $RUNNER_TRIPPED"
