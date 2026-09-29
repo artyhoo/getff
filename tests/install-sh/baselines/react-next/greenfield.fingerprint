@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  .ai-factory/RULES.react-next.md
-c667a40554ba552964aecb45b5e49a5dcf974182f89655233f10a34b8359ac7c  .ai-factory/refresh-baseline.json
+9697c06a4d19b34b25aeeb607819434e4758473c13a4ad792b322887f8f2d179  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -47,7 +47,7 @@ dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
 186ab28cf54cfbce347760dd5a04427465690a6aaf102068b4e39eab5e9ebdbe  .claude/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
-d6d1bf5f7cadb070bce5cf5bdd080c8dd0319e6a81dc26d11cd62316d0952544  .claude/skills/getff/references/base-core.md
+c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .claude/skills/getff/references/base-core.md
 0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .claude/skills/getff/references/checks-map.md
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md
@@ -143,9 +143,9 @@ d5922f168d791959ac945d0bba7af989af81eafae2ed00ea151f0d28e45090f7  .storybook/mai
 4b845c52cd83126c642143ae8c9ad3b32c3d8a35919fb2bf50cee3b78b952f6f  eslint-rules-local/no-direct-time-randomness.d.ts
 c641bbe9b16fc02d96c583df6c0ab9e09351045f4d47a5d2689113199a063f7c  eslint-rules-local/no-direct-time-randomness.mjs
 debdaff056606dfd76f3ecf16a0a7bf69596ea2b992644b6e8582ead30b361f5  eslint-rules-local/no-direct-time-randomness.ts
-b15d3a4e0c0770a5a13fe03af325f433324080e7f7b8ab9b7d00cc16b2a3800c  eslint-rules-local/no-server-imports-in-client.d.ts
-257894d3ca210d5912e516bdb5e86b0f449a618e68e1201ddae029a1accaaa6e  eslint-rules-local/no-server-imports-in-client.mjs
-165f051d77fdcbee445f552f6cce0ed2c6cf13c0e75649774cf0b489d4c8e3db  eslint-rules-local/no-server-imports-in-client.ts
+595f854bf84368a42fd8400ec010e2c339dfbf396a4954f9beab603b1d9d7d61  eslint-rules-local/no-server-imports-in-client.d.ts
+e58ec20ae8689421a1895e32eeda65608bb40b42546d064dce1743fad3268b58  eslint-rules-local/no-server-imports-in-client.mjs
+c4872b3262f1dee5d9662c2b0f6b3a19c8ceddbde95c25283df805c6e70cc14d  eslint-rules-local/no-server-imports-in-client.ts
 bbdf6774a0f79b75c6b39cd1bbecef641ca077e8acaea0d64ecc6392b1983910  eslint-rules-local/no-unsafe-zod-parse.d.ts
 9deada5113e1e281f5f0c5ef6d833d4bc69f916aa2ed845e8a37a5ef6fd2dc82  eslint-rules-local/no-unsafe-zod-parse.mjs
 7cff72b7553c7af6e8e125d18fc9ce46efb27a16ba365b697e2447dc021d1e74  eslint-rules-local/no-unsafe-zod-parse.ts

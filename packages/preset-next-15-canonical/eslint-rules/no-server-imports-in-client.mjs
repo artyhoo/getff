@@ -1,5 +1,3 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-const createRule = ESLintUtils.RuleCreator(() => `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.react-next.md#r12--server-vs-client-components`);
 const FORBIDDEN_EXACT = new Set(['fs', 'node:fs', 'node:crypto', 'node:path']);
 function isServerOnlyImport(spec) {
     if (FORBIDDEN_EXACT.has(spec))
@@ -21,11 +19,11 @@ function fileHasUseClient(lines) {
     }
     return false;
 }
-export const noServerImportsInClient = createRule({
-    name: 'no-server-imports-in-client',
+export const noServerImportsInClient = {
     meta: {
         type: 'problem',
         docs: {
+            url: `https://github.com/artyhoo/getff/blob/main/packages/preset-next-15-canonical/RULES.react-next.md#r12--server-vs-client-components`,
             description: "Forbid imports of server-only modules (infrastructure, config/env, fs, node:fs/crypto/path) in files marked 'use client' (R12).",
         },
         messages: {
@@ -56,4 +54,4 @@ export const noServerImportsInClient = createRule({
             },
         };
     },
-});
+};

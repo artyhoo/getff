@@ -7,7 +7,8 @@
 //
 // WHAT MAKES THIS NON-TAUTOLOGICAL:
 //   1. IT TESTS WHAT SHIPS. Rules are imported from the compiled `.mjs` files the installer copies, not
-//      from the `.ts` sources, and loaded through the shipped `index.mjs` shape (`meta` + `rules`).
+//      from the `.ts` sources, and wrapped in the same plugin shape (`meta` + `rules`) the generated
+//      `eslint-rules-local/index.mjs` barrel exports. The barrel itself is written at install time.
 //   2. THE FIXTURES ARE THE CONSUMER'S. The bad/good pairs are the `fences-fire` triples that
 //      `scripts/check-fences-fire.sh` runs in a consumer project, options included.
 //   3. EVERY RULE NEEDS A PAIR. A core rule with no triple is RED, so a new rule cannot ship unproven.
@@ -95,15 +96,41 @@ describe('core lint plugin: every rule has a bad/good pair', () => {
 });
 
 // An oxlint project has no ESLint toolchain of its own (a fresh create-vite react-ts scaffold lists only
-// oxlint, typescript, vite, @vitejs/plugin-react and @types/*), so a shipped rule that imports a package
-// at run time fails to load there. Type-only imports are erased by the compiler and are fine.
+// oxlint, typescript, vite, @vitejs/plugin-react and @types/*), so a shipped rule that loads a package at
+// run time breaks the whole barrel there. Type-only imports are erased by the compiler and are fine. The
+// check covers every rule directory the installer copies into `eslint-rules-local/` (install.sh `_rule_dirs`),
+// preset ones included, because the barrel imports all of them.
+const SHIPPED_RULE_DIRS = [HERE, join(HERE, '..', '..', 'preset-next-15-canonical', 'eslint-rules')];
+const shippedMjs = SHIPPED_RULE_DIRS.flatMap((dir) =>
+  readdirSync(dir)
+    .filter((f) => f.endsWith('.mjs') && f !== 'index.mjs')
+    .map((f) => join(dir, f)),
+);
+const PACKAGE_LOADS = [
+  /^\s*(?:import|export)\s[^;]*?from\s+['"]([^'"]+)['"]/gm, // import x from 'p'; export * from 'p'
+  /^\s*import\s+['"]([^'"]+)['"]/gm, // import 'p'
+  /\brequire\(\s*['"]([^'"]+)['"]\s*\)/g, // require('p')
+  /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g, // import('p')
+];
+export function packageLoads(source: string): string[] {
+  return PACKAGE_LOADS.flatMap((re) => [...source.matchAll(re)].map((m) => m[1])).filter(
+    (spec) => !spec.startsWith('.'),
+  );
+}
+
 describe('core lint plugin: the shipped rules load with no package installed', () => {
-  it.each(coreRules)('%s.mjs imports no package at run time', (rule) => {
-    const compiled = readFileSync(join(HERE, `${rule}.mjs`), 'utf8');
-    const packageImports = [...compiled.matchAll(/^\s*import\s[^;]*?from\s+['"]([^'"]+)['"]/gm)]
-      .map((m) => m[1])
-      .filter((spec) => !spec.startsWith('.'));
-    expect(packageImports).toEqual([]);
+  it('sees every way a module can load a package (paired negative)', () => {
+    expect(packageLoads("import { a } from 'p1';\nexport * from 'p2';\nimport 'p3';")).toEqual(['p1', 'p2', 'p3']);
+    expect(packageLoads("const u = require('p4'); await import('p5');")).toEqual(['p4', 'p5']);
+    expect(packageLoads("import { b } from './local.mjs';\nexport { c } from '../x.mjs';")).toEqual([]);
+  });
+
+  it('covers the preset rule directory too', () => {
+    expect(shippedMjs.some((f) => f.includes('preset-next-15-canonical'))).toBe(true);
+  });
+
+  it.each(shippedMjs.map((f) => [f.split('/packages/')[1], f]))('%s loads no package at run time', (_, file) => {
+    expect(packageLoads(readFileSync(file, 'utf8'))).toEqual([]);
   });
 });
 

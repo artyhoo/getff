@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-0dd935b899b97b49b02a50290f4842338de09d373d3206acc8b0b330812cae31  .ai-factory/refresh-baseline.json
+77c07e3e037db0828864449cc38c5a9a9a75f6f9d806713c4359a28084dae4f9  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -47,7 +47,7 @@ dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
 186ab28cf54cfbce347760dd5a04427465690a6aaf102068b4e39eab5e9ebdbe  .claude/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
-d6d1bf5f7cadb070bce5cf5bdd080c8dd0319e6a81dc26d11cd62316d0952544  .claude/skills/getff/references/base-core.md
+c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  .claude/skills/getff/references/base-core.md
 0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .claude/skills/getff/references/checks-map.md
 94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md

@@ -165,7 +165,7 @@ b698a6512c767245786a866a55652677a0ca253c63ba69d417f2000f151d5cac  install.sh
 ec4db440188f243d341818b2f62d7f45fd8894d1df2da03917b440f3153c8dc6  packages/core/audit-self/audit-ai-docs.sh
 80f32370eb5cac042c1ab855c408b2cbb729b1ae515432f71f69b5b4d0ee3b45  packages/core/audit-self/audit-ai-docs.test.ts
 add172472764efbc546f420561bb4a0beb81673a35e1ee11bb63348f193b5dee  packages/core/audit-self/audit-ai-docs.ts
-1c57735fc06d70e74f0ea1c6e3ddb05a284f67a7375a4d5bda46af4b049e5fd8  packages/core/audit-self/base-core-list.test.ts
+832ba124abd21b3c1fa3a8ce12c5ceebdb6a2e363a10b5c4478599ae853b593d  packages/core/audit-self/base-core-list.test.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
 576339b9a7137c504b949938bfe63caca82a8edc2f9d8822b2277a90dca4668c  packages/core/audit-self/check-fences-fire.sh
@@ -418,7 +418,7 @@ bbdf6774a0f79b75c6b39cd1bbecef641ca077e8acaea0d64ecc6392b1983910  packages/core/
 9deada5113e1e281f5f0c5ef6d833d4bc69f916aa2ed845e8a37a5ef6fd2dc82  packages/core/eslint-rules/no-unsafe-zod-parse.mjs
 88a21c2ca96a9e8594bd32e843432d74205e3d9db4c924a3d48fa943fda80dd7  packages/core/eslint-rules/no-unsafe-zod-parse.test.ts
 7cff72b7553c7af6e8e125d18fc9ce46efb27a16ba365b697e2447dc021d1e74  packages/core/eslint-rules/no-unsafe-zod-parse.ts
-c4d47df365a6f5bd90c2b96adb7281e8cee56e509c4dc3d0633e297ff9c152b0  packages/core/eslint-rules/plugin-dual-engine.test.ts
+0909e3412a7c96e75434523a1928b80dfd9bfdf15e8571e49c20f5aca6104345  packages/core/eslint-rules/plugin-dual-engine.test.ts
 228b1e84f52a31b88428b91c56596c5f843c1a50ceb0ce84c3966c7cd787f46a  packages/core/eslint-rules/require-error-boundary.d.ts
 99f5a670c830cd9ac768689932c7815afabd62a14462787ec6ef4fb9b1173a90  packages/core/eslint-rules/require-error-boundary.mjs
 ec55da637c88161ce2f78db21be33e47595d3101cbb4bc8e71536539e3000e51  packages/core/eslint-rules/require-error-boundary.test.ts
@@ -963,10 +963,10 @@ a48342eab3a1a811e7d7280c9a867c2c35cea7752860f9f63767f248b760c577  packages/core/
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  packages/preset-next-15-canonical/RULES.react-next.md
 288103356341825ec7a54e19529eeb1af41dc0050406244858c6873d852ea554  packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
 5d95dc9596ef77270a5595f8810f2a721d872904545f17b43aac7c80d1b9aba8  packages/preset-next-15-canonical/eslint-rules/index.ts
-b15d3a4e0c0770a5a13fe03af325f433324080e7f7b8ab9b7d00cc16b2a3800c  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.d.ts
-257894d3ca210d5912e516bdb5e86b0f449a618e68e1201ddae029a1accaaa6e  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs
+595f854bf84368a42fd8400ec010e2c339dfbf396a4954f9beab603b1d9d7d61  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.d.ts
+e58ec20ae8689421a1895e32eeda65608bb40b42546d064dce1743fad3268b58  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.mjs
 2c872b64d26653d9f5605100434c3a55a32ea7065973d8843f2193aa9a79584a  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.test.ts
-165f051d77fdcbee445f552f6cce0ed2c6cf13c0e75649774cf0b489d4c8e3db  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts
+c4872b3262f1dee5d9662c2b0f6b3a19c8ceddbde95c25283df805c6e70cc14d  packages/preset-next-15-canonical/eslint-rules/no-server-imports-in-client.ts
 7bbd7fc4cca9c4a5262d43a97e02154b558a8e15fa9cb808157f51435ac40fa2  packages/preset-next-15-canonical/eslint-rules/require-form-safe-parse.parity.test.ts
 d724f1d469d8bf60fb6d7b1d66554c0cb8aee66db06210435eda0fc0e33d2dc3  packages/preset-next-15-canonical/eslint-rules/require-use-server-directive.parity.test.ts
 e807bcae00d857ae025cfa2ddabfe8ff06fd8b8d919265c3a115c1f27107db07  packages/preset-next-15-canonical/package.json
@@ -1108,11 +1108,11 @@ a5449249f11f908a6272156a8fa7e29d994f7d253bb86ba179dd7a4c97bb02d3  setup.d/99-fin
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh
 99cae53e95cd2f5f520d722012a7ca8e2b7d09eb0de7c9238fa44908ec64231d  setup.d/companions.manifest
 edddc4d21d1807c15b9f8880d84c55317d5292a184cf87d039f27367000b7bf8  setup.d/engine.sh
-44218cfdf4777878a894fafe502ab404c094e9c5b6d1dd83a88562084ae8d4b6  setup.d/lib.sh
+f0654d6ee0f55a9885770658d6a52e26caa4086364bef747cb41daddf891c9fb  setup.d/lib.sh
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 186ab28cf54cfbce347760dd5a04427465690a6aaf102068b4e39eab5e9ebdbe  skills/getff/SKILL.md
 f1b528b72daa2ef3f5670279db24110b14d86faa610f1f16a99a8f9431f30d1e  skills/getff/references/ai-traps.md
-d6d1bf5f7cadb070bce5cf5bdd080c8dd0319e6a81dc26d11cd62316d0952544  skills/getff/references/base-core.md
+c795059c9013658a08ce8f22cd5d27cb55694beb25c92e0842b1a07ed35241c6  skills/getff/references/base-core.md
 0997ca4c45884f8271d44dab284f9a5a65cee00bdf5fa6c85d89e9db975d0bf7  skills/getff/references/checks-map.md
 b3e362ce9738f50bb001f48b974cae067446bcb0beffcb0ada250bc0d9efec48  skills/getff/references/doc-organization.md
 3327d15f883df68292a6235a8e0a4bbe78a5a50f4002ddde8b7040ab7efb6fec  skills/getff/references/overview.md

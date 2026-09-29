@@ -2649,14 +2649,14 @@ generate_eslint_barrel() {
 # the project already sets keeps its own value. Switching rules on is an open operator fork («whose
 # setup wins» when a rule turns the project's own commands red), so the default writes no rule.
 #
-# Never a manual step: an absent config, a TypeScript config (code, not data) or a file that is not a
-# plain JSON object (oxlint accepts comments; json_edit_node does not) is left as it was and becomes a
-# NOT-wired line saying why.
+# Never a manual step: an absent config, a config written as code (.ts/.js and their module variants), a
+# file that is not a plain JSON object (oxlint accepts comments; json_edit_node does not), or a jsPlugins /
+# rules key of the wrong shape is left as it was and becomes a NOT-wired line naming that cause.
 oxlint_register_jsplugin() {
-  local config="$1" barrel="$2" rules="${3:-}" rel spec rc=0
+  local config="$1" barrel="$2" rules="${3:-}" rel spec why rc=0
   rel="${config#"${PROJECT_ROOT:-}"/}"
   case "$config" in
-    *.ts|*.mts|*.js|*.mjs)
+    *.ts|*.mts|*.cts|*.js|*.mjs|*.cjs)
       echo "  ⊝ getff lint plugin not registered in $rel — the config is code"
       note_not_wired "getff lint plugin in $rel — the oxlint config is code, and getff edits only a JSON config"
       return 0 ;;
@@ -2664,6 +2664,22 @@ oxlint_register_jsplugin() {
   if [ ! -f "$config" ]; then
     echo "  ⊝ getff lint plugin not registered — no oxlint config at $rel"
     note_not_wired "getff lint plugin in oxlint — no oxlint config at $rel, and getff does not create one"
+    return 0
+  fi
+  # Name the real cause before editing: json_edit_node reports every failure as «not a valid JSON object».
+  # shellcheck disable=SC2016  # JavaScript, not shell expansions
+  why=$(node -e '
+    const fs = require("fs"); const [cfg, rules] = process.argv.slice(1);
+    let o; try { o = JSON.parse(fs.readFileSync(cfg, "utf8")); } catch { o = null; }
+    const plain = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+    if (!plain(o)) console.log("it is not a plain JSON object (oxlint allows comments; getff edits only plain JSON)");
+    else if ("jsPlugins" in o && !Array.isArray(o.jsPlugins)) console.log("its jsPlugins is not a list");
+    else if ("rules" in o && !plain(o.rules)) console.log("its rules is not an object");
+    else if (rules) { try { if (!plain(JSON.parse(rules))) throw 0; } catch { console.log("getff passed a rule list that is not a JSON object (a getff bug)"); } }
+  ' "$config" "$rules" 2>/dev/null) || why="node could not read it"
+  if [ -n "$why" ]; then
+    echo "  ⚠ getff lint plugin NOT registered in $rel — $why"
+    note_not_wired "getff lint plugin in $rel — $why, so it was left as it was"
     return 0
   fi
   spec=$(node -e 'const p=require("path");let r=p.relative(p.dirname(p.resolve(process.argv[1])),p.resolve(process.argv[2])).split(p.sep).join("/");console.log(r.startsWith(".")?r:"./"+r)' "$config" "$barrel" 2>/dev/null) || spec=""
@@ -2676,7 +2692,7 @@ oxlint_register_jsplugin() {
   json_edit_node "$config" '
     const [spec, rulesJson, enable] = args;
     let changed = false;
-    const plugins = Array.isArray(o.jsPlugins) ? o.jsPlugins : [];
+    const plugins = o.jsPlugins || [];
     if (!plugins.some(p => p && typeof p === "object" && p.name === "rules-as-tests")) {
       o.jsPlugins = plugins.concat([{ name: "rules-as-tests", specifier: spec }]);
       changed = true;
@@ -2684,8 +2700,11 @@ oxlint_register_jsplugin() {
     if (enable === "1" && rulesJson) {
       const wanted = JSON.parse(rulesJson);
       o.rules = o.rules || {};
+      // A rule the project sets anywhere (top level or in an override) keeps its own setting.
+      const own = (k) => k in o.rules ||
+        (Array.isArray(o.overrides) && o.overrides.some(ov => ov && ov.rules && k in ov.rules));
       for (const [k, v] of Object.entries(wanted))
-        if (!(k in o.rules)) { o.rules[k] = v; changed = true; }
+        if (!own(k)) { o.rules[k] = v; changed = true; }
     }
     return changed ? o : undefined;' "$spec" "$rules" "${GETFF_ENABLE_PLUGIN_RULES:-0}" || rc=$?
   case "$rc" in
