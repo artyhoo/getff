@@ -192,10 +192,31 @@ parity_inject_project_digest() {
   return $rc
 }
 
+# strip_yield_marker <file> <hook-name> — the file without the trailing yield marker that
+# plugin/hooks/run-hook.cmd reads (`# Plugin twin of .claude/hooks/<name>.sh — …`, appended after
+# `exit 0` by #1879 so line citations hold). The marker is dropped — with the blank lines just
+# above it — ONLY when every line from it to EOF is a comment or blank, so code hidden after
+# the marker is still compared.
+strip_yield_marker() {
+  awk -v m="# Plugin twin of .claude/hooks/$2.sh" '
+    { line[NR] = $0 }
+    index($0, m) == 1 { start = NR }
+    END {
+      cut = NR + 1
+      if (start) {
+        cut = start
+        for (i = start; i <= NR; i++) if (line[i] !~ /^[ \t]*(#|$)/) { cut = NR + 1; break }
+        if (cut <= NR) while (cut > 1 && line[cut - 1] ~ /^[ \t]*$/) cut--
+      }
+      for (i = 1; i < cut; i++) print line[i]
+    }' "$1"
+}
+
 parity_inject_subagent_context() {
   # shellcheck disable=SC2016  # sed script, not a shell expansion
   local code_above='/^_is_zcode()/,$d; /^[[:space:]]*#/d; /^[[:space:]]*$/d'
-  if ! diff <(sed -n '/^_is_zcode()/,$p' "$1") <(sed -n '/^_is_zcode()/,$p' "$2") >"$TMP/body.diff"; then
+  if ! diff <(strip_yield_marker "$1" inject-subagent-context | sed -n '/^_is_zcode()/,$p') \
+            <(strip_yield_marker "$2" inject-subagent-context | sed -n '/^_is_zcode()/,$p') >"$TMP/body.diff"; then
     echo "    body from _is_zcode() diverges:"; sed 's/^/      /' "$TMP/body.diff" | head -6; return 1
   fi
   grep -q '^_is_zcode()' "$1" || { echo "    source has no _is_zcode() anchor — comparison would be empty"; return 1; }
@@ -300,6 +321,14 @@ else
   mutant_red "project-digest SubagentStart event" inject-project-digest "$SRC_DIR/inject-project-digest.sh" "$PLUGIN_DIR/inject-project-digest" 's/hookEventName:"SubagentStart"/hookEventName:"SubagentStop"/'
   mutant_red "subagent-context stale citation" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/inject-project-digest\.sh:31,39/inject-project-digest.sh:31,38/'
   mutant_red "subagent-context code above _is_zcode" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/^set -uo pipefail$/set -u/m'
+  # The run-hook.cmd yield marker (#1879) is not drift; code smuggled in after it still is.
+  YIELD_MARKER=$'\n# Plugin twin of .claude/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep\n# the plugin copy silent where the project runs its own copy (kept last so line citations hold).\n'
+  { cat "$PLUGIN_DIR/inject-subagent-context"; printf '%s' "$YIELD_MARKER"; } > "$M/marked"
+  if check_twin inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$M/marked" >/dev/null; then ok "subagent-context: trailing run-hook.cmd yield marker is not reported as drift"
+  else bad "subagent-context: trailing run-hook.cmd yield marker reported as drift"; fi
+  { cat "$M/marked"; printf 'echo smuggled\n'; } > "$M/smuggled"
+  if check_twin inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$M/smuggled" >/dev/null; then bad "negative [subagent-context code after the yield marker]: still reported parity"
+  else ok "negative [subagent-context code after the yield marker]: goes RED"; fi
   mutant_red "warn-report section regex" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" "s/grep -qE '\\^Confidence:'/grep -qE '^Confidence'/"
   mutant_red "warn-report stale pointer" warn-subagent-report "$SRC_DIR/warn-subagent-report.sh" "$PLUGIN_DIR/warn-subagent-report-zcode" 's/line \d+: REPORT_CUE_RE/line 78: REPORT_CUE_RE/'
   # shellcheck disable=SC2016  # perl back-references, not shell expansions
