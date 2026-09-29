@@ -713,7 +713,7 @@ _pre_overwrite_divergence_action() {
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
 #   install.sh:1382                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1429          rewrite_arch_sot_header      → arch-header
+#   setup.d/45-python.sh:1482          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:502          patch_stryker_package_manager → stryker-pm
 #   setup.d/40-configs.sh:523          patch_stryker_package_manager → stryker-pm
