@@ -105,7 +105,7 @@ grep -q '"TID251"' "$LOCK" && grep -q '"TID253"' "$LOCK" \
 # @arm:D2:pos no-silent-fingerprint-degrade — hash tool present → authoritative digest, no degrade
 echo ""; echo "  ── (4) sourceFingerprint shape ──"
 fp1=$(lock_field "$LOCK" sourceFingerprint)
-printf '%s' "$fp1" | grep -qE '^[0-9a-f]{16}$' \
+grep -qE '^[0-9a-f]{16}$' <<<"$fp1" \
   && ok "(4) sourceFingerprint is 16-hex ($fp1)" \
   || bad "(4) sourceFingerprint not 16-hex: '$fp1'"
 
@@ -218,7 +218,7 @@ warn10=$(
 fp10=$(sed -n 's/.*"sourceFingerprint": "\([^"]*\)".*/\1/p' "$P10/$LOCK_REL" 2>/dev/null)
 # NOTE: lock_field's greedy `s/.*://` cannot extract a value containing a colon — the prefixed
 # constant needs the same direct sed the cargo/go arms use for their `sha256:…` fingerprints.
-printf '%s' "$warn10" | grep -q "non-authoritative" \
+grep -q "non-authoritative" <<<"$warn10" \
   && ok "(10) loud stderr warning emitted when no hash tool is on PATH (RED before fix — was silent)" \
   || bad "(10) NO loud warning on the no-hash-tool degrade path (silent fake fingerprint)"
 [ "$fp10" = "sha256:unknown" ] \
@@ -649,7 +649,7 @@ else
   _out14b=$( cd "$P14" && bash "$INSTALL" python < /dev/null 2>&1 )
   _lock_sha_after=$(shasum -a 256 "$L14" 2>/dev/null | awk '{print $1}')
 
-  echo "$_out14b" | grep -q 'fingerprint unchanged' \
+  grep -q 'fingerprint unchanged' <<<"$_out14b" \
     && ok "(14b) no-delta re-run still prints the content-aware skip (hashing more inputs did not defeat idempotency)" \
     || bad "(14b) skip line GONE on a no-delta re-run — the lock now regenerates every pass (emittedAt churn): $(echo "$_out14b" | grep -i 'rules-lock' | tr '\n' '|' | cut -c1-160)"
 

@@ -45,7 +45,7 @@ N=$(mktemp -d); printf '{ "name":"n","version":"0.0.0","dependencies":{"x":"1"} 
 out_neg=$( cd "$N" && echo '{}' | bash "$HOOK" 2>&1 )
 [ -z "$out_neg" ] && ok "P1-neg: no tool-decisions.md → hook SILENT (reproduces the dead state)" || bad "P1-neg: hook spoke without a seed: $out_neg"
 out_pos=$( cd "$T" && echo '{}' | bash "$HOOK" 2>&1 )
-echo "$out_pos" | grep -qi 'tool-bootstrap' && ok "P1-pos: seed + sentinel hash → WARN (chain is LIVE)" || bad "P1-pos: no WARN with seed present"
+grep -qi 'tool-bootstrap' <<<"$out_pos" && ok "P1-pos: seed + sentinel hash → WARN (chain is LIVE)" || bad "P1-pos: no WARN with seed present"
 
 
 # ── C1-548: live-signal Check 1 — shipped hook emits NO false-warn on fresh install (#548) ──
@@ -64,7 +64,7 @@ HOOK_C548="$C548/.claude/hooks/deps-hash-check.sh"
 if [ -x "$HOOK_C548" ]; then
   # POSITIVE: fresh install → hook MUST NOT emit "deps changed" (that was the #548 false-warn)
   out_c548=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
-  if echo "$out_c548" | grep -q 'deps changed'; then
+  if grep -q 'deps changed' <<<"$out_c548"; then
     bad "C1-548: fresh install → 'deps changed' false-warn (reproduces #548; shipped hook missing the fix)"
   else
     ok "C1-548: fresh install → NO 'deps changed' false-warn (#548 fix live; output: '$(echo "$out_c548" | tr '\n' '|')')"
@@ -87,7 +87,7 @@ if [ -x "$HOOK_C548" ]; then
         -e 's/^deps-hash:.*/deps-hash: sha256-0000000000000000000000000000000000000000000000000000000000000000/' \
       "$TDM_NEG" > "$TDM_NEG.tmp" && mv "$TDM_NEG.tmp" "$TDM_NEG"
     out_c548_neg=$( cd "$C548" && bash "$HOOK_C548" 2>&1 )
-    if echo "$out_c548_neg" | grep -q 'deps changed'; then
+    if grep -q 'deps changed' <<<"$out_c548_neg"; then
       ok "C1-548-neg: mismatched sha256 → 'deps changed' WARN (non-vacuous: real drift IS caught)"
     else
       bad "C1-548-neg: mismatched sha256 → no warn (check VACUOUS — cannot detect real deps drift)"

@@ -52,7 +52,7 @@ OUT=$(globs "$A"); RC=$?
 [ "$RC" = "1" ] \
   && ok "C: N/A was recorded but a parse boundary later appears → check:globs FAILS (conditional, not permanent)" \
   || bad "C: stale marker did not flip to red (rc=$RC) — N/A would be a forever off-switch"
-printf '%s' "$OUT" | grep -qiE 'marked N/A.*parse boundary now exists' \
+grep -qiE 'marked N/A.*parse boundary now exists' <<<"$OUT" \
   && ok "C: stale-marker FAIL names the broken precondition" \
   || bad "C: no stale-marker message (out: $(printf '%s' "$OUT" | tr '\n' '|'))"
 
@@ -100,10 +100,10 @@ cmp -s "$E/eslint.config.mjs" "$E.before" \
 ! grep -q 'added [0-9]* glob(s) to RULE_GLOBS.boundary' "$E.log" \
   && ok "E: no «added N glob(s)» claim over a config the install did not touch" \
   || bad "E: the install claimed it added globs to the consumer's config"
-awk '/NOT wired, or wired only in part/{on=1} on' "$E.log" | grep -q 'R2.*your own config.*--full' \
+grep -q 'R2.*your own config.*--full' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$E.log")" \
   && ok "E: the not-wired summary says R2 is not in the consumer's own config yet, and that --full adds it" \
   || bad "E: the not-wired summary does not report the unwired R2 boundary with the --full way to add it"
-! grep -iE 'eslint|R2' "$E.log" | grep -qiE 'by hand|manually' \
+! grep -qiE 'by hand|manually' <<<"$(grep -iE 'eslint|R2' "$E.log")" \
   && ok "E: nothing asks for a manual ESLint edit" \
   || bad "E: the install asks for a manual ESLint edit: $(grep -iE 'eslint|R2' "$E.log" | grep -iE 'by hand|manually' | head -2 | tr '\n' '|')"
 rm -f "$E.before" "$E.log"
@@ -147,7 +147,10 @@ grep -q 'could not add glob' "$G/.install2.log" \
 ! grep -qiE 'by hand|manually' "$G/.install2.log" \
   && ok "G: a boundary glob getff cannot write → no manual-edit advice" \
   || bad "G: the install asks for a manual edit: $(grep -iE 'by hand|manually' "$G/.install2.log" | head -1)"
-awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q 'RULE_GLOBS.boundary.*eslint.config.mjs' \
+# Here-string, never `awk … | grep -q`: under pipefail grep -q exits on its first match, the awk
+# still writing the summary tail dies of SIGPIPE, the pipeline returns 141 and this arm went RED
+# under load (2026-09-29, 12-way battery). Every `| grep -q` in tests/install-sh went the same way.
+grep -q 'RULE_GLOBS.boundary.*eslint.config.mjs' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log")" \
   && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added" \
   || bad "G: the not-wired summary does not report the boundary globs that could not be added"
 

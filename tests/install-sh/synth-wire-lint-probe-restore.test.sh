@@ -82,7 +82,7 @@ run_wirer() {
 
 # no_hand_step <arm> — a wiring that did not land is named with its reason, never left to the consumer
 no_hand_step() {
-  if printf '%s\n' "$W_OUT" | grep -q '^  · not wired: ' && ! printf '%s\n' "$W_OUT" | grep -qiE 'manually|by hand'; then
+  if grep -q '^  · not wired: ' <<<"$W_OUT" && ! grep -qiE 'manually|by hand' <<<"$W_OUT"; then
     ok "$1: what did not land is a «not wired» line with its reason, no «add it by hand» advice"
   else
     bad "$1: expected a «  · not wired: » line and no manual-step advice (output: $(printf '%s\n' "$W_OUT" | grep -iE 'not wired|manually|by hand' | head -3 | tr '\n' '|'))"
@@ -103,7 +103,7 @@ export default [{ rules: customRules }];"
   cp "$P1/eslint.config.mjs" "$WORK/p1.orig"
   run_wirer "$P1"
   if [ "$W_RC" -eq 3 ] && cmp -s "$P1/eslint.config.mjs" "$WORK/p1.orig" \
-     && printf '%s\n' "$W_OUT" | grep -q 'rolled back'; then
+     && grep -q 'rolled back' <<<"$W_OUT"; then
     ok "P1: the wiring broke ESLint → original bytes restored, rc 3, reason printed"
   else
     bad "P1: expected rc 3 + original bytes + 'rolled back', got rc=$W_RC identical=$(cmp -s "$P1/eslint.config.mjs" "$WORK/p1.orig" && echo yes || echo no) (tail: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
@@ -139,7 +139,7 @@ export default [...eslintConfig];"
   cp "$P3/eslint.config.mjs" "$WORK/p3.orig"
   run_wirer "$P3"
   if [ "$W_RC" -eq 0 ] && grep -q 'restricted-syntax-audit-exempt' "$P3/eslint.config.mjs" \
-     && printf '%s\n' "$W_OUT" | grep -q 'not verified'; then
+     && grep -q 'not verified' <<<"$W_OUT"; then
     ok "P3: ESLint fails without the change too → rules kept wired (rc 0), output says not verified"
   else
     bad "P3: expected rc 0 + rules present + 'not verified', got rc=$W_RC identical=$(cmp -s "$P3/eslint.config.mjs" "$WORK/p3.orig" && echo yes || echo no) (tail: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
@@ -154,12 +154,12 @@ JSON
   cp "$P4/eslint.config.mjs" "$WORK/p4.orig"
   run_wirer "$P4"
   if [ "$W_RC" -eq 3 ] && cmp -s "$P4/eslint.config.mjs" "$WORK/p4.orig" \
-     && printf '%s\n' "$W_OUT" | grep -q 'rolled back'; then
+     && grep -q 'rolled back' <<<"$W_OUT"; then
     ok "P4: a scoped block ESLint cannot use → original restored, rc 3"
   else
     bad "P4: expected rc 3 + original bytes + 'rolled back', got rc=$W_RC identical=$(cmp -s "$P4/eslint.config.mjs" "$WORK/p4.orig" && echo yes || echo no) (tail: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
   fi
-  if find "$P4" -name '__aif_nrule_probe__*' -not -path '*/node_modules/*' | grep -q .; then
+  if grep -q . <<<"$(find "$P4" -name '__aif_nrule_probe__*' -not -path '*/node_modules/*')"; then
     bad "P4: the scoped probe left files behind"
   else
     ok "P4: the scoped probe left nothing in the consumer tree"
@@ -172,7 +172,7 @@ export default [...eslintConfig];"
   cp "$P5/eslint.config.mjs" "$WORK/p5.orig"
   run_wirer "$P5"
   if [ "$W_RC" -eq 3 ] && cmp -s "$P5/eslint.config.mjs" "$WORK/p5.orig" \
-     && printf '%s\n' "$W_OUT" | grep -q 'Parsing error'; then
+     && grep -q 'Parsing error' <<<"$W_OUT"; then
     ok "P5: rules over .ts files a config cannot parse → original restored, rc 3, the parsing error named"
   else
     bad "P5: expected rc 3 + original bytes + 'Parsing error', got rc=$W_RC identical=$(cmp -s "$P5/eslint.config.mjs" "$WORK/p5.orig" && echo yes || echo no) (tail: $(printf '%s\n' "$W_OUT" | tail -3 | tr '\n' '|'))"
@@ -212,8 +212,8 @@ run_finalize() {
 run_finalize 3
 # The rc-3 fallback wording (this stub prints no «not wired» line of its own), and «stub wirer» so
 # the arm fails when the wirer never ran rather than passing on some other NOT wired line.
-if printf '%s\n' "$F_OUT" | grep -q 'stub wirer' \
-   && printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added'; then
+if grep -q 'stub wirer' <<<"$F_OUT" \
+   && grep -q 'stack rules in eslint.config.mjs — the synthesized rules-as-tests slice was not added' <<<"$F_OUT"; then
   ok "F1: wirer rc 3 → 99-finalize lists the stack rules under NOT wired"
 else
   bad "F1: wirer rc 3 was swallowed — no NOT wired line (tail: $(printf '%s\n' "$F_OUT" | tail -6 | tr '\n' '|'))"
@@ -221,16 +221,16 @@ fi
 run_finalize 3 "  · not wired: the stack's rules-as-tests rules — stub-reason-4711"
 # The reason must reach the NOT wired summary itself («      - <line>»), not only the wirer's own
 # output above it.
-if printf '%s\n' "$F_OUT" | grep -q 'stub wirer' \
-   && printf '%s\n' "$F_OUT" | grep -qE '^      - .*stub-reason-4711'; then
+if grep -q 'stub wirer' <<<"$F_OUT" \
+   && grep -qE '^      - .*stub-reason-4711' <<<"$F_OUT"; then
   ok "F1b: the wirer's «not wired» line reaches the NOT wired summary with its reason"
 else
   bad "F1b: the reason the wirer printed is not in the NOT wired summary (tail: $(printf '%s\n' "$F_OUT" | tail -6 | tr '\n' '|'))"
 fi
 run_finalize 0
-if printf '%s\n' "$F_OUT" | grep -q 'stack rules in eslint.config.mjs'; then
+if grep -q 'stack rules in eslint.config.mjs' <<<"$F_OUT"; then
   bad "F2: wirer rc 0 still produced a NOT wired line"
-elif printf '%s\n' "$F_OUT" | grep -q 'stub wirer'; then
+elif grep -q 'stub wirer' <<<"$F_OUT"; then
   ok "F2: paired — wirer rc 0 adds no NOT wired line (and the wirer did run)"
 else
   bad "F2: the stub wirer never ran, so F1/F2 prove nothing (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
@@ -252,10 +252,10 @@ printf '%s\n' "import { appendFileSync } from 'node:fs';" \
   "const i = process.argv.indexOf('--path'); appendFileSync(process.argv[i + 1], '// getff block\n');" \
   "console.log('stub own wirer');" > "$KP/packages/core/install/synth-and-wire.bundle.mjs"
 K_OUT=$(env -u CI REPO_ROOT="$REPO_ROOT" PROJECT_ROOT="$K" PKG_ROOT="$KP" FINALIZE="$FINALIZE" bash "$OWN_DRIVER" 2>&1); K_RC=$?
-printf '%s\n' "$K_OUT" | grep -q 'stub own wirer' \
+grep -q 'stub own wirer' <<<"$K_OUT" \
   || bad "K: the own-config wirer never ran — the arm would be vacuous (tail: $(printf '%s\n' "$K_OUT" | tail -4 | tr '\n' '|'))"
 [ "$K_RC" -eq 0 ] && [ "$(cat "$K/eslint.config.mjs")" = 'export default [];' ] \
-  && printf '%s\n' "$K_OUT" | grep -qE '^      - .*eslint.config.mjs.*original could not be kept' \
+  && grep -qE '^      - .*eslint.config.mjs.*original could not be kept' <<<"$K_OUT" \
   && ok "K: an original that cannot be kept → the install goes on, the file is as it was, NOT wired says why" \
   || bad "K: rc=$K_RC file='$(cat "$K/eslint.config.mjs")' (tail: $(printf '%s\n' "$K_OUT" | tail -6 | tr '\n' '|'))"
 

@@ -38,7 +38,7 @@ missing_core() {
   local keys m="" f
   keys=$(lock_keys "$1")
   for f in $CORE_FIELDS; do
-    printf '%s\n' "$keys" | grep -qx "$f" || m="$m $f"
+    grep -qx "$f" <<<"$keys" || m="$m $f"
   done
   printf '%s' "$m"
 }

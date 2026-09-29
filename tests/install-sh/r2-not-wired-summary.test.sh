@@ -125,12 +125,12 @@ run_finalize() {
     T_NPX_LOG="${T_NPX_LOG:-}" bash "$DRIVER" < /dev/null 2>&1)
   F_SUM=$(printf '%s\n' "$F_OUT" | grep -E '^      - ' || true)
 }
-sum_has() { printf '%s\n' "$F_SUM" | grep -qE "$1"; }
+sum_has() { grep -qE "$1" <<<"$F_SUM"; }
 sum_show() { printf '%s\n' "$F_SUM" | tr '\n' '|'; }
 # ran_through <arm> — the finalize reached its last line: under set -e a failing command in it would
 # have stopped the driver before the summary, and an arm asserting «no line» would pass on that.
 ran_through() {
-  if printf '%s\n' "$F_OUT" | grep -q 'For full guide: see INSTALL.md'; then
+  if grep -q 'For full guide: see INSTALL.md' <<<"$F_OUT"; then
     ok "$1: the finalize ran to its end"
   else
     bad "$1: the finalize stopped before its end (output tail: $(printf '%s\n' "$F_OUT" | tail -5 | tr '\n' '|'))"
@@ -178,7 +178,7 @@ flat_arm L2 'missing from this getff package'
 F1=$(flat_project f1)
 T_FULL=1 run_finalize "$F1" "$PKG_WIRED" "" "eslint.config.mjs apps/svc/eslint.config.mjs"
 flat_arm F1 'ts-morph.*dev-dependency'
-if printf '%s\n' "$F_OUT" | grep -qE -- 're-run the install with --full'; then
+if grep -qE -- 're-run the install with --full' <<<"$F_OUT"; then
   bad "F1: a --full install is told to re-run with --full (output: $(printf '%s\n' "$F_OUT" | grep -E -- '--full' | tr '\n' '|'))"
 else
   ok "F1: a --full install is not told to re-run with --full"
@@ -412,16 +412,16 @@ T_NPX_LOG="$W3_LOG" run_finalize "$W3" "$PKG_WIRED" "$WS\napps/site\treact-spa"
 w3_call() { grep -F "wire-eslint-r2.ts --path $W3/apps/$1/eslint.config.mjs " "$W3_LOG"; }
 w3_missing=""
 for w in api web spa; do
-  w3_call "$w" | grep -F -- '--own-config' \
-    | grep -qF -- '--boundary **/routes/**/*.{ts,tsx}' || w3_missing="$w3_missing apps/$w"
+  grep -qF -- '--boundary **/routes/**/*.{ts,tsx}' <<<"$(w3_call "$w" | grep -F -- '--own-config')" \
+    || w3_missing="$w3_missing apps/$w"
 done
 if [ -z "$w3_missing" ]; then
   ok "W3: the ts-server, react-next and react-spa configs are handed to the R2 wirer as your own, with their boundary globs"
 else
   bad "W3: not handed to the R2 wirer with --own-config and the routes/ boundary glob:$w3_missing (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
 fi
-if w3_call spa | grep -qF -- '--boundary **/api/**/*.{ts,tsx}' \
-   && ! w3_call web | grep -qF -- '**/api/**' && ! w3_call api | grep -qF -- '**/api/**'; then
+if grep -qF -- '--boundary **/api/**/*.{ts,tsx}' <<<"$(w3_call spa)" \
+   && ! grep -qF -- '**/api/**' <<<"$(w3_call web)" && ! grep -qF -- '**/api/**' <<<"$(w3_call api)"; then
   ok "W3: each config gets the globs found under its own directory (the api/ glob on apps/spa's call only)"
 else
   bad "W3: expected the api/ boundary glob on apps/spa's wirer call and on no other (npx calls: $(tr '\n' '|' < "$W3_LOG"))"
