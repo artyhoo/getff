@@ -10,7 +10,8 @@
 #         It now ends non-zero with a banner that says so (paired: all-pass stays rc 0).
 #   NW    a surface this install deliberately left unwired (consumer-owned hooks, a hooksPath
 #         it did not activate, the consumer's own ESLint config) is SKIP, not a FAIL that
-#         contradicts the NOT wired summary and not a PASS the install never earned.
+#         contradicts the NOT wired summary and not a PASS the install never earned. A root config
+#         getff placed and the consumer edited since is not such a surface: fences-fire still runs.
 #   NW-h  a consumer-owned .husky hook the install kept is named in the NOT wired summary.
 #
 # Capstone arms source 99-finalize.sh with stubbed dispatcher scope (same harness as
@@ -195,6 +196,28 @@ own_root_arm() { # $1 = label, $2 = root config body, $3 = yes → fences-fire m
 own_root_arm "own root config without getff's block" "export default [];" no
 own_root_arm "paired: own root config carrying getff's rules" \
   "export default [{ rules: { 'rules-as-tests/no-bare-todo': 'error' } }];" yes
+# A root config getff placed and the consumer has edited since takes the own-config branch too, but
+# it is still the config getff placed, with getff's fences in it: «fences fire» stays this install's
+# to check, as it was when such a config went through getff's branch. getff's react-native template
+# names no rules-as-tests/ rule, so the grep that marks a consumer's config NOT wired would skip the
+# check and point at a NOT wired summary with nothing about it.
+EDITED_DRIVER="$WORK/driver-edited.sh"
+{ sed '/^source "\$FINALIZE"$/d' "$DRIVER"
+  printf '%s\n' 'eslint_flat_config() { echo eslint.config.mjs; }' 'getff_delivered() { return 0; }' \
+    'getff_bytes_intact() { return 1; }' 'note_not_wired() { NOT_WIRED+=("$1"); }' 'source "$FINALIZE"'; } > "$EDITED_DRIVER"
+grep -q '^getff_bytes_intact()' "$EDITED_DRIVER" \
+  || bad "F8 edited: the edited-config driver was not built — the arm below would be vacuous"
+make_tree own-edited 'exit 1' 'exit 0' 'exit 0'
+printf '%s\n' "export default [];" > "$WORK/own-edited-proj/eslint.config.mjs"
+CAP_OUT=$(env -u CI PROJECT_ROOT="$WORK/own-edited-proj" PKG_ROOT="$WORK/own-edited-pkg" FINALIZE="$FINALIZE" \
+  DEPS_INSTALLED=1 bash "$EDITED_DRIVER" 2>&1); CAP_RC=$?
+printf '%s\n' "$CAP_OUT" | grep -q 'getff placed eslint.config.mjs, and it has been edited since' \
+  || bad "F8 edited: the root config was not routed as an edited getff config — the arm would be vacuous"
+if [ -e "$WORK/own-edited.ff.ran" ] && [ "$CAP_RC" -ne 0 ]; then
+  ok "F8 edited getff root config without a rules-as-tests/ rule: fences-fire runs and its FAIL counts"
+else
+  bad "F8 edited getff root config: ran=$([ -e "$WORK/own-edited.ff.ran" ] && echo yes || echo no) rc=$CAP_RC banner=$(printf '%s\n' "$CAP_OUT" | grep -E 'self-verify:|fences-fire' | tail -2 | tr '\n' '|')"
+fi
 # paired: the same trees with no NOT wired signal run the (failing) check and fail the install
 make_tree nw-paired 'exit 0' 'exit 1' 'exit 0'
 run_capstone "$WORK/nw-paired-proj" "$WORK/nw-paired-pkg"

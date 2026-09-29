@@ -3481,6 +3481,27 @@ _skill_context_block_is_shipped() {
     | awk -v H="$h" '$5 == H { f = 1 } END { exit !f }'
 }
 
+# getff_bytes_intact <abs-dst> — the content twin of getff_delivered: exit 0 IFF <abs-dst> still
+# holds the bytes getff left in it: this run staged it (the delivery itself, or a later write of
+# getff's own — see below), or its sha256 equals the refresh-baseline entry an earlier install
+# recorded. A getff_delivered file the consumer edited since fails it — those bytes are theirs now —
+# and so does an unknown one (no entry, no jq, no sha256 tool): the safe side. The manifest hashes
+# only what a run staged, so a later install that writes into an intact getff file (60-ci's
+# boundary globs, a synth-wire or R2 write on getff's branch) stages it again with
+# refresh_baseline_stage; otherwise its own write reads as the consumer's edit on the next check.
+getff_bytes_intact() {
+  local dst="$1" p cur
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
+}
+
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
 # When sourced directly with INSTALL_SH_LIB_ONLY=1, expose all helpers and stop here.
 # When sourced by install.sh, this guard fires and returns from the `source setup.d/lib.sh`

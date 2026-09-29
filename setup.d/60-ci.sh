@@ -84,6 +84,10 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
       # from 99-finalize (_r2_own_globs), for the stacks whose preset ships R2.
       _r2_own_cfg=0
       _r2_no_slot=0
+      # Globs written into a config that still holds getff's bytes are getff's too: staged again
+      # below, so the next install does not read getff's own write as the consumer's edit.
+      _r2_root_intact=""
+      if getff_bytes_intact "$PROJECT_ROOT/eslint.config.mjs"; then _r2_root_intact=1; fi
       if ! getff_delivered "$PROJECT_ROOT/$_r2_root_cfg"; then
         _r2_own_cfg=1
         case "${STACK:-ts-server}" in
@@ -136,6 +140,9 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
       done <<EOF
 $_r2_out
 EOF
+      if [ "$_patched" -gt 0 ] && [ -n "$_r2_root_intact" ]; then
+        refresh_baseline_stage "$PROJECT_ROOT/eslint.config.mjs"
+      fi
       if [ "$_r2_own_cfg" = "1" ] && [ -n "$_r2_own_globs" ]; then
         echo "  · HTTP boundary detected — $_r2_root_cfg is your own config; getff adds RULE_GLOBS and R2 to it at the end of the install"
       elif [ "$_r2_own_cfg" = "1" ] || { [ "$_r2_no_slot" = "1" ] && [ "${STACK:-ts-server}" = react-native ]; }; then
