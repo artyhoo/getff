@@ -144,6 +144,43 @@ expect_pass "--blank-only leaves ARM 1 drift to pre-push" --blank-only cite.md
 printf 'alpha\n\nbeta\n' >"$REPO/target.md"
 expect_fail "--blank-only still catches the blank landing" "is an empty line" --blank-only cite.md
 
+# ------------------------------------------- no blame baseline is counted, not «resolved»
+# ARM 1 compares against the commit that last wrote the citing line. A citing file git has
+# no history for — untracked, or outside the repository — has no such commit, and until
+# 2026-09-30 `blameCommit` returned null, the citation was dropped with a bare `return`,
+# and the summary still counted it under `resolved`: a run that drift-checked nothing read
+# exactly like a clean one (on the agent-memory corpus, «resolved 368» with zero blames).
+new_repo no-baseline
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.md"
+commit_all "target only"
+printf 'The cap is `target.md:2`.\n' >"$REPO/cite.md"   # never committed
+expect_pass "an untracked citing file does not fail the default gate" cite.md
+for needle in 'resolved 0 / skipped 0' '1 not drift-checked' 'no-history'; do
+  grep -qF "$needle" "$TMP/err" || {
+    echo "FAIL: an unbaselined citation was not reported as '$needle'"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+done
+# --strict is the gate for «every citation fully checked»: it must refuse this run too.
+if (cd "$REPO" && node "$CHECK" --check --strict cite.md) >"$TMP/out" 2>"$TMP/err"; then
+  echo "FAIL: --strict passed a run whose only citation was never drift-checked"; fails=$((fails + 1))
+fi
+
+# --- a file OUTSIDE the repository can never have a blame baseline, so the full check
+# refuses it by name (exit 2) instead of reporting a green it cannot back, and points at
+# the mode that can run there: --blank-only (ARM 2 only), which says so in its output.
+mkdir -p "$TMP/outside-no-baseline"
+printf 'The cap is `target.md:2`.\n' >"$TMP/outside-no-baseline/memo.md"
+(cd "$REPO" && node "$CHECK" --check "$TMP/outside-no-baseline/memo.md") >"$TMP/out" 2>"$TMP/err"; rc=$?
+if [ "$rc" -ne 2 ] || ! grep -qF -- '--blank-only' "$TMP/err"; then
+  echo "FAIL: --check on an out-of-repo file exited $rc instead of refusing (2) with a --blank-only hint"
+  sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+expect_pass "--blank-only runs ARM 2 on an out-of-repo file" --blank-only "$TMP/outside-no-baseline/memo.md"
+grep -qF 'ARM 1 (drift since authorship) not run' "$TMP/err" || {
+  echo "FAIL: --blank-only on an out-of-repo file did not say ARM 1 was not run"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1)); }
+printf 'alpha\n\ngamma\n' >"$REPO/target.md"
+expect_fail "--blank-only still catches a blank landing from outside the repo" "is an empty line" \
+  --blank-only "$TMP/outside-no-baseline/memo.md"
+
 # --------------------------------------------------------------------- beyond EOF
 new_repo eof
 printf 'alpha\nbeta\n' >"$REPO/target.md"
