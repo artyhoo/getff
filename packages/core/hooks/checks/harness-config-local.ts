@@ -22,15 +22,31 @@ import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CheckResult } from '../utils/run-check.ts';
 
-/** The gitignored shim directory whose local presence arms the check. */
+/** The gitignored directory ZCode reads its workspace config from. */
 export const ZCODE_DIR = '.zcode';
 /** The renderer, relative to the checkout root. */
 export const RENDERER_REL = 'scripts/render-harness-config.mjs';
 
+/** The renderer's own presence probe for the zcode branch (render-harness-config.mjs). */
+export const ZCODE_CONFIG = `${ZCODE_DIR}/config.json`;
+/** The rendered skills link. */
+export const ZCODE_SKILLS = `${ZCODE_DIR}/skills`;
+
+/**
+ * - `skip`    nothing to check; `note` set when the operator should see why
+ * - `ok`      the renderer ran its full --check (zcode branch included) and passed
+ * - `drift`   the renderer reported drift
+ * - `partial` `.zcode/skills` exists but `.zcode/config.json` does not — the renderer
+ *             would skip its whole zcode branch (link included) and exit 0, so the
+ *             half-rendered shim must be flagged here rather than passed as `ok`
+ * - `error`   the renderer could not run (timeout / not found) — not a drift verdict
+ */
 export type HarnessLocalVerdict =
-  | { kind: 'skip'; reason: string }
+  | { kind: 'skip'; note?: string }
   | { kind: 'ok'; result: CheckResult }
-  | { kind: 'drift'; result: CheckResult };
+  | { kind: 'drift'; result: CheckResult }
+  | { kind: 'partial' }
+  | { kind: 'error'; result: CheckResult };
 
 /** Runs `node <renderer> --check --root <root>`; injected so tests need no real spawn. */
 export type RendererRunner = (
@@ -52,19 +68,19 @@ export function checkLocalHarnessConfig(
   root: string,
   runRenderer: RendererRunner,
 ): HarnessLocalVerdict {
-  if (!present(join(root, ZCODE_DIR))) {
+  if (!present(join(root, ZCODE_DIR))) return { kind: 'skip' };
+  if (!present(join(root, RENDERER_REL))) return { kind: 'skip' };
+  // ZCode itself writes runtime data under .zcode/ (e.g. plans/), so the directory
+  // alone does not mean a shim was rendered. Arm on the renderer's own probe.
+  if (!present(join(root, ZCODE_CONFIG))) {
+    if (present(join(root, ZCODE_SKILLS))) return { kind: 'partial' };
     return {
       kind: 'skip',
-      reason: `${ZCODE_DIR}/ absent — no local shim to check`,
-    };
-  }
-  if (!present(join(root, RENDERER_REL))) {
-    return {
-      kind: 'skip',
-      reason: `${RENDERER_REL} absent — not the framework layout`,
+      note: `${ZCODE_CONFIG} absent — no rendered zcode shim in this checkout, nothing checked`,
     };
   }
   const result = runRenderer(root, [RENDERER_REL, '--check', '--root', root]);
+  if (result.timedOut || result.notFound) return { kind: 'error', result };
   return result.exitCode === 0
     ? { kind: 'ok', result }
     : { kind: 'drift', result };

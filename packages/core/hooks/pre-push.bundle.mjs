@@ -20,7 +20,9 @@ var __export = (target, all) => {
 var harness_config_local_exports = {};
 __export(harness_config_local_exports, {
   RENDERER_REL: () => RENDERER_REL,
+  ZCODE_CONFIG: () => ZCODE_CONFIG,
   ZCODE_DIR: () => ZCODE_DIR,
+  ZCODE_SKILLS: () => ZCODE_SKILLS,
   checkLocalHarnessConfig: () => checkLocalHarnessConfig
 });
 import { lstatSync } from "node:fs";
@@ -34,27 +36,27 @@ function present(path) {
   }
 }
 function checkLocalHarnessConfig(root, runRenderer) {
-  if (!present(join(root, ZCODE_DIR))) {
+  if (!present(join(root, ZCODE_DIR))) return { kind: "skip" };
+  if (!present(join(root, RENDERER_REL))) return { kind: "skip" };
+  if (!present(join(root, ZCODE_CONFIG))) {
+    if (present(join(root, ZCODE_SKILLS))) return { kind: "partial" };
     return {
       kind: "skip",
-      reason: `${ZCODE_DIR}/ absent \u2014 no local shim to check`
-    };
-  }
-  if (!present(join(root, RENDERER_REL))) {
-    return {
-      kind: "skip",
-      reason: `${RENDERER_REL} absent \u2014 not the framework layout`
+      note: `${ZCODE_CONFIG} absent \u2014 no rendered zcode shim in this checkout, nothing checked`
     };
   }
   const result = runRenderer(root, [RENDERER_REL, "--check", "--root", root]);
+  if (result.timedOut || result.notFound) return { kind: "error", result };
   return result.exitCode === 0 ? { kind: "ok", result } : { kind: "drift", result };
 }
-var ZCODE_DIR, RENDERER_REL;
+var ZCODE_DIR, RENDERER_REL, ZCODE_CONFIG, ZCODE_SKILLS;
 var init_harness_config_local = __esm({
   "packages/core/hooks/checks/harness-config-local.ts"() {
     "use strict";
     ZCODE_DIR = ".zcode";
     RENDERER_REL = "scripts/render-harness-config.mjs";
+    ZCODE_CONFIG = `${ZCODE_DIR}/config.json`;
+    ZCODE_SKILLS = `${ZCODE_DIR}/skills`;
   }
 });
 
@@ -2001,10 +2003,25 @@ async function harnessConfigLocalSection() {
     REPO_ROOT,
     (root, args) => runCheck(process.execPath, args, { cwd: root })
   );
-  if (v.kind === "skip") return;
+  if (v.kind === "skip") {
+    if (v.note) process.stdout.write(`\u24D8 harness-config-local: ${v.note}
+`);
+    return;
+  }
+  if (v.kind === "partial") {
+    die(
+      "\u274C .zcode/skills exists but .zcode/config.json does not \u2014 a half-rendered zcode shim the renderer would skip entirely.\n   Fix: node scripts/render-harness-config.mjs --write"
+    );
+  }
+  if (v.kind === "error") {
+    die(
+      "\u274C render-harness-config --check could not run (timed out or node not found) \u2014 this is not a drift verdict.",
+      v.result
+    );
+  }
   if (v.kind === "drift") {
     die(
-      "\u274C local harness config drifted from .ai-factory/harness-model.json (.zcode/ shim or tracked settings.json/.mcp.json).\n   Fix: node scripts/render-harness-config.mjs --write",
+      "\u274C local harness config drifted from .ai-factory/harness-model.json (the renderer lists the files below).\n   Fix: node scripts/render-harness-config.mjs --write",
       v.result
     );
   }

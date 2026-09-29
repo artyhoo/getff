@@ -8,6 +8,10 @@
  *   N2 .zcode/config.json hand-edited   → drift
  *   S1 no .zcode/ at all (CI, worktree) → skip, renderer NEVER invoked
  *   S2 .zcode/ present, no renderer     → skip (not the framework layout)
+ *   N3 skills link, no config.json      → partial (the renderer would skip its whole
+ *                                          zcode branch and exit 0 — never report ok)
+ *   S3 .zcode/plans only (ZCode data)   → skip with a visible note, renderer not started
+ *   E1/E2 timeout / node missing        → error, not drift
  * Plus the wiring: the section is registered in pre-push SECTIONS as maintainer-owned,
  * and the PREPUSH_ONLY seam runs it end to end through the real hook.
  */
@@ -15,10 +19,12 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -137,6 +143,66 @@ describe('harness-config-local — decision logic against the real renderer', ()
   });
 });
 
+describe('harness-config-local — the renderer-would-skip states (cold-review MAJOR)', () => {
+  it('N3: .zcode/skills present but .zcode/config.json absent → partial, never ok', () => {
+    const s = rendered();
+    rmSync(join(s, '.zcode/config.json'));
+    const { runner, calls } = spyRunner();
+
+    const v = checkLocalHarnessConfig(s, runner);
+
+    expect(v.kind).toBe('partial');
+    expect(calls).toEqual([]);
+  });
+
+  it('N3b: a dangling .zcode/skills link without config.json is still partial', () => {
+    const s = rendered();
+    rmSync(join(s, '.zcode/config.json'));
+    unlinkSync(join(s, '.zcode/skills'));
+    symlinkSync('../no-such-dir', join(s, '.zcode/skills'));
+
+    expect(checkLocalHarnessConfig(s, realRunner).kind).toBe('partial');
+  });
+
+  it('S3: .zcode/ holding only ZCode runtime data (plans/) → skip WITH a visible note', () => {
+    const s = sandbox();
+    mkdirSync(join(s, '.zcode/plans'), { recursive: true });
+    const { runner, calls } = spyRunner();
+
+    const v = checkLocalHarnessConfig(s, runner);
+
+    expect(v.kind).toBe('skip');
+    if (v.kind === 'skip') expect(v.note).toMatch(/config\.json absent/);
+    expect(calls).toEqual([]);
+  });
+
+  it('E1: a renderer timeout is an error verdict, not drift', () => {
+    const s = rendered();
+    const timedOut: CheckResult = {
+      exitCode: 124,
+      stdout: '',
+      stderr: '',
+      timedOut: true,
+      notFound: false,
+    };
+
+    expect(checkLocalHarnessConfig(s, () => timedOut).kind).toBe('error');
+  });
+
+  it('E2: node not found is an error verdict, not drift', () => {
+    const s = rendered();
+    const missing: CheckResult = {
+      exitCode: 127,
+      stdout: '',
+      stderr: '',
+      timedOut: false,
+      notFound: true,
+    };
+
+    expect(checkLocalHarnessConfig(s, () => missing).kind).toBe('error');
+  });
+});
+
 describe('harness-config-local — pre-push wiring', () => {
   it('is registered as a maintainer-owned pre-push section', () => {
     const entry = SECTIONS.find((s) => s.id === 'harness-config-local');
@@ -144,22 +210,28 @@ describe('harness-config-local — pre-push wiring', () => {
     expect(entry?.owner).toBe('maintainer');
   });
 
-  it('runs through the real hook via the PREPUSH_ONLY seam (no .zcode/ in this checkout on CI)', () => {
-    const r = spawnSync(
-      process.execPath,
-      ['--import', 'tsx/esm', resolve(HERE, '../pre-push.ts')],
-      {
-        cwd: resolve(HERE, '../..'),
-        input: '',
-        encoding: 'utf8',
-        env: { ...process.env, PREPUSH_ONLY: 'harness-config-local' },
-        timeout: 60_000,
-      },
-    );
+  // Deterministic only where this checkout has no .zcode/ (CI, agent worktrees): there the
+  // section must be a silent no-op. A checkout holding a real shim skips LOUDLY instead of
+  // letting untracked local state decide an unrelated test run.
+  it.skipIf(existsSync(join(REPO_ROOT, '.zcode')))(
+    'PREPUSH_ONLY seam: the real hook runs the section and no-ops silently without .zcode/',
+    () => {
+      const r = spawnSync(
+        process.execPath,
+        ['--import', 'tsx/esm', resolve(HERE, '../pre-push.ts')],
+        {
+          cwd: resolve(HERE, '../..'),
+          input: '',
+          encoding: 'utf8',
+          env: { ...process.env, PREPUSH_ONLY: 'harness-config-local' },
+          timeout: 60_000,
+        },
+      );
 
-    // Exit 0 either way on a healthy checkout: skip where .zcode/ is absent, a clean
-    // --check where it exists. A drifted maintainer shim would (correctly) fail here.
-    expect(r.status, `${r.stdout}${r.stderr}`).toBe(0);
-    expect(r.stderr).not.toMatch(/matches no pre-push section id/);
-  }, 60_000);
+      expect(r.status, `${r.stdout}${r.stderr}`).toBe(0);
+      expect(r.stderr).not.toMatch(/matches no pre-push section id/);
+      expect(r.stdout).toBe('');
+    },
+    60_000,
+  );
 });

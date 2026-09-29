@@ -2479,11 +2479,28 @@ async function harnessConfigLocalSection(): Promise<void> {
   const v = checkLocalHarnessConfig(REPO_ROOT, (root, args) =>
     runCheck(process.execPath, args, { cwd: root }),
   );
-  if (v.kind === 'skip') return;
+  if (v.kind === 'skip') {
+    if (v.note) process.stdout.write(`ⓘ harness-config-local: ${v.note}\n`);
+    return;
+  }
+  if (v.kind === 'partial') {
+    die(
+      '❌ .zcode/skills exists but .zcode/config.json does not — a half-rendered zcode shim ' +
+        'the renderer would skip entirely.\n' +
+        '   Fix: node scripts/render-harness-config.mjs --write',
+    );
+  }
+  if (v.kind === 'error') {
+    die(
+      '❌ render-harness-config --check could not run (timed out or node not found) — ' +
+        'this is not a drift verdict.',
+      v.result,
+    );
+  }
   if (v.kind === 'drift') {
     die(
       '❌ local harness config drifted from .ai-factory/harness-model.json ' +
-        '(.zcode/ shim or tracked settings.json/.mcp.json).\n' +
+        '(the renderer lists the files below).\n' +
         '   Fix: node scripts/render-harness-config.mjs --write',
       v.result,
     );
