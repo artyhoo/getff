@@ -2735,9 +2735,13 @@ oxlint_register_jsplugin() {
         if (!own(k)) { o.rules[k] = v; changed = true; }
     }
     return changed ? o : undefined;' "$spec" "$rules" "${GETFF_ENABLE_PLUGIN_RULES:-0}" || rc=$?
-  case "$rc" in
-    0) echo "  ✓ getff lint plugin registered in $rel (jsPlugins → $spec)" ;;
-    3) echo "  ⊝ getff lint plugin already registered in $rel" ;;
+  # With the rules switch on, the pass is the one after registration (place_lint_rules): it names the rules
+  # it added, and says nothing when there were none — the placement lists every rule it placed.
+  case "$rc:${GETFF_ENABLE_PLUGIN_RULES:-0}" in
+    0:1) echo "  ✓ getff's lint rules switched on in $rel (jsPlugins → $spec)" ;;
+    3:1) ;;
+    0:*) echo "  ✓ getff lint plugin registered in $rel (jsPlugins → $spec)" ;;
+    3:*) echo "  ⊝ getff lint plugin already registered in $rel" ;;
     *) echo "  ⚠ getff lint plugin NOT registered in $rel — $(json_edit_node_why "$config")"
        note_not_wired "getff lint plugin in $rel — $(json_edit_node_why "$config")" ;;
   esac

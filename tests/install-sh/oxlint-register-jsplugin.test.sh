@@ -126,6 +126,19 @@ out=$(GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$CFG" "$BARREL" "$RU
 [ "$(jq_or_node "$CFG" 'o=>[o.jsPlugins.length,o.rules]')" = '[1,{"rules-as-tests/no-unsafe-zod-parse":"error","no-empty":"error"}]' ] \
   && grep -q '✓' <<<"$out" && ok "R3: rules added, the entry not duplicated, reported as a change" \
   || bad "R3: $(jq_or_node "$CFG" 'o=>[o.jsPlugins,o.rules]') / $out"
+# The first run already said «registered»: this one names what it changed, the rules (P5 R1 printed
+# «already registered» and then «registered» for the same file).
+if grep -q "getff's lint rules switched on in" <<<"$out" && ! grep -q 'plugin registered' <<<"$out"; then
+  ok "R3: the output names the rules it switched on, not a second registration"
+else
+  bad "R3: the output does not name the rules switched on: $out"
+fi
+out=$(GETFF_ENABLE_PLUGIN_RULES=1 oxlint_register_jsplugin "$CFG" "$BARREL" "$RULES")
+if [ -z "$out" ]; then
+  ok "R3: a repeat that adds no rule prints nothing (never a second «registered»)"
+else
+  bad "R3: a repeat says: $out"
+fi
 
 echo "N: a jsPlugins key that is not a list"
 NOT_WIRED=()

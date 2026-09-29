@@ -1027,7 +1027,6 @@ export function table(root, { lint = realLint } = {}) {
   const rec = readRecord(root);
   const stack = rec?.fields.stack ?? 'unknown';
   const recLinter = rec?.fields.linter;
-  const carriers = generatedCarriers(root);
   let manifest = {};
   try {
     const p = join(root, '.ai-factory/synthesizer-output/rules-manifest-additions.json');
