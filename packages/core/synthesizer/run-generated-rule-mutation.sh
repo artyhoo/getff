@@ -92,7 +92,7 @@ const linter = new Linter();
 // below returns "No matching configuration found for probe.ts" and the rule never
 // runs — _probe then exits non-zero for EVERY selector, so every rule takes the
 // selector-not-firing skip path and no mutation is ever measured. Same trap as #832
-// in audit-self/check-fences-fire.sh:177-182; the paired-negative arm that pins this
+// in audit-self/check-fences-fire.sh:260-265; the paired-negative arm that pins this
 // is `POSITIVE (probe liveness)` in run-generated-rule-mutation-skip.test.ts.
 // Generated negative inputs are TypeScript and may hold JSX, so parse them as the consumer's lint
 // does: typescript-eslint's parser when installed, JSX on (critical-review cold pass, M3 sibling).

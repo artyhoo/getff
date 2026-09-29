@@ -11,7 +11,7 @@ import { assertEveryNodeResolved, type RenderOutcome } from '../shared/render-ou
 import { renderAstgrep } from './render-astgrep.ts';
 import { FIXTURE_NODE, RELATIONAL_FIXTURE_NODE } from './test-fixtures.ts';
 
-// Real YAML round-trip parser, same idiom as principles/24-plugin-manifest-integrity.test.ts:39-40
+// Real YAML round-trip parser, same idiom as principles/24-plugin-manifest-integrity.test.ts:51-52
 // (createRequire sidesteps the absent @types/js-yaml so `tsc --noEmit` stays clean; js-yaml is a
 // packages/core dependency — packages/core/package.json:95). Used ONLY by the kind-escaping regression test
 // below to prove the rendered YAML round-trips to the exact source value, not an injected key.
