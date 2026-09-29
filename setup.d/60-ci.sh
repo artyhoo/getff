@@ -57,9 +57,10 @@ fi
 _r2_root_cfg=$(eslint_flat_config "$PROJECT_ROOT")
 _r2_own_globs=""
 # _r2_glob_fail_why — why a glob did not go into getff's own eslint.config.mjs: the insert below needs
-# a `boundary: [` line, so with that line there it was the write that failed.
+# a `boundary: [` line in the config's code (not in a comment), so with that line there it was the
+# write that failed.
 _r2_glob_fail_why() {
-  if grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' "$PROJECT_ROOT/eslint.config.mjs" 2>/dev/null; then
+  if grep -qE '^[[:space:]]*boundary:[[:space:]]*\[' <<<"$(eslint_config_code "$PROJECT_ROOT/eslint.config.mjs")"; then
     echo "the write failed"
   else
     echo "getff's eslint.config.mjs has no \`boundary: [\` array"
@@ -120,10 +121,11 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
           ts-server|react-next|react-spa) _r2_own_globs=$(printf '%s\n' "$_r2_out" | sed -n 's/^glob://p') ;;
         esac
         _r2_out=""   # no glob lines → the patch loop below writes nothing
-      elif ! grep -q 'RULE_GLOBS' "$PROJECT_ROOT/eslint.config.mjs"; then
+      elif ! grep -q 'RULE_GLOBS' <<<"$(eslint_config_code "$PROJECT_ROOT/eslint.config.mjs")"; then
         # getff's config for this stack has no RULE_GLOBS block at all (react-native: its preset
         # ships no R2; any other stack: the block was edited away) — there is no boundary array to
-        # widen, so no per-glob warning either; the summary line below says which.
+        # widen, so no per-glob warning either; the summary line below says which. Read as code:
+        # RULE_GLOBS named only in a comment is no block (#1889 observation 7).
         _r2_no_slot=1
         _r2_out=""
       fi
@@ -143,7 +145,7 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
           # That read answers `none` / `no-array` (RULE_GLOBS re-wrapped in a cast, say) while the
           # insert below still finds a `boundary: [` line: covered there = the very line it would
           # write, inside that array — or every re-install adds the glob again.
-          grep -qxF -- "${_r2_ins#    }" <<<"$(awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1; next} on && /^[[:space:]]*\]/{exit} on{sub(/^[[:space:]]+/, ""); print}' \
+          grep -qxF -- "${_r2_ins#    }" <<<"$(awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'!on && uncomment($0) ~ /^[[:space:]]*boundary:[[:space:]]*\[/{on=1; next} on && /^[[:space:]]*\]/{exit} on{sub(/^[[:space:]]+/, ""); print}' \
             "$PROJECT_ROOT/eslint.config.mjs")" && continue
         fi
         # ledger A1-9 (the A1-8 class): the counter used to be incremented unconditionally, so a
@@ -151,8 +153,10 @@ elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.confi
         # stale eslint.config.mjs.tmp.
         # `! cmp -s`: a config with no `boundary: [` line comes back unchanged — that is a glob
         # NOT added, never a «✓ added».
-        if _r2_ins="$_r2_ins" awk '
-          done2!=1 && /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ENVIRON["_r2_ins"]; done2=1; next }
+        # The array is found in the config's code: a `boundary: [` inside a comment is not the one
+        # the rule reads, and a glob put there would be «added» again on every install.
+        if _r2_ins="$_r2_ins" awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'
+          done2!=1 && uncomment($0) ~ /^[[:space:]]*boundary:[[:space:]]*\[/ { print; print ENVIRON["_r2_ins"]; done2=1; next }
           { print }
         ' "$PROJECT_ROOT/eslint.config.mjs" > "$PROJECT_ROOT/eslint.config.mjs.tmp" \
           && ! cmp -s "$PROJECT_ROOT/eslint.config.mjs.tmp" "$PROJECT_ROOT/eslint.config.mjs" \
@@ -241,6 +245,27 @@ EOF
         echo "  · R2 boundary layout ambiguous → no R2 added to your own $_r2_root_cfg; the install adds it once it finds an HTTP boundary (handlers/, routes/, controllers/, app/api/, actions/, or a zod .parse() call)"
       fi ;;
   esac
+elif [ -n "$_r2_root_cfg" ] && [ -z "$(_detect_stacks_per_workspace "$PROJECT_ROOT")" ]; then
+  # A flat repo whose own root config is an eslint.config.cjs / .ts / .mts / .cts: getff adds its
+  # block, R2 with it, only to an eslint.config.mjs or an ES-module eslint.config.js (99-finalize
+  # leaves this one as it is). copy_unless_foreign already named «getff's rules» as not wired; HTTP
+  # boundary code the install can see gets its own line, naming R2 and the globs it would cover
+  # (Q4.7), unless the config already sets R2 as a quoted rule id in its code — a comment naming it is
+  # not R2 (eslint_config_code, #1889 observation 7). Flat repos only: a monorepo's R2 goes through
+  # 99-finalize's per-workspace pass, which does not report an own .ts/.cjs workspace config yet.
+  _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
+  # Each glob quoted, as in RULE_GLOBS: a glob holds commas of its own (`*.{ts,tsx}`).
+  _r2_globs=$(printf '%s\n' "$_r2_out" | sed -n "s/^glob:\(.*\)/'\1'/p" | paste -sd ',' - | sed "s/','/', '/g")
+  if [ "$(printf '%s\n' "$_r2_out" | head -1)" = boundary-present ] && [ -n "$_r2_globs" ] \
+     && ! grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' \
+          <<<"$(eslint_config_code "$PROJECT_ROOT/$_r2_root_cfg")"; then
+    case "${STACK:-ts-server}" in
+      ts-server|react-next|react-spa) _r2_why="getff adds R2 only to an eslint.config.mjs or an ES-module eslint.config.js, so your $_r2_root_cfg is left as it is" ;;
+      *) _r2_why="the ${STACK:-} preset ships no R2, and getff does not change your $_r2_root_cfg" ;;
+    esac
+    echo "▶ R2 auto-wire: HTTP boundary code found, but R2 is not added to your $_r2_root_cfg (see NOT wired below)"
+    note_not_wired "R2 (rules-as-tests/no-unsafe-zod-parse) in $_r2_root_cfg — $_r2_why; the install found HTTP boundary code, and R2 does not check it (R2 would cover it through the boundary globs $_r2_globs)"
+  fi
 fi
 
 # ─── 6c. #507 (reopen) + #521: CI-orphan WARN — completeness across ALL enforcement gates ───
