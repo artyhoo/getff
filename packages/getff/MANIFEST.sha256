@@ -495,7 +495,7 @@ b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
 f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
-4becabbe2b02b982301a260f3d9c7b81cb7510a80229e4df0deb0540472844a0  packages/core/hooks/pre-push.test.ts
+d039be5d836473f20c88b85432ef646ea132c44276b9d96d69542a45ff2c0f50  packages/core/hooks/pre-push.test.ts
 f07d256eea89d16f739e5a0800bc29d0ba62d69e408da5d8e257602ef96e4d89  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
@@ -529,7 +529,7 @@ cef9bb80a941be81171c58ace5610ba487bd6fe5e005b242a7e0820770305ece  packages/core/
 bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
 1f00d21e9c0724b41bff3d498089b3f2899922dbe8da043139e45b1def1676e9  packages/core/install/wire-eslint-r2.test.ts
 59dcfa3324c2344b0beebb27c416e2b716af9a09cf99e477c334b82f7834d67c  packages/core/install/wire-eslint-r2.ts
-d2dab887ca0b5b2ff32ddc9372ed1f7365eaa7ee16f13c1257da1088d2f79bcd  packages/core/install/wire-live-snippet.test.ts
+78aa0d24db5f177c1559773bfe24f191323a1a9047c789fa3a80428ff87d93ec  packages/core/install/wire-live-snippet.test.ts
 f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
 90f3aed2bf8876cb2eacfa7d445bd98bcd5fcf61048a0693b283534b309c7bbc  packages/core/installer/expected-self-install.json
@@ -599,10 +599,10 @@ c324d3fb250081af76e884b73a77d1fb1c2301a26206b8607458e260dd692f9e  packages/core/
 39405835e483d18e8e025e875b39226da0d210ca8bb4684439dec92d438d1dce  packages/core/principles/33-adapter-jig-arm-registry.ts
 ab249211ec5c218921f18d2bfe460ab5bf894ae451083dae6e537013a7b00a49  packages/core/principles/34-claudemd-excludes-liveness.test.ts
 d4fdba5eb0954792c779636cb02742bc8f80195cf6ac4e0bc40f670eea24e2ad  packages/core/principles/35-ai-laziness-digest-anti-drift.test.ts
-d6b04afa98e21acb908ce927f1c7b0919104c324a7a686dbc8dcb531ef831300  packages/core/principles/36-ci-needs-completeness.test.ts
+9c81b374fb9c2514e652233720a3b020486920600eeab7ee03c892546faad460  packages/core/principles/36-ci-needs-completeness.test.ts
 dc952f6da06442c41d3dcd917fb7a4e107d40eb71ba5574ccf4b37ee3fcac643  packages/core/principles/37-make-target-claim-liveness.test.ts
 f8631bf011425895b8f14dcb2a3c8aec92edba62dbd484ae7f88df895ee9b6b3  packages/core/principles/37-required-context-completeness.test.ts
-a970a2fb8f734341a64237ad02c6e47d7952afda2694099c2485a41f772521fe  packages/core/principles/38-vitest-include-ci-coverage.test.ts
+ef9db5a0bd1cd96b285333f29ed8d1c4335bfcae042e1542916d7c5b7f993505  packages/core/principles/38-vitest-include-ci-coverage.test.ts
 43a2724d45bbccfe3c317567b86a99e361b116d3e3b5a268e597ff073c8dad90  packages/core/principles/39-skill-fence-orch-home.test.ts
 f328ee5c90dae6d2ad1c5ba9791129de671ef732e55de9e1576f94c99f8119bb  packages/core/principles/40-kickoff-rigor-label.test.ts
 f231d637f4bf5354a3404c5ae44a6423e7bdee2fa917f20e5530102cbf94357e  packages/core/principles/41-shell-test-ci-coverage.test.ts
@@ -1089,9 +1089,9 @@ dd8c8a886127790ecf838f992cdfbbde9eb728aa107e2443ef60551f9f1aa6e6  setup.d/30-tem
 e25136f9cf9844a8560ff7fa7db0f7427abf1bfb1b62ca949c0d9e9f5951cc3f  setup.d/55-runtime-bridge-vendor.sh
 f52840de2cf7b77f7e6305e0c059a0cb598370524efae48717e4ab0c42d01a9e  setup.d/60-ci.sh
 6f86fd196747973d819b7c342c7317fe541a851fab869ab40fc8679e84b6d8f3  setup.d/70-deps.sh
-cdf0db1ba76db21018bf29bfd640b17e05c315794fb277ccbc5108fbda9c0d5f  setup.d/80-rule-bootstrap.sh
+9a0bec9681c312fb56aab4f20caef75b24b89dd1210aec188ce5c6d11316b724  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
-bc519b2a7bbcde2defdfdea70270b6717c3a34756bafcb4d0f70da4756e485a8  setup.d/99-finalize.sh
+d5a67cd0d87ba41635acf942984e84064a2d83f67be6bb988384cdbef295d54c  setup.d/99-finalize.sh
 08f4a03e1786d0d25837e71526b704d9d1653b7b12ab6201bd5d6656c87c58f2  setup.d/LAYERS.md
 516f195e8321a73ad33cddd863e3073ebadb50f561cef7daeb8f537193ddbc48  setup.d/aif-handoff-guided-install.sh
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh
