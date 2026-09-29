@@ -564,6 +564,93 @@ else
   bad "neg (skill-tier SSOT): synthetic literal-slug loop slipped the filter → literal check is VACUOUS"
 fi
 
+# ── Check 5: WIRING parity — what a --full install wires, not only what it copies ────────────────
+# Checks 1-4 see copy_safe deliveries only. An install also WIRES: it registers Claude Code hooks in
+# .claude/settings.json, points core.hooksPath at .husky, adds context7 + the kind=mcp companions,
+# writes R2 / getff's rules into ESLint configs, merges package.json scripts, reports the CI gates a
+# kept workflow lacks and arms AIF_RECAP_GATE. The 2026-09-29 refresh backward-sweep found seven such
+# steps with no do_refresh counterpart — a copy-only gate is blind to every one of them, so a fix to
+# the wiring reached fresh installs only.
+#
+# 5a is enumerated, not listed: every (event, hook) pair an npm-lane layer registers through
+# register_cc_hook must be registered by do_refresh too. 5b is a table, because wiring has no single
+# verb: each row is a call an npm-lane layer makes (or, for 05-mcp.sh, the layer itself) that
+# do_refresh must make as well. A row no layer makes any more is stale and fails, so the table cannot
+# silently outlive the code. LIMIT (T14): a NEW wiring step that is neither a register_cc_hook call nor
+# one of these calls is invisible here until it gets a row — tests/install-sh/refresh-rewires.test.sh
+# is the behavioural half that runs each row end to end.
+_cc_hook_re='register_cc_hook[[:space:]]+"[^"]*"[[:space:]]+"[A-Za-z]+"[[:space:]]+('"'"'[^'"'"']*'"'"'|"[^"]*")[[:space:]]+"[A-Za-z0-9_-]+"'
+cc_hook_pairs() {  # stdin: shell text → "<Event> <hook>" per register_cc_hook call, comments dropped
+  grep -vE '^[[:space:]]*#' | grep -oE "$_cc_hook_re" \
+    | sed -E 's/^register_cc_hook[[:space:]]+"[^"]*"[[:space:]]+"([A-Za-z]+)".*"([A-Za-z0-9_-]+)"$/\1 \2/' | sort -u
+}
+LAYER_HOOKS=$(cat "${NPM_LANE_LAYERS[@]}" | cc_hook_pairs)
+REFRESH_HOOKS=$(refresh_body | cc_hook_pairs)
+[ -n "$LAYER_HOOKS" ] || { echo "FATAL: no register_cc_hook call found in the npm-lane layers — extraction broke"; exit 1; }
+hook_gaps() {  # $1 = refresh pair set → layer pairs it lacks
+  local have="$1" p
+  while IFS= read -r p; do
+    [ -n "$p" ] && ! grep -qxF "$p" <<<"$have" && printf '%s; ' "$p"
+  done <<<"$LAYER_HOOKS"
+}
+gaps=$(hook_gaps "$REFRESH_HOOKS")
+if [ -z "$gaps" ]; then
+  ok "5a: every Claude Code hook a --full install registers is registered by do_refresh too ($(wc -l <<<"$LAYER_HOOKS" | tr -d ' ') event/hook pairs)"
+else
+  bad "5a: hook(s) registered on install but never on --refresh — a consumer who lost the registration keeps a dead hook file: $gaps"
+fi
+# neg (LOAD-BEARING): drop one pair both sides register → 5a MUST flag it.
+_hp=$(grep -xF -f <(printf '%s\n' "$REFRESH_HOOKS") <<<"$LAYER_HOOKS" | head -1)
+if [ -n "$_hp" ]; then
+  case "$(hook_gaps "$(grep -vxF "$_hp" <<<"$REFRESH_HOOKS")")" in
+    *"$_hp;"*) ok "neg (5a): dropping '$_hp' from the refresh side flips the check (non-vacuous)" ;;
+    *) bad "neg (5a): check stayed green with '$_hp' dropped from do_refresh → VACUOUS" ;;
+  esac
+else
+  bad "neg (5a): no event/hook pair registered on both sides to probe with"
+fi
+
+WIRING_CALLS=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'WC' | sed '/^$/d' | awk '{print $1}'
+  activate_husky_hookspath   # G2: core.hooksPath → .husky (lib.sh)
+  05-mcp.sh                  # G3/G9: context7 + the kind=mcp companion rows, --full-gated (the layer itself)
+  eslint_wire_r2_root        # G4: R2 boundary globs into the root ESLint config (setup.d/eslint-wire.sh)
+  eslint_wire_configs        # G4: getff's rules + R2 into root / per-package / per-workspace configs
+  merge_canonical_scripts    # G5: package.json scripts, add-if-missing (lib.sh)
+  ci_gate_detect             # G6: CI gates missing from the consumer's workflows (lib.sh)
+  arm_recap_gate             # G8: AIF_RECAP_GATE=1 under --full (lib.sh)
+WC
+)
+[ -n "$WIRING_CALLS" ] || { echo "FATAL: WIRING_CALLS empty — heredoc parse broke"; exit 1; }
+LAYER_TXT=$(cat "${NPM_LANE_LAYERS[@]}" | grep -vE '^[[:space:]]*#')
+REFRESH_CODE=$(refresh_body | grep -vE '^[[:space:]]*#|^[[:space:]]*echo ')
+wiring_gaps() {  # $1 = do_refresh code → rows it does not call
+  local code="$1" c
+  for c in $WIRING_CALLS; do grep -qF -- "$c" <<<"$code" || printf '%s ' "$c"; done
+}
+stale_rows=""
+for c in $WIRING_CALLS; do
+  _lyr_hit=""
+  for _lyr in "${NPM_LANE_LAYERS[@]}"; do [ "$(basename "$_lyr")" = "$c" ] && _lyr_hit=1; done
+  [ -n "$_lyr_hit" ] || grep -qF -- "$c" <<<"$LAYER_TXT" || stale_rows="$stale_rows $c"
+done
+if [ -z "$stale_rows" ]; then
+  ok "5b: every wiring row is still made by an npm-lane layer (no stale row)"
+else
+  bad "5b: wiring row(s) no npm-lane layer makes — the install's wiring moved, update the row:$stale_rows"
+fi
+wgaps=$(wiring_gaps "$REFRESH_CODE")
+if [ -z "${wgaps// }" ]; then
+  ok "5b: every wiring step of a --full install has a do_refresh counterpart ($(wc -w <<<"$WIRING_CALLS" | tr -d ' ') rows)"
+else
+  bad "5b: wiring the install does but --refresh never does — its fixes reach fresh installs only: $wgaps"
+fi
+# neg (LOAD-BEARING): strip one row's call from the refresh side → 5b MUST flag it.
+_wp=$(printf '%s\n' $WIRING_CALLS | head -1)
+case " $(wiring_gaps "$(grep -vF -- "$_wp" <<<"$REFRESH_CODE")") " in
+  *" $_wp "*) ok "neg (5b): dropping '$_wp' from do_refresh flips the check (non-vacuous)" ;;
+  *) bad "neg (5b): check stayed green with '$_wp' dropped from do_refresh → VACUOUS" ;;
+esac
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
