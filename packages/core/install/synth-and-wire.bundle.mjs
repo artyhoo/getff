@@ -10265,6 +10265,62 @@ function jsString(s) {
 function simpleRulePresent(source, ruleName) {
   return source.includes(`'${ruleName}'`) || source.includes(`"${ruleName}"`);
 }
+function ruleKeyNodes(sf, SyntaxKind, ruleName) {
+  const objects = /* @__PURE__ */ new Set();
+  const seen = /* @__PURE__ */ new Set();
+  const LOGICAL = [SyntaxKind.AmpersandAmpersandToken, SyntaxKind.BarBarToken, SyntaxKind.QuestionQuestionToken];
+  const WRAPPERS = [
+    SyntaxKind.ParenthesizedExpression,
+    // also a JSDoc cast: /** @type {any} */ ({ … })
+    SyntaxKind.AsExpression,
+    SyntaxKind.SatisfiesExpression,
+    SyntaxKind.TypeAssertionExpression,
+    SyntaxKind.NonNullExpression
+  ];
+  const collect = (node) => {
+    if (!node?.isKind) return;
+    if (node.isKind(SyntaxKind.Identifier)) {
+      const decl = sf.getVariableDeclaration(node.getText());
+      if (!decl || seen.has(decl)) return;
+      seen.add(decl);
+      collect(decl.getInitializer());
+    } else if (WRAPPERS.some((k) => node.isKind(k))) {
+      collect(node.getExpression());
+    } else if (node.isKind(SyntaxKind.ConditionalExpression)) {
+      collect(node.getWhenTrue());
+      collect(node.getWhenFalse());
+    } else if (node.isKind(SyntaxKind.BinaryExpression) && LOGICAL.includes(node.getOperatorToken().getKind())) {
+      collect(node.getLeft());
+      collect(node.getRight());
+    } else if (node.isKind(SyntaxKind.CallExpression)) {
+      for (const arg of node.getArguments()) collect(arg);
+    } else if (node.isKind(SyntaxKind.ObjectLiteralExpression) && !objects.has(node)) {
+      objects.add(node);
+      for (const p of node.getProperties()) {
+        if (p.isKind(SyntaxKind.SpreadAssignment)) collect(p.getExpression());
+      }
+    }
+  };
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+    if (normPropName(p.getName()) === "rules") collect(p.getInitializer());
+  }
+  for (const p of sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment)) {
+    if (p.getName() === "rules") collect(p.getNameNode());
+  }
+  const out = [];
+  for (const obj of objects) {
+    for (const p of obj.getProperties()) {
+      const keyed = p.isKind(SyntaxKind.PropertyAssignment) || p.isKind(SyntaxKind.ShorthandPropertyAssignment);
+      if (keyed && normPropName(p.getName()) === ruleName) out.push(p);
+    }
+  }
+  return out;
+}
+function ruleSetInConfig(sf, SyntaxKind, ruleName) {
+  if (ruleKeyNodes(sf, SyntaxKind, ruleName).length > 0) return true;
+  const literal = (kind) => sf.getDescendantsOfKind(kind).some((n) => n.getLiteralValue() === ruleName);
+  return literal(SyntaxKind.StringLiteral) || literal(SyntaxKind.NoSubstitutionTemplateLiteral);
+}
 function wrapperSelectorsPresent(source, arrValue) {
   const entries = arrValue.slice(1);
   return entries.every((e) => {
@@ -10447,13 +10503,29 @@ async function wireNRules(source, synthRules, opts = {}) {
   if (ruleEntries.length === 0) {
     return { status: "already-wired", original: source, modified: source };
   }
+  let mod;
+  try {
+    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
+    const tsMorphPath = requireFromCwd.resolve("ts-morph");
+    mod = await import(pathToFileURL(tsMorphPath).href);
+  } catch {
+    mod = void 0;
+  }
+  const SyntaxKind = mod?.SyntaxKind;
+  const sf = mod ? new mod.Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: { allowJs: true, target: 99, module: 99 },
+    skipFileDependencyResolution: true,
+    skipLoadingLibFiles: true
+  }).createSourceFile("eslint.config.mjs", source, { overwrite: true }) : void 0;
+  const rulePresent = (key) => sf ? ruleSetInConfig(sf, SyntaxKind, key) : simpleRulePresent(source, key);
   const overrideKeys = opts.overrideKeys;
   const missing = [];
   const overrides = [];
   for (const [key, value] of ruleEntries) {
     if (Array.isArray(value)) {
       if (!wrapperSelectorsPresent(source, value)) missing.push({ key, value });
-    } else if (!simpleRulePresent(source, key)) {
+    } else if (!rulePresent(key)) {
       missing.push({ key, value });
     } else if (overrideKeys?.has(key)) {
       overrides.push({ key, value });
@@ -10465,25 +10537,10 @@ async function wireNRules(source, synthRules, opts = {}) {
   console.debug(
     `  [synth-wire] DEBUG: ${missing.length} rule(s) to wire, ${overrides.length} override(s): ${[...missing, ...overrides].map((m) => m.key).join(", ")}`
   );
-  let Project;
-  let SyntaxKind;
-  try {
-    const requireFromCwd = createRequire(resolve5(process2.cwd(), "package.json"));
-    const tsMorphPath = requireFromCwd.resolve("ts-morph");
-    const mod = await import(pathToFileURL(tsMorphPath).href);
-    Project = mod.Project;
-    SyntaxKind = mod.SyntaxKind;
-  } catch {
+  if (!sf) {
     console.debug("  [synth-wire] DEBUG: ts-morph unavailable \u2192 degrade");
     return { status: "degrade", original: source, modified: source, degradeReason: "ts-morph import failed" };
   }
-  const project = new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: { allowJs: true, target: 99, module: 99 },
-    skipFileDependencyResolution: true,
-    skipLoadingLibFiles: true
-  });
-  const sf = project.createSourceFile("eslint.config.mjs", source, { overwrite: true });
   const exportAssignment = sf.getExportAssignment((ea) => !ea.isExportEquals());
   if (!exportAssignment) {
     return { status: "unrecognised", original: source, modified: source };
@@ -10539,6 +10596,8 @@ async function wireNRules(source, synthRules, opts = {}) {
     } else if (outcome === "changed") {
       console.debug(`  [synth-wire] DEBUG: live-override replaced value of '${key}'`);
       changed = true;
+    } else if (outcome === "not-found" && opts.insertOnly) {
+      notes.push(`${key} at ${desired} \u2014 your config sets this rule outside the list getff edits, and getff leaves it as it is`);
     } else if (outcome === "not-found") {
       console.debug(`  [synth-wire] DEBUG: override target '${key}' not found as a rules prop \u2014 appending`);
       append(buildRuleConfigElement(key, value, scopeOf(key), registerFor(key)));
@@ -10701,7 +10760,7 @@ async function wireOwnConfig(source, opts = {}) {
   const ignored = globallyIgnored(visible, SyntaxKind);
   const newIgnores = [...new Set(opts.ignores ?? [])].filter((g) => !ignored.has(g));
   if (newIgnores.length > 0) toAdd.push(`{ ignores: [${newIgnores.map(singleQuoted).join(", ")}] }`);
-  const r2Present = simpleRulePresent(source, R2_RULE_ID);
+  const r2Present = ruleSetInConfig(sf, SyntaxKind, R2_RULE_ID);
   const boundary = [...new Set(opts.boundaryGlobs ?? [])];
   let registerR2 = false;
   let missingGlobs = [];
