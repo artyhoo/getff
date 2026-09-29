@@ -1190,16 +1190,38 @@ _py_precommit_body() {
 # column 0 outside getff's entry (<begin> up to <end>, or <begin> plus n body lines when n > 0);
 # nothing when there is none. Under indented `repos:` items such an item is a YAML error («expected
 # <block end>, but found '-'») wherever getff puts its own entry, and the item is the project's.
+# A line inside a quoted scalar that runs over lines is text, even when it starts `- ` in column 0: q
+# holds the quote still open ("..." with \" inside, '...' with '' inside), and such lines are skipped.
+# A quote opens a scalar only where one can start — at the start of the line or of a `- `/`? ` item,
+# after `: `, `[`, `{` or `,`, past a tag or anchor — and never in a comment or a `|`/`>` block
+# scalar's lines. Known limit: an unclosed quote after `, ` inside a plain scalar (`name: a, "b`) is
+# read as an open one, so a stray item after it goes unnoticed and the file is updated as before C6-F3.
 _py_precommit_stray_item() {
-  awk -v m="$2" -v e="$3" -v n="${4:-0}" -v kre="$_PY_PRECOMMIT_REPOS_KEY" "$_PY_PRECOMMIT_KEY"'
+  awk -v m="$2" -v e="$3" -v n="${4:-0}" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v sq="'" "$_PY_PRECOMMIT_KEY"'
+    function scan(s,   i, ch, p) {
+      for (i = 1; i <= length(s); i++) {
+        ch = substr(s, i, 1)
+        if (q == "\"") { if (ch == "\\") i++; else if (ch == q) q = ""; continue }
+        if (q == sq) { if (ch == sq) { if (substr(s, i + 1, 1) == sq) i++; else q = "" }; continue }
+        if (ch == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t]/)) return
+        if (ch != "\"" && ch != sq) continue
+        p = substr(s, 1, i - 1); sub(/^[ \t]*([?-][ \t]+)*/, "", p)
+        if (p ~ /(^|:[ \t]+|[[{,][ \t]*)([!&][^ \t]*[ \t]+)*$/) q = ch
+      }
+      t = s; sub(/[ \t]+#.*$/, "", t)
+      if (q == "" && t ~ /(^|[:-])[ \t]*[|>][-+1-9]*[ \t]*$/) { match(s, /^[ \t]*/); bi = RLENGTH; inb = 1 }
+    }
     !seen && match($0, kre) { seen = 1; next }
     !seen { next }
+    q != "" { scan($0); next }
+    inb { match($0, /^[ \t]*/); if ($0 !~ /[^ \t]/ || RLENGTH > bi) next; inb = 0 }
     !ent && k == m { ent = 1; c = 0; next }
     ent == 1 && n == 0 { if (k == e) ent = 2; next }
     ent == 1 { if (c < n) { c++; next } ent = 2 }
     /^(---|\.\.\.)([ \t]|$)/ { exit }
     /^-([ \t]|$)/ { print NR; exit }
-    /^[^ \t#]/ { exit }' "$1"
+    /^[^ \t#]/ { exit }
+    { scan($0) }' "$1"
 }
 
 # _py_precommit_noload <line> — the outcome for a file _py_precommit_stray_item found <line> in: nothing
