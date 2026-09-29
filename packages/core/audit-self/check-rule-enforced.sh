@@ -347,8 +347,21 @@ under_shadow() { # $1=path → 0 if it lives under a shadowed package dir
   return 1
 }
 
+# under_nested_shadow <path> <shadowed package dir> — 0 if the path lives under a package nested in that one
+# with a config of its own.
+under_nested_shadow() {
+  local p="$1" s
+  for s in "${shadows[@]}"; do
+    [ "$s" = "$2" ] && continue
+    case "$s" in "$2"/*) case "$p" in "$s"/*) return 0 ;; esac ;; esac
+  done
+  return 1
+}
+
 # boundary_files_in <dir> <root|package> — per boundary token, its first file under <dir> not yet taken for an
-# earlier token (root: nor under a package whose own config shadows the root one). One file per token, each
+# earlier token and governed by <dir>'s config: root — under no package whose own config shadows the root
+# one; package — under no package nested in it with a config of its own, which answers for its own files
+# (third cold review 2026-09-29). One file per token, each
 # asked about once: a consumer's own R2 scoped by its own `files:` can reach one token's code and miss
 # another's, which the first boundary file alone read green (cold reviews 2026-09-29, after the install
 # began declaring RULE_GLOBS alone in such a config). Files are taken in sorted order, the same pick on
@@ -358,6 +371,7 @@ boundary_files_in() {
   for t in "${btokens[@]}"; do
     while IFS= read -r f; do
       if [ "$scope" = root ] && under_shadow "$f"; then continue; fi
+      if [ "$scope" = package ] && under_nested_shadow "$f" "$base"; then continue; fi
       case "$seen" in *"|$f|"*) continue ;; esac
       seen="$seen$f|"; printf '%s\n' "$f"; break
     done < <(find "$base" \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null | LC_ALL=C sort)
@@ -487,12 +501,11 @@ if [ "${#shadows[@]}" -gt 0 ]; then
   for s in "${shadows[@]}"; do
     pkg_files=()
     while IFS= read -r f; do pkg_files+=("$f"); done < <(boundary_files_in "$s" package)
-    na=""
     for bf in ${pkg_files[@]+"${pkg_files[@]}"}; do
       if package_has_zod "$bf"; then
         verify_file "$bf"
-      elif [ -z "$na" ]; then
-        na=1; echo "  · ${s#./}: no zod boundary — R2 N/A (skipped)"
+      else
+        echo "  · ${s#./}: no zod boundary at ${bf#./} — R2 N/A (skipped)"
       fi
     done
   done

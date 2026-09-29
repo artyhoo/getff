@@ -857,24 +857,29 @@ _f11e_name_failures() {
   done <<< "$1"
   return "$any"
 }
-# _f11e_limit <AIF_F11E_TIMEOUT_S> — the limit in whole seconds: anything else is the default 120, and a value
-# past what a JavaScript timer holds (~24.8 days) is capped at 99999, as either would fire the timer at once.
+# _f11e_limit <AIF_F11E_TIMEOUT_S> — the limit in whole seconds, leading zeros read away: anything else, 0
+# among it, is the default 120, and a value past what a JavaScript timer holds (~24.8 days) is capped at
+# 99999, as either would fire the timer at once.
 _f11e_limit() {
-  case "$1" in ''|*[!0-9]*) echo 120 ;; *) if [ "${#1}" -le 5 ]; then echo "$1"; else echo 99999; fi ;; esac
+  local n="${1#"${1%%[!0]*}"}"
+  case "$1" in ''|*[!0-9]*) echo 120; return 0 ;; esac
+  if [ -z "$n" ]; then echo 120; elif [ "${#n}" -le 5 ]; then echo "$n"; else echo 99999; fi
 }
 # _f11e_run <gate script> <limit s> — runs the gate. The gate and every eslint it starts share one process
 # group (node is there wherever node_modules/.bin/eslint runs), killed whole whatever ends the ask: the limit
-# (exit 124), a signal to the install (passed on, so the install stops as it would have), or the gate's own
+# (exit 124), a signal to the install (Ctrl-C, Ctrl-\, SIGTERM, SIGHUP; passed on, so the install stops as it
+# would have — the handlers are in place before the gate starts), or the gate's own
 # end — a gate ended by a signal exits 128 + that signal. Nothing it started outlives it: the install reads
 # the ask's output to its end, which a process left running would hold open (second cold review).
 _f11e_run() {
   AIF_F11E_GATE="$1" AIF_F11E_LIMIT="$2" node -e '
     const { spawn } = require("child_process");
     const { signals } = require("os").constants;
-    const gate = spawn("bash", [process.env.AIF_F11E_GATE], { detached: true, windowsHide: true, stdio: ["ignore", "inherit", "inherit"] });
-    const stopAll = () => { try { process.kill(-gate.pid, "SIGKILL"); } catch { try { gate.kill("SIGKILL"); } catch {} } };
+    let gate;
+    const stopAll = () => { if (!gate) return; try { process.kill(-gate.pid, "SIGKILL"); } catch { try { gate.kill("SIGKILL"); } catch {} } };
+    for (const sig of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"]) process.once(sig, () => { stopAll(); process.kill(process.pid, sig); });
+    gate = spawn("bash", [process.env.AIF_F11E_GATE], { detached: true, windowsHide: true, stdio: ["ignore", "inherit", "inherit"] });
     const limit = setTimeout(() => { stopAll(); process.exit(124); }, Number(process.env.AIF_F11E_LIMIT) * 1000);
-    for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) process.once(sig, () => { stopAll(); process.kill(process.pid, sig); });
     gate.on("exit", (code, sig) => { clearTimeout(limit); stopAll(); process.exit(code ?? 128 + (signals[sig] || 0)); });
   '
 }

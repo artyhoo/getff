@@ -640,8 +640,9 @@ grep -qx 'NOTE check-rule-enforced: R2 marked N/A in \.ai-factory/r2-decisions\.
 # F11e run (second cold review 2026-09-29): the install asks the gate through _f11e_run, which runs it in a
 # process group of its own. Whatever ends the ask — the limit, a signal to the install, a signal that ends the
 # gate — ends every process the gate started, so none is left running and the install never waits on one.
-# The fake gate starts a child that would outlive any test; the child's command line carries a marker.
-F11E_T=$(mktemp -d); F11E_MARK="f11e-child-$$"
+# The fake gate starts a child that would outlive any test; the child's command line carries a marker, a path
+# in this run's own temp dir, so a run beside it (another worktree's pre-push) never matches it.
+F11E_T=$(mktemp -d); F11E_MARK="$F11E_T/child-mark"
 cat > "$F11E_T/gate.sh" <<GATE
 node -e 'setTimeout(() => {}, 900000)' "$F11E_MARK" &
 wait
@@ -677,6 +678,15 @@ if f11e_child_up; then
 else bad "F11e run: the fake gate's child never started — the signal arm is vacuous"; fi
 f11e_sweep
 
+f11e_ask "$F11E_T/gate.sh" 60 "$F11E_T/quit.out"
+if f11e_child_up; then
+  kill -QUIT "$(ps -o ppid= -p "$(pgrep -f "$F11E_T/gate.sh" | head -1)" | tr -d ' ')"
+  f11e_ends_within "$F11E_JOB" 10 && ! f11e_left && grep -qx 'rc=131' "$F11E_T/quit.out" \
+    && ok "F11e run: Ctrl-\\ (SIGQUIT) to the ask stops the gate and its child too" \
+    || bad "F11e run: after SIGQUIT to the ask, the gate or its child is still running, or the ask did not end by the signal ($(tr '\n' '|' 2>/dev/null < "$F11E_T/quit.out"))"
+else bad "F11e run: the fake gate's child never started — the SIGQUIT arm is vacuous"; fi
+f11e_sweep
+
 f11e_ask "$F11E_T/gate.sh" 60 "$F11E_T/kill.out"
 if f11e_child_up; then
   kill -KILL "$(pgrep -f "$F11E_T/gate.sh" | head -1)"
@@ -686,11 +696,12 @@ if f11e_child_up; then
 else bad "F11e run: the fake gate's child never started — the killed-gate arm is vacuous"; fi
 f11e_sweep
 
-# The limit is a whole number of seconds. Anything else falls back to the default, and a value past what
-# a JavaScript timer holds is capped: either would otherwise fire at once and stop a gate that was never asked.
-F11E_LIMITS=$( f11e_fns; for v in 30 '' soon 12.5 999999999999; do printf '%s=%s\n' "$v" "$(_f11e_limit "$v" 2>&1)"; done )
-[ "$F11E_LIMITS" = "$(printf '30=30\n=120\nsoon=120\n12.5=120\n999999999999=99999')" ] \
-  && ok "F11e limit: a whole number is kept; anything else is the default 120 s; a huge value is capped at 99999 s" \
+# The limit is a whole number of seconds. Anything else — 0 among it — falls back to the default, and a value
+# past what a JavaScript timer holds is capped: either would otherwise fire at once and stop a gate that was
+# never asked. Leading zeros are read away (third cold review 2026-09-29).
+F11E_LIMITS=$( f11e_fns; for v in 30 '' soon 12.5 999999999999 0 00 010 000001; do printf '%s=%s\n' "$v" "$(_f11e_limit "$v" 2>&1)"; done )
+[ "$F11E_LIMITS" = "$(printf '30=30\n=120\nsoon=120\n12.5=120\n999999999999=99999\n0=120\n00=120\n010=10\n000001=1')" ] \
+  && ok "F11e limit: a whole number is kept (leading zeros read away); anything else, 0 too, is the default 120 s; a huge value is capped at 99999 s" \
   || bad "F11e limit: AIF_F11E_TIMEOUT_S read as $(tr '\n' '|' <<<"$F11E_LIMITS")"
 rm -rf "$F11E_T"
 

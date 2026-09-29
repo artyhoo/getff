@@ -433,13 +433,14 @@ function buildRuleConfigElement(
 
 /**
  * Whether the module binds or exports the name RULE_GLOBS other than by a plain `RULE_GLOBS = …`
- * declaration: an import of it, a top-level destructuring, or an export under that name (a re-export, a
- * namespace export, `export { x as RULE_GLOBS }`). A declaration of getff's beside any of these is a
- * SyntaxError. A RULE_GLOBS bound inside a function is that function's own and does not count (second
- * cold review 2026-09-29).
+ * declaration: an import of it, a top-level destructuring, a top-level function or class of that name, or an
+ * export under that name (a re-export, a namespace export, `export { x as RULE_GLOBS }`). A declaration of
+ * getff's beside any of these is a SyntaxError. A RULE_GLOBS bound inside a function is that function's own
+ * and does not count (second and third cold reviews 2026-09-29).
  */
 function ruleGlobsBoundElsewhere(sf: any, SyntaxKind: any): boolean {
   const named = (n: any): boolean => n?.getText?.() === 'RULE_GLOBS';
+  if (sf.getFunction?.('RULE_GLOBS') || sf.getClass?.('RULE_GLOBS')) return true;
   for (const d of sf.getImportDeclarations?.() ?? []) {
     if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
     if ((d.getNamedImports?.() ?? []).some((s: any) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
@@ -1122,7 +1123,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
       // A declaration of getff's would bind the name a second time, a SyntaxError: the lint probe would
       // fail and roll back every getff edit to the config (cold review 2026-09-29).
       notes.push(
-        'R2 — the config binds RULE_GLOBS from elsewhere (an import or a destructuring), and getff does not redefine it' +
+        'R2 — the config binds RULE_GLOBS from elsewhere (an import, a destructuring, a function or class, or an export under that name), and getff does not redefine it' +
           (opts.gateReadsRuleGlobs
             ? '; scripts/check-rule-globs.sh reads only a `RULE_GLOBS = …` declared in this file, so it fails on this config'
             : ''),

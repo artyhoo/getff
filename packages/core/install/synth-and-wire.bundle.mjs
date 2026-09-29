@@ -10351,6 +10351,7 @@ function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) 
 }
 function ruleGlobsBoundElsewhere(sf, SyntaxKind) {
   const named = (n) => n?.getText?.() === "RULE_GLOBS";
+  if (sf.getFunction?.("RULE_GLOBS") || sf.getClass?.("RULE_GLOBS")) return true;
   for (const d of sf.getImportDeclarations?.() ?? []) {
     if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
     if ((d.getNamedImports?.() ?? []).some((s) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
@@ -10836,7 +10837,7 @@ async function wireOwnConfig(source, opts = {}) {
     const plainDecl = !!sf.getVariableDeclaration("RULE_GLOBS")?.getNameNode?.().isKind?.(SyntaxKind.Identifier);
     if (!plainDecl && ruleGlobsBoundElsewhere(sf, SyntaxKind)) {
       notes.push(
-        "R2 \u2014 the config binds RULE_GLOBS from elsewhere (an import or a destructuring), and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh reads only a `RULE_GLOBS = \u2026` declared in this file, so it fails on this config" : "")
+        "R2 \u2014 the config binds RULE_GLOBS from elsewhere (an import, a destructuring, a function or class, or an export under that name), and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh reads only a `RULE_GLOBS = \u2026` declared in this file, so it fails on this config" : "")
       );
     } else if (sf.getVariableDeclaration("RULE_GLOBS")) {
       const arr = boundaryArr = arrOf();

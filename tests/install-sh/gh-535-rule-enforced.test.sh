@@ -178,6 +178,25 @@ rc=$?
   || bad "Arm2d: the api token was skipped because its first file was already asked about (rc=$rc: $(tr '\n' ';' </tmp/g535pn.$$))"
 rm -f /tmp/g535pn.$$
 
+# ── Arm 2e (third cold review 2026-09-29): a package nested in a shadowed package, with a config of its own, ──
+# answers for its own files only. apps/api/admin sorts before apps/api/src, so its routes file was apps/api's
+# first routes file: asked from admin's config, it read green for apps/api, whose own routes code went unasked.
+PE=$(mktemp -d); mkdir -p "$PE/apps/api/src/routes" "$PE/apps/api/admin/routes"
+cp "$PT/eslint.config.mjs" "$PE/eslint.config.mjs"
+printf "export default [];\n" > "$PE/apps/api/eslint.config.mjs"
+printf "export default [];\n" > "$PE/apps/api/admin/eslint.config.mjs"
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$PE/apps/api/package.json"
+printf 'export const a = 1;\n' > "$PE/apps/api/admin/routes/x.ts"
+printf 'export const y = 1;\n' > "$PE/apps/api/src/routes/y.ts"
+# The fake sees the file from its governing dir: admin's routes/x.ts matches, apps/api's src/routes/y.ts does not.
+( cd "$PE" && AIF_ESLINT_CMD="$PFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_COVERED='routes/*' bash "$GATE" ) >/tmp/g535pe.$$ 2>&1
+rc=$?
+[ "$rc" -ne 0 ] && grep -q 'apps/api: R2 (no-console) is NOT in the resolved ESLint config for apps/api/src/routes/y\.ts' /tmp/g535pe.$$ \
+  && [ "$(grep -c 'apps/api/admin/routes/x\.ts' /tmp/g535pe.$$)" -eq 1 ] \
+  && ok "Arm2e: a nested package's file does not answer for its parent package — apps/api's own routes file is asked about, admin's once" \
+  || bad "Arm2e: the nested package's file stood in for apps/api, or was asked about twice (rc=$rc: $(tr '\n' ';' </tmp/g535pe.$$))"
+rm -f /tmp/g535pe.$$
+
 # ── Arm 3: no boundary files → graceful skip ──
 C=$(mktemp -d); write_root_cfg "$C" no-console; mkdir -p "$C/src/lib"; printf 'export const y = 2;\n' > "$C/src/lib/u.ts"
 if ( cd "$C" && AIF_ESLINT_CMD="$FAKE" AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535c.$$ 2>&1 && grep -qi 'nothing for R2 to govern\|nothing to verify' /tmp/g535c.$$; then

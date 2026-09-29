@@ -171,7 +171,7 @@ add172472764efbc546f420561bb4a0beb81673a35e1ee11bb63348f193b5dee  packages/core/
 f1fd99c2e91995164518644569338e0d1726c66eafd10e9d1a111e3e14c03c96  packages/core/audit-self/check-generated-rule-mutation.sh
 4a85b74226ab114acc14adb5df6a22175b15fef92d7448763a6071e6b46f5a76  packages/core/audit-self/check-kickoff-portability.sh
 7bc5d6cb093e8315d1e967f95ddb925128b921944b1b48de6118c456a6580e0c  packages/core/audit-self/check-lintstaged-resolves.sh
-df931620de58a8b9cb07cb709517e5714ae929bd2fe04858b5f39fe4d6244633  packages/core/audit-self/check-rule-enforced.sh
+c5057b2cb39be4bc41281f77bd0f5d07486dd881a38688958c302506d7287f98  packages/core/audit-self/check-rule-enforced.sh
 48e61117067183224aae3249120505762807b0e7db72c610d42dc215ae78b076  packages/core/audit-self/check-rule-globs.sh
 f9bd865af4cc488cfed16193631f19c7102034f65cf7dc7f61a9922dd8ff4cc2  packages/core/audit-self/check-shields-up.sh
 d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  packages/core/audit-self/ci-available-probe.sh
@@ -525,10 +525,10 @@ cef9bb80a941be81171c58ace5610ba487bd6fe5e005b242a7e0820770305ece  packages/core/
 49bddb652d90d370582d213238fee0cda31cb8906b4f3441357154a3eb225023  packages/core/install/rule-bootstrap-cli.test.ts
 6b4b092c4990cb8ddee96a12913e2d2d012a53cbda94cb0365450e32efcb9834  packages/core/install/rule-bootstrap-cli.ts
 3d8622dfd4eb2205ec6a9107922399b366bdf3afbaecd58edb17ed4fdf80969a  packages/core/install/rule-bootstrap-practice.test.ts
-73d5ddabba6a3982c008d4826eb9870f07848aa0b2c5d4c79b9d33f91deb8321  packages/core/install/synth-and-wire.bundle.mjs
+dcc514ea7a4016d41e2cef5482b122ee4440414cd30667a0da66925bfe9f260f  packages/core/install/synth-and-wire.bundle.mjs
 bd8808c1392ea6ecf731d47b3b0853e0fa8fbdb8a1109756fa4679a937848dd5  packages/core/install/synth-and-wire.ts
-5a7a2a29b91ca486275d44589c923a3072a4d7df3f6d76a7fd2067e4fe4c69ee  packages/core/install/wire-eslint-r2.test.ts
-a1c56dd4e9533b704130a1d0f197760352e7c348bfeeed2f1c71d4c3cf7ab4c4  packages/core/install/wire-eslint-r2.ts
+629c469f57b6e2d3f7e34303875e7d5eb1f599bb9c9f316327339d783278028e  packages/core/install/wire-eslint-r2.test.ts
+a8054df97c5f37902e5fded2bb56b426ff2efa5eaf8776d4f6cd094c1cab5e9a  packages/core/install/wire-eslint-r2.ts
 791c1ec745a80a796ae48932f3627fd570453b5611804ba8b113f16db5dff3fe  packages/core/install/wire-live-snippet.test.ts
 f46336e2544321eb331f5727b8a857448ee7d79c6962dc38b5fa18a185cc4162  packages/core/install/wire-synth-rules.test.ts
 17499c872ccd096376f378383bd3bdf84828b0a6b07c464218b376ef9465ee62  packages/core/installer/cli.ts
@@ -1091,7 +1091,7 @@ f52840de2cf7b77f7e6305e0c059a0cb598370524efae48717e4ab0c42d01a9e  setup.d/60-ci.
 6f86fd196747973d819b7c342c7317fe541a851fab869ab40fc8679e84b6d8f3  setup.d/70-deps.sh
 a4f68ad57405139dd736d4eb283a7b19d5869f61a0e7d88169f8fefd9ea25197  setup.d/80-rule-bootstrap.sh
 f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-worktree-scripts.sh
-0db6dd6c415bf2cc6bd7458507a341898879f51fcee2b65977e273984efa46d4  setup.d/99-finalize.sh
+343b45fe709855b7621ddc77b2a915733142b6e108f50ffc3094bf6b4d89fc5a  setup.d/99-finalize.sh
 08f4a03e1786d0d25837e71526b704d9d1653b7b12ab6201bd5d6656c87c58f2  setup.d/LAYERS.md
 516f195e8321a73ad33cddd863e3073ebadb50f561cef7daeb8f537193ddbc48  setup.d/aif-handoff-guided-install.sh
 0bb427ac7f21859acfcfabd9fb47d4665576d551937312a5e5f90c2215f3bf14  setup.d/bridge-guided.sh

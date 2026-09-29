@@ -1368,11 +1368,20 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     const reExportedAs = `export { BOUNDARY_GLOBS as RULE_GLOBS } from './globs.mjs';\n${warn}`;
     const namespace = `export * as RULE_GLOBS from './globs.mjs';\n${warn}`;
     const localAs = `const globs = { boundary: ['src/api/**'] };\nexport { globs as RULE_GLOBS };\n${warn}`;
-    for (const src of [reExported, reExportedAs, namespace, localAs]) {
+    // A function or class of that name at the top level is a binding too (third cold review).
+    const fn = `function RULE_GLOBS() { return {}; }\nvoid RULE_GLOBS;\n${warn}`;
+    const cls = `class RULE_GLOBS {}\nvoid RULE_GLOBS;\n${warn}`;
+    for (const src of [reExported, reExportedAs, namespace, localAs, fn, cls]) {
       const r = await wireOwnConfig(src, ROOT);
       expect(r.modified).not.toMatch(/^(export )?const RULE_GLOBS\b/m);
-      expect((r.notes ?? []).join('\n')).toMatch(/RULE_GLOBS.*from elsewhere/);
+      // The note names every way the name can be bound, not only an import or a destructuring.
+      expect((r.notes ?? []).join('\n')).toMatch(/RULE_GLOBS.*from elsewhere \(an import, a destructuring, a function or class, or an export under that name\)/);
     }
+    // A plain `RULE_GLOBS = …` it also exports is the config's own declaration: getff adds the missing globs to it.
+    const declaredAndExported = warn.replace(`export default [`, `const RULE_GLOBS = { boundary: [] };\nexport { RULE_GLOBS };\n\nexport default [`);
+    const own = await wireOwnConfig(declaredAndExported, ROOT);
+    expect(gateBoundary(own.modified)).toEqual(BOUNDARY);
+    expect((own.notes ?? []).join('\n')).not.toMatch(/from elsewhere/);
     // A parameter or a destructuring inside a function binds its own RULE_GLOBS, not the module's.
     const inFunction = warn.replace(`export default [`, `const pick = ({ RULE_GLOBS }) => RULE_GLOBS;\nvoid pick;\n\nexport default [`);
     const r = await wireOwnConfig(inFunction, ROOT);
