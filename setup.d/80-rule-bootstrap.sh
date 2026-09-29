@@ -12,7 +12,8 @@
 # placement fork the spike parked per kickoff §6; resolved to Option 1 at harvest time).
 #
 # Gated on FULL ("--full" carrier, install.sh:95+128) so the non-full / snapshot path no-ops
-# → byte-identical guarantee preserved. $0-in-CI (principle 17): the consume path is a pure
+# → byte-identical guarantee preserved (the read-only research lines for the record, below, run on
+# every pass but only when a research file exists, which no snapshot fixture has). $0-in-CI (principle 17): the consume path is a pure
 # file-read (the live MCP research already happened in the human session); the CI self-install
 # path never sets FULL. Degrades on absence (no node / missing CLI / no research files) and
 # never aborts install (rc=0); a generator that runs and fails is reported, not swallowed.
@@ -23,19 +24,57 @@
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone; install-time
 #   orchestration in consumer context after --full dep-install.
 
-# Gate: rule-bootstrapping only runs on the --full / yes pass.
+_rb_cli="$PKG_ROOT/packages/core/install/rule-bootstrap-cli.bundle.mjs"
+
+# P5 B: the research lines the rule table (scripts/prove-rules.mjs) reads, for the project-checks record
+# (99-finalize.sh adds RESEARCH_EXTRA to it; no record file of its own):
+#   research-dropped: <id> — <the plan gate's reason>   research-only: <id>[ — <reason>]
+#   research-rejected: <reason>   (the gate refused the whole plan)
+# They come from the generator's read-only --check-plan (no ESLint needed, nothing written), on every pass
+# that finds a research file, so a pass without --full rewrites the record with them too.
+# $1 = plan, $2 = selection ('' = none: every kept entry is research-only), $3 = a reason for those.
+RESEARCH_EXTRA=()
+_rb_record_research() {
+  local out rc=0 err line
+  { [ -f "$_rb_cli" ] && command -v node >/dev/null 2>&1; } || return 0
+  err=$(mktemp)
+  out=$( cd "$PROJECT_ROOT" && node "$_rb_cli" --consumer-root "$PROJECT_ROOT" --check-plan "$1" ${2:+--from-selection "$2"} 2>"$err" ) || rc=$?
+  if [ "$rc" -eq 3 ]; then
+    line=$(sed -n 's/.*research plan rejected — //p' "$err" | head -n 1)
+    RESEARCH_EXTRA+=("research-rejected: ${line:-reason not printed}")
+  elif [ "$rc" -eq 0 ]; then
+    while IFS= read -r line; do
+      [ -z "$line" ] || RESEARCH_EXTRA+=("$line")
+    done < <(printf '%s' "$out" | node -e '
+      let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+        let j; try { j = JSON.parse(s); } catch { return; }
+        const why = process.argv[1];
+        for (const d of j.dropped || []) console.log(`research-dropped: ${d.id} — ${d.reason}`);
+        for (const id of j.researchOnly || []) console.log(`research-only: ${id}${why ? ` — ${why}` : ""}`);
+      });' "${3:-}")
+  fi
+  rm -f "$err"
+}
+
 # P2 G1: stack «generic» (no stack getff knows) gets the stack-free part only; this layer is
-# npm-bound, so it is skipped and named in the NOT wired summary.
+# npm-bound, so it is skipped and named in the NOT wired summary. P5 A5: its research is still
+# listed — every entry research-only with the reason, never silenced.
 if [ "${STACK:-}" = "generic" ]; then
   note_not_wired "generated rules — not run: the rule generator writes ESLint rules, and stack «generic» has no ESLint getff placed"
+  _rb_g="$PROJECT_ROOT/.ai-factory/rules-research/generic.research.json"
+  [ ! -f "$_rb_g" ] || _rb_record_research "$_rb_g" "" "stack generic: no rule generator lane for this project's toolchain"
   return 0 2>/dev/null || true
 fi
+_rb_r="$PROJECT_ROOT/.ai-factory/rules-research/${STACK:-ts-server}"
+if [ -f "$_rb_r.research.json" ]; then
+  if [ -f "$_rb_r.selection.json" ]; then _rb_record_research "$_rb_r.research.json" "$_rb_r.selection.json" ""
+  else _rb_record_research "$_rb_r.research.json" "" "no selection file: nothing was chosen for generation"; fi
+fi
 
+# Gate: rule-bootstrapping only runs on the --full / yes pass.
 if [ -z "${FULL:-}" ]; then
   return 0 2>/dev/null || true
 fi
-
-_rb_cli="$PKG_ROOT/packages/core/install/rule-bootstrap-cli.bundle.mjs"
 
 if [ ! -f "$_rb_cli" ]; then
   return 0 2>/dev/null || true   # payload absent — degrade silently

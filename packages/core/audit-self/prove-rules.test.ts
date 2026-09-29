@@ -176,6 +176,57 @@ function place(dir: string, linter: 'oxlint' | 'eslint', stack = 'react-spa') {
   return { out: r.stdout + r.stderr, rc: r.status };
 }
 
+/** The rule table's rows, by column name (the header line itself is left out). */
+type Row = { rule: string; principle: string; home: string; status: string; reason: string; proof: string; reached: string };
+function rows(out: string): Row[] {
+  return out
+    .split('\n')
+    .filter((l) => l.startsWith('| ') && !l.startsWith('| rule |'))
+    .map((l) => {
+      const [rule, principle, home, status, reason, proof, reached] = l.slice(2, -2).split(' | ');
+      return { rule, principle, home, status, reason, proof, reached };
+    });
+}
+const rowOf = (out: string, rule: string) => rows(out).find((r) => r.rule === rule);
+const table = (dir: string) => spawnSync('node', ['scripts/prove-rules.mjs'], { cwd: dir, encoding: 'utf8' });
+const PROVED = /^bad→exit [1-9]\d*, its own diagnostic · good→exit 0, clean$/;
+
+/** The project-checks record 99-finalize.sh writes, with the lines the placement and research passes add. */
+function record(dir: string, o: { stack?: string; linter?: string; extra?: string[]; armed?: string[]; notArmed?: string[] } = {}) {
+  write(dir, '.ai-factory/tool-decisions.md', [
+    '# Tool decisions',
+    '',
+    '<!-- aif:project-checks:begin -->',
+    '### How this project checks itself (recorded by install.sh)',
+    `stack: ${o.stack ?? 'react-spa'}`,
+    `linter: ${o.linter ?? 'oxlint'}`,
+    'formatter: none',
+    ...(o.extra ?? []),
+    'armed:',
+    ...(o.armed ?? ['npm run lint']).map((c) => `- ${c}`),
+    'not-armed:',
+    ...(o.notArmed ?? []).map((c) => `- ${c}`),
+    '<!-- aif:project-checks:end -->',
+    '',
+  ].join('\n'));
+}
+/** The channel the shipped templates give the lint: husky's pre-commit runs lint-staged, which runs it. */
+function preCommit(dir: string) {
+  write(dir, '.husky/pre-commit', 'npx lint-staged\n');
+  write(dir, '.lintstagedrc.json', JSON.stringify({ '*.{ts,tsx}': ["bash scripts/run-armed.sh --if-armed 'npm run lint' oxlint"] }) + '\n');
+}
+const entry = (id: string, principle?: string) => ({
+  id,
+  summary: 'a practice',
+  bestPractices: [],
+  antiPatterns: [],
+  provenance: [],
+  extras: principle ? { principle } : {},
+});
+function baseCore(dir: string, edit: (text: string) => string = (t) => t) {
+  write(dir, '.claude/skills/getff/references/base-core.md', edit(readFileSync(join(REPO, 'skills/getff/references/base-core.md'), 'utf8')));
+}
+
 const cfgOf = (dir: string) => JSON.parse(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')) as Json & { overrides?: Override[] };
 const owned = (c: { overrides?: Override[] }) => (c.overrides ?? []).filter((o) => o.files.includes(OWNED));
 const exempt = (c: { overrides?: Override[] }) => (c.overrides ?? []).filter((o) => o.files.includes(EXEMPT));
@@ -217,6 +268,8 @@ describe('placement on an oxlint project whose lint is green (T-C1)', () => {
     const { out } = place(dir, 'oxlint');
     expect(readFileSync(join(dir, '.oxlintrc.json'), 'utf8')).toBe(before);
     expect(out).toMatch(/NW:getff's lint rules in \.oxlintrc\.json — not switched on: your lint exits 1 before getff switches any rule on/);
+    // The record carries it too, so the rule table names the reason on every rule's row.
+    expect(out).toContain('EX:rule-not-placed: * — not switched on: your lint exits 1 before getff switches any rule on\n');
     expect(out).toContain('LINT_OK=\n');
   });
 });
@@ -265,7 +318,7 @@ describe('the batch proof through the project command (T-C4)', () => {
     place(dir, 'oxlint');
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--prove'], { cwd: dir, encoding: 'utf8' });
     for (const id of ['rules-as-tests/no-unsafe-zod-parse', 'rules-as-tests/require-error-boundary', 'no-throw-literal', 'no-empty', 'getff:G1', 'getff:G2']) {
-      expect(r.stdout).toMatch(new RegExp(`${id.replace(/[/.]/g, '\\$&')} — proved: bad → its own diagnostic · good → no diagnostic`));
+      expect(rowOf(r.stdout, id)?.proof, `${id}\n${r.stdout}`).toMatch(PROVED);
     }
     expect(r.stdout).toMatch(/bad batch → exit [1-9]\d* · good batch → exit 0 \(npm run lint -- -f json /);
     expect(r.status).toBe(0);
@@ -279,7 +332,7 @@ describe('the batch proof through the project command (T-C4)', () => {
     for (const o of owned(c)) if ('no-empty' in o.rules) o.rules['no-empty'] = 'off';
     writeFileSync(join(dir, '.oxlintrc.json'), JSON.stringify(c, null, 2) + '\n');
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--prove'], { cwd: dir, encoding: 'utf8' });
-    expect(r.stdout).not.toMatch(/no-empty — proved/);
+    expect(rowOf(r.stdout, 'no-empty')).toMatchObject({ status: 'not_wired', reason: 'switched off in the config', proof: '—' });
     expect(r.status).not.toBe(0);
   });
 
@@ -291,7 +344,10 @@ describe('the batch proof through the project command (T-C4)', () => {
     top[CARRIER] = ['error', { selector: 'DebuggerStatement', message: '[getff:G1] never in the sample' }];
     writeFileSync(join(dir, '.oxlintrc.json'), JSON.stringify(c, null, 2) + '\n');
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--prove'], { cwd: dir, encoding: 'utf8' });
-    expect(r.stdout).toMatch(/getff:G1 — not_wired · no diagnostic on the bad example/);
+    const g1 = rowOf(r.stdout, 'getff:G1');
+    expect(g1?.status).toBe('not_wired');
+    expect(g1?.reason).toMatch(/^no diagnostic on the bad example/);
+    expect(g1?.proof).toMatch(/^bad→exit [1-9]\d*, no diagnostic of this rule · good→exit 0$/);
     expect(r.status).not.toBe(0);
   });
 });
@@ -384,9 +440,12 @@ describe('proof samples never reach a commit (T-C8)', () => {
   it('a chain lint script is proved through the linter binary and says so — never proven by the script (paired negative)', () => {
     const dir = oxProject({ 'src/App.tsx': GOOD_APP }, { lint: 'oxlint && echo done' });
     place(dir, 'oxlint');
+    record(dir);
+    preCommit(dir);
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--prove'], { cwd: dir, encoding: 'utf8' });
-    expect(r.stdout).toMatch(/no-throw-literal — partial · proved through the linter binary, the lint script is a chain: oxlint && echo done/);
-    expect(r.stdout).not.toMatch(/no-throw-literal — proved: /);
+    const row = rowOf(r.stdout, 'no-throw-literal');
+    expect(row?.status).toBe('partial');
+    expect(row?.reason).toContain('proved through the linter binary, the lint script is a chain: oxlint && echo done');
   });
 });
 
@@ -444,5 +503,152 @@ describe("ESLint, the project's own config (T-C5)", () => {
     const { out } = place(dir, 'eslint');
     expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toBe(before);
     expect(out).toMatch(/NW:getff's lint rules in eslint\.config\.mjs — existing violations not exempted: your lint exits 1 on its own rules \(no-debugger\)/);
+    expect(out).toContain('EX:rule-not-placed: * — existing violations not exempted: your lint exits 1 on its own rules (no-debugger)');
+  });
+});
+
+// ── T-B1 ────────────────────────────────────────────────────────────────────────────────────────────
+describe('one rule table: every rule, its principle, home, status, proof and channel (T-B1)', () => {
+  const PLAN = {
+    framework: 'react',
+    version: null,
+    patterns: [
+      entry('react19-no-reactdom-render', 'H7'),
+      entry('react19-no-function-defaultprops'),
+      entry('vite-env-via-import-meta', 'I4'),
+      entry('react-keys-stable'),
+    ],
+    missing: [],
+    drift: null,
+  };
+  const RESEARCH_LINES = [
+    'research-dropped: vite-env-via-import-meta — FF2005: unknown allowlistKey: vite',
+    'research-only: react-keys-stable',
+  ];
+  function tableProject(o: { extra?: string[]; armed?: string[]; notArmed?: string[]; channels?: boolean } = {}) {
+    const dir = oxProject({
+      'src/App.tsx': BAD_APP,
+      'src/old.ts': "export function f() {\n  throw 'old';\n}\n",
+      'src/api/client.ts': 'export function read(s: { safeParse(x: unknown): unknown }, x: unknown) {\n  return s.safeParse(x);\n}\n',
+    });
+    place(dir, 'oxlint');
+    baseCore(dir);
+    write(dir, '.ai-factory/rules-research/react-spa.research.json', JSON.stringify(PLAN, null, 2) + '\n');
+    record(dir, { extra: o.extra ?? RESEARCH_LINES, armed: o.armed, notArmed: o.notArmed });
+    if (o.channels !== false) preCommit(dir);
+    return dir;
+  }
+
+  it('prints one row per rule with the principle filled, and lists every exempted violation by file', () => {
+    const r = table(tableProject());
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(rowOf(r.stdout, 'no-empty')).toEqual({
+      rule: 'no-empty',
+      principle: 'H8',
+      home: 'oxlint built-in no-empty',
+      status: 'fires',
+      reason: '—',
+      proof: expect.stringMatching(PROVED),
+      reached: 'pre-commit (lint-staged)',
+    });
+    expect(rowOf(r.stdout, 'rules-as-tests/no-unsafe-zod-parse')).toMatchObject({ principle: 'I1', status: 'fires' });
+    expect(rowOf(r.stdout, 'getff:G1')).toMatchObject({
+      principle: 'H7',
+      home: 'oxlint jsPlugin rules-as-tests/restricted-syntax-audit-exempt [getff:G1]',
+      status: 'fires',
+    });
+    const eb = rowOf(r.stdout, 'rules-as-tests/require-error-boundary')!;
+    expect(eb).toMatchObject({ principle: 'H8', status: 'partial', proof: expect.stringMatching(PROVED) });
+    expect(eb.reason).toBe("exempt 1 of 1 files the rule's globs match");
+    expect(rowOf(r.stdout, 'no-throw-literal')?.reason).toMatch(/^exempt 1 of [1-9]\d* files the rule's globs match$/);
+    const opt = rowOf(r.stdout, 'rules-as-tests/no-direct-time-randomness')!;
+    expect(opt).toMatchObject({ principle: 'H5', home: '—', status: 'not_wired', proof: '—', reached: '—' });
+    expect(opt.reason).toMatch(/^opt-in: /);
+    expect(rowOf(r.stdout, 'rules-as-tests/require-otel-span')).toMatchObject({ principle: 'H9', status: 'not_wired' });
+    expect(rowOf(r.stdout, 'vite-env-via-import-meta')).toMatchObject({
+      principle: 'I4',
+      status: 'not_wired',
+      reason: 'research entry dropped: FF2005: unknown allowlistKey: vite',
+    });
+    expect(rowOf(r.stdout, 'react-keys-stable')).toMatchObject({ principle: 'stack docs', status: 'not_wired' });
+    expect(rowOf(r.stdout, 'react-keys-stable')?.reason).toMatch(/^research only: /);
+    // H7 is served by G1; I4's only research entry was dropped, so no rule serves it yet.
+    const pending = rows(r.stdout).filter((x) => x.rule === '(none yet)');
+    expect(pending).toEqual([{ rule: '(none yet)', principle: 'I4', home: '—', status: 'not_wired', reason: 'generated-pending: no generated rule serves I4 in this project', proof: '—', reached: '—' }]);
+    expect(r.stdout).toContain('existing violation: rules-as-tests/require-error-boundary in src/App.tsx');
+    expect(r.stdout).toContain('existing violation: no-throw-literal in src/old.ts');
+    const ids = rows(r.stdout).map((x) => x.rule);
+    expect(new Set(ids).size).toBe(ids.length); // one row per rule
+  });
+
+  it('a generated rule whose research entry names no principle reads «stack docs», never blank (paired negative)', () => {
+    const r = table(tableProject());
+    expect(rowOf(r.stdout, 'getff:G2')?.principle).toBe('stack docs');
+    for (const x of rows(r.stdout)) expect(x.principle, x.rule).not.toBe('');
+  });
+
+  it('a base-core row with a status outside fires | partial | not_wired stops the table (paired negative)', () => {
+    const dir = tableProject();
+    baseCore(dir, (t) => t.replace(/^(\| H8 \|[^|]*\|[^|]*\| )`partial`/m, '$1`maybe`'));
+    const r = table(dir);
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('base-core.md row H8: status «maybe» is not one of fires | partial | not_wired');
+    expect(rows(r.stdout)).toEqual([]);
+  });
+
+  it('a generated rule whose entry loses its principle link leaves that principle pending (paired negative)', () => {
+    const dir = tableProject();
+    const plan = { ...PLAN, patterns: PLAN.patterns.map((e) => (e.id === 'react19-no-reactdom-render' ? entry(e.id) : e)) };
+    write(dir, '.ai-factory/rules-research/react-spa.research.json', JSON.stringify(plan, null, 2) + '\n');
+    const r = table(dir);
+    expect(rows(r.stdout).filter((x) => x.rule === '(none yet)').map((x) => x.principle)).toEqual(['H7', 'I4']);
+    expect(rowOf(r.stdout, 'getff:G1')?.principle).toBe('stack docs');
+  });
+
+  it('armed only in this clone: partial, and the channel says so (paired negative)', () => {
+    const dir = tableProject({ armed: [], notArmed: ['npm run lint # your own script: the install does not run it'] });
+    writeFileSync(join(git(dir, 'rev-parse', '--absolute-git-dir').stdout.trim(), 'getff-armed.local'), 'npm run lint\n');
+    const row = rowOf(table(dir).stdout, 'no-empty')!;
+    expect(row.status).toBe('partial');
+    expect(row.reason).toBe('npm run lint is armed in this clone only (.git/getff-armed.local) until the next commit folds it into the record');
+    expect(row.reached).toBe('pre-commit (lint-staged) — this clone only until the next commit');
+  });
+
+  it('not armed, or no channel runs the lint: partial, never fires (paired negatives)', () => {
+    const notArmed = rowOf(table(tableProject({ armed: [], notArmed: ['npm run lint # exits 1'] })).stdout, 'no-empty')!;
+    expect(notArmed).toMatchObject({ status: 'partial', reason: 'npm run lint is not armed in the project-checks record' });
+    const noChannel = rowOf(table(tableProject({ channels: false })).stdout, 'no-empty')!;
+    expect(noChannel).toMatchObject({ status: 'partial', reason: 'no pre-commit, pre-push or CI step runs npm run lint', reached: '—' });
+  });
+});
+
+// ── T-A5 ────────────────────────────────────────────────────────────────────────────────────────────
+describe('stack generic: its research is listed, never silenced (T-A5)', () => {
+  function genericProject(withResearch: boolean) {
+    const dir = mkdtempSync(join(tmpdir(), 'prove-gen-'));
+    write(dir, 'package.json', JSON.stringify({ name: 'fx', private: true }, null, 2) + '\n');
+    shipScripts(dir);
+    baseCore(dir);
+    const reason = "stack generic: no rule generator lane for this project's toolchain";
+    record(dir, { stack: 'generic', linter: 'none', armed: [], extra: withResearch ? [`research-only: go-errors-wrapped — ${reason}`] : [] });
+    if (withResearch) write(dir, '.ai-factory/rules-research/generic.research.json', JSON.stringify({ framework: null, version: null, patterns: [entry('go-errors-wrapped', 'H8')], missing: [], drift: null }) + '\n');
+    git(dir, 'init', '-q');
+    return dir;
+  }
+
+  it('each research entry is a not_wired row with the generic reason', () => {
+    const r = table(genericProject(true));
+    expect(r.status, r.stderr).toBe(0);
+    expect(rowOf(r.stdout, 'go-errors-wrapped')).toMatchObject({
+      principle: 'H8',
+      status: 'not_wired',
+      reason: "research only: stack generic: no rule generator lane for this project's toolchain",
+    });
+  });
+
+  it('no research file → one «not done» row (paired negative)', () => {
+    const r = table(genericProject(false));
+    const research = rows(r.stdout).filter((x) => x.rule === 'research');
+    expect(research).toEqual([{ rule: 'research', principle: '—', home: '—', status: 'not_wired', reason: 'not done: no .ai-factory/rules-research/generic.research.json', proof: '—', reached: '—' }]);
   });
 });

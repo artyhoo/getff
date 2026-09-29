@@ -117,3 +117,45 @@ describe('the oxlint rule set mirrors each stack template (T-C3)', () => {
     expect(parityProblems(fromTemplate, STACK_RULES['react-spa']).length).toBeGreaterThan(0);
   });
 });
+
+// The table's principle for a built-in comes from BUILTIN_PRINCIPLE; base-core.md's «The lint plugin» names
+// the same halves in prose («H8 `no-throw-literal` and `no-empty`»). Both must say the same.
+function prosePrinciples(text: string): Record<string, string> {
+  const at = text.indexOf('The other halves use rules your linter already has:');
+  const out: Record<string, string> = {};
+  if (at < 0) return out;
+  let current = '';
+  for (const m of text.slice(at).matchAll(/\b[A-Z]\d+\b|`[^`]+`|\.(?=\s|$)/g)) {
+    if (m[0] === '.') break;
+    if (m[0].startsWith('`')) {
+      if (current) out[m[0].slice(1, -1)] = current;
+    } else current = m[0];
+  }
+  return out;
+}
+function builtinProblems(text: string, builtins: string[], mirror: Record<string, string>): string[] {
+  const prose = prosePrinciples(text);
+  return builtins.filter((b) => prose[b] !== mirror[b]).map((b) => `${b}: base-core.md says ${prose[b] ?? 'nothing'}, the table says ${mirror[b] ?? 'nothing'}`);
+}
+
+describe("the built-ins' principle matches base-core.md (T-B1)", () => {
+  const BASE = readFileSync(join(REPO, 'skills/getff/references/base-core.md'), 'utf8');
+  let mod: { BUILTINS: string[]; BUILTIN_PRINCIPLE: Record<string, string> };
+  beforeAll(async () => {
+    mod = (await import(pathToFileURL(join(HERE, 'prove-rules.mjs')).href)) as typeof mod;
+  });
+
+  it('every built-in getff places has the principle base-core.md names for it', () => {
+    expect(mod.BUILTINS.length).toBeGreaterThan(0);
+    expect(builtinProblems(BASE, mod.BUILTINS, mod.BUILTIN_PRINCIPLE)).toEqual([]);
+  });
+
+  it('base-core.md moving a built-in to another principle is RED (paired negative)', () => {
+    const moved = BASE.replace('H8 `no-throw-literal`', 'H9 `no-throw-literal`');
+    expect(moved).not.toBe(BASE);
+    expect(builtinProblems(moved, mod.BUILTINS, mod.BUILTIN_PRINCIPLE)).toEqual([
+      'no-throw-literal: base-core.md says H9, the table says H8',
+      'no-empty: base-core.md says H9, the table says H8',
+    ]);
+  });
+});

@@ -2756,7 +2756,8 @@ oxlint_register_jsplugin() {
 #           Red only from getff's rules → a marked per-file getff block in that config; red from a rule of the
 #           project's → nothing exempted, named NOT wired.
 # Results: PLACE_LINT_OK=1 when `npm run lint` exits 0 at the end (the arm pass arms it); PLACE_EXTRA holds the
-# lines for the project-checks record. Never aborts the install.
+# lines for the project-checks record (`rule-not-placed: <rule|*> — <why>`, `lint-baseline:`), which the rule
+# table (prove-rules.mjs) reads. Never aborts the install.
 place_lint_rules() {
   PLACE_LINT_OK=""; PLACE_EXTRA=()
   local prove="$PROJECT_ROOT/scripts/prove-rules.mjs" cfg rel rc top res line
@@ -2788,6 +2789,7 @@ place_lint_rules() {
     if [ "$rc" -ne 0 ]; then
       echo "  ⊝ getff's lint rules not switched on in $rel — your lint exits $rc as it stands"
       note_not_wired "getff's lint rules in $rel — not switched on: your lint exits $rc before getff switches any rule on"
+      PLACE_EXTRA+=("rule-not-placed: * — not switched on: your lint exits $rc before getff switches any rule on")
       return 0
     fi
     top=$( cd "$PROJECT_ROOT" && node "$prove" --wanted-top --stack "${STACK:-}" 2>/dev/null ) || top='{}'
@@ -2802,6 +2804,7 @@ place_lint_rules() {
     [ -n "$line" ] || continue
     if [ "$line" = '*' ]; then
       note_not_wired "getff's lint rules in $rel — $top"
+      PLACE_EXTRA+=("rule-not-placed: * — $top")
     else
       note_not_wired "getff's lint rule $line in $rel — $top"
       PLACE_EXTRA+=("rule-not-placed: $line — $top")

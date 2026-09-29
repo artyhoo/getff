@@ -975,6 +975,8 @@ fi
 # ESLint config (the project's tsconfig is never edited), then ESLint's own bulk suppressions
 # (eslint --suppress-all, ESLint >= 9.24) record the existing findings so only new ones block.
 _pc_armed=(); _pc_not=(); _pc_extra=()
+# P5 B: 80-rule-bootstrap.sh's research lines (dropped / research-only / rejected) for the rule table.
+_pc_extra+=(${RESEARCH_EXTRA[@]+"${RESEARCH_EXTRA[@]}"})
 _pc_reason() {  # <name> <rc> <log> → why a red check is not armed
   local n
   case "$1" in
@@ -1061,6 +1063,7 @@ elif declare -F place_lint_rules >/dev/null; then
     _pc_extra+=(${PLACE_EXTRA[@]+"${PLACE_EXTRA[@]}"})
   elif [ "${LINTER_SLOT:-}" = oxlint ]; then
     note_not_wired "getff's lint rules in your oxlint config — not switched on: dependencies are not installed, so your lint could not run first"
+    _pc_extra+=("rule-not-placed: * — not switched on: dependencies are not installed, so your lint could not run first")
   fi
 fi
 
