@@ -226,7 +226,7 @@ _py_sgconfig_merge() {
   # The line immediately after `ruleDirs:` must be a block-sequence item — confirms a block list.
   local next
   next=$(grep -A1 '^ruleDirs:' "$dst" | sed -n '2p')
-  printf '%s' "$next" | grep -qE '^[[:space:]]*-[[:space:]]' || return 1
+  grep -qE '^[[:space:]]*-[[:space:]]' <<<"$next" || return 1
   local indent="${next%%-*}"
 
   # Idempotency: our entry already listed → no-op (a duplicate entry would trip exit 8, Probe 7).
@@ -236,7 +236,7 @@ _py_sgconfig_merge() {
   local _found=0 _cl _cl_stripped
   while IFS= read -r _cl || [ -n "$_cl" ]; do
     _cl_stripped="${_cl%%#*}"
-    if printf '%s' "$_cl_stripped" | grep -qE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules[[:space:]]*$'; then
+    if grep -qE '^[[:space:]]*-[[:space:]]+\.getff/astgrep-rules[[:space:]]*$' <<<"$_cl_stripped"; then
       _found=1
       break
     fi
@@ -257,7 +257,7 @@ _py_sgconfig_merge() {
   local _done=0 _l
   while IFS= read -r _l || [ -n "$_l" ]; do
     printf '%s\n' "$_l"
-    if [ "$_done" -eq 0 ] && printf '%s' "$_l" | grep -q '^ruleDirs:'; then
+    if [ "$_done" -eq 0 ] && grep -q '^ruleDirs:' <<<"$_l"; then
       printf '%s%s\n' "$indent" "$entry"
       _done=1
     fi
@@ -503,11 +503,11 @@ _py_firing_self_check() {
   # @ast-grep/cli version the delivered CI workflow installs). uvx is a fetcher: offline, or with the
   # index unreachable, it exits non-zero on the bad AND the clean file, which the checks below would
   # read as «fired RED» plus «OVER-BROAD». The same identity probe settles whether it fetched.
-  local _sg="" _sg_why=""
+  local _sg="" _sg_why="" _sg_ver=""
   if   command -v ast-grep >/dev/null 2>&1; then _sg="ast-grep"
-  elif command -v sg >/dev/null 2>&1 && sg --version 2>/dev/null | grep -qi 'ast-grep'; then _sg="sg"
+  elif command -v sg >/dev/null 2>&1 && _sg_ver=$(sg --version 2>/dev/null) && grep -qi 'ast-grep' <<<"$_sg_ver"; then _sg="sg"
   elif command -v uvx >/dev/null 2>&1; then
-    if uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null | grep -qi 'ast-grep'; then
+    if _sg_ver=$(uvx --from ast-grep-cli==0.44.1 ast-grep --version 2>/dev/null) && grep -qi 'ast-grep' <<<"$_sg_ver"; then
       _sg="uvx --from ast-grep-cli==0.44.1 ast-grep"
     else
       _sg_why="uvx could not fetch ast-grep-cli==0.44.1 (offline, or the package index is unreachable)"
@@ -561,14 +561,14 @@ _py_firing_self_check() {
   # cargo finding-1 class): in the REFUSE cell the consumer's ruff.toml lacks our TID bans, so a
   # consumer-first fallback validates the WRONG config → false SILENT. Mirrors
   # _cargo_delivered_clippy_path (getff-owned before consumer-owned, 46-cargo.sh).
-  local _ruff_mode="" _ruffcfg="" _ruff_why=""
+  local _ruff_mode="" _ruffcfg="" _ruff_why="" _ruff_ver=""
   [ -f "$PROJECT_ROOT/.getff/ruff-bans.toml" ] && _ruffcfg="$PROJECT_ROOT/.getff/ruff-bans.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/getff-ruff.toml" ] && _ruffcfg="$PROJECT_ROOT/getff-ruff.toml"
   [ -z "$_ruffcfg" ] && [ -f "$PROJECT_ROOT/ruff.toml" ]       && _ruffcfg="$PROJECT_ROOT/ruff.toml"
   if   command -v ruff >/dev/null 2>&1; then _ruff_mode="ruff"
   elif command -v uvx  >/dev/null 2>&1; then
     # Same fetch probe as the ast-grep lane: a uvx that cannot fetch is a gap, not a verdict.
-    if uvx ruff@0.15.21 --version 2>/dev/null | grep -qi 'ruff'; then _ruff_mode="uvx"
+    if _ruff_ver=$(uvx ruff@0.15.21 --version 2>/dev/null) && grep -qi 'ruff' <<<"$_ruff_ver"; then _ruff_mode="uvx"
     else _ruff_why="uvx could not fetch ruff 0.15.21 (offline, or the package index is unreachable)"; fi
   fi
   if [ -n "$_ruff_mode" ] && [ -n "$_ruffcfg" ]; then
@@ -1345,12 +1345,6 @@ _py_deliver_agent_surface() {
     else
       register_cc_hook "$_py_settings" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
     fi
-    # Spec 2026-09-28 D12: the hook's prelude sources lib/hook-live.sh — delivered beside it, as
-    # setup.d/10-skills.sh §1i′ does.
-    if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
-      mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
-      _py_copy_or_refresh "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
-    fi
   fi
 
   # ── .mcp.json (context7 only) ────────────────────────────────────────────────
@@ -1450,8 +1444,8 @@ _py_deliver_agent_surface() {
           && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ]; then continue; fi
         mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc"
-        # A2-4: refresh-aware — parity with do_refresh's skill-context arm (install.sh:1420).
-        _py_copy_or_refresh "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
+        # A2-4: refresh-aware — the co-owned verb of 20-agents.sh + do_refresh (fenced block only).
+        install_skill_context "$PKG_ROOT/$_py_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_py_sc/SKILL.md" ;;
     esac
   done
 

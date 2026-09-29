@@ -80,7 +80,7 @@ _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
 [ "$(cat "$T/eslint.config.cjs")" = "module.exports = [];" ] && ok "(C) the consumer's eslint.config.cjs is byte-unchanged" || bad "(C) the consumer's eslint.config.cjs changed"
 _nw=$(echo "$_out" | sed -n '/NOT wired/,$p')
 for want in eslint.config.cjs 'package.json#lint-staged' .prettierrc; do
-  echo "$_nw" | grep -qF -- "$want" && ok "(C) the not-wired summary names $want" || bad "(C) the not-wired summary does not name $want"
+  grep -qF -- "$want" <<<"$_nw" && ok "(C) the not-wired summary names $want" || bad "(C) the not-wired summary does not name $want"
 done
 rm -rf "$T"
 
@@ -100,7 +100,7 @@ printf '{ "name": "t", "version": "0.0.0" }\n' > "$T/package.json"
 printf '{ "rules": { "no-console": "error" } }\n' > "$T/.eslintrc.json"
 _out=$( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server 2>&1 )
 [ -f "$T/eslint.config.mjs" ] && ok "(E) eslint.config.mjs placed next to a legacy .eslintrc.json" || bad "(E) eslint.config.mjs not placed — ESLint 9 would have no config"
-echo "$_out" | sed -n '/NOT wired/,$p' | grep -q '\.eslintrc\.json.*ESLint 9' \
+grep -q '\.eslintrc\.json.*ESLint 9' <<<"$(echo "$_out" | sed -n '/NOT wired/,$p')" \
   && ok "(E) the summary says .eslintrc.json is not read by ESLint 9" || bad "(E) the summary does not mention the ignored .eslintrc.json"
 rm -rf "$T"
 

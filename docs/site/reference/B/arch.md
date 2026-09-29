@@ -117,7 +117,7 @@ how to get it.
 - The skill is in `GETFF_SKILLS_ENV`, line 64 of `setup.d/lib.sh`. Lines 164 to 168 of
   `setup.d/10-skills.sh` copy that list at `env` and `factory`, or with `--with-aif-suite`. Lines 79 to 82 there
   say why it sits at `env`.
-- The superpowers plugin is an optional companion: line 17 of `setup.d/companions.manifest`.
+- The superpowers plugin is an optional companion: the `superpowers` row of `setup.d/companions.manifest`.
 - The question-pacing plugin is named on line 50 of `.claude/skills/arch/SKILL.md`,
   together with the copy that stands in for it. The copy is
   `.claude/skills/arch/references/grilling.md`; its provenance table is lines 31 to 38,

@@ -214,11 +214,11 @@ fi
 # 24-plugin-manifest-integrity.test.ts (d)/(e)/(g)) and as the vendor hook ↔ .claude/hooks twin.
 #
 # WHY HERE and not a principle test: this check needs the SAME pinned Prettier the vendor copy is
-# formatted with. The principles CI job installs packages/core only (audit-self.yml:281-282) and
+# formatted with. The principles CI job installs packages/core only (audit-self.yml:291-292) and
 # the root tree carries a different Prettier version, so a principle test would either add a
 # dependency or measure with the wrong formatter and go false-red. This script already pins
 # prettier@3.8.3, already enumerates the vendor drop, and already runs at pre-commit
-# (.husky/pre-commit:183) — the earliest channel that can see the pair. Prior art for the
+# (.husky/pre-commit:204, its `format-shipped.sh --check` call) — the earliest channel that can see the pair. Prior art for the
 # regenerate-into-temp-and-compare shape: prior-art-evaluations.md#270.
 #
 # DETECT-ONLY, in BOTH modes, deliberately. Auto-copying src→vendor on --write would silently

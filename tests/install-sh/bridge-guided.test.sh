@@ -138,7 +138,7 @@ q47() {  # q47 <state-label> <regex> [PATH] — run with the engine sourced, as 
   # send the consumer-up case down the wiring path instead of the no-hook fact.
   out=$(cd "$QDIR" && ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; [ -n "${3:-}" ] && PATH="$3"; bridge_guided_run; companion_not_wired_summary)
   printf '%s\n' "$out" > "$QLOG"
-  if printf '%s\n' "$out" | grep -E '^ +- runtime-bridge — ' | grep -qE "$2"; then ok "Q4.7 $1: NOT-wired line says why ($2)"
+  if grep -qE "$2" <<<"$(printf '%s\n' "$out" | grep -E '^ +- runtime-bridge — ')"; then ok "Q4.7 $1: NOT-wired line says why ($2)"
   else bad "Q4.7 $1: no runtime-bridge NOT-wired line matching /$2/: $out"; fi
   if asks_by_hand "$QLOG"; then bad "Q4.7 $1: hands back a manual step: $(manual_step_lines "$QLOG" | head -2 | tr '\n' '|')"
   else ok "Q4.7 $1: no manual step"; fi
@@ -230,7 +230,7 @@ P=$(wproj docker)
 AIF_PROJECTS='[{"id":"a","name":"docker","rootPath":"/home/www/docker"},{"id":"b","name":"b","rootPath":"/home/www/b"}]'
 wire "$P"
 [ -z "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" ] && ok "W3: no id written when no rootPath matches (no guess by name)" || bad "W3: an id was guessed: $(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)"
-grep -E '^ +- runtime-bridge — ' "$QLOG" | grep -q "none of the 2 projects.*$P" && ok "W3: the NOT-wired line says no project has this path" || bad "W3: no NOT-wired line naming the unmatched path: $(cat "$QLOG")"
+grep -q "none of the 2 projects.*$P" <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W3: the NOT-wired line says no project has this path" || bad "W3: no NOT-wired line naming the unmatched path: $(cat "$QLOG")"
 nomanual W3
 
 # W4 two projects share the rootPath → NOT wired (ambiguous), nothing written
@@ -238,13 +238,13 @@ P=$(wproj twice)
 AIF_PROJECTS="[{\"id\":\"a\",\"name\":\"a\",\"rootPath\":\"$P\"},{\"id\":\"b\",\"name\":\"b\",\"rootPath\":\"$P\"}]"
 wire "$P"
 [ -z "$(senv "$P" RUNTIME_BRIDGE_AIF_PROJECT_ID)" ] && ok "W4: no id written when two projects match" || bad "W4: an id was picked among two"
-grep -E '^ +- runtime-bridge — ' "$QLOG" | grep -q '2 aif-handoff projects' && ok "W4: the NOT-wired line names the ambiguity" || bad "W4: no ambiguity line: $(cat "$QLOG")"
+grep -q '2 aif-handoff projects' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W4: the NOT-wired line names the ambiguity" || bad "W4: no ambiguity line: $(cat "$QLOG")"
 nomanual W4
 
 # W5 /projects does not answer → NOT wired
 P=$(wproj noproj); AIF_PROJECTS=FAIL
 wire "$P"
-grep -E '^ +- runtime-bridge — ' "$QLOG" | grep -q '/projects' && ok "W5: an unreadable /projects is a NOT-wired line" || bad "W5: $(cat "$QLOG")"
+grep -q '/projects' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W5: an unreadable /projects is a NOT-wired line" || bad "W5: $(cat "$QLOG")"
 nomanual W5
 
 # W6 no dispatch hook in the project (not a factory install) → NOT wired, nothing written
@@ -252,7 +252,7 @@ mkdir -p "$W/nohook"; P="$W/nohook"
 AIF_PROJECTS="[{\"id\":\"p\",\"name\":\"n\",\"rootPath\":\"$P\"}]"
 wire "$P"
 [ ! -f "$P/.claude/settings.json" ] && [ ! -f "$P/.claude/settings.local.json" ] && ok "W6: no settings file written without the dispatch hook" || bad "W6: settings written for a project with no hook"
-grep -E '^ +- runtime-bridge — ' "$QLOG" | grep -q 'profile factory.*with-aif-suite' && ok "W6: the NOT-wired line names both ways the hook ships" || bad "W6: $(cat "$QLOG")"
+grep -q 'profile factory.*with-aif-suite' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W6: the NOT-wired line names both ways the hook ships" || bad "W6: $(cat "$QLOG")"
 nomanual W6
 
 # W7 without jq the same write goes through node
@@ -274,7 +274,7 @@ P=$(wproj badenv); printf '{"env":"str"}\n' > "$P/.claude/settings.local.json"
 AIF_PROJECTS="[{\"id\":\"p-bad\",\"name\":\"n\",\"rootPath\":\"$P\"}]"
 ( PATH="$NOJQ"; ENGINE_LIB_ONLY=1 source "$REPO_ROOT/setup.d/engine.sh"; bridge_wire_project "$P" http://aif.test:3009; companion_not_wired_summary ) > "$QLOG" 2>&1
 [ "$(cat "$P/.claude/settings.local.json")" = '{"env":"str"}' ] && ok "W7d: node leaves a non-object env untouched" || bad "W7d: $(cat "$P/.claude/settings.local.json")"
-grep -E '^ +- runtime-bridge — ' "$QLOG" | grep -q 'could not be written' && ok "W7d: the unwritable env is a NOT-wired line" || bad "W7d: $(cat "$QLOG")"
+grep -q 'could not be written' <<<"$(grep -E '^ +- runtime-bridge — ' "$QLOG")" && ok "W7d: the unwritable env is a NOT-wired line" || bad "W7d: $(cat "$QLOG")"
 
 # W7b aif-handoff stores rootPath as typed: a symlinked spelling of the project matches too
 P=$(wproj real); ln -s "$P" "$W/link"

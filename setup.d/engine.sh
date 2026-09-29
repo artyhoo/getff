@@ -59,7 +59,7 @@ companion_step() {
   # Scope label for verbose logging (mcp kind only).
   local _scope_label=""
   if [ "$kind" = "mcp" ]; then
-    if echo "$install_cmd" | grep -q -- '--scope user'; then
+    if grep -q -- '--scope user' <<<"$install_cmd"; then
       _scope_label="user-scope (machine-global)"
     else
       _scope_label="project-scope"

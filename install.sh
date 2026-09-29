@@ -1185,7 +1185,7 @@ do_refresh() {
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
   # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:662-664), the presence
   # clause is what keeps an installed tier updated.
-  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:1977-1980).
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2045-2048).
   #
   # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
   # ask-file-schema section is maintainer-only (owner: 'maintainer' in
@@ -1417,7 +1417,7 @@ do_refresh() {
         if [ "$_sc" = "aif-orchestrator-discipline" ] && [ "${PROFILE:-core}" != "factory" ] \
           && [ -z "${WITH_AIF_SUITE:-}" ] \
           && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
-        refresh_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
+        install_skill_context "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;  # co-owned with /aif-evolve: getff's fenced block only (lib.sh)
     esac
   done
 

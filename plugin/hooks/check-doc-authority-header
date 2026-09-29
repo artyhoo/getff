@@ -87,7 +87,7 @@ fi
 CONTENT="$(cat "$ABS_PATH" 2>/dev/null || true)"
 
 # ── Per-file exemption escape hatch (rationale ≥20 chars, single-line HTML comment) ─
-if printf '%s\n' "$CONTENT" | grep -qE '<!--[[:space:]]*doc-authority:[[:space:]]*exempt[[:space:]]+.{20,}-->'; then
+if grep -qE '<!--[[:space:]]*doc-authority:[[:space:]]*exempt[[:space:]]+.{20,}-->' <<<"$CONTENT"; then
   exit 0
 fi
 
@@ -97,7 +97,7 @@ fi
 #    A stray *unbalanced* fence could over-strip vs the TS `stripFencedCodeBlocks` regex, but real
 #    authority headers sit above any code block, so this bound is not reachable in practice.
 STRIPPED="$(printf '%s\n' "$CONTENT" | awk '/^```/{f=!f; next} !f')"
-if printf '%s\n' "$STRIPPED" | grep -qE '^> \*\*Authoritative for:\*\*'; then
+if grep -qE '^> \*\*Authoritative for:\*\*' <<<"$STRIPPED"; then
   exit 0
 fi
 
