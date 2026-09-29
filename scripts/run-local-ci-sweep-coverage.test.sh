@@ -114,6 +114,7 @@ unreachable_allowlist() {
     "tests/consumer-matrix/npm-tarball-cell.sh${TAB}real install.sh --full against a packed tarball: network, minutes, non-hermetic" \
     "tests/consumer-matrix/getff-dist-cell.sh${TAB}npm pack + npm i of the getff tarball into a tmp consumer, then a real getff init -y: network, minutes, non-hermetic" \
     "tests/consumer-matrix/own-config-cell.sh${TAB}real install.sh --full into a tmp consumer that owns its configs, plus both dependency trees and an empty-cache generator run: network, minutes, non-hermetic" \
+    "scripts/ci-path-scope.sh${TAB}path-scope decides from the pull_request merge commit + event name; there is no PR merge ref locally (its logic runs locally via scripts/ci-path-scope.test.sh)" \
     "packages/core/hooks/pre-push.ts${TAB}pr-commit-trailers needs the PR base ref and the real PR commit range; its local channel is the .husky/pre-push hook, not this sweep"
 }
 
