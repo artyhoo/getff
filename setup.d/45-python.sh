@@ -1265,7 +1265,7 @@ $msgs"
 # §2 item 1). The layer files have no activation guards against the python lane, but install.sh
 # EXITS at do_python_lane BEFORE the setup.d layer loop, so they never run on this lane; sourcing
 # them would deliver nothing. The replication is line-for-line from:
-#   - setup.d/05-mcp.sh:17-46       (context7 → .mcp.json, idempotency-guarded)
+#   - setup.d/05-mcp.sh T1          (project MCP servers → .mcp.json: the shared lib.sh writer)
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
