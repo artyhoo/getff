@@ -7,8 +7,13 @@
 #   aif_msg_eot_branch_story branch"), delivered by install.sh + do_refresh. Consumer-safe: no
 #   framework-internal artefact dependency (the only path refs are comment-citations); degrades
 #   to exit 0 when jq or a transcript is absent.
-# @plugin-yield-deps: lang/ lib/residue-dir.sh
+# @plugin-yield-deps: lang/ lib/residue-dir.sh lib/hook-live.sh
 set -euo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live end-of-turn-reminder || true; fi
 
 # Consumer-skip guard (GH #934): the hook parses the transcript with jq. Absent jq → no work
 # possible → exit 0 silently (never error-spam a consumer's every turn). The framework session

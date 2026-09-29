@@ -132,7 +132,7 @@ delivers the project block — an accepted divergence, both arms verified live e
   broadened»).
 - Env-first root, lines 43-45, with the comment naming the plugin-twin breakage it
   avoids: «`$0`-relative breaks when invoked as a plugin twin». Mirrors
-  `inject-project-digest.sh:29`.
+  `inject-project-digest.sh:38`.
 - Payload parity is declared at lines 23-26: «mirrors the SubagentStart arm of
   .claude/hooks/inject-project-digest.sh — same digest source … same awk pipeline, same
   no-op-on-empty semantics».

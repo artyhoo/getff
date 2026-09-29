@@ -96,7 +96,13 @@ export AIF_HOOK_CHANNEL
 #     newer or edited, so it counts only when it and every file it declares on
 #     `# @plugin-yield-deps:` hash to lib/source-sha256.txt — the bytes this plugin was built from
 #     (lib/source-hash.sh; spec docs/superpowers/specs/2026-09-28-consumer-plugin-hook-dedup-design.md).
-#     No manifest, no entry, no hashing tool or any mismatch → run.
+#     No manifest, no entry, no hashing tool or any mismatch → run. Identical files still do not
+#     prove the project copy fires (settings sources, managed policy, a timeout that kills it), so
+#     a consumer yield also needs proof of life: the project copy's prelude
+#     (.claude/hooks/lib/hook-live.sh) marks each event it starts, and this copy yields only after
+#     claiming a fresh marker for the same payload (lib/live-claim.sh; spec D12). No marker within
+#     ~300 ms, no session_id, a stale, foreign or untrusted marker, a lost race, or a "timeout" in
+#     any settings file naming the project copy → run.
 #   - Claude Code only: ZCode never reads .claude/settings.json
 #     (docs/meta-factory/research-patches/2026-07-04-zcode-harness-visibility.md).
 #   - Same inputs: the language fallback above reaches plugin hooks only; when it supplied the
@@ -173,8 +179,8 @@ if [ -n "$_yield_mode" ]; then
   # noglob covers only the list expansion below (an unquoted `$_yield_names` word-splits into
   # names that must not also undergo pathname expansion); the loop body turns it back off right
   # away, because a declared directory is later hashed through a glob (getff_path_hash) that
-  # `set -f` would turn into a literal. A later amendment scans the body for a globbing marker.
-  _yield_hit=''
+  # `set -f` would turn into a literal. lib/live-claim.sh's marker scan below globs too.
+  _yield_hit=''; _yield_target=''
   set -f
   for _name in $_yield_names; do
     set +f
@@ -197,7 +203,7 @@ if [ -n "$_yield_mode" ]; then
           | ($s[0] | pairs(.type == "command" and ((keys - ["type", "command", "statusMessage"]) | length) == 0
               and .command == ("bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/" + $t + ".sh\""))) as $have
           | ($need | length) > 0 and all($need[]; . as $x | any($have[]; . == $x)))' >/dev/null 2>&1; then
-      _yield_hit=1; break
+      _yield_hit=1; _yield_target="$_name"; break
     fi
   done
   set +f
@@ -208,7 +214,19 @@ if [ -n "$_yield_mode" ]; then
     # A cwd or project root that cannot be entered resolves to "" and keeps this copy running.
     [ -n "$_rh_d" ] && _rh_d="$(cd "$_rh_d" 2>/dev/null && pwd -P)"
     _rh_root="$(cd "$CLAUDE_PROJECT_DIR" 2>/dev/null && pwd -P)"
-    [ -n "$_rh_d" ] && [ "$_rh_d" = "$_rh_root" ] && exit 0
+    if [ -n "$_rh_d" ] && [ "$_rh_d" = "$_rh_root" ]; then
+      # Source mode: the project copy IS the source this copy was generated from — yield (#1879).
+      [ "$_yield_mode" = source ] && exit 0
+      # Consumer mode (spec D12): files cannot show that Claude Code loaded the project's settings
+      # (`--setting-sources`, an SDK host without "project", a managed policy), so yield only after
+      # claiming the liveness marker the project copy's prelude (.claude/hooks/lib/hook-live.sh)
+      # wrote for THIS event. A `@plugin-yields-to` hit claims the target's marker. The lib is
+      # sourced fail-open, exactly like lib/source-hash.sh above; missing or corrupt → run.
+      if [ -r "${SCRIPT_DIR}/lib/live-claim.sh" ] && command . "${SCRIPT_DIR}/lib/live-claim.sh" \
+        && getff_live_claim "$_yield_target" "$_rh_in"; then
+        exit 0
+      fi
+    fi
     printf '%s' "$_rh_in" | bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
     exit $?
   fi

@@ -167,7 +167,7 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# The title and first-instruction extraction of end-of-turn-reminder.sh:609-668, without its
+# The title and first-instruction extraction of end-of-turn-reminder.sh:615-674, without its
 # per-session cache and D-I filter — the session title first (an explicit `custom-title`,
 # which the desktop app writes INSTEAD of CC's `ai-title`, outranks the generated one), head
 # of the first user instruction second, with the tag blocks a hook injects ahead of it
@@ -192,7 +192,7 @@ fi
 # `select(.isSidechain != true)` is REQUIRED and load-bearing for the same reason it is in
 # the D7 context-arm: subagent turns share the transcript file, so without it the residue can
 # capture a sub-agent's recap instead of the main thread's. The `"(type|role)"` alternation
-# mirrors end-of-turn-reminder.sh:690 (CC writes an outer `type`; the ZCode synthetic
+# mirrors end-of-turn-reminder.sh:696 (CC writes an outer `type`; the ZCode synthetic
 # producer writes only `message.role`) — carried here so the extractor is not narrower than
 # the transcript shapes the repo already knows about.
 body=""

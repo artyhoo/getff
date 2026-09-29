@@ -8,7 +8,7 @@
 #   a non-CC harness can consume the same marker with its own injector. (Was @cc-only-rationale
 #   pre-F1; reframed 2026-06-01 — the rule's `paths:` is the native sibling channel, SSOT #101.)
 # spec: .claude/rules/rule-enforcement-channel-selection.md §4 (the dual-pair note + ADAPT mechanism)
-# @plugin-yield-deps:
+# @plugin-yield-deps: lib/hook-live.sh
 #   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
 #   not a sibling beside this hook — every subsequent read is a $REPO_ROOT/-prefixed project path.
 #
@@ -43,6 +43,11 @@
 # otherwise no-ops by design. Consumer-safe: the only runtime path is the consumer's own $RULES_DIR
 # (no framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-matching-rule || true; fi
 
 # @plugin-transform: manual — plugin twin carries T-PLUG-A relocation comment block (~30 lines of prose documenting plugin-channel path resolution). Not mechanically transformable; semantic prose divergence stays hand-maintained.
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

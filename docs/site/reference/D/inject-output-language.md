@@ -131,7 +131,7 @@ ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
   maintainer-only inject-session-bootstrap.sh — it emits ONLY the language signal (never
   the framework-self-referential goal/invariants digest, which stays INTERNAL)». The
   framework-side copy of the same line lives at
-  `.claude/hooks/inject-session-bootstrap.sh:120-128`.
+  `.claude/hooks/inject-session-bootstrap.sh:129-138`.
 - Two registrations reach consumers: `plugin/hooks/hooks.json:16` runs
   `"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd" inject-output-language` under
   UserPromptSubmit, and `setup.d/10-skills.sh:376` registers the project copy with

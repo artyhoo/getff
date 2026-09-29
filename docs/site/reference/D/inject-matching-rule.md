@@ -98,7 +98,7 @@ This hook ships, but the rules it reads are yours. The framework delivers the in
 your project writes the [rules](../../terms.md#rule) corpus it injects. That split was
 corrected the hard way — an earlier claim that the rules corpus itself reached consumers
 was retracted after it was measured against the install manifest rather than assumed
-(`.claude/hooks/inject-matching-rule.sh:29` records the retraction in the header).
+(`.claude/hooks/inject-matching-rule.sh:32` records the retraction in the header).
 
 The glob language is deliberately small — a `prefix/**` head, a `*.ext` tail, or an
 exact repository path — so a match is always explainable by reading the rule's marker
@@ -137,7 +137,7 @@ always exits 0.
 - Output contract: lines 125-126 wrap the text in
   `{hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:$ctx}}` — plain
   stdout is ignored for PostToolUse (header lines 17-18).
-- The twin is hand-written, not generated: `.claude/hooks/inject-matching-rule.sh:44`
+- The twin is hand-written, not generated: `.claude/hooks/inject-matching-rule.sh:52`
   says `@plugin-transform: manual`, and `plugin/hooks/inject-matching-rule` opens as
   «Plugin-relocated PostToolUse rule-injector — path-scoped just-in-time delivery of the
   CONSUMER tree at .claude/rules/*.md» (its line 2), resolving the project via

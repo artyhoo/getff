@@ -20,7 +20,13 @@
 #   That hook appends this exact line to its digest (.claude/hooks/inject-session-bootstrap.sh,
 #   the AIF_HOOK_LANG case), so where the project registers it the plugin copy of this hook
 #   stays silent (plugin/hooks/run-hook.cmd). The marker line holds hook names only.
+# @plugin-yield-deps: lib/hook-live.sh
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-output-language || true; fi
 
 # @plugin-transform: manual — plugin twin carries inline _is_zcode/_emit_ctx adapter trio + TWIN DIVERGENCE comment block. Source-side trio migration is follow-up Stage 6.5.
 case "${AIF_HOOK_LANG:-en}" in

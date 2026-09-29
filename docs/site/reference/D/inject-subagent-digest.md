@@ -111,7 +111,7 @@ parity doctrine rather than smoothed over.
 - The silent-no-op warning is header lines 10-15: «SubagentStart is NON-blocking … and
   delivers context via JSON hookSpecificOutput.additionalContext. Plain stdout is a
   SILENT NO-OP here … emitting the wrong format = the hook fires but does nothing»,
-  with the mirroring of `inject-matching-rule.sh:125-126` named at line 15.
+  with the mirroring of `inject-matching-rule.sh:133-134` named at line 15.
 - jq guard: line 19 — `command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op
   without jq`. Empty digest: line 24 — `[[ -z "$DIGEST" ]] && exit 0`.
 - The output: lines 26-27 wrap the digest in

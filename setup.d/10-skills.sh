@@ -438,6 +438,17 @@ if [ -f "$MCF_SRC" ]; then
   fi
 fi
 
+# ─── 1i′. Liveness lib of the shared hooks above (spec 2026-09-28 D12) ─────────
+# Every hook delivered in §1c-§1i sources lib/hook-live.sh from a guarded prelude: it marks each
+# event the project copy starts, and getff's plugin copy of the same hook stays silent only after
+# claiming that mark. Delivered once, BY NAME, like lib/residue-dir.sh in §1c. Without it the hooks
+# run unchanged, but their source-hash closure no longer matches the plugin's manifest, so both
+# copies run (a duplicate, never a lost hook).
+if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+  mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+  copy_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
+fi
+
 # ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──
 # Consolidated to ONE ship-point: the worktree
 # helper scripts cluster (create-worktree.sh + worktree-node-modules.sh + link-coordination.sh
