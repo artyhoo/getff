@@ -134,7 +134,7 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
 - Registration: `plugin/hooks/hooks.json:170` registers the SessionStart arm (matcher
   `startup|resume|clear|compact`) and `plugin/hooks/hooks.json:189` the SubagentStart
   arm; an install registers the same two in the consumer's settings
-  (`setup.d/10-skills.sh:424-426`), first removing the per-prompt registration an
+  (`setup.d/10-skills.sh:389-391`), first removing the per-prompt registration an
   install before 2026-09-29 left behind. This repository's own `.claude/settings.json`
   registers neither (measured: `grep -c inject-project-digest .claude/settings.json`
   prints `0`).

@@ -37,7 +37,7 @@
 # bare run: installs). Deterministic + API-free.
 #
 # CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
-# (.github/workflows/audit-self.yml:2262, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
+# (.github/workflows/audit-self.yml:2269, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
 # host state OUTSIDE its tmpdir. Line 361 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:1370-1372.
+# per setup.d/45-python.sh:1474-1476.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -448,7 +448,7 @@ echo "  reject-bootstrap.log (the research-only verdict must be loud):"
 sed 's/^/    /' "$REJECT_LOG"
 
 # The bootstrap CLI returns rc=0 on research-only findings (they're honest degrades,
-# NOT errors — see rule-bootstrap-cli.ts:240 runPracticeRender header). The LOUD log
+# NOT errors — see rule-bootstrap-cli.ts:239 runPracticeRender header). The LOUD log
 # line carries the verdict.
 grep -F 'researched but not rendered' "$REJECT_LOG" >/dev/null 2>&1 \
   || fail "REJECT arm: research-only verdict NOT logged (the loud degrade is the contract — silent reject is T-AST-B)"

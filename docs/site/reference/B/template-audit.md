@@ -18,7 +18,7 @@ sources:
   - tests/install-sh/baselines/python/greenfield.fingerprint
 executed:
   - { example: list-template-audit-and-packages-core, stack: ts-server, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the mirror-check delivery and its not-wired notices add seven lines above it in setup.d/45-python.sh, so the four-skill python-lane range cited here re-anchored from 1229 to 1235 to 1236 to 1242; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against this range, the page was refreshed in it — lines inserted above it in setup.d/45-python.sh keep moving the four-skill python-lane range cited here, and it is re-anchored by content at each move; clears at the next gold refresh of this page
 ---
 
 # template-audit skill
@@ -105,7 +105,7 @@ the `python` [lane](../../terms.md#lane), which receives four skills and not thi
   which checks run in CI and which three are left to this skill.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
   to 145 of `setup.d/10-skills.sh`. Line 67 there says what it is for.
-- The `python` lane copies four skills by name, lines 1384 to 1390 of
+- The `python` lane copies four skills by name, lines 1488 to 1494 of
   `setup.d/45-python.sh`, and this skill is missing from
   `tests/install-sh/baselines/python/greenfield.fingerprint`.
 - The card is built from `docs/site/reference/B.json`. Line 37 of

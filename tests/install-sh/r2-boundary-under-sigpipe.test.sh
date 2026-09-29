@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# r2-boundary-under-sigpipe.test.sh — _r2_boundary_under (setup.d/99-finalize.sh) must not read a
+# r2-boundary-under-sigpipe.test.sh — _r2_boundary_under (setup.d/eslint-wire.sh) must not read a
 # boundary-present verdict as «no boundary» because a pipe into `grep -q` lost a SIGPIPE race.
 #
 # The defect (measured 2026-09-29). The function used to test the detector's output with
@@ -33,8 +33,8 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
 # The function under test, lifted verbatim from the shipped file (same harness as
 # synth-wire-consumer-config.test.sh's _own_eslint_ignores arm).
-fn=$(sed -n '/^_r2_boundary_under() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")
-[ -n "$fn" ] || { echo "FATAL: _r2_boundary_under not found in setup.d/99-finalize.sh"; exit 1; }
+fn=$(sed -n '/^_r2_boundary_under() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")
+[ -n "$fn" ] || { echo "FATAL: _r2_boundary_under not found in setup.d/eslint-wire.sh"; exit 1; }
 eval "$fn"
 
 # PKG_ROOT points at a fake package whose detector prints what $STUB_OUT holds.

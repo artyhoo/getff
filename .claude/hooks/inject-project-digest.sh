@@ -8,6 +8,10 @@
 #   project). This version injects the CONSUMER's OWN anchor: the digest block of THEIR
 #   .claude/session-bootstrap.md. Consumer-safe: reads only the consumer's own file, zero-setup
 #   default (empty/absent block → injects nothing), degrades without jq.
+# @plugin-yield-deps: lib/hook-live.sh
+#   Only lib/hook-live.sh (the D12 liveness prelude): dirname "$0" below only re-derives REPO_ROOT
+#   (this repo's project root) — the session-bootstrap.md it reads is a $REPO_ROOT/-prefixed
+#   project path, not a file beside itself.
 #
 # One hook, two events (registered on both — output format differs per the CC contract):
 #   • SessionStart      → plain stdout is auto-injected, once per context (startup|resume|clear|compact).
@@ -15,6 +19,11 @@
 # The shared digest source is the block between the markers in .claude/session-bootstrap.md, so the
 # main session AND every dispatched subagent get the same project anchor from ONE source of truth.
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-project-digest || true; fi
 
 # @plugin-transform: manual — plugin twin carries inline _is_zcode/_emit_ctx adapter trio + TWIN DIVERGENCE comment block. Source-side trio migration is follow-up Stage 6.5.
 # B1 fix (zcode-parity-step1, plan-v3 §"B1"): subshell-aware env-first resolution.

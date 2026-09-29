@@ -8,6 +8,9 @@
 #   a non-CC harness can consume the same marker with its own injector. (Was @cc-only-rationale
 #   pre-F1; reframed 2026-06-01 — the rule's `paths:` is the native sibling channel, SSOT #101.)
 # spec: .claude/rules/rule-enforcement-channel-selection.md §4 (the dual-pair note + ADAPT mechanism)
+# @plugin-yield-deps: lib/hook-live.sh
+#   Only lib/hook-live.sh (the D12 liveness prelude): dirname "$0" below only re-derives REPO_ROOT
+#   (this repo's project root) — every other read is a $REPO_ROOT/-prefixed project path.
 #
 # Mechanism: on Edit|Write, for each .claude/rules/*.md carrying a `<!-- globs: ... -->`
 # marker whose pattern matches the edited path, inject that rule's `<!-- inject: ... -->`
@@ -28,7 +31,7 @@
 #
 # SHIP status (GH #934, claim corrected by GH #1520): the HOOK ships and is registered in
 # consumer projects (first install: setup.d/10-skills.sh §1e below; brownfield refresh:
-# install.sh --refresh, the refresh_safe arm at install.sh:999-1020). The `.claude/rules/`
+# install.sh --refresh, the refresh_safe arm at install.sh:1009-1030). The `.claude/rules/`
 # CORPUS it reads does NOT ship — it is consumer-owned project data: delivery ships zero
 # rules/ lines, and setup.d/lib.sh:89-90 (transform_internal_refs) records exactly that
 # non-delivery when rewriting relative rules/ links; the plugin twin
@@ -40,6 +43,11 @@
 # otherwise no-ops by design. Consumer-safe: the only runtime path is the consumer's own $RULES_DIR
 # (no framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-matching-rule || true; fi
 
 # @plugin-transform: manual — plugin twin carries T-PLUG-A relocation comment block (~30 lines of prose documenting plugin-channel path resolution). Not mechanically transformable; semantic prose divergence stays hand-maintained.
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

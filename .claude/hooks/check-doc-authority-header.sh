@@ -23,7 +23,13 @@
 # Consumer-safe: pure bash + jq, no framework-internal dependency; degrades LOUDLY (scoped
 # JSON skip-notice) when jq is absent — a silent skip is indistinguishable from a pass, the
 # exact defect class this gate exists to prevent (aif-parity S4 §3 item 1, 2026-07-23).
+# @plugin-yield-deps: lib/hook-live.sh
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live check-doc-authority-header || true; fi
 
 # ── Repo-wide opt-out ─────────────────────────────────────────────────────────
 [[ "${AIF_DOC_AUTHORITY:-1}" == "0" ]] && exit 0

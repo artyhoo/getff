@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1572-1603 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1578-1609 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -927,7 +927,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — Stop hook JSON contract & pair
     });
 
     // The Stop channel carries this hook TWICE — the plugin registration plus the project
-    // one the installer writes (setup.d/10-skills.sh:267, install.sh:995) — so both copies
+    // one the installer writes (setup.d/10-skills.sh:267, install.sh:1001) — so both copies
     // fire on ONE Stop with byte-identical stdin. For the handoff gate that shared state
     // made copy 2 invent a block the turn had not earned (D38, PR #1783). Here the same
     // sharing is benign BY CONSTRUCTION and must stay that way: whichever copy runs first
@@ -1520,7 +1520,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1303 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1309 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
@@ -2811,7 +2811,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   //
   // The Stop channel carries this hook TWICE in any project that has both the getff plugin
   // (`hooks/hooks.json` → `run-hook.cmd end-of-turn-reminder`) and the project registration the
-  // AIF installer writes (`setup.d/10-skills.sh:267`, `install.sh:995`). Measured 2026-09-14
+  // AIF installer writes (`setup.d/10-skills.sh:267`, `install.sh:1001`). Measured 2026-09-14
   // (session 319c1945): both copies fired on one Stop, both derived the same
   // `${TMPDIR}/aif-handoff-<ctx_key>` from session_id alone, so the first copy's ALLOW advanced
   // the baseline and the second compared the file against what its twin had just written —

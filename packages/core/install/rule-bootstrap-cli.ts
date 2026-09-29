@@ -33,12 +33,11 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isDirectRun } from './is-direct-run.ts';
 // NOTE: `runRuleBootstrap` is imported DYNAMICALLY inside main() (the live/synthesis arm), NOT
 // statically here. It transitively reaches `validator/validate.ts` → the L4 gates, which pull in
 // `eslint` + `@typescript-eslint/parser`. The lightweight `--from-practice` arm
@@ -100,7 +99,7 @@ function parseArgs(argv: string[]): Args {
 // eslint-only: `engine:'ast-grep'` is parked at the L4 gates as error-severity FF3003/FF3010/FF3012
 // («ast-grep engine reserved but not wired — deferred per generator-forbid-mvp decision (i)»,
 // diagnostics/registry.ts:182), and install() needs Node at install time, which the python lane
-// does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1370).
+// does not have — staying Node-free is that lane's defining property (setup.d/45-python.sh:1474).
 // (Until D8/#1169 this sentence said the lane FORBIDS `.ai-factory/`; it has shipped the agent
 // surface there ever since — tests/install-sh/python-entry-lane.test.sh:51.) The SHIPPED researched-
 // python generation contract is the Model A′ lane instead: an `AstgrepResearchedPractice` record →
@@ -286,7 +285,7 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //
   // DC-3 join: `record.entryId === rule.entryId`. research-to-node.ts:193 sets the node id from
-  // `practice.entryId` by construction, and render-researched-astgrep.ts:139 sets the rendered
+  // `practice.entryId` by construction, and render-researched-astgrep.ts:140 sets the rendered
   // entryId from the node id — so the two equal by construction. No translation layer.
   //
   // DC-4 tier honesty: reuse `stampProvenanceTier` + `weakestTier` from synthesizer/tier.ts
@@ -418,28 +417,9 @@ async function main(): Promise<void> {
   }
 }
 
-/**
- * True when this module is the process entry point (executed directly, not imported).
- *
- * Realpath-normalizes BOTH sides before comparing. `argv1` is the path as-passed to the
- * runtime (logical — `install.sh` derives PKG_ROOT via `pwd`, which preserves symlinks),
- * while `metaUrl` is the path as tsx/node resolve it (realpath). A single symlink component
- * anywhere in the framework checkout path — macOS `/tmp`→`/private/tmp`, `mktemp` under
- * `/var/folders`, a symlinked `$HOME` or CI checkout dir — desyncs the two strings, so a
- * literal `import.meta.url === \`file://${argv1}\`` compare silently returns false and
- * `main()` never runs: `--full` exits 0 with zero synthesized rules. Normalizing both to
- * their realpaths closes that gap regardless of the caller's path (issue #910). Falls back
- * to a decoded literal compare if realpath fails (e.g. the entry no longer exists on disk).
- */
-export function isDirectRun(argv1: string | undefined, metaUrl: string): boolean {
-  if (!argv1) return false;
-  const metaPath = fileURLToPath(metaUrl);
-  try {
-    return realpathSync(argv1) === realpathSync(metaPath);
-  } catch {
-    return metaPath === argv1;
-  }
-}
+// isDirectRun lives in install/is-direct-run.ts (shared by every packages/core CLI);
+// re-exported here for the existing importers and tests.
+export { isDirectRun };
 
 // Run only when executed directly (not when imported by a test).
 if (isDirectRun(process.argv[1], import.meta.url)) {

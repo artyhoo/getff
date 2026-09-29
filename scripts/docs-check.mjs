@@ -69,6 +69,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validateMarkdownMermaid } from './lib/mermaid-allowlist.mjs';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT = join(here, '..');
@@ -846,7 +847,4 @@ function main() {
 }
 
 // Only run main when executed directly — the test arms import the pure parts.
-const isMain =
-  process.argv[1] &&
-  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-if (isMain) main();
+if (isMainEntry(import.meta.url)) main();

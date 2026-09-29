@@ -13,6 +13,9 @@
 #   Manual equivalent where no hook channel exists at all:
 #   `tsx packages/runtime-bridge/src/cli/dispatch.ts <path>` after kickoff authoring.
 # spec: packages/runtime-bridge/src/cli/dispatch.ts
+# @plugin-yield-deps:
+#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
+#   not a sibling beside this hook — every subsequent read is a $REPO_ROOT/-prefixed project path.
 #
 # Fires on Write|Edit tool events. Reads stdin JSON (CC PostToolUse shape):
 #   { tool_name, tool_input: { file_path } }

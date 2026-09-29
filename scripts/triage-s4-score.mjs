@@ -10,7 +10,7 @@
 // Reuse is by IMPORT (parseCsv, buildPayload) or COPY-with-source-comment (kickoff §2):
 //   choose/mcnemar/kappa  — copied from scripts/triage-s0-score.mjs:33-52 (frozen, never edit)
 //   arm-B differential    — copied from scripts/triage-s2-labels-check.mjs:38,94-111, extended
-//   GRADE_TOKEN/FINDING_ID — copied from scripts/triage-corpus-probe.mjs:43-44 (module-private)
+//   GRADE_TOKEN/FINDING_ID — copied from scripts/triage-corpus-probe.mjs:44-45 (module-private)
 //
 // Usage: node scripts/triage-s4-score.mjs           → scoring report (needs judge artifacts)
 //        node scripts/triage-s4-score.mjs --check   → arms A-H, exit 1 on any RED
@@ -40,7 +40,7 @@ const FORBIDDEN_PAYLOAD_FIELDS = [
   'class_cold', 'layer_cold', 'whose_cold',
   'class_final', 'layer_final', 'whose_final', 'status',
 ];
-// Copied from triage-corpus-probe.mjs:43-44 (module-private there; §2 copy provision).
+// Copied from triage-corpus-probe.mjs:44-45 (module-private there; §2 copy provision).
 const GRADE_TOKEN = /\b(?:BLOCKER|MAJOR|MINOR)\b/u;
 const FINDING_ID = /\b(?:R\d+\s+[MB]\d+|(?:TD|BU)\s+[MBN]\d+)\b/u;
 

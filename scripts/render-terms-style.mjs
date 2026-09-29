@@ -28,6 +28,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolveRoot();
@@ -141,5 +142,4 @@ function main() {
 }
 
 // Only run main when executed directly — the test harness imports the pure parts.
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-if (isMain) main();
+if (isMainEntry(import.meta.url)) main();

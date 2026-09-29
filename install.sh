@@ -966,6 +966,12 @@ do_refresh() {
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_HOOK_DST" ]; then
       chmod_safe +x "$_HOOK_DST" 2>/dev/null || true
     fi
+    # Refresh sweep 2026-09-29 G1: the install registers this hook (setup.d/10-skills.sh §1b); a
+    # refresh that only re-copies the file leaves a consumer who lost the registration with a hook
+    # that never runs. Same command string as the install, so the marker finds either registration.
+    if [ "$DRY_RUN" != "--dry-run" ]; then
+      register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "UserPromptSubmit" "bash .claude/hooks/deps-hash-check.sh" "deps-hash-check"
+    fi
   fi
 
   # GH #934: refresh coverage for the end-of-turn session-recap Stop hook + lang pack (parity with
@@ -993,6 +999,10 @@ do_refresh() {
     if [ "$DRY_RUN" != "--dry-run" ]; then chmod_safe +x "$PROJECT_ROOT/.claude/hooks/lang/check-parity.sh" 2>/dev/null || true; fi
     if [ "$DRY_RUN" != "--dry-run" ]; then
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "Stop" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/end-of-turn-reminder.sh"' "end-of-turn-reminder"
+      # Refresh sweep G8 (operator decision 2026-09-29): `--refresh --full` arms the recap gate the
+      # way `--full` on the install does (setup.d/10-skills.sh §1c); a bare --refresh leaves it, and
+      # a value the consumer set (an explicit "0") is kept and named.
+      if [ "${FULL:-}" = "--full" ]; then arm_recap_gate "$PROJECT_ROOT/.claude/settings.json" refresh; fi
     fi
   fi
 
@@ -1068,6 +1078,13 @@ do_refresh() {
     if [ "$DRY_RUN" != "--dry-run" ]; then
       register_cc_hook "$PROJECT_ROOT/.claude/settings.json" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
     fi
+  fi
+  # Spec 2026-09-28 D12: the shared hooks refreshed above source lib/hook-live.sh (the liveness
+  # mark the plugin copy claims before it stays silent) — refreshed BY NAME like residue-dir.sh,
+  # parity with setup.d/10-skills.sh §1i′.
+  if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+    mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+    refresh_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
   fi
 
   # ── Vendored runtime-bridge subset (factory depth; spec A7) — #869 refresh parity ──
@@ -1321,6 +1338,21 @@ do_refresh() {
   # --force and --refresh paths without any change needed here.
   generate_eslint_barrel
 
+  # ── ESLint wiring: R2 + getff's rules into the configs (refresh sweep G4) ──
+  # The install's three passes (setup.d/eslint-wire.sh), in the install's order, after the rule files
+  # and the barrel above are current: R2's boundary globs into getff's own root config, getff's rules
+  # (synth-wire, live-research snippet) into root and workspace configs, R2 into per-package and
+  # per-workspace configs. A config getff placed and nobody edited is written as on the install; one
+  # the consumer owns gets additions only, its original kept at .ai-factory/before-getff/; whatever
+  # cannot land (no ts-morph in node_modules — refresh installs none) is named in NOT wired. Before
+  # this, a fix to any of the three reached fresh installs only (#1881, #1884).
+  _GETFF_RUN="this --refresh"
+  # shellcheck source=setup.d/eslint-wire.sh
+  source "$PKG_ROOT/setup.d/eslint-wire.sh"
+  eslint_wire_r2_root
+  eslint_wire_synth
+  eslint_wire_r2_configs
+
   _fb_src="$PKG_ROOT/packages/core/hooks/pre-push.fallback.sh"
   _fb_dst="$PROJECT_ROOT/packages/core/hooks/pre-push.fallback.sh"
   refresh_safe "$_fb_src" "$_fb_dst"
@@ -1346,6 +1378,11 @@ do_refresh() {
   if [ "$DRY_RUN" != "--dry-run" ]; then
     chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 2>/dev/null || true
   fi
+  # Refresh sweep G2: the dispatchers above run only while core.hooksPath points at .husky. The
+  # install sets it (setup.d/50-hooks.sh); a consumer whose setting was lost (a re-clone keeps no
+  # git config) got fresh hook files that git never called. Same function, same blocker: a hook
+  # setup the consumer owns is kept and named in the NOT wired summary.
+  activate_husky_hookspath
 
   # ── Prettier ignore (managed block) — #890 ──────────────
   # The static .prettierignore template's managed block ships via merge_prettierignore (40-configs.sh)
@@ -1418,6 +1455,47 @@ do_refresh() {
     esac
   done
 
+  # ── package.json scripts (add-if-missing) — refresh sweep G5 ──
+  # The install merges the canonical scripts (setup.d/70-deps.sh §7), so a script a newer getff
+  # ships (a new check:* gate, say) reached fresh installs only. Refresh mode adds scripts alone:
+  # a devDependency with no install breaks the lockfile, so a missing one is named instead.
+  merge_canonical_scripts refresh
+
+  # ── CI gates a kept workflow lacks (report only) — refresh sweep G6 ──
+  # The install names these (setup.d/60-ci.sh §6c) and wires them only on --wire-ci or a yes at its
+  # prompt. A refresh never edits the workflow — it is the consumer's (INSTALL-FOR-AI.md) — but a
+  # gate a newer getff ships, or one the workflow lost, is named with the reason (Q4.7).
+  if [ "$DRY_RUN" != "--dry-run" ] && [ -d "$PROJECT_ROOT/.github/workflows" ]; then
+    echo "▶ CI gates → .github/workflows/ (report only)"
+    _aif_missing=(); _aif_steps=(); _aif_cmds=()
+    ci_gate_detect
+    _ci_has_wf=""
+    for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+      [ -f "$_wf" ] && { _ci_has_wf=1; break; }
+    done
+    if [ "${#_aif_missing[@]}" -eq 0 ]; then
+      echo "  ✓ every installed rule-enforcement gate runs in a workflow"
+    fi
+    for _i in "${!_aif_missing[@]}"; do
+      if [ -n "$_ci_has_wf" ]; then
+        note_not_wired "CI gate ${_aif_missing[$_i]} — not in your .github/workflows/ (step: ${_aif_steps[$_i]#- }): the workflow is your own, and --refresh does not edit it (getff edits a workflow only on --wire-ci or a yes at the install prompt)"
+      else
+        note_not_wired "CI gate ${_aif_missing[$_i]} — runs in no CI job (step: ${_aif_steps[$_i]#- }): no workflow exists under .github/workflows/, and --refresh places none"
+      fi
+    done
+    unset _ci_has_wf _i
+  fi
+
+  # ── context7 + kind=mcp companions (--full only) — refresh sweep G3/G9 ──
+  # The install layer itself, sourced as the install sources it: it returns at once unless --full,
+  # adds context7 to .mcp.json additively (an existing entry is kept), and runs each kind=mcp
+  # manifest row through companion_step — detect first, and a machine-global row still needs
+  # --global (engine.sh). Operator decision 2026-09-29: `--refresh --full` runs what `--full` on
+  # the install runs; a bare --refresh runs none of it, so a refresh never deepens a project.
+  if [ -n "${FULL:-}" ]; then echo "▶ MCP → .mcp.json + kind=mcp companions (--full)"; fi
+  # shellcheck source=setup.d/05-mcp.sh
+  source "$PKG_ROOT/setup.d/05-mcp.sh"
+
   # consumer-refresh-integrity R1: persist the delivery baseline now that every refresh arm
   # (and its post-copy transforms — the guard hashes FINAL on-disk bytes, see setup.d/lib.sh)
   # has run. Fail-open: a failed flush never fails the refresh.
@@ -1429,7 +1507,8 @@ do_refresh() {
     echo "   Without --dry-run the refresh writes the above; --force also overwrites consumer files."
   else
     echo "✅ Framework artefacts refreshed."
-    echo "   Consumer-owned files (AGENTS.md, RULES.md, ci.yml, eslint.config.mjs, etc.) were not touched."
+    echo "   Consumer-owned files (AGENTS.md, RULES.md, your CI workflows, etc.) were not rewritten; getff's own"
+    echo "   entries in them (eslint config blocks, package.json scripts, hook registrations) were added where missing."
     echo "   Files with a sibling .override.md were also preserved."
   fi
 }
@@ -1438,7 +1517,9 @@ do_refresh() {
 if [ -n "$REFRESH" ]; then
   do_refresh
   # do_refresh exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7): the
-  # runtime-bridge wiring on the vendor arm records its gaps with note_not_wired.
+  # runtime-bridge wiring on the vendor arm records its gaps with note_not_wired. Its eslint wiring
+  # can insert getff's block into the consumer's own configs, so that list is printed here too.
+  print_getff_added
   print_not_wired
   exit 0
 fi

@@ -18,7 +18,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: list-rule-research-and-its-protocol, stack: ts-server, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-28 against this range, the page was refreshed in it — the mirror-check delivery and its not-wired notices add seven lines above it in setup.d/45-python.sh, so the python-lane copy line cited here re-anchored from 1233 to 1240, while the cited install.sh line 237 sits above that insertion and still holds; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against this range, the page was refreshed in it — lines inserted above it in setup.d/45-python.sh keep moving the python-lane copy line cited here, and it is re-anchored by content at each move; the cited install.sh line for agents/rule-researcher.md still holds; clears at the next gold refresh of this page
 ---
 
 # rule-research skill
@@ -105,7 +105,7 @@ is a pointer only, and the `go` lane is out of scope. The skill text says to run
   lines 262 and 293.
 - The built-in allowed hosts start on line 20 of `packages/core/research/allowlist.ts`.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
-  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1388 of
+  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1492 of
   `setup.d/45-python.sh`. The method file is on the installer's list at line 237 of
   `install.sh`.
 - The step that reads the two JSON files is `setup.d/80-rule-bootstrap.sh`, lines 42 to
