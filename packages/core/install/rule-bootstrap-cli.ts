@@ -285,7 +285,7 @@ export function runPracticeRender(opts: PracticeRenderOptions): PracticeRenderRe
   // dir unchanged — criterion 7 unregressed by leaving it alone.
   //
   // DC-3 join: `record.entryId === rule.entryId`. research-to-node.ts:193 sets the node id from
-  // `practice.entryId` by construction, and render-researched-astgrep.ts:139 sets the rendered
+  // `practice.entryId` by construction, and render-researched-astgrep.ts:140 sets the rendered
   // entryId from the node id — so the two equal by construction. No translation layer.
   //
   // DC-4 tier honesty: reuse `stampProvenanceTier` + `weakestTier` from synthesizer/tier.ts

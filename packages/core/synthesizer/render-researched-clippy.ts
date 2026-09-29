@@ -140,7 +140,7 @@ export function planResearchedClippy(
 
   // Loud dup guard: two practices sharing an entryId would render two disallowed-table entries the
   // caller cannot tell apart, and (more importantly) signal a duplicated researched convention. Fail
-  // LOUD, mirroring the sibling astgrep driver's guard (render-researched-astgrep.ts:149-160).
+  // LOUD, mirroring the sibling astgrep driver's guard (render-researched-astgrep.ts:150-161).
   const seenIds = new Set<string>();
   for (const node of nodes) {
     if (seenIds.has(node.id)) {
