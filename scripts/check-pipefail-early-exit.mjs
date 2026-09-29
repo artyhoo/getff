@@ -185,28 +185,68 @@ export function earlyExitOption(words) {
   return null;
 }
 
-/** Positions of every unquoted pipe (`|` or `|&`, never `||`) in `code`. */
-function pipePositions(code) {
-  const out = [];
-  let sq = false;
-  let dq = false;
+/**
+ * Walk `code` and call `visit(i)` at every position that is shell syntax rather than quoted text.
+ * A `$(` opens a fresh quoting context even inside double quotes, so the pipe in
+ * `echo "x: $(a | grep -m1 y)"` is syntax; the frame closes at its matching `)`.
+ */
+function forEachUnquoted(code, visit) {
+  const stack = [{ sq: false, dq: false, parens: 0 }];
   for (let i = 0; i < code.length; i++) {
+    const f = stack[stack.length - 1];
     const c = code[i];
-    if (c === '\\' && !sq) {
+    if (f.sq) {
+      if (c === "'") f.sq = false;
+      continue;
+    }
+    if (c === '\\') {
       i++;
       continue;
     }
-    if (c === "'" && !dq) sq = !sq;
-    else if (c === '"' && !sq) dq = !dq;
-    else if (c === '|' && !sq && !dq) {
-      if (code[i + 1] === '|') {
-        i++;
-        continue;
-      }
-      out.push(i);
+    if (c === '$' && code[i + 1] === '(' && code[i + 2] !== '(') {
+      stack.push({ sq: false, dq: false, parens: 0 });
+      i++;
+      continue;
     }
+    if (f.dq) {
+      if (c === '"') f.dq = false;
+      continue;
+    }
+    if (c === "'") f.sq = true;
+    else if (c === '"') f.dq = true;
+    else if (c === '(') f.parens++;
+    else if (c === ')' && f.parens > 0) f.parens--;
+    else if (c === ')' && stack.length > 1) stack.pop();
+    else visit(i);
   }
+}
+
+/** Positions of every unquoted pipe (`|` or `|&`, never `||`) in `code`. */
+function pipePositions(code) {
+  const out = [];
+  let skip = -1;
+  forEachUnquoted(code, (i) => {
+    if (i === skip || code[i] !== '|') return;
+    if (code[i + 1] === '|') {
+      skip = i + 1;
+      return;
+    }
+    out.push(i);
+  });
   return out;
+}
+
+/** The heredoc an unquoted `<<TAG` / `<<-'TAG'` in `code` opens, or null (`<<<` is a here-string). */
+function heredocOpened(code) {
+  let found = null;
+  forEachUnquoted(code, (i) => {
+    if (found || code[i] !== '<' || code[i + 1] !== '<' || code[i - 1] === '<')
+      return;
+    if (code[i + 2] === '<') return;
+    const m = /^<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(code.slice(i));
+    if (m) found = { strip: m[1] === '-', tag: m[3] };
+  });
+  return found;
 }
 
 /** The grep command right of a pipe at `pos`, if it has an early-exit option. */
@@ -243,11 +283,10 @@ export function logicalLines(text) {
     const trimmed = code.replace(/\s+$/, '');
     const cont = /(^|[^\\])(\\\\)*\\$/.test(trimmed);
     acc.code += (cont ? trimmed.slice(0, -1) : code) + ' ';
-    // A heredoc opened on this physical line starts right after it.
-    const hd = /<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(code);
-    if (hd && !/<<</.test(code.slice(hd.index, hd.index + 3))) {
-      heredoc = { strip: hd[1] === '-', tag: hd[3] };
-    }
+    // A heredoc opened on this physical line starts right after it. Only an unquoted `<<` opens
+    // one: `printf "cat <<'EOF'\n…"` is text, and reading it as a heredoc hid the rest of the file.
+    const hd = heredocOpened(code);
+    if (hd) heredoc = hd;
     if (
       cont ||
       /(^|[^|])\|\s*$/.test(trimmed) ||
