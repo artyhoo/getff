@@ -181,7 +181,12 @@ fi
 # The glob arm is the Q4.5 layout class (2026-09-28): a whole-tree include such as `**/*.ts` (the
 # tsc --init / create-next-app family) covers tests/ too, and was read as «not covered», so
 # vitest's setupFiles pointed at a file the install had declined to ship.
-# Unreadable/JSONC tsconfig → fail-OPEN: treat covered, no note, never abort the layer.
+# P2 G3/F10 (2026-09-29): tsconfig is JSONC — comments and trailing commas are stripped before
+# parsing (create-vite's tsconfig.app.json has /* */ comments, and fail-open read it as covered);
+# «no include key» is the whole tree ONLY when `files` is absent too (TypeScript: include defaults
+# to [] once files is set); a solution tsconfig (`"files": []` + `"references"`) covers what its
+# referenced configs cover (a reference path is a tsconfig file or a directory holding one).
+# A config that is not even JSONC → fail-OPEN: treat covered, no note, never abort the layer.
 fc3_deliver_tests_setup() {
   local src="$1"
   local covered=0
@@ -194,23 +199,49 @@ fc3_deliver_tests_setup() {
   else
     local _rc=0
     AIF_FCP_TSCONFIG="$PROJECT_ROOT/tsconfig.json" node -e '
-      try {
-        const c = JSON.parse(require("fs").readFileSync(process.env.AIF_FCP_TSCONFIG, "utf8"));
-        if (!Array.isArray(c.include)) process.exit(3); // no include key → whole tree
-        const covers = (e) => {
-          let p = String(e).replace(/^\.\//, "").replace(/\/+$/, "");
-          if (p === "" || p === ".") return true;
-          const last = p.split("/").pop();
-          if (last === "**") p += "/*";
-          else if (!/[*?]/.test(last) && !/\.[A-Za-z0-9]+$/.test(last)) p += "/**/*";
-          const re = p.split("/").map((seg) => seg === "**" ? "(?:[^/]+/)*"
-            : seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "/")
-            .join("").replace(/\/$/, "");
-          return new RegExp("^" + re + "$").test("tests/setup.ts");
-        };
-        if (c.include.some((e) => String(e).startsWith("tests") || covers(e))) process.exit(0);
-        process.exit(1); // include present, nothing covers tests/
-      } catch { process.exit(2); } // unreadable/JSONC → fail-open
+      const fs = require("fs"), path = require("path");
+      const root = path.dirname(process.env.AIF_FCP_TSCONFIG);
+      // JSONC → JSON: drop // and /* */ comments outside strings, then trailing commas.
+      const jsonc = (t) => {
+        let o = "", i = 0, str = false;
+        while (i < t.length) {
+          const ch = t[i], nx = t[i + 1];
+          if (str) { o += ch; if (ch === "\\") { o += nx; i += 2; continue; } if (ch === "\"") str = false; i++; continue; }
+          if (ch === "\"") { str = true; o += ch; i++; continue; }
+          if (ch === "/" && nx === "/") { while (i < t.length && t[i] !== "\n") i++; continue; }
+          if (ch === "/" && nx === "*") { i += 2; while (i < t.length && !(t[i] === "*" && t[i + 1] === "/")) i++; i += 2; continue; }
+          o += ch; i++;
+        }
+        return JSON.parse(o.replace(/,(\s*[}\]])/g, "$1"));
+      };
+      const covers = (e, base) => {
+        let p = path.relative(root, path.resolve(base, String(e))).split(path.sep).join("/").replace(/\/+$/, "");
+        if (p === "" || p === ".") return true;
+        const last = p.split("/").pop();
+        if (last === "**") p += "/*";
+        else if (!/[*?]/.test(last) && !/\.[A-Za-z0-9]+$/.test(last)) p += "/**/*";
+        const re = p.split("/").map((seg) => seg === "**" ? "(?:[^/]+/)*"
+          : seg.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "/")
+          .join("").replace(/\/$/, "");
+        return String(e).startsWith("tests") && base === root || new RegExp("^" + re + "$").test("tests/setup.ts");
+      };
+      const seen = new Set();
+      const covered = (file, depth) => {
+        if (depth > 8 || seen.has(file)) return false;
+        seen.add(file);
+        const c = jsonc(fs.readFileSync(file, "utf8")), base = path.dirname(file);
+        if (Array.isArray(c.include)) { if (c.include.some((e) => covers(e, base))) return true; }
+        else if (!Array.isArray(c.files)) return true; // no include, no files → whole tree
+        for (const r of Array.isArray(c.references) ? c.references : []) {
+          let f = path.resolve(base, String(r && r.path));
+          try { if (fs.statSync(f).isDirectory()) f = path.join(f, "tsconfig.json"); } catch { continue; }
+          try { if (covered(f, depth + 1)) return true; } catch { /* unreadable reference: not proof of coverage */ }
+        }
+        return false;
+      };
+      let ok;
+      try { ok = covered(process.env.AIF_FCP_TSCONFIG, 0); } catch { process.exit(2); } // not JSONC → fail-open
+      process.exit(ok ? 0 : 1);
     ' 2>/dev/null || _rc=$?
     case $_rc in
       1) covered=0 ;;
@@ -220,8 +251,8 @@ fc3_deliver_tests_setup() {
   if [ "$covered" -eq 1 ]; then
     copy_safe "$src" "$PROJECT_ROOT/tests/setup.ts"
   else
-    echo "  ⚠ tsconfig.json include does not cover tests/ — tests/setup.ts NOT delivered" >&2
-    note_not_wired "tests/setup.ts — not delivered: your tsconfig.json include does not cover tests/, so typed ESLint (projectService) would reject the file as outside every tsconfig, and getff does not edit a project's tsconfig.json"
+    echo "  ⚠ tsconfig.json (and the configs it references) does not include tests/ — tests/setup.ts NOT delivered" >&2
+    note_not_wired "tests/setup.ts — not delivered: your tsconfig.json (and the configs it references) does not include tests/, so typed ESLint (projectService) would reject the file as outside every tsconfig, and getff does not edit a project's tsconfig.json"
   fi
 }
 
