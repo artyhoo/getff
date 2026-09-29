@@ -163,7 +163,7 @@ d577c0fdcd8761e25ed6d4547fae928e316c82460fa57d090a0825aec98582f5  agents/reviewe
 2f32a499ce595ce5fee27a19014a4f8fd8f42b5069246419c5bc9b8a5615668d  packages/core/LICENSE
 58e2e49d2458af0b72d648b97537838c5bcc36ca0b5043905516006dd35c6f34  packages/core/README.md
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  packages/core/audit-self/audit-ai-docs.sh
-6ac62245848cb9cc43fec91a91173f578589f6367f3878c7643e82fbf60731f5  packages/core/audit-self/audit-ai-docs.test.ts
+285a408b5c7b881db765edba4442759e104b0ed13c126ebb22effc85fe55f621  packages/core/audit-self/audit-ai-docs.test.ts
 add172472764efbc546f420561bb4a0beb81673a35e1ee11bb63348f193b5dee  packages/core/audit-self/audit-ai-docs.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh

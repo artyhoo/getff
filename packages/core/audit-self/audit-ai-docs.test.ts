@@ -370,7 +370,8 @@ describe('test_R4 — R4: domain export tests', () => {
     // The result can be fail or warn but NOT pass-skipped-for-missing-env
     // (it's not the "no tsconfig AND no ts-morph" path)
     expect(['fail', 'warn']).toContain(result.result);
-  });
+    // Budget: real `npx --no-install tsx` spawn, unstubbed by design (DN-1 Option C) — root vitest.config.ts's 60 s.
+  }, 60_000);
 });
 
 // ─── test_R4 bash (shipped script) — exec-based paired-negative ───────────────
