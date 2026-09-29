@@ -328,6 +328,7 @@ gate_table() {
     "2${TAB}docs-quality-strict${TAB}docs/site/,docs/site-quality/,.claude/skills/docs-author/,agents/docs-form-auditor.md,scripts/docs-check.mjs,tests/docs-check/${TAB}if command -v vale >/dev/null 2>&1 && command -v lychee >/dev/null 2>&1; then node scripts/docs-check.mjs --strict && node scripts/docs-check.mjs --strict --profile prose; else echo '[sweep] WARN-skip docs-quality-strict: vale/lychee absent on host (CI installs them version+sha256-pinned)'; fi" \
     "2${TAB}script-selftests${TAB}scripts/${TAB}ts=\$(grep -oE 'scripts/([a-zA-Z0-9._-]+/)*[a-zA-Z0-9._-]+\\.test\\.sh' .github/workflows/audit-self.yml | sort -u); [ -n \"\$ts\" ] || { echo 'no scripts/*.test.sh steps found in audit-self.yml — derivation broke'; exit 1; }; for t in \$ts; do bash \"\$t\" || exit 1; done" \
     "3${TAB}citation-fullsweep${TAB}ALWAYS${TAB}node scripts/check-line-citations.mjs --check --corpus" \
+    "3${TAB}pipefail-early-exit${TAB}install.sh,setup.d/,packages/core/audit-self/,packages/core/hooks/,packages/runtime-bridge/scripts/,.claude/hooks/,.claude/skills/,.husky/,scripts/,tests/install-sh/${TAB}node scripts/check-pipefail-early-exit.mjs" \
     "3${TAB}docs-refresh${TAB}ALWAYS${TAB}node scripts/check-docs-refresh.mjs \"\$(git merge-base origin/staging HEAD)..HEAD\"" \
     "3${TAB}typecheck${TAB}packages/${TAB}npm run typecheck" \
     "3${TAB}shipped-rules-drift${TAB}packages/${TAB}bash scripts/build-shipped-eslint-rules.sh --check" \
