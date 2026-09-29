@@ -77,6 +77,10 @@ for SH in bash sh $(command -v dash >/dev/null 2>&1 && echo dash); do
   printf 'b\n' > "$HD/h.sh"; match h && bad "[$SH] H7 changed file matched" || ok "[$SH] H7 changed file refused"
   printf 'a\n' > "$HD/h.sh"; match other && bad "[$SH] H8 absent name matched" || ok "[$SH] H8 absent name refused"
   printf '%s  h.sh:lang/\n' "$d1" > "$HD/m.txt"; match h && bad "[$SH] H9 no main line matched" || ok "[$SH] H9 main line required"
+  hash_of /abs >/dev/null 2>&1 && bad "[$SH] H10 absolute rel accepted" || ok "[$SH] H10 absolute rel refused"
+  "$SH" -c '. "$1"; getff_closure_matches "$2" "$3" "$4"' _ "$REPO_ROOT/plugin/hooks/lib/source-hash.sh" \
+    "$HD/no-such-manifest.txt" "$HD" h >/dev/null 2>&1 \
+    && bad "[$SH] H11 missing manifest file matched" || ok "[$SH] H11 missing manifest file refused"
 done
 
 # ── Yield to the project's own registration (incident 2026-09-28) ──────────────

@@ -20,6 +20,10 @@
 # time; an absent target degrades to the rule/target NAME without the dead path — never a
 # silent drop of the invariant text itself. Fail-open: an unreachable tree degrades all
 # citations and still exits 0 (a failed hook run would mark the ZCode run failed).
+# @plugin-yield-deps:
+#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
+#   not a sibling beside this hook — every subsequent citation is a $REPO_ROOT/-prefixed
+#   project path, existence-checked live, never a file beside itself.
 
 # Harness-portable output (inlined — this hook is copied standalone to test sandboxes, no lib/
 # sibling to source). CC: plain stdout auto-injected. ZCode: JSON additionalContext.

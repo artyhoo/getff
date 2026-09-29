@@ -8,6 +8,9 @@
 #   a non-CC harness can consume the same marker with its own injector. (Was @cc-only-rationale
 #   pre-F1; reframed 2026-06-01 — the rule's `paths:` is the native sibling channel, SSOT #101.)
 # spec: .claude/rules/rule-enforcement-channel-selection.md §4 (the dual-pair note + ADAPT mechanism)
+# @plugin-yield-deps:
+#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
+#   not a sibling beside this hook — every subsequent read is a $REPO_ROOT/-prefixed project path.
 #
 # Mechanism: on Edit|Write, for each .claude/rules/*.md carrying a `<!-- globs: ... -->`
 # marker whose pattern matches the edited path, inject that rule's `<!-- inject: ... -->`

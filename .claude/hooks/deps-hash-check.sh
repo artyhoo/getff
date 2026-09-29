@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # deps-hash-check.sh — UserPromptSubmit hook — per-stack declared-deps staleness detector (package.json/pyproject.toml/Cargo.toml)
 # @dual-pair: deps-hash-check-dogfood
+# @plugin-yield-deps:
+#   Empty on purpose: the SELF_PATH resolution below re-derives this file's OWN invocation
+#   path via dirname "$0" — it reads no file beside itself (no sourced sibling, no lang/lib).
 # spec: packages/core/hooks/deps-hash-check.sh — packages/ copy is the SOURCE shipped by
 # install.sh:962; .claude/ copy is this repo's dogfood instance wired in settings.json;
 # plugin/hooks/deps-hash-check is the consumer-plugin twin (T-PLUG-A). All three are kept
@@ -239,7 +242,7 @@ _npm_memo_key() {
   # measured 3371 manifests / ~26 s per prompt on this repo's main clone (W1-B verify seat
   # code review). ONE cksum over the sorted list (not one process per file) keeps the cost
   # flat, and its output carries each path, so a rename that keeps bytes also re-keys.
-  find "." -maxdepth 10 \( -name node_modules -o \( -type d -name '.?*' \) \) -prune -o \
+  find . -maxdepth 10 \( -name node_modules -o \( -type d -name '.?*' \) \) -prune -o \
     -type f \( -name package.json -o -name pnpm-workspace.yaml \) -print 2>/dev/null \
     | LC_ALL=C sort | tr '\n' '\0' | xargs -0 cksum 2>/dev/null | tr '\n' '|'
 }

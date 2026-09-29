@@ -8,6 +8,10 @@
 #   project). This version injects the CONSUMER's OWN anchor: the digest block of THEIR
 #   .claude/session-bootstrap.md. Consumer-safe: reads only the consumer's own file, zero-setup
 #   default (empty/absent block → injects nothing), degrades without jq.
+# @plugin-yield-deps:
+#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
+#   not a sibling beside this hook — the session-bootstrap.md it reads is a $REPO_ROOT/-prefixed
+#   project path, not a file beside itself.
 #
 # One hook, two events (registered on both — output format differs per the CC contract):
 #   • UserPromptSubmit  → plain stdout is auto-injected into the prompt context.

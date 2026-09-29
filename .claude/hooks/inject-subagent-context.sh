@@ -27,6 +27,10 @@
 # Output contract: PreToolUse updatedInput is applied by the host before dispatch (verified
 # empirically in zcode.cjs: updatedInput applied pre-handler; fR re-validates, silent revert
 # to original on invalid — non-fatal).
+# @plugin-yield-deps:
+#   Empty on purpose: dirname "$0" below only re-derives REPO_ROOT (this repo's project root),
+#   not a sibling beside this hook — the session-bootstrap.md it reads is a $REPO_ROOT/-prefixed
+#   project path, not a file beside itself.
 set -uo pipefail
 
 # @plugin-transform: manual — plugin twin carries a 4-line TWIN DIVERGENCE comment block + extensionless sibling call (.sh dropped). Comment block is prose, not mechanically transformable.

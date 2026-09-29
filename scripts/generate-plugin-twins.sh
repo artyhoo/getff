@@ -189,6 +189,9 @@ log_info "generated $((identical + sed_transformed)) twins, skipped $manual manu
 # installed bytes hash to these lines. Rewritten only on change, so a clean tree stays a no-op.
 MANIFEST="$TWIN_DIR/lib/source-sha256.txt"
 tmp_manifest=$(mktemp)
+# No pre-existing trap in this script (checked: fix round 1, item 3) — scoped to this section
+# only, and cleared right after, so it can't shadow a trap a later section might add.
+trap 'rm -f "$tmp_manifest"' EXIT
 bash "$SELF_DIR/plugin-source-hashes.sh" "$REPO_ROOT" > "$tmp_manifest"
 if cmp -s "$tmp_manifest" "$MANIFEST" 2>/dev/null; then
   rm -f "$tmp_manifest"
@@ -196,6 +199,7 @@ else
   mkdir -p "$TWIN_DIR/lib"; mv "$tmp_manifest" "$MANIFEST"
   log_info "source-hash manifest rewritten: plugin/hooks/lib/source-sha256.txt"
 fi
+trap - EXIT
 
 # ── Population (2): plugin/agents/*.md ← agents/*.md, byte-identical ──────────
 # No header, no marker, no transform — see the header block for why each is absent.
