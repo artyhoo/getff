@@ -18,7 +18,7 @@
 #     REUSE dup-detect.sh jaccard+xref logic (sub-shell call + output parsing). Any
 #     POTENTIAL_DUPE: line from dup-detect.sh --all implies completion candidate for
 #     the named umbrella. Uses MO_JACCARD_THRESHOLD (default 30%) from dup-detect.sh.
-#     SSOT: helpers/dup-detect.sh:62 — zero new LOC for the jaccard algorithm itself.
+#     SSOT: helpers/dup-detect.sh:126 — zero new LOC for the jaccard algorithm itself.
 #     GATED (#1517): a POTENTIAL_DUPE citation classifies DONE only when frontier.sh
 #     AGREES — a non-empty FRONTIER: line means the umbrella still has dispatchable
 #     stages, so the cited merged PR is PROVENANCE (a landed stage recorded inline),

@@ -1098,6 +1098,11 @@ do_refresh() {
       refresh_safe "$_RBV_SRC/hooks/runtime-bridge-dispatch.sh" "$_RBV_HOOK_DST"
       if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_RBV_HOOK_DST" ]; then
         chmod_safe +x "$_RBV_HOOK_DST" 2>/dev/null || true
+        # Same registration + aif project wiring as the install arm (55-runtime-bridge-vendor.sh),
+        # so a consumer installed before it gets both through --refresh (#869 class).
+        # shellcheck source=setup.d/bridge-guided.sh
+        BRIDGE_LIB_ONLY=1 . "$PKG_ROOT/setup.d/bridge-guided.sh"
+        bridge_register_dispatch_hook "$PROJECT_ROOT"
       fi
     fi
   fi
@@ -1428,6 +1433,9 @@ do_refresh() {
 # ─── --refresh early-exit: run refresh then stop (skip the full install flow) ──
 if [ -n "$REFRESH" ]; then
   do_refresh
+  # do_refresh exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7): the
+  # runtime-bridge wiring on the vendor arm records its gaps with note_not_wired.
+  print_not_wired
   exit 0
 fi
 

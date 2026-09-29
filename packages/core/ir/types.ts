@@ -6,7 +6,7 @@
 // No OTHER field may be added (no capabilityTier/confidenceTier: v0.2 dropped them).
 
 import type { Severity } from '../diagnostics/types.ts';
-import type { Provenance } from '../research/types.ts'; // precedent: synthesizer/types.ts:6
+import type { Provenance } from '../research/types.ts'; // same import, precedent: synthesizer/types.ts:6
 
 export const CAPABILITY_CLASSES = ['syntax', 'type-aware', 'dep-graph'] as const;
 export type CapabilityClass = (typeof CAPABILITY_CLASSES)[number];

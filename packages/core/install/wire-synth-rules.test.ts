@@ -27,9 +27,37 @@ import { presetRuleScopes } from './synth-and-wire.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-const TS_MORPH_AVAILABLE =
-  existsSync('./node_modules/ts-morph/package.json') ||
-  existsSync('node_modules/ts-morph/package.json');
+// Resolved exactly the way wireConfigSource / wireNRules load ts-morph (wire-eslint-r2.ts):
+// node resolution anchored at the cwd, walking up. The `<cwd>/node_modules/ts-morph` probe this
+// replaces missed the workspace-hoisted copy in the repo-root node_modules, so every run from
+// packages/core (`npm --prefix packages/core run test:units`, the CI step) skipped the ts-morph
+// cases green while the wirer itself found ts-morph (CI run 36471375667, 2026-09-28: 70/81 of
+// wire-eslint-r2.test.ts and 18/39 of wire-synth-rules.test.ts skipped). Kept in sync with the
+// twin in wire-eslint-r2.test.ts.
+function tsMorphResolvable(): boolean {
+  try {
+    createRequire(resolve(process.cwd(), 'package.json')).resolve('ts-morph');
+    return true;
+  } catch {
+    return false;
+  }
+}
+const TS_MORPH_AVAILABLE = tsMorphResolvable();
+// Where the cases are load-bearing, an absent ts-morph fails instead of skipping: CI always, and
+// any run that sets REQUIRE_TS_MORPH=1 (a GETFF_* name would be scrubbed by vitest.setup.ts).
+const TS_MORPH_REQUIRED = process.env.CI === 'true' || process.env.REQUIRE_TS_MORPH === '1';
+function itRequiresTsMorph(): void {
+  it.runIf(TS_MORPH_REQUIRED)('ts-morph resolves from the cwd, so no ts-morph case here is skipped', () => {
+    expect(
+      TS_MORPH_AVAILABLE,
+      `ts-morph does not resolve from ${process.cwd()} — every skipIf(!TS_MORPH_AVAILABLE) case would pass by skipping`,
+    ).toBe(true);
+  });
+}
+
+describe('wire-synth-rules', () => {
+  itRequiresTsMorph();
+});
 
 // ─── Synthetic rule set (subset of synthesizer output for react-next) ──────────
 const SIMPLE_RULE = {

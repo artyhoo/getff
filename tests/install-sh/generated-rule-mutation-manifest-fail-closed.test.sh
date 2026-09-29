@@ -8,6 +8,9 @@
 #   (A) unparseable manifest → exit non-zero, FAIL line names the manifest
 #   (B) a valid manifest under a path with a `'` is read AND its rule is actually tested — the
 #       old NUL→newline `tr` was a no-op, so before the fix every rule took the «no inputs» skip
+#   (C)/(D) TypeScript and JSX negative inputs are parsed and their rules tested
+#   (E) an input that does not parse is a skip, never a «selector broken» FAIL
+#   (F) the FAIL line names the error, not the source line that threw it (#1390 class)
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 GATE="$REPO_ROOT/packages/core/audit-self/check-generated-rule-mutation.sh"
@@ -28,6 +31,18 @@ printf '{ "rule-a": { "check": ' > "$R/.ai-factory/synthesizer-output/rules-mani
 _out=$(bash "$GATE" "$R" 2>&1); _rc=$?
 [ "$_rc" -ne 0 ] && ok "(A) unparseable manifest → exit $_rc (fails closed)" || bad "(A) unparseable manifest → exit 0 (got: $_out)"
 echo "$_out" | grep -q 'could not read the manifest' && ok "(A) the FAIL line says the manifest could not be read" || bad "(A) no 'could not read the manifest' line"
+rm -rf "$R"
+
+# ── (F) the FAIL line names the error, not the source line that threw it. Node prints the
+#    throwing line (`… throw new Error('manifest is not a JSON object');`) ABOVE `Error: …`, so a
+#    first match on the bare word `Error` quoted the extractor's own code (#1390 class) ──
+R=$(newroot notobject)
+printf '[1, 2]\n' > "$R/.ai-factory/synthesizer-output/rules-manifest-additions.json"
+_out=$(bash "$GATE" "$R" 2>&1)
+_fail=$(echo "$_out" | grep -m1 'could not read the manifest')
+echo "$_fail" | grep -q ': Error: manifest is not a JSON object$' \
+  && ok "(F) the FAIL line names 'Error: manifest is not a JSON object'" \
+  || bad "(F) the FAIL line does not end in the error message (got: $_fail)"
 rm -rf "$R"
 
 # ── (B) quote in the path ──

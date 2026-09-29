@@ -37,7 +37,7 @@ cell, never a new vocabulary.
 27 kickoffs mention the edge; **16** carry it as a stage-table column and are read
 mechanically; **11** state it in a prose header line (`> **Depends on:** …`) and are NOT
 parsed. Prose edges are reported on an `ATTN:` line with their line numbers, because the
-degrade path must never read as permission — `meta-orchestrator-bundle-autonomous/kickoff.md:5`
+degrade path must never read as permission: `meta-orchestrator-bundle-autonomous/kickoff.md:5`
 literally says «Do NOT dispatch this umbrella before …», and «every not-yet-done stage is
 frontier» next to that sentence, with no pointer, would be the worst of both channels.
 Converting those 11 to the column is kickoff-author work, not this helper's job.

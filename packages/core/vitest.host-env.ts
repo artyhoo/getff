@@ -33,6 +33,10 @@ export const SCRUBBED_EXACT: readonly string[] = [
   'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
   'CLAUDE_CODE_SESSION_ID',
   'CLAUDE_CODE_SUBAGENT_MODEL',
+  // skill-routing.sh (session-start re-apply): both relocate WHERE it writes — the plugin
+  // cache it stamps and the consent marker it reads. Inherited, a host value would point a
+  // spawned session-start at the operator's real config; its test pins HOME per case instead.
+  'CLAUDE_CONFIG_DIR',
   'CLAUDE_COORDINATION_DIR',
   'CLAUDE_PLUGIN_ROOT',
   'CLAUDE_PROJECT_DIR',
@@ -47,6 +51,8 @@ export const SCRUBBED_EXACT: readonly string[] = [
   // any caller that forgot the assignment. Nothing legitimately inherits it: the session id
   // arrives on stdin.
   'SESSION_ID',
+  // See CLAUDE_CONFIG_DIR above: the consent marker lives under it.
+  'XDG_CONFIG_HOME',
 ];
 
 /**
