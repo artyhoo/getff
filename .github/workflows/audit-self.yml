@@ -839,6 +839,8 @@ jobs:
         run: bash tests/install-sh/f19-fences-fire-load-probe.test.sh
       - name: "install-sh — check-fences-fire FULL barrel (#838: R12 ACTIVE on react-next; neutered-R12 teeth; partial-barrel stacks not false-RED)"
         run: bash tests/install-sh/check-fences-fire-full-barrel.test.sh
+      - name: "install-sh — oxlint jsPlugins registration (P4: getff's lint plugin merged into a project's own oxlint config; rule enabling stays off)"
+        run: bash tests/install-sh/oxlint-register-jsplugin.test.sh
       - name: install-sh — lib-helpers unit test (O1 guard regression + all helpers exposed)
         run: bash tests/install-sh/lib-helpers.test.sh
       - name: "install-sh — tool-decisions seed integration (S3: deps-hash loop fires on seeded state)"
