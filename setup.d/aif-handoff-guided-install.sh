@@ -219,6 +219,32 @@ _aif_handoff_degrade() {
 }
 
 # ---------------------------------------------------------------------------
-# Entry point — invoked from install.sh under PROFILE=factory.
+# aif_handoff_offer — the read-only probe behind the pre-launch list's aif line (one-button
+# point 8). The heavy install (a clone plus docker containers) is offered as its own line ONLY
+# when bridge_diagnose says `docker`: docker runs and aif-handoff does not answer. It prints ONE
+# TAB-separated line and changes nothing (no clone, no compose, no audit-log line, no prompt):
+#   offer<TAB><the line to show><TAB>AIF_GUIDED_INSTALL=1   — a «yes» becomes that variable on
+#                                                             the `./setup --all` command
+#   skip<TAB><why it is not offered><TAB>-                    — shown in the report, not asked
 # ---------------------------------------------------------------------------
-aif_handoff_guided_install
+aif_handoff_offer() {
+  local state
+  state=$(bridge_diagnose "$AIF_URL")
+  case "$state" in
+    docker) printf 'offer\taif-handoff (heavy: clones a repository, starts docker containers)\tAIF_GUIDED_INSTALL=1\n' ;;
+    up) printf 'skip\talready running at %s\t-\n' "$AIF_URL" ;;
+    docker-down) printf 'skip\tnot installed: docker is not running\t-\n' ;;
+    native) printf 'skip\tthe aif-handoff CLI is installed but does not answer at %s; getff does not start a service it did not install\t-\n' "$AIF_URL" ;;
+    absent) printf 'skip\tnot offered: the guided install runs aif-handoff in docker, and this machine has no docker\t-\n' ;;
+    *) printf 'skip\tnot offered: its diagnose returned an unknown state (%s)\t-\n' "$state" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# Entry point — invoked from install.sh under PROFILE=factory; `--offer` is the pre-launch probe.
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--offer" ]; then
+  aif_handoff_offer
+else
+  aif_handoff_guided_install
+fi

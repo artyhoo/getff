@@ -12,6 +12,9 @@
 #   A1-7  the `absent` arm re-ran bridge_diagnose's own docker test, so its
 #         "daemon down → Start docker" branch was unreachable and a consumer with Docker
 #         Desktop stopped was told to "Install docker".
+#   OFFER one-button point 8: `--offer` is the pre-launch probe — it offers the heavy aif line
+#         only when docker runs and aif-handoff does not answer, names the variable a «yes»
+#         becomes, and has no side effect in any state.
 #   Q4.7  (operator directive 2026-09-28) the helper never hands back a manual step: every
 #         degrade path says what is not wired and why, in a «NOT wired» summary of its own
 #         (the helper runs after 99-finalize printed the install's), and no «start docker»,
@@ -181,6 +184,38 @@ case "$OUT" in *"degrades to env-level"*) ok "A1-4: failed compose reaches the d
 grep -q 'failed docker-compose-up' "$ST/install.log" 2>/dev/null && ok "A1-4: failed compose is written to the audit log" || bad "A1-4: no audit-log line for the failed compose"
 nw_aif "A1-4 compose" "docker compose up -d failed"
 no_manual "A1-4 compose"
+
+# ── OFFER: `--offer` is the read-only pre-launch probe (one-button point 8) ─────────
+# offer_arm <label> <bin-dir> <want-verdict> <want-text-regex> [VAR=VAL …]
+offer_arm() {
+  local label="$1" bindir="$2" want="$3" rx="$4"; shift 4
+  ST="$SB/state-offer-$label"; rm -rf "$ST"; mkdir -p "$ST"
+  OUT=$(env -i PATH="$bindir" HOME="$SB/home" STUB_STATE="$ST" \
+    RUNTIME_BRIDGE_AIF_URL="http://127.0.0.1:59099" AIF_HANDOFF_REPO_URL="https://example.invalid/aif-handoff.git" \
+    AIF_HANDOFF_CHECKOUT="$ST/checkout" AIF_INSTALL_LOG="$ST/install.log" "$@" \
+    bash "$HELPER" --offer < "$SB/stdin-yes" 2>/dev/null); RC=$?
+  local verdict text var
+  IFS=$'\t' read -r verdict text var <<<"$OUT"
+  if [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 1 ] && [ "$verdict" = "$want" ] && grep -qE "$rx" <<<"$text"; then
+    ok "OFFER $label: $verdict — $text"
+  else bad "OFFER $label: want $want /$rx/, got rc=$RC «$OUT»"; fi
+  if [ "$want" = offer ]; then
+    [ "$var" = "AIF_GUIDED_INSTALL=1" ] && ok "OFFER $label: names the variable a yes becomes" || bad "OFFER $label: third field «$var»"
+  else
+    [ "$var" = "-" ] && ok "OFFER $label: nothing to set on a skip" || bad "OFFER $label: third field «$var» on a skip"
+  fi
+  if cloned || composed || [ -e "$ST/install.log" ] || [ -e "$ST/checkout" ]; then bad "OFFER $label: the probe had a side effect"
+  else ok "OFFER $label: no clone, no compose, no audit-log line"; fi
+}
+offer_arm docker      "$SB/bin"        offer 'heavy: clones a repository, starts docker containers'
+offer_arm docker-down "$SB/bin"        skip  '^not installed: docker is not running$' STUB_DOCKER_INFO_RC=1
+offer_arm absent      "$SB/bin-nodocker" skip 'no docker'
+offer_arm native      "$SB/bin-native" skip  'CLI is installed but does not answer'
+mkdir -p "$SB/state-offer-up"; : > "$SB/state-offer-up/health-up"
+_up_state="$SB/state-offer-up"
+OUT=$(env -i PATH="$SB/bin" HOME="$SB/home" STUB_STATE="$_up_state" RUNTIME_BRIDGE_AIF_URL="http://127.0.0.1:59099" \
+  bash "$HELPER" --offer 2>/dev/null)
+case "$OUT" in skip$'\t'already\ running*) ok "OFFER up: a running aif-handoff is not offered again" ;; *) bad "OFFER up: «$OUT»" ;; esac
 
 # ── A1-3 wiring: install.sh must gate the spawn and export what the child reads ─────
 BLOCK=$(sed -n '/aif-handoff guided install (beta-delivery-ux S4/,/^# ─── consumer-refresh-integrity R1/p' "$REPO_ROOT/install.sh")
