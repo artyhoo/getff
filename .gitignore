@@ -149,3 +149,11 @@ tests/agnosticism/conformance-record.tsv
 # leaving it on the authoring machine (same durable-committed class as done.md/report.md).
 !.claude/orchestrator-prompts/getff-ai-site/s0q-pre-commit-section.sh
 !.claude/orchestrator-prompts/plain-words-recap-v2/kickoff-s*.md
+# lane-config-insertion (2026-09-29): per-stage dispatch inputs L1-L5 (spec
+# docs/superpowers/specs/2026-09-28-lane-config-insertion-design.md §11). Umbrella letter L;
+# `kickoff-l<N>.md` lands in the `kickoff-<letter><digit>` stage family principle 12 resolves.
+# Tracked so each stage kickoff reaches `staging` for the dispatch session and the aif
+# container base to read (.claude/rules/kickoff-staging-placement.md §1).
+!.claude/orchestrator-prompts/lane-config-insertion/kickoff-l*.md
+# The host-run probe record the stage kickoffs cite (dotted sidecar, SIDECAR_DOTTED_RE).
+!.claude/orchestrator-prompts/lane-config-insertion/kickoff.probes.md
