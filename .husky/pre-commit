@@ -278,9 +278,9 @@ fi
 # ── Invariants-line render (2026-09-28) ───────────────────────────────
 # The session digest's INVARIANTS_LINE is rendered from README.md «What must not break
 # (invariants)» by scripts/render-invariants.mjs. When README.md or the hook is staged:
-#   - both files match the index (no unstaged edits): re-render and stage the hook, so the
-#     twin block below regenerates plugin/hooks/inject-session-bootstrap in the same commit
-#     and nobody has to remember `--write`;
+#   - both files match the index (no unstaged edits): re-render and stage the hook, so
+#     nobody has to remember `--write` (the plugin has shipped no twin of this hook since
+#     2026-09-29 — the framework digest is not a consumer's context);
 #   - otherwise (unstaged edits, `git add -p`): auto-staging would sweep unstaged work into
 #     the commit, and the working tree is not what gets committed — so check the STAGED pair
 #     (index README.md against index hook, in a temp root) and fail on drift.

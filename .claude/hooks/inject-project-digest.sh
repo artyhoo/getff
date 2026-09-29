@@ -33,7 +33,7 @@ DIGEST_FILE="$REPO_ROOT/.claude/session-bootstrap.md"
 INPUT="$(cat 2>/dev/null || true)"
 
 # Extract the content between the digest markers (awk, no jq — works even without jq for the
-# UserPromptSubmit path). Markers must be on their own lines.
+# SessionStart path). Markers must be on their own lines.
 BLOCK="$(awk '/<!--[[:space:]]*digest:start[[:space:]]*-->/{f=1;next} /<!--[[:space:]]*digest:end[[:space:]]*-->/{f=0} f' "$DIGEST_FILE" 2>/dev/null || true)"
 # No-op when the block is empty / whitespace-only (the shipped template ships empty on purpose).
 [ -z "$(printf '%s' "$BLOCK" | tr -d '[:space:]')" ] && exit 0
@@ -49,7 +49,7 @@ if [ "$EVENT" = "SubagentStart" ]; then
   # if jq were absent EVENT would be "" and we would not reach here).
   jq -n --arg ctx "$BLOCK" '{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}'
 else
-  # SessionStart / UserPromptSubmit (or jq-absent fallback): plain stdout is auto-injected.
+  # SessionStart (or jq-absent fallback): plain stdout is auto-injected.
   printf '%s\n' "$BLOCK"
 fi
 exit 0

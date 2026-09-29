@@ -9,7 +9,7 @@
 #
 # TWIN DIVERGENCE from .claude/hooks/inject-output-language.sh:
 #   1. Extensionless filename (plugin/hooks/ convention — hook-paths.test.sh (a)).
-#   2. Inline `_is_zcode` + `_emit_ctx` adapter (per inject-session-bootstrap:15-18 convention —
+#   2. Inline `_is_zcode` + `_emit_ctx` adapter (the same pair plugin/hooks/lib/hook-emit.sh carries —
 #      Stage-2 harness-portable refactor). On ZCode, stdout must be strict-JSON
 #      {additionalContext:<text>} (plain is discarded + run marked failed); on CC, plain stdout
 #      is auto-injected unchanged. The .claude/hooks/ source does NOT carry this adapter because
@@ -48,5 +48,5 @@ esac
 
 # Empty OUT (en/default) → exit 0 with no stdout (matches .claude/hooks/ source: plain `case`
 # branch with no echo). Non-empty → emit harness-portably.
-[ -z "$OUT" ] || _emit_ctx "UserPromptSubmit" "$OUT"
+[ -z "$OUT" ] || _emit_ctx "SessionStart" "$OUT"
 exit 0

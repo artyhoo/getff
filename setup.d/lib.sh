@@ -3134,30 +3134,36 @@ register_cc_hook() {
 }
 
 # unregister_cc_hook SETTINGS EVENT MARKER — the inverse of register_cc_hook, for a hook getff MOVES
-# to another event. Drops every handler on EVENT whose command matches MARKER (the same regex
-# register_cc_hook's idempotence test uses), then any group left with no handlers, then the EVENT
-# key if it is left empty. Every other handler, group and event is kept byte-for-byte in meaning.
+# to another event. Drops every handler on EVENT whose command runs getff's own script
+# `.claude/hooks/<MARKER>.sh` (anchored — a consumer's `my-<MARKER>-v2.sh` is not ours), then a
+# group that held such a handler and is left empty, then the EVENT key if it is left empty. Every
+# other handler, group (malformed ones included) and event is kept as it was.
 # Silent when nothing matches (the common re-install case); absent settings file → no-op.
 # Why it exists (2026-09-29): inject-project-digest + inject-output-language moved from
 # UserPromptSubmit (fired on EVERY prompt) to SessionStart (once per context). register_cc_hook is
 # add-only, so without this a consumer installed before the move kept the per-prompt registration
 # next to the new one after a re-install — the injection would have grown, not shrunk.
 unregister_cc_hook() {
-  local settings="$1" event="$2" marker="$3" rc=0
+  local settings="$1" event="$2" marker="$3" rc=0 re
   [ -f "$settings" ] || return 0
+  re="\\.claude/hooks/${marker}\\.sh([\"' ]|\$)"
   if ! command -v jq >/dev/null 2>&1; then
     # shellcheck disable=SC2016  # JavaScript, not shell expansions
     json_edit_node "$settings" '
-      const [e, marker] = args;
-      const re = new RegExp(marker);
+      const [e, src] = args;
+      const re = new RegExp(src);
       const list = (o.hooks || {})[e];
       if (!Array.isArray(list)) return;
-      if (!list.some(g => (g.hooks || []).some(h => re.test(h.command || "")))) return;
-      const kept = list
-        .map(g => Object.assign({}, g, { hooks: (g.hooks || []).filter(h => !re.test(h.command || "")) }))
-        .filter(g => g.hooks.length > 0);
+      const ours = g => Array.isArray(g.hooks) && g.hooks.some(h => re.test(h.command || ""));
+      if (!list.some(ours)) return;
+      const kept = [];
+      for (const g of list) {
+        if (!ours(g)) { kept.push(g); continue; }
+        const hooks = g.hooks.filter(h => !re.test(h.command || ""));
+        if (hooks.length) kept.push(Object.assign({}, g, { hooks }));
+      }
       if (kept.length) o.hooks[e] = kept; else delete o.hooks[e];
-      return o;' "$event" "$marker" || rc=$?
+      return o;' "$event" "$re" || rc=$?
     case "$rc" in
       0) echo "  ✓ $marker removed from $event in .claude/settings.json (through node: jq is not on PATH)" ;;
       3) : ;;
@@ -3166,18 +3172,21 @@ unregister_cc_hook() {
     esac
     return 0
   fi
-  jq -e --arg e "$event" --arg m "$marker" \
+  jq -e --arg e "$event" --arg m "$re" \
     '((.hooks[$e] // []) | map(.hooks[]?.command // "") | any(test($m)))' "$settings" >/dev/null 2>&1 || return 0
-  if jq --arg e "$event" --arg m "$marker" '
+  if jq --arg e "$event" --arg m "$re" '
+      def ours: (.hooks | type) == "array" and any(.hooks[]; (.command // "") | test($m));
       .hooks[$e] = [ .hooks[$e][]
-                     | .hooks = [ .hooks[]? | select(((.command // "") | test($m)) | not) ]
-                     | select((.hooks | length) > 0) ]
+                     | if ours then (.hooks = [ .hooks[] | select(((.command // "") | test($m)) | not) ]
+                                     | select((.hooks | length) > 0))
+                       else . end ]
       | if (.hooks[$e] | length) == 0 then del(.hooks[$e]) else . end' \
       "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
     echo "  ✓ $marker removed from $event in .claude/settings.json (moved to another event)"
   else
     rm -f "$settings.tmp" 2>/dev/null || true
     echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker still registered on $event" >&2
+    note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — jq rewrite failed"
   fi
 }
 

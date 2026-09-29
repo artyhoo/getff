@@ -12,6 +12,8 @@
 #   M4 the unregister + register pair is idempotent (second run: byte-identical file)
 #   M5 nothing matches → the file is not rewritten (byte-identical) and nothing is printed
 #   M6 the new registration carries the SessionStart matcher
+#   M7 only getff's own script is ours: a consumer's look-alike (`my-inject-project-digest-v2.sh`),
+#      a group that held none of ours (even an empty or malformed one) are kept as they were
 # shellcheck disable=SC2015,SC2016  # ok/bad pairs never fail; the $CLAUDE_PROJECT_DIR commands are literal by design
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -65,6 +67,23 @@ check_backend() { # label settings
     && ok "$l: non-hook keys kept" || bad "$l: permissions lost"
 }
 
+# M7 fixture: ours next to things that only LOOK like ours or are not handler lists at all.
+neighbours() {
+  jq -n --arg p "$PDG" '{hooks: {UserPromptSubmit: [
+    {hooks: [{type: "command", command: "bash .claude/hooks/my-inject-project-digest-v2.sh"}]},
+    {hooks: []},
+    {matcher: "x"},
+    {hooks: [{type: "command", command: $p}]}
+  ]}}' > "$1"
+}
+check_neighbours() { # label settings
+  local want got
+  want=$(jq -c '[{hooks: [{type: "command", command: "bash .claude/hooks/my-inject-project-digest-v2.sh"}]}, {hooks: []}, {matcher: "x"}]' <<< 'null')
+  got=$(jq -c '.hooks.UserPromptSubmit' "$2")
+  [ "$got" = "$want" ] && ok "$1 M7: look-alike, empty and malformed consumer groups kept" \
+    || bad "$1 M7: UserPromptSubmit is $got"
+}
+
 if ! command -v jq >/dev/null 2>&1; then
   echo "  ✗ jq absent — this test reads results through jq"; exit 1
 fi
@@ -93,6 +112,9 @@ cp "$T/none.json" "$T/none.orig"
 o=$(unregister_cc_hook "$T/none.json" UserPromptSubmit inject-project-digest 2>&1)
 cmp -s "$T/none.orig" "$T/none.json" && [ -z "$o" ] \
   && ok "jq M5: no match → file not rewritten, nothing printed" || bad "jq M5: rewritten or printed «$o»"
+neighbours "$T/nb.json"
+unregister_cc_hook "$T/nb.json" UserPromptSubmit inject-project-digest >/dev/null 2>&1
+check_neighbours jq "$T/nb.json"
 rm -rf "$T"
 
 # ── node back-end (jq hidden from PATH) ───────────────────────────────────────
@@ -117,6 +139,9 @@ if command -v node >/dev/null 2>&1; then
   o=$( PATH="$T/bin"; unregister_cc_hook "$T/none.json" UserPromptSubmit inject-project-digest 2>&1)
   cmp -s "$T/none.orig" "$T/none.json" && [ -z "$o" ] \
     && ok "node M5: no match → file not rewritten, nothing printed" || bad "node M5: rewritten or printed «$o»"
+  neighbours "$T/nb.json"
+  ( PATH="$T/bin"; unregister_cc_hook "$T/nb.json" UserPromptSubmit inject-project-digest ) >/dev/null 2>&1
+  check_neighbours node "$T/nb.json"
   rm -rf "$T"
 else
   bad "node absent — the jq-less back-end could not be exercised"
