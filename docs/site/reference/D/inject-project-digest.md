@@ -107,7 +107,7 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
 
 ## Evidence
 
-- `.claude/hooks/inject-project-digest.sh:2` is the header the card's description row
+- `.claude/hooks/inject-project-digest.sh:2` is the hook header the card's description row
   quotes: `# inject-project-digest.sh — SessionStart + SubagentStart hook — injects the project digest at both fire-points`.
 - The one-source design is header lines 15-16: «The shared digest source is the block
   between the markers in .claude/session-bootstrap.md, so the main session AND every

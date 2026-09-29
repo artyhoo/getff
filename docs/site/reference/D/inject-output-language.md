@@ -99,7 +99,7 @@ install, from their own settings file.
 
 ## Evidence
 
-- `.claude/hooks/inject-output-language.sh:2` is the header the card's description row
+- `.claude/hooks/inject-output-language.sh:2` is the hook header the card's description row
   quotes: `# inject-output-language.sh — SessionStart hook — injects the active output-language line into session context`.
 - Zero-setup default: line 21 opens `case "${AIF_HOOK_LANG:-en}" in` and line 22 is
   `en|'') : ;;  # English default — nothing to inject`. Header line 17 states it:
