@@ -347,13 +347,21 @@ under_shadow() { # $1=path → 0 if it lives under a shadowed package dir
   return 1
 }
 
-find_boundary_in() { # $1=dir → first boundary file under it (any boundary token)
-  local base="$1" t f
+# boundary_files_in <dir> <root|package> — per boundary token, its first file under <dir> not yet taken for an
+# earlier token (root: nor under a package whose own config shadows the root one). One file per token, each
+# asked about once: a consumer's own R2 scoped by its own `files:` can reach one token's code and miss
+# another's, which the first boundary file alone read green (cold reviews 2026-09-29, after the install
+# began declaring RULE_GLOBS alone in such a config). Files are taken in sorted order, the same pick on
+# every filesystem.
+boundary_files_in() {
+  local base="$1" scope="$2" t f seen="|"
   for t in "${btokens[@]}"; do
-    f=$(find "$base" \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null | head -1)
-    [ -n "$f" ] && { printf '%s\n' "$f"; return 0; }
+    while IFS= read -r f; do
+      if [ "$scope" = root ] && under_shadow "$f"; then continue; fi
+      case "$seen" in *"|$f|"*) continue ;; esac
+      seen="$seen$f|"; printf '%s\n' "$f"; break
+    done < <(find "$base" \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null | LC_ALL=C sort)
   done
-  return 1
 }
 
 any_src=$(find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -print 2>/dev/null | head -1)
@@ -461,19 +469,11 @@ verify_file() { # $1=file
   fi
 }
 
-# Root scope — for each boundary token, its first file NOT under any shadowed package (governed by the
-# root config). One file per token, not one in all: a consumer's own R2 scoped by its own `files:` can
-# reach one token's code and miss another's, and the first boundary file alone read green on it (cold
-# review 2026-09-29, after the install began declaring RULE_GLOBS alone in such a config).
-root_seen="|"
-for t in "${btokens[@]}"; do
-  root_bf=""
-  while IFS= read -r f; do
-    if ! under_shadow "$f"; then root_bf="$f"; break; fi
-  done < <(find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null)
-  [ -n "$root_bf" ] || continue
-  case "$root_seen" in *"|$root_bf|"*) continue ;; esac   # a file two tokens match is asked about once
-  root_seen="$root_seen$root_bf|"
+# Root scope — the boundary files governed by the root config (under no shadowed package), one per token.
+# Read into a list first: eslint, asked about each, must not share the loop's input.
+root_files=()
+while IFS= read -r f; do root_files+=("$f"); done < <(boundary_files_in . root)
+for root_bf in ${root_files[@]+"${root_files[@]}"}; do
   if package_has_zod "$root_bf"; then
     verify_file "$root_bf"
   else
@@ -481,15 +481,20 @@ for t in "${btokens[@]}"; do
   fi
 done
 
-# Each shadowed package that OWNS boundary files — governed by its own config, not the root one.
+# Each shadowed package that OWNS boundary files — governed by its own config, not the root one; one
+# file per token as well.
 if [ "${#shadows[@]}" -gt 0 ]; then
   for s in "${shadows[@]}"; do
-    bf=$(find_boundary_in "$s") || continue
-    if package_has_zod "$bf"; then
-      verify_file "$bf"
-    else
-      echo "  · ${s#./}: no zod boundary — R2 N/A (skipped)"
-    fi
+    pkg_files=()
+    while IFS= read -r f; do pkg_files+=("$f"); done < <(boundary_files_in "$s" package)
+    na=""
+    for bf in ${pkg_files[@]+"${pkg_files[@]}"}; do
+      if package_has_zod "$bf"; then
+        verify_file "$bf"
+      elif [ -z "$na" ]; then
+        na=1; echo "  · ${s#./}: no zod boundary — R2 N/A (skipped)"
+      fi
+    done
   done
 fi
 

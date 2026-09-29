@@ -83,14 +83,16 @@ _r2_own_refused() {
 # registered, or it refuses. R2 registered with no RULE_GLOBS gets RULE_GLOBS alone (the wirer leaves
 # R2 as the config sets it: operator decision 2026-09-29).
 _r2_own_gap() {
-  local cfg="$PROJECT_ROOT/$1" have g missing="" r2=""
+  local cfg="$PROJECT_ROOT/$1" have g missing="" r2="" code
   [ -n "${_r2_own_globs:-}" ] || return 0
   have=$(rule_globs_boundary "$cfg")
   # The rule id as a string or template literal outside a comment is R2 registered — what the wirer reads
-  # as set (ruleSetInConfig), so the summary promises what --full would add. eslint_config_code empties
-  # template literals, so that form is read from the file as it is.
-  { grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' <<<"$(eslint_config_code "$cfg")" \
-      || grep -qF '`rules-as-tests/no-unsafe-zod-parse`' "$cfg" 2>/dev/null; } && r2=1
+  # as set (ruleSetInConfig), so the summary promises what --full would add. The config is read as
+  # eslint_config_code reads it, which cuts a template literal's text: the template-literal form is made a
+  # quoted string first, so a comment is cut with it in it (second cold review 2026-09-29).
+  code=$(sed "s/\`rules-as-tests\/no-unsafe-zod-parse\`/'rules-as-tests\/no-unsafe-zod-parse'/g" "$cfg" 2>/dev/null \
+    | awk -v sq="'" -v dq='"' "$ESLINT_UNCOMMENT_AWK"'{ print uncomment($0) }' 2>/dev/null) || code=""
+  grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' <<<"$code" && r2=1
   case "$(printf '%s\n' "$have" | sed -n 1p)" in
     none) if [ -n "$r2" ]; then echo "RULE_GLOBS (60-ci found an HTTP boundary)"; else echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)"; fi ;;
     array)
@@ -855,6 +857,27 @@ _f11e_name_failures() {
   done <<< "$1"
   return "$any"
 }
+# _f11e_limit <AIF_F11E_TIMEOUT_S> — the limit in whole seconds: anything else is the default 120, and a value
+# past what a JavaScript timer holds (~24.8 days) is capped at 99999, as either would fire the timer at once.
+_f11e_limit() {
+  case "$1" in ''|*[!0-9]*) echo 120 ;; *) if [ "${#1}" -le 5 ]; then echo "$1"; else echo 99999; fi ;; esac
+}
+# _f11e_run <gate script> <limit s> — runs the gate. The gate and every eslint it starts share one process
+# group (node is there wherever node_modules/.bin/eslint runs), killed whole whatever ends the ask: the limit
+# (exit 124), a signal to the install (passed on, so the install stops as it would have), or the gate's own
+# end — a gate ended by a signal exits 128 + that signal. Nothing it started outlives it: the install reads
+# the ask's output to its end, which a process left running would hold open (second cold review).
+_f11e_run() {
+  AIF_F11E_GATE="$1" AIF_F11E_LIMIT="$2" node -e '
+    const { spawn } = require("child_process");
+    const { signals } = require("os").constants;
+    const gate = spawn("bash", [process.env.AIF_F11E_GATE], { detached: true, windowsHide: true, stdio: ["ignore", "inherit", "inherit"] });
+    const stopAll = () => { try { process.kill(-gate.pid, "SIGKILL"); } catch { try { gate.kill("SIGKILL"); } catch {} } };
+    const limit = setTimeout(() => { stopAll(); process.exit(124); }, Number(process.env.AIF_F11E_LIMIT) * 1000);
+    for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) process.once(sig, () => { stopAll(); process.kill(process.pid, sig); });
+    gate.on("exit", (code, sig) => { clearTimeout(limit); stopAll(); process.exit(code ?? 128 + (signals[sig] || 0)); });
+  '
+}
 # _f11e_verdict <gate output> <exit> — the gate's verdict: its last line when it passed, its last FAILED
 # line when it failed (asked about workspace configs, the last line is the last workspace's own verdict).
 _f11e_verdict() {
@@ -865,18 +888,8 @@ _f11e_verdict() {
 }
 if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11e_gate" ] \
    && [ -x "$PROJECT_ROOT/node_modules/.bin/eslint" ] && command -v node >/dev/null 2>&1; then
-  # The gate and every eslint it starts share one process group, killed whole at the limit (exit 124);
-  # node is there wherever node_modules/.bin/eslint runs.
-  _f11e_limit="${AIF_F11E_TIMEOUT_S:-120}"
-  _f11e_out=$( cd "$PROJECT_ROOT" && env -u ESLINT_CONFIG AIF_F11E_GATE="$_f11e_gate" AIF_F11E_LIMIT="$_f11e_limit" node -e '
-    const { spawn } = require("child_process");
-    const gate = spawn("bash", [process.env.AIF_F11E_GATE], { detached: true, stdio: ["ignore", "inherit", "inherit"] });
-    const limit = setTimeout(() => {
-      try { process.kill(-gate.pid, "SIGKILL"); } catch {}
-      process.exit(124);
-    }, Number(process.env.AIF_F11E_LIMIT) * 1000);
-    gate.on("exit", (code) => { clearTimeout(limit); process.exit(code ?? 1); });
-  ' 2>&1 ) && _f11e_rc=0 || _f11e_rc=$?
+  _f11e_limit=$(_f11e_limit "${AIF_F11E_TIMEOUT_S:-}")
+  _f11e_out=$( cd "$PROJECT_ROOT" && unset ESLINT_CONFIG && _f11e_run "$_f11e_gate" "$_f11e_limit" 2>&1 ) && _f11e_rc=0 || _f11e_rc=$?
   if [ "$_f11e_rc" = 124 ]; then
     echo "  · asked scripts/check-rule-enforced.sh — no answer within ${_f11e_limit} s, and the install did not wait longer"
     _f11_note "scripts/check-rule-enforced.sh did not finish within ${_f11e_limit} s on this project (it runs eslint --print-config on your own config), so the install could not say whether R2 reaches the HTTP boundary code"

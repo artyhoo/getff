@@ -1361,6 +1361,27 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     }
   });
 
+  it.skipIf(!TS_MORPH_AVAILABLE)('RULE_GLOBS re-exported under that name → a note, no declaration; a RULE_GLOBS bound inside a function → declared as usual (second cold review)', async () => {
+    const warn = R2_BY_HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
+    // `export const RULE_GLOBS` beside any of these is a duplicate export: a SyntaxError.
+    const reExported = `export { RULE_GLOBS } from './globs.mjs';\n${warn}`;
+    const reExportedAs = `export { BOUNDARY_GLOBS as RULE_GLOBS } from './globs.mjs';\n${warn}`;
+    const namespace = `export * as RULE_GLOBS from './globs.mjs';\n${warn}`;
+    const localAs = `const globs = { boundary: ['src/api/**'] };\nexport { globs as RULE_GLOBS };\n${warn}`;
+    for (const src of [reExported, reExportedAs, namespace, localAs]) {
+      const r = await wireOwnConfig(src, ROOT);
+      expect(r.modified).not.toMatch(/^(export )?const RULE_GLOBS\b/m);
+      expect((r.notes ?? []).join('\n')).toMatch(/RULE_GLOBS.*from elsewhere/);
+    }
+    // A parameter or a destructuring inside a function binds its own RULE_GLOBS, not the module's.
+    const inFunction = warn.replace(`export default [`, `const pick = ({ RULE_GLOBS }) => RULE_GLOBS;\nvoid pick;\n\nexport default [`);
+    const r = await wireOwnConfig(inFunction, ROOT);
+    expect(r.status).toBe('wired');
+    expect(gateBoundary(r.modified)).toEqual(BOUNDARY);
+    expect(r.modified).toMatch(/^export const RULE_GLOBS = \{/m);
+    expect(r.notes ?? []).toEqual([]);
+  });
+
   it.skipIf(!TS_MORPH_AVAILABLE)('a per-package config (the gate reads no RULE_GLOBS of it) with R2 at error for every file → nothing added, no note', async () => {
     const r = await wireOwnConfig(R2_BY_HAND, { boundaryGlobs: BOUNDARY, customRulesImportPath: IMPORT_PATH });
     expect(r.status).toBe('already-wired');

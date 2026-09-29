@@ -390,6 +390,11 @@ JS
   [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ] \
     && echo "OK R2 named only in a comment: the gap is RULE_GLOBS and R2" \
     || echo "BAD R2 in a comment only: gap '$(_r2_own_gap eslint.config.mjs)'"
+  # The same in backticks, as markdown writes a name in a comment (second cold review 2026-09-29).
+  printf "// TODO: turn on \`rules-as-tests/no-unsafe-zod-parse\`\n/* see \`rules-as-tests/no-unsafe-zod-parse\` */\nexport default [];\n" > "$c"
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ] \
+    && echo "OK R2 named in backticks only in comments: the gap is RULE_GLOBS and R2" \
+    || echo "BAD R2 in backticks in a comment only: gap '$(_r2_own_gap eslint.config.mjs)'"
   printf 'export const RULE_GLOBS = { boundary: [] };\nexport default [];\n' > "$c"
   gap=$(_r2_own_gap eslint.config.mjs)
   [ "$(rule_globs_boundary "$c")" = array ] && case "$gap" in "R2 and "*"'**/handlers/**/*.{ts,tsx}'"*) true ;; *) false ;; esac \

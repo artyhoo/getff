@@ -432,6 +432,27 @@ function buildRuleConfigElement(
 }
 
 /**
+ * Whether the module binds or exports the name RULE_GLOBS other than by a plain `RULE_GLOBS = …`
+ * declaration: an import of it, a top-level destructuring, or an export under that name (a re-export, a
+ * namespace export, `export { x as RULE_GLOBS }`). A declaration of getff's beside any of these is a
+ * SyntaxError. A RULE_GLOBS bound inside a function is that function's own and does not count (second
+ * cold review 2026-09-29).
+ */
+function ruleGlobsBoundElsewhere(sf: any, SyntaxKind: any): boolean {
+  const named = (n: any): boolean => n?.getText?.() === 'RULE_GLOBS';
+  for (const d of sf.getImportDeclarations?.() ?? []) {
+    if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
+    if ((d.getNamedImports?.() ?? []).some((s: any) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  for (const d of sf.getExportDeclarations?.() ?? []) {
+    if (named(d.getNamespaceExport?.()?.getNameNode?.())) return true;
+    if ((d.getNamedExports?.() ?? []).some((s: any) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  return (sf.getVariableStatements?.() ?? []).some((st: any) => st.getDeclarations().some((v: any) =>
+    v.getNameNode().getDescendantsOfKind(SyntaxKind.BindingElement).some((b: any) => named(b.getNameNode?.()))));
+}
+
+/**
  * #829: true when some config element already registers the `rules-as-tests` plugin — i.e. a
  * `plugins` property whose initializer object has a `rules-as-tests` key. A rule-id like
  * `rules-as-tests/foo` under `rules:` does NOT count (the slash is the discriminator): a rule
@@ -448,16 +469,6 @@ function buildRuleConfigElement(
  * accepts the same plugin object in several elements. The `plugins` that counts is the element's
  * LAST one, with no spread after it: a later key or spread replaces the whole object.
  */
-/** Whether the file binds RULE_GLOBS other than as a plain declaration: an import of it, or a destructuring. */
-function ruleGlobsBoundElsewhere(sf: any, SyntaxKind: any): boolean {
-  const named = (n: any): boolean => n?.getText?.() === 'RULE_GLOBS';
-  for (const d of sf.getImportDeclarations?.() ?? []) {
-    if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
-    if ((d.getNamedImports?.() ?? []).some((s: any) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
-  }
-  return sf.getDescendantsOfKind(SyntaxKind.BindingElement).some((b: any) => named(b.getNameNode?.()));
-}
-
 function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): boolean {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;

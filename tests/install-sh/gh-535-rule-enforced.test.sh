@@ -138,6 +138,46 @@ rc=$?
   || bad "Arm2b neg: rc=$rc or a token's file was not asked about ($(tr '\n' ';' </tmp/g535pt2.$$))"
 rm -f /tmp/g535pt.$$ /tmp/g535pt2.$$
 
+# ── Arm 2c (second cold review 2026-09-29): a package whose own config shadows the root one is asked ──
+# about one file per boundary token too, not its first boundary file alone.
+PS=$(mktemp -d); mkdir -p "$PS/apps/api/src/routes" "$PS/apps/api/src/handlers"
+cp "$PT/eslint.config.mjs" "$PS/eslint.config.mjs"
+printf "export default [];\n" > "$PS/apps/api/eslint.config.mjs"
+printf '{"name":"api","dependencies":{"zod":"3.0.0"}}\n' > "$PS/apps/api/package.json"
+printf 'export const r = 1;\n' > "$PS/apps/api/src/routes/users.ts"
+printf 'export const h = 1;\n' > "$PS/apps/api/src/handlers/pay.ts"
+( cd "$PS" && AIF_ESLINT_CMD="$PFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_COVERED='src/routes/*' bash "$GATE" ) >/tmp/g535ps.$$ 2>&1
+rc=$?
+[ "$rc" -ne 0 ] && grep -q 'apps/api: R2 (no-console) is NOT in the resolved ESLint config for apps/api/src/handlers/pay\.ts' /tmp/g535ps.$$ \
+  && ok "Arm2c: a shadowed package's R2 reaches the routes token only → gate FAILS naming its handlers file" \
+  || bad "Arm2c: a shadowed package's R2 missing the handlers token's code read green, or the file went unnamed (rc=$rc: $(tr '\n' ';' </tmp/g535ps.$$))"
+( cd "$PS" && AIF_ESLINT_CMD="$PFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_COVERED='src/*' bash "$GATE" ) >/tmp/g535ps2.$$ 2>&1
+rc=$?
+[ "$rc" -eq 0 ] && grep -q 'R2 applied to apps/api/src/routes/users\.ts' /tmp/g535ps2.$$ && grep -q 'R2 applied to apps/api/src/handlers/pay\.ts' /tmp/g535ps2.$$ \
+  && ok "Arm2c neg: the shadowed package's R2 reaches both tokens → gate PASSES, having asked about one file of each" \
+  || bad "Arm2c neg: rc=$rc or a token's file in the shadowed package was not asked about ($(tr '\n' ';' </tmp/g535ps2.$$))"
+rm -f /tmp/g535ps.$$ /tmp/g535ps2.$$
+
+# ── Arm 2d (second cold review, NIT): a token whose first file an earlier token already had asked about ──
+# is asked about its next file, not skipped. Files are taken in sorted order, the same on every filesystem:
+# routes' only file src/api/routes/x.ts sorts before src/api/v.ts, the api token's other file.
+PN=$(mktemp -d); mkdir -p "$PN/src/api/routes"
+cat > "$PN/eslint.config.mjs" <<'CFG'
+const RULE_GLOBS = {
+  boundary: ['**/routes/**/*.{ts,tsx}', '**/api/**/*.{ts,tsx}'],
+};
+export default [];
+CFG
+printf '{"name":"pn","dependencies":{"zod":"3.0.0"}}\n' > "$PN/package.json"
+printf 'export const x = 1;\n' > "$PN/src/api/routes/x.ts"
+printf 'export const v = 1;\n' > "$PN/src/api/v.ts"
+( cd "$PN" && AIF_ESLINT_CMD="$PFAKE" AIF_ENFORCED_RULE=no-console AIF_FAKE_RULE=no-console AIF_FAKE_COVERED='src/api/routes/*' bash "$GATE" ) >/tmp/g535pn.$$ 2>&1
+rc=$?
+[ "$rc" -ne 0 ] && grep -q 'NOT in the resolved ESLint config for src/api/v\.ts' /tmp/g535pn.$$ \
+  && ok "Arm2d: the api token's first file was the routes token's → its next file is asked about, and R2 missing it FAILS" \
+  || bad "Arm2d: the api token was skipped because its first file was already asked about (rc=$rc: $(tr '\n' ';' </tmp/g535pn.$$))"
+rm -f /tmp/g535pn.$$
+
 # ── Arm 3: no boundary files → graceful skip ──
 C=$(mktemp -d); write_root_cfg "$C" no-console; mkdir -p "$C/src/lib"; printf 'export const y = 2;\n' > "$C/src/lib/u.ts"
 if ( cd "$C" && AIF_ESLINT_CMD="$FAKE" AIF_FAKE_CWD_LOG=/dev/null bash "$GATE" ) >/tmp/g535c.$$ 2>&1 && grep -qi 'nothing for R2 to govern\|nothing to verify' /tmp/g535c.$$; then

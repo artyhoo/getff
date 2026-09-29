@@ -603,6 +603,97 @@ grep -q '^VERDICT check-rule-enforced: FAILED' <<<"$F11E_NOTES" \
   && ok "F11e naming: the verdict of a failed run is its FAILED line, though the last workspace passed" \
   || bad "F11e naming: verdict of a failed run: $(grep '^VERDICT' <<<"$F11E_NOTES")"
 
+# The same for a run with no workspace configs (second cold review 2026-09-29): a line labelled with a package
+# dir is that package's; one an R2 pass («R2 (…) in <dir> — ») or F11 («<dir>: has boundary files …») already
+# named is not named again; a line about no config (a stale R2 N/A marker) is named as the gate words it.
+IFS= read -r -d '' F11E_ROOT_OUT <<'OUT' || true
+▶ check-rule-enforced: verifying R2 (rules-as-tests/no-unsafe-zod-parse) is actually APPLIED to boundary files (via eslint --print-config)
+  ✗ apps/api: R2 (rules-as-tests/no-unsafe-zod-parse) is NOT in the resolved ESLint config for apps/api/src/routes/a.ts — SILENTLY INERT here (verified from the package's own cwd, as `turbo run lint` resolves it).
+  ✗ apps/web: R2 (rules-as-tests/no-unsafe-zod-parse) is only 'warn' in the resolved ESLint config for apps/web/src/routes/b.ts — a warning fails no build unless every lint run passes --max-warnings=0.
+  ✗ apps/lib: R2 (rules-as-tests/no-unsafe-zod-parse) is NOT in the resolved ESLint config for apps/lib/src/routes/c.ts — SILENTLY INERT here (verified from the package's own cwd, as `turbo run lint` resolves it).
+  ✗ check-rule-enforced: R2 marked N/A in .ai-factory/r2-decisions.md but a parse boundary now exists — wire R2 or update the decision.
+check-rule-enforced: FAILED — R2 is not applied to ≥1 boundary file (silent inertness).
+OUT
+F11E_ROOT_NOTES=$(
+  # shellcheck disable=SC1090
+  INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+  eval "$(sed -n -e '/^_f11_note() {/,/^}/p' -e '/^_f11e_named() {/,/^}/p' -e '/^_f11e_describe() {/,/^}/p' \
+    -e '/^_f11e_name_failures() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  PROJECT_ROOT=$(mktemp -d); mkdir -p "$PROJECT_ROOT/apps/api" "$PROJECT_ROOT/apps/web" "$PROJECT_ROOT/apps/lib"
+  _root_eslint=eslint.config.mjs
+  NOT_WIRED=("R2 (rules-as-tests/no-unsafe-zod-parse) in apps/web — the config sets it itself; getff does not change a setting of yours"
+    "apps/lib: has boundary files but its own ESLint config does NOT wire R2 (rules-as-tests/no-unsafe-zod-parse)")
+  _f11e_name_failures "$F11E_ROOT_OUT" >/dev/null
+  printf 'NOTE %s\n' "${NOT_WIRED[@]}"
+  rm -rf "$PROJECT_ROOT"
+)
+[ "$(grep -c '^NOTE apps/api: R2 (rules-as-tests/no-unsafe-zod-parse) is NOT in the resolved ESLint config for apps/api/src/routes/a\.ts — scripts/check-rule-enforced\.sh fails on this project$' <<<"$F11E_ROOT_NOTES")" -eq 1 ] \
+  && ok "F11e naming: in a run with no workspace configs, a package's line is named by its dir" \
+  || bad "F11e naming: apps/api's miss not named once (notes: $(grep '^NOTE' <<<"$F11E_ROOT_NOTES" | tr '\n' '|'))"
+[ "$(grep -c '^NOTE .*apps/web' <<<"$F11E_ROOT_NOTES")" -eq 1 ] && [ "$(grep -c '^NOTE .*apps/lib' <<<"$F11E_ROOT_NOTES")" -eq 1 ] \
+  && ok "F11e naming: a package an R2 pass («in <dir> — ») or F11 («<dir>: has boundary files») named is not named again" \
+  || bad "F11e naming: apps/web or apps/lib named twice (notes: $(grep '^NOTE' <<<"$F11E_ROOT_NOTES" | tr '\n' '|'))"
+grep -qx 'NOTE check-rule-enforced: R2 marked N/A in \.ai-factory/r2-decisions\.md but a parse boundary now exists — scripts/check-rule-enforced\.sh fails on this project' <<<"$F11E_ROOT_NOTES" \
+  && ok "F11e naming: a line about no config (a stale R2 N/A marker) is named as the gate words it" \
+  || bad "F11e naming: the stale-marker line went unnamed (notes: $(grep '^NOTE' <<<"$F11E_ROOT_NOTES" | tr '\n' '|'))"
+
+# F11e run (second cold review 2026-09-29): the install asks the gate through _f11e_run, which runs it in a
+# process group of its own. Whatever ends the ask — the limit, a signal to the install, a signal that ends the
+# gate — ends every process the gate started, so none is left running and the install never waits on one.
+# The fake gate starts a child that would outlive any test; the child's command line carries a marker.
+F11E_T=$(mktemp -d); F11E_MARK="f11e-child-$$"
+cat > "$F11E_T/gate.sh" <<GATE
+node -e 'setTimeout(() => {}, 900000)' "$F11E_MARK" &
+wait
+GATE
+printf 'echo "gate: answered"\nexit 3\n' > "$F11E_T/quick.sh"
+f11e_fns() { eval "$(sed -n -e '/^_f11e_run() {/,/^}/p' -e '/^_f11e_limit() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"; }
+# f11e_ask <gate> <limit> <out> — the ask as the install makes it (inside $(…), which waits for every writer
+# of its output), in the background: its output and exit code land in <out>.
+f11e_ask() { ( f11e_fns; o=$(_f11e_run "$1" "$2" 2>&1); r=$?; printf '%s\nrc=%s\n' "$o" "$r" > "$3" ) & F11E_JOB=$!; }
+f11e_ends_within() { local i=0; while kill -0 "$1" 2>/dev/null; do [ "$i" -ge $(($2 * 10)) ] && return 1; sleep 0.1; i=$((i + 1)); done; }
+f11e_child_up() { local i=0; until pgrep -f "$F11E_MARK" >/dev/null; do [ "$i" -ge 100 ] && return 1; sleep 0.1; i=$((i + 1)); done; }
+f11e_left() { pgrep -f "$F11E_MARK" >/dev/null || pgrep -f "$F11E_T/gate.sh" >/dev/null; }
+f11e_sweep() { pkill -KILL -f "$F11E_MARK" 2>/dev/null; pkill -KILL -f "$F11E_T/gate.sh" 2>/dev/null; wait "$F11E_JOB" 2>/dev/null; return 0; }
+
+f11e_ask "$F11E_T/quick.sh" 30 "$F11E_T/quick.out"
+f11e_ends_within "$F11E_JOB" 20 && grep -qx 'gate: answered' "$F11E_T/quick.out" && grep -qx 'rc=3' "$F11E_T/quick.out" \
+  && ok "F11e run: a gate that answers in time passes on its output and its exit code" \
+  || bad "F11e run: a quick gate's answer was lost ($(tr '\n' '|' 2>/dev/null < "$F11E_T/quick.out"))"
+f11e_sweep
+
+f11e_ask "$F11E_T/gate.sh" 1 "$F11E_T/limit.out"
+f11e_ends_within "$F11E_JOB" 20 && ! f11e_left && grep -qx 'rc=124' "$F11E_T/limit.out" \
+  && ok "F11e run: at the limit the gate and the child it started are stopped, and the ask ends (exit 124)" \
+  || bad "F11e run: at the limit the ask did not end, or left the gate or its child running ($(tr '\n' '|' 2>/dev/null < "$F11E_T/limit.out"))"
+f11e_sweep
+
+f11e_ask "$F11E_T/gate.sh" 60 "$F11E_T/term.out"
+if f11e_child_up; then
+  kill -TERM "$(ps -o ppid= -p "$(pgrep -f "$F11E_T/gate.sh" | head -1)" | tr -d ' ')"
+  f11e_ends_within "$F11E_JOB" 10 && ! f11e_left && grep -qx 'rc=143' "$F11E_T/term.out" \
+    && ok "F11e run: a signal to the ask stops the gate and its child too, and the ask ends by that signal" \
+    || bad "F11e run: after SIGTERM to the ask, the gate or its child is still running, or the ask did not end by the signal ($(tr '\n' '|' 2>/dev/null < "$F11E_T/term.out"))"
+else bad "F11e run: the fake gate's child never started — the signal arm is vacuous"; fi
+f11e_sweep
+
+f11e_ask "$F11E_T/gate.sh" 60 "$F11E_T/kill.out"
+if f11e_child_up; then
+  kill -KILL "$(pgrep -f "$F11E_T/gate.sh" | head -1)"
+  f11e_ends_within "$F11E_JOB" 10 && ! f11e_left && grep -qx 'rc=137' "$F11E_T/kill.out" \
+    && ok "F11e run: a gate ended by a signal takes its child with it, and the ask exits 128 + that signal" \
+    || bad "F11e run: after the gate was killed, its child is still running, or the ask's exit code hides the signal ($(tr '\n' '|' 2>/dev/null < "$F11E_T/kill.out"))"
+else bad "F11e run: the fake gate's child never started — the killed-gate arm is vacuous"; fi
+f11e_sweep
+
+# The limit is a whole number of seconds. Anything else falls back to the default, and a value past what
+# a JavaScript timer holds is capped: either would otherwise fire at once and stop a gate that was never asked.
+F11E_LIMITS=$( f11e_fns; for v in 30 '' soon 12.5 999999999999; do printf '%s=%s\n' "$v" "$(_f11e_limit "$v" 2>&1)"; done )
+[ "$F11E_LIMITS" = "$(printf '30=30\n=120\nsoon=120\n12.5=120\n999999999999=99999')" ] \
+  && ok "F11e limit: a whole number is kept; anything else is the default 120 s; a huge value is capped at 99999 s" \
+  || bad "F11e limit: AIF_F11E_TIMEOUT_S read as $(tr '\n' '|' <<<"$F11E_LIMITS")"
+rm -rf "$F11E_T"
+
 if [ ! -f "$FW_NM/ts-morph/package.json" ]; then
   bad "F11: ts-morph is not installed in the framework (run npm install first) — the F11 arms would be vacuous"
 else
@@ -742,9 +833,10 @@ else
     && grep -q 'scripts/check-rule-enforced.sh did not finish within 3 s on this project' <<<"$(f11_not_wired "$T32.log")" \
     && ok "F11 limit: a gate run that outlasts the limit is stopped, and the summary says the install could not ask" \
     || bad "F11 limit: no limit on the ask, or it went unnamed (log: $(grep -F 'check-rule-enforced' "$T32.log" | tr '\n' '|'))"
-  pgrep -f "$T32/scripts/check-rule-enforced.sh" >/dev/null \
-    && bad "F11 limit: the gate stopped at the limit is still running" \
-    || ok "F11 limit: nothing of the stopped gate run is left running"
+  # The gate runs as bash "$T32/scripts/…" and its eslint as node "$T32/node_modules/.bin/eslint": both carry the path.
+  pgrep -f "$T32/" >/dev/null \
+    && bad "F11 limit: the gate or an eslint it started is still running after the limit: $(pgrep -fl "$T32/" | head -2 | tr '\n' '|')" \
+    || ok "F11 limit: nothing of the stopped gate run (the gate, its eslint) is left running"
 
   # A RULE_GLOBS of the consumer's with no boundary array, no custom rule, no boundary code: the gate reads
   # RULE_GLOBS.boundary wherever RULE_GLOBS appears and fails — the summary names it (cold-review, after #1868).

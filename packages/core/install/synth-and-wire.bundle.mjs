@@ -10355,7 +10355,11 @@ function ruleGlobsBoundElsewhere(sf, SyntaxKind) {
     if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
     if ((d.getNamedImports?.() ?? []).some((s) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
   }
-  return sf.getDescendantsOfKind(SyntaxKind.BindingElement).some((b) => named(b.getNameNode?.()));
+  for (const d of sf.getExportDeclarations?.() ?? []) {
+    if (named(d.getNamespaceExport?.()?.getNameNode?.())) return true;
+    if ((d.getNamedExports?.() ?? []).some((s) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  return (sf.getVariableStatements?.() ?? []).some((st) => st.getDeclarations().some((v) => v.getNameNode().getDescendantsOfKind(SyntaxKind.BindingElement).some((b) => named(b.getNameNode?.()))));
 }
 function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
