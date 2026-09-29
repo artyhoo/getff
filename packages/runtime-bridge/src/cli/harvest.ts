@@ -600,6 +600,8 @@ export interface MergeReport {
   merged: boolean;
   /** The squash/merge commit GitHub recorded — the second half of the merge proof. */
   mergeCommit?: string | null;
+  /** Set when the PR was closed unmerged and its content proven to have landed in a merge train. */
+  landedVia?: TrainLanding;
   /** Whether a comment naming the PR was attached to the task (false when one already was). */
   commented: boolean;
   /** Whether `complete_review` was dispatched, taking the task out of `review`. */
@@ -630,6 +632,141 @@ export interface PrMergeState {
   headRefName?: string | null;
   /** The PR body — carries the {@link taskMarker} line, the other mapping. */
   body?: string | null;
+  /**
+   * Set when the PR itself is CLOSED but its content landed inside a merged merge-train PR
+   * ({@link verifyTrainLanding}). `merged` is then true, `mergedAt` is the TRAIN's merge time and
+   * `mergeCommit` is the squash commit that carries this PR's content on the base branch.
+   */
+  landedVia?: TrainLanding;
+  /** Why the PR does not count as merged, when a train landing was claimed but not proven. */
+  notMergedReason?: string;
+}
+
+/** A proven train landing — every field was read back from GitHub, none taken from the claim. */
+export interface TrainLanding {
+  /** The merge-train PR number. */
+  trainPr: number;
+  /** The train PR's own merge commit on the base branch. */
+  trainMergeCommit: string;
+  /** The full sha of the commit that carries the member PR's content (the squash on the train). */
+  squashCommit: string;
+  /** The branch the train merged into. */
+  baseRefName: string;
+}
+
+/** A «landed via train» claim, as the seat's closing comment on a member PR states it. */
+export interface TrainLandingClaim {
+  trainPr: number;
+  /** The squash sha as written in the comment (usually abbreviated). */
+  squash: string;
+}
+
+/**
+ * The closing comment the merge-train seat leaves on a member PR it squashed into a train rather
+ * than merging (first seen on #1934, closed «landed via train» C3, #1940):
+ *   «Landed via merge train C3 (#1940, merge commit `9f69fa2097c` …) as the squash commit `a235830d7f9`»
+ * The claim is only a POINTER: nothing is trusted until {@link verifyTrainLanding} proves it.
+ */
+const TRAIN_CLAIM_RE = /landed via (?:merge )?train\b[^\n]*?\(#(\d+)\b[^\n]*?\bsquash commit `?([0-9a-f]{7,40})\b/gi;
+
+/** Every train-landing claim in a PR's comments, in comment order. */
+export function parseTrainLandingClaims(comments: ReadonlyArray<{ body?: string | null }>): TrainLandingClaim[] {
+  const out: TrainLandingClaim[] = [];
+  for (const c of comments) {
+    for (const m of (c?.body ?? '').matchAll(TRAIN_CLAIM_RE)) {
+      out.push({ trainPr: Number(m[1]), squash: m[2].toLowerCase() });
+    }
+  }
+  return out;
+}
+
+/** `<owner>/<repo>` and the PR number from a `https://github.com/<owner>/<repo>/pull/<n>` url. */
+export function parsePrUrl(prUrl: string): { repo: string; number: number } | null {
+  const m = /^https?:\/\/[^/]+\/([^/]+\/[^/]+)\/pull\/(\d+)(?:[/?#]|$)/.exec(prUrl);
+  return m ? { repo: m[1], number: Number(m[2]) } : null;
+}
+
+/** True when a `gh api repos/<r>/compare/<base>...<head>` status says `head` is an ancestor of `base`. */
+function isAncestorStatus(status: string): boolean {
+  return status === 'behind' || status === 'identical';
+}
+
+/**
+ * Prove a train-landing claim for member PR `memberNumber` of `repo`, or say why it fails. Every
+ * check reads GitHub, and the claim comment is never trusted (anyone can comment on a public PR):
+ *   1. the train PR is MERGED with a recorded merge commit;
+ *   2. the claimed squash sha resolves to exactly one commit;
+ *   3. the train PR's OWN record says so: a body table row whose first cell is `#<member>` and
+ *      which names the squash after «into» — the seat's grammar, e.g.
+ *      `| #1934 | … | `1279cae72324` | **SQUASHED** into `a235830d7f9` |`. The member's head sha in
+ *      the same row, a prose mention, or a cross-repo `owner/repo#<member>` never qualifies;
+ *   4. the squash is one of the train PR's own commits (`GET pulls/<train>/commits`: the commits
+ *      the train added over its base) — a commit already on the base before the train merged is
+ *      an ancestor of the train merge commit too, so ancestry of that commit proves nothing.
+ *      The endpoint lists at most 250 commits; a larger train fails this check (safe side);
+ *   5. the squash is an ancestor of the train's base branch head — the content is on the base
+ *      branch now (`git merge-base --is-ancestor <squash> origin/<base>`, asked of GitHub's
+ *      compare API so a stale local fetch cannot answer it).
+ * A `gh` error on any read of the claim's own data (an unknown or ambiguous short sha) is a
+ * failed proof, not a crash; a network failure still throws, after {@link ghRead}'s retries.
+ */
+export function verifyTrainLanding(
+  repo: string,
+  memberNumber: number,
+  claim: TrainLandingClaim,
+  gh: (args: string[]) => string = ghRead,
+): { ok: true; landing: TrainLanding; mergedAt: string | null } | { ok: false; reason: string } {
+  const fail = (why: string) => ({ ok: false as const, reason: `train #${claim.trainPr} claim not proven: ${why}` });
+  const read = (args: string[]): string | null => {
+    try {
+      return gh(args);
+    } catch (err) {
+      const e = err as { message?: string; stderr?: string | Buffer };
+      if (GH_TRANSIENT_RE.test(`${e.message ?? ''}\n${e.stderr ? String(e.stderr) : ''}`)) throw err;
+      return null;
+    }
+  };
+  const trainOut = read(['pr', 'view', String(claim.trainPr), '--repo', repo, '--json', 'state,mergedAt,mergeCommit,baseRefName,body']);
+  if (trainOut === null) return fail('the train PR could not be read');
+  const train = JSON.parse(trainOut) as {
+    state?: string;
+    mergedAt?: string | null;
+    mergeCommit?: { oid?: string | null } | null;
+    baseRefName?: string | null;
+    body?: string | null;
+  };
+  const trainMergeCommit = train.mergeCommit?.oid ?? null;
+  if (train.state !== 'MERGED' || !trainMergeCommit) return fail(`the train PR is ${train.state ?? '?'}, not MERGED with a merge commit`);
+  if (!train.baseRefName) return fail('the train PR has no base branch');
+
+  const squashCommit = (read(['api', `repos/${repo}/commits/${claim.squash}`, '--jq', '.sha']) ?? '').trim().toLowerCase();
+  if (!/^[0-9a-f]{40}$/.test(squashCommit) || !squashCommit.startsWith(claim.squash)) {
+    return fail(`the squash sha ${claim.squash} does not resolve to one commit`);
+  }
+
+  const rowRe = new RegExp(`^\\s*\\|\\s*#${memberNumber}\\s*\\|`);
+  const recorded = (train.body ?? '').split('\n').some(
+    (line) =>
+      rowRe.test(line) &&
+      [...line.matchAll(/\binto\s+[*_`\s]*([0-9a-f]{7,40})\b/gi)].some((m) => squashCommit.startsWith(m[1].toLowerCase())),
+  );
+  if (!recorded) {
+    return fail(`the train PR's body has no \`| #${memberNumber} |\` row naming ${claim.squash} after «into»`);
+  }
+
+  const trainCommits = read(['api', '--paginate', `repos/${repo}/pulls/${claim.trainPr}/commits`, '--jq', '.[].sha']);
+  if (trainCommits === null || !trainCommits.split('\n').some((sha) => sha.trim().toLowerCase() === squashCommit)) {
+    return fail(`${claim.squash} is not one of the train PR's own commits`);
+  }
+
+  const onBase = (read(['api', `repos/${repo}/compare/${train.baseRefName}...${squashCommit}`, '--jq', '.status']) ?? '').trim();
+  if (!isAncestorStatus(onBase)) return fail(`${claim.squash} is not an ancestor of ${train.baseRefName} (compare: ${onBase || 'unreadable'})`);
+
+  return {
+    ok: true,
+    landing: { trainPr: claim.trainPr, trainMergeCommit, squashCommit, baseRefName: train.baseRefName },
+    mergedAt: train.mergedAt ?? null,
+  };
 }
 
 /**
@@ -671,7 +808,15 @@ export function ghRead(args: string[]): string {
   }
 }
 
-/** The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`. */
+/**
+ * The default probe: `gh pr view <url> --json state,mergedAt,mergeCommit,headRefName,body`.
+ *
+ * A CLOSED PR gets a second chance: the merge-train seat closes a member it SQUASHED into a train
+ * (GitHub cannot mark it merged — its head is not an ancestor of the base) with a «landed via
+ * train» comment. Then the probe reads the comments and counts the PR as merged only when one
+ * claim passes {@link verifyTrainLanding}; `mergedAt` becomes the train's merge time, so the
+ * rework guard in {@link reportMergeToAif} compares against when the content actually landed.
+ */
 export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
   const out = ghRead(['pr', 'view', prUrl, '--json', 'state,mergedAt,mergeCommit,headRefName,body']);
   const parsed = JSON.parse(out) as {
@@ -682,13 +827,31 @@ export const ghPrMergeProbe: PrMergeProbe = async (prUrl) => {
     body?: string | null;
   };
   const mergeCommit = parsed.mergeCommit?.oid ?? null;
-  return {
+  const state: PrMergeState = {
     merged: parsed.state === 'MERGED' && !!mergeCommit,
     mergedAt: parsed.mergedAt ?? null,
     mergeCommit,
     headRefName: parsed.headRefName ?? null,
     body: parsed.body ?? null,
   };
+  if (parsed.state !== 'CLOSED') return state;
+
+  const pr = parsePrUrl(prUrl);
+  const { comments } = JSON.parse(ghRead(['pr', 'view', prUrl, '--json', 'comments'])) as {
+    comments?: { body?: string | null }[];
+  };
+  const claims = parseTrainLandingClaims(comments ?? []);
+  if (claims.length === 0) return { ...state, notMergedReason: 'PR is CLOSED unmerged and no comment claims a train landing' };
+  if (!pr) return { ...state, notMergedReason: `PR is CLOSED with a train claim, but ${prUrl} is not a GitHub PR url` };
+  const reasons: string[] = [];
+  for (const claim of claims) {
+    const proof = verifyTrainLanding(pr.repo, pr.number, claim);
+    if (proof.ok) {
+      return { ...state, merged: true, mergedAt: proof.mergedAt, mergeCommit: proof.landing.squashCommit, landedVia: proof.landing };
+    }
+    reasons.push(proof.reason);
+  }
+  return { ...state, notMergedReason: `PR is CLOSED unmerged; ${reasons.join('; ')}` };
 };
 
 /**
@@ -788,8 +951,10 @@ const CLOSED_STATUS = 'verified';
  * merged, still sat at `done` the next day (514693af → #1858, 71ad40d7 → #1859).
  *
  * Guards, in order:
- *   1. The PR must be MERGED with a recorded merge commit ({@link ghPrMergeProbe}). Anything
- *      else writes NOTHING — a close on an unmerged PR would claim work that never shipped.
+ *   1. The PR must be MERGED with a recorded merge commit ({@link ghPrMergeProbe}), or CLOSED with
+ *      a PROVEN train landing ({@link verifyTrainLanding}: the train merged, names this PR and the
+ *      squash, and the squash is on the base branch). Anything else writes NOTHING — a close on an
+ *      unmerged PR would claim work that never shipped.
  *   2. An already-`verified` task is a no-op: no comment, no event (idempotent re-runs).
  *   2a. The PR must BE this task's harvest ({@link prMapsToTask}: head == task branch, or an exact
  *      `aif-task: <id>` body line), and it must have merged after the task's last agent activity
@@ -811,7 +976,7 @@ export async function reportMergeToAif(
   probe: PrMergeProbe = ghPrMergeProbe,
 ): Promise<MergeReport> {
   const probed = await probe(prUrl);
-  const { merged, mergedAt, mergeCommit } = probed;
+  const { merged, mergedAt, mergeCommit, landedVia } = probed;
   if (!merged) {
     return {
       taskId,
@@ -821,12 +986,14 @@ export async function reportMergeToAif(
       commented: false,
       closedReview: false,
       approved: false,
-      skippedReason: 'PR is not merged (state MERGED + a merge commit) — nothing reported, task not closed',
+      skippedReason:
+        'PR is not merged (state MERGED + a merge commit, or a proven train landing) — nothing reported, task not closed' +
+        (probed.notMergedReason ? ` (${probed.notMergedReason})` : ''),
     };
   }
 
   let task = (await getTask(baseUrl, taskId)) as TaskWithActivity;
-  const base = { taskId, prUrl, merged: true, mergeCommit: mergeCommit ?? null };
+  const base = { taskId, prUrl, merged: true, mergeCommit: mergeCommit ?? null, ...(landedVia ? { landedVia } : {}) };
   if (task.status === CLOSED_STATUS) {
     return {
       ...base,
@@ -874,8 +1041,12 @@ export async function reportMergeToAif(
     await postComment(
       baseUrl,
       taskId,
-      `${MERGE_REPORT_PREFIX}${prUrl} (merged ${mergedAt ?? 'unknown time'}, merge commit ` +
-        `${mergeCommit ?? 'unknown'}). The deliverable is on the base branch, so this task's work ` +
+      `${MERGE_REPORT_PREFIX}${prUrl} (` +
+        (landedVia
+          ? `landed via merge train #${landedVia.trainPr}, merged ${mergedAt ?? 'unknown time'} as train merge commit ` +
+            `${landedVia.trainMergeCommit}; this PR's content is the squash commit ${landedVia.squashCommit} on ${landedVia.baseRefName}`
+          : `merged ${mergedAt ?? 'unknown time'}, merge commit ${mergeCommit ?? 'unknown'}`) +
+        `). The deliverable is on the base branch, so this task's work ` +
         `has shipped. Reported and closed automatically by the harvest return channel.`,
     );
   }
@@ -962,12 +1133,32 @@ export async function reportMergeToAif(
   return { ...base, commented, closedReview, approved: true, finalStatus: after.status };
 }
 
-/** A merged PR as {@link PrLookup} returns it. */
+/** A merged (or train-landed) PR as {@link PrLookup} returns it. */
 export interface MergedPr {
   url: string;
   body?: string;
   headRefName?: string;
+  /** `MERGED` or `CLOSED`; absent on a `--state merged` listing. */
+  state?: string;
+  comments?: { body?: string | null }[];
 }
+
+/**
+ * Keep a listed PR as a landing candidate: MERGED, or CLOSED with at least one «landed via train»
+ * claim in its comments. The claim is only a filter here; {@link ghPrMergeProbe} proves it before
+ * anything is written.
+ */
+function isLandingCandidate(pr: MergedPr): boolean {
+  if (pr.state === undefined || pr.state === 'MERGED') return true;
+  return pr.state === 'CLOSED' && parseTrainLandingClaims(pr.comments ?? []).length > 0;
+}
+
+/**
+ * The listing that finds train-landed PRs: closed-unmerged PRs whose body carries an aif-task
+ * marker. There are few of them (10 in artyhoo/getff on 2026-09-29), so fetching their comments
+ * costs little.
+ */
+const TRAIN_CANDIDATE_JSON = 'url,body,headRefName,state,comments';
 
 /**
  * Find the merged PR(s) that harvested one aif task. Injected so the tests need neither `gh`
@@ -979,7 +1170,9 @@ export type PrLookup = (task: AifTaskFull) => Promise<MergedPr[]>;
  * Default lookup over `gh`: merged PRs whose body names the task id, plus merged PRs whose
  * head branch is the task's persisted `branchName`. A body hit is kept only when it carries
  * the exact {@link taskMarker} line or its head IS the task branch — a PR that merely
- * mentions the id in prose (a later follow-up, a retro) is not the task's harvest.
+ * mentions the id in prose (a later follow-up, a retro) is not the task's harvest. Both searches
+ * also return a CLOSED PR with a «landed via train» claim ({@link isLandingCandidate}) — a member
+ * the merge-train seat squashed into a train — for the probe to prove or refuse.
  */
 export function ghMergedPrLookup(repo: string): PrLookup {
   return async (task) => {
@@ -987,9 +1180,16 @@ export function ghMergedPrLookup(repo: string): PrLookup {
       JSON.parse(
         ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', ...args, '--json', 'url,body,headRefName']),
       ) as MergedPr[];
+    const closed = (args: string[]): MergedPr[] =>
+      (
+        JSON.parse(
+          ghRead(['pr', 'list', '--repo', repo, '--state', 'closed', '--limit', '100', ...args, '--json', TRAIN_CANDIDATE_JSON]),
+        ) as MergedPr[]
+      ).filter(isLandingCandidate);
     const found = new Map<string, MergedPr>();
     for (const pr of list(['--search', `"${taskMarker(task.id)}" in:body`])) found.set(pr.url, pr);
-    if (task.branchName) for (const pr of list(['--head', task.branchName])) found.set(pr.url, pr);
+    for (const pr of closed(['--search', `"${taskMarker(task.id)}" in:body is:unmerged`])) found.set(pr.url, pr);
+    if (task.branchName) for (const pr of closed(['--head', task.branchName])) found.set(pr.url, pr);
     return [...found.values()].filter((pr) => prMapsToTask(pr, task));
   };
 }
@@ -1000,21 +1200,36 @@ export function ghMergedPrLookup(repo: string): PrLookup {
  * task with a persisted `branchName`. {@link ghMergedPrLookup} costs one GitHub search per task,
  * and a project sweep visits every done/review task — 241 of them on 2026-09-28, almost none with
  * a marker, so a tick spent 10-30 min on searches that found nothing and hit the 600 s watchdog.
- * `limit` caps the marker index (newest first); a PR older than that has long been swept.
+ * `limit` caps the marker index (newest first); a PR older than that has long been swept. The index
+ * and the `--head` search also carry CLOSED PRs with a «landed via train» claim — one more cached
+ * search per sweep ({@link isLandingCandidate}).
  */
 export function ghMergedPrIndexLookup(repo: string, limit = 1000): PrLookup {
   const json = 'url,body,headRefName';
   let index: MergedPr[] | undefined;
   return async (task) => {
-    index ??= JSON.parse(
-      ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', String(limit), '--search', '"aif-task:" in:body', '--json', json]),
-    ) as MergedPr[];
+    index ??= [
+      ...(JSON.parse(
+        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', String(limit), '--search', '"aif-task:" in:body', '--json', json]),
+      ) as MergedPr[]),
+      // Train-landed members: closed unmerged, kept only with a «landed via train» claim.
+      ...(
+        JSON.parse(
+          ghRead([
+            'pr', 'list', '--repo', repo, '--state', 'closed', '--limit', String(limit),
+            '--search', '"aif-task:" in:body is:unmerged', '--json', TRAIN_CANDIDATE_JSON,
+          ]),
+        ) as MergedPr[]
+      ).filter(isLandingCandidate),
+    ];
     const found = new Map<string, MergedPr>();
     for (const pr of index) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
     if (task.branchName) {
-      const onBranch = JSON.parse(
-        ghRead(['pr', 'list', '--repo', repo, '--state', 'merged', '--limit', '100', '--head', task.branchName, '--json', json]),
-      ) as MergedPr[];
+      const onBranch = (
+        JSON.parse(
+          ghRead(['pr', 'list', '--repo', repo, '--state', 'closed', '--limit', '100', '--head', task.branchName, '--json', TRAIN_CANDIDATE_JSON]),
+        ) as MergedPr[]
+      ).filter(isLandingCandidate);
       for (const pr of onBranch) if (prMapsToTask(pr, task)) found.set(pr.url, pr);
     }
     return [...found.values()];
@@ -1078,14 +1293,19 @@ export async function closeMergedTasks(
       if (opts.taskId) out.push({ taskId: task.id, status: task.status, skippedReason: `status "${task.status}" is not swept` });
       continue;
     }
-    const prs = await lookup(task);
+    let prs = await lookup(task);
+    // A train-landed CLOSED PR next to exactly one MERGED PR (a rework harvested and merged the
+    // ordinary way after the train) is not ambiguous: the merged one is the task's latest landing,
+    // exactly as before train landings were looked up at all.
+    const plainMerged = prs.filter((p) => p.state !== 'CLOSED');
+    if (prs.length > 1 && plainMerged.length === 1) prs = plainMerged;
     if (prs.length !== 1) {
       out.push({
         taskId: task.id,
         status: task.status,
         skippedReason:
           prs.length === 0
-            ? 'no merged PR maps to this task (no aif-task marker, no merged PR on its branch)'
+            ? 'no merged PR maps to this task, nor a train-landed one (no aif-task marker, no such PR on its branch)'
             : `ambiguous: ${prs.length} merged PRs map to this task (${prs.map((p) => p.url).join(', ')})`,
       });
       continue;
