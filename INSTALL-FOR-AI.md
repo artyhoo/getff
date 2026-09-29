@@ -362,7 +362,7 @@ project/
 │   ├── tool-decisions.md              ← accepted/rejected MCP + skill decisions (committed)
 │   ├── tier-home.md                   ← ONLY at --profile env / factory: tier criteria + degradation matrix
 │   ├── rules/integration-rules.md     ← only for microservices
-│   └── skill-context/
+│   └── skill-context/                 ← co-owned with /aif-evolve: getff rewrites only its fenced block
 │       ├── aif-review/SKILL.md        ← anti-tautology content for AIF review sidecar
 │       ├── aif-rules-check/SKILL.md   ← R10-naming + test-existence content for AIF rules-check
 │       └── aif-orchestrator-discipline/ ← ONLY at --profile factory
@@ -460,7 +460,7 @@ Framework-owned artefacts the consumer is **not** expected to edit in place:
 - `.claude/hooks/deps-hash-check.sh` — session hook
 - `scripts/*.sh`, `scripts/audit-r4.ts` — audit gate scripts
 - `packages/core/hooks/` — TS pre-push pipeline
-- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides
+- `.ai-factory/skill-context/*/SKILL.md` — AIF skill-context overrides, **co-owned**: the same file is AI Factory's `/aif-evolve` store, so getff owns only the block between its `<!-- getff:begin section=getff-skill-context … -->` / `<!-- getff:end section=getff-skill-context -->` marker lines. Install and `--refresh` rewrite that block alone; the text outside it — every rule `/aif-evolve` added — is never rewritten. getff recognises its own older text by every template revision it has shipped: a file delivered whole before the markers existed is split on the first run (those leading lines become the block, the rest is kept), and a block whose markers were removed is replaced by one fenced block. Text getff cannot prove is its own is always kept, with the current block appended beside it. A block somebody edited is parked as `.ai-factory/refresh-conflicts/<skill>-SKILL.md.<sha8>` before it is replaced; an unedited one is replaced silently.
 
 ### What `--refresh` never touches
 

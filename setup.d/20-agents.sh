@@ -60,8 +60,8 @@ done
 # (verified live: a background maxTurns:6 sidecar reads + applies these). We ride that wiring
 # instead of shipping colliding agents: aif-review gets our anti-tautology test-review content;
 # aif-rules-check gets the R10-naming + test-existence residue of the removed best-practices-sidecar.
-# Derive the skill-context copy set from SHIPPED_DOCS (single source — FQA P2 fix). Every
-# skill-context entry that is header-verified above is copied here; the two lists cannot drift.
+# Copy set derived from SHIPPED_DOCS (single source — FQA P2 fix; the two lists cannot drift). Delivered
+# by install_skill_context (lib.sh), never copy_safe: the file is also /aif-evolve's store; getff owns only its fenced block.
 # `${arr[@]+"${arr[@]}"}` = bash-3.2-safe empty-array expansion under set -u (macOS ships 3.2).
 for _doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
   case "$_doc" in
@@ -74,6 +74,6 @@ for _doc in ${SHIPPED_DOCS[@]+"${SHIPPED_DOCS[@]}"}; do
         && [ -z "${WITH_AIF_SUITE:-}" ] \
         && [ ! -e "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ]; then continue; fi
       mkdir_safe "$PROJECT_ROOT/.ai-factory/skill-context/$_sc"
-      copy_safe "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
+      install_skill_context "$PKG_ROOT/$_doc" "$PROJECT_ROOT/.ai-factory/skill-context/$_sc/SKILL.md" ;;
   esac
 done

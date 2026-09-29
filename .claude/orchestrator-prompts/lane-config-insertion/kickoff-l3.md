@@ -25,7 +25,7 @@ that need the tool are CI-job tests (spec §9 shard placement) and the PR body s
 ran them; if a needed decision depends on a tool run you cannot perform, park
 `blocked_external`. The aif container has no ruff, ast-grep or uvx: the probe and insertion arms
 of §3e run in CI job `install-sh-c`, which installs ruff `0.15.21` and ast-grep `0.44.1`
-(`.github/workflows/audit-self.yml:997-1000`).
+(`.github/workflows/audit-self.yml:1007-1010`).
 
 **Deviations (declared):**
 

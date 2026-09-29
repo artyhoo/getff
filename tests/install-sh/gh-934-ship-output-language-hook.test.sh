@@ -49,12 +49,12 @@ _ss() { jq -r --arg m "$MATCH" '(.hooks.SessionStart // []) | map(select(.matche
 _ups() { jq -r '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null; }
 _seed_legacy() { jq --arg c "$LEGACY" '.hooks.UserPromptSubmit += [{hooks:[{type:"command",command:$c}]}]' "$S" > "$S.tmp" && mv "$S.tmp" "$S"; }
 _ss1=$(_ss); _ups=$(_ups)
-if echo "$_ss1" | grep -q 'inject-output-language' && echo "$_ss1" | grep -q 'CLAUDE_PROJECT_DIR'; then
+if grep -q 'inject-output-language' <<<"$_ss1" && grep -q 'CLAUDE_PROJECT_DIR' <<<"$_ss1"; then
   ok "(B) SessionStart ($MATCH) has inject-output-language, \$CLAUDE_PROJECT_DIR-relative"
 else
   bad "(B) inject-output-language SessionStart entry missing/mis-shaped (got: $_ss1)"
 fi
-if echo "$_ups" | grep -q 'deps-hash-check' && ! echo "$_ups" | grep -q 'inject-output-language'; then
+if grep -q 'deps-hash-check' <<<"$_ups" && ! grep -q 'inject-output-language' <<<"$_ups"; then
   ok "(B) UserPromptSubmit keeps the §1b deps-hash hook and has no per-prompt inject-output-language"
 else
   bad "(B) UserPromptSubmit wrong — deps-hash lost or output-language still per prompt (got: $_ups)"
@@ -70,7 +70,7 @@ _nu=$(jq '(.hooks.UserPromptSubmit // []) | map(.hooks[].command) | map(select(t
 
 # ── ARM (D): firing RU ────────────────────────────────────────────────────────
 OUT_RU=$(printf '' | AIF_HOOK_LANG=ru bash "$H/inject-output-language.sh" 2>/dev/null)
-if printf '%s' "$OUT_RU" | grep -q '\[output-language\]' && printf '%s' "$OUT_RU" | grep -q 'AIF_HOOK_LANG=ru'; then
+if grep -q '\[output-language\]' <<<"$OUT_RU" && grep -q 'AIF_HOOK_LANG=ru' <<<"$OUT_RU"; then
   ok "(D) firing (RU): AIF_HOOK_LANG=ru → the [output-language] Russian instruction is injected (delivery→liveness)"
 else
   bad "(D) firing (RU): no output-language line ($(printf '%s' "$OUT_RU" | head -c 100))"
@@ -87,7 +87,7 @@ fi
 
 # ── ARM (F): firing arbitrary language ────────────────────────────────────────
 OUT_DE=$(printf '' | AIF_HOOK_LANG=de bash "$H/inject-output-language.sh" 2>/dev/null)
-if printf '%s' "$OUT_DE" | grep -q '\[output-language\]' && printf '%s' "$OUT_DE" | grep -q 'language "de"'; then
+if grep -q '\[output-language\]' <<<"$OUT_DE" && grep -q 'language "de"' <<<"$OUT_DE"; then
   ok "(F) firing (arbitrary): AIF_HOOK_LANG=de → generic language instruction names \"de\""
 else
   bad "(F) firing (de): no generic language line ($(printf '%s' "$OUT_DE" | head -c 100))"
@@ -100,8 +100,8 @@ jq '.hooks.SessionStart |= (map(select((.hooks[].command | test("inject-output-l
 _seed_legacy
 ( cd "$T" && bash "$REPO_ROOT/install.sh" ts-server --refresh ) >"$T/.log3" 2>&1
 _ss2=$(_ss); _ups2=$(_ups)
-if [ -x "$H/inject-output-language.sh" ] && echo "$_ss2" | grep -q 'inject-output-language' \
-   && ! echo "$_ups2" | grep -q 'inject-output-language' && echo "$_ups2" | grep -q 'deps-hash-check'; then
+if [ -x "$H/inject-output-language.sh" ] && grep -q 'inject-output-language' <<<"$_ss2" \
+   && ! grep -q 'inject-output-language' <<<"$_ups2" && grep -q 'deps-hash-check' <<<"$_ups2"; then
   ok "(G) --refresh restores the hook on SessionStart and removes the legacy per-prompt registration (deps-hash still present)"
 else
   bad "(G) --refresh did not restore/migrate (ss=$_ss2 ups=$_ups2, $(ls "$H" 2>/dev/null | tr '\n' ' '))"

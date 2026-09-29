@@ -182,8 +182,9 @@ own_mono() {
 # §6c the positive half of the arm above, in a real install: a workspace config the consumer owns,
 # with HTTP boundary code under it, and no ts-morph → the NOT wired summary names it with the
 # ts-morph / --full reason — for a ts-server (apps/api), a react-next (apps/web) and a react-spa
-# (apps/spa) workspace, whose getff presets all carry R2 on boundary code; not for the react-native
-# one (apps/mobile), whose preset ships no R2. No --force, so 40-configs keeps the consumer's files.
+# (apps/spa) workspace, whose getff presets all carry R2 on boundary code. The react-native one
+# (apps/mobile), whose preset ships no R2, is one line for the workspace with that reason, not a line
+# for its config. No --force, so 40-configs keeps the consumer's files.
 echo ""
 echo "▶ §6c R2 without ts-morph: the consumer's own workspace config with boundary code is a NOT wired line"
 O=$(mktemp -d); own_mono "$O"
@@ -197,9 +198,10 @@ else
       && ok "§6c: apps/$_w (your config, boundary code) is a NOT wired line naming ts-morph and --full" \
       || bad "§6c: no NOT wired line for apps/$_w naming ts-morph / --full (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
   done
-  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile' "$O/.install.log" \
-    && bad "neg §6c: apps/mobile (react-native) is listed for R2 — its preset ships no R2" \
-    || ok "neg §6c: apps/mobile (react-native) is not listed for R2"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile — .*react-native preset ships no R2' "$O/.install.log" \
+    && [ "$(grep -cE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile[ /]' "$O/.install.log")" = 1 ] \
+    && ok "§6c: apps/mobile (react-native, boundary code) is one NOT wired line naming its preset" \
+    || bad "§6c: expected one NOT wired line for apps/mobile naming the react-native preset (summary: $(grep -E '^      - ' "$O/.install.log" | tr '\n' '|'))"
 fi
 rm -rf "$O"
 
@@ -270,9 +272,13 @@ EOF
   cmp -s "$P/.mobile-before.mjs" "$P/apps/mobile/eslint.config.mjs" \
     && ok "neg §6b: apps/mobile (react-native) config is left as it was (its preset ships no R2)" \
     || bad "neg §6b: apps/mobile (react-native) config was changed ($(tr '\n' '|' < "$P/apps/mobile/eslint.config.mjs"))"
-  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/' "$P/.install.log" \
-    && bad "§6b: R2 landed, yet the NOT wired summary lists an apps/ config ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))" \
-    || ok "§6b: no R2 line in the NOT wired summary once the pass ran"
+  grep -qE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/(api|web|spa)[ /]' "$P/.install.log" \
+    && bad "§6b: R2 landed, yet the NOT wired summary lists a wired apps/ config ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))" \
+    || ok "§6b: no R2 line in the NOT wired summary for the configs the pass wired"
+  # apps/mobile has boundary code its react-native preset gives no R2 for: one line, as in §6c.
+  [ "$(grep -cE '^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in apps/mobile — .*react-native preset' "$P/.install.log")" = 1 ] \
+    && ok "§6b: apps/mobile (react-native) is one NOT wired line naming its preset" \
+    || bad "§6b: expected one NOT wired line for apps/mobile naming the react-native preset ($(grep -E '^      - R2' "$P/.install.log" | tr '\n' '|'))"
   rm -rf "$P" "$SHIM"
 fi
 
@@ -300,7 +306,7 @@ GLOBS_OUT=$( cd "$T" && bash scripts/check-rule-globs.sh 2>&1 ); GLOBS_RC=$?
   || bad "§9 check:globs: exit $GLOBS_RC (expected 0) — out: $(printf '%s' "$GLOBS_OUT" | tr '\n' '|')"
 # PAIRED-NEGATIVE: the exit-2 "run from the project root" path must NOT be what we hit (proves we
 # recursed into the per-workspace configs, not silently swallowed the guard).
-! printf '%s' "$GLOBS_OUT" | grep -q 'not found (run from the project root)' \
+! grep -q 'not found (run from the project root)' <<<"$GLOBS_OUT" \
   && ok "§9 neg check:globs: NOT the exit-2 'run from the project root' path (recursed per-ws)" \
   || bad "§9 neg check:globs: still hit the exit-2 root-config guard (recursion not reached)"
 
@@ -309,7 +315,7 @@ ENF_OUT=$( cd "$T" && bash scripts/check-rule-enforced.sh 2>&1 ); ENF_RC=$?
 [ "$ENF_RC" -eq 0 ] \
   && ok "§9 check:enforced: exits 0 on no-root-config monorepo (was exit 2; eslint absent → SKIP)" \
   || bad "§9 check:enforced: exit $ENF_RC (expected 0) — out: $(printf '%s' "$ENF_OUT" | tr '\n' '|')"
-! printf '%s' "$ENF_OUT" | grep -q 'not found (run from the project root)' \
+! grep -q 'not found (run from the project root)' <<<"$ENF_OUT" \
   && ok "§9 neg check:enforced: NOT the exit-2 root-config guard path (recursed per-ws)" \
   || bad "§9 neg check:enforced: still hit the exit-2 root-config guard (recursion not reached)"
 

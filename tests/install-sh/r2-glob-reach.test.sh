@@ -40,10 +40,10 @@ OUT=$(gate "$T"); RC=$?
 [ "$RC" = "1" ] \
   && ok "#2 POS: planted boundary file under a dead-config package → gate FAILS (false-green removed)" \
   || bad "#2 POS: gate exited $RC (should be 1 — planted file under a shadowing package still fakes a pass)"
-printf '%s' "$OUT" | grep -q "apps/api: has boundary files but its own ESLint config does NOT wire R2" \
+grep -q "apps/api: has boundary files but its own ESLint config does NOT wire R2" <<<"$OUT" \
   && ok "#2 POS: names the dead-config package as silently inert" \
   || bad "#2 POS: no per-package inertness message (saw: $(printf '%s' "$OUT" | tail -2 | tr '\n' '|'))"
-printf '%s' "$OUT" | grep -q "R2 no-unsafe-zod-parse (RULE_GLOBS.boundary): matches ≥1 source file" \
+grep -q "R2 no-unsafe-zod-parse (RULE_GLOBS.boundary): matches ≥1 source file" <<<"$OUT" \
   && bad "#2 POS: still prints the false ✓ for R2 (the green-checkmark lie that the planted file caused)" \
   || ok "#2 POS: no false ✓ for R2 (a shadowed file no longer counts toward root coverage)"
 
@@ -55,7 +55,7 @@ OUT2=$(gate "$T2"); RC2=$?
 [ "$RC2" = "0" ] \
   && ok "#2 NEG-a: re-export-of-root package does NOT fail the gate (no false-FAIL on a correct monorepo)" \
   || bad "#2 NEG-a: gate exited $RC2 on a re-export package (false-FAIL would break a correctly-wired monorepo)"
-printf '%s' "$OUT2" | grep -q "⚠ apps/api" \
+grep -q "⚠ apps/api" <<<"$OUT2" \
   && ok "#2 NEG-a: re-export package gets a WARN (unverifiable coverage surfaced, not failed)" \
   || bad "#2 NEG-a: no WARN for the re-export package"
 
@@ -64,7 +64,7 @@ T3=$(mktemp -d); install_into "$T3" ts-server
 mkdir -p "$T3/apps/api/src/routes"; echo 'export const x=1;' > "$T3/apps/api/src/routes/u.ts"
 printf "import r from './r.ts';\nexport default [{plugins:{'rules-as-tests':r},rules:{'rules-as-tests/no-unsafe-zod-parse':'error'}}];\n" > "$T3/apps/api/eslint.config.mjs"
 OUT3=$(gate "$T3"); RC3=$?
-if [ "$RC3" = "0" ] && ! printf '%s' "$OUT3" | grep -q "apps/api"; then
+if [ "$RC3" = "0" ] && ! grep -q "apps/api" <<<"$OUT3"; then
   ok "#2 NEG-b: a package that wires R2 is silent (no spurious warn/fail)"
 else
   bad "#2 NEG-b: rc=$RC3 / unexpected apps/api mention for a package that wires R2"
@@ -104,7 +104,7 @@ for _g in "check:globs" "arch:check" "audit:docs" "check:lintstaged"; do
     && ok "#1 POS-all: WARN names $_g" \
     || bad "#1 POS-all: WARN omits $_g (under-reporting — the #521 bug)"
 done
-grep -E '^[[:space:]]*- CI gate check:lintstaged' "$LOG" | grep -q "run: bash scripts/check-lintstaged-resolves.sh" \
+grep -q "run: bash scripts/check-lintstaged-resolves.sh" <<<"$(grep -E '^[[:space:]]*- CI gate check:lintstaged' "$LOG")" \
   && ok "#1 POS-all: the check:lintstaged NOT-wired line names its step" \
   || bad "#1 POS-all: no NOT-wired check:lintstaged line naming its step"
 # #521 follow-up: when check:globs is missing, the WARN must explain that a present `lint` step
@@ -199,7 +199,7 @@ OUT5=$(gate "$T5"); RC5=$?
 [ "$RC5" = "0" ] \
   && ok "#516 §1 POS: ≥2 shadow pkgs + root boundary file → gate PASSES (no false-RED from multi-line SHADOWS)" \
   || bad "#516 §1 POS: gate exited $RC5 — root probe went blind on multi-line SHADOWS (BSD-awk -v newline crash)"
-printf '%s' "$OUT5" | grep -q "newline in string" \
+grep -q "newline in string" <<<"$OUT5" \
   && bad "#516 §1 POS: awk crashed on multi-line SHADOWS ('newline in string') — filter_unshadowed went blind" \
   || ok "#516 §1 POS: no awk 'newline in string' crash on multi-line SHADOWS"
 
@@ -214,7 +214,7 @@ echo 'export const x=1;' > "$T6/pkg-a/src/routes/u.ts"          # boundary file 
 printf 'export default [];\n' > "$T6/pkg-a/eslint.config.mjs"   # dead config (owns boundary → FAIL)
 printf 'export default [];\n' > "$T6/pkg-b/eslint.config.mjs"   # 2nd shadow → multi-line $SHADOWS
 OUT6=$(gate "$T6"); RC6=$?
-printf '%s' "$OUT6" | grep -q "no root-governed match" \
+grep -q "no root-governed match" <<<"$OUT6" \
   && ok "#516 §1 NEG: multi-shadow filter still prunes — shadowed-only boundary file is not counted as root coverage" \
   || bad "#516 §1 NEG: shadowed-only file faked root coverage (filter became a passthrough): $(printf '%s' "$OUT6" | grep -i 'RULE_GLOBS.boundary' | head -1)"
 
@@ -228,7 +228,7 @@ OUT7=$(gate "$T7"); RC7=$?
 [ "$RC7" = "0" ] \
   && ok "#516 §2 POS: re-export of a base.mjs config → uncertain (WARN), no false-FAIL" \
   || bad "#516 §2 POS: gate exited $RC7 — re-export base.mjs config classified dead (false-FAIL)"
-printf '%s' "$OUT7" | grep -q "⚠ apps/api" \
+grep -q "⚠ apps/api" <<<"$OUT7" \
   && ok "#516 §2 POS: re-export base.mjs config gets a WARN (uncertain coverage surfaced)" \
   || bad "#516 §2 POS: no WARN — re-export base.mjs treated as dead instead of uncertain"
 
@@ -274,7 +274,7 @@ OUT9=$(repo_gate "$T9"); RC9=$?
 [ "$RC9" = "0" ] \
   && ok "own-config POS: a consumer-owned root config (no RULE_GLOBS, no getff rule) → gate exits 0" \
   || bad "own-config POS: gate exited $RC9 on a consumer-owned root config (saw: $(printf '%s' "$OUT9" | tail -2 | tr '\n' '|'))"
-printf '%s' "$OUT9" | grep -q "not wired into eslint.config.mjs" \
+grep -q "not wired into eslint.config.mjs" <<<"$OUT9" \
   && ok "own-config POS: the skip names what is not wired and where" \
   || bad "own-config POS: no 'not wired into eslint.config.mjs' report line (a silent skip hides the gap)"
 
@@ -284,7 +284,7 @@ T10=$(own_cfg_dir "const RULE_GLOBS = {
 };
 export default [];")
 OUT10=$(repo_gate "$T10"); RC10=$?
-[ "$RC10" = "1" ] && printf '%s' "$OUT10" | grep -q "no globs found under RULE_GLOBS.boundary" \
+[ "$RC10" = "1" ] && grep -q "no globs found under RULE_GLOBS.boundary" <<<"$OUT10" \
   && ok "own-config NEG-a: a RULE_GLOBS block without its boundary key still FAILS" \
   || bad "own-config NEG-a: gate exited $RC10 — a broken getff config was skipped as consumer-owned"
 
@@ -308,11 +308,11 @@ export default [
   { ignores: ['eslint-rules-local/**'] },
 ];")
 OUT11b=$(repo_gate "$T11b"); RC11b=$?
-[ "$RC11b" = "0" ] && printf '%s' "$OUT11b" | grep -q "not wired into eslint.config.mjs" \
+[ "$RC11b" = "0" ] && grep -q "not wired into eslint.config.mjs" <<<"$OUT11b" \
   && ok "own-config Q4.7: getff's block without RULE_GLOBS (no boundary found yet) → skipped, rc 0" \
   || bad "own-config Q4.7: gate exited $RC11b on a consumer config getff wired without a boundary (saw: $(printf '%s' "$OUT11b" | tail -2 | tr '\n' '|'))"
 # The skip never hands the consumer a manual step.
-if printf '%s\n%s\n' "$OUT9" "$OUT11b" | grep -qiE 'by hand|manually'; then
+if grep -qiE 'by hand|manually' <<<"$(printf '%s\n%s\n' "$OUT9" "$OUT11b")"; then
   bad "own-config Q4.7: the skip asks for a manual edit: $(printf '%s\n%s\n' "$OUT9" "$OUT11b" | grep -iE 'by hand|manually' | head -1)"
 else
   ok "own-config Q4.7: the skip names what is not wired, with no manual step"
@@ -322,14 +322,14 @@ fi
 T11c=$(mktemp -d); mkdir -p "$T11c/lib"; echo 'export const x = 1;' > "$T11c/lib/answer.ts"
 printf 'export default [];\n' > "$T11c/eslint.config.js"
 OUT11c=$(repo_gate "$T11c"); RC11c=$?
-[ "$RC11c" = "0" ] && printf '%s' "$OUT11c" | grep -q "not wired into eslint.config.js" \
+[ "$RC11c" = "0" ] && grep -q "not wired into eslint.config.js" <<<"$OUT11c" \
   && ok "own-config Q4.7: a consumer's eslint.config.js is the config the gate reads" \
   || bad "own-config Q4.7: gate exited $RC11c on an eslint.config.js project (saw: $(printf '%s' "$OUT11c" | tail -2 | tr '\n' '|'))"
 # eslint.config.cjs: getff adds nothing to it; the gate says so and passes (validate stays green).
 T11d=$(mktemp -d); mkdir -p "$T11d/lib"; echo 'export const x = 1;' > "$T11d/lib/answer.ts"
 printf 'module.exports = [];\n' > "$T11d/eslint.config.cjs"
 OUT11d=$(repo_gate "$T11d"); RC11d=$?
-[ "$RC11d" = "0" ] && printf '%s' "$OUT11d" | grep -q "eslint.config.cjs is left as it is" \
+[ "$RC11d" = "0" ] && grep -q "eslint.config.cjs is left as it is" <<<"$OUT11d" \
   && ok "own-config Q4.7: an eslint.config.cjs project passes, the gate saying getff added nothing to it" \
   || bad "own-config Q4.7: gate exited $RC11d on an eslint.config.cjs project (saw: $(printf '%s' "$OUT11d" | tail -2 | tr '\n' '|'))"
 rm -rf "$T11c" "$T11d"
@@ -351,13 +351,13 @@ own_root_mono() { # $1 = yes → apps/api has a routes/ file its boundary glob m
 }
 T11e=$(own_root_mono no)
 OUT11e=$(repo_gate "$T11e"); RC11e=$?
-[ "$RC11e" = "1" ] && printf '%s' "$OUT11e" | grep -q "SILENTLY INERT" \
+[ "$RC11e" = "1" ] && grep -q "SILENTLY INERT" <<<"$OUT11e" \
   && ok "own-root monorepo: under the consumer's eslint.config.cjs, a workspace boundary glob matching nothing FAILS" \
   || bad "own-root monorepo: gate exited $RC11e — the workspace configs under a consumer's .cjs root were not checked (saw: $(printf '%s' "$OUT11e" | tail -2 | tr '\n' '|'))"
 # Paired negative: the same layout with a routes/ file passes, and the pass comes from the workspace check.
 T11f=$(own_root_mono yes)
 OUT11f=$(repo_gate "$T11f"); RC11f=$?
-[ "$RC11f" = "0" ] && printf '%s' "$OUT11f" | grep -q "check-rule-globs: OK" \
+[ "$RC11f" = "0" ] && grep -q "check-rule-globs: OK" <<<"$OUT11f" \
   && ok "own-root monorepo neg: a workspace boundary glob that matches passes, checked in the workspace" \
   || bad "own-root monorepo neg: gate exited $RC11f or never checked the workspace (saw: $(printf '%s' "$OUT11f" | tail -2 | tr '\n' '|'))"
 rm -rf "$T11e" "$T11f"
@@ -380,16 +380,16 @@ manifest_for() { # $1 = dir, $2 = recorded hash for eslint.config.mjs, $3 = rn �
 T12=$(own_cfg_dir "export default [];")
 manifest_for "$T12" "$(sha_of "$T12/eslint.config.mjs")"
 OUT12=$(repo_gate "$T12"); RC12=$?
-[ "$RC12" = "0" ] && ! printf '%s' "$OUT12" | grep -q "your own config" \
-  && printf '%s' "$OUT12" | grep -q "getff placed eslint.config.mjs" \
+[ "$RC12" = "0" ] && ! grep -q "your own config" <<<"$OUT12" \
+  && grep -q "getff placed eslint.config.mjs" <<<"$OUT12" \
   && ok "own-config provenance: getff's own marker-less config is skipped as getff's, not called the consumer's" \
   || bad "own-config provenance: rc=$RC12, message misattributes getff's config (saw: $(printf '%s' "$OUT12" | head -1))"
 
 # The same lookup with an ABSOLUTE ESLINT_CONFIG: the manifest key is relative to the project root,
 # so a lookup by the path as given would call getff's config the consumer's.
 OUT12b=$( cd "$T12" && ESLINT_CONFIG="$T12/eslint.config.mjs" bash "$REPO_ROOT/packages/core/audit-self/check-rule-globs.sh" 2>&1 ); RC12b=$?
-[ "$RC12b" = "0" ] && ! printf '%s' "$OUT12b" | grep -q "your own config" \
-  && printf '%s' "$OUT12b" | grep -q "getff placed" \
+[ "$RC12b" = "0" ] && ! grep -q "your own config" <<<"$OUT12b" \
+  && grep -q "getff placed" <<<"$OUT12b" \
   && ok "own-config provenance: an absolute ESLINT_CONFIG still finds getff's manifest entry" \
   || bad "own-config provenance: rc=$RC12b, an absolute ESLINT_CONFIG misattributes getff's config (saw: $(printf '%s' "$OUT12b" | head -1))"
 
@@ -400,10 +400,10 @@ OUT12b=$( cd "$T12" && ESLINT_CONFIG="$T12/eslint.config.mjs" bash "$REPO_ROOT/p
 T13=$(own_cfg_dir "export default [];")
 manifest_for "$T13" "0000000000000000000000000000000000000000000000000000000000000000" rn
 OUT13=$(repo_gate "$T13"); RC13=$?
-[ "$RC13" = "0" ] && printf '%s' "$OUT13" | grep -q "getff placed eslint.config.mjs and it has been edited since" \
+[ "$RC13" = "0" ] && grep -q "getff placed eslint.config.mjs and it has been edited since" <<<"$OUT13" \
   && ok "own-config provenance: an edited getff react-native config is skipped and named as edited" \
   || bad "own-config provenance: rc=$RC13, an edited getff react-native config was not reported as edited (saw: $(printf '%s' "$OUT13" | head -1))"
-! printf '%s' "$OUT12" | grep -q "edited since" \
+! grep -q "edited since" <<<"$OUT12" \
   && ok "own-config provenance: the unedited getff config is not called edited (the hash is compared)" \
   || bad "own-config provenance: the config as delivered was called edited"
 
@@ -414,7 +414,7 @@ OUT13=$(repo_gate "$T13"); RC13=$?
 T14=$(own_cfg_dir "export default [];")
 manifest_for "$T14" "0000000000000000000000000000000000000000000000000000000000000000"
 OUT14=$(repo_gate "$T14"); RC14=$?
-[ "$RC14" = "1" ] && printf '%s' "$OUT14" | grep -q "RULE_GLOBS block and its rules-as-tests rules are gone" \
+[ "$RC14" = "1" ] && grep -q "RULE_GLOBS block and its rules-as-tests rules are gone" <<<"$OUT14" \
   && ok "own-config provenance: getff's RULE_GLOBS block cut out of getff's own config FAILS, naming why" \
   || bad "own-config provenance: rc=$RC14, stripping getff's rules out of getff's config passed (saw: $(printf '%s' "$OUT14" | head -2 | tr '\n' '|'))"
 

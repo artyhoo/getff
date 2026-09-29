@@ -998,7 +998,7 @@ copy_safe() {
 # consumer's AGENTS.md as unformatted (an HTML comment immediately followed by a heading), and the
 # consumer's very first `npm run validate` goes red on a file we wrote — the #531 failure class.
 #
-# Malformed fence (a begin marker with no matching end) → LOUD refuse + skip, never a guess.
+# Malformed fence (a begin marker with no matching end, or two begin markers) → LOUD refuse + skip.
 # Splicing against a missing end marker would delete everything from the marker to EOF; the
 # irreversible branch is never the default (T-Upgrade-A).
 merge_fenced() {
@@ -1039,10 +1039,10 @@ merge_fenced() {
   fi
 
   # ── (b) our fence already present → replace body in place ──────────────────
-  if grep -qF "$begin" "$dst"; then
-    if ! grep -qF "$end_tok" "$dst"; then
-      echo "  ⚠ $dst: '$begin' present but no matching '$end_tok' — REFUSING to splice" >&2
-      echo "    (an unterminated fence would delete everything to EOF, so the file is left as it is and getff's section is not in it)" >&2
+  if _merge_fenced_locate "$dst" "$begin" "$end_tok"; then   # whole marker lines only (see helper)
+    if [ -n "$MERGE_FENCED_PROBLEM" ]; then
+      echo "  ⚠ $dst: $MERGE_FENCED_PROBLEM — REFUSING to splice" >&2
+      echo "    ($MERGE_FENCED_HINT)" >&2
       SKIPPED+=("$dst")
       return 0
     fi
@@ -1065,22 +1065,22 @@ merge_fenced() {
       return 0
     fi
     local _splice_ok=1
-    if ! awk -v BEG="$begin" -v END_TOK="$end_tok" -v SRC="$src" '
-      state == 0 && index($0, BEG) > 0 {
+    # B/E = the whole-line marker positions _merge_fenced_locate found (never a quoted marker).
+    # A caller that proved the old body is its own shipped text sets MERGE_FENCED_SHIPPED_BODY=1.
+    if ! awk -v B="$MERGE_FENCED_BEGIN_LINE" -v E="$MERGE_FENCED_END_LINE" -v SRC="$src" '
+      NR == B {
         print                                     # keep the begin marker verbatim
         print ""                                  # blank lines around the body: Prettier treats an
         while ((getline line < SRC) > 0) print line
         close(SRC)
         print ""                                  # HTML comment glued to a heading as unformatted
-        state = 1
         next
       }
-      state == 1 && index($0, END_TOK) > 0 { print; state = 2; next }
-      state == 1 { next }                         # drop the previous body
-      { print }
+      NR > B && NR < E { next }                   # drop the previous body
+      { print }                                   # the end marker and everything after it
     ' "$dst" > "$tmp"; then
       _splice_ok=0
-    elif ! cmp -s "$tmp" "$dst"; then
+    elif [ "${MERGE_FENCED_SHIPPED_BODY:-0}" != 1 ] && ! cmp -s "$tmp" "$dst"; then
       # critical-review S2-3: the replaced body may hold the consumer's own in-fence edits —
       # keep the previous bytes before they are gone (a no-op re-run never reaches here).
       _merge_fenced_keep_copy "$dst" "fenced section=$section refreshed"
@@ -1132,7 +1132,7 @@ _merge_fenced_keep_copy() {
   local dst="$1" why="$2" conflicts sum8 kept
   conflicts="${PROJECT_ROOT:-.}/.ai-factory/refresh-conflicts"
   if sum8=$(_hash256 "$dst"); then
-    kept="$conflicts/$(basename "$dst").${sum8:0:8}"
+    kept="$conflicts/${MERGE_FENCED_COPY_NAME:-$(basename "$dst")}.${sum8:0:8}"
     if mkdir -p "$conflicts" 2>/dev/null && cp "$dst" "$kept" 2>/dev/null; then
       echo "  ⚠ $dst: $why — previous content kept at $kept (copy back any local edits you want)"
       return 0
@@ -3264,6 +3264,299 @@ rule_globs_boundary() {
         if (ad == 1 && tt[k] == "str") print tv[k]
       }
     }' "$1"
+}
+
+# ── merge_fenced marker location ──────────────────────────────────────────────
+# _merge_fenced_locate <file> <begin-prefix> <end-marker> — where merge_fenced's section sits.
+# A marker counts only as a WHOLE line (a trailing \r or blanks allowed): the begin marker is
+# <begin-prefix> followed by ` -->` or ` <attributes> -->`, the end marker is exactly <end-marker>.
+# A co-owner's rule that QUOTES a marker inside a sentence is prose, never a fence. The original
+# substring match took such a quote for the begin marker and spliced from there, deleting the
+# co-owner's text between the quote and the real block (/aif-evolve, measured 2026-09-28).
+# Sets MERGE_FENCED_BEGIN_LINE / MERGE_FENCED_END_LINE, and MERGE_FENCED_PROBLEM +
+# MERGE_FENCED_HINT when the pair is unusable (no end marker, or more than one begin marker —
+# which block is getff's cannot be told, so nothing is guessed). Returns 1 when there is no begin
+# marker line at all.
+_merge_fenced_locate() {
+  local out nb
+  MERGE_FENCED_BEGIN_LINE=0; MERGE_FENCED_END_LINE=0; MERGE_FENCED_PROBLEM=""; MERGE_FENCED_HINT=""
+  [ -f "$1" ] || return 1
+  # A failed scan is «unknown», never «no markers» — that would append a second block.
+  if ! out=$(awk -v BEG="$2" -v END_TOK="$3" '
+    { sub(/\r$/, ""); sub(/[ \t]+$/, "") }
+    index($0, BEG) == 1 && substr($0, length(BEG) + 1) ~ /^ ([^>]* )?-->$/ { nb++; if (!b) b = NR; next }
+    b && !e && $0 == END_TOK { e = NR }
+    END { print nb + 0, b + 0, e + 0 }' "$1"); then
+    MERGE_FENCED_PROBLEM="could not scan for the section markers (awk failed)"
+    MERGE_FENCED_HINT="nothing was written"
+    return 0
+  fi
+  read -r nb MERGE_FENCED_BEGIN_LINE MERGE_FENCED_END_LINE <<EOF
+$out
+EOF
+  [ "${nb:-0}" -gt 0 ] || return 1
+  if [ "$nb" -gt 1 ]; then
+    MERGE_FENCED_PROBLEM="$nb whole-line '$2' markers — which block is getff's cannot be told"
+    MERGE_FENCED_HINT="the file is left as it is and getff's section is not updated in it"
+  elif [ "$MERGE_FENCED_END_LINE" = 0 ]; then
+    MERGE_FENCED_PROBLEM="'$2' present but no matching '$3'"
+    MERGE_FENCED_HINT="an unterminated fence would delete everything to EOF, so the file is left as it is and getff's section is not in it"
+  fi
+  return 0
+}
+
+# ── Skill-context co-ownership (AI Factory /aif-evolve store) ─────────────────
+# The shipped skill-context overrides (.ai-factory/skill-context/<skill>/SKILL.md) are CO-OWNED
+# with AI Factory's /aif-evolve, which writes project rules into exactly that file (see
+# install_skill_context). SSOT for the section id and the in-block note, both lanes.
+SKILL_CONTEXT_FENCE_SECTION='getff-skill-context'
+SKILL_CONTEXT_NOTE_LEAD='> Managed by getff:'
+# shellcheck disable=SC2016  # backticks are Markdown code spans in the delivered file, not expansions
+SKILL_CONTEXT_FENCE_NOTE="$SKILL_CONTEXT_NOTE_LEAD"' `install.sh --refresh` rewrites only the text between the getff markers. Project rules, including everything `/aif-evolve` adds, belong outside the markers and are never touched.'
+
+# Every revision of each skill-context template getff has shipped, one row per revision:
+#   <skill> <file lines> <file sha256> <body lines> <body sha256>
+# where the body is the file minus its YAML frontmatter and outer blank lines — what the fenced
+# block carries after the note. Rows make getff's own old bytes recognisable: a fence-less copy of
+# ANY revision is replaced rather than left beside the new block, and a block still holding a
+# shipped body is refreshed without parking a copy. APPEND-ONLY — a template edit adds its new
+# row (`_skill_context_revision_row <skill> <file>` prints it);
+# tests/install-sh/skill-context-evolve-coownership.test.sh §0 fails until every revision in git
+# history and the working tree is listed.
+SKILL_CONTEXT_SHIPPED_REVISIONS='
+aif-orchestrator-discipline 59 825145afc8dae2a6cca9d3014f5119df5dfeea44547fb7bc56f855f5863536e6 55 bc0159f192e25a613ccc228bd88bccbbf139d62f7a7bae272dc3700cc109c777
+aif-orchestrator-discipline 120 aee5830a0e5760545b1dea92d7a35b16ca90bbdb5043b45ea538fdbcc57205da 116 a4bb23e831f64ae675b7d36f88010b90cae50c7ba349011fba3d27e273ffbef7
+aif-orchestrator-discipline 123 6fccf9a6157fcf1a338aac779af29d4cba3e9dc3a5f8c88d20c4e2e8ecb99753 119 15530613ee63585bc5b5c242496983f9170bc73f4fc3e5f16ccdd8061c052f2b
+aif-orchestrator-discipline 123 7a0a04091d03f039d9f025b8278bac98966e5a9b5ae51a7b636e42e31f9cba57 119 88e16a15ce964ead848ce6ce02bc113a0c8e8946dc8ce34c97ebe8d6192ee21f
+aif-review 40 8bd23ebbc6a7ab41a680c5e17895a1df3f8492090354ffe7ab4a83bda2c61f09 36 7660177c2193e1317a5dc0297310d65e7c0e03ccb87f61aeec0e02a7b78d5a73
+aif-review 40 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343 36 098ffe62f7297978d85099fe412611bd2efc2f07bb3ab4c719486948e9324aa6
+aif-rules-check 42 ef8609433e8fbd9ecad4fa332a78eda10c0f2bd6c43dc19ceb168550cebbf75f 38 1f3e7c3022c6f43a62517279a315471a5d171112cce145cdfb160635ec008008
+aif-rules-check 42 7d6b6061459f0939e64358447d0905329ddd4c52abd459ee8d9d201653ffb791 38 b9a59089f5cc1ec4bb3d2ce0fd554d7fb694f047f0ca3fb5005f1a405b3e2e5b
+aif-rules-check 42 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448 38 f7c6deab98cb56e9c164bcdc76bf7c1551622bc8de391c97e94b6842feda2409
+'
+
+# install_skill_context <src> <dst>
+# The ONLY delivery verb for the shipped skill-context overrides, on install AND on --refresh, on
+# every lane (setup.d/20-agents.sh, install.sh do_refresh, setup.d/45-python.sh).
+#
+# WHY NOT copy_safe / refresh_safe: `.ai-factory/skill-context/<skill>/SKILL.md` is AI Factory's
+# evolution store — aif-evolve/SKILL.md (AIF 2.11.0, lines 40-45) calls it «the ONLY correct target
+# for built-in skill improvements» and its Artifact Ownership section claims the whole directory.
+# AIF reads that one file per skill and nothing else: no fenced section it preserves, no sibling
+# file, no include. Whole-file delivery therefore lost one side every time (measured 2026-09-28):
+# copy_safe skipped an evolved file, so getff's content never arrived; refresh_safe overwrote it,
+# so every evolved rule left the file AIF reads. This verb owns ONLY a merge_fenced block
+# (section=getff-skill-context); the text outside the markers is /aif-evolve's and is never
+# rewritten. Layer 3 (`SKILL.override.md` sibling) and --dry-run behave as in merge_fenced;
+# --force is a no-op there too, since a co-owned file has no «whole file» for getff to overwrite.
+#
+# The block body is the template with its YAML frontmatter dropped (frontmatter is only valid at
+# the top of a file, and the file's top belongs to whoever wrote first) and SKILL_CONTEXT_FENCE_NOTE
+# prepended, so /aif-evolve reading the file is told where its rules go. A block whose old body is
+# a shipped revision is refreshed silently; one somebody edited is parked first, as
+# refresh-conflicts/<skill>-SKILL.md.<sha8> (three skills share the basename SKILL.md).
+#
+# GETFF TEXT WITHOUT MARKERS — only bytes PROVABLY delivered by getff are ever removed:
+#   - LEGACY (every consumer installed before this verb): the file starts with a whole shipped
+#     revision (SKILL_CONTEXT_SHIPPED_REVISIONS, or the current template), line for line — those
+#     lines become the fenced block and the rest of the file is kept;
+#   - STRIPPED (a rewrite dropped the HTML-comment markers): the note line followed by a shipped
+#     body — those lines go and the fenced block is appended.
+# Anything else (evolve edits inside getff's text) cannot be told apart from project rules, so
+# nothing is removed: the block is appended and the old text stays, named once in the install
+# output. CR line ends are ignored for these comparisons. The irreversible branch is never the
+# default (T-Upgrade-A).
+install_skill_context() {
+  local src="$1" dst="$2"
+  local plan body n kl rest h1 skill
+  local beg="<!-- getff:begin section=$SKILL_CONTEXT_FENCE_SECTION"
+  local end="<!-- getff:end section=$SKILL_CONTEXT_FENCE_SECTION -->"
+  # Read by merge_fenced / _merge_fenced_keep_copy (dynamic scope): quiet refresh of a shipped
+  # body, and a skill-qualified name for a parked copy.
+  local MERGE_FENCED_SHIPPED_BODY=0 MERGE_FENCED_COPY_NAME
+  [ -f "$src" ] || return 0
+  skill=$(basename "$(dirname "$dst")")
+  MERGE_FENCED_COPY_NAME="$skill-$(basename "$dst")"
+  plan="${src#"${PKG_ROOT:-}"/}"
+  if [ -e "${dst%.md}.override.md" ]; then   # Layer 3 — merge_fenced reports the skip
+    merge_fenced "$src" "$dst" "$SKILL_CONTEXT_FENCE_SECTION" "$plan"
+    return 0
+  fi
+  body=$(mktemp) || { echo "  ⚠ $dst: mktemp failed — skill-context not delivered" >&2; return 0; }
+  _skill_context_body "$src" > "$body"
+  rest="${dst}.getff.tmp"
+  if [ -f "$dst" ] && ! _merge_fenced_locate "$dst" "$beg" "$end"; then
+    if kl=$(_skill_context_stripped_block "$dst"); then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would replace the marker-less getff block in $dst (lines ${kl% *}-${kl#* }) with section=$SKILL_CONTEXT_FENCE_SECTION"
+        rm -f "$body"
+        return 0
+      fi
+      if awk -v K="${kl% *}" -v L="${kl#* }" 'NR < K || NR > L' "$dst" > "$rest" && mv "$rest" "$dst"; then
+        echo "  · $dst: getff block without its markers (lines ${kl% *}-${kl#* }) replaced by the fenced block; everything else kept"
+      else
+        rm -f "$rest" 2>/dev/null || true
+        echo "  ⚠ $dst: could not remove the marker-less getff block — left unchanged" >&2
+        rm -f "$body"
+        return 0
+      fi
+    elif n=$(_skill_context_delivered_lines "$src" "$dst"); then
+      if [ "$DRY_RUN" = "--dry-run" ]; then
+        echo "  [dry-run] would adopt the pre-fence getff copy in $dst into section=$SKILL_CONTEXT_FENCE_SECTION (lines after $n kept)"
+        rm -f "$body"
+        return 0
+      fi
+      # Keep everything after the provable getff prefix (leading blank lines trimmed), then let
+      # merge_fenced append the current block — to an empty file when nothing followed.
+      if tail -n +"$((n + 1))" "$dst" | awk '/[^ \t\r]/ { p = 1 } p' > "$rest" && mv "$rest" "$dst"; then
+        if [ -s "$dst" ]; then
+          echo "  · $dst: pre-fence getff copy (first $n lines) moved into the fenced block; the project rules after it kept"
+        else
+          rm -f "$dst"
+        fi
+      else
+        rm -f "$rest" 2>/dev/null || true
+        echo "  ⚠ $dst: could not split the pre-fence getff copy — left unchanged" >&2
+        rm -f "$body"
+        return 0
+      fi
+    elif [ "$DRY_RUN" != "--dry-run" ] && h1=$(_skill_context_h1 "$src") && [ -n "$h1" ] \
+      && tr -d '\r' < "$dst" | grep -qxF "$h1"; then
+      echo "  · $dst: holds an older getff copy that cannot be told apart from project rules — kept as-is; the current version is appended in its own block"
+    fi
+  elif [ -f "$dst" ] && [ -z "$MERGE_FENCED_PROBLEM" ] && _skill_context_block_is_shipped "$dst"; then
+    MERGE_FENCED_SHIPPED_BODY=1
+  fi
+  merge_fenced "$body" "$dst" "$SKILL_CONTEXT_FENCE_SECTION" "$plan"
+  rm -f "$body"
+}
+
+# _skill_context_trim — stdin → stdout without leading and trailing blank lines.
+_skill_context_trim() {
+  awk '/[^ \t]/ { p = 1 } p { buf[++n] = $0 }
+       END { while (n > 0 && buf[n] !~ /[^ \t]/) n--; for (i = 1; i <= n; i++) print buf[i] }'
+}
+
+# _skill_context_template_body <file> — the template without its leading YAML frontmatter, trimmed.
+_skill_context_template_body() {
+  awk 'NR == 1 && $0 == "---" { fm = 1; next }
+       fm == 1 { if ($0 == "---") fm = 2; next }
+       { fm = 2; print }' "$1" | _skill_context_trim
+}
+
+# _skill_context_body <src> — stdout: SKILL_CONTEXT_FENCE_NOTE, a blank line, the template body.
+_skill_context_body() {
+  printf '%s\n\n' "$SKILL_CONTEXT_FENCE_NOTE"
+  _skill_context_template_body "$1"
+}
+
+# _skill_context_h1 <src> — the template's first H1 line (the legacy-residue name check above).
+_skill_context_h1() {
+  awk '/^# / { print; exit }' "$1"
+}
+
+# _skill_context_revisions <skill> — that skill's SKILL_CONTEXT_SHIPPED_REVISIONS rows.
+_skill_context_revisions() {
+  printf '%s\n' "$SKILL_CONTEXT_SHIPPED_REVISIONS" | awk -v S="$1" '$1 == S'
+}
+
+# _skill_context_revision_row <skill> <file> — the register row for a template revision.
+_skill_context_revision_row() {
+  local tb sha="" bsha=""
+  tb=$(mktemp) || return 1
+  _skill_context_template_body "$2" > "$tb"
+  if sha=$(_hash256 "$2") && bsha=$(_hash256 "$tb"); then
+    echo "$1 $(wc -l < "$2" | tr -d ' ') $sha $(wc -l < "$tb" | tr -d ' ') $bsha"
+  fi
+  rm -f "$tb"
+  [ -n "$bsha" ]
+}
+
+# _skill_context_delivered_lines <src> <dst> — echo N and exit 0 IFF the first N lines of the
+# fence-less <dst> (CR ignored) are a whole template getff shipped: the current <src>, or any
+# registered revision of this skill. Exit 1 = not provable.
+_skill_context_delivered_lines() {
+  local src="$1" dst="$2" lf probe total n _skill lines sha _bl _bh h
+  lf=$(mktemp) || return 1
+  probe=$(mktemp) || { rm -f "$lf"; return 1; }
+  tr -d '\r' < "$dst" > "$lf"
+  total=$(wc -l < "$lf" | tr -d ' ')
+  n=$(wc -l < "$src" | tr -d ' ')
+  if [ "$n" -gt 0 ] && [ "$n" -le "$total" ] && head -n "$n" "$lf" | cmp -s - "$src"; then
+    rm -f "$lf" "$probe"; echo "$n"; return 0
+  fi
+  while read -r _skill lines sha _bl _bh; do
+    if [ -z "$sha" ] || [ "$lines" -gt "$total" ]; then continue; fi
+    head -n "$lines" "$lf" > "$probe"
+    if h=$(_hash256 "$probe") && [ "$h" = "$sha" ]; then
+      rm -f "$lf" "$probe"; echo "$lines"; return 0
+    fi
+  done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$dst")")")
+EOF
+  rm -f "$lf" "$probe"
+  return 1
+}
+
+# _skill_context_stripped_block <dst> — echo "K L" and exit 0 IFF the fence-less <dst> holds a
+# getff block whose markers were removed: SKILL_CONTEXT_NOTE_LEAD at line K, then (after blank
+# lines) a registered body of this skill ending at line L. CR ignored.
+_skill_context_stripped_block() {
+  local dst="$1" lf probe k start _skill _l _h bl bh h
+  lf=$(mktemp) || return 1
+  probe=$(mktemp) || { rm -f "$lf"; return 1; }
+  tr -d '\r' < "$dst" > "$lf"
+  k=$(awk -v P="$SKILL_CONTEXT_NOTE_LEAD" 'index($0, P) == 1 { print NR; exit }' "$lf")
+  start=""
+  [ -n "$k" ] && start=$(awk -v K="$k" 'NR > K && /[^ \t]/ { print NR; exit }' "$lf")
+  if [ -n "$start" ]; then
+    while read -r _skill _l _h bl bh; do
+      [ -n "$bh" ] || continue
+      sed -n "${start},$((start + bl - 1))p" "$lf" > "$probe"
+      if h=$(_hash256 "$probe") && [ "$h" = "$bh" ]; then
+        rm -f "$lf" "$probe"; echo "$k $((start + bl - 1))"; return 0
+      fi
+    done <<EOF
+$(_skill_context_revisions "$(basename "$(dirname "$dst")")")
+EOF
+  fi
+  rm -f "$lf" "$probe"
+  return 1
+}
+
+# _skill_context_block_is_shipped <dst> — exit 0 IFF the fenced block _merge_fenced_locate just
+# found holds, after the note, a registered body of this skill (so replacing it loses nothing).
+_skill_context_block_is_shipped() {
+  local dst="$1" probe h
+  probe=$(mktemp) || return 1
+  awk -v B="$MERGE_FENCED_BEGIN_LINE" -v E="$MERGE_FENCED_END_LINE" 'NR > B && NR < E' "$dst" \
+    | tr -d '\r' | _skill_context_trim \
+    | awk -v P="$SKILL_CONTEXT_NOTE_LEAD" 'NR == 1 && index($0, P) == 1 { next } { print }' \
+    | _skill_context_trim > "$probe"
+  h=$(_hash256 "$probe"); rm -f "$probe"
+  [ -n "$h" ] && _skill_context_revisions "$(basename "$(dirname "$dst")")" \
+    | awk -v H="$h" '$5 == H { f = 1 } END { exit !f }'
+}
+
+# getff_bytes_intact <abs-dst> — the content twin of getff_delivered: exit 0 IFF <abs-dst> still
+# holds the bytes getff left in it: this run staged it (the delivery itself, or a later write of
+# getff's own — see below), or its sha256 equals the refresh-baseline entry an earlier install
+# recorded. A getff_delivered file the consumer edited since fails it — those bytes are theirs now —
+# and so does an unknown one (no entry, no jq, no sha256 tool): the safe side. The manifest hashes
+# only what a run staged, so a later install that writes into an intact getff file (60-ci's
+# boundary globs, a synth-wire or R2 write on getff's branch) stages it again with
+# refresh_baseline_stage; otherwise its own write reads as the consumer's edit on the next check.
+getff_bytes_intact() {
+  local dst="$1" p cur
+  for p in ${REFRESH_BASELINE_STAGED[@]+"${REFRESH_BASELINE_STAGED[@]}"} \
+    ${REFRESH_BASELINE_STAGED_WEAK[@]+"${REFRESH_BASELINE_STAGED_WEAK[@]}"}; do
+    [ "$p" = "$dst" ] && return 0
+  done
+  [ -f "$dst" ] || return 1
+  _refresh_baseline_lookup "$dst"
+  [ -n "$REFRESH_BASELINE_ENTRY" ] || return 1
+  cur=$(_hash256 "$dst") || return 1
+  [ "$cur" = "$REFRESH_BASELINE_ENTRY" ]
 }
 
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──
