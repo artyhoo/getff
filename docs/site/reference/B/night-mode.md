@@ -113,7 +113,7 @@ Claude Code, and nobody has yet run it end to end on one.
 - The skill belongs to the `env` list on line 64 of `setup.d/lib.sh`. The installer
   copies that list on lines 164 to 168 of `setup.d/10-skills.sh`. Lines 99 to 111 of the
   same file record why it moved from `factory` to `env`.
-- The superpowers plugin is an optional companion: line 17 of
+- The superpowers plugin is an optional companion: the `superpowers` row of
   `setup.d/companions.manifest`. The loop that offers each companion is lines 106 to 118
   of `setup`.
 - The card above is built from `docs/site/reference/B.json`.

@@ -39,8 +39,8 @@ rm -rf "$R"
 R=$(newroot notobject)
 printf '[1, 2]\n' > "$R/.ai-factory/synthesizer-output/rules-manifest-additions.json"
 _out=$(bash "$GATE" "$R" 2>&1)
-_fail=$(echo "$_out" | grep -m1 'could not read the manifest')
-echo "$_fail" | grep -q ': Error: manifest is not a JSON object$' \
+_fail=$(grep -m1 'could not read the manifest' <<<"$_out")
+grep -q ': Error: manifest is not a JSON object$' <<<"$_fail" \
   && ok "(F) the FAIL line names 'Error: manifest is not a JSON object'" \
   || bad "(F) the FAIL line does not end in the error message (got: $_fail)"
 rm -rf "$R"

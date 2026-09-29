@@ -72,8 +72,8 @@ The committed invalid fixture lives at `packages/core/backends/<b>/fixtures/firi
 
 | pin | site | current pin |
 |---|---|---|
-| astgrep | `.github/workflows/audit-self.yml:312` (`npm install -g @ast-grep/cli@…`, principles-meta-tests) + `:1012` (same, install-sh-c) | `0.44.1` |
-| ruff | `.github/workflows/audit-self.yml:322` (`pip install ruff==…`, principles-meta-tests) + `:1010` (same, install-sh-c) | `0.15.21` |
+| astgrep | `.github/workflows/audit-self.yml:312` (`npm install -g @ast-grep/cli@…`, principles-meta-tests) + `:1021` (same, install-sh-c) | `0.44.1` |
+| ruff | `.github/workflows/audit-self.yml:322` (`pip install ruff==…`, principles-meta-tests) + `:1019` (same, install-sh-c) | `0.15.21` |
 | rustc (CI) | `.github/workflows/audit-self.yml:351` (`rustup toolchain install …`) + `:352` (`rustup default …`) | `1.96.1` |
 | rustc (fixtures) | `packages/core/backends/cargo/fixtures/firing/{invalid,valid,valid-clean}/rust-toolchain.toml` + `demo/crate/rust-toolchain.toml` (`channel = …`) | `1.96.1` |
 | eslint | `packages/core/package.json:94` (`"eslint": "^10.4.0"`) | `^10.4.0` (resolves `10.4.0`) |
