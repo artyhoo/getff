@@ -7,7 +7,9 @@
 > rule texts — `.claude/rules/*.md` and the shipped skills; project goal —
 > [README.md#why-this-exists](../../../README.md#why-this-exists).
 
-Status: revision 4 (2026-09-29): every row names its trigger (review round 11, spec Q18). Revision 3: the operator
+Status: revision 5 (2026-09-29): five carrier facts rechecked on staging `0c11f43768c` after the trigger-build plan's
+notes to the parent (A9, C10, D1, D14, I3), and the plan's build choices noted under §3's design rules. Revision 4
+(2026-09-29): every row names its trigger (review round 11, spec Q18). Revision 3: the operator
 reviewed every row in a separate session (ten rounds, one per group; results file
 `_base-core-review-results-2026-09-29.md` in the coordination directory). Its verdicts are folded in: 9 merges, 7 new
 rows, rewords. «review rN» in a Source cell names the round. Revision 2 followed a cold review (§9 F8).
@@ -92,7 +94,7 @@ points at the row that absorbed it, and is marked `merged`; it is not counted.
 | A6 | Earliest reachable channel: edit → commit → push → CI → production. Each check sits at the earliest channel its time budget allows (commit: seconds; CI: minutes); what no earlier channel can catch runs in CI. CI also repeats the critical checks (types, format, lint, tests) as the backstop no local bypass reaches | README invariant 4; checks-map `:129`, `:137`, `:139` and aif-rules-check skill-context `:18` (from A19); review r1 | check: hooks, husky | file + skill — CI workflow, hook and lint-config files; the channel step in rule-research — corpus + build |
 | A7 | Gate what a machine can detect; inject what needs judgment; use the narrowest trigger that fires reliably | rule-enforcement-channel-selection §1; P31 | partial: `inject-matching-rule.sh` ships, the rule does not | skill + file — the channel-choice step when a rule is codified; rule files — build + corpus |
 | A8 | Nobody's attention is a check. The human checks nothing — people forget, get tired, or do not see — so «someone will notice in review» is not a check. Every load-bearing check is a gate or a named agent protocol with structured output; the human only decides at forks the machine raises. A warning nobody reads is not a check | attention-is-not-a-mechanism §1; review r1 | prose: claims-conformance-auditor, night-mode | file + skill — CI workflow, hook and check-config files; review protocols require a named check per load-bearing claim — corpus + live (auditors) |
-| A9 | Every check actually runs: no dead check, every test file reaches CI, the one aggregate merge check stays required | P36, P37 (required-context), P38, P41; `workflow-integrity.yml` | check: `check-shields-up.sh`, `cmd-script-liveness.ts`, `guard-liveness.ts`, `workflow-integrity.yml` | check — `check-shields-up.sh`, `guard-liveness`, `cmd-script-liveness`, `workflow-integrity.yml` — live |
+| A9 | Every check actually runs: no dead check, every test file reaches CI, the one aggregate merge check stays required | P36, P37 (required-context), P38, P41; `workflow-integrity.yml` | partial: `check-shields-up.sh` (`setup.d/40-configs.sh:57`), `workflow-integrity.yml` (`:488`); `guard-liveness` and `cmd-script-liveness` run only in getff (`pre-push.ts:2583-2590`, owner `maintainer`) | check — `check-shields-up.sh`, `workflow-integrity.yml`; the dead-check half at a consumer rides A2's firing harness — live (partial) + build |
 | A10 | No bypass. The agent cannot skip, disable or weaken a check on its own: bypass commands are blocked mechanically in every AI tool the team uses (e.g. `git commit --no-verify` and its short form `-n`, `HUSKY=0`, a `core.hooksPath` override), and CI with a required merge check is the layer no local bypass reaches. A rule in the way is raised as a question, not skipped. Loosening a check (a disable comment, a switched-off rule, a lowered threshold, a removed CI step) stays visible with a reason in words, not empty and not «TODO». Who may loosen follows the question-class routing (F9): in place only where a recorded project rule permits exactly that loosening; otherwise the advisor, never the agent that did the work; a floor goes to the human. A break-glass path names the check that replaces the skipped one | CLAUDE.md `Prior-art:` escape hatch; ci-tool-pinning §3; `CLAUDE.md.template:27`, `AGENTS.md.template:57`, egress-no-api-bypass `:26` (from A14); advisor-pattern spec §5.1; review r1-r3 (the «≥20 characters» limit dropped as getff-internal, `prior-art.ts:60`) | partial: `restricted-syntax-audit-exempt` keeps the token visible but accepts it bare (`.ts:69-70`); no bypass guard ships for any AI tool (review note 2) | event + check + file — PreToolUse Bash guard: `--no-verify`, `-n`, `HUSKY=0`, `core.hooksPath` (one guard for both harnesses, note 2); CI required merge check; lint and CI config → a reason is required (`restricted-syntax-audit-exempt` must reject a bare token) — build + live + build |
 | A11 | A rule states its reason; a rule without a «because» is the first to be deleted | overview Layer 1 and Layer 5 | prose | check + file — rule-file lint: a rule without a reason fails; rule files — build + corpus |
 | A12 | Every fixed bug gets a regression test that fails on the old code | ai-traps §9 | prose | check — a `fix` change with no test file touched fails unless it says why — build |
@@ -134,7 +136,7 @@ skill names TypeScript tools today (§9 F3).
 | C7 | Skill descriptions are precise, and two skills never claim the same job; skills that do different jobs may run together | skill-description-quality; ai-traps lesson 7; review r3 | prose | file + check — SKILL.md files; two skill descriptions that share a trigger phrase fail — corpus + build |
 | C8 | Durable conventions go into the repo as a rule with a check — not into agent memory, and not as prose in the always-loaded agent guide; the guide stays within its budget and points at the rules | memory-codification; review r3 («use pnpm» belongs in a check and a rule file, not in AGENTS.md) | partial: `inject-memory-codification.sh` + auditor cover agent memory; nothing checks that the always-loaded guide carries no rule prose | event + file + check — memory write (`inject-memory-codification.sh`); agent guides → rule prose belongs in a rule file; guide budget (C5, C6) — live + corpus + build |
 | C9 | Internal machinery in English; the human is addressed in their own language | language-discipline; P22 | partial: `inject-output-language.sh` is opt-in; three shipped references are in Russian | event — `inject-output-language.sh` at prompt submit — opt-in |
-| C10 | The operator's own words are kept in a glossary, one spelling per entry | recap-wait-what reuse spec D8; P42 (spelling uniqueness) | partial: the glossary arm of `end-of-turn-reminder.sh` waits for a CONTEXT.md | event — the Stop hook's glossary arm (waits for a CONTEXT.md) — silent (no CONTEXT.md) |
+| C10 | The operator's own words are kept in a glossary, one spelling per entry | recap-wait-what reuse spec D8; P42 (spelling uniqueness) | partial: the glossary arm of `end-of-turn-reminder.sh` waits for a CONTEXT.md | event — the Stop hook's glossary arm; conditional — nothing to fire before the consumer keeps a CONTEXT.md — live |
 | C11 | Docs, rules and research carry a date and are re-checked when their source changes | `check-docs-refresh.mjs`; audit-ai-docs | partial: the refresh check does not ship | check — docs refresh check (`check-docs-refresh.mjs`) ships — build |
 | C12 | A doc changes in the same change as the code it describes | operator global CLAUDE.md «Update project docs after any significant changes»; ai-traps lesson 5 | partial: drift is caught by C1 | check — C2's drift checks in the same change — live (partial) |
 | C13 | Frozen and append-only records are not rewritten | doc-authority-hierarchy `#frozen-doc-still-edited` | no | check + file — a file marked frozen or append-only accepts only appended lines; those files — build + corpus |
@@ -147,7 +149,7 @@ skill names TypeScript tools today (§9 F3).
 
 | # | Principle | Source | Ships today | Trigger (fires on — status) |
 |---|---|---|---|---|
-| D1 | Do not reinvent the wheel: search before building; every capability gets one verdict from the shared seven-verdict vocabulary — ADOPT, ADOPT VOCABULARY, ADAPT, REFERENCE, KEEP NARROW, BUILD, REJECT — the same vocabulary in every project, never re-invented per project; the default is ADOPT or REFERENCE, BUILD only after the search shows a gap | build-first-reuse-default §1, `:44`; P08, P11; review r4 (reusing the vocabulary is the principle applied to itself) | partial: `prior-art.ts`, capability-reuse-auditor, tool-bootstrapping; the rule, the vocabulary and a register template do not ship (review note 7) | check + event — `prior-art.ts` trailer; a dependency install or a new module → «search first, one verdict from the seven» — live (partial) + build |
+| D1 | Do not reinvent the wheel: search before building; every capability gets one verdict from the shared seven-verdict vocabulary — ADOPT, ADOPT VOCABULARY, ADAPT, REFERENCE, KEEP NARROW, BUILD, REJECT — the same vocabulary in every project, never re-invented per project; the default is ADOPT or REFERENCE, BUILD only after the search shows a gap | build-first-reuse-default §1, `:44`; P08, P11; review r4 (reusing the vocabulary is the principle applied to itself) | partial: capability-reuse-auditor, tool-bootstrapping; `prior-art.ts` runs only in getff (`pre-push.ts:2579`, owner `maintainer`; `install.sh:1217` reports a copy as stale); the rule, the vocabulary and a register template do not ship (review note 7) | check + event — a trailer check against the shipped register, owned `both`; a dependency install or a new module → «search first, one verdict from the seven» — build |
 | D2 | Adapt before writing new: extend the existing file, pattern or tool where it falls short | build-first-reuse-default §1 (ADAPT); operator global CLAUDE.md «Prefer editing existing files» | partial, as D1 | event — Write of a new source file → «extend the existing file or pattern first?», once per session — build |
 | D3 | Upstream evidence transfers only when the problem is the same class; name both classes | T13, T16 | no | skill + file — research step «upstream class vs our class»; research and provenance files — build + corpus |
 | D4 | A «nothing exists» claim needs a full search: own stack, categories, one step removed, a counter-prompt | phase-research-coverage §1; T11 | no | event + skill — Stop hook: a «nothing exists / no analog» claim in a turn with too few search calls; research checklist — build |
@@ -160,7 +162,7 @@ skill names TypeScript tools today (§9 F3).
 | D11 | A tool is installed by its own official installer, detect-first, on the free path by default; never silently a paid API | companion-install-principle §1 | no: the rule does not ship | event — PreToolUse on install commands (`curl … \| sh`, global installs, paid-API setup) — build |
 | D12 | CI is deterministic: pinned tool versions, lockfile-aware installs, and no paid model calls by default — a team may change that deliberately; judgment runs as named agents in a session | ci-tool-pinning; no-paid-llm-in-ci; P17; review r4 | partial: `unpinned-tool-install.ts` | check + file — `unpinned-tool-install.ts`; CI workflows — live (partial) + corpus |
 | D13 | A decided call is not re-argued without new evidence | effort-worthiness `#rigor-by-paraphrase`; review r4 (D13 split: its state half joined D9, its in-flight half became D14) | no | file — decision records (ADR, decisions log) → «re-open only with new evidence, named» — corpus |
-| D14 | Before starting, look for the same work already in flight (open PRs, branches, the tracker) | CLAUDE.md pre-dispatch probe (from D13); review r4 | no: `probe-inflight.sh` does not ship | event — PreToolUse on branch, worktree and PR creation → the in-flight probe (`probe-inflight.sh` ships) — build |
+| D14 | Before starting, look for the same work already in flight (open PRs, branches, the tracker) | CLAUDE.md pre-dispatch probe (from D13); review r4 | no: `probe-inflight.sh` ships only inside the FACTORY-tier dispatcher skill (`setup.d/lib.sh:63`) and is aif-shaped | event — PreToolUse on branch, worktree and PR creation → a generic in-flight probe — build |
 
 ### E. Laziness and evidence
 
@@ -229,7 +231,7 @@ skill names TypeScript tools today (§9 F3).
 |---|---|---|---|---|
 | I1 | Input from outside the process is validated at the boundary before use | `RULES.md` R2; K1 of the cold review | prose + preset (`no-unsafe-zod-parse`, stops shipping R6-3) | check + file — generated boundary-parse rule; boundary files (routes, handlers) — generated + corpus |
 | I2 | No dependency with a known high-severity vulnerability | checks-map `:98` | partial: `npm audit` in the preset `ci.yml` | check + event — audit in CI and pre-push; a dependency install — live (partial) + build |
-| I3 | No secret in a commit | checks-map `:99` | partial: gitleaks in the preset `ci.yml` | check — secret scan at pre-commit and CI — live (partial, CI only) |
+| I3 | No secret in a commit | checks-map `:99` | partial: gitleaks in the npm stacks' CI templates only (`templates/ts-server/github-actions-ci.yml:187` and the three UI presets); no local scan | check — secret scan at pre-commit and CI — live (partial: CI on the 4 npm stacks) + build (a staged-changes scan at pre-commit; CI on python, cargo and go) |
 | I4 | A critical security rule is a check, not only text — e.g. a lint rule «every API route calls the auth guard» — surfaced to the agent at the moment it edits the matching files. A critical deny (production deploy, production database, NDA paths) is set in two places, the user's global settings and the project's, so removing one leaves the other. Security rules get no always-loaded exception: their text loads by the project's loading design (R6-10) | doc-organization `:47`, `:71` (still says «always loaded»), `:315`; review r9 | prose | check + file + check — generated security rules; the matching files (auth, routes) → just-in-time reminder; a doctor check that the critical deny sits in both settings layers — generated + corpus + build |
 | I5 | A path from outside is resolved and confined: no traversal, no symlink escape | research-source-trust `:55-57` | no | check + file — generated path-confinement rule where the stack has one; files that resolve outside paths — generated + corpus |
 | I6 | A new dependency is verified before it is installed: the package exists in the registry, it is the intended one (name, publisher, source repository), and it is not a look-alike of a popular name. A package name an AI suggests is a claim, not a fact | review r9; USENIX Security 2025 package-hallucination study (19.7% of recommended packages did not exist) | no | event — PreToolUse on install commands and manifest edits → registry lookup (exists, publisher, repo, look-alike distance); a missing package → deny — build |
@@ -243,13 +245,15 @@ skill names TypeScript tools today (§9 F3).
 | J2 | A capability is detected by its presence, never by a version string | dual-implementation `#capability-check-by-version` | no | file + check — hook and script files; script lint flags version-string gates — corpus + build |
 
 Counts: A 18, B 8, C 15, D 14, E 9, F 8, G 7, H 12, I 7, J 2 — 100 principles (9 rows merged). Ships with a
-check: 9; partial: 31; prose only: 37; not at all: 23 (counted by script from the «Ships today» column). So 60
+check: 8; partial: 32; prose only: 37; not at all: 23 (counted by script from the «Ships today» column). So 60
 principles reach a consumer only as text or not at all.
 
 Triggers (counted by script from the Trigger column): primary check 46, event 25, skill 13, file 11, always-on 5.
 By its status, a row's trigger fires at a consumer today for 52 rows (`live`, `opt-in` or `generated`); for 48 it
 waits for new logic, a shipped rule file, or the always-on set (`build`, `corpus`, `always-on`). Those 48 are shown
 «not delivered: trigger <X> to build», and their text is not added to always-on as a stopgap (Q18, round 11 Q1).
+Revision 5 moved two rows without changing the totals: C10 is conditional like B6 (its Stop-hook arm is live and waits
+for the consumer's CONTEXT.md), and D1's trailer check runs only in getff (`pre-push.ts:2579`), so D1 waits.
 
 How the triggers fire (review round 11). Q1 = A: a row with no built trigger shows «not delivered», and building the 48 is
 its own task (spec §4.3). Q3 = A, skipped: a skill step counts only when a command, a hook or a pipeline stage starts
@@ -268,6 +272,17 @@ the skill. Q2 (rule 1) and Q4 (rule 3) are reopened for round 12, so those two r
 5. Every fire is logged; a signal that often fires without a violation is narrowed or retired (A8).
 6. The shipped list is checked: every row names a non-text trigger whose carrier ships, or it shows «not delivered»
    (A1 and C14 applied to the base core itself).
+
+The trigger-build plan (`_base-core-trigger-build-plan-2026-09-29.md`, coordination directory) applies rules 4 and 5
+to four rows without changing what they guard. G1's event half becomes a gate before the edit: a PreToolUse guard
+reads a read-only mode marker that the review, research and audit skills set, because a prompt keyword does not say
+what the task is. E1 fires on a state (the turn edited source and ran none of the project's check commands), not on
+the word «done». A17's turn-end half is dropped: A12 (a fix commit with no test fails) catches the same failure at
+commit time. The turn-end claim detectors of E2, D4, E3 and E11 ship in shadow mode, logging without injecting, and
+become signals only at a measured false-positive rate of 20% or less on real transcripts (the in-repo threshold,
+`research-patches/2026-05-25-narrow-b-benchmark.md:18`); this class measured 84.2% (`:257`) and was removed twice
+(`research-patches/2026-06-01-remove-claim-detector.md:21-22`). Revision 5 adds two build halves to the plan's
+scope: D1's consumer trailer check and I3's local scan.
 
 ## §4 Base-core machinery
 

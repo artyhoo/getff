@@ -178,6 +178,20 @@ real; the partial ones are the round-2 findings they name.
   2) and architecture (part 6, which R6-2 B already required and §4.4 had missed). Wrapped prose was
   joined, one paragraph per line (640 → 412 lines). **Renumbered:** old §4 → §5, §5 → §7, §6 → §8,
   §7 → §9, §8 → §10, §9 → §11, §10 → §12; section numbers in the entries above are the old ones.
+- **r8 (2026-09-29): the trigger-build plan folded.** The plan (chip `task_ed1d38f7`, coordination
+  directory) sent seven notes to this spec (its §7). Rechecked on staging `0c11f43768c`: FIXED in
+  inventory rev 5 — C10 is conditional, not waiting; D1's trailer check is maintainer-only
+  (`pre-push.ts:2579`), so D1 waits; A9 is partial (`guard-liveness`, `cmd-script-liveness` are
+  maintainer-only, `:2583-2590`); D14's probe ships only in the FACTORY tier (`setup.d/lib.sh:63`); I3
+  scans only in the npm stacks' CI. A sweep of the 30 maintainer-only sections against every `live`
+  trigger found no other row (B5 and C2 run `audit-ai-docs.sh` through consumer CI). The totals stay
+  52/48. ACCEPTED as register rows: the plugin's fallback corpus (R7-3), the evidence carrier for
+  E11/G6 (R7-5), shadow mode for the turn-end claim detectors (R7-6); ESCALATED: the always-on
+  delivery (R7-4), which the review seat made round 12 Q7. FIXED from the review seat's check of the
+  plan: the 54,000 B budget ceiling is sourced (`scripts/check-alwayson-budget.sh:33-44`, getff's
+  baseline × 1.10), not unsourced as §4.2 said; it still does not ship, because it is getff's own
+  ratchet. ACCEPTED into §4.3: per-harness reach (SDK sessions skip the turn-end hook,
+  `end-of-turn-reminder.sh:107-108`) and SSOT #236's revisit trigger.
 
 ## Rejected alternatives index
 
