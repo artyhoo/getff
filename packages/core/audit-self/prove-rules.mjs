@@ -457,7 +457,16 @@ function withEslintBlock(text, block) {
   const lines = withoutEslintBlock(text).split('\n');
   let i = lines.length - 1;
   while (i >= 0 && !/^\s*[\])]+\s*\)?\s*;?\s*$/.test(lines[i])) i--;
-  if (i < 0) return null;
+  if (i < 0) {
+    // A one-line default export — `export default tseslint.config(a, b);`, the shape getff's wirer leaves
+    // in such a config: its closer moves to a line of its own (line breaks added, nothing removed).
+    let d = lines.length - 1;
+    while (d >= 0 && !lines[d].trim()) d--;
+    const m = d >= 0 ? /^(export default .*[^\s([])(\s*[\])]+\s*;?\s*)$/.exec(lines[d]) : null;
+    if (!m) return null;
+    lines.splice(d, 1, m[1], m[2].trimStart());
+    i = d + 1;
+  }
   let p = i - 1;
   while (p >= 0 && !lines[p].trim()) p--;
   if (p >= 0 && !/[,[(]\s*$/.test(lines[p]) && !lines[p].trim().startsWith('//')) lines[p] = lines[p].replace(/\s*$/, ',');
@@ -695,7 +704,8 @@ function sampleRelFor(globs, id, ext, sampleDir) {
     if (!g.startsWith('**/')) continue;
     const parts = g.slice(3).split('/');
     const last = parts.pop();
-    const alts = /\{([^}]*)\}/.exec(last)?.[1]?.split(',') ?? [last.replace(/^\*\./, '')];
+    // `**/*` names no extension: the sample keeps its own (a `.*` path matches no config entry).
+    const alts = last === '*' ? [ext] : (/\{([^}]*)\}/.exec(last)?.[1]?.split(',') ?? [last.replace(/^\*\./, '')]);
     const e = alts.includes(ext) ? ext : alts[0].replace(/^\*\./, '');
     const dirs = parts.map((p) => (p === '**' || p === '*' ? 'x' : p));
     return posix(join(sampleDir, ...dirs, `${safeName(id)}.bad.${e}`));

@@ -20,6 +20,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -450,7 +451,9 @@ describe('proof samples never reach a commit (T-C8)', () => {
 });
 
 // ── T-C5 ────────────────────────────────────────────────────────────────────────────────────────────
-function eslintProject(files: Record<string, string>, projectRules: Json = {}): string {
+// `oneLine`: the elements on the default export's own line, the way getff's wirer writes into a project's
+// one-line `export default tseslint.config(a, b);`. `constLine`: the array on a `const` line, exported apart.
+function eslintProject(files: Record<string, string>, projectRules: Json = {}, layout: 'lines' | 'oneLine' | 'constLine' = 'lines'): string {
   const dir = mkdtempSync(join(tmpdir(), 'prove-es-'));
   write(dir, 'package.json', JSON.stringify({ name: 'fx', private: true, type: 'module', scripts: { lint: 'eslint .' } }, null, 2) + '\n');
   symlinkSync(join(REPO, 'node_modules'), join(dir, 'node_modules'));
@@ -460,15 +463,21 @@ function eslintProject(files: Record<string, string>, projectRules: Json = {}): 
   }
   write(dir, 'eslint-rules-local/index.mjs', barrel());
   // The project's own config, with the element getff's Q4.7 insertion adds (R2 on the boundary globs).
+  const elements = [
+    `{ ignores: ['node_modules/**', 'eslint-rules-local/**', 'scripts/**'] }`,
+    `{ files: ['**/*.ts'], languageOptions: { parser: tsParser }, rules: ${JSON.stringify(projectRules)} }`,
+    `{ files: ['**/api/**/*.ts'], languageOptions: { parser: tsParser }, plugins: { 'rules-as-tests': customRules }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }`,
+  ];
+  const body = {
+    lines: ['export default [', ...elements.map((e) => `  ${e},`), '];'],
+    oneLine: [`export default [${elements.join(', ')}];`],
+    constLine: [`const config = [${elements.join(', ')}];`, 'export default config;'],
+  }[layout];
   write(dir, 'eslint.config.mjs', [
     "import tsParser from '@typescript-eslint/parser';",
     "import customRules from './eslint-rules-local/index.mjs';",
     '',
-    'export default [',
-    `  { ignores: ['node_modules/**', 'eslint-rules-local/**', 'scripts/**'] },`,
-    `  { files: ['**/*.ts'], languageOptions: { parser: tsParser }, rules: ${JSON.stringify(projectRules)} },`,
-    `  { files: ['**/api/**/*.ts'], languageOptions: { parser: tsParser }, plugins: { 'rules-as-tests': customRules }, rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } },`,
-    '];',
+    ...body,
     '',
   ].join('\n'));
   shipScripts(dir);
@@ -495,6 +504,42 @@ describe("ESLint, the project's own config (T-C5)", () => {
     const r = spawnSync('node', ['scripts/prove-rules.mjs', '--remove'], { cwd: dir, encoding: 'utf8' });
     expect(r.status).toBe(0);
     expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).not.toContain('getff:exempt');
+  });
+
+  it("a one-line default export (the shape getff's wirer leaves) takes the per-file element too, and gives it back", () => {
+    const dir = eslintProject({ 'src/api/old.ts': UNSAFE }, {}, 'oneLine');
+    const before = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
+    const { out } = place(dir, 'eslint');
+    expect(out).toContain('LINT_OK=1');
+    expect(out).not.toContain('rule-not-placed');
+    expect(readFileSync(join(dir, 'eslint.config.mjs'), 'utf8')).toMatch(/getff:exempt:begin[^\n]*\n\s*\{ files: \['src\/api\/old\.ts'\]/);
+    expect(npmLint(dir).status).toBe(0);
+    write(dir, 'src/api/new.ts', UNSAFE); // new code still blocks
+    expect(npmLint(dir).status).not.toBe(0);
+    rmSync(join(dir, 'src/api/new.ts'));
+    expect(spawnSync('node', ['scripts/prove-rules.mjs', '--remove'], { cwd: dir, encoding: 'utf8' }).status).toBe(0);
+    const removed = readFileSync(join(dir, 'eslint.config.mjs'), 'utf8');
+    expect(removed).not.toContain('getff:exempt');
+    expect(removed.replace(/\s+/g, '')).toBe(before.replace(/\s+/g, '').replace(/\];$/, ',];')); // only a comma and line breaks stay
+    expect(npmLint(dir).status).not.toBe(0); // the old hit is live again
+    // Paired negative: the array on a `const` line with the export apart — no line getff can extend, nothing written.
+    const apart = eslintProject({ 'src/api/old.ts': UNSAFE }, {}, 'constLine');
+    const kept = readFileSync(join(apart, 'eslint.config.mjs'), 'utf8');
+    expect(place(apart, 'eslint').out).toContain("EX:rule-not-placed: * — existing violations not exempted: getff found no closing `];` / `);` line in eslint.config.mjs to put its block before");
+    expect(readFileSync(join(apart, 'eslint.config.mjs'), 'utf8')).toBe(kept);
+  });
+
+  it('a built-in the config switches on for every .ts file is found and proven (R2: a `**/*` glob once gave a `.*` sample)', () => {
+    const dir = eslintProject({ 'src/api/ok.ts': SAFE }, { 'no-empty': 'error', 'no-throw-literal': 'error' });
+    record(dir, { linter: 'eslint' });
+    preCommit(dir);
+    const out = table(dir).stdout;
+    expect(rowOf(out, 'no-empty')?.proof, out).toMatch(PROVED);
+    expect(rowOf(out, 'no-throw-literal')?.proof, out).toMatch(PROVED);
+    // Paired negative: a config that does not switch it on still says so.
+    const off = eslintProject({ 'src/api/ok.ts': SAFE });
+    record(off, { linter: 'eslint' });
+    expect(rowOf(table(off).stdout, 'no-empty')).toMatchObject({ status: 'not_wired', reason: 'not in the eslint config' });
   });
 
   it("red from a rule of the project's own → nothing is exempted (paired negative)", () => {

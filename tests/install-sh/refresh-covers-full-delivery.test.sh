@@ -243,7 +243,7 @@ refresh_writes() {  # do_refresh body minus comment / echo / chmod_safe lines + 
 }
 # shellcheck disable=SC2016
 REFRESH=$( { refresh_writes | grep -oE '\$PROJECT_ROOT/[A-Za-z0-9._/-]*' | sed -E 's#\$PROJECT_ROOT/##'
-             refresh_writes | grep -oE ':scripts/[A-Za-z0-9._-]+\.(sh|ts)' | sed 's#:scripts/#scripts/#'
+             refresh_writes | grep -oE ':scripts/[A-Za-z0-9._-]+\.(sh|ts|mjs|cjs|js)' | sed 's#:scripts/#scripts/#'
            } | sed '/^$/d' | sort -u)
 
 # Guard against a broken harness silently passing (empty sets ⇒ vacuous green).

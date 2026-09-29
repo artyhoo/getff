@@ -63,6 +63,7 @@ export default defineConfig(
       'eslint-rules-local/**',
       'packages/core/**',
       'scripts/audit-r4.ts',
+      'scripts/prove-rules.mjs',
       'eslint.config.mjs',
       'vitest.config.ts',
       '.dependency-cruiser.mjs',

@@ -105,10 +105,13 @@ borrow() { # $1 = project dir — link the packages the wirer and its lint probe
       *)  ln -s "$FW_NM/$p" "$1/node_modules/$p" ;;
     esac
   done
+  # The eslint binary too: the install runs the project's own `npm run lint` before it switches getff's
+  # rules on (place_lint_rules), and a project whose eslint package is installed has its binary.
+  mkdir -p "$1/node_modules/.bin"
+  [ -e "$FW_NM/.bin/eslint" ] && ln -s "$FW_NM/.bin/eslint" "$1/node_modules/.bin/eslint"
   if [ "${2:-}" = tsx ]; then
     ln -s "$FW_NM/tsx" "$1/node_modules/tsx"
     ln -s "$FW_NM/prettier" "$1/node_modules/prettier"
-    mkdir -p "$1/node_modules/.bin"
     ln -s "$FW_NM/.bin/tsx" "$1/node_modules/.bin/tsx"
   fi
 }
@@ -521,7 +524,11 @@ TS
 borrow "$R"
 ( cd "$R" && git init -q && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$WORK/r.log" 2>&1
 rc_r=$?
-( cd "$R" && node node_modules/eslint/bin/eslint.js src/routes/users.ts ) >"$WORK/r.lint" 2>&1
+( cd "$R" && node node_modules/eslint/bin/eslint.js src/routes/users.ts ) >"$WORK/r.old" 2>&1
+# users.ts was there before the install: its violation is today's, exempted per file so the project's
+# lint stays green. A boundary file written after the install is new code, and R2 blocks it.
+sed 's/users/orders/g; s/User/Order/g' "$R/src/routes/users.ts" > "$R/src/routes/orders.ts"
+( cd "$R" && node node_modules/eslint/bin/eslint.js src/routes/orders.ts ) >"$WORK/r.lint" 2>&1
 ( cd "$R" && AIF_ESLINT_CMD="node $R/node_modules/eslint/bin/eslint.js" bash scripts/check-rule-enforced.sh ) >"$WORK/r.enforced" 2>&1
 rc_enf=$?
 unborrow "$R"
@@ -538,8 +545,12 @@ only_insertions "$WORK/own.before" "$R/eslint.config.mjs" && kept_original "$R" 
   && ok "R: check:enforced resolves R2 to error on the boundary file" \
   || bad "R: check:enforced rc=$rc_enf: $(tail -3 "$WORK/r.enforced" | tr '\n' '|')"
 grep -q 'rules-as-tests/no-unsafe-zod-parse' "$WORK/r.lint" \
-  && ok "R: R2 fires on src/routes/users.ts under the consumer's own config" \
-  || bad "R: R2 did not fire on the boundary file: $(tail -4 "$WORK/r.lint" | tr '\n' '|')"
+  && ok "R: R2 fires on a boundary file written after the install (src/routes/orders.ts)" \
+  || bad "R: R2 did not fire on the new boundary file: $(tail -4 "$WORK/r.lint" | tr '\n' '|')"
+! grep -q 'rules-as-tests/no-unsafe-zod-parse' "$WORK/r.old" \
+  && grep -q '^lint-baseline: eslint.config.mjs — ' "$R/.ai-factory/tool-decisions.md" \
+  && ok "R: the violation already in users.ts is exempted, and the record names the lint baseline" \
+  || bad "R: users.ts's existing violation is not exempted with a recorded baseline: $(tail -2 "$WORK/r.old" | tr '\n' '|') record: $(grep -E '^(lint-baseline|rule-not-placed)' "$R/.ai-factory/tool-decisions.md" | tr '\n' '|')"
 asks_by_hand "$WORK/r.log" && bad "R: the install asks for a manual step: $(manual_step_lines "$WORK/r.log" | head -2 | tr '\n' '|')" || ok "R: nothing asks for a manual step"
 
 # ── G: a root eslint.config.js (ESM) ──────────────────────────────────────────────────────────
