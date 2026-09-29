@@ -325,7 +325,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 31
+        "members": 32
       },
       "G": {
         "familyName": "packages",
@@ -353,7 +353,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 291
+      "count": 292
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",
@@ -363,7 +363,7 @@
     "specs": {
       "source": "docs/superpowers/specs/",
       "predicate": "files matching /^2026-.*\\.md$/",
-      "count": 90
+      "count": 91
     },
     "academicSources": {
       "source": [
