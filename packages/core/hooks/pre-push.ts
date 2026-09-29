@@ -997,6 +997,13 @@ function trackedShippedWorkflowTemplates(): string[] | null {
 // ── 3. Self-test pipeline: audit-ai-docs (maintainer) ────────────────────────
 // audit-ai-docs.test.ts (Wave 10.4): run via vitest (replaces audit-ai-docs.test.sh).
 // The existsSync remains a within-layout presence guard (the fixture may plant it back).
+//
+// Then the auditor itself, LIVE on this repo, in both implementations. The test file
+// proves the probes on fixtures; only a live run fails when the repo drifts — a new file
+// restating the goal left unenrolled (D5), a goal-bearing doc losing the phrase (D3).
+// Until 2026-09-28 nothing ran it here, and its first live run found D3 + D5 failures
+// that had sat unread since #1228 / #1420. Both twins run because each is a shipped
+// artefact the other's tests do not execute (dual-implementation-discipline.md).
 function auditAiDocsSection(): void {
   if (
     existsSync(
@@ -1013,6 +1020,29 @@ function auditAiDocsSection(): void {
       die('❌ npx not found — install Node.js to run audit-ai-docs tests');
     if (r.exitCode !== 0) die('❌ audit-ai-docs.test.ts failed:', r);
     emit(r);
+  }
+  if (
+    existsSync(resolve(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh'))
+  ) {
+    const live: ReadonlyArray<readonly [string, string, readonly string[]]> = [
+      ['audit-ai-docs.sh', 'bash', ['packages/core/audit-self/audit-ai-docs.sh']],
+      ['audit-ai-docs.ts', 'npx', ['tsx', 'packages/core/audit-self/audit-ai-docs.ts']],
+    ];
+    // Like the vitest arm above, this audits the WORKING TREE, not the pushed ref: an
+    // untracked, not-ignored file carrying the goal phrase (a merge's `*.orig`) blocks the
+    // push and is named in the output — ignore it or delete it. CI runs the same audit on
+    // the clean checkout of the pushed commit.
+    for (const [label, cmd, args] of live) {
+      const r = run(cmd, args);
+      if (r.notFound) die(`❌ ${cmd} not found — cannot run ${label} live`);
+      if (r.exitCode !== 0) die(`❌ ${label} FAILED on this repo:`, r);
+      // Quiet on success: the standing WARNs (R4 skipped, D4) are printed by every run
+      // and are not gates; the summary line is the evidence the live arm ran.
+      const summary =
+        r.stdout.split('\n').find((l) => l.startsWith('Audit complete:')) ??
+        '(no summary line)';
+      process.stdout.write(`✓ ${label} live: ${summary}\n`);
+    }
   }
 }
 

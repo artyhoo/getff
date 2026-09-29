@@ -48,7 +48,7 @@ Runs on every `git push`:
 |---|---|---|
 | Workflow linting | `.github/workflows/*.yml` | `actionlint` |
 | Security scan | `.github/workflows/` | `zizmor` |
-| Self-test pipeline | `packages/core/audit-self/` | `npx vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts` |
+| Self-test pipeline | `packages/core/audit-self/` fixtures, then the whole repo live | `npx vitest run --reporter=default packages/core/audit-self/audit-ai-docs.test.ts`, then `bash packages/core/audit-self/audit-ai-docs.sh` + `npx tsx packages/core/audit-self/audit-ai-docs.ts` (a FAIL blocks the push) |
 | Manifest render drift | `packages/core/manifest/rules-manifest.json` ↔ rendered `RULES.md` | `npx tsx packages/core/render/render-rules.ts --check` |
 | Spec discipline | staged `.claude/orchestrator-prompts/*.md` | `npx tsx packages/core/spec-validation/validate-batch-spec.ts` (pre-commit soft warn, pre-push hard fail) |
 

@@ -17,9 +17,9 @@
  *   R11 CI integrity             → manual review only
  *   D1  Skills declared exist    → probeD1() — remark AST (code-fence-aware; ignores negative mentions)
  *   D2  No TODO/_comment in JSON → probeD2() — JSON.parse key-match (not substring grep)
- *   D3  Goal-phrase parity       → probeD3() — includes() check on prose text (authoring repo only; consumer installs skip — see isAuthoringRepo)
+ *   D3  Goal-phrase parity       → probeD3() — includes() check on prose text; a pointer doc (GOAL_POINTER_DOCS) may link the goal instead (authoring repo only; consumer installs skip — see isAuthoringRepo)
  *   D4  Tool-decisions staleness → probeD4() — mtime comparison
- *   D5  Inverse-completeness     → probeD5() — includes() grep over repo files + exemption list (authoring repo only; consumer installs skip — see isAuthoringRepo)
+ *   D5  Inverse-completeness     → probeD5() — includes() grep over git's view of the repo (tracked + untracked-not-ignored) + exemption list (authoring repo only; consumer installs skip — see isAuthoringRepo)
  *
  * skip_unless R4 — active probe (probeR4 function below); all others delegated or manual.
  *
@@ -28,9 +28,9 @@
  *   1 — at least one FAIL
  */
 
-import { existsSync, readdirSync, statSync, readFileSync } from 'node:fs';
-import { resolve, join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { existsSync, readdirSync, statSync, readFileSync, realpathSync } from 'node:fs';
+import { resolve, join, relative } from 'node:path';
+import { execFileSync, execSync } from 'node:child_process';
 import { remark } from 'remark';
 import type { Node } from 'unist';
 import { visit } from 'unist-util-visit';
@@ -47,7 +47,27 @@ export const DOWNSTREAM_DOCS: readonly string[] = [
   // AGENTS.md was enrolled in the .sh probe by #867 and never mirrored here,
   // so this implementation reported the repo's own AGENTS.md as an orphan.
   'AGENTS.md',
+  // Restates the goal to every worker the orchestrator skill dispatches («Project
+  // goal: …»). Vendored by #1420 and never enrolled; found by the first live D5 run
+  // on this repo (2026-09-28).
+  '.claude/skills/orchestrator/references/worker-template.md',
+  // The docs-site pages for the two prompt hooks print the digest they inject, goal line
+  // included. Their `sources:` frontmatter and the D26 refresh gate do not keep that line
+  // in step — a standing `docs-refresh: deferred` token satisfies the gate — so they are
+  // enrolled and D3 checks the phrase directly.
+  'docs/site/reference/D/inject-session-bootstrap.md',
+  'docs/site/reference/D/inject-subagent-digest.md',
 ];
+
+/**
+ * D3 obligation of a POINTER doc: link the goal's single source instead of restating it.
+ * CLAUDE.md has been one since #1228 — docs/superpowers/specs/2026-08-06-pipeline-token-economy-design.md
+ * FORK A collapsed its goal section into `[goal](README.md#why-this-exists)`, because the
+ * phrase already reaches every session through the enrolled session-bootstrap.md and the
+ * prompt hook. Every other enrolled doc still has to carry the phrase itself.
+ */
+export const GOAL_POINTER = 'README.md#why-this-exists';
+export const GOAL_POINTER_DOCS: readonly string[] = ['CLAUDE.md'];
 
 /**
  * Mode detection (D3/D5 only): authoring repo vs consumer install.
@@ -300,7 +320,8 @@ export function probeD2(cwd: string): D2Finding[] {
 
 // ─── D3: Goal-phrase parity ───────────────────────────────────────────────────
 /**
- * D3 probe: canonical goal phrase present in all downstream goal-bearing docs.
+ * D3 probe: canonical goal phrase present in all downstream goal-bearing docs; a
+ * GOAL_POINTER_DOCS entry may carry the GOAL_POINTER link instead.
  */
 export function probeD3(cwd: string): string[] {
   const violations: string[] = [];
@@ -311,9 +332,14 @@ export function probeD3(cwd: string): string[] {
       continue;
     }
     const text = readFileSync(full, 'utf8');
-    if (!text.includes(CANON_PHRASE) && !text.includes(CANON_ALT)) {
-      violations.push(`  ${docRelPath}: missing canonical goal phrase or synonym`);
+    if (text.includes(CANON_PHRASE) || text.includes(CANON_ALT)) continue;
+    if (GOAL_POINTER_DOCS.includes(docRelPath)) {
+      if (!text.includes(GOAL_POINTER)) {
+        violations.push(`  ${docRelPath}: missing goal pointer (${GOAL_POINTER}) or canonical goal phrase`);
+      }
+      continue;
     }
+    violations.push(`  ${docRelPath}: missing canonical goal phrase or synonym`);
   }
   return violations;
 }
@@ -357,8 +383,13 @@ export interface D5Finding {
   reason: string;
 }
 
-/** Patterns for paths that are exempt from D5 (not coverage gaps). */
-const D5_FROZEN_RE        = /^(docs\/meta-factory\/research-patches\/|docs\/audits\/)/;
+/**
+ * Patterns for paths that are exempt from D5 (not coverage gaps).
+ * FROZEN — historical records: research/audit prose, and triage-corpus/ raw rater output
+ * committed verbatim «for reproducibility» (triage-corpus/README.md); a model that quoted
+ * the goal inside a recorded answer is data, and editing it would falsify the record.
+ */
+const D5_FROZEN_RE        = /^(docs\/meta-factory\/research-patches\/|docs\/audits\/|docs\/meta-factory\/triage-corpus\/)/;
 const D5_TEST_INFRA_RE    = /^packages\/core\/audit-self\/audit-ai-docs\.(ts|test\.ts|sh|test\.sh)|^packages\/core\/audit-self\/template-render\.audit\.ts|^packages\/core\/hooks\/inject-session-bootstrap\.test\.ts/;
 const D5_ROOT_SOURCE_RE   = /^README\.md$/;
 const D5_GITIGNORED_RE    = /^(\.claude\/orchestrator-prompts\/|\.stryker-tmp\/|\.stryker\/)/;
@@ -392,12 +423,7 @@ export function probeD5(cwd: string): D5Finding[] {
   // Build the enrollment set from DOWNSTREAM_DOCS
   const enrolled = new Set(DOWNSTREAM_DOCS);
 
-  // Find all files containing either canonical phrase (excluding node_modules / .git)
-  const found = new Set<string>();
-  for (const phrase of [CANON_PHRASE, CANON_ALT]) {
-    const files = grepFilesContaining(cwd, phrase);
-    files.forEach((f) => found.add(f));
-  }
+  const found = filesContainingAny(cwd, [CANON_PHRASE, CANON_ALT]);
 
   const findings: D5Finding[] = [];
   for (const file of [...found].sort()) {
@@ -415,11 +441,76 @@ export function probeD5(cwd: string): D5Finding[] {
   return findings;
 }
 
+/** Files (relative to `cwd`) whose content contains any of `phrases`. */
+function filesContainingAny(cwd: string, phrases: readonly string[]): Set<string> {
+  const found = new Set<string>();
+  for (const rel of gitView(cwd) ?? walkFiles(cwd)) {
+    let content: string;
+    try { content = readFileSync(resolve(cwd, rel), 'utf8'); } catch { continue; } // deleted, a directory, unreadable
+    if (phrases.some((p) => content.includes(p))) found.add(rel);
+  }
+  return found;
+}
+
 /**
- * Recursively find files under `cwd` containing `phrase`, excluding
- * node_modules, .git, .stryker-tmp, and .stryker directories.
+ * The files git sees in `cwd` — tracked plus untracked-but-not-ignored — when `cwd` is
+ * the root of its own work tree; `null` otherwise, and the caller walks the filesystem.
+ *
+ * WHY GIT: every .gitignore, root and nested, then decides what is outside the repo,
+ * instead of a hand-kept copy of it. The raw walk it replaces descended into the
+ * gitignored `.claude/worktrees/<name>/` checkouts of the main clone (the run did not
+ * finish in 120 s) and flagged the getff package's build output (packages/getff/.gitignore
+ * `/.claude/`) — measured 2026-09-28.
+ *
+ * WHY ONLY AT A WORK-TREE ROOT: a directory nested inside some other repository would
+ * otherwise inherit that repository's ignore rules, and an ignored nesting would enumerate
+ * as empty — a vacuous PASS. The audit runs from a project root; anything else is walked.
+ *
+ * WHY THE ENV SCRUB: a git hook fired from a linked worktree exports GIT_DIR, and GIT_DIR
+ * beats `cwd` for every git child, so an unscrubbed call audits whichever repository the
+ * hook belongs to. The names come from `git rev-parse --local-env-vars` (githooks(5)), not
+ * a hand-written list.
  */
-function grepFilesContaining(cwd: string, phrase: string): string[] {
+function gitView(cwd: string): string[] | null {
+  const env = { ...process.env };
+  try {
+    const names = execFileSync('git', ['rev-parse', '--local-env-vars'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    for (const name of names.split('\n')) if (name) delete env[name];
+  } catch {
+    return null; // no git — walk
+  }
+  let top: string;
+  try {
+    top = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd,
+      env,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null; // not inside a work tree — walk
+  }
+  if (realpathSync(top) !== realpathSync(cwd)) return null;
+  // Inside a confirmed work-tree root a failure here is a real error, never a reason to
+  // fall back to the walk this function exists to replace.
+  const out = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
+    cwd,
+    env,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  return [...new Set(out.split('\0').filter((f) => f.length > 0))];
+}
+
+/**
+ * Every file under `cwd`, relative to it, excluding node_modules, .git, .stryker-tmp and
+ * .stryker — the enumeration for a directory that is not a git work-tree root.
+ */
+function walkFiles(cwd: string): string[] {
   const results: string[] = [];
   const SKIP_DIRS = new Set(['node_modules', '.git', '.stryker-tmp', '.stryker']);
 
@@ -432,14 +523,9 @@ function grepFilesContaining(cwd: string, phrase: string): string[] {
       let st;
       try { st = statSync(full); } catch { continue; }
       if (st.isDirectory()) { walk(full); continue; }
-      try {
-        const content = readFileSync(full, 'utf8');
-        if (content.includes(phrase)) {
-          // Return relative to cwd
-          const rel = full.startsWith(cwd + '/') ? full.slice(cwd.length + 1) : full;
-          results.push(rel);
-        }
-      } catch { /* binary or unreadable — skip */ }
+      // Relative to cwd whatever its spelling (trailing slash, relative path): the
+      // exemption patterns are anchored at the repo root.
+      results.push(relative(cwd, full));
     }
   }
 
@@ -555,8 +641,18 @@ export function runAudit(cwd: string = process.cwd(), only: string = ''): AuditR
         details: [],
       });
     } else {
-      const d5Findings = probeD5(cwd);
-      if (d5Findings.length === 0) {
+      let d5Findings: D5Finding[] = [];
+      let gitError: string | null = null;
+      try {
+        d5Findings = probeD5(cwd);
+      } catch (err) {
+        // gitView() throws when git fails inside a confirmed work-tree root; report it as
+        // this probe's FAIL, the shape the bash twin prints, not as an uncaught stack.
+        gitError = err instanceof Error ? (err.message.split('\n')[0] ?? '') : String(err);
+      }
+      if (gitError !== null) {
+        results.push({ probe: 'D5', level: 'fail', message: RULE, details: [`git ls-files failed: ${gitError}`] });
+      } else if (d5Findings.length === 0) {
         results.push({ probe: 'D5', level: 'pass', message: RULE, details: [] });
       } else {
         results.push({
@@ -566,7 +662,8 @@ export function runAudit(cwd: string = process.cwd(), only: string = ''): AuditR
           details: [
             ...d5Findings.map((f) => `${f.file}: ${f.reason}`),
             '',
-            'Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.ts,',
+            'Fix: add the file to DOWNSTREAM_DOCS in audit-ai-docs.ts AND audit-ai-docs.sh,',
+            '     OR gitignore it if it is build output,',
             '     OR add a justified pattern to D5_FROZEN/TEST_INFRA/ROOT_SOURCE/GITIGNORED.',
           ],
         });
