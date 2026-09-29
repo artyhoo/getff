@@ -123,19 +123,19 @@ AGENTS_FENCE_SENTINEL_2='.ai-factory/RULES.md'
 #     only matches the bare `](../../orchestrator-prompts/` shape, so a ref written as
 #     `](../../../.claude/orchestrator-prompts/…)` slipped past it untouched (vendor README:4).
 #   - `.github/` — never shipped except `.github/workflows/` (verified: the factory fixture has
-#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:366.
+#     workflows/ only, no pull_request_template.md). Source: pipeline/SKILL.md:367.
 # The last three are DELIBERATELY per-file, not blanket arms, because their parent directories
 # are PARTIALLY shipped — a blanket arm would rewrite genuinely consumer-resolvable refs into
 # blob URLs and lose in-repo navigability:
 #   - `scripts/run-local-ci-sweep.sh` — this is the "shipped-scripts allowlist" the §park note
 #     above anticipated ("Extend only with a shipped-scripts allowlist if a future scripts/ ref
 #     to a non-shipped script re-breaks a push"). It re-broke the push; scripts/ IS partially
-#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:18,20.
+#     shipped, so only the proven-absent file is rewritten. Source: harvest/SKILL.md:21,23.
 #   - `hooks/check-worker-dispatch-channel.sh` — `.claude/hooks/` IS shipped and most hook refs
 #     resolve fine (transform-internal-refs.test.sh #5 asserts `](../../hooks/…)` stays intact),
-#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:388.
+#     so only this one absent hook is rewritten. Source: pipeline/SKILL.md:389.
 # A fourth candidate was REJECTED rather than allowlisted: `](../reviewer/SKILL.md)` from
-# arch/SKILL.md:94 also dangled, but rewriting it would have papered over the real defect. The
+# arch/SKILL.md:110 also dangled, but rewriting it would have papered over the real defect. The
 # sibling-skill shape is supposed to stay relative — «sibling-skill links stay relative (sibling
 # ships too)», 10-skills.sh:137 — so a dangling sibling ref means the SIBLING IS MISSING, not
 # that the ref is wrong. `reviewer` was in no tier list while arch (env tier) promised consumers
@@ -711,7 +711,7 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:85         rewrite_arch_sot_header      → arch-header
-#   install.sh:1380                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1385                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1429          rewrite_arch_sot_header      → arch-header
 #   setup.d/40-configs.sh:476          patch_stryker_package_manager → stryker-pm
@@ -3188,6 +3188,82 @@ unregister_cc_hook() {
     echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker still registered on $event" >&2
     note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — jq rewrite failed"
   fi
+}
+
+# rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's
+# own-config wirer reads it (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), for a caller
+# that must say what that wirer would do without running it. First line: `none` when the file
+# declares no top-level RULE_GLOBS; `no-array` when it declares one whose value is not an object
+# literal with a `boundary: [` array of its own (the wirer refuses R2 there); `array` otherwise,
+# followed by the array's string elements, one per line. Elements, not text: a glob in a comment, in
+# another key or in a nested object is none of them. A tokenizer, not a parser — a regex literal
+# holding a quote or `//` can throw it off. Exit 1 (nothing printed) when <file> is no file.
+rule_globs_boundary() {
+  [ -f "$1" ] || return 1
+  awk -v sq="'" '
+    function tok(type, val) { nt++; tt[nt] = type; tv[nt] = val }
+    function opens(k) { return tt[k] == "p" && (tv[k] == "{" || tv[k] == "[" || tv[k] == "(") }
+    function closes(k) { return tt[k] == "p" && (tv[k] == "}" || tv[k] == "]" || tv[k] == ")") }
+    { src = src $0 "\n" }
+    END {
+      n = length(src); i = 1; nt = 0
+      while (i <= n) {
+        c = substr(src, i, 1)
+        if (c == " " || c == "\t" || c == "\n" || c == "\r") { i++; continue }
+        if (c == "/" && substr(src, i + 1, 1) == "/") {
+          j = index(substr(src, i), "\n"); i = (j ? i + j : n + 1); continue
+        }
+        if (c == "/" && substr(src, i + 1, 1) == "*") {
+          j = index(substr(src, i + 2), "*/"); i = (j ? i + j + 3 : n + 1); continue
+        }
+        if (c == sq || c == "\"" || c == "`") {
+          # A template literal with a ${…} substitution is no string element for the wirer either.
+          q = c; v = ""; plain = 1; i++
+          while (i <= n) {
+            d = substr(src, i, 1)
+            if (d == "\\") { v = v substr(src, i + 1, 1); i += 2; continue }
+            if (d == q) break
+            if (q == "`" && d == "$" && substr(src, i + 1, 1) == "{") plain = 0
+            v = v d; i++
+          }
+          i++; tok(plain ? "str" : "tpl", v); continue
+        }
+        if (c ~ /[A-Za-z_$]/) {
+          v = c; i++
+          while (i <= n && substr(src, i, 1) ~ /[A-Za-z0-9_$]/) { v = v substr(src, i, 1); i++ }
+          tok("id", v); continue
+        }
+        tok("p", c); i++
+      }
+      # The declaration: `const|let|var RULE_GLOBS` outside every bracket, as the wirer takes only
+      # a top-level one.
+      depth = 0; decl = 0
+      for (k = 1; k <= nt; k++) {
+        if (depth == 0 && tt[k] == "id" && (tv[k] == "const" || tv[k] == "let" || tv[k] == "var") &&
+            tt[k + 1] == "id" && tv[k + 1] == "RULE_GLOBS") { decl = k + 1; break }
+        if (opens(k)) depth++; else if (closes(k)) depth--
+      }
+      if (!decl) { print "none"; exit }
+      if (!(tv[decl + 1] == "=" && tt[decl + 2] == "p" && tv[decl + 2] == "{")) { print "no-array"; exit }
+      # Its own `boundary:` key (depth 1 of the object literal), and that key holding an array.
+      rd = 1; arr = 0
+      for (k = decl + 3; k <= nt && rd > 0; k++) {
+        if (opens(k)) { rd++; continue }
+        if (closes(k)) { rd--; continue }
+        if (rd == 1 && tt[k] == "id" && tv[k] == "boundary" && tv[k + 1] == ":") {
+          if (tv[k + 2] == "[" && tt[k + 2] == "p") arr = k + 2
+          break
+        }
+      }
+      if (!arr) { print "no-array"; exit }
+      print "array"
+      ad = 1
+      for (k = arr + 1; k <= nt && ad > 0; k++) {
+        if (opens(k)) { ad++; continue }
+        if (closes(k)) { ad--; continue }
+        if (ad == 1 && tt[k] == "str") print tv[k]
+      }
+    }' "$1"
 }
 
 # ── O1 fix: INSTALL_SH_LIB_ONLY guard is LAST (after all helpers are defined) ──

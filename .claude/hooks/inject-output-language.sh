@@ -15,6 +15,11 @@
 # Consumer setup: export AIF_HOOK_LANG in your shell, or add an `env` block to .claude/settings.json:
 #   { "env": { "AIF_HOOK_LANG": "ru" } }
 # Unset / "en" → nothing is injected (English is the zero-setup default).
+#
+# @plugin-yields-to: inject-session-bootstrap
+#   That hook appends this exact line to its digest (.claude/hooks/inject-session-bootstrap.sh,
+#   the AIF_HOOK_LANG case), so where the project registers it the plugin copy of this hook
+#   stays silent (plugin/hooks/run-hook.cmd). The marker line holds hook names only.
 set -uo pipefail
 
 # @plugin-transform: manual — plugin twin carries inline _is_zcode/_emit_ctx adapter trio + TWIN DIVERGENCE comment block. Source-side trio migration is follow-up Stage 6.5.

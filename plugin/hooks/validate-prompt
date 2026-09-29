@@ -149,3 +149,6 @@ fi
 [[ -n "$VALIDATOR_OUT" ]] && printf '%s\n' "$VALIDATOR_OUT" >&2
 [[ $STATUS -ne 0 ]] && exit 2
 exit 0
+
+# Plugin twin of .claude/hooks/validate-prompt.sh — plugin/hooks/run-hook.cmd reads this line to keep
+# the plugin copy silent where the project runs its own copy (kept last so line citations hold).

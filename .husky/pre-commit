@@ -122,7 +122,7 @@ fi
 # changed since the citing sentence was written) blames the citing line, so it needs a
 # committed baseline and cannot run before pre-push. ARM 2 (the cited line is blank)
 # reads only the working tree, so it is the arm that can refuse a citation WRONG AT
-# BIRTH — the shape of the originating incident (`arch/SKILL.md:94`, an empty line),
+# BIRTH — the shape of the originating incident (`arch/SKILL.md:94`, an empty line), cite:historical line number at incident time
 # and the shape ARM 1 is green on by construction, because its blame commit IS the
 # birth commit. Both arms ran only at pre-push until 2026-09-14, one rung late for this
 # one. Pre-push §9 keeps running BOTH: husky is absent for aif-container commits and

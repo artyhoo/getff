@@ -172,7 +172,9 @@ pos_rc=$?
 if [ "$pos_rc" -eq 0 ]; then
   ok "Check3 Arm(ii): planted .parse() violation FLAGGED by shipped eslint-rules-local/no-unsafe-zod-parse.ts (live signal; NOT a reimplementation)"
 elif echo "$pos_out" | grep -qiE 'cannot find module|cannot find package|ERR_MODULE_NOT_FOUND|ERR_PACKAGE_PATH'; then
-  skip "Check3 Arm(ii) SKIP — tsx failed to load module (infrastructure: $(echo "$pos_out" | grep -iE 'cannot find|ERR_MODULE' | head -1 | tr -d '\n')). Rule file + barrel confirmed present by Arm(i)."
+  # Drop the `throw new ERR_…(` / `return new ERR_…(` source excerpt Node 24.20 prints above the error (#1390;
+  # same excerpt filter as check-fences-fire.sh _first_err).
+  skip "Check3 Arm(ii) SKIP — tsx failed to load module (infrastructure: $(echo "$pos_out" | grep -vE 'new ERR_[A-Z0-9_]+\(' | grep -m1 -iE 'cannot find|ERR_' | tr -d '\n')). Rule file + barrel confirmed present by Arm(i)."
 else
   bad "Check3 Arm(ii): shipped rule did NOT flag planted violation (rule deleted/broken/mis-selectored; rc=$pos_rc; out=$(echo "$pos_out" | head -3 | tr '\n' '|'))"
 fi
