@@ -725,8 +725,9 @@ else
   mkdir -p "$T31/src/handlers"
   printf "import { z } from 'zod';\n\nconst Pay = z.object({ sum: z.number() });\n\nexport const pay = (body: unknown) => Pay.parse(body);\n" > "$T31/src/handlers/pay.ts"
   f11_install "$T31" "$T31.log"
-  [ "$(f11_enforced "$T31.log" | grep -c 'NOT in the resolved ESLint config for src/routes/users\.ts')" -eq 1 ] \
-    && ! f11_enforced "$T31.log" | grep -q 'src/handlers/pay\.ts' \
+  T31_NAMED=$(f11_enforced "$T31.log")
+  [ "$(grep -c 'NOT in the resolved ESLint config for src/routes/users\.ts' <<<"$T31_NAMED")" -eq 1 ] \
+    && ! grep -q 'src/handlers/pay\.ts' <<<"$T31_NAMED" \
     && ok "F11 partial reach: the summary names src/routes/users.ts, which R2 misses, and not the handlers file it reaches" \
     || bad "F11 partial reach: R2 reaching only the handlers code went unnamed, or named the wrong file (summary: $(f11_not_wired "$T31.log" | tr '\n' '|'))"
 
