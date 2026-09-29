@@ -567,7 +567,8 @@ grep_out "arms: the red arm is reported as the row's FAIL" "[sweep] FAIL vitest-
 # not there), a node script that starts bash through its own wrapper, one that writes and runs a
 # shebang stub, one that spawns npm, one that names an extensionless shell script, one importing
 # outside the scanned trees, readers of .sh files (named in SWEEP_SHELL_READERS with a reason, a
-# too-short reason, one whose import starts a shell, one that spawns bash itself), vitest setup
+# too-short reason, one whose import starts a shell, one that spawns bash, one whose exec string
+# does more than one git command), vitest setup
 # files (one spawning a program it computes, one git only), and scripts it cannot find.
 # --route-plan only reads.
 R6="$TMP/repo-reasons"; mk_repo "$R6"
@@ -594,6 +595,7 @@ printf "console.log('no shell');\n" >"$R6/scripts/clean.mjs"
 printf "import { execFileSync } from 'node:child_process';\nexecFileSync('git', ['ls-files']);\nreadFileSync('install.sh');\n" >"$R6/scripts/reader.mjs"
 cp "$R6/scripts/reader.mjs" "$R6/scripts/reader-short.mjs"
 printf "import { spawnSync } from 'node:child_process';\nreadFileSync('install.sh');\nspawnSync('bash', ['-n', 'install.sh']);\n" >"$R6/scripts/reader-spawns.mjs"
+printf "import { execSync } from 'node:child_process';\nreadFileSync('install.sh');\nexecSync('git ls-files; bash x.sh');\n" >"$R6/scripts/reader-exec.mjs"
 printf "writeFileSync(p, '#!/usr/bin/env bash\\\\necho hi\\\\n');\nexecFileSync(p);\n" >"$R6/scripts/stubber.mjs"
 printf "spawnSync('npm', ['run', 'x']);\n" >"$R6/scripts/npm-spawner.mjs"
 printf "execFileSync(join(root, 'tools', 'doctor'));\n" >"$R6/scripts/runs-doctor.mjs"
@@ -632,9 +634,10 @@ printf "console.log(1);\n" >"$R6/tools/elsewhere.mjs"
   printf '29\treader-spawns\tALWAYS\tnode scripts/reader-spawns.mjs\n'
   printf '30\tsetup-computed\tALWAYS\tnpm --prefix packages/core run test:x\n'
   printf '31\tsetup-git\tALWAYS\tnpx vitest run packages/core/x.test.ts\n'
+  printf '32\treader-exec\tALWAYS\tnode scripts/reader-exec.mjs\n'
 } >"$TMP/g-reasons.tsv"
 ( cd "$R6" && git add -A && git commit -qm fixtures ) >/dev/null 2>&1
-READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else\nscripts/reader-spawns.mjs\treads install.sh as text and nothing else')"
+READERS_FIX="$(printf 'scripts/reader.mjs\treads install.sh raw\nscripts/reader-short.mjs\treads install.sh ok\nscripts/reader-imports.mjs\treads install.sh as text and nothing else\nscripts/reader-spawns.mjs\treads install.sh as text and nothing else\nscripts/reader-exec.mjs\treads install.sh as text and nothing else')"
 SWEEP_SHELL_READERS="$READERS_FIX" SWEEP_GATES_FILE="$TMP/g-reasons.tsv" SWEEP_ROUTABLE="$(cut -f2 "$TMP/g-reasons.tsv" | tr '\n' ' ')" \
   run_sweep "$R6" --route-plan >"$TMP/o61" 2>&1
 check "reasons: --route-plan exits 0" 0 $?
@@ -674,6 +677,7 @@ imports-outside|local starts-a-shell:scripts/imports-outside.mjs
 reader-spawns|local reader-starts-more-than-git:scripts/reader-spawns.mjs
 setup-computed|local setup-starts-a-shell:packages/core/setup-computed.ts
 setup-git|route 
+reader-exec|local reader-starts-more-than-git:scripts/reader-exec.mjs
 EOF
 
 # (r) the scan itself failing (node broken on this host) stops routing for the whole sweep: the
