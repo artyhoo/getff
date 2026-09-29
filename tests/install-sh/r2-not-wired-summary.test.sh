@@ -52,6 +52,11 @@
 #   RN1 a react-native workspace with HTTP boundary code and no config naming R2: one summary line
 #       — its preset ships no R2, so the install adds it nowhere — whether or not ts-morph is there.
 #   RN0/RN2 paired negatives: no boundary code under it; its own config already names R2 → no line.
+#   J1  Layer-2 pass, no ts-morph: a package's own eslint.config.js is listed like an .mjs; its
+#       eslint.config.cjs is named as a config getff does not add to, not as a ts-morph gap.
+#   J2  per-workspace pass, no ts-morph: a ts-server workspace's own eslint.config.js is listed.
+#   J3  the same for a react-next workspace's own eslint.config.js, and a react-spa workspace's
+#       eslint.config.cjs is named as not an ES-module config.
 #
 #   The react-native lines follow Q4.7 and packages/preset-react-native/RULES.md:17, which lists R2
 #   for every stack: HTTP boundary code R2 does not check is a gap, so the summary names it.
@@ -408,6 +413,54 @@ ws_arm W1 'ts-morph.*--full'
 W2=$(ws_project w2); fake_ts_morph "$W2"
 run_finalize "$W2" "$PKG_NOWIRER" "$WS"
 ws_arm W2 'missing from this getff package'
+
+# ─── J1/J2: a package's config is whichever flat config ESLint loads there ─────
+# Both passes collect configs the way ESLint reads a directory (eslint_flat_configs_under), not
+# eslint.config.mjs only: a package's own eslint.config.js is listed as its .mjs would be, and an
+# eslint.config.cjs — which getff never adds to — is named with that reason, not the ts-morph one.
+J1=$(make_project j1); put "$J1" eslint.config.mjs "$R2_CFG"
+put "$J1" apps/api/eslint.config.js "$PLAIN_CFG"; boundary_code "$J1" apps/api
+put "$J1" apps/cjs/eslint.config.cjs "module.exports = [];"; boundary_code "$J1" apps/cjs
+run_finalize "$J1" "$PKG_WIRED" "" "eslint.config.mjs"
+if sum_has "${R2_LINE}apps/api/eslint.config.js — .*ts-morph"; then
+  ok "J1: a package's own eslint.config.js is a NOT wired line with the reason"
+else
+  bad "J1: expected a NOT wired line for apps/api/eslint.config.js (summary: $(sum_show))"
+fi
+if sum_has "apps/cjs — your eslint.config.cjs configures ESLint there" && ! sum_has "${R2_LINE}apps/cjs/"; then
+  ok "J1: a package's eslint.config.cjs is named as a config getff does not add to, not as a ts-morph gap"
+else
+  bad "J1: expected apps/cjs's eslint.config.cjs named once as not an ES-module config (summary: $(sum_show))"
+fi
+ran_through J1
+
+J2=$(make_project j2); put "$J2" apps/api/eslint.config.js "$PLAIN_CFG"; boundary_code "$J2" apps/api
+run_finalize "$J2" "$PKG_WIRED" 'apps/api\tts-server'
+if sum_has "${R2_LINE}apps/api/eslint.config.js — .*ts-morph"; then
+  ok "J2: a ts-server workspace's own eslint.config.js is a NOT wired line with the reason"
+else
+  bad "J2: expected a NOT wired line for apps/api/eslint.config.js (summary: $(sum_show))"
+fi
+
+# J3: a react-next and a react-spa workspace get what a ts-server one gets (J2): the per-workspace pass
+# collects every ESLint config under them the way ESLint reads a directory, so a react-next workspace's
+# own eslint.config.js is listed, and a react-spa workspace's eslint.config.cjs is named as a config getff
+# does not add to, not as a ts-morph gap.
+J3=$(make_project j3)
+put "$J3" apps/web/eslint.config.js "$PLAIN_CFG"; boundary_code "$J3" apps/web
+put "$J3" apps/spa/eslint.config.cjs "module.exports = [];"; boundary_code "$J3" apps/spa
+run_finalize "$J3" "$PKG_WIRED" 'apps/web\treact-next\napps/spa\treact-spa'
+if sum_has "${R2_LINE}apps/web/eslint.config.js — .*ts-morph"; then
+  ok "J3: a react-next workspace's own eslint.config.js is a NOT wired line with the reason, as a ts-server one's is"
+else
+  bad "J3: expected a NOT wired line for apps/web/eslint.config.js (summary: $(sum_show))"
+fi
+if sum_has "apps/spa — your eslint.config.cjs configures ESLint there" && ! sum_has "${R2_LINE}apps/spa/"; then
+  ok "J3: a react-spa workspace's eslint.config.cjs is named as a config getff does not add to, not as a ts-morph gap"
+else
+  bad "J3: expected apps/spa's eslint.config.cjs named once as not an ES-module config (summary: $(sum_show))"
+fi
+ran_through J3
 
 # W3: the pass can run (ts-morph and the wirer there); npx is the stand-in that records its calls.
 # apps/spa also parses in src/api/ (a boundary outside the token folders, so detect adds an api/ glob

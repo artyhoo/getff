@@ -469,6 +469,28 @@ function configRegistersRulesAsTestsPlugin(elements: any[], SyntaxKind: any): bo
   return false;
 }
 
+/**
+ * True when an element that sets `ruleName` under `rules:` is not provably unscoped (a `files`, `ignores`
+ * or `basePath` key of its own or through a spread) — the rule may apply to some files only, and an
+ * element that sets it for more files would widen it.
+ */
+function ruleSetForSomeFilesOnly(elements: any[], SyntaxKind: any, ruleName: string): boolean {
+  for (const el of elements) {
+    if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    if (provablyUnscoped(el, SyntaxKind, new Set())) continue;
+    // `'rules':` as well as `rules:` — getProperty('rules') finds the unquoted key only.
+    const rulesProp = (el.getProperties?.() ?? []).find((p: any) => {
+      try { return normPropName(p.getName?.()) === 'rules'; } catch { return false; }
+    });
+    const rules = rulesProp?.getInitializer?.();
+    if (!rules?.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
+    for (const rp of rules.getProperties?.() ?? []) {
+      try { if (normPropName(rp.getName?.()) === ruleName) return true; } catch { /* next */ }
+    }
+  }
+  return false;
+}
+
 /** Keys that limit which files a flat-config element applies to. */
 const SCOPE_KEYS = new Set(['files', 'ignores', 'basePath']);
 
@@ -581,6 +603,9 @@ function replaceSimpleRuleValue(
  */
 function normPropName(name: unknown): string {
   if (typeof name !== 'string') return '';
+  // A computed key spelled as a literal — [`rules-as-tests/x`] or ['x'] — names the same property.
+  const computed = /^\[\s*(['"`])(.*)\1\s*\]$/s.exec(name);
+  if (computed) return computed[2];
   return name.replace(/^['"`]|['"`]$/g, '');
 }
 
@@ -847,7 +872,7 @@ export async function wireNRules(
 //    check getff's machinery (a ts-only config reported the bundles' `/* eslint-disable */` banner
 //    as an unused directive and failed `--max-warnings=0`);
 //  - R2, scoped by a `RULE_GLOBS.boundary` block in the form the shipped gates read
-//    (check-rule-globs.sh / check-rule-enforced.sh: a `boundary: [` line, single-quoted globs).
+//    (check-rule-globs.sh / check-rule-enforced.sh read its `boundary: [` array, in either quotes).
 // The caller keeps a copy of the original and lint-probes the result (writeWithLintProbe).
 
 export interface OwnConfigOpts {
@@ -857,9 +882,15 @@ export interface OwnConfigOpts {
   boundaryGlobs?: string[];
   /** eslint-rules-local specifier, for the R2 element's plugin registration. */
   customRulesImportPath?: string;
+  /**
+   * The root config: check-rule-globs.sh reads R2's globs from its RULE_GLOBS.boundary and fails when it
+   * sets R2 without one. The gate reads no package config's RULE_GLOBS (a package config that names R2
+   * counts as wired), so a package config that sets R2 to 'error' for every file needs nothing added.
+   */
+  gateReadsRuleGlobs?: boolean;
 }
 
-/** A glob as a single-quoted string literal — the only form the bash gates extract. */
+/** A glob as a single-quoted string literal — the form getff's templates write RULE_GLOBS in. */
 function singleQuoted(s: string): string {
   return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
 }
@@ -1016,23 +1047,57 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   let registerR2 = false;
   let missingGlobs: string[] = [];
   let ruleGlobsBlock: string | undefined;
+  let boundaryArr: any;
   if (boundary.length > 0) {
+    // RULE_GLOBS.boundary as check-rule-globs.sh reads it: the key quoted or not, the object inside
+    // parentheses, a type assertion (`/** @type {const} */ ({ … })`, `{ … } as const`) or Object.freeze( … ).
     const arrOf = (): any => {
-      const init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
-      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression) ? init.getProperty('boundary') : undefined;
+      const wrappers = new Set([SyntaxKind.ParenthesizedExpression, SyntaxKind.AsExpression,
+        SyntaxKind.SatisfiesExpression, SyntaxKind.TypeAssertionExpression]);
+      const frozen = (n: any): boolean => n.isKind(SyntaxKind.CallExpression)
+        && n.getExpression().getText().replace(/\s/g, '') === 'Object.freeze' && n.getArguments().length === 1;
+      let init = sf.getVariableDeclaration('RULE_GLOBS')?.getInitializer();
+      while (init && (wrappers.has(init.getKind()) || frozen(init))) {
+        init = frozen(init) ? init.getArguments()[0] : init.getExpression();
+      }
+      const prop = init?.isKind(SyntaxKind.ObjectLiteralExpression)
+        ? init.getProperties().find((p: any) => normPropName(p.getName?.()) === 'boundary')
+        : undefined;
       const arr = prop?.isKind(SyntaxKind.PropertyAssignment) ? prop.getInitializer() : undefined;
       return arr?.isKind(SyntaxKind.ArrayLiteralExpression) ? arr : undefined;
     };
+    // No RULE_GLOBS block, but the config sets R2 itself (a hand merge of the snippet the install
+    // printed before Q4.7). In the root config check-rule-globs.sh reads R2's globs from RULE_GLOBS.boundary
+    // and fails without one (cold-review F11): at 'error' for every file, where getff can read it, the block
+    // and the scoped element that uses it add nothing the consumer did not ask for. Any other setting stays
+    // as the consumer set it, and the note says what that leaves. Set more than once, the last setting wins
+    // in ESLint and getff's element would outrank it; set for some files only, getff's element would reach
+    // the rest: both read as a setting getff cannot confirm.
+    const r2Mentions = [`'`, `"`, '`'].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
+    const r2Setting = !r2Present ? 'not-found'
+      : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? 'differs'
+        : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
     if (sf.getVariableDeclaration('RULE_GLOBS')) {
-      const arr = arrOf();
+      const arr = (boundaryArr = arrOf());
       if (!arr) {
-        notes.push('R2 not wired: the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it');
+        notes.push(
+          'R2 — the config declares its own RULE_GLOBS with no boundary array, and getff does not redefine it' +
+            (opts.gateReadsRuleGlobs ? '; scripts/check-rule-globs.sh fails on this config without RULE_GLOBS.boundary' : ''),
+        );
       } else {
         const have = new Set(stringElements(arr, SyntaxKind));
         missingGlobs = boundary.filter((g) => !have.has(g));
         registerR2 = !r2Present;
       }
-    } else if (!r2Present) {
+    } else if (r2Present && r2Setting !== 'same') {
+      notes.push(
+        opts.gateReadsRuleGlobs
+          ? `RULE_GLOBS for R2 — the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
+              'getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them'
+          : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
+              'getff does not change a setting of yours, so it adds nothing for R2',
+      );
+    } else if (!r2Present || opts.gateReadsRuleGlobs) {
       ruleGlobsBlock = [
         '// Added by getff: where its R2 rule looks for an unguarded zod .parse() — the HTTP boundary code the',
         '// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.',
@@ -1059,9 +1124,7 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
   const current = sf.getFullText();
   const inserts: Insertion[] = [];
   if (missingGlobs.length > 0) {
-    const init = sf.getVariableDeclarationOrThrow('RULE_GLOBS').getInitializerOrThrow();
-    const arr = init.getPropertyOrThrow('boundary').getInitializerOrThrow();
-    inserts.push(appendInsertion(current, elementList(arr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
+    inserts.push(appendInsertion(current, elementList(boundaryArr, SyntaxKind)!, missingGlobs.map(singleQuoted)));
   }
   if (toAdd.length > 0) inserts.push(...exportAppendInsertions(current, exportOf().getExpression(), SyntaxKind, toAdd));
   if (needsImport) inserts.push(importInsertion(sf, current, SyntaxKind, opts.customRulesImportPath!));
@@ -1126,11 +1189,14 @@ export interface ResolveWireArgs {
   scope?: { files: string[] };
 }
 
+/** Extensions ESLint may lint: its default `files` cover .js/.mjs/.cjs, a TypeScript or JSX block adds the rest. */
+const LINTABLE_EXTENSIONS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts'];
+
 /**
- * Paths handed to `--print-config`, relative to the config's dir: one per extension ESLint may lint (its default
- * `files` cover .js/.mjs/.cjs, a TypeScript or JSX block adds the rest). It resolves a config per path; no file is read.
+ * Paths handed to `--print-config`, relative to the config's dir: one per lintable extension. It resolves a
+ * config per path; no file is read.
  */
-const R2_PROBE_PATHS = ['js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'mts', 'cts'].map((ext) => `__aif_r2_probe__.${ext}`);
+const R2_PROBE_PATHS = LINTABLE_EXTENSIONS.map((ext) => `__aif_r2_probe__.${ext}`);
 
 const execFileAsync = promisify(execFile);
 
@@ -1280,10 +1346,25 @@ export async function resolveAndWire(args: ResolveWireArgs): Promise<WireResult>
 export interface LintProbeResult {
   verdict: 'ok' | 'broken' | 'unavailable';
   detail?: string;
+  /**
+   * Why a `broken` config is broken: `parse` — ESLint ran but could not parse a probe file (exit 1);
+   * `config` — ESLint could not use the config at all (exit 2). The second is the worse failure.
+   */
+  failure?: 'parse' | 'config';
+  /**
+   * What ESLint made of each probed path (relative to the config's dir). writeWithLintProbe compares the
+   * paths one by one: an original that already fails on one path says nothing about another.
+   */
+  paths?: Record<string, LintProbePath>;
+}
+
+export interface LintProbePath {
+  outcome: 'ok' | 'parse' | 'config' | 'unavailable';
+  detail?: string;
 }
 
 export interface LintProbeOptions {
-  /** `files:` globs of the appended blocks — each is linted at one concrete path it matches. */
+  /** `files:` globs of the appended blocks — each is linted at one concrete path per brace alternative. */
   scopeGlobs?: string[];
   /** Per-ESLint-run limit; a run that exceeds it reads as `unavailable`. */
   timeoutMs?: number;
@@ -1301,7 +1382,28 @@ const MISSING_PACKAGE = /Cannot find package '/;
  */
 export function probeScopePath(glob: string): string | undefined {
   if (glob.startsWith('!') || /[[\]?]/.test(glob)) return undefined;
-  const expanded = glob.replace(/\{([^{}]*)\}/g, (_m, alts: string) => alts.split(',')[0] ?? '');
+  return witnessPath(glob.replace(/\{([^{}]*)\}/g, (_m, alts: string) => alts.split(',')[0] ?? ''));
+}
+
+/**
+ * probeScopePath for every brace alternative (each list crossed with the others), probeScopePath's own
+ * path first: ESLint lints every file a `files:` glob names, so `**\/*.{ts,tsx}` needs a `.tsx` path too.
+ */
+export function probeScopePaths(glob: string): string[] {
+  if (glob.startsWith('!') || /[[\]?]/.test(glob)) return [];
+  return [...new Set(braceAlternatives(glob).map(witnessPath).filter((p): p is string => p !== undefined))];
+}
+
+function braceAlternatives(glob: string): string[] {
+  const m = /\{([^{}]*)\}/.exec(glob);
+  if (!m) return [glob];
+  const head = glob.slice(0, m.index);
+  const tail = glob.slice(m.index + m[0].length);
+  return (m[1] ?? '').split(',').flatMap((alt) => braceAlternatives(`${head}${alt}${tail}`));
+}
+
+/** The concrete path for a brace-free glob (see probeScopePath). */
+function witnessPath(expanded: string): string | undefined {
   const segs = expanded.split('/').filter((seg) => seg !== '**' && seg !== '');
   const last = segs[segs.length - 1];
   let file = `${PROBE_BASENAME}.js`;
@@ -1342,25 +1444,35 @@ function verdictOf(run: EslintRun): LintProbeResult {
   // cannot read the file at all, and `eslint .` would report it on every real file there (Q4.7: a
   // TS-scoped block appended to a consumer config that parses no TypeScript).
   const syntaxError = run.text.split('\n').some((l) => l.includes('Parsing error') && !TYPED_LINT_REFUSAL.test(l));
-  if (run.rc === 1 && syntaxError) return { verdict: 'broken', detail: run.text.slice(0, 400) };
+  if (run.rc === 1 && syntaxError) return { verdict: 'broken', detail: run.text.slice(0, 400), failure: 'parse' };
   if (run.rc === 0 || run.rc === 1) return { verdict: 'ok' };
   if (run.rc === 2) {
     // A missing PACKAGE (bare specifier) means deps are not installed yet — it says nothing about
     // the wiring (cold-review F2). A missing relative module stays `broken`: that can be ours.
     if (MISSING_PACKAGE.test(run.text)) return { verdict: 'unavailable', detail: run.text.slice(0, 400) };
-    return { verdict: 'broken', detail: run.text.slice(0, 400) };
+    return { verdict: 'broken', detail: run.text.slice(0, 400), failure: 'config' };
   }
   return { verdict: 'unavailable', detail: run.rc === 'timeout' ? 'ESLint did not finish in time' : run.text.slice(0, 400) };
 }
+
+function outcomeOf(r: LintProbeResult): LintProbePath['outcome'] {
+  if (r.verdict === 'ok' || r.verdict === 'unavailable') return r.verdict;
+  return r.failure ?? 'config';
+}
+
+/** Worst first: an exit 2, then a parsing error, then a run that could not finish (it proves nothing). */
+const OUTCOME_SEVERITY: Record<LintProbePath['outcome'], number> = { ok: 0, unavailable: 1, parse: 2, config: 3 };
 
 /**
  * Lint throwaway files with the consumer's own ESLint from the config's directory. Unlike
  * probeViaEslint's `--print-config` (config resolution only), this makes ESLint resolve and run every
  * rule of every block matching the file, and parse it — so it also sees a block that leaves the file
- * unparseable. A plugin-less `rules-as-tests/*` block fails both. Two real files (`.js` + `.ts`) sit
- * next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at a path it
- * matches, so no directory is created in the consumer tree. Exit 0/1 means the config loads and lints
- * (1 = the probe file drew findings); exit 2 means ESLint cannot use the config.
+ * unparseable. A plugin-less `rules-as-tests/*` block fails both. One real file per lintable extension
+ * sits next to the config; each `scopeGlobs` entry is linted through `--stdin-filename` at one path per
+ * brace alternative, so no directory is created in the consumer tree. Exit 0/1 means the config loads
+ * and lints (1 = the probe file drew findings); exit 2 means ESLint cannot use the config. The verdict
+ * is the worst path's: an exit 2, then a parsing error, then a run that could not finish; short of
+ * `ok`, `paths` holds every path's outcome.
  */
 export async function probeLintViaEslint(configPath: string, cwd: string, opts: LintProbeOptions = {}): Promise<LintProbeResult> {
   const dir = dirname(resolve(configPath));
@@ -1379,35 +1491,72 @@ export async function probeLintViaEslint(configPath: string, cwd: string, opts: 
   // tsx not resolvable → plain node (same fallback as probeViaEslint)
   const nodeArgs: string[] = resolveFrom('tsx') !== undefined ? ['--import', 'tsx'] : [];
   const timeoutMs = opts.timeoutMs ?? PROBE_TIMEOUT_MS;
-  // A `.ts`/`.tsx` probe carries TypeScript-only syntax, so a config that cannot parse TypeScript there shows.
-  const bodyFor = (name: string): string =>
-    /\.tsx?$/.test(name) ? 'export const __aif_probe: number = 1;\n' : 'export const __aif_probe = 1;\n';
+  // A `.ts` probe carries TypeScript-only syntax, so a config that cannot parse TypeScript there shows;
+  // a `.js` probe is an ES module. Every other probe file asks one question — can ESLint use the config
+  // for a file at this path — so its body parses as a script, a module, CommonJS and TypeScript alike:
+  // only an exit 2 can fail it. `.tsx` stays neutral: a `.ts` block with no TypeScript parser already
+  // fails the `.ts` body, and a `{ts,tsx}` block added to it would newly fail a TypeScript `.tsx` body
+  // too — a rollback of a sound wiring (2026-09-28).
+  const bodyFor = (rel: string): string =>
+    /\.ts$/.test(rel) ? 'export const __aif_probe: number = 1;\n'
+      : /\.js$/.test(rel) ? 'export const __aif_probe = 1;\n'
+        : 'var __aif_probe = 1;\n';
+  // One file per lintable extension: `eslint .` also lints `.mjs`/`.cjs` (the config itself) and every
+  // extension a block names, and a rule block whose plugin the base registers for some of them only
+  // reaches the rest without it — exit 2, «could not find plugin» (measured with ESLint 9.39.4, 2026-09-28).
   // Every path handed to ESLint is relative to its cwd (`dir`): an absolute path through a symlinked
   // dir (macOS /var → /private/var) reads as «outside of base path» — ignored, exit 0, a false ok.
-  const names = [`${PROBE_BASENAME}.js`, `${PROBE_BASENAME}.ts`];
+  const names = LINTABLE_EXTENSIONS.map((ext) => `${PROBE_BASENAME}.${ext}`);
   const targets = names.map((n) => resolve(dir, n));
-  let root: LintProbeResult;
-  targets.forEach((t, i) => writeFileSync(t, bodyFor(names[i]), 'utf8'));
+  const runs = new Map<string, LintProbeResult>();
+  names.forEach((n, i) => writeFileSync(targets[i], bodyFor(n), 'utf8'));
   try {
-    root = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    const pooled = verdictOf(runEslint(nodeArgs, eslintBin, names, dir, timeoutMs));
+    if (pooled.verdict === 'unavailable') return pooled;
+    // One run has one exit code. When it fails, each file is linted alone, so writeWithLintProbe can tell
+    // a path the change broke from one the original already fails on (an extension the project lacks).
+    // A lone file's detail is also its own error, free of the «File ignored» notices a pooled run prints.
+    for (const n of names) runs.set(n, pooled.verdict === 'ok' ? pooled : verdictOf(runEslint(nodeArgs, eslintBin, [n], dir, timeoutMs)));
   } finally {
     for (const t of targets) {
       try { unlinkSync(t); } catch { /* best-effort */ }
     }
   }
-  if (root.verdict !== 'ok') return root;
-  const scoped = [...new Set((opts.scopeGlobs ?? []).map(probeScopePath).filter((x): x is string => x !== undefined))];
-  for (const rel of scoped) {
-    if (rel === `${PROBE_BASENAME}.js` || rel === `${PROBE_BASENAME}.ts`) continue;
-    const r = verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, bodyFor(rel)));
-    if (r.verdict !== 'ok') return r;
+  // Each scope at every brace alternative, unless the run above linted that path already.
+  for (const rel of new Set((opts.scopeGlobs ?? []).flatMap(probeScopePaths))) {
+    if (runs.has(rel)) continue;
+    runs.set(rel, verdictOf(runEslint(nodeArgs, eslintBin, ['--stdin', '--stdin-filename', rel], dir, timeoutMs, bodyFor(rel))));
   }
-  return { verdict: 'ok' };
+  const paths: Record<string, LintProbePath> = {};
+  let worst: LintProbeResult = { verdict: 'ok' };
+  for (const [rel, r] of runs) {
+    paths[rel] = { outcome: outcomeOf(r), ...(r.detail !== undefined ? { detail: r.detail } : {}) };
+    if (OUTCOME_SEVERITY[outcomeOf(r)] > OUTCOME_SEVERITY[outcomeOf(worst)]) worst = r;
+  }
+  return worst.verdict === 'ok' ? worst : { ...worst, paths };
+}
+
+/**
+ * A probed path where the modified config fails worse than the original (an exit 2 beats a parsing
+ * error); a run that could not finish on either side proves nothing there. Without per-path results,
+ * only an exit 2 against an original that merely fails to parse counts.
+ */
+function worsenedPath(after: LintProbeResult, before: LintProbeResult): LintProbePath | undefined {
+  const rank = (o: LintProbePath['outcome']): number => ({ ok: 0, parse: 1, config: 2, unavailable: -1 })[o];
+  if (after.paths === undefined || before.paths === undefined) {
+    return after.failure === 'config' && before.failure === 'parse' ? { outcome: 'config', detail: after.detail } : undefined;
+  }
+  for (const [rel, a] of Object.entries(after.paths)) {
+    const b = before.paths[rel];
+    if (b !== undefined && rank(a.outcome) >= 0 && rank(b.outcome) >= 0 && rank(a.outcome) > rank(b.outcome)) return a;
+  }
+  return undefined;
 }
 
 /**
  * Write `modified`, lint-probe it, and restore `original` only when the probe proves the WIRING broke
- * ESLint: the modified config is broken while the original lints clean. When the original fails too
+ * ESLint: the modified config is broken while the original lints clean, or fails worse than the
+ * original on some probed path (worsenedPath). When the original fails too
  * (typed-lint parser setup, plugins not installed yet — cold-review F1/F2) the probe cannot judge the
  * change, so the write stands — the pre-probe behaviour — with a `probeNote` saying it was not
  * verified. An `unavailable` probe likewise proves nothing either way.
@@ -1431,11 +1580,15 @@ export async function writeWithLintProbe(args: {
   const before = await runProbe(configPath, cwd);
   // Keep a proven-broken write only on evidence the original fails the same probe too: exit 2, or a
   // missing package. A re-check that merely could not run (timeout) is no such evidence (round 2, N6).
-  const originalFails = before.verdict === 'broken' || MISSING_PACKAGE.test(before.detail ?? '');
+  // Nor is an original that fails elsewhere or less badly: a path the change made fail worse — a `.ts`
+  // block with no TypeScript parser hid a plugin-less rule block, and an exit 2 on an extension the
+  // project lacks hid one on `.ts` (2026-09-28).
+  const worse = worsenedPath(after, before);
+  const originalFails = worse === undefined && (before.verdict === 'broken' || MISSING_PACKAGE.test(before.detail ?? ''));
   if (!originalFails) {
     return {
       status: 'degrade', original, modified: original,
-      degradeReason: `the wiring broke ESLint, so it was rolled back (${after.detail ?? 'exit 2'})`,
+      degradeReason: `the wiring broke ESLint, so it was rolled back (${worse?.detail ?? after.detail ?? 'exit 2'})`,
     };
   }
   writeFileSync(configPath, modified, 'utf8');
