@@ -31,7 +31,7 @@ fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
-a616cfab9d4efdc7ffb566fac5c81962016990d044dd05ea405a907f73966cce  .claude/skills/aif-doctor/SKILL.md
+0c51c456c109667a8c146a5e326c3babbb21f6051b6ac8258ee151579f0048a0  .claude/skills/aif-doctor/SKILL.md
 0659e00cedd3c219a4087924cc1eccb51806a638f0bd1214bf4646e4c9b79ff4  .claude/skills/aif-doctor/helpers/heal.sh
 a8561e5ad736e01157d1313241acfb888a8f67daf13f243db52ceaed2872d48a  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
 6b8e1bc3967e4c108998a798b829f73328a39c3eb9402234547c27e1987d90b1  .claude/skills/arch/SKILL.md
@@ -58,7 +58,7 @@ a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .claude/skills
 2315eea3c5ffb31b7d119c25a6dcd12ca43b6f6b48eaeb7287d46538ecfb352b  .claude/skills/docs-author/references/gold/understand.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
-97d5ab42332496fe7ec7548c552e2d689c0dae7262eacf639f19f5b250406c55  .claude/skills/harvest/SKILL.md
+8867f70ef513a325b8d8f2b82a80001dad1a911d784b04465141419055a87cba  .claude/skills/harvest/SKILL.md
 bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
 6bc24a3386186d4ba77351c9f15ea8ce1ea0c7224766fa920d8ed3e9dc60290e  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
