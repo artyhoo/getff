@@ -34,7 +34,7 @@ What each row means: [how to read a fact card](../B.md#how-to-read-a-fact-card).
 | name | `getff` |
 | kind | skill |
 | ships-to | core: python, react-native, react-next, react-spa, ts-server |
-| description | Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or any version of "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on any mention of ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong" — that is the core problem this skill addresses. |
+| description | Use when treating any codebase rule (architectural, naming, dependency, test-quality, contract, SLO) as an executable test that fails the build when violated, or when the user asks about enforcing code quality, fighting AI-generated code drift, setting up linters/tests/CI/pre-commit hooks, designing review processes, mutation testing, contract testing, fitness functions, observability-driven development, SLO-as-code, or "how do I make my codebase resistant to AI agents breaking my conventions". Also trigger on ArchUnit, Stryker, Pact, dependency-cruiser, AI Factory (aif), Husky, lint-staged, ESLint flat config, Zod validation strategy, or shift-left/shift-right testing. Strongly trigger when the user mentions Claude Code, Cursor, or Copilot writing code that "looks fine but is wrong". |
 | source | `skills/getff/SKILL.md:3` |
 | invocation | auto |
 | posture | portable |
@@ -103,7 +103,7 @@ receive skills at all.
 
 ## Evidence
 
-- The description and the invocation mode come from line 3 of `skills/getff/SKILL.md`.
+- The description and the invocation mode are read from line 3 of `skills/getff/SKILL.md`.
   The posture marker is line 6 of the same file.
 - The installer copies this skill from the repository root and rewrites its links:
   `setup.d/10-skills.sh`, lines 27 to 32.
