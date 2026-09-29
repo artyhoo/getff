@@ -64,7 +64,7 @@ Internal means: used exclusively inside the maintainer's own development environ
 
 **Default:** ship CC-native only. Portable fallback is unnecessary overhead.
 
-**Examples:** `.claude/hooks/inject-session-bootstrap.sh` (CC UserPromptSubmit hook; maintainer-environment only); `.claude/hooks/deps-hash-check.sh` (CC-native, internal dev tooling).
+**Examples:** `.claude/hooks/inject-session-bootstrap.sh` (CC SessionStart hook; maintainer-environment only); `.claude/hooks/deps-hash-check.sh` (CC-native, internal dev tooling).
 
 **May deviate when:** the tooling is explicitly designed for replication by consumer-maintained companion projects (e.g., a hook template published as part of `install.sh` payload). In that case treat as Consumer-facing.
 

@@ -1,6 +1,6 @@
 ---
 title: inject-session-bootstrap hook
-description: On every prompt you submit, the project's non-negotiables — the goal, the invariants, the reading order, the evidence discipline — ride along with it, so they cannot decay out of attention.
+description: At every session start — and again after a clear, a resume or a compaction — the project's non-negotiables — the goal, the invariants, the reading order, the evidence discipline — are put back into context, so they cannot decay out of attention.
 kind: reference-sheet
 generator: scripts/render-reference.mjs
 sources:
@@ -15,6 +15,7 @@ sources:
   - docs/site/reference/D.md
   - docs/site/terms.md
   - plugin/hooks/hooks.json
+  - scripts/render-harness-config.mjs
   - packages/core/hooks/inject-session-bootstrap.test.ts
 executed:
   - { example: session-bootstrap-default-digest, stack: repo, date: 2026-09-25, result: printed }
@@ -37,11 +38,11 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 | name | `inject-session-bootstrap` |
 | kind | hook |
 | ships-to | not installed on any lane (no-lane) |
-| description | UserPromptSubmit hook — injects the session-bootstrap digest into prompt context |
+| description | SessionStart hook — injects the session-bootstrap digest into session context |
 | source | `.claude/hooks/inject-session-bootstrap.sh:2` |
-| event | `["UserPromptSubmit"]` |
-| matcher | `[]` |
-| delivery | `["@cc-only-rationale","plugin"]` |
+| event | `["SessionStart"]` |
+| matcher | `["startup|resume|clear|compact"]` |
+| delivery | `["@cc-only-rationale"]` |
 <!-- getff:end section=D-card-inject-session-bootstrap -->
 
 <!-- vale on -->
@@ -50,23 +51,27 @@ What each row means: [how to read a fact card](../D.md#how-to-read-a-fact-card).
 
 Long sessions forget. The goal you started with, the invariants you agreed to, the
 reading order that keeps a newcomer honest — all of it decays out of a context window a
-few compactions later. This hook refuses to let that happen quietly: on every single
-prompt you submit, it re-feeds a short digest of the project's non-negotiables into the
-prompt context. Not a file the agent should read — text that arrives whether or not
+few compactions later. This hook refuses to let that happen quietly: when a session
+starts, and again after every `/clear`, resume or compaction, it re-feeds a short digest
+of the project's non-negotiables into the context. Until 2026-09-29 it fired on every
+prompt; once per context is enough, because the text does not change between prompts. Not a file the agent should read — text that arrives whether or not
 anything reads it.
 
 This is the framework's own digest, about the framework's own rules — that is why it is
-in this family but not shipped to consumer projects as-is (consumers get
+in this family but not shipped to consumer projects (consumers get
 [inject-project-digest](inject-project-digest.md), which injects their digest instead).
+Until 2026-09-29 the plugin also carried it, so every repository with the plugin got
+getff's internal digest on each prompt; the plugin no longer ships it, and in the getff
+repository itself it moved from every prompt to session start the same day.
 Here it is running in the getff repository, verbatim:
 
 ```bash
-printf '%s' '{"prompt":"hi","session_id":"docs-demo-sb-1"}' \
+printf '%s' '{"hook_event_name":"SessionStart","source":"startup","session_id":"docs-demo-sb-1"}' \
   | bash .claude/hooks/inject-session-bootstrap.sh
 ```
 
 ```text
-[session-bootstrap digest — auto-injected at prompt submit]
+[session-bootstrap digest — auto-injected at session start]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
 Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
 Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.
@@ -110,10 +115,12 @@ mark those anchor points so the rendered rule index reports the full delivery su
 
 ## Evidence
 
-- `.claude/hooks/inject-session-bootstrap.sh:2` is the header the card's description row
-  quotes: `# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context`.
-- Registration: `.claude/settings.json:70` (UserPromptSubmit) and
-  `plugin/hooks/hooks.json:24` both wire it; no matcher is set.
+- `.claude/hooks/inject-session-bootstrap.sh:2` is the SessionStart header the card's description
+  row quotes: `# inject-session-bootstrap.sh — SessionStart hook — injects the session-bootstrap digest into session context`.
+- Registration: `.claude/settings.json:242` (SessionStart, matcher
+  `startup|resume|clear|compact`) wires it. The plugin does not: `scripts/render-harness-config.mjs` lists it in
+  `PLUGIN_INCOMPATIBLE` as operator-axis only, so `plugin/hooks/hooks.json` has no entry
+  for it (measured: `grep -c inject-session-bootstrap plugin/hooks/hooks.json` prints `0`).
 - The harness-portable output helpers are inline, lines 25-28 — `_is_zcode` branching on
   `ZCODE_PROJECT_DIR` and `_emit_ctx` choosing plain stdout or strict-JSON
   `additionalContext`; header lines 10-12 explain why (under ZCode, plain stdout is
@@ -130,7 +137,7 @@ mark those anchor points so the rendered rule index reports the full delivery su
   `README.md .claude/session-bootstrap.md CLAUDE.md`, kept only when `_has` confirms the
   file; the assembled line lands at lines 79-82.
 - Digest assembly is lines 103-109, opening
-  `[session-bootstrap digest — auto-injected at prompt submit]` and closing
+  `[session-bootstrap digest — auto-injected at session start]` and closing
   `[/session-bootstrap digest]`; the demo above is that string verbatim.
 - The language append is the case at lines 114-122; the Russian branch (line 117) appends
   the same `[output-language]` line the standalone hook prints.
@@ -141,13 +148,13 @@ mark those anchor points so the rendered rule index reports the full delivery su
   arm, not more words».
 - Channel anchors: lines 98-102 mark the H1 line as the token target for
   `.claude/rules/recommendation-laziness-discipline.md` («the rule itself is evicted
-  from always-on rule context per CTX Stage 1; this digest line … are what still fires at
-  every prompt»); lines 124-130 mark the autonomy block for
+  from always-on rule context per CTX Stage 1; this digest line … are what still fires in
+  every session»); lines 124-130 mark the autonomy block for
   `.claude/rules/autonomous-loop-continuity.md` («Both must be declared separately so the
   rendered index reports the full delivery surface»).
 - The extraction that produced `inject-output-language.sh` is recorded in that hook's
   header, lines 5-7.
 - Paired test: `packages/core/hooks/inject-session-bootstrap.test.ts` (484 lines) — its
   header (lines 1-15) pins the contract including the two sentinel tags,
-  `[session-bootstrap digest — auto-injected at prompt submit]` and
+  `[session-bootstrap digest — auto-injected at session start]` and
   `[/session-bootstrap digest]`.

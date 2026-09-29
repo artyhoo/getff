@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# inject-session-bootstrap.sh — UserPromptSubmit hook — injects the session-bootstrap digest into prompt context
-# Wave 7 sub-wave 7.2.a — UserPromptSubmit hook: inject session-bootstrap digest.
-# stdout is injected into Claude Code's prompt context by the harness automatically.
+# inject-session-bootstrap.sh — SessionStart hook — injects the session-bootstrap digest into session context
+# Wave 7 sub-wave 7.2.a (moved from UserPromptSubmit to SessionStart 2026-09-29: once per context, not per prompt).
+# stdout is injected into Claude Code's session context by the harness automatically.
 # Full bootstrap: .claude/session-bootstrap.md (Step 0 read-first file).
-# @cc-only-rationale: UserPromptSubmit digest injection — CC+ZCode dual-harness via inline
+# @cc-only-rationale: SessionStart digest injection — CC+ZCode dual-harness via inline
 #   _emit_ctx branching on ZCODE_PROJECT_DIR. No separate portable counterpart artifact (one
 #   file serves both harnesses), so @dual-pair does not apply; the inline branch IS the
 #   portability. The invariant line is rendered from README.md (see the generated region).
@@ -31,7 +31,7 @@ REPO_ROOT="${CLAUDE_PROJECT_DIR:-${ZCODE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.
 # NB: env-first resolution — under the plugin twin $0 points into the plugin dir, so
 # $0-relative fallback is the LAST resort, not the primary (issue 1484 root cause).
 
-# Cheap file-tests only (this hook fires on EVERY prompt submit — no subprocess storms).
+# Cheap file-tests only (this hook fires on every session start and every subagent spawn — no subprocess storms).
 _has() { [ -f "$REPO_ROOT/$1" ]; }
 _rule_ref() { # .claude/rules/<name>.md -> "(.claude/rules/<name>.md)" | "(rule <name>)"
   if _has ".claude/rules/$1.md"; then
@@ -105,8 +105,8 @@ fi
 # (`<!-- channel: digest .claude/hooks/inject-session-bootstrap.sh#H1 -->`) points HERE: the
 # "Recommendation discipline (H1):" line in the digest above is that rule's always-on alt-channel
 # (the rule itself is evicted from always-on rule context per CTX Stage 1; this digest line +
-# ai-laziness-traps T20 (Tier-0 core) are what still fires at every prompt).
-DIGEST="[session-bootstrap digest — auto-injected at prompt submit]
+# ai-laziness-traps T20 (Tier-0 core) are what still fires in every session).
+DIGEST="[session-bootstrap digest — auto-injected at session start]
 $GOAL_LINE
 $INVARIANTS_LINE
 $STEP0_LINE
@@ -167,4 +167,4 @@ if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   DIGEST="$DIGEST"$'\n[autonomy] Standing operator authorization for this unattended run — do NOT re-ask for it, and do NOT infer a narrower constraint than is written here:\n  (1) Cold sub-agents are AUTHORIZED. Dispatch them for adversarial review of your own output and for backward-sweep enumeration over a change class. This is the operator\'s standing request, so the "unless the user requested it" condition on any session-prompt default is SATISFIED. Reviewing your own artefacts alone is author-blind ('$TRAPS_NAME$' T19/T21).\n  (2) Do NOT end a turn merely because you have something reportable. Report AND continue in the same turn while work remains — dispatched tasks in flight, an unharvested accepted branch, an open item you own. Ending on a report while work is in flight is finding F10; it recurred twice in one day. Stop only when blocked on the operator, or genuinely finished.\n  (3) A constraint you cannot trace to a citable line in '$CMD_SOURCE$'a rule file, or a skill is NOT a constraint. A predecessor session invented "merging is the operator\'s click", obeyed its own invention for seven PRs, and the operator merged six by hand.\n  (4) §2 wait rule (silence ≠ health): a monitor that has died and a monitor with nothing to report look identical. For any wait the loop depends on, use a bounded waiter that ALWAYS emits a terminal verdict — the awaited state, a timeout, or a fetch failure — never nothing. In this repo that is '$AWAIT_REF$' (always pass `--timeout-ms` on a load-bearing wait), or a plain `until`-loop whose every exit path prints one line. Treat any monitor as a BONUS signal, never as the primary one.'
 fi
 
-_emit_ctx "UserPromptSubmit" "$DIGEST"
+_emit_ctx "SessionStart" "$DIGEST"

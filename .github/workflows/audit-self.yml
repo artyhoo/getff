@@ -741,6 +741,8 @@ jobs:
         run: bash tests/install-sh/merge-fenced-splice-failure.test.sh
       - name: Run install-sh stale-tmp / unconditional-success test (ledger #1597 A1-9)
         run: bash tests/install-sh/stale-tmp-unconditional-success.test.sh
+      - name: Run install-sh hook-event-move test (per-prompt injections moved to SessionStart)
+        run: bash tests/install-sh/hook-event-move.test.sh
       - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)
@@ -1003,11 +1005,11 @@ jobs:
         run: bash tests/install-sh/gh-934-ship-eot-hook.test.sh
       - name: "install-sh — gh-934 ship session-UX hooks (ask-question PreToolUse + inject-matching PostToolUse: delivery + non-destructive matcher-merge + firing + jq-guard)"
         run: bash tests/install-sh/gh-934-ship-session-ux-hooks.test.sh
-      - name: "install-sh — gh-934 ship output-language hook (UserPromptSubmit: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
+      - name: "install-sh — gh-934 ship output-language hook (SessionStart, legacy per-prompt registration migrated: extracted lang slice, non-destructive same-event merge, firing RU/de, zero-setup en no-op, refresh)"
         run: bash tests/install-sh/gh-934-ship-output-language-hook.test.sh
       - name: "install-sh — gh-934 ship doc-authority-header gate (PostToolUse: zero-dep reimpl, non-destructive same-event merge, firing miss/pass, escape valves, jq-degrade, refresh)"
         run: bash tests/install-sh/gh-934-ship-doc-authority-hook.test.sh
-      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest UPS+SubagentStart + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
+      - name: "install-sh — gh-934 ship project-agnostic hooks (batch D: digest SessionStart+SubagentStart, legacy per-prompt registration migrated + memory-codification generic, template-empty no-op, both-events merge, per-event idempotence, firing, refresh-non-clobber, lang-pack A fix)"
         run: bash tests/install-sh/gh-934-ship-project-agnostic-hooks.test.sh
       - name: "install-sh — self-verify banner honesty (P0.4: SKIP accounting withholds property claim + strict D1 under DEPS_INSTALLED)"
         run: bash tests/install-sh/install-self-verify-banner-honesty.test.sh
