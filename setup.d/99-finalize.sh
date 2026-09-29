@@ -692,7 +692,7 @@ _f11_note() {
 }
 # _f11_r2_named <config> — exit 0 when the wirer already said the gate fails on <config>'s R2.
 _f11_r2_named() {
-  printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} | grep -F "($1)" | grep -qF 'check-rule-globs.sh fails on this config'
+  grep -qF 'check-rule-globs.sh fails on this config' <<<"$(printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} | grep -F "($1)")"
 }
 # _f11_describe <workspace config, empty for the root> <gate failure line> — its NOT wired line.
 _f11_describe() {
@@ -711,9 +711,9 @@ _f11_describe() {
     *": has boundary files but its own ESLint config does NOT wire R2"*)
       dir="${s%%: has boundary files*}"
       [ -z "$ws" ] || { dir="$(dirname "$ws")/$dir"; s="$dir: ${s#*: }"; ws=""; }
-      printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"} \
-        | grep -qF -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $dir/eslint.config." \
-                   -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $dir — " && return 0 ;;
+      grep -qF -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $dir/eslint.config." \
+               -e "R2 (rules-as-tests/no-unsafe-zod-parse) in $dir — " \
+        <<<"$(printf '%s\n' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"})" && return 0 ;;
   esac
   if [ -z "$ws" ] && [ -n "$key" ] \
      && { [ "$_root_eslint" = eslint.config.js ] || [ "$_root_eslint" = eslint.config.mjs ]; }; then

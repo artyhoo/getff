@@ -260,8 +260,8 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
   NOT_WIRED=()
   note_eslint_config_not_esm "$u/tree/b/c" eslint.config.cjs
   note_eslint_config_not_esm "$u/tree/b/c" eslint.config.cjs
-  [ "${#NOT_WIRED[@]}" -eq 1 ] && printf '%s' "${NOT_WIRED[0]}" | grep -q "b/c — your eslint.config.cjs" \
-    && ! printf '%s' "${NOT_WIRED[0]}" | grep -qiE 'by hand|manually' \
+  [ "${#NOT_WIRED[@]}" -eq 1 ] && grep -q "b/c — your eslint.config.cjs" <<<"${NOT_WIRED[0]}" \
+    && ! grep -qiE 'by hand|manually' <<<"${NOT_WIRED[0]}" \
     && echo "OK a config getff cannot add to is named once in the not-wired summary, with no manual step" \
     || echo "BAD not-esm note: ${#NOT_WIRED[@]} line(s): $(printf '%s|' ${NOT_WIRED[@]+"${NOT_WIRED[@]}"})"
   # The original cannot be kept aside (here .ai-factory/before-getff is a file): the write is undone
@@ -1051,12 +1051,12 @@ r2_scoped "$E/tools/esm/eslint.config.js" && only_insertions "$WORK/pkg.before" 
   && kept_original "$E" tools/esm/eslint.config.js "$WORK/pkg.before" \
   && ok "E: a per-package ES-module eslint.config.js gets R2 the way an .mjs does — scoped, insertions only, original kept" \
   || bad "E: tools/esm/eslint.config.js (the config ESLint loads there) did not get R2 with its original kept"
-not_wired "$WORK/e.log" | grep -q 'tools/esm' \
+grep -q 'tools/esm' <<<"$(not_wired "$WORK/e.log")" \
   && bad "E: tools/esm is in the not-wired summary, though R2 was added to it" || ok "E: tools/esm is not reported as unwired"
 cmp -s "$WORK/cjs-pkg.before" "$E/tools/cjs/eslint.config.cjs" && [ ! -e "$E/.ai-factory/before-getff/tools/cjs" ] \
   && ok "E: a per-package eslint.config.cjs is left byte-identical, no copy kept" \
   || bad "E: tools/cjs/eslint.config.cjs changed, or a copy of it was kept"
-not_wired "$WORK/e.log" | grep 'tools/cjs' | grep -q 'eslint.config.cjs' \
+grep -q 'eslint.config.cjs' <<<"$(not_wired "$WORK/e.log" | grep 'tools/cjs')" \
   && ok "E: the not-wired summary names tools/cjs's eslint.config.cjs (boundary code R2 does not reach)" \
   || bad "E: tools/cjs/eslint.config.cjs, with boundary code and no R2, is missing from the not-wired summary"
 asks_by_hand "$WORK/e.log" && bad "E: the install asks for a manual step: $(manual_step_lines "$WORK/e.log" | head -2 | tr '\n' '|')" || ok "E: nothing asks for a manual step"
@@ -1097,7 +1097,7 @@ _n=$(not_wired "$WORK/f.log" | grep -c 'apps/lib.*eslint\.config\.mjs')
   || bad "F: the not-wired summary names apps/lib/eslint.config.mjs $_n time(s), expected 1 (summary: $(not_wired "$WORK/f.log" | tr '\n' '|' | head -c 400))"
 grep -q "rules-as-tests/" "$F/apps/svc/eslint.config.mjs" \
   || bad "F: getff's apps/svc config carries none of getff's rules — the apps/ui arm below would be vacuous"
-not_wired "$WORK/f.log" | grep -q 'apps/ui' \
+grep -q 'apps/ui' <<<"$(not_wired "$WORK/f.log")" \
   && bad "F: the summary names apps/ui, whose config spreads apps/svc's with getff's rules: $(not_wired "$WORK/f.log" | grep 'apps/ui' | head -1)" \
   || ok "F: apps/ui, whose config imports getff's apps/svc config, is not named as unwired"
 asks_by_hand "$WORK/f.log" && bad "F: the install asks for a manual step: $(manual_step_lines "$WORK/f.log" | head -2 | tr '\n' '|')" || ok "F: nothing asks for a manual step"
@@ -1116,8 +1116,8 @@ grep -q 'R2 wiring: .*apps/svc/eslint.config.mjs' "$WORK/f.log" \
 # live pass: getff's live element already registers the plugin for every file, so the R2 element
 # carries files and rules only, and the plugin is registered once.
 r2_scoped_after_live() {
-  tr '\n' ' ' < "$1" | tr -s ' ' \
-    | grep -qE "\{ ?files: RULE_GLOBS\.boundary, rules: \{ ?'rules-as-tests/no-unsafe-zod-parse'" \
+  grep -qE "\{ ?files: RULE_GLOBS\.boundary, rules: \{ ?'rules-as-tests/no-unsafe-zod-parse'" \
+    <<<"$(tr '\n' ' ' < "$1" | tr -s ' ')" \
     && grep -q '^const RULE_GLOBS = {' "$1" \
     && [ "$(grep -cF "plugins: { 'rules-as-tests': customRules }" "$1")" -eq 1 ]
 }
@@ -1152,7 +1152,7 @@ grep -qF 'swcLiveProbe' "$M/apps/js/eslint.config.js" && r2_scoped_after_live "$
   || bad "M: apps/js/eslint.config.js (the config ESLint loads there) did not get the live rule and scoped R2"
 kept_original "$M" apps/js/eslint.config.js "$WORK/pkg.before" \
   && ok "M: one kept original of apps/js/eslint.config.js" || bad "M: no single true kept original of apps/js/eslint.config.js"
-not_wired "$WORK/m.log" | grep -qE 'apps/(js|api)' \
+grep -qE 'apps/(js|api)' <<<"$(not_wired "$WORK/m.log")" \
   && bad "M: the not-wired summary lists a workspace config getff wired: $(not_wired "$WORK/m.log" | grep -E 'apps/(js|api)' | head -2 | tr '\n' '|')" \
   || ok "M: neither workspace config is reported as unwired"
 asks_by_hand "$WORK/m.log" && bad "M: the install asks for a manual ESLint edit" || ok "M: nothing asks for a manual ESLint edit"

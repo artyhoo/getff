@@ -131,7 +131,7 @@ else
   [ "$_kept" -eq 1 ] && cmp -s "$_k" "$NATIVE_BEFORE" \
     && ok "JS: one kept original of apps/native/eslint.config.js" \
     || bad "JS: $_kept kept original(s) of apps/native/eslint.config.js, expected one byte-equal copy"
-  awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$E/.install.log" | grep -q 'apps/native' \
+  grep -q 'apps/native' <<<"$(awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[:space:]]*$/{exit} on' "$E/.install.log")" \
     && bad "JS: the not-wired summary still lists apps/native: $(grep -n 'apps/native' "$E/.install.log" | head -2 | tr '\n' '|')" \
     || ok "JS: apps/native is not reported as unwired"
 fi
@@ -143,7 +143,7 @@ cmp -s "$NATIVE_BEFORE" "$E/apps/worker/eslint.config.js" && ok "OWN: apps/worke
 _n=$(printf '%s\n' "$_nw" | grep -c 'apps/worker.*eslint\.config\.js')
 [ "$_n" -eq 1 ] && ok "OWN: the not-wired summary names apps/worker/eslint.config.js once" \
   || bad "OWN: the not-wired summary names apps/worker/eslint.config.js $_n time(s), expected 1 (summary: $(printf '%s' "$_nw" | tr '\n' '|' | head -c 400))"
-printf '%s\n' "$_nw" | grep 'apps/worker' | grep -qiE 'by hand|manually|merge .* into' \
+grep -qiE 'by hand|manually|merge .* into' <<<"$(printf '%s\n' "$_nw" | grep 'apps/worker')" \
   && bad "OWN: the line asks for a manual step: $(printf '%s\n' "$_nw" | grep 'apps/worker' | head -1)" \
   || ok "OWN: no manual step in the line for apps/worker"
 

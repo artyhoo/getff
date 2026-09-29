@@ -88,10 +88,10 @@ run_finalize() {
     WS_MAP="${2:-}" DELIVERED="${3:-}" T_FULL="${T_FULL:-}" bash "$DRIVER" < /dev/null 2>&1)
   F_SUM=$(printf '%s\n' "$F_OUT" | grep -E '^      - ' || true)
 }
-sum_has() { printf '%s\n' "$F_SUM" | grep -qE "$1"; }
+sum_has() { grep -qE "$1" <<<"$F_SUM"; }
 sum_show() { printf '%s\n' "$F_SUM" | tr '\n' '|'; }
 ran_through() {
-  printf '%s\n' "$F_OUT" | grep -q 'For full guide: see INSTALL.md' \
+  grep -q 'For full guide: see INSTALL.md' <<<"$F_OUT" \
     || bad "$1: the finalize stopped before its end (tail: $(printf '%s\n' "$F_OUT" | tail -4 | tr '\n' '|'))"
 }
 R2_LINE='^      - R2 \(rules-as-tests/no-unsafe-zod-parse\) in '
@@ -102,7 +102,7 @@ S1=$(make_project s1)
 put "$S1" eslint.config.mjs "// TODO: turn on 'rules-as-tests/no-bare-todo' after the cleanup
 $PLAIN_CFG"
 T_FULL=1 run_finalize "$S1"; ran_through S1
-if printf '%s\n' "$F_OUT" | grep -qE "$FF_SKIP"; then
+if grep -qE "$FF_SKIP" <<<"$F_OUT"; then
   ok "S1: a root config naming getff's rules only in a comment is not wired — fences-fire is skipped"
 else
   bad "S1: fences-fire was not skipped as not wired for a root config naming getff's rules only in a comment"
@@ -110,7 +110,7 @@ fi
 S1P=$(make_project s1p)
 put "$S1P" eslint.config.mjs "export default [{ rules: { 'rules-as-tests/no-bare-todo': 'error' } }];"
 T_FULL=1 run_finalize "$S1P"
-if printf '%s\n' "$F_OUT" | grep -qE "$FF_SKIP"; then
+if grep -qE "$FF_SKIP" <<<"$F_OUT"; then
   bad "S1 paired: a root config carrying getff's rules in code is treated as not wired"
 else
   ok "S1 paired: a root config carrying getff's rules in code is wired"
@@ -244,8 +244,8 @@ S8=$(make_project s8)
 put "$S8" eslint.config.mjs "// RULE_GLOBS lives in the shared preset, not here
 $PLAIN_CFG"
 run_ci "$S8"
-if printf '%s\n' "$C_OUT" | grep -q 'has no RULE_GLOBS block' \
-   && ! printf '%s\n' "$C_OUT" | grep -q 'could not add glob'; then
+if grep -q 'has no RULE_GLOBS block' <<<"$C_OUT" \
+   && ! grep -q 'could not add glob' <<<"$C_OUT"; then
   ok "S8: RULE_GLOBS only in a comment — no RULE_GLOBS block to widen, no failed write"
 else
   bad "S8: expected «has no RULE_GLOBS block» and no «could not add glob» (output: $(printf '%s\n' "$C_OUT" | grep -E 'R2|glob|RULE_GLOBS' | tr '\n' '|'))"
@@ -260,8 +260,8 @@ put "$S9" eslint.config.mjs "const RULE_GLOBS = {
 // was: 'src/routes/**/*.ts'
 $PLAIN_CFG"
 run_ci "$S9"
-if printf '%s\n' "$C_OUT" | grep -q 'added 1 glob(s) to RULE_GLOBS.boundary' \
-   && awk '/boundary: \[/{a=1} a&&/\]/{exit} a' "$S9/eslint.config.mjs" | grep -qF "'src/routes/**/*.ts'"; then
+if grep -q 'added 1 glob(s) to RULE_GLOBS.boundary' <<<"$C_OUT" \
+   && grep -qF "'src/routes/**/*.ts'" <<<"$(awk '/boundary: \[/{a=1} a&&/\]/{exit} a' "$S9/eslint.config.mjs")"; then
   ok "S9: a boundary glob in a comment is not «already covered» — it is added to the array"
 else
   bad "S9: expected the glob added to RULE_GLOBS.boundary (output: $(printf '%s\n' "$C_OUT" | grep -E 'glob|boundary' | tr '\n' '|'))"
@@ -274,7 +274,7 @@ put "$S9P" eslint.config.mjs "const RULE_GLOBS = {
 };
 $PLAIN_CFG"
 run_ci "$S9P"
-if printf '%s\n' "$C_OUT" | grep -q 'already covered'; then
+if grep -q 'already covered' <<<"$C_OUT"; then
   ok "S9 paired: a glob already in the array is already covered"
 else
   bad "S9 paired: expected «already covered» (output: $(printf '%s\n' "$C_OUT" | grep -E 'glob|boundary' | tr '\n' '|'))"
@@ -287,7 +287,7 @@ put "$S8P" eslint.config.mjs "const RULE_GLOBS = {
 };
 $PLAIN_CFG"
 run_ci "$S8P"
-if printf '%s\n' "$C_OUT" | grep -q 'has no RULE_GLOBS block'; then
+if grep -q 'has no RULE_GLOBS block' <<<"$C_OUT"; then
   bad "S8 paired: a RULE_GLOBS block in code reads as no block — S8 would be vacuous"
 else
   ok "S8 paired: a RULE_GLOBS block in code is a block to widen"
@@ -313,7 +313,7 @@ run_ci "$S12"; run_ci "$S12"
 s12_real=$(sed -n '/^\*\//,$p' "$S12/eslint.config.mjs")   # the code after the commented-out block
 s12_n=$(grep -cF "'src/routes/**/*.ts'" "$S12/eslint.config.mjs" || true)
 if [ "$s12_n" = 1 ] && grep -qF "'src/routes/**/*.ts'" <<<"$s12_real" \
-   && printf '%s\n' "$C_OUT" | grep -q 'already covered'; then
+   && grep -q 'already covered' <<<"$C_OUT"; then
   ok "S12: a commented-out boundary array is skipped — the glob lands once in the real array"
 else
   bad "S12: expected the glob once, in the real array, and «already covered» on the 2nd run (count=$s12_n; file: $(tr '\n' '|' < "$S12/eslint.config.mjs"))"
@@ -374,7 +374,7 @@ fi
 uncomment_fns() { sed -n -e '/^function regexctx(/,/^}/p' -e '/^function uncomment(/,/^}/p' "$1" | sed "s/^}'$/}/"; }
 for gate in check-rule-globs.sh check-rule-enforced.sh; do
   g="$REPO_ROOT/packages/core/audit-self/$gate"
-  if uncomment_fns "$g" | grep -q '^function uncomment(' \
+  if grep -q '^function uncomment(' <<<"$(uncomment_fns "$g")" \
      && [ "$(uncomment_fns "$g")" = "$(uncomment_fns "$REPO_ROOT/setup.d/lib.sh")" ]; then
     ok "S11: setup.d/lib.sh's uncomment() and regexctx() are $gate's, byte for byte"
   else

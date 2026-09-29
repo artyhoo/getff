@@ -488,16 +488,16 @@ r2_summary_lines() { awk '/NOT wired, or wired only in part/{on=1} on' "$1" | gr
 h_assert_line() {
   local all
   all=$(r2_summary_lines "$1")
-  [ "$(printf '%s' "$all" | grep -c .)" = "1" ] && printf '%s' "$all" | grep -qF "in $2 —" \
+  [ "$(printf '%s' "$all" | grep -c .)" = "1" ] && grep -qF "in $2 —" <<<"$all" \
     && ok "$3: boundary code + own $2 → exactly one NOT wired R2 line, and it names $2" \
     || bad "$3: expected exactly one NOT wired R2 line naming $2, got: $(printf '%s' "$all" | tr '\n' '|')"
-  printf '%s' "$all" | grep -qF "$4" \
-    && printf '%s' "$all" | grep -qF "R2 does not check it" \
-    && printf '%s' "$all" | grep -qF "through the boundary globs '" \
-    && printf '%s' "$all" | grep -qF "'**/api/**/*.{ts,tsx}'" \
+  grep -qF "$4" <<<"$all" \
+    && grep -qF "R2 does not check it" <<<"$all" \
+    && grep -qF "through the boundary globs '" <<<"$all" \
+    && grep -qF "'**/api/**/*.{ts,tsx}'" <<<"$all" \
     && ok "$3: the line gives the reason and the boundary globs R2 would cover, each glob intact" \
     || bad "$3: the R2 line for $2 lacks the reason, the unchecked-code claim or an intact glob: $all"
-  ! grep -iE 'eslint|R2' "$1" | grep -qiE 'by hand|manually' \
+  ! grep -qiE 'by hand|manually' <<<"$(grep -iE 'eslint|R2' "$1")" \
     && ok "$3: nothing asks for a manual ESLint edit ($2)" \
     || bad "$3: the install asks for a manual ESLint edit: $(grep -iE 'eslint|R2' "$1" | grep -iE 'by hand|manually' | head -2 | tr '\n' '|')"
 }
