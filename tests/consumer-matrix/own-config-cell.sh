@@ -54,11 +54,20 @@
 # check:globs reads getff's ESLint config, which an oxlint project does not get, so it is not armed
 # there), a planted TS2322 fails typecheck.
 #
+# FIXTURE=red-lint (P5 M7, owed by P2): a TypeScript React project with NO linter, no `strict`, and old
+# code getff's rules flag with no autofix (require-error-boundary in src/App.tsx, react/no-array-index-key
+# in src/List.tsx). getff fills the empty slot with its own ESLint config, so `lint` is getff's script and
+# the arm pass runs it red: the typed rules that need strictNullChecks go off in getff's config
+# (99-finalize.sh _pc_null_rules_off), ESLint's bulk suppressions record the rest (_pc_suppress), and
+# `npm run lint` is armed. Asserts each of those by name, a new finding still failing the lint and the
+# commit, a fixed old finding keeping the lint green, the baseline shrinking through the probe and the
+# commit's fold (M2), and the rule table's proof through `npm run lint` (R2). Network: registry ESLint.
+#
 # Fail-closed: a missing tool is RED, never SKIP. Deterministic + API-free
 # (.claude/rules/no-paid-llm-in-ci.md); the npm registry is the only network it touches, exactly
 # like the sibling fresh-install cells.
 #
-# Usage: STACK=<ts-server|react-next|react-spa|react-native> [FIXTURE=own-config|vite-shape] \
+# Usage: STACK=<ts-server|react-next|react-spa|react-native> [FIXTURE=own-config|vite-shape|red-lint] \
 #          bash tests/consumer-matrix/own-config-cell.sh
 #        (FRAMEWORK_ROOT defaults to this checkout; CELL_KEEP=1 keeps the work dir for debugging.)
 set -euo pipefail
@@ -76,8 +85,9 @@ FIXTURE="${FIXTURE:-own-config}"
 case "$FIXTURE" in
   own-config) BRANCH=main; SRC=lib ;;
   vite-shape) BRANCH=master; SRC=src ;;
+  red-lint) BRANCH=main; SRC=src ;;
   *)
-    echo "✗ own-config-cell: FIXTURE must be own-config|vite-shape (got '${FIXTURE}')" >&2
+    echo "✗ own-config-cell: FIXTURE must be own-config|vite-shape|red-lint (got '${FIXTURE}')" >&2
     exit 2
     ;;
 esac
@@ -173,7 +183,7 @@ describe('answer', () => {
 TS
 # A new finding no autofix removes: tseslint's recommended no-unused-vars (pre-commit negative).
 PLANT_LINT='const plantedUnused = 1;\n'; PLANT_LINT_ID='no-unused-vars'
-else
+elif [ "$FIXTURE" = vite-shape ]; then
 step "fixture ($STACK): create-vite's shape — oxlint, a solution tsconfig, no strict, no prettier, no tests, master"
 OWN_KEPT="tsconfig.json tsconfig.app.json"; OWN_GROWS=".oxlintrc.json"; OWN_BINS="oxlint tsc vitest"
 # check:globs reads getff's ESLint config (none here, K4); format:check is red on create-vite's
@@ -252,9 +262,62 @@ printf "import { greet } from './greet.ts'\n\ndocument.title = greet('vite')\n" 
 # A new finding no autofix removes: a hook called conditionally (the project's own oxlint rule).
 PLANT_LINT='export function usePlanted(on: boolean) {\n  if (on) {\n    usePlantedInner()\n  }\n}\nfunction usePlantedInner() {}\n'
 PLANT_LINT_ID='rules-of-hooks'
+else
+step "fixture ($STACK): a TypeScript React project with NO linter, no strict, and old code getff's rules flag"
+# eslint and vitest are getff's here: the project has no linter of its own (GETFF_BINS).
+OWN_KEPT="tsconfig.json"; OWN_GROWS=""; OWN_BINS="tsc eslint vitest"; GETFF_BINS="eslint vitest"
+# The subject is the lint: getff's ESLint, red on the old code, armed once its baseline is recorded.
+# typecheck is green here (no strict, correct types), so it arms and its negative runs.
+EXPECT_ARMED="npm run lint|npm run typecheck"
+EXPECT_NOT="npm test"
+cat > package.json <<'JSON'
+{
+  "name": "red-lint-consumer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.8.0"
+  }
+}
+JSON
+printf 'node_modules/\ndist/\n.husky/_/\n' > .gitignore
+# No `strict`: the typed rules that need strictNullChecks cannot run (_pc_null_rules_off).
+cat > tsconfig.json <<'JSON'
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
+JSON
+# Old code with findings no autofix removes: an app root with no error boundary, an index as a key.
+printf 'export function App() {\n  return <main>Content</main>;\n}\n' > src/App.tsx
+printf 'export function List({ items }: { items: string[] }) {\n  return (\n    <ul>\n      {items.map((item, i) => (\n        <li key={i}>{item}</li>\n      ))}\n    </ul>\n  );\n}\n' > src/List.tsx
+# The fix of one old finding (M2): the item as the key.
+FIX_FILE="$SRC/List.tsx"
+FIX_BODY='export function List({ items }: { items: string[] }) {\n  return (\n    <ul>\n      {items.map((item) => (\n        <li key={item}>{item}</li>\n      ))}\n    </ul>\n  );\n}\n'
+# A new finding no autofix removes: an explicit any (getff's strictTypeChecked config).
+PLANT_LINT='export const planted: any = 1;\n'; PLANT_LINT_ID='no-explicit-any'
 fi
 git add -A
 git commit -qm "consumer baseline"
+FIXTURE_SHA=$(git rev-parse HEAD)
 # The consumer's configs as they were: OWN_KEPT must stay byte for byte; OWN_GROWS may only GROW —
 # every one of its lines still there, whole and in order (Q4.7: insertions only).
 for f in $OWN_KEPT $OWN_GROWS; do cp "$f" "$WORK/own-$f.before"; done
@@ -284,6 +347,10 @@ configs_changed() { # prints each way an install broke the consumer's configs, w
 # An oxlint project gets no getff ESLint config at all: one linter (P2 G5/K4).
 eslint_config_wired() {
   local f kept=""
+  if [ "$FIXTURE" = red-lint ]; then
+    if [ -f eslint.config.mjs ] && grep -qF 'eslint-rules-local' eslint.config.mjs; then return 0; fi
+    echo "the project has no linter, and getff did not fill the slot with its ESLint config"; return 1
+  fi
   if [ "$FIXTURE" = vite-shape ]; then
     for f in eslint.config.*; do
       [ -e "$f" ] && { echo "getff placed $f beside the project's oxlint — two linters (K4)"; return 1; }
@@ -301,7 +368,7 @@ step "fixture installs its OWN deps (before getff, as a real project would have 
 npm install --silent --no-audit --no-fund >"$WORK/own-install.log" 2>&1 \
   || { tail -20 "$WORK/own-install.log"; fail "fixture's own npm install failed"; }
 for bin in $OWN_BINS; do
-  case "$bin" in vitest) continue ;; esac # getff's, not the fixture's
+  case " vitest ${GETFF_BINS:-} " in *" $bin "*) continue ;; esac # getff's, not the fixture's
   test -x "node_modules/.bin/$bin" || fail "fixture's own $bin did not land"
 done
 
@@ -542,7 +609,10 @@ record_matches_expected() {
     [ "$c" = "${FOLD_ARMS:-}" ] && continue
     record_section not-armed | grep -qF -- "- $c # " && ! record_section armed | grep -qxF -- "- $c" || miss="$miss not-armed:'$c'"
   done
-  [ "$FIXTURE" = own-config ] || grep -qx 'linter: oxlint' .ai-factory/tool-decisions.md || miss="$miss linter:oxlint"
+  case "$FIXTURE" in
+    vite-shape) grep -qx 'linter: oxlint' .ai-factory/tool-decisions.md || miss="$miss linter:oxlint" ;;
+    red-lint) grep -qx 'linter: eslint' .ai-factory/tool-decisions.md || miss="$miss linter:eslint" ;;
+  esac
   [ -z "$miss" ] && return 0
   echo "the record is not the expected one — missing:$miss"
   awk '/<!-- aif:project-checks:end -->/{f=0} f; /<!-- aif:project-checks:begin -->/{f=1}' .ai-factory/tool-decisions.md
@@ -592,6 +662,79 @@ case "|$EXPECT_ARMED|" in
   *) RESULTS+=("SKIP  negative: typecheck  (not armed in this fixture — EXPECT_NOT; nothing to block)") ;;
 esac
 undo_planted
+
+# ── red-lint (M7): the suppression path end to end, the baseline shrinking (M2), the proof (R2) ──
+if [ "$FIXTURE" = red-lint ]; then
+  step "red-lint: getff's config, its baseline, the record — then a new finding, a fixed old one, the proof"
+  REC=.ai-factory/tool-decisions.md
+  sup_count() { node -e 'let n = 0; for (const f of Object.values(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")))) for (const r of Object.values(f)) n += r.count || 0; console.log(n)' "$1"; }
+  sup_line() { echo "lint-baseline: eslint-suppressions.json — $1 findings in existing code recorded; new ones still block"; }
+  # _pc_null_rules_off: its block in getff's eslint.config.mjs, naming at least one rule.
+  null_rules_off() {
+    local n
+    n=$(awk '/getff \(install\): these typed rules need the strictNullChecks/{f=1} f && /\{ rules: \{/{print; exit}' eslint.config.mjs | grep -o '": "off"' | wc -l | tr -d ' ')
+    [ "${n:-0}" -ge 1 ] || { echo "eslint.config.mjs has no getff block turning off the rules that need strictNullChecks"; return 1; }
+    echo "$n rule(s) off: they need strictNullChecks, which this tsconfig does not set"
+  }
+  run_step "red-lint: the strictNullChecks rules are off in getff's config" null_rules_off
+  # _pc_suppress: the old findings recorded, the record saying how many.
+  baseline_recorded() {
+    local n
+    [ -f eslint-suppressions.json ] || { echo "no eslint-suppressions.json — the old findings were not recorded"; return 1; }
+    n=$(sup_count eslint-suppressions.json)
+    [ "$n" -gt 0 ] || { echo "eslint-suppressions.json records no finding"; return 1; }
+    grep -qxF -- "$(sup_line "$n")" "$REC" || { echo "the record has no line «$(sup_line "$n")»"; grep '^lint-baseline:' "$REC"; return 1; }
+    # Only the project's own code is «existing code»: a file getff delivered is getff's to keep clean
+    # (its configs ignore it), never a finding the project inherits. R2 measured 32 of 34 from
+    # getff's scripts/prove-rules.mjs before it was ignored.
+    local f foreign=""
+    while IFS= read -r f; do
+      git cat-file -e "$FIXTURE_SHA:$f" 2>/dev/null || foreign="$foreign $f"
+    done < <(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync("eslint-suppressions.json", "utf8"))).join("\n"))')
+    [ -z "$foreign" ] || { echo "the baseline records files the project did not write:$foreign"; return 1; }
+    echo "$n old findings recorded, all in the project's own files"
+  }
+  run_step "red-lint: the old findings are recorded in eslint-suppressions.json" baseline_recorded
+  # A new finding still fails the lint (the commit half is «negative: pre-commit» above).
+  plant_lint_only() { printf '%b' "$PLANT_LINT" > "$SRC/planted.ts" && npm run lint; }
+  negative "negative: npm run lint, a new finding" "$PLANT_LINT_ID" plant_lint_only
+  undo_planted
+  # A fixed old finding keeps the lint green (--pass-on-unpruned-suppressions), and the baseline shrinks:
+  # the probe measures it into the sidecar, and the next commit's fold brings file and record down (M2).
+  SUP_BEFORE=$(sup_count eslint-suppressions.json 2>/dev/null || echo 0)
+  printf '%b' "$FIX_BODY" > "$FIX_FILE"
+  run_step "red-lint: a fixed old finding keeps npm run lint green" npm run lint
+  baseline_shrinks() {
+    local after
+    bash scripts/run-armed.sh --probe > "$(step_log shrink-probe)" 2>&1
+    grep -E "lint baseline eslint-suppressions\.json: $SUP_BEFORE → [0-9]+ findings" "$(step_log shrink-probe)" \
+      || { echo "the probe did not shrink the baseline:"; cat "$(step_log shrink-probe)"; return 1; }
+    if ! { git add -A && git commit -qm "fix one old finding"; }; then echo "the commit of the fix failed"; return 1; fi
+    after=$(git show HEAD:eslint-suppressions.json | sup_count /dev/stdin)
+    [ "$after" -lt "$SUP_BEFORE" ] || { echo "committed baseline $after, not below $SUP_BEFORE"; return 1; }
+    git show "HEAD:$REC" | grep -qxF -- "$(sup_line "$after")" || { echo "the committed record does not say $after"; return 1; }
+    git diff --quiet -- eslint-suppressions.json "$REC" || { echo "the fold left the baseline or the record dirty"; return 1; }
+    echo "baseline $SUP_BEFORE → $after, folded into the commit"
+  }
+  run_step "red-lint: the baseline shrinks through the probe and the commit (M2)" baseline_shrinks
+  # R2: the rule table, its proof through the project's own `npm run lint`.
+  rule_table_proves() {
+    local out rc=0
+    out=$(node scripts/prove-rules.mjs --prove 2>&1) || rc=$?
+    printf '%s\n' "$out"
+    [ "$rc" -eq 0 ] || { echo "prove-rules.mjs --prove exited $rc"; return 1; }
+    grep -qE '^bad batch → exit [1-9][0-9]* · good batch → exit 0 ' <<<"$out" \
+      || { echo "no proof line «bad batch → exit ≠0 · good batch → exit 0»"; return 1; }
+    # getff's config switches the H8 built-ins on for every file: each proves through `npm run lint`.
+    local b
+    for b in no-empty no-throw-literal; do
+      grep -qE "^\| $b \| H8 \| [^|]+ \| [a-z_]+ \| [^|]* \| bad→exit [1-9][0-9]*, its own diagnostic · good→exit 0, clean \|" <<<"$out" \
+        || { echo "the row of $b does not show its proof"; return 1; }
+    done
+  }
+  run_step "red-lint: the rule table's proof (R2)" rule_table_proves
+  echo "  rule table (R2):"; sed 's/^/      /' "$(step_log "red-lint: the rule table's proof (R2)")"
+fi
 
 # ── Generator arm (N14 / S5-9), data-driven on the committed research pairs ────────────────────
 RESEARCH=""

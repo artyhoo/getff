@@ -1561,9 +1561,14 @@ jobs:
         #   strict, no prettier, no tests, master): green stays green, the record's expected armed set
         #   and a paired negative per blocking channel (P2 §5). One stack: the preset is not the
         #   subject, the project's own linter is.
+        # red-lint — a TypeScript React project with NO linter, no strict and old code getff's rules
+        #   flag: getff's ESLint fills the slot, its baseline is recorded (bulk suppressions) and
+        #   shrinks as old findings are fixed, and the rule table proves through `npm run lint` (P5 M7).
         include:
           - stack: react-spa
             fixture: vite-shape
+          - stack: react-spa
+            fixture: red-lint
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
@@ -1691,11 +1696,11 @@ jobs:
         # first push (through the real shipped hooks) · the rule generator on an empty npm cache.
         # Known preset-template rot is printed as ROT, strictly (tests/consumer-matrix/known-rot.sh,
         # decision Q4.4). Deterministic + API-free per .claude/rules/no-paid-llm-in-ci.md.
-        if: matrix.fixture == 'own-configs' || matrix.fixture == 'vite-shape'
+        if: matrix.fixture == 'own-configs' || matrix.fixture == 'vite-shape' || matrix.fixture == 'red-lint'
         env:
           FRAMEWORK_ROOT: ${{ github.workspace }}
           STACK: ${{ matrix.stack }}
-          FIXTURE: ${{ matrix.fixture == 'vite-shape' && 'vite-shape' || 'own-config' }}
+          FIXTURE: ${{ matrix.fixture == 'own-configs' && 'own-config' || matrix.fixture }}
         run: bash tests/consumer-matrix/own-config-cell.sh
 
   framework-fresh-install-validate-multistack:
