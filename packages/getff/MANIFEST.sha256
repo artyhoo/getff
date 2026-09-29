@@ -7,9 +7,9 @@ eb124d77f5093cf3e78536abd5aa7ea93e2d99b63e9f28c99d31026abf6cd470  .claude/hooks/
 8e0f70776677174c09dffcfa97bfcb66c9039bd5f701b1fd1ebe5dacda685f27  .claude/hooks/check-worker-dispatch-channel.sh
 10b6d422e95b051d6fd697f16b77453f81a8ba1870e2dbf18fc88a0bb047170d  .claude/hooks/close-aif-task-on-merge.sh
 6cc4f623d4e277b75ea7f1f47abe975cb03b9e58cecd2dd9c390b8d0dad160b8  .claude/hooks/deps-hash-check.sh
-2bbcb21c7e8e62b82daaf52a6331641d829eb35689e50de156c33a061fb8f73b  .claude/hooks/end-of-turn-reminder.sh
+88c701da4886ab1f44fe8a64dbba3ffcfd9d6f724e732508c768c91323d1acfd  .claude/hooks/end-of-turn-reminder.sh
 2057a2c1befd79c4cd498833ec7aec02cc99d95b2a54b6b51707ff8bb92411dc  .claude/hooks/glossary-inject.sh
-8a4789e250be12610174ca7bc8c78a640938e62e1031593f3ecdc1b010f05828  .claude/hooks/inject-handoff-on-compact.sh
+6a53a97e5daa2ef2bd9a703cd5fbdc0516ab6ed339af46850bfd761b93faeeb3  .claude/hooks/inject-handoff-on-compact.sh
 030e76a0cacab56fdcd491e9a3e2280db1d5d901f2936b20f2ed1ded89d8fe05  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 df5b6733c508e863e3c9d7c5af5f3205bb02108d5e9a3af62577793b8bd83d4a  .claude/hooks/inject-output-language.sh
@@ -18,14 +18,14 @@ b0e1d6129328ae37b273e2b6f0c1e6483f6998cc36e60d220bc84ba47981571a  .claude/hooks/
 662cec213c70fe0c77d932ff58612de7c63072068ed6e15055f009329e9381ee  .claude/hooks/inject-subagent-context.sh
 cde32f185b4a770570803a9d9a7ac864f475bbac875576daf04df0db0965bf17  .claude/hooks/inject-subagent-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
-bf15241e237df9d4b63e203d3fc0fc68e205ebe6622f555a7149b15db00f56c8  .claude/hooks/lang/en.sh
-35981c11bcbe09b5685342ca042f132bc88ea724f755e565a8bca812945d031c  .claude/hooks/lang/ru.sh
+770c45c28f62048d7cd640721715ee313b31ba3d134bdb104e224544f5cf599e  .claude/hooks/lang/en.sh
+dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
-6adcaaf76b93a094a3a9651706357e1a1e7c1253d51d05e44609df0acfb57d7c  .claude/hooks/precompact-residue.sh
+6b16f80d978939dcc84987c7fd29ce7e303c8ab4b57e8972441d1c29fcb5bee8  .claude/hooks/precompact-residue.sh
 9d9548c80a55b8544eefa490f24eb644bf52f624b77ca78821bb9802743fc729  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
-62bc70051dd7d2ac7076d233ef490ad3c01f02220a346f48222a009a0f55dd13  .claude/hooks/warn-subagent-report.sh
+b7aca851ff2db268576bd2830e856443571fc48ad82d114bc7c38f492f8b2b5a  .claude/hooks/warn-subagent-report.sh
 6e69f52409a6f18472ad263dfc01eda7a313f5de43ef7cdab0598244ebe655cd  .claude/hooks/worktree-setup.sh
 caef584b754a0f09654cdf1b9dde8d0a0e9c3aa2da71d3efd0cba14272747c6b  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
@@ -122,7 +122,7 @@ c605506b6c8e1b51c06d0014d001ff0039de82989200d134234b25c40866f3a4  .claude/skills
 b99a3a092faeaa3f6ebced1712788d923fd4a8bd73b475404484541c32cb4552  .claude/skills/pipeline/references/presets/sdd.json
 42d0d38043f4838d08a99386659f48846fc46d412b055f92367fa0ffa4172253  .claude/skills/pipeline/references/red-flags.md
 5e53f12369a0f107451b69a4ea407c4ac3fad06750c159923cc4ba77a3fe944f  .claude/skills/pipeline/references/stage-gates.md
-205f8df133e685e037faae42fc228a5eab70318fc08be21c3c8a4d30d56db3b6  .claude/skills/pipeline/templates/meta-kickoff.template.md
+9fffe32cef9a34b5174c3c257573e17cbbbf2147c7ca0f16e6efc2e89ebe20d5  .claude/skills/pipeline/templates/meta-kickoff.template.md
 e279a989947be84b0fd28929640037ed4c5753b2d7adcb158129af3fa62d129d  .claude/skills/pipeline/templates/state.md.template
 d838b6a2c8c3b4ff1569e6316dee928bcd4aa6fa1df1cc1376a706d9f6893ed4  .claude/skills/reviewer/SKILL.md
 7dda969e1a79814d486cea5daba91b91df9a7fc657275c5511a0bd1433dba402  .claude/skills/rule-research/SKILL.md
@@ -469,7 +469,7 @@ c7fc99171a5c2ec6fd8912cf5bd671f5fb685865bb51631294928920e1adc19f  packages/core/
 444b29e50614470ba141f62b1d1f4c9925fc25952b6266255638f22320c5cd52  packages/core/hooks/dispatch-from-state.test.ts
 ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/hooks/done-md-completion-filter.test.ts
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
-259ba246af8cc4dc0c468467c43d07fb0f2b5d9ac7f04fdce59c2405760fb277  packages/core/hooks/end-of-turn-reminder.test.ts
+959eb459e1b52eaef332b9eeb366144133d539b7400da7aa2ddca2d3ca067316  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
@@ -945,7 +945,7 @@ fb462012e49e50ef3ed30b1d063c45e3901aa8dfa0f9d05ae1a6fae5a60d62dc  packages/core/
 a48342eab3a1a811e7d7280c9a867c2c35cea7752860f9f63767f248b760c577  packages/core/validator/validate.ts
 2149b57c0fa6e2c4f523b2a4e85c9cdcef60ea721570d3a9fe71e4884e08efca  packages/core/vitest.config.ts
 046510baad9481f0858a542be69556f67ded3815282494d482529317525ec54a  packages/core/vitest.host-env.ts
-2a3c4165d22e9184f79e741de8270c8e4ccb74199430d04f429bb4af92c6e055  packages/core/vitest.setup.ts
+76fa29ca7fcf73f468f8f737e9987a9ffa864fff379857210c7c5bdd33a9ad63  packages/core/vitest.setup.ts
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  packages/preset-next-15-canonical/RULES.md
 2e0b9b443b6159c73df29ec499cf7df12953b5139b197f77fb0f141c97b471b0  packages/preset-next-15-canonical/RULES.react-next.md
 288103356341825ec7a54e19529eeb1af41dc0050406244858c6873d852ea554  packages/preset-next-15-canonical/audit-self/audit-ai-docs.react-next.sh
