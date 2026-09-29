@@ -12,7 +12,7 @@ eb02bc137301120499702afda868b7fe033b395b615783b285cf521452dc2c84  .claude/hooks/
 8a4789e250be12610174ca7bc8c78a640938e62e1031593f3ecdc1b010f05828  .claude/hooks/inject-handoff-on-compact.sh
 030e76a0cacab56fdcd491e9a3e2280db1d5d901f2936b20f2ed1ded89d8fe05  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
-2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
+df5b6733c508e863e3c9d7c5af5f3205bb02108d5e9a3af62577793b8bd83d4a  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
 b0e1d6129328ae37b273e2b6f0c1e6483f6998cc36e60d220bc84ba47981571a  .claude/hooks/inject-session-bootstrap.sh
 662cec213c70fe0c77d932ff58612de7c63072068ed6e15055f009329e9381ee  .claude/hooks/inject-subagent-context.sh
