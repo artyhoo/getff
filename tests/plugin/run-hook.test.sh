@@ -154,11 +154,15 @@ reg() {
     '.hooks[$e] += [(if $m == "-" then {} else {matcher: $m} end) + {hooks: [{type: "command", command: $c}]}]' \
     "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 }
-# run_rh <shell> <hook> — dispatch with a clean language environment (no pin, no fallback file).
+# payload [<cwd>] — the JSON Claude Code writes to a hook's stdin; `cwd` is the session's directory.
+payload() { jq -nc --arg cwd "${1-$PROJ}" '{session_id: "s1", hook_event_name: "UserPromptSubmit", cwd: $cwd}'; }
+HOOKTMP="$TMPROOT/hooktmp"; mkdir -p "$HOOKTMP"
+# run_rh <shell> <hook> — dispatch with a clean language environment (no pin, no fallback file),
+# fed the payload in $RH_IN (default: cwd at the project root, as in a session started there).
 run_rh() {
   local sh="$1"; shift
-  env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" \
-    XDG_CONFIG_HOME="$EMPTY_XDG" "$sh" "$TMPD/run-hook.cmd" "$@" 2>/dev/null
+  printf '%s' "${RH_IN-$(payload)}" | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD \
+    CLAUDE_PROJECT_DIR="$PROJ" XDG_CONFIG_HOME="$EMPTY_XDG" TMPDIR="$HOOKTMP" "$sh" "$TMPD/run-hook.cmd" "$@" 2>/dev/null
 }
 # expect <label> <want> <got> — want "" means the plugin copy yielded (silent).
 expect() {
@@ -211,10 +215,10 @@ for SH in $SHELLS; do
   # blind to it → run. With the pin in the harness env both copies see it → yield.
   reset_proj; reg UserPromptSubmit - __lang_probe__
   printf 'ru\n' > "$TMPD/xdg/getff/hook-lang"
-  OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" \
+  OUT=$(payload | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" \
     XDG_CONFIG_HOME="$TMPD/xdg" "$SH" "$TMPD/run-hook.cmd" __lang_probe__ 2>/dev/null)
   expect "[$SH] Y8 pin from the fallback file only → runs" LANG=ru "$OUT"
-  OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$PROJ" \
+  OUT=$(payload | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$PROJ" \
     XDG_CONFIG_HOME="$TMPD/xdg" "$SH" "$TMPD/run-hook.cmd" __lang_probe__ 2>/dev/null)
   expect "[$SH] Y8 pin in the harness env → yields" "" "$OUT"
 
@@ -260,7 +264,7 @@ for SH in $SHELLS; do
 
   # Y16. GETFF_PLUGIN_NO_YIELD=1 forces the plugin copy to run (hosts that load fewer setting sources).
   reset_proj; reg UserPromptSubmit - __target__
-  OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR GETFF_PLUGIN_NO_YIELD=1 CLAUDE_PROJECT_DIR="$PROJ" \
+  OUT=$(payload | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR GETFF_PLUGIN_NO_YIELD=1 CLAUDE_PROJECT_DIR="$PROJ" \
     XDG_CONFIG_HOME="$EMPTY_XDG" "$SH" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
   expect "[$SH] Y16 GETFF_PLUGIN_NO_YIELD=1 → runs" RH_OK "$OUT"
 
@@ -326,13 +330,55 @@ for SH in $SHELLS; do
   printf '{}\n' > "$PROJ/plugin/.claude-plugin/plugin.json"; printf '{}\n' > "$TMPROOT/.claude-plugin/plugin.json"
   expect "[$SH] Y25 neither manifest names a plugin → runs" RH_OK "$(run_rh "$SH" __target__)"
   printf '{"name":"getff"}\n' > "$TMPROOT/.claude-plugin/plugin.json"; src_checkout
+
+  # Y26. The session's directory decides whose settings Claude Code runs. After EnterWorktree or
+  # /cd it runs only the new directory's settings, with no fallback to a parent directory, while
+  # CLAUDE_PROJECT_DIR stays at the start root. Only the payload's `cwd` follows the session, and
+  # a Bash cd moves it too. A cwd in a subdirectory cannot tell a Bash cd (project settings kept)
+  # from /cd (project settings gone), so only the project root itself yields.
+  reset_proj; reg UserPromptSubmit - __target__
+  mkdir -p "$PROJ/src/deep" "$PROJ/.claude/worktrees/wt/.claude" "$TMPROOT/elsewhere"
+  printf 'gitdir: /nonexistent\n' > "$PROJ/.claude/worktrees/wt/.git"
+  echo '{}' > "$PROJ/.claude/worktrees/wt/.claude/settings.json"
+  ln -s "$PROJ" "$TMPROOT/link-to-root"; ln -s "$PROJ/src" "$TMPROOT/elsewhere/link-to-src"
+  expect "[$SH] Y26 cwd at the project root → yields" "" "$(RH_IN=$(payload "$PROJ") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 cwd at the project root through a symlink → yields" "" \
+    "$(RH_IN=$(payload "$TMPROOT/link-to-root") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 cwd in a subdirectory (/cd there, or a Bash cd) → runs" RH_OK \
+    "$(RH_IN=$(payload "$PROJ/src/deep") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 cwd in a worktree of the project (EnterWorktree) → runs" RH_OK \
+    "$(RH_IN=$(payload "$PROJ/.claude/worktrees/wt") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 cwd outside the project → runs" RH_OK "$(RH_IN=$(payload "$TMPROOT/elsewhere") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 cwd outside the project, linked to a subdirectory → runs" RH_OK \
+    "$(RH_IN=$(payload "$TMPROOT/elsewhere/link-to-src") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 cwd that does not exist → runs" RH_OK "$(RH_IN=$(payload "$PROJ/gone") run_rh "$SH" __target__)"
+  expect "[$SH] Y26 payload without a cwd → runs" RH_OK "$(RH_IN='{"hook_event_name":"UserPromptSubmit"}' run_rh "$SH" __target__)"
+  expect "[$SH] Y26 payload that is not an object → runs" RH_OK "$(RH_IN='[]' run_rh "$SH" __target__)"
+  expect "[$SH] Y26 two payloads, both at the root → runs" RH_OK "$(RH_IN="$(payload) $(payload)" run_rh "$SH" __target__)"
+  expect "[$SH] Y26 no payload at all → runs" RH_OK "$(RH_IN='' run_rh "$SH" __target__)"
+
+  # Y27. When the cwd check keeps this copy running, the hook still receives the whole payload,
+  # byte for byte, trailing newlines included, and nothing is written to disk on the way.
+  cp "$TMPD/__target__" "$TMPD/__target__.keep"
+  printf '# AUTO-GENERATED from .claude/hooks/__target__.sh\ncksum\n' > "$TMPD/__target__"
+  IN="$(payload "$TMPROOT/elsewhere"; printf 'second line\n\nx')"; IN="${IN%x}"
+  expect "[$SH] Y27 the running copy reads the payload byte for byte" "$(printf '%s' "$IN" | cksum)" \
+    "$(RH_IN=$IN run_rh "$SH" __target__)"
+  # Y28. The running copy's exit code reaches Claude Code unchanged (2 is its blocking code).
+  printf '# AUTO-GENERATED from .claude/hooks/__target__.sh\ncat >/dev/null; exit 2\n' > "$TMPD/__target__"
+  RH_IN=$(payload "$TMPROOT/elsewhere") run_rh "$SH" __target__ >/dev/null; rc=$?
+  expect "[$SH] Y28 the running copy's exit code 2 is kept" 2 "$rc"
+  mv "$TMPD/__target__.keep" "$TMPD/__target__"
+  rm -rf "$PROJ/src" "$PROJ/.claude/worktrees" "$TMPROOT/elsewhere" "$TMPROOT/link-to-root"
 done
+left=$(find "$HOOKTMP" -type f | wc -l | tr -d ' ')
+expect "Y27 nothing written to TMPDIR" 0 "$left"
 
 # Y18. No hooks.json beside the dispatcher → the plugin's own registrations are unknown → run.
 NOHJ="$TMPD/nohooksjson"; mkdir -p "$NOHJ"; cp "$RH" "$NOHJ/run-hook.cmd"; cp "$TMPD/__target__" "$NOHJ/"
 mkdir -p "$TMPD/.claude-plugin"; printf '{"name":"getff"}\n' > "$TMPD/.claude-plugin/plugin.json"
 reset_proj; reg UserPromptSubmit - __target__
-OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" \
+OUT=$(payload | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" \
   XDG_CONFIG_HOME="$EMPTY_XDG" bash "$NOHJ/run-hook.cmd" __target__ 2>/dev/null)
 expect "Y18 no hooks.json beside the dispatcher → runs" RH_OK "$OUT"
 
@@ -342,7 +388,7 @@ for t in bash sh dirname head tr grep sed cat env; do
   p=$(command -v "$t") && ln -sf "$p" "$NOJQ/$t"
 done
 reset_proj; reg UserPromptSubmit - __target__
-OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD PATH="$NOJQ" CLAUDE_PROJECT_DIR="$PROJ" \
+OUT=$(payload | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD PATH="$NOJQ" CLAUDE_PROJECT_DIR="$PROJ" \
   XDG_CONFIG_HOME="$EMPTY_XDG" "$NOJQ/bash" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
 expect "Y9 no jq on PATH → runs" RH_OK "$OUT"
 
@@ -438,7 +484,7 @@ for have in none sha256sum shasum; do
     ln -sf "$p" "$B/$have"
   fi
   reset_proj; reg UserPromptSubmit - __target__
-  OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD PATH="$B" CLAUDE_PROJECT_DIR="$PROJ" \
+  OUT=$(payload | env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD PATH="$B" CLAUDE_PROJECT_DIR="$PROJ" \
     XDG_CONFIG_HOME="$EMPTY_XDG" "$B/bash" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
   if [ "$have" = none ]; then expect "C8 no sha256sum, no shasum → runs" RH_OK "$OUT"
   else
@@ -464,8 +510,8 @@ PROJECT_NAMES=$(jq -r '[.hooks[][].hooks[].command | capture("\\.claude/hooks/(?
 yielded=0; still=0
 for n in $PLUGIN_NAMES; do
   { grep '^#' "$REPO_ROOT/plugin/hooks/$n"; echo "echo RAN"; } > "$STUBS/$n"
-  OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$REPO_ROOT" \
-    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" "$n" </dev/null 2>/dev/null)
+  OUT=$(payload "$REPO_ROOT" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru \
+    CLAUDE_PROJECT_DIR="$REPO_ROOT" XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" "$n" 2>/dev/null)
   target=$(sed -n 's/^# @plugin-yields-to:[[:space:]]*//p' "$REPO_ROOT/plugin/hooks/$n" | head -n 1)
   if printf '%s\n' "$PROJECT_NAMES" | grep -qx "$n"; then
     [ -z "$OUT" ] && yielded=$((yielded+1)) || bad "R1 $n: the repo runs its own copy, the plugin copy fired too"
@@ -512,14 +558,14 @@ for nm in $INSTALLED; do
     bad "CR1 $nm: installed by setup.d/10-skills.sh but no plugin/hooks/$nm stub exists"
     continue
   fi
-  OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
-    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" "$nm" </dev/null 2>/dev/null)
+  OUT=$(payload "$CONS" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" "$nm" 2>/dev/null)
   if [ -z "$OUT" ]; then silenced=$((silenced+1))
   else bad "CR1 $nm: the consumer runs an identical copy, yet the plugin copy fired too"; fi
 done
 if [ -f "$STUBS/deps-hash-check" ]; then
-  OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
-    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" deps-hash-check </dev/null 2>/dev/null)
+  OUT=$(payload "$CONS" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" deps-hash-check 2>/dev/null)
   expect "CR1 deps-hash-check (cwd-relative registration) still fires" RAN "$OUT"
 else
   bad "CR1 deps-hash-check: no plugin/hooks/deps-hash-check stub exists"
@@ -538,7 +584,7 @@ PROMPT=$( {
   for n in $(jq -r '.hooks.UserPromptSubmit[].hooks[].command | capture("run-hook\\.cmd\" (?<n>[^ ]+)").n' \
       "$REPO_ROOT/plugin/hooks/hooks.json"); do
     [ "$n" = deps-hash-check ] && continue   # writes a cache file; its yield is covered by R1
-    echo '{"hook_event_name":"UserPromptSubmit"}' | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD \
+    payload "$REPO_ROOT" | env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD \
       CLAUDE_PROJECT_DIR="$REPO_ROOT" AIF_HOOK_LANG=ru XDG_CONFIG_HOME="$EMPTY_XDG" bash "$RH" "$n"
   done
 } 2>/dev/null )

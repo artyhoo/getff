@@ -96,6 +96,14 @@ fi
 #     GETFF_PLUGIN_NO_YIELD=1 forces this copy to run on such a host.
 #   - Only .claude/settings.json counts. settings.local.json is a separate setting source that a
 #     host can leave out, so a registration there may never fire.
+#   - Only while the session sits at the project root: after EnterWorktree or /cd, Claude Code
+#     takes project settings from the new directory only (no parent fallback) but keeps
+#     CLAUDE_PROJECT_DIR at the start root. Only the payload's `cwd` follows the session, and a
+#     Bash cd moves it too, so a cwd in a subdirectory cannot tell a Bash cd (settings kept) from
+#     /cd (settings gone) and runs. A missing or unreadable cwd runs. The payload is read into
+#     memory, never to disk, and handed on unchanged (a raw NUL byte, which JSON never carries, is
+#     dropped). Known limit: on this path the hook runs as a child, so a signal sent to this
+#     launcher's pid alone no longer reaches it.
 #   - Registration means a `.hooks` handler read with jq (settings.json also names hook scripts
 #     inside `permissions` strings), so no jq means run. The handler must be exactly
 #     {"type":"command","command":"bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/<name>.sh\""}, the
@@ -156,6 +164,7 @@ if [ -n "$_yield_mode" ]; then
   # names that must not also undergo pathname expansion); the loop body turns it back off right
   # away, because a declared directory is later hashed through a glob (getff_path_hash) that
   # `set -f` would turn into a literal. A later amendment scans the body for a globbing marker.
+  _yield_hit=''
   set -f
   for _name in $_yield_names; do
     set +f
@@ -178,10 +187,21 @@ if [ -n "$_yield_mode" ]; then
           | ($s[0] | pairs(.type == "command" and ((keys - ["type", "command", "statusMessage"]) | length) == 0
               and .command == ("bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/" + $t + ".sh\""))) as $have
           | ($need | length) > 0 and all($need[]; . as $x | any($have[]; . == $x)))' >/dev/null 2>&1; then
-      exit 0
+      _yield_hit=1; break
     fi
   done
   set +f
+  if [ -n "$_yield_hit" ] && [ ! -t 0 ]; then
+    # The trailing x keeps the payload's final newlines through the command substitution.
+    _rh_in="$(cat 2>/dev/null; printf x)"; _rh_in="${_rh_in%x}"
+    _rh_d="$(printf '%s' "$_rh_in" | jq -r '.cwd // empty' 2>/dev/null || true)"
+    # A cwd or project root that cannot be entered resolves to "" and keeps this copy running.
+    [ -n "$_rh_d" ] && _rh_d="$(cd "$_rh_d" 2>/dev/null && pwd -P)"
+    _rh_root="$(cd "$CLAUDE_PROJECT_DIR" 2>/dev/null && pwd -P)"
+    [ -n "$_rh_d" ] && [ "$_rh_d" = "$_rh_root" ] && exit 0
+    printf '%s' "$_rh_in" | bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
+    exit $?
+  fi
 fi
 
 exec bash "${SCRIPT_DIR}/${SCRIPT_NAME}" "$@"
