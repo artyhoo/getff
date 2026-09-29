@@ -221,3 +221,125 @@ describe('First-Steps SSOT ↔ AI Usage Guide parity', () => {
     expect(rendered.filter((id) => !declared.has(id))).toEqual([]);
   });
 });
+
+// ── The road: ONE ordered step list from install to report ───────────────────────────────────
+//
+// WHY: the install prompt is what an agent actually walks, and it used to be hand-written prose
+// that ended in «Stop here» and asked up to four questions. The road is that list as DATA (the
+// top-level `road` key of the same SSOT), and the prompt in INSTALL-FOR-AI.md is its render. A
+// step added to one side only, a reordered step or a renamed step is RED here, so a part that
+// plugs a step into the road cannot forget the prompt.
+//
+// `road` is deliberately NOT inside `sequences`: scripts/render-face-facts.mjs copies `sequences`
+// and `renders` verbatim into the site facts, and the road is not a per-profile First-Steps list.
+interface RoadStep {
+  id: string;
+  title: string;
+  action: string;
+  doneTest: string;
+}
+interface Road {
+  goal: string;
+  render: string;
+  steps: RoadStep[];
+}
+
+const PROMPT_PATH = 'INSTALL-FOR-AI.md';
+const README_PATH = 'README.md';
+
+/** The first ```text fence after the «Quick install» heading — the prompt a human pastes. */
+function promptBlock(md: string): string {
+  const head = md.indexOf('## Quick install');
+  if (head === -1) return '';
+  const open = md.indexOf('```text\n', head);
+  if (open === -1) return '';
+  const close = md.indexOf('\n```', open + 8);
+  return close === -1 ? '' : md.slice(open + 8, close);
+}
+
+/** A rendered road step is a line `N. [<id>] <title>` — the id is the identity, the title the text. */
+function promptSteps(block: string): Array<{ id: string; title: string }> {
+  return [...block.matchAll(/^\d+\.\s+\[([a-z0-9-]+)\]\s+(.+?)\s*$/gm)].map(
+    (m) => ({
+      id: m[1] as string,
+      title: m[2] as string,
+    }),
+  );
+}
+
+describe('The road ↔ install prompt parity', () => {
+  const road = (source as unknown as { road?: Road }).road;
+  const prompt = promptBlock(
+    readFileSync(join(REPO_ROOT, PROMPT_PATH), 'utf8'),
+  );
+  const readme = readFileSync(join(REPO_ROOT, README_PATH), 'utf8');
+
+  it('the source declares the road, and every step carries an action and a done-test', () => {
+    expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
+    const steps = (road as Road).steps;
+    expect(steps.length).toBeGreaterThan(0);
+    expect((road as Road).render).toBe(PROMPT_PATH);
+    for (const step of steps) {
+      expect(
+        step.action.trim().length,
+        `road step \`${step.id}\` has no action`,
+      ).toBeGreaterThan(0);
+      expect(
+        step.doneTest.trim().length,
+        `road step \`${step.id}\` has no done-test`,
+      ).toBeGreaterThan(0);
+    }
+    expect(new Set(steps.map((s) => s.id)).size, 'duplicate road step id').toBe(
+      steps.length,
+    );
+  });
+
+  it('the prompt renders the road step list, in order', () => {
+    expect(
+      prompt.length,
+      'no ```text prompt under «Quick install»',
+    ).toBeGreaterThan(0);
+    const declared = ((road as Road | undefined)?.steps ?? []).map(key);
+    expect(
+      declared.length,
+      'the road is empty — nothing to compare',
+    ).toBeGreaterThan(0);
+    expect(promptSteps(prompt).map(key)).toEqual(declared);
+  });
+
+  it('a reordered prompt is detected (the comparison is not vacuous)', () => {
+    const steps = promptSteps(prompt);
+    expect(steps.length).toBeGreaterThanOrEqual(2);
+    const swapped = [steps[1], steps[0], ...steps.slice(2)] as Array<{
+      id: string;
+      title: string;
+    }>;
+    expect(swapped.map(key)).not.toEqual(
+      ((road as Road | undefined)?.steps ?? []).map(key),
+    );
+  });
+
+  it('the road ends with the report and asks its one question before the installer runs', () => {
+    const ids = ((road as Road | undefined)?.steps ?? []).map((s) => s.id);
+    expect(ids[ids.length - 1]).toBe('report');
+    expect(ids.indexOf('ask-once')).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf('ask-once')).toBeLessThan(ids.indexOf('install'));
+  });
+
+  it('no prompt tells the agent to stop before the report', () => {
+    expect(prompt).not.toMatch(/Stop here/);
+    expect(readme).not.toMatch(/Stop here/);
+  });
+
+  it('the prompt maps the one answer to the three installer flags', () => {
+    expect(prompt).toMatch(/setup -y <detected-stack>/);
+    expect(prompt).toMatch(/setup -y --global <detected-stack>/);
+    expect(prompt).toMatch(/setup --all <detected-stack>/);
+  });
+
+  it('the shipped road names no internal program part', () => {
+    // The SSOT is part of the shipped package payload; «P1»…«P6» are this repo's planning names.
+    expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
+    expect(JSON.stringify(road)).not.toMatch(/\bP[0-6]\b/);
+  });
+});

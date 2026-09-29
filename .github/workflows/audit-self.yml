@@ -1520,7 +1520,7 @@ jobs:
         #   ignore everything getff ships (the #779 / first-commit-passable replays below).
         # own-configs — install into a project that already OWNS its eslint.config.mjs + tsconfig,
         #   so the consumer's tools check getff's delivery, then run the whole INSTALL-FOR-AI.md
-        #   step-4 list (operator decision Q4.3, 2026-09-28: the empty fixture never ran typecheck,
+        #   check list (operator decision Q4.3, 2026-09-28: the empty fixture never ran typecheck,
         #   build or validate and planted its test under src/, which is how a red fresh install of
         #   a real project shipped green). Stack-neutral: one fixture, STACK only picks the preset.
         fixture: [empty-manifest, own-configs]
@@ -1645,7 +1645,7 @@ jobs:
           test -x node_modules/.bin/eslint \
             || { echo "::error::eslint not installed — install.sh --full dep install failed; the lint gate cannot run (false-green guard)"; exit 1; }
           npm run lint
-      - name: "Own-configs cell: a project that owns its eslint + tsconfig → the whole INSTALL-FOR-AI.md step-4 list (Q4.3)"
+      - name: "Own-configs cell: a project that owns its eslint + tsconfig → the whole INSTALL-FOR-AI.md check list (Q4.3)"
         # tests/consumer-matrix/own-config-cell.sh: fixture → a clean-clone copy of this tree →
         # install.sh $STACK --full → typecheck · lint · test · build · validate · first commit ·
         # first push (through the real shipped hooks) · the rule generator on an empty npm cache.

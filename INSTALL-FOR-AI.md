@@ -24,8 +24,8 @@ cd /tmp/getff
 
 **ALWAYS — proceed without asking the user:**
 
-- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; **ask first** before adding `--global`, which also installs user-scope Claude plugins and MCP servers and `npm -g` tools on this machine. The runtime-bridge step needs no `--global` for your project: it writes only that project's `.claude/settings.json` (the hook) and `.claude/settings.local.json` (the machine-local aif-handoff URL and project id).
-- Fill `<PLACEHOLDER>` markers in `DESCRIPTION.template.md` and `ARCHITECTURE.ts-server.md`.
+- Run `bash setup -y <stack>` (preferred one-shot: all layers + dev-deps + project-scoped companions) or `bash install.sh <stack>` (framework-only). `-y` installs into the project only and skips every machine-global companion; `--global`, which also installs user-scope Claude plugins and MCP servers and `npm -g` tools on this machine, and `--all` are chosen only by the human's answer to the one pre-launch question of the prompt below. The runtime-bridge step needs no `--global` for your project: it writes only that project's `.claude/settings.json` (the hook) and `.claude/settings.local.json` (the machine-local aif-handoff URL and project id).
+- Draft `.ai-factory/DESCRIPTION.md` from the project's own files (the `draft-passport` step) when it is still the shipped template.
 - Run `npm run validate` (or the project's equivalent) and `bash scripts/audit-ai-docs.sh`.
 
 **ASK FIRST — pause and report your reasoning before acting:**
@@ -48,34 +48,30 @@ cd /tmp/getff
 ## Quick install — copy-paste prompt
 
 ```text
-Install getff into this project. Follow these steps exactly:
+Install getff into this project. Walk the steps below in order, in this one session.
 
-1. Verify prerequisites:
-   - Node.js 22.23+ (`node --version`)
-   - npm available
-   - git initialized in this project
-
-2. Detect the project stack, or omit the positional and let the installer do it.
-   `setup.d/lib.sh` `_detect_stack_from_pkg` takes the FIRST matching package.json dep key:
-   `react-native`→react-native, `next`→react-next, `react`→**react-spa** (a plain React dep does NOT give react-next), `typescript`→ts-server, else "unknown". `next.config.*` is never read.
-   Show me the detection result and ask if I want to override.
-
-3. From THIS project's directory (not the framework checkout — the installer
-   refuses to run inside the package directory itself), run:
+1. [preflight] Check the installer's prerequisites
+   git is initialized here and the getff checkout from Step 0 exists. On an npm project also
+   Node.js 22.23+ and npm: the installer needs them, my project does not have to.
+2. [preview] Preview the stack and the tool list
+   From THIS project's directory (never the getff checkout) run `bash /tmp/getff/setup --dry-run`.
+   It writes nothing. Read the detected stack and the «Companions» section from its output.
+   Detection takes the FIRST matching package.json dep key: `react-native`, `next`→react-next,
+   `react`→**react-spa**, `typescript`→ts-server, else unknown; `next.config.*` is never read.
+3. [ask-once] Ask the ONE question
+   Show me the detected stack, what goes into this project and what would go machine-wide, then
+   ask once: «Where may I install?» My answer picks the command of step 4:
+   1 — this project only:
    `bash /tmp/getff/setup -y <detected-stack>`
-   (adjust the path if Step 0 cloned the framework elsewhere)
-
-   `-y` installs the curated consumer set at `env` depth — the right default. Use
-   `bash /tmp/getff/setup --all <detected-stack>` INSTEAD only if I explicitly
-   tell you this machine runs the aif-handoff operator runtime: --all
-   additionally ships the AIF operator suite (5 skills + 2 agents +
-   skill-context) at `factory` depth that dead-ends without that runtime.
-   Equivalent new-syntax forms: `install.sh <stack> --profile factory` (recommended for
-   new installs) or `install.sh <stack> --with-aif-suite` (legacy escape). When unsure, use -y
-   (i.e. env). Pass `--profile core` for the rules-only depth below the default. See
-   "Install depth profiles" below for the full core/env/factory breakdown.
-
-   This installs (verified against a real default install, 2026-08-17):
+   2 — also the machine-wide tools listed: `bash /tmp/getff/setup -y --global <detected-stack>`
+   3 — everything: 2 plus the AIF operator suite (5 skills + 2 agents; it does not install aif-handoff
+   itself, clone anything or start containers): `bash /tmp/getff/setup --all <detected-stack>`
+   Offer answer 3 only when `curl -sf "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health"` succeeds.
+   Also say: a wrong stack can be corrected in the same answer; rules for my stack are researched
+   after the install, and «without research» skips that. Ask nothing else during the run.
+4. [install] Run the installer with the chosen flag
+   Run the command my answer picked (adjust the path if Step 0 cloned elsewhere). Keep the
+   «Checked by the install» block and every «NOT wired» line for the report. It installs:
    <!-- getff:begin section=install-roster plan=scripts/render-install-roster.mjs -->
    - `.claude/agents/` — 12 files: aif-init, capability-reuse-auditor, claims-conformance-auditor, compliance-verifier, docplan-auditor, docs-form-auditor, fidelity-auditor, living-docs-auditor, memory-codification-auditor, review-sidecar, rule-researcher, rule-test-author
    - `.claude/skills/` — 11 dirs at the default `env` depth: the 6-dir core set — ai-doc, getff, rule-research, rule-tests, template-audit, tool-bootstrapping — plus the operator contour arch, night-mode, orchestrator, pipeline, reviewer
@@ -89,28 +85,32 @@ Install getff into this project. Follow these steps exactly:
    - .husky/pre-commit, .husky/pre-push
    - package.json scripts (lint, typecheck, test, audit:docs, validate, etc.)
    - Dev dependencies via `npm install -D` (~25 packages)
+5. [verify-payload] Verify the payload landed
+   `ls AGENTS.md .ai-factory/ scripts/ .claude/agents/ .claude/skills/`
+6. [draft-passport] Draft the project passport
+   If `.ai-factory/DESCRIPTION.md` is byte-identical to `.ai-factory/DESCRIPTION.template.md`, draft it
+   from this project's own files by following `.claude/agents/aif-init.md`; mark every guess
+   `[GUESSED — verify]`. A passport the project already had is kept as it is. Do not wait for me.
+7. [tools-parity] Check that everything getff uses for itself is installed or marked
+   Not built yet: report «not done: not built yet».
+8. [base-core-status] Read the base-core list with a status per principle
+   Not built yet: report «not done: not built yet».
+9. [research] Research rules for the stack
+   Unless I said «without research»: follow `/tmp/getff/agents/rule-researcher.md`; report where it ended.
+10. [place-rules] Write one rule table and place each rule in its home
+   Not built yet: report «not done: not built yet».
+11. [prove-rules] Prove the placed rules in one batch run
+   Not built yet: report «not done: not built yet».
+12. [project-checks] Run the project's own check commands as the installer wired them
+   On the four npm stacks: `npm run validate` and `npm run audit:docs`; quote exit codes and failing lines.
+   A failure on my existing code is a finding, not a stop. No command known for the stack → «not done».
+13. [report] Print the final report
+   Use the format under «What the AI will produce»: one line per step above, in order, none omitted.
 
-4. After setup completes, do these checks and report results:
-   a. `npm run typecheck` — should pass on a fresh project
-   b. `npm run lint` — may have warnings on existing code, that's OK
-   c. `npm run audit:docs` — should run, may report findings (read them aloud to me)
-   d. `ls -la .claude/agents/` — confirm the 11 files listed above exist; orchestrator-worker-discipline.md + reviewer-discipline.md appear only after --profile factory / --with-aif-suite / --all
-   e. `ls -la .ai-factory/` — confirm DESCRIPTION.md, ARCHITECTURE.md, RULES.md, AI-USAGE-GUIDE.md exist
-
-5. Read .ai-factory/DESCRIPTION.md and tell me which placeholders need filling.
-   DO NOT fill them yourself — these are project-specific and require my input.
-
-6. Read .ai-factory/RULES.md (R1-R11) and ask me which rules to keep, adjust, or remove for this project.
-
-7. If stack is react-next, also read .ai-factory/RULES.react-next.md (R12-R20).
-
-8. Stop here. Do NOT start implementing features. The setup is meant to be reviewed before use.
-
-After all this, tell me:
-- What was installed (file count, total size)
-- Any warnings or errors encountered
-- The 3 most important things I should manually edit
-- The exact command to verify everything is wired up: `npm run validate && npm run audit:docs`
+Rules of the road: do not stop between steps and ask me nothing after the one question of step 3.
+When a step cannot be done, write «not done» with the reason and go on to the next step. Do not
+remove or skip a rule, and do not start implementing features of the project: the road ends at the
+report.
 ```
 
 ---
@@ -201,12 +201,24 @@ The installer NEVER reads the key value — only the env-var name `ANTHROPIC_AUT
 
 ## What the AI will produce
 
-After running the prompt, the AI owes you a structured summary containing exactly these four things — counts come from the install output, never from this doc:
+After the last step the AI prints this report and writes no file for it. Counts and lines come from
+the run, never from this doc.
 
-1. **What landed** — the file count and the per-directory breakdown the installer printed (`.claude/agents/`, `.claude/skills/`, `.ai-factory/`, `scripts/`, root configs, `.husky/`).
-2. **Warnings and errors** — verbatim, not summarised. Pre-existing lint errors in your `src/` are normal on a brownfield repo.
-3. **Manual edits needed, in priority order** — typically `.ai-factory/DESCRIPTION.md` placeholders first, then a pass over `.ai-factory/RULES.md` to drop rules that do not fit, then project-specific probes in `scripts/audit-ai-docs.sh`.
-4. **The verification command** — `npm run validate && npm run audit:docs`.
+```text
+getff install report — <project> — <date>
+Answer to the pre-launch question: <answer> → flag <flag>
+
+STEPS
+<n>. [<id>] <title> — done
+      check: <command that re-proves it>
+<n>. [<id>] <title> — not done: <reason>
+
+NOT WIRED BY THE INSTALL      (the installer's own «NOT wired» lines, verbatim)
+PRINCIPLES NOT WIRED YET      (one line per principle with its reason, or why the list is unavailable)
+PASSPORT DRAFT                (full text of .ai-factory/DESCRIPTION.md; «also drafted: <path>»; count of
+                               guessed lines; «to correct it, tell me in words what is wrong»)
+WHAT I NEED FROM YOU          («nothing», or real decisions only — never a list of manual edits)
+```
 
 ---
 
@@ -561,39 +573,3 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule-globs, lint-staged resolution, generated-rule firing, links)        |
 | A rule provably fires                   | `bash scripts/check-fences-fire.sh`                   | Planted bad input goes RED — the install is proven, not just present                           |
 | Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                        |
-
----
-
-## After install — continue into `/rule-research` in the same session
-
-The install prompt above ends with "Stop here. Do NOT start implementing features" — that
-injunction applies to **feature implementation**. It does **not** end the session: the same
-agent that just installed the framework proceeds directly into `/rule-research` to bootstrap
-stack-specific rules from live documentation, in the same session, before reporting back to
-the operator. The rule-research loop is part of the install — the framework's thesis is that
-rules are tested for firing at delivery time, not shipped pre-baked; researched rules are how
-that thesis extends beyond the curated starter set the installer delivered.
-
-**How the agent continues** (per stack):
-
-- **npm lanes** (`ts-server` / `react-next` / `react-spa` / `react-native`) — read
-  `agents/rule-researcher.md` for the author → render → join → lock sequence (the
-  `AstgrepResearchedPractice` arm covers ast-grep structural rules; the ESLint arm covers L4
-  single-token-diff candidates via `./setup --full`).
-- **python lane** — read `agents/rule-researcher.md` python arm. Generation needs Node
-  (`npx tsx …` from the framework checkout); the python install itself stays Node-free (the
-  fork F-A resolution cited at the python-segment scope note above).
-- **cargo lane** — `agents/rule-researcher.md` rust arm points at the clippy bridge. The
-  pre-rendered clippy-bans delivery lane (`setup.d/46-cargo.sh`, W4 / #1080, activated by
-  `GETFF_TOOLCHAIN=cargo`) has landed; the research/join seam (a `--from-rust-practice` CLI arm
-  - `_cargo_join_researched_rules` consumer-side helper) is the honest residual gap, named as a
-    widening stage in the rust arm — NOT a silent promise that the full loop is closed.
-
-**Stopping rule:** research is skipped **only** on an explicit operator opt-out. The shape of
-the opt-out (an env var, a prompt at install time, or a documented sentence the agent reads)
-is intentionally not fixed by this doc — three candidate consumer contracts exist and the
-choice is itself an operator decision. **Surface it explicitly at first contact; do NOT
-silently assume a shape.** (Parked per `getff-any-stack-trace` S3 §4; spec §6.1 fixes that an
-opt-out exists, not what it is.) Until the operator settles the shape, the safe behaviour is
-to **prompt the operator before continuing past install** — that is one of the three candidate
-shapes and it satisfies «explicit opt-out» by construction (the operator says no out loud).
