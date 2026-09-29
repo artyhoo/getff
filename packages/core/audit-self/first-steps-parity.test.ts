@@ -369,6 +369,49 @@ describe('The road ↔ install prompt parity', () => {
     expect(prompt.match(/node scripts\/prove-rules\.mjs --prove/g)).toHaveLength(1);
   });
 
+  it('no road step is a placeholder: each one names what it reads', () => {
+    // Found by the cold run (2026-09-30): steps 7 and 8 still read «not built yet» after the things
+    // they read had shipped, so the report stated a false reason and the agent improvised the list.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    expect(JSON.stringify(steps)).not.toMatch(/not built yet/i);
+    expect(prompt).not.toMatch(/not built yet/i);
+    const reads: Record<string, RegExp> = {
+      'tools-parity': /getff:installed-versions/,
+      'base-core-status': /\.claude\/skills\/getff\/references\/base-core\.md/,
+      'project-checks': /aif:project-checks/,
+    };
+    for (const [id, what] of Object.entries(reads)) {
+      const step = steps.find((s) => s.id === id);
+      expect(step?.action, `road step \`${id}\` does not name what it reads`).toMatch(what);
+      expect(step?.action, `road step \`${id}\` has no fallback`).toMatch(/«not done/);
+      expect(prompt, `the prompt does not name what \`${id}\` reads`).toMatch(what);
+    }
+  });
+
+  it('the one question carries every pre-launch choice the installer waits for', () => {
+    // The installer writes two groups only on a pre-launch «yes» that reaches it as a variable;
+    // a choice the question never offers cannot be made through the road.
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const name of ['GETFF_SESSION_SETTINGS=1', 'GETFF_STACK_TOOLS=1']) {
+      expect(ask?.action, `the question does not offer ${name}`).toContain(name);
+      expect(prompt, `the prompt does not pass ${name}`).toContain(name);
+    }
+    expect(prompt.match(/\bask once\b/gi), 'the prompt must ask exactly once').toHaveLength(1);
+  });
+
+  it('the research step takes the one answer as its confirmation', () => {
+    const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
+    expect(research?.action).toMatch(/without asking/);
+    expect(prompt).toMatch(/without asking/);
+  });
+
+  it('the preview shows the stack word as the installer prints it', () => {
+    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    expect(preview?.action).toMatch(/`generic`/);
+    expect(prompt).toMatch(/`generic`/);
+    expect(prompt).not.toMatch(/else unknown/);
+  });
+
   it('the shipped road names no internal program part', () => {
     // The SSOT is part of the shipped package payload; «P1»…«P6» are this repo's planning names.
     expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
