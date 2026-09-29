@@ -726,6 +726,15 @@ while IFS='|' read -r ev cmd nm mt; do
   creg "$ev" "${mt:--}" "$cmd"
 done < <(sed -nE "s/.*register_cc_hook \"\\\$SETTINGS\" \"([A-Za-z]+)\" '([^']+)' \"([a-z0-9-]+)\"( \"([^\"]+)\")?.*/\1|\2|\3|\5/p" \
   "$REPO_ROOT/setup.d/10-skills.sh")
+# The loader registers through register_imr_hooks (setup.d/lib.sh, three events), not a literal
+# register_cc_hook line the parse above can read: run the real function on the consumer, so the
+# sweep still counts the loader.
+if grep -qE '^[[:space:]]*register_imr_hooks "\$SETTINGS"' "$REPO_ROOT/setup.d/10-skills.sh"; then
+  cp "$REPO_ROOT/.claude/hooks/inject-matching-rule.sh" "$CONS/.claude/hooks/inject-matching-rule.sh"
+  case " $INSTALLED " in *" inject-matching-rule "*) : ;; *) INSTALLED="$INSTALLED inject-matching-rule" ;; esac
+  ( INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+    register_imr_hooks "$CONS/.claude/settings.json" ) >/dev/null
+fi
 cp "$REPO_ROOT/packages/core/hooks/deps-hash-check.sh" "$CONS/.claude/hooks/deps-hash-check.sh"
 creg UserPromptSubmit - "$(sed -n 's/^HOOK_CMD="\(.*\)"$/\1/p' "$REPO_ROOT/setup.d/10-skills.sh")"
 # Strict: every hook `register_cc_hook` actually installed must be checked and must silence — a
