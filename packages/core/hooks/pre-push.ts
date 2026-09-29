@@ -2254,7 +2254,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * were already realized:
  *
  *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
- *       `.ai-factory/tier-home.md` (30-templates.sh:113) had no row at all, so on a
+ *       `.ai-factory/tier-home.md` (30-templates.sh:126) had no row at all, so on a
  *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
  *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
  *       (no docs/ on that checkout) and OUR shipped content blocks THEIR push — the

@@ -167,7 +167,7 @@ mkdir -p "$residue_dir" 2>/dev/null || exit 0
 residue_file="${residue_dir}/_residue-${session_key}.md"
 
 # ── Anchor: what this session was about ──────────────────────────────────────
-# The title and first-instruction extraction of end-of-turn-reminder.sh:609-668, without its
+# The title and first-instruction extraction of end-of-turn-reminder.sh:610-669, without its
 # per-session cache and D-I filter — the session title first (an explicit `custom-title`,
 # which the desktop app writes INSTEAD of CC's `ai-title`, outranks the generated one), head
 # of the first user instruction second, with the tag blocks a hook injects ahead of it

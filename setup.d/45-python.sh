@@ -1416,7 +1416,7 @@ _py_deliver_agent_surface() {
   # (install.sh:1403). Its siblings below stay copy_safe: they are consumer-editable by contract.
   _py_copy_or_refresh "$PKG_ROOT/packages/core/templates/shared/AI-USAGE-GUIDE.md" "$PROJECT_ROOT/.ai-factory/AI-USAGE-GUIDE.md"
 
-  # Materialize the AGENTS.md-referenced SoT (30-templates.sh:76-86). AGENTS.md.template sends the
+  # Materialize the AGENTS.md-referenced SoT (30-templates.sh:87-98). AGENTS.md.template sends the
   # first agent session to .ai-factory/DESCRIPTION.md + ARCHITECTURE.md; without materialization
   # the references dangle on landing (the framework's first impression).
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"

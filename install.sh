@@ -626,9 +626,9 @@ elif [ -n "$WITH_AIF_SUITE" ] && [ "$PROFILE" != "factory" ]; then
 fi
 # No --profile flag at all → TTY menu (interactive human) or non-TTY default.
 # The TTY menu is the HUMAN surface. The non-interactive contract used everywhere
-# else in this script (--full/-y at install.sh:723 fail-loud instead of showing
-# the stack menu; --full/--dry-run at :470 decline the python/cargo
-# toolchain prompts) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
+# else in this script (--full/-y at install.sh:755 take `generic` instead of showing
+# the stack menu; --full/--dry-run at :497 claim the detected python/cargo/go
+# lane without a prompt) MUST also skip this menu. Otherwise `bash /tmp/getff/setup
 # -y <stack>` attached to a terminal — the exact invocation the INSTALL-FOR-AI.md
 # prompt tells an AI to run (its `setup -y <detected-stack>` line) — hangs on
 # `read -rp` here, regressing kickoff §4 item 3 (existing flag back-compat) and
