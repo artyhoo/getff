@@ -1,0 +1,71 @@
+// The rule-researcher doc and the plan gate agree on where a Tier-1 package goes.
+//
+// agents/rule-researcher.md tells the researcher how to write a Tier-1 (derived, npm) provenance.
+// The gate reads the ENTRY-level `package` as the scope-lock (research-source-trust.md
+// #trust-by-name-not-scope) and only then activates Tier 1 (allowlist-resolver.ts
+// validateUrlAgainstTiers). A doc that names only provenance `packageName` produced plans that
+// fell through to Tier 2 and died as FF2005 «unknown allowlistKey», naming the wrong field (P0
+// run 1, the `vite-env-via-import-meta` entry). This test parses the doc's own Tier-1 example and
+// runs it through the real gate, so the doc cannot drift from the gate again.
+
+import { describe, it, expect } from 'vitest';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+import { checkResearchPlan } from './validate-plan.ts';
+import { npmAdapter } from './ecosystem-npm.ts';
+
+const REPO = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..');
+const DOC = join(REPO, 'agents/rule-researcher.md');
+const HEADING = '### Tier-1 entry shape';
+
+function docTier1Example(): Record<string, unknown> {
+  const doc = readFileSync(DOC, 'utf8');
+  const at = doc.indexOf(HEADING);
+  expect(at, `${DOC} has no "${HEADING}" section`).toBeGreaterThan(-1);
+  const fence = /```json\n([\s\S]*?)\n```/.exec(doc.slice(at));
+  expect(fence, `no \`\`\`json block after "${HEADING}"`).not.toBeNull();
+  return JSON.parse(fence![1]) as Record<string, unknown>;
+}
+
+function consumerWith(pkg: string, homepage: string): string {
+  const root = mkdtempSync(join(tmpdir(), 'researcher-doc-tier1-'));
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { [pkg]: '^7.0.0' } }));
+  const dir = join(root, 'node_modules', pkg);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: pkg, homepage }));
+  return root;
+}
+
+function planOf(entry: Record<string, unknown>): unknown {
+  return { framework: null, version: null, patterns: [entry], missing: [], drift: null };
+}
+
+describe('agents/rule-researcher.md Tier-1 example ↔ the plan gate', () => {
+  const entry = docTier1Example();
+  const pkg = entry['package'];
+  const prov = (entry['provenance'] as Array<Record<string, unknown>>)[0]!;
+  const homepage = `https://${new URL(String(prov['url'])).host}/`;
+
+  it('the example names the package at BOTH levels, the same name', () => {
+    expect(typeof pkg).toBe('string');
+    expect(prov['packageName']).toBe(pkg);
+    expect(prov['allowlistKey']).toBe(pkg);
+  });
+
+  it('the example passes the gate when the package is a direct dependency', () => {
+    const root = consumerWith(String(pkg), homepage);
+    const r = checkResearchPlan(planOf(entry), { root, adapter: npmAdapter });
+    expect(r.diagnostics).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+
+  it('without the entry-level `package` the gate names the missing field (FF2017), not FF2005', () => {
+    const root = consumerWith(String(pkg), homepage);
+    const { package: _dropped, ...withoutPackage } = entry;
+    const r = checkResearchPlan(planOf(withoutPackage), { root, adapter: npmAdapter });
+    expect(r.diagnostics.map((d) => d.code)).toEqual(['FF2017']);
+    expect(r.diagnostics[0]!.message).toContain(`"package": "${String(pkg)}"`);
+  });
+});
