@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 8b2f786ea6c750f06d4ee1dd880943bce4a625e138fde1059f547d1beb08c777  .ai-factory/RULES.md
 652ed1ee550c21951637c7f3590fb4c157d634547accb5076962ac00d5060e7f  .ai-factory/RULES.react-spa.md
-976744b83c04ea4f70fd156357d44557ffdde02d722f8440a5ef474cb11a22c3  .ai-factory/refresh-baseline.json
+6cdfa83b91df45c18efbcf91bfeadd6b795a83be9ee62cb4a7d734271617162b  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 6d2d6dba33149923b748ac55138e5e2ba548752b6c23e41628aed850e6082343  .ai-factory/skill-context/aif-review/SKILL.md
 27ad895b2f17b72d95f60e32eadbdc70182f99962cabbd9fd31cfd21f91fd448  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -30,7 +30,7 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 2bbcb21c7e8e62b82daaf52a6331641d829eb35689e50de156c33a061fb8f73b  .claude/hooks/end-of-turn-reminder.sh
 030e76a0cacab56fdcd491e9a3e2280db1d5d901f2936b20f2ed1ded89d8fe05  .claude/hooks/inject-matching-rule.sh
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
-df5b6733c508e863e3c9d7c5af5f3205bb02108d5e9a3af62577793b8bd83d4a  .claude/hooks/inject-output-language.sh
+2e26f30d78e3e0b2d730530b8133dc6cc4aed215bb96a72dea78288b2d36cfbb  .claude/hooks/inject-output-language.sh
 c64a41278ae6f723c8c44c35ccefc47da66206437ca2e8ac65fd676af805c482  .claude/hooks/inject-project-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
 bf15241e237df9d4b63e203d3fc0fc68e205ebe6622f555a7149b15db00f56c8  .claude/hooks/lang/en.sh
@@ -47,10 +47,10 @@ dc9e65fe88c01c85717419f2e4ad3589af9d27a6fcdf5105558ec1baefb1ad9c  .claude/skills
 80289bc385c2f875040b9893c61dcf6c81cb779f3a8fde84916a7100f89af1c1  .claude/skills/arch/references/grilling.md
 d1750fe467f732d5a18c0f78785390713fc114938c1a2c8890f9e3f90dc42a88  .claude/skills/getff/SKILL.md
 99293bb67c78eb468e27dfdadc11de3d100ad5e54e7bb031812953aeece8d6dd  .claude/skills/getff/references/ai-traps.md
-3db97e1ca7fe56ee5a095ab7c28c65c4ff97e3e544d196b6b175fcde655b72d2  .claude/skills/getff/references/checks-map.md
-eacf5fa883d483ee76a518e889c4aeb77fbad83c77306ca8ee0a9e237a59139f  .claude/skills/getff/references/doc-organization.md
+0be4c377dea28cbc23de472e61f4dfce7176179204f676e5346c242cb8b1eae2  .claude/skills/getff/references/checks-map.md
+94300a0a26f53f46355143ebfa59ae8f4f9af17febd75985651bc7f86135e03c  .claude/skills/getff/references/doc-organization.md
 aa4eaafe04488bc92d68eef16548129c007e4894f347a476453f5dda7a893476  .claude/skills/getff/references/overview.md
-025b534cae8a3c8219e24424755c66bdca360485b1cecc248f06f51bbda7ddca  .claude/skills/getff/references/self-testing-docs.md
+7160f398371fa0bfd605a8cdecebdcff7f1833fb352208ba71c52bbff212817e  .claude/skills/getff/references/self-testing-docs.md
 a0838b662b8b8aaa06326c51a68fe99fc26e1147881bfd1eb5ea16cd456af463  .claude/skills/night-mode/SKILL.md
 8631fb4ee21fd9d7f05181a694b9ae3bc6836eb43444f852c650cc3ebdb5c02d  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
