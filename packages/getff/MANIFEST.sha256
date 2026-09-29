@@ -22,7 +22,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
-38defad16d5722e17fa8f58456714f0969d9e0026f5d1ee630bb829c5e66c48a  .claude/hooks/lib/skill-index.sh
+8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
 6b16f80d978939dcc84987c7fd29ce7e303c8ab4b57e8972441d1c29fcb5bee8  .claude/hooks/precompact-residue.sh
 9d9548c80a55b8544eefa490f24eb644bf52f624b77ca78821bb9802743fc729  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
@@ -510,7 +510,7 @@ a635e173f68397afc17ff33244d34243766a0db2079f99525192fc86089104cd  packages/core/
 a0bde1976b4665dd232a771b18ec98a8c61888c6c385fe792417e3be3828f901  packages/core/hooks/rule-channel-degradation.test.ts
 c0c02f19ea51280ab8de96a28d6a35ded73cd84d809593baafac55fb64f7edb8  packages/core/hooks/runtime-bridge-dispatch.test.ts
 f7ce626f7870a30be7a6d7993f27093e7dc8dc3013c1d28be8cc265f8dedb2b3  packages/core/hooks/session-start.test.ts
-63c0f47e95b1df17f75653bd8bff4d889d5daeb63127d151ca9310417ffaa1f7  packages/core/hooks/skill-index-on-compact.test.ts
+230616f7147bfbf760cb1c9fca1e12b444fcbf481f76dc18c6942ce4e460ebdf  packages/core/hooks/skill-index-on-compact.test.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
 0cc8f2ba0ac198e03820f0281d096579abec9f2791d52e9c83b1ebb81812c090  packages/core/hooks/update-cache.test.ts
 503fada0150700c3aae8d6aa05f2a843711a731c91bf3b225df71f81069ebb56  packages/core/hooks/update-delta.test.ts
