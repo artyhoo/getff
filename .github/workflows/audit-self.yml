@@ -2556,6 +2556,8 @@ jobs:
         run: bash tests/install-sh/handoff-group.test.sh
       - name: Run install-sh stack-tools test (circle 2 — vendor MCP servers on the pre-launch «yes», recorded registries)
         run: bash tests/install-sh/stack-tools.test.sh
+      - name: Run install-sh react-tsconfig test (the React tsconfig template typechecks a Vite-style entry; vitest configs need no React plugin)
+        run: bash tests/install-sh/react-tsconfig.test.sh
 
   # Single aggregate context for branch protection. `needs:` every other
   # audit-self PR job — including actionlint + zizmor above — so requiring just

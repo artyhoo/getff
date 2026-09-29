@@ -1572,6 +1572,26 @@
         "format": "json"
       },
       "example": null
+    },
+    {
+      "name": "shared/tsconfig.react.json",
+      "kind": "template",
+      "shipsTo": {
+        "tier": "framework",
+        "absent": "no-lane"
+      },
+      "description": "React tsconfig template (Bundler resolution, react-jsx, DOM, noEmit) for Vite-style React projects; which stack gets it is the installer's routing.",
+      "source": {
+        "path": "packages/core/templates/templates.manifest.json",
+        "line": 151
+      },
+      "installedTo": {
+        "absent": "not-byte-copied"
+      },
+      "extras": {
+        "format": "json"
+      },
+      "example": null
     }
   ]
 }
