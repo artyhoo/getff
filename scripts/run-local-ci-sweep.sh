@@ -525,10 +525,12 @@ toolchain_pins_ok() {
 #   - install-sh-suite routes its own battery (INSTALL_SH_HEAVY_RUNNER), keeping its
 #     `# stays-local:` tests here; routing the row would take those along.
 #   - it reads a host tool the runner does not pin to this host: actionlint, shellcheck,
-#     docs-quality-strict (vale + lychee), vitest-spec-validation (an authenticated `gh`),
-#     vitest-skills (skills/pipeline-english-canonical.test.ts:18 pins LC_ALL=en_US.UTF-8; a
-#     runner without that locale generated falls back to C and the Cyrillic range matches
-#     `×` and `—` — a false red there, measured 2026-09-29).
+#     docs-quality-strict (vale + lychee), vitest-spec-validation (an authenticated `gh`).
+#   - vitest-skills stays here unmeasured. It pinned LC_ALL=en_US.UTF-8, and a runner without
+#     that locale generated fell back to C, where the Cyrillic range matched `×` and `—` — a
+#     false red there, measured 2026-09-29. #1941 then made skills/pipeline-english-canonical.test.ts
+#     match Cyrillic by code point, so that reason is gone; routing the row waits for its cost to
+#     be measured like the rows below.
 #   - it is cheaper than the call: render-check, rule-index-check, install-roster-check,
 #     presets-check, terms-style-check, pipefail-early-exit, docs-refresh, and the two echo rows;
 #     measured the same way (CPU-s here → routed): face-facts-check 0.9 → 2.1, canonical-regen
