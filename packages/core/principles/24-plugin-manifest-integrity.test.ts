@@ -665,15 +665,17 @@ describe('Principle 24 — CC plugin manifest integrity (T15 self-test)', () => 
     // Same @dual-pair anchor (the §5 dual-implementation contract).
     expect(plugin).toMatch(/@dual-pair: rule-path-scoping/);
     expect(source).toMatch(/@dual-pair: rule-path-scoping/);
-    // The ONLY legitimate divergence is the relocation (header + the project-dir resolution,
-    // which lives ABOVE glob_match). From `glob_match()` to EOF — the matcher + injection core —
-    // the two MUST be byte-identical, so a regression inside that logic is caught (not just a
-    // string-presence check). S6 cold-review hardening.
+    // The ONLY legitimate divergence is the relocation (header, the liveness prelude, and the
+    // project-dir + card-dir resolution, which all live ABOVE the jq guard). From the jq guard to
+    // EOF — the arm dispatch, the once-cache, the glob translation and the injection core — the
+    // two MUST be byte-identical, so a regression inside that logic is caught (not just a
+    // string-presence check). S6 cold-review hardening; the anchor moved from `glob_match()` to
+    // the jq guard when trigger build slice 1 put the arm dispatch above the matcher.
     const coreOf = (s: string): string => {
-      const i = s.indexOf('glob_match()');
+      const i = s.indexOf('\ncommand -v jq >/dev/null');
       return i === -1 ? '' : s.slice(i);
     };
-    expect(coreOf(plugin), 'plugin hook must contain the glob_match core').not.toBe('');
+    expect(coreOf(plugin), 'plugin hook must contain the core from the jq guard on').not.toBe('');
     expect(coreOf(plugin), 'plugin/hooks/inject-matching-rule core logic drifted from .claude/hooks/inject-matching-rule.sh').toBe(coreOf(source));
   });
 
