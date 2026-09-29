@@ -98,9 +98,9 @@ Install getff into this project. Walk the steps below in order, in this one sess
 9. [research] Research rules for the stack
    Unless I said «without research»: follow `/tmp/getff/agents/rule-researcher.md`; report where it ended.
 10. [place-rules] Write one rule table and place each rule in its home
-   Not built yet: report «not done: not built yet».
+   After step 9: `bash /tmp/getff/setup --full <detected-stack>`, then `node scripts/prove-rules.mjs --prove` once; quote its table.
 11. [prove-rules] Prove the placed rules in one batch run
-   Not built yet: report «not done: not built yet».
+   From that same output quote the proof line (bad → exit ≠0, good → exit 0). Script absent → both steps «not done».
 12. [project-checks] Run the project's own check commands as the installer wired them
    On the four npm stacks: `npm run validate` and `npm run audit:docs`; quote exit codes and failing lines.
    A failure on my existing code is a finding, not a stop. No command known for the stack → «not done».

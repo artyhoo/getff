@@ -353,6 +353,22 @@ describe('The road ↔ install prompt parity', () => {
     expect(prose).toMatch(/A defect of getff itself is a finding/);
   });
 
+  it('the road places the rules with the installer and asks for their proof exactly once', () => {
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const place = steps.find((s) => s.id === 'place-rules');
+    const prove = steps.find((s) => s.id === 'prove-rules');
+    expect(place?.action).toMatch(/setup --full <stack>/);
+    expect(place?.doneTest).toMatch(/one row per rule/);
+    expect(prove?.doneTest).toMatch(/bad→exit ≠0, good→exit 0/);
+    // One run of the proof serves both steps: two rows that each run it would ask for the same proof.
+    const runs = steps.filter((s) =>
+      /run `node scripts\/prove-rules\.mjs --prove`/.test(s.action),
+    );
+    expect(runs.map((s) => s.id)).toEqual(['place-rules']);
+    expect(prompt).toMatch(/setup --full <detected-stack>/);
+    expect(prompt.match(/node scripts\/prove-rules\.mjs --prove/g)).toHaveLength(1);
+  });
+
   it('the shipped road names no internal program part', () => {
     // The SSOT is part of the shipped package payload; «P1»…«P6» are this repo's planning names.
     expect(road, '`road` key missing from the first-steps SSOT').toBeDefined();
