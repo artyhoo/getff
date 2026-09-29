@@ -108,7 +108,7 @@ cannot tell you that the docs behind a rule have aged.
   by line 1145 of `install.sh`. The method file is on the installer's list at
   line 239 of `install.sh`.
 - The skill is in `GETFF_SKILLS_CORE`, line 63 of `setup.d/lib.sh`, copied by lines 143
-  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1496 of
+  to 145 of `setup.d/10-skills.sh`. The `python` lane copies it on line 1529 of
   `setup.d/45-python.sh`.
 - The card is built from `docs/site/reference/B.json`. The "with and without" sections
   are required by `packages/core/principles/15-skill-paired-negative.test.ts`.
