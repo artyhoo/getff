@@ -149,6 +149,10 @@ gate_line=""
 # (:405 / :426 / :625) precede the arm. Empty unless the glossary arm has something to
 # demand, so every pre-existing golden path is byte-identical.
 glossary_line=""
+# Manual-step line (operator directive 2026-09-28), computed by the arm just above the marker
+# guards; initialised HERE for the same reason as glossary_line — _autonomy_exit reads it and
+# every early exit above that arm must find it set under `set -u`.
+hands_line=""
 if [ "${AIF_AUTONOMOUS:-0}" = "1" ]; then
   _aif_url="${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}"
   _tasks="$(curl -s --max-time 5 "${_aif_url}/tasks" 2>/dev/null || true)"
@@ -236,6 +240,15 @@ _autonomy_exit() {
       _extra="${_extra}"$'\n\n'"${glossary_line}"
     else
       _extra="${glossary_line}"
+    fi
+  fi
+  # Manual-step arm: same single block, and — like the glossary slot — the ONLY way the line
+  # survives a recap-marked turn, which is where the final «From you:» line usually lives.
+  if [ -n "${hands_line:-}" ]; then
+    if [ -n "$_extra" ]; then
+      _extra="${_extra}"$'\n\n'"${hands_line}"
+    else
+      _extra="${hands_line}"
     fi
   fi
   if [ -n "$_extra" ]; then
@@ -1088,6 +1101,167 @@ _eot_recap_defects() {
   printf '%s' "${d#; }"
 }
 
+# ── Manual-step arm (operator directive 2026-09-28) ──────────────────────────
+# «Everything the operator does by hand must be automated»: a final «From you: do by hand:
+# <action>» line is a PROCESS DEFECT, not a normal ending. The arm reads the LAST hand-off line
+# of the final assistant text — outside fenced code blocks (an example is not the hand-off) —
+# and, when its value is a manual step whose action is not a decision floor, asks the model to
+# do the step itself or to spawn a task that builds its automation.
+#
+# The hand-off line is recognised in BOTH languages whatever the active pack (an operator on
+# either pack writes in either language): AIF_EOT_HANDS_PREFIX_RE finds the line, and its value
+# is a manual step when it either STARTS with the explicit form (AIF_EOT_HANDS_TOKEN_RE — the
+# «do by hand» token of either pack followed by `:`, a dash or a hyphen; the action follows) or
+# carries a manual keyword (AIF_EOT_HANDS_KEYWORD_RE) before its first `(` while not being one of
+# the other D-B values (AIF_EOT_HANDS_SKIP_RE; the action is the whole value). A hand-off line
+# with neither stays silent. `decide:` never fires: it IS the fork floor. An empty value takes
+# the next non-empty line, and so does an empty action after the explicit form.
+#
+# Cost is linear in the turn (cold review BLOCKER, 2026-09-29): a per-letter `${s//X/Y}` loop over
+# the whole turn was super-linear under bash 3.2 in the C locale (16 KB of Cyrillic took 44 s).
+# Markdown emphasis is stripped (`*` runs, and `_` runs at a word edge — an identifier such as
+# GH_TOKEN keeps its underscore) and the text is lowercased in ONE sed pass each — ASCII by `y`,
+# Cyrillic capitals (U+0410..U+042F, U+0401) by byte-exact substitution, because the operator's
+# shell carries no LANG/LC_*, and `grep -i` under the C locale does not fold Cyrillic. Both
+# passes keep every byte length, so a byte offset found in the lowercase text addresses the same
+# value in the original-case text (every awk below runs under LC_ALL=C: offsets are bytes).
+#
+# Default ON — deliberately NOT inside the recap gate (_eot_recap_defects), which is dormant
+# unless AIF_RECAP_GATE=1. AIF_EOT_HANDS_GATE=0 turns it off; the default lives HERE (`:-1`),
+# never in the packs, which are sourced after the env and would clobber an override (the
+# AIF_EOT_RECAP_MAX_LINES precedent).
+#
+# Exemptions: a fork card ($AIF_EOT_SEC_FORK) or an AskUserQuestion anywhere in the turn — the
+# human is being asked to decide, which is a floor — and a handoff-gate block on the same stop
+# (gate_line carrying the D36/D37 `/compact` message: that block is the one instruction the
+# turn gets, and it itself hands the operator a /compact command). Floors (AIF_EOT_HANDS_FLOOR,
+# one lowercase ERE per line, one bilingual value) are matched on the WHOLE lowercased action,
+# parenthesis included: a floor named only in the parenthesis («merge PR #1900 (the
+# staging→main promote)») is still a floor.
+#
+# POSITION IS LOAD-BEARING: after the tool-only guard (a turn with no text has no line), after
+# the handoff gate has set gate_line, BEFORE the marker guards — the «From you:» line lives in
+# the recap block, so a recap-marked turn is exactly where the arm must fire; it rides every exit
+# through _autonomy_exit, the ZCode dense block and the bottom block (one block per stop).
+#
+# Loop bounds: ZCode re-stops carry stop_hook_active=false, so a per-session OWN-prefix flag
+# (aif-eot-hands-, never shared with another arm's bound — #1644->#1651) records the sha of
+# every action already blocked; the same action again is silent. A paraphrase defeats a sha,
+# so the flag's line count also caps the arm at _hs_max (2) blocks per session in total. An
+# empty sha (no hashing tool) still writes a line, so the cap holds without one.
+# Known limits, accepted: a stop with no session_id shares ONE flag (and so one cap) with every
+# other session-less stop on the machine; the flag files are never cleaned up (they live in
+# $TMPDIR, one short file per session, and the OS temp sweep removes them).
+#
+# Consumer on an OLDER pack: no floor/line key or no message function ⇒ the arm is inert. The
+# `command -v` guard is load-bearing: an undefined function in a cmdsubst aborts the whole hook
+# under set -e (the glossary arm's rc-127 lesson). The floor-key check states the intent
+# explicitly; an empty ERE would match every action anyway (BSD and GNU grep alike), so its
+# removal is an equivalent mutant — kept so the inert-on-lag contract does not rest on that.
+_hs_lower() {
+  printf '%s\n' "$1" | LC_ALL=C sed "$_hs_lower_sed"
+}
+_hs_plain() {
+  printf '%s\n' "$1" | LC_ALL=C sed -E 's/\*+//g; s/(^|[^[:alnum:]])_+/\1/g; s/_+([^[:alnum:]]|$)/\1/g'
+}
+# $1 = text, $2 = line, $3 = byte offset (1-based): the bytes of that line from that offset.
+_hs_cut() {
+  printf '%s\n' "$1" | LC_ALL=C awk -v n="$2" -v o="$3" 'NR == n { print substr($0, o); exit }'
+}
+_hs_trim() {
+  local v="$1" t=$'\t'
+  while [ "${v# }" != "$v" ] || [ "${v#"$t"}" != "$v" ]; do v="${v# }"; v="${v#"$t"}"; done
+  while [ "${v% }" != "$v" ] || [ "${v%"$t"}" != "$v" ]; do v="${v% }"; v="${v%"$t"}"; done
+  printf '%s' "$v"
+}
+# $1 = text, $2 = line, $3 = byte offset: "<line> <offset>" of the first non-blank value at or
+# after that point — the rest of the line when it has any text, else the next non-empty line.
+_hs_value_at() {
+  printf '%s\n' "$1" | LC_ALL=C awk -v n="$2" -v o="$3" '
+    NR == n { if (substr($0, o) ~ /[^[:space:]]/) { print NR, o; exit }; next }
+    NR > n && /[^[:space:]]/ { print NR, 1; exit }'
+}
+if [ "${AIF_EOT_HANDS_GATE:-1}" != "0" ] && [ -n "$text" ] \
+   && [ "$has_askuserquestion" != "true" ] \
+   && [ -n "${AIF_EOT_HANDS_FLOOR:-}" ] && [ -n "${AIF_EOT_FOR_YOU_PREFIX:-}" ] \
+   && [ -n "${AIF_EOT_HANDS_PREFIX_RE:-}" ] && [ -n "${AIF_EOT_HANDS_TOKEN_RE:-}" ] \
+   && [ -n "${AIF_EOT_HANDS_KEYWORD_RE:-}" ] && [ -n "${AIF_EOT_HANDS_SKIP_RE:-}" ] \
+   && [ -n "${AIF_EOT_SEC_FORK:-}" ] \
+   && command -v aif_msg_eot_hands_step >/dev/null 2>&1 \
+   && ! grep -qF -- '/compact' <<<"${gate_line:-}" \
+   && ! grep -qF -- "$AIF_EOT_SEC_FORK" <<<"$text"; then
+  # Pairs are ANSI-C octal escapes of the UTF-8 bytes (upper:lower, U+0410..U+042F and U+0401):
+  # machinery shell stays free of Cyrillic literals (principle 22 Surface 1); the bytes are the
+  # letters. No byte here is `/`, so each pair is a safe sed `s///` operand.
+  _hs_lower_sed='y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'
+  for _hs_p in $'\320\220:\320\260' $'\320\221:\320\261' $'\320\222:\320\262' $'\320\223:\320\263' $'\320\224:\320\264' $'\320\225:\320\265' \
+    $'\320\201:\321\221' $'\320\226:\320\266' $'\320\227:\320\267' $'\320\230:\320\270' $'\320\231:\320\271' $'\320\232:\320\272' \
+    $'\320\233:\320\273' $'\320\234:\320\274' $'\320\235:\320\275' $'\320\236:\320\276' $'\320\237:\320\277' $'\320\240:\321\200' \
+    $'\320\241:\321\201' $'\320\242:\321\202' $'\320\243:\321\203' $'\320\244:\321\204' $'\320\245:\321\205' $'\320\246:\321\206' \
+    $'\320\247:\321\207' $'\320\250:\321\210' $'\320\251:\321\211' $'\320\252:\321\212' $'\320\253:\321\213' $'\320\254:\321\214' \
+    $'\320\255:\321\215' $'\320\256:\321\216' $'\320\257:\321\217'; do
+    _hs_lower_sed="${_hs_lower_sed}"$'\n'"s/${_hs_p%%:*}/${_hs_p#*:}/g"
+  done
+  _hs_norm="$(_hs_plain "$text")"
+  _hs_low="$(_hs_lower "$_hs_norm")"
+  # The LAST hand-off line outside a fence, as "<line> <byte offset of its value>". Only a fence
+  # at column 0-3 toggles (deeper indentation is code-block text, not a fence), and a fence still
+  # open at EOF is an unclosed marker, not a code block: a match after it counts.
+  _hs_loc="$(printf '%s\n' "$_hs_low" | LC_ALL=C awk -v re="$AIF_EOT_HANDS_PREFIX_RE" '
+    /^(   |  | )?(```|~~~)/ { f = !f; c = 0; next }
+    match($0, re) { if (f) { c = NR; co = RSTART + RLENGTH } else { n = NR; o = RSTART + RLENGTH } }
+    END { if (f && c) { n = c; o = co }; if (n) print n, o }')"
+  _hs_action=""
+  if [ -n "$_hs_loc" ]; then
+    _hs_vloc="$(_hs_value_at "$_hs_low" "${_hs_loc% *}" "${_hs_loc#* }")"
+    if [ -n "$_hs_vloc" ]; then
+      _hs_vn="${_hs_vloc% *}"
+      _hs_lv="$(_hs_trim "$(_hs_cut "$_hs_low" "$_hs_vn" "${_hs_vloc#* }")")"
+      _hs_ov="$(_hs_trim "$(_hs_cut "$_hs_norm" "$_hs_vn" "${_hs_vloc#* }")")"
+      _hs_tlen="$(printf '%s\n' "$_hs_lv" | LC_ALL=C awk -v re="$AIF_EOT_HANDS_TOKEN_RE" 'NR == 1 && match($0, re) { print RLENGTH }')"
+      if [ -n "$_hs_tlen" ]; then
+        _hs_action="$(_hs_trim "$(_hs_cut "$_hs_ov" 1 $(( _hs_tlen + 1 )))")"
+        if [ -z "$_hs_action" ]; then
+          _hs_aloc="$(_hs_value_at "$_hs_norm" $(( _hs_vn + 1 )) 1)"
+          [ -n "$_hs_aloc" ] && _hs_action="$(_hs_trim "$(_hs_cut "$_hs_norm" "${_hs_aloc% *}" 1)")"
+        fi
+      elif ! LC_ALL=C grep -qE -- "$AIF_EOT_HANDS_SKIP_RE" <<<"$_hs_lv" \
+         && LC_ALL=C grep -qE -- "$AIF_EOT_HANDS_KEYWORD_RE" <<<"${_hs_lv%%(*}"; then
+        _hs_action="$_hs_ov"
+      fi
+    fi
+  fi
+  if [ -n "$_hs_action" ]; then
+    _hs_lact="$(_hs_lower "$_hs_action")"
+    # One ERE per pack line; blank lines are dropped (an empty ERE would match every action).
+    _hs_floor="$(printf '%s\n' "$AIF_EOT_HANDS_FLOOR" | LC_ALL=C grep -v '^[[:space:]]*$' || true)"
+    if ! LC_ALL=C grep -qE -e "$_hs_floor" <<<"$_hs_lact"; then
+      _hs_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+      _hs_flag="${TMPDIR:-/tmp}/aif-eot-hands-${_hs_key}"
+      _hs_tmp="${TMPDIR:-/tmp}/aif-eot-handst-${_hs_key}-$$"
+      _hs_max=2
+      _hs_count=0
+      if [ -f "$_hs_flag" ]; then
+        _hs_count="$(wc -l < "$_hs_flag" 2>/dev/null | tr -d '[:space:]')"
+        case "$_hs_count" in ''|*[!0-9]*) _hs_count=0 ;; esac
+      fi
+      _hs_sha=""
+      if printf '%s' "$_hs_lact" > "$_hs_tmp" 2>/dev/null; then
+        _hs_sha="$(_residue_sha256 "$_hs_tmp")"
+        rm -f "$_hs_tmp" 2>/dev/null || true
+      fi
+      if [ "$_hs_count" -lt "$_hs_max" ] \
+         && { [ -z "$_hs_sha" ] || ! { [ -f "$_hs_flag" ] && grep -qxF -- "$_hs_sha" "$_hs_flag" 2>/dev/null; }; }; then
+        { printf '%s\n' "${_hs_sha:-nosha}" >> "$_hs_flag"; } 2>/dev/null || true
+        hands_line="$(aif_msg_eot_hands_step "$_hs_action")"
+      fi
+    fi
+  fi
+  unset _hs_lower_sed _hs_p _hs_norm _hs_low _hs_loc _hs_vloc _hs_vn _hs_lv _hs_ov _hs_tlen \
+    _hs_action _hs_aloc _hs_lact _hs_floor _hs_key _hs_flag _hs_tmp _hs_max _hs_count _hs_sha \
+    2>/dev/null || true
+fi
+
 # ── Marker guards — hoisted above the B2 Part B ZCode thin-recap branch (#1706) ──
 # POSITION IS LOAD-BEARING — third instance of this file's documented shadowing
 # class (precedents: the F10 postmortem up top, "POSITION IS LOAD-BEARING", and
@@ -1269,6 +1443,10 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$glossary_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${glossary_line}"
     fi
+    # Manual-step arm — same parity append (one block per stop).
+    if [ -n "$hands_line" ]; then
+      _ze_reason="${_ze_reason}"$'\n\n'"${hands_line}"
+    fi
     _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
@@ -1416,6 +1594,10 @@ fi
 # The glossary demand (D-F) rides the same block — one block per turn (:185-187).
 if [ -n "$glossary_line" ]; then
   reminder="${reminder}"$'\n\n'"${glossary_line}"
+fi
+# The manual-step line rides the same block too.
+if [ -n "$hands_line" ]; then
+  reminder="${reminder}"$'\n\n'"${hands_line}"
 fi
 
 jq -n --arg msg "$reminder" --arg gl "${glance_line}" '{

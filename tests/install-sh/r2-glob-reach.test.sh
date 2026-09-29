@@ -811,29 +811,54 @@ JS
     && bad "F11 workspace green: the summary says the gate fails, though it passes: $(f11_not_wired "$T29N.log" | grep 'check-rule-globs.sh' | head -1)" \
     || ok "F11 workspace green: nothing about a gate that passes"
 
-  # A recorded R2 N/A that no longer holds AND a package whose own config does not wire R2 over its
+  # A recorded R2 N/A that no longer holds AND two packages whose own configs do not wire R2 over their
   # boundary files: the re-install drops the N/A (#1895, 60-ci.sh _r2_na_strip), so the gate fails on the
-  # package alone, and the summary names it once and no «marked N/A» (F5, fourth cold review: the gate's
-  # first line alone was named). Without the drop the gate fails «marked N/A» here too.
-  T30=$(f11_project error boundary); mkdir -p "$T30/.ai-factory" "$T30/apps/web/src/routes"
+  # two packages alone, and the summary names each once and no «marked N/A» (F5, fourth cold review: the
+  # gate's first line alone was named). Without the drop the gate fails «marked N/A» here too.
+  # The strict run F11 asks prints four failure lines, in this order: apps/api and apps/web (each already
+  # named by its own R2 pass, so F11 skips them), then RULE_GLOBS.appCode and .application (named by F11
+  # alone). A loop that stopped at its first line would name neither key: F5's mixed multi-line case.
+  T30=$(f11_project error boundary); mkdir -p "$T30/.ai-factory" "$T30/apps/web/src/routes" "$T30/apps/api/src/routes"
   printf '# Tool decisions\n\n<!-- aif:r2-na:begin -->\n### R2 N/A (recorded by an earlier install)\n<!-- aif:r2-na:end -->\n' > "$T30/.ai-factory/tool-decisions.md"
   printf 'export default [];\n' > "$T30/apps/web/eslint.config.mjs"
   echo 'export const page = 1;' > "$T30/apps/web/src/routes/page.ts"
+  printf 'export default [];\n' > "$T30/apps/api/eslint.config.mjs"
+  echo 'export const handler = 1;' > "$T30/apps/api/src/routes/users.ts"
   f11_install "$T30" "$T30.log"
   OUT30=$(f11_gate "$T30"); RC30=$?
-  [ "$RC30" = "1" ] || bad "F11 N/A dropped, apps/web left: check:globs exited $RC30 — the arm below assumes it is red"
-  grep -q 'apps/web: has boundary files' <<<"$OUT30" && ! grep -q 'marked N/A' <<<"$OUT30" \
-    && ok "F11 N/A dropped, apps/web left: the gate fails on apps/web alone" \
-    || bad "F11 N/A dropped, apps/web left: expected the gate to fail on apps/web and not on the N/A the install removed (saw: $(grep -E '⚠|✗' <<<"$OUT30" | tr '\n' '|'))"
+  [ "$RC30" = "1" ] || bad "F11 N/A dropped, two packages left: check:globs exited $RC30 — the arm below assumes it is red"
+  grep -q 'apps/web: has boundary files' <<<"$OUT30" && grep -q 'apps/api: has boundary files' <<<"$OUT30" \
+    && ! grep -q 'marked N/A' <<<"$OUT30" \
+    && ok "F11 N/A dropped, two packages left: the gate fails on apps/web and apps/api alone" \
+    || bad "F11 N/A dropped, two packages left: expected the gate to fail on apps/web and apps/api and not on the N/A the install removed (saw: $(grep -E '⚠|✗' <<<"$OUT30" | tr '\n' '|'))"
   grep -q 'marked N/A' <<<"$(f11_push "$T30.log" | grep 'check-rule-globs.sh')" \
-    && bad "F11 N/A dropped, apps/web left: the summary names a «marked N/A» the install removed (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))" \
-    || ok "F11 N/A dropped, apps/web left: the summary names no «marked N/A»"
-  [ "$(f11_push "$T30.log" | grep -c 'apps/web')" -eq 1 ] \
-    && ok "F11 N/A dropped, apps/web left: apps/web is named once" \
-    || bad "F11 N/A dropped, apps/web left: apps/web is named $(f11_push "$T30.log" | grep -c 'apps/web') times (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
+    && bad "F11 N/A dropped, two packages left: the summary names a «marked N/A» the install removed (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))" \
+    || ok "F11 N/A dropped, two packages left: the summary names no «marked N/A»"
+  for _p in apps/web apps/api; do
+    # Both forms count: the earlier pass's «in <pkg>/eslint.config.…» AND F11's own «<pkg>: has boundary
+    # files» line — a skip that stopped firing (setup.d/99-finalize.sh:107-109) names the package twice.
+    _n=$(f11_push "$T30.log" | grep -cE "$_p(/|: )")
+    [ "$_n" -eq 1 ] \
+      && ok "F11 N/A dropped, two packages left: $_p is named once" \
+      || bad "F11 N/A dropped, two packages left: $_p is named $_n times (summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
+  done
+  # The mixed order holds only while the strict run lists a package line before the first key line; the
+  # key arms below then read past two lines F11 skips.
+  OUT30S=$( cd "$T30" && env -u ESLINT_CONFIG AIF_STRICT_RUNTIME=1 bash scripts/check-rule-globs.sh 2>&1 )
+  _pkg_at=$(awk '/: has boundary files but its own ESLint config does NOT wire R2/ { print NR; exit }' <<<"$OUT30S")
+  _key_at=$(awk '/no globs found under RULE_GLOBS\.(appCode|application)/ { print NR; exit }' <<<"$OUT30S")
+  [ -n "$_pkg_at" ] && [ -n "$_key_at" ] && [ "$_pkg_at" -lt "$_key_at" ] \
+    && ok "F11 N/A dropped, two packages left: the strict gate lists the package lines before the key lines" \
+    || bad "F11 N/A dropped, two packages left: expected a package line before the first key line (gate: $(grep -E '⚠|✗' <<<"$OUT30S" | tr '\n' '|'))"
+  for _k in appCode application; do
+    _n=$(f11_strict "$T30.log" | grep 'check-rule-globs.sh' | grep -c "RULE_GLOBS\.$_k")
+    [ "$_n" -eq 1 ] \
+      && ok "F11 N/A dropped, two packages left: RULE_GLOBS.$_k, after the lines F11 skips, is named once" \
+      || bad "F11 N/A dropped, two packages left: RULE_GLOBS.$_k named $_n times (gate: $(grep -E '⚠|✗' <<<"$OUT30S" | tr '\n' '|'); summary: $(f11_not_wired "$T30.log" | tr '\n' '|'))"
+  done
   grep -iqE 'Add the rules-as-tests plugin|re-export the root|update the decision' <<<"$(f11_not_wired "$T30.log")" \
-    && bad "F11 N/A dropped, apps/web left: the summary hands on the gate's advice as a step: $(f11_not_wired "$T30.log" | grep -iE 'Add the|re-export|update the decision' | head -1)" \
-    || ok "F11 N/A dropped, apps/web left: no step handed on from the gate's output"
+    && bad "F11 N/A dropped, two packages left: the summary hands on the gate's advice as a step: $(f11_not_wired "$T30.log" | grep -iE 'Add the|re-export|update the decision' | head -1)" \
+    || ok "F11 N/A dropped, two packages left: no step handed on from the gate's output"
   # Every summary line F11 can now copy from the gate (strict, workspace, each failure line) against the
   # shared manual-step predicate — not a wording list of this file's own.
   for _l in "$T15" "$T16" "$T24" "$T25" "$T29" "$T30"; do f11_not_wired "$_l.log"; done > "$T30.summary"

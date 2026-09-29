@@ -101,6 +101,10 @@
 #                         `build-getff-dist.sh --check`, is hermetic and ~12s — it is the
 #                         `getff-dist-manifest` row below, so manifest drift is now a LOCAL red.
 #                         The cell's remaining steps stay CI-only.
+#   path-scope            scripts/ci-path-scope.sh decides from the pull_request MERGE commit
+#                         and the event name — no PR merge ref locally, no decision to run. Its
+#                         logic is covered locally by scripts/ci-path-scope.test.sh (real merge
+#                         commits in a tmp repo), which the scripts/*.test.sh row runs.
 #   pr-commit-trailers    needs the PR base ref + the real PR commit range; the local channel
 #                         for it is the pre-push hook, not this sweep.
 #   fidelity-verdict-in-pr-body, stale-revert-in-pr-diff
@@ -286,7 +290,7 @@ gate_table() {
   #
   # `install-sh-suite` delegates to scripts/run-install-sh-suite.sh (bounded parallel fan-out with
   # one quarantined test — see that file's header). THIS file is delivered into consumer projects
-  # (setup.d/10-skills.sh:179, install.sh:1207) and the runner is NOT, which is deliberate: a
+  # (setup.d/10-skills.sh:179, install.sh:1210) and the runner is NOT, which is deliberate: a
   # consumer has no tests/install-sh/ at all, so the row is never selected in diff mode, and under
   # --full it fails there exactly as it did before — measured 2026-09-14 in a bare directory, the
   # serial loop exited 1 on the unmatched glob and the runner call exits 127 on the missing file.

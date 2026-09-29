@@ -451,7 +451,7 @@ for f in apostrophe line-comment block-comment key-suffix nested-other second-ob
 done
 # A template literal spans lines: a `/*` on its later line opens no comment, so code after it stays code.
 printf 'const m = `a\nb /* c`;\nconst r = "rules-as-tests/no-unsafe-zod-parse";\n' > "$RD/template-cmt.mjs"
-( eval "$(reader_block "$GLOBS_GATE")"; code_of "$RD/template-cmt.mjs" ) | grep -q 'no-unsafe-zod-parse' \
+_tc_code=$( eval "$(reader_block "$GLOBS_GATE")"; code_of "$RD/template-cmt.mjs" ) && grep -q 'no-unsafe-zod-parse' <<<"$_tc_code" \
   && ok "rule-globs reader: code_of keeps code after a template literal that holds /*" \
   || bad "rule-globs reader: code_of cut code after a template literal that holds /*"
 printf "// boundary: ['**/routes/**']\nexport default [];\n" > "$RD/only-comment.mjs"

@@ -496,7 +496,7 @@ To diverge from a framework file AND keep `--refresh` safe:
 
 ### Editor coupling (Claude Code only)
 
-This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4. The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
+This is the second altitude flagged at the top of this doc: it scopes the **5th** layer, not the install or layers 1-4. The **harness-hook layer** (5th lifecycle stage) ships as `.claude/settings.json` hooks (`SessionStart`, `UserPromptSubmit`, `PostToolUse`). This layer is **Claude Code-specific**: hooks are executed by the Claude Code harness and have no equivalent in the current shipped artefacts for Cursor, Cline, or Codex. Cross-editor parity for this layer stays on the WATCHLIST pending cross-editor hook-API convergence — see [prior-art-evaluations.md SSOT #21](docs/meta-factory/prior-art-evaluations.md) (verdict: WATCHLIST — «cross-editor hook-API divergence; revisit when Cursor/Cline ship stable PostToolUse-equivalent»).
 
 **Per layer, what a non-Claude-Code harness actually gets:**
 
@@ -560,7 +560,7 @@ If a check fails for a reason not in this table — **stop and report**, do not 
 | Pre-commit hook                         | `git commit --allow-empty -m "test"` (in test branch) | Lint-staged runs                                                                               |
 | Pre-push hook                           | `git push --dry-run`                                  | getff rule checks run (rule-globs, lint-staged resolution, generated-rule firing, links)        |
 | A rule provably fires                   | `bash scripts/check-fences-fire.sh`                   | Planted bad input goes RED — the install is proven, not just present                           |
-| Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                        |
+| Harness hooks active (Claude Code only) | `jq .hooks .claude/settings.json`                     | `SessionStart` + `UserPromptSubmit` + `PostToolUse` entries present (sub-wave 7.2.a/b/c)                       |
 
 ---
 
