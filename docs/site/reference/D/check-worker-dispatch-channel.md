@@ -124,9 +124,9 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
   Line 10 carries `# @dual-pair: channel-discipline-worker-dispatch` and lines 11-16
   give the portability rationale; the pairing spec is named at line 17
   (`docs/meta-factory/research-patches/2026-06-27-meta-orch-channel-discipline-mechanism.md`).
-- Registration: `.claude/settings.json:151` reads `"matcher": "Edit|Write|MultiEdit"`
-  with the command at line 163; the plugin registry registers it too
-  (`plugin/hooks/hooks.json:111`).
+- Registration: `.claude/settings.json:160` reads `"matcher": "Edit|Write|MultiEdit"`
+  with the command at line 164; the plugin registry registers it too
+  (`plugin/hooks/hooks.json:120`).
 - Single shared matcher: lines 5-8 — «Both this hook and principle 29's CI test call
   that one matcher — never two divergent copies (anti-pattern `#two-prompts-drift`)».
   The matcher module is `packages/core/principles/29-worker-dispatch-channel.ts`:
@@ -150,7 +150,7 @@ every PR. The repo-wide opt-out is `AIF_WORKER_DISPATCH_CHANNEL=0`.
   hook is wired by hand into settings, and «Until wired, the CI principle test is the
   active backstop (no enforcement gap — it gates every PR; the hook only moves the
   gate earlier, to edit-time)». In this repository it is wired:
-  `.claude/settings.json:151-155`.
+  `.claude/settings.json:160-164`.
 - Paired test: `packages/core/hooks/check-worker-dispatch-channel.test.ts` — its
   header (lines 1-16) states the contract: «❌ kickoff that instructs Agent-tool
   write-Worker dispatch -> exit 2», with the exit-2-not-1 rationale in the same lines.

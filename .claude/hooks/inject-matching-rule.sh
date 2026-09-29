@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# inject-matching-rule.sh — PostToolUse hook — path-scoped just-in-time delivery of .claude/rules/*.md summaries
-# PostToolUse rule-injector — path-scoped just-in-time delivery of .claude/rules/*.md.
+# inject-matching-rule.sh — card loader hook — injects the rule and card summaries that match an edit, a read or a Bash command
+# Arms: PostToolUse (Edit|Write|MultiEdit, Read), PreToolUse (Bash), SessionStart (compact).
 # @dual-pair: rule-path-scoping
 #   Two channels deliver path-scoped rules at the same scope: CC-native `paths:` frontmatter
 #   (read-time, whole-rule) and this hook (edit-time, `inject:` summary). This hook is itself

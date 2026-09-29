@@ -131,10 +131,10 @@ a sub-agent-start event, the second fire-point is covered by the fallback hook
   `REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../.." && pwd)"}`, exists for
   the plugin twin: the header block (lines 20-28) explains the subshell/$0 bug it fixed,
   matching the pattern of `inject-session-bootstrap.sh` (issue 1484).
-- Registration: `plugin/hooks/hooks.json:170` registers the SessionStart arm (matcher
-  `startup|resume|clear|compact`) and `plugin/hooks/hooks.json:189` the SubagentStart
+- Registration: `plugin/hooks/hooks.json:179` registers the SessionStart arm (matcher
+  `startup|resume|clear|compact`) and `plugin/hooks/hooks.json:207` the SubagentStart
   arm; an install registers the same two in the consumer's settings
-  (`setup.d/10-skills.sh:389-391`), first removing the per-prompt registration an
+  (`setup.d/10-skills.sh:392-394`), first removing the per-prompt registration an
   install before 2026-09-29 left behind. This repository's own `.claude/settings.json`
   registers neither (measured: `grep -c inject-project-digest .claude/settings.json`
   prints `0`).

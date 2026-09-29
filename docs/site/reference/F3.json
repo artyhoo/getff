@@ -122,7 +122,7 @@
       "extras": {
         "wired-from": [
           "packages/core/hooks/pre-push.ts:2023 (spawn-argument)",
-          ".github/workflows/audit-self.yml:1460 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1462 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -180,7 +180,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2559 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2561 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -199,7 +199,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2608 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:2610 (workflow-run:invocation-verb)",
           ".husky/pre-commit:166 (quoted-path-token)"
         ]
       },
@@ -219,7 +219,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:796 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:798 (workflow-run:invocation-verb)",
           ".husky/pre-commit:188 (quoted-path-token)"
         ]
       },
@@ -278,7 +278,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:2719 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:2721 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -325,8 +325,8 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1366 (workflow-run:invocation-verb)",
-          ".github/workflows/audit-self.yml:1371 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1368 (workflow-run:invocation-verb)",
+          ".github/workflows/audit-self.yml:1373 (workflow-run:invocation-verb)"
         ]
       },
       "example": null
@@ -644,7 +644,7 @@
       },
       "extras": {
         "wired-from": [
-          ".github/workflows/audit-self.yml:1394 (workflow-run:invocation-verb)"
+          ".github/workflows/audit-self.yml:1396 (workflow-run:invocation-verb)"
         ]
       },
       "example": null

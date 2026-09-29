@@ -104,8 +104,8 @@ semantically, not just catching the write moment — is the job of
 
 - `.claude/hooks/inject-memory-codification.sh:2` is the header the card's description
   row quotes: `# inject-memory-codification.sh — PostToolUse hook — path-scoped codify-then-pointer discipline reminder`.
-- Registration: `.claude/settings.json:160` reads `"matcher": "Write"` with the command
-  at line 172; the plugin registry registers it at `plugin/hooks/hooks.json:120`.
+- Registration: `.claude/settings.json:169` reads `"matcher": "Write"` with the command
+  at line 172; the plugin registry registers it at `plugin/hooks/hooks.json:129`.
 - The tool gate is line 30 — `case "$TOOL" in Write) ;; *) exit 0 ;; esac` — so the
   reminder fires on writes only, deliberately excluding Read and Edit (the test header,
   lines 8-9, calls this out: it «mirrors the memory store being WRITTEN, not merely read»).

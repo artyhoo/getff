@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Plugin-relocated PostToolUse rule-injector — path-scoped just-in-time delivery of the
-# CONSUMER's .claude/rules/*.md. Invoked via run-hook.cmd from plugin/hooks/hooks.json.
+# Plugin-relocated card loader — injects the summaries of the CONSUMER's .claude/rules/*.md and
+# of the plugin's cards/ that match an edit, a read or a Bash command. Arms: PostToolUse
+# (Edit|Write|MultiEdit, Read), PreToolUse (Bash), SessionStart (compact). Invoked via
+# run-hook.cmd from plugin/hooks/hooks.json.
 # @dual-pair: rule-path-scoping
 # spec: .claude/hooks/inject-matching-rule.sh   ← in-repo dogfood source (SSOT)
 #       docs/superpowers/plans/plugin-hook-triage.md §3 (path-class audit)

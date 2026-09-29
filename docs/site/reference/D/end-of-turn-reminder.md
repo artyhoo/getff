@@ -166,7 +166,7 @@ consumer whose language pack predates the arm gets a silent exit 0.
 
 Delivery per the card: consumer installs copy and register it
 (`setup.d/10-skills.sh:244-267`), the framework registers it at
-`.claude/settings.json:194`, the plugin registry at `plugin/hooks/hooks.json:149`.
+`.claude/settings.json:203`, the plugin registry at `plugin/hooks/hooks.json:158`.
 All prose comes from the `lang/` packs (`AIF_HOOK_LANG`, English fallback). On
 ZCode the census classifies it degraded (row 9 of
 `.claude/rules/zcode-parity-doctrine.md` §2): the recap branches work, while the
@@ -218,8 +218,8 @@ consumer-safe posture as its question-time companion
 - Language pack: lines 23-45; the marker and branch messages live in
   `.claude/hooks/lang/en.sh` (`AIF_RECAP_MARKER` at line 16, `aif_msg_eot_branch_a`
   at line 205).
-- Registration: `.claude/settings.json:194` (Stop section, no matcher);
-  `plugin/hooks/hooks.json:149`; consumer install at `setup.d/10-skills.sh:244-267`
+- Registration: `.claude/settings.json:203` (Stop section, no matcher);
+  `plugin/hooks/hooks.json:158`; consumer install at `setup.d/10-skills.sh:244-267`
   (copy at 244-245, `register_cc_hook` Stop at 267).
 - ZCode: census row 9 (`.claude/rules/zcode-parity-doctrine.md` §2) — degraded;
   the thin-recap branch and its inert context arm are documented at lines

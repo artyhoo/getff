@@ -1,14 +1,16 @@
 /**
- * Functional meta-tests for the PostToolUse rule-injector hook
- * (.claude/hooks/inject-matching-rule.sh) — the Class-B compensating mechanism
- * for .claude/rules/rule-enforcement-channel-selection.md (§4).
+ * Functional meta-tests for the card loader hook (.claude/hooks/inject-matching-rule.sh) — the
+ * Class-B compensating mechanism for .claude/rules/rule-enforcement-channel-selection.md (§4).
  *
- * Asserts the verified PostToolUse injection contract (code.claude.com/docs/en/hooks.md):
+ * Asserts the verified injection contract (code.claude.com/docs/en/hooks.md):
  *   - non-blocking injection MUST be JSON {hookSpecificOutput:{hookEventName,additionalContext}}
  *   - matching path → injects the rule's `<!-- inject: -->` summary
  *   - non-match / wrong tool → silent (empty stdout, exit 0)
- *   - session-cache → at most once per session_id
+ *   - session-cache → at most once per (session_id, agent_id) per card
  *   - prose that documents the marker syntax is NOT mis-detected (own-line anchor)
+ *   - the slice-1 arms (describe «slice 1 (trigger build)»): Read (`on: read`), PreToolUse Bash
+ *     (`events:`), SessionStart compact reset, the card directory, and the glob → regex table
+ *     checked against picomatch
  *
  * S6 honest-no-op paired fixture (kickoff §4): when the consumer has NO rules corpus
  * (RULES_DIR missing OR empty of .md files), the hook reports ONCE per session loudly,

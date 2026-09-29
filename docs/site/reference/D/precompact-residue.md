@@ -173,7 +173,7 @@ file whose body source reads `none`).
   lines 237-240, the usage sum (input + both cache counters) at lines 242-245, the
   0-discard guard at lines 246-249, the write at lines 253-254 — swallowed on failure
   like every side effect here.
-- Registration: `.claude/settings.json:247` (`PreCompact`) with the command at line 252.
+- Registration: `.claude/settings.json:265` (`PreCompact`) with the command at line 270.
 - Paired test: `packages/core/hooks/precompact-residue.test.ts` — stdout silence (line
   172, D8), sidechain exclusion (230), no-transcript write (264), recap capture (198),
   excerpt fallback (249), anchor rules (274, 304, 331), id sanitisation (344).

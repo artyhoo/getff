@@ -346,17 +346,21 @@
           "ts-server"
         ]
       },
-      "description": "PostToolUse hook — path-scoped just-in-time delivery of .claude/rules/*.md summaries",
+      "description": "card loader hook — injects the rule and card summaries that match an edit, a read or a Bash command",
       "source": {
         "path": ".claude/hooks/inject-matching-rule.sh",
         "line": 2
       },
       "extras": {
         "event": [
-          "PostToolUse"
+          "PostToolUse",
+          "PreToolUse",
+          "SessionStart"
         ],
         "matcher": [
-          "Edit|Write|MultiEdit"
+          "Bash",
+          "Edit|Write|MultiEdit|Read",
+          "compact"
         ],
         "delivery": [
           "@dual-pair:rule-path-scoping",

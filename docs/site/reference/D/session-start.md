@@ -134,7 +134,7 @@ until the runtime catches up; verify in the binary, not the doc.
   (lines 24-26) because plugin hooks ship standalone with no `lib/` sibling.
 - Block: lines 36-60 — the `BOOTSTRAP` heredoc: the ~1% rule, the two skills, the
   instruction ladder, the soft/hard honest boundary, the skills path; emitted at line 61.
-- Registration: `plugin/hooks/hooks.json:154` (`SessionStart`), matcher at line 180,
+- Registration: `plugin/hooks/hooks.json:163` (`SessionStart`), matcher at line 180,
   command via `run-hook.cmd` at line 184, `"async": false` at line 185 — the block is
   in context before the first turn is answered.
 - Census context (`.claude/rules/zcode-parity-doctrine.md` §2 row 22): the installed
