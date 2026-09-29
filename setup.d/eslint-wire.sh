@@ -53,7 +53,9 @@ if [ "$DRY_RUN" = "--dry-run" ]; then
 elif [ "$_r2_root_cfg" = eslint.config.mjs ] || [ "$_r2_root_cfg" = eslint.config.js ]; then
   echo "▶ R2 auto-wire (reading the repo)"
   _r2_out="$( cd "$PROJECT_ROOT" && bash "$PKG_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null )"
-  _r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"
+  # The first line by expansion, not `printf | head -1`: head exits after one line, printf's next
+  # write gets EPIPE, and under set -e that aborted the install (post-merge CI 2026-09-29).
+  _r2_verdict="${_r2_out%%$'\n'*}"
   _dec="$PROJECT_ROOT/.ai-factory/tool-decisions.md"
   # _r2_na_strip — drop the aif:r2-na block (and the blank line before it) from tool-decisions.md,
   # keeping every other line.
