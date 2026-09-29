@@ -1,5 +1,5 @@
 /**
- * Principle 47 — measurement half: how many bytes a SKILL.md puts into the harness's
+ * Principle 48 — measurement half: how many bytes a SKILL.md puts into the harness's
  * resident skill listing.
  *
  * > **Authoritative for:** the extractor (what counts as listing text) and the budget

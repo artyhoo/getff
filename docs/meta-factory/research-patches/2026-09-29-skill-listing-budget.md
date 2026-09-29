@@ -1,7 +1,7 @@
 <!-- scope:skill-listing-budget -->
 # The skill listing: what the budget really is, what overflows it, and what a compaction loses
 
-> Scope: the evidence behind principle 47 (skill description budget) and the post-compaction
+> Scope: the evidence behind principle 48 (skill description budget) and the post-compaction
 > skill index in `.claude/hooks/lib/skill-index.sh`. Measured on the operator's host,
 > 2026-09-29, at `9f69fa2097c` (origin/staging). Vendor pages fetched the same day.
 
@@ -17,7 +17,7 @@ S-I), the compaction loss in the dynamic-context-window spec (2026-09-08, filed 
 1. Listing size — read from live session transcripts, not estimated:
    `jq -r 'select(.attachment.type=="skill_listing") | .attachment.content' <session>.jsonl | wc -m`.
 2. Description bytes — `description` + `when_to_use` only, per SKILL.md
-   (`packages/core/principles/47-skill-description-budget.ts`).
+   (`packages/core/principles/48-skill-description-budget.ts`).
 3. Compaction — one session transcript with 30+ compactions, listing attachments and
    `compact_boundary` records printed in order.
 4. Usage — `Skill` tool invocations by name over every transcript modified in the last 30 days
@@ -93,7 +93,7 @@ knowledge that the other skills exist is not.
 
 ## Solution
 
-**Project share — a standing gate.** Principle 47 fails the suite (pre-push and CI) when a
+**Project share — a standing gate.** Principle 48 fails the suite (pre-push and CI) when a
 description exceeds 800 B, when the model-visible total of a population exceeds its budget
 (`.claude/skills` 6,800 B; `plugin/skills` 4,000 B; `skills` 1,500 B), or when an entry would be
 cut by the harness. Exceptions are declared in the test with a rationale and a ceiling; a stale
@@ -158,7 +158,7 @@ replaces the index built here.
   - [no-paid-llm-in-ci.md](../../../.claude/rules/no-paid-llm-in-ci.md): the gate is a byte count; the hook is bash, jq and awk. No LLM, no network.
   - [build-first-reuse-default.md](../../../.claude/rules/build-first-reuse-default.md): SSOT #294 — `skill-lint` and `skill-tidy` were read and not adopted (no per-population totals, no notion of a hidden skill; one is a new global npm install, the other a clone-only Python tool with no users). context7 had no quota left on 2026-09-29; the consult ran on the vendor pages and WebSearch instead, and the row says so.
   - [attention-is-not-a-mechanism.md](../../../.claude/rules/attention-is-not-a-mechanism.md): S-I's one-time host run was a measurement; the principle test is the gate. The trigger-survival half stays a reading of the inventory — a byte count cannot decide it, and the test says so instead of pretending to.
-  - [skill-description-quality.md](../../../.claude/rules/skill-description-quality.md): §2 rejects a length FLOOR as theatre. Principle 47 is a ceiling on a rationed resource and claims nothing about quality.
+  - [skill-description-quality.md](../../../.claude/rules/skill-description-quality.md): §2 rejects a length FLOOR as theatre. Principle 48 is a ceiling on a rationed resource and claims nothing about quality.
   - [dual-implementation-discipline.md](../../../.claude/rules/dual-implementation-discipline.md): the index lib carries `@cc-only-rationale` — compaction is a CC lifecycle event with no ZCode counterpart (zcode-parity-doctrine.md §2 rows 21-22).
   - [language-discipline.md](../../../.claude/rules/language-discipline.md): the Russian trigger phrases kept in `orchestrator` are category-3 match-data.
 - **Backward-check:**

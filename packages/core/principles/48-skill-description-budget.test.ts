@@ -1,5 +1,5 @@
 /**
- * Principle 47 — skill descriptions stay inside a byte budget
+ * Principle 48 — skill descriptions stay inside a byte budget
  *
  * > **Authoritative for:** the byte budget of the `description` + `when_to_use` frontmatter
  * > of every SKILL.md this repo authors or ships — per skill, and per population for the
@@ -55,7 +55,7 @@ import {
   measurePopulation,
   type BudgetRules,
   type SkillListingCost,
-} from './47-skill-description-budget';
+} from './48-skill-description-budget';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -83,7 +83,7 @@ const RULES: BudgetRules = {
   ],
 };
 
-describe('principle 47 — skill description budget', () => {
+describe('principle 48 — skill description budget', () => {
   it('holds for every skill this repo authors or ships', () => {
     const problems = evaluate(RULES, (p) => measurePopulation(REPO_ROOT, p));
     expect(problems, problems.join('\n')).toEqual([]);
@@ -98,7 +98,7 @@ describe('principle 47 — skill description budget', () => {
   });
 });
 
-describe('principle 47 — the extractor', () => {
+describe('principle 48 — the extractor', () => {
   const skill = (frontmatter: string) =>
     `---\n${frontmatter}\n---\n\n# Body\n\ndescription: not frontmatter\n`;
 
@@ -224,7 +224,7 @@ describe('principle 47 — the extractor', () => {
   });
 });
 
-describe('principle 47 — paired negatives', () => {
+describe('principle 48 — paired negatives', () => {
   const cost = (
     skill: string,
     bytes: number,
