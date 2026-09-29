@@ -3600,6 +3600,7 @@ register_cc_hook() {
 # UserPromptSubmit (fired on EVERY prompt) to SessionStart (once per context). register_cc_hook is
 # add-only, so without this a consumer installed before the move kept the per-prompt registration
 # next to the new one after a re-install — the injection would have grown, not shrunk.
+# register_imr_hooks (below) reuses it to WIDEN a matcher (trigger build, slice 1).
 unregister_cc_hook() {
   local settings="$1" event="$2" marker="$3" rc=0 re
   [ -f "$settings" ] || return 0
@@ -3645,6 +3646,31 @@ unregister_cc_hook() {
     echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker still registered on $event" >&2
     note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — jq rewrite failed"
   fi
+}
+
+# register_imr_hooks SETTINGS — the three registrations of inject-matching-rule (trigger build,
+# slice 1): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm), PreToolUse
+# "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset). One function for both
+# callers (setup.d/10-skills.sh §1e and the install.sh --refresh arm) so the two cannot drift.
+# The PostToolUse matcher WIDENED from "Edit|Write|MultiEdit": register_cc_hook is add-only and
+# idempotent per event, so an install from before the widening would keep its old matcher and the
+# Read arm would never fire — that entry is dropped first (unregister_cc_hook) when no matcher of
+# ours names Read, then registered afresh. Without jq nothing is widened; the hook needs jq to run
+# at all (it exits 0 without it), so no arm is lost.
+register_imr_hooks() {
+  local settings="$1"
+  # shellcheck disable=SC2016  # $CLAUDE_PROJECT_DIR is expanded by Claude Code, not here
+  local cmd='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"'
+  if [ -f "$settings" ] && command -v jq >/dev/null 2>&1 && jq -e '
+      [(.hooks.PostToolUse // [])[]
+        | select(any(.hooks[]?; (.command // "") | test("\\.claude/hooks/inject-matching-rule\\.sh")))
+        | (.matcher // "")]
+      | length > 0 and (any(.[]; test("(^|[|])Read($|[|])")) | not)' "$settings" >/dev/null 2>&1; then
+    unregister_cc_hook "$settings" "PostToolUse" "inject-matching-rule"
+  fi
+  register_cc_hook "$settings" "PostToolUse" "$cmd" "inject-matching-rule" "Edit|Write|MultiEdit|Read"
+  register_cc_hook "$settings" "PreToolUse" "$cmd" "inject-matching-rule" "Bash"
+  register_cc_hook "$settings" "SessionStart" "$cmd" "inject-matching-rule" "compact"
 }
 
 # rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's

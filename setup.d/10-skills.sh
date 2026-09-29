@@ -311,16 +311,19 @@ fi
 # injector delivers the matching rule's `inject:` summary the moment a scoped path is edited.
 # Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
 # framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
-# Registered with the "Edit|Write|MultiEdit" matcher (parity with the framework's own settings.json).
+# Registered on three events (trigger build, slice 1 — parity with the framework's own
+# settings.json): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm),
+# PreToolUse "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset).
+# register_imr_hooks lives in setup.d/lib.sh — install.sh --refresh calls the same function.
 IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
 IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
 if [ -f "$IMR_SRC" ]; then
   copy_safe "$IMR_SRC" "$IMR_DST"
   chmod_safe +x "$IMR_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
+    register_imr_hooks "$SETTINGS"
   fi
 fi
 
