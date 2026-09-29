@@ -151,71 +151,151 @@ awk '/NOT wired, or wired only in part/{on=1} on' "$G/.install2.log" | grep -q '
   && ok "G: the not-wired summary names the boundary globs of eslint.config.mjs that were not added" \
   || bad "G: the not-wired summary does not report the boundary globs that could not be added"
 
+# ── Fixture H — N/A recorded, a boundary appears, the install is re-run ──────────────────────
+# The no-boundary-confident branch replaces an older N/A block; the boundary branches never removed
+# one. The stale marker then made check:globs fail «marked N/A» on every push, even after the
+# re-install had widened RULE_GLOBS.boundary to cover the new code. A re-install that finds the
+# precondition broken must drop the block it recorded, so the gate judges the wired globs instead.
+H=$(mktemp -d)
+printf '{"name":"h","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H/package.json"
+mkdir -p "$H/src"; echo 'export const app = 1;' > "$H/src/app.ts"
+install_into "$H" ts-server
+grep -qF '<!-- aif:r2-na:begin -->' "$H/.ai-factory/tool-decisions.md" \
+  || bad "H: the first install recorded no R2 N/A block — the arm below would be vacuous"
+echo 'Consumer note kept after the block.' >> "$H/.ai-factory/tool-decisions.md"
+mkdir -p "$H/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$H/src/api/handler.ts"
+( cd "$H" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H/.install2.log" 2>&1 \
+  || bad "H: the re-install exited non-zero (tail: $(tail -3 "$H/.install2.log" | tr '\n' '|'))"
+grep -qF "'**/api/**/*.{ts,tsx}'" "$H/eslint.config.mjs" \
+  || bad "H: the re-install did not widen RULE_GLOBS.boundary — the arm below would be vacuous"
+! grep -qF 'aif:r2-na' "$H/.ai-factory/tool-decisions.md" \
+  && ok "H: a boundary found on re-install → the stale R2 N/A block is removed" \
+  || bad "H: the stale R2 N/A block survived the re-install ($(grep -n 'aif:r2-na' "$H/.ai-factory/tool-decisions.md" | tr '\n' '|'))"
+grep -qF 'Consumer note kept after the block.' "$H/.ai-factory/tool-decisions.md" \
+  && ok "H: the consumer's own lines in tool-decisions.md survive the removal" \
+  || bad "H: removing the N/A block took the consumer's own lines with it"
+grep -q 'removed the R2 N/A' "$H/.install2.log" \
+  && ok "H: the install says it removed the stale R2 N/A record" \
+  || bad "H: the install removed nothing or said nothing about the stale R2 N/A record"
+OUT=$(globs "$H"); RC=$?
+[ "$RC" = "0" ] \
+  && ok "H: check:globs GREEN after the re-install (no «marked N/A» red)" \
+  || bad "H: check:globs exited $RC after the re-install. out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
+OUT=$( cd "$H" && AIF_ESLINT_CMD=true bash scripts/check-rule-enforced.sh 2>&1 )
+! printf '%s' "$OUT" | grep -q 'stale R2 N/A marker' \
+  && ok "H: check:enforced no longer fails on a stale R2 N/A marker" \
+  || bad "H: check:enforced still fails on the stale marker. out: $(printf '%s' "$OUT" | tail -2 | tr '\n' '|')"
+
+# ── Fixture H2 — N/A recorded, then the layout turns ambiguous (the declarative framework is gone) ──
+# The gates read ambiguous as a broken precondition too (r2_na_recheck → broke), so a re-install
+# drops the block here as well and the gate falls back to judging the default globs.
+H2=$(mktemp -d)
+printf '{"name":"h2","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H2/package.json"
+mkdir -p "$H2/src"; echo 'export const app = 1;' > "$H2/src/app.ts"
+install_into "$H2" ts-server
+grep -qF '<!-- aif:r2-na:begin -->' "$H2/.ai-factory/tool-decisions.md" \
+  || bad "H2: the first install recorded no R2 N/A block — the arm below would be vacuous"
+printf '{"name":"h2","version":"0.0.0"}\n' > "$H2/package.json"
+[ "$( cd "$H2" && bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" | head -1 )" = ambiguous ] \
+  || bad "H2: the edited fixture does not classify as ambiguous — the arm below would be vacuous"
+( cd "$H2" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H2/.install2.log" 2>&1 \
+  || bad "H2: the re-install exited non-zero (tail: $(tail -3 "$H2/.install2.log" | tr '\n' '|'))"
+! grep -qF 'aif:r2-na' "$H2/.ai-factory/tool-decisions.md" \
+  && ok "H2: a layout turned ambiguous on re-install → the stale R2 N/A block is removed" \
+  || bad "H2: the stale R2 N/A block survived an ambiguous re-install"
+! globs "$H2" | grep -q 'marked N/A' \
+  && ok "H2: check:globs no longer reports «marked N/A» (it judges the default globs again)" \
+  || bad "H2: check:globs still reports the stale «marked N/A»"
+
+# ── Fixture H3 — a recorded block whose end line was edited away, then a boundary appears ──────
+# The strip skips from begin to end; with no end it would cut the rest of the consumer's file.
+# The install must leave the file as it is and name the record it could not remove.
+H3=$(mktemp -d)
+printf '{"name":"h3","version":"0.0.0","dependencies":{"@hono/zod-openapi":"^0.9.0"}}\n' > "$H3/package.json"
+mkdir -p "$H3/src"; echo 'export const app = 1;' > "$H3/src/app.ts"
+install_into "$H3" ts-server
+grep -v 'aif:r2-na:end' "$H3/.ai-factory/tool-decisions.md" > "$H3/td" && mv "$H3/td" "$H3/.ai-factory/tool-decisions.md"
+echo 'Consumer note after a truncated block.' >> "$H3/.ai-factory/tool-decisions.md"
+cp "$H3/.ai-factory/tool-decisions.md" "$H3.before"
+mkdir -p "$H3/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$H3/src/api/handler.ts"
+( cd "$H3" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H3/.install2.log" 2>&1 \
+  || bad "H3: the re-install exited non-zero (tail: $(tail -3 "$H3/.install2.log" | tr '\n' '|'))"
+cmp -s "$H3/.ai-factory/tool-decisions.md" "$H3.before" \
+  && ok "H3: a block with no end line → tool-decisions.md left byte-identical (nothing cut)" \
+  || bad "H3: the strip changed a file whose block has no end line ($(diff "$H3.before" "$H3/.ai-factory/tool-decisions.md" | head -4 | tr '\n' '|'))"
+awk '/NOT wired, or wired only in part/{on=1} on' "$H3/.install2.log" | grep -q 'R2 N/A record' \
+  && ok "H3: the not-wired summary names the R2 N/A record the install could not remove" \
+  || bad "H3: the not-wired summary does not report the R2 N/A record left in place"
+! grep -qiE 'by hand|manually' "$H3/.install2.log" \
+  && ok "H3: no manual-edit advice" \
+  || bad "H3: the install asks for a manual edit: $(grep -iE 'by hand|manually' "$H3/.install2.log" | head -1)"
+rm -f "$H3.before"
+
 # boundary_block <config> — the lines of RULE_GLOBS.boundary's array, `boundary: [` to its `]`.
 boundary_block() { awk '/^[[:space:]]*boundary:[[:space:]]*\[/{on=1} on{print} on && /\]/{exit}' "$1"; }
 
-# ── Fixture H — a parse site in src/application/: its glob is one R8's `application:` key carries ──
+# ── Fixture K — a parse site in src/application/: its glob is one R8's `application:` key carries ──
 # «Already covered» used to be a file-wide substring match, so '**/application/**/*.{ts,tsx}' under
 # `application:` counted as covered and never went into `boundary: [` — R2 did not cover that code.
-H=$(mktemp -d)
-printf '{"name":"h","version":"0.0.0"}\n' > "$H/package.json"
-mkdir -p "$H/src/application"; echo 'export const h = (b) => schema.parse(b);' > "$H/src/application/x.ts"
-install_into "$H" ts-server
-grep -qF "'**/application/**/*.{ts,tsx}'" "$H/eslint.config.mjs" \
-  || bad "H: the config carries no '**/application/**/*.{ts,tsx}' anywhere — the arm below would be vacuous"
-boundary_block "$H/eslint.config.mjs" | grep -qF "'**/application/**/*.{ts,tsx}'" \
-  && ok "H: a parse site in src/application → its glob is inside RULE_GLOBS.boundary, not only under application:" \
-  || bad "H: '**/application/**/*.{ts,tsx}' is not in the boundary array ($(boundary_block "$H/eslint.config.mjs" | tr '\n' '|'))"
+K=$(mktemp -d)
+printf '{"name":"h","version":"0.0.0"}\n' > "$K/package.json"
+mkdir -p "$K/src/application"; echo 'export const h = (b) => schema.parse(b);' > "$K/src/application/x.ts"
+install_into "$K" ts-server
+grep -qF "'**/application/**/*.{ts,tsx}'" "$K/eslint.config.mjs" \
+  || bad "K: the config carries no '**/application/**/*.{ts,tsx}' anywhere — the arm below would be vacuous"
+boundary_block "$K/eslint.config.mjs" | grep -qF "'**/application/**/*.{ts,tsx}'" \
+  && ok "K: a parse site in src/application → its glob is inside RULE_GLOBS.boundary, not only under application:" \
+  || bad "K: '**/application/**/*.{ts,tsx}' is not in the boundary array ($(boundary_block "$K/eslint.config.mjs" | tr '\n' '|'))"
 # Paired negative: the glob now IS a boundary element, so a re-install must not add it again.
-( cd "$H" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$H/.install2.log" 2>&1 \
-  || bad "H: the re-install exited non-zero (tail: $(tail -3 "$H/.install2.log" | tr '\n' '|'))"
-n_h=$(boundary_block "$H/eslint.config.mjs" | grep -cF "'**/application/**/*.{ts,tsx}'")
-[ "$n_h" = "1" ] \
-  && ok "H: a glob already in the boundary array → a re-install adds no duplicate" \
-  || bad "H: the boundary array holds '**/application/**/*.{ts,tsx}' $n_h times after a re-install (expected 1)"
+( cd "$K" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$K/.install2.log" 2>&1 \
+  || bad "K: the re-install exited non-zero (tail: $(tail -3 "$K/.install2.log" | tr '\n' '|'))"
+n_k=$(boundary_block "$K/eslint.config.mjs" | grep -cF "'**/application/**/*.{ts,tsx}'")
+[ "$n_k" = "1" ] \
+  && ok "K: a glob already in the boundary array → a re-install adds no duplicate" \
+  || bad "K: the boundary array holds '**/application/**/*.{ts,tsx}' $n_k times after a re-install (expected 1)"
 
-# ── Fixture I — a parse site in a directory whose name holds an apostrophe ──
+# ── Fixture L — a parse site in a directory whose name holds an apostrophe ──
 # The glob went into the config wrapped in single quotes unescaped: `'**/it's/**/*.{ts,tsx}',` —
 # a config ESLint cannot load. It must be a valid string element holding the glob.
-I=$(mktemp -d)
-printf '{"name":"i","version":"0.0.0"}\n' > "$I/package.json"
-mkdir -p "$I/src/it's"; echo 'export const h = (b) => schema.parse(b);' > "$I/src/it's/x.ts"
-install_into "$I" ts-server
-grep -qF "**/it" "$I/eslint.config.mjs" || bad "I: no glob for the apostrophe directory reached eslint.config.mjs — the arm below would be vacuous"
-node --check "$I/eslint.config.mjs" 2>"$I/.check.err" \
-  && ok "I: a glob with an apostrophe → eslint.config.mjs is still valid JavaScript" \
-  || bad "I: eslint.config.mjs no longer parses ($(head -3 "$I/.check.err" | tr '\n' '|'))"
-( cd "$I" && node --input-type=module -e "
+L=$(mktemp -d)
+printf '{"name":"i","version":"0.0.0"}\n' > "$L/package.json"
+mkdir -p "$L/src/it's"; echo 'export const h = (b) => schema.parse(b);' > "$L/src/it's/x.ts"
+install_into "$L" ts-server
+grep -qF "**/it" "$L/eslint.config.mjs" || bad "L: no glob for the apostrophe directory reached eslint.config.mjs — the arm below would be vacuous"
+node --check "$L/eslint.config.mjs" 2>"$L/.check.err" \
+  && ok "L: a glob with an apostrophe → eslint.config.mjs is still valid JavaScript" \
+  || bad "L: eslint.config.mjs no longer parses ($(head -3 "$L/.check.err" | tr '\n' '|'))"
+( cd "$L" && node --input-type=module -e "
   const src = (await import('node:fs')).readFileSync('eslint.config.mjs', 'utf8');
   const m = src.match(/const RULE_GLOBS = (\{[\s\S]*?\n\});/);
   const g = m && new Function('return ' + m[1])();
   process.exit(g && g.boundary.includes(\"**/it's/**/*.{ts,tsx}\") ? 0 : 1);
 " ) 2>/dev/null \
-  && ok "I: the boundary array holds the apostrophe glob as one string element" \
-  || bad "I: RULE_GLOBS.boundary does not hold \"**/it's/**/*.{ts,tsx}\" ($(boundary_block "$I/eslint.config.mjs" | tr '\n' '|'))"
+  && ok "L: the boundary array holds the apostrophe glob as one string element" \
+  || bad "L: RULE_GLOBS.boundary does not hold \"**/it's/**/*.{ts,tsx}\" ($(boundary_block "$L/eslint.config.mjs" | tr '\n' '|'))"
 
-# ── Fixture J — RULE_GLOBS re-wrapped in a type cast: the boundary array is no longer its own key ──
+# ── Fixture M — RULE_GLOBS re-wrapped in a type cast: the boundary array is no longer its own key ──
 # The element read answers `no-array` there, so nothing counted as covered; the awk insert still
 # found the `boundary: [` line and added the same glob again on every re-install (cold review).
-J=$(mktemp -d)
-printf '{"name":"j","version":"0.0.0"}\n' > "$J/package.json"
-mkdir -p "$J/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$J/src/api/handler.ts"
-install_into "$J" ts-server
-sed -e 's|^const RULE_GLOBS = {$|const RULE_GLOBS = /** @type {any} */ ({|' "$J/eslint.config.mjs" \
+M=$(mktemp -d)
+printf '{"name":"j","version":"0.0.0"}\n' > "$M/package.json"
+mkdir -p "$M/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$M/src/api/handler.ts"
+install_into "$M" ts-server
+sed -e 's|^const RULE_GLOBS = {$|const RULE_GLOBS = /** @type {any} */ ({|' "$M/eslint.config.mjs" \
   | awk 'cast==0 && /^const RULE_GLOBS = \/\*\*/{cast=1} cast==1 && /^};$/{print "});"; cast=2; next} {print}' \
-  > "$J/eslint.config.mjs.edit" && mv "$J/eslint.config.mjs.edit" "$J/eslint.config.mjs"
-grep -q '^const RULE_GLOBS = /\*\* @type' "$J/eslint.config.mjs" && node --check "$J/eslint.config.mjs" 2>/dev/null \
-  || bad "J: the fixture edit did not leave a cast-wrapped, valid RULE_GLOBS — the arm below would be vacuous"
-n_j0=$(boundary_block "$J/eslint.config.mjs" | grep -cF "'**/api/**/*.{ts,tsx}'")
-( cd "$J" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$J/.install2.log" 2>&1 \
-  || bad "J: the re-install exited non-zero (tail: $(tail -3 "$J/.install2.log" | tr '\n' '|'))"
-n_j=$(boundary_block "$J/eslint.config.mjs" | grep -cF "'**/api/**/*.{ts,tsx}'")
-[ "$n_j0" = "1" ] && [ "$n_j" = "1" ] \
-  && ok "J: a boundary array the element read cannot see → a re-install adds no duplicate" \
-  || bad "J: '**/api/**/*.{ts,tsx}' in the boundary array: $n_j0 before the re-install, $n_j after (expected 1 and 1)"
-! grep -q 'could not add glob' "$J/.install2.log" \
-  && ok "J: a glob already in that array → no «could not add glob» false alarm" \
-  || bad "J: the re-install reported a glob it did not need to add: $(grep 'could not add glob' "$J/.install2.log" | head -1)"
+  > "$M/eslint.config.mjs.edit" && mv "$M/eslint.config.mjs.edit" "$M/eslint.config.mjs"
+grep -q '^const RULE_GLOBS = /\*\* @type' "$M/eslint.config.mjs" && node --check "$M/eslint.config.mjs" 2>/dev/null \
+  || bad "M: the fixture edit did not leave a cast-wrapped, valid RULE_GLOBS — the arm below would be vacuous"
+n_m0=$(boundary_block "$M/eslint.config.mjs" | grep -cF "'**/api/**/*.{ts,tsx}'")
+( cd "$M" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$M/.install2.log" 2>&1 \
+  || bad "M: the re-install exited non-zero (tail: $(tail -3 "$M/.install2.log" | tr '\n' '|'))"
+n_m=$(boundary_block "$M/eslint.config.mjs" | grep -cF "'**/api/**/*.{ts,tsx}'")
+[ "$n_m0" = "1" ] && [ "$n_m" = "1" ] \
+  && ok "M: a boundary array the element read cannot see → a re-install adds no duplicate" \
+  || bad "M: '**/api/**/*.{ts,tsx}' in the boundary array: $n_m0 before the re-install, $n_m after (expected 1 and 1)"
+! grep -q 'could not add glob' "$M/.install2.log" \
+  && ok "M: a glob already in that array → no «could not add glob» false alarm" \
+  || bad "M: the re-install reported a glob it did not need to add: $(grep 'could not add glob' "$M/.install2.log" | head -1)"
 
 # ── Self-probe (T15 / spec §8): C1 on THIS repo must be honest, never a false confident-N/A ──
 SELF=$( bash "$REPO_ROOT/packages/core/audit-self/detect-r2-boundary.sh" 2>/dev/null | head -1 )
