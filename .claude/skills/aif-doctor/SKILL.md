@@ -77,7 +77,7 @@ Run these in order; each is $0 and read-only. **Reuse, do not reimplement.**
 
 Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 2026-06-03: it checks container-present / dirty_worktree / park-code+net / dedup; count-free wording — the list grows on incidence, never speculatively).
 
-> The commands below hard-code `aif-handoff-agent-1`. If the compose project was renamed, resolve the real name first (same logic `bridge-health.sh` uses): `C=$(docker ps --filter name=agent --format '{{.Names}}' | grep -i aif | head -1)` and substitute `$C`, or set `RUNTIME_BRIDGE_AGENT_CONTAINER`.
+> The commands below hard-code `aif-handoff-agent-1`. If the compose project was renamed, resolve the real name first (same logic `bridge-health.sh` uses): `C=$(docker ps --filter name=agent --format '{{.Names}}' | grep -i aif | head -1)` and substitute `$C`, or set `RUNTIME_BRIDGE_AGENT_CONTAINER`. The PC-hosted stack (2026-09) names it `aif-agent-1` (compose project `aif`). The in-container path `/home/www/rules-as-tests-aif` follows the aif projects-mount convention (`<host projects dir> -> /home/www`, one subdirectory per project named after its host main clone). On the PC stack that is `/home/etot/aif/projects -> /home/www` (verified 2026-09-30 via `docker inspect aif-agent-1`). For another project, or a different mount, substitute `/home/www/<main-clone dir name>`. `refresh-aif-base.sh` derives the same path and accepts `AIF_CONTAINER_REPO` as an override. The `heal.sh` hook-sync step uses the parent `/home/www`, overridable with `AIF_CONTAINER_REPO_ROOT`. When only `AIF_CONTAINER_REPO` is set, it takes that value's parent directory.
 
 ### §3.1 Runtime native-binary missing → task crash-loops in `planning`
 
