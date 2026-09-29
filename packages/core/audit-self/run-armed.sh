@@ -45,7 +45,7 @@ bounded() {  # $1 s, $2 command → its exit code; 124 = over the bound (its pro
   local p w rc; set -m
   ( cd "$ROOT" && exec bash -c "$2" ) </dev/null >/dev/null 2>&1 & p=$!
   ( sleep "$1"; kill -TERM -- -"$p" ) >/dev/null 2>&1 & w=$!
-  wait "$p"; rc=$?; set +m; kill -- -"$w" 2>/dev/null || return 124; return "$rc"
+  wait "$p" 2>/dev/null; rc=$?; set +m; kill -- -"$w" 2>/dev/null || return 124; wait "$w" 2>/dev/null; return "$rc"
 }
 probe() {
   local c r t="${GETFF_PROBE_TIMEOUT_S:-120}"

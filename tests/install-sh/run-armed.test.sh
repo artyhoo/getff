@@ -161,6 +161,9 @@ t0=$(date +%s); out=$( cd "$N" && GETFF_PROBE_TIMEOUT_S=1 bash "$RA" --probe 2>&
 ! is_armed "$N" 'sleep 6; touch n-late.txt' && is_armed "$N" 'touch n-fast.txt' \
   && ok "(N) the slow one stays not armed; the fast one next to it arms" || bad "(N) arm state wrong"
 sleep 7; [ ! -f "$N/n-late.txt" ] && ok "(N) the slow command was killed, not left running" || bad "(N) the slow command finished after the bound"
+M2=$(proj "" 'true # red at install'); out2=$( cd "$M2" && bash "$RA" --probe 2>&1 )
+! grep -q 'Terminated' <<<"$out$out2" && ok "(N) no job-control «Terminated» noise, over the bound or under it" \
+  || bad "(N) the watchdog leaks shell noise: $(grep Terminated <<<"$out$out2" | head -1)"
 
 # ── (O) --fold: working tree and index; an unrelated unstaged edit stays unstaged ─────────────────
 O=$(proj "" $'touch o.txt # red at install\nexit 1 # red'); f="$O/.ai-factory/tool-decisions.md"
