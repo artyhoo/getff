@@ -854,6 +854,8 @@ jobs:
         run: bash tests/install-sh/workspace-stack-detect.test.sh
       - name: "install-sh — generic stack: an unknown-stack project gets the stack-free part, -y claims a toolchain lane, no prompt under --full (P2 G1)"
         run: bash tests/install-sh/generic-stack.test.sh
+      - name: "install-sh — the project's package versions win: declared packages are not re-installed, an ERESOLVE drops our package and retries strict (P2 G2)"
+        run: bash tests/install-sh/deps-keep-project-versions.test.sh
       - name: Run install-sh meta-gate — every install-sh test is wired in CI (closes armed-but-not-fired)
         run: bash tests/install-sh/meta-all-wired.test.sh
 
