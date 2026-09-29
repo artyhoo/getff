@@ -10,7 +10,7 @@
 # framework file delivered by --full but omitted from do_refresh can therefore never reach an
 # already-installed consumer non-destructively — the framework's own fixes false-RED (or, for
 # .husky/pre-push, HARD-CRASH per #636) forever on it. This gate is the mechanical form of the
-# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1428 prose promise
+# install.sh do_refresh "@sync-with-layers" invariant + the install.sh:1427 prose promise
 # ("Consumer-owned files … were not touched") — encoded as an executable assertion.
 #
 # SCOPE: copy_safe deliveries only (the skip-if-exists mechanism that causes the bug). Other
@@ -76,7 +76,7 @@ done
 # clobber their edits. (The one directory payload, scripts/fences-fire-fixtures, was the last
 # deferred entry here — #873 fixed refresh_safe to replace directory payloads instead of nesting,
 # so it is now refreshed like any other framework artefact and no longer lives in this list.)
-# install.sh:1428 + setup.d/lib.sh:1960 (framework-namespace vs consumer-ownable split) are the prose
+# install.sh:1427 + setup.d/lib.sh:1960 (framework-namespace vs consumer-ownable split) are the prose
 # this list encodes. A NEW copy_safe destination that is framework-owned must be REFRESHED (added
 # to do_refresh), not added here.
 EXCLUDED=$(sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' <<'EXC' | sed '/^$/d'
