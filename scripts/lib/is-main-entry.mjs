@@ -16,7 +16,7 @@
  * these scripts into a fixture must copy this file beside it (check-line-citations.test.sh).
  * Principle 47 (packages/core/principles/47-symlink-safe-entry-point.test.ts) rejects the naive
  * form in any new file. packages/core has its own lock and cannot import this file — its twin
- * is packages/core/hooks/utils/is-direct-run.ts.
+ * is packages/core/install/is-direct-run.ts.
  */
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

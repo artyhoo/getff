@@ -11895,7 +11895,7 @@ import {
 } from "node:fs";
 import { join as join9, relative as relative2, resolve as resolve15, sep as sep2 } from "node:path";
 
-// packages/core/hooks/utils/is-direct-run.ts
+// packages/core/install/is-direct-run.ts
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 function isDirectRun(argv1, metaUrl) {

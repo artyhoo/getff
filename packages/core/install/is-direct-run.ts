@@ -6,6 +6,10 @@
  * (SSOT docs/meta-factory/prior-art-evaluations.md #269; dual-implementation-discipline.md §8).
  * Its scripts/*.mjs twin is `scripts/lib/is-main-entry.mjs` — packages/core has its own lock and
  * does not import from scripts/. Principle 47 rejects the naive form in new files.
+ *
+ * Lives in install/ because shipped modules (detector/, synthesizer/, install/) import it and
+ * install/ is in the package `files` allowlist; hooks/ is not (the npm-tarball consumer cell
+ * failed ERR_MODULE_NOT_FOUND when this file sat in hooks/utils/).
  */
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

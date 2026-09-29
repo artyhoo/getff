@@ -48,7 +48,7 @@ import {
   type AstgrepResearchedPractice,
   type ResearchOnlyReason,
 } from './research-to-node.ts';
-import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 

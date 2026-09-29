@@ -37,7 +37,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
-import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
+import { isDirectRun } from './is-direct-run.ts';
 // NOTE: `runRuleBootstrap` is imported DYNAMICALLY inside main() (the live/synthesis arm), NOT
 // statically here. It transitively reaches `validator/validate.ts` → the L4 gates, which pull in
 // `eslint` + `@typescript-eslint/parser`. The lightweight `--from-practice` arm
@@ -417,7 +417,7 @@ async function main(): Promise<void> {
   }
 }
 
-// isDirectRun lives in hooks/utils/is-direct-run.ts (shared by every packages/core CLI);
+// isDirectRun lives in install/is-direct-run.ts (shared by every packages/core CLI);
 // re-exported here for the existing importers and tests.
 export { isDirectRun };
 

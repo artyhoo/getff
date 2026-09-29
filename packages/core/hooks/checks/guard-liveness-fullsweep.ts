@@ -53,7 +53,7 @@ import {
   type CmdScriptLivenessReport,
   type CmdScriptRule,
 } from './cmd-script-liveness.ts';
-import { isDirectRun } from '../utils/is-direct-run.ts';
+import { isDirectRun } from '../../install/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = resolve(HERE, '../../../..');

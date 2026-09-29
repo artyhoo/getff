@@ -55,7 +55,7 @@ import {
   type ClippyResearchedPractice,
   type ResearchOnlyReason,
 } from './research-to-clippy-node.ts';
-import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 

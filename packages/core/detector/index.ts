@@ -16,7 +16,7 @@ import { readConfig } from './read-config.ts';
 import { toConfidence } from './confidence.ts';
 import { computeMissing } from './known-packages.ts';
 import { detectPatterns } from './patterns.ts';
-import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 export type { DetectionResult, DetectorOptions, Stack, Framework, Runtime } from './types.ts';
 export type { Confidence, Severity, ConfidenceTuple, Priority } from './confidence.ts';

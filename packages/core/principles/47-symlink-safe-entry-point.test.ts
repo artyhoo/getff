@@ -4,7 +4,7 @@
  * > **Authoritative for:** no git-tracked source file compares `import.meta.url` (or
  * > `import.meta.filename`) against `process.argv[1]` without resolving both through
  * > `realpathSync` — the shared helpers `scripts/lib/is-main-entry.mjs` (scripts) and
- * > `packages/core/hooks/utils/is-direct-run.ts` (packages/core) are the sanctioned forms.
+ * > `packages/core/install/is-direct-run.ts` (packages/core) are the sanctioned forms.
  * > **NOT authoritative for:** project goal — see README.md#why-this-exists. The defect class
  * > and its prior art — SSOT docs/meta-factory/prior-art-evaluations.md #269.
  *
@@ -40,7 +40,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 const REPO_ROOT = resolve(__dirname, '../../..');
 
@@ -115,7 +115,7 @@ describe('principle 47 — symlink-safe ESM entry-point checks', () => {
     expect(
       hits,
       'naive entry-point compare — use isMainEntry(import.meta.url) from scripts/lib/is-main-entry.mjs ' +
-        'or isDirectRun(process.argv[1], import.meta.url) from packages/core/hooks/utils/is-direct-run.ts',
+        'or isDirectRun(process.argv[1], import.meta.url) from packages/core/install/is-direct-run.ts',
     ).toEqual([]);
   });
 

@@ -48,7 +48,7 @@ import type { ConventionNode } from '../ir/types.ts';
 import { renderAstgrep } from '../backends/astgrep/render-astgrep.ts';
 import { renderRuff } from '../backends/ruff/render-ruff.ts';
 import { PYTHON_STARTER_NODES } from './starter-nodes.ts';
-import { isDirectRun } from '../hooks/utils/is-direct-run.ts';
+import { isDirectRun } from '../install/is-direct-run.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
