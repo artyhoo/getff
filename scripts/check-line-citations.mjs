@@ -53,6 +53,10 @@
  * Both arms read two citation shapes: `path:NN` and the explicit prose form
  * «line 63 of `setup.d/lib.sh`» / «`setup.d/10-skills.sh`, lines 22 to 27» that the
  * docs/site pages write (PROSE_OF_RE below, with why a bare «line N» is excluded).
+ * A bare sibling `:NN` inherits the file of the nearest preceding `path:NN` in the same
+ * sentence: backticked on the same line anywhere (BACKREF_RE), and un-backticked in a
+ * code comment, across the comment block's wrapped lines (CODE_BACKREF_RE — with the
+ * 2026-09-29 corpus measurement of why the sentence bound is the precision line).
  *
  * WHICH FILES the caller passes is the other half of coverage, and scoping it to the
  * push's changed Markdown — what pre-push §9 did until 2026-09-14 — has a structural
@@ -214,6 +218,31 @@ function commaMembers(m, srcLine) {
  * Resolution is deterministic — nearest preceding resolved citation, same line.
  */
 const BACKREF_RE = /`:(\d+)(?:-(\d+))?`/g;
+/**
+ * The same backreference as code comments write it — no backticks, and often wrapped
+ * onto the next comment line: «45-python.sh:1398-1400 classifies … — and :1346 extends
+ * the contract», «ARCHITECTURE.md source (:1335/:1363 — …». Three of these had gone
+ * stale unseen (fidelity audit on PR #1931, 2026-09-29), because nothing read them.
+ *
+ * Scope, each part measured on the code corpus that day (30 un-backticked `:NN` with a
+ * `path:NN` earlier in the same comment block; 118 more with none, never bound):
+ *   - CODE FILES ONLY, COMMENT LINES ONLY (`#`, `//`, `*`, `/*` after indentation). A
+ *     code line both ends the block and is never scanned: `${x:1}`, `host:3009`.
+ *   - The antecedent is the nearest preceding `path:NN` on the same line OR on an
+ *     earlier line of the same contiguous comment block.
+ *   - The SAME-SENTENCE guard of BACKREF_RE applies across the wrap. Without it the arm
+ *     bound 30 siblings, of which the 12 that crossed a sentence included sure misbinds —
+ *     ports (`AifHandoffBackend.ts`: «(:3009). MCP (HTTP) = mcpUrl (:3100)»), and «same
+ *     reason integer-name-guard.sh documents at :23-25» bound to a `setup.d/lib.sh`
+ *     named a sentence earlier. With it: 18 bound, 18 to the file the author meant.
+ * A sibling in the next sentence is therefore NOT checked; write its path out
+ * (`45-python.sh:1429`) and CITATION_RE covers it. Markdown keeps the backticked-only
+ * form: prose uses a bare «:NN» for times and ratios as well as lines.
+ * `/` is an allowed left neighbour so a slash-joined pair (`:1335/:1363`) yields both.
+ */
+const CODE_BACKREF_RE = /(?<=^|[\s(/,]):(\d+)(?:-(\d+))?(?![\w:`])/dg;
+const CODE_COMMENT_LINE_RE = /^\s*(?:#|\/\/|\*|\/\*)/;
+const SENTENCE_BREAK_RE = /[.!?]\s/;
 /**
  * Prose form — the docs/site reference pages cite in sentences, not `path:NN`:
  * «line 63 of `setup.d/lib.sh`», «lines 163 to 167 of `setup.d/10-skills.sh`»,
@@ -696,9 +725,16 @@ export function scanFile(srcFile) {
     });
   }
 
+  // CODE_BACKREF_RE's antecedent when it sits on an EARLIER line of the same comment
+  // block: the last `path:NN` seen (resolved or not — an unresolved nearer citation must
+  // not let the sibling fall through to an older one) and the comment text after it,
+  // which the same-sentence guard reads across the wrap.
+  let carry = null;
   lines.forEach((text, idx) => {
     const srcLine = idx + 1;
     const escape = escapeOf(text);
+    const commentLine = code && CODE_COMMENT_LINE_RE.test(text);
+    if (!commentLine) carry = null;
     const links = [...text.matchAll(MD_LINK_RE)].map((m) => [
       m.index,
       m.index + m[0].length,
@@ -708,12 +744,14 @@ export function scanFile(srcFile) {
     // Anchors first: a bare `:NN` backreference inherits the target of the
     // nearest preceding path:NN citation on the same line.
     const anchors = [];
+    const lineAnchors = [];
     for (const m of text.matchAll(CITATION_RE)) {
       const linkTarget = links.find(
         ([s, e]) => s <= m.index && m.index < e,
       )?.[2];
       const t = resolveCitedPath(rel, m[1], linkTarget);
       if (t.target) anchors.push({ at: m.index, target: t.target, weak: t.weak });
+      lineAnchors.push({ at: m.index, target: t.target ?? null, weak: t.weak ?? false });
     }
     const cites = [
       ...[...text.matchAll(CITATION_RE)].map((m) => ({
@@ -732,13 +770,44 @@ export function scanFile(srcFile) {
         ],
         bare: true,
       })),
+      ...(commentLine ? [...text.matchAll(CODE_BACKREF_RE)] : []).map((m) => ({
+        m,
+        token: m[0],
+        path: null,
+        members: [
+          {
+            n: Number(m[1]),
+            end: m[2] ? Number(m[2]) : null,
+            token: m[0],
+            // Positional, like a comma-list member: the token `:13` would also split
+            // `:1346` elsewhere on the line in the token writer.
+            pos: {
+              start: { line: srcLine, col: m.indices[1][0], len: m[1].length, was: m[1] },
+              end: m[2]
+                ? { line: srcLine, col: m.indices[2][0], len: m[2].length, was: m[2] }
+                : null,
+            },
+          },
+        ],
+        codeBare: true,
+      })),
     ].sort((a, b) => a.m.index - b.m.index);
 
     for (const c of cites) {
       const { m, token } = c;
       let target;
       let weak = false;
-      if (c.bare) {
+      if (c.codeBare) {
+        const same = lineAnchors.filter((a) => a.at < m.index).pop();
+        const between = same
+          ? text.slice(same.at, m.index)
+          : carry && `${carry.tail} ${text.slice(0, m.index)}`;
+        const anchor = same ?? carry;
+        if (!anchor || SENTENCE_BREAK_RE.test(between)) continue; // CODE_BACKREF_RE header
+        if (anchor.target === null) continue; // the nearer citation is itself a skip
+        target = anchor.target;
+        weak = anchor.weak;
+      } else if (c.bare) {
         const anchor = anchors.filter((a) => a.at < m.index).pop();
         if (!anchor) continue; // no antecedent on this line — not a citation
         // Bind only within the SAME SENTENCE. Measured 2026-09-13: crossing a
@@ -785,6 +854,11 @@ export function scanFile(srcFile) {
           pos: mem.pos,
         });
       }
+    }
+    if (commentLine) {
+      const last = lineAnchors[lineAnchors.length - 1];
+      if (last) carry = { target: last.target, weak: last.weak, tail: text.slice(last.at) };
+      else if (carry) carry.tail += ` ${text}`;
     }
   });
 

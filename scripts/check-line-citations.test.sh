@@ -207,6 +207,58 @@ printf 'Pinned at `target.md:1`. The audit numbers it `:99`.\n' >"$REPO/cite.md"
 commit_all "backref across a sentence boundary"
 expect_pass "a backref in the next sentence is not bound to the anchor" cite.md
 
+# ------------------------------------------------ bare backreference in a code comment
+# Code comments write the sibling WITHOUT backticks and wrap it onto the next comment
+# line: «45-python.sh:1398-1400 … \n# … — and :1346 extends the contract». Three such
+# siblings had gone stale unseen in refresh-covers-full-delivery.test.sh / 45-python.sh
+# (fidelity audit on PR #1931, 2026-09-29).
+new_repo code-backref
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '#!/usr/bin/env bash\n# pinned at target.sh:2 and the\n# rest at :3 (same sentence, next line).\ntrue\n' >"$REPO/cite.sh"
+commit_all "unbackticked sibling on the next comment line"
+expect_pass "an accurate unbackticked sibling is quiet" cite.sh
+printf 'INSERTED\nalpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target shifted by one"
+expect_fail "an unbackticked sibling on the next comment line is checked" "cite.sh:3" cite.sh
+(cd "$REPO" && node "$CHECK" --write cite.sh) >/dev/null 2>&1
+if ! grep -qF '# rest at :4 (same sentence' "$REPO/cite.sh" || ! grep -qF 'target.sh:3 and' "$REPO/cite.sh"; then
+  echo "FAIL: --write did not move the unbackticked sibling: $(cat "$REPO/cite.sh")"; fails=$((fails + 1))
+fi
+
+# Same line, slash-joined pair («(:1335/:1363 — …»): both members are checked.
+new_repo code-backref-pair
+printf 'alpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+printf '# target.sh:1 sources (:2/:3 - two copies).\n' >"$REPO/cite.sh"
+commit_all "slash-joined siblings"
+printf 'INSERTED\nalpha\nbeta\ngamma\ndelta\n' >"$REPO/target.sh"
+commit_all "target shifted by one"
+run_check cite.sh
+if [ "$(grep -cF 'cite.sh:1' "$TMP/err")" -lt 3 ]; then
+  echo "FAIL: slash-joined siblings were not both checked"; sed 's/^/    /' "$TMP/err"; fails=$((fails + 1))
+fi
+
+# Paired negatives — each is a shape the corpus measurement (2026-09-29) showed binding
+# to the WRONG referent, or a shape that is not a comment at all. Every bare number here
+# is past target.sh's end, so a wrong bind would be a red, not a silent pass.
+new_repo code-backref-neg
+printf 'alpha\nbeta\ngamma\n' >"$REPO/target.sh"
+# (1) next sentence on the next comment line re-points the referent — ports, in the
+#     measured case (`AifHandoffBackend.ts`: «… (:3009). MCP (HTTP) = mcpUrl (:3100)»).
+# (2) a code line ends the comment block; (3) a trailing code-line `:NN` is not a comment;
+# (4) bash substring expansion; (5) Markdown keeps the backticked-only rule.
+cat >"$REPO/cite.sh" <<'EOF'
+# anchored at target.sh:1.
+# Ports: base (:3009), mcp (:3100).
+# anchored again at target.sh:2 with no sentence end
+x=1
+# after code :99 must not bind
+y="${x:1}"; echo at target.sh:2 then :98
+EOF
+printf 'Pinned at `target.md:1` and then :97 unbackticked.\n' >"$REPO/cite.md"
+printf 'one\n' >"$REPO/target.md"
+commit_all "shapes that must not bind"
+expect_pass "unbackticked siblings bind only within one comment sentence" cite.sh cite.md
+
 # ============================================================ skipped-citation visibility
 # Until 2026-09-14 a citation whose path did not resolve was dropped with a bare
 # `continue`: no line printed, no count, exit 0. Measured that day over the five
