@@ -14,7 +14,7 @@ fd2a9356469fa7f0c2a5e715c951c1bfc2c2a8e537f4e3b0480ef24eb7ac4bf7  .claude/hooks/
 d0cd9ef373ea999556bfdc86a734b8459f05473af0f513e88d6a1f0b426ebd47  .claude/hooks/inject-memory-codification.sh
 dcf7ae0cda9cb88dcbd0a1167873174ec14bb52b2036fb8ba1eafbdc9b986cc5  .claude/hooks/inject-output-language.sh
 2355680b66d1e9f5ecaa12b0b35fd430a5d6f31c0ffec9e7defd54761bb66c16  .claude/hooks/inject-project-digest.sh
-1cca62d0bc01e424849f5c2bf7ed706b5ef14452ee1beddc3b565495166b0d11  .claude/hooks/inject-session-bootstrap.sh
+10ffd40ad77a5d578a87d393a506e61fdcc09ca758ca1f91348eace55f73b9ff  .claude/hooks/inject-session-bootstrap.sh
 662cec213c70fe0c77d932ff58612de7c63072068ed6e15055f009329e9381ee  .claude/hooks/inject-subagent-context.sh
 014c06585295d26d24448f1cfd9cf159a9754a350b782abbb154ba479d231809  .claude/hooks/inject-subagent-digest.sh
 ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/lang/check-parity.sh
@@ -22,6 +22,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
+38defad16d5722e17fa8f58456714f0969d9e0026f5d1ee630bb829c5e66c48a  .claude/hooks/lib/skill-index.sh
 6b16f80d978939dcc84987c7fd29ce7e303c8ab4b57e8972441d1c29fcb5bee8  .claude/hooks/precompact-residue.sh
 9d9548c80a55b8544eefa490f24eb644bf52f624b77ca78821bb9802743fc729  .claude/hooks/runtime-bridge-dispatch.sh
 fb40934aad5cef9f7f03c26801ccb784a9a0f60a76fa60f0c3f12948f359b2d5  .claude/hooks/validate-prompt.sh
@@ -49,16 +50,16 @@ e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills
 6658d2123b8fcd47a6cda7f590e1f0e7d69c9c5aa82a84f23945888e01de539d  .claude/skills/docs-author/references/craft.md
 e74c76cad7fef0d08cf7725c49717242487582f9cb18adb1e22363da94995805  .claude/skills/docs-author/references/criteria-card.md
 95a2431162e7a6c6469662761611ed30f0620d755f5ac8eff3f4fb73ccc8a503  .claude/skills/docs-author/references/gold/README.md
-87b08478254d7270b5f22563c636d32fa6d82a5292f01516818610ccba82dd73  .claude/skills/docs-author/references/gold/family-overview.md
+2bdef1f67dd58bfc57c4188c101075ca1d97f0a90eb7824b1a754fa25dcda475  .claude/skills/docs-author/references/gold/family-overview.md
 054ad02f1a2bb8aa57edc2fb7690f30841cab22c3415b637caf71d0114b13ef2  .claude/skills/docs-author/references/gold/guide.md
 a7dbfde17f21aaa904c21168fff4a19a63c2b15ff3c80b7398e409b695c40b8c  .claude/skills/docs-author/references/gold/learn-tutorial.md
-ab4ab7372692dd0c43cba9b03e0761dc5df0c4676d9b3181403df46da3094084  .claude/skills/docs-author/references/gold/reference-sheet.md
+0f8f1b3bf170781e50620c4f4ae3a16564c651421494f3eb93fde3333c272bb2  .claude/skills/docs-author/references/gold/reference-sheet.md
 2315eea3c5ffb31b7d119c25a6dcd12ca43b6f6b48eaeb7287d46538ecfb352b  .claude/skills/docs-author/references/gold/understand.md
 c9cd310f3bdc031ae057495ee72eda69f7c1d227d47527c45f1312572b72cf8a  .claude/skills/docs-author/references/page-kinds.md
 f5f916d92433dff4057f6e190e138a8e3b50f0e23743e39220f356bb963262a4  .claude/skills/docs-author/references/terms.md
 f8f6f94033bbb896014a09ab5f62ce59d94955ce138c0062a85f67bd5423c292  .claude/skills/harvest/SKILL.md
 bbc360fca060da653c5e1b0565f8b2dd8150ba765d83d117d4d44085517c6a26  .claude/skills/night-mode/SKILL.md
-14d99a821b04c84a78195a09adbd461cfcfd2485a50ea9d5a1e9d9e332c0e33a  .claude/skills/orchestrator/SKILL.md
+a6555245d9d6de7d723ecf37c5eb5d5b8345fc826b5f98bfce7ed682d49aa26d  .claude/skills/orchestrator/SKILL.md
 e918814685548fe7fce40ff78af6b1ff0793aceb49385bb55f09c8129511bd2d  .claude/skills/orchestrator/references/ai-laziness-traps-orchestrator.md
 426d90fbdda16a3aa796df1dd446c8e5168de49a6b1eee7f366061cbb5b6a5b4  .claude/skills/orchestrator/references/batch-prompt-template.md
 dc80b6ed685291fb88ec20251b31549f06eaae39f25d37c1df9a74a6fcc57b40  .claude/skills/orchestrator/references/discovery.md
@@ -509,6 +510,7 @@ a635e173f68397afc17ff33244d34243766a0db2079f99525192fc86089104cd  packages/core/
 a0bde1976b4665dd232a771b18ec98a8c61888c6c385fe792417e3be3828f901  packages/core/hooks/rule-channel-degradation.test.ts
 c0c02f19ea51280ab8de96a28d6a35ded73cd84d809593baafac55fb64f7edb8  packages/core/hooks/runtime-bridge-dispatch.test.ts
 f7ce626f7870a30be7a6d7993f27093e7dc8dc3013c1d28be8cc265f8dedb2b3  packages/core/hooks/session-start.test.ts
+63c0f47e95b1df17f75653bd8bff4d889d5daeb63127d151ca9310417ffaa1f7  packages/core/hooks/skill-index-on-compact.test.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
 0cc8f2ba0ac198e03820f0281d096579abec9f2791d52e9c83b1ebb81812c090  packages/core/hooks/update-cache.test.ts
 503fada0150700c3aae8d6aa05f2a843711a731c91bf3b225df71f81069ebb56  packages/core/hooks/update-delta.test.ts
@@ -618,6 +620,8 @@ aef7938e1fa305acc0ea4b0ac16f6889bfb9b9cfa78b683d061b79c14eec67a5  packages/core/
 a3c3a7e859fcfd9be9c207b5cba8211a05f9c9401c23721606ef4da9e65ac157  packages/core/principles/46-git-env-inheritance-safety.test.ts
 8e8ae324045e5e5433e98cde44a0e5a7be898f18e29277d601f6a7b9503c0338  packages/core/principles/46-git-env-inheritance-safety.ts
 a47d7b4e6237600483dd79a789c4937265aca184de9e765a0a462699430a1eb3  packages/core/principles/46-reference-generator-arms.test.ts
+1c353a23cd942b0451083d6310dccdf87a3f44328736d486051e5e7692101492  packages/core/principles/47-skill-description-budget.test.ts
+0afb78b5342c93da9240ca35c58f636f970367c375aa62bde22c9e25f9bfe21a  packages/core/principles/47-skill-description-budget.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
@@ -1102,7 +1106,7 @@ f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-wor
 19aa0f42473100106c528fc96ea3191fddcc2955f6adfe1a75c8a4083f70eb99  setup.d/engine.sh
 eb5ad35e0049099a2d4a46224c4c4ce67be83682c07fb6d9852fbac6f0565982  setup.d/lib.sh
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
-d1750fe467f732d5a18c0f78785390713fc114938c1a2c8890f9e3f90dc42a88  skills/getff/SKILL.md
+6e9c9caca5bc02824da852b238f1c86077b64a3843f20657f059e701421d4c2c  skills/getff/SKILL.md
 f1b528b72daa2ef3f5670279db24110b14d86faa610f1f16a99a8f9431f30d1e  skills/getff/references/ai-traps.md
 0997ca4c45884f8271d44dab284f9a5a65cee00bdf5fa6c85d89e9db975d0bf7  skills/getff/references/checks-map.md
 b3e362ce9738f50bb001f48b974cae067446bcb0beffcb0ada250bc0d9efec48  skills/getff/references/doc-organization.md
