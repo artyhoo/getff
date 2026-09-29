@@ -77,7 +77,7 @@ OUT=$(globs "$D"); RC=$?
 printf '\n// edited by the consumer\n' >> "$D/eslint.config.mjs"
 ( cd "$D" && bash "$REPO_ROOT/install.sh" ts-server </dev/null ) >"$D/.install2.log" 2>&1 \
   || bad "D2: the re-install exited non-zero (tail: $(tail -3 "$D/.install2.log" | tr '\n' '|'))"
-grep 'R2 boundary layout ambiguous' "$D/.install2.log" | grep -q 'edited since' \
+grep -q 'edited since' <<<"$(grep 'R2 boundary layout ambiguous' "$D/.install2.log")" \
   && ! grep -q 'keeps its default globs' "$D/.install2.log" \
   && ok "D2: an ambiguous layout with getff's config edited since → the message says so, not «keeps its default globs»" \
   || bad "D2: the ambiguous-layout message still reads the edited config as getff's: $(grep 'R2 boundary layout ambiguous' "$D/.install2.log" | tr '\n' '|')"
@@ -140,7 +140,7 @@ JS
 grep -q 'eslint.config.mjs is your own config' "$E2.log" \
   || bad "E2: 60-ci did not route the consumer's config as their own — the arm below would be vacuous"
 _e2_line=$(not_wired "$E2.log" | grep -F 'eslint.config.mjs')
-! printf '%s\n' "$_e2_line" | grep -qiE 'boundary glob|RULE_GLOBS' \
+! grep -qiE 'boundary glob|RULE_GLOBS' <<<"$_e2_line" \
   && ok "E2: R2 registered by the consumer without RULE_GLOBS → the summary promises no boundary globs getff would not add" \
   || bad "E2: the not-wired summary promises R2 boundary globs for a config the wirer leaves R2 alone in: $(printf '%s' "$_e2_line" | tr '\n' '|')"
 rm -f "$E2.log"
@@ -168,7 +168,7 @@ grep -q 'has no RULE_GLOBS block' "$F/.install.log" \
 # lists R2 for every stack — so the NOT wired summary names it with the reason, not only the scroll.
 RN_R2_LINE='R2 (rules-as-tests/no-unsafe-zod-parse) in eslint.config.mjs — .*react-native preset ships no R2'
 not_wired() { awk '/NOT wired, or wired only in part/{on=1} on' "$1"; }
-not_wired "$F/.install.log" | grep -q "$RN_R2_LINE" \
+grep -q "$RN_R2_LINE" <<<"$(not_wired "$F/.install.log")" \
   && ok "F: the NOT wired summary names the boundary code R2 does not check, with the react-native reason" \
   || bad "F: no NOT wired line for R2 naming the react-native preset (summary: $(not_wired "$F/.install.log" | tr '\n' '|'))"
 
@@ -182,7 +182,7 @@ printf "export default [{ rules: { 'no-console': 'warn' } }];\n" > "$F2/eslint.c
   || bad "F2: install rc non-zero (tail: $(tail -3 "$F2/.install.log" | tr '\n' '|'))"
 grep -q 'preset ships no R2 — nothing to add to your eslint.config.mjs' "$F2/.install.log" \
   || bad "F2: the own-config branch of the R2 auto-wire never ran — the arm below would be vacuous"
-not_wired "$F2/.install.log" | grep -q "$RN_R2_LINE" \
+grep -q "$RN_R2_LINE" <<<"$(not_wired "$F2/.install.log")" \
   && ok "F2: the consumer's own react-native config with boundary code → a NOT wired line with the reason" \
   || bad "F2: no NOT wired line for R2 naming the react-native preset (summary: $(not_wired "$F2/.install.log" | tr '\n' '|'))"
 
@@ -192,7 +192,7 @@ printf '{"name":"f0","version":"0.0.0","dependencies":{"react-native":"0.74.0","
 mkdir -p "$F0/src"; echo 'export const x = 1;' > "$F0/src/index.ts"
 install_into "$F0" react-native
 grep -q 'R2 auto-wire' "$F0/.install.log" || bad "F0: the R2 auto-wire never ran — the arm below would be vacuous"
-! not_wired "$F0/.install.log" | grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' \
+! grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' <<<"$(not_wired "$F0/.install.log")" \
   && ok "F0: paired — a react-native repo with no HTTP boundary code gets no R2 line" \
   || bad "F0: an R2 line for a react-native repo with no HTTP boundary code (summary: $(not_wired "$F0/.install.log" | tr '\n' '|'))"
 
@@ -206,7 +206,7 @@ printf "export default [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error'
   || bad "F3: install rc non-zero (tail: $(tail -3 "$F3/.install.log" | tr '\n' '|'))"
 grep -q 'preset ships no R2 — nothing to add to your eslint.config.js' "$F3/.install.log" \
   || bad "F3: the own-config branch never ran on eslint.config.js — the arm below would be vacuous"
-! not_wired "$F3/.install.log" | grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' \
+! grep -q 'R2 (rules-as-tests/no-unsafe-zod-parse)' <<<"$(not_wired "$F3/.install.log")" \
   && ok "F3: paired — a react-native config of the consumer's that already names R2 gets no R2 line" \
   || bad "F3: an R2 line for a config that already names R2 (summary: $(not_wired "$F3/.install.log" | tr '\n' '|'))"
 
@@ -340,7 +340,7 @@ OUT=$(globs "$H"); RC=$?
   && ok "H: check:globs GREEN after the re-install (no «marked N/A» red)" \
   || bad "H: check:globs exited $RC after the re-install. out: $(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
 OUT=$( cd "$H" && AIF_ESLINT_CMD=true bash scripts/check-rule-enforced.sh 2>&1 )
-! printf '%s' "$OUT" | grep -q 'stale R2 N/A marker' \
+! grep -q 'stale R2 N/A marker' <<<"$OUT" \
   && ok "H: check:enforced no longer fails on a stale R2 N/A marker" \
   || bad "H: check:enforced still fails on the stale marker. out: $(printf '%s' "$OUT" | tail -2 | tr '\n' '|')"
 
@@ -361,7 +361,7 @@ printf '{"name":"h2","version":"0.0.0"}\n' > "$H2/package.json"
 ! grep -qF 'aif:r2-na' "$H2/.ai-factory/tool-decisions.md" \
   && ok "H2: a layout turned ambiguous on re-install → the stale R2 N/A block is removed" \
   || bad "H2: the stale R2 N/A block survived an ambiguous re-install"
-! globs "$H2" | grep -q 'marked N/A' \
+! grep -q 'marked N/A' <<<"$(globs "$H2")" \
   && ok "H2: check:globs no longer reports «marked N/A» (it judges the default globs again)" \
   || bad "H2: check:globs still reports the stale «marked N/A»"
 
@@ -381,7 +381,7 @@ mkdir -p "$H3/src/api"; echo 'export const h = (b) => schema.parse(b);' > "$H3/s
 cmp -s "$H3/.ai-factory/tool-decisions.md" "$H3.before" \
   && ok "H3: a block with no end line → tool-decisions.md left byte-identical (nothing cut)" \
   || bad "H3: the strip changed a file whose block has no end line ($(diff "$H3.before" "$H3/.ai-factory/tool-decisions.md" | head -4 | tr '\n' '|'))"
-awk '/NOT wired, or wired only in part/{on=1} on' "$H3/.install2.log" | grep -q 'R2 N/A record' \
+grep -q 'R2 N/A record' <<<"$(awk '/NOT wired, or wired only in part/{on=1} on' "$H3/.install2.log")" \
   && ok "H3: the not-wired summary names the R2 N/A record the install could not remove" \
   || bad "H3: the not-wired summary does not report the R2 N/A record left in place"
 ! grep -qiE 'by hand|manually' "$H3/.install2.log" \
@@ -401,7 +401,7 @@ mkdir -p "$K/src/application"; echo 'export const h = (b) => schema.parse(b);' >
 install_into "$K" ts-server
 grep -qF "'**/application/**/*.{ts,tsx}'" "$K/eslint.config.mjs" \
   || bad "K: the config carries no '**/application/**/*.{ts,tsx}' anywhere — the arm below would be vacuous"
-boundary_block "$K/eslint.config.mjs" | grep -qF "'**/application/**/*.{ts,tsx}'" \
+grep -qF "'**/application/**/*.{ts,tsx}'" <<<"$(boundary_block "$K/eslint.config.mjs")" \
   && ok "K: a parse site in src/application → its glob is inside RULE_GLOBS.boundary, not only under application:" \
   || bad "K: '**/application/**/*.{ts,tsx}' is not in the boundary array ($(boundary_block "$K/eslint.config.mjs" | tr '\n' '|'))"
 # Paired negative: the glob now IS a boundary element, so a re-install must not add it again.

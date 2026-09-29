@@ -109,7 +109,7 @@ for sk in $SKILLS; do
     if [ "$blob" = WORKTREE ]; then cp "$REPO_ROOT/$p" "$TMPREV"; else git -C "$REPO_ROOT" cat-file -p "$blob" > "$TMPREV"; fi
     n_rev=$((n_rev+1))
     row=$(_skill_context_revision_row "$sk" "$TMPREV" 2>/dev/null)
-    if [ -z "$row" ] || ! printf '%s\n' "${SKILL_CONTEXT_SHIPPED_REVISIONS:-}" | grep -qxF -- "$row"; then
+    if [ -z "$row" ] || ! grep -qxF -- "$row" <<<"${SKILL_CONTEXT_SHIPPED_REVISIONS:-}"; then
       n_missing=$((n_missing+1))
       echo "    missing row for $p ($blob) — add to SKILL_CONTEXT_SHIPPED_REVISIONS in setup.d/lib.sh:"
       echo "    $row"

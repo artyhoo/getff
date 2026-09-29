@@ -51,7 +51,7 @@ while IFS= read -r f; do
       # (2026-08-08: no CI mirror — audit-self.yml carries no 600-line check; this hook is the only channel.)
       case "$f" in
         docs/meta-factory/EXECUTION-PLAN.md)
-          if head -20 "$f" | grep -qi "transient artifact"; then
+          if grep -qi "transient artifact" <<<"$(head -20 "$f")"; then
             : # skip — declared transient, see line 8
           else
             echo "❌ $f is in exempt list but lacks 'transient artifact' marker in first 20 lines"
@@ -64,7 +64,7 @@ while IFS= read -r f; do
         # citations, so it is exempted instead (operator decision 2026-08-08, PR #1282 fork).
         # The marker requirement keeps the exemption self-documenting at the file itself.
         docs/meta-factory/research-patches/2026-05-29-aif-handoff-bridge-variant-b-prime-hybrid.md)
-          if head -20 "$f" | grep -qi "line-limit-exempt"; then
+          if grep -qi "line-limit-exempt" <<<"$(head -20 "$f")"; then
             : # skip — grandfathered, see marker in file header
           else
             echo "❌ $f is in exempt list but lacks 'line-limit-exempt' marker in first 20 lines"
@@ -79,7 +79,7 @@ while IFS= read -r f; do
         # same list∩marker shape as the two entries above.
         .claude/orchestrator-prompts/queue-mode-bootstrap/kickoff.md|\
 .claude/orchestrator-prompts/strategic-clarity-dialogue/kickoff.md)
-          if head -20 "$f" | grep -qi "transient artifact"; then
+          if grep -qi "transient artifact" <<<"$(head -20 "$f")"; then
             : # skip — declared transient in file header (pre-existing)
           else
             echo "❌ $f is in exempt list but lacks 'transient artifact' marker in first 20 lines"
@@ -169,6 +169,27 @@ if [ "${#CITE_FILES[@]}" -gt 0 ] && command -v node &>/dev/null; then
     echo "❌ blank-landing \`path:line\` citation(s) — the cited line is empty; fix the number, or drop the citation"; fail=1
   elif [ "$cite_rc" -ne 0 ]; then
     echo "❌ check-line-citations could not run (exit $cite_rc) — see its message above"; fail=1
+  fi
+fi
+
+# ── pipe into an early-exiting grep under pipefail (SIGPIPE race) ──────────
+# spec: header of scripts/check-pipefail-early-exit.mjs; incident: setup.d/99-finalize.sh
+#       _r2_boundary_under returned 141 in 1/400 runs under load (2026-09-29).
+# Change-scoped: the checker keeps only staged paths in its population (installer, setup.d +
+# the companions.manifest detect_cmd column, audit-self, hooks, skill helpers, .husky, scripts,
+# tests/install-sh), so a commit that touches none of them costs one node start. The CI step
+# «pipefail early-exit gate» scans the whole population — the backstop for `--no-verify` and for
+# aif-container commits, where husky is absent.
+if command -v node &>/dev/null; then
+  PF_FILES=()
+  while IFS= read -r f; do [ -n "$f" ] && [ -f "$f" ] && PF_FILES+=("$f"); done <<<"$CHANGED"
+  if [ "${#PF_FILES[@]}" -gt 0 ]; then
+    pf_rc=0
+    node "$REPO_ROOT/scripts/check-pipefail-early-exit.mjs" "${PF_FILES[@]}" >/tmp/pre-commit-pf 2>&1 || pf_rc=$?
+    if [ "$pf_rc" -ne 0 ]; then
+      cat /tmp/pre-commit-pf
+      echo "❌ pipe into an early-exiting grep under pipefail — use a here-string (see the checker's message)"; fail=1
+    fi
   fi
 fi
 

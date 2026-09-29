@@ -100,7 +100,7 @@ fi
 # must appear at line start (e.g. "VERIFY:" or "## VERIFY"). Bare prose words
 # mid-sentence do NOT match — this is what separates noise-guard from noise.
 REPORT_CUE_RE='^(#{1,3} *VERIFY|VERIFY:|Confidence:|ATTN:|Commit:)'
-if ! printf '%s' "$TEXT" | grep -qE "$REPORT_CUE_RE"; then
+if ! grep -qE "$REPORT_CUE_RE" <<<"$TEXT"; then
   # Not a REPORT-shaped output — silent exit (noise guard holds)
   exit 0
 fi
@@ -110,13 +110,13 @@ fi
 # Each pattern anchors with ^ (line-start) so it only matches a standalone label.
 MISSING=()
 
-if ! printf '%s' "$TEXT" | grep -qE '^(#{1,3} *VERIFY|VERIFY:)'; then
+if ! grep -qE '^(#{1,3} *VERIFY|VERIFY:)' <<<"$TEXT"; then
   MISSING+=("VERIFY")
 fi
-if ! printf '%s' "$TEXT" | grep -qE '^Confidence:'; then
+if ! grep -qE '^Confidence:' <<<"$TEXT"; then
   MISSING+=("Confidence")
 fi
-if ! printf '%s' "$TEXT" | grep -qE '^(#{1,3} *ATTN|ATTN:)'; then
+if ! grep -qE '^(#{1,3} *ATTN|ATTN:)' <<<"$TEXT"; then
   MISSING+=("ATTN")
 fi
 
