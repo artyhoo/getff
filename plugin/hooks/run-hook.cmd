@@ -128,8 +128,14 @@ if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -z "${ZCODE_PROJECT_DIR:-}" ] && [ -z "
       '([$pm, $sm] | all(length == 1)) and ($pm[0].name | type == "string" and length > 0)
         and $pm[0].name == $sm[0].name' >/dev/null 2>&1; then
     _yield_mode=source
-  elif [ -f "${SCRIPT_DIR}/lib/source-sha256.txt" ] && [ -f "${SCRIPT_DIR}/lib/source-hash.sh" ] \
-    && . "${SCRIPT_DIR}/lib/source-hash.sh"; then
+  elif [ -f "${SCRIPT_DIR}/lib/source-sha256.txt" ] && [ -r "${SCRIPT_DIR}/lib/source-hash.sh" ] \
+    && command . "${SCRIPT_DIR}/lib/source-hash.sh"; then
+    # `-r` (not `-f`) keeps an unreadable lib out of the `.` attempt: macOS's native /bin/sh kills
+    # the whole invocation on `.`'s "Permission denied" even wrapped in `command`, unlike
+    # bash/dash. `command` strips `.`'s special-builtin status for the remaining case — a syntax
+    # error in an otherwise-readable lib, which under plain `.` kills dash with rc=2 — turning it
+    # into an ordinary non-zero return here instead. Either way a corrupt or unreadable lib falls
+    # through to the plain `exec bash` path below.
     _yield_mode=consumer
   fi
 fi
@@ -146,21 +152,21 @@ if [ -n "$_yield_mode" ]; then
       fi
       ;;
   esac
+  # noglob covers only the list expansion below (an unquoted `$_yield_names` word-splits into
+  # names that must not also undergo pathname expansion); the loop body turns it back off right
+  # away, because a declared directory is later hashed through a glob (getff_path_hash) that
+  # `set -f` would turn into a literal. A later amendment scans the body for a globbing marker.
   set -f
   for _name in $_yield_names; do
+    set +f
     case "$_name" in ''|*[!A-Za-z0-9_-]*) continue ;; esac
     _proj_hook="$CLAUDE_PROJECT_DIR/.claude/hooks/$_name.sh"
     [ -f "$_proj_hook" ] || continue
     sed -n 2p "$_proj_hook" | grep -qF "# $_name.sh — " || continue
     grep -qE '^# @(cc-only-rationale|dual-pair)' "$_proj_hook" || continue
     if [ "$_yield_mode" = consumer ]; then
-      # A declared directory is hashed through a glob, which `set -f` would turn into a literal.
-      set +f
-      _closure_ok=''
       getff_closure_matches "${SCRIPT_DIR}/lib/source-sha256.txt" "$CLAUDE_PROJECT_DIR/.claude/hooks" "$_name" \
-        && _closure_ok=1
-      set -f
-      [ -n "$_closure_ok" ] || continue
+        || continue
     fi
     if jq -e -n --arg n "$SCRIPT_NAME" --arg t "$_name" \
       --slurpfile p "${SCRIPT_DIR}/hooks.json" --slurpfile s "$CLAUDE_PROJECT_DIR/.claude/settings.json" '

@@ -110,6 +110,7 @@ cat > "$TMPD/hooks.json" <<EOF
     {"type":"command","command":"$PLUGIN_CMD __ghost__"},
     {"type":"command","command":"$PLUGIN_CMD __marked__"},
     {"type":"command","command":"$PLUGIN_CMD __plugin_only__"},
+    {"type":"command","command":"$PLUGIN_CMD __cyield__"},
     {"type":"command","command":"$PLUGIN_CMD __flagged__ --flag"}]}],
   "PostToolUse":[
     {"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"$PLUGIN_CMD __wide__"}]},
@@ -385,21 +386,68 @@ for SH in $SHELLS; do
   OUT=$(env -u AIF_HOOK_LANG -u GETFF_PLUGIN_NO_YIELD CLAUDE_PROJECT_DIR="$PROJ" ZCODE_PROJECT_DIR="$PROJ" \
     XDG_CONFIG_HOME="$EMPTY_XDG" "$SH" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
   expect "[$SH] C7 ZCode never yields to a project copy → runs" RH_OK "$OUT"
+
+  # C9 (Important 1): a corrupt or unreadable lib/source-hash.sh must fail OPEN — the dispatcher
+  # reaches the plain `exec bash` path (hook runs, rc 0), not a shell death from `.`'s
+  # special-builtin syntax-error handling under dash.
+  cp "$TMPD/lib/source-hash.sh" "$TMPD/lib/source-hash.sh.orig"
+  printf 'if [ x\n' > "$TMPD/lib/source-hash.sh"   # truncated/garbled: syntax error
+  OUT=$(run_rh "$SH" __target__); rc=$?
+  expect "[$SH] C9 corrupt lib/source-hash.sh (syntax error) → runs" RH_OK "$OUT"
+  [ "$rc" -eq 0 ] || bad "[$SH] C9 corrupt lib/source-hash.sh: rc=$rc (expected 0, dispatcher must not die)"
+  cp "$TMPD/lib/source-hash.sh.orig" "$TMPD/lib/source-hash.sh"; chmod 000 "$TMPD/lib/source-hash.sh"
+  OUT=$(run_rh "$SH" __target__); rc=$?
+  expect "[$SH] C9 unreadable lib/source-hash.sh (mode 000) → runs" RH_OK "$OUT"
+  [ "$rc" -eq 0 ] || bad "[$SH] C9 unreadable lib/source-hash.sh: rc=$rc (expected 0)"
+  chmod 644 "$TMPD/lib/source-hash.sh"; rm -f "$TMPD/lib/source-hash.sh.orig"
+
+  # C10 (Minor 1): consumer-mode `# @plugin-yields-to: <target>` — yields only when the TARGET's
+  # installed copy is byte-identical per the manifest and registered in exact form; runs when the
+  # target's installed copy has been edited.
+  printf '# @plugin-yields-to: __target__\necho RH_CYIELD\n' > "$TMPD/__cyield__"
+  expect "[$SH] C10 @plugin-yields-to target byte-identical & registered → yields" "" "$(run_rh "$SH" __cyield__)"
+  printf 'echo EDITED\n' >> "$PROJ/.claude/hooks/__target__.sh"
+  expect "[$SH] C10 @plugin-yields-to target's installed copy edited → runs" RH_CYIELD "$(run_rh "$SH" __cyield__)"
+  getff_proj __target__
+
+  # C11 (Minor 2): a project that ships a plugin under a DIFFERENT name still falls through to
+  # consumer mode (the source-mode name check fails, the elif branch evaluates normally).
+  mkdir -p "$PROJ/plugin/.claude-plugin"
+  printf '{"name":"other-plugin"}\n' > "$PROJ/plugin/.claude-plugin/plugin.json"
+  expect "[$SH] C11 foreign-named project plugin, identical installed copy → yields" "" "$(run_rh "$SH" __target__)"
+  printf 'echo EDITED\n' >> "$PROJ/.claude/hooks/__target__.sh"
+  expect "[$SH] C11 foreign-named project plugin, edited installed copy → runs" RH_OK "$(run_rh "$SH" __target__)"
+  getff_proj __target__
+  rm -rf "$PROJ/plugin"
 done
 # C8. No hashing tool → runs; each tool alone (macOS/Git Bash shapes) → yields. The PATH holds
-# every other tool run-hook.cmd and lib/source-hash.sh call.
+# every other tool run-hook.cmd and lib/source-hash.sh call. A missing sha256sum/shasum binary on
+# the test machine must not let the arm pass without running at least one hashing-tool shape: it
+# is recorded (SKIP line) and the closing assertion fails if neither shape ever ran.
+ran_shapes=0
 for have in none sha256sum shasum; do
   B="$TMPD/bin-$have"; mkdir -p "$B"
   for t in bash sh dirname head tr grep sed cat env jq cut sort; do
     p=$(command -v "$t") && ln -sf "$p" "$B/$t"
   done
-  if [ "$have" != none ]; then p=$(command -v "$have") || continue; ln -sf "$p" "$B/$have"; fi
+  if [ "$have" != none ]; then
+    if ! p=$(command -v "$have"); then
+      echo "  SKIP [$have] not installed on this machine — C8 shape not exercised"
+      continue
+    fi
+    ln -sf "$p" "$B/$have"
+  fi
   reset_proj; reg UserPromptSubmit - __target__
   OUT=$(env -u AIF_HOOK_LANG -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD PATH="$B" CLAUDE_PROJECT_DIR="$PROJ" \
     XDG_CONFIG_HOME="$EMPTY_XDG" "$B/bash" "$TMPD/run-hook.cmd" __target__ 2>/dev/null)
   if [ "$have" = none ]; then expect "C8 no sha256sum, no shasum → runs" RH_OK "$OUT"
-  else expect "C8 only $have on PATH → yields" "" "$OUT"; fi
+  else
+    expect "C8 only $have on PATH → yields" "" "$OUT"
+    ran_shapes=$((ran_shapes+1))
+  fi
 done
+[ "$ran_shapes" -ge 1 ] && ok "C8 at least one hashing-tool shape exercised ($ran_shapes/2)" \
+  || bad "C8 neither sha256sum nor shasum available on this machine — arm passed vacuously"
 
 # ── Real tree: the framework repo's own settings.json against the shipped plugin/hooks ─────────
 # R1 (class sweep, stubs — no real hook executes): every plugin hook the repo registers as
@@ -454,17 +502,33 @@ done < <(sed -nE "s/.*register_cc_hook \"\\\$SETTINGS\" \"([A-Za-z]+)\" '([^']+)
   "$REPO_ROOT/setup.d/10-skills.sh")
 cp "$REPO_ROOT/packages/core/hooks/deps-hash-check.sh" "$CONS/.claude/hooks/deps-hash-check.sh"
 creg UserPromptSubmit - "$(sed -n 's/^HOOK_CMD="\(.*\)"$/\1/p' "$REPO_ROOT/setup.d/10-skills.sh")"
-silenced=0
-for nm in $INSTALLED deps-hash-check; do
-  [ -f "$STUBS/$nm" ] || continue
+# Strict: every hook `register_cc_hook` actually installed must be checked and must silence — a
+# missing stub for an installer hook is a FAIL, not a skip (a stub disappearing from plugin/hooks/
+# must not quietly shrink the population this sweep asserts over).
+silenced=0; expected=0
+for nm in $INSTALLED; do
+  expected=$((expected+1))
+  if [ ! -f "$STUBS/$nm" ]; then
+    bad "CR1 $nm: installed by setup.d/10-skills.sh but no plugin/hooks/$nm stub exists"
+    continue
+  fi
   OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
     XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" "$nm" </dev/null 2>/dev/null)
-  if [ "$nm" = deps-hash-check ]; then expect "CR1 deps-hash-check (cwd-relative registration) still fires" RAN "$OUT"
-  elif [ -z "$OUT" ]; then silenced=$((silenced+1))
+  if [ -z "$OUT" ]; then silenced=$((silenced+1))
   else bad "CR1 $nm: the consumer runs an identical copy, yet the plugin copy fired too"; fi
 done
-[ "$silenced" -ge 6 ] && ok "CR1 $silenced installer hooks silence their plugin copies" \
-  || bad "CR1 only $silenced installer hooks silenced (vacuous or broken sweep)"
+if [ -f "$STUBS/deps-hash-check" ]; then
+  OUT=$(env -u ZCODE_PROJECT_DIR -u GETFF_PLUGIN_NO_YIELD AIF_HOOK_LANG=ru CLAUDE_PROJECT_DIR="$CONS" \
+    XDG_CONFIG_HOME="$EMPTY_XDG" bash "$STUBS/run-hook.cmd" deps-hash-check </dev/null 2>/dev/null)
+  expect "CR1 deps-hash-check (cwd-relative registration) still fires" RAN "$OUT"
+else
+  bad "CR1 deps-hash-check: no plugin/hooks/deps-hash-check stub exists"
+fi
+[ "$expected" -gt 0 ] && [ "$silenced" -eq "$expected" ] \
+  && ok "CR1 all $silenced installed hooks silence their plugin copies" \
+  || bad "CR1 only $silenced of $expected installed hooks silenced (must equal $expected)"
+[ "$expected" -ge 7 ] && ok "CR1 hard floor: $expected installer hooks checked (≥7)" \
+  || bad "CR1 only $expected installer hooks checked (floor is 7 — sweep shrank)"
 
 # R2 (end to end, real hooks): one UserPromptSubmit in the framework repo — the repo's own
 # injector plus every plugin UserPromptSubmit hook through the shipped run-hook.cmd — carries the

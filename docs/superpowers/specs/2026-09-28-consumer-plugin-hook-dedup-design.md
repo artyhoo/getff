@@ -120,7 +120,9 @@ consumer-shared set, `end-of-turn-reminder` and `ask-question-reminder` need a d
 ### D3 — Consumer yield branch in `run-hook.cmd`
 
 A second branch beside #1879's source-checkout yield, taken when the project does NOT ship
-`plugin/.claude-plugin/plugin.json`. The plugin copy exits 0 silently only when ALL hold:
+`plugin/.claude-plugin/plugin.json`, OR ships one naming a different plugin (the source-mode
+name check fails and this branch evaluates instead). The plugin copy exits 0 silently only when
+ALL hold:
 
 1. Every shared #1879 condition: Claude Code (not ZCode), language pin not from the file
    fallback, no `GETFF_PLUGIN_NO_YIELD`, jq present, `hooks.json` beside the dispatcher, the
