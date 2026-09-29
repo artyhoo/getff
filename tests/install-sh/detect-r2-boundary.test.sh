@@ -111,6 +111,27 @@ T=$(mkrepo); mkdir -p "$T/src"; echo 'export const x = 1;' > "$T/src/x.ts"
   && ok "NEG: unknown framework + zero signals → no-boundary-yet, never a confident N/A" \
   || bad "NEG: bare repo → got '$(verdict "$T")' (must be no-boundary-yet, not no-boundary-confident)"
 
+# ── a consumer's own packages/core is the consumer's code (cold review B1) ────────────────────
+# The prune once dropped every */packages/core, so a monorepo workspace of that name — a common
+# one — hid both its zod declaration and its parse sites, and a real boundary read no-boundary-yet.
+T=$(mkrepo); mkdir -p "$T/packages/core/src/api"
+printf '{"name":"core","version":"0.0.0","dependencies":{"zod":"^3.0.0"}}\n' > "$T/packages/core/package.json"
+echo 'export const create = (b: unknown) => S.parse(b);' > "$T/packages/core/src/api/create.ts"
+v=$(verdict "$T")
+[ "$v" != "no-boundary-yet" ] && [ "$v" != "no-boundary-confident" ] \
+  && ok "NEG: zod + a parse site in the consumer's own packages/core → $v, never a waiver" \
+  || bad "NEG: consumer packages/core hidden → got '$v' (a waiver over a real boundary)"
+# PAIRED: getff's own files inside a consumer's packages/core stay out — the pre-push.ts vendored
+# until #1860 parses non-stdlib input as its own subject, and eslint-rules/ talks about .parse(.
+T=$(mkrepo); mkdir -p "$T/packages/core/hooks" "$T/packages/core/eslint-rules" "$T/src"
+echo 'const r = schema.parse(x);' > "$T/packages/core/hooks/pre-push.ts"
+echo '#!/bin/sh' > "$T/packages/core/hooks/pre-push.fallback.sh"
+echo 'const m = "use .safeParse( instead";' > "$T/packages/core/eslint-rules/no-unsafe-zod-parse.ts"
+echo 'export const x = 1;' > "$T/src/x.ts"
+[ "$(verdict "$T")" = "no-boundary-yet" ] \
+  && ok "getff's vendored packages/core/hooks + eslint-rules are not the consumer's boundary" \
+  || bad "getff's vendored packages/core files counted as a boundary (got '$(verdict "$T")')"
+
 # ── test files do not count as boundary ───────────────────────────────────────
 T=$(mkrepo); mkdir -p "$T/src/routes"; echo 'it("x",()=>schema.parse(1));' > "$T/src/routes/u.test.ts"
 [ "$(verdict "$T")" = "no-boundary-yet" ] \

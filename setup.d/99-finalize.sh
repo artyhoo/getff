@@ -1026,6 +1026,7 @@ _pc_suppress() {
     grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$f" || continue
     sed -i.getff-bak "s#--no-warn-ignored\"#--no-warn-ignored --pass-on-unpruned-suppressions\"#" "$f" && rm -f "$f.getff-bak"
   done < <(find "$PROJECT_ROOT" -name node_modules -prune -o -name .git -prune -o -name .lintstagedrc.json -print 2>/dev/null)
+  lint_script_pass_unpruned "$PROJECT_ROOT" || true
   _pc_extra+=("lint-baseline: eslint-suppressions.json — ${n:-?} findings in existing code recorded; new ones still block")
   echo "  ✓ eslint-suppressions.json: ${n:-?} findings in existing code recorded (ESLint bulk suppressions) — new ones still block"
 }

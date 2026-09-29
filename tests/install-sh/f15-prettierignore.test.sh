@@ -324,4 +324,22 @@ else
   ok "claude-md guard-neg: consumer's custom skill slug not enumerated (only shipped slugs ignored)"
 fi
 
+# ── eslint-suppressions.json (P2 cold review M1) ──────────────────────────────────────────────
+# The install's lint baseline: ESLint writes it 2-space with no final newline, which `prettier
+# --check` flags — a prettier-clean project would read red on a file getff made, and format:check
+# would record not-armed with nothing to ever format it again.
+PRETTIER="$REPO_ROOT/node_modules/.bin/prettier"
+if [ -x "$PRETTIER" ]; then
+  printf '{\n  "src/a.ts": {\n    "prefer-const": {\n      "count": 1\n    }\n  }\n}' > "$T/eslint-suppressions.json"
+  ( cd "$T" && "$PRETTIER" --check --ignore-path "$PI" eslint-suppressions.json ) >/dev/null 2>&1 \
+    && ok "M1 pos: ESLint's eslint-suppressions.json passes prettier --check under the shipped .prettierignore" \
+    || bad "M1 pos: eslint-suppressions.json fails prettier --check under the shipped .prettierignore"
+  printf '' > "$T/empty.ignore"
+  ( cd "$T" && "$PRETTIER" --check --ignore-path empty.ignore eslint-suppressions.json ) >/dev/null 2>&1 \
+    && bad "M1 neg: the ESLint-format file passes prettier with no ignore — the pos arm proves nothing" \
+    || ok "M1 neg: without the entry prettier flags the file (non-vacuous)"
+else
+  bad "M1: prettier not installed at $PRETTIER — cannot run the arm (RED never SKIP)"
+fi
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

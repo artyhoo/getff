@@ -163,11 +163,16 @@ if [ "$DRY_RUN" != "--dry-run" ] && { [ "$LINTER_SLOT" = oxlint ] || [ "$LINTER_
     grep -q "run-armed.sh --if-armed 'npm run lint' eslint " "$_lsf" || continue
     GETFF_LINTER="$LINTER_SLOT" GETFF_FORMATTER="$FORMATTER_SLOT" node -e '
       const fs = require("fs"), f = process.argv[1], j = JSON.parse(fs.readFileSync(f, "utf8"));
-      const lint = { oxlint: "oxlint", biome: "biome check --no-errors-on-unmatched" }[process.env.GETFF_LINTER];
+      // `biome lint`, not `biome check`: check also enforces formatting, which must follow format:check.
+      const lint = { oxlint: "oxlint", biome: "biome lint --no-errors-on-unmatched" }[process.env.GETFF_LINTER];
       const ownFmt = ["biome", "dprint"].includes(process.env.GETFF_FORMATTER);
+      const fmt = { biome: "biome format --write --no-errors-on-unmatched --files-ignore-unknown=true" }[process.env.GETFF_FORMATTER];
       for (const [g, v] of Object.entries(j)) {
         const steps = (Array.isArray(v) ? v : [v])
-          .filter((c) => !(ownFmt && /run-armed\.sh --if-armed .npm run format:check. prettier /.test(c)))
+          .flatMap((c) => {
+            const m = c.match(/^(bash \S*run-armed\.sh --if-armed .npm run format:check.) prettier /);
+            return ownFmt && m ? (fmt ? [m[1] + " " + fmt] : []) : [c];
+          })
           .map((c) => (lint ? c.replace(/^(bash \S*run-armed\.sh --if-armed .npm run lint.) eslint .*$/, "$1 " + lint) : c));
         if (steps.length) j[g] = steps; else delete j[g];
       }

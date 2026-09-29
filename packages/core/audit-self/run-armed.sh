@@ -13,10 +13,13 @@
 #   run-armed.sh --if-armed '<command>' <cmd…>   run <cmd…> unless <command> is not-armed (lint-staged).
 # A missing or unreadable record exits 2: an empty armed list is valid only when the record says so.
 set -uo pipefail
-ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+# The record sits beside the script (scripts/run-armed.sh → ../.ai-factory): an install below the git
+# toplevel reads its own. Elsewhere (a copy outside an install) the git toplevel, then the cwd.
+ROOT=$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)
+[ -e "$ROOT/.ai-factory/tool-decisions.md" ] || ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 REC="$ROOT/.ai-factory/tool-decisions.md"
 B='<!-- aif:project-checks:begin -->' E='<!-- aif:project-checks:end -->'
-block() { awk -v b="$B" -v e="$E" '$0==e{f=0} f; $0==b{f=1}' "$REC"; }
+block() { awk -v b="$B" -v e="$E" '{sub(/\r$/,"")} $0==e{f=0} f; $0==b{f=1}' "$REC"; }  # CRLF read as LF
 if [ ! -r "$REC" ] || [ "$(block | grep -cxE 'armed:|not-armed:')" != 2 ]; then
   echo "❌ run-armed: no readable project-checks record (the aif:project-checks block with armed: and not-armed: in $REC) — re-run the getff install to write it" >&2
   exit 2
@@ -24,24 +27,24 @@ fi
 list() { block | awk -v h="$1:" '/^[a-z-]+:$/{f=($0==h);next} f && sub(/^- /,"")'; }
 cmd() { sed 's/ # .*$//'; }
 not_armed() { list not-armed | cmd | grep -qxF -- "$1"; }
-reason() { list not-armed | awk -v c="$1" '{l=$0; sub(/ # .*$/,"",l)} l==c {sub(/^.* # /,""); print}'; }
+reason() { list not-armed | C="$1" awk '{l=$0; sub(/ # .*$/,"",l)} l==ENVIRON["C"] {sub(/^.* # /,""); print}'; }
 
-arm() {  # $1 = a not-armed command, moved under armed: (the rest of the file is left as it is)
-  local tmp; tmp=$(mktemp) || return
-  awk -v b="$B" -v e="$E" -v c="$1" '
-    $0==b{f=1} $0==e{f=0}
-    f && /^[a-z-]+:$/ {s=$0; print; if (s=="armed:") print "- " c; next}
-    f && s=="not-armed:" && /^- / {l=$0; sub(/^- /,"",l); sub(/ # .*$/,"",l); if (l==c) next}
-    {print}' "$REC" > "$tmp" && cat "$tmp" > "$REC"
-  rm -f "$tmp"
+arm() {  # $1 = a not-armed command, moved under armed: (the rest of the file is left as it is); 1 = not written
+  local tmp rc; tmp=$(mktemp) || return 1
+  C="$1" awk -v b="$B" -v e="$E" '
+    {r=$0; sub(/\r$/,"",r)} r==b{f=1} r==e{f=0}
+    f && r ~ /^[a-z-]+:$/ {s=r; print; if (s=="armed:") print "- " ENVIRON["C"]; next}
+    f && s=="not-armed:" && r ~ /^- / {l=r; sub(/^- /,"",l); sub(/ # .*$/,"",l); if (l==ENVIRON["C"]) next}
+    {print}' "$REC" > "$tmp" && cat "$tmp" > "$REC" 2>/dev/null; rc=$?
+  rm -f "$tmp"; return "$rc"
 }
 
 probe() {
   local c cmds; cmds=$(list not-armed | cmd)
   while IFS= read -r c; do
     [ -n "$c" ] || continue
-    if ( cd "$ROOT" && bash -c "$c" ) >/dev/null 2>&1; then
-      arm "$c"; echo "✓ armed now — it exits 0: $c"
+    if ( cd "$ROOT" && bash -c "$c" ) </dev/null >/dev/null 2>&1; then
+      if arm "$c"; then echo "✓ armed now — it exits 0: $c"; else echo "✗ exits 0 but $REC could not be written, still not armed: $c" >&2; fi
     else
       echo "· not armed: $c — $(reason "$c")"
     fi
@@ -54,7 +57,7 @@ validate() {
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     echo "▶ $c"
-    ( cd "$ROOT" && bash -c "$c" ) || failed+=("$c (exit $?)")
+    ( cd "$ROOT" && bash -c "$c" ) </dev/null || failed+=("$c (exit $?)")
   done <<< "$cmds"
   probe
   if [ "${#failed[@]}" -gt 0 ]; then

@@ -553,8 +553,12 @@ plant_push() {
 }
 negative "negative: pre-push" "getff-planted-no-such-bin" plant_push
 undo_planted
-plant_type() { printf "export const planted: number = 'x';\n" > "$SRC/planted-type.ts" && npm run typecheck; }
-negative "negative: typecheck" "TS2322" plant_type
+# Through the record, as validate and CI run it: a typecheck the record left not-armed blocks nothing.
+plant_type() { printf "export const planted: number = 'x';\n" > "$SRC/planted-type.ts" && bash scripts/run-armed.sh npm run typecheck; }
+case "|$EXPECT_ARMED|" in
+  *"|npm run typecheck|"*) negative "negative: typecheck" "TS2322" plant_type ;;
+  *) RESULTS+=("SKIP  negative: typecheck  (not armed in this fixture — EXPECT_NOT; nothing to block)") ;;
+esac
 undo_planted
 
 # ── Generator arm (N14 / S5-9), data-driven on the committed research pairs ────────────────────

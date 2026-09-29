@@ -7,8 +7,8 @@
 #       with that reason; the project's own `lint` script is kept
 #   (D) oxlint: getff's rules are named under NOT wired while no oxlint plugin registration exists
 #       (P4's oxlint_register_jsplugin — absent on this branch)
-#   (E) Biome: no getff ESLint config, no .prettierrc.json, lint-staged runs `biome check`, no
-#       prettier step; the record says `linter: biome`, `formatter: biome`
+#   (E) Biome: no getff ESLint config, no .prettierrc.json, lint-staged runs `biome lint` under lint
+#       and `biome format --write` under format:check (never `biome check`), no prettier step; the record says `linter: biome`, `formatter: biome`
 #   (F) paired negative: a project with no linter still gets getff's eslint.config.mjs and the
 #       eslint step in lint-staged
 set -uo pipefail
@@ -71,8 +71,14 @@ install_into "$B"
   || bad "(E) placed: $(ls "$B"/eslint.config.mjs "$B"/.prettierrc.json 2>/dev/null | tr '\n' ' ')"
 steps "$B" | grep -qE 'eslint|prettier' && bad "(E) lint-staged: $(steps "$B" | grep -E 'eslint|prettier' | tr '\n' '|')" \
   || ok "(E) no eslint or prettier step in lint-staged"
-steps "$B" | grep -qx "bash scripts/run-armed.sh --if-armed 'npm run lint' biome check --no-errors-on-unmatched" \
-  && ok "(E) lint-staged runs biome check while npm run lint is armed" || bad "(E) steps: $(steps "$B" | tr '\n' '|')"
+# `biome check` also enforces formatting — gated on lint alone it would block a commit on style while
+# format:check is recorded not-armed (cold review M6): the lint key runs `biome lint`, formatting is
+# its own step gated on format:check.
+steps "$B" | grep -qx "bash scripts/run-armed.sh --if-armed 'npm run lint' biome lint --no-errors-on-unmatched" \
+  && ! steps "$B" | grep -q 'biome check' \
+  && ok "(E) lint-staged runs biome lint (not biome check) while npm run lint is armed" || bad "(E) steps: $(steps "$B" | tr '\n' '|')"
+steps "$B" | grep -qx "bash scripts/run-armed.sh --if-armed 'npm run format:check' biome format --write --no-errors-on-unmatched --files-ignore-unknown=true" \
+  && ok "(E) biome format runs only while npm run format:check is armed" || bad "(E) no format:check-gated biome format step: $(steps "$B" | tr '\n' '|')"
 block "$B" | grep -qx 'linter: biome' && block "$B" | grep -qx 'formatter: biome' \
   && ok "(E) record: linter: biome, formatter: biome" || bad "(E) record: $(block "$B" | grep -E '^(linter|formatter)' | tr '\n' '|')"
 

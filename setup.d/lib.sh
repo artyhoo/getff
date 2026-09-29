@@ -730,14 +730,14 @@ _pre_overwrite_divergence_action() {
 #   install.sh:1424                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1433          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:578          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:604          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:625          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:653          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:568          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:593          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:613          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:644          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:583          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:609          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:630          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:658          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:573          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:598          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:618          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:649          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1409          install-written blocks       → suppress-no-entry (proved)
@@ -3122,6 +3122,19 @@ project_check_cmd() {
   if [[ "$2" =~ ^(bash\ )?(\./)?scripts/([A-Za-z0-9._-]+\.sh)$ ]]; then echo "bash scripts/${BASH_REMATCH[3]}"
   elif [ "$1" = test ]; then echo "npm test"
   else echo "npm run $1"; fi
+}
+
+# lint_script_pass_unpruned <root> — once the install records existing findings in
+# eslint-suppressions.json, fixing one leaves a suppression that no longer occurs, and a plain
+# `eslint .` exits 2 on it: the armed lint would turn red because old code got better (P2 cold review
+# M2). getff's own ESLint `lint` script gains --pass-on-unpruned-suppressions; any other is left alone.
+lint_script_pass_unpruned() {
+  node -e '
+    const fs = require("fs"); const f = process.argv[1]; const j = JSON.parse(fs.readFileSync(f, "utf8"));
+    const s = (j.scripts || {}).lint || ""; const flag = "--pass-on-unpruned-suppressions";
+    if (!/^eslint\s/.test(s) || s.includes(flag)) process.exit(0);
+    j.scripts.lint = s + " " + flag; fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+  ' "$1/package.json"
 }
 
 # record_unrun_checks — --refresh on a project installed before the record: it now gets

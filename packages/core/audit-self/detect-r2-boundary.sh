@@ -52,7 +52,17 @@ DECLARATIVE_ALLOWLIST="${R2_DECLARATIVE_ALLOWLIST:-@hono/zod-openapi}"
 # `packages/core/eslint-rules/` (so guard-liveness.ts could load), and a consumer installed in that
 # window still carries them — same `.parse(`-as-rule-subject false-positive as eslint-rules-local
 # above, at a different path. Prune the vendored framework tree too. (GH #777)
-PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core' -o -path '*/.claude/worktrees' )
+# Only getff's OWN subtrees of a packages/core are pruned — its eslint-rules/, and a hooks/ dir that
+# holds getff's pre-push files (pre-push.ts was vendored until #1860; the fallback and the bundle
+# still are). A consumer workspace named packages/core is the consumer's code: pruning the whole dir
+# hid its zod declaration and its parse sites, and a real boundary read no-boundary-yet (P2 cold
+# review B1).
+PRUNE=( -name node_modules -o -name dist -o -name coverage -o -name .stryker-tmp -o -name reports -o -name .next -o -name .git -o -name eslint-rules-local -o -path '*/packages/core/eslint-rules' -o -path '*/.claude/worktrees' )
+while IFS= read -r _hooks; do
+  if [ -e "$_hooks/pre-push.ts" ] || [ -e "$_hooks/pre-push.fallback.sh" ] || [ -e "$_hooks/pre-push.bundle.mjs" ]; then
+    PRUNE+=( -o -path "$_hooks" )
+  fi
+done < <(find "$ROOT" \( -name node_modules -o -name .git \) -prune -o -type d -path '*/packages/core/hooks' -print 2>/dev/null)
 BOUNDARY_TOKENS=( handlers routes controllers actions )   # app/api is two-segment → path-probed below
 
 # A file is "test" (excluded from boundary signals) if it is *.test.* / *.spec.* / under __tests__ / under tests/.

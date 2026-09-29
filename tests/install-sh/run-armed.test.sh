@@ -109,4 +109,30 @@ before=$(grep -v '^- \|^armed:\|^not-armed:' "$f")
 [ "$(grep -v '^- \|^armed:\|^not-armed:' "$f")" = "$before" ] && ok "(H) blocks before and after the record are left byte-for-byte" || bad "(H) neighbour changed"
 section "$H" armed | grep -qx -- '- true' && ok "(H) the record itself was still updated" || bad "(H) record not updated"
 
+# ── (I) a command that reads stdin cannot swallow the rest of the list (cold review M3) ─────────
+I=$(proj $'cat > /dev/null\nexit 7' $'cat > /dev/null\necho probed > p.txt')
+out=$( cd "$I" && bash "$RA" validate 2>&1 ); rc=$?
+[ "$rc" -eq 1 ] && grep -q 'exit 7' <<<"$out" && [ -f "$I/p.txt" ] \
+  && ok "(I) after a stdin reader the next armed and not-armed commands still run" \
+  || bad "(I) rc=$rc, p.txt $( [ -f "$I/p.txt" ] && echo present || echo absent): $(tr '\n' '|' <<<"$out")"
+
+# ── (J) the record is read beside the script, not at the git toplevel (cold review M5) ──────────
+J=$(proj "" ""); mkdir -p "$J/apps/web/scripts" "$J/apps/web/.ai-factory"
+mv "$J/.ai-factory/tool-decisions.md" "$J/apps/web/.ai-factory/"; cp "$RA" "$J/apps/web/scripts/run-armed.sh"
+( cd "$J/apps/web" && bash scripts/run-armed.sh validate >/dev/null 2>&1 ) \
+  && ok "(J) an install below the git toplevel reads its own record" || bad "(J) install below the toplevel: exit $?"
+
+# ── (K) a CRLF record is read (cold review m1) ───────────────────────────────────────────────────
+K=$(proj 'true' 'echo k > k.txt'); f="$K/.ai-factory/tool-decisions.md"
+sed 's/$/\r/' "$f" > "$f.crlf" && mv "$f.crlf" "$f"
+( cd "$K" && bash "$RA" validate >/dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && tr -d '\r' < "$f" | awk '/^armed:$/{f=1;next} /^not-armed:$/{f=0} f' | grep -qx -- '- echo k > k.txt' \
+  && ok "(K) a CRLF record validates and its probe arms" || bad "(K) CRLF record: rc=$rc"
+
+# ── (L) a record that cannot be written is not reported as armed (cold review m3) ────────────────
+L=$(proj "" 'true'); chmod a-w "$L/.ai-factory/tool-decisions.md"
+out=$( cd "$L" && bash "$RA" --probe 2>&1 ); chmod u+w "$L/.ai-factory/tool-decisions.md"
+grep -q 'armed now' <<<"$out" && bad "(L) a failed write was reported armed: $out" \
+  || ok "(L) a failed write is not reported armed"
+
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -45,11 +45,13 @@ push_only "$A" rule-globs; rc=$?
 
 B=$(consumer "bash scripts/check-rule-globs.sh" "")
 push_only "$B" rule-globs; rc=$?
-[ "$rc" -ne 0 ] && ok "(B) the same gate armed blocks the push" || bad "(B) armed red gate passed"
+[ "$rc" -ne 0 ] && grep -q 'rule-glob liveness check failed' "$B/.out" \
+  && ok "(B) the same gate armed blocks the push, on the gate itself" || bad "(B) rc=$rc: $(tail -3 "$B/.out")"
 
 C=$(consumer "" "" no-ra)
 push_only "$C" rule-globs; rc=$?
-[ "$rc" -ne 0 ] && ok "(C) no run-armed.sh → the gate runs as before (blocks)" || bad "(C) rc=$rc"
+[ "$rc" -ne 0 ] && grep -q 'rule-glob liveness check failed' "$C/.out" \
+  && ok "(C) no run-armed.sh → the gate runs as before (blocks, on the gate itself)" || bad "(C) rc=$rc: $(tail -3 "$C/.out")"
 
 D=$(consumer "" $'true # was red at install\nexit 3 # 3 type errors at install')
 push_only "$D" armed-probe; rc=$?

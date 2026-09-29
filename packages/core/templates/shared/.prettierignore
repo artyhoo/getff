@@ -38,6 +38,10 @@
 .claude/settings.json
 .mcp.json
 eslint-rules-local/index.mjs
+# eslint-suppressions.json: the lint baseline the install records with `eslint --suppress-all`
+# (99-finalize); ESLint writes it 2-space with no final newline and rewrites it on every prune, so
+# `prettier --check .` would flag a file getff made in a prettier-clean project. (P2 cold review M1)
+eslint-suppressions.json
 eslint-rules-local/*.mjs
 
 # Vendored framework SOURCE — install.sh always ships these framework-namespace files fresh; a
