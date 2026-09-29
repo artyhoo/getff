@@ -139,9 +139,8 @@ quarantined() { case " $QUARANTINE_SERIAL " in *" $(basename "$1") "*) return 0 
 # whitespace is squeezed and trimmed — the same normalisation ~/bin/pc-run applies before it counts.
 pc_local_escape() {
   [ -n "${PC_LOCAL:-}" ] || return 1
-  local why
-  why=$(printf '%s' "${PC_LOCAL_WHY:-}" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
-  [ "${#why}" -ge 20 ]
+  PC_LOCAL_REASON=$(printf '%s' "${PC_LOCAL_WHY:-}" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//')
+  [ "${#PC_LOCAL_REASON}" -ge 20 ]
 }
 
 # ── Worker mode ────────────────────────────────────────────────────────────────────────────────
@@ -247,6 +246,9 @@ EOF2
       ROUTE_N=$(printf '%s' "$ROUTE_LIST" | grep -c .)
     fi
   fi
+elif [ -n "$RUNNER" ]; then
+  # Skipping the runner skips its log too, so the escape and its reason are said here.
+  progress "[install-sh] PC_LOCAL=1: runner skipped (why: $PC_LOCAL_REASON), the whole battery runs here"
 fi
 LOCAL_N=$(printf '%s' "$LOCAL" | grep -c .)
 JOBS=$(detect_jobs)

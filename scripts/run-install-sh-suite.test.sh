@@ -246,6 +246,8 @@ grep_out "PC_LOCAL=1 with a reason tallies every fixture" "5/5 passed" "$TMP/r8"
 if [ -s "$TMP/runner.log" ]; then echo "  ✗ PC_LOCAL=1 with a reason still called the runner"; fails=$((fails + 1))
 else echo "  ✓ PC_LOCAL=1 with a reason never called the runner"; fi
 no_grep_out "PC_LOCAL=1 with a reason ran nothing through the runner" "where=runner" "$TMP/r8"
+# Skipping the runner also skips its log, so the escape says itself here with the reason.
+grep_out "PC_LOCAL=1 with a reason says the escape and its reason" "runner skipped (why: fixture escape: this run stays on this host)" "$TMP/r8"
 
 # --- (route, no reason) a bare or short-reason PC_LOCAL=1 is not an escape: the split still routes ---
 # The runner (~/bin/pc-run) honours PC_LOCAL=1 only with PC_LOCAL_WHY of 20+ characters since

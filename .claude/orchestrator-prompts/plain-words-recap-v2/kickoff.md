@@ -82,7 +82,7 @@ were both reviewer-catch, not gate-catch.
    ([`pr-body-fidelity.ts:121`](../../../packages/core/hooks/checks/pr-body-fidelity.ts) opens `declaresProvenance()`; the line-by-line filtering is in its body, `:127-133`) and any
    surviving line classifies the PR as a factory stage PR, which forbids `FIDELITY: skipped`.
    Authoring narrative goes in `## Summary`. Validate before pushing:
-   `BASE_REF=staging HEAD_SHA=<sha> PR_BODY="$(cat body.md)" npx tsx packages/core/hooks/checks/pr-body-fidelity-bin.ts`.
+   `PC_LOCAL=1 PC_LOCAL_WHY='BASE_REF HEAD_SHA PR_BODY do not travel to the PC' BASE_REF=staging HEAD_SHA=<sha> PR_BODY="$(cat body.md)" npx tsx packages/core/hooks/checks/pr-body-fidelity-bin.ts`.
    Never batch a body edit with `gh pr create`; a PR-body gate is never `rerun` — edit the body to
    raise a NEW event.
 8. **CI:** one Bash call with `timeout: 600000` running `~/.claude/scripts/ci-wait.sh <PR> --repo artyhoo/getff`.
@@ -286,8 +286,8 @@ bash scripts/register-root-resolution.test.sh
 make self-audit
 ```
 
-`make self-audit` runs on the PC with the Mac's git context and the CI tool pins; only a `[pc] …
-NOT RUN` or fallback line justifies the Mac, as `PC_LOCAL=1 PC_LOCAL_WHY='<that line>'`.
+`make self-audit` runs on the PC with the Mac's git context and the CI tool pins. Keep a run on the Mac
+only for a real reason — a `[pc] … NOT RUN`/fallback line, or env vars it needs (only argv travels to the PC): `PC_LOCAL=1 PC_LOCAL_WHY='<that reason>'`.
 **Principle 11 F1 — do not inherit the folklore; the root cause was fixed under this branch.**
 Two facts, both measured on 2026-09-14, and the second supersedes the first.
 
