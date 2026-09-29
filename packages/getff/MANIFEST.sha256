@@ -210,8 +210,8 @@ c7fe2fd1d4c14a784231afa024c715f77de85c728526d558069a9d64572e6f70  packages/core/
 2dad54343f0e0d674e82c8eecb878a43167bd45906b49641e6e2617be60868ed  packages/core/audit-self/hooks-tree-guard.ts
 67563d820f1dda99321f196c959499ffe256e663e66701551e6c9dde3f908403  packages/core/audit-self/md-line-gate.sh
 cc2bab9b0d801efc943574d3e91682d4960f755ab78fab9f4d212fc5c0643944  packages/core/audit-self/md-line-gate.test.ts
-b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/audit-self/pre-merge-local.sh
-973385c162aab0d10f7bb8707b838c15f36facc77362c4af6ebf03edf3b2d358  packages/core/audit-self/pre-merge-local.test.sh
+1cceebd4333d639020a84607c95301b0f535206b3e0a70b456adc1f2aab05c1a  packages/core/audit-self/pre-merge-local.sh
+b1e2d4176b73a96e0f46e2a6bc5e4ab83faed96bbb3501fd4343e638a755375f  packages/core/audit-self/pre-merge-local.test.sh
 7cf8b8f736f50de99cf2e8633a0b65f4de109ebc914835607f520ff1a3ae3953  packages/core/audit-self/r2-na-marker.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
 ee2e43857159ae9f685873dd3538392dd9536b2e3bca48645bac776fcdea5e36  packages/core/audit-self/run-bash-mutation.test.ts
