@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, posix, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import {
   R2_RULE_ID,
@@ -1308,7 +1309,7 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     expect(again.status).toBe('already-wired');
   });
 
-  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to another value, or where getff cannot read it, no RULE_GLOBS → nothing added for R2, the note names it (F11)', async () => {
+  it.skipIf(!TS_MORPH_AVAILABLE)('R2 set to another value, or where getff cannot read it, no RULE_GLOBS → RULE_GLOBS alone is added, the consumer\'s R2 untouched (F11)', async () => {
     const warn = R2_BY_HAND.replace(`zod-parse': 'error'`, `zod-parse': 'warn'`);
     const hidden = `const base = [{ rules: { 'rules-as-tests/no-unsafe-zod-parse': 'off' } }];\nexport default [...base];\n`;
     // 'error', then 'off' further down: ESLint's last setting wins, and getff's element would outrank it.
@@ -1319,18 +1320,28 @@ describe('wireOwnConfig — getff block in a consumer-owned config (Q4.7)', () =
     // The same, spelled with quoted keys, and R2 set under a computed template-literal key (second cold review).
     const quotedKeys = R2_BY_HAND.replace(`{ plugins:`, `{ 'files': ['src/api/**'], plugins:`).replace(`rules: {`, `'rules': {`);
     const templateKey = R2_BY_HAND.replace(`'rules-as-tests/no-unsafe-zod-parse': 'error'`, "[`rules-as-tests/no-unsafe-zod-parse`]: 'off'");
+    // The gates need RULE_GLOBS.boundary: check-rule-globs.sh fails without it, and check-rule-enforced.sh
+    // takes its boundary files from it to ask ESLint whether R2 is on there. A declaration alone gives them
+    // the boundary code the install found; where R2 runs stays the consumer's setting (operator decision
+    // 2026-09-29, «A + name the miss»).
+    const r2Mentions = (s: string): number => s.split(R2_RULE_ID).length - 1;
     for (const src of [warn, hidden, twice, scoped, excepted, quotedKeys, templateKey]) {
       const r = await wireOwnConfig(src, ROOT);
-      expect(r.modified).toBe(src);
-      expect(r.status).toBe('already-wired');
-      const note = (r.notes ?? []).join('\n');
-      expect(note).toMatch(/RULE_GLOBS/);
-      expect(note).toMatch(/does not change a setting of yours/);
-      // The hyphen form: the colon form «check:globs» is the CI-orphan WARN's (r2-glob-reach per-gate accuracy).
-      expect(note).toMatch(/check-rule-globs\.sh/);
-      expect(note).not.toMatch(/by hand|manually/i);
-      // printNotWired keeps 300 characters of a root note.
-      for (const n of r.notes ?? []) expect(n.length).toBeLessThanOrEqual(300);
+      expect(r.status).toBe('wired');
+      expect(onlyInserts(src, r.modified)).toBe(true);
+      expect(gateBoundary(r.modified)).toEqual(BOUNDARY);
+      // No R2 element of getff's: one would reach the files the consumer's own setting leaves out.
+      expect(r.modified).not.toMatch(/files: RULE_GLOBS\.boundary/);
+      expect(r2Mentions(r.modified)).toBe(r2Mentions(src));
+      // Nothing in the config reads RULE_GLOBS, so it is exported: a bare const fails no-unused-vars in the
+      // consumer's own lint of the config (measured 2026-09-29 with typescript-eslint's recommended set).
+      const unused = new Linter({ configType: 'flat' })
+        .verify(r.modified, [{ languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }, rules: { 'no-unused-vars': 'error' } }], 'eslint.config.mjs')
+        .filter((m) => m.message.includes('RULE_GLOBS'));
+      expect(unused).toEqual([]);
+      expect(r.notes ?? []).toEqual([]);
+      const again = await wireOwnConfig(r.modified, ROOT);
+      expect(again.status).toBe('already-wired');
     }
   });
 

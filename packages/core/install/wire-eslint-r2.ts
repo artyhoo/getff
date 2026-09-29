@@ -872,7 +872,8 @@ export async function wireNRules(
 //    check getff's machinery (a ts-only config reported the bundles' `/* eslint-disable */` banner
 //    as an unused directive and failed `--max-warnings=0`);
 //  - R2, scoped by a `RULE_GLOBS.boundary` block in the form the shipped gates read
-//    (check-rule-globs.sh / check-rule-enforced.sh read its `boundary: [` array, in either quotes).
+//    (check-rule-globs.sh / check-rule-enforced.sh read its `boundary: [` array, in either quotes); in a
+//    root config that sets R2 its own way, the block alone, and the consumer's R2 stays as it is.
 // The caller keeps a copy of the original and lint-probes the result (writeWithLintProbe).
 
 export interface OwnConfigOpts {
@@ -893,6 +894,19 @@ export interface OwnConfigOpts {
 /** A glob as a single-quoted string literal — the form getff's templates write RULE_GLOBS in. */
 function singleQuoted(s: string): string {
   return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
+}
+
+/** A `RULE_GLOBS = { boundary: [ … ] }` declaration under `comment`, `// prettier-ignore` so the gates keep reading it. */
+function ruleGlobsDeclaration(boundary: string[], comment: string[], keyword: 'const' | 'export const'): string {
+  return [
+    ...comment,
+    '// prettier-ignore',
+    `${keyword} RULE_GLOBS = {`,
+    '  boundary: [',
+    ...boundary.map((g) => `    ${singleQuoted(g)},`),
+    '  ],',
+    '};',
+  ].join('\n');
 }
 
 /** String values of an array literal's string-literal elements. */
@@ -1069,10 +1083,14 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
     // No RULE_GLOBS block, but the config sets R2 itself (a hand merge of the snippet the install
     // printed before Q4.7). In the root config check-rule-globs.sh reads R2's globs from RULE_GLOBS.boundary
     // and fails without one (cold-review F11): at 'error' for every file, where getff can read it, the block
-    // and the scoped element that uses it add nothing the consumer did not ask for. Any other setting stays
-    // as the consumer set it, and the note says what that leaves. Set more than once, the last setting wins
-    // in ESLint and getff's element would outrank it; set for some files only, getff's element would reach
-    // the rest: both read as a setting getff cannot confirm.
+    // and the scoped element that uses it add nothing the consumer did not ask for. Set more than once, the
+    // last setting wins in ESLint and getff's element would outrank it; set for some files only, getff's
+    // element would reach the rest: both read as a setting getff cannot confirm. Such a setting, or any
+    // value but 'error', stays as the consumer set it, and the root config gets the block alone — the
+    // boundary code the install found, for the gates to read: check-rule-globs.sh passes on it, and
+    // check-rule-enforced.sh asks ESLint whether the consumer's R2 is on at 'error' there, which is the
+    // question the consumer's own setting answers (operator decision 2026-09-29, «A + name the miss»; it
+    // replaced a note that left check:globs red on every push, however R2 was set).
     const r2Mentions = [`'`, `"`, '`'].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
     const r2Setting = !r2Present ? 'not-found'
       : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? 'differs'
@@ -1090,24 +1108,24 @@ export async function wireOwnConfig(source: string, opts: OwnConfigOpts = {}): P
         registerR2 = !r2Present;
       }
     } else if (r2Present && r2Setting !== 'same') {
-      notes.push(
-        opts.gateReadsRuleGlobs
-          ? `RULE_GLOBS for R2 — the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
-              'getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them'
-          : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
-              'getff does not change a setting of yours, so it adds nothing for R2',
-      );
+      if (opts.gateReadsRuleGlobs) {
+        // Nothing in the config reads it, so it is exported: a bare const fails no-unused-vars in the
+        // consumer's own lint of this file.
+        ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
+          '// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting below;',
+          "// check:globs fails when none of these matches a source file, check:enforced when R2 is not 'error' there.",
+        ], 'export const');
+      } else {
+        notes.push(
+          `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; ` +
+            'getff does not change a setting of yours, so it adds nothing for R2',
+        );
+      }
     } else if (!r2Present || opts.gateReadsRuleGlobs) {
-      ruleGlobsBlock = [
+      ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
         '// Added by getff: where its R2 rule looks for an unguarded zod .parse() — the HTTP boundary code the',
         '// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.',
-        '// prettier-ignore',
-        'const RULE_GLOBS = {',
-        '  boundary: [',
-        ...boundary.map((g) => `    ${singleQuoted(g)},`),
-        '  ],',
-        '};',
-      ].join('\n');
+      ], 'const');
       registerR2 = true;
     }
   }

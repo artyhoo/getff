@@ -481,8 +481,11 @@ OUT14=$(repo_gate "$T14"); RC14=$?
 # NEG-b above: the gate full-alarms such a config — its R2 globs are not getff's to read. The install
 # called it «R2 already enforced» and added nothing, so every push failed while the install said
 # nothing. Now R2 at 'error' with an HTTP boundary → the install adds RULE_GLOBS (and the scoped R2
-# element that uses it) by insertions and the gate passes; R2 at another value, or no boundary to
-# scope it to → the gate stays red and the not-wired summary names it. A recorded R2 N/A (a
+# element that uses it) by insertions and the gate passes; R2 at another value, or for some files
+# only → RULE_GLOBS alone, the consumer's R2 as it is, the gate passes, and the install asks
+# check-rule-enforced.sh whether that R2 is on at 'error' for the boundary code, naming the file where
+# it is not (operator decision 2026-09-29); no boundary to scope R2 to → the gate stays red and the
+# not-wired summary names it. A recorded R2 N/A (a
 # declarative-validation layout) keeps the gate green, and then there is nothing to name. The gate
 # reads R7 and R8 the same way: a config that sets R7 alone, with no RULE_GLOBS block, fails it too.
 # The wirer needs ts-morph (a --full install puts it in node_modules): borrowed from the framework
@@ -500,8 +503,10 @@ f11_borrow() {
       *)  ln -s "$FW_NM/$p" "$1/node_modules/$p" ;;
     esac
   done
-  # The per-package R2 passes run the wirer through `npx --no-install tsx`.
+  # The per-package R2 passes run the wirer through `npx --no-install tsx`; the install asks
+  # scripts/check-rule-enforced.sh only when node_modules/.bin/eslint is there.
   [ -e "$FW_NM/.bin/tsx" ] && ln -s "$FW_NM/.bin/tsx" "$1/node_modules/.bin/tsx"
+  [ -e "$FW_NM/.bin/eslint" ] && ln -s "$FW_NM/.bin/eslint" "$1/node_modules/.bin/eslint"
   return 0
 }
 f11_unborrow() {
@@ -545,6 +550,11 @@ f11_not_wired() { awk '/NOT wired, or wired only in part/{on=1; next} on && /^[[
 f11_push() { f11_not_wired "$1" | grep -v 'AIF_STRICT_RUNTIME=1'; }
 f11_strict() { f11_not_wired "$1" | grep 'AIF_STRICT_RUNTIME=1'; }
 f11_gate() { ( cd "$1" && bash scripts/check-rule-globs.sh ) 2>&1; }
+# f11_zod <dir> — the project depends on zod: check-rule-enforced.sh asks ESLint about a boundary file only
+# in a package that does (GH #730), so without it the install's ask of that gate checks nothing.
+f11_zod() { printf '{ "name": "f11", "version": "0.0.0", "dependencies": { "zod": "^3.23.0" } }\n' > "$1/package.json"; }
+# f11_enforced <log> — the not-wired lines about scripts/check-rule-enforced.sh.
+f11_enforced() { f11_not_wired "$1" | grep -F 'check-rule-enforced.sh'; }
 
 if [ ! -f "$FW_NM/ts-morph/package.json" ]; then
   bad "F11: ts-morph is not installed in the framework (run npm install first) — the F11 arms would be vacuous"
@@ -572,18 +582,23 @@ else
       || bad "F11 error strict: RULE_GLOBS.$_k named $_n times (gate: $(printf '%s' "$OUT15S" | grep -E '⚠|✗' | tr '\n' '|'); summary: $(f11_not_wired "$T15.log" | tr '\n' '|'))"
   done
 
-  # warn + boundary → getff does not change the consumer's setting: no RULE_GLOBS, and the summary says so.
-  T16=$(f11_project warn boundary); f11_install "$T16" "$T16.log"
-  grep -q "'rules-as-tests/no-unsafe-zod-parse': 'warn'" "$T16/eslint.config.mjs" && ! grep -q 'RULE_GLOBS' "$T16/eslint.config.mjs" \
-    && ok "F11 warn: the consumer's 'warn' is kept and no RULE_GLOBS is added" \
-    || bad "F11 warn: the config's R2 setting was changed, or RULE_GLOBS added over it"
-  grep -q 'RULE_GLOBS' <<<"$(f11_not_wired "$T16.log" | grep 'eslint.config.mjs')" \
-    && ok "F11 warn: the not-wired summary names RULE_GLOBS for eslint.config.mjs" \
-    || bad "F11 warn: the gate fails on this config while the install's not-wired summary says nothing about it"
-  # Once: the wirer's own note already says the gate fails on this config, and the install's gate run adds none.
-  [ "$(f11_push "$T16.log" | grep -c 'RULE_GLOBS')" -eq 1 ] \
-    && ok "F11 warn: the summary names RULE_GLOBS once" \
-    || bad "F11 warn: the summary names RULE_GLOBS $(f11_push "$T16.log" | grep -c 'RULE_GLOBS') times: $(f11_push "$T16.log" | grep RULE_GLOBS | tr '\n' '|')"
+  # warn + boundary → getff does not change the consumer's setting: it declares RULE_GLOBS alone, so
+  # check:globs passes, and check-rule-enforced.sh — for which a 'warn' is not applied — is named once,
+  # with the boundary file (operator decision 2026-09-29).
+  T16=$(f11_project warn boundary); f11_zod "$T16"; f11_install "$T16" "$T16.log"
+  grep -q "'rules-as-tests/no-unsafe-zod-parse': 'warn'" "$T16/eslint.config.mjs" \
+    && grep -q '^export const RULE_GLOBS = {' "$T16/eslint.config.mjs" && ! grep -q 'files: RULE_GLOBS\.boundary' "$T16/eslint.config.mjs" \
+    && ok "F11 warn: the consumer's 'warn' is kept, RULE_GLOBS is declared, and getff adds no R2 element" \
+    || bad "F11 warn: the config's R2 setting was changed, an R2 element added, or no RULE_GLOBS declared (install said: $(grep -E 'R2|synth-wire' "$T16.log" | head -3 | tr '\n' '|'))"
+  OUT16=$(f11_gate "$T16"); RC16=$?
+  [ "$RC16" = "0" ] && ok "F11 warn: check:globs passes after the install" \
+    || bad "F11 warn: check:globs exited $RC16 after the install (saw: $(printf '%s' "$OUT16" | grep -E '⚠|✗' | tr '\n' '|'))"
+  grep -q 'RULE_GLOBS' <<<"$(f11_push "$T16.log")" \
+    && bad "F11 warn: the summary names RULE_GLOBS, though it was added: $(f11_push "$T16.log" | grep RULE_GLOBS | head -1)" \
+    || ok "F11 warn: nothing about RULE_GLOBS in the not-wired summary"
+  [ "$(f11_enforced "$T16.log" | grep -c "only 'warn'.*src/routes/users\.ts")" -eq 1 ] \
+    && ok "F11 warn: the summary names, once, that R2 is only 'warn' for src/routes/users.ts (check-rule-enforced.sh)" \
+    || bad "F11 warn: check-rule-enforced.sh fails on this project while the summary does not name it once (summary: $(f11_not_wired "$T16.log" | tr '\n' '|'))"
 
   # error + no boundary (layout ambiguous) → nothing to scope R2 to: the gate stays red, the summary says why.
   T17=$(f11_project error none); f11_install "$T17" "$T17.log"
@@ -610,17 +625,42 @@ else
     || bad "F11 R7: check:globs fails every push while the install says nothing (summary: $(f11_not_wired "$T19.log" | tr '\n' '|'))"
 
   # error for some files only + boundary: a RULE_GLOBS.boundary element at 'error' would reach the files the
-  # consumer's own files: leaves out — the setting stays as it is, and the summary names RULE_GLOBS.
-  T20=$(f11_project error boundary)
+  # consumer's own files: leaves out, so getff declares RULE_GLOBS alone and check:globs passes. The
+  # boundary code lies outside that files:, and the summary names it: check-rule-enforced.sh, asked by the
+  # install, finds R2 NOT in the resolved config of src/routes/users.ts — which is also the proof that no
+  # element of getff's widened R2 there (it would have made that gate pass).
+  T20=$(f11_project error boundary); f11_zod "$T20"
   perl -0pi -e "s/\{\n  plugins:/{\n  files: ['src\/api\/**'],\n  plugins:/" "$T20/eslint.config.mjs"
   grep -q "files: \['src/api/\*\*'\]," "$T20/eslint.config.mjs" || bad "F11 scoped: the fixture has no files: on the consumer's R2 element"
   f11_install "$T20" "$T20.log"
-  ! grep -q 'RULE_GLOBS' "$T20/eslint.config.mjs" \
-    && ok "F11 scoped: no RULE_GLOBS element widens the consumer's R2 past its own files:" \
-    || bad "F11 scoped: getff added RULE_GLOBS over R2 the consumer set for some files only"
-  grep -q 'RULE_GLOBS' <<<"$(f11_not_wired "$T20.log" | grep 'eslint.config.mjs')" \
-    && ok "F11 scoped: the not-wired summary names RULE_GLOBS for eslint.config.mjs" \
-    || bad "F11 scoped: the gate fails on this config while the not-wired summary says nothing (summary: $(f11_not_wired "$T20.log" | tr '\n' '|'))"
+  grep -q "files: \['src/api/\*\*'\]," "$T20/eslint.config.mjs" && grep -q '^export const RULE_GLOBS = {' "$T20/eslint.config.mjs" \
+    && ! grep -q 'files: RULE_GLOBS\.boundary' "$T20/eslint.config.mjs" \
+    && ok "F11 scoped: RULE_GLOBS is declared, the consumer's files: is kept, and no element of getff's widens R2 past it" \
+    || bad "F11 scoped: getff changed the consumer's R2 scope, added an R2 element, or declared no RULE_GLOBS"
+  OUT20=$(f11_gate "$T20"); RC20=$?
+  [ "$RC20" = "0" ] && ok "F11 scoped: check:globs passes after the install" \
+    || bad "F11 scoped: check:globs exited $RC20 after the install (saw: $(printf '%s' "$OUT20" | grep -E '⚠|✗' | tr '\n' '|'))"
+  grep -q 'NOT in the resolved ESLint config for src/routes/users\.ts' <<<"$(f11_enforced "$T20.log")" \
+    && ok "F11 scoped: the summary names src/routes/users.ts, the boundary file the consumer's R2 does not reach" \
+    || bad "F11 scoped: check-rule-enforced.sh fails on this project while the summary does not name the file (summary: $(f11_not_wired "$T20.log" | tr '\n' '|'))"
+
+  # Paired negative: R2 scoped the consumer's way over all of src/ reaches the boundary code — RULE_GLOBS
+  # alone again, both gates pass, and the summary names neither. The install's ask of check-rule-enforced.sh
+  # ran and passed (its verdict line is in the log), so the silence is not a gate that was never asked.
+  T30=$(f11_project error boundary); f11_zod "$T30"
+  perl -0pi -e "s/\{\n  plugins:/{\n  files: ['src\/**\/*.ts'],\n  plugins:/" "$T30/eslint.config.mjs"
+  grep -q "files: \['src/\*\*/\*\.ts'\]," "$T30/eslint.config.mjs" || bad "F11 scoped-reach: the fixture has no files: on the consumer's R2 element"
+  f11_install "$T30" "$T30.log"
+  OUT30=$(f11_gate "$T30"); RC30=$?
+  [ "$RC30" = "0" ] && grep -q '^export const RULE_GLOBS = {' "$T30/eslint.config.mjs" \
+    && ok "F11 scoped-reach: RULE_GLOBS is declared and check:globs passes" \
+    || bad "F11 scoped-reach: check:globs exited $RC30, or no RULE_GLOBS declared (saw: $(printf '%s' "$OUT30" | grep -E '⚠|✗' | tr '\n' '|'))"
+  grep -q 'check-rule-enforced: OK' "$T30.log" \
+    && ok "F11 scoped-reach: the install asked check-rule-enforced.sh, and it passed" \
+    || bad "F11 scoped-reach: no passing check-rule-enforced.sh run in the install log — the arm below would be vacuous"
+  grep -qE 'RULE_GLOBS|check-rule-enforced' <<<"$(f11_push "$T30.log")" \
+    && bad "F11 scoped-reach: the summary names a gate that passes: $(f11_push "$T30.log" | grep -E 'RULE_GLOBS|check-rule-enforced' | head -1)" \
+    || ok "F11 scoped-reach: nothing about RULE_GLOBS or check-rule-enforced.sh in the summary"
 
   # A RULE_GLOBS of the consumer's with no boundary array, no custom rule, no boundary code: the gate reads
   # RULE_GLOBS.boundary wherever RULE_GLOBS appears and fails — the summary names it (cold-review, after #1868).

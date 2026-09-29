@@ -80,7 +80,8 @@ _r2_own_refused() {
 }
 # _r2_own_gap <rel-cfg> — what the wirer would add to <rel-cfg> for R2, worded for a not-wired line;
 # nothing when it would add nothing: every glob is an element of RULE_GLOBS.boundary and R2 is
-# registered, R2 is registered with no RULE_GLOBS (the wirer leaves it alone), or it refuses.
+# registered, or it refuses. R2 registered with no RULE_GLOBS gets RULE_GLOBS alone (the wirer leaves
+# R2 as the config sets it: operator decision 2026-09-29).
 _r2_own_gap() {
   local cfg="$PROJECT_ROOT/$1" have g missing="" r2=""
   [ -n "${_r2_own_globs:-}" ] || return 0
@@ -88,7 +89,7 @@ _r2_own_gap() {
   # A quoted rule id anywhere is R2 registered — the wirer's own test (simpleRulePresent).
   grep -qF -e "'rules-as-tests/no-unsafe-zod-parse'" -e '"rules-as-tests/no-unsafe-zod-parse"' "$cfg" 2>/dev/null && r2=1
   case "$(printf '%s\n' "$have" | sed -n 1p)" in
-    none) [ -n "$r2" ] || echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ;;
+    none) if [ -n "$r2" ]; then echo "RULE_GLOBS (60-ci found an HTTP boundary)"; else echo "RULE_GLOBS and R2 (60-ci found an HTTP boundary)"; fi ;;
     array)
       while IFS= read -r g; do
         [ -n "$g" ] && ! grep -qxF -- "$g" <<<"$(sed -n '2,$p' <<<"$have")" && missing="${missing:+$missing, }'$g'"
@@ -780,6 +781,43 @@ if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11_gat
     done <<< "$_f11_out"
     [ "$_f11_any" = 1 ] \
       || _f11_note "scripts/check-rule-globs.sh, which runs on every push, exits $_f11_rc on this project, with no failure line the install can name"
+  fi
+fi
+
+# ─── F11e: what scripts/check-rule-enforced.sh fails on, under the consumer's own root config ───
+# check-rule-globs.sh asks whether RULE_GLOBS.boundary matches source files; check-rule-enforced.sh asks
+# ESLint whether R2 is on at 'error' for them. Where the consumer sets R2 its own way — for some files
+# only, at 'warn', more than once — the wirer declares RULE_GLOBS alone and leaves R2 as it is
+# (wireOwnConfig, packages/core/install/wire-eslint-r2.ts), so the first gate passes and only the second
+# can say that R2 misses the boundary code the install found; `npm run validate` and CI then fail on it.
+# Where R2 runs is the consumer's decision, not one getff takes, so the install asks that gate as F11 asks
+# the other and names each failure line up to its advice (operator decision 2026-09-29, «A + name the
+# miss»). Asked only when the project's own node_modules/.bin/eslint is there: the gate resolves eslint
+# there first, and one found on PATH would read a config whose imports this install may not have put in
+# place. Its verdict line is printed either way, so a quiet summary is one the gate was asked about.
+_f11e_gate="$PROJECT_ROOT/scripts/check-rule-enforced.sh"
+if [ "${_f11_check:-}" = 1 ] && [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_f11e_gate" ] \
+   && [ -x "$PROJECT_ROOT/node_modules/.bin/eslint" ]; then
+  _f11e_out=$( cd "$PROJECT_ROOT" && env -u ESLINT_CONFIG bash "$_f11e_gate" 2>&1 ) && _f11e_rc=0 || _f11e_rc=$?
+  echo "  · asked scripts/check-rule-enforced.sh — $(printf '%s\n' "$_f11e_out" | tail -1)"
+  if [ "$_f11e_rc" -ne 0 ]; then
+    _f11e_any=0
+    while IFS= read -r _f11e_l; do
+      _f11e_l="${_f11e_l#"${_f11e_l%%[![:space:]]*}"}"
+      case "$_f11e_l" in ✗*) ;; *) continue ;; esac
+      _f11e_any=1
+      _f11e_s=$(printf '%s\n' "$_f11e_l" | sed -e 's/^✗[[:space:]]*//' -e 's/ — .*//')
+      # A verdict on R2 in the root config is about the consumer's own setting; any other line (a crash, a
+      # workspace config, a recorded R2 N/A that no longer holds) is named as the gate words it.
+      case "$_f11e_s" in
+        "root config: "*"in the resolved ESLint config for "*)
+          _f11_note "$_root_eslint (your own config): ${_f11e_s#root config: } — where R2 runs is your own setting, which getff does not change; scripts/check-rule-enforced.sh fails on this project" ;;
+        "root config: "*) _f11_note "$_root_eslint (your own config): ${_f11e_s#root config: } — scripts/check-rule-enforced.sh fails on this project" ;;
+        *) _f11_note "$_f11e_s — scripts/check-rule-enforced.sh fails on this project" ;;
+      esac
+    done <<< "$_f11e_out"
+    [ "$_f11e_any" = 1 ] \
+      || _f11_note "scripts/check-rule-enforced.sh exits $_f11e_rc on this project, with no failure line the install can name"
   fi
 fi
 

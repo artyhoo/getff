@@ -10668,6 +10668,17 @@ async function wireNRules(source, synthRules, opts = {}) {
 function singleQuoted(s) {
   return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
 }
+function ruleGlobsDeclaration(boundary, comment, keyword) {
+  return [
+    ...comment,
+    "// prettier-ignore",
+    `${keyword} RULE_GLOBS = {`,
+    "  boundary: [",
+    ...boundary.map((g) => `    ${singleQuoted(g)},`),
+    "  ],",
+    "};"
+  ].join("\n");
+}
 function stringElements(arr, SyntaxKind) {
   return (arr.getElements?.() ?? []).filter((e) => e.isKind(SyntaxKind.StringLiteral) || e.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)).map((e) => e.getLiteralValue());
 }
@@ -10822,20 +10833,21 @@ async function wireOwnConfig(source, opts = {}) {
         registerR2 = !r2Present;
       }
     } else if (r2Present && r2Setting !== "same") {
-      notes.push(
-        opts.gateReadsRuleGlobs ? `RULE_GLOBS for R2 \u2014 the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them` : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds nothing for R2`
-      );
+      if (opts.gateReadsRuleGlobs) {
+        ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
+          "// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting below;",
+          "// check:globs fails when none of these matches a source file, check:enforced when R2 is not 'error' there."
+        ], "export const");
+      } else {
+        notes.push(
+          `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds nothing for R2`
+        );
+      }
     } else if (!r2Present || opts.gateReadsRuleGlobs) {
-      ruleGlobsBlock = [
+      ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
         "// Added by getff: where its R2 rule looks for an unguarded zod .parse() \u2014 the HTTP boundary code the",
-        "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.",
-        "// prettier-ignore",
-        "const RULE_GLOBS = {",
-        "  boundary: [",
-        ...boundary.map((g) => `    ${singleQuoted(g)},`),
-        "  ],",
-        "};"
-      ].join("\n");
+        "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves."
+      ], "const");
       registerR2 = true;
     }
   }
