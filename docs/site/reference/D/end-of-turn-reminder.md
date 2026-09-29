@@ -155,7 +155,7 @@ hand-off, or on a decision floor — a merge or promote into `main` (the verb an
 the actions only you can take in the harness (`/compact`, a session restart, a
 permission prompt), and a choice at a fork. The floors are the language pack's
 `AIF_EOT_HANDS_FLOOR` patterns (one per line), matched on the whole action,
-parenthesis included, after the hook lowercases it itself — so a capitalised Russian
+parenthesis included, after the hook converts it to lower case itself — so a capitalised Russian
 word counts even when your shell sets no locale. Bold markers, a capitalised
 `Do by hand:`, and a value or action on the next line are read the same way; a
 `From you:` line inside a fenced code block is an example and is skipped. The arm
@@ -209,8 +209,8 @@ consumer-safe posture as its question-time companion
 - Manual-step arm (default on): lines 1103-1262 — the last hand-off line in either
   language, the explicit form and the manual keywords, the fork-card /
   AskUserQuestion / handoff-gate exemptions, the one-pass locale-independent
-  lowercasing (`_hs_lower`), the floor match on the whole action, and the per-session
-  bound (`aif-eot-hands-<session>`: one block per action sha, two in total); the
+  conversion to lower case (`_hs_lower`), the floor match on the whole action, and the per-session
+  bound (`aif-eot-hands-<session>`: one block per action hash, two in total); the
   opt-out is `AIF_EOT_HANDS_GATE=0`. The line keys `AIF_EOT_HANDS_PREFIX_RE`,
   `AIF_EOT_HANDS_TOKEN_RE`, `AIF_EOT_HANDS_KEYWORD_RE`, `AIF_EOT_HANDS_SKIP_RE` and the
   floor patterns `AIF_EOT_HANDS_FLOOR` are `.claude/hooks/lang/en.sh` lines 54-88

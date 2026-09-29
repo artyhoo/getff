@@ -330,7 +330,80 @@ grep -q 'apps/mobile/eslint.config.mjs' "$T/.prettierignore" 2>/dev/null \
 # PAIRED-NEGATIVE: all per-ws configs here are shipped-fresh (greenfield install) → they SHOULD
 # appear. A consumer-authored (SKIPPED) config would NOT be added — covered in f15-prettierignore.
 
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# §10 CI-orphan truth on a monorepo with NO workflow (defect seen 2026-09-28 on getff#1889):
+# the multi-stack branch places no ci.yml, yet 60-ci.sh claimed «a pre-existing CI workflow was
+# kept» and gave every gate the reason «the workflow is your own» — over an EMPTY workflows dir.
+# ══════════════════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "▶ §10 CI-orphan lines tell the truth when the monorepo has no workflow at all"
+. "$REPO_ROOT/tests/install-sh/lib/manual-step.sh"
+_wf_count=$(find "$T/.github/workflows" -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null | wc -l | tr -d ' ')
+[ "$_wf_count" = "0" ] \
+  && ok "§10 precondition: the multi-stack install left .github/workflows/ without a workflow file" \
+  || bad "§10 precondition: $_wf_count workflow file(s) present — the fixture no longer exercises the empty case"
+grep -q "pre-existing CI workflow was kept" "$T/.install.log" \
+  && bad "§10: install claims a pre-existing CI workflow was kept, but none exists" \
+  || ok "§10: no «pre-existing CI workflow was kept» claim over an empty workflows dir"
+grep -q "the workflow is your own" "$T/.install.log" \
+  && bad "§10: NOT-wired reason says «the workflow is your own», but there is no workflow" \
+  || ok "§10: no «the workflow is your own» reason over an empty workflows dir"
+# The summary line itself (not the WARN header, which shares the phrase) carries the true reason.
+grep -qE '^ +- CI gate .* runs in no CI job .*: no workflow exists under \.github/workflows/ — getff places its ci\.yml only in a repo with no workspace packages' "$T/.install.log" \
+  && ok "§10: each gate's NOT-wired line says no workflow exists and why getff placed none" \
+  || bad "§10: no NOT-wired line gives the no-workflow reason (saw: $(grep 'CI gate' "$T/.install.log" | head -1))"
+_ms=$(manual_step_lines "$T/.install.log")
+[ -z "$_ms" ] \
+  && ok "§10: no printed line asks for a manual step (Q4.7)" \
+  || bad "§10: a printed line asks for a manual step: $(printf '%s\n' "$_ms" | head -2 | tr '\n' '|')"
+
 rm -rf "$T"
+
+# §10 PAIRED-NEGATIVE: the same monorepo shape WITH its own workflow keeps the «your own» reason.
+T10=$(mktemp -d)
+printf '{ "name": "mono-own-ci", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$T10/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$T10/pnpm-workspace.yaml"
+mkdir -p "$T10/apps/api" "$T10/.github/workflows"
+printf '{ "name": "@m/api", "dependencies": { "hono": "4.0.0" }, "devDependencies": { "typescript": "5.6.0" } }\n' > "$T10/apps/api/package.json"
+printf 'name: CI\non: push\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n' > "$T10/.github/workflows/ci.yml"
+install_into "$T10" ts-server
+grep -q "the workflow is your own" "$T10/.install.log" \
+  && ok "§10 neg: a monorepo with its own workflow still gets «the workflow is your own»" \
+  || bad "§10 neg: own-workflow monorepo lost the «your own» reason (saw: $(grep 'CI gate' "$T10/.install.log" | head -1))"
+grep -q "no workflow exists under" "$T10/.install.log" \
+  && bad "§10 neg: own-workflow monorepo told «no workflow exists»" \
+  || ok "§10 neg: own-workflow monorepo is not told that no workflow exists"
+rm -rf "$T10"
+
+# §10b A SINGLE-stack monorepo with no workflow, installed with --wire-ci: the reason must not call
+# it multi-stack (the ci.yml skip keys on workspace packages, not on stack count), and there is
+# nothing to wire into — no yq prompt, no yq install offer, no wire attempt, no file written.
+T11=$(mktemp -d)
+printf '{ "name": "mono-one-stack", "private": true, "devDependencies": { "typescript": "5.6.0" } }\n' > "$T11/package.json"
+printf 'packages:\n  - "apps/*"\n' > "$T11/pnpm-workspace.yaml"
+mkdir -p "$T11/apps/api" "$T11/apps/worker"
+printf '{ "name": "@m/api", "dependencies": { "hono": "4.0.0" } }\n' > "$T11/apps/api/package.json"
+printf '{ "name": "@m/worker", "dependencies": { "hono": "4.0.0" } }\n' > "$T11/apps/worker/package.json"
+( cd "$T11" && git init -q && bash "$INSTALL_SH" ts-server --force --wire-ci </dev/null ) >"$T11/.install.log" 2>&1 \
+  || bad "§10b: install rc=$? (tail: $(tail -3 "$T11/.install.log" | tr '\n' '|'))"
+grep "CI gate" "$T11/.install.log" | grep -qi "multi-stack" \
+  && bad "§10b: a single-stack monorepo's NOT-wired reason calls it multi-stack" \
+  || ok "§10b: the NOT-wired reason does not call a single-stack monorepo multi-stack"
+grep -qE '^ +- CI gate .* runs in no CI job .*this repo has workspace packages there' "$T11/.install.log" \
+  && ok "§10b: the reason names the true condition — workspace packages" \
+  || bad "§10b: no workspace-packages reason (saw: $(grep 'CI gate' "$T11/.install.log" | head -1))"
+grep -qE "Auto-wire|--wire-ci: found no job|'yq' is not installed|auto-wired" "$T11/.install.log" \
+  && bad "§10b: --wire-ci still tried to wire gates into a workflow that does not exist: $(grep -E "Auto-wire|--wire-ci|yq" "$T11/.install.log" | head -1)" \
+  || ok "§10b: --wire-ci makes no wire attempt when no workflow exists"
+_wf11=$(find "$T11/.github/workflows" -type f 2>/dev/null | wc -l | tr -d ' ')
+[ "$_wf11" = "0" ] \
+  && ok "§10b: .github/workflows/ still holds no file after --wire-ci" \
+  || bad "§10b: --wire-ci wrote $_wf11 file(s) into .github/workflows/"
+_ms11=$(manual_step_lines "$T11/.install.log")
+[ -z "$_ms11" ] \
+  && ok "§10b: no printed line asks for a manual step (Q4.7)" \
+  || bad "§10b: a printed line asks for a manual step: $(printf '%s\n' "$_ms11" | head -2 | tr '\n' '|')"
+rm -rf "$T11"
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # §7 No-regression: flat single-stack ts-server repo unchanged vs I-1 baseline

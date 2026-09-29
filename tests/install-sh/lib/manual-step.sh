@@ -21,14 +21,16 @@
 # «to activate», «source it from your existing hook», «move your hooks», «start it / start docker»,
 # «install docker», «see <doc>.md for …», «<doc>.md describes …», «manual setup», the config
 # REFUSE cells' «MANUAL: …», «merge our/its/the getff … into your …», «OR run:», «inert until you
-# opt in», «once you add», the legacy-skill «refresh after upgrading …». A wording list is closed
-# by nature:
+# opt in», «once you add», the legacy-skill «refresh after upgrading …»; and from the bridge wizard
+# ./setup runs for the getff repository (packages/runtime-bridge/scripts/setup-runtime-bridge.sh):
+# «verify with: …», «confirm the coordinator answers …», «To force …: export VAR=…», «paste this /
+# the snippet …», a line ending «— run» before the command, «re-source it / open a new shell». A wording list is closed by nature:
 # install-no-manual-step.test.sh arm R holds a positive control (every wording above must match)
 # and sweeps the installer source, so a new phrasing in a line no arm reaches still surfaces.
 
 # manual_step_lines <log> — print each line of <log> that hands work back to the reader.
 manual_step_lines() {
-  grep -iE 'by hand|manually|yourself|merge .* into it|port your rules|add to .*adjust|adjust the relative path|what to do|to use them|should print|should PASS|re-run (it|the install|install|with|\./)|then re-run|\(run: |^[[:space:]]*[0-9]+\. (Run|Review|Edit|Install|Verify)[ /:]|to overwrite|to add (it|them)|call (it )?from|then \./setup|↳ NEXT|(^|[^A-Za-z_])Set [A-Z][A-Z_]+=|use --[a-z-]+ to|consider (adding|running|using)|review (whether|output|the diff)|edit [^ ]+ if |or remove (the|it|them)|pass --[a-z-]+( [a-z]+)? to|until you remove|needs --[a-z]+ or|run the manual|review above|must (exit|appear)|to wire the|add (a job|jobs) running|run '\''|to activate|source it from|move your hooks|start (it|docker)[ ,.]|install docker|see [^ ]+\.md for|\.md describes|manual setup|manual:|merge (our|its|the getff|\.getff)|or run:|until you opt in|once you add|refresh after' "$1"
+  grep -iE 'by hand|manually|yourself|merge .* into it|port your rules|add to .*adjust|adjust the relative path|what to do|to use them|should print|should PASS|re-run (it|the install|install|with|\./)|then re-run|\(run: |^[[:space:]]*[0-9]+\. (Run|Review|Edit|Install|Verify)[ /:]|to overwrite|to add (it|them)|call (it )?from|then \./setup|↳ NEXT|(^|[^A-Za-z_])Set [A-Z][A-Z_]+=|use --[a-z-]+ to|consider (adding|running|using)|review (whether|output|the diff)|edit [^ ]+ if |or remove (the|it|them)|pass --[a-z-]+( [a-z]+)? to|until you remove|needs --[a-z]+ or|run the manual|review above|must (exit|appear)|to wire the|add (a job|jobs) running|run '\''|to activate|source it from|move your hooks|start (it|docker)[ ,.]|install docker|see [^ ]+\.md for|\.md describes|manual setup|manual:|merge (our|its|the getff|\.getff)|or run:|until you opt in|once you add|refresh after|verify with|confirm the coordinator|to force .*: export|paste (this|the snippet)|— run("|$)|re-source|open a new shell' "$1"
 }
 
 # asks_by_hand <log> — true when <log> carries at least one such line.
