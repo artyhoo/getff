@@ -379,16 +379,39 @@ if [ "$(count "$TMP/local-ran")" = 2 ] && [ ! -f "$TMP/remote-ran" ]; then echo 
 else echo "  ✗ offload: origin fallback local=$(count "$TMP/local-ran") remote=$(count "$TMP/remote-ran") (want 2/0)"; fails=$((fails + 1)); fi
 grep_out "offload: origin fallback is labelled" "[sweep] PASS routed · here — runner-origin fell back to this host" "$TMP/o34"
 
-# (e) PC_LOCAL=1 keeps everything here without calling the runner at all.
+# (e) PC_LOCAL=1 with a PC_LOCAL_WHY of 20+ characters keeps everything here without calling the
+# runner at all, and says so with the reason (skipping the runner skips its log too).
 rm -f "$RUNLOG" "$TMP/remote-ran" "$TMP/local-ran"
-PC_LOCAL=1 SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE="routed" SWEEP_GATES_FILE="$TMP/g-off.tsv" \
-  SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o35" 2>&1
-check "offload: PC_LOCAL=1 still exits 0" 0 $?
-no_file "offload: PC_LOCAL=1 never calls the runner" "$RUNLOG"
-if grep -qx routed "$TMP/local-ran" 2>/dev/null && grep -qx kept "$TMP/local-ran"; then echo "  ✓ offload: PC_LOCAL=1 ran both rows here"
-else echo "  ✗ offload: PC_LOCAL=1 did not run both rows here (local: $(tr '\n' ' ' <"$TMP/local-ran" 2>/dev/null))"; fails=$((fails + 1)); fi
-if grep -qF "SWEEP: offload" "$TMP/o35"; then echo "  ✗ offload: PC_LOCAL=1 printed an offload summary"; fails=$((fails + 1))
-else echo "  ✓ offload: PC_LOCAL=1 prints no offload summary"; fi
+PC_LOCAL=1 PC_LOCAL_WHY='fixture escape: this run stays on this host' SWEEP_HEAVY_RUNNER="$TMP/runner-remote" \
+  SWEEP_ROUTABLE="routed" SWEEP_GATES_FILE="$TMP/g-off.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o35" 2>&1
+check "offload: PC_LOCAL=1 with a reason still exits 0" 0 $?
+no_file "offload: PC_LOCAL=1 with a reason never calls the runner" "$RUNLOG"
+if grep -qx routed "$TMP/local-ran" 2>/dev/null && grep -qx kept "$TMP/local-ran"; then echo "  ✓ offload: PC_LOCAL=1 with a reason ran both rows here"
+else echo "  ✗ offload: PC_LOCAL=1 with a reason did not run both rows here (local: $(tr '\n' ' ' <"$TMP/local-ran" 2>/dev/null))"; fails=$((fails + 1)); fi
+if grep -qF "SWEEP: offload" "$TMP/o35"; then echo "  ✗ offload: PC_LOCAL=1 with a reason printed an offload summary"; fails=$((fails + 1))
+else echo "  ✓ offload: PC_LOCAL=1 with a reason prints no offload summary"; fi
+grep_out "offload: PC_LOCAL=1 with a reason says the escape and its reason" \
+  "runner skipped (why: fixture escape: this run stays on this host)" "$TMP/o35"
+# (e2) a bare or short-reason PC_LOCAL=1 is not an escape: the routable row still goes to the runner.
+# The runner (~/bin/pc-run) honours PC_LOCAL=1 only with PC_LOCAL_WHY of 20+ characters once
+# whitespace is squeezed and trimmed (since 2026-09-29, #1947); a bare flag here used to skip it.
+for why in '' 'too short' '   too    short   padded   '; do
+  rm -f "$RUNLOG" "$TMP/remote-ran" "$TMP/local-ran"
+  PC_LOCAL=1 PC_LOCAL_WHY="$why" SWEEP_HEAVY_RUNNER="$TMP/runner-remote" SWEEP_ROUTABLE="routed" \
+    SWEEP_GATES_FILE="$TMP/g-off.tsv" SWEEP_DIFF_OVERRIDE="x.txt" bash "$SWEEP" --full >"$TMP/o35b" 2>&1
+  check "offload: PC_LOCAL=1 with reason '$why' still exits 0" 0 $?
+  grep_out "offload: PC_LOCAL=1 with reason '$why': the routed row ran on the runner" "routed" "$TMP/remote-ran"
+  grep_out "offload: PC_LOCAL=1 with reason '$why': the kept row ran here" "kept" "$TMP/local-ran"
+  if grep -qF "runner skipped" "$TMP/o35b"; then echo "  ✗ offload: PC_LOCAL=1 with reason '$why' claims the runner was skipped"; fails=$((fails + 1))
+  else echo "  ✓ offload: PC_LOCAL=1 with reason '$why' makes no escape claim"; fi
+done
+# (e3) the predicate is a copy of scripts/run-install-sh-suite.sh's, not a shared source: this script
+# ships to consumers as one file (scripts/build-getff-dist.sh PAYLOAD), where no helper file exists.
+# The two copies must stay byte-identical, or the two runners disagree on what an escape is.
+_esc() { awk '/^pc_local_escape\(\) \{$/ { on = 1 } on { print } on && /^\}$/ { exit }' "$1"; }
+if [ -n "$(_esc "$HERE/run-install-sh-suite.sh")" ] && [ "$(_esc "$SWEEP")" = "$(_esc "$HERE/run-install-sh-suite.sh")" ]; then
+  echo "  ✓ offload: pc_local_escape is byte-identical in run-local-ci-sweep.sh and run-install-sh-suite.sh"
+else echo "  ✗ offload: pc_local_escape differs between run-local-ci-sweep.sh and run-install-sh-suite.sh (or is missing)"; fails=$((fails + 1)); fi
 
 # (f) a runner that is not a command is a loud usage error, not a silent local run.
 offload "$TMP/no-such-runner" "$TMP/g-off.tsv" "$TMP/o36"
