@@ -504,9 +504,11 @@ toolchain_pins_ok() {
 # Routable = the row's runner is node tooling (tsc, vitest, tsx/node scripts) that starts no shell
 # of its own — not in the command, not in an npm script it reaches, not in a node script it runs
 # (row_shell_reason keeps such a row here anyway, and the coverage test REDs on the list) — AND
-# the row costs the Mac more than the ~1.4 CPU-s one `pc-run` call does (measured 2026-09-29:
-# 0.63 user + 0.80 sys per call). A vitest row's files that start a shell run here as well (SHELL
-# ARMS in the header), so a suite where nearly every file does is not worth the call.
+# the row costs the Mac more run here than routed. A one-row sweep that routes its row costs this
+# Mac 1.8-2.9 CPU-s (sweep start, the one shell scan, the `pc-run` call; measured 2026-09-29, each
+# side twice and alone, user+sys from /usr/bin/time -l), plus its shell arms: a vitest row's
+# files that start a shell run here as well (SHELL ARMS in the header), so a suite where nearly
+# every file does is not worth the call.
 # Everything else stays here, for one of these reasons:
 #   - it RUNS A SHELL: meta-all-wired, sweep-ci-coverage, alwayson-budget, script-selftests,
 #     shipped-rules-drift, getff-dist-manifest, synth-bundle-drift, byte-identical, agnosticism,
@@ -528,8 +530,10 @@ toolchain_pins_ok() {
 #     runner without that locale generated falls back to C and the Cyrillic range matches
 #     `×` and `—` — a false red there, measured 2026-09-29).
 #   - it is cheaper than the call: render-check, rule-index-check, install-roster-check,
-#     presets-check, terms-style-check, pipefail-early-exit, docs-refresh, and the two echo rows.
-SWEEP_ROUTABLE="${SWEEP_ROUTABLE-typecheck reference-check face-facts-check citation-fullsweep vitest-principles vitest-render vitest-ir vitest-composition vitest-backends vitest-synthesizer vitest-units canonical-regen}"
+#     presets-check, terms-style-check, pipefail-early-exit, docs-refresh, and the two echo rows;
+#     measured the same way (CPU-s here → routed): face-facts-check 0.9 → 2.1, canonical-regen
+#     1.2 → 2.0, vitest-composition 1.9 → 2.4, vitest-ir 1.1 → 2.1.
+SWEEP_ROUTABLE="${SWEEP_ROUTABLE-typecheck reference-check citation-fullsweep vitest-principles vitest-render vitest-backends vitest-synthesizer vitest-units}"
 row_routable() { case " $SWEEP_ROUTABLE " in *" $1 "*) return 0 ;; esac; return 1; }
 
 # cmd_sum <command> — a fingerprint of a row's command text AND of the file list this checkout's

@@ -679,8 +679,8 @@ done
 # (`--route-plan`), the same way arms 8-11 read `--list-gates`.
 PLAN="$("$SWEEP" --route-plan 2>/dev/null)"
 PLAN_ROUTE_N=$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="route"' | grep -c .)
-[ "$PLAN_ROUTE_N" -ge 8 ] \
-  || bad "only $PLAN_ROUTE_N rows plan to route (floor 8) — --route-plan broke; arms 12a-12d would be vacuous"
+[ "$PLAN_ROUTE_N" -ge 6 ] \
+  || bad "only $PLAN_ROUTE_N rows plan to route (floor 6) — --route-plan broke; arms 12a-12d would be vacuous"
 
 # 12a. every name in SWEEP_ROUTABLE is a row (a renamed row would silently stop being routed).
 missing="$(printf '%s\n' "$PLAN" | awk -F"$TAB" '$2=="missing"{print $1}' | tr '\n' ' ')"
