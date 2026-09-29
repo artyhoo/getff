@@ -125,16 +125,18 @@ ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
 
 - `.claude/hooks/inject-output-language.sh:2` is the header the card's description row
   quotes: `# inject-output-language.sh — UserPromptSubmit hook — injects the active output-language line into prompt context`.
-- Zero-setup default: line 26 opens `case "${AIF_HOOK_LANG:-en}" in` and line 27 is
+- Zero-setup default: line 32 opens `case "${AIF_HOOK_LANG:-en}" in` and line 33 is
   `en|'') : ;;  # English default — nothing to inject`. Header line 17 states it:
   «Unset / "en" → nothing is injected (English is the zero-setup default)».
-- The Russian line is the heredoc body at line 30; any other value falls to the printf
-  at line 34, `printf '[output-language] Address the operator in language "%s"; keep
+- The Russian line is the heredoc body at line 36; any other value falls to the printf
+  at line 40, `printf '[output-language] Address the operator in language "%s"; keep
   repo artifacts and machinery in English. (AIF_HOOK_LANG=%s)\n' …`.
 - Setup guidance is header lines 15-16: «export AIF_HOOK_LANG in your shell, or add an
   `env` block to .claude/settings.json».
-- No input is ever read: the script (lines 23-36) contains no `cat` of stdin — the case
-  at line 26 is the whole logic.
+- The language logic reads no input: the case at line 32 is the whole of it. The one
+  read of stdin is the D12 prelude at lines 25-29, which loads
+  `.claude/hooks/lib/hook-live.sh` and takes only `session_id` from the payload, to leave
+  the marker the plugin copy looks for.
 - Instruction-not-translation: header line 12 — «this injects an instruction to the
   model, not a translation of anything. See .claude/rules/language-discipline.md §2».
 - Extraction lineage: header lines 5-7 — «the consumer-generic slice EXTRACTED from the
@@ -148,12 +150,12 @@ ZCode, or with `GETFF_PLUGIN_NO_YIELD=1` set, the plugin's copy always runs.
   `register_cc_hook "$SETTINGS" "UserPromptSubmit" … "inject-output-language"`. The
   framework's own settings file has neither (measured:
   `grep -c inject-output-language .claude/settings.json` prints `0`).
-- The twin is hand-maintained: line 25 of the source reads `# @plugin-transform: manual`,
+- The twin is hand-maintained: line 31 of the source reads `# @plugin-transform: manual`,
   and `plugin/hooks/inject-output-language` line 2 opens «Plugin twin of
   .claude/hooks/inject-output-language.sh», with its TWIN DIVERGENCE block (lines 10-16)
   naming the extensionless filename and the inline zcode adapter as the two deltas.
 - Silent in two modes, not one: the plugin file's line 2 names its source
-  (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 27
+  (`# Plugin twin of .claude/hooks/inject-output-language.sh.`), and source line 19
   declares `# @plugin-yields-to: inject-session-bootstrap`. **Source mode**
   (`plugin/hooks/run-hook.cmd:219`, `[ "$_yield_mode" = source ] && exit 0`): the project is
   the plugin's own source checkout — it ships `plugin/.claude-plugin/plugin.json` under the
