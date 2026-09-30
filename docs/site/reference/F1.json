@@ -118,15 +118,15 @@
       "shipsTo": {
         "tier": "framework"
       },
-      "description": "the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement.",
+      "description": "the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement, §7 immutable seat inputs + one named ref per answer.",
       "source": {
         "path": ".claude/rules/cold-seat-economy.md",
-        "line": 12
+        "line": 17
       },
       "extras": {
         "class": "C",
-        "fires": "re-running a cold seat on already-judged work; resume-vs-fresh choice.",
-        "channels": "skill-embed(2)"
+        "fires": "re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA.",
+        "channels": "skill-embed(3)"
       },
       "example": null
     },
