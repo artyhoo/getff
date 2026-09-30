@@ -14,7 +14,7 @@ events:
 <!-- inject: Coordinator seat? The mechanical pipeline (aif polling, harvest, PR body, CI wait, merge) goes to a standalone chip worker with a REPORT contract — not to you, and not to an in-session Agent. A chip worker running its own recipe proceeds. -->
 
 > **Class:** C — prose + a deterministic injection, no gate. Whether the current session *is* a coordinator seat is a judgment the harness cannot observe (no seat marker exists — the session-bus registry that would carry one is Part-II, probe-gated), so blocking the commands would also block the chip worker whose job they are (`#gate-where-judgment-needed`, [rule-enforcement-channel-selection.md §5](rule-enforcement-channel-selection.md)). Channel: CC-native `paths:` (read-time, orchestrator skill) plus the `events:` arm of [`inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) — PreToolUse Bash, already registered, once per session. Promotion criterion in §3.
-> **Fires:** a coordinator seat about to poll aif, harvest a stage, draft a PR body, wait on CI or merge.
+> **Fires:** a coordinator seat about to run the stage pipeline itself.
 > **Authoritative for:** the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The chip-worker prompt and its REPORT contract — see [orchestrator references/chip-worker-template.md](../skills/orchestrator/references/chip-worker-template.md). The harvest mechanics — the `harvest` and `dispatcher` skills. Merge policy — see [CLAUDE.md «Agent PR merge policy»](../../CLAUDE.md).
 
