@@ -1812,6 +1812,32 @@ describe(
       expect(r.status, out).toBe(0);
     });
 
+    // P6 run 3 N6: the section ran under the hook's default 120 s, and a run over it PASSED the push with a
+    // DEGRADED line — a warning nobody must read. run-armed skips a not-armed check at once, so a consumer
+    // run that reaches the budget is a check that ran: it blocks like any other red, and the section's
+    // budget is its own (PREPUSH_MUTATION_TIMEOUT_MS here, so the test does not wait minutes).
+    it('S5 mutation over its budget — an armed check that runs out of time blocks the push, NOT green', () => {
+      const { dir, hook } = makeConsumerSandbox();
+      mkdirSync(join(dir, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(dir, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        '{"rules":[]}\n',
+      );
+      mkdirSync(join(dir, 'scripts'), { recursive: true });
+      writeFileSync(join(dir, 'scripts/run-generated-rule-mutation.sh'), '#!/bin/sh\nexit 0\n');
+      writeFileSync(join(dir, 'scripts/run-armed.sh'), '#!/bin/sh\nsleep 4\nexit 0\n');
+
+      const r = runMaterialSection(dir, hook, {
+        strip: false,
+        env: { PREPUSH_MUTATION_TIMEOUT_MS: '1000' },
+      });
+      const out = `${r.stdout}\n${r.stderr}`;
+
+      expect(out, out).toMatch(/generated-rule mutation check ran over its budget \(1 s\) — NOT green/);
+      expect(out, out).not.toMatch(/DEGRADED: generated-rule mutation/);
+      expect(r.status, out).toBe(1);
+    });
+
     // ── §3 audit-ai-docs LIVE on the repo itself (2026-09-28) ────────────────────
     // The section used to run only the auditor's fixture tests: the auditor never ran on
     // the repo that ships it, and its first live run found D3 + D5 failures that had sat

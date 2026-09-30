@@ -1187,6 +1187,10 @@ function armedProbeTimeoutMs(env = process.env) {
   const raw = env["PREPUSH_ARMED_PROBE_TIMEOUT_MS"]?.trim() ?? "";
   return /^[1-9]\d*$/.test(raw) ? Number(raw) : 6e5;
 }
+function mutationBudgetMs(env = process.env) {
+  const raw = env["PREPUSH_MUTATION_TIMEOUT_MS"]?.trim() ?? "";
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 3e5;
+}
 function consumerGate(script) {
   return existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
 }
@@ -1305,8 +1309,15 @@ function generatedRuleMaterialSection() {
         "\u26A0 DEGRADED: tsx not resolvable \u2014 generated-rule mutation check SKIPPED (run npm install; a skipped check is NOT green).\n"
       );
     } else {
-      const r = runner === resolve(REPO_ROOT, "scripts/run-generated-rule-mutation.sh") ? consumerGate("scripts/run-generated-rule-mutation.sh") : run("bash", [runner, manifest]);
-      if (r.notFound || r.timedOut || r.exitCode === 127) {
+      const consumer = runner === resolve(REPO_ROOT, "scripts/run-generated-rule-mutation.sh");
+      const timeoutMs = mutationBudgetMs();
+      const r = consumer ? existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? runCheck("bash", [RUN_ARMED, "bash", "scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", ["scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", [runner, manifest], { cwd: REPO_ROOT, timeoutMs });
+      if (consumer && r.timedOut) {
+        die(
+          `\u274C generated-rule mutation check ran over its budget (${timeoutMs / 1e3} s) \u2014 NOT green. Set PREPUSH_MUTATION_TIMEOUT_MS higher if the machine is slow; a check that did not finish did not pass`,
+          r
+        );
+      } else if (r.notFound || r.timedOut || r.exitCode === 127) {
         process.stdout.write(
           `\u26A0 DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? "timed out" : "not runnable"}) \u2014 SKIPPED (a skipped check is NOT green).
 `
