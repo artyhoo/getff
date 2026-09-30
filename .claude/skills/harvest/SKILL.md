@@ -95,6 +95,12 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    stage kickoff/spec path + the same 3-dot diff, current HEAD sha,
    round number — nothing else (no chat, no logs).
    **Default format: inputs-inlined** (spec P7, [cold-seat-economy.md §3](../../rules/cold-seat-economy.md) row 4): inline the kickoff scope sections + diff into the dispatch prompt (~85k tokens / 0 tool calls vs ~177k tokens / 7 tool calls for file-reading — row 4 vs row 3). File-reading is the **fallback** when content size prohibits inlining. **Promotion trigger** (cross-stage boundary): 3 incidents of >100k-token file-reading seats → a mechanical check in **S-B's station** (S-B owns the bottom-seat check station; not implemented here).
+   Either format, the seat prompt carries the ref every input was taken at; in the file-reading fallback the paths are snapshots from `scripts/snapshot-for-seat.sh`, never live worktree paths ([cold-seat-economy.md §7](../../rules/cold-seat-economy.md)):
+
+   ```text
+   Inputs-ref: <HEAD sha the diff and every file path in this prompt are taken at>
+   ```
+
    `REVISE`/`STOP` → do NOT open the PR;
    factory task → route the findings per [/dispatcher §2.4 rework loop](../dispatcher/SKILL.md),
    in-session work → fix and re-audit (Round 2); cap 2 rounds → escalate to the operator.
@@ -102,6 +108,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    `GO` → the verdict block (Basis/Round/Audited-SHA = current HEAD/Evidence) goes into the
    PR body `## Fidelity verdict` section — the `pr-body-fidelity` CI gate blocks merge without it.
    <!-- seat-economy embed (spec-of: .claude/rules/cold-seat-economy.md) -->
+
    **Seat economy** ([cold-seat-economy.md](../../rules/cold-seat-economy.md)): dispatch this
    WHAT-audit only once the diff is FINAL (step 1's code-review first — its fixes invalidate a
    parallel fidelity verdict), and at round 1 have the seat leave a compact **watch-list**
@@ -113,6 +120,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
    when the watch-list cannot carry the substance) — never a full re-audit, never a
    self-issued verdict.
    <!-- re-write-trigger embed (spec-of: .claude/rules/cold-seat-economy.md §3) -->
+
    **Re-write-trigger economy** ([cold-seat-economy.md §3](../../rules/cold-seat-economy.md)): when
    the seat has reached its natural end, the cached-prefix cost discipline applies —
    - prefer **artifact handoff** to a fresh seat over `/compact` — a fresh seat billed at read
@@ -123,6 +131,7 @@ The sweep auto-scopes via `git merge-base`, escalates to `--full` on any unmappe
      invalidates the cached prefix and re-bills it at write price (pending S-H P3d verification
      of the config-change class — rev 4 moved P3d there; same handoff rule applies until
      verified otherwise).
+
 3. Assemble a **§1.7-compliant PR body** (Forward/Backward sections, each with file:line) **plus the acceptance-package sections (Provenance / Review findings / Fidelity verdict / Parked questions — spec D4)**. End the body with the line `aif-task: <taskId>` — the PR → task mapping step 5 reads back (`harvest.ts` appends it itself; a host-side bundle harvest writes it here). Open the PR with base `staging` (`gh pr create --base staging`), optionally `gh pr merge --auto --squash` per the dispatcher convention.
    **After the PR is open, any push that moves the head off `Audited-SHA` reds the gate** — most often a merge-forward commit taken to re-run acceptance against current staging. What to push instead (and the force-push one-way door that closes the cheap option): [git-conflict-merge-forward.md §9](../../rules/git-conflict-merge-forward.md). The body can be checked against a candidate head before pushing, with the gate's own `checkPrBodyFidelity` — command in that §9.
 4. Confirm the PR diff is exactly the intended files, **0 unintended deletions**, before merge.

@@ -130,7 +130,7 @@ Return: the verdict file path, verdict, count of HARD-FIX items, count of SOFT i
 | `<YYYY-MM-DD>`            | Today's date                                                                                |
 | `<K>`                     | Artefact letter (A / B / C / …)                                                             |
 | `<N>`                     | Iteration number (0, 1, 2, …)                                                               |
-| `<INPUTS-SHA>`            | Line 1 of `bash scripts/snapshot-for-seat.sh <sha> <paths…>` (required)                     |
+| `<INPUTS-SHA>`            | The SHA printed on line 1 of `bash scripts/snapshot-for-seat.sh <sha> <paths…>` (required)  |
 | `<OUTPUT-PATH>`           | Snapshot path(s) of the Worker's output printed by that helper — never a live worktree path |
 | `<PATH-TO-QUEUE-KICKOFF>` | Snapshot path of the controlling kickoff file (same helper call)                            |
 | `<STATE-MD-PATH>`         | Absolute path to this session's state.md                                                    |

@@ -26,6 +26,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -168,6 +169,67 @@ describe('snapshot-for-seat.sh', () => {
       expect(r.status).toBe(1);
       expect(r.stderr).toContain('b.txt');
       expect(readdirSync(out)).toEqual([]);
+    },
+    SLOW_SHELL_MS,
+  );
+
+  it(
+    'refuses a directory, a symlink and a submodule entry before writing anything',
+    () => {
+      commitFile('docs/a.md', 'a\n', 'one');
+      symlinkSync('docs/a.md', join(repo, 'link.md'));
+      git('add', 'link.md');
+      const sub = git('rev-parse', 'HEAD');
+      git('update-index', '--add', '--cacheinfo', `160000,${sub},vendor/sub`);
+      git('commit', '-q', '-m', 'two');
+      const sha = git('rev-parse', 'HEAD');
+
+      for (const [path, word] of [
+        ['docs', 'directory'],
+        ['docs/', 'does not exist'],
+        ['link.md', 'symlink'],
+        ['vendor/sub', 'submodule'],
+      ]) {
+        const r = run(['--out', out, sha, 'docs/a.md', path]);
+        expect(r.status, path).toBe(1);
+        expect(r.stderr, path).toContain(word);
+        expect(r.stdout, path).toBe('');
+      }
+      expect(readdirSync(out)).toEqual([]);
+    },
+    SLOW_SHELL_MS,
+  );
+
+  it(
+    'refuses two different paths that flatten to one snapshot name; one path given twice is fine',
+    () => {
+      commitFile('a/b__c.md', '1\n', 'one');
+      const sha = commitFile('a__b/c.md', '2\n', 'two');
+
+      const clash = run(['--out', out, sha, 'a/b__c.md', 'a__b/c.md']);
+      expect(clash.status).toBe(1);
+      expect(clash.stderr).toContain('both map to');
+      expect(readdirSync(out)).toEqual([]);
+
+      expect(run(['--out', out, sha, 'a/b__c.md', './a/b__c.md']).status).toBe(0);
+    },
+    SLOW_SHELL_MS,
+  );
+
+  it(
+    'handles spaces, non-ASCII and a leading-dot name',
+    () => {
+      commitFile('my docs/spec v2.md', 's\n', 'one');
+      commitFile('specs/черновик.md', 'r\n', 'two');
+      const sha = commitFile('.gitignore', 'node_modules\n', 'three');
+
+      const r = run(['--out', out, sha, 'my docs/spec v2.md', 'specs/черновик.md', '.gitignore']);
+      expect(r.status, r.stderr).toBe(0);
+      const short = sha.slice(0, 12);
+      expect(readdirSync(out).sort()).toEqual(
+        [`.gitignore@${short}`, `my docs__spec v2@${short}.md`, `specs__черновик@${short}.md`].sort(),
+      );
+      expect(readFileSync(join(out, `.gitignore@${short}`), 'utf8')).toBe('node_modules\n');
     },
     SLOW_SHELL_MS,
   );

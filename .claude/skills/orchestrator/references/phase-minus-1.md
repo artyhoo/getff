@@ -20,7 +20,7 @@
 
    ```text
    Task: Cold-start review of <kickoff/prompt snapshot path> for execution-readiness
-   Inputs-ref: <SHA — line 1 of scripts/snapshot-for-seat.sh; the kickoff path above is its snapshot>
+   Inputs-ref: <SHA printed on line 1 of scripts/snapshot-for-seat.sh; the kickoff path above is its snapshot>
    Subagent prompt:
      You are a cold-start reviewer. You did NOT write this prompt. Read it cold and critique.
      Every path:NN you quote is measured at Inputs-ref; name that ref once in your report:

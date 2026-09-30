@@ -6,16 +6,21 @@
  *         worktree at the SHA), and every `path:NN` in one answer is pinned to one named ref.
  *
  * What is mechanically checkable, and therefore gated here: the dispatch TEMPLATES the
- * dispatching session fills carry an `Inputs-ref: <…>` placeholder, so the ref is a field
+ * dispatching session fills carry an `Inputs-ref: <…>` placeholder INSIDE a fenced block (the
+ * prompt skeleton or the literal line to paste — a prose mention does not count), so the ref is a field
  * the dispatcher must fill rather than a habit it must remember. Whether the dispatcher then
  * fills it with a real SHA and hands the seat a snapshot instead of a live path is judgment
  * at dispatch time (the rule text, not this test).
  *
  * Population (sweep by predicate, not by a hand list): every markdown file under
  * .claude/skills/ that contains the cold-seat dispatch marker «you did not write»
- * (case-insensitive — the sentence both orchestrator templates open their seat prompt with),
- * plus DECLARED_EXTRAS: dispatch contracts that instruct a cold seat without quoting a
- * prompt skeleton. A new template that copies the marker enters the population on the
+ * (case-insensitive, markdown emphasis tolerated — `You did **NOT** write` — the sentence the
+ * orchestrator templates open their seat prompt with), plus DECLARED_EXTRAS: dispatch
+ * contracts that send a cold seat without quoting a marker-bearing skeleton (arch §2's two
+ * design seats; the fidelity-seat dispatch in dispatcher §2.4 and harvest §4, whose
+ * file-reading fallback hands the seat paths). A seat dispatched through an upstream skill
+ * (`superpowers:requesting-code-review`, which already carries BASE_SHA/HEAD_SHA fields) is
+ * governed by that skill's own template. A new template that copies the marker enters the population on the
  * commit that adds it. Out of population by design: agents/*.md — those are the seat's own
  * protocol (what it does with inputs), not the prompt the dispatcher fills (what it hands
  * over); agents/fidelity-auditor.md already requires the audited SHA as input 3.
@@ -28,11 +33,16 @@ import { join, relative } from 'node:path';
 import { REPO_ROOT } from './kickoff-population.ts';
 
 const SKILLS_DIR = join(REPO_ROOT, '.claude/skills');
-const MARKER = /you did not write/i;
+const MARKER = /you did[\s*_]+not[\s*_]+write/i;
 const FIELD = /^[ \t>*-]*`?Inputs-ref:`?[ \t]*`?</m;
+const FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm;
 
 /** Dispatch contracts that carry no prompt skeleton (so no marker) but still send a cold seat. */
-const DECLARED_EXTRAS = ['.claude/skills/arch/SKILL.md'];
+const DECLARED_EXTRAS = [
+  '.claude/skills/arch/SKILL.md',
+  '.claude/skills/dispatcher/SKILL.md',
+  '.claude/skills/harvest/SKILL.md',
+];
 
 function walkMarkdown(dir: string): string[] {
   const found: string[] = [];
@@ -52,8 +62,10 @@ function coldSeatTemplates(): string[] {
   return [...new Set([...discovered, ...DECLARED_EXTRAS])].sort();
 }
 
+/** True when some fenced block (the prompt skeleton / the line to paste) carries the field. */
 function carriesInputsRef(text: string): boolean {
-  return FIELD.test(text);
+  for (const m of text.matchAll(FENCE)) if (FIELD.test(m[2])) return true;
+  return false;
 }
 
 describe('principle 49 — cold-seat dispatch templates carry Inputs-ref', () => {
@@ -61,6 +73,7 @@ describe('principle 49 — cold-seat dispatch templates carry Inputs-ref', () =>
     const pop = coldSeatTemplates();
     expect(pop).toContain('.claude/skills/orchestrator/references/reviewer-template.md');
     expect(pop).toContain('.claude/skills/orchestrator/references/phase-minus-1.md');
+    for (const extra of DECLARED_EXTRAS) expect(pop).toContain(extra);
   });
 
   it('every template in the population carries an `Inputs-ref: <…>` field', () => {
@@ -70,16 +83,25 @@ describe('principle 49 — cold-seat dispatch templates carry Inputs-ref', () =>
     expect(
       missing,
       `cold-seat dispatch template(s) without an \`Inputs-ref: <sha>\` field — add one ` +
-        `(.claude/rules/cold-seat-economy.md §7; fill it from scripts/snapshot-for-seat.sh stdout line 1)`,
+        `(.claude/rules/cold-seat-economy.md §7; fill it with the SHA scripts/snapshot-for-seat.sh prints on line 1)`,
     ).toEqual([]);
   });
 
   it('paired negative: the detector reds on a template without the field and on a bare mention', () => {
-    expect(carriesInputsRef('You did NOT write this.\nReview <PATH>.\n')).toBe(false);
-    // A prose mention of the field name is not a field to fill.
-    expect(carriesInputsRef('see the Inputs-ref convention in the rule\n')).toBe(false);
-    expect(carriesInputsRef('Inputs-ref: <sha>\n')).toBe(true);
-    expect(carriesInputsRef('   Inputs-ref: <SHA from snapshot-for-seat.sh>\n')).toBe(true);
-    expect(carriesInputsRef('- **`Inputs-ref: <sha>`** — required\n')).toBe(true);
+    const fenced = (body: string, fence = '```') => `intro\n${fence}text\n${body}\n${fence}\n`;
+    expect(carriesInputsRef(fenced('You did NOT write this.\nReview <PATH>.'))).toBe(false);
+    // Outside a fence the field is prose describing the skeleton, not the skeleton itself.
+    expect(carriesInputsRef('Inputs-ref: <sha>\n')).toBe(false);
+    expect(carriesInputsRef('- **`Inputs-ref: <sha>`** — required\n')).toBe(false);
+    expect(carriesInputsRef(fenced('see the Inputs-ref convention'))).toBe(false);
+    expect(carriesInputsRef(fenced('Inputs-ref: <sha>'))).toBe(true);
+    expect(carriesInputsRef(fenced('   Inputs-ref: <SHA>', '````'))).toBe(true);
+    expect(carriesInputsRef(`1. step\n   \`\`\`text\n   Inputs-ref: <sha>\n   \`\`\`\n`)).toBe(true);
+  });
+
+  it('the marker tolerates markdown emphasis, so a bold spelling cannot slip the population', () => {
+    expect(MARKER.test('You did **NOT** write this output')).toBe(true);
+    expect(MARKER.test('You did NOT write this prompt')).toBe(true);
+    expect(MARKER.test('you did write this')).toBe(false);
   });
 });
