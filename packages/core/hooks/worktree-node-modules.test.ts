@@ -212,6 +212,7 @@ describe('worktree-node-modules.sh — lock-aware provisioning', () => {
     // packages/core/synthesizer/verify-provenance-cli.ts went 644 -> 755).
     writeFileSync(resolve(wt, 'packages/core/cli.ts'), '// bin target\n', { mode: 0o644 });
     writeFileSync(resolve(wt, 'packages/core/package-lock.json'), lockJson(planned));
+    writeFileSync(resolve(wt, '.gitignore'), 'node_modules\n'); // as in any real npm repo
     execSync('git add -A && git -c user.email=t@e.com -c user.name=t commit -q -m locks', { cwd: wt });
   }
 
@@ -230,6 +231,7 @@ describe('worktree-node-modules.sh — lock-aware provisioning', () => {
         // What a real install leaves behind: a real tree, a rewritten lock, a chmodded bin target.
         'if [ "${1:-}" = ci ]; then mkdir -p packages/core/node_modules/dep; else mkdir -p node_modules/dep; fi',
         'printf "\\n" >> package-lock.json',
+        'if [ "${1:-}" = ci ]; then printf "\\n" >> packages/core/package-lock.json; fi',
         'chmod 755 packages/core/cli.ts',
         body,
       ].join('\n'),
@@ -269,7 +271,10 @@ describe('worktree-node-modules.sh — lock-aware provisioning', () => {
     expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(false);
     expect(lstatSync(resolve(wt, 'packages/core/node_modules')).isSymbolicLink()).toBe(false);
     const calls = npmCalls();
-    expect(calls.map((c) => c.split('|')[1])).toEqual(['install --no-save', 'ci --prefix packages/core']);
+    // CI's order (.github/workflows/audit-self.yml principles-meta-tests): the standalone core
+    // install first, then the root workspace install, which settles packages/core/node_modules
+    // into the ROOT lock's layout — the layout every committed bundle is built against.
+    expect(calls.map((c) => c.split('|')[1])).toEqual(['ci --prefix packages/core', 'install --no-save']);
     // Never through a link: both layers were real (or absent) when npm ran.
     for (const c of calls) expect(c, c).toMatch(/root_link=0\|core_link=0$/);
     // The shared clone is untouched.
@@ -318,10 +323,119 @@ describe('worktree-node-modules.sh — lock-aware provisioning', () => {
     rmSync(stubDir, { recursive: true, force: true });
     writeStub('exit 1');
     seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    const before = readFileSync(resolve(wt, 'package-lock.json'), 'utf8');
     const r = runNpm('--apply');
     expect(r.status).toBe(2);
     expect(r.out).toContain('npm install --no-save');
     expect(r.out).toContain('npm ci --prefix packages/core');
+    // The failure path restores too: no rewritten lock, no leftover bin-target mode change.
+    expect(readFileSync(resolve(wt, 'package-lock.json'), 'utf8')).toBe(before);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    expect(execSync('git status --porcelain', { cwd: wt, encoding: 'utf8' })).toBe('');
+  });
+
+  it('restores the packages/core lockfile that `npm ci --prefix packages/core` rewrote', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    const before = readFileSync(resolve(wt, 'packages/core/package-lock.json'), 'utf8');
+    expect(runNpm('--apply').status).toBe(0);
+    expect(readFileSync(resolve(wt, 'packages/core/package-lock.json'), 'utf8')).toBe(before);
+  });
+
+  it("keeps a mode change the user made before the install (it is the user's, not npm's)", () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    writeFileSync(resolve(wt, 'run.sh'), '#!/bin/sh\n', { mode: 0o644 });
+    execSync('git add run.sh && git -c user.email=t@e.com -c user.name=t commit -q -m run', { cwd: wt });
+    execSync('chmod 755 run.sh', { cwd: wt });
+    expect(runNpm('--apply').status).toBe(0);
+    expect(statSync(resolve(wt, 'run.sh')).mode & 0o777).toBe(0o755);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+  });
+
+  it('restores even when the install is interrupted (SIGTERM from a hook timeout)', () => {
+    rmSync(stubDir, { recursive: true, force: true });
+    // The stub signals the helper itself: the topmost ancestor still running the helper script
+    // (a forked `( cd && npm )` subshell carries the same command line, so walk past it).
+    writeStub(
+      [
+        'p=$PPID',
+        'while :; do',
+        '  pp=$(ps -o ppid= -p "$p" | tr -d " ")',
+        '  ps -o command= -p "$pp" | grep -q worktree-node-modules.sh || break',
+        '  p=$pp',
+        'done',
+        // Both layers exist as real dirs when the signal lands, so only the marker can tell
+        // this half-done install from one the user made.
+        'mkdir -p packages/core/node_modules/dep',
+        'kill -TERM "$p"; sleep 1',
+      ].join('\n'),
+    );
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    const before = readFileSync(resolve(wt, 'package-lock.json'), 'utf8');
+    expect(runNpm('--apply').status).not.toBe(0);
+    expect(readFileSync(resolve(wt, 'package-lock.json'), 'utf8')).toBe(before);
+    expect(statSync(resolve(wt, 'packages/core/cli.ts')).mode & 0o777).toBe(0o644);
+    // An interrupted install is not a provisioned one: the next check must not pass it.
+    expect(runNpm('--check').status).toBe(3);
+  });
+
+  it('a real install the helper made is re-checked when the lock moves again', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    expect(runNpm('--apply').status).toBe(0);
+    expect(runNpm('--check').status).toBe(0);
+    writeFileSync(resolve(wt, 'package-lock.json'), lockJson({ vitest: '4.1.8', oxlint: '1.3.0' }));
+    expect(runNpm('--check').status).toBe(3);
+  });
+
+  it('--check on a diverged, linked worktree never writes', () => {
+    seedLocks({ vitest: '4.1.8' }, { vitest: '4.1.8', oxlint: '1.2.3' });
+    symlinkSync(resolve(primary, 'node_modules'), resolve(wt, 'node_modules'));
+    expect(runNpm('--check').status).toBe(3);
+    expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(true);
+    expect(npmCalls()).toEqual([]);
+  });
+
+  it('a non-npm lockfile is never installed by the helper: exit 2, nothing touched', () => {
+    seed();
+    writeFileSync(resolve(primary, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
+    writeFileSync(resolve(wt, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\nextra: 1\n');
+    expect(runNpm('--check').status).toBe(3);
+    const r = runNpm('--apply');
+    expect(r.status).toBe(2);
+    expect(r.out).toContain('pnpm install --frozen-lockfile');
+    expect(existsSync(resolve(wt, 'node_modules'))).toBe(false);
+    expect(npmCalls()).toEqual([]);
+  });
+
+  it("a workspace's nested plan is compared at its nested path, before the root layer", () => {
+    // packages/other plans eslint 8 nested under itself while the root layer holds eslint 9.
+    // Node resolves the nested copy first, so that is the version the comparison must use.
+    const lock = (otherNested: string, root: string): string =>
+      `${JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          '': { workspaces: ['packages/other'] },
+          'packages/other': { devDependencies: { eslint: '*' } },
+          'packages/other/node_modules/eslint': { version: otherNested },
+          'node_modules/eslint': { version: root },
+          'node_modules/@scope/other': { resolved: 'packages/other', link: true },
+        },
+      })}\n`;
+    seed();
+    writeFileSync(resolve(wt, 'package-lock.json'), lock('8.57.1', '9.0.0'));
+    // The root copy differs (9.9.9), but node never reaches it for packages/other: faithful.
+    writeFileSync(resolve(primary, 'node_modules/.package-lock.json'), lock('8.57.1', '9.9.9'));
+    expect(runNpm('--check').status).toBe(1);
+    writeFileSync(resolve(primary, 'node_modules/.package-lock.json'), lock('8.50.0', '8.57.1'));
+    // The root copy happens to be 8.57.1, but node never reaches it for packages/other.
+    expect(runNpm('--check').status).toBe(3);
+  });
+
+  it('a lockfileVersion-1 lock (no `packages`) falls back to the byte compare', () => {
+    seed();
+    writeFileSync(resolve(primary, 'node_modules/.package-lock.json'), '{"lockfileVersion":3,"packages":{}}\n');
+    writeFileSync(resolve(primary, 'package-lock.json'), '{"lockfileVersion":1,"dependencies":{"a":{"version":"1.0.0"}}}\n');
+    writeFileSync(resolve(wt, 'package-lock.json'), '{"lockfileVersion":1,"dependencies":{"a":{"version":"2.0.0"}}}\n');
+    expect(runNpm('--check').status).toBe(3);
   });
 
   it('FALLBACK: without a hidden lockfile in the primary, a byte-different lock counts as diverged', () => {

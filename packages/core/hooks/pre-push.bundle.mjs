@@ -1239,7 +1239,10 @@ function worktreeProvisioningSection() {
     return;
   const checked = run("bash", [helper, "--check", REPO_ROOT]);
   if (checked.exitCode === 0) return;
-  const applied = run("bash", [helper, "--apply", REPO_ROOT]);
+  const applied = runCheck("bash", [helper, "--apply", REPO_ROOT], {
+    cwd: REPO_ROOT,
+    timeoutMs: 15 * 6e4
+  });
   if (applied.exitCode !== 0) {
     die(
       "\u274C this worktree cannot be provisioned automatically \u2014 the helper output below names the cause\n   and the exact commands (typically: `npm install` in the primary checkout, or the real-install\n   commands for a lock-diverged worktree).",

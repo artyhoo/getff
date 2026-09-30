@@ -1102,7 +1102,12 @@ function worktreeProvisioningSection(): void {
   const checked = run('bash', [helper, '--check', REPO_ROOT]);
   if (checked.exitCode === 0) return;
 
-  const applied = run('bash', [helper, '--apply', REPO_ROOT]);
+  // A lock-diverged worktree gets a real install (minutes of network on a cold cache), which
+  // the 120 s default cap of run() would cut off mid-install.
+  const applied = runCheck('bash', [helper, '--apply', REPO_ROOT], {
+    cwd: REPO_ROOT,
+    timeoutMs: 15 * 60_000,
+  });
   if (applied.exitCode !== 0) {
     die(
       '❌ this worktree cannot be provisioned automatically — the helper output below names the cause\n' +

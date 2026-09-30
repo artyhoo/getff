@@ -86,10 +86,10 @@ while IFS= read -r wt; do
 
   # Exit 3 = the worktree's lock diverges from the primary's installed tree, so only a real
   # install fixes it. A sweep never runs those: one is ~1.8 GB and minutes of network, and the
-  # 2026-09-30 census had 84 of 128 worktrees diverged. Name the per-worktree command instead.
+  # 2026-09-30 census had 100 of 130 worktrees diverged. Name the per-worktree command instead.
   if [ "$rc" -eq 3 ]; then
     stale=$((stale + 1))
-    printf 'LOCK-DIVERGED  %s  (real install: bash %s --apply %s)\n' "$wt" "$HELPER" "$wt"
+    printf 'LOCK-DIVERGED  %s  (real install: bash %s --apply %s %s)\n' "$wt" "$HELPER" "$wt" "$PRIMARY_DIR"
     continue
   fi
 
