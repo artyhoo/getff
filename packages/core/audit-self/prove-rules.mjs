@@ -2499,7 +2499,9 @@ function main(argv) {
   return 2;
 }
 
-const real = (p) => {
+// Entry point: realpath both sides (principle 47). This file is copied into the consumer's scripts/, so it
+// carries the check inline instead of importing packages/core/install/is-direct-run.ts.
+const realpathOr = (p) => {
   try {
     return realpathSync(p);
   } catch {
@@ -2508,6 +2510,6 @@ const real = (p) => {
 };
 if (
   process.argv[1] &&
-  real(process.argv[1]) === real(fileURLToPath(import.meta.url))
+  realpathOr(process.argv[1]) === realpathOr(fileURLToPath(import.meta.url))
 )
   process.exitCode = main(process.argv.slice(2));

@@ -52,7 +52,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
 
 import {
   resolveAllowedSources,
@@ -60,6 +59,7 @@ import {
   type InstalledMeta,
 } from '../research/allowlist-resolver.ts';
 import { npmAdapter } from '../research/ecosystem-npm.ts';
+import { isDirectRun } from './is-direct-run.ts';
 
 export const MCP_REGISTRY = 'https://registry.modelcontextprotocol.io';
 export const NPM_REGISTRY = 'https://registry.npmjs.org';
@@ -530,7 +530,9 @@ async function main(argv: string[]): Promise<number> {
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Realpath both sides (principle 47): through a symlinked checkout the naive compare is false and the
+// check would exit 0 without running.
+if (isDirectRun(process.argv[1], import.meta.url)) {
   main(process.argv.slice(2)).then(
     (rc) => process.exit(rc),
     (e: unknown) => {

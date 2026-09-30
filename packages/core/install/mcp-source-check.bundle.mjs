@@ -6883,7 +6883,6 @@ var require_ajv = __commonJS({
 import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
 import { join as join3, resolve as resolve2 } from "node:path";
 import process2 from "node:process";
-import { pathToFileURL } from "node:url";
 
 // packages/core/research/allowlist-resolver.ts
 import { readFileSync as readFileSync2 } from "node:fs";
@@ -7467,6 +7466,19 @@ var npmAdapter = {
   }
 };
 
+// packages/core/install/is-direct-run.ts
+import { realpathSync } from "node:fs";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+function isDirectRun(argv1, metaUrl) {
+  if (!argv1) return false;
+  const metaPath = fileURLToPath3(metaUrl);
+  try {
+    return realpathSync(argv1) === realpathSync(metaPath);
+  } catch {
+    return metaPath === argv1;
+  }
+}
+
 // packages/core/install/mcp-source-check.ts
 var MCP_REGISTRY = "https://registry.modelcontextprotocol.io";
 var NPM_REGISTRY = "https://registry.npmjs.org";
@@ -7805,7 +7817,7 @@ async function main(argv) {
     console.log(uncheckedLine(result.unchecked));
   return 0;
 }
-if (process2.argv[1] && import.meta.url === pathToFileURL(process2.argv[1]).href) {
+if (isDirectRun(process2.argv[1], import.meta.url)) {
   main(process2.argv.slice(2)).then(
     (rc) => process2.exit(rc),
     (e) => {
