@@ -24,6 +24,8 @@ ln -s /abs/path/to/main-checkout/node_modules node_modules
 ln -s /abs/path/to/main-checkout/packages/core/node_modules packages/core/node_modules
 ```
 
+A worktree may run another checkout's hook files: the Claude desktop app writes an absolute `core.hooksPath=<main-checkout>/.husky` into every worktree it opens. Each `.husky/*` hook therefore begins with a `husky-own-worktree-delegate` block that re-executes the worktree's own copy, and the pre-push `hooks-path` section repoints the worktree (`git config --worktree core.hooksPath .husky`) when the foreign copy predates that block. Keep the block at the top of any new hook — `packages/core/hooks/husky-self-delegate.test.ts` fails a hook without it.
+
 ## What hooks check
 
 ### pre-commit (target: <5 seconds)

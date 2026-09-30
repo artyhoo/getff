@@ -26,7 +26,7 @@ __export(harness_config_local_exports, {
   checkLocalHarnessConfig: () => checkLocalHarnessConfig
 });
 import { lstatSync } from "node:fs";
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 function present(path) {
   try {
     lstatSync(path);
@@ -36,10 +36,10 @@ function present(path) {
   }
 }
 function checkLocalHarnessConfig(root, runRenderer) {
-  if (!present(join(root, ZCODE_DIR))) return { kind: "skip" };
-  if (!present(join(root, RENDERER_REL))) return { kind: "skip" };
-  if (!present(join(root, ZCODE_CONFIG))) {
-    if (present(join(root, ZCODE_SKILLS))) return { kind: "partial" };
+  if (!present(join2(root, ZCODE_DIR))) return { kind: "skip" };
+  if (!present(join2(root, RENDERER_REL))) return { kind: "skip" };
+  if (!present(join2(root, ZCODE_CONFIG))) {
+    if (present(join2(root, ZCODE_SKILLS))) return { kind: "partial" };
     return {
       kind: "skip",
       note: `${ZCODE_CONFIG} absent \u2014 no rendered zcode shim in this checkout, nothing checked`
@@ -62,14 +62,14 @@ var init_harness_config_local = __esm({
 
 // packages/core/hooks/pre-push.ts
 import {
-  existsSync as existsSync2,
+  existsSync as existsSync3,
   readdirSync,
-  readFileSync,
-  realpathSync,
+  readFileSync as readFileSync2,
+  realpathSync as realpathSync2,
   statSync
 } from "node:fs";
 import { resolve, dirname } from "node:path";
-import { spawnSync as spawnSync2 } from "node:child_process";
+import { spawnSync as spawnSync3 } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -587,20 +587,20 @@ function payloadProblem(parsed) {
   if (parsed.duplicated.length > 0) problems.push(`duplicated ids: ${parsed.duplicated.join(", ")}`);
   return problems.length > 0 ? { reason: "malformed Docs-card trailer", message: problems.join("; ") } : null;
 }
-function runDocsCardCheck(commits, git) {
+function runDocsCardCheck(commits, git2) {
   const failures = [];
-  const isMerge = new Map(commits.map((sha) => [sha, isMergeCommit(git.commitSubject(sha))]));
+  const isMerge = new Map(commits.map((sha) => [sha, isMergeCommit(git2.commitSubject(sha))]));
   const prosePaths = /* @__PURE__ */ new Map();
   const own = /* @__PURE__ */ new Map();
   for (const sha of commits) {
     if (isMerge.get(sha)) continue;
-    prosePaths.set(sha, git.changedFiles(sha).map((f) => f.path).filter(isDocsSiteProsePath));
-    own.set(sha, parseDocsCardTrailer(git.commitBody(sha)));
+    prosePaths.set(sha, git2.changedFiles(sha).map((f) => f.path).filter(isDocsSiteProsePath));
+    own.set(sha, parseDocsCardTrailer(git2.commitBody(sha)));
   }
   const claims = /* @__PURE__ */ new Map();
   for (const claimer of commits) {
     if (isMerge.get(claimer)) continue;
-    for (const m of git.commitBody(claimer).matchAll(CLAIM_RE)) {
+    for (const m of git2.commitBody(claimer).matchAll(CLAIM_RE)) {
       const prefix = m[1] ?? "";
       const named = commits.filter((sha) => sha.startsWith(prefix));
       const target = named.length === 1 ? named[0] : void 0;
@@ -639,7 +639,7 @@ function runDocsCardCheck(commits, git) {
       failures.push({ sha, ...problem });
       continue;
     }
-    if (claim?.kind === "skipped" && !isMechanicalProseDiff(git.diffForPaths(sha, paths))) {
+    if (claim?.kind === "skipped" && !isMechanicalProseDiff(git2.diffForPaths(sha, paths))) {
       failures.push({
         sha,
         reason: "skip claim on a commit whose prose diff is not mechanical",
@@ -648,6 +648,61 @@ function runDocsCardCheck(commits, git) {
     }
   }
   return { checked, proseCommits, failures };
+}
+
+// packages/core/hooks/checks/hooks-path.ts
+import { spawnSync as spawnSync2 } from "node:child_process";
+import { existsSync as existsSync2, readFileSync, realpathSync } from "node:fs";
+import { join } from "node:path";
+var DELEGATE_MARKER = "husky-own-worktree-delegate";
+var HAND_OFF = 'exec "$__own_hook" "$@"';
+function git(repoRoot, args) {
+  return spawnSync2("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
+}
+function effectiveHooksDir(repoRoot) {
+  const out = git(repoRoot, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-path",
+    "hooks"
+  ]);
+  const dir = out.stdout.trim();
+  if (out.status !== 0 || dir === "" || dir.includes("\n")) return null;
+  return existsSync2(dir) ? realpathSync(dir) : dir;
+}
+function trackedHooks(repoRoot) {
+  const out = git(repoRoot, ["ls-files", "-z", "--", ".husky"]);
+  return out.stdout.split("\0").filter((p) => /^\.husky\/[^/]+$/.test(p)).map((p) => p.slice(".husky/".length));
+}
+function ensureOwnHooks(repoRoot) {
+  const ownPath = join(repoRoot, ".husky");
+  if (!existsSync2(ownPath)) return { status: "own" };
+  const own = realpathSync(ownPath);
+  const dir = effectiveHooksDir(repoRoot);
+  if (dir === null) return { status: "unknown" };
+  if (dir === own) return { status: "own" };
+  const stale = trackedHooks(repoRoot).filter((h) => existsSync2(join(own, h))).filter((h) => {
+    const foreign = join(dir, h);
+    if (!existsSync2(foreign)) return true;
+    const body = readFileSync(foreign, "utf8");
+    const delegates = body.includes(`${DELEGATE_MARKER} (begin)`) && body.includes(HAND_OFF);
+    return body !== readFileSync(join(own, h), "utf8") && !delegates;
+  }).sort();
+  if (stale.length === 0) return { status: "delegating", dir };
+  const set = git(repoRoot, [
+    "config",
+    "--worktree",
+    "core.hooksPath",
+    ".husky"
+  ]);
+  if (set.status === 0 && effectiveHooksDir(repoRoot) === own)
+    return { status: "healed", dir, stale };
+  return {
+    status: "failed",
+    dir,
+    stale,
+    detail: set.status === 0 ? "the per-worktree write succeeded, but a higher-precedence value (e.g. `git -c core.hooksPath=...`) still wins" : set.stderr.trim()
+  };
 }
 
 // packages/core/hooks/checks/unpinned-tool-install.ts
@@ -803,7 +858,7 @@ var EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 function readPushStdin() {
   if (process.stdin.isTTY) return "";
   try {
-    return readFileSync(0, "utf8");
+    return readFileSync2(0, "utf8");
   } catch {
     return "";
   }
@@ -900,7 +955,7 @@ function die(msg, r) {
 }
 function workflowYmlFiles() {
   const dir = resolve(REPO_ROOT, ".github/workflows");
-  if (!existsSync2(dir)) return [];
+  if (!existsSync3(dir)) return [];
   return readdirSync(dir).filter((f) => f.endsWith(".yml")).map((f) => `.github/workflows/${f}`);
 }
 function shellScriptFiles() {
@@ -939,9 +994,9 @@ function ssotTitlesAt(sha) {
 }
 function ssotContentAtTip() {
   const abs = resolve(REPO_ROOT, SSOT_REL);
-  if (!existsSync2(abs)) return void 0;
+  if (!existsSync3(abs)) return void 0;
   try {
-    return readFileSync(abs, "utf8");
+    return readFileSync2(abs, "utf8");
   } catch {
     return void 0;
   }
@@ -1221,8 +1276,8 @@ function unpinnedToolInstallSection(ctx) {
   const allFindings = [];
   for (const relPath of population) {
     const absPath = resolve(REPO_ROOT, relPath);
-    if (!existsSync2(absPath)) continue;
-    const content = readFileSync(absPath, "utf8");
+    if (!existsSync3(absPath)) continue;
+    const content = readFileSync2(absPath, "utf8");
     const findings = checkUnpinnedToolInstalls(content, relPath);
     allFindings.push(...findings);
   }
@@ -1287,10 +1342,10 @@ function zizmorTemplatesSection() {
 function trackedShippedWorkflowTemplates() {
   const r = run("git", ["ls-files", "-z", "--", "*github-actions*.yml"]);
   if (r.exitCode !== 0) return null;
-  return r.stdout.split("\0").filter((l) => l.length > 0 && !l.startsWith(".github/")).filter((l) => existsSync2(resolve(REPO_ROOT, l))).sort();
+  return r.stdout.split("\0").filter((l) => l.length > 0 && !l.startsWith(".github/")).filter((l) => existsSync3(resolve(REPO_ROOT, l))).sort();
 }
 function auditAiDocsSection() {
-  if (existsSync2(
+  if (existsSync3(
     resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.test.ts")
   )) {
     const r = run("npx", [
@@ -1304,7 +1359,7 @@ function auditAiDocsSection() {
     if (r.exitCode !== 0) die("\u274C audit-ai-docs.test.ts failed:", r);
     emit(r);
   }
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
     const live = [
       [
         "audit-ai-docs.sh",
@@ -1328,7 +1383,7 @@ function auditAiDocsSection() {
   }
 }
 function skillDriftSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
     const r = run("bash", ["scripts/check-skill-drift.sh"]);
     if (r.exitCode !== 0) die("\u274C skill drift check failed", r);
     emit(r);
@@ -1344,12 +1399,12 @@ function mutationBudgetMs(env = process.env) {
   return /^[1-9]\d*$/.test(raw) ? Number(raw) : 3e5;
 }
 function consumerGate(script) {
-  return existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
+  return existsSync3(resolve(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
 }
 function recordGoverned(ctx, script, failMsg) {
   if (ctx.isFrameworkRepo || process.env["GETFF_SECTION_DIRECT"] === "1")
     return false;
-  if (!existsSync2(resolve(REPO_ROOT, RUN_ARMED)) || !existsSync2(resolve(REPO_ROOT, script)))
+  if (!existsSync3(resolve(REPO_ROOT, RUN_ARMED)) || !existsSync3(resolve(REPO_ROOT, script)))
     return false;
   const r = consumerGate(script);
   if (r.exitCode !== 0) die(failMsg, r);
@@ -1357,7 +1412,7 @@ function recordGoverned(ctx, script, failMsg) {
   return true;
 }
 function armedProbeSection() {
-  if (!existsSync2(resolve(REPO_ROOT, RUN_ARMED))) return;
+  if (!existsSync3(resolve(REPO_ROOT, RUN_ARMED))) return;
   const timeoutMs = armedProbeTimeoutMs();
   const r = runCheck("bash", [RUN_ARMED, "--probe"], { cwd: REPO_ROOT, timeoutMs });
   if (r.timedOut) {
@@ -1372,7 +1427,7 @@ function armedProbeSection() {
   emit(r);
 }
 function ruleGlobsSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
     const r = consumerGate("scripts/check-rule-globs.sh");
     if (r.exitCode !== 0) die("\u274C rule-glob liveness check failed", r);
     emit(r);
@@ -1380,7 +1435,7 @@ function ruleGlobsSection() {
 }
 function worktreeProvisioningSection() {
   const helper = resolve(REPO_ROOT, "scripts/worktree-node-modules.sh");
-  if (!existsSync2(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
+  if (!existsSync3(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
     return;
   const checked = run("bash", [helper, "--check", REPO_ROOT]);
   if (checked.exitCode === 0) return;
@@ -1398,8 +1453,31 @@ function worktreeProvisioningSection() {
     checked.exitCode === 3 ? "\u2713 worktree node_modules installed for real (its lock diverges from the primary checkout)\n" : "\u2713 worktree node_modules provisioned (symlinks were missing \u2014 healed before the test sections)\n"
   );
 }
+function hooksPathSection() {
+  const r = ensureOwnHooks(REPO_ROOT);
+  if (r.status === "failed") {
+    die(
+      `\u274C git runs this worktree's hooks from ${r.dir}, whose ${r.stale.join(", ")} are not this
+   worktree's and do not delegate to it \u2014 their checks silently skipped your commits.
+   Repair failed: ${r.detail}
+   Fix: \`git config extensions.worktreeConfig true && git config --worktree core.hooksPath .husky\``
+    );
+  }
+  if (r.status === "unknown") {
+    process.stdout.write(
+      "\u229D hooks-path: git could not name the hooks dir (git < 2.31?) \u2014 foreign-hook check not run\n"
+    );
+  }
+  if (r.status === "healed") {
+    process.stdout.write(
+      `\u2713 core.hooksPath repointed to this worktree's .husky (was ${r.dir}; stale: ${r.stale.join(", ")}).
+  Commits made before this push were checked by those foreign hooks \u2014 re-check them if in doubt.
+`
+    );
+  }
+}
 function lintStagedResolvesSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
     const r = consumerGate("scripts/check-lintstaged-resolves.sh");
     if (r.exitCode !== 0) die("\u274C lint-staged resolution check failed", r);
     emit(r);
@@ -1408,7 +1486,7 @@ function lintStagedResolvesSection() {
 function validateSidecarShape(path) {
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    parsed = JSON.parse(readFileSync2(path, "utf8"));
   } catch (e) {
     return `not valid JSON \u2014 ${e.message}`;
   }
@@ -1438,11 +1516,11 @@ function validateSidecarShape(path) {
 function generatedRuleMaterialSection() {
   const resolveRunner = (name) => {
     const consumer = resolve(REPO_ROOT, `scripts/${name}`);
-    if (existsSync2(consumer)) return consumer;
+    if (existsSync3(consumer)) return consumer;
     const framework = resolve(REPO_ROOT, `packages/core/synthesizer/${name}`);
-    return existsSync2(framework) ? framework : null;
+    return existsSync3(framework) ? framework : null;
   };
-  const binResolvable = (bin) => existsSync2(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) || existsSync2(resolve(REPO_ROOT, `packages/node_modules/.bin/${bin}`));
+  const binResolvable = (bin) => existsSync3(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) || existsSync3(resolve(REPO_ROOT, `packages/node_modules/.bin/${bin}`));
   const toolPresent = (backend) => {
     if (backend === "astgrep")
       return !run("ast-grep", ["--version"]).notFound || !run("sg", ["--version"]).notFound;
@@ -1454,7 +1532,7 @@ function generatedRuleMaterialSection() {
     REPO_ROOT,
     ".ai-factory/synthesizer-output/rules-manifest-additions.json"
   );
-  if (existsSync2(manifest)) {
+  if (existsSync3(manifest)) {
     const runner = resolveRunner("run-generated-rule-mutation.sh");
     if (!runner) {
       process.stdout.write(
@@ -1467,7 +1545,7 @@ function generatedRuleMaterialSection() {
     } else {
       const consumer = runner === resolve(REPO_ROOT, "scripts/run-generated-rule-mutation.sh");
       const timeoutMs = mutationBudgetMs();
-      const r = consumer ? existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? runCheck("bash", [RUN_ARMED, "bash", "scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", ["scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", [runner, manifest], { cwd: REPO_ROOT, timeoutMs });
+      const r = consumer ? existsSync3(resolve(REPO_ROOT, RUN_ARMED)) ? runCheck("bash", [RUN_ARMED, "bash", "scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", ["scripts/run-generated-rule-mutation.sh"], { cwd: REPO_ROOT, timeoutMs }) : runCheck("bash", [runner, manifest], { cwd: REPO_ROOT, timeoutMs });
       if (consumer && r.timedOut) {
         die(
           `\u274C generated-rule mutation check ran over its budget (${timeoutMs / 1e3} s) \u2014 NOT green. Set PREPUSH_MUTATION_TIMEOUT_MS higher if the machine is slow; a check that did not finish did not pass`,
@@ -1499,7 +1577,7 @@ function generatedRuleMaterialSection() {
       REPO_ROOT,
       `.ai-factory/rule-tests/${backend}.json`
     );
-    if (!existsSync2(sidecar)) continue;
+    if (!existsSync3(sidecar)) continue;
     const shapeError = validateSidecarShape(sidecar);
     if (shapeError !== null) {
       die(
@@ -1546,7 +1624,7 @@ function generatedRuleMaterialSection() {
   }
 }
 function kickoffPortabilitySection() {
-  if (existsSync2(
+  if (existsSync3(
     resolve(
       REPO_ROOT,
       "packages/core/audit-self/check-kickoff-portability.sh"
@@ -1560,7 +1638,7 @@ function kickoffPortabilitySection() {
   }
 }
 function synthBundleSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/build-synth-bundle.sh"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/build-synth-bundle.sh"))) {
     const r = run("bash", ["scripts/build-synth-bundle.sh", "--check"]);
     if (r.exitCode === 2) {
       process.stderr.write(
@@ -1577,7 +1655,7 @@ function synthBundleSection() {
         REPO_ROOT,
         "packages/core/install/synth-and-wire.bundle.mjs"
       );
-      if (existsSync2(bundlePath)) {
+      if (existsSync3(bundlePath)) {
         const smoke = runCheck(
           "node",
           [
@@ -1614,7 +1692,7 @@ function synthBundleSection() {
   }
 }
 function runtimeBundlesSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
     return;
   const r = run("node", ["scripts/build-runtime-bundles.mjs", "--check"]);
   if (r.exitCode === 2) {
@@ -1631,7 +1709,7 @@ function runtimeBundlesSection() {
   }
 }
 function shippedRuleDriftSection(ctx) {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-shipped-eslint-rules.sh")))
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/build-shipped-eslint-rules.sh")))
     return;
   if (ctx.rb.base !== null) {
     const touched = getChangedFiles(ctx.rb.base, "ACMRD", ctx.rb.head).some(
@@ -1681,8 +1759,8 @@ function payloadDriftSection(ctx) {
   const manifestPath = resolve(REPO_ROOT, "packages/getff/MANIFEST.sha256");
   const baselineDir = resolve(REPO_ROOT, "tests/install-sh/baselines");
   const lister = resolve(REPO_ROOT, "scripts/build-getff-dist.sh");
-  const hasManifest = existsSync2(manifestPath) && existsSync2(lister);
-  const hasBaselines = existsSync2(baselineDir);
+  const hasManifest = existsSync3(manifestPath) && existsSync3(lister);
+  const hasBaselines = existsSync3(baselineDir);
   if (!hasManifest && !hasBaselines) return;
   if (ctx.rb.base === null) {
     if (hasManifest) {
@@ -1707,7 +1785,7 @@ function payloadDriftSection(ctx) {
     const roots = listed.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
     const inPayload = (p) => roots.some((root) => p === root || p.startsWith(`${root}/`));
     const manifest = /* @__PURE__ */ new Map();
-    for (const line of readFileSync(manifestPath, "utf8").split("\n")) {
+    for (const line of readFileSync2(manifestPath, "utf8").split("\n")) {
       const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
       if (m?.[1] && m[2]) manifest.set(m[2], m[1]);
     }
@@ -1725,8 +1803,8 @@ function payloadDriftSection(ctx) {
         continue;
       }
       const abs = resolve(REPO_ROOT, path);
-      if (!existsSync2(abs)) continue;
-      if (sha256Bytes(readFileSync(abs)) !== recorded)
+      if (!existsSync3(abs)) continue;
+      if (sha256Bytes(readFileSync2(abs)) !== recorded)
         problems.push(
           `  ${path} \u2014 content differs from its MANIFEST.sha256 row`
         );
@@ -1748,7 +1826,7 @@ function payloadDriftSection(ctx) {
         }
         if (!name.endsWith(".fingerprint")) continue;
         fingerprints += 1;
-        for (const line of readFileSync(abs, "utf8").split("\n")) {
+        for (const line of readFileSync2(abs, "utf8").split("\n")) {
           const m = /^([0-9a-f]{64})\s/.exec(line.trim());
           if (m?.[1]) recorded.add(m[1]);
         }
@@ -1758,7 +1836,7 @@ function payloadDriftSection(ctx) {
     const stale = [];
     for (const { status, path } of changes) {
       if (status === "A") continue;
-      const show = spawnSync2("git", ["show", `${ctx.rb.base}:${path}`], {
+      const show = spawnSync3("git", ["show", `${ctx.rb.base}:${path}`], {
         maxBuffer: 64 * 1024 * 1024
       });
       if (show.status !== 0 || !show.stdout) continue;
@@ -1775,7 +1853,7 @@ function payloadDriftSection(ctx) {
   );
 }
 function manifestRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/render/render-rules.ts"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/render/render-rules.ts"))) {
     const r = run("npx", [
       "tsx",
       "packages/core/render/render-rules.ts",
@@ -1791,7 +1869,7 @@ function manifestRenderSection() {
   }
 }
 function ruleIndexRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-rule-index.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-rule-index.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-rule-index.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1803,7 +1881,7 @@ function ruleIndexRenderSection() {
   }
 }
 function referenceRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-reference.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-reference.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-reference.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1815,7 +1893,7 @@ function referenceRenderSection() {
   }
 }
 function faceFactsRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-face-facts.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-face-facts.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-face-facts.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1827,7 +1905,7 @@ function faceFactsRenderSection() {
   }
 }
 function docsRefreshSection(c) {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-docs-refresh.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/check-docs-refresh.mjs"))) {
     if (c.rb.base === null) {
       warnSkip(
         "docs-refresh",
@@ -1864,7 +1942,7 @@ function lineCitationsSection(ctx) {
     warnSkip("\xA79", "no resolvable base for the path:line citation check");
     return;
   }
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/check-line-citations.mjs")))
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/check-line-citations.mjs")))
     return;
   const changed = getChangedFiles(rb.base, "ACMR", rb.head);
   if (changed.length === 0) return;
@@ -1921,7 +1999,7 @@ function runCoreSuite(script) {
   return r;
 }
 function principlesMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:principles");
     if (r.notFound) {
       die(
@@ -1949,7 +2027,7 @@ function alwaysonBudgetSection() {
   emit(r);
 }
 function askFileSchemaSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/check-ask-files.sh"))) return;
+  if (!existsSync3(resolve(REPO_ROOT, "scripts/check-ask-files.sh"))) return;
   const r = run("bash", ["scripts/check-ask-files.sh"]);
   if (r.notFound) {
     die(
@@ -1965,7 +2043,7 @@ function askFileSchemaSection() {
   emit(r);
 }
 function irMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:ir");
     if (r.notFound) {
       die("\u274C npm/npx not found. Install Node.js to enable IR meta-tests.");
@@ -1976,7 +2054,7 @@ function irMetaSection() {
   }
 }
 function backendsMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:backends");
     if (r.notFound) {
       die(
@@ -1988,7 +2066,7 @@ function backendsMetaSection() {
   }
 }
 function compositionMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve(CORE, "package.json"))) {
     const r = runCoreSuite("test:composition");
     if (r.notFound) {
       die(
@@ -2006,7 +2084,7 @@ function specDisciplineSection(ctx) {
     const specFiles = getChangedFiles(rb.base, "ACM", rb.head).filter(
       (f) => /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f)
     );
-    if (specFiles.length > 0 && existsSync2(
+    if (specFiles.length > 0 && existsSync3(
       resolve(
         REPO_ROOT,
         "packages/core/spec-validation/validate-batch-spec.ts"
@@ -2029,12 +2107,12 @@ function specDisciplineSection(ctx) {
   }
 }
 async function guardLivenessEntry(ctx) {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
     await guardLivenessSection(ctx.rb);
   }
 }
 async function cmdScriptLivenessEntry(ctx) {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
+  if (existsSync3(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
     await cmdScriptLivenessSection(ctx.rb);
   }
 }
@@ -2084,9 +2162,9 @@ var SHIPPED_SKILL_SLUGS = [
 ];
 function refreshBaselinePaths() {
   const manifest = resolve(REPO_ROOT, ".ai-factory/refresh-baseline.json");
-  if (!existsSync2(manifest)) return null;
+  if (!existsSync3(manifest)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(manifest, "utf8"));
+    const parsed = JSON.parse(readFileSync2(manifest, "utf8"));
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
       return null;
     return new Set(Object.keys(parsed));
@@ -2177,7 +2255,7 @@ function lycheeSection(ctx) {
   }
 }
 function invariantsRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
+  if (existsSync3(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
     const r = run("node", ["scripts/render-invariants.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -2234,6 +2312,7 @@ var SECTIONS = [
     owner: "maintainer",
     run: () => worktreeProvisioningSection()
   },
+  { id: "hooks-path", owner: "maintainer", run: () => hooksPathSection() },
   { id: "actionlint", owner: "maintainer", run: () => actionlintSection() },
   { id: "zizmor-live", owner: "maintainer", run: () => zizmorLiveSection() },
   {
@@ -2395,7 +2474,7 @@ function activeSections(isFrameworkRepo) {
 }
 async function main() {
   const rb = resolveBase();
-  const isFrameworkRepo = existsSync2(resolve(REPO_ROOT, SSOT_REL));
+  const isFrameworkRepo = existsSync3(resolve(REPO_ROOT, SSOT_REL));
   const ctx = { rb, isFrameworkRepo };
   const only = process.env["PREPUSH_ONLY"];
   if (only !== void 0 && only !== "") {
@@ -2418,7 +2497,7 @@ function isDirectCliInvocation() {
   const argv1 = process.argv[1];
   if (!argv1) return false;
   try {
-    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
+    return realpathSync2(argv1) === realpathSync2(fileURLToPath(import.meta.url));
   } catch {
     return false;
   }
