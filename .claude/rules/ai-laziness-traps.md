@@ -10,7 +10,7 @@ paths:
 # AI laziness traps — discipline rule
 
 <!-- globs: .claude/rules/**, .claude/skills/**, agents/**, .claude/orchestrator-prompts/**, docs/meta-factory/research-patches/** -->
-<!-- inject: AI-laziness traps (T1-T21) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. Cite + enumerate active T-numbers + extend with ≥1 domain trap per §3; consult the full catalogue (.claude/rules/ai-laziness-traps.md §2) and the resident hot digest (.claude/rules/ai-laziness-digest.md). Self-apply T15. -->
+<!-- inject: AI-laziness traps (T1-T22) apply when running R-phases, audits, sample-based investigations, doc-creation of discipline-bearing artefacts, or open-ended tasks on this surface. Cite + enumerate active T-numbers + extend with ≥1 domain trap per §3; consult the full catalogue (.claude/rules/ai-laziness-traps.md §2) and the resident hot digest (.claude/rules/ai-laziness-digest.md). Self-apply T15. -->
 
 > **Class:** A — companion principle test shipped at [packages/core/principles/12-ai-laziness-traps.test.ts](../../packages/core/principles/12-ai-laziness-traps.test.ts) (#74, 2026-05-17).
 > **Fires:** any R-phase, audit, sample-based investigation, or open-ended AI task.
@@ -179,6 +179,16 @@ Counter (**structural, not a stronger reminder** — a prose exhortation rots id
 The discriminating tell **and its limit**: a real backward-check *enumerates the change's class-surfaces and verdicts each* — typically naming ≥1 surface the diff did **not** touch, *as a swept surface*; a restatement lists the PR's own changes and cites files only as evidence-for-those-changes. **Do not reduce this to «cites ≥1 non-diff file».** The motivating incident's restatement DID cite a non-diff file (`packages/core/principles/30-research-source-trust.test.ts:139`, item-C evidence) — a naive «non-diff citation present» detector *false-negatives* on it (verified: that path is absent from the commit's own `git diff --name-only`). Completeness of the class-enumeration is a **semantic** judgment, not a syntactic one; per no-paid-llm-in-ci it cannot be a CI gate → the cold-agent + review-time judgment carry it.
 
 Incident: PR #857 — commit `ec643bac7` shipped a restatement backward-check («re-adjudicates the S2 §5 risk-acceptances; item 4 promoted documented→coded; items 1-3 kept documented»); the parallel single-label-host gap on the **Tier-1** host-derivation surface (`tier1For`'s `candidateFields`, sibling to the **Tier-2** `loadAckFile` surface the PR fixed) reached the PR and was caught only by operator challenge → fixed in commit `bf1b8b5f3`. *(incident counter 1/3 → promote to a semantic principle test at 3 per §5, with MANUAL classification per the narrow-b lesson — no automated catch-rate claim.)*
+
+### T22 — Sibling-channel false GREEN (the case passes for the sibling's reason)
+
+Trigger: a fix adds a channel between two components — a tmp file, env var, shared state or config key that one side writes and the other reads — and a test of either side is then written, or an existing one is left standing.
+
+Tempted output: «RED-first satisfied: the suite failed before the fix and passes after». Once the sibling can move an input a case depends on, that case can pass against the pre-fix code **deterministically**, measuring the sibling's side effect instead of the behaviour under test. A GREEN that should have been RED reports nothing, so no gate and no reviewer surfaces it unless someone asks *why* the case passes.
+
+Counter: for each case, **name the single production change that flips it**, then pin every input the sibling channel can move so nothing else in the fixture can flip it; prove RED against `git show HEAD:<path>` pre-images of **every** file the fix touches (a one-file pre-image can hide the sibling effect). After adding the channel, re-audit the existing tests of **both** sides against the same question — the new channel can retroactively hollow out an old case. Record each pin's reason inline at the pin; an unexplained pin reads as noise and gets «simplified» away.
+
+Incident: PR #1644 gave the PreCompact hook a tmp channel carrying an observed context ceiling, read by the Stop hook's D7 arm; PR #1651 then tested that PreCompact clears the arm's debounce flags. Its end-to-end case passed against `git show HEAD:` copies of **both pre-fix hooks**: the ceiling the tested PreCompact records became the window, which moved the fixture from the `soft` tier to `deep` — whose flag was unspent, so the arm fired. The case measured tier migration, not the reset; pinning `AIF_CTX_WINDOW` made the tier constant across the turns. Caught only because a passing case was interrogated for why it passed. *(incident counter 1/3; codifies memory `sibling-channel-false-green`. «Which single change flips this case» is a semantic judgment — no syntactic gate; carried by the review-time checklist item in [`agents/review-sidecar.md`](../../agents/review-sidecar.md) §9.)*
 
 ## §3 Obligations on kickoff authors
 
