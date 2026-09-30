@@ -223,7 +223,7 @@ b6b73cf075c3a6153cd87db95c96c651e4077c06073942f0082ecd5d5bb5fa56  packages/core/
 973385c162aab0d10f7bb8707b838c15f36facc77362c4af6ebf03edf3b2d358  packages/core/audit-self/pre-merge-local.test.sh
 2ecb7c63d661594c7eadbdfa874adabca47205679bb5deef6119dd7faa7e91cc  packages/core/audit-self/prove-rules-parity.test.ts
 57f47c57ebc7805980af4ae15ec9ed19cacd191decb10d5152a2242838184097  packages/core/audit-self/prove-rules.mjs
-94e131f7e689c4f1f8ed7d1f05b5ea8fbcf508b77973493dda91470d7373a5d9  packages/core/audit-self/prove-rules.test.ts
+fca7ecbeb01b3944b6c60139556bdae90b525856bbe1670de61a2d9219e88ce4  packages/core/audit-self/prove-rules.test.ts
 4946d771cb55e82ce8d447b5ef317ea0e564bbe77726c7509262ff8107cdb89a  packages/core/audit-self/r2-na-marker.sh
 a6c6a7ef50a8ea31c9e81b1cff916a55a2d2faa38744baa1c63200868471c04b  packages/core/audit-self/run-armed.sh
 532f6a9b7cc02e64228fdb8d4b0ed88482769eb8832d744c8a94a30b182ea8f6  packages/core/audit-self/run-bash-mutation.sh
@@ -510,14 +510,14 @@ b4a50b1a157846cfb5c803188e7c50d850bd5538986fba194db7e61193382f6b  packages/core/
 7d978b420b2045de62324d0b15e0856819b4d4eee0cfbe7543d069258b7d97d4  packages/core/hooks/parse-override-flags.test.ts
 d637a9d9344e8db5d773c54dff8f950a3468e99f0fdc38d2661ccd620b7aa4ce  packages/core/hooks/parse-preset.test.ts
 c718331b1f183d8aa4f7731dbafbf2765ae0709c12b1f3493537d9f19ba18c0e  packages/core/hooks/pin-parity.test.ts
-bfb461bed43bc0e66aa090a5d5334dbc98809718d64072778558cfdcbe5bf646  packages/core/hooks/pre-push.bundle.mjs
-b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/hooks/pre-push.consumer-layout.test.ts
+5857f39e4c7cb6d62d0c22bcaef9baf81757259d73b23b1db9cc8270a1bb9046  packages/core/hooks/pre-push.bundle.mjs
+5f3fbfe074d20f4ff50fc7f851fb0ca308edce04837bbfb1b693c92987410953  packages/core/hooks/pre-push.consumer-layout.test.ts
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 4cfc5c1a3fb7991056d67038f0efa9f25f6d9f07b348a2a0e1e86bd780def899  packages/core/hooks/pre-push.fallback.test.ts
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
 f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 6b70e8054d1170258ec7d01551f246d296b022bc495816b206fd4aab5862850d  packages/core/hooks/pre-push.test.ts
-a60d0f3382c7d3f5d59f6b22646e7b88e8eccdbe523f475a70a77fc370e10ded  packages/core/hooks/pre-push.ts
+885220af04967feacb6ba0a5a9df164300c8e7b26a33a50979f1467de8465eb1  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts

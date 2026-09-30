@@ -264,7 +264,8 @@ describe('placement on an oxlint project whose lint is green (T-C1)', () => {
     expect(byRule('rules-as-tests/no-direct-time-randomness')).toBeUndefined(); // opt-in (AIF_STRICT_RUNTIME)
     const carrier = (c.rules as Json)[CARRIER] as [string, ...Array<{ message: string }>];
     expect(carrier[0]).toBe('error');
-    expect(carrier.slice(1).map((e) => e.message.slice(0, 11))).toEqual(['[getff:G1] ', '[getff:G2] ']);
+    const [, ...carried] = carrier;
+    expect(carried.map((e) => e.message.slice(0, 11))).toEqual(['[getff:G1] ', '[getff:G2] ']);
     expect(exempt(c)).toEqual([]);
     expect(npmLint(dir).status).toBe(0);
     expect(out).toContain('LINT_OK=1');
@@ -326,7 +327,8 @@ describe('existing violations become per-file exemptions (T-C2)', () => {
     expect(filesOf('no-throw-literal')).toEqual(['src/\\[id\\]/page.ts', 'src/old.ts']);
     const legacy = ex.find((o) => o.files.includes('src/legacy.ts'))!;
     const carrier = legacy.rules[CARRIER] as [string, ...Array<{ message: string }>];
-    expect(carrier.slice(1).map((e) => e.message.slice(0, 11))).toEqual(['[getff:G2] ']); // G1 exempt, G2 still on
+    const [, ...carried] = carrier;
+    expect(carried.map((e) => e.message.slice(0, 11))).toEqual(['[getff:G2] ']); // G1 exempt, G2 still on
     expect(c.overrides!.at(-1)!.files).toContain(EXEMPT); // after getff's own entries, so they win
     expect(npmLint(dir).status).toBe(0);
   });
@@ -436,9 +438,9 @@ describe('placement is additive and removable in one command (T-C6)', () => {
     const before = readFileSync(join(dir, '.oxlintrc.json'), 'utf8');
     place(dir, 'oxlint');
     const c = cfgOf(dir);
-    expect(c.$schema).toBe(projectCfg.$schema);
-    expect(c.plugins).toEqual(projectCfg.plugins);
-    expect(c.jsPlugins).toEqual(projectCfg.jsPlugins);
+    expect(c.$schema).toBe(OX_CFG.$schema); // projectCfg spreads OX_CFG
+    expect(c.plugins).toEqual(OX_CFG.plugins); // projectCfg spreads OX_CFG
+    expect(c.jsPlugins).toEqual(OX_CFG.jsPlugins); // projectCfg spreads OX_CFG
     const { [CARRIER]: _carrier, ...projectRules } = c.rules as Json;
     expect(projectRules).toEqual(projectCfg.rules);
     expect(c.overrides!.at(-1)).toEqual(projectCfg.overrides[0]); // getff's entries go before it: insertions only
