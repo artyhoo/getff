@@ -97,9 +97,119 @@ ROOT_NM="$WORKTREE_DIR/node_modules"
 CORE_NM="$WORKTREE_DIR/packages/core/node_modules"
 HAS_CORE=0; [ -d "$WORKTREE_DIR/packages/core" ] && HAS_CORE=1
 
+# NESTED WORKSPACE LAYERS (2026-09-30): npm plans nested layers for workspaces other than
+# packages/core too — this repo's root lock puts eslint-plugin-jsx-a11y (absent from the root
+# layer) and eslint-plugin-react-hooks 6.1.1 (root: 7.1.1) under packages/preset-react-spa/
+# node_modules. With only the root and core layers linked, code in that workspace resolved
+# react-hooks 7.1.1 and could not resolve jsx-a11y at all; a census found the layer missing in
+# all 73 root-linked worktrees carrying that workspace. So every workspace directory of THIS
+# worktree gets the same link the core layer gets, when — and only when — the primary holds a
+# real, non-cache layer at the same path. A cache-only primary layer (vitest's .vite* in
+# packages/runtime-bridge) delivers nothing and is not linked; a workspace absent from the
+# worktree is never created. This is link DELIVERY only: whether the primary installed what
+# this worktree's lock plans is a separate question, not judged here.
+#
+# Nested layers are linked ONLY while the root layer is the primary's too (a link to it, or about
+# to become one). A worktree with its own root install (npm, pnpm) keeps its own nested layers:
+# an install run there passes every root-link guard (getff-work.sh, create-worktree.sh) and would
+# reify packages/<ws>/node_modules THROUGH a planted link — into the shared clone (the class of
+# the 2026-09-14 `npm ci` through the packages/core link, and of getff#1860 under pnpm).
+#
+# Workspaces come from this worktree's package.json `workspaces` (npm / yarn / bun; array or
+# { packages: [...] }; `!pattern` excludes), each pattern expanded as a shell glob inside the
+# worktree (`*` and `?` only — no braces, and `**` acts as `*`). pnpm-workspace.yaml is not read,
+# so pnpm workspaces get no nested links. Without node (CC hooks run with a stripped PATH) no
+# workspace is guessed: nothing nested is linked, and the next caller with node heals it.
+# WNM_NODE overrides the node executable (tests substitute a missing one).
+NODE="${WNM_NODE:-node}"
+
+workspace_dirs() {
+  local pats d IFS
+  command -v "$NODE" >/dev/null 2>&1 || return 0
+  # One pattern per line, prefixed + (include) or - (exclude).
+  pats="$("$NODE" -e '
+    try {
+      const w = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).workspaces;
+      const list = Array.isArray(w) ? w : (w && Array.isArray(w.packages) ? w.packages : []);
+      for (const p of list) {
+        if (typeof p !== "string" || p.includes("\n")) continue;
+        console.log(p.startsWith("!") ? "-" + p.slice(1) : "+" + p);
+      }
+    } catch {}
+  ' "$WORKTREE_DIR/package.json" 2>/dev/null)"
+  expand() {
+    local sign="$1" line
+    while IFS= read -r line; do
+      case "$line" in "$sign"*) ;; *) continue ;; esac
+      IFS='
+'                                              # split on newlines only: patterns may hold spaces
+      for d in "$WORKTREE_DIR"/${line#?}; do
+        [ -d "$d" ] || continue
+        d="${d#"$WORKTREE_DIR"/}"; d="${d%/}"
+        printf '%s\n' "$d"
+      done
+      unset IFS
+    done <<EOF
+$pats
+EOF
+  }
+  # Exclusions captured once into a variable: `expand - | grep -q` under pipefail could SIGPIPE
+  # the producer and report a match as a miss.
+  local excluded
+  excluded="$(expand -)"
+  expand + | sort -u | while IFS= read -r d; do
+    [ "$d" = "packages/core" ] && continue      # its own rule below (fallback link)
+    grep -qxF "$d" <<<"$excluded" && continue   # excluded by a `!` pattern
+    printf '%s\n' "$d"
+  done
+}
+
+# Every symlink named node_modules below the worktree root (the nested delivery links), never
+# descending into a real node_modules dir or .git. Depth 4 covers `a/b/c/node_modules`.
+nested_nm_links() {
+  find "$WORKTREE_DIR" -mindepth 2 -maxdepth 4 \
+    \( -path "$WORKTREE_DIR/node_modules" -o -name .git -o \( -name node_modules -type d \) \) -prune \
+    -o -name node_modules -type l -print 2>/dev/null
+}
+
+# Does the root layer come from the primary (a link resolving to its node_modules, or a path this
+# run will link)? Compared physically, so /var vs /private/var and relative links agree.
+root_is_primary() {
+  [ "$needs_root" -eq 1 ] && return 0
+  [ -L "$ROOT_NM" ] || return 1
+  [ "$(cd "$ROOT_NM" 2>/dev/null && pwd -P)" = "$(cd "$PRIMARY_DIR/node_modules" 2>/dev/null && pwd -P)" ]
+}
+
 # --check and --apply share ONE definition of the end state, so they can never disagree.
 needs_root=0; nm_is_provisioned "$ROOT_NM" || needs_root=1
 needs_core=0; if [ "$HAS_CORE" -eq 1 ]; then nm_is_provisioned "$CORE_NM" || needs_core=1; fi
+NESTED_MISSING=""   # newline-separated workspace dirs whose layer must be linked
+NESTED_BLOCKED=""   # ...and those whose path holds something we may never replace (a file)
+if root_is_primary; then
+  while IFS= read -r ws; do
+    [ -n "$ws" ] || continue
+    src="$PRIMARY_DIR/$ws/node_modules"
+    { [ -d "$src" ] && [ ! -L "$src" ] && nm_is_provisioned "$src"; } || continue
+    nm="$WORKTREE_DIR/$ws/node_modules"
+    nm_is_provisioned "$nm" && continue
+    if nm_is_free "$nm"; then NESTED_MISSING="$NESTED_MISSING$ws
+"
+    else NESTED_BLOCKED="$NESTED_BLOCKED$nm
+"
+    fi
+  done <<EOF
+$(workspace_dirs)
+EOF
+fi
+
+# Unfixable in BOTH modes, so --check never calls fixable what --apply would refuse.
+if [ -n "$NESTED_BLOCKED" ]; then
+  printf '%s' "$NESTED_BLOCKED" | while IFS= read -r nm; do
+    printf '⚠ worktree-node-modules: %s is neither a directory nor a symlink — remove it, then re-run: bash scripts/worktree-doctor.sh --fix\n' \
+      "$nm" >&2
+  done
+  exit 2
+fi
 
 # ── LOCK-AWARE ───────────────────────────────────────────────────────────────
 # A link is a valid delivery only when the primary's INSTALLED tree is the tree this
@@ -114,9 +224,9 @@ needs_core=0; if [ "$HAS_CORE" -eq 1 ]; then nm_is_provisioned "$CORE_NM" || nee
 # package-lock.json at the exact planned version, resolved the same way on both sides — the way
 # node does (<workspace>/node_modules/<name>, then node_modules/<name>). The question is lock
 # DRIFT: did the primary install what this lock plans? Whether a link can deliver a workspace's
-# nested layer at all is a separate, lock-independent property of link delivery (only the root
-# and packages/core layers are linked), so it is not judged here — judging it would make every
-# link in a repo with nested workspace layers (packages/preset-*) diverge by construction. Direct deps
+# nested layer at all is a separate, lock-independent property of link delivery (NESTED
+# WORKSPACE LAYERS above), so it is not judged here — judging it would make every link in a
+# repo with nested workspace layers (packages/preset-*) diverge by construction. Direct deps
 # are what code imports; a transitive patch drift is not a reason to install 1.8 GB per
 # worktree. A byte compare of the lockfiles was measured and rejected as the primary
 # comparator: on 2026-09-30 it diverged for 117 of 128 worktrees, the direct-dep compare for
@@ -237,7 +347,12 @@ if [ "$stale_own" -eq 1 ] || { [ "$link_layers" -eq 1 ] && lock_diverges; }; the
     elif nm_is_free "$nm"; then rm -rf "$nm"
     fi
   done
-  { [ -L "$ROOT_NM" ] || [ -L "$CORE_NM" ]; } && install_failed "was refused: a node_modules symlink survived unlinking"
+  # The nested workspace links (packages/<ws>/node_modules -> the primary's layer) are delivery
+  # links too. Found by shape rather than by workspace_dirs, so links a caller WITH node made
+  # are still found by one without it.
+  nested_nm_links | while IFS= read -r nm; do rm -f "$nm"; done
+  { [ -L "$ROOT_NM" ] || [ -L "$CORE_NM" ] || [ -n "$(nested_nm_links)" ]; } &&
+    install_failed "was refused: a node_modules symlink survived unlinking"
 
   # npm rewrites what it should not: the lockfile (even under --no-save on some versions) and
   # the file mode of every workspace `bin` target it links (incident: verify-provenance-cli.ts
@@ -280,7 +395,8 @@ if [ "$stale_own" -eq 1 ] || { [ "$link_layers" -eq 1 ] && lock_diverges; }; the
   if [ -f "$WORKTREE_DIR/packages/core/package-lock.json" ]; then
     (cd "$WORKTREE_DIR" && "$NPM" ci --prefix packages/core >&2) || install_failed "failed at \`npm ci --prefix packages/core\`"
   fi
-  { [ -L "$ROOT_NM" ] || [ -L "$CORE_NM" ]; } && install_failed "was refused: a node_modules path became a symlink"
+  { [ -L "$ROOT_NM" ] || [ -L "$CORE_NM" ] || [ -n "$(nested_nm_links)" ]; } &&
+    install_failed "was refused: a node_modules path became a symlink"
   (cd "$WORKTREE_DIR" && "$NPM" install --no-save >&2) || install_failed "failed at \`npm install --no-save\`"
   restore
   lock_sum >"$MARKER"
@@ -289,7 +405,7 @@ if [ "$stale_own" -eq 1 ] || { [ "$link_layers" -eq 1 ] && lock_diverges; }; the
 fi
 # ── END LOCK-AWARE ───────────────────────────────────────────────────────────
 
-if [ "$needs_root" -eq 0 ] && [ "$needs_core" -eq 0 ]; then
+if [ "$needs_root" -eq 0 ] && [ "$needs_core" -eq 0 ] && [ -z "$NESTED_MISSING" ]; then
   [ "$MODE" = "--check" ] && exit 0
   exit 0
 fi
@@ -301,10 +417,11 @@ if [ ! -e "$PRIMARY_DIR/node_modules" ]; then
 fi
 
 if [ "$MODE" = "--check" ]; then
-  printf '⚠ worktree-node-modules: %s is not provisioned (root=%s core=%s) — run: bash scripts/worktree-doctor.sh --fix\n' \
+  printf '⚠ worktree-node-modules: %s is not provisioned (root=%s core=%s nested=%s) — run: bash scripts/worktree-doctor.sh --fix\n' \
     "$WORKTREE_DIR" \
     "$([ "$needs_root" -eq 1 ] && echo MISSING || echo ok)" \
-    "$([ "$needs_core" -eq 1 ] && echo MISSING || echo ok)" >&2
+    "$([ "$needs_core" -eq 1 ] && echo MISSING || echo ok)" \
+    "$([ -n "$NESTED_MISSING" ] && printf '%s' "$NESTED_MISSING" | paste -sd, - || echo ok)" >&2
   exit 1
 fi
 
@@ -343,6 +460,24 @@ if [ "$needs_core" -eq 1 ]; then
     ln -sfn ../../node_modules "$CORE_NM"
   fi
 fi
+
+# Same shape as the core link above: the primary's real layer, and never a real install replaced.
+# Postcondition checked per link: a failed `ln` (unwritable workspace dir) must exit 2, not print
+# «provisioned» and leave --check failing forever.
+while IFS= read -r ws; do
+  [ -n "$ws" ] || continue
+  nm="$WORKTREE_DIR/$ws/node_modules"
+  nm_is_free "$nm" || refuse "$nm"
+  rm -rf "$nm"
+  ln -sfn "$PRIMARY_DIR/$ws/node_modules" "$nm" 2>/dev/null
+  if ! nm_is_provisioned "$nm"; then
+    printf '⚠ worktree-node-modules: could not link %s -> %s — is %s writable?\n' \
+      "$nm" "$PRIMARY_DIR/$ws/node_modules" "$WORKTREE_DIR/$ws" >&2
+    exit 2
+  fi
+done <<EOF
+$NESTED_MISSING
+EOF
 
 printf '✓ worktree-node-modules: provisioned %s\n' "$WORKTREE_DIR" >&2
 exit 0
