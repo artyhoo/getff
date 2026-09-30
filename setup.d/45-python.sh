@@ -1193,23 +1193,29 @@ _py_precommit_body() {
 # A line inside a quoted scalar that runs over lines is text, even when it starts `- ` in column 0: q
 # holds the quote still open ("..." with \" inside, '...' with '' inside), and such lines are skipped.
 # A quote opens a scalar only where one can start — at the start of the line or of a `- `/`? ` item,
-# after `: `, `[`, `{` or `,`, past a tag or anchor — and never in a comment or a `|`/`>` block
-# scalar's lines. Known limit: an unclosed quote after `, ` inside a plain scalar (`name: a, "b`) is
-# read as an open one, so a stray item after it goes unnoticed and the file is updated as before C6-F3.
+# after `: `, `[`, `{` or `,`, past a tag or anchor, or right after a `:` that follows the closing
+# quote of a quoted key (cl; `{"k":"v"}`; after a plain key `k:"v` is text) — never in a comment.
+# The lines under a `|`/`>` block scalar header are skipped when the header ends its line after `:`,
+# `- ` or at the line's start, past any tag or anchor (`entry: !!str |`, `key: &a >-`). Known limits:
+# an unclosed quote after `, ` inside a plain scalar (`name: a, "b`) is read as an open one, and one
+# closed there (`a, "x":'y`) lets the `:` rule open another, so a stray item after it goes unnoticed
+# and the file is updated as before C6-F3; the `:` rule also fires in block context, where `"k":"v`
+# is a YAML error anyway; a header anywhere else (after a `? ` key indicator, say) is not seen, and a
+# quote on its lines can hide a stray item the same way.
 _py_precommit_stray_item() {
   awk -v m="$2" -v e="$3" -v n="${4:-0}" -v kre="$_PY_PRECOMMIT_REPOS_KEY" -v sq="'" "$_PY_PRECOMMIT_KEY"'
-    function scan(s,   i, ch, p) {
-      for (i = 1; i <= length(s); i++) {
+    function scan(s,   i, ch, p, cl) {
+      cl = -1; for (i = 1; i <= length(s); i++) {
         ch = substr(s, i, 1)
-        if (q == "\"") { if (ch == "\\") i++; else if (ch == q) q = ""; continue }
-        if (q == sq) { if (ch == sq) { if (substr(s, i + 1, 1) == sq) i++; else q = "" }; continue }
+        if (q == "\"") { if (ch == "\\") i++; else if (ch == q) { q = ""; cl = i }; continue }
+        if (q == sq) { if (ch == sq) { if (substr(s, i + 1, 1) == sq) i++; else { q = ""; cl = i } }; continue }
         if (ch == "#" && (i == 1 || substr(s, i - 1, 1) ~ /[ \t]/)) return
         if (ch != "\"" && ch != sq) continue
         p = substr(s, 1, i - 1); sub(/^[ \t]*([?-][ \t]+)*/, "", p)
-        if (p ~ /(^|:[ \t]+|[[{,][ \t]*)([!&][^ \t]*[ \t]+)*$/) q = ch
+        if (p ~ /(^|:[ \t]+|[[{,][ \t]*)([!&][^ \t]*[ \t]+)*$/ || (cl == i - 2 && substr(s, i - 1, 1) == ":")) q = ch
       }
       t = s; sub(/[ \t]+#.*$/, "", t)
-      if (q == "" && t ~ /(^|[:-])[ \t]*[|>][-+1-9]*[ \t]*$/) { match(s, /^[ \t]*/); bi = RLENGTH; inb = 1 }
+      if (q == "" && t ~ /(^|[:-])[ \t]*([!&][^ \t]*[ \t]+)*[|>][-+1-9]*[ \t]*$/) { match(s, /^[ \t]*/); bi = RLENGTH; inb = 1 }
     }
     !seen && match($0, kre) { seen = 1; next }
     !seen { next }
@@ -1577,7 +1583,9 @@ _py_deliver_agent_surface() {
 
   # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (three arms, register_imr_hooks) ─
   # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 318-328 (inject-matching-rule).
-  # Both wired into .claude/settings.json via register_cc_hook — the canonical helper. The inline
+  # deps-hash-check is wired into .claude/settings.json by register_cc_hook, the canonical helper;
+  # inject-matching-rule by register_imr_hooks (setup.d/lib.sh), which widens an older PostToolUse
+  # matcher and then calls register_cc_hook once per arm (#1957). The inline
   # settings-creation block in 10-skills.sh:211-236 was written before register_cc_hook existed;
   # register_cc_hook handles the same create-or-merge + idempotence shape strictly better.
   mkdir_safe "$PROJECT_ROOT/.claude/hooks"
