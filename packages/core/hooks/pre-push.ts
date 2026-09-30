@@ -42,14 +42,18 @@ import { fileURLToPath } from 'node:url';
 // imported here for the arch-v2 S-E P2b local-shadow section; that section was removed
 // (its premise was disproven — see the removal commit), and with it the only reason this
 // hook referenced picomatch. Keep it that way: a new dependency here breaks the bundle
-// build, and a maintainer-only gate goes behind a lazy `await import()` + `die()`, the
-// shape guard-liveness uses below, and on the bundle's `external` list.
+// build, and a gate whose module must stay OFF the bundle goes behind a lazy
+// `await import()` + `die()`, the shape guard-liveness uses below and honours via
+// the bundle's `external` list. Since trigger build S3 that list is ONE module long:
+// cmd-script-liveness ships to consumers (owner `both`), so it is statically
+// imported and INLINED into the bundle like every other consumer-visible check.
 import { runCheck, type CheckResult } from './utils/run-check.ts';
 import {
   runPriorArtCheck,
   loadSsotIds,
   loadSsotRowTitles,
 } from './checks/prior-art.ts';
+import { runCmdScriptLivenessGate } from './checks/cmd-script-liveness.ts';
 import { runS17Check } from './checks/s17.ts';
 import { runDocsCardCheck } from './checks/docs-card.ts';
 import {
@@ -660,12 +664,20 @@ async function guardLivenessSection(rb: ResolvedBase): Promise<void> {
 
 /**
  * Cmd/script liveness section: change-scoped command/script guard-liveness gate
- * (Wave guard-liveness v1.5). For each command/script manifest rule changed in
- * this push, runs the rule's check against its violating fixture (branching on
- * the per-rule liveness mode) and asserts the guard catches its own violation.
- * SKIP/EXEMPT statuses emit visible lines — never a silent pass.
+ * (Wave guard-liveness v1.5; consumer-shipped since trigger build S3). For each
+ * command/script rule changed in this push — read from the manifest the CALLER
+ * names by layout — runs the rule's check against its violating fixture
+ * (branching on the per-rule liveness mode) and asserts the guard catches its
+ * own violation. The population is reported as a NUMBER (E18 F1 condition 1):
+ * every run prints one counted `ℹ` line; an empty run is a counted 0, never a
+ * green check, and `✅` prints only when ≥1 rule actually passed. SKIP/EXEMPT
+ * statuses emit visible lines — never a silent pass.
  */
-async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
+function cmdScriptLivenessSection(
+  rb: ResolvedBase,
+  manifestRel: string,
+  layout: 'framework' | 'consumer',
+): void {
   if (rb.base === null) {
     warnSkip(
       'cmd-script-liveness',
@@ -673,18 +685,20 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
     );
     return;
   }
-  // Lazy-load — keeps the orchestrator loadable in topologies that do not run
-  // this gate. A resolution failure is a loud die, never a silent pass.
-  let gate: typeof import('./checks/cmd-script-liveness.ts');
-  try {
-    gate = await import('./checks/cmd-script-liveness.ts');
-  } catch (err) {
-    die(
-      '❌ cmd-script-liveness: failed to load the liveness runner.\n' +
-        `   ${(err as Error).message}`,
-    );
+  // Statically imported (owner `both` since trigger build S3 — inlined into the
+  // consumer bundle, so there is no lazy-load die path left to guard).
+  const report = runCmdScriptLivenessGate(rb.base, { repoRoot: REPO_ROOT, manifestRel, layout });
+
+  if (report.fatal) {
+    process.stdout.write(`❌ cmd-script-liveness: ${report.fatal}\n`);
+    process.exit(1);
   }
-  const report = gate.runCmdScriptLivenessGate(rb.base);
+
+  process.stdout.write(
+    report.population === 0
+      ? 'ℹ cmd-script-liveness: command/script checks: 0 — nothing to check yet\n'
+      : `ℹ cmd-script-liveness: command/script checks: ${report.population} in ${report.manifestRel}, ${report.changedCount} changed in this push\n`,
+  );
 
   for (const s of report.skipped) {
     process.stdout.write(`ℹ cmd-script-liveness: SKIP ${s}\n`);
@@ -714,7 +728,7 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
   }
   process.stdout.write(
     "\nFix: ensure each fixture.setup-script creates the rule's REAL violating state\n" +
-      'so the check exits non-zero. See packages/core/manifest/rules-manifest.json (fixture block).\n\n',
+      `so the check exits non-zero. See ${report.manifestRel} (fixture block).\n\n`,
   );
   process.exit(1);
 }
@@ -2158,13 +2172,25 @@ async function guardLivenessEntry(ctx: SectionCtx): Promise<void> {
   }
 }
 
-// ── cmd-script-liveness (maintainer) ─────────────────────────────────────────
+// ── cmd-script-liveness (both — consumer-shipped, trigger build S3) ──────────
+// The manifest is named HERE by layout (one detection axis: ctx.isFrameworkRepo,
+// threaded to every section — sections never re-derive it), never probed twice.
+const FRAMEWORK_MANIFEST_REL = 'packages/core/manifest/rules-manifest.json';
+const CONSUMER_MANIFEST_REL = '.ai-factory/synthesizer-output/rules-manifest-additions.json';
+
 async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
-  if (
-    existsSync(resolve(REPO_ROOT, 'packages/core/manifest/rules-manifest.json'))
-  ) {
-    await cmdScriptLivenessSection(ctx.rb);
+  const layout = ctx.isFrameworkRepo ? 'framework' : 'consumer';
+  const manifestRel = layout === 'framework' ? FRAMEWORK_MANIFEST_REL : CONSUMER_MANIFEST_REL;
+  if (!existsSync(resolve(REPO_ROOT, manifestRel))) {
+    // E18 F1 condition 1: an absent manifest is a counted 0, never silence and
+    // never a green check. This exact line is also the OWNER proof — it can only
+    // print if the section composes on this layout at all.
+    process.stdout.write(
+      `ℹ cmd-script-liveness: command/script checks: 0 — nothing to check yet (no rules manifest at ${manifestRel})\n`,
+    );
+    return;
   }
+  await cmdScriptLivenessSection(ctx.rb, manifestRel, layout);
 }
 
 // ── 8. lychee offline link check on changed *.md (both) ──────────────────────
@@ -2707,8 +2733,12 @@ const SECTIONS: readonly PrePushSection[] = [
     run: (c) => guardLivenessEntry(c),
   },
   {
+    // trigger build S3: owner `both` — the arm ships to consumers. Its module is
+    // statically imported (INLINED into the bundle, off build-runtime-bundles.mjs'
+    // external list) and reads the manifest the layout names: getff's own manifest
+    // here, the synthesizer-output additions on a consumer.
     id: 'cmd-script-liveness',
-    owner: 'maintainer',
+    owner: 'both',
     run: (c) => cmdScriptLivenessEntry(c),
   },
   { id: 'lychee', owner: 'both', run: (c) => lycheeSection(c) },

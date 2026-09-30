@@ -8,11 +8,11 @@
  * real temp repoRoot.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import type { CheckResult } from '../utils/run-check.ts';
+import { runCheck, type CheckResult } from '../utils/run-check.ts';
 import {
   resolveMode,
   isExempt,
@@ -21,6 +21,7 @@ import {
   parseWorkflowRefs,
   runRuleLiveness,
   runCmdScriptLivenessCheck,
+  runCmdScriptLivenessGate,
   getChangedCmdScriptRuleIds,
   EXEMPT_RULES,
   type CmdScriptRule,
@@ -74,6 +75,17 @@ function writeAt(root: string, rel: string, content: string): string {
 /** Stage repo-relative paths so `git ls-files` reports them (no commit needed). */
 function track(root: string, ...rels: string[]): void {
   execFileSync('git', ['add', '--', ...rels], { cwd: root, stdio: 'ignore' });
+}
+
+/** Commit everything staged and return the new SHA (identity flags inline — temp repos have none). */
+function commitAll(root: string, subject: string): string {
+  execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
+  execFileSync(
+    'git',
+    ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', subject],
+    { cwd: root, stdio: 'ignore' },
+  );
+  return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root }).toString().trim();
 }
 
 /** A runCheck mock that records the argv of every invocation, for resolution assertions. */
@@ -486,5 +498,185 @@ describe('runCmdScriptLivenessCheck aggregation', () => {
     expect(report.passed).toEqual(['R19']);
     expect(report.exempt[0]).toMatch(/^IR3:/);
     expect(report.failures).toHaveLength(0);
+  });
+});
+
+/**
+ * Consumer-layout contract (trigger build S3 — spec S-9, advisor E18 F1). The
+ * gate's population comes from the manifest the CALLER names (framework:
+ * packages/core/manifest/rules-manifest.json — consumer:
+ * .ai-factory/synthesizer-output/rules-manifest-additions.json); the consumer
+ * script resolver resolves check.script AS WRITTEN among tracked files and
+ * refuses paths that escape the project; an unparsable manifest — current OR
+ * base — fails closed with a message naming the path (and the ref for the
+ * base), never a thrown crash and never a silent «all changed».
+ */
+describe('consumer layout (trigger build S3)', () => {
+  const CONSUMER_REL = '.ai-factory/synthesizer-output/rules-manifest-additions.json';
+  const FRAMEWORK_REL = 'packages/core/manifest/rules-manifest.json';
+
+  let repoRoot: string;
+  beforeEach(() => {
+    repoRoot = mkdtempSync(join(tmpdir(), 'csl-consumer-'));
+    initRepo(repoRoot);
+  });
+  afterEach(() => rmSync(repoRoot, { recursive: true, force: true }));
+
+  const DEAD_G1: CmdScriptRule = {
+    check: { type: 'command', command: 'true' },
+    fixture: { 'setup-script': 'echo bad > violating.txt' },
+  };
+  /** `git show <base>:<manifest>` exits non-zero — the manifest is new in this push. */
+  const GIT_ABSENT_AT_BASE: CheckResult = {
+    exitCode: 128,
+    stdout: '',
+    stderr: 'fatal: path not in base',
+    timedOut: false,
+    notFound: false,
+  };
+
+  it('✅ the gate reads the manifest the CALLER names (consumer path), not MANIFEST_REL', () => {
+    writeAt(repoRoot, CONSUMER_REL, JSON.stringify({ G1: DEAD_G1 }));
+    const report = runCmdScriptLivenessGate('HEAD~1', {
+      repoRoot,
+      manifestRel: CONSUMER_REL,
+      layout: 'consumer',
+      runCheckFn: pairedRun({ git: GIT_ABSENT_AT_BASE, true: { clean: ok, violating: ok } }),
+    });
+    expect(report.fatal).toBeUndefined();
+    expect(report.failures).toHaveLength(1);
+    expect(report.failures[0].ruleId).toBe('G1');
+    expect(report.failures[0].failures[0]).toMatch(/did NOT exit non-zero on the violating fixture/);
+    // the path it did NOT read: nothing exists at the framework location
+    expect(existsSync(join(repoRoot, FRAMEWORK_REL))).toBe(false);
+    // counted population rides the report (E18 F1 condition 1)
+    expect(report.population).toBe(1);
+    expect(report.changedCount).toBe(1);
+    expect(report.manifestRel).toBe(CONSUMER_REL);
+  });
+
+  it('counts population over the WHOLE manifest but runs only the changed cmd/script rules', () => {
+    const base = JSON.stringify({
+      G1: { check: { type: 'command', command: 'kept' } },
+      G2: { check: { type: 'eslint', rule: 'x/y' } },
+    });
+    const current = JSON.stringify({
+      G1: { check: { type: 'command', command: 'kept' } },
+      G2: { check: { type: 'eslint', rule: 'x/y' } },
+      G3: { check: { type: 'command', command: 'new' } },
+    });
+    writeAt(repoRoot, CONSUMER_REL, current);
+    const seen: string[][] = [];
+    const report = runCmdScriptLivenessGate('HEAD~1', {
+      repoRoot,
+      manifestRel: CONSUMER_REL,
+      layout: 'consumer',
+      runCheckFn: recordingRun({ git: { exitCode: 0, stdout: base, stderr: '', timedOut: false, notFound: false } }, seen),
+    });
+    expect(report.fatal).toBeUndefined();
+    expect(report.population).toBe(2); // G1 + G3, the ESLint rule is not the arm's population
+    expect(report.changedCount).toBe(1); // only G3 is new vs the base
+    expect(report.noData).toHaveLength(1); // G3 ran (no fixture); unchanged G1 never ran
+    expect(report.noData[0]).toMatch(/^G3/);
+  });
+
+  it('✅ resolves a consumer check.script AS WRITTEN among tracked files (scripts/, not packages/)', () => {
+    writeAt(repoRoot, 'scripts/probe.sh', '#!/usr/bin/env bash\ntest ! -e violating.txt\n');
+    track(repoRoot, 'scripts/probe.sh');
+    const seen: string[][] = [];
+    const r = runRuleLiveness('G2', {
+      check: { type: 'script', script: 'scripts/probe.sh' },
+      fixture: { 'setup-script': 'echo bad > violating.txt' },
+    }, {
+      repoRoot,
+      layout: 'consumer',
+      runCheckFn: (cmd, args, opts) => {
+        seen.push([cmd, ...(args ?? [])]);
+        return runCheck(cmd, args, opts);
+      },
+    });
+    expect(r.status).toBe('pass');
+    expect(seen.find((argv) => argv[0] === 'bash')).toContain(join(repoRoot, 'scripts/probe.sh'));
+  });
+
+  it('SKIPs an untracked consumer script with the consumer wording — never the under-packages/ message', () => {
+    const r = runRuleLiveness('G2', {
+      check: { type: 'script', script: 'scripts/absent.sh' },
+      fixture: { 'setup-script': 'echo x > y' },
+    }, { repoRoot, layout: 'consumer', runCheckFn: pairedRun({}) });
+    expect(r.status).toBe('skipped');
+    expect(r.reason).toMatch(/not found among tracked files/);
+    expect(r.reason).not.toMatch(/under packages\//);
+  });
+
+  it('❌ refuses an ABSOLUTE consumer check.script: fail «resolves outside the project», never resolved or run', () => {
+    const seen: string[][] = [];
+    const r = runRuleLiveness('G2', {
+      check: { type: 'script', script: '/etc/evil.sh' },
+      fixture: { 'setup-script': 'echo x > y' },
+    }, { repoRoot, layout: 'consumer', runCheckFn: recordingRun({}, seen) });
+    expect(r.status).toBe('fail');
+    expect(r.failures?.[0]).toMatch(/resolves outside the project/);
+    expect(r.failures?.[0]).toContain('/etc/evil.sh');
+    expect(seen.filter((argv) => argv[0] === 'bash' || argv[0] === 'node')).toEqual([]);
+  });
+
+  it('❌ refuses a `..` consumer check.script the same way — never resolved or run', () => {
+    const seen: string[][] = [];
+    const r = runRuleLiveness('G2', {
+      check: { type: 'script', script: '../../escape.sh' },
+      fixture: { 'setup-script': 'echo x > y' },
+    }, { repoRoot, layout: 'consumer', runCheckFn: recordingRun({}, seen) });
+    expect(r.status).toBe('fail');
+    expect(r.failures?.[0]).toMatch(/resolves outside the project/);
+    expect(r.failures?.[0]).toContain('../../escape.sh');
+    expect(seen.filter((argv) => argv[0] === 'bash' || argv[0] === 'node')).toEqual([]);
+  });
+
+  it('❌ a DEAD consumer rule (passes clean AND on the violating fixture) fails — real subprocesses', () => {
+    const r = runRuleLiveness('G1', DEAD_G1, { repoRoot, layout: 'consumer' });
+    expect(r.status).toBe('fail');
+    expect(r.failures?.[0]).toMatch(/did NOT exit non-zero on the violating fixture/);
+  });
+
+  it('✅ its LIVE twin (`test ! -e violating.txt`, same setup-script) passes — real subprocesses', () => {
+    const r = runRuleLiveness('G1', {
+      check: { type: 'command', command: 'test ! -e violating.txt' },
+      fixture: { 'setup-script': 'echo bad > violating.txt' },
+    }, { repoRoot, layout: 'consumer' });
+    expect(r.status).toBe('pass');
+    expect(r.mode).toBe('run-and-assert');
+  });
+
+  it('an invalid-JSON CURRENT manifest is a fatal naming the path — no throw, no crash, nothing ran', () => {
+    writeAt(repoRoot, CONSUMER_REL, '{ this is not json');
+    const report = runCmdScriptLivenessGate('HEAD~1', {
+      repoRoot,
+      manifestRel: CONSUMER_REL,
+      layout: 'consumer',
+      runCheckFn: pairedRun({ git: GIT_ABSENT_AT_BASE }),
+    });
+    expect(report.fatal).toBeDefined();
+    expect(report.fatal).toContain(CONSUMER_REL);
+    expect(report.failures).toEqual([]);
+    expect(report.passed).toEqual([]);
+  });
+
+  it('an invalid-JSON BASE manifest (a real base commit carrying unparsable text) is a fatal naming path AND ref — never a silent all-changed', () => {
+    writeAt(repoRoot, CONSUMER_REL, '<<< not json >>>');
+    track(repoRoot, CONSUMER_REL);
+    const baseSha = commitAll(repoRoot, 'base: garbage manifest');
+    writeAt(repoRoot, CONSUMER_REL, JSON.stringify({ G1: DEAD_G1 }));
+    commitAll(repoRoot, 'seed: dead rule');
+    // REAL runCheck — the git show against the base must really run.
+    const report = runCmdScriptLivenessGate(baseSha, {
+      repoRoot,
+      manifestRel: CONSUMER_REL,
+      layout: 'consumer',
+    });
+    expect(report.fatal).toBeDefined();
+    expect(report.fatal).toContain(CONSUMER_REL);
+    expect(report.fatal).toContain(baseSha);
+    expect(report.failures).toEqual([]);
   });
 });

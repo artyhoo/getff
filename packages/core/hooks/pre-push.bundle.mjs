@@ -26,7 +26,7 @@ __export(harness_config_local_exports, {
   checkLocalHarnessConfig: () => checkLocalHarnessConfig
 });
 import { lstatSync } from "node:fs";
-import { join } from "node:path";
+import { join as join2 } from "node:path";
 function present(path) {
   try {
     lstatSync(path);
@@ -36,10 +36,10 @@ function present(path) {
   }
 }
 function checkLocalHarnessConfig(root, runRenderer) {
-  if (!present(join(root, ZCODE_DIR))) return { kind: "skip" };
-  if (!present(join(root, RENDERER_REL))) return { kind: "skip" };
-  if (!present(join(root, ZCODE_CONFIG))) {
-    if (present(join(root, ZCODE_SKILLS))) return { kind: "partial" };
+  if (!present(join2(root, ZCODE_DIR))) return { kind: "skip" };
+  if (!present(join2(root, RENDERER_REL))) return { kind: "skip" };
+  if (!present(join2(root, ZCODE_CONFIG))) {
+    if (present(join2(root, ZCODE_SKILLS))) return { kind: "partial" };
     return {
       kind: "skip",
       note: `${ZCODE_CONFIG} absent \u2014 no rendered zcode shim in this checkout, nothing checked`
@@ -62,16 +62,16 @@ var init_harness_config_local = __esm({
 
 // packages/core/hooks/pre-push.ts
 import {
-  existsSync as existsSync2,
+  existsSync as existsSync3,
   readdirSync,
-  readFileSync,
+  readFileSync as readFileSync2,
   realpathSync,
   statSync
 } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { resolve as resolve2, dirname as dirname2 } from "node:path";
 import { spawnSync as spawnSync2 } from "node:child_process";
 import { createHash } from "node:crypto";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 
 // packages/core/hooks/utils/run-check.ts
 import { spawnSync } from "node:child_process";
@@ -364,6 +364,415 @@ function runPriorArtCheck(commits, g, cutoff = PA_HISTORICAL_CUTOFF, ssotIds, ss
     brokenCitations,
     renumberedCitations
   };
+}
+
+// packages/core/hooks/checks/cmd-script-liveness.ts
+import { mkdtempSync, rmSync, existsSync as existsSync2, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve, dirname, join, basename, normalize, isAbsolute, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+var HERE = dirname(fileURLToPath(new URL("checks/cmd-script-liveness.ts", import.meta.url).href));
+var DEFAULT_REPO_ROOT = resolve(HERE, "../../../..");
+var MANIFEST_REL = "packages/core/manifest/rules-manifest.json";
+var EXEMPT_RULES = {
+  IR3: "prose check.script (audit-ai-docs.sh probe \u2014 publish() references @org/event-schemas); non-resolvable per v0 Finding 2c \u2014 no runnable command form exists.",
+  IR4: 'descriptive prose ("depcruise blocks bare fetch() to internal service URLs"), not a runnable command in this manifest; a real depcruise --validate form is deferred to a bespoke probe.'
+};
+function resolveMode(rule) {
+  const override = rule["liveness-mode"];
+  if (override) {
+    switch (override) {
+      case "run":
+        return "run-and-assert";
+      case "workflow-exists":
+        return "workflow-exists";
+      case "config-presence":
+        return "config-presence";
+      case "exempt":
+        return "exempt";
+    }
+  }
+  if (rule.check.type === "command") return "run-and-assert";
+  if (rule.check.type === "script") return "resolve-and-run";
+  return null;
+}
+function extractRunnable(raw) {
+  const parenIdx = raw.indexOf(" (");
+  return (parenIdx >= 0 ? raw.slice(0, parenIdx) : raw).trim();
+}
+function splitCompound(cmd) {
+  return cmd.split("&&").map((s) => s.trim()).filter(Boolean);
+}
+function tokenize(subCmd, filesSubstitution) {
+  const parts = subCmd.split(/\s+/).filter(Boolean).map((p) => p === "<files>" ? filesSubstitution : p);
+  return { bin: parts[0] ?? "", args: parts.slice(1) };
+}
+function trackedPaths(repoRoot) {
+  let out;
+  try {
+    out = execFileSync("git", ["ls-files", "-z"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+  } catch {
+    return [];
+  }
+  return out.split("\0").filter((p) => p.length > 0);
+}
+function resolveTrackedBasename(repoRoot, name) {
+  const candidates = trackedPaths(repoRoot).filter((p) => p.startsWith("packages/") && basename(p) === name).sort();
+  if (candidates.length === 0) return { kind: "none" };
+  if (candidates.length > 1) return { kind: "ambiguous", candidates };
+  return { kind: "found", path: join(repoRoot, candidates[0]) };
+}
+function refuseOutsideProject(repoRoot, token) {
+  const escapesToken = isAbsolute(token) || normalize(token).split("/").includes("..");
+  const rel = relative(repoRoot, resolve(repoRoot, token));
+  if (escapesToken || rel.startsWith("..") || isAbsolute(rel)) {
+    return `script '${token}' resolves outside the project \u2014 absolute paths and '..' segments are refused, never resolved and never run`;
+  }
+  return null;
+}
+function resolveTrackedAsWritten(repoRoot, token) {
+  const rel = normalize(token);
+  const found = trackedPaths(repoRoot).find((p) => p === rel);
+  return found ? join(repoRoot, found) : null;
+}
+function runAndAssert(ruleId, rule, run2) {
+  const fixture = rule.fixture;
+  if (!fixture || !fixture["setup-script"]) {
+    return { status: "no-data", mode: "run-and-assert", reason: "missing fixture.setup-script" };
+  }
+  const raw = rule.check.command ?? rule.check.script ?? "";
+  const runnable = extractRunnable(raw);
+  if (!runnable) {
+    return { status: "no-data", mode: "run-and-assert", reason: "check has no runnable command" };
+  }
+  const cleanTmp = mkdtempSync(join(tmpdir(), `cmdliveness-${ruleId}-clean-`));
+  const violTmp = mkdtempSync(join(tmpdir(), `cmdliveness-${ruleId}-violating-`));
+  const cleanCwd = fixture.cwd ?? cleanTmp;
+  const violCwd = fixture.cwd ?? violTmp;
+  try {
+    const subs = splitCompound(runnable);
+    const notes = [];
+    let anyNonFunctional = false;
+    const functionalSubs = [];
+    for (const sub of subs) {
+      const { bin, args } = tokenize(sub, ".");
+      if (!bin) continue;
+      const cleanR = run2(bin, args, { cwd: cleanCwd });
+      if (cleanR.notFound) {
+        notes.push(`'${bin}' not available \u2014 sub-command '${sub}' skipped`);
+        continue;
+      }
+      if (cleanR.exitCode !== 0) {
+        anyNonFunctional = true;
+        notes.push(`'${bin}' exited ${cleanR.exitCode} on the clean state \u2014 sub-command '${sub}' skipped`);
+        continue;
+      }
+      functionalSubs.push({ bin, args, sub });
+    }
+    if (functionalSubs.length === 0) {
+      const reason = anyNonFunctional ? `check non-functional in env (clean state did not pass): ${notes.join("; ")}` : `no check binary available (${notes.join("; ")})`;
+      return { status: "skipped", mode: "run-and-assert", reason };
+    }
+    const setup = run2("sh", ["-c", fixture["setup-script"]], { cwd: violCwd });
+    if (setup.exitCode !== 0) {
+      return {
+        status: "fail",
+        mode: "run-and-assert",
+        failures: [`fixture.setup-script exited ${setup.exitCode}: ${setup.stderr.trim() || setup.stdout.trim()}`]
+      };
+    }
+    let anyCaught = false;
+    for (const { bin, args } of functionalSubs) {
+      const r = run2(bin, args, { cwd: violCwd });
+      if (r.exitCode !== 0) anyCaught = true;
+    }
+    if (!anyCaught) {
+      return {
+        status: "fail",
+        mode: "run-and-assert",
+        failures: [
+          `the check passed clean but did NOT exit non-zero on the violating fixture \u2014 the guard does not catch its own violation`
+        ]
+      };
+    }
+    return { status: "pass", mode: "run-and-assert", reason: notes.join("; ") || void 0 };
+  } finally {
+    if (fixture["cleanup-script"]) run2("sh", ["-c", fixture["cleanup-script"]], { cwd: violCwd });
+    rmSync(cleanTmp, { recursive: true, force: true });
+    rmSync(violTmp, { recursive: true, force: true });
+  }
+}
+function resolveAndRun(ruleId, rule, run2, repoRoot, layout = "framework") {
+  const fixture = rule.fixture;
+  if (!fixture || !fixture["setup-script"]) {
+    return { status: "no-data", mode: "resolve-and-run", reason: "missing fixture.setup-script" };
+  }
+  if (rule["auto-skip-if-missing"] && rule["requires-package"]) {
+    const pkgs = Array.isArray(rule["requires-package"]) ? rule["requires-package"].join(", ") : rule["requires-package"];
+    return {
+      status: "skipped",
+      mode: "resolve-and-run",
+      reason: `auto-skip-if-missing: required package(s) [${pkgs}] absent in this environment \u2014 the check applies only to a consumer project that carries them`
+    };
+  }
+  const rawPath = extractRunnable(rule.check.script ?? rule.check.command ?? "");
+  const firstToken = rawPath.split(/\s+/)[0] ?? "";
+  if (!firstToken) {
+    return { status: "no-data", mode: "resolve-and-run", reason: "check.script has no path" };
+  }
+  if (layout === "consumer") {
+    const refusal = refuseOutsideProject(repoRoot, firstToken);
+    if (refusal) {
+      return { status: "fail", mode: "resolve-and-run", failures: [refusal] };
+    }
+    const resolvedAsWritten = resolveTrackedAsWritten(repoRoot, firstToken);
+    if (!resolvedAsWritten) {
+      return {
+        status: "skipped",
+        mode: "resolve-and-run",
+        reason: `script '${firstToken}' not found among tracked files (consumer layout, resolved as written) \u2014 install to enable`
+      };
+    }
+    return runResolvedScriptPair(ruleId, rule, run2, resolvedAsWritten, firstToken);
+  }
+  const scriptName = basename(firstToken);
+  const resolution = resolveTrackedBasename(repoRoot, scriptName);
+  if (resolution.kind === "none") {
+    return {
+      status: "skipped",
+      mode: "resolve-and-run",
+      reason: `script '${scriptName}' not found among tracked files under packages/ (dangling/consumer-relative) \u2014 install to enable`
+    };
+  }
+  if (resolution.kind === "ambiguous") {
+    return {
+      status: "fail",
+      mode: "resolve-and-run",
+      failures: [
+        `script '${scriptName}' is ambiguous \u2014 ${resolution.candidates.length} tracked files under packages/ share that basename [${resolution.candidates.join(", ")}]; running one of them would prove liveness of a script the rule does not name. Disambiguate by giving the rule's check.script a unique basename.`
+      ]
+    };
+  }
+  return runResolvedScriptPair(ruleId, rule, run2, resolution.path, scriptName);
+}
+function runResolvedScriptPair(ruleId, rule, run2, resolved, displayName) {
+  const fixture = rule.fixture;
+  const interp = displayName.endsWith(".ts") ? { bin: "node", args: ["--experimental-strip-types", resolved] } : { bin: "bash", args: [resolved] };
+  const cleanTmp = mkdtempSync(join(tmpdir(), `cmdliveness-${ruleId}-clean-`));
+  const violTmp = mkdtempSync(join(tmpdir(), `cmdliveness-${ruleId}-violating-`));
+  const cleanCwd = fixture.cwd ?? cleanTmp;
+  const violCwd = fixture.cwd ?? violTmp;
+  try {
+    const cleanR = run2(interp.bin, interp.args, { cwd: cleanCwd });
+    if (cleanR.notFound) {
+      return {
+        status: "skipped",
+        mode: "resolve-and-run",
+        reason: `interpreter '${interp.bin}' not available \u2014 install to enable`
+      };
+    }
+    if (cleanR.exitCode !== 0) {
+      return {
+        status: "skipped",
+        mode: "resolve-and-run",
+        reason: `check non-functional in env (clean state did not pass): resolved script '${displayName}' exited ${cleanR.exitCode} before evaluating the fixture (e.g. a missing dependency such as ts-morph)`
+      };
+    }
+    const setup = run2("sh", ["-c", fixture["setup-script"]], { cwd: violCwd });
+    if (setup.exitCode !== 0) {
+      return {
+        status: "fail",
+        mode: "resolve-and-run",
+        failures: [`fixture.setup-script exited ${setup.exitCode}: ${setup.stderr.trim() || setup.stdout.trim()}`]
+      };
+    }
+    const r = run2(interp.bin, interp.args, { cwd: violCwd });
+    if (r.exitCode === 0) {
+      return {
+        status: "fail",
+        mode: "resolve-and-run",
+        failures: [`resolved script '${displayName}' passed clean but exited 0 on the violating fixture \u2014 the guard does not catch its violation`]
+      };
+    }
+    return { status: "pass", mode: "resolve-and-run" };
+  } finally {
+    if (fixture["cleanup-script"]) run2("sh", ["-c", fixture["cleanup-script"]], { cwd: violCwd });
+    rmSync(cleanTmp, { recursive: true, force: true });
+    rmSync(violTmp, { recursive: true, force: true });
+  }
+}
+function parseWorkflowRefs(raw) {
+  const refs = [];
+  const re = /([\w.-]+\.ya?ml)(?:\s*\(([^)]*)\))?/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    const inner = m[2] ?? "";
+    const tokens = inner.split(/[^A-Za-z0-9]+/).map((t) => t.trim()).filter((t) => t.length >= 4);
+    refs.push({ file: m[1], tokens });
+  }
+  return refs;
+}
+function workflowExists(rule, repoRoot) {
+  const raw = rule.check.command ?? rule.check.script ?? "";
+  const refs = parseWorkflowRefs(raw);
+  if (refs.length === 0) {
+    return {
+      status: "skipped",
+      mode: "workflow-exists",
+      reason: "no concrete workflow filename in check \u2014 consumer-side CI rule (jobs referenced in prose); not assertable in the framework repo"
+    };
+  }
+  const wfDir = join(repoRoot, ".github", "workflows");
+  const failures = [];
+  for (const ref of refs) {
+    const path = join(wfDir, ref.file);
+    if (!existsSync2(path)) {
+      if (rule["auto-skip-if-missing"]) continue;
+      failures.push(`workflow '${ref.file}' is missing from .github/workflows/`);
+      continue;
+    }
+    const content = readFileSync(path, "utf8");
+    if (!/\bjobs:/.test(content)) {
+      failures.push(`workflow '${ref.file}' defines no jobs: block`);
+      continue;
+    }
+    if (ref.tokens.length > 0 && !ref.tokens.some((t) => content.includes(t))) {
+      failures.push(`workflow '${ref.file}' references none of the required jobs [${ref.tokens.join(", ")}]`);
+    }
+  }
+  if (failures.length > 0) return { status: "fail", mode: "workflow-exists", failures };
+  return { status: "pass", mode: "workflow-exists" };
+}
+function configPresence(rule, repoRoot) {
+  const candidates = findConfigs(repoRoot, /^(\.?dependency-cruiser)\.([cm]?js|[cm]?ts|json)$/);
+  if (candidates.length === 0) {
+    return {
+      status: "fail",
+      mode: "config-presence",
+      failures: ["no tracked dependency-cruiser architectural config found in the repo \u2014 the arch boundary check has nothing to enforce"]
+    };
+  }
+  return { status: "pass", mode: "config-presence", reason: `arch config present: ${candidates[0]}` };
+}
+function findConfigs(repoRoot, pattern) {
+  return trackedPaths(repoRoot).filter((p) => pattern.test(basename(p))).sort();
+}
+function runRuleLiveness(ruleId, rule, opts = {}) {
+  const run2 = opts.runCheckFn ?? runCheck;
+  const repoRoot = opts.repoRoot ?? DEFAULT_REPO_ROOT;
+  const mode = resolveMode(rule);
+  if (mode === null) return { status: "n/a", mode: null };
+  switch (mode) {
+    case "exempt":
+      return { status: "exempt", mode, reason: EXEMPT_RULES[ruleId] ?? "exempt (no runnable form)" };
+    case "run-and-assert":
+      return runAndAssert(ruleId, rule, run2);
+    case "resolve-and-run":
+      return resolveAndRun(ruleId, rule, run2, repoRoot, opts.layout ?? "framework");
+    case "workflow-exists":
+      return workflowExists(rule, repoRoot);
+    case "config-presence":
+      return configPresence(rule, repoRoot);
+  }
+}
+function isCmdScriptRule(rule) {
+  return rule.check.type === "command" || rule.check.type === "script";
+}
+function getChangedCmdScriptRuleIds(baseManifestJson, currentManifestJson) {
+  const current = JSON.parse(currentManifestJson);
+  if (!baseManifestJson) {
+    return Object.keys(current).filter((k) => isCmdScriptRule(current[k]));
+  }
+  let base;
+  try {
+    base = JSON.parse(baseManifestJson);
+  } catch {
+    return Object.keys(current).filter((k) => isCmdScriptRule(current[k]));
+  }
+  const changed = [];
+  for (const [id, rule] of Object.entries(current)) {
+    if (!isCmdScriptRule(rule)) continue;
+    const baseRule = base[id];
+    if (!baseRule || JSON.stringify(baseRule) !== JSON.stringify(rule)) changed.push(id);
+  }
+  return changed;
+}
+function runCmdScriptLivenessCheck(ruleIds, manifest, opts = {}) {
+  const report = {
+    failures: [],
+    passed: [],
+    skipped: [],
+    exempt: [],
+    noData: []
+  };
+  for (const id of ruleIds) {
+    const rule = manifest[id];
+    if (!rule) continue;
+    const result = runRuleLiveness(id, rule, opts);
+    switch (result.status) {
+      case "pass":
+        report.passed.push(id);
+        break;
+      case "fail":
+        report.failures.push({ ruleId: id, mode: result.mode, failures: result.failures ?? [] });
+        break;
+      case "skipped":
+        report.skipped.push(`${id} [${result.mode}]: ${result.reason ?? "unavailable"}`);
+        break;
+      case "exempt":
+        report.exempt.push(`${id}: ${result.reason ?? "exempt"}`);
+        break;
+      case "no-data":
+        report.noData.push(`${id} [${result.mode}]: ${result.reason ?? "no data"}`);
+        break;
+      case "n/a":
+        break;
+    }
+  }
+  return report;
+}
+function emptyReport(fatal) {
+  return { failures: [], passed: [], skipped: [], exempt: [], noData: [], ...fatal ? { fatal } : {} };
+}
+function runCmdScriptLivenessGate(base, opts = {}) {
+  const repoRoot = opts.repoRoot ?? DEFAULT_REPO_ROOT;
+  const manifestRel = opts.manifestRel ?? MANIFEST_REL;
+  const manifestPath = resolve(repoRoot, manifestRel);
+  const currentJson = readFileSync(manifestPath, "utf8");
+  let current;
+  try {
+    current = JSON.parse(currentJson);
+  } catch (err) {
+    return emptyReport(
+      `the rules manifest at '${manifestRel}' does not parse (${err.message}) \u2014 failing closed: no command/script rule is proven, fix the manifest JSON before pushing`
+    );
+  }
+  const run2 = opts.runCheckFn ?? runCheck;
+  const baseResult = run2("git", ["show", `${base}:${manifestRel}`], { cwd: repoRoot });
+  const baseJson = baseResult.exitCode === 0 ? baseResult.stdout : null;
+  if (baseJson !== null) {
+    try {
+      JSON.parse(baseJson);
+    } catch (err) {
+      return emptyReport(
+        `the rules manifest at '${manifestRel}' on base '${base}' does not parse (${err.message}) \u2014 failing closed: no command/script rule is proven, fix the manifest JSON before pushing`
+      );
+    }
+  }
+  const changedIds = getChangedCmdScriptRuleIds(baseJson, currentJson);
+  const stats = {
+    population: Object.values(current).filter(isCmdScriptRule).length,
+    changedCount: changedIds.length,
+    manifestRel
+  };
+  if (changedIds.length === 0) return { ...emptyReport(), ...stats };
+  return { ...runCmdScriptLivenessCheck(changedIds, current, opts), ...stats };
 }
 
 // packages/core/hooks/checks/s17.ts
@@ -713,15 +1122,15 @@ function blobTrackedIn(baseTree, sourceTree, path) {
 }
 
 // packages/core/hooks/pre-push.ts
-var HERE = dirname(fileURLToPath(import.meta.url));
-var REPO_ROOT = resolve(HERE, "../../..");
-var CORE = resolve(REPO_ROOT, "packages/core");
+var HERE2 = dirname2(fileURLToPath2(import.meta.url));
+var REPO_ROOT = resolve2(HERE2, "../../..");
+var CORE = resolve2(REPO_ROOT, "packages/core");
 var run = (cmd, args = []) => runCheck(cmd, args, { cwd: REPO_ROOT });
 var EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 function readPushStdin() {
   if (process.stdin.isTTY) return "";
   try {
-    return readFileSync(0, "utf8");
+    return readFileSync2(0, "utf8");
   } catch {
     return "";
   }
@@ -807,8 +1216,8 @@ function die(msg, r) {
   process.exit(1);
 }
 function workflowYmlFiles() {
-  const dir = resolve(REPO_ROOT, ".github/workflows");
-  if (!existsSync2(dir)) return [];
+  const dir = resolve2(REPO_ROOT, ".github/workflows");
+  if (!existsSync3(dir)) return [];
   return readdirSync(dir).filter((f) => f.endsWith(".yml")).map((f) => `.github/workflows/${f}`);
 }
 function shellScriptFiles() {
@@ -846,10 +1255,10 @@ function ssotTitlesAt(sha) {
   return content === null ? void 0 : loadSsotRowTitles(content);
 }
 function ssotTitlesAtTip() {
-  const abs = resolve(REPO_ROOT, SSOT_REL);
-  if (!existsSync2(abs)) return void 0;
+  const abs = resolve2(REPO_ROOT, SSOT_REL);
+  if (!existsSync3(abs)) return void 0;
   try {
-    return loadSsotRowTitles(readFileSync(abs, "utf8"));
+    return loadSsotRowTitles(readFileSync2(abs, "utf8"));
   } catch {
     return void 0;
   }
@@ -1059,7 +1468,7 @@ async function guardLivenessSection(rb) {
   );
   process.exit(1);
 }
-async function cmdScriptLivenessSection(rb) {
+function cmdScriptLivenessSection(rb, manifestRel, layout) {
   if (rb.base === null) {
     warnSkip(
       "cmd-script-liveness",
@@ -1067,16 +1476,16 @@ async function cmdScriptLivenessSection(rb) {
     );
     return;
   }
-  let gate;
-  try {
-    gate = await import("./checks/cmd-script-liveness.ts");
-  } catch (err) {
-    die(
-      `\u274C cmd-script-liveness: failed to load the liveness runner.
-   ${err.message}`
-    );
+  const report = runCmdScriptLivenessGate(rb.base, { repoRoot: REPO_ROOT, manifestRel, layout });
+  if (report.fatal) {
+    process.stdout.write(`\u274C cmd-script-liveness: ${report.fatal}
+`);
+    process.exit(1);
   }
-  const report = gate.runCmdScriptLivenessGate(rb.base);
+  process.stdout.write(
+    report.population === 0 ? "\u2139 cmd-script-liveness: command/script checks: 0 \u2014 nothing to check yet\n" : `\u2139 cmd-script-liveness: command/script checks: ${report.population} in ${report.manifestRel}, ${report.changedCount} changed in this push
+`
+  );
   for (const s of report.skipped) {
     process.stdout.write(`\u2139 cmd-script-liveness: SKIP ${s}
 `);
@@ -1108,7 +1517,11 @@ async function cmdScriptLivenessSection(rb) {
 `);
   }
   process.stdout.write(
-    "\nFix: ensure each fixture.setup-script creates the rule's REAL violating state\nso the check exits non-zero. See packages/core/manifest/rules-manifest.json (fixture block).\n\n"
+    `
+Fix: ensure each fixture.setup-script creates the rule's REAL violating state
+so the check exits non-zero. See ${report.manifestRel} (fixture block).
+
+`
   );
   process.exit(1);
 }
@@ -1120,9 +1533,9 @@ function unpinnedToolInstallSection(ctx) {
   if (population.length === 0) return;
   const allFindings = [];
   for (const relPath of population) {
-    const absPath = resolve(REPO_ROOT, relPath);
-    if (!existsSync2(absPath)) continue;
-    const content = readFileSync(absPath, "utf8");
+    const absPath = resolve2(REPO_ROOT, relPath);
+    if (!existsSync3(absPath)) continue;
+    const content = readFileSync2(absPath, "utf8");
     const findings = checkUnpinnedToolInstalls(content, relPath);
     allFindings.push(...findings);
   }
@@ -1187,11 +1600,11 @@ function zizmorTemplatesSection() {
 function trackedShippedWorkflowTemplates() {
   const r = run("git", ["ls-files", "-z", "--", "*github-actions*.yml"]);
   if (r.exitCode !== 0) return null;
-  return r.stdout.split("\0").filter((l) => l.length > 0 && !l.startsWith(".github/")).filter((l) => existsSync2(resolve(REPO_ROOT, l))).sort();
+  return r.stdout.split("\0").filter((l) => l.length > 0 && !l.startsWith(".github/")).filter((l) => existsSync3(resolve2(REPO_ROOT, l))).sort();
 }
 function auditAiDocsSection() {
-  if (existsSync2(
-    resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.test.ts")
+  if (existsSync3(
+    resolve2(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.test.ts")
   )) {
     const r = run("npx", [
       "vitest",
@@ -1204,7 +1617,7 @@ function auditAiDocsSection() {
     if (r.exitCode !== 0) die("\u274C audit-ai-docs.test.ts failed:", r);
     emit(r);
   }
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "packages/core/audit-self/audit-ai-docs.sh"))) {
     const live = [
       ["audit-ai-docs.sh", "bash", ["packages/core/audit-self/audit-ai-docs.sh"]],
       ["audit-ai-docs.ts", "npx", ["tsx", "packages/core/audit-self/audit-ai-docs.ts"]]
@@ -1220,22 +1633,22 @@ function auditAiDocsSection() {
   }
 }
 function skillDriftSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/check-skill-drift.sh"))) {
     const r = run("bash", ["scripts/check-skill-drift.sh"]);
     if (r.exitCode !== 0) die("\u274C skill drift check failed", r);
     emit(r);
   }
 }
 function ruleGlobsSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/check-rule-globs.sh"))) {
     const r = run("bash", ["scripts/check-rule-globs.sh"]);
     if (r.exitCode !== 0) die("\u274C rule-glob liveness check failed", r);
     emit(r);
   }
 }
 function worktreeProvisioningSection() {
-  const helper = resolve(REPO_ROOT, "scripts/worktree-node-modules.sh");
-  if (!existsSync2(helper) || !statSync(resolve(REPO_ROOT, ".git")).isFile())
+  const helper = resolve2(REPO_ROOT, "scripts/worktree-node-modules.sh");
+  if (!existsSync3(helper) || !statSync(resolve2(REPO_ROOT, ".git")).isFile())
     return;
   if (run("bash", [helper, "--check", REPO_ROOT]).exitCode === 0) return;
   const applied = run("bash", [helper, "--apply", REPO_ROOT]);
@@ -1250,7 +1663,7 @@ function worktreeProvisioningSection() {
   );
 }
 function lintStagedResolvesSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/check-lintstaged-resolves.sh"))) {
     const r = run("bash", ["scripts/check-lintstaged-resolves.sh"]);
     if (r.exitCode !== 0) die("\u274C lint-staged resolution check failed", r);
     emit(r);
@@ -1259,7 +1672,7 @@ function lintStagedResolvesSection() {
 function validateSidecarShape(path) {
   let parsed;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    parsed = JSON.parse(readFileSync2(path, "utf8"));
   } catch (e) {
     return `not valid JSON \u2014 ${e.message}`;
   }
@@ -1288,12 +1701,12 @@ function validateSidecarShape(path) {
 }
 function generatedRuleMaterialSection() {
   const resolveRunner = (name) => {
-    const consumer = resolve(REPO_ROOT, `scripts/${name}`);
-    if (existsSync2(consumer)) return consumer;
-    const framework = resolve(REPO_ROOT, `packages/core/synthesizer/${name}`);
-    return existsSync2(framework) ? framework : null;
+    const consumer = resolve2(REPO_ROOT, `scripts/${name}`);
+    if (existsSync3(consumer)) return consumer;
+    const framework = resolve2(REPO_ROOT, `packages/core/synthesizer/${name}`);
+    return existsSync3(framework) ? framework : null;
   };
-  const binResolvable = (bin) => existsSync2(resolve(REPO_ROOT, `node_modules/.bin/${bin}`)) || existsSync2(resolve(REPO_ROOT, `packages/node_modules/.bin/${bin}`));
+  const binResolvable = (bin) => existsSync3(resolve2(REPO_ROOT, `node_modules/.bin/${bin}`)) || existsSync3(resolve2(REPO_ROOT, `packages/node_modules/.bin/${bin}`));
   const toolPresent = (backend) => {
     if (backend === "astgrep")
       return !run("ast-grep", ["--version"]).notFound || !run("sg", ["--version"]).notFound;
@@ -1301,11 +1714,11 @@ function generatedRuleMaterialSection() {
       return !run("ruff", ["--version"]).notFound || !run("uvx", ["--version"]).notFound;
     return !run("cargo", ["--version"]).notFound;
   };
-  const manifest = resolve(
+  const manifest = resolve2(
     REPO_ROOT,
     ".ai-factory/synthesizer-output/rules-manifest-additions.json"
   );
-  if (existsSync2(manifest)) {
+  if (existsSync3(manifest)) {
     const runner = resolveRunner("run-generated-rule-mutation.sh");
     if (!runner) {
       process.stdout.write(
@@ -1339,11 +1752,11 @@ function generatedRuleMaterialSection() {
   }
   const firingRunner = resolveRunner("run-rule-tests-firing.sh");
   for (const backend of ["astgrep", "ruff", "cargo"]) {
-    const sidecar = resolve(
+    const sidecar = resolve2(
       REPO_ROOT,
       `.ai-factory/rule-tests/${backend}.json`
     );
-    if (!existsSync2(sidecar)) continue;
+    if (!existsSync3(sidecar)) continue;
     const shapeError = validateSidecarShape(sidecar);
     if (shapeError !== null) {
       die(
@@ -1390,8 +1803,8 @@ function generatedRuleMaterialSection() {
   }
 }
 function kickoffPortabilitySection() {
-  if (existsSync2(
-    resolve(
+  if (existsSync3(
+    resolve2(
       REPO_ROOT,
       "packages/core/audit-self/check-kickoff-portability.sh"
     )
@@ -1404,7 +1817,7 @@ function kickoffPortabilitySection() {
   }
 }
 function synthBundleSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/build-synth-bundle.sh"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/build-synth-bundle.sh"))) {
     const r = run("bash", ["scripts/build-synth-bundle.sh", "--check"]);
     if (r.exitCode === 2) {
       process.stderr.write(
@@ -1417,11 +1830,11 @@ function synthBundleSection() {
       );
     } else {
       emit(r);
-      const bundlePath = resolve(
+      const bundlePath = resolve2(
         REPO_ROOT,
         "packages/core/install/synth-and-wire.bundle.mjs"
       );
-      if (existsSync2(bundlePath)) {
+      if (existsSync3(bundlePath)) {
         const smoke = runCheck(
           "node",
           [
@@ -1436,7 +1849,7 @@ function synthBundleSection() {
             cwd: REPO_ROOT,
             env: {
               ...process.env,
-              AIF_SYNTH_PKG_ROOT: resolve(REPO_ROOT, "packages/core")
+              AIF_SYNTH_PKG_ROOT: resolve2(REPO_ROOT, "packages/core")
             }
           }
         );
@@ -1458,7 +1871,7 @@ function synthBundleSection() {
   }
 }
 function runtimeBundlesSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
+  if (!existsSync3(resolve2(REPO_ROOT, "scripts/build-runtime-bundles.mjs")))
     return;
   const r = run("node", ["scripts/build-runtime-bundles.mjs", "--check"]);
   if (r.exitCode === 2) {
@@ -1475,7 +1888,7 @@ function runtimeBundlesSection() {
   }
 }
 function shippedRuleDriftSection(ctx) {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/build-shipped-eslint-rules.sh")))
+  if (!existsSync3(resolve2(REPO_ROOT, "scripts/build-shipped-eslint-rules.sh")))
     return;
   if (ctx.rb.base !== null) {
     const touched = getChangedFiles(ctx.rb.base, "ACMRD", ctx.rb.head).some(
@@ -1522,11 +1935,11 @@ function sha256Bytes(buf) {
   return createHash("sha256").update(buf).digest("hex");
 }
 function payloadDriftSection(ctx) {
-  const manifestPath = resolve(REPO_ROOT, "packages/getff/MANIFEST.sha256");
-  const baselineDir = resolve(REPO_ROOT, "tests/install-sh/baselines");
-  const lister = resolve(REPO_ROOT, "scripts/build-getff-dist.sh");
-  const hasManifest = existsSync2(manifestPath) && existsSync2(lister);
-  const hasBaselines = existsSync2(baselineDir);
+  const manifestPath = resolve2(REPO_ROOT, "packages/getff/MANIFEST.sha256");
+  const baselineDir = resolve2(REPO_ROOT, "tests/install-sh/baselines");
+  const lister = resolve2(REPO_ROOT, "scripts/build-getff-dist.sh");
+  const hasManifest = existsSync3(manifestPath) && existsSync3(lister);
+  const hasBaselines = existsSync3(baselineDir);
   if (!hasManifest && !hasBaselines) return;
   if (ctx.rb.base === null) {
     if (hasManifest) {
@@ -1551,7 +1964,7 @@ function payloadDriftSection(ctx) {
     const roots = listed.stdout.split("\n").map((s) => s.trim()).filter(Boolean);
     const inPayload = (p) => roots.some((root) => p === root || p.startsWith(`${root}/`));
     const manifest = /* @__PURE__ */ new Map();
-    for (const line of readFileSync(manifestPath, "utf8").split("\n")) {
+    for (const line of readFileSync2(manifestPath, "utf8").split("\n")) {
       const m = /^([0-9a-f]{64})\s\s?(.+)$/.exec(line.trim());
       if (m?.[1] && m[2]) manifest.set(m[2], m[1]);
     }
@@ -1568,9 +1981,9 @@ function payloadDriftSection(ctx) {
         problems.push(`  ${path} \u2014 shipped, missing from MANIFEST.sha256`);
         continue;
       }
-      const abs = resolve(REPO_ROOT, path);
-      if (!existsSync2(abs)) continue;
-      if (sha256Bytes(readFileSync(abs)) !== recorded)
+      const abs = resolve2(REPO_ROOT, path);
+      if (!existsSync3(abs)) continue;
+      if (sha256Bytes(readFileSync2(abs)) !== recorded)
         problems.push(
           `  ${path} \u2014 content differs from its MANIFEST.sha256 row`
         );
@@ -1592,7 +2005,7 @@ function payloadDriftSection(ctx) {
         }
         if (!name.endsWith(".fingerprint")) continue;
         fingerprints += 1;
-        for (const line of readFileSync(abs, "utf8").split("\n")) {
+        for (const line of readFileSync2(abs, "utf8").split("\n")) {
           const m = /^([0-9a-f]{64})\s/.exec(line.trim());
           if (m?.[1]) recorded.add(m[1]);
         }
@@ -1619,7 +2032,7 @@ function payloadDriftSection(ctx) {
   );
 }
 function manifestRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/render/render-rules.ts"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "packages/core/render/render-rules.ts"))) {
     const r = run("npx", [
       "tsx",
       "packages/core/render/render-rules.ts",
@@ -1635,7 +2048,7 @@ function manifestRenderSection() {
   }
 }
 function ruleIndexRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-rule-index.mjs"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/render-rule-index.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-rule-index.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1647,7 +2060,7 @@ function ruleIndexRenderSection() {
   }
 }
 function referenceRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-reference.mjs"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/render-reference.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-reference.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1659,7 +2072,7 @@ function referenceRenderSection() {
   }
 }
 function faceFactsRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-face-facts.mjs"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/render-face-facts.mjs"))) {
     const r = run("npx", ["tsx", "scripts/render-face-facts.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -1671,7 +2084,7 @@ function faceFactsRenderSection() {
   }
 }
 function docsRefreshSection(c) {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/check-docs-refresh.mjs"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/check-docs-refresh.mjs"))) {
     if (c.rb.base === null) {
       warnSkip(
         "docs-refresh",
@@ -1708,7 +2121,7 @@ function lineCitationsSection(ctx) {
     warnSkip("\xA79", "no resolvable base for the path:line citation check");
     return;
   }
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/check-line-citations.mjs")))
+  if (!existsSync3(resolve2(REPO_ROOT, "scripts/check-line-citations.mjs")))
     return;
   const changed = getChangedFiles(rb.base, "ACMR", rb.head);
   if (changed.length === 0) return;
@@ -1765,7 +2178,7 @@ function runCoreSuite(script) {
   return r;
 }
 function principlesMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve2(CORE, "package.json"))) {
     const r = runCoreSuite("test:principles");
     if (r.notFound) {
       die(
@@ -1793,7 +2206,7 @@ function alwaysonBudgetSection() {
   emit(r);
 }
 function askFileSchemaSection() {
-  if (!existsSync2(resolve(REPO_ROOT, "scripts/check-ask-files.sh"))) return;
+  if (!existsSync3(resolve2(REPO_ROOT, "scripts/check-ask-files.sh"))) return;
   const r = run("bash", ["scripts/check-ask-files.sh"]);
   if (r.notFound) {
     die(
@@ -1809,7 +2222,7 @@ function askFileSchemaSection() {
   emit(r);
 }
 function irMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve2(CORE, "package.json"))) {
     const r = runCoreSuite("test:ir");
     if (r.notFound) {
       die("\u274C npm/npx not found. Install Node.js to enable IR meta-tests.");
@@ -1820,7 +2233,7 @@ function irMetaSection() {
   }
 }
 function backendsMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve2(CORE, "package.json"))) {
     const r = runCoreSuite("test:backends");
     if (r.notFound) {
       die(
@@ -1832,7 +2245,7 @@ function backendsMetaSection() {
   }
 }
 function compositionMetaSection() {
-  if (existsSync2(resolve(CORE, "package.json"))) {
+  if (existsSync3(resolve2(CORE, "package.json"))) {
     const r = runCoreSuite("test:composition");
     if (r.notFound) {
       die(
@@ -1850,8 +2263,8 @@ function specDisciplineSection(ctx) {
     const specFiles = getChangedFiles(rb.base, "ACM", rb.head).filter(
       (f) => /^\.claude\/orchestrator-prompts\/.*\.md$/.test(f)
     );
-    if (specFiles.length > 0 && existsSync2(
-      resolve(
+    if (specFiles.length > 0 && existsSync3(
+      resolve2(
         REPO_ROOT,
         "packages/core/spec-validation/validate-batch-spec.ts"
       )
@@ -1873,14 +2286,23 @@ function specDisciplineSection(ctx) {
   }
 }
 async function guardLivenessEntry(ctx) {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
     await guardLivenessSection(ctx.rb);
   }
 }
+var FRAMEWORK_MANIFEST_REL = "packages/core/manifest/rules-manifest.json";
+var CONSUMER_MANIFEST_REL = ".ai-factory/synthesizer-output/rules-manifest-additions.json";
 async function cmdScriptLivenessEntry(ctx) {
-  if (existsSync2(resolve(REPO_ROOT, "packages/core/manifest/rules-manifest.json"))) {
-    await cmdScriptLivenessSection(ctx.rb);
+  const layout = ctx.isFrameworkRepo ? "framework" : "consumer";
+  const manifestRel = layout === "framework" ? FRAMEWORK_MANIFEST_REL : CONSUMER_MANIFEST_REL;
+  if (!existsSync3(resolve2(REPO_ROOT, manifestRel))) {
+    process.stdout.write(
+      `\u2139 cmd-script-liveness: command/script checks: 0 \u2014 nothing to check yet (no rules manifest at ${manifestRel})
+`
+    );
+    return;
   }
+  await cmdScriptLivenessSection(ctx.rb, manifestRel, layout);
 }
 var SHIPPED_MD_DESTINATIONS = [
   "AGENTS.md",
@@ -1927,10 +2349,10 @@ var SHIPPED_SKILL_SLUGS = [
   "tool-bootstrapping"
 ];
 function refreshBaselinePaths() {
-  const manifest = resolve(REPO_ROOT, ".ai-factory/refresh-baseline.json");
-  if (!existsSync2(manifest)) return null;
+  const manifest = resolve2(REPO_ROOT, ".ai-factory/refresh-baseline.json");
+  if (!existsSync3(manifest)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(manifest, "utf8"));
+    const parsed = JSON.parse(readFileSync2(manifest, "utf8"));
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
       return null;
     return new Set(Object.keys(parsed));
@@ -2015,7 +2437,7 @@ function lycheeSection(ctx) {
   }
 }
 function invariantsRenderSection() {
-  if (existsSync2(resolve(REPO_ROOT, "scripts/render-invariants.mjs"))) {
+  if (existsSync3(resolve2(REPO_ROOT, "scripts/render-invariants.mjs"))) {
     const r = run("node", ["scripts/render-invariants.mjs", "--check"]);
     if (r.notFound) {
       die(
@@ -2183,8 +2605,12 @@ var SECTIONS = [
     run: (c) => guardLivenessEntry(c)
   },
   {
+    // trigger build S3: owner `both` — the arm ships to consumers. Its module is
+    // statically imported (INLINED into the bundle, off build-runtime-bundles.mjs'
+    // external list) and reads the manifest the layout names: getff's own manifest
+    // here, the synthesizer-output additions on a consumer.
     id: "cmd-script-liveness",
-    owner: "maintainer",
+    owner: "both",
     run: (c) => cmdScriptLivenessEntry(c)
   },
   { id: "lychee", owner: "both", run: (c) => lycheeSection(c) },
@@ -2232,7 +2658,7 @@ function activeSections(isFrameworkRepo) {
 }
 async function main() {
   const rb = resolveBase();
-  const isFrameworkRepo = existsSync2(resolve(REPO_ROOT, SSOT_REL));
+  const isFrameworkRepo = existsSync3(resolve2(REPO_ROOT, SSOT_REL));
   const ctx = { rb, isFrameworkRepo };
   const only = process.env["PREPUSH_ONLY"];
   if (only !== void 0 && only !== "") {
@@ -2255,7 +2681,7 @@ function isDirectCliInvocation() {
   const argv1 = process.argv[1];
   if (!argv1) return false;
   try {
-    return realpathSync(argv1) === realpathSync(fileURLToPath(import.meta.url));
+    return realpathSync(argv1) === realpathSync(fileURLToPath2(import.meta.url));
   } catch {
     return false;
   }

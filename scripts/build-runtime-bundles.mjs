@@ -20,10 +20,11 @@
  *
  * WHAT EACH BUNDLE IS
  *   • Everything the entry imports is inlined, first-party and third-party alike (ajv, semver, …).
- *   • `external` names first-party modules left out on purpose: the pre-push hook's two
- *     maintainer-only sections load their gates with a dynamic import that never runs in a
- *     consumer (composeSections keeps them out of the consumer composition), and inlining them
- *     would drag the whole ESLint stack into the hook.
+ *   • `external` names first-party modules left out on purpose: the pre-push hook's one
+ *     remaining maintainer-only section (guard-liveness; cmd-script-liveness left the list
+ *     in trigger build S3 — owner `both`, statically imported, inlined) loads its gate with a
+ *     dynamic import that never runs in a consumer (composeSections keeps it out of the
+ *     consumer composition), and inlining it would drag the whole ESLint stack into the hook.
  *   • `fromProject` names third-party packages that are NOT inlined but loaded at run time from
  *     the project the process runs in (its cwd), falling back to the package that depends on them
  *     and then to getff's own tree. The generator's L4 gates need `eslint`,
@@ -69,11 +70,9 @@ export const BUNDLES = [
     // such section is maintainer-only — composeSections() never runs it on a consumer, where
     // the file does not exist.
     external: [
+      // trigger build S3 removed ./checks/cmd-script-liveness.ts from this list:
+      // its section is owner `both`, so the module ships INLINED in the bundle.
       { path: './checks/guard-liveness.ts', section: 'guard-liveness' },
-      {
-        path: './checks/cmd-script-liveness.ts',
-        section: 'cmd-script-liveness',
-      },
     ],
     fromProject: [],
     // The hook runs on every consumer push: it must stay free of third-party code.
