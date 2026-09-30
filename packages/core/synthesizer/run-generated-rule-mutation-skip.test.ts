@@ -29,7 +29,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -311,6 +311,48 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(out).toContain('nothing to test');
       expect(out).not.toContain('NOT green');
       expect(out).not.toContain('skipped=');
+    });
+
+    // P6 run 4 N10: a mutation the probe cannot evaluate (code 9) was counted as KILLED. The ATTR-1
+    // operator strips the first `[…]`, and inside `:matches([…], …)` that leaves `:matches(, …)` — a
+    // selector syntax error, not a mutant the negative test caught. It is now counted apart
+    // («unevaluable»), named with its error, and left out of the kill rate. Both runners: the push-time
+    // runner here, the install's self-verify (check-generated-rule-mutation.sh) below.
+    const MATCHES_RULE = {
+      'rule-matches': {
+        check: {
+          type: 'declarative',
+          selector: "CallExpression:matches([callee.name='fetch'], [callee.name='axios'])",
+        },
+        'negative-test': { input: ["fetch('/x');"] },
+      },
+    };
+
+    it('a mutation that is a selector syntax error is unevaluable, never a kill (runner)', () => {
+      const { code, out } = runRunner(writeManifest(MATCHES_RULE));
+
+      expect(out, out).toContain("unevaluable: CallExpression:matches(, [callee.name='axios'])");
+      expect(out, out).toMatch(/kill: \d+\/10 /);
+      expect(out, out).toMatch(/=== overall: kill=\d+\/10 \(\d+%\) skipped=0 unevaluable=1 floor=60% ===/);
+      expect(code, out).toBe(0);
+    });
+
+    it('a mutation that is a selector syntax error is unevaluable, never a kill (install self-verify)', () => {
+      const root = mkdtempSync(join(tmpdir(), 'mutcheck-matches-'));
+      tmpDirs.push(root);
+      mkdirSync(join(root, '.ai-factory/synthesizer-output'), { recursive: true });
+      writeFileSync(
+        join(root, '.ai-factory/synthesizer-output/rules-manifest-additions.json'),
+        JSON.stringify(MATCHES_RULE),
+      );
+      const r = spawnSync('bash', [resolve(REPO_ROOT, 'packages/core/audit-self/check-generated-rule-mutation.sh'), root], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+
+      expect(out, out).toMatch(/\[rule-matches\] kill=\d+\/10 \(\d+%\) ≥60% .* 1 mutation unevaluable/);
+      expect(r.status, out).toBe(0);
     });
   },
 );

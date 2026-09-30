@@ -73,8 +73,8 @@ trap 'rm -rf "$SCRATCH"' EXIT
 cat > "$SCRATCH/selector-probe.mts" << 'PROBE'
 import { Linter } from 'eslint';
 // One process per rule: PROBE_SELECTORS holds the original selector and its mutations, one per line, and
-// the probe prints one code per selector, in order — 0 fired, 1 did not fire, 9 cannot evaluate (the
-// input does not parse, or ESLint threw on the selector). Loading ESLint and the parser once per rule
+// the probe prints one line per selector, in order: its code — 0 fired, 1 did not fire, 9 cannot evaluate
+// (the input does not parse, or ESLint threw on the selector) — and, after a tab, the error of a 9. Loading ESLint and the parser once per rule
 // instead of once per selector is what keeps the push-time check inside its budget (P6 run 3 N6: one
 // process per selector took 60 s for six rules on an idle 16-core machine).
 const selectors = (process.env['PROBE_SELECTORS'] ?? '').split('\n').filter(Boolean);
@@ -92,15 +92,16 @@ const linter = new Linter();
 // does: typescript-eslint's parser when installed, JSX on (critical-review cold pass, M3 sibling).
 let parser: unknown;
 try { parser = (await import('typescript-eslint')).parser; } catch { parser = undefined; }
-const verdict = (selector: string, first: boolean): number => {
+const oneLine = (m: string): string => m.replace(/\s+/g, ' ').trim();
+const verdict = (selector: string, first: boolean): string => {
   const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module', ...(parser ? { parser } : {}), parserOptions: { ecmaFeatures: { jsx: true } } } }];
   try {
     const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
     // A parse error comes back as a fatal message, not a throw: 9 (cannot evaluate), never «did not fire».
     const fatal = msgs.find(m => m.fatal);
-    if (fatal) { if (first) process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); return 9; }
-    return msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1;
-  } catch (e) { if (first) process.stderr.write(String(e) + '\n'); return 9; }
+    if (fatal) { if (first) process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); return '9\tinput does not parse: ' + oneLine(fatal.message); }
+    return msgs.some(m => m.ruleId === 'no-restricted-syntax') ? '0' : '1';
+  } catch (e) { if (first) process.stderr.write(String(e) + '\n'); return '9\t' + oneLine(String(e)); }
 };
 process.stdout.write(selectors.map((sel, i) => verdict(sel, i === 0)).join('\n') + '\n');
 PROBE
@@ -223,7 +224,7 @@ echo "=== generated rule mutation: ${RULE_COUNT} rule(s), floor=${MIN_KILL}% ===
 echo "manifest: $MANIFEST"
 echo
 
-OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0; OVERALL_UNTESTABLE=0
+OVERALL_KILLED=0; OVERALL_TOTAL=0; OVERALL_FAIL=0; OVERALL_SKIPPED=0; OVERALL_UNTESTABLE=0; OVERALL_UNEVAL=0
 
 # Iterate rules
 IDX=0
@@ -258,7 +259,7 @@ while true; do
   if [ "$(printf '%s\n' "$RCS" | grep -c .)" -ne "$_want" ]; then
     _orig_rc=$(( _prc == 0 ? 9 : _prc )); RCS=""
   else
-    _orig_rc=$(printf '%s\n' "$RCS" | head -n 1)
+    _orig_rc=$(printf '%s\n' "$RCS" | head -n 1 | cut -f1)
   fi
   if [ "$_orig_rc" -eq 9 ]; then
     # P6 run 2 N1: a probe error (the input does not parse, the parser is missing) used to take the skip
@@ -273,21 +274,23 @@ while true; do
     IDX=$((IDX+1)); continue
   fi
 
-  KILLED=0; SURVIVED=0; SURVIVORS=()
-  # A mutation survives when it still fires (code 0); any other code kills it, as before.
-  while IFS=$'\t' read -r MUT _rc; do
+  KILLED=0; SURVIVED=0; UNEVAL=0; SURVIVORS=()
+  # A mutation survives when it still fires (0) and is killed when it stops firing (1). One the probe
+  # cannot evaluate (9: ESLint rejects the mutated selector — ATTR-1 on `:matches([…], …)` leaves
+  # `:matches(, …)`) was not tested: it is named, counted apart and left out of the kill rate (P6 run 4 N10).
+  while IFS=$'\t' read -r MUT _rc _err; do
     [ -z "$MUT" ] && continue
-    if [ "$_rc" = 0 ]; then
-      SURVIVED=$((SURVIVED+1))
-      SURVIVORS+=("$MUT")
-    else
-      KILLED=$((KILLED+1))
-    fi
+    case "$_rc" in
+      0) SURVIVED=$((SURVIVED+1)); SURVIVORS+=("$MUT") ;;
+      9) UNEVAL=$((UNEVAL+1)); echo "  unevaluable: $MUT — $_err" ;;
+      *) KILLED=$((KILLED+1)) ;;
+    esac
   done < <(paste <(printf '%s\n' "$MUTS") <(printf '%s\n' "$RCS" | tail -n +2))
+  OVERALL_UNEVAL=$((OVERALL_UNEVAL+UNEVAL))
 
   TOTAL=$((KILLED+SURVIVED))
   if [ "$TOTAL" -eq 0 ]; then
-    echo "  WARN: zero mutations probed for $RULE_ID — skipping (perturbations produced no candidates)"
+    echo "  WARN: zero mutations probed for $RULE_ID — skipping (perturbations produced no candidates, or none could be evaluated)"
     OVERALL_SKIPPED=$((OVERALL_SKIPPED+1))
     IDX=$((IDX+1)); continue
   fi
@@ -321,6 +324,7 @@ done
 # the summary vanish. Mirrors pre-push.ts generatedRuleMaterialSection LOUD-DEGRADE
 # idiom: never a silent pass, never a vanishing verdict.
 _untestable=""; [ "$OVERALL_UNTESTABLE" -eq 0 ] || _untestable=" untestable=$OVERALL_UNTESTABLE"
+[ "$OVERALL_UNEVAL" -eq 0 ] || _untestable="$_untestable unevaluable=$OVERALL_UNEVAL"
 if [ "$RULE_COUNT" -gt 0 ]; then
   if [ "$OVERALL_TOTAL" -gt 0 ]; then
     OVERALL_PCT=$((OVERALL_KILLED * 100 / OVERALL_TOTAL))

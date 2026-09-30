@@ -118,6 +118,8 @@ EOF
     PKG_ROOT="$P/pkg"; PROJECT_ROOT="$P/proj"; NOT_WIRED=()
     # shellcheck disable=SC1090
     INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+    # the record helper (engine.sh on the joined tree): print the row's read-from column
+    companion_record_version() { echo "RECORD: $1 $2 read-from=$4"; }
     # shellcheck disable=SC1090
     source "$REPO_ROOT/setup.d/80-rule-bootstrap.sh"; echo "LAYER_RC=$?"
     echo "NOT_WIRED_COUNT=${#NOT_WIRED[@]}"
@@ -174,6 +176,20 @@ _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg7"; run_step 1 has-eslin
 _dir=$(sed -n 's/.*stub npm: install --prefix \([^ ]*\) .*/\1/p' <<<"$_out" | head -1)
 [ -n "$_dir" ] && [ ! -f "$_dir/.complete" ] && ok "(M) a failed install leaves no completion marker" || bad "(M) marker after a failed npm (dir: $_dir)"
 [ "$(cat "${_dir%/node_modules/.cache/getff/generator-tools}/package.json" 2>/dev/null)" = '{}' ] && ok "(M) the project's package.json is unchanged" || bad "(M) package.json changed"
+
+# (N) P6 run 4 N11: the record (.ai-factory/tool-decisions.md) is committed, and its generator-tool rows
+# carried this machine's absolute path to the toolchain. A toolchain inside the project is recorded
+# relative to the project root; one outside it (the user cache under --global) has no project-relative path.
+echo "▶ (N) the record names the toolchain relative to the project"
+_out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg8"; run_step 0 has-eslint)
+grep -q '^RECORD: eslint generator-tool read-from=node_modules/.cache/getff/generator-tools/node_modules/eslint/package.json$' <<<"$_out" \
+  && ok "(N) the eslint row reads node_modules/.cache/getff/generator-tools/node_modules/eslint/package.json" \
+  || bad "(N) expected a project-relative read-from (got: $(grep '^RECORD: eslint' <<<"$_out"))"
+grep -q "^RECORD: .*read-from=$W" <<<"$_out" && bad "(N) a row still carries the machine path $W" || ok "(N) no row carries the machine path"
+_out=$(export GETFF_GLOBAL=1 XDG_CACHE_HOME="$W/xdg9"; run_step 0 "")
+grep -q "^RECORD: eslint generator-tool read-from=$W/xdg9/getff/generator-tools/node_modules/eslint/package.json$" <<<"$_out" \
+  && ok "(N) paired: a toolchain outside the project keeps its full path" \
+  || bad "(N) the --global row lost its path (got: $(grep '^RECORD: eslint' <<<"$_out"))"
 
 echo "▶ (I) every module resolves, but ESLint 10 → the toolchain is installed (wrong major is not «present»)"
 _out=$(unset GETFF_GLOBAL; export XDG_CACHE_HOME="$W/xdg6"; run_step 0 full10)

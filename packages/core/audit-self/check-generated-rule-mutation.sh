@@ -162,15 +162,17 @@ try {
 PROBE
 
 # ─── Helper: run probe ────────────────────────────────────────────────────────
-# Returns 0 if selector fires on code, 1 if not, 9 if error.
+# Returns 0 if selector fires on code, 1 if not, 9 if the probe cannot evaluate it (the input does not
+# parse, or ESLint rejects the selector); the error of a 9 is kept in PROBE_LAST_ERR, one line.
+PROBE_LAST_ERR=""
 _probe_selector() {
-  local SEL="$1" CODE="$2"
+  local SEL="$1" CODE="$2" QUIET="${3:-}"
   local OUT RC
   OUT=$(cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>&1)
   RC=$?
   if [ "$RC" -eq 9 ]; then
-    # Probe error — treat as infrastructure skip
-    echo "PROBE_ERR:$OUT" >&2
+    PROBE_LAST_ERR=$(tr '\n' ' ' <<<"$OUT")
+    [ -n "$QUIET" ] || echo "PROBE_ERR:$OUT" >&2
   fi
   return "$RC"
 }
@@ -301,25 +303,30 @@ _test_rule() {
 
   # Apply 11 semantic selector mutations (VAL/ATTR/NODE/LOGIC operators can SURVIVE
   # on weak tests, making the ≥60% kill-floor meaningful).
-  local KILLED=0 TOTAL=0
+  # A mutation that still fires SURVIVED; one that stops firing is KILLED. One the probe cannot evaluate
+  # (9: ESLint rejects the mutated selector — ATTR-1 on `:matches([…], …)` leaves `:matches(, …)`) was
+  # not tested: it used to count as killed. It is named, counted apart and left out of the kill rate
+  # (P6 run 4 N10).
+  local KILLED=0 TOTAL=0 UNEVAL=0 _mrc
   while IFS= read -r MUT; do
     [ -z "$MUT" ] && continue
-    TOTAL=$((TOTAL+1))
-    if _probe_selector "$MUT" "$BAD_CODE"; then
-      : # still fires = SURVIVED
-    else
-      KILLED=$((KILLED+1))
-    fi
+    _mrc=0; _probe_selector "$MUT" "$BAD_CODE" quiet || _mrc=$?
+    case "$_mrc" in
+      0) TOTAL=$((TOTAL+1)) ;;  # still fires = SURVIVED
+      9) UNEVAL=$((UNEVAL+1)); echo "    · [$RULE_ID] unevaluable: $MUT — $PROBE_LAST_ERR" ;;
+      *) TOTAL=$((TOTAL+1)); KILLED=$((KILLED+1)) ;;
+    esac
   done < <(_mutate "$SELECTOR")
 
-  [ "$TOTAL" -eq 0 ] && { skip "[$RULE_ID] no mutations generated — skipped"; return; }
+  [ "$TOTAL" -eq 0 ] && { skip "[$RULE_ID] no mutation generated or evaluable — skipped"; return; }
   local KILL_PCT=$(( KILLED * 100 / TOTAL ))
+  local _unev=""; [ "$UNEVAL" -eq 0 ] || _unev="; $UNEVAL mutation unevaluable, not counted"
   RULES_TESTED=$((RULES_TESTED+1))
 
   if [ "$KILL_PCT" -ge "$MIN_KILL_PCT" ]; then
-    ok "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) ≥${MIN_KILL_PCT}% — generated test non-vacuous"
+    ok "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) ≥${MIN_KILL_PCT}% — generated test non-vacuous$_unev"
   else
-    bad "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) <${MIN_KILL_PCT}% — generated negative-test is selector-blind (test theatre)"
+    bad "[$RULE_ID] kill=$KILLED/$TOTAL (${KILL_PCT}%) <${MIN_KILL_PCT}% — generated negative-test is selector-blind (test theatre)$_unev"
   fi
 }
 
