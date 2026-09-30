@@ -7468,8 +7468,9 @@ var NPM_REGISTRY = "https://registry.npmjs.org";
 function fixtureName(url) {
   return `${url.replace(/^https?:\/\//, "").replace(/[^A-Za-z0-9._-]/g, "_")}.json`;
 }
-var DEADLINE_MS = 3e4;
+var DEADLINE_MS = 6e4;
 var REQUEST_MS = 2e4;
+var POOL_WIDTH = 12;
 function makeFetchJson(env = process2.env) {
   const fixtures = env["GETFF_MCP_FETCH_FIXTURES"];
   if (fixtures) {
@@ -7542,7 +7543,7 @@ async function directDeps(root, fetchJson, getffDeps) {
   const deps = new Map([...found].sort(([a], [b]) => a.localeCompare(b)));
   return { declared: names.length, deps, missing: missing.sort(), getffOwn };
 }
-async function pool(items, fn, width = 6) {
+async function pool(items, fn, width = POOL_WIDTH) {
   let i = 0;
   await Promise.all(
     Array.from({ length: Math.min(width, items.length) }, async () => {
@@ -7806,6 +7807,7 @@ export {
   DEADLINE_MS,
   MCP_REGISTRY,
   NPM_REGISTRY,
+  POOL_WIDTH,
   REQUEST_MS,
   applyDecisions,
   checkStackTools,

@@ -75,9 +75,13 @@ export function fixtureName(url: string): string {
  *  answers when GETFF_MCP_FETCH_FIXTURES is set. A request that fails, times out, runs past the
  *  deadline or has no recorded answer resolves to null — and is reported as unchecked.
  *  REQUEST_MS fits one slow answer: the MCP registry's search took 10-11 s on two networks (P6 run 4,
- *  2026-09-30), and an 8 s cap turned every search into «did not answer». */
-export const DEADLINE_MS = 30_000;
+ *  2026-09-30), and an 8 s cap turned every search into «did not answer». With POOL_WIDTH requests
+ *  in flight, 24 such searches finish in two waves (~22 s) and 48 inside DEADLINE_MS; a longer tail
+ *  is reported as not checked. */
+export const DEADLINE_MS = 60_000;
 export const REQUEST_MS = 20_000;
+/** Requests in flight at once: light public GETs (npm manifests, registry searches). */
+export const POOL_WIDTH = 12;
 export function makeFetchJson(env: NodeJS.ProcessEnv = process.env): FetchJson {
   const fixtures = env['GETFF_MCP_FETCH_FIXTURES'];
   if (fixtures) {
@@ -208,7 +212,7 @@ async function directDeps(
   return { declared: names.length, deps, missing: missing.sort(), getffOwn };
 }
 
-async function pool<T>(items: readonly T[], fn: (x: T) => Promise<void>, width = 6): Promise<void> {
+async function pool<T>(items: readonly T[], fn: (x: T) => Promise<void>, width = POOL_WIDTH): Promise<void> {
   let i = 0;
   await Promise.all(
     Array.from({ length: Math.min(width, items.length) }, async () => {
