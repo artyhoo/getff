@@ -208,6 +208,23 @@ if command -v node &>/dev/null; then
   fi
 fi
 
+# ── /arch consensus retell — every point names its source ─────────────────
+# spec: header of scripts/check-arch-retell.mjs; contract: .claude/skills/arch/SKILL.md
+#       «Consensus retell». Change-scoped to staged specs (renames included); --staged resolves
+#       a Baseline SHA only when this commit adds that line — the one moment it is certainly
+#       reachable. The CI step «arch consensus-retell gate» scans the whole spec corpus, shape
+#       only (backstop for --no-verify and aif-container commits).
+if command -v node &>/dev/null; then
+  RT_FILES=()
+  while IFS= read -r f; do
+    case "$f" in docs/superpowers/specs/*.md) [ -f "$f" ] && RT_FILES+=("$f") ;; esac
+  done <<<"$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)"
+  if [ "${#RT_FILES[@]}" -gt 0 ]; then
+    node "$REPO_ROOT/scripts/check-arch-retell.mjs" --staged "${RT_FILES[@]}" \
+      || { echo "❌ /arch consensus retell lacks source tags — see the checker's message"; fail=1; }
+  fi
+fi
+
 # ── Prettier on staged SHIPPED files (mirrors CI «Shipped artifacts are Prettier-clean») ──
 #   Change-scoped: scripts/format-shipped.sh intersects the staged list with the shipped
 #   surface (same enumeration + same pinned prettier as the CI gate), so commits that do

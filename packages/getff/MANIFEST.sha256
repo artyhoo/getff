@@ -35,7 +35,7 @@ f738303a47914734b9c3098ff257beaa3ced934fb3c20e80397812098cc892fe  .claude/skills
 a3d726938d1b04adc7cbfc085e43dc40ba37d74cfdd6e3b02a267b14ce0c3016  .claude/skills/aif-doctor/helpers/aif-agent-target.sh
 b5cfb0b1f61438ef1db8489a002e2bcd429488d975beee008500354e097268c3  .claude/skills/aif-doctor/helpers/heal.sh
 516a561d50d3b8b897c62d71c264f519a935a986cb643049b9c0b3ce9f865289  .claude/skills/aif-doctor/helpers/refresh-aif-base.sh
-6b8e1bc3967e4c108998a798b829f73328a39c3eb9402234547c27e1987d90b1  .claude/skills/arch/SKILL.md
+c88093519fd9edd518b122db4ad4dda1ad4b16e6346a94f72182cf9b1fb07d65  .claude/skills/arch/SKILL.md
 dfc6e1c3758628d79454a4dc70e9de987b2cce32d591bf28c1190f67737e9799  .claude/skills/arch/references/ADR-FORMAT.md
 97c7ffe11168c61055acc8611b932277323dd1a8ea07ade81d6538006e5d4e9f  .claude/skills/arch/references/CONTEXT-FORMAT.md
 4c83fe7dec4343c3487b6dc67ff4a755821164a15f992c2f7ad89479017021c2  .claude/skills/arch/references/domain-modeling.md
@@ -1117,7 +1117,7 @@ f550efe0f3a0b48f2639f843d4611d56317ecbf3309e707a7743e4473c9fc8c5  setup.d/85-wor
 77b7349455712355e36c2265913040761093c26d87f798284d14ff5f5dc87091  setup.d/companions.manifest
 19aa0f42473100106c528fc96ea3191fddcc2955f6adfe1a75c8a4083f70eb99  setup.d/engine.sh
 8bc760cb0e42c27b6b6859b44dec410470c824f6d6af58ea3a6ad5be4810782d  setup.d/eslint-wire.sh
-b10c10e067878fe1a9cd04b52ae3a097f1ef184b685ac62b486cbb2bd5951008  setup.d/lib.sh
+f5e2c4a421f6bc5329d5619de1af03a5aec8cbf75b34a24118b5f5ae74c77583  setup.d/lib.sh
 e045a69dc30eb15cef19388c5998fbfcfbb9c5f3f3ac513c02cdeb180aef2139  setup.d/skill-routing.sh
 6e9c9caca5bc02824da852b238f1c86077b64a3843f20657f059e701421d4c2c  skills/getff/SKILL.md
 f1b528b72daa2ef3f5670279db24110b14d86faa610f1f16a99a8f9431f30d1e  skills/getff/references/ai-traps.md
