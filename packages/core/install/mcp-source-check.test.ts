@@ -142,21 +142,25 @@ describe('checkStackTools on the recorded registry', () => {
     expect(sentry.needs).toContain('header Authorization');
   });
 
-  it('a two-signal npm server that needs nothing is proposed with the line that adds it, never written', async () => {
-    // npx runs the package's code on the person's machine at every session start; the pre-launch
-    // yes covers remotes only (operator log entry 28: nothing runs locally), so this stays a proposal.
+  it('a two-signal npm server that needs nothing is written unpinned, and its line warns it runs locally and says how to remove it', async () => {
+    // npx runs the vendor's package on the person's machine at every session start, in agent sessions
+    // without a person too. The pre-launch yes names that (operator 2026-09-30: verified sources are
+    // installed, not left as a manual step, with a warning); the report line says what runs and how
+    // to take it out.
     const dir = fixturesWith({ [searchUrl('io.github.upstash')]: noVars, [searchUrl('upstash')]: noVars });
     const redis = byServer(await check(dir))['io.github.upstash/redis-mcp']!;
     expect(redis).toMatchObject({ signals: 2, local: { pkg: '@upstash/redis-mcp', served: '0.1.1' } });
-    expect(redis.entry).toBeUndefined();
     const root = consumer();
     const lines = applyDecisions(root, (await check(dir, root)).decisions, { date: '2026-09-29' });
-    const add = `claude mcp add --scope project ${redis.key} -- npx -y @upstash/redis-mcp`;
     expect(lines).toContain(
-      `⊝ proposed, not installed: io.github.upstash/redis-mcp — it runs on your machine (npm package @upstash/redis-mcp, npm served 0.1.1), so getff does not add it without your own yes; to add it: ${add}; io.github.upstash/redis-mcp ${redis.version} — owner: ${redis.owner}; matched dependency ${redis.dep}`,
+      `⚠ .mcp.json: ${redis.key} runs on your machine — npx -y @upstash/redis-mcp, not pinned: npm served 0.1.1; to remove it: claude mcp remove ${redis.key} -s project — io.github.upstash/redis-mcp ${redis.version} — owner: ${redis.owner}; matched dependency ${redis.dep}`,
     );
-    expect(readFileSync(join(root, '.mcp.json'), 'utf8')).not.toContain('@upstash/redis-mcp'); // (sentry's remote is written)
-    expect(readFileSync(join(root, '.ai-factory', 'tool-decisions.md'), 'utf8')).toContain(`to add it: ${add};`);
+    const written = JSON.parse(readFileSync(join(root, '.mcp.json'), 'utf8')).mcpServers[redis.key];
+    expect(written).toEqual({ type: 'stdio', command: 'npx', args: ['-y', '@upstash/redis-mcp'] });
+    expect(JSON.stringify(written)).not.toMatch(/@\d/); // no version pin in the consumer's config
+    expect(readFileSync(join(root, '.ai-factory', 'tool-decisions.md'), 'utf8')).toMatch(
+      new RegExp(`^\\| ${redis.key} \\| MCP \\| 2026-09-29 \\| installed by getff on the pre-launch yes \\(runs on your machine: npx -y @upstash/redis-mcp, npm served 0\\.1\\.1; remove: claude mcp remove ${redis.key} -s project\\)`, 'm'),
+    );
     // an entry the person already runs for that package, under any name, is kept
     const own = consumer({ mcpServers: { myredis: { command: 'npx', args: ['@upstash/redis-mcp@0.0.9'] } } });
     expect(applyDecisions(own, (await check(dir, own)).decisions, { date: '2026-09-29' })).toContain(

@@ -7737,8 +7737,16 @@ function applyDecisions(root, decisions, opts) {
       mcpChanged = true;
       accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d)}): ${c4} |`);
       lines.push(`\u2713 .mcp.json: ${d.key} (${describe(d)}) \u2014 ${c4}`);
+    } else if (d.local && !(d.key in servers)) {
+      servers[d.key] = { type: "stdio", command: "npx", args: ["-y", d.local.pkg] };
+      mcpChanged = true;
+      const remove = `claude mcp remove ${d.key} -s project`;
+      accepted.push(
+        `| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (runs on your machine: npx -y ${d.local.pkg}, npm served ${d.local.served}; remove: ${remove}): ${c4} |`
+      );
+      lines.push(`\u26A0 .mcp.json: ${d.key} runs on your machine \u2014 npx -y ${d.local.pkg}, not pinned: npm served ${d.local.served}; to remove it: ${remove} \u2014 ${c4}`);
     } else {
-      const why = d.entry ? `the name \xAB${d.key}\xBB is already taken in .mcp.json` : d.local ? `it runs on your machine (npm package ${d.local.pkg}, npm served ${d.local.served}), so getff does not add it without your own yes; to add it: claude mcp add --scope project ${d.key} -- npx -y ${d.local.pkg}` : `needs ${d.needs}`;
+      const why = d.entry || d.local ? `the name \xAB${d.key}\xBB is already taken in .mcp.json` : `needs ${d.needs}`;
       pending.push(`- ${d.server}: proposed, not installed \u2014 ${why}; ${c4}`);
       lines.push(`\u229D proposed, not installed: ${d.server} \u2014 ${why}; ${c4}`);
     }

@@ -25,13 +25,18 @@
  * on `typescript` does not pull every server under io.github.microsoft.
  *
  * What is installed, into .mcp.json, without a further question (the pre-launch yes IS the
- * confirmation tool-bootstrapping Rule 3 requires), for a server with two ownership signals: its
- * streamable-http remote that needs no header → {type:"http", url}. Nothing runs on the person's
- * machine, and a remote has no version to pin. An npm stdio package that declares no variable without
- * a default and no required argument, and whose CURRENT (`latest`) manifest names this server in
- * mcpName, is NOT written: `npx -y <pkg>` would run its code at every session start, which the
- * pre-launch yes does not cover (operator log entry 28: nothing runs locally). It is proposed with
- * the exact line that adds it and the version npm served at the check.
+ * confirmation tool-bootstrapping Rule 3 requires, and it names servers that run locally), for a
+ * server with two ownership signals:
+ *   - its streamable-http remote that needs no header → {type:"http", url}; nothing runs locally;
+ *   - else its npm stdio package that declares no variable without a default and no required
+ *     argument, and whose CURRENT (`latest`) manifest names this server in mcpName →
+ *     {type:"stdio", command:"npx", args:["-y", pkg]}. It runs the vendor's package on the person's
+ *     machine at every session start (in agent sessions without a person too — claude -p loads
+ *     .mcp.json unasked), so its report line is a warning that says so and names the command that
+ *     removes it (operator 2026-09-30: verified sources are installed, not left as a manual step,
+ *     with a warning). Not pinned (one-button fork on pins = B, operator log entry 28;
+ *     .claude/rules/companion-install-principle.md §1): npm serves its latest, and the version it
+ *     served at install time is recorded on the decision line.
  * Anything else is «proposed, not installed» with what it needs. Every decision is one line in
  * .ai-factory/tool-decisions.md carrying server, namespace owner, version and matched dependency.
  * Skills are never installed here (no registry that verifies a skill's publisher exists).
@@ -120,12 +125,13 @@ export interface Decision {
   signals: number;
   dep: string;
   key: string;
-  /** Present when the server can be installed without anything from the person: a remote only. */
+  /** A remote that can be installed without anything from the person. */
   entry?: { type: 'http'; url: string };
-  /** A checked npm stdio package that needs nothing set — but it runs on the person's machine, so it
-   *  is only proposed, with the line that adds it; `served` is the version npm served at the check. */
+  /** A checked npm stdio package that needs nothing set. It runs on the person's machine, so it is
+   *  written as `npx -y <pkg>` (not pinned) with a warning line naming that and the command that
+   *  removes it; `served` is the version npm served at the check. */
   local?: { pkg: string; served: string };
-  /** Why it is only proposed (absent for `local`, whose reason is fixed). */
+  /** Why it is only proposed. */
   needs?: string;
 }
 
@@ -443,12 +449,18 @@ export function applyDecisions(root: string, decisions: Decision[], opts: { dryR
       mcpChanged = true;
       accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d)}): ${c4} |`);
       lines.push(`✓ .mcp.json: ${d.key} (${describe(d)}) — ${c4}`);
+    } else if (d.local && !(d.key in servers)) {
+      // Runs the vendor's own package on this machine; the pre-launch yes names that, and the line
+      // says what runs and how to take it out (operator 2026-09-30: verified sources installed, warned).
+      servers[d.key] = { type: 'stdio', command: 'npx', args: ['-y', d.local.pkg] };
+      mcpChanged = true;
+      const remove = `claude mcp remove ${d.key} -s project`;
+      accepted.push(
+        `| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (runs on your machine: npx -y ${d.local.pkg}, npm served ${d.local.served}; remove: ${remove}): ${c4} |`,
+      );
+      lines.push(`⚠ .mcp.json: ${d.key} runs on your machine — npx -y ${d.local.pkg}, not pinned: npm served ${d.local.served}; to remove it: ${remove} — ${c4}`);
     } else {
-      const why = d.entry
-        ? `the name «${d.key}» is already taken in .mcp.json`
-        : d.local
-          ? `it runs on your machine (npm package ${d.local.pkg}, npm served ${d.local.served}), so getff does not add it without your own yes; to add it: claude mcp add --scope project ${d.key} -- npx -y ${d.local.pkg}`
-          : `needs ${d.needs}`;
+      const why = d.entry || d.local ? `the name «${d.key}» is already taken in .mcp.json` : `needs ${d.needs}`;
       pending.push(`- ${d.server}: proposed, not installed — ${why}; ${c4}`);
       lines.push(`⊝ proposed, not installed: ${d.server} — ${why}; ${c4}`);
     }
