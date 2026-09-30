@@ -17,6 +17,7 @@ sources:
   - docs/site/terms.md
 executed:
   - { example: list-skill-in-repo, stack: repo, date: 2026-09-30, result: listed }
+docs-refresh: deferred — this range's only install.sh change renumbers a pre-push.ts line citation inside a comment at line 1202; the line-17 flag citation this page makes is untouched (re-verified 2026-09-30 against the S3 range)
 ---
 
 # aif-doctor skill
