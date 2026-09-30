@@ -557,10 +557,18 @@ if [ -n "$ctx_entry" ]; then
         # (a monolith is told to split, not merely to shrink). Shape only: whether each topic
         # file opens with «Read when:» is not checked — table paths are free-form (relative,
         # `~/`, directory-anchored in prose), and a partial resolve would read as a guarantee.
+        # POSIX awk only: no interval expressions (`-{3,}`) — mawk 1.3.4 20200120 (Ubuntu
+        # 20.04/22.04, Debian 12) ignores them, so a valid index blocked there (cold review).
+        # A fenced block is skipped (a table quoted inside ``` is not the index). Separator =
+        # a line of only `| : -` and blanks carrying at least one `|` and one `-` (GFM allows
+        # `|-|-|` and a table with no leading pipe); a data row = a line with a `|`.
         if [ -z "$gate_line" ] && ! awk '
-            /^[[:space:]]*\|[[:space:]:|-]*-{3,}[[:space:]:|-]*$/ { sep = 1; next }
-            sep && /^[[:space:]]*\|/ && /\.md([^[:alnum:]_]|$)/ { found = 1; exit }
-            sep && !/^[[:space:]]*\|/ { sep = 0 }
+            { sub(/\r$/, "") }
+            /^[[:space:]]*(```|~~~)/ { fence = !fence; sep = 0; next }
+            fence { next }
+            /^[[:space:]:|-]+$/ && /\|/ && /-/ { sep = 1; next }
+            sep && /\|/ && /\.md([^[:alnum:]_]|$)/ { found = 1; exit }
+            sep && !/\|/ { sep = 0 }
             END { exit (found ? 0 : 1) }
           ' "$gate_handoff_file" 2>/dev/null; then
           gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" index)"

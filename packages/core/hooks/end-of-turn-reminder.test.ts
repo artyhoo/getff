@@ -4,7 +4,7 @@
  * .claude/orchestrator-prompts/m4-bash-hook-tests/kickoff.md §1 row 5).
  *
  * Channel: Stop hook. JSON output contract (verified against hook source
- * .claude/hooks/end-of-turn-reminder.sh:1578-1609 + memory
+ * .claude/hooks/end-of-turn-reminder.sh:1603-1634 + memory
  * project_eot_hook_redesign_approved 2026-05-22): on a trigger turn the hook
  * emits `{decision: "block", reason: <MODEL-bound recap>, systemMessage:
  * <USER-bound glance-line>}` and exits 0. Per T-M4-B the test must assert
@@ -1520,7 +1520,7 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — #1706 marker-guard hoist + sam
     // spelling differs — there the hook is silent, here it re-blocks. Which arm
     // supplies the reason is arm-order, not the mutation's subject (measured
     // 2026-09-21: the D-A recap-contract gate — its marker exemption at
-    // end-of-turn-reminder.sh:1309 misses the retired literal), so the assertions pin
+    // end-of-turn-reminder.sh:1334 misses the retired literal), so the assertions pin
     // "a block was re-demanded", never a reason flavour.
     const tr = writeTranscript([
       zcodeAssistantText(denseBody('## 🎬 The story\n\nhttps://github.com/o/r/pull/1700\n\n')),
@@ -3162,6 +3162,31 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
   it('fixture 21c (D40, paired positive): the same file WITH its index row → allow', () => {
     const r = spawnCase(buildCase(goldenCase('f2-armed-valid-allow'), true));
     expect(r.stdout, 'an indexed five-section handoff is allowed').toBe('');
+  });
+
+  it('fixture 21e (D40): GFM shapes — short separator and no leading pipe allow; a table inside a code fence blocks', () => {
+    const shapes: Array<[string, string, 'allow' | 'block']> = [
+      ['short separator', '| Task | Open only |\n|-|-|\n| gate fixture state | `topic-fixture.md` |\n', 'allow'],
+      ['no leading pipe', 'Task | Open only\n--- | ---\ngate fixture state | `topic-fixture.md`\n', 'allow'],
+      ['CRLF table', '| Task | Open only |\r\n|:--|--:|\r\n| gate fixture state | `topic-fixture.md` |\r\n', 'allow'],
+      ['fenced table', '```\n' + INDEX_ROWS + '```\n', 'block'],
+    ];
+    for (const [label, rows, want] of shapes) {
+      const r = spawnCase(buildCase(withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, rows)), true));
+      if (want === 'allow') expect(r.stdout, label).toBe('');
+      else expect((JSON.parse(r.stdout) as { reason: string }).reason, label).toContain('index table');
+    }
+  });
+
+  it('fixture 21f (D40): the index awk uses no interval expression (old mawk ignores `{n,}`)', () => {
+    const src = readFileSync(resolve(REPO_ROOT, '.claude/hooks/end-of-turn-reminder.sh'), 'utf8');
+    // The awk PROGRAM only (its comments above may name the forbidden form).
+    const start = src.indexOf("! awk '", src.indexOf('# D40 — the handoff is a THIN INDEX'));
+    const end = src.indexOf(`' "$gate_handoff_file"`, start);
+    expect(start > 0 && end > start, 'the D40 awk program is located').toBe(true);
+    const block = src.slice(start, end);
+    expect(block, 'the located program is the index check').toContain('.md');
+    expect(block, 'mawk 1.3.4 20200120 silently fails on {n,}').not.toMatch(/[^$]\{[0-9]+,?[0-9]*\}/);
   });
 
   it('fixture 21d (D40): the ≥20-char escape clears the index block; a short one does not', () => {
