@@ -13,7 +13,7 @@
 > is checked by [principle 49](../../packages/core/principles/49-cold-seat-inputs-ref.test.ts)
 > and filled from [`scripts/snapshot-for-seat.sh`](../../scripts/snapshot-for-seat.sh); whether a
 > given artifact can move under the seat stays judgment at dispatch time.
-> **Fires:** re-running a cold seat; resume-vs-fresh; pinning a seat's inputs to one SHA.
+> **Fires:** re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA.
 > **Authoritative for:** the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement, §7 immutable seat inputs + one named ref per answer.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The fidelity-audit protocol itself — see [agents/fidelity-auditor.md](../../agents/fidelity-auditor.md). Rework-loop mechanics (rounds, caps, `answer.ts`) — see [.claude/skills/dispatcher/SKILL.md §2.4](../skills/dispatcher/SKILL.md). The standalone harvest procedure — see [.claude/skills/harvest/SKILL.md §4](../skills/harvest/SKILL.md). Crash-idempotence of a verdict on the SAME SHA — that is spec D10 ([2026-07-23-acceptance-contour-design.md](../../docs/superpowers/specs/2026-07-23-acceptance-contour-design.md)); this rule owns the NEW-SHA case.
 

@@ -34,7 +34,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `autonomous-loop-continuity.md` | B | unattended turn ending with work in flight. | hook, digest |
 | `build-first-reuse-default.md` | A | any capability commit / new-capability proposal. | paths:(7), edit-time inject |
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script. | paths:(6), edit-time inject |
-| `cold-seat-economy.md` | C | re-running a cold seat; resume-vs-fresh; pinning a seat's inputs to one SHA. | skill-embed(3) |
+| `cold-seat-economy.md` | C | re-running a cold seat; resume-vs-fresh; pinning seat inputs to a SHA. | skill-embed(3) |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
 | `destination-environment-verification.md` | B | kickoff authoring; accepting container work; a cannot-reach claim. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
