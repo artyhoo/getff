@@ -57,7 +57,7 @@ hook	inject-memory-codification	ships	core	yes	-
 hook	inject-output-language	ships	core	yes	-
 hook	inject-project-digest	ships	core	yes	-
 hook	runtime-bridge-dispatch	ships	factory	yes	dispatches work into the aif-handoff runtime through the vendored runtime bridge, which only a factory install carries
-hook	inject-session-bootstrap	internal	no	yes	internal, because it injects getff's own goal and invariants into the session; plugin copy: removed by PR #1925 (fix/prompt-time-injection-diet)
+hook	inject-session-bootstrap	internal	no	no	internal, because it injects getff's own goal and invariants into the session
 hook	check-doc-authority	internal	no	yes	internal, because it needs getff's principle-09 CLI shim and is a no-op with a getff-specific notice elsewhere; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
 hook	validate-prompt	internal	no	yes	internal, because it validates getff kickoff batch-specs through packages/core/spec-validation; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
 hook	check-worker-dispatch-channel	internal	no	yes	internal, because it needs getff's principle-29 bin and checks getff kickoff dispatch channels; plugin copy: flagged to the plugin/project hook dedup work (plan §1.2), P3 does not edit plugin/hooks/hooks.json
