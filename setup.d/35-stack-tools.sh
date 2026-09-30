@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # setup.d/35-stack-tools.sh — vendor MCP servers for the project's own dependencies, on the pre-launch yes.
 # Circle 2 of the install (one-button point 7): written only when GETFF_STACK_TOOLS=1. For each
-# direct dependency in package.json the official MCP registry is asked for the servers whose
-# namespace that dependency's owner holds; a server that needs nothing from the person goes into
-# .mcp.json, the rest are «proposed, not installed» with what they need, and every decision is one
+# direct dependency the project itself declared (package.json minus what getff's install added, read
+# from the copies 70-deps keeps in .ai-factory/before-getff/) the official MCP registry is asked for
+# the servers whose namespace that dependency's owner holds; a server that needs nothing from the
+# person goes into .mcp.json (one that runs on this machine through npx with a warning line that says
+# so and names the command that removes it), the rest are «proposed, not installed» with what they
+# need, and every decision is one
 # line in .ai-factory/tool-decisions.md. Skills are never installed here. Logic + ownership rules:
 # packages/core/install/mcp-source-check.ts (run as its prebuilt bundle, plain node).
 #

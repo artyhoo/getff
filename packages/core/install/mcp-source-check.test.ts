@@ -22,6 +22,7 @@ import {
   makeFetchJson,
   MCP_REGISTRY,
   NPM_REGISTRY,
+  uncheckedLine,
   type CheckResult,
 } from './mcp-source-check.ts';
 
@@ -141,23 +142,55 @@ describe('checkStackTools on the recorded registry', () => {
     expect(sentry.needs).toContain('header Authorization');
   });
 
-  it('a two-signal npm server that needs nothing is written unpinned, with the version npm served', async () => {
+  it('a two-signal npm server that needs nothing is written unpinned, and its line warns it runs locally and says how to remove it', async () => {
+    // npx runs the vendor's package on the person's machine at every session start, in agent sessions
+    // without a person too. The pre-launch yes names that (operator 2026-09-30: verified sources are
+    // installed, not left as a manual step, with a warning); the report line says what runs and how
+    // to take it out.
     const dir = fixturesWith({ [searchUrl('io.github.upstash')]: noVars, [searchUrl('upstash')]: noVars });
     const redis = byServer(await check(dir))['io.github.upstash/redis-mcp']!;
-    expect(redis).toMatchObject({ signals: 2, served: '0.1.1', entry: { type: 'stdio', command: 'npx', args: ['-y', '@upstash/redis-mcp'] } });
+    expect(redis).toMatchObject({ signals: 2, local: { pkg: '@upstash/redis-mcp', served: '0.1.1' } });
     const root = consumer();
     const lines = applyDecisions(root, (await check(dir, root)).decisions, { date: '2026-09-29' });
     expect(lines).toContain(
-      `✓ .mcp.json: ${redis.key} (npx -y @upstash/redis-mcp, not pinned: npm served 0.1.1) — io.github.upstash/redis-mcp ${redis.version} — owner: ${redis.owner}; matched dependency ${redis.dep}`,
+      `⚠ .mcp.json: ${redis.key} runs on your machine — npx -y @upstash/redis-mcp, not pinned: npm served 0.1.1; to remove it: claude mcp remove ${redis.key} -s project — io.github.upstash/redis-mcp ${redis.version} — owner: ${redis.owner}; matched dependency ${redis.dep}`,
     );
     const written = JSON.parse(readFileSync(join(root, '.mcp.json'), 'utf8')).mcpServers[redis.key];
     expect(written).toEqual({ type: 'stdio', command: 'npx', args: ['-y', '@upstash/redis-mcp'] });
     expect(JSON.stringify(written)).not.toMatch(/@\d/); // no version pin in the consumer's config
+    expect(readFileSync(join(root, '.ai-factory', 'tool-decisions.md'), 'utf8')).toMatch(
+      new RegExp(`^\\| ${redis.key} \\| MCP \\| 2026-09-29 \\| installed by getff on the pre-launch yes \\(runs on your machine: npx -y @upstash/redis-mcp, npm served 0\\.1\\.1; remove: claude mcp remove ${redis.key} -s project\\)`, 'm'),
+    );
     // an entry the person already runs for that package, under any name, is kept
     const own = consumer({ mcpServers: { myredis: { command: 'npx', args: ['@upstash/redis-mcp@0.0.9'] } } });
     expect(applyDecisions(own, (await check(dir, own)).decisions, { date: '2026-09-29' })).toContain(
       '⊝ io.github.upstash/redis-mcp: already in .mcp.json as «myredis» — kept as it is',
     );
+  });
+
+  it('a dependency getff itself added to package.json is not the project’s own: no server is looked up for it', async () => {
+    // A rerun: 70-deps put @playwright/test into package.json on the first install and kept the
+    // person's file as .ai-factory/before-getff/package.json.<sum8>. Microsoft publishes a real
+    // two-signal server for it (GitHub org + the @playwright scope naming it).
+    const dir = fixturesWith({});
+    writeFileSync(
+      join(dir, fixtureName(npmUrl('@playwright/test', 'latest'))),
+      JSON.stringify({ name: '@playwright/test', version: '1.56.0', homepage: 'https://playwright.dev', repository: { url: 'git+https://github.com/microsoft/playwright.git' } }),
+    );
+    writeFileSync(join(dir, fixtureName(npmUrl('@playwright/mcp', 'latest'))), JSON.stringify({ name: '@playwright/mcp', version: '0.0.41', mcpName: 'io.github.microsoft/playwright-mcp' }));
+    const root = consumer();
+    const withGetff = { ...PKG, devDependencies: { ...PKG.devDependencies, '@playwright/test': '^1.56.0' } };
+    // The control: without the kept original, the rerun takes @playwright/test for the person's own.
+    writeFileSync(join(root, 'package.json'), JSON.stringify(withGetff));
+    expect(byServer(await check(dir, root))['io.github.microsoft/playwright-mcp']).toMatchObject({ dep: '@playwright/test' });
+    // Two kept copies, in either age order: the person's original, and the file before a later getff write.
+    mkdirSync(join(root, '.ai-factory', 'before-getff'));
+    writeFileSync(join(root, '.ai-factory', 'before-getff', 'package.json.0a1b2c3d'), JSON.stringify(withGetff));
+    writeFileSync(join(root, '.ai-factory', 'before-getff', 'package.json.f0e1d2c3'), JSON.stringify(PKG));
+    const r = await check(dir, root);
+    expect(r.decisions.map((d) => d.dep)).not.toContain('@playwright/test');
+    expect(r.unchecked.join(' ')).not.toMatch(/playwright/);
+    expect(byServer(r)['io.github.getsentry/sentry-mcp']).toBeDefined(); // the person's own are still checked
   });
 
   it('an npm package whose CURRENT mcpName does not name the server is not written', async () => {
@@ -183,6 +216,12 @@ describe('checkStackTools on the recorded registry', () => {
     const r = await check(dir);
     expect(r.unchecked).toEqual(['registry search «io.github.upstash»']);
     expect(byServer(r)['io.github.getsentry/sentry-mcp']).toBeDefined();
+  });
+
+  it('the unchecked line says what it means for the person: nothing added for them, the rest stands, a rerun asks again', () => {
+    expect(uncheckedLine(['stripe', 'registry search «io.github.upstash»'])).toBe(
+      '⚠ not checked: stripe, registry search «io.github.upstash» — the registry gave no answer (none within 30 s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again',
+    );
   });
 
   it('no registry at all: null', async () => {

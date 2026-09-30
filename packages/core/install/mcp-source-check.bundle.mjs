@@ -6880,7 +6880,7 @@ var require_ajv = __commonJS({
 });
 
 // packages/core/install/mcp-source-check.ts
-import { existsSync as existsSync2, mkdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
+import { existsSync as existsSync2, mkdirSync, readdirSync, readFileSync as readFileSync4, writeFileSync } from "node:fs";
 import { join as join3, resolve as resolve2 } from "node:path";
 import process2 from "node:process";
 import { pathToFileURL } from "node:url";
@@ -7518,17 +7518,35 @@ function githubRepo(field) {
 }
 var GITHUB_RESERVED = /* @__PURE__ */ new Set(["sponsors", "orgs", "apps", "marketplace", "topics", "features", "settings", "users"]);
 var isRegistrySpec = (spec) => !/^(?:workspace|file|link|git|git\+|github|http|https|npm):/.test(spec);
-async function directDeps(root, fetchJson) {
-  let pkg = {};
-  try {
-    pkg = JSON.parse(readFileSync4(join3(root, "package.json"), "utf8"));
-  } catch {
-    return { declared: 0, deps: /* @__PURE__ */ new Map(), missing: [] };
-  }
-  const declared = {
+var declaredIn = (file) => {
+  const pkg = JSON.parse(readFileSync4(file, "utf8"));
+  return {
     ...pkg["dependencies"] ?? {},
     ...pkg["devDependencies"] ?? {}
   };
+};
+function ownDeclared(root) {
+  const declared = declaredIn(join3(root, "package.json"));
+  const kept = join3(root, ".ai-factory", "before-getff");
+  const copies = existsSync2(kept) ? readdirSync(kept).filter((f) => /^package\.json\.(?:[0-9a-f]{8}|original)$/.test(f)) : [];
+  for (const c of copies) {
+    let before;
+    try {
+      before = declaredIn(join3(kept, c));
+    } catch {
+      continue;
+    }
+    for (const n of Object.keys(declared)) if (!(n in before)) delete declared[n];
+  }
+  return declared;
+}
+async function directDeps(root, fetchJson) {
+  let declared;
+  try {
+    declared = ownDeclared(root);
+  } catch {
+    return { declared: 0, deps: /* @__PURE__ */ new Map(), missing: [] };
+  }
   const names = Object.keys(declared).filter((n) => !n.startsWith("@types/") && isRegistrySpec(String(declared[n]))).sort();
   const found = /* @__PURE__ */ new Map();
   const missing = [];
@@ -7604,7 +7622,7 @@ async function installForm(s, fetchJson) {
       needs.push(`a checked package (the latest npm ${p.identifier} names ${latest?.mcpName ?? "no server"} in mcpName)`);
       continue;
     }
-    return { entry: { type: "stdio", command: "npx", args: ["-y", p.identifier] }, served: latest.version };
+    return { local: { pkg: p.identifier, served: latest.version } };
   }
   return { needs: needs.length ? [...new Set(needs)].join(", ") : "a remote or an npm package getff can run" };
 }
@@ -7678,9 +7696,9 @@ async function checkStackTools(root, fetchJson) {
       key: serverKey(s.name),
       ...form
     };
-    if (decision.entry && best.signals.length < 2) {
+    if ((decision.entry || decision.local) && best.signals.length < 2) {
       delete decision.entry;
-      delete decision.served;
+      delete decision.local;
       decision.needs = "a second ownership signal \u2014 getff writes a server only when two of GitHub org, homepage domain and npm scope agree";
     }
     decisions.push(decision);
@@ -7691,10 +7709,11 @@ function isDecided(dec, d) {
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   return new RegExp(`(^|[^A-Za-z0-9._/-])${esc(d.server)}($|[^A-Za-z0-9._/-])`, "m").test(dec) || new RegExp(`^\\|\\s*${esc(d.key)}\\s*\\|`, "m").test(dec);
 }
-var describe = (d) => !d.entry ? "" : d.entry.type === "http" ? `http ${d.entry.url}` : `npx -y ${d.entry.args[1]}, not pinned: npm served ${d.served ?? "?"}`;
-var runs = (v, e) => {
+var describe = (d) => d.entry ? `http ${d.entry.url}` : "";
+var runs = (v, d) => {
   const s = JSON.stringify(v);
-  return e.type === "http" ? s.includes(`"${e.url}"`) : s.includes(`"${e.args[1]}"`) || s.includes(`"${e.args[1]}@`);
+  if (d.entry) return s.includes(`"${d.entry.url}"`);
+  return !!d.local && (s.includes(`"${d.local.pkg}"`) || s.includes(`"${d.local.pkg}@`));
 };
 function applyDecisions(root, decisions, opts) {
   const lines = [];
@@ -7708,7 +7727,7 @@ function applyDecisions(root, decisions, opts) {
   let mcpChanged = false;
   for (const d of decisions) {
     const c4 = `${d.server} ${d.version} \u2014 owner: ${d.owner}; matched dependency ${d.dep}`;
-    const configured = d.entry ? Object.entries(servers).find(([, v]) => runs(v, d.entry)) : void 0;
+    const configured = Object.entries(servers).find(([, v]) => runs(v, d));
     if (configured) {
       lines.push(`\u229D ${d.server}: already in .mcp.json as \xAB${configured[0]}\xBB \u2014 kept as it is`);
       if (!isDecided(dec, d)) accepted.push(`| ${configured[0]} | MCP | ${opts.date} | already in .mcp.json: ${c4} |`);
@@ -7723,8 +7742,16 @@ function applyDecisions(root, decisions, opts) {
       mcpChanged = true;
       accepted.push(`| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (${describe(d)}): ${c4} |`);
       lines.push(`\u2713 .mcp.json: ${d.key} (${describe(d)}) \u2014 ${c4}`);
+    } else if (d.local && !(d.key in servers)) {
+      servers[d.key] = { type: "stdio", command: "npx", args: ["-y", d.local.pkg] };
+      mcpChanged = true;
+      const remove = `claude mcp remove ${d.key} -s project`;
+      accepted.push(
+        `| ${d.key} | MCP | ${opts.date} | installed by getff on the pre-launch yes (runs on your machine: npx -y ${d.local.pkg}, npm served ${d.local.served}; remove: ${remove}): ${c4} |`
+      );
+      lines.push(`\u26A0 .mcp.json: ${d.key} runs on your machine \u2014 npx -y ${d.local.pkg}, not pinned: npm served ${d.local.served}; to remove it: ${remove} \u2014 ${c4}`);
     } else {
-      const why = d.entry ? `the name \xAB${d.key}\xBB is already taken in .mcp.json` : `needs ${d.needs}`;
+      const why = d.entry || d.local ? `the name \xAB${d.key}\xBB is already taken in .mcp.json` : `needs ${d.needs}`;
       pending.push(`- ${d.server}: proposed, not installed \u2014 ${why}; ${c4}`);
       lines.push(`\u229D proposed, not installed: ${d.server} \u2014 ${why}; ${c4}`);
     }
@@ -7758,6 +7785,9 @@ ${rows.join("\n")}
   }
   return ls.join("\n");
 }
+function uncheckedLine(unchecked) {
+  return `\u26A0 not checked: ${unchecked.join(", ")} \u2014 the registry gave no answer (none within ${DEADLINE_MS / 1e3} s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again`;
+}
 async function main(argv) {
   const root = resolve2(argv[argv.indexOf("--root") + 1] ?? ".");
   const dryRun = argv.includes("--dry-run");
@@ -7772,7 +7802,7 @@ async function main(argv) {
     console.log("\u229D no direct dependency has an MCP server published by its own vendor");
   for (const l of lines) console.log(l);
   if (result.unchecked.length)
-    console.log(`\u26A0 not checked (no answer in time): ${result.unchecked.join(", ")} \u2014 a rerun of the install checks them again`);
+    console.log(uncheckedLine(result.unchecked));
   return 0;
 }
 if (process2.argv[1] && import.meta.url === pathToFileURL(process2.argv[1]).href) {
@@ -7793,5 +7823,6 @@ export {
   fixtureName,
   githubRepo,
   isDecided,
-  makeFetchJson
+  makeFetchJson,
+  uncheckedLine
 };
