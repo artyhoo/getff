@@ -1246,7 +1246,8 @@ do_refresh() {
                "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
                "ESLint rules (eslint-rules-local/, its barrel and scripts/fences-fire-fixtures)" \
                "git hooks (.husky/pre-commit, .husky/pre-push)" \
-               ".prettierignore managed block"; do
+               ".prettierignore managed block" \
+               "package.json scripts (getff's lint, typecheck, test, check:* and validate scripts)"; do
       note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
     done
   else
@@ -1549,7 +1550,10 @@ do_refresh() {
   # The install merges the canonical scripts (setup.d/70-deps.sh §7), so a script a newer getff
   # ships (a new check:* gate, say) reached fresh installs only. Refresh mode adds scripts alone:
   # a devDependency with no install breaks the lockfile, so a missing one is named instead.
-  merge_canonical_scripts refresh
+  # Stack «generic» gets none of them at install (setup.d/70-deps.sh returns before the merge), so the
+  # refresh adds none either: its `validate` runs scripts/run-armed.sh, which generic never gets. The
+  # generic arm of «Scripts» above names this skip as NOT wired.
+  [ "$STACK" = "generic" ] || merge_canonical_scripts refresh
 
   # ── CI gates a kept workflow lacks (report only) — refresh sweep G6 ──
   # The install names these (setup.d/60-ci.sh §6c) and wires them only on --wire-ci or a yes at its

@@ -22,6 +22,9 @@
 #   (7) `install.sh generic --refresh` over an older delivery → getff's stack-free files (a skill,
 #       an agent, a Claude hook, AI-USAGE-GUIDE.md, audit-ai-docs.sh) are the current delivery again;
 #       nothing npm-bound is created; each skipped npm-bound refresh arm is one NOT wired line.
+#   (8) `--refresh` on (2)'s project (a package.json with no stack signal) → package.json stays
+#       byte-identical: the refresh adds no getff npm script the install did not place, and the
+#       skipped scripts arm is one NOT wired line.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -142,5 +145,18 @@ for why in 'check scripts' 'pre-push bundle' 'ESLint rules' 'git hooks' '.pretti
   grep -q "^      - .*$why.*not refreshed.*generic" <<<"$out" && ok "(7) NOT wired names the skipped refresh arm '$why'" \
     || bad "(7) no NOT wired line for the skipped refresh arm '$why' naming generic"
 done
+
+# ── (8) --refresh on a package.json with no stack signal adds no getff script ─────────────────────
+# The install places no npm toolchain on generic (setup.d/70-deps.sh returns before the scripts merge),
+# so the refresh must not add one either: getff's `validate` runs scripts/run-armed.sh, which generic
+# never gets, and its lint / typecheck scripts call tools the project does not have.
+out=$( cd "$P" && bash "$INSTALL" --refresh < /dev/null 2>&1 ); rc=$?
+[ "$rc" -eq 0 ] && ok "(8) --refresh on (2)'s project exits 0" || bad "(8) exit $rc (tail: $(tail -5 <<<"$out" | tr '\n' '|'))"
+grep -q 'stack: generic' <<<"$out" && ok "(8) the refresh names the stack generic" || bad "(8) no 'stack: generic' in the refresh output"
+[ "$before" = "$(shasum "$P/package.json")" ] && ok "(8) package.json byte-identical after --refresh" \
+  || bad "(8) --refresh changed package.json: $(node -e 'console.log(Object.keys(require(process.argv[1]).scripts||{}).join(" "))' "$P/package.json")"
+grep -q '^      - .*package.json scripts.*not refreshed.*generic' <<<"$out" \
+  && ok "(8) NOT wired names the skipped package.json scripts arm" \
+  || bad "(8) no NOT wired line for the skipped package.json scripts arm naming generic"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
