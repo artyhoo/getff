@@ -199,7 +199,7 @@ printf 'on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - r
 ( cd "$K" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm getff )
 # The reason names the first finding, so the user learns which workflow line without running the script
 # (P6 run 3, N8).
-PINS_WHY='exits 1 at install on .github/workflows/own.yml:6: - run: npm install -g cowsay'
+PINS_WHY='exits 1 at install on .github/workflows/own.yml:6: - run: npm install -g cowsay'  # ci-tool-pin: allow fixture text — the reason expected for the deliberately unpinned consumer workflow above
 grep -qxF -- "- bash scripts/check-ci-pins.sh # $PINS_WHY" <<<"$(section "$K" not-armed)" \
   && ok "(L) the project's own unpinned workflow: check-ci-pins recorded not-armed, the reason naming own.yml:6" \
   || bad "(L) ci-pins line: $(block "$K" | grep ci-pins)"
