@@ -2337,7 +2337,7 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * failed when they drifted. Measured on the live tree 2026-09-06, both failure directions
  * were already realized:
  *
- *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:50) and
+ *   (a) UNDER-coverage — `.ai-factory/AI-USAGE-GUIDE.md` (30-templates.sh:61) and
  *       `.ai-factory/tier-home.md` (30-templates.sh:126) had no row at all, so on a
  *       consumer they classified as consumer-AUTHORED. The moment either grows a relative
  *       ref to a framework path, lychee walks it on a consumer tree, the ref dangles there
@@ -2367,10 +2367,10 @@ async function cmdScriptLivenessEntry(ctx: SectionCtx): Promise<void> {
  * would move shipped content back into the walk, i.e. exactly the wrong direction.
  */
 export const SHIPPED_MD_DESTINATIONS: readonly string[] = [
-  'AGENTS.md', // 30-templates.sh:99 / 45-python.sh:1657 (install_agents_md)
+  'AGENTS.md', // 30-templates.sh:112 / 45-python.sh:1631 (install_agents_md)
   '.ai-factory/AI-USAGE-GUIDE.md',
   '.ai-factory/ARCHITECTURE.md',
-  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1672 (ledger A2-10)
+  '.ai-factory/ARCHITECTURE.python.md', // 45-python.sh:1646 (ledger A2-10)
   '.ai-factory/ARCHITECTURE.react-native.md',
   '.ai-factory/ARCHITECTURE.react-next.md',
   '.ai-factory/ARCHITECTURE.react-spa.md',
@@ -2448,7 +2448,7 @@ export const SHIPPED_SKILL_SLUGS: readonly string[] = [
 /**
  * The consumer-local record of what the installer actually delivered:
  * `.ai-factory/refresh-baseline.json`, a `{ "<consumer-relative dst>": "<sha256>" }` map
- * written by refresh_baseline_flush (setup.d/lib.sh:815-873) for every copy_safe /
+ * written by refresh_baseline_flush (setup.d/lib.sh:833-891) for every copy_safe /
  * refresh_safe delivery — which is how `.claude/agents/*.md` reaches a consumer.
  *
  * Returns null when the manifest is absent or unreadable/not an object. The installer

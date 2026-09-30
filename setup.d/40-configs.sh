@@ -2,7 +2,7 @@
 # setup.d/40-configs.sh — §4 Scripts + §5a Shared templates + §5b' ESLint rules + §6a Stack configs.
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §4 (install.sh:874-922), §5a (install.sh:928-1006),
+# S0 rows: §4 (install.sh:874-922), §5a (install.sh:967-1045),
 #          §5b' eslint-rules (install.sh:996-1060), §6a config subset (install.sh:1062-1123)
 # Depends on: 30-templates (RULES.md etc. already at $PROJECT_ROOT/.ai-factory/)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone

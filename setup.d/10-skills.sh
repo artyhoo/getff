@@ -2,7 +2,7 @@
 # setup.d/10-skills.sh — §1 Skills + §1b Hooks (deps-hash-check CC hook).
 #
 # Sources: lib.sh (already in dispatcher scope)
-# S0 rows: §1 (install.sh:689-745), §1b (install.sh:755-786)
+# S0 rows: §1 (install.sh:716-772), §1b (install.sh:755-786)
 # Depends on: (none — first content layer)
 # @cc-only-rationale: sourced by install.sh dispatcher, not standalone
 
@@ -159,7 +159,7 @@ done
 # at factory-only; spec wins → resolved by moving pipeline into the env+ loop. The factory-only
 # arm below retains dispatcher/aif-doctor/harvest/story/claude-glm-executor-handoff
 # (those presuppose the aif operator runtime). Legacy --with-aif-suite routes through
-# PROFILE=factory (install.sh:602-603), so the env/factory check covers it without an explicit
+# PROFILE=factory (install.sh:620-621), so the env/factory check covers it without an explicit
 # OR clause.
 if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ]; then
   echo "  ▶ Contour surface (profile=env+ OR --with-aif-suite): $GETFF_SKILLS_ENV"

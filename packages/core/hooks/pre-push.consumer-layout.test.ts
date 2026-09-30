@@ -721,7 +721,7 @@ describe(
       chmodSync(join(stubBin, 'lychee'), 0o755);
 
       // A SHIPPED file (AGENTS.md is the canonical framework-shipped top-level starter,
-      // 30-templates.sh:99) carrying a dangling framework-internal ref — the exact shape
+      // 30-templates.sh:112) carrying a dangling framework-internal ref — the exact shape
       // that blocked a consumer's first push before Part 1.
       addConsumerCommit(
         dir,

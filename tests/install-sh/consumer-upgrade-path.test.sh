@@ -305,7 +305,7 @@ rm -rf "$TC5" "$TC5_NEG"
 # do_refresh statically; this arm proves the refresh ACTUALLY writes them on a real
 # consumer. .husky/pre-push staleness is the worst case (a pre-#636 dispatcher HARD-
 # CRASHES instead of degrading to the bash fallback on a pnpm monorepo). eslint-rules-
-# local/ ships framework-authored core rules (lib.sh:1960 "consumer never owns") as
+# local/ ships framework-authored core rules (lib.sh:1988 "consumer never owns") as
 # pre-compiled .mjs + .ts. Paired-negative: WITHOUT --refresh each stays stale.
 # ══════════════════════════════════════════════════════════════════════════════
 TC6=$(make_consumer)
@@ -435,7 +435,7 @@ rm -rf "$TC7"
 # ══════════════════════════════════════════════════════════════════════════════
 
 # env-depth-only artefacts (install: setup.d/10-skills.sh:164 arch+pipeline,
-# setup.d/30-templates.sh:112 tier-home, setup.d/85-worktree-scripts.sh:34 the four scripts)
+# setup.d/30-templates.sh:125 tier-home, setup.d/85-worktree-scripts.sh:34 the four scripts)
 ENVPLUS_ONLY=(
   "scripts/create-worktree.sh"
   "scripts/worktree-node-modules.sh"

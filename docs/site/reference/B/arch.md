@@ -126,7 +126,7 @@ how to get it.
   leaves out are all on line 54 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
   lines 22 to 29 and its two format files beside it.
 - The copies ship with the skill: they are listed in
-  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 43 to 46.
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 45 to 48.
   `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.

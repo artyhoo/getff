@@ -672,7 +672,7 @@ if [ -z "$PROFILE" ]; then
     # the env/factory arms of do_refresh carry a presence clause, so with PROFILE=core
     # a refresh updates whatever tiers are already on disk and creates none. Defaulting
     # a refresh to `env` would silently deepen a consumer who deliberately chose core —
-    # exactly what install.sh:874 already forbids for the factory arm. A consumer who
+    # exactly what install.sh:913 already forbids for the factory arm. A consumer who
     # wants the new default on an existing install asks for it: `--refresh --profile env`.
     if [ -n "$REFRESH" ]; then
       PROFILE="core"
@@ -1176,7 +1176,7 @@ do_refresh() {
   # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
   # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:662-664), the presence
   # clause is what keeps an installed tier updated.
-  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2045-2048).
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2093-2096).
   #
   # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
   # ask-file-schema section is maintainer-only (owner: 'maintainer' in
@@ -1359,7 +1359,7 @@ do_refresh() {
   # 40-configs.sh copy_safe's framework-authored rules into eslint-rules-local/ as PRE-COMPILED
   # .mjs + .d.ts + .ts (fix #752): the CORE rules (always) PLUS the stack's PRESET rules
   # (react-next → no-server-imports-in-client; react-spa → require-error-boundary). All are
-  # framework-namespace files a consumer never owns (setup.d/lib.sh:1960). A rule-logic fix must reach a
+  # framework-namespace files a consumer never owns (setup.d/lib.sh:1988). A rule-logic fix must reach a
   # brownfield consumer non-destructively; copy_safe skip-if-exists cannot deliver it. Iterate the
   # SAME source dirs (core + per-stack presets) the _copy_rule delivery loops in 40-configs.sh iterate
   # so the refresh set tracks delivery — the refresh-covers-full-delivery gate Check 3 enforces this
@@ -1428,7 +1428,7 @@ do_refresh() {
   fi
 
   # ── Husky hook dispatchers → .husky/ (#869-class: framework-owned) ──
-  # 50-hooks.sh:27-28 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
+  # 50-hooks.sh:34-35 copy_safe's these framework-authored dispatchers into .husky/ (skip-if-
   # exists). They are NOT consumer config — husky-pre-push.sh is "the TS-core dispatcher shipped
   # by install.sh". Its routing changes with the hook it starts (a tsx-ESM probe for pre-push.ts,
   # #636/#638; plain `node` for pre-push.bundle.mjs since 2026-09-28), and a brownfield consumer
@@ -1499,7 +1499,7 @@ do_refresh() {
   # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──
   # Framework-owned: refresh must re-deliver fixes, and it must not create the doc on core.
   # Same uniform gate as the arms above (#1334 follow-through): the delivery site's own
-  # predicate — setup.d/30-templates.sh:112 gates on env | factory, with no WITH_AIF_SUITE
+  # predicate — setup.d/30-templates.sh:125 gates on env | factory, with no WITH_AIF_SUITE
   # clause, so this mirror has none either — OR presence. Before this stage the arm was
   # presence-ONLY, which made `--refresh --profile env` deepen some arms and not others (the
   # «each arm decides for itself» state INSTALL-FOR-AI.md had to describe in a paragraph).

@@ -300,7 +300,7 @@ python rule follows the **Model A′** path — `AstgrepResearchedPractice` JSON
   literal pattern), plus the ruff fast-path (TID251/TID253 import bans) the install ships. The
   path above is the ast-grep arm.
 - **NOT expressible:** L4 ESLint-style gates. The `engine:'ast-grep'` is parked at FF3003 /
-  FF3010 / FF3012 in the npm-lane validator (`diagnostics/registry.ts:182` — _"ast-grep engine
+  FF3010 / FF3012 in the npm-lane validator (`diagnostics/registry.ts:193` — _"ast-grep engine
   reserved but not wired — deferred per generator-forbid-mvp decision (i)"_); the python lane
   uses the Model A′ path (this arm) instead. A practice that is NOT single-pattern-expressible
   is recorded as a research-only finding — never silently dropped.
