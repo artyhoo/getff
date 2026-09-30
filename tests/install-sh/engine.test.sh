@@ -163,7 +163,7 @@ for _order in before after; do
   out=$(STUB_SP_VERSION=5.2.0 _vrun superpowers "true" "$_sp" cc-plugin yes)
   _p2now=$(sed -n '/aif:project-checks:begin/,/aif:project-checks:end/p' "$_vdec")
   [ "$_p2now" = "$_p2" ] && [ "$(grep -c 'getff:installed-versions:begin' "$_vdec")" = 1 ] \
-    && sed -n '/getff:installed-versions:begin/,/getff:installed-versions:end/p' "$_vdec" | grep -q '^| superpowers | cc-plugin | 5.2.0 |' \
+    && grep -q '^| superpowers | cc-plugin | 5.2.0 |' <<<"$(sed -n '/getff:installed-versions:begin/,/getff:installed-versions:end/p' "$_vdec")" \
     && ok "versions: P2's project-checks block $_order ours is kept byte-identical and ours still records" \
     || bad "versions: P2 block $_order ours: $(tr '\n' '|' < "$_vdec")"
 done
@@ -204,7 +204,7 @@ _sum7() { bash -c 'set -euo pipefail; ENGINE_LIB_ONLY=1 source "$1/setup.d/engin
 # (b) an MCP server skipped because the claude CLI is absent → a NOT-wired line with that reason
 _eb=$(mktemp -d)
 out=$(PATH="$_eb:/usr/bin:/bin" _sum7 companion_step deepwiki "false" "claude mcp add --scope user --transport http deepwiki https://mcp.deepwiki.com/mcp" mcp yes)
-awk '/NOT wired/{on=1; next} on' <<<"$out" | grep -q 'deepwiki — not added: the claude CLI is not on PATH' \
+grep -q 'deepwiki — not added: the claude CLI is not on PATH' <<<"$(awk '/NOT wired/{on=1; next} on' <<<"$out")" \
   && ok "step 7 (b): MCP skipped for a missing claude CLI is a NOT-wired line" || bad "step 7 (b): no NOT-wired line: $(tr '\n' '|' <<<"$out")"
 rm -rf "$_eb"
 

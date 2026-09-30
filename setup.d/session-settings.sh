@@ -183,9 +183,15 @@ apply_session_settings() {
       return 0
     fi
     [ -n "$kept" ] && note_getff_added "$rel"
-  elif [ ! -e "$root/.ai-factory/before-getff/.claude/$(basename "$rel").absent" ]; then
-    mkdir -p "$root/.ai-factory/before-getff/.claude" 2>/dev/null \
-      && : > "$root/.ai-factory/before-getff/.claude/$(basename "$rel").absent"
+  else
+    if [ ! -e "$root/.ai-factory/before-getff/.claude/$(basename "$rel").absent" ]; then
+      mkdir -p "$root/.ai-factory/before-getff/.claude" 2>/dev/null \
+        && : > "$root/.ai-factory/before-getff/.claude/$(basename "$rel").absent"
+    fi
+    # This run created the file: hand it to this run's formatter (P5's format_getff_writes reads
+    # KEPT_ORIGINALS), so the `.absent` record — which never expires — does not reformat a later
+    # hand edit. Guarded: keep_original_mark lives in P5's lib.sh, not on every branch.
+    if declare -F keep_original_mark >/dev/null; then keep_original_mark "$f"; fi
   fi
   _bridge_ignore_local "$root"
   GETFF_SESSION_REVERT=$(_session_settings_undo "$root")

@@ -161,6 +161,8 @@ companion_note_version() {
 # lib.sh GETFF_MCP_*_URL (engine.test.sh holds them equal).
 COMPANION_MCP_CONTEXT7_URL="https://mcp.context7.com/mcp"
 COMPANION_MCP_DEEPWIKI_URL="https://mcp.deepwiki.com/mcp"
+# The names both the version recorder and the Companions preview walk — one list, so they agree.
+COMPANION_MCP_NAMES="context7 deepwiki"
 
 # _companion_mcp_version <url> — the remote's serverInfo.version, or «not read: <reason>».
 _companion_mcp_version() {
@@ -205,11 +207,25 @@ _companion_mcp_is_getffs() {
 # 30-templates, after 05-mcp wrote the servers).
 companion_record_mcp_versions() {
   local root="${PROJECT_ROOT:-$PWD}" name url
-  for name in context7 deepwiki; do
+  for name in $COMPANION_MCP_NAMES; do
     case "$name" in context7) url="$COMPANION_MCP_CONTEXT7_URL" ;; *) url="$COMPANION_MCP_DEEPWIKI_URL" ;; esac
     _companion_mcp_is_getffs "$root" "$name" "$url" || continue
     companion_record_version "$name" mcp "$(_companion_mcp_version "$url")" "MCP initialize ($url)"
   done
+  return 0
+}
+
+# companion_mcp_preview <full> <mode> — the Companions section's line for the MCP servers, which
+# install.sh handles (05-mcp, gated on FULL) rather than the companion loop. Without it the section
+# named only the plugins and CLIs, and a preview reader probed the MCP servers itself (P6 run 2 N4).
+companion_mcp_preview() {
+  local full="$1" mode="$2" names
+  names=$(printf '%s' "$COMPANION_MCP_NAMES" | sed 's/ /, /g')
+  if [ -z "$full" ]; then
+    printf '  ⊝ MCP servers %s — not added in this mode: only with -y (or --full) does the install add them to .mcp.json\n' "$names"
+  elif [ "$mode" = "dry-run" ]; then
+    printf '  [dry-run] MCP servers %s — the framework step above (05-mcp) says what it would add; the real run then records the version each server reports\n' "$names"
+  fi
   return 0
 }
 
