@@ -16,6 +16,9 @@
 #       project has none, and keeps a record already there byte-for-byte
 #   (I) the alpha lanes (python, cargo, go) record themselves too, both lists empty (C7)
 #   (H) the delivered CI's gate steps go through run-armed.sh (every npm stack's template)
+#   (K) the pre-push checks that read the project's own files (check-ci-pins, check-doc-links) are
+#       recorded; the measured cowsay project pushes green after the install, saying «not armed»
+#   (M) --refresh adds those two to a record from an older getff, not-armed, keeping the rest
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -48,7 +51,9 @@ outA=$( cd "$A" && bash "$INSTALL" react-spa < /dev/null 2>&1 )
 block "$A" | grep -qx 'stack: react-spa' && ok "(A) stack: react-spa" || bad "(A) stack line: $(block "$A" | grep '^stack')"
 block "$A" | grep -qx 'linter: eslint' && ok "(A) linter: eslint (getff filled the empty slot)" || bad "(A) linter line: $(block "$A" | grep '^linter')"
 block "$A" | grep -qx 'armed:' && block "$A" | grep -qx 'not-armed:' && ok "(A) armed: and not-armed: headers present" || bad "(A) headers missing"
-[ -z "$(section "$A" armed)" ] && ok "(A) nothing armed without dependencies" || bad "(A) armed: $(section "$A" armed | tr '\n' ';')"
+# Only the two pre-push checks that need no dependencies can be armed here (see (K)).
+[ -z "$(section "$A" armed | grep -v -e '^- bash scripts/check-ci-pins.sh$' -e '^- bash scripts/check-doc-links.sh$')" ] \
+  && ok "(A) nothing that needs dependencies is armed without them" || bad "(A) armed: $(section "$A" armed | tr '\n' ';')"
 section "$A" not-armed | grep -qx -- '- npm run lint # not run at install: dependencies are not installed' \
   && ok "(A) npm run lint not-armed, reason: dependencies not installed" || bad "(A) lint line: $(section "$A" not-armed | grep lint | head -1)"
 section "$A" not-armed | grep -qx -- '- bash scripts/check-rule-globs.sh # not run at install: dependencies are not installed' \
@@ -150,6 +155,43 @@ cp "$(REC "$A")" "$A/.rec-before"
 ( cd "$A" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
 cmp -s "$(REC "$A")" "$A/.rec-before" && ok "(J) --refresh keeps a record already there byte-for-byte" \
   || bad "(J) --refresh changed the record: $(diff "$A/.rec-before" "$(REC "$A")" | head -5 | tr '\n' '|')"
+
+# ── (K) the two pre-push checks that read the project's own files are recorded too ───────────────
+# scripts/check-ci-pins.sh (unpinned-tool-install) and scripts/check-doc-links.sh (lychee) need no
+# dependencies, so the install runs them. Advisor (P6 blocker class), red first with the measured case:
+# a project whose own workflow runs `npm install -g cowsay` pushed green before the install and red
+# after it; now the check is recorded not-armed and the first push goes through.
+if command -v lychee >/dev/null 2>&1; then LINKS_A='- bash scripts/check-doc-links.sh'
+else LINKS_A='- bash scripts/check-doc-links.sh # lychee is not installed'; fi
+recA=$(block "$A")
+grep -qx -- '- bash scripts/check-ci-pins.sh' <<<"$recA" && grep -qx -- "$LINKS_A" <<<"$recA" \
+  && ok "(K) a clean project: check-ci-pins armed, check-doc-links «${LINKS_A#- }»" \
+  || bad "(K) record: $(block "$A" | grep -E 'ci-pins|doc-links' | tr '\n' ';')"
+K=$(proj "$SPA"); BARE=$(mktemp -d); TMPS+=("$BARE"); git init -q --bare "$BARE"
+mkdir -p "$K/.github/workflows"
+printf 'on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm install -g cowsay\n' > "$K/.github/workflows/own.yml"
+( cd "$K" && git add -A && git commit -qm own && git checkout -qb work && git push -q "$BARE" work ); rc0=$?
+( cd "$K" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 && git add -A && git -c core.hooksPath=/dev/null commit -qm getff )
+section "$K" not-armed | grep -qx -- '- bash scripts/check-ci-pins.sh # exits 1 at install' \
+  && ok "(K) the project's own unpinned workflow: check-ci-pins recorded not-armed, exits 1 at install" \
+  || bad "(K) ci-pins line: $(block "$K" | grep ci-pins)"
+( cd "$K" && git push "$BARE" work ) > "$K/.push" 2>&1; rc=$?
+[ "$rc0" -eq 0 ] && [ "$rc" -eq 0 ] && grep -qF '· not armed: bash scripts/check-ci-pins.sh — exits 1 at install' "$K/.push" \
+  && ok "(K) the push green before the install is green after it, and says «not armed»" \
+  || bad "(K) push before rc=$rc0, after rc=$rc: $(grep -E '❌|not armed: bash scripts/check-ci' "$K/.push" | head -3 | tr '\n' '|')"
+
+# ── (M) --refresh adds a check a record from an older getff does not list ───────────────────────
+# run-armed runs a command the record does not list, so without this a refreshed hook would run the
+# new checks unconditionally on a project whose record predates them.
+M=$(proj "$SPA")
+( cd "$M" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
+grep -v -e 'check-ci-pins' -e 'check-doc-links' "$(REC "$M")" > "$M/.rec" && mv "$M/.rec" "$(REC "$M")"
+( cd "$M" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
+section "$M" not-armed | grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
+  && section "$M" not-armed | grep -qx -- '- bash scripts/check-doc-links.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
+  && section "$M" not-armed | grep -qx -- '- npm run lint # not run at install: dependencies are not installed' \
+  && ok "(M) --refresh adds the two missing checks not-armed and keeps the other lines" \
+  || bad "(M) record after --refresh: $(block "$M" | tr '\n' ';')"
 
 # ── (G) --dry-run writes nothing ────────────────────────────────────────────────────────────────
 G=$(proj "$SPA")

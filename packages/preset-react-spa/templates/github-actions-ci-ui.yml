@@ -41,6 +41,10 @@ jobs:
       # recorded not-armed where it was red at install or where the project does not lint with ESLint.
       - name: getff's ESLint fences fire on known-bad input
         run: bash scripts/run-armed.sh bash scripts/check-fences-fire.sh
+      # Every tool install in this repo's workflows pins a version (the pre-push hook's check, run on its
+      # own). Through the record: not-armed where a workflow the project already had was unpinned.
+      - name: tool installs in .github/workflows pin a version
+        run: bash scripts/run-armed.sh bash scripts/check-ci-pins.sh
 
   typecheck:
     name: TypeScript

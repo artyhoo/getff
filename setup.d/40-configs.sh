@@ -75,6 +75,13 @@ chmod_safe +x "$PROJECT_ROOT/scripts/check-shields-up.sh" 2>/dev/null || true
 # the pre-push probe all go through it, so a check red at install blocks nothing until it is green.
 copy_safe "$PKG_ROOT/packages/core/audit-self/run-armed.sh" "$PROJECT_ROOT/scripts/run-armed.sh"
 chmod_safe +x "$PROJECT_ROOT/scripts/run-armed.sh" 2>/dev/null || true
+# P2 (advisor, P6 blocker class): the two pre-push sections that read the project's OWN files — its
+# workflows' tool installs, its Markdown links — run on their own through these, so the record
+# governs them like the checks above (99-finalize runs both at install: no dependencies needed).
+for _hc in check-ci-pins.sh check-doc-links.sh; do
+  copy_safe "$PKG_ROOT/packages/core/audit-self/$_hc" "$PROJECT_ROOT/scripts/$_hc"
+  chmod_safe +x "$PROJECT_ROOT/scripts/$_hc" 2>/dev/null || true
+done
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"

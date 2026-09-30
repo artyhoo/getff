@@ -749,6 +749,14 @@ async function cmdScriptLivenessSection(rb: ResolvedBase): Promise<void> {
  *     consumer), leaving the workflow population unconditional.
  */
 function unpinnedToolInstallSection(ctx: SectionCtx): void {
+  if (
+    recordGoverned(
+      ctx,
+      'scripts/check-ci-pins.sh',
+      '❌ unpinned tool install check failed',
+    )
+  )
+    return;
   const population = [
     ...workflowYmlFiles(),
     ...(ctx.isFrameworkRepo ? shellScriptFiles() : []),
@@ -1088,6 +1096,34 @@ function consumerGate(script: string): CheckResult {
   return existsSync(resolve(REPO_ROOT, RUN_ARMED))
     ? run('bash', [RUN_ARMED, 'bash', script])
     : run('bash', [script]);
+}
+
+/**
+ * A section that reads the project's OWN files (its workflows, its Markdown) goes through the
+ * record like a consumer gate: on a consumer layout with run-armed.sh and <script>, run <script>
+ * through it and return true — «not armed» is printed, and only an armed red blocks. <script>
+ * re-enters this hook with GETFF_SECTION_DIRECT=1 to run the section's own body, so that call, the
+ * framework repo and a project installed before the record return false and run the body as before.
+ * Measured before this (P2, advisor, the P6 blocker class): a project's own `npm install -g cowsay`
+ * workflow, and one broken link in its own docs on a first push to a new remote, each turned a push
+ * that was green before the install red.
+ */
+function recordGoverned(
+  ctx: SectionCtx,
+  script: string,
+  failMsg: string,
+): boolean {
+  if (ctx.isFrameworkRepo || process.env['GETFF_SECTION_DIRECT'] === '1')
+    return false;
+  if (
+    !existsSync(resolve(REPO_ROOT, RUN_ARMED)) ||
+    !existsSync(resolve(REPO_ROOT, script))
+  )
+    return false;
+  const r = consumerGate(script);
+  if (r.exitCode !== 0) die(failMsg, r);
+  emit(r);
+  return true;
 }
 
 function armedProbeSection(): void {
@@ -2461,6 +2497,17 @@ export function isFrameworkShippedMarkdown(
 const PLUGIN_AGENT_TWIN_PREFIX = 'plugin/agents/';
 
 function lycheeSection(ctx: SectionCtx): void {
+  // Without lychee the body below says so and skips, as before; the record arms the check only
+  // where lychee runs (scripts/check-doc-links.sh exits 3 without it).
+  if (
+    !run('lychee', ['--version']).notFound &&
+    recordGoverned(
+      ctx,
+      'scripts/check-doc-links.sh',
+      "❌ lychee found broken links in this project's Markdown — fix before push",
+    )
+  )
+    return;
   const { rb } = ctx;
   if (rb.base !== null) {
     let changedMd = getChangedFiles(rb.base, 'ACMR', rb.head).filter((f) =>

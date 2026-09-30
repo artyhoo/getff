@@ -1160,6 +1160,8 @@ do_refresh() {
     "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
     "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
     "packages/core/audit-self/run-armed.sh:scripts/run-armed.sh" \
+    "packages/core/audit-self/check-ci-pins.sh:scripts/check-ci-pins.sh" \
+    "packages/core/audit-self/check-doc-links.sh:scripts/check-doc-links.sh" \
     "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh" \
     "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh" \
     "packages/core/audit-self/pre-merge-local.sh:scripts/pre-merge-local.sh" \
