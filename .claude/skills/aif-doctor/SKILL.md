@@ -262,6 +262,14 @@ Modes `bridge-health.sh` does **not** cover (confirmed by reading its source 202
   3. **Switch runtime profile or transport (Tier 2 — GO required).** Not a fix on its own: the other Z.AI profile reads the same key, and a Claude profile may be disabled by operator policy (on the maintainer's stack: «GLM only inside aif»). Any switch to a paid path also falls under §8.
 - **Do NOT:** restart containers, delete or re-dispatch the stalled tasks, or treat the fresh heartbeat as health. None of these touches the quota; a re-dispatch only adds a second refused task.
 
+### §3.10 Root-owned base clone → task `blocked_external` at worktree creation (verified live 2026-09-30)
+
+- **Symptom:** a freshly dispatched task goes straight to `blocked_external`; its record carries `worktree_create_failed` with `cannot lock ref 'refs/heads/feature/<branch>': Unable to create '<repo>/.git/refs/heads/feature/<branch>.lock': Permission denied`. No task on this project can start; other projects on the same stack are fine.
+- **Detect (read-only):** `docker exec <agent> sh -c 'cd <repo> && find .git -not -user node | wc -l'` is non-zero (1368 on 2026-09-30), and `find . -path ./.git -prune -o -path "*/node_modules" -prune -o -not -user node -print` lists working-tree files too (920 files in 42 directories). The base reflog (`.git/logs/HEAD`) dates it: here a root `git gc` at 21:59:48 and `merge origin/staging: Fast-forward` at 22:04:07 on 2026-09-29.
+- **Root cause:** `docker exec` runs as the image's default user (root on the aif stack) while aif runs tasks as the clone's owner (`node`). Any git write through a bare `docker exec` — `refresh-aif-base.sh` before its 2026-09-30 fix (`icg()` had no `-u`), a hand-run fetch or merge, an auto-gc those trigger — leaves root-owned refs, index, reflogs, packs and every file a merge rewrites. aif's own pre-worktree `git pull --ff-only` then cannot write those directories either.
+- **Fix — Tier 2 (GO required; reversible in principle, not in practice):** `docker exec -u 0 <agent> chown -R node:node <repo>` (the whole clone, not only `.git`: a `.git`-only chown fixes ref locks but leaves the working tree unwritable for the next base refresh), then `bash .claude/skills/aif-doctor/helpers/refresh-aif-base.sh` — which since 2026-09-30 runs every in-container git as the owner of the clone (`docker exec -u <uid>:<gid>`, from `ls -nd <repo>`; `AIF_CONTAINER_USER` overrides) — then retry the task. Pinned by `tests/aif-doctor/refresh-aif-base.test.sh` AC9/AC10.
+- **Do NOT:** run git inside the base clone through a bare `docker exec` (no `-u`), even to read-then-write, and do not hand-run `refresh-aif-base.sh` from before the fix — each re-creates the root-owned state.
+
 ---
 
 ## §4 Mutation discipline (the Q2 contract)
