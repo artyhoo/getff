@@ -106,7 +106,7 @@ fi
 
 # Never install THROUGH a delivery symlink. create-worktree.sh provisions
 # `$WORKTREE_PATH/node_modules` as a symlink to the PRIMARY checkout's tree
-# (scripts/worktree-node-modules.sh:316 — the D2 workspace optimisation), so an
+# (scripts/worktree-node-modules.sh:436 — the D2 workspace optimisation), so an
 # install run here writes into the primary: npm reifies against the worktree's own
 # lock and PRUNES every package outside that closure from the primary's real
 # node_modules, emptying `node_modules/.bin` on the way. The sibling guard in

@@ -284,7 +284,7 @@ describe('getff-work.sh — workspace one-command (AC-5)', { timeout: SLOW_SHELL
   it('step 2 does NOT install through the worktree node_modules delivery symlink — the primary tree survives', () => {
     // Incident 2026-08-16 (staging RED at fa8da9406c): create-worktree.sh provisions
     // <worktree>/node_modules as a symlink to the PRIMARY's tree
-    // (worktree-node-modules.sh:316), and step 2 then ran `npm ci` with that worktree as
+    // (worktree-node-modules.sh:436), and step 2 then ran `npm ci` with that worktree as
     // cwd — so npm reified the PRIMARY's real node_modules against the worktree's lock,
     // pruning 673 of 835 packages and emptying node_modules/.bin. Every vitest child
     // spawned afterwards died on
