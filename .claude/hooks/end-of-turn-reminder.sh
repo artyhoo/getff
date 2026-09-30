@@ -786,66 +786,109 @@ fi
 # chip for the follow-on round while the aif auto-dispatch path was up; the chip waits for a
 # human click, a `<!-- bridge: auto -->` kickoff is dispatched on write by
 # runtime-bridge-dispatch.sh with zero clicks. Error-with-escape, not a warning
-# (attention-is-not-a-mechanism.md §1): the escape is a `chip-over-bridge: <20+ chars>` line in
-# the turn's text — e.g. a stage gated on an unmerged predecessor.
+# (attention-is-not-a-mechanism.md §1): the escape is a `chip-over-bridge: <20+ chars>` line
+# anywhere in the turn's text — e.g. a stage gated on an unmerged predecessor.
 #
-# The mechanizable slice only: the arm fires when (a) RUNTIME_BRIDGE_MODE is set and is not
-# `manual` (manual = the operator forced the paste backend), (b) THIS turn — the records after
-# the last operator prompt — called spawn_task, and (c) the chip prompt names a `*kickoff*.md`
-# whose first line is not exactly the auto marker. A kickoff that cannot be read counts as
-# lacking the marker (fail-closed). A chip that names no kickoff is judgment (the
-# «out-of-scope issue» use), left to the rule's prose. Earliest reachable channel: no
-# PreToolUse matcher for spawn_task exists and .claude/settings.json is agent-uncommittable.
-# Bounded: each spawn_task tool_use id is flagged once per session (TMP flag, the hands-arm
-# shape), so a re-stop after the block never re-blocks the same chip. ZCode has no spawn_task.
-# Here-strings, never `printf | grep -q` (this file's A3-5 SIGPIPE lesson).
-if [ -n "${RUNTIME_BRIDGE_MODE:-}" ] && [ "${RUNTIME_BRIDGE_MODE}" != "manual" ] && ! _is_zcode \
+# The mechanizable slice only. The arm fires when ALL hold:
+#   (a) RUNTIME_BRIDGE_MODE is set and is neither `manual` (the operator forced the paste
+#       backend) nor `amux` (reserved — the resolver falls back to manual), AND the bridge
+#       answers `${RUNTIME_BRIDGE_AIF_URL}/health` — the resolver (packages/runtime-bridge/src/
+#       resolver.ts) also falls back to manual when aif is unreachable, and then a chip IS right;
+#   (b) THIS turn — the records after the last operator prompt — called spawn_task;
+#   (c) the chip prompt names a kickoff the write-time dispatcher would actually dispatch:
+#       `*/kickoff.md`, not `*-meta-launch/kickoff.md` — the SAME case filter as
+#       runtime-bridge-dispatch.sh. A stage kickoff (`kickoff-s2.md`) is NOT checked: the marker
+#       does nothing there, so telling the model to add it would lose the work silently;
+#   (d) that file's first line is not exactly the marker. Unreadable counts as unmarked
+#       (fail-closed).
+# A chip that names no such kickoff is judgment, left to the rule's prose.
+# Turn start = the last `user` record that is a human prompt: `origin.kind == "human"` where the
+# transcript carries origin (measured 2026-10-01 over 40 local transcripts: tool_result,
+# isMeta skill bodies and peer messages, task-notification, local-command records are all
+# non-human), else a non-meta record whose content is not a tool_result / notification tag.
+# A compaction summary also starts a turn. Earliest reachable channel: no PreToolUse matcher
+# for spawn_task exists and .claude/settings.json is agent-uncommittable. Bounded: each
+# spawn_task tool_use id is flagged once per session (TMP flag). ZCode has no spawn_task.
+if [ -n "${RUNTIME_BRIDGE_MODE:-}" ] && [ "${RUNTIME_BRIDGE_MODE}" != "manual" ] \
+   && [ "${RUNTIME_BRIDGE_MODE}" != "amux" ] && ! _is_zcode \
    && command -v aif_msg_eot_chip_over_bridge >/dev/null 2>&1 \
-   && grep -qF 'spawn_task' "$scan_file" 2>/dev/null \
-   && ! grep -qE 'chip-over-bridge:[[:space:]]*.{20,}' <<<"$text"; then
-  # Turn start = the last `user` record that is neither a tool_result nor `isMeta` (a skill body
-  # loaded mid-turn is a `user` record with isMeta:true — measured on a real desktop transcript
-  # 2026-10-01; counting it would drop a chip emitted before the skill load).
-  _cb_start="$(grep -nE '"(type|role)":"user"' "$scan_file" 2>/dev/null | grep -vF '"tool_result"' | grep -vF '"isMeta":true' | tail -1 | cut -d: -f1 || true)"
-  case "$_cb_start" in ''|*[!0-9]*) _cb_start=0 ;; esac
-  _cb_uses="$(LC_ALL=C awk -v s="$_cb_start" 'NR > s && /spawn_task/' "$scan_file" 2>/dev/null \
-    | jq -r '.message.content[]? | select(.type=="tool_use" and ((.name // "") | test("(^|__)spawn_task$")))
-             | [(.id // "noid"), ((.input.prompt // "") | @base64)] | @tsv' 2>/dev/null || true)"
-  if [ -n "$_cb_uses" ]; then
-    _cb_base="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
-    [ -n "$_cb_base" ] || _cb_base="${CLAUDE_PROJECT_DIR:-$PWD}"
-    _cb_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
-    _cb_flag="${TMPDIR:-/tmp}/aif-eot-chip-${_cb_key}"
-    _cb_hits=""
-    while IFS=$'\t' read -r _cb_id _cb_b64; do
-      [ -n "$_cb_id" ] || continue
-      if [ -f "$_cb_flag" ] && grep -qxF -- "$_cb_id" "$_cb_flag" 2>/dev/null; then continue; fi
-      _cb_prompt="$(printf '%s' "$_cb_b64" | base64 -d 2>/dev/null || printf '%s' "$_cb_b64" | base64 -D 2>/dev/null || true)"
-      _cb_paths="$(grep -oE '[A-Za-z0-9_./~-]*kickoff[A-Za-z0-9_.-]*\.md' <<<"$_cb_prompt" | sort -u || true)"
-      _cb_this=""
-      while IFS= read -r _cb_p; do
-        [ -n "$_cb_p" ] || continue
-        case "$_cb_p" in
-          /*) _cb_abs="$_cb_p" ;;
-          \~/*) _cb_abs="${HOME}/${_cb_p#\~/}" ;;
-          *) _cb_abs="${_cb_base}/${_cb_p}" ;;
-        esac
-        _cb_first=""
-        [ -r "$_cb_abs" ] && _cb_first="$(head -n1 "$_cb_abs" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-        if [ "$_cb_first" != '<!-- bridge: auto -->' ]; then
-          [ -r "$_cb_abs" ] || _cb_p="${_cb_p} (unreadable)"
-          _cb_this="${_cb_this}${_cb_this:+, }${_cb_p}"
+   && grep -qF 'spawn_task' "$scan_file" 2>/dev/null; then
+  # One jq pass: U<TAB>id<TAB>b64(prompt) per spawn_task call, T<TAB>b64(text) per text block,
+  # both only after the turn start. -R + fromjson? tolerates a malformed line.
+  _cb_rows="$(jq -Rrn '
+    def human: .type == "user" and (.isMeta != true) and (
+      (.isCompactSummary == true)
+      or (if (.origin.kind? // null) != null then .origin.kind == "human"
+          elif (.message.content | type) == "string" then
+            (.message.content | test("^\\s*<(task-notification|local-command-|ci-monitor-event|system-reminder)") | not)
+          else ((.message.content // []) | all(.type != "tool_result")) end));
+    [inputs | (fromjson? // null)] as $r
+    | ([range(0; $r | length) | select($r[.] != null and ($r[.] | human))] | last // -1) as $s
+    | $r[($s + 1):][] | select(. != null and (.type == "assistant" or .message.role? == "assistant"))
+    | .message.content[]?
+    | if .type == "tool_use" and ((.name // "") | test("(^|__)spawn_task$")) then
+        "U\t\(.id // "noid")\t\((.input.prompt // "") | @base64)"
+      elif .type == "text" then "T\t\((.text // "") | @base64)"
+      else empty end' "$scan_file" 2>/dev/null || true)"
+  if grep -q '^U' <<<"$_cb_rows"; then
+    _cb_b64d() { printf '%s' "$1" | base64 -d 2>/dev/null || printf '%s' "$1" | base64 -D 2>/dev/null || true; }
+    _cb_turn_text=""
+    while IFS=$'\t' read -r _cb_k _cb_v _; do
+      [ "$_cb_k" = "T" ] && _cb_turn_text="${_cb_turn_text}"$'\n'"$(_cb_b64d "$_cb_v")"
+    done <<<"$_cb_rows"
+    # The escape needs a real reason: 20+ chars that do not start with `<` (a model quoting the
+    # template placeholder verbatim is not a reason).
+    if ! grep -qE 'chip-over-bridge:[[:space:]]*[^<[:space:]].{19,}' <<<"${_cb_turn_text}"$'\n'"${text}"; then
+      _cb_base="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)"
+      [ -n "$_cb_base" ] || _cb_base="${CLAUDE_PROJECT_DIR:-$PWD}"
+      _cb_key=$(printf '%s' "$session_id" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-96)
+      _cb_flag="${TMPDIR:-/tmp}/aif-eot-chip-${_cb_key}"
+      _cb_hits=""
+      _cb_ids=""
+      while IFS=$'\t' read -r _cb_k _cb_id _cb_v; do
+        [ "$_cb_k" = "U" ] || continue
+        if [ -f "$_cb_flag" ] && grep -qxF -- "$_cb_id" "$_cb_flag" 2>/dev/null; then continue; fi
+        _cb_paths="$(grep -oE '[A-Za-z0-9_./~-]*kickoff\.md' <<<"$(_cb_b64d "$_cb_v")" | sort -u || true)"
+        _cb_this=""
+        while IFS= read -r _cb_p; do
+          # The dispatcher's own filter (runtime-bridge-dispatch.sh); `//` = a URL, not a path.
+          case "$_cb_p" in
+            //*|*-meta-launch/kickoff.md) continue ;;
+            */kickoff.md|kickoff.md) ;;
+            *) continue ;;
+          esac
+          case "$_cb_p" in
+            /*) _cb_abs="$_cb_p" ;;
+            \~/*) _cb_abs="${HOME}/${_cb_p#\~/}" ;;
+            *) _cb_abs="${_cb_base}/${_cb_p}" ;;
+          esac
+          _cb_first=""
+          if [ -f "$_cb_abs" ] && [ -r "$_cb_abs" ]; then
+            _cb_first="$(head -n1 "$_cb_abs" 2>/dev/null | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' || true)"
+          else
+            _cb_p="${_cb_p} (unreadable)"
+          fi
+          if [ "$_cb_first" != '<!-- bridge: auto -->' ]; then
+            _cb_this="${_cb_this}${_cb_this:+, }${_cb_p}"
+          fi
+        done <<<"$_cb_paths"
+        if [ -n "$_cb_this" ]; then
+          _cb_hits="${_cb_hits}${_cb_hits:+, }${_cb_this}"
+          _cb_ids="${_cb_ids}${_cb_id}"$'\n'
         fi
-      done <<<"$_cb_paths"
-      if [ -n "$_cb_this" ]; then
-        _cb_hits="${_cb_hits}${_cb_hits:+, }${_cb_this}"
-        { printf '%s\n' "$_cb_id" >> "$_cb_flag"; } 2>/dev/null || true
+      done <<<"$_cb_rows"
+      # Liveness probe LAST — it costs a network round-trip, so only a turn that would otherwise
+      # fire pays it. Bridge down → the resolver would fall back to manual → the chip is right.
+      if [ -n "$_cb_hits" ] \
+         && [ -n "$(curl -sf --max-time 2 "${RUNTIME_BRIDGE_AIF_URL:-http://localhost:3009}/health" 2>/dev/null || true)" ]; then
+        { printf '%s' "$_cb_ids" >> "$_cb_flag"; } 2>/dev/null || true
+        chip_line="$(aif_msg_eot_chip_over_bridge "$_cb_hits" "$RUNTIME_BRIDGE_MODE")"
       fi
-    done <<<"$_cb_uses"
-    [ -n "$_cb_hits" ] && chip_line="$(aif_msg_eot_chip_over_bridge "$_cb_hits" "$RUNTIME_BRIDGE_MODE")"
+    fi
+    unset -f _cb_b64d 2>/dev/null || true
   fi
-  unset _cb_start _cb_uses _cb_base _cb_key _cb_flag _cb_hits _cb_id _cb_b64 _cb_prompt _cb_paths \
-    _cb_this _cb_p _cb_abs _cb_first 2>/dev/null || true
+  unset _cb_rows _cb_turn_text _cb_k _cb_v _cb_base _cb_key _cb_flag _cb_hits _cb_ids _cb_id \
+    _cb_paths _cb_this _cb_p _cb_abs _cb_first 2>/dev/null || true
 fi
 
 # -- story branch detection: a PR was just created this turn → engaging recap ----
@@ -1533,9 +1576,6 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     # Manual-step arm — same parity append (one block per stop).
     if [ -n "$hands_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${hands_line}"
-    fi
-    if [ -n "$chip_line" ]; then
-      _ze_reason="${_ze_reason}"$'\n\n'"${chip_line}"
     fi
     _ze_glance="🎯 $(head -c 60 < <(printf '%s' "${anchor}") | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{

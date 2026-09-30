@@ -322,9 +322,9 @@ EOF
 # $1 = the kickoff path(s), $2 = the RUNTIME_BRIDGE_MODE value.
 aif_msg_eot_chip_over_bridge() {
   cat <<EOF
-[dispatch-channel] This turn emitted a spawn_task chip for $1, but that kickoff does not start with <!-- bridge: auto --> while RUNTIME_BRIDGE_MODE=$2 says the aif runtime bridge is up. A chip waits for a human click; auto-dispatch starts the work with zero clicks.
-Prefer the zero-click channel: make <!-- bridge: auto --> the kickoff's exact first line (runtime-bridge-dispatch.sh dispatches it on write), then dismiss the chip (dismiss_task) so the work is not dispatched twice.
-If the chip is genuinely the right channel — a stage gated on an unmerged predecessor, or work the operator must start at a time of their choosing — say so in one line of your answer: chip-over-bridge: <why, 20+ chars>.
+[dispatch-channel] This turn emitted a spawn_task chip for $1 while RUNTIME_BRIDGE_MODE=$2 and the aif bridge answers /health — but that kickoff does not start with <!-- bridge: auto -->. A chip waits for a human click; auto-dispatch starts the work with zero clicks.
+First decide: does the work wait on something (a stage gated on an unmerged predecessor), or must the operator choose when it starts? If so, keep the chip and say why in one line of your answer: chip-over-bridge: <why, 20+ chars>.
+If not, use the zero-click channel: make <!-- bridge: auto --> the kickoff's exact first line (runtime-bridge-dispatch.sh dispatches a */kickoff.md on write), then dismiss the chip (dismiss_task) so the work is not dispatched twice.
 EOF
 }
 
