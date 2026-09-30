@@ -1202,9 +1202,11 @@ function ruleGlobsSection(): void {
 // It therefore runs FIRST (position 0 in ALL_SECTIONS — composeSections() is order-preserving)
 // so the symlinks land BEFORE vitest can plant the cache that would freeze them out.
 //
-// Heals rather than blocks: the only write is a gitignored symlink, and the shared helper
-// refuses any path holding a real install. Blocks ONLY when healing is impossible (the primary
-// checkout itself has no node_modules), and then names the exact remediation. Per the operator
+// Heals rather than blocks: the write is a gitignored symlink — or, when the worktree's lock
+// diverges from the primary's installed tree, a real install into the worktree's own
+// node_modules — and the shared helper refuses any path holding a real install. Blocks ONLY
+// when healing is impossible (the primary has no node_modules, or the real install failed),
+// and then the helper names the exact remediation. Per the operator
 // directive — worktree symlink provisioning is a blocking check of the setup hook, not a manual
 // habit — and .claude/rules/attention-is-not-a-mechanism.md §1 (a gate, not a warning nobody reads).
 function worktreeProvisioningSection(): void {
@@ -1213,18 +1215,30 @@ function worktreeProvisioningSection(): void {
   if (!existsSync(helper) || !statSync(resolve(REPO_ROOT, '.git')).isFile())
     return;
 
-  if (run('bash', [helper, '--check', REPO_ROOT]).exitCode === 0) return;
+  // --check exit 3 = this worktree's lock diverges from the primary's INSTALLED tree, so a link
+  // would serve the wrong dependencies (incident 2026-09-30: TS2307 on `oxlint/plugins-dev`
+  // reading as a code red). --apply then performs a real install, never through a symlink.
+  const checked = run('bash', [helper, '--check', REPO_ROOT]);
+  if (checked.exitCode === 0) return;
 
-  const applied = run('bash', [helper, '--apply', REPO_ROOT]);
+  // A lock-diverged worktree gets a real install (minutes of network on a cold cache), which
+  // the 120 s default cap of run() would cut off mid-install.
+  const applied = runCheck('bash', [helper, '--apply', REPO_ROOT], {
+    cwd: REPO_ROOT,
+    timeoutMs: 15 * 60_000,
+  });
   if (applied.exitCode !== 0) {
     die(
-      '❌ this worktree has no node_modules and cannot be provisioned automatically.\n' +
-        '   Run `npm install` in the primary checkout, then `bash scripts/worktree-doctor.sh --fix`.',
+      '❌ this worktree cannot be provisioned automatically — the helper output below names the cause\n' +
+        '   and the exact commands (typically: `npm install` in the primary checkout, or the real-install\n' +
+        '   commands for a lock-diverged worktree).',
       applied,
     );
   }
   process.stdout.write(
-    '✓ worktree node_modules provisioned (symlinks were missing — healed before the test sections)\n',
+    checked.exitCode === 3
+      ? '✓ worktree node_modules installed for real (its lock diverges from the primary checkout)\n'
+      : '✓ worktree node_modules provisioned (symlinks were missing — healed before the test sections)\n',
   );
 }
 
