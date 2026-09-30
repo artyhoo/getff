@@ -36,10 +36,10 @@ expect_rcnz() { if [ "$2" -ne 0 ]; then ok "$1"; else bad "$1: expected non-zero
 expect_rc()   { if [ "$2" -eq "$3" ]; then ok "$1"; else bad "$1: expected exit $3, got $2"; fi; }
 
 # ── fixture rule texts (non-ASCII on purpose: characters must differ from bytes) ───────────────
-RULE_A='alpha — keep the invariant table in sync; правило первое.'
+RULE_A='alpha — keep the invariant table in sync; κανόνας πρώτος.'
 RULE_B='beta: companion rule for the distinct-paths figure.'
 RULE_C='nested CLAUDE.md body — a native load, never a rule load.'
-RULE_D='gamma строка: string-shape record written by 2.1.270.'
+RULE_D='gamma γραμμή: string-shape record written by 2.1.270.'
 
 len_of()   { jq -rn --arg t "$1" '$t | length'; }            # codepoints — the spec unit
 bytes_of() { jq -rn --arg t "$1" '$t | utf8bytelength'; }    # bytes — NOT the spec unit
