@@ -13,10 +13,13 @@
 #     shipped CLIs importing a file the package does not deliver.
 # Pre-commit is the earliest channel that can see either: the index exists only there.
 #
-# WHAT IT CHECKS, only when the index carries a payload change (pathspecs from
-# `build-getff-dist.sh --list-payload`, the single source of the list):
-#   1. no UNTRACKED, un-ignored file sits under a payload root — `git add` it (it ships) or
-#      gitignore it; the assembler would silently leave it out;
+# WHAT IT CHECKS, only when the index carries a payload change or the manifest itself (pathspecs
+# from `build-getff-dist.sh --list-payload`, the single source of the list):
+#   1. no UNTRACKED, un-ignored payload file sits in the SAME directory as a staged payload path —
+#      the #1625 shape, a new file next to the code that uses it. Scoped on purpose: across all
+#      payload roots the arm blocked every payload commit in 8 of 151 worktrees on 2026-10-01
+#      (test temp dirs such as packages/core/install/.nrule-probe-*, in-progress files elsewhere),
+#      which trains people to sweep unrelated files into commits or to spend the escape;
 #   2. `build-getff-dist.sh --check-index` — the staged manifest equals a fresh assembly of the
 #      staged payload. A manifest left unstaged is the common way to fail this, and the message
 #      names it. A payload change that moves no hash (a mode-only change) passes without a
@@ -45,24 +48,46 @@ while IFS= read -r spec; do
 done <<<"$(bash "$BUILDER" --list-payload)"
 [ "${#PAYLOAD[@]}" -gt 0 ] || { echo "ERROR: build-getff-dist.sh --list-payload printed nothing" >&2; exit 1; }
 
-STAGED="$(git -C "$ROOT" diff --cached --name-only -- "${PAYLOAD[@]}")"
+# The manifest is part of the trigger: a manifest-only commit rebuilt from unstaged payload edits
+# records hashes its own tree does not have.
+STAGED="$(git -C "$ROOT" diff --cached --name-only -- "${PAYLOAD[@]}" "$MANIFEST_PATH")"
 [ -n "$STAGED" ] || exit 0
 
 problems=""
 # indent <prefix>: prefix every stdin line (a read loop, not sed — shellcheck SC2001 at CI severity).
 indent() { local line; while IFS= read -r line; do printf '%s%s\n' "$1" "$line"; done; }
 
-UNTRACKED="$(git -C "$ROOT" ls-files --others --exclude-standard -- "${PAYLOAD[@]}")"
+STAGED_DIRS=""
+while IFS= read -r p; do
+  [ "$p" = "$MANIFEST_PATH" ] && continue
+  STAGED_DIRS="${STAGED_DIRS}$(dirname "$p")
+"
+done <<<"$STAGED"
+UNTRACKED=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  grep -qxF "$(dirname "$f")" <<<"$STAGED_DIRS" && UNTRACKED="${UNTRACKED}${f}
+"
+done <<<"$(git -C "$ROOT" ls-files --others --exclude-standard -- "${PAYLOAD[@]}")"
 if [ -n "$UNTRACKED" ]; then
-  problems="${problems}untracked file(s) under a getff payload root — the manifest cannot include them:
-$(indent '    ' <<<"$UNTRACKED")
-  fix: git add them (they ship), or gitignore them; then rebuild and stage the manifest
+  # Under `git commit <path>` the index is HEAD + those paths, so a file `git add`ed but left
+  # out of the pathspec also lands here — hence «not in this commit».
+  problems="${problems}payload file(s) next to what this commit changes are untracked or not in this commit — the manifest cannot include them:
+$(indent '    ' <<<"${UNTRACKED%
+}")
+  fix: git add them (they ship) or gitignore them; then rebuild and stage the manifest
 "
 fi
 
 index_rc=0
 index_out="$(bash "$BUILDER" --check-index 2>&1)" || index_rc=$?
-if [ "$index_rc" -ne 0 ]; then
+if [ "$index_rc" -ne 0 ] && ! grep -q '^DRIFT' <<<"$index_out"; then
+  # Not a verdict about the staging at all (checkout-index failed, a symlink, an empty root):
+  # say so instead of blaming the manifest.
+  problems="${problems}build-getff-dist.sh --check-index could not run (exit $index_rc):
+$(indent '  ' <<<"$index_out")
+"
+elif [ "$index_rc" -ne 0 ]; then
   if [ -z "$(git -C "$ROOT" diff --cached --name-only -- "$MANIFEST_PATH")" ]; then
     lead="$MANIFEST_PATH is not staged, but the commit changes the getff payload:"
   else
@@ -71,7 +96,9 @@ if [ "$index_rc" -ne 0 ]; then
   problems="${problems}${lead}
 $(head -20 <<<"$STAGED" | indent '    ')
 $(indent '  ' <<<"$index_out")
-  fix: bash scripts/build-getff-dist.sh && git add $MANIFEST_PATH
+  fix: stage every payload edit the manifest should record, then
+       bash scripts/build-getff-dist.sh && git add $MANIFEST_PATH
+       (the build reads the WORKING TREE: an unstaged payload edit still lands in the manifest)
 "
 fi
 

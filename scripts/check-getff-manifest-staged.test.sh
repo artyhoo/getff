@@ -11,12 +11,17 @@
 #   N2 payload edit + rebuilt manifest, both staged → quiet
 #   N3 a new payload file `git add`ed BEFORE the build, manifest staged → quiet
 #   N4 a payload deletion with the rebuilt manifest staged → quiet
+#   N5 an untracked file in a payload directory the commit does not touch → quiet (in-progress work
+#      elsewhere must not block a commit; measured 8/151 worktrees blocked by the unscoped arm)
+#   N6 an untracked file in a SUBdirectory of a staged path's directory (test temp dirs) → quiet
 #   P1 the #1627 shape: working tree fully in sync (`--check` GREEN) but the manifest is not staged → fires
 #   P2 payload staged, manifest never rebuilt → fires
-#   P3 the #1625 shape: a new payload file left UNTRACKED while the manifest was built → fires,
+#   P3 the #1625 shape: a new payload file left UNTRACKED next to the staged edit → fires,
 #      although the index manifest and the index payload agree with each other
 #   P4 a partial stage: two payload edits on disk, the manifest built from both, one edit staged → fires
 #   P5 a payload deletion without the manifest → fires
+#   P6 a manifest-only commit rebuilt from unstaged payload edits → fires
+#   S1 a tracked symlink under a payload root → fires as «could not run», not as drift
 #   I1 the check reads GIT_INDEX_FILE (what `git commit -a` / `git commit <path>` hand a pre-commit hook)
 #   E1 an escape rationale under 20 characters is refused → fires
 #   E2 an escape with a real rationale → passes, and the rationale lands in the override log
@@ -25,6 +30,8 @@
 #   A2 the apply script branches off staging and commits .husky/pre-commit alone (no renderer in the fixture)
 #   A3 the patched hook parses and keeps `exit "$fail"` last
 #   A4 the apply script is idempotent
+#   A5 the apply script refuses a dirty tracked tree and commits nothing
+#   A6 a patch that no longer applies rolls back: back on the start branch, no maintainer branch
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0; FAIL=0
@@ -96,6 +103,14 @@ run "N3 new payload file added before the build, manifest staged" quiet "$r"
 r=$(fresh_repo); g -C "$r" rm -q skills/s2.md; build "$r"; g -C "$r" add packages/getff/MANIFEST.sha256
 run "N4 payload deletion with the rebuilt manifest staged" quiet "$r"
 
+r=$(fresh_repo); echo wip > "$r/templates/wip.txt"; echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"
+g -C "$r" add setup.d/10-a.sh packages/getff/MANIFEST.sha256
+run "N5 untracked file in a payload directory the commit does not touch" quiet "$r"
+
+r=$(fresh_repo); mkdir -p "$r/setup.d/.probe-XYZ"; echo tmp > "$r/setup.d/.probe-XYZ/c.mjs"
+echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"; g -C "$r" add setup.d/10-a.sh packages/getff/MANIFEST.sha256
+run "N6 untracked file in a subdirectory of a staged path's directory" quiet "$r"
+
 echo "── fires"
 r=$(fresh_repo); echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"; g -C "$r" add setup.d/10-a.sh
 if bash "$r/scripts/build-getff-dist.sh" --check >/dev/null 2>&1; then
@@ -108,9 +123,10 @@ else bad "P1 message does not name the unstaged manifest: $(tr '\n' '|' <<<"$LAS
 r=$(fresh_repo); echo b=2 >> "$r/setup.d/10-a.sh"; g -C "$r" add setup.d/10-a.sh
 run "P2 payload staged, manifest never rebuilt" fire "$r"
 
-r=$(fresh_repo); echo new > "$r/agents/new.md"; echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"
-g -C "$r" add setup.d/10-a.sh packages/getff/MANIFEST.sha256
-run "P3 new payload file left untracked while the manifest was built" fire "$r"
+# The #1625 shape: the new file sits next to the edited code that uses it.
+r=$(fresh_repo); echo new > "$r/agents/new.md"; echo 'see new.md' >> "$r/agents/a.md"; build "$r"
+g -C "$r" add agents/a.md packages/getff/MANIFEST.sha256
+run "P3 new payload file left untracked next to the staged edit that uses it" fire "$r"
 if grep -q 'agents/new.md' <<<"$LAST_OUT"; then ok "P3 names the untracked file"
 else bad "P3 message does not name agents/new.md: $(tr '\n' '|' <<<"$LAST_OUT")"; fi
 
@@ -121,11 +137,21 @@ run "P4 partial stage: manifest built from two edits, one edit staged" fire "$r"
 r=$(fresh_repo); g -C "$r" rm -q skills/s2.md
 run "P5 payload deletion without the manifest" fire "$r"
 
+r=$(fresh_repo); echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"; g -C "$r" add packages/getff/MANIFEST.sha256
+run "P6 manifest-only commit rebuilt from unstaged payload edits" fire "$r"
+
+r=$(fresh_repo); ln -s a.md "$r/agents/link.md"; g -C "$r" add agents/link.md; build "$r"
+g -C "$r" add packages/getff/MANIFEST.sha256
+run "S1 tracked symlink under a payload root" fire "$r"
+if grep -q 'could not run' <<<"$LAST_OUT" && grep -q 'symlink' <<<"$LAST_OUT"; then
+  ok "S1 reported as «could not run» naming the symlink, not as a staging mistake"
+else bad "S1 message: $(tr '\n' '|' <<<"$LAST_OUT")"; fi
+
 echo "── index source"
 # `git commit -a` builds a temporary index and hands the hook GIT_INDEX_FILE; the real
-# .git/index stays untouched. Stage the good pair ONLY into an alternate index: the default
-# index then carries nothing, the alternate one carries a consistent pair → quiet; and the
-# reverse (payload without manifest into the alternate index) → fires.
+# .git/index stays untouched. Stage the payload edit ONLY into an alternate index: .git/index
+# then carries nothing (a checker that ignored GIT_INDEX_FILE would stay quiet), while the
+# alternate index carries payload without manifest → must fire.
 r=$(fresh_repo); echo b=2 >> "$r/setup.d/10-a.sh"; build "$r"
 cp "$r/.git/index" "$r/.git/alt-index"
 GIT_INDEX_FILE="$r/.git/alt-index" g -C "$r" add setup.d/10-a.sh
@@ -169,11 +195,12 @@ if grep -qF 'scripts/check-getff-manifest-staged.sh' "$REPO_ROOT/.husky/pre-comm
   cp "$REPO_ROOT/.husky/pre-commit" "$r/.husky/pre-commit"
   (cd "$r" && git apply -R scripts/check-getff-manifest-staged.precommit.patch)
 else cp "$REPO_ROOT/.husky/pre-commit" "$r/.husky/pre-commit"; fi
+PRE_IMAGE="$TMP/pre-commit.pre-image"; cp "$r/.husky/pre-commit" "$PRE_IMAGE"
 g -C "$r" init -q -b staging; g -C "$r" add -A; g -C "$r" commit -qm base
 # Identity, signing and hooks go into the fixture's own config: the script runs plain `git commit`.
 git -C "$r" config user.name t; git -C "$r" config user.email t@t
 git -C "$r" config commit.gpgsign false; git -C "$r" config core.hooksPath /dev/null
-out=$(cd "$r" && bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
+out=$(cd "$r" && APPLY_BASE_REF=staging bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
 files=$(g -C "$r" show --name-only --format= HEAD)
 if [ "$rc" -eq 0 ] && [ "$files" = ".husky/pre-commit" ] \
   && [ "$(g -C "$r" rev-parse --abbrev-ref HEAD)" = "maintainer/precommit-getff-manifest-staged" ]; then
@@ -188,5 +215,29 @@ out=$(cd "$r" && bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && 
 if [ "$rc" -eq 0 ] && [ "$(g -C "$r" rev-parse HEAD)" = "$before" ] && grep -q 'nothing to do' <<<"$out"; then
   ok "A4 apply script is idempotent"
 else bad "A4 re-run rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
+
+r=$(mktemp -d "$TMP/apply.XXXXXX"); mkdir -p "$r/scripts" "$r/.husky"
+cp "$REPO_ROOT/scripts/apply-getff-manifest-staged-precommit.sh" "$REPO_ROOT/scripts/check-getff-manifest-staged.precommit.patch" \
+  "$REPO_ROOT/scripts/check-getff-manifest-staged.sh" "$r/scripts/"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/check-getff-manifest-staged.test.sh"
+cp "$PRE_IMAGE" "$r/.husky/pre-commit"; echo 'notes' > "$r/README.md"
+g -C "$r" init -q -b staging; g -C "$r" add -A; g -C "$r" commit -qm base
+git -C "$r" config user.name t; git -C "$r" config user.email t@t
+git -C "$r" config commit.gpgsign false; git -C "$r" config core.hooksPath /dev/null
+echo dirty >> "$r/README.md"; before=$(g -C "$r" rev-parse HEAD)
+out=$(cd "$r" && APPLY_BASE_REF=staging bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && [ "$(g -C "$r" rev-parse HEAD)" = "$before" ] && g -C "$r" diff --quiet -- .husky/pre-commit \
+  && [ "$(g -C "$r" rev-parse --abbrev-ref HEAD)" = "staging" ]; then
+  ok "A5 dirty tracked tree refused, nothing committed, hook and branch untouched"
+else bad "A5 rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
+
+git -C "$r" checkout -q -- README.md
+printf '#!/usr/bin/env bash\necho reshaped\nexit 0\n' > "$r/.husky/pre-commit"; g -C "$r" commit -qam reshape
+out=$(cd "$r" && APPLY_BASE_REF=staging bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
+if [ "$rc" -ne 0 ] && [ "$(g -C "$r" rev-parse --abbrev-ref HEAD)" = "staging" ] \
+  && ! g -C "$r" show-ref --verify -q refs/heads/maintainer/precommit-getff-manifest-staged \
+  && [ -z "$(g -C "$r" status --porcelain --untracked-files=no)" ] && grep -q 'no longer applies' <<<"$out"; then
+  ok "A6 unappliable patch rolls back cleanly (start branch, no maintainer branch, clean tree)"
+else bad "A6 rc=$rc branch=$(g -C "$r" rev-parse --abbrev-ref HEAD): $(tr '\n' '|' <<<"$out")"; fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

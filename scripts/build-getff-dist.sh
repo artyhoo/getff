@@ -142,6 +142,11 @@ case "$MODE" in
     trap 'rm -rf "$work"' EXIT
     git -C "$ROOT" show ":packages/getff/MANIFEST.sha256" > "$work/staged.manifest" 2>/dev/null \
       || fail "DRIFT: packages/getff/MANIFEST.sha256 is not in the index"
+    # A symlink would hash differently here (checkout-index writes the link, `find -type f` skips
+    # it) than in assemble() (`cp -p` follows it) — refuse rather than report false drift.
+    # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
+    links="$(git -C "$ROOT" ls-files -s -- $PAYLOAD | awk '$1 == "120000" { sub(/^[^\t]*\t/, ""); print }')"
+    [ -z "$links" ] || fail "tracked symlink(s) in the payload — --check-index cannot hash them like assemble() does: $(tr '\n' ' ' <<<"$links")"
     mkdir "$work/tree"
     # shellcheck disable=SC2086  # PAYLOAD is a deliberate word-split list of pathspecs
     git -C "$ROOT" ls-files -z -- $PAYLOAD | git -C "$ROOT" checkout-index -z --stdin --prefix="$work/tree/"
