@@ -376,8 +376,8 @@
   },
   "enforcementOutcomes": {
     "source": [
-      "AGENTS.md:78",
-      "AGENTS.md:98",
+      "AGENTS.md:79",
+      "AGENTS.md:99",
       "packages/core/composition/demo/root-agents-demo.ts:133"
     ],
     "nodes": {
