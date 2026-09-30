@@ -69,13 +69,50 @@ esac
 
 matcher=""
 has_matcher=0
-if [ $# -ge 1 ] && [ "$1" != "--" ]; then matcher="$1"; has_matcher=1; shift; fi
+if [ $# -ge 1 ] && [ "$1" != "--" ]; then
+  # A dash-leading matcher is almost always a claude flag missing its `--`; taking it as the
+  # matcher would make the event "not fire" and report a false negative about the runtime.
+  case "$1" in
+    -*) echo "probe-hook-stdin: matcher '$1' looks like a flag — put claude args after '--'" >&2; exit 2 ;;
+  esac
+  matcher="$1"; has_matcher=1; shift
+fi
 if [ $# -ge 1 ] && [ "$1" = "--" ]; then shift; fi
 # Remaining "$@" = extra claude args (passthrough).
 
 command -v jq >/dev/null 2>&1 || { echo "probe-hook-stdin: jq is required" >&2; exit 2; }
 
-# --- output dir + capture hook -----------------------------------------------------------
+# build_settings <hook-path> — the inline --settings JSON registering the capture hook.
+build_settings() {
+  local cmd
+  cmd="bash $(printf '%q' "$1")"
+  if [ "$has_matcher" -eq 1 ]; then
+    jq -cn --arg e "$event" --arg m "$matcher" --arg c "$cmd" \
+      '{hooks: {($e): [{matcher: $m, hooks: [{type: "command", command: $c}]}]}}'
+  else
+    jq -cn --arg e "$event" --arg c "$cmd" \
+      '{hooks: {($e): [{hooks: [{type: "command", command: $c}]}]}}'
+  fi
+}
+
+if [ "$print_only" -eq 1 ]; then
+  # Nothing is created: the path is where a live run would write its hook.
+  build_settings "${PROBE_OUT_DIR:-<out-dir>}/capture-hook.sh"
+  exit 0
+fi
+
+# --- live run (session-only) --------------------------------------------------------------
+# Refusals come before anything is written, so a refused run leaves no directory behind.
+if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+  echo "probe-hook-stdin: refusing on CI — a live probe is a model call (.claude/rules/no-paid-llm-in-ci.md). Run it from a session." >&2
+  exit 3
+fi
+claude_bin="${CLAUDE_BIN:-claude}"
+if ! command -v "$claude_bin" >/dev/null 2>&1; then
+  echo "probe-hook-stdin: claude binary '$claude_bin' not found" >&2
+  exit 4
+fi
+
 if [ -n "${PROBE_OUT_DIR:-}" ]; then
   out="$PROBE_OUT_DIR"
   if [ -d "$out" ] && [ -n "$(ls -A "$out" 2>/dev/null)" ]; then
@@ -88,39 +125,17 @@ else
 fi
 out="$(cd "$out" && pwd)"
 hook="$out/capture-hook.sh"
+# File names start with a UTC timestamp, so glob order is capture order (to the second; ties
+# within one second keep an arbitrary order).
 {
   echo '#!/usr/bin/env bash'
   echo '# Capture-only probe hook: stdin → one payload file per firing. Prints nothing.'
-  printf 'f=$(mktemp %q/payload-XXXXXX) || exit 0\n' "$out"
+  printf 'f=$(mktemp %q/payload-$(date -u +%%Y%%m%%dT%%H%%M%%SZ)-XXXXXX) || exit 0\n' "$out"
   echo 'cat >"$f" && mv "$f" "$f.json"'
   echo 'exit 0'
 } >"$hook"
 chmod +x "$hook"
-
-hook_cmd="bash $(printf '%q' "$hook")"
-if [ "$has_matcher" -eq 1 ]; then
-  settings=$(jq -cn --arg e "$event" --arg m "$matcher" --arg c "$hook_cmd" \
-    '{hooks: {($e): [{matcher: $m, hooks: [{type: "command", command: $c}]}]}}')
-else
-  settings=$(jq -cn --arg e "$event" --arg c "$hook_cmd" \
-    '{hooks: {($e): [{hooks: [{type: "command", command: $c}]}]}}')
-fi
-
-if [ "$print_only" -eq 1 ]; then
-  printf '%s\n' "$settings"
-  exit 0
-fi
-
-# --- live run (session-only) --------------------------------------------------------------
-if [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
-  echo "probe-hook-stdin: refusing on CI — a live probe is a model call (.claude/rules/no-paid-llm-in-ci.md). Run it from a session." >&2
-  exit 3
-fi
-claude_bin="${CLAUDE_BIN:-claude}"
-if ! command -v "$claude_bin" >/dev/null 2>&1; then
-  echo "probe-hook-stdin: claude binary '$claude_bin' not found" >&2
-  exit 4
-fi
+settings="$(build_settings "$hook")"
 
 prompt="${PROBE_PROMPT:-Reply with the single word: ok}"
 echo "probe-hook-stdin: event=$event${matcher:+ matcher=$matcher} out=$out" >&2
@@ -145,6 +160,6 @@ fi
 if [ "$claude_rc" -ne 0 ]; then
   echo "note: claude exited $claude_rc after the hook fired (expected for events that want hook output, e.g. WorktreeCreate); log: $out/claude.log"
 fi
-echo "--- first payload ($n captured) ---"
+echo "--- earliest payload ($n captured) ---"
 jq . "$first" 2>/dev/null || cat "$first"
 exit 0

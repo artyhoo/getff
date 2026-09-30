@@ -62,8 +62,8 @@ done
 rm -f "$STUB_ARGS"
 CI=true PROBE_OUT_DIR="$TMP/o3" CLAUDE_BIN="$STUB" STUB_EVENT=Stop bash "$SCRIPT" Stop >"$TMP/out" 2>&1
 rc=$?
-if [ "$rc" -eq 3 ] && grep -q "no-paid-llm-in-ci" "$TMP/out" && [ ! -e "$STUB_ARGS" ]; then
-  ok "CI=true → exit 3, claude never invoked"; else bad "CI refusal (rc=$rc)"; fi
+if [ "$rc" -eq 3 ] && grep -q "no-paid-llm-in-ci" "$TMP/out" && [ ! -e "$STUB_ARGS" ] && [ ! -e "$TMP/o3" ]; then
+  ok "CI=true → exit 3, claude never invoked, nothing written"; else bad "CI refusal (rc=$rc)"; fi
 rm -f "$STUB_ARGS"
 GITHUB_ACTIONS=true PROBE_OUT_DIR="$TMP/o3b" CLAUDE_BIN="$STUB" STUB_EVENT=Stop bash "$SCRIPT" Stop >"$TMP/out" 2>&1
 rc=$?
@@ -71,8 +71,8 @@ if [ "$rc" -eq 3 ] && [ ! -e "$STUB_ARGS" ]; then ok "GITHUB_ACTIONS=true → ex
 
 # 4. --print-settings without matcher: valid JSON, command hook, no matcher key
 run "$TMP/o4" --print-settings Stop
-if [ "$rc" -eq 0 ] && jq -e '.hooks.Stop[0].hooks[0].type == "command" and (.hooks.Stop[0] | has("matcher") | not)' "$TMP/out" >/dev/null 2>&1; then
-  ok "--print-settings Stop → command hook, no matcher"
+if [ "$rc" -eq 0 ] && [ ! -e "$TMP/o4" ] && jq -e '.hooks.Stop[0].hooks[0].type == "command" and (.hooks.Stop[0] | has("matcher") | not)' "$TMP/out" >/dev/null 2>&1; then
+  ok "--print-settings Stop → command hook, no matcher, nothing written"
 else bad "--print-settings Stop (rc=$rc): $(cat "$TMP/out")"; fi
 
 # 5. --print-settings with a regex matcher carrying JSON-hostile characters
@@ -89,7 +89,7 @@ f6=""
 for f in "$TMP/o6"/payload-*.json; do [ -e "$f" ] && f6="$f" && break; done
 if [ "$rc" -eq 0 ] && [ -n "$f6" ] \
   && [ "$(cat "$f6")" = '{"session_id":"s-0","hook_event_name":"SessionStart","cwd":"/x"}' ] \
-  && grep -q "hook_event_name" "$TMP/out"; then
+  && grep -qxF '  keys: session_id, hook_event_name, cwd' "$TMP/out"; then
   ok "stub run → exit 0, payload captured verbatim, keys reported"
 else bad "stub run (rc=$rc): $(cat "$TMP/out")"; fi
 if grep -qx -- "-p" "$STUB_ARGS" && grep -qx -- "--settings" "$STUB_ARGS" \
@@ -120,6 +120,21 @@ if [ "$rc" -eq 0 ] && [ "$n10" -eq 2 ]; then ok "two firings → two payload fil
 mkdir -p "$TMP/o11" && echo '{}' >"$TMP/o11/payload-old.json"
 run "$TMP/o11" SessionStart
 if [ "$rc" -eq 2 ]; then ok "non-empty out dir → exit 2"; else bad "non-empty out dir (rc=$rc)"; fi
+
+# 12. a dash-leading matcher is a claude flag missing its `--` → exit 2, claude never invoked
+rm -f "$STUB_ARGS"
+run "$TMP/o12" SessionStart --worktree x
+if [ "$rc" -eq 2 ] && grep -q "looks like a flag" "$TMP/out" && [ ! -e "$STUB_ARGS" ]; then
+  ok "flag-shaped matcher → exit 2"
+else bad "flag-shaped matcher (rc=$rc): $(cat "$TMP/out")"; fi
+
+# 13. capture file names carry a UTC timestamp so glob order is capture order
+f13=""
+for f in "$TMP/o6"/payload-*.json; do [ -e "$f" ] && f13="$f" && break; done
+case "$(basename "$f13")" in
+  payload-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z-*.json) ok "payload name is timestamp-prefixed" ;;
+  *) bad "payload name not timestamp-prefixed: $f13" ;;
+esac
 
 echo "probe-hook-stdin.test.sh: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1
