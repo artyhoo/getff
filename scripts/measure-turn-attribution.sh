@@ -32,17 +32,32 @@
 # HOST-ONLY: reads `~/.claude/projects/**/*.jsonl`. That path does not exist in the aif
 #   container (it mounts `claude-auth` as a named volume, not the host `~/.claude`), so this
 #   script cannot run there. It reads per-turn BILLING METADATA and tool names/sizes only —
-#   never message content.
+#   never message content. The single §10 exception, stated exactly: a native `nested_memory`
+#   attachment's rule text is read ONLY to take its length (jq codepoints) and its PATH is
+#   printed; the rule text itself is never emitted.
 #
 # EXIT STATUS: 0 on a real run; non-zero on an empty corpus, a missing dependency, or a
 #   population count of zero. An empty run must FAIL LOUDLY rather than emit empty tables —
 #   the seed was an unguarded pipeline whose last element was a `sort`, so an empty run
-#   exited 0 and was indistinguishable from a real one.
+#   exited 0 and was indistinguishable from a real one. MEASURE_SECTIONS=native-load
+#   replaces both population guards with one: the corpus must hold at least one transcript
+#   (a zero population is reported as 0 in §10, and equal populations are legal); it still
+#   exits non-zero when BOTH populations hold zero transcripts. Any OTHER value of that
+#   variable is a FATAL (exit 2) before any corpus work — never a silent fallback to the
+#   full run, whose §9 probes execute repo hooks and whose strict guards the mode exists
+#   to relax.
 #
 # ENV OVERRIDES (for reuse and for exercising the empty-corpus guard):
 #   CORPUS_ROOT    default ~/.claude/projects
 #   PROJECT_MATCH  default *rules-as-tests-aif*   (path glob selecting the project's dirs)
 #   REPO_ROOT      default: git toplevel of this script's checkout (for §8/§9 hook probes)
+#   MEASURE_SECTIONS  default: unset — run §0-§10, with the strict population guards above.
+#                     `native-load` prints §0 + §10 only and skips the §1-§9 COMPUTATION
+#                     (§10 reads the shared stream built before §1, so nothing it needs is
+#                     lost, and a replay run stays cheap — no live hook probes). In that mode
+#                     zero and equal populations are legal, not failures. Any other value is
+#                     a FATAL exit 2 — unknown values are rejected, never silently run as the
+#                     full mode.
 
 set -euo pipefail
 
@@ -76,6 +91,19 @@ for dep in jq awk find xargs grep; do
 done
 [ -d "$CORPUS_ROOT" ] || { echo "FATAL: corpus root not found: $CORPUS_ROOT" >&2; exit 2; }
 
+# MEASURE_SECTIONS accepts exactly two states: unset (the full §0-§10 run) or native-load
+# (see ENV OVERRIDES above). Any other value is a FATAL before any corpus work, NOT a silent
+# fallback to the full run: the full run executes live repo-hook probes (§9) and re-applies
+# the strict population guards, so a one-character typo would both run side effects the mode
+# exists to avoid and reject corpora the mode exists to accept.
+case "${MEASURE_SECTIONS:-}" in
+  ""|native-load) ;;
+  *)
+    echo "FATAL: unknown MEASURE_SECTIONS value: $MEASURE_SECTIONS" >&2
+    echo "       supported: unset (full §0-§10 run) or native-load (§0 + §10 only)." >&2
+    exit 2 ;;
+esac
+
 TMPD="$(mktemp -d)"
 trap 'rm -rf "$TMPD"' EXIT
 
@@ -99,14 +127,28 @@ echo "SESSION-TRANSCRIPTS: $N_SESSION"
 echo "SUBAGENT-TRANSCRIPTS: $N_SUBAGENT"
 echo "TOTAL-TRANSCRIPTS: $((N_SESSION + N_SUBAGENT))"
 
-if [ "$N_SESSION" -eq 0 ] || [ "$N_SUBAGENT" -eq 0 ]; then
-  echo "FATAL: empty corpus population (session=$N_SESSION subagent=$N_SUBAGENT)." >&2
-  echo "       A zero population is a failed run, not a finding about subagents." >&2
-  exit 3
-fi
-if [ "$N_SESSION" -eq "$N_SUBAGENT" ]; then
-  echo "FATAL: the two populations are equal ($N_SESSION) — the find is not discriminating." >&2
-  exit 3
+if [ "${MEASURE_SECTIONS:-}" = "native-load" ]; then
+  # Population mode: the only corpus guard is "at least one transcript". A zero population is
+  # reported as 0 in §10 and equal populations are legal — a headless replay may spawn no
+  # subagent at all, or exactly one subagent for its one session (1 and 1), and neither is a
+  # failed run. A corpus with zero transcripts in BOTH populations still fails loudly.
+  if [ "$((N_SESSION + N_SUBAGENT))" -eq 0 ]; then
+    echo "FATAL: corpus holds zero transcripts (session=$N_SESSION subagent=$N_SUBAGENT)." >&2
+    echo "       MEASURE_SECTIONS=native-load needs at least one transcript; an empty corpus" >&2
+    echo "       must FAIL LOUDLY rather than read as a clean answer." >&2
+    exit 3
+  fi
+else
+  if [ "$N_SESSION" -eq 0 ] || [ "$N_SUBAGENT" -eq 0 ]; then
+    echo "FATAL: empty corpus population (session=$N_SESSION subagent=$N_SUBAGENT)." >&2
+    echo "       A zero population is a failed run, not a finding about subagents." >&2
+    echo "       (MEASURE_SECTIONS=native-load relaxes both guards — see ENV OVERRIDES above.)" >&2
+    exit 3
+  fi
+  if [ "$N_SESSION" -eq "$N_SUBAGENT" ]; then
+    echo "FATAL: the two populations are equal ($N_SESSION) — the find is not discriminating." >&2
+    exit 3
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -160,6 +202,48 @@ emit_stream() { # $1 NUL-list  $2 population label
             # section-9 table cross-unit-incomparable with the live `wc -c` probe below.
             # NOTE: no apostrophes in this comment — it lives inside a single-quoted jq program.
             len:(((.attachment.stdout // "") | utf8bytelength)) }
+        else empty end ),
+      # Native memory loads. CC itself (no repo hook) writes one `attachment` record per
+      # nested memory it loads, typed `nested_memory` and carrying the file path plus the
+      # loaded text. Recorded here so §10 can size the native rule-load bill; the path lands
+      # in the same TSV column the H arm uses for the hook script name, and the version in
+      # the same column the A arm uses — so the flat @tsv below needs no new columns.
+      ( if (.type == "attachment" and (.attachment.type == "nested_memory")
+            and ((.attachment.content | type) as $ct
+                 | ($ct == "string" or $ct == "object" or $ct == "null"))) then
+          { t:"N", pop:$pop, f:$f,
+            ver:(.version // "unknown"),
+            n:((.attachment.path // "") | tostring),
+            # UNIT: CODEPOINTS, deliberately the opposite of the H arm above. jq `length` on
+            # a string counts codepoints and §10 reports CHARACTERS per the native-load spec;
+            # the H arm uses utf8bytelength because §8/§9 report BYTES. The text itself is
+            # never emitted — only this length and the path survive into the TSV. Two record
+            # shapes are live: 2.1.281 writes .attachment.content as an OBJECT whose own
+            # content key holds the text, 2.1.270 wrote it as a plain string.
+            #
+            # The content-type guard in the predicate above keeps the extraction formula
+            # below TOTAL: on an array/number/bool content it would raise a jq runtime error
+            # and the record would be dropped below every arm by the stderr swallow at the
+            # end of this program. Such shape drift is routed to the X arm instead, so it
+            # surfaces on the NATIVE-ATTACHMENT-UNSEEN line rather than vanishing.
+            len:((.attachment.content | if type == "string" then . else (.content // "") end) | length) }
+        else empty end ),
+      # Unrecognized attachment shapes. The H arm above takes hook invocations and the N
+      # arm takes nested_memory records with a string/object/null content; any OTHER
+      # attachment shape (skill_listing is live in real transcripts, and CC adds shapes
+      # over time) would otherwise vanish silently, and a rename of nested_memory would
+      # read as a clean records=0 in §10. Such records are counted and typed here so §10
+      # can print the exclusion instead of hiding it; an attachment that stops matching
+      # the H predicate after a CC shape change lands here too, and so does a nested_memory
+      # whose content type drifted (array/number/bool — the N arm refuses it, see there),
+      # which keeps the drop visible from §10 without touching §8.
+      # Tag X: A/U/R/C/H/N are taken (see the tag table above this function).
+      ( if (.type == "attachment" and (.attachment.command == null)
+            and ( ((.attachment.type // "") != "nested_memory")
+                  or ((.attachment.content | type) as $ct
+                      | ($ct != "string" and $ct != "object" and $ct != "null")) )) then
+          { t:"X", pop:$pop, f:$f,
+            n:((.attachment.type // "<no-type>") | tostring) }
         else empty end )
   ' < "$1" 2>/dev/null || true
 }
@@ -182,6 +266,12 @@ jq -r '[.t,.pop,.f,(.ep//0),(.md//""),(.ver//""),(.eff//""),(.i//0),(.cw//0),(.c
 # TSV columns: 1=t 2=pop 3=file 4=epoch 5=model 6=version 7=effort
 #              8=input 9=cache_write 10=cache_read 11=output 12=c5m 13=c1h
 #              14=id 15=toolname 16=resultlen 17=speed
+
+# §1-§9 sit in one function so MEASURE_SECTIONS=native-load can skip their COMPUTATION, not
+# only their printing: in that mode §10 reads the shared stream built above, so nothing it
+# needs is lost, while §8's corpus concat + §9's LIVE HOOK PROBES (which execute repo hooks)
+# never run — a replay corpus needs one cheap tagged pass, not the full treatment.
+default_sections() {
 
 # ---------------------------------------------------------------------------
 # §1 Billing categories — raw and price-weighted (seed §2.1 / §2.2 reproduced).
@@ -508,6 +598,72 @@ awk -F'\t' -v lo="$BYTES_PER_TOKEN_LO" -v hi="$BYTES_PER_TOKEN_HI" '
     printf "  %-26s %10s %16s %18s\n","model (seat class)","firings","injected-bytes","est-tokens(band)"
     for (m in fires) printf "  %-26s %10d %16d %18s\n", m, fires[m], bytes[m], sprintf("%d-%d", bytes[m]/hi, bytes[m]/lo)
   }' "$TMPD/filemodel.tsv" "$TMPD/stream.tsv" | { read -r h; echo "$h"; sort -k2 -rn; }
+
+}
+
+if [ "${MEASURE_SECTIONS:-}" = "native-load" ]; then
+  echo "-- §1-§9 skipped (MEASURE_SECTIONS=native-load): §0 + §10 only --"
+else
+  default_sections
+fi
+
+# ---------------------------------------------------------------------------
+# §10 NATIVE RULE LOADS  [extension beyond the seed]
+#
+# Native = loaded by Claude Code itself, without a repo hook: CC writes one `attachment`
+# record per nested memory it loads (the t=N tag in emit_stream). Only records whose path
+# is under `/.claude/rules/` are RULE loads; a nested CLAUDE.md is a native load too, but
+# not a rule load — it is reported on its own line so it cannot inflate the rule totals.
+#
+# UNIT: CHARACTERS (jq codepoints), not bytes — the spec unit for this arm, and deliberately
+# NOT the §8/§9 byte unit (the N tag records codepoints where the H tag records
+# utf8bytelength). A §10 figure and a §8/§9 figure are cross-unit-incomparable for
+# non-ASCII rule text; do not divide one by the other.
+#
+# Attachment shapes matching NEITHER the hook-invocation predicate (§8, t=H) NOR the
+# nested_memory rule-load predicate (t=N — a nested_memory whose content is a string,
+# object, or null) are counted and typed on the NATIVE-ATTACHMENT-UNSEEN line — the
+# deliberate exclusion of every other attachment shape is printed here instead of staying
+# silent, so a record type CC adds later (a rename of nested_memory, or a content-shape
+# drift inside it) shows up as a non-zero unseen count rather than as a clean records=0.
+# On a real corpus the count is permanently non-zero — CC ships many command-less hook
+# attachment types — so the SIGNAL this line carries is the type LIST, not the count.
+# No unseen shape enters any §10 total.
+# ---------------------------------------------------------------------------
+echo
+echo "=== §10 NATIVE RULE LOADS ==="
+for pop in session subagent; do
+  echo "-- population: $pop --"
+  awk -F'\t' -v P="$pop" '
+    $1=="N" && $2==P && $15 ~ /\/\.claude\/rules\// { r++; if (!seen[$15]++) p++; c+=$16 }
+    END { printf "NATIVE-RULE-LOADS pop=%s records=%d paths=%d chars=%d\n", P, r+0, p+0, c+0 }' \
+    "$TMPD/stream.tsv"
+  echo "top rule files by characters:"
+  # sed -n '1,10p', NOT head -10: this population is unbounded (one line per distinct rule
+  # path), so past the pipe buffer head SIGPIPEs the sort, and pipefail + set -e then kill
+  # the whole run mid-report with an undocumented exit 141 (measured at ~700 distinct paths;
+  # 400 still passed). sed consumes all input, so the pipeline cannot SIGPIPE.
+  # LC_ALL=C: deterministic tie order among equal-character files (the sibling sorts in this
+  # block pin it too).
+  awk -F'\t' -v P="$pop" '
+    $1=="N" && $2==P && $15 ~ /\/\.claude\/rules\// { c[$15]+=$16 }
+    END { for (f in c) printf "%d %s\n", c[f], f }' "$TMPD/stream.tsv" \
+    | LC_ALL=C sort -rn | sed -n '1,10p' \
+    | sed 's|\([^ ]*\) .*/\.claude/rules/|\1 .claude/rules/|; s|^|  |'
+  awk -F'\t' -v P="$pop" '
+    $1=="N" && $2==P && $15 !~ /\/\.claude\/rules\// { r++; if (!seen[$15]++) p++; c+=$16 }
+    END { printf "NATIVE-MEMORY-NONRULE pop=%s records=%d paths=%d chars=%d\n", P, r+0, p+0, c+0 }' \
+    "$TMPD/stream.tsv"
+  U_R="$(awk -F'\t' -v P="$pop" '$1=="X" && $2==P { r++ } END { print r+0 }' "$TMPD/stream.tsv")"
+  U_TYPES="$(awk -F'\t' -v P="$pop" '$1=="X" && $2==P { print $15 }' "$TMPD/stream.tsv" \
+    | LC_ALL=C sort -u | paste -sd, -)"
+  echo "NATIVE-ATTACHMENT-UNSEEN pop=$pop records=$U_R types=${U_TYPES:--}"
+  echo "by Claude Code version:"
+  awk -F'\t' -v P="$pop" '
+    $1=="N" && $2==P && $15 ~ /\/\.claude\/rules\// { r[$6]++; c[$6]+=$16 }
+    END { for (v in r) printf "version=%s records=%d chars=%d\n", v, r[v], c[v] }' "$TMPD/stream.tsv" \
+    | LC_ALL=C sort
+done
 
 echo
 echo "=== END OF RUN ==="
