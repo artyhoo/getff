@@ -1,0 +1,25 @@
+--- a/.husky/pre-commit
++++ b/.husky/pre-commit
+@@ -393,4 +393,22 @@
+   fi
+ fi
+ 
++# ── getff payload commit carries its MANIFEST.sha256 (and no untracked payload file) ──
++# spec: header of scripts/check-getff-manifest-staged.sh; incidents #1625 + #1627 (2026-09-05).
++# build-getff-dist.sh --check reads the WORKING TREE, so a path-scoped commit that leaves the
++# rebuilt manifest out, or a new payload file still untracked when the manifest was built,
++# keeps every later local gate GREEN and reddens the getff-dist CI cell. The index exists only
++# here, which makes pre-commit the earliest channel that can see either mistake.
++# LAST on purpose: the invariants render above can re-stage .claude/hooks/inject-session-bootstrap.sh,
++# a payload file, so the check must read the index after every auto-stage in this file.
++# Change-scoped inside the checker (exit 0 when no payload path is staged). Escape, logged:
++# GETFF_MANIFEST_STAGED_ALLOW='<why, ≥20 chars>'. Backstop: the getff-dist CI cell only —
++# pre-push payload-drift reads the working-tree manifest and cannot see this mistake.
++# Declared limit: a DELETION-only commit never reaches this block — `CHANGED` is built with
++# --diff-filter=ACM and the hook exits 0 at its empty guard; the CI cell catches it.
++if ! bash "$REPO_ROOT/scripts/check-getff-manifest-staged.sh"; then
++  echo "❌ getff payload staged without its manifest — fix: bash scripts/build-getff-dist.sh && git add packages/getff/MANIFEST.sha256"
++  fail=1
++fi
++
+ exit "$fail"

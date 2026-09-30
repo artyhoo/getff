@@ -21,6 +21,10 @@
 #   E1 an escape rationale under 20 characters is refused → fires
 #   E2 an escape with a real rationale → passes, and the rationale lands in the override log
 #   L1 build-getff-dist.sh --list-payload still prints the payload list the checker consumes
+#   A1 the maintainer patch still applies to .husky/pre-commit (or is applied) — the drift alarm
+#   A2 the apply script branches off staging and commits .husky/pre-commit alone
+#   A3 the patched hook parses and keeps `exit "$fail"` last
+#   A4 the apply script is idempotent
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0; FAIL=0
@@ -144,5 +148,45 @@ echo "── payload list"
 if grep -qx 'packages/core' <<<"$(bash "$REPO_ROOT/scripts/build-getff-dist.sh" --list-payload)"; then
   ok "L1 --list-payload prints the payload pathspecs"
 else bad "L1 --list-payload lost packages/core"; fi
+
+echo "── maintainer patch (.husky is agent-denied; the hook edit ships as a patch + apply script)"
+# A1 is the drift alarm: another commit reshaping .husky/pre-commit before the maintainer applies
+# the patch turns this RED in CI instead of leaving a patch nobody can apply.
+if grep -qF 'scripts/check-getff-manifest-staged.sh' "$REPO_ROOT/.husky/pre-commit"; then
+  ok "A1 .husky/pre-commit already runs the check (patch applied)"
+elif (cd "$REPO_ROOT" && git apply --check scripts/check-getff-manifest-staged.precommit.patch 2>/dev/null); then
+  ok "A1 the maintainer patch still applies to .husky/pre-commit"
+else bad "A1 scripts/check-getff-manifest-staged.precommit.patch no longer applies — regenerate it"; fi
+
+# A2-A4: the apply script in a fixture repo on `staging` — its test run stubbed to exit 0 (the real
+# test is this file; running it from inside itself would recurse).
+r=$(mktemp -d "$TMP/apply.XXXXXX"); mkdir -p "$r/scripts" "$r/.husky"
+cp "$REPO_ROOT/scripts/apply-getff-manifest-staged-precommit.sh" "$REPO_ROOT/scripts/check-getff-manifest-staged.precommit.patch" \
+  "$REPO_ROOT/scripts/check-getff-manifest-staged.sh" "$r/scripts/"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/check-getff-manifest-staged.test.sh"
+if grep -qF 'scripts/check-getff-manifest-staged.sh' "$REPO_ROOT/.husky/pre-commit"; then
+  # Already applied upstream: reverse the patch to rebuild the pre-image the script expects.
+  cp "$REPO_ROOT/.husky/pre-commit" "$r/.husky/pre-commit"
+  (cd "$r" && git apply -R scripts/check-getff-manifest-staged.precommit.patch)
+else cp "$REPO_ROOT/.husky/pre-commit" "$r/.husky/pre-commit"; fi
+g -C "$r" init -q -b staging; g -C "$r" add -A; g -C "$r" commit -qm base
+# Identity, signing and hooks go into the fixture's own config: the script runs plain `git commit`.
+git -C "$r" config user.name t; git -C "$r" config user.email t@t
+git -C "$r" config commit.gpgsign false; git -C "$r" config core.hooksPath /dev/null
+out=$(cd "$r" && bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
+files=$(g -C "$r" show --name-only --format= HEAD)
+if [ "$rc" -eq 0 ] && [ "$files" = ".husky/pre-commit" ] \
+  && [ "$(g -C "$r" rev-parse --abbrev-ref HEAD)" = "maintainer/precommit-getff-manifest-staged" ]; then
+  ok "A2 apply script: branch off staging, one commit carrying .husky/pre-commit alone"
+else bad "A2 apply script rc=$rc files=[$files]: $(tr '\n' '|' <<<"$out")"; fi
+if bash -n "$r/.husky/pre-commit" && grep -qx 'exit "$fail"' <<<"$(tail -3 "$r/.husky/pre-commit")" \
+  && grep -qF 'scripts/check-getff-manifest-staged.sh' "$r/.husky/pre-commit"; then
+  ok "A3 patched hook parses, runs the check, still ends in exit \"\$fail\""
+else bad "A3 patched hook malformed"; fi
+before=$(g -C "$r" rev-parse HEAD)
+out=$(cd "$r" && bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && [ "$(g -C "$r" rev-parse HEAD)" = "$before" ] && grep -q 'nothing to do' <<<"$out"; then
+  ok "A4 apply script is idempotent"
+else bad "A4 re-run rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
