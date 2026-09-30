@@ -3,12 +3,12 @@
 # (the bash-3.2 / BSD-userland portability gate over install.sh + setup.d/**).
 #
 # Arms:
-#   P1-P16 the gate FIRES, and reports the expected finding id (and line where it matters): declare/local/typeset -A, local -n, mapfile, readarray, case-modifying
+#   P1-P17 the gate FIRES, and reports the expected finding id (and line where it matters): declare/local/typeset -A, local -n, mapfile, readarray, case-modifying
 #          expansions, an unguarded element expansion of an array that can be empty ("${A[@]}",
 #          "${A[*]}", unquoted), an array seeded from a command substitution, an append-only array,
 #          `export A=(…)`, BRE `\|` in sed, `awk -v` fed a variable assigned a multi-line value, a copy
 #          of an empty-capable array
-#   N1-N14 the gate stays QUIET: the `${A[@]+"${A[@]}"}` guard, a `${#A[@]}` length test earlier
+#   N1-N15 the gate stays QUIET: the `${A[@]+"${A[@]}"}` guard, a `${#A[@]}` length test earlier
 #          in the function (not only right above), a copy of a literal seed, a non-empty literal
 #          seed, "$@", a comment line, a heredoc body, sed -E, an escaped `\\|` in a replacement,
 #          `awk -v` with a single-line value / a literal, an escape with a real rationale, plain
@@ -130,6 +130,19 @@ fixture "N14 a length test anywhere earlier in the function" quiet 'f() {
   echo one; echo two; echo three; echo four; echo five; echo six
   printf "%s\n" "${acc[@]}"
 }'
+fixture "N15 a top-level length test survives a helper defined in between" quiet 'SEL=()
+SEL+=(x)
+[ "${#SEL[@]}" -eq 0 ] && exit 0
+helper() {
+  echo h
+}
+for s in "${SEL[@]}"; do :; done'
+fixture "P17 a guard inside a closed function does not leak to top level" fire:B32-EMPTY@6 'SEL=()
+f() {
+  [ "${#SEL[@]}" -eq 0 ] && return 0
+  echo f
+}
+for s in "${SEL[@]}"; do :; done'
 fixture "N12 \${#A[@]} alone is safe" quiet 'A=()
 echo "${#A[@]}"'
 

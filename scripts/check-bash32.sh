@@ -76,7 +76,7 @@ fi
 # POSIX awk only: it runs under BSD awk on the Mac and mawk on ubuntu runners.
 out=$(LC_ALL=C awk -v root="$REPO_ROOT/" '
 function reset_file() {
-  hd = ""; dq = 0; sq = 0; ansi = 0; cs = 0; ar = 0; pend = ""; pendno = 0; fnbody = ""
+  hd = ""; dq = 0; sq = 0; ansi = 0; cs = 0; ar = 0; pend = ""; pendno = 0; fnbody = ""; top = ""; infn = 0
 }
 function rel(p) { return index(p, root) == 1 ? substr(p, length(root) + 1) : p }
 # scan(line): walk one physical line, carrying quote state across lines. Sets cmt (the comment
@@ -234,10 +234,20 @@ function guarded(text, name,   re) {
   re = "\\$\\{#" name "\\[[@*]\\]\\}\"?[ \t]*(-(gt|ge|eq|ne|lt|le)|>|==|!=|\\)\\))"
   return text ~ re
 }
-# fnbody: the code since the enclosing function header (or the file start at top level).
+# fnbody: the code since the enclosing function header, or the top-level code of the file (top)
+# outside every function. A function closes at a line that starts with `}`; a one-line function
+# is its own scope and joins neither.
 function note_body(L) {
-  if (L ~ /^[ \t]*(function[ \t]+)?[A-Za-z_][A-Za-z0-9_:.-]*[ \t]*\(\)/ || L ~ /^[ \t]*function[ \t]+[A-Za-z_][A-Za-z0-9_:.-]*/) fnbody = ""
-  fnbody = fnbody "\n" L
+  if (L ~ /^[ \t]*(function[ \t]+)?[A-Za-z_][A-Za-z0-9_:.-]*[ \t]*\(\)/ || L ~ /^[ \t]*function[ \t]+[A-Za-z_][A-Za-z0-9_:.-]*/) {
+    if (L ~ /\{.*\}[ \t;]*$/) return
+    infn = 1; fnbody = L; return
+  }
+  if (infn) {
+    fnbody = fnbody "\n" L
+    if (L ~ /^\}/) { infn = 0; fnbody = top }
+    return
+  }
+  top = top "\n" L; fnbody = top
 }
 FNR == 1 { reset_file(); if (pass == 2) nfiles++ }
 {
