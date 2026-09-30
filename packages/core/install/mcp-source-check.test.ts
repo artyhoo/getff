@@ -9,6 +9,8 @@
  * Arms that need a different registry state copy the fixtures and edit one recorded answer.
  */
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -301,4 +303,41 @@ describe('githubRepo', () => {
   ])('%s → %s', (url, org) => {
     expect(githubRepo(url)?.org).toBe(org);
   });
+});
+
+describe('makeFetchJson against a live registry', () => {
+  /** A registry that answers {"ok":true} after DELAY ms; resolves to its URL and a closer. */
+  const slowRegistry = (delay: number): Promise<{ url: string; close: () => void }> =>
+    new Promise((ok) => {
+      const timers = new Set<NodeJS.Timeout>();
+      const server = createServer((_req, res) => {
+        timers.add(setTimeout(() => res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}'), delay));
+      });
+      server.listen(0, '127.0.0.1', () => {
+        const { port } = server.address() as AddressInfo;
+        ok({
+          url: `http://127.0.0.1:${port}/v0.1/servers`,
+          close: () => {
+            for (const t of timers) clearTimeout(t);
+            server.closeAllConnections();
+            server.close();
+          },
+        });
+      });
+    });
+
+  // The official MCP registry's search answered in 10-11 s on two networks (curl, P6 run 4): a
+  // per-request cap under that made «tools for my dependencies: yes» do nothing. One slow answer
+  // must fit; the 30 s deadline still bounds the whole check.
+  it('accepts a registry answer that takes 9 s, and still gives up on one that takes 25 s', async () => {
+    const [nine, late] = await Promise.all([slowRegistry(9_000), slowRegistry(25_000)]);
+    try {
+      const [a, b] = await Promise.all([makeFetchJson({})(nine.url), makeFetchJson({})(late.url)]);
+      expect(a).toEqual({ ok: true });
+      expect(b).toBeNull();
+    } finally {
+      nine.close();
+      late.close();
+    }
+  }, 40_000);
 });

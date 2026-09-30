@@ -71,10 +71,13 @@ export function fixtureName(url: string): string {
   return `${url.replace(/^https?:\/\//, '').replace(/[^A-Za-z0-9._-]/g, '_')}.json`;
 }
 
-/** Live fetch (8 s per request, the whole check within DEADLINE_MS of creation), or recorded
+/** Live fetch (REQUEST_MS per request, the whole check within DEADLINE_MS of creation), or recorded
  *  answers when GETFF_MCP_FETCH_FIXTURES is set. A request that fails, times out, runs past the
- *  deadline or has no recorded answer resolves to null — and is reported as unchecked. */
+ *  deadline or has no recorded answer resolves to null — and is reported as unchecked.
+ *  REQUEST_MS fits one slow answer: the MCP registry's search took 10-11 s on two networks (P6 run 4,
+ *  2026-09-30), and an 8 s cap turned every search into «did not answer». */
 export const DEADLINE_MS = 30_000;
+export const REQUEST_MS = 20_000;
 export function makeFetchJson(env: NodeJS.ProcessEnv = process.env): FetchJson {
   const fixtures = env['GETFF_MCP_FETCH_FIXTURES'];
   if (fixtures) {
@@ -86,7 +89,7 @@ export function makeFetchJson(env: NodeJS.ProcessEnv = process.env): FetchJson {
   const record = env['GETFF_MCP_FETCH_RECORD'];
   const deadline = Date.now() + DEADLINE_MS;
   return async (url) => {
-    const left = Math.min(8000, deadline - Date.now());
+    const left = Math.min(REQUEST_MS, deadline - Date.now());
     if (left <= 0) return null;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(left) });

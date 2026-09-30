@@ -7469,6 +7469,7 @@ function fixtureName(url) {
   return `${url.replace(/^https?:\/\//, "").replace(/[^A-Za-z0-9._-]/g, "_")}.json`;
 }
 var DEADLINE_MS = 3e4;
+var REQUEST_MS = 2e4;
 function makeFetchJson(env = process2.env) {
   const fixtures = env["GETFF_MCP_FETCH_FIXTURES"];
   if (fixtures) {
@@ -7480,7 +7481,7 @@ function makeFetchJson(env = process2.env) {
   const record = env["GETFF_MCP_FETCH_RECORD"];
   const deadline = Date.now() + DEADLINE_MS;
   return async (url) => {
-    const left = Math.min(8e3, deadline - Date.now());
+    const left = Math.min(REQUEST_MS, deadline - Date.now());
     if (left <= 0) return null;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(left) });
@@ -7805,6 +7806,7 @@ export {
   DEADLINE_MS,
   MCP_REGISTRY,
   NPM_REGISTRY,
+  REQUEST_MS,
   applyDecisions,
   checkStackTools,
   fixtureName,
