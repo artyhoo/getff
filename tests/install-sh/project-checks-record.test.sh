@@ -19,6 +19,8 @@
 #   (K) the pre-push checks that read the project's own files (check-ci-pins, check-doc-links) are
 #       recorded; the measured cowsay project pushes green after the install, saying «not armed»
 #   (M) --refresh adds those two to a record from an older getff, not-armed, keeping the rest
+#   (N) the generated-rule mutation check (P5's runner) is recorded from the rule generator's own
+#       verdict: armed only when GEN_MUT_RC=0, never re-run by the arm pass; its CI step reads the record
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -185,13 +187,37 @@ section "$K" not-armed | grep -qx -- '- bash scripts/check-ci-pins.sh # exits 1 
 # new checks unconditionally on a project whose record predates them.
 M=$(proj "$SPA")
 ( cd "$M" && bash "$INSTALL" react-spa < /dev/null >/dev/null 2>&1 )
-grep -v -e 'check-ci-pins' -e 'check-doc-links' "$(REC "$M")" > "$M/.rec" && mv "$M/.rec" "$(REC "$M")"
+grep -v -e 'check-ci-pins' -e 'check-doc-links' -e 'run-generated-rule-mutation' "$(REC "$M")" > "$M/.rec" && mv "$M/.rec" "$(REC "$M")"
 ( cd "$M" && bash "$INSTALL" react-spa --refresh < /dev/null >/dev/null 2>&1 )
 section "$M" not-armed | grep -qx -- '- bash scripts/check-ci-pins.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
   && section "$M" not-armed | grep -qx -- '- bash scripts/check-doc-links.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
+  && section "$M" not-armed | grep -qx -- '- bash scripts/run-generated-rule-mutation.sh # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0' \
   && section "$M" not-armed | grep -qx -- '- npm run lint # not run at install: dependencies are not installed' \
-  && ok "(M) --refresh adds the two missing checks not-armed and keeps the other lines" \
+  && ok "(M) --refresh adds the three missing checks not-armed and keeps the other lines" \
   || bad "(M) record after --refresh: $(block "$M" | tr '\n' ';')"
+
+# ── (N) the generated-rule mutation check follows the generator's verdict ─────────────────────────
+# P5 (N1, 4ff3c57a475): setup.d/80-rule-bootstrap.sh exports GEN_MUT_RC / GEN_MUT_WHY when it proved
+# the generated rules; the arm pass reuses that verdict instead of re-running the runner. Unit arm on
+# the lib.sh seam, so it holds whatever sets the variables.
+MUT='bash scripts/run-generated-rule-mutation.sh'
+why() { env -i PATH="$PATH" "$@" bash -c 'source "$1" >/dev/null 2>&1
+  declare -F gen_mut_not_armed_why >/dev/null || { echo "MISSING: gen_mut_not_armed_why"; exit; }; gen_mut_not_armed_why' _ "$REPO_ROOT/setup.d/lib.sh"; }
+[ -z "$(why GEN_MUT_RC=0)" ] && ok "(N) GEN_MUT_RC=0 → armed (no reason)" || bad "(N) rc 0 gave a reason: $(why GEN_MUT_RC=0)"
+[ "$(why)" = "no generated rules this pass" ] && ok "(N) unset → «no generated rules this pass»" || bad "(N) unset: $(why)"
+[ "$(why GEN_MUT_RC=1 'GEN_MUT_WHY=kill rate 40% below the 60% floor')" = "kill rate 40% below the 60% floor" ] \
+  && ok "(N) a red verdict records GEN_MUT_WHY" || bad "(N) rc 1: $(why GEN_MUT_RC=1 'GEN_MUT_WHY=kill rate 40% below the 60% floor')"
+[ "$(why GEN_MUT_RC=2)" = "exits 2 at install" ] && ok "(N) no GEN_MUT_WHY → «exits N at install»" || bad "(N) rc 2: $(why GEN_MUT_RC=2)"
+[ "$(why GEN_MUT_RC=1 "$(printf 'GEN_MUT_WHY=a # b\nsecond line')")" = "a - b" ] \
+  && ok "(N) the reason is one line with no « # » (the record's separator)" \
+  || bad "(N) unsanitised: $(why GEN_MUT_RC=1 "$(printf 'GEN_MUT_WHY=a # b\nsecond line')" | tr '\n' '|')"
+section "$A" not-armed | grep -qx -- "- $MUT # no generated rules this pass" \
+  && ok "(N) an install whose generator did not prove rules records it not-armed" \
+  || bad "(N) record line: $(block "$A" | grep generated-rule-mutation)"
+for t in "$REPO_ROOT/templates/ts-server/github-actions-ci.yml" "$REPO_ROOT"/packages/preset-*/templates/github-actions-ci-ui.yml; do
+  grep -qx "        run: bash scripts/run-armed.sh $MUT" "$t" \
+    && ok "(N) ${t#"$REPO_ROOT"/}: the CI step runs it through the record" || bad "(N) ${t#"$REPO_ROOT"/}: no run-armed step for it"
+done
 
 # ── (G) --dry-run writes nothing ────────────────────────────────────────────────────────────────
 G=$(proj "$SPA")

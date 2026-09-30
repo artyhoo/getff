@@ -3127,8 +3127,22 @@ record_add_unlisted() {
 # (validate, CI, lint-staged, pre-push). 99-finalize's arm pass and --refresh's record read them.
 PROJECT_CHECKS=(typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test)
 # The pre-push sections that read the project's own files (P2, advisor: the P6 blocker class) run on
-# their own through these delivered scripts: no package.json script, no dependencies needed.
-PROJECT_HOOK_CHECKS=(check-ci-pins.sh check-doc-links.sh)
+# their own through these delivered scripts: no package.json script, no dependencies needed. The
+# generated-rule mutation runner (P5) is recorded here too, but from the rule generator's verdict:
+# the arm pass never runs it (gen_mut_not_armed_why).
+PROJECT_HOOK_CHECKS=(check-ci-pins.sh check-doc-links.sh run-generated-rule-mutation.sh)
+
+# gen_mut_not_armed_why — why the generated-rule mutation check is not armed, or nothing when it is.
+# The verdict is the rule generator's own run (P5: setup.d/80-rule-bootstrap.sh exports GEN_MUT_RC and
+# GEN_MUT_WHY only when it proved the rules it wrote); it is reused, never re-run. One line, with no
+# « # » — that is the record's command/reason separator.
+gen_mut_not_armed_why() {
+  case "${GEN_MUT_RC:-}" in
+    0) ;;
+    "") echo "no generated rules this pass" ;;
+    *) printf '%s\n' "${GEN_MUT_WHY:-exits $GEN_MUT_RC at install}" | head -1 | sed 's/ # / - /g' ;;
+  esac
+}
 
 # project_hook_checks — the record command of each PROJECT_HOOK_CHECKS script this project has.
 project_hook_checks() {

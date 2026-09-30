@@ -45,6 +45,12 @@ jobs:
       # own). Through the record: not-armed where a workflow the project already had was unpinned.
       - name: tool installs in .github/workflows pin a version
         run: bash scripts/run-armed.sh bash scripts/check-ci-pins.sh
+      # The generated rules' mutation pass (P5's runner): armed only when it went green at install. It
+      # installs its own linter toolchain from the npm registry when the project lacks one, so on a
+      # runner with no registry access an armed step goes red (exit 2); a runner that ran `npm ci`
+      # has the registry. `npm run validate` is red on that exit 2 too, on purpose.
+      - name: generated rules survive their mutation pass
+        run: bash scripts/run-armed.sh bash scripts/run-generated-rule-mutation.sh
 
   typecheck:
     name: TypeScript

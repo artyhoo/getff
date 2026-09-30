@@ -1086,8 +1086,16 @@ else
   done <<< "$_pc_scripts"
   # The pre-push sections that read the project's own files (its workflows, its Markdown) need no
   # dependencies, so they run here even without node_modules (P2, advisor: the P6 blocker class).
+  # The generated-rule mutation check takes the rule generator's verdict from 80-rule-bootstrap
+  # instead of a second run: armed only when that run exited 0 (P5, cold-review M2).
   while IFS= read -r _pc_c; do
     [ -n "$_pc_c" ] || continue
+    if [ "$_pc_c" = "bash scripts/run-generated-rule-mutation.sh" ]; then
+      _pc_why=$(gen_mut_not_armed_why)
+      if [ -z "$_pc_why" ]; then _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+      else _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"; fi
+      continue
+    fi
     _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?
     if [ "$_pc_rc" -eq 0 ]; then
       _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
