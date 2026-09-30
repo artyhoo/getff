@@ -200,7 +200,7 @@ describe.skipIf(!JQ)(
       // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
       // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
       // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
-      // rejected by ZCode). Precedent: inject-matching-rule.test.ts:82.
+      // rejected by ZCode). Precedent: inject-matching-rule.test.ts:99.
       // NOTE: consumer-only hook — ships via install.sh, NOT in harness-model.json, so emitPlugin
       // does not render it to plugin/hooks/hooks.json (architectural gap, separate owner-decision).
       // The JSON shape must still be schema-valid for manual replay / any harness.

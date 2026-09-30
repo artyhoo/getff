@@ -19,6 +19,7 @@ executed:
   - { step: fire-on-your-code, stack: python, date: 2026-09-21, result: RED }
   - { step: refresh-unloadable-pre-commit-config, stack: python, date: 2026-09-30, result: "exit-0, file left as it was" }
 next: installation.md
+docs-refresh: deferred — re-verified 2026-09-30, the cited setup.d/45-python.sh changed twice in this range — two in-comment citations of setup.d/10-skills.sh were renumbered after trigger build slice 1 moved those lines, and the python lane now registers the rule loader through the shared installer helper the npm lanes use (PostToolUse Edit|Write|MultiEdit|Read, PreToolUse Bash, SessionStart compact) instead of one PostToolUse entry; this page names neither the loader nor its settings entries, it lists only the rule files, CI workflow, pre-push hook and mirror check, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for Python

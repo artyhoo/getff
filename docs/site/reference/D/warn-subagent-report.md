@@ -115,7 +115,7 @@ transcript file, scanned for the final assistant text. When both yield nothing t
 hook exits silently — a genuine nothing-to-scan, not a skipped check.
 
 Delivery per the card: this one is the framework-internal half of the pair. It is
-registered only in the project's own settings (`.claude/settings.json:214`) and
+registered only in the project's own settings (`.claude/settings.json:223`) and
 carries a plain `@cc-only-rationale` — internal orchestrator machinery, maintainer
 environment (line 16). Consumers meet its ZCode-functional twin instead:
 [`warn-subagent-report-zcode`](warn-subagent-report-zcode.md), which anchors the
@@ -144,10 +144,10 @@ reading as a clean one.
   verified above»).
 - Loud jq skip: lines 60-65 — «the alternative (silent) makes a skipped
   completeness check read as a pass».
-- Registration: `.claude/settings.json:214` (SubagentStop section, no matcher);
+- Registration: `.claude/settings.json:223` (SubagentStop section, no matcher);
   the plugin registry deliberately does not carry this hook — its slot is held by
   the zcode twin (`plugin/hooks/warn-subagent-report-zcode`, registered twice at
-  `plugin/hooks/hooks.json:39` and `:141`).
+  `plugin/hooks/hooks.json:48` and `:150`).
 - Pair grammar: the twin's header (lines 4-10) names this file as the SSOT for the
   REPORT grammar — `REPORT_CUE_RE` at line 102 here, section regexes at
   lines 113-121.

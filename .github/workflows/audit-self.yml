@@ -748,6 +748,8 @@ jobs:
         run: bash tests/install-sh/stale-tmp-unconditional-success.test.sh
       - name: Run install-sh hook-event-move test (per-prompt injections moved to SessionStart)
         run: bash tests/install-sh/hook-event-move.test.sh
+      - name: Run install-sh inject-matching-rule registration test (trigger build slice 1 — three arms, legacy widening)
+        run: bash tests/install-sh/imr-registration.test.sh
       - name: Run install-sh GLM one-button test (beta-delivery-ux S4)
         run: bash tests/install-sh/glm-onebutton.test.sh
       - name: Run install-sh B1 stack-research-lookup test (multistack-augment-first #827 B1)

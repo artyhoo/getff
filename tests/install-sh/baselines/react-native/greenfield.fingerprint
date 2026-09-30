@@ -6,7 +6,7 @@ e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DE
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 ac4d69599eea72089b8c0a7db6a646789cb9e712af2b597a889527caa0320c31  .ai-factory/RULES.md
 e43d71c23089705db64a85595800c7f87c79d38f7a39bff48a757b8d5038146e  .ai-factory/RULES.react-native.md
-9c6d19032f9d011cac7c57d084eec11cd7c0141623b46bd0576ebdaaceb514cb  .ai-factory/refresh-baseline.json
+2bef425c17c20ee87726d8fd47577696184da5f0c64dbed25834e0855dffae68  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -28,7 +28,7 @@ a3de3b9ac3ae958e72754b6558f39ea7164dc768828215978763550c6044d034  .claude/agents
 67fddd5f195b96ab0cb2a1970f080485c62e8793d442ab93c126853b0d6f475d  .claude/hooks/check-doc-authority-header.sh
 178b62f7449dd92f734b3e5560a943567a235cbcf3698fa8982b13bffd1f8760  .claude/hooks/deps-hash-check.sh
 b3f62cbe1b42dd59e5a89c4e99b1479d7c79b0a8256dcbffb4bcf3abf2eff799  .claude/hooks/end-of-turn-reminder.sh
-298fa3fdcbc2fbe07f201ebd1aee8bccfa0eda901c547ebaeaa3c79b92b4cb86  .claude/hooks/inject-matching-rule.sh
+94c076a7dad5e4f4307a48afdad98bb7433448c9ba9f57f2f44b8ecfe82609be  .claude/hooks/inject-matching-rule.sh
 403e4d84cb7b38e6ffb024c9669d9cd90f512a668c021ed5c411d297739247e1  .claude/hooks/inject-memory-codification.sh
 16f97c89f6e987d8673bc0485931932aef83eaf3cf8fc2f624ee68d8d37b1194  .claude/hooks/inject-output-language.sh
 c4c072845e4bb660a21f3310ce026c90c05334a1324b1c6bc97b4aed74775097  .claude/hooks/inject-project-digest.sh
@@ -38,7 +38,7 @@ dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
 9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
-7a1b4a66dae32d3b6ea227510756f691100ff84ebfbc56186959ea439dbae724  .claude/settings.json
+2226f9f290c0b5962f2abdba0cb341bb7195e5e314759cfc624f8b040c58421e  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
 63e2db9eddec389a06822f8091a83737bfce8e2749de6af3a0be22132d0152e6  .claude/skills/ai-doc/anthropic-and-aif-residue.md
 3db62b0a8ab5b996876beb99574d05fb27f0b3da3c033a8e5830ee7379a86c49  .claude/skills/arch/SKILL.md
@@ -153,7 +153,7 @@ a380122e42347b23290ad0113bb2a733aece7b2d76672ed13d44fdff389651c2  eslint-rules-l
 fb9aa49f64642bd62823e8f76be90936721e2b9eb87ff2f4a9dfd6d137364797  eslint.config.mjs
 9d4a9222172168e2185552c1567df1d4e60efeee3e2bacd2654b179246d4bf61  eslint.config.rn-common.mjs
 1446b83d1d0551b2471c57d74b948c3eaf6f2416f8201773198819d69cd8f470  package.json
-4c78f3bdc49850b0c498d2c434667e6fb6ac325be886640b88a739c0b6b89e98  packages/core/hooks/pre-push.bundle.mjs
+c552f512c2c99dc94ef6a479d4f54d32413ed8407fff760c577ad5e3fbb8b97e  packages/core/hooks/pre-push.bundle.mjs
 674c65ac1464fc7d8246e73d9cc78ada9ccda814385e0319392d8a096f793c3c  packages/core/hooks/pre-push.fallback.sh
 6e061757f3cf8369636996c4a32303102655ee1b830bbefea208d81ae148827b  scripts/audit-ai-docs.react-native.sh
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  scripts/audit-ai-docs.sh

@@ -203,6 +203,11 @@ done
 # stdin. The population is read from the installer, not hand-listed.
 HOOKS=$(sed -nE "s/.*register_cc_hook \"\\\$SETTINGS\" \"[A-Za-z]+\" '[^']+' \"([a-z0-9-]+)\".*/\1/p" \
   "$REPO_ROOT/setup.d/10-skills.sh" | sort -u | grep -vx deps-hash-check)
+# The loader registers through register_imr_hooks (setup.d/lib.sh), not a literal
+# register_cc_hook line the parse above can read.
+if grep -qE '^[[:space:]]*register_imr_hooks "\$SETTINGS"' "$REPO_ROOT/setup.d/10-skills.sh"; then
+  HOOKS=$(printf '%s\ninject-matching-rule\n' "$HOOKS" | sed '/^$/d' | sort -u)
+fi
 n=0
 for h in $HOOKS; do
   f="$REPO_ROOT/.claude/hooks/$h.sh"; n=$((n+1))

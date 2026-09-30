@@ -3,12 +3,12 @@
 # per-hook audit classified SHIP, wired into .claude/settings.json NON-DESTRUCTIVELY with the
 # correct tool matchers, and PROVEN TO FIRE (delivery ≠ liveness — the #551 lesson):
 #   • ask-question-reminder.sh   → PreToolUse (matcher AskUserQuestion) — pre-question fork nudge
-#   • inject-matching-rule.sh    → PostToolUse (matcher Edit|Write|MultiEdit) — path-scoped rule delivery
+#   • inject-matching-rule.sh    → PostToolUse (matcher Edit|Write|MultiEdit|Read) — path-scoped rule delivery
 #
 # ARMS:
 #   (A) delivery — both hooks present + executable
 #   (B) settings-merge — PreToolUse=ask-question (matcher AskUserQuestion) AND
-#       PostToolUse=inject-matching (matcher Edit|Write|MultiEdit) registered; a PRE-EXISTING consumer
+#       PostToolUse=inject-matching (matcher Edit|Write|MultiEdit|Read) registered; a PRE-EXISTING consumer
 #       PostToolUse hook AND the §1b deps-hash UserPromptSubmit hook both SURVIVE (append, not clobber)
 #   (C) idempotent — a second install adds no duplicate entry for either hook
 #   (D) firing (ask-question) — a PreToolUse:AskUserQuestion payload → permissionDecision:"deny" + reason
@@ -51,10 +51,10 @@ if grep -q 'ask-question-reminder' <<<"$_pre" && grep -q 'CLAUDE_PROJECT_DIR' <<
 else
   bad "(B) PreToolUse ask-question entry missing/mis-shaped (got: $_pre)"
 fi
-# PostToolUse = inject-matching-rule with matcher Edit|Write|MultiEdit
+# PostToolUse = inject-matching-rule with matcher Edit|Write|MultiEdit|Read (the Read arm, trigger build slice 1)
 _imr_matcher=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-matching-rule"))) | .[0].matcher // ""' "$S" 2>/dev/null)
-if grep -q 'inject-matching-rule' <<<"$_post_cmds" && [ "$_imr_matcher" = "Edit|Write|MultiEdit" ]; then
-  ok "(B) PostToolUse = inject-matching-rule, matcher=Edit|Write|MultiEdit"
+if grep -q 'inject-matching-rule' <<<"$_post_cmds" && [ "$_imr_matcher" = "Edit|Write|MultiEdit|Read" ]; then
+  ok "(B) PostToolUse = inject-matching-rule, matcher=Edit|Write|MultiEdit|Read"
 else
   bad "(B) PostToolUse inject-matching entry missing/wrong-matcher (matcher='$_imr_matcher', cmds=$_post_cmds)"
 fi
@@ -152,7 +152,7 @@ _r_pre=$(jq -r '(.hooks.PreToolUse // []) | map(select(.hooks[].command | test("
 _r_post=$(jq -r '(.hooks.PostToolUse // []) | map(select(.hooks[].command | test("inject-matching-rule"))) | .[0].matcher // ""' "$S" 2>/dev/null)
 _r_consumer=$(jq -r '(.hooks.PostToolUse // []) | map(.hooks[].command) | join("|")' "$S" 2>/dev/null)
 if [ -x "$H/ask-question-reminder.sh" ] && [ -x "$H/inject-matching-rule.sh" ] \
-   && [ "$_r_pre" = "AskUserQuestion" ] && [ "$_r_post" = "Edit|Write|MultiEdit" ] \
+   && [ "$_r_pre" = "AskUserQuestion" ] && [ "$_r_post" = "Edit|Write|MultiEdit|Read" ] \
    && grep -q 'consumer-own' <<<"$_r_consumer"; then
   ok "(G) --refresh restores both hooks + matcher-registration for a brownfield consumer (pre=$_r_pre post=$_r_post; consumer-own survived)"
 else

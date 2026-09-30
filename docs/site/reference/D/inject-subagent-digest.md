@@ -17,7 +17,7 @@ sources:
   - packages/core/hooks/inject-subagent-digest.test.ts
 executed:
   - { example: digest-at-sub-agent-spawn, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against the trigger build slice-1 range — the loader's rewrite moved the emit that this hook's line 15 cited by number; line 15 now names the construct instead, and the bullet quoting it says so; nothing else here cites the loader; clears at the next refresh of this page
 ---
 
 # `inject-subagent-digest` hook
@@ -111,13 +111,13 @@ parity doctrine rather than smoothed over.
 - The silent-no-op warning is header lines 10-15: «SubagentStart is NON-blocking … and
   delivers context via JSON hookSpecificOutput.additionalContext. Plain stdout is a
   SILENT NO-OP here … emitting the wrong format = the hook fires but does nothing»,
-  with the mirroring of `inject-matching-rule.sh:133-134` named at line 15.
+  with the mirroring of `inject-matching-rule.sh`'s closing emit named at line 15.
 - jq guard: line 19 — `command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op
   without jq`. Empty digest: line 24 — `[[ -z "$DIGEST" ]] && exit 0`.
 - The output: lines 26-27 wrap the digest in
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`.
-- Registration: `.claude/settings.json:199` opens the SubagentStart block with the
-  command at line 203.
+- Registration: `.claude/settings.json:208` opens the SubagentStart block with the
+  command at line 213.
 - No plugin twin: the card's delivery row carries only the CC-only marker, and
   `ls plugin/hooks | grep inject-subagent-digest` finds nothing — the SubagentStart
   event is inexpressible on the framework's second harness
