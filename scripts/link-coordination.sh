@@ -78,6 +78,34 @@ fi
 CANON="${CLAUDE_COORDINATION_DIR:-$HOME/.claude-coordination/rules-as-tests-aif}"
 WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
 
+# ── REPO-IDENTITY GUARD ───────────────────────────────────────────────────────
+# Act ONLY on a checkout of the repository this script lives in: <worktree-dir>
+# must share this script's git common dir (the primary clone and all its linked
+# worktrees do). Anything else — a foreign repo, a non-git dir — is refused with
+# exit 3 before INIT touches $CANON or the target.
+# Incident 2026-09-30 (P6 cold run 3): after a compaction the session cwd sat in a
+# scratch consumer project; the no-argument SessionStart call defaulted
+# <worktree-dir> to THAT repo's toplevel and linked 472 coordination entries into
+# it (a later push from a copy failed lychee with 210 broken links — a false red).
+# The same guard covers adopt-orchestrator-prompts.sh, which passes the worktree
+# derived from the written path. Living in the script (not in the registration) is
+# deliberate: .claude/settings.json is agent-uneditable, and every caller —
+# SessionStart, post-checkout, the adopt hook, create-worktree, worktree-setup —
+# inherits it. In a consumer install the script serves the consumer's own repo.
+_common_dir() {
+  # $1 = dir → physical path of its git common dir; non-zero when not in a repo.
+  local d
+  d="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
+}
+SELF_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SELF_COMMON="$(_common_dir "$SELF_REPO" || true)"
+TARGET_COMMON="$(_common_dir "$WT_DIR" || true)"
+if [[ -z "$SELF_COMMON" || "$SELF_COMMON" != "$TARGET_COMMON" ]]; then
+  echo "link-coordination: refusing $WT_DIR — not a checkout of this script's repository ($SELF_REPO); nothing linked" >&2
+  exit 3
+fi
+
 # ── TRACKED-FILE DETECTION ────────────────────────────────────────────────────
 # A file that git tracks is owned by git and must NEVER be symlink-managed: doing
 # so replaces the real committed file with a symlink in the primary checkout, and
