@@ -18,7 +18,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1574 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1606 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "scripts/run-local-ci-sweep.sh:295 (quoted-path-token, closure)"
@@ -40,7 +40,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1432 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1464 (spawn-argument)",
           ".github/workflows/audit-self.yml:614 (workflow-run:invocation-verb)"
         ]
       },
@@ -60,7 +60,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1478 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1510 (spawn-argument)",
           ".github/workflows/audit-self.yml:580 (workflow-run:invocation-verb)"
         ]
       },
@@ -80,7 +80,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1365 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1397 (spawn-argument)",
           ".github/workflows/audit-self.yml:585 (workflow-run:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)"
@@ -121,7 +121,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2037 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2069 (spawn-argument)",
           ".github/workflows/audit-self.yml:1462 (workflow-run:invocation-verb)"
         ]
       },
@@ -141,7 +141,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2070 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:2102 (spawn-argument)",
           "install.sh:1211 (quoted-path-token)"
         ]
       },
@@ -200,7 +200,7 @@
       "extras": {
         "wired-from": [
           ".github/workflows/audit-self.yml:2610 (workflow-run:invocation-verb)",
-          ".husky/pre-commit:166 (quoted-path-token)"
+          ".husky/pre-commit:181 (quoted-path-token)"
         ]
       },
       "example": null
@@ -220,7 +220,7 @@
       "extras": {
         "wired-from": [
           ".github/workflows/audit-self.yml:798 (workflow-run:invocation-verb)",
-          ".husky/pre-commit:188 (quoted-path-token)"
+          ".husky/pre-commit:203 (quoted-path-token)"
         ]
       },
       "example": null
@@ -239,7 +239,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1054 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1055 (spawn-argument)",
           "package.json:1 (json-value:invocation-verb)"
         ]
       },
@@ -345,7 +345,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:204 (quoted-path-token)",
+          ".husky/pre-commit:219 (quoted-path-token)",
           "package.json:1 (json-value:invocation-verb)",
           "package.json:1 (json-value:invocation-verb)",
           "scripts/run-local-ci-sweep.sh:324 (quoted-path-token, closure)"
@@ -367,7 +367,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:373 (quoted-path-token)"
+          ".husky/pre-commit:388 (quoted-path-token)"
         ]
       },
       "example": null
@@ -386,7 +386,7 @@
       },
       "extras": {
         "wired-from": [
-          ".husky/pre-commit:352 (quoted-path-token)"
+          ".husky/pre-commit:367 (quoted-path-token)"
         ]
       },
       "example": null
@@ -524,7 +524,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1739 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1771 (spawn-argument)",
           ".github/workflows/audit-self.yml:308 (workflow-run:invocation-verb)"
         ]
       },
@@ -564,8 +564,8 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:2530 (spawn-argument)",
-          ".husky/pre-commit:311 (quoted-path-token)"
+          "packages/core/hooks/pre-push.ts:2562 (spawn-argument)",
+          ".husky/pre-commit:326 (quoted-path-token)"
         ]
       },
       "example": null
@@ -603,7 +603,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1721 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1753 (spawn-argument)",
           ".github/workflows/audit-self.yml:304 (workflow-run:invocation-verb)"
         ]
       },
@@ -623,7 +623,7 @@
       },
       "extras": {
         "wired-from": [
-          "packages/core/hooks/pre-push.ts:1704 (spawn-argument)",
+          "packages/core/hooks/pre-push.ts:1736 (spawn-argument)",
           ".github/workflows/audit-self.yml:293 (workflow-run:invocation-verb)",
           "scripts/render-reference.mjs:51 (es-import, closure)"
         ]
