@@ -776,6 +776,12 @@ jobs:
       # hermetic (mktemp mailbox) and runs anywhere.
       - name: Run ask-file schema paired-negative (advisor-pattern §8 item 6)
         run: bash scripts/check-ask-files.test.sh
+      # The BY-DESIGN addendum check's own channel is the auditor session (fidelity-auditor,
+      # consumer-truth-audit) — it answers «was the cited spec amended later?» there. Its
+      # detector still needs a CI channel, or the only proof it reports an addendum is that
+      # someone ran it once; the paired-negative builds a mktemp git repo, so it runs anywhere.
+      - name: Run cited-spec addenda paired-negative (doc-authority-hierarchy §4.1)
+        run: bash scripts/cited-spec-addenda.test.sh
       # The aif close-on-merge sweep's own channel is a launchd agent on the operator's Mac
       # (the aif API is reachable only through the aif-tunnel, which CI never has). Its
       # skip/fail/summary logic still needs a CI channel — the paired-negative below stubs
