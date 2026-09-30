@@ -9,6 +9,8 @@
  * Arms that need a different registry state copy the fixtures and edit one recorded answer.
  */
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -24,7 +26,9 @@ import {
   MCP_REGISTRY,
   NPM_REGISTRY,
   uncheckedLine,
+  waitLine,
   type CheckResult,
+  type FetchJson,
 } from './mcp-source-check.ts';
 
 const FIXTURES = join(import.meta.dirname, 'fixtures', 'mcp-source-check');
@@ -222,7 +226,7 @@ describe('checkStackTools on the recorded registry', () => {
 
   it('the unchecked line says what it means for the person: nothing added for them, the rest stands, a rerun asks again', () => {
     expect(uncheckedLine(['stripe', 'registry search «io.github.upstash»'])).toBe(
-      '⚠ not checked: stripe, registry search «io.github.upstash» — the registry gave no answer (none within 30 s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again',
+      '⚠ not checked: stripe, registry search «io.github.upstash» — the registry gave no answer (none within 90 s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again',
     );
   });
 
@@ -301,4 +305,74 @@ describe('githubRepo', () => {
   ])('%s → %s', (url, org) => {
     expect(githubRepo(url)?.org).toBe(org);
   });
+});
+
+describe('makeFetchJson against a live registry', () => {
+  /** A registry that answers {"ok":true} after DELAY ms; resolves to its URL and a closer. */
+  const slowRegistry = (delay: number): Promise<{ url: string; close: () => void }> =>
+    new Promise((ok) => {
+      const timers = new Set<NodeJS.Timeout>();
+      const server = createServer((_req, res) => {
+        timers.add(setTimeout(() => res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}'), delay));
+      });
+      server.listen(0, '127.0.0.1', () => {
+        const { port } = server.address() as AddressInfo;
+        ok({
+          url: `http://127.0.0.1:${port}/v0.1/servers`,
+          close: () => {
+            for (const t of timers) clearTimeout(t);
+            server.closeAllConnections();
+            server.close();
+          },
+        });
+      });
+    });
+
+  // An uncached MCP registry search took 12-48 s (curl, 2026-09-30; cached ones 1.4-1.7 s), and a
+  // first install is the uncached case: a request may use whatever is left of the deadline, and
+  // the deadline alone bounds the check.
+  it('accepts a registry answer that takes 40 s', async () => {
+    const reg = await slowRegistry(40_000);
+    try {
+      expect(await makeFetchJson({})(reg.url)).toEqual({ ok: true });
+    } finally {
+      reg.close();
+    }
+  }, 60_000);
+
+  it('gives up on an answer that comes after the deadline', async () => {
+    const reg = await slowRegistry(5_000);
+    try {
+      expect(await makeFetchJson({}, 2_000)(reg.url)).toBeNull();
+    } finally {
+      reg.close();
+    }
+  }, 20_000);
+
+  it('the line before the wait says how long it may take', () => {
+    expect(waitLine(3)).toBe('… asking the npm and MCP registries about 3 dependencies — this can take up to 90 s');
+  });
+  // A real project has 20-40 direct dependencies, so a dozen or more searches at 10-11 s each. They
+  // must all come back inside the deadline, not only the first wave (P6 run 4, N9).
+  it('13 registry searches answering after 11 s each all complete inside the deadline', async () => {
+    const reg = await slowRegistry(11_000);
+    const root = mkdtempSync(join(tmpdir(), 'mcp-wide-'));
+    const deps = Array.from({ length: 13 }, (_, i) => `dep${i}`);
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: Object.fromEntries(deps.map((d) => [d, '^1.0.0'])) }));
+    const live = makeFetchJson({});
+    // npm answers at once (each dependency is its own GitHub org → one search each); every
+    // registry search goes to the slow local registry through the live, deadline-bound fetch.
+    const fetchJson: FetchJson = async (url) => {
+      const npm = /^https:\/\/registry\.npmjs\.org\/(dep\d+)\/latest$/.exec(url);
+      if (npm) return { name: npm[1], repository: { url: `git+https://github.com/org-${npm[1]}/${npm[1]}.git` } };
+      return live(`${reg.url}?${url.split('?')[1] ?? ''}`);
+    };
+    try {
+      const r = await checkStackTools(root, fetchJson);
+      expect(r).not.toBeNull();
+      expect(r!.unchecked).toEqual([]);
+    } finally {
+      reg.close();
+    }
+  }, 70_000);
 });

@@ -71,11 +71,17 @@ export function fixtureName(url: string): string {
   return `${url.replace(/^https?:\/\//, '').replace(/[^A-Za-z0-9._-]/g, '_')}.json`;
 }
 
-/** Live fetch (8 s per request, the whole check within DEADLINE_MS of creation), or recorded
- *  answers when GETFF_MCP_FETCH_FIXTURES is set. A request that fails, times out, runs past the
- *  deadline or has no recorded answer resolves to null — and is reported as unchecked. */
-export const DEADLINE_MS = 30_000;
-export function makeFetchJson(env: NodeJS.ProcessEnv = process.env): FetchJson {
+/** Live fetch (the whole check within DEADLINE_MS of creation, each request allowed whatever is left
+ *  of it), or recorded answers when GETFF_MCP_FETCH_FIXTURES is set. A request that fails, runs
+ *  past the deadline or has no recorded answer resolves to null — and is reported as unchecked.
+ *  No separate per-request cap: an uncached MCP registry search took 12-48 s (curl, 2026-09-30;
+ *  a cached one 1.4-1.7 s), a first install is the uncached case, and an 8 s and then a 20 s cap
+ *  turned those searches into «did not answer» (P6 run 4, N9). The deadline alone bounds the check,
+ *  and waitLine tells the person before the wait. */
+export const DEADLINE_MS = 90_000;
+/** Requests in flight at once: light public GETs (npm manifests, registry searches). */
+export const POOL_WIDTH = 12;
+export function makeFetchJson(env: NodeJS.ProcessEnv = process.env, deadlineMs = DEADLINE_MS): FetchJson {
   const fixtures = env['GETFF_MCP_FETCH_FIXTURES'];
   if (fixtures) {
     return async (url) => {
@@ -84,9 +90,9 @@ export function makeFetchJson(env: NodeJS.ProcessEnv = process.env): FetchJson {
     };
   }
   const record = env['GETFF_MCP_FETCH_RECORD'];
-  const deadline = Date.now() + DEADLINE_MS;
+  const deadline = Date.now() + deadlineMs;
   return async (url) => {
-    const left = Math.min(8000, deadline - Date.now());
+    const left = deadline - Date.now();
     if (left <= 0) return null;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(left) });
@@ -180,6 +186,7 @@ async function directDeps(
   root: string,
   fetchJson: FetchJson,
   getffDeps: ReadonlySet<string>,
+  onStart: (deps: number) => void,
 ): Promise<{ declared: number; deps: Map<string, InstalledMeta>; missing: string[]; getffOwn: string[] }> {
   let declared: Record<string, string>;
   try {
@@ -191,6 +198,7 @@ async function directDeps(
   const names = Object.keys(declared)
     .filter((n) => !getffDeps.has(n) && !n.startsWith('@types/') && isRegistrySpec(String(declared[n])))
     .sort();
+  onStart(names.length);
   const found = new Map<string, InstalledMeta>();
   const missing: string[] = [];
   await pool(names, async (name) => {
@@ -205,7 +213,7 @@ async function directDeps(
   return { declared: names.length, deps, missing: missing.sort(), getffOwn };
 }
 
-async function pool<T>(items: readonly T[], fn: (x: T) => Promise<void>, width = 6): Promise<void> {
+async function pool<T>(items: readonly T[], fn: (x: T) => Promise<void>, width = POOL_WIDTH): Promise<void> {
   let i = 0;
   await Promise.all(
     Array.from({ length: Math.min(width, items.length) }, async () => {
@@ -304,8 +312,9 @@ export async function checkStackTools(
   root: string,
   fetchJson: FetchJson,
   getffDeps: ReadonlySet<string> = new Set(),
+  onStart: (deps: number) => void = () => {},
 ): Promise<CheckResult | null> {
-  const { declared, deps, missing, getffOwn } = await directDeps(root, fetchJson, getffDeps);
+  const { declared, deps, missing, getffOwn } = await directDeps(root, fetchJson, getffDeps, onStart);
   if (declared > 0 && deps.size === 0) return null;
   const adapter: EcosystemAdapter = {
     ecosystem: 'npm',
@@ -487,6 +496,11 @@ export function uncheckedLine(unchecked: readonly string[]): string {
   return `⚠ not checked: ${unchecked.join(', ')} — the registry gave no answer (none within ${DEADLINE_MS / 1000} s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again`;
 }
 
+/** The line printed before the registries are asked: a live registry can take up to the deadline. */
+export function waitLine(deps: number): string {
+  return `… asking the npm and MCP registries about ${deps} dependencies — this can take up to ${DEADLINE_MS / 1000} s`;
+}
+
 /** The report line for getff's own tools the project's package.json has. */
 export function getffOwnLine(names: readonly string[]): string {
   return `⊝ not looked up: ${names.join(', ')} — getff's own tools; their MCP servers are decided once in getff, not per project`;
@@ -499,7 +513,9 @@ async function main(argv: string[]): Promise<number> {
   // --getff-deps a,b,c: setup.d/lib.sh getff_dep_names, joined by 35-stack-tools.sh.
   const getffDeps = new Set((arg('--getff-deps') ?? '').split(',').filter(Boolean));
   const date = process.env['GETFF_TODAY'] ?? new Date().toISOString().slice(0, 10);
-  const result = await checkStackTools(root, makeFetchJson(), getffDeps);
+  const result = await checkStackTools(root, makeFetchJson(), getffDeps, (n) => {
+    if (n > 0) console.log(waitLine(n));
+  });
   if (result === null) {
     console.log('⚠ the npm or MCP registry did not answer — no vendor server was checked');
     return 0;

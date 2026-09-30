@@ -7473,8 +7473,9 @@ var NPM_REGISTRY = "https://registry.npmjs.org";
 function fixtureName(url) {
   return `${url.replace(/^https?:\/\//, "").replace(/[^A-Za-z0-9._-]/g, "_")}.json`;
 }
-var DEADLINE_MS = 3e4;
-function makeFetchJson(env = process2.env) {
+var DEADLINE_MS = 9e4;
+var POOL_WIDTH = 12;
+function makeFetchJson(env = process2.env, deadlineMs = DEADLINE_MS) {
   const fixtures = env["GETFF_MCP_FETCH_FIXTURES"];
   if (fixtures) {
     return async (url) => {
@@ -7483,9 +7484,9 @@ function makeFetchJson(env = process2.env) {
     };
   }
   const record = env["GETFF_MCP_FETCH_RECORD"];
-  const deadline = Date.now() + DEADLINE_MS;
+  const deadline = Date.now() + deadlineMs;
   return async (url) => {
-    const left = Math.min(8e3, deadline - Date.now());
+    const left = deadline - Date.now();
     if (left <= 0) return null;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(left) });
@@ -7525,7 +7526,7 @@ var declaredIn = (file) => {
     ...pkg["devDependencies"] ?? {}
   };
 };
-async function directDeps(root, fetchJson, getffDeps) {
+async function directDeps(root, fetchJson, getffDeps, onStart) {
   let declared;
   try {
     declared = declaredIn(join3(root, "package.json"));
@@ -7534,6 +7535,7 @@ async function directDeps(root, fetchJson, getffDeps) {
   }
   const getffOwn = Object.keys(declared).filter((n) => getffDeps.has(n)).sort();
   const names = Object.keys(declared).filter((n) => !getffDeps.has(n) && !n.startsWith("@types/") && isRegistrySpec(String(declared[n]))).sort();
+  onStart(names.length);
   const found = /* @__PURE__ */ new Map();
   const missing = [];
   await pool(names, async (name) => {
@@ -7546,7 +7548,7 @@ async function directDeps(root, fetchJson, getffDeps) {
   const deps = new Map([...found].sort(([a], [b]) => a.localeCompare(b)));
   return { declared: names.length, deps, missing: missing.sort(), getffOwn };
 }
-async function pool(items, fn, width = 6) {
+async function pool(items, fn, width = POOL_WIDTH) {
   let i = 0;
   await Promise.all(
     Array.from({ length: Math.min(width, items.length) }, async () => {
@@ -7612,8 +7614,9 @@ async function installForm(s, fetchJson) {
   }
   return { needs: needs.length ? [...new Set(needs)].join(", ") : "a remote or an npm package getff can run" };
 }
-async function checkStackTools(root, fetchJson, getffDeps = /* @__PURE__ */ new Set()) {
-  const { declared, deps, missing, getffOwn } = await directDeps(root, fetchJson, getffDeps);
+async function checkStackTools(root, fetchJson, getffDeps = /* @__PURE__ */ new Set(), onStart = () => {
+}) {
+  const { declared, deps, missing, getffOwn } = await directDeps(root, fetchJson, getffDeps, onStart);
   if (declared > 0 && deps.size === 0) return null;
   const adapter = {
     ecosystem: "npm",
@@ -7774,6 +7777,9 @@ ${rows.join("\n")}
 function uncheckedLine(unchecked) {
   return `\u26A0 not checked: ${unchecked.join(", ")} \u2014 the registry gave no answer (none within ${DEADLINE_MS / 1e3} s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again`;
 }
+function waitLine(deps) {
+  return `\u2026 asking the npm and MCP registries about ${deps} dependencies \u2014 this can take up to ${DEADLINE_MS / 1e3} s`;
+}
 function getffOwnLine(names) {
   return `\u229D not looked up: ${names.join(", ")} \u2014 getff's own tools; their MCP servers are decided once in getff, not per project`;
 }
@@ -7783,7 +7789,9 @@ async function main(argv) {
   const dryRun = argv.includes("--dry-run");
   const getffDeps = new Set((arg("--getff-deps") ?? "").split(",").filter(Boolean));
   const date = process2.env["GETFF_TODAY"] ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-  const result = await checkStackTools(root, makeFetchJson(), getffDeps);
+  const result = await checkStackTools(root, makeFetchJson(), getffDeps, (n) => {
+    if (n > 0) console.log(waitLine(n));
+  });
   if (result === null) {
     console.log("\u26A0 the npm or MCP registry did not answer \u2014 no vendor server was checked");
     return 0;
@@ -7810,6 +7818,7 @@ export {
   DEADLINE_MS,
   MCP_REGISTRY,
   NPM_REGISTRY,
+  POOL_WIDTH,
   applyDecisions,
   checkStackTools,
   fixtureName,
@@ -7817,5 +7826,6 @@ export {
   githubRepo,
   isDecided,
   makeFetchJson,
-  uncheckedLine
+  uncheckedLine,
+  waitLine
 };
