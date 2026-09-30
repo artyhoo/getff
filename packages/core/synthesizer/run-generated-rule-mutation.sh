@@ -182,7 +182,9 @@ fi
 # (git, the linters, prettier, tsc and test runners skip node_modules; no package.json key is written).
 # A clone without it (a fresh checkout, CI, a wiped node_modules) gets it installed here, the same
 # packages the install uses (GEN_TOOL_PKGS = _rb_tool_pkgs, kept equal by generator-tools-root.test.sh arm L).
-# Resolved only once there is a rule to test: a manifest with none installs nothing.
+# Resolved only once there is a rule to test: a manifest with none installs nothing. `npm ci` empties
+# node_modules, so the first run after it installs the toolchain again. That install runs inside the push, so
+# npm's retries are bounded: offline it gives up in seconds (unbounded it took 211 s) and the run exits 2.
 GEN_TOOL_PKGS=(eslint@^9 typescript-eslint typescript)
 GEN_TOOLS="$REPO_ROOT/node_modules/.cache/getff/generator-tools"
 _has_set() { [ -f "$1/eslint/package.json" ] && [ -f "$1/typescript-eslint/package.json" ]; }
@@ -199,7 +201,9 @@ if [ -z "$NM_SRC" ]; then
     echo "getff's rule-generator toolchain (${GEN_TOOL_PKGS[*]}) is not in $GEN_TOOLS — installing it there (the project's package.json is not touched)"
     rm -f "$GEN_TOOLS/.complete"
     mkdir -p "$GEN_TOOLS" \
-      && npm install --prefix "$GEN_TOOLS" --no-audit --no-fund --loglevel=error "${GEN_TOOL_PKGS[@]}" >&2 \
+      && npm install --prefix "$GEN_TOOLS" --no-audit --no-fund --loglevel=error \
+           --fetch-retries=1 --fetch-timeout=20000 --fetch-retry-mintimeout=2000 --fetch-retry-maxtimeout=10000 \
+           "${GEN_TOOL_PKGS[@]}" >&2 \
       || die "could not install getff's rule-generator toolchain into $GEN_TOOLS (npm failed) — the generated rules are not tested"
     _has_set "$GEN_TOOLS/node_modules" || die "getff's rule-generator toolchain in $GEN_TOOLS has no eslint + typescript-eslint after npm install"
     : > "$GEN_TOOLS/.complete"

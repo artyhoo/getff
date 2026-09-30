@@ -322,6 +322,16 @@ EOF
   : > "$SCRATCH/d5.npm"; d_run "$D" d5
   [ ! -s "$SCRATCH/d5.npm" ] && ok "d5 the project's own eslint + typescript-eslint are used (no npm)" || bad "d5 npm ran: $(cat "$SCRATCH/d5.npm")"
 
+  # d6: offline after `npm ci` wiped the cache — the REAL npm against a dead registry must give up fast.
+  # Unbounded it took 211 s inside the push (P6 run 2, measured); the bound is 90 s with margin for PC load.
+  d_fixture "$D" "$ONE"
+  local t0 t1; t0=$(date +%s)
+  ( cd "$D" && env -u GIT_DIR -u GIT_WORK_TREE npm_config_registry=http://127.0.0.1:9/ \
+      npm_config_cache="$SCRATCH/d6-npm-cache" bash scripts/run-generated-rule-mutation.sh >"$SCRATCH/d6.out" 2>&1 ); echo $? > "$SCRATCH/d6.rc"
+  t1=$(date +%s)
+  assert_rc "d6 offline, rc=2 (cannot run)" 2 "$SCRATCH/d6.rc"
+  [ $((t1 - t0)) -lt 90 ] && ok "d6 offline gives up in $((t1 - t0)) s (< 90 s)" || bad "d6 offline took $((t1 - t0)) s (≥ 90 s)"
+
   d_fixture "$D" "$ONE"; : > "$SCRATCH/d4.npm"; d_run "$D" d4 1
   assert_rc "d4 npm fails, rc=2 (cannot run, never a pass)" 2 "$SCRATCH/d4.rc"
   assert_contains "d4 the die line names the toolchain" "$SCRATCH/d4.out" "could not install getff's rule-generator toolchain"

@@ -2849,9 +2849,9 @@ place_lint_rules() {
 # untracked and excluded through .git/info/exclude, which prettier does not read) takes its «before» from what
 # .ai-factory/before-getff/ recorded: <rel>.absent = getff created it (no file before, clean by definition);
 # <rel>.<sum8> = getff changed it and kept the original there (the newest copy when there are several). An
-# untracked file with no such record is the project's own and is never touched. Limit: a record stays, so a
-# later install formats such a file again even when that install did not write it (e.g. a hand edit to a
-# getff-created .claude/settings.local.json); narrowing to this run's records needs the writers to mark them.
+# untracked file with no such record is the project's own and is never touched. A record counts only for a file
+# this run marked (keep_original_mark → KEPT_ORIGINALS), so a record from an earlier install never reformats a
+# later hand edit.
 format_getff_writes() {
   local pb="$PROJECT_ROOT/node_modules/.bin/prettier" rel before after kept kept_f seen="" f
   [ -x "$pb" ] || return 0
@@ -2884,6 +2884,9 @@ format_getff_writes() {
       seen="$seen|$rel|"
       [ -f "$PROJECT_ROOT/$rel" ] || continue
       git -C "$PROJECT_ROOT" cat-file -e "HEAD:$rel" 2>/dev/null && continue   # tracked: the git-diff arm above
+      # only a file THIS run wrote: its writer called keep_original_mark (the settle callers in 99-finalize,
+      # session-settings.sh on create). A record left by an earlier run does not reach a later hand edit.
+      case " ${KEPT_ORIGINALS[*]-} " in *" $PROJECT_ROOT/$rel "*) ;; *) continue ;; esac
       # the newest record for this path is the state just before the latest install that wrote it
       for kept_f in "$kept/$rel".*; do
         case "${kept_f#"$kept/$rel".}" in   # <rel>.bak.<sum8> is another path's record, not this one's
