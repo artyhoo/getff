@@ -22,7 +22,7 @@
 #   E2 an escape with a real rationale → passes, and the rationale lands in the override log
 #   L1 build-getff-dist.sh --list-payload still prints the payload list the checker consumes
 #   A1 the maintainer patch still applies to .husky/pre-commit (or is applied) — the drift alarm
-#   A2 the apply script branches off staging and commits .husky/pre-commit alone
+#   A2 the apply script branches off staging and commits .husky/pre-commit alone (no renderer in the fixture)
 #   A3 the patched hook parses and keeps `exit "$fail"` last
 #   A4 the apply script is idempotent
 set -euo pipefail

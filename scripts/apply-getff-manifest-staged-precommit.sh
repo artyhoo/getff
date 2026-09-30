@@ -8,7 +8,8 @@
 # maintainer's act, not the agent's.
 #
 # What it does: refuse unless the index is empty and .husky/pre-commit is unmodified; `git apply` the
-# patch; `bash -n` the hook; run the checker's paired-negative test; commit .husky/pre-commit ALONE.
+# patch; `bash -n` the hook; run the checker's paired-negative test; commit .husky/pre-commit plus
+# the docs/site/reference regeneration its wiring causes, and nothing else.
 # On staging/main it first creates branch maintainer/precommit-getff-manifest-staged.
 # `--pr` then pushes the branch and opens a PR against staging with a gate-compliant body.
 # Idempotent: an already-wired hook exits 0 without touching anything.
@@ -35,7 +36,7 @@ if grep -qF 'scripts/check-getff-manifest-staged.sh' "$HOOK"; then
   exit 0
 fi
 
-[ -z "$(git diff --cached --name-only)" ] || fail "the index is not empty — the maintainer commit must carry $HOOK alone"
+[ -z "$(git diff --cached --name-only)" ] || fail "the index is not empty — the maintainer commit must carry the hook change alone"
 git diff --quiet -- "$HOOK" || fail "$HOOK has unstaged edits — commit or restore them first"
 git apply --check "$PATCH" || fail "$PATCH no longer applies to $HOOK (the hook moved) — ask an agent to regenerate it"
 
@@ -49,6 +50,14 @@ bash scripts/check-getff-manifest-staged.test.sh >/dev/null \
   || { git checkout -- "$HOOK"; fail "check-getff-manifest-staged.test.sh is RED — reverted $HOOK"; }
 
 git add "$HOOK"
+# The hook is a wiring surface for scripts/census.mjs, so the check leaves the F3 reference's
+# `unwired` list the moment it is called from here — regenerate it into the SAME commit, or the
+# PR reddens reference-check. Absent renderer (a fixture) = nothing to regenerate.
+if [ -f scripts/render-reference.mjs ]; then
+  npx tsx scripts/render-reference.mjs --write >/dev/null \
+    || { git reset -q -- "$HOOK"; git checkout -- "$HOOK"; fail "render-reference.mjs --write failed — reverted $HOOK"; }
+  git add docs/site/reference
+fi
 git commit -m "chore(husky): run the getff MANIFEST-staged check at pre-commit (maintainer commit)" -m \
 "Applies scripts/check-getff-manifest-staged.precommit.patch. Agents are denied Edit/Write(.husky/**)
 by .claude/settings.json, so the agent that built the check shipped the hook change as a patch and
