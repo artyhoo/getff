@@ -35,7 +35,7 @@ import { REPO_ROOT } from './kickoff-population.ts';
 const SKILLS_DIR = join(REPO_ROOT, '.claude/skills');
 const MARKER = /you did[\s*_]+not[\s*_]+write/i;
 const FIELD = /^[ \t>*-]*`?Inputs-ref:`?[ \t]*`?</m;
-const FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm;
+const FENCE_OPEN = /^[ \t]*(`{3,}|~{3,})/;
 
 /** Dispatch contracts that carry no prompt skeleton (so no marker) but still send a cold seat. */
 const DECLARED_EXTRAS = [
@@ -62,10 +62,34 @@ function coldSeatTemplates(): string[] {
   return [...new Set([...discovered, ...DECLARED_EXTRAS])].sort();
 }
 
+/**
+ * The fenced-block bodies of a markdown text, CommonMark-style: a block closes on a fence of
+ * the SAME character at least as long as its opener, and an unclosed block runs to EOF.
+ */
+function fencedBodies(text: string): string[] {
+  const bodies: string[] = [];
+  let open: { ch: string; len: number } | null = null;
+  let body: string[] = [];
+  for (const line of text.split('\n')) {
+    if (open === null) {
+      const m = FENCE_OPEN.exec(line);
+      if (m) open = { ch: m[1][0], len: m[1].length };
+      continue;
+    }
+    const close = new RegExp(`^[ \\t]*\\${open.ch}{${open.len},}[ \\t]*$`);
+    if (close.test(line)) {
+      bodies.push(body.join('\n'));
+      open = null;
+      body = [];
+    } else body.push(line);
+  }
+  if (open !== null) bodies.push(body.join('\n'));
+  return bodies;
+}
+
 /** True when some fenced block (the prompt skeleton / the line to paste) carries the field. */
 function carriesInputsRef(text: string): boolean {
-  for (const m of text.matchAll(FENCE)) if (FIELD.test(m[2])) return true;
-  return false;
+  return fencedBodies(text).some((b) => FIELD.test(b));
 }
 
 describe('principle 49 — cold-seat dispatch templates carry Inputs-ref', () => {
@@ -97,6 +121,14 @@ describe('principle 49 — cold-seat dispatch templates carry Inputs-ref', () =>
     expect(carriesInputsRef(fenced('Inputs-ref: <sha>'))).toBe(true);
     expect(carriesInputsRef(fenced('   Inputs-ref: <SHA>', '````'))).toBe(true);
     expect(carriesInputsRef(`1. step\n   \`\`\`text\n   Inputs-ref: <sha>\n   \`\`\`\n`)).toBe(true);
+    // A longer closing fence closes the block (CommonMark) — prose after it stays prose.
+    // (a same-length-only closer would swallow the prose up to the next fence — measured true).
+    expect(carriesInputsRef('```\nbody\n`````\nInputs-ref: <sha>\n```\nx\n```\n')).toBe(false);
+    // An unclosed fence runs to EOF, as CommonMark renders it.
+    expect(carriesInputsRef('```\nnever closed\nInputs-ref: <sha>\n')).toBe(true);
+    // A shorter or other-character fence does not close a block.
+    expect(carriesInputsRef('````text\n```\nInputs-ref: <sha>\n````\n')).toBe(true);
+    expect(carriesInputsRef('~~~\n```\nInputs-ref: <sha>\n~~~\n')).toBe(true);
   });
 
   it('the marker tolerates markdown emphasis, so a bold spelling cannot slip the population', () => {

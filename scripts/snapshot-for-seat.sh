@@ -71,12 +71,17 @@ bad=0
 names=$'\n'
 for p in "$@"; do
   p="${p#./}"
-  # -z: without it git C-quotes non-ASCII / special paths and the name compare below misses.
-  entry="$(git ls-tree -z --full-tree "$sha" -- "$p" 2>/dev/null | tr '\0' '\n' | head -n 1)"
-  mode="${entry%% *}"
   case "$p" in
-    */) entry="" ;;
+    "" | */)
+      echo "snapshot-for-seat: '${p}' is not a file path (empty or ends in /)" >&2
+      bad=1
+      continue
+      ;;
   esac
+  # -z: without it git C-quotes non-ASCII / special paths and the name compare below misses.
+  # sed reads the whole listing — `head` would close the pipe early and SIGPIPE under pipefail.
+  entry="$(git ls-tree -z --full-tree "$sha" -- "$p" 2>/dev/null | tr '\0' '\n' | sed -n 1p)"
+  mode="${entry%% *}"
   if [ -z "$entry" ] || [ "${entry##*$'\t'}" != "$p" ]; then
     echo "snapshot-for-seat: '${p}' does not exist at ${short}" >&2
     bad=1
@@ -89,7 +94,9 @@ for p in "$@"; do
     120000) echo "snapshot-for-seat: '${p}' is a symlink at ${short} — name its target" >&2; bad=1; continue ;;
     *) echo "snapshot-for-seat: '${p}' has unsupported mode ${mode} at ${short}" >&2; bad=1; continue ;;
   esac
-  name="$(snapshot_name "$p")"
+  # Case-folded: on a case-insensitive filesystem (APFS default) docs__X@… and docs__x@…
+  # are one file, and the second write would silently replace the first.
+  name="$(snapshot_name "$p" | tr '[:upper:]' '[:lower:]')"
   case "$names" in
     *$'\n'"${name}"$'\t'*)
       prev="${names#*$'\n'"${name}"$'\t'}"

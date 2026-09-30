@@ -186,7 +186,7 @@ describe('snapshot-for-seat.sh', () => {
 
       for (const [path, word] of [
         ['docs', 'directory'],
-        ['docs/', 'does not exist'],
+        ['docs/', 'not a file path'],
         ['link.md', 'symlink'],
         ['vendor/sub', 'submodule'],
       ]) {
@@ -212,6 +212,35 @@ describe('snapshot-for-seat.sh', () => {
       expect(readdirSync(out)).toEqual([]);
 
       expect(run(['--out', out, sha, 'a/b__c.md', './a/b__c.md']).status).toBe(0);
+    },
+    SLOW_SHELL_MS,
+  );
+
+  it(
+    'refuses case-variant paths (one file on a case-insensitive FS), an empty path and a trailing slash',
+    () => {
+      commitFile('docs/X.md', 'upper\n', 'one');
+      let sha = git('rev-parse', 'HEAD');
+      // Add the lower-case twin through the index so the test works on APFS too.
+      const blob = execFileSync('git', ['hash-object', '-w', '--stdin'], {
+        cwd: repo,
+        input: 'lower\n',
+        encoding: 'utf8',
+      }).trim();
+      git('update-index', '--add', '--cacheinfo', `100644,${blob},docs/x.md`);
+      git('commit', '-q', '-m', 'two');
+      sha = git('rev-parse', 'HEAD');
+
+      const clash = run(['--out', out, sha, 'docs/X.md', 'docs/x.md']);
+      expect(clash.status).toBe(1);
+      expect(clash.stderr).toContain('both map to');
+
+      for (const path of ['', 'docs/']) {
+        const r = run(['--out', out, sha, path]);
+        expect(r.status, JSON.stringify(path)).toBe(1);
+        expect(r.stderr, JSON.stringify(path)).toContain('not a file path');
+      }
+      expect(readdirSync(out)).toEqual([]);
     },
     SLOW_SHELL_MS,
   );

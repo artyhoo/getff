@@ -518,7 +518,7 @@ a0bde1976b4665dd232a771b18ec98a8c61888c6c385fe792417e3be3828f901  packages/core/
 c5309c93104c6626894f3927d9859be6fa25ab56dbd942d6c691244251dc4bcc  packages/core/hooks/runtime-bridge-dispatch.test.ts
 f7ce626f7870a30be7a6d7993f27093e7dc8dc3013c1d28be8cc265f8dedb2b3  packages/core/hooks/session-start.test.ts
 230616f7147bfbf760cb1c9fca1e12b444fcbf481f76dc18c6942ce4e460ebdf  packages/core/hooks/skill-index-on-compact.test.ts
-9d6b156c20e32c05d481325c428e10e749b7b7531da017e876f722e00381cb8e  packages/core/hooks/snapshot-for-seat.test.ts
+21f8aa890ad40649cd3d6408d2f72398b1d2bea3d38fbdd1a313fb9f30aab660  packages/core/hooks/snapshot-for-seat.test.ts
 154069dd41cfdb9a0f7684d43473b91a4c3a69fe79053b56c4423db55db75b5d  packages/core/hooks/unpinned-tool-install.test.ts
 0cc8f2ba0ac198e03820f0281d096579abec9f2791d52e9c83b1ebb81812c090  packages/core/hooks/update-cache.test.ts
 503fada0150700c3aae8d6aa05f2a843711a731c91bf3b225df71f81069ebb56  packages/core/hooks/update-delta.test.ts
@@ -633,7 +633,7 @@ a47d7b4e6237600483dd79a789c4937265aca184de9e765a0a462699430a1eb3  packages/core/
 d154feb878a01619142205aba0d7e50db0f146c6d10044ba8347dadf9a640348  packages/core/principles/47-symlink-safe-entry-point.test.ts
 0354b9b2df94d04fb8984b4fb29b29e43c9837d120c5ca2f27ef2814e674a045  packages/core/principles/48-skill-description-budget.test.ts
 2c9d2313854c511787fe103bc0bb006d5a8580d72e6768436752e9b3932fb137  packages/core/principles/48-skill-description-budget.ts
-465f948795fcaa3c536e1bc302733f7aa0b57e7adcff481f498ce3cbeb3f2bfd  packages/core/principles/49-cold-seat-inputs-ref.test.ts
+14e14f0c2919ee2d4c4b8b2e5024c7d029a0579902046e87b6d33d15a40c1423  packages/core/principles/49-cold-seat-inputs-ref.test.ts
 946b74c5cd11975fd0599ed5a2ddfbc39ae32a436bad558a64f4d4b424f0d980  packages/core/principles/__fixtures__/bundle/backlog-1-clean.txt
 e6fa98ffd9c2ec1f1825e9c0f3ac61d7abe31e6b7c89762739c70c4100ba6ed3  packages/core/principles/__fixtures__/bundle/backlog-2-mixed.txt
 b4b46a44a002d99f8bb5381e80d8f279fd49ab7b31eb078d19c9a3108b4cb3b5  packages/core/principles/__fixtures__/bundle/backlog-3-overlap.txt
