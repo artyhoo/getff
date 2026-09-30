@@ -45,7 +45,7 @@ c12fd8d7b8a4af335822c600904719c147c5ea859fb27cb7ab843f125e9d5a28  .claude/skills
 8639f374fbfeec377f0ac94a930c725e601d1775b3952407cebff5de0bcb2c27  .claude/skills/dispatcher/helpers/harvest-via-api.sh
 f8ff7a734f8f4d3a9367ea45a61e17f1cde292327596c300e41ac8bf276f9e66  .claude/skills/dispatcher/helpers/monitor-classify.sh
 e1784c032fb6366007c76da0dcbba0f9db6a6816e4d3d9d27e0128554838d0a0  .claude/skills/dispatcher/helpers/notify-gate.sh
-659ba56ba5ecfeaf0e3c6411f6129398db4844811a259d7dacd75b1f70e328e9  .claude/skills/dispatcher/helpers/probe-inflight.sh
+6e53447b8e36c775a8261dc7b7b2cb7548691ff8fb38aaed9454665da251fff9  .claude/skills/dispatcher/helpers/probe-inflight.sh
 5d21f0757512eafe17f0be69a891dea8ddee4627b3bf71871e8a71536e3dab7f  .claude/skills/dispatcher/helpers/tg-notify.sh
 278f3c14d7b2eee951e4b325399604c29bc1615136fea3b3fca7f80a761a038a  .claude/skills/docs-author/SKILL.md
 6658d2123b8fcd47a6cda7f590e1f0e7d69c9c5aa82a84f23945888e01de539d  .claude/skills/docs-author/references/craft.md
@@ -731,7 +731,7 @@ d6fb5f4de58e65e9709c31a87fdd876a848594e7b353d782a9e41f3cc8efbe3c  packages/core/
 f0cf7817f44e50f88aef386e9e1bf7485b90459d85adfe1716b67a5e3e933f69  packages/core/skills/dispatcher/advance-frontier.test.ts
 c6de328a5e660c581783e5b44aec0a6a3bf607d43c58416d106324506bac7373  packages/core/skills/dispatcher/dispatch.test.ts
 e6c00f9729864de8960ccec6f840cdf57f79662ef902955bb98e24160d7044fc  packages/core/skills/dispatcher/monitor.test.ts
-51e413a222d082ee4b2e030775b7304c82db915ba7c9ee94b3d43097236f848d  packages/core/skills/dispatcher/probe-inflight.test.ts
+a376e7980a5a5967e4b845ba9cc75232f079d20d74a2287829c9b71884b543fe  packages/core/skills/dispatcher/probe-inflight.test.ts
 d005e749e11e2b1bfb3d7e496ac559091ddc2a84f90a0283d0aaa30bace0b3a4  packages/core/skills/domain-modeling-vendored-body.test.ts
 953daa58befa8475ac2d103f970e5571bd242a4ccea6532e0bf1d432c9867a81  packages/core/skills/dup-detect-skip-closed.test.ts
 3932f8cd1ab4bfbed00616da1fae4f3fb95459043c5a5313b00ae938f87e67d7  packages/core/skills/dup-detect.test.ts
