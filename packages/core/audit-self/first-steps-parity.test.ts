@@ -439,6 +439,21 @@ describe('The road ↔ install prompt parity', () => {
     }
   });
 
+  it('the tools choice says that some servers run on the person\'s computer and how to remove one', () => {
+    // A verified npm server is written as `npx -y <pkg>` (setup.d/35-stack-tools.sh) and runs at
+    // every session start, in agent sessions without any approval prompt — the pre-launch yes is
+    // the only consent, so it must name that (operator, 2026-09-30).
+    const ask = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'ask-once');
+    for (const text of [ask?.action ?? '', prompt]) {
+      const flat = text.replace(/\s+/g, ' ');
+      expect(flat).toMatch(/some of these servers run on (?:my|the person's) computer/);
+      expect(flat).toMatch(/`npx`/);
+      expect(flat).toMatch(/the rest work over the internet/);
+      expect(flat).toMatch(/⚠ line/);
+      expect(flat).toMatch(/`claude mcp remove <name> -s project`/);
+    }
+  });
+
   it('the tools step checks two sources and probes nothing itself', () => {
     const tools = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'tools-parity');
     for (const text of [tools?.action ?? '', prompt]) {
