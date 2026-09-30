@@ -36,7 +36,7 @@ One line per rule — full text: read `.claude/rules/<name>.md` (index: `.claude
 | `ci-tool-pinning.md` | A | editing `.github/workflows/**` or any repo shell script. | paths:(6), edit-time inject |
 | `cold-seat-economy.md` | C | re-running a cold seat on already-judged work; resume-vs-fresh choice. | skill-embed(2) |
 | `companion-install-principle.md` | B | editing `setup.d/**` (companion install manifest/engine). | paths:(1), edit-time inject |
-| `coordinator-seat-delegation.md` | C | a coordinator seat about to poll aif, harvest a stage, draft a PR body, wait on CI or merge. | paths:(1) |
+| `coordinator-seat-delegation.md` | C | a coordinator seat about to poll aif, harvest a stage, draft a PR body, wait on CI or merge. The `events:` card covers only the pipeline-specific commands — the harvest / await CLIs, the harvest and babysit helpers, aif task polling (`…3009/tasks`, literal or `${AIF_PORT:-3009}`). CI waits and merges are deliberately NOT triggers: every session that opens a PR runs them, so matching them would tax every PR author to reach one seat; those two stay prose-carried. Operator-repo only: `.claude/rules/` is not shipped, so a consumer install gets the skill prose, not the card. | paths:(1) |
 | `destination-environment-verification.md` | B | kickoff authoring; accepting container work; a cannot-reach claim. | paths:(1), edit-time inject |
 | `doc-authority-hierarchy.md` | A | creating/editing any canonical or shipped consumer-facing doc. | paths:(4), edit-time inject |
 | `dual-implementation-discipline.md` | A | shipping a new CC-native hook + choosing its delivery channel(s). | paths:(3), edit-time inject |

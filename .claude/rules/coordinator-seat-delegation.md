@@ -3,10 +3,10 @@ description: Coordinator seat delegates the mechanical pipeline (aif polling, ha
 paths:
   - ".claude/skills/orchestrator/**"
 events:
-  - 'harvest\.ts'
+  - 'cli/(harvest|await)\.ts'
   - 'harvest-via-api\.sh'
   - '(post-harvest|babysit)\.sh'
-  - '(localhost|127\.0\.0\.1):3009/tasks'
+  - '3009\}?/tasks'
 ---
 
 # Coordinator seat delegation — discipline rule
@@ -14,7 +14,7 @@ events:
 <!-- inject: Coordinator seat? The mechanical pipeline (aif polling, harvest, PR body, CI wait, merge) goes to a standalone chip worker with a REPORT contract — not to you, and not to an in-session Agent. A chip worker running its own recipe proceeds. -->
 
 > **Class:** C — prose + a deterministic injection, no gate. Whether the current session *is* a coordinator seat is a judgment the harness cannot observe (no seat marker exists — the session-bus registry that would carry one is Part-II, probe-gated), so blocking the commands would also block the chip worker whose job they are (`#gate-where-judgment-needed`, [rule-enforcement-channel-selection.md §5](rule-enforcement-channel-selection.md)). Channel: CC-native `paths:` (read-time, orchestrator skill) plus the `events:` arm of [`inject-matching-rule.sh`](../hooks/inject-matching-rule.sh) — PreToolUse Bash, already registered, once per session. Promotion criterion in §3.
-> **Fires:** a coordinator seat about to poll aif, harvest a stage, draft a PR body, wait on CI or merge.
+> **Fires:** a coordinator seat about to poll aif, harvest a stage, draft a PR body, wait on CI or merge. The `events:` card covers only the pipeline-specific commands — the harvest / await CLIs, the harvest and babysit helpers, aif task polling (`…3009/tasks`, literal or `${AIF_PORT:-3009}`). CI waits and merges are deliberately NOT triggers: every session that opens a PR runs them, so matching them would tax every PR author to reach one seat; those two stay prose-carried. Operator-repo only: `.claude/rules/` is not shipped, so a consumer install gets the skill prose, not the card.
 > **Authoritative for:** the seat-vs-worker split — §1 the rule, §2 anti-patterns, §3 promotion / retirement.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The chip-worker prompt and its REPORT contract — see [orchestrator references/chip-worker-template.md](../skills/orchestrator/references/chip-worker-template.md). The harvest mechanics — the `harvest` and `dispatcher` skills. Merge policy — see [CLAUDE.md «Agent PR merge policy»](../../CLAUDE.md).
 
@@ -23,6 +23,8 @@ events:
 ## §1 The rule
 
 A session acting as a **coordinator seat** (orchestrator + advisor over a multi-stage campaign) keeps routing work only: kickoffs, aif dispatch, decisions, operator forks. The mechanical pipeline goes to a **standalone chip worker** — a separate session (`spawn_task` in Claude Code desktop; a fresh operator-opened session elsewhere) whose prompt stands alone and ends in a REPORT contract (`Status: DONE|PARTIAL|BLOCKED`, per-stage PR / head / merge sha, `ATTN:` lines). The worker reports; the seat decides.
+
+**Out of scope — sessions whose role IS the pipeline:** the `dispatcher` registry seat ([seat-lifecycle.md §1](seat-lifecycle.md) — its loop is dispatch → monitor → harvest → advance), a night-mode run on the aif substrate (which runs that same loop), and the chip worker itself. The card's one line reaches them too; for them it is a no-op.
 
 ## §2 Anti-patterns
 
