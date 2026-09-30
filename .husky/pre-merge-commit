@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# .husky/pre-merge-commit — refuse a CLEAN merge that brings in commits never pushed to origin.
+#
+# spec: scripts/check-merge-pushed.sh header; test: tests/hooks/merge-unpushed-refusal.test.sh.
+# Incident 2026-09-30 (join/one-button-union): local-only part branches merged into a join
+# skipped .husky/pre-push; three gates went red only on the join, hours later.
+# The conflicted-merge channel is the MERGE_HEAD arm at the end of .husky/pre-commit.
+#
+# `exec` is load-bearing: git has not written MERGE_HEAD yet when this hook runs, and for a
+# `git pull` the check confirms from its PARENT process's argv that the parent is the child
+# `git merge … FETCH_HEAD`, so this shell hands its pid over instead of adding a level.
+MP_CHECK="$(cd "$(dirname "$0")" && pwd)/../scripts/check-merge-pushed.sh"
+[ -f "$MP_CHECK" ] || exit 0
+exec bash "$MP_CHECK" pre-merge-commit
