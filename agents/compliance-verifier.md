@@ -90,9 +90,10 @@ enforces trailer _presence_ + min length; you check _substance parity_.
 
 ### 6. State and absence claims ([.claude/rules/phase-research-coverage.md](https://github.com/artyhoo/getff/blob/main/.claude/rules/phase-research-coverage.md) §1.11 items 6-10)
 
-Scan the §1.7 sections, the PR summary, and the commit body for claims that something is
-absent, gone, never existed, not released, did not run, or stale. For each such claim, the
-cited evidence must be able to carry an absence:
+Scan the §1.7 Forward-check and Backward-check sections for claims that something is absent,
+gone, never existed, not released, did not run, or stale («no other surface carries X», «the
+old path is gone», «job Y did not run»). For each such claim, the cited evidence must be able
+to carry an absence:
 
 - **Truncated or unpaginated evidence** — the command behind an absence claim pipes through
   `head`, `tail`, `grep -m1`, or reads a paginated list (`gh api …/check-runs` returns 30 rows
