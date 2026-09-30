@@ -93,11 +93,61 @@ ROOT_NM="$WORKTREE_DIR/node_modules"
 CORE_NM="$WORKTREE_DIR/packages/core/node_modules"
 HAS_CORE=0; [ -d "$WORKTREE_DIR/packages/core" ] && HAS_CORE=1
 
+# NESTED WORKSPACE LAYERS (2026-09-30): npm plans nested layers for workspaces other than
+# packages/core too — this repo's root lock puts eslint-plugin-jsx-a11y (absent from the root
+# layer) and eslint-plugin-react-hooks 6.1.1 (root: 7.1.1) under packages/preset-react-spa/
+# node_modules. With only the root and core layers linked, code in that workspace resolved
+# react-hooks 7.1.1 and could not resolve jsx-a11y at all; a census found the layer missing in
+# all 73 root-linked worktrees carrying that workspace. So every workspace directory of THIS
+# worktree gets the same link the core layer gets, when — and only when — the primary holds a
+# real, non-cache layer at the same path. A cache-only primary layer (vitest's .vite* in
+# packages/runtime-bridge) delivers nothing and is not linked; a workspace absent from the
+# worktree is never created. This is link DELIVERY only: whether the primary installed what
+# this worktree's lock plans is a separate question, not judged here.
+#
+# Workspaces come from this worktree's package.json `workspaces` (npm / yarn / bun; array or
+# { packages: [...] }), expanded as shell globs; `packages/*` when node is unavailable.
+workspace_dirs() {
+  local pats pat d
+  if command -v node >/dev/null 2>&1; then
+    pats="$(node -e '
+      try {
+        const w = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).workspaces;
+        const list = Array.isArray(w) ? w : (w && Array.isArray(w.packages) ? w.packages : []);
+        for (const p of list) if (typeof p === "string" && !p.startsWith("!")) console.log(p);
+      } catch {}
+    ' "$WORKTREE_DIR/package.json" 2>/dev/null)"
+  else
+    pats="packages/*"
+  fi
+  while IFS= read -r pat; do
+    [ -n "$pat" ] || continue
+    for d in "$WORKTREE_DIR"/$pat; do
+      [ -d "$d" ] || continue
+      d="${d#"$WORKTREE_DIR"/}"; d="${d%/}"
+      [ "$d" = "packages/core" ] && continue   # its own rule below (fallback link)
+      printf '%s\n' "$d"
+    done
+  done <<EOF
+$pats
+EOF
+}
+
 # --check and --apply share ONE definition of the end state, so they can never disagree.
 needs_root=0; nm_is_provisioned "$ROOT_NM" || needs_root=1
 needs_core=0; if [ "$HAS_CORE" -eq 1 ]; then nm_is_provisioned "$CORE_NM" || needs_core=1; fi
+NESTED_MISSING=""   # newline-separated workspace dirs whose layer must be linked
+while IFS= read -r ws; do
+  [ -n "$ws" ] || continue
+  src="$PRIMARY_DIR/$ws/node_modules"
+  { [ -d "$src" ] && [ ! -L "$src" ] && nm_is_provisioned "$src"; } || continue
+  nm_is_provisioned "$WORKTREE_DIR/$ws/node_modules" || NESTED_MISSING="$NESTED_MISSING$ws
+"
+done <<EOF
+$(workspace_dirs | sort -u)
+EOF
 
-if [ "$needs_root" -eq 0 ] && [ "$needs_core" -eq 0 ]; then
+if [ "$needs_root" -eq 0 ] && [ "$needs_core" -eq 0 ] && [ -z "$NESTED_MISSING" ]; then
   [ "$MODE" = "--check" ] && exit 0
   exit 0
 fi
@@ -109,10 +159,11 @@ if [ ! -e "$PRIMARY_DIR/node_modules" ]; then
 fi
 
 if [ "$MODE" = "--check" ]; then
-  printf '⚠ worktree-node-modules: %s is not provisioned (root=%s core=%s) — run: bash scripts/worktree-doctor.sh --fix\n' \
+  printf '⚠ worktree-node-modules: %s is not provisioned (root=%s core=%s nested=%s) — run: bash scripts/worktree-doctor.sh --fix\n' \
     "$WORKTREE_DIR" \
     "$([ "$needs_root" -eq 1 ] && echo MISSING || echo ok)" \
-    "$([ "$needs_core" -eq 1 ] && echo MISSING || echo ok)" >&2
+    "$([ "$needs_core" -eq 1 ] && echo MISSING || echo ok)" \
+    "$([ -n "$NESTED_MISSING" ] && printf '%s' "$NESTED_MISSING" | paste -sd, - || echo ok)" >&2
   exit 1
 fi
 
@@ -151,6 +202,17 @@ if [ "$needs_core" -eq 1 ]; then
     ln -sfn ../../node_modules "$CORE_NM"
   fi
 fi
+
+# Same shape as the core link above: the primary's real layer, and never a real install replaced.
+while IFS= read -r ws; do
+  [ -n "$ws" ] || continue
+  nm="$WORKTREE_DIR/$ws/node_modules"
+  nm_is_free "$nm" || refuse "$nm"
+  rm -rf "$nm"
+  ln -sfn "$PRIMARY_DIR/$ws/node_modules" "$nm"
+done <<EOF
+$NESTED_MISSING
+EOF
 
 printf '✓ worktree-node-modules: provisioned %s\n' "$WORKTREE_DIR" >&2
 exit 0

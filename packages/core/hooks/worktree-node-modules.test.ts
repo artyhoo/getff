@@ -14,6 +14,14 @@
  *
  * The REFUSAL arm is the guard on the other side: a worktree holding a real install must never
  * be clobbered, no matter how convenient replacing it would be.
+ *
+ * The NESTED-LAYER arms (2026-09-30): the root lock plans nested layers for workspaces other than
+ * packages/core — packages/preset-react-spa/node_modules/eslint-plugin-jsx-a11y (absent from the
+ * root layer) and eslint-plugin-react-hooks 6.1.1 (the root layer has 7.1.1). A census found all
+ * 73 root-linked worktrees carrying preset-react-spa without that layer, so code there resolved
+ * react-hooks 7.1.1 and could not resolve jsx-a11y at all. Each positive arm is paired with a
+ * negative: a cache-only primary layer, a workspace the worktree lacks, and a directory outside
+ * `workspaces` are all left unlinked.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync, execSync } from 'node:child_process';
@@ -38,14 +46,25 @@ const SCRIPT = resolve(REPO_ROOT, 'scripts/worktree-node-modules.sh');
 let primary: string;
 let wt: string;
 
-/** Primary checkout + a worktree directory, both bare of node_modules. */
-function seed(opts: { primaryCore?: boolean } = {}): void {
+/**
+ * Primary checkout + a worktree directory, both bare of node_modules. `dirs` are extra tracked
+ * directories (workspaces or not); `workspaces` becomes the root package.json field when given.
+ */
+function seed(opts: { primaryCore?: boolean; dirs?: string[]; workspaces?: string[] } = {}): void {
   primary = mkdtempSync(resolve(tmpdir(), 'wnm-primary-'));
   execSync('git init -q -b main', { cwd: primary });
   execSync('git config user.email t@e.com && git config user.name t', { cwd: primary });
   writeFileSync(resolve(primary, 'README.md'), 'x\n');
-  mkdirSync(resolve(primary, 'packages/core'), { recursive: true });
-  writeFileSync(resolve(primary, 'packages/core/.keep'), '');
+  for (const d of ['packages/core', ...(opts.dirs ?? [])]) {
+    mkdirSync(resolve(primary, d), { recursive: true });
+    writeFileSync(resolve(primary, d, '.keep'), '');
+  }
+  if (opts.workspaces) {
+    writeFileSync(
+      resolve(primary, 'package.json'),
+      JSON.stringify({ name: 'root', private: true, workspaces: opts.workspaces }),
+    );
+  }
   execSync('git add . && git commit -q -m init', { cwd: primary });
 
   mkdirSync(resolve(primary, 'node_modules/.bin'), { recursive: true });
@@ -76,6 +95,12 @@ function plantViteCache(): void {
   writeFileSync(resolve(wt, 'node_modules/.vite/deps.json'), '{}');
   mkdirSync(resolve(wt, 'node_modules/.vite-temp'), { recursive: true });
   mkdirSync(resolve(wt, 'packages/core/node_modules/.vite'), { recursive: true });
+}
+
+/** A real installed package inside the primary's `<dir>/node_modules`. */
+function installInPrimary(dir: string, pkg: string): void {
+  mkdirSync(resolve(primary, dir, 'node_modules', pkg), { recursive: true });
+  writeFileSync(resolve(primary, dir, 'node_modules', pkg, 'package.json'), '{}');
 }
 
 afterEach(() => {
@@ -166,5 +191,90 @@ describe('worktree-node-modules.sh — provisioning SSOT', () => {
     expect(run('--check')).toBe(1);
     expect(lstatSync(resolve(wt, 'node_modules')).isSymbolicLink()).toBe(false);
     expect(existsSync(resolve(wt, 'node_modules/.vite/deps.json'))).toBe(true);
+  });
+});
+
+describe('worktree-node-modules.sh — nested workspace layers', () => {
+  const SPA = 'packages/preset-react-spa';
+
+  it('links a workspace nested layer the primary has, so its planned deps resolve', () => {
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    expect(run('--apply')).toBe(0);
+    // Pre-fix: root + core are linked and --check says provisioned, yet this layer is missing.
+    rmSync(resolve(wt, SPA, 'node_modules'), { recursive: true, force: true });
+    expect(run('--check')).toBe(1);
+
+    expect(run('--apply')).toBe(0);
+
+    expect(readlinkSync(resolve(wt, SPA, 'node_modules'))).toBe(resolve(primary, SPA, 'node_modules'));
+    expect(existsSync(resolve(wt, SPA, 'node_modules/eslint-plugin-jsx-a11y/package.json'))).toBe(true);
+    expect(run('--check')).toBe(0);
+  });
+
+  it('NEGATIVE: a primary layer holding only .vite* caches is not linked', () => {
+    seed({ dirs: ['packages/runtime-bridge'], workspaces: ['packages/*'] });
+    mkdirSync(resolve(primary, 'packages/runtime-bridge/node_modules/.vite'), { recursive: true });
+
+    expect(run('--apply')).toBe(0);
+
+    expect(existsSync(resolve(wt, 'packages/runtime-bridge/node_modules'))).toBe(false);
+    expect(run('--check')).toBe(0);
+  });
+
+  it('heals a worktree nested layer poisoned by a .vite* cache, without nesting', () => {
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    mkdirSync(resolve(wt, SPA, 'node_modules/.vite-temp'), { recursive: true });
+    expect(run('--check')).toBe(1);
+
+    expect(run('--apply')).toBe(0);
+
+    expect(lstatSync(resolve(wt, SPA, 'node_modules')).isSymbolicLink()).toBe(true);
+    expect(existsSync(resolve(wt, SPA, 'node_modules/node_modules'))).toBe(false);
+  });
+
+  it('REFUSAL: never replaces a real install in a worktree nested layer', () => {
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    mkdirSync(resolve(wt, SPA, 'node_modules/own-dep'), { recursive: true });
+    writeFileSync(resolve(wt, SPA, 'node_modules/own-dep/index.js'), '// real\n');
+
+    expect(run('--apply')).toBe(0);
+
+    expect(lstatSync(resolve(wt, SPA, 'node_modules')).isSymbolicLink()).toBe(false);
+    expect(existsSync(resolve(wt, SPA, 'node_modules/own-dep/index.js'))).toBe(true);
+  });
+
+  it('REFUSAL: a regular file at a nested layer path exits 2 and is left untouched', () => {
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    writeFileSync(resolve(wt, SPA, 'node_modules'), 'not a directory\n');
+
+    expect(run('--apply')).toBe(2);
+
+    expect(lstatSync(resolve(wt, SPA, 'node_modules')).isFile()).toBe(true);
+  });
+
+  it('NEGATIVE: never creates a workspace directory the worktree does not have', () => {
+    seed({ workspaces: ['packages/*'] });
+    installInPrimary('packages/untracked-ws', 'dep'); // exists only in the primary
+
+    expect(run('--apply')).toBe(0);
+
+    expect(existsSync(resolve(wt, 'packages/untracked-ws'))).toBe(false);
+    // …and does not count it as missing either, or --check could never converge.
+    expect(run('--check')).toBe(0);
+  });
+
+  it('follows the package.json workspaces field, and links nothing outside it', () => {
+    seed({ dirs: ['apps/web', 'tools/gen'], workspaces: ['apps/*'] });
+    installInPrimary('apps/web', 'react');
+    installInPrimary('tools/gen', 'dep'); // a real nested dir, but not a workspace
+
+    expect(run('--apply')).toBe(0);
+
+    expect(readlinkSync(resolve(wt, 'apps/web/node_modules'))).toBe(resolve(primary, 'apps/web/node_modules'));
+    expect(existsSync(resolve(wt, 'tools/gen/node_modules'))).toBe(false);
   });
 });
