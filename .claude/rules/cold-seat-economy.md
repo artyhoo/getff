@@ -170,14 +170,16 @@ changes the bytes. Parallel sessions are the norm in this repo, so «nobody will
 corruption is silent: the report reads normally, only its line numbers disagree.
 
 - **A cold seat gets immutable inputs.** Either a `git show <sha>:<path>` snapshot per artifact —
-  `bash scripts/snapshot-for-seat.sh <sha> <paths…>` writes `<path>@<sha12>` files (read-only)
-  and prints `Inputs-ref: <sha>` + their paths — or, when the seat must grep and measure the
+  `bash scripts/snapshot-for-seat.sh <sha> <paths…>` writes one read-only file per path, named
+  `<path with / → __>@<sha12>.<ext>`, refuses directories, submodules and symlinks, and prints
+  `Inputs-ref: <sha>` + the file paths — or, when the seat must grep and measure the
   repo, a worktree of its own checked out at that SHA. A live path is acceptable only for an
   artifact no session but yours writes. Asking a sibling to hold its worktrees still narrows the
   window; it is not a mechanism.
 - **Every dispatch template carries `Inputs-ref: <sha>`** as a required field, so the ref is
   filled, not remembered (principle 49; population = `.claude/skills/**` files carrying the
-  cold-seat marker + declared contracts).
+  cold-seat marker + declared contracts — orchestrator reviewer/Phase -1 templates, arch §2,
+  dispatcher §2.4 and harvest §4; the field must sit in the fenced prompt, not in prose).
 - **Every `path:NN` in one answer is pinned to one named ref** — seat verdicts, ask answers,
   journals, messages to a sibling. Measure on an explicit tree (`git show origin/staging:<path>`,
   or the SHA the answer names), code exactly like specs. Your own worktree is valid only for
