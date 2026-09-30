@@ -49,7 +49,10 @@ const RULE_INDEX_PLAN_PATH = 'scripts/render-rule-index.mjs';
 // was structurally unmeetable — any legitimate new rule broke every push repo-wide. 4KB restores
 // headroom for ~5 more rules at the same row budget; raise again only with the same reasoning,
 // and prefer trimming verbose `Fires:` lines (the row's only elastic field) first.
-const INDEX_MAX_BYTES = 4 * 1024;
+// Raised 4KB -> 5KB 2026-10-01 on the same reasoning: staging sat at 4092/4096 after 29 rules,
+// so no row of any length fit (a minimal row is ~90B); the 30th rule (coordinator-seat-
+// delegation) trimmed its own Fires line first. Headroom: ~6 more rules at ~150B/row.
+const INDEX_MAX_BYTES = 5 * 1024;
 
 // Tier-0 core rules: never evicted, always-on regardless of paths:/globs — declared here as the
 // project's own current decision (P4 resolution), not derived from any rule's own markers.
