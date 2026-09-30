@@ -264,10 +264,74 @@ arm_c() {
   assert_contains "c1 prints the nothing-to-test verdict" "$SCRATCH/c1.out" "No declarative rules with negative-test inputs in manifest"
 }
 
+# Arm (d) — P6 run 2 N1: a project without eslint + typescript-eslint (an oxlint project, a fresh clone)
+# gets getff's rule-generator toolchain installed into node_modules/.cache/getff/generator-tools, once, and
+# only when there is a rule to test. npm is a stub that records its args and plants the two packages.
+arm_d() {
+  echo "arm (d): the runner provisions the generator toolchain when the project lacks it"
+  local D="$SCRATCH/arm-d" BIN="$SCRATCH/arm-d-bin"
+  mkdir -p "$BIN"
+  cat > "$BIN/npm" <<'EOF'
+#!/bin/sh
+echo "npm $*" >> "$NPM_LOG"
+[ "${NPM_FAIL:-0}" = 1 ] && { echo "npm error code E404" >&2; exit 1; }
+while [ $# -gt 0 ]; do
+  if [ "$1" = --prefix ]; then for p in eslint typescript-eslint; do mkdir -p "$2/node_modules/$p"; echo '{}' > "$2/node_modules/$p/package.json"; done; fi
+  shift
+done
+exit 0
+EOF
+  chmod +x "$BIN/npm"
+  d_fixture() { # <dir> <manifest-json>
+    rm -rf "$1"; mkdir -p "$1/scripts" "$1/.ai-factory/synthesizer-output"
+    git init -q "$1"
+    cp "$RUNNER" "$1/scripts/run-generated-rule-mutation.sh"
+    printf '%s\n' "$2" > "$1/.ai-factory/synthesizer-output/rules-manifest-additions.json"
+    mkdir -p "$1/node_modules/.bin"; printf '#!/bin/sh\nexit 0\n' > "$1/node_modules/.bin/tsx"; chmod +x "$1/node_modules/.bin/tsx"
+  }
+  d_run() { # <dir> <tag> [npm-fail]
+    ( cd "$1" && env -u GIT_DIR -u GIT_WORK_TREE PATH="$BIN:$PATH" NPM_LOG="$SCRATCH/$2.npm" NPM_FAIL="${3:-0}" \
+        bash scripts/run-generated-rule-mutation.sh >"$SCRATCH/$2.out" 2>&1 ); echo $? > "$SCRATCH/$2.rc"
+  }
+  local ONE='{"r1":{"check":{"type":"declarative","selector":"Identifier"},"negative-test":{"input":["const a = 1;"]}}}'
+  local TOOLS="$D/node_modules/.cache/getff/generator-tools"
+
+  d_fixture "$D" '{}'; : > "$SCRATCH/d0.npm"; d_run "$D" d0
+  assert_rc "d0 a manifest with no rule, rc=0" 0 "$SCRATCH/d0.rc"
+  [ ! -s "$SCRATCH/d0.npm" ] && ok "d0 nothing to test installs nothing" || bad "d0 npm ran with nothing to test: $(cat "$SCRATCH/d0.npm")"
+
+  d_fixture "$D" "$ONE"; : > "$SCRATCH/d1.npm"; d_run "$D" d1
+  grep -q "^npm install --prefix $TOOLS .*eslint@^9 typescript-eslint typescript" "$SCRATCH/d1.npm" \
+    && ok "d1 npm installs eslint@^9 typescript-eslint typescript into node_modules/.cache/getff/generator-tools" \
+    || bad "d1 wrong or no npm install (got: $(cat "$SCRATCH/d1.npm"))"
+  assert_contains "d1 the run says what it installs and where" "$SCRATCH/d1.out" "is not in $TOOLS — installing it there"
+  assert_contains "d1 the rule is then tested" "$SCRATCH/d1.out" "=== generated rule mutation: 1 rule(s)"
+  : > "$SCRATCH/d2.npm"; d_run "$D" d2
+  [ ! -s "$SCRATCH/d2.npm" ] && ok "d2 the second run reuses the toolchain (no npm)" || bad "d2 npm ran again: $(cat "$SCRATCH/d2.npm")"
+
+  # d3: an npm install killed part-way leaves package.json files but no completion marker → reinstall
+  d_fixture "$D" "$ONE"; mkdir -p "$TOOLS/node_modules/eslint" "$TOOLS/node_modules/typescript-eslint"
+  echo '{}' > "$TOOLS/node_modules/eslint/package.json"; echo '{}' > "$TOOLS/node_modules/typescript-eslint/package.json"
+  : > "$SCRATCH/d3.npm"; d_run "$D" d3
+  grep -q "^npm install --prefix $TOOLS " "$SCRATCH/d3.npm" && ok "d3 a half-installed toolchain (no completion marker) is installed again" \
+    || bad "d3 a half-installed toolchain was accepted (npm log: $(cat "$SCRATCH/d3.npm"))"
+
+  # d5: the project has its own eslint + typescript-eslint → nothing is installed
+  d_fixture "$D" "$ONE"
+  for p in eslint typescript-eslint; do mkdir -p "$D/node_modules/$p"; echo '{}' > "$D/node_modules/$p/package.json"; done
+  : > "$SCRATCH/d5.npm"; d_run "$D" d5
+  [ ! -s "$SCRATCH/d5.npm" ] && ok "d5 the project's own eslint + typescript-eslint are used (no npm)" || bad "d5 npm ran: $(cat "$SCRATCH/d5.npm")"
+
+  d_fixture "$D" "$ONE"; : > "$SCRATCH/d4.npm"; d_run "$D" d4 1
+  assert_rc "d4 npm fails, rc=2 (cannot run, never a pass)" 2 "$SCRATCH/d4.rc"
+  assert_contains "d4 the die line names the toolchain" "$SCRATCH/d4.out" "could not install getff's rule-generator toolchain"
+}
+
 [ -f "$RUNNER" ] || { echo "runner not found: $RUNNER" >&2; exit 2; }
 arm_a
 arm_b
 arm_c
+arm_d
 
 echo
 echo "run-generated-rule-mutation.test.sh: PASS=$PASS FAIL=$FAIL"

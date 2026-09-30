@@ -9,7 +9,7 @@
 #   (B) a valid manifest under a path with a `'` is read AND its rule is actually tested — the
 #       old NUL→newline `tr` was a no-op, so before the fix every rule took the «no inputs» skip
 #   (C)/(D) TypeScript and JSX negative inputs are parsed and their rules tested
-#   (E) an input that does not parse is a skip, never a «selector broken» FAIL
+#   (E) an input that does not parse is a «could not be tested» FAIL, never a skip and never «selector broken»
 #   (F) the FAIL line names the error, not the source line that threw it (#1390 class)
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -70,10 +70,14 @@ grep -q 'RULES_TESTED=1' <<<"$_out" && ok "(C) a TypeScript negative input is pa
 gate_one jsx '"JSXIdentifier[name='"'"'head'"'"']"' '"export const H = () => <head />;"'
 grep -q 'RULES_TESTED=1' <<<"$_out" && ok "(D) a JSX negative input is parsed and its rule tested" || bad "(D) JSX input not tested (rc=$_rc, got: $_out)"
 
-# ── (E) an input that does not parse is a probe-infrastructure skip, never a «selector broken»
-#    FAIL: `if ! _probe …; then [ $? -eq 9 ]` always read 0, so the skip branch was dead ──
+# ── (E) an input that does not parse is never a «selector broken» FAIL (`if ! _probe …; then [ $? -eq 9 ]`
+#    always read 0, so that branch was dead). P6 run 2 N1 (R3): it was a skip, and an install whose every
+#    generated rule failed to parse printed PROBE_ERR, RULES_TESTED=0 and still ended «complete»; getff
+#    generated that input, so it is a failure that names the probe error — exit 1 ──
 gate_one unparse '"Identifier"' '"const = ;"'
 grep -q 'did NOT fire' <<<"$_out" && bad "(E) unparseable input reported as a broken selector (got: $_out)" || ok "(E) unparseable input is not reported as a broken selector"
-grep -q 'skipped' <<<"$_out" && ok "(E) unparseable input is reported as skipped" || bad "(E) unparseable input not reported as skipped (got: $_out)"
+grep -q 'could not be tested — the probe could not evaluate its negative-test input' <<<"$_out" && [ "$_rc" -eq 1 ] \
+  && ok "(E) unparseable input fails the check (exit 1) as «could not be tested»" || bad "(E) expected exit 1 + «could not be tested» (rc=$_rc, got: $_out)"
+grep -q 'skipped' <<<"$_out" && bad "(E) unparseable input reported as skipped (got: $_out)" || ok "(E) unparseable input is not a skip"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

@@ -88,12 +88,28 @@ for _e in \
   [ -x "$_e" ] && ESLINT_BIN="$_e" && break
 done
 
+# The TypeScript parser comes with ESLint from one node_modules. A project without typescript-eslint (an oxlint
+# project) gets getff's rule-generator toolchain, which 80-rule-bootstrap.sh keeps in node_modules/.cache (the
+# delivered run-generated-rule-mutation.sh resolves it the same way). P6 run 2 N1: without it every input
+# failed to parse, 0 rules were tested and the install still ended «complete».
+NM_SRC=""
+[ -z "$ESLINT_BIN" ] || NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
+# `.complete` marks a toolchain npm finished installing (80-rule-bootstrap.sh / the runner write it). Under
+# --global the install keeps it in the user cache instead of the project's node_modules/.cache.
+if [ ! -f "$NM_SRC/typescript-eslint/package.json" ]; then
+  for _gen in "$CONSUMER_ROOT/node_modules/.cache/getff/generator-tools" "${XDG_CACHE_HOME:-$HOME/.cache}/getff/generator-tools"; do
+    if [ -f "$_gen/.complete" ] && [ -f "$_gen/node_modules/typescript-eslint/package.json" ] \
+       && [ -f "$_gen/node_modules/eslint/package.json" ]; then
+      NM_SRC="$_gen/node_modules"; ESLINT_BIN="$_gen/node_modules/.bin/eslint"; break
+    fi
+  done
+fi
+
 if [ -z "$TSX_BIN" ] || [ -z "$ESLINT_BIN" ]; then
   skip "check-generated-rule-mutation SKIP — tsx ($([ -n "$TSX_BIN" ] && echo found || echo missing)) or eslint ($([ -n "$ESLINT_BIN" ] && echo found || echo missing)) not available"
   echo ""; echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP"; exit "${GETFF_SKIP_RC:-0}"
 fi
 
-NM_SRC="$(dirname "$(dirname "$ESLINT_BIN")")"
 
 # ─── Scratch + static probe script ────────────────────────────────────────────
 SCRATCH=$(mktemp -d)
@@ -274,7 +290,9 @@ _test_rule() {
   _probe_selector "$SELECTOR" "$BAD_CODE" || _orig_rc=$?
   if [ "$_orig_rc" -ne 0 ]; then
     if [ "$_orig_rc" -eq 9 ]; then
-      skip "[$RULE_ID] probe could not evaluate the negative-test input (parse or infrastructure error) — skipped"
+      # P6 run 2 N1 (R3): this was a skip, so an install whose every generated rule failed to parse ended
+      # «complete». getff generated this material in this install and could not test it: a failure.
+      bad "[$RULE_ID] could not be tested — the probe could not evaluate its negative-test input (PROBE_ERR above)"
       return
     fi
     bad "[$RULE_ID] ORIGINAL selector did NOT fire on negative-test input (selector broken before mutation?)"

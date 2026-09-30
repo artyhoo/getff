@@ -787,6 +787,23 @@ if [ -n "$RESEARCH" ]; then
     [ -z "$changed" ] || { echo "$changed"; return 1; }
   }
   run_step "generator" generator_runs_clean
+  # P6 run 2 N1 (2026-09-30): the commit of the install passed, and the next push was blocked by getff's own
+  # generated-rule mutation check — the parser it needs had been removed with the generator's temp toolchain, so
+  # no rule could be tested. Green stays green (operator log entry 28): a push that worked before the install
+  # works after it, and the check it runs tested every generated rule (none skipped), not a skip read as a pass.
+  push_after_generation() {
+    local out rc=0 want
+    git add -A && git commit -qm "getff: generated rules" || { echo "the commit of the generated rules failed"; return 1; }
+    out=$(git push origin "$BRANCH" 2>&1) || rc=$?
+    printf '%s\n' "$out"
+    [ "$rc" -eq 0 ] || { echo "git push exited $rc"; return 1; }
+    want=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rules.length)' "$SELECTION")
+    grep -q "=== generated rule mutation: $want rule(s)" <<<"$out" \
+      || { echo "the push did not run the generated-rule mutation check on the $want generated rules"; return 1; }
+    grep -qE '=== overall: kill=[0-9]+/[0-9]+ \([0-9]+%\) skipped=0 ' <<<"$out" \
+      || { echo "the push's mutation check skipped a generated rule"; return 1; }
+  }
+  run_step "push after generation" push_after_generation
 else
   echo ""
   echo "── generator: no committed research pair for $STACK — arm not applicable to this cell"

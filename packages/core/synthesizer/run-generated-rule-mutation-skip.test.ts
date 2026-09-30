@@ -184,6 +184,31 @@ describe.skipIf(!PROBES_AVAILABLE)(
       expect(code, `runner output:\n${out}`).toBe(0);
     });
 
+    it('an input the probe cannot parse FAILS the run, even beside a rule that passes (P6 run 2 N1)', () => {
+      // A parse error used to take the «did NOT fire — skipping» path; with one other rule tested the
+      // run exited 0 («PASS»), so generation armed a check that had not tested its material. The
+      // parse error is getff's generated material failing its own probe: a failure, named as such.
+      const manifest = writeManifest({
+        'rule-live': {
+          check: {
+            type: 'declarative',
+            selector: "MemberExpression[object.name='localStorage']",
+          },
+          'negative-test': { input: ["localStorage.getItem('token');"] },
+        },
+        'rule-unparse': {
+          check: { type: 'declarative', selector: "Identifier[name='a']" },
+          'negative-test': { input: ['const = ;'] },
+        },
+      });
+      const { code, out } = runRunner(manifest);
+      expect(out, `runner output:\n${out}`).toContain(
+        'could not be tested — the probe could not evaluate its negative-test input',
+      );
+      expect(out).not.toContain('PASS — all generated rules');
+      expect(code, `runner output:\n${out}`).toBe(1);
+    });
+
     // critical-review S8-1: the extraction step swallowed every failure into `[]`, so a manifest
     // that did not parse took the RULE_COUNT=0 exit — «nothing to test», exit 0 — and a push gate
     // stayed green on material it never read.
