@@ -22,7 +22,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/lang/ru.sh
 a66ae5ca7e50e361661b3d9659a4c4a699693125da6f9745d7ba33b775bab393  .claude/hooks/lib/hook-emit.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
-9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
+4d6e5877b1e31ed6ae58d95e659896f4cca93a449c1e7e00ddcfe9390470b35f  .claude/hooks/lib/residue-dir.sh
 8a9e67aecc345eaf4532931134ca1845c201e733d90f65ca435560c6cb4a45ee  .claude/hooks/lib/skill-index.sh
 f45b3e0e78457d94c0928658d56ab0a575789e62bec06407c223adf786e7736f  .claude/hooks/precompact-residue.sh
 8c5317197f817a32c93ab522e49386d8a15cd8a2f93ccfb75c9d28d82407089e  .claude/hooks/runtime-bridge-dispatch.sh
@@ -90,7 +90,7 @@ ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .claude/skills
 aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .claude/skills/pipeline/helpers/inflight-check.sh
 5c2b538822adc222addab19ca037a3200d79ef12a297a573550ee7803bc91026  .claude/skills/pipeline/helpers/integer-name-guard.sh
 0776a001cc180337dfe402495855f8bb783cb8597c72c84a739d63c857783962  .claude/skills/pipeline/helpers/launch-table-generator.sh
-2942cefdd615c84a9e659dbb24a6ccd32e0a791035f3bf3b1917abdd0920ec11  .claude/skills/pipeline/helpers/lib/common.sh
+6c0ec7c79b381e1046bd6cba899c80be7a35060db91d440c4bdf20583a09c2fb  .claude/skills/pipeline/helpers/lib/common.sh
 e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .claude/skills/pipeline/helpers/list-presets.sh
 1a73d2af447b5d5461100d9ff941ed0677986ead5463cbb6fa2a97e437f6229e  .claude/skills/pipeline/helpers/parse-override-flags.sh
 f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills/pipeline/helpers/plan-currency-check.sh
@@ -487,8 +487,9 @@ d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/
 97e019af6d31f85fcc802755ff274c0c1e26871d4086a81e06b252c2f845cb96  packages/core/hooks/inject-session-bootstrap.test.ts
 cbe4ca38c7db9b0bbb4266da70247c5ba361dd1ad38b1b9f951ac7baadc85171  packages/core/hooks/inject-subagent-context.test.ts
 e70cf3b1658a14a2558d0d04d902b9c73524613af4ac9ea1163fec67ca54cc9a  packages/core/hooks/inject-subagent-digest.test.ts
+8d41526f078dfd8622831a5fbe0577e2c11f0759163bfca95bb439dbe995dbed  packages/core/hooks/install-coordination-wiring.test.ts
 5c5fb841f3565dce3d2e9c9778393bbc56c49d761a51037bbc14d3cbadc1ac39  packages/core/hooks/lang-parity.test.ts
-4e23b164cb7dc2c7f7720d7585622c0ad9a585aa2c6436bb357dd9ad2b82c44d  packages/core/hooks/launch-table-generator.test.ts
+e4ae69a5a1775688afd9dc339fc7fa6f9c688b5b0c32ce167e626c0ee46f7088  packages/core/hooks/launch-table-generator.test.ts
 d6e580db7d344e3adf72603ded31fe821e84613b6e1bc54933a6b784c1acdd60  packages/core/hooks/link-coordination.test.ts
 8f7ec1b8d0d21129a264c266fc8fb283ad38a454f281f256d1ffadd10f5c3e4a  packages/core/hooks/list-presets.test.ts
 7d978b420b2045de62324d0b15e0856819b4d4eee0cfbe7543d069258b7d97d4  packages/core/hooks/parse-override-flags.test.ts
@@ -744,6 +745,7 @@ f57041067da28cdcda7587e4a77c6e9c1817b509fcc7526777ceaa06931c1036  packages/core/
 7e5d7a392c5a39222c40ee35ef51b99ed180eee5d69bfc641e8708130f5e559c  packages/core/skills/pipeline-lang-parity.test.ts
 ca967daac4295a03e4d6d254c4b67b3265b79aa6c7b3d9857116e73f423cf980  packages/core/skills/pipeline/frontier.test.ts
 012564d002cfd4ca7a52792754ec58e4c53dd52ffce0a2f4e97f97dc38a169e3  packages/core/skills/pipeline/priority-score-launch-table.test.ts
+92afc64f7d0704ec0c796bb3595bb97fddb0e38b1c7d23cabf2385765d5ee7b6  packages/core/skills/pipeline/repo-root-anchor.test.ts
 dae5c43fba6fedf13da7968445e08185b13f528be8c697783413bcafb71def63  packages/core/skills/plan-currency-check-digest.test.ts
 e05ee3b4f160f6b617fb6af082c3e317782568a57a8779ce36a75407604b5fd1  packages/core/skills/plan-currency-check-kickoff.test.ts
 e4f70b83e43b3c462dc57ec68fea6fd004ea351a2ece0ae6bad877a943987dc0  packages/core/skills/plan-currency-check.test.ts

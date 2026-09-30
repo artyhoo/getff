@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
-253c56ec4d6b6dd5eff3a7f8126332ed94e17885bb71866ef16c41ba062e204b  .ai-factory/refresh-baseline.json
+67d887d0617cf4bb1006e0d98b593d45d36adab973454c3941601c9a399634e9  .ai-factory/refresh-baseline.json
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
 c00329b74abe671a913edbbe8790a946aee0d19ca861b96c263dbbcb6a590541  .ai-factory/skill-context/aif-rules-check/SKILL.md
@@ -34,7 +34,7 @@ ab38869746d62b26fb07a11b56c5a02a2751d6a0d9449c5453c7c813d7347eca  .claude/hooks/
 770c45c28f62048d7cd640721715ee313b31ba3d134bdb104e224544f5cf599e  .claude/hooks/lang/en.sh
 dba4b13dfd8783ba410391da912adb2e6f86494e544372cc63e7781a0c754018  .claude/hooks/lang/ru.sh
 b6613dfebfbeff3c6d2a82c0d0c5a65aa2a674b81c2544a50090820effc2ed6b  .claude/hooks/lib/hook-live.sh
-9e4ffa7698c18e8afe653131cb86ffc2938120f8448865141a747372c5f99fd0  .claude/hooks/lib/residue-dir.sh
+4d6e5877b1e31ed6ae58d95e659896f4cca93a449c1e7e00ddcfe9390470b35f  .claude/hooks/lib/residue-dir.sh
 5c8175b80279457c8f0d8c928ff7dbe0a0612f632022c23073e563cd453b6385  .claude/session-bootstrap.md
 2226f9f290c0b5962f2abdba0cb341bb7195e5e314759cfc624f8b040c58421e  .claude/settings.json
 85bcd777d32dd9d29e47e2d54f0ed13832e9fdb8e2636ee4183eb8523c57e077  .claude/skills/ai-doc/SKILL.md
@@ -81,7 +81,7 @@ ea812d548aa1618c3c8093795d1532ca80a747ba6fb181ec584120c1c50d8373  .claude/skills
 aad4031440df2a1d111c6c04eba7c2bc383b4931e3c1ec3e948c9514b337f3a6  .claude/skills/pipeline/helpers/inflight-check.sh
 5c2b538822adc222addab19ca037a3200d79ef12a297a573550ee7803bc91026  .claude/skills/pipeline/helpers/integer-name-guard.sh
 0776a001cc180337dfe402495855f8bb783cb8597c72c84a739d63c857783962  .claude/skills/pipeline/helpers/launch-table-generator.sh
-2942cefdd615c84a9e659dbb24a6ccd32e0a791035f3bf3b1917abdd0920ec11  .claude/skills/pipeline/helpers/lib/common.sh
+6c0ec7c79b381e1046bd6cba899c80be7a35060db91d440c4bdf20583a09c2fb  .claude/skills/pipeline/helpers/lib/common.sh
 e8ad50501df8bf3a778c0c5faa979cf58a7cd75803848f115b3075d1ef3bd03c  .claude/skills/pipeline/helpers/list-presets.sh
 1a73d2af447b5d5461100d9ff941ed0677986ead5463cbb6fa2a97e437f6229e  .claude/skills/pipeline/helpers/parse-override-flags.sh
 f957639dd6c9799d512073680c73a631f9ecfd8a846e39f0b52662b92387d175  .claude/skills/pipeline/helpers/plan-currency-check.sh

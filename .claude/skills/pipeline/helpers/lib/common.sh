@@ -13,7 +13,32 @@
 # @cc-only-rationale: meta-orchestrator skill helper library — sourced in-session by helpers
 #   invoked via !shell injection; no portable equivalent fires at the same moment.
 
-# Repo-root resolution (honour pre-set/env value; else git toplevel; else pwd). Idempotent.
+# Repo-root resolution (honour pre-set/env value; else the checkout this skill is installed
+# in; else the cwd's git toplevel; else pwd). Idempotent.
+# ── SKILL-CHECKOUT ANCHOR ─────────────────────────────────────────────────────
+# The helpers run as `bash ${CLAUDE_SKILL_DIR}/helpers/<x>.sh` — an absolute path, reachable
+# from ANY cwd. Deriving REPO_ROOT from the cwd alone let a session whose Bash cwd sat in a
+# scratch repo write the plan cache, the backlog delta and a whole orchestration home INTO
+# that repo (the wrong-target class of getff#1967, found by its backward sweep 2026-09-30).
+# A skill installed at <root>/.claude/skills/pipeline/ belongs to <root>'s checkout — true in
+# the framework AND in a consumer install (setup.d/10-skills.sh copies it into the consumer's
+# own .claude/skills/), so anchoring there keeps serving the consumer's repo. A skill living
+# outside any checkout (a user-level ~/.claude/skills copy) keeps the cwd-derived fallback
+# below; $HOME is excluded so a dotfiles repo at ~ is not mistaken for the project.
+if [ -z "${REPO_ROOT:-}" ]; then
+  _mo_lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  case "$_mo_lib" in
+    */.claude/skills/pipeline/helpers/lib)
+      _mo_home="${_mo_lib%/.claude/skills/pipeline/helpers/lib}"
+      if [ "$_mo_home" != "${HOME:-}" ]; then
+        REPO_ROOT="$(env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
+          git -C "$_mo_home" rev-parse --show-toplevel 2>/dev/null || true)"
+      fi
+      ;;
+  esac
+  unset _mo_lib _mo_home
+fi
+# ── END SKILL-CHECKOUT ANCHOR ─────────────────────────────────────────────────
 REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
 # Resolve a possibly-symlinked file to its real absolute target — so flock + writes land on
