@@ -6985,6 +6985,11 @@ var REGISTRY = Object.freeze({
     defaultSeverity: "error",
     explanation: 'S4 ecosystem-prefix dispatch (research-source-trust.md \xA74): packageName carries an "<ecosystem>:<bareName>" prefix (or defaults to npm when unprefixed) that does not match ctx.adapter.ecosystem \u2014 fail closed rather than silently retrying under the wrong adapter. allowlist-resolver.ts resolveAllowedSources tier1For.'
   },
+  FF2017: {
+    template: `provenance packageName {packageName} needs the entry-level "package": "{packageName}" (Tier 1 is scope-locked to the entry's package)`,
+    defaultSeverity: "error",
+    explanation: "The provenance names a Tier-1 package but its entry has no `package`, so Tier 1 never activates and the URL would fall through to FF2005 \xABunknown allowlistKey\xBB, which names the wrong field. The entry-level package stays the scope-lock (research-source-trust.md #trust-by-name-not-scope); agents/rule-researcher.md \xABTier-1 entry shape\xBB documents it. allowlist-resolver.ts validateUrlAgainstTiers (terminal fallback)."
+  },
   // --- FF3xxx: L4 semantic gates (validator/gate-*.ts) ---
   // One code per failure KIND per gate (DN-D1-4, spec-literal per-gate
   // allocation — 20 codes, not the 16-code shared-astgrep alternative).
