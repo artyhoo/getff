@@ -19,7 +19,7 @@ executed:
   - { step: fire-on-your-code, stack: python, date: 2026-09-21, result: RED }
   - { step: refresh-unloadable-pre-commit-config, stack: python, date: 2026-09-30, result: "exit-0, file left as it was" }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-30, the cited setup.d/45-python.sh changed only inside the check that finds a column-0 repos item in an indented .pre-commit-config.yaml (a quote right after the colon that follows a quoted key and a block scalar header after a tag or anchor are now read the way YAML reads them) and in an internal comment; the page says when that file does not load and what getff then prints, and both still hold, so no line here changed meaning; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the cited setup.d/45-python.sh changed only inside the check that finds a column-0 item of the hook list in an indented .pre-commit-config.yaml (a quote right after the colon that follows a quoted key and a block scalar header after a tag or anchor are now read the way YAML reads them) and in an internal comment; the page says when that file does not load and what getff then prints, and both still hold, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for Python
