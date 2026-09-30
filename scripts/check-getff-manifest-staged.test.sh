@@ -26,12 +26,13 @@
 #   E1 an escape rationale under 20 characters is refused → fires
 #   E2 an escape with a real rationale → passes, and the rationale lands in the override log
 #   L1 build-getff-dist.sh --list-payload still prints the payload list the checker consumes
-#   A1 the maintainer patch still applies to .husky/pre-commit (or is applied) — the drift alarm
+#   A1 the hook still ends in the apply anchor `exit "$fail"` (or is wired) — the drift alarm
 #   A2 the apply script branches off staging and commits .husky/pre-commit alone (no renderer in the fixture)
 #   A3 the patched hook parses and keeps `exit "$fail"` last
 #   A4 the apply script is idempotent
 #   A5 the apply script refuses a dirty tracked tree and commits nothing
-#   A6 a patch that no longer applies rolls back: back on the start branch, no maintainer branch
+#   A6 a hook without the anchor rolls back: back on the start branch, no maintainer branch
+#   A7 the block is inserted when the lines around the anchor changed (context-free apply)
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0; FAIL=0
@@ -176,25 +177,25 @@ if grep -qx 'packages/core' <<<"$(bash "$REPO_ROOT/scripts/build-getff-dist.sh" 
 else bad "L1 --list-payload lost packages/core"; fi
 
 echo "── maintainer patch (.husky is agent-denied; the hook edit ships as a patch + apply script)"
-# A1 is the drift alarm: another commit reshaping .husky/pre-commit before the maintainer applies
-# the patch turns this RED in CI instead of leaving a patch nobody can apply.
+# A1 is the drift alarm for the ONE anchor the apply script needs: the hook's last line. Context
+# around it may change freely (the block is inserted, not `git apply`d), so other PRs editing the
+# hook do not turn this red.
 if grep -qF 'scripts/check-getff-manifest-staged.sh' "$REPO_ROOT/.husky/pre-commit"; then
   ok "A1 .husky/pre-commit already runs the check (patch applied)"
-elif (cd "$REPO_ROOT" && git apply --check scripts/check-getff-manifest-staged.precommit.patch 2>/dev/null); then
-  ok "A1 the maintainer patch still applies to .husky/pre-commit"
-else bad "A1 scripts/check-getff-manifest-staged.precommit.patch no longer applies — regenerate it"; fi
+elif [ "$(tail -n 1 "$REPO_ROOT/.husky/pre-commit")" = 'exit "$fail"' ] \
+  && grep -qF 'scripts/check-getff-manifest-staged.sh' <<<"$(sed -n '/^+++ /d; s/^+//p' "$REPO_ROOT/scripts/check-getff-manifest-staged.precommit.patch")"; then
+  ok "A1 the hook still ends in exit \"\$fail\" and the patch carries the block"
+else bad "A1 the apply anchor is gone (hook no longer ends in exit \"\$fail\") or the patch lost its block"; fi
 
-# A2-A4: the apply script in a fixture repo on `staging` — its test run stubbed to exit 0 (the real
+# A2-A7: the apply script in a fixture repo on `staging` — its test run stubbed to exit 0 (the real
 # test is this file; running it from inside itself would recurse).
 r=$(mktemp -d "$TMP/apply.XXXXXX"); mkdir -p "$r/scripts" "$r/.husky"
 cp "$REPO_ROOT/scripts/apply-getff-manifest-staged-precommit.sh" "$REPO_ROOT/scripts/check-getff-manifest-staged.precommit.patch" \
   "$REPO_ROOT/scripts/check-getff-manifest-staged.sh" "$r/scripts/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$r/scripts/check-getff-manifest-staged.test.sh"
-if grep -qF 'scripts/check-getff-manifest-staged.sh' "$REPO_ROOT/.husky/pre-commit"; then
-  # Already applied upstream: reverse the patch to rebuild the pre-image the script expects.
-  cp "$REPO_ROOT/.husky/pre-commit" "$r/.husky/pre-commit"
-  (cd "$r" && git apply -R scripts/check-getff-manifest-staged.precommit.patch)
-else cp "$REPO_ROOT/.husky/pre-commit" "$r/.husky/pre-commit"; fi
+# A synthetic hook with the real hook's shape at the anchor; A1 covers the real file.
+printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'REPO_ROOT=$(git rev-parse --show-toplevel)' 'fail=0' \
+  'echo "earlier sections"' 'exit "$fail"' > "$r/.husky/pre-commit"
 PRE_IMAGE="$TMP/pre-commit.pre-image"; cp "$r/.husky/pre-commit" "$PRE_IMAGE"
 g -C "$r" init -q -b staging; g -C "$r" add -A; g -C "$r" commit -qm base
 # Identity, signing and hooks go into the fixture's own config: the script runs plain `git commit`.
@@ -236,8 +237,17 @@ printf '#!/usr/bin/env bash\necho reshaped\nexit 0\n' > "$r/.husky/pre-commit"; 
 out=$(cd "$r" && APPLY_BASE_REF=staging bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
 if [ "$rc" -ne 0 ] && [ "$(g -C "$r" rev-parse --abbrev-ref HEAD)" = "staging" ] \
   && ! g -C "$r" show-ref --verify -q refs/heads/maintainer/precommit-getff-manifest-staged \
-  && [ -z "$(g -C "$r" status --porcelain --untracked-files=no)" ] && grep -q 'no longer applies' <<<"$out"; then
-  ok "A6 unappliable patch rolls back cleanly (start branch, no maintainer branch, clean tree)"
+  && [ -z "$(g -C "$r" status --porcelain --untracked-files=no)" ] && grep -q 'anchor moved' <<<"$out"; then
+  ok "A6 missing anchor rolls back cleanly (start branch, no maintainer branch, clean tree)"
 else bad "A6 rc=$rc branch=$(g -C "$r" rev-parse --abbrev-ref HEAD): $(tr '\n' '|' <<<"$out")"; fi
+
+{ echo '#!/usr/bin/env bash'; echo 'fail=0'; echo 'echo "a block another PR added"'; echo 'exit "$fail"'; } > "$r/.husky/pre-commit"
+g -C "$r" commit -qam "another PR reshapes the hook context"
+out=$(cd "$r" && APPLY_BASE_REF=staging bash scripts/apply-getff-manifest-staged-precommit.sh 2>&1) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && bash -n "$r/.husky/pre-commit" && [ "$(tail -n 1 "$r/.husky/pre-commit")" = 'exit "$fail"' ] \
+  && grep -qF 'scripts/check-getff-manifest-staged.sh' "$r/.husky/pre-commit" \
+  && grep -qF 'a block another PR added' "$r/.husky/pre-commit"; then
+  ok "A7 block inserted before exit \"\$fail\" although the surrounding context changed"
+else bad "A7 rc=$rc: $(tr '\n' '|' <<<"$out")"; fi
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

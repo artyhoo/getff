@@ -7,8 +7,14 @@
 # change as scripts/check-getff-manifest-staged.precommit.patch and this script; running it is the
 # maintainer's act, not the agent's.
 #
+# CONTEXT-FREE APPLY. .husky/pre-commit is edited by many PRs, so a plain `git apply` would stop
+# applying as soon as any of them touched the lines around the anchor. The patch is the single
+# source of the BLOCK (its `+` lines); this script inserts that block before the hook's final
+# `exit "$fail"` line, which is the only anchor it needs. The patch file stays as the reviewable
+# diff against the hook as it stood when the check was written.
+#
 # What it does: refuse unless the tracked tree is clean; detach at $APPLY_BASE_REF (default
-# origin/staging, fetched first); `git apply` the patch; `bash -n` the hook; run the checker's
+# origin/staging, fetched first); insert the block; `bash -n` the hook; run the checker's
 # paired-negative test; regenerate docs/site/reference (the hook is a census wiring surface, so
 # F3's `unwired` list moves); assert the index holds exactly the hook and F3.json; commit; only
 # then create branch maintainer/precommit-getff-manifest-staged at that commit. Any failure before
@@ -62,8 +68,12 @@ else
   }
   { [ -f "$PATCH" ] && [ -f scripts/check-getff-manifest-staged.sh ]; } \
     || rollback "$BASE_REF does not carry the check yet (merge its PR first)"
-  git apply --check "$PATCH" 2>/dev/null || rollback "$PATCH no longer applies to $HOOK on $BASE_REF — ask an agent to regenerate it"
-  git apply "$PATCH"
+  [ "$(tail -n 1 "$HOOK")" = 'exit "$fail"' ] \
+    || rollback "$HOOK on $BASE_REF no longer ends in exit \"\$fail\" — the anchor moved; ask an agent to update the apply script"
+  block="$(sed -n '/^+++ /d; s/^+//p' "$PATCH")"
+  grep -qF 'scripts/check-getff-manifest-staged.sh' <<<"$block" || rollback "no block found in $PATCH"
+  { sed '$d' "$HOOK"; printf '%s\n\n' "$block"; printf '%s\n' 'exit "$fail"'; } > "$HOOK.apply-tmp"
+  cat "$HOOK.apply-tmp" > "$HOOK"; rm -f "$HOOK.apply-tmp"
   bash -n "$HOOK" || rollback "$HOOK has a syntax error after the patch"
   bash scripts/check-getff-manifest-staged.test.sh >/dev/null || rollback "check-getff-manifest-staged.test.sh is RED"
   git add "$HOOK"
