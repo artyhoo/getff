@@ -32,8 +32,8 @@ git cat-file -e origin/staging:setup.d/ships.manifest \
 
 Any path missing → do not dispatch. Before dispatch run
 `SLUG=one-button-w2-stack-detect-by-files bash .claude/skills/dispatcher/helpers/probe-inflight.sh`
-(`.claude/skills/dispatcher/SKILL.md` §2.0; on the Mac the container arm needs
-`DOCKER_CONTEXT=pc AIF_CONTAINER=aif-agent-1`, otherwise it is `PROBE-INCOMPLETE`, never FRESH).
+(`.claude/skills/dispatcher/SKILL.md` §2.0; the probe finds the aif agent container and its docker
+context itself and prints them as `container-target:` — a `PROBE-INCOMPLETE` is never FRESH).
 
 **Measurement SHA for every `path:line` below:** `808e806c606` (head of `join/one-button-union`, round 6).
 The landing merges `staging` forward into the union and moves code (the join's dry landing list: staging
