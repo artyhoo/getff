@@ -49,16 +49,12 @@
 #                   refresh-aif-base.sh, bridge-health.sh and bridge-cleanup.sh use.
 #   DOCKER_CONTEXT  read by docker itself. Unset (and no DOCKER_HOST) => the probe may
 #                   switch to another docker context where the agent container runs.
-# Discovery, when AIF_CONTAINER is unset: (1) the current docker context; (2) only if the
-# caller pinned neither DOCKER_CONTEXT nor DOCKER_HOST, every other context from
-# `docker context ls`, each bounded by PROBE_CONTEXT_TIMEOUT_S (default 8) so an
-# unreachable ssh context cannot hang the guard (the bound is per context: the whole scan
-# is at most (contexts + 1) x the budget; the later `docker exec` is not bounded, as before).
-# A candidate is used only when it is the ONLY one; two or more => PROBE-INCOMPLETE with
-# `ambiguous-agent:` naming them — the guard never answers from a guessed stack. The target
-# and each scanned context's outcome (found/none/timeout/error) are printed as a
-# `container-target:` detail line. No candidate => the historical default name
-# (aif-handoff-agent-1) is asked, so the exec's own stderr names the real cause.
+# Discovery, when AIF_CONTAINER is unset, is `.claude/skills/aif-doctor/helpers/aif-agent-target.sh`
+# (read its header for the rules): the current docker context first; other contexts only
+# if the caller pinned neither DOCKER_CONTEXT nor DOCKER_HOST, each bounded by
+# PROBE_CONTEXT_TIMEOUT_S (default 8). Only an UNAMBIGUOUS candidate is used; two or more
+# => PROBE-INCOMPLETE with `ambiguous-agent:`. The choice and each context's outcome print
+# as a `container-target:` detail line.
 # Why: measured 2026-09-30 on the Mac, the stack runs on the PC (context `pc`, container
 # `aif-agent-1`) while the Mac daemon is down. The fixed default made every bare run
 # PROBE-INCOMPLETE until the caller hand-set both knobs — a manual step at every dispatch.
@@ -184,100 +180,45 @@ else
 fi
 
 # ── Agent container discovery (used by Signal 4 on the live path only) ─────────
-# _bounded <secs> <cmd...>: run cmd, print its stdout, kill it after <secs>. Portable
-# (macOS has no `timeout`). Output goes through a temp file, never a pipe: killing the
-# docker CLI can leave its `ssh` child alive, and a child that still holds the pipe
-# makes the caller's $(...) wait for it — the bound would bound nothing (measured in
-# this file's test arm (g): a 1s budget took 30s through a pipe).
-_bounded() {
-  local secs="$1"; shift
-  local out rc=0
-  out=$(mktemp)
-  "$@" </dev/null >"$out" 2>/dev/null &
-  local pid=$!
-  ( sleep "$secs"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
-  local watchdog=$!
-  wait "$pid" 2>/dev/null || rc=$?
-  kill "$watchdog" 2>/dev/null || true
-  # Reap it with stderr closed: bash 3.2 otherwise prints a «Terminated» job notice.
-  wait "$watchdog" 2>/dev/null || true
-  cat "$out"
-  rm -f "$out"
-  return "$rc"
-}
-
-# _agents_in [context]: list every aif agent container the daemon reports, one per line.
-# Returns 124 when the bound killed the call (the context was NOT asked), the docker exit
-# code on any other failure, 0 otherwise (an empty list is a real «none here»).
-_agents_in() {
-  local ctx_args=() raw rc=0
-  [[ -n "${1:-}" ]] && ctx_args=(--context "$1")
-  raw=$(_bounded "$CONTEXT_TIMEOUT_S" "$PROBE_DOCKER_BIN" ${ctx_args[@]+"${ctx_args[@]}"} \
-    ps --filter name=agent --format '{{.Names}}') || rc=$?
-  printf '%s\n' "$raw" | grep -i aif || true
-  # 143 = killed by the watchdog's SIGTERM.
-  [[ "$rc" -eq 143 ]] && return 124
-  return "$rc"
-}
-
-# discover_agent_container: resolve AIF_CONTAINER (and, if needed, DOCKER_CONTEXT).
-# The guard must never answer from the WRONG stack, so discovery accepts a candidate only
-# when it is the ONLY one: two or more matches on the current context, or across the
-# other contexts, fail closed with the list as the cause (return 1, discover_reason set).
-# The current context is asked first and, when it holds exactly one agent, wins without
-# scanning further — that is the single fixed target the probe always had, now named
-# rather than assumed. Zero candidates everywhere falls back to the historical default
-# name so the exec's own stderr names the real cause (still fail-closed).
+# The lookup itself lives in the aif-doctor helper `aif-agent-target.sh` (shared with
+# refresh-aif-base.sh, heal.sh, the runtime-bridge scripts and harvest). Its rules: a
+# candidate is used only when it is the ONLY one — two or more => ambiguous, fail closed,
+# nothing is asked; the guard never answers from a guessed stack. No candidate => the
+# historical default name is asked so the exec's own stderr names the cause. dispatcher
+# and aif-doctor ship in the same tier (setup.d/lib.sh GETFF_SKILLS_FACTORY); if the helper
+# is absent anyway, the probe asks the default name, as it did before discovery existed.
+AIF_AGENT_TARGET="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../aif-doctor/helpers/aif-agent-target.sh"
 container_target_note=""
 discover_reason=""
 discover_agent_container() {
   [[ -n "$AIF_CONTAINER" ]] && return 0
-  local found ctx current rc n candidates="" outcomes=""
-  rc=0; found=$(_agents_in) || rc=$?
-  n=$(printf '%s' "$found" | grep -c . || true)
-  if [[ "$n" -eq 1 ]]; then
-    AIF_CONTAINER="$found"
-    container_target_note="${found} (discovered on the current docker context)"
+  if [[ ! -f "$AIF_AGENT_TARGET" ]]; then
+    AIF_CONTAINER="$AIF_CONTAINER_DEFAULT"
+    container_target_note="${AIF_CONTAINER_DEFAULT} (default; aif-doctor/helpers/aif-agent-target.sh not installed)"
     return 0
-  elif [[ "$n" -gt 1 ]]; then
-    discover_reason="ambiguous-agent: $(printf '%s\n' "$found" | paste -sd ' ' -) on the current docker context — set AIF_CONTAINER"
-    return 1
   fi
-  if [[ -n "${DOCKER_CONTEXT:-}" || -n "${DOCKER_HOST:-}" ]]; then
-    outcomes="other contexts not scanned: DOCKER_CONTEXT/DOCKER_HOST pinned"
-  else
-    current=$("$PROBE_DOCKER_BIN" context show 2>/dev/null || true)
-    while IFS= read -r ctx; do
-      [[ -z "$ctx" || "$ctx" == "$current" ]] && continue
-      rc=0; found=$(_agents_in "$ctx") || rc=$?
-      if [[ "$rc" -eq 124 ]]; then
-        outcomes="${outcomes}${ctx}=timeout "
-      elif [[ "$rc" -ne 0 ]]; then
-        outcomes="${outcomes}${ctx}=error "
-      elif [[ -z "$found" ]]; then
-        outcomes="${outcomes}${ctx}=none "
-      else
-        outcomes="${outcomes}${ctx}=found "
-        candidates="${candidates}$(printf '%s' "$found" | sed "s|^|${ctx}/|")"$'\n'
-      fi
-    done < <("$PROBE_DOCKER_BIN" context ls --format '{{.Name}}' 2>/dev/null || true)
-    n=$(printf '%s' "$candidates" | grep -c . || true)
-    if [[ "$n" -eq 1 ]]; then
-      ctx="${candidates%%/*}"
-      found="${candidates#*/}"; found="${found%$'\n'}"
-      AIF_CONTAINER="$found"
-      export DOCKER_CONTEXT="$ctx"
-      container_target_note="${found} context=${ctx} (discovered; the current context has no aif agent; scanned: ${outcomes% })"
-      return 0
-    elif [[ "$n" -gt 1 ]]; then
-      discover_reason="ambiguous-agent: $(printf '%s' "$candidates" | paste -sd ' ' -) across docker contexts — set AIF_CONTAINER and DOCKER_CONTEXT"
+  # shellcheck disable=SC1090,SC1091  # resolved at runtime from this file's own directory
+  . "$AIF_AGENT_TARGET"
+  local rc=0
+  AIF_AGENT_DOCKER="$PROBE_DOCKER_BIN" AIF_AGENT_TIMEOUT_S="$CONTEXT_TIMEOUT_S" aif_agent_resolve || rc=$?
+  case "$rc" in
+    0)
+      AIF_CONTAINER="$AIF_AGENT_NAME"
+      [[ -n "$AIF_AGENT_CONTEXT" ]] && export DOCKER_CONTEXT="$AIF_AGENT_CONTEXT"
+      container_target_note="$AIF_AGENT_NOTE"
+      ;;
+    1)
+      case "$AIF_AGENT_REASON" in
+        *'across docker contexts') discover_reason="${AIF_AGENT_REASON} — set AIF_CONTAINER and DOCKER_CONTEXT" ;;
+        *) discover_reason="${AIF_AGENT_REASON} — set AIF_CONTAINER" ;;
+      esac
       return 1
-    fi
-    outcomes="scanned: ${outcomes% }"
-    [[ "$outcomes" == "scanned: " ]] && outcomes="no other docker context"
-  fi
-  AIF_CONTAINER="$AIF_CONTAINER_DEFAULT"
-  container_target_note="${AIF_CONTAINER_DEFAULT} (default; no aif agent on the current context; ${outcomes})"
+      ;;
+    *)
+      AIF_CONTAINER="$AIF_CONTAINER_DEFAULT"
+      container_target_note="${AIF_CONTAINER_DEFAULT} (default; ${AIF_AGENT_REASON})"
+      ;;
+  esac
 }
 
 # ── Signal 4: CONTAINER branches — the blind spot this helper exists to close ──
