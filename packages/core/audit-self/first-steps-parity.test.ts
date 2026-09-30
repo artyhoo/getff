@@ -487,6 +487,40 @@ describe('The road ↔ install prompt parity', () => {
     expect(externalServices(other)).toEqual(externalServices(manifest));
   });
 
+  it('every installer run after the first carries the variables the answer picked', () => {
+    // Found by the second cold run (2026-09-30): step 10 re-ran the installer without them, so it
+    // printed «not chosen in the pre-launch list» for two choices the answer had made.
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const first = ['preview', 'ask-once', 'install'];
+    const reruns = steps.filter(
+      (s) => !first.includes(s.id) && /setup (?:--full|-y|--all|--refresh)/.test(s.action),
+    );
+    expect(reruns.map((s) => s.id)).toContain('place-rules');
+    for (const step of reruns) {
+      expect(step.action, `road step \`${step.id}\` re-runs the installer bare`).toMatch(
+        /same variables/,
+      );
+    }
+    expect(prompt).toMatch(/same variables as in step 4[^\n]*setup --full <detected-stack>/);
+  });
+
+  it('the preview reads the selection and probes nothing itself', () => {
+    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    expect(preview?.action).toMatch(/Run no probe of your own/);
+    expect(prompt.match(/Run no probe of your own/g)).toHaveLength(2);
+  });
+
+  it('the preview says what the dry run prints for the MCP servers', () => {
+    // Since setup names the MCP servers at the end of «Companions» (companion_mcp_preview in
+    // setup.d/engine.sh), the old sentence «leaves MCP servers out» is false.
+    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    for (const text of [preview?.action ?? '', prompt]) {
+      expect(text).not.toMatch(/leaves MCP servers out/);
+      expect(text).toMatch(/«Companions» section ends with a line «MCP servers … — not added in this mode»/);
+      expect(text).toMatch(/the command of step 4 adds them/);
+    }
+  });
+
   it('the research step takes the one answer as its confirmation', () => {
     const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
     expect(research?.action).toMatch(/without asking/);
@@ -498,6 +532,35 @@ describe('The road ↔ install prompt parity', () => {
     expect(preview?.action).toMatch(/`generic`/);
     expect(prompt).toMatch(/`generic`/);
     expect(prompt).not.toMatch(/else unknown/);
+  });
+
+  it('no road step outside the one question asks the person anything', () => {
+    // The road promises «ask me nothing after the one question of step 3». A step that carries a
+    // yes/no of its own breaks that promise from inside the list.
+    const asks = /\?|yes[- ]or[- ]no|yes\/no/i;
+    const steps = (road as Road | undefined)?.steps ?? [];
+    const asking = steps
+      .filter((s) => s.id !== 'ask-once' && asks.test(`${s.action} ${s.doneTest}`))
+      .map((s) => s.id);
+    expect(asking, 'road rows that ask the person outside `ask-once`').toEqual([]);
+
+    const bodies = prompt.split(/^(?=\d+\.\s+\[[a-z0-9-]+\])/m);
+    const askingInPrompt = bodies
+      .filter((b) => !/^\d+\.\s+\[ask-once\]/.test(b) && asks.test(b))
+      .map((b) => /^\d+\.\s+\[([a-z0-9-]+)\]/.exec(b)?.[1] ?? '(text around the steps)');
+    expect(askingInPrompt, 'prompt steps that ask the person outside step 3').toEqual([]);
+    // Not vacuous: the one question itself is seen by the same pattern.
+    expect(bodies.filter((b) => asks.test(b))).toHaveLength(1);
+  });
+
+  it('an absent base-core list ends in a command the person may run, which the road never runs', () => {
+    // `setup` does not know `--refresh` (its flag loop drops it); the installer itself does.
+    const step = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'base-core-status');
+    expect(step?.action).toMatch(/`bash <getff>\/install\.sh <stack> --refresh`/);
+    expect(step?.action).toMatch(/do not run it/i);
+    expect(prompt).toMatch(
+      /not done: list absent in this older install[^\n]*`bash \/tmp\/getff\/install\.sh <detected-stack> --refresh`[^\n]*do not run it/,
+    );
   });
 
   it('the shipped road names no internal program part', () => {

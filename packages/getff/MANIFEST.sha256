@@ -179,7 +179,7 @@ e8970b5d628b7e805316450b8674a7e649c8988a40406abef3bafd3c5f804e5f  packages/core/
 f9bd865af4cc488cfed16193631f19c7102034f65cf7dc7f61a9922dd8ff4cc2  packages/core/audit-self/check-shields-up.sh
 d0a772b6b24f8c23d91b51994385028eed7167ea14b9edb1fca7ec4ce0d787f1  packages/core/audit-self/ci-available-probe.sh
 6d6a346a97d9aa202fc34da57256ceffa1186dee8fc062bf6ab3e860b6839ac0  packages/core/audit-self/detect-r2-boundary.sh
-bdb2fcbe20510b6c474ce0c63d067e976ba33716d66a1de42793cadea35d9422  packages/core/audit-self/first-steps-parity.test.ts
+efadfe711e7b3e07305131bf9c6dc991cbb0d184d153c50bdaa2125eea8aaef1  packages/core/audit-self/first-steps-parity.test.ts
 8eaec66627b18b6e451bda7c19fc70a28cac19603e6bfc6b33f8688ecd276193  packages/core/audit-self/fixtures/README.md
 d056de0d33a9356439182541b9d3f55c0596502533392eb97173d5ca3cf4b49e  packages/core/audit-self/fixtures/fences-fire/no-direct-time-randomness.bad.txt
 5e7c55a8a331eef588c77afb51256f69ad8eee5a15c855582a6b3bda23c55ad0  packages/core/audit-self/fixtures/fences-fire/no-direct-time-randomness.good.txt
@@ -939,7 +939,7 @@ d5922f168d791959ac945d0bba7af989af81eafae2ed00ea151f0d28e45090f7  packages/core/
 854cfb38f3d4acfd40245b5b490e5163658e2e98b0573239c15dd5802d16f5cb  packages/core/templates/shared/ARCHITECTURE.ts-server.md
 5576bfc06b64c3385075c7192c5f1c650b26ac28c4d9ccfbe630388b2ebb8d67  packages/core/templates/shared/CLAUDE.md.template
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  packages/core/templates/shared/DESCRIPTION.template.md
-6f361dc94922ce1e584f335018e49e5a5ea48c151f65844deba6008726ca757f  packages/core/templates/shared/first-steps.source.json
+aebba92981d25589037d10c17c7e896a511d969081deaf28b544ae6d987347b1  packages/core/templates/shared/first-steps.source.json
 003a28ff8ef13cfabaaabb140bd758611c6560faa783b4a173fc39136bfa2887  packages/core/templates/shared/gitignore
 2a8ea8e1e7a99c60eee92b3ff43a252e86b1daef325cada97cc5db45b63e2690  packages/core/templates/shared/husky-pre-commit.sh
 dafb464814540ab3fc9062918dd733be073fa237584e0ff278218d48b4a03467  packages/core/templates/shared/husky-pre-push.sh

@@ -194,7 +194,7 @@
       {
         "id": "preview",
         "title": "Preview the stack and the tool list",
-        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for.",
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for. The «✓» lines name every tool the install will handle, MCP servers included. The «Companions» section ends with a line «MCP servers … — not added in this mode»: that describes the bare dry run only; the command of step 4 adds them. Run no probe of your own.",
         "doneTest": "the command exits 0, its output names the stack, and `git status --short` of the project is unchanged"
       },
       {
@@ -230,7 +230,7 @@
       {
         "id": "base-core-status",
         "title": "Read the base-core list with a status per principle",
-        "action": "Read the table in `.claude/skills/getff/references/base-core.md`; change nothing. Every row whose status is not `fires`, and every row whose «not on stack» column names this project's stack, goes into the report section «PRINCIPLES NOT WIRED YET» as one line: id, principle, status, reason. When the file is absent, report this step as «not done: list absent in this older install» and put one yes-or-no decision into «WHAT I NEED FROM YOU»: refresh getff's own files in this project.",
+        "action": "Read the table in `.claude/skills/getff/references/base-core.md`; change nothing. Every row whose status is not `fires`, and every row whose «not on stack» column names this project's stack, goes into the report section «PRINCIPLES NOT WIRED YET» as one line: id, principle, status, reason. When the file is absent, report this step as «not done: list absent in this older install» and print one line under it: the command `bash <getff>/install.sh <stack> --refresh`, which brings the list and which the person may run. Do not run it and do not ask about it.",
         "doneTest": "the count of lines in «PRINCIPLES NOT WIRED YET» equals the count of such rows in the file"
       },
       {
@@ -242,7 +242,7 @@
       {
         "id": "place-rules",
         "title": "Write one rule table and place each rule in its home",
-        "action": "After the research step, run `bash <getff>/setup --full <stack>`: the installer places each rule in the project's own linter. Then run `node scripts/prove-rules.mjs --prove` once and quote its table; the same output serves the next step. When `scripts/prove-rules.mjs` is absent after the installer ran, report this step as «not done: scripts/prove-rules.mjs absent in this install» and go on.",
+        "action": "After the research step, run `bash <getff>/setup --full <stack>` with the same variables before it that the install step passed — a run without them reports the choices of the one answer as not chosen: the installer places each rule in the project's own linter. Then run `node scripts/prove-rules.mjs --prove` once and quote its table; the same output serves the next step. When `scripts/prove-rules.mjs` is absent after the installer ran, report this step as «not done: scripts/prove-rules.mjs absent in this install» and go on.",
         "doneTest": "the table prints one row per rule"
       },
       {
