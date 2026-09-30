@@ -1083,6 +1083,15 @@ function armedProbeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
   return /^[1-9]\d*$/.test(raw) ? Number(raw) : 600_000;
 }
 
+// The generated-rule mutation section's own budget (N6). The runner starts one probe process per rule
+// (about a second each) and may install getff's generator toolchain first, bounded by npm's fetch
+// retries; 300 s holds both with room. PREPUSH_MUTATION_TIMEOUT_MS overrides it; anything but a
+// positive integer keeps it.
+function mutationBudgetMs(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env['PREPUSH_MUTATION_TIMEOUT_MS']?.trim() ?? '';
+  return /^[1-9]\d*$/.test(raw) ? Number(raw) : 300_000;
+}
+
 /** Run a consumer gate script through the project's record when the project has one. */
 function consumerGate(script: string): CheckResult {
   return existsSync(resolve(REPO_ROOT, RUN_ARMED))
@@ -1294,11 +1303,22 @@ function generatedRuleMaterialSection(): void {
       // arm pass reads GEN_MUT_RC, exported by 80-rule-bootstrap.sh). A command the record does not list is
       // run by run-armed.sh, so before that entry exists a red check still blocks. The script finds the
       // manifest from its git toplevel. The framework's own copy runs as before.
-      const r =
-        runner === resolve(REPO_ROOT, 'scripts/run-generated-rule-mutation.sh')
-          ? consumerGate('scripts/run-generated-rule-mutation.sh')
-          : run('bash', [runner, manifest]);
-      if (r.notFound || r.timedOut || r.exitCode === 127) {
+      // P6 run 3 N6: the section has its own budget (mutationBudgetMs). run-armed skips a not-armed check at
+      // once, so a consumer run that reaches it is a check that ran: over the budget is a red, not a skip.
+      const consumer = runner === resolve(REPO_ROOT, 'scripts/run-generated-rule-mutation.sh');
+      const timeoutMs = mutationBudgetMs();
+      const r = consumer
+        ? existsSync(resolve(REPO_ROOT, RUN_ARMED))
+          ? runCheck('bash', [RUN_ARMED, 'bash', 'scripts/run-generated-rule-mutation.sh'], { cwd: REPO_ROOT, timeoutMs })
+          : runCheck('bash', ['scripts/run-generated-rule-mutation.sh'], { cwd: REPO_ROOT, timeoutMs })
+        : runCheck('bash', [runner, manifest], { cwd: REPO_ROOT, timeoutMs });
+      if (consumer && r.timedOut) {
+        die(
+          `❌ generated-rule mutation check ran over its budget (${timeoutMs / 1000} s) — NOT green. ` +
+            'Set PREPUSH_MUTATION_TIMEOUT_MS higher if the machine is slow; a check that did not finish did not pass',
+          r,
+        );
+      } else if (r.notFound || r.timedOut || r.exitCode === 127) {
         // ENV failure (bash/runner missing or hung), NOT broken material → loud skip, never die.
         process.stdout.write(
           `⚠ DEGRADED: generated-rule mutation runner did not execute (${r.timedOut ? 'timed out' : 'not runnable'}) — SKIPPED (a skipped check is NOT green).\n`,

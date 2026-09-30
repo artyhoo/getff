@@ -72,9 +72,14 @@ trap 'rm -rf "$SCRATCH"' EXIT
 
 cat > "$SCRATCH/selector-probe.mts" << 'PROBE'
 import { Linter } from 'eslint';
-const selector = process.env['PROBE_SELECTOR'] ?? '';
-const code     = process.env['PROBE_CODE'] ?? '';
-if (!selector || !code) { process.stderr.write('missing env\n'); process.exit(9); }
+// One process per rule: PROBE_SELECTORS holds the original selector and its mutations, one per line, and
+// the probe prints one code per selector, in order — 0 fired, 1 did not fire, 9 cannot evaluate (the
+// input does not parse, or ESLint threw on the selector). Loading ESLint and the parser once per rule
+// instead of once per selector is what keeps the push-time check inside its budget (P6 run 3 N6: one
+// process per selector took 60 s for six rules on an idle 16-core machine).
+const selectors = (process.env['PROBE_SELECTORS'] ?? '').split('\n').filter(Boolean);
+const code      = process.env['PROBE_CODE'] ?? '';
+if (!selectors.length || !code) { process.stderr.write('missing env\n'); process.exit(9); }
 const linter = new Linter();
 // `files` is REQUIRED: in ESLint flat config an object without a `files` key matches
 // only the default js/mjs/cjs set, so `linter.verify(..., { filename: 'probe.ts' })`
@@ -87,20 +92,22 @@ const linter = new Linter();
 // does: typescript-eslint's parser when installed, JSX on (critical-review cold pass, M3 sibling).
 let parser: unknown;
 try { parser = (await import('typescript-eslint')).parser; } catch { parser = undefined; }
-const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module', ...(parser ? { parser } : {}), parserOptions: { ecmaFeatures: { jsx: true } } } }];
-try {
-  const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
-  // A parse error comes back as a fatal message, not a throw: exit 9 (cannot evaluate), never «did not fire».
-  const fatal = msgs.find(m => m.fatal);
-  if (fatal) { process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); process.exit(9); }
-  process.exit(msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1);
-} catch (e) { process.stderr.write(String(e) + '\n'); process.exit(9); }
+const verdict = (selector: string, first: boolean): number => {
+  const cfg = [{ files: ['**/*.{ts,tsx,js,jsx}'], rules: { 'no-restricted-syntax': ['error' as const, { selector, message: 'depth-mutation-probe' }] }, languageOptions: { ecmaVersion: 2022, sourceType: 'module', ...(parser ? { parser } : {}), parserOptions: { ecmaFeatures: { jsx: true } } } }];
+  try {
+    const msgs = linter.verify(code, cfg as never, { filename: parser ? 'probe.tsx' : 'probe.jsx' });
+    // A parse error comes back as a fatal message, not a throw: 9 (cannot evaluate), never «did not fire».
+    const fatal = msgs.find(m => m.fatal);
+    if (fatal) { if (first) process.stderr.write('probe: input does not parse: ' + fatal.message + '\n'); return 9; }
+    return msgs.some(m => m.ruleId === 'no-restricted-syntax') ? 0 : 1;
+  } catch (e) { if (first) process.stderr.write(String(e) + '\n'); return 9; }
+};
+process.stdout.write(selectors.map((sel, i) => verdict(sel, i === 0)).join('\n') + '\n');
 PROBE
 
-_probe() {
-  local SEL="$1" CODE="$2"
-  cd "$SCRATCH" && PROBE_SELECTOR="$SEL" PROBE_CODE="$CODE" "$TSX_BIN" selector-probe.mts 2>"$SCRATCH/probe.err"
-  return $?
+# _probe_all <code> <selectors, one per line> → one code per selector on stdout (see the probe above).
+_probe_all() {
+  ( cd "$SCRATCH" && PROBE_SELECTORS="$2" PROBE_CODE="$1" "$TSX_BIN" selector-probe.mts 2>"$SCRATCH/probe.err" )
 }
 
 # ─── Selector perturbation helpers ───────────────────────────────────────────
@@ -242,8 +249,17 @@ while true; do
   echo "--- $RULE_ID ---"
   echo "selector: $RULE_SEL"
 
-  # Verify original fires
-  _orig_rc=0; _probe "$RULE_SEL" "$RULE_INPUT" || _orig_rc=$?
+  # The original first, then its mutations: one probe process for the rule. A process that dies before
+  # it answers (ESLint cannot be imported) answers nothing, and the original takes its exit code as before.
+  MUTS=$(_mutate "$RULE_SEL" | grep -v '^$' || true)
+  _sels=$(printf '%s\n%s' "$RULE_SEL" "$MUTS")
+  _want=$(printf '%s\n' "$_sels" | grep -c .)
+  _prc=0; RCS=$(_probe_all "$RULE_INPUT" "$_sels") || _prc=$?
+  if [ "$(printf '%s\n' "$RCS" | grep -c .)" -ne "$_want" ]; then
+    _orig_rc=$(( _prc == 0 ? 9 : _prc )); RCS=""
+  else
+    _orig_rc=$(printf '%s\n' "$RCS" | head -n 1)
+  fi
   if [ "$_orig_rc" -eq 9 ]; then
     # P6 run 2 N1: a probe error (the input does not parse, the parser is missing) used to take the skip
     # below, and one other tested rule made the run PASS — generation then armed a check that had not
@@ -258,15 +274,16 @@ while true; do
   fi
 
   KILLED=0; SURVIVED=0; SURVIVORS=()
-  while IFS= read -r MUT; do
+  # A mutation survives when it still fires (code 0); any other code kills it, as before.
+  while IFS=$'\t' read -r MUT _rc; do
     [ -z "$MUT" ] && continue
-    if _probe "$MUT" "$RULE_INPUT"; then
+    if [ "$_rc" = 0 ]; then
       SURVIVED=$((SURVIVED+1))
       SURVIVORS+=("$MUT")
     else
       KILLED=$((KILLED+1))
     fi
-  done < <(_mutate "$RULE_SEL")
+  done < <(paste <(printf '%s\n' "$MUTS") <(printf '%s\n' "$RCS" | tail -n +2))
 
   TOTAL=$((KILLED+SURVIVED))
   if [ "$TOTAL" -eq 0 ]; then
