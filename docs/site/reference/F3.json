@@ -433,7 +433,7 @@
         "wired-from": [
           ".claude/hooks/check-kickoff-traps.sh:176 (quoted-path-token)",
           "plugin/hooks/check-kickoff-traps:177 (quoted-path-token)",
-          "scripts/host-verify.sh:60 (invocation-verb, closure)"
+          "scripts/host-verify.sh:62 (invocation-verb, closure)"
         ]
       },
       "example": null
