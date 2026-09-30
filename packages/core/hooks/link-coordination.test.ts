@@ -18,6 +18,10 @@
  *   (k) shared root FAMILIES (2026-09-14): `_handoff-*.md` / `_residue-*.md` /
  *       `_morning-report-*.md` adopt + cross-link (k1/k5), conflict-safety (k2),
  *       tracked-skip (k3), CANON-glob paired-negative (k4)
+ *   (l) REPO-IDENTITY GUARD (2026-09-30): a session cwd inside a FOREIGN git repo
+ *       gets no links (l1), the repo's own worktree still does (l2), an explicit
+ *       foreign / non-git target is refused (l3/l4), so is a non-git dir nested
+ *       inside the checkout (l5); neutered-guard negative (l-neg)
  *
  * ALL tests set CLAUDE_COORDINATION_DIR to a temp dir — never touches real $HOME.
  */
@@ -61,14 +65,34 @@ interface RunResult {
   status: number;
 }
 
+/**
+ * Install a copy of the helper at `<repo>/scripts/<name>`. The helper acts only on
+ * checkouts of the repository it lives in (REPO-IDENTITY GUARD), so every fixture
+ * runs it from inside the fixture repo — the production shape, where the script is
+ * `$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh`.
+ */
+function installHelper(
+  repo: string,
+  src: string = readFileSync(HELPER, 'utf8'),
+  name = 'link-coordination.sh',
+): string {
+  mkdirSync(resolve(repo, 'scripts'), { recursive: true });
+  const p = resolve(repo, 'scripts', name);
+  writeFileSync(p, src, { mode: 0o755 });
+  return p;
+}
+
 function runHelper(
+  helper: string,
   args: string[],
   env: Record<string, string> = {},
+  cwd?: string,
 ): RunResult {
   try {
-    const stdout = execFileSync('bash', [HELPER, ...args], {
+    const stdout = execFileSync('bash', [helper, ...args], {
       encoding: 'utf8',
       env: { ...process.env, ...env },
+      cwd,
     });
     return { stdout: stdout.toString().trim(), stderr: '', status: 0 };
   } catch (e) {
@@ -127,9 +151,14 @@ function setupRepo(name: string): string {
   return dir;
 }
 
-/** Create a fake worktree dir (no git worktree mechanics — just the directory structure). */
+/**
+ * Create a REAL linked git worktree of `primaryRepo`. It must be a checkout root: the
+ * helper refuses any target that is not the toplevel of a checkout of its own repo
+ * (REPO-IDENTITY GUARD), so a plain subdir of the primary no longer passes.
+ */
 function setupWorktreeDir(primaryRepo: string, name: string): string {
   const wt = resolve(primaryRepo, `.claude/worktrees/${name}`);
+  execSync(`git worktree add -q "${wt}" HEAD`, { cwd: primaryRepo });
   mkdirSync(resolve(wt, '.claude/orchestrator-prompts/my-umbrella'), { recursive: true });
   // Write tracked done.md (real file, not symlink)
   writeFileSync(
@@ -152,10 +181,12 @@ function teardown(...dirs: string[]): void {
 describe('link-coordination.sh', () => {
   let canon: string;
   let primaryRepo: string;
+  let helper: string;
 
   beforeEach(() => {
     canon = mkdtempSync(resolve(tmpdir(), 'link-coord-canon-'));
     primaryRepo = setupRepo('primary');
+    helper = installHelper(primaryRepo);
   });
 
   afterEach(() => {
@@ -176,7 +207,7 @@ describe('link-coordination.sh', () => {
 
     const wt = setupWorktreeDir(primaryRepo, 'lnk-a');
 
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
     const statePath = resolve(wt, '.claude/orchestrator-prompts/my-umbrella/state.md');
@@ -201,7 +232,7 @@ describe('link-coordination.sh', () => {
 
     const wt = setupWorktreeDir(primaryRepo, 'lnk-b');
 
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
     const readmePath = resolve(wt, '.claude/orchestrator-prompts/README.md');
@@ -237,7 +268,7 @@ describe('link-coordination.sh', () => {
       '# worktree version\n',
     );
 
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, 'helper must exit 1 on conflict').toBe(1);
     expect(r.stderr).toContain('CONFLICT');
 
@@ -266,10 +297,10 @@ describe('link-coordination.sh', () => {
     const wt1 = setupWorktreeDir(primaryRepo, 'lnk-d1');
     const wt2 = setupWorktreeDir(primaryRepo, 'lnk-d2');
 
-    const r1 = runHelper([wt1], { CLAUDE_COORDINATION_DIR: canon });
+    const r1 = runHelper(helper, [wt1], { CLAUDE_COORDINATION_DIR: canon });
     expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
 
-    const r2 = runHelper([wt2], { CLAUDE_COORDINATION_DIR: canon });
+    const r2 = runHelper(helper, [wt2], { CLAUDE_COORDINATION_DIR: canon });
     expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
 
     // Write new content through wt1's symlink
@@ -309,8 +340,7 @@ describe('link-coordination.sh', () => {
       '# ── EXIT',
     );
 
-    const tmpHelper = resolve(tmpdir(), 'link-coordination-stripped.sh');
-    writeFileSync(tmpHelper, stripped, { mode: 0o755 });
+    const tmpHelper = installHelper(primaryRepo, stripped, 'link-coordination-stripped.sh');
 
     try {
       execFileSync('bash', [tmpHelper, wt], {
@@ -347,7 +377,7 @@ describe('link-coordination.sh', () => {
       '# adopt-me\n',
     );
 
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
     // After adoption: worktree path is now a symlink
@@ -372,7 +402,7 @@ describe('link-coordination.sh', () => {
       const wt = setupWorktreeDir(primaryRepo, 'lnk-g');
 
       // Run helper with seed-source = primaryRepo
-      const r = runHelper([wt, primaryRepo], { CLAUDE_COORDINATION_DIR: canon });
+      const r = runHelper(helper, [wt, primaryRepo], { CLAUDE_COORDINATION_DIR: canon });
       expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
       // $CANON should now have the seeded kickoff
@@ -395,7 +425,7 @@ describe('link-coordination.sh', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-canon');
     mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
     writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
-    const r = runHelper([wt, '', '--on-conflict=canon'], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt, '', '--on-conflict=canon'], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
     expect(lstatSync(p).isSymbolicLink()).toBe(true);
@@ -409,7 +439,7 @@ describe('link-coordination.sh', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-worktree');
     mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
     writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
-    const r = runHelper([wt, '', '--on-conflict=worktree'], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt, '', '--on-conflict=worktree'], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     const p = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
     expect(lstatSync(p).isSymbolicLink()).toBe(true);
@@ -423,7 +453,7 @@ describe('link-coordination.sh', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-skip');
     mkdirSync(resolve(wt, '.claude/orchestrator-prompts/u1'), { recursive: true });
     writeFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'WORKTREE');
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status).toBe(1);
     expect(
       readFileSync(resolve(wt, '.claude/orchestrator-prompts/u1/state.md'), 'utf8'),
@@ -434,7 +464,7 @@ describe('link-coordination.sh', () => {
 
   it('on-conflict=bogus: exits 2 (validation)', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-oc-bogus');
-    const r = runHelper([wt, '', '--on-conflict=bogus'], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt, '', '--on-conflict=bogus'], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status).toBe(2);
     teardown(wt);
   });
@@ -445,7 +475,7 @@ describe('link-coordination.sh', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-root-cache');
     const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
     writeFileSync(resolve(wtPrompts, '_plan-cache.md'), 'CACHE-v1');
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     const p = resolve(wtPrompts, '_plan-cache.md');
     expect(lstatSync(p).isSymbolicLink()).toBe(true);
@@ -457,7 +487,7 @@ describe('link-coordination.sh', () => {
     writeFileSync(resolve(canon, '_master-backlog-delta.json'), '{"untracked_seen":[]}');
     const wt = setupWorktreeDir(primaryRepo, 'lnk-root-delta');
     const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     expect(
       lstatSync(resolve(wtPrompts, '_master-backlog-delta.json')).isSymbolicLink(),
@@ -469,7 +499,7 @@ describe('link-coordination.sh', () => {
     const wt = setupWorktreeDir(primaryRepo, 'lnk-root-readme');
     const wtPrompts = resolve(wt, '.claude/orchestrator-prompts');
     writeFileSync(resolve(wtPrompts, 'README.md'), 'TRACKED');
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     expect(lstatSync(resolve(wtPrompts, 'README.md')).isSymbolicLink()).toBe(false);
     teardown(wt);
@@ -486,7 +516,7 @@ describe('link-coordination.sh', () => {
     const wt1Prompts = resolve(wt1, '.claude/orchestrator-prompts');
     writeFileSync(resolve(wt1Prompts, '_handoff-sess_abc123.md'), 'HANDOFF-v1\n');
 
-    const r1 = runHelper([wt1], { CLAUDE_COORDINATION_DIR: canon });
+    const r1 = runHelper(helper, [wt1], { CLAUDE_COORDINATION_DIR: canon });
     expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
     // Adopted: worktree path is now a symlink; content lives in $CANON root
     const ho1 = resolve(wt1Prompts, '_handoff-sess_abc123.md');
@@ -496,7 +526,7 @@ describe('link-coordination.sh', () => {
     // A SECOND worktree that never had the file gets it from the CANON-side glob
     // (the LINK loop superset — the exact arm the pre-fix script lacked).
     const wt2 = setupWorktreeDir(primaryRepo, 'lnk-ho-2');
-    const r2 = runHelper([wt2], { CLAUDE_COORDINATION_DIR: canon });
+    const r2 = runHelper(helper, [wt2], { CLAUDE_COORDINATION_DIR: canon });
     expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
     const ho2 = resolve(wt2, '.claude/orchestrator-prompts/_handoff-sess_abc123.md');
     expect(existsSync(ho2), 'handoff must appear in the second worktree').toBe(true);
@@ -513,7 +543,7 @@ describe('link-coordination.sh', () => {
       resolve(wt, '.claude/orchestrator-prompts/_handoff-dupe.md'),
       'WORKTREE-version\n',
     );
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, 'default on-conflict=skip must exit 1').toBe(1);
     expect(r.stderr).toContain('CONFLICT');
     expect(readFileSync(resolve(canon, '_handoff-dupe.md'), 'utf8')).toBe('CANON-version\n');
@@ -550,10 +580,11 @@ describe('link-coordination.sh', () => {
 
     const wt = resolve(repo, 'wt-ho');
     execSync(`git worktree add -q "${wt}" HEAD`, { cwd: repo });
+    const helper = installHelper(repo);
     // CANON carries a same-named file — the adoption temptation the guard must refuse
     writeFileSync(resolve(canon, '_handoff-tracked.md'), 'CANON-decoy\n');
 
-    const r = runHelper([wt], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [wt], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
     const p = resolve(wt, '.claude/orchestrator-prompts/_handoff-tracked.md');
     expect(existsSync(p)).toBe(true);
@@ -579,8 +610,7 @@ describe('link-coordination.sh', () => {
       '$1',
     );
     expect(stripped, 'the CANON-glob build block must be present to strip').not.toBe(src);
-    const tmpHelper = resolve(tmpdir(), 'link-coordination-k4-stripped.sh');
-    writeFileSync(tmpHelper, stripped, { mode: 0o755 });
+    const tmpHelper = installHelper(primaryRepo, stripped, 'link-coordination-k4-stripped.sh');
 
     const wt = setupWorktreeDir(primaryRepo, 'lnk-ho-k4');
     try {
@@ -610,11 +640,11 @@ describe('link-coordination.sh', () => {
     for (const f of families) {
       writeFileSync(resolve(wt1, '.claude/orchestrator-prompts', f), `${f}-v1\n`);
     }
-    const r1 = runHelper([wt1], { CLAUDE_COORDINATION_DIR: canon });
+    const r1 = runHelper(helper, [wt1], { CLAUDE_COORDINATION_DIR: canon });
     expect(r1.status, `wt1 stderr: ${r1.stderr}`).toBe(0);
 
     const wt2 = setupWorktreeDir(primaryRepo, 'lnk-fam-2');
-    const r2 = runHelper([wt2], { CLAUDE_COORDINATION_DIR: canon });
+    const r2 = runHelper(helper, [wt2], { CLAUDE_COORDINATION_DIR: canon });
     expect(r2.status, `wt2 stderr: ${r2.stderr}`).toBe(0);
     for (const f of families) {
       const p = resolve(wt2, '.claude/orchestrator-prompts', f);
@@ -636,6 +666,7 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
   let canon: string;
   let repo: string;
   let worktree: string;
+  let helper: string;
 
   /**
    * Repo whose .gitignore ignores orchestrator-prompts/* but tracks a ONE-OFF
@@ -671,6 +702,7 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     worktree = resolve(repo, 'wt-feature');
     // A REAL git worktree so `git ls-files` inside it sees the tracked stage-4.md.
     execSync(`git worktree add -q "${worktree}" HEAD`, { cwd: repo });
+    helper = installHelper(repo);
     // CANON carries a gitignored state.md (the legitimately-linkable file).
     mkdirSync(resolve(canon, 'u1'), { recursive: true });
     writeFileSync(resolve(canon, 'u1/state.md'), 'canon state\n');
@@ -685,7 +717,7 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
     const state = resolve(worktree, '.claude/orchestrator-prompts/u1/state.md');
 
-    const r = runHelper([worktree], { CLAUDE_COORDINATION_DIR: canon });
+    const r = runHelper(helper, [worktree], { CLAUDE_COORDINATION_DIR: canon });
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
 
     // Tracked one-off exception: untouched real file (the fix)
@@ -708,8 +740,7 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
       'is_tracked() { return 1; }',
     );
     expect(neutered, 'is_tracked() must be present to neuter').not.toBe(src);
-    const tmpHelper = resolve(tmpdir(), 'link-coordination-neutered.sh');
-    writeFileSync(tmpHelper, neutered, { mode: 0o755 });
+    const tmpHelper = installHelper(repo, neutered, 'link-coordination-neutered.sh');
 
     const stage4 = resolve(worktree, '.claude/orchestrator-prompts/u1/stage-4.md');
     try {
@@ -726,5 +757,115 @@ describe('link-coordination.sh — git-tracked one-off exception (real worktree)
     ).toBe(true);
 
     try { rmSync(tmpHelper); } catch { /* ignore */ }
+  });
+});
+
+// ── (l) REPO-IDENTITY GUARD ───────────────────────────────────────────────────
+// Incident 2026-09-30 (P6 cold run 3): after a compaction the session cwd sat in a
+// scratch consumer project (a separate git repo). The SessionStart hook ran
+// `$CLAUDE_PROJECT_DIR/scripts/link-coordination.sh` with no argument, the helper
+// defaulted <worktree-dir> to the toplevel of that FOREIGN cwd, and linked 472
+// coordination entries into it — a later push from a copy then failed lychee with
+// 210 broken links (a false red). The helper must act only on checkouts of the
+// repository it lives in (same git common dir), whatever the cwd or argument.
+describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', () => {
+  let canon: string;
+  let home: string;
+  let foreign: string;
+  let helper: string;
+  const extra: string[] = [];
+
+  function initRepo(prefix: string): string {
+    const dir = mkdtempSync(resolve(tmpdir(), prefix));
+    execSync('git init -q -b main', { cwd: dir });
+    execSync('git config user.email test@example.com', { cwd: dir });
+    execSync('git config user.name test', { cwd: dir });
+    writeFileSync(resolve(dir, 'README.md'), 'foreign\n');
+    execSync('git add -A && git commit -q -m init', { cwd: dir });
+    return dir;
+  }
+
+  const foreignPrompts = (): string => resolve(foreign, '.claude/orchestrator-prompts');
+
+  beforeEach(() => {
+    canon = mkdtempSync(resolve(tmpdir(), 'link-coord-canon-guard-'));
+    home = setupRepo('guard-home');
+    helper = installHelper(home);
+    foreign = initRepo('link-coord-foreign-');
+    // CANON carries both shapes the incident leaked: an umbrella file and a root family file.
+    mkdirSync(resolve(canon, 'u1'), { recursive: true });
+    writeFileSync(resolve(canon, 'u1/state.md'), 'canon state\n');
+    writeFileSync(resolve(canon, '_handoff-guard.md'), 'canon handoff\n');
+  });
+
+  afterEach(() => {
+    teardown(canon, home, foreign, ...extra.splice(0));
+  });
+
+  it('(l1) FOREIGN CWD, no argument: refused (exit 3), foreign repo gets NO links', () => {
+    const r = runHelper(helper, [], { CLAUDE_COORDINATION_DIR: canon }, foreign);
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
+    expect(r.stderr).toContain('not a checkout of');
+    expect(existsSync(foreignPrompts()), 'no orchestrator-prompts dir may be created').toBe(false);
+    // CANON itself is untouched too (the guard runs before INIT).
+    expect(readdirSync(canon).sort()).toEqual(['_handoff-guard.md', 'u1']);
+  });
+
+  it('(l2) OWN WORKTREE as cwd, no argument: still linked (the guard does not over-block)', () => {
+    const wt = resolve(home, 'wt-own');
+    execSync(`git worktree add -q "${wt}" HEAD`, { cwd: home });
+    const r = runHelper(helper, [], { CLAUDE_COORDINATION_DIR: canon }, wt);
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    const state = resolve(wt, '.claude/orchestrator-prompts/u1/state.md');
+    const ho = resolve(wt, '.claude/orchestrator-prompts/_handoff-guard.md');
+    expect(lstatSync(state).isSymbolicLink(), 'own worktree umbrella file must be linked').toBe(true);
+    expect(lstatSync(ho).isSymbolicLink(), 'own worktree root family file must be linked').toBe(true);
+    try { execSync(`git worktree remove --force "${wt}"`, { cwd: home }); } catch { /* ignore */ }
+  });
+
+  it('(l3) EXPLICIT foreign target (the adopt hook shape): refused, no links, no adoption', () => {
+    // adopt-orchestrator-prompts.sh passes the worktree derived from the WRITTEN path,
+    // so a write under a foreign repo's orchestrator-prompts reaches the helper as an arg.
+    mkdirSync(resolve(foreignPrompts(), 'u2'), { recursive: true });
+    writeFileSync(resolve(foreignPrompts(), 'u2/foo.md'), 'foreign content\n');
+    const r = runHelper(helper, [foreign], { CLAUDE_COORDINATION_DIR: canon }, home);
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
+    expect(lstatSync(resolve(foreignPrompts(), 'u2/foo.md')).isSymbolicLink(), 'foreign file must NOT be adopted').toBe(false);
+    expect(existsSync(resolve(foreignPrompts(), 'u1')), 'CANON umbrella must NOT be linked in').toBe(false);
+    expect(existsSync(resolve(canon, 'u2')), 'foreign file must NOT reach CANON').toBe(false);
+  });
+
+  it('(l4) NON-GIT target: refused — identity cannot be proven, so nothing is linked', () => {
+    const plain = mkdtempSync(resolve(tmpdir(), 'link-coord-nogit-'));
+    extra.push(plain);
+    const r = runHelper(helper, [plain], { CLAUDE_COORDINATION_DIR: canon }, home);
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
+    expect(existsSync(resolve(plain, '.claude')), 'nothing may be created in a non-git dir').toBe(false);
+  });
+
+  it('(l5) NON-GIT dir NESTED inside the repo tree: refused — a subdir is not a checkout root', () => {
+    // `git -C <nested>` resolves the ENCLOSING repo's common dir, so a common-dir-only
+    // check would pass a scratch project (never `git init`-ed) that sits inside this
+    // checkout — the incident class in a narrower placement (cold review, 2026-09-30).
+    const nested = resolve(home, 'sub/scratch');
+    mkdirSync(nested, { recursive: true });
+    const r = runHelper(helper, [nested], { CLAUDE_COORDINATION_DIR: canon }, home);
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
+    expect(existsSync(resolve(nested, '.claude')), 'nothing may be created in the nested dir').toBe(false);
+  });
+
+  it('(l-neg) PAIRED-NEGATIVE: with the guard stripped, the foreign cwd IS contaminated (the incident)', () => {
+    const src = readFileSync(HELPER, 'utf8');
+    const stripped = src.replace(
+      /# ── REPO-IDENTITY GUARD[\s\S]*?# ── TRACKED-FILE DETECTION/,
+      '# ── TRACKED-FILE DETECTION',
+    );
+    expect(stripped, 'the REPO-IDENTITY GUARD block must be present to strip').not.toBe(src);
+    const tmpHelper = installHelper(home, stripped, 'link-coordination-noguard.sh');
+    runHelper(tmpHelper, [], { CLAUDE_COORDINATION_DIR: canon }, foreign);
+    expect(
+      lstatSync(resolve(foreignPrompts(), 'u1/state.md')).isSymbolicLink(),
+      'without the guard the foreign repo receives CANON links (proves the guard is load-bearing)',
+    ).toBe(true);
   });
 });

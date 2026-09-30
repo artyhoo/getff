@@ -16,8 +16,11 @@
  *
  * Isolation: every run sets CLAUDE_COORDINATION_DIR to a temp $CANON — the real
  * ~/.claude-coordination store is never touched. The worktree root is a standalone
- * temp dir; the hook derives it from the written path, so no real git worktree or
- * git repo is needed.
+ * temp git repo carrying its own copy of scripts/link-coordination.sh, and runHook
+ * points CLAUDE_PROJECT_DIR at it: the helper acts only on checkouts of the
+ * repository it lives in (its REPO-IDENTITY GUARD, 2026-09-30), so the fixture
+ * mirrors a session whose project IS the written-into worktree. FOREIGN-WRITE
+ * below is the other half: a write into a different repo is refused.
  *
  * Spawns the real hook with fixture stdin (the check-hook-marker.test.ts precedent).
  * Skips gracefully when `jq` is unavailable (the link-coordination.test.ts RSYNC
@@ -42,6 +45,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/adopt-orchestrator-prompts.sh');
+const HELPER = resolve(REPO_ROOT, 'scripts/link-coordination.sh');
 
 function hasJq(): boolean {
   try {
@@ -59,12 +63,20 @@ interface RunResult {
   status: number;
 }
 
-/** Fire the hook with the PostToolUse stdin contract for a written `filePath`. */
-function runHook(filePath: string, canon: string): RunResult {
+/**
+ * Fire the hook with the PostToolUse stdin contract for a written `filePath`.
+ * `projectDir` = the session's CLAUDE_PROJECT_DIR; defaults to the worktree the
+ * file was written into (derived from the path, as the hook itself does).
+ */
+function runHook(filePath: string, canon: string, projectDir?: string): RunResult {
   const r = spawnSync('bash', [HOOK], {
     input: JSON.stringify({ tool_input: { file_path: filePath } }),
     encoding: 'utf8',
-    env: { ...process.env, CLAUDE_COORDINATION_DIR: canon },
+    env: {
+      ...process.env,
+      CLAUDE_COORDINATION_DIR: canon,
+      CLAUDE_PROJECT_DIR: projectDir ?? filePath.split('/.claude/orchestrator-prompts/')[0],
+    },
   });
   return {
     stdout: (r.stdout ?? '').trim(),
@@ -74,12 +86,20 @@ function runHook(filePath: string, canon: string): RunResult {
 }
 
 /**
- * Standalone temp worktree with `.claude/orchestrator-prompts/<umbrella>/`.
- * Not a real git worktree — the hook derives the worktree root from the path.
+ * Standalone temp git repo with `.claude/orchestrator-prompts/<umbrella>/` and, when
+ * `withHelper`, its own copy of scripts/link-coordination.sh (the helper acts only on
+ * checkouts of the repository it lives in). The hook derives the root from the path.
  */
-function makeWorktree(name: string, umbrella = 'my-umbrella'): string {
+function makeWorktree(name: string, umbrella = 'my-umbrella', withHelper = true): string {
   const wt = mkdtempSync(resolve(tmpdir(), `adopt-hook-${name}-`));
+  execSync('git init -q -b main', { cwd: wt });
   mkdirSync(resolve(wt, '.claude/orchestrator-prompts', umbrella), { recursive: true });
+  if (withHelper) {
+    mkdirSync(resolve(wt, 'scripts'), { recursive: true });
+    writeFileSync(resolve(wt, 'scripts/link-coordination.sh'), readFileSync(HELPER, 'utf8'), {
+      mode: 0o755,
+    });
+  }
   return wt;
 }
 
@@ -212,7 +232,7 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     const hookCopy = resolve(fakeRoot, '.claude/hooks/adopt-orchestrator-prompts.sh');
     writeFileSync(hookCopy, readFileSync(HOOK, 'utf8'), { mode: 0o755 });
 
-    const wt = track(makeWorktree('loudskip'));
+    const wt = track(makeWorktree('loudskip', 'my-umbrella', false));
     const foo = promptFile(wt, 'my-umbrella/foo.md');
     writeFileSync(foo, '# kickoff\n');
 
@@ -227,6 +247,29 @@ describe.skipIf(!JQ)('adopt-orchestrator-prompts.sh — PostToolUse adopt-on-wri
     expect(r.stderr ?? '').toContain('link-coordination.sh not found'); // terminal reader channel
     expect(lstatSync(foo).isSymbolicLink(), 'no adoption ran').toBe(false);
     expect(readdirSync(canon).length, '$CANON stays empty').toBe(0);
+  });
+
+  // ── (negative) FOREIGN-WRITE: a write into ANOTHER repo is never adopted ─────
+  // Incident 2026-09-30 (P6 cold run 3): the session's project was this repo, but a
+  // file under a scratch consumer project's orchestrator-prompts reached the helper
+  // as WT_DIR (derived from the written path). Tier 1 resolves the PROJECT's helper,
+  // whose repo-identity guard must refuse the foreign worktree.
+  it('FOREIGN-WRITE: project = repo A, write lands in repo B → no adoption, no links, $CANON untouched', () => {
+    const project = track(makeWorktree('project'));
+    writeFileSync(resolve(canon, '_handoff-proj.md'), 'canon handoff\n');
+    const foreign = track(makeWorktree('foreign', 'my-umbrella', false));
+    const foo = promptFile(foreign, 'my-umbrella/foo.md');
+    writeFileSync(foo, '# foreign file\n');
+
+    const r = runHook(foo, canon, project);
+    expect(r.status, `hook stderr: ${r.stderr}`).toBe(0); // still never a gate
+
+    expect(lstatSync(foo).isSymbolicLink(), 'foreign file must stay real').toBe(false);
+    expect(existsSync(resolve(canon, 'my-umbrella')), 'foreign file must NOT reach $CANON').toBe(false);
+    expect(
+      existsSync(promptFile(foreign, '_handoff-proj.md')),
+      'CANON root files must NOT be linked into the foreign repo',
+    ).toBe(false);
   });
 
   // ── (guard) FLUSH-GUARD: a not-yet-flushed (absent) file is a clean no-op ────
