@@ -177,7 +177,7 @@ Every install writes the same base:
 - **Rules.** For the npm stacks, ESLint rules in `eslint-rules-local/` and a config that
   loads them. For `python`, `cargo`, and `go`, a config for the linter you already use.
 - **[Gates](terms.md#gate).** Git hooks in `.husky/` and a CI workflow in `.github/workflows/`.
-- **Checks on getff itself.** Scripts in `scripts/` that prove the rules still [fire](terms.md#fire).
+- **Checks on getff itself.** Scripts in `scripts/` that prove the rules still [fire](terms.md#fire) — and, if you mirror skills into a `.zcode/` folder, that the mirror is complete.
 
 If your project already has an ESLint config, getff keeps it. When that config is an
 `eslint.config.mjs`, or an `eslint.config.js` that uses `export default`, getff adds its
@@ -224,7 +224,10 @@ versions. It keeps the depth you already have.
 Three rules protect your edits during a refresh:
 
 - **Files you are meant to edit are not refreshed.** Your rules list and your configs
-  are written once and then left alone. In `AGENTS.md` getff owns one marked block and
+  are never rewritten. A refresh only adds getff's own pieces that an older install
+  lacks, such as a missing script in `package.json` or a missing block in your ESLint
+  config. Anything it cannot add, it names at the end of the run with the reason. In
+  `AGENTS.md` getff owns one marked block and
   leaves the rest of the file to you. What a refresh does replace is the machinery:
   skills, helper agents, session hooks, the check scripts in `scripts/`, and the rule
   code in `eslint-rules-local/`. On a fresh `ts-server` install at the `core` depth, a

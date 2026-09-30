@@ -207,7 +207,7 @@ _arm_b_stop() {
   fi
 
   # Candidate lines: assistant entries carrying Agent tool_use. Use the alternation pattern
-  # from end-of-turn-reminder:675-680 — handles both CC outer-"type":"assistant" and ZCode's
+  # from end-of-turn-reminder:687-693 — handles both CC outer-"type":"assistant" and ZCode's
   # role-arm transcripts. We then look INSIDE each assistant line for tool_use entries
   # whose name is Agent|Task — the tool_use entry's toolCallId anchors dedup.
   #

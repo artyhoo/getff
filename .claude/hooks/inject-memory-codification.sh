@@ -18,7 +18,13 @@
 #
 # Output contract (verified 2026-05-22, code.claude.com/docs/en/hooks.md):
 #   plain stdout is IGNORED for PostToolUse; context must be JSON additionalContext.
+# @plugin-yield-deps: lib/hook-live.sh
 set -uo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live inject-memory-codification || true; fi
 
 command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op without jq
 

@@ -130,11 +130,11 @@ function runHook(
 }
 
 describe('inject-project-digest.sh — consumer dual-event anchor injector', () => {
-  it('UserPromptSubmit path: digest block -> plain stdout = block content verbatim (exit 0)', () => {
-    // The hook reads stdin only to detect hook_event_name; for UserPromptSubmit (or jq-absent)
-    // the EVENT stays "" and the plain-stdout branch (hook:42) fires.
+  it('SessionStart path: digest block -> plain stdout = block content verbatim (exit 0)', () => {
+    // The hook reads stdin only to detect hook_event_name; for SessionStart — the event install.sh
+    // registers it on since 2026-09-29 — (or jq-absent) the plain-stdout branch fires.
     const { hookAbs } = makeTempRepo(DIGEST_BODY);
-    const r = runHook(hookAbs, { hook_event_name: 'UserPromptSubmit' });
+    const r = runHook(hookAbs, { hook_event_name: 'SessionStart', source: 'startup' });
     expect(r.status).toBe(0);
     // Plain stdout carries the block content (awk-extracted, markers stripped).
     expect(r.stdout).toContain("consumer's project anchor");
@@ -200,7 +200,7 @@ describe.skipIf(!JQ)(
       // shape (hookEventName INSIDE hookSpecificOutput is allowed by the discriminated union Uan;
       // top-level hookEventName is NOT). Regression guard: catches anyone flattening the wrapper
       // or leaking hookEventName to top level (a prior shape emitted it top-level and was silently
-      // rejected by ZCode). Precedent: inject-matching-rule.test.ts:82.
+      // rejected by ZCode). Precedent: inject-matching-rule.test.ts:99.
       // NOTE: consumer-only hook — ships via install.sh, NOT in harness-model.json, so emitPlugin
       // does not render it to plugin/hooks/hooks.json (architectural gap, separate owner-decision).
       // The JSON shape must still be schema-valid for manual replay / any harness.

@@ -458,7 +458,7 @@ describe.skipIf(!JQ || !TSX)(
 // Dependency-missing SKIP must reach the model, not just stderr.
 //
 // On an exit-0 PostToolUse the model receives ONLY JSON hookSpecificOutput —
-// plain stdout/stderr reaches nobody (inject-matching-rule.sh:18,125-126). So a
+// plain stdout/stderr reaches nobody (inject-matching-rule.sh's closing emit). So a
 // stderr-only "jq unavailable — skipping" is indistinguishable from a PASS: the
 // gate reads as alive in a settings audit while enforcing nothing. Observed live
 // in the aif container (jq absent) on 2026-07-23 —

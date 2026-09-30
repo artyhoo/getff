@@ -13,7 +13,55 @@
 # @cc-only-rationale: meta-orchestrator skill helper library — sourced in-session by helpers
 #   invoked via !shell injection; no portable equivalent fires at the same moment.
 
-# Repo-root resolution (honour pre-set/env value; else git toplevel; else pwd). Idempotent.
+# Repo-root resolution (honour pre-set/env value; else the cwd's checkout when it belongs to
+# the repo this skill is installed in; else that skill checkout; else the cwd's git toplevel;
+# else pwd). Idempotent.
+# ── SKILL-CHECKOUT ANCHOR ─────────────────────────────────────────────────────
+# The helpers run as `bash ${CLAUDE_SKILL_DIR}/helpers/<x>.sh` — an absolute path, reachable
+# from ANY cwd. Deriving REPO_ROOT from the cwd alone let a session whose Bash cwd sat in a
+# scratch repo write the plan cache, the backlog delta and a whole orchestration home INTO
+# that repo (the wrong-target class of getff#1967, found by its backward sweep 2026-09-30).
+# A skill installed at <root>/.claude/skills/pipeline/ belongs to <root>'s checkout — true in
+# the framework AND in a consumer install (setup.d/10-skills.sh copies it into the consumer's
+# own .claude/skills/), so the anchor keeps serving the consumer's repo.
+#   - cwd in a checkout of that SAME repo (same git common dir — a linked worktree too): the
+#     cwd's toplevel, as before; the predicate is the one scripts/link-coordination.sh uses.
+#   - cwd anywhere else: the skill checkout, AND the helper `cd`s into it — `gh` infers its
+#     repository from the cwd and the helpers never pass -R, so redirecting REPO_ROOT alone
+#     would pair this repo's kickoffs with the foreign repo's PRs.
+#   - skill outside any checkout (a user-level ~/.claude/skills copy; $HOME is excluded so a
+#     dotfiles repo at ~ is not taken for the project): the cwd fallback below, unchanged.
+# `pwd -P` so the .zcode/skills -> ../.claude/skills symlink (render-harness-config.mjs) still
+# matches; CDPATH is cleared because `cd` would echo a CDPATH hit into the substitution.
+if [ -z "${REPO_ROOT:-}" ]; then
+  _mo_git() { env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR git -C "$@"; }
+  _mo_common() { # $1 = dir -> physical git common dir; empty outside a checkout
+    local d
+    d="$(_mo_git "$1" rev-parse --git-common-dir 2>/dev/null)" || return 0
+    (CDPATH='' cd "$1" && CDPATH='' cd "$d" && pwd -P) 2>/dev/null || true
+  }
+  _mo_lib="$(CDPATH='' cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+  case "$_mo_lib" in
+    */.claude/skills/pipeline/helpers/lib)
+      _mo_home="${_mo_lib%/.claude/skills/pipeline/helpers/lib}"
+      if [ "$_mo_home" != "$(CDPATH='' cd "${HOME:-/nonexistent}" 2>/dev/null && pwd -P)" ]; then
+        _mo_self_common="$(_mo_common "$_mo_home")"
+        if [ -n "$_mo_self_common" ]; then
+          _mo_cwd_top="$(_mo_git . rev-parse --show-toplevel 2>/dev/null || true)"
+          if [ -n "$_mo_cwd_top" ] && [ "$(_mo_common "$_mo_cwd_top")" = "$_mo_self_common" ]; then
+            REPO_ROOT="$_mo_cwd_top"
+          else
+            REPO_ROOT="$(_mo_git "$_mo_home" rev-parse --show-toplevel 2>/dev/null || true)"
+            [ -n "$REPO_ROOT" ] && cd "$REPO_ROOT"
+          fi
+        fi
+      fi
+      ;;
+  esac
+  unset _mo_lib _mo_home _mo_self_common _mo_cwd_top
+  unset -f _mo_git _mo_common
+fi
+# ── END SKILL-CHECKOUT ANCHOR ─────────────────────────────────────────────────
 REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 
 # Resolve a possibly-symlinked file to its real absolute target — so flock + writes land on

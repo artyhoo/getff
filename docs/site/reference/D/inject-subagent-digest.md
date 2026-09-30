@@ -17,7 +17,7 @@ sources:
   - packages/core/hooks/inject-subagent-digest.test.ts
 executed:
   - { example: digest-at-sub-agent-spawn, stack: repo, date: 2026-09-25, result: printed }
-docs-refresh: deferred — re-verified 2026-09-25, page authored from the cited sources at this pin; clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against the trigger build slice-1 range — the loader's rewrite moved the emit that this hook's line 15 cited by number; line 15 now names the construct instead, and the bullet quoting it says so; nothing else here cites the loader; clears at the next refresh of this page
 ---
 
 # `inject-subagent-digest` hook
@@ -63,7 +63,7 @@ printf '%s' '{"session_id":"docs-demo-sd-1"}' \
 ```
 
 ```text
-[session-bootstrap digest — auto-injected at prompt submit]
+[session-bootstrap digest — auto-injected at session start]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
 Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
 Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.
@@ -73,7 +73,7 @@ Full bootstrap + reviewer drift-prevention flowchart: .claude/session-bootstrap.
 ```
 
 That is the text the sub-agent receives — the same digest that arrives in the main
-session on every prompt, delivered by
+session at every session start, delivered by
 [inject-session-bootstrap](inject-session-bootstrap.md) and shown in full on that page.
 One logic, two channels, one source of truth: change the digest in one place and both
 audiences move together.
@@ -111,13 +111,13 @@ parity doctrine rather than smoothed over.
 - The silent-no-op warning is header lines 10-15: «SubagentStart is NON-blocking … and
   delivers context via JSON hookSpecificOutput.additionalContext. Plain stdout is a
   SILENT NO-OP here … emitting the wrong format = the hook fires but does nothing»,
-  with the mirroring of `inject-matching-rule.sh:125-126` named at line 15.
+  with the mirroring of `inject-matching-rule.sh`'s closing emit named at line 15.
 - jq guard: line 19 — `command -v jq >/dev/null 2>&1 || exit 0   # graceful no-op
   without jq`. Empty digest: line 24 — `[[ -z "$DIGEST" ]] && exit 0`.
 - The output: lines 26-27 wrap the digest in
   `{hookSpecificOutput:{hookEventName:"SubagentStart",additionalContext:$ctx}}`.
-- Registration: `.claude/settings.json:207` opens the SubagentStart block with the
-  command at line 203.
+- Registration: `.claude/settings.json:208` opens the SubagentStart block with the
+  command at line 213.
 - No plugin twin: the card's delivery row carries only the CC-only marker, and
   `ls plugin/hooks | grep inject-subagent-digest` finds nothing — the SubagentStart
   event is inexpressible on the framework's second harness

@@ -126,7 +126,7 @@ in_sweep_twins=(
   deps-hash-check
 )
 # Non-sweep twins (do NOT read repo files; documented for completeness so the enumeration stays honest):
-#   ask-question-reminder, inject-memory-codification, inject-session-bootstrap (CAT-B sibling-source),
+#   ask-question-reminder, inject-memory-codification,
 #   inject-output-language (env-only, no repo-file reads — plan D3, mirrors ask-question-reminder),
 #   inject-subagent-context (CAT-B sibling-source), session-start, end-of-turn-reminder
 #   (CLAUDE_PROJECT_DIR used only as orchestration-mode marker-file prefix at end-of-turn-reminder:85,

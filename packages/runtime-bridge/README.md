@@ -256,7 +256,7 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> \
 | `--body-file <path>` | File whose contents become the PR body.                                                           |
 | `--no-auto-merge`    | Do not arm GitHub native auto-merge.                                                              |
 | `--container <name>` | aif container holding the task's checkout (default `$RUNTIME_BRIDGE_AIF_CONTAINER`, else `aif-handoff-agent-1`). |
-| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel`). |
+| `--host-repo <path>` | Host clone the push runs from — where `.husky/pre-push` fires (default `$RUNTIME_BRIDGE_HOST_REPO`, else the cwd's `git rev-parse --show-toplevel` — refused when that checkout is not of the repository `harvest.ts` lives in). |
 
 Exit codes: `0` = branch pushed + PR opened; `1` = guard failed / push or PR error (the operator runs
 the printed fallback commands).
@@ -285,7 +285,14 @@ tsx packages/runtime-bridge/src/cli/harvest.ts <taskId> --report-merge <prUrl>
 ```
 
 The PR must read `state: MERGED` with a recorded `mergeCommit` (`gh pr view --json state,mergeCommit`),
-or nothing is written. An already-`verified` task is a no-op. The PR must also BE the task's harvest
+or nothing is written. One exception: a PR the merge-train seat squashed into a train and closed with
+a «Landed via merge train … (#<train>, …) as the squash commit `<sha>`» comment. The comment is only a
+pointer (anyone can comment on a public PR); the PR counts as merged only when GitHub confirms all of:
+the train PR is MERGED; the sha resolves to one commit; the train body has a `| #<pr> |` row naming
+that sha after «into»; the sha is one of the train PR's own commits (`GET pulls/<train>/commits`, so a
+commit already on the base cannot qualify); and it is an ancestor of the train's base branch
+(`gh api repos/<r>/compare/<base>...<sha>` reads `behind` or `identical`). The merge time is then the
+train's. An already-`verified` task is a no-op. The PR must also BE the task's harvest
 — an exact `aif-task: <taskId>` body line, or the task's own `branchName` as the PR head — and must
 have merged after the task's last agent activity (the newest `[<ISO>]` stamp in `agentActivityLog`),
 so an earlier merge never closes a rework round on the same branch; either refusal writes nothing.

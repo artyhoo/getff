@@ -29,6 +29,9 @@ export const SCRUBBED_PREFIXES: readonly string[] = [
  * are irrelevant to the artefacts under test, so each entry is named deliberately.
  */
 export const SCRUBBED_EXACT: readonly string[] = [
+  // inject-matching-rule.sh test seam for the base-core card directory (trigger build
+  // slice 1, sibling of RULES_DIR_OVERRIDE below); an inherited value would swap the corpus.
+  'CARDS_DIR_OVERRIDE',
   'CLAUDE_ARGS',
   'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
   'CLAUDE_CODE_SESSION_ID',

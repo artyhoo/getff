@@ -370,7 +370,8 @@ describe('test_R4 — R4: domain export tests', () => {
     // The result can be fail or warn but NOT pass-skipped-for-missing-env
     // (it's not the "no tsconfig AND no ts-morph" path)
     expect(['fail', 'warn']).toContain(result.result);
-  });
+    // Budget: real `npx --no-install tsx` spawn, unstubbed by design (DN-1 Option C) — root vitest.config.ts's 60 s.
+  }, 60_000);
 });
 
 // ─── test_R4 bash (shipped script) — exec-based paired-negative ───────────────
@@ -2673,7 +2674,7 @@ describe('consumer mode — D3/D5 skip outside the authoring repo', () => {
 // CLAUDE.md and D5 on four tracked files plus every gitignored checkout it walked
 // into. Each describe below is a paired positive/negative for one fix, and every
 // arm runs BOTH implementations on the same fixture: the canonical .ts and the .sh
-// twin install.sh ships to consumers (install.sh:1113), so neither can drift alone.
+// twin install.sh ships to consumers (install.sh:1133), so neither can drift alone.
 
 const CORE_SH = join(REPO_ROOT, 'packages/core/audit-self/audit-ai-docs.sh');
 // Stryker-sandbox guard, as in the R4/R17 bash tests: the twin is absent there.

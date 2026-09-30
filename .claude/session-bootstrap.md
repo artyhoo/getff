@@ -21,7 +21,7 @@ The invariant list lives in one place: [README.md «What must not break (invaria
 ## Project anchor (digest block)
 
 One compact anchor for every fresh agent and subagent. Consumed by the digest hooks
-(`inject-project-digest` on UserPromptSubmit; `inject-subagent-context` prepends it to each
+(`inject-project-digest` on SessionStart; `inject-subagent-context` prepends it to each
 ZCode subagent's prompt; `inject-subagent-digest` serves the same role on CC) — the block
 between the markers below is extracted verbatim, so keep it self-contained and short.
 Empty block = hooks no-op by design (zero-setup default).

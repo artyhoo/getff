@@ -275,42 +275,7 @@ if [ -f "$EOT_SRC" ]; then
     # when already set. Never write the target in place: a malformed settings.json silently
     # disables EVERY setting in it.
     if [ "${FULL:-}" = "--full" ]; then
-      # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
-      # no-op that prints nothing leaves the operator believing the gate is on when it is not.
-      # Same shape as this file's deps-hash-check jq-less branch (:227).
-      if ! command -v jq >/dev/null 2>&1; then
-        # No jq: the same env merge through node (lib.sh json_edit_node); rc 3 = already armed.
-        _rg_rc=0
-        json_edit_node "$SETTINGS" '
-          if ((o.env || {}).AIF_RECAP_GATE === "1") return;
-          o.env = Object.assign({}, o.env, { AIF_RECAP_GATE: "1" });
-          return o;' || _rg_rc=$?
-        case "$_rg_rc" in
-          0) echo "  ✓ AIF_RECAP_GATE armed in .claude/settings.json (through node: jq is not on PATH)" ;;
-          3) echo "  AIF_RECAP_GATE already armed" ;;
-          *) echo "  ⚠ AIF_RECAP_GATE NOT armed — $(json_edit_node_why "$SETTINGS")" >&2
-             note_not_wired "AIF_RECAP_GATE in .claude/settings.json — $(json_edit_node_why "$SETTINGS")" ;;
-        esac
-      elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$SETTINGS" 2>/dev/null)" = "1" ]; then
-        echo "  AIF_RECAP_GATE already armed"
-      else
-        # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
-        # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
-        # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
-        # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
-        # the install clean while the operator believed the gate was armed (review M-7).
-        _rg_tmp="$SETTINGS.recapgate.tmp"
-        if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$SETTINGS" > "$_rg_tmp" 2>/dev/null \
-           && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
-          if mv "$_rg_tmp" "$SETTINGS"; then
-            echo "  AIF_RECAP_GATE=1 armed (--full)"
-          else
-            rm -f "$_rg_tmp"; echo "  ⚠ could not write $SETTINGS — AIF_RECAP_GATE NOT armed"
-          fi
-        else
-          rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $SETTINGS left untouched"
-        fi
-      fi
+      arm_recap_gate "$SETTINGS"   # setup.d/lib.sh — do_refresh arms it too under --full (sweep G8)
     fi
   fi
 fi
@@ -346,34 +311,40 @@ fi
 # injector delivers the matching rule's `inject:` summary the moment a scoped path is edited.
 # Consumer-safe: the only runtime path is the consumer's own .claude/rules/ (no
 # framework-internal artefact), and it degrades to exit 0 when the rules dir or jq is absent.
-# Registered with the "Edit|Write|MultiEdit" matcher (parity with the framework's own settings.json).
+# Registered on three events (trigger build, slice 1 — parity with the framework's own
+# settings.json): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm),
+# PreToolUse "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset).
+# register_imr_hooks lives in setup.d/lib.sh — install.sh --refresh calls the same function.
 IMR_SRC="$PKG_ROOT/.claude/hooks/inject-matching-rule.sh"
 IMR_DST="$PROJECT_ROOT/.claude/hooks/inject-matching-rule.sh"
 if [ -f "$IMR_SRC" ]; then
   copy_safe "$IMR_SRC" "$IMR_DST"
   chmod_safe +x "$IMR_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
+    register_imr_hooks "$SETTINGS"
   fi
 fi
 
-# ─── 1f. Output-language UserPromptSubmit hook (GH #934 batch B) ──────────────
+# ─── 1f. Output-language SessionStart hook (GH #934 batch B) ──────────────────
 # The consumer-generic slice EXTRACTED from the maintainer-only inject-session-bootstrap.sh: when the
 # operator pins AIF_HOOK_LANG, tell the model to address them in that language (repo artefacts stay
 # English). The framework-self-referential goal/invariants digest is NOT shipped — it stays INTERNAL.
 # Consumer-safe: pure bash, no jq, no framework-internal dependency; en/unset → no-op (zero-setup).
-# Registered as UserPromptSubmit (no matcher — not a tool-scoped event), non-destructive/idempotent.
+# Registered on SessionStart (startup|resume|clear|compact) — once per context, not per prompt
+# (2026-09-29; an install from before that date had it on UserPromptSubmit, which is removed here so a
+# re-install moves it instead of doubling it). Non-destructive/idempotent.
 OLH_SRC="$PKG_ROOT/.claude/hooks/inject-output-language.sh"
 OLH_DST="$PROJECT_ROOT/.claude/hooks/inject-output-language.sh"
 if [ -f "$OLH_SRC" ]; then
   copy_safe "$OLH_SRC" "$OLH_DST"
   chmod_safe +x "$OLH_DST" 2>/dev/null || true
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-output-language as a UserPromptSubmit hook in .claude/settings.json"
+    echo "  [dry-run] would: register inject-output-language as a SessionStart:startup|resume|clear|compact hook in .claude/settings.json"
   else
-    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language"
+    unregister_cc_hook "$SETTINGS" "UserPromptSubmit" "inject-output-language"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-output-language.sh"' "inject-output-language" "startup|resume|clear|compact"
   fi
 fi
 
@@ -403,7 +374,9 @@ fi
 # Project-agnostic adaptation of the maintainer-only inject-session-bootstrap + inject-subagent-digest
 # pair (which hard-code the FRAMEWORK's own goal/invariants digest). This ONE hook injects the
 # CONSUMER's own anchor — the digest block of THEIR .claude/session-bootstrap.md — into BOTH the main
-# session (UserPromptSubmit) and every subagent (SubagentStart). We also ship a starter template
+# session (SessionStart — once per context: startup|resume|clear|compact, since 2026-09-29; it was
+# UserPromptSubmit before, which re-injected an unchanged block on every prompt) and every subagent
+# (SubagentStart). We also ship a starter template
 # (copy_safe → .claude/session-bootstrap.md, non-destructive) that ships EMPTY, so nothing is injected
 # until the consumer fills it (zero-setup, zero token cost by default).
 PDG_SRC="$PKG_ROOT/.claude/hooks/inject-project-digest.sh"
@@ -414,9 +387,10 @@ if [ -f "$PDG_SRC" ]; then
   # Starter template → consumer's .claude/session-bootstrap.md (never overwrite a filled one).
   [ -f "$PKG_ROOT/.claude/templates/session-bootstrap.md" ] && copy_safe "$PKG_ROOT/.claude/templates/session-bootstrap.md" "$PROJECT_ROOT/.claude/session-bootstrap.md"
   if [ "$DRY_RUN" = "--dry-run" ]; then
-    echo "  [dry-run] would: register inject-project-digest as UserPromptSubmit + SubagentStart hooks"
+    echo "  [dry-run] would: register inject-project-digest as SessionStart:startup|resume|clear|compact + SubagentStart hooks"
   else
-    register_cc_hook "$SETTINGS" "UserPromptSubmit" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
+    unregister_cc_hook "$SETTINGS" "UserPromptSubmit" "inject-project-digest"
+    register_cc_hook "$SETTINGS" "SessionStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest" "startup|resume|clear|compact"
     register_cc_hook "$SETTINGS" "SubagentStart" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-project-digest.sh"' "inject-project-digest"
   fi
 fi
@@ -436,6 +410,17 @@ if [ -f "$MCF_SRC" ]; then
   else
     register_cc_hook "$SETTINGS" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-memory-codification.sh"' "inject-memory-codification" "Write"
   fi
+fi
+
+# ─── 1i′. Liveness lib of the shared hooks above (spec 2026-09-28 D12) ─────────
+# Every hook delivered in §1c-§1i sources lib/hook-live.sh from a guarded prelude: it marks each
+# event the project copy starts, and getff's plugin copy of the same hook stays silent only after
+# claiming that mark. Delivered once, BY NAME, like lib/residue-dir.sh in §1c. Without it the hooks
+# run unchanged, but their source-hash closure no longer matches the plugin's manifest, so both
+# copies run (a duplicate, never a lost hook).
+if [ -f "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" ]; then
+  mkdir_safe "$PROJECT_ROOT/.claude/hooks/lib"
+  copy_safe "$PKG_ROOT/.claude/hooks/lib/hook-live.sh" "$PROJECT_ROOT/.claude/hooks/lib/hook-live.sh"
 fi
 
 # ─── 1j. Workspace one-command scripts → MOVED to setup.d/85-worktree-scripts.sh ──

@@ -85,6 +85,9 @@ for _hc in check-ci-pins.sh check-doc-links.sh; do
   copy_safe "$PKG_ROOT/packages/core/audit-self/$_hc" "$PROJECT_ROOT/scripts/$_hc"
   chmod_safe +x "$PROJECT_ROOT/scripts/$_hc" 2>/dev/null || true
 done
+# W2-G (#1502): consumer ZCode skill-mirror check — .zcode/skills completeness, read-only.
+copy_safe "$PKG_ROOT/packages/core/audit-self/check-zcode-mirror.sh" "$PROJECT_ROOT/scripts/check-zcode-mirror.sh"
+chmod_safe +x "$PROJECT_ROOT/scripts/check-zcode-mirror.sh" 2>/dev/null || true
 # install-self-verification D5: on-demand local mutation depth pass for generated rules.
 # Consumer surface: npm run test:mutation:generated (not in validate — on-demand only).
 copy_safe "$PKG_ROOT/packages/core/synthesizer/run-generated-rule-mutation.sh" "$PROJECT_ROOT/scripts/run-generated-rule-mutation.sh"

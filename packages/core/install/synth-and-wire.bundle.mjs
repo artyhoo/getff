@@ -10357,6 +10357,19 @@ function buildRuleConfigElement(ruleName, value, scope, registerPlugin = false) 
   const pluginsPart = registerPlugin ? `plugins: { 'rules-as-tests': customRules }, ` : "";
   return `{ ${filesPart}${pluginsPart}rules: { ${jsString(ruleName)}: ${buildRuleValueExpr(value)} } }`;
 }
+function ruleGlobsBoundElsewhere(sf, SyntaxKind) {
+  const named = (n) => n?.getText?.() === "RULE_GLOBS";
+  if (sf.getFunction?.("RULE_GLOBS") || sf.getClass?.("RULE_GLOBS")) return true;
+  for (const d of sf.getImportDeclarations?.() ?? []) {
+    if (named(d.getDefaultImport?.()) || named(d.getNamespaceImport?.())) return true;
+    if ((d.getNamedImports?.() ?? []).some((s) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  for (const d of sf.getExportDeclarations?.() ?? []) {
+    if (named(d.getNamespaceExport?.()?.getNameNode?.())) return true;
+    if ((d.getNamedExports?.() ?? []).some((s) => named(s.getAliasNode?.() ?? s.getNameNode?.()))) return true;
+  }
+  return (sf.getVariableStatements?.() ?? []).some((st) => st.getDeclarations().some((v) => v.getNameNode().getDescendantsOfKind(SyntaxKind.BindingElement).some((b) => named(b.getNameNode?.()))));
+}
 function configRegistersRulesAsTestsPlugin(elements, SyntaxKind) {
   for (const el of elements) {
     if (!el.isKind?.(SyntaxKind.ObjectLiteralExpression)) continue;
@@ -10676,6 +10689,17 @@ async function wireNRules(source, synthRules, opts = {}) {
 function singleQuoted(s) {
   return /['\\\n\r\u2028\u2029]/.test(s) ? jsString(s) : `'${s}'`;
 }
+function ruleGlobsDeclaration(boundary, comment, keyword) {
+  return [
+    ...comment,
+    "// prettier-ignore",
+    `${keyword} RULE_GLOBS = {`,
+    "  boundary: [",
+    ...boundary.map((g) => `    ${singleQuoted(g)},`),
+    "  ],",
+    "};"
+  ].join("\n");
+}
 function stringElements(arr, SyntaxKind) {
   return (arr.getElements?.() ?? []).filter((e) => e.isKind(SyntaxKind.StringLiteral) || e.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)).map((e) => e.getLiteralValue());
 }
@@ -10818,7 +10842,12 @@ async function wireOwnConfig(source, opts = {}) {
     };
     const r2Mentions = [`'`, `"`, "`"].reduce((n, q) => n + source.split(`${q}${R2_RULE_ID}${q}`).length - 1, 0);
     const r2Setting = !r2Present ? "not-found" : r2Mentions > 1 || ruleSetForSomeFilesOnly(visible, SyntaxKind, R2_RULE_ID) ? "differs" : replaceSimpleRuleValue(visible, SyntaxKind, R2_RULE_ID, "'error'", false);
-    if (sf.getVariableDeclaration("RULE_GLOBS")) {
+    const plainDecl = !!sf.getVariableDeclaration("RULE_GLOBS")?.getNameNode?.().isKind?.(SyntaxKind.Identifier);
+    if (!plainDecl && ruleGlobsBoundElsewhere(sf, SyntaxKind)) {
+      notes.push(
+        "R2 \u2014 the config binds RULE_GLOBS from elsewhere (an import, a destructuring, a function or class, or an export under that name), and getff does not redefine it" + (opts.gateReadsRuleGlobs ? "; scripts/check-rule-globs.sh reads only a `RULE_GLOBS = \u2026` declared in this file, so it fails on this config" : "")
+      );
+    } else if (sf.getVariableDeclaration("RULE_GLOBS")) {
       const arr = boundaryArr = arrOf();
       if (!arr) {
         notes.push(
@@ -10830,20 +10859,21 @@ async function wireOwnConfig(source, opts = {}) {
         registerR2 = !r2Present;
       }
     } else if (r2Present && r2Setting !== "same") {
-      notes.push(
-        opts.gateReadsRuleGlobs ? `RULE_GLOBS for R2 \u2014 the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds no RULE_GLOBS, and scripts/check-rule-globs.sh fails on this config without them` : `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds nothing for R2`
-      );
+      if (opts.gateReadsRuleGlobs) {
+        ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
+          "// Added by getff: the HTTP boundary code the install found. Where R2 runs is your own setting in this file;",
+          "// check:globs fails when none of these matches a source file, check:enforced when R2 is not 'error' there."
+        ], "export const");
+      } else {
+        notes.push(
+          `the config sets ${R2_RULE_ID} itself, not to 'error' for every file or not where getff can read it; getff does not change a setting of yours, so it adds nothing for R2`
+        );
+      }
     } else if (!r2Present || opts.gateReadsRuleGlobs) {
-      ruleGlobsBlock = [
+      ruleGlobsBlock = ruleGlobsDeclaration(boundary, [
         "// Added by getff: where its R2 rule looks for an unguarded zod .parse() \u2014 the HTTP boundary code the",
-        "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves.",
-        "// prettier-ignore",
-        "const RULE_GLOBS = {",
-        "  boundary: [",
-        ...boundary.map((g) => `    ${singleQuoted(g)},`),
-        "  ],",
-        "};"
-      ].join("\n");
+        "// install found. check:globs fails when none of these matches a source file; widen the list if that code moves."
+      ], "const");
       registerR2 = true;
     }
   }

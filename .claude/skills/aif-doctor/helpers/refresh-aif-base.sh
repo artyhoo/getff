@@ -83,8 +83,21 @@ REAL="$(gh api "repos/$REPO/git/refs/heads/$BRANCH" --jq '.object.sha' 2>/dev/nu
 [ -n "$REAL" ] || { echo "[refresh-aif-base] gh api unreachable for repos/$REPO ($BRANCH) — cannot resolve live tip; skip."; exit 1; }
 echo "repo=$REPO branch=$BRANCH  real_tip=${REAL:0:7}  container=$C  repo_path=$REPO_PATH"
 
-# ── Shorthand for in-container git ──────────────────────────────────────────────────
-icg() { docker exec "$C" git -C "$REPO_PATH" "$@"; }
+# ── In-container git runs as the OWNER of the clone, never as the container default ──
+# `docker exec` runs as the image's default user — root on the aif stack — while aif tasks
+# run as the clone's owner (`node`). Git run as root leaves root-owned refs, index, reflogs,
+# auto-gc packs and every working-tree file a merge rewrites. Measured 2026-09-30: after this
+# helper's root fast-forward the next aif task died at worktree creation with
+# `cannot lock ref 'refs/heads/feature/…': Permission denied`, and aif's own pre-worktree
+# `git pull --ff-only` could no longer write the directories the merge had rewritten.
+# `ls -n` prints the numeric uid/gid on both GNU and BSD userlands. AIF_CONTAINER_USER overrides.
+CUSER="${AIF_CONTAINER_USER:-$(docker exec "$C" ls -nd "$REPO_PATH" 2>/dev/null | awk '{print $3":"$4}')}"
+if [ -z "$CUSER" ]; then
+  echo "[refresh-aif-base] cannot read the owner of $C:$REPO_PATH — refusing to run git as the container default user; set AIF_CONTAINER_USER. Skip."
+  exit 1
+fi
+echo "container git user=$CUSER (owner of $REPO_PATH)"
+icg() { docker exec -u "$CUSER" "$C" git -C "$REPO_PATH" "$@"; }
 
 # ── Identity guard: the container clone MUST be the same repository as the caller's ──
 # Offline by construction — the aif clone has no git remote (it cannot fetch), so «same origin
@@ -109,7 +122,7 @@ refuse_if_dirty() {
   if [ -n "$dirty" ]; then
     echo "[refresh-aif-base] ABORT: container $BRANCH checkout has uncommitted tracked changes:"
     echo "$dirty" | sed 's/^/   /'
-    echo "   → stash by name (docker exec $C git -C $REPO_PATH stash push -m 'refresh-aif-base') and re-run."
+    echo "   → stash by name (docker exec -u $CUSER $C git -C $REPO_PATH stash push -m 'refresh-aif-base') and re-run."
     echo "   → this script never stashes silently and never runs git reset --hard."
     return 1
   fi
@@ -186,7 +199,7 @@ if [ "$CUR_REF" = "$REAL" ] && [ "$CUR_HEAD" != "$REAL" ]; then
   echo "   → realigning working tree to $BRANCH @ ${REAL:0:7} ..."
   if apply_and_verify "$REAL"; then
     echo "✅ container $BRANCH realigned from '$PARKED' @ ${CUR_HEAD:0:7} -> ${REAL:0:7}  (parked-state recovery)"
-    echo "   revert: docker exec $C git -C $REPO_PATH checkout $PARKED"
+    echo "   revert: docker exec -u $CUSER $C git -C $REPO_PATH checkout $PARKED"
     warn_claude_dirty
     exit 0
   fi
@@ -206,7 +219,7 @@ if icg fetch origin "$BRANCH" >/dev/null 2>&1; then
     if apply_and_verify "$FETCHED"; then
       [ "$FETCHED" = "$REAL" ] || echo "[refresh-aif-base] note: container origin tip ${FETCHED:0:7} != gh-api snapshot ${REAL:0:7} (benign race / origin ahead)."
       echo "✅ container $BRANCH ${OLD:0:7} -> ${FETCHED:0:7}  (primary: in-container git fetch)"
-      echo "   revert: docker exec $C git -C $REPO_PATH checkout --detach && docker exec $C git -C $REPO_PATH branch -f $BRANCH $OLD && docker exec $C git -C $REPO_PATH checkout $BRANCH"
+      echo "   revert: docker exec -u $CUSER $C git -C $REPO_PATH checkout --detach && docker exec -u $CUSER $C git -C $REPO_PATH branch -f $BRANCH $OLD && docker exec -u $CUSER $C git -C $REPO_PATH checkout $BRANCH"
       warn_claude_dirty
       exit 0
     fi
@@ -242,13 +255,15 @@ git bundle create "$BUNDLE" "$BRANCH" >/dev/null 2>&1 && git bundle verify "$BUN
   || { echo "[refresh-aif-base] bad bundle — skip."; exit 1; }
 echo "bundle $(du -h "$BUNDLE" | cut -f1) -> $C"
 docker cp "$BUNDLE" "$C:/tmp/aif-base.bundle"
+# docker cp lands the file root-owned with mktemp's 0600 mode; the fetch below runs as $CUSER.
+docker exec "$C" chmod 644 /tmp/aif-base.bundle 2>/dev/null || true
 # '+' forces past the non-FF (old base is a divergent synthetic commit); the fetch imports the
 # objects, then apply_and_verify sets the local base to the exact live tip.
 icg fetch /tmp/aif-base.bundle "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" >/dev/null 2>&1 || true
 docker exec "$C" rm -f /tmp/aif-base.bundle 2>/dev/null || true
 if apply_and_verify "$REAL"; then
   echo "✅ container $BRANCH ${OLD:0:7} -> ${REAL:0:7}  (fallback: host bundle import)"
-  echo "   revert: docker exec $C git -C $REPO_PATH checkout --detach && docker exec $C git -C $REPO_PATH branch -f $BRANCH $OLD && docker exec $C git -C $REPO_PATH checkout $BRANCH"
+  echo "   revert: docker exec -u $CUSER $C git -C $REPO_PATH checkout --detach && docker exec -u $CUSER $C git -C $REPO_PATH branch -f $BRANCH $OLD && docker exec -u $CUSER $C git -C $REPO_PATH checkout $BRANCH"
   icg log --oneline -1 "$BRANCH" 2>/dev/null || true
   warn_claude_dirty
   exit 0

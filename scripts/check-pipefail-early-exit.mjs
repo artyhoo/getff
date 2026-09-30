@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * check-pipefail-early-exit — refuse a pipe into an early-exiting `grep` in a shell script that
- * runs under `set -o pipefail`.
+ * runs under `set -o pipefail`, and a printf/echo into `head` / `sed q` / `awk exit` whose status
+ * is read there.
  *
  * THE DEFECT (measured 2026-09-29). `grep -q` exits on its first match. When the command on the
  * left still has a write to make — bash `printf '%s\n' "$multiline"` and `echo` write once per
@@ -33,13 +34,28 @@
  * (for example: it writes once, and less than a pipe buffer). A shorter rationale is itself a
  * finding.
  *
- * DECLARED LIMIT. `| head -1`, `| awk '{…; exit}'` and `| sed q` are early-exiting readers too, but
- * they are not gated: whether they hurt depends on whether anything reads the pipeline status
- * (`x=$(a | head -1)` under `set -e` aborts; `[ "$(a | head -1)" = y ]` does not), which this
- * line-level scan cannot tell. They were swept by hand on 2026-09-29: every site under `set -e` whose
- * status is not masked reads a file through grep/sed with a few lines of output — one stdio write at
- * exit, so no pending write to lose. Build-vs-reuse: prior-art-evaluations.md#291 (ShellCheck has no
- * rule for this; measured).
+ * THE EARLY-READER SHAPE (added 2026-09-29, after the post-merge CI of staging 2599f343c4c aborted an
+ * install at `_r2_verdict="$(printf '%s\n' "$_r2_out" | head -1)"` in setup.d/eslint-wire.sh).
+ * `| head`, `| sed …q` and `| awk '…exit…'` stop reading early too, but whether that hurts depends on
+ * whether anything reads the pipeline status: `x=$(a | head -1)` under `set -e` aborts, and so does
+ * a bare `a | head -5` statement; `[ "$(a | head -1)" = y ]`, `local x=$(…)` and `x=$(…) || true` do
+ * not. So this shape fires only when (1) the command straight left of the reader is bash's own
+ * `printf` or `echo` — they write once per line, so the race is live at any size; (2) the pipeline
+ * is a top-level statement, or sits in a `$(…)` that a bare assignment statement holds; and (3) that
+ * statement's status is read — the file runs under errexit, or the statement is an if / while /
+ * `!` condition or part of an `&&` / `||` list — and is not masked by `|| true` / `|| :`.
+ * Fix: `${v%%$'\n'*}` for the first line, `reader <<<"$v"` when the reader takes the text's trailing
+ * newline as printf '%s\n' would, `reader < <(producer)` otherwise (the producer's status is then
+ * not the pipeline's).
+ *
+ * DECLARED LIMIT. An external producer into an early reader (`grep P file | head -1`, `find | head
+ * -1`) is not gated: it writes through stdio, one write for output below a pipe buffer, so it loses
+ * the race only on large output — a judgement about the input this line-level scan cannot make.
+ * Also unread by this line scan (misses): backticks, a `( … )` subshell, an array `a=($(…))`, a
+ * `while … done | head` loop producer, an awk program spread over several lines, and a later
+ * `set +e`. Over-read (fires; use the escape): `exit` / ` q ` inside an awk string or a sed `s///`,
+ * and a `$(` whose body starts on the next line (that line is scanned as its own statement).
+ * Build-vs-reuse: prior-art-evaluations.md#291 (ShellCheck has no rule for this; measured).
  *
  * Usage:
  *   node scripts/check-pipefail-early-exit.mjs              scan the whole population (git ls-files)
@@ -185,28 +201,87 @@ export function earlyExitOption(words) {
   return null;
 }
 
-/** Positions of every unquoted pipe (`|` or `|&`, never `||`) in `code`. */
-function pipePositions(code) {
-  const out = [];
-  let sq = false;
-  let dq = false;
+/**
+ * Walk `code` and call `visit(i)` at every position that is shell syntax rather than quoted text.
+ * A `$(` opens a fresh quoting context even inside double quotes, so the pipe in
+ * `echo "x: $(a | grep -m1 y)"` is syntax; the frame closes at its matching `)`.
+ */
+function forEachUnquoted(code, visit, frames = []) {
+  const top = {
+    sq: false,
+    dq: false,
+    parens: 0,
+    start: -1,
+    end: code.length,
+    depth: 0,
+  };
+  frames.push(top);
+  const stack = [top];
   for (let i = 0; i < code.length; i++) {
+    const f = stack[stack.length - 1];
     const c = code[i];
-    if (c === '\\' && !sq) {
+    if (f.sq) {
+      if (c === "'") f.sq = false;
+      continue;
+    }
+    if (c === '\\') {
       i++;
       continue;
     }
-    if (c === "'" && !dq) sq = !sq;
-    else if (c === '"' && !sq) dq = !dq;
-    else if (c === '|' && !sq && !dq) {
-      if (code[i + 1] === '|') {
-        i++;
-        continue;
-      }
-      out.push(i);
+    if (c === '$' && code[i + 1] === '(' && code[i + 2] !== '(') {
+      const nf = {
+        sq: false,
+        dq: false,
+        parens: 0,
+        start: i,
+        end: code.length,
+        depth: stack.length,
+      };
+      frames.push(nf);
+      stack.push(nf);
+      i++;
+      continue;
     }
+    if (f.dq) {
+      if (c === '"') f.dq = false;
+      continue;
+    }
+    if (c === "'") f.sq = true;
+    else if (c === '"') f.dq = true;
+    else if (c === '(') f.parens++;
+    else if (c === ')' && f.parens > 0) f.parens--;
+    else if (c === ')' && stack.length > 1) stack.pop().end = i;
+    else visit(i, f);
   }
+  return frames;
+}
+
+/** Positions of every unquoted pipe (`|` or `|&`, never `||`) in `code`. */
+function pipePositions(code) {
+  const out = [];
+  let skip = -1;
+  forEachUnquoted(code, (i) => {
+    if (i === skip || code[i] !== '|') return;
+    if (code[i + 1] === '|') {
+      skip = i + 1;
+      return;
+    }
+    out.push(i);
+  });
   return out;
+}
+
+/** The heredoc an unquoted `<<TAG` / `<<-'TAG'` in `code` opens, or null (`<<<` is a here-string). */
+function heredocOpened(code) {
+  let found = null;
+  forEachUnquoted(code, (i) => {
+    if (found || code[i] !== '<' || code[i + 1] !== '<' || code[i - 1] === '<')
+      return;
+    if (code[i + 2] === '<') return;
+    const m = /^<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(code.slice(i));
+    if (m) found = { strip: m[1] === '-', tag: m[3] };
+  });
+  return found;
 }
 
 /** The grep command right of a pipe at `pos`, if it has an early-exit option. */
@@ -220,6 +295,190 @@ function earlyGrepAfter(code, pos) {
   if (!words.length || !/^(grep|egrep|fgrep)$/.test(words[0])) return null;
   const opt = earlyExitOption(words);
   return opt ? { opt } : null;
+}
+
+// ── The early-reader shape: printf / echo into head, sed q or awk exit, with the status read ──
+// bash's printf and echo write once per line (the defect above), so their pipe into a reader that
+// stops early loses the race however short the text is; an external producer writes through stdio
+// in one go below a pipe buffer, which is why it is left out (the declared limit in the header).
+
+const KEYWORDS = new Set([
+  'if',
+  'elif',
+  'while',
+  'until',
+  'then',
+  'do',
+  'else',
+  '!',
+  '{',
+  'time',
+]);
+const DECLARERS = /^(local|export|declare|typeset|readonly)$/;
+const ASSIGN_WORD = /^[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=/;
+
+/** `words` with leading keywords, env assignments and `command`/`builtin` dropped. */
+function commandCore(words) {
+  let i = 0;
+  while (i < words.length && KEYWORDS.has(words[i])) i++;
+  while (i < words.length && ASSIGN_WORD.test(words[i])) i++;
+  while (i < words.length && /^(command|builtin)$/.test(words[i])) i++;
+  return words.slice(i);
+}
+
+/** The early reader (`head`, `sed …q`, `awk …exit`) right of a pipe at `pos`, or null. */
+export function earlyReaderAfter(code, pos) {
+  let rest = code.slice(pos + 1);
+  if (rest.startsWith('&')) rest = rest.slice(1);
+  const w = commandCore(commandWords(rest));
+  if (!w.length) return null;
+  // `head -n -N` / `-c -N` (GNU: all but the last N) reads to the end, so it is no early reader.
+  if (w[0] === 'head')
+    return w.some(
+      (a, i) =>
+        /^(-[nc]-|--(lines|bytes)=-)/.test(a) ||
+        (/^-[nc]$/.test(a) && /^-/.test(w[i + 1] ?? '')),
+    )
+      ? null
+      : 'head';
+  const scripts = [];
+  let first = null;
+  for (let i = 1; i < w.length; i++) {
+    const a = w[i];
+    if (w[0] === 'sed' && (a === '-e' || a === '--expression'))
+      scripts.push(w[++i] ?? '');
+    else if (w[0] === 'sed' && a.startsWith('--expression='))
+      scripts.push(a.slice(13));
+    else if (w[0] === 'awk' && /^-[Fvf]$/.test(a)) i++;
+    else if (a.startsWith('-')) continue;
+    else if (first === null) first = a;
+  }
+  if (!scripts.length && first !== null) scripts.push(first);
+  if (
+    w[0] === 'sed' &&
+    scripts.some((sc) => /(^|[;{}\s0-9$/])q([\s;}0-9]|$)/.test(sc))
+  )
+    return 'sed q';
+  if (w[0] === 'awk' && scripts.some((sc) => /\bexit\b/.test(sc)))
+    return 'awk exit';
+  return null;
+}
+
+/**
+ * Early-reader findings in one logical line: a `printf`/`echo` piped straight into an early reader,
+ * in a statement whose status something reads — a bare assignment of the substitution holding the
+ * pipeline, or the pipeline itself as a statement — under errexit, as a condition (if / while /
+ * `&&` / `||`), and not masked by `|| true` / `|| :` or a declaring builtin (local, export, …).
+ */
+export function earlyReaderHits(code, errexit) {
+  const pipes = [];
+  const bounds = []; // top-level statement boundaries: { at, len, op }
+  const segStart = new Map(); // frame -> start of the current pipeline segment
+  let skip = -1;
+  const frames = forEachUnquoted(code, (i, f) => {
+    if (i === skip) return;
+    const c = code[i];
+    const two = code.slice(i, i + 2);
+    const topLevel = f.depth === 0 && f.parens === 0;
+    if (two === '&&' || two === '||') {
+      skip = i + 1;
+      if (topLevel) bounds.push({ at: i, len: 2, op: two });
+      segStart.set(f, i + 2);
+    } else if (
+      c === ';' ||
+      c === '\n' ||
+      // `2>&1`, `>&2`, `&>f` and the `&` of `|&` are redirections, not a boundary
+      (c === '&' && !/[<>|]/.test(code[i - 1] ?? '') && code[i + 1] !== '>')
+    ) {
+      if (topLevel) bounds.push({ at: i, len: 1, op: ';' });
+      segStart.set(f, i + 1);
+    } else if (c === '|') {
+      pipes.push({
+        at: i,
+        frame: f,
+        from: segStart.get(f) ?? (f.start < 0 ? 0 : f.start + 2),
+      });
+      segStart.set(f, i + 1);
+    }
+  });
+  const hits = [];
+  for (const p of pipes) {
+    const reader = earlyReaderAfter(code, p.at);
+    if (!reader) continue;
+    const producer = commandCore(commandWords(code.slice(p.from, p.at)))[0];
+    if (producer !== 'printf' && producer !== 'echo') continue;
+    // The statement whose status matters: the pipe's own at top level, or the one holding its
+    // substitution when that substitution is a direct child of the top level.
+    let at;
+    let after;
+    if (p.frame.depth === 0) {
+      if (p.frame.parens !== 0) continue;
+      at = p.at;
+      after = p.at;
+    } else if (p.frame.depth === 1) {
+      at = p.frame.start;
+      after = p.frame.end;
+    } else continue;
+    const before = bounds.filter((b) => b.at < at).pop();
+    const next = bounds.find((b) => b.at > after);
+    const stmt = code.slice(
+      before ? before.at + before.len : 0,
+      next ? next.at : code.length,
+    );
+    const words = commandWords(
+      stmt
+        .replace(/\$\([^]*$/, '')
+        // a `case … in` head, a case pattern `a|b)`, a function header `f()` precede the command
+        .replace(/^\s*case\s+\S+\s+in\s+/, '')
+        .replace(/^\s*\(?[^\s()|]+(\s*\|\s*[^\s()|]+)*\)\s*/, '')
+        .replace(/^\s*(function\s+)?[A-Za-z_][\w:.-]*\s*\(\)\s*/, ''),
+    );
+    let k = 0;
+    const cond = [];
+    while (k < words.length && KEYWORDS.has(words[k])) cond.push(words[k++]);
+    if (p.frame.depth === 1) {
+      // Only a bare assignment returns the substitution's status: `NAME=…$(…)…` and nothing else.
+      if (
+        k >= words.length ||
+        !ASSIGN_WORD.test(words[k]) ||
+        DECLARERS.test(words[k])
+      )
+        continue;
+      const tail = code.slice(p.frame.end + 1, next ? next.at : code.length);
+      if (
+        !/^["'}]*(\s+[A-Za-z_][A-Za-z0-9_]*\+?=\S*|\s*\d*(>>?|<|&>)&?\s*[^\s;&|]+)*\s*(then|do)?\s*$/.test(
+          tail,
+        )
+      )
+        continue;
+    }
+    const nextText = next ? code.slice(next.at + next.len) : '';
+    if (next?.op === '||' && /^\s*(true|:)\s*($|[;&|)}])/.test(nextText))
+      continue;
+    const isCond =
+      cond.some((w) => /^(if|elif|while|until|!)$/.test(w)) ||
+      before?.op === '&&' ||
+      before?.op === '||' ||
+      next?.op === '&&' ||
+      next?.op === '||';
+    if (!errexit && !isCond) continue;
+    hits.push({ producer, reader });
+  }
+  return hits;
+}
+
+/** Does the file turn errexit on? Code only: a `set -e` named in a comment does not count. */
+export function underErrexit(rel, text) {
+  if (SOURCED_UNDER_PIPEFAIL.some((re) => re.test(rel))) return true;
+  const code = logicalLines(text)
+    .map((l) => l.code)
+    .join('\n');
+  for (const m of code.matchAll(
+    /(?:^|[\s;&|(])set((?:\s+(?:[-+]o\s+[A-Za-z]+|[-+][A-Za-z]+))+)/g,
+  )) {
+    if (/(^|\s)-[A-Za-z]*e|-o\s+errexit\b/.test(m[1])) return true;
+  }
+  return false;
 }
 
 /** Logical lines of a script: continuations joined, heredoc bodies dropped, comments kept apart. */
@@ -243,11 +502,10 @@ export function logicalLines(text) {
     const trimmed = code.replace(/\s+$/, '');
     const cont = /(^|[^\\])(\\\\)*\\$/.test(trimmed);
     acc.code += (cont ? trimmed.slice(0, -1) : code) + ' ';
-    // A heredoc opened on this physical line starts right after it.
-    const hd = /<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2/.exec(code);
-    if (hd && !/<<</.test(code.slice(hd.index, hd.index + 3))) {
-      heredoc = { strip: hd[1] === '-', tag: hd[3] };
-    }
+    // A heredoc opened on this physical line starts right after it. Only an unquoted `<<` opens
+    // one: `printf "cat <<'EOF'\n…"` is text, and reading it as a heredoc hid the rest of the file.
+    const hd = heredocOpened(code);
+    if (hd) heredoc = hd;
     if (
       cont ||
       /(^|[^|])\|\s*$/.test(trimmed) ||
@@ -284,13 +542,15 @@ export function scanText(rel, text) {
       `set -o pipefail\n${manifestAsScript(text)}`,
     ).map((f) => ({ ...f, file: MANIFEST, line: f.line - 1 }));
   if (!underPipefail(rel, text)) return [];
+  const errexit = underErrexit(rel, text);
   const findings = [];
   const phys = text.split('\n');
   for (const ll of logicalLines(text)) {
     const hits = pipePositions(ll.code)
       .map((p) => earlyGrepAfter(ll.code, p))
       .filter(Boolean);
-    if (!hits.length) continue;
+    const readers = earlyReaderHits(ll.code, errexit);
+    if (!hits.length && !readers.length) continue;
     const above = ll.line >= 2 ? phys[ll.line - 2] : '';
     const escapeSrc = [...ll.comments, /^\s*#/.test(above) ? above : ''];
     const esc = escapeSrc.map((c) => ESCAPE.exec(c)).find(Boolean);
@@ -308,7 +568,9 @@ export function scanText(rel, text) {
     findings.push({
       file: rel,
       line: ll.line,
-      msg: `pipe into \`grep ${hits[0].opt}\` under pipefail`,
+      msg: hits.length
+        ? `pipe into \`grep ${hits[0].opt}\` under pipefail`
+        : `\`${readers[0].producer}\` piped into \`${readers[0].reader}\` where the status is read, under pipefail`,
       code: ll.code.trim(),
     });
   }
@@ -364,9 +626,10 @@ function main(argv) {
   }
   if (findings.length) {
     console.log(
-      `\n${findings.length} finding(s). Under pipefail an early-exiting grep can SIGPIPE the producer and flip the result.` +
+      `\n${findings.length} finding(s). Under pipefail an early-exiting reader can SIGPIPE the producer and flip the result.` +
         `\nFix: grep -q P <<<"$VAR" | grep -q P <<<"$(producer)" | v=$(producer) && grep -q P <<<"$v"` +
-        `\n     (grep -qv X: [ -n "$(producer | grep -v X)" ]). Escape: # sigpipe-safe: <why, >= ${MIN_RATIONALE} chars>` +
+        `\n     (grep -qv X: [ -n "$(producer | grep -v X)" ]). printf/echo into head / sed q / awk exit:` +
+        `\n     \${v%%$'\\n'*} | reader <<<"$v" | reader < <(producer). Escape: # sigpipe-safe: <why, >= ${MIN_RATIONALE} chars>` +
         `\nSpec: header of scripts/check-pipefail-early-exit.mjs`,
     );
     return 1;

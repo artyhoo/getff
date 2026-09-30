@@ -1,14 +1,16 @@
 /**
- * Functional meta-tests for the PostToolUse rule-injector hook
- * (.claude/hooks/inject-matching-rule.sh) — the Class-B compensating mechanism
- * for .claude/rules/rule-enforcement-channel-selection.md (§4).
+ * Functional meta-tests for the card loader hook (.claude/hooks/inject-matching-rule.sh) — the
+ * Class-B compensating mechanism for .claude/rules/rule-enforcement-channel-selection.md (§4).
  *
- * Asserts the verified PostToolUse injection contract (code.claude.com/docs/en/hooks.md):
+ * Asserts the verified injection contract (code.claude.com/docs/en/hooks.md):
  *   - non-blocking injection MUST be JSON {hookSpecificOutput:{hookEventName,additionalContext}}
  *   - matching path → injects the rule's `<!-- inject: -->` summary
  *   - non-match / wrong tool → silent (empty stdout, exit 0)
- *   - session-cache → at most once per session_id
+ *   - session-cache → at most once per (session_id, agent_id) per card
  *   - prose that documents the marker syntax is NOT mis-detected (own-line anchor)
+ *   - the slice-1 arms (describe «slice 1 (trigger build)»): Read (`on: read`), PreToolUse Bash
+ *     (`events:`), SessionStart compact reset, the card directory, and the glob → regex table
+ *     checked against picomatch
  *
  * S6 honest-no-op paired fixture (kickoff §4): when the consumer has NO rules corpus
  * (RULES_DIR missing OR empty of .md files), the hook reports ONCE per session loudly,
@@ -18,12 +20,27 @@
  * Skips gracefully when `jq` is unavailable (the hook itself no-ops without jq).
  */
 import { describe, it, expect } from 'vitest';
-import { execSync, execFileSync } from 'node:child_process';
+import { execSync, execFileSync, spawn } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+// picomatch ships no type declarations; typing the one call used here avoids a new @types dependency.
+const picomatch = createRequire(import.meta.url)('picomatch') as (
+  glob: string,
+  options?: { dot?: boolean },
+) => (path: string) => boolean;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '../../..');
@@ -127,13 +144,18 @@ describe.skipIf(!JQ)(
       expect(runHook(payload('Write', 'src/app.ts', uniq()))).toBe('');
     });
 
-    it('non-edit tool (Read) → silent even on a matching path', () => {
+    // Slice 1 (S-5): the Read arm injects only cards that declare `on: read`; no rule in the
+    // repo corpus declares it, so a Read of a matching path stays silent here. The `on: read`
+    // half is asserted in the slice-1 block below.
+    it('Read of a matching path → silent when no card declares `on: read`', () => {
       expect(
         runHook(payload('Read', '.claude/rules/some-new-rule.md', uniq())),
       ).toBe('');
     });
 
-    it('session-cache: injects at most once per session_id', () => {
+    // Slice 1 (S-4): the key is (session_id, agent_id); the parent has no agent_id, so two
+    // parent edits in one session still inject once. The agent_id half is asserted below.
+    it('session-cache: injects at most once per (session_id, agent_id) per card', () => {
       const s = uniq();
       const first = runHook(payload('Edit', '.claude/rules/a.md', s));
       const second = runHook(payload('Edit', '.claude/rules/b.md', s));
@@ -295,10 +317,454 @@ describe('inject-matching-rule.sh — rules-delivery claim retraction (GH #1520)
     const install = readFileSync(resolve(REPO_ROOT, 'install.sh'), 'utf8').split('\n');
     const at = install.findIndex((l) => l.trim() === arm![1]);
     expect(at).toBeGreaterThan(-1);
+    // Slice 1: the refresh arm registers through register_imr_hooks (setup.d/lib.sh — the
+    // three arms + the legacy-matcher widening, pinned by tests/install-sh/imr-registration.test.sh).
     expect(install.slice(at, at + 5).join('\n')).toMatch(
-      /"inject-matching-rule" "Edit\|Write\|MultiEdit"/,
+      /register_imr_hooks "\$PROJECT_ROOT\/\.claude\/settings\.json"/,
     );
     // The @dual-pair marker survived the retraction edit untouched.
     expect(src).toMatch(/^# @dual-pair: rule-path-scoping$/m);
+  });
+});
+
+// =============================================================================
+// Trigger build, slice 1 — the loader as the platform (spec
+// _spec-2026-09-29-trigger-build.md §3 slice 1; S-1…S-5, S-14). Every case runs against
+// a throwaway corpus through the two seams: RULES_DIR_OVERRIDE (project rules) and
+// CARDS_DIR_OVERRIDE (the base-core card directory beside the hook, S-2).
+// =============================================================================
+describe.skipIf(!JQ)('inject-matching-rule.sh — slice 1 (trigger build)', () => {
+  /** A fresh corpus: files maps a name to its content, for rules and cards separately. */
+  function corpus(rules: Record<string, string>, cards: Record<string, string> = {}) {
+    const root = mkdtempSync(join(tmpdir(), `imr-s1-${uniq()}-`));
+    const rulesDir = join(root, 'rules');
+    const cardsDir = join(root, 'cards');
+    mkdirSync(rulesDir);
+    mkdirSync(cardsDir);
+    for (const [n, c] of Object.entries(rules)) writeFileSync(join(rulesDir, n), c);
+    for (const [n, c] of Object.entries(cards)) writeFileSync(join(cardsDir, n), c);
+    return {
+      env: { RULES_DIR_OVERRIDE: rulesDir, CARDS_DIR_OVERRIDE: cardsDir },
+      cleanup: () => rmSync(root, { recursive: true, force: true }),
+    };
+  }
+
+  function ctx(out: string): string {
+    return out === '' ? '' : JSON.parse(out).hookSpecificOutput.additionalContext;
+  }
+
+  function edit(relPath: string, session: string, extra: Record<string, unknown> = {}) {
+    return { ...payload('Edit', relPath, session), hook_event_name: 'PostToolUse', ...extra };
+  }
+
+  // ---------------------------------------------------------------------------
+  // S-1 — glob → ERE translation. Each glob is asserted against the hook AND against
+  // picomatch (the matcher family Claude Code's native `paths:` is documented on, rule
+  // rule-enforcement-channel-selection.md §4), so a divergence from native matching is a
+  // failing row, not a surprise in a consumer project.
+  // ---------------------------------------------------------------------------
+  const GLOB_TABLE: Array<[glob: string, path: string, match: boolean]> = [
+    ['.claude/rules/**', '.claude/rules/a.md', true],
+    ['.claude/rules/**', '.claude/rules/x/y.md', true],
+    ['.claude/rules/**', 'xclaude/rules/a.md', false], // literal `.` (BU note N2)
+    ['.claude/rules/**', '.claude/rulesX/a.md', false],
+    ['src/**/*.ts', 'src/a.ts', true],
+    ['src/**/*.ts', 'src/x/y/a.ts', true],
+    ['src/**/*.ts', 'src/a.tsx', false],
+    ['src/**/*.ts', 'lib/a.ts', false],
+    ['docs/*.md', 'docs/a.md', true],
+    ['docs/*.md', 'docs/x/a.md', false],
+    ['src/?.ts', 'src/a.ts', true],
+    ['src/?.ts', 'src/ab.ts', false],
+    ['src/*.{ts,tsx}', 'src/a.ts', true],
+    ['src/*.{ts,tsx}', 'src/a.tsx', true],
+    ['src/*.{ts,tsx}', 'src/a.js', false],
+    ['a.b/**', 'a.b/c', true],
+    ['a.b/**', 'aXb/c', false],
+    ['a+b/**', 'a+b/c', true],
+    ['a+b/**', 'aab/c', false],
+    ['lib/a$/**', 'lib/a$/c', true],
+    ['packages/core/principles/**', 'packages/core/principles/99-x.test.ts', true],
+    ['setup', 'setup', true],
+    ['setup', 'setup.d/lib.sh', false],
+    // Cold review findings 6 + 9: an empty alternative (macOS regcomp rejects `(|x)`), a `**`
+    // inside a segment (picomatch reads it as `*`), and `^` as a literal.
+    ['src/*.ts{,x}', 'src/a.ts', true],
+    ['src/*.ts{,x}', 'src/a.tsx', true],
+    ['src/*.ts{,x}', 'src/a.tsxx', false],
+    ['a**b/c', 'aXYb/c', true],
+    ['a**b/c', 'a/x/b/c', false],
+    ['lib/^a/**', 'lib/^a/c', true],
+    ['lib/^a/**', 'lib/a/c', false],
+    // Cold review round 2, finding 1: a brace edge (`{`, `,`, `}`) bounds a segment too, so
+    // `**` right beside one is still a globstar.
+    ['{src/**,lib/**}', 'src/a/b.ts', true],
+    ['{src/**,lib/**}', 'x/a.ts', false],
+    ['src/{**/,}*.ts', 'src/a/b/c.ts', true],
+    ['src/{**/,}*.ts', 'src/c.ts', true],
+    ['{**/,}x.ts', 'a/b/x.ts', true],
+  ];
+
+  it.each(GLOB_TABLE)('glob %s vs %s → %s (hook agrees with picomatch)', (glob, path, match) => {
+    expect(picomatch(glob, { dot: true })(path)).toBe(match);
+    // The `<!-- globs: -->` marker (not `paths:`) so the old script fails on the
+    // translation itself; its comma list must not split inside `{a,b}`.
+    const c = corpus({
+      'r.md': `<!-- globs: ${glob} -->\n<!-- inject: GLOB-HIT -->\n# R\n`,
+    });
+    try {
+      const got = ctx(runHook(edit(path, uniq()), c.env));
+      expect(got.includes('GLOB-HIT')).toBe(match);
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // A slash-less `*.ext` glob matches at any depth — today's behaviour, kept (no rule in the
+  // corpus loses reach). picomatch without matchBase does NOT; the native behaviour is
+  // settled by the slice-1 live probe, not assumed here.
+  it('slash-less *.sh matches at any depth (kept behaviour)', () => {
+    const c = corpus({ 'r.md': '<!-- globs: *.sh -->\n<!-- inject: SH-HIT -->\n# R\n' });
+    try {
+      expect(ctx(runHook(edit('setup.d/lib.sh', uniq()), c.env))).toContain('SH-HIT');
+      expect(ctx(runHook(edit('x.sh', uniq()), c.env))).toContain('SH-HIT');
+      expect(ctx(runHook(edit('x.shx', uniq()), c.env))).toBe('');
+      // The same divergence from picomatch, pinned in both directions (native Claude Code
+      // agrees with the hook: the slice-1 live probe loaded a `*.sh` rule on sub/deep/x.sh).
+      expect(picomatch('*.sh', { dot: true })('setup.d/lib.sh')).toBe(false);
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // A bare `|` is a literal character in the hook's grammar. picomatch passes it through to its
+  // regex as top-level alternation, so `lib/a|b/**` does not even match the path it names.
+  // The divergence is pinned in both directions rather than copied.
+  it('a bare | is a literal (picomatch reads it as alternation)', () => {
+    const c = corpus({ 'r.md': '<!-- globs: lib/a|b/** -->\n<!-- inject: BAR-HIT -->\n# R\n' });
+    try {
+      expect(ctx(runHook(edit('lib/a|b/c', uniq()), c.env))).toContain('BAR-HIT');
+      expect(ctx(runHook(edit('lib/a/c', uniq()), c.env))).toBe('');
+      expect(picomatch('lib/a|b/**', { dot: true })('lib/a|b/c')).toBe(false);
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // S-3 — `paths:` frontmatter is a second glob source (union with `<!-- globs: -->`), and a
+  // file with no `inject:` whose body fits the card limit IS the card (advisor E5 N1).
+  // ---------------------------------------------------------------------------
+  it('paths: frontmatter alone (block list) selects the rule', () => {
+    const c = corpus({
+      'p.md': '---\npaths:\n  - "docs/**"\n---\n<!-- inject: PATHS-ONLY -->\n# P\n',
+    });
+    try {
+      expect(ctx(runHook(edit('docs/x.md', uniq()), c.env))).toContain('PATHS-ONLY');
+      expect(ctx(runHook(edit('src/x.md', uniq()), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('paths: (inline list) and globs: are a union', () => {
+    const c = corpus({
+      'u.md':
+        '---\npaths: ["docs/**"]\n---\n<!-- globs: src/** -->\n<!-- inject: UNION -->\n# U\n',
+    });
+    try {
+      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('UNION');
+      expect(ctx(runHook(edit('src/a.ts', uniq()), c.env))).toContain('UNION');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('no inject: + body within the limit → the BODY is injected (N1)', () => {
+    const c = corpus({
+      'b.md': '---\npaths:\n  - "docs/**"\n---\n# Card title\n\nDo the BODY-THING before editing docs.\n',
+    });
+    try {
+      const got = ctx(runHook(edit('docs/a.md', uniq()), c.env));
+      expect(got).toContain('Do the BODY-THING before editing docs.');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('no inject: + body over the limit → first heading only', () => {
+    const long = 'x'.repeat(1200);
+    const c = corpus({
+      'big.md': `---\npaths:\n  - "docs/**"\n---\n# BIG-HEADING\n\n${long}\n`,
+    });
+    try {
+      const got = ctx(runHook(edit('docs/a.md', uniq()), c.env));
+      expect(got).toContain('BIG-HEADING');
+      expect(got).not.toContain('xxxxxxxxxx');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // S-2 — the second card source beside the hook; the pointer names the card's `depth:`.
+  // ---------------------------------------------------------------------------
+  it('card directory: a card fires and its pointer names its depth: files', () => {
+    const c = corpus(
+      {},
+      {
+        'k.md':
+          '---\npaths:\n  - "src/**"\ndepth:\n  - docs/deep-one.md\n  - docs/deep-two.md\n---\nCARD-BODY: check the thing.\n',
+      },
+    );
+    try {
+      const got = ctx(runHook(edit('src/a.ts', uniq()), c.env));
+      expect(got).toContain('CARD-BODY: check the thing.');
+      expect(got).toContain('docs/deep-one.md');
+      expect(got).toContain('docs/deep-two.md');
+      expect(got).not.toContain('.claude/rules/k.md');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('card directory alone counts as a corpus (no empty-corpus report)', () => {
+    const c = corpus({}, { 'k.md': '---\npaths:\n  - "src/**"\n---\nK\n' });
+    try {
+      expect(ctx(runHook(edit('lib/a.ts', uniq()), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // S-4 — once-key = session_id + agent_id; compaction reset.
+  // ---------------------------------------------------------------------------
+  const ONE = { 'o.md': '<!-- globs: src/** -->\n<!-- inject: ONCE-CARD -->\n# O\n' };
+
+  it('a subagent (agent_id) gets the card although the parent already had it', () => {
+    const c = corpus(ONE);
+    const s = uniq();
+    try {
+      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(edit('src/a.ts', s, { agent_id: 'agent-1' }), c.env))).toContain('ONCE-CARD');
+      expect(ctx(runHook(edit('src/b.ts', s, { agent_id: 'agent-1' }), c.env))).toBe('');
+      expect(ctx(runHook(edit('src/b.ts', s), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('SessionStart with source=compact clears the parent cache; other sources do not', () => {
+    const c = corpus(ONE);
+    const s = uniq();
+    try {
+      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
+      expect(
+        runHook({ hook_event_name: 'SessionStart', source: 'resume', session_id: s }, c.env),
+      ).toBe('');
+      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toBe('');
+      expect(
+        runHook({ hook_event_name: 'SessionStart', source: 'compact', session_id: s }, c.env),
+      ).toBe('');
+      expect(ctx(runHook(edit('src/a.ts', s), c.env))).toContain('ONCE-CARD');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // S-5 — the Read arm (`on: read` cards only) and the event arm (PreToolUse:Bash).
+  // ---------------------------------------------------------------------------
+  it('Read arm: an `on: read` card fires on Read; a plain card does not', () => {
+    const c = corpus(
+      {},
+      {
+        'rd.md': '---\npaths:\n  - "src/**"\non: read\n---\nREAD-CARD\n',
+        'ed.md': '---\npaths:\n  - "src/**"\n---\nEDIT-CARD\n',
+      },
+    );
+    try {
+      const out = runHook(
+        { ...payload('Read', 'src/a.ts', uniq()), hook_event_name: 'PostToolUse' },
+        c.env,
+      );
+      expect(JSON.parse(out).hookSpecificOutput.hookEventName).toBe('PostToolUse');
+      expect(ctx(out)).toContain('READ-CARD');
+      expect(ctx(out)).not.toContain('EDIT-CARD');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  function bash(command: string, session: string) {
+    return {
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Bash',
+      session_id: session,
+      tool_input: { command },
+    };
+  }
+
+  // Cold review finding 9: the Read and event arms run on every Read and every Bash call, so
+  // a call that injects nothing must leave nothing behind in TMPDIR.
+  it('a call that injects nothing creates no cache directory', () => {
+    const c = corpus({}, { 'ev.md': "---\nevents:\n  - '^make( |$)'\n---\nEV\n" });
+    const tmp = mkdtempSync(join(tmpdir(), `imr-lazy-${uniq()}-`));
+    try {
+      const env = { ...c.env, TMPDIR: tmp };
+      expect(runHook(bash('ls', uniq()), env)).toBe('');
+      expect(runHook({ ...payload('Read', 'src/a.ts', uniq()), hook_event_name: 'PostToolUse' }, env)).toBe('');
+      // Only the loader's own cache names: the D12 liveness prelude writes its marker on
+      // every run, by design.
+      expect(readdirSync(tmp).filter((n) => n.startsWith('cc-rule-injector-'))).toEqual([]);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+      c.cleanup();
+    }
+  });
+
+  it('event arm: a Bash command matching an events: regex injects as PreToolUse', () => {
+    const c = corpus(
+      {},
+      {
+        'ev.md': "---\nevents:\n  - '^git (commit|push)( |$)'\n---\nEVENT-CARD\n",
+        'pa.md': '---\npaths:\n  - "src/**"\n---\nPATH-CARD\n',
+      },
+    );
+    try {
+      const out = runHook(bash('git commit -m x', uniq()), c.env);
+      const json = JSON.parse(out);
+      expect(json.hookSpecificOutput.hookEventName).toBe('PreToolUse');
+      expect(json.hookSpecificOutput.permissionDecision).toBeUndefined();
+      expect(ctx(out)).toContain('EVENT-CARD');
+      expect(ctx(out)).not.toContain('PATH-CARD');
+      expect(runHook(bash('git status', uniq()), c.env)).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // Cold review 2026-09-29 (finding 8): a card carrying BOTH triggers fires on each arm through
+  // its own trigger only — the Bash arm never reads its globs, the edit arm never its regexes.
+  it('a card with paths: and events: fires on each arm through its own trigger only', () => {
+    const c = corpus({}, {
+      'both.md': "---\npaths:\n  - \"src/**\"\nevents:\n  - '^make( |$)'\n---\nBOTH-CARD\n",
+    });
+    try {
+      expect(ctx(runHook(bash('ls src/a.ts', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(bash('make build', uniq()), c.env))).toContain('BOTH-CARD');
+      expect(ctx(runHook(edit('lib/make', uniq()), c.env))).toBe('');
+      expect(ctx(runHook(edit('src/a.ts', uniq()), c.env))).toContain('BOTH-CARD');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('Read arm: an `on: read` card stays silent on a non-matching path', () => {
+    const c = corpus({}, { 'rd.md': '---\npaths:\n  - "src/**"\non: read\n---\nREAD-CARD\n' });
+    try {
+      const out = runHook(
+        { ...payload('Read', 'lib/a.ts', uniq()), hook_event_name: 'PostToolUse' },
+        c.env,
+      );
+      expect(out).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  it('compaction reset leaves a subagent cache intact', () => {
+    const c = corpus(ONE);
+    const s = uniq();
+    const sub = { agent_id: 'agent-9' };
+    try {
+      expect(ctx(runHook(edit('src/a.ts', s, sub), c.env))).toContain('ONCE-CARD');
+      runHook({ hook_event_name: 'SessionStart', source: 'compact', session_id: s }, c.env);
+      expect(ctx(runHook(edit('src/a.ts', s, sub), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // Cold review finding 1: `@sh` quotes an ARRAY as several words, so an array-valued field
+  // reached `eval` as extra command words. Every field is coerced to one string first.
+  it('a non-string payload field never executes as a command', () => {
+    const c = corpus(ONE);
+    const marker = join(tmpdir(), `imr-pwned-${uniq()}`);
+    try {
+      runHook(
+        {
+          hook_event_name: ['PostToolUse', 'touch', marker],
+          tool_name: 'Edit',
+          session_id: uniq(),
+          tool_input: { file_path: ['/x', 'touch', marker], command: ['a', 'touch', marker] },
+        },
+        c.env,
+      );
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      rmSync(marker, { force: true });
+      c.cleanup();
+    }
+  });
+
+  // Cold review finding 7: YAML forms the frontmatter parser missed.
+  it('YAML: a non-indented block list, a comment line inside it, a trailing comment', () => {
+    const c = corpus({
+      'y.md':
+        '---\npaths:\n- "docs/**"\n# a comment inside the list\n- "tools/**"  # trailing\n---\n<!-- inject: YAML-CARD -->\n# Y\n',
+    });
+    try {
+      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('YAML-CARD');
+      expect(ctx(runHook(edit('tools/a.sh', uniq()), c.env))).toContain('YAML-CARD');
+      expect(ctx(runHook(edit('lib/a.ts', uniq()), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // Cold review round 2, findings 4 + 5: a key whose value is only a comment still opens a
+  // block list, and a comma or ` #` inside a quoted flow-list item stays in the item.
+  it('YAML: a comment-only value opens its list; quoted flow items keep , and #', () => {
+    const c = corpus({
+      'a.md': '---\npaths: # the globs\n  - "docs/**"\n---\n<!-- inject: COMMENTED-KEY -->\n# A\n',
+      'b.md': "---\npaths: [lib/**, \"x # y/**\", 'p,q/**']\n---\n<!-- inject: FLOW-QUOTED -->\n# B\n",
+    });
+    try {
+      expect(ctx(runHook(edit('docs/a.md', uniq()), c.env))).toContain('COMMENTED-KEY');
+      expect(ctx(runHook(edit('x # y/a', uniq()), c.env))).toContain('FLOW-QUOTED');
+      expect(ctx(runHook(edit('p,q/a', uniq()), c.env))).toContain('FLOW-QUOTED');
+      expect(ctx(runHook(edit("'p/a", uniq()), c.env))).toBe('');
+    } finally {
+      c.cleanup();
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // S-14 — the once-cache under parallel runs: exactly one of N concurrent runs injects.
+  // ---------------------------------------------------------------------------
+  function runHookAsync(input: Record<string, unknown>, env: NodeJS.ProcessEnv) {
+    return new Promise<string>((res, rej) => {
+      const p = spawn('bash', [HOOK], { env: { ...process.env, ...env } });
+      let out = '';
+      p.stdout.on('data', (d) => (out += d));
+      p.on('error', rej);
+      p.on('close', () => res(out.trim()));
+      p.stdin.end(JSON.stringify(input));
+    });
+  }
+
+  it('concurrency: 8 parallel runs of one payload → exactly one injection', async () => {
+    const c = corpus(ONE);
+    try {
+      const s = uniq();
+      const outs = await Promise.all(
+        Array.from({ length: 8 }, () => runHookAsync(edit('src/a.ts', s), c.env)),
+      );
+      expect(outs.filter((o) => o !== '').length).toBe(1);
+    } finally {
+      c.cleanup();
+    }
   });
 });

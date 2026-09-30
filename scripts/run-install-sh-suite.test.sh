@@ -6,7 +6,15 @@
 set -uo pipefail
 # The OFFLOAD arms set these per call. An inherited value — the sweep run under PC_LOCAL=1, or a
 # session that exports the runner — must not reach the arms that do not set them.
-unset PC_LOCAL INSTALL_SH_HEAVY_RUNNER INSTALL_SH_QUARANTINE
+unset PC_LOCAL PC_LOCAL_WHY INSTALL_SH_HEAVY_RUNNER INSTALL_SH_QUARANTINE
+# The same holds for an inherited fd 3. The sweep does `exec 3>&2` before it runs this file, so fd 3
+# arrives OPEN there and CLOSED in CI; the runner's progress() writes to fd 3 when it is open, and
+# every arm that captures only stdout+stderr and greps for progress text then passes in CI and fails
+# in the sweep. Two such arms went RED under the sweep only (2026-09-14: the fd3-closed arm;
+# 2026-09-29: the offload fallback arm's «ran the routed half on this host»). Closing fd 3 once here
+# makes every arm see what CI sees; the progress arm below opens it explicitly for its own call.
+# The CI step runs this file a second time with fd 3 open to keep that property from regressing.
+exec 3>&-
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$HERE/run-install-sh-suite.sh"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -125,10 +133,9 @@ printf '%s\n' "$captured" >"$TMP/o8"
 no_grep_out "the counter did NOT leak into the captured gate output" "3/3 done" "$TMP/o8"
 grep_out "the gate output itself is still captured" "body-2" "$TMP/o8"
 # Fallback: with fd 3 closed (a direct CI invocation) the counter must still appear, on stderr.
-# `3>&-` is load-bearing and must stay: when this file runs as a sweep gate the sweep has already
-# done `exec 3>&2`, so fd 3 is OPEN and inherited here — without the explicit close the arm would
-# assert the fallback while the fast path was actually taken, and pass for the wrong reason.
-# (Measured 2026-09-14: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`.)
+# The file-wide `exec 3>&-` at the top already closes an inherited fd 3; the per-call `3>&-` stays
+# so this arm states its own precondition and does not depend on the top of the file (it is the
+# 2026-09-14 arm named there: standalone GREEN, RED under `bash scripts/run-local-ci-sweep.sh`).
 bash "$RUNNER" "$S" >"$TMP/o9" 2>"$TMP/e9" 3>&-
 check "fd3-closed arm exits 0" 0 $?
 grep_out "with fd 3 closed the counter falls back to stderr" "3/3 done" "$TMP/e9"
@@ -231,14 +238,28 @@ check "a runner that is not an executable → exits 1" 1 $?
 grep_out "the bad runner is named with the way out" "unset INSTALL_SH_HEAVY_RUNNER" "$TMP/r7"
 no_grep_out "nothing ran before the bad runner was refused" "where=" "$TMP/r7"
 
-# --- (route, escape) PC_LOCAL=1 → the runner is never called and the run is the unrouted one ---
+# --- (route, escape) PC_LOCAL=1 + a reason → the runner is never called and the run is the unrouted one ---
 mk_route_suite; rm -f "$TMP/runner.log"
-PC_LOCAL=1 INSTALL_SH_HEAVY_RUNNER="$TMP/bin/exec-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r8" 2>&1
-check "PC_LOCAL=1 run exits 0" 0 $?
-grep_out "PC_LOCAL=1 run tallies every fixture" "5/5 passed" "$TMP/r8"
-if [ -s "$TMP/runner.log" ]; then echo "  ✗ PC_LOCAL=1 still called the runner"; fails=$((fails + 1))
-else echo "  ✓ PC_LOCAL=1 never called the runner"; fi
-no_grep_out "PC_LOCAL=1 ran nothing through the runner" "where=runner" "$TMP/r8"
+PC_LOCAL=1 PC_LOCAL_WHY='fixture escape: this run stays on this host' INSTALL_SH_HEAVY_RUNNER="$TMP/bin/exec-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r8" 2>&1
+check "PC_LOCAL=1 with a reason exits 0" 0 $?
+grep_out "PC_LOCAL=1 with a reason tallies every fixture" "5/5 passed" "$TMP/r8"
+if [ -s "$TMP/runner.log" ]; then echo "  ✗ PC_LOCAL=1 with a reason still called the runner"; fails=$((fails + 1))
+else echo "  ✓ PC_LOCAL=1 with a reason never called the runner"; fi
+no_grep_out "PC_LOCAL=1 with a reason ran nothing through the runner" "where=runner" "$TMP/r8"
+# Skipping the runner also skips its log, so the escape says itself here with the reason.
+grep_out "PC_LOCAL=1 with a reason says the escape and its reason" "runner skipped (why: fixture escape: this run stays on this host)" "$TMP/r8"
+
+# --- (route, no reason) a bare or short-reason PC_LOCAL=1 is not an escape: the split still routes ---
+# The runner (~/bin/pc-run) honours PC_LOCAL=1 only with PC_LOCAL_WHY of 20+ characters since
+# 2026-09-29; a bare flag here used to skip the runner entirely, so the habit bypassed that rule
+# without leaving a line in the runner's log. A too-short reason is the same as none.
+for why in '' 'too short'; do
+  mk_route_suite; rm -f "$TMP/runner.log"
+  PC_LOCAL=1 PC_LOCAL_WHY="$why" INSTALL_SH_HEAVY_RUNNER="$TMP/bin/remote-runner" bash "$R/scripts/run-install-sh-suite.sh" tests/install-sh/ >"$TMP/r8b" 2>&1
+  check "PC_LOCAL=1 with reason '$why' still exits 0" 0 $?
+  check "PC_LOCAL=1 with reason '$why' still calls the runner once" 1 "$(grep -c . "$TMP/runner.log" 2>/dev/null || echo 0)"
+  for n in r1 r2 r3; do grep_out "PC_LOCAL=1 with reason '$why': routable $n ran through the runner" "$n-where=runner" "$TMP/r8b"; done
+done
 
 # --- (route, fallback) a runner that ran the routed half on THIS host → one pool, never two ---
 # pc-run falls back to a local run when the PC is unreachable; the far end sees the origin mark,

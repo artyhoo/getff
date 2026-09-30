@@ -19,6 +19,7 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { isMainEntry } from './lib/is-main-entry.mjs';
 
 const DEFAULT_SOURCES_DIR = 'docs/meta-factory/triage-corpus/sources';
 
@@ -119,7 +120,7 @@ export function probe(rows, cacheDir, sourcesDir = DEFAULT_SOURCES_DIR) {
   return failures;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainEntry(import.meta.url)) {
   const args = process.argv.slice(2);
   const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
   const bodiesDir = opt('--bodies');

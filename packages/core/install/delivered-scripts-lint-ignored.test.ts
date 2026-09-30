@@ -1,6 +1,6 @@
 // Every lintable script getff delivers into the consumer's scripts/ is getff's machinery, never the
 // consumer's code — so getff's ESLint configs ignore it, and so does the ignores entry getff adds to a
-// config the consumer owns (99-finalize.sh `_own_eslint_ignores`). A script missing from those lists is
+// config the consumer owns (eslint-wire.sh `_own_eslint_ignores`). A script missing from those lists is
 // linted as the consumer's code: at install its findings go into the consumer's lint baseline (ESLint's
 // bulk suppressions) as if the consumer had written them. Measured by the P5 red-lint cell (R2): 32 of
 // the 34 recorded findings were getff's own scripts/prove-rules.mjs.
@@ -43,7 +43,9 @@ function deliveredScripts(): string[] {
 }
 /** The paths `_own_eslint_ignores` prints for a config the consumer owns. */
 function ownConfigIgnores(): string {
-  const text = read('setup.d/99-finalize.sh');
+  // eslint_wire_synth's home since the --refresh sweep (G4): 99-finalize and do_refresh both run it.
+  const text = read('setup.d/eslint-wire.sh');
+  expect(text.indexOf('_own_eslint_ignores() {')).toBeGreaterThan(-1);
   const start = text.indexOf('_own_eslint_ignores() {');
   return text.slice(start, text.indexOf('\n}\n', start));
 }
@@ -51,7 +53,7 @@ function missing(scripts: string[]): string[] {
   const own = ownConfigIgnores();
   return scripts.flatMap((s) => [
     ...TEMPLATES.filter((t) => !read(t).includes(`'${s}'`)).map((t) => `${s} not ignored in ${t}`),
-    ...(own.includes(s) ? [] : [`${s} not in 99-finalize.sh _own_eslint_ignores`]),
+    ...(own.includes(s) ? [] : [`${s} not in eslint-wire.sh _own_eslint_ignores`]),
   ]);
 }
 

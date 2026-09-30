@@ -40,6 +40,24 @@ if command -v ruff      >/dev/null 2>&1; then have_ruff=1; fi
 # even when the user invokes `git push` from a subdirectory.
 cd "$(git rev-parse --show-toplevel)"
 
+# ZCode skill-mirror check (#1502) — the same read-only completeness gate the npm lane wires into
+# .husky/pre-commit; the python lane's only local git rung is pre-push, so it rides here (and via
+# the pre-commit fragment, which invokes this same body at its pre-push stage). Absent script →
+# loud WARN, push continues (same DECISIONS contract as the npm hook — never a silent skip); it is
+# absent only when removed from the project, and stays absent only under a Layer-3
+# scripts/check-zcode-mirror.sh.override.md (--refresh skips such a file). `-f`, not `-x`: the
+# script runs through `sh`, so its executable bit must not decide whether the check runs. "$PWD"
+# (the toplevel after the cd above) is passed explicitly, so an inherited AIF_PROJECT_ROOT cannot
+# point the check at another tree.
+if [ -f scripts/check-zcode-mirror.sh ]; then
+  if ! sh scripts/check-zcode-mirror.sh "$PWD"; then
+    echo "✗ getff pre-push: .zcode/skills mirror incomplete — push blocked. Fix the offenders above (or add an exemption line to .ai-factory/zcode-mirror-exemptions.txt)." >&2
+    exit 1
+  fi
+else
+  echo "⚠ getff pre-push: scripts/check-zcode-mirror.sh not found — .zcode/skills mirror NOT checked; getff's installer puts it back: bash /path/to/getff/install.sh python --refresh (skipped while scripts/check-zcode-mirror.sh.override.md marks it project-owned)." >&2
+fi
+
 if [[ "$have_ast_grep" == "0" ]]; then
   echo "⚠ getff pre-push: ast-grep NOT on PATH — skipping ast-grep arm (fail OPEN)." >&2
   echo "    install hint: npm install -g @ast-grep/cli@0.44.1" >&2

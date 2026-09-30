@@ -1,14 +1,14 @@
 /**
- * Functional tests for the UserPromptSubmit bootstrap-injection hook
+ * Functional tests for the SessionStart bootstrap-injection hook
  * (.claude/hooks/inject-session-bootstrap.sh) — Wave 7 sub-wave 7.2.a.
  *
  * Contract (from hook source lines 1-14):
- *   - UserPromptSubmit hook: stdout is injected into Claude Code's prompt
+ *   - SessionStart hook: stdout is injected into Claude Code's session
  *     context automatically by the harness (line 3).
  *   - Always emits the static digest via heredoc (lines 6-14); no session cache,
  *     no skip conditions, stdin is ignored.
  *   - Digest is bounded by sentinel tags:
- *       opening: "[session-bootstrap digest — auto-injected at prompt submit]" (line 7)
+ *       opening: "[session-bootstrap digest — auto-injected at session start]" (line 7)
  *       closing: "[/session-bootstrap digest]" (line 13)
  *   - Content invariants (lines 8-12): project goal, the invariants rendered from
  *     README.md by scripts/render-invariants.mjs, Step-0 reading order,
@@ -43,9 +43,9 @@ const REPO_ROOT = resolve(HERE, '../../..');
 const HOOK = resolve(REPO_ROOT, '.claude/hooks/inject-session-bootstrap.sh');
 
 /**
- * Run the hook with a simulated UserPromptSubmit stdin payload.
+ * Run the hook with a simulated SessionStart stdin payload.
  * The hook ignores stdin (pure stdout emitter, line 6-14) but we send
- * realistic input matching CC's UserPromptSubmit shape for accuracy.
+ * realistic input matching CC's SessionStart shape for accuracy.
  *
  * env is merged onto process.env (used to simulate ZCODE_PROJECT_DIR for the ZCode JSON path —
  * mirrors deps-hash-check.test.ts:336). Default-scrub ZCODE_PROJECT_DIR so the CC-plain-text
@@ -77,9 +77,9 @@ function runHook(
   }
   const r = spawnSync(shell, [HOOK], {
     input: JSON.stringify({
-      hook_event_name: 'UserPromptSubmit',
+      hook_event_name: 'SessionStart',
       session_id,
-      prompt: 'test prompt',
+      source: 'startup',
       transcript_path: '/tmp/test-transcript.jsonl',
     }),
     encoding: 'utf8',
@@ -93,13 +93,13 @@ function runHook(
 
 // sentinel tags from hook source lines 7 and 13
 const OPENING_TAG =
-  '[session-bootstrap digest — auto-injected at prompt submit]';
+  '[session-bootstrap digest — auto-injected at session start]';
 const CLOSING_TAG = '[/session-bootstrap digest]';
 
 // key goal anchor phrase from hook source line 8
 const GOAL_ANCHOR = "AI agents can't silently bypass undocumented conventions";
 
-describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection', () => {
+describe('inject-session-bootstrap.sh — SessionStart bootstrap injection', () => {
   it('PAIRED-NEGATIVE: output MUST NOT be empty (core injection contract, hook line 6-14)', () => {
     const { stdout } = runHook();
     // This is the load-bearing negative assertion:
@@ -152,8 +152,8 @@ describe('inject-session-bootstrap.sh — UserPromptSubmit bootstrap injection',
     expect(first.stdout).toBe(second.stdout);
   });
 
-  it('PAYLOAD SHAPE: output is plain text, NOT JSON (UserPromptSubmit ≠ PostToolUse contract)', () => {
-    // UserPromptSubmit hooks inject via plain stdout (hook line 3), NOT via
+  it('PAYLOAD SHAPE: output is plain text, NOT JSON (SessionStart ≠ PostToolUse contract)', () => {
+    // SessionStart hooks inject via plain stdout (hook line 3), NOT via
     // JSON hookSpecificOutput (that is PostToolUse semantics).
     // Asserting the correct channel contract: the output must NOT be parseable
     // as a JSON object with hookSpecificOutput — otherwise the wrong protocol
@@ -323,7 +323,7 @@ const fullRulesFixture = (): Record<string, string> => {
 // (R4 dispatch VERIFY 3). Any framework-tree render change breaks this arm.
 // Re-captured 2026-09-28 when the Invariants line became a rendering of README.md
 // (five invariants, scripts/render-invariants.mjs); every other line is unchanged.
-const FRAMEWORK_GOLDEN = `[session-bootstrap digest — auto-injected at prompt submit]
+const FRAMEWORK_GOLDEN = `[session-bootstrap digest — auto-injected at session start]
 Goal: AI agents can't silently bypass undocumented conventions. Every rule is an executable artifact that fails at the earliest reachable channel — edit-time → pre-commit → pre-push → CI → production audit. CI = last-resort gate. (README.md#why-this-exists)
 Invariants: (1) Build-vs-reuse discipline — prior-art consult before any capability commit (.claude/rules/build-first-reuse-default.md); (2) Recursive self-application — make self-audit green = the framework's own conventions don't drift; (3) Search-coverage discipline — negative-existence claims («no production analog») fail the §1 6-item checklist before shipping as load-bearing (.claude/rules/phase-research-coverage.md); (4) No paid LLM in CI — no API-billed LLM calls in CI/GH Actions beyond the operator's existing Claude Code subscription (.claude/rules/no-paid-llm-in-ci.md); (5) Multi-channel enforcement — every rule fails at the earliest reachable channel.
 Step-0 reading order: README.md → .claude/session-bootstrap.md → CLAUDE.md → task-specific docs.

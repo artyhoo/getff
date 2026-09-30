@@ -37,9 +37,9 @@
 # bare run: installs). Deterministic + API-free.
 #
 # CI-ONLY (ubuntu), merge-blocking via the `consumer-matrix` job, cell `python-unfamiliar-stack`
-# (.github/workflows/audit-self.yml:2233, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
+# (.github/workflows/audit-self.yml:2271, the `consumer-matrix:` job key). Unlike its two sibling cells this one is
 # reachable from no make target, and that is deliberate: it is the only cell that mutates
-# host state OUTSIDE its tmpdir. Line 346 runs `npm install -g "$ASTGREP_PKG"`, which lands
+# host state OUTSIDE its tmpdir. Line 361 runs `npm install -g "$ASTGREP_PKG"`, which lands
 # in `npm prefix -g`/bin; on a stock Homebrew macOS that resolves to /opt/homebrew/bin,
 # where `ast-grep` is already a brew-owned symlink into Cellar. The install there either
 # fails on the collision or replaces a brew-managed binary — a local-verify target must not
@@ -261,7 +261,7 @@ echo "  ✓ Node-stripped PATH verified: command -v node returns empty under str
 
 # Run the install with Node stripped. We keep COREPACK, JQ etc. (non-Node tooling)
 # but the lane should not invoke them — install.sh python is bash + jq-merge only
-# per setup.d/45-python.sh:1282-1284.
+# per setup.d/45-python.sh:1543-1545.
 PATH="$NODE_STRIPPED_PATH" bash "$FRAMEWORK_ROOT/install.sh" python --full --force > "$LOG" 2>&1 \
   || { echo "----- install.log (tail)"; tail -n 80 "$LOG"; fail "install.sh python exited non-zero"; }
 
@@ -356,9 +356,9 @@ step "RED arm — planted violation, ast-grep fires non-zero"
 # Install ast-grep PINNED (ci-tool-pinning.md Rule A — bare `run:` install must pin).
 # `npm install -g` rather than `npx -p` so the cell's later ast-grep invocations are
 # straightforward; the version is the same setup.d/45-python.sh:511 pins.
-# The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :56).
+# The pin is REAL but INDIRECT: ASTGREP_PKG expands to @ast-grep/cli@0.44.1 (literal at :69).
 # The pre-push regex gate resolves no variables, so these three lines carry the §3 escape token.
-if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :56
+if ! npm install -g "$ASTGREP_PKG" > "$WORK/npm-install.log" 2>&1; then  # ci-tool-pin: allow pinned indirectly via ASTGREP_PKG=@ast-grep/cli@0.44.1, literal at :69
   echo "----- npm-install.log"
   cat "$WORK/npm-install.log"
   fail "npm install -g $ASTGREP_PKG failed"  # ci-tool-pin: allow error message, not an install
@@ -448,7 +448,7 @@ echo "  reject-bootstrap.log (the research-only verdict must be loud):"
 sed 's/^/    /' "$REJECT_LOG"
 
 # The bootstrap CLI returns rc=0 on research-only findings (they're honest degrades,
-# NOT errors — see rule-bootstrap-cli.ts:240 runPracticeRender header). The LOUD log
+# NOT errors — see rule-bootstrap-cli.ts:239 runPracticeRender header). The LOUD log
 # line carries the verdict.
 grep -F 'researched but not rendered' "$REJECT_LOG" >/dev/null 2>&1 \
   || fail "REJECT arm: research-only verdict NOT logged (the loud degrade is the contract — silent reject is T-AST-B)"

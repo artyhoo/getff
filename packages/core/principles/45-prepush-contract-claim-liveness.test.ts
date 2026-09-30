@@ -249,7 +249,7 @@ describe('Principle 45 — pre-push contract claim liveness', () => {
     // The measurement that shaped the anchors. Each of these mentions the hook; none
     // asserts a check SET. An earlier draft that treated every enumeration item near a
     // mention as a check produced 60+ findings on the live corpus, none about the
-    // contract — which is why the item vocabulary is derived from setup.d/70-deps.sh
+    // contract — which is why the item vocabulary is derived from the installer's delivery (toolchainTokens)
     // and why a bare mention yields no segment at all.
     const prose = [
       'Do not bypass the pre-push hook with `--no-verify`; it exists for a reason.',

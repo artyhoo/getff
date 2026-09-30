@@ -16,6 +16,9 @@
 #       ESLint's, and vitest.config.ts's setupFiles points at it (without it the project's first test
 #       dies «Cannot find module tests/setup.ts», measured in the vite-shape cell 2026-09-29);
 #       paired negative: the same tsconfig under getff's ESLint still withholds it
+#   (H) --refresh adds the scripts the install adds: lint / lint:fix follow the project's linter
+#       (derived — 40-configs.sh does not run on refresh), a solution tsconfig gets `tsc -b`, validate
+#       runs the record; paired: a lint script the project has is kept
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 INSTALL="$REPO_ROOT/install.sh"
@@ -112,5 +115,43 @@ own_ts "$GE"; install_into "$GE"
 [ ! -e "$GE/tests/setup.ts" ] && grep -q 'tests/setup.ts NOT delivered' "$GE/.log" \
   && ok "(G) paired negative: under getff's ESLint the same tsconfig still withholds it" \
   || bad "(G) ESLint project: tests/setup.ts $( [ -e "$GE/tests/setup.ts" ] && echo delivered || echo 'withheld without the note')"
+
+# ── (H) --refresh adds the same scripts the install adds ────────────────────────────────────────
+# do_refresh merges the canonical scripts through the same function as 70-deps.sh
+# (merge_canonical_scripts), but 40-configs.sh — which sets the linter and formatter slots — does
+# not run there: the refresh derives them from the project (project_linter / project_formatter).
+# A solution tsconfig keeps `tsc -b` on refresh as on install (P2 G4). A key the project has is kept.
+drop_scripts() {  # $1 = project dir, rest = script names to remove from package.json
+  local d="$1"; shift
+  node -e 'const f=process.argv[1],p=require(f);for(const k of process.argv.slice(2))delete p.scripts[k];require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")' "$d/package.json" "$@"
+  git -C "$d" add -A; git -C "$d" commit -qm drop-scripts
+}
+refresh_into() { ( cd "$1" && bash "$INSTALL" --refresh < /dev/null ) > "$1/.refresh.log" 2>&1; }
+script_of() { node -e 'const p=require(process.argv[1]);console.log((p.scripts||{})[process.argv[2]]||"")' "$1/package.json" "$2"; }
+H=$(proj '{"name":"h","version":"0.0.0","type":"module","dependencies":{"react":"^19.0.0"},"devDependencies":{"oxlint":"^1.20.0"}}')
+printf '{\n  "rules": {}\n}\n' > "$H/.oxlintrc.json"
+printf '{\n  "files": [],\n  "references": [{ "path": "./tsconfig.app.json" }]\n}\n' > "$H/tsconfig.json"
+printf '{ "compilerOptions": { "strict": true }, "include": ["src"] }\n' > "$H/tsconfig.app.json"
+git -C "$H" add -A; git -C "$H" commit -qm oxlint
+install_into "$H"
+drop_scripts "$H" lint lint:fix typecheck validate
+refresh_into "$H"; rc=$?
+[ "$rc" -eq 0 ] || bad "(H) refresh rc=$rc: $(tail -3 "$H/.refresh.log" | tr '\n' '|')"
+[ "$(script_of "$H" lint)" = "oxlint" ] && ok "(H) --refresh: lint follows the project's linter (oxlint)" \
+  || bad "(H) --refresh: lint is '$(script_of "$H" lint)'"
+[ "$(script_of "$H" lint:fix)" = "oxlint --fix" ] && ok "(H) --refresh: lint:fix is 'oxlint --fix'" \
+  || bad "(H) --refresh: lint:fix is '$(script_of "$H" lint:fix)'"
+[ "$(script_of "$H" typecheck)" = "tsc -b" ] && ok "(H) --refresh: solution tsconfig → typecheck is 'tsc -b'" \
+  || bad "(H) --refresh: typecheck is '$(script_of "$H" typecheck)'"
+[ "$(script_of "$H" validate)" = "bash scripts/run-armed.sh validate" ] && ok "(H) --refresh: validate runs the record" \
+  || bad "(H) --refresh: validate is '$(script_of "$H" validate)'"
+HK=$(proj '{"name":"hk","version":"0.0.0","type":"module","dependencies":{"react":"^19.0.0"},"devDependencies":{"oxlint":"^1.20.0"}}')
+printf '{\n  "rules": {}\n}\n' > "$HK/.oxlintrc.json"; git -C "$HK" add -A; git -C "$HK" commit -qm oxlint
+install_into "$HK"
+node -e 'const f=process.argv[1],p=require(f);p.scripts.lint="oxlint --deny-warnings src";require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")' "$HK/package.json"
+git -C "$HK" add -A; git -C "$HK" commit -qm own-lint
+refresh_into "$HK"
+[ "$(script_of "$HK" lint)" = "oxlint --deny-warnings src" ] && ok "(H) paired: --refresh keeps the project's own lint script" \
+  || bad "(H) paired: lint became '$(script_of "$HK" lint)'"
 
 echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

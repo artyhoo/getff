@@ -18,7 +18,7 @@ sources:
   - docs/site/terms.md
   - packages/core/principles/15-skill-paired-negative.test.ts
   - tests/install-sh/baselines/ts-server/greenfield.fingerprint
-docs-refresh: deferred — re-verified 2026-09-29, the cited install fingerprint gained two lines above the cited block (the handoff hooks inject-handoff-on-compact and precompact-residue now ship at env) and changed other hash values outside it; the four lines this page cites moved from 42 to 45 to 44 to 47 and are byte-identical; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-24, the cited install fingerprint changed only two hash values (the end-of-turn-reminder hook and the refresh baseline) with no line added or removed; lines 42 to 45 this page cites are byte-identical; clears at the next gold refresh of this page
 executed:
   - { example: show-arch-invocation-lines, stack: ts-server, date: 2026-09-21, result: printed }
 docs-refresh: deferred — re-verified 2026-09-24, the only change to the cited setup.d/10-skills.sh in this range swaps two in-comment pointers (arch/SKILL.md line 94 becomes the «Effort-worthiness» paragraph name) with the line count unchanged, so every line number this page cites still holds; clears at the next gold refresh of this page
@@ -126,7 +126,7 @@ how to get it.
   leaves out are all on line 54 of `.claude/skills/arch/SKILL.md`. Their copy is `.claude/skills/arch/references/domain-modeling.md`, with its provenance table at
   lines 22 to 29 and its two format files beside it.
 - The copies ship with the skill: they are listed in
-  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 44 to 47.
+  `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, lines 43 to 46.
   `setup.d/companions.manifest` has no row for the plugin.
 - `ships-to` is measured: the skill's file is listed in
   `tests/install-sh/baselines/ts-server/greenfield.fingerprint`, a default install.

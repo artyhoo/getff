@@ -19,7 +19,7 @@ sources:
   - tests/install-sh/baselines/python/greenfield.fingerprint
 executed:
   - { example: list-installed-ai-doc, stack: ts-server, date: 2026-09-21, result: listed }
-docs-refresh: deferred — re-verified 2026-09-23, the cited install fingerprint gained three arch/references lines (domain-modeling and its two format files); no line or path this page cites moved; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-29 against this range, the page was refreshed in it — lines inserted above it in setup.d/45-python.sh keep moving the four-skill python-lane range cited here, and it is re-anchored by content at each move; clears at the next gold refresh of this page
 ---
 
 # ai-doc skill
@@ -104,7 +104,7 @@ skill is also absent on the `python` [lane](../../terms.md#lane), which gets fou
   `setup.d/lib.sh`. Lines 143 to 145 of `setup.d/10-skills.sh` copy that list. Lines 68
   to 70 there say why it ships to you.
 - The `python` lane copies four skills by name, and `ai-doc` is not one of them:
-  `setup.d/45-python.sh`, lines 1296 to 1302.
+  `setup.d/45-python.sh`, lines 1557 to 1563.
 - `ships-to` is measured: `tests/install-sh/baselines/ts-server/greenfield.fingerprint`
   lists the skill's two files, `tests/install-sh/baselines/python/greenfield.fingerprint` none.
 - The two rule files it names: `.claude/rules/rule-enforcement-channel-selection.md` and

@@ -281,7 +281,7 @@ in_baseline() { jq -e --arg k "$2" 'has($k)' "$1/.ai-factory/refresh-baseline.js
   # The ignores entry names the files getff delivered, never a directory the consumer may own too:
   # getff places .storybook/main.ts and .storybook/preview.ts, and the consumer's own stories config
   # beside them keeps its lint (cold-review F13 — the entry was .storybook/**).
-  eval "$(sed -n '/^_own_eslint_ignores() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  eval "$(sed -n '/^_own_eslint_ignores() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")"
   PROJECT_ROOT="$u/proj3"; mkdir -p "$PROJECT_ROOT/.storybook"
   getff_delivered() { case "${1#"$PROJECT_ROOT"/}" in .storybook/main.ts|.storybook/preview.ts) return 0 ;; esac; return 1; }
   ign=$(_own_eslint_ignores)
@@ -296,13 +296,13 @@ done < "$WORK/u.log"
 grep -qE '^(OK|BAD) ' "$WORK/u.log" || bad "U: the lib.sh helper arm printed nothing ($(tail -2 "$WORK/u.log" | tr '\n' '|'))"
 # The R2 wirer's write into a config getff placed and nobody edited since is getff's too: the
 # manifest the install records afterwards holds the new bytes, so the next install still reads the
-# config as getff's. _r2_wire_cfg runs as 99-finalize defines it, the flush as lib.sh does; only the
+# config as getff's. _r2_wire_cfg runs as eslint-wire.sh defines it, the flush as lib.sh does; only the
 # wirer is a stand-in (npx) that adds R2 to the config it is given, as the real one does on getff's
 # branch for a config whose template carries no R2.
 (
   # shellcheck disable=SC1090
   INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
-  eval "$(sed -n -e '/^_r2_note_outcome() {/,/^}/p' -e '/^_r2_wire_cfg() {/,/^}/p' "$REPO_ROOT/setup.d/99-finalize.sh")"
+  eval "$(sed -n -e '/^_r2_note_outcome() {/,/^}/p' -e '/^_r2_wire_cfg() {/,/^}/p' "$REPO_ROOT/setup.d/eslint-wire.sh")"
   PROJECT_ROOT="$WORK/u-r2"; PKG_ROOT="$REPO_ROOT"; DRY_RUN=""; NOT_WIRED=()
   f="$PROJECT_ROOT/apps/svc/eslint.config.mjs"; mkdir -p "${f%/*}"
   printf 'export default [];\n' > "$f"
@@ -326,13 +326,13 @@ grep -qE '^(OK|BAD) ' "$WORK/u-r2.log" || bad "U: the R2 re-stage arm printed no
 # What the own-config wirer does with R2 (wireOwnConfig, packages/core/install/wire-eslint-r2.ts) is
 # what the not-wired summary names when that wirer cannot run: it reads the ELEMENTS of
 # RULE_GLOBS.boundary — a glob in a comment, in another key or in a nested object is not one of them
-# — refuses a RULE_GLOBS with no boundary array, and leaves alone an R2 the config registers without
-# RULE_GLOBS.
+# — refuses a RULE_GLOBS with no boundary array, and adds RULE_GLOBS alone for an R2 the config registers
+# without it (the consumer's R2 stays as it is: operator decision 2026-09-29).
 (
   # shellcheck disable=SC1090
   INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
   eval "$(sed -n -e '/^_R2_OWN_REFUSAL=/p' -e '/^_r2_own_refused() {/,/^}/p' -e '/^_r2_own_gap() {/,/^}/p' \
-    "$REPO_ROOT/setup.d/99-finalize.sh")"
+    "$REPO_ROOT/setup.d/eslint-wire.sh")"
   PROJECT_ROOT="$WORK/u-rg"; mkdir -p "$PROJECT_ROOT"; c="$PROJECT_ROOT/eslint.config.mjs"
   cat > "$c" <<'JS'
 // const RULE_GLOBS = { boundary: ['**/commented/**'] };
@@ -381,9 +381,23 @@ JS
     && echo "OK no top-level RULE_GLOBS and no R2: the gap is RULE_GLOBS and R2" \
     || echo "BAD no top-level RULE_GLOBS: shape '$(rule_globs_boundary "$c" | head -1)' gap '$(_r2_own_gap eslint.config.mjs)'"
   printf "export default [{ files: ['src/**'], rules: { 'rules-as-tests/no-unsafe-zod-parse': 'error' } }];\n" > "$c"
-  [ -z "$(_r2_own_gap eslint.config.mjs)" ] && ! _r2_own_refused eslint.config.mjs \
-    && echo "OK R2 registered without RULE_GLOBS: no gap — the wirer adds nothing there" \
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS (60-ci found an HTTP boundary)" ] && ! _r2_own_refused eslint.config.mjs \
+    && echo "OK R2 registered without RULE_GLOBS: the gap is RULE_GLOBS alone — the wirer leaves R2 as the config sets it" \
     || echo "BAD R2 without RULE_GLOBS: gap '$(_r2_own_gap eslint.config.mjs)'"
+  # R2 read as the wirer reads it (ruleSetInConfig): a template-literal key sets it, a comment does not.
+  printf "export default [{ rules: { [\`rules-as-tests/no-unsafe-zod-parse\`]: 'off' } }];\n" > "$c"
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS (60-ci found an HTTP boundary)" ] \
+    && echo "OK R2 set under a template-literal key: the gap is RULE_GLOBS alone" \
+    || echo "BAD template-literal R2 key: gap '$(_r2_own_gap eslint.config.mjs)'"
+  printf "// TODO: turn on 'rules-as-tests/no-unsafe-zod-parse'\nexport default [];\n" > "$c"
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ] \
+    && echo "OK R2 named only in a comment: the gap is RULE_GLOBS and R2" \
+    || echo "BAD R2 in a comment only: gap '$(_r2_own_gap eslint.config.mjs)'"
+  # The same in backticks, as markdown writes a name in a comment (second cold review 2026-09-29).
+  printf "// TODO: turn on \`rules-as-tests/no-unsafe-zod-parse\`\n/* see \`rules-as-tests/no-unsafe-zod-parse\` */\nexport default [];\n" > "$c"
+  [ "$(_r2_own_gap eslint.config.mjs)" = "RULE_GLOBS and R2 (60-ci found an HTTP boundary)" ] \
+    && echo "OK R2 named in backticks only in comments: the gap is RULE_GLOBS and R2" \
+    || echo "BAD R2 in backticks in a comment only: gap '$(_r2_own_gap eslint.config.mjs)'"
   printf 'export const RULE_GLOBS = { boundary: [] };\nexport default [];\n' > "$c"
   gap=$(_r2_own_gap eslint.config.mjs)
   [ "$(rule_globs_boundary "$c")" = array ] && case "$gap" in "R2 and "*"'**/handlers/**/*.{ts,tsx}'"*) true ;; *) false ;; esac \

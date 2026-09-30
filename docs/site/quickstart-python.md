@@ -5,6 +5,7 @@ kind: face-page
 sources:
   - docs/site/face-facts.json
   - docs/site/installation.md
+  - docs/site/learn/stop-a-bad-commit.md
   - docs/site/quickstart-go.md
   - docs/site/quickstart-rust.md
   - docs/site/quickstart-ts.md
@@ -16,8 +17,9 @@ sources:
 executed:
   - { step: install, stack: python, date: 2026-09-21, result: exit-0, versions: "ruff 0.15.21, ast-grep 0.44.1" }
   - { step: fire-on-your-code, stack: python, date: 2026-09-21, result: RED }
+  - { step: refresh-unloadable-pre-commit-config, stack: python, date: 2026-09-30, result: "exit-0, file left as it was" }
 next: installation.md
-docs-refresh: deferred — re-verified 2026-09-22, the cited sources changed only in code-comment line-number citations; no source changed its line count, and no line this page cites or quotes was touched; clears at the next gold refresh of this page
+docs-refresh: deferred — re-verified 2026-09-30, the cited setup.d/45-python.sh changed twice in this range — two in-comment citations of setup.d/10-skills.sh were renumbered after trigger build slice 1 moved those lines, and the python lane now registers the rule loader through the shared installer helper the npm lanes use (PostToolUse Edit|Write|MultiEdit|Read, PreToolUse Bash, SessionStart compact) instead of one PostToolUse entry; this page names neither the loader nor its settings entries, it lists only the rule files, CI workflow, pre-push hook and mirror check, so no line here changed meaning; clears at the next gold refresh of this page
 ---
 
 # Quick start for Python
@@ -49,7 +51,10 @@ cd /your/project
 bash /tmp/rt/setup -y python
 ```
 
-The installer copies the rule files, a CI workflow, and a pre-push hook. Then it tests
+The installer copies the rule files, a CI workflow, and a pre-push hook, plus
+`scripts/check-zcode-mirror.sh`, which that hook runs on every push to guard an
+optional `.zcode/` skill mirror
+([what it checks](learn/stop-a-bad-commit.md#the-mirror-check-on-every-commit)). Then it tests
 itself. It plants a bad file in a temporary folder and checks both tools:
 
 ```text
@@ -64,6 +69,13 @@ itself. It plants a bad file in a temporary folder and checks both tools:
 
 Each tool is checked twice on purpose. Red on bad code shows the rule works. Green on
 clean code shows it does not fail on everything.
+
+If your project already uses [pre-commit](https://pre-commit.com), the installer leaves
+your hooks alone. It adds a `getff-python-pre-push` entry to your `.pre-commit-config.yaml`,
+at the indent of your own items. Then it installs pre-commit's pre-push stage with
+`pre-commit install --hook-type pre-push`, so the entry runs on every push. When it cannot,
+for example because `pre-commit` is not on your PATH, it names the reason at the end of the
+run.
 
 ## 2. Check what landed
 
@@ -144,6 +156,18 @@ request with this line in it fails.
 - **The CI workflow assumes a branch name.** With no git remote, the installer cannot
   see your default branch. It writes `main` into the workflow and prints a warning.
   Check the file if your branch has another name.
+- **getff does not repair your `.pre-commit-config.yaml`.** A later
+  [`--refresh`](installation.md#updating) keeps getff's entry up to date, as long as you
+  have not edited it. But if one of your own `repos:` items sits in column 0 while
+  the others are indented, the file does not load as YAML, wherever getff's entry goes.
+  getff never re-indents your items, so the refresh leaves the file as it was and says why:
+
+  ```text
+    ⊝ the getff entry in .pre-commit-config.yaml was not updated — the file does not load as YAML (line 23)
+  ```
+
+  It installs no pre-push stage for that file. The list of pieces not wired at the end
+  of the run names the same line.
 
 Next: [Installation](installation.md) covers every install path and what each one
 writes.

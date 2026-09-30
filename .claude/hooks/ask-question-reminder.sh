@@ -7,6 +7,7 @@
 #   fork-challenge nudge — session UX, not framework-bound. Consumer-safe: no framework-internal
 #   artefact dependency, reuses the already-shipped lang pack (aif_msg_question_challenge), and
 #   degrades to exit 0 when jq is absent.
+# @plugin-yield-deps: lang/ lib/hook-live.sh
 #
 # Companion to .claude/hooks/end-of-turn-reminder.sh (Stop hook). Division of labour:
 #   • end-of-turn-reminder.sh (Stop)      → END-OF-TURN recap + goal-drift verdict.
@@ -36,6 +37,11 @@
 # semantics. Worst case if any assumption is wrong: malformed JSON → CC falls back
 # to normal flow → the question proceeds (benign, no block).
 set -euo pipefail
+# Liveness marker for the plugin copy's consumer yield (spec 2026-09-28 D12); a no-op when the
+# lib is absent (the plugin twin, an install from before D12). Never fails the hook.
+_getff_live_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || _getff_live_dir=''
+if [ -n "$_getff_live_dir" ] && [ -r "$_getff_live_dir/lib/hook-live.sh" ] \
+  && command . "$_getff_live_dir/lib/hook-live.sh" 2>/dev/null; then getff_hook_live ask-question-reminder || true; fi
 
 # Consumer-skip guard (GH #934): the hook parses stdin + emits its decision via jq. Absent jq →
 # no work possible → exit 0 silently (never error-spam a consumer's every AskUserQuestion). The

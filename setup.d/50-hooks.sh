@@ -26,7 +26,7 @@ husky_note_consumer_hooks "$PKG_ROOT" "$PROJECT_ROOT"
 # owns is an operator decision, not made here.
 for _ch in ${HUSKY_CONSUMER_HOOKS:-}; do
   case "$_ch" in
-    pre-commit) _ch_what="lint-staged on the staged files" ;;
+    pre-commit) _ch_what="the ZCode skill-mirror check and lint-staged on the staged files" ;;
     *)          _ch_what="getff's rule checks (packages/core/hooks/pre-push.bundle.mjs)" ;;
   esac
   note_not_wired "framework $_ch shield — your own .husky/$_ch is kept and runs none of the framework checks ($_ch_what); getff does not change a git hook the project already has"
@@ -59,30 +59,5 @@ chmod_safe +x "$PROJECT_ROOT/.husky/pre-commit" "$PROJECT_ROOT/.husky/pre-push" 
 # inert — git never calls .husky/* until core.hooksPath points there. We set it directly instead
 # of `npx husky init` (which would CLOBBER the .husky/pre-commit + pre-push we just shipped).
 # Guarded on DRY_RUN and on PROJECT_ROOT being a git repo (no-op in non-git dirs, e.g. some tests).
-if [ -n "$DRY_RUN" ]; then
-  echo "▶ git hooks → [dry-run] would set core.hooksPath=.husky"
-elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-  # critical-review S4-3: never repoint a hook setup the consumer already runs (their own
-  # hooksPath, live .git/hooks) or a hooksPath that would resolve outside this install root.
-  _hp_block=$(husky_hookspath_blocker "$PROJECT_ROOT")
-  if [ -n "$_hp_block" ]; then
-    HUSKY_HOOKSPATH_OWNED=0
-    HUSKY_HOOKS_BLOCKED="$_hp_block"
-    echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
-    # Reason only (operator directive 2026-09-28): the consumer's own hook setup stays in charge,
-    # and a subdirectory install would repoint the hooks of the whole repository — both are the
-    # consumer's to decide, so the line names what is not active and why, with no command.
-    _hp_prefix=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix 2>/dev/null || true)
-    note_not_wired "framework git hooks (${_hp_prefix}.husky/) — not active: $_hp_block, and getff does not repoint a hook setup the repository already has or one that covers more than this install"
-  elif [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null)" = ".husky/_" ]; then
-    HUSKY_HOOKSPATH_OWNED=0
-    echo "▶ git hooks → core.hooksPath=.husky/_ kept (husky v9 runs .husky/pre-commit + pre-push)"
-  else
-    HUSKY_HOOKSPATH_OWNED=1
-    git -C "$PROJECT_ROOT" config core.hooksPath .husky
-    echo "▶ Activated git hooks → core.hooksPath=.husky"
-  fi
-else
-  echo "  ⊝ git hooks NOT activated — not a git repository"
-  note_not_wired "framework git hooks (.husky/) — not active: $PROJECT_ROOT is not a git repository, so there is no core.hooksPath to set"
-fi
+# The logic lives in setup.d/lib.sh (activate_husky_hookspath): do_refresh runs it too (refresh sweep G2).
+activate_husky_hookspath

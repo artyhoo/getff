@@ -275,6 +275,9 @@ if [ -z "${ESLINT_CONFIG:-}" ] && { [ ! -f "$CFG" ] || _own_root_without_globs; 
       # react-spa/react-next ship a boundary → they recurse normally. (⚑B2)
       has_key boundary "$_wd/$_wn" \
         || { echo "  · ${_wd#./}: no RULE_GLOBS.boundary — R2 N/A (skipped)"; continue; }
+      # The run below labels its lines «root config» and its files from ${_wd#./}: this line says which
+      # workspace config they are about (as check-rule-globs.sh's «checking <config>» does).
+      echo "check-rule-enforced: checking ${_wd#./}/$_wn"
       ( cd "$_wd" && ESLINT_CONFIG="$_wn" bash "$SELF" ) || _agg=1
     done <<EOF
 $_ws_dirs
@@ -347,13 +350,35 @@ under_shadow() { # $1=path → 0 if it lives under a shadowed package dir
   return 1
 }
 
-find_boundary_in() { # $1=dir → first boundary file under it (any boundary token)
-  local base="$1" t f
-  for t in "${btokens[@]}"; do
-    f=$(find "$base" \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null | head -1)
-    [ -n "$f" ] && { printf '%s\n' "$f"; return 0; }
+# under_nested_shadow <path> <shadowed package dir> — 0 if the path lives under a package nested in that one
+# with a config of its own.
+under_nested_shadow() {
+  local p="$1" s
+  for s in "${shadows[@]}"; do
+    [ "$s" = "$2" ] && continue
+    case "$s" in "$2"/*) case "$p" in "$s"/*) return 0 ;; esac ;; esac
   done
   return 1
+}
+
+# boundary_files_in <dir> <root|package> — per boundary token, its first file under <dir> not yet taken for an
+# earlier token and governed by <dir>'s config: root — under no package whose own config shadows the root
+# one; package — under no package nested in it with a config of its own, which answers for its own files
+# (third cold review 2026-09-29). One file per token, each
+# asked about once: a consumer's own R2 scoped by its own `files:` can reach one token's code and miss
+# another's, which the first boundary file alone read green (cold reviews 2026-09-29, after the install
+# began declaring RULE_GLOBS alone in such a config). Files are taken in sorted order, the same pick on
+# every filesystem.
+boundary_files_in() {
+  local base="$1" scope="$2" t f seen="|"
+  for t in "${btokens[@]}"; do
+    while IFS= read -r f; do
+      if [ "$scope" = root ] && under_shadow "$f"; then continue; fi
+      if [ "$scope" = package ] && under_nested_shadow "$f" "$base"; then continue; fi
+      case "$seen" in *"|$f|"*) continue ;; esac
+      seen="$seen$f|"; printf '%s\n' "$f"; break
+    done < <(find "$base" \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null | LC_ALL=C sort)
+  done
 }
 
 any_src=$(find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -print 2>/dev/null | head -1)
@@ -461,32 +486,31 @@ verify_file() { # $1=file
   fi
 }
 
-# Root scope — the first boundary file NOT under any shadowed package (governed by the root config).
-root_bf=""
-while IFS= read -r f; do
-  if ! under_shadow "$f"; then root_bf="$f"; break; fi
-done < <(
-  for t in "${btokens[@]}"; do
-    find . \( "${PRUNE[@]}" \) -prune -o -type f \( -name '*.ts' -o -name '*.tsx' \) -path "*/$t/*" -print 2>/dev/null
-  done
-)
-if [ -n "$root_bf" ]; then
+# Root scope — the boundary files governed by the root config (under no shadowed package), one per token.
+# Read into a list first: eslint, asked about each, must not share the loop's input.
+root_files=()
+while IFS= read -r f; do root_files+=("$f"); done < <(boundary_files_in . root)
+for root_bf in ${root_files[@]+"${root_files[@]}"}; do
   if package_has_zod "$root_bf"; then
     verify_file "$root_bf"
   else
-    echo "  · root config: no zod boundary — R2 N/A (skipped)"
+    echo "  · root config: no zod boundary at ${root_bf#./} — R2 N/A (skipped)"
   fi
-fi
+done
 
-# Each shadowed package that OWNS boundary files — governed by its own config, not the root one.
+# Each shadowed package that OWNS boundary files — governed by its own config, not the root one; one
+# file per token as well.
 if [ "${#shadows[@]}" -gt 0 ]; then
   for s in "${shadows[@]}"; do
-    bf=$(find_boundary_in "$s") || continue
-    if package_has_zod "$bf"; then
-      verify_file "$bf"
-    else
-      echo "  · ${s#./}: no zod boundary — R2 N/A (skipped)"
-    fi
+    pkg_files=()
+    while IFS= read -r f; do pkg_files+=("$f"); done < <(boundary_files_in "$s" package)
+    for bf in ${pkg_files[@]+"${pkg_files[@]}"}; do
+      if package_has_zod "$bf"; then
+        verify_file "$bf"
+      else
+        echo "  · ${s#./}: no zod boundary at ${bf#./} — R2 N/A (skipped)"
+      fi
+    done
   done
 fi
 

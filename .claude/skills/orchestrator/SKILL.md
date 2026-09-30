@@ -7,7 +7,7 @@ description: |
   «автономно / волнами / работай без остановок / прогони очередь кикофов сам» при ≥2 kickoff'ах
   → Queue mode.
   SKIP: тривиальная правка по точному пути (≤5 строк, 1 файл).
-when_to_use: оркестратор, организатор, ты старшая, батч правок, umbrella, пакет фиксов, много мелких, делегируй, младшая модель, координируй, разбей на подзадачи, orchestrator, batch fixes, delegate, queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач, автономно, волнами, итеративно, работай без остановок, прогони очередь кикофов, цикл кикофов, не останавливайся, сам до конца
+when_to_use: организатор, ты старшая, много мелких, координируй, разбей на подзадачи, queue mode, kickoff, autonomous research, worker dispatch, воркер, ревьюер, очередь задач, автономно, волнами, итеративно, работай без остановок, прогони очередь кикофов, цикл кикофов, не останавливайся, сам до конца
 ---
 
 <!-- @harness-posture: cc-native-with-fallback — Agent-tool subagent dispatch is portable (zcode evidence via night-mode SKILL.md:19); Skill-tool invocation degrades to direct file reads -->
@@ -379,7 +379,7 @@ Yellow/Red in #6 → switch working mode.
 
 Once, before the PR: `git log --oneline <BASE_BRANCH>..HEAD`, `git diff --stat <BASE_BRANCH>..HEAD`, and the `<CHECK_ALL>` command from discovery — once, with build. `Skill('superpowers:verification-before-completion')` owns the evidence-before-claims discipline for this step; the 6-item REPORT checklist above remains the primary gate.
 
-Push and PR creation are the senior's, and the mechanics (branch push, `gh pr create`, body template, the merge-vs-PR menu) are owned by `Skill('superpowers:finishing-a-development-branch')`. Two project details it does not carry: pass `--base` **without** the remote prefix, and title the PR `<TASK_ID>: <short umbrella name>` per the discovery-detected convention. If Phase 0 stashed someone else's WIP, restore it afterwards on the previous branch (`git stash pop`).
+Push and PR creation are the senior's, and the mechanics (branch push, `gh pr create`, body template, the merge-vs-PR menu) are owned by `Skill('superpowers:finishing-a-development-branch')`. Two project details it does not carry: pass `--base` **without** the remote prefix, and title the PR `<TASK_ID>: <short umbrella name>` per the discovery-detected convention. If Phase 0 stashed someone else's WIP, restore it afterwards on the previous branch by SHA, never by position: the stash stack is shared across worktrees and parallel sessions, so `git stash pop` can apply another session's entry. Capture the SHA right after the push (`git stash list --format='%H %gs' | grep '<tag>'`), restore with `git stash apply <sha>`, then drop the entry after re-finding its current `stash@{n}` by tag.
 
 ---
 

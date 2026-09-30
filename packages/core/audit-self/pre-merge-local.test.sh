@@ -40,6 +40,14 @@
 #   27 go skip branch: no config -> workflow's own skip, WARN + exit 0 (rework r1)
 #   28 go seeded-red: golangci-lint exits 1 -> exit 1, lane-qualified ledger (rework r1)
 #   29 go absent on a bare PATH -> exit 3, named (rework r1)
+#   30 stale remote-tracking base: origin advances AFTER clone -> the verdict
+#      gates the POST-fetch base, never the pre-fetch sha (#1466/W-1; B1 cold
+#      review finding B-1); 30b base ref pruned by the carrier's own fetch -> 64;
+#      30c a FETCH_HEAD base keeps the user's fetched sha (the carrier's fetch
+#      rewrites FETCH_HEAD); 30d a PARTIAL fetch failure (rejected tag clobber,
+#      exit 1) that still advanced origin/main -> the post-fetch base is gated
+#      and the WARN does not blame "offline?"; 30e origin unreachable -> the
+#      local base is kept under a freshness-not-verified WARN
 #
 # Environment notes:
 # - Fixtures are throwaway git repos (mktemp -d); npm-run-all2 is not
@@ -321,6 +329,123 @@ mkdir -p "$T/.git/getff/pre-merge-carrier.lock"
 PATH_SAVE=$PATH; export PATH="$T/.shim-bin:$PATH"
 run_carrier "$T" main
 [ "$RC" -eq 75 ] && ok "arm10: held lock -> exit 75" || bad "arm10: expected 75, got $RC"
+export PATH=$PATH_SAVE
+
+# ── arm 30: stale remote-tracking base (B-1) ──
+# A clone whose origin/main advanced AFTER the clone: the branch contains the
+# PRE-fetch origin/main but not the true one. A carrier that gates the
+# pre-fetch sha takes the F2 containment path and verifies the head tree alone
+# (#1466 shape). The fixed carrier re-resolves after its own fetch: base = the
+# TRUE upstream sha, a real merge is constructed, merge != head.
+U=$(make_fixture "echo lint-ok")            # upstream
+C="$SCRATCH/arm30-clone"
+git clone -q "$U" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name T
+git -C "$C" checkout -qb feature/stale origin/main   # head == pre-fetch origin/main
+STALE_BASE=$(git -C "$C" rev-parse origin/main)
+git -C "$U" checkout -q main
+echo post-clone-base > "$U/base2.txt"; git -C "$U" add -A; git -C "$U" commit -qm post-clone-basework
+TRUE_BASE=$(git -C "$U" rev-parse main)
+PATH_SAVE=$PATH; export PATH="$C/.shim-bin:$PATH"
+run_carrier "$C" origin/main
+[ "$RC" -eq 0 ] && ok "arm30: stale-base run passes on the merged result" || bad "arm30: expected 0, got $RC"
+assert_three_shas "arm1(stale-base)" "$C/.last-out"
+if grep -q "^base:   $TRUE_BASE" "$C/.last-out"; then
+  ok "arm30: verdict base is the POST-fetch sha"
+else
+  bad "arm30: verdict base is not the post-fetch sha (stale=$STALE_BASE true=$TRUE_BASE) — B-1 regression"
+fi
+grep -q "base already contained" "$C/.last-out" && bad "arm30: containment path taken on a stale base (W-1 violation)" || ok "arm30: no false containment"
+HEAD_NOW=$(git -C "$C" rev-parse HEAD)
+grep -q "^merge:  $HEAD_NOW" "$C/.last-out" && bad "arm30: merge sha equals head — no merge was constructed" || ok "arm30: merge sha differs from head (real merge)"
+export PATH=$PATH_SAVE
+
+# ── arm 30b: base ref pruned by the carrier's own fetch -> 64, no verdict ──
+# The fetch can remove a remote-tracking ref as well as advance it. A carrier
+# that keeps the pre-fetch sha gates a base that no longer exists upstream.
+U=$(make_fixture "echo lint-ok")
+git -C "$U" branch doomed main
+C="$SCRATCH/arm30b-clone"
+git clone -q "$U" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name T
+git -C "$C" config fetch.prune true
+git -C "$C" checkout -qb feature/pruned origin/feature/x
+git -C "$U" branch -qD doomed
+PATH_SAVE=$PATH; export PATH="$C/.shim-bin:$PATH"
+run_carrier "$C" origin/doomed
+[ "$RC" -eq 64 ] && ok "arm30b: base pruned by the fetch -> exit 64 (usage class)" || bad "arm30b: expected 64, got $RC"
+assert_contains "arm30b: the vanished base ref named" "$C/.last-out" "base ref 'origin/doomed' no longer resolves after 'git fetch origin'"
+[ -f "$C/.git/getff/pre-merge-runs.ndjson" ] && bad "arm30b: usage error must not ledger" || ok "arm30b: no ledger line for usage error"
+export PATH=$PATH_SAVE
+
+# ── arm 30c: FETCH_HEAD base keeps the sha the user fetched ──
+# The carrier's own `git fetch origin` rewrites .git/FETCH_HEAD. Re-resolving a
+# FETCH_HEAD base after it would silently swap the user's chosen base for
+# whatever branch head the carrier's fetch wrote first.
+U=$(make_fixture "echo lint-ok")
+git -C "$U" checkout -qb pr-base main
+echo pr-base > "$U/pr-base.txt"; git -C "$U" add -A; git -C "$U" commit -qm pr-basework
+PR_BASE=$(git -C "$U" rev-parse pr-base)
+git -C "$U" checkout -q feature/x
+C="$SCRATCH/arm30c-clone"
+git clone -q "$U" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name T
+git -C "$C" checkout -qb feature/fh origin/feature/x
+git -C "$C" fetch -q origin pr-base                # FETCH_HEAD == pr-base
+PATH_SAVE=$PATH; export PATH="$C/.shim-bin:$PATH"
+run_carrier "$C" FETCH_HEAD
+[ "$RC" -eq 0 ] && ok "arm30c: FETCH_HEAD-base run passes" || bad "arm30c: expected 0, got $RC"
+if grep -q "^base:   $PR_BASE" "$C/.last-out"; then
+  ok "arm30c: verdict base is the sha the user fetched into FETCH_HEAD"
+else
+  bad "arm30c: FETCH_HEAD base re-pointed by the carrier's own fetch (want $PR_BASE; got: $(grep '^base:' "$C/.last-out"))"
+fi
+export PATH=$PATH_SAVE
+
+# ── arm 30d: PARTIAL fetch failure still advanced the base ──
+# `git fetch origin` exits 1 when ANY ref is rejected (here: a moved tag the
+# clone already has, "would clobber existing tag") while still updating the
+# other refs, origin/main included. A carrier that keeps the pre-fetch sha on
+# every non-zero exit gates the stale base: containment path, head tree alone
+# (#1466/W-1). The fixed carrier re-resolves whenever the ref still resolves.
+U=$(make_fixture "echo lint-ok")
+git -C "$U" tag v1 main
+C="$SCRATCH/arm30d-clone"
+git clone -q "$U" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name T
+git -C "$C" config remote.origin.tagOpt --tags     # fetch tags explicitly -> clobber is rejected
+git -C "$C" checkout -qb feature/partial origin/main
+git -C "$U" checkout -q main
+echo post-clone-base > "$U/base2.txt"; git -C "$U" add -A; git -C "$U" commit -qm post-clone-basework
+git -C "$U" tag -f v1 main >/dev/null              # upstream moves the tag the clone holds
+TRUE_BASE=$(git -C "$U" rev-parse main)
+PATH_SAVE=$PATH; export PATH="$C/.shim-bin:$PATH"
+run_carrier "$C" origin/main
+[ "$RC" -eq 0 ] && ok "arm30d: partial-fetch run passes on the merged result" || bad "arm30d: expected 0, got $RC"
+assert_three_shas "arm1(partial-fetch)" "$C/.last-out"
+if grep -q "^base:   $TRUE_BASE" "$C/.last-out"; then
+  ok "arm30d: verdict base is the POST-fetch sha despite the fetch's non-zero exit"
+else
+  bad "arm30d: verdict base is not the post-fetch sha (true=$TRUE_BASE; got: $(grep '^base:' "$C/.last-out")) — partial-fetch stale base"
+fi
+grep -q "base already contained" "$C/.last-out" && bad "arm30d: containment path taken on a stale base (W-1 violation)" || ok "arm30d: no false containment"
+grep -q "offline?" "$C/.last-out" && bad "arm30d: WARN blames 'offline?' although the fetch updated the base" || ok "arm30d: WARN does not claim offline"
+assert_contains "arm30d: partial fetch failure named" "$C/.last-out" "WARN: git fetch origin exited non-zero but updated 'origin/main'"
+export PATH=$PATH_SAVE
+
+# ── arm 30e: fetch fails outright (origin unreachable) -> local base kept, WARN ──
+U=$(make_fixture "echo lint-ok")
+C="$SCRATCH/arm30e-clone"
+git clone -q "$U" "$C"
+git -C "$C" config user.email t@t; git -C "$C" config user.name T
+git -C "$C" checkout -qb feature/offline origin/feature/x
+LOCAL_BASE=$(git -C "$C" rev-parse origin/main)
+git -C "$C" remote set-url origin "$SCRATCH/arm30e-no-such-remote"
+PATH_SAVE=$PATH; export PATH="$C/.shim-bin:$PATH"
+run_carrier "$C" origin/main
+[ "$RC" -eq 0 ] && ok "arm30e: unreachable-origin run still verdicts on the local base" || bad "arm30e: expected 0, got $RC"
+grep -q "^base:   $LOCAL_BASE" "$C/.last-out" && ok "arm30e: verdict base is the local (pre-fetch) sha" || bad "arm30e: base moved on a failed fetch (want $LOCAL_BASE)"
+assert_contains "arm30e: freshness-not-verified WARN" "$C/.last-out" "base freshness not verified; using local 'origin/main' at $LOCAL_BASE"
 export PATH=$PATH_SAVE
 
 echo "== B2 lane arms =="

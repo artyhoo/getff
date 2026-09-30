@@ -319,7 +319,7 @@ else
   mutant_red "output-language ZCode shape" inject-output-language "$SRC_DIR/inject-output-language.sh" "$PLUGIN_DIR/inject-output-language" 's/\{additionalContext:\$c\}/{context:\$c}/'
   mutant_red "project-digest end marker" inject-project-digest "$SRC_DIR/inject-project-digest.sh" "$PLUGIN_DIR/inject-project-digest" 's/digest:end/digest:stop/g'
   mutant_red "project-digest SubagentStart event" inject-project-digest "$SRC_DIR/inject-project-digest.sh" "$PLUGIN_DIR/inject-project-digest" 's/hookEventName:"SubagentStart"/hookEventName:"SubagentStop"/'
-  mutant_red "subagent-context stale citation" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/inject-project-digest\.sh:31,39/inject-project-digest.sh:31,38/'
+  mutant_red "subagent-context stale citation" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/inject-project-digest\.sh:40,48/inject-project-digest.sh:40,47/'
   mutant_red "subagent-context code above _is_zcode" inject-subagent-context "$SRC_DIR/inject-subagent-context.sh" "$PLUGIN_DIR/inject-subagent-context" 's/^set -uo pipefail$/set -u/m'
   # The run-hook.cmd yield marker (#1879) is not drift; code smuggled in after it still is.
   YIELD_MARKER=$'\n# Plugin twin of .claude/hooks/inject-subagent-context.sh — plugin/hooks/run-hook.cmd reads this line to keep\n# the plugin copy silent where the project runs its own copy (kept last so line citations hold).\n'

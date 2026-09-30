@@ -727,20 +727,20 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1454                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1495                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
-#   setup.d/45-python.sh:1407          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:589          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:615          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:636          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:664          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:579          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:604          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:624          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:655          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/45-python.sh:1678          rewrite_arch_sot_header      → arch-header
+#   setup.d/40-configs.sh:592          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:618          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:639          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:667          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:582          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:607          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:627          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:658          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
-#   setup.d/45-python.sh:1383          install-written blocks       → suppress-no-entry (proved)
+#   setup.d/45-python.sh:1654          install-written blocks       → suppress-no-entry (proved)
 # CENSUS-END
 # Reach of the two gates, stated so neither is mistaken for more than it is. Arm 5d checks this
 # block against the code (rows → real call sites). Arm 5c checks the other direction (call sites →
@@ -2158,7 +2158,7 @@ _detect_stack_from_pkg() {
 # manager being present (same node-optional posture as _detect_stack_from_pkg / detect_pm above).
 # Convention: expand the immediate children of the 5 conventional workspace container roots —
 # apps packages services libs modules — the SAME set as the arch:check target resolver in
-# setup.d/70-deps.sh:43, so the two never drift. Keeps only children that carry a package.json (a
+# setup.d/lib.sh:2753, so the two never drift. Keeps only children that carry a package.json (a
 # workspace package is a dir WITH a package.json; a sibling dir without one is not enumerated).
 # Exotic/custom workspace roots outside the convention are not enumerated — they fall back to
 # single-root detection, the same coverage boundary 70-deps.sh accepts. Reads $root (default
@@ -2540,7 +2540,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:359-364); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:256-261); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just
@@ -2953,6 +2953,342 @@ warn_preset_staleness() {
   fi
 }
 
+# ci_gate_detect — fill _aif_missing / _aif_steps / _aif_cmds with each rule-enforcement gate whose
+# artefact is installed but that no workflow under .github/workflows/ references (#507/#521 CI-orphan).
+# Read-only. Shared by setup.d/60-ci.sh §6c (WARN + opt-in yq wiring) and install.sh do_refresh, which
+# names each missing gate and never edits the workflow (refresh sweep 2026-09-29 G6).
+_ci_gate_check() { # $1 "gate — what it enforces"  $2 wired-grep  $3 installed-artifact  $4 paste-step
+  [ -e "$PROJECT_ROOT/$3" ] || return 0          # gate not installed for this stack → nothing to warn
+  local _wf
+  for _wf in "$PROJECT_ROOT/.github/workflows/"*.yml "$PROJECT_ROOT/.github/workflows/"*.yaml; do
+    [ -f "$_wf" ] || continue
+    # grep inside `if` is set-e-safe (non-zero no-match is consumed by the if-test, not seen by set -e)
+    if grep -qE "$2" "$_wf" 2>/dev/null; then return 0; fi   # referenced by some workflow → wired
+  done
+  _aif_missing+=("$1"); _aif_steps+=("$4"); _aif_cmds+=("${4#- run: }")
+}
+ci_gate_detect() {   # (re)build the missing-set from scratch — idempotent, callable again post-wire
+  _aif_missing=(); _aif_steps=(); _aif_cmds=()
+  # arch:check's artifact is whichever dependency-cruiser config is on disk: ours, or the
+  # consumer's own that 40-configs.sh kept (copy_unless_foreign).
+  local _dc; _dc=$(depcruise_config "$PROJECT_ROOT")
+  _ci_gate_check "check:globs — R2/R7/R8 ESLint-rule liveness"        'check-rule-globs\.sh|check:globs'               "scripts/check-rule-globs.sh"          "- run: bash scripts/check-rule-globs.sh"
+  _ci_gate_check "check:enforced — R2 actually applied (per-pkg cfg)"  'check-rule-enforced\.sh|check:enforced'         "scripts/check-rule-enforced.sh"       "- run: bash scripts/check-rule-enforced.sh"
+  _ci_gate_check "arch:check — R3 architecture boundaries"            'arch:check|depcruise'                           "${_dc:-.dependency-cruiser.mjs}"       "- run: npm run arch:check"
+  _ci_gate_check "check:arch-boundaries — R3 monorepo-boundary liveness" 'check-arch-boundaries\.sh|check:arch-boundaries' "scripts/check-arch-boundaries.sh"     "- run: bash scripts/check-arch-boundaries.sh"
+  _ci_gate_check "audit:docs — AI-documentation drift"               'audit:docs|audit-ai-docs\.sh'                   "scripts/audit-ai-docs.sh"             "- run: bash scripts/audit-ai-docs.sh"
+  _ci_gate_check "check:lintstaged — lint-staged binaries resolve"   'check:lintstaged|check-lintstaged-resolves\.sh' "scripts/check-lintstaged-resolves.sh" "- run: bash scripts/check-lintstaged-resolves.sh"
+}
+
+# merge_canonical_scripts <install|refresh> — FQA S1-A W4: add the canonical package.json scripts
+# (validate, check:*, prepare …) the consumer lacks, never overwriting a key they have. `install`
+# also adds the hook devDependencies (husky, lint-staged, sort-package-json) that §8 then installs.
+# `refresh` does NOT: --refresh installs no dependencies, and a devDependency written without an
+# install puts package.json out of step with the lockfile (`npm ci` fails) — each missing one is a
+# NOT wired line instead, and package.json is rewritten only when a script was added. Shared by
+# setup.d/70-deps.sh §7 and install.sh do_refresh (refresh sweep 2026-09-29 G5).
+merge_canonical_scripts() {
+  local AIF_MERGE_MODE="${1:-install}" _mcs_out _mcs_tag _mcs_dev _mcs_ver
+  if [ -f "$PROJECT_ROOT/package.json" ]; then
+    if [ -n "$DRY_RUN" ]; then
+      echo "▶ package.json scripts → [dry-run] would merge canonical block (non-destructive)"
+    elif command -v node >/dev/null 2>&1; then
+      echo "▶ Merging canonical scripts → package.json (non-destructive)"
+      # #508: arch:check target. A pnpm monorepo has no root src/ (only apps/*/src, packages/*/src),
+      # so a hardcoded `depcruise … src` hard-fails (exit 1, "Can't open 'src'") and breaks the
+      # shipped CI's architecture job. Resolve to source roots that EXIST so arch:check cruises
+      # something on flat, layered, AND monorepo shapes instead of crashing on a missing dir. The
+      # layer rules in .dependency-cruiser.mjs match nested package src via (?:^|/)src/<layer>.
+      # The target must NEVER be a non-existent dir (that is the crash). Resolution order:
+      #   1. workspace + a known package root present → that root (apps/packages/services/libs/modules)
+      #   2. else a root src/ present → src
+      #   3. else → "." (cwd always exists; never "Can't open"). Exotic-named workspace roots fall to
+      #      (2)/(3); a one-line arch:check edit lets the consumer point at their exact roots.
+      # #508 arch:check target signal — kept as-is (only the mutation-wiring signal below changes,
+      # per plan Amendment A1). AIF_MONOREPO_SIG / AIF_ARCH_TARGET stay the manifest-key-based check.
+      AIF_MONOREPO_SIG=0
+      if [ -f "$PROJECT_ROOT/pnpm-workspace.yaml" ] || grep -q '"workspaces"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+        AIF_MONOREPO_SIG=1
+      fi
+      AIF_ARCH_TARGET=""
+      if [ "$AIF_MONOREPO_SIG" = "1" ]; then
+        for _d in apps packages services libs modules; do
+          [ -d "$PROJECT_ROOT/$_d" ] && AIF_ARCH_TARGET="$AIF_ARCH_TARGET $_d"
+        done
+        AIF_ARCH_TARGET="${AIF_ARCH_TARGET# }"
+      fi
+      if [ -z "$AIF_ARCH_TARGET" ]; then
+        if [ -d "$PROJECT_ROOT/src" ]; then AIF_ARCH_TARGET="src"; else AIF_ARCH_TARGET="."; fi
+      fi
+      # #931 PR-2 (C2 fix, plan Amendment A1): test:mutation must route to the per-package wrapper
+      # based on ARTIFACT PRESENCE (scripts/run-mutation.sh), NOT the AIF_MONOREPO_SIG manifest
+      # signal above. AIF_MONOREPO_SIG (pnpm-workspace.yaml / "workspaces" key) and the EMIT gate in
+      # setup.d/40-configs.sh (_ws_lines — a conventional-dir enumeration: apps|packages|services|
+      # libs|modules — that does NOT consult the workspace manifest) are two DIFFERENT signals that
+      # diverge both ways: a `packages/*` monorepo with no manifest key would wire "stryker run"
+      # against configs that were never emitted (SF-1 stays unfixed); a
+      # `"workspaces":["client","server"]` repo with non-conventional dirs would wire the wrapper
+      # form even though 40-configs.sh took the FLAT branch (no wrapper ever copied) — a hard error
+      # on first run (working → broken regression). 40-configs.sh runs BEFORE 70-deps.sh (setup.d
+      # numeric order), so the wrapper's on-disk presence is the authoritative "per-workspace
+      # configs were emitted" signal — wire⟺emit by construction.
+      AIF_HAS_MUTATION_WRAPPER=0
+      [ -f "$PROJECT_ROOT/scripts/run-mutation.sh" ] && AIF_HAS_MUTATION_WRAPPER=1
+      # arch:check cruises with the config that is on disk after 40-configs.sh: ours
+      # (.dependency-cruiser.mjs), or the consumer's own under any name dependency-cruiser reads —
+      # 40-configs.sh placed nothing beside it (copy_unless_foreign), so naming ours would crash.
+      AIF_DEPCRUISE_CFG=$(depcruise_config "$PROJECT_ROOT")
+      AIF_DEPCRUISE_CFG="${AIF_DEPCRUISE_CFG:-.dependency-cruiser.mjs}"
+      # P2 G4: a solution tsconfig (`"files": []` + `"references"`, create-vite's shape) makes
+      # `tsc --noEmit` check NO file (measured: a planted TS2322 → `tsc --noEmit` exit 0, `tsc -b`
+      # exit 2); `tsc -b` builds the references, as the project's own `build` script already does.
+      AIF_TYPECHECK="tsc --noEmit"
+      grep -Eq '^[[:space:]]*"references"[[:space:]]*:' "$PROJECT_ROOT/tsconfig.json" 2>/dev/null && AIF_TYPECHECK="tsc -b"
+      # P2 G5: lint / format follow the project's linter and formatter slots. 40-configs.sh sets them on
+      # install; do_refresh does not run it, so an empty slot is derived here from the project itself.
+      AIF_LINTER="${LINTER_SLOT:-$(project_linter "$PROJECT_ROOT")}"
+      AIF_FORMATTER="${FORMATTER_SLOT:-$(project_formatter "$PROJECT_ROOT")}"
+      _mcs_out=$(AIF_MERGE_MODE="$AIF_MERGE_MODE" AIF_PKG="$PROJECT_ROOT/package.json" AIF_ARCH_TARGET="$AIF_ARCH_TARGET" AIF_DEPCRUISE_CFG="$AIF_DEPCRUISE_CFG" AIF_STACK="$STACK" AIF_HAS_MUTATION_WRAPPER="$AIF_HAS_MUTATION_WRAPPER" AIF_TYPECHECK="$AIF_TYPECHECK" AIF_LINTER="$AIF_LINTER" AIF_FORMATTER="$AIF_FORMATTER" node -e '
+        const fs = require("fs");
+        const p = process.env.AIF_PKG;
+        const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+        pkg.scripts = pkg.scripts || {};
+        // #931 PR-2 (C2 fix): route test:mutation to the per-package wrapper IFF setup.d/40-configs.sh
+        // actually emitted it (scripts/run-mutation.sh on disk) — see the AIF_HAS_MUTATION_WRAPPER
+        // comment above for why this replaced the AIF_MONOREPO_SIG manifest-key signal.
+        const hasMutationWrapper = process.env.AIF_HAS_MUTATION_WRAPPER === "1";
+        // P2 G5: the lint / format scripts follow the linter and formatter slots of the project.
+        const linter = process.env.AIF_LINTER, formatter = process.env.AIF_FORMATTER;
+        const lintCmd = { oxlint: "oxlint", biome: "biome lint ." }[linter] || "eslint . --max-warnings=0";
+        const lintFix = { oxlint: "oxlint --fix", biome: "biome lint --write ." }[linter] || "eslint . --fix";
+        const fmt = { biome: ["biome format --write .", "biome format ."], dprint: ["dprint fmt", "dprint check"] }[formatter]
+          || ["prettier --write .", "prettier --check ."];
+        const want = {
+          "lint": lintCmd,
+          "lint:fix": lintFix,
+          "format": fmt[0],
+          "format:check": fmt[1],
+          "typecheck": process.env.AIF_TYPECHECK || "tsc --noEmit",
+          "test": "vitest run",
+          "test:watch": "vitest",
+          "test:coverage": "vitest run --coverage",
+          "test:integration": "vitest run -- --include 'src/**/*.integration.{ts,tsx}'",
+          "test:mutation": hasMutationWrapper ? "bash scripts/run-mutation.sh" : "stryker run",
+          "test:mutation:incremental": hasMutationWrapper ? "bash scripts/run-mutation.sh --incremental" : "stryker run --incremental",
+          "arch:check": "depcruise --config " + (process.env.AIF_DEPCRUISE_CFG || ".dependency-cruiser.mjs") + " " + (process.env.AIF_ARCH_TARGET || "src"),
+          "audit:docs": "./scripts/audit-ai-docs.sh",
+          "check:globs": "bash scripts/check-rule-globs.sh",
+          "check:enforced": "bash scripts/check-rule-enforced.sh",
+          "check:arch-boundaries": "bash scripts/check-arch-boundaries.sh",
+          "check:lintstaged": "bash scripts/check-lintstaged-resolves.sh",
+          "check:fences-fire": "bash scripts/check-fences-fire.sh",
+          "check:shields-up": "bash scripts/check-shields-up.sh",
+          "test:mutation:generated": "bash scripts/run-generated-rule-mutation.sh",
+          // P2 C3: validate runs what the record arms (.ai-factory/tool-decisions.md, written by
+          // 99-finalize) — every armed check, labelled, not stopping at a failure — and probes the rest.
+          "validate": "bash scripts/run-armed.sh validate",
+          "prepare": "husky"
+        };
+        // react-next only: the shipped ci.yml test-storybook job calls build-storybook +
+        // test-storybook (github-actions-ci-ui.yml:152-157). Scripts were historically merged by
+        // retired setup.sh Batch K (storybook-package-additions.json, #946) — this is that merge,
+        // relocated to the live path. Same non-destructive guard as the rest of `want`.
+        if (process.env.AIF_STACK === "react-next") {
+          want["storybook"] = "storybook dev -p 6006";
+          want["build-storybook"] = "storybook build";
+          want["test-storybook"] = "test-storybook";
+        }
+        // Refresh sweep G5 (review finding): `prepare: husky` runs on every `npm install`, so with no
+        // husky devDependency behind it (a consumer who moved to another hook manager) it would fail
+        // that install with exit 127. A refresh writes no devDependency, so it withholds prepare too.
+        if (process.env.AIF_MERGE_MODE === "refresh" && !("prepare" in pkg.scripts)
+            && !("husky" in (pkg.devDependencies || {})) && !("husky" in (pkg.dependencies || {}))) {
+          delete want["prepare"];
+          process.stdout.write("WITHHELD_PREPARE\n");
+        }
+        // Snapshot BEFORE the merge: which canonical keys the consumer already had (for the
+        // kept-names log line below, #1531 observability).
+        const preExisting = new Set(Object.keys(pkg.scripts));
+        let added = 0;
+        for (const [k, v] of Object.entries(want)) if (!(k in pkg.scripts)) { pkg.scripts[k] = v; added++; }
+        // #1531: AFTER the strictly non-destructive merge, exact-string overwrite of the npm-init
+        // `test` placeholder. `npm init` seeds scripts.test with a placeholder whose string is
+        // npm-init noise ("Error: no test specified"), not consumer intent; the merge above KEPT
+        // it forever and the shipped `validate` (whose last lane is `test`) was permanently red on
+        // every npm-init consumer: npm runs the KEPT string (`echo … && exit 1`), so no green path
+        // existed until the consumer rewrote it. Overwrite ONLY the exact placeholder string; any
+        // other existing `test` value is deliberate consumer wiring and stays kept (and is named
+        // below).
+        // (NOTE: this JS lives inside the bash single-quoted node -e block opened below the want
+        // map — never put an apostrophe in JS here: it would end the bash string and the segment
+        // between the apostrophes is re-glued UNQUOTED, so any space or double-ampersand inside it
+        // word-splits the script. Hence the \" escapes instead of apostrophe literals.)
+        const NPM_INIT_TEST_PLACEHOLDER = "echo \"Error: no test specified\" && exit 1";
+        let placeholderReplaced = false;
+        if (pkg.scripts.test === NPM_INIT_TEST_PLACEHOLDER) {
+          pkg.scripts.test = want["test"];
+          placeholderReplaced = true;
+        }
+        // Kept-key NAMES, not just a count: a kept `test` on a brownfield now says "your own test
+        // wiring survived" instead of hiding behind "1 already present".
+        const keptNames = Object.keys(want).filter(k => preExisting.has(k) && !(k === "test" && placeholderReplaced));
+        // P2 C3: the scripts whose command is still the one getff writes (added now, or by an earlier
+        // install) — 99-finalize runs only those at install to arm them; a script the project wrote
+        // itself is never run by the install. (No apostrophe in this JS: see the NOTE above.)
+        process.stdout.write("GETFF_SCRIPTS " + Object.keys(want).filter(k => pkg.scripts[k] === want[k]).join(" ") + "\n");
+        // cih-s1 F2: also merge the devDeps the SHIPPED HOOKS need so they run, not just exist.
+        // .husky/pre-commit calls `npx lint-staged`; the canonical scripts call `husky` (prepare)
+        // and sort-package-json. Without these the hooks are dead even after `npm install`. Same
+        // non-destructive guard as scripts: only keys the consumer lacks. 2026-08-08: these three
+        // specs now mirror CORE_DEVDEPS below EXACTLY — tilde, not caret, where the node-20.19
+        // engines floor forced a pin below registry latest (the floor has moved WITHIN a major, so
+        // a caret would re-open it). Fourth copy of the same specs lives in
+        // tests/install-sh/f2-hook-activation.test.sh:34 (strict equality).
+        // devDependencies object created if absent.
+        const wantDev = {
+          "husky": "^9.1.7",
+          "lint-staged": "~16.4.0",
+          "sort-package-json": "~3.7.1"
+        };
+        // Refresh sweep G5: --refresh installs no dependency, so it writes none either (a key with no
+        // install breaks `npm ci` on the lockfile); each missing one is printed for the caller to name.
+        if (process.env.AIF_MERGE_MODE === "refresh") {
+          const haveDev = pkg.devDependencies || {};
+          for (const k of Object.keys(wantDev)) if (!(k in haveDev)) process.stdout.write("MISSING_DEV " + k + " " + wantDev[k] + "\n");
+          if (added > 0 || placeholderReplaced) fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+          process.stderr.write("  ✓ added " + added + " script(s); " + keptNames.length + " already present (kept: " + (keptNames.length ? keptNames.join(", ") : "none") + ")\n");
+          if (placeholderReplaced) {
+            process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
+          }
+          process.exit(0);
+        }
+        pkg.devDependencies = pkg.devDependencies || {};
+        let addedDev = 0;
+        for (const [k, v] of Object.entries(wantDev)) if (!(k in pkg.devDependencies)) { pkg.devDependencies[k] = v; addedDev++; }
+        fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+        process.stderr.write("  ✓ added " + added + " script(s); " + keptNames.length + " already present (kept: " + (keptNames.length ? keptNames.join(", ") : "none") + ")\n");
+        if (placeholderReplaced) {
+          process.stderr.write("  ✓ replaced npm-init \"test\" placeholder → \"" + want["test"] + "\" (the placeholder is npm-init noise, not consumer wiring; GH #1531)\n");
+        }
+        process.stderr.write("  ✓ added " + addedDev + " hook devDep(s); " + (Object.keys(wantDev).length - addedDev) + " already present (kept)\n");
+      ') || {
+        # An unparseable package.json (a BOM, comments, a conflict marker): the install stops here as
+        # it always has; a refresh names it and goes on, so the delivery baseline is still flushed.
+        [ "$AIF_MERGE_MODE" = refresh ] || return 1
+        note_not_wired "package.json scripts — not merged: package.json does not parse as JSON, and getff edits it only through a JSON parser"
+        return 0
+      }
+      while IFS=' ' read -r _mcs_tag _mcs_dev _mcs_ver; do
+        # DEPS_GETFF_SCRIPTS (read by 99-finalize) — the names on the GETFF_SCRIPTS line.
+        if [ "$_mcs_tag" = GETFF_SCRIPTS ]; then DEPS_GETFF_SCRIPTS="$_mcs_dev${_mcs_ver:+ $_mcs_ver}"; continue; fi
+        if [ "$_mcs_tag" = WITHHELD_PREPARE ]; then
+          note_not_wired "script \"prepare\" in package.json — not added: it runs husky, which is not among your dependencies, and --refresh installs none (npm would then fail on \`npm install\`)"
+        fi
+        [ "$_mcs_tag" = MISSING_DEV ] || continue
+        note_not_wired "devDependency $_mcs_dev ($_mcs_ver) in package.json — not added: --refresh installs no dependencies, and a devDependency written without an install puts package.json out of step with the lockfile (\`npm ci\` would then fail)"
+      done <<< "$_mcs_out"
+    else
+      echo "  ⚠  node not found — package.json scripts NOT merged"
+      note_not_wired "package.json scripts (validate, check:*, prepare) and the husky / lint-staged / sort-package-json devDependencies — not added: node is not on PATH, and getff edits package.json only through node"
+    fi
+  fi
+}
+
+# arm_recap_gate <settings> [install|refresh] — write env.AIF_RECAP_GATE=1 into .claude/settings.json (R-15: the
+# recap-gate REJECTION ships dormant; `--full` arms it). The caller gates on --full. Temp file next
+# to the target, `jq -e .` validate, atomic mv, skip when already set; no jq → the same merge through
+# node. Shared by setup.d/10-skills.sh §1c and install.sh do_refresh under `--refresh --full`
+# (refresh sweep 2026-09-29 G8, operator decision: --full on refresh arms what --full on install arms).
+arm_recap_gate() {
+  local settings="$1" _rg_mode="${2:-install}" _rg_rc _rg_tmp _rg_cur=""
+  # On refresh a value the consumer set is theirs: an explicit "0" is an opt-out, kept and named.
+  # (At install time no such value can exist yet, so the install path is unchanged.)
+  if [ "$_rg_mode" = refresh ]; then
+    if command -v jq >/dev/null 2>&1; then
+      _rg_cur=$(jq -r '.env.AIF_RECAP_GATE // empty | tostring' "$settings" 2>/dev/null || true)
+    elif command -v node >/dev/null 2>&1; then
+      _rg_cur=$(AIF_S="$settings" node -e 'try { const v = ((JSON.parse(require("fs").readFileSync(process.env.AIF_S, "utf8")).env) || {}).AIF_RECAP_GATE; if (v !== undefined && v !== null) process.stdout.write(String(v)); } catch (e) {}' 2>/dev/null || true)
+    fi
+    if [ -n "$_rg_cur" ] && [ "$_rg_cur" != 1 ]; then
+      echo "  ⊝ AIF_RECAP_GATE=$_rg_cur kept — a value set in .claude/settings.json is yours"
+      note_not_wired "AIF_RECAP_GATE in .claude/settings.json — not armed: it is set to \"$_rg_cur\", a value you set, and --refresh does not overwrite it"
+      return 0
+    fi
+  fi
+  # jq absence is REPORTED, never silent: `--full` is an explicit request to arm, and a
+  # no-op that prints nothing leaves the operator believing the gate is on when it is not.
+  # Same shape as the deps-hash-check jq-less branch of setup.d/10-skills.sh §1b.
+  if ! command -v jq >/dev/null 2>&1; then
+    # No jq: the same env merge through node (lib.sh json_edit_node); rc 3 = already armed.
+    _rg_rc=0
+    json_edit_node "$settings" '
+      if ((o.env || {}).AIF_RECAP_GATE === "1") return;
+      o.env = Object.assign({}, o.env, { AIF_RECAP_GATE: "1" });
+      return o;' || _rg_rc=$?
+    case "$_rg_rc" in
+      0) echo "  ✓ AIF_RECAP_GATE armed in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) echo "  AIF_RECAP_GATE already armed" ;;
+      *) echo "  ⚠ AIF_RECAP_GATE NOT armed — $(json_edit_node_why "$settings")" >&2
+         note_not_wired "AIF_RECAP_GATE in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
+  elif [ "$(jq -r '.env.AIF_RECAP_GATE // empty' "$settings" 2>/dev/null)" = "1" ]; then
+    echo "  AIF_RECAP_GATE already armed"
+  else
+    # Temp file NEXT TO the target, never in $TMPDIR: `mv` across devices is a copy
+    # that can fail half-way, and register_cc_hook (lib.sh) writes "$settings.tmp" for
+    # exactly this reason. The `mv` gets its own `if` — as an AND-list a failed rename
+    # under `set -euo pipefail` neither aborts nor prints, so a read-only tree finished
+    # the install clean while the operator believed the gate was armed (review M-7).
+    _rg_tmp="$settings.recapgate.tmp"
+    if jq '.env = ((.env // {}) + {AIF_RECAP_GATE: "1"})' "$settings" > "$_rg_tmp" 2>/dev/null \
+       && jq -e . "$_rg_tmp" >/dev/null 2>&1; then
+      if mv "$_rg_tmp" "$settings"; then
+        echo "  AIF_RECAP_GATE=1 armed (--full)"
+      else
+        rm -f "$_rg_tmp"; echo "  ⚠ could not write $settings — AIF_RECAP_GATE NOT armed"
+      fi
+    else
+      rm -f "$_rg_tmp"; echo "  ⚠ could not arm AIF_RECAP_GATE — $settings left untouched"
+    fi
+  fi
+}
+
+# activate_husky_hookspath — point core.hooksPath at .husky so the shipped .husky/* hooks run
+# (cih-s1 F2), never over a hook setup the consumer already runs (husky_hookspath_blocker) — that
+# case is a NOT wired line with the reason. Sets HUSKY_HOOKSPATH_OWNED / HUSKY_HOOKS_BLOCKED for
+# 99-finalize. Shared by setup.d/50-hooks.sh and install.sh do_refresh (refresh sweep 2026-09-29 G2):
+# before it was shared, a --refresh never activated the hooks it had just re-copied.
+activate_husky_hookspath() {
+  local _hp_block _hp_prefix
+  if [ -n "$DRY_RUN" ]; then
+    echo "▶ git hooks → [dry-run] would set core.hooksPath=.husky"
+  elif git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    # critical-review S4-3: never repoint a hook setup the consumer already runs (their own
+    # hooksPath, live .git/hooks) or a hooksPath that would resolve outside this install root.
+    _hp_block=$(husky_hookspath_blocker "$PROJECT_ROOT")
+    if [ -n "$_hp_block" ]; then
+      HUSKY_HOOKSPATH_OWNED=0
+      HUSKY_HOOKS_BLOCKED="$_hp_block"
+      echo "  ⊝ git hooks NOT activated: $_hp_block — kept as is"
+      # Reason only (operator directive 2026-09-28): the consumer's own hook setup stays in charge,
+      # and a subdirectory install would repoint the hooks of the whole repository — both are the
+      # consumer's to decide, so the line names what is not active and why, with no command.
+      _hp_prefix=$(git -C "$PROJECT_ROOT" rev-parse --show-prefix 2>/dev/null || true)
+      note_not_wired "framework git hooks (${_hp_prefix}.husky/) — not active: $_hp_block, and getff does not repoint a hook setup the repository already has or one that covers more than this install"
+    elif [ "$(git -C "$PROJECT_ROOT" config --get core.hooksPath 2>/dev/null)" = ".husky/_" ]; then
+      HUSKY_HOOKSPATH_OWNED=0
+      echo "▶ git hooks → core.hooksPath=.husky/_ kept (husky v9 runs .husky/pre-commit + pre-push)"
+    else
+      HUSKY_HOOKSPATH_OWNED=1
+      git -C "$PROJECT_ROOT" config core.hooksPath .husky
+      echo "▶ Activated git hooks → core.hooksPath=.husky"
+    fi
+  else
+    echo "  ⊝ git hooks NOT activated — not a git repository"
+    note_not_wired "framework git hooks (.husky/) — not active: $PROJECT_ROOT is not a git repository, so there is no core.hooksPath to set"
+  fi
+}
+
 # husky_hookspath_blocker PROJECT_ROOT (critical-review S4-3)
 # Echo ONE line naming why core.hooksPath must NOT be pointed at .husky — empty output means it is
 # safe. Blocked when the consumer already runs its own hooks: a core.hooksPath other than ours
@@ -2998,6 +3334,16 @@ note_not_wired() {
 # Operator directive 2026-09-28 (Q4.7): each line names what was left undone and why; nothing here
 # tells the reader what to do. The kept-values summary (print_kept_values) follows it, so every
 # place that reports the install's gaps also reports what of the project's own it left in place.
+# print_getff_added — the consumer-owned files getff inserted its block into this run (Q4.7,
+# note_getff_added), each original kept in .ai-factory/before-getff/. Shared by setup.d/99-finalize.sh
+# and install.sh do_refresh, whose eslint wiring can insert into the consumer's own configs too.
+print_getff_added() {
+  [ "${#GETFF_ADDED_TO[@]}" -gt 0 ] || return 0
+  echo ""
+  echo "✓  getff's block added to ${#GETFF_ADDED_TO[@]} of your own file(s) — by insertions only; each original is kept in .ai-factory/before-getff/:"
+  printf '      - %s\n' "${GETFF_ADDED_TO[@]}"
+}
+
 print_not_wired() {
   if [ "${#NOT_WIRED[@]}" -gt 0 ]; then
     echo ""
@@ -3088,9 +3434,9 @@ eslint_flat_config() {
 # has one (eslint_flat_config), NUL-terminated, once per directory. Pruned: node_modules, build output
 # (dist, coverage, .stryker-tmp, .next), .git, and .claude/worktrees — Claude Code's checked-out copies
 # of the repo, not packages of it. That is CFG_PRUNE of the push gates (check-rule-globs.sh,
-# check-rule-enforced.sh) less its */packages/core, which would cut a workspace of that name, so the
-# install writes to the workspace configs the gates then read. -mindepth 1: <dir> itself is never
-# pruned, whatever its name. The
+# check-rule-enforced.sh) less its ./packages/core/{hooks,audit-self,principles,eslint-rules}: the
+# subtrees the install vendors hold no config, so both find the same workspace configs and the install
+# writes to the ones the gates then read. -mindepth 1: <dir> itself is never pruned, whatever its name. The
 # per-package and per-workspace passes of 99-finalize read a directory the way ESLint does, so a
 # package's own eslint.config.js is found as the root one is (they used to look for
 # eslint.config.mjs only, and an eslint.config.js got nothing, unreported).
@@ -3832,7 +4178,9 @@ register_cc_hook() {
       const [e, c, m, marker] = args;
       o.hooks = o.hooks || {};
       const list = o.hooks[e] || [];
-      if (list.some(g => (g.hooks || []).some(h => new RegExp(marker).test(h.command || "")))) return;
+      // A null group or a handler with no string command (a prompt hook) is never a match.
+      if (list.some(g => g && Array.isArray(g.hooks) && g.hooks.some(h =>
+        h && typeof h.command === "string" && new RegExp(marker).test(h.command)))) return;
       o.hooks[e] = list.concat([m ? { matcher: m, hooks: [{ type: "command", command: c }] }
                                   : { hooks: [{ type: "command", command: c }] }]);
       return o;' "$event" "$cmd" "$matcher" "$marker" || rc=$?
@@ -3870,10 +4218,13 @@ register_cc_hook() {
       echo "  ⚠ jq could not create $settings — no settings file written, $marker NOT registered on $event" >&2
     fi
   elif jq -e --arg e "$event" --arg m "$marker" \
-      '((.hooks[$e] // []) | map(.hooks[].command) | any(test($m)))' "$settings" >/dev/null 2>&1; then
+      '[(.hooks[$e] // [])[] | objects | .hooks[]? | objects | .command | strings] | any(test($m))' \
+      "$settings" >/dev/null 2>&1; then
     # Idempotence is PER-EVENT (not whole-file): the same hook may register on two events
     # (e.g. inject-project-digest on UserPromptSubmit AND SubagentStart) — a whole-file grep
     # would false-match the first event's entry and skip the second. GH #934 batch D.
+    # Only string commands are compared: a prompt hook has no `command`, and on one of those the
+    # old `.hooks[].command | test` threw, read as «absent», and appended a duplicate per run.
     echo "  ⊝ $marker already registered on $event in .claude/settings.json"
   else
     # ledger A1-9 (the A1-8 class, fixed for merge_fenced in #1632): the unconditional ✓ below used
@@ -3889,6 +4240,133 @@ register_cc_hook() {
       echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker NOT registered on $event" >&2
     fi
   fi
+}
+
+# unregister_cc_hook SETTINGS EVENT MARKER — the inverse of register_cc_hook, for a hook getff MOVES
+# to another event. Drops every handler on EVENT whose command runs getff's own script
+# `.claude/hooks/<MARKER>.sh` (anchored — a consumer's `my-<MARKER>-v2.sh` is not ours), then a
+# group that held such a handler and is left empty, then the EVENT key if it is left empty. Every
+# other handler, group (malformed ones included) and event is kept as it was.
+# Silent when nothing matches (the common re-install case); absent settings file → no-op.
+# Why it exists (2026-09-29): inject-project-digest + inject-output-language moved from
+# UserPromptSubmit (fired on EVERY prompt) to SessionStart (once per context). register_cc_hook is
+# add-only, so without this a consumer installed before the move kept the per-prompt registration
+# next to the new one after a re-install — the injection would have grown, not shrunk.
+unregister_cc_hook() {
+  local settings="$1" event="$2" marker="$3" rc=0 re
+  [ -f "$settings" ] || return 0
+  re="\\.claude/hooks/${marker}\\.sh([\"' ]|\$)"
+  if ! command -v jq >/dev/null 2>&1; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [e, src] = args;
+      const re = new RegExp(src);
+      const list = (o.hooks || {})[e];
+      if (!Array.isArray(list)) return;
+      const ours = g => Array.isArray(g.hooks) && g.hooks.some(h => re.test(h.command || ""));
+      if (!list.some(ours)) return;
+      const kept = [];
+      for (const g of list) {
+        if (!ours(g)) { kept.push(g); continue; }
+        const hooks = g.hooks.filter(h => !re.test(h.command || ""));
+        if (hooks.length) kept.push(Object.assign({}, g, { hooks }));
+      }
+      if (kept.length) o.hooks[e] = kept; else delete o.hooks[e];
+      return o;' "$event" "$re" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ $marker removed from $event in .claude/settings.json (through node: jq is not on PATH)" ;;
+      3) : ;;
+      *) echo "  ⚠ $marker NOT removed from $event — $(json_edit_node_why "$settings")"
+         note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — $(json_edit_node_why "$settings")" ;;
+    esac
+    return 0
+  fi
+  jq -e --arg e "$event" --arg m "$re" \
+    '((.hooks[$e] // []) | map(.hooks[]?.command // "") | any(test($m)))' "$settings" >/dev/null 2>&1 || return 0
+  if jq --arg e "$event" --arg m "$re" '
+      def ours: (.hooks | type) == "array" and any(.hooks[]; (.command // "") | test($m));
+      .hooks[$e] = [ .hooks[$e][]
+                     | if ours then (.hooks = [ .hooks[] | select(((.command // "") | test($m)) | not) ]
+                                     | select((.hooks | length) > 0))
+                       else . end ]
+      | if (.hooks[$e] | length) == 0 then del(.hooks[$e]) else . end' \
+      "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+    echo "  ✓ $marker removed from $event in .claude/settings.json (moved to another event)"
+  else
+    rm -f "$settings.tmp" 2>/dev/null || true
+    echo "  ⚠ jq rewrite of $settings failed — file left unchanged, $marker still registered on $event" >&2
+    note_not_wired "removal of the stale Claude Code hook $marker on $event in .claude/settings.json — jq rewrite failed"
+  fi
+}
+
+# register_imr_hooks SETTINGS — the three registrations of inject-matching-rule (trigger build,
+# slice 1): PostToolUse "Edit|Write|MultiEdit|Read" (edit arm + the `on: read` arm), PreToolUse
+# "Bash" (the `events:` arm), SessionStart "compact" (the once-cache reset). One function for both
+# callers (setup.d/10-skills.sh §1e and the install.sh --refresh arm) so the two cannot drift.
+# The PostToolUse matcher WIDENED: register_cc_hook is add-only and idempotent per event, so an
+# install from before slice 1 would keep its old matcher and the Read arm would never fire. A group
+# of ours whose matcher is one getff itself wrote — "Edit|Write" (2752282c083, 2026-07-13) or
+# "Edit|Write|MultiEdit" — is widened IN PLACE, so every other field of it stays (a `timeout` the
+# consumer set, say); when a consumer handler shares that group, it keeps the old matcher and ours
+# moves to a group of its own. Any other matcher (a catch-all, one naming Read, one the consumer
+# narrowed) is the consumer's choice and is left as it is. Both back-ends: jq, else node.
+register_imr_hooks() {
+  local settings="$1" rc=0 new="Edit|Write|MultiEdit|Read"
+  # shellcheck disable=SC2016  # $CLAUDE_PROJECT_DIR is expanded by Claude Code, not here
+  local cmd='bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"'
+  local re="\\.claude/hooks/inject-matching-rule\\.sh([\"' ]|\$)"
+  # A group or handler of an odd shape (null, a non-string command, a prompt handler with none)
+  # is never ours and never crashes the check; both back-ends read it the same way.
+  if [ -f "$settings" ] && command -v jq >/dev/null 2>&1; then
+    if jq -e --arg re "$re" '
+        def ours: type == "object" and (.command | type) == "string" and (.command | test($re));
+        any((.hooks.PostToolUse // [])[] | objects;
+            (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+            and (.hooks | type) == "array" and any(.hooks[]; ours))' \
+        "$settings" >/dev/null 2>&1; then
+      if jq --arg re "$re" --arg new "$new" '
+          def ours: type == "object" and (.command | type) == "string" and (.command | test($re));
+          .hooks.PostToolUse = [ .hooks.PostToolUse[]
+            | if type == "object" and (.matcher == "Edit|Write" or .matcher == "Edit|Write|MultiEdit")
+                 and (.hooks | type) == "array" and any(.hooks[]; ours)
+              then if all(.hooks[]; ours) then .matcher = $new
+                   else (.hooks |= map(select(ours | not))),
+                        (. + {matcher: $new, hooks: [.hooks[] | select(ours)]})
+                   end
+              else . end ]' "$settings" > "$settings.tmp" && mv "$settings.tmp" "$settings"; then
+        echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json"
+      else
+        rm -f "$settings.tmp" 2>/dev/null || true
+        echo "  ⚠ jq rewrite of $settings failed — the inject-matching-rule Read arm NOT wired" >&2
+        note_not_wired "the Read arm of inject-matching-rule (PostToolUse matcher $new) in .claude/settings.json — jq rewrite failed"
+      fi
+    fi
+  elif [ -f "$settings" ]; then
+    # shellcheck disable=SC2016  # JavaScript, not shell expansions
+    json_edit_node "$settings" '
+      const [src, nm] = args;
+      const re = new RegExp(src);
+      const list = (o.hooks || {}).PostToolUse;
+      if (!Array.isArray(list)) return;
+      const ours = h => !!h && typeof h.command === "string" && re.test(h.command);
+      const legacy = g => !!g && (g.matcher === "Edit|Write" || g.matcher === "Edit|Write|MultiEdit")
+        && Array.isArray(g.hooks) && g.hooks.some(ours);
+      if (!list.some(legacy)) return;
+      o.hooks.PostToolUse = list.flatMap(g => !legacy(g) ? [g]
+        : g.hooks.every(ours) ? [Object.assign({}, g, { matcher: nm })]
+        : [Object.assign({}, g, { hooks: g.hooks.filter(h => !ours(h)) }),
+           Object.assign({}, g, { matcher: nm, hooks: g.hooks.filter(ours) })]);
+      return o;' "$re" "$new" || rc=$?
+    case "$rc" in
+      0) echo "  ✓ inject-matching-rule PostToolUse matcher widened to $new in .claude/settings.json (through node: jq is not on PATH)" ;;
+      # 1 = no node, or a file that is not a JSON object: register_cc_hook, next, reports that
+      # same cause once, as the jq arm leaves it to.
+      *) : ;;
+    esac
+  fi
+  register_cc_hook "$settings" "PostToolUse" "$cmd" "inject-matching-rule" "$new"
+  register_cc_hook "$settings" "PreToolUse" "$cmd" "inject-matching-rule" "Bash"
+  register_cc_hook "$settings" "SessionStart" "$cmd" "inject-matching-rule" "compact"
 }
 
 # rule_globs_boundary <file> — RULE_GLOBS.boundary of an ESLint flat config, read the way getff's
@@ -4122,7 +4600,7 @@ install_skill_context() {
         return 0
       fi
     elif [ "$DRY_RUN" != "--dry-run" ] && h1=$(_skill_context_h1 "$src") && [ -n "$h1" ] \
-      && tr -d '\r' < "$dst" | grep -qxF "$h1"; then
+      && grep -qxF "$h1" <<<"$(tr -d '\r' < "$dst")"; then
       echo "  · $dst: holds an older getff copy that cannot be told apart from project rules — kept as-is; the current version is appended in its own block"
     fi
   elif [ -f "$dst" ] && [ -z "$MERGE_FENCED_PROBLEM" ] && _skill_context_block_is_shipped "$dst"; then

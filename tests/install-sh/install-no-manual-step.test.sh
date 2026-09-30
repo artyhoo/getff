@@ -329,6 +329,9 @@ grep -qx 'pre-commit install --hook-type pre-push' "$WORK/pc.calls" 2>/dev/null 
 grep -q 'pre-push stage installed' "$WORK/y2.log" && ok "Y2: the log says the pre-push stage is installed" \
   || bad "Y2: no «pre-push stage installed» line: $(grep -i pre-commit "$WORK/y2.log" | tr '\n' '|')"
 grep -qi 'pre-commit' <<<"$(not_wired "$WORK/y2.log")" && bad "Y2: pre-commit still listed as NOT wired" || ok "Y2: pre-commit is not in NOT wired"
+# W2-G (#1502): the installed stage runs the getff entry, and so the ZCode skill-mirror check —
+# paired negative of Y2b/Y2c, where the stage is not installed and the check runs nowhere.
+nw_lacks Y2 "$WORK/y2.log" 'skill-mirror check' "the mirror check runs nowhere, while the stage that runs it is installed"
 no_manual Y2 "$WORK/y2.log"
 # Y2b: the consumer's own .git/hooks/pre-push is never handed to pre-commit (it would move it aside).
 Y2B="$WORK/py-precommit-own"; mkdir -p "$Y2B"; git -C "$Y2B" init -q
@@ -339,12 +342,14 @@ lane_into "$Y2B" "$WORK/y2b.log" "$WORK/pcbin:$NOTOOLS" python
 [ ! -e "$WORK/pc.calls" ] && ok "Y2b: pre-commit install not run over the consumer's own pre-push" || bad "Y2b: pre-commit ran: $(cat "$WORK/pc.calls")"
 [ "$(cat "$Y2B/.git/hooks/pre-push")" = "$(printf '#!/bin/sh\nexit 0')" ] && ok "Y2b: the consumer's pre-push is untouched" || bad "Y2b: pre-push changed"
 nw_has Y2b "$WORK/y2b.log" 'pre-push' "the pre-commit pre-push stage kept off by the consumer's own hook"
+nw_has Y2b "$WORK/y2b.log" 'skill-mirror check.*pre-commit pre-push stage' "the mirror check the uninstalled stage would run"
 no_manual Y2b "$WORK/y2b.log"
 # Y2c: pre-commit not on PATH — a NOT-wired line, no command.
 Y2C="$WORK/py-precommit-absent"; mkdir -p "$Y2C"; git -C "$Y2C" init -q
 printf '[project]\nname = "demo"\n' > "$Y2C/pyproject.toml"; printf 'repos: []\n' > "$Y2C/.pre-commit-config.yaml"
 lane_into "$Y2C" "$WORK/y2c.log" "$NOTOOLS" python
 nw_has Y2c "$WORK/y2c.log" 'pre-commit.*not on PATH' "pre-commit missing from PATH"
+nw_has Y2c "$WORK/y2c.log" 'skill-mirror check.*pre-commit pre-push stage' "the mirror check the uninstalled stage would run"
 no_manual Y2c "$WORK/y2c.log"
 
 # ── Y3: python lane outside a git repository, and with the consumer's own legacy git hook ──────
