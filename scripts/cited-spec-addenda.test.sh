@@ -75,7 +75,15 @@ run untracked.md:1
 expect "untracked path is INCONCLUSIVE, never CLEAN" 3 "VERDICT: INCONCLUSIVE" "not tracked"
 
 run spec.md:99
-expect "line past EOF is INCONCLUSIVE" 3 "VERDICT: INCONCLUSIVE"
+expect "line past EOF is INCONCLUSIVE" 3 "outside spec.md" "VERDICT: INCONCLUSIVE"
+
+run spec.md:99 --since 2026-01-01
+expect "line past EOF is INCONCLUSIVE under --since too" 3 "outside spec.md" "VERDICT: INCONCLUSIVE"
+
+for bad in 'garbage words' 2026-09-31 2026-13-01 deadbeefz; do
+  run spec.md:3 --since "$bad"
+  expect "unparseable --since '$bad' is a usage error, never a silent CLEAN" 1 "--since"
+done
 
 # ── GREEN: the cited intent was never amended ────────────────────────────────────────────────────
 run spec.md:3
@@ -131,6 +139,49 @@ expect "--since a revision uses rev..HEAD" 0 "VERDICT: CLEAN"
 
 run plain.md:1 --since HEAD~1
 expect "--since HEAD~1 lists HEAD" 2 "chore: rewrite plain line 3"
+
+# ── rename: the file's birth is the ORIGINAL add, not the rename ─────────────────────────────────
+mkdir -p "$REPO/docs"
+printf '# Old spec\n\n- D20: no writer.\n' >"$REPO/docs/old.md"
+git -C "$REPO" add docs/old.md
+commit_at 2026-09-11T08:00:00Z "docs: land old spec"
+printf '# Old spec\n\n- D20: no writer. WITHDRAWN inline, consumers must work.\n' >"$REPO/docs/old.md"
+git -C "$REPO" add docs/old.md
+commit_at 2026-09-12T08:00:00Z "docs: withdraw D20 inline"
+git -C "$REPO" mv docs/old.md docs/spec2.md
+commit_at 2026-09-13T08:00:00Z "chore: move the spec"
+
+run docs/spec2.md
+expect "whole-file citation of a renamed spec sees the pre-rename withdrawal" 2 \
+  "file birth" "docs: withdraw D20 inline" "VERDICT: AMENDED later=2 markers=0"
+
+# ── citations are repo-relative, wherever the helper runs from ───────────────────────────────────
+( cd "$REPO/docs" && bash "$HELPER" docs/spec2.md ) >"$TMP/out" 2>"$TMP/err"; rc=$?
+expect "run from a subdirectory resolves the repo-relative path" 2 "docs: withdraw D20 inline"
+
+# ── staged but never committed: no history, no verdict ───────────────────────────────────────────
+printf 'draft\n' >"$REPO/staged.md"
+git -C "$REPO" add staged.md
+run staged.md:1
+expect "staged-only file is INCONCLUSIVE with a VERDICT line" 3 "VERDICT: INCONCLUSIVE"
+git -C "$REPO" rm -q --cached staged.md
+rm -f "$REPO/staged.md"
+
+# ── last line without a trailing newline is a real line ──────────────────────────────────────────
+printf 'l1\nl2' >"$REPO/nonl.md"
+git -C "$REPO" add nonl.md
+commit_at 2026-09-14T08:00:00Z "docs: file without trailing newline"
+run nonl.md:2
+expect "unterminated last line is citable" 0 "blame of line 2" "VERDICT: CLEAN"
+
+# ── a shell comment inside a code block is not an amendment heading ──────────────────────────────
+# shellcheck disable=SC2016 # literal backticks: the fixture IS a fenced code block
+printf '# Runbook\n\n```bash\n# revoke the token\n```\n\n~~~\n# withdraw the key\n~~~\n' >"$REPO/fence.md"
+git -C "$REPO" add fence.md
+commit_at 2026-09-15T08:00:00Z "docs: runbook"
+run fence.md
+expect "fenced shell comments are not markers" 0 "VERDICT: CLEAN"
+expect_absent "fenced shell comments are not listed" "MARKER:"
 
 # ── shallow history cannot prove absence ─────────────────────────────────────────────────────────
 git clone -q --depth 1 "file://$REPO" "$TMP/shallow" 2>/dev/null

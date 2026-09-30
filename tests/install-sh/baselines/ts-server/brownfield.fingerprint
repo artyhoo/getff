@@ -4,7 +4,7 @@ df45f99ce099a46da636ab027a49131b350b8174123eec6d6418700e4d76c2f2  .ai-factory/AR
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.md
 e27566e10feafcd661c8f4ebda18d189a9866203846f7586741d98de7ba7e353  .ai-factory/DESCRIPTION.template.md
 6cea74cf94e26ad012286ad8b32055f9538602e382c113900e2f49e15c2df645  .ai-factory/RULES.md
-b03c4a8ec60de3a605be7781810c2f49865a91b649b5682ca82649a45cbed869  .ai-factory/refresh-baseline.json
+284ac3a2072546a3f888e908a2db283cf5c6e90f745e652363f81af8ed980d6a  .ai-factory/refresh-baseline.json
 318d9a16533732a69cda7bb7b174ee392fdd15be3d72a114cd8f2d51f3eab510  .ai-factory/refresh-conflicts/.prettierignore.318d9a16
 e75c48d681a7244eb63e49a02757e1c4c7ce51c350364d42fad9130aae1354f8  .ai-factory/rules/integration-rules.md
 5cb4c3a2df90563ae65d1aac356298d774eb80c91377e7220c05cd0ac023a86b  .ai-factory/skill-context/aif-review/SKILL.md
@@ -17,7 +17,7 @@ b02f777e22aebaaf970752897b29ebc4eebf7c360eabe33fa2ee32b831ff71b1  .claude/agents
 6b6679a548546f905ede1c9495682c8315262ed2229605cd767a559d7f19eb57  .claude/agents/compliance-verifier.md
 7fd839ccb2ad1faba23a6a423aaaa3f0524336f174a6e41236a602917374fc5e  .claude/agents/docplan-auditor.md
 3653bde5a915700b461b7bbc2a2b9b567835f8de5ad10673ac0e4e6e634fc453  .claude/agents/docs-form-auditor.md
-8d4bce3f773314f18b8179c35a562494a00c7c158171733277f9ec7a9871eb5d  .claude/agents/fidelity-auditor.md
+badaf85d1173e73248d6ef5fe168525311a6b7a8c95de2973c288db60a95f6ba  .claude/agents/fidelity-auditor.md
 0964a4d3deb5e15e916c599f375874785af96e935bec9efbc7488e600cee719d  .claude/agents/living-docs-auditor.md
 dfd6fa4956d214cb1e13ff2d6e0931680a2c850193d6a517ec581f1294df28a4  .claude/agents/memory-codification-auditor.md
 4e68c2b29073769643fe2798143639e51804372d38b6c5f12959b03428c39cf8  .claude/agents/review-sidecar.md

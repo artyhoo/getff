@@ -57,8 +57,9 @@ Do NOT cross into orchestrator-role decisions mid-session. On a strategic fork: 
    (out-of-scope section), and any acceptance criteria.
    Then run `bash scripts/cited-spec-addenda.sh <kickoff/spec path>` and record its
    `VERDICT:` line in `Addenda:` (where the helper is not installed, run its two halves by
-   hand: `git log --format='%h %cs %s' <commit that added the spec>..HEAD -- <spec>` and
-   `grep -niE '^#+ .*(addend|supersed|withdr|lapse)' <spec>`; nothing from either = CLEAN).
+   hand: `git log --follow --format='%h %cs %s' <commit that added the spec>..HEAD -- <spec>` and
+   `grep -niE '^#{1,6}[[:space:]].*(addend|supersed|withdr|lapse|revok|premise chang)' <spec>`
+   outside code fences; nothing from either = CLEAN).
    On `AMENDED`, read every `LATER:` commit and `MARKER:` heading: a later addendum is part
    of the intent, and a decision it withdraws can no longer excuse a drift ([doc-authority-hierarchy.md §4.1](../.claude/rules/doc-authority-hierarchy.md)).
    A descope or «as designed» section the addendum lapsed is graded as if absent. On
