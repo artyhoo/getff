@@ -824,8 +824,8 @@ expect_pass "--in-corpus with no corpus member checks nothing" --blank-only --in
 
 # =================================== extensionless targets + comma-separated line lists
 # Two shapes the path grammar could not see. Measured 2026-09-27 over the 980-file code
-# corpus: 7 citations name an extensionless file (`.husky/pre-commit:127` at
-# `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
+# corpus: 7 citations name an extensionless file (`.husky/pre-commit:127`
+# at `packages/core/principles/39-skill-fence-orch-home.test.ts:59`, and a `setup:NN` one at
 # `tests/install-sh/aif-guided-install-gating.test.sh:8`), and 18 sites carry a comma list
 # whose second and later numbers nothing checked (`inject-project-digest.sh:40,48` at
 # `.claude/hooks/inject-subagent-context.sh:54`). Neither shape even reached the skip
