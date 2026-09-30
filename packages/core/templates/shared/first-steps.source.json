@@ -194,7 +194,7 @@
       {
         "id": "preview",
         "title": "Preview the stack and the tool list",
-        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for. The «✓» lines name every tool the install will handle, MCP servers included; the «Companions» section leaves MCP servers out. Run no probe of your own.",
+        "action": "From the project's directory run `bash <getff>/setup --dry-run`. It writes nothing. Read from its output the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines that end «not chosen in the pre-launch list». The stack is the word the installer prints: one of its named stacks, or `generic` for a project it has no stack for. The «✓» lines name every tool the install will handle, MCP servers included. The «Companions» section ends with a line «MCP servers … — not added in this mode»: that describes the bare dry run only; the command of step 4 adds them. Run no probe of your own.",
         "doneTest": "the command exits 0, its output names the stack, and `git status --short` of the project is unchanged"
       },
       {

@@ -510,6 +510,17 @@ describe('The road ↔ install prompt parity', () => {
     expect(prompt.match(/Run no probe of your own/g)).toHaveLength(2);
   });
 
+  it('the preview says what the dry run prints for the MCP servers', () => {
+    // Since setup names the MCP servers at the end of «Companions» (companion_mcp_preview in
+    // setup.d/engine.sh), the old sentence «leaves MCP servers out» is false.
+    const preview = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'preview');
+    for (const text of [preview?.action ?? '', prompt]) {
+      expect(text).not.toMatch(/leaves MCP servers out/);
+      expect(text).toMatch(/«Companions» section ends with a line «MCP servers … — not added in this mode»/);
+      expect(text).toMatch(/the command of step 4 adds them/);
+    }
+  });
+
   it('the research step takes the one answer as its confirmation', () => {
     const research = ((road as Road | undefined)?.steps ?? []).find((s) => s.id === 'research');
     expect(research?.action).toMatch(/without asking/);

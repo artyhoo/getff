@@ -55,7 +55,7 @@ Install getff into this project. Walk the steps below in order, in this one sess
    Node.js 22.23+ and npm: the installer needs them, my project does not have to.
 2. [preview] Preview the stack and the tool list
    From THIS project's directory (never the getff checkout) run `bash /tmp/getff/setup --dry-run`.
-   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list». The «✓» lines name every tool the install will handle, MCP servers included; «Companions» leaves MCP servers out. Run no probe of your own.
+   It writes nothing. Read the stack, the «✓» lines under «Stack-aware companion selection», the «Companions» section and the lines ending «not chosen in the pre-launch list». The «✓» lines name every tool the install will handle, MCP servers included. The «Companions» section ends with a line «MCP servers … — not added in this mode»: that describes the bare dry run only; the command of step 4 adds them. Run no probe of your own.
    The stack is the word the installer prints: `react-native`, `react-next`, `react-spa`, `ts-server`, an alpha
    lane (`python`, `cargo`, `go`), or `generic` for a project it has no stack for; `next.config.*` is never read.
 3. [ask-once] Ask the ONE question
