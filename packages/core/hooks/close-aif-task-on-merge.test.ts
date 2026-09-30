@@ -56,6 +56,17 @@ const BASH_BIN = existsSync('/bin/bash') ? '/bin/bash' : 'bash';
 
 const PR_URL = 'https://github.com/artyhoo/getff/pull/42';
 
+// Every case here spawns the hook under /bin/bash (bash 3.2 on macOS) with stubbed
+// gh/curl/tsx, so multi-second runtimes under load are inherent and the vitest 5s default
+// is a mis-set gate rather than a signal. A full Mac run of `npm --prefix packages/core run
+// test:hooks` (M2 Max, load 3.8 -> 6.9, 260 s, measured 2026-10-01) timed out 6 of the 40
+// cases here at 5000ms (the `extracts the selector from` it.each rows; earlier runs also
+// lost «the same PR merged twice»), while the same suite passed 87/87 files on Linux, and a
+// different case fails on each run.
+// 30_000 is the SLOW_SHELL_MS convention of the sibling shell-spawning suites
+// (end-of-turn-reminder, dup-detect-empty-arg, priority-score-branch-matcher).
+const SLOW_SHELL_MS = 30_000;
+
 const tmpDirs: string[] = [];
 afterEach(() => {
   for (const d of tmpDirs.splice(0))
@@ -183,6 +194,7 @@ const bash = (command: string, cwd?: string) => ({
 
 describe.skipIf(!JQ)(
   'close-aif-task-on-merge.sh — what counts as a merge',
+  { timeout: SLOW_SHELL_MS },
   () => {
     it('ignores a non-Bash tool even when its payload mentions gh pr merge', () => {
       const sb = makeSandbox();
@@ -361,7 +373,7 @@ describe.skipIf(!JQ)(
   },
 );
 
-describe.skipIf(!JQ)('close-aif-task-on-merge.sh — closing', () => {
+describe.skipIf(!JQ)('close-aif-task-on-merge.sh — closing', { timeout: SLOW_SHELL_MS }, () => {
   it('merged PR with a marker, aif up → harvest.ts <id> --report-merge <url>, notice says closed', () => {
     const sb = makeSandbox();
     setView(sb, {
@@ -463,7 +475,7 @@ describe.skipIf(!JQ)('close-aif-task-on-merge.sh — closing', () => {
   });
 });
 
-describe.skipIf(!JQ)('close-aif-task-on-merge.sh — fail-open', () => {
+describe.skipIf(!JQ)('close-aif-task-on-merge.sh — fail-open', { timeout: SLOW_SHELL_MS }, () => {
   it('aif unreachable → exit 0, SKIP notice naming the task and the retry command, no harvest call', () => {
     const sb = makeSandbox();
     setView(sb, { url: PR_URL, state: 'MERGED', body: 'aif-task: t-1' });
