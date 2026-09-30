@@ -730,14 +730,14 @@ _pre_overwrite_divergence_action() {
 #   install.sh:1496                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1686          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:592          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:618          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:639          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:667          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:582          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:607          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:627          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:658          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:600          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:626          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:647          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:675          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:590          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:615          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:635          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:666          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1662          install-written blocks       → suppress-no-entry (proved)
@@ -2540,7 +2540,7 @@ generate_eslint_barrel() {
 
     # issue 1481 casualty 2: preserve CONSUMER-added barrel entries across regeneration.
     # A consumer hand-extends index.mjs with their own rule imports (compiled .mjs with NO .ts —
-    # the no-tsc consumer reality, setup.d/40-configs.sh:369-374); regenerating from the on-disk
+    # the no-tsc consumer reality, setup.d/40-configs.sh:377-382); regenerating from the on-disk
     # framework .ts set used to silently drop every such entry. Criterion (the issue's own):
     # an entry survives iff its rule basename is NOT framework-attributable — i.e. absent as a
     # rule .ts from EVERY framework rules dir (core + all presets, across ALL stacks, not just

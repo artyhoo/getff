@@ -168,7 +168,7 @@ c27d657b95119dda32befca8f2a44c7450e01b8777dc4800140a217b9f2ad2ce  agents/rule-te
 d5a82da979fc20149a13d9e5bf25fb26cdd8177dc9a26ea14b4fe77b3b421fad  packages/core/audit-self/audit-ai-docs.sh
 74668d43bcca1f42f1a5e6ae2269b0386c2679eb4365a799f7107f2afd052103  packages/core/audit-self/audit-ai-docs.test.ts
 add172472764efbc546f420561bb4a0beb81673a35e1ee11bb63348f193b5dee  packages/core/audit-self/audit-ai-docs.ts
-e9c11c5e0eef52dd30364c85fa172bf8b798f924c6a096f11e15f023fdcbf592  packages/core/audit-self/base-core-list.test.ts
+c1aa61f2ae2b0915a3d1a9a2a646bb124b3ca88b0532e27a21f2726736766933  packages/core/audit-self/base-core-list.test.ts
 2f76c7c0413ac2ee2ef50a742232a573ead89f6d71e31216b458d33d739eb473  packages/core/audit-self/bash.rules
 5e6ac52d468173d2a297a059e24243ca23cdbe2e91b625018b1370954f774fd3  packages/core/audit-self/check-arch-boundaries.sh
 a31c7ad0b16499c8f0b776037abac8796572d7d30f77fdad42b758826d05f9b0  packages/core/audit-self/check-ci-pins.sh
@@ -1176,7 +1176,7 @@ f8e4e9ca2352df7bbbe41d8f62290f03775d72436862ccbc8c1ae01e3509b066  setup.d/50-hoo
 2c01e6243d17f5f55e03cba81d3a98e4e3ddc24872ed1f8fe5e1390de4636d78  setup.d/companions.manifest
 e1953d3bfa11fbf32b27b26446d3d87dcdbde54ad854d1b831a60385574a8c42  setup.d/engine.sh
 0b4cbd27c6da86d69e3b1683fb40b24a1f89cfe8a50f5bc46c3d71277abc0376  setup.d/eslint-wire.sh
-f71f7b5f02e2913420dcece1c291e77f044fc336a9315915eb4c333abaf8613c  setup.d/lib.sh
+5b9f4ea773a6a2f5cfc960b783c1217831107ae5d50deefc330558f7655f73e0  setup.d/lib.sh
 62c6471285defd51fcf4247f9bbca8534b694d74e7ce5ab53286c7abb12ab664  setup.d/session-settings.json
 efffe5ea5f3ff026757f85bf55fa67c014c0cf55b22806cf14111ccc5025e088  setup.d/session-settings.sh
 eeaada285f2604cc0a6c277aba6c2a878760e04ded82eea660927829a17a1f97  setup.d/ships.manifest
