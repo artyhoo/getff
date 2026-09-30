@@ -8,6 +8,7 @@ sources:
   - .claude/hooks/end-of-turn-reminder.sh
   - .claude/hooks/lang/en.sh
   - .claude/rules/autonomous-loop-continuity.md
+  - .claude/rules/recommendation-laziness-discipline.md
   - .claude/rules/zcode-parity-doctrine.md
   - .claude/settings.json
   - docs/site/reference/D.json
@@ -21,7 +22,7 @@ executed:
   - { example: end-of-turn-reminder-sdk-harness-is-silent-by-design, stack: repo, date: 2026-09-25, result: silent }
   - { example: end-of-turn-reminder-long-markdown-answer-is-blocked-for-a-recap, stack: repo, date: 2026-09-25, result: printed }
   - { example: end-of-turn-reminder-turn-that-already-recapped-is-silent, stack: repo, date: 2026-09-25, result: silent }
-docs-refresh: deferred — re-verified 2026-09-29, the manual-step arm added and every hook line number renumbered against the cited sources at this pin; the four executed examples are untouched by the arm (none of their turns ends on a «From you:» line); clears at the next refresh of this page
+docs-refresh: deferred — re-verified 2026-10-01, the dispatch-channel rider added in its own paragraph and Evidence bullet; the other hook line numbers still carry the 2026-09-29 pin and the four executed examples are untouched by the rider (none of their turns calls `spawn_task`); clears at the next refresh of this page
 ---
 
 # end-of-turn-reminder hook
@@ -142,7 +143,8 @@ One rider is ON by default: the manual-step arm (lines 1103-1262). When the fina
 answer's last `From you:` / `От тебя:` line — read in both languages whatever your
 pack — hands you a manual step, the hook treats that as a process defect and hands the
 turn back: do the step yourself if you are allowed to; if it needs a mechanism or a
-permission, spawn a task that builds the automation and name it in the answer. A
+permission, dispatch a task that builds the automation and name it in the answer —
+through aif auto-dispatch when the runtime bridge is up, else a `spawn_task` chip. A
 manual step is a value that starts with `do by hand` / `сделать руками` (then a colon,
 a dash or a hyphen; the action follows), or one that says `by hand`, `manually`,
 `руками` or `вручную` before its first parenthesis. It never fires on the other three
@@ -163,6 +165,19 @@ costs a few tenths of a second even on a 64 KB turn. The same action blocks at m
 once per session, and the arm blocks at most twice per session in total;
 `AIF_EOT_HANDS_GATE=0` turns it off. A
 consumer whose language pack predates the arm gets a silent exit 0.
+
+A second default-on rider guards the dispatch channel (lines 781-892). It stays silent
+unless the aif runtime bridge is up — `RUNTIME_BRIDGE_MODE` set, not `manual` or `amux`,
+and `/health` answering. Then, if the turn (everything after your last prompt) emitted a
+`spawn_task` chip naming a `*/kickoff.md` whose first line is not `<!-- bridge: auto -->`,
+the hook hands the turn back: a chip waits for your click, while that marker makes the
+write-time dispatcher start the work with none. The message first asks whether the work
+waits on something or needs you to pick its start time; if so, one
+`chip-over-bridge: <reason, 20+ characters>` line anywhere in the turn keeps the chip.
+Stage kickoffs (`kickoff-s2.md`) and `-meta-launch/` records are not checked, because
+the marker does not dispatch them. Each chip is flagged once per session. The rule
+behind it is `.claude/rules/recommendation-laziness-discipline.md` («zero-click dispatch
+first»).
 
 Delivery per the card: consumer installs copy and register it
 (`setup.d/10-skills.sh:244-267`), the framework registers it at
@@ -215,6 +230,11 @@ consumer-safe posture as its question-time companion
   `AIF_EOT_HANDS_TOKEN_RE`, `AIF_EOT_HANDS_KEYWORD_RE`, `AIF_EOT_HANDS_SKIP_RE` and the
   floor patterns `AIF_EOT_HANDS_FLOOR` are `.claude/hooks/lang/en.sh` lines 54-88
   (identical in `ru.sh`) and the message `aif_msg_eot_hands_step` is line 312.
+- Dispatch-channel rider (default on, bridge-gated): lines 781-892 — the
+  `RUNTIME_BRIDGE_MODE` + `/health` gate, the one-pass turn scan (human-prompt
+  boundary, `spawn_task` calls, turn text), the dispatcher's own `*/kickoff.md` filter,
+  the `chip-over-bridge:` escape and the per-session `aif-eot-chip-<session>` bound;
+  the message `aif_msg_eot_chip_over_bridge` is `.claude/hooks/lang/en.sh` line 323.
 - Language pack: lines 23-45; the marker and branch messages live in
   `.claude/hooks/lang/en.sh` (`AIF_RECAP_MARKER` at line 16, `aif_msg_eot_branch_a`
   at line 205).
