@@ -44,8 +44,9 @@ Then `SLUG=one-button-w2-python-prepush-under-record bash .claude/skills/dispatc
   `packages/core/audit-self/run-armed.sh` (installed at `setup.d/40-configs.sh:76`).
 - The python lane never reaches either: `install.sh:689-692` runs `do_python_lane` and `exit 0` before
   the npm layers, so no record is written and no `scripts/run-armed.sh` is delivered on a python project.
-- The hook is delivered and activated by `setup.d/45-python.sh:891-990` (`core.hooksPath .getff/hooks`,
-  three pre-existing-hook cases).
+- The hook is delivered and activated by `setup.d/45-python.sh:925-1009` (`_py_deliver_local_hook_rung`: a
+  project's own `core.hooksPath` at `:993-995`, default activation `git config core.hooksPath .getff/hooks`
+  at `:1005`).
 
 ## §2 Decisions this stage respects
 
@@ -73,8 +74,9 @@ Then `SLUG=one-button-w2-python-prepush-under-record bash .claude/skills/dispatc
    running all three unconditionally. `GETFF_SKIP_HOOKS=1` and the missing-tool warnings stay.
 4. **CI parity.** The shipped workflow `packages/core/templates/python/github-actions-ci.yml` mirrors the
    hook (`pre-push.sh:15-17`). Read how the npm lanes' delivered CI runs recorded checks — the gate
-   `tests/install-sh/ci-runs-every-recorded-check.test.sh` («every check the install records has a
-   run-armed step in the CI workflow it delivers, on every stack») — and make the python lane pass the
+   `tests/install-sh/ci-runs-every-recorded-check.test.sh` («every check the install records / has a step
+   in the CI workflow getff delivers, and that step goes through scripts/run-armed.sh», `:2-3`; its scope
+   `:8` is «per stack (ts-server react-next react-spa react-native)») — and make the python lane pass the
    same gate. If mirroring needs a decision (PARK below), do not guess.
 5. **Report.** The python lane's final summary names each not-armed check with its reason, as the npm
    lanes do (`99-finalize.sh:1179`).
@@ -154,5 +156,5 @@ run. They are two checks; probe and record them separately.
 - How `ci-runs-every-recorded-check.test.sh` would take a python lane: the word «python» does not occur in
   it at `808e806c606` (`git cat-file -p 808e806c606:tests/install-sh/ci-runs-every-recorded-check.test.sh |
   grep -c -i python` → 0), so it does not cover the python lane today; extending it is part of deliverable 4.
-- Behaviour when the consumer's existing `core.hooksPath` is theirs (`45-python.sh:960-990`): the hook is
+- Behaviour when the consumer's existing `core.hooksPath` is theirs (`45-python.sh:993-995`): the hook is
   integrated rather than activated — whether the record still reaches that path is untested.

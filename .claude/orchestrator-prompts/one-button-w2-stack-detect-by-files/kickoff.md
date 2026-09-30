@@ -4,8 +4,9 @@
 > **Base branch:** `staging`. **Branch:** `feat/one-button-w2-stack-detect-by-files`.
 > **PR title:** `feat(install): detect the stack from the project's files and open rule generation to any npm project with a drivable lint command`.
 > **Channel:** one aif task (own worktree, harvested from the host) or one host session; the result is
-> verified on the host by an Opus session (operator log entry 36 proposes «aif dispatch → factory → Opus
-> verifies»; it is a proposal, not an order — the dispatcher picks the channel).
+> verified on the host by an Opus session (operator log entry 36, verbatim: «А Предлагаю реализацию спеки после
+> ревью опусом отправить в аиф диспетч  исполнятся в фабрику а проверять опусом» — a proposal, not an
+> order; the dispatcher picks the channel).
 > **Rigor label (L0):** `build-and-verify` — changes which install path every npm project takes; a wrong
 > detection silently installs the wrong preset.
 > **Authoritative for:** this stage's contract — the detection requirements, the layer-80 gate, the
@@ -46,7 +47,7 @@ PR 1937 moved three inline blocks into `do_refresh` functions), so re-locate eve
   react-spa, `"typescript"` → ts-server, else `unknown`. It reads no other file.
 - Under `-y` / `--full`, `unknown` becomes `generic` (`install.sh:753-759`: «No stack signal in
   package.json (no react-native / next / react / typescript dependency) → generic»).
-- Layer 80 skips `generic` entirely (`setup.d/80-rule-bootstrap.sh:62-67`, the handoff cited `:59-63`):
+- Layer 80 skips `generic` entirely (`setup.d/80-rule-bootstrap.sh:59-67`; the handoff cites `:63`):
   `note_not_wired "generated rules — not run: the rule generator writes ESLint rules, and stack «generic»
   has no ESLint getff placed"`. The generic research file is still listed, every entry research-only (`:64-65`).
 - The generator does NOT need the project's ESLint: getff brings its own toolchain outside the project's
@@ -57,8 +58,9 @@ PR 1937 moved three inline blocks into `do_refresh` functions), so re-locate eve
   config file names.
 - Biome: `99-finalize.sh:1074-1075` says «Biome … does not load ESLint-format rules» — a claim nobody
   re-verified for this chain (handoff: «Biome placement unverified»).
-- Other layers that skip `generic`: `setup.d/30-templates.sh:22`, `setup.d/40-configs.sh:18`,
-  `setup.d/70-deps.sh:169`. They stay as they are unless a deliverable below needs one of them.
+- Other layers that branch on `generic`: `setup.d/30-templates.sh:22`, `setup.d/40-configs.sh:18`,
+  `setup.d/50-hooks.sh:12`, `setup.d/60-ci.sh:21`, `setup.d/70-deps.sh:169` (`setup.d/LAYERS.md:63`: «30/40
+  keep their stack-free part, 50/60/70/80 return early»). They stay as they are unless a deliverable below needs one of them.
 
 Consequence: an Astro, Svelte or Vue project gets either `generic` (no generated rule at all) or, if its
 `package.json` names `typescript`, the `ts-server` preset — a Node-server preset. Which of the two each
@@ -73,8 +75,9 @@ Consequence: an Astro, Svelte or Vue project gets either `generic` (no generated
 - **Entry 26 point 4** (approved idea): «Any stack: the installer delivers the stack-free part to every
   project; the agent does the stack-bound part from the stack's docs; what was not done is reported "not
   done" … design for any stack, promise only what was run.»
-- **Entry 26 point 5 / entry 30(b)** — the rule-home ladder «линтер проекта → инструмент стека → ast-grep →
-  тест или скрипт → не подключено».
+- **Entry 26 point 5** — the rule-home ladder (the log tags the ORDER of its steps «adv», advisor detail);
+  entry 30(b) is the operator quoting that ladder and asking what «не подключено» means — a question, not
+  a decision.
 - **Handoff «Rejected alternatives»:** «"Всё generic" — rejected with evidence … the fix is to make generic
   full, not to make everything generic.»
 
@@ -122,7 +125,8 @@ Consequence: an Astro, Svelte or Vue project gets either `generic` (no generated
 > stated as «Option A → consequence X / Option B → consequence Y») and **stop that task.** Proceed only on
 > the unambiguous parts. Known forks for this stage: (1) a scaffold with NO lint command (step 1 may find
 > that `create-astro`'s default template has none) — Option A: getff adds a lint command of its own →
-> the project gains a new command (entry 28 allows new commands, it forbids changing existing ones; the
+> the project gains a new command (entry 28's reading forbids changing the project's versions and settings
+> and a green→red flip; whether a NEW command is allowed is this fork's question, not stated there; the
 > advisor's fallback in entry 15 was «getff adds ESLint alongside, announced in one line», never
 > separately confirmed by the operator) / Option B: NOT wired with the reason → no generated rule on that
 > scaffold. (2) Biome can hold generated rules → a new lane (not this stage).

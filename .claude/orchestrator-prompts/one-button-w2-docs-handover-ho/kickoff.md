@@ -182,7 +182,7 @@ bash scripts/run-local-ci-sweep.sh
 
 Active traps for this kickoff: **T3** (every predicate checked by a command) · **T4** (all seven HO rows are
 accounted for in the PR body: met / stage B / stage C / raised back) · **T13** (the hand-over's line
-numbers were measured on `26ccdc6b160` — re-measure, §2 shows three already moved) · **T19** (own cold
+numbers were measured on `26ccdc6b160` — re-measure, §2 shows two already moved: the lane exits, on the join only, and the python passport copy) · **T19** (own cold
 review) · **T21** (cold `agents/backward-sweep-auditor.md` on the class «a lane that exits before the layers
 that deliver a shared artefact» — every `exit 0` lane in `install.sh` is a candidate).
 

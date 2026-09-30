@@ -76,8 +76,9 @@ the landing (the landing ports P2/P5 edits into the refreshed `do_refresh` funct
    report), then reads the list, and reports every `⚠ overwriting locally-modified file` line and every
    `.ai-factory/refresh-conflicts/` entry the refresh created. Edit the step's source
    (`first-steps.source.json`, step `base-core-status`) and the road prompt in `INSTALL-FOR-AI.md` together
-   — the parity test holds the two equal; the only script at `808e806c606` that reads the source is
-   `scripts/render-face-facts.mjs` (`git grep -l first-steps.source.json 808e806c606 -- scripts/`), so run
+   — the parity test holds the two equal; the only non-test script at `808e806c606` that reads the source is
+   `scripts/render-face-facts.mjs` (`git grep -l first-steps.source.json 808e806c606 -- scripts/` also lists its
+   test `render-face-facts.test.sh`), so run
    it with `--write` if its output moves — and re-point the parity test (`first-steps-parity.test.ts:584-592`)
    to assert the new behaviour («the road runs it»), not delete it.
 3. **Sweep the road for the same class.** Every line of the road (steps 0-13) and of the install's final

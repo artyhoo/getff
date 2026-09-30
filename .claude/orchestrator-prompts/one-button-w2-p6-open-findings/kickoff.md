@@ -34,11 +34,13 @@ the landing. The P6 runs used a fresh `create-vite` react-ts project with oxlint
 
 ## §1 The findings, with the report's evidence lines (verbatim)
 
-From the findings table of `_p6-cold-run-report-2026-09-30.md` (run 1, §11) and the run-4 re-check table:
+From the findings table of `_p6-cold-run-report-2026-09-30.md` (run 1, §11) and the run-3 re-check table («13. Status of earlier findings»). Run 4
+(`808e806c606`) re-observed only F10; it lists «Items from run 3 not re-checked … F7, F9, F11», so F7
+and F9 were last measured in run 3:
 
 - **F7** — «getff adds an unused runtime dependency (`zod` in `dependencies`) and 2 moderate
   vulnerabilities (`@stryker-mutator/core → typed-rest-client → qs`); the scaffold had 0» — evidence «key
-  diff; `grep -rln zod src` rc 1; `npm audit --json` (`logs/npm-audit.json`)». Run 4: «**STILL THERE** |
+  diff; `grep -rln zod src` rc 1; `npm audit --json` (`logs/npm-audit.json`)». Run 3: «**STILL THERE** |
   `grep -rln zod src` rc 1; `npm audit` moderate 2».
   Code: `setup.d/70-deps.sh:475` `CORE_RUNTIME_DEPS=( zod@^3.24.0 )`, unconditional; its reason is
   `:465-474` (R2 `no-unsafe-zod-parse` assumes boundary code imports zod; dependency-cruiser's
@@ -46,13 +48,14 @@ From the findings table of `_p6-cold-run-report-2026-09-30.md` (run 1, §11) and
   `@stryker-mutator/core@^9.6.1`.
 - **F9** — «Shipped lint-staged runs `sort-package-json`, re-ordering the project's own package.json keys
   on the first commit (values unchanged)» — evidence «`.lintstagedrc.json`; `diff` of package.json around
-  the install commit; deep-equal `true`». Run 4: «**STILL THERE** (by config) | `.lintstagedrc.json:14`».
+  the install commit; deep-equal `true`». Run 3: «**STILL THERE** (by config) | `.lintstagedrc.json:14`».
   Code: `packages/core/templates/shared/.lintstagedrc.json:13` `"package.json": ["sort-package-json"]`;
   the devDependency is added at `setup.d/70-deps.sh:321` / `:375`.
 - **F10** — «npm resolver crash `edgesOut` (npm/cli#9787) on the devDep batch, 2/2 runs, recovered only by
   `--legacy-peer-deps` (which silences peer checks)» — evidence «`install.log:170-172`;
-  `rerun-install.log:170-172`». Run 4: «**STILL THERE** | 1 hit in `install.log`; recovered by
-  `--legacy-peer-deps`». Code: `setup.d/70-deps.sh:151-155` — on `TypeError` / «Cannot read properties of
+  `rerun-install.log:170-172`». Run 3: «**STILL THERE** | 1 hit in `install.log`; recovered by
+  `--legacy-peer-deps`»; run 4 again: «F10 is still there: 1 `edgesOut` crash in `install.log`».
+  Code: `setup.d/70-deps.sh:151-155` — on `TypeError` / «Cannot read properties of
   null» the whole batch is re-run with `--legacy-peer-deps` and treated as success.
 - **F11** — «`npm test` still prints the Vitest 4 `poolOptions` removal notice (K2)» — evidence
   «`logs/my-test.log`»; the report's own owner column: «outside the parts (K2, design session)». Code:
@@ -76,10 +79,13 @@ From the findings table of `_p6-cold-run-report-2026-09-30.md` (run 1, §11) and
 ## §3 Deliverables
 
 1. **F7 — zod.** Install `zod` only where the reason at `70-deps.sh:465-474` holds (the project has an
-   HTTP boundary or already imports/declares zod — the R2 N/A logic at `setup.d/60-ci.sh:232-250` already
-   detects «no boundary folder, no zod parse call, and no `zod` in any package.json»; reuse it, do not
-   write a second detector). Otherwise do not add it, and the report says why. Keep the single-source
-   array (`:472-474`: it also feeds the Next-steps echo in `99-finalize.sh`).
+   HTTP boundary or already imports/declares zod — R2's boundary detector `packages/core/audit-self/detect-r2-boundary.sh`, called at
+   `setup.d/60-ci.sh:73-74` (`_r2_verdict`), already decides «no boundary folder, no zod parse call, and
+   no `zod` in any package.json» (the verdict text `60-ci.sh:233` records); reuse it, do not write a
+   second detector). Otherwise do not add it, and the report says why. Keep the single-source
+   array; its comment (`:472-474`) says it also feeds a Next-steps echo in `99-finalize.sh`, but
+   `git grep -n RUNTIME_DEPS 808e806c606 -- setup.d/99-finalize.sh` finds no reader — check, and fix the
+   comment if it is stale.
 2. **F7 — audit delta.** Measure the `npm audit` delta the install adds (before/after on a fresh
    scaffold) and state it in the install's final report as a finding with the package chain, never as an
    instruction to the person (the P6 report class «npm audit fix (npm's text)» is a manual step, §9 of
@@ -142,7 +148,7 @@ runs (heavy rows on the PC, `~/HANDOFF-MAC.md`) — paste commands and exit code
 ## §6 Falsifiers to write into the PR body
 
 - A project WITH an HTTP boundary loses zod → R2's premise broken, dependency-cruiser red again.
-- A second «has a boundary» detector appears next to `60-ci.sh:232-250` → two answers to one question.
+- A second «has a boundary» detector appears next to `detect-r2-boundary.sh` → two answers to one question.
 - The project's own keys are still reordered on the first commit (A3) → F9 stands.
 - A project that had `sort-package-json` in its own lint-staged loses it → getff removed a project setting.
 - A peer conflict present under strict install vanishes from the report after the fallback → F10 stands.
@@ -164,5 +170,5 @@ hand-picked directory.
 
 - Whether a newer `@stryker-mutator/core` within `^9.6.1` drops `typed-rest-client → qs` (not looked up).
 - F10's trigger package (the report records the crash, not its cause).
-- Whether `60-ci.sh:232-250`'s boundary detection is callable before `70-deps` runs (layer order: 60 before
+- Whether `detect-r2-boundary.sh` is callable before `70-deps` runs (layer order: 60 before
   70 per `setup.d/LAYERS.md` — read the table, not measured).
