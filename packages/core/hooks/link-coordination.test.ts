@@ -20,7 +20,8 @@
  *       tracked-skip (k3), CANON-glob paired-negative (k4)
  *   (l) REPO-IDENTITY GUARD (2026-09-30): a session cwd inside a FOREIGN git repo
  *       gets no links (l1), the repo's own worktree still does (l2), an explicit
- *       foreign / non-git target is refused (l3/l4), neutered-guard negative (l-neg)
+ *       foreign / non-git target is refused (l3/l4), so is a non-git dir nested
+ *       inside the checkout (l5); neutered-guard negative (l-neg)
  *
  * ALL tests set CLAUDE_COORDINATION_DIR to a temp dir — never touches real $HOME.
  */
@@ -150,9 +151,14 @@ function setupRepo(name: string): string {
   return dir;
 }
 
-/** Create a fake worktree dir (no git worktree mechanics — just the directory structure). */
+/**
+ * Create a REAL linked git worktree of `primaryRepo`. It must be a checkout root: the
+ * helper refuses any target that is not the toplevel of a checkout of its own repo
+ * (REPO-IDENTITY GUARD), so a plain subdir of the primary no longer passes.
+ */
 function setupWorktreeDir(primaryRepo: string, name: string): string {
   const wt = resolve(primaryRepo, `.claude/worktrees/${name}`);
+  execSync(`git worktree add -q "${wt}" HEAD`, { cwd: primaryRepo });
   mkdirSync(resolve(wt, '.claude/orchestrator-prompts/my-umbrella'), { recursive: true });
   // Write tracked done.md (real file, not symlink)
   writeFileSync(
@@ -835,6 +841,17 @@ describe('link-coordination.sh — repo-identity guard (foreign cwd / target)', 
     const r = runHelper(helper, [plain], { CLAUDE_COORDINATION_DIR: canon }, home);
     expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
     expect(existsSync(resolve(plain, '.claude')), 'nothing may be created in a non-git dir').toBe(false);
+  });
+
+  it('(l5) NON-GIT dir NESTED inside the repo tree: refused — a subdir is not a checkout root', () => {
+    // `git -C <nested>` resolves the ENCLOSING repo's common dir, so a common-dir-only
+    // check would pass a scratch project (never `git init`-ed) that sits inside this
+    // checkout — the incident class in a narrower placement (cold review, 2026-09-30).
+    const nested = resolve(home, 'sub/scratch');
+    mkdirSync(nested, { recursive: true });
+    const r = runHelper(helper, [nested], { CLAUDE_COORDINATION_DIR: canon }, home);
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(3);
+    expect(existsSync(resolve(nested, '.claude')), 'nothing may be created in the nested dir').toBe(false);
   });
 
   it('(l-neg) PAIRED-NEGATIVE: with the guard stripped, the foreign cwd IS contaminated (the incident)', () => {

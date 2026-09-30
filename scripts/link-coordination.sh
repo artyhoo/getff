@@ -32,8 +32,8 @@
 # Contract:
 #   stdout  : NOTHING — reserved by CC WorktreeCreate hook for the worktree path.
 #             All diagnostic/progress output goes to STDERR.
-#   exit 0  : success (symlinks created or already correct)
-#   exit 1  : conflict detected (real file in worktree AND in CANON — never clobbers)
+#   exit 0 success (linked or already correct) · 1 conflict (real file in worktree
+#   AND in CANON — never clobbers) · 2 bad --on-conflict · 3 refused (REPO-IDENTITY GUARD)
 #
 # Lifecycle split (cross-session kickoff portability, SSOT #116): kickoff.md is a
 # committed durable design doc (git owns it); state.md + _plan-cache +
@@ -80,9 +80,10 @@ WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
 
 # ── REPO-IDENTITY GUARD ───────────────────────────────────────────────────────
 # Act ONLY on a checkout of the repository this script lives in: <worktree-dir>
-# must share this script's git common dir (the primary clone and all its linked
-# worktrees do). Anything else — a foreign repo, a non-git dir — is refused with
-# exit 3 before INIT touches $CANON or the target.
+# must be the TOPLEVEL of a checkout that shares this script's git common dir (the
+# primary clone and all its linked worktrees do). Anything else — a foreign repo, a
+# non-git dir, a plain subdir of this checkout (git -C would resolve the enclosing
+# repo for it) — is refused with exit 3 before INIT touches $CANON or the target.
 # Incident 2026-09-30 (P6 cold run 3): after a compaction the session cwd sat in a
 # scratch consumer project; the no-argument SessionStart call defaulted
 # <worktree-dir> to THAT repo's toplevel and linked 472 coordination entries into
@@ -92,16 +93,26 @@ WT_PROMPTS="$WT_DIR/.claude/orchestrator-prompts"
 # deliberate: .claude/settings.json is agent-uneditable, and every caller —
 # SessionStart, post-checkout, the adopt hook, create-worktree, worktree-setup —
 # inherits it. In a consumer install the script serves the consumer's own repo.
+# CDPATH would make `cd .git` jump elsewhere (and print); an exported GIT_DIR /
+# GIT_COMMON_DIR / GIT_WORK_TREE would make both sides resolve from the env, not -C.
+unset CDPATH
+_git_at() { env -u GIT_DIR -u GIT_COMMON_DIR -u GIT_WORK_TREE git -C "$@"; }
 _common_dir() {
   # $1 = dir → physical path of its git common dir; non-zero when not in a repo.
   local d
-  d="$(git -C "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  d="$(_git_at "$1" rev-parse --git-common-dir 2>/dev/null)" || return 1
   (cd "$1" && cd "$d" && pwd -P) 2>/dev/null
+}
+_is_toplevel() {
+  # $1 = dir → zero only when $1 IS its checkout's toplevel (physical comparison).
+  local top
+  top="$(_git_at "$1" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  [[ "$(cd "$top" 2>/dev/null && pwd -P)" == "$(cd "$1" 2>/dev/null && pwd -P)" ]]
 }
 SELF_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SELF_COMMON="$(_common_dir "$SELF_REPO" || true)"
 TARGET_COMMON="$(_common_dir "$WT_DIR" || true)"
-if [[ -z "$SELF_COMMON" || "$SELF_COMMON" != "$TARGET_COMMON" ]]; then
+if [[ -z "$SELF_COMMON" || "$SELF_COMMON" != "$TARGET_COMMON" ]] || ! _is_toplevel "$WT_DIR"; then
   echo "link-coordination: refusing $WT_DIR — not a checkout of this script's repository ($SELF_REPO); nothing linked" >&2
   exit 3
 fi
@@ -116,8 +127,8 @@ fi
 # (e.g. `!.claude/orchestrator-prompts/<umbrella>/stage-N.md`,
 # `!.../modular-install-fullpack/kickoff-s*.md`) slipped through and were wrongly
 # adopted. This check derives the skip decision from git itself, so ANY tracked
-# file is skipped regardless of name. Non-git / fake worktrees: ls-files returns
-# non-zero → not skipped here, and the name-based fast-path below still applies.
+# file is skipped regardless of name. The name-based fast-path below is kept as a
+# second layer (the REPO-IDENTITY GUARD above already refuses non-git targets).
 is_tracked() {
   # $1 = path (absolute or repo-relative) inside $WT_DIR
   git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1
