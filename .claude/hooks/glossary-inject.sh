@@ -226,7 +226,7 @@ while IFS=$'\t' read -r rec term word; do
     mv -f "$gl_tmp" "$counts_file" 2>/dev/null || rm -f "$gl_tmp" 2>/dev/null || true
   fi
   _gl_unlock
-  def="$(printf '%s\n' "$_pairs" | awk -F'\t' -v t="$term" '$1 == "T" && $2 == t { print $3; exit }')"
+  def="$(awk -F'\t' -v t="$term" '$1 == "T" && $2 == t { print $3; exit }' <<<"$_pairs")"
   [ -n "$def" ] || def="$term"
   out="${out}\"${word}\" = ${term}: ${def}"$'\n'
   printf '%s\t%s\n' "$term" "$word" >> "$pending_file" 2>/dev/null || true

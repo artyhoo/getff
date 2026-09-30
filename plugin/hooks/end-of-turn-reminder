@@ -1172,7 +1172,7 @@ _hs_plain() {
 }
 # $1 = text, $2 = line, $3 = byte offset (1-based): the bytes of that line from that offset.
 _hs_cut() {
-  printf '%s\n' "$1" | LC_ALL=C awk -v n="$2" -v o="$3" 'NR == n { print substr($0, o); exit }'
+  LC_ALL=C awk -v n="$2" -v o="$3" 'NR == n { print substr($0, o); exit }' <<<"$1"
 }
 _hs_trim() {
   local v="$1" t=$'\t'
@@ -1453,7 +1453,7 @@ if _is_zcode && [ "$text_length" -gt 500 ]; then
     if [ -n "$hands_line" ]; then
       _ze_reason="${_ze_reason}"$'\n\n'"${hands_line}"
     fi
-    _ze_glance="🎯 $(printf '%s' "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')"
+    _ze_glance="🎯 $(head -c 60 < <(printf '%s' "${anchor}") | LC_ALL=C tr '\n' ' ')"
     jq -n --arg msg "$_ze_reason" --arg gl "$_ze_glance" '{
       decision: "block",
       reason: $msg,
@@ -1524,7 +1524,7 @@ if [ "$asked" = "true" ] && [ "$long_text" = "false" ]; then
     if [ -n "$prev_line" ] && [ "$prev_line" != "$last_line" ]; then
       prev_text=$(printf '%s' "$prev_line" | jq -r '.message.content[]? | select(.type=="text") | .text' 2>/dev/null || true)
       if grep -qF -- '## 🟢' <<<"${prev_text}"; then
-        current_short=$(printf '%s' "$text" | head -c 120 | LC_ALL=C tr '\n' ' ')
+        current_short=$(head -c 120 < <(printf '%s' "$text") | LC_ALL=C tr '\n' ' ')
         # B2: if current_short is empty, never suppress (empty grep -qF "" matches anything).
         # D-2: `--` is load-bearing — current_short is the head of the assistant's own text, so
         # a turn opening with a bullet ("- ...") made grep parse the NEEDLE as options
@@ -1543,7 +1543,7 @@ fi
 
 # -- P-user glance-line (systemMessage field) ---------------------------------
 # Shown to the USER in CC UI (not to the model). Format: 🎯 <anchor ≤60 chars>
-anchor_short=$(echo "${anchor}" | head -c 60 | LC_ALL=C tr '\n' ' ')
+anchor_short=$(head -c 60 < <(echo "${anchor}") | LC_ALL=C tr '\n' ' ')
 glance_line="🎯 ${anchor_short}"
 
 # Three branches:
