@@ -659,7 +659,7 @@ jobs:
       # silently changing what a spec row means. Python stdlib only; reads its own fixtures, so
       # it needs no corpus and no network.
       - name: Run measurement-script acceptance (recap-v2 spec table oracle)
-        run: bash scripts/measure/measure.test.sh
+        run: bash scripts/measure/measure.test.sh && bash scripts/exclude-path-scoped-rules.test.sh && bash scripts/rule-load-replay.test.sh && bash scripts/rule-load-adherence.test.sh && bash scripts/measure-turn-attribution.test.sh # + trigger-build S2 host-script plumbing and the native-rule-load arm acceptance (stub claude, mktemp, no network), same line so no citation shifts
       # Wired 2026-08-17 by principle 41. These eleven were git-tracked and invoked by NO
       # workflow step: tests/plugin/ (9 of 10), tests/aif-doctor/ (2), probe-channels (1).
       # meta-all-wired.test.sh had only ever gated tests/install-sh/, so every other shell-test

@@ -94,17 +94,17 @@ and a vendored `claim.ts` calling into a pre-split backend would be a copy that 
 The vendored CLIs read these env vars (same convention as the framework copy; resolution in
 `src/resolver.ts` + `src/AifHandoffBackend.ts` for dispatch, `src/cli/harvest.ts` for egress):
 
-| Env var                         | Purpose                                                                                               | Required?                |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------ |
-| `RUNTIME_BRIDGE_MODE`           | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable)       | yes (or `--mode` flag)   |
-| `RUNTIME_BRIDGE_AIF_URL`        | aif-handoff REST/WS base (default `http://localhost:3009`)                                            | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_AIF_MCP_URL`    | aif-handoff MCP base (default `http://localhost:3100`)                                                | optional                 |
-| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue                                                             | for `aif-handoff`/`auto` |
-| `RUNTIME_BRIDGE_DEDUP_PATH`     | per-project dedup-log path (see «Per-project dedup-log path» below)                                   | optional                 |
-| `RUNTIME_BRIDGE_AIF_REPO_PATH`  | this project's base clone INSIDE the aif container; overrides what aif's own project record says      | optional (`harvest.ts`)  |
-| `RUNTIME_BRIDGE_AIF_CONTAINER`  | aif container name (default `aif-handoff-agent-1`)                                                    | optional (`harvest.ts`)  |
-| `RUNTIME_BRIDGE_HOST_REPO`      | host clone the egress push runs from — where `.husky/pre-push` executes (default: the cwd's checkout) | optional (`harvest.ts`)  |
-| `AIF_HOOK_LANG`                 | operator-facing language: `ru` → Russian, anything else incl. unset → English                         | optional                 |
+| Env var                         | Purpose                                                                                                                                                                       | Required?                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `RUNTIME_BRIDGE_MODE`           | `manual` / `aif-handoff` / `auto` (auto falls back to ManualBackend if aif-handoff unreachable)                                                                               | yes (or `--mode` flag)   |
+| `RUNTIME_BRIDGE_AIF_URL`        | aif-handoff REST/WS base (default `http://localhost:3009`)                                                                                                                    | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_AIF_MCP_URL`    | aif-handoff MCP base (default `http://localhost:3100`)                                                                                                                        | optional                 |
+| `RUNTIME_BRIDGE_AIF_PROJECT_ID` | project ID for the aif-handoff task queue                                                                                                                                     | for `aif-handoff`/`auto` |
+| `RUNTIME_BRIDGE_DEDUP_PATH`     | per-project dedup-log path (see «Per-project dedup-log path» below)                                                                                                           | optional                 |
+| `RUNTIME_BRIDGE_AIF_REPO_PATH`  | this project's base clone INSIDE the aif container; overrides what aif's own project record says                                                                              | optional (`harvest.ts`)  |
+| `RUNTIME_BRIDGE_AIF_CONTAINER`  | aif container name (default `aif-handoff-agent-1`)                                                                                                                            | optional (`harvest.ts`)  |
+| `RUNTIME_BRIDGE_HOST_REPO`      | host clone the egress push runs from — where `.husky/pre-push` executes (default: the cwd's checkout; refused when it is not a checkout of the repository this copy lives in) | optional (`harvest.ts`)  |
+| `AIF_HOOK_LANG`                 | operator-facing language: `ru` → Russian, anything else incl. unset → English                                                                                                 | optional                 |
 
 `harvest.ts` needs to know which directory inside the container holds this project. It asks aif
 first — every project record carries the `rootPath` aif runs git in, filtered out of
