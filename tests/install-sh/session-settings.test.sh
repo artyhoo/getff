@@ -184,6 +184,13 @@ rm -f "$f"
 run_mark "$d" > "$WORK/m3.out" 2>&1
 grep -qxF "MARK=$f" "$WORK/m3.out" && ok "M3 re-created after a hand delete (the .absent record already there) → marked again" \
   || bad "M3 a re-created file was not marked: $(tr '\n' '|' < "$WORK/m3.out")"
+# M4: the person's own file, which this run CHANGES — keep_original_settle does not mark (P5's lib marks
+# at its callers, 99-finalize), so the writer marks after a settle that kept an original.
+d="$WORK/mark4"; new_repo "$d"; f="$d/.claude/settings.local.json"; mkdir -p "$d/.claude"
+printf '{"env":{"MINE":"1"}}\n' > "$f"
+run_mark "$d" > "$WORK/m4.out" 2>&1
+grep -qxF "MARK=$f" "$WORK/m4.out" && ok "M4 the person's own settings.local.json, changed by this run, is marked" \
+  || bad "M4 a changed own file was not marked: $(tr '\n' '|' < "$WORK/m4.out")"
 
 [ -f "$DATA" ] || bad "missing $DATA"
 echo ""
