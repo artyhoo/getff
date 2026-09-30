@@ -430,7 +430,7 @@ ee8cf900baaf7785c999f04bc871366ba240b5059d0c30b8ea57913e12030a62  packages/core/
 3a27cec1f6a27ad861961e50b673c41b78adac3820198faf6107d3e845d28352  packages/core/hooks/check-docs-refresh.test.ts
 e17af43db948bcf554c9eef3e3851ff9a4af8be67d7689276bd214f1abaeee7b  packages/core/hooks/check-hook-marker.test.ts
 e8622ea68c4a43f21aee98580dceadd62d4808d6cc88d5c6c3250a7cc6c2b0a6  packages/core/hooks/check-kickoff-portability.test.ts
-b224c2adb44feba48fdc749989e413a7db364694d65d5ecb7c0b322e1d1027bb  packages/core/hooks/check-kickoff-traps.test.ts
+fd8b39b7fec3181e1e6396bd776330c7129ed0398e1b6797064d1746da3fd962  packages/core/hooks/check-kickoff-traps.test.ts
 a29967a291be5f5007a68a31bef794d2f82b318051e1eb136baa753c006abb0e  packages/core/hooks/check-skill-drift.test.ts
 96fe50f01c03b100317ecbdede7fa453133be0bf549623a4f9391200f93a997b  packages/core/hooks/check-worker-dispatch-channel.test.ts
 9843f6c97385548c52612d39afd6d9f7d0b3a76fb98a0b6a48a15ed990bc4c66  packages/core/hooks/checks/cmd-script-liveness.test.ts
@@ -474,12 +474,13 @@ ef4954cd336c0be5b24e4dde1f6f0325b11bb5f136da4e58120535f0f8b97834  packages/core/
 0f903db141eba8ce0db6bd4678cb6e8e0cefd2c565e3cd4343fe3af9eb01863a  packages/core/hooks/dup-detect-empty-arg.test.ts
 c8a58db7ed4ebaff6933f1e2010e3b3422098617999b5b5ca5a6b44aa9a280da  packages/core/hooks/end-of-turn-reminder.test.ts
 16ffb11fea2b2109d0cdca6bde5fe3e3eaf117b486101449aae864974703777b  packages/core/hooks/env-hermeticity.test.ts
+6259bf62d62e381f6fd54496c65a01fff57ab1dfbe7ddddc0bc8be4a1f2bb16e  packages/core/hooks/format-shipped-anchor.test.ts
 7d887c429d84caf70afb1f18e22441821203b91e810bc30dd04c9a854a43dff0  packages/core/hooks/frontier.test.ts
 a3f07c39f505b02927a7e7ce6c94ca551d9d4cfe6733029c11fd2dd363a5a12d  packages/core/hooks/getff-work.test.ts
 97dd72e2d0259e1d92567fff67775d880b44f65c95d1c1c7241e048319f5a086  packages/core/hooks/glossary-counters.test.ts
 16ff25d0dcd14cd56c7044cb4cfe41af4fc7779633faf686d1a9e58ab8578034  packages/core/hooks/harness-config-drift.test.ts
 d71024a380e5db8bb59cf490e5503e9e5c8cd722360101cd005f894cf0214f3d  packages/core/hooks/hook-emit-prelude.test.ts
-7350acfe0ef00b35578d8ba305aaee1c3be428a1ac3ca4f6fb5b4d8d257cd433  packages/core/hooks/host-verify.test.ts
+588c0f95a3eff0780d9c053aecf14d4228080b36aa6265dc4b12e9bfe4b39033  packages/core/hooks/host-verify.test.ts
 53acc72a47a55e8a8266bb1a2aadac94c3149e2a29044d86fcabd3407828b978  packages/core/hooks/inject-handoff-on-compact.test.ts
 404fe95a65e79e2e8bfc0c7091eb8477959e061f269d3f378e27a5e3ebc70fb5  packages/core/hooks/inject-matching-rule.test.ts
 634c5c10bab343b7df3b401e8c297ba608eea434fb47ef8b623ff6c118221435  packages/core/hooks/inject-memory-codification.test.ts
@@ -502,7 +503,7 @@ b019aed8445078524ef5ac02dee26754e2fca9e6f03ff05592c79adace4d6302  packages/core/
 aeeb6201fdd085dede6a571b1072a9a627d7dff5906095a5b230e085e60d53a9  packages/core/hooks/pre-push.heavy-runner.test.ts
 f16ecf7f4cc35bf1f346c54bded3f85ac6a5ea878f8e0cba8507747c6f40f269  packages/core/hooks/pre-push.line-citations-timeout.test.ts
 2a88c9847e7f436068d610d0cad26395b6d054b9d7a2ee9102057a58e755d4aa  packages/core/hooks/pre-push.test.ts
-d78e65f2efe9bbff09bb2c872ee22216b9f55e540105769769a7abe81c09bfe5  packages/core/hooks/pre-push.ts
+a6fe4d35c5289b43d00e095ea8bf638c638375980782cdd1aedb50033bae0b18  packages/core/hooks/pre-push.ts
 0084dbff9a5f579ea85ead544fcb76ee88833452047a2d1fc24550a7111e7f4f  packages/core/hooks/precompact-residue.test.ts
 d39ccea449f34eb7cd063b887c036d71072e0dc070dcfe159b7420a5417f3175  packages/core/hooks/priority-score-branch-matcher.test.ts
 24156ab0edbf03f4cb4c2ca1e65d155aff93e172748493e93a72385c6fa94975  packages/core/hooks/priority-score-reconstruct-stub.test.ts
@@ -524,6 +525,7 @@ ca0794944baccb739c780a6754a589d5b4f3c2c213c5605be16f90ca0c79861a  packages/core/
 a0172959f358d85b263c1cd415c66d37788254004af31f4a92990b6e77b301be  packages/core/hooks/utils/run-check.ts
 bce0660b4c5d61751b0fc779759951516e072f809c2f469bdd7f499180de53f3  packages/core/hooks/validate-prompt.test.ts
 b86e17b4e5dde46b94fcd858afe66f1dff13c1aeaa1a3e258f457dd386fec0d2  packages/core/hooks/warn-subagent-report.test.ts
+5ccfb25ddbd5f04303662c9310b3009e8a3691d0d85903015945e27569e23ec2  packages/core/hooks/worktree-doctor.test.ts
 9a0724be4578bca5fa6d0f29c7154986d99324c28d9a203b9ab2475e42ee4360  packages/core/hooks/worktree-node-modules.test.ts
 179dce7a5ddf2584efd08f0379638820d52119f7365b267af2130ed6eafb5a6b  packages/core/hooks/worktree-setup-hydration.test.ts
 920e2c821c12c6981b1ef0ff56932ed58156470a8fa240d5b9439b4967b611d5  packages/core/hooks/worktree-setup.test.ts
