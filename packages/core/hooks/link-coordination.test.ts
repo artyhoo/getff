@@ -22,6 +22,8 @@
  *       gets no links (l1), the repo's own worktree still does (l2), an explicit
  *       foreign / non-git target is refused (l3/l4), so is a non-git dir nested
  *       inside the checkout (l5); neutered-guard negative (l-neg)
+ *   (m) GIT-SPAWN BUDGET (2026-10-01): git process count stays flat as $CANON grows;
+ *       per-file is_tracked() negative (m-neg)
  *
  * ALL tests set CLAUDE_COORDINATION_DIR to a temp dir — never touches real $HOME.
  */
@@ -653,6 +655,53 @@ describe('link-coordination.sh', () => {
       expect(readFileSync(p, 'utf8')).toBe(`${f}-v1\n`);
     }
     teardown(wt1, wt2);
+  });
+
+  // ── (m) GIT-SPAWN BUDGET ──────────────────────────────────────────────────
+  // Incident 2026-10-01: is_tracked() spawned one git process per $CANON file. Against
+  // the operator's 519-file store that was ~600 git processes and 18-28 s per run under
+  // load, paid on every `git worktree add` (post-checkout), create-worktree.sh and
+  // SessionStart — and it sized the timeout of any test that made a worktree of this
+  // repo. The git process count must not grow with $CANON.
+
+  /** Count git processes one helper run starts (GIT_TRACE2_EVENT, one "start" per process). */
+  function gitStarts(helperPath: string, wt: string): number {
+    const trace = resolve(canon, '..', `${canon.split('/').pop()}-trace2.json`);
+    const r = runHelper(helperPath, [wt], { CLAUDE_COORDINATION_DIR: canon, GIT_TRACE2_EVENT: trace });
+    expect(r.status, `helper stderr: ${r.stderr}`).toBe(0);
+    const n = readFileSync(trace, 'utf8').split('\n').filter((l) => l.includes('"event":"start"')).length;
+    rmSync(trace, { force: true });
+    return n;
+  }
+  const CANON_FILES = 60;
+  function seedCanon(): void {
+    for (let i = 0; i < CANON_FILES; i++) {
+      mkdirSync(resolve(canon, `u${i}`), { recursive: true });
+      writeFileSync(resolve(canon, `u${i}/state.md`), `state ${i}\n`);
+    }
+  }
+
+  it('(m) GIT-SPAWN BUDGET: git process count stays flat as $CANON grows', () => {
+    seedCanon();
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-m');
+    const starts = gitStarts(helper, wt);
+    expect(starts, `${starts} git processes for ${CANON_FILES} canon files`).toBeLessThan(15);
+    expect(lstatSync(resolve(wt, '.claude/orchestrator-prompts/u0/state.md')).isSymbolicLink()).toBe(true);
+    teardown(wt);
+  });
+
+  it('(m-neg) PAIRED-NEGATIVE: the per-file is_tracked() spawns git once per canon file', () => {
+    seedCanon();
+    const src = readFileSync(HELPER, 'utf8');
+    const perFile = src.replace(
+      /is_tracked\(\) \{[\s\S]*?\n\}/,
+      'is_tracked() { git -C "$WT_DIR" ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }',
+    );
+    expect(perFile, 'is_tracked() must be present to replace').not.toBe(src);
+    const perFileHelper = installHelper(primaryRepo, perFile, 'link-coordination-per-file.sh');
+    const wt = setupWorktreeDir(primaryRepo, 'lnk-m-neg');
+    expect(gitStarts(perFileHelper, wt)).toBeGreaterThanOrEqual(CANON_FILES);
+    teardown(wt);
   });
 });
 
