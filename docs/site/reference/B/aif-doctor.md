@@ -16,6 +16,7 @@ sources:
   - docs/site/reference/B.json
   - docs/site/reference/B.md
   - docs/site/terms.md
+docs-refresh: deferred — re-verified 2026-09-30, the only change to the cited setup.d/lib.sh in this range renumbers one in-comment pointer into setup.d/45-python.sh at line 716, far below the line 65 factory list this page names, which did not move; clears at the next gold refresh of this page
 executed:
   - { example: list-skill-in-repo, stack: repo, date: 2026-09-30, result: listed }
 ---
