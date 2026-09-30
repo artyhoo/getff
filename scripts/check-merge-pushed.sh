@@ -13,13 +13,20 @@
 # ran. Merging origin/<anything> always passes. A repo with no `origin` remote is out of scope.
 #
 # CHANNELS (the earliest point: merge time), one script, two callers:
-#   pre-merge-commit  .husky/pre-merge-commit — a CLEAN `git merge`. git (2.53, measured
-#                     2026-09-30) has NOT written MERGE_HEAD yet at this point, so the heads
-#                     are read from the invoking `git merge` argv (/proc/<ppid>/cmdline, else
-#                     `ps`) plus GIT_REFLOG_ACTION. When no head can be resolved the merge is
-#                     refused, never waved through: after a refused pre-merge-commit git writes
-#                     MERGE_HEAD, so `git commit` completes it through the exact check below.
-#   pre-commit        the MERGE_HEAD arm at the top of .husky/pre-commit — a CONFLICTED merge
+#   pre-merge-commit  .husky/pre-merge-commit — a CLEAN `git merge`. git has NOT written
+#                     MERGE_HEAD yet at this point (measured 2026-09-30 on git 2.39, 2.53 and
+#                     Apple git 2.54), so the heads come from what git DOES expose:
+#                       · `git merge <heads>`: GIT_REFLOG_ACTION is exactly "merge <heads as
+#                         typed>" — options and the -m message are already stripped;
+#                       · `git pull`: GIT_REFLOG_ACTION is "pull …" and git runs a child
+#                         `git merge … FETCH_HEAD`; every FETCH_HEAD line not marked
+#                         not-for-merge is a head (an octopus pull has several).
+#                     The parent argv (/proc/<ppid>/cmdline, else `ps`) is read ONLY to confirm
+#                     that child merges FETCH_HEAD — never split into heads, since `ps` loses the
+#                     quoting and a -m message would leak words. When no head can be resolved the
+#                     merge is refused, never waved through: after a refused pre-merge-commit git
+#                     writes MERGE_HEAD, so `git commit` completes it through the exact check.
+#   pre-commit        the MERGE_HEAD arm at the END of .husky/pre-commit — a CONFLICTED merge
 #                     (and `merge --no-commit`) is committed by `git commit`; heads = MERGE_HEAD.
 #
 # ESCAPE: MERGE_UNPUSHED_OVERRIDE="<reason, ≥20 chars>" (precedent: ci-tool-pinning.md §3,
@@ -29,6 +36,8 @@
 # DECLARED LIMITS (no git hook fires, so no merge-time channel exists; pre-push still runs):
 #   · a FAST-FORWARD merge creates no commit and runs no hook;
 #   · `git merge --squash` leaves no MERGE_HEAD; `--no-verify` skips both hooks.
+# NOT CHECKED BY DESIGN: a rebase (GIT_REFLOG_ACTION "rebase…", or a rebase in progress)
+#   replays merges that already exist in the branch being rebased; it introduces nothing.
 #
 # Test: tests/hooks/merge-unpushed-refusal.test.sh. Bash 3.2 compatible.
 set -uo pipefail
@@ -37,6 +46,8 @@ MODE=${1:-}
 case "$MODE" in pre-merge-commit|pre-commit) ;; *) echo "usage: $0 pre-merge-commit|pre-commit" >&2; exit 2 ;; esac
 
 git remote get-url origin >/dev/null 2>&1 || exit 0
+case "${GIT_REFLOG_ACTION:-}" in rebase*) exit 0 ;; esac
+[ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ] && exit 0
 
 HEADS=()    # resolved commit ids
 LABELS=()   # what the operator typed / the branch name, parallel to HEADS
@@ -57,24 +68,28 @@ branch_label() { # <sha> → a local branch pointing at it, else name-rev, else 
   printf '%s' "$b"
 }
 
-# heads_from_words <word>... — the words after `merge`, options and their values skipped.
-heads_from_words() {
-  local seen_merge=0 skip=0 any=0 w
-  for w in "$@"; do
-    if [ "$seen_merge" -eq 0 ]; then
-      case "$w" in merge|*/git-merge|git-merge) seen_merge=1 ;; esac
-      continue
-    fi
-    if [ "$skip" -eq 1 ]; then skip=0; continue; fi
-    case "$w" in
-      -m|-F|-s|-X|--message|--file|--strategy|--strategy-option|--into-name) skip=1 ;;
-      -) any=1; add_head '@{-1}' "$(git rev-parse --abbrev-ref '@{-1}' 2>/dev/null || echo '@{-1}')" ;;
-      -*) ;;
-      *) any=1; add_head "$w" "$w" ;;
-    esac
-  done
-  # `git merge` with no commit argument merges the upstream.
-  if [ "$seen_merge" -eq 1 ] && [ "$any" -eq 0 ]; then add_head '@{upstream}' "$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)"; fi
+# heads_from_fetch_head — every FETCH_HEAD line that is not not-for-merge, labelled by branch.
+heads_from_fetch_head() {
+  local fh sha tag desc lbl
+  fh=$(git rev-parse --git-path FETCH_HEAD)
+  [ -f "$fh" ] || return 0
+  while IFS="$(printf '\t')" read -r sha tag desc; do
+    [ -n "$sha" ] && [ "$tag" != not-for-merge ] || continue
+    lbl=$(printf '%s' "$desc" | sed -n "s/^branch '\(.*\)' of .*/\1/p")
+    add_head "$sha" "${lbl:-$(branch_label "$sha")}"
+  done < "$fh"
+}
+
+# parent_merges_fetch_head — true when the parent process is `git merge … FETCH_HEAD`.
+parent_merges_fetch_head() {
+  local argv
+  if [ -r "/proc/$PPID/cmdline" ]; then
+    argv=$(tr '\0' ' ' < "/proc/$PPID/cmdline")
+  else
+    argv=$(ps -ww -o args= -p "$PPID" 2>/dev/null)
+  fi
+  case " $argv " in *" merge "*" FETCH_HEAD "*) return 0 ;; esac
+  return 1
 }
 
 if [ "$MODE" = pre-commit ]; then
@@ -84,24 +99,24 @@ if [ "$MODE" = pre-commit ]; then
     [ -n "$sha" ] && add_head "$sha" "$(branch_label "$sha")"
   done < "$MH"
 else
-  if [ -r "/proc/$PPID/cmdline" ]; then
-    WORDS=()
-    while IFS= read -r -d '' w; do WORDS+=("$w"); done < "/proc/$PPID/cmdline"
-    [ "${#WORDS[@]}" -gt 0 ] && heads_from_words "${WORDS[@]}"
-  else
-    set -f
-    # shellcheck disable=SC2046 # word-splitting the argv line is the point; ps has lost the quoting
-    heads_from_words $(ps -ww -o args= -p "$PPID" 2>/dev/null)
-    set +f
-  fi
-  # shellcheck disable=SC2086
-  case "${GIT_REFLOG_ACTION:-}" in "merge "*) set -f; heads_from_words $GIT_REFLOG_ACTION; set +f ;; esac
-  # A sha typed by `git pull` (its child `git merge <sha>`) reads better as its branch name.
-  i=0
-  while [ "$i" -lt "${#HEADS[@]}" ]; do
-    case "${LABELS[$i]}" in *[!0-9a-f]*|'') ;; *) LABELS[i]=$(branch_label "${HEADS[$i]}") ;; esac
-    i=$((i + 1))
-  done
+  case "${GIT_REFLOG_ACTION:-}" in
+    merge|"merge "*)
+      set -f
+      # shellcheck disable=SC2086 # the reflog action is "merge <head> <head> …", space-separated
+      set -- $GIT_REFLOG_ACTION
+      set +f
+      shift
+      if [ "$#" -eq 0 ]; then add_head '@{upstream}' "$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)"; fi
+      for w in "$@"; do
+        case "$w" in
+          -) add_head '@{-1}' "$(git rev-parse --abbrev-ref '@{-1}' 2>/dev/null || echo '@{-1}')" ;;
+          FETCH_HEAD) heads_from_fetch_head ;;
+          *) add_head "$w" "$w" ;;
+        esac
+      done
+      ;;
+    *) parent_merges_fetch_head && heads_from_fetch_head ;;
+  esac
 fi
 
 TARGET=$(git symbolic-ref -q --short HEAD 2>/dev/null || git rev-parse --short HEAD)
@@ -117,7 +132,11 @@ fi
 BAD=()
 i=0
 while [ "$i" -lt "${#HEADS[@]}" ]; do
-  n=$(git rev-list --count "${HEADS[$i]}" --not HEAD --remotes=origin 2>/dev/null || echo 0)
+  if ! n=$(git rev-list --count "${HEADS[$i]}" --not HEAD --remotes=origin 2>/dev/null); then
+    echo "❌ merge refused: \`git rev-list\` failed on ${LABELS[$i]} — the unpushed-merge check"
+    echo "   (scripts/check-merge-pushed.sh) cannot vouch for it. \`git merge --abort\` drops the merge."
+    exit 1
+  fi
   [ "$n" -gt 0 ] && BAD+=("${LABELS[$i]}|$(git rev-parse --short "${HEADS[$i]}")|$n")
   i=$((i + 1))
 done
@@ -148,9 +167,14 @@ for b in "${BAD[@]}"; do
 done
 echo "   Push each branch first, so its own pre-push gates run on it, then merge again:"
 for b in "${BAD[@]}"; do
-  IFS='|' read -r lbl _ _ <<<"$b"
-  echo "     git push -u origin $lbl"
+  IFS='|' read -r lbl sha _ <<<"$b"
+  if git show-ref -q --verify "refs/heads/$lbl"; then
+    echo "     git push -u origin $lbl"
+  else
+    echo "     push the branch that contains $sha"
+  fi
 done
+echo "   (Already pushed from elsewhere? \`git fetch origin\` first — only origin/* refs count.)"
 [ "$MODE" = pre-commit ] && echo "   (the merge is still in progress: \`git merge --abort\` drops it)"
 [ "$MODE" = pre-merge-commit ] && echo "   (git keeps the merge state after this refusal: \`git merge --abort\` drops it)"
 if [ -n "$REASON" ]; then
