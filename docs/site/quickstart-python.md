@@ -19,6 +19,7 @@ executed:
   - { step: fire-on-your-code, stack: python, date: 2026-09-21, result: RED }
   - { step: refresh-unloadable-pre-commit-config, stack: python, date: 2026-09-30, result: "exit-0, file left as it was" }
 next: installation.md
+docs-refresh: deferred — re-verified 2026-09-30, the only change to the cited setup.d/45-python.sh in this range re-points two in-comment citations of setup.d/10-skills.sh (315-325 becomes 318-328, 315-323 becomes 318-326) after trigger build slice 1 moved those lines; no behaviour, message or line this page quotes changed; clears at the next gold refresh of this page
 ---
 
 # Quick start for Python
