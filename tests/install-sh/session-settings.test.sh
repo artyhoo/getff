@@ -159,6 +159,32 @@ for want in yes no; do
   fi
 done
 
+# ── M: a file this run CREATED is handed to this run's formatter (P6 run 2 N5, seam with P5) ──
+# P5's format_getff_writes formats an untracked file from its .ai-factory/before-getff/ record, but a
+# `.absent` record never expires; it narrows to «this run» through KEPT_ORIGINALS (keep_original_mark,
+# P5's lib.sh). The writer marks the file only on the run that creates it, so a hand edit on a later
+# run is never reformatted. keep_original_mark is stubbed here: this branch does not carry P5's lib.
+run_mark() {
+  ( INSTALL_SH_LIB_ONLY=1 source "$REPO_ROOT/setup.d/lib.sh"
+    PKG_ROOT="$REPO_ROOT"; PROJECT_ROOT="$1"; NOT_WIRED=(); GETFF_ADDED_TO=(); GETFF_KEPT_VALUES=()
+    keep_original_mark() { echo "MARK=$1"; }
+    # shellcheck source=setup.d/session-settings.sh
+    source "$REPO_ROOT/setup.d/session-settings.sh"
+    GETFF_SESSION_SETTINGS=1 apply_session_settings "$1" )
+}
+echo "── M: the created file is marked for this run's formatter, and only on the run that creates it"
+d="$WORK/mark"; new_repo "$d"; f="$d/.claude/settings.local.json"
+run_mark "$d" > "$WORK/m1.out" 2>&1
+grep -qxF "MARK=$f" "$WORK/m1.out" && ok "M1 a created settings.local.json is marked (keep_original_mark)" \
+  || bad "M1 the created file was not marked: $(tr '\n' '|' < "$WORK/m1.out")"
+run_mark "$d" > "$WORK/m2.out" 2>&1
+! grep -q '^MARK=' "$WORK/m2.out" && ok "M2 a second run over the existing file marks nothing" \
+  || bad "M2 a run that did not create the file marked it: $(grep '^MARK=' "$WORK/m2.out")"
+rm -f "$f"
+run_mark "$d" > "$WORK/m3.out" 2>&1
+grep -qxF "MARK=$f" "$WORK/m3.out" && ok "M3 re-created after a hand delete (the .absent record already there) → marked again" \
+  || bad "M3 a re-created file was not marked: $(tr '\n' '|' < "$WORK/m3.out")"
+
 [ -f "$DATA" ] || bad "missing $DATA"
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
