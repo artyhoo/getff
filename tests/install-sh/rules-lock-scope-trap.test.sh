@@ -36,7 +36,12 @@ if [ -z "$BASE" ]; then
   exit 0
 fi
 
-CHANGED=$(git diff --name-only "$BASE...HEAD")
+# A file the branch ADDS is authored, not swept: the trap guards the existing `"version": null`
+# fixtures against a lock writer's sweep, which edits or deletes them. So additions are not counted
+# (--diff-filter=a). A new fixture under these paths is then itself guarded by the trap on the next
+# branch — moving it elsewhere would take it out of the trap's watch. (P6 run 2: the create-vite and
+# react-next-complete-example research pairs.)
+CHANGED=$(git diff --name-only --diff-filter=a "$BASE...HEAD")
 N_CHANGED=$(printf '%s\n' "$CHANGED" | grep -c . || true)
 
 echo "  ── Checking $N_CHANGED changed file(s) against scope-trap paths ──"

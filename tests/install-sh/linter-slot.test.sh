@@ -68,7 +68,7 @@ done
 grep -q '"name": "rules-as-tests"' "$O/.oxlintrc.json" \
   && ok "(D) getff's lint plugin is registered in the project's oxlint config" \
   || bad "(D) no jsPlugins entry: $(tr '\n' ' ' < "$O/.oxlintrc.json")"
-not_wired "$O" | grep -q "getff's lint rules in your oxlint config — not switched on: dependencies are not installed" \
+grep -q "getff's lint rules in your oxlint config — not switched on: dependencies are not installed" <<<"$(not_wired "$O")" \
   && ok "(D) NOT wired names why no getff rule is switched on" \
   || bad "(D) summary: $(not_wired "$O" | tr '\n' '|')"
 
