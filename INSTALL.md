@@ -580,8 +580,8 @@ rm -f scripts/audit-ai-docs.sh scripts/audit-ai-docs.react-next.sh scripts/audit
       scripts/check-arch-boundaries.sh scripts/check-lintstaged-resolves.sh scripts/check-fences-fire.sh \
       scripts/check-shields-up.sh scripts/run-generated-rule-mutation.sh scripts/run-rule-tests-firing.sh \
       scripts/pre-merge-local.sh scripts/ci-available-probe.sh scripts/run-mutation.sh \
-      scripts/create-worktree.sh scripts/getff-work.sh scripts/link-coordination.sh \
-      scripts/worktree-node-modules.sh scripts/run-local-ci-sweep.sh
+      scripts/create-worktree.sh scripts/getff-work.sh scripts/link-coordination.sh scripts/run-armed.sh \
+      scripts/worktree-node-modules.sh scripts/run-local-ci-sweep.sh scripts/check-ci-pins.sh scripts/check-doc-links.sh
 rm -rf scripts/fences-fire-fixtures
 
 # 4. AGENTS.md is CO-OWNED: install appends one fenced getff block and preserves everything outside it.

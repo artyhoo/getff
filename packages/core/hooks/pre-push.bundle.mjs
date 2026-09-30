@@ -1055,6 +1055,12 @@ async function cmdScriptLivenessSection(rb) {
   process.exit(1);
 }
 function unpinnedToolInstallSection(ctx) {
+  if (recordGoverned(
+    ctx,
+    "scripts/check-ci-pins.sh",
+    "\u274C unpinned tool install check failed"
+  ))
+    return;
   const population = [
     ...workflowYmlFiles(),
     ...ctx.isFrameworkRepo ? shellScriptFiles() : []
@@ -1183,6 +1189,16 @@ function armedProbeTimeoutMs(env = process.env) {
 }
 function consumerGate(script) {
   return existsSync2(resolve(REPO_ROOT, RUN_ARMED)) ? run("bash", [RUN_ARMED, "bash", script]) : run("bash", [script]);
+}
+function recordGoverned(ctx, script, failMsg) {
+  if (ctx.isFrameworkRepo || process.env["GETFF_SECTION_DIRECT"] === "1")
+    return false;
+  if (!existsSync2(resolve(REPO_ROOT, RUN_ARMED)) || !existsSync2(resolve(REPO_ROOT, script)))
+    return false;
+  const r = consumerGate(script);
+  if (r.exitCode !== 0) die(failMsg, r);
+  emit(r);
+  return true;
 }
 function armedProbeSection() {
   if (!existsSync2(resolve(REPO_ROOT, RUN_ARMED))) return;
@@ -1921,6 +1937,12 @@ function isFrameworkShippedMarkdown(p, baseline) {
 }
 var PLUGIN_AGENT_TWIN_PREFIX = "plugin/agents/";
 function lycheeSection(ctx) {
+  if (!run("lychee", ["--version"]).notFound && recordGoverned(
+    ctx,
+    "scripts/check-doc-links.sh",
+    "\u274C lychee found broken links in this project's Markdown \u2014 fix before push"
+  ))
+    return;
   const { rb } = ctx;
   if (rb.base !== null) {
     let changedMd = getChangedFiles(rb.base, "ACMR", rb.head).filter(

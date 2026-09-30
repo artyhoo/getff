@@ -13,7 +13,7 @@
 #       the record lists. run-armed.sh skips a check only on an exact-string match under not-armed and
 #       runs any other string, so a caller one character off the record would run a not-armed check.
 #   (4) paired negative: a one-character mistype in a copy of the workflow is named
-# EXEMPT (the reason is printed): a check that has no meaning on a CI runner.
+# EXEMPT (the reason is printed): a check that has no meaning on, or no tool on, a CI runner.
 set -uo pipefail
 REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
 PASS=0; FAIL=0
@@ -22,15 +22,17 @@ bad() { FAIL=$((FAIL+1)); echo "  ✗ $1"; }
 TMPS=()
 cleanup() { [ "${#TMPS[@]}" -gt 0 ] && rm -rf "${TMPS[@]}"; }
 trap cleanup EXIT
-EXEMPT='bash scripts/check-shields-up.sh'
-EXEMPT_WHY="check-shields-up proves this clone's git hooks are wired; a CI runner runs no git hook"
+EXEMPT=('bash scripts/check-shields-up.sh' 'bash scripts/check-doc-links.sh')
+EXEMPT_WHY=("check-shields-up proves this clone's git hooks are wired; a CI runner runs no git hook"
+  "check-doc-links needs lychee, which a CI runner does not have: it exits 3 there, so a step would turn an armed check red on every run")
+exempt() { local e; for e in "${EXEMPT[@]}"; do [ "$1" = "$e" ] && return 0; done; return 1; }
 
 # missing_steps <record file> <workflow> → the recorded commands with no run-armed step, one per line
 missing_steps() {
   local c
   awk '/aif:project-checks:end/{f=0} f; /aif:project-checks:begin/{f=1}' "$1" | sed -n 's/^- //p' | sed 's/ # .*$//' \
     | while IFS= read -r c; do
-        [ "$c" = "$EXEMPT" ] && continue
+        exempt "$c" && continue
         grep -qF -- "run-armed.sh $c" "$2" || grep -qF -- "run-armed.sh --if-armed '$c'" "$2" || echo "$c"
       done
 }
@@ -47,7 +49,7 @@ off_record() {
       done
 }
 
-echo "▶ exempt: $EXEMPT — $EXEMPT_WHY"
+for i in "${!EXEMPT[@]}"; do echo "▶ exempt: ${EXEMPT[$i]} — ${EXEMPT_WHY[$i]}"; done
 for st in ts-server react-next react-spa react-native; do
   d=$(mktemp -d); TMPS+=("$d")
   ( cd "$d" && git init -q && printf '{"name":"x","version":"0.0.0"}\n' > package.json \

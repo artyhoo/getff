@@ -291,7 +291,7 @@
       "A": {
         "familyName": "installer layers",
         "path": "docs/site/reference/A.json",
-        "members": 16
+        "members": 18
       },
       "B": {
         "familyName": "skills",
@@ -311,7 +311,7 @@
       "E": {
         "familyName": "templates",
         "path": "docs/site/reference/E.json",
-        "members": 37
+        "members": 38
       },
       "F1": {
         "familyName": "rules",
@@ -326,7 +326,7 @@
       "F3": {
         "familyName": "scripts",
         "path": "docs/site/reference/F3.json",
-        "members": 31
+        "members": 32
       },
       "G": {
         "familyName": "packages",
@@ -354,7 +354,7 @@
     "priorArtRows": {
       "source": "docs/meta-factory/prior-art-evaluations.md",
       "predicate": "entry-table rows matching /^\\| \\d+ \\| /",
-      "count": 294
+      "count": 295
     },
     "researchPatches": {
       "source": "docs/meta-factory/research-patches/",

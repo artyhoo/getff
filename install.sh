@@ -1146,6 +1146,90 @@ do_refresh() {
     fi
   fi
 
+  # ── Skill-gated gate script (consumer-refresh-integrity R3, issues 1482 + 1485) ──
+  # scripts/run-local-ci-sweep.sh: its consumers are DELIVERED SKILLS, not this repo — harvest
+  # §3 gates on run-local-ci-sweep.sh (factory tier). The delivery site is setup.d/10-skills.sh
+  # (factory suite arm); breadth is the REFERENCING tier union measured there (kickoff RI-4):
+  # factory+. NOT an entry in the ungated _pair loop below: that loop is profile-blind and would
+  # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
+  # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
+  # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
+  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:662-664), the presence
+  # clause is what keeps an installed tier updated.
+  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2045-2048).
+  #
+  # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
+  # ask-file-schema section is maintainer-only (owner: 'maintainer' in
+  # packages/core/hooks/pre-push.ts) and composeSections() drops maintainer sections on
+  # consumers, so this arm's refresh maintained a gate that never ran there (the delivery site,
+  # setup.d/50-hooks.sh, was removed in the same commit). A copy already on disk from a prior
+  # delivery is a stale artefact — report it and leave it alone (never refresh it, never delete
+  # a consumer-tree file). The report is read-only, so it prints identically under --dry-run.
+  if [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
+    echo "  ⚠ ORPHAN: scripts/check-ask-files.sh is no longer delivered (its pre-push ask-file gate is maintainer-only and never ran on consumers — ledger C-2)."
+    echo "    Stale artefact from a PRIOR installer version — left in place, because the installer never deletes files in the project."
+  fi
+  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+    if [ -f "$PKG_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+      refresh_safe "$PKG_ROOT/scripts/run-local-ci-sweep.sh" "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" 2>/dev/null || true
+      fi
+    fi
+  fi
+
+  # ── Worktree + workspace scripts → scripts/ (S2, spec A9) ──
+  # setup.d/85-worktree-scripts.sh copy_safe's these on the --full env+ path. Without a refresh
+  # arm a brownfield env+ consumer gets NONE of them on --refresh — the #869 class this gate
+  # exists to catch, and the reason `refresh-covers-full-delivery` was RED on this branch.
+  # The list is duplicated deliberately and the duplication is asserted: the delivery site is a
+  # setup.d module sourced only on the install path, so do_refresh cannot read its array, and a
+  # silent divergence is exactly what the paired check in
+  # tests/install-sh/refresh-covers-full-delivery.test.sh now forbids.
+  # Depth gate (#1334): this arm carried NO profile check, so ANY --refresh on a `core` project
+  # delivered all four env+ scripts — the inverse of #1312 and a depth-boundary defect, since
+  # `--profile` is the product's promise about what lands on disk (delivery site:
+  # setup.d/85-worktree-scripts.sh:19-22 documents `PROFILE=core → skip`). Same uniform shape as
+  # the skills arms above: the delivery site's own predicate (env | factory | WITH_AIF_SUITE) OR
+  # presence. create-worktree.sh is the presence probe — the cluster's load-bearing entry point,
+  # present in every version of it, and the four ship together by construction (they form one
+  # call chain), so probing the entry point covers a consumer who opted in before getff-work.sh
+  # was added to the cluster.
+  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
+    || [ -e "$PROJECT_ROOT/scripts/create-worktree.sh" ]; then
+    echo "▶ Worktree scripts → scripts/"
+    for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
+      [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
+      refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
+      chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
+    done
+  fi
+
+  # ── npm-bound arms (P2 G1) ──────────────────────────────
+  # From here to «end of the npm-bound arms» every arm re-delivers a file that exists only on an npm
+  # stack: check scripts, the pre-push bundle, ESLint rules and fixtures, husky dispatchers,
+  # .prettierignore. Stack «generic» has none of them (setup.d/40-configs.sh, 50-hooks.sh), so there
+  # it refreshes only its two stack-free scripts and names each skipped arm in the NOT wired summary.
+  # The stack-free arms (skills, agents, Claude hooks, worktree scripts, .ai-factory docs) sit
+  # outside this block and run for every stack. The block keeps its indentation so the diff stays
+  # the if/else alone.
+  if [ "$STACK" = "generic" ]; then
+    echo "▶ Scripts → scripts/ (stack-free only: stack «generic»)"
+    for _gs in audit-ai-docs.sh ci-available-probe.sh; do
+      refresh_safe "$PKG_ROOT/packages/core/audit-self/$_gs" "$PROJECT_ROOT/scripts/$_gs"
+      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/$_gs" ]; then
+        chmod_safe +x "$PROJECT_ROOT/scripts/$_gs" 2>/dev/null || true
+      fi
+    done
+    for _ga in "check scripts (rule, fence and lint-staged gates, run-armed.sh and the project-checks record)" \
+               "pre-push bundle (packages/core/hooks/pre-push.bundle.mjs)" \
+               "ESLint rules (eslint-rules-local/, its barrel and scripts/fences-fire-fixtures)" \
+               "git hooks (.husky/pre-commit, .husky/pre-push)" \
+               ".prettierignore managed block"; do
+      note_not_wired "$_ga — not refreshed: stack «generic» has no npm toolchain getff placed, so --refresh skips it"
+    done
+  else
   # ── Scripts ─────────────────────────────────────────────
   echo "▶ Scripts → scripts/"
   for _pair in \
@@ -1160,6 +1244,8 @@ do_refresh() {
     "packages/core/audit-self/check-fences-fire.sh:scripts/check-fences-fire.sh" \
     "packages/core/audit-self/check-shields-up.sh:scripts/check-shields-up.sh" \
     "packages/core/audit-self/run-armed.sh:scripts/run-armed.sh" "packages/core/audit-self/prove-rules.mjs:scripts/prove-rules.mjs" \
+    "packages/core/audit-self/check-ci-pins.sh:scripts/check-ci-pins.sh" \
+    "packages/core/audit-self/check-doc-links.sh:scripts/check-doc-links.sh" \
     "packages/core/synthesizer/run-generated-rule-mutation.sh:scripts/run-generated-rule-mutation.sh" \
     "packages/core/synthesizer/run-rule-tests-firing.sh:scripts/run-rule-tests-firing.sh" \
     "packages/core/audit-self/pre-merge-local.sh:scripts/pre-merge-local.sh" \
@@ -1207,39 +1293,6 @@ do_refresh() {
     refresh_safe "$_rnat_src" "$_rnat_dst"
     if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$_rnat_dst" ]; then
       chmod_safe +x "$_rnat_dst" 2>/dev/null || true
-    fi
-  fi
-
-  # ── Skill-gated gate script (consumer-refresh-integrity R3, issues 1482 + 1485) ──
-  # scripts/run-local-ci-sweep.sh: its consumers are DELIVERED SKILLS, not this repo — harvest
-  # §3 gates on run-local-ci-sweep.sh (factory tier). The delivery site is setup.d/10-skills.sh
-  # (factory suite arm); breadth is the REFERENCING tier union measured there (kickoff RI-4):
-  # factory+. NOT an entry in the ungated _pair loop above: that loop is profile-blind and would
-  # deliver the script on a core --refresh — the #1334 depth-boundary defect class (see the #931
-  # run-mutation and worktree-scripts gated arms for the precedent). Same uniform gate as every
-  # depth-gated arm: the delivery site's own profile predicate OR presence on disk (prior
-  # opt-in) — with PROFILE defaulting to core on --refresh (install.sh:662-664), the presence
-  # clause is what keeps an installed tier updated.
-  # Sources stay at root scripts/ AS-IS (RI-4: session-bus v2 §9, pre-push.ts:2045-2048).
-  #
-  # scripts/check-ask-files.sh is NO LONGER DELIVERED (ledger C-2, #1597): the pre-push
-  # ask-file-schema section is maintainer-only (owner: 'maintainer' in
-  # packages/core/hooks/pre-push.ts) and composeSections() drops maintainer sections on
-  # consumers, so this arm's refresh maintained a gate that never ran there (the delivery site,
-  # setup.d/50-hooks.sh, was removed in the same commit). A copy already on disk from a prior
-  # delivery is a stale artefact — report it and leave it alone (never refresh it, never delete
-  # a consumer-tree file). The report is read-only, so it prints identically under --dry-run.
-  if [ -e "$PROJECT_ROOT/scripts/check-ask-files.sh" ]; then
-    echo "  ⚠ ORPHAN: scripts/check-ask-files.sh is no longer delivered (its pre-push ask-file gate is maintainer-only and never ran on consumers — ledger C-2)."
-    echo "    Stale artefact from a PRIOR installer version — left in place, because the installer never deletes files in the project."
-  fi
-  if [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
-    || [ -e "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
-    if [ -f "$PKG_ROOT/scripts/run-local-ci-sweep.sh" ]; then
-      refresh_safe "$PKG_ROOT/scripts/run-local-ci-sweep.sh" "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh"
-      if [ "$DRY_RUN" != "--dry-run" ] && [ -f "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" ]; then
-        chmod_safe +x "$PROJECT_ROOT/scripts/run-local-ci-sweep.sh" 2>/dev/null || true
-      fi
     fi
   fi
 
@@ -1319,33 +1372,6 @@ do_refresh() {
   # such file instead (ledger L-4b/L-4c). Whole-dir ownership: scripts/fences-fire-fixtures.override.md.
   refresh_safe "$PKG_ROOT/packages/core/audit-self/fixtures/fences-fire" "$PROJECT_ROOT/scripts/fences-fire-fixtures"
 
-  # ── Worktree + workspace scripts → scripts/ (S2, spec A9) ──
-  # setup.d/85-worktree-scripts.sh copy_safe's these on the --full env+ path. Without a refresh
-  # arm a brownfield env+ consumer gets NONE of them on --refresh — the #869 class this gate
-  # exists to catch, and the reason `refresh-covers-full-delivery` was RED on this branch.
-  # The list is duplicated deliberately and the duplication is asserted: the delivery site is a
-  # setup.d module sourced only on the install path, so do_refresh cannot read its array, and a
-  # silent divergence is exactly what the paired check in
-  # tests/install-sh/refresh-covers-full-delivery.test.sh now forbids.
-  # Depth gate (#1334): this arm carried NO profile check, so ANY --refresh on a `core` project
-  # delivered all four env+ scripts — the inverse of #1312 and a depth-boundary defect, since
-  # `--profile` is the product's promise about what lands on disk (delivery site:
-  # setup.d/85-worktree-scripts.sh:19-22 documents `PROFILE=core → skip`). Same uniform shape as
-  # the skills arms above: the delivery site's own predicate (env | factory | WITH_AIF_SUITE) OR
-  # presence. create-worktree.sh is the presence probe — the cluster's load-bearing entry point,
-  # present in every version of it, and the four ship together by construction (they form one
-  # call chain), so probing the entry point covers a consumer who opted in before getff-work.sh
-  # was added to the cluster.
-  if [ "${PROFILE:-core}" = "env" ] || [ "${PROFILE:-core}" = "factory" ] || [ -n "${WITH_AIF_SUITE:-}" ] \
-    || [ -e "$PROJECT_ROOT/scripts/create-worktree.sh" ]; then
-    echo "▶ Worktree scripts → scripts/"
-    for _ws in create-worktree.sh worktree-node-modules.sh link-coordination.sh getff-work.sh; do
-      [ -f "$PKG_ROOT/scripts/$_ws" ] || continue
-      refresh_safe "$PKG_ROOT/scripts/$_ws" "$PROJECT_ROOT/scripts/$_ws"
-      chmod_safe +x "$PROJECT_ROOT/scripts/$_ws" 2>/dev/null || true
-    done
-  fi
-
   # ── Regenerate the eslint-rules-local barrel + prune stack-absent fixtures (#876) ──
   # do_refresh re-delivers individual rule files above but the GENERATED index.mjs barrel would keep
   # its old import list → a newly-shipped rule lands unregistered. Regenerate from the on-disk rule
@@ -1402,6 +1428,7 @@ do_refresh() {
   else
     merge_prettierignore "$PKG_ROOT/packages/core/templates/shared/.prettierignore" "$PROJECT_ROOT/.prettierignore"
   fi
+  fi  # end of the npm-bound arms (P2 G1)
 
   # ── .ai-factory SoT pair (DESCRIPTION.md + ARCHITECTURE.md) → .ai-factory/ (#949) ──
   # AGENTS.md points the very first agent session at .ai-factory/DESCRIPTION.md + ARCHITECTURE.md.
@@ -1415,6 +1442,10 @@ do_refresh() {
   # setup.d/lib.sh) shared with the --full delivery so the two paths cannot diverge.
   echo "▶ .ai-factory SoT → .ai-factory/"
   copy_safe "$PKG_ROOT/packages/core/templates/shared/DESCRIPTION.template.md" "$PROJECT_ROOT/.ai-factory/DESCRIPTION.md"
+  # P2 G1: generic has no stack architecture (setup.d/30-templates.sh places none) — same line here.
+  if [ "$STACK" = "generic" ]; then
+    note_not_wired ".ai-factory/ARCHITECTURE.md — not refreshed: stack «generic» has no getff preset, the agent drafts it for your stack"
+  else
   _arch_sot_src="$(arch_sot_src_for_stack)"
   _arch_sot_dst="$PROJECT_ROOT/.ai-factory/ARCHITECTURE.md"
   _arch_sot_existed=0; [ -e "$_arch_sot_dst" ] && _arch_sot_existed=1
@@ -1422,6 +1453,7 @@ do_refresh() {
   # freshly-written copies, so the divergence guard must compare against the REWRITTEN bytes.
   copy_safe "$_arch_sot_src" "$_arch_sot_dst" arch-header
   rewrite_arch_sot_header "$_arch_sot_dst" "$_arch_sot_existed"
+  fi
 
   # ── tier-home doc (env+ profiles; beta-delivery-ux S3) — #869 refresh parity ──
   # Framework-owned: refresh must re-deliver fixes, and it must not create the doc on core.
@@ -1489,12 +1521,6 @@ do_refresh() {
 }
 
 # ─── --refresh early-exit: run refresh then stop (skip the full install flow) ──
-# A generic install has no do_refresh arm (every arm there re-delivers npm-bound files): it is
-# refreshed by the install path below, whose copy_safe keeps files already on disk.
-if [ -n "$REFRESH" ] && [ "$STACK" = "generic" ]; then
-  note_not_wired "--refresh on stack «generic» — re-ran the install path: missing pieces are added, getff files already in the project are kept as they are (not updated)"
-  REFRESH=""
-fi
 if [ -n "$REFRESH" ]; then
   do_refresh
   # do_refresh exits before 99-finalize, so it prints its own NOT-wired summary (Q4.7): the

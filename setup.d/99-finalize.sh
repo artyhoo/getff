@@ -984,6 +984,7 @@ _pc_reason() {  # <name> <rc> <log> → why a red check is not armed
     typecheck) n=$(grep -c 'error TS[0-9]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n type errors at install"; return; } ;;
     format:check) n=$(grep -c '^\[warn\] [^C]' "$3" || true); [ "$n" -gt 0 ] && { echo "$n files not in prettier style at install"; return; } ;;
     lint) n=$(sed -n 's/^✖ \([0-9][0-9]*\) problem.*/\1/p' "$3" | tail -1); [ -n "$n" ] && { echo "$n lint problems at install"; return; } ;;
+    check-doc-links.sh) [ "$2" = 3 ] && { echo "lychee is not installed"; return; } ;;
   esac
   echo "exits $2 at install"
 }
@@ -1130,6 +1131,26 @@ else
       _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"
     fi
   done <<< "$_pc_scripts"
+  # The pre-push sections that read the project's own files (its workflows, its Markdown) need no
+  # dependencies, so they run here even without node_modules (P2, advisor: the P6 blocker class).
+  # The generated-rule mutation check takes the rule generator's verdict from 80-rule-bootstrap
+  # instead of a second run: armed only when that run exited 0 (P5, cold-review M2).
+  while IFS= read -r _pc_c; do
+    [ -n "$_pc_c" ] || continue
+    if [ "$_pc_c" = "bash scripts/run-generated-rule-mutation.sh" ]; then
+      _pc_why=$(gen_mut_not_armed_why)
+      if [ -z "$_pc_why" ]; then _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+      else _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"; fi
+      continue
+    fi
+    _pc_run "$_pc_c" "$_pc_log" && _pc_rc=0 || _pc_rc=$?
+    if [ "$_pc_rc" -eq 0 ]; then
+      _pc_armed+=("$_pc_c"); echo "  ✓ armed: $_pc_c"
+    else
+      _pc_why=$(_pc_reason "${_pc_c#bash scripts/}" "$_pc_rc" "$_pc_log")
+      _pc_not+=("$_pc_c # $_pc_why"); echo "  · not armed: $_pc_c — $_pc_why"
+    fi
+  done <<< "$(project_hook_checks)"
   rm -f "$_pc_log"
   _pc_fmt=$(project_formatter "$PROJECT_ROOT")
   if [ "$_pc_fmt" = prettier ] && [ -f "$PROJECT_ROOT/.prettierrc.json" ] && getff_delivered "$PROJECT_ROOT/.prettierrc.json"; then

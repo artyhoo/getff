@@ -727,17 +727,17 @@ _pre_overwrite_divergence_action() {
 # landed on an unrelated unparitied playwright delivery).
 #   setup.d/20-agents.sh:51            transform_internal_refs      → md-refs
 #   setup.d/30-templates.sh:97         rewrite_arch_sot_header      → arch-header
-#   install.sh:1423                    rewrite_arch_sot_header      → arch-header
+#   install.sh:1454                    rewrite_arch_sot_header      → arch-header
 #   setup.d/45-python.sh:197           transform_internal_refs      → md-refs
 #   setup.d/45-python.sh:1407          rewrite_arch_sot_header      → arch-header
-#   setup.d/40-configs.sh:582          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:608          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:629          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:657          patch_stryker_package_manager → stryker-pm
-#   setup.d/40-configs.sh:572          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:597          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:617          rewrite_vitest_source_roots  → vitest-layout
-#   setup.d/40-configs.sh:648          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:589          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:615          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:636          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:664          patch_stryker_package_manager → stryker-pm
+#   setup.d/40-configs.sh:579          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:604          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:624          rewrite_vitest_source_roots  → vitest-layout
+#   setup.d/40-configs.sh:655          rewrite_vitest_source_roots  → vitest-layout
 #   setup.d/lib.sh:1892                appended marker blocks       → suppress-no-entry (proved)
 #   setup.d/30-templates.sh:49         install-written blocks       → suppress-no-entry (proved)
 #   setup.d/45-python.sh:1383          install-written blocks       → suppress-no-entry (proved)
@@ -3337,9 +3337,53 @@ record_project_checks() {
   cat "$tmp" > "$file"; rm -f "$tmp"
 }
 
+# record_add_unlisted <file> <reason> <command…> — each command the record lists under neither
+# heading goes in as a not-armed line with <reason>; every line already there is kept byte-for-byte.
+# run-armed.sh runs a command its record does not list, so a check a newer getff (or another writer,
+# such as the rule generator) brings must be listed before a hook runs it.
+record_add_unlisted() {
+  local file="$1" why="$2" c add="" tmp
+  local b='<!-- aif:project-checks:begin -->' e='<!-- aif:project-checks:end -->'
+  shift 2
+  grep -qxF "$b" "$file" 2>/dev/null || return 1
+  for c in "$@"; do
+    awk -v b="$b" -v e="$e" '{sub(/\r$/,"")} $0==e{f=0} f; $0==b{f=1}' "$file" | sed -n 's/^- //p' \
+      | sed 's/ # .*$//' | grep -qxF -- "$c" || add="$add- $c # $why"$'\n'
+  done
+  [ -n "$add" ] || return 0
+  tmp=$(mktemp) || return 1
+  GETFF_ADD="$add" awk -v b="$b" -v e="$e" '{r=$0; sub(/\r$/,"",r)} r==b{f=1} r==e{f=0} {print}
+    f && r=="not-armed:" {printf "%s", ENVIRON["GETFF_ADD"]}' "$file" > "$tmp" && cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
 # The package.json scripts the record governs: each check getff adds to a blocking channel
 # (validate, CI, lint-staged, pre-push). 99-finalize's arm pass and --refresh's record read them.
 PROJECT_CHECKS=(typecheck lint format:check arch:check audit:docs check:globs check:enforced check:arch-boundaries check:lintstaged check:fences-fire check:shields-up test)
+# The pre-push sections that read the project's own files (P2, advisor: the P6 blocker class) run on
+# their own through these delivered scripts: no package.json script, no dependencies needed. The
+# generated-rule mutation runner (P5) is recorded here too, but from the rule generator's verdict:
+# the arm pass never runs it (gen_mut_not_armed_why).
+PROJECT_HOOK_CHECKS=(check-ci-pins.sh check-doc-links.sh run-generated-rule-mutation.sh)
+
+# gen_mut_not_armed_why — why the generated-rule mutation check is not armed, or nothing when it is.
+# The verdict is the rule generator's own run (P5: setup.d/80-rule-bootstrap.sh exports GEN_MUT_RC and
+# GEN_MUT_WHY only when it proved the rules it wrote); it is reused, never re-run. One line, with no
+# « # » — that is the record's command/reason separator.
+gen_mut_not_armed_why() {
+  case "${GEN_MUT_RC:-}" in
+    0) ;;
+    "") echo "no generated rules this pass" ;;
+    *) printf '%s\n' "${GEN_MUT_WHY:-exits $GEN_MUT_RC at install}" | head -1 | sed 's/ # / - /g' ;;
+  esac
+}
+
+# project_hook_checks — the record command of each PROJECT_HOOK_CHECKS script this project has.
+project_hook_checks() {
+  local f
+  for f in "${PROJECT_HOOK_CHECKS[@]}"; do [ -f "$PROJECT_ROOT/scripts/$f" ] && echo "bash scripts/$f"; done
+  return 0
+}
 
 # project_check_scripts — `<name>\t<script value>` for each PROJECT_CHECKS script in the project's
 # package.json (nothing without a package.json or node).
@@ -3374,11 +3418,19 @@ lint_script_pass_unpruned() {
 # record_unrun_checks — --refresh on a project installed before the record: it now gets
 # scripts/run-armed.sh, which the refreshed pre-push hook reads, so it needs a record. Every check is
 # recorded not-armed, not run: the first validate or push probes each one and arms it once it exits 0.
-# A record already there is left as it is (it carries what the project has armed since).
+# A record already there keeps every line (it carries what the project has armed since); a hook check
+# it does not list yet is added not-armed, not run.
 record_unrun_checks() {
-  local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v
+  local f="$PROJECT_ROOT/.ai-factory/tool-decisions.md" body n v c
+  local why="recorded by --refresh, not run yet: the first validate or push arms it once it exits 0"
+  local hc=()
   [ "${DRY_RUN:-}" = "--dry-run" ] && return 0
-  grep -qxF '<!-- aif:project-checks:begin -->' "$f" 2>/dev/null && return 0
+  while IFS= read -r c; do [ -n "$c" ] && hc+=("$c"); done <<< "$(project_hook_checks)"
+  if grep -qxF '<!-- aif:project-checks:begin -->' "$f" 2>/dev/null; then
+    [ "${#hc[@]}" -eq 0 ] || record_add_unlisted "$f" "$why" "${hc[@]}" \
+      || note_not_wired "${hc[*]} — not added to the project-checks record, so the pre-push hook runs them whatever they return"
+    return 0
+  fi
   body="### How this project checks itself (recorded by install.sh --refresh)
 stack: ${STACK:-unknown}
 linter: $(project_linter "$PROJECT_ROOT")
@@ -3388,8 +3440,10 @@ not-armed:"
   while IFS=$'\t' read -r n v; do
     [ -n "$n" ] || continue
     body="$body
-- $(project_check_cmd "$n" "$v") # recorded by --refresh, not run yet: the first validate or push arms it once it exits 0"
+- $(project_check_cmd "$n" "$v") # $why"
   done <<< "$(project_check_scripts)"
+  for c in ${hc[@]+"${hc[@]}"}; do body="$body
+- $c # $why"; done
   if record_project_checks "$f" "$body"; then
     echo "  ✓ .ai-factory/tool-decisions.md: recorded how this project checks itself — nothing armed yet; the first validate or push arms each check once it exits 0"
   else
