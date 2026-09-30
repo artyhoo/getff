@@ -2,14 +2,19 @@
 
 <!-- channel: skill-embed .claude/skills/harvest/SKILL.md#seat-economy -->
 <!-- channel: skill-embed .claude/skills/dispatcher/SKILL.md#seat-economy -->
+<!-- channel: skill-embed .claude/skills/orchestrator/references/reviewer-template.md#Inputs-ref -->
 
 > **Class:** C — prose-only. The two calls this rule governs — «did the substance this seat
 > judges change?» and «resume or fresh?» — are judgment, not mechanically detectable, so no gate
 > is reachable (`#gate-where-judgment-needed`, [rule-enforcement-channel-selection.md §1/§5](rule-enforcement-channel-selection.md)).
 > Delivery = skill-embed at the two choreography owners (markers above); this file is the SSOT
-> read on demand. Promotion criterion in §5.
-> **Fires:** re-running a cold seat on already-judged work; resume-vs-fresh choice.
-> **Authoritative for:** the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement.
+> read on demand. Promotion criterion in §5. **§7 is the exception with a gate:** its
+> mechanizable half — every cold-seat dispatch template carries a required `Inputs-ref:` field —
+> is checked by [principle 49](../../packages/core/principles/49-cold-seat-inputs-ref.test.ts)
+> and filled from [`scripts/snapshot-for-seat.sh`](../../scripts/snapshot-for-seat.sh); whether a
+> given artifact can move under the seat stays judgment at dispatch time.
+> **Fires:** re-running a cold seat; resume-vs-fresh; pinning a seat's inputs to one SHA.
+> **Authoritative for:** the cold-seat economy discipline — §1 re-audit on substance not SHA, §2 seat ordering (expensive WHAT-audit last, on the final diff), §3 follow-up rounds (fresh narrow seat + watch-list by default; resume the exception), §4 anti-patterns, §5 promotion / retirement, §7 immutable seat inputs + one named ref per answer.
 > **NOT authoritative for:** project goal — see [README.md#why-this-exists](../../README.md#why-this-exists). The fidelity-audit protocol itself — see [agents/fidelity-auditor.md](../../agents/fidelity-auditor.md). Rework-loop mechanics (rounds, caps, `answer.ts`) — see [.claude/skills/dispatcher/SKILL.md §2.4](../skills/dispatcher/SKILL.md). The standalone harvest procedure — see [.claude/skills/harvest/SKILL.md §4](../skills/harvest/SKILL.md). Crash-idempotence of a verdict on the SAME SHA — that is spec D10 ([2026-07-23-acceptance-contour-design.md](../../docs/superpowers/specs/2026-07-23-acceptance-contour-design.md)); this rule owns the NEW-SHA case.
 
 > **Origin:** 2026-07-31, S-A rounds 2-4 of the arch-v2-context-pipeline umbrella. A full
@@ -155,6 +160,45 @@ Measured (2026-07-31) — the numbers that force this default, and the one that 
   not seat re-runs). Origin memories (`reaudit-on-substance-not-sha`,
   `resume-audit-agent-for-continuity`) reduce to pointers per [memory-codification.md §3](memory-codification.md)
   (outside the repo; done by the codifying session). No surface superseded.
+
+## §7 Immutable seat inputs — one named ref per answer
+
+A worktree is a live working copy, not a snapshot. A path into it is pinned by no SHA, however
+many SHAs the prompt names: the prompt states intent, a sibling session's commit or checkout
+changes the bytes. Parallel sessions are the norm in this repo, so «nobody will touch it» is
+`#hope-as-gate` ([attention-is-not-a-mechanism.md §2](attention-is-not-a-mechanism.md)) — and the
+corruption is silent: the report reads normally, only its line numbers disagree.
+
+- **A cold seat gets immutable inputs.** Either a `git show <sha>:<path>` snapshot per artifact —
+  `bash scripts/snapshot-for-seat.sh <sha> <paths…>` writes `<path>@<sha12>` files (read-only)
+  and prints `Inputs-ref: <sha>` + their paths — or, when the seat must grep and measure the
+  repo, a worktree of its own checked out at that SHA. A live path is acceptable only for an
+  artifact no session but yours writes. Asking a sibling to hold its worktrees still narrows the
+  window; it is not a mechanism.
+- **Every dispatch template carries `Inputs-ref: <sha>`** as a required field, so the ref is
+  filled, not remembered (principle 49; population = `.claude/skills/**` files carrying the
+  cold-seat marker + declared contracts).
+- **Every `path:NN` in one answer is pinned to one named ref** — seat verdicts, ask answers,
+  journals, messages to a sibling. Measure on an explicit tree (`git show origin/staging:<path>`,
+  or the SHA the answer names), code exactly like specs. Your own worktree is valid only for
+  files you change in it: before «correcting» someone else's citation, run
+  `git rev-parse --short origin/staging HEAD` and `git diff --stat origin/staging -- <file>` — a
+  non-empty diff means your line numbers describe another tree. Content-checking a cited line
+  does not catch this; two files quoted from two unnamed refs each look right on their own.
+- **If it already happened:** do not guess — measure which version the seat read from its own
+  `path:NN` quotes (inserted lines shift them) and state the provenance per artifact as a
+  measured fact.
+
+Anti-patterns: **`#live-path-as-snapshot`** (a worktree path handed to a seat as «the pinned
+head»); **`#mixed-ref-citations`** (one answer citing files from two refs, neither named).
+
+> **Origin:** 2026-09-13 — a final pass over five specs dispatched with absolute paths into five
+> sibling worktrees «at pinned heads»; the owning session landed folds into four of them while
+> the seats read (D28 454→457 lines, D31 259→261), so the recorded «the pass reads pinned
+> heads» became false. 2026-09-14 — an advisor seat read specs by `git show` but code from its
+> own worktree on a sibling branch (79 and 39 lines behind staging): three false references and a
+> false «correction» of a reviewer who had measured on staging. Codified from memory per
+> [memory-codification.md §3](memory-codification.md) on 2026-10-01 (memory audit).
 
 ## See also
 
