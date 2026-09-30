@@ -22,8 +22,8 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 command -v jq >/dev/null 2>&1 || { echo "exclude-path-scoped-rules: jq not found" >&2; exit 2; }
 
 ROOT="${1:-}"
-[ -n "$ROOT" ] && [ -d "$ROOT/.claude/rules" ] || {
-  echo "usage: exclude-path-scoped-rules.sh <repo-root> [settings-file]" >&2; exit 2; }
+if [ -z "$ROOT" ] || [ ! -d "$ROOT/.claude/rules" ]; then
+  echo "usage: exclude-path-scoped-rules.sh <repo-root> [settings-file]" >&2; exit 2; fi
 SETTINGS="${2:-$ROOT/.claude/settings.json}"
 [ -f "$SETTINGS" ] || printf '{}\n' > "$SETTINGS"
 jq -e 'type == "object"' "$SETTINGS" >/dev/null 2>&1 || {

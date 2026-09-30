@@ -105,8 +105,8 @@ cmd_score() {
     x="$(sed -E 's/.* X=([a-z]+).*/\1/' <<<"$line")"; y="$(sed -E 's/.* Y=([a-z]+).*/\1/' <<<"$line")"
     gx="$(grep -E "^VERDICT task=$task variant=X grade=" "$verdicts" | head -1 | sed -E 's/.* grade=([A-Z]+).*/\1/')" || true
     gy="$(grep -E "^VERDICT task=$task variant=Y grade=" "$verdicts" | head -1 | sed -E 's/.* grade=([A-Z]+).*/\1/')" || true
-    [ "$(points "${gx:-}")" != x ] && [ "$(points "${gy:-}")" != x ] || {
-      echo "rule-load-adherence: missing or malformed verdict for task $task" >&2; exit 5; }
+    if [ "$(points "${gx:-}")" = x ] || [ "$(points "${gy:-}")" = x ]; then
+      echo "rule-load-adherence: missing or malformed verdict for task $task" >&2; exit 5; fi
     if [ "$x" = before ]; then gb="$gx" ga="$gy"; else gb="$gy" ga="$gx"; fi
     echo "ADHERENCE task=$task before=$gb after=$ga"
     pb=$((pb + $(points "$gb"))); pa=$((pa + $(points "$ga"))); max=$((max + 2))
