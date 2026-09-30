@@ -49,7 +49,7 @@ PRIMARY_DIR="${1:-$(git rev-parse --path-format=absolute --git-common-dir 2>/dev
 unset CDPATH GIT_DIR GIT_COMMON_DIR GIT_WORK_TREE
 if [ -z "${1:-}" ]; then
   PRIMARY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null \
-    && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || PRIMARY_DIR=""
 fi
 # ── END REPO-ANCHOR ─────────────────────────────────────────────────────────
 PRIMARY_DIR="${PRIMARY_DIR%/.git}"
