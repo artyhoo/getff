@@ -153,9 +153,13 @@ workspace_dirs() {
 $pats
 EOF
   }
+  # Exclusions captured once into a variable: `expand - | grep -q` under pipefail could SIGPIPE
+  # the producer and report a match as a miss.
+  local excluded
+  excluded="$(expand -)"
   expand + | sort -u | while IFS= read -r d; do
     [ "$d" = "packages/core" ] && continue      # its own rule below (fallback link)
-    expand - | grep -qxF "$d" && continue       # excluded by a `!` pattern
+    grep -qxF "$d" <<<"$excluded" && continue   # excluded by a `!` pattern
     printf '%s\n' "$d"
   done
 }
