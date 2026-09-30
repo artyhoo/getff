@@ -96,10 +96,9 @@ afterEach(() => {
 function makeSandbox(): string {
   const d = mkdtempSync(join(tmpdir(), 'launch-table-generator-test-'));
   sandboxes.push(d);
-  // Initialize a minimal git repo so `git rev-parse --show-toplevel` returns the
-  // sandbox dir (helpers/lib/common.sh:17 — the Stage-4 dedup moved REPO_ROOT resolution
-  // out of this script into the sourced lib:
-  //   REPO_ROOT="${REPO_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}").
+  // Initialize a minimal git repo for the script's git reads. REPO_ROOT itself is pinned
+  // by run() — helpers/lib/common.sh anchors an unset REPO_ROOT to the checkout the skill
+  // is installed in (this repo), not to the cwd, so the sandbox must be passed explicitly.
   spawnSync('git', ['-C', d, 'init'], { encoding: 'utf8' });
   spawnSync('git', ['-C', d, 'config', 'user.email', 't@t.com'], { encoding: 'utf8' });
   spawnSync('git', ['-C', d, 'config', 'user.name', 'T'], { encoding: 'utf8' });
@@ -129,7 +128,7 @@ function run(
   const r = spawnSync('bash', args, {
     cwd: sandboxRoot,
     encoding: 'utf8',
-    env: { ...process.env },
+    env: { ...process.env, REPO_ROOT: sandboxRoot },
   });
   return { status: r.status ?? -1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }

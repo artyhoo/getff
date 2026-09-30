@@ -102,9 +102,10 @@
  *   (internal tooling → CC/env-specific OK); it degrades to printed manual commands.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import { readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isMain, parseCliArgs, CliArgError } from './cliEntry.js';
 import {
   getJson,
@@ -356,24 +357,73 @@ function hostGit(hostRepo: string, args: string[], quiet = false): string {
 
 /**
  * The host clone Channel A pushes from: `--host-repo` / RUNTIME_BRIDGE_HOST_REPO, else the
- * top level of whatever checkout the operator invoked harvest in.
+ * top level of whatever checkout the operator invoked harvest in — provided that checkout
+ * belongs to the repository harvest.ts itself lives in.
  *
  * A worktree is a perfectly good answer — `.husky/pre-push` lives in every checkout of this
  * repo and the object store is shared with the main clone, so the fetched commit is visible
  * to the push either way.
+ *
+ * REPO-IDENTITY GUARD: the cwd default must share harvest.ts's own git common dir. A shell
+ * that had cd'd into a scratch consumer repo otherwise fetched the task bundle INTO that repo
+ * and pushed the branch to ITS origin — the wrong-target class of getff#1967 (backward sweep,
+ * 2026-09-30). Refused rather than redirected: the push is outward-facing, so the operator
+ * picks the host with --host-repo. The vendored consumer copy lives inside the consumer's
+ * repo (`.claude/vendor/runtime-bridge/`), so it keeps serving the consumer; a harvest.ts
+ * outside any checkout has no identity to compare and keeps the plain cwd default.
+ * `cwd` and `selfFile` have NO defaults for the reason {@link selfPath} gives.
  */
-function resolveHostRepo(explicit?: string): string {
+export function resolveHostRepo(
+  explicit: string | undefined,
+  cwd: string,
+  selfFile: string,
+): string {
   if (explicit) return explicit;
+  let top: string;
   try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-    }).trim();
+    top = gitAt(cwd, ['rev-parse', '--show-toplevel']);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(
       `harvest: cannot resolve the host repo to push from (cwd is not a git checkout) — ${msg}. ` +
         `Pass --host-repo <path> (or set RUNTIME_BRIDGE_HOST_REPO).`,
     );
+  }
+  const selfCommon = commonDirOf(dirname(selfFile));
+  if (selfCommon !== null && commonDirOf(top) !== selfCommon) {
+    throw new Error(
+      `harvest: refusing host repo '${top}' — the cwd is not a checkout of the repository harvest runs from ` +
+        `(${selfFile}). Run from that repository's checkout, or pass --host-repo <path> ` +
+        `(or set RUNTIME_BRIDGE_HOST_REPO).`,
+    );
+  }
+  return top;
+}
+
+/**
+ * git at `dir` with GIT_DIR / GIT_COMMON_DIR / GIT_WORK_TREE removed, so both sides of the
+ * identity comparison resolve from the directory and not from an env a git hook exported.
+ */
+function gitAt(dir: string, args: string[]): string {
+  const env = { ...process.env };
+  delete env['GIT_DIR'];
+  delete env['GIT_COMMON_DIR'];
+  delete env['GIT_WORK_TREE'];
+  return execFileSync('git', ['-C', dir, ...args], {
+    encoding: 'utf8',
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+/** Physical path of `dir`'s git common dir (shared by a clone and all its worktrees); null outside a checkout. */
+function commonDirOf(dir: string): string | null {
+  try {
+    return realpathSync(
+      resolve(dir, gitAt(dir, ['rev-parse', '--git-common-dir'])),
+    );
+  } catch {
+    return null;
   }
 }
 
@@ -494,6 +544,16 @@ function realDeps(
   args: ResolvedArgs,
   task: AifTaskFull,
 ): { deps: HarvestDeps; checkout: () => string } {
+  // The host clone, resolved BEFORE harvestTask runs any dep: a foreign cwd is refused here,
+  // ahead of the container commit, not inside pushBranch after it (cold review 2026-09-30).
+  // gh runs in it too — `gh pr create` infers the repository from its cwd, so an operator who
+  // passed --host-repo from a foreign cwd would otherwise push to one repo and open the PR in
+  // another.
+  const hostRepo = resolveHostRepo(
+    args.hostRepo,
+    process.cwd(),
+    fileURLToPath(import.meta.url),
+  );
   let resolved: WorkDirResolution | null = null;
   const dir = (branch: string): string => {
     resolved ??= resolveTaskWorkDir(container, args, task, branch);
@@ -553,7 +613,6 @@ function realDeps(
       // github.com:443 (network block, not auth) and no pre-push toolchain, so that channel
       // fails AND would bypass `.husky/pre-push`. Full rationale in the module docstring.
       const workDir = dir(branch);
-      const hostRepo = resolveHostRepo(args.hostRepo);
       // The tip we intend to land, read from the container BEFORE any transport — the
       // identity check below proves the host received exactly this commit.
       const containerSha = dockerGit(container, workDir, ['rev-parse', branch]);
@@ -660,7 +719,7 @@ function realDeps(
           '--body',
           body,
         ],
-        { encoding: 'utf8' },
+        { encoding: 'utf8', cwd: hostRepo },
       );
       // `gh pr create` prints the PR URL on the last non-empty line.
       const url = out.trim().split('\n').filter(Boolean).pop() ?? '';
@@ -673,6 +732,7 @@ function realDeps(
     enableAutoMerge: async (prUrl) => {
       execFileSync('gh', ['pr', 'merge', prUrl, '--auto', '--squash'], {
         stdio: 'pipe',
+        cwd: hostRepo,
       });
     },
     changedFilesVsBase: async (branch, base) => {
@@ -1943,7 +2003,11 @@ async function main(): Promise<void> {
         // printing a broken path.
         hostRepo: (() => {
           try {
-            return resolveHostRepo(args.hostRepo);
+            return resolveHostRepo(
+              args.hostRepo,
+              process.cwd(),
+              fileURLToPath(import.meta.url),
+            );
           } catch {
             return '<host-repo — pass --host-repo>';
           }
