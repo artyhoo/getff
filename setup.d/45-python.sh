@@ -1498,7 +1498,7 @@ $msgs"
 #   - setup.d/10-skills.sh:11-50    (getff + tool-bootstrapping: direct cp + transform_internal_refs)
 #   - setup.d/10-skills.sh:143-145  (rule-research + rule-tests: copy_skill_with_transform)
 #   - setup.d/10-skills.sh:200-236  (deps-hash-check hook + UserPromptSubmit wiring)
-#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + PostToolUse:Edit|Write|MultiEdit)
+#   - setup.d/10-skills.sh:318-328  (inject-matching-rule hook + its three arms via register_imr_hooks)
 #   - setup.d/20-agents.sh:23-47    (curated 2-agent loop)
 #   - setup.d/20-agents.sh:66-79    (skill-context overrides via SHIPPED_DOCS iteration)
 #   - setup.d/30-templates.sh:13-73 (.ai-factory/ subtree, default stack only — python has no STACK)
@@ -1543,8 +1543,8 @@ _py_deliver_agent_surface() {
                               "$PROJECT_ROOT/.claude/agents/${_py_agent}.md"
   done
 
-  # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (PostToolUse:Edit|Write|MultiEdit) ─
-  # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 340-350 (inject-matching-rule).
+  # ── Hooks: deps-hash-check (UserPromptSubmit) + inject-matching-rule (three arms, register_imr_hooks) ─
+  # Replicates setup.d/10-skills.sh:200-236 (deps-hash-check) + 318-328 (inject-matching-rule).
   # Both wired into .claude/settings.json via register_cc_hook — the canonical helper. The inline
   # settings-creation block in 10-skills.sh:211-236 was written before register_cc_hook existed;
   # register_cc_hook handles the same create-or-merge + idempotence shape strictly better.
@@ -1570,9 +1570,9 @@ _py_deliver_agent_surface() {
     _py_copy_or_refresh "$_py_imr_src" "$_py_imr_dst"   # A2-4: refresh-aware
     chmod_safe +x "$_py_imr_dst" 2>/dev/null || true
     if [ "$DRY_RUN" = "--dry-run" ]; then
-      echo "  [dry-run] would: register inject-matching-rule as a PostToolUse:Edit|Write|MultiEdit hook in .claude/settings.json"
+      echo "  [dry-run] would: register inject-matching-rule on PostToolUse:Edit|Write|MultiEdit|Read, PreToolUse:Bash, SessionStart:compact in .claude/settings.json"
     else
-      register_cc_hook "$_py_settings" "PostToolUse" 'bash "$CLAUDE_PROJECT_DIR/.claude/hooks/inject-matching-rule.sh"' "inject-matching-rule" "Edit|Write|MultiEdit"
+      register_imr_hooks "$_py_settings"
     fi
   fi
 

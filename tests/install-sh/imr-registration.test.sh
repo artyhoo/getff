@@ -132,5 +132,36 @@ else
   echo "SKIP: node not on PATH — the jq-less back-end is not exercised"
 fi
 
+# ── L: every installer lane registers the loader through register_imr_hooks ──────────────
+# The python lane (setup.d/45-python.sh) never runs 10-skills.sh, so it carries its own copy of
+# the loader's registration; a bare register_cc_hook there wires only the edit arm.
+#   L1 no installer file registers inject-matching-rule except register_imr_hooks' own body
+#   L2 a fresh `install.sh python` wires all three arms
+#   L3 `install.sh python --refresh` over a pre-slice-1 python install widens it and adds the rest
+echo "── installer lanes ──"
+_l1=$(grep -nE 'register_cc_hook[^#]*inject-matching-rule' "$REPO_ROOT"/setup.d/*.sh "$REPO_ROOT/install.sh" \
+  | grep -v "^$REPO_ROOT/setup.d/lib.sh:.*\"\$cmd\" \"inject-matching-rule\"")
+[ -z "$_l1" ] && ok "L1 no lane registers inject-matching-rule outside register_imr_hooks" \
+  || bad "L1 bare register_cc_hook for inject-matching-rule: $_l1"
+
+P="$T/py"; mkdir "$P"
+( cd "$P" && git init -q && printf '[project]\nname = "x"\nversion = "0.1"\n' > pyproject.toml \
+  && git add -A && git -c user.email=t@t -c user.name=t commit -qm init ) >/dev/null 2>&1
+( cd "$P" && bash "$REPO_ROOT/install.sh" python ) > "$T/py.log" 2>&1
+_arms() { printf '%s %s %s' "$(ours "$1" PostToolUse)" "$(ours "$1" PreToolUse)" "$(ours "$1" SessionStart)"; }
+_want="[\"$NEW\"] [\"Bash\"] [\"compact\"]"
+[ "$(_arms "$P/.claude/settings.json")" = "$_want" ] && ok "L2 fresh python install wires all three arms" \
+  || bad "L2 fresh python install: got '$(_arms "$P/.claude/settings.json")', want '$_want' (log: $T/py.log)"
+
+jq --arg re 'inject-matching-rule' '
+  def mine: any(.hooks[]?; .command | test($re));
+  .hooks.PreToolUse = ((.hooks.PreToolUse // []) | map(select(mine | not)))
+  | .hooks.SessionStart = ((.hooks.SessionStart // []) | map(select(mine | not)))
+  | .hooks.PostToolUse = ((.hooks.PostToolUse // []) | map(if mine then .matcher = "Edit|Write|MultiEdit" else . end))' \
+  "$P/.claude/settings.json" > "$P/s.tmp" && mv "$P/s.tmp" "$P/.claude/settings.json"
+( cd "$P" && bash "$REPO_ROOT/install.sh" python --refresh ) > "$T/py2.log" 2>&1
+[ "$(_arms "$P/.claude/settings.json")" = "$_want" ] && ok "L3 python --refresh widens a pre-slice install to all three arms" \
+  || bad "L3 python --refresh: got '$(_arms "$P/.claude/settings.json")', want '$_want' (log: $T/py2.log)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]
