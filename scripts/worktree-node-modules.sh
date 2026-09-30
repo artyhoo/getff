@@ -105,47 +105,95 @@ HAS_CORE=0; [ -d "$WORKTREE_DIR/packages/core" ] && HAS_CORE=1
 # worktree is never created. This is link DELIVERY only: whether the primary installed what
 # this worktree's lock plans is a separate question, not judged here.
 #
+# Nested layers are linked ONLY while the root layer is the primary's too (a link to it, or about
+# to become one). A worktree with its own root install (npm, pnpm) keeps its own nested layers:
+# an install run there passes every root-link guard (getff-work.sh, create-worktree.sh) and would
+# reify packages/<ws>/node_modules THROUGH a planted link — into the shared clone (the class of
+# the 2026-09-14 `npm ci` through the packages/core link, and of getff#1860 under pnpm).
+#
 # Workspaces come from this worktree's package.json `workspaces` (npm / yarn / bun; array or
-# { packages: [...] }), expanded as shell globs; `packages/*` when node is unavailable.
+# { packages: [...] }; `!pattern` excludes), each pattern expanded as a shell glob inside the
+# worktree (`*` and `?` only — no braces, and `**` acts as `*`). pnpm-workspace.yaml is not read,
+# so pnpm workspaces get no nested links. Without node (CC hooks run with a stripped PATH) no
+# workspace is guessed: nothing nested is linked, and the next caller with node heals it.
+# WNM_NODE overrides the node executable (tests substitute a missing one).
+NODE="${WNM_NODE:-node}"
+
 workspace_dirs() {
-  local pats pat d
-  if command -v node >/dev/null 2>&1; then
-    pats="$(node -e '
-      try {
-        const w = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).workspaces;
-        const list = Array.isArray(w) ? w : (w && Array.isArray(w.packages) ? w.packages : []);
-        for (const p of list) if (typeof p === "string" && !p.startsWith("!")) console.log(p);
-      } catch {}
-    ' "$WORKTREE_DIR/package.json" 2>/dev/null)"
-  else
-    pats="packages/*"
-  fi
-  while IFS= read -r pat; do
-    [ -n "$pat" ] || continue
-    for d in "$WORKTREE_DIR"/$pat; do
-      [ -d "$d" ] || continue
-      d="${d#"$WORKTREE_DIR"/}"; d="${d%/}"
-      [ "$d" = "packages/core" ] && continue   # its own rule below (fallback link)
-      printf '%s\n' "$d"
-    done
-  done <<EOF
+  local pats d IFS
+  command -v "$NODE" >/dev/null 2>&1 || return 0
+  # One pattern per line, prefixed + (include) or - (exclude).
+  pats="$("$NODE" -e '
+    try {
+      const w = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).workspaces;
+      const list = Array.isArray(w) ? w : (w && Array.isArray(w.packages) ? w.packages : []);
+      for (const p of list) {
+        if (typeof p !== "string" || p.includes("\n")) continue;
+        console.log(p.startsWith("!") ? "-" + p.slice(1) : "+" + p);
+      }
+    } catch {}
+  ' "$WORKTREE_DIR/package.json" 2>/dev/null)"
+  expand() {
+    local sign="$1" line
+    while IFS= read -r line; do
+      case "$line" in "$sign"*) ;; *) continue ;; esac
+      IFS='
+'                                              # split on newlines only: patterns may hold spaces
+      for d in "$WORKTREE_DIR"/${line#?}; do
+        [ -d "$d" ] || continue
+        d="${d#"$WORKTREE_DIR"/}"; d="${d%/}"
+        printf '%s\n' "$d"
+      done
+      unset IFS
+    done <<EOF
 $pats
 EOF
+  }
+  expand + | sort -u | while IFS= read -r d; do
+    [ "$d" = "packages/core" ] && continue      # its own rule below (fallback link)
+    expand - | grep -qxF "$d" && continue       # excluded by a `!` pattern
+    printf '%s\n' "$d"
+  done
+}
+
+# Does the root layer come from the primary (a link resolving to its node_modules, or a path this
+# run will link)? Compared physically, so /var vs /private/var and relative links agree.
+root_is_primary() {
+  [ "$needs_root" -eq 1 ] && return 0
+  [ -L "$ROOT_NM" ] || return 1
+  [ "$(cd "$ROOT_NM" 2>/dev/null && pwd -P)" = "$(cd "$PRIMARY_DIR/node_modules" 2>/dev/null && pwd -P)" ]
 }
 
 # --check and --apply share ONE definition of the end state, so they can never disagree.
 needs_root=0; nm_is_provisioned "$ROOT_NM" || needs_root=1
 needs_core=0; if [ "$HAS_CORE" -eq 1 ]; then nm_is_provisioned "$CORE_NM" || needs_core=1; fi
 NESTED_MISSING=""   # newline-separated workspace dirs whose layer must be linked
-while IFS= read -r ws; do
-  [ -n "$ws" ] || continue
-  src="$PRIMARY_DIR/$ws/node_modules"
-  { [ -d "$src" ] && [ ! -L "$src" ] && nm_is_provisioned "$src"; } || continue
-  nm_is_provisioned "$WORKTREE_DIR/$ws/node_modules" || NESTED_MISSING="$NESTED_MISSING$ws
+NESTED_BLOCKED=""   # ...and those whose path holds something we may never replace (a file)
+if root_is_primary; then
+  while IFS= read -r ws; do
+    [ -n "$ws" ] || continue
+    src="$PRIMARY_DIR/$ws/node_modules"
+    { [ -d "$src" ] && [ ! -L "$src" ] && nm_is_provisioned "$src"; } || continue
+    nm="$WORKTREE_DIR/$ws/node_modules"
+    nm_is_provisioned "$nm" && continue
+    if nm_is_free "$nm"; then NESTED_MISSING="$NESTED_MISSING$ws
 "
-done <<EOF
-$(workspace_dirs | sort -u)
+    else NESTED_BLOCKED="$NESTED_BLOCKED$nm
+"
+    fi
+  done <<EOF
+$(workspace_dirs)
 EOF
+fi
+
+# Unfixable in BOTH modes, so --check never calls fixable what --apply would refuse.
+if [ -n "$NESTED_BLOCKED" ]; then
+  printf '%s' "$NESTED_BLOCKED" | while IFS= read -r nm; do
+    printf '⚠ worktree-node-modules: %s is neither a directory nor a symlink — remove it, then re-run: bash scripts/worktree-doctor.sh --fix\n' \
+      "$nm" >&2
+  done
+  exit 2
+fi
 
 if [ "$needs_root" -eq 0 ] && [ "$needs_core" -eq 0 ] && [ -z "$NESTED_MISSING" ]; then
   [ "$MODE" = "--check" ] && exit 0
@@ -204,12 +252,19 @@ if [ "$needs_core" -eq 1 ]; then
 fi
 
 # Same shape as the core link above: the primary's real layer, and never a real install replaced.
+# Postcondition checked per link: a failed `ln` (unwritable workspace dir) must exit 2, not print
+# «provisioned» and leave --check failing forever.
 while IFS= read -r ws; do
   [ -n "$ws" ] || continue
   nm="$WORKTREE_DIR/$ws/node_modules"
   nm_is_free "$nm" || refuse "$nm"
   rm -rf "$nm"
-  ln -sfn "$PRIMARY_DIR/$ws/node_modules" "$nm"
+  ln -sfn "$PRIMARY_DIR/$ws/node_modules" "$nm" 2>/dev/null
+  if ! nm_is_provisioned "$nm"; then
+    printf '⚠ worktree-node-modules: could not link %s -> %s — is %s writable?\n' \
+      "$nm" "$PRIMARY_DIR/$ws/node_modules" "$WORKTREE_DIR/$ws" >&2
+    exit 2
+  fi
 done <<EOF
 $NESTED_MISSING
 EOF

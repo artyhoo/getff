@@ -26,6 +26,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { execFileSync, execSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -50,7 +51,9 @@ let wt: string;
  * Primary checkout + a worktree directory, both bare of node_modules. `dirs` are extra tracked
  * directories (workspaces or not); `workspaces` becomes the root package.json field when given.
  */
-function seed(opts: { primaryCore?: boolean; dirs?: string[]; workspaces?: string[] } = {}): void {
+function seed(
+  opts: { primaryCore?: boolean; dirs?: string[]; workspaces?: string[] | { packages: string[] } } = {},
+): void {
   primary = mkdtempSync(resolve(tmpdir(), 'wnm-primary-'));
   execSync('git init -q -b main', { cwd: primary });
   execSync('git config user.email t@e.com && git config user.name t', { cwd: primary });
@@ -80,9 +83,13 @@ function seed(opts: { primaryCore?: boolean; dirs?: string[]; workspaces?: strin
   execSync(`git worktree add -q "${wt}" -b wt main`, { cwd: primary });
 }
 
-function run(mode: '--check' | '--apply'): number {
+function run(mode: '--check' | '--apply', env: NodeJS.ProcessEnv = {}): number {
   try {
-    execFileSync('bash', [SCRIPT, mode, wt, primary], { encoding: 'utf8', stdio: 'pipe' });
+    execFileSync('bash', [SCRIPT, mode, wt, primary], {
+      encoding: 'utf8',
+      stdio: 'pipe',
+      env: { ...process.env, ...env },
+    });
     return 0;
   } catch (e) {
     return (e as { status?: number }).status ?? -1;
@@ -230,11 +237,11 @@ describe('worktree-node-modules.sh — nested workspace layers', () => {
 
     expect(run('--apply')).toBe(0);
 
-    expect(lstatSync(resolve(wt, SPA, 'node_modules')).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(resolve(wt, SPA, 'node_modules'))).toBe(resolve(primary, SPA, 'node_modules'));
     expect(existsSync(resolve(wt, SPA, 'node_modules/node_modules'))).toBe(false);
   });
 
-  it('REFUSAL: never replaces a real install in a worktree nested layer', () => {
+  it('a real install in a worktree nested layer counts as provisioned and is left alone', () => {
     seed({ dirs: [SPA], workspaces: ['packages/*'] });
     installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
     mkdirSync(resolve(wt, SPA, 'node_modules/own-dep'), { recursive: true });
@@ -251,6 +258,8 @@ describe('worktree-node-modules.sh — nested workspace layers', () => {
     installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
     writeFileSync(resolve(wt, SPA, 'node_modules'), 'not a directory\n');
 
+    // Unfixable in BOTH modes — --check must not call it fixable when --apply will refuse.
+    expect(run('--check')).toBe(2);
     expect(run('--apply')).toBe(2);
 
     expect(lstatSync(resolve(wt, SPA, 'node_modules')).isFile()).toBe(true);
@@ -276,5 +285,79 @@ describe('worktree-node-modules.sh — nested workspace layers', () => {
 
     expect(readlinkSync(resolve(wt, 'apps/web/node_modules'))).toBe(resolve(primary, 'apps/web/node_modules'));
     expect(existsSync(resolve(wt, 'tools/gen/node_modules'))).toBe(false);
+  });
+
+  it("NEGATIVE: a worktree with its OWN root install gets no primary nested layer planted in it", () => {
+    // An install run in that worktree (npm ci / pnpm install) passes every root-link guard and
+    // would then reify packages/<ws>/node_modules THROUGH the link, into the shared clone.
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    mkdirSync(resolve(wt, 'node_modules/.pnpm'), { recursive: true });
+    writeFileSync(resolve(wt, 'node_modules/.modules.yaml'), 'layoutVersion: 5\n');
+
+    expect(run('--apply')).toBe(0);
+
+    expect(existsSync(resolve(wt, SPA, 'node_modules'))).toBe(false);
+    expect(run('--check')).toBe(0);
+  });
+
+  it('NEGATIVE: a root link to anything but the primary root layer gets no nested layer either', () => {
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    mkdirSync(resolve(primary, 'elsewhere/node_modules/x'), { recursive: true });
+    symlinkSync(resolve(primary, 'elsewhere/node_modules'), resolve(wt, 'node_modules'));
+
+    expect(run('--apply')).toBe(0);
+
+    expect(existsSync(resolve(wt, SPA, 'node_modules'))).toBe(false);
+  });
+
+  it('NEGATIVE: without node, no workspace is guessed — nothing nested is linked', () => {
+    // CC-launched hooks run with a stripped PATH; a `packages/*` guess would link non-workspace
+    // dirs in a repo whose workspaces are elsewhere, and differ from what pre-push links.
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+
+    expect(run('--apply', { WNM_NODE: '/nonexistent/node' })).toBe(0);
+
+    expect(existsSync(resolve(wt, SPA, 'node_modules'))).toBe(false);
+  });
+
+  it('reads the { packages: [...] } form and applies ! exclusions', () => {
+    seed({
+      dirs: ['libs/a', 'libs/skip'],
+      workspaces: { packages: ['libs/*', '!libs/skip'] },
+    });
+    installInPrimary('libs/a', 'dep');
+    installInPrimary('libs/skip', 'dep');
+
+    expect(run('--apply')).toBe(0);
+
+    expect(readlinkSync(resolve(wt, 'libs/a/node_modules'))).toBe(resolve(primary, 'libs/a/node_modules'));
+    expect(existsSync(resolve(wt, 'libs/skip/node_modules'))).toBe(false);
+    expect(run('--check')).toBe(0);
+  });
+
+  it('expands a workspace pattern containing a space inside the worktree', () => {
+    seed({ dirs: ['my pkgs/web'], workspaces: ['my pkgs/*'] });
+    installInPrimary('my pkgs/web', 'dep');
+
+    expect(run('--apply')).toBe(0);
+
+    expect(readlinkSync(resolve(wt, 'my pkgs/web/node_modules'))).toBe(
+      resolve(primary, 'my pkgs/web/node_modules'),
+    );
+  });
+
+  it.skipIf(process.getuid?.() === 0)('a link that could not be created exits 2, not "provisioned"', () => {
+    seed({ dirs: [SPA], workspaces: ['packages/*'] });
+    installInPrimary(SPA, 'eslint-plugin-jsx-a11y');
+    chmodSync(resolve(wt, SPA), 0o555); // ln cannot write into the workspace dir
+    try {
+      expect(run('--apply')).toBe(2);
+      expect(run('--check')).toBe(1);
+    } finally {
+      chmodSync(resolve(wt, SPA), 0o755);
+    }
   });
 });
