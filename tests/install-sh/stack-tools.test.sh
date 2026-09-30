@@ -51,6 +51,11 @@ if grep -qE '^\| sentry \| MCP \| 2026-09-29 \| .*io\.github\.getsentry/sentry-m
   ok "tool-decisions.md: the sentry line names server, owner, version and dependency"
 else bad "no C4 line for sentry in tool-decisions.md"; fi
 if grep -q 'io.prisma/mcp' "$Y.log"; then ok "the install log reports each decision"; else bad "install log does not report the decisions"; fi
+# A live registry can take up to the deadline: the person is told so before the wait, not after.
+_wait=$(grep -n 'asking the npm and MCP registries about 3 dependencies — this can take up to 90 s' "$Y.log" | head -1 | cut -d: -f1)
+_first=$(grep -n 'io.prisma/mcp' "$Y.log" | head -1 | cut -d: -f1)
+if [ -n "$_wait" ] && [ -n "$_first" ] && [ "$_wait" -lt "$_first" ]; then ok "the log says how long the check may take, before its results"
+else bad "no wait line before the results (wait line ${_wait:-absent}, first result ${_first:-absent})"; fi
 
 echo "── no yes"
 N="$WORK/no"; install_into "$N" ""

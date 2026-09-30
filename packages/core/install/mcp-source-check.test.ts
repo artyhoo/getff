@@ -26,6 +26,7 @@ import {
   MCP_REGISTRY,
   NPM_REGISTRY,
   uncheckedLine,
+  waitLine,
   type CheckResult,
   type FetchJson,
 } from './mcp-source-check.ts';
@@ -225,7 +226,7 @@ describe('checkStackTools on the recorded registry', () => {
 
   it('the unchecked line says what it means for the person: nothing added for them, the rest stands, a rerun asks again', () => {
     expect(uncheckedLine(['stripe', 'registry search «io.github.upstash»'])).toBe(
-      '⚠ not checked: stripe, registry search «io.github.upstash» — the registry gave no answer (none within 60 s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again',
+      '⚠ not checked: stripe, registry search «io.github.upstash» — the registry gave no answer (none within 90 s, or an error), so nothing was added or proposed for them; everything above stands, and running the install again checks them again',
     );
   });
 
@@ -327,20 +328,30 @@ describe('makeFetchJson against a live registry', () => {
       });
     });
 
-  // The official MCP registry's search answered in 10-11 s on two networks (curl, P6 run 4): a
-  // per-request cap under that made «tools for my dependencies: yes» do nothing. One slow answer
-  // must fit; the deadline still bounds the whole check.
-  it('accepts a registry answer that takes 9 s, and still gives up on one that takes 25 s', async () => {
-    const [nine, late] = await Promise.all([slowRegistry(9_000), slowRegistry(25_000)]);
+  // An uncached MCP registry search took 12-48 s (curl, 2026-09-30; cached ones 1.4-1.7 s), and a
+  // first install is the uncached case: a request may use whatever is left of the deadline, and
+  // the deadline alone bounds the check.
+  it('accepts a registry answer that takes 40 s', async () => {
+    const reg = await slowRegistry(40_000);
     try {
-      const [a, b] = await Promise.all([makeFetchJson({})(nine.url), makeFetchJson({})(late.url)]);
-      expect(a).toEqual({ ok: true });
-      expect(b).toBeNull();
+      expect(await makeFetchJson({})(reg.url)).toEqual({ ok: true });
     } finally {
-      nine.close();
-      late.close();
+      reg.close();
     }
-  }, 40_000);
+  }, 60_000);
+
+  it('gives up on an answer that comes after the deadline', async () => {
+    const reg = await slowRegistry(5_000);
+    try {
+      expect(await makeFetchJson({}, 2_000)(reg.url)).toBeNull();
+    } finally {
+      reg.close();
+    }
+  }, 20_000);
+
+  it('the line before the wait says how long it may take', () => {
+    expect(waitLine(3)).toBe('… asking the npm and MCP registries about 3 dependencies — this can take up to 90 s');
+  });
   // A real project has 20-40 direct dependencies, so a dozen or more searches at 10-11 s each. They
   // must all come back inside the deadline, not only the first wave (P6 run 4, N9).
   it('13 registry searches answering after 11 s each all complete inside the deadline', async () => {
