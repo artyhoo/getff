@@ -3116,13 +3116,60 @@ describe.skipIf(!JQ)('end-of-turn-reminder.sh — handoff-currency gate (D13)', 
     const ra = spawnCase(a);
     const pa = JSON.parse(ra.stdout) as { decision: string; reason: string };
     expect(pa.decision).toBe('block');
-    expect(pa.reason, 'condense, do not append').toContain('200-line cap');
+    expect(pa.reason, 'condense, do not append').toContain('80-line cap');
     // (b) ## Next action present but blank → named as missing/empty.
     const b = buildCase(goldenCase('f14b-armed-blank-section'), true);
     const rb = spawnCase(b);
     const pb = JSON.parse(rb.stdout) as { decision: string; reason: string };
     expect(pb.decision).toBe('block');
     expect(pb.reason, 'a present-but-empty section is named').toContain('## Next action');
+  });
+
+  // ── Fixture 21 (D40) — the handoff is a THIN INDEX (seat-lifecycle.md §1 phase 3): a
+  // «task → topic file» table with at least one `.md` row, state kept in the topic files.
+  // A monolithic handoff with all five sections present used to pass; it now blocks. Each
+  // case starts from f2 (the valid, indexed file) and removes exactly one property, so the
+  // only variable between the allow and the block is the index table itself.
+  const withContent = (name: string, edit: (s: string) => string) => {
+    const base = goldenCase(name);
+    return { ...base, res: { mode: 'content', content: edit(base.res!.content!) } };
+  };
+  const INDEX_ROWS = '| Task in front of you | Open only |\n|---|---|\n| gate fixture state | `topic-fixture.md` |\n';
+
+  it('fixture 21a (D40): five sections present, NO index table → block naming the index (en + ru)', () => {
+    const c = withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, ''));
+    expect(c.res.content, 'the table was actually removed').not.toContain('|---|');
+    for (const [lang, word] of [['en', 'index table'], ['ru', 'таблиц']] as const) {
+      const b = buildCase(c, true);
+      b.env.AIF_HOOK_LANG = lang;
+      const r = spawnCase(b);
+      expect(r.status, `${lang}: stderr: ${r.stderr}`).toBe(0);
+      const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+      expect(parsed.decision, `${lang}: a monolithic handoff blocks`).toBe('block');
+      expect(parsed.reason, `${lang}: the reason names the missing index`).toContain(word);
+      expect(parsed.reason, `${lang}: the escape grammar is still quoted`).toContain('mechanical-tail:');
+    }
+  });
+
+  it('fixture 21b (D40): a table whose rows name no .md topic file is not an index → block', () => {
+    const c = withContent('f2-armed-valid-allow', (s) => s.replace('`topic-fixture.md`', 'see the board'));
+    const r = spawnCase(buildCase(c, true));
+    const parsed = JSON.parse(r.stdout) as { decision: string; reason: string };
+    expect(parsed.decision).toBe('block');
+    expect(parsed.reason).toContain('index table');
+  });
+
+  it('fixture 21c (D40, paired positive): the same file WITH its index row → allow', () => {
+    const r = spawnCase(buildCase(goldenCase('f2-armed-valid-allow'), true));
+    expect(r.stdout, 'an indexed five-section handoff is allowed').toBe('');
+  });
+
+  it('fixture 21d (D40): the ≥20-char escape clears the index block; a short one does not', () => {
+    const noIndex = withContent('f2-armed-valid-allow', (s) => s.replace(INDEX_ROWS, ''));
+    const ok = spawnCase(buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: regenerating snapshots, CI guards them` }, true));
+    expect(ok.stdout, 'a valid escape allows').toBe('');
+    const short = spawnCase(buildCase({ ...noIndex, text: `${noIndex.text}\n\nmechanical-tail: done` }, true));
+    expect((JSON.parse(short.stdout) as { decision: string }).decision, 'a short rationale is no escape').toBe('block');
   });
 
   it('D36: the gate rides ONE block and the context line is suppressed from the floor upward (armed, short turn at 320k)', () => {
@@ -3282,6 +3329,10 @@ describe('end-of-turn-reminder — the SHIPPED plugin twin survives an armed Sto
 
   const VALID_HANDOFF = [
     '# Handoff',
+    '',
+    '| Task in front of you | Open only |',
+    '|---|---|',
+    '| twin state | `twin-topic.md` |',
     '',
     '## Decisions and why',
     'Kept the inline fallback complete.',

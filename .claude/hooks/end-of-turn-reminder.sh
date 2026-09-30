@@ -549,10 +549,27 @@ if [ -n "$ctx_entry" ]; then
             break
           fi
         done
+        # D40 — the handoff is a THIN INDEX (.claude/rules/seat-lifecycle.md §1 phase 3): a
+        # markdown table whose separator row is followed by at least one row naming a `.md`
+        # topic file. State lives in those topic files, so a task reloads only its own. Checked
+        # AFTER the headings (a missing section is the more basic defect) and BEFORE the cap
+        # (a monolith is told to split, not merely to shrink). Shape only: whether each topic
+        # file opens with «Read when:» is not checked — table paths are free-form (relative,
+        # `~/`, directory-anchored in prose), and a partial resolve would read as a guarantee.
+        if [ -z "$gate_line" ] && ! awk '
+            /^[[:space:]]*\|[[:space:]:|-]*-{3,}[[:space:]:|-]*$/ { sep = 1; next }
+            sep && /^[[:space:]]*\|/ && /\.md([^[:alnum:]_]|$)/ { found = 1; exit }
+            sep && !/^[[:space:]]*\|/ { sep = 0 }
+            END { exit (found ? 0 : 1) }
+          ' "$gate_handoff_file" 2>/dev/null; then
+          gate_line="$(aif_msg_eot_handoff_gate "$gate_handoff_file" "$ctx_tokens" "$gate_floor" index)"
+        fi
         if [ -z "$gate_line" ]; then
           # D32 — current state, not a log: over the cap, condense — never append.
-          gate_max_lines="${AIF_HANDOFF_MAX_LINES:-200}"
-          case "$gate_max_lines" in '' | *[!0-9]* | 0) gate_max_lines=200 ;; esac
+          # D40 lowered the default 200 → 80: with state in topic files, the index itself is
+          # ~40 lines (title, table, five one-line sections); 80 is 2× that headroom.
+          gate_max_lines="${AIF_HANDOFF_MAX_LINES:-80}"
+          case "$gate_max_lines" in '' | *[!0-9]* | 0) gate_max_lines=80 ;; esac
           gate_lines=$(wc -l < "$gate_handoff_file" 2>/dev/null | tr -d '[:space:]' || echo 0)
           case "$gate_lines" in '' | *[!0-9]*) gate_lines=0 ;; esac
           if [ "$gate_lines" -gt "$gate_max_lines" ]; then
