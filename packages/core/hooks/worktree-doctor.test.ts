@@ -131,6 +131,34 @@ describe('worktree-doctor.sh — repo anchor', () => {
     expect(provisioned(foreign.wt), r.out).toBe(false);
   });
 
+  it('(d6) LOCK-DIVERGED: --fix reports the worktree and never runs a real install itself', () => {
+    // The helper's --check exits 3 when the worktree's lock plans a tree the primary does not
+    // have installed. A sweep must not turn that into N installs of ~1.8 GB each (2026-09-30
+    // census: 84 of 128 worktrees) — it names the per-worktree command instead.
+    const lock = (deps: Record<string, string>): string =>
+      JSON.stringify({
+        lockfileVersion: 3,
+        packages: {
+          '': { devDependencies: Object.fromEntries(Object.keys(deps).map((n) => [n, '*'])) },
+          ...Object.fromEntries(Object.entries(deps).map(([n, v]) => [`node_modules/${n}`, { version: v }])),
+        },
+      });
+    writeFileSync(resolve(own.primary, 'node_modules/.package-lock.json'), lock({ vitest: '4.1.8' }));
+    writeFileSync(resolve(own.wt, 'package-lock.json'), lock({ vitest: '4.1.8', oxlint: '1.2.3' }));
+    const stubDir = mkdtempSync(resolve(tmpdir(), 'doctor-npm-'));
+    const marker = resolve(stubDir, 'called');
+    writeFileSync(resolve(stubDir, 'npm'), `#!/usr/bin/env bash\ntouch "${marker}"\n`, { mode: 0o755 });
+
+    const r = run(script, own.primary, ['--fix'], { WNM_NPM: resolve(stubDir, 'npm') });
+
+    expect(existsSync(marker), `the sweep must not install\n${r.out}`).toBe(false);
+    expect(provisioned(own.wt), `a diverged worktree must not be linked\n${r.out}`).toBe(false);
+    expect(r.out).toMatch(/LOCK-DIVERGED\s+\S*wt-linked/);
+    expect(r.out).toContain('worktree-node-modules.sh --apply');
+    expect(r.status, r.out).toBe(1);
+    rmSync(stubDir, { recursive: true, force: true });
+  });
+
   it('(d-neg) PAIRED-NEGATIVE: with the REPO-ANCHOR block stripped, the foreign worktree IS provisioned', () => {
     const src = readFileSync(DOCTOR, 'utf8');
     const stripped = src.replace(/# ── REPO-ANCHOR[\s\S]*?# ── END REPO-ANCHOR[^\n]*\n/, '');
