@@ -761,6 +761,20 @@ if [ -n "$RESEARCH" ]; then
   mkdir -p .ai-factory/rules-research
   cp "$RESEARCH" ".ai-factory/rules-research/$STACK.research.json"
   cp "$SELECTION" ".ai-factory/rules-research/$STACK.selection.json"
+  # selection_rules generated|manual — the count of selected entries the generator turns into rules, or the ids
+  # of the ones it records as research only. Mirrors routesToManual (packages/core/synthesizer/file-clients.ts):
+  # a forbid with a selector, or a non-empty eslintConfig, is generated; anything else is research only by design
+  # (the react-next pair's next-server-only-boundary). PR #1985 CI: counting every selected entry read 1 of 2.
+  selection_rules() {
+    node -e '
+      const [file, kind] = process.argv.slice(1);
+      const gen = (c) => (c.presence === "forbid" && Boolean(c.selector)) ||
+        (c.eslintConfig !== undefined && Object.keys(c.eslintConfig).length > 0);
+      const rules = JSON.parse(require("fs").readFileSync(file, "utf8")).rules;
+      if (kind === "generated") console.log(rules.filter(gen).length);
+      else for (const c of rules.filter((c) => !gen(c))) console.log(c.entryId);
+    ' "$SELECTION" "$1"
+  }
   generator_runs_clean() {
     local cache rc=0
     cache="$(mktemp -d "$WORK/npm-cache.XXXXXX")"
@@ -777,11 +791,16 @@ if [ -n "$RESEARCH" ]; then
     # Every selected rule is generated and proven through the project's own lint (P6 F1, 2026-09-30: on
     # create-vite's shape the generator made 0 of 6; then 3 JSX rules were written as .ts samples and
     # read not_wired). The rule table's getff:G<n> rows are the generated rules.
-    local want got table prc=0
-    want=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rules.length)' "$SELECTION")
+    local want got table prc=0 id
+    want=$(selection_rules generated)
     table=$(node scripts/prove-rules.mjs --prove 2>&1) || prc=$?
     got=$(grep -c '^| getff:G' <<<"$table" || true)
-    [ "$got" -eq "$want" ] || { echo "$table"; echo "generated rules in the table: $got, selected: $want"; return 1; }
+    [ "$got" -eq "$want" ] || { echo "$table"; echo "generated rules in the table: $got, selected for generation: $want"; return 1; }
+    while IFS= read -r id; do
+      [ -n "$id" ] || continue
+      grep -F "| $id |" <<<"$table" | grep -qF '| research only: ' \
+        || { echo "$table"; echo "research-only entry $id has no 'research only' row in the table"; return 1; }
+    done <<<"$(selection_rules manual)"
     if grep '^| getff:G' <<<"$table" | grep -q 'no diagnostic'; then
       echo "$table"; echo "a generated rule is silent on its own bad example"; return 1
     fi
@@ -804,7 +823,7 @@ if [ -n "$RESEARCH" ]; then
     out=$(git push origin "$BRANCH" 2>&1) || rc=$?
     printf '%s\n' "$out"
     [ "$rc" -eq 0 ] || { echo "git push exited $rc"; return 1; }
-    want=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).rules.length)' "$SELECTION")
+    want=$(selection_rules generated)
     grep -q "=== generated rule mutation: $want rule(s)" <<<"$out" \
       || { echo "the push did not run the generated-rule mutation check on the $want generated rules"; return 1; }
     grep -qE '=== overall: kill=[0-9]+/[0-9]+ \([0-9]+%\) skipped=0 ' <<<"$out" \
