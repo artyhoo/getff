@@ -31,18 +31,22 @@
 #   same packages/core resolution walk.
 #
 # WHAT IT CHECKS
-#   1. LOCKFILE PARITY (static; no node_modules needed). For every third-party package that is
-#      both inlined in the committed bundle AND directly imported by a first-party
-#      `packages/core/**` source — i.e. exactly the packages whose resolution starts inside
-#      packages/core and is therefore layer-sensitive — every layer PLANNED by the two committed
-#      lockfiles must name one and the same version.
-#   2. TREE PARITY (only when a node_modules tree exists). The version actually resolvable from
-#      `packages/core/install/` must equal that agreed version — otherwise the working tree is
-#      stale relative to the locks and a rebuild would produce a bundle CI cannot reproduce.
+#   1. LOCKFILE PARITY (static; no node_modules needed). Every third-party package inlined in a
+#      committed bundle (its `// node_modules/<pkg>/…` comments), TRANSITIVE ones included, must
+#      resolve to one and the same version in every install world the two committed lockfiles
+#      plan: the root install alone, and `npm ci --prefix packages/core` on top of it. Resolution
+#      mirrors Node/esbuild: direct imports of first-party `packages/core/**` sources walk up from
+#      packages/core, and each dependency walks up from its parent package's own directory.
+#   2. TREE PARITY (only when a node_modules tree exists). The same walk over the installed tree
+#      must land on those agreed versions — otherwise the working tree is stale relative to the
+#      locks and a rebuild would produce a bundle CI cannot reproduce.
 #
-#   Transitive deps of an already-hoisted package (ajv's fast-uri, json-schema-traverse, …) are
-#   deliberately out of scope: they resolve upward from the hoisting package's own directory, so
-#   a packages/core-local layer can never shadow them.
+#   Transitive deps are NOT safe from a packages/core-local layer. They resolve upward from their
+#   parent's directory, and the parent itself moves: after `npm ci --prefix packages/core`, ajv
+#   lives in packages/core/node_modules, so its fast-uri resolves there too. Until 2026-09-30 this
+#   header claimed such deps «can never be shadowed» and left them unchecked; meanwhile a
+#   dependabot bump moved only the packages/core lock to fast-uri 3.1.8 while the root lock kept
+#   3.1.7, and every bundle inlining fast-uri reported a phantom drift on untouched files.
 #
 # USAGE
 #   bash scripts/check-bundle-dep-parity.sh [<repo-root>]
@@ -102,15 +106,19 @@ if not BUNDLES:
 # form (rather than any `node_modules/x` substring) keeps out `--external` packages and plain
 # string literals — e.g. the runtime probe `existsSync("node_modules/ts-morph/package.json")`,
 # whose version cannot affect a single bundled byte.
-PKG_RE = re.compile(r'^\s*//\s*node_modules/((?:@[^/\s]+/)?[^/\s]+)/', re.MULTILINE)
+# A nested copy is named by its full path (`// node_modules/ajv/node_modules/fast-uri/…`), so
+# every package segment in the comment path counts, not only the first.
+COMMENT_RE = re.compile(r'^\s*//\s*(node_modules/\S+)', re.MULTILINE)
+PKG_RE = re.compile(r'(?:^|/)node_modules/((?:@[^/\s]+/)?[^/\s]+)(?=/)')
 inlined = set()
 for bundle in BUNDLES:
     with open(bundle, encoding='utf-8') as fh:
-        inlined |= set(PKG_RE.findall(fh.read()))
+        for path in COMMENT_RE.findall(fh.read()):
+            inlined |= set(PKG_RE.findall(path))
 
 # ── 2. of those, the ones imported DIRECTLY by a first-party packages/core source ────────────
-# Only these resolve by walking up from inside packages/core, so only these can be shadowed by a
-# packages/core-local node_modules layer.
+# These are the roots of the resolution walk (they resolve by walking up from inside
+# packages/core); every transitive inlined package is reached from them in §4.
 IMPORT_RE = re.compile(r'''(?:from|import)\s*\(?\s*['"]((?:@[^/'"]+/)?[^./'"][^'"]*)['"]''')
 direct = set()
 for dirpath, dirnames, filenames in os.walk(CORE_SRC):
@@ -129,72 +137,129 @@ for dirpath, dirnames, filenames in os.walk(CORE_SRC):
             if name in inlined:
                 direct.add(name)
 
-layer_sensitive = sorted(direct)
-if not layer_sensitive:
-    print('✓ bundle dep parity: no layer-sensitive bundled dependency to check')
+if not inlined:
+    print('✓ bundle dep parity: no committed bundle inlines a third-party package')
     sys.exit(0)
 
-# ── 3. lockfile parity ───────────────────────────────────────────────────────
+# ── 3. the install worlds, each as a path → {version, dependencies} lookup ──────────────────
+# A committed lockfile plans a tree; which tree is on disk depends on which install ran last.
+# Two worlds cover every order the repo's own commands produce:
+#   root         — the root `npm install` / `npm ci` alone (root package-lock.json, including
+#                  its nested packages/core/node_modules/* plan).
+#   packages/core — `npm ci --prefix packages/core` on top of a root install: it wipes and
+#                  re-creates packages/core/node_modules from the standalone lock, while
+#                  everything above packages/core stays as the root lock planned it.
 with open(ROOT_LOCK, encoding='utf-8') as fh:
     root_lock = json.load(fh).get('packages', {})
 with open(CORE_LOCK, encoding='utf-8') as fh:
     core_lock = json.load(fh).get('packages', {})
 
-def planned(lock, key):
-    entry = lock.get(key)
-    return entry.get('version') if isinstance(entry, dict) else None
+CORE_NM = 'packages/core/node_modules/'
+core_world = {k: v for k, v in root_lock.items() if not k.startswith(CORE_NM)}
+core_world.update({f'packages/core/{k}': v for k, v in core_lock.items() if k.startswith('node_modules/')})
+LOCK_WORLDS = [
+    ('root package-lock.json', root_lock),
+    ('packages/core/package-lock.json over the root install', core_world),
+]
 
-failures = []
-agreed = {}
-for pkg in layer_sensitive:
-    layers = [
-        (f'{os.path.basename(ROOT_LOCK)} → packages/core/node_modules/{pkg}',
-         planned(root_lock, f'packages/core/node_modules/{pkg}')),
-        (f'{os.path.basename(ROOT_LOCK)} → node_modules/{pkg}',
-         planned(root_lock, f'node_modules/{pkg}')),
-        (f'packages/core/package-lock.json → node_modules/{pkg}',
-         planned(core_lock, f'node_modules/{pkg}')),
-    ]
-    present = [(label, ver) for label, ver in layers if ver]
-    versions = {ver for _, ver in present}
-    if len(versions) > 1:
-        failures.append(
-            f'  {pkg}: the two committed lockfiles plan {len(versions)} different versions —\n'
-            + '\n'.join(f'      {ver:<12} {label}' for label, ver in present)
-        )
-    elif versions:
-        agreed[pkg] = next(iter(versions))
+def lock_lookup(world):
+    def lookup(key):
+        entry = world.get(key)
+        if not isinstance(entry, dict) or not entry.get('version'):
+            return None
+        deps = {}
+        for field in ('dependencies', 'optionalDependencies', 'peerDependencies'):
+            deps.update(entry.get(field) or {})
+        return entry['version'], set(deps)
+    return lookup
 
-# ── 4. tree parity (skipped entirely when nothing is installed) ──────────────
-def resolve_from_install(pkg):
-    """First node_modules layer carrying <pkg>, walking up from packages/core/install.
+def tree_lookup(key):
+    """The installed tree: <root>/<key>/package.json, read through any provisioning symlink."""
+    manifest = os.path.join(root, key, 'package.json')
+    if not os.path.isfile(manifest):
+        return None
+    try:
+        with open(manifest, encoding='utf-8') as fh:
+            meta = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not meta.get('version'):
+        return None
+    deps = {}
+    for field in ('dependencies', 'optionalDependencies', 'peerDependencies'):
+        deps.update(meta.get(field) or {})
+    return meta['version'], set(deps)
 
-    Mirrors Node's (and esbuild's) LOAD_NODE_MODULES walk, but stops at the repo root: layers
-    above it are not part of this repo's install and must not decide a committed artefact.
-    """
-    cur = os.path.realpath(os.path.join(root, 'packages/core/install'))
-    stop = os.path.realpath(root)
+# ── 4. resolve every inlined package the way Node and esbuild do ─────────────────────────────
+# Walk up from the requiring directory, trying <dir>/node_modules/<name> at each level, and stop
+# at the repo root — layers above it are not part of this repo's install. The walk starts at
+# packages/core for the direct imports and at each resolved package's OWN directory for its
+# dependencies, so a transitive dep follows its parent into whichever layer the parent came
+# from: ajv in packages/core/node_modules pulls fast-uri from packages/core/node_modules too.
+# Only inlined packages are followed; an off-path copy (the root lock's
+# packages/core/node_modules/json-schema-traverse@0.4.1, eslint's nested one) is never reached.
+def resolve(lookup, from_dir, name):
+    cur = from_dir
     while True:
-        manifest = os.path.join(cur, 'node_modules', pkg, 'package.json')
-        if os.path.isfile(manifest):
-            try:
-                with open(manifest, encoding='utf-8') as fh:
-                    return json.load(fh).get('version'), os.path.relpath(os.path.dirname(manifest), stop)
-            except (OSError, ValueError):
-                return None, None
-        if cur == stop or cur == os.path.dirname(cur):
+        key = f'{cur}/node_modules/{name}' if cur else f'node_modules/{name}'
+        hit = lookup(key)
+        if hit:
+            return key, hit
+        if not cur:
             return None, None
         cur = os.path.dirname(cur)
 
-for pkg, want in agreed.items():
-    got, where = resolve_from_install(pkg)
-    if got is None:
+def resolve_all(lookup):
+    """name → {(version, key)} for every inlined package reachable in one world."""
+    found = {}
+    queue = [('packages/core', name) for name in sorted(direct)]
+    seen = set()
+    while queue:
+        from_dir, name = queue.pop(0)
+        key, hit = resolve(lookup, from_dir, name)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        version, deps = hit
+        found.setdefault(name, set()).add((version, key))
+        queue += [(key, dep) for dep in sorted(deps) if dep in inlined]
+    # An inlined package no lock entry leads to (a dependency declared nowhere) is still checked,
+    # from where a bare import inside packages/core would find it — never silently skipped.
+    for name in sorted(inlined - set(found)):
+        key, hit = resolve(lookup, 'packages/core', name)
+        if key:
+            found[name] = {(hit[0], key)}
+    return found
+
+per_world = [(label, resolve_all(lock_lookup(world))) for label, world in LOCK_WORLDS]
+
+failures = []
+agreed = {}
+for pkg in sorted(inlined):
+    planned = [(label, found.get(pkg, set())) for label, found in per_world]
+    versions = [frozenset(v for v, _ in hits) for _, hits in planned if hits]
+    if len(set(versions)) > 1:
+        failures.append(
+            f'  {pkg}: the committed lockfiles plan different versions for the copy a bundle build '
+            'would inline —\n'
+            + '\n'.join(f'      {v:<12} {key}   ({label})'
+                        for label, hits in planned for v, key in sorted(hits))
+        )
+    elif versions:
+        agreed[pkg] = versions[0]
+
+# ── 5. tree parity (skipped per package when nothing is installed for it) ────────────────────
+installed = resolve_all(tree_lookup)
+for pkg, want in sorted(agreed.items()):
+    hits = installed.get(pkg)
+    if not hits:
         continue  # no tree installed here — nothing to compare against
+    got = frozenset(v for v, _ in hits)
     if got != want:
         failures.append(
             f'  {pkg}: the installed tree does not match the lockfiles —\n'
-            f'      {want:<12} planned by both committed lockfiles\n'
-            f'      {got:<12} actually resolvable at {where}'
+            f'      {", ".join(sorted(want)):<12} planned by every committed lockfile\n'
+            + '\n'.join(f'      {v:<12} actually resolvable at {key}' for v, key in sorted(hits))
         )
 
 if failures:
@@ -206,17 +271,21 @@ if failures:
         '   would inline whichever copy the ambient install left in place, so its drift gate\n'
         '   would report a PHANTOM drift on a branch that never touched that bundle\'s sources.\n'
         '\n   Fix the disagreement, do not regenerate the bundle around it:\n'
-        '     • lockfiles disagree → pin the SAME exact version in package.json (root, dev) and\n'
-        '       packages/core/package.json, then regenerate BOTH locks:\n'
+        '     • a direct dependency disagrees → pin the SAME exact version in package.json (root)\n'
+        '       and packages/core/package.json, then regenerate BOTH locks:\n'
         '         npm install --package-lock-only\n'
         '         cd packages/core && npm install --package-lock-only --no-workspaces\n'
+        '     • a transitive dependency disagrees → move the lagging lock to the other one\'s\n'
+        '       version (e.g. `npm update <pkg> --package-lock-only` in the lagging layer), then\n'
+        '       rebuild any bundle whose inlined bytes change\n'
         '     • tree disagrees → re-install to lockfile state (CI parity):\n'
         '         NODE_ENV=development npm install\n',
         file=sys.stderr,
     )
     sys.exit(1)
 
-print('✓ bundle dep parity: ' + ', '.join(f'{p}@{v}' for p, v in sorted(agreed.items()))
-      + ' agree across every lockfile-planned layer')
+print('✓ bundle dep parity: '
+      + ', '.join(f'{p}@{"+".join(sorted(v))}' for p, v in sorted(agreed.items()))
+      + ' agree across every lockfile-planned install world')
 sys.exit(0)
 PY
